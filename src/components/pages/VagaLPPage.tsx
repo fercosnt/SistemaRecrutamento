@@ -281,7 +281,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
       >
         {/* Navbar Fixa */}
         <nav className="fixed top-0 left-0 right-0 z-50 py-4 px-4">
-          <Glass variant="white" blur="xl" className="container mx-auto px-6 py-4">
+          <Glass variant="white" blur="xl" className="container mx-auto max-w-6xl px-6 py-4">
             <div className="flex items-center justify-between">
               <BeautySmileLogo type="horizontal" size="lg" variant="white" />
               <GlassButton 
@@ -297,8 +297,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </nav>
 
         {/* Hero Section com Imagem */}
-        <section className="pt-32 pb-20 px-4">
-          <div className="container mx-auto max-w-5xl">
+        <section className="pt-32 pb-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassPanel variant="white" blur="xl" className="text-white">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 {/* Texto */}
@@ -363,8 +363,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* Sobre a Beauty Smile com Imagem */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-5xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassCard variant="white" blur="xl" className="text-white">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div className="space-y-4">
@@ -394,8 +394,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
 
         {/* Conheça o Time / Nos siga para saber mais */}
         {mostrarTeam && teamMembers && teamMembers.length > 0 && (
-          <section className="py-16 px-4">
-            <div className="container mx-auto max-w-5xl">
+          <section className="py-12 px-4">
+            <div className="container mx-auto max-w-6xl">
               <div className="text-center mb-12">
                 <h2 className="text-4xl md:text-5xl text-white drop-shadow-lg mb-3">
                   Nos Siga Para Saber Mais
@@ -476,8 +476,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         )}
 
         {/* O que você vai fazer */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassCard variant="white" blur="xl" className="text-white">
               <div className="space-y-6">
                 <h2 className="text-3xl md:text-4xl drop-shadow-md">
@@ -551,8 +551,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* Responsabilidades */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassCard variant="white" blur="xl" className="text-white">
               <div className="space-y-6">
                 <h2 className="text-3xl md:text-4xl drop-shadow-md text-[rgb(255,255,255)]">Suas Principais Responsabilidades</h2>
@@ -574,8 +574,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* O que você precisa ter */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <div className="mb-8 text-center">
               <h2 className="text-4xl md:text-5xl text-white drop-shadow-lg mb-2">O Que Você Precisa Ter</h2>
               <p className="text-white/80 text-lg drop-shadow-md">Requisitos essenciais para a posição</p>
@@ -667,8 +667,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
 
         {/* Você é a pessoa certa se */}
         {vocePessoaCerta && vocePessoaCerta.length > 0 && (
-          <section className="py-16 px-4">
-            <div className="container mx-auto max-w-4xl">
+          <section className="py-12 px-4">
+            <div className="container mx-auto max-w-6xl">
               <GlassCard variant="white" blur="xl" className="text-white">
                 <div className="space-y-6">
                   <h2 className="text-3xl md:text-4xl drop-shadow-md text-white">
@@ -694,8 +694,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         )}
 
         {/* Seria incrível se você também tivesse */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassCard variant="white" blur="xl" className="text-white">
               <div className="space-y-6">
                 <h2 className="text-3xl md:text-4xl drop-shadow-md">Seria Incrível Se Você Também Tivesse</h2>
@@ -714,8 +714,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* O que oferecemos */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <div className="mb-8 text-center">
               <h2 className="text-4xl md:text-5xl text-white drop-shadow-lg mb-2">O Que Oferecemos</h2>
               <p className="text-white/80 text-lg drop-shadow-md">Benefícios e vantagens de fazer parte do time</p>
@@ -733,8 +733,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* Local e Horário */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <GlassCard variant="white" blur="xl" className="text-white">
               <div className="space-y-6">
                 <h2 className="text-3xl md:text-4xl drop-shadow-md">Local e Horário de Trabalho</h2>
@@ -784,8 +784,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* Convite Final */}
-        <section className="py-16 px-4" id="candidatura">
-          <div className="container mx-auto max-w-4xl">
+        <section className="py-12 px-4" id="candidatura">
+          <div className="container mx-auto max-w-6xl">
             <GlassPanel variant="white" blur="xl" className="text-white text-center">
               <div className="space-y-8">
                 <h2 className="text-4xl md:text-5xl drop-shadow-lg">
@@ -814,8 +814,8 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
         </section>
 
         {/* Footer */}
-        <footer className="py-12 px-4 mt-20">
-          <div className="container mx-auto max-w-4xl">
+        <footer className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
             <Glass variant="white" blur="xl" className="p-8">
               <div className="grid md:grid-cols-3 gap-8 text-white">
                 {/* Logo e descrição */}
