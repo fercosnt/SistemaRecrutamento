@@ -29,8 +29,8 @@ const variantStyles = {
   primary: 'bg-brand-primary/10 border-brand-primary/20',
   secondary: 'bg-brand-secondary/10 border-brand-secondary/20',
   accent: 'bg-brand-accent/10 border-brand-accent/20',
-  white: 'bg-white/10 border-white/20',
-  dark: 'bg-black/10 border-black/20',
+  white: 'bg-white/15 border-white/25',
+  dark: 'bg-black/30 border-black/40',
 };
 
 /**
@@ -73,8 +73,8 @@ export function Glass({
         // Shadow
         'shadow-lg',
         
-        // Hover effect
-        hover && 'transition-all duration-300 hover:shadow-xl hover:scale-[1.02]',
+        // Hover effect - escurece ao invés de clarear para manter legibilidade
+        hover && 'transition-all duration-300 hover:bg-white/25 hover:shadow-xl',
         
         className
       )}
