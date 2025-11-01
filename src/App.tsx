@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Toaster } from 'sonner@2.0.3';
 import { Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet';
+import { ScrollArea } from './components/ui/scroll-area';
 import { LandingPage } from './components/pages/LandingPage';
 import { QuestionarioPage } from './components/pages/QuestionarioPage';
 import { DashboardCandidatoPage } from './components/pages/DashboardCandidatoPage';
@@ -12,9 +13,16 @@ import { VagaLPPage } from './components/pages/VagaLPPage';
 import { InscricaoPage } from './components/pages/InscricaoPage';
 import { LoginCandidatoPage } from './components/pages/LoginCandidatoPage';
 import { InstrucoesFormularioPage } from './components/pages/InstrucoesFormularioPage';
+import { FormularioCandidaturaPage } from './components/pages/FormularioCandidaturaPage';
+import { InstrucoesDISCPage } from './components/pages/InstrucoesDISCPage';
+import { InstrucoesBigFivePage } from './components/pages/InstrucoesBigFivePage';
+import { InstrucoesRavenPage } from './components/pages/InstrucoesRavenPage';
+import { TesteBigFivePage } from './components/pages/TesteBigFivePage';
+import { TesteDISCPage } from './components/pages/TesteDISCPage';
+import { TesteRavenPage } from './components/pages/TesteRavenPage';
 import { GlassShowcase } from './components/GlassShowcase';
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'vagas' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'instrucoes-formulario' | 'showcase';
+type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'vagas' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'instrucoes-formulario' | 'formulario-candidatura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'showcase';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
@@ -27,6 +35,13 @@ function App() {
     { id: 'inscricao' as PageType, label: 'Inscrição Candidato', icon: '📝' },
     { id: 'login-candidato' as PageType, label: 'Login Candidato', icon: '🔑' },
     { id: 'instrucoes-formulario' as PageType, label: 'Instruções Formulário', icon: '📹' },
+    { id: 'formulario-candidatura' as PageType, label: 'Formulário Candidatura', icon: '📋' },
+    { id: 'instrucoes-disc' as PageType, label: 'Instruções Teste DISC', icon: '🎯' },
+    { id: 'instrucoes-bigfive' as PageType, label: 'Instruções Teste Big Five', icon: '🎨' },
+    { id: 'instrucoes-raven' as PageType, label: 'Instruções Teste Raven', icon: '🧩' },
+    { id: 'teste-bigfive' as PageType, label: 'Teste Big Five', icon: '✍️' },
+    { id: 'teste-disc' as PageType, label: 'Teste DISC', icon: '🎯' },
+    { id: 'teste-raven' as PageType, label: 'Teste Raven', icon: '🧩' },
     { id: 'questionario' as PageType, label: 'Questionário', icon: '🧠' },
     { id: 'dashboard-candidato' as PageType, label: 'Dashboard Candidato', icon: '📊' },
     { id: 'login-rh' as PageType, label: 'Login RH', icon: '🔐' },
@@ -56,6 +71,20 @@ function App() {
         return <LoginCandidatoPage />;
       case 'instrucoes-formulario':
         return <InstrucoesFormularioPage />;
+      case 'formulario-candidatura':
+        return <FormularioCandidaturaPage />;
+      case 'instrucoes-disc':
+        return <InstrucoesDISCPage />;
+      case 'instrucoes-bigfive':
+        return <InstrucoesBigFivePage />;
+      case 'instrucoes-raven':
+        return <InstrucoesRavenPage />;
+      case 'teste-bigfive':
+        return <TesteBigFivePage />;
+      case 'teste-disc':
+        return <TesteDISCPage />;
+      case 'teste-raven':
+        return <TesteRavenPage />;
       case 'showcase':
         return <GlassShowcase />;
       default:
@@ -92,25 +121,27 @@ function App() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="mt-8 space-y-2">
-            {pages.map((page) => (
-              <button
-                key={page.id}
-                onClick={() => handlePageChange(page.id)}
-                className={`
-                  w-full text-left px-4 py-3 rounded-lg transition-all duration-200
-                  flex items-center gap-3
-                  ${currentPage === page.id 
-                    ? 'bg-white/20 text-white shadow-md' 
-                    : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white'
-                  }
-                `}
-              >
-                <span className="text-2xl">{page.icon}</span>
-                <span>{page.label}</span>
-              </button>
-            ))}
-          </div>
+          <ScrollArea className="h-[calc(100vh-220px)] mt-8 pr-4">
+            <div className="space-y-2">
+              {pages.map((page) => (
+                <button
+                  key={page.id}
+                  onClick={() => handlePageChange(page.id)}
+                  className={`
+                    w-full text-left px-4 py-3 rounded-lg transition-all duration-200
+                    flex items-center gap-3
+                    ${currentPage === page.id 
+                      ? 'bg-white/20 text-white shadow-md' 
+                      : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white'
+                    }
+                  `}
+                >
+                  <span className="text-2xl">{page.icon}</span>
+                  <span>{page.label}</span>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
 
           <div className="absolute bottom-6 left-6 right-6">
             <div className="p-4 rounded-lg bg-white/10 backdrop-blur-md border border-white/20">
