@@ -9,9 +9,12 @@ import { LoginRHPage } from './components/pages/LoginRHPage';
 import { DashboardRHPage } from './components/pages/DashboardRHPage';
 import { VagasPage } from './components/pages/VagasPage';
 import { VagaLPPage } from './components/pages/VagaLPPage';
+import { InscricaoPage } from './components/pages/InscricaoPage';
+import { LoginCandidatoPage } from './components/pages/LoginCandidatoPage';
+import { InstrucoesFormularioPage } from './components/pages/InstrucoesFormularioPage';
 import { GlassShowcase } from './components/GlassShowcase';
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'vagas' | 'vaga-lp' | 'showcase';
+type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'vagas' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'instrucoes-formulario' | 'showcase';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
@@ -21,6 +24,9 @@ function App() {
     { id: 'landing' as PageType, label: 'Landing Page', icon: '🏠' },
     { id: 'vagas' as PageType, label: 'Vagas', icon: '💼' },
     { id: 'vaga-lp' as PageType, label: 'LP Divulgação Vaga', icon: '📄' },
+    { id: 'inscricao' as PageType, label: 'Inscrição Candidato', icon: '📝' },
+    { id: 'login-candidato' as PageType, label: 'Login Candidato', icon: '🔑' },
+    { id: 'instrucoes-formulario' as PageType, label: 'Instruções Formulário', icon: '📹' },
     { id: 'questionario' as PageType, label: 'Questionário', icon: '🧠' },
     { id: 'dashboard-candidato' as PageType, label: 'Dashboard Candidato', icon: '📊' },
     { id: 'login-rh' as PageType, label: 'Login RH', icon: '🔐' },
@@ -44,6 +50,12 @@ function App() {
         return <VagasPage />;
       case 'vaga-lp':
         return <VagaLPPage />;
+      case 'inscricao':
+        return <InscricaoPage />;
+      case 'login-candidato':
+        return <LoginCandidatoPage />;
+      case 'instrucoes-formulario':
+        return <InstrucoesFormularioPage />;
       case 'showcase':
         return <GlassShowcase />;
       default:
