@@ -142,6 +142,7 @@ SistemaRecrutamento/
 │   │   │   ├── PerfilCandidatoRHPage.tsx
 │   │   │   ├── ConfiguracoesPage.tsx
 │   │   │   ├── MeuPerfilPage.tsx
+│   │   │   ├── SuporteRHPage.tsx
 │   │   │   └── VagasPage.tsx
 │   │   │
 │   │   ├── ui/                     # ⭐ COMPONENTES UI (shadcn/ui + custom)
@@ -220,7 +221,7 @@ SistemaRecrutamento/
 ### 2.1 Descrição das Pastas
 
 - **`src/assets/`**: Imagens, logos e configurações de assets estáticos
-- **`src/components/pages/`**: Todas as páginas do sistema (30 arquivos)
+- **`src/components/pages/`**: Todas as páginas do sistema (31 arquivos)
 - **`src/components/ui/`**: Componentes UI reutilizáveis (shadcn/ui + customizados)
 - **`src/components/`**: Componentes customizados de alto nível (layouts, cards, etc.)
 - **`src/styles/`**: Arquivos CSS globais e design system
@@ -269,7 +270,8 @@ SistemaRecrutamento/
 | 27 | `perfil-candidato-rh` | PerfilCandidatoRHPage.tsx | Protegida | Visualizar perfil detalhado do candidato | RH |
 | 28 | `configuracoes` | ConfiguracoesPage.tsx | Protegida | Configurações do sistema | RH |
 | 29 | `meu-perfil` | MeuPerfilPage.tsx | Protegida | Perfil do usuário RH | RH |
-| 30 | `showcase` | GlassShowcase.tsx | Dev | Showcase de componentes (dev only) | Dev |
+| 30 | `suporte-rh` | SuporteRHPage.tsx | Protegida | Suporte técnico (relatar erros e melhorias) | RH |
+| 31 | `showcase` | GlassShowcase.tsx | Dev | Showcase de componentes (dev only) | Dev |
 
 ### 3.3 Fluxo de Navegação (Menu)
 
@@ -282,6 +284,7 @@ const pages = [
   { id: 'vagas-publicas', label: 'Vagas Públicas', icon: '💼' },
   { id: 'vaga-lp', label: 'LP Divulgação Vaga', icon: '📄' },
   // ... 27 mais páginas
+  { id: 'suporte-rh', label: 'Suporte Técnico (RH)', icon: '🛠️' },
 ];
 ```
 
@@ -1398,6 +1401,197 @@ const [aceitouInstrucoes, setAceitouInstrucoes] = useState(false);
 
 ---
 
+### 5.16 Sistema de Suporte Técnico (SuporteRHPage) ⭐ NOVO
+
+#### **SuporteRHPage.tsx** - Formulário Completo de Suporte
+**Localização:** `src/components/pages/SuporteRHPage.tsx`
+
+Esta é a página mais completa de formulário do sistema RH, permitindo que usuários relatem erros, sugiram melhorias e tirem dúvidas.
+
+**Interface FormData:**
+```typescript
+interface FormData {
+  tipo: 'erro' | 'melhoria' | 'duvida' | 'outro'
+  titulo: string
+  descricao: string
+  severidade: 'baixa' | 'media' | 'alta' | 'critica'
+  pagina: string                 // Uma das 9 páginas do sistema
+  passos: string                 // Como reproduzir o problema
+  comportamentoEsperado: string  // O que deveria acontecer
+  comportamentoAtual: string     // O que está acontecendo
+  navegador: string              // Chrome, Firefox, Safari, etc.
+  anexos: File[]                 // Screenshots, docs, vídeos
+}
+```
+
+**Seções do Formulário:**
+
+**1. Tipo de Solicitação (Radio Buttons Customizados)**
+- 🐛 **Erro/Bug** (vermelho): "Algo não está funcionando"
+- 💡 **Melhoria** (amarelo): "Sugestão de recurso"
+- ❓ **Dúvida** (azul): "Como usar algo"
+- 📋 **Outro** (cinza): "Outro tipo de solicitação"
+
+Layout: Grid 2 colunas (desktop), 1 coluna (mobile)
+Visual: Cards grandes com ícone + título + descrição
+Estado ativo: border branco duplo + background mais claro
+
+**2. Informações Básicas**
+- **Título** (Input obrigatório)
+- **Severidade** (Select obrigatório com badges coloridos):
+  - 🟢 Baixa: Cosmético/Menor
+  - 🟡 Média: Afeta o uso
+  - 🟠 Alta: Impede funcionalidade
+  - 🔴 Crítica: Sistema travado
+- **Página Afetada** (Select obrigatório): 9 opções
+- **Navegador** (Select opcional): 5 opções
+
+**3. Descrição Detalhada**
+- **Descrição** (Textarea obrigatório, min 120px)
+- **Passos para Reproduzir** (Textarea condicional)
+  - Aparece para: tipo "erro" OU "duvida"
+  - Placeholder com template numerado
+- **Comportamento Esperado vs Atual** (2 Textareas lado a lado)
+  - Aparece APENAS para: tipo "erro"
+  - Grid 2 colunas (desktop), 1 coluna (mobile)
+
+**4. Anexos (Upload Múltiplo)**
+- Input file hidden com label customizada
+- Accept: `image/*,.pdf,.doc,.docx`
+- Multiple: true
+- Texto: "Screenshots, documentos ou vídeos (max 10MB cada)"
+- Lista de arquivos com:
+  - Nome do arquivo
+  - Tamanho em KB
+  - Botão X para remover
+
+**5. Botões de Ação**
+- **Enviar Solicitação** (GlassButton turquoise + ícone Send)
+- **Limpar Formulário** (GlassButton white)
+
+**6. Dicas**
+Card com lista de 5 dicas para relato eficaz
+
+**Campos Condicionais:**
+```typescript
+// Passos para Reproduzir
+{(formData.tipo === 'erro' || formData.tipo === 'duvida') && (
+  <Textarea ...passos />
+)}
+
+// Comportamento Esperado/Atual
+{formData.tipo === 'erro' && (
+  <div className="grid grid-cols-2">
+    <Textarea ...comportamentoEsperado />
+    <Textarea ...comportamentoAtual />
+  </div>
+)}
+```
+
+**Funcionalidades:**
+
+**Upload de Arquivos:**
+```typescript
+const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files) {
+    const novosArquivos = Array.from(e.target.files);
+    setFormData({
+      ...formData,
+      anexos: [...formData.anexos, ...novosArquivos]
+    });
+  }
+};
+
+const removerAnexo = (index: number) => {
+  setFormData({
+    ...formData,
+    anexos: formData.anexos.filter((_, i) => i !== index)
+  });
+};
+```
+
+**Submit:**
+```typescript
+const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  console.log('Formulário enviado:', formData);  // Mock
+  setEnviado(true);                              // Página de sucesso
+
+  setTimeout(() => {
+    setEnviado(false);                           // Volta ao form
+    resetFormData();                             // Limpa
+  }, 3000);
+};
+```
+
+**Helpers:**
+```typescript
+const getTipoIcon = (tipo: TipoSolicitacao) => {
+  switch (tipo) {
+    case 'erro': return <Bug />;
+    case 'melhoria': return <Lightbulb />;
+    case 'duvida': return <HelpCircle />;
+    default: return <FileText />;
+  }
+};
+
+const getSeveridadeBadge = (severidade: Severidade) => {
+  switch (severidade) {
+    case 'critica': return 'bg-red-500/20 text-red-200 border-red-300/30';
+    case 'alta': return 'bg-orange-500/20 text-orange-200 border-orange-300/30';
+    case 'media': return 'bg-yellow-500/20 text-yellow-200 border-yellow-300/30';
+    case 'baixa': return 'bg-green-500/20 text-green-200 border-green-300/30';
+  }
+};
+```
+
+**Página de Sucesso:**
+Quando `enviado === true`, renderiza modal centralizado com:
+- Ícone CheckCircle2 verde (10x10)
+- Título: "Solicitação Enviada!"
+- Mensagem de confirmação
+- "Redirecionando..." (auto-volta após 3s)
+
+**UI Components:**
+- `RHLayout` (wrapper com sidebar)
+- `Glass`, `GlassButton` (glassmorphism)
+- `RadioGroup`, `RadioGroupItem` (Radix UI)
+- `Select`, `SelectTrigger`, `SelectContent`, `SelectItem` (Radix UI)
+- `Input`, `Textarea`, `Label` (shadcn/ui)
+- `Badge` (severidade)
+- 9 ícones Lucide React
+
+**Validações:**
+- HTML5 `required` em campos obrigatórios
+- ⚠️ Sem validação de tamanho de arquivo (mock)
+- ⚠️ Sem validação server-side
+
+**Integração Futura:**
+```typescript
+// API endpoint necessário
+POST /api/suporte
+Body: FormData {
+  tipo, titulo, descricao, severidade, pagina,
+  passos, comportamentoEsperado, comportamentoAtual,
+  navegador, anexo_0, anexo_1, ... anexo_N
+}
+Response: { id, status, ticket_number }
+
+// Email para equipe técnica
+// Criar ticket em sistema tipo Jira/Linear
+// Upload de anexos para S3/Cloudflare R2
+```
+
+**Destaque:**
+- 📝 Formulário mais sofisticado da área RH
+- 🎯 Campos condicionais baseados no tipo
+- 📎 Upload múltiplo de arquivos
+- 🎨 Badges coloridos por severidade
+- ✅ UX polida com página de sucesso
+- 💡 Dicas contextuais para usuário
+
+---
+
 ## 6. Fluxos de Navegação
 
 ### 6.1 Fluxo do Candidato - Candidatura Completa
@@ -2337,6 +2531,7 @@ lembrarMe: boolean
 - criar-vaga
 - configuracoes
 - meu-perfil
+- suporte-rh
 
 ---
 
@@ -3107,10 +3302,11 @@ O **Sistema de Recrutamento Beauty Smile** é uma aplicação SPA moderna constr
 
 ### Pontos Fortes:
 - ✅ Design system sofisticado com glassmorphism
-- ✅ Componentes UI completos e reutilizáveis
+- ✅ Componentes UI completos e reutilizáveis (31 páginas)
 - ✅ Fluxos de candidatura e testes bem definidos
 - ✅ Interface RH com Kanban, filtros e gestão avançada
 - ✅ UX polida com animações e feedback visual
+- ✅ Sistema de suporte técnico completo (novo)
 
 ### Limitações Críticas:
 - ❌ Sem backend/API - todos os dados são mock
