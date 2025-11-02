@@ -23,13 +23,9 @@ export function LandingPage() {
               <p className="text-2xl text-white/90 mb-8 drop-shadow-md">
                 Sistema de Recrutamento Inteligente
               </p>
-              <p className="text-white/90 text-lg mb-8 drop-shadow-sm">
-                Tecnologia de ponta com design moderno em liquid glass.<br/>
-                Encontre os melhores talentos para sua equipe odontológica.
-              </p>
               <div className="flex gap-4 justify-center">
                 <GlassButton variant="white" hover className="px-8 py-4 text-white text-lg drop-shadow-sm">
-                  Candidatar-se a uma Vaga
+                  Ver Vagas
                 </GlassButton>
                 <GlassButton variant="white" hover className="px-8 py-4 text-white text-lg drop-shadow-sm">
                   Área do RH
@@ -52,13 +48,10 @@ export function LandingPage() {
                 <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
                   <span className="text-3xl">🌊</span>
                 </div>
-                <h3 className="text-2xl drop-shadow-md">Questionários</h3>
+                <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Questionários</h3>
                 <p className="text-white/90 drop-shadow-sm">
                   Testes psicométricos com design moderno e tecnológico
                 </p>
-                <GlassButton variant="white" className="w-full mt-4 text-white drop-shadow-sm">
-                  Iniciar Teste →
-                </GlassButton>
               </div>
             </GlassCard>
 
@@ -67,13 +60,10 @@ export function LandingPage() {
                 <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
                   <span className="text-3xl">💼</span>
                 </div>
-                <h3 className="text-2xl drop-shadow-md">Vagas</h3>
+                <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Vagas</h3>
                 <p className="text-white/90 drop-shadow-sm">
                   Explore oportunidades exclusivas na Beauty Smile
                 </p>
-                <GlassButton variant="white" className="w-full mt-4 text-white drop-shadow-sm">
-                  Ver Vagas →
-                </GlassButton>
               </div>
             </GlassCard>
 
@@ -82,13 +72,10 @@ export function LandingPage() {
                 <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
                   <span className="text-3xl">📊</span>
                 </div>
-                <h3 className="text-2xl drop-shadow-md">Resultados</h3>
+                <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Resultados</h3>
                 <p className="text-white/90 drop-shadow-sm">
                   Acompanhe seu progresso e análise de perfil
                 </p>
-                <GlassButton variant="white" className="w-full mt-4 text-white drop-shadow-sm">
-                  Ver Perfil →
-                </GlassButton>
               </div>
             </GlassCard>
           </div>

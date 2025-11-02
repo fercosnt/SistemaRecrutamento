@@ -144,29 +144,52 @@ export function GlassPanel({
  *   Clique aqui
  * </GlassButton>
  */
-export function GlassButton({
+export const GlassButton = React.forwardRef<
+  HTMLButtonElement,
+  GlassProps & { 
+    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+    disabled?: boolean;
+    type?: 'button' | 'submit' | 'reset';
+  }
+>(({
   children,
   className = '',
   onClick,
+  disabled,
+  type = 'button',
   ...props
-}: GlassProps & { onClick?: () => void }) {
+}, ref) => {
   return (
-    <Glass
-      as="button"
+    <button
+      ref={ref}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
       className={cn(
+        // Glass effects
+        props.blur ? blurVariants[props.blur] : blurVariants.md,
+        'backdrop-saturate-150',
+        !props.opacity && (props.variant ? variantStyles[props.variant] : variantStyles.white),
+        props.border !== false && 'border',
+        'rounded-xl shadow-lg',
+        
+        // Button styles
         'px-6 py-3 cursor-pointer',
         'hover:bg-white/20 active:scale-95',
         'transition-all duration-200',
+        
+        // Disabled
+        disabled && 'opacity-50 cursor-not-allowed',
+        
         className
       )}
-      hover
-      onClick={onClick}
-      {...props}
     >
       {children}
-    </Glass>
+    </button>
   );
-}
+});
+
+GlassButton.displayName = 'GlassButton';
 
 /**
  * GlassNavbar - Navbar com efeito glass (fixed)

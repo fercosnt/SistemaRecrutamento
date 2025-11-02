@@ -10,8 +10,8 @@ import { LoginRHPage } from './components/pages/LoginRHPage';
 import { DashboardRHPage } from './components/pages/DashboardRHPage';
 import { CandidatosRHPage } from './components/pages/CandidatosRHPage';
 import { PerfilCandidatoRHPage } from './components/pages/PerfilCandidatoRHPage';
-import { VagasPage } from './components/pages/VagasPage';
 import { VagasRHPage } from './components/pages/VagasRHPage';
+import { CriarEditarVagaPage } from './components/pages/CriarEditarVagaPage';
 import { VagaLPPage } from './components/pages/VagaLPPage';
 import { InscricaoPage } from './components/pages/InscricaoPage';
 import { LoginCandidatoPage } from './components/pages/LoginCandidatoPage';
@@ -29,8 +29,12 @@ import { QuestionarioCulturaPage } from './components/pages/QuestionarioCulturaP
 import { EsqueciSenhaPage } from './components/pages/EsqueciSenhaPage';
 import { RedefinirSenhaPage } from './components/pages/RedefinirSenhaPage';
 import { GlassShowcase } from './components/GlassShowcase';
+import { ConfiguracoesPage } from './components/pages/ConfiguracoesPage';
+import { MeuPerfilPage } from './components/pages/MeuPerfilPage';
+import { MeuPerfilCandidatoPage } from './components/pages/MeuPerfilCandidatoPage';
+import { VagasPublicasPage } from './components/pages/VagasPublicasPage';
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas' | 'vagas-rh' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase';
+type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas-publicas' | 'vagas-rh' | 'criar-vaga' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase' | 'configuracoes' | 'meu-perfil' | 'meu-perfil-candidato';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
@@ -38,7 +42,7 @@ function App() {
 
   const pages = [
     { id: 'landing' as PageType, label: 'Landing Page', icon: '🏠' },
-    { id: 'vagas' as PageType, label: 'Vagas', icon: '💼' },
+    { id: 'vagas-publicas' as PageType, label: 'Vagas Públicas', icon: '💼' },
     { id: 'vaga-lp' as PageType, label: 'LP Divulgação Vaga', icon: '📄' },
     { id: 'inscricao' as PageType, label: 'Inscrição Candidato', icon: '📝' },
     { id: 'login-candidato' as PageType, label: 'Login Candidato', icon: '🔑' },
@@ -60,8 +64,12 @@ function App() {
     { id: 'login-rh' as PageType, label: 'Login RH', icon: '🔐' },
     { id: 'dashboard-rh' as PageType, label: 'Dashboard RH', icon: '📊' },
     { id: 'vagas-rh' as PageType, label: 'Vagas RH', icon: '📋' },
+    { id: 'criar-vaga' as PageType, label: 'Criar/Editar Vaga', icon: '✨' },
     { id: 'candidatos-rh' as PageType, label: 'Candidatos RH', icon: '👥' },
     { id: 'perfil-candidato-rh' as PageType, label: 'Perfil Candidato RH', icon: '👤' },
+    { id: 'configuracoes' as PageType, label: 'Configurações', icon: '⚙️' },
+    { id: 'meu-perfil' as PageType, label: 'Meu Perfil (RH)', icon: '👤' },
+    { id: 'meu-perfil-candidato' as PageType, label: 'Meu Perfil (Candidato)', icon: '👤' },
     { id: 'showcase' as PageType, label: 'Design Showcase', icon: '🎨' },
   ];
 
@@ -81,10 +89,12 @@ function App() {
         return <CandidatosRHPage />;
       case 'perfil-candidato-rh':
         return <PerfilCandidatoRHPage />;
-      case 'vagas':
-        return <VagasPage />;
+      case 'vagas-publicas':
+        return <VagasPublicasPage />;
       case 'vagas-rh':
-        return <VagasRHPage />;
+        return <VagasRHPage onNovaVaga={() => setCurrentPage('criar-vaga')} />;
+      case 'criar-vaga':
+        return <CriarEditarVagaPage onVoltar={() => setCurrentPage('vagas-rh')} />;
       case 'vaga-lp':
         return <VagaLPPage onCandidatar={() => setCurrentPage('inscricao')} />;
       case 'inscricao':
@@ -117,6 +127,12 @@ function App() {
         return <TesteRavenPage />;
       case 'conclusao-testes':
         return <ConclusaoTestesPage />;
+      case 'configuracoes':
+        return <ConfiguracoesPage />;
+      case 'meu-perfil':
+        return <MeuPerfilPage />;
+      case 'meu-perfil-candidato':
+        return <MeuPerfilCandidatoPage />;
       case 'showcase':
         return <GlassShowcase />;
       default:

@@ -48,7 +48,11 @@ interface Vaga {
   };
 }
 
-export function VagasRHPage() {
+interface VagasRHPageProps {
+  onNovaVaga?: () => void;
+}
+
+export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
   const [currentPage, setCurrentPage] = useState('vagas-rh');
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroVaga>('todas');
   const [busca, setBusca] = useState('');
@@ -299,7 +303,7 @@ export function VagasRHPage() {
             <GlassButton
               variant="primary"
               className="flex items-center gap-2"
-              onClick={() => console.log('Nova vaga')}
+              onClick={onNovaVaga}
             >
               <Plus className="w-5 h-5" />
               Nova Vaga
@@ -319,7 +323,7 @@ export function VagasRHPage() {
                   className="pl-12 h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 transition-all duration-200"
                 />
               </div>
-              <GlassButton variant="ghost" className="h-12 w-12 p-0">
+              <GlassButton variant="ghost" className="h-12 w-12 p-0 flex items-center justify-center">
                 <Settings className="w-5 h-5" />
               </GlassButton>
             </div>
@@ -449,7 +453,7 @@ export function VagasRHPage() {
                   </GlassButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <GlassButton variant="ghost" className="w-10 h-10 p-0">
+                      <GlassButton variant="ghost" className="w-10 h-10 p-0 flex items-center justify-center">
                         <MoreVertical className="w-5 h-5" />
                       </GlassButton>
                     </DropdownMenuTrigger>
