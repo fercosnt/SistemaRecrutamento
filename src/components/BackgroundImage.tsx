@@ -51,8 +51,12 @@ export function BackgroundImage({
     <div className={`relative ${className}`}>
       {/* Background Image */}
       <div 
-        className={`${positionClass} bg-cover bg-center bg-no-repeat`}
-        style={{ backgroundImage: `url(${bgImage})` }}
+        className={`${positionClass} bg-center bg-no-repeat`}
+        style={{ 
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: 'cover',
+          backgroundAttachment: 'fixed'
+        }}
       />
       
       {/* Optional Overlay */}

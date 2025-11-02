@@ -1,9 +1,14 @@
+import image_8daad5a957d595d21d69bb8a7bc7e3ab794be41a from 'figma:asset/8daad5a957d595d21d69bb8a7bc7e3ab794be41a.png';
+import image_4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25 from 'figma:asset/4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25.png';
+import image_ce81f0d7520a337fc357fae4f5f7bf76164b8c05 from 'figma:asset/ce81f0d7520a337fc357fae4f5f7bf76164b8c05.png';
 import React from 'react';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Glass, GlassCard, GlassPanel, GlassButton } from '../ui/glass';
-import { MapPin, Clock, Briefcase, GraduationCap, Award, Heart, ArrowRight, CheckCircle2, Rocket } from 'lucide-react';
+import { MapPin, Clock, Briefcase, GraduationCap, Award, Heart, ArrowRight, CheckCircle2, Rocket, FileText, Brain, Video, Building2, PartyPopper, Calendar, Target } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import heroImage from 'figma:asset/a81ed2cde200cdf4e82689faaeafaceff5cd291a.png';
+import clinicaImage from 'figma:asset/3fc028ae080bb7435c5ebf8f1e62a8036e20c73c.png';
 
 /**
  * Landing Page de Divulgação de Vaga
@@ -122,24 +127,24 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
     {
       name: "Fernando Costa Jr",
       role: "Fundador e Cirurgião Dentista",
-      image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop",
+      image: image_ce81f0d7520a337fc357fae4f5f7bf76164b8c05,
       instagram: "@fernandocostajr",
       linkedin: "Fernando Costa Jr"
     },
     {
       name: "Fernando Costa Neto",
       role: "CEO e Cirurgião Dentista",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop",
+      image: image_4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25,
       instagram: "@fernandocostaneto",
       linkedin: "Fernando Costa Neto"
     },
     {
       name: "Beauty Smile",
       role: "Transformando Sorrisos",
-      image: "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=400&h=400&fit=crop",
+      image: image_8daad5a957d595d21d69bb8a7bc7e3ab794be41a,
       instagram: "@beautysmile",
       linkedin: "Beauty Smile",
-      youtube: "Beauty Smile"
+      youtube: "Beauty Smile Fotona"
     }
   ],
   
@@ -266,9 +271,13 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
   onCandidatar
 }: Partial<VagaLPProps> = {}) {
   
-  const scrollToCandidatura = () => {
-    const element = document.getElementById('candidatura');
-    element?.scrollIntoView({ behavior: 'smooth' });
+  const handleCandidatar = () => {
+    if (onCandidatar) {
+      onCandidatar();
+    } else {
+      const element = document.getElementById('candidatura');
+      element?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   return (
@@ -284,14 +293,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
           <Glass variant="white" blur="xl" className="container mx-auto max-w-6xl px-6 py-4">
             <div className="flex items-center justify-between">
               <BeautySmileLogo type="horizontal" size="lg" variant="white" />
-              <GlassButton 
-                variant="white" 
-                hover 
-                className="px-6 py-3 text-white drop-shadow-sm"
-                onClick={scrollToCandidatura}
-              >
-                Candidatar-se
-              </GlassButton>
+
             </div>
           </Glass>
         </nav>
@@ -338,7 +340,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                     variant="white" 
                     hover 
                     className="px-8 py-4 text-white text-lg mt-6 drop-shadow-sm w-full md:w-auto inline-flex items-center justify-center gap-2"
-                    onClick={scrollToCandidatura}
+                    onClick={handleCandidatar}
                   >
                     <span>Candidatar-se agora</span>
                     <ArrowRight size={20} />
@@ -346,17 +348,15 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                 </div>
 
                 {/* Imagem */}
-                {imagemHero && (
-                  <div className="relative">
-                    <Glass variant="white" blur="lg" className="p-2 aspect-square">
-                      <ImageWithFallback
-                        src={imagemHero}
-                        alt={`Vaga ${cargo}`}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    </Glass>
-                  </div>
-                )}
+                <div className="relative">
+                  <Glass variant="white" blur="lg" className="p-2 aspect-square">
+                    <img
+                      src={heroImage}
+                      alt={`Vaga ${cargo}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </Glass>
+                </div>
               </div>
             </GlassPanel>
           </div>
@@ -376,17 +376,15 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                   </div>
                 </div>
 
-                {imagemSobreBeautySmile && (
-                  <div className="relative">
-                    <Glass variant="white" blur="lg" className="p-2 aspect-square">
-                      <ImageWithFallback
-                        src={imagemSobreBeautySmile}
-                        alt="Beauty Smile Clínica"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    </Glass>
-                  </div>
-                )}
+                <div className="relative">
+                  <Glass variant="white" blur="lg" className="p-2 aspect-square">
+                    <img
+                      src={clinicaImage}
+                      alt="Beauty Smile Clínica"
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </Glass>
+                </div>
               </div>
             </GlassCard>
           </div>
@@ -438,6 +436,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                             variant="white" 
                             blur="sm" 
                             className="p-2 hover:bg-white/25 transition-all duration-200 cursor-pointer"
+                            onClick={() => window.open('https://www.instagram.com/fernandocostant/', '_blank')}
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-white/80 drop-shadow-sm">Instagram</span>
@@ -449,6 +448,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                             variant="white" 
                             blur="sm" 
                             className="p-2 hover:bg-white/25 transition-all duration-200 cursor-pointer"
+                            onClick={() => window.open('https://www.linkedin.com/in/fernando-costa-neto-15015051/', '_blank')}
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-white/80 drop-shadow-sm">LinkedIn</span>
@@ -460,6 +460,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                             variant="white" 
                             blur="sm" 
                             className="p-2 hover:bg-white/25 transition-all duration-200 cursor-pointer"
+                            onClick={() => window.open('https://www.youtube.com/@beautysmilefotona', '_blank')}
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-white/80 drop-shadow-sm">YouTube</span>
@@ -783,6 +784,347 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
           </div>
         </section>
 
+        {/* Jornada de Candidatura */}
+        <section className="py-12 px-4">
+          <div className="container mx-auto max-w-6xl">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl text-white drop-shadow-lg mb-4">
+                🚀 JORNADA DE CANDIDATURA NA BEAUTY SMILE
+              </h2>
+              <p className="text-xl text-white drop-shadow-md mb-2">
+                Não contratamos funcionários. Recrutamos cruzados.
+              </p>
+              <p className="text-lg text-white/90 drop-shadow-md">
+                Por isso, nosso processo é rigoroso, transparente e desenhado para garantir que você é a pessoa certa — e que somos a empresa certa para você.
+              </p>
+              <Glass variant="white" blur="md" className="inline-block px-6 py-3 mt-4">
+                <p className="text-white drop-shadow-sm">
+                  <Calendar className="inline-block w-5 h-5 mr-2 mb-1" />
+                  Tempo total do processo: Aproximadamente 30 dias da candidatura até a contratação.
+                </p>
+              </Glass>
+            </div>
+
+            {/* Título das Etapas */}
+            <div className="mb-8">
+              <h3 className="text-3xl md:text-4xl text-white drop-shadow-lg text-center mb-2">
+                📍 AS 5 ETAPAS DA SUA JORNADA
+              </h3>
+            </div>
+
+            {/* ETAPA 1 */}
+            <div className="mb-8">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-md">
+                      <FileText size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-2xl md:text-3xl drop-shadow-md">
+                      ETAPA 1: CANDIDATURA INICIAL 📝
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-18">
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que acontece:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Você preenche nosso formulário de candidatura com perguntas sobre sua jornada profissional, motivações e alinhamento com nosso propósito.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que buscamos:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Entender quem você é além do currículo. Queremos saber o que te move, o que você valoriza, e por que a Beauty Smile faz sentido para você.
+                      </p>
+                    </div>
+
+                    <Glass variant="white" blur="md" className="p-4 border-l-4 border-white/40">
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white drop-shadow-md">Próximo passo:</strong> Se seu perfil se alinhar com o que buscamos, você recebe o convite para a próxima fase.
+                      </p>
+                    </Glass>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* ETAPA 2 */}
+            <div className="mb-8">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-md">
+                      <Brain size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-2xl md:text-3xl drop-shadow-md">
+                      ETAPA 2: AVALIAÇÃO DE PERFIL COMPORTAMENTAL 🧠
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-18">
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que acontece:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed mb-3">
+                        Você realiza duas avaliações científicas de personalidade:
+                      </p>
+                      <ul className="space-y-2 pl-4">
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">Teste Big Five</strong> — avalia suas características comportamentais em 5 dimensões fundamentais</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">Teste DISC</strong> — mapeia seu estilo comportamental e como você interage em ambientes de trabalho</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">Por que fazemos isso:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Porque fit cultural é tão importante quanto competência técnica. Queremos que você prospere aqui, e isso só acontece quando sua forma de ser se alinha com nossos valores. Esses testes nos ajudam a entender como você se comunica, toma decisões e se relaciona — garantindo que há match real entre você e nossa cultura.
+                      </p>
+                    </div>
+
+                    <Glass variant="white" blur="md" className="p-4 border-l-4 border-white/40">
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white drop-shadow-md">Próximo passo:</strong> Se houver forte alinhamento comportamental, agendamos sua entrevista online.
+                      </p>
+                    </Glass>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* ETAPA 3 */}
+            <div className="mb-8">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-md">
+                      <Video size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-2xl md:text-3xl drop-shadow-md">
+                      ETAPA 3: ENTREVISTA ONLINE + AVALIAÇÃO COGNITIVA 💻🧩
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-18">
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que acontece:</h4>
+                      <ul className="space-y-2 pl-4">
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">30 minutos:</strong> Entrevista online com nosso time de Gente & Gestão</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">30 minutos:</strong> Teste de Raciocínio Lógico (Raven)</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que buscamos:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Na entrevista, queremos conhecer você de verdade — suas experiências, motivações, fit com a vaga. No teste cognitivo, avaliamos capacidade de resolução de problemas e raciocínio lógico.
+                      </p>
+                    </div>
+
+                    <Glass variant="white" blur="md" className="p-4 border-l-4 border-white/40">
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white drop-shadow-md">Próximo passo:</strong> Se a entrevista e o teste confirmarem que você tem potencial para o cargo, você é convidado para a etapa presencial.
+                      </p>
+                    </Glass>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* ETAPA 4 */}
+            <div className="mb-8">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-md">
+                      <Building2 size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-2xl md:text-3xl drop-shadow-md">
+                      ETAPA 4: ENTREVISTA PRESENCIAL + IMERSÃO CULTURAL 🏢❤️
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-18">
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que acontece:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed mb-3">
+                        Você vem conhecer a Beauty Smile pessoalmente e passa por duas atividades:
+                      </p>
+                      <ul className="space-y-2 pl-4">
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">Entrevista presencial:</strong> Conversa aprofundada com liderança e/ou fundadores</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-white/60 mt-1">•</span>
+                          <span className="text-white/90 drop-shadow-sm"><strong className="text-white">Teste Cultural:</strong> Leitura do Manifesto da Beauty Smile + questionário sobre nossa cultura, valores e propósito</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">Por que fazemos isso:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Porque você precisa sentir se este é o lugar certo para você. E nós precisamos ter certeza de que você não apenas entendeu, mas comprou genuinamente nossa missão.
+                      </p>
+                    </div>
+
+                    <Glass variant="white" blur="md" className="p-4 border-l-4 border-white/40">
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white drop-shadow-md">Próximo passo:</strong> Se houver match completo — técnico, comportamental e cultural — partimos para a contratação.
+                      </p>
+                      <p className="text-white/80 drop-shadow-sm mt-2 text-sm">
+                        ⏱️ Tempo após esta etapa: Aproximadamente 15 dias para formalização.
+                      </p>
+                    </Glass>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* ETAPA 5 */}
+            <div className="mb-12">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-md">
+                      <PartyPopper size={28} className="text-white" />
+                    </div>
+                    <h3 className="text-2xl md:text-3xl drop-shadow-md">
+                      ETAPA 5: BEM-VINDO À FAMÍLIA BEAUTY SMILE! 🎉🦷
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4 pl-0 md:pl-18">
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que acontece:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Você recebe a proposta formal, assinamos o contrato, e começamos a preparar sua chegada.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg drop-shadow-md mb-2 text-[rgb(255,255,255)] font-bold">O que vem depois:</h4>
+                      <p className="text-white/90 drop-shadow-sm leading-relaxed">
+                        Um onboarding completo para você se integrar à cultura, entender os processos, conhecer o time e começar sua jornada de transformação — da sua carreira e das vidas dos nossos pacientes.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* Linha do Tempo */}
+            <div className="mb-12">
+              <GlassCard variant="white" blur="xl" className="text-white">
+                <h3 className="text-2xl md:text-3xl drop-shadow-md mb-6 text-center">
+                  ⏳ LINHA DO TEMPO RESUMIDA
+                </h3>
+                
+                <div className="space-y-6">
+                  {/* Timeline Visual */}
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="text-center">
+                      <Glass variant="white" blur="md" className="p-4 h-full">
+                        <FileText className="w-8 h-8 mx-auto mb-2 text-white" />
+                        <p className="text-sm text-white drop-shadow-sm">CANDIDATURA</p>
+                      </Glass>
+                    </div>
+                    <div className="text-center">
+                      <Glass variant="white" blur="md" className="p-4 h-full">
+                        <Brain className="w-8 h-8 mx-auto mb-2 text-white" />
+                        <p className="text-sm text-white drop-shadow-sm">BIG FIVE + DISC</p>
+                      </Glass>
+                    </div>
+                    <div className="text-center">
+                      <Glass variant="white" blur="md" className="p-4 h-full">
+                        <Video className="w-8 h-8 mx-auto mb-2 text-white" />
+                        <p className="text-sm text-white drop-shadow-sm">ENTREVISTA ONLINE + RAVEN</p>
+                      </Glass>
+                    </div>
+                    <div className="text-center">
+                      <Glass variant="white" blur="md" className="p-4 h-full">
+                        <Building2 className="w-8 h-8 mx-auto mb-2 text-white" />
+                        <p className="text-sm text-white drop-shadow-sm">PRESENCIAL + CULTURA</p>
+                      </Glass>
+                    </div>
+                    <div className="text-center">
+                      <Glass variant="white" blur="md" className="p-4 h-full">
+                        <PartyPopper className="w-8 h-8 mx-auto mb-2 text-white" />
+                        <p className="text-sm text-white drop-shadow-sm">BEM-VINDO!</p>
+                      </Glass>
+                    </div>
+                  </div>
+
+                  {/* Tempo total */}
+                  <Glass variant="white" blur="md" className="p-6 text-center">
+
+                    <p className="text-lg text-white drop-shadow-md mt-3">
+                      Tempo total: Aproximadamente 30 dias da candidatura até sua chegada.
+                    </p>
+                  </Glass>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* Por que processo rigoroso */}
+            <GlassCard variant="white" blur="xl" className="text-white">
+              <div className="space-y-6">
+                <h3 className="text-2xl md:text-3xl drop-shadow-md text-center">
+                  💭 POR QUE UM PROCESSO TÃO RIGOROSO?
+                </h3>
+                
+                <div className="space-y-4">
+                  <p className="text-white/90 drop-shadow-sm leading-relaxed text-center text-lg">
+                    Porque não estamos contratando pessoas para cumprir tarefas.
+                  </p>
+                  <p className="text-white drop-shadow-md leading-relaxed text-center text-lg">
+                    Estamos recrutando cruzados para uma missão: eliminar o trauma odontológico e transformar vidas através da tecnologia e do cuidado genuíno.
+                  </p>
+                </div>
+
+                <Glass variant="white" blur="md" className="p-6 mt-6">
+                  <p className="text-white/90 drop-shadow-sm leading-relaxed mb-4">
+                    Cada etapa do processo existe para garantir três coisas:
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={24} className="text-white flex-shrink-0 mt-1" />
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white">Você é a pessoa certa</strong> — tem as competências, o comportamento e os valores alinhados
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={24} className="text-white flex-shrink-0 mt-1" />
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white">Este é o lugar certo para você</strong> — a cultura, o propósito e o ambiente fazem sentido para sua vida
+                      </p>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 size={24} className="text-white flex-shrink-0 mt-1" />
+                      <p className="text-white/90 drop-shadow-sm">
+                        <strong className="text-white">Juntos, vamos longe</strong> — há match real, não apenas contratação por necessidade
+                      </p>
+                    </div>
+                  </div>
+                </Glass>
+              </div>
+            </GlassCard>
+          </div>
+        </section>
+
         {/* Convite Final */}
         <section className="py-12 px-4" id="candidatura">
           <div className="container mx-auto max-w-6xl">
@@ -800,7 +1142,7 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
                   variant="white" 
                   hover 
                   className="px-10 py-5 text-white text-xl mt-6 drop-shadow-sm flex items-center justify-center mx-auto"
-                  onClick={onCandidatar || (() => window.location.href = '/questionario')}
+                  onClick={handleCandidatar}
                 >
                   Candidatar-se Agora <ArrowRight className="ml-2" size={24} />
                 </GlassButton>

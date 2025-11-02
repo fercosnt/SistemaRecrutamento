@@ -8,7 +8,10 @@ import { QuestionarioPage } from './components/pages/QuestionarioPage';
 import { DashboardCandidatoPage } from './components/pages/DashboardCandidatoPage';
 import { LoginRHPage } from './components/pages/LoginRHPage';
 import { DashboardRHPage } from './components/pages/DashboardRHPage';
+import { CandidatosRHPage } from './components/pages/CandidatosRHPage';
+import { PerfilCandidatoRHPage } from './components/pages/PerfilCandidatoRHPage';
 import { VagasPage } from './components/pages/VagasPage';
+import { VagasRHPage } from './components/pages/VagasRHPage';
 import { VagaLPPage } from './components/pages/VagaLPPage';
 import { InscricaoPage } from './components/pages/InscricaoPage';
 import { LoginCandidatoPage } from './components/pages/LoginCandidatoPage';
@@ -20,9 +23,14 @@ import { InstrucoesRavenPage } from './components/pages/InstrucoesRavenPage';
 import { TesteBigFivePage } from './components/pages/TesteBigFivePage';
 import { TesteDISCPage } from './components/pages/TesteDISCPage';
 import { TesteRavenPage } from './components/pages/TesteRavenPage';
+import { ConclusaoTestesPage } from './components/pages/ConclusaoTestesPage';
+import { ManifestoPage } from './components/pages/ManifestoPage';
+import { QuestionarioCulturaPage } from './components/pages/QuestionarioCulturaPage';
+import { EsqueciSenhaPage } from './components/pages/EsqueciSenhaPage';
+import { RedefinirSenhaPage } from './components/pages/RedefinirSenhaPage';
 import { GlassShowcase } from './components/GlassShowcase';
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'vagas' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'instrucoes-formulario' | 'formulario-candidatura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'showcase';
+type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas' | 'vagas-rh' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
@@ -34,18 +42,26 @@ function App() {
     { id: 'vaga-lp' as PageType, label: 'LP Divulgação Vaga', icon: '📄' },
     { id: 'inscricao' as PageType, label: 'Inscrição Candidato', icon: '📝' },
     { id: 'login-candidato' as PageType, label: 'Login Candidato', icon: '🔑' },
+    { id: 'esqueci-senha' as PageType, label: 'Esqueci Minha Senha', icon: '🔓' },
+    { id: 'redefinir-senha' as PageType, label: 'Redefinir Senha', icon: '🔐' },
     { id: 'instrucoes-formulario' as PageType, label: 'Instruções Formulário', icon: '📹' },
     { id: 'formulario-candidatura' as PageType, label: 'Formulário Candidatura', icon: '📋' },
+    { id: 'manifesto' as PageType, label: 'Manifesto Beauty Smile', icon: '🦷' },
+    { id: 'questionario-cultura' as PageType, label: 'Questionário Cultura', icon: '💬' },
     { id: 'instrucoes-disc' as PageType, label: 'Instruções Teste DISC', icon: '🎯' },
     { id: 'instrucoes-bigfive' as PageType, label: 'Instruções Teste Big Five', icon: '🎨' },
     { id: 'instrucoes-raven' as PageType, label: 'Instruções Teste Raven', icon: '🧩' },
     { id: 'teste-bigfive' as PageType, label: 'Teste Big Five', icon: '✍️' },
-    { id: 'teste-disc' as PageType, label: 'Teste DISC', icon: '🎯' },
+    { id: 'teste-disc' as PageType, label: 'Teste DISC', icon: '����' },
     { id: 'teste-raven' as PageType, label: 'Teste Raven', icon: '🧩' },
+    { id: 'conclusao-testes' as PageType, label: 'Conclusão Testes', icon: '✅' },
     { id: 'questionario' as PageType, label: 'Questionário', icon: '🧠' },
     { id: 'dashboard-candidato' as PageType, label: 'Dashboard Candidato', icon: '📊' },
     { id: 'login-rh' as PageType, label: 'Login RH', icon: '🔐' },
-    { id: 'dashboard-rh' as PageType, label: 'Dashboard RH', icon: '👥' },
+    { id: 'dashboard-rh' as PageType, label: 'Dashboard RH', icon: '📊' },
+    { id: 'vagas-rh' as PageType, label: 'Vagas RH', icon: '📋' },
+    { id: 'candidatos-rh' as PageType, label: 'Candidatos RH', icon: '👥' },
+    { id: 'perfil-candidato-rh' as PageType, label: 'Perfil Candidato RH', icon: '👤' },
     { id: 'showcase' as PageType, label: 'Design Showcase', icon: '🎨' },
   ];
 
@@ -61,18 +77,32 @@ function App() {
         return <LoginRHPage />;
       case 'dashboard-rh':
         return <DashboardRHPage />;
+      case 'candidatos-rh':
+        return <CandidatosRHPage />;
+      case 'perfil-candidato-rh':
+        return <PerfilCandidatoRHPage />;
       case 'vagas':
         return <VagasPage />;
+      case 'vagas-rh':
+        return <VagasRHPage />;
       case 'vaga-lp':
-        return <VagaLPPage />;
+        return <VagaLPPage onCandidatar={() => setCurrentPage('inscricao')} />;
       case 'inscricao':
         return <InscricaoPage />;
       case 'login-candidato':
-        return <LoginCandidatoPage />;
+        return <LoginCandidatoPage onEsqueciSenha={() => setCurrentPage('esqueci-senha')} />;
+      case 'esqueci-senha':
+        return <EsqueciSenhaPage onVoltarLogin={() => setCurrentPage('login-candidato')} />;
+      case 'redefinir-senha':
+        return <RedefinirSenhaPage onVoltarLogin={() => setCurrentPage('login-candidato')} token="abc123xyz456" />;
       case 'instrucoes-formulario':
         return <InstrucoesFormularioPage />;
       case 'formulario-candidatura':
         return <FormularioCandidaturaPage />;
+      case 'manifesto':
+        return <ManifestoPage />;
+      case 'questionario-cultura':
+        return <QuestionarioCulturaPage />;
       case 'instrucoes-disc':
         return <InstrucoesDISCPage />;
       case 'instrucoes-bigfive':
@@ -85,6 +115,8 @@ function App() {
         return <TesteDISCPage />;
       case 'teste-raven':
         return <TesteRavenPage />;
+      case 'conclusao-testes':
+        return <ConclusaoTestesPage />;
       case 'showcase':
         return <GlassShowcase />;
       default:

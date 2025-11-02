@@ -171,10 +171,15 @@ export function TesteBigFivePage() {
     // Verificar se é a última questão
     if (questaoAtual >= totalQuestoes) {
       toast.success('Teste concluído!', {
-        description: 'Obrigado por responder todas as questões.',
+        description: 'Redirecionando para a página de conclusão...',
       });
       console.log('Respostas completas:', { ...respostas, [questaoAtual]: respostaSelecionada });
-      // window.location.href = '/dashboard-candidato';
+      
+      // Redirecionar para página de conclusão após 1.5 segundos
+      setTimeout(() => {
+        window.location.href = '#conclusao-testes';
+        // Em produção, use o router apropriado
+      }, 1500);
       return;
     }
 

@@ -9,7 +9,7 @@ interface BeautySmileLogoProps {
 
 // Icon size classes (square)
 const iconSizeClasses = {
-  sm: 'w-6 h-6',
+  sm: 'w-10 h-10',
   md: 'w-10 h-10',
   lg: 'w-12 h-12',
   xl: 'w-16 h-16'

@@ -1,179 +1,305 @@
-import React from 'react';
-import { BackgroundImage } from '../BackgroundImage';
-import { BeautySmileLogo } from '../BeautySmileLogo';
-import { Glass, GlassPanel, GlassCard, GlassButton } from '../ui/glass';
+import React, { useState } from 'react';
+import { RHLayout } from '../RHLayout';
+import { MetricCard } from '../MetricCard';
+import { Glass, GlassButton } from '../ui/glass';
+import {
+  Briefcase,
+  Users,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Calendar,
+  ArrowRight,
+} from 'lucide-react';
 
 export function DashboardRHPage() {
-  const candidatos = [
-    { nome: 'Ana Silva', vaga: 'Dentista', score: 92, status: 'Entrevista agendada' },
-    { nome: 'Carlos Santos', vaga: 'Recepcionista', score: 88, status: 'Testes concluídos' },
-    { nome: 'Mariana Costa', vaga: 'Auxiliar', score: 85, status: 'Em análise' },
+  const [currentPage, setCurrentPage] = useState('dashboard-rh');
+
+  // Mock data
+  const vagasRecentes = [
+    {
+      id: 1,
+      titulo: 'Assistente Odontológico',
+      icon: '📌',
+      localizacao: 'São Paulo, SP',
+      tipo: 'CLT',
+      diasAtras: 2,
+      stats: {
+        candidatos: 8,
+        emAnalise: 5,
+        aprovados: 3,
+      },
+    },
+    {
+      id: 2,
+      titulo: 'Dentista Clínico Geral',
+      icon: '🦷',
+      localizacao: 'Rio de Janeiro, RJ',
+      tipo: 'PJ',
+      diasAtras: 5,
+      stats: {
+        candidatos: 12,
+        emAnalise: 8,
+        aprovados: 2,
+      },
+    },
+    {
+      id: 3,
+      titulo: 'Recepcionista',
+      icon: '💼',
+      localizacao: 'Belo Horizonte, MG',
+      tipo: 'CLT',
+      diasAtras: 7,
+      stats: {
+        candidatos: 15,
+        emAnalise: 10,
+        aprovados: 4,
+      },
+    },
   ];
 
+  const candidatosAguardando = [
+    {
+      id: 1,
+      nome: 'Maria Santos',
+      vaga: 'Assistente Odontológico',
+      avatar: 'MS',
+      score: 92,
+      diasAguardando: 2,
+    },
+    {
+      id: 2,
+      nome: 'João Silva',
+      vaga: 'Dentista Clínico Geral',
+      avatar: 'JS',
+      score: 88,
+      diasAguardando: 3,
+    },
+    {
+      id: 3,
+      nome: 'Ana Costa',
+      vaga: 'Recepcionista',
+      avatar: 'AC',
+      score: 95,
+      diasAguardando: 1,
+    },
+    {
+      id: 4,
+      nome: 'Pedro Oliveira',
+      vaga: 'Assistente Odontológico',
+      avatar: 'PO',
+      score: 87,
+      diasAguardando: 4,
+    },
+  ];
+
+  const handleNavigation = (pageId: string) => {
+    setCurrentPage(pageId);
+    console.log('Navegando para:', pageId);
+  };
+
+  const handleLogout = () => {
+    console.log('Logout');
+  };
+
   return (
-    <div className="relative min-h-screen">
-      <BackgroundImage 
-        background="darkBlue" 
-        className="min-h-screen py-8"
-      >
-        {/* Header/Navbar */}
-        <Glass 
-          variant="white" 
-          blur="xl" 
-          className="mx-4 mb-8 px-6 py-4"
-        >
-          <div className="flex items-center justify-between">
-            <BeautySmileLogo type="horizontal" size="md" variant="white" />
-            <div className="flex items-center gap-6">
-              <nav className="flex gap-6 text-white/80">
-                <a href="#" className="hover:text-white transition-colors">Dashboard</a>
-                <a href="#" className="hover:text-white transition-colors">Candidatos</a>
-                <a href="#" className="hover:text-white transition-colors">Vagas</a>
-                <a href="#" className="hover:text-white transition-colors">Relatórios</a>
-              </nav>
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                <span className="text-white">RH</span>
-              </div>
-            </div>
+    <RHLayout
+      activePage={currentPage}
+      onNavigate={handleNavigation}
+      userName="João Silva"
+      userRole="Administrador"
+      notificationCount={3}
+      onSearch={(query) => console.log('Buscar:', query)}
+      onProfileClick={() => console.log('Perfil')}
+      onSettingsClick={() => handleNavigation('configuracoes-rh')}
+      onLogout={handleLogout}
+    >
+      <div className="space-y-8">
+        {/* Header com saudação */}
+        <div className="space-y-2">
+          <h1 className="text-white drop-shadow-lg">
+            Olá, João Silva 👋
+          </h1>
+          <p className="text-white/80 text-xl drop-shadow-md">
+            Aqui está um resumo do seu recrutamento
+          </p>
+        </div>
+
+        {/* Cards de Métricas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            icon={<Briefcase size={48} />}
+            value="12"
+            label="Vagas Ativas"
+            trend={{ value: '+2 este mês', direction: 'up' }}
+            variant="primary"
+          />
+          <MetricCard
+            icon={<Users size={48} />}
+            value="45"
+            label="Candidatos"
+            trend={{ value: '+12 hoje', direction: 'up' }}
+            variant="success"
+          />
+          <MetricCard
+            icon={<CheckCircle size={48} />}
+            value="8"
+            label="Aprovados"
+            trend={{ value: '+3 hoje', direction: 'up' }}
+            variant="success"
+          />
+          <MetricCard
+            icon={<Clock size={48} />}
+            value="15"
+            label="Em Análise"
+            trend={{ value: '-4 hoje', direction: 'down' }}
+            variant="warning"
+          />
+        </div>
+
+        {/* Vagas Recentes */}
+        <Glass variant="white" blur="xl" className="p-6 rounded-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-white drop-shadow-md">
+              📋 Vagas Recentes
+            </h2>
+            <button className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm">
+              Ver Todas
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {vagasRecentes.map((vaga) => (
+              <Glass
+                key={vaga.id}
+                variant="white"
+                blur="lg"
+                hover
+                className="p-6 rounded-xl transition-all duration-300"
+              >
+                <div className="space-y-4">
+                  {/* Header da vaga */}
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">{vaga.icon}</span>
+                    <div className="flex-1">
+                      <h3 className="text-white text-xl drop-shadow-sm">
+                        {vaga.titulo}
+                      </h3>
+                      <div className="flex items-center gap-4 mt-2 text-white/70 text-sm drop-shadow-sm">
+                        <span className="flex items-center gap-1">
+                          <MapPin size={14} />
+                          {vaga.localizacao}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          💼 {vaga.tipo}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={14} />
+                          Há {vaga.diasAtras} dias
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats dos candidatos */}
+                  <div className="grid grid-cols-3 gap-2 md:gap-4">
+                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                      <div className="text-2xl text-white drop-shadow-sm">
+                        {vaga.stats.candidatos}
+                      </div>
+                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                        Candidatos
+                      </div>
+                    </div>
+                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                      <div className="text-2xl text-white drop-shadow-sm">
+                        {vaga.stats.emAnalise}
+                      </div>
+                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                        Análise
+                      </div>
+                    </div>
+                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                      <div className="text-2xl text-white drop-shadow-sm">
+                        {vaga.stats.aprovados}
+                      </div>
+                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                        Aprovados
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Botão de ação */}
+                  <GlassButton
+                    variant="white"
+                    className="w-full text-white drop-shadow-sm"
+                  >
+                    Gerenciar Vaga →
+                  </GlassButton>
+                </div>
+              </Glass>
+            ))}
           </div>
         </Glass>
 
-        <div className="container mx-auto px-4 space-y-8">
-          <div className="text-center mb-8">
-            <h1 className="text-white text-5xl mb-2">Dashboard RH</h1>
-            <p className="text-white/80 text-xl">Gestão de Processos Seletivos</p>
+        {/* Candidatos Aguardando Análise */}
+        <Glass variant="white" blur="xl" className="p-6 rounded-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-white drop-shadow-md">
+              🎯 Candidatos Aguardando Análise
+            </h2>
+            <button className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm">
+              Ver Todos
+              <ArrowRight size={16} />
+            </button>
           </div>
 
-          {/* Métricas principais */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <GlassCard variant="white" blur="xl" hover className="text-white text-center">
-              <div className="space-y-2">
-                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto backdrop-blur-md">
-                  <span className="text-2xl">👥</span>
-                </div>
-                <p className="text-4xl">142</p>
-                <p className="text-white/80">Candidatos Ativos</p>
-              </div>
-            </GlassCard>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {candidatosAguardando.map((candidato) => (
+              <Glass
+                key={candidato.id}
+                variant="white"
+                blur="lg"
+                hover
+                className="p-5 rounded-xl transition-all duration-300"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Avatar */}
+                  <div className="w-14 h-14 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md">
+                    {candidato.avatar}
+                  </div>
 
-            <GlassCard variant="white" blur="xl" hover className="text-white text-center">
-              <div className="space-y-2">
-                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto backdrop-blur-md">
-                  <span className="text-2xl">💼</span>
-                </div>
-                <p className="text-4xl">8</p>
-                <p className="text-white/80">Vagas Abertas</p>
-              </div>
-            </GlassCard>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-white truncate drop-shadow-sm">
+                      {candidato.nome}
+                    </h4>
+                    <p className="text-sm text-white/70 truncate drop-shadow-sm">
+                      {candidato.vaga}
+                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-xs text-white/60 drop-shadow-sm">
+                        Score: {candidato.score}%
+                      </span>
+                      <span className="text-xs text-white/60 drop-shadow-sm">
+                        • {candidato.diasAguardando}d aguardando
+                      </span>
+                    </div>
+                  </div>
 
-            <GlassCard variant="white" blur="xl" hover className="text-white text-center">
-              <div className="space-y-2">
-                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto backdrop-blur-md">
-                  <span className="text-2xl">📋</span>
+                  {/* Botão de ação */}
+                  <button className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-all duration-200 flex-shrink-0 drop-shadow-sm backdrop-blur-sm">
+                    Analisar
+                  </button>
                 </div>
-                <p className="text-4xl">324</p>
-                <p className="text-white/80">Testes Realizados</p>
-              </div>
-            </GlassCard>
-
-            <GlassCard variant="white" blur="xl" hover className="text-white text-center">
-              <div className="space-y-2">
-                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto backdrop-blur-md">
-                  <span className="text-2xl">✅</span>
-                </div>
-                <p className="text-4xl">23</p>
-                <p className="text-white/80">Contratações</p>
-              </div>
-            </GlassCard>
+              </Glass>
+            ))}
           </div>
-
-          {/* Candidatos em destaque */}
-          <GlassPanel variant="white" blur="xl" className="text-white">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl">Candidatos em Destaque</h2>
-              <GlassButton variant="white" className="text-white">
-                Ver Todos →
-              </GlassButton>
-            </div>
-
-            <div className="space-y-4">
-              {candidatos.map((candidato, index) => (
-                <Glass key={index} variant="white" blur="lg" hover className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                        <span className="text-white text-lg">{candidato.nome.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-white text-xl">{candidato.nome}</h3>
-                        <p className="text-white/70">{candidato.vaga}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-8">
-                      <div className="text-center">
-                        <p className="text-white/70 text-sm">Score</p>
-                        <p className="text-white text-2xl">{candidato.score}%</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-white/70 text-sm">Status</p>
-                        <p className="text-white">{candidato.status}</p>
-                      </div>
-                      <GlassButton variant="white" className="text-white">
-                        Ver Perfil
-                      </GlassButton>
-                    </div>
-                  </div>
-                </Glass>
-              ))}
-            </div>
-          </GlassPanel>
-
-          {/* Vagas recentes */}
-          <GlassPanel variant="white" blur="xl" className="text-white">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-3xl">Vagas Recentes</h2>
-              <GlassButton variant="white" className="text-white">
-                Nova Vaga +
-              </GlassButton>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Glass variant="white" blur="lg" hover className="p-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-white text-xl">Dentista Sênior</h3>
-                    <span className="px-3 py-1 rounded-full bg-white/20 text-white text-sm backdrop-blur-md">
-                      12 candidatos
-                    </span>
-                  </div>
-                  <p className="text-white/70">São Paulo, SP • Tempo integral</p>
-                  <div className="flex gap-2">
-                    <GlassButton variant="white" className="text-white text-sm">Ver candidatos</GlassButton>
-                    <GlassButton variant="white" className="text-white text-sm">Editar</GlassButton>
-                  </div>
-                </div>
-              </Glass>
-
-              <Glass variant="white" blur="lg" hover className="p-6">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-white text-xl">Recepcionista</h3>
-                    <span className="px-3 py-1 rounded-full bg-white/20 text-white text-sm backdrop-blur-md">
-                      28 candidatos
-                    </span>
-                  </div>
-                  <p className="text-white/70">Rio de Janeiro, RJ • Meio período</p>
-                  <div className="flex gap-2">
-                    <GlassButton variant="white" className="text-white text-sm">Ver candidatos</GlassButton>
-                    <GlassButton variant="white" className="text-white text-sm">Editar</GlassButton>
-                  </div>
-                </div>
-              </Glass>
-            </div>
-          </GlassPanel>
-        </div>
-      </BackgroundImage>
-    </div>
+        </Glass>
+      </div>
+    </RHLayout>
   );
 }

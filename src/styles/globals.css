@@ -380,3 +380,24 @@
 html {
   font-size: 16px;
 }
+
+/* Custom scrollbar for Kanban columns */
+.kanban-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.kanban-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: rgba(53, 191, 173, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(53, 191, 173, 0.5);
+}

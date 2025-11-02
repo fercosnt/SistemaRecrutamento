@@ -4,6 +4,7 @@ import { GlassCard } from '../ui/glass';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Checkbox } from '../ui/checkbox';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
@@ -38,6 +39,7 @@ export function InscricaoPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [consentimentoDados, setConsentimentoDados] = useState(false);
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -75,6 +77,10 @@ export function InscricaoPage() {
     }
     if (formData.senha !== formData.confirmarSenha) {
       toast.error('As senhas não coincidem');
+      return false;
+    }
+    if (!consentimentoDados) {
+      toast.error('Você precisa autorizar o armazenamento dos seus dados para continuar');
       return false;
     }
 
@@ -138,7 +144,7 @@ export function InscricaoPage() {
           >
             {/* Título */}
             <div className="text-center mb-8">
-              <h1 className="text-white mb-3 drop-shadow-lg">
+              <h1 className="text-white mb-3 drop-shadow-lg text-[40px] font-bold">
                 Criar Conta
               </h1>
               <p className="text-white/90 drop-shadow-md">
@@ -357,6 +363,24 @@ export function InscricaoPage() {
                       ) : null}
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Checkbox de Consentimento */}
+              <div className="pt-4">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="consentimentoDados"
+                    checked={consentimentoDados}
+                    onCheckedChange={(checked) => setConsentimentoDados(checked as boolean)}
+                    className="mt-1 bg-white/20 border-white/30 data-[state=checked]:bg-[#00109E] data-[state=checked]:border-[#00109E]"
+                  />
+                  <Label 
+                    htmlFor="consentimentoDados" 
+                    className="text-white/90 drop-shadow-sm cursor-pointer leading-relaxed"
+                  >
+                    Autorizo a Beauty Smile a armazenar meus dados para este e futuros processos seletivos
+                  </Label>
                 </div>
               </div>
 

@@ -7,7 +7,11 @@ import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Eye, EyeOff, Mail, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
-export function LoginCandidatoPage() {
+interface LoginCandidatoPageProps {
+  onEsqueciSenha?: () => void;
+}
+
+export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps = {}) {
   const [formData, setFormData] = useState({
     email: '',
     senha: '',
@@ -50,10 +54,14 @@ export function LoginCandidatoPage() {
   };
 
   const handleForgotPassword = () => {
-    toast.info('Recuperação de senha', {
-      description: 'Em breve você receberá um email com instruções.',
-    });
-    console.log('Redirecionar para recuperação de senha...');
+    if (onEsqueciSenha) {
+      onEsqueciSenha();
+    } else {
+      toast.info('Recuperação de senha', {
+        description: 'Em breve você receberá um email com instruções.',
+      });
+      console.log('Redirecionar para recuperação de senha...');
+    }
   };
 
   const handleEmailContact = () => {
@@ -93,7 +101,7 @@ export function LoginCandidatoPage() {
             >
               {/* Título */}
               <div className="mb-8">
-                <h1 className="text-white mb-3 drop-shadow-lg">
+                <h1 className="text-white mb-3 drop-shadow-lg text-[40px] font-bold">
                   Entrar
                 </h1>
                 <p className="text-white/90 drop-shadow-md">

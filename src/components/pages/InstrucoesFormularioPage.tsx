@@ -30,7 +30,7 @@ export function InstrucoesFormularioPage() {
 
           {/* Título Principal */}
           <div className="text-center mb-12">
-            <h1 className="text-white mb-4 drop-shadow-lg">
+            <h1 className="text-white mb-4 drop-shadow-lg text-[40px] font-bold">
               Antes de Começar
             </h1>
             <p className="text-white/90 drop-shadow-md max-w-2xl mx-auto">
