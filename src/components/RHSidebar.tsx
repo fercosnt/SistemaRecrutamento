@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -59,6 +59,11 @@ export function RHSidebar({
       label: 'Vagas',
       icon: <Briefcase size={24} />,
       badge: 5,
+    },
+    {
+      id: 'suporte-rh',
+      label: 'Suporte',
+      icon: <Bug size={24} />,
     },
     {
       id: 'configuracoes-rh',

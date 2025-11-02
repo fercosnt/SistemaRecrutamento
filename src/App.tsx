@@ -33,8 +33,9 @@ import { ConfiguracoesPage } from './components/pages/ConfiguracoesPage';
 import { MeuPerfilPage } from './components/pages/MeuPerfilPage';
 import { MeuPerfilCandidatoPage } from './components/pages/MeuPerfilCandidatoPage';
 import { VagasPublicasPage } from './components/pages/VagasPublicasPage';
+import { SuporteRHPage } from './components/pages/SuporteRHPage';
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas-publicas' | 'vagas-rh' | 'criar-vaga' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase' | 'configuracoes' | 'meu-perfil' | 'meu-perfil-candidato';
+type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas-publicas' | 'vagas-rh' | 'criar-vaga' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase' | 'configuracoes' | 'meu-perfil' | 'meu-perfil-candidato' | 'suporte-rh';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('landing');
@@ -70,6 +71,7 @@ function App() {
     { id: 'configuracoes' as PageType, label: 'Configurações', icon: '⚙️' },
     { id: 'meu-perfil' as PageType, label: 'Meu Perfil (RH)', icon: '👤' },
     { id: 'meu-perfil-candidato' as PageType, label: 'Meu Perfil (Candidato)', icon: '👤' },
+    { id: 'suporte-rh' as PageType, label: 'Suporte Técnico (RH)', icon: '🛠️' },
     { id: 'showcase' as PageType, label: 'Design Showcase', icon: '🎨' },
   ];
 
@@ -133,6 +135,8 @@ function App() {
         return <MeuPerfilPage />;
       case 'meu-perfil-candidato':
         return <MeuPerfilCandidatoPage />;
+      case 'suporte-rh':
+        return <SuporteRHPage />;
       case 'showcase':
         return <GlassShowcase />;
       default:
