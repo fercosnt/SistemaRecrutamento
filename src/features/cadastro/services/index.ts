@@ -6,6 +6,7 @@
 
 export * from './viaCepService'
 export * from './duplicateCheckService'
+export * from './authService'
 
 // Export services conforme forem criados
 // export * from './candidatoService'
