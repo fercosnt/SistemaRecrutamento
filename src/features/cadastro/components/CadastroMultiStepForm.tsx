@@ -362,20 +362,20 @@ export function CadastroMultiStepForm({
 
   return (
     <FormProvider {...methods}>
-      <div className="w-full max-w-4xl mx-auto space-y-6">
+      <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6">
         {/* Progress Bar */}
         <div className="space-y-2">
-          <div className="flex justify-between text-sm text-white/90">
+          <div className="flex justify-between text-xs sm:text-sm text-white/90">
             <span>
               Etapa {currentStepIndex + 1} de {FORM_STEPS.length}
             </span>
-            <span>{Math.round(progress)}% completo</span>
+            <span className="hidden xs:inline">{Math.round(progress)}% completo</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
 
         {/* Steps Indicator */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-1 sm:gap-2">
           {FORM_STEPS.map((step, index) => {
             const isCompleted = completedSteps.includes(step.id)
             const isCurrent = index === currentStepIndex
@@ -388,9 +388,11 @@ export function CadastroMultiStepForm({
                 type="button"
                 onClick={() => goToStep(index)}
                 disabled={!isAccessible}
+                aria-label={step.title}
                 className={cn(
-                  'flex flex-col items-center gap-2 flex-1',
-                  'transition-opacity duration-200',
+                  'flex flex-col items-center gap-1 sm:gap-2 flex-1',
+                  'transition-opacity duration-200 touch-manipulation',
+                  'min-w-[44px] min-h-[44px]', // Minimum touch target
                   {
                     'opacity-100': isCurrent || isCompleted,
                     'opacity-50': !isCurrent && !isCompleted,
@@ -402,7 +404,7 @@ export function CadastroMultiStepForm({
                 {/* Circle indicator */}
                 <div
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center',
+                    'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center',
                     'border-2 transition-all duration-200',
                     {
                       'bg-white border-white text-[#00109E]': isCurrent,
@@ -412,9 +414,9 @@ export function CadastroMultiStepForm({
                   )}
                 >
                   {isCompleted ? (
-                    <Check className="w-5 h-5" />
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5" />
                   ) : (
-                    <span className="font-semibold">{index + 1}</span>
+                    <span className="text-xs sm:text-base font-semibold">{index + 1}</span>
                   )}
                 </div>
 
@@ -435,13 +437,13 @@ export function CadastroMultiStepForm({
         </div>
 
         {/* Current Step Content */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6 md:p-8">
+        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 sm:p-6 md:p-8">
           {/* Step Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">
+          <div className="mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
               {currentStep.title}
             </h2>
-            <p className="text-white/80">{currentStep.description}</p>
+            <p className="text-sm sm:text-base text-white/80">{currentStep.description}</p>
           </div>
 
           {/* Step Form */}
@@ -449,13 +451,13 @@ export function CadastroMultiStepForm({
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex justify-between gap-4">
+        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pb-4 sm:pb-0">
           {/* Botão Voltar / Cancelar */}
           <Button
             type="button"
             variant="outline"
             onClick={isFirstStep ? onCancel : handlePrevious}
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            className="w-full sm:w-auto bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             {isFirstStep ? (
               'Cancelar'
@@ -473,7 +475,7 @@ export function CadastroMultiStepForm({
             onClick={handleNext}
             isLoading={isSubmitting}
             loadingText={isLastStep ? 'Finalizando cadastro...' : 'Validando...'}
-            className="bg-[#00109E] hover:bg-[#00109E]/90 text-white"
+            className="w-full sm:w-auto bg-[#00109E] hover:bg-[#00109E]/90 text-white"
           >
             {isLastStep ? (
               <>
