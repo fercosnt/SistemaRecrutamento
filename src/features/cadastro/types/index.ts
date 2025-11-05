@@ -4,5 +4,4 @@
  * Facilita imports: import { CandidatoFormData } from '@/features/cadastro/types'
  */
 
-// Export types conforme forem criados
-// export * from './formTypes'
+export * from './formTypes'

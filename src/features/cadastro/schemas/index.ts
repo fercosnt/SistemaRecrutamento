@@ -1,8 +1,7 @@
 /**
  * Barrel export para schemas Zod do feature cadastro
  *
- * Facilita imports: import { candidatoSchema } from '@/features/cadastro/schemas'
+ * Facilita imports: import { candidatoFormSchema } from '@/features/cadastro/schemas'
  */
 
-// Export schemas conforme forem criados
-// export * from './candidatoSchema'
+export * from './candidatoSchema'
