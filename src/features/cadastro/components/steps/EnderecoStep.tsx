@@ -2,13 +2,13 @@
  * Step 2: Endereço
  *
  * Campos:
- * - CEP (com integração ViaCEP - Task 2)
- * - Logradouro
+ * - CEP (com integração ViaCEP) ✅
+ * - Logradouro (auto-preenchido)
  * - Número
  * - Complemento (opcional)
- * - Bairro
- * - Cidade
- * - Estado
+ * - Bairro (auto-preenchido)
+ * - Cidade (auto-preenchida)
+ * - Estado (auto-preenchido)
  */
 
 import React from 'react'
@@ -22,10 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useViaCEP } from '../../hooks/useViaCEP'
+import { mapViaCEPToForm } from '../../services/viaCepService'
 import type { CandidatoFormData } from '../../types'
-
-// TODO: Task 2 - Importar hook do ViaCEP
-// import { useViaCEP } from '../../hooks/useViaCEP'
 
 const ESTADOS_BRASILEIROS = [
   'AC',
@@ -62,40 +62,48 @@ export function EnderecoStep() {
     control,
     formState: { errors },
     setValue,
+    watch,
   } = useFormContext<CandidatoFormData>()
 
-  // TODO: Task 2 - Integrar hook do ViaCEP
-  // const { loading: cepLoading, error: cepError, buscarCEP } = useViaCEP()
+  // Observar campo CEP
+  const cep = watch('endereco.cep')
+
+  // Integração com ViaCEP
+  const { data: viaCepData, loading: cepLoading, error: cepError } = useViaCEP(
+    cep || '',
+    {
+      debounceMs: 500,
+      onSuccess: (data) => {
+        // Auto-preencher campos de endereço
+        const formData = mapViaCEPToForm(data)
+        setValue('endereco.logradouro', formData.logradouro)
+        setValue('endereco.bairro', formData.bairro)
+        setValue('endereco.cidade', formData.cidade)
+        setValue('endereco.estado', formData.estado)
+
+        // Focar no campo número após preencher
+        setTimeout(() => {
+          document.getElementById('numero')?.focus()
+        }, 100)
+      },
+    }
+  )
 
   /**
-   * Handler para busca de CEP
-   * TODO: Task 2 - Implementar integração real com ViaCEP
+   * Handler para formatação de CEP
    */
-  const handleCEPChange = async (cep: string) => {
-    // Formata CEP
+  const handleCEPChange = (cep: string) => {
+    // Formata CEP enquanto digita
     let formattedCEP = cep.replace(/\D/g, '')
     if (formattedCEP.length > 5) {
       formattedCEP = `${formattedCEP.slice(0, 5)}-${formattedCEP.slice(5, 8)}`
     }
-
-    // Se tiver 9 caracteres (formato completo), buscar no ViaCEP
-    // TODO: Task 2 - Implementar busca real
-    // if (formattedCEP.replace(/\D/g, '').length === 8) {
-    //   const data = await buscarCEP(formattedCEP)
-    //   if (data) {
-    //     setValue('endereco.logradouro', data.logradouro)
-    //     setValue('endereco.bairro', data.bairro)
-    //     setValue('endereco.cidade', data.localidade)
-    //     setValue('endereco.estado', data.uf)
-    //   }
-    // }
-
     return formattedCEP
   }
 
   return (
     <div className="space-y-6">
-      {/* CEP */}
+      {/* CEP com loading e feedback */}
       <Controller
         name="endereco.cep"
         control={control}
@@ -104,26 +112,60 @@ export function EnderecoStep() {
             <Label htmlFor="cep" className="text-white">
               CEP *
             </Label>
-            <Input
-              {...field}
-              id="cep"
-              type="text"
-              placeholder="00000-000"
-              maxLength={9}
-              onChange={async (e) => {
-                const formatted = await handleCEPChange(e.target.value)
-                field.onChange(formatted)
-              }}
-              className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-            />
+            <div className="relative">
+              <Input
+                {...field}
+                id="cep"
+                type="text"
+                placeholder="00000-000"
+                maxLength={9}
+                onChange={(e) => {
+                  const formatted = handleCEPChange(e.target.value)
+                  field.onChange(formatted)
+                }}
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
+              />
+              {/* Loading/Success/Error Icons */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {cepLoading && (
+                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                )}
+                {!cepLoading && viaCepData && !cepError && (
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                )}
+                {!cepLoading && cepError && (
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                )}
+              </div>
+            </div>
+
+            {/* Mensagens de erro */}
             {errors.endereco?.cep && (
               <p className="text-red-400 text-sm">
                 {errors.endereco.cep.message}
               </p>
             )}
-            <p className="text-white/60 text-xs">
-              Preencha o CEP para autocompletar o endereço
-            </p>
+            {cepError && (
+              <p className="text-red-400 text-sm flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {cepError.message}
+              </p>
+            )}
+
+            {/* Hint de sucesso */}
+            {viaCepData && !cepError && (
+              <p className="text-green-400 text-sm flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                Endereço encontrado! Preencha o número.
+              </p>
+            )}
+
+            {/* Hint padrão */}
+            {!cepLoading && !viaCepData && !cepError && (
+              <p className="text-white/60 text-xs">
+                Digite o CEP para autocompletar o endereço
+              </p>
+            )}
           </div>
         )}
       />

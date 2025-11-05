@@ -1,11 +1,12 @@
 /**
  * Barrel export para services do feature cadastro
  *
- * Facilita imports: import { viaCepService, candidatoService } from '@/features/cadastro/services'
+ * Facilita imports: import { buscarCEP, ViaCEPError } from '@/features/cadastro/services'
  */
 
+export * from './viaCepService'
+
 // Export services conforme forem criados
-// export * from './viaCepService'
 // export * from './candidatoService'
 // export * from './cadastroService'
 // export * from './n8nService'
