@@ -9,13 +9,13 @@
 
 ## ✅ Status Geral
 
-### Tasks Concluídas: 2/9 (22.2%)
+### Tasks Concluídas: 3/9 (33.3%)
 
 | Task | Status | Descrição | Progresso |
 |------|--------|-----------|-----------|
 | **Task 1** | ✅ **CONCLUÍDO** | Form Validation & React Hook Form | **100%** |
 | **Task 2** | ✅ **CONCLUÍDO** | ViaCEP Integration | **100%** |
-| Task 3 | ⏳ Pendente | Duplicate Check (CPF/Email) | 0% |
+| **Task 3** | ✅ **CONCLUÍDO** | Duplicate Check (CPF/Email) com TDD | **100%** |
 | Task 4 | ⏳ Pendente | Supabase Auth Integration | 0% |
 | Task 5 | ⏳ Pendente | Multi-table Transaction | 0% |
 | Task 6 | ⏳ Pendente | N8N Webhook Integration | 0% |
@@ -240,13 +240,234 @@
 
 ---
 
-## 📦 Features Implementadas (Task 1 + Task 2)
+## 🎯 Task 3: Duplicate Check (CPF/Email) - CONCLUÍDO ✅
+
+### Arquivos Criados/Modificados (4 arquivos, 1.130 linhas)
+
+#### 1. Serviço de Verificação de Duplicatas
+- ✅ `src/features/cadastro/services/duplicateCheckService.ts` (280 linhas)
+  - **checkCPFDuplicate()**: Verifica se CPF existe no banco Supabase
+  - **checkEmailDuplicate()**: Verifica se Email existe (case-insensitive com ilike)
+  - **checkBothDuplicates()**: Verifica CPF e Email em paralelo com Promise.all
+  - **DuplicateCheckError**: Custom error class com códigos específicos
+    - `INVALID_INPUT`: Formato inválido (CPF/Email)
+    - `NOT_FOUND`: Não aplicável (usar isDuplicate: false)
+    - `NETWORK_ERROR`: Erro de conexão/rede
+    - `DATABASE_ERROR`: Erro do Supabase
+  - Funções auxiliares:
+    - `cleanCPF()`: Remove caracteres não numéricos
+    - `cleanEmail()`: Trim + lowercase
+    - `isValidCPFFormat()`: Valida 11 dígitos
+    - `isValidEmailFormat()`: Valida formato básico
+  - Retorna `DuplicateCheckResult` com:
+    - `isDuplicate`: boolean
+    - `field`: 'cpf' | 'email'
+    - `value`: string (sanitizado)
+    - `existingCandidate`: dados do candidato (se duplicado)
+
+#### 2. Hook useDuplicateCheck
+- ✅ `src/features/cadastro/hooks/useDuplicateCheck.ts` (250 linhas)
+  - **Debounce:** 800ms (default) para evitar requisições excessivas
+  - **Auto-check:** Verifica automaticamente quando valor válido é digitado
+  - **Loading states:** Estados de carregamento independentes para CPF e Email
+  - **Callbacks:**
+    - `onDuplicate`: Executado quando duplicata é encontrada
+    - `onUnique`: Executado quando valor é único
+    - `onError`: Executado quando ocorre erro
+  - **Race condition prevention:**
+    - AbortController para cancelar requisições pendentes
+    - Refs para evitar conflitos entre múltiplas verificações
+  - **Manual check:** Função `check()` para verificação manual
+  - **Reset:** Função `reset()` para limpar estado
+  - **Cleanup:** Cleanup automático ao desmontar componente
+
+#### 3. Integração no DadosPessoaisStep
+- ✅ `src/features/cadastro/components/steps/DadosPessoaisStep.tsx` (+120 linhas)
+  - **CPF field:**
+    - Loading spinner azul durante verificação
+    - Ícone de check verde quando CPF disponível
+    - Ícone de alerta vermelho quando CPF duplicado
+    - Mensagem de erro mostra nome do candidato existente
+    - Exemplo: "CPF já cadastrado por João Silva"
+  - **Email field:**
+    - Loading spinner azul durante verificação
+    - Ícone de check verde quando Email disponível
+    - Ícone de alerta vermelho quando Email duplicado
+    - Mensagem de erro mostra nome do candidato existente
+    - Exemplo: "Email já cadastrado por Maria Santos"
+  - **Form integration:**
+    - setError() customizado quando duplicata detectada
+    - clearErrors() quando valor se torna único
+    - Prevent submit se duplicate exists (via form validation)
+
+#### 4. Testes TDD
+- ✅ `src/features/cadastro/services/__tests__/duplicateCheckService.test.ts` (480 linhas)
+  - **32 tests passing** (100% coverage)
+  - **Mock do Supabase:** Mocks completos para from(), select(), eq(), ilike(), maybeSingle()
+  - **Grupos de testes:**
+    - `cleanCPF` (3 tests): Limpeza de formatação
+    - `cleanEmail` (3 tests): Normalização de email
+    - `isValidCPFFormat` (5 tests): Validação de formato CPF
+    - `isValidEmailFormat` (6 tests): Validação de formato Email
+    - `checkCPFDuplicate` (6 tests): Verificação de CPF
+      - Formato inválido → erro
+      - CPF duplicado → isDuplicate: true
+      - CPF único → isDuplicate: false
+      - Erro de banco → DuplicateCheckError
+      - CPF limpo enviado para API
+    - `checkEmailDuplicate` (7 tests): Verificação de Email
+      - Formato inválido → erro
+      - Email duplicado → isDuplicate: true
+      - Email único → isDuplicate: false
+      - Erro de banco → DuplicateCheckError
+      - Email lowercase enviado para API
+      - ilike usado (case-insensitive)
+    - `checkBothDuplicates` (2 tests): Verificação paralela
+      - Ambos únicos
+      - Ambos duplicados
+
+### Features Implementadas Task 3
+
+#### ✅ Verificação em Tempo Real
+- Debounce de 800ms para evitar sobrecarga
+- Verificação automática ao digitar valores válidos
+- Loading states independentes para cada campo
+- Feedback visual imediato (spinner/check/alert)
+
+#### ✅ Mensagens Contextuais
+- **CPF disponível:** "CPF válido e disponível!" (verde com check)
+- **Email disponível:** "Email válido e disponível!" (verde com check)
+- **CPF duplicado:** "CPF já cadastrado por [Nome]" (vermelho com alert)
+- **Email duplicado:** "Email já cadastrado por [Nome]" (vermelho com alert)
+- **Loading:** Spinner azul animado enquanto verifica
+
+#### ✅ Integração com Formulário
+- Errors dinâmicos via setError() do React Hook Form
+- Prevent submit automático quando duplicata existe
+- Clear errors quando valor se torna único
+- Validação integrada com Zod schema
+
+#### ✅ Tratamento de Erros
+- 4 tipos de erro específicos:
+  - INVALID_INPUT: Formato inválido
+  - DATABASE_ERROR: Erro do Supabase
+  - NETWORK_ERROR: Problema de conexão
+  - (NOT_FOUND não usado - retorna isDuplicate: false)
+- Mensagens de erro em português
+- Console.error para debug em desenvolvimento
+
+#### ✅ Performance Otimizada
+- Debounce de 800ms (vs 500ms do ViaCEP) para dar tempo ao usuário
+- AbortController cancela requisições pendentes
+- Promise.all para verificar CPF+Email em paralelo (checkBothDuplicates)
+- Case-insensitive search para Email (ilike)
+
+#### ✅ Qualidade de Código
+- 32 tests TDD com 100% coverage das funções
+- TypeScript strict mode
+- Mocks completos do Supabase
+- Documentação JSDoc em todas as funções
+- Custom error class com códigos específicos
+
+### Fluxo de Uso Task 3 (CPF)
+
+```
+1. Usuário digita: "123.456.789-00"
+   ↓
+2. Validação formato: 11 dígitos ✅
+   ↓
+3. Debounce 800ms (aguarda parar de digitar)
+   ↓
+4. Loading: Spinner azul 🔄
+   ↓
+5. API Supabase: SELECT * FROM candidatos WHERE cpf = '12345678900'
+   ↓
+6a. Se encontrado:
+    - Ícone: Alert vermelho ❌
+    - Mensagem: "CPF já cadastrado por João Silva"
+    - Form error: Prevent submit
+
+6b. Se não encontrado:
+    - Ícone: Check verde ✅
+    - Mensagem: "CPF válido e disponível!"
+    - Form: Pode prosseguir
+```
+
+### Fluxo de Uso Task 3 (Email)
+
+```
+1. Usuário digita: "maria@example.com"
+   ↓
+2. Validação formato: regex email ✅
+   ↓
+3. Debounce 800ms (aguarda parar de digitar)
+   ↓
+4. Loading: Spinner azul 🔄
+   ↓
+5. API Supabase: SELECT * FROM candidatos WHERE email ILIKE 'maria@example.com'
+   ↓
+6a. Se encontrado:
+    - Ícone: Alert vermelho ❌
+    - Mensagem: "Email já cadastrado por Maria Santos"
+    - Form error: Prevent submit
+
+6b. Se não encontrado:
+    - Ícone: Check verde ✅
+    - Mensagem: "Email válido e disponível!"
+    - Form: Pode prosseguir
+```
+
+### Estatísticas Task 3
+- **Tempo:** ~60min
+- **Arquivos criados:** 3 (service + hook + tests)
+- **Arquivos modificados:** 3 (DadosPessoaisStep + 2 barrels)
+- **Linhas de código:** ~1.130
+- **Funções:** 9 (service) + 1 hook + 7 auxiliares
+- **Tests:** 32 passing (100% coverage)
+- **Error types:** 4
+- **Debounce:** 800ms
+- **Verificações:** 2 (CPF + Email)
+
+### Decisões Técnicas Task 3
+
+#### Por que Debounce de 800ms?
+- **500ms** seria muito rápido → usuário ainda pode estar digitando
+- **800ms** dá tempo para digitar CPF completo (11 dígitos) ou email
+- Evita requisições desnecessárias ao Supabase (rate limiting)
+- Melhora performance e reduz custos de API
+
+#### Por que ilike para Email?
+- Email case-insensitive por padrão: `João@Example.COM` === `joao@example.com`
+- PostgreSQL `ilike` é mais eficiente que `LOWER(email) = LOWER(...)`
+- Supabase otimiza ilike automaticamente
+- Consistente com padrões RFC 5321 (SMTP)
+
+#### Por que Mock do Supabase?
+- Testes rápidos: Não dependem de banco real
+- Testes confiáveis: Não dependem de estado do banco
+- Testes isolados: Cada teste é independente
+- Coverage 100%: Todos os cenários cobertos (duplicado, único, erro)
+
+#### Por que Custom Error Class?
+- Códigos específicos para cada tipo de erro
+- Facilita tratamento de erro no componente
+- Type-safe com TypeScript
+- Consistente com ViaCEPError (Task 2)
+
+---
+
+## 📦 Features Implementadas (Task 1 + Task 2 + Task 3)
 
 ### ✅ Validação em Tempo Real
 - Zod schemas para todas as 5 seções
 - Validação on blur (perde foco)
 - Mensagens de erro customizadas em português
 - Validação final antes do submit
+- **Verificação de duplicatas CPF/Email** ✅ **Task 3**
+  - Debounce 800ms em tempo real
+  - Feedback visual (loading/success/error)
+  - Mensagem mostra nome do candidato existente
+  - Prevent submit se duplicata detectada
 
 ### ✅ Formatação Automática
 - **CPF:** 000.000.000-00 enquanto digita
@@ -300,7 +521,7 @@
 
 ## 🧪 Testes
 
-### CPF Validator - 35 Testes ✅ (100% Passando)
+### CPF Validator - 35 Testes ✅ (100% Passando) - Task 1
 
 ```bash
 npm run test:run -- cpfValidator.test.ts
@@ -317,20 +538,55 @@ Duration: 273ms
 - ✓ Formatação de CPF (5 casos)
 - ✓ Limpeza de CPF (4 casos)
 
+### Duplicate Check Service - 32 Testes ✅ (100% Passando) - Task 3
+
+```bash
+npm test -- duplicateCheckService.test.ts
+✓ 32 passed (32 total)
+Duration: 6ms
+```
+
+**Cobertura:**
+- ✓ cleanCPF (3 tests): Remoção de caracteres especiais
+- ✓ cleanEmail (3 tests): Normalização (trim + lowercase)
+- ✓ isValidCPFFormat (5 tests): Validação de formato CPF
+- ✓ isValidEmailFormat (6 tests): Validação de formato Email
+- ✓ checkCPFDuplicate (6 tests): Verificação no Supabase
+  - Formato inválido lança erro
+  - CPF duplicado retorna isDuplicate: true
+  - CPF único retorna isDuplicate: false
+  - Erro de banco lança DuplicateCheckError
+  - CPF limpo enviado para API
+  - Chamada correta ao Supabase
+- ✓ checkEmailDuplicate (7 tests): Verificação no Supabase
+  - Formato inválido lança erro
+  - Email duplicado retorna isDuplicate: true
+  - Email único retorna isDuplicate: false
+  - Erro de banco lança DuplicateCheckError
+  - Email lowercase enviado para API
+  - ilike usado (case-insensitive)
+  - Chamada correta ao Supabase
+- ✓ checkBothDuplicates (2 tests): Verificação paralela
+  - Ambos únicos retorna isDuplicate: false
+  - Ambos duplicados retorna isDuplicate: true
+
+**Total de Testes:** 67 (35 CPF + 32 Duplicate Check) ✅ **100% Passando**
+
 ---
 
 ## 📈 Estatísticas Consolidadas
 
-### Código (Task 1 + Task 2)
-- **Arquivos criados:** 14
-- **Arquivos modificados:** 6
-- **Linhas de código:** ~3.500
+### Código (Task 1 + Task 2 + Task 3)
+- **Arquivos criados:** 17
+- **Arquivos modificados:** 9
+- **Linhas de código:** ~4.630
 - **Componentes:** 6 (1 principal + 5 steps)
-- **Hooks:** 1 (useViaCEP)
-- **Services:** 1 (viaCepService)
+- **Hooks:** 2 (useViaCEP, useDuplicateCheck)
+- **Services:** 2 (viaCepService, duplicateCheckService)
 - **Schemas Zod:** 5 seções
-- **Types TypeScript:** 30+ interfaces/types
+- **Types TypeScript:** 35+ interfaces/types
 - **Campos do formulário:** 30+
+- **Testes:** 67 (35 CPF + 32 Duplicate Check) ✅
 
 ### Commits
 1. **Setup inicial** (8ffb21e): Infrastructure + CPF validator
@@ -349,27 +605,26 @@ Duration: 273ms
    - Hook useViaCEP com debounce
    - Integração no EnderecoStep
 
+4. **Task 3 completo** (e209a04): Duplicate Check (CPF/Email) com TDD
+   - 6 arquivos, 1.218 inserções
+   - Serviço duplicateCheckService
+   - Hook useDuplicateCheck
+   - 32 testes TDD (100% coverage)
+   - Integração visual no DadosPessoaisStep
+
 ### Tempo
 - **Setup inicial:** ~30min
 - **Task 1:** ~3h20min (CPF validator + Form validation)
 - **Task 2:** ~45min (ViaCEP integration)
-- **Documentação:** ~15min
-- **Total da sessão:** ~4h50min
+- **Task 3:** ~60min (Duplicate Check com TDD)
+- **Documentação:** ~20min
+- **Total da sessão:** ~5h55min
 
 ---
 
 ## 🎯 Próximos Passos
 
-### Task 3: Duplicate Check (CPF/Email) - PRÓXIMO
-- [ ] Criar serviço de verificação de duplicatas
-- [ ] Query no Supabase (tabela candidatos)
-- [ ] Hook `useDuplicateCheck` com debounce
-- [ ] Feedback visual nos campos CPF e Email
-- [ ] Prevenção de submit se houver duplicata
-- [ ] Testes TDD (mock Supabase)
-- **Estimativa:** ~50-70 minutos
-
-### Task 4: Supabase Auth Integration
+### Task 4: Supabase Auth Integration - PRÓXIMO
 - [ ] Criar serviço de autenticação
 - [ ] Sign up com email/senha
 - [ ] Criar usuário no auth.users
