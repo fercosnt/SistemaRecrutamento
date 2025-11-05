@@ -3,8 +3,8 @@
  *
  * Campos:
  * - Nome Completo
- * - CPF (com validação algorítmica)
- * - Email
+ * - CPF (com validação algorítmica + verificação de duplicata) ✅
+ * - Email (com verificação de duplicata) ✅
  * - Telefone
  * - Data de Nascimento
  * - Gênero
@@ -21,14 +21,71 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatCPF } from '../../utils'
+import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import type { CandidatoFormData } from '../../types'
 
 export function DadosPessoaisStep() {
   const {
     control,
     formState: { errors },
+    watch,
+    setError,
+    clearErrors,
   } = useFormContext<CandidatoFormData>()
+
+  // Observar campos CPF e Email para verificação de duplicata
+  const cpf = watch('dadosPessoais.cpf')
+  const email = watch('dadosPessoais.email')
+
+  // Verificação de duplicata de CPF
+  const {
+    isDuplicate: cpfDuplicate,
+    loading: cpfLoading,
+    error: cpfError,
+    result: cpfResult,
+  } = useDuplicateCheck(cpf || '', {
+    field: 'cpf',
+    debounceMs: 800,
+    onDuplicate: (result) => {
+      // Definir erro customizado no formulário
+      setError('dadosPessoais.cpf', {
+        type: 'duplicate',
+        message: `CPF já cadastrado por ${result.existingCandidate?.nome_completo}`,
+      })
+    },
+    onUnique: () => {
+      // Limpar erro de duplicata se existir
+      if (errors.dadosPessoais?.cpf?.type === 'duplicate') {
+        clearErrors('dadosPessoais.cpf')
+      }
+    },
+  })
+
+  // Verificação de duplicata de Email
+  const {
+    isDuplicate: emailDuplicate,
+    loading: emailLoading,
+    error: emailError,
+    result: emailResult,
+  } = useDuplicateCheck(email || '', {
+    field: 'email',
+    debounceMs: 800,
+    onDuplicate: (result) => {
+      // Definir erro customizado no formulário
+      setError('dadosPessoais.email', {
+        type: 'duplicate',
+        message: `Email já cadastrado por ${result.existingCandidate?.nome_completo}`,
+      })
+    },
+    onUnique: () => {
+      // Limpar erro de duplicata se existir
+      if (errors.dadosPessoais?.email?.type === 'duplicate') {
+        clearErrors('dadosPessoais.email')
+      }
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -57,7 +114,7 @@ export function DadosPessoaisStep() {
         )}
       />
 
-      {/* CPF */}
+      {/* CPF com verificação de duplicata */}
       <Controller
         name="dadosPessoais.cpf"
         control={control}
@@ -66,34 +123,69 @@ export function DadosPessoaisStep() {
             <Label htmlFor="cpf" className="text-white">
               CPF *
             </Label>
-            <Input
-              {...field}
-              id="cpf"
-              type="text"
-              placeholder="000.000.000-00"
-              maxLength={14}
-              onChange={(e) => {
-                // Formata CPF enquanto digita
-                const formatted = formatCPF(e.target.value)
-                field.onChange(formatted)
-              }}
-              className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-            />
+            <div className="relative">
+              <Input
+                {...field}
+                id="cpf"
+                type="text"
+                placeholder="000.000.000-00"
+                maxLength={14}
+                onChange={(e) => {
+                  // Formata CPF enquanto digita
+                  const formatted = formatCPF(e.target.value)
+                  field.onChange(formatted)
+                }}
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
+              />
+              {/* Loading/Success/Error Icons */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {cpfLoading && (
+                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                )}
+                {!cpfLoading && cpfResult && !cpfDuplicate && !cpfError && (
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                )}
+                {!cpfLoading && (cpfDuplicate || cpfError) && (
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                )}
+              </div>
+            </div>
+
+            {/* Mensagens de erro */}
             {errors.dadosPessoais?.cpf && (
-              <p className="text-red-400 text-sm">
+              <p className="text-red-400 text-sm flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
                 {errors.dadosPessoais.cpf.message}
               </p>
             )}
-            <p className="text-white/60 text-xs">
-              Seu CPF será validado e verificado
-            </p>
+            {cpfError && !errors.dadosPessoais?.cpf && (
+              <p className="text-red-400 text-sm flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" />
+                {cpfError.message}
+              </p>
+            )}
+
+            {/* Hint de sucesso */}
+            {cpfResult && !cpfDuplicate && !cpfError && !errors.dadosPessoais?.cpf && (
+              <p className="text-green-400 text-sm flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                CPF válido e disponível!
+              </p>
+            )}
+
+            {/* Hint padrão */}
+            {!cpfLoading && !cpfResult && !cpfError && (
+              <p className="text-white/60 text-xs">
+                Seu CPF será validado e verificado no banco de dados
+              </p>
+            )}
           </div>
         )}
       />
 
       {/* Email e Telefone (grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Email */}
+        {/* Email com verificação de duplicata */}
         <Controller
           name="dadosPessoais.email"
           control={control}
@@ -102,16 +194,54 @@ export function DadosPessoaisStep() {
               <Label htmlFor="email" className="text-white">
                 Email *
               </Label>
-              <Input
-                {...field}
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-              />
+              <div className="relative">
+                <Input
+                  {...field}
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
+                />
+                {/* Loading/Success/Error Icons */}
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {emailLoading && (
+                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                  )}
+                  {!emailLoading && emailResult && !emailDuplicate && !emailError && (
+                    <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  )}
+                  {!emailLoading && (emailDuplicate || emailError) && (
+                    <AlertCircle className="w-5 h-5 text-red-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* Mensagens de erro */}
               {errors.dadosPessoais?.email && (
-                <p className="text-red-400 text-sm">
+                <p className="text-red-400 text-sm flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
                   {errors.dadosPessoais.email.message}
+                </p>
+              )}
+              {emailError && !errors.dadosPessoais?.email && (
+                <p className="text-red-400 text-sm flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {emailError.message}
+                </p>
+              )}
+
+              {/* Hint de sucesso */}
+              {emailResult && !emailDuplicate && !emailError && !errors.dadosPessoais?.email && (
+                <p className="text-green-400 text-sm flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Email válido e disponível!
+                </p>
+              )}
+
+              {/* Hint padrão */}
+              {!emailLoading && !emailResult && !emailError && (
+                <p className="text-white/60 text-xs">
+                  Seu email será verificado no banco de dados
                 </p>
               )}
             </div>

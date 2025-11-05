@@ -5,6 +5,4 @@
  */
 
 export { useViaCEP } from './useViaCEP'
-
-// Export hooks conforme forem criados
-// export { useDuplicateCheck } from './useDuplicateCheck'
+export { useDuplicateCheck } from './useDuplicateCheck'
