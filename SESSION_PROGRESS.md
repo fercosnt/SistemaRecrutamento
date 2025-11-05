@@ -9,7 +9,7 @@
 
 ## ✅ Status Geral
 
-### Tasks Concluídas: 5/9 (55.6%)
+### Tasks Concluídas: 6/9 (66.7%)
 
 | Task | Status | Descrição | Progresso |
 |------|--------|-----------|-----------|
@@ -18,7 +18,7 @@
 | **Task 3** | ✅ **CONCLUÍDO** | Duplicate Check (CPF/Email) com TDD | **100%** |
 | **Task 4** | ✅ **CONCLUÍDO** | Supabase Auth Integration | **100%** |
 | **Task 5** | ✅ **CONCLUÍDO** | Multi-table Transaction | **100%** |
-| Task 6 | ⏳ Pendente | N8N Webhook Integration | 0% |
+| **Task 6** | ✅ **CONCLUÍDO** | N8N Webhook Integration | **100%** |
 | Task 7 | ⏳ Pendente | Visual Feedback & Loading | 0% |
 | Task 8 | ⏳ Pendente | Responsive UI | 0% |
 | Task 9 | ⏳ Pendente | E2E Tests (Playwright) | 0% |
@@ -872,9 +872,9 @@ git log --oneline
 
 ---
 
-**Última Atualização:** 05/11/2025 13:27 BRT
-**Próximo Goal:** Task 6 - N8N Webhook Integration (aguardando URLs)
-**Status:** ✅ Tasks 1-5 Concluídas (55.6%) | 118 testes passing
+**Última Atualização:** 05/11/2025 14:30 BRT
+**Próximo Goal:** Task 7 - Visual Feedback & Loading States
+**Status:** ✅ Tasks 1-6 Concluídas (66.7%) | 152 testes passing
 
 ---
 
@@ -1095,6 +1095,145 @@ git commit -m "feat: Task 5 - Multi-table Transaction com Rollback e TDD
 - 21 testes cobrindo sucesso, erro e rollback
 - Data mappers para converter form data → database inserts
 - Custom CadastroError com 6 códigos específicos
+- 100% test coverage"
+```
+
+---
+
+## 🎯 Task 6: N8N Webhook Integration - CONCLUÍDO ✅
+
+### Objetivo
+Criar serviço de integração com N8N Webhooks para enviar dados de candidatos para processamento automático em workflows:
+- Análise de formulário
+- Análise de testes (BigFive, DISC, Raven)
+- Análise de fit cultural
+- Análise de entrevistas
+- Emails automáticos
+- Lembretes automáticos (cron)
+- Integração com Notion
+
+### Arquivos Criados (2 arquivos, 815 linhas)
+
+#### 1. Serviço N8N
+- ✅ `src/features/cadastro/services/n8nService.ts` (370 linhas)
+  - **sendToN8N()**: Função principal para enviar payload para workflow específico
+  - **notifyCandidatoCriado()**: Wrapper conveniente para evento 'candidato.created'
+  - **N8N_WORKFLOWS**: Configuração de 9 workflows com URLs teste/produção
+  - **Custom N8NError Class**: 6 códigos de erro específicos
+  - **Retry Logic**: 3 tentativas automáticas para erros recuperáveis (500, 502, 503, 504)
+  - **Timeout**: 10 segundos usando AbortController
+  - **No Retry**: Erros de cliente (4xx) falham imediatamente
+
+#### 2. Testes TDD Completos
+- ✅ `src/features/cadastro/services/__tests__/n8nService.test.ts` (445 linhas)
+  - **34 testes passando (100% coverage)**
+  - Mock completo do fetch global
+  - Testes de configuração: 11 cenários
+  - Testes de sucesso: 5 cenários
+  - Testes de retry: 6 cenários
+  - Testes de timeout: 1 cenário
+  - Testes de error handling: 5 cenários
+  - Testes N8NError class: 6 cenários
+
+### Workflows Configurados (9 workflows)
+
+1. **analise-formulario**: Análise inicial do formulário de cadastro
+2. **analise-bigfive**: Análise de teste de personalidade BigFive
+3. **analise-disc**: Análise de teste comportamental DISC
+4. **analise-raven**: Análise de teste de inteligência Raven
+5. **analise-fit-cultural**: Análise de compatibilidade cultural
+6. **analise-entrevistas**: Análise de entrevistas gravadas
+7. **emails-automaticos**: Envio de emails automáticos
+8. **lembretes-cron**: Lembretes agendados (cron jobs)
+9. **integracao-notion**: Integração com banco de dados Notion
+
+Cada workflow tem:
+- URL de teste: `webhook-test/...`
+- URL de produção: `webhook/...`
+
+### Funcionalidades Implementadas
+
+#### ✅ Retry Logic Inteligente
+- **3 tentativas automáticas** para erros transientes
+- **1 segundo de delay** entre tentativas
+- **Retryable errors**: 500, 502, 503, 504
+- **Non-retryable errors**: 400, 401, 403, 404 (falham imediatamente)
+- **Logging**: Console logs para debug de cada tentativa
+
+#### ✅ Timeout com AbortController
+- **10 segundos** timeout por requisição
+- **AbortController** para cancelamento limpo
+- **Timeout total**: ~30 segundos (3 tentativas × 10 segundos)
+- **Graceful abort**: Sem memory leaks
+
+#### ✅ Modo Teste/Produção
+- **Teste**: URLs com `webhook-test` para desenvolvimento
+- **Produção**: URLs com `webhook` para ambiente real
+- **Default**: Produção (segurança primeiro)
+- **Explícito**: Mode parameter sempre opcional
+
+#### ✅ Error Handling Robusto
+6 códigos de erro específicos:
+- `NETWORK_ERROR`: Erro de rede/conexão após retries
+- `TIMEOUT_ERROR`: Tempo limite de 10s excedido
+- `HTTP_ERROR`: Erro HTTP não recuperável
+- `VALIDATION_ERROR`: Payload inválido (400)
+- `WORKFLOW_NOT_FOUND`: Workflow não existe (404)
+- `UNKNOWN_ERROR`: Erro genérico
+
+Cada erro inclui:
+- Mensagem descritiva
+- Código de erro
+- Nome do workflow
+- Número de tentativas
+- Status code HTTP (se aplicável)
+
+### Estatísticas Task 6
+- **Tempo:** ~2h30min
+- **Arquivos:** 2
+- **Linhas:** 815 (370 service + 445 tests)
+- **Testes:** 34 (100% passing)
+- **Coverage:** 100%
+- **Workflows:** 9 configurados
+- **Retry attempts:** 3
+- **Timeout:** 10 segundos
+- **Delay entre retries:** 1 segundo
+
+### Decisões Técnicas Task 6
+
+#### Por que 3 tentativas?
+- **1 tentativa**: Muito frágil, qualquer falha temporária mata o processo
+- **3 tentativas**: Equilibra confiabilidade e latência (~30s máximo)
+- **5+ tentativas**: Demora muito, usuário espera demais
+
+#### Por que 1 segundo de delay?
+- **Sem delay**: Pode sobrecarregar servidor N8N em falha
+- **1 segundo**: Dá tempo pro servidor se recuperar
+- **5+ segundos**: Usuário espera muito tempo
+
+#### Por que 10 segundos de timeout?
+- **5 segundos**: Muito curto para workflows complexos
+- **10 segundos**: Equilibra entre UX e timeout real
+- **30+ segundos**: Usuário espera demais
+
+#### Por que não fazer retry em 4xx?
+- **4xx = client error**: Problema está no nosso payload, não no servidor
+- **Retry seria inútil**: Mesmo erro vai acontecer sempre
+- **Fail fast**: Melhor falhar imediatamente e avisar o usuário
+
+### Git Commit
+```bash
+git add src/features/cadastro/services/n8nService.ts
+git add src/features/cadastro/services/__tests__/n8nService.test.ts
+git add src/features/cadastro/services/index.ts
+git commit -m "feat: Task 6 - N8N Webhook Integration com Retry e TDD
+
+- sendToN8N() com suporte para 9 workflows
+- Retry logic: 3 tentativas para erros 5xx
+- Timeout de 10 segundos com AbortController
+- Modo teste/produção configurável
+- 34 testes cobrindo todos os cenários
+- Custom N8NError com 6 códigos específicos
 - 100% test coverage"
 ```
 
