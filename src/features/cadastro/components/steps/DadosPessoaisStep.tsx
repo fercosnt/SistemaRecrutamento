@@ -24,6 +24,7 @@ import {
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { formatCPF } from '../../utils'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
+import { useFormToast } from '../../hooks/useFormToast'
 import type { CandidatoFormData } from '../../types'
 
 export function DadosPessoaisStep() {
@@ -38,6 +39,9 @@ export function DadosPessoaisStep() {
   // Observar campos CPF e Email para verificação de duplicata
   const cpf = watch('dadosPessoais.cpf')
   const email = watch('dadosPessoais.email')
+
+  // Toast hook
+  const toast = useFormToast()
 
   // Verificação de duplicata de CPF
   const {
@@ -54,12 +58,18 @@ export function DadosPessoaisStep() {
         type: 'duplicate',
         message: `CPF já cadastrado por ${result.existingCandidate?.nome_completo}`,
       })
+
+      // Mostrar toast de erro
+      toast.messages.cpfDuplicate(result.existingCandidate?.nome_completo || 'outro candidato')
     },
     onUnique: () => {
       // Limpar erro de duplicata se existir
       if (errors.dadosPessoais?.cpf?.type === 'duplicate') {
         clearErrors('dadosPessoais.cpf')
       }
+
+      // Mostrar toast de sucesso
+      toast.messages.cpfAvailable()
     },
   })
 
@@ -78,12 +88,18 @@ export function DadosPessoaisStep() {
         type: 'duplicate',
         message: `Email já cadastrado por ${result.existingCandidate?.nome_completo}`,
       })
+
+      // Mostrar toast de erro
+      toast.messages.emailDuplicate(result.existingCandidate?.nome_completo || 'outro candidato')
     },
     onUnique: () => {
       // Limpar erro de duplicata se existir
       if (errors.dadosPessoais?.email?.type === 'duplicate') {
         clearErrors('dadosPessoais.email')
       }
+
+      // Mostrar toast de sucesso
+      toast.messages.emailAvailable()
     },
   })
 

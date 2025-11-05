@@ -18,7 +18,6 @@
 import React, { useState } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 
 import {
@@ -33,9 +32,13 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/components/ui/utils'
 
-// Import dos componentes de cada step (criaremos a seguir)
+import { useFormToast } from '../hooks/useFormToast'
+import { LoadingProgress, type LoadingStage } from './LoadingProgress'
+
+// Import dos componentes de cada step
 import { DadosPessoaisStep } from './steps/DadosPessoaisStep'
 import { EnderecoStep } from './steps/EnderecoStep'
 import { DadosProfissionaisStep } from './steps/DadosProfissionaisStep'
@@ -122,6 +125,13 @@ export function CadastroMultiStepForm({
   const [completedSteps, setCompletedSteps] = useState<FormStep[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // State para controlar submissão multi-etapas
+  const [submissionStages, setSubmissionStages] = useState<LoadingStage[]>([])
+  const [showLoadingDialog, setShowLoadingDialog] = useState(false)
+
+  // Toast hook
+  const toast = useFormToast()
+
   // Configuração do React Hook Form
   const methods = useForm<CandidatoFormData>({
     resolver: zodResolver(candidatoFormSchema),
@@ -196,7 +206,7 @@ export function CadastroMultiStepForm({
         })
       })
 
-      toast.error('Por favor, corrija os erros antes de continuar')
+      toast.messages.validationError()
       return false
     }
 
@@ -268,13 +278,79 @@ export function CadastroMultiStepForm({
         return
       }
 
-      // Chamar função de submit fornecida pelo componente pai
-      await onSubmit(result.data)
+      // Inicializar stages do processo
+      const stages: LoadingStage[] = [
+        { id: 'auth', label: 'Criando conta de acesso...', status: 'pending' },
+        { id: 'candidatos', label: 'Salvando dados do candidato...', status: 'pending' },
+        { id: 'enderecos', label: 'Salvando endereço...', status: 'pending' },
+        {
+          id: 'dados_profissionais',
+          label: 'Salvando dados profissionais...',
+          status: 'pending',
+        },
+        { id: 'disponibilidade', label: 'Salvando disponibilidade...', status: 'pending' },
+        { id: 'autorizacoes', label: 'Salvando autorizações...', status: 'pending' },
+        { id: 'n8n', label: 'Notificando sistema...', status: 'pending' },
+      ]
+
+      setSubmissionStages(stages)
+      setShowLoadingDialog(true)
+
+      // Simular progresso enquanto onSubmit executa
+      // Nota: Em produção, o onSubmit deveria reportar progresso real via callbacks
+      const stageIds = stages.map((s) => s.id)
+      let currentStageIndex = 0
+
+      // Executar onSubmit com progresso simulado
+      const submitPromise = onSubmit(result.data)
+
+      // Simular progresso (atualizar cada 400ms)
+      const progressInterval = setInterval(() => {
+        if (currentStageIndex < stageIds.length) {
+          setSubmissionStages((prev) =>
+            prev.map((stage, idx) => ({
+              ...stage,
+              status:
+                idx < currentStageIndex ? 'success' : idx === currentStageIndex ? 'loading' : 'pending',
+            }))
+          )
+          currentStageIndex++
+        }
+      }, 400)
+
+      // Aguardar conclusão do submit
+      await submitPromise
+
+      // Limpar intervalo de progresso
+      clearInterval(progressInterval)
+
+      // Marcar todos os stages como sucesso
+      setSubmissionStages((prev) => prev.map((stage) => ({ ...stage, status: 'success' })))
 
       toast.success('Cadastro realizado com sucesso!')
+
+      // Fechar dialog após delay para mostrar sucesso completo
+      setTimeout(() => {
+        setShowLoadingDialog(false)
+      }, 1500)
     } catch (error) {
       console.error('Erro ao enviar formulário:', error)
+
+      // Marcar stage atual como erro
+      setSubmissionStages((prev) =>
+        prev.map((stage) =>
+          stage.status === 'loading'
+            ? { ...stage, status: 'error', errorMessage: 'Falha ao processar esta etapa' }
+            : stage
+        )
+      )
+
       toast.error('Erro ao realizar cadastro. Por favor, tente novamente.')
+
+      // Fechar dialog após delay
+      setTimeout(() => {
+        setShowLoadingDialog(false)
+      }, 3000)
     } finally {
       setIsSubmitting(false)
     }
@@ -395,15 +471,11 @@ export function CadastroMultiStepForm({
           <Button
             type="button"
             onClick={handleNext}
-            disabled={isSubmitting}
+            isLoading={isSubmitting}
+            loadingText={isLastStep ? 'Finalizando cadastro...' : 'Validando...'}
             className="bg-[#00109E] hover:bg-[#00109E]/90 text-white"
           >
-            {isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Enviando...
-              </span>
-            ) : isLastStep ? (
+            {isLastStep ? (
               <>
                 Finalizar Cadastro
                 <Check className="w-4 h-4 ml-2" />
@@ -416,6 +488,20 @@ export function CadastroMultiStepForm({
             )}
           </Button>
         </div>
+
+        {/* Loading Progress Dialog */}
+        <Dialog open={showLoadingDialog} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Processando cadastro</DialogTitle>
+            </DialogHeader>
+            <LoadingProgress
+              stages={submissionStages}
+              title="Criando seu cadastro..."
+              showProgressBar={true}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </FormProvider>
   )

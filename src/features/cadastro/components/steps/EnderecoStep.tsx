@@ -22,8 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useViaCEP } from '../../hooks/useViaCEP'
+import { useFormToast } from '../../hooks/useFormToast'
 import { mapViaCEPToForm } from '../../services/viaCepService'
 import type { CandidatoFormData } from '../../types'
 
@@ -68,6 +70,9 @@ export function EnderecoStep() {
   // Observar campo CEP
   const cep = watch('endereco.cep')
 
+  // Toast hook
+  const toast = useFormToast()
+
   // Integração com ViaCEP
   const { data: viaCepData, loading: cepLoading, error: cepError } = useViaCEP(
     cep || '',
@@ -81,10 +86,23 @@ export function EnderecoStep() {
         setValue('endereco.cidade', formData.cidade)
         setValue('endereco.estado', formData.estado)
 
+        // Mostrar toast de sucesso
+        toast.messages.cepFound()
+
         // Focar no campo número após preencher
         setTimeout(() => {
           document.getElementById('numero')?.focus()
         }, 100)
+      },
+      onError: (error) => {
+        // Mostrar toast de erro baseado no tipo
+        if (error.code === 'NOT_FOUND') {
+          toast.messages.cepNotFound()
+        } else if (error.code === 'INVALID_CEP') {
+          toast.messages.cepInvalid()
+        } else {
+          toast.messages.cepError()
+        }
       },
     }
   )
@@ -181,13 +199,17 @@ export function EnderecoStep() {
               <Label htmlFor="logradouro" className="text-white">
                 Logradouro *
               </Label>
-              <Input
-                {...field}
-                id="logradouro"
-                type="text"
-                placeholder="Rua, Avenida, etc"
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-              />
+              {cepLoading ? (
+                <Skeleton className="h-10 w-full bg-white/30" />
+              ) : (
+                <Input
+                  {...field}
+                  id="logradouro"
+                  type="text"
+                  placeholder="Rua, Avenida, etc"
+                  className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                />
+              )}
               {errors.endereco?.logradouro && (
                 <p className="text-red-400 text-sm">
                   {errors.endereco.logradouro.message}
@@ -260,13 +282,17 @@ export function EnderecoStep() {
               <Label htmlFor="bairro" className="text-white">
                 Bairro *
               </Label>
-              <Input
-                {...field}
-                id="bairro"
-                type="text"
-                placeholder="Seu bairro"
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-              />
+              {cepLoading ? (
+                <Skeleton className="h-10 w-full bg-white/30" />
+              ) : (
+                <Input
+                  {...field}
+                  id="bairro"
+                  type="text"
+                  placeholder="Seu bairro"
+                  className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                />
+              )}
               {errors.endereco?.bairro && (
                 <p className="text-red-400 text-sm">
                   {errors.endereco.bairro.message}
@@ -285,13 +311,17 @@ export function EnderecoStep() {
               <Label htmlFor="cidade" className="text-white">
                 Cidade *
               </Label>
-              <Input
-                {...field}
-                id="cidade"
-                type="text"
-                placeholder="Sua cidade"
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-              />
+              {cepLoading ? (
+                <Skeleton className="h-10 w-full bg-white/30" />
+              ) : (
+                <Input
+                  {...field}
+                  id="cidade"
+                  type="text"
+                  placeholder="Sua cidade"
+                  className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                />
+              )}
               {errors.endereco?.cidade && (
                 <p className="text-red-400 text-sm">
                   {errors.endereco.cidade.message}
@@ -310,21 +340,25 @@ export function EnderecoStep() {
               <Label htmlFor="estado" className="text-white">
                 Estado *
               </Label>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger
-                  id="estado"
-                  className="bg-white/20 border-white/30 text-white"
-                >
-                  <SelectValue placeholder="UF" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ESTADOS_BRASILEIROS.map((estado) => (
-                    <SelectItem key={estado} value={estado}>
-                      {estado}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {cepLoading ? (
+                <Skeleton className="h-10 w-full bg-white/30" />
+              ) : (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger
+                    id="estado"
+                    className="bg-white/20 border-white/30 text-white"
+                  >
+                    <SelectValue placeholder="UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESTADOS_BRASILEIROS.map((estado) => (
+                      <SelectItem key={estado} value={estado}>
+                        {estado}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               {errors.endereco?.estado && (
                 <p className="text-red-400 text-sm">
                   {errors.endereco.estado.message}
