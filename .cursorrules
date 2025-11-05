@@ -1,0 +1,102 @@
+# Regras do Projeto - Sistema de Recrutamento
+
+## Contexto do Projeto
+Este é um sistema de recrutamento com backend Supabase, focando em:
+- Autenticação de usuários (candidatos e RH)
+- Gestão de vagas e candidaturas
+- Testes psicométricos
+- Entrevistas e avaliações
+- Configurações do sistema
+
+## Arquitetura e Padrões
+
+### Database
+- Usar Supabase como backend principal
+- Esquema: PostgreSQL
+- Todas as tabelas devem ter RLS (Row Level Security) habilitado
+- Seguir nomenclatura snake_case para tabelas e colunas
+- Usar UUIDs para IDs primários
+- Implementar soft deletes quando apropriado
+
+### Segurança
+- Sempre implementar RLS policies antes de considerar funcionalidade completa
+- Nunca retornar dados sensíveis desnecessariamente
+- Validar todas as entradas do usuário
+- Usar Auth do Supabase para autenticação
+- Logs de auditoria para operações críticas
+
+### Nomenclatura
+- Tabelas: snake_case plural (ex: `candidatos`, `vagas`, `candidaturas`)
+- Colunas: snake_case singular (ex: `id`, `created_at`, `nome_completo`)
+- Constraints: `uq_tabela_campo` (unique), `fk_tabela_tabela_ref` (foreign key)
+- Índices: `idx_tabela_campo`
+
+### Estrutura de Arquivos SQL
+- Prefixos numéricos para ordem de execução: `01-`, `02-`, etc.
+- Agrupar por funcionalidade: setup, tabelas, views, functions, rls
+- Documentar alterações em arquivos separados
+
+### Documentação
+- Manter PRDs atualizados em `/prd/`
+- Documentar decisões em `tasks/SECURITY_DECISIONS.md`
+- Notas de implementação em `tasks/IMPLEMENTATION_NOTES.md`
+- Checklist de testes em `tasks/TESTING_CHECKLIST.md`
+
+### MCP Tools Disponíveis
+Este projeto tem acesso a três MCPs:
+
+1. **DBExpert** - Para design e criação de schemas de banco de dados
+   - Criar novos projetos de design
+   - Exportar schemas em múltiplos formatos
+   - Refinar designs existentes
+
+2. **Supabase** - Para operações no banco de dados
+   - Executar queries SQL
+   - Gerenciar migrations
+   - Listar tabelas e estrutura
+   - Obter logs e advisors
+   - Gerenciar Edge Functions
+   - Trabalhar com branches de desenvolvimento
+
+3. **n8n-mcp** - Para automação de workflows
+   - Integrar com n8n para automações
+   - Gerenciar workflows
+   - **IMPORTANTE**: Sempre seguir as instruções em `@n8n_instructions` ao usar o MCP do n8n
+
+### n8n-MCP Usage Rules
+Ao utilizar o MCP do n8n, siga ESTAS regras críticas:
+
+1. **Execução Silenciosa**: Execute ferramentas sem comentários. Responda apenas após todas completarem
+2. **Execução Paralela**: Execute operações independentes simultaneamente para performance máxima
+3. **Templates Primeiro**: SEMPRE verifique templates antes de construir do zero (2.709 disponíveis)
+4. **Validação Multi-Nível**: Use validate_node_minimal → validate_node_operation → validate_workflow
+5. **NUNCA Confie em Defaults**: Valores padrão causam falhas em runtime. Configure TODOS os parâmetros explicitamente
+
+**Fluxo de Trabalho**:
+- Fase 1: Buscar templates (search_templates_by_metadata, get_templates_for_task)
+- Fase 2: Descoberta de nodes (search_nodes, list_nodes) se necessário
+- Fase 3: Configuração (get_node_essentials, get_node_documentation)
+- Fase 4: Validação (validate_node_minimal, validate_node_operation)
+- Fase 5: Construção (construir workflow com configurações validadas)
+- Fase 6: Validação Final (validate_workflow, validate_workflow_connections)
+- Fase 7: Deploy (n8n_create_workflow, n8n_trigger_webhook_workflow)
+
+**Atribuição Obrigatória**: Ao usar templates, sempre atribuir: "Baseado em template por **[author.name]** (@[username]). Ver em: [url]"
+
+**Sintaxe de Conexão**: addConnection requer 4 parâmetros separados (source, target, sourcePort, targetPort)
+**IF Node**: Use parâmetro `branch: "true"` ou `branch: "false"` para rotear corretamente
+
+Referência completa: `MCP/n8n_instructions`
+
+### Comandos Úteis
+- Sempre listar MCPs disponíveis quando solicitado
+- Usar DBExpert para design inicial de novas features
+- Aplicar mudanças via Supabase migrations
+- Validar estrutura com advisors de segurança e performance
+- Para n8n workflows: Sempre consultar templates primeiro antes de construir
+
+## Comunicação
+- Sempre responder em Português
+- Explicar decisões de design quando relevante
+- Manter comunicação clara e profissional
+
