@@ -235,7 +235,7 @@ function RootLayout() {
   return (
     <>
       <Outlet />
-      <DevNavigationMenu />
+      {import.meta.env.DEV && <DevNavigationMenu />}
       <Toaster position="top-right" />
     </>
   );
