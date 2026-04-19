@@ -26,9 +26,12 @@ import type {
   UpdateCandidaturaStatusRequest,
   UpdateCandidaturaStatusResponse,
   N8NNovaCandidaturaPayload,
+  N8NStatusUpdatePayload,
   N8NWebhookResponse,
   StatusCandidatura,
+  EtapaProcesso,
 } from '../types/vagasTypes'
+import { getProximaEtapa } from '../types/vagasTypes'
 
 /**
  * Custom Error para operações de candidaturas
@@ -57,6 +60,83 @@ export class CandidaturasServiceError extends Error {
 const N8N_WEBHOOK_URL = 'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
 
 /**
+ * URL do webhook N8N para mudança de status
+ */
+const N8N_STATUS_UPDATE_WEBHOOK_URL = 'https://fernandocosta.app.n8n.cloud/webhook/status-candidatura'
+
+/**
+ * Configurações do webhook
+ */
+const WEBHOOK_CONFIG = {
+  timeout: 10000, // 10 segundos
+  maxRetries: 3,
+  retryDelayBase: 1000, // 1 segundo (será exponencial: 1s, 2s, 4s)
+} as const
+
+/**
+ * Logger estruturado para webhook
+ */
+const webhookLogger = {
+  info: (message: string, context?: Record<string, unknown>) => {
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        timestamp: new Date().toISOString(),
+        service: 'n8n-webhook',
+        message,
+        ...context,
+      })
+    )
+  },
+  warn: (message: string, context?: Record<string, unknown>) => {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        timestamp: new Date().toISOString(),
+        service: 'n8n-webhook',
+        message,
+        ...context,
+      })
+    )
+  },
+  error: (message: string, error?: unknown, context?: Record<string, unknown>) => {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        timestamp: new Date().toISOString(),
+        service: 'n8n-webhook',
+        message,
+        error: error instanceof Error ? { name: error.name, message: error.message } : error,
+        ...context,
+      })
+    )
+  },
+}
+
+/**
+ * Sleep helper para retry delays
+ */
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Verifica se erro é retryable (network errors, 5xx)
+ */
+function isRetryableError(error: unknown, statusCode?: number): boolean {
+  // Retry em erros de rede (sem status code)
+  if (!statusCode && error instanceof Error) {
+    return true
+  }
+
+  // Retry apenas em 5xx (server errors)
+  if (statusCode && statusCode >= 500 && statusCode < 600) {
+    return true
+  }
+
+  // Não retry em 4xx (client errors - bad request, not found, etc)
+  return false
+}
+
+/**
  * Verifica se candidatura é duplicada
  *
  * @param candidatoId - UUID do candidato
@@ -78,13 +158,13 @@ export async function checkDuplicateApplication(
       )
     }
 
-    // Buscar candidatura existente
+    // Buscar candidatura existente (ativa ou deletada)
+    // Nota: Unique constraint garante apenas 1 candidatura por (candidato, vaga)
     const { data, error } = await supabase
       .from('candidaturas')
-      .select('id, data_aplicacao')
+      .select('id, created_at, deleted_at')
       .eq('candidato_id', candidatoId)
       .eq('vaga_id', vagaId)
-      .eq('deleted_at', null)
       .maybeSingle()
 
     if (error) {
@@ -95,14 +175,16 @@ export async function checkDuplicateApplication(
       )
     }
 
-    if (data) {
+    // Verificar se encontrou candidatura E se ela não foi deletada
+    if (data && !data.deleted_at) {
       return {
         isDuplicate: true,
         candidaturaId: data.id,
-        dataAplicacao: data.data_aplicacao,
+        dataAplicacao: data.created_at,
       }
     }
 
+    // Não encontrou ou está deletada (pode aplicar novamente)
     return {
       isDuplicate: false,
     }
@@ -120,49 +202,281 @@ export async function checkDuplicateApplication(
 }
 
 /**
- * Envia payload para webhook N8N
+ * Envia payload para webhook N8N com retry logic e timeout
+ *
+ * Features:
+ * - Timeout de 10 segundos por tentativa
+ * - 3 tentativas com exponential backoff (1s, 2s, 4s)
+ * - Retry apenas em erros de rede e 5xx
+ * - Logging estruturado com contexto rico
  *
  * @param payload - Dados da candidatura
  * @returns Response do webhook
  *
- * @throws {CandidaturasServiceError} Se webhook falhar
+ * @throws {CandidaturasServiceError} Se webhook falhar após todas as tentativas
  */
 async function triggerN8NWebhook(
   payload: N8NNovaCandidaturaPayload
 ): Promise<N8NWebhookResponse> {
-  try {
-    const response = await fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+  const startTime = Date.now()
+  let lastError: unknown
 
-    if (!response.ok) {
-      throw new CandidaturasServiceError(
-        `Webhook retornou status ${response.status}`,
-        'WEBHOOK_ERROR'
-      )
+  // Retry loop com exponential backoff
+  for (let attempt = 1; attempt <= WEBHOOK_CONFIG.maxRetries; attempt++) {
+    try {
+      webhookLogger.info('Tentando enviar webhook', {
+        attempt,
+        maxRetries: WEBHOOK_CONFIG.maxRetries,
+        candidaturaId: payload.data.candidatura.id,
+      })
+
+      // Configurar AbortController para timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_CONFIG.timeout)
+
+      try {
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        // Verificar status code
+        if (!response.ok) {
+          const errorMessage = `Webhook retornou status ${response.status}`
+
+          // Se não é retryable (4xx), falha imediatamente
+          if (!isRetryableError(null, response.status)) {
+            webhookLogger.error(errorMessage, null, {
+              statusCode: response.status,
+              attempt,
+              candidaturaId: payload.data.candidatura.id,
+            })
+
+            throw new CandidaturasServiceError(errorMessage, 'WEBHOOK_ERROR')
+          }
+
+          // É retryable (5xx), continua para próxima tentativa
+          throw new Error(errorMessage)
+        }
+
+        // Sucesso!
+        const data: N8NWebhookResponse = await response.json()
+        const duration = Date.now() - startTime
+
+        webhookLogger.info('Webhook enviado com sucesso', {
+          attempt,
+          duration,
+          candidaturaId: payload.data.candidatura.id,
+        })
+
+        return data
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+
+        // Verificar se foi timeout (AbortError)
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          webhookLogger.warn('Webhook timeout', {
+            attempt,
+            timeout: WEBHOOK_CONFIG.timeout,
+            candidaturaId: payload.data.candidatura.id,
+          })
+          throw new Error(`Webhook timeout após ${WEBHOOK_CONFIG.timeout}ms`)
+        }
+
+        throw fetchError
+      }
+    } catch (error) {
+      lastError = error
+
+      // Verificar se deve fazer retry
+      const shouldRetry =
+        attempt < WEBHOOK_CONFIG.maxRetries &&
+        isRetryableError(error, error instanceof CandidaturasServiceError ? undefined : 500)
+
+      if (shouldRetry) {
+        // Calcular delay exponencial: 1s, 2s, 4s
+        const delay = WEBHOOK_CONFIG.retryDelayBase * Math.pow(2, attempt - 1)
+
+        webhookLogger.warn('Webhook falhou, tentando novamente', {
+          attempt,
+          nextAttempt: attempt + 1,
+          delayMs: delay,
+          error: error instanceof Error ? error.message : String(error),
+          candidaturaId: payload.data.candidatura.id,
+        })
+
+        await sleep(delay)
+        continue // Próxima tentativa
+      }
+
+      // Não retry ou última tentativa - propagar erro
+      break
     }
-
-    const data: N8NWebhookResponse = await response.json()
-    return data
-  } catch (error) {
-    // Log erro mas não falha a candidatura
-    console.error('Erro ao chamar webhook N8N:', error)
-
-    // Re-throw apenas se for nosso erro customizado
-    if (error instanceof CandidaturasServiceError) {
-      throw error
-    }
-
-    throw new CandidaturasServiceError(
-      'Erro ao enviar webhook N8N',
-      'WEBHOOK_ERROR',
-      error
-    )
   }
+
+  // Se chegou aqui, todas as tentativas falharam
+  const duration = Date.now() - startTime
+
+  webhookLogger.error('Webhook falhou após todas as tentativas', lastError, {
+    attempts: WEBHOOK_CONFIG.maxRetries,
+    duration,
+    candidaturaId: payload.data.candidatura.id,
+  })
+
+  // Re-throw se for erro customizado
+  if (lastError instanceof CandidaturasServiceError) {
+    throw lastError
+  }
+
+  throw new CandidaturasServiceError(
+    `Erro ao enviar webhook N8N após ${WEBHOOK_CONFIG.maxRetries} tentativas`,
+    'WEBHOOK_ERROR',
+    lastError
+  )
+}
+
+/**
+ * Trigger webhook N8N para mudança de status
+ * Usa mesmo retry logic e timeout do webhook de nova candidatura
+ *
+ * @param payload - Dados da mudança de status
+ * @returns Response do webhook N8N
+ *
+ * @throws {CandidaturasServiceError} Se webhook falhar após todas tentativas
+ */
+async function triggerStatusUpdateWebhook(
+  payload: N8NStatusUpdatePayload
+): Promise<N8NWebhookResponse> {
+  const startTime = Date.now()
+  let lastError: unknown
+
+  // Retry loop com exponential backoff
+  for (let attempt = 1; attempt <= WEBHOOK_CONFIG.maxRetries; attempt++) {
+    try {
+      webhookLogger.info('Tentando enviar webhook de status update', {
+        attempt,
+        maxRetries: WEBHOOK_CONFIG.maxRetries,
+        candidaturaId: payload.data.candidatura.id,
+        statusAnterior: payload.data.candidatura.status_anterior,
+        statusNovo: payload.data.candidatura.status_novo,
+      })
+
+      // Configurar AbortController para timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_CONFIG.timeout)
+
+      try {
+        const response = await fetch(N8N_STATUS_UPDATE_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        // Verificar status code
+        if (!response.ok) {
+          const errorMessage = `Webhook status update retornou status ${response.status}`
+
+          // Se não é retryable (4xx), falha imediatamente
+          if (!isRetryableError(null, response.status)) {
+            webhookLogger.error(errorMessage, null, {
+              statusCode: response.status,
+              attempt,
+              candidaturaId: payload.data.candidatura.id,
+            })
+
+            throw new CandidaturasServiceError(errorMessage, 'WEBHOOK_ERROR')
+          }
+
+          // É retryable (5xx), continua para próxima tentativa
+          throw new Error(errorMessage)
+        }
+
+        // Sucesso!
+        const data: N8NWebhookResponse = await response.json()
+        const duration = Date.now() - startTime
+
+        webhookLogger.info('Webhook status update enviado com sucesso', {
+          attempt,
+          duration,
+          candidaturaId: payload.data.candidatura.id,
+          emailSent: data.email_sent,
+        })
+
+        return data
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+
+        // Verificar se foi timeout (AbortError)
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          webhookLogger.warn('Webhook status update timeout', {
+            attempt,
+            timeout: WEBHOOK_CONFIG.timeout,
+            candidaturaId: payload.data.candidatura.id,
+          })
+          throw new Error(`Webhook timeout após ${WEBHOOK_CONFIG.timeout}ms`)
+        }
+
+        throw fetchError
+      }
+    } catch (error) {
+      lastError = error
+
+      // Verificar se deve fazer retry
+      const shouldRetry =
+        attempt < WEBHOOK_CONFIG.maxRetries &&
+        isRetryableError(error, error instanceof CandidaturasServiceError ? undefined : 500)
+
+      if (shouldRetry) {
+        // Calcular delay exponencial: 1s, 2s, 4s
+        const delay = WEBHOOK_CONFIG.retryDelayBase * Math.pow(2, attempt - 1)
+
+        webhookLogger.warn('Webhook status update falhou, tentando novamente', {
+          attempt,
+          nextAttempt: attempt + 1,
+          delayMs: delay,
+          error: error instanceof Error ? error.message : String(error),
+          candidaturaId: payload.data.candidatura.id,
+        })
+
+        await sleep(delay)
+        continue // Próxima tentativa
+      }
+
+      // Não retry ou última tentativa - propagar erro
+      break
+    }
+  }
+
+  // Se chegou aqui, todas as tentativas falharam
+  const duration = Date.now() - startTime
+
+  webhookLogger.error('Webhook status update falhou após todas as tentativas', lastError, {
+    attempts: WEBHOOK_CONFIG.maxRetries,
+    duration,
+    candidaturaId: payload.data.candidatura.id,
+  })
+
+  // Re-throw se for erro customizado
+  if (lastError instanceof CandidaturasServiceError) {
+    throw lastError
+  }
+
+  throw new CandidaturasServiceError(
+    `Erro ao enviar webhook N8N status update após ${WEBHOOK_CONFIG.maxRetries} tentativas`,
+    'WEBHOOK_ERROR',
+    lastError
+  )
 }
 
 /**
@@ -207,10 +521,9 @@ export async function createCandidatura(
     const candidaturaData: CandidaturaInsert = {
       candidato_id,
       vaga_id,
-      status_candidatura: (status_candidatura ?? 'aplicado') as StatusCandidatura,
+      status: (status_candidatura ?? 'aguardando_resposta') as StatusCandidatura,
       etapa_atual: etapa_atual ?? 'triagem',
-      data_aplicacao: new Date().toISOString(),
-      progresso_processo: 14, // 14% (primeira etapa: triagem)
+      created_at: new Date().toISOString(),
     }
 
     // 3. Criar candidatura
@@ -248,12 +561,12 @@ export async function createCandidatura(
     const [candidatoResult, vagaResult] = await Promise.all([
       supabase
         .from('candidatos')
-        .select('id, nome_completo, email, telefone')
+        .select('id, nome_completo, email, celular')
         .eq('id', candidato_id)
         .single(),
       supabase
         .from('vagas')
-        .select('id, titulo, localizacao, departamento')
+        .select('id, titulo, cidade, estado, departamento')
         .eq('id', vaga_id)
         .single(),
     ])
@@ -277,9 +590,9 @@ export async function createCandidatura(
               id: candidatura.id,
               candidato_id: candidatura.candidato_id,
               vaga_id: candidatura.vaga_id,
-              status_candidatura: candidatura.status_candidatura as StatusCandidatura,
+              status_candidatura: candidatura.status as StatusCandidatura,
               etapa_atual: candidatura.etapa_atual,
-              data_aplicacao: candidatura.data_aplicacao,
+              data_aplicacao: candidatura.created_at,
             },
             candidato: candidatoResult.data,
             vaga: vagaResult.data,
@@ -357,19 +670,20 @@ export async function listCandidaturas(
         vaga:vagas (
           id,
           titulo,
-          localizacao,
+          cidade,
+          estado,
           departamento,
-          ativa
+          status
         )
       `,
         { count: 'exact' }
       )
       .eq('candidato_id', candidatoId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
 
     // Aplicar filtros
     if (filters?.status) {
-      query = query.eq('status_candidatura', filters.status)
+      query = query.eq('status', filters.status)
     }
 
     if (filters?.etapa) {
@@ -381,24 +695,24 @@ export async function listCandidaturas(
     }
 
     if (filters?.dataInicio) {
-      query = query.gte('data_aplicacao', filters.dataInicio)
+      query = query.gte('created_at', filters.dataInicio)
     }
 
     if (filters?.dataFim) {
-      query = query.lte('data_aplicacao', filters.dataFim)
+      query = query.lte('created_at', filters.dataFim)
     }
 
     // Aplicar ordenação
     switch (orderBy) {
       case 'mais_recentes':
-        query = query.order('data_aplicacao', { ascending: false })
+        query = query.order('created_at', { ascending: false })
         break
       case 'status':
-        query = query.order('status_candidatura', { ascending: true })
+        query = query.order('status', { ascending: true })
         break
       case 'vaga':
-        // Ordena pelo título da vaga (via join)
-        query = query.order('vaga.titulo', { ascending: true })
+        // Ordena por data de candidatura (não podemos ordenar por campo relacionado no Supabase)
+        query = query.order('created_at', { ascending: false })
         break
     }
 
@@ -473,39 +787,147 @@ export async function updateCandidaturaStatus(
       )
     }
 
+    // Buscar candidatura atual para pegar status anterior
+    const { data: candidaturaAtual, error: fetchError } = await supabase
+      .from('candidaturas')
+      .select('*, candidato:candidatos(*), vaga:vagas(*)')
+      .eq('id', candidaturaId)
+      .single()
+
+    if (fetchError || !candidaturaAtual) {
+      throw new CandidaturasServiceError(
+        'Candidatura não encontrada',
+        'NOT_FOUND',
+        fetchError
+      )
+    }
+
+    const statusAnterior = candidaturaAtual.status as StatusCandidatura
+    const etapaAtualAnterior = candidaturaAtual.etapa_atual as EtapaProcesso
+
+    // AUTO-AVANÇAR ETAPA quando aprovar para próxima etapa
+    let novoStatus = status_candidatura
+    let novaEtapa = etapa_atual || etapaAtualAnterior
+
+    if (status_candidatura === 'aprovado_proxima') {
+      // Calcular próxima etapa
+      const proximaEtapa = getProximaEtapa(etapaAtualAnterior)
+
+      if (proximaEtapa) {
+        // Avançar para próxima etapa e mudar status para aguardando_resposta
+        novaEtapa = proximaEtapa
+        novoStatus = 'aguardando_resposta'
+
+        console.log('🚀 Auto-avançando etapa:', {
+          candidaturaId,
+          etapaAnterior: etapaAtualAnterior,
+          proximaEtapa: novaEtapa,
+          statusAnterior: status_candidatura,
+          statusNovo: novoStatus,
+        })
+      } else {
+        // Chegou na última etapa (aprovado ou rejeitado)
+        console.log('⚠️ Candidato já está na última etapa:', {
+          candidaturaId,
+          etapaAtual: etapaAtualAnterior,
+        })
+      }
+    }
+
     // Preparar dados para update
     const updateData: Partial<CandidaturaRow> = {
-      status_candidatura,
-      ...(etapa_atual && { etapa_atual }),
-      ...(motivo_rejeicao && { motivo_rejeicao }),
+      status: novoStatus,
+      etapa_atual: novaEtapa,
+      ...(motivo_rejeicao && { feedback_rejeicao: motivo_rejeicao }),
       updated_at: new Date().toISOString(),
     }
 
-    // Executar update
-    const { data, error } = await supabase
+    // Executar update SEM select (para evitar erro 400)
+    const { error: updateError } = await supabase
       .from('candidaturas')
       .update(updateData)
       .eq('id', candidaturaId)
-      .select()
+
+    if (updateError) {
+      console.error('❌ Erro no update da candidatura:', {
+        candidaturaId,
+        updateData,
+        error: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+        code: updateError.code,
+      })
+      throw new CandidaturasServiceError(
+        `Erro ao atualizar candidatura: ${updateError.message}`,
+        'DATABASE_ERROR',
+        updateError
+      )
+    }
+
+    // Buscar candidatura atualizada em uma query separada
+    const { data, error: fetchErrorAfterUpdate } = await supabase
+      .from('candidaturas')
+      .select('*')
+      .eq('id', candidaturaId)
       .single()
 
-    if (error) {
+    if (fetchErrorAfterUpdate || !data) {
+      console.error('❌ Erro ao buscar candidatura após update:', fetchErrorAfterUpdate)
       throw new CandidaturasServiceError(
-        `Erro ao atualizar candidatura: ${error.message}`,
-        'DATABASE_ERROR',
-        error
+        'Candidatura não encontrada após update',
+        'NOT_FOUND',
+        fetchErrorAfterUpdate
       )
     }
 
-    if (!data) {
-      throw new CandidaturasServiceError(
-        'Candidatura não encontrada',
-        'NOT_FOUND'
-      )
-    }
+    console.log('✅ Candidatura atualizada com sucesso:', {
+      id: data.id,
+      status: data.status,
+      etapa_atual: data.etapa_atual,
+    })
 
-    // TODO: Implementar notificação por email se notificar_candidato === true
-    // Isso pode ser feito via N8N webhook ou Supabase trigger
+    // Trigger webhook N8N para notificação de status (async, não bloqueia)
+    if (notificar_candidato && candidaturaAtual.candidato && candidaturaAtual.vaga) {
+      const candidato = candidaturaAtual.candidato as any
+      const vaga = candidaturaAtual.vaga as any
+
+      const webhookPayload: N8NStatusUpdatePayload = {
+        event: 'candidatura.status_updated',
+        timestamp: new Date().toISOString(),
+        data: {
+          candidatura: {
+            id: data.id,
+            candidato_id: data.candidato_id,
+            vaga_id: data.vaga_id,
+            status_anterior: statusAnterior,
+            status_novo: novoStatus, // ✅ Usar novoStatus (pode ter sido alterado para aguardando_resposta)
+            etapa_atual: data.etapa_atual,
+            ...(motivo_rejeicao && { motivo_rejeicao }),
+          },
+          candidato: {
+            id: candidato.id,
+            nome_completo: candidato.nome_completo,
+            email: candidato.email,
+            telefone: candidato.celular,
+          },
+          vaga: {
+            id: vaga.id,
+            titulo: vaga.titulo,
+            localizacao: [vaga.cidade, vaga.estado].filter(Boolean).join(', ') || null,
+            departamento: vaga.departamento,
+          },
+        },
+      }
+
+      // Fire and forget (não bloqueia resposta)
+      triggerStatusUpdateWebhook(webhookPayload).catch((error) => {
+        webhookLogger.error('Erro ao enviar webhook de status update (não bloqueante)', error, {
+          candidaturaId: data.id,
+          statusAnterior,
+          statusNovo: novoStatus, // ✅ Usar novoStatus
+        })
+      })
+    }
 
     return {
       success: true,
@@ -523,5 +945,255 @@ export async function updateCandidaturaStatus(
       success: false,
       error: 'Erro inesperado ao atualizar candidatura',
     }
+  }
+}
+
+/**
+ * Lista TODAS as candidaturas (HR apenas) - sem filtro de vaga
+ * Usado na página CandidatosRHPage para ver todos os candidatos
+ *
+ * @param filters - Filtros opcionais
+ * @param orderBy - Ordenação
+ * @param pagination - Paginação
+ * @returns Lista paginada de candidaturas com dados do candidato E vaga
+ *
+ * @throws {CandidaturasServiceError} Se houver erro na listagem
+ *
+ * @example
+ * const response = await listAllCandidaturas({
+ *   status: 'em_analise'
+ * })
+ */
+export async function listAllCandidaturas(
+  filters?: CandidaturasFilters,
+  orderBy: CandidaturasOrderBy = 'mais_recentes',
+  pagination: PaginationParams = { page: 1, limit: 50 }
+): Promise<ListCandidaturasResponse> {
+  try {
+    // Construir query base com join de candidatos, vagas E scores
+    let query = supabase
+      .from('candidaturas')
+      .select(`
+        *,
+        candidato:candidatos(*),
+        vaga:vagas(*),
+        scores_bigfive!left(
+          score_openness,
+          score_conscientiousness,
+          score_extraversion,
+          score_agreeableness,
+          score_neuroticism
+        ),
+        scores_disc!left(
+          perfil_primario,
+          perfil_secundario
+        ),
+        scores_raven!left(
+          percentil,
+          classificacao
+        )
+      `, { count: 'exact' })
+      .is('deleted_at', null)
+
+    // Aplicar filtros
+    if (filters?.status) {
+      query = query.eq('status', filters.status)
+    }
+
+    if (filters?.etapa) {
+      query = query.eq('etapa_atual', filters.etapa)
+    }
+
+    if (filters?.vagaId) {
+      query = query.eq('vaga_id', filters.vagaId)
+    }
+
+    if (filters?.dataInicio) {
+      query = query.gte('created_at', filters.dataInicio)
+    }
+
+    if (filters?.dataFim) {
+      query = query.lte('created_at', filters.dataFim)
+    }
+
+    // Aplicar ordenação
+    switch (orderBy) {
+      case 'mais_recentes':
+        query = query.order('created_at', { ascending: false })
+        break
+      case 'status':
+        query = query.order('status', { ascending: true })
+        break
+      case 'vaga':
+        // Ordena por data de candidatura
+        query = query.order('created_at', { ascending: false })
+        break
+    }
+
+    // Aplicar paginação
+    const from = (pagination.page - 1) * pagination.limit
+    const to = from + pagination.limit - 1
+    query = query.range(from, to)
+
+    // Executar query
+    const { data, error, count } = await query
+
+    if (error) {
+      throw new CandidaturasServiceError(
+        `Erro ao listar candidaturas: ${error.message}`,
+        'DATABASE_ERROR',
+        error
+      )
+    }
+
+    const total = count ?? 0
+    const totalPages = Math.ceil(total / pagination.limit)
+
+    return {
+      success: true,
+      data: (data ?? []) as Candidatura[],
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages,
+        hasMore: pagination.page < totalPages,
+      },
+    }
+  } catch (error) {
+    if (error instanceof CandidaturasServiceError) {
+      throw error
+    }
+
+    throw new CandidaturasServiceError(
+      'Erro inesperado ao listar candidaturas',
+      'NETWORK_ERROR',
+      error
+    )
+  }
+}
+
+/**
+ * Lista candidaturas de uma vaga específica (HR apenas)
+ *
+ * @param vagaId - UUID da vaga
+ * @param filters - Filtros opcionais
+ * @param orderBy - Ordenação
+ * @param pagination - Paginação
+ * @returns Lista paginada de candidaturas com dados do candidato
+ *
+ * @throws {CandidaturasServiceError} Se houver erro na listagem
+ *
+ * @example
+ * const response = await listCandidaturasByVaga('vaga-uuid', {
+ *   status: 'em_analise'
+ * })
+ */
+export async function listCandidaturasByVaga(
+  vagaId: string,
+  filters?: CandidaturasFilters,
+  orderBy: CandidaturasOrderBy = 'mais_recentes',
+  pagination: PaginationParams = { page: 1, limit: 50 }
+): Promise<ListCandidaturasResponse> {
+  try {
+    // Validar inputs
+    if (!vagaId) {
+      throw new CandidaturasServiceError('vagaId é obrigatório', 'INVALID_INPUT')
+    }
+
+    // Construir query base com join de candidatos
+    let query = supabase
+      .from('candidaturas')
+      .select(
+        `
+        *,
+        candidato:candidatos (
+          id,
+          nome_completo,
+          email,
+          celular,
+          data_nascimento,
+          cpf,
+          cidade,
+          estado,
+          created_at
+        )
+      `,
+        { count: 'exact' }
+      )
+      .eq('vaga_id', vagaId)
+      .is('deleted_at', null)
+
+    // Aplicar filtros
+    if (filters?.status) {
+      query = query.eq('status', filters.status)
+    }
+
+    if (filters?.etapa) {
+      query = query.eq('etapa_atual', filters.etapa)
+    }
+
+    if (filters?.dataInicio) {
+      query = query.gte('created_at', filters.dataInicio)
+    }
+
+    if (filters?.dataFim) {
+      query = query.lte('created_at', filters.dataFim)
+    }
+
+    // Aplicar ordenação
+    switch (orderBy) {
+      case 'mais_recentes':
+        query = query.order('created_at', { ascending: false })
+        break
+      case 'status':
+        query = query.order('status', { ascending: true })
+        break
+      case 'vaga':
+        // Para listagem por vaga, ordena por data de candidatura (não podemos ordenar por campo relacionado)
+        query = query.order('created_at', { ascending: false })
+        break
+    }
+
+    // Aplicar paginação
+    const from = (pagination.page - 1) * pagination.limit
+    const to = from + pagination.limit - 1
+    query = query.range(from, to)
+
+    // Executar query
+    const { data, error, count } = await query
+
+    if (error) {
+      throw new CandidaturasServiceError(
+        `Erro ao listar candidaturas: ${error.message}`,
+        'DATABASE_ERROR',
+        error
+      )
+    }
+
+    const total = count ?? 0
+    const totalPages = Math.ceil(total / pagination.limit)
+
+    return {
+      success: true,
+      data: (data ?? []) as Candidatura[],
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages,
+        hasMore: pagination.page < totalPages,
+      },
+    }
+  } catch (error) {
+    if (error instanceof CandidaturasServiceError) {
+      throw error
+    }
+
+    throw new CandidaturasServiceError(
+      'Erro inesperado ao listar candidaturas',
+      'NETWORK_ERROR',
+      error
+    )
   }
 }

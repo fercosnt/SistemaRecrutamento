@@ -1,13 +1,11 @@
 /**
- * Step 4: Disponibilidade
+ * Step 3: Disponibilidade
  *
  * Campos:
  * - Turno Preferido
  * - Modelo de Trabalho
  * - Disponibilidade Imediata
  * - Data de Disponibilidade (condicional)
- * - Aceita Viajar
- * - Aceita Mudança
  */
 
 import React from 'react'
@@ -193,7 +191,7 @@ export function DisponibilidadeStep() {
                 id="data_disponibilidade"
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:contrast-100"
               />
               {errors.disponibilidade?.data_disponibilidade && (
                 <p className="text-red-400 text-sm">
@@ -204,65 +202,6 @@ export function DisponibilidadeStep() {
           )}
         />
       )}
-
-      {/* Divider */}
-      <div className="border-t border-white/20 pt-6">
-        <h3 className="text-white font-semibold mb-4">Mobilidade</h3>
-      </div>
-
-      {/* Aceita Viajar */}
-      <Controller
-        name="disponibilidade.aceita_viajar"
-        control={control}
-        render={({ field }) => (
-          <div className="flex items-start space-x-3">
-            <Checkbox
-              id="aceita_viajar"
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              className="bg-white/20 border-white/30 data-[state=checked]:bg-[#00109E] data-[state=checked]:border-[#00109E] mt-1"
-            />
-            <div className="flex-1">
-              <Label
-                htmlFor="aceita_viajar"
-                className="text-white cursor-pointer font-normal"
-              >
-                Aceito viajar a trabalho
-              </Label>
-              <p className="text-white/60 text-sm mt-1">
-                Disponível para viagens ocasionais ou frequentes
-              </p>
-            </div>
-          </div>
-        )}
-      />
-
-      {/* Aceita Mudança */}
-      <Controller
-        name="disponibilidade.aceita_mudanca"
-        control={control}
-        render={({ field }) => (
-          <div className="flex items-start space-x-3">
-            <Checkbox
-              id="aceita_mudanca"
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              className="bg-white/20 border-white/30 data-[state=checked]:bg-[#00109E] data-[state=checked]:border-[#00109E] mt-1"
-            />
-            <div className="flex-1">
-              <Label
-                htmlFor="aceita_mudanca"
-                className="text-white cursor-pointer font-normal"
-              >
-                Aceito mudança de cidade/estado
-              </Label>
-              <p className="text-white/60 text-sm mt-1">
-                Disponível para relocação caso necessário
-              </p>
-            </div>
-          </div>
-        )}
-      />
     </div>
   )
 }

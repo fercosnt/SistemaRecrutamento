@@ -1,35 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Glass, GlassButton, GlassCard } from '../ui/glass';
-import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, Briefcase, FileText, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, Briefcase, FileText, Calendar, CheckCircle2, Clock, LogOut } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-
-interface Vaga {
-  id: number;
-  titulo: string;
-  status: 'em_analise' | 'aprovado' | 'reprovado' | 'em_teste';
-  dataInscricao: string;
-}
-
-interface Teste {
-  id: number;
-  nome: string;
-  tipo: string;
-  dataConclusao: string;
-  resultado?: string;
-}
+import { toast } from 'sonner';
+import { useAuthStore, useCandidato } from '@/store/authStore';
+import { supabase } from '@/lib/supabase/client';
+import { useCandidaturas } from '@/features/vagas/hooks/useCandidaturas';
+import { ETAPA_PROCESSO_LABELS, STATUS_CANDIDATURA_LABELS } from '@/features/vagas/types/vagasTypes';
+import type { Candidatura } from '@/features/vagas/types/vagasTypes';
 
 export function MeuPerfilCandidatoPage() {
-  // Estado - Dados do Usuário
+  const navigate = useNavigate();
+  const candidato = useCandidato();
+  const { logout, setCandidato } = useAuthStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Buscar candidaturas do banco de dados
+  const { data: candidaturasData, isLoading: isLoadingCandidaturas } = useCandidaturas();
+  const candidaturas = candidaturasData?.data || [];
+
+  // Estado - Dados do Usuário (inicializado com dados reais do Zustand)
   const [dadosPessoais, setDadosPessoais] = useState({
-    nome: 'João Silva',
-    email: 'joao.silva@email.com',
-    telefone: '(11) 98765-4321',
-    avatar: '',
+    nome: candidato?.nome_completo || '',
+    email: candidato?.email || '',
+    telefone: candidato?.celular || '',
+    avatar: candidato?.avatar_url || '',
   });
 
   // Estado - Senha
@@ -45,97 +46,348 @@ export function MeuPerfilCandidatoPage() {
     confirmar: false,
   });
 
-  // Mock data - Vagas participando
-  const vagasParticipando: Vaga[] = [
-    {
-      id: 1,
-      titulo: 'Assistente Odontológico',
-      status: 'em_analise',
-      dataInscricao: '15/10/2024',
-    },
-    {
-      id: 2,
-      titulo: 'Recepcionista',
-      status: 'em_teste',
-      dataInscricao: '20/09/2024',
-    },
-    {
-      id: 3,
-      titulo: 'Auxiliar Administrativo',
-      status: 'aprovado',
-      dataInscricao: '05/08/2024',
-    },
-  ];
-
-  // Mock data - Testes realizados
-  const testesRealizados: Teste[] = [
-    {
-      id: 1,
-      nome: 'Teste DISC',
-      tipo: 'Personalidade',
-      dataConclusao: '22/09/2024',
-      resultado: 'Dominante',
-    },
-    {
-      id: 2,
-      nome: 'Teste Big Five',
-      tipo: 'Personalidade',
-      dataConclusao: '23/09/2024',
-      resultado: 'Extrovertido',
-    },
-    {
-      id: 3,
-      nome: 'Matrizes Progressivas de Raven',
-      tipo: 'Raciocínio Lógico',
-      dataConclusao: '24/09/2024',
-      resultado: 'Acima da média',
-    },
-    {
-      id: 4,
-      nome: 'Questionário de Cultura',
-      tipo: 'Fit Cultural',
-      dataConclusao: '25/09/2024',
-    },
-  ];
-
-  const handleSalvarDados = () => {
-    console.log('Salvando dados pessoais:', dadosPessoais);
-    // TODO: Implementar chamada à API
-  };
-
-  const handleAlterarSenha = () => {
-    if (senhas.nova !== senhas.confirmar) {
-      alert('As senhas não coincidem!');
+  /**
+   * Salva dados pessoais do candidato no Supabase
+   * - Atualiza tabela candidatos com novos dados
+   * - Atualiza Zustand store
+   * - Mostra feedback ao usuário
+   */
+  const handleSalvarDados = async () => {
+    if (!candidato?.id) {
+      toast.error('Erro ao salvar', {
+        description: 'Não foi possível identificar o candidato.',
+      });
       return;
     }
-    console.log('Alterando senha...');
-    setSenhas({ atual: '', nova: '', confirmar: '' });
-    // TODO: Implementar chamada à API
+
+    try {
+      const toastId = toast.loading('Salvando seus dados...', {
+        description: 'Aguarde enquanto atualizamos seu perfil.',
+      });
+
+      // Atualizar tabela candidatos
+      const { data, error } = await supabase
+        .from('candidatos')
+        .update({
+          nome_completo: dadosPessoais.nome,
+          email: dadosPessoais.email,
+          celular: dadosPessoais.telefone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', candidato.id)
+        .select()
+        .single();
+
+      toast.dismiss(toastId);
+
+      if (error) {
+        console.error('Erro ao atualizar dados:', error);
+        toast.error('Erro ao salvar dados', {
+          description: error.message,
+        });
+        return;
+      }
+
+      // Atualizar Zustand store com dados atualizados
+      if (data) {
+        setCandidato(data);
+        toast.success('Dados salvos com sucesso!', {
+          description: 'Suas informações foram atualizadas.',
+        });
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao salvar dados:', error);
+      toast.error('Erro inesperado', {
+        description: 'Tente novamente mais tarde.',
+      });
+    }
   };
 
+  /**
+   * Altera senha do usuário no Supabase Auth
+   * - Valida se senhas coincidem
+   * - Atualiza senha via supabase.auth.updateUser()
+   * - Limpa campos após sucesso
+   */
+  const handleAlterarSenha = async () => {
+    if (senhas.nova !== senhas.confirmar) {
+      toast.error('Senhas não coincidem', {
+        description: 'Verifique se a nova senha e confirmação são iguais.',
+      });
+      return;
+    }
+
+    if (senhas.nova.length < 6) {
+      toast.error('Senha muito curta', {
+        description: 'A senha deve ter no mínimo 6 caracteres.',
+      });
+      return;
+    }
+
+    try {
+      const toastId = toast.loading('Alterando sua senha...', {
+        description: 'Aguarde enquanto processamos a alteração.',
+      });
+
+      // Atualizar senha no Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        password: senhas.nova,
+      });
+
+      toast.dismiss(toastId);
+
+      if (error) {
+        console.error('Erro ao alterar senha:', error);
+        toast.error('Erro ao alterar senha', {
+          description: error.message,
+        });
+        return;
+      }
+
+      // Limpar campos de senha
+      setSenhas({ atual: '', nova: '', confirmar: '' });
+
+      toast.success('Senha alterada com sucesso!', {
+        description: 'Sua nova senha já está ativa.',
+      });
+    } catch (error) {
+      console.error('Erro inesperado ao alterar senha:', error);
+      toast.error('Erro inesperado', {
+        description: 'Tente novamente mais tarde.',
+      });
+    }
+  };
+
+  /**
+   * Abre diálogo de seleção de arquivo e faz upload do avatar
+   * - Abre input de arquivo (aceita apenas imagens)
+   * - Upload para Supabase Storage bucket 'avatars'
+   * - Atualiza candidatos.avatar_url
+   * - Atualiza estado local e Zustand store
+   */
   const handleAlterarFoto = () => {
-    console.log('Abrindo seletor de foto...');
-    // TODO: Implementar upload de foto
+    fileInputRef.current?.click();
   };
 
+  /**
+   * Processa upload do avatar selecionado
+   */
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !candidato?.id) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Arquivo inválido', {
+        description: 'Por favor, selecione uma imagem.',
+      });
+      return;
+    }
+
+    // Validar tamanho (máx 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Arquivo muito grande', {
+        description: 'O tamanho máximo é 2MB.',
+      });
+      return;
+    }
+
+    try {
+      const toastId = toast.loading('Enviando foto...', {
+        description: 'Aguarde enquanto fazemos upload da sua foto.',
+      });
+
+      // Nome único para o arquivo
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${candidato.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload para Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        toast.dismiss(toastId);
+        console.error('Erro ao fazer upload:', uploadError);
+        toast.error('Erro ao enviar foto', {
+          description: uploadError.message,
+        });
+        return;
+      }
+
+      // Obter URL pública do arquivo
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Atualizar tabela candidatos com nova avatar_url
+      const { data, error: updateError } = await supabase
+        .from('candidatos')
+        .update({
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', candidato.id)
+        .select()
+        .single();
+
+      toast.dismiss(toastId);
+
+      if (updateError) {
+        console.error('Erro ao atualizar avatar_url:', updateError);
+        toast.error('Erro ao salvar foto', {
+          description: updateError.message,
+        });
+        return;
+      }
+
+      // Atualizar estado local e Zustand store
+      if (data) {
+        setDadosPessoais({ ...dadosPessoais, avatar: publicUrl });
+        setCandidato(data);
+        toast.success('Foto atualizada com sucesso!', {
+          description: 'Sua nova foto de perfil está visível.',
+        });
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao fazer upload:', error);
+      toast.error('Erro inesperado', {
+        description: 'Tente novamente mais tarde.',
+      });
+    }
+  };
+
+  /**
+   * Handler para logout do candidato
+   * - Chama authStore.logout() para limpar sessão
+   * - Mostra toast de sucesso
+   * - Redireciona para página de login
+   */
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Você saiu da sua conta com sucesso', {
+        description: 'Até breve!',
+      });
+      navigate('/auth/login', { replace: true });
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error('Erro ao sair', {
+        description: 'Tente novamente.',
+      });
+    }
+  };
+
+  /**
+   * Retorna badge com label e cor para status de candidatura
+   */
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; className: string }> = {
-      em_analise: { label: 'Em Análise', className: 'bg-yellow-500/80 text-white border-0' },
-      em_teste: { label: 'Em Teste', className: 'bg-blue-500/80 text-white border-0' },
-      aprovado: { label: 'Aprovado', className: 'bg-green-500/80 text-white border-0' },
-      reprovado: { label: 'Reprovado', className: 'bg-red-500/80 text-white border-0' },
+      aguardando_resposta: {
+        label: STATUS_CANDIDATURA_LABELS.aguardando_resposta,
+        className: 'bg-blue-500/80 text-white border-0'
+      },
+      em_analise: {
+        label: STATUS_CANDIDATURA_LABELS.em_analise,
+        className: 'bg-yellow-500/80 text-white border-0'
+      },
+      aprovado_proxima: {
+        label: STATUS_CANDIDATURA_LABELS.aprovado_proxima,
+        className: 'bg-green-500/80 text-white border-0'
+      },
+      rejeitado: {
+        label: STATUS_CANDIDATURA_LABELS.rejeitado,
+        className: 'bg-red-500/80 text-white border-0'
+      },
+      finalizado: {
+        label: STATUS_CANDIDATURA_LABELS.finalizado,
+        className: 'bg-gray-500/80 text-white border-0'
+      },
     };
     return badges[status] || badges.em_analise;
   };
 
+  /**
+   * Formata data para exibição (ISO → DD/MM/YYYY)
+   */
+  const formatarData = (dataISO: string) => {
+    const data = new Date(dataISO);
+    return data.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
   return (
     <div className="relative min-h-screen">
-      <BackgroundImage 
-        background="gradient" 
+      {/* Hidden file input for avatar upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      <BackgroundImage
+        background="gradient"
         className="min-h-screen py-20"
         overlayColor="bg-black"
         overlayOpacity={15}
       >
+        {/* Barra de navegação superior */}
+        <div className="w-full sticky top-0 z-50 mb-8">
+          <Glass variant="white" blur="xl" className="border-b border-white/10">
+            <div className="container mx-auto px-4 sm:px-6 py-4">
+              <div className="flex items-center justify-between gap-4">
+                {/* Logo e Nome do usuário */}
+                <div className="flex items-center gap-4">
+                  <BeautySmileLogo type="symbol" size="sm" variant="white" />
+                  <div className="hidden sm:block h-8 w-px bg-white/20" />
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10 border-2 border-white/30">
+                      <AvatarImage src={dadosPessoais.avatar} />
+                      <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
+                        {(candidato?.nome_completo || 'C')
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="hidden md:block">
+                      <p className="text-white font-medium drop-shadow-md leading-tight">
+                        {candidato?.nome_completo || 'Candidato'}
+                      </p>
+                      <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
+                        {candidato?.email || ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botão de Logout */}
+                <GlassButton
+                  variant="white"
+                  hover
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 text-white drop-shadow-sm"
+                  aria-label="Sair"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Sair</span>
+                </GlassButton>
+              </div>
+            </div>
+          </Glass>
+        </div>
+
         <div className="container mx-auto px-4 space-y-8 max-w-6xl">
           {/* Header */}
           <div className="text-center mb-8">
@@ -155,7 +407,7 @@ export function MeuPerfilCandidatoPage() {
                 <Avatar className="w-[120px] h-[120px] border-4 border-white/20">
                   <AvatarImage src={dadosPessoais.avatar} />
                   <AvatarFallback className="bg-[#35BFAD] text-white text-3xl">
-                    {dadosPessoais.nome
+                    {(candidato?.nome_completo || 'C')
                       .split(' ')
                       .map((n) => n[0])
                       .join('')
@@ -176,14 +428,14 @@ export function MeuPerfilCandidatoPage() {
 
               {/* Info Básica */}
               <div className="flex-1 text-center md:text-left space-y-2">
-                <h2 className="text-white drop-shadow-lg">{dadosPessoais.nome}</h2>
+                <h2 className="text-white drop-shadow-lg">{candidato?.nome_completo || 'Candidato'}</h2>
                 <p className="text-white/80 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
                   <Mail className="w-4 h-4" />
-                  {dadosPessoais.email}
+                  {candidato?.email || ''}
                 </p>
                 <p className="text-white/80 drop-shadow-md flex items-center justify-center md:justify-start gap-2">
                   <Phone className="w-4 h-4" />
-                  {dadosPessoais.telefone}
+                  {candidato?.celular || ''}
                 </p>
               </div>
             </div>
@@ -243,6 +495,19 @@ export function MeuPerfilCandidatoPage() {
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 transition-all duration-200"
                     />
                   </div>
+                </div>
+
+                {/* Botão Salvar Dados */}
+                <div className="flex justify-end pt-2">
+                  <GlassButton
+                    variant="white"
+                    hover
+                    onClick={handleSalvarDados}
+                    className="flex items-center gap-2 text-white drop-shadow-sm"
+                  >
+                    <Save className="w-4 h-4" />
+                    Salvar Dados
+                  </GlassButton>
                 </div>
               </Glass>
 
@@ -359,6 +624,25 @@ export function MeuPerfilCandidatoPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Botão Alterar Senha */}
+                <div className="flex justify-end pt-2">
+                  <GlassButton
+                    variant="white"
+                    hover
+                    onClick={handleAlterarSenha}
+                    className="flex items-center gap-2 text-white drop-shadow-sm"
+                    disabled={
+                      !senhas.atual ||
+                      !senhas.nova ||
+                      !senhas.confirmar ||
+                      senhas.nova !== senhas.confirmar
+                    }
+                  >
+                    <Lock className="w-4 h-4" />
+                    Alterar Senha
+                  </GlassButton>
+                </div>
               </Glass>
             </div>
 
@@ -374,22 +658,36 @@ export function MeuPerfilCandidatoPage() {
                   <div className="h-px bg-white/20 mt-3" />
                 </div>
 
-                {vagasParticipando.length > 0 ? (
+                {isLoadingCandidaturas ? (
+                  <div className="text-center py-8">
+                    <p className="text-white/70 drop-shadow-sm">
+                      Carregando suas candidaturas...
+                    </p>
+                  </div>
+                ) : candidaturas.length > 0 ? (
                   <div className="space-y-4">
-                    {vagasParticipando.map((vaga) => {
-                      const statusBadge = getStatusBadge(vaga.status);
+                    {candidaturas.map((candidatura) => {
+                      const statusBadge = getStatusBadge(candidatura.status);
                       return (
-                        <Glass key={vaga.id} variant="white" blur="md" className="p-4 rounded-lg">
+                        <Glass key={candidatura.id} variant="white" blur="md" className="p-4 rounded-lg">
                           <div className="space-y-2">
                             <div className="flex items-start justify-between gap-3">
-                              <h4 className="text-white drop-shadow-sm">{vaga.titulo}</h4>
+                              <h4 className="text-white drop-shadow-sm">
+                                {candidatura.vaga?.titulo || 'Vaga não encontrada'}
+                              </h4>
                               <Badge className={statusBadge.className}>
                                 {statusBadge.label}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
                               <Calendar className="w-4 h-4" />
-                              <span>Inscrição: {vaga.dataInscricao}</span>
+                              <span>Inscrição: {formatarData(candidatura.created_at)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
+                              <FileText className="w-4 h-4" />
+                              <span>
+                                Etapa Atual: {ETAPA_PROCESSO_LABELS[candidatura.etapa_atual] || candidatura.etapa_atual}
+                              </span>
                             </div>
                           </div>
                         </Glass>
@@ -408,74 +706,52 @@ export function MeuPerfilCandidatoPage() {
                 )}
               </Glass>
 
-              {/* Testes Realizados */}
-              <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-white drop-shadow-md" />
-                    <h3 className="text-white drop-shadow-md">TESTES REALIZADOS</h3>
+              {/* Etapas do Processo - Baseado na Primeira Candidatura */}
+              {candidaturas.length > 0 && (
+                <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-white drop-shadow-md" />
+                      <h3 className="text-white drop-shadow-md">PROGRESSO NO PROCESSO SELETIVO</h3>
+                    </div>
+                    <div className="h-px bg-white/20 mt-3" />
                   </div>
-                  <div className="h-px bg-white/20 mt-3" />
-                </div>
 
-                {testesRealizados.length > 0 ? (
                   <div className="space-y-4">
-                    {testesRealizados.map((teste) => (
-                      <Glass key={teste.id} variant="white" blur="md" className="p-4 rounded-lg">
-                        <div className="space-y-2">
+                    {candidaturas.map((candidatura) => (
+                      <Glass key={candidatura.id} variant="white" blur="md" className="p-4 rounded-lg">
+                        <div className="space-y-3">
+                          {/* Vaga */}
                           <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1">
-                              <h4 className="text-white drop-shadow-sm">{teste.nome}</h4>
-                              <p className="text-sm text-white/70 drop-shadow-sm">{teste.tipo}</p>
-                            </div>
-                            <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+                            <h4 className="text-white drop-shadow-sm text-sm font-semibold">
+                              {candidatura.vaga?.titulo || 'Vaga'}
+                            </h4>
+                            <Badge className={getStatusBadge(candidatura.status).className}>
+                              {getStatusBadge(candidatura.status).label}
+                            </Badge>
                           </div>
+
+                          {/* Etapa Atual */}
+                          <div className="flex items-center gap-2 text-sm text-white/80 drop-shadow-sm">
+                            <CheckCircle2 className="w-4 h-4 text-green-400" />
+                            <span>
+                              <strong>Etapa Atual:</strong>{' '}
+                              {ETAPA_PROCESSO_LABELS[candidatura.etapa_atual] || candidatura.etapa_atual}
+                            </span>
+                          </div>
+
+                          {/* Data de Última Atualização */}
                           <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
                             <Clock className="w-4 h-4" />
-                            <span>Concluído em: {teste.dataConclusao}</span>
+                            <span>Atualizado em: {formatarData(candidatura.updated_at)}</span>
                           </div>
-                          {teste.resultado && (
-                            <div className="pt-2 border-t border-white/10">
-                              <p className="text-sm text-white/80 drop-shadow-sm">
-                                <span className="text-white/60">Resultado: </span>
-                                {teste.resultado}
-                              </p>
-                            </div>
-                          )}
                         </div>
                       </Glass>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3">
-                      <FileText className="w-8 h-8 text-white/50" />
-                    </div>
-                    <p className="text-white/70 drop-shadow-sm">
-                      Você ainda não realizou nenhum teste
-                    </p>
-                  </div>
-                )}
-              </Glass>
+                </Glass>
+              )}
             </div>
-          </div>
-
-          {/* Botão Salvar Alterações */}
-          <div className="flex justify-center pt-4">
-            <GlassButton
-              variant="white"
-              hover
-              onClick={() => {
-                handleSalvarDados();
-                if (senhas.atual && senhas.nova && senhas.confirmar) {
-                  handleAlterarSenha();
-                }
-              }}
-              className="flex items-center gap-2 px-8 py-4 text-white drop-shadow-sm"
-            >
-              <Save className="w-5 h-5" />
-              Salvar Alterações
-            </GlassButton>
           </div>
         </div>
       </BackgroundImage>

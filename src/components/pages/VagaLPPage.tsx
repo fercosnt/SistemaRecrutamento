@@ -1,14 +1,15 @@
-import image_8daad5a957d595d21d69bb8a7bc7e3ab794be41a from 'figma:asset/8daad5a957d595d21d69bb8a7bc7e3ab794be41a.png';
-import image_4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25 from 'figma:asset/4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25.png';
-import image_ce81f0d7520a337fc357fae4f5f7bf76164b8c05 from 'figma:asset/ce81f0d7520a337fc357fae4f5f7bf76164b8c05.png';
+import image_8daad5a957d595d21d69bb8a7bc7e3ab794be41a from '@/assets/8daad5a957d595d21d69bb8a7bc7e3ab794be41a.avif';
+import image_4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25 from '@/assets/4ae5e44e01d12f3447c7a4e50527f0bc3c3aab25.avif';
+import image_ce81f0d7520a337fc357fae4f5f7bf76164b8c05 from '@/assets/ce81f0d7520a337fc357fae4f5f7bf76164b8c05.avif';
 import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Glass, GlassCard, GlassPanel, GlassButton } from '../ui/glass';
 import { MapPin, Clock, Briefcase, GraduationCap, Award, Heart, ArrowRight, CheckCircle2, Rocket, FileText, Brain, Video, Building2, PartyPopper, Calendar, Target } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import heroImage from 'figma:asset/a81ed2cde200cdf4e82689faaeafaceff5cd291a.png';
-import clinicaImage from 'figma:asset/3fc028ae080bb7435c5ebf8f1e62a8036e20c73c.png';
+import heroImage from '@/assets/a81ed2cde200cdf4e82689faaeafaceff5cd291a.png';
+import clinicaImage from '@/assets/3fc028ae080bb7435c5ebf8f1e62a8036e20c73c.avif';
 
 /**
  * Landing Page de Divulgação de Vaga
@@ -270,11 +271,19 @@ E você vai ser responsável por fazer essas histórias chegarem a milhares de p
   
   onCandidatar
 }: Partial<VagaLPProps> = {}) {
-  
+  const { id: vagaId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
   const handleCandidatar = () => {
     if (onCandidatar) {
       onCandidatar();
+    } else if (vagaId) {
+      // Redirecionar para cadastro com vagaId
+      // Também salvar no localStorage como backup
+      localStorage.setItem('candidatura_vaga_id', vagaId);
+      navigate(`/cadastro?vagaId=${vagaId}`);
     } else {
+      // Fallback: scroll para seção candidatura
       const element = document.getElementById('candidatura');
       element?.scrollIntoView({ behavior: 'smooth' });
     }

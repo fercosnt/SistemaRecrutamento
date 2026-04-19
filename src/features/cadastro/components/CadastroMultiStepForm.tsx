@@ -1,12 +1,11 @@
 /**
  * Formulário Multi-Step de Cadastro de Candidatos
  *
- * Componente principal que gerencia o formulário de cadastro em 5 etapas:
- * 1. Dados Pessoais
+ * Componente principal que gerencia o formulário de cadastro em 4 etapas:
+ * 1. Dados Pessoais (com Instagram e LinkedIn)
  * 2. Endereço
- * 3. Dados Profissionais
- * 4. Disponibilidade
- * 5. Autorizações LGPD
+ * 3. Disponibilidade (sem mobilidade)
+ * 4. Autorizações LGPD
  *
  * Integrado com:
  * - React Hook Form para gerenciamento de estado
@@ -24,7 +23,6 @@ import {
   candidatoFormSchema,
   dadosPessoaisSchema,
   enderecoSchema,
-  dadosProfissionaisSchema,
   disponibilidadeSchema,
   autorizacoesSchema,
   type CandidatoFormData,
@@ -32,7 +30,7 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/components/ui/utils'
 
 import { useFormToast } from '../hooks/useFormToast'
@@ -41,7 +39,6 @@ import { LoadingProgress, type LoadingStage } from './LoadingProgress'
 // Import dos componentes de cada step
 import { DadosPessoaisStep } from './steps/DadosPessoaisStep'
 import { EnderecoStep } from './steps/EnderecoStep'
-import { DadosProfissionaisStep } from './steps/DadosProfissionaisStep'
 import { DisponibilidadeStep } from './steps/DisponibilidadeStep'
 import { AutorizacoesStep } from './steps/AutorizacoesStep'
 
@@ -49,7 +46,7 @@ import { AutorizacoesStep } from './steps/AutorizacoesStep'
 // TYPES
 // ============================================
 
-type FormStep = 'dadosPessoais' | 'endereco' | 'dadosProfissionais' | 'disponibilidade' | 'autorizacoes'
+type FormStep = 'dadosPessoais' | 'endereco' | 'disponibilidade' | 'autorizacoes'
 
 interface StepConfig {
   id: FormStep
@@ -67,7 +64,7 @@ const FORM_STEPS: StepConfig[] = [
   {
     id: 'dadosPessoais',
     title: 'Dados Pessoais',
-    description: 'Informações básicas sobre você',
+    description: 'Informações básicas e redes sociais',
     schema: dadosPessoaisSchema,
     component: DadosPessoaisStep,
   },
@@ -77,13 +74,6 @@ const FORM_STEPS: StepConfig[] = [
     description: 'Onde você mora atualmente',
     schema: enderecoSchema,
     component: EnderecoStep,
-  },
-  {
-    id: 'dadosProfissionais',
-    title: 'Dados Profissionais',
-    description: 'Sua formação e experiência',
-    schema: dadosProfissionaisSchema,
-    component: DadosProfissionaisStep,
   },
   {
     id: 'disponibilidade',
@@ -144,6 +134,8 @@ export function CadastroMultiStepForm({
         telefone: '',
         data_nascimento: '',
         genero: 'prefiro_nao_informar',
+        instagram: null,
+        linkedin: null,
       },
       endereco: {
         cep: '',
@@ -154,22 +146,11 @@ export function CadastroMultiStepForm({
         cidade: '',
         estado: '',
       },
-      dadosProfissionais: {
-        experiencia_area: 'nenhuma',
-        nivel_escolaridade: 'medio_completo',
-        instituicao_ensino: null,
-        curso: null,
-        ano_conclusao: null,
-        possui_cnh: false,
-        categorias_cnh: [],
-      },
       disponibilidade: {
         turno_preferido: 'integral',
         modelo_trabalho: 'presencial',
         disponibilidade_imediata: false,
         data_disponibilidade: null,
-        aceita_viajar: false,
-        aceita_mudanca: false,
       },
       autorizacoes: {
         autorizacao_uso_dados: true,
@@ -283,11 +264,6 @@ export function CadastroMultiStepForm({
         { id: 'auth', label: 'Criando conta de acesso...', status: 'pending' },
         { id: 'candidatos', label: 'Salvando dados do candidato...', status: 'pending' },
         { id: 'enderecos', label: 'Salvando endereço...', status: 'pending' },
-        {
-          id: 'dados_profissionais',
-          label: 'Salvando dados profissionais...',
-          status: 'pending',
-        },
         { id: 'disponibilidade', label: 'Salvando disponibilidade...', status: 'pending' },
         { id: 'autorizacoes', label: 'Salvando autorizações...', status: 'pending' },
         { id: 'n8n', label: 'Notificando sistema...', status: 'pending' },
@@ -334,18 +310,71 @@ export function CadastroMultiStepForm({
         setShowLoadingDialog(false)
       }, 1500)
     } catch (error) {
-      console.error('Erro ao enviar formulário:', error)
+      // Log detalhado do erro
+      console.error('[FORM] Erro ao enviar formulário:', error)
+      
+      // Log adicional para erros específicos
+      if (error instanceof Error) {
+        console.error('Tipo do erro:', error.constructor.name)
+        console.error('Mensagem:', error.message)
+        console.error('Stack:', error.stack)
+        
+        // Se for CadastroError, logar detalhes adicionais
+        if ('code' in error && 'table' in error) {
+          console.error('Código do erro:', (error as any).code)
+          console.error('Tabela afetada:', (error as any).table)
+          console.error('Erro original:', (error as any).originalError)
+        }
+      }
 
-      // Marcar stage atual como erro
+      // Determinar mensagem de erro específica
+      let errorMessage = 'Erro ao realizar cadastro. Por favor, tente novamente.'
+      let errorDescription = ''
+
+      if (error instanceof Error) {
+        // Erros de autenticação
+        if (error.message.includes('auth') || error.message.includes('usuário') || error.message.includes('autenticação')) {
+          errorMessage = 'Erro ao criar conta de acesso'
+          errorDescription = 'Não foi possível criar sua conta. Verifique se o email já está cadastrado.'
+        }
+        // Erros de inserção no banco
+        else if (error.message.includes('inserir') || error.message.includes('banco de dados')) {
+          errorMessage = 'Erro ao salvar dados'
+          errorDescription = 'Não foi possível salvar seus dados. Por favor, tente novamente.'
+        }
+        // Erros de rollback
+        else if (error.message.includes('rollback') || error.message.includes('reverter')) {
+          errorMessage = 'Erro ao processar cadastro'
+          errorDescription = 'Ocorreu um problema durante o cadastro. Seus dados podem ter sido parcialmente salvos. Entre em contato com o suporte.'
+        }
+        // Erros de validação
+        else if (error.message.includes('validação') || error.message.includes('inválido')) {
+          errorMessage = 'Dados inválidos'
+          errorDescription = error.message
+        }
+        // Erros de rede
+        else if (error.message.includes('rede') || error.message.includes('conexão') || error.message.includes('network')) {
+          errorMessage = 'Erro de conexão'
+          errorDescription = 'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.'
+        }
+      }
+
+      // Marcar stage atual como erro com mensagem específica
       setSubmissionStages((prev) =>
         prev.map((stage) =>
           stage.status === 'loading'
-            ? { ...stage, status: 'error', errorMessage: 'Falha ao processar esta etapa' }
+            ? { 
+                ...stage, 
+                status: 'error', 
+                errorMessage: errorDescription || 'Falha ao processar esta etapa' 
+              }
             : stage
         )
       )
 
-      toast.error('Erro ao realizar cadastro. Por favor, tente novamente.')
+      toast.error(errorMessage, errorDescription, {
+        duration: 5000,
+      })
 
       // Fechar dialog após delay
       setTimeout(() => {
@@ -365,7 +394,7 @@ export function CadastroMultiStepForm({
       <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6">
         {/* Progress Bar */}
         <div className="space-y-2">
-          <div className="flex justify-between text-xs sm:text-sm text-white/90">
+          <div className="flex justify-between text-xs sm:text-sm text-white">
             <span>
               Etapa {currentStepIndex + 1} de {FORM_STEPS.length}
             </span>
@@ -422,12 +451,7 @@ export function CadastroMultiStepForm({
 
                 {/* Step title */}
                 <div className="text-center hidden sm:block">
-                  <p
-                    className={cn('text-xs font-medium', {
-                      'text-white': isCurrent,
-                      'text-white/80': !isCurrent,
-                    })}
-                  >
+                  <p className="text-xs font-medium text-white">
                     {step.title}
                   </p>
                 </div>
@@ -443,7 +467,7 @@ export function CadastroMultiStepForm({
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
               {currentStep.title}
             </h2>
-            <p className="text-sm sm:text-base text-white/80">{currentStep.description}</p>
+            <p className="text-sm sm:text-base text-white">{currentStep.description}</p>
           </div>
 
           {/* Step Form */}
@@ -496,6 +520,9 @@ export function CadastroMultiStepForm({
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Processando cadastro</DialogTitle>
+              <DialogDescription>
+                Aguarde enquanto processamos seu cadastro. Isso pode levar alguns segundos.
+              </DialogDescription>
             </DialogHeader>
             <LoadingProgress
               stages={submissionStages}

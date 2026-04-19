@@ -1,4 +1,5 @@
 import React from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
@@ -6,12 +7,27 @@ import { CheckCircle, Clock, Target } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
 export function InstrucoesFormularioPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Obter vagaId dos query params ou localStorage
+  const vagaIdFromQuery = searchParams.get('vagaId');
+  const vagaIdFromStorage = localStorage.getItem('candidatura_vaga_id');
+  const vagaId = vagaIdFromQuery || vagaIdFromStorage;
+
   const handleIniciar = () => {
     toast.success('Iniciando formulário...', {
       description: 'Boa sorte! Seja autêntico.',
     });
-    console.log('Redirecionar para formulário de candidatura...');
-    // window.location.href = '/formulario-candidatura';
+
+    // Redirecionar para formulário de candidatura com vagaId
+    if (vagaId) {
+      navigate(`/candidato/candidatura/formulario/${vagaId}`);
+    } else {
+      // Fallback: usar vagaId padrão '1' se não houver
+      console.warn('Nenhum vagaId encontrado, usando fallback 1');
+      navigate('/candidato/candidatura/formulario/1');
+    }
   };
 
   return (

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { RHLayout } from '../RHLayout';
 import { Glass, GlassButton } from '../ui/glass';
 import { ArrowLeft, Plus, X } from 'lucide-react';
@@ -15,6 +16,8 @@ import {
 } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { RichTextEditor } from '../RichTextEditor';
+import { supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 type StatusVaga = 'ativa' | 'inativa' | 'rascunho';
 type TipoPergunta = 'unica-escolha' | 'multipla-escolha' | 'texto-curto' | 'texto-longo' | 'numerico';
@@ -59,14 +62,12 @@ interface DadosVaga {
   instrucoesIA: string;
 }
 
-interface CriarEditarVagaPageProps {
-  vagaId?: number;
-  onVoltar?: () => void;
-}
-
-export function CriarEditarVagaPage({ vagaId, onVoltar }: CriarEditarVagaPageProps) {
+export function CriarEditarVagaPage() {
+  const { id: vagaId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState('vagas-rh');
   const [activeTab, setActiveTab] = useState('informacoes');
+  const [isLoading, setIsLoading] = useState(false);
   const isEdicao = !!vagaId;
   
   const [dados, setDados] = useState<DadosVaga>({
@@ -93,6 +94,55 @@ export function CriarEditarVagaPage({ vagaId, onVoltar }: CriarEditarVagaPagePro
     perguntasCultura: [],
     instrucoesIA: '',
   });
+
+  // Carregar dados da vaga se estiver editando
+  useEffect(() => {
+    if (isEdicao && vagaId) {
+      setIsLoading(true);
+      supabase
+        .from('vagas')
+        .select('*')
+        .eq('id', vagaId)
+        .single()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Erro ao carregar vaga:', error);
+            toast.error('Erro ao carregar dados da vaga');
+            navigate('/rh/vagas');
+            return;
+          }
+
+          if (data) {
+            // Mapear dados do banco para o formulário
+            setDados({
+              titulo: data.titulo || '',
+              slug: data.slug || '',
+              area: data.departamento || '',
+              cidade: data.cidade || '',
+              estado: data.estado || '',
+              tipoContrato: data.tipo_contrato || '',
+              modalidade: data.modelo_trabalho || '',
+              salario: data.faixa_salarial || '',
+              jornada: data.carga_horaria || '',
+              status: (data.status as StatusVaga) || 'rascunho',
+              nomeVaga: data.titulo || '',
+              oQueVoceFaz: data.descricao_curta || '',
+              responsabilidades: data.descricao_completa || '',
+              formacao: data.requisito_formacao || '',
+              experiencia: data.requisito_experiencia || '',
+              conhecimentosTecnicos: data.requisito_tecnico || '',
+              habilidadesEssenciais: data.requisito_comportamental || '',
+              pessoaCerta: data.requisito_diferencial || '',
+              diferenciais: data.beneficios || '',
+              perguntasTriagem: [], // TODO: carregar perguntas da tabela relacionada
+              perguntasCultura: [], // TODO: carregar perguntas da tabela relacionada
+              instrucoesIA: '', // TODO: carregar instruções se houver
+            });
+          }
+        })
+        .finally(() => setIsLoading(false));
+    }
+  }, [isEdicao, vagaId, navigate]);
 
   // Estados brasileiros
   const estados = [
@@ -212,10 +262,22 @@ export function CriarEditarVagaPage({ vagaId, onVoltar }: CriarEditarVagaPagePro
   };
 
   const handleCancelar = () => {
-    if (onVoltar) {
-      onVoltar();
-    }
+    navigate('/rh/vagas');
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <RHLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Glass variant="white" blur="lg" className="p-8 rounded-xl text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white drop-shadow-lg">Carregando dados da vaga...</p>
+          </Glass>
+        </div>
+      </RHLayout>
+    );
+  }
 
   return (
     <RHLayout currentPage={currentPage} onNavigate={setCurrentPage}>

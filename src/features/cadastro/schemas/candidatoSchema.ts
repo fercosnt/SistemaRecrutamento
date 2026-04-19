@@ -80,7 +80,96 @@ const dataNascimentoSchema = z
   )
 
 /**
+ * Schema para validação de URL de Instagram
+ * Aceita: @usuario, instagram.com/usuario, ou URL completa
+ */
+const instagramSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true; // Opcional
+      // Aceita @usuario, instagram.com/usuario, ou URL completa
+      return (
+        /^@[a-zA-Z0-9._]+$/.test(val) ||
+        /^https?:\/\/(www\.)?instagram\.com\/[a-zA-Z0-9._]+\/?$/.test(val) ||
+        /^instagram\.com\/[a-zA-Z0-9._]+\/?$/.test(val)
+      );
+    },
+    {
+      message: 'Instagram inválido. Use: @usuario ou instagram.com/usuario',
+    }
+  );
+
+/**
+ * Schema para validação de URL de LinkedIn
+ * Aceita: linkedin.com/in/usuario ou URL completa
+ */
+const linkedinSchema = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(
+    (val) => {
+      if (!val || val.trim() === '') return true; // Opcional
+      // Aceita linkedin.com/in/usuario ou URL completa
+      return (
+        /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/.test(val) ||
+        /^linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/.test(val)
+      );
+    },
+    {
+      message: 'LinkedIn inválido. Use: linkedin.com/in/seu-perfil',
+    }
+  );
+
+/**
+ * Schema para validação de senha forte
+ * Requisitos:
+ * - Mínimo 8 caracteres
+ * - Pelo menos 1 letra maiúscula
+ * - Pelo menos 1 letra minúscula
+ * - Pelo menos 1 número
+ */
+const senhaSchema = z
+  .string()
+  .min(8, 'Senha deve ter no mínimo 8 caracteres')
+  .max(100, 'Senha deve ter no máximo 100 caracteres')
+  .refine(
+    (val) => /[A-Z]/.test(val),
+    {
+      message: 'Senha deve conter pelo menos 1 letra maiúscula',
+    }
+  )
+  .refine(
+    (val) => /[a-z]/.test(val),
+    {
+      message: 'Senha deve conter pelo menos 1 letra minúscula',
+    }
+  )
+  .refine(
+    (val) => /[0-9]/.test(val),
+    {
+      message: 'Senha deve conter pelo menos 1 número',
+    }
+  );
+
+/**
+ * Schema para "Como conheceu a vaga"
+ * Opções: Instagram, Facebook, LinkedIn, Indicação, Google, Catho, Vagas.com, Solides, Outros
+ * Se "Outros", campo de detalhes é obrigatório
+ */
+const comoConheceuSchema = z.enum(
+  ['instagram', 'facebook', 'linkedin', 'indicacao', 'google', 'catho', 'vagas_com', 'solides', 'outros'],
+  {
+    errorMap: () => ({ message: 'Selecione como conheceu a vaga' }),
+  }
+);
+
+/**
  * Schema completo de dados pessoais
+ * Inclui validação de confirmação de senha e como_conheceu
  */
 export const dadosPessoaisSchema = z.object({
   nome_completo: z
@@ -96,7 +185,34 @@ export const dadosPessoaisSchema = z.object({
   genero: z.enum(['masculino', 'feminino', 'outro', 'prefiro_nao_informar'], {
     errorMap: () => ({ message: 'Selecione um gênero válido' }),
   }),
+  instagram: instagramSchema,
+  linkedin: linkedinSchema,
+  como_conheceu: comoConheceuSchema,
+  como_conheceu_detalhes: z
+    .string()
+    .max(500, 'Detalhes devem ter no máximo 500 caracteres')
+    .optional()
+    .nullable(),
+  senha: senhaSchema,
+  confirmar_senha: z.string().min(1, 'Por favor, confirme sua senha'),
 })
+  .refine((data) => data.senha === data.confirmar_senha, {
+    message: 'As senhas não coincidem',
+    path: ['confirmar_senha'], // Erro aparece no campo confirmar_senha
+  })
+  .refine(
+    (data) => {
+      // Se "como_conheceu" for "outros", detalhes é obrigatório
+      if (data.como_conheceu === 'outros') {
+        return !!data.como_conheceu_detalhes && data.como_conheceu_detalhes.trim().length > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Por favor, especifique como conheceu a vaga',
+      path: ['como_conheceu_detalhes'],
+    }
+  )
 
 // ============================================
 // SCHEMAS DE ENDEREÇO (tabela: enderecos)
@@ -227,6 +343,7 @@ const modeloTrabalhoEnum = z.enum(['presencial', 'remoto', 'hibrido'], {
 
 /**
  * Schema completo de disponibilidade
+ * Nota: Campos de mobilidade (aceita_viajar, aceita_mudanca) foram removidos
  */
 export const disponibilidadeSchema = z.object({
   turno_preferido: turnoEnum,
@@ -248,8 +365,6 @@ export const disponibilidadeSchema = z.object({
         message: 'Data de disponibilidade não pode ser no passado',
       }
     ),
-  aceita_viajar: z.boolean().default(false),
-  aceita_mudanca: z.boolean().default(false),
 })
 
 // ============================================
@@ -278,21 +393,19 @@ export const autorizacoesSchema = z.object({
 /**
  * Schema principal que combina todos os sub-schemas
  * Representa o formulário completo de cadastro
+ * Nota: Dados Profissionais foram removidos - agora são 4 etapas
  */
 export const candidatoFormSchema = z.object({
-  // Seção 1: Dados Pessoais
+  // Seção 1: Dados Pessoais (com Instagram e LinkedIn)
   dadosPessoais: dadosPessoaisSchema,
 
   // Seção 2: Endereço
   endereco: enderecoSchema,
 
-  // Seção 3: Dados Profissionais
-  dadosProfissionais: dadosProfissionaisSchema,
-
-  // Seção 4: Disponibilidade
+  // Seção 3: Disponibilidade (sem mobilidade)
   disponibilidade: disponibilidadeSchema,
 
-  // Seção 5: Autorizações LGPD
+  // Seção 4: Autorizações LGPD
   autorizacoes: autorizacoesSchema,
 })
 

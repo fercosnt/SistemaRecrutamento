@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, User, Settings, LogOut, Menu } from 'lucide-react';
 import {
   DropdownMenu,
@@ -10,34 +11,44 @@ import {
 } from './ui/dropdown-menu';
 import { Badge } from './ui/badge';
 import { Glass } from './ui/glass';
+import { useAuthStore } from '@/store/authStore';
 
 interface RHTopBarProps {
-  userName?: string;
-  userRole?: string;
-  notificationCount?: number;
-  onSearch?: (query: string) => void;
-  onProfileClick?: () => void;
-  onSettingsClick?: () => void;
-  onLogout?: () => void;
   onMobileMenuToggle?: () => void;
 }
 
 export function RHTopBar({
-  userName = 'João Silva',
-  userRole = 'Administrador',
-  notificationCount = 0,
-  onSearch,
-  onProfileClick,
-  onSettingsClick,
-  onLogout,
   onMobileMenuToggle,
 }: RHTopBarProps) {
+  const navigate = useNavigate();
+  const { user, candidato, logout: authLogout } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Nome do usuário (usa nome do candidato se disponível, senão email)
+  const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
+  const userRole = 'RH';
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onSearch) {
-      onSearch(searchQuery);
+    // TODO: Implementar busca global (pode ser feito depois)
+    console.log('Buscar:', searchQuery);
+  };
+
+  const handleProfileClick = () => {
+    navigate('/rh/perfil');
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/rh/configuracoes');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+      navigate('/auth/login-rh');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      navigate('/auth/login-rh');
     }
   };
 
@@ -105,7 +116,7 @@ export function RHTopBar({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 border border-white/30 shadow-2xl rounded-xl overflow-hidden"
+                className="w-56 border border-white/30 shadow-2xl rounded-xl overflow-hidden text-white"
                 style={{ 
                   backgroundColor: 'rgba(255, 255, 255, 0.25)',
                   backdropFilter: 'blur(20px)'
@@ -116,14 +127,14 @@ export function RHTopBar({
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/20" />
                 <DropdownMenuItem
-                  onClick={onProfileClick}
+                  onClick={handleProfileClick}
                   className="cursor-pointer text-white/90 hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white transition-colors duration-200 py-2.5"
                 >
                   <User size={16} className="mr-2" />
                   <span className="drop-shadow-sm">Meu Perfil</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={onSettingsClick}
+                  onClick={handleSettingsClick}
                   className="cursor-pointer text-white/90 hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white transition-colors duration-200 py-2.5"
                 >
                   <Settings size={16} className="mr-2" />
@@ -131,7 +142,7 @@ export function RHTopBar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/20" />
                 <DropdownMenuItem
-                  onClick={onLogout}
+                  onClick={handleLogout}
                   className="cursor-pointer text-red-300 hover:bg-red-500/30 hover:text-red-200 focus:bg-red-500/30 focus:text-red-200 transition-colors duration-200 py-2.5"
                 >
                   <LogOut size={16} className="mr-2" />

@@ -67,6 +67,7 @@ export interface N8NWebhookPayload {
       telefone: string
       cpf: string
     }
+    vaga_id?: string
     metadata: {
       created_at: string
       has_all_data: boolean
@@ -381,6 +382,7 @@ export async function sendToN8N(
  * @param candidatoId - ID do candidato
  * @param candidatoData - Dados do candidato
  * @param mode - Modo de execução (test ou production)
+ * @param vagaId - ID da vaga (opcional)
  * @returns Response do webhook
  */
 export async function notifyCandidatoCriado(
@@ -391,7 +393,8 @@ export async function notifyCandidatoCriado(
     telefone: string
     cpf: string
   },
-  mode: N8NMode = 'production'
+  mode: N8NMode = 'production',
+  vagaId?: string
 ): Promise<N8NWebhookResponse> {
   const payload: N8NWebhookPayload = {
     event: 'candidato.created',
@@ -401,6 +404,7 @@ export async function notifyCandidatoCriado(
         id: candidatoId,
         ...candidatoData,
       },
+      ...(vagaId && { vaga_id: vagaId }),
       metadata: {
         created_at: new Date().toISOString(),
         has_all_data: true,

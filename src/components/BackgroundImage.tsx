@@ -43,21 +43,40 @@ export function BackgroundImage({
   overlayOpacity,
   overlayColor,
 }: BackgroundImageProps) {
+  const [imageLoaded, setImageLoaded] = React.useState(false);
   const bgImage = backgrounds[background];
   
   const positionClass = fixed ? 'fixed inset-0' : 'absolute inset-0';
+  
+  // Preload da imagem para evitar travamentos
+  React.useEffect(() => {
+    if (!bgImage) return;
+    
+    const img = new Image();
+    img.onload = () => setImageLoaded(true);
+    img.onerror = () => {
+      console.error('Erro ao carregar background:', bgImage);
+      setImageLoaded(true); // Ainda renderiza mesmo com erro
+    };
+    img.src = bgImage;
+  }, [bgImage]);
   
   return (
     <div className={`relative ${className}`}>
       {/* Background Image */}
       <div 
-        className={`${positionClass} bg-center bg-no-repeat`}
+        className={`${positionClass} bg-center bg-no-repeat transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
         style={{ 
-          backgroundImage: `url(${bgImage})`,
+          backgroundImage: bgImage ? `url(${bgImage})` : undefined,
           backgroundSize: 'cover',
           backgroundAttachment: 'fixed'
         }}
       />
+      
+      {/* Loading placeholder */}
+      {!imageLoaded && (
+        <div className={`${positionClass} bg-gradient-to-br from-[#00109E] to-[#35BFAD] animate-pulse`} />
+      )}
       
       {/* Optional Overlay */}
       {overlayColor && overlayOpacity && (

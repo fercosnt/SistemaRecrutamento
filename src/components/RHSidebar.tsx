@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3 } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Glass } from './ui/glass';
+import { useAuthStore } from '@/store/authStore';
 
 interface MenuItem {
   id: string;
@@ -14,11 +16,6 @@ interface MenuItem {
 }
 
 interface RHSidebarProps {
-  activePage: string;
-  onNavigate: (pageId: string) => void;
-  userName?: string;
-  userRole?: string;
-  onLogout?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
   isMobileOpen?: boolean;
@@ -26,21 +23,38 @@ interface RHSidebarProps {
 }
 
 export function RHSidebar({
-  activePage,
-  onNavigate,
-  userName = 'João Silva',
-  userRole = 'Administrador',
-  onLogout,
   isCollapsed: externalCollapsed,
   onToggleCollapse,
   isMobileOpen: externalMobileOpen,
   onMobileClose
 }: RHSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, candidato, logout: authLogout } = useAuthStore();
+
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
-  
+
   const isCollapsed = externalCollapsed ?? internalCollapsed;
   const isMobileOpen = externalMobileOpen ?? internalMobileOpen;
+
+  // Nome do usuário (usa nome do candidato se disponível, senão email)
+  const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
+  // Role (TODO: adicionar campo de perfil na tabela candidatos ou usuários)
+  const userRole = 'RH';
+
+  // Detectar página ativa baseado na rota atual
+  const getActivePageFromPath = (pathname: string): string => {
+    if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
+    if (pathname.startsWith('/rh/candidatos')) return 'candidatos-rh';
+    if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
+    if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
+    if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
+    if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+    return 'dashboard-rh';
+  };
+
+  const activePage = getActivePageFromPath(location.pathname);
 
   const menuItems: MenuItem[] = [
     {
@@ -61,6 +75,11 @@ export function RHSidebar({
       badge: 5,
     },
     {
+      id: 'relatorios-rh',
+      label: 'Relatórios',
+      icon: <BarChart3 size={24} />,
+    },
+    {
       id: 'suporte-rh',
       label: 'Suporte',
       icon: <Bug size={24} />,
@@ -73,7 +92,22 @@ export function RHSidebar({
   ];
 
   const handleMenuClick = (itemId: string) => {
-    onNavigate(itemId);
+    // Mapear itemId para rota
+    const routes: Record<string, string> = {
+      'dashboard-rh': '/rh/dashboard',
+      'candidatos-rh': '/rh/candidatos',
+      'vagas-rh': '/rh/vagas',
+      'relatorios-rh': '/rh/relatorios',
+      'suporte-rh': '/rh/suporte',
+      'configuracoes-rh': '/rh/configuracoes',
+    };
+
+    const route = routes[itemId];
+    if (route) {
+      navigate(route);
+    }
+
+    // Fechar menu mobile
     if (onMobileClose) {
       onMobileClose();
     } else {
@@ -81,10 +115,17 @@ export function RHSidebar({
     }
   };
 
-  const handleLogout = () => {
-    if (onLogout) {
-      onLogout();
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+      navigate('/auth/login-rh');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      // Navegar mesmo se houver erro
+      navigate('/auth/login-rh');
     }
+
+    // Fechar menu mobile
     if (onMobileClose) {
       onMobileClose();
     } else {

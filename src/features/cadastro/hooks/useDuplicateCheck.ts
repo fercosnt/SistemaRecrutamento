@@ -134,9 +134,10 @@ export function useDuplicateCheck(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<DuplicateCheckError | null>(null)
 
-  // Refs para evitar race conditions
+  // Refs para evitar race conditions e re-verificações
   const abortControllerRef = useRef<AbortController | null>(null)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastCheckedValueRef = useRef<string | null>(null)
 
   /**
    * Valida se o valor tem formato válido para verificação
@@ -253,6 +254,9 @@ export function useDuplicateCheck(
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
     }
+
+    // Limpar cache de último valor verificado
+    lastCheckedValueRef.current = null
   }, [])
 
   /**
@@ -274,12 +278,19 @@ export function useDuplicateCheck(
       // Limpar dados se valor foi apagado
       if (value.length === 0) {
         reset()
+        lastCheckedValueRef.current = null
       }
+      return
+    }
+
+    // ✅ CACHE: Não verificar se o valor já foi verificado recentemente
+    if (lastCheckedValueRef.current === value) {
       return
     }
 
     // Criar novo timer de debounce
     debounceTimerRef.current = setTimeout(() => {
+      lastCheckedValueRef.current = value
       check(value)
     }, debounceMs)
 

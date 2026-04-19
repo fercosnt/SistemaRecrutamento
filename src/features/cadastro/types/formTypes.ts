@@ -13,7 +13,7 @@ import type {
   CandidatoFormData,
   DadosPessoaisData,
   EnderecoData,
-  DadosProfissionaisData,
+  // DadosProfissionaisData, // Não coletado mais no cadastro (Opção B)
   DisponibilidadeData,
   AutorizacoesData,
 } from '../schemas/candidatoSchema'
@@ -44,12 +44,14 @@ export type EnderecoRow = Database['public']['Tables']['enderecos']['Row']
 
 /**
  * Type para inserção na tabela dados_profissionais
+ * NOTA: Tabela existe no banco mas não é usada durante cadastro (Opção B)
  */
 export type DadosProfissionaisInsert =
   Database['public']['Tables']['dados_profissionais']['Insert']
 
 /**
  * Type para row da tabela dados_profissionais
+ * NOTA: Tabela existe no banco mas não é usada durante cadastro (Opção B)
  */
 export type DadosProfissionaisRow =
   Database['public']['Tables']['dados_profissionais']['Row']
@@ -87,12 +89,12 @@ export type AutorizacoesRow = Database['public']['Tables']['autorizacoes']['Row'
 export type FormStepStatus = 'pending' | 'completed' | 'error' | 'current'
 
 /**
- * Seções do formulário multi-step
+ * Seções do formulário multi-step (4 etapas - dados_profissionais removido)
  */
 export type FormStep =
   | 'dadosPessoais'
   | 'endereco'
-  | 'dadosProfissionais'
+  // | 'dadosProfissionais' // Removido - não coletado mais (Opção B)
   | 'disponibilidade'
   | 'autorizacoes'
 
@@ -125,7 +127,7 @@ export type FormMultiStepAction =
 // ============================================
 
 /**
- * Payload para criação de candidato (todas as 5 tabelas)
+ * Payload para criação de candidato (4 tabelas - dados_profissionais não coletado)
  */
 export interface CreateCandidatoPayload {
   // Dados para tabela candidatos
@@ -136,6 +138,8 @@ export interface CreateCandidatoPayload {
     telefone: string
     data_nascimento: string
     genero: 'masculino' | 'feminino' | 'outro' | 'prefiro_nao_informar'
+    instagram?: string | null
+    linkedin?: string | null
     // user_id será preenchido após criação no Supabase Auth
   }
 
@@ -150,34 +154,34 @@ export interface CreateCandidatoPayload {
     estado: string
   }
 
-  // Dados para tabela dados_profissionais
-  dadosProfissionais: {
-    experiencia_area: 'nenhuma' | 'menos_1_ano' | '1_3_anos' | '3_5_anos' | 'mais_5_anos'
-    nivel_escolaridade:
-      | 'fundamental_incompleto'
-      | 'fundamental_completo'
-      | 'medio_incompleto'
-      | 'medio_completo'
-      | 'superior_incompleto'
-      | 'superior_completo'
-      | 'pos_graduacao'
-      | 'mestrado'
-      | 'doutorado'
-    instituicao_ensino?: string | null
-    curso?: string | null
-    ano_conclusao?: number | null
-    possui_cnh: boolean
-    categorias_cnh?: string[] | null
-  }
+  // Dados para tabela dados_profissionais - COMENTADO (Opção B)
+  // dadosProfissionais: {
+  //   experiencia_area: 'nenhuma' | 'menos_1_ano' | '1_3_anos' | '3_5_anos' | 'mais_5_anos'
+  //   nivel_escolaridade:
+  //     | 'fundamental_incompleto'
+  //     | 'fundamental_completo'
+  //     | 'medio_incompleto'
+  //     | 'medio_completo'
+  //     | 'superior_incompleto'
+  //     | 'superior_completo'
+  //     | 'pos_graduacao'
+  //     | 'mestrado'
+  //     | 'doutorado'
+  //   instituicao_ensino?: string | null
+  //   curso?: string | null
+  //   ano_conclusao?: number | null
+  //   possui_cnh: boolean
+  //   categorias_cnh?: string[] | null
+  // }
 
-  // Dados para tabela disponibilidade
+  // Dados para tabela disponibilidade (sem mobilidade)
   disponibilidade: {
     turno_preferido: 'manha' | 'tarde' | 'noite' | 'integral'
     modelo_trabalho: 'presencial' | 'remoto' | 'hibrido'
     disponibilidade_imediata: boolean
     data_disponibilidade?: string | null
-    aceita_viajar: boolean
-    aceita_mudanca: boolean
+    // aceita_viajar: boolean // Removido
+    // aceita_mudanca: boolean // Removido
   }
 
   // Dados para tabela autorizacoes
@@ -190,14 +194,14 @@ export interface CreateCandidatoPayload {
 }
 
 /**
- * Response da API ao criar candidato
+ * Response da API ao criar candidato (sem dados_profissionais)
  */
 export interface CreateCandidatoResponse {
   success: boolean
   data?: {
     candidato: CandidatoRow
     endereco: EnderecoRow
-    dadosProfissionais: DadosProfissionaisRow
+    // dadosProfissionais: DadosProfissionaisRow // Não criado mais (Opção B)
     disponibilidade: DisponibilidadeRow
     autorizacoes: AutorizacoesRow
   }
@@ -255,12 +259,12 @@ export interface SectionValidationResult {
 }
 
 /**
- * Type para erros do React Hook Form
+ * Type para erros do React Hook Form (sem dados_profissionais)
  */
 export type FormErrors = {
   dadosPessoais?: Partial<Record<keyof DadosPessoaisData, string>>
   endereco?: Partial<Record<keyof EnderecoData, string>>
-  dadosProfissionais?: Partial<Record<keyof DadosProfissionaisData, string>>
+  // dadosProfissionais?: Partial<Record<keyof DadosProfissionaisData, string>> // Removido
   disponibilidade?: Partial<Record<keyof DisponibilidadeData, string>>
   autorizacoes?: Partial<Record<keyof AutorizacoesData, string>>
 }
@@ -303,7 +307,7 @@ export interface FieldLoadingState {
 }
 
 /**
- * Type para mapear form data para database inserts
+ * Type para mapear form data para database inserts (sem dados_profissionais)
  */
 export interface FormDataMapper {
   toCandidatoInsert: (
@@ -314,10 +318,10 @@ export interface FormDataMapper {
     formData: CandidatoFormData,
     candidatoId: string
   ) => EnderecoInsert
-  toDadosProfissionaisInsert: (
-    formData: CandidatoFormData,
-    candidatoId: string
-  ) => DadosProfissionaisInsert
+  // toDadosProfissionaisInsert: ( // Não usado mais (Opção B)
+  //   formData: CandidatoFormData,
+  //   candidatoId: string
+  // ) => DadosProfissionaisInsert
   toDisponibilidadeInsert: (
     formData: CandidatoFormData,
     candidatoId: string
@@ -371,7 +375,7 @@ export type {
   CandidatoFormData,
   DadosPessoaisData,
   EnderecoData,
-  DadosProfissionaisData,
+  // DadosProfissionaisData, // Não usado mais (Opção B)
   DisponibilidadeData,
   AutorizacoesData,
 }

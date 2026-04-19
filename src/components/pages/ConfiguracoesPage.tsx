@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes';
 
 interface TemplateEmail {
   id: string;
@@ -1871,7 +1872,7 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
                       <div className="flex-1">
                         <p className="text-white drop-shadow-sm">{vaga.titulo}</p>
                         <p className="text-white/70 drop-shadow-sm text-sm">
-                          {vaga.localizacao} • {vaga.candidatos} candidatos
+                          {formatarLocalizacaoVaga(vaga)} • {vaga.candidatos} candidatos
                         </p>
                       </div>
                     </div>

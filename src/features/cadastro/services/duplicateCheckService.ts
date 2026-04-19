@@ -143,7 +143,7 @@ export async function checkCPFDuplicate(cpf: string): Promise<DuplicateCheckResu
     // Buscar candidato com CPF no banco
     const { data, error } = await supabase
       .from('candidatos')
-      .select('id, nome_completo, email, cpf, data_cadastro')
+      .select('id, nome_completo, email, cpf, created_at')
       .eq('cpf', cleanedCPF)
       .maybeSingle() // Retorna null se não encontrar, evita erro
 
@@ -209,7 +209,7 @@ export async function checkEmailDuplicate(email: string): Promise<DuplicateCheck
     // Buscar candidato com Email no banco (case-insensitive)
     const { data, error } = await supabase
       .from('candidatos')
-      .select('id, nome_completo, email, cpf, data_cadastro')
+      .select('id, nome_completo, email, cpf, created_at')
       .ilike('email', cleanedEmail) // ilike = case-insensitive
       .maybeSingle() // Retorna null se não encontrar
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { RHLayout } from '../RHLayout';
 import { Glass, GlassButton } from '../ui/glass';
 import {
   Plus,
   Search,
-  Settings,
   MapPin,
   Briefcase,
   Calendar,
@@ -29,6 +31,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { useVagas } from '@/features/vagas/hooks/useVagas';
+import { supabase } from '@/lib/supabase/client';
+import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes';
 
 type StatusVaga = 'ativa' | 'inativa' | 'rascunho';
 type FiltroVaga = 'todas' | 'ativas' | 'inativas' | 'rascunhos';
@@ -48,186 +53,152 @@ interface Vaga {
   };
 }
 
-interface VagasRHPageProps {
-  onNovaVaga?: () => void;
-}
-
-export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
-  const [currentPage, setCurrentPage] = useState('vagas-rh');
+export function VagasRHPage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [filtroAtivo, setFiltroAtivo] = useState<FiltroVaga>('todas');
   const [busca, setBusca] = useState('');
 
-  // Mock data
-  const vagas: Vaga[] = [
-    {
-      id: 1,
-      titulo: 'Assistente Odontológico',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      publicadaEm: '2 dias',
-      status: 'ativa',
-      candidatos: {
-        total: 8,
-        emAnalise: 5,
-        aprovados: 3,
-      },
+  // Buscar vagas do banco de dados (incluindo todas - ativas, inativas, rascunhos)
+  const { data: vagasData, isLoading, error } = useVagas(
+    { apenasAtivas: false }, // Buscar TODAS as vagas, filtrar no client
+    'mais_recentes',
+    { page: 1, limit: 100 } // Aumentar limit para mostrar todas
+  );
+
+  // Mutations
+  const pausarAtivarMutation = useMutation({
+    mutationFn: async ({ vagaId, statusAtual }: { vagaId: string; statusAtual: string }) => {
+      // Toggle entre 'ativa' e 'inativa'
+      const novoStatus = statusAtual === 'ativa' ? 'inativa' : 'ativa';
+
+      const { data, error } = await supabase
+        .from('vagas')
+        .update({ status: novoStatus, updated_at: new Date().toISOString() })
+        .eq('id', vagaId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     },
-    {
-      id: 2,
-      titulo: 'Recepcionista',
-      localizacao: 'Rio de Janeiro, RJ',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      publicadaEm: '5 dias',
-      status: 'ativa',
-      candidatos: {
-        total: 15,
-        emAnalise: 8,
-        aprovados: 4,
-      },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vagas'] });
+      toast.success('Status da vaga atualizado com sucesso!');
     },
-    {
-      id: 3,
-      titulo: 'Auxiliar Administrativo',
-      localizacao: 'Belo Horizonte, MG',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      publicadaEm: '1 semana',
-      status: 'ativa',
-      candidatos: {
-        total: 12,
-        emAnalise: 7,
-        aprovados: 2,
-      },
+    onError: (error: any) => {
+      console.error('Erro ao atualizar status da vaga:', error);
+      toast.error('Erro ao atualizar status da vaga');
     },
-    {
-      id: 4,
-      titulo: 'Dentista Clínico Geral',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      publicadaEm: '3 dias',
-      status: 'ativa',
-      candidatos: {
-        total: 6,
-        emAnalise: 4,
-        aprovados: 1,
-      },
+  });
+
+  const duplicarMutation = useMutation({
+    mutationFn: async (vagaId: string) => {
+      // Buscar vaga original
+      const { data: vagaOriginal, error: fetchError } = await supabase
+        .from('vagas')
+        .select('*')
+        .eq('id', vagaId)
+        .single();
+
+      if (fetchError || !vagaOriginal) throw fetchError || new Error('Vaga não encontrada');
+
+      // Criar cópia (removendo campos que não devem ser copiados)
+      const { id, created_at, updated_at, deleted_at, ...vagaData } = vagaOriginal as any;
+
+      // Gerar slug único para evitar conflito de constraint
+      const timestamp = Date.now();
+      const slugUnico = `${vagaData.slug}-copia-${timestamp}`;
+
+      const vagaDuplicada = {
+        ...vagaData,
+        titulo: `${vagaOriginal.titulo} (Cópia)`,
+        slug: slugUnico, // Slug único com timestamp
+        status: 'inativa', // Duplicatas começam inativas
+      };
+
+      const { data, error: insertError } = await supabase
+        .from('vagas')
+        .insert(vagaDuplicada as any)
+        .select('id')
+        .single();
+
+      if (insertError || !data) throw insertError || new Error('Erro ao criar duplicata');
+      return data;
     },
-    {
-      id: 5,
-      titulo: 'Gerente de Clínica',
-      localizacao: 'Curitiba, PR',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      publicadaEm: '2 semanas',
-      status: 'inativa',
-      candidatos: {
-        total: 20,
-        emAnalise: 3,
-        aprovados: 8,
-      },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['vagas'] });
+      toast.success('Vaga duplicada com sucesso!');
+      // Navegar para edição da vaga duplicada
+      navigate(`/rh/vagas/${data.id}/editar`);
     },
-    {
-      id: 6,
-      titulo: 'Ortodontista',
-      localizacao: 'Brasília, DF',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      publicadaEm: '1 mês',
-      status: 'inativa',
-      candidatos: {
-        total: 9,
-        emAnalise: 2,
-        aprovados: 3,
-      },
+    onError: (error: any) => {
+      console.error('Erro ao duplicar vaga:', error);
+      toast.error('Erro ao duplicar vaga');
     },
-    {
-      id: 7,
-      titulo: 'Auxiliar de Limpeza',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      publicadaEm: 'Rascunho',
-      status: 'rascunho',
-      candidatos: {
-        total: 0,
-        emAnalise: 0,
-        aprovados: 0,
-      },
+  });
+
+  const arquivarMutation = useMutation({
+    mutationFn: async (vagaId: string) => {
+      const { data, error } = await supabase
+        .from('vagas')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', vagaId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     },
-    {
-      id: 8,
-      titulo: 'Coordenador de Marketing',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Remoto',
-      publicadaEm: 'Rascunho',
-      status: 'rascunho',
-      candidatos: {
-        total: 0,
-        emAnalise: 0,
-        aprovados: 0,
-      },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vagas'] });
+      toast.success('Vaga arquivada com sucesso!');
     },
-    {
-      id: 9,
-      titulo: 'Analista Financeiro',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      publicadaEm: '4 dias',
-      status: 'ativa',
-      candidatos: {
-        total: 18,
-        emAnalise: 12,
-        aprovados: 5,
-      },
+    onError: (error: any) => {
+      console.error('Erro ao arquivar vaga:', error);
+      toast.error('Erro ao arquivar vaga');
     },
-    {
-      id: 10,
-      titulo: 'Especialista em Implantes',
-      localizacao: 'Porto Alegre, RS',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      publicadaEm: '1 semana',
-      status: 'ativa',
+  });
+
+  // Mapear dados do banco para interface do componente
+  const vagas: Vaga[] = (vagasData?.data || []).map((vagaDB) => {
+    // Calcular dias desde publicação
+    const diasPublicacao = vagaDB.created_at
+      ? Math.floor((Date.now() - new Date(vagaDB.created_at).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const publicadaEm = diasPublicacao === 0
+      ? 'Hoje'
+      : diasPublicacao === 1
+      ? '1 dia'
+      : diasPublicacao < 7
+      ? `${diasPublicacao} dias`
+      : diasPublicacao < 14
+      ? '1 semana'
+      : diasPublicacao < 30
+      ? `${Math.floor(diasPublicacao / 7)} semanas`
+      : diasPublicacao < 60
+      ? '1 mês'
+      : `${Math.floor(diasPublicacao / 30)} meses`;
+
+    // Status vem diretamente do banco (campo status: 'ativa' | 'inativa' | 'rascunho')
+    const status: StatusVaga = (vagaDB.status as StatusVaga) || 'inativa';
+
+    return {
+      id: vagaDB.id as any, // Converter UUID para number para compatibilidade
+      titulo: vagaDB.titulo || 'Sem título',
+      localizacao: vagaDB.localizacao || 'Não especificado',
+      tipoContrato: vagaDB.tipo_vaga || 'CLT',
+      modalidade: vagaDB.modelo_trabalho || 'Presencial',
+      publicadaEm,
+      status,
       candidatos: {
-        total: 4,
-        emAnalise: 3,
-        aprovados: 0,
+        total: vagaDB.totalCandidatos || 0,
+        emAnalise: vagaDB.candidatosEmAnalise || 0,
+        aprovados: vagaDB.candidatosAprovados || 0,
       },
-    },
-    {
-      id: 11,
-      titulo: 'Assistente de RH',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      publicadaEm: '3 semanas',
-      status: 'inativa',
-      candidatos: {
-        total: 25,
-        emAnalise: 5,
-        aprovados: 10,
-      },
-    },
-    {
-      id: 12,
-      titulo: 'Técnico de TI',
-      localizacao: 'São Paulo, SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      publicadaEm: '6 dias',
-      status: 'ativa',
-      candidatos: {
-        total: 14,
-        emAnalise: 9,
-        aprovados: 2,
-      },
-    },
-  ];
+    };
+  });
 
   // Filtrar vagas
   const vagasFiltradas = vagas.filter((vaga) => {
@@ -239,10 +210,11 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
       (filtroAtivo === 'rascunhos' && vaga.status === 'rascunho');
 
     // Filtro por busca
+    const localizacao = formatarLocalizacaoVaga(vaga)
     const passaBusca =
       busca === '' ||
       vaga.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-      vaga.localizacao.toLowerCase().includes(busca.toLowerCase());
+      localizacao.toLowerCase().includes(busca.toLowerCase());
 
     return passaFiltroStatus && passaBusca;
   });
@@ -271,27 +243,63 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
   };
 
   const handlePausarAtivar = (vaga: Vaga) => {
-    console.log('Pausar/Ativar vaga:', vaga.id);
+    const vagaDB = vagasData?.data.find(v => v.id === vaga.id);
+    if (!vagaDB) {
+      toast.error('Vaga não encontrada');
+      return;
+    }
+    pausarAtivarMutation.mutate({ vagaId: vaga.id.toString(), statusAtual: vagaDB.status });
   };
 
   const handleEditar = (vaga: Vaga) => {
-    console.log('Editar vaga:', vaga.id);
+    // Navegar para página de edição com rota parametrizada
+    navigate(`/rh/vagas/${vaga.id}/editar`);
   };
 
   const handleGerenciar = (vaga: Vaga) => {
-    console.log('Gerenciar candidatos da vaga:', vaga.id);
+    // Navegar para página de candidatos da vaga
+    navigate(`/rh/vagas/${vaga.id}/candidatos`);
   };
 
   const handleDuplicar = (vaga: Vaga) => {
-    console.log('Duplicar vaga:', vaga.id);
+    duplicarMutation.mutate(vaga.id.toString());
   };
 
   const handleArquivar = (vaga: Vaga) => {
-    console.log('Arquivar vaga:', vaga.id);
+    if (confirm(`Tem certeza que deseja arquivar a vaga "${vaga.titulo}"? Esta ação não pode ser desfeita facilmente.`)) {
+      arquivarMutation.mutate(vaga.id.toString());
+    }
   };
 
+  // Estados de loading e erro
+  if (isLoading) {
+    return (
+      <RHLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white drop-shadow-lg">Carregando vagas...</p>
+          </div>
+        </div>
+      </RHLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <RHLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Glass variant="white" blur="lg" className="p-8 rounded-xl max-w-md text-center">
+            <p className="text-red-200 drop-shadow-lg mb-4">Erro ao carregar vagas:</p>
+            <p className="text-white drop-shadow-lg">{error.message}</p>
+          </Glass>
+        </div>
+      </RHLayout>
+    );
+  }
+
   return (
-    <RHLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+    <RHLayout>
       <div className="space-y-6">
         {/* HEADER */}
         <Glass variant="white" blur="lg" className="p-8 rounded-xl">
@@ -303,7 +311,7 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
             <GlassButton
               variant="primary"
               className="flex items-center gap-2"
-              onClick={onNovaVaga}
+              onClick={() => navigate('/rh/vagas/nova')}
             >
               <Plus className="w-5 h-5" />
               Nova Vaga
@@ -323,9 +331,6 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
                   className="pl-12 h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 transition-all duration-200"
                 />
               </div>
-              <GlassButton variant="ghost" className="h-12 w-12 p-0 flex items-center justify-center">
-                <Settings className="w-5 h-5" />
-              </GlassButton>
             </div>
           </div>
 
@@ -376,7 +381,7 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
                 key={vaga.id}
                 variant="white"
                 blur="lg"
-                className="p-6 rounded-xl hover:bg-white/25 transition-all duration-300"
+                className="p-6 rounded-xl"
               >
                 {/* Header do Card */}
                 <div className="flex items-start justify-between mb-4">
@@ -390,7 +395,7 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
                 <div className="space-y-2 mb-6">
                   <div className="flex items-center gap-2 text-white/80 drop-shadow-sm text-sm">
                     <MapPin className="w-4 h-4" />
-                    <span>{vaga.localizacao}</span>
+                    <span>{formatarLocalizacaoVaga(vaga)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-white/80 drop-shadow-sm text-sm">
                     <Briefcase className="w-4 h-4" />
@@ -436,30 +441,34 @@ export function VagasRHPage({ onNovaVaga }: VagasRHPageProps = {}) {
                 {/* Botões de Ação */}
                 <div className="flex items-center gap-3">
                   <GlassButton
-                    variant="ghost"
-                    className="flex-1"
+                    variant="secondary"
+                    className="flex-1 text-white flex items-center justify-center gap-2 font-medium"
                     onClick={() => handleGerenciar(vaga)}
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Gerenciar
+                    <Eye className="w-4 h-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap">Gerenciar</span>
                   </GlassButton>
                   <GlassButton
                     variant="secondary"
-                    className="flex-1"
+                    className="flex-1 text-white flex items-center justify-center gap-2 font-medium"
                     onClick={() => handleEditar(vaga)}
                   >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Editar
+                    <Edit className="w-4 h-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap">Editar</span>
                   </GlassButton>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <GlassButton variant="ghost" className="w-10 h-10 p-0 flex items-center justify-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-10 h-10 p-0 flex items-center justify-center text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl backdrop-blur-md"
+                      >
                         <MoreVertical className="w-5 h-5" />
-                      </GlassButton>
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                       align="end"
-                      className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white"
+                      className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white z-50"
                     >
                       <DropdownMenuItem
                         onClick={() => handleGerenciar(vaga)}

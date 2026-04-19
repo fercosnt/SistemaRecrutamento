@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Upload, FileText, CheckCircle, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { supabase } from '@/lib/supabase/client';
+import { notifyCandidatoCriado } from '@/features/cadastro/services/n8nService';
 
 interface FormData {
   // Bloco 1
@@ -26,8 +29,63 @@ interface FormData {
 }
 
 export function FormularioCandidaturaPage() {
-  const candidatoNome = "Maria Silva"; // Viria do login/sessão
-  
+  const { vagaId } = useParams<{ vagaId: string }>();
+
+  // Estado para dados do candidato
+  const [candidatoNome, setCandidatoNome] = useState<string>('');
+  const [candidatoId, setCandidatoId] = useState<string>('');
+  const [candidatoEmail, setCandidatoEmail] = useState<string>('');
+  const [candidatoTelefone, setCandidatoTelefone] = useState<string>('');
+  const [candidatoCPF, setCandidatoCPF] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  // Buscar dados do candidato logado
+  useEffect(() => {
+    async function fetchCandidato() {
+      try {
+        // Buscar usuário autenticado
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          toast.error('Você precisa estar logado', {
+            description: 'Por favor, faça login para continuar.',
+          });
+          return;
+        }
+
+        // Buscar dados do candidato
+        const { data: candidato, error: candidatoError } = await supabase
+          .from('candidatos')
+          .select('id, nome_completo, email, celular, cpf')
+          .eq('user_id', user.id)
+          .single();
+
+        if (candidatoError || !candidato) {
+          toast.error('Erro ao carregar seus dados', {
+            description: 'Não encontramos seu cadastro.',
+          });
+          return;
+        }
+
+        setCandidatoId(candidato.id);
+        setCandidatoNome(candidato.nome_completo);
+        setCandidatoEmail(candidato.email);
+        setCandidatoTelefone(candidato.celular || '');
+        setCandidatoCPF(candidato.cpf);
+
+      } catch (error) {
+        console.error('Erro ao buscar candidato:', error);
+        toast.error('Erro', {
+          description: 'Não foi possível carregar seus dados.',
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCandidato();
+  }, []);
+
   const [formData, setFormData] = useState<FormData>({
     experiencia: '',
     habilidades: [],
@@ -117,9 +175,9 @@ export function FormularioCandidaturaPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validação básica
     if (!formData.curriculo) {
       toast.error('Currículo obrigatório', {
@@ -128,11 +186,59 @@ export function FormularioCandidaturaPage() {
       return;
     }
 
-    toast.success('Formulário enviado!', {
-      description: 'Agradecemos sua candidatura.',
-    });
-    
-    console.log('Dados do formulário:', formData);
+    try {
+      setLoading(true);
+
+      // TODO: Fazer upload do currículo para Supabase Storage
+      // TODO: Salvar respostas do formulário no banco (criar tabela formularios_candidatura)
+
+      // TODO: Criar candidatura (vincula candidato_id + vaga_id)
+      // Quando a tabela candidaturas estiver implementada, descomentar:
+      // const { error: candidaturaError } = await supabase
+      //   .from('candidaturas')
+      //   .insert({
+      //     candidato_id: candidatoId,
+      //     vaga_id: vagaId,
+      //     status: 'em_analise',
+      //     formulario_preenchido: true,
+      //   });
+      //
+      // if (candidaturaError) throw candidaturaError;
+
+      // Disparar webhook N8N com dados completos (incluindo vagaId)
+      await notifyCandidatoCriado(
+        candidatoId,
+        {
+          nome_completo: candidatoNome,
+          email: candidatoEmail,
+          telefone: candidatoTelefone,
+          cpf: candidatoCPF,
+        },
+        'production',
+        vagaId // Passa vagaId para o webhook
+      );
+
+      toast.success('Formulário enviado!', {
+        description: 'Agradecemos sua candidatura. Em breve entraremos em contato.',
+      });
+
+      console.log('Dados enviados:', {
+        candidatoId,
+        vagaId,
+        formData
+      });
+
+      // Limpar vagaId do localStorage
+      localStorage.removeItem('candidatura_vaga_id');
+
+    } catch (error) {
+      console.error('Erro ao enviar formulário:', error);
+      toast.error('Erro ao enviar', {
+        description: 'Não foi possível enviar seu formulário. Tente novamente.',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

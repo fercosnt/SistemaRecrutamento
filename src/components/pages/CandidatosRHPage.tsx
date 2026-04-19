@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
-import { RHLayout } from '../RHLayout';
-import { Glass, GlassButton } from '../ui/glass';
+/**
+ * Página de Gestão de TODOS os Candidatos (RH)
+ *
+ * Features:
+ * - Lista todas as candidaturas (todas as vagas)
+ * - Filtros por status, vaga e busca
+ * - Views: Cards ou Tabela
+ * - Ações: Ver Perfil, Aprovar, Rejeitar
+ *
+ * @module components/pages/CandidatosRHPage
+ */
+
+import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { RHLayout } from '../RHLayout'
+import { Glass, GlassButton } from '../ui/glass'
 import {
   Search,
-  Settings,
-  ChevronDown,
   Grid3x3,
   List,
   MoreVertical,
@@ -18,26 +29,26 @@ import {
   Phone,
   FileText,
   MessageSquare,
-  GripVertical,
-} from 'lucide-react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+  Eye,
+} from 'lucide-react'
+import { Badge } from '../ui/badge'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '../ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { ScoreCard } from '../ScoreCard'
+import { KanbanBoard } from '../KanbanBoard'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -45,513 +56,412 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '../ui/table';
+} from '../ui/table'
+import { useAllCandidaturas, useVagaCandidaturas } from '@/features/vagas/hooks/useCandidaturas'
+import { useVagas } from '@/features/vagas/hooks/useVagas'
+import type {
+  StatusCandidatura,
+  Candidatura,
+  CandidaturaComScores,
+} from '@/features/vagas/types/vagasTypes'
+import {
+  calculateBigFiveAverage,
+  formatDiscProfile,
+  getCultureScore,
+} from '@/features/vagas/types/vagasTypes'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { UpdateStatusModal } from '../modals/UpdateStatusModal'
 
-type StatusType = 'aprovado' | 'investigar' | 'rejeitado' | 'pendente';
-type KanbanStage = 'triagem' | 'testes' | 'cultura' | 'entrevista';
+/**
+ * Mapeamento de cores por status
+ */
+const STATUS_COLORS: Record<StatusCandidatura, string> = {
+  aguardando_resposta: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  em_analise: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  aprovado_proxima: 'bg-green-500/20 text-green-300 border-green-500/30',
+  rejeitado: 'bg-red-500/20 text-red-300 border-red-500/30',
+  finalizado: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
+}
 
-interface Candidato {
-  id: number;
-  nome: string;
-  vaga: string;
-  avatar: string;
-  email: string;
-  telefone: string;
-  localizacao: string;
-  tempo: string;
-  status: StatusType;
-  kanbanStage?: KanbanStage;
-  scores: {
-    bigFive: number;
-    disc: string;
-    inteligencia: number;
-    cultura: number;
-  };
+/**
+ * Labels de status em português
+ */
+const STATUS_LABELS: Record<StatusCandidatura, string> = {
+  aguardando_resposta: 'Aguardando',
+  em_analise: 'Em Análise',
+  aprovado_proxima: 'Aprovado',
+  rejeitado: 'Rejeitado',
+  finalizado: 'Finalizado',
+}
+
+/**
+ * Badge de status
+ */
+function getStatusBadge(status: StatusCandidatura) {
+  const icons = {
+    aprovado_proxima: <CheckCircle className="w-3 h-3" />,
+    aguardando_resposta: <Clock className="w-3 h-3" />,
+    em_analise: <AlertTriangle className="w-3 h-3" />,
+    rejeitado: <XCircle className="w-3 h-3" />,
+    finalizado: <Clock className="w-3 h-3" />,
+  }
+
+  return (
+    <Badge
+      variant="outline"
+      className={`${STATUS_COLORS[status]} flex items-center gap-1 drop-shadow-sm`}
+    >
+      {icons[status]}
+      {STATUS_LABELS[status]}
+    </Badge>
+  )
 }
 
 export function CandidatosRHPage() {
-  const [currentPage, setCurrentPage] = useState('candidatos-rh');
-  const [activeTab, setActiveTab] = useState('todos');
-  const [viewMode, setViewMode] = useState<'cards' | 'tabela'>('cards');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterTodos, setFilterTodos] = useState('todos');
-  const [filterVaga, setFilterVaga] = useState('todas');
-  const [filterStatus, setFilterStatus] = useState('todos');
-  const [sortBy, setSortBy] = useState('recentes');
-  const [perPage, setPerPage] = useState('20');
-  const [selectedVaga, setSelectedVaga] = useState('assistente');
-  
-  // Estado para Kanban
-  const [kanbanCandidatos, setKanbanCandidatos] = useState<Candidato[]>([]);
+  const navigate = useNavigate()
 
-  // Mock data
-  const candidatos: Candidato[] = [
-    {
-      id: 1,
-      nome: 'Maria Silva',
-      vaga: 'Assistente Odontológico',
-      avatar: 'MS',
-      email: 'maria.silva@email.com',
-      telefone: '(11) 98765-4321',
-      localizacao: 'São Paulo, SP',
-      tempo: 'Há 2 horas',
-      status: 'aprovado',
-      kanbanStage: 'entrevista',
-      scores: { bigFive: 78, disc: 'ID', inteligencia: 85, cultura: 82 },
-    },
-    {
-      id: 2,
-      nome: 'João Santos',
-      vaga: 'Dentista Clínico Geral',
-      avatar: 'JS',
-      email: 'joao.santos@email.com',
-      telefone: '(11) 91234-5678',
-      localizacao: 'São Paulo, SP',
-      tempo: 'Há 5 horas',
-      status: 'investigar',
-      kanbanStage: 'testes',
-      scores: { bigFive: 65, disc: 'SC', inteligencia: 72, cultura: 68 },
-    },
-    {
-      id: 3,
-      nome: 'Ana Costa',
-      vaga: 'Recepcionista',
-      avatar: 'AC',
-      email: 'ana.costa@email.com',
-      telefone: '(21) 99876-5432',
-      localizacao: 'Rio de Janeiro, RJ',
-      tempo: 'Há 1 dia',
-      status: 'pendente',
-      kanbanStage: 'cultura',
-      scores: { bigFive: 92, disc: 'DI', inteligencia: 88, cultura: 95 },
-    },
-    {
-      id: 4,
-      nome: 'Pedro Oliveira',
-      vaga: 'Assistente Odontológico',
-      avatar: 'PO',
-      email: 'pedro.oliveira@email.com',
-      telefone: '(31) 98765-1234',
-      localizacao: 'Belo Horizonte, MG',
-      tempo: 'Há 2 dias',
-      status: 'aprovado',
-      kanbanStage: 'triagem',
-      scores: { bigFive: 85, disc: 'CS', inteligencia: 90, cultura: 87 },
-    },
-    {
-      id: 5,
-      nome: 'Carla Mendes',
-      vaga: 'Recepcionista',
-      avatar: 'CM',
-      email: 'carla.mendes@email.com',
-      telefone: '(11) 97654-3210',
-      localizacao: 'São Paulo, SP',
-      tempo: 'Há 3 dias',
-      status: 'rejeitado',
-      kanbanStage: 'testes',
-      scores: { bigFive: 55, disc: 'IS', inteligencia: 62, cultura: 58 },
-    },
-    {
-      id: 6,
-      nome: 'Lucas Ferreira',
-      vaga: 'Dentista Clínico Geral',
-      avatar: 'LF',
-      email: 'lucas.ferreira@email.com',
-      telefone: '(21) 96543-2109',
-      localizacao: 'Rio de Janeiro, RJ',
-      tempo: 'Há 4 dias',
-      status: 'pendente',
-      kanbanStage: 'triagem',
-      scores: { bigFive: 75, disc: 'DC', inteligencia: 80, cultura: 78 },
-    },
-    {
-      id: 7,
-      nome: 'Juliana Alves',
-      vaga: 'Assistente Odontológico',
-      avatar: 'JA',
-      email: 'juliana.alves@email.com',
-      telefone: '(11) 99123-4567',
-      localizacao: 'São Paulo, SP',
-      tempo: 'Há 1 hora',
-      status: 'pendente',
-      kanbanStage: 'triagem',
-      scores: { bigFive: 88, disc: 'IS', inteligencia: 91, cultura: 89 },
-    },
-    {
-      id: 8,
-      nome: 'Rafael Lima',
-      vaga: 'Recepcionista',
-      avatar: 'RL',
-      email: 'rafael.lima@email.com',
-      telefone: '(31) 98234-5678',
-      localizacao: 'Belo Horizonte, MG',
-      tempo: 'Há 3 horas',
-      status: 'pendente',
-      kanbanStage: 'triagem',
-      scores: { bigFive: 82, disc: 'SI', inteligencia: 86, cultura: 84 },
-    },
-    {
-      id: 9,
-      nome: 'Fernanda Costa',
-      vaga: 'Dentista Clínico Geral',
-      avatar: 'FC',
-      email: 'fernanda.costa@email.com',
-      telefone: '(21) 97345-6789',
-      localizacao: 'Rio de Janeiro, RJ',
-      tempo: 'Há 6 horas',
-      status: 'investigar',
-      kanbanStage: 'testes',
-      scores: { bigFive: 70, disc: 'CD', inteligencia: 75, cultura: 72 },
-    },
-    {
-      id: 10,
-      nome: 'Bruno Souza',
-      vaga: 'Assistente Odontológico',
-      avatar: 'BS',
-      email: 'bruno.souza@email.com',
-      telefone: '(11) 96456-7890',
-      localizacao: 'São Paulo, SP',
-      tempo: 'Há 8 horas',
-      status: 'aprovado',
-      kanbanStage: 'cultura',
-      scores: { bigFive: 90, disc: 'DI', inteligencia: 93, cultura: 91 },
-    },
-    {
-      id: 11,
-      nome: 'Patrícia Santos',
-      vaga: 'Recepcionista',
-      avatar: 'PS',
-      email: 'patricia.santos@email.com',
-      telefone: '(31) 95567-8901',
-      localizacao: 'Belo Horizonte, MG',
-      tempo: 'Há 10 horas',
-      status: 'pendente',
-      kanbanStage: 'cultura',
-      scores: { bigFive: 79, disc: 'SC', inteligencia: 83, cultura: 81 },
-    },
-    {
-      id: 12,
-      nome: 'Rodrigo Oliveira',
-      vaga: 'Dentista Clínico Geral',
-      avatar: 'RO',
-      email: 'rodrigo.oliveira@email.com',
-      telefone: '(21) 94678-9012',
-      localizacao: 'Rio de Janeiro, RJ',
-      tempo: 'Há 12 horas',
-      status: 'aprovado',
-      kanbanStage: 'entrevista',
-      scores: { bigFive: 87, disc: 'ID', inteligencia: 89, cultura: 88 },
-    },
-  ];
+  // Estados locais
+  const [activeTab, setActiveTab] = useState<'todos' | 'por-vaga' | 'kanban'>('todos')
+  const [viewMode, setViewMode] = useState<'cards' | 'tabela'>('cards')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<StatusCandidatura | 'todos'>('todos')
+  const [filterVaga, setFilterVaga] = useState('todas')
+  const [selectedVagaPorVaga, setSelectedVagaPorVaga] = useState<string | null>(null) // Para aba "Por Vaga"
+  const [sortBy, setSortBy] = useState<'recentes' | 'antigos' | 'nome' | 'score'>('recentes')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [selectedCandidatura, setSelectedCandidatura] = useState<{
+    id: string
+    candidatoNome: string
+    statusAtual: StatusCandidatura
+  } | null>(null)
 
-  // Inicializar kanban com os candidatos
-  React.useEffect(() => {
-    if (kanbanCandidatos.length === 0) {
-      setKanbanCandidatos(candidatos);
+  // Buscar todas as candidaturas
+  const {
+    data: candidaturasData,
+    isLoading: isLoadingCandidaturas,
+    error: errorCandidaturas,
+  } = useAllCandidaturas(
+    filterStatus !== 'todos' ? { status: filterStatus } : undefined,
+    'mais_recentes',
+    { page: currentPage, limit: perPage }
+  )
+
+  // Buscar vagas para filtro (incluindo todas - ativas e inativas)
+  const { data: vagasData } = useVagas(
+    { apenasAtivas: false }, // Incluir vagas ativas e inativas
+    'alfabetica',
+    { page: 1, limit: 100 }
+  )
+
+  // Buscar candidaturas da vaga selecionada (aba "Por Vaga")
+  const { data: vagaCandidaturasData } = useVagaCandidaturas(
+    selectedVagaPorVaga,
+    undefined,
+    'mais_recentes',
+    { page: 1, limit: 100 }
+  )
+
+  const candidaturas = candidaturasData?.data || []
+  const vagas = vagasData?.data || []
+  const pagination = candidaturasData?.pagination
+  const vagaCandidaturas = vagaCandidaturasData?.data || []
+
+  // Aplicar busca e filtros locais
+  const candidaturasFiltradas = useMemo(() => {
+    let filtered = [...candidaturas]
+
+    // Filtro de busca (nome ou email)
+    if (searchQuery) {
+      const termoBusca = searchQuery.toLowerCase()
+      filtered = filtered.filter((candidatura) => {
+        const candidato = candidatura.candidato as any
+        return (
+          candidato?.nome_completo?.toLowerCase().includes(termoBusca) ||
+          candidato?.email?.toLowerCase().includes(termoBusca)
+        )
+      })
     }
-  }, []);
 
-  const vagas = [
-    { id: 'assistente', nome: 'Assistente Odontológico', candidatos: 8 },
-    { id: 'dentista', nome: 'Dentista Clínico Geral', candidatos: 12 },
-    { id: 'recepcionista', nome: 'Recepcionista', candidatos: 15 },
-  ];
+    // Filtro por vaga
+    if (filterVaga !== 'todas') {
+      filtered = filtered.filter((c) => c.vaga_id === filterVaga)
+    }
 
-  const handleNavigation = (pageId: string) => {
-    setCurrentPage(pageId);
-    console.log('Navegando para:', pageId);
-  };
+    // Ordenação local
+    switch (sortBy) {
+      case 'antigos':
+        filtered.sort(
+          (a, b) =>
+            new Date(a.data_candidatura).getTime() - new Date(b.data_candidatura).getTime()
+        )
+        break
+      case 'nome':
+        filtered.sort((a, b) => {
+          const nomeA = (a.candidato as any)?.nome_completo || ''
+          const nomeB = (b.candidato as any)?.nome_completo || ''
+          return nomeA.localeCompare(nomeB)
+        })
+        break
+      case 'score':
+        // TODO: Quando tiver scores calculados, ordenar por eles
+        break
+      case 'recentes':
+      default:
+        // Já vem ordenado do backend
+        break
+    }
 
-  const handleLogout = () => {
-    console.log('Logout');
-  };
+    return filtered
+  }, [candidaturas, searchQuery, filterVaga, sortBy])
 
-  const handleVerPerfil = (candidatoId: number) => {
-    console.log('Ver perfil do candidato:', candidatoId);
-    handleNavigation('perfil-candidato-rh');
-  };
+  // Contadores por status
+  const contadores = useMemo(() => {
+    return {
+      todos: candidaturas.length,
+      aguardando: candidaturas.filter((c) => c.status === 'aguardando_resposta').length,
+      em_analise: candidaturas.filter((c) => c.status === 'em_analise').length,
+      aprovados: candidaturas.filter((c) => c.status === 'aprovado_proxima').length,
+      rejeitados: candidaturas.filter((c) => c.status === 'rejeitado').length,
+    }
+  }, [candidaturas])
 
-  // Função para mover candidato entre colunas
-  const moveCandidato = (candidatoId: number, newStage: KanbanStage) => {
-    setKanbanCandidatos((prev) =>
-      prev.map((c) =>
-        c.id === candidatoId ? { ...c, kanbanStage: newStage } : c
-      )
-    );
-  };
+  // Funil de etapas (aba "Por Vaga")
+  const funilEtapas = useMemo(() => {
+    const etapas: Record<string, number> = {
+      triagem: 0,
+      bigfive: 0,              // Corrigido: SEM underscore
+      disc: 0,
+      entrevista_online: 0,    // Corrigido: mudou de telefonica para online
+      raven: 0,                // Adicionado: teste de QI
+      cultura: 0,              // Adicionado: análise cultural
+      entrevista_presencial: 0,
+    }
 
-  const getStatusBadge = (status: StatusType) => {
-    const statusConfig = {
-      aprovado: {
-        icon: <CheckCircle className="w-3 h-3" />,
-        label: 'Aprovado',
-        className: 'bg-green-500/20 text-green-300 border-green-500/30',
-      },
-      investigar: {
-        icon: <AlertTriangle className="w-3 h-3" />,
-        label: 'Investigar',
-        className: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-      },
-      rejeitado: {
-        icon: <XCircle className="w-3 h-3" />,
-        label: 'Rejeitado',
-        className: 'bg-red-500/20 text-red-300 border-red-500/30',
-      },
-      pendente: {
-        icon: <Clock className="w-3 h-3" />,
-        label: 'Pendente',
-        className: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-      },
-    };
+    vagaCandidaturas.forEach((c) => {
+      if (c.etapa_atual && etapas.hasOwnProperty(c.etapa_atual)) {
+        etapas[c.etapa_atual]++
+      }
+    })
 
-    const config = statusConfig[status];
+    return etapas
+  }, [vagaCandidaturas])
+
+  // Handler Ver Perfil
+  const handleVerPerfil = (candidatoId: string) => {
+    navigate(`/rh/candidatos/${candidatoId}`)
+  }
+
+  // Handler Aprovar
+  const handleAprovar = (candidatura: Candidatura) => {
+    const candidato = candidatura.candidato as any
+    setSelectedCandidatura({
+      id: candidatura.id,
+      candidatoNome: candidato?.nome_completo || 'Candidato',
+      statusAtual: candidatura.status as StatusCandidatura,
+    })
+  }
+
+  // Handler Rejeitar
+  const handleRejeitar = (candidatura: Candidatura) => {
+    const candidato = candidatura.candidato as any
+    setSelectedCandidatura({
+      id: candidatura.id,
+      candidatoNome: candidato?.nome_completo || 'Candidato',
+      statusAtual: candidatura.status as StatusCandidatura,
+    })
+  }
+
+  // Loading state
+  if (isLoadingCandidaturas) {
     return (
-      <Badge
-        variant="outline"
-        className={`${config.className} flex items-center gap-1 drop-shadow-sm`}
-      >
-        {config.icon}
-        {config.label}
-      </Badge>
-    );
-  };
-
-  // Componente de Card Kanban (mais compacto)
-  const KanbanCard = ({ candidato }: { candidato: Candidato }) => {
-    const [{ isDragging }, drag] = useDrag(() => ({
-      type: 'CANDIDATO',
-      item: { id: candidato.id },
-      collect: (monitor) => ({
-        isDragging: monitor.isDragging(),
-      }),
-    }));
-
-    const scoreTotal = Math.round(
-      (candidato.scores.bigFive +
-        candidato.scores.inteligencia +
-        candidato.scores.cultura) /
-        3
-    );
-
-    return (
-      <div
-        ref={drag}
-        className={`${
-          isDragging ? 'opacity-50 cursor-grabbing' : 'cursor-grab'
-        } transition-all duration-200`}
-      >
-        <Glass
-          variant="white"
-          blur="lg"
-          hover
-          className="p-4 rounded-xl transition-all duration-300"
-        >
-          <div className="space-y-3">
-            {/* Header compacto */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md text-sm">
-                {candidato.avatar}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-white drop-shadow-sm text-sm truncate">
-                  {candidato.nome}
-                </h4>
-                <p className="text-xs text-white/60 drop-shadow-sm truncate">
-                  {candidato.vaga}
-                </p>
-              </div>
-            </div>
-
-            {/* Score */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-white/60 drop-shadow-sm">Score:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-white drop-shadow-sm">{scoreTotal}</span>
-                <span className="text-xs text-white/60">/100</span>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#35BFAD] rounded-full transition-all duration-300"
-                style={{ width: `${scoreTotal}%` }}
-              />
-            </div>
-
-            {/* Status badge pequeno */}
-            <div className="flex justify-end">{getStatusBadge(candidato.status)}</div>
+      <RHLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white drop-shadow-lg">Carregando candidatos...</p>
           </div>
-        </Glass>
-      </div>
-    );
-  };
+        </div>
+      </RHLayout>
+    )
+  }
 
-  // Componente de Coluna Kanban
-  const KanbanColumn = ({
-    stage,
-    title,
-    candidatos,
-  }: {
-    stage: KanbanStage;
-    title: string;
-    candidatos: Candidato[];
-  }) => {
-    const [{ isOver }, drop] = useDrop(() => ({
-      accept: 'CANDIDATO',
-      drop: (item: { id: number }) => {
-        moveCandidato(item.id, stage);
-      },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-    }));
+  // Error state
+  if (errorCandidaturas) {
+    return (
+      <RHLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Glass variant="white" blur="lg" className="p-8 rounded-xl max-w-md text-center">
+            <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4 drop-shadow-lg" />
+            <h2 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
+              Erro ao carregar candidatos
+            </h2>
+            <p className="text-white/80 drop-shadow-sm mb-6">
+              {errorCandidaturas.message}
+            </p>
+            <GlassButton
+              variant="secondary"
+              onClick={() => window.location.reload()}
+              className="text-white"
+            >
+              Tentar Novamente
+            </GlassButton>
+          </Glass>
+        </div>
+      </RHLayout>
+    )
+  }
+
+  // Componente Card de Candidato
+  const CandidatoCard = ({ candidatura }: { candidatura: CandidaturaComScores }) => {
+    const candidato = candidatura.candidato as any
+    const vaga = candidatura.vaga as any
+    const initials =
+      candidato?.nome_completo
+        ?.split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase() || '??'
+
+    // Calcular scores
+    const bigFiveScore = calculateBigFiveAverage(candidatura.scores_bigfive)
+    const discProfile = formatDiscProfile(candidatura.scores_disc)
+    const inteligencia = candidatura.scores_raven?.percentil
+    const cultura = getCultureScore(candidatura.analise_ia_cultura)
+    const scoreGeral = candidatura.score_geral
 
     return (
-      <div ref={drop} className="flex-1 min-w-[280px]">
-        <Glass
-          variant="white"
-          blur="lg"
-          className={`rounded-xl transition-all duration-200 ${
-            isOver ? 'bg-[#35BFAD]/10 ring-2 ring-[#35BFAD]/30' : ''
-          }`}
-        >
-          {/* Header da coluna */}
-          <div className="p-4 border-b border-white/20">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white drop-shadow-sm">{title}</h3>
-              <Badge className="bg-[#35BFAD]/20 text-[#35BFAD] border-[#35BFAD]/30">
-                {candidatos.length}
-              </Badge>
+      <Glass
+        variant="white"
+        blur="lg"
+        hover
+        className="p-6 rounded-xl transition-all duration-300"
+      >
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="w-16 h-16 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md">
+              {initials}
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white drop-shadow-sm truncate">
+                    {candidato?.nome_completo || 'Nome não disponível'}
+                  </h3>
+                  <p className="text-sm text-white/70 drop-shadow-sm truncate">
+                    {vaga?.titulo || 'Vaga não disponível'}
+                  </p>
+                </div>
+                {getStatusBadge(candidatura.status as StatusCandidatura)}
+              </div>
+              <div className="flex items-center gap-2 mt-2 text-xs text-white/60 drop-shadow-sm">
+                <Clock className="h-3 w-3" />
+                Etapa: <span className="font-medium text-white/80">{candidatura.etapa_atual}</span>
+              </div>
             </div>
           </div>
 
-          {/* Lista de cards com scroll */}
-          <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto kanban-scroll">
-            {candidatos.length === 0 ? (
-              <div className="text-center py-8 text-white/40 text-sm drop-shadow-sm">
-                Nenhum candidato
-              </div>
-            ) : (
-              candidatos.map((candidato) => (
-                <KanbanCard key={candidato.id} candidato={candidato} />
-              ))
+          {/* Detalhes */}
+          <div className="flex flex-wrap gap-3 text-sm text-white/70 drop-shadow-sm">
+            {candidato?.email && (
+              <span className="flex items-center gap-1">
+                <Mail className="h-4 w-4" />
+                {candidato.email}
+              </span>
+            )}
+            {candidato?.celular && (
+              <span className="flex items-center gap-1">
+                <Phone className="h-4 w-4" />
+                {candidato.celular}
+              </span>
             )}
           </div>
-        </Glass>
-      </div>
-    );
-  };
 
-  const CandidatoCard = ({ candidato }: { candidato: Candidato }) => (
-    <Glass variant="white" blur="lg" hover className="p-6 rounded-xl transition-all duration-300">
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md">
-            {candidato.avatar}
-          </div>
+          {/* Data */}
+          <p className="text-xs text-white/60 drop-shadow-sm">
+            Aplicou em:{' '}
+            <span className="font-medium text-white/80">
+              {format(new Date(candidatura.data_candidatura), "d 'de' MMM, yyyy", {
+                locale: ptBR,
+              })}
+            </span>
+          </p>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-white drop-shadow-sm truncate">
-                  {candidato.nome}
-                </h3>
-                <p className="text-sm text-white/70 drop-shadow-sm truncate">
-                  {candidato.vaga}
-                </p>
-              </div>
-              {getStatusBadge(candidato.status)}
-            </div>
-            <p className="text-xs text-white/60 mt-1 drop-shadow-sm">
-              {candidato.tempo} • {candidato.localizacao}
-            </p>
+          {/* Scores dos Testes */}
+          <ScoreCard
+            bigFive={bigFiveScore}
+            disc={discProfile}
+            inteligencia={inteligencia}
+            cultura={cultura}
+            scoreGeral={scoreGeral}
+          />
+
+          {/* Ações */}
+          <div className="flex items-center gap-2">
+            <GlassButton
+              variant="white"
+              onClick={() => handleVerPerfil(candidato?.id)}
+              className="flex-1 text-white text-sm drop-shadow-sm flex items-center justify-center gap-2 font-medium min-h-[40px]"
+            >
+              <Eye className="w-4 h-4 flex-shrink-0" />
+              <span>Ver Perfil</span>
+            </GlassButton>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 drop-shadow-sm backdrop-blur-sm">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white">
+                {candidatura.status !== 'aprovado_proxima' && (
+                  <DropdownMenuItem
+                    onClick={() => handleAprovar(candidatura)}
+                    className="text-white hover:bg-white/20 cursor-pointer"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Aprovar
+                  </DropdownMenuItem>
+                )}
+                {candidatura.status !== 'rejeitado' && (
+                  <DropdownMenuItem
+                    onClick={() => handleRejeitar(candidatura)}
+                    className="text-white hover:bg-white/20 cursor-pointer"
+                  >
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Rejeitar
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator className="bg-white/20" />
+                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Enviar Email
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Enviar WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/20" />
+                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
-
-        {/* Scores */}
-        <Glass variant="white" blur="sm" className="p-3 rounded-lg">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="text-white/80 drop-shadow-sm">
-              <span className="text-white/60">Big Five:</span> {candidato.scores.bigFive}
-            </div>
-            <div className="text-white/80 drop-shadow-sm">
-              <span className="text-white/60">DISC:</span> {candidato.scores.disc}
-            </div>
-            <div className="text-white/80 drop-shadow-sm">
-              <span className="text-white/60">Intel:</span> P{candidato.scores.inteligencia}
-            </div>
-            <div className="text-white/80 drop-shadow-sm">
-              <span className="text-white/60">Cultura:</span> {candidato.scores.cultura}
-            </div>
-          </div>
-        </Glass>
-
-        {/* Ações */}
-        <div className="flex items-center gap-2">
-          <GlassButton
-            variant="white"
-            onClick={() => handleVerPerfil(candidato.id)}
-            className="flex-1 text-white text-sm drop-shadow-sm"
-          >
-            Ver Perfil →
-          </GlassButton>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 drop-shadow-sm backdrop-blur-sm">
-                <MoreVertical className="w-5 h-5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Aprovar
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <XCircle className="w-4 h-4 mr-2" />
-                Rejeitar
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/20" />
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <FileText className="w-4 h-4 mr-2" />
-                Adicionar Nota
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <Mail className="w-4 h-4 mr-2" />
-                Enviar Email
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Enviar WhatsApp
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/20" />
-              <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                <FileText className="w-4 h-4 mr-2" />
-                Exportar PDF
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </Glass>
-  );
+      </Glass>
+    )
+  }
 
   return (
-    <RHLayout
-      activePage={currentPage}
-      onNavigate={handleNavigation}
-      userName="João Silva"
-      userRole="Administrador"
-      notificationCount={3}
-      onSearch={(query) => console.log('Buscar:', query)}
-      onProfileClick={() => console.log('Perfil')}
-      onSettingsClick={() => handleNavigation('configuracoes-rh')}
-      onLogout={handleLogout}
-    >
+    <RHLayout>
       <div className="space-y-6">
         {/* Header */}
         <Glass variant="white" blur="xl" className="p-6 rounded-2xl">
@@ -559,7 +469,7 @@ export function CandidatosRHPage() {
             {/* Título */}
             <div>
               <h1 className="text-white drop-shadow-lg text-[40px] font-bold font-normal">
-                👥 Candidatos ({candidatos.length})
+                👥 Candidatos ({contadores.todos})
               </h1>
             </div>
 
@@ -569,453 +479,507 @@ export function CandidatosRHPage() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/60" />
                 <input
                   type="text"
-                  placeholder="Buscar por nome, email ou vaga..."
+                  placeholder="Buscar por nome ou email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-200"
                 />
               </div>
-              <button className="p-3 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-all duration-200 drop-shadow-sm backdrop-blur-sm">
-                <Settings className="w-5 h-5" />
-              </button>
             </div>
 
             {/* Filtros */}
             <div className="flex flex-wrap items-center gap-3">
               <span className="text-white/80 text-sm drop-shadow-sm">Filtros:</span>
-              
-              <Select value={filterTodos} onValueChange={setFilterTodos}>
-                <SelectTrigger className="w-[140px] bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Todos" />
+
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as any)}>
+                <SelectTrigger className="w-[140px] bg-white/10 border-white/20 text-white hover:text-white transition-all duration-300">
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-                  <SelectItem value="todos" className="text-white hover:bg-white/20">
-                    Todos
+                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 shadow-xl">
+                  <SelectItem value="todos" className="text-white hover:text-white focus:text-white cursor-pointer">
+                    Todos ({contadores.todos})
                   </SelectItem>
-                  <SelectItem value="ativos" className="text-white hover:bg-white/20">
-                    Ativos
+                  <SelectItem
+                    value="aguardando_resposta"
+                    className="text-white hover:text-white focus:text-white cursor-pointer"
+                  >
+                    Aguardando ({contadores.aguardando})
                   </SelectItem>
-                  <SelectItem value="arquivados" className="text-white hover:bg-white/20">
-                    Arquivados
+                  <SelectItem value="em_analise" className="text-white hover:text-white focus:text-white cursor-pointer">
+                    Em Análise ({contadores.em_analise})
+                  </SelectItem>
+                  <SelectItem
+                    value="aprovado_proxima"
+                    className="text-white hover:text-white focus:text-white cursor-pointer"
+                  >
+                    Aprovados ({contadores.aprovados})
+                  </SelectItem>
+                  <SelectItem value="rejeitado" className="text-white hover:text-white focus:text-white cursor-pointer">
+                    Rejeitados ({contadores.rejeitados})
                   </SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={filterVaga} onValueChange={setFilterVaga}>
-                <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white">
+                <SelectTrigger className="w-[180px] bg-white/10 border-white/20 text-white hover:text-white transition-all duration-300">
                   <SelectValue placeholder="Vaga" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-                  <SelectItem value="todas" className="text-white hover:bg-white/20">
-                    Todas
+                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 shadow-xl">
+                  <SelectItem value="todas" className="text-white hover:text-white focus:text-white cursor-pointer">
+                    Todas as Vagas
                   </SelectItem>
                   {vagas.map((vaga) => (
                     <SelectItem
                       key={vaga.id}
                       value={vaga.id}
-                      className="text-white hover:bg-white/20"
+                      className="text-white hover:text-white focus:text-white cursor-pointer"
                     >
-                      {vaga.nome}
+                      {vaga.titulo}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-[140px] bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-                  <SelectItem value="todos" className="text-white hover:bg-white/20">
-                    Todos
-                  </SelectItem>
-                  <SelectItem value="aprovado" className="text-white hover:bg-white/20">
-                    Aprovados
-                  </SelectItem>
-                  <SelectItem value="pendente" className="text-white hover:bg-white/20">
-                    Pendentes
-                  </SelectItem>
-                  <SelectItem value="investigar" className="text-white hover:bg-white/20">
-                    Investigar
-                  </SelectItem>
-                  <SelectItem value="rejeitado" className="text-white hover:bg-white/20">
-                    Rejeitados
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              <button className="text-sm text-white/80 hover:text-white transition-colors duration-200 drop-shadow-sm underline">
-                Limpar
-              </button>
+              {(searchQuery || filterStatus !== 'todos' || filterVaga !== 'todas') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setFilterStatus('todos')
+                    setFilterVaga('todas')
+                  }}
+                  className="text-sm text-white/80 hover:text-white transition-colors duration-200 drop-shadow-sm underline"
+                >
+                  Limpar Filtros
+                </button>
+              )}
             </div>
           </div>
         </Glass>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <Glass variant="white" blur="lg" className="rounded-xl overflow-hidden">
-            <TabsList className="w-full bg-transparent border-b border-white/20 rounded-none h-auto p-0">
+        {/* Tabs de Visualização */}
+        <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="space-y-6">
+          <Glass variant="white" blur="lg" className="p-4 rounded-xl">
+            <TabsList className="grid w-full grid-cols-3 bg-white/10 p-1.5 rounded-lg gap-2 h-auto">
               <TabsTrigger
                 value="todos"
-                className="flex-1 data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70 rounded-none border-b-2 border-transparent data-[state=active]:border-white py-4 drop-shadow-sm"
+                className="data-[state=active]:bg-white/30 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:backdrop-blur-md text-white/70 hover:text-white hover:bg-white/15 transition-all duration-300 px-4 py-2.5 rounded-md font-medium text-sm border-0 h-auto"
               >
-                📋 Todos ({candidatos.length})
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-base">📋</span>
+                  <span>Todos</span>
+                </span>
               </TabsTrigger>
+              
               <TabsTrigger
                 value="por-vaga"
-                className="flex-1 data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70 rounded-none border-b-2 border-transparent data-[state=active]:border-white py-4 drop-shadow-sm"
+                className="data-[state=active]:bg-white/30 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:backdrop-blur-md text-white/70 hover:text-white hover:bg-white/15 transition-all duration-300 px-4 py-2.5 rounded-md font-medium text-sm border-0 h-auto"
               >
-                📊 Por Vaga ({vagas.length})
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-base">📊</span>
+                  <span>Por Vaga</span>
+                </span>
               </TabsTrigger>
+              
               <TabsTrigger
                 value="kanban"
-                className="flex-1 data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/70 rounded-none border-b-2 border-transparent data-[state=active]:border-white py-4 drop-shadow-sm"
+                className="data-[state=active]:bg-white/30 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:backdrop-blur-md text-white/70 hover:text-white hover:bg-white/15 transition-all duration-300 px-4 py-2.5 rounded-md font-medium text-sm border-0 h-auto"
               >
-                📌 Kanban
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-base">🎯</span>
+                  <span>Kanban</span>
+                </span>
               </TabsTrigger>
             </TabsList>
           </Glass>
 
-          {/* Aba Todos */}
-          <TabsContent value="todos" className="space-y-6 mt-6">
+          {/* Tab: Todos os Candidatos */}
+          <TabsContent value="todos" className="space-y-6">
             {/* Controles */}
             <Glass variant="white" blur="lg" className="p-4 rounded-xl">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                {/* Visualização */}
-                <div className="flex items-center gap-2">
-                  <span className="text-white/80 text-sm drop-shadow-sm">Visualização:</span>
-                  <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
-                    <button
-                      onClick={() => setViewMode('cards')}
-                      className={`p-2 rounded transition-all duration-200 ${
-                        viewMode === 'cards'
-                          ? 'bg-white/30 text-white'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      <Grid3x3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setViewMode('tabela')}
-                      className={`p-2 rounded transition-all duration-200 ${
-                        viewMode === 'tabela'
-                          ? 'bg-white/30 text-white'
-                          : 'text-white/60 hover:text-white'
-                      }`}
-                    >
-                      <List className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Ordenar e Mostrar */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/80 text-sm drop-shadow-sm">Ordenar:</span>
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-[160px] bg-white/10 border-white/20 text-white text-sm h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-                        <SelectItem value="recentes" className="text-white hover:bg-white/20">
-                          Mais Recentes
-                        </SelectItem>
-                        <SelectItem value="antigos" className="text-white hover:bg-white/20">
-                          Mais Antigos
-                        </SelectItem>
-                        <SelectItem value="nome" className="text-white hover:bg-white/20">
-                          Nome A-Z
-                        </SelectItem>
-                        <SelectItem value="score" className="text-white hover:bg-white/20">
-                          Maior Score
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-white/80 text-sm drop-shadow-sm">Mostrar:</span>
-                    <Select value={perPage} onValueChange={setPerPage}>
-                      <SelectTrigger className="w-[130px] bg-white/10 border-white/20 text-white text-sm h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
-                        <SelectItem value="10" className="text-white hover:bg-white/20">
-                          10 por página
-                        </SelectItem>
-                        <SelectItem value="20" className="text-white hover:bg-white/20">
-                          20 por página
-                        </SelectItem>
-                        <SelectItem value="50" className="text-white hover:bg-white/20">
-                          50 por página
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </Glass>
-
-            {/* Grid de Cards */}
-            {viewMode === 'cards' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                {candidatos.map((candidato) => (
-                  <CandidatoCard key={candidato.id} candidato={candidato} />
-                ))}
-              </div>
-            ) : (
-              /* Tabela */
-              <Glass variant="white" blur="lg" className="rounded-xl overflow-hidden">
-                <Table className="border-separate border-spacing-0">
-                    <TableHeader>
-                      <TableRow className="border-b border-white/20 hover:bg-white/10">
-                        <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Nome</TableHead>
-                        <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Vaga</TableHead>
-                        <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Score</TableHead>
-                        <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Status</TableHead>
-                        <TableHead className="text-white/90 drop-shadow-sm h-12 px-4 text-right">Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {candidatos.map((candidato) => {
-                        // Calcular score médio
-                        const scoreTotal = Math.round(
-                          (candidato.scores.bigFive +
-                            candidato.scores.inteligencia +
-                            candidato.scores.cultura) /
-                            3
-                        );
-
-                        return (
-                          <TableRow
-                            key={candidato.id}
-                            className="border-b border-white/20 hover:bg-white/10 transition-colors duration-200"
-                          >
-                            {/* Nome com Avatar */}
-                            <TableCell className="text-white drop-shadow-sm py-4 px-4 whitespace-normal">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md text-sm">
-                                  {candidato.avatar}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="truncate">{candidato.nome}</div>
-                                  <div className="text-xs text-white/60 truncate drop-shadow-sm">
-                                    {candidato.localizacao}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            {/* Vaga */}
-                            <TableCell className="text-white/80 drop-shadow-sm py-4 px-4 whitespace-normal">
-                              <div className="max-w-[200px] truncate">{candidato.vaga}</div>
-                              <div className="text-xs text-white/60 drop-shadow-sm">
-                                {candidato.tempo}
-                              </div>
-                            </TableCell>
-
-                            {/* Score */}
-                            <TableCell className="text-white drop-shadow-sm py-4 px-4 whitespace-normal">
-                              <div className="flex items-center gap-2">
-                                <span className="text-lg">{scoreTotal}</span>
-                                <span className="text-white/60 text-sm">/100</span>
-                              </div>
-                              <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
-                                <div
-                                  className="h-full bg-[#35BFAD] rounded-full transition-all duration-300"
-                                  style={{ width: `${scoreTotal}%` }}
-                                />
-                              </div>
-                            </TableCell>
-
-                            {/* Status */}
-                            <TableCell className="py-4 px-4 whitespace-normal">{getStatusBadge(candidato.status)}</TableCell>
-
-                            {/* Ações */}
-                            <TableCell className="text-right py-4 px-4 whitespace-normal">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 drop-shadow-sm backdrop-blur-sm">
-                                    <MoreVertical className="w-4 h-4" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="bg-[#00109E]/95 backdrop-blur-xl border-white/20"
-                                >
-                                  <DropdownMenuItem
-                                    onClick={() => handleVerPerfil(candidato.id)}
-                                    className="text-white hover:bg-white/20 cursor-pointer"
-                                  >
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Ver Perfil
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator className="bg-white/20" />
-                                  <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Aprovar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                                    <XCircle className="w-4 h-4 mr-2" />
-                                    Rejeitar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator className="bg-white/20" />
-                                  <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                                    <Mail className="w-4 h-4 mr-2" />
-                                    Enviar Email
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                                    <MessageSquare className="w-4 h-4 mr-2" />
-                                    Enviar WhatsApp
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator className="bg-white/20" />
-                                  <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                                    <FileText className="w-4 h-4 mr-2" />
-                                    Exportar PDF
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-              </Glass>
-            )}
-
-            {/* Paginação */}
-            <Glass variant="white" blur="lg" className="p-4 rounded-xl">
-              <div className="flex items-center justify-center gap-4">
-                <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed drop-shadow-sm backdrop-blur-sm">
-                  <ChevronLeft className="w-5 h-5" />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Visualização */}
+            <div className="flex items-center gap-2">
+              <span className="text-white/80 text-sm drop-shadow-sm">Visualização:</span>
+              <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`p-2 rounded transition-all duration-200 ${
+                    viewMode === 'cards'
+                      ? 'bg-white/30 text-white'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <Grid3x3 className="w-4 h-4" />
                 </button>
-                <span className="text-white drop-shadow-sm">Página 1 de 1</span>
-                <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed drop-shadow-sm backdrop-blur-sm">
-                  <ChevronRight className="w-5 h-5" />
+                <button
+                  onClick={() => setViewMode('tabela')}
+                  className={`p-2 rounded transition-all duration-200 ${
+                    viewMode === 'tabela'
+                      ? 'bg-white/30 text-white'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <List className="w-4 h-4" />
                 </button>
               </div>
-            </Glass>
-          </TabsContent>
+            </div>
 
-          {/* Aba Por Vaga */}
-          <TabsContent value="por-vaga" className="space-y-6 mt-6">
-            {/* Seletor de Vaga */}
-            <Glass variant="white" blur="lg" className="p-6 rounded-xl">
-              <div className="space-y-4">
-                <h3 className="text-white drop-shadow-sm">Selecione uma vaga:</h3>
-                <Select value={selectedVaga} onValueChange={setSelectedVaga}>
-                  <SelectTrigger className="w-full bg-white/10 border-white/20 text-white">
+            {/* Ordenar e Mostrar */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-white/80 text-sm drop-shadow-sm">Ordenar:</span>
+                <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <SelectTrigger className="w-[160px] bg-white/10 border-white/20 text-white text-sm h-9 hover:text-white transition-all duration-300">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20">
+                  <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 shadow-xl">
+                    <SelectItem value="recentes" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      Mais Recentes
+                    </SelectItem>
+                    <SelectItem value="antigos" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      Mais Antigos
+                    </SelectItem>
+                    <SelectItem value="nome" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      Nome A-Z
+                    </SelectItem>
+                    <SelectItem value="score" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      Maior Score
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-white/80 text-sm drop-shadow-sm">Mostrar:</span>
+                <Select value={perPage.toString()} onValueChange={(value) => setPerPage(Number(value))}>
+                  <SelectTrigger className="w-[130px] bg-white/10 border-white/20 text-white text-sm h-9 hover:text-white transition-all duration-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 shadow-xl">
+                    <SelectItem value="10" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      10 por página
+                    </SelectItem>
+                    <SelectItem value="20" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      20 por página
+                    </SelectItem>
+                    <SelectItem value="50" className="text-white hover:text-white focus:text-white cursor-pointer">
+                      50 por página
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </Glass>
+
+        {/* Lista de Candidatos */}
+        {candidaturasFiltradas.length === 0 ? (
+          <Glass variant="white" blur="lg" className="p-12 rounded-xl text-center">
+            <Clock className="h-16 w-16 text-white/40 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
+              Nenhum candidato encontrado
+            </h3>
+            <p className="text-white/70 drop-shadow-sm">
+              {searchQuery || filterStatus !== 'todos' || filterVaga !== 'todas'
+                ? 'Tente ajustar os filtros de busca'
+                : 'Ainda não há candidaturas no sistema.'}
+            </p>
+          </Glass>
+        ) : viewMode === 'cards' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {candidaturasFiltradas.map((candidatura) => (
+              <CandidatoCard key={candidatura.id} candidatura={candidatura} />
+            ))}
+          </div>
+        ) : (
+          /* Tabela */
+          <Glass variant="white" blur="lg" className="rounded-xl overflow-hidden">
+            <Table className="border-separate border-spacing-0">
+              <TableHeader>
+                <TableRow className="border-b border-white/20 hover:bg-white/10">
+                  <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Nome</TableHead>
+                  <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Vaga</TableHead>
+                  <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Status</TableHead>
+                  <TableHead className="text-white/90 drop-shadow-sm h-12 px-4">Etapa</TableHead>
+                  <TableHead className="text-white/90 drop-shadow-sm h-12 px-4 text-right">
+                    Ações
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {candidaturasFiltradas.map((candidatura) => {
+                  const candidato = candidatura.candidato as any
+                  const vaga = candidatura.vaga as any
+                  const initials =
+                    candidato?.nome_completo
+                      ?.split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                      .substring(0, 2)
+                      .toUpperCase() || '??'
+
+                  return (
+                    <TableRow
+                      key={candidatura.id}
+                      className="border-b border-white/20 hover:bg-white/10 transition-colors duration-200"
+                    >
+                      {/* Nome com Avatar */}
+                      <TableCell className="text-white drop-shadow-sm py-4 px-4 whitespace-normal">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md text-sm">
+                            {initials}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate">{candidato?.nome_completo || 'N/A'}</div>
+                            <div className="text-xs text-white/60 truncate drop-shadow-sm">
+                              {candidato?.email || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Vaga */}
+                      <TableCell className="text-white/80 drop-shadow-sm py-4 px-4 whitespace-normal">
+                        <div className="max-w-[200px] truncate">{vaga?.titulo || 'N/A'}</div>
+                        <div className="text-xs text-white/60 drop-shadow-sm">
+                          {format(new Date(candidatura.data_candidatura), "d 'de' MMM", {
+                            locale: ptBR,
+                          })}
+                        </div>
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell className="py-4 px-4 whitespace-normal">
+                        {getStatusBadge(candidatura.status as StatusCandidatura)}
+                      </TableCell>
+
+                      {/* Etapa */}
+                      <TableCell className="text-white/80 drop-shadow-sm py-4 px-4 whitespace-normal">
+                        {candidatura.etapa_atual}
+                      </TableCell>
+
+                      {/* Ações */}
+                      <TableCell className="text-right py-4 px-4 whitespace-normal">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 drop-shadow-sm backdrop-blur-sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => handleVerPerfil(candidato?.id)}
+                              className="text-white hover:bg-white/20 cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Ver Perfil
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-white/20" />
+                            {candidatura.status !== 'aprovado_proxima' && (
+                              <DropdownMenuItem
+                                onClick={() => handleAprovar(candidatura)}
+                                className="text-white hover:bg-white/20 cursor-pointer"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Aprovar
+                              </DropdownMenuItem>
+                            )}
+                            {candidatura.status !== 'rejeitado' && (
+                              <DropdownMenuItem
+                                onClick={() => handleRejeitar(candidatura)}
+                                className="text-white hover:bg-white/20 cursor-pointer"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Rejeitar
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator className="bg-white/20" />
+                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                              <Mail className="w-4 h-4 mr-2" />
+                              Enviar Email
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Enviar WhatsApp
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-white/20" />
+                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
+                              <FileText className="w-4 h-4 mr-2" />
+                              Exportar PDF
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </Glass>
+        )}
+
+            {/* Paginação */}
+            {pagination && pagination.totalPages > 1 && (
+              <Glass variant="white" blur="lg" className="p-4 rounded-xl">
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed drop-shadow-sm backdrop-blur-sm"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="text-white drop-shadow-sm">
+                    Página {pagination.page} de {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                    disabled={!pagination.hasMore}
+                    className="p-2 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed drop-shadow-sm backdrop-blur-sm"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </Glass>
+            )}
+          </TabsContent>
+
+          {/* Tab: Por Vaga */}
+          <TabsContent value="por-vaga" className="space-y-6">
+            {/* Seletor de Vaga */}
+            <Glass variant="white" blur="lg" className="p-6 rounded-xl">
+              <div className="flex items-center gap-4">
+                <span className="text-white drop-shadow-sm font-medium">Selecione uma vaga:</span>
+                <Select
+                  value={selectedVagaPorVaga || ''}
+                  onValueChange={(value) => setSelectedVagaPorVaga(value || null)}
+                >
+                  <SelectTrigger className="w-[300px] bg-white/10 border-white/20 text-white hover:text-white transition-all duration-300">
+                    <SelectValue placeholder="Escolha uma vaga..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 shadow-xl">
                     {vagas.map((vaga) => (
                       <SelectItem
                         key={vaga.id}
                         value={vaga.id}
-                        className="text-white hover:bg-white/20"
+                        className="text-white hover:text-white focus:text-white cursor-pointer"
                       >
-                        {vaga.nome} ({vaga.candidatos} candidatos)
+                        {vaga.titulo}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-
-                {/* Funil */}
-                <Glass variant="white" blur="sm" className="p-6 rounded-xl mt-6">
-                  <h3 className="text-white drop-shadow-sm mb-4">📊 FUNIL DA VAGA</h3>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm text-white/80 drop-shadow-sm">
-                        <span>Triagem</span>
-                        <span>8</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#35BFAD] rounded-full" style={{ width: '100%' }} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm text-white/80 drop-shadow-sm">
-                        <span>Testes</span>
-                        <span>6</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#35BFAD] rounded-full" style={{ width: '75%' }} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm text-white/80 drop-shadow-sm">
-                        <span>Cultura</span>
-                        <span>4</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#35BFAD] rounded-full" style={{ width: '50%' }} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm text-white/80 drop-shadow-sm">
-                        <span>Entrevista</span>
-                        <span>2</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#35BFAD] rounded-full" style={{ width: '25%' }} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm text-white/80 drop-shadow-sm">
-                        <span>Aprovados</span>
-                        <span>1</span>
-                      </div>
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500 rounded-full" style={{ width: '12.5%' }} />
-                      </div>
-                    </div>
-                  </div>
-                </Glass>
               </div>
             </Glass>
 
-            {/* Grid de Candidatos da Vaga */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              {candidatos
-                .filter((c) => c.vaga === 'Assistente Odontológico')
-                .map((candidato) => (
-                  <CandidatoCard key={candidato.id} candidato={candidato} />
-                ))}
-            </div>
+            {selectedVagaPorVaga ? (
+              <>
+                {/* Funil de Etapas */}
+                <Glass variant="white" blur="lg" className="p-6 rounded-xl">
+                  <h3 className="text-white drop-shadow-lg text-lg font-semibold mb-6">
+                    📊 Funil de Etapas
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                    {[
+                      { key: 'triagem', label: '🔍 Triagem', color: 'from-blue-500 to-blue-600' },
+                      { key: 'bigfive', label: '🧠 Big Five', color: 'from-purple-500 to-purple-600' },
+                      { key: 'disc', label: '👥 DISC', color: 'from-green-500 to-green-600' },
+                      { key: 'entrevista_online', label: '🎥 Online', color: 'from-cyan-500 to-cyan-600' },
+                      { key: 'raven', label: '🧩 Raven', color: 'from-indigo-500 to-indigo-600' },
+                      { key: 'cultura', label: '❤️ Cultura', color: 'from-pink-500 to-pink-600' },
+                      { key: 'entrevista_presencial', label: '🤝 Presencial', color: 'from-orange-500 to-orange-600' },
+                    ].map((etapa) => (
+                      <div
+                        key={etapa.key}
+                        className="flex flex-col items-center justify-center p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300"
+                      >
+                        <div className={`w-full h-2 rounded-full bg-gradient-to-r ${etapa.color} mb-2`} />
+                        <div className="text-2xl font-bold text-white drop-shadow-md">
+                          {funilEtapas[etapa.key] || 0}
+                        </div>
+                        <div className="text-xs text-white/70 text-center mt-1 drop-shadow-sm">
+                          {etapa.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 text-center text-white/60 text-sm drop-shadow-sm">
+                    Total: {vagaCandidaturas.length} candidatos
+                  </div>
+                </Glass>
+
+                {/* Lista de Candidatos da Vaga */}
+                {vagaCandidaturas.length === 0 ? (
+                  <Glass variant="white" blur="lg" className="p-12 rounded-xl text-center">
+                    <Clock className="h-16 w-16 text-white/40 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
+                      Nenhum candidato nesta vaga
+                    </h3>
+                    <p className="text-white/70 drop-shadow-sm">
+                      Ainda não há candidaturas para esta vaga.
+                    </p>
+                  </Glass>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    {vagaCandidaturas.map((candidatura) => (
+                      <CandidatoCard key={candidatura.id} candidatura={candidatura as CandidaturaComScores} />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <Glass variant="white" blur="lg" className="p-12 rounded-xl text-center">
+                <h3 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
+                  📊 Selecione uma vaga
+                </h3>
+                <p className="text-white/70 drop-shadow-sm">
+                  Escolha uma vaga acima para visualizar o funil de candidatos e suas etapas.
+                </p>
+              </Glass>
+            )}
           </TabsContent>
 
-          {/* Aba Kanban */}
-          <TabsContent value="kanban" className="space-y-6 mt-6">
-            <DndProvider backend={HTML5Backend}>
-              <div className="overflow-x-auto pb-4">
-                <div className="flex gap-4 min-w-max">
-                  <KanbanColumn
-                    stage="triagem"
-                    title="Triagem"
-                    candidatos={kanbanCandidatos.filter((c) => c.kanbanStage === 'triagem')}
-                  />
-                  <KanbanColumn
-                    stage="testes"
-                    title="Testes"
-                    candidatos={kanbanCandidatos.filter((c) => c.kanbanStage === 'testes')}
-                  />
-                  <KanbanColumn
-                    stage="cultura"
-                    title="Cultura"
-                    candidatos={kanbanCandidatos.filter((c) => c.kanbanStage === 'cultura')}
-                  />
-                  <KanbanColumn
-                    stage="entrevista"
-                    title="Entrevista"
-                    candidatos={kanbanCandidatos.filter((c) => c.kanbanStage === 'entrevista')}
-                  />
-                </div>
+          {/* Tab: Kanban */}
+          <TabsContent value="kanban" className="mt-0">
+            {candidaturasFiltradas.length === 0 ? (
+              <Glass variant="white" blur="lg" className="p-12 rounded-xl text-center">
+                <Clock className="h-16 w-16 text-white/40 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
+                  Nenhum candidato encontrado
+                </h3>
+                <p className="text-white/70 drop-shadow-sm">
+                  {searchQuery || filterStatus !== 'todos' || filterVaga !== 'todas'
+                    ? 'Tente ajustar os filtros de busca'
+                    : 'Ainda não há candidaturas no sistema.'}
+                </p>
+              </Glass>
+            ) : (
+              <div className="w-full">
+                <KanbanBoard
+                  candidaturas={candidaturasFiltradas as any}
+                  onViewPerfil={handleVerPerfil}
+                />
               </div>
-            </DndProvider>
+            )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Modal de Atualização de Status */}
+      <UpdateStatusModal
+        open={!!selectedCandidatura}
+        onOpenChange={(open) => !open && setSelectedCandidatura(null)}
+        candidaturaId={selectedCandidatura?.id || ''}
+        candidatoNome={selectedCandidatura?.candidatoNome || ''}
+        statusAtual={selectedCandidatura?.statusAtual || 'aguardando_resposta'}
+        onSuccess={() => {
+          // Query will auto-refetch due to cache invalidation in hook
+          setSelectedCandidatura(null)
+        }}
+      />
     </RHLayout>
-  );
+  )
 }

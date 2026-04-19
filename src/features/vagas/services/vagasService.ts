@@ -78,19 +78,39 @@ async function enriquecerVaga(
       .select('id')
       .eq('vaga_id', vaga.id)
       .eq('candidato_id', candidatoId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
 
     vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
   }
 
   // Contar total de candidatos
-  const { count } = await supabase
+  const { count: totalCount } = await supabase
     .from('candidaturas')
     .select('*', { count: 'exact', head: true })
     .eq('vaga_id', vaga.id)
-    .eq('deleted_at', null)
+    .is('deleted_at', null)
 
-  vagaEnriquecida.totalCandidatos = count ?? 0
+  vagaEnriquecida.totalCandidatos = totalCount ?? 0
+
+  // Contar candidatos em análise
+  const { count: emAnaliseCount } = await supabase
+    .from('candidaturas')
+    .select('*', { count: 'exact', head: true })
+    .eq('vaga_id', vaga.id)
+    .eq('status', 'em_analise')
+    .is('deleted_at', null)
+
+  vagaEnriquecida.candidatosEmAnalise = emAnaliseCount ?? 0
+
+  // Contar candidatos aprovados (para próxima etapa)
+  const { count: aprovadosCount } = await supabase
+    .from('candidaturas')
+    .select('*', { count: 'exact', head: true })
+    .eq('vaga_id', vaga.id)
+    .eq('status', 'aprovado_proxima')
+    .is('deleted_at', null)
+
+  vagaEnriquecida.candidatosAprovados = aprovadosCount ?? 0
 
   return vagaEnriquecida
 }
@@ -105,21 +125,21 @@ function buildVagasQuery(filters?: VagasFilters) {
   let query = supabase
     .from('vagas')
     .select('*', { count: 'exact' })
-    .eq('deleted_at', null) // Sempre excluir deletadas
+    .is('deleted_at', null) // Sempre excluir deletadas
 
   // Filtro padrão: apenas ativas (a menos que explicitamente desabilitado)
   if (filters?.apenasAtivas !== false) {
-    query = query.eq('ativa', true)
+    query = query.eq('status', 'ativa')
   }
 
-  // Filtro por tipo de vaga
+  // Filtro por tipo de contrato (tipo_vaga → tipo_contrato)
   if (filters?.tipo_vaga) {
-    query = query.eq('tipo_vaga', filters.tipo_vaga)
+    query = query.eq('tipo_contrato', filters.tipo_vaga)
   }
 
-  // Filtro por localização
+  // Filtro por localização (usando cidade)
   if (filters?.localizacao) {
-    query = query.eq('localizacao', filters.localizacao)
+    query = query.eq('cidade', filters.localizacao)
   }
 
   // Filtro por departamento
@@ -132,15 +152,15 @@ function buildVagasQuery(filters?: VagasFilters) {
     query = query.eq('modelo_trabalho', filters.modelo_trabalho)
   }
 
-  // Filtro por nível de experiência
+  // Filtro por nível de senioridade (nivel_experiencia → nivel_senioridade)
   if (filters?.nivel_experiencia) {
-    query = query.eq('nivel_experiencia', filters.nivel_experiencia)
+    query = query.eq('nivel_senioridade', filters.nivel_experiencia)
   }
 
-  // Busca textual (título ou descrição)
+  // Busca textual (título ou descricao_curta - não "descricao")
   if (filters?.search && filters.search.trim()) {
     const searchTerm = `%${filters.search.trim()}%`
-    query = query.or(`titulo.ilike.${searchTerm},descricao.ilike.${searchTerm}`)
+    query = query.or(`titulo.ilike.${searchTerm},descricao_curta.ilike.${searchTerm}`)
   }
 
   return query
@@ -163,7 +183,8 @@ function applyOrdering(query: ReturnType<typeof buildVagasQuery>, orderBy: Vagas
 
     case 'localizacao':
       return query
-        .order('localizacao', { ascending: true })
+        .order('cidade', { ascending: true })
+        .order('estado', { ascending: true })
         .order('titulo', { ascending: true })
 
     case 'departamento':
@@ -310,7 +331,7 @@ export async function getVagaById(
       .from('vagas')
       .select('*')
       .eq('id', vagaId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
       .single()
 
     if (error) {
@@ -382,7 +403,7 @@ export async function checkIfCandidatoApplied(
       .select('id')
       .eq('candidato_id', candidatoId)
       .eq('vaga_id', vagaId)
-      .eq('deleted_at', null)
+      .is('deleted_at', null)
 
     if (error) {
       throw new VagasServiceError(

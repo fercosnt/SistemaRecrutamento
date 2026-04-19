@@ -57,41 +57,40 @@ export type CandidatoRow = Database['public']['Tables']['candidatos']['Row']
 // ============================================
 
 /**
- * Tipo de vaga (contrato de trabalho)
+ * Tipo de contrato (tipo_contrato na tabela vagas)
+ * IMPORTANTE: Valores devem corresponder exatamente aos valores no banco
  */
-export type TipoVaga =
-  | 'tempo_integral'
-  | 'meio_periodo'
-  | 'estagio'
-  | 'temporario'
+export type TipoVaga = 'CLT' | 'PJ'
 
 /**
  * Departamento da vaga
+ * IMPORTANTE: Valores devem corresponder exatamente aos valores no banco
  */
 export type Departamento =
   | 'atendimento'
   | 'administrativo'
-  | 'clinica'
+  | 'comercial'
+  | 'clinico'
   | 'marketing'
-  | 'ti'
+  | 'recursos_humanos'
   | 'financeiro'
-  | 'rh'
-  | 'outro'
+  | 'tecnologia'
 
 /**
- * Nível de experiência requerido
+ * Nível de senioridade (nivel_senioridade na tabela vagas)
+ * IMPORTANTE: Valores devem corresponder exatamente aos valores no banco
  */
 export type NivelExperiencia =
-  | 'junior'
-  | 'pleno'
-  | 'senior'
-  | 'estagiario'
-  | 'trainee'
+  | 'Júnior'
+  | 'Pleno'
+  | 'Sênior'
+  | 'Estagiário'
 
 /**
- * Formato de trabalho
+ * Modelo de trabalho
+ * IMPORTANTE: Valores devem corresponder exatamente aos valores no banco (com capitalização e acentos)
  */
-export type ModeloTrabalho = 'presencial' | 'remoto' | 'hibrido'
+export type ModeloTrabalho = 'Presencial' | 'Remoto' | 'Híbrido'
 
 /**
  * Vaga com informações completas
@@ -101,6 +100,8 @@ export interface Vaga extends VagaRow {
   // Campos computados/derivados
   diasDesdePublicacao?: number
   totalCandidatos?: number
+  candidatosEmAnalise?: number
+  candidatosAprovados?: number
   hasUserApplied?: boolean
 }
 
@@ -112,31 +113,74 @@ export interface VagaComCandidaturas extends Vaga {
 }
 
 // ============================================
+// VAGA HELPERS
+// ============================================
+
+/**
+ * Formata localização da vaga a partir de cidade e estado
+ * @param vaga - Vaga com cidade e estado
+ * @returns String formatada "Cidade - UF" ou "Remoto" se não houver cidade
+ */
+export function formatarLocalizacaoVaga(vaga: Pick<VagaRow, 'cidade' | 'estado' | 'modelo_trabalho'>): string {
+  // Se for remoto, retornar "Remoto"
+  if (vaga.modelo_trabalho === 'Remoto') {
+    return 'Remoto'
+  }
+
+  // Se tiver cidade e estado
+  if (vaga.cidade && vaga.estado) {
+    return `${vaga.cidade} - ${vaga.estado}`
+  }
+
+  // Se tiver apenas cidade
+  if (vaga.cidade) {
+    return vaga.cidade
+  }
+
+  // Se tiver apenas estado
+  if (vaga.estado) {
+    return vaga.estado
+  }
+
+  // Fallback
+  return 'Não informado'
+}
+
+// ============================================
 // CANDIDATURA DOMAIN TYPES
 // ============================================
 
 /**
  * Status da candidatura
+ * IMPORTANTE: Valores devem corresponder exatamente ao enum status_candidatura do banco
  */
 export type StatusCandidatura =
-  | 'aplicado'
+  | 'aguardando_resposta'
   | 'em_analise'
-  | 'em_teste'
-  | 'em_entrevista'
-  | 'aprovado'
+  | 'aprovado_proxima'
   | 'rejeitado'
+  | 'finalizado'
 
 /**
- * Etapa do processo seletivo (7 etapas)
+ * Etapa do processo seletivo (valores do ENUM PostgreSQL etapa_processo)
+ * IMPORTANTE: Estes valores devem corresponder EXATAMENTE ao enum no banco!
+ *
+ * ORDEM DO PROCESSO SELETIVO:
+ * 1. triagem → 2. bigfive → 3. disc → 4. entrevista_online →
+ * 5. raven → 6. entrevista_presencial → 7. cultura → 8. avaliacao_final →
+ * 9. aprovado OU rejeitado
  */
 export type EtapaProcesso =
   | 'triagem'
-  | 'big_five'
-  | 'disc'
-  | 'entrevista_telefonica'
-  | 'entrevista_presencial'
-  | 'analise_final'
-  | 'contratacao'
+  | 'bigfive'              // Teste Big Five (SEM underscore!)
+  | 'disc'                 // Teste DISC
+  | 'entrevista_online'    // Entrevista online (vídeo)
+  | 'raven'                // Teste Cognitivo (antigo: Raven)
+  | 'entrevista_presencial' // Entrevista presencial
+  | 'cultura'              // Análise de fit cultural
+  | 'avaliacao_final'      // Avaliação final (NOVO - requer migração DB)
+  | 'aprovado'             // Aprovado final
+  | 'rejeitado'            // Rejeitado final
 
 /**
  * Candidatura com informações completas
@@ -384,6 +428,37 @@ export interface N8NNovaCandidaturaPayload {
 }
 
 /**
+ * Payload enviado para webhook N8N após mudança de status
+ */
+export interface N8NStatusUpdatePayload {
+  event: 'candidatura.status_updated'
+  timestamp: string
+  data: {
+    candidatura: {
+      id: string
+      candidato_id: string
+      vaga_id: string
+      status_anterior: StatusCandidatura
+      status_novo: StatusCandidatura
+      etapa_atual: EtapaProcesso
+      motivo_rejeicao?: string
+    }
+    candidato: {
+      id: string
+      nome_completo: string
+      email: string
+      telefone: string
+    }
+    vaga: {
+      id: string
+      titulo: string
+      localizacao: string
+      departamento: string
+    }
+  }
+}
+
+/**
  * Response esperado do webhook N8N
  */
 export interface N8NWebhookResponse {
@@ -488,25 +563,28 @@ export const DEPARTAMENTO_LABELS: Record<Departamento, string> = {
  * Mapeamento de status de candidatura para labels
  */
 export const STATUS_CANDIDATURA_LABELS: Record<StatusCandidatura, string> = {
-  aplicado: 'Aplicado',
+  aguardando_resposta: 'Aguardando Resposta',
   em_analise: 'Em Análise',
-  em_teste: 'Em Teste',
-  em_entrevista: 'Em Entrevista',
-  aprovado: 'Aprovado',
+  aprovado_proxima: 'Aprovado - Próxima Etapa',
   rejeitado: 'Rejeitado',
+  finalizado: 'Finalizado',
 }
 
 /**
  * Mapeamento de etapas para labels
+ * ORDEM: Triagem → Big Five → DISC → Online → Cognitivo → Presencial → Cultura → Avaliação Final → Aprovado/Rejeitado
  */
 export const ETAPA_PROCESSO_LABELS: Record<EtapaProcesso, string> = {
   triagem: 'Triagem Inicial',
-  big_five: 'Teste Big Five',
+  bigfive: 'Teste Big Five',
   disc: 'Teste DISC',
-  entrevista_telefonica: 'Entrevista Telefônica',
-  entrevista_presencial: 'Entrevista Presencial',
-  analise_final: 'Análise Final',
-  contratacao: 'Contratação',
+  entrevista_online: 'Entrevista Online',
+  raven: 'Teste Cognitivo',                    // ✅ RENOMEADO: era "Teste Raven (QI)"
+  entrevista_presencial: 'Entrevista Presencial',  // ✅ REORDENADO: vem antes de Cultura
+  cultura: 'Análise Cultural',                 // ✅ REORDENADO: vem depois de Presencial
+  avaliacao_final: 'Avaliação Final',          // ✅ NOVO
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
 }
 
 /**
@@ -516,23 +594,185 @@ export const STATUS_COLORS: Record<
   StatusCandidatura,
   'default' | 'secondary' | 'success' | 'destructive' | 'outline'
 > = {
-  aplicado: 'default',
+  aguardando_resposta: 'default',
   em_analise: 'secondary',
-  em_teste: 'secondary',
-  em_entrevista: 'secondary',
-  aprovado: 'success',
+  aprovado_proxima: 'success',
   rejeitado: 'destructive',
+  finalizado: 'outline',
 }
 
 /**
  * Helper para calcular progresso percentual baseado na etapa
+ * ORDEM CORRIGIDA: 10 etapas totais (incluindo Avaliação Final)
  */
 export const ETAPA_PROGRESS: Record<EtapaProcesso, number> = {
-  triagem: 14, // 1/7
-  big_five: 28, // 2/7
-  disc: 42, // 3/7
-  entrevista_telefonica: 57, // 4/7
-  entrevista_presencial: 71, // 5/7
-  analise_final: 85, // 6/7
-  contratacao: 100, // 7/7
+  triagem: 10,                  // 1/10
+  bigfive: 20,                  // 2/10
+  disc: 30,                     // 3/10
+  entrevista_online: 40,        // 4/10
+  raven: 50,                    // 5/10 (Cognitivo)
+  entrevista_presencial: 60,    // 6/10 ✅ REORDENADO
+  cultura: 70,                  // 7/10 ✅ REORDENADO
+  avaliacao_final: 80,          // 8/10 ✅ NOVO
+  aprovado: 100,                // 10/10 - Final
+  rejeitado: 0,                 // Rejeitado (sem progresso)
+}
+
+/**
+ * Ordem sequencial das etapas do processo seletivo
+ * Usado para avanço automático de etapa
+ */
+export const ETAPAS_SEQUENCIA: EtapaProcesso[] = [
+  'triagem',
+  'bigfive',
+  'disc',
+  'entrevista_online',
+  'raven',
+  'entrevista_presencial',
+  'cultura',
+  'avaliacao_final',
+  'aprovado', // Estado final
+  'rejeitado', // Estado final
+]
+
+/**
+ * Retorna a próxima etapa na sequência
+ * @param etapaAtual - Etapa atual do candidato
+ * @returns Próxima etapa ou null se já estiver na última
+ */
+export function getProximaEtapa(etapaAtual: EtapaProcesso): EtapaProcesso | null {
+  const index = ETAPAS_SEQUENCIA.indexOf(etapaAtual)
+
+  // Se não encontrou ou já está em etapa final, retorna null
+  if (index === -1 || index >= ETAPAS_SEQUENCIA.length - 1) {
+    return null
+  }
+
+  // Retorna próxima etapa
+  return ETAPAS_SEQUENCIA[index + 1]
+}
+
+// ============================================
+// SCORE TYPES (Test Results)
+// ============================================
+
+/**
+ * Scores Big Five (OCEAN model)
+ */
+export interface ScoresBigFive {
+  score_openness: number // 0-100
+  score_conscientiousness: number // 0-100
+  score_extraversion: number // 0-100
+  score_agreeableness: number // 0-100
+  score_neuroticism: number // 0-100
+}
+
+/**
+ * Scores DISC
+ */
+export interface ScoresDisc {
+  perfil_primario: string // D, I, S, or C
+  perfil_secundario: string // D, I, S, or C
+}
+
+/**
+ * Scores Raven (Intelligence Test)
+ */
+export interface ScoresRaven {
+  percentil: number // 0-100
+  classificacao: string // Ex: "Superior", "Médio Superior", etc
+}
+
+/**
+ * Candidatura com scores de testes incluídos (LEFT JOIN)
+ */
+export interface CandidaturaComScores extends Candidatura {
+  scores_bigfive?: ScoresBigFive | null
+  scores_disc?: ScoresDisc | null
+  scores_raven?: ScoresRaven | null
+  // analise_ia_cultura já está em Candidatura (JSONB)
+  // score_geral já está em Candidatura (number 0-100) - MAIS IMPORTANTE
+}
+
+/**
+ * Kanban stages for visual board
+ */
+export type KanbanStage = 'triagem' | 'testes' | 'cultura' | 'entrevista'
+
+/**
+ * Mapeamento de etapas para colunas Kanban
+ */
+export const ETAPA_TO_KANBAN: Record<EtapaProcesso, KanbanStage> = {
+  triagem: 'triagem',
+  big_five: 'testes',
+  disc: 'testes',
+  entrevista_telefonica: 'cultura',
+  entrevista_presencial: 'entrevista',
+  analise_final: 'entrevista',
+  contratacao: 'entrevista',
+}
+
+/**
+ * Labels para colunas Kanban
+ */
+export const KANBAN_STAGE_LABELS: Record<KanbanStage, string> = {
+  triagem: '🔍 Triagem',
+  testes: '📝 Testes',
+  cultura: '❤️ Cultura',
+  entrevista: '🎯 Entrevista',
+}
+
+// ============================================
+// SCORE HELPER FUNCTIONS
+// ============================================
+
+/**
+ * Calcula média dos scores Big Five
+ * @param scores - Objeto com os 5 scores OCEAN
+ * @returns Média arredondada (0-100) ou 0 se não houver scores
+ */
+export function calculateBigFiveAverage(
+  scores?: ScoresBigFive | null
+): number {
+  if (!scores) return 0
+  const sum =
+    scores.score_openness +
+    scores.score_conscientiousness +
+    scores.score_extraversion +
+    scores.score_agreeableness +
+    scores.score_neuroticism
+  return Math.round(sum / 5)
+}
+
+/**
+ * Formata perfil DISC como string compacta
+ * @param scores - Objeto com perfil primário e secundário
+ * @returns String formatada (ex: "DI") ou "N/A"
+ */
+export function formatDiscProfile(scores?: ScoresDisc | null): string {
+  if (!scores) return 'N/A'
+  return `${scores.perfil_primario}${scores.perfil_secundario}`
+}
+
+/**
+ * Extrai score de cultura da análise IA (JSONB)
+ * @param analiseIACultura - JSONB com análise de cultura
+ * @returns Score de cultura (0-100) ou 0
+ */
+export function getCultureScore(analiseIACultura?: any): number {
+  if (!analiseIACultura) return 0
+  // Ajustar conforme estrutura real do JSONB
+  return analiseIACultura?.score || analiseIACultura?.cultura_score || 0
+}
+
+/**
+ * Retorna cor para score (0-100)
+ * @param score - Score numérico (0-100)
+ * @returns Classe de cor Tailwind
+ */
+export function getScoreColor(score: number): string {
+  if (score >= 80) return 'text-green-400'
+  if (score >= 60) return 'text-blue-400'
+  if (score >= 40) return 'text-yellow-400'
+  return 'text-red-400'
 }

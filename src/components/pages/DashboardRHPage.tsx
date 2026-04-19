@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RHLayout } from '../RHLayout';
 import { MetricCard } from '../MetricCard';
 import { Glass, GlassButton } from '../ui/glass';
@@ -11,114 +12,150 @@ import {
   Calendar,
   ArrowRight,
 } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { useVagas } from '@/features/vagas/hooks/useVagas';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase/client';
+import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes';
+
+/**
+ * Hook personalizado para buscar estatísticas do RH
+ * - Total de vagas ativas
+ * - Total de candidaturas
+ * - Candidaturas aprovadas
+ * - Candidaturas em análise
+ */
+function useDashboardStats() {
+  return useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      // Contar vagas ativas
+      const { count: vagasAtivas } = await supabase
+        .from('vagas')
+        .select('*', { count: 'exact', head: true })
+        .eq('ativa', true);
+
+      // Contar total de candidaturas
+      const { count: totalCandidaturas } = await supabase
+        .from('candidaturas')
+        .select('*', { count: 'exact', head: true });
+
+      // Contar candidaturas aprovadas
+      const { count: aprovados } = await supabase
+        .from('candidaturas')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'aprovado_proxima');
+
+      // Contar candidaturas em análise
+      const { count: emAnalise } = await supabase
+        .from('candidaturas')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'em_analise');
+
+      return {
+        vagasAtivas: vagasAtivas || 0,
+        totalCandidaturas: totalCandidaturas || 0,
+        aprovados: aprovados || 0,
+        emAnalise: emAnalise || 0,
+      };
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    gcTime: 5 * 60 * 1000,
+  });
+}
+
+/**
+ * Hook para buscar candidaturas aguardando análise (em_analise)
+ * Com dados do candidato incluídos
+ */
+function useCandidaturasAguardando() {
+  return useQuery({
+    queryKey: ['candidaturas-aguardando'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('candidaturas')
+        .select(`
+          id,
+          status,
+          data_candidatura,
+          candidato:candidato_id (
+            id,
+            nome_completo,
+            email
+          ),
+          vaga:vaga_id (
+            id,
+            titulo
+          )
+        `)
+        .eq('status', 'em_analise')
+        .order('data_candidatura', { ascending: false })
+        .limit(4);
+
+      if (error) throw error;
+
+      return data || [];
+    },
+    staleTime: 1 * 60 * 1000, // 1 minuto
+    gcTime: 3 * 60 * 1000,
+  });
+}
 
 export function DashboardRHPage() {
-  const [currentPage, setCurrentPage] = useState('dashboard-rh');
+  const navigate = useNavigate();
+  const { user, candidato } = useAuthStore();
 
-  // Mock data
-  const vagasRecentes = [
-    {
-      id: 1,
-      titulo: 'Assistente Odontológico',
-      icon: '📌',
-      localizacao: 'São Paulo, SP',
-      tipo: 'CLT',
-      diasAtras: 2,
-      stats: {
-        candidatos: 8,
-        emAnalise: 5,
-        aprovados: 3,
-      },
-    },
-    {
-      id: 2,
-      titulo: 'Dentista Clínico Geral',
-      icon: '🦷',
-      localizacao: 'Rio de Janeiro, RJ',
-      tipo: 'PJ',
-      diasAtras: 5,
-      stats: {
-        candidatos: 12,
-        emAnalise: 8,
-        aprovados: 2,
-      },
-    },
-    {
-      id: 3,
-      titulo: 'Recepcionista',
-      icon: '💼',
-      localizacao: 'Belo Horizonte, MG',
-      tipo: 'CLT',
-      diasAtras: 7,
-      stats: {
-        candidatos: 15,
-        emAnalise: 10,
-        aprovados: 4,
-      },
-    },
-  ];
+  // Nome do usuário (usa nome do candidato se disponível, senão email)
+  const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
 
-  const candidatosAguardando = [
-    {
-      id: 1,
-      nome: 'Maria Santos',
-      vaga: 'Assistente Odontológico',
-      avatar: 'MS',
-      score: 92,
-      diasAguardando: 2,
-    },
-    {
-      id: 2,
-      nome: 'João Silva',
-      vaga: 'Dentista Clínico Geral',
-      avatar: 'JS',
-      score: 88,
-      diasAguardando: 3,
-    },
-    {
-      id: 3,
-      nome: 'Ana Costa',
-      vaga: 'Recepcionista',
-      avatar: 'AC',
-      score: 95,
-      diasAguardando: 1,
-    },
-    {
-      id: 4,
-      nome: 'Pedro Oliveira',
-      vaga: 'Assistente Odontológico',
-      avatar: 'PO',
-      score: 87,
-      diasAguardando: 4,
-    },
-  ];
+  // Buscar dados
+  const { data: stats, isLoading: isLoadingStats } = useDashboardStats();
+  const { data: vagasData, isLoading: isLoadingVagas } = useVagas(
+    { apenasAtivas: true }, // Dashboard mostra apenas vagas ativas
+    'mais_recentes',
+    { page: 1, limit: 3 }
+  );
+  const { data: candidaturasAguardando, isLoading: isLoadingCandidaturas } = useCandidaturasAguardando();
 
-  const handleNavigation = (pageId: string) => {
-    setCurrentPage(pageId);
-    console.log('Navegando para:', pageId);
+  const vagas = vagasData?.data || [];
+  const candidatos = candidaturasAguardando || [];
+
+  // Calcular dias desde publicação
+  const getDiasPublicacao = (createdAt: string) => {
+    const dias = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+    if (dias === 0) return 'Hoje';
+    if (dias === 1) return '1 dia';
+    return `${dias} dias`;
   };
 
-  const handleLogout = () => {
-    console.log('Logout');
+  // Calcular dias aguardando
+  const getDiasAguardando = (dataCandidatura: string) => {
+    return Math.floor((Date.now() - new Date(dataCandidatura).getTime()) / (1000 * 60 * 60 * 24));
   };
+
+  // Loading state
+  const isLoading = isLoadingStats || isLoadingVagas || isLoadingCandidaturas;
+
+  if (isLoading) {
+    return (
+      <RHLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white drop-shadow-lg">Carregando dashboard...</p>
+          </div>
+        </div>
+      </RHLayout>
+    );
+  }
 
   return (
-    <RHLayout
-      activePage={currentPage}
-      onNavigate={handleNavigation}
-      userName="João Silva"
-      userRole="Administrador"
-      notificationCount={3}
-      onSearch={(query) => console.log('Buscar:', query)}
-      onProfileClick={() => console.log('Perfil')}
-      onSettingsClick={() => handleNavigation('configuracoes-rh')}
-      onLogout={handleLogout}
-    >
+    <RHLayout>
       <div className="space-y-8">
         {/* Header com saudação */}
         <div className="space-y-2">
           <h1 className="text-white drop-shadow-lg">
-            Olá, João Silva 👋
+            Olá, {userName} 👋
           </h1>
           <p className="text-white/80 text-xl drop-shadow-md">
             Aqui está um resumo do seu recrutamento
@@ -129,30 +166,26 @@ export function DashboardRHPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             icon={<Briefcase size={48} />}
-            value="12"
+            value={stats?.vagasAtivas.toString() || '0'}
             label="Vagas Ativas"
-            trend={{ value: '+2 este mês', direction: 'up' }}
             variant="primary"
           />
           <MetricCard
             icon={<Users size={48} />}
-            value="45"
+            value={stats?.totalCandidaturas.toString() || '0'}
             label="Candidatos"
-            trend={{ value: '+12 hoje', direction: 'up' }}
             variant="success"
           />
           <MetricCard
             icon={<CheckCircle size={48} />}
-            value="8"
+            value={stats?.aprovados.toString() || '0'}
             label="Aprovados"
-            trend={{ value: '+3 hoje', direction: 'up' }}
             variant="success"
           />
           <MetricCard
             icon={<Clock size={48} />}
-            value="15"
+            value={stats?.emAnalise.toString() || '0'}
             label="Em Análise"
-            trend={{ value: '-4 hoje', direction: 'down' }}
             variant="warning"
           />
         </div>
@@ -163,86 +196,107 @@ export function DashboardRHPage() {
             <h2 className="text-white drop-shadow-md">
               📋 Vagas Recentes
             </h2>
-            <button className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm">
+            <button
+              onClick={() => navigate('/rh/vagas')}
+              className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm"
+            >
               Ver Todas
               <ArrowRight size={16} />
             </button>
           </div>
 
-          <div className="space-y-4">
-            {vagasRecentes.map((vaga) => (
-              <Glass
-                key={vaga.id}
-                variant="white"
-                blur="lg"
-                hover
-                className="p-6 rounded-xl transition-all duration-300"
+          {vagas.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-white/60 drop-shadow-sm">Nenhuma vaga ativa no momento</p>
+              <GlassButton
+                variant="primary"
+                onClick={() => navigate('/rh/vagas/nova')}
+                className="mt-4"
               >
-                <div className="space-y-4">
-                  {/* Header da vaga */}
-                  <div className="flex items-start gap-3">
-                    <span className="text-3xl">{vaga.icon}</span>
-                    <div className="flex-1">
-                      <h3 className="text-white text-xl drop-shadow-sm">
-                        {vaga.titulo}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-2 text-white/70 text-sm drop-shadow-sm">
-                        <span className="flex items-center gap-1">
-                          <MapPin size={14} />
-                          {vaga.localizacao}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          💼 {vaga.tipo}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Calendar size={14} />
-                          Há {vaga.diasAtras} dias
-                        </span>
+                Criar Nova Vaga
+              </GlassButton>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {vagas.map((vaga) => (
+                <Glass
+                  key={vaga.id}
+                  variant="white"
+                  blur="lg"
+                  hover
+                  className="p-6 rounded-xl transition-all duration-300 cursor-pointer"
+                  onClick={() => navigate(`/rh/vagas/${vaga.id}/candidatos`)}
+                >
+                  <div className="space-y-4">
+                    {/* Header da vaga */}
+                    <div className="flex items-start gap-3">
+                      <span className="text-3xl">📌</span>
+                      <div className="flex-1">
+                        <h3 className="text-white text-xl drop-shadow-sm">
+                          {vaga.titulo}
+                        </h3>
+                        <div className="flex items-center gap-4 mt-2 text-white/70 text-sm drop-shadow-sm">
+                          <span className="flex items-center gap-1">
+                            <MapPin size={14} />
+                            {formatarLocalizacaoVaga(vaga)}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            💼 {vaga.tipo_vaga || 'CLT'}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            Há {getDiasPublicacao(vaga.created_at)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Stats dos candidatos */}
-                  <div className="grid grid-cols-3 gap-2 md:gap-4">
-                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
-                      <div className="text-2xl text-white drop-shadow-sm">
-                        {vaga.stats.candidatos}
+                    {/* Stats dos candidatos */}
+                    <div className="grid grid-cols-3 gap-2 md:gap-4">
+                      <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                        <div className="text-2xl text-white drop-shadow-sm">
+                          {vaga.totalCandidatos || 0}
+                        </div>
+                        <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                          Candidatos
+                        </div>
                       </div>
-                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
-                        Candidatos
+                      <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                        <div className="text-2xl text-white drop-shadow-sm">
+                          -
+                        </div>
+                        <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                          Análise
+                        </div>
+                      </div>
+                      <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
+                        <div className="text-2xl text-white drop-shadow-sm">
+                          -
+                        </div>
+                        <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
+                          Aprovados
+                        </div>
                       </div>
                     </div>
-                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
-                      <div className="text-2xl text-white drop-shadow-sm">
-                        {vaga.stats.emAnalise}
-                      </div>
-                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
-                        Análise
-                      </div>
-                    </div>
-                    <div className="text-center p-2 md:p-3 rounded-lg bg-white/10 backdrop-blur-sm">
-                      <div className="text-2xl text-white drop-shadow-sm">
-                        {vaga.stats.aprovados}
-                      </div>
-                      <div className="text-xs md:text-sm text-white/70 mt-1 drop-shadow-sm break-words">
-                        Aprovados
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Botão de ação */}
-                  <GlassButton
-                    variant="white"
-                    className="w-full text-white drop-shadow-sm"
-                  >
-                    Gerenciar Vaga →
-                  </GlassButton>
-                </div>
-              </Glass>
-            ))}
-          </div>
+                    {/* Botão de ação */}
+                    <GlassButton
+                      variant="white"
+                      className="w-full text-white drop-shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/rh/vagas/${vaga.id}/candidatos`);
+                      }}
+                    >
+                      Gerenciar Vaga →
+                    </GlassButton>
+                  </div>
+                </Glass>
+              ))}
+            </div>
+          )}
         </Glass>
 
         {/* Candidatos Aguardando Análise */}
@@ -251,53 +305,77 @@ export function DashboardRHPage() {
             <h2 className="text-white drop-shadow-md">
               🎯 Candidatos Aguardando Análise
             </h2>
-            <button className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm">
+            <button
+              onClick={() => navigate('/rh/candidatos')}
+              className="text-sm text-white/90 hover:text-white transition-colors duration-200 flex items-center gap-2 drop-shadow-sm"
+            >
               Ver Todos
               <ArrowRight size={16} />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {candidatosAguardando.map((candidato) => (
-              <Glass
-                key={candidato.id}
-                variant="white"
-                blur="lg"
-                hover
-                className="p-5 rounded-xl transition-all duration-300"
-              >
-                <div className="flex items-center gap-4">
-                  {/* Avatar */}
-                  <div className="w-14 h-14 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md">
-                    {candidato.avatar}
-                  </div>
+          {candidatos.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-white/60 drop-shadow-sm">Nenhum candidato aguardando análise</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {candidatos.map((candidatura: any) => {
+                const candidato = candidatura.candidato;
+                const vaga = candidatura.vaga;
+                const initials = candidato?.nome_completo
+                  ?.split(' ')
+                  .map((n: string) => n[0])
+                  .join('')
+                  .substring(0, 2)
+                  .toUpperCase() || '??';
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white truncate drop-shadow-sm">
-                      {candidato.nome}
-                    </h4>
-                    <p className="text-sm text-white/70 truncate drop-shadow-sm">
-                      {candidato.vaga}
-                    </p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <span className="text-xs text-white/60 drop-shadow-sm">
-                        Score: {candidato.score}%
-                      </span>
-                      <span className="text-xs text-white/60 drop-shadow-sm">
-                        • {candidato.diasAguardando}d aguardando
-                      </span>
+                return (
+                  <Glass
+                    key={candidatura.id}
+                    variant="white"
+                    blur="lg"
+                    hover
+                    className="p-5 rounded-xl transition-all duration-300 cursor-pointer"
+                    onClick={() => navigate(`/rh/candidatos/${candidato?.id}`)}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Avatar */}
+                      <div className="w-14 h-14 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 text-white drop-shadow-md">
+                        {initials}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-white truncate drop-shadow-sm">
+                          {candidato?.nome_completo || 'Nome não disponível'}
+                        </h4>
+                        <p className="text-sm text-white/70 truncate drop-shadow-sm">
+                          {vaga?.titulo || 'Vaga não disponível'}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="text-xs text-white/60 drop-shadow-sm">
+                            {getDiasAguardando(candidatura.data_candidatura)}d aguardando
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botão de ação */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/rh/candidatos/${candidato?.id}`);
+                        }}
+                        className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-all duration-200 flex-shrink-0 drop-shadow-sm backdrop-blur-sm"
+                      >
+                        Analisar
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Botão de ação */}
-                  <button className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm transition-all duration-200 flex-shrink-0 drop-shadow-sm backdrop-blur-sm">
-                    Analisar
-                  </button>
-                </div>
-              </Glass>
-            ))}
-          </div>
+                  </Glass>
+                );
+              })}
+            </div>
+          )}
         </Glass>
       </div>
     </RHLayout>

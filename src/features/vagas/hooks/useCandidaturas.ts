@@ -22,6 +22,8 @@ import { toast } from 'sonner'
 import {
   createCandidatura,
   listCandidaturas,
+  listCandidaturasByVaga,
+  listAllCandidaturas,
   checkDuplicateApplication,
   updateCandidaturaStatus,
 } from '../services/candidaturasService'
@@ -56,6 +58,13 @@ export const candidaturasKeys = {
     pagination?: PaginationParams
   ) =>
     [...candidaturasKeys.lists(), candidatoId, { filters, orderBy, pagination }] as const,
+  listByVaga: (
+    vagaId: string,
+    filters?: CandidaturasFilters,
+    orderBy?: CandidaturasOrderBy,
+    pagination?: PaginationParams
+  ) =>
+    [...candidaturasKeys.lists(), 'by-vaga', vagaId, { filters, orderBy, pagination }] as const,
   duplicateCheck: (candidatoId: string, vagaId: string) =>
     [...candidaturasKeys.all, 'duplicateCheck', candidatoId, vagaId] as const,
 }
@@ -76,7 +85,7 @@ export const candidaturasKeys = {
  *
  * @example
  * const { data: candidaturas, isLoading } = useCandidaturas({
- *   status: 'aplicado'
+ *   status: 'aguardando_resposta'
  * })
  */
 export function useCandidaturas(
@@ -102,6 +111,88 @@ export function useCandidaturas(
     enabled: !!candidato?.id,
     staleTime: 1 * 60 * 1000, // 1 minuto (status pode mudar)
     gcTime: 5 * 60 * 1000,
+    retry: 2,
+    ...options,
+  })
+}
+
+/**
+ * Hook para listar TODAS as candidaturas (HR apenas) - sem filtro de vaga
+ * Usado na página CandidatosRHPage
+ *
+ * @param filters - Filtros opcionais
+ * @param orderBy - Ordenação
+ * @param pagination - Paginação
+ * @param options - Opções do TanStack Query
+ *
+ * @returns Query result com lista de candidaturas (com candidato e vaga)
+ *
+ * @example
+ * const { data: candidaturas, isLoading } = useAllCandidaturas({
+ *   status: 'em_analise'
+ * })
+ */
+export function useAllCandidaturas(
+  filters?: CandidaturasFilters,
+  orderBy: CandidaturasOrderBy = 'mais_recentes',
+  pagination: PaginationParams = { page: 1, limit: 50 },
+  options?: Omit<
+    UseQueryOptions<ListCandidaturasResponse, Error>,
+    'queryKey' | 'queryFn'
+  >
+) {
+  return useQuery({
+    queryKey: [
+      ...candidaturasKeys.lists(),
+      'all-candidaturas',
+      { filters, orderBy, pagination },
+    ] as const,
+    queryFn: () => listAllCandidaturas(filters, orderBy, pagination),
+    staleTime: 30 * 1000, // 30 segundos (status pode mudar rapidamente no painel HR)
+    gcTime: 2 * 60 * 1000,
+    retry: 2,
+    ...options,
+  })
+}
+
+/**
+ * Hook para listar candidaturas de uma vaga específica (HR apenas)
+ *
+ * @param vagaId - UUID da vaga
+ * @param filters - Filtros opcionais
+ * @param orderBy - Ordenação
+ * @param pagination - Paginação
+ * @param options - Opções do TanStack Query
+ *
+ * @returns Query result com lista de candidaturas (com dados do candidato)
+ *
+ * @example
+ * const { data: candidaturas, isLoading } = useVagaCandidaturas('vaga-123', {
+ *   status: 'em_analise'
+ * })
+ */
+export function useVagaCandidaturas(
+  vagaId: string | null | undefined,
+  filters?: CandidaturasFilters,
+  orderBy: CandidaturasOrderBy = 'mais_recentes',
+  pagination: PaginationParams = { page: 1, limit: 50 },
+  options?: Omit<
+    UseQueryOptions<ListCandidaturasResponse, Error>,
+    'queryKey' | 'queryFn'
+  >
+) {
+  return useQuery({
+    queryKey: candidaturasKeys.listByVaga(
+      vagaId || '',
+      filters,
+      orderBy,
+      pagination
+    ),
+    queryFn: () =>
+      listCandidaturasByVaga(vagaId!, filters, orderBy, pagination),
+    enabled: !!vagaId,
+    staleTime: 30 * 1000, // 30 segundos (status pode mudar rapidamente no painel HR)
+    gcTime: 2 * 60 * 1000,
     retry: 2,
     ...options,
   })
@@ -230,7 +321,7 @@ export function useCreateCandidatura(
  *
  * updateStatus({
  *   candidaturaId: '123',
- *   status_candidatura: 'aprovado'
+ *   status_candidatura: 'aprovado_proxima'
  * })
  */
 export function useUpdateCandidaturaStatus(
@@ -244,11 +335,26 @@ export function useUpdateCandidaturaStatus(
 
   return useMutation({
     mutationFn: updateCandidaturaStatus,
-    onSuccess: (data) => {
+    onSuccess: async (data, variables, context) => {
       if (data.success) {
-        // Invalidar todas as listas de candidaturas
+        console.log('🔄 Invalidando queries de candidaturas...')
+
+        // 1. Invalidar TODAS as queries de candidaturas (marca como stale)
         queryClient.invalidateQueries({
-          queryKey: candidaturasKeys.lists(),
+          queryKey: candidaturasKeys.all,
+        })
+
+        // 2. Refetch TODAS as queries ativas de candidaturas (força reload imediato)
+        const refetchResult = await queryClient.refetchQueries({
+          queryKey: candidaturasKeys.all,
+          type: 'active',
+        })
+
+        console.log('✅ Queries refetchadas:', refetchResult.length)
+
+        // 3. Também invalidar queries de vagas (podem ter contador de candidaturas)
+        queryClient.invalidateQueries({
+          queryKey: vagasKeys.all,
         })
 
         toast.success('Status atualizado com sucesso!')
@@ -257,13 +363,24 @@ export function useUpdateCandidaturaStatus(
           description: data.error || 'Tente novamente.',
         })
       }
+
+      // Chamar onSuccess customizado se fornecido
+      options?.onSuccess?.(data, variables, context)
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
       toast.error('Erro ao atualizar status', {
         description: error.message,
       })
+
+      // Chamar onError customizado se fornecido
+      options?.onError?.(error, variables, context)
     },
-    ...options,
+    // Spread das outras options (mas NÃO onSuccess/onError pois já tratamos acima)
+    ...Object.fromEntries(
+      Object.entries(options || {}).filter(
+        ([key]) => key !== 'onSuccess' && key !== 'onError'
+      )
+    ),
   })
 }
 
@@ -277,7 +394,7 @@ export function useUpdateCandidaturaStatus(
  * @returns Objeto com contadores
  *
  * @example
- * const { total, aplicadas, aprovadas } = useCandidaturasCount()
+ * const { total, aguardando, aprovadas } = useCandidaturasCount()
  */
 export function useCandidaturasCount() {
   const { data } = useCandidaturas(
@@ -289,12 +406,11 @@ export function useCandidaturasCount() {
   if (!data?.data) {
     return {
       total: 0,
-      aplicadas: 0,
+      aguardando: 0,
       em_analise: 0,
-      em_teste: 0,
-      em_entrevista: 0,
       aprovadas: 0,
       rejeitadas: 0,
+      finalizadas: 0,
     }
   }
 
@@ -302,18 +418,15 @@ export function useCandidaturasCount() {
 
   return {
     total: candidaturas.length,
-    aplicadas: candidaturas.filter((c) => c.status_candidatura === 'aplicado')
+    aguardando: candidaturas.filter((c) => c.status === 'aguardando_resposta')
       .length,
-    em_analise: candidaturas.filter((c) => c.status_candidatura === 'em_analise')
+    em_analise: candidaturas.filter((c) => c.status === 'em_analise')
       .length,
-    em_teste: candidaturas.filter((c) => c.status_candidatura === 'em_teste')
+    aprovadas: candidaturas.filter((c) => c.status === 'aprovado_proxima')
       .length,
-    em_entrevista: candidaturas.filter(
-      (c) => c.status_candidatura === 'em_entrevista'
-    ).length,
-    aprovadas: candidaturas.filter((c) => c.status_candidatura === 'aprovado')
+    rejeitadas: candidaturas.filter((c) => c.status === 'rejeitado')
       .length,
-    rejeitadas: candidaturas.filter((c) => c.status_candidatura === 'rejeitado')
+    finalizadas: candidaturas.filter((c) => c.status === 'finalizado')
       .length,
   }
 }
