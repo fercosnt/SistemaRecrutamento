@@ -1,0 +1,40 @@
+======================================================
+BEAUTY SMILE - RECUPERAÇÃO DE SENHA ADMINISTRATIVA
+======================================================
+
+Olá, Administrador(a)!
+
+Recebemos uma solicitação para recuperar a senha da sua conta de ACESSO ADMINISTRATIVO no sistema Beauty Smile.
+
+>>> AVISO DE SEGURANÇA <<<
+Esta é uma solicitação de recuperação para uma conta com privilégios administrativos. Se você não solicitou esta recuperação, entre em contato imediatamente com o suporte técnico.
+
+Para criar uma nova senha segura, acesse o link abaixo:
+
+{{ .ConfirmationURL }}
+
+VALIDADE: Este link expira em 24 horas por segurança.
+
+-------------------------------------
+RECOMENDAÇÕES DE SEGURANÇA
+-------------------------------------
+
+• Escolha uma senha forte com no mínimo 12 caracteres
+• Use letras maiúsculas, minúsculas, números e símbolos
+• Não reutilize senhas de outros sistemas
+• Considere usar um gerenciador de senhas
+• Ative autenticação de dois fatores quando disponível
+
+Se você não solicitou a recuperação de senha, IGNORE este email e considere alterar sua senha atual por precaução.
+
+-------------------------------------
+SUPORTE TÉCNICO
+-------------------------------------
+
+Email: suporte@beautysmile.com.br
+
+ATENÇÃO: Email confidencial destinado a administradores autorizados
+
+-------------------------------------
+Beauty Smile - Painel Administrativo
+Este é um email automático, por favor não responda.
