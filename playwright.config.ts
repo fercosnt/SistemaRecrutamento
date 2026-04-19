@@ -1,4 +1,14 @@
 import { defineConfig, devices } from '@playwright/test'
+import * as dotenv from 'dotenv'
+import * as path from 'path'
+import { fileURLToPath } from 'url'
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Load test environment variables from .env.test
+dotenv.config({ path: path.resolve(__dirname, '.env.test') })
 
 /**
  * Playwright Configuration
@@ -43,7 +53,7 @@ export default defineConfig({
   // Configurações globais
   use: {
     // Base URL da aplicação
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:3000',
 
     // Trace em caso de falha
     trace: 'on-first-retry',
@@ -76,7 +86,7 @@ export default defineConfig({
   // Servidor de desenvolvimento
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
