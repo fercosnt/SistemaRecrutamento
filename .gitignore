@@ -28,6 +28,7 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+.env.test
 
 # Build output
 build
@@ -36,6 +37,7 @@ dist
 # Temporary files
 /tmp
 *.tmp
+*.backup
 .cache
 
 # Testing
@@ -46,6 +48,9 @@ coverage
 /test-results/
 /playwright-report/
 /playwright/.cache/
+test-results.log
+test-results/
+playwright-report/
 
 # Database
 *.db
@@ -55,6 +60,9 @@ coverage
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code local agent settings
+.claude/
 
 # IDE
 .vscode/
