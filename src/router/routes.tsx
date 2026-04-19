@@ -10,12 +10,13 @@ import { RouteObject } from 'react-router-dom'
 // Páginas Públicas
 import { LandingPage } from '../components/pages/LandingPage'
 import { VagasPublicasPage } from '../components/pages/VagasPublicasPage'
-import { VagaLPPage } from '../components/pages/VagaLPPage'
+import { VagaDetalhePage } from '../components/pages/VagaDetalhePage'
 import { ManifestoPage } from '../components/pages/ManifestoPage'
 import { GlassShowcase } from '../components/GlassShowcase'
 
 // Páginas de Autenticação e Cadastro
 import { InscricaoPage } from '../components/pages/InscricaoPage'
+import { CadastroPage } from '../components/pages/CadastroPage'
 import { LoginCandidatoPage } from '../components/pages/LoginCandidatoPage'
 import { LoginRHPage } from '../components/pages/LoginRHPage'
 import { EsqueciSenhaPage } from '../components/pages/EsqueciSenhaPage'
@@ -27,6 +28,13 @@ import { MeuPerfilCandidatoPage } from '../components/pages/MeuPerfilCandidatoPa
 import { InstrucoesFormularioPage } from '../components/pages/InstrucoesFormularioPage'
 import { FormularioCandidaturaPage } from '../components/pages/FormularioCandidaturaPage'
 import { QuestionarioCulturaPage } from '../components/pages/QuestionarioCulturaPage'
+
+// Protected Route HOCs
+import { ProtectedRoute } from '../components/ProtectedRoute'
+import { ProtectedAdminRoute } from '../components/ProtectedAdminRoute'
+
+// Error Boundary
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 // Testes Psicométricos
 import { InstrucoesBigFivePage } from '../components/pages/InstrucoesBigFivePage'
@@ -43,10 +51,12 @@ import { DashboardRHPage } from '../components/pages/DashboardRHPage'
 import { CandidatosRHPage } from '../components/pages/CandidatosRHPage'
 import { PerfilCandidatoRHPage } from '../components/pages/PerfilCandidatoRHPage'
 import { VagasRHPage } from '../components/pages/VagasRHPage'
+import { VagaCandidatosRHPage } from '../components/pages/VagaCandidatosRHPage'
 import { CriarEditarVagaPage } from '../components/pages/CriarEditarVagaPage'
 import { ConfiguracoesPage } from '../components/pages/ConfiguracoesPage'
 import { MeuPerfilPage } from '../components/pages/MeuPerfilPage'
 import { SuporteRHPage } from '../components/pages/SuporteRHPage'
+import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
 
 /**
  * Configuração de rotas da aplicação
@@ -72,7 +82,7 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/vagas/:id',
-    element: <VagaLPPage />,
+    element: <VagaDetalhePage />,
   },
   {
     path: '/manifesto',
@@ -91,6 +101,10 @@ export const routes: RouteObject[] = [
     element: <InscricaoPage />,
   },
   {
+    path: '/cadastro',
+    element: <CadastroPage />,
+  },
+  {
     path: '/auth/login',
     element: <LoginCandidatoPage />,
   },
@@ -100,11 +114,19 @@ export const routes: RouteObject[] = [
   },
   {
     path: '/auth/esqueci-senha',
-    element: <EsqueciSenhaPage />,
+    element: (
+      <ErrorBoundary>
+        <EsqueciSenhaPage />
+      </ErrorBoundary>
+    ),
   },
   {
     path: '/auth/redefinir-senha',
-    element: <RedefinirSenhaPage token="" />,
+    element: (
+      <ErrorBoundary>
+        <RedefinirSenhaPage />
+      </ErrorBoundary>
+    ),
   },
 
   // ============================
@@ -112,27 +134,51 @@ export const routes: RouteObject[] = [
   // ============================
   {
     path: '/candidato/dashboard',
-    element: <DashboardCandidatoPage />,
+    element: (
+      <ProtectedRoute>
+        <DashboardCandidatoPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/candidato/perfil',
-    element: <MeuPerfilCandidatoPage />,
+    element: (
+      <ProtectedRoute>
+        <MeuPerfilCandidatoPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/candidato/candidatura/instrucoes',
-    element: <InstrucoesFormularioPage />,
+    element: (
+      <ProtectedRoute>
+        <InstrucoesFormularioPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/candidato/candidatura/formulario/:vagaId',
-    element: <FormularioCandidaturaPage />,
+    element: (
+      <ProtectedRoute>
+        <FormularioCandidaturaPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/candidato/questionario-cultura',
-    element: <QuestionarioCulturaPage />,
+    element: (
+      <ProtectedRoute>
+        <QuestionarioCulturaPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/candidato/questionario',
-    element: <QuestionarioPage />,
+    element: (
+      <ProtectedRoute>
+        <QuestionarioPage />
+      </ProtectedRoute>
+    ),
   },
 
   // ============================
@@ -140,31 +186,59 @@ export const routes: RouteObject[] = [
   // ============================
   {
     path: '/testes/bigfive/instrucoes',
-    element: <InstrucoesBigFivePage />,
+    element: (
+      <ProtectedRoute>
+        <InstrucoesBigFivePage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/bigfive',
-    element: <TesteBigFivePage />,
+    element: (
+      <ProtectedRoute>
+        <TesteBigFivePage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/disc/instrucoes',
-    element: <InstrucoesDISCPage />,
+    element: (
+      <ProtectedRoute>
+        <InstrucoesDISCPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/disc',
-    element: <TesteDISCPage />,
+    element: (
+      <ProtectedRoute>
+        <TesteDISCPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/raven/instrucoes',
-    element: <InstrucoesRavenPage />,
+    element: (
+      <ProtectedRoute>
+        <InstrucoesRavenPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/raven',
-    element: <TesteRavenPage />,
+    element: (
+      <ProtectedRoute>
+        <TesteRavenPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/testes/conclusao',
-    element: <ConclusaoTestesPage />,
+    element: (
+      <ProtectedRoute>
+        <ConclusaoTestesPage />
+      </ProtectedRoute>
+    ),
   },
 
   // ============================
@@ -172,39 +246,91 @@ export const routes: RouteObject[] = [
   // ============================
   {
     path: '/rh/dashboard',
-    element: <DashboardRHPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <DashboardRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/candidatos',
-    element: <CandidatosRHPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <CandidatosRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/candidatos/:id',
-    element: <PerfilCandidatoRHPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <PerfilCandidatoRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/vagas',
-    element: <VagasRHPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <VagasRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/vagas/nova',
-    element: <CriarEditarVagaPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <CriarEditarVagaPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/vagas/:id/editar',
-    element: <CriarEditarVagaPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <CriarEditarVagaPage />
+      </ProtectedAdminRoute>
+    ),
+  },
+  {
+    path: '/rh/vagas/:id/candidatos',
+    element: (
+      <ProtectedAdminRoute>
+        <VagaCandidatosRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/perfil',
-    element: <MeuPerfilPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <MeuPerfilPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/configuracoes',
-    element: <ConfiguracoesPage />,
+    element: (
+      <ProtectedAdminRoute requireRole="administrador">
+        <ConfiguracoesPage />
+      </ProtectedAdminRoute>
+    ),
   },
   {
     path: '/rh/suporte',
-    element: <SuporteRHPage />,
+    element: (
+      <ProtectedAdminRoute>
+        <SuporteRHPage />
+      </ProtectedAdminRoute>
+    ),
+  },
+  {
+    path: '/rh/relatorios',
+    element: (
+      <ProtectedAdminRoute>
+        <RelatoriosRHPage />
+      </ProtectedAdminRoute>
+    ),
   },
 ]
 
@@ -220,6 +346,7 @@ export const devNavigationPages = [
   { path: '/vagas/1', label: 'LP Divulgação Vaga', icon: '📄', category: 'Público' },
   { path: '/manifesto', label: 'Manifesto Beauty Smile', icon: '🦷', category: 'Público' },
   { path: '/auth/inscricao', label: 'Inscrição Candidato', icon: '📝', category: 'Auth' },
+  { path: '/cadastro', label: 'Cadastro Completo (PRD-1)', icon: '📋', category: 'Auth' },
   { path: '/auth/login', label: 'Login Candidato', icon: '🔑', category: 'Auth' },
   { path: '/auth/login-rh', label: 'Login RH', icon: '🔐', category: 'Auth' },
   { path: '/auth/esqueci-senha', label: 'Esqueci Minha Senha', icon: '🔓', category: 'Auth' },
@@ -245,5 +372,6 @@ export const devNavigationPages = [
   { path: '/rh/perfil', label: 'Meu Perfil (RH)', icon: '👤', category: 'RH' },
   { path: '/rh/configuracoes', label: 'Configurações', icon: '⚙️', category: 'RH' },
   { path: '/rh/suporte', label: 'Suporte Técnico', icon: '🛠️', category: 'RH' },
+  { path: '/rh/relatorios', label: 'Relatórios', icon: '📊', category: 'RH' },
   { path: '/showcase', label: 'Design Showcase', icon: '🎨', category: 'Dev' },
 ]

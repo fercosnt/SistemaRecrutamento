@@ -4,13 +4,33 @@
  * Configuração do React Router e menu de navegação de desenvolvimento
  */
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { RouterProvider, createBrowserRouter, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet'
 import { ScrollArea } from './components/ui/scroll-area'
 import { routes, devNavigationPages } from './router/routes'
+import { useAuthStore } from './store/authStore'
+import { useAdminAuthStore } from './store/adminAuthStore'
+import { supabase } from './lib/supabase/client'
+import { useSessionTimeout } from './hooks/useSessionTimeout'
+
+/**
+ * Instância do QueryClient para TanStack Query
+ * Configuração global de cache, retry e staleTime
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      gcTime: 10 * 60 * 1000, // 10 minutos (anteriormente cacheTime)
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 /**
  * Componente de Menu de Desenvolvimento
@@ -104,16 +124,121 @@ function DevNavigationMenu() {
 
 /**
  * Layout raiz que envolve todas as páginas
- * Inclui menu de navegação e toast notifications
+ * Inclui menu de navegação, toast notifications e verificação de sessão
  */
 function RootLayout() {
+  const { initialize, setUser, setSession, clearUser } = useAuthStore();
+  const { initialize: initializeAdmin, setUser: setAdminUser, setSession: setAdminSession, clearAdminUser, isAuthenticated: isAdminAuthenticated } = useAdminAuthStore();
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+
+  // Monitorar inatividade de sessão admin (30 minutos)
+  useSessionTimeout(isAdminAuthenticated);
+
+  useEffect(() => {
+    // Verificar lógica de "Lembrar-me" para candidatos
+    const checkRememberMe = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const isTemporarySession = sessionStorage.getItem('auth-session-temporary');
+
+      if (session && isTemporarySession === 'true') {
+        // Sessão existe mas era temporária e sessionStorage ainda tem a flag
+        // Isso significa que é a mesma sessão do navegador, ok
+        console.log('Sessão temporária mantida (mesma sessão do navegador)');
+      } else if (session && !isTemporarySession) {
+        // Sessão existe mas não há flag de temporária no sessionStorage
+        // Precisamos verificar se há flag no localStorage indicando que era temporária
+        const wasTemporary = localStorage.getItem('auth-was-temporary');
+        if (wasTemporary === 'true') {
+          // Era uma sessão temporária mas o navegador foi fechado/reaberto
+          console.log('Sessão temporária expirada - fazendo logout');
+          await supabase.auth.signOut();
+          clearUser();
+          localStorage.removeItem('auth-was-temporary');
+        }
+      }
+    };
+
+    // Verificar lógica de "Lembrar-me" para admin
+    const checkAdminRememberMe = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const isAdminTemporarySession = sessionStorage.getItem('admin-auth-session-temporary');
+
+      if (session && isAdminTemporarySession === 'true') {
+        console.log('Sessão admin temporária mantida (mesma sessão do navegador)');
+      } else if (session && !isAdminTemporarySession) {
+        const wasAdminTemporary = localStorage.getItem('admin-auth-was-temporary');
+        if (wasAdminTemporary === 'true') {
+          console.log('Sessão admin temporária expirada - fazendo logout');
+          await supabase.auth.signOut();
+          clearAdminUser();
+          localStorage.removeItem('admin-auth-was-temporary');
+        }
+      }
+    };
+
+    checkRememberMe();
+    checkAdminRememberMe();
+
+    // Inicializar auth stores verificando sessão existente
+    // Aguardar inicialização antes de configurar listener para evitar race condition
+    (async () => {
+      // Aguardar ambas as inicializações completarem antes de configurar listener
+      await Promise.all([initialize(), initializeAdmin()]);
+
+      // Configurar listener para mudanças no estado de autenticação
+      // Isso captura:
+      // - Login/Logout de outras tabs
+      // - Expiração de sessão
+      // - Refresh de token
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state changed:', event, session?.user?.email);
+
+          if (event === 'SIGNED_IN' && session) {
+            // Usuário fez login - atualizar ambos os stores
+            setUser(session.user);
+            setSession(session);
+            setAdminUser(session.user);
+            setAdminSession(session);
+          } else if (event === 'SIGNED_OUT') {
+            // Usuário fez logout - limpar ambos os stores
+            clearUser();
+            clearAdminUser();
+            // Limpar flags de sessão temporária
+            sessionStorage.removeItem('auth-session-temporary');
+            localStorage.removeItem('auth-was-temporary');
+            sessionStorage.removeItem('admin-auth-session-temporary');
+            localStorage.removeItem('admin-auth-was-temporary');
+          } else if (event === 'TOKEN_REFRESHED' && session) {
+            // Token foi renovado - atualizar ambos os stores
+            setSession(session);
+            setAdminSession(session);
+          } else if (event === 'USER_UPDATED' && session) {
+            // Dados do usuário foram atualizados - atualizar ambos os stores
+            setUser(session.user);
+            setAdminUser(session.user);
+          }
+        }
+      );
+
+      subscriptionRef.current = subscription;
+    })();
+
+    // Cleanup: remover listener quando componente desmontar
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
+    };
+  }, [initialize, initializeAdmin, setUser, setSession, clearUser, setAdminUser, setAdminSession, clearAdminUser]);
+
   return (
     <>
       <Outlet />
       <DevNavigationMenu />
       <Toaster position="top-right" />
     </>
-  )
+  );
 }
 
 /**
@@ -130,13 +255,21 @@ const routesWithLayout = [
 /**
  * Router configurado
  */
-const router = createBrowserRouter(routesWithLayout)
+const router = createBrowserRouter(routesWithLayout, {
+  future: {
+    v7_startTransition: true,
+  },
+})
 
 /**
  * Componente App principal
  */
 function App() {
-  return <RouterProvider router={router} />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
 }
 
 export default App

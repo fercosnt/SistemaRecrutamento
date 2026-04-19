@@ -1,56 +1,180 @@
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Checkbox } from '../ui/checkbox';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Eye, EyeOff, Mail, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { loginSchema, type LoginFormData } from '@/schemas/loginSchema';
+import { supabase } from '@/lib/supabase/client';
+import { useAuthStore } from '@/store/authStore';
 
 interface LoginCandidatoPageProps {
   onEsqueciSenha?: () => void;
 }
 
+/**
+ * Determina a URL de redirecionamento baseado na etapa atual do candidato
+ *
+ * Lógica de redirecionamento:
+ * 1. Se houver URL original tentada (location.state.from), redireciona para lá
+ * 2. Caso contrário, redireciona para dashboard padrão
+ *
+ * TODO: Implementar lógica de redirecionamento por etapa quando tabela candidaturas estiver disponível
+ *
+ * @param candidatoId - ID do candidato
+ * @param location - Location do React Router para pegar URL original
+ * @returns URL de destino para redirecionamento
+ */
+async function determineRedirectUrl(candidatoId: string, location: any): Promise<string> {
+  // Se o usuário estava tentando acessar uma página específica, redireciona para lá
+  if (location.state?.from) {
+    return location.state.from;
+  }
+
+  // Por enquanto, sempre redireciona para perfil do candidato
+  // A lógica de redirecionamento por etapa será implementada quando
+  // a tabela candidaturas estiver disponível no database.types.ts
+  return '/candidato/perfil';
+}
+
 export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps = {}) {
-  const [formData, setFormData] = useState({
-    email: '',
-    senha: '',
+  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { setUser, setSession } = useAuthStore();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: 'all', // Validate on change, blur, and submit
+    reValidateMode: 'onChange',
+    defaultValues: {
+      email: '',
+      password: '',
+      rememberMe: false,
+    },
   });
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      // Se "lembrar-me" não estiver marcado, marcar sessão como temporária
+      if (!data.rememberMe) {
+        // Salvar flag no sessionStorage (será perdida ao fechar navegador)
+        sessionStorage.setItem('auth-session-temporary', 'true');
+        // Salvar flag no localStorage para detectar ao reabrir navegador
+        localStorage.setItem('auth-was-temporary', 'true');
+      } else {
+        // Remover flags se existirem (sessão persistente)
+        sessionStorage.removeItem('auth-session-temporary');
+        localStorage.removeItem('auth-was-temporary');
+      }
 
-  const handleInputChange = (field: 'email' | 'senha', value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      toast.error('Por favor, insira um email válido');
-      return;
-    }
-
-    if (!formData.senha || formData.senha.length < 6) {
-      toast.error('Por favor, insira sua senha');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Simular autenticação
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast.success('Login realizado com sucesso!', {
-        description: 'Redirecionando para o dashboard...',
+      // Autenticação com Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
       });
-      
+
+      if (authError) {
+        // Tratamento de erros específicos do Supabase
+        if (authError.message.includes('Invalid login credentials')) {
+          toast.error('Email ou senha incorretos', {
+            description: 'Verifique suas credenciais e tente novamente.',
+          });
+        } else if (authError.message.includes('Email not confirmed')) {
+          toast.error('Email não verificado', {
+            description: 'Verifique seu email para confirmar sua conta.',
+          });
+        } else if (authError.message.includes('Too many requests')) {
+          toast.error('Muitas tentativas de login', {
+            description: 'Aguarde alguns minutos antes de tentar novamente.',
+          });
+        } else {
+          toast.error('Erro ao fazer login', {
+            description: authError.message,
+          });
+        }
+        return;
+      }
+
+      if (!authData.user || !authData.session) {
+        toast.error('Erro ao fazer login', {
+          description: 'Não foi possível estabelecer a sessão.',
+        });
+        return;
+      }
+
+      // Atualizar Zustand store
+      setUser(authData.user);
+      setSession(authData.session);
+
+      // Buscar perfil completo do candidato
+      toast.loading('Carregando seu perfil...', { id: 'loading-profile' });
+
+      const { data: candidato, error: candidatoError } = await supabase
+        .from('candidatos')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .is('deleted_at', null)
+        .single();
+
+      toast.dismiss('loading-profile');
+
+      if (candidatoError) {
+        console.error('Erro ao buscar perfil do candidato:', candidatoError);
+
+        // Fazer logout automático se perfil não encontrado
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+
+        toast.error('Perfil não encontrado', {
+          description: 'Não foi possível carregar seu perfil. Entre em contato com o suporte.',
+        });
+        return;
+      }
+
+      if (!candidato) {
+        // Perfil não existe - fazer logout
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+
+        toast.error('Perfil inválido', {
+          description: 'Sua conta não possui um perfil de candidato válido.',
+        });
+        return;
+      }
+
+      // Atualizar store com dados do candidato
+      useAuthStore.getState().setCandidato(candidato);
+
+      toast.success('Login realizado com sucesso!', {
+        description: `Bem-vindo, ${candidato.nome_completo}!`,
+      });
+
+      // Determinar destino do redirecionamento baseado na etapa atual
+      const redirectUrl = await determineRedirectUrl(candidato.id, location);
+
       setTimeout(() => {
-        console.log('Redirecionando para dashboard do candidato...');
-        // window.location.href = '/dashboard-candidato';
-      }, 1500);
-    }, 1500);
+        navigate(redirectUrl, { replace: true });
+      }, 1000);
+
+    } catch (error) {
+      console.error('Erro inesperado ao fazer login:', error);
+      toast.error('Erro inesperado', {
+        description: 'Tente novamente mais tarde.',
+      });
+    }
   };
 
   const handleForgotPassword = () => {
@@ -110,7 +234,7 @@ export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps =
               </div>
 
               {/* Formulário */}
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-white drop-shadow-sm">
@@ -119,28 +243,30 @@ export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps =
                   <Input
                     id="email"
                     type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    {...register('email')}
                     placeholder="seu@email.com"
                     className="bg-white/20 border-white/30 text-white placeholder:text-white/50"
-                    required
+                    autoFocus
                   />
+                  {errors.email && (
+                    <p className="text-red-300 text-sm drop-shadow-sm">
+                      {errors.email.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Senha */}
                 <div className="space-y-2">
-                  <Label htmlFor="senha" className="text-white drop-shadow-sm">
+                  <Label htmlFor="password" className="text-white drop-shadow-sm">
                     Senha *
                   </Label>
                   <div className="relative">
                     <Input
-                      id="senha"
+                      id="password"
                       type={showPassword ? 'text' : 'password'}
-                      value={formData.senha}
-                      onChange={(e) => handleInputChange('senha', e.target.value)}
+                      {...register('password')}
                       placeholder="Digite sua senha"
                       className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
-                      required
                     />
                     <button
                       type="button"
@@ -150,10 +276,28 @@ export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps =
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {errors.password && (
+                    <p className="text-red-300 text-sm drop-shadow-sm">
+                      {errors.password.message}
+                    </p>
+                  )}
                 </div>
 
-                {/* Esqueceu a senha */}
-                <div className="flex justify-end">
+                {/* Lembrar-me e Esqueceu a senha */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="rememberMe"
+                      {...register('rememberMe')}
+                      className="border-white/30 data-[state=checked]:bg-[#00109E]"
+                    />
+                    <Label
+                      htmlFor="rememberMe"
+                      className="text-white/90 drop-shadow-sm cursor-pointer"
+                    >
+                      Lembrar-me
+                    </Label>
+                  </div>
                   <button
                     type="button"
                     onClick={handleForgotPassword}
@@ -167,7 +311,7 @@ export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps =
                 <div className="pt-4">
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isValid}
                     className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white py-3 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-center"
                   >
                     {isSubmitting ? (
