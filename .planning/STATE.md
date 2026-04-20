@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Phase 1 Wave 1 complete — awaiting service_role rotation
+last_updated: "2026-04-20T04:10:20.903Z"
+last_activity: 2026-04-20 -- Wave 1 complete (plans 01-01, 01-02)
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 2
+  percent: 40
+---
+
 # Project State
 
 ## Project Reference
@@ -5,20 +21,21 @@
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 1 - Foundation Saneada
+**Current focus:** Phase 01 — foundation-saneada
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation Saneada)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-04-19 -- Roadmap created for M1 (MVP Candidato)
+Phase: 01 (foundation-saneada) — EXECUTING (Wave 1 ✓ / Wave 2 pending)
+Plan: 2 of 5 complete (01-01, 01-02)
+Status: Paused at post-Wave-1 checkpoint — service_role rotation required before Wave 2
+Last activity: 2026-04-20 -- Wave 1 merged (commits 52e4d7e, fda6de8, fb48e24, ee30fec)
 
-Progress: [..........] 0%
+Progress: [####......] 40%
 
 ## Performance Metrics
 
 **Velocity:**
+
 - Total plans completed: 0
 - Average duration: -
 - Total execution time: 0 hours
@@ -30,6 +47,7 @@ Progress: [..........] 0%
 | - | - | - | - |
 
 **Recent Trend:**
+
 - Last 5 plans: -
 - Trend: -
 
