@@ -29,9 +29,8 @@ import { InstrucoesFormularioPage } from '../components/pages/InstrucoesFormular
 import { FormularioCandidaturaPage } from '../components/pages/FormularioCandidaturaPage'
 import { QuestionarioCulturaPage } from '../components/pages/QuestionarioCulturaPage'
 
-// Protected Route HOCs
-import { ProtectedRoute } from '../components/ProtectedRoute'
-import { ProtectedAdminRoute } from '../components/ProtectedAdminRoute'
+// Protected Route HOC (unified role-aware guard)
+import { RoleGuard } from '../components/RoleGuard'
 
 // Error Boundary
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -135,49 +134,49 @@ export const routes: RouteObject[] = [
   {
     path: '/candidato/dashboard',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <DashboardCandidatoPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/candidato/perfil',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <MeuPerfilCandidatoPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/candidato/candidatura/instrucoes',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <InstrucoesFormularioPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/candidato/candidatura/formulario/:vagaId',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <FormularioCandidaturaPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/candidato/questionario-cultura',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <QuestionarioCulturaPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/candidato/questionario',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <QuestionarioPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
 
@@ -187,57 +186,57 @@ export const routes: RouteObject[] = [
   {
     path: '/testes/bigfive/instrucoes',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <InstrucoesBigFivePage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/bigfive',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <TesteBigFivePage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/disc/instrucoes',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <InstrucoesDISCPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/disc',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <TesteDISCPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/raven/instrucoes',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <InstrucoesRavenPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/raven',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <TesteRavenPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/testes/conclusao',
     element: (
-      <ProtectedRoute>
+      <RoleGuard role="candidato">
         <ConclusaoTestesPage />
-      </ProtectedRoute>
+      </RoleGuard>
     ),
   },
 
@@ -247,89 +246,89 @@ export const routes: RouteObject[] = [
   {
     path: '/rh/dashboard',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <DashboardRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/candidatos',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <CandidatosRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/candidatos/:id',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <PerfilCandidatoRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/vagas',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <VagasRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/vagas/nova',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <CriarEditarVagaPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/vagas/:id/editar',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <CriarEditarVagaPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/vagas/:id/candidatos',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <VagaCandidatosRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/perfil',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <MeuPerfilPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/configuracoes',
     element: (
-      <ProtectedAdminRoute requireRole="administrador">
+      <RoleGuard role="administrador">
         <ConfiguracoesPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/suporte',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <SuporteRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
   {
     path: '/rh/relatorios',
     element: (
-      <ProtectedAdminRoute>
+      <RoleGuard role={['rh', 'administrador']}>
         <RelatoriosRHPage />
-      </ProtectedAdminRoute>
+      </RoleGuard>
     ),
   },
 ]
