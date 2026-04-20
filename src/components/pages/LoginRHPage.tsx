@@ -64,14 +64,12 @@ export function LoginRHPage() {
 
   const onSubmit = async (data: AdminLoginFormData) => {
     try {
-      // Configurar flags de sessão baseado em "lembrar-me"
-      if (!data.rememberMe) {
-        sessionStorage.setItem('admin-auth-session-temporary', 'true');
-        localStorage.setItem('admin-auth-was-temporary', 'true');
-      } else {
-        sessionStorage.removeItem('admin-auth-session-temporary');
-        localStorage.removeItem('admin-auth-was-temporary');
-      }
+      // Lembrar-me is handled by Supabase persistSession (FOUND-11)
+      // The persistSession: true option in client.ts already keeps the session
+      // across browser restarts. The checkbox remains in the UI as a visual
+      // affordance; manual sessionStorage/localStorage flags were removed because
+      // they conflicted with Supabase's own auth storage and never reliably
+      // expired the session on browser close.
 
       // Autenticação com Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({

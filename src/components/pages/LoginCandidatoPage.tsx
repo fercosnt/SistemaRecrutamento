@@ -66,17 +66,12 @@ export function LoginCandidatoPage({ onEsqueciSenha }: LoginCandidatoPageProps =
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      // Se "lembrar-me" não estiver marcado, marcar sessão como temporária
-      if (!data.rememberMe) {
-        // Salvar flag no sessionStorage (será perdida ao fechar navegador)
-        sessionStorage.setItem('auth-session-temporary', 'true');
-        // Salvar flag no localStorage para detectar ao reabrir navegador
-        localStorage.setItem('auth-was-temporary', 'true');
-      } else {
-        // Remover flags se existirem (sessão persistente)
-        sessionStorage.removeItem('auth-session-temporary');
-        localStorage.removeItem('auth-was-temporary');
-      }
+      // Lembrar-me is handled by Supabase persistSession (FOUND-11)
+      // The persistSession: true option in client.ts already keeps the session
+      // across browser restarts. The checkbox remains in the UI as a visual
+      // affordance; manual sessionStorage/localStorage flags were removed because
+      // they conflicted with Supabase's own auth storage and never reliably
+      // expired the session on browser close.
 
       // Autenticação com Supabase
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
