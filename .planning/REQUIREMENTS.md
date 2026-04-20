@@ -1,0 +1,130 @@
+# Requirements: Sistema de Recrutamento Beauty Smile
+
+**Defined:** 2026-04-19
+**Core Value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar com scores comparaveis.
+**Milestone:** M1 — MVP Candidato (Fases 1-5)
+
+## v1 Requirements
+
+Requirements for M1. Each maps to roadmap phases.
+
+### Foundation (Seguranca + Types)
+
+- [ ] **FOUND-01**: service_role removido do client-side bundle; operacoes privilegiadas via Edge Functions
+- [ ] **FOUND-02**: Auth unificado em 1 store Zustand com campos `user`, `session`, `role`, `profile`, `isLoading`
+- [ ] **FOUND-03**: Role lido da tabela `usuarios_rh` (rh) ou `candidatos` (candidato) via Custom Access Token Hook no JWT
+- [ ] **FOUND-04**: RoleGuard centralizado redireciona conforme role + destino (substitui ProtectedRoute + ProtectedAdminRoute)
+- [ ] **FOUND-05**: Rota protegida sem sessao redireciona para `/auth/login` com `?redirect=` preservado
+- [ ] **FOUND-06**: Logout limpa sessao em todas as abas via `onAuthStateChange`
+- [ ] **FOUND-07**: `npm run db:types` gera `database.types.ts` automaticamente; `tsc --noEmit` passa
+- [ ] **FOUND-08**: Hook pre-commit (husky) roda `tsc --noEmit` antes de cada commit
+- [ ] **FOUND-09**: Migrations consolidadas em `supabase/migrations/` numeradas (fonte da verdade)
+- [ ] **FOUND-10**: RLS anonymous SELECT em `candidatos` movido para RPC `SECURITY DEFINER` retornando apenas `{ exists: boolean }`
+- [ ] **FOUND-11**: Flags manuais de "Lembrar-me" removidas; delegado para `persistSession` nativo do Supabase
+- [ ] **FOUND-12**: `adminAuthStore.ts` deletado; `supabaseAdmin` removido de `client.ts`
+
+### Cadastro (Candidato)
+
+- [ ] **CAD-01**: Candidato preenche formulario multi-step de 4 etapas (Dados, Endereco, Disponibilidade, Autorizacoes)
+- [ ] **CAD-02**: Validacao de CPF (digito verificador + formato) em tempo real
+- [ ] **CAD-03**: Validacao de duplicata de CPF e email contra base existente (via Edge Function, nao anon SELECT)
+- [ ] **CAD-04**: Auto-preenchimento de endereco via ViaCEP
+- [ ] **CAD-05**: Aceite explicito dos termos LGPD (checkbox obrigatorio)
+- [ ] **CAD-06**: Auto-login apos cadastro bem-sucedido com redirect para `/candidato/perfil`
+- [ ] **CAD-07**: `cadastroService` usa Edge Function `cadastrar-candidato` (nao `supabaseAdmin`)
+
+### Autenticacao (Candidato)
+
+- [ ] **AUTH-01**: Login com email + senha com mensagens claras de erro
+- [ ] **AUTH-02**: Checkbox "Lembrar-me" controla `persistSession` do Supabase
+- [ ] **AUTH-03**: Recuperacao de senha por email com link valido por 1h
+- [ ] **AUTH-04**: Redefinicao de senha funcional via deeplink do email
+
+### Vagas e Candidatura
+
+- [ ] **VAGA-01**: Listagem publica de vagas filtrando por `status = 'ativa'` (nao campo boolean `ativa`)
+- [ ] **VAGA-02**: Pagina de detalhe da vaga (`/vagas/:slug`) com descricao, requisitos, botao "Candidatar-se"
+- [ ] **VAGA-03**: Botao "Candidatar-se" leva ao formulario (se logado) ou ao login (se nao)
+- [ ] **CAND-01**: Upload de curriculo (PDF, < 5MB) para Supabase Storage bucket `curriculos`
+- [ ] **CAND-02**: Resposta as perguntas de triagem customizadas da vaga (salvas em `respostas_formulario`)
+- [ ] **CAND-03**: Registro de candidatura vinculando `candidato_id + vaga_id` com `status = 'aguardando_resposta'` e `etapa_atual = 'triagem'`
+- [ ] **CAND-04**: Prevencao de candidatura duplicada (mesmo candidato + mesma vaga)
+
+### Perfil do Candidato
+
+- [ ] **PERF-01**: Listagem de candidaturas do candidato com status + etapa + data (dados reais, sem mock)
+- [ ] **PERF-02**: Pagina de perfil `/candidato/perfil` mostrando dados pessoais e candidaturas
+
+### Hardening
+
+- [ ] **HARD-01**: E2E suite completa do candidato passa 100% (login + cadastro + candidatura)
+- [ ] **HARD-02**: Lighthouse mobile > 80 em Performance e Accessibility
+- [ ] **HARD-03**: ErrorBoundary global plugado no root da aplicacao
+- [ ] **HARD-04**: Labels em todos os inputs; tab order correto; focus visivel
+- [ ] **HARD-05**: Validacao manual em mobile (iPhone 12 Pro viewport) — logout acessivel
+- [ ] **HARD-06**: DevNavigationMenu oculto em producao (gateado por `import.meta.env.DEV`)
+
+## v2 Requirements
+
+Deferred to M2+ (Fases 6-11). Tracked but not in current roadmap.
+
+### RH (Fases 6-8)
+
+- **RH-01**: Login RH usando mesmo authStore unificado (role='rh')
+- **RH-02**: Dashboard RH com metricas reais via RPC Postgres
+- **RH-03**: CRUD completo de vagas com perguntas customizadas
+- **RH-04**: Kanban por vaga com 8 etapas (drag-drop)
+- **RH-05**: Transicoes de status com auto-advance de etapa
+- **RH-06**: Refactor `candidaturasService.ts` em 4 arquivos especializados
+
+### Testes Psicometricos (Fase 9)
+
+- **TEST-01**: Big Five (IPIP-NEO-120) — filtro eliminatorio
+- **TEST-02**: DISC — contexto comportamental (nao eliminatorio)
+- **TEST-03**: ICAR-MR11 (Cognitivo) — filtro eliminatorio
+- **TEST-04**: Fit Cultural Beauty Smile — filtro eliminatorio
+- **TEST-05**: Scores via RPC deterministico no Postgres
+
+### Integracoes e Producao (Fases 10-11)
+
+- **INT-01**: Integracoes n8n (emails, analise, Notion) fire-and-forget
+- **PROD-01**: CI GitHub Actions (lint + build em PR, E2E em merge)
+- **PROD-02**: Deploy Vercel com envs separadas (preview/prod)
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Landing page por vaga (VagaLPPage) | Decisao do usuario; pagina simples `/vagas/:slug` atende |
+| Raven Progressive Matrices | SATEPSI-desfavoravel + licenca Pearson inviavel; substituido por ICAR |
+| Automacoes n8n no MVP | Dependencia externa fragil; Fase 10 |
+| App mobile nativo | SPA responsivo mobile-first atende |
+| Multi-tenant | Single-tenant Beauty Smile |
+| Sentry no MVP | Vercel Runtime Logs nativos atendem |
+| IA generativa para triagem de CV | Custo e risco de vies |
+| Edicao de perfil candidato (RF-20) | Should, defer to Fase 5+ se tempo |
+| Upload/troca de foto perfil (RF-21) | Could, defer to M2 |
+| Exclusao de conta LGPD (RF-22) | Must eventual, manual via email no MVP |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FOUND-01..FOUND-12 | Phase 1 | Pending |
+| CAD-01..CAD-07 | Phase 2 | Pending |
+| AUTH-01..AUTH-04 | Phase 3 | Pending |
+| VAGA-01..VAGA-03 | Phase 4 | Pending |
+| CAND-01..CAND-04 | Phase 4 | Pending |
+| PERF-01..PERF-02 | Phase 5 | Pending |
+| HARD-01..HARD-06 | Phase 5 | Pending |
+
+**Coverage:**
+- v1 requirements: 35 total
+- Mapped to phases: 35
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-04-19*
+*Last updated: 2026-04-19 after initial definition*
