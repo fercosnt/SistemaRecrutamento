@@ -1,7 +1,17 @@
 /**
  * App.tsx - Componente principal da aplicação Beauty Smile
  *
- * Configuração do React Router e menu de navegação de desenvolvimento
+ * Configuração do React Router e menu de navegação de desenvolvimento.
+ *
+ * Após FOUND-02/06/11 (Phase 1 Plan 05):
+ * - Apenas o `useAuthStore` unificado é inicializado (uma única chamada a
+ *   `initialize()` no mount).
+ * - Um único `onAuthStateChange` listener despacha para `setSession`
+ *   (SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED) ou `clearAuth` (SIGNED_OUT)
+ *   — sem stores duplicados, sem race conditions.
+ * - Nenhuma flag manual de "Lembrar-me" é lida ou escrita aqui. A
+ *   persistência de sessão é responsabilidade exclusiva do Supabase
+ *   (`persistSession: true` em `src/lib/supabase/client.ts`).
  */
 
 import React, { useEffect, useRef } from 'react'
@@ -13,7 +23,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { ScrollArea } from './components/ui/scroll-area'
 import { routes, devNavigationPages } from './router/routes'
 import { useAuthStore } from './store/authStore'
-import { useAdminAuthStore } from './store/adminAuthStore'
+import { useIsAdminAuthenticated } from './store/adminAuthStore'
 import { supabase } from './lib/supabase/client'
 import { useSessionTimeout } from './hooks/useSessionTimeout'
 
@@ -36,7 +46,7 @@ const queryClient = new QueryClient({
  * Componente de Menu de Desenvolvimento
  *
  * Menu flutuante para facilitar navegação durante desenvolvimento.
- * Em produção, este componente pode ser removido ou escondido.
+ * Renderizado somente quando `import.meta.env.DEV === true`.
  */
 function DevNavigationMenu() {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false)
@@ -124,113 +134,56 @@ function DevNavigationMenu() {
 
 /**
  * Layout raiz que envolve todas as páginas
- * Inclui menu de navegação, toast notifications e verificação de sessão
+ *
+ * Responsabilidades:
+ * - Inicializar o store de auth unificado UMA única vez.
+ * - Registrar UM único listener `supabase.auth.onAuthStateChange` que
+ *   despacha para `setSession` ou `clearAuth` no store unificado.
+ * - Montar o DevNavigationMenu apenas em ambiente de desenvolvimento.
+ * - Renderizar o Toaster de notificações.
  */
 function RootLayout() {
-  const { initialize, setUser, setSession, clearUser } = useAuthStore();
-  const { initialize: initializeAdmin, setUser: setAdminUser, setSession: setAdminSession, clearAdminUser, isAuthenticated: isAdminAuthenticated } = useAdminAuthStore();
-  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const isAdminAuthenticated = useIsAdminAuthenticated()
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
 
-  // Monitorar inatividade de sessão admin (30 minutos)
-  useSessionTimeout(isAdminAuthenticated);
+  // Monitorar inatividade apenas para sessões RH/Admin (30 minutos)
+  useSessionTimeout(isAdminAuthenticated)
 
   useEffect(() => {
-    // Verificar lógica de "Lembrar-me" para candidatos
-    const checkRememberMe = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const isTemporarySession = sessionStorage.getItem('auth-session-temporary');
+    const { initialize, setSession, clearAuth } = useAuthStore.getState()
 
-      if (session && isTemporarySession === 'true') {
-        // Sessão existe mas era temporária e sessionStorage ainda tem a flag
-        // Isso significa que é a mesma sessão do navegador, ok
-        console.log('Sessão temporária mantida (mesma sessão do navegador)');
-      } else if (session && !isTemporarySession) {
-        // Sessão existe mas não há flag de temporária no sessionStorage
-        // Precisamos verificar se há flag no localStorage indicando que era temporária
-        const wasTemporary = localStorage.getItem('auth-was-temporary');
-        if (wasTemporary === 'true') {
-          // Era uma sessão temporária mas o navegador foi fechado/reaberto
-          console.log('Sessão temporária expirada - fazendo logout');
-          await supabase.auth.signOut();
-          clearUser();
-          localStorage.removeItem('auth-was-temporary');
-        }
-      }
-    };
+    let cancelled = false
 
-    // Verificar lógica de "Lembrar-me" para admin
-    const checkAdminRememberMe = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const isAdminTemporarySession = sessionStorage.getItem('admin-auth-session-temporary');
+    ;(async () => {
+      // Inicializa o store unificado checando sessão existente.
+      await initialize()
+      if (cancelled) return
 
-      if (session && isAdminTemporarySession === 'true') {
-        console.log('Sessão admin temporária mantida (mesma sessão do navegador)');
-      } else if (session && !isAdminTemporarySession) {
-        const wasAdminTemporary = localStorage.getItem('admin-auth-was-temporary');
-        if (wasAdminTemporary === 'true') {
-          console.log('Sessão admin temporária expirada - fazendo logout');
-          await supabase.auth.signOut();
-          clearAdminUser();
-          localStorage.removeItem('admin-auth-was-temporary');
-        }
-      }
-    };
-
-    checkRememberMe();
-    checkAdminRememberMe();
-
-    // Inicializar auth stores verificando sessão existente
-    // Aguardar inicialização antes de configurar listener para evitar race condition
-    (async () => {
-      // Aguardar ambas as inicializações completarem antes de configurar listener
-      await Promise.all([initialize(), initializeAdmin()]);
-
-      // Configurar listener para mudanças no estado de autenticação
-      // Isso captura:
-      // - Login/Logout de outras tabs
-      // - Expiração de sessão
-      // - Refresh de token
+      // Um único listener para todas as transições de auth.
+      // Captura login/logout cross-tab (via localStorage storage events),
+      // expiração de sessão e refresh de token.
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('Auth state changed:', event, session?.user?.email);
-
-          if (event === 'SIGNED_IN' && session) {
-            // Usuário fez login - atualizar ambos os stores
-            setUser(session.user);
-            setSession(session);
-            setAdminUser(session.user);
-            setAdminSession(session);
+        (event, session) => {
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            setSession(session)
           } else if (event === 'SIGNED_OUT') {
-            // Usuário fez logout - limpar ambos os stores
-            clearUser();
-            clearAdminUser();
-            // Limpar flags de sessão temporária
-            sessionStorage.removeItem('auth-session-temporary');
-            localStorage.removeItem('auth-was-temporary');
-            sessionStorage.removeItem('admin-auth-session-temporary');
-            localStorage.removeItem('admin-auth-was-temporary');
-          } else if (event === 'TOKEN_REFRESHED' && session) {
-            // Token foi renovado - atualizar ambos os stores
-            setSession(session);
-            setAdminSession(session);
-          } else if (event === 'USER_UPDATED' && session) {
-            // Dados do usuário foram atualizados - atualizar ambos os stores
-            setUser(session.user);
-            setAdminUser(session.user);
+            clearAuth()
           }
         }
-      );
+      )
 
-      subscriptionRef.current = subscription;
-    })();
+      subscriptionRef.current = subscription
+    })()
 
     // Cleanup: remover listener quando componente desmontar
     return () => {
+      cancelled = true
       if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
       }
-    };
-  }, [initialize, initializeAdmin, setUser, setSession, clearUser, setAdminUser, setAdminSession, clearAdminUser]);
+    }
+  }, [])
 
   return (
     <>
@@ -238,7 +191,7 @@ function RootLayout() {
       {import.meta.env.DEV && <DevNavigationMenu />}
       <Toaster position="top-right" />
     </>
-  );
+  )
 }
 
 /**
