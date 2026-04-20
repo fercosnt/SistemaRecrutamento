@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# Husky pre-commit hook — runs TypeScript type-check (tsc --noEmit)
+# Requirement: FOUND-08
+#
+# INSTALLATION (one-time, by a human developer)
+# See .planning/phases/01-foundation-saneada/01-04-CHECKPOINT.md step 2.
+# Copy this file verbatim to .husky/pre-commit at the repo root, then:
+#   chmod +x .husky/pre-commit
+# After that, any subsequent `git commit` will run npm run lint first.
+#
+# If this hook blocks a commit you believe is safe (emergency deploy, etc.)
+# use: git commit --no-verify
+# Parallel worktree executors always use --no-verify per GSD protocol.
+
+npm run lint
