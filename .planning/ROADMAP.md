@@ -32,12 +32,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. An unauthenticated visitor accessing `/candidato/perfil` is redirected to `/auth/login?redirect=/candidato/perfil`
   4. Running `npm run db:types` regenerates `database.types.ts` from the live schema and `tsc --noEmit` passes with zero errors
   5. Logging out in one browser tab triggers logout in all open tabs
-**Plans**: TBD
+**Plans:** 5 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Remove service_role from client, clean supabaseAdmin, remove Lembrar-me hacks
+- [ ] 01-02-PLAN.md — Unified auth store with role awareness + adminAuthStore re-export shim
+- [ ] 01-03-PLAN.md — RoleGuard component + migrate all routes + delete old guards
+- [ ] 01-04-PLAN.md — Migrations baseline + forward migrations + types pipeline + husky + duplicate check RPC
+- [ ] 01-05-PLAN.md — App.tsx simplification + cadastrar-candidato Edge Function + final verification
 
 ### Phase 2: Cadastro Candidato
 **Goal**: A new candidate can complete the multi-step registration form and land on their profile page, with all server-side operations going through Edge Functions instead of client-side service_role
@@ -113,7 +115,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Foundation Saneada | 0/? | Not started | - |
+| 1. Foundation Saneada | 0/5 | Planning complete | - |
 | 2. Cadastro Candidato | 0/? | Not started | - |
 | 3. Login + Recuperacao de Senha | 0/? | Not started | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |
