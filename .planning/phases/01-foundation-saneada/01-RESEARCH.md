@@ -645,22 +645,19 @@ export type { Database }
 | A3 | Supabase `onAuthStateChange` cross-tab behavior works via localStorage storage events + BroadcastChannel | Pattern 5 | LOW -- this is documented Supabase behavior and confirmed in source |
 | A4 | The Custom Access Token Hook maps `recrutador` -> `rh` in JWT for simpler frontend role model | Pattern 2 | MEDIUM -- if not mapped, frontend needs to handle both `recrutador` and `rh` as role values |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What are the exact role values in `usuarios_rh.role`?**
+1. **What are the exact role values in `usuarios_rh.role`?** — RESOLVED in Plan 04, Task 1: Custom Access Token Hook maps `'recrutador'` -> `'rh'` via CASE statement for frontend consistency with `/rh/*` routes.
    - What we know: `adminAuthStore.ts` defines `RoleType = 'recrutador' | 'administrador'`
-   - What's unclear: Whether the Custom Access Token Hook should map `'recrutador'` -> `'rh'` for frontend simplicity, or keep `'recrutador'` as-is
-   - Recommendation: Map to `'rh'` in the hook for consistency with route prefixes (`/rh/*`)
+   - Resolution: Map to `'rh'` in the hook for consistency with route prefixes (`/rh/*`)
 
-2. **Is the `db:types` script using local or remote Supabase?**
+2. **Is the `db:types` script using local or remote Supabase?** — RESOLVED in Plan 04, Task 2: Uses `--local` flag for dev, `--project-id` for CI.
    - What we know: No `db:types` script exists yet; Supabase CLI v2.53.6 is installed
-   - What's unclear: Whether to generate types from local (`supabase gen types typescript --local`) or remote (`--project-id`)
-   - Recommendation: Use `--local` for dev (after `supabase db reset` applies migrations), `--project-id` for CI
+   - Resolution: Use `--local` for dev (after `supabase db reset` applies migrations), `--project-id` for CI
 
-3. **What RLS policies on `candidatos` allow anonymous SELECT currently?**
+3. **What RLS policies on `candidatos` allow anonymous SELECT currently?** — RESOLVED in Plan 04, Task 1: Migration includes discovery query `SELECT policyname FROM pg_policies WHERE tablename = 'candidatos' AND roles @> '{anon}'` before revoking.
    - What we know: FOUND-10 says anonymous SELECT exists and must be moved to RPC
-   - What's unclear: Which specific policy names to revoke
-   - Recommendation: Run `SELECT policyname FROM pg_policies WHERE tablename = 'candidatos' AND roles @> '{anon}'` before writing migration `0002`
+   - Resolution: Run discovery query during migration task, revoke identified policies
 
 ## Environment Availability
 
