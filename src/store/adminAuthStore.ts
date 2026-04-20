@@ -1,32 +1,46 @@
 /**
- * Admin Auth Store (Zustand)
+ * Admin Auth Store - COMPATIBILITY SHIM
  *
- * Store global de autenticação para gerenciar estado de usuários RH/Admin.
- * Separado do authStore.ts (candidatos) para melhor organização.
+ * Re-exports from unified authStore for backward compatibility with RH pages.
+ * Real cleanup (remove this file, migrate all RH page imports) deferred to M2.
  *
- * Roles suportados:
- * - rh_basico: Visualiza candidatos, agend entrevistas, comunica
- * - rh_avancado: + Edita candidatos, aprova/rejeita, analytics
- * - admin: Todas as permissões + gerenciar usuários RH e configurações
+ * See: D-03, D-03a em `.planning/phases/01-foundation-saneada/01-CONTEXT.md`
+ *
+ * Este arquivo NÃO define um segundo Zustand store. Todas as chamadas
+ * `useAdminAuthStore(...)` retornam o estado do `useAuthStore` unificado,
+ * garantindo uma única fonte de verdade de autenticação.
  *
  * @module store/adminAuthStore
  */
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase/client'
+import { useAuthStore } from './authStore'
 
 /**
- * Tipos do usuário RH/Admin
+ * Re-export do store unificado sob o nome legado.
  *
- * Baseado na tabela usuarios_rh do banco de dados
- * Roles no DB: 'recrutador' e 'administrador'
+ * Consumidores RH que faziam `const { ... } = useAdminAuthStore()` recebem
+ * o mesmo `AuthState` unificado. Os campos legados (`adminUser`,
+ * `permissions`, `isAdmin`, `setUser`, `setSession`, `setAdminUser`,
+ * `clearAdminUser`, `hasRole`, `hasPermission`) existem no unified store
+ * para preservar a API.
  */
-export type RoleType = 'recrutador' | 'administrador'
+export { useAuthStore as useAdminAuthStore } from './authStore'
 
 /**
- * Interface baseada na estrutura real da tabela usuarios_rh no banco de dados
+ * Re-export do tipo Role como RoleType legado.
+ *
+ * NOTE: o tipo foi ampliado para incluir 'candidato' no unified store.
+ * RH pages que comparam `role === 'recrutador'` precisam considerar que
+ * o unified store usa 'rh' (não 'recrutador') — os selectors adaptadores
+ * abaixo fazem a conversão.
+ */
+export type { Role as RoleType } from './authStore'
+
+/**
+ * Interface da tabela `usuarios_rh` (linha do banco).
+ *
+ * Preservada exatamente como estava antes da unificação para não quebrar
+ * RH pages que fazem `type Admin = UsuarioRH`.
  */
 export interface UsuarioRH {
   id: string
@@ -35,7 +49,7 @@ export interface UsuarioRH {
   email: string
   cargo: string
   telefone: string | null
-  role: RoleType
+  role: 'recrutador' | 'administrador'
   avatar_url: string | null
   ativo: boolean
   primeiro_acesso: boolean
@@ -47,6 +61,9 @@ export interface UsuarioRH {
   updated_by: string | null
 }
 
+/**
+ * Preferências de notificações (preservado do admin store original).
+ */
 export interface PreferenciasNotificacoes {
   email_novos_candidatos: boolean
   email_testes_completos: boolean
@@ -55,10 +72,10 @@ export interface PreferenciasNotificacoes {
 }
 
 /**
- * Permissões detalhadas (para controle granular)
+ * Permissões detalhadas RH (role-based).
  *
- * Baseado na tabela permissoes_rh (se existir)
- * Para MVP, usamos apenas role-based (simples)
+ * Mantido para ProtectedAdminRoute, páginas de configuração e qualquer
+ * componente RH que use `keyof PermissoesRH` para prop typing.
  */
 export interface PermissoesRH {
   // Candidatos
@@ -85,55 +102,13 @@ export interface PermissoesRH {
 }
 
 /**
- * Estado de autenticação admin
- */
-export interface AdminAuthState {
-  // Estado atual
-  user: User | null
-  session: Session | null
-  adminUser: UsuarioRH | null
-  role: RoleType | null
-  permissions: PermissoesRH | null
-  isAuthenticated: boolean
-  isAdmin: boolean
-  isLoading: boolean
-
-  // Actions
-  setUser: (user: User | null) => void
-  setSession: (session: Session | null) => void
-  setAdminUser: (adminUser: UsuarioRH | null) => void
-  setPermissions: (permissions: PermissoesRH | null) => void
-  setLoading: (isLoading: boolean) => void
-  clearAdminUser: () => void
-  logout: () => Promise<void>
-
-  // Helper methods
-  initialize: () => Promise<void>
-  hasPermission: (permission: keyof PermissoesRH) => boolean
-  hasRole: (requiredRole: RoleType) => boolean
-}
-
-/**
- * Hierarquia de roles para comparação
- * Maior número = mais permissões
+ * Permissões padrão por role.
  *
- * Mapeamento do DB:
- * - recrutador: Equivalente a RH Avançado (permissões intermediárias)
- * - administrador: Todas as permissões do sistema
+ * Valores preservados 1:1 do adminAuthStore.ts original (pre-unificação)
+ * para garantir paridade comportamental em componentes que usam
+ * `DEFAULT_PERMISSIONS[role]` diretamente.
  */
-const ROLE_HIERARCHY: Record<RoleType, number> = {
-  recrutador: 1,
-  administrador: 2,
-}
-
-/**
- * Permissões padrão por role
- *
- * Baseado nos roles reais do banco de dados:
- * - recrutador: Permissões intermediárias (visualizar, editar, aprovar candidatos + analytics)
- * - administrador: Todas as permissões do sistema
- */
-const DEFAULT_PERMISSIONS: Record<RoleType, PermissoesRH> = {
+const DEFAULT_PERMISSIONS: Record<'recrutador' | 'administrador', PermissoesRH> = {
   recrutador: {
     // Candidatos
     visualizar_candidatos: true,
@@ -176,239 +151,78 @@ const DEFAULT_PERMISSIONS: Record<RoleType, PermissoesRH> = {
   },
 }
 
+// =============================================================================
+// Selector adapters — map unified store fields to old admin API
+// =============================================================================
+
 /**
- * Zustand Admin Auth Store com persist middleware
+ * Autenticado como RH/Admin?
  *
- * Armazena estado de autenticação admin em localStorage separado
+ * No unified store, qualquer role autentica. Aqui validamos adicionalmente
+ * que o role é `rh` ou `administrador` (NUNCA `candidato`).
  */
-export const useAdminAuthStore = create<AdminAuthState>()(
-  persist(
-    (set, get) => ({
-      // Estado inicial
-      user: null,
-      session: null,
-      adminUser: null,
-      role: null,
-      permissions: null,
-      isAuthenticated: false,
-      isAdmin: false,
-      isLoading: true,
-
-      /**
-       * Define o usuário autenticado
-       */
-      setUser: (user) => {
-        set({
-          user,
-          isAuthenticated: !!user,
-        })
-      },
-
-      /**
-       * Define a sessão ativa
-       */
-      setSession: (session) => {
-        set({
-          session,
-          isAuthenticated: !!session,
-        })
-      },
-
-      /**
-       * Define os dados do usuário RH/Admin
-       */
-      setAdminUser: (adminUser) => {
-        const role = adminUser?.role || null
-        const permissions = role ? DEFAULT_PERMISSIONS[role] : null
-
-        set({
-          adminUser,
-          role,
-          permissions,
-          isAdmin: role === 'administrador',
-        })
-      },
-
-      /**
-       * Define as permissões customizadas (override padrão)
-       */
-      setPermissions: (permissions) => {
-        set({ permissions })
-      },
-
-      /**
-       * Define o estado de loading
-       */
-      setLoading: (isLoading) => {
-        set({ isLoading })
-      },
-
-      /**
-       * Limpa todos os dados do usuário admin
-       */
-      clearAdminUser: () => {
-        set({
-          user: null,
-          session: null,
-          adminUser: null,
-          role: null,
-          permissions: null,
-          isAuthenticated: false,
-          isAdmin: false,
-        })
-      },
-
-      /**
-       * Executa logout completo
-       * - Limpa estado do Zustand
-       * - Limpa sessão do Supabase
-       * - Remove dados do localStorage
-       */
-      logout: async () => {
-        try {
-          // Limpa sessão do Supabase
-          await supabase.auth.signOut()
-
-          // Limpa estado local
-          get().clearAdminUser()
-        } catch (error) {
-          console.error('Erro ao fazer logout:', error)
-          // Limpa estado local mesmo se falhar no backend
-          get().clearAdminUser()
-        }
-      },
-
-      /**
-       * Inicializa o admin auth store verificando sessão existente
-       */
-      initialize: async () => {
-        try {
-          set({ isLoading: true })
-
-          // Verifica se há sessão ativa
-          const {
-            data: { session },
-            error,
-          } = await supabase.auth.getSession()
-
-          if (error) {
-            console.error('Erro ao buscar sessão:', error)
-            get().clearAdminUser()
-            return
-          }
-
-          if (session?.user) {
-            get().setUser(session.user)
-            get().setSession(session)
-
-            // Buscar dados do usuário RH
-            const { data: adminUser, error: adminError } = await supabase
-              .from('usuarios_rh')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .eq('ativo', true)
-              .is('deleted_at', null)
-              .single()
-
-            if (adminError) {
-              console.error('Erro ao buscar usuário RH:', adminError)
-              // Usuário tem sessão mas não é RH - limpar tudo
-              get().clearAdminUser()
-            } else if (adminUser) {
-              get().setAdminUser(adminUser)
-            } else {
-              // Perfil RH não existe
-              get().clearAdminUser()
-            }
-          } else {
-            get().clearAdminUser()
-          }
-        } catch (error) {
-          console.error('Erro ao inicializar admin auth store:', error)
-          get().clearAdminUser()
-        } finally {
-          set({ isLoading: false })
-        }
-      },
-
-      /**
-       * Verifica se usuário tem permissão específica
-       *
-       * @param permission - Nome da permissão a verificar
-       * @returns true se tem permissão, false caso contrário
-       */
-      hasPermission: (permission) => {
-        const { role, permissions } = get()
-
-        // Administrador tem todas as permissões
-        if (role === 'administrador') return true
-
-        // Verifica permissão específica
-        return permissions?.[permission] === true
-      },
-
-      /**
-       * Verifica se usuário tem role suficiente
-       *
-       * Usa hierarquia: admin > rh_avancado > rh_basico
-       *
-       * @param requiredRole - Role mínimo necessário
-       * @returns true se role atual >= role necessário
-       */
-      hasRole: (requiredRole) => {
-        const { role } = get()
-
-        if (!role) return false
-
-        return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY[requiredRole]
-      },
-    }),
-    {
-      name: 'admin-auth-storage', // Chave do localStorage
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        user: state.user,
-        session: state.session,
-        adminUser: state.adminUser,
-        role: state.role,
-        permissions: state.permissions,
-        isAuthenticated: state.isAuthenticated,
-        isAdmin: state.isAdmin,
-      }),
-    }
+export const useIsAdminAuthenticated = () =>
+  useAuthStore(
+    (s) => s.isAuthenticated && (s.role === 'rh' || s.role === 'administrador')
   )
-)
 
 /**
- * Hook customizado para verificar se usuário está autenticado como admin
+ * Dados do usuário RH (linha de `usuarios_rh`).
+ *
+ * Retorna `profile` castado para `UsuarioRH`. Callers devem verificar
+ * `useIsAdminAuthenticated()` antes de confiar nos campos.
  */
-export const useIsAdminAuthenticated = () => useAdminAuthStore((state) => state.isAuthenticated)
+export const useAdminUser = () =>
+  useAuthStore((s) => s.profile as UsuarioRH | null)
 
 /**
- * Hook customizado para obter dados do usuário RH
+ * Role RH no formato legado ('recrutador' | 'administrador').
+ *
+ * O unified store usa 'rh' para recrutadores; aqui convertemos de volta
+ * para 'recrutador' para preservar a API esperada pelas páginas RH.
  */
-export const useAdminUser = () => useAdminAuthStore((state) => state.adminUser)
+export const useAdminRole = () =>
+  useAuthStore((s) => {
+    if (s.role === 'rh') return 'recrutador' as const
+    if (s.role === 'administrador') return 'administrador' as const
+    return null
+  })
 
 /**
- * Hook customizado para obter role do usuário
+ * Estado de loading (propagado do unified store).
  */
-export const useAdminRole = () => useAdminAuthStore((state) => state.role)
+export const useAdminAuthLoading = () => useAuthStore((s) => s.isLoading)
 
 /**
- * Hook customizado para verificar estado de loading
+ * Checa permissão específica baseada no role atual.
+ *
+ * Se role == 'administrador', retorna `true` (administradores têm tudo).
+ * Se role == 'rh', consulta DEFAULT_PERMISSIONS.recrutador.
+ * Caso contrário (candidato ou não autenticado), retorna `false`.
  */
-export const useAdminAuthLoading = () => useAdminAuthStore((state) => state.isLoading)
+export const useAdminPermission = (permission: keyof PermissoesRH) =>
+  useAuthStore((s) => {
+    if (s.role === 'administrador') return true
+    if (s.role === 'rh') {
+      return DEFAULT_PERMISSIONS.recrutador[permission] === true
+    }
+    return false
+  })
 
 /**
- * Hook customizado para verificar permissão específica
+ * Checa se role atual satisfaz o role mínimo requerido.
+ *
+ * Hierarquia: administrador > recrutador.
+ * - requiredRole === 'recrutador': aceita 'rh' (== recrutador) OU 'administrador'
+ * - requiredRole === 'administrador': aceita apenas 'administrador'
  */
-export const useAdminPermission = (permission: keyof PermissoesRH) => {
-  return useAdminAuthStore((state) => state.hasPermission(permission))
-}
-
-/**
- * Hook customizado para verificar role
- */
-export const useAdminHasRole = (requiredRole: RoleType) => {
-  return useAdminAuthStore((state) => state.hasRole(requiredRole))
-}
+export const useAdminHasRole = (requiredRole: 'recrutador' | 'administrador') =>
+  useAuthStore((s) => {
+    if (requiredRole === 'recrutador') {
+      return s.role === 'rh' || s.role === 'administrador'
+    }
+    if (requiredRole === 'administrador') {
+      return s.role === 'administrador'
+    }
+    return false
+  })
