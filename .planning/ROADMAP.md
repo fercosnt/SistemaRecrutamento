@@ -14,7 +14,7 @@ Branch base: `backup/local-state-2026-04` (Fase 0 complete).
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Saneada** - Unified auth, Edge Functions, types pipeline, RLS hardening
+- [x] **Phase 1: Foundation Saneada** - Unified auth, Edge Functions, types pipeline, RLS hardening ✓ 2026-04-20
 - [ ] **Phase 2: Cadastro Candidato** - Multi-step registration rewired to Edge Function
 - [ ] **Phase 3: Login + Recuperacao de Senha** - Candidate authentication and password recovery
 - [ ] **Phase 4: Vagas + Candidatura** - Job listing, detail page, CV upload, application flow
@@ -35,11 +35,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 5 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Remove service_role from client, clean supabaseAdmin, remove Lembrar-me hacks
-- [ ] 01-02-PLAN.md — Unified auth store with role awareness + adminAuthStore re-export shim
-- [ ] 01-03-PLAN.md — RoleGuard component + migrate all routes + delete old guards
-- [ ] 01-04-PLAN.md — Migrations baseline + forward migrations + types pipeline + husky + duplicate check RPC
-- [ ] 01-05-PLAN.md — App.tsx simplification + cadastrar-candidato Edge Function + final verification
+- [x] 01-01-PLAN.md — Remove service_role from client, clean supabaseAdmin, remove Lembrar-me hacks ✓
+- [x] 01-02-PLAN.md — Unified auth store with role awareness + adminAuthStore re-export shim ✓
+- [x] 01-03-PLAN.md — RoleGuard component + migrate all routes + delete old guards ✓
+- [x] 01-04-PLAN.md — Migrations baseline + forward migrations + types pipeline + husky + duplicate check RPC ✓ (awaiting Edge Function deploy — see 01-05-CHECKPOINT.md)
+- [x] 01-05-PLAN.md — App.tsx simplification + cadastrar-candidato Edge Function + final verification ✓ (awaiting Edge Function deploy — see 01-05-CHECKPOINT.md)
+
+**Carryover bugs to Phase 3:** `KNOWN-ISSUES-CARRYOVER-PHASE-3.md` documents 2 auth bugs (extractRole reads wrong source; LoginRHPage legacy setters) to be fixed when Phase 3 rewrites login. +1 vagas bug (query uses `ativa` not `status`) to be fixed in Phase 4.
 
 ### Phase 2: Cadastro Candidato
 **Goal**: A new candidate can complete the multi-step registration form and land on their profile page, with all server-side operations going through Edge Functions instead of client-side service_role
@@ -115,7 +117,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Foundation Saneada | 0/5 | Planning complete | - |
+| 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy pending) | 2026-04-20 |
 | 2. Cadastro Candidato | 0/? | Not started | - |
 | 3. Login + Recuperacao de Senha | 0/? | Not started | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |

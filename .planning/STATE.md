@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 1 Wave 2 complete — awaiting Custom Access Token Hook enable
-last_updated: "2026-04-20T16:00:00.000Z"
-last_activity: 2026-04-20 -- Wave 2 complete (plans 01-03, 01-04)
+status: phase_complete
+stopped_at: Phase 1 complete — awaiting Edge Function deploy (non-blocking for phase close)
+last_updated: "2026-04-20T17:00:00.000Z"
+last_activity: 2026-04-20 -- Phase 01 complete (all 5 plans merged)
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 ## Current Position
 
-Phase: 01 (foundation-saneada) — EXECUTING (Waves 1-2 ✓ / Wave 3 pending)
-Plan: 4 of 5 complete (01-01, 01-02, 01-03, 01-04)
-Status: Paused at post-Wave-2 checkpoint — Custom Access Token Hook must be enabled in Supabase Dashboard before Wave 3
-Last activity: 2026-04-20 -- Wave 2 merged (commits 254e2d6, b936136, 41e3298, b0f8399, husky install b0d1402)
+Phase: 01 (foundation-saneada) — COMPLETE (5/5 plans)
+Plan: 5 of 5 complete
+Status: Phase 01 complete. Edge Function `cadastrar-candidato` deploy is the only remaining manual action (non-blocking for phase closure; blocks cadastro runtime).
+Last activity: 2026-04-20 -- All 3 waves merged, 25 commits on backup/local-state-2026-04
 
-Progress: [########..] 80%
+Progress: [##########] 100% (phase 1 of 5 milestone total = 20%)
 
 ## Performance Metrics
 
@@ -70,9 +70,13 @@ None yet.
 
 ### Blockers/Concerns
 
-- 9/21 E2E login tests currently failing (auth store unification in Phase 1 should fix)
-- service_role key exposed in client bundle until Phase 1 completes (CRITICAL)
-- 103 RLS policies need audit during Phase 1
+- **Resolved in Phase 1:** service_role removed from bundle (verified: 0 matches in build/assets/*.js)
+- **Resolved in Phase 1:** auth store unified (extractRole bug deferred to Phase 3 — see KNOWN-ISSUES-CARRYOVER-PHASE-3.md)
+- **Deferred to Phase 3:** extractRole reads `session.user.app_metadata` (SDK-populated, missing role) instead of JWT payload
+- **Deferred to Phase 3:** LoginRHPage legacy setters bypass role validation
+- **Deferred to Phase 4:** useVagas() queries non-existent `ativa` column (schema uses `status` enum)
+- **Pending manual:** Edge Function `cadastrar-candidato` not yet deployed (see 01-05-CHECKPOINT.md) — cadastro runtime broken until deployed
+- 103 RLS policies still need audit (deferred from Phase 1 scope)
 
 ## Deferred Items
 
@@ -83,5 +87,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-20
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-saneada/01-CONTEXT.md
+Stopped at: Phase 1 complete (25 commits), pending Edge Function deploy
+Resume file: .planning/phases/01-foundation-saneada/01-05-CHECKPOINT.md
+Next: deploy `cadastrar-candidato` Edge Function, then begin Phase 2 (Cadastro)
