@@ -79,4 +79,7 @@ node_modules/
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Supabase CLI local cache
+supabase/.temp/ 
