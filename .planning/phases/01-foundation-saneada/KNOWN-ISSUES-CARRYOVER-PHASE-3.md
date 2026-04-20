@@ -130,6 +130,61 @@ Já estava documentado em `.planning/codebase/CONCERNS.md` seção 1.1 como padr
 
 ---
 
+## Bug 4 — Edge Function cadastrar-candidato retorna 401 (deploy sem --no-verify-jwt) [PHASE 2 SCOPE]
+
+**Arquivo:** deploy config (não no repo — é parâmetro do `supabase functions deploy`)
+
+**Descoberto em:** UAT Test 9 (2026-04-20)
+
+**Sintoma:**
+- POST /functions/v1/cadastrar-candidato → 401 Unauthorized no gateway
+- Cadastro end-to-end quebra mesmo com função bem codificada e deployada
+
+**Causa raiz:**
+Comando `supabase functions deploy cadastrar-candidato` rodou sem a flag `--no-verify-jwt`. Por padrão Supabase exige JWT válido no header Authorization; cadastro é fluxo anônimo por definição (usuário ainda não existe), então nenhum JWT pode ser enviado.
+
+**Fix proposto (Phase 2):**
+```bash
+npx supabase functions deploy cadastrar-candidato \
+  --no-verify-jwt \
+  --project-ref isljnozzlvckrgjjbjwp
+```
+Validação continua enforced pelo Zod schema dentro da função + service_role server-side. Adicionar a flag à runbook de deploy da Phase 2 (CAD-DEPLOY-01 no 01-UAT.md Gaps).
+
+---
+
+## Bug 5 — @supabase/supabase-js v2.48.1 incompatível com sb_publishable_ anon key [PHASE 2 SCOPE]
+
+**Arquivo:** [package.json](../../../package.json) + [src/features/cadastro/services/duplicateCheckService.ts](../../../src/features/cadastro/services/duplicateCheckService.ts)
+
+**Descoberto em:** UAT Test 9 (2026-04-20) — também bloqueia UAT Test 10
+
+**Sintoma:**
+```
+TypeError: Cannot read properties of undefined (reading 'rest')
+   at supabase.rpc (duplicateCheckService.ts:144)
+```
+Erro acontece ANTES de qualquer network request — cliente SDK falha ao construir a URL do RPC.
+
+**Causa raiz:**
+Supabase rolled out new anon key format `sb_publishable_...` em late 2025 / early 2026. @supabase/supabase-js v2.48.1 não parseia corretamente esse formato para todos os clients (rpc, functions). Resultado: o objeto `rest` sub-client fica `undefined`.
+
+Afeta tanto `supabase.rpc(...)` (duplicateCheckService) quanto potencialmente `supabase.functions.invoke(...)` (cadastroService).
+
+**Fix proposto (Phase 2):**
+```bash
+npm install @supabase/supabase-js@latest
+# Expect: >= 2.50.x which handles sb_publishable_ format
+npm run lint
+npm run build
+# Spot-test: supabase.rpc('check_candidato_duplicate') + functions.invoke('cadastrar-candidato')
+```
+
+Fix adicionais que o upgrade pode destravar:
+- Remover o cast `as unknown as ...` em duplicateCheckService.ts (ficou como workaround até db:types regenerar — Plan 04)
+
+---
+
 ## Impacto em Acceptance Criteria do Phase 1
 
 | Critério FOUND-* | Status |
@@ -153,11 +208,16 @@ Já estava documentado em `.planning/codebase/CONCERNS.md` seção 1.1 como padr
 
 ## Plano de Ação
 
-1. **Agora:** prosseguir com Wave 3 (Plan 01-05) para fechar estrutura do Phase 1 (App.tsx single-init + Edge Function cadastrar-candidato).
-2. **Phase 2 (Cadastro):** usa `signUp` via Edge Function — não depende de LoginRH, portanto Bug 2 não bloqueia.
-3. **Phase 3 (Login + Recuperação):** tratar Bugs 1 e 2 como requirements explícitos:
-   - Adicionar ao PLAN.md da Phase 3: "Substituir `extractRole` por decodificação direta do JWT"
-   - Adicionar ao PLAN.md da Phase 3: "Reescrever LoginRHPage sem setters legados"
+1. **Agora:** Phase 1 estruturalmente fechada. UAT rodou (7/11 pass, 3 issues, 1 blocked) — ver `01-UAT.md`.
+2. **Phase 2 (Cadastro):** tratar Bugs 4 e 5 primeiro (unblock do fluxo de cadastro), então implementar funcionalidades Phase 2:
+   - Adicionar ao PLAN.md da Phase 2: "CAD-DEPLOY-01 — Redeploy Edge Function com `--no-verify-jwt`"
+   - Adicionar ao PLAN.md da Phase 2: "CAD-DEPS-01 — Upgrade @supabase/supabase-js para >= 2.50.x (suporte sb_publishable_)"
+   - Bug 2 (LoginRH forge) não bloqueia Phase 2 (cadastro usa signUp via Edge Function, não login).
+3. **Phase 3 (Login + Recuperação):** tratar Bugs 1 e 2 + AUTH-TABS via requirements explícitos:
+   - Adicionar ao PLAN.md da Phase 3: "AUTH-JWT-01 — Substituir `extractRole` por decodificação direta do JWT (jwt-decode)"
+   - Adicionar ao PLAN.md da Phase 3: "AUTH-JWT-02 — Quando JWT tem role claim, ele é autoritativo (DB fallback só quando claim ausente)"
+   - Adicionar ao PLAN.md da Phase 3: "AUTH-LOGIN-01/02 — Rejeitar login quando JWT role diverge do formulário usado (LoginCandidato ↔ LoginRH)"
+   - Adicionar ao PLAN.md da Phase 3: "AUTH-TABS-01/02 — Coexistência multi-tab + cross-tab logout via BroadcastChannel"
 4. **Phase 4 (Vagas + Candidatura):** já aborda Bug 3 naturalmente.
 
 ---
