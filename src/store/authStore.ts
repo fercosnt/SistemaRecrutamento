@@ -31,6 +31,13 @@ import { supabase } from '@/lib/supabase/client'
 type CandidatoRow = Database['public']['Tables']['candidatos']['Row']
 
 /**
+ * Legacy typed row para usuário RH. Mantido como tipo do campo `adminUser`
+ * (back-compat) enquanto páginas RH e hooks (useSessionTimeout) acessam
+ * `.user_id`, `.email`, `.nome_completo`, etc. Pode ser removido em M2.
+ */
+type UsuarioRHRow = Database['public']['Tables']['usuarios_rh']['Row']
+
+/**
  * Role do usuário autenticado.
  *
  * - `candidato`: pessoa física se candidatando a vagas (área pública)
@@ -78,7 +85,7 @@ export interface AuthState {
   /** @deprecated Use `profile` com cast explícito baseado em `role` */
   candidato: CandidatoRow | null
   /** @deprecated Use `profile` com cast explícito baseado em `role` */
-  adminUser: Record<string, unknown> | null
+  adminUser: UsuarioRHRow | null
   /** @deprecated Derivado de `role` */
   permissions: Record<string, boolean> | null
   /** @deprecated Use `role === 'administrador'` */
@@ -91,16 +98,23 @@ export interface AuthState {
   /** @deprecated Use `profile` via `setSession` + `initialize` */
   setCandidato: (candidato: CandidatoRow | null) => void
   /** @deprecated Use `profile` via `setSession` + `initialize` */
-  setAdminUser: (adminUser: Record<string, unknown> | null) => void
+  setAdminUser: (adminUser: UsuarioRHRow | User | null) => void
   /** @deprecated Use `isLoading` state via initialize */
   setLoading: (isLoading: boolean) => void
   /** @deprecated Use `clearAuth` */
   clearUser: () => void
   /** @deprecated Use `clearAuth` */
   clearAdminUser: () => void
-  /** @deprecated Checar role diretamente */
-  hasRole: (requiredRole: 'recrutador' | 'administrador') => boolean
-  /** @deprecated Derivar do role */
+  /**
+   * @deprecated Checar role diretamente via `state.role`
+   *
+   * Aceita tanto nomenclatura legada (`'recrutador'`) quanto a nova
+   * (`'rh'`), para compatibilidade com RH pages que passam
+   * `requireRole: RoleType` (antigamente `'recrutador' | 'administrador'`,
+   * agora Role = `'candidato' | 'rh' | 'administrador'`).
+   */
+  hasRole: (requiredRole: Role | 'recrutador') => boolean
+  /** @deprecated Derivar do role diretamente */
   hasPermission: (permission: string) => boolean
 }
 
@@ -318,7 +332,9 @@ export const useAuthStore = create<AuthState>()(
                   ? (profile as CandidatoRow | null)
                   : null,
               adminUser:
-                resolvedRole === 'rh' || resolvedRole === 'administrador' ? profile : null,
+                resolvedRole === 'rh' || resolvedRole === 'administrador'
+                  ? (profile as UsuarioRHRow | null)
+                  : null,
               permissions: permissionsFromRole(resolvedRole),
               isAdmin: resolvedRole === 'administrador',
               isAuthenticated: true,
@@ -368,29 +384,27 @@ export const useAuthStore = create<AuthState>()(
       setAdminUser: (adminUser) => {
         // Pode receber um User do Supabase (quando chamado em onAuthStateChange)
         // OU um registro de usuarios_rh (após lookup no LoginRHPage).
-        // Heurística: se tem `user_id` e `nome_completo`, é UsuarioRH; senão, é User.
+        // Heurística: objeto com `nome_completo` -> UsuarioRHRow; caso contrário -> User.
         if (
           adminUser &&
           typeof adminUser === 'object' &&
-          'user_id' in adminUser &&
           'nome_completo' in adminUser
         ) {
-          const dbRole = (adminUser as { role?: string }).role
+          const rhRow = adminUser as UsuarioRHRow
           const mappedRole: Role =
-            dbRole === 'administrador' ? 'administrador' : 'rh'
+            rhRow.role === 'administrador' ? 'administrador' : 'rh'
           set({
-            profile: adminUser,
-            adminUser,
+            profile: rhRow as unknown as Record<string, unknown>,
+            adminUser: rhRow,
             candidato: null,
             role: mappedRole,
             permissions: permissionsFromRole(mappedRole),
             isAdmin: mappedRole === 'administrador',
           })
         } else {
-          // User do Supabase Auth — atualiza user mas não muda profile
+          // User do Supabase Auth — atualiza user mas não muda profile/adminUser
           set({
-            user: adminUser as unknown as User | null,
-            adminUser: null,
+            user: adminUser as User | null,
           })
         }
       },
@@ -410,12 +424,16 @@ export const useAuthStore = create<AuthState>()(
       hasRole: (requiredRole) => {
         const current = get().role
         if (!current) return false
-        // Hierarquia: administrador > rh (recrutador)
+        // Hierarquia: administrador > rh (== recrutador legado)
         if (requiredRole === 'administrador') {
           return current === 'administrador'
         }
-        if (requiredRole === 'recrutador') {
+        // Aceita 'rh' (nomenclatura unificada) ou 'recrutador' (legado)
+        if (requiredRole === 'rh' || requiredRole === 'recrutador') {
           return current === 'rh' || current === 'administrador'
+        }
+        if (requiredRole === 'candidato') {
+          return current === 'candidato'
         }
         return false
       },
