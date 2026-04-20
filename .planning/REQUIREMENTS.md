@@ -112,19 +112,50 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01..FOUND-12 | Phase 1 | Pending |
-| CAD-01..CAD-07 | Phase 2 | Pending |
-| AUTH-01..AUTH-04 | Phase 3 | Pending |
-| VAGA-01..VAGA-03 | Phase 4 | Pending |
-| CAND-01..CAND-04 | Phase 4 | Pending |
-| PERF-01..PERF-02 | Phase 5 | Pending |
-| HARD-01..HARD-06 | Phase 5 | Pending |
+| FOUND-01 | Phase 1: Foundation Saneada | Pending |
+| FOUND-02 | Phase 1: Foundation Saneada | Pending |
+| FOUND-03 | Phase 1: Foundation Saneada | Pending |
+| FOUND-04 | Phase 1: Foundation Saneada | Pending |
+| FOUND-05 | Phase 1: Foundation Saneada | Pending |
+| FOUND-06 | Phase 1: Foundation Saneada | Pending |
+| FOUND-07 | Phase 1: Foundation Saneada | Pending |
+| FOUND-08 | Phase 1: Foundation Saneada | Pending |
+| FOUND-09 | Phase 1: Foundation Saneada | Pending |
+| FOUND-10 | Phase 1: Foundation Saneada | Pending |
+| FOUND-11 | Phase 1: Foundation Saneada | Pending |
+| FOUND-12 | Phase 1: Foundation Saneada | Pending |
+| CAD-01 | Phase 2: Cadastro Candidato | Pending |
+| CAD-02 | Phase 2: Cadastro Candidato | Pending |
+| CAD-03 | Phase 2: Cadastro Candidato | Pending |
+| CAD-04 | Phase 2: Cadastro Candidato | Pending |
+| CAD-05 | Phase 2: Cadastro Candidato | Pending |
+| CAD-06 | Phase 2: Cadastro Candidato | Pending |
+| CAD-07 | Phase 2: Cadastro Candidato | Pending |
+| AUTH-01 | Phase 3: Login + Recuperacao | Pending |
+| AUTH-02 | Phase 3: Login + Recuperacao | Pending |
+| AUTH-03 | Phase 3: Login + Recuperacao | Pending |
+| AUTH-04 | Phase 3: Login + Recuperacao | Pending |
+| VAGA-01 | Phase 4: Vagas + Candidatura | Pending |
+| VAGA-02 | Phase 4: Vagas + Candidatura | Pending |
+| VAGA-03 | Phase 4: Vagas + Candidatura | Pending |
+| CAND-01 | Phase 4: Vagas + Candidatura | Pending |
+| CAND-02 | Phase 4: Vagas + Candidatura | Pending |
+| CAND-03 | Phase 4: Vagas + Candidatura | Pending |
+| CAND-04 | Phase 4: Vagas + Candidatura | Pending |
+| PERF-01 | Phase 5: Perfil + Hardening | Pending |
+| PERF-02 | Phase 5: Perfil + Hardening | Pending |
+| HARD-01 | Phase 5: Perfil + Hardening | Pending |
+| HARD-02 | Phase 5: Perfil + Hardening | Pending |
+| HARD-03 | Phase 5: Perfil + Hardening | Pending |
+| HARD-04 | Phase 5: Perfil + Hardening | Pending |
+| HARD-05 | Phase 5: Perfil + Hardening | Pending |
+| HARD-06 | Phase 5: Perfil + Hardening | Pending |
 
 **Coverage:**
-- v1 requirements: 35 total
-- Mapped to phases: 35
-- Unmapped: 0 ✓
+- v1 requirements: 38 total
+- Mapped to phases: 38
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-19*
-*Last updated: 2026-04-19 after initial definition*
+*Last updated: 2026-04-19 after roadmap creation*
