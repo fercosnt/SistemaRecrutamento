@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: wave_2_ready
-stopped_at: Phase 2 Wave 1 complete — migration applied to prod, types regen — ready for Wave 2 (02-03/02-04/02-05)
-last_updated: "2026-04-21T00:30:00.000Z"
-last_activity: 2026-04-21 -- Plan 02-02 complete (migration applied, types +33 lines)
+status: wave_2_partial
+stopped_at: Phase 2 Wave 2 partial — Plan 02-04 (hooks stream) complete; 02-03 (Edge Function) + 02-05 (services) still pending before Wave 3
+last_updated: "2026-04-21T03:50:00.000Z"
+last_activity: 2026-04-21 -- Plan 02-04 complete (12 passing hook tests, debounce 300ms, draft + leaveguard hooks shipped)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 11
-  completed_plans: 6
-  percent: 55
+  completed_plans: 7
+  percent: 64
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 ## Current Position
 
-Phase: 01 (foundation-saneada) — COMPLETE (5/5 plans)
-Plan: 5 of 5 complete
-Status: Phase 01 complete. Edge Function `cadastrar-candidato` deploy is the only remaining manual action (non-blocking for phase closure; blocks cadastro runtime).
-Last activity: 2026-04-20 -- All 3 waves merged, 25 commits on backup/local-state-2026-04
+Phase: 02 (cadastro-candidato) — Wave 2 partial (3/6 plans complete)
+Plan: 02-04 complete. 02-01, 02-02, 02-04 done. Pending: 02-03, 02-05, 02-06.
+Status: Hooks stream (Wave 2) green. 12 passing hook tests. Debounce aligned 300ms. useCadastroDraft + useLeaveGuard shipped with LGPD-safe + beforeunload idioms.
+Last activity: 2026-04-21 -- Plan 02-04 complete (4 atomic commits on backup/local-state-2026-04)
 
-Progress: [##########] 100% (phase 1 of 5 milestone total = 20%)
+Progress: [######----] 60% (milestone M1 — Phase 1 done + Phase 2 half done)
 
 ## Performance Metrics
 
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - [Pre-M1]: Branch base is `backup/local-state-2026-04`, not main
 - [Pre-M1]: service_role removal is Phase 1 day 1 priority (critical security)
 - [Pre-M1]: Fase 0 (Backup & Saneamento) already completed
+- [02-04]: happy-dom sessionStorage quota tests must spy on the instance, not Storage.prototype (methods bind to instance after first write)
+- [02-04]: vitest v4 spy typing for overloaded DOM methods (addEventListener) doesn't satisfy `ReturnType<typeof vi.spyOn>`; use `any` escape hatch with explicit annotations on callbacks
+- [02-04]: vi.spyOn is idempotent — always call `vi.restoreAllMocks()` in beforeEach when each test asserts spy call counts
 
 ### Pending Todos
 
@@ -82,11 +85,15 @@ None yet.
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| service tests | `duplicateCheckService.test.ts` — 10 failures asserting legacy anon-SELECT path; service was migrated to RPC in Phase 1 (b9361369). Must be rewritten to mock `supabase.rpc` per 02-PATTERNS.md. | Plan 02-05 owns | 02-04 T5 |
+| service tests | `cadastroService.test.ts` — 16 failures asserting legacy error codes (`AUTH_FAILED`, `INSERT_FAILED`); service now routes through Edge Function with new error_code contract. Must be rewritten per 02-PATTERNS.md. | Plan 02-05 owns | 02-04 T5 |
+| lint | `src/features/cadastro/hooks/useFormToast.ts:221` — TS2559 on sonner toast copy. Pre-existing since d551d00 (pre-Phase 1). | Phase 3 carryover | 02-04 T5 |
+
+Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
 Last session: 2026-04-21
-Stopped at: Phase 2 Wave 1 complete — migration applied to prod, types regen +33 lines
-Resume file: .planning/phases/02-cadastro-candidato/02-02-SUMMARY.md (handoffs to 02-03 + 02-06)
-Next: run `/gsd-execute-phase 2` for Wave 2 (02-03 Edge Function + 02-04 hooks + 02-05 service layer)
+Stopped at: Phase 2 Wave 2 — Plan 02-04 (hooks stream) complete. 12 passing hook tests, 4 atomic commits (dd2fefe, 7e02219, 6645ab0, cdb1d2f).
+Resume file: .planning/phases/02-cadastro-candidato/02-04-SUMMARY.md (handoff to 02-06 CadastroMultiStepForm wiring)
+Next: run `/gsd-execute-phase 2` to resume Wave 2 — 02-03 Edge Function contract + 02-05 service-layer error_code routing (duplicateCheckService + cadastroService tests need repopulation per deferred-items.md).

@@ -13,8 +13,14 @@ import { renderHook } from '@testing-library/react'
 import { useLeaveGuard } from '../useLeaveGuard'
 
 describe('useLeaveGuard', () => {
-  let addSpy: ReturnType<typeof vi.spyOn>
-  let removeSpy: ReturnType<typeof vi.spyOn>
+  // Use `any` for the spy types — vitest 4's inferred Mock<K, V> generic for
+  // window.addEventListener/removeEventListener includes an overloaded union
+  // that does not assign cleanly to `ReturnType<typeof vi.spyOn>`.
+  // This narrow escape hatch keeps tsc --noEmit clean without affecting runtime.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let addSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let removeSpy: any
 
   beforeEach(() => {
     // Reset first — vi.spyOn is idempotent and preserves mock.calls across
@@ -32,13 +38,13 @@ describe('useLeaveGuard', () => {
 
   it('does not register listener when isDirty is false', () => {
     renderHook(() => useLeaveGuard(false))
-    const beforeUnloadAdds = addSpy.mock.calls.filter((c) => c[0] === 'beforeunload')
+    const beforeUnloadAdds = addSpy.mock.calls.filter((c: unknown[]) => c[0] === 'beforeunload')
     expect(beforeUnloadAdds).toHaveLength(0)
   })
 
   it('handler calls preventDefault() and sets returnValue = ""', () => {
     renderHook(() => useLeaveGuard(true))
-    const call = addSpy.mock.calls.find((c) => c[0] === 'beforeunload')
+    const call = addSpy.mock.calls.find((c: unknown[]) => c[0] === 'beforeunload')
     expect(call).toBeDefined()
     const handler = call![1] as (e: BeforeUnloadEvent) => void
     const event = { preventDefault: vi.fn(), returnValue: 'initial' } as unknown as BeforeUnloadEvent
