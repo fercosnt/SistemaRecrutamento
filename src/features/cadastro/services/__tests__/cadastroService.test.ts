@@ -824,3 +824,16 @@ describe('cadastroService', () => {
     })
   })
 })
+
+// ============================================
+// Wave 0 stubs — Phase 2 (to be implemented in Plan 02-05)
+// ============================================
+describe('cadastroService — structured error_code routing (Phase 2)', () => {
+  it.todo('throws CadastroError with code="EMAIL_EXISTS" and field="email" when response error_code is EMAIL_EXISTS')
+  it.todo('throws CadastroError with code="CPF_EXISTS" and field="cpf" when response error_code is CPF_EXISTS')
+  it.todo('throws CadastroError with code="VALIDATION" and preserves response.field when VALIDATION')
+  it.todo('throws CadastroError with code="SERVER_ERROR" on unknown server error')
+  it.todo('falls back to "UNKNOWN_ERROR" when legacy { ok:false, error: string } (no error_code) arrives')
+  it.todo('throws CadastroError with code="NETWORK_ERROR" when invokeError is non-null')
+  it.todo('never logs password/senha/confirmar_senha via console.log (Pitfall 7 audit)')
+})

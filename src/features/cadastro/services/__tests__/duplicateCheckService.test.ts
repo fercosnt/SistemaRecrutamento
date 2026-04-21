@@ -456,3 +456,12 @@ describe('duplicateCheckService', () => {
     })
   })
 })
+
+// ============================================
+// Wave 0 stubs — Phase 2 (to be implemented in Plan 02-05)
+// ============================================
+describe('duplicateCheckService — rate_limited handling (Phase 2)', () => {
+  it.todo('throws DuplicateCheckError with code="RATE_LIMITED" when RPC returns rate_limited=true')
+  it.todo('returns normal DuplicateCheckResult when rate_limited=false and booleans present')
+  it.todo('extends CheckCandidatoDuplicateResponse interface with rate_limited: boolean')
+})
