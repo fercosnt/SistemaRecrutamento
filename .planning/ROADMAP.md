@@ -56,7 +56,7 @@ Plans:
 **UI hint**: yes
 
 Plans:
-- [ ] 02-01-PLAN.md — Wave 0: SDK upgrade + testing-library install + schema audit + test stubs
+- [x] 02-01-PLAN.md — Wave 0: SDK upgrade + testing-library install + schema audit + test stubs ✓ 2026-04-20
 - [ ] 02-02-PLAN.md — Wave 1: Migration 0005 (rate_limit table + patched RPC + policy_version column) + db push + types regen
 - [ ] 02-03-PLAN.md — Wave 2: Edge Function contract evolution (error_code/field/message) + _shared/constants.ts + redeploy with --no-verify-jwt
 - [ ] 02-04-PLAN.md — Wave 2: New hooks (useCadastroDraft, useLeaveGuard) + useDuplicateCheck debounce 300ms + client constants

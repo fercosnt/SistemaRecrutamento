@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: Phase 2 planning complete (6 plans, 4 waves, VERIFICATION PASSED) — ready for /gsd-execute-phase 2
-last_updated: "2026-04-20T22:00:00.000Z"
-last_activity: 2026-04-20 -- Phase 02 plans committed (6 PLAN.md + VALIDATION.md Per-Task Map)
+status: wave_0_complete
+stopped_at: Phase 2 Wave 0 complete — Plan 02-02 needs revision before Wave 1 (audit findings)
+last_updated: "2026-04-20T23:50:00.000Z"
+last_activity: 2026-04-20 -- Plan 02-01 complete (SDK upgrade, test stubs, audit captured)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 11
-  completed_plans: 5
-  percent: 45
+  completed_plans: 6
+  percent: 55
 ---
 
 # Project State
@@ -87,6 +87,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-20
-Stopped at: Phase 2 planning complete — 6 plans VERIFIED (1 revision, 2 blockers + 3 non-blocking fixed)
-Resume file: .planning/phases/02-cadastro-candidato/02-01-PLAN.md (Wave 0 starts here)
-Next: run `/gsd-execute-phase 2` — executor starts with Wave 0 (SDK upgrade + test scaffolds + audit)
+Stopped at: Phase 2 Wave 0 complete — SDK 2.104.0, testing-library, 23 it.todo stubs, audit captured
+Resume file: .planning/phases/02-cadastro-candidato/02-AUDIT-RESULTS.md (findings change Plan 02-02)
+Next: revise Plan 02-02 to incorporate audit findings (cols user_agent_aceite/no data_aceite; rate limit via x-forwarded-for hybrid) then run `/gsd-execute-phase 2` for Wave 1
