@@ -52,12 +52,16 @@ Plans:
   2. Entering a CPF or email already in the database shows a duplicate warning before submission -- and the duplicate check goes through an Edge Function, not a direct anon SELECT on `candidatos`
   3. After successful registration, the candidate is auto-logged in and lands on `/candidato/perfil` without a manual login step
   4. The LGPD consent checkbox is mandatory -- form cannot submit without it
-**Plans**: TBD
+**Plans**: 6 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md — Wave 0: SDK upgrade + testing-library install + schema audit + test stubs
+- [ ] 02-02-PLAN.md — Wave 1: Migration 0005 (rate_limit table + patched RPC + policy_version column) + db push + types regen
+- [ ] 02-03-PLAN.md — Wave 2: Edge Function contract evolution (error_code/field/message) + _shared/constants.ts + redeploy with --no-verify-jwt
+- [ ] 02-04-PLAN.md — Wave 2: New hooks (useCadastroDraft, useLeaveGuard) + useDuplicateCheck debounce 300ms + client constants
+- [ ] 02-05-PLAN.md — Wave 2: cadastroService error_code routing + tryAutoLogin + FIELD_TO_STEP tables + duplicateCheckService RATE_LIMITED
+- [ ] 02-06-PLAN.md — Wave 3: CadastroMultiStepForm wiring + AutorizacoesStep LGPD layout + font-weight sweep + E2E 6 cases
 
 ### Phase 3: Login + Recuperacao de Senha
 **Goal**: A returning candidate can log in, stay logged in across sessions, and recover a forgotten password via email
