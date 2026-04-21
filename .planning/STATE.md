@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: wave_1_ready
-stopped_at: Phase 2 Wave 0 complete + Plan 02-02 revised & re-verified — ready for /gsd-execute-phase 2 Wave 1
-last_updated: "2026-04-21T00:10:00.000Z"
-last_activity: 2026-04-20 -- Plan 02-02 revised for audit findings (hybrid rate-limit, user_agent_aceite, no data_aceite)
+status: wave_2_ready
+stopped_at: Phase 2 Wave 1 complete — migration applied to prod, types regen — ready for Wave 2 (02-03/02-04/02-05)
+last_updated: "2026-04-21T00:30:00.000Z"
+last_activity: 2026-04-21 -- Plan 02-02 complete (migration applied, types +33 lines)
 progress:
   total_phases: 5
   completed_phases: 1
@@ -86,7 +86,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-20
-Stopped at: Phase 2 Wave 0 complete — SDK 2.104.0, testing-library, 23 it.todo stubs, audit captured
-Resume file: .planning/phases/02-cadastro-candidato/02-AUDIT-RESULTS.md (findings change Plan 02-02)
-Next: revise Plan 02-02 to incorporate audit findings (cols user_agent_aceite/no data_aceite; rate limit via x-forwarded-for hybrid) then run `/gsd-execute-phase 2` for Wave 1
+Last session: 2026-04-21
+Stopped at: Phase 2 Wave 1 complete — migration applied to prod, types regen +33 lines
+Resume file: .planning/phases/02-cadastro-candidato/02-02-SUMMARY.md (handoffs to 02-03 + 02-06)
+Next: run `/gsd-execute-phase 2` for Wave 2 (02-03 Edge Function + 02-04 hooks + 02-05 service layer)
