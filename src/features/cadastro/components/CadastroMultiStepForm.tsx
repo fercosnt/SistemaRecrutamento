@@ -7,17 +7,23 @@
  * 3. Disponibilidade (sem mobilidade)
  * 4. Autorizações LGPD
  *
- * Integrado com:
- * - React Hook Form para gerenciamento de estado
- * - Zod para validação de schemas
- * - Supabase para persistência
- * - ViaCEP para busca de endereço
+ * Phase 2 Plan 02-06 wiring:
+ * - D-01/D-02 auto-login via `tryAutoLogin` com single retry (500ms backoff)
+ *   — internamente chama `supabase.auth.signInWithPassword` (serviceCadastro).
+ * - D-03 success UX: toast `Bem-vindo(a), <nome>` + navigate('/candidato/perfil')
+ * - D-06 structured error routing via `FIELD_TO_STEP_INDEX` / `FIELD_TO_STEP_PATH`
+ * - D-13 draft save/load via `useCadastroDraft` (senha NUNCA persistida)
+ * - D-14 leave guard via `useLeaveGuard(isDirty && !isSubmitting && !submitSuccess)`
+ * - D-15 LGPD mandatory gate: submit blocked se `autorizacao_uso_dados === false`
+ * - UI-SPEC: CTA "Criar conta" / "Criando..." com Loader2; LoadingProgress Dialog NÃO abre
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { ChevronLeft, ChevronRight, Check, Loader2 } from 'lucide-react'
 
 import {
   candidatoFormSchema,
@@ -36,6 +42,16 @@ import { cn } from '@/components/ui/utils'
 import { useFormToast } from '../hooks/useFormToast'
 import { LoadingProgress, type LoadingStage } from './LoadingProgress'
 
+import { useCadastroDraft } from '../hooks/useCadastroDraft'
+import { useLeaveGuard } from '../hooks/useLeaveGuard'
+import {
+  cadastrarCandidato,
+  tryAutoLogin,
+  CadastroError,
+  FIELD_TO_STEP_INDEX,
+  FIELD_TO_STEP_PATH,
+} from '../services/cadastroService'
+
 // Import dos componentes de cada step
 import { DadosPessoaisStep } from './steps/DadosPessoaisStep'
 import { EnderecoStep } from './steps/EnderecoStep'
@@ -52,7 +68,9 @@ interface StepConfig {
   id: FormStep
   title: string
   description: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   schema: any // Zod schema para validação do step
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: React.ComponentType<any>
 }
 
@@ -96,9 +114,59 @@ const FORM_STEPS: StepConfig[] = [
 // ============================================
 
 interface CadastroMultiStepFormProps {
-  onSubmit: (data: CandidatoFormData) => Promise<void>
+  onSubmit?: (data: CandidatoFormData) => Promise<void>
   onCancel?: () => void
   initialData?: Partial<CandidatoFormData>
+}
+
+// ============================================
+// ROUTE CADASTRO ERROR (Phase 2 D-06 helper)
+// ============================================
+
+/**
+ * Roteia um `CadastroError` para a UI correta:
+ * - `EMAIL_EXISTS` / `CPF_EXISTS` → step 0 + inline error no campo
+ * - `VALIDATION` com `field` conhecido → step do `FIELD_TO_STEP_INDEX` + inline
+ * - `NETWORK_ERROR` / `SERVER_ERROR` / default → toast genérico
+ *
+ * T-02-11 mitigation: `field` do servidor é validado contra `FIELD_TO_STEP_INDEX`
+ * whitelist antes de navegar. Campos desconhecidos caem em toast genérico.
+ */
+function routeCadastroError(
+  err: CadastroError,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  methods: any,
+  setCurrentStepIndex: (i: number) => void,
+) {
+  switch (err.code) {
+    case 'EMAIL_EXISTS':
+      setCurrentStepIndex(0)
+      methods.setError('dadosPessoais.email', { type: 'duplicate', message: err.message })
+      toast.error('Este email já está cadastrado. Tente fazer login ou use outro email.', { duration: 6000 })
+      return
+    case 'CPF_EXISTS':
+      setCurrentStepIndex(0)
+      methods.setError('dadosPessoais.cpf', { type: 'duplicate', message: err.message })
+      toast.error('Este CPF já está cadastrado. Tente fazer login ou verifique se é o correto.', { duration: 6000 })
+      return
+    case 'VALIDATION':
+      if (err.field && FIELD_TO_STEP_INDEX[err.field] !== undefined) {
+        setCurrentStepIndex(FIELD_TO_STEP_INDEX[err.field])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        methods.setError(FIELD_TO_STEP_PATH[err.field] as any, { message: err.message })
+      }
+      toast.error('Há um problema com os dados enviados. Revise o formulário e tente novamente.', { duration: 6000 })
+      return
+    case 'NETWORK_ERROR':
+      toast.error('Sem conexão com o servidor. Verifique sua internet e tente novamente.', { duration: 6000 })
+      return
+    case 'SERVER_ERROR':
+    case 'EDGE_FUNCTION_ERROR':
+    case 'UNKNOWN_ERROR':
+    default:
+      toast.error('Algo deu errado do nosso lado. Tente novamente em alguns instantes.', { duration: 6000 })
+      return
+  }
 }
 
 // ============================================
@@ -114,13 +182,18 @@ export function CadastroMultiStepForm({
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [completedSteps, setCompletedSteps] = useState<FormStep[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
-  // State para controlar submissão multi-etapas
-  const [submissionStages, setSubmissionStages] = useState<LoadingStage[]>([])
-  const [showLoadingDialog, setShowLoadingDialog] = useState(false)
+  // State para o LoadingProgress Dialog (mantido para Phase 4 — NÃO abre em cadastro)
+  const [submissionStages] = useState<LoadingStage[]>([])
+  const showLoadingDialog = false
 
-  // Toast hook
-  const toast = useFormToast()
+  // Toast hook (helpers legados ainda usados em navigateBetweenSteps)
+  const toastHelper = useFormToast()
+
+  // Router + draft + leave guard
+  const navigate = useNavigate()
+  const draft = useCadastroDraft()
 
   // Configuração do React Hook Form
   const methods = useForm<CandidatoFormData>({
@@ -161,6 +234,38 @@ export function CadastroMultiStepForm({
     },
   })
 
+  // Leave guard: bloqueia refresh/close acidental enquanto o form está sujo e
+  // ainda não submetido (D-14, T-02-09)
+  useLeaveGuard(methods.formState.isDirty && !isSubmitting && !submitSuccess)
+
+  // Load draft on mount (uma única vez). Se houver rascunho, restaura e mostra
+  // toast com a ação "Começar do zero".
+  useEffect(() => {
+    const saved = draft.load()
+    if (saved) {
+      methods.reset(saved as Parameters<typeof methods.reset>[0])
+      toast.info('Retomamos seu cadastro de onde você parou.', {
+        duration: 4000,
+        action: {
+          label: 'Começar do zero',
+          onClick: () => {
+            draft.clear()
+            methods.reset()
+          },
+        },
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Debounced draft save on every form change (500ms)
+  const watchedData = methods.watch()
+  useEffect(() => {
+    const timer = setTimeout(() => draft.save(watchedData as never), 500)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(watchedData)])
+
   // Configuração do step atual
   const currentStep = FORM_STEPS[currentStepIndex]
   const isFirstStep = currentStepIndex === 0
@@ -182,12 +287,13 @@ export function CadastroMultiStepForm({
       // Mostrar erros de validação
       const errors = result.error.flatten().fieldErrors
       Object.entries(errors).forEach(([field, messages]) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         methods.setError(`${currentStep.id}.${field}` as any, {
           message: (messages as string[])[0],
         })
       })
 
-      toast.messages.validationError()
+      toastHelper.messages.validationError()
       return false
     }
 
@@ -242,145 +348,90 @@ export function CadastroMultiStepForm({
   }
 
   /**
-   * Submit final do formulário
+   * Enter-key guard para Step 4 (UI-SPEC a11y): Enter dentro de um <Input> NÃO
+   * deve disparar submit — user precisa clicar explicitamente em "Criar conta".
+   */
+  const handleStep4KeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+      e.preventDefault()
+    }
+  }
+
+  /**
+   * Submit final do formulário (Step 4)
+   *
+   * Phase 2 D-01 / D-02 / D-03 / D-06 / D-15 wiring:
+   * 1. First-line guard: LGPD mandatory (D-15)
+   * 2. setTimeout(2000) → toast.loading('Criando sua conta...')
+   * 3. cadastrarCandidato → Edge Function (D-01a)
+   * 4. tryAutoLogin (D-02: 1x retry 500ms backoff)
+   * 5. draft.clear() + navigate('/candidato/perfil') + welcome toast
+   * 6. On CadastroError: routeCadastroError (D-06)
+   * 7. finally: clear loading toast + re-enable submit
    */
   const handleFormSubmit = async () => {
+    const formData = methods.getValues()
+
+    // Mandatory LGPD check (D-15) — first-line guard ANTES de qualquer async
+    if (!formData.autorizacoes?.autorizacao_uso_dados) {
+      methods.setError('autorizacoes.autorizacao_uso_dados', {
+        type: 'required',
+        message: 'Para criar sua conta, você precisa autorizar o uso dos dados.',
+      })
+      toast.error('Para criar sua conta, você precisa autorizar o uso dos dados.', { duration: 6000 })
+      return
+    }
+
     setIsSubmitting(true)
+    const submitLoadingTimer = setTimeout(() => {
+      toast.loading('Criando sua conta...', { id: 'cadastro-submit' })
+    }, 2000)
 
     try {
-      const formData = methods.getValues()
-
-      // Validação final com o schema completo
       const result = candidatoFormSchema.safeParse(formData)
-
       if (!result.success) {
-        toast.error('Há erros no formulário. Por favor, revise todos os campos.')
-        setIsSubmitting(false)
+        toast.error('Há erros no formulário. Por favor, revise todos os campos.', { duration: 6000 })
         return
       }
 
-      // Inicializar stages do processo
-      const stages: LoadingStage[] = [
-        { id: 'auth', label: 'Criando conta de acesso...', status: 'pending' },
-        { id: 'candidatos', label: 'Salvando dados do candidato...', status: 'pending' },
-        { id: 'enderecos', label: 'Salvando endereço...', status: 'pending' },
-        { id: 'disponibilidade', label: 'Salvando disponibilidade...', status: 'pending' },
-        { id: 'autorizacoes', label: 'Salvando autorizações...', status: 'pending' },
-        { id: 'n8n', label: 'Notificando sistema...', status: 'pending' },
-      ]
-
-      setSubmissionStages(stages)
-      setShowLoadingDialog(true)
-
-      // Simular progresso enquanto onSubmit executa
-      // Nota: Em produção, o onSubmit deveria reportar progresso real via callbacks
-      const stageIds = stages.map((s) => s.id)
-      let currentStageIndex = 0
-
-      // Executar onSubmit com progresso simulado
-      const submitPromise = onSubmit(result.data)
-
-      // Simular progresso (atualizar cada 400ms)
-      const progressInterval = setInterval(() => {
-        if (currentStageIndex < stageIds.length) {
-          setSubmissionStages((prev) =>
-            prev.map((stage, idx) => ({
-              ...stage,
-              status:
-                idx < currentStageIndex ? 'success' : idx === currentStageIndex ? 'loading' : 'pending',
-            }))
-          )
-          currentStageIndex++
-        }
-      }, 400)
-
-      // Aguardar conclusão do submit
-      await submitPromise
-
-      // Limpar intervalo de progresso
-      clearInterval(progressInterval)
-
-      // Marcar todos os stages como sucesso
-      setSubmissionStages((prev) => prev.map((stage) => ({ ...stage, status: 'success' })))
-
-      toast.success('Cadastro realizado com sucesso!')
-
-      // Fechar dialog após delay para mostrar sucesso completo
-      setTimeout(() => {
-        setShowLoadingDialog(false)
-      }, 1500)
-    } catch (error) {
-      // Log detalhado do erro
-      console.error('[FORM] Erro ao enviar formulário:', error)
-      
-      // Log adicional para erros específicos
-      if (error instanceof Error) {
-        console.error('Tipo do erro:', error.constructor.name)
-        console.error('Mensagem:', error.message)
-        console.error('Stack:', error.stack)
-        
-        // Se for CadastroError, logar detalhes adicionais
-        if ('code' in error && 'table' in error) {
-          console.error('Código do erro:', (error as any).code)
-          console.error('Tabela afetada:', (error as any).table)
-          console.error('Erro original:', (error as any).originalError)
-        }
+      // If parent supplied a custom onSubmit, delegate (back-compat with
+      // CadastroPage.handleSubmit). Otherwise, drive the Phase 2 happy path
+      // here: cadastrarCandidato → tryAutoLogin → navigate.
+      if (onSubmit) {
+        await onSubmit(result.data)
+        draft.clear()
+        setSubmitSuccess(true)
+        return
       }
 
-      // Determinar mensagem de erro específica
-      let errorMessage = 'Erro ao realizar cadastro. Por favor, tente novamente.'
-      let errorDescription = ''
+      await cadastrarCandidato(result.data)
 
-      if (error instanceof Error) {
-        // Erros de autenticação
-        if (error.message.includes('auth') || error.message.includes('usuário') || error.message.includes('autenticação')) {
-          errorMessage = 'Erro ao criar conta de acesso'
-          errorDescription = 'Não foi possível criar sua conta. Verifique se o email já está cadastrado.'
-        }
-        // Erros de inserção no banco
-        else if (error.message.includes('inserir') || error.message.includes('banco de dados')) {
-          errorMessage = 'Erro ao salvar dados'
-          errorDescription = 'Não foi possível salvar seus dados. Por favor, tente novamente.'
-        }
-        // Erros de rollback
-        else if (error.message.includes('rollback') || error.message.includes('reverter')) {
-          errorMessage = 'Erro ao processar cadastro'
-          errorDescription = 'Ocorreu um problema durante o cadastro. Seus dados podem ter sido parcialmente salvos. Entre em contato com o suporte.'
-        }
-        // Erros de validação
-        else if (error.message.includes('validação') || error.message.includes('inválido')) {
-          errorMessage = 'Dados inválidos'
-          errorDescription = error.message
-        }
-        // Erros de rede
-        else if (error.message.includes('rede') || error.message.includes('conexão') || error.message.includes('network')) {
-          errorMessage = 'Erro de conexão'
-          errorDescription = 'Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.'
-        }
-      }
-
-      // Marcar stage atual como erro com mensagem específica
-      setSubmissionStages((prev) =>
-        prev.map((stage) =>
-          stage.status === 'loading'
-            ? { 
-                ...stage, 
-                status: 'error', 
-                errorMessage: errorDescription || 'Falha ao processar esta etapa' 
-              }
-            : stage
-        )
+      const loggedIn = await tryAutoLogin(
+        result.data.dadosPessoais.email,
+        result.data.dadosPessoais.senha,
       )
 
-      toast.error(errorMessage, errorDescription, {
-        duration: 5000,
-      })
+      draft.clear()
+      setSubmitSuccess(true)
+      const primeiroNome = result.data.dadosPessoais.nome_completo.split(' ')[0]
 
-      // Fechar dialog após delay
-      setTimeout(() => {
-        setShowLoadingDialog(false)
-      }, 3000)
+      if (loggedIn) {
+        toast.success(`Cadastro concluído! Bem-vindo(a), ${primeiroNome}.`, { duration: 5000 })
+        navigate('/candidato/perfil', { replace: true })
+      } else {
+        toast.success('Cadastro concluído. Faça login para continuar.', { duration: 5000 })
+        navigate('/auth/login?email=' + encodeURIComponent(result.data.dadosPessoais.email))
+      }
+    } catch (err) {
+      if (err instanceof CadastroError) {
+        routeCadastroError(err, methods, setCurrentStepIndex)
+      } else {
+        console.error('[CADASTRO] Erro inesperado no submit:', err instanceof Error ? err.message : String(err))
+        toast.error('Erro inesperado. Tente novamente.', { duration: 6000 })
+      }
     } finally {
+      clearTimeout(submitLoadingTimer)
+      toast.dismiss('cadastro-submit')
       setIsSubmitting(false)
     }
   }
@@ -451,7 +502,7 @@ export function CadastroMultiStepForm({
 
                 {/* Step title */}
                 <div className="text-center hidden sm:block">
-                  <p className="text-xs font-medium text-white">
+                  <p className="text-xs font-semibold text-white">
                     {step.title}
                   </p>
                 </div>
@@ -461,10 +512,13 @@ export function CadastroMultiStepForm({
         </div>
 
         {/* Current Step Content */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-lg p-4 sm:p-6 md:p-8">
+        <div
+          className="bg-white/10 backdrop-blur-lg rounded-lg p-4 sm:p-6 md:p-8"
+          onKeyDown={currentStepIndex === 3 ? handleStep4KeyDown : undefined}
+        >
           {/* Step Header */}
           <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-2">
               {currentStep.title}
             </h2>
             <p className="text-sm sm:text-base text-white">{currentStep.description}</p>
@@ -481,6 +535,7 @@ export function CadastroMultiStepForm({
             type="button"
             variant="outline"
             onClick={isFirstStep ? onCancel : handlePrevious}
+            disabled={isSubmitting}
             className="w-full sm:w-auto bg-white/10 border-white/30 text-white hover:bg-white/20"
           >
             {isFirstStep ? (
@@ -493,19 +548,25 @@ export function CadastroMultiStepForm({
             )}
           </Button>
 
-          {/* Botão Próximo / Finalizar */}
+          {/* Botão Próximo / Criar conta */}
           <Button
             type="button"
             onClick={handleNext}
-            isLoading={isSubmitting}
-            loadingText={isLastStep ? 'Finalizando cadastro...' : 'Validando...'}
+            disabled={isSubmitting}
             className="w-full sm:w-auto bg-[#00109E] hover:bg-[#00109E]/90 text-white"
           >
             {isLastStep ? (
-              <>
-                Finalizar Cadastro
-                <Check className="w-4 h-4 ml-2" />
-              </>
+              isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  Criar conta
+                  <Check className="w-4 h-4 ml-2" aria-hidden="true" />
+                </>
+              )
             ) : (
               <>
                 Próximo
@@ -515,7 +576,11 @@ export function CadastroMultiStepForm({
           </Button>
         </div>
 
-        {/* Loading Progress Dialog */}
+        {/*
+          LoadingProgress Dialog — MANTIDO para reuso em Phase 4 (upload de
+          currículo com progresso real), porém NUNCA aberto durante submit do
+          cadastro. `showLoadingDialog` é constante `false` por design.
+        */}
         <Dialog open={showLoadingDialog} onOpenChange={() => {}}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
