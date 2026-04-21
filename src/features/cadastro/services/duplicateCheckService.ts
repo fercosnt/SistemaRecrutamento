@@ -175,14 +175,21 @@ async function callDuplicateRpc(
   // the Supabase project (see .planning/phases/01-foundation-saneada/01-04-CHECKPOINT.md).
   // Until then, supabase.rpc is cast through `unknown` to accept the new fn
   // name. Once types are regenerated, the cast can be removed.
-  const rpc = supabase.rpc as unknown as (
-    fn: 'check_candidato_duplicate',
-    args: { p_cpf: string; p_email: string }
-  ) => Promise<{ data: unknown; error: { message: string } | null }>
-  const { data, error } = await rpc('check_candidato_duplicate', {
+  //
+  // Must call `supabase.rpc(...)` directly (not via a destructured/aliased ref)
+  // so that `this` stays bound to the PostgrestClient. The internal impl
+  // dereferences `this.rest`, which is undefined when the method is called
+  // without the client context — a runtime crash that unit tests don't catch
+  // because they mock `supabase.rpc` wholesale.
+  const { data, error } = (await (
+    supabase.rpc as unknown as (
+      fn: 'check_candidato_duplicate',
+      args: { p_cpf: string; p_email: string }
+    ) => Promise<{ data: unknown; error: { message: string } | null }>
+  ).call(supabase, 'check_candidato_duplicate', {
     p_cpf: cpfCleaned,
     p_email: emailCleaned,
-  })
+  }))
 
   if (error) {
     console.error('Supabase error calling check_candidato_duplicate RPC:', error)
