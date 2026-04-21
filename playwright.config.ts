@@ -52,8 +52,8 @@ export default defineConfig({
 
   // Configurações globais
   use: {
-    // Base URL da aplicação
-    baseURL: 'http://localhost:3000',
+    // Base URL da aplicação (vite.config.ts binds to port 3003)
+    baseURL: 'http://localhost:3003',
 
     // Trace em caso de falha
     trace: 'on-first-retry',
@@ -86,7 +86,7 @@ export default defineConfig({
   // Servidor de desenvolvimento
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3003',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

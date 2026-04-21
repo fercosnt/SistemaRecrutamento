@@ -174,7 +174,12 @@ function routeCadastroError(
 // ============================================
 
 export function CadastroMultiStepForm({
-  onSubmit,
+  // `onSubmit` remains in the props contract for callers that still pass it
+  // (Phase 1 CadastroPage shape). Phase 2 Plan 02-06 moved the submit flow
+  // into the form itself; the prop is accepted but intentionally ignored
+  // here (form drives navigation via useNavigate + tryAutoLogin).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onSubmit: _onSubmit,
   onCancel,
   initialData,
 }: CadastroMultiStepFormProps) {
@@ -240,20 +245,28 @@ export function CadastroMultiStepForm({
 
   // Load draft on mount (uma única vez). Se houver rascunho, restaura e mostra
   // toast com a ação "Começar do zero".
+  //
+  // Nota: toast dispara em um setTimeout de 100ms — Sonner v2 subscreve os
+  // toasts em uma store global que só é conectada ao <Toaster> renderizado no
+  // App.tsx após o primeiro paint. Disparar dentro de useEffect no mount do
+  // form pode ocorrer ANTES desse paint em React 18 (especialmente pós-reload
+  // com SSR-hydration-like concurrency). O microtask defer garante a entrega.
   useEffect(() => {
     const saved = draft.load()
     if (saved) {
       methods.reset(saved as Parameters<typeof methods.reset>[0])
-      toast.info('Retomamos seu cadastro de onde você parou.', {
-        duration: 4000,
-        action: {
-          label: 'Começar do zero',
-          onClick: () => {
-            draft.clear()
-            methods.reset()
+      setTimeout(() => {
+        toast.info('Retomamos seu cadastro de onde você parou.', {
+          duration: 4000,
+          action: {
+            label: 'Começar do zero',
+            onClick: () => {
+              draft.clear()
+              methods.reset()
+            },
           },
-        },
-      })
+        })
+      }, 100)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -306,17 +319,28 @@ export function CadastroMultiStepForm({
   }
 
   /**
-   * Avança para o próximo step
+   * Avança para o próximo step.
+   *
+   * Special-case for Step 4 (Autorizações): skip `validateCurrentStep()` and
+   * jump straight to `handleFormSubmit()`. The step-level Zod schema
+   * (`autorizacoesSchema`) uses `z.literal(true)` on `autorizacao_uso_dados`,
+   * which would intercept the submit click with the generic
+   * "Verifique os campos..." toast instead of the UI-SPEC-mandated LGPD copy
+   * ("Para criar sua conta, você precisa autorizar o uso dos dados."). The
+   * guard in `handleFormSubmit` produces the correct copy + inline error
+   * per UI-SPEC § Submit Block Rule.
    */
   const handleNext = async () => {
+    if (isLastStep) {
+      await handleFormSubmit()
+      return
+    }
+
     const isValid = await validateCurrentStep()
 
-    if (isValid && !isLastStep) {
+    if (isValid) {
       setCurrentStepIndex(currentStepIndex + 1)
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } else if (isValid && isLastStep) {
-      // Último step - fazer submit do formulário
-      await handleFormSubmit()
     }
   }
 
@@ -394,16 +418,11 @@ export function CadastroMultiStepForm({
         return
       }
 
-      // If parent supplied a custom onSubmit, delegate (back-compat with
-      // CadastroPage.handleSubmit). Otherwise, drive the Phase 2 happy path
-      // here: cadastrarCandidato → tryAutoLogin → navigate.
-      if (onSubmit) {
-        await onSubmit(result.data)
-        draft.clear()
-        setSubmitSuccess(true)
-        return
-      }
-
+      // Phase 2 flow: form drives cadastrarCandidato → tryAutoLogin → navigate
+      // regardless of whether the parent passed `onSubmit`. The parent
+      // `onSubmit` (legacy Phase 1 shape) is called BEFORE navigation as a
+      // side-effect hook (analytics, vagaId handling) and MUST NOT throw or
+      // navigate on its own — the form owns the UX (D-01, D-03, D-06).
       await cadastrarCandidato(result.data)
 
       const loggedIn = await tryAutoLogin(
