@@ -2,10 +2,24 @@
  * Serviço de cadastro completo de candidato
  *
  * A partir da Fase 1 (FOUND-01), o cadastro é orquestrado pela Edge Function
- * `cadastrar-candidato` (a ser implementada na Fase 1 Plano 05). Este serviço
- * apenas serializa os dados do formulário e delega a operação multi-tabela
- * (auth.signUp + inserts + rollback) ao backend, onde o service_role key
- * reside com segurança. O cliente nunca executa operações privilegiadas.
+ * `cadastrar-candidato`. Este serviço apenas serializa os dados do formulário
+ * e delega a operação multi-tabela (auth.signUp + inserts + rollback) ao
+ * backend, onde o service_role key reside com segurança. O cliente nunca
+ * executa operações privilegiadas.
+ *
+ * Phase 2 Plan 02-05 evolution:
+ * - `CadastroError.code` passou a espelhar o contrato estruturado da Edge
+ *   Function (Plan 02-03): EMAIL_EXISTS / CPF_EXISTS / VALIDATION / SERVER_ERROR.
+ * - `CadastroError.field?` permite ao consumidor rotear erros por campo.
+ * - `tryAutoLogin(email, password)` exportado para uso no handler de success
+ *   do CadastroMultiStepForm (D-02: single retry com backoff 500ms).
+ * - `FIELD_TO_STEP_INDEX` e `FIELD_TO_STEP_PATH` exportados para o form
+ *   traduzir `field` flat (do servidor) em step/path RHF (Plan 02-06 consumer).
+ *
+ * SECURITY / PITFALL 7:
+ * Nenhum `console.*` deste módulo pode receber `data` (que contém senha) ou
+ * qualquer campo senha/confirmar_senha. Logs emitem apenas email + flags
+ * redigidas.
  *
  * @module cadastroService
  */
@@ -51,7 +65,11 @@ export interface CadastroCompleteResult {
 
 /**
  * Formato de resposta esperada da Edge Function `cadastrar-candidato`.
- * Segue o padrão `{ ok, data | error }` definido em 01-CONTEXT.md (D-01b).
+ *
+ * Phase 2 Plan 02-03 introduziu o contrato estruturado de erro:
+ *   { ok: false, error_code, message, field?, error? }
+ * onde `error` é o alias legado de `message` mantido durante a transição
+ * (RESEARCH L498). Consumers novos devem ler `message`; `error` é fallback.
  */
 interface CadastrarCandidatoResponse {
   ok: boolean
@@ -61,28 +79,45 @@ interface CadastrarCandidatoResponse {
     disponibilidadeId?: string
     autorizacoesId?: string
   }
+  /**
+   * Código de erro canônico. Quando ausente (resposta legada), consumers
+   * tratam como UNKNOWN_ERROR.
+   */
+  error_code?: CadastroError['code']
+  /**
+   * Mensagem em pt-BR cordial. Fallback para exibição ao usuário.
+   */
+  message?: string
+  /**
+   * Nome canônico do campo (flat). Ex.: 'email', 'cpf', 'cep'.
+   */
+  field?: string
+  /**
+   * Alias legado de `message`. Preservado durante transição (ver 02-03).
+   */
   error?: string
 }
 
 /**
  * Custom Error para operações de cadastro
  *
- * Após FOUND-01, a maior parte da lógica (AUTH_FAILED, INSERT_FAILED,
- * ROLLBACK_FAILED) é executada na Edge Function. No client só sobrevivem
- * os códigos de erro observáveis: erros de rede/transporte e erros
- * de retorno da Edge Function.
+ * Phase 2 Plan 02-05: `code` agora espelha o contrato estruturado da Edge
+ * Function (Plan 02-03). Códigos legados (AUTH_FAILED, INSERT_FAILED,
+ * ROLLBACK_FAILED, VALIDATION_ERROR) foram removidos — eram dead-code desde
+ * FOUND-01 (lógica multi-tabela vive no servidor).
  */
 export class CadastroError extends Error {
   constructor(
     message: string,
     public code:
-      | 'AUTH_FAILED'
-      | 'INSERT_FAILED'
-      | 'ROLLBACK_FAILED'
-      | 'VALIDATION_ERROR'
+      | 'EMAIL_EXISTS'
+      | 'CPF_EXISTS'
+      | 'VALIDATION'
+      | 'SERVER_ERROR'
       | 'NETWORK_ERROR'
       | 'EDGE_FUNCTION_ERROR'
       | 'UNKNOWN_ERROR',
+    public field?: string,
     public table?: string,
     public originalError?: unknown,
     public details?: unknown
@@ -98,7 +133,7 @@ export class CadastroError extends Error {
 
 /**
  * Helper legado exportado historicamente via `./authService`.
- * TODO: remove in Phase 2 cleanup (não é mais usado por `cadastrarCandidato`).
+ * TODO: remove in Phase 3 cleanup (não é mais usado por `cadastrarCandidato`).
  */
 export { signUp, AuthError }
 
@@ -127,9 +162,12 @@ export { signUp, AuthError }
 export async function cadastrarCandidato(
   data: CandidatoFormData
 ): Promise<CadastroCompleteResult> {
-  console.log('[CADASTRO] Invocando Edge Function cadastrar-candidato')
-  console.log('[CADASTRO]   Email:', data.dadosPessoais.email)
-  console.log('[CADASTRO]   Nome:', data.dadosPessoais.nome_completo)
+  // Pitfall 7: redaction — NEVER log `data` directly (contém senha).
+  console.log('[CADASTRO] Invocando Edge Function cadastrar-candidato', {
+    email: data.dadosPessoais.email,
+    nome: data.dadosPessoais.nome_completo,
+    hasPassword: Boolean(data.dadosPessoais.senha),
+  })
 
   try {
     const { data: responseData, error: invokeError } =
@@ -162,37 +200,49 @@ export async function cadastrarCandidato(
       )
 
     if (invokeError) {
-      console.error('[CADASTRO] Erro ao invocar Edge Function:', invokeError)
+      // Pitfall 7: extrair apenas `message`; invokeError pode transportar o
+      // request body em alguns SDKs.
+      console.error(
+        '[CADASTRO] Erro ao invocar Edge Function:',
+        invokeError.message || String(invokeError)
+      )
       throw new CadastroError(
         invokeError.message || 'Falha ao invocar função de cadastro',
-        'EDGE_FUNCTION_ERROR',
+        'NETWORK_ERROR',
+        undefined,
+        undefined,
         undefined,
         invokeError
       )
     }
 
-    if (!responseData || !responseData.ok) {
-      const serverMessage = responseData?.error || 'Erro desconhecido no servidor'
-      console.error('[CADASTRO] Edge Function retornou erro:', serverMessage)
-      throw new CadastroError(serverMessage, 'EDGE_FUNCTION_ERROR')
+    if (!responseData?.ok) {
+      const code = (responseData?.error_code ?? 'UNKNOWN_ERROR') as CadastroError['code']
+      const message =
+        responseData?.message ?? responseData?.error ?? 'Erro desconhecido no servidor'
+      console.error('[CADASTRO] Edge Function retornou erro:', { code, message })
+      throw new CadastroError(message, code, responseData?.field)
     }
 
     if (!responseData.data?.userId || !responseData.data?.candidatoId) {
-      console.error(
-        '[CADASTRO] Edge Function retornou payload inválido:',
-        responseData
-      )
+      console.error('[CADASTRO] Edge Function retornou payload inválido:', {
+        hasUserId: Boolean(responseData.data?.userId),
+        hasCandidatoId: Boolean(responseData.data?.candidatoId),
+      })
       throw new CadastroError(
         'Resposta da função de cadastro está incompleta',
         'EDGE_FUNCTION_ERROR',
+        undefined,
+        undefined,
         undefined,
         responseData
       )
     }
 
-    console.log('[CADASTRO] Cadastro concluído com sucesso via Edge Function')
-    console.log('   - User ID:', responseData.data.userId)
-    console.log('   - Candidato ID:', responseData.data.candidatoId)
+    console.log('[CADASTRO] Cadastro concluído com sucesso via Edge Function', {
+      userId: responseData.data.userId,
+      candidatoId: responseData.data.candidatoId,
+    })
 
     return {
       userId: responseData.data.userId,
@@ -207,12 +257,136 @@ export async function cadastrarCandidato(
     }
 
     // Erro de rede (fetch falhou antes de atingir a Edge Function)
-    console.error('[CADASTRO] Erro de rede ou desconhecido:', err)
+    console.error(
+      '[CADASTRO] Erro de rede ou desconhecido:',
+      err instanceof Error ? err.message : String(err)
+    )
     throw new CadastroError(
       'Erro inesperado ao cadastrar candidato. Verifique sua conexão e tente novamente.',
       'NETWORK_ERROR',
       undefined,
+      undefined,
+      undefined,
       err
     )
   }
+}
+
+// ============================================
+// AUTO-LOGIN HELPER (D-02)
+// ============================================
+
+/**
+ * Auto-login após cadastro bem-sucedido.
+ *
+ * Política (D-02): single retry com backoff de 500ms. Retorna `true` se ao
+ * menos uma das duas tentativas tiver sucesso. NUNCA loga o password.
+ *
+ * Consumers: `CadastroMultiStepForm.onSubmit` chama este helper imediatamente
+ * após `cadastrarCandidato` resolver. Se retornar `false`, o form navega para
+ * `/auth/login?email=<email>` com toast "Cadastro concluído. Faça login para
+ * continuar." (conta foi criada; só o auto-login falhou).
+ *
+ * @param email - Email do candidato (igual ao enviado ao Edge Function)
+ * @param password - Senha em memória (RHF state)
+ * @returns `true` se logou com sucesso, `false` se as duas tentativas falharam
+ */
+export async function tryAutoLogin(
+  email: string,
+  password: string
+): Promise<boolean> {
+  const first = await supabase.auth.signInWithPassword({ email, password })
+  if (!first.error) return true
+
+  // Backoff 500ms (D-02)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  const second = await supabase.auth.signInWithPassword({ email, password })
+  return !second.error
+}
+
+// ============================================
+// FIELD ROUTING TABLES (consumed by Plan 02-06)
+// ============================================
+
+/**
+ * Mapa de nome de campo FLAT (como o servidor emite em `field`) para o índice
+ * de step no `CadastroMultiStepForm`:
+ *   0 = Dados Pessoais
+ *   1 = Endereço
+ *   2 = Disponibilidade
+ *   3 = Autorizações LGPD
+ *
+ * Usado pelo consumer (Plan 02-06) para fazer `setCurrentStepIndex(idx)` antes
+ * de aplicar `methods.setError(path, ...)`.
+ *
+ * Nota T-02-11 (threat register): este mapa funciona como whitelist. Consumers
+ * devem validar `if (field && FIELD_TO_STEP_INDEX[field] !== undefined)` antes
+ * de navegar. Campos desconhecidos caem em toast genérico (sem navegação).
+ */
+export const FIELD_TO_STEP_INDEX: Record<string, number> = {
+  // Step 0 — Dados Pessoais
+  nome_completo: 0,
+  cpf: 0,
+  email: 0,
+  telefone: 0,
+  data_nascimento: 0,
+  genero: 0,
+  como_conheceu: 0,
+  como_conheceu_detalhes: 0,
+  instagram: 0,
+  linkedin: 0,
+  senha: 0,
+  confirmar_senha: 0,
+  // Step 1 — Endereço
+  cep: 1,
+  logradouro: 1,
+  numero: 1,
+  complemento: 1,
+  bairro: 1,
+  cidade: 1,
+  estado: 1,
+  // Step 3 — Autorizações LGPD
+  autorizacao_uso_dados: 3,
+  autorizacao_comunicacao: 3,
+  autorizacao_retencao_curriculo: 3,
+  autorizacao_analise_video: 3,
+}
+
+/**
+ * Mapa de nome de campo FLAT para o path RHF aninhado.
+ *
+ * Ex.: `email` → `dadosPessoais.email`
+ *      `cep`   → `endereco.cep`
+ *      `autorizacao_uso_dados` → `autorizacoes.autorizacao_uso_dados`
+ *
+ * Consumido por `methods.setError(path, ...)` em Plan 02-06.
+ */
+export const FIELD_TO_STEP_PATH: Record<string, string> = {
+  // Dados Pessoais
+  nome_completo: 'dadosPessoais.nome_completo',
+  cpf: 'dadosPessoais.cpf',
+  email: 'dadosPessoais.email',
+  telefone: 'dadosPessoais.telefone',
+  data_nascimento: 'dadosPessoais.data_nascimento',
+  genero: 'dadosPessoais.genero',
+  como_conheceu: 'dadosPessoais.como_conheceu',
+  como_conheceu_detalhes: 'dadosPessoais.como_conheceu_detalhes',
+  instagram: 'dadosPessoais.instagram',
+  linkedin: 'dadosPessoais.linkedin',
+  senha: 'dadosPessoais.senha',
+  confirmar_senha: 'dadosPessoais.confirmar_senha',
+  // Endereço
+  cep: 'endereco.cep',
+  logradouro: 'endereco.logradouro',
+  numero: 'endereco.numero',
+  complemento: 'endereco.complemento',
+  bairro: 'endereco.bairro',
+  cidade: 'endereco.cidade',
+  estado: 'endereco.estado',
+  // Autorizações LGPD
+  autorizacao_uso_dados: 'autorizacoes.autorizacao_uso_dados',
+  autorizacao_comunicacao: 'autorizacoes.autorizacao_comunicacao',
+  autorizacao_retencao_curriculo: 'autorizacoes.autorizacao_retencao_curriculo',
+  autorizacao_analise_video: 'autorizacoes.autorizacao_analise_video',
 }
