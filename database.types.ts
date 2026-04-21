@@ -48,7 +48,11 @@ export type Database = {
           candidato_id: string
           created_at: string
           id: string
+          ip_aceite: unknown
+          policy_version: string
           updated_at: string
+          user_agent_aceite: string | null
+          user_id: string | null
         }
         Insert: {
           autorizacao_analise_video?: boolean
@@ -58,7 +62,11 @@ export type Database = {
           candidato_id: string
           created_at?: string
           id?: string
+          ip_aceite?: unknown
+          policy_version?: string
           updated_at?: string
+          user_agent_aceite?: string | null
+          user_id?: string | null
         }
         Update: {
           autorizacao_analise_video?: boolean
@@ -68,7 +76,11 @@ export type Database = {
           candidato_id?: string
           created_at?: string
           id?: string
+          ip_aceite?: unknown
+          policy_version?: string
           updated_at?: string
+          user_agent_aceite?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1517,6 +1529,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limit_check_duplicate: {
+        Row: {
+          called_at: string
+          hash_cpf_email: string
+          id: number
+          x_forwarded_for: string | null
+        }
+        Insert: {
+          called_at?: string
+          hash_cpf_email: string
+          id?: number
+          x_forwarded_for?: string | null
+        }
+        Update: {
+          called_at?: string
+          hash_cpf_email?: string
+          id?: number
+          x_forwarded_for?: string | null
+        }
+        Relationships: []
       }
       respostas_bigfive: {
         Row: {
