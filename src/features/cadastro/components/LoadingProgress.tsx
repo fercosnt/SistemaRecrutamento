@@ -168,7 +168,7 @@ function StageItem({ stage, isFirst, isLast }: StageItemProps) {
 
       {/* Content */}
       <div className="flex-1 space-y-1">
-        <p className={cn('text-sm font-medium', textColor)}>{stage.label}</p>
+        <p className={cn('text-sm font-semibold', textColor)}>{stage.label}</p>
 
         {/* Error Message */}
         {stage.status === 'error' && stage.errorMessage && (

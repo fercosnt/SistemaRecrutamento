@@ -154,7 +154,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
             {/* Title */}
             <div className="text-center space-y-2">
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-2xl font-semibold text-white">
                 {fallbackTitle || 'Ops! Algo deu errado'}
               </h1>
               <p className="text-white/80">

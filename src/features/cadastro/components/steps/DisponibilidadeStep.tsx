@@ -84,7 +84,7 @@ export function DisponibilidadeStep() {
                     className="text-white cursor-pointer flex-1"
                   >
                     <div>
-                      <p className="font-medium">{option.label}</p>
+                      <p className="font-semibold">{option.label}</p>
                       <p className="text-sm text-white/70">
                         {option.description}
                       </p>
@@ -128,7 +128,7 @@ export function DisponibilidadeStep() {
                     className="text-white cursor-pointer flex-1"
                   >
                     <div>
-                      <p className="font-medium">{option.label}</p>
+                      <p className="font-semibold">{option.label}</p>
                       <p className="text-sm text-white/70">
                         {option.description}
                       </p>
