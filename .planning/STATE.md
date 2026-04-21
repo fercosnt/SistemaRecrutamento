@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_context_gathered
-stopped_at: Phase 2 context gathered — ready for /gsd-plan-phase 2
-last_updated: "2026-04-20T20:00:00.000Z"
-last_activity: 2026-04-20 -- Phase 02 CONTEXT.md + DISCUSSION-LOG.md committed (16 decisions)
+status: phase_ui_spec_approved
+stopped_at: Phase 2 UI-SPEC approved (6/6 dimensions) — ready for /gsd-plan-phase 2
+last_updated: "2026-04-20T20:30:00.000Z"
+last_activity: 2026-04-20 -- Phase 02 UI-SPEC.md committed (revised, 2 weights, APPROVED)
 progress:
   total_phases: 5
   completed_phases: 1
@@ -87,6 +87,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-20
-Stopped at: Phase 2 context gathered (4 gray areas discussed, 16 decisions)
-Resume file: .planning/phases/02-cadastro-candidato/02-CONTEXT.md
-Next: run `/gsd-plan-phase 2` to create PLAN.md files for Phase 2
+Stopped at: Phase 2 UI-SPEC approved (6/6 dimensions, 1 revision cycle)
+Resume file: .planning/phases/02-cadastro-candidato/02-UI-SPEC.md
+Next: run `/gsd-plan-phase 2` — planner will use CONTEXT + UI-SPEC
