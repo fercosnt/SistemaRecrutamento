@@ -57,7 +57,6 @@ export function DadosPessoaisStep() {
     result: cpfResult,
   } = useDuplicateCheck(cpf || '', {
     field: 'cpf',
-    debounceMs: 800,
     onDuplicate: (result) => {
       // Definir erro customizado no formulário
       setError('dadosPessoais.cpf', {
@@ -87,7 +86,6 @@ export function DadosPessoaisStep() {
     result: emailResult,
   } = useDuplicateCheck(email || '', {
     field: 'email',
-    debounceMs: 800,
     onDuplicate: (result) => {
       // Definir erro customizado no formulário
       setError('dadosPessoais.email', {

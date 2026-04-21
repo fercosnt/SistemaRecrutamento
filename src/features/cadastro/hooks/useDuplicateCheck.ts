@@ -27,7 +27,7 @@ import type { DuplicateCheckResult, DuplicateCheckField } from '../services/dupl
 interface UseDuplicateCheckOptions {
   /**
    * Tempo de debounce em milissegundos
-   * @default 800
+   * @default 300
    */
   debounceMs?: number
 
@@ -121,7 +121,7 @@ export function useDuplicateCheck(
   options: UseDuplicateCheckOptions
 ): UseDuplicateCheckState {
   const {
-    debounceMs = 800,
+    debounceMs = 300,
     onDuplicate,
     onUnique,
     onError,
