@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_ui_spec_approved
-stopped_at: Phase 2 UI-SPEC approved (6/6 dimensions) — ready for /gsd-plan-phase 2
-last_updated: "2026-04-20T20:30:00.000Z"
-last_activity: 2026-04-20 -- Phase 02 UI-SPEC.md committed (revised, 2 weights, APPROVED)
+status: ready_to_execute
+stopped_at: Phase 2 planning complete (6 plans, 4 waves, VERIFICATION PASSED) — ready for /gsd-execute-phase 2
+last_updated: "2026-04-20T22:00:00.000Z"
+last_activity: 2026-04-20 -- Phase 02 plans committed (6 PLAN.md + VALIDATION.md Per-Task Map)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 5
+  total_plans: 11
   completed_plans: 5
-  percent: 100
+  percent: 45
 ---
 
 # Project State
@@ -87,6 +87,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-20
-Stopped at: Phase 2 UI-SPEC approved (6/6 dimensions, 1 revision cycle)
-Resume file: .planning/phases/02-cadastro-candidato/02-UI-SPEC.md
-Next: run `/gsd-plan-phase 2` — planner will use CONTEXT + UI-SPEC
+Stopped at: Phase 2 planning complete — 6 plans VERIFIED (1 revision, 2 blockers + 3 non-blocking fixed)
+Resume file: .planning/phases/02-cadastro-candidato/02-01-PLAN.md (Wave 0 starts here)
+Next: run `/gsd-execute-phase 2` — executor starts with Wave 0 (SDK upgrade + test scaffolds + audit)
