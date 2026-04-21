@@ -73,21 +73,24 @@ Declared values — all multiples of 4. Aligns with existing `--spacing-*` CSS v
 
 ## Typography
 
-Pulled from `--text-*` CSS variables. Phase 2 uses exactly 4 sizes and 2 weights.
+Pulled from `--text-*` CSS variables. **Exactly 4 sizes and 2 weights (400 regular, 600 semibold). Hierarchy via size, not weight.**
 
-| Role | Size | Weight | Line Height | CSS Variable / Tailwind |
-|------|------|--------|-------------|--------------------------|
-| Body | 16px | 400 (normal) | 1.5 | `--text-base`, `text-base` |
-| Label / Small | 14px | 500 (medium) | 1.4 | `--text-sm`, `text-sm` |
-| Step Heading (H2) | 20px mobile / 24px desktop | 700 (bold) | 1.2 | `text-xl sm:text-2xl font-bold` |
-| Caption / Helper | 12px | 400 (normal) | 1.35 | `--text-xs`, `text-xs` |
+| Token | Size | Weight | Use |
+|-------|------|--------|-----|
+| Body | 16px (`text-base`) | 400 | Form inputs, field text, paragraph microcopy |
+| Helper | 12-14px (`text-xs` / `text-sm`) | 400 | Field helpers, error messages, footnote |
+| Label | 14px (`text-sm`) | 600 | Field labels, checkbox labels, stepper labels |
+| Button | 16px (`text-base`) | 600 | All CTAs (primary, secondary, tertiary) |
+| Heading H2 | 20-24px (`text-xl` / `text-2xl`) | 600 | Step title |
 
 **Rules:**
 - NEVER use placeholder as the only label — all fields MUST have a visible `<Label>` above the input (a11y + HARD-04).
 - NEVER use italic for any user-facing copy.
-- Error messages: `text-sm` (14px), color `text-red-400` on glass surface, paired with `AlertCircle` icon 16px.
-- Success hints: `text-sm` (14px), color `text-green-400` on glass, paired with `CheckCircle2` icon 16px.
-- Field helper text: `text-xs` (12px), color `text-white` at 100% opacity (on dark glass background). DO NOT use `text-white/60` for primary helper text — current a11y risk.
+- Error messages: `text-sm` (14px, weight 400), color `text-red-400` on glass surface, paired with `AlertCircle` icon 16px.
+- Success hints: `text-sm` (14px, weight 400), color `text-green-400` on glass, paired with `CheckCircle2` icon 16px.
+- Field helper text: `text-xs` (12px, weight 400), color `text-white` at 100% opacity (on dark glass background). DO NOT use `text-white/60` for primary helper text — current a11y risk.
+- Step heading (H2) relies on SIZE (20-24px) plus weight 600 for hierarchy — no `font-bold` (700) is used anywhere in Phase 2.
+- No `font-medium` (500) is used anywhere in Phase 2. Any emphasis that would have used weight 500 collapses to `font-semibold` (600).
 
 ---
 
@@ -174,7 +177,7 @@ All 4 checkboxes are visible simultaneously. The mandatory one is the FIRST and 
 | Label text | `Autorizo o uso dos meus dados` |
 | Label weight | `font-semibold` (600) |
 | Red asterisk | Yes — `<span class="text-red-400 ml-1">*</span>` |
-| Badge below description | Yes — `inline-flex px-2 py-1 bg-blue-500/20 rounded text-xs text-blue-300 font-medium` with text `Obrigatório` + `Shield` 12px icon |
+| Badge below description | Yes — `inline-flex px-2 py-1 bg-blue-500/20 rounded text-xs text-blue-300 font-semibold` with text `Obrigatório` + `Shield` 12px icon |
 | Description | See Microcopy Catalog (§ D-15) |
 | Checkbox styling | `bg-white/20 border-white/30 data-[state=checked]:bg-[#00109E] data-[state=checked]:border-[#00109E]` |
 
@@ -195,7 +198,7 @@ All 4 checkboxes are visible simultaneously. The mandatory one is the FIRST and 
 
 - Below the LGPD banner Alert at the top of the step, keep the existing `<button>` linking to `/politica-privacidade` via `window.open('_blank')`.
 - Label: `Política de Privacidade` (not "Saiba mais" — more specific, better accessibility).
-- Style: `text-blue-400 hover:text-blue-300 underline font-medium`.
+- Style: `text-blue-400 hover:text-blue-300 underline font-semibold`.
 - **Policy version display:** immediately below the link, caption text `text-white/70 text-xs`: `Versão {POLICY_VERSION}` — imported from `supabase/functions/_shared/constants.ts` (D-16).
 
 ### Submit Block Rule
@@ -521,16 +524,16 @@ All new styling in Phase 2 MUST use these tokens. Never hardcode new colors/size
 | `--semantic-success` | `#10B981` | Success hints (via `text-green-400` tint), completed stepper circle |
 | `--text-xs` | 12px | Helper text, badges |
 | `--text-sm` | 14px | Labels, inline errors, success hints |
-| `--text-base` | 16px | Body inputs (iOS zoom prevention) |
+| `--text-base` | 16px | Body inputs (iOS zoom prevention), button labels |
 | `--text-xl` / `--text-2xl` | 20 / 24px | Step heading |
-| `--font-weight-normal` | 400 | Body |
-| `--font-weight-medium` | 500 | Labels |
-| `--font-weight-semibold` | 600 | Checkbox labels, button labels |
-| `--font-weight-bold` | 700 | Step heading |
+| `--font-weight-regular` | 400 | Body, helper text, error/success inline copy |
+| `--font-weight-semibold` | 600 | Labels, button labels, step heading (H2), badges |
 | `--radius` | 8px | Input, button, step card |
 | `--radius-lg` | 12px | LGPD checkbox row cards |
 | `--spacing-2/3/4/6/8` | 8/12/16/24/32px | Gaps, padding |
 | `--duration-200` | 200ms | Stepper circle transitions, fadeIn on error field |
+
+**Note on font-weight variables:** `globals.css` may still declare `--font-weight-medium` (500) and `--font-weight-bold` (700) as tokens, but Phase 2 MUST NOT consume them. Only `--font-weight-regular` (400) and `--font-weight-semibold` (600) are in-contract for this phase. Any existing usages of `font-medium` or `font-bold` inside the cadastro surface must be collapsed to `font-semibold` (or `font-normal` if the intent was body text).
 
 ### From Tailwind (derived)
 
@@ -545,6 +548,7 @@ All new styling in Phase 2 MUST use these tokens. Never hardcode new colors/size
 
 - Any new hex color not already listed in `globals.css` `:root`.
 - Any font size outside the `--text-*` scale.
+- Any font weight other than 400 (regular) and 600 (semibold) — **NO `font-medium` (500) and NO `font-bold` (700)** anywhere in Phase 2 surfaces.
 - Any spacing value outside multiples of 4 (except 40px touch target allowed).
 - Any `border-radius` outside `--radius*` scale.
 - Additional shadcn registries (`components.json` is absent; no registry to vet).
@@ -580,7 +584,7 @@ All new styling in Phase 2 MUST use these tokens. Never hardcode new colors/size
 - [ ] Dimension 1 Copywriting: PASS — CTA "Criar conta", empty state N/A (form), error copy cordial pt-BR, destructive confirmations N/A
 - [ ] Dimension 2 Visuals: PASS — no new icons introduced, glass UI consistent, stepper states clear
 - [ ] Dimension 3 Color: PASS — 60 brand-primary / 30 glass-white / 10 accent (reserved for stepper-current + primary CTA + links + mandatory checkbox), destructive red for errors only
-- [ ] Dimension 4 Typography: PASS — exactly 4 sizes (12/14/16/20-24), 2 weights (400 body, 600 label/button, 700 heading counted as third but only used for single H2)
+- [ ] Dimension 4 Typography: PASS — **4 sizes (12/14/16/20-24px) and 2 weights (400/600)** — Dimension 4 compliant.
 - [ ] Dimension 5 Spacing: PASS — all values multiples of 4 except 40px/44px touch targets (declared exceptions)
 - [ ] Dimension 6 Registry Safety: PASS — no external registries; all primitives locally vendored
 
@@ -596,8 +600,9 @@ These bubble up to `/gsd-plan-phase 2` — not UI decisions, but wiring conseque
 2. **LoadingProgress Dialog fate:** this contract says "don't open it for cadastro." Planner must either (a) keep the code dead for potential Phase 4 reuse, or (b) delete and re-add in Phase 4.
 3. **"Finalizar Cadastro" → "Criar conta" rename:** string change in `CadastroMultiStepForm.tsx:506` — planner includes in cadastro form wiring task.
 4. **`POLICY_VERSION` import path:** `supabase/functions/_shared/constants.ts` is Deno-side. Front-end needs a mirror. Planner decides: duplicate constant in `src/features/cadastro/constants.ts` (simple) or share via build-time import (complex, not worth it for one constant).
+5. **Font-weight sweep:** as part of the cadastro wiring task, planner must grep `src/features/cadastro/` for `font-medium` / `font-bold` occurrences and collapse each one to `font-semibold` (or `font-normal` if the original intent was body text) to satisfy the Dimension 4 contract.
 
 ---
 
-*Written: 2026-04-20 by gsd-ui-researcher*
+*Written: 2026-04-20 by gsd-ui-researcher · Revised 2026-04-20 (Dimension 4 typography fix)*
 *Phase: 02-cadastro-candidato*
