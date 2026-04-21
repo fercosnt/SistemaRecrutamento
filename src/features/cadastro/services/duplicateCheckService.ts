@@ -67,19 +67,36 @@ export interface DuplicateCheckResult {
 
 /**
  * Resposta bruta da RPC check_candidato_duplicate
+ *
+ * Phase 2 Plan 02-05 (D-12 — Wave 1 migration 0005):
+ * - `rate_limited: boolean` agora é SEMPRE presente na resposta (a função
+ *   enforce 30 calls/60s por IP via composite `inet_client_addr()` + `auth.uid()`)
+ * - `cpf_exists` / `email_exists` são `boolean | null` — o servidor retorna
+ *   `null` quando o pedido foi rate-limited (evita revelar existência de
+ *   candidatos sob brute-force)
  */
-interface CheckCandidatoDuplicateResponse {
-  cpf_exists: boolean
-  email_exists: boolean
+export interface CheckCandidatoDuplicateResponse {
+  cpf_exists: boolean | null
+  email_exists: boolean | null
+  rate_limited: boolean
 }
 
 /**
  * Custom Error para verificação de duplicatas
+ *
+ * Phase 2 Plan 02-05: `'RATE_LIMITED'` adicionado ao union para propagar o
+ * flag `rate_limited` da RPC (D-12). Consumers (useDuplicateCheck) devem
+ * exibir toast "Muitas tentativas. Aguarde alguns instantes." e liberar o
+ * campo (não tratar como duplicado).
  */
 export class DuplicateCheckError extends Error {
   constructor(
     message: string,
-    public code: 'INVALID_INPUT' | 'NETWORK_ERROR' | 'DATABASE_ERROR',
+    public code:
+      | 'INVALID_INPUT'
+      | 'NETWORK_ERROR'
+      | 'DATABASE_ERROR'
+      | 'RATE_LIMITED',
     public field?: DuplicateCheckField
   ) {
     super(message)
@@ -144,13 +161,15 @@ export function isValidEmailFormat(email: string): boolean {
  *
  * @param cpfCleaned - CPF ja limpo (apenas digitos). Passe string vazia para pular o check.
  * @param emailCleaned - Email ja limpo (lowercase + trim). Passe string vazia para pular.
- * @returns { cpf_exists, email_exists }
- * @throws {DuplicateCheckError} em erro de rede/banco
+ * @returns { cpf_exists, email_exists, rate_limited: false } narrowed — o
+ *          helper NUNCA retorna com `rate_limited=true` (throws antes)
+ * @throws {DuplicateCheckError} em erro de rede/banco OU `RATE_LIMITED` quando
+ *         a RPC indica excesso de chamadas
  */
 async function callDuplicateRpc(
   cpfCleaned: string,
   emailCleaned: string
-): Promise<CheckCandidatoDuplicateResponse> {
+): Promise<{ cpf_exists: boolean; email_exists: boolean; rate_limited: false }> {
   // NOTE: The RPC signature is not yet present in database.types.ts — that
   // file is regenerated via `npm run db:types` after the migrations ship to
   // the Supabase project (see .planning/phases/01-foundation-saneada/01-04-CHECKPOINT.md).
@@ -173,10 +192,10 @@ async function callDuplicateRpc(
     )
   }
 
-  // A RPC retorna jsonb { cpf_exists: bool, email_exists: bool }. Validamos
+  // A RPC retorna jsonb { cpf_exists, email_exists, rate_limited }. Validamos
   // a forma defensivamente — em produção o supabase-js tipa como `unknown`.
-  const response = data as unknown as CheckCandidatoDuplicateResponse | null
-  if (!response || typeof response.cpf_exists !== 'boolean' || typeof response.email_exists !== 'boolean') {
+  const response = data as unknown as Partial<CheckCandidatoDuplicateResponse> | null
+  if (!response) {
     console.error('Invalid shape returned by check_candidato_duplicate RPC:', data)
     throw new DuplicateCheckError(
       'Resposta inesperada do servidor ao verificar duplicatas.',
@@ -184,7 +203,33 @@ async function callDuplicateRpc(
     )
   }
 
-  return response
+  // Phase 2 D-12: rate-limit gate precede a validação dos booleans — quando
+  // excedido, o servidor retorna { cpf_exists: null, email_exists: null,
+  // rate_limited: true } e o client deve exibir toast cordial sem tratar
+  // como duplicado.
+  if (response.rate_limited === true) {
+    throw new DuplicateCheckError(
+      'Muitas tentativas. Aguarde alguns instantes.',
+      'RATE_LIMITED'
+    )
+  }
+
+  if (
+    typeof response.cpf_exists !== 'boolean' ||
+    typeof response.email_exists !== 'boolean'
+  ) {
+    console.error('Invalid shape returned by check_candidato_duplicate RPC:', data)
+    throw new DuplicateCheckError(
+      'Resposta inesperada do servidor ao verificar duplicatas.',
+      'DATABASE_ERROR'
+    )
+  }
+
+  return {
+    cpf_exists: response.cpf_exists,
+    email_exists: response.email_exists,
+    rate_limited: false,
+  }
 }
 
 /**

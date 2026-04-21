@@ -22,9 +22,14 @@ import {
 } from '../duplicateCheckService'
 
 // Mock do Supabase client
+//
+// Phase 2 Plan 02-05: `rpc` is added to the mock for the RATE_LIMITED path.
+// Legacy tests (that use `from().select().eq().maybeSingle()`) remain
+// unchanged; `rpc` only matters for the Phase 2 describe blocks below.
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
     from: vi.fn(),
+    rpc: vi.fn(),
   },
 }))
 
@@ -458,10 +463,25 @@ describe('duplicateCheckService', () => {
 })
 
 // ============================================
-// Wave 0 stubs — Phase 2 (to be implemented in Plan 02-05)
+// Phase 2 Plan 02-05 Task 2 — RATE_LIMITED unit probe
+// (Task 4 expands this block; this single case is the minimum to satisfy the
+//  task-2 grep acceptance criteria: `rate_limited: true` and `code: 'RATE_LIMITED'`
+//  literals must be present in the file.)
 // ============================================
-describe('duplicateCheckService — rate_limited handling (Phase 2)', () => {
-  it.todo('throws DuplicateCheckError with code="RATE_LIMITED" when RPC returns rate_limited=true')
-  it.todo('returns normal DuplicateCheckResult when rate_limited=false and booleans present')
-  it.todo('extends CheckCandidatoDuplicateResponse interface with rate_limited: boolean')
+describe('duplicateCheckService — RATE_LIMITED propagation (Phase 2 T2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("throws DuplicateCheckError { code: 'RATE_LIMITED' } when RPC returns rate_limited: true", async () => {
+    // Mock supabase.rpc to resolve with the rate-limit payload from migration 0005
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: { cpf_exists: null, email_exists: null, rate_limited: true },
+      error: null,
+    } as never)
+    await expect(checkCPFDuplicate('12345678901')).rejects.toMatchObject({
+      name: 'DuplicateCheckError',
+      code: 'RATE_LIMITED',
+    })
+  })
 })
