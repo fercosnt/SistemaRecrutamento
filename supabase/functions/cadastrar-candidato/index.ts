@@ -149,6 +149,27 @@ Deno.serve(async (req: Request) => {
   const cleanedCpf = input.cpf.replace(/\D/g, '')
   const cleanedTelefone = input.telefone.replace(/\D/g, '')
 
+  // Formata celular para o padrão aceito pela CHECK constraint `check_celular_format`
+  // em public.candidatos: (XX) XXXXX-XXXX (11 dígitos) ou (XX) XXXX-XXXX (10 dígitos).
+  // Inserir só dígitos falha com check violation. Formato legado herdado de SQL manuais
+  // pré-Phase 1 — mantemos compatibilidade com dados existentes em vez de relaxar CHECK.
+  const formattedCelular = cleanedTelefone.length === 11
+    ? `(${cleanedTelefone.slice(0, 2)}) ${cleanedTelefone.slice(2, 7)}-${cleanedTelefone.slice(7, 11)}`
+    : cleanedTelefone.length === 10
+      ? `(${cleanedTelefone.slice(0, 2)}) ${cleanedTelefone.slice(2, 6)}-${cleanedTelefone.slice(6, 10)}`
+      : cleanedTelefone // fallback — deixa o CHECK rejeitar se for inválido
+
+  // Formata CPF para o padrão aceito pela CHECK constraint `check_cpf_format`
+  // em public.candidatos: XXX.XXX.XXX-XX. Mesmo motivo do celular — dados
+  // legados estão no formato pontuado, manter consistência em vez de relaxar CHECK.
+  // NOTA: esta discrepância com o RPC check_candidato_duplicate (que compara
+  // contra digits-only) está documentada como carryover Phase 3 — duplicate
+  // check via RPC sempre retorna false para CPF; UNIQUE constraint no insert
+  // é o safety net que captura e mapeia para CPF_EXISTS.
+  const formattedCpf = cleanedCpf.length === 11
+    ? `${cleanedCpf.slice(0, 3)}.${cleanedCpf.slice(3, 6)}.${cleanedCpf.slice(6, 9)}-${cleanedCpf.slice(9, 11)}`
+    : cleanedCpf // fallback — CHECK rejeita se inválido (Zod já validou DV acima)
+
   const { data: authData, error: authError } =
     await supabaseAdmin.auth.admin.createUser({
       email: input.email,
@@ -181,8 +202,8 @@ Deno.serve(async (req: Request) => {
     user_id: userId,
     nome_completo: input.nome_completo,
     email: input.email,
-    celular: cleanedTelefone,
-    cpf: cleanedCpf,
+    celular: formattedCelular,
+    cpf: formattedCpf,
     data_nascimento: input.data_nascimento,
     genero: input.genero ?? null,
     cidade: endereco.cidade ?? '',
@@ -230,12 +251,19 @@ Deno.serve(async (req: Request) => {
   // mas falha não deve bloquear o cadastro.
   let disponibilidadeId: string | undefined
   if (input.disponibilidade && Object.keys(input.disponibilidade).length > 0) {
+    // Mapeamento de nomenclatura entre schema do contrato (Zod) e colunas reais
+    // do DB. A tabela `disponibilidade` tem:
+    //   periodo_disponivel (NOT NULL) — equivalente a turno_preferido do client
+    //   regime_trabalho    (NOT NULL) — equivalente a modelo_trabalho do client
+    // Mantemos o nome pt-BR no client/Zod por compatibilidade com forms existentes,
+    // e mapeamos aqui. Fallback "nao_informado" para satisfazer NOT NULL quando
+    // candidato pula os campos opcionais no multi-step.
     const { data: dispData, error: dispError } = await supabaseAdmin
       .from('disponibilidade')
       .insert({
         candidato_id: candidatoId,
-        turno_preferido: input.disponibilidade.turno_preferido ?? null,
-        modelo_trabalho: input.disponibilidade.modelo_trabalho ?? null,
+        periodo_disponivel: input.disponibilidade.turno_preferido ?? 'nao_informado',
+        regime_trabalho: input.disponibilidade.modelo_trabalho ?? 'nao_informado',
         disponibilidade_imediata:
           input.disponibilidade.disponibilidade_imediata ?? false,
         data_disponibilidade: input.disponibilidade.data_disponibilidade ?? null,
@@ -276,7 +304,9 @@ Deno.serve(async (req: Request) => {
       autorizacao_analise_video:
         input.autorizacoes.autorizacao_analise_video ?? false,
       ip_aceite: ipAceite,
-      data_aceite: new Date().toISOString(),
+      // NOTA: data_aceite NÃO existe na tabela (auditamos em 02-AUDIT-RESULTS.md
+      // e decidimos não criar — é redundante com created_at que é DEFAULT now()).
+      // Se um dia auditoria pedir coluna explicitamente nomeada, usar view/alias.
       policy_version: POLICY_VERSION,
     })
     .select('id')
