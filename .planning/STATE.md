@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: wave_2_partial
-stopped_at: Phase 2 Wave 2 services+hooks green — only 02-03 (Edge Function) remains before Wave 3 form wiring (02-06)
-last_updated: "2026-04-21T04:03:00.000Z"
-last_activity: 2026-04-21 -- Plan 02-05 complete (119 passing service tests, CadastroError evolved, tryAutoLogin + FIELD_TO_STEP tables exported, RATE_LIMITED flag honored)
+status: wave_2_complete
+stopped_at: Phase 2 Wave 2 complete — plans 02-03/02-04/02-05 all landed; Edge Function redeployed + UAT-passed; ready for Wave 3 (02-06)
+last_updated: "2026-04-21T05:00:00.000Z"
+last_activity: 2026-04-21 -- Plan 02-03 complete (EF redeployed + schema-aligned via UAT)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_plans: 9
+  percent: 82
 ---
 
 # Project State
@@ -25,31 +25,31 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 ## Current Position
 
-Phase: 02 (cadastro-candidato) — Wave 2 mostly green (4/6 plans complete)
-Plan: 02-05 complete. 02-01, 02-02, 02-04, 02-05 done. Pending: 02-03 (Edge Function deploy/contract), 02-06 (form wiring).
-Status: Services stream (Wave 2) green. 119 passing service tests. cadastroService routes error_code -> CadastroError.code + field; tryAutoLogin (D-02 single-retry + 500ms backoff) exported; FIELD_TO_STEP_INDEX/PATH tables exported for 02-06 consumer. duplicateCheckService honors RPC `rate_limited` flag with RATE_LIMITED code.
-Last activity: 2026-04-21 -- Plan 02-05 complete (4 atomic commits: 96e820d, a9de922, fbdbb27, 0693fa7)
+Phase: 02 (cadastro-candidato) — Wave 2 complete (3/3 plans); Wave 3 ready (02-06)
+Plan: 02-03 complete. 02-01, 02-02, 02-03, 02-04, 02-05 done. Pending: 02-06 (form wiring — Wave 3 last).
+Status: Wave 2 fully green. Edge Function `cadastrar-candidato` redeployed with `--no-verify-jwt` (resolves KNOWN-ISSUES Bug 4) and UAT-passed on 3 live smoke tests (VALIDATION+field=email on empty body; EMAIL_EXISTS+field=email on duplicate; ok=true+4 IDs on valid create). Schema-alignment hotfix in commit `9547d65` normalized cpf/celular formatting at EF boundary, dropped obsolete `data_aceite`, and translated disponibilidade field names — created one downstream carryover (RPC `check_candidato_duplicate` cpf_exists always-false) tracked as Bug 6 in KNOWN-ISSUES-CARRYOVER-PHASE-3.md, with UNIQUE-constraint + error-message-match serving as the CPF_EXISTS safety net.
+Last activity: 2026-04-21 -- Plan 02-03 complete (3 atomic commits: df3f752, 2796405, 9547d65)
 
-Progress: [#######---] 73% (milestone M1 — Phase 1 done + Phase 2 Wave 2 nearly complete)
+Progress: [########--] 82% (milestone M1 — Phase 1 done + Phase 2 Wave 2 complete; only 02-06 + Phases 3/4/5 remain)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 8
-- Recent plan durations (Phase 2 Wave 2 stream): 02-02 (~15 min migration + types regen), 02-04 (~20 min hooks stream), 02-05 (~10 min services stream)
-- Total execution time for Phase 2 so far: ~45 min
+- Total plans completed: 9
+- Recent plan durations (Phase 2 Wave 2 stream): 02-02 (~15 min migration + types regen), 02-04 (~20 min hooks stream), 02-05 (~10 min services stream), 02-03 (~50 min EF rewrite + user-gated deploy + UAT schema-alignment hotfix)
+- Total execution time for Phase 2 so far: ~95 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| Phase 2 | 4/6 | ~45 min | ~11 min |
+| Phase 2 | 5/6 | ~95 min | ~19 min |
 
 **Recent Trend:**
 
-- Last 3 plans: 02-02 migration, 02-04 hooks, 02-05 services — all completed under 25 min each
-- Trend: Wave 2 velocity high — pre-structured plans with tight <verify> gates execute without checkpoints
+- Last 4 plans: 02-02 migration, 02-04 hooks, 02-05 services, 02-03 EF deploy — all Wave-1+2 work landed. 02-03 was the longest due to human-action checkpoint (deploy) + live UAT surfacing a schema-divergence bug that required a hotfix commit.
+- Trend: Autonomous-only plans (02-02/02-04/02-05) all under 25 min; plans with human-action checkpoints + live UAT (02-03) land in ~50 min with schema-alignment hotfixes being the dominant time.
 
 *Updated after each plan completion*
 
@@ -70,6 +70,9 @@ Recent decisions affecting current work:
 - [02-05]: callDuplicateRpc return type narrowed to non-null booleans despite widened response interface — the rate_limited=true branch throws, so the resolved return path is statically known to have booleans. Avoids non-null assertions at call sites
 - [02-05]: FIELD_TO_STEP_INDEX / FIELD_TO_STEP_PATH exported as fixed whitelists (not helper functions) — O(1) lookup + undefined-check enforces T-02-11 mitigation (unknown server `field` values fall through to generic toast)
 - [02-05]: Pitfall 7 redaction idiom — logs emit `{ email, nome, hasPassword: Boolean(senha) }` instead of raw `data`; invokeError stripped to `.message || String(err)` before logging to prevent SDK body leakage
+- [02-03]: Keep legacy `error` alias as verbatim copy of `message` in Edge Function error body during Phase 2→3 transition — protects any cached Phase-1 client bundles from displaying `undefined`; drop alias in Phase 3 per T-02-03
+- [02-03]: Format cpf and celular to DB-canonical strings (`XXX.XXX.XXX-XX`, `(XX) XXXXX-XXXX`) inside the Edge Function write boundary rather than mutating the Zod schema or DB — lets the client continue submitting either digits-only or masked values while satisfying DB CHECK constraints. Trade-off: creates carryover that RPC `check_candidato_duplicate` cpf_exists compares digits-only vs formatted column and always returns false (Bug 6 in KNOWN-ISSUES-CARRYOVER-PHASE-3.md). UNIQUE constraint is the safety net
+- [02-03]: Translate disponibilidade field names at the EF write boundary (`turno_preferido` → `periodo_disponivel`, `modelo_trabalho` → `regime_trabalho`) instead of renaming Zod schema fields — isolates blast radius from client form state. Drop `data_aceite` from autorizacoes INSERT (column does not exist in real schema)
 
 ### Pending Todos
 
@@ -79,10 +82,11 @@ None yet.
 
 - **Resolved in Phase 1:** service_role removed from bundle (verified: 0 matches in build/assets/*.js)
 - **Resolved in Phase 1:** auth store unified (extractRole bug deferred to Phase 3 — see KNOWN-ISSUES-CARRYOVER-PHASE-3.md)
+- **Resolved in Phase 2 Plan 02-03 (2026-04-21):** Edge Function `cadastrar-candidato` redeployed with `--no-verify-jwt` (Bug 4 closed); contract evolved to `{ ok, error_code, message, field? }` with legacy `error` alias; policy_version written to every autorizacoes row. 3 live smoke tests passed (VALIDATION + EMAIL_EXISTS + ok=true valid create).
 - **Deferred to Phase 3:** extractRole reads `session.user.app_metadata` (SDK-populated, missing role) instead of JWT payload
 - **Deferred to Phase 3:** LoginRHPage legacy setters bypass role validation
+- **Deferred to Phase 3 (NEW from 02-03 UAT):** RPC `check_candidato_duplicate` cpf_exists always returns false — compares client-supplied digits-only CPF vs now-formatted `candidatos.cpf` column. UNIQUE constraint on `candidatos.cpf` + EF unique-violation branch maps to `CPF_EXISTS` + `field: 'cpf'` via error-message substring match, so the user still gets correct form-level feedback at submit-time (just not at debounce-time). Fix: migration that normalizes CPF inside the RPC (strip formatting before compare). Tracked as Bug 6 in KNOWN-ISSUES-CARRYOVER-PHASE-3.md.
 - **Deferred to Phase 4:** useVagas() queries non-existent `ativa` column (schema uses `status` enum)
-- **Pending manual:** Edge Function `cadastrar-candidato` not yet deployed (see 01-05-CHECKPOINT.md) — cadastro runtime broken until deployed
 - 103 RLS policies still need audit (deferred from Phase 1 scope)
 
 ## Deferred Items
@@ -99,6 +103,6 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 ## Session Continuity
 
 Last session: 2026-04-21
-Stopped at: Phase 2 Wave 2 — Plan 02-05 (services stream) complete. 119 passing service tests, 4 atomic commits (96e820d, a9de922, fbdbb27, 0693fa7).
-Resume file: .planning/phases/02-cadastro-candidato/02-05-SUMMARY.md (handoff to 02-06 CadastroMultiStepForm wiring + 02-03 Edge Function contract deploy)
-Next: run `/gsd-execute-phase 2` to continue — 02-03 Edge Function (error_code contract + deploy) is the last Wave 2 piece; then 02-06 wires the Wave-2 primitives into the multi-step form.
+Stopped at: Phase 2 Wave 2 complete — plans 02-03/02-04/02-05 all landed; Edge Function redeployed + UAT-passed; ready for Wave 3 (02-06). 02-03 landed via 3 atomic commits (df3f752 T1 shared constants+schemas; 2796405 T2 EF rewrite; 9547d65 UAT schema alignment hotfix) + this docs commit.
+Resume file: .planning/phases/02-cadastro-candidato/02-03-SUMMARY.md (Wave 2 closeout handoff). For next session, start from .planning/phases/02-cadastro-candidato/02-06-PLAN.md.
+Next: run `/gsd-execute-phase 2` to continue — only 02-06 (CadastroMultiStepForm wiring + AutorizacoesStep LGPD layout + font-weight sweep + E2E 6 cases, Wave 3) remains in Phase 2. All primitives live: structured EF error contract, service-layer error_code routing, useCadastroDraft + useLeaveGuard hooks, 300ms debounce default, FIELD_TO_STEP tables, RATE_LIMITED handling, tryAutoLogin.

@@ -1,9 +1,9 @@
 # Phase 1 — Known Issues (Carryover to Phase 3: Login + Recuperação de Senha)
 
-**Data de identificação:** 2026-04-20
+**Data de identificação inicial:** 2026-04-20
 **Descoberto em:** Post-Wave-2 manual validation (Custom Access Token Hook + type regen)
-**Status:** 3 bugs documentados, **não bloqueantes para fechar Phase 1**
-**Resolução natural:** Phase 3 reescreve os fluxos de login (conforme roadmap).
+**Status:** 6 bugs documentados (Bugs 4 e 5 resolvidos em Phase 2; Bug 6 adicionado 2026-04-21 em Phase 2 Plan 02-03 UAT), **não bloqueantes para fechar Phase 1 ou Phase 2**
+**Resolução natural:** Phase 3 reescreve os fluxos de login e trata carryovers do cadastro (conforme roadmap).
 
 ---
 
@@ -185,6 +185,75 @@ Fix adicionais que o upgrade pode destravar:
 
 ---
 
+## Bug 6 — RPC `check_candidato_duplicate` sempre retorna cpf_exists=false [PHASE 3 SCOPE]
+
+**Arquivo:** migration que criou/patchou a RPC — ver `supabase/migrations/0004_*.sql` (criação, Plan 01-04 FOUND-10) + `supabase/migrations/0005_*.sql` (patch rate_limit, Plan 02-02)
+
+**Descoberto em:** Plan 02-03 live UAT (2026-04-21) — side-effect da fix de schema alignment em commit `9547d65`.
+
+**Sintoma:**
+- `useDuplicateCheck` para o campo CPF no formulário de cadastro sempre reporta "CPF disponível" (sem feedback pre-submit ao usuário), mesmo para CPFs que já existem no DB.
+- `supabase.rpc('check_candidato_duplicate', { p_cpf: '12345678900', p_email: '...' })` retorna `cpf_exists: false` para qualquer CPF já cadastrado.
+
+**Causa raiz:**
+Plan 02-03 (commit `9547d65`) corrigiu um schema-mismatch na Edge Function: a tabela `candidatos` tem CHECK constraint exigindo CPF no formato `XXX.XXX.XXX-XX`, mas o cliente enviava digits-only (`cleanCPF()`). A EF passou a formatar no write-boundary para satisfazer a constraint.
+
+Consequência não prevista: a RPC `check_candidato_duplicate` compara o `p_cpf` recebido (digits-only do cliente) contra `candidatos.cpf` (agora sempre formatado no DB). `'12345678900' = '123.456.789-00'` é sempre false → `cpf_exists` sempre false.
+
+Email não é afetado — EF não formata email.
+
+**Safety net atual:**
+1. Constraint UNIQUE em `candidatos.cpf` dispara em INSERT-time.
+2. A branch de unique-violation em `cadastrar-candidato/index.ts` faz `raw.toLowerCase().includes('cpf')` → emite `errorResponse('CPF_EXISTS', 'Este CPF já está cadastrado.', 'cpf')`.
+3. Usuário ainda recebe um erro correto de form-level (via `cadastroService` routing para `CadastroError { code: 'CPF_EXISTS', field: 'cpf' }`), só não recebe o feedback em debounce-time como acontece com email.
+
+**Fix proposto (Phase 3 — migration nova 0006 ou equivalente):**
+Normalizar CPF dentro da RPC antes da comparação. Tanto o `p_cpf` de entrada quanto o valor da coluna devem ter formatação removida para comparação:
+
+```sql
+CREATE OR REPLACE FUNCTION public.check_candidato_duplicate(
+  p_cpf text,
+  p_email text,
+  p_client_id text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_cpf_clean text := regexp_replace(COALESCE(p_cpf, ''), '[^0-9]', '', 'g');
+  v_email_lower text := lower(trim(COALESCE(p_email, '')));
+  -- ... rate_limit logic preservada ...
+BEGIN
+  RETURN jsonb_build_object(
+    'cpf_exists', EXISTS(
+      SELECT 1 FROM public.candidatos
+      WHERE regexp_replace(cpf, '[^0-9]', '', 'g') = v_cpf_clean
+    ),
+    'email_exists', EXISTS(
+      SELECT 1 FROM public.candidatos
+      WHERE lower(email) = v_email_lower
+    ),
+    'rate_limited', false
+  );
+END;
+$$;
+```
+
+Alternativa mais performática: criar um índice funcional em `regexp_replace(cpf, '[^0-9]', '', 'g')` para que o EXISTS escaneie via índice. Detalhamento fica para o plano de Phase 3 quando a migration for escrita.
+
+**Adicionar ao plano de Phase 3:**
+- "AUTH-RPC-01 — Migration para normalizar CPF dentro de check_candidato_duplicate (digits-only compare on both sides)"
+
+**Referências:**
+- Plan 02-03 SUMMARY: `.planning/phases/02-cadastro-candidato/02-03-SUMMARY.md` — seção "Known Issues / Carryovers Created by This Plan"
+- Commit `9547d65`: `fix(02-03): align Edge Function inserts with actual candidatos/disponibilidade/autorizacoes schema`
+- Migration 0004 (RPC original, pré-formatação): `supabase/migrations/0004_*.sql`
+- Migration 0005 (RPC + rate_limit patch): `supabase/migrations/0005_*.sql`
+
+---
+
 ## Impacto em Acceptance Criteria do Phase 1
 
 | Critério FOUND-* | Status |
@@ -213,11 +282,12 @@ Fix adicionais que o upgrade pode destravar:
    - Adicionar ao PLAN.md da Phase 2: "CAD-DEPLOY-01 — Redeploy Edge Function com `--no-verify-jwt`"
    - Adicionar ao PLAN.md da Phase 2: "CAD-DEPS-01 — Upgrade @supabase/supabase-js para >= 2.50.x (suporte sb_publishable_)"
    - Bug 2 (LoginRH forge) não bloqueia Phase 2 (cadastro usa signUp via Edge Function, não login).
-3. **Phase 3 (Login + Recuperação):** tratar Bugs 1 e 2 + AUTH-TABS via requirements explícitos:
+3. **Phase 3 (Login + Recuperação):** tratar Bugs 1, 2 e 6 + AUTH-TABS via requirements explícitos:
    - Adicionar ao PLAN.md da Phase 3: "AUTH-JWT-01 — Substituir `extractRole` por decodificação direta do JWT (jwt-decode)"
    - Adicionar ao PLAN.md da Phase 3: "AUTH-JWT-02 — Quando JWT tem role claim, ele é autoritativo (DB fallback só quando claim ausente)"
    - Adicionar ao PLAN.md da Phase 3: "AUTH-LOGIN-01/02 — Rejeitar login quando JWT role diverge do formulário usado (LoginCandidato ↔ LoginRH)"
    - Adicionar ao PLAN.md da Phase 3: "AUTH-TABS-01/02 — Coexistência multi-tab + cross-tab logout via BroadcastChannel"
+   - Adicionar ao PLAN.md da Phase 3: "AUTH-RPC-01 — Migration para normalizar CPF dentro de `check_candidato_duplicate` (digits-only compare on both sides; Bug 6)"
 4. **Phase 4 (Vagas + Candidatura):** já aborda Bug 3 naturalmente.
 
 ---
