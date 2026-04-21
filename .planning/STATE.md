@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: wave_0_complete
-stopped_at: Phase 2 Wave 0 complete — Plan 02-02 needs revision before Wave 1 (audit findings)
-last_updated: "2026-04-20T23:50:00.000Z"
-last_activity: 2026-04-20 -- Plan 02-01 complete (SDK upgrade, test stubs, audit captured)
+status: wave_1_ready
+stopped_at: Phase 2 Wave 0 complete + Plan 02-02 revised & re-verified — ready for /gsd-execute-phase 2 Wave 1
+last_updated: "2026-04-21T00:10:00.000Z"
+last_activity: 2026-04-20 -- Plan 02-02 revised for audit findings (hybrid rate-limit, user_agent_aceite, no data_aceite)
 progress:
   total_phases: 5
   completed_phases: 1
