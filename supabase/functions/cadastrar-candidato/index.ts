@@ -13,10 +13,14 @@
  * contas órfãs. Best-effort steps (disponibilidade, autorizacoes) NÃO
  * disparam rollback — falha de tabela inexistente não deve derrubar o cadastro.
  *
- * Contract (D-01b):
+ * Contract (D-05, D-08 — Phase 2):
  *   body   -> ver `_shared/schemas.ts` (`cadastroCandidatoSchema`)
- *   return -> { ok: true,  data: { userId, candidatoId } }
- *          OR { ok: false, error: string }
+ *   return -> { ok: true,  data: { userId, candidatoId, disponibilidadeId?, autorizacoesId? } }
+ *          OR { ok: false, error_code: 'EMAIL_EXISTS' | 'CPF_EXISTS' | 'VALIDATION' | 'SERVER_ERROR',
+ *               message: string,
+ *               field?: string,
+ *               error: string   // legacy alias of `message` — drop in Phase 3
+ *             }
  *
  * Chamado por: `src/features/cadastro/services/cadastroService.ts`
  * via `supabase.functions.invoke('cadastrar-candidato', { body })`.
@@ -32,7 +36,13 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { cadastroCandidatoSchema, type CadastroCandidatoInput } from '../_shared/schemas.ts'
+import { POLICY_VERSION } from '../_shared/constants.ts'
+import {
+  cadastroCandidatoSchema,
+  zodPathToFieldName,
+  type CadastroCandidatoInput,
+  type CadastroErrorCode,
+} from '../_shared/schemas.ts'
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -61,6 +71,30 @@ function jsonResponse(body: unknown, status: number): Response {
   })
 }
 
+/**
+ * Helper para responder com o contract estruturado Phase 2 (D-05, D-08):
+ *   { ok: false, error_code, message, field?, error (legacy alias) }
+ *
+ * O campo `error` duplica `message` apenas durante a janela de transição
+ * Phase 2 → Phase 3 — mantém clients legados (pre-redeploy) funcionais.
+ * Remover em Phase 3 quando 100% do tráfego estiver no novo contract.
+ */
+function errorResponse(
+  code: CadastroErrorCode,
+  message: string,
+  field?: string,
+  status = 400,
+): Response {
+  const body: Record<string, unknown> = {
+    ok: false,
+    error_code: code,
+    message,
+    error: message,
+  }
+  if (field !== undefined) body.field = field
+  return jsonResponse(body, status)
+}
+
 // ---------------------------------------------------------------------------
 // Handler principal
 // ---------------------------------------------------------------------------
@@ -72,7 +106,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== 'POST') {
-    return jsonResponse({ ok: false, error: 'Método não suportado' }, 405)
+    return errorResponse('SERVER_ERROR', 'Método não suportado', undefined, 405)
   }
 
   // ---- 1. Parse + validate body --------------------------------------------
@@ -83,16 +117,14 @@ Deno.serve(async (req: Request) => {
     if (!parsed.success) {
       const firstIssue = parsed.error.errors[0]
       const message = firstIssue?.message || 'Dados de cadastro inválidos'
-      return jsonResponse({ ok: false, error: message }, 400)
+      const field = zodPathToFieldName(firstIssue?.path)
+      return errorResponse('VALIDATION', message, field)
     }
     input = parsed.data
-  } catch (err) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: 'Corpo da requisição inválido (JSON malformado)',
-      },
-      400,
+  } catch (_err) {
+    return errorResponse(
+      'VALIDATION',
+      'Corpo da requisição inválido (JSON malformado)',
     )
   }
 
@@ -101,8 +133,10 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   if (!supabaseUrl || !serviceRoleKey) {
     console.error('[cadastrar-candidato] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env')
-    return jsonResponse(
-      { ok: false, error: 'Configuração do servidor indisponível' },
+    return errorResponse(
+      'SERVER_ERROR',
+      'Configuração do servidor indisponível',
+      undefined,
       500,
     )
   }
@@ -127,13 +161,13 @@ Deno.serve(async (req: Request) => {
     })
 
   if (authError || !authData?.user) {
-    console.error('[cadastrar-candidato] auth.admin.createUser failed:', authError)
+    console.error('[cadastrar-candidato] auth.admin.createUser failed:', authError?.message)
     // Mensagem amigável para o usuário: colidiu com email já cadastrado?
-    const message =
-      authError?.message?.toLowerCase().includes('already')
-        ? 'Este email já está cadastrado.'
-        : authError?.message || 'Não foi possível criar o usuário.'
-    return jsonResponse({ ok: false, error: message }, 400)
+    if (authError?.message?.toLowerCase().includes('already')) {
+      return errorResponse('EMAIL_EXISTS', 'Este email já está cadastrado.', 'email')
+    }
+    const message = authError?.message || 'Não foi possível criar o usuário.'
+    return errorResponse('SERVER_ERROR', message, undefined, 400)
   }
 
   const userId = authData.user.id
@@ -171,19 +205,20 @@ Deno.serve(async (req: Request) => {
     .single()
 
   if (candidatoError || !candidatoRow) {
-    console.error('[cadastrar-candidato] insert candidatos failed:', candidatoError)
+    console.error('[cadastrar-candidato] insert candidatos failed:', candidatoError?.message)
     // Rollback auth user para evitar conta órfã
-    await supabaseAdmin.auth.admin.deleteUser(userId).catch((e) => {
-      console.error('[cadastrar-candidato] rollback deleteUser failed:', e)
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch((rollbackErr) => {
+      console.error('[cadastrar-candidato] rollback deleteUser failed:', { userId, rollbackErr })
     })
-    // Unique violation em cpf/email mapeia para mensagem amigável
-    const raw = candidatoError?.message ?? ''
-    const message = raw.includes('cpf')
-      ? 'Este CPF já está cadastrado.'
-      : raw.includes('email')
-        ? 'Este email já está cadastrado.'
-        : 'Não foi possível registrar o candidato.'
-    return jsonResponse({ ok: false, error: message }, 400)
+    // Unique violation em cpf/email mapeia para error_code estruturado
+    const raw = (candidatoError?.message ?? '').toLowerCase()
+    if (raw.includes('cpf')) {
+      return errorResponse('CPF_EXISTS', 'Este CPF já está cadastrado.', 'cpf')
+    }
+    if (raw.includes('email')) {
+      return errorResponse('EMAIL_EXISTS', 'Este email já está cadastrado.', 'email')
+    }
+    return errorResponse('SERVER_ERROR', 'Não foi possível registrar o candidato.')
   }
 
   const candidatoId = candidatoRow.id as string
@@ -242,6 +277,7 @@ Deno.serve(async (req: Request) => {
         input.autorizacoes.autorizacao_analise_video ?? false,
       ip_aceite: ipAceite,
       data_aceite: new Date().toISOString(),
+      policy_version: POLICY_VERSION,
     })
     .select('id')
     .maybeSingle()
