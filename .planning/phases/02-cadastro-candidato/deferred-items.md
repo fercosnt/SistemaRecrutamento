@@ -43,6 +43,20 @@ were still `.todo` stubs, but they were actually populated with the OLD
 behavior — which broke during Phase 1 service refactors. The fix belongs to
 02-05.
 
+## From Plan 02-05 (services stream D-02/D-05/D-06/D-07/D-12)
+
+### Pre-existing LoadingProgress component test failure
+
+- **`src/features/cadastro/components/__tests__/LoadingProgress.test.tsx`** —
+  1 failure: `"não deve exibir mensagem de erro quando errorMessage ausente"`.
+  Assertion `expect(errorMessages.length).toBeLessThanOrEqual(1)` receives 2.
+  Verified pre-existing via `git checkout 7362935 -- src/features/cadastro/services/` +
+  rerun: same 1/13 failure on that checkout. Not caused by Plan 02-05
+  (services stream only touched `services/` tree). **Owner:** whoever
+  re-touches `LoadingProgress.tsx` (Plan 02-06 rewiring CadastroMultiStepForm
+  will deprecate `LoadingProgress` per UI-SPEC § deprecation — test may
+  become obsolete with the deprecation).
+
 ## Phase 1 Carryover (not discovered during 02-04)
 
 See `.planning/phases/01-foundation-saneada/KNOWN-ISSUES-CARRYOVER-PHASE-3.md`.
