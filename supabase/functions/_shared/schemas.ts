@@ -146,3 +146,48 @@ export const cadastroCandidatoSchema = z.object({
  * funções auxiliares.
  */
 export type CadastroCandidatoInput = z.infer<typeof cadastroCandidatoSchema>
+
+// ============================================================================
+// Phase 2 — Structured error contract (D-05, D-08)
+// ============================================================================
+
+export type CadastroErrorCode =
+  | 'EMAIL_EXISTS'
+  | 'CPF_EXISTS'
+  | 'VALIDATION'
+  | 'SERVER_ERROR'
+
+// `error` is a LEGACY ALIAS of `message` kept during the Phase 2 → 3 transition
+// so old clients (pre-redeploy) do not see `undefined` when the server returns
+// the new contract. Drop `error` in Phase 3.
+export interface CadastroErrorResponse {
+  ok: false
+  error_code: CadastroErrorCode
+  message: string
+  field?: string
+  error?: string
+}
+
+export interface CadastroSuccessResponse {
+  ok: true
+  data: {
+    userId: string
+    candidatoId: string
+    disponibilidadeId?: string
+    autorizacoesId?: string
+  }
+}
+
+// Maps a Zod issue path (e.g. ['endereco', 'cep'] or
+// ['autorizacoes', 'autorizacao_uso_dados']) to a FLAT field name (the leaf
+// segment). Client consumer maps this flat name back to a nested RHF path via
+// FIELD_TO_STEP_PATH in cadastroService.ts. Returns undefined when the path is
+// empty or the leaf is a number (array index — no such case in current schema
+// but defensively handled).
+export function zodPathToFieldName(
+  path: (string | number)[] | undefined,
+): string | undefined {
+  if (!path || path.length === 0) return undefined
+  const leaf = path[path.length - 1]
+  return typeof leaf === 'string' ? leaf : undefined
+}
