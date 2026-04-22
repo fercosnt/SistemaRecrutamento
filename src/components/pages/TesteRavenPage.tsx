@@ -4,7 +4,7 @@ import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Progress } from '../ui/progress';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 // Estrutura de uma questão Raven

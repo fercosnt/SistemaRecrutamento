@@ -3,7 +3,7 @@ import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { CheckCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function InstrucoesDISCPage() {
   const candidatoNome = "Maria Silva"; // Viria do login/sessão

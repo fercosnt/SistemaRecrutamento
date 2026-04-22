@@ -18,7 +18,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 import { Eye, EyeOff, AlertCircle, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { adminLoginSchema, type AdminLoginFormData } from '@/schemas/adminLoginSchema';
 import { supabase } from '@/lib/supabase/client';
 import { useAdminAuthStore } from '@/store/adminAuthStore';

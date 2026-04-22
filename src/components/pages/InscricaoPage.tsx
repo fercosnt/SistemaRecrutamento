@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../ui/checkbox';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FormData {
   nomeCompleto: string;

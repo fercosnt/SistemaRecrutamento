@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function InstrucoesBigFivePage() {
   const candidatoNome = "Maria Silva"; // Viria do login/sessão

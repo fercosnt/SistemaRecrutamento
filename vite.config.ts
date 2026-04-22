@@ -17,9 +17,18 @@
     },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+      // NOTE: `sonner@2.0.3` alias REMOVED in fix(02-06): Vite's optimizeDeps
+      // fingerprints aliased specifiers as DISTINCT pre-bundle entries. The
+      // cache ends up with both `sonner.js` and `sonner@2__0__3.js`, each
+      // producing a separate ES module instance with its own internal
+      // ToastState singleton. The Toaster in App.tsx subscribed to one
+      // instance while `toast.info(...)` calls from versioned-specifier pages
+      // wrote into the other, so toasts never rendered. Fix: rewrite every
+      // `from 'sonner@2.0.3'` import to `from 'sonner'` and drop the alias.
+      // `resolve.dedupe: ['sonner']` enforces a single copy as belt+braces.
+      dedupe: ['sonner'],
       alias: {
         'vaul@1.1.2': 'vaul',
-        'sonner@2.0.3': 'sonner',
         'recharts@2.15.2': 'recharts',
         'react-resizable-panels@2.1.7': 'react-resizable-panels',
         'react-hook-form@7.55.0': 'react-hook-form',

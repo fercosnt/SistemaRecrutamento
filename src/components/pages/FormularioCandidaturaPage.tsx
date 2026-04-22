@@ -4,7 +4,7 @@ import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Upload, FileText, CheckCircle, ChevronDown } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { notifyCandidatoCriado } from '@/features/cadastro/services/n8nService';
 

@@ -9,7 +9,7 @@ import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Eye, EyeOff, Mail, MessageCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { loginSchema, type LoginFormData } from '@/schemas/loginSchema';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/store/authStore';

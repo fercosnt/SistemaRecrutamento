@@ -201,8 +201,15 @@ test.describe('Cadastro de Candidato - Fluxo Completo', () => {
 
     await page.click('button:has-text("Criar conta")')
 
-    // Sonner toast with the mandatory-LGPD copy (D-15)
-    await expect(page.locator('text=/Para criar sua conta, você precisa autorizar o uso dos dados/')).toBeVisible({ timeout: 3000 })
+    // Sonner toast with the mandatory-LGPD copy (D-15). The same copy also
+    // appears as an inline `<p role="alert">` next to the checkbox, so we
+    // scope the assertion to the Sonner toaster region to avoid strict-mode
+    // violation from two matches. Pre-fix(02-06) only the inline alert
+    // existed (the toast never rendered due to the split-instance Sonner
+    // bug); Bug A fix brings the toast back and makes both elements visible.
+    await expect(
+      page.getByLabel('Notifications alt+T').getByText('Para criar sua conta, você precisa autorizar o uso dos dados.')
+    ).toBeVisible({ timeout: 3000 })
     // URL must NOT have navigated to /candidato/perfil
     expect(page.url()).toContain('/cadastro')
   })
@@ -247,6 +254,45 @@ test.describe('Cadastro de Candidato - Fluxo Completo', () => {
     // Skipped by default per Pitfall 5 (hard to trigger deterministically in
     // E2E; integration-level test lives in
     // src/features/cadastro/services/__tests__/duplicateCheckService.test.ts).
+  })
+
+  // ─── Case 7: Sonner DOM contract regression (fix(02-06) Bug A) ──
+  // Prevents re-introduction of the dual-instance Sonner split bug.
+  //
+  // Before the fix: vite.config.ts had `sonner@2.0.3` aliased to `sonner`,
+  // and 12 pages imported from the versioned specifier. Vite's optimizeDeps
+  // pre-bundled BOTH entries separately (`sonner.js` AND `sonner@2__0__3.js`),
+  // creating two ES module instances with independent ToastState singletons.
+  // The <Toaster> in App.tsx subscribed to one instance but `toast.info(...)`
+  // calls wrote into the other, so the `<section aria-label="Notifications
+  // alt+T">` would render its shell but never any `<li data-sonner-toast>`
+  // children.
+  //
+  // This test asserts the structural contract: after a `toast.info()` fires,
+  // a `<li data-sonner-toast>` MUST appear inside the Sonner toaster region
+  // within 500ms. Failure of this assert signals the split-instance bug has
+  // returned (most likely via re-introduction of a `sonner@<version>` alias
+  // in vite.config.ts or a mix of aliased/unaliased imports in src/).
+  test('Sonner DOM contract: toast fires render a <li data-sonner-toast> inside the Toaster region', async ({ page }) => {
+    // Use an existing production-code toast path to exercise the real module
+    // graph the app imports. Clicking "Próximo" with empty required fields
+    // on Step 1 calls `useFormToast().messages.validationError()` which goes
+    // to `toast.warning(...)` from `import { toast } from 'sonner'`. If the
+    // split-instance bug is back, this toast will not render (the Toaster in
+    // App.tsx is subscribed to a different Sonner module instance than the
+    // one imported by the form hook).
+    await page.goto('/cadastro')
+
+    await page.click('button:has-text("Próximo")')
+
+    // Structural contract: `<li data-sonner-toast>` MUST appear inside the
+    // Notifications region within 1s. The `data-sonner-toast` attribute is
+    // Sonner's stable DOM contract (persists across 2.x minor versions).
+    // Scoping via getByLabel('Notifications alt+T') ensures the match is
+    // specifically inside the Toaster subtree, not any other <li> on the page.
+    await expect(
+      page.getByLabel('Notifications alt+T').locator('[data-sonner-toast]').first()
+    ).toBeVisible({ timeout: 1000 })
   })
 
   // ─── Phase 1 legacy happy-path smoke (step-1 rendering only) ───

@@ -4,7 +4,7 @@ import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Progress } from '../ui/progress';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 // 120 questões do teste Big Five na ordem especificada
 const questoesBigFive = [

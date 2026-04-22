@@ -1,7 +1,11 @@
 "use client";
 
-import { useTheme } from "next-themes@0.4.6";
-import { Toaster as Sonner, ToasterProps } from "sonner@2.0.3";
+// NOTE: This shadcn wrapper is not currently imported anywhere (App.tsx uses
+// `<Toaster />` from `sonner` directly). Import specifiers fixed from
+// `sonner@2.0.3` / `next-themes@0.4.6` to the unversioned forms in
+// fix(02-06) to prevent future dual-instance split (see vite.config.ts).
+import { useTheme } from "next-themes";
+import { Toaster as Sonner, ToasterProps } from "sonner";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();

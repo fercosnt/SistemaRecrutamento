@@ -4,7 +4,7 @@ import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { CheckCircle, Clock, Target } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function InstrucoesFormularioPage() {
   const [searchParams] = useSearchParams();
