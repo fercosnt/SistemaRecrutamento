@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_3_context_ready
-stopped_at: "Phase 3 context gathered — 16 decisions captured across 4 gray areas (login errors, Remember-me storage, password reset UX, carryover bugs scope). Ready to plan."
-last_updated: "2026-04-24T16:00:00.000Z"
-last_activity: 2026-04-24 -- Phase 3 discuss-phase complete (03-CONTEXT.md + 03-DISCUSSION-LOG.md)
+status: phase_3_ui_spec_approved
+stopped_at: "Phase 3 UI-SPEC approved — 6/6 dimensions PASS, zero recommendations. 4 documented divergences from Phase 2 (card max-width 480 vs 4xl, amber vs blue for transient warnings, ArrowRight vs Check CTA icon, tamed scale-active). Ready to plan."
+last_updated: "2026-04-24T17:00:00.000Z"
+last_activity: 2026-04-24 -- Phase 3 UI-SPEC approved (gsd-ui-researcher + gsd-ui-checker both clean)
 progress:
   total_phases: 5
   completed_phases: 2
@@ -106,7 +106,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-04-24 (Phase 3 discuss-phase)
-Stopped at: **Phase 3 context captured.** 03-CONTEXT.md + 03-DISCUSSION-LOG.md written with 16 locked implementation decisions across 4 gray areas: (1) Login error taxonomy — generic "Email ou senha inválidos" for credentials (security > UX), dedicated CTA for `email_not_confirmed`, cooldown timer for rate-limit, dedicated NETWORK_ERROR (matches Phase 2 pattern). (2) Remember-me — checked by default, `sessionStorage` if unchecked, no timeout for candidates, always redirect to `/candidato/perfil`. (3) Reset flow — neutral "if email exists" message, senha+confirmar fields, Zod silent validation (no strength meter), auto-login + toast + redirect after reset. (4) Carryover scope — Bug 1 (AUTH-JWT-01 extractRole) IN (pre-req for criterion 1), Bug 2/3 (AUTH-LOGIN-01/02 LoginRH forge) IN (canonical rewrite), Bug 6 (AUTH-RPC-01 CPF) OUT (moves to Phase 4/5), LGPD re-consent NOT shown on reset. Three open Claude's Discretion items (D-19 storage swap strategy, D-20 JWT decode library, D-21 UI layout divergence) flagged for planner/UI-phase.
-Resume file: .planning/phases/03-login-recuperacao-senha/03-CONTEXT.md
-Next: run `/gsd-ui-phase 3` (recommended — phase has 4 UI forms + glass UI Beauty Smile design system consistency) OR `/gsd-plan-phase 3` (skip UI-SPEC if planner is comfortable deferring UI decisions to implementation).
+Last session: 2026-04-24 (Phase 3 discuss + ui-phase)
+Stopped at: **Phase 3 UI-SPEC approved.** 03-UI-SPEC.md (995 lines, commit 2f4c2a4) locks the full design contract for the 4 auth pages (LoginCandidato, LoginRH, EsqueciSenha, RedefinirSenha) and was approved by gsd-ui-checker with 6/6 dimensions PASS, zero recommendations. Divergence from Phase 2 UI-SPEC is explicitly documented and justified in 4 cases: (1) single-column `max-w-md` glass card (auth industry convention, Phase 2 used `max-w-4xl` for multi-step wizard), (2) amber for transient warnings (rate-limit cooldown, email_not_confirmed) to disambiguate from Phase 2's blue-for-LGPD-info, (3) `ArrowRight` CTA icon for single-step submit (vs Phase 2's `Check` for multi-step completion), (4) tamer scale-active (0.98) on glass surfaces. Key prescriptive decisions that will drive planning: remove "Precisa de Ajuda?" side panel from LoginCandidatoPage, neutral post-submit copy on Esqueci Senha with NO `{emailValue}` echo (D-09 anti-enumeration), kill password strength visual + 5-item checklist on RedefinirSenha (D-11 silent Zod only), kill the 3-second post-reset countdown (immediate redirect with replace:true per D-12), rate-limit cooldown as amber block + live countdown inside the submit button label, email-not-confirmed renders a dedicated amber block with "Reenviar email de confirmação" CTA (D-02), "Lembrar-me" defaults checked with helper caption "Manter sessão ativa ao fechar o navegador", recovery link expiry copy standardized to 1h (matches AUTH-03, current scaffold incorrectly says 24h), label `"Esqueci minha senha"` standardized across both login pages.
+Resume file: .planning/phases/03-login-recuperacao-senha/03-UI-SPEC.md
+Next: run `/gsd-plan-phase 3` to produce PLAN.md — planner consumes 03-CONTEXT.md (16 decisions) + 03-UI-SPEC.md (approved design contract) + KNOWN-ISSUES-CARRYOVER-PHASE-3.md (Bug 1 + Bug 2/3 in-scope) and generates task breakdown. UI-SPEC flags 8 open questions deferred to planner (D-19 storage swap strategy, D-20 JWT decode library choice, authService file location, shared passwordSchema factoring, `?tipo=rh` routing decision, obsolete services audit, scaffold cleanup task shape, the `"Esqueci minha senha"` label standardization). None are UI decisions — all are wiring consequences.
