@@ -71,12 +71,17 @@ Plans:
   1. A candidate logs in with email and password and sees clear error messages for wrong credentials or unregistered email
   2. Checking "Lembrar-me" keeps the session alive after closing and reopening the browser; unchecking it does not
   3. Clicking "Esqueci minha senha" sends an email with a reset link; clicking the link opens the password redefinition page and the new password works immediately
-**Plans**: TBD
+**Plans**: 7 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Wave 0: jwt-decode install + Dashboard audit + test stubs (B1..B16)
+- [ ] 03-02-PLAN.md — Wave 1: AuthError + mapSupabaseError + 4 Zod schemas (passwordSchema shared with cadastro)
+- [ ] 03-03-PLAN.md — Wave 1: extractRole (jwt-decode) + rememberMeStorage adapter + authStore/client.ts wire (Bug 1/D-13 fix)
+- [ ] 03-04-PLAN.md — Wave 2: authService + passwordService + 3 hooks (useRateLimitCooldown, useRecoverySession, useAuthFlowVariant) + cadastro compat shim
+- [ ] 03-05-PLAN.md — Wave 3: LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 role gate)
+- [ ] 03-06-PLAN.md — Wave 3: EsqueciSenhaPage + RedefinirSenhaPage rewrite + 5 obsolete services + 3 legacy schemas deleted
+- [ ] 03-07-PLAN.md — Wave 4: Playwright E2E (login-flow + password-recovery) + Pitfall 7 grep guard + UAT runbook
 
 ### Phase 4: Vagas + Candidatura
 **Goal**: A candidate can browse active jobs, view job details, upload a CV, answer screening questions, and submit an application
