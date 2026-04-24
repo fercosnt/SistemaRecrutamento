@@ -25,13 +25,13 @@ Requirements for M1. Each maps to roadmap phases.
 
 ### Cadastro (Candidato)
 
-- [ ] **CAD-01**: Candidato preenche formulario multi-step de 4 etapas (Dados, Endereco, Disponibilidade, Autorizacoes)
-- [ ] **CAD-02**: Validacao de CPF (digito verificador + formato) em tempo real
-- [ ] **CAD-03**: Validacao de duplicata de CPF e email contra base existente (via Edge Function, nao anon SELECT)
-- [ ] **CAD-04**: Auto-preenchimento de endereco via ViaCEP
-- [ ] **CAD-05**: Aceite explicito dos termos LGPD (checkbox obrigatorio)
-- [ ] **CAD-06**: Auto-login apos cadastro bem-sucedido com redirect para `/candidato/perfil`
-- [ ] **CAD-07**: `cadastroService` usa Edge Function `cadastrar-candidato` (nao `supabaseAdmin`)
+- [x] **CAD-01**: Candidato preenche formulario multi-step de 4 etapas (Dados, Endereco, Disponibilidade, Autorizacoes) ✓ Phase 2
+- [x] **CAD-02**: Validacao de CPF (digito verificador + formato) em tempo real ✓ Phase 2
+- [x] **CAD-03**: Validacao de duplicata de CPF e email contra base existente (via Edge Function, nao anon SELECT) ✓ Phase 2
+- [x] **CAD-04**: Auto-preenchimento de endereco via ViaCEP ✓ Phase 2
+- [x] **CAD-05**: Aceite explicito dos termos LGPD (checkbox obrigatorio) ✓ Phase 2
+- [x] **CAD-06**: Auto-login apos cadastro bem-sucedido com redirect para `/candidato/perfil` ✓ Phase 2
+- [x] **CAD-07**: `cadastroService` usa Edge Function `cadastrar-candidato` (nao `supabaseAdmin`) ✓ Phase 2
 
 ### Autenticacao (Candidato)
 
@@ -112,25 +112,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1: Foundation Saneada | Pending |
-| FOUND-02 | Phase 1: Foundation Saneada | Pending |
-| FOUND-03 | Phase 1: Foundation Saneada | Pending |
-| FOUND-04 | Phase 1: Foundation Saneada | Pending |
-| FOUND-05 | Phase 1: Foundation Saneada | Pending |
-| FOUND-06 | Phase 1: Foundation Saneada | Pending |
-| FOUND-07 | Phase 1: Foundation Saneada | Pending |
-| FOUND-08 | Phase 1: Foundation Saneada | Pending |
-| FOUND-09 | Phase 1: Foundation Saneada | Pending |
-| FOUND-10 | Phase 1: Foundation Saneada | Pending |
-| FOUND-11 | Phase 1: Foundation Saneada | Pending |
-| FOUND-12 | Phase 1: Foundation Saneada | Pending |
-| CAD-01 | Phase 2: Cadastro Candidato | Pending |
-| CAD-02 | Phase 2: Cadastro Candidato | Pending |
-| CAD-03 | Phase 2: Cadastro Candidato | Pending |
-| CAD-04 | Phase 2: Cadastro Candidato | Pending |
-| CAD-05 | Phase 2: Cadastro Candidato | Pending |
-| CAD-06 | Phase 2: Cadastro Candidato | Pending |
-| CAD-07 | Phase 2: Cadastro Candidato | Pending |
+| FOUND-01 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-02 | Phase 1: Foundation Saneada | Complete — partial (Bug 1 extractRole → Phase 3) |
+| FOUND-03 | Phase 1: Foundation Saneada | Complete — hook emits, frontend read deferred to Phase 3 |
+| FOUND-04 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-05 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-06 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-07 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-08 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-09 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-10 | Phase 1: Foundation Saneada | Complete (2026-04-20; + 02-02 rate_limit patch + 02-02 carryover digest fix) |
+| FOUND-11 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-12 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| CAD-01 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
+| CAD-02 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
+| CAD-03 | Phase 2: Cadastro Candidato | Complete (2026-04-24; Bug 6 CPF debounce-time mismatch → Phase 3) |
+| CAD-04 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
+| CAD-05 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
+| CAD-06 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
+| CAD-07 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | AUTH-01 | Phase 3: Login + Recuperacao | Pending |
 | AUTH-02 | Phase 3: Login + Recuperacao | Pending |
 | AUTH-03 | Phase 3: Login + Recuperacao | Pending |
@@ -158,4 +158,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-19*
-*Last updated: 2026-04-19 after roadmap creation*
+*Last updated: 2026-04-24 after Phase 2 completion (CAD-01..CAD-07 marked Complete; FOUND-* Complete with documented Phase 3 carryovers)*

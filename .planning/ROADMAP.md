@@ -15,7 +15,7 @@ Branch base: `backup/local-state-2026-04` (Fase 0 complete).
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Saneada** - Unified auth, Edge Functions, types pipeline, RLS hardening ✓ 2026-04-20
-- [ ] **Phase 2: Cadastro Candidato** - Multi-step registration rewired to Edge Function
+- [x] **Phase 2: Cadastro Candidato** - Multi-step registration rewired to Edge Function ✓ 2026-04-24
 - [ ] **Phase 3: Login + Recuperacao de Senha** - Candidate authentication and password recovery
 - [ ] **Phase 4: Vagas + Candidatura** - Job listing, detail page, CV upload, application flow
 - [ ] **Phase 5: Perfil + Hardening MVP** - Candidate profile with real data, E2E 100%, Lighthouse, a11y
@@ -61,7 +61,7 @@ Plans:
 - [x] 02-03-PLAN.md — Wave 2: Edge Function contract evolution (error_code/field/message) + _shared/constants.ts + redeploy with --no-verify-jwt ✓ 2026-04-21
 - [x] 02-04-PLAN.md — Wave 2: New hooks (useCadastroDraft, useLeaveGuard) + useDuplicateCheck debounce 300ms + client constants ✓ 2026-04-21
 - [x] 02-05-PLAN.md — Wave 2: cadastroService error_code routing + tryAutoLogin + FIELD_TO_STEP tables + duplicateCheckService RATE_LIMITED ✓ 2026-04-21
-- [ ] 02-06-PLAN.md — Wave 3: CadastroMultiStepForm wiring + AutorizacoesStep LGPD layout + font-weight sweep + E2E 6 cases
+- [x] 02-06-PLAN.md — Wave 3: CadastroMultiStepForm wiring + AutorizacoesStep LGPD layout + font-weight sweep + E2E 6 cases ✓ 2026-04-24 (+3 UAT bug fixes: Sonner split-instance, duplicateCheck `this`-binding, digest schema carryover)
 
 ### Phase 3: Login + Recuperacao de Senha
 **Goal**: A returning candidate can log in, stay logged in across sessions, and recover a forgotten password via email
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
-| 2. Cadastro Candidato | 5/6 | In progress (Wave 2 complete — hooks + services + EF all green; only 02-06 Wave 3 wiring remains) | - |
+| 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
 | 3. Login + Recuperacao de Senha | 0/? | Not started | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |
