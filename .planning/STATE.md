@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_2_complete
-stopped_at: "Phase 2 complete — all 6 plans landed, UAT green with 3 bugs discovered + fixed (Sonner, dup-check RPC binding, digest schema)"
-last_updated: "2026-04-24T00:45:00.000Z"
-last_activity: 2026-04-24 -- Plan 02-06 UAT complete
+status: phase_3_context_ready
+stopped_at: "Phase 3 context gathered — 16 decisions captured across 4 gray areas (login errors, Remember-me storage, password reset UX, carryover bugs scope). Ready to plan."
+last_updated: "2026-04-24T16:00:00.000Z"
+last_activity: 2026-04-24 -- Phase 3 discuss-phase complete (03-CONTEXT.md + 03-DISCUSSION-LOG.md)
 progress:
   total_phases: 5
   completed_phases: 2
@@ -106,7 +106,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-04-24
-Stopped at: **Phase 2 complete (6/6 plans).** Plan 02-06 landed via 5 atomic T1-T5 commits + 3 UAT fix commits (ec42794 T1 form rewire; 53b5e75 T2 LGPD UI-SPEC; 5c01f52 T3 font-weight sweep; 9fa2507 T4 E2E 6 cases; 1c18aab T5 validation gate; da859d4 UAT Bug 2 `this`-binding; 466438b UAT Bug 1 Sonner split-instance; 8c6df3b UAT Bug 3 02-02-carryover digest schema) + this docs close-out commit. Cadastro candidato fluxo end-to-end funcional em produção.
-Resume file: .planning/phases/02-cadastro-candidato/02-06-SUMMARY.md + 02-VERIFICATION.md (phase-level verification, status: passed, 4/4 phase truths + 13/13 artifacts + 9/9 wirings + 7/7 CAD-* requirements).
-Next: run `/gsd-plan-phase 3` to plan Phase 3 (Login + Recuperação de Senha). Phase 3 inherits 3 carryover bugs from KNOWN-ISSUES-CARRYOVER-PHASE-3.md: Bug 1 (`extractRole` reads wrong source → AUTH-JWT-01), Bug 2 (LoginRHPage legacy setters → AUTH-LOGIN-01/02), Bug 6 (check_candidato_duplicate CPF digits-only mismatch → AUTH-RPC-01). No new carryovers created by Plan 02-06 — the audit for `public.digest` siblings and `supabase.X as unknown as (...)` siblings came back clean.
+Last session: 2026-04-24 (Phase 3 discuss-phase)
+Stopped at: **Phase 3 context captured.** 03-CONTEXT.md + 03-DISCUSSION-LOG.md written with 16 locked implementation decisions across 4 gray areas: (1) Login error taxonomy — generic "Email ou senha inválidos" for credentials (security > UX), dedicated CTA for `email_not_confirmed`, cooldown timer for rate-limit, dedicated NETWORK_ERROR (matches Phase 2 pattern). (2) Remember-me — checked by default, `sessionStorage` if unchecked, no timeout for candidates, always redirect to `/candidato/perfil`. (3) Reset flow — neutral "if email exists" message, senha+confirmar fields, Zod silent validation (no strength meter), auto-login + toast + redirect after reset. (4) Carryover scope — Bug 1 (AUTH-JWT-01 extractRole) IN (pre-req for criterion 1), Bug 2/3 (AUTH-LOGIN-01/02 LoginRH forge) IN (canonical rewrite), Bug 6 (AUTH-RPC-01 CPF) OUT (moves to Phase 4/5), LGPD re-consent NOT shown on reset. Three open Claude's Discretion items (D-19 storage swap strategy, D-20 JWT decode library, D-21 UI layout divergence) flagged for planner/UI-phase.
+Resume file: .planning/phases/03-login-recuperacao-senha/03-CONTEXT.md
+Next: run `/gsd-ui-phase 3` (recommended — phase has 4 UI forms + glass UI Beauty Smile design system consistency) OR `/gsd-plan-phase 3` (skip UI-SPEC if planner is comfortable deferring UI decisions to implementation).
