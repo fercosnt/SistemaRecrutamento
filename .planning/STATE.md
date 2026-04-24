@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_3_ui_spec_approved
-stopped_at: "Phase 3 UI-SPEC approved — 6/6 dimensions PASS, zero recommendations. 4 documented divergences from Phase 2 (card max-width 480 vs 4xl, amber vs blue for transient warnings, ArrowRight vs Check CTA icon, tamed scale-active). Ready to plan."
-last_updated: "2026-04-24T17:00:00.000Z"
-last_activity: 2026-04-24 -- Phase 3 UI-SPEC approved (gsd-ui-researcher + gsd-ui-checker both clean)
+status: phase_3_planned
+stopped_at: "Phase 3 plans approved — 7 plans across 7 waves, VERIFICATION PASSED on iteration 2 (1 BLOCKER + 6 WARNINGS resolved). All 4 AUTH requirements covered; Bug 1 (D-13) + Bug 2/3 (D-14) scoped; Bug 6 (D-15) correctly deferred. Ready to execute."
+last_updated: "2026-04-24T19:30:00.000Z"
+last_activity: 2026-04-24 -- Phase 3 planned (7 PLAN.md files, VALIDATION.md + PATTERNS.md + RESEARCH.md created)
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 11
+  total_plans: 18
   completed_plans: 11
-  percent: 100
+  percent: 61
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 03 — login + recuperação de senha (ready to plan)
+**Current focus:** Phase 03 — login + recuperação de senha (ready to execute, 7 plans)
 
 ## Current Position
 
-Phase: 02 (cadastro-candidato) — **COMPLETE** (6/6 plans). Phase 03 ready to plan.
-Plan: 02-06 complete. All plans 02-01 → 02-06 landed. Phase 2 UAT green; 3 UAT-discovered bugs fixed and regression-covered.
-Status: Phase 2 fully green. Cadastro candidato fluxo end-to-end funcional em produção — 4-step form + draft persistence (sans senha) + LGPD mandatory guard + structured error_code routing + auto-login + redirect to `/candidato/perfil`. 3 UAT bugs (Sonner Toaster split-instance, duplicateCheck RPC `this`-binding, `check_candidato_duplicate` digest schema qualifier) discovered and fixed in-place; all have regression coverage where automatable. Migration `20260421000002_fix_digest_schema_in_rpc.sql` applied to production via `npx supabase db push` and live-smoke verified 200. Playwright cadastro-flow = 13 passed + 3 env-skipped. Vitest = 178 passed + 1 pre-existing LoadingProgress failure (deferred-items.md).
-Last activity: 2026-04-24 -- Plan 02-06 UAT complete (8 atomic commits: ec42794, 53b5e75, 5c01f52, 9fa2507, 1c18aab, da859d4, 466438b, 8c6df3b)
+Phase: 03 (login-recuperacao-senha) — **READY TO EXECUTE** (0/7 plans). Phase 02 complete. All upstream artifacts in place: 03-CONTEXT.md (21 decisions), 03-UI-SPEC.md (6/6 PASS), 03-RESEARCH.md (Q1-Q10 + validation + threat model), 03-PATTERNS.md (17 analogs), 03-VALIDATION.md (16 behaviors B1-B16 + Wave 0 runbook), 7 PLAN.md files.
+Plan: Waves 0→6 sequential (single-parallelism per revised checker iteration 2). Plan 03-01 (Wave 0) is `autonomous: false` — gated by jwt-decode install + Supabase Dashboard audit (OTP expiry 3600s + redirect URLs for /auth/redefinir-senha).
+Status: Phase 3 planned and verified. 7 plans cover AUTH-01..AUTH-04 + Bug 1 (D-13 extractRole JWT decode) + Bug 2/3 (D-14 LoginRH role gate). Threat model T-03-01..T-03-10 (3 HIGH + 5 MEDIUM + 2 LOW) has mitigations in dedicated tasks. Bug 6 (D-15 RPC CPF) correctly out of scope. Planner revision iteration 1 resolved 1 BLOCKER + 6 WARNINGS; iteration 2 VERIFICATION PASSED on all 11 dimensions. Next: `/gsd-execute-phase 3`.
+Last activity: 2026-04-24 -- Phase 3 planning complete (commits: 1eeb2b6 research, e702f08 validation+patterns, dd5b2b3 plans, 7420254 revisions)
 
-Progress: [##########] 100% of currently-defined plans (11/11) — Phase 1 (5/5) + Phase 2 (6/6). Phases 3/4/5 have TBD plan counts; milestone M1 advances at ~45% of the estimated total scope.
+Progress: [######----] 61% of currently-defined plans (11/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (0/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 scope now locked at 7 plans.
 
 ## Performance Metrics
 
@@ -106,7 +106,32 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-04-24 (Phase 3 discuss + ui-phase)
-Stopped at: **Phase 3 UI-SPEC approved.** 03-UI-SPEC.md (995 lines, commit 2f4c2a4) locks the full design contract for the 4 auth pages (LoginCandidato, LoginRH, EsqueciSenha, RedefinirSenha) and was approved by gsd-ui-checker with 6/6 dimensions PASS, zero recommendations. Divergence from Phase 2 UI-SPEC is explicitly documented and justified in 4 cases: (1) single-column `max-w-md` glass card (auth industry convention, Phase 2 used `max-w-4xl` for multi-step wizard), (2) amber for transient warnings (rate-limit cooldown, email_not_confirmed) to disambiguate from Phase 2's blue-for-LGPD-info, (3) `ArrowRight` CTA icon for single-step submit (vs Phase 2's `Check` for multi-step completion), (4) tamer scale-active (0.98) on glass surfaces. Key prescriptive decisions that will drive planning: remove "Precisa de Ajuda?" side panel from LoginCandidatoPage, neutral post-submit copy on Esqueci Senha with NO `{emailValue}` echo (D-09 anti-enumeration), kill password strength visual + 5-item checklist on RedefinirSenha (D-11 silent Zod only), kill the 3-second post-reset countdown (immediate redirect with replace:true per D-12), rate-limit cooldown as amber block + live countdown inside the submit button label, email-not-confirmed renders a dedicated amber block with "Reenviar email de confirmação" CTA (D-02), "Lembrar-me" defaults checked with helper caption "Manter sessão ativa ao fechar o navegador", recovery link expiry copy standardized to 1h (matches AUTH-03, current scaffold incorrectly says 24h), label `"Esqueci minha senha"` standardized across both login pages.
-Resume file: .planning/phases/03-login-recuperacao-senha/03-UI-SPEC.md
-Next: run `/gsd-plan-phase 3` to produce PLAN.md — planner consumes 03-CONTEXT.md (16 decisions) + 03-UI-SPEC.md (approved design contract) + KNOWN-ISSUES-CARRYOVER-PHASE-3.md (Bug 1 + Bug 2/3 in-scope) and generates task breakdown. UI-SPEC flags 8 open questions deferred to planner (D-19 storage swap strategy, D-20 JWT decode library choice, authService file location, shared passwordSchema factoring, `?tipo=rh` routing decision, obsolete services audit, scaffold cleanup task shape, the `"Esqueci minha senha"` label standardization). None are UI decisions — all are wiring consequences.
+Last session: 2026-04-24 (Phase 3 plan-phase)
+Stopped at: **Phase 3 plans approved.** 7 PLAN.md files landed across 7 sequential waves (0→6). Wave structure:
+  - W0 (03-01): jwt-decode install + Supabase Dashboard audit + 9 test stubs (autonomous: false — human checkpoint)
+  - W1 (03-02): AuthError class + mapSupabaseError + 4 Zod schemas (passwordSchema extracted, cadastro re-wired)
+  - W2 (03-03): extractRole (jwt-decode/D-13 Bug 1 fix) + rememberMeStorage adapter (D-19) + authStore surgical edit + client.ts
+  - W3 (03-04): authService (move + expand: signIn/signOut/resend) + passwordService (requestPasswordReset/setNewPassword) + useRateLimitCooldown + useRecoverySession + useAuthFlowVariant + cadastro compat shim (SignUpError rename, Option A)
+  - W4 (03-05): LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 fix — bounded polling 5×20ms for onAuthStateChange role race)
+  - W5 (03-06): EsqueciSenhaPage + RedefinirSenhaPage rewrite + delete 5 obsolete services + orphan test enumeration
+  - W6 (03-07): E2E login-flow + password-recovery + B10-lite (unconditional) + pitfall7.grep.test.ts + UAT runbook (autonomous: false)
+
+Open planner resolutions (closed 8 UI-SPEC deferrals):
+  1. D-19 storage swap: custom `rememberMeStorage` Storage adapter (option b) ← LOCKED
+  2. D-20 JWT decode: `jwt-decode@^4.0.0` (13.9kB, zero deps) ← LOCKED
+  3. authService location: MOVES to `src/features/auth/services/`, cadastro becomes compat shim re-exporting tryAutoLogin ← LOCKED
+  4. passwordSchema: EXTRACTED to `src/features/auth/schemas/passwordSchema.ts`, cadastro imports ← LOCKED
+  5. `?tipo=rh`: separate routes for Login pages, shared pages use `useAuthFlowVariant()` hook ← LOCKED
+  6. Obsolete services: DELETE rateLimitService, userTypeDetectionService, passwordChangeConfirmationService, errorHandlingService, securityValidationService (+ orphan test enumeration) ← LOCKED
+  7. Scaffold cleanup: factored into W4/W5 page rewrite tasks ← LOCKED
+  8. `"Esqueci minha senha"` label: grep acceptance on both login pages ← LOCKED
+
+Key planner insights to carry into execution:
+  - `extractRetryAfterSeconds` CLAMPS at 3600 (not silent fallback to 60) — prevents UX/server desync on Supabase retry-after > 3600s (tests T2.14-T2.18 cover)
+  - LoginRH role gate uses bounded polling (5 retries × 20ms, cap 100ms) on authStore.role — 0ms setTimeout is explicitly rejected in acceptance criteria (macrotask race under React Concurrent)
+  - B10 E2E downgrade to test.fixme only for full deeplink path; B10-lite (localStorage pre-seed via addInitScript) runs unconditionally
+  - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
+  - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
+
+Resume file: .planning/phases/03-login-recuperacao-senha/03-01-PLAN.md
+Next: run `/gsd-execute-phase 3` to begin execution at Wave 0 (03-01 install + Dashboard audit checkpoint).
