@@ -133,8 +133,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAD-07 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | AUTH-01 | Phase 3: Login + Recuperacao | Pending |
 | AUTH-02 | Phase 3: Login + Recuperacao | Pending |
-| AUTH-03 | Phase 3: Login + Recuperacao | Pending |
-| AUTH-04 | Phase 3: Login + Recuperacao | Pending |
+| AUTH-03 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24): OTP expiry confirmed at 3600s in Supabase Dashboard; "válido por 1 hora" copy assertion pending Wave 5 (03-06) |
+| AUTH-04 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24): Redirect URLs `/auth/redefinir-senha` (+ `?tipo=rh`) allow-listed in Supabase Dashboard for port 3003; full deeplink → form → updateUser flow pending Waves 5-6 (03-06 + 03-07) |
 | VAGA-01 | Phase 4: Vagas + Candidatura | Pending |
 | VAGA-02 | Phase 4: Vagas + Candidatura | Pending |
 | VAGA-03 | Phase 4: Vagas + Candidatura | Pending |
@@ -158,4 +158,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-19*
-*Last updated: 2026-04-24 after Phase 2 completion (CAD-01..CAD-07 marked Complete; FOUND-* Complete with documented Phase 3 carryovers)*
+*Last updated: 2026-04-24 after Phase 3 Wave 0 (03-01) — AUTH-03 + AUTH-04 marked In progress with partial Dashboard-gate coverage; CAD-01..CAD-07 remain Complete; FOUND-* Complete with documented Phase 3 carryovers*
