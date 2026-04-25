@@ -50,24 +50,25 @@ created: 2026-04-24
 
 ## Critical Behaviors (from RESEARCH.md §Validation Architecture)
 
-| ID | Behavior | Requirement | Threat Ref |
-|----|----------|-------------|------------|
-| B1 | Login candidato with correct creds → `role=candidato` in authStore + redirect `/candidato/perfil` | AUTH-01 | — |
-| B2 | Login candidato with wrong creds → INVALID_CREDENTIALS + generic "Email ou senha inválidos" | AUTH-01 | T-03-02 |
-| B3 | Login with unconfirmed email → EMAIL_NOT_CONFIRMED + resend button triggers `supabase.auth.resend` | AUTH-01 | — |
-| B4 | Rate limit → cooldown countdown + disabled submit until zero | AUTH-01 | T-03-06 |
-| B5 | "Lembrar-me" unchecked → sessionStorage → dies on tab close | AUTH-02 | T-03-04, T-03-10 |
-| B6 | "Lembrar-me" checked (default) → localStorage → survives tab close | AUTH-02 | — |
-| B7 | `extractRole` returns role from JWT payload, not `app_metadata` | AUTH-01 | T-03-07 (Bug 1) |
-| B8 | LoginRH rejects non-administrador roles (signOut + error toast) | AUTH-01 | T-03-01 (Bug 2/3) |
-| B9 | `resetPasswordForEmail` always returns neutral copy (no enumeration) | AUTH-03 | T-03-02 |
-| B10 | Redefinir-senha: deeplink → PASSWORD_RECOVERY → form → updateUser → redirect | AUTH-04 | — |
-| B11 | Password mismatch on redefinir-senha surfaces Zod error on submit | AUTH-04 | T-03-08 |
-| B12 | Expired/single-use recovery link surfaces InvalidLinkState | AUTH-03 | T-03-05 |
-| B13 | Network error during signIn surfaces NETWORK_ERROR toast | AUTH-01 | — |
-| B14 | Password NEVER in `console.*` during any auth flow | AUTH-01..04 | T-03-03 |
-| B15 | Sonner toast renders in DOM for all auth flows (split-instance regression) | AUTH-01..04 | — |
-| B16 | `setRememberMeMode('session')` clears localStorage `sb-*` keys | AUTH-02 | T-03-04 |
+| ID | Behavior | Requirement | Threat Ref | Coverage Status (post-03-07) |
+|----|----------|-------------|------------|------------------------------|
+| B1 | Login candidato with correct creds → `role=candidato` in authStore + redirect `/candidato/perfil` | AUTH-01 | — | Automated (E2E unconditional — `e2e/login-flow.spec.ts`) |
+| B2 | Login candidato with wrong creds → INVALID_CREDENTIALS + generic "Email ou senha inválidos" | AUTH-01 | T-03-02 | Automated (E2E unconditional — `e2e/login-flow.spec.ts`) |
+| B3 | Login with unconfirmed email → EMAIL_NOT_CONFIRMED + resend button triggers `supabase.auth.resend` | AUTH-01 | — | Automated (E2E env-gated `E2E_AUTH_TEST_USERS=true`) |
+| B4 | Rate limit → cooldown countdown + disabled submit until zero | AUTH-01 | T-03-06 | Automated (E2E env-gated, best-effort) |
+| B5 | "Lembrar-me" unchecked → sessionStorage → dies on tab close | AUTH-02 | T-03-04, T-03-10 | Manual UAT pending (`03-07-UAT.md` UAT-2) |
+| B6 | "Lembrar-me" checked (default) → localStorage → survives tab close | AUTH-02 | — | Manual UAT pending (`03-07-UAT.md` UAT-1) |
+| B7 | `extractRole` returns role from JWT payload, not `app_metadata` | AUTH-01 | T-03-07 (Bug 1) | Automated (Vitest unit — landed Plan 03-03) |
+| B8 | LoginRH rejects non-administrador roles (signOut + error toast) | AUTH-01 | T-03-01 (Bug 2/3) | Automated (E2E env-gated) |
+| B9 | `resetPasswordForEmail` always returns neutral copy (no enumeration) | AUTH-03 | T-03-02 | Automated (E2E unconditional — `e2e/password-recovery-flow.spec.ts`) |
+| B10 | Redefinir-senha: deeplink → PASSWORD_RECOVERY → form → updateUser → redirect | AUTH-04 | — | ✓ (unconditional B10-lite via pre-seed; best-effort B10 deeplink) + Manual-only B10-real (`03-07-UAT.md` UAT-3) |
+| B11 | Password mismatch on redefinir-senha surfaces Zod error on submit | AUTH-04 | T-03-08 | Automated (Vitest unit — landed Plan 03-02) |
+| B12 | Expired/single-use recovery link surfaces InvalidLinkState | AUTH-03 | T-03-05 | Automated (E2E unconditional — `e2e/password-recovery-flow.spec.ts`) |
+| B13 | Network error during signIn surfaces NETWORK_ERROR toast | AUTH-01 | — | Manual UAT pending (`03-07-UAT.md` UAT-4) |
+| B14 | Password NEVER in `console.*` during any auth flow | AUTH-01..04 | T-03-03 | Automated (Vitest grep — `pitfall7.grep.test.ts`) + Manual UAT pending (DevTools network-body inspection — `03-07-UAT.md` UAT-5) |
+| B15 | Sonner toast renders in DOM for all auth flows (split-instance regression) | AUTH-01..04 | — | Automated (E2E unconditional — both `login-flow` + `password-recovery-flow`) |
+| B16 | `setRememberMeMode('session')` clears localStorage `sb-*` keys | AUTH-02 | T-03-04 | Automated (Vitest unit — landed Plan 03-03) |
+| T-03-09 | Supabase Dashboard re-audit (OTP=3600 + Redirect URLs allow-list) | AUTH-03, AUTH-04 | T-03-09 | Manual UAT pending (`03-07-UAT.md` UAT-6) |
 
 ---
 
