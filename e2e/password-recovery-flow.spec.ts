@@ -724,7 +724,9 @@ test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, 
     })
 
     await page.goto('/auth/esqueci-senha')
-    await page.getByLabel('Email').fill('any-email@test.com')
+    // Use #id locator: the page renders the label asterisk as a sibling
+    // <span>*</span>, so getByLabel string matching may flake; #id is unambiguous.
+    await page.locator('#email').fill('any-email@test.com')
     await page.getByRole('button', { name: /Enviar instruções/i }).click()
 
     // Neutral success card copy (UI-SPEC L443-503 — no email echo)
@@ -824,8 +826,10 @@ test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, 
     await expect(page.getByRole('heading', { name: 'Nova senha', exact: true })).toBeVisible({
       timeout: 4000,
     })
-    await expect(page.getByLabel('Nova senha', { exact: true })).toBeVisible()
-    await expect(page.getByLabel('Confirmar nova senha')).toBeVisible()
+    // Use #id locators: getByLabel('Nova senha') partial-matches the eye-toggle
+    // button (`aria-label="Mostrar senha"`).
+    await expect(page.locator('#nova_senha')).toBeVisible()
+    await expect(page.locator('#confirmar_nova_senha')).toBeVisible()
 
     // Negative assertions — neither alternate state should be visible.
     await expect(page.getByText('Validando seu link...')).not.toBeVisible()
@@ -851,7 +855,7 @@ test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, 
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     })
     await page.goto('/auth/esqueci-senha')
-    await page.getByLabel('Email').fill('test@x.com')
+    await page.locator('#email').fill('test@x.com')
     await page.getByRole('button', { name: /Enviar instruções/i }).click()
     await expect(page.getByRole('heading', { name: 'Verifique seu email' })).toBeVisible()
     expect(resetCalled).toBe(true)
@@ -896,8 +900,8 @@ test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, 
     })
 
     // Step 4: fill + submit, assert success toast + redirect.
-    await page.getByLabel('Nova senha', { exact: true }).fill('NovaSenha123')
-    await page.getByLabel('Confirmar nova senha').fill('NovaSenha123')
+    await page.locator('#nova_senha').fill('NovaSenha123')
+    await page.locator('#confirmar_nova_senha').fill('NovaSenha123')
     await page.getByRole('button', { name: /Redefinir senha/i }).click()
     const toastRegion = page.getByLabel('Notifications alt+T')
     await expect(toastRegion.getByText('Senha alterada com sucesso.')).toBeVisible({
@@ -912,7 +916,7 @@ test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, 
       route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     })
     await page.goto('/auth/esqueci-senha')
-    await page.getByLabel('Email').fill('x@y.com')
+    await page.locator('#email').fill('x@y.com')
     await page.getByRole('button', { name: /Enviar instruções/i }).click()
     const toastRegion = page.getByLabel('Notifications alt+T')
     await expect(toastRegion.locator('[data-sonner-toast]')).toBeVisible({ timeout: 2000 })

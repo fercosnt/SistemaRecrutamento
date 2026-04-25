@@ -665,8 +665,18 @@ test.describe('login-flow — unconditional (B1, B2, B15)', () => {
       })
     })
     await page.goto('/auth/login')
-    await page.getByLabel('Email').fill('test@x.com')
-    await page.getByLabel('Senha').fill('ValidPass123')
+    // Use #id locators because `getByLabel('Senha')` partial-matches the
+    // eye-toggle button (`aria-label="Mostrar senha"`). The page renders the
+    // label asterisk as a sibling `<span>*</span>` so exact-match strings can
+    // also miss; #id is unambiguous.
+    //
+    // Blur each input after fill: the page uses RHF `mode: 'onBlur'` and the
+    // submit button is disabled until `isValid` flips, which only happens
+    // after each touched field validates clean. Tab away or .blur() flushes.
+    await page.locator('#email').fill('test@x.com')
+    await page.locator('#email').blur()
+    await page.locator('#password').fill('ValidPass123')
+    await page.locator('#password').blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
     await page.waitForURL(/\/candidato\/perfil/, { timeout: 5000 })
     const toastRegion = page.getByLabel('Notifications alt+T')
@@ -686,8 +696,10 @@ test.describe('login-flow — unconditional (B1, B2, B15)', () => {
       })
     })
     await page.goto('/auth/login')
-    await page.getByLabel('Email').fill('test@x.com')
-    await page.getByLabel('Senha').fill('Wrong')
+    await page.locator('#email').fill('test@x.com')
+    await page.locator('#email').blur()
+    await page.locator('#password').fill('Wrong')
+    await page.locator('#password').blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
     const toastRegion = page.getByLabel('Notifications alt+T')
     await expect(
@@ -705,8 +717,10 @@ test.describe('login-flow — unconditional (B1, B2, B15)', () => {
       })
     })
     await page.goto('/auth/login')
-    await page.getByLabel('Email').fill('x@y.com')
-    await page.getByLabel('Senha').fill('Wrong')
+    await page.locator('#email').fill('x@y.com')
+    await page.locator('#email').blur()
+    await page.locator('#password').fill('Wrong')
+    await page.locator('#password').blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
     const toastRegion = page.getByLabel('Notifications alt+T')
     await expect(toastRegion.locator('[data-sonner-toast]')).toBeVisible({ timeout: 1500 })
@@ -720,8 +734,10 @@ test.describe('login-flow — env-gated (B3, B4, B8)', () => {
       'Requires E2E_AUTH_TEST_USERS=true + E2E_TEST_UNCONFIRMED_EMAIL',
     )
     await page.goto('/auth/login')
-    await page.getByLabel('Email').fill(process.env.E2E_TEST_UNCONFIRMED_EMAIL!)
-    await page.getByLabel('Senha').fill('anyValidPass1')
+    await page.locator('#email').fill(process.env.E2E_TEST_UNCONFIRMED_EMAIL!)
+    await page.locator('#email').blur()
+    await page.locator('#password').fill('anyValidPass1')
+    await page.locator('#password').blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
     await expect(page.getByText('Confirme seu email antes de fazer login')).toBeVisible({
       timeout: 5000,
@@ -735,8 +751,10 @@ test.describe('login-flow — env-gated (B3, B4, B8)', () => {
     // Flaky — server-side limit window varies. Best-effort test.
     await page.goto('/auth/login')
     for (let i = 0; i < 35; i++) {
-      await page.getByLabel('Email').fill(`burst${i}@test.com`)
-      await page.getByLabel('Senha').fill('Wrong')
+      await page.locator('#email').fill(`burst${i}@test.com`)
+      await page.locator('#email').blur()
+      await page.locator('#password').fill('Wrong')
+      await page.locator('#password').blur()
       await page.getByRole('button', { name: /^Entrar$/ }).click()
       await page.waitForTimeout(50)
     }
@@ -746,8 +764,10 @@ test.describe('login-flow — env-gated (B3, B4, B8)', () => {
   test('B8: LoginRH rejects candidato → signOut + role-mismatch toast', async ({ page }) => {
     test.fixme(process.env.E2E_AUTH_TEST_USERS !== 'true', 'Requires seed candidato user')
     await page.goto('/auth/login-rh')
-    await page.getByLabel('Email').fill(process.env.E2E_TEST_CANDIDATO_EMAIL!)
-    await page.getByLabel('Senha').fill(process.env.E2E_TEST_CANDIDATO_PASSWORD!)
+    await page.locator('#email').fill(process.env.E2E_TEST_CANDIDATO_EMAIL!)
+    await page.locator('#email').blur()
+    await page.locator('#password').fill(process.env.E2E_TEST_CANDIDATO_PASSWORD!)
+    await page.locator('#password').blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
     const toastRegion = page.getByLabel('Notifications alt+T')
     await expect(
