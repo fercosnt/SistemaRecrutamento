@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/authStore'
 import {
   listVagas,
   getVagaById,
+  getVagaBySlug, // NEW — Phase 4 / Plan 04-02
   checkIfCandidatoApplied,
 } from '../services/vagasService'
 import type {
@@ -42,11 +43,20 @@ export const vagasKeys = {
     pagination?: PaginationParams
   ) => [...vagasKeys.lists(), { filters, orderBy, pagination }] as const,
   details: () => [...vagasKeys.all, 'detail'] as const,
+  // Legacy — kept for back-compat (createCandidatura, useHasApplied still call detail(id))
   detail: (id: string, candidatoId?: string) =>
     [...vagasKeys.details(), id, candidatoId] as const,
+  // Phase 4 split — distinct branches prevent cache pollution between ID and slug variants (T-04-18)
+  detailById: (id: string, candidatoId?: string) =>
+    [...vagasKeys.details(), 'by-id', id, candidatoId] as const,
+  detailBySlug: (slug: string, candidatoId?: string) =>
+    [...vagasKeys.details(), 'by-slug', slug, candidatoId] as const,
+  // Phase 4 — perguntas of a vaga (consumed by useVagaPerguntas in Plan 04-04)
+  perguntas: (vagaId: string) =>
+    [...vagasKeys.all, 'perguntas', vagaId] as const,
   hasApplied: (candidatoId: string, vagaId: string) =>
     [...vagasKeys.all, 'hasApplied', candidatoId, vagaId] as const,
-}
+} as const
 
 // ============================================
 // HOOKS - LIST VAGAS
@@ -125,6 +135,38 @@ export function useVaga(
     queryFn: () => getVagaById(vagaId!, candidato?.id),
     enabled: !!vagaId, // Só executa se vagaId existir
     staleTime: 2 * 60 * 1000, // 2 minutos (detalhe pode mudar mais rápido)
+    gcTime: 5 * 60 * 1000,
+    retry: 2,
+    ...options,
+  })
+}
+
+/**
+ * Phase 4 / VAGA-02 — Hook para buscar vaga pelo slug da URL.
+ *
+ * Mirror de useVaga(id) keyed contra vagasKeys.detailBySlug para evitar
+ * cache pollution entre ID e slug variants (T-04-18). Pareia com o runtime
+ * branch isUuid em VagaDetalhePage (Plan 04-06).
+ *
+ * @param slug - URL slug da vaga (ou null/undefined para desativar)
+ * @param options - Opções do TanStack Query
+ *
+ * @returns Query result com detalhes da vaga
+ *
+ * @example
+ * const { data: vaga, isLoading } = useVagaBySlug('atendimento-ao-paciente')
+ */
+export function useVagaBySlug(
+  slug: string | null | undefined,
+  options?: Omit<UseQueryOptions<GetVagaResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  const candidato = useAuthStore((state) => state.candidato)
+
+  return useQuery({
+    queryKey: vagasKeys.detailBySlug(slug || '', candidato?.id),
+    queryFn: () => getVagaBySlug(slug!, candidato?.id),
+    enabled: !!slug, // Só executa se slug existir
+    staleTime: 2 * 60 * 1000, // 2 minutos (mesmo do useVaga)
     gcTime: 5 * 60 * 1000,
     retry: 2,
     ...options,
