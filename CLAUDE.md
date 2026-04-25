@@ -23,6 +23,27 @@ npm run test:e2e         # Playwright
 npm run test:e2e:headed  # Playwright com browser visivel
 ```
 
+### Migrations + db push — workaround conhecido (PL/pgSQL)
+
+Migrations contendo `CREATE FUNCTION` ou `DO` blocks com corpo `$$ ... $$`
+combinados com statements adjacentes (`COMMENT` / `REVOKE` / `GRANT`) podem
+falhar via `supabase db push --linked` no transaction pooler com:
+
+```
+ERROR: cannot insert multiple commands into a prepared statement (SQLSTATE 42601)
+```
+
+**Workaround** (estabelecido em Phase 4 / Plan 04-01 / migrations 03 + 04):
+
+1. Abrir Supabase SQL Editor → colar SQL do arquivo de migration → executar manualmente.
+2. Sincronizar estado local: `supabase migration repair --status applied <version>`.
+3. Confirmar: `supabase db push --linked` deve responder "Remote database is up to date".
+4. Remover wrappers `BEGIN; ... COMMIT;` do topo do arquivo e adicionar nota inline
+   explicando o motivo — o driver do Supabase CLI já envolve cada migration em
+   sua própria transação implícita; o BEGIN/COMMIT externo é o gatilho do erro.
+
+Esse padrão deve recorrer em Phase 4+ e Phase 5 (mais migrations PL/pgSQL).
+
 ## Architecture
 
 - **Frontend:** SPA React com Vite, alias `@/` → `src/`
