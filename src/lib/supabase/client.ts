@@ -13,6 +13,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '../../../database.types'
+import { rememberMeStorage } from '@/features/auth/utils/rememberMeStorage'
 
 // Validar variáveis de ambiente
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -29,14 +30,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Cliente Supabase singleton (anon key)
  *
  * Configurado com:
- * - Auth: persistência de sessão no localStorage
+ * - Auth: persistência de sessão via `rememberMeStorage` adapter (D-19 / Plan 03-03)
+ *   — escolhe `localStorage` (persistente) ou `sessionStorage` (ephemeral por aba)
+ *   baseado em `setRememberMeMode(mode)` chamado ANTES de `signInWithPassword`.
  * - Auto refresh do token a cada 60 segundos
  * - Detecção automática de sessão
  */
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Persistir sessão no localStorage do navegador
-    storage: window.localStorage,
+    // Persistir sessão — adapter escolhe localStorage (persistente) ou
+    // sessionStorage (ephemeral por aba) baseado em setRememberMeMode
+    // chamado ANTES de signIn. D-19 / Q1.
+    storage: rememberMeStorage,
 
     // Auto refresh do token antes de expirar
     autoRefreshToken: true,
