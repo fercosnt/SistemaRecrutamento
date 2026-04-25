@@ -382,6 +382,79 @@ export async function getVagaById(
 }
 
 /**
+ * Phase 4 / VAGA-02 — Busca vaga pelo slug (URL-friendly identifier).
+ *
+ * Mirror de getVagaById com `.eq('slug', ...)` no lugar de `.eq('id', ...)`.
+ * Reusa o mesmo enriquecerVaga() N+1 path (D-17 — otimização deferida para
+ * Phase 5 hardening).
+ *
+ * Anti-enumeration carryover de Phase 3 D-09: mensagem genérica única
+ * 'Vaga não encontrada' independente da causa (slug nunca existiu vs vaga
+ * soft-deletada vs RLS-bloqueada). NÃO indica ao cliente se o slug é
+ * conhecido — apenas que não está acessível.
+ *
+ * @param slug - URL slug da vaga (ex.: "atendimento-ao-paciente")
+ * @param candidatoId - ID do candidato (opcional, para enriquecimento)
+ * @returns GetVagaResponse — { success: true, data } ou { success: false, error }
+ *
+ * @example
+ * const response = await getVagaBySlug('atendimento-ao-paciente', 'candidato-456')
+ */
+export async function getVagaBySlug(
+  slug: string,
+  candidatoId?: string
+): Promise<GetVagaResponse> {
+  try {
+    if (!slug || slug.trim() === '') {
+      throw new VagasServiceError('Slug da vaga inválido', 'INVALID_INPUT')
+    }
+
+    const { data, error } = await supabase
+      .from('vagas')
+      .select('*')
+      .eq('slug', slug)
+      .is('deleted_at', null)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Not found — anti-enumeration generic message
+        throw new VagasServiceError('Vaga não encontrada', 'NOT_FOUND', error)
+      }
+      throw new VagasServiceError(
+        `Erro ao buscar vaga: ${error.message}`,
+        'DATABASE_ERROR',
+        error
+      )
+    }
+
+    if (!data) {
+      // Anti-enumeration: same generic message even if no PGRST116
+      throw new VagasServiceError('Vaga não encontrada', 'NOT_FOUND')
+    }
+
+    const vagaEnriquecida = await enriquecerVaga(data, candidatoId)
+
+    return {
+      success: true,
+      data: vagaEnriquecida,
+    }
+  } catch (error) {
+    if (error instanceof VagasServiceError) {
+      return {
+        success: false,
+        error: error.message,
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Erro inesperado ao buscar vaga',
+    }
+  }
+}
+
+/**
  * Verifica se candidato já aplicou para uma vaga
  *
  * @param candidatoId - UUID do candidato
