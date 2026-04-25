@@ -93,13 +93,18 @@ Plans:
   3. A logged-in candidate can upload a PDF CV (under 5MB), answer screening questions, and submit -- resulting in a candidatura record with `status = 'aguardando_resposta'` and `etapa_atual = 'triagem'`
   4. Attempting to apply to the same job twice shows a clear message that a candidatura already exists
   5. An unauthenticated visitor clicking "Candidatar-se" is redirected to login and returned to the job after authenticating
-**Plans**: TBD
+**Plans**: 8 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [x] 04-01-PLAN.md — Wave 0: SQL migrations (slug trigger + curriculos bucket + submit_candidatura RPC + UNIQUE constraint) + db push + types regen + Wave 0 stubs (Vitest + Playwright fixtures + Pitfall 7 grep extension) ✓ 2026-04-25 (D-22 db push workaround locked + D-10 path schema locked)
+- [ ] 04-02-PLAN.md — Wave 1: isUuid util + vagasService.getVagaBySlug + vagasKeys.detailById/detailBySlug/perguntas split + useVagaBySlug hook
+- [ ] 04-03-PLAN.md — Wave 1: cvUploadService (validateCV + uploadCV + getSignedUrl + removeCV) + 13 Vitest cases with Pitfall 7 console-spy
+- [ ] 04-04-PLAN.md — Wave 1: PerguntaFormulario type + buildCandidaturaSchema dynamic Zod factory + useVagaPerguntas hook + 17 Vitest cases (D-14 explicit)
+- [ ] 04-05-PLAN.md — Wave 2: _shared/schemas.ts patch + submit-candidatura Edge Function (two-client pattern) + candidaturasService.submitCandidaturaWithRespostas + EF deploy with JWT verification ON
+- [ ] 04-06-PLAN.md — Wave 3: routes.tsx /vagas/:identifier + /candidato/candidatura/formulario/:vagaSlug + VagaDetalhePage slug routing + 404 state + real schema + delete VagasPage.tsx (D-18)
+- [ ] 04-07-PLAN.md — Wave 3: FormularioCandidaturaPage full rewrite (D-04) — single-page RHF + dynamic Zod + cvUpload + Edge Function submit + error_code routing + Pitfall 2/7 compliance
+- [ ] 04-08-PLAN.md — Wave 4: Promote vagas-browse + candidatura-submit Playwright (5 + 6 scenarios + Sonner DOM contract) + UAT runbook 6 scenarios + final phase verification battery
 
 ### Phase 5: Perfil + Hardening MVP
 **Goal**: The candidate can see their real application data on a profile page, and the entire MVP passes E2E tests, Lighthouse thresholds, and accessibility checks
@@ -129,5 +134,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
 | 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
 | 3. Login + Recuperacao de Senha | 7/7 | Plan execution complete — Wave 6 landed (03-07: 11 promoted Playwright scenarios + pitfall7.grep B14 Vitest guard + UAT 6/6 PASS; 2 production-only findings captured for Phase 4 PKCE + Phase 5 a11y); pending phase verification gates (code-review + regression + verifier) before phase marked complete | - |
-| 4. Vagas + Candidatura | 0/? | Not started | - |
+| 4. Vagas + Candidatura | 1/8 | Wave 0 complete (04-01: 4 migrations + types regen + Wave 0 stubs); D-22 db push workaround pattern locked + D-10 curriculos path schema locked; Wave 1 (04-02 / 04-03 / 04-04) unblocked for parallel execution | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |
