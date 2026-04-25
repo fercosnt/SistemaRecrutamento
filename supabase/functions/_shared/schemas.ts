@@ -191,3 +191,38 @@ export function zodPathToFieldName(
   const leaf = path[path.length - 1]
   return typeof leaf === 'string' ? leaf : undefined
 }
+
+// =============================================================================
+// Phase 4 / Plan 04-05 — submit-candidatura Edge Function schema
+// =============================================================================
+
+export const submitCandidaturaSchema = z.object({
+  candidato_id: z.string().uuid('candidato_id inválido'),
+  vaga_id: z.string().uuid('vaga_id inválido'),
+  curriculo_url: z.string().min(1, 'curriculo_url obrigatório'),
+  curriculo_nome: z.string().min(1, 'curriculo_nome obrigatório'),
+  curriculo_size: z
+    .number()
+    .int()
+    .positive()
+    .max(5_242_880, 'curriculo excede 5 MB'),
+  respostas: z
+    .array(
+      z.object({
+        pergunta_id: z.string().uuid(),
+        resposta_texto: z.string().optional().nullable(),
+        resposta_numerica: z.number().optional().nullable(),
+        resposta_opcoes: z.unknown().optional().nullable(),
+      }),
+    )
+    .default([]),
+})
+
+export type SubmitCandidaturaInput = z.infer<typeof submitCandidaturaSchema>
+
+export type SubmitCandidaturaErrorCode =
+  | 'VALIDATION'
+  | 'UNAUTHORIZED'
+  | 'DUPLICATE_CANDIDATURA'
+  | 'STORAGE_ERROR'
+  | 'SERVER_ERROR'
