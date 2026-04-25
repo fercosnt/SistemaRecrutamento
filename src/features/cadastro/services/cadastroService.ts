@@ -25,7 +25,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client'
-import { signUp, AuthError } from './authService'
+import { signUp, SignUpError } from './authService'
 import type { CandidatoFormData } from '../types'
 
 // ============================================
@@ -133,9 +133,15 @@ export class CadastroError extends Error {
 
 /**
  * Helper legado exportado historicamente via `./authService`.
+ *
+ * Phase 3 Plan 03-04 / D-17 Option A: the OLD `AuthError` class was
+ * RENAMED to `SignUpError`. The new canonical `AuthError` (Phase 3
+ * D-17 taxonomy) lives at `@/features/auth/types/authTypes.ts` —
+ * Phase 3 consumers import THAT one, never this re-export.
+ *
  * TODO: remove in Phase 3 cleanup (não é mais usado por `cadastrarCandidato`).
  */
-export { signUp, AuthError }
+export { signUp, SignUpError }
 
 // ============================================
 // MAIN FUNCTION
@@ -273,37 +279,20 @@ export async function cadastrarCandidato(
 }
 
 // ============================================
-// AUTO-LOGIN HELPER (D-02)
+// AUTO-LOGIN HELPER (D-02) — moved to @/features/auth/services in Phase 3
 // ============================================
 
 /**
- * Auto-login após cadastro bem-sucedido.
+ * Phase 3 Plan 03-04: `tryAutoLogin` MOVED to
+ * `src/features/auth/services/authService.ts` (canonical Phase 3 source).
  *
- * Política (D-02): single retry com backoff de 500ms. Retorna `true` se ao
- * menos uma das duas tentativas tiver sucesso. NUNCA loga o password.
+ * The single-retry / 500ms-backoff contract is preserved verbatim.
+ * Existing Phase 2 consumer `CadastroMultiStepForm` continues to import
+ * from this module (re-exported here) without behavioral change.
  *
- * Consumers: `CadastroMultiStepForm.onSubmit` chama este helper imediatamente
- * após `cadastrarCandidato` resolver. Se retornar `false`, o form navega para
- * `/auth/login?email=<email>` com toast "Cadastro concluído. Faça login para
- * continuar." (conta foi criada; só o auto-login falhou).
- *
- * @param email - Email do candidato (igual ao enviado ao Edge Function)
- * @param password - Senha em memória (RHF state)
- * @returns `true` se logou com sucesso, `false` se as duas tentativas falharam
+ * @see src/features/auth/services/authService.ts for the implementation.
  */
-export async function tryAutoLogin(
-  email: string,
-  password: string
-): Promise<boolean> {
-  const first = await supabase.auth.signInWithPassword({ email, password })
-  if (!first.error) return true
-
-  // Backoff 500ms (D-02)
-  await new Promise((resolve) => setTimeout(resolve, 500))
-
-  const second = await supabase.auth.signInWithPassword({ email, password })
-  return !second.error
-}
+export { tryAutoLogin } from '@/features/auth/services'
 
 // ============================================
 // FIELD ROUTING TABLES (consumed by Plan 02-06)

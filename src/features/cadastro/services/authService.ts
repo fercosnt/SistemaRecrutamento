@@ -69,7 +69,7 @@ export interface SignUpData {
 /**
  * Custom Error para autenticação
  */
-export class AuthError extends Error {
+export class SignUpError extends Error {
   constructor(
     message: string,
     public code:
@@ -83,7 +83,7 @@ export class AuthError extends Error {
     public originalError?: SupabaseAuthError
   ) {
     super(message)
-    this.name = 'AuthError'
+    this.name = 'SignUpError'
   }
 }
 
@@ -162,15 +162,15 @@ export function getPasswordRequirementsMessage(): string {
 }
 
 /**
- * Mapeia erro do Supabase para AuthError
+ * Mapeia erro do Supabase para SignUpError
  *
  * @param error - Erro do Supabase Auth
- * @returns AuthError com mensagem amigável
+ * @returns SignUpError com mensagem amigável
  */
-function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
+function mapSupabaseAuthError(error: SupabaseAuthError): SignUpError {
   // Email já existe
   if (error.message?.includes('already registered') || error.message?.includes('User already registered')) {
-    return new AuthError(
+    return new SignUpError(
       'Este email já está cadastrado. Tente fazer login ou recuperar sua senha.',
       'EMAIL_EXISTS',
       error
@@ -179,7 +179,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
 
   // Senha fraca (Supabase valida min 6 chars por padrão)
   if (error.message?.includes('Password') && error.message?.includes('least')) {
-    return new AuthError(
+    return new SignUpError(
       `Senha muito fraca. ${getPasswordRequirementsMessage()}`,
       'WEAK_PASSWORD',
       error
@@ -188,7 +188,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
 
   // Email inválido
   if (error.message?.includes('Invalid email') || error.message?.includes('valid email')) {
-    return new AuthError(
+    return new SignUpError(
       'Email inválido. Verifique o formato do email.',
       'INVALID_EMAIL',
       error
@@ -197,7 +197,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
 
   // Credenciais inválidas (login)
   if (error.message?.includes('Invalid login credentials')) {
-    return new AuthError(
+    return new SignUpError(
       'Email ou senha incorretos.',
       'INVALID_CREDENTIALS',
       error
@@ -206,7 +206,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
 
   // Email não confirmado
   if (error.message?.includes('Email not confirmed')) {
-    return new AuthError(
+    return new SignUpError(
       'Email não confirmado. Verifique sua caixa de entrada.',
       'EMAIL_NOT_CONFIRMED',
       error
@@ -214,7 +214,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
   }
 
   // Erro genérico
-  return new AuthError(
+  return new SignUpError(
     error.message || 'Erro ao processar autenticação. Tente novamente.',
     'UNKNOWN_ERROR',
     error
@@ -226,7 +226,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
  *
  * @param data - Dados para sign up (email, senha, metadata)
  * @returns Resultado do sign up com userId
- * @throws {AuthError} Se senha fraca, email já existe, ou erro de rede
+ * @throws {SignUpError} Se senha fraca, email já existe, ou erro de rede
  *
  * @example
  * const result = await signUp({
@@ -239,7 +239,7 @@ function mapSupabaseAuthError(error: SupabaseAuthError): AuthError {
 export async function signUp(data: SignUpData): Promise<SignUpResult> {
   // Validar senha ANTES de enviar ao Supabase
   if (!isStrongPassword(data.password)) {
-    throw new AuthError(
+    throw new SignUpError(
       `Senha muito fraca. ${getPasswordRequirementsMessage()}`,
       'WEAK_PASSWORD'
     )
@@ -268,7 +268,7 @@ export async function signUp(data: SignUpData): Promise<SignUpResult> {
 
     // Validar resposta
     if (!authData.user) {
-      throw new AuthError(
+      throw new SignUpError(
         'Erro ao criar usuário. Nenhum usuário foi retornado.',
         'UNKNOWN_ERROR'
       )
@@ -286,14 +286,14 @@ export async function signUp(data: SignUpData): Promise<SignUpResult> {
       },
     }
   } catch (err) {
-    // Re-throw AuthError
-    if (err instanceof AuthError) {
+    // Re-throw SignUpError
+    if (err instanceof SignUpError) {
       throw err
     }
 
     // Erro de rede ou desconhecido
     console.error('Network/Unknown error during sign up:', err)
-    throw new AuthError(
+    throw new SignUpError(
       'Erro de conexão ao criar usuário. Verifique sua internet.',
       'NETWORK_ERROR'
     )
@@ -306,7 +306,7 @@ export async function signUp(data: SignUpData): Promise<SignUpResult> {
  * @param email - Email do usuário
  * @param password - Senha do usuário
  * @returns Dados do usuário logado
- * @throws {AuthError} Se credenciais inválidas ou erro de rede
+ * @throws {SignUpError} Se credenciais inválidas ou erro de rede
  *
  * @example
  * const result = await signIn('joao@example.com', 'Senha123')
@@ -325,7 +325,7 @@ export async function signIn(email: string, password: string): Promise<SignUpRes
     }
 
     if (!authData.user) {
-      throw new AuthError(
+      throw new SignUpError(
         'Erro ao fazer login. Nenhum usuário foi retornado.',
         'UNKNOWN_ERROR'
       )
@@ -342,12 +342,12 @@ export async function signIn(email: string, password: string): Promise<SignUpRes
       },
     }
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (err instanceof SignUpError) {
       throw err
     }
 
     console.error('Network/Unknown error during sign in:', err)
-    throw new AuthError(
+    throw new SignUpError(
       'Erro de conexão ao fazer login. Verifique sua internet.',
       'NETWORK_ERROR'
     )
@@ -357,7 +357,7 @@ export async function signIn(email: string, password: string): Promise<SignUpRes
 /**
  * Faz logout do usuário atual
  *
- * @throws {AuthError} Se erro ao fazer logout
+ * @throws {SignUpError} Se erro ao fazer logout
  */
 export async function signOut(): Promise<void> {
   try {
@@ -365,18 +365,18 @@ export async function signOut(): Promise<void> {
 
     if (error) {
       console.error('Supabase Auth error:', error)
-      throw new AuthError(
+      throw new SignUpError(
         'Erro ao fazer logout. Tente novamente.',
         'UNKNOWN_ERROR'
       )
     }
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (err instanceof SignUpError) {
       throw err
     }
 
     console.error('Network/Unknown error during sign out:', err)
-    throw new AuthError(
+    throw new SignUpError(
       'Erro de conexão ao fazer logout. Verifique sua internet.',
       'NETWORK_ERROR'
     )
@@ -406,3 +406,22 @@ export async function getCurrentUser(): Promise<SignUpResult['user'] | null> {
     return null
   }
 }
+
+// ============================================================
+// Phase 3 compat shim (Plan 03-04 / D-17 Option A)
+// ============================================================
+//
+// The OLD `AuthError` class above was RENAMED to `SignUpError` so that the
+// Phase 3 canonical `AuthError` (at `@/features/auth/types/authTypes.ts`,
+// D-17 taxonomy) takes the canonical name. The Phase 2 cadastro flow
+// continues using `SignUpError` uniformly (signUp throws `SignUpError`).
+//
+// `tryAutoLogin` MOVED from `cadastroService.ts` to
+// `@/features/auth/services/authService.ts`. We re-export here so any
+// Phase 2 consumer that imported it from `./authService` keeps working.
+// (As of this commit, the only consumer is the cadastroService itself.)
+//
+// Phase 3 consumers (LoginCandidato/RH, EsqueciSenha, RedefinirSenha)
+// import `AuthError` directly from `@/features/auth/types` — they NEVER
+// import from this file.
+export { tryAutoLogin } from '@/features/auth/services'

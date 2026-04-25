@@ -17,7 +17,7 @@ import {
   getCurrentUser,
   isStrongPassword,
   getPasswordRequirementsMessage,
-  AuthError,
+  SignUpError,
   PASSWORD_REQUIREMENTS,
 } from '../authService'
 
@@ -121,7 +121,7 @@ describe('authService', () => {
           email: 'test@example.com',
           password: 'weak',
         })
-      ).rejects.toThrow(AuthError)
+      ).rejects.toThrow(SignUpError)
 
       await expect(
         signUp({
@@ -218,7 +218,7 @@ describe('authService', () => {
           email: 'existente@example.com',
           password: 'Senha123',
         })
-      ).rejects.toThrow(AuthError)
+      ).rejects.toThrow(SignUpError)
 
       await expect(
         signUp({
@@ -371,7 +371,7 @@ describe('authService', () => {
         } as any,
       })
 
-      await expect(signOut()).rejects.toThrow(AuthError)
+      await expect(signOut()).rejects.toThrow(SignUpError)
       await expect(signOut()).rejects.toThrow('Erro ao fazer logout')
     })
   })
@@ -428,20 +428,20 @@ describe('authService', () => {
     })
   })
 
-  describe('AuthError', () => {
+  describe('SignUpError', () => {
     it('deve criar erro com código e mensagem', () => {
-      const error = new AuthError('Teste erro', 'WEAK_PASSWORD')
+      const error = new SignUpError('Teste erro', 'WEAK_PASSWORD')
 
       expect(error.message).toBe('Teste erro')
       expect(error.code).toBe('WEAK_PASSWORD')
-      expect(error.name).toBe('AuthError')
+      expect(error.name).toBe('SignUpError')
     })
 
     it('deve ser instância de Error', () => {
-      const error = new AuthError('Teste', 'NETWORK_ERROR')
+      const error = new SignUpError('Teste', 'NETWORK_ERROR')
 
       expect(error).toBeInstanceOf(Error)
-      expect(error).toBeInstanceOf(AuthError)
+      expect(error).toBeInstanceOf(SignUpError)
     })
 
     it('deve armazenar erro original do Supabase', () => {
@@ -450,7 +450,7 @@ describe('authService', () => {
         status: 400,
       } as any
 
-      const error = new AuthError('Mensagem amigável', 'EMAIL_EXISTS', originalError)
+      const error = new SignUpError('Mensagem amigável', 'EMAIL_EXISTS', originalError)
 
       expect(error.originalError).toBe(originalError)
     })

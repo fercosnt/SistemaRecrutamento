@@ -38,19 +38,23 @@ vi.mock('@/lib/supabase/client', () => ({
   },
 }))
 
-// Mock do authService (re-exported shim, kept for backward compat imports)
+// Mock do authService (re-exported shim, kept for backward compat imports).
+// Phase 3 Plan 03-04 / D-17 Option A: OLD AuthError renamed to SignUpError;
+// canonical AuthError now lives at @/features/auth/types/authTypes.ts.
 vi.mock('../authService', () => ({
   signUp: vi.fn(),
-  AuthError: class AuthError extends Error {
+  SignUpError: class SignUpError extends Error {
     constructor(
       message: string,
       public code: string,
       public originalError?: unknown
     ) {
       super(message)
-      this.name = 'AuthError'
+      this.name = 'SignUpError'
     }
   },
+  // Re-exported by the shim — Phase 2 consumers may import from this path.
+  tryAutoLogin: vi.fn(),
 }))
 
 // Import dos mocks após configuração
