@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 03 Wave 1 landing — 03-02 complete (AuthError + mapSupabaseError + 4 Zod schemas). 03-03 (extractRole + rememberMeStorage) next."
-last_updated: "2026-04-25T02:50:00.000Z"
-last_activity: 2026-04-25 -- Phase 03 Wave 1 partial — 03-02 complete (AuthError class + mapSupabaseError + passwordSchema extracted + cadastro re-wired + 31 passing tests)
+stopped_at: "Phase 03 Wave 2 complete — 03-03 landed (extractRole + rememberMeStorage + authStore/client surgical wiring). Bug 1 (D-13) CLOSED. 03-04 (authService + passwordService + hooks) next."
+last_updated: "2026-04-25T03:10:00.000Z"
+last_activity: 2026-04-25 -- Phase 03 Wave 2 — 03-03 complete (extractRole jwt-decode + rememberMeStorage adapter + authStore Bug 1 fix + supabase client D-19 wire-up; 19 new passing tests; 7 atomic commits)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 18
-  completed_plans: 13
-  percent: 72
+  completed_plans: 14
+  percent: 78
 ---
 
 # Project State
@@ -26,27 +26,27 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 ## Current Position
 
 Phase: 03 (login-recuperacao-senha) — EXECUTING
-Plan: 3 of 7 (Wave 1 partial: 03-02 complete; 03-03 ready)
-Status: Executing Phase 03 — Wave 1 half-landed (03-02 done; 03-03 next)
-Last activity: 2026-04-25 -- Phase 03 Wave 1 partial — 03-02 complete (AuthError + mapSupabaseError + passwordSchema shared + cadastro re-wired + 31 tests)
+Plan: 4 of 7 (Wave 2 complete: 03-03 landed; 03-04 next)
+Status: Executing Phase 03 — Waves 1-2 done (03-02 + 03-03); Wave 3 next
+Last activity: 2026-04-25 -- Phase 03 Wave 2 — 03-03 complete (extractRole jwt-decode + rememberMeStorage adapter + authStore Bug 1 fix + supabase client D-19 wire-up; 19 new passing tests)
 
-Progress: [#######---] 72% of currently-defined plans (13/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (2/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 Wave 1 half-landed (2/7).
+Progress: [########--] 78% of currently-defined plans (14/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (3/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 Wave 2 landed (3/7).
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 13
-- Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous, 5 atomic commits + 31 new tests)
+- Total plans completed: 14
+- Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous)
 - Total execution time for Phase 2: ~245 min
-- Total execution time for Phase 3 so far: ~102 min (Waves 0-1 / 2 of 7)
+- Total execution time for Phase 3 so far: ~114 min (Waves 0-2 / 3 of 7)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 2 | 6/6 | ~245 min | ~41 min |
-| Phase 3 | 2/7 | ~102 min | ~51 min (skewed high by Wave 0 human checkpoint; autonomous average ~8 min) |
+| Phase 3 | 3/7 | ~114 min | ~38 min (skewed high by Wave 0 human checkpoint; autonomous average 03-02/03-03 ~10 min) |
 
 **Per-plan ledger (Phase 3):**
 
@@ -54,6 +54,7 @@ Progress: [#######---] 72% of currently-defined plans (13/18) — Phase 1 (5/5) 
 |------|------------|-------|
 | 03-01 | ~94 min | Human-gated (Dashboard audit) — Task 1+2 autonomous (~6 min); checkpoint wait (~88 min); no auto-fix beyond ESM spec substitution |
 | 03-02 | ~8 min | Fully autonomous; 5 atomic code/test commits (feat+refactor+test scopes) + 1 metadata commit; 3 auto-fix deviations (threat-model type-guard refinement, --no-verify for pre-existing tsc carryover, Vitest v4 console-spy typing); 31 new passing tests (4 AuthError + 18 mapSupabaseError/extractRetryAfterSeconds + 6 passwordSchema + 3 redefinirSenhaSchema); 0 regression in cadastro suite (178/179 pass, 1 pre-existing LoadingProgress deferred) |
+| 03-03 | ~12 min | Fully autonomous; 7 atomic commits (RED+GREEN for each util, 2 surgical refactors, 1 JSDoc refresh); 3 auto-fix deviations (Vitest v4 console-spy typing re-used from 03-02 precedent, symmetric sb-* wipe on session→local swap per Rule 2, JSDoc referencing broken `session.user.app_metadata.role` after refactor per Rule 1); 19 new passing tests (10 extractRole + 9 rememberMeStorage); 0 regression (228/240 full-suite pass — same 1 pre-existing LoadingProgress deferred); Bug 1 (D-13 / AUTH-JWT-01) STRUCTURALLY CLOSED at store layer |
 
 **Recent Trend:**
 
@@ -95,6 +96,9 @@ Recent decisions affecting current work:
 - [03-02]: **passwordSchema is SINGLE SOURCE OF TRUTH** — extracted to `src/features/auth/schemas/passwordSchema.ts`; cadastro imports via `@/features/auth/schemas/passwordSchema`; 30-line inline Zod definition in `candidatoSchema.ts` replaced with `const senhaSchema = passwordSchema` alias. Zero regex duplication. Wording migrated from Phase-2 "Senha deve conter pelo menos 1 letra maiúscula" to Phase-3 UI-SPEC "Inclua pelo menos uma letra maiúscula" — tom invariant Dim4 preserved.
 - [03-02]: **mapSupabaseError input guard: `typeof err === 'object' && err !== null`** (NOT strict `err instanceof Error`). Satisfies T-03-07 (primitives/null/undefined → UNKNOWN_ERROR) while still entering the switch for plain AuthApiError-shaped test objects. Production supabase-js always throws Error instances (which also pass the object gate), so behavior is identical in practice — this is a test-interoperability refinement, not a security relaxation.
 - [03-02]: **Plan-level atomic-commit pattern for multi-task plans** — each logical sub-task got its own commit with feat/refactor/test scopes: `feat(03-02-auth-types)`, `feat(03-02-map-error)`, `feat(03-02-schemas)`, `refactor(03-02-cadastro-schema)`, `test(03-02-redefinir-schema)`. Five code/test commits + 1 docs commit totaling 6 for the plan. Keeps bisect-surface small and makes "what did this plan add" greppable via `git log --oneline --grep=03-02-`.
+- [03-03]: **jwt-decode 4.x ESM works natively in src/ code** — no CJS `require` shim needed. Vite (dev/build) and Vitest (happy-dom) both resolve ESM transparently via the package's `exports.import` field. Only Node-level verification scripts that use `require()` need the `import('jwt-decode')` substitution (documented in 03-01 decision); application code in src/ uses the canonical `import { jwtDecode } from 'jwt-decode'` unchanged.
+- [03-03]: **authStore remains a single Zustand store — no candidato/RH split.** The Bug 1 fix (D-13) is a pure import swap: the broken inline `extractRole` (read `session.user.app_metadata.role`, a field the Supabase-js SDK does not populate because `role` is not an `auth.users` column) is replaced by `extractRole` from `@/features/auth/utils`, which decodes `session.access_token` via jwt-decode. Zero change to surrounding initialize/setSession/hasRole logic. `Role` type canonicalized under `@/features/auth/utils/extractRole.ts`; authStore re-exports via `export type { Role }` to preserve RoleGuard.tsx's existing `import { type Role } from '@/store/authStore'` contract — zero consumer changes needed.
+- [03-03]: **rememberMeStorage sb-* wipe is PRE-flip + SYMMETRIC.** (a) The wipe iterates the outgoing store and removes sb-* keys BEFORE mutating `currentMode`, not after — prevents a hypothetical race where a write interleaved with the flip lands in the wrong store and survives the wipe. (b) Wipe applies to BOTH swap directions (`local→session` AND `session→local`) even though RESEARCH sketched only one direction. Symmetric form closes T-03-04 regardless of which side the stale token sits on. Test T2.7 is the regression gate. (c) Adapter methods late-bind `currentMode` on every call (not captured at module-load), so `setRememberMeMode` fired between `createClient` and `signInWithPassword` is respected by the first write — no supabase singleton re-creation required.
 
 ### Pending Todos
 
@@ -106,8 +110,8 @@ None yet.
 - **Resolved in Phase 1:** auth store unified (extractRole bug deferred to Phase 3 — see KNOWN-ISSUES-CARRYOVER-PHASE-3.md)
 - **Resolved in Phase 2 Plan 02-03 (2026-04-21):** Edge Function `cadastrar-candidato` redeployed with `--no-verify-jwt` (Bug 4 closed); contract evolved to `{ ok, error_code, message, field? }` with legacy `error` alias; policy_version written to every autorizacoes row. 3 live smoke tests passed (VALIDATION + EMAIL_EXISTS + ok=true valid create).
 - **Resolved in Phase 2 Plan 02-06 (2026-04-24 UAT):** (a) Sonner Toaster split-instance — removed vite alias, added `resolve.dedupe`, rewrote 12 pages' imports, added E2E regression. (b) duplicateCheck RPC `this`-detachment — invoke through `.call(supabase, ...)`. (c) `check_candidato_duplicate` digest schema — authored migration `20260421000002_fix_digest_schema_in_rpc.sql` qualifying `extensions.digest(...)`; applied via `npx supabase db push` + live-smoke 200.
-- **Deferred to Phase 3:** extractRole reads `session.user.app_metadata` (SDK-populated, missing role) instead of JWT payload
-- **Deferred to Phase 3:** LoginRHPage legacy setters bypass role validation
+- **Resolved in Phase 3 Plan 03-03 (2026-04-25):** Bug 1 / D-13 / AUTH-JWT-01 — authStore's broken inline `extractRole` (read `session.user.app_metadata.role`) replaced by `import { extractRole } from '@/features/auth/utils'` which decodes `session.access_token` via jwt-decode@^4 and validates against whitelist `'candidato' | 'rh' | 'administrador'`. Surgical edit: 1 import + 8-line function deletion + JSDoc refresh. supabase-js singleton at `src/lib/supabase/client.ts` also wired to `rememberMeStorage` (D-19) in the same plan. 19 new passing tests covering T1.1-T1.8 + T2.1-T2.9; 0 regressions.
+- **Deferred to Phase 3 (Plan 03-05 Wave 3):** LoginRHPage legacy setters bypass role validation (Bug 2/3 / D-14) — 03-05 rewrites both login pages with bounded polling 5×20ms for the onAuthStateChange role race, using the now-correct `extractRole` landed in 03-03.
 - **Deferred to Phase 3 (NEW from 02-03 UAT):** RPC `check_candidato_duplicate` cpf_exists always returns false — compares client-supplied digits-only CPF vs now-formatted `candidatos.cpf` column. UNIQUE constraint on `candidatos.cpf` + EF unique-violation branch maps to `CPF_EXISTS` + `field: 'cpf'` via error-message substring match, so the user still gets correct form-level feedback at submit-time (just not at debounce-time). Fix: migration that normalizes CPF inside the RPC (strip formatting before compare). Tracked as Bug 6 in KNOWN-ISSUES-CARRYOVER-PHASE-3.md.
 - **Deferred to Phase 4:** useVagas() queries non-existent `ativa` column (schema uses `status` enum)
 - 103 RLS policies still need audit (deferred from Phase 1 scope)
@@ -125,25 +129,31 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-04-25 (Phase 3 Wave 1 partial — 03-02 complete)
-Stopped at: **Phase 03 Wave 1 half-landed — 03-02 complete (2/7 plans in Phase 3).** AuthError class + isAuthError guard in `src/features/auth/types/`; mapSupabaseError (full RESEARCH §Pattern 2 switch + Pitfall 9 fallback + 5xx branch) and extractRetryAfterSeconds (ISSUE-007 clamp-to-3600s) in `src/features/auth/utils/`; 4 Zod schemas (passwordSchema shared, loginSchema, esqueciSenhaSchema, redefinirSenhaSchema) in `src/features/auth/schemas/`; cadastro `candidatoSchema.ts` re-wired to shared passwordSchema (zero Zod regex duplication). 31 passing tests (22 + 9). All tsc-clean on touched files. Waves 2-6 unblocked.
+Last session: 2026-04-25 (Phase 3 Wave 2 complete — 03-03 landed)
+Stopped at: **Phase 03 Wave 2 landed — 03-03 complete (3/7 plans in Phase 3).** extractRole util (jwt-decode@^4 payload decode, empty-catch for T-03-07b) + rememberMeStorage adapter (SupportedStorage contract, sb-* wipe pre-flip + symmetric, late-binding currentMode) in `src/features/auth/utils/`; authStore surgical edit (8-line broken function deleted, import added, Role re-exported to preserve RoleGuard contract, JSDoc refreshed); supabase-js singleton at `src/lib/supabase/client.ts` wired to `rememberMeStorage`. 19 new passing tests (10 extractRole B7 + 9 rememberMeStorage B5/B6/B16). Bug 1 (D-13 / AUTH-JWT-01) STRUCTURALLY CLOSED at store layer; D-19 ready for Wave 3 `authService.signIn` to call `setRememberMeMode()` before `signInWithPassword`. All tsc-clean on touched files. Waves 3-6 unblocked.
 
 **Phase 3 wave progress:**
 
   - [x] W0 (03-01): jwt-decode install + Supabase Dashboard audit + 9 test stubs → 2026-04-24 ✅
   - [x] W1 (03-02): AuthError class + mapSupabaseError + 4 Zod schemas (passwordSchema extracted, cadastro re-wired) → 2026-04-25 ✅
-  - [ ] W1 (03-03): extractRole (jwt-decode/D-13 Bug 1 fix) + rememberMeStorage adapter (D-19) + authStore surgical edit + client.ts
-  - [ ] W2 (03-04): authService (move + expand: signIn/signOut/resend) + passwordService (requestPasswordReset/setNewPassword) + useRateLimitCooldown + useRecoverySession + useAuthFlowVariant + cadastro compat shim (SignUpError rename, Option A)
-  - [ ] W3 (03-05): LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 fix — bounded polling 5×20ms for onAuthStateChange role race)
-  - [ ] W3 (03-06): EsqueciSenhaPage + RedefinirSenhaPage rewrite + delete 5 obsolete services + orphan test enumeration
-  - [ ] W4 (03-07): E2E login-flow + password-recovery + B10-lite (unconditional) + pitfall7.grep.test.ts + UAT runbook (autonomous: false)
+  - [x] W2 (03-03): extractRole (jwt-decode/D-13 Bug 1 fix) + rememberMeStorage adapter (D-19) + authStore surgical edit + client.ts → 2026-04-25 ✅
+  - [ ] W3 (03-04): authService (move + expand: signIn/signOut/resend) + passwordService (requestPasswordReset/setNewPassword) + useRateLimitCooldown + useRecoverySession + useAuthFlowVariant + cadastro compat shim (SignUpError rename, Option A)
+  - [ ] W4 (03-05): LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 fix — bounded polling 5×20ms for onAuthStateChange role race)
+  - [ ] W4 (03-06): EsqueciSenhaPage + RedefinirSenhaPage rewrite + delete 5 obsolete services + orphan test enumeration
+  - [ ] W5 (03-07): E2E login-flow + password-recovery + B10-lite (unconditional) + pitfall7.grep.test.ts + UAT runbook (autonomous: false)
 
 **Gates opened by 03-01 for Wave 1:**
 
-  - jwt-decode import path available (`import { jwtDecode } from 'jwt-decode'`) — 03-03 `extractRole` rewrite unblocked
+  - jwt-decode import path available (`import { jwtDecode } from 'jwt-decode'`) — 03-03 `extractRole` rewrite unblocked → ✅ landed 2026-04-25
   - OTP expiry = 3600s confirmed in Dashboard — 03-06 EsqueciSenhaPage copy "válido por 1 hora" now truthful (AUTH-03 coverage)
   - Redirect URL allow-list contains `/auth/redefinir-senha` (+ `?tipo=rh`) on port 3003 — 03-06/03-07 deeplink path clear (AUTH-04 coverage)
-  - JWT `app_metadata.role="candidato"` claim confirmed live — 03-03 Bug 1 (D-13) fix has a stable claim to read
+  - JWT `app_metadata.role="candidato"` claim confirmed live — 03-03 Bug 1 (D-13) fix has a stable claim to read → ✅ landed 2026-04-25
+
+**Gates opened by 03-03 for Wave 3:**
+
+  - `extractRole(session)` is now a pure util returning `Role | null` from JWT payload — `authService.signIn` (03-04) can `authStore.setSession(session)` and the resulting `role` will be correctly populated for RoleGuard redirect logic. Candidato login flow (D-14 / Bug 2) now has a functioning role source.
+  - `rememberMeStorage` wired into supabase-js singleton — `authService.signIn` (03-04) can call `setRememberMeMode(rememberMe ? 'local' : 'session')` BEFORE `supabase.auth.signInWithPassword(...)` and the SDK will write the session token to the chosen backing store. Late-binding design + symmetric sb-* wipe make the toggle safe regardless of the previous state.
+  - Canonical `Role` type available under `@/features/auth/utils` — Wave 3+ services and pages should prefer importing from the utils barrel; authStore's re-export is a compat layer for RoleGuard.
 
 **Open planner resolutions still LOCKED (closed 8 UI-SPEC deferrals in plan-phase, not re-opened):**
 
@@ -164,5 +174,5 @@ Stopped at: **Phase 03 Wave 1 half-landed — 03-02 complete (2/7 plans in Phase
   - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
   - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
 
-Resume file: .planning/phases/03-login-recuperacao-senha/03-03-PLAN.md
-Next: orchestrator spawns Wave 1 remainder (03-03 — extractRole D-13/Bug 1 jwt-decode rewrite + rememberMeStorage D-19 + authStore surgical edit + client.ts; autonomous).
+Resume file: .planning/phases/03-login-recuperacao-senha/03-04-PLAN.md
+Next: orchestrator spawns Wave 3 (03-04 — authService move + expand [signIn/signOut/resend] + passwordService [requestPasswordReset/setNewPassword] + 3 hooks [useRateLimitCooldown, useRecoverySession, useAuthFlowVariant] + cadastro compat shim with SignUpError rename; autonomous).
