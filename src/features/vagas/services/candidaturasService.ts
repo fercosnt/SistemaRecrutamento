@@ -1197,3 +1197,136 @@ export async function listCandidaturasByVaga(
     )
   }
 }
+
+// =============================================================================
+// Phase 4 / Plan 04-05 — submitCandidaturaWithRespostas (Edge Function wrapper)
+// =============================================================================
+
+/**
+ * Input shape expected by the submit-candidatura Edge Function.
+ *
+ * Mirrors `SubmitCandidaturaInput` from `supabase/functions/_shared/schemas.ts`.
+ * Edge Function code is in the Deno runtime and cannot be imported from `src/`,
+ * so the type is duplicated here. Keep both in sync if either side changes.
+ */
+export interface SubmitCandidaturaWithRespostasInput {
+  candidato_id: string
+  vaga_id: string
+  curriculo_url: string
+  curriculo_nome: string
+  curriculo_size: number
+  respostas: Array<{
+    pergunta_id: string
+    resposta_texto?: string | null
+    resposta_numerica?: number | null
+    resposta_opcoes?: unknown
+  }>
+}
+
+interface SubmitCandidaturaResponse {
+  ok: boolean
+  data?: { candidaturaId: string; candidaturaUrl?: string }
+  error_code?: string
+  message?: string
+  field?: string
+}
+
+/**
+ * Phase 4 / CAND-02..04 — Atomic candidatura + respostas submission via Edge Function.
+ *
+ * Wraps `supabase.functions.invoke('submit-candidatura')`. The EF runs the
+ * `submit_candidatura_atomic` RPC inside a Postgres transaction, then fires the
+ * N8N webhook AFTER commit (fire-and-forget).
+ *
+ * Pitfall 7 / B2: log only the redacted shape — never the storage path
+ * (PII because it embeds auth.uid()), never the original filename (PII),
+ * never the respostas content.
+ *
+ * Error code mapping (Edge Function -> CandidaturasServiceError):
+ *   - VALIDATION              -> INVALID_INPUT
+ *   - DUPLICATE_CANDIDATURA   -> DUPLICATE_APPLICATION (CAND-04 server-side)
+ *   - UNAUTHORIZED            -> UNAUTHORIZED
+ *   - STORAGE_ERROR           -> DATABASE_ERROR
+ *   - SERVER_ERROR (default)  -> DATABASE_ERROR
+ *   - invokeError (transport) -> NETWORK_ERROR
+ *
+ * @throws {CandidaturasServiceError}
+ */
+export async function submitCandidaturaWithRespostas(
+  input: SubmitCandidaturaWithRespostasInput
+): Promise<{ candidaturaId: string }> {
+  // Pitfall 7 redacted log — never log the storage path, the filename, or
+  // the respostas content. Only counts and identifiers leave the boundary.
+  console.log('[CANDIDATURA] submit invoked', {
+    vaga_id: input.vaga_id,
+    candidato_id: input.candidato_id,
+    respostas_count: input.respostas.length,
+  })
+
+  try {
+    const { data: responseData, error: invokeError } =
+      await supabase.functions.invoke<SubmitCandidaturaResponse>(
+        'submit-candidatura',
+        { body: input }
+      )
+
+    if (invokeError) {
+      // Pitfall 7: extract only `.message`; some SDK versions transport the
+      // request body inside the error object. Stringify defensively.
+      console.error(
+        '[CANDIDATURA] EF invoke error:',
+        invokeError.message || String(invokeError)
+      )
+      throw new CandidaturasServiceError(
+        invokeError.message || 'Falha ao enviar candidatura',
+        'NETWORK_ERROR',
+        invokeError
+      )
+    }
+
+    if (!responseData?.ok) {
+      const code = responseData?.error_code ?? 'SERVER_ERROR'
+      const message =
+        responseData?.message ?? 'Erro desconhecido ao registrar candidatura'
+      console.error('[CANDIDATURA] EF returned error:', { code, message })
+
+      // Map EF error_code -> CandidaturasServiceError code
+      let mappedCode: CandidaturasServiceError['code']
+      switch (code) {
+        case 'DUPLICATE_CANDIDATURA':
+          mappedCode = 'DUPLICATE_APPLICATION'
+          break
+        case 'VALIDATION':
+          mappedCode = 'INVALID_INPUT'
+          break
+        case 'UNAUTHORIZED':
+          mappedCode = 'UNAUTHORIZED'
+          break
+        case 'STORAGE_ERROR':
+        case 'SERVER_ERROR':
+        default:
+          mappedCode = 'DATABASE_ERROR'
+      }
+      throw new CandidaturasServiceError(message, mappedCode, {
+        code,
+        field: responseData?.field,
+      })
+    }
+
+    if (!responseData.data?.candidaturaId) {
+      throw new CandidaturasServiceError(
+        'Resposta da função de candidatura está incompleta',
+        'DATABASE_ERROR'
+      )
+    }
+
+    return { candidaturaId: responseData.data.candidaturaId }
+  } catch (err) {
+    if (err instanceof CandidaturasServiceError) throw err
+    throw new CandidaturasServiceError(
+      err instanceof Error ? err.message : 'Erro inesperado ao enviar candidatura',
+      'NETWORK_ERROR',
+      err
+    )
+  }
+}
