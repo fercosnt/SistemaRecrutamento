@@ -21,6 +21,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Database } from '../../database.types'
 import { supabase } from '@/lib/supabase/client'
+import { extractRole, type Role } from '@/features/auth/utils'
 
 /**
  * Legacy typed row para candidato. Mantido como tipo do campo `candidato`
@@ -43,8 +44,12 @@ type UsuarioRHRow = Database['public']['Tables']['usuarios_rh']['Row']
  * - `candidato`: pessoa física se candidatando a vagas (área pública)
  * - `rh`: recrutador (mapeado de `usuarios_rh.role === 'recrutador'`)
  * - `administrador`: administrador do sistema
+ *
+ * Fonte canonica: `@/features/auth/utils` (Phase 3 Wave 2 / Plan 03-03).
+ * Re-exportado aqui para preservar compat com consumers que fazem
+ * `import { type Role } from '@/store/authStore'` (ex.: RoleGuard.tsx).
  */
-export type Role = 'candidato' | 'rh' | 'administrador'
+export type { Role }
 
 /**
  * Estado de autenticação unificado.
@@ -116,23 +121,6 @@ export interface AuthState {
   hasRole: (requiredRole: Role | 'recrutador') => boolean
   /** @deprecated Derivar do role diretamente */
   hasPermission: (permission: string) => boolean
-}
-
-/**
- * Extrai o role do JWT `app_metadata.role`.
- *
- * O Custom Access Token Hook (Plan 04) popula esse campo com valores
- * estritos: 'candidato' | 'rh' | 'administrador'. Qualquer outro valor
- * (undefined, string desconhecida, null) retorna `null` — o chamador
- * decide como fazer fallback.
- */
-function extractRole(session: Session | null): Role | null {
-  if (!session?.user) return null
-  const raw = session.user.app_metadata?.role
-  if (raw === 'candidato' || raw === 'rh' || raw === 'administrador') {
-    return raw
-  }
-  return null
 }
 
 /**
