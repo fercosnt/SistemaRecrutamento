@@ -78,7 +78,7 @@ Plans:
 - [x] 03-01-PLAN.md — Wave 0: jwt-decode install + Dashboard audit + test stubs (B1..B16) ✓ 2026-04-24
 - [x] 03-02-PLAN.md — Wave 1: AuthError + mapSupabaseError + 4 Zod schemas (passwordSchema shared with cadastro) ✓ 2026-04-25
 - [x] 03-03-PLAN.md — Wave 2: extractRole (jwt-decode) + rememberMeStorage adapter + authStore/client.ts wire (Bug 1/D-13 closed) ✓ 2026-04-25
-- [ ] 03-04-PLAN.md — Wave 2: authService + passwordService + 3 hooks (useRateLimitCooldown, useRecoverySession, useAuthFlowVariant) + cadastro compat shim
+- [x] 03-04-PLAN.md — Wave 3: authService + passwordService + 3 hooks (useRateLimitCooldown, useRecoverySession, useAuthFlowVariant) + cadastro compat shim (SignUpError rename) ✓ 2026-04-25
 - [ ] 03-05-PLAN.md — Wave 3: LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 role gate)
 - [ ] 03-06-PLAN.md — Wave 3: EsqueciSenhaPage + RedefinirSenhaPage rewrite + 5 obsolete services + 3 legacy schemas deleted
 - [ ] 03-07-PLAN.md — Wave 4: Playwright E2E (login-flow + password-recovery) + Pitfall 7 grep guard + UAT runbook
@@ -128,6 +128,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|---------------|--------|-----------|
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
 | 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
-| 3. Login + Recuperacao de Senha | 3/7 | In progress — Wave 2 landed (03-03: extractRole jwt-decode + rememberMeStorage + authStore/client wire; Bug 1 D-13 CLOSED); 03-04 (authService + passwordService + 3 hooks) next | - |
+| 3. Login + Recuperacao de Senha | 4/7 | In progress — Wave 3 landed (03-04: authService + passwordService + 3 hooks + cadastro compat shim with SignUpError rename); 03-05 (LoginCandidato/RH page rewrites) next | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |
