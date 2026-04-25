@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 03 Wave 6 complete — 03-07 landed (E2E login-flow + password-recovery-flow promoted; pitfall7.grep.test.ts B14 guard added; UAT runbook executed 6/6 PASS; 2 production-only findings captured: Phase 4 PKCE cross-browser limitation + Phase 5 change-password widget a11y). All 7 plans complete; pending phase-level gates (code-review + regression + verifier) before Phase 03 marked complete."
-last_updated: "2026-04-25T15:33:00.000Z"
-last_activity: 2026-04-25 -- Phase 03 Wave 6 — 03-07 complete (E2E + Pitfall 7 Vitest grep guard + UAT 6/6 PASS; nyquist_compliant flipped; PKCE cross-browser finding deferred to Phase 4 with OTP-code mitigation preferred; a11y backlog item deferred to Phase 5)
+status: phase_3_complete
+stopped_at: "Phase 03 COMPLETE — verifier passed 3/3 success criteria (AUTH-04 with documented PKCE cross-browser limitation override; mitigations deferred to Phase 4). Code review advisory 0 critical / 5 warning / 6 info; all 5 warnings classified as Phase 4 hardening opportunities. Regression gate green (274/275; the 1 failure is pre-existing Phase 2 LoadingProgress carryover). Schema drift clean. 2 production-only findings captured for downstream phases (Phase 4 PKCE + Phase 5 a11y). Ready to advance to Phase 04 — Vagas + Candidatura."
+last_updated: "2026-04-25T15:50:00.000Z"
+last_activity: 2026-04-25 -- Phase 03 close-out — code-review (advisory) + regression-gate (green) + schema-drift (clean) + verifier (PASSED) all run. Phase 03 marked complete in ROADMAP.
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 18
   completed_plans: 18
   percent: 100
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 03 — login-recuperacao-senha
+**Current focus:** Phase 04 — vagas-candidatura (next; awaiting discuss/plan)
 
 ## Current Position
 
-Phase: 03 (login-recuperacao-senha) — EXECUTING (all 7 plans complete; awaiting phase-level gates)
-Plan: 7 of 7 (Wave 6 complete: 03-07 landed)
-Status: Executing Phase 03 — Waves 0-6 ALL DONE (03-01 / 03-02 / 03-03 / 03-04 / 03-05 / 03-06 / 03-07). Phase 03 plan execution closed; pending orchestrator-owned phase verification gates (code-review + regression + verifier) before phase itself is marked complete.
-Last activity: 2026-04-25 -- Phase 03 Wave 6 — 03-07 complete (E2E login-flow + password-recovery-flow promoted; pitfall7.grep B14 guard; UAT 6/6 PASS with 2 production-only findings + 1 runbook docfix; nyquist_compliant flipped)
+Phase: 03 (login-recuperacao-senha) — COMPLETE ✓ 2026-04-25 (verifier PASSED 3/3)
+Plan: 7 of 7 (all SUMMARY.md committed)
+Status: Phase 03 closed. Verifier returned `passed` with AUTH-04 marked "complete with documented limitation" (PKCE cross-browser deferred to Phase 4 with OTP-code-flow mitigation preferred). Code review advisory: 0 critical / 5 warning / 6 info — all 5 warnings classified as Phase 4 hardening, none block Phase 3 goal. Regression gate green (274/275; pre-existing Phase 2 LoadingProgress carryover). Schema drift clean. Next: `/gsd-discuss-phase 4` to begin Phase 04 — Vagas + Candidatura (depends on Phase 1 + 3, both complete).
+Last activity: 2026-04-25 -- Phase 03 close-out complete (REVIEW.md, VERIFICATION.md, ROADMAP advanced to [x] Phase 3)
 
-Progress: [##########] 100% of currently-defined plans (18/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (7/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 plans complete (Phase itself pending verifier gate).
+Progress: [##########] 100% of currently-defined plans (18/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (7/7). Phases 4/5 have TBD plan counts; milestone M1 advances to Phase 04.
 
 ## Performance Metrics
 
