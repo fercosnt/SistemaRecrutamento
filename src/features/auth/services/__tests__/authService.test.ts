@@ -344,18 +344,418 @@ describe('mapSupabaseError + extractRetryAfterSeconds (Wave 1, Plan 03-02)', () 
 })
 
 // ============================================================
-// Wave 2+ todos (Plan 03-04 will implement signIn/signOut/resend)
+// Wave 2 — signIn / signOut / resendConfirmation / tryAutoLogin (Plan 03-04)
 // ============================================================
 
-describe('authService — Wave 2+ stubs (03-login-recuperacao-senha)', () => {
-  it.todo('B1: signIn with correct creds resolves; authStore listener picks up SIGNED_IN')
-  it.todo('B2: signIn with wrong creds throws AuthError{code: INVALID_CREDENTIALS}')
-  it.todo(
-    'B3: signIn with email_not_confirmed throws AuthError{code: EMAIL_NOT_CONFIRMED, field: email}'
-  )
-  it.todo(
-    'B4: mapSupabaseError maps over_email_send_rate_limit → AuthError{code: RATE_LIMITED, retryAfterSeconds ≥ 1} — production integration'
-  )
-  it.todo('B13: signIn with network exception throws AuthError{code: NETWORK_ERROR}')
-  it.todo('B14: signIn never logs senha/password/access_token via console.* (Pitfall 7)')
+// Mock the supabase client BEFORE importing the service under test.
+vi.mock('@/lib/supabase/client', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+      resend: vi.fn(),
+    },
+  },
+}))
+
+// Mock the rememberMeStorage util so we can spy on setRememberMeMode order.
+vi.mock('@/features/auth/utils/rememberMeStorage', () => ({
+  setRememberMeMode: vi.fn(),
+  rememberMeStorage: {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  },
+}))
+
+// Imports after mocks
+import { supabase } from '@/lib/supabase/client'
+import { setRememberMeMode } from '@/features/auth/utils/rememberMeStorage'
+import {
+  signIn,
+  signOut,
+  resendConfirmation,
+  tryAutoLogin,
+} from '../authService'
+
+// Shared helpers
+function setupConsoleSpies(): {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  spies: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  serializeAll: () => string
+} {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const spies: any[] = [
+    vi.spyOn(console, 'log').mockImplementation(() => {}),
+    vi.spyOn(console, 'error').mockImplementation(() => {}),
+    vi.spyOn(console, 'warn').mockImplementation(() => {}),
+    vi.spyOn(console, 'info').mockImplementation(() => {}),
+    vi.spyOn(console, 'debug').mockImplementation(() => {}),
+  ]
+  return {
+    spies,
+    serializeAll: () =>
+      spies
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((s: any) => JSON.stringify(s.mock.calls))
+        .join(''),
+  }
+}
+
+describe('signIn (Wave 2, Plan 03-04)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('T1.1: rememberMe=true → setRememberMeMode("local"); resolves on success', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: { id: 'u1', email: 'test@x.com' }, session: { access_token: 'tok' } },
+      error: null,
+    } as never)
+
+    await signIn({ email: 'test@x.com', senha: 'Abcd1234', rememberMe: true })
+
+    expect(setRememberMeMode).toHaveBeenCalledWith('local')
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: 'test@x.com',
+      password: 'Abcd1234',
+    })
+  })
+
+  it('T1.2: ORDER LOCK — setRememberMeMode is invoked BEFORE signInWithPassword', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: { id: 'u1', email: 'test@x.com' }, session: { access_token: 'tok' } },
+      error: null,
+    } as never)
+
+    await signIn({ email: 'test@x.com', senha: 'Abcd1234', rememberMe: true })
+
+    const setRememberMeOrder =
+      vi.mocked(setRememberMeMode).mock.invocationCallOrder[0]
+    const signInOrder =
+      vi.mocked(supabase.auth.signInWithPassword).mock.invocationCallOrder[0]
+    expect(setRememberMeOrder).toBeLessThan(signInOrder)
+  })
+
+  it('T1.3: rememberMe=false → setRememberMeMode("session")', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: { id: 'u1', email: 'test@x.com' }, session: { access_token: 'tok' } },
+      error: null,
+    } as never)
+
+    await signIn({ email: 'test@x.com', senha: 'Abcd1234', rememberMe: false })
+
+    expect(setRememberMeMode).toHaveBeenCalledWith('session')
+  })
+
+  it('T1.4: invalid_credentials → AuthError{code: INVALID_CREDENTIALS} (B2)', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'invalid_credentials',
+        status: 400,
+        message: 'Invalid login credentials',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      signIn({ email: 'wrong@x.com', senha: 'wrong', rememberMe: true })
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'INVALID_CREDENTIALS',
+    })
+  })
+
+  it('T1.5: email_not_confirmed → AuthError{code: EMAIL_NOT_CONFIRMED, field: email} (B3)', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'email_not_confirmed',
+        status: 400,
+        message: 'Email not confirmed',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      signIn({ email: 'unconfirmed@x.com', senha: 'Abcd1234', rememberMe: true })
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'EMAIL_NOT_CONFIRMED',
+      field: 'email',
+    })
+  })
+
+  it('T1.6: rate_limit with "30 seconds" → AuthError{RATE_LIMITED, retryAfterSeconds=30}', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: 'over_email_send_rate_limit',
+        status: 429,
+        message: 'try again in 30 seconds',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      signIn({ email: 'rl@x.com', senha: 'Abcd1234', rememberMe: true })
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: 30,
+    })
+  })
+
+  it('T1.7/T1.8: network throw (TypeError) → AuthError{NETWORK_ERROR} (B13)', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockRejectedValue(
+      new TypeError('Failed to fetch')
+    )
+
+    await expect(
+      signIn({ email: 'x@x.com', senha: 'Abcd1234', rememberMe: true })
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'NETWORK_ERROR',
+    })
+  })
+
+  it('T1.9: NEVER logs senha/password/access_token across all paths (Pitfall 7 / B14)', async () => {
+    const { serializeAll } = setupConsoleSpies()
+
+    // Success path
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: { id: 'u1', email: 'test@x.com' }, session: { access_token: 'sekret-tok' } },
+      error: null,
+    } as never)
+    await signIn({ email: 'test@x.com', senha: 'Abcd1234', rememberMe: true })
+
+    // Error-mapped path
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: 'invalid_credentials',
+        status: 400,
+        message: 'Invalid login credentials',
+        name: 'AuthApiError',
+      },
+    } as never)
+    await signIn({ email: 'test@x.com', senha: 'AnotherPwd9', rememberMe: false }).catch(
+      () => {}
+    )
+
+    // Network throw path
+    vi.mocked(supabase.auth.signInWithPassword).mockRejectedValueOnce(
+      new TypeError('Failed to fetch')
+    )
+    await signIn({ email: 'test@x.com', senha: 'TopSecret77', rememberMe: true }).catch(
+      () => {}
+    )
+
+    const serialized = serializeAll()
+    expect(serialized).not.toContain('Abcd1234')
+    expect(serialized).not.toContain('AnotherPwd9')
+    expect(serialized).not.toContain('TopSecret77')
+    expect(serialized).not.toContain('sekret-tok')
+    expect(serialized).not.toMatch(/"senha"/)
+    expect(serialized).not.toMatch(/"password"/)
+    expect(serialized).not.toMatch(/"access_token"/)
+    expect(serialized).not.toMatch(/"refresh_token"/)
+  })
+
+  it('T1.10: success path logs the redacted shape { email, rememberMe, hasPassword }', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: { id: 'u1', email: 'log@x.com' }, session: { access_token: 't' } },
+      error: null,
+    } as never)
+
+    await signIn({ email: 'log@x.com', senha: 'Abcd1234', rememberMe: true })
+
+    // At least one console.log call where the second arg has the redacted shape
+    const matchingCall = logSpy.mock.calls.find((call) => {
+      const arg = call[1]
+      return (
+        arg &&
+        typeof arg === 'object' &&
+        'hasPassword' in arg &&
+        (arg as { hasPassword: unknown }).hasPassword === true
+      )
+    })
+    expect(matchingCall).toBeDefined()
+  })
+
+  it('T1.11: missing session in success response → AuthError{UNKNOWN_ERROR}', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: { id: 'u1', email: 'x@x.com' }, session: null },
+      error: null,
+    } as never)
+
+    await expect(
+      signIn({ email: 'x@x.com', senha: 'Abcd1234', rememberMe: true })
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'UNKNOWN_ERROR',
+    })
+  })
+})
+
+describe('signOut (Wave 2, Plan 03-04)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('T1.12: success → resolves; calls supabase.auth.signOut', async () => {
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null } as never)
+    await expect(signOut()).resolves.toBeUndefined()
+    expect(supabase.auth.signOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('T1.13: error from SDK → AuthError{SERVER_ERROR or UNKNOWN}', async () => {
+    vi.mocked(supabase.auth.signOut).mockResolvedValue({
+      error: {
+        code: undefined,
+        status: 500,
+        message: 'Internal',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(signOut()).rejects.toMatchObject({ name: 'AuthError' })
+  })
+
+  it('T1.14: network throw → AuthError{NETWORK_ERROR}', async () => {
+    vi.mocked(supabase.auth.signOut).mockRejectedValue(
+      new TypeError('Failed to fetch')
+    )
+    await expect(signOut()).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'NETWORK_ERROR',
+    })
+  })
+})
+
+describe('resendConfirmation (Wave 2, Plan 03-04)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('T1.15: success → calls resend({ type: "signup", email })', async () => {
+    vi.mocked(supabase.auth.resend).mockResolvedValue({ error: null } as never)
+    await expect(
+      resendConfirmation('user@example.com')
+    ).resolves.toBeUndefined()
+    expect(supabase.auth.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'user@example.com',
+    })
+  })
+
+  it('T1.16: rate_limit error → AuthError{RATE_LIMITED}', async () => {
+    vi.mocked(supabase.auth.resend).mockResolvedValue({
+      error: {
+        code: 'over_email_send_rate_limit',
+        status: 429,
+        message: 'try again in 60 seconds',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      resendConfirmation('user@example.com')
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: 60,
+    })
+  })
+})
+
+describe('tryAutoLogin (Wave 2, Plan 03-04 — moved from cadastro)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('T1.17: returns true on first success (no retry)', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: null,
+    } as never)
+
+    const promise = tryAutoLogin('joao@example.com', 'Abcd1234')
+    await vi.runAllTimersAsync()
+    const result = await promise
+
+    expect(result).toBe(true)
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledTimes(1)
+  })
+
+  it('T1.18: retries once with 500ms backoff, second succeeds', async () => {
+    vi.mocked(supabase.auth.signInWithPassword)
+      .mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: { message: 'Invalid credentials' },
+      } as never)
+      .mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: null,
+      } as never)
+
+    const promise = tryAutoLogin('joao@example.com', 'Abcd1234')
+    await vi.runAllTimersAsync()
+    const result = await promise
+
+    expect(result).toBe(true)
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledTimes(2)
+  })
+
+  it('T1.19: returns false when both attempts fail', async () => {
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Invalid credentials' },
+    } as never)
+
+    const promise = tryAutoLogin('joao@example.com', 'Abcd1234')
+    await vi.runAllTimersAsync()
+    const result = await promise
+
+    expect(result).toBe(false)
+    expect(supabase.auth.signInWithPassword).toHaveBeenCalledTimes(2)
+  })
+
+  it('T1.20: NEVER logs the password (Pitfall 7)', async () => {
+    const { serializeAll } = setupConsoleSpies()
+
+    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Invalid credentials' },
+    } as never)
+
+    const promise = tryAutoLogin('joao@example.com', 'Abcd1234')
+    await vi.runAllTimersAsync()
+    await promise
+
+    const serialized = serializeAll()
+    expect(serialized).not.toContain('Abcd1234')
+  })
 })
