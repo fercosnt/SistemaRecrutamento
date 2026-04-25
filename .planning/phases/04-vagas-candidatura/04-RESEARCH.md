@@ -1897,37 +1897,45 @@ Less invasive. Option A above already does this, just by adding a new constant.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All 6 questions resolved 2026-04-25 during checker iteration 1. Each resolution lists the concrete answer + the plan/task that implements it.
 
 1. **Should `respostas_outros` be persisted to DB?**
    - What we know: `permite_outros: true` allows the candidato to write a free-text response when the choice list doesn't fit. Schema has `resposta_texto` for text + `resposta_opcoes` jsonb for selections.
    - What's unclear: Should "Outros: my custom answer" be stored as part of `resposta_opcoes` (e.g., `["Other:my answer"]`) or split between `resposta_opcoes` AND `resposta_texto`?
    - Recommendation: **Concat into `resposta_opcoes` jsonb**: `["selection_1", "selection_2", { other: "free text" }]`. Simpler than schema split. Document in RPC comment.
+   - **Resolution (B1):** **Concat-into-`resposta_opcoes`** is the chosen pattern. The frontend (Plan 04-07 Task 1, `onSubmit` handler) MUST merge `data.respostas_outros[perguntaId]` (when present and non-empty) into the `resposta_opcoes` array of the matching pergunta row as a final element of shape `{ outros: text }`. The Edge Function (Plan 04-05 Task 2) accepts the merged shape unchanged via `resposta_opcoes: z.unknown()`. The RPC (Plan 04-01 migration `20260425000003_submit_candidatura_rpc.sql`) writes the jsonb verbatim into `respostas_formulario.resposta_opcoes`. No schema split. No separate `outros` column. Implemented by: Plan 04-07 Task 1 (frontend merge), Plan 04-05 Task 1 (schema accepts), Plan 04-01 Task 4 (RPC stores).
 
 2. **Does `respostas_formulario` need an INSERT RLS policy or only the RPC?**
    - What we know: D-12 says all inserts go through SECURITY DEFINER RPC. RPC bypasses RLS.
    - What's unclear: Should we ADD a restrictive RLS policy explicitly DENYING client INSERT (defense in depth)? Or rely on RPC being the only path?
    - Recommendation: ADD explicit policy `CREATE POLICY "respostas_no_direct_insert" ON respostas_formulario FOR INSERT TO authenticated WITH CHECK (false);` — fails any direct client INSERT loudly. Tests should verify this.
+   - **Resolution (B1):** **Add explicit DENY-INSERT policy** for defense in depth. Implemented by: Plan 04-01 Task 3 (migration `20260425000003_submit_candidatura_rpc.sql` adds the `respostas_no_direct_insert` policy alongside the RPC definition). Server-side acceptance test in Plan 04-01 Task 5 smoke #4 attempts a direct INSERT as authenticated and asserts a policy-violation error (code `42501`).
 
-3. **Should the Edge Function Edge Function `submit-candidatura` enforce that the curriculo_url path matches `{auth.uid()}/`?**
+3. **Should the Edge Function `submit-candidatura` enforce that the curriculo_url path matches `{auth.uid()}/`?**
    - What we know: The path is generated client-side from `crypto.randomUUID()`; client could spoof.
    - What's unclear: How to validate? Server-side check that path starts with `{auth.uid()}/` is cheap.
    - Recommendation: Add validation in EF: `if (!input.curriculo_url.startsWith(`${user.id}/`)) return errorResponse('VALIDATION', 'Caminho do currículo inválido')`.
+   - **Resolution (B1):** **Yes — implemented as step 3b** in Edge Function. Plan 04-05 Task 2 includes the literal check `if (!input.curriculo_url.startsWith(\`${user.id}/\`))` returning `VALIDATION` error_code with `field: 'curriculo_url'`. Mitigates T-04-04 + T-04-11b. Acceptance grep in Plan 04-05 Task 2 confirms `input.curriculo_url.startsWith` is present in the EF source.
 
 4. **Should existing `useCreateCandidatura` (in `useCandidaturas.ts`) be deprecated in favor of new `useSubmitCandidatura` calling the EF?**
    - What we know: `useCreateCandidatura` calls `candidaturasService.createCandidatura` directly (no EF).
    - What's unclear: Will it still be used? Or is it dead-code post-Phase-4?
    - Recommendation: Add `@deprecated` JSDoc to `useCreateCandidatura` + `createCandidatura`. Don't delete in Phase 4 (Phase 6 RH may need direct path); revisit deletion in Phase 5/6.
+   - **Resolution (B1):** **Preserve, do not deprecate in Phase 4.** Plan 04-05 Task 3 adds `submitCandidaturaWithRespostas` ALONGSIDE the existing `createCandidatura` (acceptance criterion explicitly preserves `createCandidatura` per PATTERNS L1020-1022). No `@deprecated` JSDoc added — the legacy path may still be used by Phase 6 RH-side code. Revisit deletion decision in Phase 6 planning.
 
 5. **Should the deletion of `VagasPage.tsx` (D-18) include also removing the import from any `App.tsx` or default-route fallback?**
    - What we know: Already grep'd — only consumer is the orphan file itself per CONTEXT.md.
    - What's unclear: Is `devNavigationPages` still referencing? Yes — Phase 4 should also remove dev menu entries that don't apply.
    - Recommendation: Wave 0 audit — `grep -rn "VagasPage" src/` should return 0 outside of `routes.tsx` (where the import is) AND `devNavigationPages.tsx`. Both removed in same commit.
+   - **Resolution (B1):** **Yes — full audit + cleanup in same commit.** Plan 04-02 (routes + vagasService.getVagaBySlug + isUuid + VagasPage deletion) Task X handles `routes.tsx` removal AND `devNavigationPages.tsx` removal in a single commit. Acceptance: `grep -rn "VagasPage" src/` returns 0 lines after Plan 04-02 lands.
 
 6. **Should we add a Vitest test for the slug trigger SQL (e.g., via `supabase db reset` + insert + assert)?**
    - What we know: SQL trigger logic isn't covered by Vitest (which is JS only).
    - What's unclear: Add a one-shot smoke script in `scripts/smoke-vaga-slug.sh` that inserts/asserts/cleans up?
    - Recommendation: Yes, but as a Wave 0 deliverable separate from Vitest — document the smoke commands in `04-VALIDATION.md` "DB smoke" section.
+   - **Resolution (B1):** **Yes — captured as Plan 04-01 Task 5 SQL smoke checkpoint** (not a separate `scripts/smoke-vaga-slug.sh` file). The checkpoint includes inline `psql`/Supabase Studio queries to: (a) insert two rows with the same `titulo`, (b) assert their slugs differ (`-2` suffix), (c) cleanup. The same checkpoint also runs smokes for the bucket policies, the RPC, and the UNIQUE constraint. Documented in `.planning/phases/04-vagas-candidatura/04-VALIDATION.md` "Manual-Only Verifications" table. No separate shell script created — the planner-proposed `scripts/smoke-vaga-slug.sh` was rejected to keep smoke discipline inline with the migration checkpoint that owns the SQL.
 
 ---
 
