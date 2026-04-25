@@ -3,3 +3,4 @@
  */
 
 export * from './mapSupabaseError'
+export * from './extractRole'
