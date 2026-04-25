@@ -6,12 +6,13 @@
  * por uma única fonte de verdade com awareness de `role`.
  *
  * Fluxo de role:
- * 1. Após o Custom Access Token Hook (Plan 04, migration 0003_unified_auth_role.sql)
- *    ser deployado e habilitado no Dashboard, `session.user.app_metadata.role`
- *    conterá 'candidato' | 'rh' | 'administrador'.
- * 2. Antes do hook, `app_metadata.role` é `undefined`. Nesse caso, `extractRole`
- *    retorna `null` e o initialize faz fallback buscando em usuarios_rh (e depois
- *    candidatos) para determinar o role dinamicamente.
+ * 1. O Custom Access Token Hook (Plan 04, migration 0003_unified_auth_role.sql)
+ *    injeta `role` no payload do JWT (`app_metadata.role`). `extractRole` (utilitário
+ *    em `@/features/auth/utils` — Phase 3 Plan 03-03) decodifica o access_token
+ *    via `jwt-decode` e retorna 'candidato' | 'rh' | 'administrador' | null.
+ * 2. Se o hook ainda não injetar role (JWT legado), `extractRole` retorna `null`
+ *    e o `initialize` faz fallback buscando em usuarios_rh (e depois candidatos)
+ *    para determinar o role dinamicamente.
  *
  * @module store/authStore
  */
