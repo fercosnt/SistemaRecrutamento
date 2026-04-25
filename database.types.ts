@@ -2783,6 +2783,10 @@ export type Database = {
         Returns: Json
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      generate_unique_vaga_slug: {
+        Args: { p_exclude_id?: string; p_titulo: string }
+        Returns: string
+      }
       get_configuracoes: {
         Args: never
         Returns: {
@@ -2887,7 +2891,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      slugify: { Args: { p_input: string }; Returns: string }
+      submit_candidatura_atomic: {
+        Args: {
+          p_candidato_id: string
+          p_curriculo_nome: string
+          p_curriculo_size: number
+          p_curriculo_url: string
+          p_respostas: Json
+          p_vaga_id: string
+        }
+        Returns: Json
+      }
       testar_webhook: { Args: { webhook_config_id: string }; Returns: Json }
+      unaccent: { Args: { "": string }; Returns: string }
       validar_referencia_entrevista: {
         Args: {
           p_entrevista_id: string

@@ -6,8 +6,14 @@
 -- DEPENDS ON: 20260425000004 (UNIQUE constraint provides 23505 raise path
 --             for DUPLICATE_CANDIDATURA mapping)
 -- =============================================================================
-
-BEGIN;
+--
+-- NOTE: No explicit `BEGIN; ... COMMIT;` wrapper. The Supabase CLI driver
+-- already wraps each migration in its own implicit transaction; an outer
+-- BEGIN/COMMIT combined with the `$$ ... $$` PL/pgSQL body (which contains
+-- its own BEGIN/END) breaks the prepared-statement boundary parser and
+-- raises "cannot insert multiple commands into a prepared statement"
+-- (SQLSTATE 42601) at push time.
+-- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.submit_candidatura_atomic(
   p_candidato_id      uuid,
@@ -86,5 +92,3 @@ COMMENT ON FUNCTION public.submit_candidatura_atomic(uuid, uuid, text, text, int
 
 REVOKE ALL ON FUNCTION public.submit_candidatura_atomic(uuid, uuid, text, text, int, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.submit_candidatura_atomic(uuid, uuid, text, text, int, jsonb) TO service_role;
-
-COMMIT;

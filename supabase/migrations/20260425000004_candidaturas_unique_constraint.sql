@@ -23,8 +23,13 @@
 -- If any rows returned, CLEAN UP duplicates first; otherwise CREATE UNIQUE
 -- INDEX will fail. Phase 4 dev DB is expected to be clean per RESEARCH §A2.
 -- =============================================================================
-
-BEGIN;
+--
+-- NOTE: No explicit `BEGIN; ... COMMIT;` wrapper. The Supabase CLI driver
+-- already wraps each migration in its own implicit transaction; an outer
+-- BEGIN/COMMIT combined with the `DO $$ ... END $$` PL/pgSQL block (which
+-- contains its own BEGIN/END) can break the prepared-statement boundary
+-- parser. Removed for consistency with migration 03 fix.
+-- =============================================================================
 
 DO $$
 BEGIN
@@ -44,5 +49,3 @@ COMMENT ON INDEX public.candidaturas_candidato_vaga_unique_idx IS
   'Partial WHERE deleted_at IS NULL allows re-application after soft-delete. '
   'Companion to candidaturasService.checkDuplicateApplication (client hint) '
   'and Edge Function submit-candidatura mapping of Postgres code 23505 → DUPLICATE_CANDIDATURA.';
-
-COMMIT;
