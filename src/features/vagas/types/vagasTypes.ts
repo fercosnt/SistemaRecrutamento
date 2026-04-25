@@ -53,6 +53,33 @@ export type CandidaturaUpdate =
 export type CandidatoRow = Database['public']['Tables']['candidatos']['Row']
 
 // ============================================
+// PERGUNTAS / RESPOSTAS DOMAIN TYPES (Phase 4 — CAND-02)
+// ============================================
+
+/**
+ * Phase 4 / CAND-02 — Type alias derivado de Database para perguntas_formulario.
+ *
+ * Source of truth: database.types.ts (regenerado via `npm run db:types`).
+ * NÃO redefinir manualmente — mantém sincronia com schema do Postgres.
+ *
+ * Uso: consumido por `useVagaPerguntas` (hook) + `buildCandidaturaSchema`
+ * (Zod factory) na Plan 04-04.
+ */
+export type PerguntaFormulario =
+  Database['public']['Tables']['perguntas_formulario']['Row']
+
+/**
+ * Phase 4 / CAND-02 — Enum value alias para tipo_resposta_pergunta.
+ *
+ * Valores válidos: 'texto_curto' | 'texto_longo' | 'single_choice' |
+ *                  'multiple_choice' | 'numerico'
+ *
+ * Source: Database['public']['Enums']['tipo_resposta_pergunta'].
+ */
+export type TipoResposta =
+  Database['public']['Enums']['tipo_resposta_pergunta']
+
+// ============================================
 // VAGA DOMAIN TYPES
 // ============================================
 

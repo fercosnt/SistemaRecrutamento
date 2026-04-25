@@ -1,23 +1,248 @@
 /**
- * Wave 0 STUB — flesh out in Plan 04-04.
- * Coverage target: 100% of zodForType + buildCandidaturaSchema.
+ * Phase 4 / Plan 04-04 — candidaturaFormSchema Vitest coverage.
+ *
+ * Activates Wave 0 stubs from Plan 04-01 Task 6.
+ *
+ * Coverage:
+ *   - zodForType: 9 cases covering all 5 tipo_resposta_pergunta branches
+ *     (texto_curto ×2, texto_longo ×1, numerico ×2, single_choice ×2,
+ *     multiple_choice ×2)
+ *   - buildCandidaturaSchema: 4 cases (empty list D-14, mixed perguntas,
+ *     missing required pergunta, 5MB cap at schema layer)
+ *
+ * Total: 13 active it() blocks (target plano: ≥13).
+ *
+ * @see .planning/phases/04-vagas-candidatura/04-RESEARCH.md L1766
+ * @see .planning/phases/04-vagas-candidatura/04-PATTERNS.md L270-304
  */
-import { describe, it } from 'vitest'
+import { describe, it, expect } from 'vitest'
+import { zodForType, buildCandidaturaSchema } from '../candidaturaFormSchema'
+import type { PerguntaFormulario } from '../candidaturaFormSchema'
 
-describe('candidaturaFormSchema (Wave 0 stub — Plan 04-04)', () => {
-  describe('zodForType', () => {
-    it.skip('T1.1: texto_curto obrigatoria empty fails (Plan 04-04)', () => {})
-    it.skip('T1.2: texto_curto with limite_caracteres enforces max (Plan 04-04)', () => {})
-    it.skip('T1.3: texto_longo same as texto_curto (Plan 04-04)', () => {})
-    it.skip('T1.4: numerico with valor_minimo/maximo bounds (Plan 04-04)', () => {})
-    it.skip('T1.5: numerico optional when not obrigatoria (Plan 04-04)', () => {})
-    it.skip('T1.6: single_choice from opcoes via z.enum (Plan 04-04)', () => {})
-    it.skip('T1.7: single_choice with permite_outros relaxes to z.string (Plan 04-04)', () => {})
-    it.skip('T1.8: multiple_choice obrigatoria min 1 (Plan 04-04)', () => {})
-    it.skip('T1.9: multiple_choice empty allowed when not obrigatoria (Plan 04-04)', () => {})
+// ============================================
+// Fixture helper — minimal pergunta with realistic DB column shape
+// ============================================
+//
+// Cast `as PerguntaFormulario` follows the discipline from PATTERNS L304
+// (mirrors cadastroService.test.ts:72-80 `as unknown as CandidatoFormData`).
+// Field names match database.types.ts perguntas_formulario.Row exactly:
+//   texto_pergunta (NOT pergunta), bloco: string (NOT nullable),
+//   plus created_by/updated_by/timestamps.
+const buildPergunta = (
+  overrides: Partial<PerguntaFormulario>
+): PerguntaFormulario =>
+  ({
+    id: 'pergunta-uuid',
+    vaga_id: 'vaga-uuid',
+    tipo_resposta: 'texto_curto',
+    texto_pergunta: 'Pergunta de teste',
+    obrigatoria: false,
+    ordem: 1,
+    bloco: 'Geral',
+    texto_ajuda: null,
+    limite_caracteres: null,
+    opcoes_resposta: null,
+    permite_outros: false,
+    valor_minimo: null,
+    valor_maximo: null,
+    deleted_at: null,
+    created_at: '2026-04-25T00:00:00Z',
+    updated_at: '2026-04-25T00:00:00Z',
+    created_by: null,
+    updated_by: null,
+    ...overrides,
+  }) as PerguntaFormulario
+
+describe('zodForType (Plan 04-04)', () => {
+  it('T1.1: texto_curto obrigatoria empty fails with "Resposta obrigatória"', () => {
+    const schema = zodForType(
+      buildPergunta({ tipo_resposta: 'texto_curto', obrigatoria: true })
+    )
+    const result = schema.safeParse('')
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Resposta obrigatória')
+    }
   })
-  describe('buildCandidaturaSchema', () => {
-    it.skip('T2.1: empty perguntas list returns object with curriculo only (D-14, Plan 04-04)', () => {})
-    it.skip('T2.2: mixed perguntas validates real input (Plan 04-04)', () => {})
+
+  it('T1.2: texto_curto with limite_caracteres enforces max', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'texto_curto',
+        obrigatoria: true,
+        limite_caracteres: 10,
+      })
+    )
+    const result = schema.safeParse('1234567890123')
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Máximo 10 caracteres')
+    }
+  })
+
+  it('T1.3: texto_longo enforces max via limite_caracteres', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'texto_longo',
+        obrigatoria: false,
+        limite_caracteres: 5,
+      })
+    )
+    const result = schema.safeParse('123456')
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Máximo 5 caracteres')
+    }
+  })
+
+  it('T1.4: numerico with valor_minimo/maximo bounds', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'numerico',
+        obrigatoria: true,
+        valor_minimo: 5,
+        valor_maximo: 10,
+      })
+    )
+    expect(schema.safeParse(7).success).toBe(true)
+    expect(schema.safeParse(4).success).toBe(false)
+    expect(schema.safeParse(11).success).toBe(false)
+  })
+
+  it('T1.5: numerico optional when not obrigatoria (accepts undefined and null)', () => {
+    const schema = zodForType(
+      buildPergunta({ tipo_resposta: 'numerico', obrigatoria: false })
+    )
+    expect(schema.safeParse(undefined).success).toBe(true)
+    expect(schema.safeParse(null).success).toBe(true)
+    expect(schema.safeParse(42).success).toBe(true)
+  })
+
+  it('T1.6: single_choice from opcoes_resposta via z.enum (rejects unknown)', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'single_choice',
+        obrigatoria: true,
+        opcoes_resposta: ['Sim', 'Não', 'Talvez'],
+      })
+    )
+    expect(schema.safeParse('Sim').success).toBe(true)
+    expect(schema.safeParse('Outro').success).toBe(false)
+  })
+
+  it('T1.7: single_choice with permite_outros relaxes to z.string', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'single_choice',
+        obrigatoria: true,
+        opcoes_resposta: ['Sim', 'Não'],
+        permite_outros: true,
+      })
+    )
+    // "Outro qualquer" não está em opcoes_resposta, mas permite_outros
+    // relaxa o validator para z.string().min(1) — passa.
+    expect(schema.safeParse('Outro qualquer').success).toBe(true)
+  })
+
+  it('T1.8: multiple_choice obrigatoria min 1 fails on empty array', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'multiple_choice',
+        obrigatoria: true,
+        opcoes_resposta: ['A', 'B', 'C'],
+      })
+    )
+    const result = schema.safeParse([])
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        'Selecione pelo menos uma opção'
+      )
+    }
+  })
+
+  it('T1.9: multiple_choice empty array allowed when not obrigatoria', () => {
+    const schema = zodForType(
+      buildPergunta({
+        tipo_resposta: 'multiple_choice',
+        obrigatoria: false,
+        opcoes_resposta: ['A', 'B'],
+      })
+    )
+    expect(schema.safeParse([]).success).toBe(true)
+  })
+})
+
+describe('buildCandidaturaSchema (Plan 04-04)', () => {
+  it('T2.1: empty perguntas list still requires curriculo (D-14)', () => {
+    // D-14: vaga sem perguntas configuradas → schema valida APENAS currículo;
+    // respostas é z.object({}) (vazio), aceita {} como input.
+    const schema = buildCandidaturaSchema([])
+    const okResult = schema.safeParse({
+      curriculo: { path: 'auth-uid/uuid.pdf', name: 'cv.pdf', size: 1024 },
+      respostas: {},
+    })
+    expect(okResult.success).toBe(true)
+
+    // Curriculo missing → fail
+    const failResult = schema.safeParse({ respostas: {} })
+    expect(failResult.success).toBe(false)
+  })
+
+  it('T2.2: mixed perguntas validates real input', () => {
+    const perguntas = [
+      buildPergunta({
+        id: 'p1',
+        tipo_resposta: 'texto_curto',
+        obrigatoria: true,
+      }),
+      buildPergunta({
+        id: 'p2',
+        tipo_resposta: 'numerico',
+        obrigatoria: false,
+        valor_minimo: 0,
+        valor_maximo: 100,
+      }),
+    ]
+    const schema = buildCandidaturaSchema(perguntas)
+    const result = schema.safeParse({
+      curriculo: { path: 'auth-uid/uuid.pdf', name: 'cv.pdf', size: 1024 },
+      respostas: { p1: 'Resposta válida', p2: 50 },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('T2.3: rejects respostas missing required pergunta value', () => {
+    const perguntas = [
+      buildPergunta({
+        id: 'p1',
+        tipo_resposta: 'texto_curto',
+        obrigatoria: true,
+      }),
+    ]
+    const schema = buildCandidaturaSchema(perguntas)
+    const result = schema.safeParse({
+      curriculo: { path: 'auth-uid/uuid.pdf', name: 'cv.pdf', size: 1024 },
+      respostas: { p1: '' },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('T2.4: rejects curriculo size > 5MB at schema layer', () => {
+    const schema = buildCandidaturaSchema([])
+    const result = schema.safeParse({
+      curriculo: {
+        path: 'auth-uid/uuid.pdf',
+        name: 'cv.pdf',
+        size: 5_242_881, // 1 byte over 5MB cap
+      },
+      respostas: {},
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.message.includes('5 MB'))
+      ).toBe(true)
+    }
   })
 })
