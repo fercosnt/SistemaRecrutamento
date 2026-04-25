@@ -21,7 +21,7 @@
 import { useRef, useState } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Eye,
@@ -48,8 +48,32 @@ import { signIn, resendConfirmation } from '@/features/auth/services'
 import { AuthError, isAuthError } from '@/features/auth/types'
 import { useRateLimitCooldown } from '@/features/auth/hooks'
 
+/**
+ * VAGA-03 — Anti-open-redirect guard for the `?redirect=` query param.
+ *
+ * Returns the redirect target ONLY when it is a same-origin, non-protocol-relative
+ * absolute path (must start with `/` and must NOT start with `//`). Anything else
+ * (`https://evil.com`, `//evil.com`, `javascript:...`, empty/missing) yields the
+ * default fallback `/candidato/perfil`.
+ *
+ * Exported for unit tests; consumers within this module use `resolveRedirect`.
+ */
+export function resolveRedirect(
+  raw: string | null | undefined,
+  fallback = '/candidato/perfil'
+): string {
+  if (!raw) return fallback
+  // Reject protocol-relative URLs like `//evil.com/path` (browsers treat them as
+  // absolute by inheriting the current scheme — anti-open-redirect).
+  if (raw.startsWith('//')) return fallback
+  // Only accept relative paths anchored at root.
+  if (!raw.startsWith('/')) return fallback
+  return raw
+}
+
 export function LoginCandidatoPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [showPassword, setShowPassword] = useState(false)
   const [lastError, setLastError] = useState<AuthError | null>(null)
   const [isResending, setIsResending] = useState(false)
@@ -92,7 +116,11 @@ export function LoginCandidatoPage() {
         rememberMe: data.rememberMe ?? true,
       })
       toast.success('Login realizado com sucesso!', { duration: 3000 })
-      navigate('/candidato/perfil', { replace: true })
+      // VAGA-03: consume `?redirect=` query param (e.g. set by VagaDetalhePage
+      // when an unauthenticated visitor clicks "Candidatar-se"). Guarded against
+      // open-redirect by `resolveRedirect`.
+      const target = resolveRedirect(searchParams.get('redirect'))
+      navigate(target, { replace: true })
     } catch (err) {
       if (isAuthError(err)) {
         setLastError(err)
