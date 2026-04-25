@@ -673,3 +673,33 @@ test.describe('9. Anti-Enumeração de Usuários', () => {
     // Mensagens idênticas = não revela se email existe
   });
 });
+
+// ============================================================================
+// WAVE 0 STUBS — 03-login-recuperacao-senha
+// ============================================================================
+// Stub specs registered with `test.skip(...)` — populated during Wave 5 (03-06)
+// and Wave 6 (03-07). Behavior IDs map to .planning/phases/03-login-recuperacao-senha/
+// 03-VALIDATION.md §Critical Behaviors.
+//
+// B10 happy-path uses localStorage pre-seed via addInitScript (B10-lite,
+// unconditional) — full deeplink path is `test.fixme` per planner LOCKED
+// resolution (depends on supabase.auth.admin.generateLink in globalSetup).
+// ============================================================================
+
+test.describe('Wave 0 stubs — 03-login-recuperacao-senha', () => {
+  test.skip('B9: requestPasswordReset SEMPRE retorna copy neutra "Se o email estiver cadastrado..." (anti-enumeration, D-09)', async () => {
+    // TODO Wave 5 (plan 03-06): submeter EsqueciSenhaPage com email inexistente E com email cadastrado;
+    // assert copy idêntica em ambos os casos (T-03-02 mitigation)
+  });
+
+  test.skip('B10: deeplink → PASSWORD_RECOVERY → form → updateUser → redirect /candidato/perfil (mocked via addInitScript localStorage pre-seed — B10-lite)', async () => {
+    // TODO Wave 6 (plan 03-07): pre-seed sb-<ref>-auth-token via page.addInitScript com session
+    // marcada type=recovery; submit RedefinirSenhaPage; assert auto-login + navigate replace=true
+    // Full deeplink (real email link) é test.fixme — depende de supabase.auth.admin.generateLink em globalSetup
+  });
+
+  test.skip('B12: Link de recovery expirado/single-use → InvalidLinkState com botão "Solicitar novo link" (T-03-05)', async () => {
+    // TODO Wave 6: navegar /auth/redefinir-senha sem session válida; assert heading "Link inválido" +
+    // botão Solicitar novo link visível (Wave 5 introduz useRecoverySession hook)
+  });
+});

@@ -616,3 +616,42 @@ test.describe('Testes de UX/UI', () => {
     await logout(page)
   })
 })
+
+// ============================================================================
+// WAVE 0 STUBS — 03-login-recuperacao-senha
+// ============================================================================
+// Stub specs registered with `test.skip(...)` — populated during Wave 3 (03-04)
+// Wave 4 (03-05). Behavior IDs map to .planning/phases/03-login-recuperacao-senha/
+// 03-VALIDATION.md §Critical Behaviors.
+//
+// B3, B4, B8 are env-gated — they require dedicated test users
+// (test-candidato-unconfirmed, test-rh, test-admin) controlled by
+// E2E_AUTH_TEST_USERS=true. Skipped unconditionally in Wave 0.
+// ============================================================================
+
+test.describe('Wave 0 stubs — 03-login-recuperacao-senha', () => {
+  test.skip('B1: Login candidato com creds válidas → role=candidato no authStore + redirect /candidato/perfil', async () => {
+    // TODO Wave 3/4 (plans 03-04 + 03-05): assert authStore.role === 'candidato' via window.__authStore__
+    // probe + URL redirect to /candidato/perfil
+  })
+
+  test.skip('B2: Login candidato com creds inválidas → toast "Email ou senha inválidos" (genérico, sem enumeration)', async () => {
+    // TODO Wave 4 (plan 03-05): assert exact pt-BR copy + permanecer em /auth/login
+  })
+
+  test.skip('B3: Login com email não confirmado → toast EMAIL_NOT_CONFIRMED + botão "Reenviar email" [env-gated test-candidato-unconfirmed]', async () => {
+    // TODO Wave 4: env-gate by process.env.E2E_AUTH_TEST_USERS === 'true'
+  })
+
+  test.skip('B4: Rate limit → countdown visível + botão Entrar disabled até zerar [env-gated]', async () => {
+    // TODO Wave 4: requer mock de over_email_send_rate_limit ou test user em estado rate-limited
+  })
+
+  test.skip('B8: LoginRH rejeita roles non-administrador (signOut + toast "Acesso negado") [env-gated test-rh, test-admin]', async () => {
+    // TODO Wave 4 (plan 03-05): valida fix Bug 2/3 (D-14) — bounded polling 5×20ms para resolver onAuthStateChange role race
+  })
+
+  test.skip('B15: Sonner toast renderiza no DOM em todos os flows de auth (regressão split-instance Phase 2)', async () => {
+    // TODO Wave 6 (plan 03-07): assert <li data-sonner-toast> aparece dentro da Notifications region pós-login
+  })
+})
