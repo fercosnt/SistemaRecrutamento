@@ -618,40 +618,141 @@ test.describe('Testes de UX/UI', () => {
 })
 
 // ============================================================================
-// WAVE 0 STUBS — 03-login-recuperacao-senha
+// PHASE 3 PLAN 03-07 — Wave 6 promoted scenarios (B1, B2, B3, B4, B8, B15)
 // ============================================================================
-// Stub specs registered with `test.skip(...)` — populated during Wave 3 (03-04)
-// Wave 4 (03-05). Behavior IDs map to .planning/phases/03-login-recuperacao-senha/
+// Promoted from Wave 0 stubs in commits aligned with 03-07 PLAN. Each test
+// references a Behavior ID from .planning/phases/03-login-recuperacao-senha/
 // 03-VALIDATION.md §Critical Behaviors.
 //
-// B3, B4, B8 are env-gated — they require dedicated test users
-// (test-candidato-unconfirmed, test-rh, test-admin) controlled by
-// E2E_AUTH_TEST_USERS=true. Skipped unconditionally in Wave 0.
+// Run-unconditionally (every CI run): B1 (login success mock), B2 (invalid
+// credentials mock), B15 (Sonner DOM regression).
+// Env-gated (process.env.E2E_AUTH_TEST_USERS === 'true'): B3 (email not
+// confirmed), B4 (rate limit best-effort), B8 (LoginRH role rejection).
 // ============================================================================
 
-test.describe('Wave 0 stubs — 03-login-recuperacao-senha', () => {
-  test.skip('B1: Login candidato com creds válidas → role=candidato no authStore + redirect /candidato/perfil', async () => {
-    // TODO Wave 3/4 (plans 03-04 + 03-05): assert authStore.role === 'candidato' via window.__authStore__
-    // probe + URL redirect to /candidato/perfil
+/**
+ * makeJwt — creates a decode-valid JWT (NOT signature-verifiable) for mocked
+ * auth responses. Mirrors the test helper used in Plan 03-03's extractRole
+ * test. extractRole / supabase-js never re-verify the signature client-side
+ * (the SDK accepted the token from /auth/v1/token), so any base64url-encoded
+ * 3-part token round-trips through the auth flow under mock interception.
+ */
+function makeJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  return `${header}.${body}.fake-signature-not-verified`
+}
+
+test.describe('login-flow — unconditional (B1, B2, B15)', () => {
+  test('B1: login success → role=candidato → redirect /candidato/perfil', async ({ page }) => {
+    const candidateJwt = makeJwt({
+      sub: 'test-uuid',
+      email: 'test@x.com',
+      app_metadata: { role: 'candidato', provider: 'email' },
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+    await page.route('**/auth/v1/token?grant_type=password', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          access_token: candidateJwt,
+          refresh_token: 'fake-refresh',
+          expires_in: 3600,
+          token_type: 'bearer',
+          user: { id: 'test-uuid', email: 'test@x.com', app_metadata: { provider: 'email' } },
+        }),
+      })
+    })
+    await page.goto('/auth/login')
+    await page.getByLabel('Email').fill('test@x.com')
+    await page.getByLabel('Senha').fill('ValidPass123')
+    await page.getByRole('button', { name: /^Entrar$/ }).click()
+    await page.waitForURL(/\/candidato\/perfil/, { timeout: 5000 })
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(toastRegion.getByText('Login realizado com sucesso!')).toBeVisible({ timeout: 3000 })
   })
 
-  test.skip('B2: Login candidato com creds inválidas → toast "Email ou senha inválidos" (genérico, sem enumeration)', async () => {
-    // TODO Wave 4 (plan 03-05): assert exact pt-BR copy + permanecer em /auth/login
+  test('B2: invalid credentials → generic INVALID_CREDENTIALS toast, no enumeration', async ({ page }) => {
+    await page.route('**/auth/v1/token?grant_type=password', (route) => {
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'invalid_credentials',
+          msg: 'Invalid login credentials',
+          error_code: 'invalid_credentials',
+        }),
+      })
+    })
+    await page.goto('/auth/login')
+    await page.getByLabel('Email').fill('test@x.com')
+    await page.getByLabel('Senha').fill('Wrong')
+    await page.getByRole('button', { name: /^Entrar$/ }).click()
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(
+      toastRegion.getByText('Email ou senha inválidos. Verifique os dados e tente novamente.'),
+    ).toBeVisible({ timeout: 3000 })
+    await expect(page).toHaveURL(/\/auth\/login/)
   })
 
-  test.skip('B3: Login com email não confirmado → toast EMAIL_NOT_CONFIRMED + botão "Reenviar email" [env-gated test-candidato-unconfirmed]', async () => {
-    // TODO Wave 4: env-gate by process.env.E2E_AUTH_TEST_USERS === 'true'
+  test('B15: Sonner DOM contract on login — toast renders inside Notifications region', async ({ page }) => {
+    await page.route('**/auth/v1/token?grant_type=password', (route) => {
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'invalid_credentials' }),
+      })
+    })
+    await page.goto('/auth/login')
+    await page.getByLabel('Email').fill('x@y.com')
+    await page.getByLabel('Senha').fill('Wrong')
+    await page.getByRole('button', { name: /^Entrar$/ }).click()
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(toastRegion.locator('[data-sonner-toast]')).toBeVisible({ timeout: 1500 })
+  })
+})
+
+test.describe('login-flow — env-gated (B3, B4, B8)', () => {
+  test('B3: email_not_confirmed → amber block + Reenviar CTA', async ({ page }) => {
+    test.fixme(
+      process.env.E2E_AUTH_TEST_USERS !== 'true',
+      'Requires E2E_AUTH_TEST_USERS=true + E2E_TEST_UNCONFIRMED_EMAIL',
+    )
+    await page.goto('/auth/login')
+    await page.getByLabel('Email').fill(process.env.E2E_TEST_UNCONFIRMED_EMAIL!)
+    await page.getByLabel('Senha').fill('anyValidPass1')
+    await page.getByRole('button', { name: /^Entrar$/ }).click()
+    await expect(page.getByText('Confirme seu email antes de fazer login')).toBeVisible({
+      timeout: 5000,
+    })
+    await expect(page.getByRole('button', { name: /Reenviar email de confirmação/i })).toBeVisible()
   })
 
-  test.skip('B4: Rate limit → countdown visível + botão Entrar disabled até zerar [env-gated]', async () => {
-    // TODO Wave 4: requer mock de over_email_send_rate_limit ou test user em estado rate-limited
+  test('B4: rate_limit → amber cooldown block + disabled submit', async ({ page }) => {
+    test.fixme(process.env.E2E_AUTH_TEST_USERS !== 'true', 'Requires E2E_AUTH_TEST_USERS=true')
+    // Burst 30+ invalid submits to trip Supabase's server rate limit.
+    // Flaky — server-side limit window varies. Best-effort test.
+    await page.goto('/auth/login')
+    for (let i = 0; i < 35; i++) {
+      await page.getByLabel('Email').fill(`burst${i}@test.com`)
+      await page.getByLabel('Senha').fill('Wrong')
+      await page.getByRole('button', { name: /^Entrar$/ }).click()
+      await page.waitForTimeout(50)
+    }
+    await expect(page.getByText(/Muitas tentativas/)).toBeVisible({ timeout: 5000 })
   })
 
-  test.skip('B8: LoginRH rejeita roles non-administrador (signOut + toast "Acesso negado") [env-gated test-rh, test-admin]', async () => {
-    // TODO Wave 4 (plan 03-05): valida fix Bug 2/3 (D-14) — bounded polling 5×20ms para resolver onAuthStateChange role race
-  })
-
-  test.skip('B15: Sonner toast renderiza no DOM em todos os flows de auth (regressão split-instance Phase 2)', async () => {
-    // TODO Wave 6 (plan 03-07): assert <li data-sonner-toast> aparece dentro da Notifications region pós-login
+  test('B8: LoginRH rejects candidato → signOut + role-mismatch toast', async ({ page }) => {
+    test.fixme(process.env.E2E_AUTH_TEST_USERS !== 'true', 'Requires seed candidato user')
+    await page.goto('/auth/login-rh')
+    await page.getByLabel('Email').fill(process.env.E2E_TEST_CANDIDATO_EMAIL!)
+    await page.getByLabel('Senha').fill(process.env.E2E_TEST_CANDIDATO_PASSWORD!)
+    await page.getByRole('button', { name: /^Entrar$/ }).click()
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(
+      toastRegion.getByText('Esta conta não tem acesso ao painel RH.'),
+    ).toBeVisible({ timeout: 5000 })
+    await expect(page).toHaveURL(/\/auth\/login-rh/)
   })
 })
