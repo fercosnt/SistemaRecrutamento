@@ -4,3 +4,4 @@
 
 export * from './mapSupabaseError'
 export * from './extractRole'
+export * from './rememberMeStorage'
