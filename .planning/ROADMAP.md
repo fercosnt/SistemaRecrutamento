@@ -80,7 +80,7 @@ Plans:
 - [x] 03-03-PLAN.md — Wave 2: extractRole (jwt-decode) + rememberMeStorage adapter + authStore/client.ts wire (Bug 1/D-13 closed) ✓ 2026-04-25
 - [x] 03-04-PLAN.md — Wave 3: authService + passwordService + 3 hooks (useRateLimitCooldown, useRecoverySession, useAuthFlowVariant) + cadastro compat shim (SignUpError rename) ✓ 2026-04-25
 - [x] 03-05-PLAN.md — Wave 4: LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 role gate via bounded polling 5×20ms) ✓ 2026-04-25
-- [ ] 03-06-PLAN.md — Wave 5: EsqueciSenhaPage + RedefinirSenhaPage rewrite + 5 obsolete services + 3 legacy schemas deleted
+- [x] 03-06-PLAN.md — Wave 5: EsqueciSenhaPage 2-state + RedefinirSenhaPage 3-state via useRecoverySession + 5 obsolete services + 3 legacy schemas deleted (1528 LoC purged) + src/schemas/ rmdir ✓ 2026-04-25
 - [ ] 03-07-PLAN.md — Wave 6: Playwright E2E (login-flow + password-recovery) + Pitfall 7 grep guard + UAT runbook
 
 ### Phase 4: Vagas + Candidatura
@@ -128,6 +128,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|---------------|--------|-----------|
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
 | 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
-| 3. Login + Recuperacao de Senha | 5/7 | In progress — Wave 4 landed (03-05: LoginCandidato + LoginRH rewrites; D-14 Bug 2/3 closed via bounded polling 5×20ms); 03-06 (EsqueciSenha + RedefinirSenha + obsolete service deletion) next | - |
+| 3. Login + Recuperacao de Senha | 6/7 | In progress — Wave 5 landed (03-06: EsqueciSenha 2-state + RedefinirSenha 3-state rewrites; AUTH-03 + AUTH-04 closed at page layer; 1528 LoC obsolete services + schemas deleted); 03-07 (E2E + UAT) next | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |

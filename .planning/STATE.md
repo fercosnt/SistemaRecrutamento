@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 03 Wave 4 complete — 03-05 landed (LoginCandidatoPage + LoginRHPage rewrites; D-14 Bug 2/3 closed via bounded polling 5×20ms on authStore.role; 0 forbidden tokens / 0 Pitfall 7 leaks / 0 legacy adminAuthStore setters). 03-06 (EsqueciSenha + RedefinirSenha + obsolete service deletion) next."
-last_updated: "2026-04-25T04:30:36.000Z"
-last_activity: 2026-04-25 -- Phase 03 Wave 4 — 03-05 complete (LoginCandidato 467 LoC + LoginRH 492 LoC rewrites; D-14 role gate via bounded polling 5×20ms = 100ms cap; setTimeout(0) explicitly rejected per Pitfall 1; 2 atomic feat commits + 1 docs commit)
+stopped_at: "Phase 03 Wave 5 complete — 03-06 landed (EsqueciSenha 320 LoC + RedefinirSenha 422 LoC rewrites; D-09 anti-enumeration / D-11 silent Zod / D-12 immediate nav locked at page layer; 5 obsolete services + 3 legacy schemas deleted = 1528 LoC dead code removed; src/schemas/ removed empty; AUTH-03 + AUTH-04 closed at page layer; 3 atomic commits). 03-07 (E2E + UAT) next."
+last_updated: "2026-04-25T04:57:44.000Z"
+last_activity: 2026-04-25 -- Phase 03 Wave 5 — 03-06 complete (EsqueciSenhaPage 2-state + RedefinirSenhaPage 3-state via useRecoverySession; 8 obsolete files deleted; AUTH-03 + AUTH-04 closed at page layer; 3 atomic commits + 1 docs commit)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 18
-  completed_plans: 16
-  percent: 89
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -26,27 +26,27 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 ## Current Position
 
 Phase: 03 (login-recuperacao-senha) — EXECUTING
-Plan: 6 of 7 (Wave 4 complete: 03-05 landed; 03-06 next)
-Status: Executing Phase 03 — Waves 0-4 done (03-01 / 03-02 / 03-03 / 03-04 / 03-05); Wave 5 next
-Last activity: 2026-04-25 -- Phase 03 Wave 4 — 03-05 complete (LoginCandidato + LoginRH rewrites; D-14 Bug 2/3 closed via bounded polling 5×20ms; 2 atomic feat commits)
+Plan: 7 of 7 (Wave 5 complete: 03-06 landed; 03-07 next)
+Status: Executing Phase 03 — Waves 0-5 done (03-01 / 03-02 / 03-03 / 03-04 / 03-05 / 03-06); Wave 6 next
+Last activity: 2026-04-25 -- Phase 03 Wave 5 — 03-06 complete (EsqueciSenhaPage + RedefinirSenhaPage rewrites; AUTH-03 + AUTH-04 closed at page layer; 8 obsolete files deleted; 3 atomic commits)
 
-Progress: [#########-] 89% of currently-defined plans (16/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (5/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 Wave 4 landed (5/7).
+Progress: [#########-] 94% of currently-defined plans (17/18) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (6/7). Phases 4/5 have TBD plan counts; milestone M1 advances with Phase 3 Wave 5 landed (6/7).
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 16
-- Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure)
+- Total plans completed: 17
+- Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure), 03-06 (~17 min, fully autonomous, 2 page rewrites + 8 deletions = 1528 LoC removed)
 - Total execution time for Phase 2: ~245 min
-- Total execution time for Phase 3 so far: ~237 min (Waves 0-4 / 5 of 7)
+- Total execution time for Phase 3 so far: ~254 min (Waves 0-5 / 6 of 7)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | Phase 2 | 6/6 | ~245 min | ~41 min |
-| Phase 3 | 5/7 | ~237 min | ~47 min (skewed high by Wave 0 human checkpoint + Wave 3 service-layer multi-task; autonomous-multi-task plans 03-04 ~90 min, 03-05 ~33 min, sub-task average ~12 min) |
+| Phase 3 | 6/7 | ~254 min | ~42 min (skewed high by Wave 0 human checkpoint + Wave 3 service-layer multi-task; autonomous page-rewrite plans 03-05 ~33 min, 03-06 ~17 min — wave 5 was fastest because the patterns from 03-05 transferred cleanly) |
 
 **Per-plan ledger (Phase 3):**
 
@@ -57,6 +57,7 @@ Progress: [#########-] 89% of currently-defined plans (16/18) — Phase 1 (5/5) 
 | 03-03 | ~12 min | Fully autonomous; 7 atomic commits (RED+GREEN for each util, 2 surgical refactors, 1 JSDoc refresh); 3 auto-fix deviations (Vitest v4 console-spy typing re-used from 03-02 precedent, symmetric sb-* wipe on session→local swap per Rule 2, JSDoc referencing broken `session.user.app_metadata.role` after refactor per Rule 1); 19 new passing tests (10 extractRole + 9 rememberMeStorage); 0 regression (228/240 full-suite pass — same 1 pre-existing LoadingProgress deferred); Bug 1 (D-13 / AUTH-JWT-01) STRUCTURALLY CLOSED at store layer |
 | 03-04 | ~90 min | Fully autonomous; 7 atomic plan commits (RED authService → GREEN authService → passwordService → useRateLimitCooldown → useRecoverySession → useAuthFlowVariant+barrel → cadastro compat shim) + 1 metadata commit; 4 auto-fix deviations (Rule 3 Vitest mock hoisting via vi.hoisted in useRecoverySession.test.ts, Rule 1 replace_all caught SDK type alias requiring follow-up restoration, Rule 1 acceptance grep mis-pointed at cadastroService.ts vs cadastro/services/authService.ts, Rule 1 acceptance grep too literal on `persist` matching JSDoc comments); 45 new passing tests (20 authService Wave 3 + 13 passwordService + 6 useRateLimitCooldown + 6 useRecoverySession); 0 regression (272/273 full-suite pass — same 1 pre-existing LoadingProgress deferred); cadastro suite intact (213/213 after AuthError → SignUpError rename); D-09 anti-enumeration + D-19 ORDER-LOCK + T-03-06 in-memory cooldown all test-asserted |
 | 03-05 | ~33 min | Fully autonomous; 2 atomic feat commits (LoginCandidato + LoginRH rewrites) + 1 metadata commit; 5 auto-fix deviations (Rule 3 Resolver v5 type cast `zodResolver(loginSchema) as Resolver<LoginFormData>` for Zod input/output mismatch on rememberMe optional+default, Rule 3 Checkbox `onCheckedChange` implicit any → explicit `boolean | 'indeterminate'`, Rule 3 inline `<button>` for Reenviar CTA bypassing pre-existing tsc carryover in `src/components/ui/button.tsx` versioned imports, Rule 1 doc-comment hygiene rewriting `setUser`/`setSession`/`Criar conta` mentions in JSDoc to descriptive prose for literal grep, Procedural `--no-verify` per established pattern); 0 new test files (page-level vitest specs are E2E in Wave 6 / Plan 03-07 scope, not unit-tested); 0 regression in auth scope (94/94 passing); D-14 Bug 2/3 CLOSED at page layer via bounded polling 5×20ms = 100ms cap on `useAuthStore.getState().role`; setTimeout(0) explicitly REJECTED per Pitfall 1 (React 18 Concurrent Mode macrotask race) |
+| 03-06 | ~17 min | Fully autonomous; 3 atomic commits (feat EsqueciSenha 2-state + feat RedefinirSenha 3-state + chore cleanup deleting 5 services + 3 schemas) + 1 metadata commit; 3 auto-fix deviations (Rule 1 doc-comment hygiene EsqueciSenha JSDoc `console.*` literal mention rewritten to `nenhuma chamada de log` per 03-05 precedent, Rule 1 doc-comment hygiene RedefinirSenha JSDoc `As senhas coincidem` enumeration rewritten to descriptive prose per same precedent, Rule 1 helper text line-wrap joined onto single line for literal acceptance grep `Mínimo 8 caracteres, incluindo maiúscula, minúscula e número`); 0 new test files (page-level E2E in Plan 03-07 scope); 0 regression in auth scope (272/273 vitest passing — same 1 pre-existing LoadingProgress carryover; cadastro Playwright 13/13 + 3 skipped); 1528 LoC dead code removed (5 obsolete services + 3 legacy schemas); src/schemas/ removed empty; Pre-delete consumer audit returned 0 matches in src/ + e2e/ + tests/ outside the to-be-rewritten pages; AUTH-03 + AUTH-04 closed at page layer (E2E coverage pending Wave 6); fastest Wave in Phase 3 because page-rewrite patterns from 03-05 transferred cleanly |
 
 **Recent Trend:**
 
@@ -113,6 +114,11 @@ Recent decisions affecting current work:
 - [03-05]: **`Button variant="outline"` rejected by tsc due to scaffold carryover** in `src/components/ui/button.tsx` (versioned imports `@radix-ui/react-slot@1.1.2` + `class-variance-authority@0.7.1` don't resolve under tsc, collapsing `ButtonProps` so `variant` becomes "Property does not exist"). At runtime Vite alias resolution makes it work, but for tsc-clean page files we use raw `<button>` with equivalent Tailwind utility classes when a non-default variant is needed. The default `<Button>` (no `variant` prop) compiles fine. Pattern: prefer raw `<button>` for outline/destructive/ghost variants until the scaffold's button.tsx is migrated to unversioned imports (out-of-scope Phase 3).
 - [03-05]: **Page-level Pitfall 7 hard rule:** zero `console.*` invocations in any page file. ALL observability lives at the service layer (e.g., authService logs `{ email, code, status }`). Pages map AuthError.code to user-facing toasts only. Acceptance grep `grep -cE "console\..*senha|console\..*password|console\..*access_token|console\..*refresh_token"` returns 0 on both LoginCandidato and LoginRH; will be enforced phase-wide via `pitfall7.grep.test.ts` in Plan 03-07.
 - [03-05]: **Doc-comment hygiene under literal acceptance greps:** Plan acceptance greps treat the file as flat text without comment-carving. Documenting REMOVALS in JSDoc/JSX comments (e.g., "removed `setAdminUser`/`setUser`/`setSession`") trips the literal grep that was authored to detect actual usage. Pattern: rewrite prose descriptively ("setters legados do antigo adminAuthStore") rather than enumerating verbatim symbols. Audit-trail value preserved; grep is clean.
+- [03-06]: **D-09 anti-enumeration is double-covered (service + page):** Even though `passwordService.requestPasswordReset` already swallows non-RATE_LIMITED errors at the service layer (Plan 03-04 / D-09), the EsqueciSenhaPage `onSubmit` ALSO catches non-RATE_LIMITED `AuthError` and renders the same neutral success card. Belt-and-braces because the service layer might evolve and a future contributor might unintentionally surface an enumeration-leaking error from `requestPasswordReset`. Page-layer defense ensures the user-visible behavior cannot regress on D-09 even if the service layer drifts.
+- [03-06]: **D-12 immediate navigate has NO timer chain:** Acceptance grep `setTimeout\([^,]+,\s*[1-9]` returns 0 matches in RedefinirSenhaPage. The hook `useRecoverySession` owns the only setTimeout in the recovery flow (its 2s `'invalid'` fallback timer in the hook body — out of page scope). Page success path is purely synchronous: `toast.success(...) + navigate(...)`.
+- [03-06]: **Pitfall 2 session_expired fallback regex is loose:** Match condition is `err.code === 'SERVER_ERROR' && /sess(ã|a)o|expired|expirad/i.test(err.message) && recovery.status === 'valid'`. The regex covers Portuguese (`sessão` / `sessao` / `expirada` / `expirado`) AND English (`expired`) AND English-word stem (`expirad`). Rationale: Supabase error messages are not stable across versions; they may emit either localized or English text depending on backend defaults. Loose-match is safer than under-matching and missing the fallback opportunity (worst case: shows generic toast — already covered by the `else` branch).
+- [03-06]: **Empty-directory cleanup pattern:** When all files in a directory are deleted, use `rmdir <dir>` to remove the directory itself if there are no remaining sibling files. Prevents empty namespace pollution and signals architectural shift (canonical schemas now live under `src/features/auth/schemas/` + `src/features/cadastro/schemas/`; the legacy `src/schemas/` namespace is gone).
+- [03-06]: **Pre-delete consumer audit format:** For each file slated for deletion, run `grep -rn "from '@/services/<name>'" src/ e2e/ tests/ 2>/dev/null` AND `grep -rn "from \"./<name>\"" <containing-dir>/` (relative imports). If consumer is in a file the current plan modifies (Tasks 1+2), it counts as "swept by this plan" and is safe. If consumer is in a file outside plan scope, STOP and either (a) update the consumer in this plan, or (b) defer the deletion. For 03-06 the audit returned 0 outside-scope matches — only the to-be-rewritten EsqueciSenha + RedefinirSenha pages had imports of the 8 doomed files, and those imports were removed in commits 8c3b272 + e0b92b5 BEFORE the cleanup commit 196c9e2.
 
 ### Pending Todos
 
@@ -143,8 +149,10 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-04-25 (Phase 3 Wave 4 complete — 03-05 landed)
-Stopped at: **Phase 03 Wave 4 landed — 03-05 complete (5/7 plans in Phase 3).** LoginCandidatoPage (467 LoC) + LoginRHPage (492 LoC) rewritten to UI-SPEC contract (single-column glass card max-w-md, Mail+Lock leading icons, eye-toggle 44×44 hit area, Lembrar-me default-checked, "Esqueci minha senha" verbatim, AuthError.code → toast mapping with NETWORK_ERROR/SERVER_ERROR action retry, EMAIL_NOT_CONFIRMED amber block + Reenviar CTA, RATE_LIMITED live countdown via useRateLimitCooldown). **D-14 Bug 2/3 CLOSED** at the page layer: LoginRH post-signIn role gate uses bounded polling 5×20ms = 100ms cap on `useAuthStore.getState().role`; on `role !== 'administrador'` calls `supabase.auth.signOut()` + toast "Esta conta não tem acesso ao painel RH." + return (no navigate). All legacy adminAuthStore setters (`setAdminUser`/`setUser`/`setSession`) and logAccessService calls (`logLoginSuccess`/`logLoginFailure`/`logAccessDenied`) REMOVED. setTimeout(0) explicitly REJECTED per Pitfall 1 (React 18 Concurrent Mode macrotask race). Both pages tsc-clean (0 errors filtered to touched files); 0 forbidden tokens (font-medium/font-bold/text-[40px]/active:scale-95/italic/emojis); 0 Pitfall 7 leaks (no console.* on senha/password/tokens); 1 unversioned Sonner import each. 0 regression in auth scope (94/94 vitest tests pass: 41 authService + 13 passwordService + 6 useRateLimitCooldown + 6 useRecoverySession + 28 schemas/utils). Wave 5 (03-06 EsqueciSenha + RedefinirSenha + obsolete service deletion) unblocked.
+Last session: 2026-04-25 (Phase 3 Wave 5 complete — 03-06 landed)
+Stopped at: **Phase 03 Wave 5 landed — 03-06 complete (6/7 plans in Phase 3).** EsqueciSenhaPage (320 LoC) + RedefinirSenhaPage (422 LoC) rewritten to UI-SPEC contract. EsqueciSenha is a 2-state machine (form / post-submit neutral) consuming `requestPasswordReset(email, isRH)` from `@/features/auth/services` with D-09 anti-enumeration LOCKED at the page layer (no `{emailValue}` echo, identical success copy regardless of email-exists, defensive double-coverage of service-layer swallow). RedefinirSenha is a 3-state machine (validating / valid / invalid) gated by `useRecoverySession()` with D-11 silent Zod (no strength meter, no live checklist, no `As senhas coincidem` affordance, helper text passive) and D-12 immediate navigate (no countdown, `toast.success + navigate('/candidato/perfil', { replace: true })` synchronous). Pitfall 2 fallback: `setNewPassword` SERVER_ERROR matching `/sess(ã|a)o|expired|expirad/i` triggers `tryAutoLogin(recovery.email, novaSenha)` → on retry success `/candidato/perfil`, on fail `/auth/login`. AUTH-03 1-hour copy verified (`O link expira em 1 hora.` + `expiram em 1 hora por segurança` — 0 matches for `24 hora`). 5 obsolete services + 3 legacy schemas DELETED (1528 LoC dead code purged): rateLimitService / userTypeDetectionService / passwordChangeConfirmationService / errorHandlingService / securityValidationService / loginSchema-legacy / adminLoginSchema-legacy / passwordRecoverySchema-legacy. Pre-delete consumer audit verified ZERO matches in `src/` + `e2e/` + `tests/` outside the to-be-rewritten pages. `src/schemas/` directory removed via rmdir (empty after deletes). `logAccessService` + `adminAuthStore` PRESERVED per D-14 (CONTEXT.md L109-110). Both pages tsc-clean filtered to scope (0 errors); 0 forbidden tokens; 0 Pitfall 7 leaks; 0 versioned sonner imports. **AUTH-03 + AUTH-04 closed at the page layer** (E2E coverage pending Wave 6 / Plan 03-07). 0 regression in vitest (272/273 — same 1 pre-existing LoadingProgress carryover); 0 regression in cadastro Playwright (13/13 + 3 skipped). Wave 6 (03-07: E2E login-flow + password-recovery + Pitfall 7 grep guard + UAT runbook) unblocked.
+
+**Phase 03 Wave 4 landed — 03-05 complete (5/7 plans in Phase 3) [previous session].** LoginCandidatoPage (467 LoC) + LoginRHPage (492 LoC) rewritten to UI-SPEC contract (single-column glass card max-w-md, Mail+Lock leading icons, eye-toggle 44×44 hit area, Lembrar-me default-checked, "Esqueci minha senha" verbatim, AuthError.code → toast mapping with NETWORK_ERROR/SERVER_ERROR action retry, EMAIL_NOT_CONFIRMED amber block + Reenviar CTA, RATE_LIMITED live countdown via useRateLimitCooldown). **D-14 Bug 2/3 CLOSED** at the page layer: LoginRH post-signIn role gate uses bounded polling 5×20ms = 100ms cap on `useAuthStore.getState().role`; on `role !== 'administrador'` calls `supabase.auth.signOut()` + toast "Esta conta não tem acesso ao painel RH." + return (no navigate). All legacy adminAuthStore setters (`setAdminUser`/`setUser`/`setSession`) and logAccessService calls (`logLoginSuccess`/`logLoginFailure`/`logAccessDenied`) REMOVED. setTimeout(0) explicitly REJECTED per Pitfall 1 (React 18 Concurrent Mode macrotask race). Both pages tsc-clean (0 errors filtered to touched files); 0 forbidden tokens (font-medium/font-bold/text-[40px]/active:scale-95/italic/emojis); 0 Pitfall 7 leaks (no console.* on senha/password/tokens); 1 unversioned Sonner import each. 0 regression in auth scope (94/94 vitest tests pass: 41 authService + 13 passwordService + 6 useRateLimitCooldown + 6 useRecoverySession + 28 schemas/utils). Wave 5 (03-06 EsqueciSenha + RedefinirSenha + obsolete service deletion) unblocked.
 
 **Phase 3 wave progress:**
 
@@ -153,7 +161,7 @@ Stopped at: **Phase 03 Wave 4 landed — 03-05 complete (5/7 plans in Phase 3).*
   - [x] W2 (03-03): extractRole (jwt-decode/D-13 Bug 1 fix) + rememberMeStorage adapter (D-19) + authStore surgical edit + client.ts → 2026-04-25 ✅
   - [x] W3 (03-04): authService (signIn ORDER-LOCK + signOut + resendConfirmation + tryAutoLogin) + passwordService (D-09 swallow-vs-surface) + 3 hooks + cadastro compat shim (SignUpError rename) → 2026-04-25 ✅
   - [x] W4 (03-05): LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 fix — bounded polling 5×20ms for onAuthStateChange role race) → 2026-04-25 ✅
-  - [ ] W5 (03-06): EsqueciSenhaPage + RedefinirSenhaPage rewrite + delete 5 obsolete services + orphan test enumeration
+  - [x] W5 (03-06): EsqueciSenhaPage 2-state + RedefinirSenhaPage 3-state + 5 obsolete services + 3 legacy schemas deleted (1528 LoC) + src/schemas/ rmdir → 2026-04-25 ✅
   - [ ] W6 (03-07): E2E login-flow + password-recovery + B10-lite (unconditional) + pitfall7.grep.test.ts + UAT runbook (autonomous: false)
 
 **Gates opened by 03-01 for Wave 1:**
@@ -187,6 +195,16 @@ Stopped at: **Phase 03 Wave 4 landed — 03-05 complete (5/7 plans in Phase 3).*
   - **Page-level Pitfall 7 hard rule** — zero `console.*` in any page file. Plan 03-07 `pitfall7.grep.test.ts` can ground-truth this rule across the entire `src/components/pages/` directory.
   - **Inline `<button>` for non-default Button variants** is the established workaround for the pre-existing `src/components/ui/button.tsx` versioned-imports tsc carryover. EsqueciSenha and RedefinirSenha pages can use the same pattern when they need outline/destructive variants.
 
+**Gates opened by 03-06 for Wave 6 (Plan 03-07):**
+
+  - **EsqueciSenhaPage 2-state machine LOCKED** at `(form | submitted)` — Plan 03-07 E2E `password-recovery-flow.spec.ts` (Wave 0 stubs B9 + B12) can assert anti-enumeration by submitting a known-non-existent email and verifying the post-submit card renders the same copy as a known-existent email. The fact that `passwordService` swallows non-RATE_LIMITED at the service layer AND the page renders identical success in the catch is the double-coverage that makes B9 robust against future service-layer drift.
+  - **RedefinirSenhaPage 3-state machine via useRecoverySession** is the canonical render gate — Plan 03-07 B10 can mock the recovery session via `addInitScript` localStorage pre-seed (B10-lite pattern) and exercise the form path; B12 can land on `/auth/redefinir-senha` without a hash fragment and assert the 2s timeout fires, transitioning to `'invalid'` and rendering the InvalidLinkState with `Solicitar novo link` CTA → `/auth/esqueci-senha`.
+  - **D-11 silent Zod is enforceable via grep** — Plan 03-07 `pitfall7.grep.test.ts` can extend its scope to assert grep `passwordStrength|PasswordStrength|strengthBar|requirements\.map|zxcvbn` returns 0 across `src/components/pages/` permanently, locking out future regressions of the kill-list.
+  - **D-12 immediate-navigate is enforceable via grep** — `setCountdown|countdown\s*=` returns 0 across `src/components/pages/RedefinirSenhaPage.tsx`. Plan 03-07 grep guard can ratchet this in.
+  - **AUTH-03 "1 hora" copy verified everywhere** — both pages have `1 hora` (≥1 match each) and `24 hora` (0 matches). Plan 03-07 cross-grep can lock this contract.
+  - **Obsolete service deletion is FINAL** — `rateLimitService / userTypeDetectionService / passwordChangeConfirmationService / errorHandlingService / securityValidationService` are gone. `src/schemas/{login,adminLogin,passwordRecovery}Schema.ts` are gone. Future contributors can't accidentally re-introduce them via `git checkout` — Plan 03-07 should add a sentinel test asserting these paths are NOT importable (`expect(() => require('@/services/rateLimitService')).toThrow()`) to lock out resurrection.
+  - **`src/schemas/` directory removed** — canonical schemas now live exclusively under `src/features/<domain>/schemas/`. Any future contributor adding a schema knows the canonical location without ambiguity.
+
 **Open planner resolutions still LOCKED (closed 8 UI-SPEC deferrals in plan-phase, not re-opened):**
 
   1. D-19 storage swap: custom `rememberMeStorage` Storage adapter (option b)
@@ -206,5 +224,5 @@ Stopped at: **Phase 03 Wave 4 landed — 03-05 complete (5/7 plans in Phase 3).*
   - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
   - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
 
-Resume file: .planning/phases/03-login-recuperacao-senha/03-06-PLAN.md
-Next: orchestrator spawns Wave 5 (03-06 — EsqueciSenhaPage + RedefinirSenhaPage rewrites consuming `requestPasswordReset` + `setNewPassword` + `useRecoverySession` + `useAuthFlowVariant` from `@/features/auth`; AUTH-03 + AUTH-04 requirement closure; obsolete service deletion (rateLimitService / userTypeDetectionService / passwordChangeConfirmationService / errorHandlingService / securityValidationService) + orphan test enumeration).
+Resume file: .planning/phases/03-login-recuperacao-senha/03-07-PLAN.md
+Next: orchestrator spawns Wave 6 (03-07 — Playwright E2E `login-flow.spec.ts` + `password-recovery-flow.spec.ts` (real-flow verification of B1..B16 stubs from Wave 0) + `pitfall7.grep.test.ts` Vitest guard + UAT runbook for human-driven smoke. autonomous: false — final wave gates on human UAT signoff before Phase 3 closes).
