@@ -79,8 +79,9 @@ export const routes: RouteObject[] = [
     path: '/vagas',
     element: <VagasPublicasPage />,
   },
+  // Param matches both UUIDs and slugs; VagaDetalhePage branches via isUuid() at runtime (D-01)
   {
-    path: '/vagas/:id',
+    path: '/vagas/:identifier',
     element: <VagaDetalhePage />,
   },
   {
@@ -155,8 +156,9 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Param is a slug per Phase 4 D-04 (FormularioCandidaturaPage rewrite uses useVagaBySlug)
   {
-    path: '/candidato/candidatura/formulario/:vagaId',
+    path: '/candidato/candidatura/formulario/:vagaSlug',
     element: (
       <RoleGuard role="candidato">
         <FormularioCandidaturaPage />

@@ -1,18 +1,25 @@
 /**
  * VagaDetalhePage - Página de detalhes de uma vaga específica
  *
- * Features:
- * - Busca vaga por ID do Supabase
- * - Sticky "Candidatar-se" button
- * - Share functionality (WhatsApp, Email, Copy link)
- * - Verifica se candidato já aplicou
- * - Modal de confirmação de candidatura
- * - Integração com TanStack Query
+ * Phase 4 / VAGA-02 + VAGA-03 + D-03 + Pitfall 1:
+ * - Rota slug-aware (`/vagas/:identifier`) com runtime branch via `isUuid`
+ *   (D-01): se identificador é UUID → useVaga(id), senão → useVagaBySlug(slug).
+ * - 404 state inline (VagaNotFoundState com copy de "vaga inexistente/inativa"
+ *   + CTA de retorno) — D-03 anti-enumeration.
+ * - Real schema fields renderizados (descricao_curta, sobre_cargo,
+ *   responsabilidades, requisitos_formacao etc., diferenciais, beneficios) —
+ *   Pitfall 1 (legacy field "descricao" sem sufixo nao existe no schema).
+ * - Login-redirect roundtrip (VAGA-03): clique em Candidatar-se sem auth
+ *   redireciona para /auth/login com query param redirect preservando o slug;
+ *   com auth, navega direto para /candidato/candidatura/formulario/:vagaSlug
+ *   (D-05 confirmation modal removido).
+ * - Pitfall 7: zero log statements neste page; observability vive em
+ *   service/hook layer.
  *
  * @module components/pages/VagaDetalhePage
  */
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { BackgroundImage } from '../BackgroundImage'
 import { BeautySmileLogo } from '../BeautySmileLogo'
@@ -21,44 +28,79 @@ import {
   MapPin,
   Briefcase,
   Clock,
-  DollarSign,
   Users,
   Calendar,
   CheckCircle2,
-  AlertCircle,
-  Loader2,
   Share2,
   ArrowLeft,
-  Send
+  Send,
 } from 'lucide-react'
-import { useVaga, useHasApplied, useCreateCandidatura } from '@/features/vagas/hooks'
+import { useVaga, useHasApplied } from '@/features/vagas/hooks'
+import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
+import { isUuid } from '@/features/vagas/utils/isUuid'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes'
 
-export function VagaDetalhePage() {
-  const { id: vagaId } = useParams<{ id: string }>()
+/**
+ * Phase 4 / D-03 — 404 state component (inline).
+ *
+ * Mensagem unica (anti-enumeration carryover D-09 + T-04-06 mitigation): qualquer
+ * cause (slug inexistente / vaga inativa / RLS denial) renderiza o mesmo
+ * componente para impedir enumeracao por canal de erro.
+ *
+ * Design: glass UI Beauty Smile alinhado com demais paginas Phase 3+.
+ */
+function VagaNotFoundState() {
   const navigate = useNavigate()
-  const candidato = useAuthStore((state) => state.candidato)
+  return (
+    <div className="relative min-h-screen">
+      <BackgroundImage background="gradient" className="min-h-screen py-20">
+        <div className="container mx-auto px-4 max-w-2xl flex items-center justify-center min-h-[60vh]">
+          <Glass
+            variant="white"
+            blur="xl"
+            className="w-full p-8 rounded-2xl text-center text-white space-y-6"
+          >
+            <h1 className="text-3xl font-bold drop-shadow-lg">
+              Vaga não encontrada
+            </h1>
+            <p className="text-white/90 text-lg leading-relaxed">
+              Vaga não encontrada ou não está mais ativa
+            </p>
+            <GlassButton
+              variant="white"
+              hover
+              onClick={() => navigate('/vagas')}
+              className="text-white font-semibold"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar para vagas
+            </GlassButton>
+          </Glass>
+        </div>
+      </BackgroundImage>
+    </div>
+  )
+}
+
+export function VagaDetalhePage() {
+  const { identifier } = useParams<{ identifier: string }>()
+  const navigate = useNavigate()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
-  // TanStack Query hooks
-  const { data: vagaData, isLoading, error } = useVaga(vagaId)
-  const { data: hasApplied } = useHasApplied(vagaId)
-  const { mutate: aplicar, isPending: isApplying } = useCreateCandidatura({
-    onSuccess: (data) => {
-      if (data.success) {
-        setShowConfirmModal(false)
-        // Redirect to perfil após 2 segundos
-        setTimeout(() => {
-          navigate('/candidato/perfil')
-        }, 2000)
-      }
-    }
-  })
+  // D-01 runtime branch — both hooks invoked unconditionally with `enabled`
+  // controlled via the param passed (null disables) so React Hook Rules hold.
+  const isUuidParam = identifier ? isUuid(identifier) : false
+  const byIdQuery = useVaga(isUuidParam ? identifier : null)
+  const bySlugQuery = useVagaBySlug(isUuidParam ? null : (identifier ?? null))
+  const { data: vagaData, isLoading } = isUuidParam ? byIdQuery : bySlugQuery
+
+  // useHasApplied accepts UUID; only meaningful once vaga is resolved.
+  const vaga = vagaData?.success ? vagaData.data : undefined
+  const { data: hasApplied } = useHasApplied(vaga?.id ?? null)
 
   // Handlers
   const handleVoltar = () => {
@@ -68,45 +110,45 @@ export function VagaDetalhePage() {
   const handleCandidatar = () => {
     if (!isAuthenticated) {
       toast.error('Você precisa estar logado', {
-        description: 'Faça login para se candidatar a esta vaga'
+        description: 'Faça login para se candidatar a esta vaga',
       })
-      navigate('/auth/login')
+      // VAGA-03: preserve identifier (slug or UUID) as redirect target so
+      // post-login lands on the correct formulario URL.
+      const targetSlug = vaga?.slug ?? identifier ?? ''
+      const target = `/candidato/candidatura/formulario/${targetSlug}`
+      const redirect = encodeURIComponent(target)
+      navigate(`/auth/login?redirect=${redirect}`)
       return
     }
-
-    setShowConfirmModal(true)
-  }
-
-  const handleConfirmarCandidatura = () => {
-    if (!candidato?.id || !vagaId) {
-      toast.error('Erro ao enviar candidatura', {
-        description: 'Dados do candidato ou vaga não encontrados'
-      })
-      return
-    }
-
-    aplicar({
-      candidato_id: candidato.id,
-      vaga_id: vagaId,
-      // status_candidatura e etapa_atual usam defaults do service
-    })
+    // D-05: no confirmation modal — direct navigation to formulario page.
+    const targetSlug = vaga?.slug ?? identifier ?? ''
+    navigate(`/candidato/candidatura/formulario/${targetSlug}`)
   }
 
   const handleShare = (method: 'whatsapp' | 'email' | 'copy') => {
+    if (!vaga) {
+      setShowShareMenu(false)
+      return
+    }
     const url = window.location.href
-    const text = `Confira esta vaga: ${vaga?.titulo} na Beauty Smile`
+    const text = `Confira esta vaga: ${vaga.titulo} na Beauty Smile`
 
     switch (method) {
       case 'whatsapp':
-        window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank')
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`,
+          '_blank'
+        )
         break
       case 'email':
-        window.location.href = `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(url)}`
+        window.location.href = `mailto:?subject=${encodeURIComponent(
+          text
+        )}&body=${encodeURIComponent(url)}`
         break
       case 'copy':
         navigator.clipboard.writeText(url)
         toast.success('Link copiado!', {
-          description: 'O link foi copiado para sua área de transferência'
+          description: 'O link foi copiado para sua área de transferência',
         })
         break
     }
@@ -134,39 +176,14 @@ export function VagaDetalhePage() {
     )
   }
 
-  // Error state
-  if (error || !vagaData?.success) {
-    return (
-      <div className="relative min-h-screen">
-        <BackgroundImage background="gradient" className="min-h-screen py-20">
-          <div className="container mx-auto px-4 space-y-8">
-            <Glass variant="white" blur="xl" className="max-w-2xl mx-auto p-8 rounded-xl">
-              <div className="flex items-center gap-4 text-white">
-                <AlertCircle className="w-12 h-12 text-red-300" />
-                <div>
-                  <h2 className="text-2xl font-bold mb-2">Vaga não encontrada</h2>
-                  <p className="text-white/80">
-                    {vagaData?.error || 'Esta vaga pode ter sido removida ou não existe mais.'}
-                  </p>
-                  <GlassButton
-                    variant="white"
-                    hover
-                    className="mt-4 text-white"
-                    onClick={handleVoltar}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Voltar para vagas
-                  </GlassButton>
-                </div>
-              </div>
-            </Glass>
-          </div>
-        </BackgroundImage>
-      </div>
-    )
+  // D-03 — 404 state when query resolves with no vaga (slug never existed OR
+  // vaga inactive / RLS-blocked — same UX per anti-enumeration carryover).
+  if (!vagaData?.success || !vaga) {
+    return <VagaNotFoundState />
   }
 
-  const vaga = vagaData.data
+  const departamento = vaga.departamento ?? ''
+  const modeloTrabalho = vaga.modelo_trabalho ?? ''
 
   return (
     <div className="relative min-h-screen">
@@ -207,14 +224,20 @@ export function VagaDetalhePage() {
                       <MapPin className="w-5 h-5" />
                       <span>{formatarLocalizacaoVaga(vaga)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="w-5 h-5" />
-                      <span className="capitalize">{vaga.departamento.replace('_', ' ')}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5" />
-                      <span className="capitalize">{vaga.modelo_trabalho}</span>
-                    </div>
+                    {departamento && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="w-5 h-5" />
+                        <span className="capitalize">
+                          {departamento.replace('_', ' ')}
+                        </span>
+                      </div>
+                    )}
+                    {modeloTrabalho && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5" />
+                        <span className="capitalize">{modeloTrabalho}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -262,7 +285,9 @@ export function VagaDetalhePage() {
                 <div className="flex items-center gap-3 bg-green-500/20 text-green-100 px-6 py-3 rounded-lg backdrop-blur-sm border border-green-400/30">
                   <CheckCircle2 className="w-6 h-6" />
                   <div>
-                    <p className="font-semibold">Você já se candidatou a esta vaga</p>
+                    <p className="font-semibold">
+                      Você já se candidatou a esta vaga
+                    </p>
                     <p className="text-sm text-green-200/80">
                       Acompanhe o status da sua candidatura no dashboard
                     </p>
@@ -270,80 +295,149 @@ export function VagaDetalhePage() {
                 </div>
               )}
 
-              {/* Descrição */}
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Sobre a vaga</h2>
-                <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                  <p className="text-white/90 text-lg leading-relaxed whitespace-pre-line">
-                    {vaga.descricao}
-                  </p>
-                </Glass>
-              </div>
-
-              {/* Requisitos */}
-              {vaga.requisitos && vaga.requisitos.length > 0 && (
+              {/* Sobre a vaga (Pitfall 1 — real schema fields) */}
+              {(vaga.descricao_curta || vaga.sobre_cargo) && (
                 <div>
-                  <h2 className="text-2xl font-bold mb-4">Requisitos</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <ul className="space-y-3">
-                      {vaga.requisitos.map((req, index) => (
-                        <li key={index} className="flex items-start gap-3 text-white/90">
-                          <CheckCircle2 className="w-5 h-5 mt-1 text-green-300 flex-shrink-0" />
-                          <span>{req}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <h2 className="text-2xl font-bold mb-4">Sobre a vaga</h2>
+                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-4">
+                    {vaga.descricao_curta && (
+                      <p className="text-white/90 text-lg leading-relaxed whitespace-pre-line">
+                        {vaga.descricao_curta}
+                      </p>
+                    )}
+                    {vaga.sobre_cargo && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-2">
+                          Sobre o cargo
+                        </h3>
+                        <p className="text-white/90 leading-relaxed whitespace-pre-line">
+                          {vaga.sobre_cargo}
+                        </p>
+                      </div>
+                    )}
                   </Glass>
                 </div>
               )}
 
-              {/* Benefícios */}
-              {vaga.beneficios && vaga.beneficios.length > 0 && (
+              {/* Responsabilidades */}
+              {vaga.responsabilidades && (
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Responsabilidades</h2>
+                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
+                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
+                      {vaga.responsabilidades}
+                    </p>
+                  </Glass>
+                </div>
+              )}
+
+              {/* Requisitos (real schema — 4 string fields, não array) */}
+              {(vaga.requisitos_formacao ||
+                vaga.requisitos_experiencia ||
+                vaga.requisitos_habilidades ||
+                vaga.requisitos_tecnicos) && (
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Requisitos</h2>
+                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-3">
+                    {vaga.requisitos_formacao && (
+                      <p className="text-white/90 leading-relaxed">
+                        <strong>Formação:</strong>{' '}
+                        <span className="whitespace-pre-line">
+                          {vaga.requisitos_formacao}
+                        </span>
+                      </p>
+                    )}
+                    {vaga.requisitos_experiencia && (
+                      <p className="text-white/90 leading-relaxed">
+                        <strong>Experiência:</strong>{' '}
+                        <span className="whitespace-pre-line">
+                          {vaga.requisitos_experiencia}
+                        </span>
+                      </p>
+                    )}
+                    {vaga.requisitos_habilidades && (
+                      <p className="text-white/90 leading-relaxed">
+                        <strong>Habilidades:</strong>{' '}
+                        <span className="whitespace-pre-line">
+                          {vaga.requisitos_habilidades}
+                        </span>
+                      </p>
+                    )}
+                    {vaga.requisitos_tecnicos && (
+                      <p className="text-white/90 leading-relaxed">
+                        <strong>Técnicos:</strong>{' '}
+                        <span className="whitespace-pre-line">
+                          {vaga.requisitos_tecnicos}
+                        </span>
+                      </p>
+                    )}
+                  </Glass>
+                </div>
+              )}
+
+              {/* Diferenciais */}
+              {vaga.diferenciais && (
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Diferenciais</h2>
+                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
+                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
+                      {vaga.diferenciais}
+                    </p>
+                  </Glass>
+                </div>
+              )}
+
+              {/* Benefícios (string em vez de array no schema) */}
+              {vaga.beneficios && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Benefícios</h2>
                   <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <ul className="space-y-3">
-                      {vaga.beneficios.map((ben, index) => (
-                        <li key={index} className="flex items-start gap-3 text-white/90">
-                          <CheckCircle2 className="w-5 h-5 mt-1 text-blue-300 flex-shrink-0" />
-                          <span>{ben}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
+                      {vaga.beneficios}
+                    </p>
                   </Glass>
                 </div>
               )}
 
               {/* Informações Adicionais */}
-              <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-6 h-6 text-white/60" />
-                    <div>
-                      <p className="text-white/60 text-sm">Publicada há</p>
-                      <p className="text-white font-semibold">
-                        {vaga.diasDesdePublicacao} {vaga.diasDesdePublicacao === 1 ? 'dia' : 'dias'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {vaga.totalCandidatos > 0 && (
-                    <div className="flex items-center gap-3">
-                      <Users className="w-6 h-6 text-white/60" />
-                      <div>
-                        <p className="text-white/60 text-sm">Candidatos</p>
-                        <p className="text-white font-semibold">
-                          {vaga.totalCandidatos} {vaga.totalCandidatos === 1 ? 'pessoa' : 'pessoas'}
-                        </p>
+              {(typeof vaga.diasDesdePublicacao === 'number' ||
+                (typeof vaga.totalCandidatos === 'number' &&
+                  vaga.totalCandidatos > 0)) && (
+                <Glass variant="white" blur="md" className="p-6 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {typeof vaga.diasDesdePublicacao === 'number' && (
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-6 h-6 text-white/60" />
+                        <div>
+                          <p className="text-white/60 text-sm">Publicada há</p>
+                          <p className="text-white font-semibold">
+                            {vaga.diasDesdePublicacao}{' '}
+                            {vaga.diasDesdePublicacao === 1 ? 'dia' : 'dias'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </Glass>
+                    )}
+
+                    {typeof vaga.totalCandidatos === 'number' &&
+                      vaga.totalCandidatos > 0 && (
+                        <div className="flex items-center gap-3">
+                          <Users className="w-6 h-6 text-white/60" />
+                          <div>
+                            <p className="text-white/60 text-sm">Candidatos</p>
+                            <p className="text-white font-semibold">
+                              {vaga.totalCandidatos}{' '}
+                              {vaga.totalCandidatos === 1 ? 'pessoa' : 'pessoas'}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </Glass>
+              )}
             </div>
           </GlassCard>
 
-          {/* Sticky CTA Button */}
+          {/* Sticky CTA Button (D-05 — direct navigation; no confirmation modal) */}
           <div className="sticky bottom-6 z-20">
             <Glass variant="white" blur="xl" className="p-4 rounded-xl">
               {hasApplied ? (
@@ -361,69 +455,13 @@ export function VagaDetalhePage() {
                   hover
                   className="w-full py-4 text-white text-lg font-semibold"
                   onClick={handleCandidatar}
-                  disabled={isApplying}
                 >
-                  {isApplying ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Enviando candidatura...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5 mr-2" />
-                      Candidatar-se a esta vaga
-                    </>
-                  )}
+                  <Send className="w-5 h-5 mr-2" />
+                  Candidatar-se a esta vaga
                 </GlassButton>
               )}
             </Glass>
           </div>
-
-          {/* Modal de Confirmação */}
-          {showConfirmModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <Glass variant="white" blur="xl" className="max-w-md w-full p-8 rounded-2xl">
-                <div className="text-white space-y-6">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Send className="w-8 h-8 text-blue-300" />
-                    </div>
-                    <h3 className="text-2xl font-bold mb-2">Confirmar candidatura?</h3>
-                    <p className="text-white/80">
-                      Você está prestes a se candidatar para a vaga de <strong>{vaga.titulo}</strong>
-                    </p>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <GlassButton
-                      variant="white"
-                      className="flex-1 py-3 text-white"
-                      onClick={() => setShowConfirmModal(false)}
-                      disabled={isApplying}
-                    >
-                      Cancelar
-                    </GlassButton>
-                    <GlassButton
-                      variant="white"
-                      hover
-                      className="flex-1 py-3 text-white font-semibold"
-                      onClick={handleConfirmarCandidatura}
-                      disabled={isApplying}
-                    >
-                      {isApplying ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Enviando...
-                        </>
-                      ) : (
-                        'Confirmar'
-                      )}
-                    </GlassButton>
-                  </div>
-                </div>
-              </Glass>
-            </div>
-          )}
         </div>
       </BackgroundImage>
     </div>
