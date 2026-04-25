@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import { validateCPF } from '../utils'
+import { passwordSchema } from '@/features/auth/schemas/passwordSchema'
 
 // ============================================
 // SCHEMAS DE DADOS PESSOAIS (tabela: candidatos)
@@ -125,35 +126,18 @@ const linkedinSchema = z
   );
 
 /**
- * Schema para validação de senha forte
- * Requisitos:
- * - Mínimo 8 caracteres
- * - Pelo menos 1 letra maiúscula
- * - Pelo menos 1 letra minúscula
- * - Pelo menos 1 número
+ * Schema para validação de senha forte.
+ *
+ * Phase 3 Plan 03-02 (D-11): extraido para
+ * `src/features/auth/schemas/passwordSchema.ts` como unica fonte de verdade.
+ * Aqui re-exportado como `senhaSchema` (alias local) para preservar referencias
+ * internas deste arquivo — zero duplicacao de regex.
+ *
+ * Wording das mensagens migrou de "Senha deve conter pelo menos 1..." (Phase 2)
+ * para "Inclua pelo menos..." (Phase 3 UI-SPEC L614-622) — tom mais cordial,
+ * aceito pelo invariante Dim4 compartilhado entre cadastro e redefinir-senha.
  */
-const senhaSchema = z
-  .string()
-  .min(8, 'Senha deve ter no mínimo 8 caracteres')
-  .max(100, 'Senha deve ter no máximo 100 caracteres')
-  .refine(
-    (val) => /[A-Z]/.test(val),
-    {
-      message: 'Senha deve conter pelo menos 1 letra maiúscula',
-    }
-  )
-  .refine(
-    (val) => /[a-z]/.test(val),
-    {
-      message: 'Senha deve conter pelo menos 1 letra minúscula',
-    }
-  )
-  .refine(
-    (val) => /[0-9]/.test(val),
-    {
-      message: 'Senha deve conter pelo menos 1 número',
-    }
-  );
+const senhaSchema = passwordSchema;
 
 /**
  * Schema para "Como conheceu a vaga"
