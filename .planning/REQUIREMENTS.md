@@ -131,10 +131,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAD-05 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-06 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-07 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
-| AUTH-01 | Phase 3: Login + Recuperacao | Pending |
+| AUTH-01 | Phase 3: Login + Recuperacao | In progress — Partial (03-02, 2026-04-25): error taxonomy (AuthError 6-code union + isAuthError guard) and Supabase-error mapping (mapSupabaseError + extractRetryAfterSeconds clamp-to-3600s) shipped in src/features/auth/{types,utils}/; loginSchema (email+password+rememberMe) shipped in src/features/auth/schemas/. Business flow (signIn + page rewrite + error toasts) pending Waves 2-3 (Plans 03-04, 03-05) |
 | AUTH-02 | Phase 3: Login + Recuperacao | Pending |
-| AUTH-03 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24): OTP expiry confirmed at 3600s in Supabase Dashboard; "válido por 1 hora" copy assertion pending Wave 5 (03-06) |
-| AUTH-04 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24): Redirect URLs `/auth/redefinir-senha` (+ `?tipo=rh`) allow-listed in Supabase Dashboard for port 3003; full deeplink → form → updateUser flow pending Waves 5-6 (03-06 + 03-07) |
+| AUTH-03 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24 + 03-02, 2026-04-25): OTP expiry confirmed at 3600s in Supabase Dashboard; esqueciSenhaSchema (single email field) shipped in src/features/auth/schemas/; "válido por 1 hora" copy assertion + requestPasswordReset neutral-response pending Waves 2+5 (03-04, 03-06) |
+| AUTH-04 | Phase 3: Login + Recuperacao | In progress — Partial (03-01, 2026-04-24 + 03-02, 2026-04-25): Redirect URLs `/auth/redefinir-senha` (+ `?tipo=rh`) allow-listed in Supabase Dashboard for port 3003; redefinirSenhaSchema (nova_senha + confirmar + refine match, path ['confirmar_nova_senha'], B11) shipped in src/features/auth/schemas/; full deeplink → form → updateUser flow pending Waves 5-6 (03-06 + 03-07) |
 | VAGA-01 | Phase 4: Vagas + Candidatura | Pending |
 | VAGA-02 | Phase 4: Vagas + Candidatura | Pending |
 | VAGA-03 | Phase 4: Vagas + Candidatura | Pending |
@@ -158,4 +158,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-04-19*
-*Last updated: 2026-04-24 after Phase 3 Wave 0 (03-01) — AUTH-03 + AUTH-04 marked In progress with partial Dashboard-gate coverage; CAD-01..CAD-07 remain Complete; FOUND-* Complete with documented Phase 3 carryovers*
+*Last updated: 2026-04-25 after Phase 3 Wave 1 (03-02) — AUTH-01 added to In progress (error taxonomy + mapSupabaseError + loginSchema in place); AUTH-03 + AUTH-04 gained schema-layer coverage (esqueciSenhaSchema, redefinirSenhaSchema); business flows still pending Waves 2-5*

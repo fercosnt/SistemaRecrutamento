@@ -76,7 +76,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Wave 0: jwt-decode install + Dashboard audit + test stubs (B1..B16) ✓ 2026-04-24
-- [ ] 03-02-PLAN.md — Wave 1: AuthError + mapSupabaseError + 4 Zod schemas (passwordSchema shared with cadastro)
+- [x] 03-02-PLAN.md — Wave 1: AuthError + mapSupabaseError + 4 Zod schemas (passwordSchema shared with cadastro) ✓ 2026-04-25
 - [ ] 03-03-PLAN.md — Wave 1: extractRole (jwt-decode) + rememberMeStorage adapter + authStore/client.ts wire (Bug 1/D-13 fix)
 - [ ] 03-04-PLAN.md — Wave 2: authService + passwordService + 3 hooks (useRateLimitCooldown, useRecoverySession, useAuthFlowVariant) + cadastro compat shim
 - [ ] 03-05-PLAN.md — Wave 3: LoginCandidatoPage + LoginRHPage rewrite (D-14 Bug 2/3 role gate)
@@ -128,6 +128,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|---------------|--------|-----------|
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
 | 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
-| 3. Login + Recuperacao de Senha | 1/7 | In progress — Wave 0 complete (03-01: jwt-decode + Dashboard audit + 20 stubs); Wave 1 (03-02) ready | - |
+| 3. Login + Recuperacao de Senha | 2/7 | In progress — Wave 1 landing (03-02: AuthError + mapSupabaseError + 4 Zod schemas complete); 03-03 (extractRole + rememberMeStorage) next | - |
 | 4. Vagas + Candidatura | 0/? | Not started | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |
