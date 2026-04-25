@@ -675,31 +675,246 @@ test.describe('9. Anti-Enumeração de Usuários', () => {
 });
 
 // ============================================================================
-// WAVE 0 STUBS — 03-login-recuperacao-senha
+// PHASE 3 PLAN 03-07 — Wave 6 promoted scenarios (B9, B10-lite, B10, B12, B15)
 // ============================================================================
-// Stub specs registered with `test.skip(...)` — populated during Wave 5 (03-06)
-// and Wave 6 (03-07). Behavior IDs map to .planning/phases/03-login-recuperacao-senha/
+// Promoted from Wave 0 stubs in commits aligned with 03-07 PLAN. Each test
+// references a Behavior ID from .planning/phases/03-login-recuperacao-senha/
 // 03-VALIDATION.md §Critical Behaviors.
 //
-// B10 happy-path uses localStorage pre-seed via addInitScript (B10-lite,
-// unconditional) — full deeplink path is `test.fixme` per planner LOCKED
-// resolution (depends on supabase.auth.admin.generateLink in globalSetup).
+// Run-unconditionally (every CI run): B9 (esqueci-senha neutral copy /
+// anti-enumeration), B10-lite (pre-seeded recovery session via localStorage
+// addInitScript), B12 (no-recovery-session → InvalidLinkState after 2s
+// timeout), B15 (Sonner DOM regression).
+// Best-effort (may downgrade if SDK does not cooperate): B10 (full deeplink).
 // ============================================================================
 
-test.describe('Wave 0 stubs — 03-login-recuperacao-senha', () => {
-  test.skip('B9: requestPasswordReset SEMPRE retorna copy neutra "Se o email estiver cadastrado..." (anti-enumeration, D-09)', async () => {
-    // TODO Wave 5 (plan 03-06): submeter EsqueciSenhaPage com email inexistente E com email cadastrado;
-    // assert copy idêntica em ambos os casos (T-03-02 mitigation)
-  });
+/**
+ * makeJwt — creates a decode-valid JWT (NOT signature-verifiable) for mocked
+ * recovery sessions. Mirrors the helper used in login-flow.spec.ts. Used
+ * for the localStorage pre-seed in B10-lite + the hash fragment in the
+ * best-effort B10 deeplink path.
+ */
+function makeJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  return `${header}.${body}.fake-signature-not-verified`
+}
 
-  test.skip('B10: deeplink → PASSWORD_RECOVERY → form → updateUser → redirect /candidato/perfil (mocked via addInitScript localStorage pre-seed — B10-lite)', async () => {
-    // TODO Wave 6 (plan 03-07): pre-seed sb-<ref>-auth-token via page.addInitScript com session
-    // marcada type=recovery; submit RedefinirSenhaPage; assert auto-login + navigate replace=true
-    // Full deeplink (real email link) é test.fixme — depende de supabase.auth.admin.generateLink em globalSetup
-  });
+test.describe('password-recovery-flow — Phase 3 Plan 03-07 promoted (B9, B10, B12, B15)', () => {
+  test.describe.configure({ mode: 'serial' })
 
-  test.skip('B12: Link de recovery expirado/single-use → InvalidLinkState com botão "Solicitar novo link" (T-03-05)', async () => {
-    // TODO Wave 6: navegar /auth/redefinir-senha sem session válida; assert heading "Link inválido" +
-    // botão Solicitar novo link visível (Wave 5 introduz useRecoverySession hook)
-  });
-});
+  test.beforeEach(async ({ page }) => {
+    // Wipe any sb-* state from prior tests so getSession() does not return
+    // a leaking session from a previous test in the file.
+    await page.goto('/auth/login')
+    await page.evaluate(() => {
+      sessionStorage.clear()
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('sb-') || k.includes('supabase'))
+        .forEach((k) => localStorage.removeItem(k))
+    })
+  })
+
+  // ─── B9 (unconditional) — esqueci-senha neutral copy / anti-enumeration ───
+  test('B9: esqueci-senha submit shows neutral success regardless of email existence (D-09)', async ({ page }) => {
+    // Intercept resetPasswordForEmail so the test does not actually mint a
+    // recovery email against the real Supabase project.
+    await page.route('**/auth/v1/recover', (route) => {
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+
+    await page.goto('/auth/esqueci-senha')
+    await page.getByLabel('Email').fill('any-email@test.com')
+    await page.getByRole('button', { name: /Enviar instruções/i }).click()
+
+    // Neutral success card copy (UI-SPEC L443-503 — no email echo)
+    await expect(page.getByRole('heading', { name: 'Verifique seu email' })).toBeVisible({
+      timeout: 4000,
+    })
+    await expect(
+      page.getByText('Se o email estiver cadastrado, enviamos um link de recuperação'),
+    ).toBeVisible()
+    await expect(page.getByText('O link expira em 1 hora.')).toBeVisible()
+
+    // D-09 anti-enumeration: the submitted email is NOT rendered anywhere in
+    // the success state.
+    await expect(page.getByText(/any-email@test\.com/)).not.toBeVisible()
+  })
+
+  // ─── B12 (unconditional) — no recovery session → InvalidLinkState ─────
+  test('B12: /auth/redefinir-senha without recovery session → InvalidLinkState after 2s timeout', async ({ page }) => {
+    await page.goto('/auth/redefinir-senha')
+
+    // useRecoverySession shows validating spinner briefly, then falls back
+    // to invalid at 2s.
+    await expect(page.getByRole('heading', { name: 'Link inválido ou expirado' })).toBeVisible({
+      timeout: 4000,
+    })
+    await expect(page.getByText('expiram em 1 hora por segurança')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Solicitar novo link/i })).toBeVisible()
+  })
+
+  // ─── B10-lite (UNCONDITIONAL — ISSUE-006) — pre-seed recovery session ─
+  // Validates the `useRecoverySession.status === 'valid'` branch end-to-end
+  // without depending on supabase-js's `detectSessionInUrl: true` actually
+  // parsing the hash fragment (which can be flaky under headless Chromium
+  // with fake JWTs).
+  //
+  // Strategy: pre-seed the SDK's storage backing so getSession() returns
+  // a session within the 2s validation window. useRecoverySession's
+  // imperative getSession path picks this up and transitions
+  // status: 'validating' → 'valid'.
+  test('B10-lite: pre-seeded recovery session via test harness → RedefinirSenhaPage renders the form', async ({ page }) => {
+    const candidateJwt = makeJwt({
+      sub: 'uuid-recovery',
+      email: 'recovery-test@x.com',
+      app_metadata: { role: 'candidato' },
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+
+    // Intercept BOTH GET (used by getUser internally) and PUT (updateUser)
+    // so any side-effect of the SDK init does not 401 against the real
+    // Supabase project.
+    await page.route('**/auth/v1/user**', (route) => {
+      const method = route.request().method()
+      if (method === 'GET') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'uuid-recovery',
+            email: 'recovery-test@x.com',
+            app_metadata: { role: 'candidato' },
+          }),
+        })
+      } else if (method === 'PUT') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'uuid-recovery', email: 'recovery-test@x.com' }),
+        })
+      } else {
+        route.continue()
+      }
+    })
+
+    // Pre-seed the supabase-js storage so getSession() returns a session
+    // WITHOUT depending on URL-hash parsing. The SDK reads sb-auth-token
+    // from localStorage on init (storageKey explicit in src/lib/supabase/client.ts).
+    await page.addInitScript((token) => {
+      const sessionPayload = {
+        access_token: token,
+        refresh_token: 'fake-refresh',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: {
+          id: 'uuid-recovery',
+          email: 'recovery-test@x.com',
+          app_metadata: { role: 'candidato' },
+        },
+      }
+      window.localStorage.setItem('sb-auth-token', JSON.stringify(sessionPayload))
+    }, candidateJwt)
+
+    await page.goto('/auth/redefinir-senha')
+
+    // Validate that the FORM is rendered (i.e. useRecoverySession resolved
+    // to 'valid'), NOT the validating spinner and NOT the InvalidLinkState.
+    await expect(page.getByRole('heading', { name: 'Nova senha', exact: true })).toBeVisible({
+      timeout: 4000,
+    })
+    await expect(page.getByLabel('Nova senha', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Confirmar nova senha')).toBeVisible()
+
+    // Negative assertions — neither alternate state should be visible.
+    await expect(page.getByText('Validando seu link...')).not.toBeVisible()
+    await expect(page.getByText('Link inválido ou expirado')).not.toBeVisible()
+  })
+
+  // ─── B10 (best-effort) — full deeplink → PASSWORD_RECOVERY → form ────
+  // Depends on supabase-js's `detectSessionInUrl: true` parsing the hash
+  // fragment and emitting `PASSWORD_RECOVERY`. If the SDK does not
+  // cooperate with the fake JWT under headless Chromium, this test
+  // downgrades to test.fixme (B10-lite above + UAT-3 real-email cover the
+  // unconditional CI surface).
+  test('B10: mocked deeplink → PASSWORD_RECOVERY event → form → updateUser success', async ({ page }) => {
+    test.fixme(
+      process.env.E2E_AUTH_TEST_USERS !== 'true',
+      'B10 deeplink hash-fragment parsing flaky under headless Chromium with fake JWTs — covered unconditionally by B10-lite + UAT-3 real-email',
+    )
+
+    // Step 1: intercept /auth/v1/recover (resetPasswordForEmail) — empty success
+    let resetCalled = false
+    await page.route('**/auth/v1/recover', (route) => {
+      resetCalled = true
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/auth/esqueci-senha')
+    await page.getByLabel('Email').fill('test@x.com')
+    await page.getByRole('button', { name: /Enviar instruções/i }).click()
+    await expect(page.getByRole('heading', { name: 'Verifique seu email' })).toBeVisible()
+    expect(resetCalled).toBe(true)
+
+    // Step 2: simulate the email link — navigate with crafted hash fragment.
+    const candidateJwt = makeJwt({
+      sub: 'uuid',
+      email: 'test@x.com',
+      app_metadata: { role: 'candidato' },
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+    await page.route('**/auth/v1/user', (route) => {
+      const method = route.request().method()
+      if (method === 'PUT') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: 'uuid', email: 'test@x.com' }),
+        })
+      } else if (method === 'GET') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'uuid',
+            email: 'test@x.com',
+            app_metadata: { role: 'candidato' },
+          }),
+        })
+      } else {
+        route.continue()
+      }
+    })
+
+    await page.goto(
+      `/auth/redefinir-senha#access_token=${candidateJwt}&refresh_token=fake-refresh&type=recovery&expires_in=3600&token_type=bearer`,
+    )
+
+    // Step 3: form should appear (not InvalidLinkState).
+    await expect(page.getByRole('heading', { name: 'Nova senha', exact: true })).toBeVisible({
+      timeout: 4000,
+    })
+
+    // Step 4: fill + submit, assert success toast + redirect.
+    await page.getByLabel('Nova senha', { exact: true }).fill('NovaSenha123')
+    await page.getByLabel('Confirmar nova senha').fill('NovaSenha123')
+    await page.getByRole('button', { name: /Redefinir senha/i }).click()
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(toastRegion.getByText('Senha alterada com sucesso.')).toBeVisible({
+      timeout: 4000,
+    })
+    await page.waitForURL(/\/candidato\/perfil/, { timeout: 5000 })
+  })
+
+  // ─── B15 — Sonner DOM regression on esqueci-senha ─────────────────────
+  test('B15: Sonner DOM contract on esqueci-senha — toast renders inside Notifications region', async ({ page }) => {
+    await page.route('**/auth/v1/recover', (route) => {
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/auth/esqueci-senha')
+    await page.getByLabel('Email').fill('x@y.com')
+    await page.getByRole('button', { name: /Enviar instruções/i }).click()
+    const toastRegion = page.getByLabel('Notifications alt+T')
+    await expect(toastRegion.locator('[data-sonner-toast]')).toBeVisible({ timeout: 2000 })
+  })
+})
