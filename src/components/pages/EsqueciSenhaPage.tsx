@@ -1,342 +1,320 @@
 /**
- * Página de Esqueci Minha Senha
+ * EsqueciSenhaPage — Phase 3 Wave 5 (Plan 03-06).
  *
- * Suporta recuperação para candidatos e administradores RH
- * Tipo de usuário detectado via query param ?tipo=rh
- * Integração completa com Supabase Auth e rate limiting
+ * Recuperação de senha (candidato e RH). Single-column glass card max-w-md
+ * (UI-SPEC L443-503). 2-state machine: form → post-submit neutral success card.
+ * D-09 anti-enumeration: copy de sucesso é IDÊNTICA para email cadastrado e
+ * não-cadastrado; nenhum echo de `{emailValue}` na success card.
+ *
+ * Variant detection (UI-SPEC L658-660):
+ *   `?tipo=rh` → Voltar ao login navega para `/auth/login-rh`
+ *   default    → Voltar ao login navega para `/auth/login`
+ *
+ * Service layer:
+ *   `requestPasswordReset(email, isRH)` — D-09 swallow-vs-surface; APENAS
+ *   RATE_LIMITED é propagado ao caller. Network errors / não-encontrado /
+ *   etc. são silenciados no service e a UI mostra success neutro.
+ *
+ * Pitfall 7: nenhuma chamada de log nesta page; observabilidade no passwordService.
+ *
+ * @module components/pages/EsqueciSenhaPage
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { BackgroundImage } from '../BackgroundImage';
-import { GlassCard } from '../ui/glass';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { BeautySmileLogo } from '../BeautySmileLogo';
-import { Mail, ArrowLeft, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase/client';
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
-  passwordRecoverySchema,
-  type PasswordRecoveryFormData,
-} from '@/schemas/passwordRecoverySchema';
+  Mail,
+  Loader2,
+  CheckCircle2,
+  ArrowLeft,
+  AlertCircle,
+  Clock,
+} from 'lucide-react'
+
+import { BackgroundImage } from '../BackgroundImage'
+import { GlassCard } from '../ui/glass'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { BeautySmileLogo } from '../BeautySmileLogo'
+
 import {
-  isRateLimited,
-  recordAttempt,
-  getRemainingTime,
-  getRemainingAttempts,
-} from '@/services/rateLimitService';
-import { logPasswordResetRequest } from '@/services/logAccessService';
+  esqueciSenhaSchema,
+  type EsqueciSenhaFormData,
+} from '@/features/auth/schemas'
+import { requestPasswordReset } from '@/features/auth/services'
+import { isAuthError } from '@/features/auth/types'
+import { useAuthFlowVariant, useRateLimitCooldown } from '@/features/auth/hooks'
 
 export function EsqueciSenhaPage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [emailEnviado, setEmailEnviado] = useState(false);
-  const emailInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate()
+  const [emailEnviado, setEmailEnviado] = useState(false)
+  const { isRH } = useAuthFlowVariant()
+  const {
+    remainingSeconds,
+    isActive: isInCooldown,
+    setCooldown,
+  } = useRateLimitCooldown()
 
-  // Detectar tipo de usuário: 'candidato' ou 'rh'
-  const tipoUsuario = searchParams.get('tipo') === 'rh' ? 'rh' : 'candidato';
-  const isRH = tipoUsuario === 'rh';
-
-  // React Hook Form com Zod validation
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
-    watch,
-    setError,
-  } = useForm<PasswordRecoveryFormData>({
-    resolver: zodResolver(passwordRecoverySchema),
-    mode: 'onChange', // Validação em tempo real
-  });
+  } = useForm<EsqueciSenhaFormData>({
+    resolver: zodResolver(esqueciSenhaSchema),
+    mode: 'onBlur',
+    defaultValues: { email: '' },
+  })
 
-  const emailValue = watch('email');
+  const goToLogin = () => {
+    navigate(isRH ? '/auth/login-rh' : '/auth/login', { replace: true })
+  }
 
-  // Auto-focus no campo email (acessibilidade)
-  useEffect(() => {
-    if (emailInputRef.current && !emailEnviado) {
-      emailInputRef.current.focus();
-    }
-  }, [emailEnviado]);
+  const reopenForm = () => {
+    reset({ email: '' })
+    setEmailEnviado(false)
+  }
 
-  /**
-   * Submit handler com integração Supabase
-   */
-  const onSubmit = async (data: PasswordRecoveryFormData) => {
+  const onSubmit = async (data: EsqueciSenhaFormData) => {
     try {
-      // Verificar rate limiting
-      if (isRateLimited(data.email)) {
-        const minutesRemaining = getRemainingTime(data.email);
-        setError('email', {
-          type: 'manual',
-          message: `Muitas tentativas. Tente novamente em ${minutesRemaining} minuto${minutesRemaining > 1 ? 's' : ''}.`,
-        });
-        toast.error('Limite de tentativas excedido', {
-          description: `Por favor, aguarde ${minutesRemaining} minuto${minutesRemaining > 1 ? 's' : ''} antes de tentar novamente.`,
-          duration: 5000,
-        });
-        return;
+      await requestPasswordReset(data.email, isRH)
+      setEmailEnviado(true)
+      toast.info('Se o email existir, o link de recuperação foi enviado.', {
+        duration: 4000,
+      })
+    } catch (err) {
+      if (isAuthError(err) && err.code === 'RATE_LIMITED') {
+        toast.warning(
+          err.retryAfterSeconds
+            ? `Muitas solicitações. Tente novamente em ${err.retryAfterSeconds}s.`
+            : 'Muitas solicitações. Tente novamente em alguns minutos.',
+          { duration: 5000 },
+        )
+        if (err.retryAfterSeconds) setCooldown(err.retryAfterSeconds)
+        else setCooldown(60)
+        // D-09: NÃO avança para success em rate-limit — usuário precisa
+        // ver o cooldown e tentar de novo depois.
+        return
       }
-
-      // Registrar tentativa
-      recordAttempt(data.email);
-
-      // URL de redirecionamento após reset de senha
-      // Incluir tipo de usuário para manter contexto
-      const redirectUrl = `${window.location.origin}/auth/redefinir-senha${
-        isRH ? '?tipo=rh' : ''
-      }`;
-
-      // Chamar Supabase Auth
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: redirectUrl,
-      });
-
-      // Log da solicitação de recuperação (sempre registrar, independente do erro)
-      await logPasswordResetRequest(data.email);
-
-      if (error) {
-        console.error('Erro ao solicitar recuperação:', error);
-
-        // Não revelar se email existe ou não (segurança)
-        // Sempre mostrar mensagem de sucesso genérica
-      }
-
-      // IMPORTANTE: Sempre mostrar sucesso, mesmo se email não existir
-      // Isso previne enumeração de usuários
-      setEmailEnviado(true);
-
-      toast.success('Email enviado com sucesso!', {
-        description: 'Verifique sua caixa de entrada e spam.',
-        duration: 5000,
-      });
-    } catch (error) {
-      console.error('Erro inesperado ao solicitar recuperação:', error);
-
-      // Mostrar mensagem genérica mesmo em caso de erro
-      setEmailEnviado(true);
-
-      toast.success('Email enviado com sucesso!', {
-        description: 'Verifique sua caixa de entrada e spam.',
-        duration: 5000,
-      });
+      // D-09 anti-enumeration: qualquer outro erro continua mostrando
+      // a success neutra (passwordService já swallow no service layer;
+      // este catch é defensivo para casos não previstos).
+      setEmailEnviado(true)
+      toast.info('Se o email existir, o link de recuperação foi enviado.', {
+        duration: 4000,
+      })
     }
-  };
-
-  const handleVoltarLogin = () => {
-    const loginPath = isRH ? '/auth/login-rh' : '/auth/login';
-    navigate(loginPath);
-  };
-
-  const handleReenviar = () => {
-    setEmailEnviado(false);
-    // Auto-focus ao voltar ao formulário
-    setTimeout(() => {
-      if (emailInputRef.current) {
-        emailInputRef.current.focus();
-      }
-    }, 100);
-  };
-
-  // Tema condicional baseado no tipo de usuário
-  const backgroundGradient = isRH
-    ? 'from-[#00109E] via-[#0066CC] to-[#00109E]'
-    : 'gradient';
-
-  // Calcular tentativas restantes para feedback visual
-  const remainingAttempts = emailValue ? getRemainingAttempts(emailValue) : 3;
-  const showRateLimitWarning = remainingAttempts <= 1 && remainingAttempts > 0;
+  }
 
   return (
     <BackgroundImage
-      background={backgroundGradient as any}
+      background="gradient"
       overlayColor="bg-black"
       overlayOpacity={15}
-      className="min-h-screen"
     >
-      <div className="min-h-screen flex items-center justify-center px-4 py-12">
+      <main
+        aria-label="Recuperação de senha"
+        className="min-h-screen flex items-center justify-center px-4 py-12"
+      >
         <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <BeautySmileLogo type="vertical" variant="white" size="lg" className="drop-shadow-lg" />
-          </div>
+          <BeautySmileLogo
+            type="vertical"
+            variant="white"
+            size="lg"
+            className="mx-auto mb-8 drop-shadow-lg"
+          />
 
-          {/* Card Principal */}
-          <GlassCard variant="white" blur="lg" className="p-8">
-            {!emailEnviado ? (
-              <>
-                {/* Título */}
-                <div className="text-center mb-6">
-                  <h1 className="text-white mb-3 drop-shadow-lg text-[40px] font-bold">
-                    {isRH ? 'Recuperar Acesso RH' : 'Esqueci Minha Senha'}
-                  </h1>
-                  <p className="text-white/90 drop-shadow-md">
-                    {isRH
-                      ? 'Digite seu email corporativo para receber as instruções de recuperação'
-                      : 'Digite seu email para receber as instruções de recuperação de senha'}
+          <GlassCard variant="white" blur="lg" className="p-6 sm:p-8">
+            {emailEnviado ? (
+              /* ========================================
+                 POST-SUBMIT — D-09 neutral success card
+                 ======================================== */
+              <div className="text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center backdrop-blur-md">
+                    <CheckCircle2
+                      className="w-8 h-8 text-green-400 drop-shadow-lg"
+                      aria-hidden="true"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h2 className="text-white text-xl font-semibold drop-shadow-lg">
+                    Verifique seu email
+                  </h2>
+                  <p className="text-white text-sm drop-shadow-md leading-relaxed">
+                    Se o email estiver cadastrado, enviamos um link de
+                    recuperação. Verifique sua caixa de entrada (e spam).
                   </p>
                 </div>
 
-                {/* Formulário */}
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-                  {/* Campo Email */}
+                <div
+                  className="bg-white/10 border border-white/20 rounded-lg p-4"
+                  role="note"
+                >
+                  <p className="text-white/90 text-sm leading-relaxed">
+                    O link expira em 1 hora.
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <Button
+                    type="button"
+                    onClick={goToLogin}
+                    className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-200"
+                  >
+                    Voltar ao login
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={reopenForm}
+                    className="text-sm text-white/80 hover:text-white underline py-2"
+                  >
+                    Usar outro email
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ========================================
+                 INITIAL FORM
+                 ======================================== */
+              <>
+                <div className="text-center mb-6">
+                  <h1 className="text-white text-2xl font-semibold mb-2 drop-shadow-lg">
+                    Recuperar senha
+                  </h1>
+                  <p className="text-sm text-white/90 drop-shadow-md">
+                    Informe seu email cadastrado e enviaremos um link para
+                    você criar uma nova senha.
+                  </p>
+                </div>
+
+                <form
+                  onSubmit={handleSubmit(onSubmit)}
+                  className="space-y-4"
+                  aria-label="Formulário de recuperação de senha"
+                  noValidate
+                >
+                  {/* Email */}
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-white drop-shadow-sm">
+                    <Label
+                      htmlFor="email"
+                      className="text-white text-sm font-semibold"
+                    >
                       Email
+                      <span className="text-red-400 ml-1" aria-hidden="true">
+                        *
+                      </span>
                     </Label>
                     <div className="relative">
-                      <Mail
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 w-5 h-5"
+                      <span
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
                         aria-hidden="true"
-                      />
+                      >
+                        <Mail className="w-5 h-5" />
+                      </span>
                       <Input
                         id="email"
                         type="email"
                         {...register('email')}
-                        ref={(e) => {
-                          register('email').ref(e);
-                          (emailInputRef as any).current = e;
-                        }}
                         placeholder="seu@email.com"
-                        className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pl-10"
-                        aria-invalid={errors.email ? 'true' : 'false'}
-                        aria-describedby={errors.email ? 'email-error' : undefined}
                         autoComplete="email"
                         autoFocus
-                        data-testid="email-input"
+                        aria-required="true"
+                        aria-invalid={!!errors.email}
+                        aria-describedby={
+                          errors.email ? 'email-error' : undefined
+                        }
+                        className="bg-white/20 border-white/30 text-white text-base placeholder:text-white/50 pl-10"
                       />
                     </div>
-
-                    {/* Mensagem de erro */}
                     {errors.email && (
                       <p
                         id="email-error"
-                        className="text-red-300 drop-shadow-sm text-sm flex items-center gap-1"
                         role="alert"
-                        data-testid="email-error"
+                        aria-live="assertive"
+                        className="text-red-400 text-sm flex items-center gap-1"
                       >
-                        <AlertCircle size={14} aria-hidden="true" />
+                        <AlertCircle
+                          className="w-4 h-4"
+                          aria-hidden="true"
+                        />
                         {errors.email.message}
                       </p>
                     )}
-
-                    {/* Aviso de rate limit */}
-                    {showRateLimitWarning && !errors.email && (
-                      <p
-                        className="text-yellow-300 drop-shadow-sm text-sm flex items-center gap-1"
-                        role="status"
-                        data-testid="rate-limit-warning"
-                      >
-                        <Clock size={14} aria-hidden="true" />
-                        {remainingAttempts} tentativa{remainingAttempts > 1 ? 's' : ''} restante
-                        {remainingAttempts > 1 ? 's' : ''}
-                      </p>
-                    )}
                   </div>
 
-                  {/* Botão Enviar */}
-                  <button
+                  {/* Submit */}
+                  <Button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white py-3 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-center"
-                    aria-busy={isSubmitting}
-                    data-testid="submit-button"
+                    disabled={isSubmitting || isInCooldown}
+                    className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <>
+                        <Loader2
+                          className="mr-2 h-4 w-4 animate-spin"
+                          aria-hidden="true"
+                        />
                         Enviando...
-                      </span>
+                      </>
+                    ) : isInCooldown ? (
+                      <>
+                        <Clock
+                          className="mr-2 h-4 w-4"
+                          aria-hidden="true"
+                        />
+                        <span aria-live="polite" aria-atomic="true">
+                          Aguarde {remainingSeconds}s
+                        </span>
+                      </>
                     ) : (
-                      'Enviar Instruções'
+                      'Enviar instruções'
                     )}
-                  </button>
+                  </Button>
 
-                  {/* Link Voltar ao Login */}
-                  <div className="text-center pt-4">
-                    <button
-                      type="button"
-                      onClick={handleVoltarLogin}
-                      className="text-white/80 hover:text-white transition-colors duration-200 drop-shadow-sm flex items-center justify-center gap-2 mx-auto"
-                      data-testid="back-button"
+                  {/* RATE_LIMITED amber block (cooldown ativo) */}
+                  {isInCooldown && (
+                    <div
+                      role="alert"
+                      aria-live="polite"
+                      className="rounded-lg bg-amber-500/10 border border-amber-400/30 p-4"
                     >
-                      <ArrowLeft size={18} aria-hidden="true" />
-                      <span>Voltar ao login</span>
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <>
-                {/* Mensagem de Sucesso */}
-                <div className="text-center space-y-6">
-                  <div className="flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                      <CheckCircle2 size={48} className="text-white drop-shadow-lg" />
+                      <p className="text-sm text-white flex items-start gap-2">
+                        <Clock
+                          className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>
+                          Muitas solicitações em pouco tempo. Tente novamente
+                          em <span aria-atomic="true">{remainingSeconds}s</span>.
+                        </span>
+                      </p>
                     </div>
-                  </div>
+                  )}
+                </form>
 
-                  <div className="space-y-3">
-                    <h2 className="text-white drop-shadow-lg text-2xl font-bold" data-testid="success-heading">
-                      Email Enviado!
-                    </h2>
-                    <p className="text-white/90 drop-shadow-md leading-relaxed">
-                      Enviamos as instruções de recuperação de senha para:
-                    </p>
-                    <p className="text-white drop-shadow-md font-medium">{emailValue}</p>
-                  </div>
-
-                  <div className="bg-white/10 border border-white/20 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-white/80 drop-shadow-sm text-sm leading-relaxed">
-                      📧 Verifique sua caixa de entrada e também a pasta de spam. O email pode
-                      levar alguns minutos para chegar.
-                    </p>
-                  </div>
-
-                  {/* Botão Voltar ao Login */}
-                  <button
-                    type="button"
-                    onClick={handleVoltarLogin}
-                    className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white py-3 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-300 hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
-                    data-testid="back-to-login-button"
-                  >
-                    <ArrowLeft size={20} aria-hidden="true" />
-                    <span>Voltar ao Login</span>
-                  </button>
-
-                  {/* Reenviar Email */}
-                  <button
-                    type="button"
-                    onClick={handleReenviar}
-                    className="text-white/80 hover:text-white transition-colors duration-200 drop-shadow-sm text-sm"
-                    data-testid="resend-button"
-                  >
-                    Não recebeu? Reenviar email
-                  </button>
-                </div>
+                {/* Voltar ao login */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(isRH ? '/auth/login-rh' : '/auth/login')
+                  }
+                  className="flex items-center justify-center gap-2 text-sm text-white/80 hover:text-white underline py-2 mt-6 mx-auto"
+                >
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  Voltar ao login
+                </button>
               </>
             )}
           </GlassCard>
-
-          {/* Informação Adicional */}
-          {!emailEnviado && !isRH && (
-            <div className="mt-6 text-center">
-              <p className="text-white/70 drop-shadow-sm text-sm">
-                Não tem uma conta?{' '}
-                <button
-                  type="button"
-                  className="text-white hover:text-white/90 underline transition-colors duration-200"
-                  onClick={() => navigate('/auth/inscricao')}
-                >
-                  Criar conta
-                </button>
-              </p>
-            </div>
-          )}
         </div>
-      </div>
+      </main>
     </BackgroundImage>
-  );
+  )
 }
