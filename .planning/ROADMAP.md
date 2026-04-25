@@ -100,7 +100,7 @@ Plans:
 - [x] 04-01-PLAN.md — Wave 0: SQL migrations (slug trigger + curriculos bucket + submit_candidatura RPC + UNIQUE constraint) + db push + types regen + Wave 0 stubs (Vitest + Playwright fixtures + Pitfall 7 grep extension) ✓ 2026-04-25 (D-22 db push workaround locked + D-10 path schema locked)
 - [x] 04-02-PLAN.md — Wave 1a: isUuid util + vagasService.getVagaBySlug + vagasKeys.detailById/detailBySlug/perguntas split + useVagaBySlug hook ✓ 2026-04-25
 - [x] 04-03-PLAN.md — Wave 1a: cvUploadService (validateCV + uploadCV + getSignedUrl + removeCV) + 14 Vitest cases with Pitfall 7 console-spy ✓ 2026-04-25
-- [ ] 04-04-PLAN.md — Wave 1: PerguntaFormulario type + buildCandidaturaSchema dynamic Zod factory + useVagaPerguntas hook + 17 Vitest cases (D-14 explicit)
+- [x] 04-04-PLAN.md — Wave 1b: PerguntaFormulario type + buildCandidaturaSchema dynamic Zod factory + useVagaPerguntas hook + 17 Vitest cases (D-14 explicit) ✓ 2026-04-25
 - [ ] 04-05-PLAN.md — Wave 2: _shared/schemas.ts patch + submit-candidatura Edge Function (two-client pattern) + candidaturasService.submitCandidaturaWithRespostas + EF deploy with JWT verification ON
 - [ ] 04-06-PLAN.md — Wave 3: routes.tsx /vagas/:identifier + /candidato/candidatura/formulario/:vagaSlug + VagaDetalhePage slug routing + 404 state + real schema + delete VagasPage.tsx (D-18)
 - [ ] 04-07-PLAN.md — Wave 3: FormularioCandidaturaPage full rewrite (D-04) — single-page RHF + dynamic Zod + cvUpload + Edge Function submit + error_code routing + Pitfall 2/7 compliance
@@ -134,5 +134,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
 | 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
 | 3. Login + Recuperacao de Senha | 7/7 | Plan execution complete — Wave 6 landed (03-07: 11 promoted Playwright scenarios + pitfall7.grep B14 Vitest guard + UAT 6/6 PASS; 2 production-only findings captured for Phase 4 PKCE + Phase 5 a11y); pending phase verification gates (code-review + regression + verifier) before phase marked complete | - |
-| 4. Vagas + Candidatura | 3/8 | Wave 0 + Wave 1a complete (04-01 schema/stubs; 04-02 vagasService slug layer + isUuid + vagasKeys extension, 5 commits / 12 tests; 04-03 cvUploadService + 14 Vitest cases / Pitfall-7 redaction passing); Wave 1b (04-04 PerguntaFormulario + buildCandidaturaSchema + useVagaPerguntas) next — depends on 04-02 vagasKeys.perguntas | - |
+| 4. Vagas + Candidatura | 4/8 | Waves 0-1 complete (04-01 schema/stubs; 04-02 vagasService slug + isUuid + vagasKeys ext.; 04-03 cvUploadService + 14 Vitest; 04-04 PerguntaFormulario + buildCandidaturaSchema + useVagaPerguntas + 17 Vitest); 47/47 Vitest tests pass post-Wave-1 merge; Wave 2 (04-05 Edge Function deploy — non-autonomous) next | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |
