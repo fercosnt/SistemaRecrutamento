@@ -83,6 +83,26 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---- 1) Parse + validate body --------------------------------------------
+  // WR-09 (Phase 4 review iteration 2 fix): defense-in-depth body-size cap.
+  // The realistic candidatura payload — uuid IDs + curriculo metadata + up to
+  // ~30 respostas — is well under 16 KB. 64 KB leaves 4× headroom and
+  // rejects DoS attempts before req.json() buffers the entire body into
+  // memory. Status 413 (Payload Too Large) is the conventional response.
+  // The Zod schema's `.max(100)` on respostas[] (schemas.ts:209-220) is the
+  // second layer of defense in case Content-Length is missing or spoofed.
+  const contentLength = parseInt(
+    req.headers.get('content-length') ?? '0',
+    10,
+  )
+  if (contentLength > 64 * 1024) {
+    return errorResponse(
+      'VALIDATION',
+      'Payload muito grande',
+      undefined,
+      413,
+    )
+  }
+
   let input: SubmitCandidaturaInput
   try {
     const raw = await req.json()

@@ -206,6 +206,13 @@ export const submitCandidaturaSchema = z.object({
     .int()
     .positive()
     .max(5_242_880, 'curriculo excede 5 MB'),
+  // WR-09 (Phase 4 review iteration 2 fix): cap respostas[] length to defend
+  // against a DoS via large payloads. The realistic max is ~30 perguntas per
+  // vaga (perguntas_formulario row count); 100 leaves comfortable headroom.
+  // Without the .max(N) cap an attacker with a stolen JWT could submit
+  // 10_000+ entries — Zod validation, the WR-02 .in('id', perguntaIds)
+  // pre-check (giant Postgres IN clause), and the SECURITY DEFINER
+  // jsonb_array_elements loop in submit_candidatura_atomic would all amplify.
   respostas: z
     .array(
       z.object({
@@ -215,6 +222,7 @@ export const submitCandidaturaSchema = z.object({
         resposta_opcoes: z.unknown().optional().nullable(),
       }),
     )
+    .max(100, 'Máximo 100 respostas por candidatura')
     .default([]),
 })
 
