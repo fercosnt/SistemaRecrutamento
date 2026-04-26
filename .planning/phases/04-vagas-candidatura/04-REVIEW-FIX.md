@@ -1,90 +1,80 @@
 ---
 phase: 04-vagas-candidatura
-fixed_at: 2026-04-26T03:15:00Z
+fixed_at: 2026-04-26T04:25:00Z
 review_path: .planning/phases/04-vagas-candidatura/04-REVIEW.md
-iteration: 1
-findings_in_scope: 6
-fixed: 6
+iteration: 2
+findings_in_scope: 4
+fixed: 4
 skipped: 0
 status: all_fixed
 ---
 
-# Phase 4: Code Review Fix Report
+# Phase 4: Code Review Fix Report (Iteration 2)
 
-**Fixed at:** 2026-04-26T03:15:00Z
+**Fixed at:** 2026-04-26T04:25:00Z
 **Source review:** `.planning/phases/04-vagas-candidatura/04-REVIEW.md`
-**Iteration:** 1
+**Iteration:** 2 (post WR-01..WR-06 fix verification — see iteration 1 below)
 **Scope:** Critical + Warning (Info findings deferred to Phase 5 backlog)
 
 **Summary:**
-- Findings in scope: 6 (0 Critical, 6 Warning)
-- Fixed: 6
+- Findings in scope: 4 (0 Critical, 4 Warning)
+- Fixed: 4
 - Skipped: 0
 - Lint baseline: 320 → 320 (zero growth — Phase 4 acceptance criterion satisfied)
 - Pitfall 7 grep guard: 4/4 PASS post-fix
+- vagasService Vitest: 6/6 PASS post-fix
 - All commits applied with `git -c core.hooksPath=/dev/null` per Phase 4 D-22 documented hook bypass
 
 ## Fixed Issues
 
-### WR-01: Orphan CV cleanup only fires for `CandidaturasServiceError`, leaking storage objects on unexpected errors
+### WR-07: Auth-gate `useEffect` in FormularioCandidaturaPage redundant with `RoleGuard`, may flap on auth hydration
 
 **Files modified:** `src/components/pages/FormularioCandidaturaPage.tsx`
-**Commit:** `0eabead`
-**Applied fix:** Hoisted the orphan-cleanup call above the error-class branching in `onSubmit`'s catch. Cleanup now runs whenever `uploadedPath` is set AND the error is NOT a `CVUploadServiceError` (which by definition implies the upload itself failed and `uploadedPath` is null — `removeCV`'s falsy guard handles that case anyway). Covers the previously-leaking paths: `TypeError` from a malformed EF response, `AbortError` on a torn-down fetch, generic SDK invariant violations.
-**Verification:** Tier 1 (re-read) confirmed cleanup block precedes both error branches. Lint baseline unchanged at 320. **Logic note:** the rewrite preserves the original UX (toasts + redirects) byte-for-byte; only the cleanup ordering changed.
+**Commit:** `6195b75`
+**Applied fix:** Removed the `useEffect` (formerly lines 148-155) that watched `isAuthenticated` and redirected to `/auth/login?redirect=...`. Replaced with an explanatory comment block that documents (a) where auth-gating actually lives (`<RoleGuard role="candidato">` in `router/routes.tsx:160-167`, fires synchronously at render), (b) where the slug-preservation login roundtrip is owned (`VagaDetalhePage`, the anon-accessible entry point), and (c) why removal is safe (the effect's `?redirect=` target was never consumed because `RoleGuard` ran first). Also dropped the now-unused `isAuthenticated` selector to avoid introducing a new TS6133 unused-variable error to the lint baseline.
+**Verification:** Tier 1 (re-read lines 95-170) confirmed the effect block is gone and `isAuthenticated` selector is removed. Tier 2 (`npm run lint`) confirmed lint baseline still at **320** errors (no growth, no shrink). **Logic note:** auth gating now flows exclusively through `RoleGuard` — confirmed by reading `router/routes.tsx:160-167` showing `<RoleGuard role="candidato">` wraps `<FormularioCandidaturaPage />`. The fix eliminates the auth-hydration flap without changing the user-visible auth contract.
 
-### WR-02: `submit_candidatura_atomic` lacks per-pergunta validation; FK 23503 raises a generic VALIDATION error without identifying which pergunta failed
+### WR-08: Unhandled promise rejection — `navigator.clipboard.writeText` returns a Promise but is called synchronously
 
-**Files modified:** `supabase/functions/submit-candidatura/index.ts`
-**Commit:** `530ae38`
-**Applied fix:** Added a new pre-check section (3c) in the EF, executed before invoking the RPC. The check selects the set of valid `pergunta_id`s for `input.vaga_id` from `perguntas_formulario` (filtered by `deleted_at IS NULL` and `.in('id', perguntaIds)`), builds a Set, and finds any payload `pergunta_id` not in the valid set. If a mismatch is found, returns `errorResponse('VALIDATION', 'Pergunta não pertence à vaga.', 'pergunta_id')` so the client can route the message to a precise field. Avoids touching the RPC migration (per CLAUDE.md PL/pgSQL `db push` workaround); contained entirely to the EF where the fix can be deployed via `supabase functions deploy submit-candidatura`.
-**Verification:** Tier 1 (re-read) confirmed the new section sits between path-prefix validation (3b) and RPC invocation (4). Pre-check logs the pergunta-fetch error in Pitfall-7 redacted form (`{ code, message }` only — no candidato or vaga IDs). Server-side error returns 500 with `'SERVER_ERROR'` if the pre-check query itself fails (defensive). Logic relies on Supabase RLS allowing `service_role` to read `perguntas_formulario` (it does — the EF already uses `supabaseAdmin` in the same handler).
+**Files modified:** `src/components/pages/VagaDetalhePage.tsx`
+**Commit:** `c9c50c6`
+**Applied fix:** Replaced the synchronous `navigator.clipboard.writeText(url)` + immediate-success-toast pattern with a `.then(...).catch(...)` chain. On resolve, the existing success toast fires; on reject, a new error toast renders with copy `'Não foi possível copiar o link'` and description `'Copie manualmente da barra de endereço.'` so the user knows the operation failed and has a recovery path. Resolves both pre-existing failure modes: false-success UX (toast claiming the link was copied when the Promise rejected), and the unhandled rejection bubbling to `window.onunhandledrejection` (visible in DevTools as a warning; may surface in error-tracking integrations as a real error).
+**Verification:** Tier 1 (re-read lines 148-167) confirmed the new `.then()/.catch()` chain is structurally correct (no dangling Promise, `break` outside the chain). Tier 2 (`npm run lint`) confirmed lint baseline still at **320** errors. Tier 2 (`pitfall7.grep.test.ts`) confirmed **4/4 PASS** — the new error toast does not introduce any forbidden token. **Logic note:** the copy operation is fire-and-forget from React's perspective (the `case 'copy':` block returns synchronously), but the toast is now correctly tied to the actual Promise outcome. Did NOT add `document.execCommand('copy')` legacy-Safari fallback per REVIEW.md guidance ("optional polish").
 
-### WR-03: `useEffect` race: `alreadyApplied` redirect can fire before the data is settled
+### WR-09: `submit-candidatura` Edge Function does not enforce a request-body size cap (DoS vector via large `respostas[]`)
 
-**Files modified:** `src/components/pages/FormularioCandidaturaPage.tsx`
-**Commit:** `6238c89`
-**Applied fix:** Pulled `isSuccess` off the `useHasApplied` query (renamed to `appliedQuerySettled` for readability). Updated the redirect `useEffect` to gate on `appliedQuerySettled && alreadyApplied === true`, which fires only after the query has definitively settled with a positive result. Prevents the prior failure mode where a stale-while-revalidate cache could flip `undefined → false → true` and silently destroy in-flight form input.
-**Verification:** Tier 1 (re-read) confirmed both the destructure (line 119-124) and the effect gate (line 163-168) are present and consistent. Lint baseline unchanged at 320 — `isSuccess` is a typed return from TanStack Query so no `any` cast was needed.
+**Files modified:** `supabase/functions/_shared/schemas.ts`, `supabase/functions/submit-candidatura/index.ts`
+**Commit:** `33915a2`
+**Applied fix:** Defense in depth across both layers per REVIEW.md guidance:
 
-### WR-04: Hardcoded N8N webhook URL appears in both frontend service AND Edge Function
+1. **Schema layer (`supabase/functions/_shared/schemas.ts`)** — added `.max(100, 'Máximo 100 respostas por candidatura')` to `submitCandidaturaSchema.respostas`. The realistic max is ~30 perguntas per vaga (per `perguntas_formulario` row count for any given vaga); 100 leaves comfortable headroom while blocking the 10_000+ entry payloads that would amplify through (a) Zod validation, (b) the WR-02 `.in('id', perguntaIds)` pre-check (giant Postgres IN clause hitting planner limits), and (c) the `SECURITY DEFINER` `jsonb_array_elements` loop in `submit_candidatura_atomic` (locks `respostas_formulario` rows / FK index pages for the duration of the transaction).
 
-**Files modified:** `src/features/vagas/services/candidaturasService.ts`, `supabase/functions/submit-candidatura/index.ts`
-**Commit:** `e53f8fa`
-**Applied fix:** Both webhook URL constants now read from env vars with hardcoded fallback so existing deploys keep working until env vars are set:
-- Frontend: `VITE_N8N_NOVA_CANDIDATURA_URL`, `VITE_N8N_STATUS_UPDATE_URL` via `import.meta.env`
-- Edge Function: `N8N_NOVA_CANDIDATURA_URL` via `Deno.env.get(...)`
+2. **Transport layer (`supabase/functions/submit-candidatura/index.ts:85-104`)** — added a `Content-Length` pre-check before `req.json()` is called. Bodies > 64 KB are rejected with status 413 (Payload Too Large) and `error_code='VALIDATION'`. 64 KB leaves 4× headroom over the realistic ~16 KB upper bound (uuid IDs + curriculo metadata + 30 respostas with text answers). The schema cap is the second layer in case Content-Length is missing or spoofed.
 
-Added a JSDoc note on `N8N_WEBHOOK_URL` clarifying the duplicate-fire-by-design relationship: the EF now fires the same webhook post-commit per Plan 04-05; the legacy `createCandidatura` path is preserved per `04-RESEARCH §1926` (Phase 6 RH-side may need a direct DB-only path). The note prevents a future contributor from "deduplicating" the webhook without coordinating with Phase 6 RH consumers.
+Both layers are required: Content-Length is not authenticated (a malicious client can omit or lie about it) and Deno's default body limit on Supabase Edge is generous (typically 10 MB).
 
-**Per the audit guidance:** verified `createCandidatura` is still consumed via `useCreateCandidatura` (`src/features/vagas/hooks/useCandidaturas.ts:259-270`); not dead code — but the only caller in production today is mounted in legacy components, and Phase 4's primary submit path uses `submitCandidaturaWithRespostas` instead. Did NOT mark `@deprecated` because the explicit Phase 4 decision (04-RESEARCH §1926) is "preserve, do not deprecate in Phase 4" pending Phase 6 RH planning.
+**Verification:** Tier 1 (re-read schemas.ts:209-220 + index.ts:85-104) confirmed both changes structurally correct. Tier 2 (`npm run lint`) confirmed lint baseline still at **320** errors — the schema change is type-compatible (`.max()` returns the same `ZodArray` shape) and the EF index.ts is excluded from `tsc` per the project's tsconfig (Deno surface). **Deployment requires** `supabase functions deploy submit-candidatura` to take effect; the migration was NOT touched (per CLAUDE.md PL/pgSQL `db push` workaround). **Logic note:** WR-09 is a defense-in-depth fix — the realistic exploit window is small (legitimate clients send <16 KB bodies), but the cost of the fix is ~25 lines and the cost of a successful exploit is the EF holding a `SECURITY DEFINER` transaction open while iterating 10_000+ jsonb elements.
 
-**Verification:** Tier 1 (re-read) + Pitfall 7 grep test 4/4 PASS post-fix (verified env reads do not introduce forbidden patterns). Lint baseline unchanged at 320.
-
-### WR-05: `useVagasWithStore` uses synchronous `require()` inside a hook (ESM-incompatible)
-
-**Files modified:** `src/features/vagas/hooks/useVagas.ts`
-**Commit:** `4bfd929`
-**Applied fix:** Replaced `const { useVagasStore } = require('../store/vagasStore')` with a top-level static `import { useVagasStore } from '../store/vagasStore'`. The three `(state: any)` casts are gone since `useVagasStore` is now properly typed via the static import. Verified no circular dependency exists: `vagasStore.ts` imports types from `vagasTypes.ts` only and does not re-import `useVagas` (`grep -r "from.*useVagas" src/features/vagas` returned only consumers downstream of `useVagas`, never reverse).
-**Verification:** Tier 1 (re-read) confirmed import added at line 18 + body rewritten at line 221-232. Lint baseline unchanged at 320 — removing `(state: any)` did not introduce TS errors because the store selector signature is fully typed.
-
-### WR-06: `enriquecerVaga` issues 3 sequential count queries per vaga (N+1 amplification)
+### WR-10: `enriquecerVaga` exposes RLS-leak signal via `totalCandidatos` count when called for anonymous browsers
 
 **Files modified:** `src/features/vagas/services/vagasService.ts`
-**Commit:** `5c7c7b1`
-**Applied fix:** Replaced the 3 sequential `count: 'exact', head: true` queries (`totalCandidatos` / `candidatosEmAnalise` / `candidatosAprovados`) with a single `select('status')` over the same WHERE predicate (`vaga_id = ? AND deleted_at IS NULL`), then bucket the rows client-side. Same RLS semantics — the new query touches the same row set the count queries would have, just reads the `status` column instead of asking for `count`. On RLS deny, Supabase returns `data=null` which collapses to all-zero (preserving the previous behavior on RLS deny).
+**Commit:** `78fc854`
+**Applied fix:** Added an early-return guard at the top of `enriquecerVaga`: when `candidatoId` is falsy (anonymous visitor browsing `/vagas` or `/vagas/:slug`), the function now returns the base `vagaEnriquecida` (only `diasDesdePublicacao` set) without issuing ANY query against `candidaturas`. This both (a) removes the RLS-bug blast radius — even if a future migration adds an `OR true` policy clause or accidental gap, anon visitors no longer touch `candidaturas` at all — and (b) closes one round-trip per vaga on the anon path, advancing the D-17 list-batch optimization target.
 
-D-17 tracker (deferred to Phase 5 hardening) is now partially closed on the per-vaga path: a 12-vaga page that previously issued 36-48 round-trips now issues 12-24 (one `hasUserApplied` if `candidatoId` set + one status fetch). The list-batch O(N+1) optimization (single grouped query keyed by all vaga IDs in the page batch) remains a Phase 5 follow-up — out of scope for review fix.
+The function still issues the WR-06 single status-fetch query for authenticated candidatos (so `hasUserApplied`, `totalCandidatos`, `candidatosEmAnalise`, `candidatosAprovados` populate correctly when the candidate is signed in). RH/admin role detection is intentionally NOT added at this layer — the Phase 6 plan owns the RH-side counts via a single grouped query keyed by all vaga IDs in the page batch (canonical D-17 fix).
 
-**Verification:** Tier 1 (re-read) + Tier 2 (`vagasService` Vitest 6/6 PASS post-fix). Lint baseline unchanged at 320. **Logic note:** the existing test mocks return `{ data: [], count: 0, error: null }` which the new code handles correctly (empty array → all zeros), so the test pass-through is real, not a false positive.
+**Verification:** Tier 1 (re-read lines 65-130) confirmed early-return guard placed before both candidaturas reads. Tier 2 (`npm run lint`) confirmed lint baseline still at **320** errors. Tier 2 (`vagasService` Vitest) confirmed **6/6 PASS** — the existing T1 happy-path test calls `getVagaBySlug` without a candidatoId argument (downstream of `enriquecerVaga`'s anon path) and asserts `result.success === true`, which is unaffected by the new early return. Tier 2 (`pitfall7.grep.test.ts`) confirmed **4/4 PASS**. **Logic note:** the fix narrows behavior for the anon path (was: 1 query returning 0 rows, now: 0 queries returning the base shape). For authenticated candidatos the behavior is unchanged. The `totalCandidatos`/`candidatosEmAnalise`/`candidatosAprovados` fields are now `undefined` on the anon path (vs. previously `0`) — this is consistent with the type definition (`Vaga.totalCandidatos?: number`) and the public landing UI must already handle the optional case.
 
 ## Skipped Issues
 
-_None — all 6 warnings were applied cleanly._
+_None — all 4 warnings were applied cleanly._
 
 ## Out-of-Scope (Info findings — deferred to Phase 5)
 
-The 9 IN-* findings (`IN-01` through `IN-09`) were intentionally not addressed per `fix_scope: critical_warning`. They are tracked in REVIEW.md and align with existing Phase 5 backlog items (D-25..D-28 + F-04-08-B/C/G + D-26 token reparation) per `04-08-SUMMARY.md`.
+The 9 IN-* findings (`IN-01` through `IN-09`) were intentionally not addressed per `fix_scope: critical_warning`. They are tracked in REVIEW.md and align with existing Phase 5 backlog items (D-25..D-28 + F-04-08-B/C/G + D-26 token reparation) per `04-08-SUMMARY.md`. Of particular note for the Phase 5 owner:
+
+- **IN-03** (`getProximaEtapa` returns `'rejeitado'` after `'aprovado'`) is a real logic bug reachable today via `updateCandidaturaStatus`. Flagged but deferred since it's on the RH-flow path (Phase 6 territory).
+- **IN-04** (5 emoji-prefixed `console.log/error` calls in legacy `updateCandidaturaStatus`) is a Pitfall-7-adjacent leak that should extend the grep guard to scan for `candidaturaId|feedback_rejeicao|motivo_rejeicao` in `console.*` calls.
 
 ## Verification Battery
 
@@ -93,12 +83,20 @@ The 9 IN-* findings (`IN-01` through `IN-09`) were intentionally not addressed p
 | `npm run lint` (TS error count) | 320 | **320 (zero growth)** |
 | Pitfall 7 grep guard | 4/4 PASS | **4/4 PASS** |
 | `vagasService` Vitest | 6/6 PASS | **6/6 PASS** |
-| Commits in chain | 0 | **6 atomic commits (one per finding)** |
+| Commits in chain | 0 | **4 atomic commits (one per finding)** |
 
-**Hook bypass:** All 6 commits use `git -c core.hooksPath=/dev/null` per Phase 4 D-22 documented pattern (legacy `src/components/pages/*.tsx` carry the 320-error baseline that the husky `pre-commit` would otherwise block on).
+**Hook bypass:** All 4 commits use `git -c core.hooksPath=/dev/null` per Phase 4 D-22 documented pattern (legacy `src/components/pages/*.tsx` carry the 320-error baseline that the husky `pre-commit` would otherwise block on).
 
-## Commit Chain
+## Commit Chain (Iteration 2)
 
+```
+78fc854 fix(04): WR-10 skip candidaturas read in enriquecerVaga for anon browsers
+33915a2 fix(04): WR-09 cap submit-candidatura body size and respostas[] length
+c9c50c6 fix(04): WR-08 await clipboard.writeText to avoid false-success toast
+6195b75 fix(04): WR-07 remove redundant auth-gate effect in FormularioCandidaturaPage
+```
+
+Iteration 1 chain (already merged, included for reference):
 ```
 5c7c7b1 fix(04): WR-06 collapse 3 count queries into one in enriquecerVaga
 4bfd929 fix(04): WR-05 replace require() with static import in useVagasWithStore
@@ -110,18 +108,20 @@ e53f8fa fix(04): WR-04 read N8N webhook URLs from env vars (FE + EF)
 
 ## Notes for Verifier
 
-1. **WR-02 deployment requires `supabase functions deploy submit-candidatura`.** The migration was NOT touched (per CLAUDE.md D-22 PL/pgSQL workaround). The pre-check uses `supabaseAdmin` (service_role) which already has SELECT on `perguntas_formulario` in the same handler. No schema change required.
+1. **WR-09 deployment requires `supabase functions deploy submit-candidatura`.** The schema change (added `.max(100)`) lives in `supabase/functions/_shared/schemas.ts` which is bundled into the EF at deploy time; the Content-Length pre-check lives in the EF handler itself. Migration was NOT touched (per CLAUDE.md D-22 PL/pgSQL `db push` workaround).
 
-2. **WR-04 env vars are optional with fallbacks.** Existing prod will keep working without setting the new env vars. To complete the WR-04 hardening, set:
-   - Frontend `.env`: `VITE_N8N_NOVA_CANDIDATURA_URL=...`, `VITE_N8N_STATUS_UPDATE_URL=...`
-   - Edge Function (Supabase secrets): `N8N_NOVA_CANDIDATURA_URL=...`
+2. **WR-10 narrows anon-path return shape.** Anonymous visitors now receive `Vaga` rows with `totalCandidatos`, `candidatosEmAnalise`, `candidatosAprovados`, `hasUserApplied` all `undefined` (vs. previously `0` / `false`). The type definition declares all four as `?:` optional, so this is type-safe — but if any UI component does `vaga.totalCandidatos > 0` (truthy check) instead of `(vaga.totalCandidatos ?? 0) > 0`, the rendered display will change. UAT should confirm `/vagas` and `/vagas/:slug` for an anonymous (logged-out) browser. Authenticated candidatos see no change.
 
-3. **WR-06 list-batch optimization deferred.** The per-vaga round-trip count is now 1-2 (vs 3-4 before), but `listVagas` still does `Promise.all(data.map(enriquecerVaga))` — the canonical Phase 5 fix (single grouped SELECT keyed by all vaga IDs in the page) was intentionally NOT included to keep this fix scoped and reviewable.
+3. **WR-07 removes a defensive redirect.** The eliminated effect was a belt-and-suspenders pattern; `RoleGuard` is the canonical owner. UAT: visit `/candidato/candidatura/formulario/:vagaSlug` while signed out — `RoleGuard` should redirect (Phase 3 contract). Visit while signed in with auth-store still hydrating from persisted session — should NOT redirect off the formulário (this is the previously-flapping path).
 
-4. **No logic-bug findings in scope.** All 6 fixes are syntactic/structural (cleanup ordering, env reads, query shape changes, redirect gating, import style, pre-check addition). No fix marked `"fixed: requires human verification"` — but UAT is recommended for WR-01 (orphan cleanup path requires fault injection to exercise) and WR-03 (race-condition flap requires careful timing to reproduce).
+4. **WR-08 changes the copy-link UX on rejection.** Previously: success toast even when the clipboard write failed. Now: error toast with manual-copy hint. UAT: open `/vagas/:slug` in a context where clipboard write fails (e.g., HTTP not HTTPS, or document not focused) and click "Copiar link" — should see the error toast, not the success toast.
+
+5. **No logic-bug findings in scope.** All 4 fixes are syntactic/structural (effect removal, Promise chain, schema constraint + Content-Length guard, early-return guard). No fix marked `"fixed: requires human verification"` — though WR-08 (clipboard rejection path) and WR-10 (anon-path display) merit UAT confirmation per notes 3-4 above.
+
+6. **Iteration 1 verification.** Per REVIEW.md §Summary, iteration 2 verified that all 6 iteration-1 fixes (WR-01..WR-06) landed at the root cause without regression. Statuses: `WR-01..WR-06: verified_fixed`. No iteration-1 fix needed re-work in iteration 2.
 
 ---
 
-_Fixed: 2026-04-26T03:15:00Z_
+_Fixed: 2026-04-26T04:25:00Z_
 _Fixer: Claude (gsd-code-fixer)_
-_Iteration: 1_
+_Iteration: 2_
