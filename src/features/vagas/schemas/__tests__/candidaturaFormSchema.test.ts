@@ -174,19 +174,19 @@ describe('zodForType (Plan 04-04)', () => {
 })
 
 describe('buildCandidaturaSchema (Plan 04-04)', () => {
-  it('T2.1: empty perguntas list still requires curriculo (D-14)', () => {
+  it('T2.1: empty perguntas list accepts valid curriculo (D-14)', () => {
     // D-14: vaga sem perguntas configuradas → schema valida APENAS currículo;
     // respostas é z.object({}) (vazio), aceita {} como input.
+    // F-04-08-F (carryover-c): curriculo is now optional in the schema.
+    // Presence gating moved to FormularioCandidaturaPage (submitDisabled +
+    // onSubmit early return) + EF server-side validation. See T2.5 for the
+    // optional-curriculo regression guard.
     const schema = buildCandidaturaSchema([])
     const okResult = schema.safeParse({
       curriculo: { path: 'auth-uid/uuid.pdf', name: 'cv.pdf', size: 1024 },
       respostas: {},
     })
     expect(okResult.success).toBe(true)
-
-    // Curriculo missing → fail
-    const failResult = schema.safeParse({ respostas: {} })
-    expect(failResult.success).toBe(false)
   })
 
   it('T2.2: mixed perguntas validates real input', () => {
@@ -242,6 +242,63 @@ describe('buildCandidaturaSchema (Plan 04-04)', () => {
     if (!result.success) {
       expect(
         result.error.issues.some((i) => i.message.includes('5 MB'))
+      ).toBe(true)
+    }
+  })
+
+  // ============================================
+  // F-04-08-F regression guards — curriculo .optional() alignment
+  // with Plan 04-07's just-in-time upload pattern (D-09)
+  // ============================================
+  it('T2.5: curriculo undefined passes when respostas are valid (F-04-08-F)', () => {
+    // F-04-08-F: schema must NOT block submission when curriculo is missing
+    // — the FormularioCandidaturaPage uploads cvFile just-in-time inside
+    // onSubmit, so Zod validation runs with curriculo=undefined and must
+    // pass. Presence gating lives in the component (submitDisabled +
+    // onSubmit early return), not in the schema.
+    const perguntas = [
+      buildPergunta({
+        id: 'p1',
+        tipo_resposta: 'texto_curto',
+        obrigatoria: true,
+      }),
+    ]
+    const schema = buildCandidaturaSchema(perguntas)
+    const result = schema.safeParse({
+      curriculo: undefined,
+      respostas: { p1: 'Resposta válida' },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('T2.6: curriculo with full {path, name, size} still passes (regression)', () => {
+    // Regression guard — making curriculo optional must NOT reject valid
+    // populated curriculos.
+    const schema = buildCandidaturaSchema([])
+    const result = schema.safeParse({
+      curriculo: {
+        path: 'auth-uid/abc-123.pdf',
+        name: 'curriculo.pdf',
+        size: 102_400,
+      },
+      respostas: {},
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('T2.7: curriculo with empty path still fails when present', () => {
+    // Shape integrity — when curriculo IS present, its inner fields must
+    // still validate. Empty path means a malformed object slipped past the
+    // page-layer guards; schema is the last sanity check before submit.
+    const schema = buildCandidaturaSchema([])
+    const result = schema.safeParse({
+      curriculo: { path: '', name: 'cv.pdf', size: 100 },
+      respostas: {},
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(
+        result.error.issues.some((i) => i.message.includes('Currículo obrigatório'))
       ).toBe(true)
     }
   })

@@ -130,8 +130,13 @@ export function buildCandidaturaSchema(perguntas: PerguntaFormulario[]) {
   }
 
   return z.object({
-    curriculo: z.object(
-      {
+    // F-04-08-F (carryover-c): curriculo is .optional() to support the
+    // just-in-time upload pattern from Plan 04-07 (D-09). Presence is gated
+    // by submitDisabled = !cvFile + onSubmit early return + EF server-side
+    // schema validation (defense in depth, Pitfall 10). Schema only owns
+    // shape validation when curriculo is present.
+    curriculo: z
+      .object({
         path: z.string().min(1, 'Currículo obrigatório'),
         name: z.string().min(1),
         size: z
@@ -139,11 +144,8 @@ export function buildCandidaturaSchema(perguntas: PerguntaFormulario[]) {
           .int()
           .positive()
           .max(5_242_880, 'Currículo deve ter no máximo 5 MB'),
-      },
-      {
-        required_error: 'Faça o upload do currículo (PDF, máx. 5 MB)',
-      }
-    ),
+      })
+      .optional(),
     respostas: z.object(respostasShape),
     respostas_outros: z.object(respostasOutrosShape).optional(),
   })
