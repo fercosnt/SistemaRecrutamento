@@ -83,34 +83,35 @@ async function enriquecerVaga(
     vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
   }
 
-  // Contar total de candidatos
-  const { count: totalCount } = await supabase
+  // WR-06 (Phase 4 review fix): collapse the previous 3 sequential `count: 'exact'`
+  // queries (totalCandidatos / candidatosEmAnalise / candidatosAprovados — D-17
+  // deferred to Phase 5 hardening) into a single SELECT that returns each
+  // candidatura's status, then bucket client-side. The previous shape issued
+  // up to 3 round-trips per vaga; combined with `listVagas` Promise.all fan-out
+  // this amplified to 36-48 round-trips per 12-vaga page. Same WHERE clause +
+  // RLS context — the new query touches the exact same rows the count queries
+  // would have, just reads the `status` column instead of asking for `count`.
+  // On RLS deny, supabase returns data=null which collapses to all-zero (the
+  // same behavior as the old count queries on RLS deny).
+  const { data: statusRows } = await supabase
     .from('candidaturas')
-    .select('*', { count: 'exact', head: true })
+    .select('status')
     .eq('vaga_id', vaga.id)
     .is('deleted_at', null)
 
-  vagaEnriquecida.totalCandidatos = totalCount ?? 0
+  const rows = (statusRows ?? []) as Array<{ status: string | null }>
+  let total = 0
+  let emAnalise = 0
+  let aprovados = 0
+  for (const row of rows) {
+    total += 1
+    if (row.status === 'em_analise') emAnalise += 1
+    else if (row.status === 'aprovado_proxima') aprovados += 1
+  }
 
-  // Contar candidatos em análise
-  const { count: emAnaliseCount } = await supabase
-    .from('candidaturas')
-    .select('*', { count: 'exact', head: true })
-    .eq('vaga_id', vaga.id)
-    .eq('status', 'em_analise')
-    .is('deleted_at', null)
-
-  vagaEnriquecida.candidatosEmAnalise = emAnaliseCount ?? 0
-
-  // Contar candidatos aprovados (para próxima etapa)
-  const { count: aprovadosCount } = await supabase
-    .from('candidaturas')
-    .select('*', { count: 'exact', head: true })
-    .eq('vaga_id', vaga.id)
-    .eq('status', 'aprovado_proxima')
-    .is('deleted_at', null)
-
-  vagaEnriquecida.candidatosAprovados = aprovadosCount ?? 0
+  vagaEnriquecida.totalCandidatos = total
+  vagaEnriquecida.candidatosEmAnalise = emAnalise
+  vagaEnriquecida.candidatosAprovados = aprovados
 
   return vagaEnriquecida
 }
