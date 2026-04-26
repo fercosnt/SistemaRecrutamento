@@ -146,10 +146,24 @@ export function VagaDetalhePage() {
         )}&body=${encodeURIComponent(url)}`
         break
       case 'copy':
-        navigator.clipboard.writeText(url)
-        toast.success('Link copiado!', {
-          description: 'O link foi copiado para sua área de transferência',
-        })
+        // WR-08 (Phase 4 review iteration 2 fix): navigator.clipboard.writeText
+        // returns Promise<void> and rejects when the document is not focused, in
+        // an insecure context, on permission denial, or when Safari's transient
+        // activation requirement is not met. Previously the success toast was
+        // shown synchronously regardless of outcome (false-success UX) AND the
+        // unhandled rejection bubbled to window.onunhandledrejection.
+        navigator.clipboard
+          .writeText(url)
+          .then(() => {
+            toast.success('Link copiado!', {
+              description: 'O link foi copiado para sua área de transferência',
+            })
+          })
+          .catch(() => {
+            toast.error('Não foi possível copiar o link', {
+              description: 'Copie manualmente da barra de endereço.',
+            })
+          })
         break
     }
     setShowShareMenu(false)
