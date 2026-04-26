@@ -93,7 +93,7 @@ Plans:
   3. A logged-in candidate can upload a PDF CV (under 5MB), answer screening questions, and submit -- resulting in a candidatura record with `status = 'aguardando_resposta'` and `etapa_atual = 'triagem'`
   4. Attempting to apply to the same job twice shows a clear message that a candidatura already exists
   5. An unauthenticated visitor clicking "Candidatar-se" is redirected to login and returned to the job after authenticating
-**Plans**: 8 plans
+**Plans**: 9 plans (8 execution + 1 gap-closure)
 **UI hint**: yes
 
 Plans:
@@ -105,6 +105,7 @@ Plans:
 - [x] 04-06-PLAN.md — Wave 3a: routes.tsx /vagas/:identifier + /candidato/candidatura/formulario/:vagaSlug + VagaDetalhePage slug routing + 404 state + real schema + delete VagasPage.tsx (D-18) ✓ 2026-04-25 (lint baseline improved 354→323)
 - [x] 04-07-PLAN.md — Wave 3b: FormularioCandidaturaPage full rewrite (D-04) — single-page RHF + dynamic Zod + cvUpload + Edge Function submit + error_code routing + Pitfall 2/7 compliance + VAGA-03 LoginCandidatoPage redirect fix (anti-open-redirect guard, 11 Vitest cases) ✓ 2026-04-25 (lint 323→320)
 - [x] 04-08-PLAN.md — Wave 4: Promote vagas-browse + candidatura-submit Playwright (5 + 6 scenarios + Sonner DOM contract) + UAT runbook 6 scenarios + final phase verification battery ✓ 2026-04-26 (Wave 4 — E2E promotion + UAT runbook + final verification battery + 3 carryover iterations A/B/C closing F-04-08-A/D/E/F; UAT 6/6 PASS com real-world evidence — candidato d8ef9db1 + vaga 53f75c81 + 1 candidatura + 3 respostas + 1 storage object D-10 + duplicate guard via useHasApplied; 4 decisões NEW D-25..D-28 sobre Tailwind theme + bg-primary token + persona shell + schema-vs-component contract; 3 deferred findings F-04-08-B/C/G para Phase 5 backlog)
+- [ ] 04-09-PLAN.md — Gap-closure: phase-level UAT 04-UAT.md ## Gaps (3 truths failed) — VagasPublicasPage + VagaDetalhePage persona shell (D-27) + GlassButton inline-flex surgical fix (Gaps 1+2+3)
 
 ### Phase 5: Perfil + Hardening MVP
 **Goal**: The candidate can see their real application data on a profile page, and the entire MVP passes E2E tests, Lighthouse thresholds, and accessibility checks
