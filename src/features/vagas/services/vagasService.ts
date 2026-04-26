@@ -71,17 +71,32 @@ async function enriquecerVaga(
     diasDesdePublicacao: calcularDiasDesdePublicacao(vaga.created_at),
   }
 
-  // Se candidatoId fornecido, verificar se já aplicou
-  if (candidatoId) {
-    const { data: candidaturas } = await supabase
-      .from('candidaturas')
-      .select('id')
-      .eq('vaga_id', vaga.id)
-      .eq('candidato_id', candidatoId)
-      .is('deleted_at', null)
-
-    vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
+  // WR-10 (Phase 4 review iteration 2 fix): defense-in-depth — anonymous
+  // browsers do NOT need real candidate counts on /vagas or /vagas/:slug.
+  // Today's Phase 1 RLS policy on `candidaturas` is `candidato_id = auth.uid()`
+  // and anon has no uid, so the previous query already returned zero rows for
+  // anon. But: (1) it relied on RLS-policy correctness (a future migration
+  // adding an OR-true clause would silently expose real counts), and (2) the
+  // WR-06 collapse traded count integers for the full status[] array, so a
+  // future RLS bug would leak both totalCandidatos AND the status-enum
+  // distribution per vaga (competitive-intelligence enumeration signal).
+  //
+  // Skipping the read for anon both removes the RLS-bug blast radius and
+  // closes one of the round-trips D-17 (Phase 5 list-batch optimization)
+  // is targeting: 12 vagas × 0 queries = 0 trips for anon visitors.
+  if (!candidatoId) {
+    return vagaEnriquecida
   }
+
+  // Se candidatoId fornecido, verificar se já aplicou
+  const { data: candidaturas } = await supabase
+    .from('candidaturas')
+    .select('id')
+    .eq('vaga_id', vaga.id)
+    .eq('candidato_id', candidatoId)
+    .is('deleted_at', null)
+
+  vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
 
   // WR-06 (Phase 4 review fix): collapse the previous 3 sequential `count: 'exact'`
   // queries (totalCandidatos / candidatosEmAnalise / candidatosAprovados — D-17
