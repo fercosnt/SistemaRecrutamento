@@ -325,6 +325,20 @@ export function FormularioCandidaturaPage() {
     } catch (err) {
       setCvUploading(false)
 
+      // WR-01 (Phase 4 review fix) — orphan-cleanup must run for ANY post-upload
+      // failure, not just CandidaturasServiceError. CVUploadServiceError implies
+      // the upload itself failed (uploadedPath stays null and removeCV is a
+      // no-op via its falsy guard). Any other error class — TypeError from a
+      // malformed EF response, AbortError on a torn-down fetch, SDK invariant
+      // violations — would otherwise fall through to the generic toast below
+      // and leak the freshly-uploaded {auth.uid()}/{uuid}.pdf in the bucket.
+      if (uploadedPath && !(err instanceof CVUploadServiceError)) {
+        // Fire-and-forget; failure to clean up is non-blocking and the
+        // service layer logs the redacted shape internally.
+        void removeCV(uploadedPath).catch(() => undefined)
+        setCvPath(null)
+      }
+
       // CV upload errors (validateCV / uploadCV in step 1)
       if (err instanceof CVUploadServiceError) {
         switch (err.code) {
@@ -368,15 +382,8 @@ export function FormularioCandidaturaPage() {
         return
       }
 
-      // EF submit errors (step 3) — orphan-cleanup if upload succeeded but
-      // submit failed, so we don't leak objects in the curriculos bucket.
+      // EF submit errors (step 3) — orphan cleanup already ran above (WR-01).
       if (err instanceof CandidaturasServiceError) {
-        if (uploadedPath) {
-          // Fire-and-forget; failure to clean up is non-blocking and the
-          // service layer logs the redacted shape internally.
-          void removeCV(uploadedPath).catch(() => undefined)
-          setCvPath(null)
-        }
         switch (err.code) {
           case 'DUPLICATE_APPLICATION':
             toast.error('Você já se candidatou a esta vaga')
