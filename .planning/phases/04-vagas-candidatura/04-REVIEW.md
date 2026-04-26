@@ -1,12 +1,12 @@
 ---
 phase: 04-vagas-candidatura
-reviewed: 2026-04-26T00:00:00Z
+reviewed: 2026-04-26T12:00:00Z
 depth: standard
-files_reviewed: 24
+iteration: 2
+files_reviewed: 28
 files_reviewed_list:
   - .gitignore
   - CLAUDE.md
-  - database.types.ts
   - e2e/candidatura-submit.spec.ts
   - e2e/vagas-browse.spec.ts
   - src/components/pages/FormularioCandidaturaPage.tsx
@@ -35,203 +35,393 @@ files_reviewed_list:
   - supabase/migrations/20260425000002_curriculos_bucket.sql
   - supabase/migrations/20260425000003_submit_candidatura_rpc.sql
   - supabase/migrations/20260425000004_candidaturas_unique_constraint.sql
+prior_iteration_warnings_status:
+  WR-01: verified_fixed
+  WR-02: verified_fixed
+  WR-03: verified_fixed
+  WR-04: verified_fixed
+  WR-05: verified_fixed
+  WR-06: verified_fixed
 findings:
   critical: 0
-  warning: 6
+  warning: 4
   info: 9
-  total: 15
+  total: 13
 status: issues_found
 ---
 
-# Phase 4: Code Review Report
+# Phase 4: Code Review Report (Iteration 2)
 
-**Reviewed:** 2026-04-26T00:00:00Z
+**Reviewed:** 2026-04-26T12:00:00Z
 **Depth:** standard
-**Files Reviewed:** 24 source files (database.types.ts skipped — auto-generated, never hand-edit per CLAUDE.md)
-**Status:** issues_found
+**Files Reviewed:** 28
+**Iteration:** 2 (post WR-01..WR-06 fix verification)
+**Status:** issues_found (0 Critical, 4 Warning, 9 Info)
 
 ## Summary
 
-Phase 4 (`vagas-candidatura`) is the candidate-facing flow for browsing job postings, viewing vaga detail with anti-enumeration 404, uploading a private-bucket CV PDF, completing a dynamic Zod-validated form, and submitting via a SECURITY DEFINER RPC behind an Edge Function. The phase shows strong security hygiene overall: the two-client EF pattern (anon-with-Authorization for `auth.getUser()` + service_role for the privileged RPC) is implemented correctly, the `curriculos` bucket has bucket-level MIME/size caps plus tight RLS using `(storage.foldername(name))[1] = auth.uid()::text`, the `submit-candidatura` EF re-validates the path prefix server-side as defense-in-depth (T-04-04), the unique partial index on `candidaturas (candidato_id, vaga_id) WHERE deleted_at IS NULL` correctly raises 23505 on race-condition duplicate submits and the EF maps that to `DUPLICATE_CANDIDATURA`, and `resolveRedirect` correctly rejects open-redirect, protocol-relative, and `javascript:` payloads. Pitfall 7 (PII redaction) is enforced by both unit tests and a static grep guard, and the new `submitCandidaturaWithRespostas` service log uses the redacted `{vaga_id, candidato_id, respostas_count}` shape only.
+Iteration 2 covers two responsibilities: (a) verifying that the 6 warnings landed in iteration 1 (WR-01..WR-06, commits `0eabead`..`5c7c7b1`) were fixed at the root cause without regressions or surface-level patches, and (b) scanning for new issues — including those potentially introduced by the fixes themselves.
 
-The findings below are all Warning or Info — no Critical issues found in this phase. The most consequential are (W1) an orphan-CV cleanup gap when an unexpected (non-`CandidaturasServiceError`) error escapes after the upload succeeded, (W2) a stale `etapaAtual` foreign-key risk in the `submit_candidatura_atomic` RPC if a pergunta is deleted mid-flight (the EF maps it generically), and (W4) a pre-existing N8N webhook URL hardcoded in two places (frontend + EF) — the FE caller may be dead code now that the EF fires the same webhook post-commit. Several Info-level issues flag pre-existing inconsistencies surfaced in `vagasTypes.ts` that the Phase 4 surface depends on (TIPO_VAGA / DEPARTAMENTO / KANBAN label maps reference enum values that no longer match the union type aliases), but these are baseline tsc errors per scope and only flagged because they sit in a Phase 4 file.
+**Verification of prior fixes (all confirmed PASS):**
+- **WR-01** (orphan CV cleanup) — `FormularioCandidaturaPage.tsx:345-350` correctly hoists cleanup before the error-class branching. The `!(err instanceof CVUploadServiceError)` guard combined with `removeCV`'s falsy-path guard via `uploadedPath` covers `TypeError`/`AbortError`/SDK invariant errors. Fix is at the root cause.
+- **WR-02** (per-pergunta validation) — `submit-candidatura/index.ts:172-209` introduces a pre-check before the RPC call, returning `field='pergunta_id'` on mismatch. Uses `supabaseAdmin` which already has authority to read `perguntas_formulario`. No migration touched, deployable via `supabase functions deploy`. Fix is at the root cause.
+- **WR-03** (stale-while-revalidate redirect race) — `FormularioCandidaturaPage.tsx:122-124, 163-168` gates redirect on `appliedQuerySettled && alreadyApplied === true`. `isSuccess` is the right TanStack Query primitive for "definitively settled". Fix is at the root cause.
+- **WR-04** (hardcoded N8N URLs) — Both `candidaturasService.ts:69-83` (FE) and `submit-candidatura/index.ts:269-271` (EF) read from env vars with hardcoded fallback. Pitfall-7 grep guard still passes. Fix is correct; the fallback hardcoded URL is a pragmatic transition affordance.
+- **WR-05** (synchronous `require()`) — `useVagas.ts:18-20, 221-232` replaces dynamic CommonJS require with static ESM import. Eliminates `(state: any)` casts. Fix is at the root cause.
+- **WR-06** (3 sequential count queries) — `vagasService.ts:96-114` collapses the three `count: 'exact'` queries into a single `select('status')` over the same predicate, with client-side bucketing. RLS semantics preserved (RLS deny → `data: null` → all-zero, same as count `null` → 0 fallback). Fix is at the root cause; D-17 list-batch optimization correctly deferred to Phase 5.
+
+**New findings (4 warnings, 9 info):** No critical security regressions. Four warnings flag latent correctness/security concerns that survived iteration 1 because they are scattered across the same files but unrelated to the original 6 issues. The nine info items are stylistic, pre-existing baseline drift (in `vagasTypes.ts`), and dead-code/legacy-pattern observations that should be tracked for Phase 5/6 cleanup.
 
 ## Warnings
 
-### WR-01: Orphan CV cleanup only fires for `CandidaturasServiceError`, leaking storage objects on unexpected errors
+### WR-07: Auth-gate `useEffect` in FormularioCandidaturaPage redundant with `RoleGuard`, may flap on auth hydration
 
-**File:** `src/components/pages/FormularioCandidaturaPage.tsx:325-423`
-**Issue:** In `onSubmit`, the orphan-cleanup branch (`void removeCV(uploadedPath).catch(...)`) is gated on `if (err instanceof CandidaturasServiceError)`. If the EF call throws anything else — a `TypeError` from a malformed response, an aborted fetch surfaced as a generic `Error`, an SDK invariant violation — execution falls through to the final generic `toast.error('Erro inesperado. Tente novamente.')` (line 423), and the freshly uploaded `{user.id}/{uuid}.pdf` is left orphaned in the `curriculos` bucket. The candidate will retry, `uploadedPath` is null again on the retry path because we re-enter `onSubmit` from scratch, and a new orphan accumulates per attempt. The `CVUploadServiceError` branch above is fine — by definition it implies the upload itself failed and there is nothing to clean. Only the post-upload-but-pre-success window is exposed.
-**Fix:** Hoist the cleanup so it runs whenever `uploadedPath !== cvPath` was set AND the submit did not return success. Concretely, restructure as:
-```ts
-} catch (err) {
-  setCvUploading(false)
-  // If upload succeeded but submit didn't, always clean — regardless of error class.
-  // The CV upload error path (CVUploadServiceError) implies upload failed, so uploadedPath
-  // === null and removeCV is a no-op (path falsy → guard).
-  if (uploadedPath && !(err instanceof CVUploadServiceError)) {
-    void removeCV(uploadedPath).catch(() => undefined)
-    setCvPath(null)
-  }
-  // ...existing branching...
-}
-```
+**File:** `src/components/pages/FormularioCandidaturaPage.tsx:148-155`
+**Issue:** The page declares its own auth-gate effect:
 
-### WR-02: `submit_candidatura_atomic` lacks per-pergunta validation; FK 23503 raises a generic VALIDATION error without identifying which pergunta failed
-
-**File:** `supabase/migrations/20260425000003_submit_candidatura_rpc.sql:60-80` and `supabase/functions/submit-candidatura/index.ts:204-208`
-**Issue:** The RPC inserts each `respostas_formulario` row inside the `FOR v_resposta IN ... LOOP` without any validation that (a) the `pergunta_id` actually belongs to `p_vaga_id`, or (b) the `tipo_resposta` matches the column populated. A client (or a stale schema cache after a vaga edit) could submit a `pergunta_id` from a different vaga and the insert would succeed if the FK is satisfied (the RPC only knows about a generic `pergunta_id` column). When the FK fails, Postgres raises 23503 and the EF returns `'VALIDATION'` with the message `'Vaga ou pergunta não encontrada.'` without the `field` hint that the rest of the EF sets via `zodPathToFieldName`. The candidate gets a generic toast (`'Dados inválidos'`) with no actionable guidance.
-**Fix:** Add a `WHERE pergunta_id IN (SELECT id FROM perguntas_formulario WHERE vaga_id = p_vaga_id AND deleted_at IS NULL)` cross-check at the top of the RPC and `RAISE EXCEPTION` with a structured SQLSTATE on mismatch. Alternatively, add an explicit pre-check in the EF before the RPC call:
-```ts
-const perguntaIds = input.respostas.map((r) => r.pergunta_id)
-if (perguntaIds.length > 0) {
-  const { data: validPerguntas } = await supabaseAdmin
-    .from('perguntas_formulario').select('id')
-    .eq('vaga_id', input.vaga_id).is('deleted_at', null).in('id', perguntaIds)
-  const validSet = new Set((validPerguntas ?? []).map(p => p.id))
-  const missing = perguntaIds.find((id) => !validSet.has(id))
-  if (missing) return errorResponse('VALIDATION', 'Pergunta não pertence à vaga.', 'pergunta_id')
-}
-```
-
-### WR-03: `useEffect` race: `alreadyApplied` redirect can fire before the data is settled, silently dismissing a transient `false → true` flip
-
-**File:** `src/components/pages/FormularioCandidaturaPage.tsx:153-158`
-**Issue:** The `useEffect` watches `alreadyApplied` and triggers `navigate(...)` whenever it becomes truthy. `useHasApplied` returns `data` which is `boolean | undefined`. On first mount with stale-while-revalidate cache, `data` may briefly be `undefined`, then `false`, then `true` if the candidate just submitted in another tab. Because the effect only checks `if (alreadyApplied)`, the candidate could see the form briefly and then be bounced. More importantly, the redirect runs even if the user has already started filling the form (no confirmation prompt to preserve in-flight state) — this silently destroys progress on a flap. While the server-side UNIQUE is the authoritative gate, this client-side bounce is purely UX defense and shouldn't redirect-by-surprise.
-**Fix:** Either (a) gate the redirect on `useHasApplied`'s `isSuccess` so it only fires when the query has definitively settled with a `true`, or (b) remove this client-side gate entirely and rely on the EF returning `DUPLICATE_APPLICATION` after submit (the existing handler already redirects to `/vagas/:slug` in that case). Concrete (a) version:
-```ts
-const { data: alreadyApplied, isSuccess: appliedQuerySettled } = useHasApplied(vaga?.id ?? null)
+```tsx
 useEffect(() => {
-  if (appliedQuerySettled && alreadyApplied === true) {
-    toast.info('Você já se candidatou a esta vaga', { duration: 4000 })
-    navigate(`/vagas/${vagaSlug ?? ''}`, { replace: true })
+  if (!isAuthenticated) {
+    const target = `/candidato/candidatura/formulario/${vagaSlug ?? ''}`
+    navigate(`/auth/login?redirect=${encodeURIComponent(target)}`, { replace: true })
   }
-}, [appliedQuerySettled, alreadyApplied, navigate, vagaSlug])
+}, [isAuthenticated, navigate, vagaSlug])
 ```
 
-### WR-04: Hardcoded N8N webhook URL appears in both frontend service AND Edge Function — drift risk + frontend webhook caller is likely dead code post-Phase 4
+But the route in `router/routes.tsx:160-167` already wraps this page in `<RoleGuard role="candidato">`. The guard runs FIRST (during render, synchronously) — so by the time this effect fires, the user is guaranteed to be authenticated. **Two consequences:**
 
-**File:** `src/features/vagas/services/candidaturasService.ts:60-65, 218-342, 583-606` and `supabase/functions/submit-candidatura/index.ts:226-243`
-**Issue:** Two problems compound here. (1) The N8N webhook URL `https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura` is hardcoded in two places — the frontend service (`triggerN8NWebhook`, called from `createCandidatura`) and the Edge Function (`submit-candidatura/index.ts:226`). Any URL change requires editing both files. (2) Now that `submit-candidatura` fires the webhook post-commit, the frontend `createCandidatura` path is duplicating the webhook (or relying on it as a fallback for the old non-EF path). If `createCandidatura` is no longer the primary submit path in Phase 4 (the page calls `submitCandidaturaWithRespostas` instead), then the entire 200-line `triggerN8NWebhook` + `triggerStatusUpdateWebhook` machinery in `candidaturasService.ts` may be dead code OR a duplicate-fire risk if some legacy caller still exists. There is no `// DEPRECATED` annotation to clarify intent.
-**Fix:** (a) Move the webhook URL to an env var (`Deno.env.get('N8N_NOVA_CANDIDATURA_URL')`) on the EF side and to `import.meta.env.VITE_N8N_*` on the frontend. (b) Audit callers of `createCandidatura` — if it has no remaining callers from production code paths, mark it `@deprecated` with a JSDoc tag pointing at `submitCandidaturaWithRespostas`, and consider removing in Phase 5 cleanup. If it is still active for some legacy flow, add a `// duplicate-fire-by-design` comment explaining why both paths invoke the webhook.
+1. **Dead-code redirect target:** the `?redirect=` value is never consumed because `RoleGuard` would have already redirected an unauthenticated user with its own (potentially different) redirect strategy. The redirect target preservation contract is owned by `VagaDetalhePage:115-121` (which is anon-accessible) — that's the real entry point and it works. This effect is redundant.
+2. **Auth-hydration flap:** if the Zustand `authStore` momentarily reports `isAuthenticated=false` during page mount/hydration (before the persisted session is restored), this effect can fire and redirect the user away from the formulário **even though they are logged in**. `RoleGuard` may handle the same flap, but having TWO components racing to redirect off the same boolean is fragile.
 
-### WR-05: `useVagasWithStore` uses synchronous `require()` inside a hook, breaking ESM and circular-dep safety
+**Root cause:** belt-and-suspenders pattern accumulated during Plan 04-07 carryover — the original CARRYOVER-PLAN added the effect before confirming the route was already RoleGuard-wrapped.
 
-**File:** `src/features/vagas/hooks/useVagas.ts:220-227`
-**Issue:** This hook calls `require('../store/vagasStore')` synchronously inside the function body. (1) Vite's ESM build does not provide a CommonJS `require` at runtime in the browser — this code path will throw `ReferenceError: require is not defined` if any component actually mounts it. (2) The pattern bypasses the static-import dependency graph, defeating tree-shaking and circular-dep detection. (3) The `(state: any)` casts erase the store's TypeScript shape, so any rename in `vagasStore` will silently break this consumer. This is not a Phase 4 regression — it predates the phase — but it sits in a Phase 4 file and is reachable at runtime if `useVagasWithStore` is ever wired up.
-**Fix:** Replace with a top-level static import:
-```ts
-import { useVagasStore } from '../store/vagasStore'
-// ...
-export function useVagasWithStore() {
-  const filters = useVagasStore((state) => state.filters)
-  const orderBy = useVagasStore((state) => state.orderBy)
-  const pagination = useVagasStore((state) => state.pagination)
-  return useVagas(filters, orderBy, pagination)
-}
-```
-If this introduces a real circular import, that's a structural problem the static import would surface (correctly) at build time.
+**Fix:** delete the effect entirely (lines 148-155); rely on `RoleGuard`. The comment block at line 147 ("Pitfall 2 auth roundtrip") is misleading — the roundtrip is owned by VagaDetalhePage, not this page.
 
-### WR-06: `enriquecerVaga` issues 3 sequential count queries per vaga — N+1 amplification on list endpoints
-
-**File:** `src/features/vagas/services/vagasService.ts:65-116, 272-274`
-**Issue:** `enriquecerVaga` performs (up to) 4 round-trips per vaga: `hasUserApplied` lookup (when `candidatoId` set), then three serial `count: 'exact'` queries (`totalCandidatos`, `candidatosEmAnalise`, `candidatosAprovados`). `listVagas` then `await Promise.all(data.map(enriquecerVaga))` fans out — for a 12-vaga page that's 36-48 round-trips. The author's docstring (`vagasService.ts:387-390`) flags this as "D-17 — otimização deferida para Phase 5 hardening", which acknowledges the issue, but performance is technically out of scope for this review. **The reason this is flagged as Warning, not skipped per scope:** all three count queries scan the same `candidaturas WHERE vaga_id = ? AND deleted_at IS NULL` rowset. If the table grows past ~100K rows under heavy candidate volume, the cumulative query load could become a latency cliff that affects correctness (timeouts → empty `count` → renders 0 candidates → misleading UX badge). Functional risk is low today but the architectural shape is brittle.
-**Fix:** Replace the three count queries with a single grouped aggregate query, or compute totals via a single SELECT with conditional aggregates:
-```ts
-const { data: stats } = await supabase
-  .from('candidaturas')
-  .select('status, count:status.count()')
-  .eq('vaga_id', vaga.id)
-  .is('deleted_at', null)
-// Or use an RPC that returns { total, em_analise, aprovados } in one call.
-```
-For the list path specifically, consider a single grouped query keyed by all vaga IDs in the page batch, then map to vagas client-side — that collapses the N+1 to O(1) per page.
-
-## Info
-
-### IN-01: `vagasTypes.ts` const maps reference enum values that no longer exist (TIPO_VAGA, DEPARTAMENTO, ETAPA_TO_KANBAN)
-
-**File:** `src/features/vagas/types/vagasTypes.ts:568-587, 732-740`
-**Issue:** Three `Record<EnumType, string>` const maps reference enum values that don't exist in their union types:
-- `TIPO_VAGA_LABELS` (L568-573) keys are `tempo_integral | meio_periodo | estagio | temporario`, but `TipoVaga` (L90) is `'CLT' | 'PJ'` only.
-- `DEPARTAMENTO_LABELS` (L578-587) keys include `clinica | ti | rh | outro`, but `Departamento` (L96-104) is the snake_case `clinico | tecnologia | recursos_humanos` (no `outro` value).
-- `ETAPA_TO_KANBAN` (L732-740) keys include `big_five | entrevista_telefonica | analise_final | contratacao`, but `EtapaProcesso` (L200-210) uses `bigfive | entrevista_online | avaliacao_final | aprovado`.
-
-These produce TS2741 / TS2322 errors but were called out as part of the 354 pre-existing tsc baseline. Flagged here only because Phase 4 expanded `vagasTypes.ts` (added `PerguntaFormulario` aliases at L68-80) so a future contributor might assume the file is clean.
-**Fix:** Reconcile the const maps with the current enum values, or split the legacy/aspirational mappings into a `vagasTypesLegacy.ts` file with a clear `// PRE-MIGRATION ENUM SHAPE` header.
-
-### IN-02: `cvUploadService.uploadCV` MIME mapping uses substring match on `'mime'` — false positive risk
-
-**File:** `src/features/vagas/services/cvUploadService.ts:140-167`
-**Issue:** The error-mapping switch uses `msg.includes('mime')` to map to `INVALID_MIME`. Supabase Storage error messages are not stable contracts; a future error like `'rate limit exceeded for endpoint mime-validator'` would incorrectly map to `INVALID_MIME` and confuse the candidate. Same risk for `'jwt'` (could match `'jwt-decoder unavailable'`) and `'quota'` (matches `'connection quota exhausted'` in some libraries).
-**Fix:** Anchor the regex more carefully (`/\bmime\s+type/i`, `/jwt\s+(expired|invalid|malformed)/i`) or, if Supabase exposes typed error codes via `error.statusCode` or `error.error`, switch on those instead of `error.message`.
-
-### IN-03: `submitCandidaturaWithRespostas` allows `Promise.all` body to be inspected via `console.log` shape change
-
-**File:** `src/features/vagas/services/candidaturasService.ts:1260-1264, 1276-1279, 1291`
-**Issue:** The redacted log on L1260 includes `vaga_id` and `candidato_id` (UUIDs) which are PII-adjacent — strictly not file/CV PII (covered by Pitfall 7) but still identifiers that link to candidate identity. The Pitfall 7 grep test (`pitfall7.grep.test.ts:118-136`) only forbids `signedurl|signed_url|?token=|curriculo_nome|file.name`, not bare UUIDs. This is consistent with the existing redaction discipline, but downstream log aggregation should be aware that vaga_id+candidato_id are jointly equivalent to a candidatura_id and could be used to correlate sessions.
-**Fix:** No code change required; consider adding a comment noting that these UUIDs are intentionally NOT redacted (used for production-incident correlation by design) so future contributors don't try to "harden" by removing them.
-
-### IN-04: `formatBytes` rounds 1023 B to "1023 B" but 1024 to "1 KB" — boundary inconsistency
-
-**File:** `src/components/pages/FormularioCandidaturaPage.tsx:71-75`
-**Issue:** Pure cosmetic — at the 1024-byte boundary the unit jumps from B to KB cleanly, but `Math.round(bytes / 1024)` for `1024` gives `1` while for `1500` gives `1` (truncates the meaningful difference). 1.5 KB and 1 KB display identically.
-**Fix:** Add a decimal place for KB display: `Math.round((bytes / 1024) * 10) / 10` and `${result.toFixed(1)} KB`.
-
-### IN-05: Unused legacy query key `vagasKeys.detail` kept for back-compat — flag for Phase 5 cleanup
-
-**File:** `src/features/vagas/hooks/useVagas.ts:46-48`
-**Issue:** `vagasKeys.detail` is documented as "Legacy — kept for back-compat (createCandidatura, useHasApplied still call detail(id))". Phase 4 introduced `detailById` and `detailBySlug` to prevent cache pollution. If WR-04's audit confirms `createCandidatura` is dead code, `detail` may also be removable.
-**Fix:** Track in Phase 5 cleanup. Either delete `detail` or add `@deprecated` JSDoc with replacement pointer.
-
-### IN-06: `requireAdmin` not used; `console.error` for missing env vars exposes timing channel
-
-**File:** `supabase/functions/submit-candidatura/index.ts:107-113`
-**Issue:** When the EF starts and an env var is missing, it returns 500 with body `'Servidor mal configurado'`. The check happens AFTER body parsing (which means an attacker can probe the endpoint with arbitrary JSON to trigger the log line in production). Low impact (and the env vars are set at deploy time, so this only fires during misconfiguration), but the parse-then-check ordering means a misconfigured deploy would still log every junk POST. Move the env-var guard before `req.json()` so misconfigured deployments fast-fail without consuming the body.
-**Fix:**
-```ts
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (req.method !== 'POST') return errorResponse('SERVER_ERROR', '...', undefined, 405)
-  // Env check FIRST — fail fast on misconfig
-  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-  // ...
-  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) { ... }
-  // Then parse body
-})
+```tsx
+// REMOVE these lines (148-155):
+// useEffect(() => {
+//   if (!isAuthenticated) { ... navigate(`/auth/login?redirect=...`) }
+// }, [isAuthenticated, navigate, vagaSlug])
 ```
 
-### IN-07: Slug trigger `generate_unique_vaga_slug` 1000-iteration cap fallback uses UUID-with-hyphens-stripped
+If a defensive redirect is desired, gate it on a settled-auth-store flag (e.g. `useAuthStore((s) => s.hydrated)`) so the effect only fires once the store has resolved its persisted session.
 
-**File:** `supabase/migrations/20260425000001_vagas_slug_trigger.sql:90-91`
-**Issue:** The pathological-fallback returns `v_base || '-' || replace(gen_random_uuid()::text, '-', '')` — a 32-char hex append. This is fine functionally but the resulting slug exceeds the 100-char hard cap on L50 if `v_base` is long. The cap is enforced BEFORE the fallback path, so the final slug could be 100 + 32 = ~132 chars, violating the documented invariant.
-**Fix:** Re-apply the cap at the very end of the function:
-```sql
-v_candidate := v_base || '-' || replace(gen_random_uuid()::text, '-', '');
-RETURN substring(v_candidate from 1 for 100);
-```
+---
 
-### IN-08: `triggerStatusUpdateWebhook` logs `statusAnterior`, `statusNovo` — consider whether status transitions are PII
-
-**File:** `src/features/vagas/services/candidaturasService.ts:362-368, 444-450, 464-468, 922-928`
-**Issue:** The status update webhook logger includes `statusAnterior` and `statusNovo` in structured logs. Status values themselves are not PII, but combined with `candidaturaId` they reveal the candidate's hiring funnel position. Phase 4 doesn't change this behavior — it's pre-existing — but the same observability discipline that motivated Pitfall 7 should be applied here in Phase 5+. No immediate action.
-**Fix:** Defer to Phase 5 when broader logging policy review happens. Add a TODO comment noting the surface.
-
-### IN-09: `VagaDetalhePage` `handleShare` writes to clipboard without user-feedback fallback for permission denial
+### WR-08: Unhandled promise rejection — `navigator.clipboard.writeText` returns a Promise but is called synchronously
 
 **File:** `src/components/pages/VagaDetalhePage.tsx:148-153`
-**Issue:** `navigator.clipboard.writeText(url)` returns a Promise that rejects on permission denial (e.g., insecure context, blocked by user gesture policy). The current code does not `.catch()`, so a denial produces an unhandled promise rejection AND the success toast still fires (because the `toast.success` runs synchronously after the unawaited call). Candidate sees "Link copiado!" without the link actually being on the clipboard.
-**Fix:**
-```ts
+**Issue:**
+
+```tsx
 case 'copy':
   navigator.clipboard.writeText(url)
-    .then(() => toast.success('Link copiado!', { description: '...' }))
-    .catch(() => toast.error('Não foi possível copiar', { description: 'Copie manualmente da barra de endereço.' }))
+  toast.success('Link copiado!', { ... })
   break
+```
+
+`navigator.clipboard.writeText` returns a `Promise<void>` and rejects when (a) the document is not focused, (b) the document is in an insecure context (HTTP), (c) the user has denied clipboard-write permission, or (d) Safari's transient activation requirement is not met. The current code:
+- **Shows success toast even on rejection** — user thinks the link was copied when it wasn't.
+- **Triggers an unhandled promise rejection** that fires `window.onunhandledrejection` (visible in DevTools console as a warning, may surface in error-tracking integrations as a real error).
+
+**Root cause:** missing `await` / `.then()` / `.catch()`. Pre-existing pattern in this file (was there before Plan 04-06), but Plan 04-06 rewrote the page without fixing it.
+
+**Fix:**
+
+```tsx
+case 'copy':
+  navigator.clipboard.writeText(url)
+    .then(() => {
+      toast.success('Link copiado!', {
+        description: 'O link foi copiado para sua área de transferência',
+      })
+    })
+    .catch(() => {
+      toast.error('Não foi possível copiar o link', {
+        description: 'Copie manualmente da barra de endereço.',
+      })
+    })
+  break
+```
+
+(Also consider falling back to `document.execCommand('copy')` for old-Safari support, but that's optional polish.)
+
+---
+
+### WR-09: `submit-candidatura` Edge Function does not enforce a request-body size cap (DoS vector via large `respostas[]`)
+
+**File:** `supabase/functions/submit-candidatura/index.ts:88` (`const raw = await req.json()`)
+**Issue:** The handler calls `await req.json()` without inspecting `Content-Length` or capping body size. The Zod schema (`schemas.ts:199-219`) caps `curriculo_size` at 5 MB and validates `respostas[]` shape — but `submitCandidaturaSchema.respostas` is `z.array(...)` with **no `.max()` cap**. A client (or attacker with a stolen JWT) can submit a `respostas` array of 10,000+ entries, each with a `resposta_texto: '...'` of arbitrary string length. The Edge Function will:
+
+1. Buffer the entire body into memory (Deno default body limit on Supabase Edge is generous — typically 10 MB).
+2. Run Zod validation across the whole array.
+3. Pass the array to the `submit_candidatura_atomic` RPC.
+4. The RPC's `FOR v_resposta IN SELECT * FROM jsonb_array_elements(p_respostas)` loop runs N inserts inside the SECURITY DEFINER transaction — locking `respostas_formulario` rows / FK index pages for the duration.
+
+**Root cause:** schema lacks `respostas: z.array(...).max(N)` constraint. Plan 04-05 RESEARCH doesn't specify a maximum but the practical cap is the number of `perguntas_formulario` rows for the vaga (typically ≤30). The WR-02 pre-check (added in iteration 1) actually exposes this further: it issues an `.in('id', perguntaIds)` query, so a 10,000-element `perguntaIds` array becomes a giant IN clause hitting Postgres planner limits.
+
+**Fix (defense in depth — both layers):**
+
+`supabase/functions/_shared/schemas.ts:209-218`:
+```ts
+respostas: z
+  .array(z.object({ /* ... */ }))
+  .max(100, 'Máximo 100 respostas por candidatura')  // ← add cap
+  .default([]),
+```
+
+(100 is generously above the realistic max of ~30 perguntas per vaga.)
+
+Optional second layer — the EF should reject bodies above a threshold before parsing:
+
+`supabase/functions/submit-candidatura/index.ts:85-88`:
+```ts
+const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10)
+if (contentLength > 64 * 1024) {  // 64 KB is plenty for a candidatura payload
+  return errorResponse('VALIDATION', 'Payload muito grande', undefined, 413)
+}
 ```
 
 ---
 
-_Reviewed: 2026-04-26T00:00:00Z_
+### WR-10: `enriquecerVaga` exposes RLS-leak signal via `totalCandidatos` count when called for anonymous browsers
+
+**File:** `src/features/vagas/services/vagasService.ts:96-114`
+**Issue:** The WR-06 fix (collapsed count queries into a single `select('status')`) preserves the prior behavior on RLS deny — but the prior behavior had a subtle issue that survived: when an **anonymous** visitor browses `/vagas`, `listVagas` calls `enriquecerVaga(vaga, undefined)` for each row. The service then runs:
+
+```ts
+const { data: statusRows } = await supabase
+  .from('candidaturas')
+  .select('status')
+  .eq('vaga_id', vaga.id)
+  .is('deleted_at', null)
+```
+
+Whatever rows the anon's RLS policy on `candidaturas` allows (typically: zero, because the Phase 1 RLS policy is `candidato_id = auth.uid()` — and anon has no uid) become the `totalCandidatos` count rendered on the public `/vagas` and `/vagas/:slug` pages. That's correct **today** — but:
+
+1. **It depends on RLS policy correctness for `candidaturas`.** If a future migration accidentally adds an `OR true` clause or a policy gap, anon visitors will start seeing real candidate counts. The service code does not enforce its own `if (!candidatoId) skip` gate.
+2. **It double-leaks vs. the prior 3-count behavior:** the count queries with `count: 'exact', head: true` return only a count integer. The new shape returns the full `status` array — so a future RLS bug exposes both the count **and** the status enum distribution per vaga (powerful enumeration signal: "this vaga has 47 `em_analise` candidates" is a competitive-intelligence leak).
+
+**Root cause:** WR-06 traded query count for data surface area. The collapse is correct under current RLS; the concern is defense-in-depth.
+
+**Fix:** gate the candidaturas read on `candidatoId` presence (or RH/admin role detection) — anon browsers don't need real counts on `/vagas`:
+
+```ts
+async function enriquecerVaga(vaga: VagaRow, candidatoId?: string): Promise<Vaga> {
+  const vagaEnriquecida: Vaga = {
+    ...vaga,
+    diasDesdePublicacao: calcularDiasDesdePublicacao(vaga.created_at),
+  }
+
+  // Anon browsers get NO candidate-count signal — defense in depth vs. RLS bugs.
+  // Counts are only meaningful for authenticated candidatos (their own hasUserApplied)
+  // and RH (handled in Phase 6 list-batch path).
+  if (!candidatoId) {
+    return vagaEnriquecida
+  }
+
+  // ... existing hasUserApplied + status bucketing logic
+}
+```
+
+This also further reduces query volume on the public landing page (12 vagas × 0 queries = 0 round-trips for anon), pushing closer to D-17's eventual target.
+
+## Info
+
+### IN-01: `RoleGuard` import path uses default-style import for component re-exported as named (verify)
+
+**File:** `src/router/routes.tsx:33`
+**Issue:** `import { RoleGuard } from '../components/RoleGuard'` — assumes named export. Phase 1 convention (per `CLAUDE.md`) requires named exports. This is consistent, but if future refactors regress to a default export, the route file won't surface the regression cleanly.
+**Fix:** none required; Info-level reminder. A grep guard for `export default` in `src/components/RoleGuard.tsx` would catch regressions.
+
+---
+
+### IN-02: `vagasTypes.ts` enum-label maps inconsistent with type definitions (pre-existing baseline)
+
+**File:** `src/features/vagas/types/vagasTypes.ts:568-587, 732-740`
+**Issue:** Three `Record<Enum, string>` constants reference enum keys that don't match the corresponding type union — these are part of the documented 320 lint-error baseline:
+
+- `TIPO_VAGA_LABELS:Record<TipoVaga, string>` (L568) declares keys `tempo_integral`, `meio_periodo`, `estagio`, `temporario` but `TipoVaga` type (L90) is only `'CLT' | 'PJ'`.
+- `DEPARTAMENTO_LABELS:Record<Departamento, string>` (L578) declares keys `clinica`, `ti`, `rh`, `outro` but `Departamento` type (L96-104) uses `clinico`, `tecnologia`, `recursos_humanos`. There's NO `outro` member.
+- `ETAPA_TO_KANBAN:Record<EtapaProcesso, KanbanStage>` (L732-740) references `big_five`, `entrevista_telefonica`, `analise_final`, `contratacao` — none of which appear in the `EtapaProcesso` union (L200-210).
+
+**Root cause:** legacy hand-edited enum maps that drifted away from the regenerated `database.types.ts`. Pre-existing — not introduced by Phase 4. Phase 4 acceptance criterion is "zero growth in lint baseline" (320 → 320), which iteration 1 met. These should be cleaned up in the Phase 5 backlog under D-26 (token reparation).
+**Fix:** regenerate the maps from the type unions (single source of truth in pt-BR domain), or delete the unused entries. Out of scope for Phase 4.
+
+---
+
+### IN-03: `getProximaEtapa` returns `'rejeitado'` after `'aprovado'` instead of `null`
+
+**File:** `src/features/vagas/types/vagasTypes.ts:670-680`
+**Issue:**
+
+```ts
+export const ETAPAS_SEQUENCIA: EtapaProcesso[] = [
+  'triagem', 'bigfive', 'disc', 'entrevista_online', 'raven',
+  'entrevista_presencial', 'cultura', 'avaliacao_final',
+  'aprovado',  // index 8
+  'rejeitado', // index 9
+]
+
+export function getProximaEtapa(etapaAtual: EtapaProcesso): EtapaProcesso | null {
+  const index = ETAPAS_SEQUENCIA.indexOf(etapaAtual)
+  if (index === -1 || index >= ETAPAS_SEQUENCIA.length - 1) {
+    return null
+  }
+  return ETAPAS_SEQUENCIA[index + 1]
+}
+```
+
+If `etapaAtual = 'aprovado'`, `index = 8`, `ETAPAS_SEQUENCIA.length - 1 = 9`, so the bounds check passes and the function returns `'rejeitado'` — clearly a logic bug (you don't reject someone after approving them). The `'aprovado'` and `'rejeitado'` states are both terminal and shouldn't be in a linear sequence at all.
+
+**Root cause:** terminal states co-located with progression states in the same array.
+
+**Fix:** treat both `'aprovado'` and `'rejeitado'` as terminals explicitly:
+
+```ts
+const TERMINAL_ETAPAS = new Set<EtapaProcesso>(['aprovado', 'rejeitado'])
+export function getProximaEtapa(etapaAtual: EtapaProcesso): EtapaProcesso | null {
+  if (TERMINAL_ETAPAS.has(etapaAtual)) return null
+  const index = ETAPAS_SEQUENCIA.indexOf(etapaAtual)
+  if (index === -1 || index >= ETAPAS_SEQUENCIA.length - 1) return null
+  return ETAPAS_SEQUENCIA[index + 1]
+}
+```
+
+This is reachable today via `updateCandidaturaStatus` calling `getProximaEtapa(etapaAtualAnterior)` (`candidaturasService.ts:832`) — so an admin who approves an already-approved candidate would advance them to `'rejeitado'`. Defer to Phase 6 if RH-flow is out of Phase 4 scope, but flag as a real bug.
+
+---
+
+### IN-04: `candidaturasService.updateCandidaturaStatus` logs candidatura PII via emoji-prefixed `console.log`
+
+**File:** `src/features/vagas/services/candidaturasService.ts:839, 848, 870, 893, 901`
+**Issue:** Five `console.log`/`console.error` calls in the legacy `updateCandidaturaStatus` path log identifiers and PII-adjacent fields:
+
+```ts
+console.log('🚀 Auto-avançando etapa:', { candidaturaId, etapaAnterior, ... })
+console.log('⚠️ Candidato já está na última etapa:', { candidaturaId, etapaAtual })
+console.error('❌ Erro no update da candidatura:', { candidaturaId, updateData, ... })
+console.error('❌ Erro ao buscar candidatura após update:', fetchErrorAfterUpdate)
+console.log('✅ Candidatura atualizada com sucesso:', { id: data.id, status, etapa_atual })
+```
+
+The Pitfall-7 grep guard (`pitfall7.grep.test.ts:62-63`) only forbids tokens `senha|password|access_token|refresh_token` — these slip past. While the logged data is not as severe as a token leak, `candidaturaId`, `feedback_rejeicao` (via `updateData` spread), and the candidatura row contents leak operational visibility into RH actions, which should be in a server-side log not a browser console.
+
+**Root cause:** legacy `updateCandidaturaStatus` predates Phase 4's Pitfall-7 discipline. The function is consumed by RH/admin flows (Phase 6 territory), not the candidate flow under Phase 4 acceptance.
+
+**Fix:** strip the emoji-prefixed logs entirely or route them through a redaction-aware logger. Out of scope for Phase 4 verification, but tracked here so the Phase 6 owner inherits the work. Consider extending `pitfall7.grep.test.ts:118-136` to scan for `candidaturaId|feedback_rejeicao|motivo_rejeicao` in `console.*` calls.
+
+---
+
+### IN-05: `useVagasWithStore` does not forward `options` to underlying `useVagas`
+
+**File:** `src/features/vagas/hooks/useVagas.ts:221-232`
+**Issue:** The fix-up in WR-05 cleaned up the `require()`-based dynamic import but did not add an `options` parameter to forward downstream:
+
+```ts
+export function useVagasWithStore() {
+  const filters = useVagasStore((state) => state.filters)
+  // ...
+  return useVagas(filters, orderBy, pagination)  // no options forwarding
+}
+```
+
+Consumers cannot customize `staleTime`, `refetchOnWindowFocus`, etc. without dropping back to `useVagas` directly and re-wiring the store selectors. Minor — every existing consumer uses defaults today.
+
+**Fix:**
+```ts
+export function useVagasWithStore(
+  options?: Parameters<typeof useVagas>[3]
+) {
+  const filters = useVagasStore((state) => state.filters)
+  const orderBy = useVagasStore((state) => state.orderBy)
+  const pagination = useVagasStore((state) => state.pagination)
+  return useVagas(filters, orderBy, pagination, options)
+}
+```
+
+---
+
+### IN-06: `isUuid` accepts any 8-4-4-4-12 hex pattern, not strictly RFC-4122 (acceptable for current usage)
+
+**File:** `src/features/vagas/utils/isUuid.ts:12-13`
+**Issue:**
+```ts
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+```
+
+This matches any UUID-shaped string — including strings with invalid version digits (RFC 4122 requires position 13 = `1|2|3|4|5|7|8` and position 17 = `8|9|a|b`). Test T6 (`isUuid.test.ts:24`) explicitly accepts `'01234567-89ab-7def-8123-456789abcdef'` as valid (UUIDv7 — fine, but `7def` would fail strict v4 validation).
+
+**Root cause:** discriminator is "is this a UUID, or is it a slug?" — for that purpose, the loose pattern is correct because slugs (`/^[a-z0-9-]+$/`) and UUIDs (`8-4-4-4-12 hex`) cannot both match. A "valid UUID" v4-strict regex would reject UUIDv7 IDs Postgres might emit in the future, falsely treating them as slugs.
+
+**Fix:** none — current behavior is intentional. Just documenting the trade-off here for future reviewers who might tighten the regex. Test T6 already documents this. Acceptable.
+
+---
+
+### IN-07: `VagaDetalhePage` renders `VagaNotFoundState` for empty/missing identifier instead of routing 404
+
+**File:** `src/components/pages/VagaDetalhePage.tsx:96-99, 181-183`
+**Issue:**
+```tsx
+const isUuidParam = identifier ? isUuid(identifier) : false
+const byIdQuery = useVaga(isUuidParam ? identifier : null)
+const bySlugQuery = useVagaBySlug(isUuidParam ? null : (identifier ?? null))
+const { data: vagaData, isLoading } = isUuidParam ? byIdQuery : bySlugQuery
+// ...
+if (!vagaData?.success || !vaga) {
+  return <VagaNotFoundState />
+}
+```
+
+When `identifier === undefined` (rare — React Router would have already 404'd, but possible if route config is mis-edited), both queries are disabled, `isLoading` is `false`, `vagaData` is `undefined`, and the 404 state renders. The user sees "Vaga não encontrada" which is technically correct but masks a routing bug.
+
+**Root cause:** ambiguous error mapping. The page conflates "identifier param missing" (routing bug) with "identifier provided but vaga absent" (legitimate 404).
+
+**Fix:** narrow the precondition:
+```tsx
+if (!identifier) {
+  // routing bug — should be unreachable; navigate home
+  navigate('/vagas', { replace: true })
+  return null
+}
+if (!vagaData?.success || !vaga) {
+  return <VagaNotFoundState />
+}
+```
+Or simply trust React Router's path-matching and accept the current shape. Either way, a comment explaining the choice would help.
+
+---
+
+### IN-08: Legacy `createCandidatura` retains its own webhook fire after Plan 04-05 made the EF the canonical path
+
+**File:** `src/features/vagas/services/candidaturasService.ts:514-654`
+**Issue:** The pre-Phase-4 `createCandidatura` function still inserts directly into `candidaturas` and fires its own N8N webhook (lines 600-624). After Plan 04-05 introduced `submitCandidaturaWithRespostas` as the canonical Phase 4+ path (which uses the EF, which fires its own webhook), there is a duplicate-fire-by-design risk: any caller still using `createCandidatura` will fire one webhook; the EF fires another from server-side. The WR-04 fix correctly documented this in the JSDoc, but did not gate the legacy path with a deprecation marker.
+
+**Root cause:** Plan 04-05 deliberately preserved `createCandidatura` per `04-RESEARCH §1926` (Phase 6 RH may need a direct DB path). Today's only consumer is `useCreateCandidatura` (`src/features/vagas/hooks/useCandidaturas.ts:259-270`). It is NOT dead code, but is also not on the Phase 4 candidate-submission path.
+
+**Fix:** add a `@deprecated` JSDoc marker so future contributors get a TS hint (without breaking Phase 6 plans):
+```ts
+/**
+ * @deprecated Phase 4 → Phase 6: prefer `submitCandidaturaWithRespostas`
+ *   (Edge Function path) for new candidate-side flows. This direct DB path
+ *   is preserved for Phase 6 RH-side scenarios per 04-RESEARCH §1926.
+ */
+export async function createCandidatura(/* ... */) { /* ... */ }
+```
+
+This is consistent with the WR-04 review fix — both flag the duplicate-fire concern at the doc-comment layer rather than mutating runtime behavior.
+
+---
+
+### IN-09: `submit_candidatura_atomic` RPC accepts `p_curriculo_size` as `int` but schema permits up to 5 MB (within int range)
+
+**File:** `supabase/migrations/20260425000003_submit_candidatura_rpc.sql:23`
+**Issue:** Postgres `int` is signed 32-bit (max ~2.1 GB). 5 MB (5_242_880 bytes) fits comfortably. The schema in `_shared/schemas.ts:204-208` caps `curriculo_size` at 5_242_880, so this is fine. However, if a future change ever raises the bucket cap above 2 GB (unlikely but possible for video uploads in later phases), `int` would silently overflow. The defensive choice is `bigint`.
+**Fix:** change `p_curriculo_size int` → `p_curriculo_size bigint` in the RPC signature. Backwards-compatible (Postgres widens `int` → `bigint` implicitly on call). Low priority — purely future-proofing.
+
+---
+
+_Reviewed: 2026-04-26T12:00:00Z_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+_Iteration: 2_
