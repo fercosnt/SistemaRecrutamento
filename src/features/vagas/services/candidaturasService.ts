@@ -55,14 +55,32 @@ export class CandidaturasServiceError extends Error {
 }
 
 /**
- * URL do webhook N8N para nova candidatura
+ * URL do webhook N8N para nova candidatura.
+ *
+ * WR-04 (Phase 4 review fix): URL is read from VITE_N8N_NOVA_CANDIDATURA_URL
+ * env var with a hardcoded fallback so existing deploys keep working until
+ * the env var is set. The Edge Function `submit-candidatura` ALSO fires this
+ * webhook post-commit using its own N8N_NOVA_CANDIDATURA_URL env var; the
+ * legacy `createCandidatura` path below is preserved per Plan 04-05 / 04-RESEARCH
+ * §1926 (Phase 6 RH-side may need a direct DB-only path). Any future caller
+ * of `createCandidatura` should expect a duplicate-fire-by-design webhook
+ * relative to the EF path; coordinate via env to avoid drift between paths.
  */
-const N8N_WEBHOOK_URL = 'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
+const N8N_WEBHOOK_URL =
+  (import.meta.env?.VITE_N8N_NOVA_CANDIDATURA_URL as string | undefined) ??
+  'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
 
 /**
- * URL do webhook N8N para mudança de status
+ * URL do webhook N8N para mudança de status (RH-side status updates).
+ *
+ * WR-04: same env-var pattern as N8N_WEBHOOK_URL above, behind
+ * VITE_N8N_STATUS_UPDATE_URL. Phase 4 candidate flow does NOT touch this
+ * webhook; it is consumed by RH/Admin status-transition flows that arrive
+ * in Phase 6.
  */
-const N8N_STATUS_UPDATE_WEBHOOK_URL = 'https://fernandocosta.app.n8n.cloud/webhook/status-candidatura'
+const N8N_STATUS_UPDATE_WEBHOOK_URL =
+  (import.meta.env?.VITE_N8N_STATUS_UPDATE_URL as string | undefined) ??
+  'https://fernandocosta.app.n8n.cloud/webhook/status-candidatura'
 
 /**
  * Configurações do webhook

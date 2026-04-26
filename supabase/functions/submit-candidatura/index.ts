@@ -262,7 +262,14 @@ Deno.serve(async (req: Request) => {
   // ---- 5) Fire-and-forget N8N webhook AFTER COMMIT — non-blocking ----------
   // Webhook failure MUST NOT roll back the candidatura. The RPC has already
   // committed; we report success to the client regardless of webhook outcome.
-  fetch('https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura', {
+  // WR-04 (Phase 4 review fix): URL is read from N8N_NOVA_CANDIDATURA_URL env
+  // var with a hardcoded fallback so existing prod deploys keep working until
+  // the env var is set. Drift between this EF and any frontend caller is now
+  // a deploy-time choice rather than a code-edit in two places.
+  const N8N_NOVA_CANDIDATURA_URL =
+    Deno.env.get('N8N_NOVA_CANDIDATURA_URL') ??
+    'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
+  fetch(N8N_NOVA_CANDIDATURA_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
