@@ -98,7 +98,6 @@ export function FormularioCandidaturaPage() {
   const navigate = useNavigate()
   const candidato = useAuthStore((state) => state.candidato)
   const user = useAuthStore((state) => state.user)
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
   const logout = useAuthStore((state) => state.logout)
 
   // Fetch vaga via slug (Plan 04-02 / 04-06)
@@ -144,15 +143,14 @@ export function FormularioCandidaturaPage() {
     },
   })
 
-  // Auth gate — preserve current slug as redirect target (Pitfall 2 auth roundtrip)
-  useEffect(() => {
-    if (!isAuthenticated) {
-      const target = `/candidato/candidatura/formulario/${vagaSlug ?? ''}`
-      navigate(`/auth/login?redirect=${encodeURIComponent(target)}`, {
-        replace: true,
-      })
-    }
-  }, [isAuthenticated, navigate, vagaSlug])
+  // Auth gate — owned by `<RoleGuard role="candidato">` in router/routes.tsx
+  // (wraps this page). The login-redirect roundtrip with `?redirect=` slug
+  // preservation is handled by VagaDetalhePage (anon-accessible, real entry
+  // point). WR-07 (Phase 4 review iteration 2 fix): removed a redundant
+  // auth-gate useEffect here — it overlapped with RoleGuard, never had its
+  // ?redirect= target consumed (RoleGuard fires first), and could flap during
+  // Zustand auth-store hydration (transient isAuthenticated=false bouncing
+  // a logged-in candidate away from the formulário).
 
   // Already applied → bounce back to vaga detalhe (server-side UNIQUE is the gate)
   // WR-03 (Phase 4 review fix): only redirect after the query has definitively
