@@ -30,8 +30,20 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, type Resolver, type UseFormReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { Loader2, Upload, FileText, X, ArrowLeft, Send } from 'lucide-react'
+import {
+  Loader2,
+  Upload,
+  FileText,
+  X,
+  ArrowLeft,
+  Send,
+  LogOut,
+} from 'lucide-react'
 
+import { BackgroundImage } from '../BackgroundImage'
+import { BeautySmileLogo } from '../BeautySmileLogo'
+import { Glass, GlassButton, GlassCard } from '../ui/glass'
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { useAuthStore } from '@/store/authStore'
 import { useVagaBySlug, useHasApplied } from '@/features/vagas/hooks/useVagas'
 import { useVagaPerguntas } from '@/features/vagas/hooks/useVagaPerguntas'
@@ -87,6 +99,7 @@ export function FormularioCandidaturaPage() {
   const candidato = useAuthStore((state) => state.candidato)
   const user = useAuthStore((state) => state.user)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const logout = useAuthStore((state) => state.logout)
 
   // Fetch vaga via slug (Plan 04-02 / 04-06)
   const {
@@ -192,6 +205,20 @@ export function FormularioCandidaturaPage() {
       undefined as unknown as CandidaturaFormData['curriculo'],
       { shouldValidate: true }
     )
+  }
+
+  // Logout handler — replicates MeuPerfilCandidatoPage pattern (toast + redirect).
+  // No console.* calls (Pitfall 7 page-level rule).
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast.success('Você saiu da sua conta com sucesso', {
+        description: 'Até breve!',
+      })
+      navigate('/auth/login', { replace: true })
+    } catch {
+      toast.error('Erro ao sair', { description: 'Tente novamente.' })
+    }
   }
 
   const onSubmit = async (data: CandidaturaFormData) => {
@@ -402,7 +429,7 @@ export function FormularioCandidaturaPage() {
   if (vagaLoading || perguntasLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#00109E]" />
       </div>
     )
   }
@@ -415,7 +442,7 @@ export function FormularioCandidaturaPage() {
           <button
             type="button"
             onClick={() => navigate('/vagas')}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-[#00109E] px-6 py-3 text-white font-semibold hover:bg-[#00109E]/90"
           >
             Voltar para vagas
           </button>
@@ -433,25 +460,83 @@ export function FormularioCandidaturaPage() {
   const submitDisabled =
     !cvFile || cvUploading || form.formState.isSubmitting
 
+  // Initials for avatar fallback (replicates MeuPerfilCandidatoPage pattern).
+  const candidatoIniciais = (candidato?.nome_completo || 'C')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+    <BackgroundImage
+      background="gradient"
+      className="min-h-screen py-20"
+      overlayColor="bg-black"
+      overlayOpacity={15}
+    >
+      {/* Sticky candidato navbar — replicates MeuPerfilCandidatoPage shell */}
+      <div className="w-full sticky top-0 z-50 mb-8">
+        <Glass variant="white" blur="xl" className="border-b border-white/10">
+          <div className="container mx-auto px-4 sm:px-6 py-4">
+            <div className="flex items-center justify-between gap-4">
+              {/* Left: Logo + divider + Avatar + name */}
+              <div className="flex items-center gap-4">
+                <BeautySmileLogo type="icon" size="sm" variant="white" />
+                <div className="hidden sm:block h-8 w-px bg-white/20" />
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10 border-2 border-white/30">
+                    <AvatarImage src={candidato?.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
+                      {candidatoIniciais}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden md:block">
+                    <p className="text-white font-medium drop-shadow-md leading-tight">
+                      {candidato?.nome_completo || 'Candidato'}
+                    </p>
+                    <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
+                      {candidato?.email || ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Logout */}
+              <GlassButton
+                variant="white"
+                hover
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-white drop-shadow-sm"
+                aria-label="Sair"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </GlassButton>
+            </div>
+          </div>
+        </Glass>
+      </div>
+
+      {/* Content (single-page form, max-w-3xl per D-04) */}
+      <div className="container mx-auto px-4 max-w-3xl space-y-6">
+        {/* Voltar para a vaga — over BackgroundImage, not inside a card */}
         <button
           type="button"
           onClick={() => navigate(`/vagas/${vagaSlug ?? ''}`)}
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          className="inline-flex items-center text-white/80 hover:text-white drop-shadow-sm"
         >
           <ArrowLeft className="w-4 h-4 mr-1" /> Voltar para a vaga
         </button>
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="bg-white/80 backdrop-blur-md rounded-lg shadow-lg p-6 space-y-8"
+          className="space-y-6"
           aria-label="Formulário de candidatura"
           noValidate
         >
           {/* Section 1: Resumo da vaga (read-only) */}
-          <section>
+          <GlassCard variant="white" className="rounded-xl">
             <h1 className="text-2xl font-semibold text-gray-900 mb-2">
               {vaga.titulo}
             </h1>
@@ -459,14 +544,14 @@ export function FormularioCandidaturaPage() {
               <p className="text-gray-700">{vaga.descricao_curta}</p>
             )}
             {vaga.tipo_contrato && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+              <span className="inline-block mt-2 px-3 py-1 rounded-full bg-[#00109E]/10 text-[#00109E] text-xs font-semibold">
                 {vaga.tipo_contrato}
               </span>
             )}
-          </section>
+          </GlassCard>
 
           {/* Section 2: Currículo upload (D-09 click-only) */}
-          <section>
+          <GlassCard variant="white" className="rounded-xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">
               Currículo
             </h2>
@@ -487,7 +572,7 @@ export function FormularioCandidaturaPage() {
             ) : (
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3 min-w-0">
-                  <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                  <FileText className="w-5 h-5 text-[#00109E] flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
                       {cvFile.name}
@@ -507,11 +592,11 @@ export function FormularioCandidaturaPage() {
                 </button>
               </div>
             )}
-          </section>
+          </GlassCard>
 
           {/* Section 3: Perguntas (D-14: hidden when no perguntas) */}
           {hasPerguntas && (
-            <section className="space-y-6">
+            <GlassCard variant="white" className="rounded-xl space-y-6">
               <h2 className="text-lg font-semibold text-gray-900">
                 Perguntas de triagem
               </h2>
@@ -525,15 +610,15 @@ export function FormularioCandidaturaPage() {
                   ))}
                 </div>
               ))}
-            </section>
+            </GlassCard>
           )}
 
           {/* Section 4: Submit */}
-          <section className="pt-4 border-t border-gray-200">
+          <GlassCard variant="white" className="rounded-xl">
             <button
               type="submit"
               disabled={submitDisabled}
-              className="w-full inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full inline-flex items-center justify-center rounded-md bg-[#00109E] px-6 py-3 text-white font-semibold hover:bg-[#00109E]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {cvUploading || form.formState.isSubmitting ? (
                 <>
@@ -547,10 +632,10 @@ export function FormularioCandidaturaPage() {
                 </>
               )}
             </button>
-          </section>
+          </GlassCard>
         </form>
       </div>
-    </div>
+    </BackgroundImage>
   )
 }
 
@@ -598,7 +683,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             type="text"
             {...form.register(fieldName)}
             maxLength={p.limite_caracteres ?? undefined}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -613,7 +698,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             {...form.register(fieldName)}
             maxLength={p.limite_caracteres ?? undefined}
             rows={4}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -629,7 +714,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             {...form.register(fieldName)}
             min={p.valor_minimo ?? undefined}
             max={p.valor_maximo ?? undefined}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -661,7 +746,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
                 type="text"
                 placeholder="Outro (especifique)"
                 {...form.register(`respostas_outros.${p.id}` as const)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
               />
             </div>
           )}
@@ -696,7 +781,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
                 type="text"
                 placeholder="Outro (especifique)"
                 {...form.register(`respostas_outros.${p.id}` as const)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
               />
             </div>
           )}
