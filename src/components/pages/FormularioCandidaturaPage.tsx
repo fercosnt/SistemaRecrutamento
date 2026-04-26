@@ -116,7 +116,12 @@ export function FormularioCandidaturaPage() {
 
   // Defense in depth — server-side UNIQUE is the actual gate; this just
   // saves the user from filling 60s of form before being rejected.
-  const { data: alreadyApplied } = useHasApplied(vaga?.id ?? null)
+  // WR-03 (Phase 4 review fix): expose isSuccess so the redirect effect only
+  // fires when the query has definitively settled — avoids a transient
+  // undefined→false→true flap silently destroying in-flight form state.
+  const { data: alreadyApplied, isSuccess: appliedQuerySettled } = useHasApplied(
+    vaga?.id ?? null
+  )
 
   // CV upload state (FSM-lite — RESEARCH §CV Upload State Machine)
   const [cvFile, setCvFile] = useState<File | null>(null)
@@ -150,12 +155,17 @@ export function FormularioCandidaturaPage() {
   }, [isAuthenticated, navigate, vagaSlug])
 
   // Already applied → bounce back to vaga detalhe (server-side UNIQUE is the gate)
+  // WR-03 (Phase 4 review fix): only redirect after the query has definitively
+  // settled with a `true` result. `useHasApplied` returns `boolean | undefined`
+  // and may briefly flip undefined → false → true on a stale-while-revalidate
+  // cache; gating on isSuccess prevents a redirect-by-surprise that destroys
+  // any in-flight form input the candidate has already typed.
   useEffect(() => {
-    if (alreadyApplied) {
+    if (appliedQuerySettled && alreadyApplied === true) {
       toast.info('Você já se candidatou a esta vaga', { duration: 4000 })
       navigate(`/vagas/${vagaSlug ?? ''}`, { replace: true })
     }
-  }, [alreadyApplied, navigate, vagaSlug])
+  }, [appliedQuerySettled, alreadyApplied, navigate, vagaSlug])
 
   // Sync RHF curriculo field whenever cvPath becomes available so isValid
   // reflects file presence and submit unblocks once the upload returns.
