@@ -17,6 +17,7 @@ import {
   getVagaBySlug, // NEW — Phase 4 / Plan 04-02
   checkIfCandidatoApplied,
 } from '../services/vagasService'
+import { useVagasStore } from '../store/vagasStore'
 import type {
   Vaga,
   VagasFilters,
@@ -218,10 +219,14 @@ export function useHasApplied(
  * const { data, isLoading } = useVagasWithStore()
  */
 export function useVagasWithStore() {
-  const { useVagasStore } = require('../store/vagasStore')
-  const filters = useVagasStore((state: any) => state.filters)
-  const orderBy = useVagasStore((state: any) => state.orderBy)
-  const pagination = useVagasStore((state: any) => state.pagination)
+  // WR-05 (Phase 4 review fix): replaced legacy `require('../store/vagasStore')`
+  // CommonJS interop with a top-level static import. Vite's ESM build does not
+  // expose `require` in the browser — the previous code would throw
+  // ReferenceError if any consumer mounted this hook. Static import also
+  // restores TypeScript shape for vagasStore selectors (no more `state: any`).
+  const filters = useVagasStore((state) => state.filters)
+  const orderBy = useVagasStore((state) => state.orderBy)
+  const pagination = useVagasStore((state) => state.pagination)
 
   return useVagas(filters, orderBy, pagination)
 }
