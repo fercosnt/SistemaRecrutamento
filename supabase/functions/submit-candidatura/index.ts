@@ -169,6 +169,45 @@ Deno.serve(async (req: Request) => {
     )
   }
 
+  // ---- 3c) Validate every pergunta_id belongs to this vaga — WR-02 ---------
+  // Before the atomic RPC, confirm each pergunta in the payload references
+  // a non-deleted pergunta_formulario for the target vaga. The RPC's
+  // FK-on-pergunta_id constraint would otherwise raise 23503 with a generic
+  // 'Vaga ou pergunta não encontrada.' VALIDATION message that lacks a field
+  // hint. By pre-checking here we surface a precise field='pergunta_id' so
+  // the client can highlight the offending answer instead of showing a
+  // generic 'Dados inválidos' toast.
+  const perguntaIds = input.respostas.map((r) => r.pergunta_id)
+  if (perguntaIds.length > 0) {
+    const { data: validPerguntas, error: perguntaErr } = await supabaseAdmin
+      .from('perguntas_formulario')
+      .select('id')
+      .eq('vaga_id', input.vaga_id)
+      .is('deleted_at', null)
+      .in('id', perguntaIds)
+    if (perguntaErr) {
+      console.error('[submit-candidatura] perguntas pre-check failed:', {
+        code: (perguntaErr as { code?: string }).code,
+        message: (perguntaErr as { message?: string }).message,
+      })
+      return errorResponse(
+        'SERVER_ERROR',
+        'Não foi possível validar as perguntas.',
+        undefined,
+        500,
+      )
+    }
+    const validSet = new Set((validPerguntas ?? []).map((p) => p.id))
+    const missing = perguntaIds.find((id) => !validSet.has(id))
+    if (missing) {
+      return errorResponse(
+        'VALIDATION',
+        'Pergunta não pertence à vaga.',
+        'pergunta_id',
+      )
+    }
+  }
+
   // ---- 4) Atomic RPC — INSERT candidatura + INSERT respostas_formulario ----
   // submit_candidatura_atomic is SECURITY DEFINER + REVOKE PUBLIC + GRANT EXECUTE
   // service_role only (migration 20260425000003). On UNIQUE violation
