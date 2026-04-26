@@ -34,7 +34,10 @@ import {
   Share2,
   ArrowLeft,
   Send,
+  LogOut,
+  UserCircle,
 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { useVaga, useHasApplied } from '@/features/vagas/hooks'
 import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
 import { isUuid } from '@/features/vagas/utils/isUuid'
@@ -72,9 +75,9 @@ function VagaNotFoundState() {
               variant="white"
               hover
               onClick={() => navigate('/vagas')}
-              className="text-white font-semibold"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white font-semibold"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-4 h-4" />
               Voltar para vagas
             </GlassButton>
           </Glass>
@@ -88,6 +91,43 @@ export function VagaDetalhePage() {
   const { identifier } = useParams<{ identifier: string }>()
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+
+  // Persona shell — Phase 4 gap-closure (04-09 / D-27 canonical pattern).
+  // Replica MeuPerfilCandidatoPage:344-389; same guard pattern as
+  // VagasPublicasPage. PII (nome/email/avatar) só renderiza para
+  // candidatos autenticados; nunca em /vagas/:slug anônimo nem em
+  // VagaNotFoundState ou no loading skeleton (intentionally).
+  const role = useAuthStore((state) => state.role)
+  const candidato = useAuthStore((state) => state.candidato)
+  const logout = useAuthStore((state) => state.logout)
+
+  const showCandidatoShell = isAuthenticated && role === 'candidato'
+
+  const candidatoIniciais = (candidato?.nome_completo || 'C')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  /**
+   * Handler para logout do candidato — replica MeuPerfilCandidatoPage:270-283.
+   * Pitfall 7: console.error preservado (não loga PII, apenas a mensagem).
+   */
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast.success('Você saiu da sua conta com sucesso', {
+        description: 'Até breve!',
+      })
+      navigate('/auth/login', { replace: true })
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+      toast.error('Erro ao sair', {
+        description: 'Tente novamente.',
+      })
+    }
+  }
 
   const [showShareMenu, setShowShareMenu] = useState(false)
 
@@ -202,6 +242,72 @@ export function VagaDetalhePage() {
   return (
     <div className="relative min-h-screen">
       <BackgroundImage background="gradient" className="min-h-screen py-20">
+        {/*
+          Phase 4 / Plan 04-09 gap-closure:
+          - 04-UAT.md Gap 2 (major): persona shell faltando em /vagas/:identifier
+            (logged-in candidato).
+          - Replica D-27 canonical pattern (MeuPerfilCandidatoPage:344-389).
+          - Acréscimo vs precedente: link "Área do candidato" → /candidato/perfil.
+          - Guard `showCandidatoShell` preserva anon UX (sem header) e evita
+            renderizar shell em VagaNotFoundState (which returns early above)
+            ou no loading skeleton (which also returns early above).
+        */}
+        {showCandidatoShell && (
+          <div className="w-full sticky top-0 z-50 mb-8">
+            <Glass variant="white" blur="xl" className="border-b border-white/10">
+              <div className="container mx-auto px-4 sm:px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  {/* Left: Logo + divider + Avatar + name */}
+                  <div className="flex items-center gap-4">
+                    <BeautySmileLogo type="icon" size="sm" variant="white" />
+                    <div className="hidden sm:block h-8 w-px bg-white/20" />
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10 border-2 border-white/30">
+                        <AvatarImage src={candidato?.avatar_url ?? undefined} />
+                        <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
+                          {candidatoIniciais}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="hidden md:block">
+                        <p className="text-white font-medium drop-shadow-md leading-tight">
+                          {candidato?.nome_completo || 'Candidato'}
+                        </p>
+                        <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
+                          {candidato?.email || ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Área do candidato + Sair */}
+                  <div className="flex items-center gap-2">
+                    <GlassButton
+                      variant="white"
+                      hover
+                      onClick={() => navigate('/candidato/perfil')}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
+                      aria-label="Área do candidato"
+                    >
+                      <UserCircle className="w-4 h-4" />
+                      <span className="hidden sm:inline">Área do candidato</span>
+                    </GlassButton>
+                    <GlassButton
+                      variant="white"
+                      hover
+                      onClick={handleLogout}
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
+                      aria-label="Sair"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="hidden sm:inline">Sair</span>
+                    </GlassButton>
+                  </div>
+                </div>
+              </div>
+            </Glass>
+          </div>
+        )}
+
         <div className="container mx-auto px-4 space-y-8 max-w-4xl">
           {/* Header */}
           <div className="text-center mb-8">
@@ -457,20 +563,20 @@ export function VagaDetalhePage() {
               {hasApplied ? (
                 <GlassButton
                   variant="white"
-                  className="w-full py-4 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
                   disabled
                 >
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  <CheckCircle2 className="w-5 h-5" />
                   Você já se candidatou a esta vaga
                 </GlassButton>
               ) : (
                 <GlassButton
                   variant="white"
                   hover
-                  className="w-full py-4 text-white text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white text-lg font-semibold"
                   onClick={handleCandidatar}
                 >
-                  <Send className="w-5 h-5 mr-2" />
+                  <Send className="w-5 h-5" />
                   Candidatar-se a esta vaga
                 </GlassButton>
               )}
