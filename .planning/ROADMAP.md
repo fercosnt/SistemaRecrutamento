@@ -18,6 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Cadastro Candidato** - Multi-step registration rewired to Edge Function ✓ 2026-04-24
 - [ ] **Phase 3: Login + Recuperacao de Senha** - Candidate authentication and password recovery
 - [x] **Phase 4: Vagas + Candidatura** - Job listing, detail page, CV upload, application flow ✓ 2026-04-26
+- [ ] **Phase 4.1: Auth Hydration Fix** (INSERTED) - Close INT-BLOCKER-1+2: setSession must hydrate profile/candidato so candidatura submit works after redirect-from-anon login
+- [ ] **Phase 4.2: Phase 1 Verification Backfill** (INSERTED) - Move 12 FOUND-* from partial → satisfied; flip 01/02/03 VALIDATION.md `draft` → `validated`
 - [ ] **Phase 5: Perfil + Hardening MVP** - Candidate profile with real data, E2E 100%, Lighthouse, a11y
 
 ## Phase Details
@@ -107,9 +109,44 @@ Plans:
 - [x] 04-08-PLAN.md — Wave 4: Promote vagas-browse + candidatura-submit Playwright (5 + 6 scenarios + Sonner DOM contract) + UAT runbook 6 scenarios + final phase verification battery ✓ 2026-04-26 (Wave 4 — E2E promotion + UAT runbook + final verification battery + 3 carryover iterations A/B/C closing F-04-08-A/D/E/F; UAT 6/6 PASS com real-world evidence — candidato d8ef9db1 + vaga 53f75c81 + 1 candidatura + 3 respostas + 1 storage object D-10 + duplicate guard via useHasApplied; 4 decisões NEW D-25..D-28 sobre Tailwind theme + bg-primary token + persona shell + schema-vs-component contract; 3 deferred findings F-04-08-B/C/G para Phase 5 backlog)
 - [x] 04-09-PLAN.md — Gap-closure: phase-level UAT 04-UAT.md ## Gaps (3 truths failed) — VagasPublicasPage + VagaDetalhePage persona shell (D-27) + GlassButton inline-flex surgical fix (Gaps 1+2+3)
 
+### Phase 4.1: Auth Hydration Fix (INSERTED)
+**Goal**: After every fresh login (cadastro `tryAutoLogin`, `/auth/login` signIn, password-recovery deeplink, redirect-from-anon candidatura), `profile` + `candidato` are populated before navigation lands; the candidatura submit handler no longer silent-fails after the anon → login redirect
+**Depends on**: Phase 4
+**Requirements**: FOUND-12 (literal close — adminAuthStore.ts shim resolution); re-validates CAD-06, AUTH-01, VAGA-03, CAND-01, CAND-02, CAND-03 against the redirect-after-anon path that Phase 4 UAT did not exercise
+**Gap Closure**: Closes INT-BLOCKER-1, INT-BLOCKER-2, INT-WARNING-2, INT-WARNING-3, FLOW-CADASTRO, FLOW-RECOVERY, FLOW-CANDIDATURA from `v1.0-MILESTONE-AUDIT.md`
+**Success Criteria** (what must be TRUE):
+  1. After `/cadastro` 4-step submit + auto-login, navigation lands on `/candidato/perfil` with `candidato` populated (personal fields rendered, `useCandidaturas` enabled) — no full-page reload required
+  2. After anonymous `/vagas/:slug` → "Candidatar-se" → `/auth/login?redirect=...` → login, navigation lands on `/candidato/candidatura/formulario/:slug` with `candidato` populated; the submit handler (`FormularioCandidaturaPage.tsx:233`) does NOT return silently
+  3. After password-recovery deeplink → `setNewPassword` → nav, `/candidato/perfil` renders with `candidato` populated
+  4. If the JWT Custom Access Token Hook stops emitting `app_metadata.role`, the user does NOT enter an infinite redirect loop on protected routes (DB-fallback or guard runs)
+  5. `src/store/adminAuthStore.ts` literal status matches FOUND-12 text — either deleted or REQUIREMENTS.md text updated to reflect the re-export shim's permitted existence
+  6. New Playwright E2E covers the full anonymous → login → submit candidatura path (smoke-runtime gate per Phase 4 lição central D-25..D-28)
+**Plans**: TBD
+**UI hint**: no (auth wiring + tests)
+
+Plans:
+- [ ] 04-1-01: TBD
+
+### Phase 4.2: Phase 1 Verification Backfill (INSERTED)
+**Goal**: 12 FOUND-* requirements move from `partial` → `satisfied` per the 3-source matrix; Phase 1 + 2 + 3 VALIDATION.md frontmatter all reach `validated` (Nyquist compliance ratified retroactively)
+**Depends on**: Phase 4.1 (so post-fix state is what the verification artifact certifies)
+**Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, FOUND-06, FOUND-07, FOUND-08, FOUND-09, FOUND-10, FOUND-11, FOUND-12
+**Gap Closure**: Closes 12 FOUND-* `partial` (verification artifact missing) + Phase 1 Nyquist `nyquist_compliant=false` flag + Phase 2 `status: draft` + Phase 3 `status: draft` from `v1.0-MILESTONE-AUDIT.md`
+**Success Criteria** (what must be TRUE):
+  1. `.planning/phases/01-foundation-saneada/01-VERIFICATION.md` exists, asserts all 5 success criteria from Phase 1 are TRUE in current codebase, traces all 12 FOUND-* to evidence
+  2. `01-VALIDATION.md` frontmatter: `status: validated`, `nyquist_compliant: true`, `wave_0_complete: true` (or documents why Wave 0 is N/A retroactively)
+  3. `02-VALIDATION.md` frontmatter: `status: validated`
+  4. `03-VALIDATION.md` frontmatter: `status: validated`
+  5. REQUIREMENTS.md traceability table reflects FOUND-01..12 as Complete with verification artifact reference
+**Plans**: TBD
+**UI hint**: no (documentation-only)
+
+Plans:
+- [ ] 04-2-01: TBD
+
 ### Phase 5: Perfil + Hardening MVP
 **Goal**: The candidate can see their real application data on a profile page, and the entire MVP passes E2E tests, Lighthouse thresholds, and accessibility checks
-**Depends on**: Phase 4
+**Depends on**: Phase 4, Phase 4.1 (hydration fix is prerequisite for Perfil to render real data)
 **Requirements**: PERF-01, PERF-02, HARD-01, HARD-02, HARD-03, HARD-04, HARD-05, HARD-06
 **Success Criteria** (what must be TRUE):
   1. `/candidato/perfil` shows the candidate's personal data and a list of their candidaturas with real status, etapa, and date -- no mocked data
@@ -132,8 +169,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) | 2026-04-20 |
-| 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) | 2026-04-24 |
-| 3. Login + Recuperacao de Senha | 7/7 | Plan execution complete — Wave 6 landed (03-07: 11 promoted Playwright scenarios + pitfall7.grep B14 Vitest guard + UAT 6/6 PASS; 2 production-only findings captured for Phase 4 PKCE + Phase 5 a11y); pending phase verification gates (code-review + regression + verifier) before phase marked complete | - |
-| 4. Vagas + Candidatura | 9/9 | **Complete** — 8 standard plans + 3 carryovers (folded em 04-08-SUMMARY) + 1 gap-closure 04-09 (persona shell + GlassButton inline-flex). Phase verification gates all green: code review iter 1+2+3 (WR-01..WR-10 resolved + WR-01-09/02-09 deferred to Phase 5), regression 340 PASS / 1 FAIL (LoadingProgress carryover Phase 2/3), schema drift not detected, lint 320 = baseline (zero net-new), build exit 0, verifier passed 5/5 SCs + 7/7 reqs SATISFIED (VAGA-01/02/03 + CAND-01/02/03/04). Real-world UAT evidence chain (candidato d8ef9db1 + vaga 53f75c81 + 1 candidatura + 3 respostas + 1 storage object D-10 + duplicate guard + slug-roundtrip + Pitfall 7 redaction). 4 decisões D-25..D-28 LOCKED. 8 deferred items mapped to Phase 5 backlog (F-04-08-B/C/G + D-26 + WR-01-09/02-09 + GlassButton primitive root fix + BeautySmileLogo type union). **Carryover meta-finding (lição central):** plan checker autônomo passou com gates verdes mas página estava UNUSABLE end-to-end — Phase 5 deve introduzir smoke-runtime gate + UI-SPEC obrigatório por persona + plan-level integration test | 2026-04-26 |
+| 1. Foundation Saneada | 5/5 | Complete (Edge Function deploy closed via 02-03) — phase-level VERIFICATION.md gap to be backfilled in Phase 4.2 | 2026-04-20 |
+| 2. Cadastro Candidato | 6/6 | Complete (Wave 3 wiring + UAT green; 3 UAT-discovered bugs fixed; Playwright 13 passed + 3 env-skipped) — VALIDATION.md frontmatter `draft → validated` to be flipped in Phase 4.2 | 2026-04-24 |
+| 3. Login + Recuperacao de Senha | 7/7 | Plan execution complete — Wave 6 landed (03-07: 11 promoted Playwright scenarios + pitfall7.grep B14 Vitest guard + UAT 6/6 PASS; 2 production-only findings captured for Phase 4 PKCE + Phase 5 a11y); pending phase verification gates (code-review + regression + verifier) before phase marked complete; VALIDATION.md frontmatter `draft → validated` to be flipped in Phase 4.2 | - |
+| 4. Vagas + Candidatura | 9/9 | **Complete** — 8 standard plans + 3 carryovers (folded em 04-08-SUMMARY) + 1 gap-closure 04-09 (persona shell + GlassButton inline-flex). Phase verification gates all green: code review iter 1+2+3 (WR-01..WR-10 resolved + WR-01-09/02-09 deferred to Phase 5), regression 340 PASS / 1 FAIL (LoadingProgress carryover Phase 2/3), schema drift not detected, lint 320 = baseline (zero net-new), build exit 0, verifier passed 5/5 SCs + 7/7 reqs SATISFIED (VAGA-01/02/03 + CAND-01/02/03/04). Real-world UAT evidence chain (candidato d8ef9db1 + vaga 53f75c81 + 1 candidatura + 3 respostas + 1 storage object D-10 + duplicate guard + slug-roundtrip + Pitfall 7 redaction). 4 decisões D-25..D-28 LOCKED. 8 deferred items mapped to Phase 5 backlog (F-04-08-B/C/G + D-26 + WR-01-09/02-09 + GlassButton primitive root fix + BeautySmileLogo type union). **Carryover meta-finding (lição central):** plan checker autônomo passou com gates verdes mas página estava UNUSABLE end-to-end — INT-BLOCKER-1+2 surfaced by milestone audit; closure planned in Phase 4.1 (smoke-runtime gate + UI-SPEC obrigatório por persona + plan-level integration test for redirect-after-anon path) | 2026-04-26 |
+| 4.1. Auth Hydration Fix (INSERTED) | 0/? | Not started — closes INT-BLOCKER-1+2 (setSession does not call fetchProfile) + INT-WARNING-2/3 + 3 broken flows from `v1.0-MILESTONE-AUDIT.md` | - |
+| 4.2. Phase 1 Verification Backfill (INSERTED) | 0/? | Not started — moves 12 FOUND-* from `partial → satisfied`; flips 01/02/03 VALIDATION.md frontmatter `draft → validated`; documentation-only | - |
 | 5. Perfil + Hardening MVP | 0/? | Not started | - |

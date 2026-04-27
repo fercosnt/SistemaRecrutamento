@@ -112,18 +112,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-02 | Phase 1: Foundation Saneada | Complete — partial (Bug 1 extractRole → Phase 3) |
-| FOUND-03 | Phase 1: Foundation Saneada | Complete — hook emits, frontend read deferred to Phase 3 |
-| FOUND-04 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-05 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-06 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-07 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-08 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-09 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-10 | Phase 1: Foundation Saneada | Complete (2026-04-20; + 02-02 rate_limit patch + 02-02 carryover digest fix) |
-| FOUND-11 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
-| FOUND-12 | Phase 1: Foundation Saneada | Complete (2026-04-20) |
+| FOUND-01 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per `v1.0-MILESTONE-AUDIT.md` (no `01-VERIFICATION.md`); code complete 2026-04-20 |
+| FOUND-02 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; Bug 1 extractRole closed in Phase 3 (03-03); code complete |
+| FOUND-03 | Phase 1 (verification backfill via Phase 4.2 + INT-WARNING-3 guard via Phase 4.1) | Pending — partial per audit; hook emits + Phase 3 reads JWT; INT-WARNING-3 (role=null redirect-loop guard) folded into Phase 4.1 |
+| FOUND-04 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-05 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-06 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-07 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-08 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-09 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-10 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 (+ 02-02 rate_limit patch + carryover digest fix) |
+| FOUND-11 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
+| FOUND-12 | Phase 1 (literal close via Phase 4.1 + verification backfill via Phase 4.2) | Pending — partial per audit + INT-WARNING-2 (`adminAuthStore.ts` re-export shim still exists; behavioral intent met but text says deleted). Phase 4.1 resolves literal: delete shim or rewrite REQUIREMENTS text. |
 | CAD-01 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-02 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-03 | Phase 2: Cadastro Candidato | Complete (2026-04-24; Bug 6 CPF debounce-time mismatch → Phase 3) |
@@ -155,7 +155,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 - v1 requirements: 38 total
 - Mapped to phases: 38
 - Unmapped: 0
+- Satisfied: 18/38 (CAD-01..07 + AUTH-01..04 + VAGA-01..03 + CAND-01..04)
+- Partial (verification backfill pending): 12/38 (FOUND-01..12 — Phase 4.2)
+- Orphaned (Phase 5 not started): 8/38 (PERF-01..02 + HARD-01..06)
+- Source: `v1.0-MILESTONE-AUDIT.md` (2026-04-26)
 
 ---
 *Requirements defined: 2026-04-19*
-*Last updated: 2026-04-26 after Phase 4 Wave 4 (04-08) — Phase 4 plan execution closed (8/8). Todos os 7 requirements VAGA-01..03 + CAND-01..04 agora têm full coverage at server + client + UI + UAT layers (cobertura tripla — DB schema/RPC + Edge Function + service wrapper + form integration + manual UAT 6/6 PASS contra infra real). UAT runbook executado pelo Fernando em 2026-04-26 com evidence chain real-world: candidato_id `d8ef9db1-b30d-4121-a7cc-8770402c080a` + vaga_id `53f75c81-a152-43d8-87d3-03a275f678b9` (teste-asb-shopping-riomar) + 1 candidatura row (status='aguardando_resposta' + etapa_atual='triagem') + 3 respostas_formulario rows persistidas atomicamente via RPC submit_candidatura_atomic + 1 storage object em `curriculos/4fceff36-.../522328dc-....pdf` (D-10 path schema, 460207 bytes, owner=auth.uid) + duplicate guard via useHasApplied (Caminho A — toast + permanência em /vagas/<slug> + SQL count=1) + slug-roundtrip /vagas/<slug> → /auth/login?redirect=... → /candidato/candidatura/formulario/<slug> preserved + Pitfall 7 redaction confirmada. Plan 04-08 incluiu 3 carryover iterations (A→B→C) closing 4 findings F-04-08-A (Tailwind primary-NNN inexistente) + F-04-08-D (bg-primary token quebrado projeto-wide) + F-04-08-E (shell candidato faltando) + F-04-08-F (schema curriculo required vs just-in-time upload). 4 decisões NEW D-25..D-28 (Tailwind theme + bg-primary token + persona shell + schema dynamic factories awareness). 3 deferred findings Phase 5 backlog F-04-08-B/C/G (vaga soft-deleted data hygiene + bloco_valido_check schema drift + WCAG AA visual polish). Phase 4 phase verification gates remaining (orchestrator-owned, separate workflow): code-review + regression + verifier — apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP.*
+*Last updated: 2026-04-26 after `/gsd-plan-milestone-gaps` — created Phase 4.1 (Auth Hydration Fix, closes INT-BLOCKER-1+2 + INT-WARNING-2/3 + 3 broken flows) and Phase 4.2 (Phase 1 Verification Backfill, moves 12 FOUND-* from partial → satisfied + flips 01/02/03 VALIDATION.md frontmatter draft → validated). FOUND-01..11 retraceable to Phase 4.2 closure; FOUND-12 retraceable to Phase 4.1 (literal `adminAuthStore.ts` shim resolution) + Phase 4.2 (verification artifact). Phase 5 (PERF-* + HARD-*) remains as originally planned — no remap; orphaned status reflects unstarted phase, not a missing one. Previous note (Phase 4 Wave 4 closure): — Phase 4 plan execution closed (8/8). Todos os 7 requirements VAGA-01..03 + CAND-01..04 agora têm full coverage at server + client + UI + UAT layers (cobertura tripla — DB schema/RPC + Edge Function + service wrapper + form integration + manual UAT 6/6 PASS contra infra real). UAT runbook executado pelo Fernando em 2026-04-26 com evidence chain real-world: candidato_id `d8ef9db1-b30d-4121-a7cc-8770402c080a` + vaga_id `53f75c81-a152-43d8-87d3-03a275f678b9` (teste-asb-shopping-riomar) + 1 candidatura row (status='aguardando_resposta' + etapa_atual='triagem') + 3 respostas_formulario rows persistidas atomicamente via RPC submit_candidatura_atomic + 1 storage object em `curriculos/4fceff36-.../522328dc-....pdf` (D-10 path schema, 460207 bytes, owner=auth.uid) + duplicate guard via useHasApplied (Caminho A — toast + permanência em /vagas/<slug> + SQL count=1) + slug-roundtrip /vagas/<slug> → /auth/login?redirect=... → /candidato/candidatura/formulario/<slug> preserved + Pitfall 7 redaction confirmada. Plan 04-08 incluiu 3 carryover iterations (A→B→C) closing 4 findings F-04-08-A (Tailwind primary-NNN inexistente) + F-04-08-D (bg-primary token quebrado projeto-wide) + F-04-08-E (shell candidato faltando) + F-04-08-F (schema curriculo required vs just-in-time upload). 4 decisões NEW D-25..D-28 (Tailwind theme + bg-primary token + persona shell + schema dynamic factories awareness). 3 deferred findings Phase 5 backlog F-04-08-B/C/G (vaga soft-deleted data hygiene + bloco_valido_check schema drift + WCAG AA visual polish). Phase 4 phase verification gates remaining (orchestrator-owned, separate workflow): code-review + regression + verifier — apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP.*
