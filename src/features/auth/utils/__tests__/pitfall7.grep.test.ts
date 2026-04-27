@@ -37,6 +37,7 @@ const PHASE_3_AUTH_PATHS = [
   'src/components/pages/EsqueciSenhaPage.tsx',
   'src/components/pages/RedefinirSenhaPage.tsx',
   'src/store/authStore.ts',
+  'src/components/RoleGuard.tsx', // Phase 4.1 — Pattern 3 fallback added
   'src/lib/supabase/client.ts',
 ] as const
 

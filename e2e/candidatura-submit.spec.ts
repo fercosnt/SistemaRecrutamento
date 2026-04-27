@@ -155,4 +155,38 @@ test.describe('Candidatura Submit (Plan 04-08)', () => {
     await expect(notificationsRegion.locator('li[data-sonner-toast]').first()).toBeVisible({ timeout: 5000 })
   })
 
+  test('B-J12: anon → /auth/login?redirect → submit candidatura succeeds (Phase 4.1 hydration fix smoke-runtime gate)', async ({ page, context }) => {
+    test.skip(!process.env.E2E_REAL_LOGIN, 'Requires E2E_REAL_LOGIN=1')
+    test.skip(!process.env.E2E_ALLOW_DB_WRITE, 'DB-writing — set E2E_ALLOW_DB_WRITE=1')
+
+    // CRITICAL: clean state — bug only reproduces on fresh login (no prior initialize()).
+    await context.clearCookies()
+    await page.goto('/auth/login')
+    await page.evaluate(() => {
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith('sb-') || k.includes('supabase') || k === 'auth-storage')
+        .forEach((k) => localStorage.removeItem(k))
+    })
+
+    // 1. Anon flow: /vagas → /vagas/:slug → click Candidatar → /auth/login?redirect=...
+    await page.goto('/vagas')
+    await page.getByRole('button', { name: /Candidatar-se a esta vaga/i }).first().click()
+    await page.waitForURL(/\/vagas\/[^/]+$/)
+    await page.getByRole('button', { name: /candidatar/i }).first().click()
+    await page.waitForURL(/\/auth\/login\?redirect=/)
+
+    // 2. Login
+    await page.locator('#email').fill(TEST_USER.email)
+    await page.locator('#senha, #password').fill(TEST_USER.password)
+    await page.getByRole('button', { name: /entrar/i }).click()
+
+    // 3. Land on formulário with HYDRATED candidato (the fix under test).
+    await page.waitForURL(/\/candidato\/candidatura\/formulario\//, { timeout: 10000 })
+
+    // 4. Submit button enabled within 5s (proves candidato hydrated, otherwise it's disabled per Plan 03).
+    const fixturePath = resolve(__dirname, 'fixtures', 'cv-sample-1mb.pdf')
+    await page.locator('input[type="file"]').setInputFiles(fixturePath)
+    await expect(page.getByRole('button', { name: /Enviar candidatura/i })).toBeEnabled({ timeout: 5000 })
+  })
+
 })
