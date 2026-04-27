@@ -1,10 +1,12 @@
 ---
 phase: 3
 slug: login-recuperacao-senha
-status: draft
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-04-24
+validated_by: phase-4.2
+validated_at: 2026-04-27
 ---
 
 # Phase 3 — Validation Strategy
