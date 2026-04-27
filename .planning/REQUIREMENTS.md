@@ -21,7 +21,7 @@ Requirements for M1. Each maps to roadmap phases.
 - [ ] **FOUND-09**: Migrations consolidadas em `supabase/migrations/` numeradas (fonte da verdade)
 - [ ] **FOUND-10**: RLS anonymous SELECT em `candidatos` movido para RPC `SECURITY DEFINER` retornando apenas `{ exists: boolean }`
 - [ ] **FOUND-11**: Flags manuais de "Lembrar-me" removidas; delegado para `persistSession` nativo do Supabase
-- [ ] **FOUND-12**: `adminAuthStore.ts` deletado; `supabaseAdmin` removido de `client.ts`
+- [x] **FOUND-12**: `adminAuthStore.ts` deletado; `supabaseAdmin` removido de `client.ts` _(literal close em Phase 4.1 [04.1-04] 2026-04-27 — file deleted + 2 import sites migrated; verification backfill via Phase 4.2)_
 
 ### Cadastro (Candidato)
 
@@ -123,7 +123,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FOUND-09 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
 | FOUND-10 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 (+ 02-02 rate_limit patch + carryover digest fix) |
 | FOUND-11 | Phase 1 (verification backfill via Phase 4.2) | Pending — partial per audit; code complete 2026-04-20 |
-| FOUND-12 | Phase 1 (literal close via Phase 4.1 + verification backfill via Phase 4.2) | Pending — partial per audit + INT-WARNING-2 (`adminAuthStore.ts` re-export shim still exists; behavioral intent met but text says deleted). Phase 4.1 resolves literal: delete shim or rewrite REQUIREMENTS text. |
+| FOUND-12 | Phase 1 (literal close via Phase 4.1 [04.1-04] 2026-04-27 — Path A executed; verification backfill via Phase 4.2) | **Literal close complete** — `src/store/adminAuthStore.ts` deleted (228 LoC, 12 exported symbols of which 10 had zero real consumers); 2 real import sites migrated (App.tsx inline `useIsAdminAuthenticated` selector + useSessionTimeout direct `useAuthStore` import); LoginRHPage doc-comment rewritten. INT-WARNING-2 closed (REQUIREMENTS text matches working tree). FOUND-12 grep guard 2/2 GREEN (commits 0a2ff71 + 8005fd5). Verification artifact backfill remains Phase 4.2 scope. |
 | CAD-01 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-02 | Phase 2: Cadastro Candidato | Complete (2026-04-24) |
 | CAD-03 | Phase 2: Cadastro Candidato | Complete (2026-04-24; Bug 6 CPF debounce-time mismatch → Phase 3) |
