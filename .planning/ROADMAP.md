@@ -121,11 +121,15 @@ Plans:
   4. If the JWT Custom Access Token Hook stops emitting `app_metadata.role`, the user does NOT enter an infinite redirect loop on protected routes (DB-fallback or guard runs)
   5. `src/store/adminAuthStore.ts` literal status matches FOUND-12 text — either deleted or REQUIREMENTS.md text updated to reflect the re-export shim's permitted existence
   6. New Playwright E2E covers the full anonymous → login → submit candidatura path (smoke-runtime gate per Phase 4 lição central D-25..D-28)
-**Plans**: TBD
+**Plans**: 5 plans
 **UI hint**: no (auth wiring + tests)
 
 Plans:
-- [ ] 04-1-01: TBD
+- [ ] 04.1-01-PLAN.md — Wave 0: test infrastructure scaffolds (Vitest authStore + RoleGuard + FOUND-12 grep + Playwright auth-hydration spec + candidatura-submit B-J12 + Pitfall 7 grep extension)
+- [ ] 04.1-02-PLAN.md — Wave 1: core hydration fix (hydrateFromSession action + waitForCandidatoHydrated utility + App.tsx setTimeout(0) listener + RoleGuard one-shot fallback for INT-WARNING-3)
+- [ ] 04.1-03-PLAN.md — Wave 2: defense-in-depth submit handlers (LoginCandidato + RedefinirSenha + CadastroStep4 await hydration; FormularioCandidatura replaces silent return + disabled button)
+- [ ] 04.1-04-PLAN.md — Wave 3: FOUND-12 literal close (delete adminAuthStore.ts + migrate App.tsx + useSessionTimeout + LoginRHPage doc-comment)
+- [ ] 04.1-05-PLAN.md — Wave 4: UAT runbook + phase verification battery (lint baseline + build + Vitest + Playwright real-login + 04.1-VERIFICATION.md tracing 7 audit gaps + 6 ROADMAP success criteria)
 
 ### Phase 4.2: Phase 1 Verification Backfill (INSERTED)
 **Goal**: 12 FOUND-* requirements move from `partial` → `satisfied` per the 3-source matrix; Phase 1 + 2 + 3 VALIDATION.md frontmatter all reach `validated` (Nyquist compliance ratified retroactively)

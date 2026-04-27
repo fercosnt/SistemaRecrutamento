@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_plan
+status: executing
 stopped_at: "**Phase 04 plan execution closed (8/8) — Plan 04-08 landed após 3 carryover iterations (A→B→C) closing F-04-08-A/D/E/F + UAT 6/6 PASS contra infra real.** Plan 04-08 entregou 11 cenários Playwright promovidos dos stubs Wave 0 (5 vagas-browse B-J01..B-J05 + 6 candidatura-submit B-J06..B-J11 com Sonner DOM contract regression Phase 2 02-06 precedent) + UAT runbook executado 6/6 PASS contra infra Supabase live (project `isljnozzlvckrgjjbjwp`) + 3 carryovers atômicos resolvendo bugs post-execution não detectados pelos gates autônomos do Plan 04-07. **4 findings resolvidos:** F-04-08-A (Tailwind primary-NNN inexistente — 10-line scrub via `ee0147f`), F-04-08-D (bg-primary token quebrado projeto-wide — substituído por hex literal `#00109E` precedente Phase 2/3 LoginCandidatoPage:393 via `5fa8dd8` merged em `1e66ecd`), F-04-08-E (shell candidato faltando — integrado BackgroundImage gradient + sticky navbar Glass + BeautySmileLogo type=icon size=sm variant=white + Avatar + nome + logout GlassButton + 4 GlassCard wrappers + Voltar text-white/80 replicando MeuPerfilCandidatoPage canonical via mesmo commit `5fa8dd8`), F-04-08-F (schema curriculo required vs just-in-time upload — `.optional()` em buildCandidaturaSchema + 3 novos test cases T2.5 undefined OK + T2.6 full object OK regression + T2.7 empty path FAIL when present + T2.1 reescrito drop stale assertion via `c736ed2`). **Real-world UAT evidence chain:** candidato_id `d8ef9db1-b30d-4121-a7cc-8770402c080a` + vaga_id `53f75c81-a152-43d8-87d3-03a275f678b9` (teste-asb-shopping-riomar). Storage object: `curriculos/4fceff36-8c42-40a5-ad11-48bf0fc6cc81/522328dc-64c2-4d5b-ae64-08301cef9f1a.pdf` (D-10 path schema OK), 460207 bytes, owner=auth.uid. 1 candidatura row (`status='aguardando_resposta'` + `etapa_atual='triagem'` + curriculo_url D-10 + curriculo_nome PII redacted client-side) + 3 respostas_formulario rows persistidas atomicamente via RPC submit_candidatura_atomic. Duplicate guard via useHasApplied (Caminho A — toast "voce ja se candidatou" + permanência em /vagas/<slug> + SQL count=1 zero novas linhas). Slug-roundtrip /vagas/teste-coordenador-rh-sede → /auth/login?redirect=... → /candidato/candidatura/formulario/teste-coordenador-rh-sede preserved. Pitfall 7 redaction confirmada (zero file.name PII / signed URL / token leaks no console). Bucket privado confirmado via incognito GET path /public/ → HTTP 404 "Bucket not found". **4 decisões NEW (D-25..D-28):** D-25 Tailwind theme deste projeto SEM escala numérica primary-50..950; D-26 token bg-primary QUEBRADO projeto-wide (workaround hex literal Phase 2/3 precedent; Phase 5 reparar token + sweep); D-27 page-level shell integration deve replicar canonical persona pattern (plan checker checklist gap a fechar em Phase 5); D-28 schema dynamic factories devem ter awareness do upload pattern do consumer — just-in-time upload requer optional fields no schema. **Carryover meta-finding (lição central da Phase 4):** Plan 04-07 marcado complete pelo executor autônomo com TODOS os gates verdes (build + lint baseline 320 + 65/65 vitest + 11/11 playwright + Pitfall 7 grep) mas página estava UNUSABLE end-to-end. Plan checker passou porque (a) nenhum smoke-runtime real, (b) Tailwind issue só manifesta render time, (c) shell integration não era checklist item, (d) schema vs component contract não era end-to-end-tested. **Phase 5 deve introduzir 'smoke-runtime' gate antes de plan complete + UI-SPEC obrigatório por persona + plan-level integration test.** **3 deferred findings Phase 5 backlog:** F-04-08-B (vaga soft-deleted com status='ativa' data hygiene — CHECK constraint ou trigger sync); F-04-08-C (bloco_valido_check constraint observado mas não capturado em migrations — schema drift, reconciliation migration); F-04-08-G (visual polish — white text WCAG AA contrast sobre BackgroundImage gradient overlay 15%). **12 commits totais no chain:** e3b9636 (vagas-browse promotion) + 5fec6e5 (candidatura-submit promotion) + 172dc0d (UAT runbook skeleton) + 420a294 (F-04-08-A captured + carryover-A plan written) + ee0147f (Carryover-A fix) + beaec2d (F-04-08-D + F-04-08-E captured + carryover-B plan written) + 5fa8dd8 + 1e66ecd merge (Carryover-B fix em worktree separada) + 54d8a7a (F-04-08-F captured + carryover-C plan written) + c736ed2 (Carryover-C fix) + 65b3680 (UAT 6/6 PASS final docs commit pelo usuário) + this metadata commit. Vitest count post-Carryover-C: 340 PASS / 1 FAIL (LoadingProgress carryover Phase 2/3 preserved). Lint baseline movement Phase 4 inteiro: Phase 3 close 354 → Plan 04-06 close 323 → Plan 04-07 close 320 → Plan 04-08 close 320 (Wave 4 zero growth; Phase 4 net −34 melhoria via legacy code purges em 04-06/04-07). 3 deviations: (a) Rule 3 procedural git -c core.hooksPath=/dev/null lock-in carryover de 04-01..07; (b) Rule 1 BeautySmileLogo type=symbol → type=icon (canonical MeuPerfilCandidatoPage usa variante undeclared); (c) Rule 1 T2.1 stale "missing curriculo fails" assertion removida (incompatível com schema opcional). **TERCEIRO human checkpoint da Phase 4** (após 04-01 db push + 04-05 EF deploy) — e o PRIMEIRO a surfacear MÚLTIPLOS post-execution bugs requerendo iterações de carryover. **Phase 4 plan execution agora 8/8 — pendente apenas orchestrator-owned phase verification gates (code review + regression + verifier) antes de Phase 4 marcado [x] no top phase list. Estes gates vêm como workflow separado post-execution.**"
-last_updated: "2026-04-26T17:23:19.036Z"
-last_activity: 2026-04-26 -- Phase 04 execution started
+last_updated: "2026-04-27T01:12:31.332Z"
+last_activity: 2026-04-27 -- Phase 4.1 planning complete
 progress:
-  total_phases: 5
-  completed_phases: 4
-  total_plans: 30
-  completed_plans: 26
-  percent: 80
+  total_phases: 7
+  completed_phases: 3
+  total_plans: 35
+  completed_plans: 27
+  percent: 77
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 Phase: 5
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-04-26
+Status: Ready to execute
+Last activity: 2026-04-27 -- Phase 4.1 planning complete
 
 Progress: [####################] 100% of currently-defined plans (26/26) — Phase 1 (5/5) + Phase 2 (6/6) + Phase 3 (7/7) + Phase 4 (8/8). Phase 5 has TBD plan count; milestone M1 advances to Phase 5 next.
 
