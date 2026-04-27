@@ -112,23 +112,34 @@ describe('hydrateFromSession (Phase 4.1 — Pattern 1)', () => {
       user: { id: 'user-uuid', email: 'c@x.com', app_metadata: {} },
     } as never
 
-    // Mock: usuarios_rh empty, candidatos returns row → fallback resolves to 'candidato'
+    // Mock: usuarios_rh empty, candidatos returns row → fallback resolves to 'candidato'.
+    // Wave 0 scaffold quirk: fetchProfile fallback path uses .maybeSingle() (not .single());
+    // .eq() can be chained multiple times before terminator. Stub the full chain to match
+    // both happy path (single) and fallback path (maybeSingle) terminators.
     let calls = 0
     mocks.fromMock.mockImplementation((table: string) => {
       calls++
+      const result = {
+        data:
+          table === 'candidatos'
+            ? { id: 'cand-uuid', user_id: 'user-uuid' }
+            : null,
+        error: table === 'candidatos' ? null : { code: 'PGRST116' },
+      }
+      type EqChain = {
+        eq: (...args: unknown[]) => EqChain
+        is: (...args: unknown[]) => EqChain
+        single: () => Promise<typeof result>
+        maybeSingle: () => Promise<typeof result>
+      }
+      const eqChain: EqChain = {
+        eq: () => eqChain,
+        is: () => eqChain,
+        single: () => Promise.resolve(result),
+        maybeSingle: () => Promise.resolve(result),
+      }
       return {
-        select: () => ({
-          eq: () => ({
-            single: () =>
-              Promise.resolve({
-                data:
-                  table === 'candidatos'
-                    ? { id: 'cand-uuid', user_id: 'user-uuid' }
-                    : null,
-                error: table === 'candidatos' ? null : { code: 'PGRST116' },
-              }),
-          }),
-        }),
+        select: () => eqChain,
       }
     })
 

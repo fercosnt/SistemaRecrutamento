@@ -86,6 +86,28 @@ export interface AuthState {
   logout: () => Promise<void>
   clearAuth: () => void
   setSession: (session: Session | null) => void
+  /**
+   * Hidrata o store a partir de uma `Session` recebida do listener
+   * `supabase.auth.onAuthStateChange` — diferente de `setSession` (sync,
+   * apenas decode JWT) porque executa o `fetchProfile` (DB fallback) e
+   * popula `profile`, `candidato`, `adminUser`, `permissions` etc.
+   *
+   * Phase 4.1 — fecha INT-BLOCKER-1 + INT-BLOCKER-2 (candidato fica `null`
+   * após SIGNED_IN porque listener antigo só chamava `setSession`).
+   *
+   * Pitfalls observados (RESEARCH §Pattern 1 / §Common Pitfalls):
+   *   - NÃO chama `set({ isLoading: true })` (Pitfall 6: re-trigger spinner
+   *     após mount fica visível em RoleGuard).
+   *   - NÃO emite `console.*` (Pitfall 7 / T-4.1-04).
+   *   - Em erro, mantém último estado conhecido (RoleGuard fallback bouncará
+   *     se necessário).
+   *
+   * @see .planning/phases/04-1-auth-hydration-fix/04.1-RESEARCH.md (§Pattern 1)
+   * @see .planning/phases/04-1-auth-hydration-fix/04.1-PATTERNS.md (Pattern A)
+   *
+   * @param session Sessão do Supabase (ou null em SIGNED_OUT)
+   */
+  hydrateFromSession: (session: Session | null) => Promise<void>
 
   // --- Compatibilidade legada (remover em M2) ---
   /** @deprecated Use `profile` com cast explícito baseado em `role` */
@@ -336,6 +358,39 @@ export const useAuthStore = create<AuthState>()(
           get().clearAuth()
         } finally {
           set({ isLoading: false })
+        }
+      },
+
+      hydrateFromSession: async (session) => {
+        try {
+          if (!session?.user) {
+            get().clearAuth()
+            return
+          }
+
+          const roleFromJwt = extractRole(session)
+          const { profile, resolvedRole } = await fetchProfile(session.user.id, roleFromJwt)
+
+          set({
+            user: session.user,
+            session,
+            role: resolvedRole,
+            profile,
+            candidato:
+              resolvedRole === 'candidato'
+                ? (profile as CandidatoRow | null)
+                : null,
+            adminUser:
+              resolvedRole === 'rh' || resolvedRole === 'administrador'
+                ? (profile as UsuarioRHRow | null)
+                : null,
+            permissions: permissionsFromRole(resolvedRole),
+            isAdmin: resolvedRole === 'administrador',
+            isAuthenticated: true,
+          })
+        } catch {
+          // Pitfall 7: zero console.*. Hydration failure → keep last known good state;
+          // RoleGuard will eventually bounce if needed.
         }
       },
 

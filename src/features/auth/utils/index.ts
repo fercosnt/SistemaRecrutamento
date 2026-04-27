@@ -5,3 +5,4 @@
 export * from './mapSupabaseError'
 export * from './extractRole'
 export * from './rememberMeStorage'
+export { waitForCandidatoHydrated } from './waitForCandidatoHydrated'
