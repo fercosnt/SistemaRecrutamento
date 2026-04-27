@@ -47,6 +47,7 @@ import { loginSchema, type LoginFormData } from '@/features/auth/schemas'
 import { signIn, resendConfirmation } from '@/features/auth/services'
 import { AuthError, isAuthError } from '@/features/auth/types'
 import { useRateLimitCooldown } from '@/features/auth/hooks'
+import { waitForCandidatoHydrated } from '@/features/auth/utils'
 
 /**
  * VAGA-03 — Anti-open-redirect guard for the `?redirect=` query param.
@@ -115,6 +116,11 @@ export function LoginCandidatoPage() {
         senha: data.password,
         rememberMe: data.rememberMe ?? true,
       })
+      // Phase 4.1 (RESEARCH §Pattern 2): defense-in-depth. Listener Pattern 1
+      // (App.tsx) hydrates via setTimeout(0); submit handler may navigate
+      // BEFORE fetchProfile resolves. Block until candidato populated OR
+      // hard timeout (3s) — degrades gracefully (RoleGuard catches role).
+      await waitForCandidatoHydrated({ timeoutMs: 3000 })
       toast.success('Login realizado com sucesso!', { duration: 3000 })
       // VAGA-03: consume `?redirect=` query param (e.g. set by VagaDetalhePage
       // when an unauthenticated visitor clicks "Candidatar-se"). Guarded against

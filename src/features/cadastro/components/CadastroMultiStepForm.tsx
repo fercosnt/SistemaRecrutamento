@@ -51,6 +51,7 @@ import {
   FIELD_TO_STEP_INDEX,
   FIELD_TO_STEP_PATH,
 } from '../services/cadastroService'
+import { waitForCandidatoHydrated } from '@/features/auth/utils'
 
 // Import dos componentes de cada step
 import { DadosPessoaisStep } from './steps/DadosPessoaisStep'
@@ -435,6 +436,11 @@ export function CadastroMultiStepForm({
       const primeiroNome = result.data.dadosPessoais.nome_completo.split(' ')[0]
 
       if (loggedIn) {
+        // Phase 4.1 (RESEARCH §Pitfall 5): tryAutoLogin retorna true ANTES
+        // do listener SIGNED_IN ter rodado o callback. Aguarda hidratação
+        // até `candidato !== null` para evitar /candidato/perfil render
+        // com fields vazios.
+        await waitForCandidatoHydrated({ timeoutMs: 3000 })
         toast.success(`Cadastro concluído! Bem-vindo(a), ${primeiroNome}.`, { duration: 5000 })
         navigate('/candidato/perfil', { replace: true })
       } else {

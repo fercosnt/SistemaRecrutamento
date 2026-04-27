@@ -53,6 +53,7 @@ import {
 import { setNewPassword, tryAutoLogin } from '@/features/auth/services'
 import { isAuthError } from '@/features/auth/types'
 import { useRecoverySession } from '@/features/auth/hooks'
+import { waitForCandidatoHydrated } from '@/features/auth/utils'
 
 export function RedefinirSenhaPage() {
   const navigate = useNavigate()
@@ -75,6 +76,9 @@ export function RedefinirSenhaPage() {
       await setNewPassword(data.nova_senha)
       // Happy path: usuário continua autenticado via PASSWORD_RECOVERY
       // session (RESEARCH §Pitfall 2). Toast + navigate imediato (D-12).
+      // Phase 4.1: aguarda hidratação antes de navegar para evitar
+      // /candidato/perfil renderizar com candidato=null.
+      await waitForCandidatoHydrated({ timeoutMs: 3000 })
       toast.success('Senha alterada com sucesso.', { duration: 4000 })
       navigate('/candidato/perfil', { replace: true })
     } catch (err) {
@@ -87,6 +91,8 @@ export function RedefinirSenhaPage() {
         if (looksExpired && recovery.status === 'valid') {
           const ok = await tryAutoLogin(recovery.email, data.nova_senha)
           if (ok) {
+            // Phase 4.1: aguarda hidratação no fallback path tambem.
+            await waitForCandidatoHydrated({ timeoutMs: 3000 })
             toast.success('Senha alterada com sucesso.', { duration: 4000 })
             navigate('/candidato/perfil', { replace: true })
             return
