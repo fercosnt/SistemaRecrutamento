@@ -89,6 +89,12 @@ export function RoleGuard({ children, role }: RoleGuardProps) {
   // Guard para evitar disparar o toast multiplas vezes no mesmo redirect
   // (render duplicado do React StrictMode, re-render antes do Navigate unmount).
   const toastFiredRef = useRef(false)
+  // Phase 4.1 — Pattern 3 (RESEARCH §Pattern 3 / INT-WARNING-3 defense).
+  // Quando JWT app_metadata.role não é emitido, role==null. Em vez de
+  // redirect direto a /auth/login (que cria loop, login é bem-sucedido com
+  // role ainda null), tentamos UM one-shot initialize() que tem fallback DB
+  // via fetchProfile (queries usuarios_rh + candidatos com RLS).
+  const fallbackTriedRef = useRef(false)
 
   // Decisao derivada do estado atual.
   const authResolved = !isLoading
@@ -114,8 +120,29 @@ export function RoleGuard({ children, role }: RoleGuardProps) {
     )
   }
 
-  // 2. Nao autenticado ou sem role -> redireciona para login preservando destino
-  if (!isAuthenticated || currentRole === null) {
+  // 2a. Nao autenticado -> redireciona para login preservando destino
+  if (!isAuthenticated) {
+    const redirectTo = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/auth/login?redirect=${redirectTo}`} replace />
+  }
+
+  // 2b. Authenticated mas role===null -> tentar one-shot DB fallback antes de bouncar.
+  //     Previne INT-WARNING-3 redirect loop quando JWT custom hook nao emite
+  //     app_metadata.role. fetchProfile (via initialize) consulta usuarios_rh
+  //     + candidatos com RLS.
+  if (currentRole === null) {
+    if (!fallbackTriedRef.current) {
+      fallbackTriedRef.current = true
+      void useAuthStore.getState().initialize()
+      return (
+        <LoadingDelay delay={200}>
+          <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </LoadingDelay>
+      )
+    }
+    // Fallback ja tentado e ainda role===null -> bounce to login (last resort)
     const redirectTo = encodeURIComponent(location.pathname + location.search)
     return <Navigate to={`/auth/login?redirect=${redirectTo}`} replace />
   }
