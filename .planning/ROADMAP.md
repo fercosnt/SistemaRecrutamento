@@ -142,11 +142,11 @@ Plans:
   3. `02-VALIDATION.md` frontmatter: `status: validated`
   4. `03-VALIDATION.md` frontmatter: `status: validated`
   5. REQUIREMENTS.md traceability table reflects FOUND-01..12 as Complete with verification artifact reference
-**Plans**: TBD
+**Plans**: 1 plan
 **UI hint**: no (documentation-only)
 
 Plans:
-- [ ] 04-2-01: TBD
+- [ ] 04.2-01-PLAN.md — Author 01-VERIFICATION.md (FOUND-01..12 evidence chain) + flip 01/02/03-VALIDATION.md frontmatter draft → validated + sync REQUIREMENTS.md traceability + STATE.md timestamp
 
 ### Phase 5: Perfil + Hardening MVP
 **Goal**: The candidate can see their real application data on a profile page, and the entire MVP passes E2E tests, Lighthouse thresholds, and accessibility checks
