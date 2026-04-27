@@ -25,7 +25,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { ScrollArea } from './components/ui/scroll-area'
 import { routes, devNavigationPages } from './router/routes'
 import { useAuthStore } from './store/authStore'
-import { useIsAdminAuthenticated } from './store/adminAuthStore'
 import { supabase } from './lib/supabase/client'
 import { useSessionTimeout } from './hooks/useSessionTimeout'
 
@@ -133,6 +132,16 @@ function DevNavigationMenu() {
     </Sheet>
   )
 }
+
+/**
+ * Hook: usuário está autenticado como RH ou administrador?
+ *
+ * Phase 4.1 — substitui `useIsAdminAuthenticated` do `adminAuthStore.ts`
+ * (re-export shim deletado para fechar FOUND-12). Consumido apenas em
+ * RootLayout para gatear `useSessionTimeout` (timeout só para sessões RH).
+ */
+const useIsAdminAuthenticated = () =>
+  useAuthStore((s) => s.isAuthenticated && (s.role === 'rh' || s.role === 'administrador'))
 
 /**
  * Layout raiz que envolve todas as páginas

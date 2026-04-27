@@ -14,11 +14,12 @@
  *     return (sem navegar).
  *
  * D-14 / Bug 2/3 fix:
- *   Os setters legados do antigo adminAuthStore forjavam role='administrador'
- *   no client-side sem ler o JWT. Esta page REMOVE esses setters; a derivação
- *   do role agora vem do listener `supabase.auth.onAuthStateChange` montado
- *   uma vez no RootLayout (App.tsx), que sincroniza authStore via setSession
- *   → extractRole (Plan 03-03 / Bug 1 fix) decodifica o JWT e popula `role`.
+ *   Os setters legados do antigo store admin (deletado em Phase 4.1 — FOUND-12)
+ *   forjavam role='administrador' no client-side sem ler o JWT. Esta page
+ *   REMOVE esses setters; a derivação do role agora vem do listener
+ *   `supabase.auth.onAuthStateChange` montado uma vez no RootLayout (App.tsx),
+ *   que sincroniza authStore via hydrateFromSession (Phase 4.1 fix) →
+ *   extractRole (Plan 03-03 / Bug 1 fix) decodifica o JWT e popula `role`.
  *
  * Pitfall 1 (rejeitado):
  *   `await new Promise(r => setTimeout(r, 0))` cria uma macrotask que NÃO

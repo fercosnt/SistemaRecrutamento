@@ -16,7 +16,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useAdminAuthStore } from '@/store/adminAuthStore'
+import { useAuthStore } from '@/store/authStore'
 import { logAccessEvent } from '@/services/logAccessService'
 
 /**
@@ -33,7 +33,7 @@ const WARNING_TIME = 2 * 60 * 1000 // Avisar 2 minutos antes do logout
  * @example
  * ```tsx
  * function RootLayout() {
- *   const { isAuthenticated } = useAdminAuthStore()
+ *   const { isAuthenticated } = useAuthStore()
  *   useSessionTimeout(isAuthenticated) // Monitora apenas se autenticado
  *
  *   return <Outlet />
@@ -42,7 +42,7 @@ const WARNING_TIME = 2 * 60 * 1000 // Avisar 2 minutos antes do logout
  */
 export function useSessionTimeout(isEnabled: boolean = true) {
   const navigate = useNavigate()
-  const { isAuthenticated, adminUser, logout } = useAdminAuthStore()
+  const { isAuthenticated, adminUser, logout } = useAuthStore()
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
