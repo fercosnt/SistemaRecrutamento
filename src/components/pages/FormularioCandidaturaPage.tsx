@@ -230,7 +230,23 @@ export function FormularioCandidaturaPage() {
   }
 
   const onSubmit = async (data: CandidaturaFormData) => {
-    if (!cvFile || !user || !candidato || !vaga) return
+    // Phase 4.1 (RESEARCH §Pattern 2 + §Pitfall 1): replace silent return
+    // by explicit toast feedback. Distinguishes between session-not-yet-hydrated
+    // (the actual bug) and missing CV (UX clarity).
+    if (!candidato || !user) {
+      toast.error('Sessão ainda carregando, tente novamente em instantes', {
+        duration: 4000,
+      })
+      return
+    }
+    if (!cvFile) {
+      toast.error('Anexe seu currículo antes de enviar', { duration: 4000 })
+      return
+    }
+    if (!vaga) {
+      toast.error('Vaga não encontrada. Atualize a página.', { duration: 4000 })
+      return
+    }
 
     let uploadedPath: string | null = cvPath
     try {
@@ -472,8 +488,6 @@ export function FormularioCandidaturaPage() {
     ? groupByBloco(perguntasList)
     : new Map<string, PerguntaFormulario[]>()
 
-  const submitDisabled =
-    !cvFile || cvUploading || form.formState.isSubmitting
 
   // Initials for avatar fallback (replicates MeuPerfilCandidatoPage pattern).
   const candidatoIniciais = (candidato?.nome_completo || 'C')
@@ -632,7 +646,7 @@ export function FormularioCandidaturaPage() {
           <GlassCard variant="white" className="rounded-xl">
             <button
               type="submit"
-              disabled={submitDisabled}
+              disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}
               className="w-full inline-flex items-center justify-center rounded-md bg-[#00109E] px-6 py-3 text-white font-semibold hover:bg-[#00109E]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {cvUploading || form.formState.isSubmitting ? (
