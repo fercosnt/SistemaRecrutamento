@@ -3,12 +3,14 @@
  *
  * Configuração do React Router e menu de navegação de desenvolvimento.
  *
- * Após FOUND-02/06/11 (Phase 1 Plan 05):
+ * Após FOUND-02/06/11 (Phase 1 Plan 05) + Phase 4.1 (auth-hydration-fix):
  * - Apenas o `useAuthStore` unificado é inicializado (uma única chamada a
  *   `initialize()` no mount).
- * - Um único `onAuthStateChange` listener despacha para `setSession`
- *   (SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED) ou `clearAuth` (SIGNED_OUT)
- *   — sem stores duplicados, sem race conditions.
+ * - Um único `onAuthStateChange` listener despacha para `hydrateFromSession`
+ *   via `setTimeout(0)` (SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED /
+ *   PASSWORD_RECOVERY) ou `clearAuth` (SIGNED_OUT, sync). O `setTimeout(0)`
+ *   wrapper é mandatório per Supabase docs (Web Lock deadlock prevention) —
+ *   sem stores duplicados, sem race conditions.
  * - Nenhuma flag manual de "Lembrar-me" é lida ou escrita aqui. A
  *   persistência de sessão é responsabilidade exclusiva do Supabase
  *   (`persistSession: true` em `src/lib/supabase/client.ts`).
@@ -137,8 +139,12 @@ function DevNavigationMenu() {
  *
  * Responsabilidades:
  * - Inicializar o store de auth unificado UMA única vez.
- * - Registrar UM único listener `supabase.auth.onAuthStateChange` que
- *   despacha para `setSession` ou `clearAuth` no store unificado.
+ * - Registrar UM único listener supabase.auth.onAuthStateChange que despacha
+ *   para hydrateFromSession (assíncrono, via setTimeout(0) per RESEARCH §Pattern 1)
+ *   ou clearAuth (síncrono) no store unificado. Phase 4.1 fix de
+ *   INT-BLOCKER-1+2: hydrateFromSession chama fetchProfile para popular
+ *   candidato/profile após qualquer SIGNED_IN/TOKEN_REFRESHED/USER_UPDATED/
+ *   PASSWORD_RECOVERY.
  * - Montar o DevNavigationMenu apenas em ambiente de desenvolvimento.
  * - Renderizar o Toaster de notificações.
  */
@@ -150,7 +156,7 @@ function RootLayout() {
   useSessionTimeout(isAdminAuthenticated)
 
   useEffect(() => {
-    const { initialize, setSession, clearAuth } = useAuthStore.getState()
+    const { initialize, clearAuth } = useAuthStore.getState()
 
     let cancelled = false
 
@@ -159,16 +165,31 @@ function RootLayout() {
       await initialize()
       if (cancelled) return
 
-      // Um único listener para todas as transições de auth.
-      // Captura login/logout cross-tab (via localStorage storage events),
-      // expiração de sessão e refresh de token.
+      // Phase 4.1 (RESEARCH §Pattern 1):
+      //   Async work inside onAuthStateChange MUST be deferred via setTimeout(0)
+      //   to prevent supabase-js Web Lock deadlock.
+      //   Citation: https://supabase.com/docs/reference/javascript/initializing
+      //             https://github.com/supabase/auth-js/issues/762
+      //   Sync work (clearAuth) runs immediately to avoid flash-of-unauth-state.
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         (event, session) => {
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-            setSession(session)
-          } else if (event === 'SIGNED_OUT') {
+          // Sync path — NEVER inside setTimeout (would create flash of unauth state).
+          if (event === 'SIGNED_OUT') {
             clearAuth()
+            return
           }
+
+          // Async path — defer to next tick so Web Lock releases.
+          setTimeout(() => {
+            if (
+              event === 'SIGNED_IN' ||
+              event === 'TOKEN_REFRESHED' ||
+              event === 'USER_UPDATED' ||
+              event === 'PASSWORD_RECOVERY'
+            ) {
+              void useAuthStore.getState().hydrateFromSession(session)
+            }
+          }, 0)
         }
       )
 
