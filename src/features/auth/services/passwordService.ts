@@ -103,6 +103,83 @@ export async function requestPasswordReset(
 }
 
 // ============================================================
+// verifyRecoveryOtp — Phase 5 Plan 05-06 (D-15 PKCE→OTP migration)
+// ============================================================
+
+/**
+ * Verifica o código OTP de 6 dígitos enviado por email no fluxo de
+ * recuperação de senha e estabelece uma sessão de recuperação.
+ *
+ * Migração D-15/D-16 (PKCE magic-link → email-OTP):
+ *   O fluxo PKCE anterior (`?code=...` + `exchangeCodeForSession`) exigia o
+ *   `code_verifier` no localStorage do MESMO browser que originou a
+ *   solicitação — falhava silenciosamente cross-browser/device com "Link
+ *   inválido ou expirado" (Phase 3 / 03-07 finding). O `verifyOtp` com
+ *   `type: 'recovery'` é flowType-independente: o usuário digita o código de
+ *   6 dígitos do email em QUALQUER browser e a sessão é estabelecida.
+ *
+ * Após sucesso, o SDK materializa uma sessão (`SIGNED_IN`/`USER_UPDATED`) e o
+ * caller pode chamar `setNewPassword(novaSenha)` em seguida (updateUser).
+ *
+ * SECURITY / PITFALL 7 (T-05-06-02):
+ *   - O `token` (OTP) é um bearer credential — NUNCA é logado. O log de início
+ *     emite apenas um shape redatado (`{ hasEmail, hasToken }`); o `email` e o
+ *     `token` crus nunca aparecem em logs (mesma precedência de
+ *     `requestPasswordReset`).
+ *   - O caminho de erro mapeia via `mapSupabaseError` (otp_expired/bad_jwt →
+ *     mensagem amigável "Sessão expirada. Solicite um novo link.") e loga
+ *     apenas `{ code, status }`.
+ *
+ * @param email Email do usuário (o mesmo para o qual o OTP foi enviado)
+ * @param token Código OTP de 6 dígitos digitado pelo usuário
+ *
+ * @throws {AuthError} otp_expired/bad_jwt/invalid → SERVER_ERROR/UNKNOWN_ERROR
+ *   (mensagem amigável); NETWORK_ERROR em falha de fetch.
+ */
+export async function verifyRecoveryOtp(
+  email: string,
+  token: string
+): Promise<void> {
+  // Pitfall 7 (T-05-06-02): NUNCA logar o token nem o email crus — apenas
+  // flags booleanas redatadas. Reduz pegada em logs caso eles vazem.
+  console.log('[AUTH] verifyRecoveryOtp invoked', {
+    hasEmail: Boolean(email),
+    hasToken: Boolean(token),
+  })
+
+  try {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'recovery',
+    })
+
+    if (error) {
+      // Pitfall 7: log apenas { code, status } — message pode ecoar o token
+      // em alguns códigos do Supabase.
+      console.error('[AUTH] verifyOtp error:', {
+        code: error.code,
+        status: error.status,
+      })
+      throw mapSupabaseError(error)
+    }
+  } catch (err) {
+    if (err instanceof AuthError) throw err
+    console.error(
+      '[AUTH] Network/Unknown error during verifyRecoveryOtp:',
+      err instanceof Error ? err.message : String(err)
+    )
+    throw new AuthError(
+      'Sem conexão com o servidor. Verifique sua internet.',
+      'NETWORK_ERROR',
+      undefined,
+      undefined,
+      err
+    )
+  }
+}
+
+// ============================================================
 // setNewPassword — D-10/D-12
 // ============================================================
 

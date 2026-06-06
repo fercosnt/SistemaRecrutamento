@@ -22,12 +22,17 @@ vi.mock('@/lib/supabase/client', () => ({
     auth: {
       resetPasswordForEmail: vi.fn(),
       updateUser: vi.fn(),
+      verifyOtp: vi.fn(),
     },
   },
 }))
 
 import { supabase } from '@/lib/supabase/client'
-import { requestPasswordReset, setNewPassword } from '../passwordService'
+import {
+  requestPasswordReset,
+  setNewPassword,
+  verifyRecoveryOtp,
+} from '../passwordService'
 
 // happy-dom does provide window.location, but we ensure a deterministic
 // origin for the redirectTo assertion.
@@ -340,5 +345,132 @@ describe('setNewPassword (Wave 3, Plan 03-04)', () => {
     expect(serialized).not.toMatch(/"senha"/)
     expect(serialized).not.toMatch(/"access_token"/)
     expect(serialized).not.toMatch(/"refresh_token"/)
+  })
+})
+
+// ============================================================
+// verifyRecoveryOtp (Phase 5 Plan 05-06 — D-15 PKCE→OTP migration)
+// ============================================================
+
+describe('verifyRecoveryOtp (Wave 5, Plan 05-06)', () => {
+  it('T6.1 (happy): verifyOtp resolves with session → resolves without throwing', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: {
+        session: { access_token: 'abc', user: { id: 'u1', email: 'x@x.com' } },
+        user: { id: 'u1', email: 'x@x.com' },
+      },
+      error: null,
+    } as never)
+
+    await expect(
+      verifyRecoveryOtp('x@x.com', '123456')
+    ).resolves.toBeUndefined()
+  })
+
+  it('T6.2 (call shape): invokes verifyOtp with { email, token, type: "recovery" }', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { session: {}, user: {} },
+      error: null,
+    } as never)
+
+    await verifyRecoveryOtp('user@example.com', '654321')
+
+    expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+      email: 'user@example.com',
+      token: '654321',
+      type: 'recovery',
+    })
+  })
+
+  it('T6.3 (invalid OTP): otp_expired → throws mapped AuthError (friendly pt-BR)', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { session: null, user: null },
+      error: {
+        code: 'otp_expired',
+        status: 401,
+        message: 'Token has expired or is invalid',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      verifyRecoveryOtp('x@x.com', '000000')
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+    })
+
+    try {
+      await verifyRecoveryOtp('x@x.com', '000000')
+    } catch (err) {
+      // friendly pt-BR message (não SDK raw)
+      expect((err as Error).message).toMatch(/(código|sess|expir|inválid)/i)
+    }
+  })
+
+  it('T6.4 (invalid OTP): otp_disabled / generic 403 → throws mapped AuthError', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValue({
+      data: { session: null, user: null },
+      error: {
+        code: 'invalid_credentials',
+        status: 403,
+        message: 'Invalid token',
+        name: 'AuthApiError',
+      },
+    } as never)
+
+    await expect(
+      verifyRecoveryOtp('x@x.com', '111111')
+    ).rejects.toMatchObject({ name: 'AuthError' })
+  })
+
+  it('T6.5 (network throw): SDK rejection → throws AuthError{NETWORK_ERROR}', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockRejectedValue(
+      new TypeError('Failed to fetch')
+    )
+
+    await expect(
+      verifyRecoveryOtp('x@x.com', '222222')
+    ).rejects.toMatchObject({
+      name: 'AuthError',
+      code: 'NETWORK_ERROR',
+    })
+  })
+
+  it('T6.6 (Pitfall 7): NEVER logs the OTP token value', async () => {
+    const { serializeAll } = setupConsoleSpies()
+
+    // Happy path
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValueOnce({
+      data: { session: {}, user: {} },
+      error: null,
+    } as never)
+    await verifyRecoveryOtp('victim@x.com', '918273')
+
+    // Error path
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: {
+        code: 'otp_expired',
+        status: 401,
+        message: 'Token 918273 expired',
+        name: 'AuthApiError',
+      },
+    } as never)
+    await verifyRecoveryOtp('victim@x.com', '918273').catch(() => {})
+
+    // Network throw
+    vi.mocked(supabase.auth.verifyOtp).mockRejectedValueOnce(
+      new TypeError('Failed to fetch')
+    )
+    await verifyRecoveryOtp('victim@x.com', '918273').catch(() => {})
+
+    const serialized = serializeAll()
+    // The 6-digit OTP token must NEVER appear in any log call
+    expect(serialized).not.toContain('918273')
+    expect(serialized).not.toMatch(/"token"/)
+    expect(serialized).not.toMatch(/"access_token"/)
+    // The raw email must not appear either (Pitfall 7 — same precedent as
+    // requestPasswordReset: only a redacted shape is logged)
+    expect(serialized).not.toContain('victim@x.com')
   })
 })

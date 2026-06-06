@@ -70,6 +70,7 @@ describe('passwordSchema (Wave 1, Plan 03-02)', () => {
 describe('redefinirSenhaSchema (Wave 1, Plan 03-02)', () => {
   it('T3.7: accepts matching valid passwords', () => {
     const result = redefinirSenhaSchema.safeParse({
+      token: '123456',
       nova_senha: 'Abcdef12',
       confirmar_nova_senha: 'Abcdef12',
     })
@@ -82,6 +83,7 @@ describe('redefinirSenhaSchema (Wave 1, Plan 03-02)', () => {
 
   it('T3.8: B11 — rejects mismatch at path ["confirmar_nova_senha"] with message "As senhas não coincidem"', () => {
     const result = redefinirSenhaSchema.safeParse({
+      token: '123456',
       nova_senha: 'Abcdef12',
       confirmar_nova_senha: 'Mismatch1',
     })
@@ -99,6 +101,7 @@ describe('redefinirSenhaSchema (Wave 1, Plan 03-02)', () => {
 
   it('T3.9: rejects weak nova_senha with passwordSchema error at path ["nova_senha"] (declaration order)', () => {
     const result = redefinirSenhaSchema.safeParse({
+      token: '123456',
       nova_senha: 'weak',
       confirmar_nova_senha: 'weak',
     })
@@ -106,10 +109,84 @@ describe('redefinirSenhaSchema (Wave 1, Plan 03-02)', () => {
     if (!result.success) {
       // When nova_senha fails passwordSchema, the first issue is on nova_senha
       // (Zod parses object fields in declaration order before running refines).
-      const firstIssue = result.error.issues[0]
-      expect(firstIssue.path[0]).toBe('nova_senha')
-      // Specifically the min(8) check fires first
-      expect(firstIssue.message).toBe('Senha deve ter no mínimo 8 caracteres')
+      const novaSenhaIssue = result.error.issues.find(
+        (i) => i.path[0] === 'nova_senha'
+      )
+      expect(novaSenhaIssue).toBeDefined()
+      // Specifically the min(8) check fires
+      expect(novaSenhaIssue?.message).toBe(
+        'Senha deve ter no mínimo 8 caracteres'
+      )
+    }
+  })
+})
+
+// ============================================================
+// 6-digit OTP token field (Phase 5 Plan 05-06 — D-15)
+// ============================================================
+
+describe('redefinirSenhaSchema — OTP token field (Wave 5, Plan 05-06)', () => {
+  it('T3.10: accepts a valid 6-digit numeric token + matching passwords', () => {
+    const result = redefinirSenhaSchema.safeParse({
+      token: '123456',
+      nova_senha: 'Abcdef12',
+      confirmar_nova_senha: 'Abcdef12',
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.token).toBe('123456')
+    }
+  })
+
+  it('T3.11: rejects a 5-digit token at path ["token"]', () => {
+    const result = redefinirSenhaSchema.safeParse({
+      token: '12345',
+      nova_senha: 'Abcdef12',
+      confirmar_nova_senha: 'Abcdef12',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const tokenIssue = result.error.issues.find((i) => i.path[0] === 'token')
+      expect(tokenIssue).toBeDefined()
+    }
+  })
+
+  it('T3.12: rejects a 7-digit token at path ["token"]', () => {
+    const result = redefinirSenhaSchema.safeParse({
+      token: '1234567',
+      nova_senha: 'Abcdef12',
+      confirmar_nova_senha: 'Abcdef12',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const tokenIssue = result.error.issues.find((i) => i.path[0] === 'token')
+      expect(tokenIssue).toBeDefined()
+    }
+  })
+
+  it('T3.13: rejects a non-numeric 6-char token at path ["token"]', () => {
+    const result = redefinirSenhaSchema.safeParse({
+      token: 'abc123',
+      nova_senha: 'Abcdef12',
+      confirmar_nova_senha: 'Abcdef12',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const tokenIssue = result.error.issues.find((i) => i.path[0] === 'token')
+      expect(tokenIssue).toBeDefined()
+    }
+  })
+
+  it('T3.14: rejects an empty token at path ["token"]', () => {
+    const result = redefinirSenhaSchema.safeParse({
+      token: '',
+      nova_senha: 'Abcdef12',
+      confirmar_nova_senha: 'Abcdef12',
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      const tokenIssue = result.error.issues.find((i) => i.path[0] === 'token')
+      expect(tokenIssue).toBeDefined()
     }
   })
 })
