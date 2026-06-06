@@ -83,6 +83,19 @@ export function RedefinirSenhaPage() {
       navigate('/candidato/perfil', { replace: true })
     } catch (err) {
       if (isAuthError(err)) {
+        // F-04.1-E: 422 transiente no primeiro setNewPassword (recupera no
+        // retry). O 422 cai no branch default do mapSupabaseError (UNKNOWN_ERROR)
+        // carregando o status no originalError. Detecta e mostra um toast amigável
+        // pedindo nova tentativa — NÃO faz auto-retry silencioso (o usuário
+        // re-submete). Pitfall 7: não loga novaSenha/token aqui.
+        const original = err.originalError as { status?: number } | undefined
+        if (original?.status === 422) {
+          toast.error('Houve um erro temporário. Tente novamente.', {
+            duration: 6000,
+          })
+          return
+        }
+
         // Pitfall 2: session_expired fallback — recovery session foi
         // invalidada mid-flow. Tenta tryAutoLogin com a senha nova.
         const looksExpired =

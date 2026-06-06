@@ -73,6 +73,14 @@ export function EnderecoStep() {
   // Toast hook
   const toast = useFormToast()
 
+  // F-04.1-B fix: guarda contra loop do toast "CEP encontrado".
+  // useViaCEP recria `buscar` a cada render (deps [onSuccess, onError] são
+  // arrow functions inline), o que re-dispara o effect de debounce e pode
+  // re-invocar onSuccess para o MESMO CEP já resolvido. Este ref registra o
+  // último CEP que já gerou toast, garantindo que cepFound() dispare exatamente
+  // uma vez por lookup bem-sucedido (não a cada render).
+  const lastToastedCepRef = React.useRef<string | null>(null)
+
   // Integração com ViaCEP
   const { data: viaCepData, loading: cepLoading, error: cepError } = useViaCEP(
     cep || '',
@@ -86,8 +94,12 @@ export function EnderecoStep() {
         setValue('endereco.cidade', formData.cidade)
         setValue('endereco.estado', formData.estado)
 
-        // Mostrar toast de sucesso
-        toast.messages.cepFound()
+        // F-04.1-B: só dispara o toast quando o CEP resolvido mudou de fato.
+        const resolvedCep = (data.cep || cep || '').replace(/\D/g, '')
+        if (lastToastedCepRef.current !== resolvedCep) {
+          lastToastedCepRef.current = resolvedCep
+          toast.messages.cepFound()
+        }
 
         // Focar no campo número após preencher
         setTimeout(() => {
