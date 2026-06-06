@@ -4,7 +4,12 @@ interface BeautySmileLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   variant?: 'primary' | 'white' | 'accent' | 'secondary';
-  type?: 'icon' | 'horizontal' | 'vertical';
+  // D-14 reconcile (Plan 05-02, WR-02-09): 'symbol' is a documented alias for the
+  // square icon glyph. The render switch only special-cases 'vertical'/'horizontal',
+  // so any other value (including 'symbol') already falls through to the icon glyph.
+  // Widening the union here makes the MeuPerfilCandidatoPage:350 call site type-safe
+  // while keeping its rendered glyph byte-identical (canonical single answer).
+  type?: 'icon' | 'symbol' | 'horizontal' | 'vertical';
 }
 
 // Icon size classes (square)
