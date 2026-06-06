@@ -3,8 +3,8 @@ plan: 05-06
 status: paused-at-blocking-checkpoint
 phase: 05-perfil-hardening-mvp
 parked: 2026-06-06
-tasks_done: 2          # code + tests committed
-tasks_pending: 2       # both require human action
+tasks_done: 2          # code + tests committed (+ WR-01 fold-in 226a57c)
+tasks_pending: 2       # Task 3 + Task 4 — both require human action
 resume_owner: human (Fernando)
 ---
 
@@ -49,10 +49,14 @@ Keep OTP expiry at 3600s. (`{{ .ConfirmationURL }}` may remain as a secondary li
 4. Confirm accepted, lands on `/candidato/perfil`, and the new password logs in CROSS-BROWSER (the PKCE failure mode is gone).
 5. On `/candidato/perfil`, confirm the "Alterar Senha" widget is inside a `<form>` and submits.
 
-## Code-review findings to fold in on resume (from 05-REVIEW.md WR-01)
+## Code-review findings (from 05-REVIEW.md WR-01) — ✅ FOLDED IN (commit 226a57c)
 The `handleAlterarSenha` widget in `MeuPerfilCandidatoPage.tsx` (which 05-06 wraps in a `<form>`):
-- collects "Senha Atual" but never verifies it before `supabase.auth.updateUser({ password })` — either drop the field or `signInWithPassword({ email, password: atual })` first to enforce re-auth;
-- uses a min-length check of 6, inconsistent with the app-wide `passwordSchema` (≥8 + upper/lower/digit). Align to the schema.
+- ✅ now requires the current password and reverifies it via
+  `signInWithPassword({ email, password: atual })` before `updateUser` (re-auth gate enforced — user chose this over dropping the field);
+- ✅ now validates the new password against the shared `passwordSchema` (≥8 + upper/lower/digit) instead of the ad-hoc min-6 check;
+- ✅ auth error logging redacted to `{ code, status }` (IN-02) in the same handler.
+
+Build exit 0; tsc baseline held at 292. **Task 4 UAT step 5 should now exercise this corrected re-auth form.**
 
 ## To resume
 `npm run build && npm run preview` (serves on :4173). Do Task 3, then Task 4. Once both pass,
