@@ -352,7 +352,7 @@ export function MeuPerfilCandidatoPage() {
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10 border-2 border-white/30">
                       <AvatarImage src={dadosPessoais.avatar} />
-                      <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
+                      <AvatarFallback className="bg-accent/80 text-white text-sm">
                         {(candidato?.nome_completo || 'C')
                           .split(' ')
                           .map((n) => n[0])
@@ -406,7 +406,7 @@ export function MeuPerfilCandidatoPage() {
               <div className="flex flex-col items-center gap-3">
                 <Avatar className="w-[120px] h-[120px] border-4 border-white/20">
                   <AvatarImage src={dadosPessoais.avatar} />
-                  <AvatarFallback className="bg-[#35BFAD] text-white text-3xl">
+                  <AvatarFallback className="bg-accent text-white text-3xl">
                     {(candidato?.nome_completo || 'C')
                       .split(' ')
                       .map((n) => n[0])
