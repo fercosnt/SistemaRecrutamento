@@ -29,6 +29,17 @@ const INVALID_CREDENTIALS = {
 }
 
 /**
+ * Tier-2 gate (HARD-01 / CI): the legacy "Testes Funcionais/UX" suites below perform REAL
+ * logins with TEST_USER against a live Supabase + a seeded candidato. They cannot run in the
+ * deterministic CI core (no real creds / no seeded user) and were never gated — so they ran
+ * and failed in CI. Gate them behind E2E_AUTH_TEST_USERS==='true' (same convention as the
+ * promoted B3/B4/B8 below). The mocked B1/B2/B15 (page.route) keep covering the login core
+ * unconditionally. Set E2E_AUTH_TEST_USERS=true (+ TEST_USER_* + a seeded user) to run these.
+ */
+const REAL_AUTH = process.env.E2E_AUTH_TEST_USERS === 'true'
+const describeRealAuth = REAL_AUTH ? test.describe : test.describe.skip
+
+/**
  * Helper: Preencher formulário de login
  */
 async function fillLoginForm(page: Page, email: string, password: string, rememberMe = false) {
@@ -79,7 +90,7 @@ async function logout(page: Page) {
 // TESTES FUNCIONAIS BÁSICOS
 // ============================================================================
 
-test.describe('Testes Funcionais Básicos', () => {
+describeRealAuth('Testes Funcionais Básicos', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -200,7 +211,7 @@ test.describe('Testes Funcionais Básicos', () => {
 // TESTES DE SESSÃO E PERSISTÊNCIA
 // ============================================================================
 
-test.describe('Testes de Sessão e Persistência', () => {
+describeRealAuth('Testes de Sessão e Persistência', () => {
   test('2.1 - Lembrar-me - COM checkbox marcado', async ({ page, context }) => {
     await page.goto('/auth/login')
 
@@ -287,7 +298,7 @@ test.describe('Testes de Sessão e Persistência', () => {
 // TESTES DE ROTAS PROTEGIDAS
 // ============================================================================
 
-test.describe('Testes de Rotas Protegidas', () => {
+describeRealAuth('Testes de Rotas Protegidas', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -330,7 +341,7 @@ test.describe('Testes de Rotas Protegidas', () => {
 // TESTES DE LOGOUT
 // ============================================================================
 
-test.describe('Testes de Logout', () => {
+describeRealAuth('Testes de Logout', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -375,7 +386,7 @@ test.describe('Testes de Logout', () => {
 // TESTES DE ESTADOS DE LOADING
 // ============================================================================
 
-test.describe('Testes de Estados de Loading', () => {
+describeRealAuth('Testes de Estados de Loading', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -431,7 +442,7 @@ test.describe('Testes de Estados de Loading', () => {
 // TESTES DE TRATAMENTO DE ERROS
 // ============================================================================
 
-test.describe('Testes de Tratamento de Erros', () => {
+describeRealAuth('Testes de Tratamento de Erros', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -469,7 +480,7 @@ test.describe('Testes de Tratamento de Erros', () => {
 // TESTES DE SEGURANÇA
 // ============================================================================
 
-test.describe('Testes de Segurança', () => {
+describeRealAuth('Testes de Segurança', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()
@@ -537,7 +548,7 @@ test.describe('Testes de Segurança', () => {
 // TESTES DE UX/UI
 // ============================================================================
 
-test.describe('Testes de UX/UI', () => {
+describeRealAuth('Testes de UX/UI', () => {
   test.beforeEach(async ({ page, context }) => {
     // Limpar localStorage antes de cada teste
     await context.clearCookies()

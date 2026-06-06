@@ -3,8 +3,16 @@
 # First-ever CI pipeline: unit (lint + vitest) + e2e (playwright chromium) + lighthouse (LHCI).
 #
 # Tier-1 deterministic core runs UNCONDITIONALLY — specs mock Supabase via page.route(),
-# so no live Supabase secrets are required for a green check. Tier-2 live/real-email specs
-# stay skip-with-reason (E2E_AUTH_TEST_USERS OFF). See 05-RESEARCH.md §Q1.
+# so no live Supabase secrets are required for a green check. The app's client.ts THROWS
+# at load if VITE_SUPABASE_URL/ANON_KEY are absent, so CI supplies anon-safe PLACEHOLDER
+# values (the real network is mocked). If TEST_* repo secrets are configured they take
+# precedence; otherwise the placeholders let the app boot so page.route mocks apply.
+# Tier-2 live/real-email specs stay skip-with-reason (E2E_AUTH_TEST_USERS OFF). See 05-RESEARCH.md §Q1.
+#
+# tsc legacy debt: `tsc --noEmit` reports a frozen baseline of 292 pre-existing errors in
+# legacy src/components/pages/*.tsx (scheduled for a dedicated cleanup phase). The unit job
+# enforces a ZERO-GROWTH invariant (CI red only if the count rises above 292) instead of
+# failing on the baseline — this is the gate the original comment promised but never implemented.
 #
 # SECURITY (CLAUDE.md hard rule / Pitfall 2): only the anon-safe VITE_SUPABASE_URL +
 # VITE_SUPABASE_ANON_KEY are VITE_-prefixed (inlined into the browser bundle). The
@@ -16,6 +24,12 @@ on:
     branches: [main, 'backup/**']
   pull_request:
 
+env:
+  # Anon-safe placeholders so client.ts constructs and the app boots; Tier-1 specs mock all
+  # network via page.route(). Real TEST_* repo secrets (anon key — public by design) win when set.
+  VITE_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY || 'placeholder-anon-key-for-ci-mocked-tests' }}
+
 jobs:
   unit:
     runs-on: ubuntu-latest
@@ -26,7 +40,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run lint          # tsc --noEmit — baseline 296 zero-growth invariant (CI red on growth)
+      - name: Type-check (frozen tsc baseline 292 — CI red only on growth)
+        run: |
+          COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
+          echo "tsc errors: $COUNT (frozen baseline: 292)"
+          if [ "$COUNT" -gt 292 ]; then
+            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (292) — new type errors introduced"
+            npm run -s lint 2>&1 | grep "error TS" | head -50
+            exit 1
+          fi
       - run: npm run test:run      # Vitest single run
 
   e2e:
@@ -45,9 +67,6 @@ jobs:
         run: npx playwright test --project=chromium
         env:
           CI: true
-          # Anon-key + URL point at the dedicated TEST project (anon-safe → safe to expose to CI run).
-          VITE_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
           # Tier-2 gate OFF by default → live-Supabase/real-email specs skip-with-reason.
           E2E_AUTH_TEST_USERS: ''
       - uses: actions/upload-artifact@v4
@@ -69,6 +88,3 @@ jobs:
       - run: npm run build
       - run: npm install -g @lhci/cli@0.15.1
       - run: lhci autorun
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
