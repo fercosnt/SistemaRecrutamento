@@ -42,27 +42,34 @@
   --semantic-info-50: #ECFDF5;
   --semantic-info: #35BFAD;
 
-  /* Standard theme variables */
-  --background: #ffffff;
-  --foreground: var(--neutral-900);
-  --card: #ffffff;
-  --card-foreground: var(--neutral-900);
-  --popover: #ffffff;
-  --popover-foreground: var(--neutral-900);
-  --primary: var(--brand-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--brand-secondary);
-  --secondary-foreground: #ffffff;
-  --muted: var(--neutral-100);
-  --muted-foreground: var(--neutral-600);
-  --accent: var(--brand-accent);
-  --accent-foreground: #ffffff;
-  --destructive: var(--semantic-error);
-  --destructive-foreground: #ffffff;
-  --border: var(--neutral-200);
-  --input: var(--neutral-300);
-  --input-background: var(--neutral-white);
-  --ring: var(--brand-primary);
+  /* Standard theme variables
+   * D-07/D-26 FIX (Phase 5 / Plan 05-02): semantic tokens are HSL CHANNEL TRIPLETS,
+   * not hex or brand vars. tailwind.config.js wraps each in hsl(var(--x)); a hex
+   * value there emits an invalid hsl() = transparent UI. Triplets keep the hsl()
+   * wrapper valid AND preserve opacity modifiers (bg-primary/90 per D-25).
+   * The raw brand and neutral hex palette above stays intact for direct-hex
+   * consumers; only the semantic tokens are decoupled to triplets here.
+   * Triplets computed deterministically from the prior hex values (see SUMMARY). */
+  --background: 0 0% 100%;            /* #ffffff */
+  --foreground: 220 3% 18%;          /* neutral-900 #2D2E30 */
+  --card: 0 0% 100%;                 /* #ffffff */
+  --card-foreground: 220 3% 18%;     /* neutral-900 #2D2E30 */
+  --popover: 0 0% 100%;              /* #ffffff */
+  --popover-foreground: 220 3% 18%;  /* neutral-900 #2D2E30 */
+  --primary: 234 100% 31%;           /* brand-primary #00109E */
+  --primary-foreground: 0 0% 100%;   /* #ffffff */
+  --secondary: 37 41% 55%;           /* brand-secondary #BB965B */
+  --secondary-foreground: 0 0% 100%; /* #ffffff */
+  --muted: 180 4% 95%;               /* neutral-100 #F1F2F2 */
+  --muted-foreground: 210 3% 54%;    /* neutral-600 #86898C */
+  --accent: 172 57% 48%;             /* brand-accent #35BFAD */
+  --accent-foreground: 0 0% 100%;    /* #ffffff */
+  --destructive: 0 84% 60%;          /* semantic-error #EF4444 */
+  --destructive-foreground: 0 0% 100%; /* #ffffff */
+  --border: 120 2% 91%;              /* neutral-200 #E8E9E8 */
+  --input: 90 2% 84%;                /* neutral-300 #D6D7D5 */
+  --input-background: 0 0% 100%;     /* neutral-white #FFFFFF */
+  --ring: 234 100% 31%;              /* brand-primary #00109E */
 
   /* Typography */
   --font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -128,12 +135,13 @@
   --duration-300: 300ms;
   --duration-500: 500ms;
 
-  /* Charts */
-  --chart-1: var(--brand-primary);
-  --chart-2: var(--brand-accent);
-  --chart-3: var(--brand-secondary);
-  --chart-4: var(--semantic-success);
-  --chart-5: var(--semantic-warning);
+  /* Charts — HSL channel triplets (consumed via hsl(var(--chart-N)) in tailwind.config.js).
+   * D-07/D-26 FIX (Plan 05-02): same triplet rule as the semantic block above. */
+  --chart-1: 234 100% 31%;  /* brand-primary #00109E */
+  --chart-2: 172 57% 48%;   /* brand-accent #35BFAD */
+  --chart-3: 37 41% 55%;    /* brand-secondary #BB965B */
+  --chart-4: 160 84% 39%;   /* semantic-success #10B981 */
+  --chart-5: 38 92% 50%;    /* semantic-warning #F59E0B */
 
   /* Sidebar */
   --sidebar: var(--neutral-900);

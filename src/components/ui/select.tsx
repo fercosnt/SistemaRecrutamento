@@ -48,13 +48,18 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full items-center justify-between gap-2 rounded-md border bg-input-background px-3 py-2 text-sm transition-all duration-300 outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 overflow-hidden min-w-0 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // D-02 / F-04.1-A FIX (Plan 05-02): resting (non-hover) trigger text uses the
+        // semantic --foreground token (dark, contrast-safe) now that tokens resolve
+        // post channel-triplet repair. Placeholder uses muted-foreground. This removes
+        // the dark-on-dark dropdown defect at the PRIMITIVE — no per-page patch.
+        "border-input text-foreground data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full items-center justify-between gap-2 rounded-md border bg-input-background px-3 py-2 text-sm transition-all duration-300 outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 overflow-hidden min-w-0 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         // SelectValue styling - ensure truncation works properly
         "[&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:flex-1 [&_[data-slot=select-value]]:overflow-hidden [&_[data-slot=select-value]]:truncate [&_[data-slot=select-value]]:text-left",
         // Liquid glass effect on hover - enhanced
         "hover:bg-white/25 hover:backdrop-blur-lg hover:border-white/40 hover:shadow-xl hover:shadow-white/20 hover:scale-[1.02]",
-        // Ensure text stays white/light on hover - force override
-        "hover:text-white [&_*]:hover:text-white [&_*]:hover:!text-white",
+        // Keep hover text white over the glass fill (single override — the heavy
+        // [&_*]:hover:!text-white cascade that masked the broken resting token is gone)
+        "hover:text-white",
         className,
       )}
       {...props}
