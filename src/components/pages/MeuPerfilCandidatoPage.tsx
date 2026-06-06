@@ -108,7 +108,10 @@ export function MeuPerfilCandidatoPage() {
    * - Atualiza senha via supabase.auth.updateUser()
    * - Limpa campos após sucesso
    */
-  const handleAlterarSenha = async () => {
+  const handleAlterarSenha = async (e?: React.FormEvent) => {
+    // HARD-04/D-08 (Plan 05-06): a widget de alterar senha agora vive dentro de
+    // um <form> (a11y). Prevenir o submit nativo para manter o fluxo SPA.
+    e?.preventDefault();
     if (senhas.nova !== senhas.confirmar) {
       toast.error('Senhas não coincidem', {
         description: 'Verifique se a nova senha e confirmação são iguais.',
@@ -453,18 +456,23 @@ export function MeuPerfilCandidatoPage() {
                   <div className="h-px bg-white/20 mt-3" />
                 </div>
 
-                <div className="space-y-6">
+                <form onSubmit={handleAlterarSenha} className="space-y-6">
                   {/* Senha Atual */}
                   <div className="space-y-2">
-                    <Label className="text-white/90 drop-shadow-sm">
+                    <Label
+                      htmlFor="perfil_senha_atual"
+                      className="text-white/90 drop-shadow-sm"
+                    >
                       Senha Atual
                     </Label>
                     <div className="relative">
                       <Input
+                        id="perfil_senha_atual"
                         type={mostrarSenhas.atual ? 'text' : 'password'}
                         value={senhas.atual}
                         onChange={(e) => setSenhas({ ...senhas, atual: e.target.value })}
                         placeholder="Digite sua senha atual"
+                        autoComplete="current-password"
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-12 focus:bg-white/15 transition-all duration-200"
                       />
                       <button
@@ -485,15 +493,20 @@ export function MeuPerfilCandidatoPage() {
 
                   {/* Nova Senha */}
                   <div className="space-y-2">
-                    <Label className="text-white/90 drop-shadow-sm">
+                    <Label
+                      htmlFor="perfil_senha_nova"
+                      className="text-white/90 drop-shadow-sm"
+                    >
                       Nova Senha
                     </Label>
                     <div className="relative">
                       <Input
+                        id="perfil_senha_nova"
                         type={mostrarSenhas.nova ? 'text' : 'password'}
                         value={senhas.nova}
                         onChange={(e) => setSenhas({ ...senhas, nova: e.target.value })}
                         placeholder="Digite sua nova senha"
+                        autoComplete="new-password"
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-12 focus:bg-white/15 transition-all duration-200"
                       />
                       <button
@@ -514,15 +527,20 @@ export function MeuPerfilCandidatoPage() {
 
                   {/* Confirmar Nova Senha */}
                   <div className="space-y-2">
-                    <Label className="text-white/90 drop-shadow-sm">
+                    <Label
+                      htmlFor="perfil_senha_confirmar"
+                      className="text-white/90 drop-shadow-sm"
+                    >
                       Confirmar Nova Senha
                     </Label>
                     <div className="relative">
                       <Input
+                        id="perfil_senha_confirmar"
                         type={mostrarSenhas.confirmar ? 'text' : 'password'}
                         value={senhas.confirmar}
                         onChange={(e) => setSenhas({ ...senhas, confirmar: e.target.value })}
                         placeholder="Confirme sua nova senha"
+                        autoComplete="new-password"
                         className="bg-white/10 border-white/20 text-white placeholder:text-white/50 pr-12 focus:bg-white/15 transition-all duration-200"
                       />
                       <button
@@ -558,26 +576,26 @@ export function MeuPerfilCandidatoPage() {
                         : '✗ As senhas não coincidem'}
                     </div>
                   )}
-                </div>
 
-                {/* Botão Alterar Senha */}
-                <div className="flex justify-end pt-2">
-                  <GlassButton
-                    variant="white"
-                    hover
-                    onClick={handleAlterarSenha}
-                    className="flex items-center gap-2 text-white drop-shadow-sm"
-                    disabled={
-                      !senhas.atual ||
-                      !senhas.nova ||
-                      !senhas.confirmar ||
-                      senhas.nova !== senhas.confirmar
-                    }
-                  >
-                    <Lock className="w-4 h-4" />
-                    Alterar Senha
-                  </GlassButton>
-                </div>
+                  {/* Botão Alterar Senha (submit do <form> — a11y HARD-04) */}
+                  <div className="flex justify-end pt-2">
+                    <GlassButton
+                      variant="white"
+                      hover
+                      type="submit"
+                      className="flex items-center gap-2 text-white drop-shadow-sm"
+                      disabled={
+                        !senhas.atual ||
+                        !senhas.nova ||
+                        !senhas.confirmar ||
+                        senhas.nova !== senhas.confirmar
+                      }
+                    >
+                      <Lock className="w-4 h-4" />
+                      Alterar Senha
+                    </GlassButton>
+                  </div>
+                </form>
               </Glass>
             </div>
 

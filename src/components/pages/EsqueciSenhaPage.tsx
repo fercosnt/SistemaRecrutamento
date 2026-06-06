@@ -1,12 +1,20 @@
 /**
- * EsqueciSenhaPage — Phase 3 Wave 5 (Plan 03-06).
+ * EsqueciSenhaPage — Phase 3 Wave 5 (Plan 03-06); Phase 5 Plan 05-06 (D-15 OTP).
  *
- * Recuperação de senha (candidato e RH). Single-column glass card max-w-md
- * (UI-SPEC L443-503). 2-state machine: form → post-submit neutral success card.
+ * Recuperação de senha (candidato e RH). Single-column glass card max-w-md.
+ * 2-state machine: form → post-submit neutral success card.
  * D-09 anti-enumeration: copy de sucesso é IDÊNTICA para email cadastrado e
  * não-cadastrado; nenhum echo de `{emailValue}` na success card.
  *
- * Variant detection (UI-SPEC L658-660):
+ * D-15 (PKCE→OTP migration):
+ *   O email agora carrega um código OTP de 6 dígitos (`{{ .Token }}` no
+ *   template do Supabase) em vez de um magic-link PKCE. Após o submit
+ *   bem-sucedido, navegamos para `/auth/redefinir-senha` carregando o email
+ *   em router state (`location.state.email`) — assim o `verifyOtp` na próxima
+ *   página tem o email sem re-perguntar (RESEARCH A3). A copy de sucesso
+ *   instrui o usuário a digitar o código de 6 dígitos.
+ *
+ * Variant detection:
  *   `?tipo=rh` → Voltar ao login navega para `/auth/login-rh`
  *   default    → Voltar ao login navega para `/auth/login`
  *
@@ -52,6 +60,10 @@ import { useAuthFlowVariant, useRateLimitCooldown } from '@/features/auth/hooks'
 export function EsqueciSenhaPage() {
   const navigate = useNavigate()
   const [emailEnviado, setEmailEnviado] = useState(false)
+  // D-15: guarda o email submetido (em memória, NUNCA renderizado — D-09
+  // anti-enumeration) para passá-lo em router state ao navegar para a página
+  // de redefinição, onde o verifyOtp precisa dele.
+  const [emailSubmetido, setEmailSubmetido] = useState('')
   const { isRH } = useAuthFlowVariant()
   const {
     remainingSeconds,
@@ -79,11 +91,21 @@ export function EsqueciSenhaPage() {
     setEmailEnviado(false)
   }
 
+  // D-15: navega para a página de redefinição carregando o email em router
+  // state (não em query string — evita o email na URL/history). Lá o usuário
+  // digita o código de 6 dígitos do email + a nova senha.
+  const goToRedefinir = () => {
+    navigate(`/auth/redefinir-senha${isRH ? '?tipo=rh' : ''}`, {
+      state: { email: emailSubmetido },
+    })
+  }
+
   const onSubmit = async (data: EsqueciSenhaFormData) => {
     try {
       await requestPasswordReset(data.email, isRH)
+      setEmailSubmetido(data.email)
       setEmailEnviado(true)
-      toast.info('Se o email existir, o link de recuperação foi enviado.', {
+      toast.info('Se o email existir, o código de recuperação foi enviado.', {
         duration: 4000,
       })
     } catch (err) {
@@ -103,8 +125,9 @@ export function EsqueciSenhaPage() {
       // D-09 anti-enumeration: qualquer outro erro continua mostrando
       // a success neutra (passwordService já swallow no service layer;
       // este catch é defensivo para casos não previstos).
+      setEmailSubmetido(data.email)
       setEmailEnviado(true)
-      toast.info('Se o email existir, o link de recuperação foi enviado.', {
+      toast.info('Se o email existir, o código de recuperação foi enviado.', {
         duration: 4000,
       })
     }
@@ -148,8 +171,9 @@ export function EsqueciSenhaPage() {
                     Verifique seu email
                   </h2>
                   <p className="text-white text-sm drop-shadow-md leading-relaxed">
-                    Se o email estiver cadastrado, enviamos um link de
-                    recuperação. Verifique sua caixa de entrada (e spam).
+                    Se o email estiver cadastrado, enviamos um código de 6
+                    dígitos de recuperação. Verifique sua caixa de entrada (e
+                    spam).
                   </p>
                 </div>
 
@@ -158,17 +182,17 @@ export function EsqueciSenhaPage() {
                   role="note"
                 >
                   <p className="text-white/90 text-sm leading-relaxed">
-                    O link expira em 1 hora.
+                    O código expira em 1 hora.
                   </p>
                 </div>
 
                 <div className="space-y-3 pt-2">
                   <Button
                     type="button"
-                    onClick={goToLogin}
+                    onClick={goToRedefinir}
                     className="w-full bg-primary hover:bg-primary/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-primary/50 backdrop-blur-md transition-all duration-200"
                   >
-                    Voltar ao login
+                    Já tenho o código
                   </Button>
                   <button
                     type="button"
@@ -176,6 +200,13 @@ export function EsqueciSenhaPage() {
                     className="text-sm text-white/80 hover:text-white underline py-2"
                   >
                     Usar outro email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToLogin}
+                    className="text-sm text-white/80 hover:text-white underline py-2 block mx-auto"
+                  >
+                    Voltar ao login
                   </button>
                 </div>
               </div>
@@ -189,8 +220,8 @@ export function EsqueciSenhaPage() {
                     Recuperar senha
                   </h1>
                   <p className="text-sm text-white/90 drop-shadow-md">
-                    Informe seu email cadastrado e enviaremos um link para
-                    você criar uma nova senha.
+                    Informe seu email cadastrado e enviaremos um código de 6
+                    dígitos para você criar uma nova senha.
                   </p>
                 </div>
 

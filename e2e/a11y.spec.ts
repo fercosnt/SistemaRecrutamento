@@ -25,7 +25,19 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 // Public (pre-auth) routes — no Supabase session required to render.
-const routes = ['/auth/login', '/auth/esqueci-senha', '/cadastro', '/vagas']
+//
+// Phase 5 Plan 05-06 (D-15 OTP migration): /auth/redefinir-senha is now a
+// public renderable route. Under OTP entry the page no longer gates on a
+// materialized deeplink recovery session — it renders the OTP + new-password
+// form immediately so the user can type the 6-digit code. Added here so the
+// recovery form stays at zero WCAG A/AA violations (05-04 gate, no regression).
+const routes = [
+  '/auth/login',
+  '/auth/esqueci-senha',
+  '/auth/redefinir-senha',
+  '/cadastro',
+  '/vagas',
+]
 
 for (const route of routes) {
   test(`a11y: ${route} has no WCAG A/AA violations`, async ({ page }) => {
