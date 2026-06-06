@@ -372,7 +372,7 @@ export function DadosPessoaisStep() {
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger
                   id="genero"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md placeholder:text-white/50"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md data-[placeholder]:text-white/50"
                 >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -424,7 +424,7 @@ export function DadosPessoaisStep() {
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger
                   id="como_conheceu"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md placeholder:text-white/50"
+                  className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md data-[placeholder]:text-white/50"
                 >
                   <SelectValue placeholder="Selecione uma opção" />
                 </SelectTrigger>

@@ -73,7 +73,7 @@ export function DadosProfissionaisStep() {
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger
                   id="experiencia_area"
-                  className="bg-white/20 border-white/30 text-white"
+                  className="bg-white/20 border-white/30 text-white data-[placeholder]:text-white/50"
                 >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -106,7 +106,7 @@ export function DadosProfissionaisStep() {
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger
                   id="nivel_escolaridade"
-                  className="bg-white/20 border-white/30 text-white"
+                  className="bg-white/20 border-white/30 text-white data-[placeholder]:text-white/50"
                 >
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>

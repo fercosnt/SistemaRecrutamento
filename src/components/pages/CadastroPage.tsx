@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { CadastroMultiStepForm } from '@/features/cadastro/components';
 
@@ -20,6 +20,7 @@ import { CadastroMultiStepForm } from '@/features/cadastro/components';
  */
 export function CadastroPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Obter vagaId dos query params para persistência cross-session
   const vagaIdFromQuery = searchParams.get('vagaId');
@@ -41,7 +42,7 @@ export function CadastroPage() {
     >
       <div className="min-h-screen py-12 px-4">
         <div className="w-full max-w-4xl mx-auto">
-          <CadastroMultiStepForm />
+          <CadastroMultiStepForm onCancel={() => navigate('/auth/login')} />
         </div>
       </div>
     </BackgroundImage>

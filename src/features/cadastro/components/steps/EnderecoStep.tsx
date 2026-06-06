@@ -346,7 +346,7 @@ export function EnderecoStep() {
                 <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger
                     id="estado"
-                    className="bg-white/20 border-white/30 text-white"
+                    className="bg-white/20 border-white/30 text-white data-[placeholder]:text-white/50"
                   >
                     <SelectValue placeholder="UF" />
                   </SelectTrigger>
