@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 5 context gathered
-last_updated: "2026-06-06T05:14:56.189Z"
-last_activity: 2026-06-06 -- Phase 05 planning complete
+last_updated: "2026-06-06T05:36:15.390Z"
+last_activity: 2026-06-06
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 42
-  completed_plans: 33
+  completed_plans: 34
   percent: 71
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 4.1 — Auth Hydration Fix CLOSED ✓ (2026-04-27); next is Phase 4.2 (Phase 1 Verification Backfill, INSERTED) OR Phase 5 (Perfil + Hardening MVP) per execution order
+**Current focus:** Phase 05 — perfil-hardening-mvp
 
 ## Current Position
 
-Phase: 4.1 (Auth Hydration Fix) — **COMPLETE** (2026-04-27)
-Plan: 5 of 5 — DONE (Wave 4 / Plan 04.1-05 closed: UAT 3/3 PASS + 1 SKIPPED [UAT-APPROVED commit `c4c7080`]; phase verification artifact `status: verified` 8/8 sign-off; smoke-runtime gate ESTABLISHED — meta-deliverable of Phase 4.1)
+Phase: 05 (perfil-hardening-mvp) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-06-06 -- Phase 05 planning complete
+Last activity: 2026-06-06
 
-Progress: [█████████░] 92%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -90,6 +90,7 @@ Progress: [█████████░] 92%
 | Phase 04.1 P04 | 5min | 2 tasks | 4 files |
 | Phase 04.1 P05 | ~25min autonomous + ~30-40min human UAT | 3 tasks (1 autonomous battery + 1 human-verify checkpoint UAT + 1 autonomous finalize) | 3 created (UAT.md + VERIFICATION.md + 04.1-05-SUMMARY.md) + 3 modified (STATE/ROADMAP/REQUIREMENTS) |
 | Phase 04.2 P01 | 25min | 5 tasks | 7 files |
+| Phase 05 P01 | 18min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [Phase 4.2]: Path (a) chosen for Wave 0 retroactive flip — all infra now present in working tree; flip JUSTIFIED not fictionalized.
 - [Phase ?]: [Phase 4.2]: Phase 4.2 closes no NEW audit gaps; documentation backfill ratifies 12 FOUND-* partial entries + records inherited closures of INT-WARNING-2 (commit 8005fd5) + INT-WARNING-3 (commit 4d9fa25) for Phase 1 traceability.
 - [Phase ?]: [Phase 4.2]: FOUND-07 'tsc passes with zero errors' interpreted as 'pipeline runs and is gated' — current 296-error baseline is documented Phase 4 carryover gated at ≤320 invariant via husky FOUND-08; Phase 5 will tackle the carryover.
+- [Phase ?]: [05-01]: lighthouserc must be .cjs (not .js) under package type:module — a .js module.exports config resolves to {} under ESM and crashes lhci autorun
+- [Phase ?]: [05-01]: Vitest grep guards must live under a __tests__/ dir — vitest include glob is **/__tests__/**, so the plan's tests/guards/ path would never be collected (matches pitfall7.grep precedent)
+- [Phase ?]: [05-01]: Canonical ErrorBoundary = src/components/ErrorBoundary.tsx (richer BeautySmileLogo+GlassCard fallback); Plan 05-03 hoists THIS one to App root and deletes/re-exports the cadastro copy
 
 ### Pending Todos
 
@@ -212,7 +216,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-06T04:22:32.665Z
+Last session: 2026-06-06T05:35:31.550Z
 Stopped at: Phase 5 context gathered
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
@@ -297,5 +301,5 @@ Stopped at: Phase 5 context gathered
   - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
   - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
 
-Resume file: .planning/phases/05-perfil-hardening-mvp/05-CONTEXT.md
+Resume file: None
 Next: **Phase 4 phase-level gates remaining (orchestrator-owned, vêm como workflow separado post-execution):** (1) code-review (cross-cutting Phase 4 surface review — vagas + candidaturas + Edge Function + form rewrite + e2e specs); (2) regression (full vitest + playwright + build + lint baseline preservation across all 4 phases now); (3) verifier (manual + automated final acceptance contra os 7 requirements VAGA-01..03 + CAND-01..04). Apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP. **Phase 5 inputs (carry-over):** F-04-08-B (vaga soft-deleted data hygiene — DB-level invariant ou backfill cleanup script); F-04-08-C (bloco_valido_check constraint não em migrations — schema drift, reconciliation migration); F-04-08-G (white text WCAG AA contrast over BackgroundImage gradient — visual polish + WCAG audit); D-26 token reparation (definir --primary em HSL components separadamente do HEX --brand-primary; após fix sweep bg-[#00109E] literais → bg-primary semântico em todas as páginas); D-27 plan checker enhancement ("page integrates canonical persona shell?"); D-28 plan checker enhancement (smoke-runtime gate antes de plan complete); PKCE same-browser limitation (carryover de Phase 3 03-07 UAT-3 + Phase 4 deferral; preferred mitigation continua sendo switch para OTP code flow). **Phase 4 plan execution closure note:** carryover chain narrative (3 iterações A→B→C resolvendo 4 findings sequenciais) é a lição central da Phase 4. Gates autônomos verdes NÃO substituem smoke-runtime real. Plan checker autônomo do 04-07 passou (build + lint + vitest + playwright + grep) mas página estava UNUSABLE — apenas UAT manual com infra real surfaceou os bugs. Phase 5 deve adotar carryover discipline como pattern (atomic plans por finding, bisect-friendly history, rollback granular).

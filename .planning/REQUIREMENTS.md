@@ -52,17 +52,17 @@ Requirements for M1. Each maps to roadmap phases.
 
 ### Perfil do Candidato
 
-- [ ] **PERF-01**: Listagem de candidaturas do candidato com status + etapa + data (dados reais, sem mock)
-- [ ] **PERF-02**: Pagina de perfil `/candidato/perfil` mostrando dados pessoais e candidaturas
+- [x] **PERF-01**: Listagem de candidaturas do candidato com status + etapa + data (dados reais, sem mock)
+- [x] **PERF-02**: Pagina de perfil `/candidato/perfil` mostrando dados pessoais e candidaturas
 
 ### Hardening
 
-- [ ] **HARD-01**: E2E suite completa do candidato passa 100% (login + cadastro + candidatura)
-- [ ] **HARD-02**: Lighthouse mobile > 80 em Performance e Accessibility
-- [ ] **HARD-03**: ErrorBoundary global plugado no root da aplicacao
-- [ ] **HARD-04**: Labels em todos os inputs; tab order correto; focus visivel
+- [x] **HARD-01**: E2E suite completa do candidato passa 100% (login + cadastro + candidatura)
+- [x] **HARD-02**: Lighthouse mobile > 80 em Performance e Accessibility
+- [x] **HARD-03**: ErrorBoundary global plugado no root da aplicacao
+- [x] **HARD-04**: Labels em todos os inputs; tab order correto; focus visivel
 - [ ] **HARD-05**: Validacao manual em mobile (iPhone 12 Pro viewport) — logout acessivel
-- [ ] **HARD-06**: DevNavigationMenu oculto em producao (gateado por `import.meta.env.DEV`)
+- [x] **HARD-06**: DevNavigationMenu oculto em producao (gateado por `import.meta.env.DEV`)
 
 ## v2 Requirements
 
@@ -142,14 +142,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAND-02 | Phase 4: Vagas + Candidatura | **Complete (04-08 Wave 4, 2026-04-26)**: full coverage. Server: PerguntaFormulario type + buildCandidaturaSchema dynamic Zod factory + useVagaPerguntas hook (Plan 04-04 Wave 1b). EF submit-candidatura validates respostas[] via Zod + RPC submit_candidatura_atomic INSERTs em respostas_formulario atomicamente (Plan 04-05 Wave 2). Client wrapper submitCandidaturaWithRespostas (Plan 04-05). UI: FormularioCandidaturaPage com perguntas dinâmicas via PerguntaInput (Plan 04-07; Carryover-C torna curriculo .optional() em D-28). UAT-J02 evidence (2026-04-26): 3 respostas_formulario rows persistidas atomicamente via RPC com texto curto + ["Imediata"] em resposta_opcoes + numérico 3 — todos com candidatura_id correspondente. Traceability: `04-08-UAT.md` UAT-J02 + `04-04-SUMMARY.md` (schema dynamic factory) + `04-05-SUMMARY.md` (EF + RPC) + `04-07-SUMMARY.md` (UI form). |
 | CAND-03 | Phase 4: Vagas + Candidatura | **Complete (04-08 Wave 4, 2026-04-26)**: full coverage. Server: submit_candidatura_atomic RPC INSERT candidaturas com status + etapa_atual + curriculo metadata + respostas atomicamente (Plan 04-01 migration 20260425000003). EF orchestration: Zod validate → auth.getUser() → IDOR cross-check → defense-in-depth path validation → RPC → N8N webhook fire-and-forget AFTER COMMIT (Plan 04-05 Wave 2). UI: FormularioCandidaturaPage com submit + redirect /candidato/perfil (Plan 04-07). UAT-J02 evidence (2026-04-26): 1 candidaturas row criada com `status='aguardando_resposta'` ✓ + `etapa_atual='triagem'` ✓ + candidato_id `d8ef9db1-b30d-4121-a7cc-8770402c080a` + vaga_id `53f75c81-a152-43d8-87d3-03a275f678b9` (teste-asb-shopping-riomar) + curriculo_url D-10 OK + curriculo_nome_original PII (DB only, redacted client-side via Pitfall 7) + curriculo_tamanho_bytes=460207 + sequência temporal correta (storage upload às 01:48:43 → DB insert às 01:48:45 — 2s gap). Traceability: `04-08-UAT.md` UAT-J02 + `04-01-SUMMARY.md` (RPC migration) + `04-05-SUMMARY.md` (EF orchestration) + `04-07-SUMMARY.md` (UI submit). |
 | CAND-04 | Phase 4: Vagas + Candidatura | **Complete (04-08 Wave 4, 2026-04-26)**: full coverage. Server: UNIQUE partial idx candidaturas_candidato_vaga_unique_idx (candidato_id, vaga_id) WHERE deleted_at IS NULL raises 23505 atomicamente (Plan 04-01 migration 20260425000004). EF maps 23505 → DUPLICATE_CANDIDATURA HTTP 409 com substring fallback `msg.includes('unique') && msg.includes('candidat')` (Plan 04-05). Client wrapper maps EF DUPLICATE_CANDIDATURA → CandidaturasServiceError code DUPLICATE_APPLICATION; T2 Vitest case asserts comportamento. UI: useHasApplied hook gate (Plan 04-07) + toast "voce ja se candidatou a esta vaga" + redirect para /vagas/<slug>. UAT-J03 evidence (2026-04-26 — Caminho A): re-clique em Candidatar-se na vaga ASB → toast "voce ja se candidatou a esta vaga" + permanência em `/vagas/teste-asb-shopping-riomar` (não chegou ao formulário). Confirmação SQL: `SELECT COUNT(*) FROM candidaturas WHERE candidato_id='d8ef9db1-...' AND vaga_id='53f75c81-...' AND deleted_at IS NULL` → **total=1** ✓ (zero novas linhas, UNIQUE partial idx + useHasApplied gate funcionais). Traceability: `04-08-UAT.md` UAT-J03 + `04-01-SUMMARY.md` (UNIQUE idx) + `04-05-SUMMARY.md` (EF mapping) + `04-07-SUMMARY.md` (useHasApplied gate). |
-| PERF-01 | Phase 5: Perfil + Hardening | Pending |
-| PERF-02 | Phase 5: Perfil + Hardening | Pending |
-| HARD-01 | Phase 5: Perfil + Hardening | Pending |
-| HARD-02 | Phase 5: Perfil + Hardening | Pending |
-| HARD-03 | Phase 5: Perfil + Hardening | Pending |
-| HARD-04 | Phase 5: Perfil + Hardening | Pending |
+| PERF-01 | Phase 5: Perfil + Hardening | Complete |
+| PERF-02 | Phase 5: Perfil + Hardening | Complete |
+| HARD-01 | Phase 5: Perfil + Hardening | Complete |
+| HARD-02 | Phase 5: Perfil + Hardening | Complete |
+| HARD-03 | Phase 5: Perfil + Hardening | Complete |
+| HARD-04 | Phase 5: Perfil + Hardening | Complete |
 | HARD-05 | Phase 5: Perfil + Hardening | Pending |
-| HARD-06 | Phase 5: Perfil + Hardening | Pending |
+| HARD-06 | Phase 5: Perfil + Hardening | Complete |
 
 **Coverage:**
 - v1 requirements: 38 total
