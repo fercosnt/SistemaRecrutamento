@@ -226,7 +226,7 @@ export function VagasPublicasPage() {
                   value={filters.tipo_vaga || 'all'}
                   onValueChange={handleTipoVagaChange}
                 >
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
+                  <SelectTrigger aria-label="Tipo de vaga" className="h-12 bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Tipo de vaga" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
@@ -247,7 +247,7 @@ export function VagasPublicasPage() {
                   value={filters.modelo_trabalho || 'all'}
                   onValueChange={handleModeloTrabalhoChange}
                 >
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
+                  <SelectTrigger aria-label="Modelo de trabalho" className="h-12 bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Modelo de trabalho" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
@@ -268,7 +268,7 @@ export function VagasPublicasPage() {
                   value={filters.departamento || 'all'}
                   onValueChange={handleDepartamentoChange}
                 >
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
+                  <SelectTrigger aria-label="Departamento" className="h-12 bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Departamento" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
@@ -289,7 +289,7 @@ export function VagasPublicasPage() {
                   value={orderBy}
                   onValueChange={handleOrdenacaoChange}
                 >
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
+                  <SelectTrigger aria-label="Ordenar por" className="h-12 bg-white/10 border-white/20 text-white">
                     <SelectValue placeholder="Ordenar por" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">

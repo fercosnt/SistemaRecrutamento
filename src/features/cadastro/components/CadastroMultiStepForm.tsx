@@ -476,7 +476,11 @@ export function CadastroMultiStepForm({
             </span>
             <span className="hidden xs:inline">{Math.round(progress)}% completo</span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress
+            value={progress}
+            aria-label={`Progresso do cadastro: etapa ${currentStepIndex + 1} de ${FORM_STEPS.length}`}
+            className="h-2"
+          />
         </div>
 
         {/* Steps Indicator */}
