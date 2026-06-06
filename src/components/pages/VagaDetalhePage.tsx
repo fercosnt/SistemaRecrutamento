@@ -23,6 +23,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { BackgroundImage } from '../BackgroundImage'
 import { BeautySmileLogo } from '../BeautySmileLogo'
+import { CandidatoNavbar } from '../layouts/CandidatoNavbar'
 import { Glass, GlassCard, GlassButton } from '../ui/glass'
 import {
   MapPin,
@@ -34,10 +35,7 @@ import {
   Share2,
   ArrowLeft,
   Send,
-  LogOut,
-  UserCircle,
 } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { useVaga, useHasApplied } from '@/features/vagas/hooks'
 import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
 import { isUuid } from '@/features/vagas/utils/isUuid'
@@ -90,44 +88,11 @@ function VagaNotFoundState() {
 export function VagaDetalhePage() {
   const { identifier } = useParams<{ identifier: string }>()
   const navigate = useNavigate()
+  // isAuthenticated still gates the Candidatar-se login-redirect (VAGA-03) below.
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
-  // Persona shell — Phase 4 gap-closure (04-09 / D-27 canonical pattern).
-  // Replica MeuPerfilCandidatoPage:344-389; same guard pattern as
-  // VagasPublicasPage. PII (nome/email/avatar) só renderiza para
-  // candidatos autenticados; nunca em /vagas/:slug anônimo nem em
-  // VagaNotFoundState ou no loading skeleton (intentionally).
-  const role = useAuthStore((state) => state.role)
-  const candidato = useAuthStore((state) => state.candidato)
-  const logout = useAuthStore((state) => state.logout)
-
-  const showCandidatoShell = isAuthenticated && role === 'candidato'
-
-  const candidatoIniciais = (candidato?.nome_completo || 'C')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  /**
-   * Handler para logout do candidato — replica MeuPerfilCandidatoPage:270-283.
-   * Pitfall 7: console.error preservado (não loga PII, apenas a mensagem).
-   */
-  const handleLogout = async () => {
-    try {
-      await logout()
-      toast.success('Você saiu da sua conta com sucesso', {
-        description: 'Até breve!',
-      })
-      navigate('/auth/login', { replace: true })
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      toast.error('Erro ao sair', {
-        description: 'Tente novamente.',
-      })
-    }
-  }
+  // WR-02-09: persona shell (role/candidato/logout selectors + iniciais +
+  // handleLogout) moved into the self-guarding <CandidatoNavbar /> rendered below.
 
   const [showShareMenu, setShowShareMenu] = useState(false)
 
@@ -243,70 +208,12 @@ export function VagaDetalhePage() {
     <div className="relative min-h-screen">
       <BackgroundImage background="gradient" className="min-h-screen py-20">
         {/*
-          Phase 4 / Plan 04-09 gap-closure:
-          - 04-UAT.md Gap 2 (major): persona shell faltando em /vagas/:identifier
-            (logged-in candidato).
-          - Replica D-27 canonical pattern (MeuPerfilCandidatoPage:344-389).
-          - Acréscimo vs precedente: link "Área do candidato" → /candidato/perfil.
-          - Guard `showCandidatoShell` preserva anon UX (sem header) e evita
-            renderizar shell em VagaNotFoundState (which returns early above)
-            ou no loading skeleton (which also returns early above).
+          WR-02-09: persona shell extracted to <CandidatoNavbar />. It self-guards on
+          isAuthenticated + role==='candidato' (renders null for anon). Reached only
+          past the VagaNotFoundState / loading-skeleton early returns above, so the
+          shell still never appears on 404 or loading (D-27 trade-off preserved).
         */}
-        {showCandidatoShell && (
-          <div className="w-full sticky top-0 z-50 mb-8">
-            <Glass variant="white" blur="xl" className="border-b border-white/10">
-              <div className="container mx-auto px-4 sm:px-6 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  {/* Left: Logo + divider + Avatar + name */}
-                  <div className="flex items-center gap-4">
-                    <BeautySmileLogo type="icon" size="sm" variant="white" />
-                    <div className="hidden sm:block h-8 w-px bg-white/20" />
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10 border-2 border-white/30">
-                        <AvatarImage src={candidato?.avatar_url ?? undefined} />
-                        <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
-                          {candidatoIniciais}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="hidden md:block">
-                        <p className="text-white font-medium drop-shadow-md leading-tight">
-                          {candidato?.nome_completo || 'Candidato'}
-                        </p>
-                        <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
-                          {candidato?.email || ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: Área do candidato + Sair */}
-                  <div className="flex items-center gap-2">
-                    <GlassButton
-                      variant="white"
-                      hover
-                      onClick={() => navigate('/candidato/perfil')}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
-                      aria-label="Área do candidato"
-                    >
-                      <UserCircle className="w-4 h-4" />
-                      <span className="hidden sm:inline">Área do candidato</span>
-                    </GlassButton>
-                    <GlassButton
-                      variant="white"
-                      hover
-                      onClick={handleLogout}
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
-                      aria-label="Sair"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span className="hidden sm:inline">Sair</span>
-                    </GlassButton>
-                  </div>
-                </div>
-              </div>
-            </Glass>
-          </div>
-        )}
+        <CandidatoNavbar />
 
         <div className="container mx-auto px-4 space-y-8 max-w-4xl">
           {/* Header */}

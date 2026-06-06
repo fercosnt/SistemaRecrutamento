@@ -395,12 +395,24 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        // WR-01-09 root fix (Phase 5 / Plan 05-03): clearAuth() always runs first so
+        // the local session is wiped regardless of the server outcome, BUT a real
+        // signOut failure (network down, session already invalid server-side) is now
+        // re-thrown so page-level catches can show an honest error toast. Previously
+        // this swallowed the error and always resolved void, making the 4 call-site
+        // catches dead code. Contract: logout() may REJECT on signOut failure; the
+        // local clear has already happened by the time it rejects.
+        let signOutError: unknown = null
         try {
           await supabase.auth.signOut()
         } catch (error) {
           console.error('Erro ao fazer logout:', error)
+          signOutError = error
         }
         get().clearAuth()
+        if (signOutError) {
+          throw signOutError
+        }
       },
 
       // --- Compatibilidade legada ---

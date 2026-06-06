@@ -37,13 +37,11 @@ import {
   X,
   ArrowLeft,
   Send,
-  LogOut,
 } from 'lucide-react'
 
 import { BackgroundImage } from '../BackgroundImage'
-import { BeautySmileLogo } from '../BeautySmileLogo'
-import { Glass, GlassButton, GlassCard } from '../ui/glass'
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
+import { CandidatoNavbar } from '../layouts/CandidatoNavbar'
+import { GlassCard } from '../ui/glass'
 import { useAuthStore } from '@/store/authStore'
 import { useVagaBySlug, useHasApplied } from '@/features/vagas/hooks/useVagas'
 import { useVagaPerguntas } from '@/features/vagas/hooks/useVagaPerguntas'
@@ -98,7 +96,7 @@ export function FormularioCandidaturaPage() {
   const navigate = useNavigate()
   const candidato = useAuthStore((state) => state.candidato)
   const user = useAuthStore((state) => state.user)
-  const logout = useAuthStore((state) => state.logout)
+  // WR-02-09: logout now lives in the shared <CandidatoNavbar /> below.
 
   // Fetch vaga via slug (Plan 04-02 / 04-06)
   const {
@@ -213,20 +211,6 @@ export function FormularioCandidaturaPage() {
       undefined as unknown as CandidaturaFormData['curriculo'],
       { shouldValidate: true }
     )
-  }
-
-  // Logout handler — replicates MeuPerfilCandidatoPage pattern (toast + redirect).
-  // No console.* calls (Pitfall 7 page-level rule).
-  const handleLogout = async () => {
-    try {
-      await logout()
-      toast.success('Você saiu da sua conta com sucesso', {
-        description: 'Até breve!',
-      })
-      navigate('/auth/login', { replace: true })
-    } catch {
-      toast.error('Erro ao sair', { description: 'Tente novamente.' })
-    }
   }
 
   const onSubmit = async (data: CandidaturaFormData) => {
@@ -489,14 +473,6 @@ export function FormularioCandidaturaPage() {
     : new Map<string, PerguntaFormulario[]>()
 
 
-  // Initials for avatar fallback (replicates MeuPerfilCandidatoPage pattern).
-  const candidatoIniciais = (candidato?.nome_completo || 'C')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
   return (
     <BackgroundImage
       background="gradient"
@@ -504,48 +480,8 @@ export function FormularioCandidaturaPage() {
       overlayColor="bg-black"
       overlayOpacity={15}
     >
-      {/* Sticky candidato navbar — replicates MeuPerfilCandidatoPage shell */}
-      <div className="w-full sticky top-0 z-50 mb-8">
-        <Glass variant="white" blur="xl" className="border-b border-white/10">
-          <div className="container mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
-              {/* Left: Logo + divider + Avatar + name */}
-              <div className="flex items-center gap-4">
-                <BeautySmileLogo type="icon" size="sm" variant="white" />
-                <div className="hidden sm:block h-8 w-px bg-white/20" />
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10 border-2 border-white/30">
-                    <AvatarImage src={candidato?.avatar_url ?? undefined} />
-                    <AvatarFallback className="bg-[#35BFAD]/80 text-white text-sm">
-                      {candidatoIniciais}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="hidden md:block">
-                    <p className="text-white font-medium drop-shadow-md leading-tight">
-                      {candidato?.nome_completo || 'Candidato'}
-                    </p>
-                    <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
-                      {candidato?.email || ''}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Logout */}
-              <GlassButton
-                variant="white"
-                hover
-                onClick={handleLogout}
-                className="flex items-center gap-2 text-white drop-shadow-sm"
-                aria-label="Sair"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sair</span>
-              </GlassButton>
-            </div>
-          </div>
-        </Glass>
-      </div>
+      {/* WR-02-09: shared persona navbar (self-guards on candidato role). */}
+      <CandidatoNavbar />
 
       {/* Content (single-page form, max-w-3xl per D-04) */}
       <div className="container mx-auto px-4 max-w-3xl space-y-6">

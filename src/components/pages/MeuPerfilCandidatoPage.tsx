@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
+import { CandidatoNavbar } from '../layouts/CandidatoNavbar';
 import { Glass, GlassButton, GlassCard } from '../ui/glass';
-import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, Briefcase, FileText, Calendar, CheckCircle2, Clock, LogOut } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, Briefcase, FileText, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -16,9 +16,8 @@ import { ETAPA_PROCESSO_LABELS, STATUS_CANDIDATURA_LABELS } from '@/features/vag
 import type { Candidatura } from '@/features/vagas/types/vagasTypes';
 
 export function MeuPerfilCandidatoPage() {
-  const navigate = useNavigate();
   const candidato = useCandidato();
-  const { logout, setCandidato } = useAuthStore();
+  const { setCandidato } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Buscar candidaturas do banco de dados
@@ -261,26 +260,7 @@ export function MeuPerfilCandidatoPage() {
     }
   };
 
-  /**
-   * Handler para logout do candidato
-   * - Chama authStore.logout() para limpar sessão
-   * - Mostra toast de sucesso
-   * - Redireciona para página de login
-   */
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Você saiu da sua conta com sucesso', {
-        description: 'Até breve!',
-      });
-      navigate('/auth/login', { replace: true });
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      toast.error('Erro ao sair', {
-        description: 'Tente novamente.',
-      });
-    }
-  };
+  // WR-02-09/WR-01-09: logout now lives in the shared <CandidatoNavbar />.
 
   /**
    * Retorna badge com label e cor para status de candidatura
@@ -340,53 +320,8 @@ export function MeuPerfilCandidatoPage() {
         overlayColor="bg-black"
         overlayOpacity={15}
       >
-        {/* Barra de navegação superior */}
-        <div className="w-full sticky top-0 z-50 mb-8">
-          <Glass variant="white" blur="xl" className="border-b border-white/10">
-            <div className="container mx-auto px-4 sm:px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                {/* Logo e Nome do usuário */}
-                <div className="flex items-center gap-4">
-                  <BeautySmileLogo type="symbol" size="sm" variant="white" />
-                  <div className="hidden sm:block h-8 w-px bg-white/20" />
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10 border-2 border-white/30">
-                      <AvatarImage src={dadosPessoais.avatar} />
-                      <AvatarFallback className="bg-accent/80 text-white text-sm">
-                        {(candidato?.nome_completo || 'C')
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')
-                          .toUpperCase()
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="hidden md:block">
-                      <p className="text-white font-medium drop-shadow-md leading-tight">
-                        {candidato?.nome_completo || 'Candidato'}
-                      </p>
-                      <p className="text-white/70 text-sm drop-shadow-sm leading-tight">
-                        {candidato?.email || ''}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Botão de Logout */}
-                <GlassButton
-                  variant="white"
-                  hover
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 text-white drop-shadow-sm"
-                  aria-label="Sair"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:inline">Sair</span>
-                </GlassButton>
-              </div>
-            </div>
-          </Glass>
-        </div>
+        {/* WR-02-09: shared persona navbar. showAreaLink={false} — this page IS the área. */}
+        <CandidatoNavbar showAreaLink={false} />
 
         <div className="container mx-auto px-4 space-y-8 max-w-6xl">
           {/* Header */}
