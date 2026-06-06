@@ -65,6 +65,8 @@
         "zustand": "^4.5.2"
     },
     "devDependencies": {
+        "@axe-core/playwright": "^4.11.3",
+        "@lhci/cli": "^0.15.1",
         "@playwright/experimental-ct-react": "^1.56.1",
         "@playwright/test": "^1.56.1",
         "@testing-library/jest-dom": "^6.9.1",
