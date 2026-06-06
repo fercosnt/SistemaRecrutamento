@@ -9,6 +9,7 @@ Branch base: `backup/local-state-2026-04` (Fase 0 complete).
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -25,18 +26,22 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Foundation Saneada
+
 **Goal**: The application runs on a secure, type-safe foundation where no privileged key reaches the browser, auth is unified under one store with role awareness, routes enforce access control, and the types pipeline catches drift at commit time
 **Depends on**: Nothing (first phase)
 **Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, FOUND-06, FOUND-07, FOUND-08, FOUND-09, FOUND-10, FOUND-11, FOUND-12
 **Success Criteria** (what must be TRUE):
+
   1. Visiting the app in a browser and inspecting the JS bundle reveals zero occurrences of the service_role key
   2. A single Zustand auth store holds user, session, role, profile, and isLoading -- no second auth store exists in the codebase
   3. An unauthenticated visitor accessing `/candidato/perfil` is redirected to `/auth/login?redirect=/candidato/perfil`
   4. Running `npm run db:types` regenerates `database.types.ts` from the live schema and `tsc --noEmit` passes with zero errors
   5. Logging out in one browser tab triggers logout in all open tabs
+
 **Plans:** 5 plans
 
 Plans:
+
 - [x] 01-01-PLAN.md — Remove service_role from client, clean supabaseAdmin, remove Lembrar-me hacks ✓
 - [x] 01-02-PLAN.md — Unified auth store with role awareness + adminAuthStore re-export shim ✓
 - [x] 01-03-PLAN.md — RoleGuard component + migrate all routes + delete old guards ✓
@@ -46,18 +51,22 @@ Plans:
 **Carryover bugs to Phase 3:** `KNOWN-ISSUES-CARRYOVER-PHASE-3.md` documents 2 auth bugs (extractRole reads wrong source; LoginRHPage legacy setters) to be fixed when Phase 3 rewrites login. +1 vagas bug (query uses `ativa` not `status`) to be fixed in Phase 4.
 
 ### Phase 2: Cadastro Candidato
+
 **Goal**: A new candidate can complete the multi-step registration form and land on their profile page, with all server-side operations going through Edge Functions instead of client-side service_role
 **Depends on**: Phase 1
 **Requirements**: CAD-01, CAD-02, CAD-03, CAD-04, CAD-05, CAD-06, CAD-07
 **Success Criteria** (what must be TRUE):
+
   1. A candidate fills all 4 steps (Dados Pessoais, Endereco, Disponibilidade, Autorizacoes LGPD) and submits successfully
   2. Entering a CPF or email already in the database shows a duplicate warning before submission -- and the duplicate check goes through an Edge Function, not a direct anon SELECT on `candidatos`
   3. After successful registration, the candidate is auto-logged in and lands on `/candidato/perfil` without a manual login step
   4. The LGPD consent checkbox is mandatory -- form cannot submit without it
+
 **Plans**: 6 plans
 **UI hint**: yes
 
 Plans:
+
 - [x] 02-01-PLAN.md — Wave 0: SDK upgrade + testing-library install + schema audit + test stubs ✓ 2026-04-20
 - [x] 02-02-PLAN.md — Wave 1: Migration 0005 (rate_limit table + patched RPC + policy_version column) + db push + types regen ✓ 2026-04-21
 - [x] 02-03-PLAN.md — Wave 2: Edge Function contract evolution (error_code/field/message) + _shared/constants.ts + redeploy with --no-verify-jwt ✓ 2026-04-21
@@ -66,17 +75,21 @@ Plans:
 - [x] 02-06-PLAN.md — Wave 3: CadastroMultiStepForm wiring + AutorizacoesStep LGPD layout + font-weight sweep + E2E 6 cases ✓ 2026-04-24 (+3 UAT bug fixes: Sonner split-instance, duplicateCheck `this`-binding, digest schema carryover)
 
 ### Phase 3: Login + Recuperacao de Senha
+
 **Goal**: A returning candidate can log in, stay logged in across sessions, and recover a forgotten password via email
 **Depends on**: Phase 1
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04
 **Success Criteria** (what must be TRUE):
+
   1. A candidate logs in with email and password and sees clear error messages for wrong credentials or unregistered email
   2. Checking "Lembrar-me" keeps the session alive after closing and reopening the browser; unchecking it does not
   3. Clicking "Esqueci minha senha" sends an email with a reset link; clicking the link opens the password redefinition page and the new password works immediately
+
 **Plans**: 7 plans
 **UI hint**: yes
 
 Plans:
+
 - [x] 03-01-PLAN.md — Wave 0: jwt-decode install + Dashboard audit + test stubs (B1..B16) ✓ 2026-04-24
 - [x] 03-02-PLAN.md — Wave 1: AuthError + mapSupabaseError + 4 Zod schemas (passwordSchema shared with cadastro) ✓ 2026-04-25
 - [x] 03-03-PLAN.md — Wave 2: extractRole (jwt-decode) + rememberMeStorage adapter + authStore/client.ts wire (Bug 1/D-13 closed) ✓ 2026-04-25
@@ -86,19 +99,23 @@ Plans:
 - [x] 03-07-PLAN.md — Wave 6: Playwright E2E login-flow + password-recovery-flow promoted (11 scenarios, B1+B2+B15+B3+B4+B8 + B9+B12+B10-lite+B15 + B10-fixme) + Pitfall 7 Vitest grep guard (B14) + UAT runbook 6/6 PASS (B5+B6+B10-real+B13+B14-DevTools+T-03-09) + nyquist_compliant flipped; 2 production-only findings captured (Phase 4 PKCE cross-browser, Phase 5 a11y) ✓ 2026-04-25
 
 ### Phase 4: Vagas + Candidatura
+
 **Goal**: A candidate can browse active jobs, view job details, upload a CV, answer screening questions, and submit an application
 **Depends on**: Phase 1, Phase 3
 **Requirements**: VAGA-01, VAGA-02, VAGA-03, CAND-01, CAND-02, CAND-03, CAND-04
 **Success Criteria** (what must be TRUE):
+
   1. The public jobs page (`/vagas`) lists only jobs with `status = 'ativa'` and is accessible without login
   2. Clicking a job card opens `/vagas/:slug` showing description, requirements, and a "Candidatar-se" button
   3. A logged-in candidate can upload a PDF CV (under 5MB), answer screening questions, and submit -- resulting in a candidatura record with `status = 'aguardando_resposta'` and `etapa_atual = 'triagem'`
   4. Attempting to apply to the same job twice shows a clear message that a candidatura already exists
   5. An unauthenticated visitor clicking "Candidatar-se" is redirected to login and returned to the job after authenticating
+
 **Plans**: 9 plans (8 execution + 1 gap-closure)
 **UI hint**: yes
 
 Plans:
+
 - [x] 04-01-PLAN.md — Wave 0: SQL migrations (slug trigger + curriculos bucket + submit_candidatura RPC + UNIQUE constraint) + db push + types regen + Wave 0 stubs (Vitest + Playwright fixtures + Pitfall 7 grep extension) ✓ 2026-04-25 (D-22 db push workaround locked + D-10 path schema locked)
 - [x] 04-02-PLAN.md — Wave 1a: isUuid util + vagasService.getVagaBySlug + vagasKeys.detailById/detailBySlug/perguntas split + useVagaBySlug hook ✓ 2026-04-25
 - [x] 04-03-PLAN.md — Wave 1a: cvUploadService (validateCV + uploadCV + getSignedUrl + removeCV) + 14 Vitest cases with Pitfall 7 console-spy ✓ 2026-04-25
@@ -110,21 +127,25 @@ Plans:
 - [x] 04-09-PLAN.md — Gap-closure: phase-level UAT 04-UAT.md ## Gaps (3 truths failed) — VagasPublicasPage + VagaDetalhePage persona shell (D-27) + GlassButton inline-flex surgical fix (Gaps 1+2+3)
 
 ### Phase 4.1: Auth Hydration Fix (INSERTED)
+
 **Goal**: After every fresh login (cadastro `tryAutoLogin`, `/auth/login` signIn, password-recovery deeplink, redirect-from-anon candidatura), `profile` + `candidato` are populated before navigation lands; the candidatura submit handler no longer silent-fails after the anon → login redirect
 **Depends on**: Phase 4
 **Requirements**: FOUND-12 (literal close — adminAuthStore.ts shim resolution); re-validates CAD-06, AUTH-01, VAGA-03, CAND-01, CAND-02, CAND-03 against the redirect-after-anon path that Phase 4 UAT did not exercise
 **Gap Closure**: Closes INT-BLOCKER-1, INT-BLOCKER-2, INT-WARNING-2, INT-WARNING-3, FLOW-CADASTRO, FLOW-RECOVERY, FLOW-CANDIDATURA from `v1.0-MILESTONE-AUDIT.md`
 **Success Criteria** (what must be TRUE):
+
   1. After `/cadastro` 4-step submit + auto-login, navigation lands on `/candidato/perfil` with `candidato` populated (personal fields rendered, `useCandidaturas` enabled) — no full-page reload required
   2. After anonymous `/vagas/:slug` → "Candidatar-se" → `/auth/login?redirect=...` → login, navigation lands on `/candidato/candidatura/formulario/:slug` with `candidato` populated; the submit handler (`FormularioCandidaturaPage.tsx:233`) does NOT return silently
   3. After password-recovery deeplink → `setNewPassword` → nav, `/candidato/perfil` renders with `candidato` populated
   4. If the JWT Custom Access Token Hook stops emitting `app_metadata.role`, the user does NOT enter an infinite redirect loop on protected routes (DB-fallback or guard runs)
   5. `src/store/adminAuthStore.ts` literal status matches FOUND-12 text — either deleted or REQUIREMENTS.md text updated to reflect the re-export shim's permitted existence
   6. New Playwright E2E covers the full anonymous → login → submit candidatura path (smoke-runtime gate per Phase 4 lição central D-25..D-28)
+
 **Plans**: 5 plans
 **UI hint**: no (auth wiring + tests)
 
 Plans:
+
 - [x] 04.1-01-PLAN.md — Wave 0: test infrastructure scaffolds (Vitest authStore + RoleGuard + FOUND-12 grep + Playwright auth-hydration spec + candidatura-submit B-J12 + Pitfall 7 grep extension) ✓ 2026-04-27 — 6 test artifacts; 9 RED+GREEN assertions; tsc 320 → 296 (net −24); commits ed2e430 + 8dd60e0
 - [x] 04.1-02-PLAN.md — Wave 1: core hydration fix (hydrateFromSession action + waitForCandidatoHydrated utility + App.tsx setTimeout(0) listener + RoleGuard one-shot fallback for INT-WARNING-3) ✓ 2026-04-27 — 3 commits a873128 + 332364f + 4d9fa25; 5 RED→GREEN flips
 - [x] 04.1-03-PLAN.md — Wave 2: defense-in-depth submit handlers (LoginCandidato + RedefinirSenha + CadastroStep4 await hydration; FormularioCandidatura replaces silent return + disabled button) ✓ 2026-04-27 — 2 commits aec3e27 + 1534b45; 4 files modified; 7 waitForCandidatoHydrated occurrences across 3 fresh-login pages; FormularioCandidatura silent-return replaced by 3 pt-BR toasts + inline disabled gate; tsc 296 preserved; Pitfall 7 grep 4/4 GREEN
@@ -132,41 +153,65 @@ Plans:
 - [x] 04.1-05-PLAN.md — Wave 4: UAT runbook + phase verification battery (lint baseline 296 + build green + Vitest 349 PASS / 1 FAIL [LoadingProgress carryover] + Playwright SC-3+SC-4 unconditional 2/2 PASS + 04.1-VERIFICATION.md tracing all 7 audit gaps to closure + 6/6 ROADMAP success criteria evidenced) ✓ 2026-04-27 — UAT 3/3 PASS + 1 SKIPPED (UAT-APPROVED commit `c4c7080`); 5 side findings F-04.1-A..E captured for Phase 5 backlog (F-04.1-C cross-references F-04-08-G); smoke-runtime gate ESTABLISHED (Phase 4 D-25..D-28 lição central materializada); commits a1a040d + c4c7080 + final close commit
 
 ### Phase 4.2: Phase 1 Verification Backfill (INSERTED)
+
 **Goal**: 12 FOUND-* requirements move from `partial` → `satisfied` per the 3-source matrix; Phase 1 + 2 + 3 VALIDATION.md frontmatter all reach `validated` (Nyquist compliance ratified retroactively)
 **Depends on**: Phase 4.1 (so post-fix state is what the verification artifact certifies)
 **Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, FOUND-05, FOUND-06, FOUND-07, FOUND-08, FOUND-09, FOUND-10, FOUND-11, FOUND-12
 **Gap Closure**: Closes 12 FOUND-* `partial` (verification artifact missing) + Phase 1 Nyquist `nyquist_compliant=false` flag + Phase 2 `status: draft` + Phase 3 `status: draft` from `v1.0-MILESTONE-AUDIT.md`
 **Success Criteria** (what must be TRUE):
+
   1. `.planning/phases/01-foundation-saneada/01-VERIFICATION.md` exists, asserts all 5 success criteria from Phase 1 are TRUE in current codebase, traces all 12 FOUND-* to evidence
   2. `01-VALIDATION.md` frontmatter: `status: validated`, `nyquist_compliant: true`, `wave_0_complete: true` (or documents why Wave 0 is N/A retroactively)
   3. `02-VALIDATION.md` frontmatter: `status: validated`
   4. `03-VALIDATION.md` frontmatter: `status: validated`
   5. REQUIREMENTS.md traceability table reflects FOUND-01..12 as Complete with verification artifact reference
+
 **Plans**: 1 plan
 **UI hint**: no (documentation-only)
 
 Plans:
+
 - [x] 04.2-01-PLAN.md — Author 01-VERIFICATION.md (FOUND-01..12 evidence chain) + flip 01/02/03-VALIDATION.md frontmatter draft → validated + sync REQUIREMENTS.md traceability + STATE.md timestamp ✓ 2026-04-27 — 5 commits e683d16 + 3e8e91e + f2936cb + 06ca687 + 654658f; 12 FOUND-* moved partial → satisfied (REQUIREMENTS.md tally 18/38 → 30/38); 3 VALIDATION.md status flips; lint baseline 296 = 296 (zero growth — documentation-only); Path (a) chosen for Wave 0 retroactive flip (all infra now present in working tree)
 
 ### Phase 5: Perfil + Hardening MVP
+
 **Goal**: The candidate can see their real application data on a profile page, and the entire MVP passes E2E tests, Lighthouse thresholds, and accessibility checks
 **Depends on**: Phase 4, Phase 4.1 (hydration fix is prerequisite for Perfil to render real data)
 **Requirements**: PERF-01, PERF-02, HARD-01, HARD-02, HARD-03, HARD-04, HARD-05, HARD-06
 **Success Criteria** (what must be TRUE):
+
   1. `/candidato/perfil` shows the candidate's personal data and a list of their candidaturas with real status, etapa, and date -- no mocked data
   2. The full E2E suite (login, cadastro, candidatura flows) passes at 100% in CI
   3. Lighthouse mobile scores exceed 80 for both Performance and Accessibility
   4. Every form input has a visible label, tab order is logical, and focus indicators are visible
   5. On iPhone 12 Pro viewport, all flows complete successfully and the logout button is reachable
+
 **Plans**: 6 plans
 **UI hint**: yes
 
 Plans:
+**Wave 1**
+
 - [ ] 05-01-PLAN.md — Wave 0: CI scaffold (GitHub Actions D-03) + LHCI config (D-05) + axe/perfil E2E specs + ErrorBoundary/DevNav grep guards + install @lhci/cli + @axe-core/playwright + prune legacy job-application-flow spec (D-04)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 05-02-PLAN.md — Wave 1: Design-system root-cause batch — globals.css HSL channel-triplet token repair (D-07/D-26) + Input/Select primitive fix (D-02) + GlassButton inline-flex + BeautySmileLogo type reconcile (D-14) + perfil hex sweep [smoke-runtime gate]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 05-03-PLAN.md — Wave 2: ErrorBoundary hoist to root (D-09/HARD-03) + DevNav verify (D-10/HARD-06) + perfil verify+polish (D-01/PERF-01/02) + logout root-fix (WR-01-09) + CandidatoNavbar extract (WR-02-09) + CEP toast + 422 retry UX bugs (D-12) [smoke-runtime gate]
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 05-04-PLAN.md — Wave 3: a11y audit zero-violation gate (D-08/HARD-04) + LHCI measure-first perf (D-05/D-06/HARD-02) + remaining candidate hex sweep + iPhone 12 Pro mobile UAT (D-11/HARD-05)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 05-05-PLAN.md — Wave 4: DB hygiene migrations (D-13) — vaga status-sync (F-04-08-B) + bloco_valido reconcile (F-04-08-C) + [BLOCKING] live db-push via D-22 PL/pgSQL workaround
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 05-06-PLAN.md — Wave 5 (carve-out): PKCE→OTP recovery migration (D-15/D-16) — verifyRecoveryOtp + OTP UI + E2E rewrite + [BLOCKING] Supabase email-template edit + cross-browser UAT
 
 ## Progress
