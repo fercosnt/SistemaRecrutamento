@@ -367,7 +367,7 @@ export function LoginCandidatoPage() {
                         onCheckedChange={(v: boolean | 'indeterminate') =>
                           field.onChange(v === true)
                         }
-                        className="border-white/30 data-[state=checked]:bg-[#00109E] data-[state=checked]:border-[#00109E] mt-0.5"
+                        className="border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary mt-0.5"
                       />
                     )}
                   />
@@ -396,7 +396,7 @@ export function LoginCandidatoPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting || !isValid || isInCooldown}
-                className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                className="w-full bg-primary hover:bg-primary/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-primary/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
                 {isSubmitting ? (
                   <>

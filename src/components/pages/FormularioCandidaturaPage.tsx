@@ -444,7 +444,7 @@ export function FormularioCandidaturaPage() {
   if (vagaLoading || perguntasLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#00109E]" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -457,7 +457,7 @@ export function FormularioCandidaturaPage() {
           <button
             type="button"
             onClick={() => navigate('/vagas')}
-            className="inline-flex items-center justify-center rounded-md bg-[#00109E] px-6 py-3 text-white font-semibold hover:bg-[#00109E]/90"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90"
           >
             Voltar para vagas
           </button>
@@ -509,7 +509,7 @@ export function FormularioCandidaturaPage() {
               <p className="text-gray-700">{vaga.descricao_curta}</p>
             )}
             {vaga.tipo_contrato && (
-              <span className="inline-block mt-2 px-3 py-1 rounded-full bg-[#00109E]/10 text-[#00109E] text-xs font-semibold">
+              <span className="inline-block mt-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
                 {vaga.tipo_contrato}
               </span>
             )}
@@ -537,7 +537,7 @@ export function FormularioCandidaturaPage() {
             ) : (
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center space-x-3 min-w-0">
-                  <FileText className="w-5 h-5 text-[#00109E] flex-shrink-0" />
+                  <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">
                       {cvFile.name}
@@ -583,7 +583,7 @@ export function FormularioCandidaturaPage() {
             <button
               type="submit"
               disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}
-              className="w-full inline-flex items-center justify-center rounded-md bg-[#00109E] px-6 py-3 text-white font-semibold hover:bg-[#00109E]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {cvUploading || form.formState.isSubmitting ? (
                 <>
@@ -648,7 +648,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             type="text"
             {...form.register(fieldName)}
             maxLength={p.limite_caracteres ?? undefined}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -663,7 +663,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             {...form.register(fieldName)}
             maxLength={p.limite_caracteres ?? undefined}
             rows={4}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -679,7 +679,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
             {...form.register(fieldName)}
             min={p.valor_minimo ?? undefined}
             max={p.valor_maximo ?? undefined}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
           {helpText}
           {errorEl}
@@ -711,7 +711,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
                 type="text"
                 placeholder="Outro (especifique)"
                 {...form.register(`respostas_outros.${p.id}` as const)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
             </div>
           )}
@@ -746,7 +746,7 @@ function PerguntaInput({ pergunta: p, form }: PerguntaInputProps) {
                 type="text"
                 placeholder="Outro (especifique)"
                 {...form.register(`respostas_outros.${p.id}` as const)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-[#00109E] focus:outline-none"
+                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none"
               />
             </div>
           )}
