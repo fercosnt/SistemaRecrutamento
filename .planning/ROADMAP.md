@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Saneada** - Unified auth, Edge Functions, types pipeline, RLS hardening ✓ 2026-04-20
 - [x] **Phase 2: Cadastro Candidato** - Multi-step registration rewired to Edge Function ✓ 2026-04-24
-- [ ] **Phase 3: Login + Recuperacao de Senha** - Candidate authentication and password recovery
+- [x] **Phase 3: Login + Recuperacao de Senha** - Candidate authentication and password recovery ✓ 2026-04-27 (7/7 plans done; 03-VALIDATION validated via Phase 4.2)
 - [x] **Phase 4: Vagas + Candidatura** - Job listing, detail page, CV upload, application flow ✓ 2026-04-26
 - [x] **Phase 4.1: Auth Hydration Fix** (INSERTED) - Close INT-BLOCKER-1+2: setSession must hydrate profile/candidato so candidatura submit works after redirect-from-anon login ✓ 2026-04-27
 - [x] **Phase 4.2: Phase 1 Verification Backfill** (INSERTED) - Move 12 FOUND-* from partial → satisfied; flip 01/02/03 VALIDATION.md `draft` → `validated` ✓ 2026-04-27
@@ -158,13 +158,16 @@ Plans:
   3. Lighthouse mobile scores exceed 80 for both Performance and Accessibility
   4. Every form input has a visible label, tab order is logical, and focus indicators are visible
   5. On iPhone 12 Pro viewport, all flows complete successfully and the logout button is reachable
-**Plans**: TBD
+**Plans**: 6 plans
 **UI hint**: yes
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md — Wave 0: CI scaffold (GitHub Actions D-03) + LHCI config (D-05) + axe/perfil E2E specs + ErrorBoundary/DevNav grep guards + install @lhci/cli + @axe-core/playwright + prune legacy job-application-flow spec (D-04)
+- [ ] 05-02-PLAN.md — Wave 1: Design-system root-cause batch — globals.css HSL channel-triplet token repair (D-07/D-26) + Input/Select primitive fix (D-02) + GlassButton inline-flex + BeautySmileLogo type reconcile (D-14) + perfil hex sweep [smoke-runtime gate]
+- [ ] 05-03-PLAN.md — Wave 2: ErrorBoundary hoist to root (D-09/HARD-03) + DevNav verify (D-10/HARD-06) + perfil verify+polish (D-01/PERF-01/02) + logout root-fix (WR-01-09) + CandidatoNavbar extract (WR-02-09) + CEP toast + 422 retry UX bugs (D-12) [smoke-runtime gate]
+- [ ] 05-04-PLAN.md — Wave 3: a11y audit zero-violation gate (D-08/HARD-04) + LHCI measure-first perf (D-05/D-06/HARD-02) + remaining candidate hex sweep + iPhone 12 Pro mobile UAT (D-11/HARD-05)
+- [ ] 05-05-PLAN.md — Wave 4: DB hygiene migrations (D-13) — vaga status-sync (F-04-08-B) + bloco_valido reconcile (F-04-08-C) + [BLOCKING] live db-push via D-22 PL/pgSQL workaround
+- [ ] 05-06-PLAN.md — Wave 5 (carve-out): PKCE→OTP recovery migration (D-15/D-16) — verifyRecoveryOtp + OTP UI + E2E rewrite + [BLOCKING] Supabase email-template edit + cross-browser UAT
 
 ## Progress
 
