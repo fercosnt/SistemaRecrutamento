@@ -61,7 +61,7 @@ Requirements for M1. Each maps to roadmap phases.
 - [x] **HARD-02**: Lighthouse mobile > 80 em Performance e Accessibility
 - [x] **HARD-03**: ErrorBoundary global plugado no root da aplicacao
 - [x] **HARD-04**: Labels em todos os inputs; tab order correto; focus visivel
-- [ ] **HARD-05**: Validacao manual em mobile (iPhone 12 Pro viewport) — logout acessivel
+- [x] **HARD-05**: Validacao manual em mobile (iPhone 12 Pro viewport) — logout acessivel ✓ Phase 5 (human UAT 05-04 Task 3, iPhone 12 Pro 390x844 logout reachable all flows, approved 2026-06-06; 05-VERIFICATION truth #5 SATISFIED — checkbox lag corrected at v1.0 audit)
 - [x] **HARD-06**: DevNavigationMenu oculto em producao (gateado por `import.meta.env.DEV`)
 
 ## v2 Requirements
