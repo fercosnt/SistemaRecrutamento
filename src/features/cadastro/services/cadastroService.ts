@@ -170,8 +170,9 @@ export async function cadastrarCandidato(
 ): Promise<CadastroCompleteResult> {
   // Pitfall 7: redaction — NEVER log `data` directly (contém senha).
   console.log('[CADASTRO] Invocando Edge Function cadastrar-candidato', {
-    email: data.dadosPessoais.email,
-    nome: data.dadosPessoais.nome_completo,
+    // Pitfall 7 (WR-02): NUNCA logar PII (email/nome) — apenas flags booleanas.
+    hasEmail: Boolean(data.dadosPessoais.email),
+    hasNome: Boolean(data.dadosPessoais.nome_completo),
     hasPassword: Boolean(data.dadosPessoais.senha),
   })
 
@@ -232,12 +233,13 @@ export async function cadastrarCandidato(
           throw new CadastroError(message, code, structured.field)
         }
       }
-      // Pitfall 7: extrair apenas `message`; invokeError pode transportar o
-      // request body em alguns SDKs.
-      console.error(
-        '[CADASTRO] Falha de rede ao invocar Edge Function:',
-        invokeError.message || String(invokeError)
-      )
+      // Pitfall 7 (WR-03): NÃO logar invokeError.message / String(invokeError) —
+      // alguns SDKs serializam o request body (que contém a senha) na mensagem.
+      // Logar apenas name/status estruturados.
+      console.error('[CADASTRO] Falha de rede ao invocar Edge Function', {
+        name: invokeError instanceof Error ? invokeError.name : 'unknown',
+        status: (invokeError as { status?: number }).status,
+      })
       throw new CadastroError(
         invokeError.message || 'Falha ao invocar função de cadastro',
         'NETWORK_ERROR',

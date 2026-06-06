@@ -49,6 +49,11 @@ Keep OTP expiry at 3600s. (`{{ .ConfirmationURL }}` may remain as a secondary li
 4. Confirm accepted, lands on `/candidato/perfil`, and the new password logs in CROSS-BROWSER (the PKCE failure mode is gone).
 5. On `/candidato/perfil`, confirm the "Alterar Senha" widget is inside a `<form>` and submits.
 
+## Code-review findings to fold in on resume (from 05-REVIEW.md WR-01)
+The `handleAlterarSenha` widget in `MeuPerfilCandidatoPage.tsx` (which 05-06 wraps in a `<form>`):
+- collects "Senha Atual" but never verifies it before `supabase.auth.updateUser({ password })` — either drop the field or `signInWithPassword({ email, password: atual })` first to enforce re-auth;
+- uses a min-length check of 6, inconsistent with the app-wide `passwordSchema` (≥8 + upper/lower/digit). Align to the schema.
+
 ## To resume
 `npm run build && npm run preview` (serves on :4173). Do Task 3, then Task 4. Once both pass,
 finalize: write `05-06-SUMMARY.md`, update STATE/ROADMAP/REQUIREMENTS (HARD-04), then run the
