@@ -1,9 +1,37 @@
 ---
 phase: 05-perfil-hardening-mvp
 verified: 2026-06-06T17:30:00Z
-status: human_needed
-score: 7/8 must-haves verified
+status: gaps_found
+score: 6/8 must-haves verified (SC2 FAILED in first live CI run; SC3 partial)
 overrides_applied: 0
+reverified: 2026-06-06T20:50:00Z
+reverify_note: "First live CI run (GitHub Actions run 27073197523, push to backup/local-state-2026-04) flipped SC2 from UNCERTAIN to FAILED. The pipeline had never been run; it surfaced both CI-config defects (fixed in 7f51806) and genuine E2E-suite gaps (below). Re-verification downgraded status human_needed → gaps_found."
+gaps:
+  - id: GAP-05-CI-1
+    sc: SC2 / HARD-01
+    severity: blocking
+    title: "cadastro-flow happy-path test does a real cadastro submit + auto-login — fails without live Supabase"
+    detail: "e2e/cadastro-flow.spec.ts:164 'happy path: auto-login lands on /candidato/perfil' is an ungated real-auth test. Gate behind E2E_AUTH_TEST_USERS==='true' (Tier-2) like login-flow's legacy suites (done in 7f51806)."
+  - id: GAP-05-CI-2
+    sc: SC2 / HARD-01
+    severity: blocking
+    title: "vagas-browse B-J01 needs vaga-list data — fails with placeholder Supabase"
+    detail: "e2e/vagas-browse.spec.ts:27 'anon visits /vagas and sees the list region' expects rendered vaga cards; with no live data the list region is empty. Add a page.route mock for the vagas query, or gate as Tier-2."
+  - id: GAP-05-CI-3
+    sc: SC2 / HARD-01
+    severity: blocking
+    title: "password-recovery B10 (mocked) fails under CI env"
+    detail: "e2e/password-recovery-flow.spec.ts:143 B10 'type OTP + new password → verifyOtp + updateUser' is meant to be page.route-mocked + unconditional, but fails when the app boots with placeholder Supabase. Investigate the mock interception vs the OTP/updateUser call shape."
+  - id: GAP-05-CI-4
+    sc: SC4 / HARD-04
+    severity: blocking
+    title: "a11y /auth/redefinir-senha has a real WCAG A/AA violation (contradicts 05-04 'zero violations' + 05-06 deferred-items)"
+    detail: "e2e/a11y.spec.ts /auth/redefinir-senha fails expect(violations).toEqual([]) (color-contrast family). a11y is an 'error' gate (HARD-04). REOPENS SC4 — the 05-06 OTP page (input-otp + new-password form) likely introduced the violation. Fix the contrast or .exclude with a tracked reason."
+  - id: GAP-05-CI-5
+    sc: SC4 / HARD-04
+    severity: warning
+    title: "a11y /auth/login, /cadastro, /vagas are flaky (pass on retry)"
+    detail: "Data/render-dependent axe flakiness (generalizes DEF-05-06-A beyond /vagas). Stabilize: pin seed/render state, exclude known-dynamic nodes, or make the a11y scan deterministic so the 'error' gate is reliable."
 human_verification:
   - test: "Run full E2E suite in GitHub Actions CI (push/PR trigger) and confirm all Tier-1 jobs are green"
     expected: "unit job (lint + vitest 357/358 except pre-existing LoadingProgress carryover) + e2e job (playwright chromium) both pass; lighthouse job runs without crashing"
@@ -29,9 +57,9 @@ human_verification:
 | # | Truth (Success Criterion) | Status | Evidence |
 |---|--------------------------|--------|----------|
 | 1 | /candidato/perfil shows real personal data + candidaturas with status, etapa, date — no mocked data | ✓ VERIFIED | `useCandidaturas()` hook (line 25) queries `candidaturasService` which does a live `.from('candidaturas').select(...)` Supabase call (Level 4: real DB data). `useCandidato()` from authStore provides personal data. 05-03 smoke-runtime gate approved by human. |
-| 2 | Full E2E suite (login, cadastro, candidatura flows) passes 100% in CI | ? UNCERTAIN | All specs exist, Tier-1 deterministic core compiles and passes locally. CI workflow `.github/workflows/ci.yml` is structurally valid (unit + e2e + lighthouse jobs). But no live CI run has been confirmed — HARD-01 requires an actual green check. Needs human/CI gate. |
+| 2 | Full E2E suite (login, cadastro, candidatura flows) passes 100% in CI | ✗ FAILED (first live run) | CI run 27073197523 (first ever) was RED. Config defects fixed in 7f51806 (lint baseline gate, placeholder Supabase env, login-flow legacy real-auth gating). Genuine E2E gaps remain — see frontmatter GAP-05-CI-1..3 (cadastro happy-path ungated, vagas-browse needs data/mock, password-recovery B10 mock). Gap-closure plan tracks these. |
 | 3 | Lighthouse mobile scores exceed 80 for both Performance and Accessibility | ? UNCERTAIN (split) | Accessibility: 0.96–1.00 measured in Plan 05-04, enforced at 'error' level in `lighthouserc.cjs`. Performance: 0.62–0.68 measured — below 0.8 but deliberately accepted as a warn-baseline (user-approved per 05-04 key-decisions). LHCI config correctly reflects this split. Needs live run to confirm current state has not regressed. |
-| 4 | Every form input has visible label, tab order is logical, focus indicators are visible | ✓ VERIFIED | `e2e/a11y.spec.ts` passes with zero WCAG A/AA violations on 4 public routes (Plan 05-04). Recovery pages (`/auth/esqueci-senha`, `/auth/redefinir-senha`) confirmed zero violations in Plan 05-06. `MeuPerfilCandidatoPage` change-password widget wrapped in `<form>` with labelled inputs (htmlFor `perfil_senha_atual`, `perfil_senha_nova`, `perfil_senha_confirmar`). |
+| 4 | Every form input has visible label, tab order is logical, focus indicators are visible | ⚠ REOPENED | Labels/form structure VERIFIED (change-password `<form>` with labelled inputs). BUT the first live a11y run found a real WCAG A/AA violation on `/auth/redefinir-senha` (GAP-05-CI-4) + flaky scans on /auth/login, /cadastro, /vagas (GAP-05-CI-5) — contradicting the 05-04 "zero violations" claim. a11y is an 'error' gate (HARD-04); SC4 is reopened pending the gap-closure fixes. |
 | 5 | On iPhone 12 Pro viewport (390x844), all flows complete and logout button is reachable | ✓ VERIFIED | Plan 05-04 Task 3 human UAT: iPhone 12 Pro (390x844) logout reachable on every candidate flow; all flows completed without scroll traps. HARD-05 approved 2026-06-06. |
 
 **Score:** 7/8 truths fully verified (SC2 and SC3 require a CI/live-run gate)
