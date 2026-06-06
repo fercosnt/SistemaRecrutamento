@@ -11,6 +11,7 @@ import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import { useAuthStore, useCandidato } from '@/store/authStore';
 import { supabase } from '@/lib/supabase/client';
+import { passwordSchema } from '@/features/auth/schemas';
 import { useCandidaturas } from '@/features/vagas/hooks/useCandidaturas';
 import { ETAPA_PROCESSO_LABELS, STATUS_CANDIDATURA_LABELS } from '@/features/vagas/types/vagasTypes';
 import type { Candidatura } from '@/features/vagas/types/vagasTypes';
@@ -104,6 +105,9 @@ export function MeuPerfilCandidatoPage() {
 
   /**
    * Altera senha do usuário no Supabase Auth
+   * - Exige a senha atual e a reverifica (re-auth) antes de trocar (WR-01)
+   * - Valida a nova senha contra o passwordSchema compartilhado (>=8 + maiúscula
+   *   + minúscula + número) — alinhado com cadastro/redefinir (WR-01)
    * - Valida se senhas coincidem
    * - Atualiza senha via supabase.auth.updateUser()
    * - Limpa campos após sucesso
@@ -112,6 +116,15 @@ export function MeuPerfilCandidatoPage() {
     // HARD-04/D-08 (Plan 05-06): a widget de alterar senha agora vive dentro de
     // um <form> (a11y). Prevenir o submit nativo para manter o fluxo SPA.
     e?.preventDefault();
+
+    // WR-01: a "Senha Atual" precisa estar presente para reautenticar.
+    if (!senhas.atual) {
+      toast.error('Senha atual obrigatória', {
+        description: 'Informe sua senha atual para confirmar a alteração.',
+      });
+      return;
+    }
+
     if (senhas.nova !== senhas.confirmar) {
       toast.error('Senhas não coincidem', {
         description: 'Verifique se a nova senha e confirmação são iguais.',
@@ -119,9 +132,23 @@ export function MeuPerfilCandidatoPage() {
       return;
     }
 
-    if (senhas.nova.length < 6) {
-      toast.error('Senha muito curta', {
-        description: 'A senha deve ter no mínimo 6 caracteres.',
+    // WR-01: validar a nova senha contra o passwordSchema (única fonte de verdade
+    // de complexidade) em vez do antigo check ad-hoc de 6 caracteres.
+    const novaSenhaCheck = passwordSchema.safeParse(senhas.nova);
+    if (!novaSenhaCheck.success) {
+      toast.error('Senha inválida', {
+        description:
+          novaSenhaCheck.error.issues[0]?.message ??
+          'A nova senha não atende aos requisitos de segurança.',
+      });
+      return;
+    }
+
+    // WR-01: o e-mail da conta autenticada é necessário para reautenticar.
+    const emailConta = candidato?.email;
+    if (!emailConta) {
+      toast.error('Erro ao alterar senha', {
+        description: 'Não foi possível identificar a conta. Recarregue a página.',
       });
       return;
     }
@@ -131,6 +158,27 @@ export function MeuPerfilCandidatoPage() {
         description: 'Aguarde enquanto processamos a alteração.',
       });
 
+      // WR-01: reautenticar com a senha atual antes de permitir a troca.
+      // signInWithPassword falha se a senha atual estiver incorreta, fechando
+      // a brecha de trocar a senha sem conhecer a senha vigente.
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: emailConta,
+        password: senhas.atual,
+      });
+
+      if (reauthError) {
+        toast.dismiss(toastId);
+        // Log apenas { code, status } — nunca o objeto de erro completo (IN-02).
+        console.error('Falha na reautenticação ao alterar senha:', {
+          code: reauthError.code,
+          status: reauthError.status,
+        });
+        toast.error('Senha atual incorreta', {
+          description: 'Confira sua senha atual e tente novamente.',
+        });
+        return;
+      }
+
       // Atualizar senha no Supabase Auth
       const { error } = await supabase.auth.updateUser({
         password: senhas.nova,
@@ -139,7 +187,11 @@ export function MeuPerfilCandidatoPage() {
       toast.dismiss(toastId);
 
       if (error) {
-        console.error('Erro ao alterar senha:', error);
+        // Log apenas { code, status } — nunca o objeto de erro completo (IN-02).
+        console.error('Erro ao alterar senha:', {
+          code: error.code,
+          status: error.status,
+        });
         toast.error('Erro ao alterar senha', {
           description: error.message,
         });
