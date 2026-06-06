@@ -162,6 +162,10 @@ test.describe('Cadastro de Candidato - Fluxo Completo', () => {
 
   // ─── Case 1: Happy path with auto-login to /candidato/perfil ─────
   test('happy path: auto-login lands on /candidato/perfil with welcome toast', async ({ page }) => {
+    test.skip(
+      process.env.E2E_AUTH_TEST_USERS !== 'true',
+      'Real cadastro submit + auto-login needs live Supabase + a seeded/clean project — Tier-2 (UAT/seed). Set E2E_AUTH_TEST_USERS=true to run.',
+    )
     await fillAllSteps(page)
 
     await page.click('button:has-text("Criar conta")')
