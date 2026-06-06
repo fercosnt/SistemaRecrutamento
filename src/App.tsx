@@ -27,6 +27,7 @@ import { routes, devNavigationPages } from './router/routes'
 import { useAuthStore } from './store/authStore'
 import { supabase } from './lib/supabase/client'
 import { useSessionTimeout } from './hooks/useSessionTimeout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 /**
  * Instância do QueryClient para TanStack Query
@@ -249,9 +250,15 @@ const router = createBrowserRouter(routesWithLayout, {
  */
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    // HARD-03 / D-09: ErrorBoundary hoisted to the App root so router-construction,
+    // provider, and any render error in the whole tree shows the fallback UI instead
+    // of a white screen. Per-route ErrorBoundary wrappers (router/routes.tsx) remain
+    // as a finer-grained inner net; this is the outermost catch-all.
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 
