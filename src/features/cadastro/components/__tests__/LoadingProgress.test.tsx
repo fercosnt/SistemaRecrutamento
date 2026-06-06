@@ -127,10 +127,12 @@ describe('LoadingProgress', () => {
 
     const { container } = render(<LoadingProgress stages={stages} />)
 
-    // Não deve ter elemento com classe de erro de mensagem
-    const errorMessages = container.querySelectorAll('.text-destructive')
-    // Deve ter apenas o ícone de erro, não mensagem
-    expect(errorMessages.length).toBeLessThanOrEqual(1)
+    // O parágrafo de mensagem de erro é unicamente `p.text-xs.text-destructive`
+    // (o rótulo é text-sm; o container do ícone não é <p>; a duração é text-muted-foreground).
+    // Quando errorMessage está ausente, esse parágrafo não deve ser renderizado —
+    // mesmo que ícone e rótulo permaneçam destructive-colored por design.
+    const errorMessageParagraphs = container.querySelectorAll('p.text-xs.text-destructive')
+    expect(errorMessageParagraphs.length).toBe(0)
   })
 
   // ============================================
