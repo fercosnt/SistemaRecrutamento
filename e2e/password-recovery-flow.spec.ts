@@ -188,6 +188,30 @@ test.describe('password-recovery (OTP) — Phase 5 Plan 05-06', () => {
       }
     })
 
+    // GAP-05-CI-3: after verifyOtp + updateUser succeed and the success toast fires,
+    // navigate('/candidato/perfil') runs — but RoleGuard bounces back to /auth/login
+    // because `candidato` never hydrates (the candidatos profile read is unmocked under
+    // placeholder Supabase). Mock the candidatos read (idiom from perfil.spec.ts:97-113)
+    // with user_id 'uuid-otp' / email 'otp-test@x.com' to match the B10 JWT sub/email,
+    // so waitForCandidatoHydrated resolves and /candidato/perfil renders.
+    await page.route('**/rest/v1/candidatos**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'cand-uuid',
+            user_id: 'uuid-otp',
+            nome_completo: 'Candidato Teste',
+            email: 'otp-test@x.com',
+            celular: '(11) 98765-4321',
+            avatar_url: null,
+            deleted_at: null,
+          },
+        ]),
+      })
+    })
+
     // Carry the email in router state by going through EsqueciSenhaPage first.
     await page.route('**/auth/v1/recover', (route) => {
       route.fulfill({

@@ -25,6 +25,36 @@ async function fillAndBlur(page: Page, selector: string, value: string) {
 test.describe('Vagas Public Browse (Plan 04-08)', () => {
 
   test('B-J01: anon visits /vagas and sees the list region', async ({ page }) => {
+    // GAP-05-CI-2: under placeholder Supabase the .from('vagas') REST query errors
+    // (DATABASE_ERROR) → neither cards nor the empty-state render reliably. Mock the
+    // vagas list query so the list region renders deterministically. The content-range
+    // header is what supabase-js reads for the { count: 'exact' } total. Scoped to
+    // B-J01 only — B-J02/B-J03/B-J04 keep their existing self-skip-on-zero-cards gating
+    // and real-navigation behavior untouched.
+    await page.route('**/rest/v1/vagas**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-range': '0-0/1' },
+        body: JSON.stringify([
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            titulo: 'Vaga Teste E2E',
+            slug: 'vaga-teste-e2e',
+            descricao_curta: 'Descrição curta de teste',
+            status: 'ativa',
+            deleted_at: null,
+            cidade: 'São Paulo',
+            estado: 'SP',
+            departamento: 'atendimento',
+            tipo_contrato: 'clt',
+            modelo_trabalho: 'presencial',
+            nivel_senioridade: 'pleno',
+            created_at: '2026-06-01T12:00:00Z',
+          },
+        ]),
+      }),
+    )
     await page.goto('/vagas')
     // VagasPublicasPage always renders h1 "Vagas Disponíveis" + the resultados counter,
     // even with zero seed vagas (empty-state branch). Both are valid acceptance per VAGA-01.
