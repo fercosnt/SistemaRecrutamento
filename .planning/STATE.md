@@ -1,27 +1,27 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
+milestone_name: M1 — MVP Candidato
 status: Awaiting next milestone
-stopped_at: Phase 5 context gathered
+stopped_at: Milestone v1.0 shipped and archived
 last_updated: "2026-06-06T23:34:31.568Z"
 last_activity: 2026-06-06 — Milestone v1.0 completed and archived
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 43
-  completed_plans: 40
-  percent: 86
+  completed_plans: 43
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-19)
+See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Milestone complete
+**Current focus:** Planning next milestone — M2 (Funil RH + Avaliação por IA) via `/gsd-new-milestone`
 
 ## Current Position
 
