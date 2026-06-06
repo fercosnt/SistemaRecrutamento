@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 5 plan execution complete (6/6) — 05-06 resumed from blocking human gates; pending verify_phase_goal
-last_updated: "2026-06-06T17:10:00.000Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 05 was final phase)
+last_updated: 2026-06-06T20:20:52.057Z
 last_activity: 2026-06-06
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 42
-  completed_plans: 35
-  percent: 83
+  completed_plans: 39
+  percent: 71
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-19)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 05 — perfil-hardening-mvp
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 05 (perfil-hardening-mvp) — PLAN EXECUTION COMPLETE (6/6), pending phase verification
-Plan: 6 of 6 (05-06 resumed from blocking human gates; Task 3 template + Task 4 cross-browser OTP UAT + change-password A/B/C all PASS)
-Status: Awaiting verify_phase_goal (gsd-verifier)
+Phase: 05
+Plan: Not started
+Status: Milestone complete
 Last activity: 2026-06-06
 
 Progress: [████████░░] 83%
@@ -36,7 +36,7 @@ Progress: [████████░░] 83%
 
 **Velocity:**
 
-- Total plans completed: 32 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
+- Total plans completed: 38 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
 - Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure), 03-06 (~17 min, fully autonomous, 2 page rewrites + 8 deletions = 1528 LoC removed), 03-07 (~27 min autonomous Tasks 1-3+autofix + ~2.5h human-clock UAT execution; 2 production-only findings captured)
 - Total execution time for Phase 2: ~245 min
 - Total execution time for Phase 3: ~281 min autonomous + ~2.5h human UAT = ~431 min wall-clock (Waves 0-6 / 7 of 7 complete)
@@ -48,6 +48,7 @@ Progress: [████████░░] 83%
 | Phase 2 | 6/6 | ~245 min | ~41 min |
 | Phase 3 | 7/7 | ~281 min autonomous + ~2.5h human UAT | ~40 min/plan autonomous (skewed high by Wave 0 human checkpoint + Wave 3 service-layer multi-task; autonomous page-rewrite plans 03-05 ~33 min, 03-06 ~17 min, 03-07 ~27 min — Wave 6 was the second-fastest autonomous because the E2E patterns transferred cleanly from Phase 2's cadastro-flow.spec.ts and the auto-fix Rule 1 was a single-pass selector + .blur() pattern fix) |
 | 04 | 9 | - | - |
+| 05 | 6 | - | - |
 
 **Per-plan ledger (Phase 3):**
 
