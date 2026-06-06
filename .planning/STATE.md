@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Milestone complete (Phase 05 was final phase)
-last_updated: 2026-06-06T20:20:52.057Z
-last_activity: 2026-06-06
+status: Awaiting next milestone
+stopped_at: Phase 5 context gathered
+last_updated: "2026-06-06T23:34:31.568Z"
+last_activity: 2026-06-06 — Milestone v1.0 completed and archived
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 42
-  completed_plans: 39
-  percent: 71
+  completed_phases: 6
+  total_plans: 43
+  completed_plans: 40
+  percent: 86
 ---
 
 # Project State
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-19)
 
 ## Current Position
 
-Phase: 05
-Plan: 07 complete (gap-closure GAP-05-CI-1..5)
-Status: Plan 05-07 executed — deterministic core green under CI-condition; awaiting human-owned live CI run to flip HARD-01
-Last activity: 2026-06-06
-
-Progress: [████████░░] 83%
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-06 — Milestone v1.0 completed and archived
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -312,3 +310,7 @@ Stopped at: Phase 5 context gathered
 
 Resume file: None
 Next: **Phase 4 phase-level gates remaining (orchestrator-owned, vêm como workflow separado post-execution):** (1) code-review (cross-cutting Phase 4 surface review — vagas + candidaturas + Edge Function + form rewrite + e2e specs); (2) regression (full vitest + playwright + build + lint baseline preservation across all 4 phases now); (3) verifier (manual + automated final acceptance contra os 7 requirements VAGA-01..03 + CAND-01..04). Apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP. **Phase 5 inputs (carry-over):** F-04-08-B (vaga soft-deleted data hygiene — DB-level invariant ou backfill cleanup script); F-04-08-C (bloco_valido_check constraint não em migrations — schema drift, reconciliation migration); F-04-08-G (white text WCAG AA contrast over BackgroundImage gradient — visual polish + WCAG audit); D-26 token reparation (definir --primary em HSL components separadamente do HEX --brand-primary; após fix sweep bg-[#00109E] literais → bg-primary semântico em todas as páginas); D-27 plan checker enhancement ("page integrates canonical persona shell?"); D-28 plan checker enhancement (smoke-runtime gate antes de plan complete); PKCE same-browser limitation (carryover de Phase 3 03-07 UAT-3 + Phase 4 deferral; preferred mitigation continua sendo switch para OTP code flow). **Phase 4 plan execution closure note:** carryover chain narrative (3 iterações A→B→C resolvendo 4 findings sequenciais) é a lição central da Phase 4. Gates autônomos verdes NÃO substituem smoke-runtime real. Plan checker autônomo do 04-07 passou (build + lint + vitest + playwright + grep) mas página estava UNUSABLE — apenas UAT manual com infra real surfaceou os bugs. Phase 5 deve adotar carryover discipline como pattern (atomic plans por finding, bisect-friendly history, rollback granular).
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

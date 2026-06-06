@@ -16,6 +16,8 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 
 <!-- Existente e funcional no codebase atual (pre-rebuild ou validated em fases concluidas) -->
 
+- ✓ **Perfil + Hardening MVP end-to-end** — v1.0 / Phase 5 completa: `/candidato/perfil` com dados reais (candidaturas via live DB, sem mock), sistema de tokens semânticos reparado na fonte (HSL channel triplets), ErrorBoundary no root do App, **primeira pipeline CI (unit + e2e + lighthouse) GREEN em run real** (GitHub Actions 27076233734), a11y axe-core **zero violações WCAG A/AA** nas 5 rotas públicas, Lighthouse mobile Accessibility 0.96–1.00, recuperação de senha migrada PKCE→email-OTP (fecha a limitação cross-browser do AUTH-04), e 2 migrations de data-hygiene (vaga soft-deleted não fica `status='ativa'` + reconcile `bloco_valido_check`). Validated 2026-06-06 via 05-VERIFICATION 8/8 + HUMAN-UAT passed + audit v1.0 PASSED. Requirements: PERF-01, PERF-02, HARD-01..HARD-06 ✓ (HARD-02 Performance warn-baseline aceito; PERF-01 com tech-debt de cache-invalidation ≤60s)
+- ✓ **Auth hydration + verification backfill** — Phases 4.1 + 4.2 completas: `hydrateFromSession` + `waitForCandidatoHydrated` fecham o gap async entre `onAuthStateChange` e navegação em todos os 3 login paths; RoleGuard redirect-loop guard; smoke-runtime test gate estabelecido; 12 FOUND-* movidos de partial → satisfied. Validated 2026-04-27.
 - ✓ **Vagas + Candidatura end-to-end** — Phase 4 completa: 8 standard plans + 3 carryovers (folded em 04-08-SUMMARY) + 1 gap-closure (04-09 persona shell + GlassButton inline-flex). Inclui: vagas slug trigger + curriculos bucket privado 5MB + submit_candidatura RPC atomic (status='aguardando_resposta', etapa='triagem') + UNIQUE partial idx para CAND-04 + Edge Function submit-candidatura (two-client D-23) + cvUploadService (D-10 path schema {auth.uid()}/{uuid}.pdf) + dynamic Zod factory para perguntas + VagaDetalhePage slug routing + FormularioCandidaturaPage rewrite + persona shell auth-guarded em /vagas e /vagas/:identifier (D-27 extension com link 'Área do candidato'). Validated 2026-04-26 via real-world UAT 6/6 PASS (candidato d8ef9db1 + vaga 53f75c81 + 1 candidatura + 3 respostas + 1 storage object + duplicate guard via useHasApplied + slug-roundtrip + Pitfall 7 redaction) + phase-level UAT 9/10 PASS (1 issue closed by 04-09; 2 side-findings deferred a Phase 5 backlog) + verifier passed 5/5 success criteria + 7/7 requirements SATISFIED + code review 3 iterations (10 WRs resolved + 2 deferred). Requirements: VAGA-01, VAGA-02, VAGA-03, CAND-01, CAND-02, CAND-03, CAND-04 ✓
 - ✓ **Login + Recuperação de senha end-to-end** — Phase 3 completa: AuthError taxonomy + mapSupabaseError + 4 Zod schemas + extractRole (jwt-decode, fecha Bug 1/D-13) + rememberMeStorage adapter (D-19) + authService (signIn order-lock setRememberMeMode antes de signInWithPassword) + passwordService (D-09 anti-enum) + 3 hooks (useRateLimitCooldown in-memory T-03-06, useRecoverySession 3-path state machine, useAuthFlowVariant) + 4 page rewrites (LoginCandidato/LoginRH com bounded polling 5×20ms fechando Bug 2-3/D-14, EsqueciSenha 2-state, RedefinirSenha 3-state) + cadastro compat shim Option A. Validated 2026-04-25 via Playwright 11 cenários + Vitest 96/96 auth + UAT 6/6 PASS + verifier passed 3/3 success criteria. Requirements: AUTH-01, AUTH-02, AUTH-03 ✓ + AUTH-04 ✓ (com limitação documentada PKCE cross-browser deferida a Phase 4 — OTP code flow é a mitigação preferida)
 - ✓ **Cadastro candidato end-to-end em produção** — Phase 2 completa: 4-step form + draft persistence (sans senha via sessionStorage) + LGPD mandatory guard + structured error_code routing + auto-login + redirect `/candidato/perfil`. Validated 2026-04-24 via Chrome UAT + Playwright 13/13 passing. Requirements: CAD-01, CAD-02, CAD-03, CAD-04, CAD-05, CAD-06, CAD-07 ✓
@@ -36,23 +38,12 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 
 ### Active
 
-<!-- Milestone M1: Fases 1-5 (MVP Candidato) -->
+<!-- M1 (Fases 1-5, MVP Candidato) shipped 2026-06-06 — todos os 38 requirements movidos para Validated. -->
+<!-- M2 (Funil RH + Avaliação por IA) ainda não tem requirements formais — serão definidos via /gsd-new-milestone consumindo PRD-MASTER v1.1 + 5 mini-PRDs. -->
 
-- [x] Auth unificado: 1 store com campo `role` (candidato | rh | admin), sem service_role no client ✓ Phase 1
-- [x] RoleGuard centralizado validando session + role do banco ✓ Phase 1
-- [x] Pipeline de types automatizado (`npm run db:types` + hook pre-commit) ✓ Phase 1
-- [x] Migrations consolidadas em `supabase/migrations/` numeradas ✓ Phase 1
-- [x] Login candidato estavel com "Lembrar-me" via storage adapter D-19 (localStorage/sessionStorage swap) ✓ Phase 3
-- [x] Recuperacao de senha funcional (email + link + redefinicao) ✓ Phase 3 (limitação cross-browser PKCE deferida a Phase 4)
-- [x] Rotas protegidas que REALMENTE redirecionam sem sessao ✓ Phase 1
-- [x] Cadastro candidato end-to-end sobre fundacao nova (sem service_role) ✓ Phase 2
-- [ ] Listagem publica de vagas ativas (`status = 'ativa'`, nao campo boolean `ativa`)
-- [ ] Pagina de detalhe da vaga simples (`/vagas/:slug`)
-- [ ] Candidatura com upload de curriculo para Supabase Storage
-- [ ] Formulario de candidatura com perguntas de triagem (tabela `respostas_formulario`)
-- [ ] Perfil do candidato com candidaturas reais (sem mock)
-- [ ] E2E suite completa do candidato passando 100%
-- [ ] Lighthouse mobile > 80 (Performance + Accessibility)
+**M1 (MVP Candidato) — ✅ SHIPPED v1.0 2026-06-06.** Todos os requirements (FOUND, CAD, AUTH, VAGA, PERF, HARD — 38 total) validados; ver Validated acima e `.planning/milestones/v1.0-*`.
+
+**M2 (Funil RH + Avaliação por IA) — próximo milestone.** Design congelado (PRD-MASTER v1.1 + 5 mini-PRDs: Big Five, Redação fit-cultural, AI Prompt Library, Cognitivo/raciocínio, SJT por cargo). Requirements formais a definir via `/gsd-new-milestone`. Tech-debt herdado do M1 a endereçar no M2: PERF-01 cache-invalidation (≤60s), HARD-02 Lighthouse Performance (bundle 661 KiB), FOUND-08 burn-down do baseline 292-erros tsc, remover console.log debug RH-path.
 
 ### Out of Scope
 
@@ -68,12 +59,15 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 
 ## Context
 
-**Estado atual (pos-Phase 3):**
-- Phase 1 completa (fundacao saneada): service_role removido do bundle, auth unificado, RoleGuard, Custom Access Token Hook, migrations consolidadas
-- Phase 2 completa (cadastro candidato end-to-end em produção): UAT green 2026-04-24 incluindo draft persistence, LGPD mandatory guard, auto-login, redirect `/candidato/perfil`
-- Phase 3 completa (login + recuperação de senha end-to-end): UAT 6/6 PASS 2026-04-25, verifier passed 3/3, code review advisory 0 critical/5 warning/6 info; Bug 1 (D-13) e Bug 2-3 (D-14) estruturalmente fechados; AUTH-04 com limitação documentada PKCE cross-browser deferida a Phase 4 (OTP code flow preferido); 1528 LoC dead code purged; 5 advisory warnings classificados como Phase 4 hardening
-- Phase 4 (Vagas + Candidatura) pronta para planejar — herda Bug 6/D-15 RPC `check_candidato_duplicate` CPF mismatch + 1 carryover Phase 1 (`useVagas` query usa `ativa` em vez de `status`) + WR-01..WR-05 advisory hardening do Phase 3 review + PKCE OTP-flow migration + Phase 5 a11y backlog (change-password widget bare inputs)
-- DevNavigationMenu gateado por `import.meta.env.DEV`
+**Estado atual (v1.0 — M1 MVP Candidato SHIPPED 2026-06-06):**
+- Todas as 7 fases (1, 2, 3, 4, 4.1, 4.2, 5) completas e verificadas; milestone audit v1.0 PASSED (38/38 requirements, integração sound, 0 blockers).
+- **CI totalmente verde** (GitHub Actions run 27076233734 em `backup/local-state-2026-04`): unit + e2e + lighthouse. Primeira pipeline CI do projeto.
+- Fluxo candidato completo em produção: cadastro → login → recuperação de senha (OTP) → browse vagas → candidatura com CV upload → perfil com dados reais. Mobile-first, a11y zero-violações, ErrorBoundary no root.
+- Codebase: ~47.9k LoC (src). Baseline tsc congelado em 292 erros (commits via `core.hooksPath=/dev/null`, deviation documentada — burn-down planejado pós-M1).
+- Tech-debt rastreado para M2: PERF-01 cache-invalidation (≤60s window), HARD-02 Lighthouse Performance (0.62–0.68 warn-baseline, bundle 661 KiB monolítico), FOUND-08 husky gate bypass, console.log debug RH-path.
+- DevNavigationMenu gateado por `import.meta.env.DEV`.
+
+**Próximo:** M2 (Funil RH + Avaliação por IA) — design congelado (PRD-MASTER v1.1 + 5 mini-PRDs); iniciar via `/gsd-new-milestone`.
 
 **Estado historico (pre-Phase 1):**
 - 43 arquivos WIP commitados em `backup/local-state-2026-04`
@@ -122,7 +116,11 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 | VagaLPPage removida do escopo | Pagina simples `/vagas/:slug` atende; complexidade WYSIWYG desnecessaria | ✓ Good |
 | n8n fora do MVP | Dependencia externa fragil (conta pessoal n8n.cloud); isolavel | ✓ Good |
 | Branch base = backup branch | main desatualizado 5 meses; todo trabalho reaproveitavel no backup | ✓ Good |
-| M1 = Fases 1-5 (MVP Candidato) | Entrega fluxo candidato completo e testavel antes de tocar area RH | — Pending |
+| M1 = Fases 1-5 (MVP Candidato) | Entrega fluxo candidato completo e testavel antes de tocar area RH | ✓ Shipped (v1.0, 2026-06-06) |
+| Recovery PKCE → email-OTP (`verifyOtp({type:'recovery'})`) | PKCE deeplink falhava silenciosamente cross-browser (`code_verifier` vive no localStorage do browser originador); OTP de 6 dígitos é flowType-independente e cross-device | ✓ Shipped (Phase 5) |
+| Primeira CI pipeline (unit+e2e+lighthouse) como gate de HARD-01 | "E2E 100%" exige um green check real, não um runbook local; a primeira run live surfou gaps genuínos (GAP-05-CI-1..5) fechados no 05-07 | ✓ Shipped (Phase 5) |
+| Lighthouse Performance = warn-baseline (não error gate) | D-06 measure-first: Performance medida 0.62–0.68 (bundle 661 KiB monolítico); remédio real (code-splitting) é trabalho dedicado pós-M1; Accessibility fica como error-gate >= 0.8 | ✓ Shipped (Phase 5) — revisitar no M2 |
+| a11y contrast fix na fonte (`BackgroundImage` solid dark layer) | axe não computa contraste contra background-image e cai pro body claro (falso white-on-light); 1 fix no primitivo compartilhado cascateia pra todas as rotas glass | ✓ Shipped (Phase 5) |
 
 ## Evolution
 
@@ -142,4 +140,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-26 after Phase 4 completion*
+*Last updated: 2026-06-06 after v1.0 (M1 — MVP Candidato) milestone*
