@@ -206,10 +206,36 @@ export async function cadastrarCandidato(
       )
 
     if (invokeError) {
+      // supabase-js routes ANY non-2xx response into `invokeError` (a
+      // FunctionsHttpError carrying the original Response in `.context`), NOT
+      // only true network failures. The Edge Function returns its STRUCTURED
+      // error ({ ok:false, error_code, message, field }) with HTTP 400, so we
+      // MUST read that body to recover the real error_code — otherwise a
+      // legitimate EMAIL_EXISTS / CPF_EXISTS / VALIDATION is mislabeled as a
+      // network outage ("Sem conexão com o servidor") and the friendly,
+      // field-specific message never reaches the user (D-12 carryover, surfaced
+      // by the 05-04 iPhone UAT). Only a body we cannot parse is a genuine
+      // network/relay failure → NETWORK_ERROR fallback.
+      const httpResponse = (invokeError as { context?: Response }).context
+      if (httpResponse && typeof httpResponse.clone === 'function') {
+        let structured: CadastrarCandidatoResponse | null = null
+        try {
+          structured = (await httpResponse.clone().json()) as CadastrarCandidatoResponse
+        } catch {
+          structured = null
+        }
+        if (structured && structured.ok === false) {
+          const code = (structured.error_code ?? 'UNKNOWN_ERROR') as CadastroError['code']
+          const message =
+            structured.message ?? structured.error ?? 'Erro desconhecido no servidor'
+          console.error('[CADASTRO] Edge Function retornou erro (HTTP body):', { code, message })
+          throw new CadastroError(message, code, structured.field)
+        }
+      }
       // Pitfall 7: extrair apenas `message`; invokeError pode transportar o
       // request body em alguns SDKs.
       console.error(
-        '[CADASTRO] Erro ao invocar Edge Function:',
+        '[CADASTRO] Falha de rede ao invocar Edge Function:',
         invokeError.message || String(invokeError)
       )
       throw new CadastroError(
