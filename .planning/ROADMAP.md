@@ -83,7 +83,24 @@ Plans:
   2. RH ajusta `pesos_avaliacao` via sliders e a UI mostra erro inline se a soma ≠ 100%.
   3. RH marca tags em opções de pergunta (knockout/atencao/neutro/pontua/fortemente_pontua + peso + nota_ia) com bulk-mark "tudo informativa", e a validação só dispara no "Publicar vaga".
 
-**Plans**: TBD
+**Plans**: 4 plans
+Plans:
+**Wave 1**
+
+- [x] 07-01-PLAN.md — Wave-0 test scaffolds (9 specs) + SQL smoke runbook + D-13 Phase-4 regression case *(SHIPPED 2026-06-07 — 9 RED test files + runbook; wave_0_complete: true)*
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07-02-PLAN.md — schema: enum_tag_opcao + pergunta_opcao_metadata + vagas jsonb columns + sync RPC + publish_vaga RPC + RLS [BLOCKING non-autonomous apply + db:types]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 07-03-PLAN.md — config-vaga feature scaffold (schemas/templates/types/service/hooks/publishGate/opcoes-normalize) + Phase-4 reader edit (D-13)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 07-04-PLAN.md — 3 UI blocks (TemplateVagaSelector + PesosSliders + Tag Wizard) + real publish/save wiring in CriarEditarVagaPage
+
 **UI hint**: yes
 
 ### Phase 8: Inscrição & Knock-out (Etapa 1)
@@ -232,7 +249,7 @@ Plans:
 | 4.2 Phase 1 Verification Backfill | v1.0 | 1/1 | Complete | 2026-04-27 |
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
-| 7. Configuração de Vaga & Tags | v2.0 | 0/0 | Not started | - |
+| 7. Configuração de Vaga & Tags | v2.0 | 0/4 | Planned | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 0/0 | Not started | - |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
