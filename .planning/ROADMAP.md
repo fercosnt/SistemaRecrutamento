@@ -95,7 +95,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 07-03-PLAN.md — config-vaga feature scaffold (schemas/templates/types/service/hooks/publishGate/opcoes-normalize) + Phase-4 reader edit (D-13)
+- [x] 07-03-PLAN.md — config-vaga feature scaffold (schemas/templates/types/service/hooks/publishGate/opcoes-normalize) + Phase-4 reader edit (D-13) *(SHIPPED 2026-06-07 — 11 config-vaga files + neutral src/lib/opcoes normalizer + candidaturaFormSchema D-13 migration; Wave-0 schema/template/service/publishGate + D-13 regression GREEN; build exit 0; nyquist_compliant pending Plan 04 UI tests)*
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
