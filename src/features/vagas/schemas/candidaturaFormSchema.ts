@@ -23,6 +23,11 @@
  */
 import { z, type ZodType } from 'zod'
 import type { PerguntaFormulario, TipoResposta } from '../types/vagasTypes'
+// Phase 7 / D-13 — neutral option-shape normalizer. Imported from @/lib (NOT
+// from config-vaga) so this shipped reader bridges BOTH the legacy string[] and
+// the new [{id,texto}] jsonb shapes without a vagas→config-vaga cross-feature
+// edge (CLAUDE.md import rules). Idempotent across both shapes (Pitfall 1).
+import { opcoesToStrings } from '@/lib/opcoes/opcoesNormalize'
 
 export type { PerguntaFormulario, TipoResposta }
 
@@ -63,7 +68,7 @@ export function zodForType(p: PerguntaFormulario): ZodType<unknown> {
       break
     }
     case 'single_choice': {
-      const opts = (p.opcoes_resposta as string[] | null) ?? []
+      const opts = opcoesToStrings(p.opcoes_resposta)
       const choiceSchema =
         opts.length > 0
           ? (z.enum(opts as [string, ...string[]]) as ZodType<unknown>)
@@ -77,7 +82,7 @@ export function zodForType(p: PerguntaFormulario): ZodType<unknown> {
       break
     }
     case 'multiple_choice': {
-      const opts = (p.opcoes_resposta as string[] | null) ?? []
+      const opts = opcoesToStrings(p.opcoes_resposta)
       const itemSchema = p.permite_outros
         ? z.string().min(1)
         : opts.length > 0
