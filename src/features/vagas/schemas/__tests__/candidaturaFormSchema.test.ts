@@ -16,8 +16,13 @@
  * @see .planning/phases/04-vagas-candidatura/04-PATTERNS.md L270-304
  */
 import { describe, it, expect } from 'vitest'
+import { z } from 'zod'
 import { zodForType, buildCandidaturaSchema } from '../candidaturaFormSchema'
 import type { PerguntaFormulario } from '../candidaturaFormSchema'
+// Phase 7 / D-13 regression — neutral normalizer (Plan 03 creates it here, NOT
+// inside config-vaga, to avoid a vagas→config-vaga cross-feature edge per
+// CLAUDE.md). RED until Plan 03 lands the module (module-not-found by design).
+import { opcoesToStrings } from '@/lib/opcoes/opcoesNormalize'
 
 // ============================================
 // Fixture helper — minimal pergunta with realistic DB column shape
@@ -301,5 +306,49 @@ describe('buildCandidaturaSchema (Plan 04-04)', () => {
         result.error.issues.some((i) => i.message.includes('Currículo obrigatório'))
       ).toBe(true)
     }
+  })
+})
+
+// ============================================
+// Phase 7 / D-13 regression (Pitfall 1) — Wave 0 RED
+// ============================================
+//
+// D-10 migrates `opcoes_resposta` jsonb from a flat `string[]` to the object
+// shape `[{id, texto}]` and gives each option a stable `opcao_id`. The shipped
+// Phase-4 candidato form reads the OLD shape (`opcoes_resposta as string[]` →
+// `z.enum(opts)` at candidaturaFormSchema.ts:66,80). This regression guards
+// that the candidato form still builds the CORRECT `z.enum` of option STRINGS
+// after the shape change, by normalizing through the neutral
+// `@/lib/opcoes/opcoesNormalize` helper (Plan 03 creates it). The case is RED
+// until Plan 03 lands the normalizer — the module-not-found IS the assertion
+// that the D-13 migration's shipped-reader bridge does not yet exist.
+//
+// These NEW cases do NOT touch the existing zodForType / buildCandidaturaSchema
+// suites above (no deletions).
+describe('D-13 regression — opcoesToStrings bridges [{id,texto}] → z.enum (Plan 07-01, Wave 0 RED)', () => {
+  it('T3.1: NEW [{id,texto}] object shape normalizes to a string z.enum (accepts a valid option, rejects unknown)', () => {
+    // The breaking input D-10 introduces: objects, not strings.
+    const opcoesObjectShape = [
+      { id: 'o1', texto: 'Imediata' },
+      { id: 'o2', texto: 'Em até 15 dias' },
+      { id: 'o3', texto: 'Em até 30 dias' },
+    ]
+    const strings = opcoesToStrings(opcoesObjectShape)
+    // The candidato form's z.enum must be built from the option STRINGS.
+    const enumSchema = z.enum(strings as [string, ...string[]])
+    expect(enumSchema.safeParse('Imediata').success).toBe(true)
+    expect(enumSchema.safeParse('Em até 15 dias').success).toBe(true)
+    // A value not among the option texts is rejected (the form still validates).
+    expect(enumSchema.safeParse('Inexistente').success).toBe(false)
+  })
+
+  it('T3.2: legacy string[] shape still normalizes idempotently (no double-wrap)', () => {
+    // The normalizer must accept BOTH shapes — legacy string[] passes through.
+    const legacy = ['Imediata', 'Em até 15 dias']
+    const strings = opcoesToStrings(legacy)
+    expect(strings).toEqual(['Imediata', 'Em até 15 dias'])
+    const enumSchema = z.enum(strings as [string, ...string[]])
+    expect(enumSchema.safeParse('Imediata').success).toBe(true)
+    expect(enumSchema.safeParse('Outro').success).toBe(false)
   })
 })
