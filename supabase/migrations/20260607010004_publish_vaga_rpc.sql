@@ -77,7 +77,7 @@ BEGIN
           + COALESCE((v_pesos->>'redacao_cultural')::int, 0)
           + COALESCE((v_pesos->>'entrevista')::int, 0);
   IF v_soma <> 100 THEN
-    RAISE EXCEPTION 'Os pesos de avaliacao precisam somar 100%% (soma atual: %%).', v_soma
+    RAISE EXCEPTION 'Os pesos de avaliacao precisam somar 100%% (soma atual: %).', v_soma
       USING errcode = 'P0001';
   END IF;
 
