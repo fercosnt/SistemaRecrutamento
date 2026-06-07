@@ -464,22 +464,25 @@ This is the third+ time this checkpoint shape recurs (04-01 db push, 04-05 EF de
 | A4 | `bias_audit_log` is schema-only this phase (no snapshot job) — LGPD-03 (the monthly snapshot) is Phase 15 | Scope | LOW — D-01 lists bias_audit_log as a backbone table; the snapshot logic (LGPD-03) is mapped to Phase 15 in REQUIREMENTS traceability. Create empty table + RLS only. |
 | A5 | Exact live row count / project state must be confirmed via SQL Editor at execution time (I could not run live SQL in this research session — no CLI, MCP query not executed) | Runtime State Inventory | LOW-MEDIUM — all schema facts came from the generated `database.types.ts` which Supabase regenerates from the live DB; the discovery query is the execution-time confirmation. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Final type name + companion column names**
    - What we know: D-03 renames v2 back, Claude's discretion on companion column names (`etapa_motivo`/`etapa_justificativa`).
    - What's unclear: exact names; whether ONE justificativa column or separate motivo+criterio.
    - Recommendation: single `etapa_justificativa text` companion column (regression block + audit `criterio_texto` source); keep canonical type name `etapa_processo`.
+   - **RESOLVED (planning):** single `etapa_justificativa text` companion column + canonical type name `etapa_processo` adopted in plan 06-02 T2 (recommendation accepted).
 
 2. **`status_candidatura` v2 — change or leave?**
    - What we know: PRD says "sem mudança grande"; live enum has 5 values.
    - What's unclear: whether M2 stages need new status members (e.g., a status for `decisao_final` reached).
    - Recommendation: leave `status_candidatura` as-is in Phase 6 unless a concrete new member is required; defer additions to the feature phase that needs them.
+   - **RESOLVED (planning):** left as-is — no `status_candidatura` migration planned this phase (06-04/06-05 interfaces); additions deferred to the feature phase that needs them.
 
 3. **Does the live `candidaturas` UPDATE today have any RLS UPDATE policy at all?**
    - What we know: M1 created SELECT/INSERT-oriented policies; D-08 needs a new RH UPDATE policy.
    - What's unclear: whether an UPDATE policy already exists that must be reconciled.
    - Recommendation: run the pg_policies discovery for `candidaturas` UPDATE before adding the `rh_avanca_etapa` policy.
+   - **RESOLVED (pattern-mapping):** no existing `candidaturas` UPDATE policy — only 5 CREATE POLICY statements exist repo-wide, all on storage (06-PATTERNS.md metadata). Plan 06-05 adds `rh_avanca_etapa` clean, no reconciliation needed.
 
 ## Environment Availability
 
