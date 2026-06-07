@@ -137,3 +137,7 @@ None — no new network endpoints, auth paths, or trust-boundary surface introdu
 writes route through the existing role-checked DEFINER RPCs from Plan 02 (configVagaService → anon
 client → RPC); the client publishGate is UX-only and the server `publish_vaga` RPC remains the
 authoritative D-12 control.
+
+## Self-Check: PASSED
+
+All 5 created files exist on disk; all 3 commits (ed4c2e5, ffb735b, ad1dfc9) present in git log.
