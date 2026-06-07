@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       autorizacoes: {
@@ -1216,6 +1241,53 @@ export type Database = {
         }
         Relationships: []
       }
+      pergunta_opcao_metadata: {
+        Row: {
+          created_at: string
+          id: string
+          nota_ia: string | null
+          opcao_id: string
+          opcao_texto: string
+          ordem: number
+          pergunta_id: string
+          peso: number
+          tag: Database["public"]["Enums"]["enum_tag_opcao"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nota_ia?: string | null
+          opcao_id: string
+          opcao_texto: string
+          ordem?: number
+          pergunta_id: string
+          peso?: number
+          tag?: Database["public"]["Enums"]["enum_tag_opcao"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nota_ia?: string | null
+          opcao_id?: string
+          opcao_texto?: string
+          ordem?: number
+          pergunta_id?: string
+          peso?: number
+          tag?: Database["public"]["Enums"]["enum_tag_opcao"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pergunta_opcao_metadata_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_formulario"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perguntas_cultura: {
         Row: {
           created_at: string
@@ -2217,6 +2289,7 @@ export type Database = {
           modelo_trabalho: string | null
           nivel_senioridade: string | null
           perfil_ideal: string | null
+          pesos_avaliacao: Json
           prompt_ia_descricao: string | null
           requisitos_experiencia: string | null
           requisitos_formacao: string | null
@@ -2228,6 +2301,7 @@ export type Database = {
           sobre_empresa: string | null
           status: Database["public"]["Enums"]["status_vaga"]
           subtitulo: string | null
+          testes_aplicaveis: Json
           tipo_contrato: string | null
           titulo: string
           total_vagas: number | null
@@ -2255,6 +2329,7 @@ export type Database = {
           modelo_trabalho?: string | null
           nivel_senioridade?: string | null
           perfil_ideal?: string | null
+          pesos_avaliacao?: Json
           prompt_ia_descricao?: string | null
           requisitos_experiencia?: string | null
           requisitos_formacao?: string | null
@@ -2266,6 +2341,7 @@ export type Database = {
           sobre_empresa?: string | null
           status?: Database["public"]["Enums"]["status_vaga"]
           subtitulo?: string | null
+          testes_aplicaveis?: Json
           tipo_contrato?: string | null
           titulo: string
           total_vagas?: number | null
@@ -2293,6 +2369,7 @@ export type Database = {
           modelo_trabalho?: string | null
           nivel_senioridade?: string | null
           perfil_ideal?: string | null
+          pesos_avaliacao?: Json
           prompt_ia_descricao?: string | null
           requisitos_experiencia?: string | null
           requisitos_formacao?: string | null
@@ -2304,6 +2381,7 @@ export type Database = {
           sobre_empresa?: string | null
           status?: Database["public"]["Enums"]["status_vaga"]
           subtitulo?: string | null
+          testes_aplicaveis?: Json
           tipo_contrato?: string | null
           titulo?: string
           total_vagas?: number | null
@@ -2960,6 +3038,7 @@ export type Database = {
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
       }
+      publish_vaga: { Args: { p_vaga_id: string }; Returns: Json }
       registrar_acao_historico: {
         Args: {
           p_candidatura_id: string
@@ -2992,6 +3071,10 @@ export type Database = {
       }
       testar_webhook: { Args: { webhook_config_id: string }; Returns: Json }
       unaccent: { Args: { "": string }; Returns: string }
+      upsert_pergunta_opcoes_metadata: {
+        Args: { p_opcoes: Json; p_pergunta_id: string }
+        Returns: Json
+      }
       validar_referencia_entrevista: {
         Args: {
           p_entrevista_id: string
@@ -3020,6 +3103,12 @@ export type Database = {
         | "agreeableness"
         | "neuroticism"
       dimensao_disc: "D" | "I" | "S" | "C"
+      enum_tag_opcao:
+        | "knockout"
+        | "atencao"
+        | "neutro"
+        | "pontua"
+        | "fortemente_pontua"
       etapa_processo:
         | "inscricao"
         | "triagem"
@@ -3230,6 +3319,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       categoria_log_auditoria: [
@@ -3253,6 +3345,13 @@ export const Constants = {
         "neuroticism",
       ],
       dimensao_disc: ["D", "I", "S", "C"],
+      enum_tag_opcao: [
+        "knockout",
+        "atencao",
+        "neutro",
+        "pontua",
+        "fortemente_pontua",
+      ],
       etapa_processo: [
         "inscricao",
         "triagem",
