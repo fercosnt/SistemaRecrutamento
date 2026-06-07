@@ -121,7 +121,7 @@ export function TemplateVagaSelector({
       {/* Trocar template — destructive-overwrite confirm (UI-SPEC §Copywriting). */}
       <AlertDialog
         open={pendingSlug !== null}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setPendingSlug(null)
         }}
       >

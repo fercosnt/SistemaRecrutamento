@@ -18,8 +18,30 @@ import { Textarea } from '../ui/textarea';
 import { RichTextEditor } from '../RichTextEditor';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import {
+  TemplateVagaSelector,
+  PesosSliders,
+} from '@/features/config-vaga/components';
+import {
+  useUpdateVagaConfig,
+  usePublishVaga,
+} from '@/features/config-vaga/hooks/useConfigVaga';
+import { publishGate } from '@/features/config-vaga/publishGate';
+import type {
+  PesosAvaliacao,
+  TestesAplicaveis,
+  StatusVaga as DbStatusVaga,
+} from '@/features/config-vaga/types/configVagaTypes';
+import type { CargoSlug } from '@/features/config-vaga/templates/cargoTemplates';
 
 type StatusVaga = 'ativa' | 'inativa' | 'rascunho';
+
+const DEFAULT_PESOS: PesosAvaliacao = {
+  triagem: 0,
+  work_sample_sjt: 0,
+  redacao_cultural: 0,
+  entrevista: 0,
+};
 type TipoPergunta = 'unica-escolha' | 'multipla-escolha' | 'texto-curto' | 'texto-longo' | 'numerico';
 
 interface Pergunta {
@@ -95,6 +117,17 @@ export function CriarEditarVagaPage() {
     instrucoesIA: '',
   });
 
+  // ── M2 config (Phase 7) ─────────────────────────────────────────────────────
+  // `dbStatus` is the AUTHORITATIVE persisted status (status_vaga has 4 live
+  // values — Pitfall 5). The Publicar CTA only renders when it is 'rascunho'.
+  const [dbStatus, setDbStatus] = useState<DbStatusVaga>('rascunho');
+  const [pesos, setPesos] = useState<PesosAvaliacao>(DEFAULT_PESOS);
+  const [testesAplicaveis, setTestesAplicaveis] = useState<TestesAplicaveis>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<CargoSlug | null>(null);
+
+  const updateVagaConfigMut = useUpdateVagaConfig(vagaId ?? '');
+  const publishVagaMut = usePublishVaga(vagaId ?? '');
+
   // Carregar dados da vaga se estiver editando
   useEffect(() => {
     if (isEdicao && vagaId) {
@@ -138,6 +171,17 @@ export function CriarEditarVagaPage() {
               perguntasCultura: [], // TODO: carregar perguntas da tabela relacionada
               instrucoesIA: '', // TODO: carregar instruções se houver
             });
+
+            // ── M2 config hydration (Phase 7) ──────────────────────────────
+            setDbStatus((data.status as DbStatusVaga) || 'rascunho');
+            if (data.pesos_avaliacao) {
+              setPesos(data.pesos_avaliacao as unknown as PesosAvaliacao);
+            }
+            if (data.testes_aplicaveis) {
+              setTestesAplicaveis(
+                data.testes_aplicaveis as unknown as TestesAplicaveis
+              );
+            }
           }
         })
         .finally(() => setIsLoading(false));
@@ -253,12 +297,90 @@ export function CriarEditarVagaPage() {
     }
   };
 
-  const handleSalvarRascunho = () => {
-    console.log('Salvar rascunho:', dados);
+  // Persist the M2 config (testes_aplicaveis + pesos_avaliacao). Salvar rascunho
+  // never validates (D-12). Only meaningful while the vaga exists (edit mode).
+  const handleSalvarRascunho = async () => {
+    if (!vagaId) {
+      toast.error('Salve a vaga primeiro para persistir a configuração.');
+      return;
+    }
+    try {
+      await updateVagaConfigMut.mutateAsync({
+        testes_aplicaveis: testesAplicaveis,
+        pesos_avaliacao: pesos,
+      });
+      toast.success('Rascunho salvo.');
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Erro ao salvar a configuração.'
+      );
+    }
   };
 
-  const handlePublicar = () => {
-    console.log('Publicar vaga:', dados);
+  // Publicar vaga — runs the D-12 client gate (errors ONLY on this click), then
+  // the server publish_vaga RPC (authoritative). Rendered only for rascunho.
+  const handlePublicar = async () => {
+    if (!vagaId) {
+      toast.error('Salve a vaga primeiro para publicá-la.');
+      return;
+    }
+    if (dbStatus !== 'rascunho') {
+      // Pitfall 5: publish_vaga only transitions rascunho→ativa.
+      toast.error(`Esta vaga já está ${dbStatus} — publicação não se aplica.`);
+      return;
+    }
+
+    // Client gate (instant UX). The server re-validates on publish_vaga.
+    const failures = publishGate({
+      pesos_avaliacao: pesos,
+      testes_aplicaveis: testesAplicaveis.map((t) => ({
+        teste: t.teste,
+        obrigatorio: t.obrigatorio,
+        customizado: t.customizado,
+      })),
+      perguntas: [], // F7 question bank deferred (D-05) — knockout check no-ops.
+    });
+
+    if (failures.length > 0) {
+      const faltam = 100 - (pesos.triagem + pesos.work_sample_sjt + pesos.redacao_cultural + pesos.entrevista);
+      for (const f of failures) {
+        if (f.code === 'PESOS_SOMA') {
+          toast.error(
+            `Os pesos precisam somar 100% antes de publicar. Ajuste os sliders (faltam ${faltam}%).`
+          );
+        } else if (f.code === 'SEM_TESTE_OBRIGATORIO') {
+          toast.error(
+            'Selecione ao menos um teste obrigatório antes de publicar a vaga.'
+          );
+        } else {
+          toast.error(f.message);
+        }
+      }
+      return;
+    }
+
+    try {
+      // Persist the latest config, then flip rascunho→ativa server-side.
+      await updateVagaConfigMut.mutateAsync({
+        testes_aplicaveis: testesAplicaveis,
+        pesos_avaliacao: pesos,
+      });
+      await publishVagaMut.mutateAsync();
+      setDbStatus('ativa');
+      toast.success('Vaga publicada.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao publicar a vaga.');
+    }
+  };
+
+  // Apply a cargo template: deep-copy its pesos+testes INTO the vaga form (D-04).
+  const handleSelectTemplate = (
+    config: { pesos_avaliacao: PesosAvaliacao; testes_aplicaveis: TestesAplicaveis },
+    slug: CargoSlug
+  ) => {
+    setPesos(config.pesos_avaliacao);
+    setTestesAplicaveis(config.testes_aplicaveis);
+    setSelectedTemplate(slug);
   };
 
   const handleCancelar = () => {
@@ -338,6 +460,12 @@ export function CriarEditarVagaPage() {
                   className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-none border-b-2 border-transparent data-[state=active]:border-[#35BFAD] px-6 py-3 whitespace-nowrap"
                 >
                   🤖 IA
+                </TabsTrigger>
+                <TabsTrigger
+                  value="config"
+                  className="data-[state=active]:bg-white/20 data-[state=active]:text-white text-white/60 rounded-none border-b-2 border-transparent data-[state=active]:border-[#35BFAD] px-6 py-3 whitespace-nowrap"
+                >
+                  ⚙️ Avaliação
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -901,6 +1029,46 @@ export function CriarEditarVagaPage() {
               </div>
             </Glass>
           </TabsContent>
+
+          {/* ABA: AVALIAÇÃO (M2 — Phase 7: Template + Pesos + Tag Wizard) */}
+          <TabsContent value="config" className="mt-0">
+            <Glass variant="white" blur="lg" className="p-8 rounded-xl">
+              <div className="space-y-12">
+                {/* Bloco 1 — Template de cargo */}
+                <TemplateVagaSelector
+                  selectedSlug={selectedTemplate}
+                  onSelect={handleSelectTemplate}
+                />
+
+                {/* Bloco 2 — Pesos de avaliação */}
+                <PesosSliders value={pesos} onChange={setPesos} />
+
+                {/* Bloco 3 — Assistente de tags (Tag Wizard).
+                    O banco de perguntas SJT é entregue na Phase 11 (D-05); aqui
+                    exibimos o estado vazio do assistente. */}
+                <div className="rounded-xl border border-white/20 bg-white/10 p-6 space-y-1">
+                  <p className="text-white drop-shadow-sm text-base font-semibold">
+                    Nenhuma pergunta de escolha nesta vaga
+                  </p>
+                  <p className="text-white/60 drop-shadow-sm text-sm">
+                    O assistente de tags aparece só para perguntas de escolha
+                    única ou múltipla. Adicione perguntas na aba Perguntas para
+                    marcá-las aqui.
+                  </p>
+                </div>
+
+                {/* Estado de publicação (Pitfall 5 — status_vaga tem 4 valores). */}
+                {dbStatus !== 'rascunho' && (
+                  <div className="rounded-xl border border-white/20 bg-white/10 p-6">
+                    <p className="text-white/80 drop-shadow-sm text-sm">
+                      Esta vaga já está {dbStatus} — a publicação não se aplica.
+                      Use o status na aba Informações para alterá-la.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Glass>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -918,24 +1086,35 @@ export function CriarEditarVagaPage() {
               Cancelar
             </GlassButton>
             <div className="flex gap-3">
-              <GlassButton 
-                variant="white" 
+              <GlassButton
+                variant="white"
+                disabled={updateVagaConfigMut.isPending}
                 onClick={(e) => {
                   e.preventDefault();
-                  handleSalvarRascunho();
+                  void handleSalvarRascunho();
                 }}
               >
                 Salvar Rascunho
               </GlassButton>
-              <GlassButton 
-                variant="accent" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  handlePublicar();
-                }}
-              >
-                Publicar →
-              </GlassButton>
+              {/* Pitfall 5: Publicar só renderiza para vagas em rascunho.
+                  status_vaga tem 4 valores (rascunho/ativa/inativa/arquivada) e o
+                  RPC publish_vaga só transiciona rascunho→ativa. */}
+              {dbStatus === 'rascunho' ? (
+                <GlassButton
+                  variant="accent"
+                  disabled={publishVagaMut.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handlePublicar();
+                  }}
+                >
+                  Publicar vaga →
+                </GlassButton>
+              ) : (
+                <span className="text-white/70 drop-shadow-sm text-sm self-center px-2">
+                  Vaga {dbStatus} — publicação não se aplica
+                </span>
+              )}
             </div>
           </div>
         </Glass>

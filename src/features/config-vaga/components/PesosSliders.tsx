@@ -92,7 +92,7 @@ export function PesosSliders({ value, onChange }: PesosSlidersProps) {
               max={100}
               step={1}
               value={[value[key]]}
-              onValueChange={(vals) => setKey(key, vals[0])}
+              onValueChange={(vals: number[]) => setKey(key, vals[0])}
               className="min-h-[44px]"
             />
           </div>
