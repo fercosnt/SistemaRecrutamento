@@ -3,7 +3,7 @@ phase: 7
 slug: configura-o-de-vaga-tags
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-06-07
 ---
 
@@ -65,16 +65,16 @@ LoadingProgress Vitest failure carried since Phase 2 — NOT a regression; do no
 
 ## Wave 0 Requirements
 
-- [ ] `src/features/config-vaga/schemas/__tests__/pesosAvaliacaoSchema.test.ts` — VAGACFG-02 refine + integer guard
-- [ ] `src/features/config-vaga/templates/__tests__/cargoTemplates.test.ts` — VAGACFG-01 all 8 sum to 100 + copy semantics
-- [ ] `src/features/config-vaga/components/__tests__/TemplateVagaSelector.test.tsx` — VAGACFG-01 8-card render + deep-copy-on-select + Trocar-template AlertDialog
-- [ ] `src/features/config-vaga/components/__tests__/PesosSliders.test.tsx` — live-sum color states (no silent rebalance, D-08)
-- [ ] `src/features/config-vaga/components/__tests__/PerguntaWithTagsForm.test.tsx` — choice-only render + empty state (D-11)
-- [ ] `src/features/config-vaga/components/__tests__/BulkMarkDialog.test.tsx` — bulk neutro/0/null
-- [ ] `src/features/config-vaga/services/__tests__/configVagaService.test.ts` — error mapping + RPC call shape (mock supabase)
-- [ ] `src/features/config-vaga/__tests__/publishGate.test.ts` — D-12 three conditions
-- [ ] Extend `src/features/vagas/schemas/__tests__/candidaturaFormSchema.test.ts` — D-13 regression (objects→enum), normalizer from `@/lib/opcoes/opcoesNormalize`
-- [ ] `.planning/phases/07-configura-o-de-vaga-tags/07-SQL-SMOKE-RUNBOOK.md` — RPC idempotency, opcao_id gen, RLS deny, db push up-to-date
+- [x] `src/features/config-vaga/schemas/__tests__/pesosAvaliacaoSchema.test.ts` — VAGACFG-02 refine + integer guard *(landed Plan 07-01 Task 1 — Wave 0 RED)*
+- [x] `src/features/config-vaga/templates/__tests__/cargoTemplates.test.ts` — VAGACFG-01 all 8 sum to 100 + copy semantics *(landed Plan 07-01 Task 1 — Wave 0 RED)*
+- [x] `src/features/config-vaga/components/__tests__/TemplateVagaSelector.test.tsx` — VAGACFG-01 8-card render + deep-copy-on-select + Trocar-template AlertDialog *(landed Plan 07-01 Task 1 — Wave 0 RED)*
+- [x] `src/features/config-vaga/components/__tests__/PesosSliders.test.tsx` — live-sum color states (no silent rebalance, D-08) *(landed Plan 07-01 Task 2 — Wave 0 RED)*
+- [x] `src/features/config-vaga/components/__tests__/PerguntaWithTagsForm.test.tsx` — choice-only render + empty state (D-11) *(landed Plan 07-01 Task 2 — Wave 0 RED)*
+- [x] `src/features/config-vaga/components/__tests__/BulkMarkDialog.test.tsx` — bulk neutro/0/null *(landed Plan 07-01 Task 2 — Wave 0 RED)*
+- [x] `src/features/config-vaga/services/__tests__/configVagaService.test.ts` — error mapping + RPC call shape (mock supabase) *(landed Plan 07-01 Task 2 — Wave 0 RED)*
+- [x] `src/features/config-vaga/__tests__/publishGate.test.ts` — D-12 three conditions *(landed Plan 07-01 Task 1 — Wave 0 RED)*
+- [x] Extend `src/features/vagas/schemas/__tests__/candidaturaFormSchema.test.ts` — D-13 regression (objects→enum), normalizer from `@/lib/opcoes/opcoesNormalize` *(landed Plan 07-01 Task 2 — 2 new cases, 16 existing preserved)*
+- [x] `.planning/phases/07-configura-o-de-vaga-tags/07-SQL-SMOKE-RUNBOOK.md` — RPC idempotency, opcao_id gen, RLS deny, db push up-to-date *(landed Plan 07-01 Task 3)*
 - [ ] (Optional) Playwright e2e for the publish-gate happy/sad path (desktop RH)
 
 *Framework already present — no install needed.*
@@ -97,7 +97,7 @@ LoadingProgress Vitest failure carried since Phase 2 — NOT a regression; do no
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags (use `test:run`, never `test` watch)
 - [ ] Feedback latency < 60s
-- [ ] `wave_0_complete: true` set in frontmatter after Plan 01 lands the scaffold
+- [x] `wave_0_complete: true` set in frontmatter after Plan 01 lands the scaffold *(Plan 07-01 — 9 test files + runbook landed; all RED for module-not-found by design)*
 - [ ] `nyquist_compliant: true` set in frontmatter after Plans 03/04 flip the Wave-0 tests GREEN (before `/gsd:verify-work`)
 
 **Approval:** pending
