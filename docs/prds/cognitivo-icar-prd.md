@@ -1,6 +1,16 @@
+> # ♻️ SUPERSEDED / ATUALIZADO POR (2026-06-05)
+>
+> **Este PRD legado tratava o cognitivo como FILTRO ELIMINATÓRIO via ICAR Matrix Reasoning.** Duas premissas mudaram:
+> 1. **ICAR como instrumento foi descartado** — Deep Research #1 confirmou 4 bloqueios (licença non-commercial + zero validação PT-BR + fora SATEPSI + sem normas BR).
+> 2. **O papel mudou de eliminatório → contextual** (RF-27): o sistema NUNCA rejeita por score isolado.
+>
+> **Atualizado por:** [`m2-funil-rh/PRD-cognitivo-raciocinio.md`](./m2-funil-rh/PRD-cognitivo-raciocinio.md) — prova técnica de raciocínio lógico (itens **CC0** do Harvard Dataverse, não o item bank non-commercial do icar-project), **online com proctoring leve**, **não-psicológica**, **contextual**, banda qualitativa (sem percentil/QI). Mantém-se aqui apenas como referência histórica do raciocínio de design.
+>
+> ---
+
 # Mini-PRD: Teste Cognitivo (ICAR Matrix Reasoning)
 
-**Autor:** Fernando Costa · **Data:** 2026-04-19 · **Status:** Draft
+**Autor:** Fernando Costa · **Data:** 2026-04-19 · **Status:** ♻️ SUPERSEDED por `PRD-cognitivo-raciocinio.md` (era: Draft)
 **Upstream:** `docs/prds/PRD-MASTER-sistema-recrutamento.md` §10.3 · **Substitui PRD antigo:** `docs/prds/0009-prd-teste-raven.md` (reposicionado para onboarding em §10.3.1 do master)
 **Sistema:** Beauty Smile — Rede brasileira de clínicas odontológicas — Sistema de Recrutamento
 **Idioma da aplicação:** pt-BR · **Regime legal:** LGPD + CFP Res. 031/2022 (SATEPSI)

@@ -1,6 +1,23 @@
-# Mini-PRD: Teste Big Five (IPIP-NEO-120)
+> ## ⚠️ DEPRECATED — substituído desde 2026-04-28
+>
+> Este PRD foi **substituído** pelo mini-PRD revisado para o M2 (Funil RH):
+> **[`m2-funil-rh/PRD-bigfive-revisado.md`](./m2-funil-rh/PRD-bigfive-revisado.md)**.
+>
+> O PRD novo consume os 4 deep researches do M2, o curso NotebookLM Big Five do Fernando, o report BFAS validado, os 5 Word docs interpretativos, e os 25 templates oficiais de devolutiva curados. Decisões-chave que mudaram em relação a este documento legado:
+>
+> - **Papel do Big Five:** mudou de "filtro eliminatório (com revisão humana)" → **CONTEXTUAL não-eliminatório** (gestor recebe como informação contextual; score nunca é motivo único de rejeição). Alinhado com posicionamento CFP/SATEPSI defensável.
+> - **Devolutiva:** detalhada com formato D-lite BFAS-flavored (5 dim + percentil cru + banda em 5 níveis + texto rico ~150-200 palavras por dim + analogia "1 em 100 pessoas" + disclaimer emocional + disclaimer LGPD/CFP).
+> - **Posicionamento legal:** "self-assessment de estilo de trabalho" + psicólogo CRP responsável técnico já contratado.
+> - **Schema:** agnóstico de instrumento (`scores_candidato.metadata.instrumento`) permite Plan B BFI-2 PT-BR (Pires 2023) com pivot 1-2 dias.
+> - **UX:** 1 item por tela mobile-first + autosave + back nos últimos 3-5 itens + disclaimer pré-aplicação curado.
+>
+> **Mantido aqui apenas como referência histórica.** Não consultar pra implementação.
 
-**Autor:** Fernando Costa · **Data:** 2026-04-19 · **Status:** Draft para revisão psicólogo consultor + engenharia
+---
+
+# Mini-PRD: Teste Big Five (IPIP-NEO-120) — DEPRECATED
+
+**Autor:** Fernando Costa · **Data:** 2026-04-19 · **Status:** ⚠️ DEPRECATED desde 2026-04-28 (ver aviso acima)
 **Upstream:** [`PRD-MASTER-sistema-recrutamento.md` §10.1](./PRD-MASTER-sistema-recrutamento.md)
 **Placeholder substituído:** este documento substitui o placeholder §10.1 do PRD Mestre e deve ser lido **antes** da Fase 9.1 de implementação.
 **Escopo:** implementação do teste Big Five como filtro eliminatório (com revisão humana) no funil `testes_async` do Sistema de Recrutamento Beauty Smile.

@@ -1,6 +1,37 @@
-# Mini-PRD: Teste de Fit Cultural Beauty Smile
+# ⛔ DEPRECATED — Mini-PRD: Teste de Fit Cultural Beauty Smile (versão SJT/Likert/Ranking)
 
-> **Status:** v1.0 — valores oficiais consolidados a partir de `CULTURA-BEAUTY-SMILE-INPUT.md` (abril/2026); banco inicial de 25 itens disponível em `fit-cultural-banco-itens-v1.md`. Pronto para piloto interno de validação.
+> ## 🛑 ESTE PRD FOI SUPERADO
+>
+> **Data da depreciação:** 2026-05-10 (reforçada em 2026-05-12 com revisão v1.1 do substituto)
+> **Substituído por:** [`docs/prds/m2-funil-rh/PRD-redacao-fit-cultural.md` v1.1](./m2-funil-rh/PRD-redacao-fit-cultural.md) (modelo redação aberta 200-500 palavras + BARS 4D pesos iguais V1 + 3 caps especiais + sistema 3 cores + few-shot inline + revisão humana sempre obrigatória)
+> **Razão da mudança:**
+> - Este PRD modela o teste cultural como **SJT + Likert + Ranking de 25 itens** com scoring vetorial e distância para perfil ideal.
+> - Em sessão de design 2026-04-26 (Master M2 PRD), decidiu-se mover SJT para o **instrumento dedicado de Work Sample/SJT odontológico** (mini-PRD `PRD-sjt-work-sample-odontologia.md` — futuro).
+> - Fit cultural ganha tratamento qualitativo via **redação aberta de 200-500 palavras** avaliada por IA (BARS 4D) + revisão humana sempre obrigatória — captura nuance que SJT fechado perde.
+>
+> ## ⚠️ O QUE DESTE DOCUMENTO AINDA É VÁLIDO
+>
+> - **Banco de itens v1** ([`fit-cultural-banco-itens-v1.md`](./fit-cultural-banco-itens-v1.md)) segue válido como **fonte de cenários e dilemas** para construir as perguntas customizadas da redação por cargo (não mais como instrumento de scoring direto).
+> - **Documento-fonte cultural** ([`CULTURA-BEAUTY-SMILE-INPUT.md`](./CULTURA-BEAUTY-SMILE-INPUT.md)) segue canônico — destilado para o RAG da redação em [`docs/conhecimento/fit-cultural/valores-beauty-smile-resumo.md`](../conhecimento/fit-cultural/valores-beauty-smile-resumo.md).
+> - **Análise teórica** (Person-Organization Fit / Kristof / OCAI) segue como referência conceitual.
+>
+> ## 🔗 PARA NOVO TRABALHO, USE
+>
+> - **PRD ativo:** [`docs/prds/m2-funil-rh/PRD-redacao-fit-cultural.md`](./m2-funil-rh/PRD-redacao-fit-cultural.md)
+> - **RAG knowledge base:** [`docs/conhecimento/fit-cultural/`](../conhecimento/fit-cultural/) (4 arquivos)
+> - **Master M2:** [`docs/prds/m2-funil-rh/PRD-MASTER-funil-rh-m2.md`](./m2-funil-rh/PRD-MASTER-funil-rh-m2.md) (RF-16/17/17a/17b)
+>
+> ---
+>
+> **Conteúdo abaixo preservado para histórico apenas. Não use como referência de implementação.**
+
+---
+
+# (Conteúdo histórico abaixo)
+
+## Mini-PRD: Teste de Fit Cultural Beauty Smile (versão original — SJT)
+
+> **Status original (DEPRECATED):** v1.0 — valores oficiais consolidados a partir de `CULTURA-BEAUTY-SMILE-INPUT.md` (abril/2026); banco inicial de 25 itens disponível em `fit-cultural-banco-itens-v1.md`. Pronto para piloto interno de validação.
 >
 > **Owners:** RH Beauty Smile (validação de conteúdo + piloto) + Tech (implementação + anti-viés).
 > **Referência primária:** PRD-MASTER §10.4, §10.0, §9 (pipeline), §6.2 (`vaga_testes_aplicaveis`, `scores_candidato`).

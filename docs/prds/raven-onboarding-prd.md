@@ -1,6 +1,18 @@
+> # ⛔ DEPRECATED (2026-06-05)
+>
+> **Este PRD está aposentado.** O Raven foi descartado em definitivo (SATEPSI-desfavorável desde 2023 + licença Pearson inviável + adverse impact d=1.0). O ICAR60, que era seu substituto recomendado (cenário A), **também foi descartado** pela Deep Research #1 (licença non-commercial + zero validação PT-BR + fora SATEPSI + sem normas BR).
+>
+> **Substituído por:** [`m2-funil-rh/PRD-cognitivo-raciocinio.md`](./m2-funil-rh/PRD-cognitivo-raciocinio.md) — prova técnica de raciocínio lógico (itens CC0), online, não-psicológica, contextual no funil de **seleção** (não onboarding).
+>
+> **O escopo de "cognitivo no onboarding pós-contratação"** está fora do M2 (ver §3b do Master) e fica para um milestone futuro de desenvolvimento de pessoas, se houver.
+>
+> ⚠️ **Ação P0 ainda válida (independe deste PRD):** auditar git history por imagens Raven legadas (`src/assets/images/raven/`) e rodar `git filter-repo` se necessário (ver §5.4 / RL-08 abaixo). As imagens já foram removidas do working tree.
+>
+> ---
+
 # Mini-PRD: Raven no Onboarding (Pós-Contratação)
 
-**Autor:** Fernando Costa | **Data:** 2026-04-19 | **Status:** Draft (pendente decisão legal crítica)
+**Autor:** Fernando Costa | **Data:** 2026-04-19 | **Status:** ⛔ DEPRECATED (era: Draft pendente decisão legal crítica)
 **Upstream:** `docs/prds/PRD-MASTER-sistema-recrutamento.md` §10.3.1
 **Irmãos:** `docs/prds/cognitivo-icar-prd.md` (seleção), `docs/prds/bigfive-prd.md`, `docs/prds/disc-prd.md`, `docs/prds/fit-cultural-prd.md`
 
