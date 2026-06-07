@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       autorizacoes: {
@@ -183,6 +158,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bias_audit_log: {
+        Row: {
+          criado_em: string
+          dados: Json
+          id: string
+          periodo: string | null
+          snapshot_em: string
+        }
+        Insert: {
+          criado_em?: string
+          dados?: Json
+          id?: string
+          periodo?: string | null
+          snapshot_em?: string
+        }
+        Update: {
+          criado_em?: string
+          dados?: Json
+          id?: string
+          periodo?: string | null
+          snapshot_em?: string
+        }
+        Relationships: []
       }
       biblioteca_perguntas: {
         Row: {
@@ -427,6 +426,7 @@ export type Database = {
           data_raven_enviado: string | null
           deleted_at: string | null
           etapa_atual: Database["public"]["Enums"]["etapa_processo"]
+          etapa_justificativa: string | null
           feedback_rejeicao: string | null
           id: string
           is_favorito: boolean
@@ -465,6 +465,7 @@ export type Database = {
           data_raven_enviado?: string | null
           deleted_at?: string | null
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
+          etapa_justificativa?: string | null
           feedback_rejeicao?: string | null
           id?: string
           is_favorito?: boolean
@@ -503,6 +504,7 @@ export type Database = {
           data_raven_enviado?: string | null
           deleted_at?: string | null
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
+          etapa_justificativa?: string | null
           feedback_rejeicao?: string | null
           id?: string
           is_favorito?: boolean
@@ -683,6 +685,50 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decisao_final: {
+        Row: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em: string
+          explicacao_solicitada_em: string | null
+          id: string
+          justificativa: string
+          por_usuario: string
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+        }
+        Insert: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em?: string
+          explicacao_solicitada_em?: string | null
+          id?: string
+          justificativa: string
+          por_usuario: string
+          revisao_resultado?: string | null
+          revisao_solicitada_em?: string | null
+        }
+        Update: {
+          candidatura_id?: string
+          decisao?: Database["public"]["Enums"]["decisao_final_resultado"]
+          em?: string
+          explicacao_solicitada_em?: string | null
+          id?: string
+          justificativa?: string
+          por_usuario?: string
+          revisao_resultado?: string | null
+          revisao_solicitada_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisao_final_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
         ]
@@ -1014,6 +1060,47 @@ export type Database = {
             columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      historico_candidatura: {
+        Row: {
+          ator: string | null
+          auto_rejeitado: boolean
+          candidatura_id: string
+          criado_em: string
+          criterio_texto: string | null
+          etapa_de: Database["public"]["Enums"]["etapa_processo"] | null
+          etapa_para: Database["public"]["Enums"]["etapa_processo"]
+          id: string
+        }
+        Insert: {
+          ator?: string | null
+          auto_rejeitado?: boolean
+          candidatura_id: string
+          criado_em?: string
+          criterio_texto?: string | null
+          etapa_de?: Database["public"]["Enums"]["etapa_processo"] | null
+          etapa_para: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+        }
+        Update: {
+          ator?: string | null
+          auto_rejeitado?: boolean
+          candidatura_id?: string
+          criado_em?: string
+          criterio_texto?: string | null
+          etapa_de?: Database["public"]["Enums"]["etapa_processo"] | null
+          etapa_para?: Database["public"]["Enums"]["etapa_processo"]
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "historico_candidatura_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
         ]
@@ -2925,6 +3012,7 @@ export type Database = {
         | "avaliacao"
         | "sistema"
         | "seguranca"
+      decisao_final_resultado: "aprovado" | "rejeitado" | "em_espera"
       dimensao_bigfive:
         | "openness"
         | "conscientiousness"
@@ -2933,16 +3021,14 @@ export type Database = {
         | "neuroticism"
       dimensao_disc: "D" | "I" | "S" | "C"
       etapa_processo:
+        | "inscricao"
         | "triagem"
-        | "bigfive"
-        | "disc"
+        | "avaliacao_assincrona"
         | "entrevista_online"
-        | "raven"
-        | "cultura"
         | "entrevista_presencial"
+        | "decisao_final"
         | "aprovado"
         | "rejeitado"
-        | "avaliacao_final"
       recomendacao_avaliacao: "aprovar" | "rejeitar" | "indeciso"
       serie_raven: "A" | "B" | "C" | "D" | "E"
       severidade_log: "info" | "aviso" | "erro" | "critico"
@@ -3144,9 +3230,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       categoria_log_auditoria: [
@@ -3161,6 +3244,7 @@ export const Constants = {
         "sistema",
         "seguranca",
       ],
+      decisao_final_resultado: ["aprovado", "rejeitado", "em_espera"],
       dimensao_bigfive: [
         "openness",
         "conscientiousness",
@@ -3170,16 +3254,14 @@ export const Constants = {
       ],
       dimensao_disc: ["D", "I", "S", "C"],
       etapa_processo: [
+        "inscricao",
         "triagem",
-        "bigfive",
-        "disc",
+        "avaliacao_assincrona",
         "entrevista_online",
-        "raven",
-        "cultura",
         "entrevista_presencial",
+        "decisao_final",
         "aprovado",
         "rejeitado",
-        "avaliacao_final",
       ],
       recomendacao_avaliacao: ["aprovar", "rejeitar", "indeciso"],
       serie_raven: ["A", "B", "C", "D", "E"],
