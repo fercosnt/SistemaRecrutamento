@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 07-01-PLAN.md (Wave-0 scaffold)
-last_updated: "2026-06-07T17:40:00.000Z"
-last_activity: 2026-06-07 -- Plan 07-01 complete (Wave-0 RED scaffold + SQL smoke runbook)
+stopped_at: Completed 07-02-PLAN.md (schema + write-path applied live)
+last_updated: "2026-06-07T18:19:41Z"
+last_activity: 2026-06-07 -- Plan 07-02 complete (enum_tag_opcao + pergunta_opcao_metadata + vagas jsonb columns + sync/publish RPCs applied live via D-22 MCP path; database.types.ts regenerated)
 progress:
   total_phases: 11
   completed_phases: 1
   total_plans: 9
-  completed_plans: 6
-  percent: 10
+  completed_plans: 7
+  percent: 11
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 07 (configura-o-de-vaga-tags) — EXECUTING
-Plan: 2 of 4 (07-01 complete; next = 07-02 schema apply)
+Plan: 3 of 4 (07-01 + 07-02 complete; next = 07-03 config-vaga feature scaffold)
 Status: Executing Phase 07
-Last activity: 2026-06-07 -- Plan 07-01 complete (Wave-0 RED scaffold + SQL smoke runbook)
+Last activity: 2026-06-07 -- Plan 07-02 complete (schema + write-path live; database.types.ts regenerated)
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -100,6 +100,7 @@ Last activity: 2026-06-07 -- Plan 07-01 complete (Wave-0 RED scaffold + SQL smok
 | Phase 04.2 P01 | 25min | 5 tasks | 7 files |
 | Phase 05 P01 | 18min | 3 tasks | 8 files |
 | Phase 07 P01 | ~12min | 3 tasks | 11 files (9 created test/runbook + 2 modified: candidaturaFormSchema.test.ts D-13 ext + 07-VALIDATION.md) |
+| Phase 07 P02 | ~5min this dispatch (Task 4 + close-out) + prior dispatches for Tasks 1-3 incl. blocking live apply | 4 tasks (2 DDL+RPC migrations + 1 blocking-human live apply + 1 types regen) | 5 files (4 migrations created + database.types.ts regenerated) |
 
 ## Accumulated Context
 
@@ -191,6 +192,10 @@ Recent decisions affecting current work:
 - [Phase ?]: [05-01]: lighthouserc must be .cjs (not .js) under package type:module — a .js module.exports config resolves to {} under ESM and crashes lhci autorun
 - [Phase ?]: [05-01]: Vitest grep guards must live under a __tests__/ dir — vitest include glob is **/__tests__/**, so the plan's tests/guards/ path would never be collected (matches pitfall7.grep precedent)
 - [Phase ?]: [05-01]: Canonical ErrorBoundary = src/components/ErrorBoundary.tsx (richer BeautySmileLogo+GlassCard fallback); Plan 05-03 hoists THIS one to App root and deletes/re-exports the cadastro copy
+- [07-02]: **D-14 F8/F10 JOIN CONTRACT LOCKED — DO NOT RE-LITIGATE in Phase 8.** `pergunta_opcao_metadata` persists BOTH `opcao_id` (uuid, PRIMARY join key) AND `opcao_texto` (denormalized fallback/audit). F8 (knockout, Phase 8) and F10 (score_match, Phase 10) join PRIMARILY by `opcao_id`; `opcao_texto` is fallback only (legacy/pre-backfill rows) + human-readable audit trail. The `upsert_pergunta_opcoes_metadata` RPC guarantees every option carries a stable opcao_id via `COALESCE(existing, gen_random_uuid())` and rewrites `opcoes_resposta` into the `[{id,texto}]` shape (D-13). Phase 8 MUST join by opcao_id first.
+- [07-02]: **D-22 apply path: MCP `execute_sql` + manual version-row reconciliation, NOT `supabase migration repair` CLI.** The 4 Phase-7 migrations (PL/pgSQL `$$...$$` RPC bodies adjacent to COMMENT/GRANT/REVOKE) trigger SQLSTATE 42601 via `supabase db push` in the transaction pooler (CLAUDE.md §Commands; Phase 6 precedent). Applied to live project isljnozzlvckrgjjbjwp via Supabase MCP `execute_sql` (bypasses 42601); history reconciled by writing version rows 20260607010001-04 directly into `supabase_migrations.schema_migrations` — after which `supabase db push --linked` reports "Remote database is up to date".
+- [07-02]: **Client-called SECURITY DEFINER RPC pattern: in-body 42501 role check + GRANT EXECUTE TO authenticated (NOT service_role).** RLS does not apply to DEFINER bodies, so the in-body `v_role NOT IN ('rh','administrador') → RAISE 42501` IS the authz control. Deviation from the EF-called analog (`submit_candidatura`) which grants to service_role: these RPCs (`upsert_pergunta_opcoes_metadata`, `publish_vaga`) are invoked directly by the authenticated RH client. `publish_vaga` is a server-side defense-in-depth gate that re-checks the 3 D-12 conditions (pesos sum=100 + ≥1 obrigatorio + knockout/obrigatoria invariant) before flipping status, and only transitions rascunho→ativa (status_vaga has 4 values, Pitfall 5).
+- [07-02]: **publish_vaga RAISE format-string fix (commit 8f1941b, Rule 1 bug).** The pesos-mismatch RAISE used a doubled `%%` (escaped literal percent), leaving zero placeholders with one bound arg (`v_soma`) — a runtime format error. Corrected to a single `%` so v_soma binds; §4a smoke confirms "soma atual: 95" renders. All 5 runbook smokes (idempotency / opcao_id gen / RLS deny 42501 / publish guard / db push up-to-date) PASS against a throwaway fixture deleted afterward (zero production residue).
 
 ### Pending Todos
 

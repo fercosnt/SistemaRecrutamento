@@ -91,7 +91,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 07-02-PLAN.md — schema: enum_tag_opcao + pergunta_opcao_metadata + vagas jsonb columns + sync RPC + publish_vaga RPC + RLS [BLOCKING non-autonomous apply + db:types]
+- [x] 07-02-PLAN.md — schema: enum_tag_opcao + pergunta_opcao_metadata + vagas jsonb columns + sync RPC + publish_vaga RPC + RLS [BLOCKING non-autonomous apply + db:types] *(SHIPPED 2026-06-07 — 4 migrations applied live via D-22 MCP path + 5 smokes PASS; database.types.ts regenerated)*
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -249,7 +249,7 @@ Plans:
 | 4.2 Phase 1 Verification Backfill | v1.0 | 1/1 | Complete | 2026-04-27 |
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
-| 7. Configuração de Vaga & Tags | v2.0 | 0/4 | Planned | - |
+| 7. Configuração de Vaga & Tags | v2.0 | 2/4 | Executing | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 0/0 | Not started | - |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
