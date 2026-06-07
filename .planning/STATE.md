@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 07-04-PLAN.md (3 M2 UI blocks + real persistence wiring + non-rascunho publish guard; all 4 Wave-0 component tests GREEN; Phase 7 plan execution 4/4)
+stopped_at: Phase 7 VERIFIED (status passed) — 4/4 plans shipped; all 3 VAGACFG success criteria evidenced (live DB apply + 5 SQL smokes + 395/395 tests + build green); 07-VERIFICATION.md written
 last_updated: "2026-06-07T18:44:09.628Z"
-last_activity: 2026-06-07 -- Plan 07-04 complete (TemplateVagaSelector + PesosSliders + PerguntaWithTagsForm + BulkMarkDialog + barrel; CriarEditarVagaPage stub save replaced with updateVagaConfig/publishGate→publish_vaga; Publicar CTA gated on dbStatus==='rascunho'; 4 Wave-0 component tests GREEN; full Vitest 395/395; build exit 0; tsc baseline 301 unchanged; nyquist_compliant flipped true)
+last_activity: 2026-06-07 -- Phase 7 execution + verification COMPLETE (4 plans; live schema enum_tag_opcao + pergunta_opcao_metadata + 2 vagas jsonb cols + 2 SECURITY DEFINER RPCs applied to prod via D-22 MCP path, 5 runbook smokes PASS; config-vaga feature + 3 UI blocks wired into CriarEditarVagaPage; D-13 opcoes_resposta string[]→[{id,texto}] migrated w/ Phase-4 regression green; nyquist_compliant true; fixed a publish_vaga RAISE bug pre-apply / 8f1941b)
 progress:
   total_phases: 11
-  completed_phases: 1
-  total_plans: 9
-  completed_plans: 9
-  percent: 12
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 13
+  percent: 18
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 07 (configura-o-de-vaga-tags) — PLAN EXECUTION COMPLETE (4/4)
-Plan: 4 of 4 (07-01 + 07-02 + 07-03 + 07-04 all complete; next = orchestrator phase verification gates)
-Status: Phase 07 plan execution complete — ready for /gsd:verify-work
-Last activity: 2026-06-07 -- Plan 07-04 complete (3 M2 UI blocks + persistence wiring + non-rascunho publish guard; 4 Wave-0 component tests GREEN; nyquist_compliant: true)
+Phase: 07 (configura-o-de-vaga-tags) — VERIFIED ✅ (status: passed)
+Plan: 4 of 4 complete + 07-VERIFICATION.md written (all 3 VAGACFG criteria evidenced)
+Status: Phase 07 COMPLETE. Recommended next: /gsd:secure-phase 7 (security_enforcement=true, no SECURITY.md yet) then /gsd:plan-phase 8. Optionally /gsd:verify-work for live UAT.
+Last activity: 2026-06-07 -- Phase 07 verified passed (live DB + 395/395 + build green; gsd-verifier died on transient socket error, orchestrator completed verification inline w/ first-hand evidence)
 
 ## Latest Plan (05-07 gap-closure)
 

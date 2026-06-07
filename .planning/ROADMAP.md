@@ -25,7 +25,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 ### 🚧 v2.0 — M2 Funil RH + Avaliação por IA (Phases 6–16)
 
 - [x] **Phase 6: Pipeline Backbone & Schema** — Funil de 6 etapas, trigger `avancar_etapa()`, trilha de auditoria e RLS — fundação de schema do M2 (completed 2026-06-07)
-- [ ] **Phase 7: Configuração de Vaga & Tags** — Templates por cargo real, pesos por sliders, wizard de tags em opções
+- [x] **Phase 7: Configuração de Vaga & Tags** — Templates por cargo real, pesos por sliders, wizard de tags em opções
 - [ ] **Phase 8: Inscrição & Knock-out (Etapa 1)** — Form LGPD-clean, qualificação por cargo, knockouts auto-rejeição auditável
 - [ ] **Phase 9: AI Prompt Library & Cost Infra** — 7 prompts versionados git→DB, logging de custo/tokens, cost-alerter EF, lint de linguagem de produto
 - [ ] **Phase 10: Triagem RH com IA + Comparativo (Etapa 2)** — `score_match` automático, painel de candidatos, comparativo até 10 + export PDF
