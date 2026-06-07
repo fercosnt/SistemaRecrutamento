@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: Phase 7 VERIFIED (status passed) — 4/4 plans shipped; all 3 VAGACFG success criteria evidenced (live DB apply + 5 SQL smokes + 395/395 tests + build green); 07-VERIFICATION.md written
-last_updated: "2026-06-07T18:44:09.628Z"
-last_activity: 2026-06-07 -- Phase 7 execution + verification COMPLETE (4 plans; live schema enum_tag_opcao + pergunta_opcao_metadata + 2 vagas jsonb cols + 2 SECURITY DEFINER RPCs applied to prod via D-22 MCP path, 5 runbook smokes PASS; config-vaga feature + 3 UI blocks wired into CriarEditarVagaPage; D-13 opcoes_resposta string[]→[{id,texto}] migrated w/ Phase-4 regression green; nyquist_compliant true; fixed a publish_vaga RAISE bug pre-apply / 8f1941b)
+status: verifying
+stopped_at: Phase 8 context gathered
+last_updated: "2026-06-07T23:28:01.319Z"
+last_activity: 2026-06-07 -- Phase 07 verified passed (live DB + 395/395 + build green; gsd-verifier died on transient socket error, orchestrator completed verification inline w/ first-hand evidence)
 progress:
   total_phases: 11
   completed_phases: 2
-  total_plans: 13
-  completed_plans: 13
+  total_plans: 9
+  completed_plans: 9
   percent: 18
 ---
 
@@ -238,8 +238,8 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-07T18:43:25.485Z
-Stopped at: Phase 7 UI-SPEC approved
+Last session: 2026-06-07T23:28:01.310Z
+Stopped at: Phase 8 context gathered
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
 
@@ -323,7 +323,7 @@ Stopped at: Phase 7 UI-SPEC approved
   - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
   - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
 
-Resume file: None
+Resume file: .planning/phases/08-inscri-o-knock-out-etapa-1/08-CONTEXT.md
 Next: **Phase 4 phase-level gates remaining (orchestrator-owned, vêm como workflow separado post-execution):** (1) code-review (cross-cutting Phase 4 surface review — vagas + candidaturas + Edge Function + form rewrite + e2e specs); (2) regression (full vitest + playwright + build + lint baseline preservation across all 4 phases now); (3) verifier (manual + automated final acceptance contra os 7 requirements VAGA-01..03 + CAND-01..04). Apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP. **Phase 5 inputs (carry-over):** F-04-08-B (vaga soft-deleted data hygiene — DB-level invariant ou backfill cleanup script); F-04-08-C (bloco_valido_check constraint não em migrations — schema drift, reconciliation migration); F-04-08-G (white text WCAG AA contrast over BackgroundImage gradient — visual polish + WCAG audit); D-26 token reparation (definir --primary em HSL components separadamente do HEX --brand-primary; após fix sweep bg-[#00109E] literais → bg-primary semântico em todas as páginas); D-27 plan checker enhancement ("page integrates canonical persona shell?"); D-28 plan checker enhancement (smoke-runtime gate antes de plan complete); PKCE same-browser limitation (carryover de Phase 3 03-07 UAT-3 + Phase 4 deferral; preferred mitigation continua sendo switch para OTP code flow). **Phase 4 plan execution closure note:** carryover chain narrative (3 iterações A→B→C resolvendo 4 findings sequenciais) é a lição central da Phase 4. Gates autônomos verdes NÃO substituem smoke-runtime real. Plan checker autônomo do 04-07 passou (build + lint + vitest + playwright + grep) mas página estava UNUSABLE — apenas UAT manual com infra real surfaceou os bugs. Phase 5 deve adotar carryover discipline como pattern (atomic plans por finding, bisect-friendly history, rollback granular).
 
 ## Operator Next Steps
