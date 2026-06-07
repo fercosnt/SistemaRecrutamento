@@ -99,7 +99,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 07-04-PLAN.md — 3 UI blocks (TemplateVagaSelector + PesosSliders + Tag Wizard) + real publish/save wiring in CriarEditarVagaPage
+- [x] 07-04-PLAN.md — 3 UI blocks (TemplateVagaSelector + PesosSliders + Tag Wizard) + real publish/save wiring in CriarEditarVagaPage *(SHIPPED 2026-06-07 — 4 components + barrel + CriarEditarVagaPage wired; stub console.log save replaced by updateVagaConfig + client publishGate→publish_vaga RPC; Publicar CTA gated on dbStatus==='rascunho' / Pitfall 5; all 4 Wave-0 component tests GREEN; full Vitest 395/395; build exit 0; tsc baseline 301 unchanged; nyquist_compliant: true)*
 
 **UI hint**: yes
 
@@ -249,7 +249,7 @@ Plans:
 | 4.2 Phase 1 Verification Backfill | v1.0 | 1/1 | Complete | 2026-04-27 |
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
-| 7. Configuração de Vaga & Tags | v2.0 | 2/4 | Executing | - |
+| 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 0/0 | Not started | - |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |

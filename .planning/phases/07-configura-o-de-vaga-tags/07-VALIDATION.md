@@ -2,7 +2,7 @@
 phase: 7
 slug: configura-o-de-vaga-tags
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-07
 ---
@@ -98,7 +98,7 @@ LoadingProgress Vitest failure carried since Phase 2 — NOT a regression; do no
 - [ ] No watch-mode flags (use `test:run`, never `test` watch)
 - [ ] Feedback latency < 60s
 - [x] `wave_0_complete: true` set in frontmatter after Plan 01 lands the scaffold *(Plan 07-01 — 9 test files + runbook landed; all RED for module-not-found by design)*
-- [ ] `nyquist_compliant: true` set in frontmatter after Plans 03/04 flip the Wave-0 tests GREEN (before `/gsd:verify-work`)
+- [x] `nyquist_compliant: true` set in frontmatter after Plans 03/04 flip the Wave-0 tests GREEN *(Plan 07-04 — all 4 component Wave-0 tests GREEN; full Vitest 395/395; build exit 0)*
 
 **Approval:** pending
 </content>

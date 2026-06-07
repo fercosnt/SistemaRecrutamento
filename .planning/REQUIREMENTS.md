@@ -62,9 +62,9 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 ### Configuração de Vaga (transversal)
 
-- [ ] **VAGACFG-01**: Templates de vaga pelos cargos reais Beauty Smile (dentista, recepcionista, consultor_vendas_premium, sdr_social_seller, assistente_financeiro, asb, tsb, vaga_generica) com `testes_aplicaveis` + pesos default + banco SJT por cargo; RH escolhe no create, override depois [RF-33]
-- [ ] **VAGACFG-02**: Pesos `vaga.pesos_avaliacao` jsonb configuráveis via sliders na UI com validação soma = 100% (erro inline se ≠) [RF-34]
-- [ ] **VAGACFG-03**: Wizard de marcação de tags em opções de pergunta (knockout/atencao/neutro/pontua/fortemente_pontua + peso + nota_ia) com bulk-mark "tudo informativa" e validação progressiva só no "Publicar vaga" [RF-35, RF-36]
+- [x] **VAGACFG-01**: Templates de vaga pelos cargos reais Beauty Smile (dentista, recepcionista, consultor_vendas_premium, sdr_social_seller, assistente_financeiro, asb, tsb, vaga_generica) com `testes_aplicaveis` + pesos default + banco SJT por cargo; RH escolhe no create, override depois [RF-33]
+- [x] **VAGACFG-02**: Pesos `vaga.pesos_avaliacao` jsonb configuráveis via sliders na UI com validação soma = 100% (erro inline se ≠) [RF-34]
+- [x] **VAGACFG-03**: Wizard de marcação de tags em opções de pergunta (knockout/atencao/neutro/pontua/fortemente_pontua + peso + nota_ia) com bulk-mark "tudo informativa" e validação progressiva só no "Publicar vaga" [RF-35, RF-36]
 
 ### Integração IA (AI Prompt Library)
 
@@ -132,9 +132,9 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | FUNIL-03 | Phase 6 | Pending |
 | FUNIL-04 | Phase 6 | Pending |
 | LGPD-02 | Phase 6 | Pending |
-| VAGACFG-01 | Phase 7 | Pending |
-| VAGACFG-02 | Phase 7 | Pending |
-| VAGACFG-03 | Phase 7 | Pending |
+| VAGACFG-01 | Phase 7 | Complete |
+| VAGACFG-02 | Phase 7 | Complete |
+| VAGACFG-03 | Phase 7 | Complete |
 | INSCR-01 | Phase 8 | Pending |
 | INSCR-02 | Phase 8 | Pending |
 | INSCR-03 | Phase 8 | Pending |
