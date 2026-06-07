@@ -10,6 +10,20 @@ Brownfield rebuild: sistema iniciado em out/2025 via Figma Make, desenvolvido em
 
 Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir sobre candidatos num unico sistema rastreavel com scores comparaveis.
 
+## Current Milestone: v2.0 M2 — Funil RH + Avaliação por IA
+
+**Goal:** Entregar o lado RH do ATS — funil de contratação de 6 etapas com avaliação assistida por IA (recomendação, nunca decisão automática), scorecards estruturados via BARS e trilha de auditoria LGPD-compliant — partindo do handoff do M1 (`etapa_atual='triagem'`).
+
+**Target features:**
+- **Triagem com IA + Comparativo** — análise individual automática por candidatura (`score_match` 0-100 + resumo CV), comparativo de até 10 candidatos lado-a-lado com ranking IA justificado + export PDF
+- **Avaliação Assíncrona Estruturada (Etapa 3)** — bloco único ~60min (Work Sample/SJT por cargo + Big Five contextual + Redação cultural) com timer + autosave + back-lock; scorecards BARS por dimensão
+- **Entrevista Online com IA Companion** — guias de entrevista STAR/PEI gerados por IA + análise de transcrição contra rubric BARS; dashboard do candidato pro gestor 24h antes
+- **Decisão Final Auditável** — dashboard consolidado por candidato + justificativa obrigatória (NOT NULL) + endpoint LGPD Art. 20 + auditoria mensal de bias (regra 4/5 EEOC)
+- **AI Prompt Library** — 7 prompts versionados (system + user + Zod schema), logging estruturado de custo/tokens + cost-alerter EF (híbrido git→DB versioning)
+- **LGPD / Bias compliance** — form Etapa 1 LGPD-clean, `bias_audit_log` mensal, zero auto-rejeição por trait (RNF-07a)
+
+**Key context:** Design congelado em `docs/prds/m2-funil-rh/PRD-MASTER-funil-rh-m2.md` (v1.1) + 5 mini-PRDs + knowledge base RAG em `docs/conhecimento/`. Pipeline reorganizado de 8→6 etapas (Modelo B); Work Sample/SJT é o núcleo eliminatório; Big Five degradado a contextual; Raven + ICAR60 descartados (prova de raciocínio CC0 os substitui); cultura vira dimensão da redação. Numeração de fases continua do M1 → M2 começa na **Phase 6**. Tech-debt herdado do M1 a endereçar: PERF-01 cache-invalidation, HARD-02 Lighthouse/bundle, FOUND-08 burn-down do baseline tsc.
+
 ## Requirements
 
 ### Validated
@@ -140,4 +154,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-06 after v1.0 (M1 — MVP Candidato) milestone*
+*Last updated: 2026-06-06 — opened v2.0 (M2 — Funil RH + Avaliação por IA) milestone*

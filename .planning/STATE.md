@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: M1 — MVP Candidato
-status: Awaiting next milestone
-stopped_at: Milestone v1.0 shipped and archived
-last_updated: "2026-06-06T23:34:31.568Z"
-last_activity: 2026-06-06 — Milestone v1.0 completed and archived
+milestone: v2.0
+milestone_name: M2 — Funil RH + Avaliação por IA
+status: planning
+last_updated: "2026-06-07T00:21:29.180Z"
+last_activity: 2026-06-07
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 43
-  completed_plans: 43
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-06 — Milestone v1.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-06-07 — Milestone v2.0 started
 
 ## Latest Plan (05-07 gap-closure)
 
