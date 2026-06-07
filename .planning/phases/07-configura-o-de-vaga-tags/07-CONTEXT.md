@@ -98,6 +98,21 @@ knockouts (Phase 8 / Etapa 1), `score_match` (Phase 10 / Etapa 2) e testes aplic
   alguma opção `tag=knockout` deve estar `obrigatoria=true` (RF-02). **Rascunho não valida nada**
   — validação progressiva só dispara no clique "Publicar vaga".
 
+### E. Migração de shape & contrato de join (confirmado pós-research, 2026-06-07)
+- **D-13:** **Migrar `perguntas_formulario.opcoes_resposta` de `string[]` para `[{id, texto}]`**
+  (id = uuid gerado), e **atualizar o reader shipped da Phase 4** (`candidaturaFormSchema.ts`
+  que hoje faz `as string[]` → `z.enum`) **na mesma tarefa inseparável**, com helper de
+  normalização + **teste de regressão** (objects→enum) + backfill de `opcao_id` nas linhas
+  existentes. Razão: RESEARCH verificou que o shape live é array de strings puras e que a Phase 4
+  já depende dele — D-10 (opcao_id estável) é breaking change a um consumidor em prod. Escolhido
+  o caminho de migração (vs. manter string[] + metadata por texto) porque ganha estabilidade a
+  reorder/edit que F8/F10/F15 exigem; o blast radius (1 consumidor) fica blindado pelo teste de
+  regressão. **A `FK` de `pergunta_opcao_metadata` aponta pra `opcao_id`** (não texto).
+- **D-14:** **`pergunta_opcao_metadata` guarda AMBOS `opcao_id` E `opcao_texto`** (texto
+  denormalizado) já no V1. Seguro de baixo custo: hoje `respostas_formulario` grava o texto da
+  resposta; o id permite migração futura. O contrato (F8/F10 podem casar por id, com texto como
+  fallback/auditoria) deve ser **documentado no SUMMARY** pra F8 não re-litigar.
+
 ### Claude's Discretion
 - Naming exato: do TS config module (`cargoTemplates.ts`), das colunas jsonb, do enum
   `enum_tag_opcao`, e da tabela `pergunta_opcao_metadata` (planner segue convenção pt-BR
