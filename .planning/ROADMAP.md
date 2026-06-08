@@ -26,7 +26,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 
 - [x] **Phase 6: Pipeline Backbone & Schema** — Funil de 6 etapas, trigger `avancar_etapa()`, trilha de auditoria e RLS — fundação de schema do M2 (completed 2026-06-07)
 - [x] **Phase 7: Configuração de Vaga & Tags** — Templates por cargo real, pesos por sliders, wizard de tags em opções
-- [ ] **Phase 8: Inscrição & Knock-out (Etapa 1)** — Form LGPD-clean, qualificação por cargo, knockouts auto-rejeição auditável
+- [x] **Phase 8: Inscrição & Knock-out (Etapa 1)** — Form LGPD-clean, qualificação por cargo, knockouts auto-rejeição auditável (completed 2026-06-08)
 - [ ] **Phase 9: AI Prompt Library & Cost Infra** — 7 prompts versionados git→DB, logging de custo/tokens, cost-alerter EF, lint de linguagem de produto
 - [ ] **Phase 10: Triagem RH com IA + Comparativo (Etapa 2)** — `score_match` automático, painel de candidatos, comparativo até 10 + export PDF
 - [ ] **Phase 11: Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)** — Bloco de testes, scoring determinístico SJT 4/2/1/0, case aberto BARS, autosave + back-lock
@@ -132,7 +132,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 08-05-PLAN.md — UI: inline neutral rejection vs survivor success in FormularioCandidaturaPage + feedback_rejeicao display on /perfil + dashboard
+- [x] 08-05-PLAN.md — UI: inline neutral rejection vs survivor success in FormularioCandidaturaPage + feedback_rejeicao display on /perfil + dashboard
 
 **UI hint**: yes
 
@@ -268,7 +268,7 @@ Plans:
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
-| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 4/5 | In Progress|  |
+| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
