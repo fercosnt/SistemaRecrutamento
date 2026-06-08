@@ -123,7 +123,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 08-02-PLAN.md — LGPD-clean cadastro: drop CPF/gênero from collection, email-only dedup, `.strict()` EF allowlist
+- [x] 08-02-PLAN.md — LGPD-clean cadastro: drop CPF/gênero from collection, email-only dedup, `.strict()` EF allowlist
 - [ ] 08-03-PLAN.md — cargoTemplates seed (presencial-SP all + harmonização dentista) + QualificacaoPergunta type + ≤10/≤1-aberta client gate
 
 **Wave 3** *(blocked on Wave 2)*
@@ -268,7 +268,7 @@ Plans:
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
-| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 1/5 | In Progress|  |
+| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 2/5 | In Progress|  |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |

@@ -90,3 +90,7 @@ None. CPF/gênero removal is intentional and complete; DB columns retained nulla
 ## Manual Verification Deferred
 
 Live EF confirmation that a cadastro body with an extra `cpf` key returns 400 VALIDATION is covered by the strict-schema unit test; live-EF deploy confirmation is deferred to the phase UAT (no EF redeploy performed in this plan).
+
+## Self-Check: PASSED
+
+All 8 modified files + SUMMARY.md present on disk; all 3 commits (`145aea5`, `5deecb9`, `256b20e`) present in git log.
