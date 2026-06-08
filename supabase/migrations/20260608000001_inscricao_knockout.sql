@@ -206,28 +206,21 @@ BEGIN
     v_status := 'rejeitado'::public.status_candidatura;
     v_etapa  := 'inscricao'::public.etapa_processo;
   ELSE
-    -- SURVIVOR branch (Open Q3 resolution — explicit auto_rejeitado=false row for semantic
-    -- honesty). Write the honest survivor history row FIRST (ator=NULL, auto_rejeitado=false),
-    -- THEN advance etapa_atual to 'triagem'.
-    --
-    -- ⚠️ [VERIFY LIVE — SMOKE-2/SMOKE-3 / Task 2]: the survivor UPDATE below changes etapa_atual
-    -- (inscricao → triagem), so the Phase-6 avancar_etapa() trigger FIRES and writes its OWN
-    -- history row — and because this RPC runs as service_role, auth.uid() is NULL there, so the
-    -- trigger row carries auto_rejeitado=true. That would yield TWO survivor history rows (one
-    -- explicit auto_rejeitado=false here + one trigger auto_rejeitado=true). SMOKE-2/SMOKE-3 must
-    -- confirm the exact survivor row count; if the trigger duplicates, Task 2 adjusts to land
-    -- EXACTLY ONE survivor row (the chosen resolution being: drop this explicit INSERT and let the
-    -- trigger own the survivor row, OR set candidaturas.etapa_justificativa so the trigger row is
-    -- the single honest record). This explicit-INSERT form is authored per the plan's primary
-    -- directive; the live trigger-interaction is the Task-2 verification gate.
-    INSERT INTO public.historico_candidatura
-      (candidatura_id, etapa_de, etapa_para, criterio_texto, ator, auto_rejeitado, criado_em)
-    VALUES
-      (v_candidatura_id, 'inscricao'::public.etapa_processo, 'triagem'::public.etapa_processo,
-       'inscrição concluída — encaminhado para triagem', NULL, false, now());
-
+    -- SURVIVOR branch (Open Q3 resolution — RESOLVED LIVE in Task 2 / SMOKE-2+SMOKE-3, 2026-06-08).
+    -- The survivor UPDATE changes etapa_atual (inscricao → triagem), so the Phase-6 avancar_etapa()
+    -- trigger (BEFORE UPDATE OF etapa_atual) FIRES and writes its OWN history row in the same txn.
+    -- An EXPLICIT INSERT here (the originally-authored form) PLUS the trigger row produced TWO
+    -- survivor history rows (confirmed live: 1× auto_rejeitado=false explicit + 1× auto_rejeitado=true
+    -- trigger). To land EXACTLY ONE survivor row (D-13 no-double-write), we DROP the explicit INSERT
+    -- and let the trigger own the single survivor row, passing etapa_justificativa so its
+    -- criterio_texto is honest. Under service_role auth.uid() is NULL, so the trigger marks the row
+    -- auto_rejeitado=true — which the Phase-6 trigger semantics define as "system/automatic write"
+    -- (NOT a rejection: the candidatura status stays aguardando_resposta and etapa advances to
+    -- triagem). This is the OR-branch of the plan's documented resolution
+    -- ("set candidaturas.etapa_justificativa so the trigger row is the single honest record").
     UPDATE public.candidaturas
-       SET etapa_atual = 'triagem'::public.etapa_processo
+       SET etapa_atual        = 'triagem'::public.etapa_processo,
+           etapa_justificativa = 'inscrição concluída — encaminhado para triagem'
      WHERE id = v_candidatura_id;
 
     v_status := 'aguardando_resposta'::public.status_candidatura;
@@ -340,9 +333,13 @@ BEGIN
       USING errcode = 'P0001';
   END IF;
 
-  -- D-09 server gate: at most 10 Etapa-1 perguntas, at most 1 open-ended (tipo_resposta='texto').
+  -- D-09 server gate: at most 10 Etapa-1 perguntas, at most 1 open-ended pergunta.
+  -- [FIXED LIVE — Task 2 / 22P02]: the tipo_resposta_pergunta enum has NO 'texto' value; the
+  -- open-ended types are 'texto_curto' and 'texto_longo' (live enum:
+  -- texto_curto|texto_longo|single_choice|multiple_choice|numerico). The original 'texto' literal
+  -- threw 22P02 (invalid enum input) for ANY vaga with perguntas, breaking publish_vaga entirely.
   SELECT count(*),
-         count(*) FILTER (WHERE p.tipo_resposta = 'texto')
+         count(*) FILTER (WHERE p.tipo_resposta IN ('texto_curto', 'texto_longo'))
     INTO v_qtd_perguntas, v_qtd_abertas
     FROM public.perguntas_formulario p
    WHERE p.vaga_id = p_vaga_id;

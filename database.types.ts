@@ -333,7 +333,7 @@ export type Database = {
           como_conheceu: string | null
           como_conheceu_detalhes: string | null
           complemento: string | null
-          cpf: string
+          cpf: string | null
           created_at: string
           created_by: string | null
           data_nascimento: string
@@ -367,7 +367,7 @@ export type Database = {
           como_conheceu?: string | null
           como_conheceu_detalhes?: string | null
           complemento?: string | null
-          cpf: string
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_nascimento: string
@@ -401,7 +401,7 @@ export type Database = {
           como_conheceu?: string | null
           como_conheceu_detalhes?: string | null
           complemento?: string | null
-          cpf?: string
+          cpf?: string | null
           created_at?: string
           created_by?: string | null
           data_nascimento?: string
@@ -456,7 +456,9 @@ export type Database = {
           id: string
           is_favorito: boolean
           is_rascunho: boolean
+          motivo_rejeicao: string | null
           observacoes_rh: string | null
+          opcao_knockout_id: string | null
           origem_candidatura: string | null
           score_geral: number | null
           status: Database["public"]["Enums"]["status_candidatura"]
@@ -495,7 +497,9 @@ export type Database = {
           id?: string
           is_favorito?: boolean
           is_rascunho?: boolean
+          motivo_rejeicao?: string | null
           observacoes_rh?: string | null
+          opcao_knockout_id?: string | null
           origem_candidatura?: string | null
           score_geral?: number | null
           status?: Database["public"]["Enums"]["status_candidatura"]
@@ -534,7 +538,9 @@ export type Database = {
           id?: string
           is_favorito?: boolean
           is_rascunho?: boolean
+          motivo_rejeicao?: string | null
           observacoes_rh?: string | null
+          opcao_knockout_id?: string | null
           origem_candidatura?: string | null
           score_geral?: number | null
           status?: Database["public"]["Enums"]["status_candidatura"]
@@ -2291,6 +2297,7 @@ export type Database = {
           perfil_ideal: string | null
           pesos_avaliacao: Json
           prompt_ia_descricao: string | null
+          qualificacao_etapa1: Json
           requisitos_experiencia: string | null
           requisitos_formacao: string | null
           requisitos_habilidades: string | null
@@ -2331,6 +2338,7 @@ export type Database = {
           perfil_ideal?: string | null
           pesos_avaliacao?: Json
           prompt_ia_descricao?: string | null
+          qualificacao_etapa1?: Json
           requisitos_experiencia?: string | null
           requisitos_formacao?: string | null
           requisitos_habilidades?: string | null
@@ -2371,6 +2379,7 @@ export type Database = {
           perfil_ideal?: string | null
           pesos_avaliacao?: Json
           prompt_ia_descricao?: string | null
+          qualificacao_etapa1?: Json
           requisitos_experiencia?: string | null
           requisitos_formacao?: string | null
           requisitos_habilidades?: string | null
