@@ -27,7 +27,19 @@ findings:
   warning: 4
   info: 2
   total: 9
-status: issues_found
+status: fixed
+fixed_at: 2026-06-08T02:25:00Z
+fixed:
+  - CR-01
+  - CR-02
+  - CR-03
+  - WR-01
+  - WR-02
+  - WR-03
+  - WR-04
+deferred:
+  - IN-01  # code comment, not user-facing — no action required
+  - IN-02  # optional WARN-level observability; out of fix scope
 ---
 
 # Phase 09: Code Review Report
