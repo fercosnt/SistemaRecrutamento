@@ -73,3 +73,7 @@ None — plan executed as written. One contract clarification (not a deviation):
 ## Threat Surface
 
 T-08-04 (client gate bypass) and T-08-05 (knockout on non-obrigatoria) handled per the threat register: the client gate is defense-in-depth (Plan-04 server gate is authoritative); seeded knockouts are `obrigatoria=true`. No new threat surface introduced. Zero new packages (T-08-SC).
+
+## Self-Check: PASSED
+
+All 4 source files + SUMMARY.md present; all 3 commits (9f2bac9, e764ef9, 8032b58) found in git log.

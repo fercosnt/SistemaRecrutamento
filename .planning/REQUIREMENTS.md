@@ -22,8 +22,8 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 ### Inscrição (Etapa 1)
 
 - [x] **INSCR-01**: Form de inscrição LGPD-clean (nome, email, telefone, CEP, LinkedIn, data nascimento, disponibilidade início, pretensão, inglês, "como conheceu", Instagram por-cargo); **sem CPF/foto/estado civil/saúde**; campos legado removidos. Validação Zod client+server [RF-01]
-- [ ] **INSCR-02**: Bloco de qualificação estruturada por template de cargo na Etapa 1 (máx 10 perguntas, ≤1 aberta; `vaga.qualificacao_etapa1` jsonb) — alimenta `score_match` (Etapa 2) + filtros do painel RH [RF-01a]
-- [ ] **INSCR-03**: Knock-out questions configuráveis por vaga (binárias/single_choice) com tag por opção; knockouts padrão: presencial SP (todos) + harmonização orofacial (dentista) [RF-02]
+- [x] **INSCR-02**: Bloco de qualificação estruturada por template de cargo na Etapa 1 (máx 10 perguntas, ≤1 aberta; `vaga.qualificacao_etapa1` jsonb) — alimenta `score_match` (Etapa 2) + filtros do painel RH [RF-01a]
+- [x] **INSCR-03**: Knock-out questions configuráveis por vaga (binárias/single_choice) com tag por opção; knockouts padrão: presencial SP (todos) + harmonização orofacial (dentista) [RF-02]
 - [ ] **INSCR-04**: Auto-rejeição imediata ao marcar opção `tag='knockout'` (`status='rejeitado'`, `etapa='inscricao'`, `motivo='knockout_automatico'`, `opcao_knockout_id`) + mensagem ao candidato + linha de auditoria em `historico_candidatura` (`auto_rejeitado=true`) [RF-03, RF-04]
 
 ### Triagem RH com IA (Etapa 2)
@@ -136,8 +136,8 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | VAGACFG-02 | Phase 7 | Complete |
 | VAGACFG-03 | Phase 7 | Complete |
 | INSCR-01 | Phase 8 | Complete |
-| INSCR-02 | Phase 8 | Pending |
-| INSCR-03 | Phase 8 | Pending |
+| INSCR-02 | Phase 8 | Complete |
+| INSCR-03 | Phase 8 | Complete |
 | INSCR-04 | Phase 8 | Pending |
 | LGPD-01 | Phase 8 | Complete |
 | IA-01 | Phase 9 | Pending |
