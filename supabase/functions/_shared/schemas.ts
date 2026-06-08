@@ -123,13 +123,11 @@ export const cadastroCandidatoSchema = z.object({
     .min(3, 'Nome deve ter no mínimo 3 caracteres')
     .max(255, 'Nome muito longo')
     .transform((v) => v.trim()),
-  cpf: z
-    .string()
-    .min(1, 'CPF é obrigatório')
-    .refine(validateCPF, { message: 'CPF inválido. Verifique os dígitos verificadores.' }),
+  // Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): `cpf` and `genero` are NO
+  // LONGER collected at cadastro Etapa 1 — removed from the EF input shape. The
+  // DB columns stay nullable for reversibility (D-02) but are no longer written.
   telefone: z.string().min(1, 'Telefone é obrigatório'),
   data_nascimento: z.string().min(1, 'Data de nascimento é obrigatória'),
-  genero: z.string().optional().nullable(),
   instagram: z.string().optional().nullable(),
   linkedin: z.string().optional().nullable(),
   como_conheceu: z.string().optional().nullable(),
@@ -140,6 +138,10 @@ export const cadastroCandidatoSchema = z.object({
   disponibilidade: disponibilidadeSchema.optional().nullable(),
   autorizacoes: autorizacoesSchema,
 })
+  // Phase 8 / Plan 08-02 (D-04, LGPD-01): fail-closed allowlist. Any unknown key
+  // (cpf/foto/estado_civil/saude/…) yields a Zod failure → the EF maps it to
+  // error_code 'VALIDATION' / HTTP 400 BEFORE any insert. PII minimization gate.
+  .strict()
 
 /**
  * Tipo inferido do schema principal. Útil para anotação do handler e de
@@ -225,6 +227,9 @@ export const submitCandidaturaSchema = z.object({
     .max(100, 'Máximo 100 respostas por candidatura')
     .default([]),
 })
+  // Phase 8 / Plan 08-02 (D-04, LGPD-01): fail-closed allowlist on the
+  // submit-candidatura body — unknown keys reject instead of silently stripping.
+  .strict()
 
 export type SubmitCandidaturaInput = z.infer<typeof submitCandidaturaSchema>
 

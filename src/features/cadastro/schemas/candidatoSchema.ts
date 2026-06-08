@@ -10,23 +10,16 @@
  */
 
 import { z } from 'zod'
-import { validateCPF } from '../utils'
 import { passwordSchema } from '@/features/auth/schemas/passwordSchema'
 
 // ============================================
 // SCHEMAS DE DADOS PESSOAIS (tabela: candidatos)
 // ============================================
 
-/**
- * Schema para validação de CPF
- * Usa o algoritmo completo de dígitos verificadores
- */
-const cpfSchema = z
-  .string()
-  .min(1, 'CPF é obrigatório')
-  .refine(validateCPF, {
-    message: 'CPF inválido. Verifique os dígitos verificadores.',
-  })
+// Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): the CPF field is NO LONGER
+// collected at cadastro Etapa 1. The `cpfSchema` const and the `validateCPF`
+// import were removed here — CPF stops being part of the Dados Pessoais shape.
+// The DB column `candidatos.cpf` stays nullable for reversibility (D-02).
 
 /**
  * Schema para validação de email
@@ -162,13 +155,12 @@ export const dadosPessoaisSchema = z.object({
     .max(255, 'Nome deve ter no máximo 255 caracteres')
     .regex(/^[a-zA-ZÀ-ÿ\s]+$/, 'Nome deve conter apenas letras e espaços')
     .transform((val) => val.trim()),
-  cpf: cpfSchema,
+  // Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): `cpf` and `genero` removed
+  // from the collected Dados Pessoais set — Etapa 1 is now LGPD-clean. The
+  // remaining fields equal exactly the INSCR-01 allowlist.
   email: emailSchema,
   telefone: telefoneSchema,
   data_nascimento: dataNascimentoSchema,
-  genero: z.enum(['masculino', 'feminino', 'outro', 'prefiro_nao_informar'], {
-    errorMap: () => ({ message: 'Selecione um gênero válido' }),
-  }),
   instagram: instagramSchema,
   linkedin: linkedinSchema,
   como_conheceu: comoConheceuSchema,
