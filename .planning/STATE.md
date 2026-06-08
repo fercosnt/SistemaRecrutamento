@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Phase 9 Plan 02 complete (frontmatter standardized + zod 3.25.76 bump)
-last_updated: "2026-06-08T04:05:25.349Z"
-last_activity: 2026-06-08 -- 09-02 zod 3.25.76 bump + 7-template frontmatter contract verified (IA-01)
+stopped_at: Phase 9 Plan 03 complete (4 prompt-library migrations authored; NOT applied — apply is [BLOCKING] 09-07)
+last_updated: "2026-06-08T05:00:00.000Z"
+last_activity: 2026-06-08 -- 09-03 authored 4 migrations (6 tables/3 enums pt-BR FKs + 3 DEFINER RPCs + immutability + cost-anomaly pg_net trigger + 2 crons + 7-prompt seed)
 progress:
   total_phases: 11
   completed_phases: 3
   total_plans: 22
-  completed_plans: 16
-  percent: 27
+  completed_plans: 17
+  percent: 28
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 9 (AI Prompt Library & Cost Infra) — EXECUTING
-Plan: 3 of 8
-Status: Executing Phase 9 (Wave 1 — 09-01 + 09-02 complete)
-Last activity: 2026-06-08 -- 09-02 zod 3.25.76 bump + 7-template frontmatter contract verified (IA-01)
+Plan: 4 of 8
+Status: Executing Phase 9 (Wave 2 — 09-03 complete; 09-04 next)
+Last activity: 2026-06-08 -- 09-03 authored 4 migrations (6 tables/3 enums pt-BR FKs + 3 DEFINER RPCs + immutability + cost-anomaly pg_net trigger + 2 crons + 7-prompt seed); NOT applied (apply is [BLOCKING] 09-07)
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -112,6 +112,7 @@ Last activity: 2026-06-08 -- 09-02 zod 3.25.76 bump + 7-template frontmatter con
 | Phase 09 P01 | ~15min (fully autonomous) | 3 tasks (LGPD-04 grep guard + 5 Deno helper RED stubs + sync-prompts RED test & 7-smoke runbook) | 8 files created. Commits: 01deaea (Task 1) + 190b062 (Task 2) + 60b8b3a (Task 3) + metadata. LGPD-04 guard 8/8 GREEN (source clean — gate fails only on a forbidden term); 32 Deno tests collected, all RED via `TypeError: Module not found` (calibrated Wave-0 failure, not syntax errors); sync-prompts RED via module-not-found; 7 SMOKE blocks (6 tables+RLS, 3 enums, EXCLUDE constraint, immutability trigger, promote_to_canary P0001/42501, cost-anomaly pg_net, pg_cron). ai-client.test.ts mocks Anthropic+OpenAI+supabase via dependency injection — no real npm: SDK import, no network (orchestrator-decision #2). SDK pins re-verified at execute time: @anthropic-ai/sdk@0.102.0 / openai@6.42.0 / zod@4.4.3 (helper peer ≥3.25.0). 2 deviations: (a) Rule 3 — test headers cite ROADMAP wave map (helpers 09-04, ai-client 09-05, sync 09-06) over plan-body prose; (b) Rule 3 — new Deno tests pin deno.land/std@0.224.0/assert (strict-schema.test.ts uses Vitest imports which don't run under `deno test`, left untouched/out-of-scope). tsc baseline 293 = ~293 frozen (zero growth). Hook bypass `git -c core.hooksPath=/dev/null` per project convention. **Wave-0 RED contract honored: every downstream Phase-9 surface has a calibrated failing test before its implementation lands (smoke-runtime gate, Phase-4 lesson).** |
 | Phase 09 P02 | ~8min (fully autonomous) | 2 tasks (Task 1 verify-only frontmatter + CHANGELOG; Task 2 zod bump) | 1 file modified. Commits: a67263d (Task 2) + metadata. **Task 1 verify-only** — the 7 templates' standardized frontmatter + CHANGELOG.md already landed in `44c92c7` (PRD-MASTER v1.1 knowledge-base freeze, 2026-05-10); all acceptance criteria PASS on-disk so re-authoring would yield an empty commit (7/7 templates show the 7 canonical key lines; cv_summary=claude-haiku-4-5, other 6=claude-sonnet-4-6, all fallback=gpt-4o-mini per PRD #5; forbidden-term scan over templates/*.md CLEAN — T-09-03/LGPD-04/RNF-12; CHANGELOG.md has SemVer MAJOR/MINOR/PATCH header + 7 v1.0.0 rows + 2026-05-10 refinement entry, RF-PL-03). **Task 2** — bumped `import { z } from "npm:zod@3.22.0"` → `npm:zod@3.25.76` in 00-shared-zod-schemas.ts (Deno npm: specifier; helper peer-dep `^3.25.0 || ^4.0.0` for messages.parse/zodOutputFormat — RESEARCH Pitfall 1; latest 4.4.3 available but 3.25.76 pinned per plan to stay on v3 line of the existing schemas), header doc-comment updated with bump rationale; git diff touches ONLY the import line + header (8 ins/2 del); all 15 *_SCHEMA_VERSION mentions (7 exports + SCHEMA_VERSIONS map) unchanged, zero schema-shape edits (T-09-05 mitigated). 2 deviations: (a) Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover; (b) Process — Task 1 verify-only (pre-existing deliverables). tsc baseline 293 = 293 (zero growth — 00-shared-zod-schemas.ts is Deno npm:-imported under docs/, outside tsc include scope). **IA-01 frontmatter contract sync-script-ready; Plan 06 sync-prompts can Zod-validate; Plan 05 ai-client can import the structured-output helpers without peer-dep mismatch.** |
 | Phase 09 P02 | ~8min | 2 tasks | 1 files |
+| Phase 09 P03 | ~22min (fully autonomous) | 3 tasks (schema 6 tables/3 enums; RPCs+triggers; cron+seed) | 4 migrations created. Commits: a1f9ea5 (Task 1 schema) + b27498b (Task 2 RPCs/triggers) + 3cac386 (Task 3 cron+seed) + metadata. AUTHORED-NOT-APPLIED (apply is [BLOCKING] 09-07). All FKs retargeted to live pt-BR (candidatos/vagas/usuarios_rh) — zero English candidates/jobs/recruiters; recruiter_alerts CREATED (decision #4 col set + administrador+rh RLS + dedup index). 3 SECURITY DEFINER RPCs (promote_to_canary/promote_canary_to_active/rollback_to_version) in-body 'administrador' 42501 + GRANT authenticated (NOT PRD's GRANT TO admin); deactivate-then-activate for unique_active_per_type EXCLUDE (Pitfall 5); immutability trigger guards template/hash/semver only (IS DISTINCT FROM, state cols editable); notify_cost_anomaly AFTER INSERT/UPDATE -> net.http_post cost-alerter w/ Vault Bearer + per-(threshold,vaga,day) dedup + graceful Vault-absent skip. 2 crons only (aggregation 01:30 + purge 02:00); HITL-SLA + Art.18 OMITTED (decision #5; Art.18->Ph15); pgmq + known_schema_versions OUT of v1. Seed 7 v1.0.0 is_active=false (cv_summary haiku, 6 sonnet) content_hash via encode(extensions.digest,'hex'). 2 Rule-1 fixes: ON DELETE SET NULL on NOT NULL FK cols (contradiction) → dropped NOT NULL on ai_call_logs.candidato_id/vaga_id; content_hash bytea→text via encode(). No BEGIN/COMMIT wrapper (D-22). tsc baseline 293=293 (SQL outside scope). Hook bypass git -c core.hooksPath=/dev/null. |
 
 ## Accumulated Context
 

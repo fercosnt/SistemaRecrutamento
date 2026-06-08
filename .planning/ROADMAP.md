@@ -158,7 +158,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 09-03-PLAN.md — 4 migrations authored (schema + recruiter_alerts + RPCs/triggers + cron + seed; pt-BR FKs, no-wrapper)
+- [x] 09-03-PLAN.md — 4 migrations authored (schema + recruiter_alerts + RPCs/triggers + cron + seed; pt-BR FKs, no-wrapper) ✓ 2026-06-08
 - [ ] 09-04-PLAN.md — _shared utilities: pii-masker + injection-detector + circuit-breaker + ai-cost (Deno tests GREEN)
 
 **Wave 3** *(blocked on Wave 2)*
