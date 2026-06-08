@@ -26,7 +26,7 @@ const INJECTION_PATTERNS: RegExp[] = [
   /you\s+are\s+now\s+(a\s+)?different/i,
   /act\s+as\s+(if\s+you\s+are\s+)?a\s+different/i,
   /\[SYSTEM\]|\[INST\]|\[\/INST\]/i,
-  /jailbreak|DAN\s+mode/i,
+  /jailbreak|DAN[\s_-]*mode/i,
   /<\|system\|>|<\|assistant\|>/i,
   /forget\s+(what|everything)\s+you\s+know/i,
 ];
