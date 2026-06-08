@@ -280,6 +280,22 @@ export function DashboardCandidatoPage() {
                               Etapa atual: <span className="capitalize">{candidatura.etapa_atual.replace('_', ' ')}</span>
                             </p>
                           )}
+
+                          {/* Phase 8 / D-16 — persisted neutral rejection message
+                              below the status for rejeitado candidaturas. The
+                              criterion is NEVER shown (feedback_rejeicao carries
+                              only the single D-15 neutral copy). Muted tone. */}
+                          {candidatura.status === 'rejeitado' &&
+                            candidatura.feedback_rejeicao && (
+                              <div className="mt-3 rounded-lg bg-white/5 border border-white/10 p-3 space-y-1">
+                                <p className="text-base text-white/80">
+                                  {candidatura.feedback_rejeicao}
+                                </p>
+                                <p className="text-sm text-white/60">
+                                  Agradecemos seu interesse na Beauty Smile.
+                                </p>
+                              </div>
+                            )}
                         </div>
 
                         <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${statusInfo.bg} border border-white/20`}>

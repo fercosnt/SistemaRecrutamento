@@ -684,6 +684,21 @@ export function MeuPerfilCandidatoPage() {
                                 {statusBadge.label}
                               </Badge>
                             </div>
+                            {/* Phase 8 / D-16 — persisted neutral rejection message
+                                below the rejeitado badge. The criterion is NEVER
+                                shown (feedback_rejeicao carries only the single
+                                D-15 neutral copy). Muted tone, not a red alarm. */}
+                            {candidatura.status === 'rejeitado' &&
+                              candidatura.feedback_rejeicao && (
+                                <div className="rounded-lg bg-white/5 border border-white/10 p-3 space-y-1">
+                                  <p className="text-base text-white/80 drop-shadow-sm">
+                                    {candidatura.feedback_rejeicao}
+                                  </p>
+                                  <p className="text-sm text-white/60 drop-shadow-sm">
+                                    Agradecemos seu interesse na Beauty Smile.
+                                  </p>
+                                </div>
+                              )}
                             <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
                               <Calendar className="w-4 h-4" />
                               <span>Inscrição: {formatarData(candidatura.created_at)}</span>
@@ -735,6 +750,15 @@ export function MeuPerfilCandidatoPage() {
                               {getStatusBadge(candidatura.status).label}
                             </Badge>
                           </div>
+
+                          {/* Phase 8 / D-16 — persisted neutral rejection message
+                              on the progresso surface too. Criterion never shown. */}
+                          {candidatura.status === 'rejeitado' &&
+                            candidatura.feedback_rejeicao && (
+                              <p className="text-base text-white/80 drop-shadow-sm">
+                                {candidatura.feedback_rejeicao}
+                              </p>
+                            )}
 
                           {/* Etapa Atual */}
                           <div className="flex items-center gap-2 text-sm text-white/80 drop-shadow-sm">
