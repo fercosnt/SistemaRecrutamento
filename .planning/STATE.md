@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: ready_to_plan
-stopped_at: Phase 08 complete (5/5) — ready to discuss Phase 9
-last_updated: 2026-06-08T02:57:32.758Z
-last_activity: 2026-06-08
+status: executing
+stopped_at: Phase 8 UI-SPEC approved
+last_updated: "2026-06-08T03:55:00.000Z"
+last_activity: 2026-06-08 -- 09-01 Wave-0 RED scaffolds + SQL-smoke runbook complete
 progress:
   total_phases: 11
   completed_phases: 3
-  total_plans: 14
-  completed_plans: 14
-  percent: 27
+  total_plans: 22
+  completed_plans: 15
+  percent: 28
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 9 — ai prompt library & cost infra
+**Current focus:** Phase 9 — AI Prompt Library & Cost Infra
 
 ## Current Position
 
-Phase: 9
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-08
+Phase: 9 (AI Prompt Library & Cost Infra) — EXECUTING
+Plan: 2 of 8
+Status: Executing Phase 9 (Wave 1 — 09-01 complete)
+Last activity: 2026-06-08 -- 09-01 Wave-0 RED scaffolds + SQL-smoke runbook complete
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -109,6 +109,7 @@ Last activity: 2026-06-08
 | Phase 08 P03 | 6 min | 2 tasks | 4 files |
 | Phase 08 P04 | ~40min (continuation; Task 1 prior) | 2 tasks (1 prior migration authoring + 1 blocking live PROD apply + 2 Rule-1 fixes) | 2 files (migration + database.types.ts). Commits: f6790f5 (Task 1, prior) + 65457d3 (Task 2 apply+fixes). Applied 20260608000001 to live PROD via `supabase db push --linked` — NO 42601 (no-wrapper D-22 authoring held). A2 (check_cpf_format regex ~* tolerates NULL — no relax needed) + A4 (resposta_opcoes = jsonb text array, @> safe) re-confirmed live via `supabase db query --linked` (MCP execute_sql not surfaced to executor; sanctioned Management-API CLI path used; keychain probing correctly denied). 2 Rule-1 bugs caught by smokes: (1) survivor double-write (explicit historico INSERT + avancar_etapa trigger row = 2 rows) → dropped explicit INSERT, trigger owns single row via etapa_justificativa; (2) publish_vaga D-09 gate used tipo_resposta='texto' (22P02 — enum has texto_curto/texto_longo) → IN('texto_curto','texto_longo'), unbroke publish entirely. SMOKE-1..4 all PASS (knockout 69405aa4 hist=1, survivor 78d88e37 hist=1 post-fix, publish 012bfc2a snapshot+P0001 gate). types grep=9; build exit 0; vitest 418/418 (LoadingProgress carryover also green). **Phase 8 plan execution 4/5.** Ledger-body caveat: db push recorded original buggy body; live functions corrected via db query CREATE OR REPLACE; git 65457d3 is source of truth; `db push` reports up to date. |
 | Phase 08 P05 | ~20min | 2 tasks | 6 files |
+| Phase 09 P01 | ~15min (fully autonomous) | 3 tasks (LGPD-04 grep guard + 5 Deno helper RED stubs + sync-prompts RED test & 7-smoke runbook) | 8 files created. Commits: 01deaea (Task 1) + 190b062 (Task 2) + 60b8b3a (Task 3) + metadata. LGPD-04 guard 8/8 GREEN (source clean — gate fails only on a forbidden term); 32 Deno tests collected, all RED via `TypeError: Module not found` (calibrated Wave-0 failure, not syntax errors); sync-prompts RED via module-not-found; 7 SMOKE blocks (6 tables+RLS, 3 enums, EXCLUDE constraint, immutability trigger, promote_to_canary P0001/42501, cost-anomaly pg_net, pg_cron). ai-client.test.ts mocks Anthropic+OpenAI+supabase via dependency injection — no real npm: SDK import, no network (orchestrator-decision #2). SDK pins re-verified at execute time: @anthropic-ai/sdk@0.102.0 / openai@6.42.0 / zod@4.4.3 (helper peer ≥3.25.0). 2 deviations: (a) Rule 3 — test headers cite ROADMAP wave map (helpers 09-04, ai-client 09-05, sync 09-06) over plan-body prose; (b) Rule 3 — new Deno tests pin deno.land/std@0.224.0/assert (strict-schema.test.ts uses Vitest imports which don't run under `deno test`, left untouched/out-of-scope). tsc baseline 293 = ~293 frozen (zero growth). Hook bypass `git -c core.hooksPath=/dev/null` per project convention. **Wave-0 RED contract honored: every downstream Phase-9 surface has a calibrated failing test before its implementation lands (smoke-runtime gate, Phase-4 lesson).** |
 
 ## Accumulated Context
 

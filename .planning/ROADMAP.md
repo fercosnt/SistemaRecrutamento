@@ -153,7 +153,7 @@ Plans:
 Plans:
 **Wave 1** *(parallel — no deps)*
 
-- [ ] 09-01-PLAN.md — Wave-0 RED scaffolds (LGPD-04 grep guard + 5 Deno helper tests + sync-prompts test) + SQL-smoke runbook
+- [x] 09-01-PLAN.md — Wave-0 RED scaffolds (LGPD-04 grep guard + 5 Deno helper tests + sync-prompts test) + SQL-smoke runbook ✓ 2026-06-08
 - [ ] 09-02-PLAN.md — Template frontmatter standardization (7 templates) + zod bump >=3.25 + CHANGELOG
 
 **Wave 2** *(blocked on Wave 1)*
