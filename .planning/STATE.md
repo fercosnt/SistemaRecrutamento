@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-06-08T00:50:54.775Z"
-last_activity: 2026-06-08 -- Phase 08 planning complete
+last_updated: "2026-06-08T01:09:21.261Z"
+last_activity: 2026-06-08
 progress:
   total_phases: 11
   completed_phases: 2
   total_plans: 14
-  completed_plans: 9
+  completed_plans: 10
   percent: 18
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 07 — configura-o-de-vaga-tags
+**Current focus:** Phase 08 — inscri-o-knock-out-etapa-1
 
 ## Current Position
 
-Phase: 07 (configura-o-de-vaga-tags) — VERIFIED ✅ (status: passed)
-Plan: 4 of 4 complete + 07-VERIFICATION.md written (all 3 VAGACFG criteria evidenced)
+Phase: 08 (inscri-o-knock-out-etapa-1) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-06-08 -- Phase 08 planning complete
+Last activity: 2026-06-08
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -204,6 +204,9 @@ Recent decisions affecting current work:
 - [07-04]: Vendored shadcn primitives (versioned `@radix-ui/...@x.y.z` imports) need explicit callback param type annotations under TS strict — `Slider onValueChange:(number[])`, `AlertDialog/Dialog onOpenChange:(boolean)`, `Select onValueChange:(string)` — otherwise each emits TS7006 implicit-any (the 4 net-new errors that would push baseline 301→305 without annotations).
 - [07-04]: AlertDialog/Dialog title vs action-button vs description copy must be lexically distinct under the Wave-0 `getByText` regex — "Trocar template?" (title) / "Sim, sobrescrever" (action) / "Trocar o template..." (desc, non-contiguous so it does not match `/Trocar template/i`) — so the single-node query resolves unambiguously. Same fix applied to BulkMarkDialog (title "Resetar tags da pergunta" vs button "Marcar tudo como informativa").
 - [07-04]: status_vaga has 4 live values (rascunho/ativa/inativa/arquivada); legacy CriarEditarVagaPage's local StatusVaga union models only 3. M2 reads the authoritative `dbStatus` separately and gates the Publicar CTA on `dbStatus === 'rascunho'`; ativa/inativa/arquivada render an informational state — no silent no-op publish (Pitfall 5).
+- [08-01]: D-04 `.strict()` RED via `node:fs` source-text probe (EF schema imports `https://esm.sh/zod@3` — unresolvable in Vitest/Node, no alias); the probe is RED while `.strict()` is absent from `cadastroCandidatoSchema`/`submitCandidaturaSchema` and GREEN the instant Plan 02 adds it to source. Same idiom flips the D-03 `useDuplicateCheck` no-`checkCPFDuplicate` probe.
+- [08-01]: Answer-key = texto-join — `08-SQL-SMOKE-RUNBOOK.md` locks `@> to_jsonb(m.opcao_texto)` (NOT `opcao_id`) per the Phase 7 join-by-text fallback, carrying a `[VERIFY LIVE — A4]` gate to re-confirm `resposta_opcoes` shape via Supabase MCP `execute_sql` before Plan 04 writes the knockout RPC.
+- [08-01]: INSCR-01..04 / LGPD-01 kept **Pending** after Wave 0 (RED-only) — reverted the SDK's `requirements mark-complete` because the behaviors are not implemented yet; they close when Plans 02–05 flip the 20 RED assertions GREEN, not at scaffold authoring. Augmented-shape casts (`as unknown as { qualificacao?: … }`) read not-yet-modeled fields so the test files stay tsc-clean (301=301) while failing at runtime.
 
 ### Pending Todos
 
@@ -238,7 +241,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-08T00:26:17.071Z
+Last session: 2026-06-08T01:08:32.240Z
 Stopped at: Phase 8 UI-SPEC approved
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
@@ -323,7 +326,7 @@ Stopped at: Phase 8 UI-SPEC approved
   - Pitfall 7 redaction enforced via grep acceptance on every auth service/hook/util + dedicated `pitfall7.grep.test.ts` Vitest guard in W6
   - Cadastro authService compat shim renames OLD AuthError → SignUpError (Option A); Phase 2 cadastroService.ts + 2 test files explicitly added to 03-04 files_modified
 
-Resume file: .planning/phases/08-inscri-o-knock-out-etapa-1/08-UI-SPEC.md
+Resume file: None
 Next: **Phase 4 phase-level gates remaining (orchestrator-owned, vêm como workflow separado post-execution):** (1) code-review (cross-cutting Phase 4 surface review — vagas + candidaturas + Edge Function + form rewrite + e2e specs); (2) regression (full vitest + playwright + build + lint baseline preservation across all 4 phases now); (3) verifier (manual + automated final acceptance contra os 7 requirements VAGA-01..03 + CAND-01..04). Apenas após esses 3 gates Phase 4 será marcado [x] no top phase list do ROADMAP. **Phase 5 inputs (carry-over):** F-04-08-B (vaga soft-deleted data hygiene — DB-level invariant ou backfill cleanup script); F-04-08-C (bloco_valido_check constraint não em migrations — schema drift, reconciliation migration); F-04-08-G (white text WCAG AA contrast over BackgroundImage gradient — visual polish + WCAG audit); D-26 token reparation (definir --primary em HSL components separadamente do HEX --brand-primary; após fix sweep bg-[#00109E] literais → bg-primary semântico em todas as páginas); D-27 plan checker enhancement ("page integrates canonical persona shell?"); D-28 plan checker enhancement (smoke-runtime gate antes de plan complete); PKCE same-browser limitation (carryover de Phase 3 03-07 UAT-3 + Phase 4 deferral; preferred mitigation continua sendo switch para OTP code flow). **Phase 4 plan execution closure note:** carryover chain narrative (3 iterações A→B→C resolvendo 4 findings sequenciais) é a lição central da Phase 4. Gates autônomos verdes NÃO substituem smoke-runtime real. Plan checker autônomo do 04-07 passou (build + lint + vitest + playwright + grep) mas página estava UNUSABLE — apenas UAT manual com infra real surfaceou os bugs. Phase 5 deve adotar carryover discipline como pattern (atomic plans por finding, bisect-friendly history, rollback granular).
 
 ## Operator Next Steps
