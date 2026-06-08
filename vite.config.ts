@@ -1,5 +1,6 @@
 
   import { defineConfig } from 'vite';
+  import { configDefaults } from 'vitest/config';
   import react from '@vitejs/plugin-react-swc';
   import path from 'path';
 
@@ -10,6 +11,20 @@
       environment: 'happy-dom',
       setupFiles: ['./tests/setup.ts'],
       include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}'],
+      // Deno Edge-Function / script tests import via `https://deno.land`, `npm:`
+      // and `https://esm.sh` specifiers that the Node/Vitest ESM loader cannot
+      // resolve — they run under `deno test`, not Vitest. Exclude them here so
+      // `npm run test:run` stays green. (strict-schema.test.ts is a Vitest
+      // source-text probe — NOT a Deno test — so it is intentionally kept.)
+      exclude: [
+        ...configDefaults.exclude,
+        'scripts/**',
+        'supabase/functions/**/ai-client.test.ts',
+        'supabase/functions/**/ai-cost.test.ts',
+        'supabase/functions/**/circuit-breaker.test.ts',
+        'supabase/functions/**/injection-detector.test.ts',
+        'supabase/functions/**/pii-masker.test.ts',
+      ],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],
