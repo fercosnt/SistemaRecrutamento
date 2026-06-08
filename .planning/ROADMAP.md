@@ -27,7 +27,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 - [x] **Phase 6: Pipeline Backbone & Schema** — Funil de 6 etapas, trigger `avancar_etapa()`, trilha de auditoria e RLS — fundação de schema do M2 (completed 2026-06-07)
 - [x] **Phase 7: Configuração de Vaga & Tags** — Templates por cargo real, pesos por sliders, wizard de tags em opções
 - [x] **Phase 8: Inscrição & Knock-out (Etapa 1)** — Form LGPD-clean, qualificação por cargo, knockouts auto-rejeição auditável (completed 2026-06-08)
-- [ ] **Phase 9: AI Prompt Library & Cost Infra** — 7 prompts versionados git→DB, logging de custo/tokens, cost-alerter EF, lint de linguagem de produto
+- [x] **Phase 9: AI Prompt Library & Cost Infra** — 7 prompts versionados git→DB, logging de custo/tokens, cost-alerter EF, lint de linguagem de produto
 - [ ] **Phase 10: Triagem RH com IA + Comparativo (Etapa 2)** — `score_match` automático, painel de candidatos, comparativo até 10 + export PDF
 - [ ] **Phase 11: Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)** — Bloco de testes, scoring determinístico SJT 4/2/1/0, case aberto BARS, autosave + back-lock
 - [ ] **Phase 12: Big Five + Devolutiva** — IPIP-NEO-120 PT-BR scoring anti-tampering server-side + devolutiva D-lite híbrida
@@ -168,11 +168,11 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 09-07-PLAN.md — [BLOCKING] apply migrations to PROD via MCP + db:types + 7 SQL smokes + cost-alerter EF
+- [x] 09-07-PLAN.md — [BLOCKING] apply migrations to PROD via MCP + db:types + 7 SQL smokes + cost-alerter EF
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 09-08-PLAN.md — 3 read-only admin pages (ai-logs + prompt-versions + ai-costs) + routes gated administrador
+- [x] 09-08-PLAN.md — 3 read-only admin pages (ai-logs + prompt-versions + ai-costs) + routes gated administrador (allowlist no select('*'), promote/rollback RPCs verbatim, LGPD-04 GREEN, tsc 293) ✓ 2026-06-08
 
 **Note**: O trigger PL/pgSQL pós-INSERT em `ai_cost_daily` (canal `cost_anomaly`) é migration-heavy — aplicar workaround SQLSTATE 42601 via Supabase MCP (CLAUDE.md §Commands). Plan 09-07 é [BLOCKING] non-autonomous (apply PROD + Vault secrets + EF deploy). Verificação autônoma = Deno tests mockados (orchestrator-decision #2); 1 live smoke human-gated (ANTHROPIC/OPENAI keys ausentes nos secrets). pgmq + gold-standard tooling diferidos (Phase 11 / Phase 10+).
 
@@ -293,7 +293,7 @@ Plans:
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
-| 9. AI Prompt Library & Cost Infra | v2.0 | 2/8 | In Progress|  |
+| 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
