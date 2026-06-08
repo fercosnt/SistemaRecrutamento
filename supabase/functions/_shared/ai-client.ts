@@ -52,6 +52,7 @@ import { CircuitBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
 import { logAiCall } from "./audit-logger.ts";
 import { loadPrompt } from "./prompt-loader.ts";
+import type { LoadedPrompt } from "./prompt-loader.ts";
 
 // Re-exporta os composables para os consumidores (Fase 10+) que so importam ai-client.
 export { CircuitBreaker, calculateCost, detectPromptInjection, loadPrompt, logAiCall, maskPII };
@@ -73,6 +74,30 @@ export interface ResolvedPrompt {
   system_template: string;
   max_tokens: number;
   temperature: number;
+}
+
+/**
+ * Constroi um `ResolvedPrompt` a partir do `LoadedPrompt` que `loadPrompt`
+ * devolve, mapeando `content_hash` -> `prompt_hash` (CR-01). Os consumidores
+ * de Fase 10+ usam este helper para que `ai_call_logs.prompt_hash` seja sempre
+ * preenchido (integridade de auditoria IA-02) em vez do `""` antigo.
+ */
+export function resolvedPromptFromLoaded(
+  loaded: LoadedPrompt,
+  call_type: string,
+  fallback_model_id?: string,
+): ResolvedPrompt {
+  return {
+    call_type,
+    model_id: loaded.model_id,
+    fallback_model_id,
+    prompt_version: loaded.semver,
+    prompt_version_id: loaded.id,
+    prompt_hash: loaded.content_hash,
+    system_template: loaded.system_template,
+    max_tokens: loaded.max_tokens,
+    temperature: loaded.temperature,
+  };
 }
 
 /** Cliente Anthropic minimo (estrutural — real ou mock). */
@@ -99,10 +124,20 @@ interface OpenAILike {
   };
 }
 
-/** Supabase minimo que o logger usa (from().insert()). */
+/**
+ * Supabase minimo que o logger usa (from().insert()) + o lookup de idempotencia
+ * (from().select().eq().maybeSingle()). O `select` e OPCIONAL no tipo: os mocks
+ * de teste que so espionam INSERTs nao precisam implementa-lo, e o replay de
+ * idempotencia faz feature-detection antes de chamar (CR-03).
+ */
 interface SupabaseLike {
   from(table: string): {
     insert(row: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+    select?(columns: string): {
+      eq(column: string, value: unknown): {
+        maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: unknown }>;
+      };
+    };
   };
 }
 
@@ -164,6 +199,46 @@ function isRetryable(err: unknown): boolean {
 }
 
 /**
+ * Procura uma chamada anterior com a mesma `idempotency_key` em `ai_call_logs`
+ * (CR-03). Se encontrar, devolve um `CallAiResult` de replay — `cost_usd=0` e
+ * `latency_ms=0` porque o custo/latencia ja foram contabilizados na chamada
+ * original; `cache_hit=true` sinaliza ao chamador que nenhuma API foi tocada.
+ *
+ * Defensivo: sem `idempotency_key`, sem `select` no client (mocks de teste que
+ * so espionam INSERT), ou em erro/ausencia de linha -> retorna null (segue o
+ * fluxo normal). Nunca lanca: uma falha no lookup degrada para uma chamada
+ * normal, nao quebra a feature.
+ */
+async function tryIdempotencyReplay(
+  supabase: SupabaseLike,
+  idempotency_key: string | undefined,
+  prompt_version: string,
+): Promise<CallAiResult | null> {
+  if (!idempotency_key) return null;
+  const table = supabase.from("ai_call_logs");
+  if (typeof table.select !== "function") return null;
+  try {
+    const { data: existing, error } = await table
+      .select("provider, cost_usd, latency_ms, success, output, error_code")
+      .eq("idempotency_key", idempotency_key)
+      .maybeSingle();
+    if (error || !existing) return null;
+    return {
+      provider: String(existing.provider ?? "unknown"),
+      parsed: existing.output ?? null,
+      cost_usd: 0,
+      latency_ms: 0,
+      cache_hit: true,
+      prompt_version,
+      error_code: existing.error_code != null ? String(existing.error_code) : undefined,
+      flagged_for_human_review: existing.success === false ? true : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Executa uma chamada de IA ponta-a-ponta: idempotencia -> injecao -> mascara ->
  * disjuntor -> Anthropic (cache + retry) ou fallback OpenAI -> custo -> log.
  *
@@ -178,6 +253,13 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   const breaker: BreakerLike = deps.breaker ?? new CircuitBreaker();
   const zodOutputFormat = deps.zodOutputFormat ?? ((s: unknown, _n: string) => s);
   const zodResponseFormat = deps.zodResponseFormat ?? ((s: unknown, _n: string) => s);
+
+  // ── 0. Replay de idempotencia ANTES de qualquer chamada de API (CR-03) ────
+  // Se a mesma idempotency_key ja foi registrada, devolve o resultado anterior
+  // sem fazer nova chamada ao provedor nem gravar nova linha em ai_call_logs
+  // (evita custo duplicado + inflacao de ai_cost_daily em retries pg_net).
+  const replay = await tryIdempotencyReplay(supabase, idempotency_key, prompt.prompt_version);
+  if (replay) return replay;
 
   // ── 1. Deteccao de prompt injection — curto-circuito ANTES de qualquer API ─
   const injection = detectPromptInjection(rawInput);
@@ -225,6 +307,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
       idempotency_key, openai, supabase, zodResponseFormat, start,
+      circuitWasOpen: true,
     });
   }
 
@@ -299,6 +382,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
     idempotency_key, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
+    circuitWasOpen: false,
   });
 }
 
@@ -315,10 +399,17 @@ interface FallbackArgs {
   zodResponseFormat: (schema: unknown, name: string) => unknown;
   start: number;
   triggerError?: unknown;
+  /** true = disjuntor estava OPEN (nenhuma tentativa); false = retries esgotados. */
+  circuitWasOpen?: boolean;
 }
 
 /** Caminho de fallback OpenAI gpt-4o-mini (disjuntor OPEN ou Anthropic esgotada). */
 async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
+  // WR-02: rotula o error_code pela causa REAL do fallback — disjuntor aberto
+  // (nenhuma tentativa) vs retries esgotados (disjuntor fechado, todas falharam).
+  const fallbackErrorCode = a.circuitWasOpen
+    ? "anthropic_circuit_open"
+    : "anthropic_retries_exhausted";
   const response = await a.openai.chat.completions.parse({
     model: OPENAI_FALLBACK_MODEL,
     messages: [
@@ -353,7 +444,7 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     attempt_number: 1,
     cost_usd,
     success: parsed !== null,
-    error_code: "anthropic_circuit_open",
+    error_code: fallbackErrorCode,
     error_message: a.triggerError instanceof Error ? a.triggerError.message : undefined,
     idempotency_key: a.idempotency_key,
   });
@@ -365,6 +456,6 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     latency_ms,
     cache_hit: false,
     prompt_version: a.prompt.prompt_version,
-    error_code: "anthropic_circuit_open",
+    error_code: fallbackErrorCode,
   };
 }
