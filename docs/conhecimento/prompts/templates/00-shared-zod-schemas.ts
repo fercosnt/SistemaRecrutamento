@@ -3,11 +3,17 @@
  *
  * Compartilhado entre os 7 usos. Importar nos arquivos de cada Edge Function.
  *
- * Padrão: Zod 3.22+ | Anthropic SDK 0.52+ | OpenAI SDK 4.104+
+ * Padrão: Zod 3.25.76 | Anthropic SDK 0.52+ | OpenAI SDK 4.104+
  * Ambiente: Supabase Edge Functions (Deno)
+ *
+ * Bump 3.22.0 → 3.25.76 (Phase 9 / Plan 09-02, Task 2): peer-dep dos helpers de
+ * structured output — `messages.parse` (Anthropic) e `zodOutputFormat` (OpenAI)
+ * exigem zod ^3.25.0 || ^4.0.0 (RESEARCH Pitfall 1). Nenhum schema shape mudou:
+ * o SDK auto-transforma keywords JSON-Schema não suportados em descriptions e
+ * revalida client-side (RESEARCH Pattern 1), então .min()/.max()/.int() seguem.
  */
 
-import { z } from "npm:zod@3.22.0";
+import { z } from "npm:zod@3.25.76";
 
 // ============================================================================
 // PRIMITIVES
