@@ -679,12 +679,47 @@ export async function listCandidaturas(
       )
     }
 
-    // Construir query base com join de vagas
+    // Construir query base com join de vagas.
+    //
+    // SECURITY (T-08-09 / T-08-13, LGPD): this is the candidate's OWN-ROW read
+    // (RH uses listAllCandidaturas / listCandidaturasByVaga). RLS is row-level
+    // only — it does NOT hide columns — so `select('*')` would transmit
+    // RH/AI-internal columns to the candidate's browser (network payload + React
+    // Query cache) even when never rendered. We therefore project an EXPLICIT
+    // candidate-facing allowlist (fail-closed: new columns are excluded by
+    // default). Deliberately EXCLUDED: opcao_knockout_id + motivo_rejeicao (the
+    // knockout criterion — only the neutral `feedback_rejeicao` is candidate-
+    // facing), observacoes_rh, score_geral, analise_ia_* (RH/AI internals),
+    // etapa_justificativa, created_by/updated_by.
     let query = supabase
       .from('candidaturas')
       .select(
         `
-        *,
+        id,
+        candidato_id,
+        vaga_id,
+        status,
+        etapa_atual,
+        feedback_rejeicao,
+        is_favorito,
+        is_rascunho,
+        origem_candidatura,
+        curriculo_url,
+        curriculo_nome_original,
+        curriculo_tamanho_bytes,
+        data_candidatura,
+        tempo_preenchimento_segundos,
+        data_formulario_enviado,
+        data_disc_enviado,
+        data_bigfive_enviado,
+        data_raven_enviado,
+        data_cultura_enviado,
+        data_entrevista_online,
+        data_entrevista_presencial,
+        data_decisao_final,
+        created_at,
+        updated_at,
+        deleted_at,
         vaga:vagas (
           id,
           titulo,

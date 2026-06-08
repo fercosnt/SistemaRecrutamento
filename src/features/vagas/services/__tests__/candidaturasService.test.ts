@@ -21,14 +21,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
     functions: { invoke: vi.fn() },
+    from: vi.fn(),
   },
 }))
 
 import { supabase } from '@/lib/supabase/client'
 import {
   submitCandidaturaWithRespostas,
+  listCandidaturas,
   CandidaturasServiceError,
 } from '../candidaturasService'
+
+/**
+ * Chainable PostgREST query-builder mock. Every method returns the same object,
+ * and the object is awaitable (`then`) so `await query` resolves to `result`.
+ */
+function makeQueryMock(result: {
+  data: unknown[]
+  error: unknown
+  count: number
+}) {
+  const q: Record<string, unknown> = {}
+  for (const m of ['select', 'eq', 'is', 'gte', 'lte', 'order', 'range']) {
+    q[m] = vi.fn(() => q)
+  }
+  q.then = (resolve: (v: typeof result) => unknown) => resolve(result)
+  return q
+}
 
 const baseInput = {
   candidato_id: '11111111-2222-3333-4444-555555555555',
@@ -182,5 +201,40 @@ describe('submitCandidaturaWithRespostas (Plan 04-05)', () => {
     expect(allArgs).not.toMatch(/curriculo_nome/)
     consoleSpy.mockRestore()
     consoleErrorSpy.mockRestore()
+  })
+})
+
+describe('listCandidaturas projection — T-08-09 / T-08-13 LGPD no-leak (Phase 8)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('projects an explicit candidate allowlist that NEVER sends the knockout criterion or RH/AI internals over the wire', async () => {
+    const q = makeQueryMock({ data: [], error: null, count: 0 })
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockReturnValue(q)
+
+    await listCandidaturas('cand-uuid')
+
+    const selectArg = (q.select as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string
+
+    // No wildcard — RLS is row-level only and does NOT hide columns, so a
+    // `select('*')` would transmit internal columns to the candidate's browser.
+    expect(selectArg).not.toMatch(/\*/)
+
+    // The knockout criterion must never reach the client (only the neutral
+    // feedback_rejeicao is candidate-facing).
+    expect(selectArg).not.toMatch(/opcao_knockout_id/)
+    expect(selectArg).not.toMatch(/motivo_rejeicao/)
+
+    // Broader RH/AI internals must not leak either (fail-closed allowlist).
+    expect(selectArg).not.toMatch(/observacoes_rh/)
+    expect(selectArg).not.toMatch(/score_geral/)
+    expect(selectArg).not.toMatch(/analise_ia_/)
+    expect(selectArg).not.toMatch(/etapa_justificativa/)
+
+    // The neutral rejection message IS candidate-facing and must be present.
+    expect(selectArg).toMatch(/feedback_rejeicao/)
+    // Core candidate-facing fields the UI renders.
+    expect(selectArg).toMatch(/\bstatus\b/)
+    expect(selectArg).toMatch(/etapa_atual/)
   })
 })
