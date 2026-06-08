@@ -60,6 +60,7 @@ import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
 // Páginas Admin (compliance / AI infra — read-only, role administrador only)
 import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
 import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
+import { AiCostsPage } from '../features/admin/ai-costs/components/AiCostsPage'
 
 /**
  * Configuração de rotas da aplicação
@@ -354,6 +355,14 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="administrador">
         <PromptVersionsPage />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/admin/ai-costs',
+    element: (
+      <RoleGuard role="administrador">
+        <AiCostsPage />
       </RoleGuard>
     ),
   },
