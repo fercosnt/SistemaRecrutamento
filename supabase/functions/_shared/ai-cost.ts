@@ -42,6 +42,8 @@ export function calculateCost(
   outputTokens: number,
 ): number {
   const p = COST_PER_TOKEN[model] ?? { input: 0, cached_read: 0, output: 0 };
-  const freshInput = inputTokens - cachedTokens;
+  // WR-01: guarda contra anomalia do provedor (cache_read_input_tokens >
+  // input_tokens) que produziria freshInput negativo e deflacionaria o custo.
+  const freshInput = Math.max(0, inputTokens - cachedTokens);
   return freshInput * p.input + cachedTokens * p.cached_read + outputTokens * p.output;
 }
