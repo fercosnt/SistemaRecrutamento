@@ -40,7 +40,16 @@ export type { QualificacaoPergunta }
 export interface VagaConfig {
   testes_aplicaveis: TestesAplicaveis
   pesos_avaliacao: PesosAvaliacao
-  qualificacao: QualificacaoPergunta[]
+  /**
+   * The Etapa-1 default qualification block (D-14, INSCR-03). Optional because it
+   * is a TEMPLATE-SEED concern, not a persisted column: `getCargoTemplateDefaults`
+   * always provides it when seeding a new vaga, but the persistence path
+   * (`updateVagaConfig` → `testes_aplicaveis`/`pesos_avaliacao` columns) and the
+   * read path (`useVagaConfig`) do not carry it — qualificação is materialised into
+   * the vaga's perguntas and derived server-side into `vagas.qualificacao_etapa1`
+   * at publish (Plan 08-04). Absent here means "not seeding from a template".
+   */
+  qualificacao?: QualificacaoPergunta[]
 }
 
 /**
