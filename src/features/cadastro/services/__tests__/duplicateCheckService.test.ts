@@ -452,3 +452,49 @@ describe('duplicateCheckService — rate_limited handling (Phase 2)', () => {
     expect(src).toMatch(/'RATE_LIMITED'/)
   })
 })
+
+// ============================================
+// Phase 8 / Plan 08-01 Task 1 — D-03 email-only dedup (LGPD-01)
+// ============================================
+//
+// D-03 / INSCR-01: the cadastro flow drops CPF collection at Etapa 1, so the
+// duplicate check becomes EMAIL-ONLY. Two assertions:
+//   (1) GREEN now — locks the contract: `checkEmailDuplicate` already calls the
+//       RPC with `p_cpf` = '' (email-only on the wire). This must NOT regress.
+//   (2) RED until Plan 08-02 — the cadastro consumer (`useDuplicateCheck.ts`)
+//       no longer invokes `checkCPFDuplicate`. The CPF dedup path is removed
+//       from the cadastro flow when CPF stops being collected.
+describe('D-03 email-only dedup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('checkEmailDuplicate calls the RPC with p_cpf empty string (email-only on the wire)', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValue({
+      data: { cpf_exists: false, email_exists: false, rate_limited: false },
+      error: null,
+    } as never)
+
+    await checkEmailDuplicate('joao@example.com')
+
+    expect(supabase.rpc).toHaveBeenCalledWith('check_candidato_duplicate', {
+      p_cpf: '',
+      p_email: 'joao@example.com',
+    })
+  })
+
+  it('cadastro flow no longer invokes checkCPFDuplicate (source probe)', async () => {
+    // RED until Plan 08-02 drops the cpf invocation.
+    // The cadastro consumer is the `useDuplicateCheck` hook — once CPF stops
+    // being collected at Etapa 1, this hook must no longer call
+    // `checkCPFDuplicate`. The probe reads the hook source and asserts the
+    // function name is absent (import line + call site both removed).
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const hookSrc = fs.readFileSync(
+      path.resolve(__dirname, '../../hooks/useDuplicateCheck.ts'),
+      'utf8'
+    )
+    expect(hookSrc).not.toMatch(/checkCPFDuplicate/)
+  })
+})
