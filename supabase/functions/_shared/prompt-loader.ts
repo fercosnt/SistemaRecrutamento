@@ -50,6 +50,7 @@ export interface LoadedPrompt {
   temperature: number;
   max_tokens: number;
   schema_version_required: string;
+  content_hash: string;
 }
 
 /** Erro estruturado de incompatibilidade de schema_version (RF-PL-13). */
@@ -86,15 +87,17 @@ export class PromptNotConfiguredError extends Error {
  * Cliente minimo necessario do supabase-js (apenas o que usamos). Mantido
  * estrutural para permitir injecao de um spy nos testes mockados.
  */
+interface PromptQuery {
+  // `.eq()` e chainable (encadeavel) sem limite — supabase-js em producao
+  // suporta cadeias arbitrarias; o tipo recursivo deixa o mock casar com a
+  // cadeia active (3 `.eq()`) e a cadeia canary (2 `.eq()`).
+  eq(column: string, value: unknown): PromptQuery;
+  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: unknown }>;
+}
+
 interface SupabaseLike {
   from(table: string): {
-    select(columns: string): {
-      eq(column: string, value: unknown): {
-        eq(column: string, value: unknown): {
-          maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: unknown }>;
-        };
-      };
-    };
+    select(columns: string): PromptQuery;
   };
 }
 
@@ -109,6 +112,7 @@ function toLoadedPrompt(row: Record<string, unknown>): LoadedPrompt {
     temperature: Number(row.temperature),
     max_tokens: Number(row.max_tokens),
     schema_version_required: String(row.schema_version_required),
+    content_hash: String(row.content_hash ?? ""),
   };
 }
 
@@ -143,6 +147,7 @@ export async function loadPrompt(call_type: string, supabaseAdmin: SupabaseLike)
     .select(PROMPT_COLUMNS)
     .eq("call_type", call_type)
     .eq("is_active", true)
+    .eq("is_canary", false)
     .maybeSingle();
 
   if (activeRes.error || !activeRes.data) {
