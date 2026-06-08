@@ -57,6 +57,9 @@ import { MeuPerfilPage } from '../components/pages/MeuPerfilPage'
 import { SuporteRHPage } from '../components/pages/SuporteRHPage'
 import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
 
+// Páginas Admin (compliance / AI infra — read-only, role administrador only)
+import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
+
 /**
  * Configuração de rotas da aplicação
  *
@@ -330,6 +333,18 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <RelatoriosRHPage />
+      </RoleGuard>
+    ),
+  },
+
+  // ============================
+  // ROTAS ADMIN (AI infra / compliance — administrador only)
+  // ============================
+  {
+    path: '/admin/ai-logs',
+    element: (
+      <RoleGuard role="administrador">
+        <AiLogsPage />
       </RoleGuard>
     ),
   },
