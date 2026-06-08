@@ -164,7 +164,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2)*
 
 - [ ] 09-05-PLAN.md — ai-client + prompt-loader + audit-logger (SDK-bumped, mocked tests GREEN)
-- [ ] 09-06-PLAN.md — sync-prompts.ts (git→DB) + prompts-sync.yml path-filtered CI
+- [x] 09-06-PLAN.md — sync-prompts.ts (git→DB) + prompts-sync.yml path-filtered CI ✓ 2026-06-08
 
 **Wave 4** *(blocked on Wave 3)*
 
