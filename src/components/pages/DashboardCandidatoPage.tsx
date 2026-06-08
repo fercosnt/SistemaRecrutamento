@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Briefcase, Clock, CheckCircle2, AlertCircle, Loader2, FileText } from 'lucide-react';
+import { LogOut, User, Briefcase, Clock, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
@@ -15,11 +15,11 @@ export function DashboardCandidatoPage() {
   const { logout } = useAuthStore();
 
   // Estado para filtro de candidaturas
-  const [statusFilter, setStatusFilter] = useState<CandidaturasFilters['status_candidatura'] | 'todas'>('todas');
+  const [statusFilter, setStatusFilter] = useState<CandidaturasFilters['status'] | 'todas'>('todas');
 
   // Preparar filtros para a query
   const filters: CandidaturasFilters | undefined = statusFilter !== 'todas'
-    ? { status_candidatura: statusFilter }
+    ? { status: statusFilter }
     : undefined;
 
   // Hooks para buscar candidaturas
@@ -61,7 +61,7 @@ export function DashboardCandidatoPage() {
   /**
    * Helper para obter ícone e cor do status
    */
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = (status: string | null | undefined) => {
     switch (status) {
       case 'aguardando_resposta':
         return { icon: FileText, color: 'text-blue-300', bg: 'bg-blue-500/20', label: 'Aguardando Resposta' };
@@ -138,26 +138,18 @@ export function DashboardCandidatoPage() {
           {/* Estatísticas principais */}
           <GlassPanel variant="white" blur="xl" className="text-white">
             <h2 className="text-3xl mb-6 drop-shadow-md">Suas Candidaturas</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <Glass variant="white" blur="lg" className="p-6 text-center">
                 <p className="text-4xl mb-2 drop-shadow-md font-bold">{counts.total}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Total</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-blue-300">{counts.aplicadas}</p>
-                <p className="text-white/90 drop-shadow-sm text-sm">Aplicadas</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-bold text-blue-300">{counts.aguardando}</p>
+                <p className="text-white/90 drop-shadow-sm text-sm">Aguardando</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
                 <p className="text-4xl mb-2 drop-shadow-md font-bold text-yellow-300">{counts.em_analise}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Em Análise</p>
-              </Glass>
-              <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-purple-300">{counts.em_teste}</p>
-                <p className="text-white/90 drop-shadow-sm text-sm">Em Teste</p>
-              </Glass>
-              <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-indigo-300">{counts.em_entrevista}</p>
-                <p className="text-white/90 drop-shadow-sm text-sm">Entrevistas</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
                 <p className="text-4xl mb-2 drop-shadow-md font-bold text-green-300">{counts.aprovadas}</p>
@@ -166,6 +158,10 @@ export function DashboardCandidatoPage() {
               <Glass variant="white" blur="lg" className="p-6 text-center">
                 <p className="text-4xl mb-2 drop-shadow-md font-bold text-red-300">{counts.rejeitadas}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Rejeitadas</p>
+              </Glass>
+              <Glass variant="white" blur="lg" className="p-6 text-center">
+                <p className="text-4xl mb-2 drop-shadow-md font-bold text-gray-300">{counts.finalizadas}</p>
+                <p className="text-white/90 drop-shadow-sm text-sm">Finalizadas</p>
               </Glass>
             </div>
           </GlassPanel>
@@ -246,7 +242,7 @@ export function DashboardCandidatoPage() {
             ) : (
               <div className="space-y-4">
                 {candidaturasData.data.map((candidatura) => {
-                  const statusInfo = getStatusInfo(candidatura.status_candidatura);
+                  const statusInfo = getStatusInfo(candidatura.status);
                   const StatusIcon = statusInfo.icon;
 
                   return (
