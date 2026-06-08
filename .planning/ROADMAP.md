@@ -149,8 +149,32 @@ Plans:
   4. O EF `cost-alerter` dispara email ao DPO/RH lead + linha em `recruiter_alerts` quando uma anomalia de custo é detectada via canal `cost_anomaly`.
   5. O CI falha se qualquer string proibida ("teste psicológico" etc.) aparece no source — linguagem de produto enforçada por lint/grep.
 
-**Plans**: TBD
-**Note**: O trigger PL/pgSQL pós-INSERT em `ai_cost_daily` (canal `cost_anomaly`) é migration-heavy — aplicar workaround SQLSTATE 42601 (CLAUDE.md §Commands).
+**Plans**: 8 plans (5 waves)
+Plans:
+**Wave 1** *(parallel — no deps)*
+
+- [ ] 09-01-PLAN.md — Wave-0 RED scaffolds (LGPD-04 grep guard + 5 Deno helper tests + sync-prompts test) + SQL-smoke runbook
+- [ ] 09-02-PLAN.md — Template frontmatter standardization (7 templates) + zod bump >=3.25 + CHANGELOG
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 09-03-PLAN.md — 4 migrations authored (schema + recruiter_alerts + RPCs/triggers + cron + seed; pt-BR FKs, no-wrapper)
+- [ ] 09-04-PLAN.md — _shared utilities: pii-masker + injection-detector + circuit-breaker + ai-cost (Deno tests GREEN)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 09-05-PLAN.md — ai-client + prompt-loader + audit-logger (SDK-bumped, mocked tests GREEN)
+- [ ] 09-06-PLAN.md — sync-prompts.ts (git→DB) + prompts-sync.yml path-filtered CI
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 09-07-PLAN.md — [BLOCKING] apply migrations to PROD via MCP + db:types + 7 SQL smokes + cost-alerter EF
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 09-08-PLAN.md — 3 read-only admin pages (ai-logs + prompt-versions + ai-costs) + routes gated administrador
+
+**Note**: O trigger PL/pgSQL pós-INSERT em `ai_cost_daily` (canal `cost_anomaly`) é migration-heavy — aplicar workaround SQLSTATE 42601 via Supabase MCP (CLAUDE.md §Commands). Plan 09-07 é [BLOCKING] non-autonomous (apply PROD + Vault secrets + EF deploy). Verificação autônoma = Deno tests mockados (orchestrator-decision #2); 1 live smoke human-gated (ANTHROPIC/OPENAI keys ausentes nos secrets). pgmq + gold-standard tooling diferidos (Phase 11 / Phase 10+).
 
 ### Phase 10: Triagem RH com IA + Comparativo (Etapa 2)
 
@@ -269,7 +293,7 @@ Plans:
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
-| 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
+| 9. AI Prompt Library & Cost Infra | v2.0 | 0/8 | Planned | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
