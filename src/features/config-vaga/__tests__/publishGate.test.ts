@@ -89,3 +89,80 @@ describe('publishGate (Plan 07-01 — D-12, Wave 0 RED)', () => {
     expect(failures.length).toBeGreaterThanOrEqual(3)
   })
 })
+
+// ============================================================================
+// Phase 8 / Plan 08-01 Task 2 — INSCR-02 / D-09 qualification gate (Wave 0 RED)
+// ============================================================================
+//
+// INSCR-02 / D-09: the publish gate also bounds the Etapa-1 qualification block:
+//   (4) > 10 perguntas in the qualification block  → reject
+//   (5) > 1 open-ended (resposta_texto) pergunta   → reject
+// The current `publishGate` has no such check (and `PublishGateInput` has no
+// `qualificacao` field), so a publish carrying an oversized / multi-open-ended
+// qualification block returns NO failure today. These assertions are RED until
+// Plan 08-03 extends the gate.
+//
+// The `qualificacao` block is attached to the input via an augmented shape so
+// the file stays TS-strict-clean (the production `PublishGateInput` does not yet
+// model it — the Phase-7 Wave-0 RED idiom).
+
+interface QualificacaoPerguntaInput {
+  texto_pergunta: string
+  tipo_resposta: 'single_choice' | 'multiple_choice' | 'resposta_texto'
+}
+
+const withQualificacao = (
+  perguntas: QualificacaoPerguntaInput[],
+): PublishGateInput => {
+  const base = validInput() as PublishGateInput & {
+    qualificacao?: QualificacaoPerguntaInput[]
+  }
+  base.qualificacao = perguntas
+  return base
+}
+
+const choicePergunta = (n: number): QualificacaoPerguntaInput => ({
+  texto_pergunta: `Pergunta de qualificação ${n}`,
+  tipo_resposta: 'single_choice',
+})
+
+const openEndedPergunta = (n: number): QualificacaoPerguntaInput => ({
+  texto_pergunta: `Pergunta dissertativa ${n}`,
+  tipo_resposta: 'resposta_texto',
+})
+
+describe('publishGate qualification block (Plan 08-01 — INSCR-02 / D-09, Wave 0 RED)', () => {
+  // RED until Plan 08-03 extends the gate.
+  it('Q1: flags a qualification block with MORE THAN 10 perguntas', () => {
+    const input = withQualificacao(
+      Array.from({ length: 11 }, (_, i) => choicePergunta(i)),
+    )
+    const failures = publishGate(input)
+    expect(failures.length).toBeGreaterThan(0)
+  })
+
+  // RED until Plan 08-03 extends the gate.
+  it('Q2: flags a qualification block with MORE THAN 1 open-ended pergunta', () => {
+    const input = withQualificacao([
+      choicePergunta(0),
+      openEndedPergunta(1),
+      openEndedPergunta(2),
+    ])
+    const failures = publishGate(input)
+    expect(failures.length).toBeGreaterThan(0)
+  })
+
+  // GREEN both before AND after Plan 03 — a compliant block (≤10 perguntas,
+  // ≤1 open-ended) introduces NO new failure from the qualification check.
+  it('Q3: a compliant qualification block (≤10 perguntas, ≤1 open-ended) adds no failure', () => {
+    const input = withQualificacao([
+      choicePergunta(0),
+      choicePergunta(1),
+      openEndedPergunta(2),
+    ])
+    const failures = publishGate(input)
+    // The baseline validInput() passes the original 3 D-12 conditions, so a
+    // compliant qualification block must leave failures empty.
+    expect(failures).toEqual([])
+  })
+})
