@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: verifying
-stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-06-08T02:05:59.077Z"
+status: ready_to_plan
+stopped_at: Phase 08 complete (5/5) — ready to discuss Phase 9
+last_updated: 2026-06-08T02:57:32.758Z
 last_activity: 2026-06-08
 progress:
   total_phases: 11
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 08 — inscri-o-knock-out-etapa-1
+**Current focus:** Phase 9 — ai prompt library & cost infra
 
 ## Current Position
 
-Phase: 08 (inscri-o-knock-out-etapa-1) — EXECUTING
-Plan: 5 of 5
-Status: Phase complete — ready for verification
+Phase: 9
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-06-08
 
 ## Latest Plan (05-07 gap-closure)
@@ -42,7 +42,7 @@ Last activity: 2026-06-08
 
 **Velocity:**
 
-- Total plans completed: 43 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
+- Total plans completed: 48 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
 - Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure), 03-06 (~17 min, fully autonomous, 2 page rewrites + 8 deletions = 1528 LoC removed), 03-07 (~27 min autonomous Tasks 1-3+autofix + ~2.5h human-clock UAT execution; 2 production-only findings captured)
 - Total execution time for Phase 2: ~245 min
 - Total execution time for Phase 3: ~281 min autonomous + ~2.5h human UAT = ~431 min wall-clock (Waves 0-6 / 7 of 7 complete)
@@ -56,6 +56,7 @@ Last activity: 2026-06-08
 | 04 | 9 | - | - |
 | 05 | 6 | - | - |
 | 06 | 5 | - | - |
+| 08 | 5 | - | - |
 
 **Per-plan ledger (Phase 3):**
 
