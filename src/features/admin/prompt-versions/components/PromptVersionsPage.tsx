@@ -278,24 +278,11 @@ export function PromptVersionsPage() {
           <GlassCard className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Comparar versões</h2>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button
-                        disabled={!canCompare}
-                        onClick={() => undefined}
-                        className="bg-white/10 text-white hover:bg-white/20"
-                      >
-                        Comparar versões
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!canCompare && (
-                    <TooltipContent>Selecione duas versões para comparar</TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
+              {!canCompare && (
+                <span className="text-sm text-white/60">
+                  Selecione duas versões para comparar
+                </span>
+              )}
             </div>
             {canCompare && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
