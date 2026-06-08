@@ -466,7 +466,10 @@ function calculateCost(model, inputTokens, cachedTokens, outputTokens) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Resolved during plan-phase via orchestrator decisions (see 09 PLAN frontmatter truths):
+> Q1 → Resend + graceful degradation (orchestrator-decision #3); Q2 → recruiter_alerts column set (orchestrator-decision #4, Plan 09-03); Q3 → HITL-SLA cron + Art.18 delete OUT OF SCOPE (orchestrator-decision #5; Art.18 → Phase 15); Q4 → canary routing centralized in prompt-loader (Plan 09-05).
 
 1. **Email provider for `cost-alerter`** (PRD Q-10.1 unresolved)
    - What we know: PRD says "Supabase SMTP / Resend"; no provider configured; no existing email-send code in repo.
