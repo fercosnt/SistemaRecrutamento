@@ -125,6 +125,17 @@ export function FormularioCandidaturaPage() {
   const [cvPath, setCvPath] = useState<string | null>(null)
   const [cvUploading, setCvUploading] = useState(false)
 
+  // Phase 8 / D-16 — post-submit result state. Drives which surface renders
+  // after a successful submit:
+  //   'rejeitado' → inline D-15 neutral result (server-side knockout); the
+  //                 candidate stays on the page, NOT navigated to /perfil, and
+  //                 NO success toast fires. The criterion is NEVER shown.
+  //   'enviado'   → survivor success confirmation, then navigate to /perfil.
+  //   null        → form is still being filled / submitted.
+  const [submitResult, setSubmitResult] = useState<
+    'rejeitado' | 'enviado' | null
+  >(null)
+
   // Build dynamic Zod schema; rebuilds only when perguntas reference changes.
   const schema = useMemo(
     () => buildCandidaturaSchema(perguntas ?? []),
@@ -319,7 +330,9 @@ export function FormularioCandidaturaPage() {
       )
 
       // 3) Atomic submit via Edge Function (Plan 04-05).
-      await submitCandidaturaWithRespostas({
+      //    Phase 8 / D-16: the result now carries `status` so we can branch on
+      //    a server-authoritative knockout.
+      const result = await submitCandidaturaWithRespostas({
         candidato_id: candidato.id,
         vaga_id: vaga.id,
         curriculo_url: uploadedPath,
@@ -328,6 +341,19 @@ export function FormularioCandidaturaPage() {
         respostas,
       })
 
+      // Phase 8 / D-15 + D-16 — branch on the RPC-returned status.
+      if (result.status === 'rejeitado') {
+        // Knockout: render the neutral inline result IN PLACE. Do NOT toast a
+        // success and do NOT navigate to /perfil — the candidate sees the
+        // dignified D-15 message inline (the criterion is never exposed). The
+        // persisted feedback_rejeicao is ALSO surfaced on /perfil + dashboard.
+        setSubmitResult('rejeitado')
+        return
+      }
+
+      // Survivor (status='aguardando_resposta', etapa advanced to triagem):
+      // keep the existing success path.
+      setSubmitResult('enviado')
       toast.success('Candidatura enviada com sucesso!', { duration: 4000 })
       navigate('/candidato/perfil', { replace: true })
     } catch (err) {
@@ -463,6 +489,49 @@ export function FormularioCandidaturaPage() {
           </button>
         </div>
       </div>
+    )
+  }
+
+  // Phase 8 / D-15 + D-16 — inline NEUTRAL knockout result. Rendered IN PLACE
+  // after a server-side knockout (status='rejeitado'), replacing the form.
+  // Tone is dignified/calm (muted glass, NOT a red alarm banner). The knockout
+  // criterion is NEVER rendered — only the single locked D-15 message.
+  // UI-SPEC tokens: Display 28/600 heading (text-3xl font-semibold), Body 16/400
+  // (text-base) message on a neutral/muted surface.
+  if (submitResult === 'rejeitado') {
+    return (
+      <BackgroundImage
+        background="gradient"
+        className="min-h-screen py-20"
+        overlayColor="bg-black"
+        overlayOpacity={15}
+      >
+        <CandidatoNavbar />
+        <div className="container mx-auto px-4 max-w-3xl">
+          <GlassCard variant="white" className="rounded-xl text-center space-y-4">
+            <h1 className="text-3xl font-semibold text-gray-900">
+              Inscrição recebida
+            </h1>
+            {/* D-15 [LOCKED] neutral message — never exposes the criterion. */}
+            <p className="text-base text-gray-700 leading-relaxed">
+              Após análise dos requisitos da vaga, não seguiremos com sua
+              candidatura neste momento.
+            </p>
+            <p className="text-base text-gray-500">
+              Agradecemos seu interesse na Beauty Smile.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => navigate('/candidato/perfil', { replace: true })}
+                className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Voltar
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      </BackgroundImage>
     )
   }
 

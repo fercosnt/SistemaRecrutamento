@@ -1243,10 +1243,30 @@ export interface SubmitCandidaturaWithRespostasInput {
 
 interface SubmitCandidaturaResponse {
   ok: boolean
-  data?: { candidaturaId: string; candidaturaUrl?: string }
+  // Phase 8 / D-16: the EF now passes `status` + `etapa_atual` through from the
+  // submit_candidatura_atomic RPC so the client can branch on a server-side
+  // knockout (status='rejeitado') vs. a survivor (status='aguardando_resposta',
+  // etapa_atual='triagem'). The criterion is NEVER included — audit-only.
+  data?: {
+    candidaturaId: string
+    candidaturaUrl?: string
+    status?: string
+    etapa_atual?: string
+  }
   error_code?: string
   message?: string
   field?: string
+}
+
+/**
+ * Phase 8 / D-16 — result shape returned to the candidatura submit handler.
+ * `status` drives the inline post-submit branch: 'rejeitado' → D-15 neutral
+ * result; anything else (survivor) → success confirmation.
+ */
+export interface SubmitCandidaturaResult {
+  candidaturaId: string
+  status?: string
+  etapa_atual?: string
 }
 
 /**
@@ -1272,7 +1292,7 @@ interface SubmitCandidaturaResponse {
  */
 export async function submitCandidaturaWithRespostas(
   input: SubmitCandidaturaWithRespostasInput
-): Promise<{ candidaturaId: string }> {
+): Promise<SubmitCandidaturaResult> {
   // Pitfall 7 redacted log — never log the storage path, the filename, or
   // the respostas content. Only counts and identifiers leave the boundary.
   console.log('[CANDIDATURA] submit invoked', {
@@ -1338,7 +1358,11 @@ export async function submitCandidaturaWithRespostas(
       )
     }
 
-    return { candidaturaId: responseData.data.candidaturaId }
+    return {
+      candidaturaId: responseData.data.candidaturaId,
+      status: responseData.data.status,
+      etapa_atual: responseData.data.etapa_atual,
+    }
   } catch (err) {
     if (err instanceof CandidaturasServiceError) throw err
     throw new CandidaturasServiceError(

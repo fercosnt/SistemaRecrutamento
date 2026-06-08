@@ -277,11 +277,25 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  const candidaturaId = (rpcData as { candidatura_id: string }).candidatura_id
+  // Phase 8 / D-16: the RPC now returns `status` + `etapa_atual` alongside the
+  // id so the client can branch on a server-authoritative knockout. On a
+  // knockout match the RPC auto-rejects synchronously in the same txn
+  // (status='rejeitado', etapa_atual='inscricao'); a survivor advances to
+  // 'triagem'. We pass these through unchanged below. The criterion
+  // (opcao_knockout_id) is NEVER included in the response — it is audit-only.
+  const rpcResult = rpcData as {
+    candidatura_id: string
+    status?: string
+    etapa_atual?: string
+  }
+  const candidaturaId = rpcResult.candidatura_id
 
   // ---- 5) Fire-and-forget N8N webhook AFTER COMMIT — non-blocking ----------
   // Webhook failure MUST NOT roll back the candidatura. The RPC has already
   // committed; we report success to the client regardless of webhook outcome.
+  // Phase 8 / A5: knocked-out candidaturas ALSO fire the nova-candidatura
+  // webhook in V1 — RH may want the record of every inscrição, including
+  // auto-rejected ones. The webhook is NOT suppressed for status='rejeitado'.
   // WR-04 (Phase 4 review fix): URL is read from N8N_NOVA_CANDIDATURA_URL env
   // var with a hardcoded fallback so existing prod deploys keep working until
   // the env var is set. Drift between this EF and any frontend caller is now
@@ -309,10 +323,18 @@ Deno.serve(async (req: Request) => {
   )
 
   // ---- 6) Success ----------------------------------------------------------
+  // Phase 8 / D-16: surface `status` + `etapa_atual` so the client can render
+  // the D-15 neutral inline result on a knockout (status='rejeitado') vs. the
+  // normal success confirmation on a survivor. No criterion is leaked.
   return jsonResponse(
     {
       ok: true,
-      data: { candidaturaId, candidaturaUrl: '/candidato/perfil' },
+      data: {
+        candidaturaId,
+        candidaturaUrl: '/candidato/perfil',
+        status: rpcResult.status,
+        etapa_atual: rpcResult.etapa_atual,
+      },
     },
     200,
   )
