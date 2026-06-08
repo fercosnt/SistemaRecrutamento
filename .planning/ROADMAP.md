@@ -128,7 +128,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 08-04-PLAN.md — migration: candidaturas/vagas columns + knockout sweep in submit_candidatura_atomic + qualificacao_etapa1 snapshot/gate in publish_vaga [BLOCKING non-autonomous apply + db:types]
+- [x] 08-04-PLAN.md — migration: candidaturas/vagas columns + knockout sweep in submit_candidatura_atomic + qualificacao_etapa1 snapshot/gate in publish_vaga [BLOCKING non-autonomous apply + db:types]
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -268,7 +268,7 @@ Plans:
 | 5. Perfil + Hardening MVP | v1.0 | 7/7 | Complete | 2026-06-06 |
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
-| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 3/5 | In Progress|  |
+| 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 4/5 | In Progress|  |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 0/0 | Not started | - |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
