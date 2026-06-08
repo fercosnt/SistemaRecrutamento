@@ -154,7 +154,7 @@ Plans:
 **Wave 1** *(parallel — no deps)*
 
 - [x] 09-01-PLAN.md — Wave-0 RED scaffolds (LGPD-04 grep guard + 5 Deno helper tests + sync-prompts test) + SQL-smoke runbook ✓ 2026-06-08
-- [ ] 09-02-PLAN.md — Template frontmatter standardization (7 templates) + zod bump >=3.25 + CHANGELOG
+- [x] 09-02-PLAN.md — Template frontmatter standardization (7 templates) + zod bump >=3.25 + CHANGELOG ✓ 2026-06-08
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -293,7 +293,7 @@ Plans:
 | 6. Pipeline Backbone & Schema | v2.0 | 5/5 | Complete   | 2026-06-07 |
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
-| 9. AI Prompt Library & Cost Infra | v2.0 | 0/8 | Planned | - |
+| 9. AI Prompt Library & Cost Infra | v2.0 | 2/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |

@@ -68,7 +68,7 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 ### Integração IA (AI Prompt Library)
 
-- [ ] **IA-01**: Library de 7 prompts versionados (system prompt + user message + Zod output schema por uso), versionamento híbrido git→DB + admin UI de revisão/gold-standard [§3.1, mini-PRD AI Prompt Library]
+- [x] **IA-01**: Library de 7 prompts versionados (system prompt + user message + Zod output schema por uso), versionamento híbrido git→DB + admin UI de revisão/gold-standard [§3.1, mini-PRD AI Prompt Library]
 - [ ] **IA-02**: Logging estruturado obrigatório de toda chamada IA (`prompt_version`, `model_version`, `generated_at`, `input_hash`, `output`, `custo_tokens`), auditável retroativamente em SQL [RNF-09]
 - [ ] **IA-03**: Anthropic prompt caching (ephemeral) nas partes estáveis do contexto (vaga + rubric + few-shot) + mix Haiku/Sonnet, mantendo custo médio ≤ R$ 0,50 por candidato no funil completo [RNF-10, §8.4]
 - [ ] **IA-04**: EF `cost-alerter` — Postgres LISTEN no canal `cost_anomaly` (trigger pós-INSERT em `ai_cost_daily`) + cron horário → email DPO/RH lead + linha em `recruiter_alerts` [§8.4]
@@ -140,7 +140,7 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | INSCR-03 | Phase 8 | Complete |
 | INSCR-04 | Phase 8 | Complete |
 | LGPD-01 | Phase 8 | Complete |
-| IA-01 | Phase 9 | Pending |
+| IA-01 | Phase 9 | Complete |
 | IA-02 | Phase 9 | Pending |
 | IA-03 | Phase 9 | Pending |
 | IA-04 | Phase 9 | Pending |
