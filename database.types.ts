@@ -39,6 +39,169 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_call_logs: {
+        Row: {
+          attempt_number: number
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          candidato_id: string | null
+          cost_usd: number | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          idempotency_key: string | null
+          input_token_count: number
+          latency_ms: number
+          model_id: string
+          model_snapshot: string | null
+          output_token_count: number
+          parsed_reasoning: string | null
+          parsed_score: number | null
+          prompt_hash: string
+          prompt_version_id: string
+          provider: Database["public"]["Enums"]["llm_provider"]
+          raw_response: Json
+          retain_until: string
+          success: boolean
+          system_prompt: string
+          triggered_by: string
+          user_prompt_template: string
+          vaga_id: string | null
+        }
+        Insert: {
+          attempt_number?: number
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          candidato_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_token_count: number
+          latency_ms: number
+          model_id: string
+          model_snapshot?: string | null
+          output_token_count: number
+          parsed_reasoning?: string | null
+          parsed_score?: number | null
+          prompt_hash: string
+          prompt_version_id: string
+          provider: Database["public"]["Enums"]["llm_provider"]
+          raw_response: Json
+          retain_until: string
+          success?: boolean
+          system_prompt: string
+          triggered_by?: string
+          user_prompt_template: string
+          vaga_id?: string | null
+        }
+        Update: {
+          attempt_number?: number
+          call_type?: Database["public"]["Enums"]["llm_call_type"]
+          candidato_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_token_count?: number
+          latency_ms?: number
+          model_id?: string
+          model_snapshot?: string | null
+          output_token_count?: number
+          parsed_reasoning?: string | null
+          parsed_score?: number | null
+          prompt_hash?: string
+          prompt_version_id?: string
+          provider?: Database["public"]["Enums"]["llm_provider"]
+          raw_response?: Json
+          retain_until?: string
+          success?: boolean
+          system_prompt?: string
+          triggered_by?: string
+          user_prompt_template?: string
+          vaga_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_logs_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_logs_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_candidatos_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_logs_prompt_version_id_fkey"
+            columns: ["prompt_version_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_logs_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_cost_daily: {
+        Row: {
+          call_count: number
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          date: string
+          error_count: number
+          id: string
+          provider: Database["public"]["Enums"]["llm_provider"]
+          total_cost_usd: number
+          total_input_tokens: number
+          total_output_tokens: number
+          vaga_id: string | null
+        }
+        Insert: {
+          call_count?: number
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          date: string
+          error_count?: number
+          id?: string
+          provider: Database["public"]["Enums"]["llm_provider"]
+          total_cost_usd?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          vaga_id?: string | null
+        }
+        Update: {
+          call_count?: number
+          call_type?: Database["public"]["Enums"]["llm_call_type"]
+          date?: string
+          error_count?: number
+          id?: string
+          provider?: Database["public"]["Enums"]["llm_provider"]
+          total_cost_usd?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          vaga_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_cost_daily_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autorizacoes: {
         Row: {
           autorizacao_analise_video: boolean
@@ -316,6 +479,108 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidate_ai_decisions: {
+        Row: {
+          ai_call_log_ids: string[]
+          ai_composite_score: number
+          ai_reasoning_summary: string
+          ai_recommendation: string
+          candidato_id: string
+          created_at: string
+          explanation_channel: string | null
+          explanation_delivered_at: string | null
+          human_decision: string | null
+          human_notes: string | null
+          human_overrode_ai: boolean | null
+          id: string
+          review_requested_at: string | null
+          review_requested_by: string | null
+          reviewed_at: string | null
+          reviewer_id: string | null
+          status: Database["public"]["Enums"]["candidate_status"]
+          updated_at: string
+          vaga_id: string
+        }
+        Insert: {
+          ai_call_log_ids: string[]
+          ai_composite_score: number
+          ai_reasoning_summary: string
+          ai_recommendation: string
+          candidato_id: string
+          created_at?: string
+          explanation_channel?: string | null
+          explanation_delivered_at?: string | null
+          human_decision?: string | null
+          human_notes?: string | null
+          human_overrode_ai?: boolean | null
+          id?: string
+          review_requested_at?: string | null
+          review_requested_by?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["candidate_status"]
+          updated_at?: string
+          vaga_id: string
+        }
+        Update: {
+          ai_call_log_ids?: string[]
+          ai_composite_score?: number
+          ai_reasoning_summary?: string
+          ai_recommendation?: string
+          candidato_id?: string
+          created_at?: string
+          explanation_channel?: string | null
+          explanation_delivered_at?: string | null
+          human_decision?: string | null
+          human_notes?: string | null
+          human_overrode_ai?: boolean | null
+          id?: string
+          review_requested_at?: string | null
+          review_requested_by?: string | null
+          reviewed_at?: string | null
+          reviewer_id?: string | null
+          status?: Database["public"]["Enums"]["candidate_status"]
+          updated_at?: string
+          vaga_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_ai_decisions_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_ai_decisions_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_candidatos_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_ai_decisions_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios_rh"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_ai_decisions_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_ai_decisions_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
             referencedColumns: ["id"]
           },
         ]
@@ -719,6 +984,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      data_deletion_log: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          deletion_type: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string
+          deletion_type: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          deletion_type?: string
+          id?: string
+        }
+        Relationships: []
       }
       decisao_final: {
         Row: {
@@ -1536,6 +1822,92 @@ export type Database = {
           },
         ]
       }
+      prompt_versions: {
+        Row: {
+          approved_by: string | null
+          avg_score_delta: number | null
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          canary_pct: number | null
+          change_summary: string
+          changed_by: string
+          content_hash: string
+          created_at: string
+          deployed_at: string | null
+          deprecated_at: string | null
+          error_rate_pct: number | null
+          id: string
+          is_active: boolean
+          is_canary: boolean
+          max_tokens: number
+          model_id: string
+          p95_latency_ms: number | null
+          previous_version_id: string | null
+          schema_version_required: string
+          semver: string
+          system_template: string
+          temperature: number
+          user_template: string
+        }
+        Insert: {
+          approved_by?: string | null
+          avg_score_delta?: number | null
+          call_type: Database["public"]["Enums"]["llm_call_type"]
+          canary_pct?: number | null
+          change_summary: string
+          changed_by: string
+          content_hash: string
+          created_at?: string
+          deployed_at?: string | null
+          deprecated_at?: string | null
+          error_rate_pct?: number | null
+          id?: string
+          is_active?: boolean
+          is_canary?: boolean
+          max_tokens: number
+          model_id: string
+          p95_latency_ms?: number | null
+          previous_version_id?: string | null
+          schema_version_required?: string
+          semver: string
+          system_template: string
+          temperature?: number
+          user_template: string
+        }
+        Update: {
+          approved_by?: string | null
+          avg_score_delta?: number | null
+          call_type?: Database["public"]["Enums"]["llm_call_type"]
+          canary_pct?: number | null
+          change_summary?: string
+          changed_by?: string
+          content_hash?: string
+          created_at?: string
+          deployed_at?: string | null
+          deprecated_at?: string | null
+          error_rate_pct?: number | null
+          id?: string
+          is_active?: boolean
+          is_canary?: boolean
+          max_tokens?: number
+          model_id?: string
+          p95_latency_ms?: number | null
+          previous_version_id?: string | null
+          schema_version_required?: string
+          semver?: string
+          system_template?: string
+          temperature?: number
+          user_template?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prompt_versions_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       questoes_bigfive: {
         Row: {
           created_at: string
@@ -1715,6 +2087,73 @@ export type Database = {
           x_forwarded_for?: string | null
         }
         Relationships: []
+      }
+      recruiter_alerts: {
+        Row: {
+          call_type: Database["public"]["Enums"]["llm_call_type"] | null
+          candidato_id: string | null
+          channel: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string | null
+          resolved_at: string | null
+          threshold: number | null
+          threshold_violated: string
+          vaga_id: string | null
+          value: number | null
+        }
+        Insert: {
+          call_type?: Database["public"]["Enums"]["llm_call_type"] | null
+          candidato_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          resolved_at?: string | null
+          threshold?: number | null
+          threshold_violated: string
+          vaga_id?: string | null
+          value?: number | null
+        }
+        Update: {
+          call_type?: Database["public"]["Enums"]["llm_call_type"] | null
+          candidato_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          resolved_at?: string | null
+          threshold?: number | null
+          threshold_violated?: string
+          vaga_id?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruiter_alerts_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_alerts_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_candidatos_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiter_alerts_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       respostas_bigfive: {
         Row: {
@@ -3047,6 +3486,21 @@ export type Database = {
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
       }
+      promote_canary_to_active: {
+        Args: {
+          p_call_type: Database["public"]["Enums"]["llm_call_type"]
+          p_semver: string
+        }
+        Returns: string
+      }
+      promote_to_canary: {
+        Args: {
+          p_call_type: Database["public"]["Enums"]["llm_call_type"]
+          p_canary_pct?: number
+          p_semver: string
+        }
+        Returns: string
+      }
       publish_vaga: { Args: { p_vaga_id: string }; Returns: Json }
       registrar_acao_historico: {
         Args: {
@@ -3065,6 +3519,13 @@ export type Database = {
           usuario_rh_uuid: string
         }
         Returns: undefined
+      }
+      rollback_to_version: {
+        Args: {
+          p_call_type: Database["public"]["Enums"]["llm_call_type"]
+          p_semver: string
+        }
+        Returns: string
       }
       slugify: { Args: { p_input: string }; Returns: string }
       submit_candidatura_atomic: {
@@ -3093,6 +3554,17 @@ export type Database = {
       }
     }
     Enums: {
+      candidate_status:
+        | "pending_ai"
+        | "ai_screened"
+        | "auto_approved"
+        | "auto_rejected"
+        | "flagged_for_review"
+        | "human_reviewing"
+        | "human_confirmed_approved"
+        | "human_confirmed_rejected"
+        | "candidate_review_requested"
+        | "archived"
       categoria_log_auditoria:
         | "autenticacao"
         | "candidatura"
@@ -3127,6 +3599,15 @@ export type Database = {
         | "decisao_final"
         | "aprovado"
         | "rejeitado"
+      llm_call_type:
+        | "cv_summary"
+        | "cv_job_match"
+        | "comparative_ranking"
+        | "interview_guide"
+        | "transcript_analysis"
+        | "culture_fit_essay"
+        | "work_sample_sjt"
+      llm_provider: "anthropic" | "openai" | "google"
       recomendacao_avaliacao: "aprovar" | "rejeitar" | "indeciso"
       serie_raven: "A" | "B" | "C" | "D" | "E"
       severidade_log: "info" | "aviso" | "erro" | "critico"
@@ -3333,6 +3814,18 @@ export const Constants = {
   },
   public: {
     Enums: {
+      candidate_status: [
+        "pending_ai",
+        "ai_screened",
+        "auto_approved",
+        "auto_rejected",
+        "flagged_for_review",
+        "human_reviewing",
+        "human_confirmed_approved",
+        "human_confirmed_rejected",
+        "candidate_review_requested",
+        "archived",
+      ],
       categoria_log_auditoria: [
         "autenticacao",
         "candidatura",
@@ -3371,6 +3864,16 @@ export const Constants = {
         "aprovado",
         "rejeitado",
       ],
+      llm_call_type: [
+        "cv_summary",
+        "cv_job_match",
+        "comparative_ranking",
+        "interview_guide",
+        "transcript_analysis",
+        "culture_fit_essay",
+        "work_sample_sjt",
+      ],
+      llm_provider: ["anthropic", "openai", "google"],
       recomendacao_avaliacao: ["aprovar", "rejeitar", "indeciso"],
       serie_raven: ["A", "B", "C", "D", "E"],
       severidade_log: ["info", "aviso", "erro", "critico"],
