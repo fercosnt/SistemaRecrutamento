@@ -17,6 +17,7 @@
  * @module features/config-vaga/templates/cargoTemplates
  */
 import type { PesosAvaliacao } from '../schemas/pesosAvaliacaoSchema'
+import type { QualificacaoPergunta } from '../schemas/qualificacaoSchema'
 import type { TesteAplicavel } from '../schemas/testesAplicaveisSchema'
 import type { VagaConfig } from '../types/configVagaTypes'
 
@@ -37,6 +38,13 @@ export interface CargoTemplate {
   /** The 4 weighted keys — MUST sum to 100. */
   pesos_avaliacao: PesosAvaliacao
   testes_aplicaveis: TesteAplicavel[]
+  /**
+   * The Etapa-1 default qualification block (D-14, INSCR-03). EVERY cargo seeds
+   * the presencial-SP knockout; `dentista` ALSO seeds the harmonização-orofacial
+   * knockout. A knockout is an OPTION tagged `'knockout'` inside an obrigatoria
+   * pergunta (D-06). Copied into the vaga by `getCargoTemplateDefaults`.
+   */
+  qualificacao: QualificacaoPergunta[]
 }
 
 /**
@@ -64,6 +72,54 @@ const baseTestes = (
   { teste: 'entrevista', obrigatorio: overrides.entrevista ?? true, customizado: false },
 ]
 
+/** Canonical Etapa-1 presencial-SP knockout texto (perguntas-vagas.md). */
+const PRESENCIAL_SP_TEXTO =
+  'Você tem disponibilidade para trabalhar presencialmente em São Paulo, perto dos metros Brigadeiro e Paraíso?'
+
+/** Canonical dentista-only harmonização-orofacial knockout texto (Etapa 2 — Dentista). */
+const HARMONIZACAO_TEXTO =
+  'Está ciente que não realizamos atendimentos de harmonização orofacial?'
+
+/**
+ * The default Etapa-1 qualification block seeded for ALL cargos (D-14): the
+ * presencial-SP knockout pergunta. Single-tenant / single-clinic → the texto is
+ * FIXED (not derived from vaga.cidade). The "Não" option is tagged `'knockout'`
+ * so a candidate without SP availability is eliminated (D-06); the pergunta is
+ * obrigatoria so the knockout actually fires (T-08-05).
+ *
+ * Template-local ids are STABLE (so unit assertions are deterministic). Fresh
+ * unique ids are minted per copy in `getCargoTemplateDefaults`.
+ */
+const baseQualificacao = (): QualificacaoPergunta[] => [
+  {
+    id: 'tpl-q-presencial-sp',
+    texto_pergunta: PRESENCIAL_SP_TEXTO,
+    tipo_resposta: 'single_choice',
+    obrigatoria: true,
+    ordem: 0,
+    opcoes: [
+      { id: 'tpl-o-presencial-sim', texto: 'Sim', tag: 'neutro' },
+      { id: 'tpl-o-presencial-nao', texto: 'Não', tag: 'knockout' },
+    ],
+  },
+]
+
+/** The dentista-ONLY harmonização-orofacial knockout pergunta (D-14). */
+const dentistaQualificacao = (): QualificacaoPergunta[] => [
+  ...baseQualificacao(),
+  {
+    id: 'tpl-q-harmonizacao',
+    texto_pergunta: HARMONIZACAO_TEXTO,
+    tipo_resposta: 'single_choice',
+    obrigatoria: true,
+    ordem: 1,
+    opcoes: [
+      { id: 'tpl-o-harmonizacao-sim', texto: 'Sim', tag: 'neutro' },
+      { id: 'tpl-o-harmonizacao-nao', texto: 'Não', tag: 'knockout' },
+    ],
+  },
+]
+
 export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
   dentista: {
     slug: 'dentista',
@@ -75,6 +131,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 30,
     },
     testes_aplicaveis: baseTestes({ redacao_cultural: true }),
+    qualificacao: dentistaQualificacao(),
   },
   recepcionista: {
     slug: 'recepcionista',
@@ -86,6 +143,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   consultor_vendas_premium: {
     slug: 'consultor_vendas_premium',
@@ -97,6 +155,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 30,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   sdr_social_seller: {
     slug: 'sdr_social_seller',
@@ -108,6 +167,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   assistente_financeiro: {
     slug: 'assistente_financeiro',
@@ -119,6 +179,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   asb: {
     slug: 'asb',
@@ -130,6 +191,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   tsb: {
     slug: 'tsb',
@@ -141,6 +203,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
   vaga_generica: {
     slug: 'vaga_generica',
@@ -152,6 +215,7 @@ export const cargoTemplates: Record<CargoSlug, CargoTemplate> = {
       entrevista: 25,
     },
     testes_aplicaveis: baseTestes(),
+    qualificacao: baseQualificacao(),
   },
 }
 
@@ -167,6 +231,17 @@ export function getCargoTemplateDefaults(slug: CargoSlug): VagaConfig {
     testes_aplicaveis: tpl.testes_aplicaveis.map((t) => ({
       ...t,
       perguntas: t.perguntas ? [...t.perguntas] : undefined,
+    })),
+    // Deep-copy the qualification block, minting FRESH unique ids per copy so
+    // the per-vaga write owns stable, non-template ids (the template ids are
+    // shared singletons; mutating the copy must never touch the source).
+    qualificacao: tpl.qualificacao.map((pergunta) => ({
+      ...pergunta,
+      id: crypto.randomUUID(),
+      opcoes: pergunta.opcoes.map((opcao) => ({
+        ...opcao,
+        id: crypto.randomUUID(),
+      })),
     })),
   }
 }

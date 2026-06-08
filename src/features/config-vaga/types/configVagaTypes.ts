@@ -12,6 +12,7 @@ import type { Database } from '../../../../database.types'
 import type { PesosAvaliacao } from '../schemas/pesosAvaliacaoSchema'
 import type { TestesAplicaveis, TesteAplicavel } from '../schemas/testesAplicaveisSchema'
 import type { TagOpcao } from '../schemas/tagOpcaoSchema'
+import type { QualificacaoPergunta } from '../schemas/qualificacaoSchema'
 
 // ── DB-derived aliases (generated) ────────────────────────────────────────────
 
@@ -29,14 +30,17 @@ export type VagaUpdate = Database['public']['Tables']['vagas']['Update']
 // ── jsonb internal shapes (from the feature schemas) ──────────────────────────
 
 export type { PesosAvaliacao, TestesAplicaveis, TesteAplicavel, TagOpcao }
+export type { QualificacaoPergunta }
 
 /**
  * The config slice of a vaga: the two M2 jsonb columns persisted by
- * `configVagaService.updateVagaConfig`.
+ * `configVagaService.updateVagaConfig`, plus the Etapa-1 qualification block
+ * copied from the cargo template (D-14, INSCR-03).
  */
 export interface VagaConfig {
   testes_aplicaveis: TestesAplicaveis
   pesos_avaliacao: PesosAvaliacao
+  qualificacao: QualificacaoPergunta[]
 }
 
 /**
