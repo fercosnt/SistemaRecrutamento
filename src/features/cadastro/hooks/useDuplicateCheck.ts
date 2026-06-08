@@ -1,5 +1,5 @@
 /**
- * Hook para verificação de duplicatas (CPF/Email)
+ * Hook para verificação de duplicatas (Email)
  *
  * Features:
  * - Verifica duplicatas no banco com debounce
@@ -8,15 +8,19 @@
  * - Callbacks de sucesso/erro
  * - Verificação manual ou automática
  *
+ * Phase 8 / Plan 08-02 (D-03, INSCR-01, LGPD-01): the cadastro flow no longer
+ * collects CPF at Etapa 1, so this hook is EMAIL-ONLY. The CPF dedup branch
+ * (and its service import) were removed — duplicate detection runs by email
+ * exclusively. The CPF duplicate-check function remains exported from
+ * `duplicateCheckService` for reversibility (D-02) but is no longer invoked here.
+ *
  * @module useDuplicateCheck
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  checkCPFDuplicate,
   checkEmailDuplicate,
   DuplicateCheckError,
-  isValidCPFFormat,
   isValidEmailFormat,
 } from '../services/duplicateCheckService'
 import type { DuplicateCheckResult, DuplicateCheckField } from '../services/duplicateCheckService'
@@ -96,21 +100,12 @@ interface UseDuplicateCheckState {
 /**
  * Hook para verificar duplicatas de CPF ou Email com debounce
  *
- * @param value - Valor a ser verificado (CPF ou Email)
+ * @param value - Valor a ser verificado (Email)
  * @param options - Opções de configuração
  * @returns Estado e funções do hook
  *
  * @example
- * // Verificar CPF
- * const { isDuplicate, loading, error } = useDuplicateCheck(cpf, {
- *   field: 'cpf',
- *   onDuplicate: (result) => {
- *     console.log('CPF já cadastrado:', result.existingCandidate?.nome_completo)
- *   }
- * })
- *
- * @example
- * // Verificar Email
+ * // Verificar Email (único campo deduplicado no Etapa 1 — D-03)
  * const { isDuplicate, loading } = useDuplicateCheck(email, {
  *   field: 'email',
  *   debounceMs: 1000
@@ -148,10 +143,9 @@ export function useDuplicateCheck(
         return false
       }
 
-      if (field === 'cpf') {
-        return isValidCPFFormat(valueToCheck)
-      }
-
+      // Phase 8 / Plan 08-02 (D-03): email-only dedup. The `field` prop is kept
+      // in the public API for back-compat, but the cadastro flow only ever
+      // passes `field: 'email'`.
       if (field === 'email') {
         return isValidEmailFormat(valueToCheck)
       }
@@ -186,14 +180,10 @@ export function useDuplicateCheck(
       try {
         setLoading(true)
 
-        // Chamar serviço apropriado baseado no campo
-        let checkResult: DuplicateCheckResult
-
-        if (field === 'cpf') {
-          checkResult = await checkCPFDuplicate(valueToCheck)
-        } else {
-          checkResult = await checkEmailDuplicate(valueToCheck)
-        }
+        // Phase 8 / Plan 08-02 (D-03): email-only dedup — the cadastro flow no
+        // longer invokes the CPF duplicate-check path.
+        const checkResult: DuplicateCheckResult =
+          await checkEmailDuplicate(valueToCheck)
 
         // Verificar se não foi cancelado
         if (!abortControllerRef.current.signal.aborted) {

@@ -1,13 +1,15 @@
 /**
  * Step 1: Dados Pessoais
  *
- * Campos:
+ * Phase 8 / Plan 08-02 (D-02, D-03, INSCR-01, LGPD-01): Etapa 1 LGPD-clean —
+ * CPF e Gênero NÃO são mais coletados. Dedup é EMAIL-only.
+ *
+ * Campos (allowlist INSCR-01):
  * - Nome Completo
- * - CPF (com validação algorítmica + verificação de duplicata) ✅
  * - Email (com verificação de duplicata) ✅
  * - Telefone
  * - Data de Nascimento
- * - Gênero
+ * - Como conheceu a vaga
  * - Instagram (opcional)
  * - LinkedIn (opcional)
  * - Senha (com toggle show/hide)
@@ -27,7 +29,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react'
-import { formatCPF } from '../../utils'
 import { useDuplicateCheck } from '../../hooks/useDuplicateCheck'
 import { useFormToast } from '../../hooks/useFormToast'
 import type { CandidatoFormData } from '../../types'
@@ -42,41 +43,11 @@ export function DadosPessoaisStep() {
     clearErrors,
   } = useFormContext<CandidatoFormData>()
 
-  // Observar campos CPF e Email para verificação de duplicata
-  const cpf = watch('dadosPessoais.cpf')
+  // Observar campo Email para verificação de duplicata (email-only — D-03)
   const email = watch('dadosPessoais.email')
 
   // Toast hook
   const toast = useFormToast()
-
-  // Verificação de duplicata de CPF
-  const {
-    isDuplicate: cpfDuplicate,
-    loading: cpfLoading,
-    error: cpfError,
-    result: cpfResult,
-  } = useDuplicateCheck(cpf || '', {
-    field: 'cpf',
-    onDuplicate: (result) => {
-      // Definir erro customizado no formulário
-      setError('dadosPessoais.cpf', {
-        type: 'duplicate',
-        message: `CPF já cadastrado por ${result.existingCandidate?.nome_completo}`,
-      })
-
-      // Mostrar toast de erro
-      toast.messages.cpfDuplicate(result.existingCandidate?.nome_completo || 'outro candidato')
-    },
-    onUnique: () => {
-      // Limpar erro de duplicata se existir
-      if (errors.dadosPessoais?.cpf?.type === 'duplicate') {
-        clearErrors('dadosPessoais.cpf')
-      }
-
-      // Mostrar toast de sucesso
-      toast.messages.cpfAvailable()
-    },
-  })
 
   // Verificação de duplicata de Email
   const {
@@ -132,86 +103,6 @@ export function DadosPessoaisStep() {
             {errors.dadosPessoais?.nome_completo && (
               <p className="text-red-400 text-sm">
                 {errors.dadosPessoais.nome_completo.message}
-              </p>
-            )}
-          </div>
-        )}
-      />
-
-      {/* CPF com verificação de duplicata */}
-      <Controller
-        name="dadosPessoais.cpf"
-        control={control}
-        render={({ field }) => (
-          <div className="space-y-2">
-            <Label htmlFor="cpf" className="text-white">
-              CPF *
-            </Label>
-            <div className="relative">
-              <Input
-                {...field}
-                id="cpf"
-                type="text"
-                placeholder="000.000.000-00"
-                maxLength={14}
-                onChange={(e) => {
-                  // Formata CPF enquanto digita
-                  const formatted = formatCPF(e.target.value)
-                  field.onChange(formatted)
-                }}
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
-              />
-              {/* Loading/Success/Error Icons */}
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                {cpfLoading && (
-                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
-                )}
-                {!cpfLoading && cpfResult && !cpfDuplicate && !cpfError && (
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                )}
-                {!cpfLoading && (cpfDuplicate || cpfError) && (
-                  <AlertCircle className="w-5 h-5 text-red-400" />
-                )}
-              </div>
-            </div>
-
-            {/* Mensagens de erro */}
-            {errors.dadosPessoais?.cpf && (
-              <div className="space-y-2">
-                <p className="text-red-400 text-sm flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.dadosPessoais.cpf.message}
-                </p>
-                {cpfDuplicate && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth/login')}
-                    className="text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
-                  >
-                    Já possui cadastro? Fazer login →
-                  </button>
-                )}
-              </div>
-            )}
-            {cpfError && !errors.dadosPessoais?.cpf && (
-              <p className="text-red-400 text-sm flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {cpfError.message}
-              </p>
-            )}
-
-            {/* Hint de sucesso */}
-            {cpfResult && !cpfDuplicate && !cpfError && !errors.dadosPessoais?.cpf && (
-              <p className="text-green-400 text-sm flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" />
-                CPF válido e disponível!
-              </p>
-            )}
-
-            {/* Hint padrão */}
-            {!cpfLoading && !cpfResult && !cpfError && (
-              <p className="text-white text-xs">
-                Seu CPF será validado e verificado no banco de dados
               </p>
             )}
           </div>
@@ -330,7 +221,7 @@ export function DadosPessoaisStep() {
         />
       </div>
 
-      {/* Data de Nascimento e Gênero (grid) */}
+      {/* Data de Nascimento e Como conheceu (grid) — Gênero removido (D-02/LGPD-01) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Data de Nascimento */}
         <Controller
@@ -356,58 +247,6 @@ export function DadosPessoaisStep() {
               <p className="text-white text-xs">
                 Você deve ter no mínimo 16 anos
               </p>
-            </div>
-          )}
-        />
-
-        {/* Gênero */}
-        <Controller
-          name="dadosPessoais.genero"
-          control={control}
-          render={({ field }) => (
-            <div className="space-y-2">
-              <Label htmlFor="genero" className="text-white">
-                Gênero *
-              </Label>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger
-                  id="genero"
-                  className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md data-[placeholder]:text-white/50"
-                >
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent className="bg-white/15 backdrop-blur-xl border-white/20 text-white shadow-lg">
-                  <SelectItem
-                    value="masculino"
-                    className="text-sm cursor-pointer focus:bg-white/20 data-[highlighted]:bg-white/20 text-white"
-                  >
-                    Masculino
-                  </SelectItem>
-                  <SelectItem
-                    value="feminino"
-                    className="text-sm cursor-pointer focus:bg-white/20 data-[highlighted]:bg-white/20 text-white"
-                  >
-                    Feminino
-                  </SelectItem>
-                  <SelectItem
-                    value="outro"
-                    className="text-sm cursor-pointer focus:bg-white/20 data-[highlighted]:bg-white/20 text-white"
-                  >
-                    Outro
-                  </SelectItem>
-                  <SelectItem
-                    value="prefiro_nao_informar"
-                    className="text-sm cursor-pointer focus:bg-white/20 data-[highlighted]:bg-white/20 text-white"
-                  >
-                    Prefiro não informar
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.dadosPessoais?.genero && (
-                <p className="text-red-400 text-sm">
-                  {errors.dadosPessoais.genero.message}
-                </p>
-              )}
             </div>
           )}
         />

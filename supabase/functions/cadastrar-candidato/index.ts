@@ -27,9 +27,10 @@
  *
  * Segurança:
  * - Service role fica nas env vars do runtime (Deno.env), NUNCA retorna ao client
- * - Zod valida 100% do payload antes de qualquer operação no banco
- * - CPF é armazenado somente com dígitos (sem formatação) para consistência
- *   com a constraint UNIQUE
+ * - Zod valida 100% do payload antes de qualquer operação no banco; `.strict()`
+ *   rejeita qualquer chave desconhecida (cpf/foto/estado_civil/saude) — D-04
+ * - Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): CPF + gênero NÃO são mais
+ *   coletados nem persistidos (PII minimization); colunas seguem nullable
  * - IP do requester é registrado em `autorizacoes` para trilha LGPD
  *
  * @module supabase/functions/cadastrar-candidato
@@ -146,7 +147,9 @@ Deno.serve(async (req: Request) => {
   })
 
   // ---- 3. Create auth user -------------------------------------------------
-  const cleanedCpf = input.cpf.replace(/\D/g, '')
+  // Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): CPF is no longer collected
+  // nor persisted (PII minimization). The `candidatos.cpf` column stays nullable
+  // for reversibility but is never written here.
   const cleanedTelefone = input.telefone.replace(/\D/g, '')
 
   // Formata celular para o padrão aceito pela CHECK constraint `check_celular_format`
@@ -159,25 +162,14 @@ Deno.serve(async (req: Request) => {
       ? `(${cleanedTelefone.slice(0, 2)}) ${cleanedTelefone.slice(2, 6)}-${cleanedTelefone.slice(6, 10)}`
       : cleanedTelefone // fallback — deixa o CHECK rejeitar se for inválido
 
-  // Formata CPF para o padrão aceito pela CHECK constraint `check_cpf_format`
-  // em public.candidatos: XXX.XXX.XXX-XX. Mesmo motivo do celular — dados
-  // legados estão no formato pontuado, manter consistência em vez de relaxar CHECK.
-  // NOTA: esta discrepância com o RPC check_candidato_duplicate (que compara
-  // contra digits-only) está documentada como carryover Phase 3 — duplicate
-  // check via RPC sempre retorna false para CPF; UNIQUE constraint no insert
-  // é o safety net que captura e mapeia para CPF_EXISTS.
-  const formattedCpf = cleanedCpf.length === 11
-    ? `${cleanedCpf.slice(0, 3)}.${cleanedCpf.slice(3, 6)}.${cleanedCpf.slice(6, 9)}-${cleanedCpf.slice(9, 11)}`
-    : cleanedCpf // fallback — CHECK rejeita se inválido (Zod já validou DV acima)
-
   const { data: authData, error: authError } =
     await supabaseAdmin.auth.admin.createUser({
       email: input.email,
       password: input.password,
       email_confirm: true,
       user_metadata: {
+        // Phase 8 / Plan 08-02 (D-02, LGPD-01): cpf removed from user_metadata.
         nome_completo: input.nome_completo,
-        cpf: cleanedCpf,
       },
     })
 
@@ -199,13 +191,14 @@ Deno.serve(async (req: Request) => {
   // complemento, cidade, estado). cidade/estado são NOT NULL.
   const endereco = input.endereco ?? {}
   const candidatoPayload = {
+    // Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): cpf + genero are no longer
+    // written — Etapa 1 collects only the INSCR-01 allowlist. Columns remain
+    // nullable in the DB for reversibility (D-02).
     user_id: userId,
     nome_completo: input.nome_completo,
     email: input.email,
     celular: formattedCelular,
-    cpf: formattedCpf,
     data_nascimento: input.data_nascimento,
-    genero: input.genero ?? null,
     cidade: endereco.cidade ?? '',
     estado: endereco.estado ?? '',
     cep: endereco.cep ?? null,
@@ -231,11 +224,10 @@ Deno.serve(async (req: Request) => {
     await supabaseAdmin.auth.admin.deleteUser(userId).catch((rollbackErr) => {
       console.error('[cadastrar-candidato] rollback deleteUser failed:', { userId, rollbackErr })
     })
-    // Unique violation em cpf/email mapeia para error_code estruturado
+    // Unique violation em email mapeia para error_code estruturado.
+    // Phase 8 / Plan 08-02 (D-02): the CPF UNIQUE→CPF_EXISTS branch was removed —
+    // cpf is no longer inserted, so a cpf unique violation is unreachable here.
     const raw = (candidatoError?.message ?? '').toLowerCase()
-    if (raw.includes('cpf')) {
-      return errorResponse('CPF_EXISTS', 'Este CPF já está cadastrado.', 'cpf')
-    }
     if (raw.includes('email')) {
       return errorResponse('EMAIL_EXISTS', 'Este email já está cadastrado.', 'email')
     }

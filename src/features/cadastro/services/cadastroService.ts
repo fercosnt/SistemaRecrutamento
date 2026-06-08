@@ -183,13 +183,14 @@ export async function cadastrarCandidato(
         {
           body: {
             // Dados pessoais
+            // Phase 8 / Plan 08-02 (D-02, INSCR-01, LGPD-01): cpf + genero are no
+            // longer sent to the EF — Etapa 1 is LGPD-clean. The EF .strict()
+            // schema would reject them anyway (D-04).
             email: data.dadosPessoais.email,
             password: data.dadosPessoais.senha,
             nome_completo: data.dadosPessoais.nome_completo,
-            cpf: data.dadosPessoais.cpf,
             telefone: data.dadosPessoais.telefone,
             data_nascimento: data.dadosPessoais.data_nascimento,
-            genero: data.dadosPessoais.genero,
             instagram: data.dadosPessoais.instagram ?? null,
             linkedin: data.dadosPessoais.linkedin ?? null,
             como_conheceu: data.dadosPessoais.como_conheceu,
@@ -343,12 +344,12 @@ export { tryAutoLogin } from '@/features/auth/services'
  */
 export const FIELD_TO_STEP_INDEX: Record<string, number> = {
   // Step 0 — Dados Pessoais
+  // Phase 8 / Plan 08-02 (D-02): cpf + genero removed from the whitelist — a
+  // server `field: 'cpf'` now falls through to the generic toast (T-02-11).
   nome_completo: 0,
-  cpf: 0,
   email: 0,
   telefone: 0,
   data_nascimento: 0,
-  genero: 0,
   como_conheceu: 0,
   como_conheceu_detalhes: 0,
   instagram: 0,
@@ -381,12 +382,11 @@ export const FIELD_TO_STEP_INDEX: Record<string, number> = {
  */
 export const FIELD_TO_STEP_PATH: Record<string, string> = {
   // Dados Pessoais
+  // Phase 8 / Plan 08-02 (D-02): cpf + genero removed (no longer collected).
   nome_completo: 'dadosPessoais.nome_completo',
-  cpf: 'dadosPessoais.cpf',
   email: 'dadosPessoais.email',
   telefone: 'dadosPessoais.telefone',
   data_nascimento: 'dadosPessoais.data_nascimento',
-  genero: 'dadosPessoais.genero',
   como_conheceu: 'dadosPessoais.como_conheceu',
   como_conheceu_detalhes: 'dadosPessoais.como_conheceu_detalhes',
   instagram: 'dadosPessoais.instagram',

@@ -242,6 +242,12 @@ async function callDuplicateRpc(
 /**
  * Verifica se CPF já existe no banco de dados
  *
+ * Phase 8 / Plan 08-02 (D-02, D-03, INSCR-01, LGPD-01): esta função é RETIDA
+ * para reversibilidade, mas NÃO é mais invocada pelo fluxo de cadastro
+ * LGPD-clean — o Etapa 1 não coleta mais CPF, então o dedup é EMAIL-only
+ * (ver `useDuplicateCheck` + `checkEmailDuplicate`). Mantida no contrato do
+ * serviço caso uma fase futura precise reativar a checagem de CPF.
+ *
  * Implementado sobre a RPC check_candidato_duplicate (FOUND-10). A RPC recebe
  * tambem o email, mas aqui passamos string vazia para que o lado do servidor
  * pule a verificacao de email (o CASE WHEN v_email_clean = '' retorna false).

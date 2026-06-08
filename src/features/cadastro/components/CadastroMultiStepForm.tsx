@@ -145,10 +145,12 @@ function routeCadastroError(
       methods.setError('dadosPessoais.email', { type: 'duplicate', message: err.message })
       toast.error('Este email já está cadastrado. Tente fazer login ou use outro email.', { duration: 6000 })
       return
+    // Phase 8 / Plan 08-02 (D-02): CPF is no longer collected, so CPF_EXISTS can
+    // no longer originate from the cadastro flow. The structured code remains in
+    // the CadastroError union for back-compat, but it is routed to the generic
+    // toast (no `dadosPessoais.cpf` field exists to attach an inline error to).
     case 'CPF_EXISTS':
-      setCurrentStepIndex(0)
-      methods.setError('dadosPessoais.cpf', { type: 'duplicate', message: err.message })
-      toast.error('Este CPF já está cadastrado. Tente fazer login ou verifique se é o correto.', { duration: 6000 })
+      toast.error('Não foi possível concluir o cadastro com os dados informados.', { duration: 6000 })
       return
     case 'VALIDATION':
       if (err.field && FIELD_TO_STEP_INDEX[err.field] !== undefined) {
@@ -207,12 +209,11 @@ export function CadastroMultiStepForm({
     mode: 'onBlur', // Valida quando o campo perde foco
     defaultValues: initialData || {
       dadosPessoais: {
+        // Phase 8 / Plan 08-02 (D-02, INSCR-01): cpf + genero no longer collected.
         nome_completo: '',
-        cpf: '',
         email: '',
         telefone: '',
         data_nascimento: '',
-        genero: 'prefiro_nao_informar',
         instagram: null,
         linkedin: null,
       },
