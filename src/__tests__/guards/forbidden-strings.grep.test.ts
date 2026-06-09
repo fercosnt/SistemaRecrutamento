@@ -133,3 +133,101 @@ describe('LGPD-04 / RNF-12 — forbidden psychological-test strings', () => {
     expect(efFiles.every((f) => f.startsWith(efRoot))).toBe(true)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 12 / Plan 12-01 Task 2 — LGPD-04 / D-12-AVAL-08 extension: the new
+// candidate-facing devolutiva prompt template.
+//
+// The Big Five devolutiva prompt (`08-bigfive-devolutiva.md`) is the ONE new
+// candidate-facing prompt this phase. Its rendered text reaches the candidate, so
+// it MUST NOT carry the clinical/psychometric framing LGPD-04 forbids — and, per
+// the Big Five domain rule (templates-devolutiva.md L241), it must label N as
+// "Sensibilidade Emocional", NEVER "Neuroticismo" (a pathologizing term).
+//
+// ── Why a TARGETED include, not adding docs/ to SCAN_ROOTS ──
+// SCAN_ROOTS deliberately excludes docs/ — the PRD/knowledge base legitimately
+// cites the forbidden terms when explaining why they are banned. Adding docs/
+// wholesale would light up on every PRD reference. So this guard targets ONE file:
+// the prompt template that actually ships to candidates.
+//
+// ── Hygiene: do NOT flag the compliant negated disclaimer ──
+// The fixed LGPD/CFP footer (templates-devolutiva.md L44) reads "…não é teste
+// psicológico…" — a forbidden term used in a NEGATED, compliant context. A naive
+// `FORBIDDEN.test` would mis-flag it. So we strip comment lines (`grep -v '^#'`
+// hygiene equivalent) AND the negated-disclaimer lines, then scan the REMAINDER
+// for candidate-facing clinical LABELS. No bare `=== 0` on unfiltered content.
+//
+// ── RED→GREEN contract ──
+// The template does not exist yet → the include simply has no match (the guard
+// stays GREEN now — `existsSync` short-circuits). The assertion lands the moment
+// Plan 12-04 authors `docs/conhecimento/prompts/templates/08-bigfive-devolutiva.md`.
+// ─────────────────────────────────────────────────────────────────────────────
+const BIGFIVE_PROMPT_TEMPLATE =
+  'docs/conhecimento/prompts/templates/08-bigfive-devolutiva.md'
+
+// Candidate-facing clinical LABELS forbidden in the devolutiva (beyond the 5 RNF-12
+// terms above): a diagnosis/disorder framing, or "Neuroticismo" used as a label
+// (the LGPD-04 / L241 rename rule — use "Sensibilidade Emocional").
+const DEVOLUTIVA_FORBIDDEN_LABELS =
+  /\bdiagn[oó]stico\b|\btranstorno\b|\bneuroticismo\b|teste\s+psicol[oó]gico|psic[oó]logo/i
+
+// Lines we MUST NOT treat as violations: markdown comments, and the compliant
+// NEGATED disclaimer ("não é teste psicológico"). A line is exempt if it negates
+// the term ("não é …") — the disclaimer is the intended, LGPD-compliant usage.
+function isExemptDevolutivaLine(line: string): boolean {
+  const t = line.trim()
+  if (t.startsWith('#') || t.startsWith('<!--')) return true // comment hygiene
+  // negated/compliant disclaimer usage — "não é teste psicológico", "não é um diagnóstico"
+  if (/n[ãa]o\s+[ée]\s+(um\s+|uma\s+)?(teste\s+psicol[oó]gico|diagn[oó]stico)/i.test(t)) return true
+  return false
+}
+
+describe('LGPD-04 / D-12-AVAL-08 — Big Five devolutiva prompt template', () => {
+  it('the guard targets 08-bigfive-devolutiva.md (path wired before the file exists)', () => {
+    // Pure path-wiring assertion: locks the include so the guard cannot silently
+    // drift off the template path even before Plan 12-04 authors it.
+    expect(BIGFIVE_PROMPT_TEMPLATE).toMatch(/08-bigfive-devolutiva\.md$/)
+  })
+
+  it('no candidate-facing clinical label leaks into the devolutiva prompt (asserts once 12-04 lands)', () => {
+    const full = join(ROOT, BIGFIVE_PROMPT_TEMPLATE)
+    if (!existsSync(full)) {
+      // Template not authored yet (pre-12-04) — guard stays green; nothing to scan.
+      expect(existsSync(full)).toBe(false)
+      return
+    }
+    const violations: { line: number; text: string }[] = []
+    readFileSync(full, 'utf-8')
+      .split('\n')
+      .forEach((text, idx) => {
+        if (isExemptDevolutivaLine(text)) return // skip comments + negated disclaimer
+        if (DEVOLUTIVA_FORBIDDEN_LABELS.test(text)) {
+          violations.push({ line: idx + 1, text: text.trim() })
+        }
+      })
+    if (violations.length > 0) {
+      const msg = violations.map((v) => `  ${BIGFIVE_PROMPT_TEMPLATE}:${v.line}  ${v.text}`).join('\n')
+      throw new Error(
+        `LGPD-04 — clinical label in the devolutiva prompt (use "Sensibilidade Emocional"; ` +
+          `"avaliação comportamental"):\n${msg}`,
+      )
+    }
+    expect(violations).toHaveLength(0)
+  })
+
+  // Regex-correctness sub-tests (filesystem-independent, like the RNF-12 block).
+  it.each(['diagnóstico', 'transtorno', 'Neuroticismo'])(
+    'DEVOLUTIVA_FORBIDDEN_LABELS matches the candidate-facing label "%s"',
+    (label) => {
+      expect(DEVOLUTIVA_FORBIDDEN_LABELS.test(label)).toBe(true)
+    },
+  )
+
+  it('the approved N label "Sensibilidade Emocional" is NOT flagged', () => {
+    expect(DEVOLUTIVA_FORBIDDEN_LABELS.test('Sensibilidade Emocional')).toBe(false)
+  })
+
+  it('the compliant negated disclaimer line is exempt (not a violation)', () => {
+    expect(isExemptDevolutivaLine('Este é um self-assessment — não é teste psicológico.')).toBe(true)
+  })
+})
