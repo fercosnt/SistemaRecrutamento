@@ -21,10 +21,13 @@
  * added — locked decision (CONTEXT.md Area 3): "Vitest grep test reusing the
  * pitfall7.grep.test.ts precedent. Runs in existing CI, fails the build."
  *
- * ── Scan scope (locked) ──
- * SCAN_ROOTS = ['src', 'supabase/functions'] — product-facing code + Edge
- * Functions only. `docs/` and `.planning/` are EXCLUDED: PRD/internal content
- * legitimately cites the forbidden terms when explaining why they are banned.
+ * ── Scan scope (locked + Phase-11 extension) ──
+ * SCAN_ROOTS = ['src', 'supabase/functions', 'supabase/migrations'] —
+ * product-facing code + Edge Functions + DB migrations. The Phase-11 SJT seed
+ * migration carries candidate-facing scenario text (the SJT cenários), so the
+ * migrations root is scanned too. `docs/` and `.planning/` remain EXCLUDED:
+ * PRD/internal content legitimately cites the forbidden terms when explaining
+ * why they are banned. `.sql` files are scanned in addition to `.ts/.tsx`.
  *
  * ── Self-exclusion (load-bearing) ──
  * `__tests__` and `node_modules` are skipped in the recursive walk, so this
@@ -43,9 +46,10 @@ import { join, resolve } from 'node:path'
 // — 3 levels deep from the repo root (guards → __tests__ → src → ROOT).
 const ROOT = resolve(__dirname, '../../..')
 
-// Locked scan scope: product-facing source + Edge Functions only.
+// Locked scan scope: product-facing source + Edge Functions + DB migrations.
 // docs/ and .planning/ are excluded — internal PRD/spec content can cite the terms.
-const SCAN_ROOTS = ['src', 'supabase/functions'] as const
+// `supabase/migrations` added in Phase 11 (11-01) so the SJT seed scenario text is scanned.
+const SCAN_ROOTS = ['src', 'supabase/functions', 'supabase/migrations'] as const
 
 /**
  * LGPD-04 / RNF-12 forbidden product copy. Matches the 5 banned terms with
@@ -68,7 +72,7 @@ function collectFiles(pathRel: string): string[] {
   const full = join(ROOT, pathRel)
   if (!existsSync(full)) return []
   const st = statSync(full)
-  if (st.isFile()) return /\.(ts|tsx)$/.test(full) ? [full] : []
+  if (st.isFile()) return /\.(ts|tsx|sql)$/.test(full) ? [full] : []
   if (!st.isDirectory()) return []
   const out: string[] = []
   for (const entry of readdirSync(full)) {
