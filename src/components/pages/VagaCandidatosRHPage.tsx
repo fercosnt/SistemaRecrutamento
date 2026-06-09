@@ -1,34 +1,29 @@
 /**
- * Página de Gestão de Candidatos por Vaga (HR)
+ * Página de Triagem de Candidatos por Vaga (RH) — TRIAGEM-02
  *
- * Features:
- * - Lista candidaturas de uma vaga específica
- * - Filtros por status e etapa
- * - Ações de mudança de status individual
- * - Visualização de perfil do candidato
+ * Painel denso (tabela) de candidaturas pré-ranqueadas por score IA. Substitui a
+ * lista de glass-cards anterior pela `TriagemTable`, mantendo o shell RHLayout/glass,
+ * o header e a barra de filtros. Leitura via `useTriagemPanel` (projeção allowlist —
+ * sem PII). Reprocessar análise via RPC `reprocessar_analise`. Comparativo (2-10)
+ * coleta ids; a tela + PDF chegam no Plan 10-06.
  *
  * @module components/pages/VagaCandidatosRHPage
  */
 
 import React, { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { RHLayout } from '../RHLayout'
 import { Glass, GlassButton } from '../ui/glass'
 import {
   ArrowLeft,
   Search,
-  Filter,
-  Mail,
-  Phone,
   MapPin,
   Calendar,
-  Eye,
-  CheckCircle,
   XCircle,
   Clock,
 } from 'lucide-react'
 import { Badge } from '../ui/badge'
-import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import {
   Select,
@@ -37,104 +32,104 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select'
-import { useVagaCandidaturas } from '@/features/vagas/hooks/useCandidaturas'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../ui/pagination'
+import { useTriagemPanel } from '@/features/triagem/hooks/useTriagemPanel'
+import { reprocessarAnalise } from '@/features/triagem/services/triagemService'
+import {
+  TriagemTable,
+  type TriagemTableRow,
+} from '@/features/triagem/components/TriagemTable'
 import { useVaga } from '@/features/vagas/hooks/useVagas'
 import type { StatusCandidatura, EtapaProcesso } from '@/features/vagas/types/vagasTypes'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { UpdateStatusModal } from '../modals/UpdateStatusModal'
+import { ETAPA_PROCESSO_LABELS } from '@/features/vagas/types/vagasTypes'
+
+const STATUS_OPTIONS: { value: StatusCandidatura; label: string }[] = [
+  { value: 'aguardando_resposta', label: 'Aguardando Resposta' },
+  { value: 'em_analise', label: 'Em Análise' },
+  { value: 'aprovado_proxima', label: 'Aprovado' },
+  { value: 'rejeitado', label: 'Rejeitado' },
+  { value: 'finalizado', label: 'Finalizado' },
+]
+
+const ETAPA_OPTIONS = Object.entries(ETAPA_PROCESSO_LABELS) as [EtapaProcesso, string][]
+
+const PAGE_LIMIT = 20
 
 /**
- * Mapeamento de cores por status
- */
-const STATUS_COLORS: Record<StatusCandidatura, string> = {
-  aguardando_resposta: 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30',
-  em_analise: 'bg-blue-500/20 text-blue-700 border-blue-500/30',
-  aprovado_proxima: 'bg-green-500/20 text-green-700 border-green-500/30',
-  rejeitado: 'bg-red-500/20 text-red-700 border-red-500/30',
-  finalizado: 'bg-gray-500/20 text-gray-700 border-gray-500/30',
-  desistente: 'bg-orange-500/20 text-orange-700 border-orange-500/30',
-}
-
-/**
- * Labels de status em português
- */
-const STATUS_LABELS: Record<StatusCandidatura, string> = {
-  aguardando_resposta: 'Aguardando Resposta',
-  em_analise: 'Em Análise',
-  aprovado_proxima: 'Aprovado',
-  rejeitado: 'Rejeitado',
-  finalizado: 'Finalizado',
-  desistente: 'Desistente',
-}
-
-/**
- * Página de gestão de candidatos de uma vaga específica
+ * Painel de triagem de candidatos de uma vaga específica.
  */
 export function VagaCandidatosRHPage() {
   const { id: vagaId } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  // Estados locais
+  // Filtros + paginação + seleção
   const [statusFiltro, setStatusFiltro] = useState<StatusCandidatura | 'todos'>('todos')
+  const [etapaFiltro, setEtapaFiltro] = useState<EtapaProcesso | 'todas'>('todas')
   const [busca, setBusca] = useState('')
-  const [selectedCandidatura, setSelectedCandidatura] = useState<{
-    id: string
-    candidatoNome: string
-    statusAtual: StatusCandidatura
-  } | null>(null)
+  const [page, setPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  // Queries
   const { data: vaga, isLoading: isLoadingVaga } = useVaga(vagaId)
-  const {
-    data: candidaturasData,
-    isLoading: isLoadingCandidaturas,
-    error: errorCandidaturas,
-  } = useVagaCandidaturas(
-    vagaId,
-    statusFiltro !== 'todos' ? { status: statusFiltro } : undefined
-  )
 
-  const candidaturas = candidaturasData?.data || []
-
-  // Filtrar por busca (nome ou email)
-  const candidaturasFiltradas = candidaturas.filter((candidatura) => {
-    if (!busca) return true
-
-    const candidato = candidatura.candidato as any
-    const termoBusca = busca.toLowerCase()
-
-    return (
-      candidato?.nome_completo?.toLowerCase().includes(termoBusca) ||
-      candidato?.email?.toLowerCase().includes(termoBusca)
-    )
-  })
-
-  // Contadores por status
-  const contadores = {
-    todos: candidaturas.length,
-    aguardando_resposta: candidaturas.filter((c) => c.status === 'aguardando_resposta').length,
-    em_analise: candidaturas.filter((c) => c.status === 'em_analise').length,
-    aprovado_proxima: candidaturas.filter((c) => c.status === 'aprovado_proxima').length,
-    rejeitado: candidaturas.filter((c) => c.status === 'rejeitado').length,
+  const filters = {
+    status: statusFiltro !== 'todos' ? statusFiltro : null,
+    etapa: etapaFiltro !== 'todas' ? etapaFiltro : null,
+    nome: busca || null,
   }
 
-  // Estados de loading
-  if (isLoadingVaga || isLoadingCandidaturas) {
+  const {
+    data: panel,
+    isLoading: isLoadingPanel,
+    error: errorPanel,
+  } = useTriagemPanel(vagaId, filters, 'score_desc', { page, limit: PAGE_LIMIT })
+
+  const rows = (panel?.data ?? []) as unknown as TriagemTableRow[]
+  const total = panel?.pagination.total ?? 0
+  const totalPages = panel?.pagination.totalPages ?? 1
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
+
+  const handleReprocess = async (candidaturaId: string) => {
+    try {
+      await reprocessarAnalise(candidaturaId)
+      toast.success('Análise reprocessada. O resultado será atualizado em instantes.')
+    } catch {
+      toast.error('Não foi possível reprocessar a análise. Tente novamente.')
+    }
+  }
+
+  const handleCompare = (ids: string[]) => {
+    // A tela de comparativo + PDF chegam no Plan 10-06; aqui apenas coletamos os ids.
+    toast.info(`${ids.length} candidatos selecionados para comparativo.`)
+  }
+
+  // Loading
+  if (isLoadingVaga || isLoadingPanel) {
     return (
       <RHLayout>
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-            <p className="text-white drop-shadow-lg">Carregando candidaturas...</p>
+            <p className="text-white drop-shadow-lg">Carregando candidaturas…</p>
           </div>
         </div>
       </RHLayout>
     )
   }
 
-  // Estado de erro
-  if (errorCandidaturas || !vaga?.data) {
+  // Erro
+  if (errorPanel || !vaga?.data) {
     return (
       <RHLayout>
         <div className="flex items-center justify-center min-h-screen">
@@ -144,7 +139,7 @@ export function VagaCandidatosRHPage() {
               Erro ao carregar candidaturas
             </h2>
             <p className="text-white/80 drop-shadow-sm mb-6">
-              {errorCandidaturas?.message || 'Vaga não encontrada'}
+              {errorPanel?.message || 'Vaga não encontrada'}
             </p>
             <GlassButton
               variant="secondary"
@@ -161,6 +156,7 @@ export function VagaCandidatosRHPage() {
   }
 
   const vagaData = vaga.data
+  const filtersActive = statusFiltro !== 'todos' || etapaFiltro !== 'todas' || !!busca
 
   return (
     <RHLayout>
@@ -205,7 +201,7 @@ export function VagaCandidatosRHPage() {
             <Glass variant="white" blur="sm" className="p-6 rounded-xl min-w-[140px]">
               <div className="text-center">
                 <div className="text-4xl font-bold text-white drop-shadow-lg mb-1">
-                  {contadores.todos}
+                  {total}
                 </div>
                 <div className="text-sm text-white/70 drop-shadow-sm">Candidaturas</div>
               </div>
@@ -222,179 +218,141 @@ export function VagaCandidatosRHPage() {
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-white/50" />
                 <Input
                   type="search"
-                  placeholder="Buscar por nome ou email..."
+                  placeholder="Buscar por nome…"
                   value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
+                  onChange={(e) => {
+                    setBusca(e.target.value)
+                    setPage(1)
+                  }}
                   className="pl-12 h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 transition-all duration-200"
                 />
               </div>
             </div>
 
+            {/* Filtro de Etapa */}
+            <Select
+              value={etapaFiltro}
+              onValueChange={(value) => {
+                setEtapaFiltro(value as EtapaProcesso | 'todas')
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
+                <SelectValue placeholder="Filtrar por etapa" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white">
+                <SelectItem value="todas" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
+                  Todas as etapas
+                </SelectItem>
+                {ETAPA_OPTIONS.map(([value, label]) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer"
+                  >
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Filtro de Status */}
             <Select
               value={statusFiltro}
-              onValueChange={(value) => setStatusFiltro(value as any)}
+              onValueChange={(value) => {
+                setStatusFiltro(value as StatusCandidatura | 'todos')
+                setPage(1)
+              }}
             >
               <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
               <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white">
                 <SelectItem value="todos" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
-                  Todos ({contadores.todos})
+                  Todos os status
                 </SelectItem>
-                <SelectItem value="aguardando_resposta" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
-                  Aguardando ({contadores.aguardando_resposta})
-                </SelectItem>
-                <SelectItem value="em_analise" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
-                  Em Análise ({contadores.em_analise})
-                </SelectItem>
-                <SelectItem value="aprovado_proxima" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
-                  Aprovados ({contadores.aprovado_proxima})
-                </SelectItem>
-                <SelectItem value="rejeitado" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
-                  Rejeitados ({contadores.rejeitado})
-                </SelectItem>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer"
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </Glass>
 
-        {/* Lista de Candidaturas */}
-        {candidaturasFiltradas.length === 0 ? (
+        {/* Painel de Triagem (tabela densa) */}
+        {rows.length === 0 ? (
           <Glass variant="white" blur="lg" className="p-12 rounded-xl text-center">
             <Clock className="h-16 w-16 text-white/40 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white drop-shadow-lg mb-2">
               Nenhuma candidatura encontrada
             </h3>
             <p className="text-white/70 drop-shadow-sm">
-              {busca
-                ? 'Tente ajustar os filtros de busca'
+              {filtersActive
+                ? 'Nenhuma candidatura corresponde aos filtros. Ajuste a busca, etapa ou status.'
                 : 'Esta vaga ainda não recebeu candidaturas.'}
             </p>
           </Glass>
         ) : (
-          <div className="space-y-4">
-            {candidaturasFiltradas.map((candidatura) => {
-              const candidato = candidatura.candidato as any
+          <Glass variant="white" blur="lg" className="p-6 rounded-xl space-y-4">
+            <TriagemTable
+              rows={rows}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onCompare={handleCompare}
+              onReprocess={handleReprocess}
+            />
 
-              return (
-                <Glass key={candidatura.id} variant="white" blur="lg" className="p-6 rounded-xl">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    {/* Info do Candidato */}
-                    <div className="flex-1">
-                      <div className="flex items-start gap-4">
-                        {/* Avatar */}
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#35BFAD] to-[#00109E] flex items-center justify-center text-white font-bold text-xl shrink-0 drop-shadow-md border-2 border-white/20">
-                          {candidato?.nome_completo?.charAt(0).toUpperCase() || '?'}
-                        </div>
-
-                        {/* Dados */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-3">
-                            <h3 className="text-xl font-semibold text-white drop-shadow-md truncate">
-                              {candidato?.nome_completo || 'Nome não disponível'}
-                            </h3>
-                            <Badge
-                              className={`${STATUS_COLORS[candidatura.status as StatusCandidatura]} text-white border`}
-                            >
-                              {STATUS_LABELS[candidatura.status as StatusCandidatura]}
-                            </Badge>
-                          </div>
-
-                          <div className="flex flex-wrap gap-4 text-sm text-white/80 mb-3 drop-shadow-sm">
-                            {candidato?.email && (
-                              <span className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                {candidato.email}
-                              </span>
-                            )}
-                            {candidato?.celular && (
-                              <span className="flex items-center gap-2">
-                                <Phone className="h-4 w-4" />
-                                {candidato.celular}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-4 text-xs text-white/60 drop-shadow-sm">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Etapa: <span className="font-medium text-white/80">{candidatura.etapa_atual}</span>
-                            </span>
-                            <span>
-                              Aplicou em:{' '}
-                              <span className="font-medium text-white/80">
-                                {format(new Date(candidatura.data_candidatura), "d 'de' MMM, yyyy", {
-                                  locale: ptBR,
-                                })}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Ações */}
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <GlassButton
-                        variant="white"
-                        onClick={() => navigate(`/rh/candidatos/${candidato?.id}`)}
-                        className="text-white flex items-center justify-center gap-2 font-medium min-h-[40px]"
+            {/* Paginação server-side 20/página */}
+            {totalPages > 1 && (
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setPage((p) => Math.max(1, p - 1))
+                      }}
+                      className={page <= 1 ? 'pointer-events-none opacity-40 text-white' : 'text-white'}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <PaginationItem key={p}>
+                      <PaginationLink
+                        href="#"
+                        isActive={p === page}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setPage(p)
+                        }}
+                        className="text-white"
                       >
-                        <Eye className="w-4 h-4 flex-shrink-0" />
-                        <span>Ver Perfil</span>
-                      </GlassButton>
-
-                      {candidatura.status !== 'aprovado_proxima' && (
-                        <GlassButton
-                          variant="secondary"
-                          onClick={() => setSelectedCandidatura({
-                            id: candidatura.id,
-                            candidatoNome: candidato?.nome_completo || 'Candidato',
-                            statusAtual: candidatura.status as StatusCandidatura
-                          })}
-                          className="text-white flex items-center gap-2 bg-green-500/20 hover:bg-green-500/30 border-green-500/30"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Aprovar</span>
-                        </GlassButton>
-                      )}
-
-                      {candidatura.status !== 'rejeitado' && (
-                        <GlassButton
-                          variant="secondary"
-                          onClick={() => setSelectedCandidatura({
-                            id: candidatura.id,
-                            candidatoNome: candidato?.nome_completo || 'Candidato',
-                            statusAtual: candidatura.status as StatusCandidatura
-                          })}
-                          className="text-white flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 border-red-500/30"
-                        >
-                          <XCircle className="h-4 w-4" />
-                          <span>Rejeitar</span>
-                        </GlassButton>
-                      )}
-                    </div>
-                  </div>
-                </Glass>
-              )
-            })}
-          </div>
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }}
+                      className={page >= totalPages ? 'pointer-events-none opacity-40 text-white' : 'text-white'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            )}
+          </Glass>
         )}
       </div>
-
-      {/* Modal de Atualização de Status */}
-      <UpdateStatusModal
-        open={!!selectedCandidatura}
-        onOpenChange={(open) => !open && setSelectedCandidatura(null)}
-        candidaturaId={selectedCandidatura?.id || ''}
-        candidatoNome={selectedCandidatura?.candidatoNome || ''}
-        statusAtual={selectedCandidatura?.statusAtual || 'aguardando_resposta'}
-        onSuccess={() => {
-          // Query will auto-refetch due to cache invalidation in hook
-          setSelectedCandidatura(null)
-        }}
-      />
     </RHLayout>
   )
 }
