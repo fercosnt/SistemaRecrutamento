@@ -45,6 +45,13 @@ import { TesteRavenPage } from '../components/pages/TesteRavenPage'
 import { ConclusaoTestesPage } from '../components/pages/ConclusaoTestesPage'
 import { QuestionarioPage } from '../components/pages/QuestionarioPage'
 
+// Avaliação Assíncrona (candidato — Phase 11 / AVAL-01·02·03·09)
+import {
+  AvaliacaoContainer,
+  SjtMultiplaEscolhaScreen,
+  SjtCasoAbertoScreen,
+} from '../features/avaliacao/components'
+
 // Páginas RH/Admin
 import { DashboardRHPage } from '../components/pages/DashboardRHPage'
 import { CandidatosRHPage } from '../components/pages/CandidatosRHPage'
@@ -184,6 +191,32 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <QuestionarioPage />
+      </RoleGuard>
+    ),
+  },
+  // Avaliação Assíncrona (Etapa 3) — Phase 11. The etapa gate is server-enforced
+  // by RLS; the container mirrors it neutrally (wrong-etapa lock, RNF-07a).
+  {
+    path: '/candidato/avaliacao/:candidaturaId',
+    element: (
+      <RoleGuard role="candidato">
+        <AvaliacaoContainer />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/candidato/avaliacao/:candidaturaId/mc',
+    element: (
+      <RoleGuard role="candidato">
+        <SjtMultiplaEscolhaScreen />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/candidato/avaliacao/:candidaturaId/caso',
+    element: (
+      <RoleGuard role="candidato">
+        <SjtCasoAbertoScreen />
       </RoleGuard>
     ),
   },

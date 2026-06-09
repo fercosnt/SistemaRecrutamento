@@ -175,6 +175,41 @@ export async function getAvaliacaoContext(
   }
 }
 
+/** A candidate-safe SJT option — ONLY id + text, never peso/tag (RNF-07a). */
+export interface OpcaoSjt {
+  opcao_id: string
+  opcao_texto: string
+}
+
+/**
+ * Reads the answer-key-safe options for one SJT question (AVAL-02). Calls the
+ * `get_opcoes_sjt` SECURITY DEFINER RPC, which projects ONLY `opcao_id` +
+ * `opcao_texto` (NEVER peso/tag) in server-randomized order. The candidate never
+ * receives the option weights — the scoring key stays server-side.
+ */
+export async function getOpcoesSjt(perguntaId: string): Promise<OpcaoSjt[]> {
+  if (!perguntaId) {
+    throw new AvaliacaoServiceError('perguntaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  const { data, error } = await sb.rpc('get_opcoes_sjt', {
+    p_pergunta_id: perguntaId,
+  })
+
+  if (error) {
+    throw new AvaliacaoServiceError(
+      `Não foi possível carregar as alternativas: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+
+  return ((data as OpcaoSjt[] | null) ?? []).map((o) => ({
+    opcao_id: o.opcao_id,
+    opcao_texto: o.opcao_texto,
+  }))
+}
+
 /**
  * Loads the candidate's own saved autosave row for a given teste (own-row RLS).
  * Allowlist columns — the row carries answers only, never a score.
