@@ -65,6 +65,27 @@ export interface CasoAbertoMetadata {
   composite_0_25?: number
 }
 
+/** One OCEAN dimension from a big_five `metadata.dimensoes` row (CONTEXTUAL). */
+export interface BigFiveDimensao {
+  dim: 'O' | 'C' | 'E' | 'A' | 'N'
+  raw?: number
+  percentil: number
+  banda: 'muito_baixo' | 'mod_baixo' | 'medio' | 'mod_alto' | 'muito_alto'
+}
+
+/**
+ * Big Five metadata shape (tipo='big_five'). CONTEXTUAL / não-eliminatório
+ * (RNF-07a): these traits NEVER drive a pass/fail. The RH scorecard marks them so
+ * and carries the SugestaoIABadge on any AI-derived devolutiva text.
+ */
+export interface BigFiveMetadata {
+  dimensoes?: BigFiveDimensao[]
+  facetas?: Array<{ faceta: number; raw: number }>
+  norm_group?: string
+  /** Optional executive summary text (AI-derived — carries the SugestaoIABadge). */
+  resumo_executivo?: string
+}
+
 /**
  * One `scores_candidato` row, projected via the explicit allowlist. Never carries
  * PII identity columns — only the score surface the RH scorecard renders.
@@ -77,9 +98,23 @@ export interface ScoreRow {
   score: number | null
   score_max: number | null
   status: ScoreStatus
-  metadata: McMetadata | CasoAbertoMetadata | Record<string, unknown> | null
+  metadata:
+    | McMetadata
+    | CasoAbertoMetadata
+    | BigFiveMetadata
+    | Record<string, unknown>
+    | null
   citacoes: unknown
   red_flags: unknown
+}
+
+/**
+ * True when a score row is the contextual Big Five (tipo='big_five'). The RH
+ * scorecard renders these as CONTEXTUAL / não-eliminatório (RNF-07a) — never a
+ * pass/fail. Read via the existing `SCORES_ALLOWLIST` (never `select('*')`).
+ */
+export function isBigFiveRow(row: ScoreRow): boolean {
+  return row.tipo === 'big_five'
 }
 
 /**
