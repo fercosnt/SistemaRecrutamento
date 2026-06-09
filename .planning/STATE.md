@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: Phase 9 Plan 08 complete (3 read-only admin pages ai-logs/prompt-versions/ai-costs gated administrador; Wave 5 done) — Phase 9 ALL 8 PLANS DONE
-last_updated: "2026-06-08T05:01:22.000Z"
+status: ready_to_plan
+stopped_at: Phase 9 COMPLETE — 8/8 plans shipped + verifier 5/5 (human_needed accepted) + code-review 7/7 findings fixed + human-validation passed (Vault + cost-alerter deploy + ANTHROPIC/OPENAI keys done; RESEND_API_KEY + prompt is_active=true activation deferred to first merge-to-main per sync-prompts sequencing). Ready to discuss Phase 10 (Triagem RH com IA + Comparativo, Etapa 2).
+last_updated: "2026-06-08T05:20:00.000Z"
 last_activity: 2026-06-08 -- 09-08 implemented 3 read-only internal admin pages (Wave 5) gated RoleGuard role=administrador over the empty-at-ship AI schema. ai-logs: aiLogsService EXPLICIT column allowlist (no select('*'), parsed_reasoning/raw_response only in detail modal) + filter bar + detail Dialog + UI-SPEC empty state. prompt-versions: promptVersionsService list allowlist + promote_to_canary/promote_canary_to_active/rollback_to_version supabase.rpc wrappers surfacing server RAISE verbatim (42501→acesso restrito, P0001→message-as-is) + Accordion-by-call_type + 2-select side-by-side diff + AlertDialog confirms + Sonner toast. ai-costs: aiCostsService allowlist read of ai_cost_daily by month + 3 recharts via vendored chart.tsx (--chart-1..5: line/bar/pie + p95 ReferenceLine) + paginated table + empty state. Allowlists/RPC arg names CORRECTED to live regenerated schema (prompt_hash/prompt_version_id not prompt_version; total_cost_usd; RPCs take (p_call_type,p_semver) not (p_version_id,p_pct)). Button styled via className not variant prop (vendored cva widens variant→string, trips tsc). tsc baseline 293=293 (zero growth), LGPD-04 grep guard GREEN 8/8, build exit 0. Commits 063dcfb + 0d233d8 + 12cf2c4. Hook bypass git -c core.hooksPath=/dev/null.
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 22
-  completed_plans: 21
-  percent: 35
+  completed_plans: 22
+  percent: 36
 ---
 
 # Project State
