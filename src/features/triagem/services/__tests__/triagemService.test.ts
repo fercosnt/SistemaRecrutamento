@@ -25,19 +25,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ── Mock the supabase client BEFORE importing the service ──────────────────
 // Capture the select() string and the invoke() call so we can assert the
 // allowlist projection and the comparativo contract without a network round-trip.
-let lastSelect = ''
-const rangeArgs: { from?: number; to?: number } = {}
-const invokeMock = vi.fn()
+// vi.hoisted keeps these captures available to the hoisted vi.mock factory
+// (top-level `const`s would throw "Cannot access before initialization").
+const { lastSelect, rangeArgs, invokeMock } = vi.hoisted(() => ({
+  lastSelect: { value: '' },
+  rangeArgs: {} as { from?: number; to?: number },
+  invokeMock: vi.fn(),
+}))
 
 vi.mock('@/lib/supabase/client', () => {
   const makeQuery = () => {
     const q: Record<string, unknown> = {}
     q.select = vi.fn((cols: string) => {
-      lastSelect = cols
+      lastSelect.value = cols
       return q
     })
     q.eq = vi.fn(() => q)
     q.is = vi.fn(() => q)
+    q.ilike = vi.fn(() => q)
     q.order = vi.fn(() => q)
     q.range = vi.fn((from: number, to: number) => {
       rangeArgs.from = from
@@ -63,7 +68,7 @@ import {
 
 describe('triagemService — TRIAGEM-02 panel read (allowlist projection)', () => {
   beforeEach(() => {
-    lastSelect = ''
+    lastSelect.value = ''
     rangeArgs.from = undefined
     rangeArgs.to = undefined
     invokeMock.mockReset()
@@ -72,20 +77,20 @@ describe('triagemService — TRIAGEM-02 panel read (allowlist projection)', () =
   it('select() projection contains NO `*` and NO PII columns (cpf/data_nascimento/email/celular)', async () => {
     await listTriagemPanel('vaga-1', {}, 'score_desc', { page: 1, limit: 20 })
     // FORBIDDEN — these must never appear in the panel projection:
-    expect(lastSelect).not.toContain('*')
-    expect(lastSelect).not.toContain('cpf')
-    expect(lastSelect).not.toContain('data_nascimento')
-    expect(lastSelect).not.toContain('email')
-    expect(lastSelect).not.toContain('celular')
+    expect(lastSelect.value).not.toContain('*')
+    expect(lastSelect.value).not.toContain('cpf')
+    expect(lastSelect.value).not.toContain('data_nascimento')
+    expect(lastSelect.value).not.toContain('email')
+    expect(lastSelect.value).not.toContain('celular')
   })
 
   it('select() joins analise:analise_candidato_vaga with score_match/pontos_fortes/gaps/flags/status', async () => {
     await listTriagemPanel('vaga-1', {}, 'score_desc', { page: 1, limit: 20 })
-    expect(lastSelect).toContain('analise_candidato_vaga')
-    expect(lastSelect).toContain('score_match')
-    expect(lastSelect).toContain('pontos_fortes')
-    expect(lastSelect).toContain('gaps')
-    expect(lastSelect).toContain('flags')
+    expect(lastSelect.value).toContain('analise_candidato_vaga')
+    expect(lastSelect.value).toContain('score_match')
+    expect(lastSelect.value).toContain('pontos_fortes')
+    expect(lastSelect.value).toContain('gaps')
+    expect(lastSelect.value).toContain('flags')
   })
 
   it('.range() math = (page-1)*limit for 20/page (page 2 → 20..39)', async () => {
