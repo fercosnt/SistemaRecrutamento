@@ -208,7 +208,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 10-05-PLAN.md — triagem panel: triagemService allowlist read (no select('*')) + useTriagemPanel + SugestaoIABadge + TriagemTable (bands/2-10 gating/reprocess) + VagaCandidatosRHPage rework
+- [x] 10-05-PLAN.md — triagem panel: triagemService allowlist read (no select('*')) + useTriagemPanel + SugestaoIABadge + TriagemTable (bands/2-10 gating/reprocess) + VagaCandidatosRHPage rework
 
 **Wave 6** *(blocked on Wave 5)*
 
@@ -319,7 +319,7 @@ Plans:
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
-| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 4/6 | In Progress|  |
+| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 5/6 | In Progress|  |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
