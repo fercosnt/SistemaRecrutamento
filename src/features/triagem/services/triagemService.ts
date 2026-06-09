@@ -114,12 +114,23 @@ export async function listTriagemPanel(
     throw new TriagemServiceError('vagaId é obrigatório', 'INVALID_INPUT')
   }
 
+  // W3: o `ilike('candidato.nome_completo', ...)` filtra o RECURSO EMBUTIDO, não a
+  // linha-pai. Sem `!inner`, o PostgREST mantém TODA candidatura (nullando o embed),
+  // então a busca por nome devolvia todas as candidaturas e `count:'exact'` reportava
+  // o total não-filtrado (quebra a paginação). Use INNER embed SÓ quando há filtro de
+  // nome — para que o ilike efetivamente filtre as candidaturas + o count fique certo.
+  // Sem filtro de nome, mantém o left-join (sem `!inner`) para que linhas sem
+  // candidato/análise ainda apareçam.
+  const candidatoEmbed = filters.nome
+    ? 'candidato:candidatos!inner ( id, nome_completo )'
+    : 'candidato:candidatos ( id, nome_completo )'
+
   // Allowlist explícita — sem `*`, sem colunas PII. Junta a análise da IA.
   let query = supabase
     .from('candidaturas')
     .select(
       `id, status, etapa_atual, created_at, curriculo_nome_original,
-       candidato:candidatos ( id, nome_completo ),
+       ${candidatoEmbed},
        analise:analise_candidato_vaga ( score_match, pontos_fortes, gaps, flags, status )`,
       { count: 'exact' },
     )
@@ -133,7 +144,7 @@ export async function listTriagemPanel(
   if (filters.etapa) {
     query = query.eq('etapa_atual', filters.etapa)
   }
-  // Busca por nome (no recurso embutido candidatos).
+  // Busca por nome (no recurso embutido candidatos — INNER ativado acima).
   if (filters.nome) {
     query = query.ilike('candidato.nome_completo', `%${filters.nome}%`)
   }
