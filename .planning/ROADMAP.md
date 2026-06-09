@@ -30,7 +30,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 - [x] **Phase 9: AI Prompt Library & Cost Infra** — 7 prompts versionados git→DB, logging de custo/tokens, cost-alerter EF, lint de linguagem de produto
 - [x] **Phase 10: Triagem RH com IA + Comparativo (Etapa 2)** — `score_match` automático, painel de candidatos, comparativo até 10 + export PDF (completed 2026-06-09)
 - [x] **Phase 11: Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)** — Bloco de testes, scoring determinístico SJT 4/2/1/0, case aberto BARS, autosave + back-lock (completed 2026-06-09)
-- [ ] **Phase 12: Big Five + Devolutiva** — IPIP-NEO-120 PT-BR scoring anti-tampering server-side + devolutiva D-lite híbrida
+- [x] **Phase 12: Big Five + Devolutiva** — IPIP-NEO-120 PT-BR scoring anti-tampering server-side + devolutiva D-lite híbrida (completed 2026-06-09)
 - [ ] **Phase 13: Redação Cultural + Revisão Humana** — Redação fit-cultural 4-dim BARS + 3-cores + fila de revisão humana obrigatória
 - [ ] **Phase 14: Entrevistas com IA Companion (Etapas 4+5)** — Guias STAR/PEI, análise de transcrição BARS, dashboard do gestor, raciocínio lógico contextual
 - [ ] **Phase 15: Decisão Final Auditável & LGPD Art. 20** — Consolidação de scorecards, justificativa obrigatória, explicação ao candidato, bias audit
@@ -270,7 +270,7 @@ Plans:
 - [x] 12-03-PLAN.md — submit-bigfive-final EF (authorize-then-act + server-side scoring, never-reject)
 - [x] 12-04-PLAN.md — gerar-devolutiva-bigfive EF + bigfive_devolutiva prompt (hybrid template+IA, RF-19b guard)
 - [x] 12-05-PLAN.md — Candidate questionnaire + in-app devolutiva view + RH contextual scorecard + routes
-- [ ] 12-06-PLAN.md — [BLOCKING] PROD apply: migrations + prompt is_active + 2 EFs deploy JWT-ON + db:types + smokes
+- [x] 12-06-PLAN.md — [BLOCKING] PROD apply: migrations + prompt is_active + 2 EFs deploy JWT-ON + db:types + smokes
 **UI hint**: yes
 
 ### Phase 13: Redação Cultural + Revisão Humana
@@ -349,7 +349,7 @@ Plans:
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 12. Big Five + Devolutiva | v2.0 | 5/6 | In Progress|  |
+| 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
