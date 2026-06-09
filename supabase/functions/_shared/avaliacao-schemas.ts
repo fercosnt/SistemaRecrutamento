@@ -142,8 +142,8 @@ export type SubmitBigfiveFinalBody = z.infer<typeof SubmitBigfiveFinalBodySchema
  * Output estruturado da devolutiva D-lite (AVAL-08 / RF-19a, PRD RFB-15). Híbrido:
  * 25 templates oficiais de banda (5 dims × 5 bandas) + IA que SÓ personaliza
  * (nome/cargo/percentil) — nunca inventa. Linguagem LGPD-04 (sem nominalização CRP,
- * nunca "teste psicológico"/"diagnóstico"). "N" é renderizado como "Sensibilidade
- * Emocional", nunca "Neuroticismo".
+ * sempre "avaliação comportamental"; os rótulos clínicos proibidos pela RNF-12 nunca
+ * aparecem). "N" é renderizado como "Sensibilidade Emocional", nunca "Neuroticismo".
  *
  * @see docs/conhecimento/big-five/templates-devolutiva.md (os 25 templates + disclaimers)
  * @see docs/prds/m2-funil-rh/PRD-bigfive-revisado.md RFB-15 (schema de saída)
