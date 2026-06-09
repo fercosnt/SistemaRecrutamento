@@ -196,7 +196,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 10-02-PLAN.md — migrations: analise_candidato_vaga + comparativo_solicitado (RLS candidato-DENY) + trg_candidatura_analise pg_net trigger (survivors only) [no-wrapper authoring]
+- [x] 10-02-PLAN.md — migrations: analise_candidato_vaga + comparativo_solicitado (RLS candidato-DENY) + trg_candidatura_analise pg_net trigger (survivors only) + reprocessar_analise RPC [no-wrapper authoring; PROD apply deferred to 10-04]
 
 **Wave 3** *(blocked on Wave 2)*
 
