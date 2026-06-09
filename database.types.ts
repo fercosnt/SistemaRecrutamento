@@ -202,6 +202,62 @@ export type Database = {
           },
         ]
       }
+      analise_candidato_vaga: {
+        Row: {
+          candidatura_id: string
+          created_at: string
+          erro: string | null
+          flags: string[]
+          gaps: string[]
+          id: string
+          pontos_fortes: string[]
+          resumo_cv: string | null
+          resumo_respostas: string | null
+          score_match: number | null
+          status: string
+          updated_at: string
+          vaga_id: string
+        }
+        Insert: {
+          candidatura_id: string
+          created_at?: string
+          erro?: string | null
+          flags?: string[]
+          gaps?: string[]
+          id?: string
+          pontos_fortes?: string[]
+          resumo_cv?: string | null
+          resumo_respostas?: string | null
+          score_match?: number | null
+          status?: string
+          updated_at?: string
+          vaga_id: string
+        }
+        Update: {
+          candidatura_id?: string
+          created_at?: string
+          erro?: string | null
+          flags?: string[]
+          gaps?: string[]
+          id?: string
+          pontos_fortes?: string[]
+          resumo_cv?: string | null
+          resumo_respostas?: string | null
+          score_match?: number | null
+          status?: string
+          updated_at?: string
+          vaga_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analise_candidato_vaga_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autorizacoes: {
         Row: {
           autorizacao_analise_video: boolean
@@ -837,6 +893,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      comparativo_solicitado: {
+        Row: {
+          candidatura_ids: string[]
+          created_at: string
+          id: string
+          latencia_ms: number | null
+          ranking: Json
+          solicitado_por: string | null
+          vaga_id: string
+        }
+        Insert: {
+          candidatura_ids: string[]
+          created_at?: string
+          id?: string
+          latencia_ms?: number | null
+          ranking: Json
+          solicitado_por?: string | null
+          vaga_id: string
+        }
+        Update: {
+          candidatura_ids?: string[]
+          created_at?: string
+          id?: string
+          latencia_ms?: number | null
+          ranking?: Json
+          solicitado_por?: string | null
+          vaga_id?: string
+        }
+        Relationships: []
       }
       configuracoes_empresa: {
         Row: {
@@ -3518,6 +3604,10 @@ export type Database = {
           motivo: string
           usuario_rh_uuid: string
         }
+        Returns: undefined
+      }
+      reprocessar_analise: {
+        Args: { p_candidatura_id: string }
         Returns: undefined
       }
       rollback_to_version: {
