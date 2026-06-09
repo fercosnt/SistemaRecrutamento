@@ -99,20 +99,11 @@ export async function getScores(candidaturaId: string): Promise<ScoreRow[]> {
     throw new ScoresRhServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // `scores_candidato` is live in PROD but `database.types.ts` may not yet carry
-  // it (Phase-11 apply wave) — the table name is reached via a narrow cast that
-  // is confined to the generated-types gap; the column allowlist + return shape
-  // stay typed locally.
-  const { data, error } = await (
-    supabase.from('scores_candidato' as never) as unknown as {
-      select: (cols: string) => {
-        eq: (
-          col: string,
-          val: string,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>
-      }
-    }
-  )
+  // `scores_candidato` is now present in the regenerated `database.types.ts`
+  // (Phase-11 apply wave done), so the read uses the typed client directly. The
+  // explicit allowlist (never `'*'`) keeps the projection auditable.
+  const { data, error } = await supabase
+    .from('scores_candidato')
     .select(SCORES_ALLOWLIST)
     .eq('candidatura_id', candidaturaId)
 

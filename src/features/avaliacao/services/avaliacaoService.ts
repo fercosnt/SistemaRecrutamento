@@ -16,11 +16,11 @@
  *     `avaliacao_assincrona`, the etapa-gated RLS denies writes (42501). Callers
  *     surface that neutrally (see `useAutosaveAvaliacao`).
  *
- * NOTE: `respostas_avaliacao`, the `perguntas` SJT table and the `pontuar_sjt` RPC
- * are live in PROD but `database.types.ts` is regenerated only in the Phase-11
- * apply wave (BLOCKING checklist #4). Until then those surfaces are reached via a
- * narrow `as never` cast on the table/rpc name — the column allowlists and return
- * shapes are still typed locally, so the cast is confined to the generated-types gap.
+ * NOTE: `respostas_avaliacao`, the `perguntas` SJT table and the `pontuar_sjt` /
+ * `get_opcoes_sjt` RPCs are now present in the regenerated `database.types.ts`
+ * (Phase-11 apply wave done), so every surface here is reached via the typed
+ * `supabase` client — no blanket `as never` cast. Local interfaces still narrow
+ * the row/return shapes the UI consumes.
  *
  * @module features/avaliacao/services/avaliacaoService
  * @see src/features/triagem/services/triagemService.ts (allowlist + service-error convention)
@@ -84,26 +84,6 @@ export interface NeutralAck {
   registrado?: boolean
 }
 
-// The not-yet-regenerated surfaces (PROD-live; types land in the apply wave).
-// Confined casts — see module JSDoc. The query-builder shape is intentionally
-// permissive (string columns / chainable filters) because the generated row
-// types for `perguntas`/`respostas_avaliacao` don't exist until the apply wave.
-type LooseQuery = {
-  select: (cols: string, opts?: unknown) => LooseQuery
-  eq: (col: string, val: unknown) => LooseQuery
-  upsert: (row: unknown, opts?: unknown) => Promise<{ error: unknown }>
-  maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>
-  then: Promise<{ data: unknown; error: { message: string } | null }>['then']
-}
-type UntypedClient = {
-  from: (table: string) => LooseQuery
-  rpc: (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>
-}
-const sb = supabase as unknown as UntypedClient
-
 /**
  * Reads the avaliação context for a candidatura (AVAL-01): the candidatura row
  * (allowlist `id, status, etapa_atual, vaga_id`), its vaga `testes_aplicaveis`,
@@ -150,7 +130,7 @@ export async function getAvaliacaoContext(
   const testesAplicaveis = candRow.vaga?.testes_aplicaveis ?? null
 
   // Active SJT items — allowlist columns only (never a star projection).
-  const { data: perguntas, error: pErr } = await sb
+  const { data: perguntas, error: pErr } = await supabase
     .from('perguntas')
     .select('id, cargo, cenario, formato, tempo_est_min, rubric, status')
     .eq('status', 'ativo')
@@ -192,7 +172,7 @@ export async function getOpcoesSjt(perguntaId: string): Promise<OpcaoSjt[]> {
     throw new AvaliacaoServiceError('perguntaId é obrigatório', 'INVALID_INPUT')
   }
 
-  const { data, error } = await sb.rpc('get_opcoes_sjt', {
+  const { data, error } = await supabase.rpc('get_opcoes_sjt', {
     p_pergunta_id: perguntaId,
   })
 
@@ -225,7 +205,7 @@ export async function loadResposta(
     )
   }
 
-  const { data, error } = await sb
+  const { data, error } = await supabase
     .from('respostas_avaliacao')
     .select('candidatura_id, teste, respostas, updated_at')
     .eq('candidatura_id', candidaturaId)
@@ -254,10 +234,10 @@ export async function upsertResposta(
   teste: string,
   respostas: unknown,
 ): Promise<{ error: { code?: string; status?: number; message?: string } | null }> {
-  const { error } = await sb
+  const { error } = await supabase
     .from('respostas_avaliacao')
     .upsert(
-      { candidatura_id: candidaturaId, teste, respostas } as never,
+      { candidatura_id: candidaturaId, teste, respostas: respostas as never },
       { onConflict: 'candidatura_id,teste' },
     )
   return { error: (error as { code?: string; status?: number; message?: string } | null) ?? null }
@@ -276,9 +256,9 @@ export async function pontuarSjt(
     throw new AvaliacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  const { data, error } = await sb.rpc('pontuar_sjt', {
+  const { data, error } = await supabase.rpc('pontuar_sjt', {
     p_candidatura_id: candidaturaId,
-    p_respostas: respostas,
+    p_respostas: respostas as never,
   })
 
   if (error) {
@@ -298,7 +278,9 @@ export async function pontuarSjt(
     )
   }
 
-  return (data as NeutralAck) ?? { ok: true }
+  // The RPC returns a neutral Json ack ({ ok, registrado? }); narrow it via
+  // `unknown` (Json does not structurally overlap NeutralAck) — RNF-07a: never a score.
+  return (data as unknown as NeutralAck | null) ?? { ok: true }
 }
 
 /**
