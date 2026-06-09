@@ -316,6 +316,52 @@ export const WorkSampleScoringSchema = z.object({
 export type WorkSampleScoring = z.infer<typeof WorkSampleScoringSchema>;
 
 // ============================================================================
+// USE CASE 8 — BIG FIVE DEVOLUTIVA (D-lite, AVAL-08 / RF-19a)
+// ============================================================================
+
+/**
+ * Output estruturado da devolutiva D-lite Big Five. Espelha o shape EF-side em
+ * supabase/functions/_shared/avaliacao-schemas.ts (BigfiveDevolutivaSchema).
+ *
+ * Híbrido: 25 templates oficiais de banda (5 dims × 5 bandas) + IA que SÓ
+ * personaliza (nome/cargo/percentil) — nunca inventa (Pattern 3, Pitfall 5).
+ * Linguagem LGPD-04: "N" renderizado como "Sensibilidade Emocional", nunca o
+ * rótulo patologizante. Nenhum rótulo clínico.
+ *
+ * @see docs/conhecimento/big-five/templates-devolutiva.md (os 25 templates + disclaimers)
+ * @see docs/conhecimento/prompts/templates/08-bigfive-devolutiva.md (este prompt)
+ */
+export const BigfiveDevolutivaSchema = z.object({
+  cabecalho: z.object({
+    nome: z.string(),
+    dashboard: z
+      .array(
+        z.object({
+          dim: z.enum(["O", "C", "E", "A", "N"]),
+          percentil: z.number().int().min(1).max(99),
+          banda: z.enum(["muito_baixo", "mod_baixo", "medio", "mod_alto", "muito_alto"]),
+        }),
+      )
+      .length(5),
+  }),
+  paginas: z
+    .array(
+      z.object({
+        dim: z.enum(["O", "C", "E", "A", "N"]),
+        banda: z.enum(["muito_baixo", "mod_baixo", "medio", "mod_alto", "muito_alto"]),
+        percentil: z.number().int().min(1).max(99),
+        texto_interpretativo: z.string().min(50),
+        palavras: z.number().int().min(100).max(250),
+      }),
+    )
+    .length(5),
+  disclaimer_emocional: z.string(),
+  disclaimer_lgpd_crp: z.string(),
+});
+
+export type BigfiveDevolutiva = z.infer<typeof BigfiveDevolutivaSchema>;
+
+// ============================================================================
 // SHARED HELPERS
 // ============================================================================
 
@@ -338,6 +384,7 @@ export const PROMPT_VERSIONS = {
   transcript_analysis: "1.0.0",
   culture_fit_essay: "1.0.0",
   work_sample_sjt: "1.0.0",
+  bigfive_devolutiva: "1.0.0",
 } as const;
 
 /**
@@ -359,6 +406,7 @@ export const INTERVIEW_GUIDE_SCHEMA_VERSION    = "1.0.0";
 export const TRANSCRIPT_ANALYSIS_SCHEMA_VERSION = "1.0.0";
 export const CULTURE_FIT_ESSAY_SCHEMA_VERSION  = "1.0.0";
 export const WORK_SAMPLE_SJT_SCHEMA_VERSION    = "1.0.0";
+export const BIGFIVE_DEVOLUTIVA_SCHEMA_VERSION = "1.0.0";
 
 export const SCHEMA_VERSIONS = {
   cv_summary: CV_SUMMARY_SCHEMA_VERSION,
@@ -368,4 +416,5 @@ export const SCHEMA_VERSIONS = {
   transcript_analysis: TRANSCRIPT_ANALYSIS_SCHEMA_VERSION,
   culture_fit_essay: CULTURE_FIT_ESSAY_SCHEMA_VERSION,
   work_sample_sjt: WORK_SAMPLE_SJT_SCHEMA_VERSION,
+  bigfive_devolutiva: BIGFIVE_DEVOLUTIVA_SCHEMA_VERSION,
 } as const;
