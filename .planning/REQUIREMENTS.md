@@ -35,7 +35,7 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 ### Avaliação Assíncrona (Etapa 3)
 
-- [ ] **AVAL-01**: `vaga.testes_aplicaveis` jsonb configura testes ativos (default por template, admin override, validação ≥1 obrigatório); tela `/candidato/avaliacao/:id` mostra pendentes + tempo estimado, ordem livre, cada teste salvo independente [RF-11, RF-12]
+- [x] **AVAL-01**: `vaga.testes_aplicaveis` jsonb configura testes ativos (default por template, admin override, validação ≥1 obrigatório); tela `/candidato/avaliacao/:id` mostra pendentes + tempo estimado, ordem livre, cada teste salvo independente [RF-11, RF-12]
 - [x] **AVAL-02**: Work Sample/SJT múltipla escolha — scoring determinístico Σ pesos (escala 4/2/1/0), threshold `<60% OU ≥1 atencao` → revisão humana (nunca auto-reject); persiste `scores_candidato` tipo=`sjt` [RF-13]
 - [x] **AVAL-03**: Work Sample/SJT case aberto avaliado por `avaliar-redacao` com rubric BARS (0-25 + citações + red_flags Zod-validado), threshold `<13/25 OU red flag` → revisão humana [RF-14]
 - [ ] **AVAL-04**: Big Five IPIP-NEO-120 PT-BR (120 itens Likert) — scoring TS-port server-side anti-tampering via `submit-bigfive-final`; 5 dimensões OCEAN + 30 facetas + norm_group; persiste `scores_candidato` tipo=`big_five` com `metadata` jsonb [RF-15]
@@ -149,7 +149,7 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | TRIAGEM-02 | Phase 10 | Complete |
 | TRIAGEM-03 | Phase 10 | Complete |
 | TRIAGEM-04 | Phase 10 | Complete |
-| AVAL-01 | Phase 11 | Pending |
+| AVAL-01 | Phase 11 | Complete |
 | AVAL-02 | Phase 11 | Complete |
 | AVAL-03 | Phase 11 | Complete |
 | AVAL-09 | Phase 11 | Complete |

@@ -237,7 +237,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1)*
 
 - [x] 11-02-PLAN.md — 4 migrations (scores_candidato generic sink + perguntas SJT seed + respostas_avaliacao etapa-gate + pontuar_sjt RPC) + _shared schema + avaliar-redacao EF [no-wrapper authoring; PROD apply deferred to 11-04]
-- [ ] 11-03-PLAN.md — testesAplicaveis SJT-key extension + avaliacao feature non-UI (respostaAvaliacaoSchema + useAvaliacaoDraft + useAutosaveAvaliacao back-lock + avaliacaoService allowlist/RPC/EF)
+- [x] 11-03-PLAN.md — testesAplicaveis SJT-key extension + avaliacao feature non-UI (respostaAvaliacaoSchema + useAvaliacaoDraft + useAutosaveAvaliacao back-lock + avaliacaoService allowlist/RPC/EF)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -342,7 +342,7 @@ Plans:
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 2/6 | In Progress|  |
+| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 3/6 | In Progress|  |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
