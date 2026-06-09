@@ -204,7 +204,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 10-04-PLAN.md — [BLOCKING] apply migrations to PROD + flip cv_job_match/comparative_ranking is_active=true + deploy both EFs (--no-verify-jwt split) + db:types + 5 SQL smokes [non-autonomous]
+- [x] 10-04-PLAN.md — [BLOCKING] apply migrations to PROD + flip cv_job_match/comparative_ranking is_active=true + deploy both EFs (--no-verify-jwt split) + db:types + 5 SQL smokes [non-autonomous]
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -319,7 +319,7 @@ Plans:
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
-| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 3/6 | In Progress|  |
+| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 4/6 | In Progress|  |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
