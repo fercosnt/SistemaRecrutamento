@@ -262,9 +262,15 @@ export async function pontuarSjt(
   })
 
   if (error) {
-    // RLS back-lock RAISEd as 42501 inside the DEFINER fn → neutral LOCKED.
-    const code = (error as { code?: string }).code
-    if (code === '42501') {
+    // RLS back-lock: the etapa advanced. A SECURITY DEFINER RPC denial can surface
+    // as a raw 42501 (code/status) OR as a 403 on the function-call path — map all
+    // of them to the neutral LOCKED throw (mirrors useAutosaveAvaliacao's isBackLock).
+    const e = error as { code?: string; status?: number }
+    if (
+      e.code === '42501' ||
+      String(e.status) === '42501' ||
+      e.status === 403
+    ) {
       throw new AvaliacaoServiceError(
         'Sua etapa avançou — esta avaliação não aceita mais respostas.',
         'LOCKED',
