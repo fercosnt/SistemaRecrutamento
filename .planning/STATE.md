@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Phase 11 SHIPPED + PROD-live (4 migrations + work_sample_sjt active + avaliar-redacao deployed); verifier human_needed 4/4; code-review C1+C2 (open-case 100% broken) FIXED + EF redeployed + W1-W3; UI MC-badge fix. 4 UAT deferred. Advancing to Phase 12.
-last_updated: "2026-06-09T07:49:28.981Z"
-last_activity: 2026-06-09 -- Phase 12 execution started
+last_updated: "2026-06-09T07:56:28.601Z"
+last_activity: 2026-06-09
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 40
-  completed_plans: 35
+  completed_plans: 36
   percent: 55
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 12 (Big Five + Devolutiva) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 12
-Last activity: 2026-06-09 -- Phase 12 execution started
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-06-09
 
 ## Latest Plan (05-07 gap-closure)
 
