@@ -539,6 +539,36 @@ export type Database = {
           },
         ]
       }
+      bigfive_itens: {
+        Row: {
+          created_at: string
+          dimensao: string
+          faceta: number
+          item_id: number
+          ordem: number
+          reverse_keyed: boolean
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          dimensao: string
+          faceta: number
+          item_id: number
+          ordem: number
+          reverse_keyed: boolean
+          texto: string
+        }
+        Update: {
+          created_at?: string
+          dimensao?: string
+          faceta?: number
+          item_id?: number
+          ordem?: number
+          reverse_keyed?: boolean
+          texto?: string
+        }
+        Relationships: []
+      }
       candidate_ai_decisions: {
         Row: {
           ai_call_log_ids: string[]
@@ -1129,6 +1159,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "decisao_final_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      devolutivas_candidato: {
+        Row: {
+          candidato_id: string
+          candidatura_id: string
+          conteudo_jsonb: Json
+          created_at: string
+          id: string
+          modelo_ia: string | null
+          prompt_version: string | null
+        }
+        Insert: {
+          candidato_id: string
+          candidatura_id: string
+          conteudo_jsonb: Json
+          created_at?: string
+          id?: string
+          modelo_ia?: string | null
+          prompt_version?: string | null
+        }
+        Update: {
+          candidato_id?: string
+          candidatura_id?: string
+          conteudo_jsonb?: Json
+          created_at?: string
+          id?: string
+          modelo_ia?: string | null
+          prompt_version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devolutivas_candidato_candidatura_id_fkey"
             columns: ["candidatura_id"]
             isOneToOne: true
             referencedRelation: "candidaturas"
@@ -3656,6 +3724,14 @@ export type Database = {
       generate_unique_vaga_slug: {
         Args: { p_exclude_id?: string; p_titulo: string }
         Returns: string
+      }
+      get_bigfive_itens: {
+        Args: never
+        Returns: {
+          item_id: number
+          ordem: number
+          texto: string
+        }[]
       }
       get_configuracoes: {
         Args: never
