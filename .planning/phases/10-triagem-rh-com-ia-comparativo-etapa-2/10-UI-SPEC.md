@@ -1,10 +1,11 @@
 ---
 phase: 10
 slug: triagem-rh-com-ia-comparativo-etapa-2
-status: draft
+status: approved
 shadcn_initialized: true
 preset: none (manual/CLI-managed — full primitive set in src/components/ui/, no components.json at root)
 created: 2026-06-08
+reviewed_at: 2026-06-08T00:00:00Z
 ---
 
 # Phase 10 — UI Design Contract
@@ -132,7 +133,7 @@ Replaces the current glass-cards list in `VagaCandidatosRHPage.tsx`, keeping the
 | 6 | Etapa | 120px | `etapa_atual` badge | — |
 | 7 | Status | 130px | Status badge (reuse `STATUS_LABELS`/`STATUS_COLORS`) | filter |
 | 8 | Aplicou em | 120px | `data_candidatura` (`d 'de' MMM` ptBR) | — |
-| 9 | Ações | 100px | `Ver Perfil` (icon button, neutral glass) | — |
+| 9 | Ações | 100px | **"Ver Perfil"** — icon (`Eye`) **+ visible text label** on desktop, neutral glass (`aria-label="Ver perfil"`) | — |
 
 **Ordering rule (CONTEXT.md):** default `score_match DESC`. Candidaturas with **no analysis** (`status='pendente'` or `'falhou'`, score null) sort to the **end**, regardless of direction.
 
@@ -147,7 +148,7 @@ Replaces the current glass-cards list in `VagaCandidatosRHPage.tsx`, keeping the
 
 **Per-row states:**
 - **`pendente` (análise em andamento):** Score cell shows a `skeleton.tsx` shimmer chip + muted "Analisando…" label; row is selectable but excluded from default-sort ranking (sorts to end).
-- **`falhou`:** Score cell shows "— Falhou" in the neutral band + a `RefreshCw` **"Reprocessar"** icon-button (CONTEXT.md: manual reprocess, never a missing row). Tooltip: *"A análise da IA falhou. Reprocessar."*
+- **`falhou`:** Score cell shows "— Falhou" in the neutral band + a `RefreshCw` icon **+ visible "Reprocessar análise" text label** (verb+noun; `aria-label="Reprocessar análise"`) — never tooltip-only (CONTEXT.md: manual reprocess, never a missing row). Tooltip reinforces: *"A análise da IA falhou. Reprocessar análise."*
 
 ### B. Comparativo screen — candidates as columns
 
@@ -205,8 +206,8 @@ All copy in **pt-BR** (project convention). Product language uses "avaliação"/
 | Empty state body (filters active) | **Nenhuma candidatura corresponde aos filtros. Ajuste a busca, etapa ou status.** |
 | Loading (panel) | **Carregando candidaturas…** |
 | Score pending (row) | **Analisando…** |
-| Score failed (row) | **— Falhou** + ação **Reprocessar** |
-| Reprocess tooltip | **A análise da IA falhou. Reprocessar.** |
+| Score failed (row) | **— Falhou** + ação **Reprocessar análise** |
+| Reprocess tooltip | **A análise da IA falhou. Reprocessar análise.** |
 | Error state (panel load) | **Erro ao carregar candidaturas.** {detalhe} — botão **Voltar para Vagas** |
 | Error state (comparativo) | **Não foi possível gerar o comparativo. Tente novamente.** |
 | Error — mixed vagas (EF 400) | **Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.** |
