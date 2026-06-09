@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: ready_to_plan
-stopped_at: Phase 9 COMPLETE — 8/8 plans shipped + verifier 5/5 (human_needed accepted) + code-review 7/7 findings fixed + human-validation passed (Vault + cost-alerter deploy + ANTHROPIC/OPENAI keys done; RESEND_API_KEY + prompt is_active=true activation deferred to first merge-to-main per sync-prompts sequencing). Ready to discuss Phase 10 (Triagem RH com IA + Comparativo, Etapa 2).
-last_updated: "2026-06-08T05:20:00.000Z"
-last_activity: 2026-06-08 -- 09-08 implemented 3 read-only internal admin pages (Wave 5) gated RoleGuard role=administrador over the empty-at-ship AI schema. ai-logs: aiLogsService EXPLICIT column allowlist (no select('*'), parsed_reasoning/raw_response only in detail modal) + filter bar + detail Dialog + UI-SPEC empty state. prompt-versions: promptVersionsService list allowlist + promote_to_canary/promote_canary_to_active/rollback_to_version supabase.rpc wrappers surfacing server RAISE verbatim (42501→acesso restrito, P0001→message-as-is) + Accordion-by-call_type + 2-select side-by-side diff + AlertDialog confirms + Sonner toast. ai-costs: aiCostsService allowlist read of ai_cost_daily by month + 3 recharts via vendored chart.tsx (--chart-1..5: line/bar/pie + p95 ReferenceLine) + paginated table + empty state. Allowlists/RPC arg names CORRECTED to live regenerated schema (prompt_hash/prompt_version_id not prompt_version; total_cost_usd; RPCs take (p_call_type,p_semver) not (p_version_id,p_pct)). Button styled via className not variant prop (vendored cva widens variant→string, trips tsc). tsc baseline 293=293 (zero growth), LGPD-04 grep guard GREEN 8/8, build exit 0. Commits 063dcfb + 0d233d8 + 12cf2c4. Hook bypass git -c core.hooksPath=/dev/null.
+status: executing
+stopped_at: Phase 8 UI-SPEC approved
+last_updated: "2026-06-09T02:22:35.630Z"
+last_activity: 2026-06-09
 progress:
   total_phases: 11
   completed_phases: 4
-  total_plans: 22
-  completed_plans: 22
+  total_plans: 28
+  completed_plans: 23
   percent: 36
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 9 — AI Prompt Library & Cost Infra
+**Current focus:** Phase 10 — Triagem RH com IA + Comparativo (Etapa 2)
 
 ## Current Position
 
-Phase: 9 (AI Prompt Library & Cost Infra) — EXECUTING
-Plan: Wave 3 COMPLETE (09-05 + 09-06); Wave 4 — 09-07 [BLOCKING] PROD apply next
-Status: Executing Phase 9 (Wave 3 done — ai-client/prompt-loader/audit-logger landed, deno 31/31 GREEN; Wave 4 09-07 PROD apply pending)
-Last activity: 2026-06-08 -- 09-06 implemented scripts/sync-prompts.ts (parseTemplate + frontmatterSchema/validateFrontmatter RF-PL-01 + contentHash SHA-256 RF-PL-02 + buildUpsertRow + syncAll idempotent UPSERT is_active=false RF-PL-07 + RF-PL-11 collision throw) + .github/workflows/prompts-sync.yml (path-filtered push-to-main on docs/conhecimento/prompts/templates/** via denoland/setup-deno@v2 + service_role secret, NOT VITE_-prefixed); flipped Wave-0 scripts/__tests__/sync-prompts.test.ts GREEN 7/7; all 7 live templates parse+validate+hash; 1 Rule-1 bug caught pre-commit (YAML mini-parser dropped quoted values with trailing inline comments → fixed); ci.yml UNCHANGED; tsc baseline 293=293; commits 58331e2 + 8dcf661
+Phase: 10 (Triagem RH com IA + Comparativo (Etapa 2)) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-06-09
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -116,6 +116,7 @@ Last activity: 2026-06-08 -- 09-06 implemented scripts/sync-prompts.ts (parseTem
 | Phase 09 P05 | ~22min (fully autonomous) | 3 tasks (prompt-loader DB-only active+canary; audit-logger mask-then-INSERT; ai-client messages.parse+breaker+OpenAI fallback) | 3 files created. Commits: b5f422f (Task 1) + 4f8dd9e (Task 2) + 19c2db6 (Task 3) + metadata. Flipped Wave-0 ai-client.test.ts GREEN 5/5; plan-scope deno suite 31/31 (ai-client + 4 Plan-04 helpers). prompt-loader.loadPrompt reads prompt_versions DB-only (RF-PL-12, explicit allowlist no select('*')), centralized canary routing canary_pct/100 Math.random() (Open Q4), assertSchemaVersionCompat fail-fast RF-PL-13. audit-logger.logAiCall masks PII BEFORE INSERT (Pitfall 6, awk source-order OK), computeInputHash sha256-of-masked, computeRetainUntil advance=5y/reject\|hold=180d (RF-PL-21), service_role bypass RLS, error-path logs code+summary only. ai-client.callAi Anthropic-first messages.parse with 2x ephemeral cache_control (system + vaga/rubric, cache_read_input_tokens→cost) + exp-backoff retry 3x (429/503/529/timeout) + breaker-gated OpenAI gpt-4o-mini fallback (provider='openai', error_code='anthropic_circuit_open') + calculateCost + logAiCall; model from resolved prompt (Haiku cv_summary, Sonnet else). SDK pins re-verified live via npm view: @anthropic-ai/sdk@0.102.0 / openai@6.42.0 / zod@3.25.76 all exist (NOT reference's stale 0.52.0). 3 deviations: (a) Rule 3 Contract — callAi(args, deps) follows the Wave-0 RED test spec (pre-resolved prompt + deps-injected mocks, orchestrator-decision #2 no network) over the plan-body's internal-load prose; loadPrompt kept as standalone composable re-exported; (b) Rule 2 — `output` alias column alongside raw_response to satisfy the audit grep contract without schema change; (c) Rule 3 procedural git -c core.hooksPath=/dev/null hook bypass carryover. Out-of-scope: strict-schema.test.ts fails under deno test (Vitest imports, pre-existing per 09-01, untouched). tsc baseline 293=293 (Deno modules outside tsc scope). **IA-01/02/03/04 runtime core code-complete + mock-proven; Wave 3 closed; only 09-07 [BLOCKING] PROD apply + live smoke remains before Phase 9 verification.** |
 | Phase 09 P04 | ~10min (fully autonomous) | 3 tasks (pii-masker+injection-detector; circuit-breaker+ai-cost; LGPD-04 guard verify-only) | 4 files created. Commits: bb660d5 (Task 1) + 5db7cf7 (Task 2) + metadata. All 4 Wave-0 Deno RED suites flipped GREEN (26/26: 15 pii+injection + 11 breaker+cost); LGPD-04 forbidden-strings.grep 8/8 GREEN over populated supabase/functions/ (Task 3 verify-only — guard already clean, no code commit per 09-02 precedent). Pure utilities: zero DB/SDK/network imports. 2 deviations: (a) Rule 1 — return key `placeholders` (RED test contract) over `piiFound` (plan-body prose); (b) Rule 2 — RG masking added (absent from reference 08-edge-function-reference.ts) ordered AFTER CPF/CNPJ to avoid prefix capture. COST_PER_TOKEN holds only the 3 verified RESEARCH models (Sonnet $3/$15, Haiku $1/$5, gpt-4o-mini), cached tokens billed at cached_read, unknown model→0. tsc baseline 293=293 (Deno modules outside tsc include scope). Hook bypass `git -c core.hooksPath=/dev/null`. **IA-02/03/04 + RF-PL-18 utility layer complete — Plan 05 ai-client can compose all 4 via ../<helper>.ts imports.** |
 | Phase 09 P03 | ~22min (fully autonomous) | 3 tasks (schema 6 tables/3 enums; RPCs+triggers; cron+seed) | 4 migrations created. Commits: a1f9ea5 (Task 1 schema) + b27498b (Task 2 RPCs/triggers) + 3cac386 (Task 3 cron+seed) + metadata. AUTHORED-NOT-APPLIED (apply is [BLOCKING] 09-07). All FKs retargeted to live pt-BR (candidatos/vagas/usuarios_rh) — zero English candidates/jobs/recruiters; recruiter_alerts CREATED (decision #4 col set + administrador+rh RLS + dedup index). 3 SECURITY DEFINER RPCs (promote_to_canary/promote_canary_to_active/rollback_to_version) in-body 'administrador' 42501 + GRANT authenticated (NOT PRD's GRANT TO admin); deactivate-then-activate for unique_active_per_type EXCLUDE (Pitfall 5); immutability trigger guards template/hash/semver only (IS DISTINCT FROM, state cols editable); notify_cost_anomaly AFTER INSERT/UPDATE -> net.http_post cost-alerter w/ Vault Bearer + per-(threshold,vaga,day) dedup + graceful Vault-absent skip. 2 crons only (aggregation 01:30 + purge 02:00); HITL-SLA + Art.18 OMITTED (decision #5; Art.18->Ph15); pgmq + known_schema_versions OUT of v1. Seed 7 v1.0.0 is_active=false (cv_summary haiku, 6 sonnet) content_hash via encode(extensions.digest,'hex'). 2 Rule-1 fixes: ON DELETE SET NULL on NOT NULL FK cols (contradiction) → dropped NOT NULL on ai_call_logs.candidato_id/vaga_id; content_hash bytea→text via encode(). No BEGIN/COMMIT wrapper (D-22). tsc baseline 293=293 (SQL outside scope). Hook bypass git -c core.hooksPath=/dev/null. |
+| Phase 10 P10-01 | 16min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -228,6 +229,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [08-05]: candidate-facing neutral rejection phrasing rendered LOCALLY (D-15 copy + warm closer); shared STATUS_CANDIDATURA_LABELS.rejeitado='Rejeitado' left UNCHANGED (RH-facing). feedback gated on candidatura.status (typed DB column); criterion never rendered (T-08-13).
 - [Phase 09-02]: Pinned zod 3.25.76 (not latest 4.4.3) in 00-shared-zod-schemas.ts — satisfies the structured-output helper peer-dep ^3.25.0 || ^4.0.0 (messages.parse/zodOutputFormat) while keeping the v3-authored schemas on the v3 line; zero schema-shape edits, all 15 *_SCHEMA_VERSION mentions unchanged.
 - [Phase 09-02]: Task 1 (7 template frontmatter blocks + CHANGELOG.md) verified-only — already committed in 44c92c7 (PRD-MASTER v1.1 knowledge-base freeze); all acceptance criteria pass on-disk (7/7 key counts, model assignment PRD #5, forbidden scan CLEAN), so re-authoring would yield an empty commit.
+- [Phase ?]: Phase 10 Wave-0: comparative_ranking 1.0.0 in prompt-loader SCHEMA_VERSIONS (Pitfall 1 closed)
+- [Phase ?]: Phase 10 EF tests use handler(req, deps) deps-injection — no real SDK import, no network (orchestrator-decision #2)
+- [Phase ?]: Phase 10 score bands locked from UI-SPEC: 70-100 verde / 40-69 amarelo / 0-39 vermelho / null sem-análise
 
 ### Pending Todos
 
@@ -262,7 +266,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-08T04:19:15.283Z
+Last session: 2026-06-09T02:22:15.081Z
 Stopped at: Phase 8 UI-SPEC approved
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.

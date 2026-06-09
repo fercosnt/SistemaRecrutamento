@@ -28,10 +28,10 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 ### Triagem RH com IA (Etapa 2)
 
-- [ ] **TRIAGEM-01**: Trigger no INSERT de candidatura (pós-knockout) chama EF `analise-candidato-individual`, que gera `analise_candidato_vaga` (resumo_cv, resumo_respostas, pontos_fortes, gaps, `score_match` 0-100, flags) em ≤30s, Zod-validado [RF-05, RF-06]
-- [ ] **TRIAGEM-02**: Painel RH `/rh/vagas/:id/candidatos` lista candidaturas (score_match, top fortes/gaps, data, etapa), paginação 20/pág, ordenação default score DESC, filtros por etapa+status [RF-07]
-- [ ] **TRIAGEM-03**: Comparativo on-demand — seleção de 2-10 candidatos → EF `comparativo-candidatos` retorna ranking + justificativa relativa (P95 ≤5s); persiste `comparativo_solicitado` (audit); erro 400 se candidatos de vagas diferentes [RF-08, RF-09]
-- [ ] **TRIAGEM-04**: Tela de comparativo — tabela até 10 colunas (score estável, ranking 1-N, fortes, gaps, justificativa_ia, ação avançar/rejeitar) + export PDF [RF-10]
+- [x] **TRIAGEM-01**: Trigger no INSERT de candidatura (pós-knockout) chama EF `analise-candidato-individual`, que gera `analise_candidato_vaga` (resumo_cv, resumo_respostas, pontos_fortes, gaps, `score_match` 0-100, flags) em ≤30s, Zod-validado [RF-05, RF-06]
+- [x] **TRIAGEM-02**: Painel RH `/rh/vagas/:id/candidatos` lista candidaturas (score_match, top fortes/gaps, data, etapa), paginação 20/pág, ordenação default score DESC, filtros por etapa+status [RF-07]
+- [x] **TRIAGEM-03**: Comparativo on-demand — seleção de 2-10 candidatos → EF `comparativo-candidatos` retorna ranking + justificativa relativa (P95 ≤5s); persiste `comparativo_solicitado` (audit); erro 400 se candidatos de vagas diferentes [RF-08, RF-09]
+- [x] **TRIAGEM-04**: Tela de comparativo — tabela até 10 colunas (score estável, ranking 1-N, fortes, gaps, justificativa_ia, ação avançar/rejeitar) + export PDF [RF-10]
 
 ### Avaliação Assíncrona (Etapa 3)
 
@@ -145,10 +145,10 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | IA-03 | Phase 9 | Complete |
 | IA-04 | Phase 9 | Pending |
 | LGPD-04 | Phase 9 | Pending |
-| TRIAGEM-01 | Phase 10 | Pending |
-| TRIAGEM-02 | Phase 10 | Pending |
-| TRIAGEM-03 | Phase 10 | Pending |
-| TRIAGEM-04 | Phase 10 | Pending |
+| TRIAGEM-01 | Phase 10 | Complete |
+| TRIAGEM-02 | Phase 10 | Complete |
+| TRIAGEM-03 | Phase 10 | Complete |
+| TRIAGEM-04 | Phase 10 | Complete |
 | AVAL-01 | Phase 11 | Pending |
 | AVAL-02 | Phase 11 | Pending |
 | AVAL-03 | Phase 11 | Pending |

@@ -192,7 +192,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — Wave-0 RED scaffolds (2 EF deno tests + triagemService/TriagemTable vitest) + prompt-loader comparative_ranking + LGPD-04 grep extension + jspdf install + SQL-smoke runbook
+- [x] 10-01-PLAN.md — Wave-0 RED scaffolds (2 EF deno tests + triagemService/TriagemTable vitest) + prompt-loader comparative_ranking + LGPD-04 grep extension + jspdf install + SQL-smoke runbook
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -319,7 +319,7 @@ Plans:
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
-| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/6 | Planned | - |
+| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 1/6 | In Progress|  |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
