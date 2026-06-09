@@ -114,4 +114,18 @@ describe('LGPD-04 / RNF-12 — forbidden psychological-test strings', () => {
     const files = SCAN_ROOTS.flatMap((p) => collectFiles(p))
     expect(files.length).toBeGreaterThanOrEqual(1)
   })
+
+  // Phase 10 / Plan 10-01 — guard-the-guard. SCAN_ROOTS already lists
+  // 'supabase/functions' (recursive), so the new Phase-10 Edge Functions
+  // (analise-candidato-individual, comparativo-candidatos) and the
+  // src/features/triagem tree are auto-covered. This assertion locks that:
+  // if a future glob/walk regression silently stops reaching the Edge
+  // Functions root, this fails — the new EF dirs cannot drift out of scope.
+  it('scan actually reaches files under supabase/functions/ (Phase-10 EF coverage)', () => {
+    const efFiles = collectFiles('supabase/functions')
+    expect(efFiles.length).toBeGreaterThanOrEqual(1)
+    // Every collected EF path must live under the Edge Functions root.
+    const efRoot = join(ROOT, 'supabase/functions')
+    expect(efFiles.every((f) => f.startsWith(efRoot))).toBe(true)
+  })
 })

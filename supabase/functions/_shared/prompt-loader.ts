@@ -33,6 +33,7 @@ const PROMPT_COLUMNS =
 export const SCHEMA_VERSIONS: Record<string, string> = {
   cv_summary: "1.0.0",
   cv_job_match: "1.0.0",
+  comparative_ranking: "1.0.0",
   sjt_evaluation: "1.0.0",
   interview_questions: "1.0.0",
   interview_summary: "1.0.0",
