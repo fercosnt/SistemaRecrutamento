@@ -58,6 +58,17 @@ Entrega o **Big Five contextual (AVAL-04)** + a **Devolutiva D-lite (AVAL-08)**,
 
 </specifics>
 
+<post_research>
+## Decisões resolvidas pós-research (2026-06-09, autônomas)
+- **Norm table:** a tabela de normas (560 mean/sd) NÃO está no repo (só em `five-factor-e/ipipneo/norm.py`). O plano sequencia transcrevê-la como constante TS PRIMEIRO (gating). Se o executor não obtiver o arquivo, fallback = norma combinada sex='N' adulto; precisão de percentil é refinamento V2/UAT (Big Five é contextual, não decide).
+- **norm_group:** sex='N' (combinado — sexo NÃO é coletado no M2 por LGPD-01) + faixa etária derivada da data de nascimento (essa é coletada). 
+- **status:** Big Five SEMPRE `status='sucesso'` em scores_candidato — NUNCA `pendente_humano`, NUNCA eliminatório (contextual, RNF-07a).
+- **Email devolutiva:** n8n flow não existe → in-app é o canal primário; webhook fire-and-forget opcional/diferido.
+- **Nome CRP:** placeholder, preenchido no go-live (não bloqueia build).
+- **Fonte dos 120 itens:** `docs/conhecimento/big-five/fontes/ipip-neo-120-questions-pt-br.json` (NÃO o `Big Five.md`, que é o BFAS de 100 itens). reverse-key set + faceta=((id-1)%30)+1 + cutoffs em PESQUISA-...md §4.4/§5.
+
+</post_research>
+
 <deferred>
 ## Deferred Ideas
 - CI sync do item bank (markdown→DB) — V2 (seed-direct V1).
