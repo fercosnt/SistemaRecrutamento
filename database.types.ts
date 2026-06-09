@@ -1666,6 +1666,48 @@ export type Database = {
           },
         ]
       }
+      perguntas: {
+        Row: {
+          cargo: string
+          cenario: string
+          content_hash: string | null
+          created_at: string
+          dimensao_primaria: string | null
+          formato: string
+          id: string
+          rubric: Json | null
+          status: string
+          tempo_est_min: number | null
+          tipo: string
+        }
+        Insert: {
+          cargo: string
+          cenario: string
+          content_hash?: string | null
+          created_at?: string
+          dimensao_primaria?: string | null
+          formato: string
+          id?: string
+          rubric?: Json | null
+          status?: string
+          tempo_est_min?: number | null
+          tipo?: string
+        }
+        Update: {
+          cargo?: string
+          cenario?: string
+          content_hash?: string | null
+          created_at?: string
+          dimensao_primaria?: string | null
+          formato?: string
+          id?: string
+          rubric?: Json | null
+          status?: string
+          tempo_est_min?: number | null
+          tipo?: string
+        }
+        Relationships: []
+      }
       perguntas_cultura: {
         Row: {
           created_at: string
@@ -1786,6 +1828,47 @@ export type Database = {
             columns: ["vaga_id"]
             isOneToOne: false
             referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      perguntas_opcao_sjt: {
+        Row: {
+          created_at: string
+          id: string
+          opcao_id: string
+          opcao_texto: string
+          ordem: number
+          pergunta_id: string
+          peso: number
+          tag: Database["public"]["Enums"]["enum_tag_opcao"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          opcao_id: string
+          opcao_texto: string
+          ordem?: number
+          pergunta_id: string
+          peso?: number
+          tag?: Database["public"]["Enums"]["enum_tag_opcao"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          opcao_id?: string
+          opcao_texto?: string
+          ordem?: number
+          pergunta_id?: string
+          peso?: number
+          tag?: Database["public"]["Enums"]["enum_tag_opcao"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "perguntas_opcao_sjt_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas"
             referencedColumns: ["id"]
           },
         ]
@@ -2241,6 +2324,38 @@ export type Database = {
           },
         ]
       }
+      respostas_avaliacao: {
+        Row: {
+          candidatura_id: string
+          id: string
+          respostas: Json
+          teste: string
+          updated_at: string
+        }
+        Insert: {
+          candidatura_id: string
+          id?: string
+          respostas?: Json
+          teste: string
+          updated_at?: string
+        }
+        Update: {
+          candidatura_id?: string
+          id?: string
+          respostas?: Json
+          teste?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "respostas_avaliacao_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       respostas_bigfive: {
         Row: {
           candidatura_id: string
@@ -2496,6 +2611,62 @@ export type Database = {
             foreignKeyName: "scores_bigfive_candidatura_id_fkey"
             columns: ["candidatura_id"]
             isOneToOne: true
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scores_candidato: {
+        Row: {
+          candidatura_id: string
+          citacoes: Json | null
+          created_at: string
+          id: string
+          metadata: Json
+          pergunta_id: string | null
+          red_flags: Json | null
+          score: number | null
+          score_max: number | null
+          status: Database["public"]["Enums"]["status_score"]
+          subtipo: string | null
+          tipo: Database["public"]["Enums"]["tipo_score"]
+          updated_at: string
+        }
+        Insert: {
+          candidatura_id: string
+          citacoes?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          pergunta_id?: string | null
+          red_flags?: Json | null
+          score?: number | null
+          score_max?: number | null
+          status?: Database["public"]["Enums"]["status_score"]
+          subtipo?: string | null
+          tipo: Database["public"]["Enums"]["tipo_score"]
+          updated_at?: string
+        }
+        Update: {
+          candidatura_id?: string
+          citacoes?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          pergunta_id?: string | null
+          red_flags?: Json | null
+          score?: number | null
+          score_max?: number | null
+          status?: Database["public"]["Enums"]["status_score"]
+          subtipo?: string | null
+          tipo?: Database["public"]["Enums"]["tipo_score"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scores_candidato_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
@@ -3538,6 +3709,13 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_opcoes_sjt: {
+        Args: { p_pergunta_id: string }
+        Returns: {
+          opcao_id: string
+          opcao_texto: string
+        }[]
+      }
       limpar_logs_antigos: { Args: never; Returns: number }
       limpar_sessoes_expiradas: { Args: never; Returns: undefined }
       log_auditoria: {
@@ -3571,6 +3749,10 @@ export type Database = {
           realizado_por: string
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
+      }
+      pontuar_sjt: {
+        Args: { p_candidatura_id: string; p_respostas: Json }
+        Returns: Json
       }
       promote_canary_to_active: {
         Args: {
@@ -3714,6 +3896,7 @@ export type Database = {
         | "cancelada"
         | "reagendada"
         | "nao_compareceu"
+      status_score: "sucesso" | "pendente_humano" | "falhou"
       status_vaga: "rascunho" | "ativa" | "inativa" | "arquivada"
       tipo_acao_historico:
         | "candidatura_criada"
@@ -3745,6 +3928,13 @@ export type Database = {
         | "single_choice"
         | "multiple_choice"
         | "numerico"
+      tipo_score:
+        | "sjt"
+        | "big_five"
+        | "redacao"
+        | "entrevista"
+        | "cognitivo"
+        | "decisao"
       tipo_template_email:
         | "boas_vindas_candidato"
         | "confirmacao_candidatura"
@@ -3982,6 +4172,7 @@ export const Constants = {
         "reagendada",
         "nao_compareceu",
       ],
+      status_score: ["sucesso", "pendente_humano", "falhou"],
       status_vaga: ["rascunho", "ativa", "inativa", "arquivada"],
       tipo_acao_historico: [
         "candidatura_criada",
@@ -4014,6 +4205,14 @@ export const Constants = {
         "single_choice",
         "multiple_choice",
         "numerico",
+      ],
+      tipo_score: [
+        "sjt",
+        "big_five",
+        "redacao",
+        "entrevista",
+        "cognitivo",
+        "decisao",
       ],
       tipo_template_email: [
         "boas_vindas_candidato",
