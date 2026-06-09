@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-06-09T06:28:02.071Z"
+stopped_at: Completed 11-05-PLAN.md
+last_updated: "2026-06-09T06:42:26.931Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 11
   completed_phases: 5
   total_plans: 34
-  completed_plans: 31
+  completed_plans: 33
   percent: 45
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 11 (Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)) — EXECUTING
-Plan: 4 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-06-09
 
@@ -123,6 +123,7 @@ Last activity: 2026-06-09
 | Phase 10 P10-06 | ~22min (fully autonomous) | 2 tasks (useComparativo+exportComparativo+updateCandidaturaEtapa; ComparativoScreen+ComparativoCandidatosPage+route+test) | 9 files (5 created + 4 modified). Commits: 28d9fca (Task 1) + e42b4c4 (Task 2) + metadata. **TRIAGEM-03/04 — RH triage loop closed.** useComparativo = useMutation wrapping invokeComparativo (10-05) + toast on error (mixed-vaga pt-BR copy). exportComparativo: landscape jsPDF + jspdf-autotable, head=['Atributo',...names], attribute rows (Ranking IA/Score/fortes/gaps/justificativa joined '; '), doc.save — selectable text, no analog. updateCandidaturaEtapa: candidaturas.etapa_atual UPDATE fires Phase-6 avancar_etapa BEFORE UPDATE trigger (validates transition + writes historico audit row); Rejeitar also status='rejeitado'; new EtapaFunilM2 type + PROXIMA_ETAPA_APOS_TRIAGEM='avaliacao_assincrona' (DB enum, NOT legacy M1 EtapaProcesso). ComparativoScreen: candidates-as-columns (≤10), first attribute column sticky-left (sticky left-0 z-10) + overflow-x-auto + 200px min col, rows header(name+avatar+ranking medal)/Ranking IA/Score IA band(70-40 reused)/fortes/gaps/justificativa/flags(neutral)/Ação; SugestaoIABadge full once at top (RNF-07a); inline Avançar(accent)+Rejeitar(destructive) gated by alert-dialog confirm (Rejeitar NO long justification — Etapa 6); Exportar PDF idle/generating/success/error + sonner toasts. ComparativoCandidatosPage: RHLayout wrapper, reads {ids,candidatos} router state + vagaId, useComparativo on mount, resolves EF-anonymized C1/C2… → real candidatura/nome by score-ordered position, loading/error(mixed-vaga copy)/screen states, inline actions → updateCandidaturaEtapa + TanStack invalidation. /rh/vagas/:id/comparativo guard role=['rh','administrador'] + import. VagaCandidatosRHPage onCompare → navigate carrying ids+nomes (score DESC). 2 deviations: (a) Rule 3 — EtapaFunilM2/PROXIMA_ETAPA + `as never` cast on the Update payload to honor the known M1/M2 etapa_processo enum drift WITHOUT growing tsc (baseline held 292); (b) Rule 3 — extended vite.config test.exclude with the 2 Phase-10 Deno EF test suites (https:// specifiers, run under `deno test`; left out of the existing exclude list in 10-01) → full suite green. ComparativoScreen test 6/6 GREEN (≤10 columns + ranking medals, SugestaoIABadge, Avançar/Rejeitar confirms + callbacks, no-textbox on Rejeitar, mocked export call, mixed-vaga copy contract). Full frontend 448/448 (2 Deno EF suites now correctly excluded). tsc baseline 292 (no growth). build exit 0 (~6.4s). Hook bypass `git -c core.hooksPath=/dev/null`. **Phase 10 plan execution 6/6 — orchestrator-owned phase verification gates next.** |
 | Phase Phase 11 P02 P11-02 | 22min | 3 tasks | 6 files |
 | Phase 11 P11-03 | ~18 min | 2 tasks | 6 files |
+| Phase 11 P11-05 | 22min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -241,6 +242,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 11-01 Wave-0 smoke-runtime gate: 4 RED surfaces calibrated pre-impl; LGPD-04 guard extended to migrations; SMOKE-1..8 runbook + wave_0_complete:true
 - [Phase ?]: 11-03 fake-timer bridge
 - [Phase ?]: 11-03 injected upsert + confined types cast
+- [Phase ?]: 11-05: candidate Avaliação UI wired to live RPCs/EF (AvaliacaoContainer presentational+connected, SJT MC + open-case); RNF-07a neutral status, RLS back-lock via useAutosaveAvaliacao locked state
 
 ### Pending Todos
 
@@ -275,7 +277,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-09T06:27:44.797Z
+Last session: 2026-06-09T06:42:15.009Z
 Stopped at: Completed 11-03-PLAN.md
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.

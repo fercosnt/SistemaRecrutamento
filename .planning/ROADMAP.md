@@ -245,7 +245,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 11-05-PLAN.md — candidate UI: AvaliacaoContainer (glass shell, cards per teste, neutral RNF-07a) + SJT MC screen (radio-group + soft timer + shuffle) + SJT open-case screen (textarea + word-count + autosave + back-lock) + guarded route
+- [x] 11-05-PLAN.md — candidate UI: AvaliacaoContainer (glass shell, cards per teste, neutral RNF-07a) + SJT MC screen (radio-group + soft timer + shuffle) + SJT open-case screen (textarea + word-count + autosave + back-lock) + guarded route
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -342,7 +342,7 @@ Plans:
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 4/6 | In Progress|  |
+| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 5/6 | In Progress|  |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
