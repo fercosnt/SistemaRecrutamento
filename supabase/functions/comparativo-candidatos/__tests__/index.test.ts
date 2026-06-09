@@ -54,15 +54,31 @@ function makeMockOpenAI() {
 }
 
 // Mock Supabase: anon client returns a valid RH user; admin client returns the
-// analise rows + captures the comparativo_solicitado INSERT.
-function makeMockSupabaseAdmin(analiseRows: Record<string, unknown>[]) {
+// analise rows + the vaga ownership row + captures the comparativo_solicitado INSERT.
+//
+// `vagaOwner` is the `vagas.created_by` returned for the ownership guard (C1). The
+// happy-path RH user (RH_USER.id === 'rh-1') OWNS the vaga by default; an rh who does
+// NOT own it is exercised by passing a different vagaOwner.
+function makeMockSupabaseAdmin(
+  analiseRows: Record<string, unknown>[],
+  vagaOwner: string | null = "rh-1",
+) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   return {
     inserts,
     from(table: string) {
       return {
         select: (_cols?: string) => ({
+          // analise_candidato_vaga read (`.in(...)`)
           in: () => Promise.resolve({ data: analiseRows, error: null }),
+          // vagas ownership read (`.eq(...).maybeSingle()`) — C1 guard
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: vagaOwner === null ? null : { created_by: vagaOwner },
+                error: null,
+              }),
+          }),
         }),
         insert: (row: Record<string, unknown>) => {
           inserts.push({ table, row });
@@ -109,6 +125,7 @@ function makeRequest(body: unknown): Request {
 }
 
 const RH_USER = { id: "rh-1", app_metadata: { role: "rh" } };
+const CANDIDATO_USER = { id: "cand-1", app_metadata: { role: "candidato" } };
 
 function rowsForVaga(vagaId: string, ids: string[]): Record<string, unknown>[] {
   return ids.map((id) => ({
@@ -121,6 +138,36 @@ function rowsForVaga(vagaId: string, ids: string[]): Record<string, unknown>[] {
     resumo_cv: "resumo",
   }));
 }
+
+// ── C1: authorization (role + ownership) — IDOR/PII guard ───────────────────
+Deno.test("C1 — candidato-role caller → 403 FORBIDDEN (never reaches analise data)", async () => {
+  const { handler } = await loadHandler();
+  const deps = {
+    anthropic: makeMockAnthropic(),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"])),
+    supabaseUser: makeMockSupabaseUser(CANDIDATO_USER),
+  };
+  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+  assertEquals(res.status, 403);
+  const json = await res.json();
+  assertEquals(json.error_code, "FORBIDDEN");
+});
+
+Deno.test("C1 — rh who does NOT own the vaga → 403 FORBIDDEN", async () => {
+  const { handler } = await loadHandler();
+  const deps = {
+    anthropic: makeMockAnthropic(),
+    openai: makeMockOpenAI(),
+    // vaga owned by a DIFFERENT rh ('rh-other'), not RH_USER ('rh-1').
+    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]), "rh-other"),
+    supabaseUser: makeMockSupabaseUser(RH_USER),
+  };
+  const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+  assertEquals(res.status, 403);
+  const json = await res.json();
+  assertEquals(json.error_code, "FORBIDDEN");
+});
 
 // ── TRIAGEM-03: 2-10 validation ─────────────────────────────────────────────
 Deno.test("TRIAGEM-03 — fewer than 2 ids → 400 VALIDATION", async () => {

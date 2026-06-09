@@ -52,7 +52,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type ErrorCode = "UNAUTHORIZED" | "VALIDATION" | "MIXED_VAGA" | "SERVER_ERROR";
+type ErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "VALIDATION" | "MIXED_VAGA" | "SERVER_ERROR";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -108,6 +108,17 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
   }
   const user = userRes.user;
 
+  // ── 1b. AUTORIZAÇÃO (C1 — IDOR/PII): autenticar NÃO basta. As análises são lidas
+  //      via service_role (bypassa RLS), então a EF DEVE verificar o papel + posse
+  //      ANTES de tocar `analise_candidato_vaga`. Espelha o guard da RPC
+  //      reprocessar_analise (migration 20260610000003) + o cross-check IDOR de
+  //      submit-candidatura. role NÃO em ('rh','administrador') → 403; um candidato/
+  //      anon NUNCA alcança os dados de análise (score/CV/gaps = PII).
+  const role = (user.app_metadata?.role as string | undefined) ?? null;
+  if (role !== "rh" && role !== "administrador") {
+    return errorResponse("FORBIDDEN", "Acesso negado.", 403);
+  }
+
   // ── 2. Parse + valida o body ──────────────────────────────────────────────
   let body: { vaga_id: string; candidatura_ids: string[] };
   try {
@@ -134,6 +145,23 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
   const start = Date.now();
 
   try {
+    // ── 3b. Posse da vaga (C1 — espelha reprocessar_analise): role='rh' DEVE ser
+    //      o dono da vaga (vagas.created_by === user.id); 'administrador' bypassa.
+    //      Sem isso, um RH de OUTRA vaga leria score/CV/gaps de candidatos alheios.
+    if (role === "rh") {
+      const { data: vagaRow, error: vagaErr } = await supabaseAdmin
+        .from("vagas")
+        .select("created_by")
+        .eq("id", body.vaga_id)
+        .maybeSingle();
+      if (vagaErr) {
+        return errorResponse("SERVER_ERROR", "Falha ao verificar a vaga.", 500);
+      }
+      if (!vagaRow || vagaRow.created_by !== user.id) {
+        return errorResponse("FORBIDDEN", "Acesso negado.", 403);
+      }
+    }
+
     // ── 4. Lê as análises pré-computadas (allowlist explícita — NÃO select('*'),
     //      [[reference_select_star_leaks_pii]]).
     const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
