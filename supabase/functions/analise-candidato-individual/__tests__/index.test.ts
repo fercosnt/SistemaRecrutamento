@@ -1,0 +1,233 @@
+/**
+ * Phase 10 / Plan 10-01 Task 2 — Wave 0 RED scaffold for the trigger-sink
+ * Edge Function `analise-candidato-individual` (TRIAGEM-01).
+ *
+ * Disparado pelo trigger pg_net pós-knockout no INSERT de candidatura. Compõe a
+ * infra de IA da Phase 9 (`callAi` + `loadPrompt` + `logAiCall`) sobre o prompt
+ * `cv_job_match` (Sonnet) e UPSERTa UMA linha em `analise_candidato_vaga`,
+ * mapeando as chaves INGLESAS do `CvJobMatchSchema` para as colunas pt-BR.
+ *
+ * ── NO real API call happens (orchestrator-decision #2) ──
+ * Anthropic / OpenAI / Supabase são MOCKADOS via dependency injection (`deps`).
+ * NÃO há import de SDK real (Anthropic/OpenAI) aqui e NÃO há rede.
+ * O handler real (`../index.ts`) deve aceitar deps injetadas para que o teste
+ * jamais construa um SDK real ou abra socket. A implementação chega na Wave 3.
+ *
+ * ── Why this is RED now ──
+ * `../index.ts` ainda NÃO existe → o `import()` dinâmico lança module-not-found
+ * em runtime. ESSA é a asserção RED (calibrada — não é erro de sintaxe no
+ * próprio arquivo de teste). As fixtures abaixo documentam o contrato EXATO que
+ * a Wave 3 deve satisfazer.
+ *
+ * Run: deno test --allow-read supabase/functions/analise-candidato-individual/
+ *
+ * @see supabase/functions/_shared/__tests__/ai-client.test.ts (deps-injection mock pattern)
+ * @see supabase/functions/cost-alerter/index.ts:113-170 (Vault Bearer self-auth shape)
+ * @see docs/conhecimento/prompts/templates/00-shared-zod-schemas.ts:106 (CvJobMatch English keys)
+ * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-01-PLAN.md (Task 2 — TRIAGEM-01)
+ */
+import { assert, assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+
+// ── Mock Anthropic SDK (messages.parse) ─────────────────────────────────────
+// Returns a fixture CvJobMatch (ENGLISH keys) so the EF's English→pt-BR mapper
+// can be asserted. callAi already owns parse+retry+cost+log; here we mock the
+// SDK surface callAi consumes.
+function makeMockAnthropic(parsed: Record<string, unknown>) {
+  const calls: unknown[] = [];
+  return {
+    calls,
+    messages: {
+      parse: (req: unknown) => {
+        calls.push(req);
+        return Promise.resolve({
+          parsed_output: parsed,
+          usage: { input_tokens: 1200, cache_read_input_tokens: 400, output_tokens: 250 },
+        });
+      },
+    },
+  };
+}
+
+function makeMockOpenAI() {
+  return {
+    chat: { completions: { parse: () => Promise.resolve({ choices: [], usage: {} }) } },
+  };
+}
+
+// ── Mock Supabase client (records UPSERTs into analise_candidato_vaga) ───────
+// Captures every from(table).upsert(row) so the test can assert the pt-BR
+// mapping AND the never-absent 'falhou' invariant on the error path.
+function makeMockSupabase(opts: { candidaturaRow?: Record<string, unknown> | null } = {}) {
+  const upserts: { table: string; row: Record<string, unknown>; onConflict?: string }[] = [];
+  const selects: { table: string }[] = [];
+  return {
+    upserts,
+    selects,
+    from(table: string) {
+      return {
+        select: (_cols?: string) => {
+          selects.push({ table });
+          return {
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({ data: opts.candidaturaRow ?? null, error: null }),
+              single: () =>
+                Promise.resolve({ data: opts.candidaturaRow ?? null, error: null }),
+            }),
+          };
+        },
+        upsert: (row: Record<string, unknown>, options?: { onConflict?: string }) => {
+          upserts.push({ table, row, onConflict: options?.onConflict });
+          return Promise.resolve({ data: null, error: null });
+        },
+        insert: (row: Record<string, unknown>) => {
+          upserts.push({ table, row });
+          return Promise.resolve({ data: null, error: null });
+        },
+      };
+    },
+    storage: {
+      from: () => ({
+        download: () => Promise.resolve({ data: new Blob(["%PDF-1.4 fake"]), error: null }),
+      }),
+    },
+  };
+}
+
+// CvJobMatch fixture — ENGLISH keys exactly as 00-shared-zod-schemas.ts:106.
+const CV_JOB_MATCH_FIXTURE = {
+  reasoning: "Candidato demonstra experiência sólida e alinhamento com o cargo, com lacunas pontuais.",
+  strengths: [
+    { competency: "Atendimento ao cliente", evidence: { quote: "5 anos", source: "cv" }, impact: "high" },
+    { competency: "Comunicação", evidence: { quote: "líder de equipe", source: "cv" }, impact: "medium" },
+  ],
+  gaps: [
+    { requirement: "Inglês avançado", severity: "important", note: "Não evidenciado" },
+  ],
+  competency_scores: [],
+  match_score: 78,
+  recommendation: "advance",
+  confidence: "high",
+  bias_check: { used_only_merit_evidence: true },
+};
+
+// RED until Wave 3. The handler is expected to export `handler(req, deps)` so the
+// test injects mocks and never constructs a real SDK client or opens a socket.
+async function loadHandler() {
+  const mod = await import("../index.ts");
+  return mod as {
+    handler: (
+      req: Request,
+      deps: {
+        anthropic: unknown;
+        openai: unknown;
+        supabaseAdmin: unknown;
+        serviceKey: string;
+      },
+    ) => Promise<Response>;
+  };
+}
+
+const VALID_BEARER = "service-role-jwt-fixture";
+
+function makeRequest(body: unknown, bearer?: string): Request {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (bearer !== undefined) headers["Authorization"] = `Bearer ${bearer}`;
+  return new Request("http://localhost/functions/v1/analise-candidato-individual", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+}
+
+// ── TRIAGEM-01: Vault Bearer self-auth (cost-alerter precedent) ─────────────
+Deno.test("TRIAGEM-01 — Bearer absent → 401 UNAUTHORIZED", async () => {
+  const { handler } = await loadHandler();
+  const deps = {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: makeMockSupabase(),
+    serviceKey: VALID_BEARER,
+  };
+  const res = await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }), deps);
+  assertEquals(res.status, 401);
+  const json = await res.json();
+  assertEquals(json.error_code, "UNAUTHORIZED");
+});
+
+Deno.test("TRIAGEM-01 — Bearer mismatch → 401 UNAUTHORIZED", async () => {
+  const { handler } = await loadHandler();
+  const deps = {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: makeMockSupabase(),
+    serviceKey: VALID_BEARER,
+  };
+  const res = await handler(
+    makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, "wrong-secret"),
+    deps,
+  );
+  assertEquals(res.status, 401);
+});
+
+// ── TRIAGEM-01: English→pt-BR mapping on the UPSERTed row ───────────────────
+Deno.test("TRIAGEM-01 — success maps CvJobMatch English keys → pt-BR columns (status='sucesso')", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: {
+      id: "c1",
+      vaga_id: "v1",
+      candidato_id: "cand1",
+      curriculo_url: "cand1/abc.pdf",
+    },
+  });
+  const deps = {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  };
+  await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), deps);
+
+  const analiseUpsert = supabaseAdmin.upserts.find((u) => u.table === "analise_candidato_vaga");
+  assertExists(analiseUpsert, "must UPSERT analise_candidato_vaga");
+  const row = analiseUpsert!.row;
+  // score_match = match_score
+  assertEquals(row.score_match, 78);
+  // pontos_fortes = strengths.map(competency) → text[]
+  assertEquals(row.pontos_fortes, ["Atendimento ao cliente", "Comunicação"]);
+  // gaps = gaps.map(requirement) → text[]
+  assertEquals(row.gaps, ["Inglês avançado"]);
+  // never-absent: success row carries status='sucesso'
+  assertEquals(row.status, "sucesso");
+  // idempotent: ON CONFLICT on candidatura_id (exactly one row per candidatura)
+  assert(
+    (analiseUpsert!.onConflict ?? "").includes("candidatura_id"),
+    "upsert must key on candidatura_id (ON CONFLICT) — idempotency lock",
+  );
+});
+
+// ── TRIAGEM-01: never-absent-row invariant on any failure ───────────────────
+Deno.test("TRIAGEM-01 — on thrown error a status='falhou' row is still upserted (never absent)", async () => {
+  const { handler } = await loadHandler();
+  // Anthropic mock that throws → forces the EF's try/catch falhou path.
+  const throwingAnthropic = {
+    messages: { parse: () => Promise.reject(new Error("prompt_not_configured")) },
+  };
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: "cand1/abc.pdf" },
+  });
+  const deps = {
+    anthropic: throwingAnthropic,
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  };
+  await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), deps);
+
+  const falhouUpsert = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "falhou",
+  );
+  assertExists(falhouUpsert, "a status='falhou' row must be upserted on any failure");
+  assertExists(falhouUpsert!.row.erro, "falhou row must carry an 'erro' message");
+});
