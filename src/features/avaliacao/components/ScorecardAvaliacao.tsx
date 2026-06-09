@@ -28,10 +28,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { useScorecardCandidato } from '../hooks/useScorecardCandidato'
-import type {
-  ScoreRow,
-  McMetadata,
-  CasoAbertoMetadata,
+import {
+  isBigFiveRow,
+  type ScoreRow,
+  type McMetadata,
+  type CasoAbertoMetadata,
+  type BigFiveMetadata,
 } from '../services/scoresRhService'
 
 export interface ScorecardAvaliacaoProps {
@@ -217,6 +219,89 @@ function CasoAbertoBreakdown({ row }: { row: ScoreRow }) {
   )
 }
 
+/** Candidate-facing dimension labels — "N" is "Sensibilidade Emocional" (LGPD-04). */
+const BIGFIVE_DIM_LABEL: Record<string, string> = {
+  O: 'Abertura à Experiência',
+  C: 'Conscienciosidade',
+  E: 'Extroversão',
+  A: 'Amabilidade',
+  N: 'Sensibilidade Emocional',
+}
+
+const BIGFIVE_BANDA_LABEL: Record<string, string> = {
+  muito_baixo: 'Muito baixo',
+  mod_baixo: 'Moderadamente baixo',
+  medio: 'Médio',
+  mod_alto: 'Moderadamente alto',
+  muito_alto: 'Muito alto',
+}
+
+/**
+ * Big Five contextual card (tipo='big_five'). Marked CONTEXTUAL / não-eliminatório
+ * (RNF-07a) — the traits NEVER drive a pass/fail. The SugestaoIABadge appears ONLY
+ * on the AI-polished executive summary, NOT on the raw percentil rows. Reads via
+ * the `scoresRhService` allowlist (never `select('*')`).
+ */
+function BigFiveBreakdown({ row }: { row: ScoreRow }) {
+  const meta = (row.metadata ?? {}) as BigFiveMetadata
+  const dimensoes = meta.dimensoes ?? []
+  const resumo = meta.resumo_executivo
+
+  return (
+    <Card className="border-white/10 bg-white/[0.03]">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-white">Perfil comportamental (Big Five)</CardTitle>
+          <Badge className="border-white/15 bg-white/5 text-white/70 text-xs font-semibold">
+            Contextual · não-eliminatório
+          </Badge>
+        </div>
+        <CardDescription className="text-white/70">
+          Sinaliza estilo de trabalho — não decide a etapa. Decisão sempre humana.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {dimensoes.length > 0 ? (
+          <ul className="space-y-2">
+            {dimensoes.map((d, i) => (
+              <li
+                key={`${d.dim}-${i}`}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                {/* Raw percentil rows are NOT AI-derived → no SugestaoIABadge here. */}
+                <span className="font-medium text-white/90">
+                  {BIGFIVE_DIM_LABEL[d.dim] ?? d.dim}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-white/70">Percentil {d.percentil}</span>
+                  <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
+                    {BIGFIVE_BANDA_LABEL[d.banda] ?? d.banda}
+                  </Badge>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-white/60">Perfil ainda não disponível.</p>
+        )}
+
+        {resumo ? (
+          <div className="space-y-1 border-t border-white/10 pt-3">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                Resumo
+              </p>
+              {/* SugestaoIABadge ONLY on the AI-polished text block. */}
+              <SugestaoIABadge variant="compact" />
+            </div>
+            <p className="text-sm text-white/70">{resumo}</p>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 /**
  * RH read-only scorecard for the SJT scores of one candidatura. Structured,
  * neutral, AI-as-suggestion (RNF-07a) — never an auto-decision.
@@ -256,7 +341,9 @@ export function ScorecardAvaliacao({
   return (
     <div className={cn('space-y-4', className)}>
       {rows.map((row) =>
-        row.subtipo === 'mc' ? (
+        isBigFiveRow(row) ? (
+          <BigFiveBreakdown key={row.id} row={row} />
+        ) : row.subtipo === 'mc' ? (
           <McBreakdown key={row.id} row={row} />
         ) : (
           <CasoAbertoBreakdown key={row.id} row={row} />

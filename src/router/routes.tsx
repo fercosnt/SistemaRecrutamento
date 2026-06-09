@@ -50,6 +50,8 @@ import {
   AvaliacaoContainer,
   SjtMultiplaEscolhaScreen,
   SjtCasoAbertoScreen,
+  BigFiveQuestionnaireScreen,
+  DevolutivaBigFiveView,
 } from '../features/avaliacao/components'
 
 // Páginas RH/Admin
@@ -217,6 +219,24 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <SjtCasoAbertoScreen />
+      </RoleGuard>
+    ),
+  },
+  // Big Five (Phase 12 / AVAL-04 · AVAL-08). Production flow under the avaliação
+  // container — distinct from the legacy DEV `/testes/bigfive` page below.
+  {
+    path: '/candidato/avaliacao/:candidaturaId/bigfive',
+    element: (
+      <RoleGuard role="candidato">
+        <BigFiveQuestionnaireScreen />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/candidato/avaliacao/:candidaturaId/bigfive/devolutiva',
+    element: (
+      <RoleGuard role="candidato">
+        <DevolutivaBigFiveView />
       </RoleGuard>
     ),
   },

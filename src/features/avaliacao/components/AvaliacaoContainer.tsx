@@ -59,6 +59,9 @@ function testeLabel(teste: string): string {
       return 'Avaliação de situações'
     case 'sjt_caso_aberto':
       return 'Caso prático'
+    case 'big_five':
+    case 'bigfive':
+      return 'Avaliação comportamental'
     default:
       return teste
         .replace(/_/g, ' ')
@@ -301,8 +304,12 @@ function ConnectedAvaliacaoContainer() {
   }
 
   const handleOpenTeste = (card: TesteCard) => {
-    const target =
-      card.formato === 'caso_aberto' || card.teste === 'sjt_caso_aberto' ? 'caso' : 'mc'
+    let target = 'mc'
+    if (card.teste === 'big_five' || card.teste === 'bigfive') {
+      target = 'bigfive'
+    } else if (card.formato === 'caso_aberto' || card.teste === 'sjt_caso_aberto') {
+      target = 'caso'
+    }
     navigate(`/candidato/avaliacao/${candidaturaId}/${target}`)
   }
 

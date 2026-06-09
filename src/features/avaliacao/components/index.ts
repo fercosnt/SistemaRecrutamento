@@ -12,3 +12,6 @@ export { SjtMultiplaEscolhaScreen } from './SjtMultiplaEscolhaScreen'
 export { SjtCasoAbertoScreen } from './SjtCasoAbertoScreen'
 export { ScorecardAvaliacao } from './ScorecardAvaliacao'
 export type { ScorecardAvaliacaoProps } from './ScorecardAvaliacao'
+// Phase 12 (Big Five candidate flow — AVAL-04 / AVAL-08)
+export { BigFiveQuestionnaireScreen } from './BigFiveQuestionnaireScreen'
+export { DevolutivaBigFiveView } from './DevolutivaBigFiveView'
