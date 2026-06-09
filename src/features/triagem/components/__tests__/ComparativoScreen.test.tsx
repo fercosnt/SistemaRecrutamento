@@ -151,7 +151,9 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
-    expect(exportComparativo).toHaveBeenCalledWith(ranking)
+    // W1: o PDF recebe os candidatos JÁ RESOLVIDOS (com `.nome` real), não o ranking
+    // cru da EF (que anonimiza C1/C2… e não popula nome).
+    expect(exportComparativo).toHaveBeenCalledWith(candidates)
   })
 })
 

@@ -75,7 +75,6 @@ const dataCell = 'min-w-[200px] px-4 py-4 text-sm text-white align-top'
  * Tabela comparativa candidatos-coluna com ações inline humanas + export PDF.
  */
 export function ComparativoScreen({
-  ranking,
   candidates,
   onAvancar,
   onRejeitar,
@@ -87,7 +86,9 @@ export function ComparativoScreen({
   const handleExport = () => {
     setIsGenerating(true)
     try {
-      exportComparativo(ranking)
+      // W1: passa os candidatos JÁ RESOLVIDOS (carregam `.nome` real) — a EF
+      // anonimiza C1/C2… e não popula `nome` no ranking, então o PDF deve ler daqui.
+      exportComparativo(candidates)
       toast.success('PDF exportado.')
     } catch {
       toast.error('Não foi possível gerar o PDF. Tente novamente.')

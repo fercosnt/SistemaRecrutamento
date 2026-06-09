@@ -52,24 +52,29 @@ function joinCell(items: string[]): string {
  * Ordena os candidatos por `rank` (1 → N) para que as colunas sigam a sugestão da IA.
  * Cada linha é um atributo; o cabeçalho carrega o nome de cada candidato.
  *
+ * W1: recebe os candidatos JÁ RESOLVIDOS no client (que carregam `.nome` real). A EF
+ * anonimiza para C1/C2… e NUNCA popula `nome` em `ranking.ranked_candidates`, então
+ * ler dali produzia cabeçalhos em branco. O chamador passa os candidatos resolvidos.
+ *
+ * @param candidates candidatos resolvidos (nome + campos do ranking), em qualquer ordem.
  * @throws repassa qualquer erro do jspdf para o chamador (a tela mostra o toast de erro).
  */
-export function exportComparativo(ranking: ComparativeRankingView): void {
-  const candidates = [...(ranking.ranked_candidates ?? [])].sort((a, b) => a.rank - b.rank)
+export function exportComparativo(candidates: RankedCandidate[]): void {
+  const ordered = [...(candidates ?? [])].sort((a, b) => a.rank - b.rank)
 
   const doc = new jsPDF({ orientation: 'landscape' })
 
   doc.setFontSize(14)
   doc.text('Comparativo de candidatos — Sugestão da IA (decisão é sempre humana)', 14, 14)
 
-  const head = [['Atributo', ...candidates.map((c) => c.nome)]]
+  const head = [['Atributo', ...ordered.map((c) => c.nome)]]
 
   const body: string[][] = [
-    ['Ranking IA', ...candidates.map((c) => `${c.rank}º`)],
-    ['Score IA', ...candidates.map((c) => String(c.composite_score))],
-    ['Pontos fortes', ...candidates.map((c) => joinCell(c.relative_strengths))],
-    ['Gaps', ...candidates.map((c) => joinCell(c.relative_weaknesses))],
-    ['Justificativa IA', ...candidates.map((c) => c.rationale || '—')],
+    ['Ranking IA', ...ordered.map((c) => `${c.rank}º`)],
+    ['Score IA', ...ordered.map((c) => String(c.composite_score))],
+    ['Pontos fortes', ...ordered.map((c) => joinCell(c.relative_strengths))],
+    ['Gaps', ...ordered.map((c) => joinCell(c.relative_weaknesses))],
+    ['Justificativa IA', ...ordered.map((c) => c.rationale || '—')],
   ]
 
   autoTable(doc, {
