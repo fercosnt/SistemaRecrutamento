@@ -89,14 +89,35 @@ function makeMockOpenAI() {
   return { chat: { completions: { parse: () => Promise.resolve({ choices: [], usage: {} }) } } };
 }
 
+// A caso-aberto pergunta row the EF reads by id (`.eq('id', pergunta_id)`): the
+// rubric carries dimension weights so the composite is rubric-weighted (C2). The
+// dentista rubric (25/20/25/15/15-style) — comunicacao + resolucao weighted 25,
+// etica 20, equipe 15 — proves the weighting actually flows into the composite.
+const PERGUNTA_CASO_ABERTO = {
+  id: "perg-1",
+  formato: "caso_aberto",
+  cenario: "Um paciente chega ansioso antes de um procedimento. Como você conduz?",
+  rubric: {
+    dimensoes: [
+      { dimension: "comunicacao_clinica", peso: 25 },
+      { dimension: "etica_seguranca", peso: 20 },
+      { dimension: "resolucao_problema", peso: 25 },
+      { dimension: "trabalho_equipe", peso: 15 },
+    ],
+  },
+};
+
 // Mock Supabase admin (service_role): returns the candidatura ownership/etapa row
-// for the authz guard and captures every INSERT/UPDATE so the test can assert
-// (a) a scores_candidato row is written and (b) candidaturas is NEVER updated.
+// for the authz guard, the perguntas row for the by-id case lookup, and captures
+// every INSERT/UPDATE so the test can assert (a) a scores_candidato row is written
+// and (b) candidaturas is NEVER updated.
 //
 // `candidaturaRow` is what the ownership guard reads for `candidatura_id`:
 //   { candidato_id, etapa_atual } | null (null → candidatura not found).
+// `perguntaRow` is what the by-id case lookup reads (null → 400 invalid pergunta).
 function makeMockSupabaseAdmin(
   candidaturaRow: { candidato_id: string; etapa_atual: string } | null,
+  perguntaRow: Record<string, unknown> | null = PERGUNTA_CASO_ABERTO,
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   const updates: { table: string; row: Record<string, unknown> }[] = [];
@@ -104,19 +125,20 @@ function makeMockSupabaseAdmin(
     inserts,
     updates,
     from(table: string) {
+      // Each table resolves its own `.eq(...).maybeSingle()` row.
+      const row = table === "perguntas" ? perguntaRow : candidaturaRow;
       return {
         select: (_cols?: string) => ({
-          // candidaturas ownership/etapa read (`.eq(...).maybeSingle()`) — C1 guard
           eq: () => ({
-            maybeSingle: () => Promise.resolve({ data: candidaturaRow, error: null }),
+            maybeSingle: () => Promise.resolve({ data: row, error: null }),
           }),
         }),
-        insert: (row: Record<string, unknown>) => {
-          inserts.push({ table, row });
+        insert: (insertRow: Record<string, unknown>) => {
+          inserts.push({ table, row: insertRow });
           return Promise.resolve({ data: null, error: null });
         },
-        update: (row: Record<string, unknown>) => {
-          updates.push({ table, row });
+        update: (updateRow: Record<string, unknown>) => {
+          updates.push({ table, row: updateRow });
           return {
             eq: () => Promise.resolve({ data: null, error: null }),
           };
@@ -167,10 +189,11 @@ const OWNER = { id: "cand-1", app_metadata: { role: "candidato" } };
 const OTHER = { id: "cand-2", app_metadata: { role: "candidato" } };
 
 const CANDIDATURA_ID = "cand-vaga-1";
+const PERGUNTA_ID = "perg-1";
 const VALID_BODY = {
   candidatura_id: CANDIDATURA_ID,
-  teste: "sjt_caso_aberto",
-  resposta: "Descreveria a situação ao time e seguiria o protocolo de biossegurança...",
+  pergunta_id: PERGUNTA_ID,
+  texto: "Descreveria a situação ao time e seguiria o protocolo de biossegurança...",
 };
 
 // ── C1 (a): authentication — no session → 401 ────────────────────────────────
@@ -254,6 +277,81 @@ Deno.test("AVAL-03 — any red_flag routes to status='pendente_humano' regardles
   const scoreRow = admin.inserts.find((i) => i.table === "scores_candidato");
   assert(scoreRow, "must INSERT one scores_candidato row");
   assertEquals(scoreRow!.row.status, "pendente_humano", "≥1 red_flag → pendente_humano");
+});
+
+// ── C1/C2: missing or non-caso_aberto pergunta → 400 (no silent fall-through) ─
+Deno.test("C2 — missing pergunta (by id) → 400 VALIDATION, never scores", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" },
+    null, // perguntas lookup returns no row
+  );
+  const deps = {
+    anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  };
+  const res = await handler(makeRequest(VALID_BODY), deps);
+  assertEquals(res.status, 400);
+  const json = await res.json();
+  assertEquals(json.error_code, "VALIDATION");
+  assertEquals(admin.inserts.length, 0, "missing pergunta must never reach scoring");
+});
+
+Deno.test("C2 — pergunta with formato !== 'caso_aberto' → 400 VALIDATION", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" },
+    { ...PERGUNTA_CASO_ABERTO, formato: "multipla_escolha" },
+  );
+  const deps = {
+    anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  };
+  const res = await handler(makeRequest(VALID_BODY), deps);
+  assertEquals(res.status, 400);
+  assertEquals(admin.inserts.length, 0, "non-caso_aberto must never reach scoring");
+});
+
+// ── C2: the composite is rubric-weighted (NOT a uniform average) ──────────────
+// dims: comunicacao=5(peso25) etica=2(peso20) resolucao=5(peso25) equipe=2(peso15).
+// weighted mean = (5*25 + 2*20 + 5*25 + 2*15) / (25+20+25+15)
+//               = (125 + 40 + 125 + 30) / 85 = 320/85 ≈ 3.7647 → /5*25 ≈ 18.82.
+// A UNIFORM (unweighted) mean would be (5+2+5+2)/4 = 3.5 → /5*25 = 17.5.
+// Asserting the composite is the rubric-weighted value (≈18.82, NOT 17.5) proves
+// the rubric weights actually flow into the composite (the C2 regression).
+Deno.test("C2 — composite uses the pergunta rubric weights (not a uniform average)", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({
+    candidato_id: OWNER.id,
+    etapa_atual: "avaliacao_assincrona",
+  });
+  const fixture = {
+    dimension_scores: [
+      { dimension: "comunicacao_clinica", score: 5, evidence: "Forte." },
+      { dimension: "etica_seguranca", score: 2, evidence: "Fraca." },
+      { dimension: "resolucao_problema", score: 5, evidence: "Forte." },
+      { dimension: "trabalho_equipe", score: 2, evidence: "Fraca." },
+    ],
+    red_flags: [],
+    reasoning: "Desempenho desigual entre dimensões.",
+  };
+  const deps = {
+    anthropic: makeMockAnthropic(fixture),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  };
+  const res = await handler(makeRequest(VALID_BODY), deps);
+  assertEquals(res.status, 200);
+  const scoreRow = admin.inserts.find((i) => i.table === "scores_candidato");
+  assert(scoreRow, "must INSERT one scores_candidato row");
+  // Rubric-weighted ≈ 18.82 (rounded to 2 decimals by the EF), NOT 17.5 uniform.
+  assertEquals(scoreRow!.row.score, 18.82, "composite must be the rubric-weighted value");
+  assertEquals(scoreRow!.row.status, "sucesso", "≥13/25, no red_flag → sucesso");
 });
 
 // ── RNF-07a: the EF NEVER writes candidaturas (no auto-reject, no etapa change) ─

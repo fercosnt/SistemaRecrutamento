@@ -102,13 +102,13 @@ export type WorkSampleScoring = z.infer<typeof WorkSampleScoringSchema>;
 /**
  * Body do `avaliar-redacao` (invocado pelo candidato). Aceita SÓ identificadores +
  * o texto da resposta — NUNCA um score (Pitfall 5: o score é derivado server-side).
- * `teste` é o id do teste em `testes_aplicaveis` (ex: 'sjt_caso_aberto'); `resposta`
- * é o texto livre da resposta de caso aberto.
+ * `pergunta_id` é o id da pergunta de caso aberto em `perguntas` (a EF lê o cenário
+ * + a rubric pelo id, fixando C2); `texto` é o texto livre da resposta.
  */
 export const AvaliarRedacaoBodySchema = z.object({
   candidatura_id: z.string().min(1),
-  teste: z.string().min(1),
-  resposta: z.string().min(1),
+  pergunta_id: z.string().min(1),
+  texto: z.string().min(1),
 });
 
 export type AvaliarRedacaoBody = z.infer<typeof AvaliarRedacaoBodySchema>;

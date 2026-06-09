@@ -5,7 +5,7 @@
  * (JWT-ON) para pontuar a resposta de CASO ABERTO do SJT.
  *
  * Arquitetura (two-client D-23 + C1 authenticate-THEN-authorize, lição Phase 10):
- *   Recebe `{ candidatura_id, teste, resposta }`, verifica o JWT do candidato
+ *   Recebe `{ candidatura_id, pergunta_id, texto }`, verifica o JWT do candidato
  *   (supabaseUser anon + Authorization → auth.getUser()), AUTORIZA que auth.uid()
  *   é dono da candidatura E etapa_atual='avaliacao_assincrona' (403 caso contrário —
  *   service_role bypassa RLS, então a checagem é obrigatória ANTES de qualquer
@@ -159,7 +159,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
   const user = userRes.user;
 
   // ── 2. Parse + valida o body (SEM campo de score — Pitfall 5) ───────────────
-  let body: { candidatura_id: string; teste: string; resposta: string };
+  let body: { candidatura_id: string; pergunta_id: string; texto: string };
   try {
     const raw = await req.json();
     const parsed = AvaliarRedacaoBodySchema.safeParse(raw);
@@ -191,19 +191,23 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
   }
 
   try {
-    // ── 4. Lê o cenário + rubric da pergunta de caso aberto (allowlist) ───────
-    //      Best-effort: se ausente, segue com rubric nula (peso uniforme).
-    let cenario = "";
-    let rubricWeights: Record<string, number> | null = null;
-    const { data: pergRow } = await supabaseAdmin
+    // ── 4. Lê o cenário + rubric da pergunta de caso aberto pelo id (allowlist) ─
+    //      C2: lookup determinístico por `id` (NÃO `cargo_teste`, coluna inexistente).
+    //      Se a pergunta não existe OU não é caso aberto, é 400 — NUNCA cair em
+    //      cenário vazio + pesos uniformes (que mascararia a rubric da vaga).
+    const { data: pergRow, error: pergErr } = await supabaseAdmin
       .from("perguntas")
-      .select("id, cenario, rubric")
-      .eq("cargo_teste", body.teste)
+      .select("id, cenario, rubric, formato")
+      .eq("id", body.pergunta_id)
       .maybeSingle();
-    if (pergRow) {
-      cenario = typeof pergRow.cenario === "string" ? pergRow.cenario : "";
-      rubricWeights = rubricWeightsFrom(pergRow.rubric);
+    if (pergErr) {
+      return errorResponse("SERVER_ERROR", "Falha ao carregar a pergunta.", 500);
     }
+    if (!pergRow || pergRow.formato !== "caso_aberto") {
+      return errorResponse("VALIDATION", "Pergunta de caso aberto inválida.", 400);
+    }
+    const cenario = typeof pergRow.cenario === "string" ? pergRow.cenario : "";
+    const rubricWeights: Record<string, number> | null = rubricWeightsFrom(pergRow.rubric);
 
     // ── 5. Resolve o prompt work_sample_sjt + callAi ──────────────────────────
     let resolved: ResolvedPrompt;
@@ -225,7 +229,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     const result = await callAi(
       {
         prompt: resolved,
-        rawInput: `${cenario}\n\n---\n\nResposta do candidato:\n${body.resposta}`,
+        rawInput: `${cenario}\n\n---\n\nResposta do candidato:\n${body.texto}`,
         vagaRubricBlock: `Vaga: ${candRow.vaga_id}`,
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
@@ -241,6 +245,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     if (parsed == null) {
       await supabaseAdmin.from("scores_candidato").insert({
         candidatura_id: body.candidatura_id,
+        pergunta_id: body.pergunta_id,
         tipo: "sjt",
         subtipo: "caso_aberto",
         score: null,
@@ -256,6 +261,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     ) {
       await supabaseAdmin.from("scores_candidato").insert({
         candidatura_id: body.candidatura_id,
+        pergunta_id: body.pergunta_id,
         tipo: "sjt",
         subtipo: "caso_aberto",
         score: null,
@@ -280,6 +286,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // ── 8. Persiste UMA linha de score (NUNCA toca candidaturas — RNF-07a) ────
     await supabaseAdmin.from("scores_candidato").insert({
       candidatura_id: body.candidatura_id,
+      pergunta_id: body.pergunta_id,
       tipo: "sjt",
       subtipo: "caso_aberto",
       score: composite,
@@ -297,7 +304,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // Log redigido (Pitfall 7) — só ids/counts/status; NUNCA o texto/score bruto.
     console.log("[avaliar-redacao] ok", {
       candidatura_id: body.candidatura_id,
-      teste: body.teste,
+      pergunta_id: body.pergunta_id,
       dims_count: dims.length,
       red_flags_count: redFlags.length,
       status,
