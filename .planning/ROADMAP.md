@@ -188,7 +188,32 @@ Plans:
   3. RH seleciona 2-10 candidatos e o comparativo retorna ranking + justificativa relativa em P95 ≤5s, persistindo `comparativo_solicitado`; selecionar candidatos de vagas diferentes retorna erro 400.
   4. A tela de comparativo mostra até 10 colunas (score estável, ranking 1-N, fortes, gaps, justificativa_ia, ação avançar/rejeitar) e permite export PDF.
 
-**Plans**: TBD
+**Plans**: 6 plans (6 waves)
+Plans:
+**Wave 1**
+
+- [ ] 10-01-PLAN.md — Wave-0 RED scaffolds (2 EF deno tests + triagemService/TriagemTable vitest) + prompt-loader comparative_ranking + LGPD-04 grep extension + jspdf install + SQL-smoke runbook
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 10-02-PLAN.md — migrations: analise_candidato_vaga + comparativo_solicitado (RLS candidato-DENY) + trg_candidatura_analise pg_net trigger (survivors only) [no-wrapper authoring]
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 10-03-PLAN.md — 2 Edge Functions: analise-candidato-individual (Vault Bearer, CV-PDF extract, English→pt-BR map, never-absent upsert) + comparativo-candidatos (two-client, 2-10 same-vaga, single-eval, audit)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 10-04-PLAN.md — [BLOCKING] apply migrations to PROD + flip cv_job_match/comparative_ranking is_active=true + deploy both EFs (--no-verify-jwt split) + db:types + 5 SQL smokes [non-autonomous]
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 10-05-PLAN.md — triagem panel: triagemService allowlist read (no select('*')) + useTriagemPanel + SugestaoIABadge + TriagemTable (bands/2-10 gating/reprocess) + VagaCandidatosRHPage rework
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 10-06-PLAN.md — comparativo screen (candidates-as-columns + inline avançar/rejeitar + SugestaoIABadge) + useComparativo invoke + exportComparativo (jspdf) + RH-guarded route
+
 **UI hint**: yes
 
 ### Phase 11: Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)
@@ -294,7 +319,7 @@ Plans:
 | 7. Configuração de Vaga & Tags | v2.0 | 4/4 | Plan execution complete — verifying | - |
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
-| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/0 | Not started | - |
+| 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 0/6 | Planned | - |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
