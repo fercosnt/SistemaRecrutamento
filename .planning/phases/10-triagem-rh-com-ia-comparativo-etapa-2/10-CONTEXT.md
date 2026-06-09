@@ -43,6 +43,13 @@ Entrega o **lado RH da Etapa 2 (Triagem)**: análise individual automática por 
 ### Comparativo on-demand (TRIAGEM-03 — contrato da EF)
 - Edge Function `comparativo-candidatos` recebe `{ vaga_id, candidatura_ids[] }`; valida 2-10 ids e que **todos pertencem à mesma vaga** (erro 400 caso contrário); retorna ranking + justificativa relativa Zod-validada em P95 ≤5s; usa a infra de IA da Phase 9 (two-client D-23, ai-client, audit-logger).
 
+### Decisões resolvidas pós-research (2026-06-08 — emergiram da inspeção do código live)
+- **Fonte da análise (`resumo_cv`/`score_match`):** a EF `analise-candidato-individual` **extrai o texto do PDF do CV** (parser Deno-compatível, ex: `unpdf`) além das respostas da Etapa 1 — `resumo_cv` é um resumo fiel do CV de verdade, não só das respostas. Decisão do usuário (sobre a recomendação respostas-only). Implica: download do PDF do bucket privado `curriculos` dentro da EF (service_role) + extração de texto + truncamento de token-budget antes do prompt `cv_job_match`. Falha de extração (PDF corrompido/imagem) → análise segue só com respostas + flag "cv_nao_extraido", nunca quebra a row.
+- **Comparativo single-eval (≤5s):** uma passada única no prompt `comparative_ranking` p/ cumprir o P95 ≤5s; mitiga viés de posição **ancorando no `score_match` estável** + **ordenando os candidatos por score antes** de montar o prompt. A dupla-avaliação (swap+média) prescrita no prompt fica como V2 — o plano deve documentar essa simplificação explicitamente.
+- **Backfill = só botão reprocessar:** o trigger cobre toda candidatura NOVA; candidaturas antigas (dados de teste no M2 recém-aberto) aparecem como "análise pendente/falhou" com botão **Reprocessar análise**. Sem loop de migração histórica one-time.
+- **Gaps de contrato a fechar (Wave-0, achados no research):** (a) `prompt-loader.ts` `SCHEMA_VERSIONS` não contém `comparative_ranking` → adicionar; (b) prompts seedados estão `is_active=false` → flipar `is_active=true` em PROD (apply BLOCKING); (c) `CvJobMatchSchema` usa chaves em inglês (`match_score`/`strengths`/`gaps`) → a EF mapeia p/ as colunas pt-BR de `analise_candidato_vaga`. `pontos_fortes`/`gaps` (objetos Zod) achatados p/ `text[]` curtos; estrutura completa preservada em `resumo_respostas`/raw (discrição de Claude).
+- **PDF stack:** `jspdf@4.2.x` + `jspdf-autotable@5.0.x` (confirmar via `npm view` no install; pedigree sólido).
+
 </decisions>
 
 <code_context>
