@@ -264,6 +264,20 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       throw new Error(result.error_code ?? "ia_sem_resultado");
     }
 
+    // W4: injeção de prompt detectada. Nesse caso callAi devolve um STUB não-nulo
+    // (match_score:10, flagged_for_human_review:true, error_code='prompt_injection_detected').
+    // Gravar isso como status='sucesso' com score 10 pintaria um vermelho realista e
+    // enganoso no painel. Em vez disso, trata como falha → cai no catch → row 'falhou'
+    // com erro=error_code, e o painel mostra "— Falhou / Reprocessar análise" (sinal
+    // de verificação humana preservado, never-absent mantido). Não é auto-reject
+    // (RNF-07a): apenas não fabricamos um score de sucesso a partir de input adversarial.
+    if (
+      result.flagged_for_human_review === true ||
+      result.error_code === "prompt_injection_detected"
+    ) {
+      throw new Error(result.error_code ?? "prompt_injection_detected");
+    }
+
     // 6. Mapeia chaves INGLESAS → colunas pt-BR.
     const parsed = (result.parsed ?? {}) as {
       match_score?: number;
