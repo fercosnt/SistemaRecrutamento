@@ -52,7 +52,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type ErrorCode = "UNAUTHORIZED" | "VALIDATION" | "SERVER_ERROR";
+type ErrorCode = "UNAUTHORIZED" | "VALIDATION" | "MIXED_VAGA" | "SERVER_ERROR";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -150,8 +150,12 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     // pertencer à MESMA vaga (vagas.size === 1). Falha em qualquer um → 400.
     const vagas = new Set(rows.map((r) => r.vaga_id));
     if (vagas.size !== 1 || rows.length !== ids.length) {
+      // error_code MIXED_VAGA so triagemService.invokeComparativo surfaces the
+      // specific pt-BR copy ("...pertencem a vagas diferentes...") instead of the
+      // generic fallback (verifier gap 10-VERIFICATION: code mismatch was masked
+      // by the unit test mocking MIXED_VAGA).
       return errorResponse(
-        "VALIDATION",
+        "MIXED_VAGA",
         "Os candidatos pertencem a vagas diferentes (ou alguma análise ainda não existe).",
       );
     }

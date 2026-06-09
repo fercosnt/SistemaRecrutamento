@@ -169,7 +169,10 @@ Deno.test("TRIAGEM-03 — candidatos de vagas diferentes → 400 ('vagas diferen
   const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
   assertEquals(res.status, 400);
   const json = await res.json();
-  assertEquals(json.error_code, "VALIDATION");
+  // MIXED_VAGA (not VALIDATION) so triagemService.invokeComparativo surfaces the
+  // specific pt-BR copy — the two sides were misaligned (frontend checked
+  // MIXED_VAGA, EF emitted VALIDATION). Verifier gap 10-VERIFICATION.
+  assertEquals(json.error_code, "MIXED_VAGA");
   assert(
     /vagas diferentes/i.test(String(json.message)),
     "message must explain candidatos pertencem a vagas diferentes",
