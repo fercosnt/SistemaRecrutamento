@@ -265,7 +265,7 @@ Plans:
   3. Nenhuma devolutiva é gerada para SJT/Redação — apenas mensagem genérica de etapa concluída.
 
 **Plans**: 6 plans
-- [ ] 12-01-PLAN.md — Wave-0 RED test battery (scorer/EF/contract) + LGPD-04 grep extension + SQL smoke runbook
+- [x] 12-01-PLAN.md — Wave-0 RED test battery (scorer/EF/contract) + LGPD-04 grep extension + SQL smoke runbook
 - [ ] 12-02-PLAN.md — Norm-table TS constant + TS-port scorer + Zod schemas + bigfive_itens/devolutivas_candidato migrations (authored)
 - [ ] 12-03-PLAN.md — submit-bigfive-final EF (authorize-then-act + server-side scoring, never-reject)
 - [ ] 12-04-PLAN.md — gerar-devolutiva-bigfive EF + bigfive_devolutiva prompt (hybrid template+IA, RF-19b guard)
@@ -349,7 +349,7 @@ Plans:
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
+| 12. Big Five + Devolutiva | v2.0 | 1/6 | In Progress|  |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
