@@ -1,7 +1,8 @@
 ---
 phase: 11
 slug: avalia-o-ass-ncrona-infra-work-sample-sjt-etapa-3
-status: draft
+status: approved
+reviewed_at: 2026-06-09
 shadcn_initialized: true
 preset: existing project install (shadcn/ui + Radix; tokens in src/styles/globals.css)
 created: 2026-06-09
@@ -108,8 +109,8 @@ All copy pt-BR. Product language rule (LGPD-04): use **"avaliação comportament
 | Per-card meta | Tempo estimado: ~{N} min • {status} |
 | Card status — pending | **Pendente** |
 | Card status — done | **Concluído** |
-| Card CTA — not started | **Começar** |
-| Card CTA — in progress (partial) | **Continuar** |
+| Card CTA — not started | **Começar avaliação** (verb+noun; checker FLAG fix) |
+| Card CTA — in progress (partial) | **Continuar avaliação** |
 | Card CTA — done | (no button; `CheckCircle2` + "Concluído") |
 | Empty state heading (no tests applicable) | **Nenhuma avaliação pendente** |
 | Empty state body | Você não tem avaliações para concluir nesta etapa no momento. |
