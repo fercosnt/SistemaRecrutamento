@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Phase 11 SHIPPED + PROD-live (4 migrations + work_sample_sjt active + avaliar-redacao deployed); verifier human_needed 4/4; code-review C1+C2 (open-case 100% broken) FIXED + EF redeployed + W1-W3; UI MC-badge fix. 4 UAT deferred. Advancing to Phase 12.
-last_updated: "2026-06-09T08:11:37.216Z"
+last_updated: "2026-06-09T08:23:36.276Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 11
   completed_phases: 6
   total_plans: 40
-  completed_plans: 38
+  completed_plans: 39
   percent: 55
 ---
 
@@ -128,6 +128,7 @@ Last activity: 2026-06-09
 | Phase 12 P12-01 | 30min | 2 tasks | 6 files |
 | Phase 12 P12-03 | 20min | 1 tasks | 1 files |
 | Phase 12 P12-04 | 6 min | 2 tasks | 3 files |
+| Phase 12 P12-05 | ~10 min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,9 @@ Last activity: 2026-06-09
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [12-05]: candidate Big Five questionnaire = 120 Likert paginated 12×10 in the reused Phase-11 glass shell; autosave teste='big_five' reusing useAutosaveAvaliacao + respostas_avaliacao + 42501 back-lock; neutral {n}/120 progress only — never a score during (RNF-07a / D-12-AVAL-04). Client submit body is the EXACT .strict twin of the EF SubmitBigfiveFinalBodySchema (no `as never`); 12-01 contract test GREEN end-to-end.
+- [12-05]: RH big_five scorecard reuses ScorecardAvaliacao + SCORES_ALLOWLIST (never select('*')), marked CONTEXTUAL/não-eliminatório; SugestaoIABadge ONLY on the AI resumo_executivo, not the raw percentil rows (D-12-AVAL-08). Devolutiva (DevolutivaBigFiveView) is the ONE candidate-facing percentile surface — own-row loadDevolutiva allowlist; "Sensibilidade Emocional" (zero clinical label); LGPD/CFP footer assembled from fragments so the negated "não é teste psicológico" passes the src/ forbidden-string guard.
+- [12-05]: bigfiveService uses two NARROW confined casts (get_bigfive_itens RPC name + devolutivas_candidato table name), NOT a blanket UntypedClient — drop both after the 12-06 BLOCKING apply/regen wave regenerates database.types.ts. vitest 476/476, build 0, tsc 291 (≤293).
 - [08-04]: survivor double-write resolved by dropping the explicit historico_candidatura INSERT — the Phase-6 avancar_etapa() BEFORE-UPDATE trigger owns the single survivor row via etapa_justificativa; its auto_rejeitado=true is the documented system-write marker, NOT a rejection (status stays aguardando_resposta, etapa=triagem). Confirmed live: survivor hist_rows 2→1.
 - [08-04]: publish_vaga D-09 open-ended count MUST use tipo_resposta IN ('texto_curto','texto_longo') — the tipo_resposta_pergunta enum has NO 'texto' value; the original literal threw 22P02 for any vaga with perguntas, breaking publish entirely. Verify enum literals against live pg_enum before shipping a FILTER/WHERE on an enum column.
 - [08-04]: migration 20260608000001 pushed cleanly via `supabase db push --linked` with NO SQLSTATE 42601 — the no-BEGIN/COMMIT-wrapper D-22 authoring is sufficient to avoid the trip even with $$ body + adjacent COMMENT/REVOKE/GRANT. First Phase-8 PL/pgSQL migration to push without the SQL-Editor workaround. (MCP execute_sql not surfaced to the executor; `supabase db query --linked` Management-API path used for probes/smokes.)
@@ -286,7 +290,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-09T08:11:22.476Z
+Last session: 2026-06-09T08:23:36.267Z
 Stopped at: Phase 11 SHIPPED + PROD-live (4 migrations + work_sample_sjt active + avaliar-redacao deployed); verifier human_needed 4/4; code-review C1+C2 (open-case 100% broken) FIXED + EF redeployed + W1-W3; UI MC-badge fix. 4 UAT deferred. Advancing to Phase 12.
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.

@@ -269,7 +269,7 @@ Plans:
 - [x] 12-02-PLAN.md — Norm-table TS constant + TS-port scorer + Zod schemas + bigfive_itens/devolutivas_candidato migrations (authored)
 - [x] 12-03-PLAN.md — submit-bigfive-final EF (authorize-then-act + server-side scoring, never-reject)
 - [x] 12-04-PLAN.md — gerar-devolutiva-bigfive EF + bigfive_devolutiva prompt (hybrid template+IA, RF-19b guard)
-- [ ] 12-05-PLAN.md — Candidate questionnaire + in-app devolutiva view + RH contextual scorecard + routes
+- [x] 12-05-PLAN.md — Candidate questionnaire + in-app devolutiva view + RH contextual scorecard + routes
 - [ ] 12-06-PLAN.md — [BLOCKING] PROD apply: migrations + prompt is_active + 2 EFs deploy JWT-ON + db:types + smokes
 **UI hint**: yes
 
@@ -349,7 +349,7 @@ Plans:
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 12. Big Five + Devolutiva | v2.0 | 4/6 | In Progress|  |
+| 12. Big Five + Devolutiva | v2.0 | 5/6 | In Progress|  |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
