@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: Completed 11-05-PLAN.md
-last_updated: "2026-06-09T06:42:26.931Z"
+status: verifying
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-06-09T06:48:48.351Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 11
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 34
-  completed_plans: 33
-  percent: 45
+  completed_plans: 34
+  percent: 55
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 Phase: 11 (Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-09
 
 ## Latest Plan (05-07 gap-closure)
@@ -124,6 +124,7 @@ Last activity: 2026-06-09
 | Phase Phase 11 P02 P11-02 | 22min | 3 tasks | 6 files |
 | Phase 11 P11-03 | ~18 min | 2 tasks | 6 files |
 | Phase 11 P11-05 | 22min | 2 tasks | 6 files |
+| Phase 11 P11-06 | 5min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -243,6 +244,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 11-03 fake-timer bridge
 - [Phase ?]: 11-03 injected upsert + confined types cast
 - [Phase ?]: 11-05: candidate Avaliação UI wired to live RPCs/EF (AvaliacaoContainer presentational+connected, SJT MC + open-case); RNF-07a neutral status, RLS back-lock via useAutosaveAvaliacao locked state
+- [Phase ?]: 11-06: RH scorecard reads scores_candidato via explicit column allowlist (never select('*')) — T-11-06-01; candidate denied by RLS
+- [Phase ?]: 11-06: every AI-derived RH block carries reused SugestaoIABadge (RNF-07a); pendente_humano shows neutral 'Requer revisão humana' — system never auto-rejects
 
 ### Pending Todos
 
@@ -277,7 +280,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-09T06:42:15.009Z
+Last session: 2026-06-09T06:48:26.910Z
 Stopped at: Completed 11-03-PLAN.md
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
