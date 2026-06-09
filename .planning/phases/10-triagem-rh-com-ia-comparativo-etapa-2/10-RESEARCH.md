@@ -447,12 +447,14 @@ export function exportComparativo(ranking: RankedCandidate[]) {
 
 **Non-empty:** these 6 assumptions need confirmation before they become locked decisions. A3 and A4 are the highest-impact (they change the prompt contract).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **`resumo_cv` source (A3).** CvJobMatchSchema has no resumo_cv field and no CV-text extractor ships. Options: respostas-only V1 (lowest risk), run `cv_summary` prompt (extra call + cost), or extend the schema (MAJOR bump). **Recommendation:** respostas-only + a fixed "CV anexado" note for V1; revisit in a later phase.
-2. **Comparativo double-evaluation vs ≤5s (A4).** The prompt prescribes double-eval for position-bias; the SLA may forbid it. **Recommendation:** single-eval V1, document the bias tradeoff, measure P95 in UAT.
-3. **Backfill of pre-trigger candidaturas.** Survivors inserted before the trigger exists have no analysis. **Recommendation:** one-time invoke loop OR rely on the reprocess button; decide in planning.
-4. **`pontos_fortes`/`gaps` as text[] vs structured.** Zod gives objects (`{competency, evidence, impact}`); the table column is `text[]`. **Recommendation:** flatten to `competency` strings for the array column; keep full objects in `ai_call_logs.raw_response` for audit.
+> All 4 closed via the user during plan-phase; see CONTEXT.md `### Decisões resolvidas pós-research (2026-06-08)`.
+
+1. **`resumo_cv` source (A3).** CvJobMatchSchema has no resumo_cv field and no CV-text extractor ships. Options: respostas-only V1 (lowest risk), run `cv_summary` prompt (extra call + cost), or extend the schema (MAJOR bump). ~~Recommendation: respostas-only.~~ **RESOLVED:** user chose to **extract the CV PDF text inside the EF** (Deno-compatible parser, e.g. `unpdf`); `resumo_cv` is a faithful CV summary, not respostas-only. Extraction failure → analysis proceeds on respostas + flag `cv_nao_extraido`, never breaks the row. (CONTEXT.md post-research decision #1.)
+2. **Comparativo double-evaluation vs ≤5s (A4).** The prompt prescribes double-eval for position-bias; the SLA may forbid it. **RESOLVED:** **single-eval V1** to meet P95 ≤5s; mitigate position bias by anchoring on the stable `score_match` + ordering candidates by score before the prompt; double-eval deferred to V2 and documented in the plan. (CONTEXT.md post-research decision #2.)
+3. **Backfill of pre-trigger candidaturas.** Survivors inserted before the trigger exists have no analysis. **RESOLVED:** **reprocess button only** — trigger covers all NEW candidaturas; old ones (test data) show "análise pendente/falhou" with a Reprocessar análise button. No one-time historical loop. (CONTEXT.md post-research decision #3.)
+4. **`pontos_fortes`/`gaps` as text[] vs structured.** Zod gives objects (`{competency, evidence, impact}`); the table column is `text[]`. **RESOLVED:** flatten to concise `competency` strings for the `text[]` columns; keep full structured objects in `resumo_respostas`/`ai_call_logs.raw_response` for audit. (Claude's discretion, ratified in CONTEXT.md.)
 
 ## Environment Availability
 
