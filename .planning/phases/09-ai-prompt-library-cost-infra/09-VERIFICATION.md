@@ -196,3 +196,16 @@ The 4 human verification items are all in the deploy/secrets/live-smoke category
 
 _Verified: 2026-06-08T02:30:00Z_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## Human Validation (2026-06-08) — Fernando
+
+Items ①②③ DONE: ① Vault secrets `project_url` + `edge_invoke_key` created; ② `cost-alerter` deployed `--no-verify-jwt`; ③ `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` set in EF secrets.
+
+Deferred (non-blocking):
+- `RESEND_API_KEY` — alert rows write to DB without email; `COST_ALERTER_TO/FROM` on defaults. Set when email delivery is wanted.
+- Prompt `is_active=true` activation — deferred until first merge to `main` (sync-prompts hydrates real templates first, per sequencing note). Placeholders remain inactive.
+- Live `callAi()` smoke — naturally runs when Phase 10 wires the first consumer EF.
+
+**Phase 9 accepted as complete** — infra live in PROD, AI keys set; remaining items tracked for Phase 10 consumer wiring.
