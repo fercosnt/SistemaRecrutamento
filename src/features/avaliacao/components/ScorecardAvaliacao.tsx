@@ -83,8 +83,9 @@ function McBreakdown({ row }: { row: ScoreRow }) {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-white">Múltipla escolha</CardTitle>
+          {/* MC scoring is purely deterministic (Σ peso) — NO AI. No SugestaoIABadge here
+              (UI-review fix: the badge belongs only on AI-derived blocks / CasoAbertoBreakdown). */}
           <div className="flex items-center gap-2">
-            <SugestaoIABadge variant="full" />
             {pendente ? <RevisaoHumanaMarker /> : null}
           </div>
         </div>
