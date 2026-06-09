@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
+status: completed
 stopped_at: Phase 8 UI-SPEC approved
-last_updated: "2026-06-09T02:22:35.630Z"
+last_updated: "2026-06-09T02:38:35.950Z"
 last_activity: 2026-06-09
 progress:
   total_phases: 11
   completed_phases: 4
   total_plans: 28
-  completed_plans: 23
+  completed_plans: 25
   percent: 36
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 10 (Triagem RH com IA + Comparativo (Etapa 2)) — EXECUTING
-Plan: 3 of 6
-Status: 10-02 complete (3 migrations authored, no-wrapper; PROD apply deferred to 10-04)
+Plan: 4 of 6
+Status: 10-03 complete (2 EFs authored — analise-candidato-individual + comparativo-candidatos; 9/9 Wave-0 deno tests GREEN). EF deploy + PROD migration apply + prompt is_active flip all deferred to 10-04 [BLOCKING].
 Last activity: 2026-06-09
 
 ## Latest Plan (05-07 gap-closure)
@@ -118,6 +118,7 @@ Last activity: 2026-06-09
 | Phase 09 P03 | ~22min (fully autonomous) | 3 tasks (schema 6 tables/3 enums; RPCs+triggers; cron+seed) | 4 migrations created. Commits: a1f9ea5 (Task 1 schema) + b27498b (Task 2 RPCs/triggers) + 3cac386 (Task 3 cron+seed) + metadata. AUTHORED-NOT-APPLIED (apply is [BLOCKING] 09-07). All FKs retargeted to live pt-BR (candidatos/vagas/usuarios_rh) — zero English candidates/jobs/recruiters; recruiter_alerts CREATED (decision #4 col set + administrador+rh RLS + dedup index). 3 SECURITY DEFINER RPCs (promote_to_canary/promote_canary_to_active/rollback_to_version) in-body 'administrador' 42501 + GRANT authenticated (NOT PRD's GRANT TO admin); deactivate-then-activate for unique_active_per_type EXCLUDE (Pitfall 5); immutability trigger guards template/hash/semver only (IS DISTINCT FROM, state cols editable); notify_cost_anomaly AFTER INSERT/UPDATE -> net.http_post cost-alerter w/ Vault Bearer + per-(threshold,vaga,day) dedup + graceful Vault-absent skip. 2 crons only (aggregation 01:30 + purge 02:00); HITL-SLA + Art.18 OMITTED (decision #5; Art.18->Ph15); pgmq + known_schema_versions OUT of v1. Seed 7 v1.0.0 is_active=false (cv_summary haiku, 6 sonnet) content_hash via encode(extensions.digest,'hex'). 2 Rule-1 fixes: ON DELETE SET NULL on NOT NULL FK cols (contradiction) → dropped NOT NULL on ai_call_logs.candidato_id/vaga_id; content_hash bytea→text via encode(). No BEGIN/COMMIT wrapper (D-22). tsc baseline 293=293 (SQL outside scope). Hook bypass git -c core.hooksPath=/dev/null. |
 | Phase 10 P10-01 | 16min | 3 tasks | 9 files |
 | Phase 10 P10-02 | ~12min (fully autonomous) | 3 tasks (analise+comparativo tables+RLS; trg_candidatura_analise survivor-only pg_net trigger; reprocessar_analise SECURITY DEFINER RPC) | 3 migrations created. Commits: d3f5ec7 (Task 1 tables+RLS) + ac710be (Task 2 trigger) + 72d9d5d (Task 3 RPC) + metadata. AUTHORED-NOT-APPLIED — PROD apply is [BLOCKING] Plan 10-04 (no db push / no MCP execute_sql this plan). analise_candidato_vaga UNIQUE(candidatura_id) + score_match CHECK 0-100 + status enum (pendente/sucesso/falhou) + vaga_id+score DESC index; comparativo_solicitado RF-09 audit (candidatura_ids uuid[] + ranking jsonb + latencia_ms). RLS candidato-DENY by ABSENCE of policy (no candidato/anon SELECT, no INSERT/UPDATE/DELETE → service_role-only writes) — V8 PII [[reference_select_star_leaks_pii]]; RH/admin SELECT via subselect app_metadata.role idiom. Trigger survivor guard (status='rejeitado' OR opcao_knockout_id IS NOT NULL → RETURN NEW) mirrors notify_cost_anomaly pg_net template (SECURITY DEFINER + search_path='' + Vault project_url/edge_invoke_key graceful-skip + Bearer http_post to analise-candidato-individual). reprocessar_analise RPC re-fires the SAME dispatch, role IN ('rh','administrador') guard + rh own-vaga guard via **vagas.created_by = auth.uid()** (confirmed live owner column from database.types.ts:2720 — NOT the speculative responsavel_id/criado_por; admin bypasses ownership); GRANT EXECUTE TO authenticated only + REVOKE FROM PUBLIC. All 3 files NO BEGIN/COMMIT wrapper (D-22). 0 behavior deviations (1 concretization: vagas owner column resolved to created_by). All 3 verify-block greps OK. Hook bypass `git -c core.hooksPath=/dev/null`. **Schema foundation for TRIAGEM-01/02/03 — Plan 10-03 (analise EF + Bearer validation) + [BLOCKING] 10-04 (PROD apply + types regen + SMOKE-1..5) next.** |
+| Phase 10 P10-03 | ~30 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
