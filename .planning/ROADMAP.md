@@ -228,7 +228,29 @@ Plans:
   3. O case aberto SJT é avaliado por `avaliar-redacao` com rubric BARS (0-25 + citações + red_flags Zod-validado) e `<13/25 OU red flag` roteia para revisão humana.
   4. Autosave a cada 30s preserva progresso, o back fica bloqueado após avançar etapa, e RLS + EF impedem o candidato de fazer testes fora de `etapa_atual='avaliacao_assincrona'`.
 
-**Plans**: TBD
+**Plans**: 6 plans (5 waves)
+Plans:
+**Wave 1**
+
+- [ ] 11-01-PLAN.md — Wave-0 RED scaffolds (deno avaliar-redacao authz + autosave/container vitest + testesAplicaveis SJT case) + SQL-smoke runbook + LGPD-04 grep extended to migrations
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 11-02-PLAN.md — 4 migrations (scores_candidato generic sink + perguntas SJT seed + respostas_avaliacao etapa-gate + pontuar_sjt RPC) + _shared schema + avaliar-redacao EF [no-wrapper authoring; PROD apply deferred to 11-04]
+- [ ] 11-03-PLAN.md — testesAplicaveis SJT-key extension + avaliacao feature non-UI (respostaAvaliacaoSchema + useAvaliacaoDraft + useAutosaveAvaliacao back-lock + avaliacaoService allowlist/RPC/EF)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 11-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD + flip work_sample_sjt is_active=true + deploy avaliar-redacao EF (JWT-ON) + db:types + 8 SQL smokes [non-autonomous]
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 11-05-PLAN.md — candidate UI: AvaliacaoContainer (glass shell, cards per teste, neutral RNF-07a) + SJT MC screen (radio-group + soft timer + shuffle) + SJT open-case screen (textarea + word-count + autosave + back-lock) + guarded route
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 11-06-PLAN.md — RH scorecard: scoresRhService allowlist read (no select('*')) + useScorecardCandidato + ScorecardAvaliacao (per-dimension + SugestaoIABadge + 'Requer revisão humana' on pendente_humano)
+
 **UI hint**: yes
 
 ### Phase 12: Big Five + Devolutiva
@@ -320,7 +342,7 @@ Plans:
 | 8. Inscrição & Knock-out (Etapa 1) | v2.0 | 5/5 | Complete   | 2026-06-08 |
 | 9. AI Prompt Library & Cost Infra | v2.0 | 7/8 | In Progress|  |
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/0 | Not started | - |
+| 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 0/6 | Planned | - |
 | 12. Big Five + Devolutiva | v2.0 | 0/0 | Not started | - |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
