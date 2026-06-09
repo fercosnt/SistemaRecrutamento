@@ -112,3 +112,68 @@ export const AvaliarRedacaoBodySchema = z.object({
 });
 
 export type AvaliarRedacaoBody = z.infer<typeof AvaliarRedacaoBodySchema>;
+
+// ============================================================================
+// BIG FIVE (Phase 12 — AVAL-04 / AVAL-08)
+// ============================================================================
+
+/**
+ * Body do `submit-bigfive-final` (invocado pelo candidato). Aceita SÓ o id da
+ * candidatura + as 120 respostas Likert (cada uma int 1..5) — NUNCA um score
+ * (anti-tamper, Pitfall 3: o cliente posta só as respostas; o score é derivado
+ * server-side). `.strict()` rejeita qualquer campo extra (ex: `score`) em vez de
+ * silenciosamente descartá-lo. O handler valida adicionalmente que `respostas` cobre
+ * exatamente os ids 1..120 (defesa em profundidade).
+ *
+ * @see supabase/functions/_shared/bigfive-scoring.ts (o scorer que consome estas respostas)
+ * @see src/features/avaliacao/__tests__/bigfive-contract.test.ts (o contrato cliente↔EF)
+ */
+export const SubmitBigfiveFinalBodySchema = z
+  .object({
+    candidatura_id: z.string().uuid(),
+    // exatamente as 120 respostas Likert, cada uma int 1..5; SEM campo de score
+    respostas: z.record(z.string(), z.number().int().min(1).max(5)),
+  })
+  .strict();
+
+export type SubmitBigfiveFinalBody = z.infer<typeof SubmitBigfiveFinalBodySchema>;
+
+/**
+ * Output estruturado da devolutiva D-lite (AVAL-08 / RF-19a, PRD RFB-15). Híbrido:
+ * 25 templates oficiais de banda (5 dims × 5 bandas) + IA que SÓ personaliza
+ * (nome/cargo/percentil) — nunca inventa. Linguagem LGPD-04 (sem nominalização CRP,
+ * nunca "teste psicológico"/"diagnóstico"). "N" é renderizado como "Sensibilidade
+ * Emocional", nunca "Neuroticismo".
+ *
+ * @see docs/conhecimento/big-five/templates-devolutiva.md (os 25 templates + disclaimers)
+ * @see docs/prds/m2-funil-rh/PRD-bigfive-revisado.md RFB-15 (schema de saída)
+ */
+export const BigfiveDevolutivaSchema = z.object({
+  cabecalho: z.object({
+    nome: z.string(),
+    dashboard: z
+      .array(
+        z.object({
+          dim: z.enum(["O", "C", "E", "A", "N"]),
+          percentil: z.number().int().min(1).max(99),
+          banda: z.enum(["muito_baixo", "mod_baixo", "medio", "mod_alto", "muito_alto"]),
+        }),
+      )
+      .length(5),
+  }),
+  paginas: z
+    .array(
+      z.object({
+        dim: z.enum(["O", "C", "E", "A", "N"]),
+        banda: z.enum(["muito_baixo", "mod_baixo", "medio", "mod_alto", "muito_alto"]),
+        percentil: z.number().int().min(1).max(99),
+        texto_interpretativo: z.string().min(50),
+        palavras: z.number().int().min(100).max(250),
+      }),
+    )
+    .length(5),
+  disclaimer_emocional: z.string(),
+  disclaimer_lgpd_crp: z.string(),
+});
+
+export type BigfiveDevolutiva = z.infer<typeof BigfiveDevolutivaSchema>;
