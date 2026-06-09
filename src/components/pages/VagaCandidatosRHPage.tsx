@@ -41,14 +41,17 @@ import {
   PaginationPrevious,
 } from '../ui/pagination'
 import { useTriagemPanel } from '@/features/triagem/hooks/useTriagemPanel'
-import { reprocessarAnalise } from '@/features/triagem/services/triagemService'
+import {
+  reprocessarAnalise,
+  ETAPA_M2_OPTIONS,
+  type EtapaFunilM2,
+} from '@/features/triagem/services/triagemService'
 import {
   TriagemTable,
   type TriagemTableRow,
 } from '@/features/triagem/components/TriagemTable'
 import { useVaga } from '@/features/vagas/hooks/useVagas'
-import type { StatusCandidatura, EtapaProcesso } from '@/features/vagas/types/vagasTypes'
-import { ETAPA_PROCESSO_LABELS } from '@/features/vagas/types/vagasTypes'
+import type { StatusCandidatura } from '@/features/vagas/types/vagasTypes'
 
 const STATUS_OPTIONS: { value: StatusCandidatura; label: string }[] = [
   { value: 'aguardando_resposta', label: 'Aguardando Resposta' },
@@ -57,8 +60,6 @@ const STATUS_OPTIONS: { value: StatusCandidatura; label: string }[] = [
   { value: 'rejeitado', label: 'Rejeitado' },
   { value: 'finalizado', label: 'Finalizado' },
 ]
-
-const ETAPA_OPTIONS = Object.entries(ETAPA_PROCESSO_LABELS) as [EtapaProcesso, string][]
 
 const PAGE_LIMIT = 20
 
@@ -71,7 +72,7 @@ export function VagaCandidatosRHPage() {
 
   // Filtros + paginação + seleção
   const [statusFiltro, setStatusFiltro] = useState<StatusCandidatura | 'todos'>('todos')
-  const [etapaFiltro, setEtapaFiltro] = useState<EtapaProcesso | 'todas'>('todas')
+  const [etapaFiltro, setEtapaFiltro] = useState<EtapaFunilM2 | 'todas'>('todas')
   const [busca, setBusca] = useState('')
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -241,7 +242,7 @@ export function VagaCandidatosRHPage() {
             <Select
               value={etapaFiltro}
               onValueChange={(value) => {
-                setEtapaFiltro(value as EtapaProcesso | 'todas')
+                setEtapaFiltro(value as EtapaFunilM2 | 'todas')
                 setPage(1)
               }}
             >
@@ -252,7 +253,7 @@ export function VagaCandidatosRHPage() {
                 <SelectItem value="todas" className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer">
                   Todas as etapas
                 </SelectItem>
-                {ETAPA_OPTIONS.map(([value, label]) => (
+                {ETAPA_M2_OPTIONS.map(({ value, label }) => (
                   <SelectItem
                     key={value}
                     value={value}

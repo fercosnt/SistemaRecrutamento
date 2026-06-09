@@ -15,10 +15,11 @@
 
 import { supabase } from '@/lib/supabase/client'
 import type {
-  EtapaProcesso,
   PaginationParams,
   StatusCandidatura,
 } from '@/features/vagas/types/vagasTypes'
+// NOTE: `EtapaFunilM2` (o enum M2 vivo no DB) é declarado mais abaixo neste módulo;
+// type-aliases são hoisted, então pode ser referenciado em posições de tipo acima.
 
 /**
  * Erro do serviço de triagem (espelha CandidaturasServiceError).
@@ -45,7 +46,8 @@ export class TriagemServiceError extends Error {
  */
 export interface TriagemFilters {
   status?: StatusCandidatura | null
-  etapa?: EtapaProcesso | null
+  /** Etapa do funil M2 (= `candidaturas.etapa_atual` no DB). W2: era o enum legado M1. */
+  etapa?: EtapaFunilM2 | null
   /** Busca por nome do candidato (ilike). */
   nome?: string | null
 }
@@ -73,7 +75,7 @@ export interface TriagemAnalise {
 export interface TriagemRow {
   id: string
   status: StatusCandidatura
-  etapa_atual: EtapaProcesso
+  etapa_atual: EtapaFunilM2
   created_at: string
   curriculo_nome_original: string | null
   candidato: { id: string; nome_completo: string } | null
@@ -270,6 +272,41 @@ export type EtapaFunilM2 =
 
 /** Próxima etapa após a Triagem (Etapa 2) no funil M2 — usada pelo "Avançar" do comparativo. */
 export const PROXIMA_ETAPA_APOS_TRIAGEM: EtapaFunilM2 = 'avaliacao_assincrona'
+
+/**
+ * W2: rótulos pt-BR do enum M2 `etapa_processo` (= `candidaturas.etapa_atual` no DB).
+ *
+ * O front-end M1 carrega um enum legado `EtapaProcesso` (triagem/bigfive/disc/raven/
+ * cultura/avaliacao_final) que NÃO existe no DB M2 — selecioná-lo no filtro do painel
+ * gerava `eq('etapa_atual','bigfive')` → Postgres 22P02 (invalid enum), e o map de
+ * rótulos M1 mostrava enum cru para etapas M2. Este map (espelha
+ * `Constants.public.Enums.etapa_processo` em database.types.ts na RAIZ) é a fonte de
+ * verdade do filtro + do rótulo da tabela de triagem.
+ */
+export const ETAPA_M2_LABELS: Record<EtapaFunilM2, string> = {
+  inscricao: 'Inscrição',
+  triagem: 'Triagem',
+  avaliacao_assincrona: 'Avaliação Assíncrona',
+  entrevista_online: 'Entrevista Online',
+  entrevista_presencial: 'Entrevista Presencial',
+  decisao_final: 'Decisão Final',
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
+}
+
+/** Opções do filtro de etapa do painel (ordem do funil M2), com rótulos pt-BR. */
+export const ETAPA_M2_OPTIONS: { value: EtapaFunilM2; label: string }[] = (
+  [
+    'inscricao',
+    'triagem',
+    'avaliacao_assincrona',
+    'entrevista_online',
+    'entrevista_presencial',
+    'decisao_final',
+    'aprovado',
+    'rejeitado',
+  ] as EtapaFunilM2[]
+).map((value) => ({ value, label: ETAPA_M2_LABELS[value] }))
 
 export async function updateCandidaturaEtapa(
   candidaturaId: string,

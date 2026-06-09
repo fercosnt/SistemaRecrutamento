@@ -38,8 +38,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/components/ui/utils'
-import type { StatusCandidatura, EtapaProcesso } from '@/features/vagas/types/vagasTypes'
-import { ETAPA_PROCESSO_LABELS } from '@/features/vagas/types/vagasTypes'
+import type { StatusCandidatura } from '@/features/vagas/types/vagasTypes'
+import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '../services/triagemService'
 import { SugestaoIABadge } from './SugestaoIABadge'
 
 // Re-export so the Wave-0 test (and downstream Plans 11-15) can import either path.
@@ -79,7 +79,7 @@ export interface TriagemTableAnalise {
 export interface TriagemTableRow {
   id: string
   candidato: { id: string; nome_completo: string } | null
-  etapa_atual: EtapaProcesso | string
+  etapa_atual: EtapaFunilM2 | string
   status: StatusCandidatura | string
   created_at: string
   analise: TriagemTableAnalise | null
@@ -298,7 +298,7 @@ export function TriagemTable({
 
                   <TableCell>
                     <Badge className="border-white/20 bg-white/10 text-xs font-semibold text-white/80">
-                      {ETAPA_PROCESSO_LABELS[row.etapa_atual as EtapaProcesso] ?? row.etapa_atual}
+                      {ETAPA_M2_LABELS[row.etapa_atual as EtapaFunilM2] ?? row.etapa_atual}
                     </Badge>
                   </TableCell>
 
