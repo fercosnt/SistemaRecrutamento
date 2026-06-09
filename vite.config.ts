@@ -28,6 +28,9 @@
         // not Vitest; their RED scaffolds landed in 10-01 and were left out of this list).
         'supabase/functions/analise-candidato-individual/**/*.test.ts',
         'supabase/functions/comparativo-candidatos/**/*.test.ts',
+        // Phase 11 EF integration test (Deno, https:// specifiers — run under `deno test`,
+        // not Vitest; RED scaffold landed in 11-01, impl in the Phase-11 EF wave).
+        'supabase/functions/avaliar-redacao/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
