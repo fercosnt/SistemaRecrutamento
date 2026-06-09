@@ -241,3 +241,62 @@ export async function invokeComparativo(
 
   return { ranking: data.ranking, latencia_ms: data.latencia_ms }
 }
+
+/**
+ * Move uma candidatura para uma etapa do processo (TRIAGEM — ações inline do comparativo).
+ *
+ * Faz um UPDATE em `candidaturas.etapa_atual`, que dispara o trigger BEFORE UPDATE
+ * `avancar_etapa()` (Phase 6) — este valida a transição e grava a row de auditoria em
+ * `historico_candidatura` na mesma transação. A IA é apenas sugestão: a ação só ocorre
+ * após confirmação humana no alert-dialog (RNF-07a — nunca auto-ação por score).
+ *
+ * - Avançar: `novaEtapa` = próxima etapa do funil M2 (ex.: 'avaliacao_assincrona') — NÃO
+ *   exige justificativa.
+ * - Rejeitar: `novaEtapa` = 'rejeitado' (terminal) — NÃO exige justificativa longa aqui
+ *   (a justificativa detalhada é exigida apenas na Decisão Final / Etapa 6).
+ *
+ * O tipo é o enum `etapa_processo` do DB (funil M2), distinto do legado `EtapaProcesso`
+ * do front-end M1 (schema-drift conhecido — ver vagasTypes.ts).
+ */
+export type EtapaFunilM2 =
+  | 'inscricao'
+  | 'triagem'
+  | 'avaliacao_assincrona'
+  | 'entrevista_online'
+  | 'entrevista_presencial'
+  | 'decisao_final'
+  | 'aprovado'
+  | 'rejeitado'
+
+/** Próxima etapa após a Triagem (Etapa 2) no funil M2 — usada pelo "Avançar" do comparativo. */
+export const PROXIMA_ETAPA_APOS_TRIAGEM: EtapaFunilM2 = 'avaliacao_assincrona'
+
+export async function updateCandidaturaEtapa(
+  candidaturaId: string,
+  novaEtapa: EtapaFunilM2,
+): Promise<void> {
+  if (!candidaturaId) {
+    throw new TriagemServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  const update: { etapa_atual: EtapaFunilM2; status?: StatusCandidatura } = {
+    etapa_atual: novaEtapa,
+  }
+  // Rejeição terminal também marca o status como 'rejeitado' (badge no painel + dashboard).
+  if (novaEtapa === 'rejeitado') {
+    update.status = 'rejeitado'
+  }
+
+  const { error } = await supabase
+    .from('candidaturas')
+    .update(update as never)
+    .eq('id', candidaturaId)
+
+  if (error) {
+    throw new TriagemServiceError(
+      `Não foi possível atualizar a candidatura: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+}
