@@ -17,7 +17,7 @@
  * @see .planning/phases/11-avalia-o-ass-ncrona-infra-work-sample-sjt-etapa-3/11-UI-SPEC.md (open case screen)
  * @module features/avaliacao/components/SjtCasoAbertoScreen
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -103,10 +103,18 @@ export function SjtCasoAbertoScreen() {
   const [texto, setTexto] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // Stable upsert closure (deps [candidaturaId]) so useAutosaveAvaliacao's flush +
+  // unmount-flush effect don't re-arm on every render (W2 — redundant writes).
+  const upsert = useCallback(
+    (payload: Parameters<typeof upsertResposta>[2]) =>
+      upsertResposta(candidaturaId as string, TESTE, payload),
+    [candidaturaId],
+  )
+
   const { update, flushNow, status, locked } = useAutosaveAvaliacao({
     candidaturaId: candidaturaId ?? '',
     teste: TESTE,
-    upsert: (payload) => upsertResposta(candidaturaId as string, TESTE, payload),
+    upsert,
   })
 
   const words = countWords(texto)
