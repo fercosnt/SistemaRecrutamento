@@ -51,6 +51,7 @@ import { CandidatosRHPage } from '../components/pages/CandidatosRHPage'
 import { PerfilCandidatoRHPage } from '../components/pages/PerfilCandidatoRHPage'
 import { VagasRHPage } from '../components/pages/VagasRHPage'
 import { VagaCandidatosRHPage } from '../components/pages/VagaCandidatosRHPage'
+import { ComparativoCandidatosPage } from '../components/pages/ComparativoCandidatosPage'
 import { CriarEditarVagaPage } from '../components/pages/CriarEditarVagaPage'
 import { ConfiguracoesPage } from '../components/pages/ConfiguracoesPage'
 import { MeuPerfilPage } from '../components/pages/MeuPerfilPage'
@@ -303,6 +304,14 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <VagaCandidatosRHPage />
+      </RoleGuard>
+    ),
+  },
+  {
+    path: '/rh/vagas/:id/comparativo',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <ComparativoCandidatosPage />
       </RoleGuard>
     ),
   },

@@ -24,6 +24,10 @@
         'supabase/functions/**/circuit-breaker.test.ts',
         'supabase/functions/**/injection-detector.test.ts',
         'supabase/functions/**/pii-masker.test.ts',
+        // Phase 10 EF integration tests (Deno, https:// specifiers — run under `deno test`,
+        // not Vitest; their RED scaffolds landed in 10-01 and were left out of this list).
+        'supabase/functions/analise-candidato-individual/**/*.test.ts',
+        'supabase/functions/comparativo-candidatos/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',

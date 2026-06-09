@@ -110,8 +110,16 @@ export function VagaCandidatosRHPage() {
   }
 
   const handleCompare = (ids: string[]) => {
-    // A tela de comparativo + PDF chegam no Plan 10-06; aqui apenas coletamos os ids.
-    toast.info(`${ids.length} candidatos selecionados para comparativo.`)
+    // Navega para a tela de comparativo (10-06) carregando ids + nomes na ordem de
+    // score DESC (a EF anonimiza C1/C2… nessa ordem). O painel sabe o nome; a EF não.
+    const ordered = rows.filter((r) => ids.includes(r.id))
+    const candidatos = ordered.map((r) => ({
+      id: r.id,
+      nome: r.candidato?.nome_completo ?? 'Candidato',
+    }))
+    navigate(`/rh/vagas/${vagaId}/comparativo`, {
+      state: { ids: candidatos.map((c) => c.id), candidatos },
+    })
   }
 
   // Loading
