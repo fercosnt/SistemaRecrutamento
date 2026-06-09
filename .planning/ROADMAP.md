@@ -264,7 +264,13 @@ Plans:
   2. Após concluir, `gerar-devolutiva-bigfive` produz devolutiva híbrida (25 templates + IA: 5 dim + percentil + 5 bandas + ~150-200 palavras/dim + disclaimers LGPD sem nominalização CRP), entregue in-app + email e persistida em `devolutivas_candidato`.
   3. Nenhuma devolutiva é gerada para SJT/Redação — apenas mensagem genérica de etapa concluída.
 
-**Plans**: TBD
+**Plans**: 6 plans
+- [ ] 12-01-PLAN.md — Wave-0 RED test battery (scorer/EF/contract) + LGPD-04 grep extension + SQL smoke runbook
+- [ ] 12-02-PLAN.md — Norm-table TS constant + TS-port scorer + Zod schemas + bigfive_itens/devolutivas_candidato migrations (authored)
+- [ ] 12-03-PLAN.md — submit-bigfive-final EF (authorize-then-act + server-side scoring, never-reject)
+- [ ] 12-04-PLAN.md — gerar-devolutiva-bigfive EF + bigfive_devolutiva prompt (hybrid template+IA, RF-19b guard)
+- [ ] 12-05-PLAN.md — Candidate questionnaire + in-app devolutiva view + RH contextual scorecard + routes
+- [ ] 12-06-PLAN.md — [BLOCKING] PROD apply: migrations + prompt is_active + 2 EFs deploy JWT-ON + db:types + smokes
 **UI hint**: yes
 
 ### Phase 13: Redação Cultural + Revisão Humana
