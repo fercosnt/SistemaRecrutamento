@@ -76,6 +76,17 @@ Entrega a **infraestrutura da Etapa 3 (Avaliação Assíncrona)** + o **Work Sam
 
 </specifics>
 
+<post_research>
+## Decisões resolvidas pós-research (2026-06-09 — achadas lendo os bancos/templates live)
+
+- **CORREÇÃO de fato:** o prompt da library é `work_sample_sjt` (não `sjt_evaluation`). O DB seed, o enum `llm_call_type`, o frontmatter do template 07 e a Zod `WorkSampleScoringSchema` usam `work_sample_sjt`. `loadPrompt('sjt_evaluation')` lançaria `PromptNotConfiguredError`. A EF `avaliar-redacao` DEVE chamar `loadPrompt('work_sample_sjt')`. (O `sjt_evaluation` em `SCHEMA_VERSIONS` é uma chave órfã.)
+- **Composto 0-25 (SJT caso aberto):** **ponderado por rubric** (PRD-fiel) — composto = soma ponderada das dimensões (pesos do rubric da pergunta, ex: dentista 25/20/25/15/15%) × score 1-5, escalado p/ 0-25. Qualquer dimensão `insufficient_evidence` → `pendente_humano` (NÃO fabrica score). Os pesos por dimensão ficam no rubric da `perguntas` (metadata).
+- **Threshold MC (SJT múltipla escolha):** **configurável por vaga** — `testes_aplicaveis` ganha `threshold.mc_min_pct` (default **60%** do CONTEXT); cada banco/cargo pode sobrescrever (dentista=83% / `<10/12`). Sempre `<threshold OU ≥1 atencao → pendente_humano`, nunca auto-reject.
+- **`work_sample_sjt` é seeded `is_active=false`** → flip `is_active=true` em PROD é um passo [BLOCKING] no wave de apply (como o cv_job_match/comparative_ranking da Phase 10).
+- **PG ≥15:** Supabase Pro é PG15+; ok usar `UNIQUE NULLS NOT DISTINCT` se preciso (A2) — mas preferir um idiom portável onde der.
+
+</post_research>
+
 <deferred>
 ## Deferred Ideas
 
