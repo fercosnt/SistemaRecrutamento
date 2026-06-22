@@ -41,6 +41,11 @@ import {
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
 import { ComparativoBodySchema, ComparativeRankingSchema } from "../_shared/analise-schemas.ts";
+// SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
+// pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
+// deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
+import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import OpenAI from "npm:openai@6.42.0";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados de cost-alerter / submit-candidatura)
@@ -294,11 +299,7 @@ if (import.meta.main) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // SDKs reais só são construídos em produção (NUNCA importados nos testes); os
-    // specifiers são montados em runtime para não serem resolvidos no type-check
-    // offline (mesmo padrão dos pins comentados em ai-client.ts).
-    const { default: Anthropic } = await import(["npm:", "@anthropic-ai/sdk@0.102.0"].join(""));
-    const { default: OpenAI } = await import(["npm:", "openai@6.42.0"].join(""));
+    // SDKs construídos a partir dos imports estáticos do topo (resolvíveis no deploy).
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 

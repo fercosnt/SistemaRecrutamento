@@ -43,6 +43,13 @@ import {
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
 import { AnaliseBodySchema, CvJobMatchSchema } from "../_shared/analise-schemas.ts";
+// SDKs + unpdf como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
+// pacote da lista de dependências do deploy → ERR_MODULE_NOT_FOUND no runtime do EF (o EF nunca rodou
+// em PROD). Precedente que deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa
+// `npm:zod@3.25.76` estático.
+import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import OpenAI from "npm:openai@6.42.0";
+import { extractText, getDocumentProxy } from "npm:unpdf@0.11.0";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados de cost-alerter)
@@ -84,11 +91,8 @@ const RESPOSTAS_CHAR_BUDGET = 8_000;
  */
 async function extractCvText(pdfBytes: Uint8Array): Promise<string | null> {
   try {
-    // Specifier construído em runtime (não-literal) para que o `npm:` só resolva
-    // no runtime Deno do EF — o type-check dos testes (sem rede) não o alcança,
-    // mesmo padrão dos SDKs pinados em ai-client.ts.
-    const unpdfSpecifier = ["npm:", "unpdf@0.11.0"].join("");
-    const { extractText, getDocumentProxy } = await import(unpdfSpecifier);
+    // unpdf via import estático do topo (resolvível no deploy; o dynamic `.join("")`
+    // anterior estourava ERR_MODULE_NOT_FOUND no runtime → CV nunca era extraído).
     const pdf = await getDocumentProxy(pdfBytes);
     const { text } = await extractText(pdf, { mergePages: true });
     const joined = Array.isArray(text) ? text.join("\n") : String(text ?? "");
@@ -368,11 +372,7 @@ if (import.meta.main) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // SDKs reais só são construídos em produção (NUNCA importados nos testes). Os
-    // specifiers são montados em runtime para que o `npm:` não seja resolvido no
-    // type-check offline dos testes (mesmo padrão dos pins comentados em ai-client.ts).
-    const { default: Anthropic } = await import(["npm:", "@anthropic-ai/sdk@0.102.0"].join(""));
-    const { default: OpenAI } = await import(["npm:", "openai@6.42.0"].join(""));
+    // SDKs construídos a partir dos imports estáticos do topo (resolvíveis no deploy).
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
