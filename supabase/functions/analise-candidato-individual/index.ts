@@ -48,7 +48,9 @@ import { AnaliseBodySchema, CvJobMatchSchema } from "../_shared/analise-schemas.
 // em PROD). Precedente que deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa
 // `npm:zod@3.25.76` estático.
 import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.102.0/helpers/zod";
 import OpenAI from "npm:openai@6.42.0";
+import { zodResponseFormat } from "npm:openai@6.42.0/helpers/zod";
 import { extractText, getDocumentProxy } from "npm:unpdf@0.11.0";
 
 // ---------------------------------------------------------------------------
@@ -126,6 +128,9 @@ export interface AnaliseDeps {
   supabaseAdmin: any;
   /** Segredo esperado no Bearer (== service_role JWT em produção). */
   serviceKey: string;
+  /** Builders de structured-output (prod injeta os reais; testes omitem → callAi usa no-op). */
+  zodOutputFormat?: (schema: unknown, name: string) => unknown;
+  zodResponseFormat?: (schema: unknown, name: string) => unknown;
 }
 
 /**
@@ -257,7 +262,19 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         vaga_id,
         schema: CvJobMatchSchema,
       },
-      { anthropic, openai, supabase: supabaseAdmin },
+      // zodOutputFormat/zodResponseFormat REAIS injetados — sem eles o callAi cai no
+      // default no-op `(s)=>s` e manda o schema cru, quebrando AMBOS os provedores
+      // (Anthropic output_config.format inválido + OpenAI "Missing response_format.type").
+      // Encaminha os builders injetados (prod) — sem eles o callAi cai no no-op `(s)=>s`
+      // e manda o schema cru, quebrando AMBOS os provedores (Anthropic output_config.format
+      // inválido + OpenAI "Missing response_format.type"). Testes omitem → no-op (inalterado).
+      {
+        anthropic,
+        openai,
+        supabase: supabaseAdmin,
+        zodOutputFormat: deps.zodOutputFormat,
+        zodResponseFormat: deps.zodResponseFormat,
+      },
     );
 
     // Se callAi não produziu output válido (Anthropic esgotou retries E o fallback
@@ -381,6 +398,9 @@ if (import.meta.main) {
       openai,
       supabaseAdmin,
       serviceKey: expectedSecret,
+      // Adapters p/ a assinatura `(schema, name)` do CallAiDeps (Anthropic usa só o schema).
+      zodOutputFormat: (s, _n) => zodOutputFormat(s as never),
+      zodResponseFormat: (s, n) => zodResponseFormat(s as never, n),
     });
   });
 }

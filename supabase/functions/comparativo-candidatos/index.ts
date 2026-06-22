@@ -45,7 +45,9 @@ import { ComparativoBodySchema, ComparativeRankingSchema } from "../_shared/anal
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
 // deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
 import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.102.0/helpers/zod";
 import OpenAI from "npm:openai@6.42.0";
+import { zodResponseFormat } from "npm:openai@6.42.0/helpers/zod";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados de cost-alerter / submit-candidatura)
@@ -83,6 +85,9 @@ export interface ComparativoDeps {
   supabaseAdmin: any;
   // deno-lint-ignore no-explicit-any
   supabaseUser: any;
+  /** Builders de structured-output (prod injeta os reais; testes omitem → callAi usa no-op). */
+  zodOutputFormat?: (schema: unknown, name: string) => unknown;
+  zodResponseFormat?: (schema: unknown, name: string) => unknown;
 }
 
 /** Linha allowlist de `analise_candidato_vaga` consumida pelo comparativo. */
@@ -240,7 +245,15 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
         // idempotency_key DELIBERADAMENTE ausente — o comparativo SEMPRE roda fresh
         // no V1 (CONTEXT: sem reuso de cache); cada solicitação gera nova auditoria.
       },
-      { anthropic, openai, supabase: supabaseAdmin },
+      // Encaminha os builders injetados (prod) — sem eles o schema cru quebra ambos provedores.
+      // Testes omitem → callAi usa no-op (inalterado).
+      {
+        anthropic,
+        openai,
+        supabase: supabaseAdmin,
+        zodOutputFormat: deps.zodOutputFormat,
+        zodResponseFormat: deps.zodResponseFormat,
+      },
     );
 
     const latencia_ms = Date.now() - start;
@@ -303,6 +316,14 @@ if (import.meta.main) {
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
-    return await handler(req, { anthropic, openai, supabaseAdmin, supabaseUser });
+    return await handler(req, {
+      anthropic,
+      openai,
+      supabaseAdmin,
+      supabaseUser,
+      // Adapters p/ a assinatura `(schema, name)` do CallAiDeps (Anthropic usa só o schema).
+      zodOutputFormat: (s, _n) => zodOutputFormat(s as never),
+      zodResponseFormat: (s, n) => zodResponseFormat(s as never, n),
+    });
   });
 }

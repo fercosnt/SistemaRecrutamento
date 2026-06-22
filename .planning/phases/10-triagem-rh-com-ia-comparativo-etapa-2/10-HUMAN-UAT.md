@@ -52,13 +52,28 @@ updated: 2026-06-09T00:00:00Z
  fallback) → Anthropic exhausted retries (ANTHROPIC_API_KEY present since constructor didn't throw, but
  the API call fails → invalid key or no credits) AND OpenAI fallback out of quota. ⇒ ONLY remaining
  blocker is AI-PROVIDER ACCOUNT CREDITS (Anthropic is primary). Re-probe (cheap) once a provider has
- quota — UAT #1-#5 should then go green.]
+ quota — UAT #1-#5 should then go green.
+ ✅ RESOLVED 2026-06-22 — PIPELINE GREEN. After credits added, two more bugs surfaced+fixed in
+ _shared/ai-client.ts (never run live before): (a) zodOutputFormat/zodResponseFormat defaulted to
+ no-op `(s)=>s` → EFs now inject the real helpers via deps; (b) 3 schema fields .optional() w/o
+ .nullable() (OpenAI strict); (c) THE primary fix: schemas built with classic zod v3 (`._def`) but the
+ SDK helpers `require("zod/v4")` (`.def`) → Anthropic zodOutputFormat crashed "Cannot read properties
+ of undefined (reading 'def')" → switched analise-schemas.ts to `npm:zod@3.25.76/v4`. Also added
+ fallback observability (surface the swallowed Anthropic error). Both ASB candidaturas now
+ status='sucesso': Joao Jose score 75, Fernando score 70, both CV extracted (unpdf working). UAT #1
+ (analysis ≤30s w/ score_match/fortes/gaps/resumo_cv) + #5 (CV extraction) PASS backend-verified.
+ #2/#3/#4 now DATA-READY for the visual browser check (2 ranked candidates on the ASB vaga).]
 
 ## Tests
 
 ### 1. Trigger ≤30s end-to-end (TRIAGEM-01 SLA)
 expected: Submit a real survivor candidatura (status != 'rejeitado', opcao_knockout_id IS NULL) via the candidate flow for an active vaga. Within 30s an `analise_candidato_vaga` row appears in PROD with status='sucesso', score_match 0-100, pontos_fortes, gaps, resumo_cv. If the row never appears, confirm Vault secrets `project_url` + `edge_invoke_key` exist (Phase 9 P07 — the trigger skips silently when absent).
-result: ISSUE (blocker) — DIAGNOSED 2026-06-21. The AI analysis pipeline has NEVER fired in PROD.
+result: PASS (backend) 2026-06-22 — after the full fix chain (see Current Test), the analysis runs
+end-to-end: ASB candidaturas got status='sucesso' with score_match (70 & 75), pontos_fortes, gaps,
+resumo_cv. Generated via reprocessar_analise (admin sim) — the literal insert-trigger SLA timing
+wasn't separately stopwatched, but it's the identical net.http_post dispatch. (Diagnostic history of
+the 4-layer PROD provisioning gap retained below.)
+--- DIAGNOSED 2026-06-21 (now fixed). The AI analysis pipeline had NEVER fired in PROD.
 Confirmed root cause: **`vault.secrets` is empty** (0 rows) — `project_url` and `edge_invoke_key`
 were never created (Phase 9 P07 setup never applied to PROD Vault). Both `trg_candidatura_analise`
 and `reprocessar_analise(...)` read those secrets and hit `IF project_url IS NULL OR invoke_key IS
@@ -84,16 +99,20 @@ result: [pending — visual; downstream of #3 (need a comparativo rendered first
 
 ### 5. CV PDF text extraction (post-research decision)
 expected: For a candidatura with a real CV PDF: `resumo_cv` contains meaningful extracted text. For a corrupted/image-only PDF: `flags` includes 'cv_nao_extraido', row still status='sucesso' with respostas-only analysis.
-result: [pending — needs a real AI run on a candidatura that has a CV PDF; verify by querying `resumo_cv` + `flags @> '{cv_nao_extraido}'` after the analysis row appears.]
+result: PASS (backend) 2026-06-22 — both ASB analyses returned a `resumo_cv` with meaningful extracted
+text (e.g. "IDIOMAS Inglês - Fluente… HABILIDADES Microsoft Office, Premiere/Clipchamp…") and `flags`
+empty (no cv_nao_extraido) → unpdf extraction works (was broken by the same `.join("npm:")` bug,
+fixed via static import). Corrupted/image-only fallback path not separately exercised.
 
 ## Summary
 
 total: 5
-passed: 0
+passed: 2
 issues: 0
-pending: 5
+pending: 3
 skipped: 0
 blocked: 0
+# #1 + #5 PASS (backend-verified 2026-06-22). #2/#3/#4 data-ready → pending visual browser check.
 
 ## Technical evidence (2026-06-09, read-only)
 - EFs ACTIVE: `analise-candidato-individual` v2, `comparativo-candidatos` v3 (verify_jwt:true).

@@ -410,14 +410,26 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
   const fallbackErrorCode = a.circuitWasOpen
     ? "anthropic_circuit_open"
     : "anthropic_retries_exhausted";
-  const response = await a.openai.chat.completions.parse({
-    model: OPENAI_FALLBACK_MODEL,
-    messages: [
-      { role: "system", content: `${a.prompt.system_template}\n\n${a.vagaRubricBlock}` },
-      { role: "user", content: a.maskedInput },
-    ],
-    response_format: a.zodResponseFormat(a.schema, a.prompt.call_type),
-  });
+  // Observability: se a OpenAI também falhar, NÃO engolir o erro PRIMÁRIO (Anthropic).
+  // Antes, a exceção da OpenAI propagava direto e o triggerError do Anthropic se perdia
+  // (logAiCall abaixo nunca rodava) — o painel só via o erro do fallback.
+  let response;
+  try {
+    response = await a.openai.chat.completions.parse({
+      model: OPENAI_FALLBACK_MODEL,
+      messages: [
+        { role: "system", content: `${a.prompt.system_template}\n\n${a.vagaRubricBlock}` },
+        { role: "user", content: a.maskedInput },
+      ],
+      response_format: a.zodResponseFormat(a.schema, a.prompt.call_type),
+    });
+  } catch (openaiErr) {
+    const anthMsg = a.triggerError instanceof Error
+      ? a.triggerError.message
+      : String(a.triggerError ?? "n/a");
+    const oaMsg = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
+    throw new Error(`[fallback] anthropic(${fallbackErrorCode}): ${anthMsg} || openai: ${oaMsg}`);
+  }
 
   const parsed = response.choices?.[0]?.message?.parsed ?? null;
   const inputTokens = response.usage?.prompt_tokens ?? 0;

@@ -21,7 +21,10 @@
  * @see supabase/functions/_shared/ai-client.ts (consome via callAi schema arg)
  */
 
-import { z } from "npm:zod@3.25.76";
+// zod/v4 namespace — os helpers das SDKs (@anthropic-ai/sdk + openai) fazem `require("zod/v4")`
+// e leem `.def`; um schema do namespace v3 clássico (`._def`) faz o zodOutputFormat do Anthropic
+// estourar "Cannot read properties of undefined (reading 'def')". zod@3.25.76 traz ambos.
+import { z } from "npm:zod@3.25.76/v4";
 
 // ============================================================================
 // PRIMITIVES (copiadas verbatim de 00-shared-zod-schemas.ts)
@@ -54,6 +57,7 @@ export const Citation = z.object({
   text: z.string().describe("Trecho LITERAL extraído do input — máximo 200 caracteres"),
   location: z
     .string()
+    .nullable()
     .optional()
     .describe("Onde foi encontrado (ex: 'CV - Experiência 2'; 'Transcrição - 03:45')"),
 });
@@ -108,7 +112,7 @@ export const CvJobMatchSchema = z.object({
 
   bias_check: z.object({
     used_only_merit_evidence: z.boolean(),
-    notes: z.string().optional(),
+    notes: z.string().nullable().optional(),
   }),
 });
 
@@ -146,7 +150,7 @@ export const ComparativeRankingSchema = z.object({
   bias_audit: z.object({
     counterfactual_check_run: z.boolean(),
     score_variance_within_threshold: z.boolean(),
-    notes: z.string().optional(),
+    notes: z.string().nullable().optional(),
   }),
 });
 
