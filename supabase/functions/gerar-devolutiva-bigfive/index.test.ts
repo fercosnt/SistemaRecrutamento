@@ -83,18 +83,48 @@ function makeMockCallAi(texts: string[]) {
   };
 }
 
+const CANDIDATO_ID = "auth-user-1";
+
 function makeMockSupabaseAdmin(scoreRow: Record<string, unknown> | null) {
+  // Capture BOTH inserts and upserts so a test can assert the devolutiva is
+  // persisted via the real `.upsert().select("id").single()` chain (CR-04/CR-05).
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  const upserts: { table: string; row: Record<string, unknown> }[] = [];
   return {
     inserts,
+    upserts,
     from(table: string) {
       return {
         select: (_cols?: string) => ({
-          eq: () => ({ maybeSingle: () => Promise.resolve({ data: scoreRow, error: null }) }),
+          eq: () => ({
+            maybeSingle: () => {
+              // CR-02: the handler now reads `candidaturas` for the owning
+              // candidato_id (NOT NULL on devolutivas_candidato). The mock must
+              // mirror the REAL client: the candidaturas lookup returns a
+              // candidato_id; the scores_candidato lookup returns the score row.
+              if (table === "candidaturas") {
+                return Promise.resolve({
+                  data: scoreRow ? { candidato_id: CANDIDATO_ID, vaga_id: "vaga-1" } : null,
+                  error: null,
+                });
+              }
+              return Promise.resolve({ data: scoreRow, error: null });
+            },
+          }),
         }),
         insert: (row: Record<string, unknown>) => {
           inserts.push({ table, row });
           return Promise.resolve({ data: { id: "dev-1" }, error: null });
+        },
+        // CR-04/CR-05: mirror the real `.upsert(row, { onConflict }).select("id").single()`
+        // chain — `.single()` returns the persisted row id (never a fabricated literal).
+        upsert: (row: Record<string, unknown>, _opts?: { onConflict?: string }) => {
+          upserts.push({ table, row });
+          return {
+            select: (_cols?: string) => ({
+              single: () => Promise.resolve({ data: { id: "dev-1" }, error: null }),
+            }),
+          };
         },
       };
     },
@@ -160,7 +190,13 @@ Deno.test("AVAL-08 — in-range text on first attempt → no retry, devolutiva p
   const admin = makeMockSupabaseAdmin(row);
   const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn });
   assertEquals(callAi.calls.length, 5, "one call per dim, no retry when in range");
-  const devRow = admin.inserts.find((i) => i.table === "devolutivas_candidato");
-  assert(devRow, "must INSERT one devolutivas_candidato row");
+  // CR-04: persisted via upsert (idempotent regeneration), not a plain insert.
+  const devRow = admin.upserts.find((i) => i.table === "devolutivas_candidato");
+  assert(devRow, "must UPSERT one devolutivas_candidato row");
+  // CR-02: the upserted row carries candidato_id (NOT NULL + own-row RLS) and
+  // omits the non-existent score_id/tipo columns.
+  assertEquals(devRow!.row.candidato_id, CANDIDATO_ID, "upsert must include candidato_id");
+  assert(!("score_id" in devRow!.row), "must NOT write the non-existent score_id column");
+  assert(!("tipo" in devRow!.row), "must NOT write the non-existent tipo column");
   assertEquals((out.paginas ?? []).length, 5, "5 dimension pages");
 });

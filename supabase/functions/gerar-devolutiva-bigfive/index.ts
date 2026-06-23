@@ -32,6 +32,25 @@
  * @see supabase/functions/_shared/ai-client.ts (callAi — nunca re-implementar)
  */
 
+// Imports estáticos no escopo do módulo (CR-01 / WR-02). O padrão antigo de
+// `await import(["npm:", pkg].join(""))` escondia o specifier do bundler de deploy
+// → ERR_MODULE_NOT_FOUND em runtime → a EF 500ava em TODA invocação
+// ([[reference_ef_npm_join_import_bug]]). Espelha avaliar-redacao + submit-bigfive-final.
+// O guard `import.meta.main` gateia o Deno.serve, então estes imports não tocam o
+// caminho de teste (o teste só importa `handler`).
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "npm:zod@3.25.76";
+import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.102.0/helpers/zod";
+import OpenAI from "npm:openai@6.42.0";
+import { zodResponseFormat } from "npm:openai@6.42.0/helpers/zod";
+import {
+  callAi,
+  loadPrompt,
+  resolvedPromptFromLoaded,
+  type ResolvedPrompt,
+} from "../_shared/ai-client.ts";
+
 // ---------------------------------------------------------------------------
 // Tipos do domínio
 // ---------------------------------------------------------------------------
@@ -53,6 +72,15 @@ const DIM_LABEL: Record<Dim, string> = {
 /** Range de palavras alvo por bloco interpretativo (templates-devolutiva.md L20). */
 const WORD_MIN = 150;
 const WORD_MAX = 200;
+
+// Schema per-dim no escopo do módulo (CR-01 / WR-01): a IA devolve SÓ o bloco
+// interpretativo desta dimensão. Os bounds de `palavras` casam com WORD_MIN/WORD_MAX
+// (antes 100-250, divergente do gate inRange 150-200 → schema aceitava saídas que o
+// gate depois rejeitava, forçando retry/degrade desnecessário e desperdício de IA).
+const PaginaSchema = z.object({
+  texto_interpretativo: z.string().min(50),
+  palavras: z.number().int().min(WORD_MIN).max(WORD_MAX),
+});
 
 // ---------------------------------------------------------------------------
 // Seleção de banda — cutoffs ≤15 / 16-35 / 36-64 / 65-84 / ≥85
@@ -193,14 +221,29 @@ interface MaybeSingleResult<T> {
   error: unknown;
 }
 
+/** Linha de candidatura lida para resolver o dono (candidato_id) — CR-02 / WR-01. */
+interface CandidaturaRow {
+  candidato_id: string;
+  vaga_id?: string;
+}
+
 interface SupabaseAdminLike {
   from(table: string): {
     select: (cols?: string) => {
       eq: (col?: string, val?: unknown) => {
-        maybeSingle: () => Promise<MaybeSingleResult<ScoreRow>>;
+        maybeSingle: () => Promise<MaybeSingleResult<ScoreRow & CandidaturaRow>>;
       };
     };
-    insert: (row: Record<string, unknown>) => Promise<{ data: { id: string } | null; error: unknown }>;
+    // CR-04: upsert keyed na UNIQUE(candidatura_id) + .select("id").single() para
+    // recuperar o id real persistido (regeneração idempotente, sem 23505 no retry).
+    upsert: (
+      row: Record<string, unknown>,
+      opts?: { onConflict?: string },
+    ) => {
+      select: (cols?: string) => {
+        single: () => Promise<{ data: { id: string } | null; error: unknown }>;
+      };
+    };
   };
 }
 
@@ -247,6 +290,7 @@ async function personalizeDim(
   banda: Banda,
   rawTemplate: string,
   callAi: HandlerDeps["callAi"],
+  attribution: { candidato_id: string; vaga_id: string },
 ): Promise<{ texto: string; palavras: number }> {
   const baseArgs = {
     call_type: "bigfive_devolutiva",
@@ -255,6 +299,10 @@ async function personalizeDim(
     banda,
     percentil,
     rawInput: rawTemplate,
+    // WR-01: atribuição LGPD-02 — toda linha de ai_call_logs precisa ser rastreável
+    // ao candidato/vaga (antes ""/"" → logs órfãos, não auditáveis).
+    candidato_id: attribution.candidato_id,
+    vaga_id: attribution.vaga_id,
   };
 
   // Até 2 tentativas (1 chamada + 1 retry). Se ambas saírem do range, degrada.
@@ -307,6 +355,25 @@ export async function handler(
     return { status: "refused" };
   }
 
+  // ── 2b. Resolve o dono (candidato_id) + vaga via candidaturas (CR-02 / WR-01).
+  // `devolutivas_candidato.candidato_id` é NOT NULL e a RLS own-row depende dele
+  // (USING candidato_id = auth.uid()). O service_role bypassa RLS, então lemos
+  // direto. Sem isto o INSERT viola 23502 (not-null) em TODA persistência.
+  const { data: candRow, error: candErr } = await supabaseAdmin
+    .from("candidaturas")
+    .select("candidato_id, vaga_id")
+    .eq("id", scoreRow.candidatura_id)
+    .maybeSingle();
+
+  if (candErr || !candRow?.candidato_id) {
+    console.error("[gerar-devolutiva-bigfive] candidatura/candidato_id ausente", {
+      candidatura_id: scoreRow.candidatura_id,
+    });
+    return { status: "falhou" };
+  }
+  const candidatoId = candRow.candidato_id;
+  const vagaId = typeof candRow.vaga_id === "string" ? candRow.vaga_id : "";
+
   // ── 3. Para cada dim: banda determinística + personalização IA ────────────
   const dimsMeta: DimMeta[] = Array.isArray(scoreRow.metadata?.dimensoes)
     ? (scoreRow.metadata!.dimensoes as DimMeta[])
@@ -328,6 +395,7 @@ export async function handler(
       banda,
       rawTemplate,
       callAi,
+      { candidato_id: candidatoId, vaga_id: vagaId },
     );
 
     paginas.push({ dim, banda, percentil, texto_interpretativo: texto, palavras });
@@ -343,25 +411,35 @@ export async function handler(
   };
 
   // ── 5. Persiste UMA linha de devolutiva via service_role + campos de audit ─
+  // CR-02: inclui candidato_id (NOT NULL + own-row RLS); NÃO inclui score_id/tipo
+  //   (não são colunas de devolutivas_candidato — ver 20260612000002).
+  // CR-04: upsert keyed na UNIQUE(candidatura_id) → regeneração idempotente (o
+  //   retry best-effort do n8n não pode falhar com 23505).
+  // CR-05: .select("id").single() devolve o id REAL; um id ausente é falha de
+  //   persistência (sem fallback fabricado "dev-1").
   const { data: inserted, error: insErr } = await supabaseAdmin
     .from("devolutivas_candidato")
-    .insert({
-      candidatura_id: scoreRow.candidatura_id,
-      score_id: scoreRow.id,
-      tipo: "big_five",
-      conteudo_jsonb: conteudo,
-      modelo_ia: "claude-sonnet-4-6",
-      prompt_version: "1.0.0",
-    });
+    .upsert(
+      {
+        candidatura_id: scoreRow.candidatura_id,
+        candidato_id: candidatoId,
+        conteudo_jsonb: conteudo,
+        modelo_ia: "claude-sonnet-4-6",
+        prompt_version: "1.0.0",
+      },
+      { onConflict: "candidatura_id" },
+    )
+    .select("id")
+    .single();
 
-  if (insErr) {
+  if (insErr || !inserted?.id) {
     console.error("[gerar-devolutiva-bigfive] falha ao persistir devolutiva", {
       candidatura_id: scoreRow.candidatura_id,
     });
     return { status: "falhou", paginas };
   }
 
-  const devolutiva_id = inserted?.id ?? "dev-1";
+  const devolutiva_id = inserted.id;
 
   // Log redigido (Pitfall 7) — só ids/counts/status; NUNCA o texto bruto.
   console.log("[gerar-devolutiva-bigfive] ok", {
@@ -407,21 +485,9 @@ if (import.meta.main) {
       });
     }
 
-    // Imports de runtime montados para não serem resolvidos no type-check (Deno-only).
-    const { createClient } = await import(
-      ["https://esm.sh/", "@supabase/supabase-js@2"].join("")
-    );
-    const aiClient = await import("../_shared/ai-client.ts");
-    type ResolvedPrompt = import("../_shared/ai-client.ts").ResolvedPrompt;
-    const { z } = await import(["npm:", "zod@3.25.76"].join(""));
-    // Schema per-dim: a IA devolve SÓ o bloco interpretativo desta dimensão.
-    const PaginaSchema = z.object({
-      texto_interpretativo: z.string().min(50),
-      palavras: z.number().int().min(100).max(250),
-    });
-    const { default: Anthropic } = await import(["npm:", "@anthropic-ai/sdk@0.102.0"].join(""));
-    const { default: OpenAI } = await import(["npm:", "openai@6.42.0"].join(""));
-
+    // Clientes construídos a partir dos imports ESTÁTICOS do topo do módulo
+    // (CR-01 / WR-02). Nenhum specifier dinâmico — o bundler de deploy resolve
+    // todos os pacotes em build-time, sem ERR_MODULE_NOT_FOUND em runtime.
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -430,11 +496,14 @@ if (import.meta.main) {
     // @ts-ignore
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
-    // Resolve o prompt bigfive_devolutiva uma vez por request.
+    // Resolve o prompt bigfive_devolutiva uma vez por request. O cast `as any`
+    // reconcilia o SupabaseClient REAL (tipado) com o `SupabaseLike` estrutural que
+    // loadPrompt aceita — o caminho de teste injeta um mock que satisfaz a forma.
     let resolved: ResolvedPrompt;
     try {
-      const loaded = await aiClient.loadPrompt("bigfive_devolutiva", supabaseAdmin);
-      resolved = aiClient.resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
+      // deno-lint-ignore no-explicit-any
+      const loaded = await loadPrompt("bigfive_devolutiva", supabaseAdmin as any);
+      resolved = resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
     } catch {
       resolved = {
         call_type: "bigfive_devolutiva",
@@ -454,24 +523,41 @@ if (import.meta.main) {
         banda: Banda;
         percentil: number;
         rawInput: string;
+        candidato_id?: string;
+        vaga_id?: string;
       };
       const userBlock =
         `## DIMENSÃO\n${dimArgs.dim_label} (banda: ${dimArgs.banda})\n\n` +
         `## PERCENTIL\n${dimArgs.percentil}\n\n` +
         `## TEXTO OFICIAL\n<TEMPLATE_OFICIAL>\n${dimArgs.rawInput}\n</TEMPLATE_OFICIAL>`;
-      const result = await aiClient.callAi(
+      const result = await callAi(
         {
           prompt: resolved,
           rawInput: userBlock,
           // Likert-only: não há texto livre do candidato (T-12-16); o bloco de
-          // rubric/ids contextualiza a auditoria do callAi. ids reais são
-          // resolvidos no handler interno; aqui passamos o contexto disponível.
+          // rubric/ids contextualiza a auditoria do callAi.
           vagaRubricBlock: `Dimensão ${dimArgs.dim_label}`,
-          candidato_id: "",
-          vaga_id: "",
+          // WR-01: atribuição LGPD-02 — candidato/vaga reais (resolvidos no handler),
+          // não mais "" (que tornava as linhas de ai_call_logs inrastreáveis).
+          candidato_id: dimArgs.candidato_id ?? "",
+          vaga_id: dimArgs.vaga_id ?? "",
           schema: PaginaSchema,
         },
-        { anthropic, openai, supabase: supabaseAdmin },
+        // WR-02: injeta os builders dos helpers de structured-output. Sem eles, o
+        // callAi usa o default no-op → a Anthropic recebe o Zod cru (sem o wrapper
+        // JSON-schema) → parsed_output null → toda dim degrada ao template (devolutiva
+        // nunca personalizada). Espelha o wiring de analise-candidato-individual (o
+        // `as never` reconcilia a assinatura estrita do SDK com `(schema:unknown)`).
+        {
+          // deno-lint-ignore no-explicit-any
+          anthropic: anthropic as any,
+          // deno-lint-ignore no-explicit-any
+          openai: openai as any,
+          // deno-lint-ignore no-explicit-any
+          supabase: supabaseAdmin as any,
+          zodOutputFormat: (s: unknown, _n: string) => zodOutputFormat(s as never),
+          zodResponseFormat: (s: unknown, n: string) => zodResponseFormat(s as never, n),
+        },
       );
       const parsed = result.parsed as
         | { texto_interpretativo?: string; palavras?: number }
