@@ -62,11 +62,27 @@ function makeMockOpenAI() {
 function makeMockSupabaseAdmin(
   analiseRows: Record<string, unknown>[],
   vagaOwner: string | null = "rh-1",
+  // Role row returned for the `usuarios_rh` lookup (role NÃO vem mais de getUser().app_metadata —
+  // o hook injeta o role só no JWT; a EF lê de usuarios_rh). null = sem linha RH → role null → 403.
+  usuariosRhRole: string | null = "recrutador",
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   return {
     inserts,
     from(table: string) {
+      // usuarios_rh role lookup: .select('role').eq('user_id').eq('ativo').is('deleted_at').maybeSingle()
+      if (table === "usuarios_rh") {
+        const chain = {
+          eq: () => chain,
+          is: () => chain,
+          maybeSingle: () =>
+            Promise.resolve({
+              data: usuariosRhRole === null ? null : { role: usuariosRhRole },
+              error: null,
+            }),
+        };
+        return { select: (_cols?: string) => chain };
+      }
       return {
         select: (_cols?: string) => ({
           // analise_candidato_vaga read (`.in(...)`)
@@ -145,7 +161,8 @@ Deno.test("C1 — candidato-role caller → 403 FORBIDDEN (never reaches analise
   const deps = {
     anthropic: makeMockAnthropic(),
     openai: makeMockOpenAI(),
-    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"])),
+    // candidato → no usuarios_rh row → role null → 403 (never reaches analise data).
+    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]), "rh-1", null),
     supabaseUser: makeMockSupabaseUser(CANDIDATO_USER),
   };
   const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);

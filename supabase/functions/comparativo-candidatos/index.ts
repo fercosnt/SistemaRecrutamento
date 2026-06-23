@@ -124,7 +124,24 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
   //      reprocessar_analise (migration 20260610000003) + o cross-check IDOR de
   //      submit-candidatura. role NÃO em ('rh','administrador') → 403; um candidato/
   //      anon NUNCA alcança os dados de análise (score/CV/gaps = PII).
-  const role = (user.app_metadata?.role as string | undefined) ?? null;
+  // role NÃO vem de getUser().app_metadata: o getUser() reflete `raw_app_meta_data` do banco (SEM
+  // role); o custom_access_token_hook injeta o role SÓ nos claims do JWT assinado. Lê-lo de
+  // app_metadata dava null → 403 p/ TODO usuário RH (a autorização nunca rodou — o CORS barrava
+  // antes; pego no UAT 2026-06-22). Fonte de verdade = usuarios_rh (mesma derivação do hook:
+  // recrutador→rh, administrador→administrador). Lido via service_role (supabaseAdmin).
+  const { data: rhRow } = await supabaseAdmin
+    .from("usuarios_rh")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("ativo", true)
+    .is("deleted_at", null)
+    .maybeSingle();
+  const dbRole = (rhRow?.role as string | undefined) ?? null;
+  const role = dbRole === "recrutador"
+    ? "rh"
+    : dbRole === "administrador"
+      ? "administrador"
+      : dbRole;
   if (role !== "rh" && role !== "administrador") {
     return errorResponse("FORBIDDEN", "Acesso negado.", 403);
   }
