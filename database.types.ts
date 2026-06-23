@@ -140,6 +140,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ai_call_logs_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
+          },
+          {
             foreignKeyName: "ai_call_logs_prompt_version_id_fkey"
             columns: ["prompt_version_id"]
             isOneToOne: false
@@ -256,6 +263,13 @@ export type Database = {
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "analise_candidato_vaga_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       autorizacoes: {
@@ -315,6 +329,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_candidatos_ativos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "autorizacoes_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
           },
         ]
       }
@@ -399,6 +420,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaliacoes_rh_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
         ]
@@ -647,6 +675,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_candidatos_ativos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_ai_decisions_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
           },
           {
             foreignKeyName: "candidate_ai_decisions_reviewer_id_fkey"
@@ -916,6 +951,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "candidaturas_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
+          },
+          {
             foreignKeyName: "candidaturas_vaga_id_fkey"
             columns: ["vaga_id"]
             isOneToOne: false
@@ -1164,6 +1206,13 @@ export type Database = {
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "decisao_final_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       devolutivas_candidato: {
@@ -1200,6 +1249,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: true
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devolutivas_candidato_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
         ]
@@ -1249,6 +1305,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_candidatos_ativos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disponibilidade_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
           },
         ]
       }
@@ -1354,6 +1417,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrevistas_online_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
           {
@@ -1468,6 +1538,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entrevistas_presenciais_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entrevistas_presenciais_realizado_por_fkey"
             columns: ["realizado_por"]
             isOneToOne: false
@@ -1517,6 +1594,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_acoes_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
           {
@@ -1572,6 +1656,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "historico_candidatura_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
         ]
@@ -2384,6 +2475,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "recruiter_alerts_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
+          },
+          {
             foreignKeyName: "recruiter_alerts_vaga_id_fkey"
             columns: ["vaga_id"]
             isOneToOne: false
@@ -2422,6 +2520,13 @@ export type Database = {
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "respostas_avaliacao_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       respostas_bigfive: {
@@ -2452,6 +2557,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respostas_bigfive_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
           {
@@ -2500,6 +2612,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "respostas_cultura_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "respostas_cultura_pergunta_id_fkey"
             columns: ["pergunta_id"]
             isOneToOne: false
@@ -2539,6 +2658,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respostas_disc_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
           {
@@ -2590,6 +2716,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "respostas_formulario_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "respostas_formulario_pergunta_id_fkey"
             columns: ["pergunta_id"]
             isOneToOne: false
@@ -2626,6 +2759,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: false
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "respostas_raven_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
           {
@@ -2680,6 +2820,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: true
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scores_bigfive_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
         ]
@@ -2738,6 +2885,13 @@ export type Database = {
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "scores_candidato_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       scores_disc: {
@@ -2788,6 +2942,13 @@ export type Database = {
             referencedRelation: "candidaturas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "scores_disc_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
         ]
       }
       scores_raven: {
@@ -2833,6 +2994,13 @@ export type Database = {
             columns: ["candidatura_id"]
             isOneToOne: true
             referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scores_raven_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
         ]
@@ -3589,6 +3757,33 @@ export type Database = {
         }
         Relationships: []
       }
+      v_triagem_panel: {
+        Row: {
+          analise_status: string | null
+          candidato_id: string | null
+          candidato_nome: string | null
+          created_at: string | null
+          curriculo_nome_original: string | null
+          deleted_at: string | null
+          etapa_atual: Database["public"]["Enums"]["etapa_processo"] | null
+          flags: string[] | null
+          gaps: string[] | null
+          id: string | null
+          pontos_fortes: string[] | null
+          score_match: number | null
+          status: Database["public"]["Enums"]["status_candidatura"] | null
+          vaga_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidaturas_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_ultimos_acessos: {
         Row: {
           browser: string | null
@@ -3955,6 +4150,7 @@ export type Database = {
         | "transcript_analysis"
         | "culture_fit_essay"
         | "work_sample_sjt"
+        | "bigfive_devolutiva"
       llm_provider: "anthropic" | "openai" | "google"
       recomendacao_avaliacao: "aprovar" | "rejeitar" | "indeciso"
       serie_raven: "A" | "B" | "C" | "D" | "E"
@@ -4228,6 +4424,7 @@ export const Constants = {
         "transcript_analysis",
         "culture_fit_essay",
         "work_sample_sjt",
+        "bigfive_devolutiva",
       ],
       llm_provider: ["anthropic", "openai", "google"],
       recomendacao_avaliacao: ["aprovar", "rejeitar", "indeciso"],

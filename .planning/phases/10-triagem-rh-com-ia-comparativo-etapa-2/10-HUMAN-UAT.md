@@ -87,9 +87,10 @@ has ANTHROPIC_API_KEY/OPENAI_API_KEY env (else the analysis will land status='fa
 
 ### 2. Ranked panel visual (TRIAGEM-02)
 expected: `/rh/vagas/:id/candidatos` as RH shows the candidate in a ranked table with a score band chip (verde ≥70 / amarelo 40-69 / vermelho <40), top fortes/gaps, pagination 20/page, default sort score DESC (pending/falhou at bottom).
-result: PARTIAL → FIX APPLIED (re-test pending). UAT 2026-06-22 (recruiter@teste.com): the 2 candidates
-render with GREEN score-band chips + correct numbers (75/70) + top fortes/gaps + "✨ Sugestão da IA"
-badge — all good. BUG: sort was ASCENDING (Fernando 70 above Joao Jose 75), not DESC. Root cause:
+result: ✅ PASS 2026-06-22 — sort fix CONFIRMED by user re-test (Joao Jose 75 now on top, DESC). UAT
+(recruiter@teste.com): the 2 candidates render with GREEN score-band chips + correct numbers (75/70) +
+top fortes/gaps + "✨ Sugestão da IA" badge. BUG (now fixed): sort was ASCENDING (Fernando 70 above
+Joao Jose 75), not DESC. Root cause:
 triagemService ordered `score_match` with `referencedTable:'analise'` (embedded resource) — PostgREST
 only orders the inner array, never the parent rows, so candidaturas came back in default order. FIX
 (commit pending): new `security_invoker` view `v_triagem_panel` flattens score_match to top-level →
@@ -99,23 +100,37 @@ truncates mid-sentence → Phase 16. RE-TEST: refresh the panel, confirm 75 on t
 
 ### 3. Comparativo live call P95 ≤5s (TRIAGEM-03)
 expected: Select 2-10 candidates → "Comparar (N)" → comparativo opens ≤5s, candidates-as-columns with ranking 1-N, Score IA band, fortes, gaps, justificativa, SugestaoIABadge at top, sticky-left first column. Selecting candidates from different vagas shows the pt-BR "vagas diferentes" copy (MIXED_VAGA fix).
-result: FAILED → FIX APPLIED (re-test pending). UAT 2026-06-22: "Comparar (2)" enabled, but the
+result: ✅ PASS 2026-06-22 — CONFIRMED by user re-test: comparativo opens end-to-end (João José 1º /
+Fernando 2º as columns; Ranking IA, Score IA green chips 75/70, Pontos fortes, Gaps, Justificativa IA,
+Flags, Avançar/Rejeitar per candidate; SugestaoIABadge; coherent AI content). NON-BLOCKING caveats:
+(a) generation took >5s once — TRIAGEM-03 targets P95≤5s (single-eval Sonnet; MONITOR, not a functional
+fail); (b) "Voltar" button rendered unstyled/black → Phase 16. — Fix history below.
+THREE bugs fixed to get here. UAT 2026-06-22: "Comparar (2)" enabled, but the
 comparativo showed "Não foi possível gerar o comparativo" — CORS preflight `OPTIONS` returned 401.
 TWO causes: (1) EF was `verify_jwt:true` → the Supabase gateway demanded a JWT on the preflight (browser
 sends OPTIONS without Authorization) → 401 → CORS block. FIX: redeploy `--no-verify-jwt` (auth stays —
 done inside the EF: getUser + role + vaga ownership, the C1/IDOR fix). (2) Even after that, the EF's own
 `Deno.serve` wrapper returned 401 on a missing Authorization header BEFORE its OPTIONS check → still
 preflight 401. FIX: added an `OPTIONS` short-circuit at the top of the wrapper. Verified: OPTIONS now
-200 (curl). ALSO: the ASB vaga had `created_by=NULL` → an `rh` caller (recruiter) would 403 on the
-ownership check; set the ASB vaga owner = recruiter@teste.com. deno 7/7. RE-TEST: select both →
-"Comparar (2)" → comparativo should open (ranking, scores, fortes/gaps, justificativa, SugestaoIABadge,
-sticky first column). MIXED_VAGA pt-BR copy already in code (fc922cd).
+200 (curl). (3) AUTHORIZATION 403: the EF read role from `getUser().app_metadata?.role` — always null
+(getUser reflects DB raw_app_meta_data; the custom_access_token_hook injects role only into the signed
+JWT) → 403 for EVERY RH user (authz never actually worked; CORS hid it). FIX: derive role from
+`usuarios_rh` via service_role (recrutador→rh, administrador→administrador) — see
+[[reference_ef_authenticate_vs_authorize]]. Swept all EFs — only comparativo had it. ALSO: ASB vaga had
+`created_by=NULL` → set owner = recruiter@teste.com so the rh ownership check passes. deno 7/7.
+MIXED_VAGA pt-BR copy already in code (fc922cd).
 
 ### 4. PDF export quality (TRIAGEM-04)
 expected: "Exportar PDF" downloads a landscape `comparativo-candidatos.pdf` with attribute rows + candidate columns, **real candidate names** in the header (W1 fix), selectable text (not raster).
-result: BLOCKED by #3 → unblocked once #3 re-test passes. No PDF-specific defect found yet (couldn't
-reach it). RE-TEST after #3 opens: "Exportar PDF" → landscape comparativo-candidatos.pdf, real names
-in header (W1), selectable text.
+result: ISSUE → FIX APPLIED (re-test pending). UAT 2026-06-22: PDF downloads landscape, real name in
+header ("Joao Jose"), selectable text (good) — BUT only the 1st candidate rendered; the 2nd (Fernando)
+was dropped and text clipped. Root cause: exportComparativo.ts used `styles: { cellWidth: 'wrap' }` with
+no per-column widths → the 1st candidate's long text stretched its column and pushed the rest off the
+landscape page width → 2nd+ column off-sheet/clipped. FIX (commit pending): compute candidate-column
+width = (pageWidth − 2·margin − 32 attr col) / nCandidates, set explicit columnStyles + `overflow:
+'linebreak'` (autotable wraps long text within the fixed column) + margins; smaller font when >6
+candidates. tsc clean (291 baseline), vitest triagem 20/20. RE-TEST: re-export the PDF → BOTH candidates
+as columns, no clipping. (W1 real-name fix confirmed working.)
 
 ### 5. CV PDF text extraction (post-research decision)
 expected: For a candidatura with a real CV PDF: `resumo_cv` contains meaningful extracted text. For a corrupted/image-only PDF: `flags` includes 'cv_nao_extraido', row still status='sucesso' with respostas-only analysis.
@@ -127,12 +142,14 @@ fixed via static import). Corrupted/image-only fallback path not separately exer
 ## Summary
 
 total: 5
-passed: 2
+passed: 4
 issues: 0
-pending: 3
+pending: 1
 skipped: 0
 blocked: 0
-# #1 + #5 PASS (backend-verified 2026-06-22). #2/#3/#4 data-ready → pending visual browser check.
+# 2026-06-22: #1+#5 PASS (backend), #2+#3 PASS (user re-test confirmed). #4 fix applied (PDF column
+# widths) → pending user re-export. Non-blocking → Phase 16: #3 latency monitor + "Voltar" button style;
+# #2 fortes/gaps truncation. After #4 re-test passes → Phase 10 = 5/5.
 
 ## Technical evidence (2026-06-09, read-only)
 - EFs ACTIVE: `analise-candidato-individual` v2, `comparativo-candidatos` v3 (verify_jwt:true).

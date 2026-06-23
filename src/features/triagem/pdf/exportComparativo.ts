@@ -77,13 +77,35 @@ export function exportComparativo(candidates: RankedCandidate[]): void {
     ['Justificativa IA', ...ordered.map((c) => c.rationale || '—')],
   ]
 
+  // Larguras de coluna COMPUTADAS para caber na largura da página landscape. Antes,
+  // `cellWidth: 'wrap'` deixava a coluna do 1º candidato esticar com o texto longo e
+  // empurrava as demais p/ fora da folha → o 2º+ candidato sumia e o texto era clipado
+  // (TRIAGEM-04 UAT). Agora: coluna Atributo fixa (32) + N colunas de candidato dividindo
+  // o restante, com overflow 'linebreak' (autotable quebra o texto dentro da coluna).
+  const marginX = 14
+  const attrColWidth = 32
+  const nCand = ordered.length
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const candColWidth =
+    nCand > 0 ? (pageWidth - marginX * 2 - attrColWidth) / nCand : pageWidth - marginX * 2 - attrColWidth
+
+  const columnStyles: Record<number, { cellWidth: number; fontStyle?: 'bold' }> = {
+    0: { fontStyle: 'bold', cellWidth: attrColWidth },
+  }
+  for (let i = 1; i <= nCand; i++) {
+    columnStyles[i] = { cellWidth: candColWidth }
+  }
+
   autoTable(doc, {
     head,
     body,
     startY: 22,
-    styles: { fontSize: 8, cellWidth: 'wrap', valign: 'top' },
+    margin: { left: marginX, right: marginX },
+    tableWidth: 'auto',
+    // Fonte menor quando há muitos candidatos (colunas estreitas) — até 10 cabem legíveis.
+    styles: { fontSize: nCand > 6 ? 7 : 8, overflow: 'linebreak', valign: 'top' },
     headStyles: { fillColor: [0, 16, 158] }, // #00109E darkBlue
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 32 } },
+    columnStyles,
   })
 
   doc.save('comparativo-candidatos.pdf')
