@@ -169,6 +169,46 @@ Deno.test("AVAL-04 GOLDEN — every percentile is clamped to [1,99] and every ba
   }
 });
 
+// ───────────────────────────── coverage guard (WR-03) ───────────────────────
+
+Deno.test("WR-03 — score() THROWS on a partial (<120) responses map (Pitfall 1, no silent zero score)", async () => {
+  const { score } = await loadScorer();
+  const partial: Record<number, number> = { ...NEUTRAL_VECTOR };
+  delete partial[120]; // 119 answers
+  let threw = false;
+  try {
+    score(partial, { sexo: "N", faixa: "21-40" });
+  } catch {
+    threw = true;
+  }
+  assert(threw, "a partial map must throw, never return a structurally-valid all-zero score");
+});
+
+Deno.test("WR-03 — score() THROWS on an empty responses map", async () => {
+  const { score } = await loadScorer();
+  let threw = false;
+  try {
+    score({}, { sexo: "N", faixa: "21-40" });
+  } catch {
+    threw = true;
+  }
+  assert(threw, "an empty map must throw (RESEARCH Pitfall 1)");
+});
+
+Deno.test("WR-03 — score() THROWS when an item id falls outside 1..120", async () => {
+  const { score } = await loadScorer();
+  const outOfRange: Record<number, number> = { ...NEUTRAL_VECTOR };
+  delete outOfRange[1];
+  outOfRange[121] = 3; // still 120 keys, but id 121 is invalid
+  let threw = false;
+  try {
+    score(outOfRange, { sexo: "N", faixa: "21-40" });
+  } catch {
+    threw = true;
+  }
+  assert(threw, "an id outside 1..120 must throw even when the key count is 120");
+});
+
 Deno.test("AVAL-04 GOLDEN — a hand-built variant moves a single domain raw correctly (reverse math is wired)", async () => {
   const { score, facetOf, FACET_TO_DOMAIN } = await loadScorer();
   // Push every Conscienciosidade item to a 5 raw-answer. C reverse items (13 of 24)

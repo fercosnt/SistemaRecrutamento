@@ -185,6 +185,22 @@ export const score = (
   respostas: Record<number, number>,
   normGroup: NormGroup,
 ): ScoreResult => {
+  // WR-03: defensive coverage guard (RESEARCH Pitfall 1). The scorer is exported,
+  // so the 120-key invariant cannot live only in submit-bigfive-final.validateBody.
+  // A partial/empty map would otherwise silently yield a structurally-valid all-zero
+  // score (every percentil clamped to 1) with NO error — corrupting the band, the
+  // template, and the devolutiva. Assert exactly 120 keys, each an integer 1..120.
+  const keys = Object.keys(respostas);
+  if (keys.length !== 120) {
+    throw new Error(`bigfive-scoring: expected 120 responses, got ${keys.length}`);
+  }
+  for (const k of keys) {
+    const id = Number(k);
+    if (!Number.isInteger(id) || id < 1 || id > 120) {
+      throw new Error(`bigfive-scoring: invalid item id "${k}" (must be an integer 1..120)`);
+    }
+  }
+
   // 1 + 2. facet raws (corrected per-item)
   const facetRaw: Record<number, number> = {};
   for (let f = 1; f <= 30; f++) facetRaw[f] = 0;
