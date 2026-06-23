@@ -65,7 +65,21 @@ function makeMockSupabaseAdmin(
         }),
         insert: (insertRow: Record<string, unknown>) => {
           inserts.push({ table, row: insertRow });
-          return Promise.resolve({ data: { id: "score-1" }, error: null });
+          // CR-03: the REAL insert chains `.select("id").single()` (without it,
+          // supabase-js v2 returns { data: null } → scoreId null → the devolutiva
+          // never resolves). The mock mirrors that chain so the contract gap can't
+          // reopen, while still resolving as a bare thenable for any caller that
+          // awaits the insert directly (e.g. score-row inserts elsewhere).
+          const result = { data: { id: "score-1" }, error: null };
+          return {
+            select: (_cols?: string) => ({
+              single: () => Promise.resolve(result),
+            }),
+            then: (
+              onFulfilled: (v: typeof result) => unknown,
+              onRejected?: (e: unknown) => unknown,
+            ) => Promise.resolve(result).then(onFulfilled, onRejected),
+          };
         },
         update: (updateRow: Record<string, unknown>) => {
           updates.push({ table, row: updateRow });

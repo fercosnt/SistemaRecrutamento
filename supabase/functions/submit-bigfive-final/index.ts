@@ -190,6 +190,10 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
     // ── 6. Persiste UMA linha de score (NUNCA toca candidaturas — RNF-07a /
     //      Pitfall 4). status='sucesso' SEMPRE — Big Five é contextual, nenhum
     //      valor de traço deriva revisão-humana nem rejeição. ──────────────────
+    // CR-03: `.select("id").single()` é OBRIGATÓRIO. Sem ele, supabase-js v2 não
+    // pede representação e devolve `{ data: null }` → scoreId sempre null → a
+    // devolutiva é invocada com score_id:null e NUNCA resolve. O `.single()`
+    // devolve a linha recém-inserida com o id real.
     const { data: scoreRow, error: scoreErr } = await supabaseAdmin
       .from("scores_candidato")
       .insert({
@@ -201,18 +205,13 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
           facetas: scored.facetas,
           norm_group: scored.norm_group,
         },
-      });
-    if (scoreErr) {
+      })
+      .select("id")
+      .single();
+    if (scoreErr || !scoreRow?.id) {
       return errorResponse("SERVER_ERROR", "Falha ao registrar a avaliação.", 500);
     }
-    // O insert pode retornar a linha inserida (`{ data: { id } }`) ou nada,
-    // dependendo do PostgREST `Prefer: return=representation`. Tratamos ambos.
-    const scoreId: string | null =
-      (scoreRow && typeof scoreRow === "object" && "id" in scoreRow
-        ? (scoreRow as { id?: string }).id ?? null
-        : Array.isArray(scoreRow) && scoreRow[0]?.id
-          ? scoreRow[0].id
-          : null);
+    const scoreId: string = scoreRow.id;
 
     // ── 7. Invoca gerar-devolutiva-bigfive inline (gated na nova linha de score).
     //      Best-effort (RFB-11/24): falha/timeout NÃO derruba o submit; a devolutiva
