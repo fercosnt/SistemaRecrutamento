@@ -101,6 +101,8 @@ export interface DevolutivaConteudo {
 export interface DevolutivaRow {
   id: string
   candidatura_id: string
+  /** Owner (auth.uid()) — RLS is primary defense; this enables defense-in-depth. */
+  candidato_id: string
   conteudo_jsonb: DevolutivaConteudo
   created_at: string
 }
@@ -176,6 +178,17 @@ export async function submitBigfiveFinal(
         error,
       )
     }
+    // WR-06: a 400 from the EF is a VALIDATION failure (malformed/incomplete body) —
+    // it will deterministically fail again on retry, so DON'T tell the candidate to
+    // "tente novamente" (the NETWORK_ERROR copy). Surface a distinct review-your-answers
+    // message instead.
+    if (e.status === 400 || String(e.status) === '400') {
+      throw new BigfiveServiceError(
+        'Revise suas respostas — alguma resposta está incompleta ou inválida.',
+        'INVALID_INPUT',
+        error,
+      )
+    }
     throw new BigfiveServiceError(
       'Não foi possível enviar sua avaliação. Tente novamente.',
       'NETWORK_ERROR',
@@ -214,7 +227,10 @@ export async function loadDevolutiva(
       }
     }
   })('devolutivas_candidato')
-    .select('id, candidatura_id, conteudo_jsonb, created_at')
+    // WR-05: include candidato_id in the allowlist so the read can defend-in-depth
+    // (RLS `candidato_id = auth.uid()` stays primary). Still an EXPLICIT allowlist —
+    // never `select('*')` ([[reference_select_star_leaks_pii]]).
+    .select('id, candidatura_id, candidato_id, conteudo_jsonb, created_at')
     .eq('candidatura_id', candidaturaId)
     .maybeSingle()
 
