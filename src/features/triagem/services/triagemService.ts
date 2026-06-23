@@ -114,24 +114,18 @@ export async function listTriagemPanel(
     throw new TriagemServiceError('vagaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // W3: o `ilike('candidato.nome_completo', ...)` filtra o RECURSO EMBUTIDO, não a
-  // linha-pai. Sem `!inner`, o PostgREST mantém TODA candidatura (nullando o embed),
-  // então a busca por nome devolvia todas as candidaturas e `count:'exact'` reportava
-  // o total não-filtrado (quebra a paginação). Use INNER embed SÓ quando há filtro de
-  // nome — para que o ilike efetivamente filtre as candidaturas + o count fique certo.
-  // Sem filtro de nome, mantém o left-join (sem `!inner`) para que linhas sem
-  // candidato/análise ainda apareçam.
-  const candidatoEmbed = filters.nome
-    ? 'candidato:candidatos!inner ( id, nome_completo )'
-    : 'candidato:candidatos ( id, nome_completo )'
-
-  // Allowlist explícita — sem `*`, sem colunas PII. Junta a análise da IA.
+  // Lê da view `v_triagem_panel` (security_invoker=true → preserva a RLS das tabelas-base):
+  // ela achata score_match + análise + candidato em colunas TOP-LEVEL. PostgREST NÃO ordena
+  // linhas-pai por coluna de recurso EMBUTIDO (o `referencedTable:'analise'` ordenava só o array
+  // interno → o sort por score nunca funcionava); com a view, `order('score_match')` ordena de
+  // verdade e a paginação `.range()` server-side continua correta. O filtro por nome também vira
+  // top-level (`candidato_nome`), dispensando o hack de INNER-embed.
   let query = supabase
-    .from('candidaturas')
+    .from('v_triagem_panel')
     .select(
       `id, status, etapa_atual, created_at, curriculo_nome_original,
-       ${candidatoEmbed},
-       analise:analise_candidato_vaga ( score_match, pontos_fortes, gaps, flags, status )`,
+       candidato_id, candidato_nome,
+       score_match, pontos_fortes, gaps, flags, analise_status`,
       { count: 'exact' },
     )
     .eq('vaga_id', vagaId)
@@ -144,19 +138,18 @@ export async function listTriagemPanel(
   if (filters.etapa) {
     query = query.eq('etapa_atual', filters.etapa)
   }
-  // Busca por nome (no recurso embutido candidatos — INNER ativado acima).
+  // Busca por nome — agora coluna top-level da view.
   if (filters.nome) {
-    query = query.ilike('candidato.nome_completo', `%${filters.nome}%`)
+    query = query.ilike('candidato_nome', `%${filters.nome}%`)
   }
 
-  // Ordenação: score_match na análise embutida, nulls-last (pendente/falhou ao fim).
+  // Ordenação: score_match TOP-LEVEL na view, nulls-last (pendente/falhou ao fim).
   if (orderBy === 'recentes') {
     query = query.order('created_at', { ascending: false })
   } else {
     query = query.order('score_match', {
       ascending: orderBy === 'score_asc',
       nullsFirst: false,
-      referencedTable: 'analise',
     })
   }
 
@@ -178,8 +171,34 @@ export async function listTriagemPanel(
   const total = count ?? 0
   const totalPages = Math.ceil(total / pagination.limit)
 
+  // Mapeia as colunas FLAT da view → forma aninhada do TriagemRow (candidato/analise).
+  // `analise_status` non-null = existe row de análise (sucesso/falhou/pendente); null = sem análise.
+  const rows: TriagemRow[] = (data ?? []).map((raw) => {
+    const r = raw as Record<string, unknown>
+    return {
+      id: r.id as string,
+      status: r.status as StatusCandidatura,
+      etapa_atual: r.etapa_atual as EtapaFunilM2,
+      created_at: r.created_at as string,
+      curriculo_nome_original: (r.curriculo_nome_original as string | null) ?? null,
+      candidato: r.candidato_id
+        ? { id: r.candidato_id as string, nome_completo: (r.candidato_nome as string) ?? '' }
+        : null,
+      analise:
+        r.analise_status != null
+          ? {
+              score_match: (r.score_match as number | null) ?? null,
+              pontos_fortes: (r.pontos_fortes as string[] | null) ?? [],
+              gaps: (r.gaps as string[] | null) ?? [],
+              flags: (r.flags as string[] | null) ?? [],
+              status: (r.analise_status as string | null) ?? null,
+            }
+          : null,
+    }
+  })
+
   return {
-    data: (data ?? []) as unknown as TriagemRow[],
+    data: rows,
     pagination: {
       page: pagination.page,
       limit: pagination.limit,

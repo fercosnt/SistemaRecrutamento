@@ -87,15 +87,35 @@ has ANTHROPIC_API_KEY/OPENAI_API_KEY env (else the analysis will land status='fa
 
 ### 2. Ranked panel visual (TRIAGEM-02)
 expected: `/rh/vagas/:id/candidatos` as RH shows the candidate in a ranked table with a score band chip (verde ≥70 / amarelo 40-69 / vermelho <40), top fortes/gaps, pagination 20/page, default sort score DESC (pending/falhou at bottom).
-result: [pending — visual. With 0 analyses, the panel currently renders the 6 survivors in the pending/falhou state; band chips need at least one status='sucesso' analysis to verify.]
+result: PARTIAL → FIX APPLIED (re-test pending). UAT 2026-06-22 (recruiter@teste.com): the 2 candidates
+render with GREEN score-band chips + correct numbers (75/70) + top fortes/gaps + "✨ Sugestão da IA"
+badge — all good. BUG: sort was ASCENDING (Fernando 70 above Joao Jose 75), not DESC. Root cause:
+triagemService ordered `score_match` with `referencedTable:'analise'` (embedded resource) — PostgREST
+only orders the inner array, never the parent rows, so candidaturas came back in default order. FIX
+(commit pending): new `security_invoker` view `v_triagem_panel` flattens score_match to top-level →
+`order('score_match' DESC)` + `.range()` pagination now correct; service reads the view (migration
+20260623000001, applied via MCP; verified Joao Jose 75 → Fernando 70). Cosmetic: fortes/gaps text
+truncates mid-sentence → Phase 16. RE-TEST: refresh the panel, confirm 75 on top.
 
 ### 3. Comparativo live call P95 ≤5s (TRIAGEM-03)
 expected: Select 2-10 candidates → "Comparar (N)" → comparativo opens ≤5s, candidates-as-columns with ranking 1-N, Score IA band, fortes, gaps, justificativa, SugestaoIABadge at top, sticky-left first column. Selecting candidates from different vagas shows the pt-BR "vagas diferentes" copy (MIXED_VAGA fix).
-result: [pending — visual + AI. EF `comparativo-candidatos` deployed (v3, ACTIVE, verify_jwt:true → no-auth curl returns 401 as expected). MIXED_VAGA pt-BR copy fix is in code (commit fc922cd).]
+result: FAILED → FIX APPLIED (re-test pending). UAT 2026-06-22: "Comparar (2)" enabled, but the
+comparativo showed "Não foi possível gerar o comparativo" — CORS preflight `OPTIONS` returned 401.
+TWO causes: (1) EF was `verify_jwt:true` → the Supabase gateway demanded a JWT on the preflight (browser
+sends OPTIONS without Authorization) → 401 → CORS block. FIX: redeploy `--no-verify-jwt` (auth stays —
+done inside the EF: getUser + role + vaga ownership, the C1/IDOR fix). (2) Even after that, the EF's own
+`Deno.serve` wrapper returned 401 on a missing Authorization header BEFORE its OPTIONS check → still
+preflight 401. FIX: added an `OPTIONS` short-circuit at the top of the wrapper. Verified: OPTIONS now
+200 (curl). ALSO: the ASB vaga had `created_by=NULL` → an `rh` caller (recruiter) would 403 on the
+ownership check; set the ASB vaga owner = recruiter@teste.com. deno 7/7. RE-TEST: select both →
+"Comparar (2)" → comparativo should open (ranking, scores, fortes/gaps, justificativa, SugestaoIABadge,
+sticky first column). MIXED_VAGA pt-BR copy already in code (fc922cd).
 
 ### 4. PDF export quality (TRIAGEM-04)
 expected: "Exportar PDF" downloads a landscape `comparativo-candidatos.pdf` with attribute rows + candidate columns, **real candidate names** in the header (W1 fix), selectable text (not raster).
-result: [pending — visual; downstream of #3 (need a comparativo rendered first).]
+result: BLOCKED by #3 → unblocked once #3 re-test passes. No PDF-specific defect found yet (couldn't
+reach it). RE-TEST after #3 opens: "Exportar PDF" → landscape comparativo-candidatos.pdf, real names
+in header (W1), selectable text.
 
 ### 5. CV PDF text extraction (post-research decision)
 expected: For a candidatura with a real CV PDF: `resumo_cv` contains meaningful extracted text. For a corrupted/image-only PDF: `flags` includes 'cv_nao_extraido', row still status='sucesso' with respostas-only analysis.

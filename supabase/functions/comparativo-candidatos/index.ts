@@ -290,6 +290,12 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
 
 if (import.meta.main) {
   Deno.serve(async (req: Request) => {
+    // CORS preflight ANTES de qualquer checagem de auth — o browser manda OPTIONS SEM
+    // Authorization; sem este short-circuit o guard de authHeader abaixo devolvia 401 no
+    // preflight → o browser bloqueava por CORS e o comparativo nunca abria. (handler() também
+    // trata OPTIONS, mas nunca era alcançado porque este wrapper retornava antes.)
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

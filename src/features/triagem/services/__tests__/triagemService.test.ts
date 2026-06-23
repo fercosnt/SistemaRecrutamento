@@ -84,13 +84,17 @@ describe('triagemService — TRIAGEM-02 panel read (allowlist projection)', () =
     expect(lastSelect.value).not.toContain('celular')
   })
 
-  it('select() joins analise:analise_candidato_vaga with score_match/pontos_fortes/gaps/flags/status', async () => {
+  it('select() reads the flat analise columns from v_triagem_panel (score_match/pontos_fortes/gaps/flags/analise_status)', async () => {
+    // Reads the `v_triagem_panel` view, which flattens score_match to the top level so the
+    // DESC sort actually orders the parent rows (PostgREST can't order parents by an embedded
+    // resource column). The analise fields are now top-level columns, not an `analise:...` embed.
     await listTriagemPanel('vaga-1', {}, 'score_desc', { page: 1, limit: 20 })
-    expect(lastSelect.value).toContain('analise_candidato_vaga')
     expect(lastSelect.value).toContain('score_match')
     expect(lastSelect.value).toContain('pontos_fortes')
     expect(lastSelect.value).toContain('gaps')
     expect(lastSelect.value).toContain('flags')
+    expect(lastSelect.value).toContain('analise_status')
+    expect(lastSelect.value).toContain('candidato_nome')
   })
 
   it('.range() math = (page-1)*limit for 20/page (page 2 → 20..39)', async () => {
