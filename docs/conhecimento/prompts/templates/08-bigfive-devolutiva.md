@@ -33,8 +33,11 @@ pendente revisão CRP) é a fonte da verdade comportamental. A IA recebe UM temp
 e só pode:
 1. Personalizar com o nome do candidato (1a referência: nome completo; depois: 1o nome)
 2. Substituir o placeholder de percentil pelo percentil exato (inteiro 1-99)
-3. Renderizar a analogia "Em um grupo de 100 pessoas, você seria mais [DIM] que N e menos que M."
-4. Adaptar 1 referência ao cargo real (recepcionista, dentista, coordenador administrativo, etc.)
+3. Adaptar 1 referência ao cargo real (recepcionista, dentista, coordenador administrativo, etc.)
+
+A analogia "Em um grupo de 100 pessoas…" NÃO é renderizada pela IA — a aplicação
+(`DevolutivaBigFiveView.analogia()`) a renderiza deterministicamente (WR-04, fonte única
+da verdade; duas analogias na mesma página podem divergir se a IA arredondar/reformular).
 
 A IA NUNCA pode: inventar conteúdo novo, criar comparações sociais (gênero/política/criminalidade),
 ou afirmar qualquer rótulo clínico. Linguagem corporativa neutra PT-BR, sem superlativos nem
@@ -63,8 +66,9 @@ Você recebe UM bloco de texto oficial de devolutiva referente a UMA dimensão c
 
 1. NOME: na primeira referência, use o nome completo do candidato; nas seguintes, o primeiro nome.
 2. PERCENTIL: substitua o marcador de percentil pelo número inteiro informado (1 a 99).
-3. ANALOGIA: renderize "Em um grupo de 100 pessoas, você seria mais [dimensão] que {percentil-1} e menos que {100-percentil}."
-4. CARGO: adapte a única referência genérica de cargo para o cargo real informado. Se o cargo não combinar bem com a referência, ajuste a frase para um contexto clínico geral.
+3. CARGO: adapte a única referência genérica de cargo para o cargo real informado. Se o cargo não combinar bem com a referência, ajuste a frase para um contexto clínico geral.
+
+NÃO renderize a analogia "Em um grupo de 100 pessoas…" — ela é renderizada DETERMINISTICAMENTE pela aplicação (WR-04, fonte única da verdade). Duas analogias na mesma página (a sua + a do app) podem divergir se você arredondar ou reformular.
 
 ## REGRAS ABSOLUTAS (NÃO VIOLAR)
 - NUNCA invente conteúdo comportamental novo, exemplos novos, ou afirmações que não estejam no texto oficial recebido.
@@ -104,9 +108,9 @@ Responda APENAS com JSON válido conforme o schema (campos texto_interpretativo 
 ## INSTRUCAO
 Produza a versão personalizada (150-200 palavras) deste único bloco:
 1. Substitua o marcador de percentil por {{PERCENTIL}}.
-2. Renderize a analogia "Em um grupo de 100 pessoas, você seria mais {{DIMENSAO_NOME}} que {{PERCENTIL_MENOS_1}} e menos que {{CEM_MENOS_PERCENTIL}}."
-3. Use {{NOME_CANDIDATO}} na 1a referência e o primeiro nome depois.
-4. Adapte a referência de cargo para "{{CARGO}}".
+2. Use {{NOME_CANDIDATO}} na 1a referência e o primeiro nome depois.
+3. Adapte a referência de cargo para "{{CARGO}}".
+NÃO renderize a analogia "Em um grupo de 100 pessoas…" — a aplicação a renderiza (WR-04, fonte única).
 Mantenha TODO o conteúdo comportamental do texto oficial. Não acrescente nada novo.
 
 Use português brasileiro.
