@@ -1,12 +1,16 @@
 ---
-status: partial
+status: complete
 phase: 10-triagem-rh-com-ia-comparativo-etapa-2
 source: [10-VERIFICATION.md]
 started: 2026-06-09
-updated: 2026-06-09T00:00:00Z
+updated: 2026-06-22T00:00:00Z
 ---
 
 ## Current Test
+
+[✅ COMPLETE 2026-06-22 — 5/5 PASS. Getting here required fixing the entire Phase-9 AI infra (never
+provisioned in PROD) + 3 triagem UAT bugs. Full diagnostic trail retained below. Non-blocking → Phase 16:
+comparativo latency >5s (monitor) + "Voltar" button style + fortes/gaps truncation.]
 
 [BLOCKED 2026-06-21 — Phase 9 AI infra was never provisioned in PROD. TWO layers found:
  LAYER 1 (FIXED 2026-06-21): vault.secrets was EMPTY → project_url + edge_invoke_key created
@@ -122,9 +126,11 @@ MIXED_VAGA pt-BR copy already in code (fc922cd).
 
 ### 4. PDF export quality (TRIAGEM-04)
 expected: "Exportar PDF" downloads a landscape `comparativo-candidatos.pdf` with attribute rows + candidate columns, **real candidate names** in the header (W1 fix), selectable text (not raster).
-result: ISSUE → FIX APPLIED (re-test pending). UAT 2026-06-22: PDF downloads landscape, real name in
-header ("Joao Jose"), selectable text (good) — BUT only the 1st candidate rendered; the 2nd (Fernando)
-was dropped and text clipped. Root cause: exportComparativo.ts used `styles: { cellWidth: 'wrap' }` with
+result: ✅ PASS 2026-06-22 — CONFIRMED by user re-export ("tudo certo"): both candidates render as
+columns, text wraps (no clipping), landscape + real names + selectable text. UAT (pre-fix): PDF
+downloaded landscape, real name in header ("Joao Jose"), selectable text (good) — BUT only the 1st
+candidate rendered; the 2nd (Fernando) was dropped and text clipped. Root cause: exportComparativo.ts
+used `styles: { cellWidth: 'wrap' }` with
 no per-column widths → the 1st candidate's long text stretched its column and pushed the rest off the
 landscape page width → 2nd+ column off-sheet/clipped. FIX (commit pending): compute candidate-column
 width = (pageWidth − 2·margin − 32 attr col) / nCandidates, set explicit columnStyles + `overflow:
@@ -142,14 +148,14 @@ fixed via static import). Corrupted/image-only fallback path not separately exer
 ## Summary
 
 total: 5
-passed: 4
+passed: 5
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
-# 2026-06-22: #1+#5 PASS (backend), #2+#3 PASS (user re-test confirmed). #4 fix applied (PDF column
-# widths) → pending user re-export. Non-blocking → Phase 16: #3 latency monitor + "Voltar" button style;
-# #2 fortes/gaps truncation. After #4 re-test passes → Phase 10 = 5/5.
+# 2026-06-22: ALL 5 PASS. #1+#5 backend-verified; #2/#3/#4 user-confirmed live (recruiter@teste.com).
+# Non-blocking → Phase 16: #3 comparativo latency >5s once (monitor; single-eval Sonnet) + "Voltar"
+# button unstyled; #2 fortes/gaps text truncation.
 
 ## Technical evidence (2026-06-09, read-only)
 - EFs ACTIVE: `analise-candidato-individual` v2, `comparativo-candidatos` v3 (verify_jwt:true).
