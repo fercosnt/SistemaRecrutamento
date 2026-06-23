@@ -39,7 +39,11 @@
 // O guard `import.meta.main` gateia o Deno.serve, então estes imports não tocam o
 // caminho de teste (o teste só importa `handler`).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { z } from "npm:zod@3.25.76";
+// `/v4`: os helpers zodOutputFormat/zodResponseFormat dos SDKs fazem `require("zod/v4")`
+// (.def). Um schema construído com o `z` clássico (._def) faz o helper crashar em runtime
+// ("Cannot read properties of undefined (reading 'def')") — bug latente que os deno tests
+// não pegam (mockam callAi). Padrão PROD-green: _shared/analise-schemas.ts ([[reference_ef_npm_join_import_bug]] passo 5).
+import { z } from "npm:zod@3.25.76/v4";
 import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
 import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.102.0/helpers/zod";
 import OpenAI from "npm:openai@6.42.0";
