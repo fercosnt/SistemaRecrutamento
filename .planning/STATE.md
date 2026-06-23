@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Phase 12 plan execution 6/6 + PROD-applied (2 migrations + 120-item Big Five bank + 2 EFs deployed + llm_call_type +bigfive_devolutiva). DEFERRED: bigfive_devolutiva prompt-row sync (UAT). PENDING orchestrator gates: verify/code-review/UI-review for Phase 12 (context-limited — resume /gsd-autonomous --from 12)."
-last_updated: "2026-06-09T08:28:36.838Z"
-last_activity: 2026-06-09
+stopped_at: "Phase 12 GATES CLOSED (2026-06-23 /gsd-autonomous --from 12). Code review found Big Five devolutiva chain DOA in PROD (5 critical: .join npm imports + schema-mismatched INSERT + missing .select) → all fixed (5 commits) + both EFs REDEPLOYED PROD v5 JWT-on. verify=human_needed (3/3 criteria, RNF-07a holds), secure=SECURED 26/26, ui-review=18/24. DEFERRED: bigfive_devolutiva prompt activation (after CRP reg), CRP-XX placeholder go-live blocker, full live e2e (human UAT), IN-01/02 seed text, UI accent-color polish→P16. NEXT: Phase 13 (Redação Cultural + Revisão Humana)."
+last_updated: "2026-06-23T00:00:00.000Z"
+last_activity: 2026-06-23
 progress:
   total_phases: 11
   completed_phases: 7
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 12 (Big Five + Devolutiva) — EXECUTING
-Plan: 4 of 6
-Status: Ready to execute
-Last activity: 2026-06-09
+Phase: 13 (Redação Cultural + Revisão Humana) — NEXT (discuss→plan→execute)
+Plan: Phase 12 closed (all 6 gates); Phases 13-16 remain + milestone lifecycle
+Status: Ready to start Phase 13
+Last activity: 2026-06-23
 
 ## Latest Plan (05-07 gap-closure)
 
