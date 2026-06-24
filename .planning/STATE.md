@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)"
+stopped_at: "Phase 13 (Redação Cultural + Revisão Humana) FULLY CLOSED 2026-06-24 — 5/5 plans live in PROD (4 migrations + avaliar-redacao-cultural EF JWT-on + culture_fit_essay prompt active + salvar_revisao_redacao RPC; 6 SQL smokes PASS, RNF-07a holds). Gates: code-review (CR-01 stale-verdict idempotency fixed + EF redeployed; WR-02/03/05/06 fixed), verify=human_needed (3/3 criteria, live-PROD confirmed), secure=SECURED 24/24, ui-review=22/24. Bundled correction: submit-bigfive-final always-403 ownership bug fixed + redeployed. DEFERRED-UAT: live AI essay scoring + RH UI round-trip. BACKLOG: avaliar-redacao SJT full chain (.join+zod/v4+ownership), WR-04 RH-mutable bloqueio_avanco product decision, content_hash canonical reconcile, P16 polish (text-xs 5th size / tooltip a11y / J-K queue nav). NEXT: Phase 14 (Entrevistas com IA Companion)."
 last_updated: "2026-06-24T16:35:03.363Z"
 last_activity: 2026-06-24
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 13 — Redação Cultural + Revisão Humana
+**Current focus:** Phase 14 — Entrevistas com IA Companion (next)
 
 ## Current Position
 
-Phase: 13 (Redação Cultural + Revisão Humana) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
+Phase: 14 (Entrevistas com IA Companion) — NEXT (discuss→plan→execute)
+Plan: Phase 13 closed (all gates); Phases 14-16 remain + milestone lifecycle
+Status: Ready to start Phase 14
 Last activity: 2026-06-24
 
 ## Latest Plan (05-07 gap-closure)
