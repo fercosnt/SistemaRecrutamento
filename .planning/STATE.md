@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 13-01-PLAN.md (Wave-0 contracts + RED battery)
-last_updated: "2026-06-24T14:11:23.793Z"
+stopped_at: Completed 13-02-PLAN.md (4 migrations + avaliar-redacao-cultural EF authored, NOT applied/deployed)
+last_updated: "2026-06-24T14:28:48.438Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 7
   total_plans: 45
-  completed_plans: 41
+  completed_plans: 42
   percent: 64
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 13 (Redação Cultural + Revisão Humana) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute (13-01 complete — Wave-0 contracts + RED battery landed)
-Last activity: 2026-06-24 -- 13-01 SHIPPED: EssayScoringV1 schema (§8.4 verbatim, zod/v4) + computeScoreAndCors (§8.3 verbatim) GREEN; 5 RED scaffolds; 13-VALIDATION SMOKE-1..8 runbook; tsc 291 flat, deno 16/16
+Plan: 3 of 5
+Status: Ready to execute 13-03 (13-02 complete — migrations + EF authored, NOT applied)
+Last activity: 2026-06-24 -- 13-02 SHIPPED (authored-not-applied): 4 migrations (3 tables + 11-row seed + review-fields trigger + salvar_revisao_redacao RPC, no-wrapper D-22) + new avaliar-redacao-cultural EF (static imports + two-client + callAi; status always pendente_humano, bloqueio only on vermelho, never writes candidaturas — RNF-07a). 3 PRD→live reconciliations (role admin→administrador, auth_user_id→user_id, seed 11-not-13). deno 8/8 GREEN, tsc 291 flat, redacao-contract Vitest 5/5. PROD apply+deploy = [BLOCKING] Plan 13-04.
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -130,6 +130,7 @@ Last activity: 2026-06-24 -- 13-01 SHIPPED: EssayScoringV1 schema (§8.4 verbati
 | Phase 12 P12-04 | 6 min | 2 tasks | 3 files |
 | Phase 12 P12-05 | ~10 min | 2 tasks | 9 files |
 | Phase 13 P13-01 | 18min | 3 tasks | 10 files |
+| Phase 13 P13-02 | 18min | 3 tasks (Task 3 TDD RED+GREEN) | 8 files |
 
 ## Accumulated Context
 
@@ -138,6 +139,9 @@ Last activity: 2026-06-24 -- 13-01 SHIPPED: EssayScoringV1 schema (§8.4 verbati
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [13-02]: redação migrations authored (perguntas_redacao + 11-row seed + redacoes_candidato_em_progresso + redacoes_candidato + BEFORE UPDATE review-fields trigger + salvar_revisao_redacao SECURITY DEFINER RPC; no-BEGIN/COMMIT wrapper D-22) + new avaliar-redacao-cultural EF (static npm imports cloning analise-candidato-individual, two-client authenticate-THEN-authorize, callAi + EssayScoringV1Schema + computeScoreAndCors). status_analise='pendente_humano' ALWAYS + bloqueio_avanco only on vermelho + NEVER writes candidaturas (RNF-07a). AUTHORED-NOT-APPLIED — PROD apply + EF deploy + prompt activation is the [BLOCKING] Plan 13-04.
+- [13-02]: 3 PRD→live reconciliations applied as bug-fixes (the binding PRD prose drifted from the live schema/guard idioms): (a) role 'admin'→'administrador' (custom_access_token_hook output; a mismatch silently denies every RH read — [[reference_auth_hook_rls_gap]]); (b) candidatos.auth_user_id→user_id (the PRD column does not exist; the live link is user_id, confirmed vs database.types.ts + pontuar_sjt); (c) seed 11-not-13 (pergunta-padrao-redacao.md v1.1 ships exactly 11 codes; the PRD prose's 13 overcounted freela — F1 only).
+- [13-02]: avaliar-redacao-cultural resolves candidate ownership via candidatos.user_id=auth.uid() (the CORRECT IDOR check). LATENT BUG NOTED: the SJT avaliar-redacao + submit-bigfive-final EFs compare candidato_id===user.id directly, but candidato_id is candidatos.id (not the auth uid) — structurally wrong ownership check; flagged for a future correctness pass (out of scope this plan). tsc 291 flat, deno 8/8 GREEN, redacao-contract Vitest 5/5 GREEN.
 - [12-05]: candidate Big Five questionnaire = 120 Likert paginated 12×10 in the reused Phase-11 glass shell; autosave teste='big_five' reusing useAutosaveAvaliacao + respostas_avaliacao + 42501 back-lock; neutral {n}/120 progress only — never a score during (RNF-07a / D-12-AVAL-04). Client submit body is the EXACT .strict twin of the EF SubmitBigfiveFinalBodySchema (no `as never`); 12-01 contract test GREEN end-to-end.
 - [12-05]: RH big_five scorecard reuses ScorecardAvaliacao + SCORES_ALLOWLIST (never select('*')), marked CONTEXTUAL/não-eliminatório; SugestaoIABadge ONLY on the AI resumo_executivo, not the raw percentil rows (D-12-AVAL-08). Devolutiva (DevolutivaBigFiveView) is the ONE candidate-facing percentile surface — own-row loadDevolutiva allowlist; "Sensibilidade Emocional" (zero clinical label); LGPD/CFP footer assembled from fragments so the negated "não é teste psicológico" passes the src/ forbidden-string guard.
 - [12-05]: bigfiveService uses two NARROW confined casts (get_bigfive_itens RPC name + devolutivas_candidato table name), NOT a blanket UntypedClient — drop both after the 12-06 BLOCKING apply/regen wave regenerates database.types.ts. vitest 476/476, build 0, tsc 291 (≤293).

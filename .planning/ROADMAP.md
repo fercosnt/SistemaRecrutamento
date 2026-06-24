@@ -292,7 +292,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 13-02-PLAN.md — 4 migrations authored (perguntas_redacao + seed 11 + em_progresso + redacoes_candidato + review-fields trigger + salvar_revisao_redacao RPC; no-wrapper) + new avaliar-redacao-cultural EF (static imports + two-client + callAi + always pendente_humano) [PROD apply deferred to 13-04]
+- [x] 13-02-PLAN.md — 4 migrations authored (perguntas_redacao + seed 11 + em_progresso + redacoes_candidato + review-fields trigger + salvar_revisao_redacao RPC; no-wrapper) + new avaliar-redacao-cultural EF (static imports + two-client + callAi + always pendente_humano) [PROD apply deferred to 13-04]
 - [ ] 13-03-PLAN.md — candidate essay layer: redacaoSchema (.strict()) + redacaoService (allowlist, EF neutral-ack) + RedacaoCounter (3-band) + RedacaoCronometro + RedacaoEditorScreen (reuse useAutosaveAvaliacao) + AvaliacaoContainer redacao branch + candidate route
 
 **Wave 3** *(blocked on Wave 2 + Wave 2)*
@@ -370,7 +370,7 @@ Plans:
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 13. Redação Cultural + Revisão Humana | v2.0 | 0/5 | Planned | - |
+| 13. Redação Cultural + Revisão Humana | v2.0 | 2/5 | In Progress|  |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
