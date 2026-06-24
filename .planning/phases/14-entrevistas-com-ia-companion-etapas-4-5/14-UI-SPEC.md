@@ -1,7 +1,8 @@
 ---
 phase: 14
 slug: entrevistas-com-ia-companion-etapas-4-5
-status: draft
+status: approved
+reviewed_at: 2026-06-24
 shadcn_initialized: true
 preset: existing project install (shadcn/ui + Radix; tokens in src/styles/globals.css)
 created: 2026-06-24
@@ -198,7 +199,7 @@ There are **no delete actions** on the candidate side. Submitting the prova is i
 
 | Action | Confirmation |
 |--------|--------------|
-| Concluir prova | Title: **Enviar prova?** — Body: **Após enviar, você não poderá editar suas respostas.** — Confirm: **Enviar** / Cancel: **Revisar** |
+| Concluir prova | Title: **Enviar prova?** — Body: **Após enviar, você não poderá editar suas respostas.** — Confirm: **Enviar prova** / Cancel: **Revisar** |
 
 ### RH cognitive band — rejection-by-cognitive-alone gate (ENTREV-05 — RNF-07a)
 
@@ -221,7 +222,7 @@ The cognitive band **never** auto-rejects. If the gestor wants to reject based o
 
 | Component | Role |
 |-----------|------|
-| `EntrevistaWorkspace` | Top-level `tabs` host (Painel do candidato / Guia de entrevista / Análise da transcrição / Avaliação da entrevista) on `RHLayout` + `Glass`. Role-gated route under `/rh/candidato/:id/*` (mirrors Phase 13 `RedacaoReviewPanel` mount). |
+| `EntrevistaWorkspace` | Top-level `tabs` host (Painel do candidato / Guia de entrevista / Análise da transcrição / Avaliação da entrevista) on `RHLayout` + `Glass`. **Default landing tab on mount: Painel do candidato** — the primary visual anchor, grounding the gestor in candidate context (etapa + 24h marker) before they enter the guide, transcript, or scorecard. Role-gated route under `/rh/candidato/:id/*` (mirrors Phase 13 `RedacaoReviewPanel` mount). |
 | `EntrevistaDashboard` | Candidate dashboard: etapa, manually-scheduled datetime (`calendar` + time `select`), computed **24h marker** pill (amber <24h / neutral ≥24h, tooltip = exact datetime). In-app only — NO email/calendar wiring (CONTEXT decision). |
 | `GuiaEntrevistaPanel` | Renders the `gerar-guia-entrevista` output (5–7 STAR/PEI perguntas, BARS 1–5 anchors + dimensão). `online` / `presencial` generate CTAs; per-question weak-dimension hint (`score <3` for online, gaps `<4` for presencial). Header carries `SugestaoIABadge variant="full"`. |
 | `EntrevistaScorecardInline` | Inline-editable scorecard — BARS `slider`s per competência (`notas_humanas`) + optional notes `textarea` + Salvar via the new review/notes-write RPC (template: `salvar_revisao_redacao`). Built on the neutral `ScorecardAvaliacao` presentation. |
@@ -253,11 +254,11 @@ No third-party registries declared for this phase. No `shadcn view` / vetting ga
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS (FLAG resolved — cognitive submit confirm relabeled "Enviar prova")
+- [x] Dimension 2 Visuals: PASS (FLAG resolved — default landing tab "Painel do candidato" declared as primary anchor)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS (FLAG — 44px touch-target floor is a justified a11y exception, multiple of 4, inherited from Phase 11; non-blocking)
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-06-24
