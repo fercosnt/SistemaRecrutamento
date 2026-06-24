@@ -288,7 +288,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — Wave-0 RED battery + the 2 contracts (EssayScoringV1 schema §8.4 GREEN + computeScoreAndCors §8.3 GREEN) + 13-VALIDATION.md SQL-smoke runbook
+- [x] 13-01-PLAN.md — Wave-0 RED battery + the 2 contracts (EssayScoringV1 schema §8.4 GREEN + computeScoreAndCors §8.3 GREEN) + 13-VALIDATION.md SQL-smoke runbook
 
 **Wave 2** *(blocked on Wave 1)*
 
