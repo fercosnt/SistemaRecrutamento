@@ -36,6 +36,11 @@ const LETRA_NUMERO_IDS = Array.from({ length: 8 }, (_, i) => `item_${String(i + 
 const GABARITO: Record<string, number> = {};
 for (const id of [...MATRIZ_IDS, ...LETRA_NUMERO_IDS]) GABARITO[id] = 2; // correct pick is index 2 for all
 
+// The section partition the PROD caller (RPC/EF) passes from the item bank.
+const SECOES: Record<string, "matriz" | "letra_numero"> = {};
+for (const id of MATRIZ_IDS) SECOES[id] = "matriz";
+for (const id of LETRA_NUMERO_IDS) SECOES[id] = "letra_numero";
+
 const N_TOTAL = 20;
 
 // Build a rawResponses map where exactly `nCorrect` items (the first nCorrect ids)
@@ -52,6 +57,7 @@ function profileWithCorrect(nCorrect: number): Record<string, number> {
 type ScoreFn = (
   rawResponses: Record<string, number>,
   gabarito: Record<string, number>,
+  secoesByItem?: Record<string, "matriz" | "letra_numero">,
 ) => {
   total: number;
   secoes: {
@@ -94,7 +100,7 @@ const GOLDEN: { nCorrect: number; banda: string }[] = [
 Deno.test("ENTREV-05 GOLDEN — 10 synthetic profiles map to the expected banda (CTT soma)", async () => {
   const { scoreRaciocinio } = await loadScorer();
   for (const { nCorrect, banda } of GOLDEN) {
-    const out = scoreRaciocinio(profileWithCorrect(nCorrect), GABARITO);
+    const out = scoreRaciocinio(profileWithCorrect(nCorrect), GABARITO, SECOES);
     assertEquals(out.total, nCorrect, `total raw for ${nCorrect} correct`);
     assertEquals(out.banda, banda, `banda for ${nCorrect}/${N_TOTAL} correct (pct=${(nCorrect / N_TOTAL) * 100}%)`);
     assert(VALID_BANDS.has(out.banda), `banda "${out.banda}" is one of the 5 pt-BR faixas`);
@@ -104,7 +110,7 @@ Deno.test("ENTREV-05 GOLDEN — 10 synthetic profiles map to the expected banda 
 Deno.test("ENTREV-05 — total = matriz.raw + letra_numero.raw (per-section sum)", async () => {
   const { scoreRaciocinio } = await loadScorer();
   // 6 correct: first 6 ids (all matriz) correct → matriz.raw 6, letra_numero.raw 0.
-  const out = scoreRaciocinio(profileWithCorrect(6), GABARITO);
+  const out = scoreRaciocinio(profileWithCorrect(6), GABARITO, SECOES);
   assertEquals(out.secoes.matriz.raw, 6, "matriz raw");
   assertEquals(out.secoes.letra_numero.raw, 0, "letra_numero raw");
   assertEquals(out.total, out.secoes.matriz.raw + out.secoes.letra_numero.raw, "total is the section sum");
@@ -115,7 +121,7 @@ Deno.test("ENTREV-05 — total = matriz.raw + letra_numero.raw (per-section sum)
 Deno.test("ENTREV-05 — CTT soma 0/1: a wrong/blank pick scores 0, correct scores 1", async () => {
   const { scoreRaciocinio } = await loadScorer();
   // 14 correct spans all 12 matriz + first 2 letra_numero.
-  const out = scoreRaciocinio(profileWithCorrect(14), GABARITO);
+  const out = scoreRaciocinio(profileWithCorrect(14), GABARITO, SECOES);
   assertEquals(out.secoes.matriz.raw, 12, "all 12 matriz correct");
   assertEquals(out.secoes.letra_numero.raw, 2, "first 2 letra_numero correct");
   assertEquals(out.total, 14, "soma 0/1 total");
@@ -126,7 +132,7 @@ Deno.test("ENTREV-05 — a blank/missing answer scores 0 (never crashes)", async
   // Only answer the first 5 items correctly; the rest are absent from the map.
   const partial: Record<string, number> = {};
   [...MATRIZ_IDS, ...LETRA_NUMERO_IDS].slice(0, 5).forEach((id) => (partial[id] = GABARITO[id]));
-  const out = scoreRaciocinio(partial, GABARITO);
+  const out = scoreRaciocinio(partial, GABARITO, SECOES);
   assertEquals(out.total, 5, "5 correct, the 15 missing items score 0");
   assertEquals(out.secoes.matriz.raw, 5, "5 matriz correct");
 });
@@ -136,7 +142,7 @@ Deno.test("ENTREV-05 — a client-sent score is structurally impossible to influ
   // Inject a forged `score`/`banda` into the rawResponses map — the scorer must
   // ignore everything but the gabarito-keyed item picks (anti-tamper).
   const forged = { ...profileWithCorrect(4), score: 9999, banda: "bem_acima" } as unknown as Record<string, number>;
-  const out = scoreRaciocinio(forged, GABARITO);
+  const out = scoreRaciocinio(forged, GABARITO, SECOES);
   assertEquals(out.total, 4, "the forged score/banda is ignored — only gabarito-keyed picks count");
   assertEquals(out.banda, "bem_abaixo", "4/20 = 20% → bem_abaixo regardless of the forged banda");
 });
@@ -144,7 +150,7 @@ Deno.test("ENTREV-05 — a client-sent score is structurally impossible to influ
 Deno.test("ENTREV-05 — banda is always one of the 5 pt-BR faixas across the full raw range", async () => {
   const { scoreRaciocinio } = await loadScorer();
   for (let n = 0; n <= N_TOTAL; n++) {
-    const out = scoreRaciocinio(profileWithCorrect(n), GABARITO);
+    const out = scoreRaciocinio(profileWithCorrect(n), GABARITO, SECOES);
     assert(VALID_BANDS.has(out.banda), `banda "${out.banda}" for ${n} correct is one of the 5 faixas`);
   }
 });
