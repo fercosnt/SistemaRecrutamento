@@ -90,6 +90,9 @@ export const REDACAO_ALLOWLIST =
 /** The PostgREST embed that joins the vaga (for the filter) + the candidate name. */
 const REDACAO_EMBED = `${REDACAO_ALLOWLIST}, candidaturas!inner ( vaga_id, candidatos ( nome_completo ) )`
 
+/** WR-05 — defensive bound on the RH review/escalation queues (no unbounded reads). */
+const REVIEW_QUEUE_LIMIT = 500
+
 /** Severity rank for the sidebar sort (vermelho first → verde last). */
 const COR_SEVERITY: Record<RedacaoCor, number> = {
   vermelho: 3,
@@ -127,11 +130,15 @@ export async function listRedacoesRevisao(vagaId: string): Promise<RedacaoReview
     throw new RevisaoRedacaoServiceError('vagaId é obrigatório', 'INVALID_INPUT')
   }
 
+  // WR-05 — NO server `.order('classificacao_cor')`: that sorts by the raw enum
+  // TEXT ('verde' > 'vermelho' > 'amarelo' alphabetically), which does NOT match
+  // severity and is overridden by `sortBySeverity` below anyway. `sortBySeverity`
+  // owns the ordering; `.limit` bounds the per-vaga queue defensively.
   const { data, error } = await supabase
     .from('redacoes_candidato')
     .select(REDACAO_EMBED)
     .eq('candidaturas.vaga_id', vagaId)
-    .order('classificacao_cor', { ascending: false })
+    .limit(REVIEW_QUEUE_LIMIT)
 
   if (error) {
     throw new RevisaoRedacaoServiceError(
@@ -151,6 +158,9 @@ export async function listRedacoesRevisao(vagaId: string): Promise<RedacaoReview
  * Optionally scoped to one vaga.
  */
 export async function getDuvidasGestor(vagaId?: string): Promise<RedacaoReviewRow[]> {
+  // WR-05 — bound the escalation queue with `.limit`. Without a vagaId this reads
+  // every `duvida` row the RLS exposes (own-vaga scoping is a milestone-wide LGPD
+  // decision deferred to Phase 15/16); the cap stops an unbounded full-queue read.
   let query = supabase
     .from('redacoes_candidato')
     .select(REDACAO_EMBED)
@@ -160,7 +170,7 @@ export async function getDuvidasGestor(vagaId?: string): Promise<RedacaoReviewRo
     query = query.eq('candidaturas.vaga_id', vagaId)
   }
 
-  const { data, error } = await query
+  const { data, error } = await query.limit(REVIEW_QUEUE_LIMIT)
 
   if (error) {
     throw new RevisaoRedacaoServiceError(

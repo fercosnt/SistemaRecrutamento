@@ -40,6 +40,7 @@ vi.mock('@/lib/supabase/client', () => {
     })
     q.is = vi.fn(() => q)
     q.order = vi.fn(() => q)
+    q.limit = vi.fn(() => q)
     // Terminal: resolve like PostgREST when awaited.
     q.then = (resolve: (v: unknown) => unknown) => resolve(queryResult.value)
     return q
