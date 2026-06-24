@@ -20,10 +20,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-// RED: this module does not exist yet — import throws "Cannot find module" at
-// runtime (Vitest) AND tsc TS2307. The @ts-expect-error keeps the tsc baseline flat
-// (Phase 4.1 precedent); it self-resolves the moment Plan 13-05 authors the component.
-// @ts-expect-error — module lands in Plan 13-05; RED until then.
+// GREEN as of Plan 13-05 — the component now exists (the Wave-0 @ts-expect-error
+// self-resolved on authoring, per the scaffold note). The import resolves cleanly.
 import { RedacaoSidebar } from '@/features/triagem/components/RedacaoSidebar'
 
 // A mixed queue: one of each color, intentionally out of severity order on input.
