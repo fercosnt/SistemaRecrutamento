@@ -115,6 +115,8 @@ CREATE POLICY redacao_rh_select ON public.redacoes_candidato
 
 If a shared RH pool reading all vagas IS the intended product model, document it explicitly — but then the own-vaga guard on the WRITE RPC is inconsistent and should be reconciled too.
 
+> **Resolution (review-fix, not fixed — by design):** role-only RH SELECT is the consistent M2 norm — every comparable RH read policy (`analise_candidato_vaga`, `devolutivas_candidato`, `scores_candidato`) is role-only, not vaga-scoped; vaga-scoping RH reads is a milestone-wide LGPD decision deferred to Phase 15/16. Migration and PROD left unchanged.
+
 ### WR-02: `submittedIds` is a memoized `Set` mutated in place — the UI does not reflect a submission until the query refetches
 
 **File:** `src/features/avaliacao/components/RedacaoEditorScreen.tsx:159-165` (`submittedIds.add(...)`), `109-112`
