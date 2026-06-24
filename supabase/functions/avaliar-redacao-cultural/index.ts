@@ -249,7 +249,13 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: EssayScoringV1Schema,
-        idempotency_key: `${body.candidatura_id}:${body.pergunta_id}`,
+        // CR-01 — chave content-addressed: o fluxo permite re-submissão até a etapa
+        // fechar (UPSERT em candidatura_id,pergunta_id). Sem o inputHash a chave era
+        // estável → o 2º envio de um texto EDITADO acertava tryIdempotencyReplay e
+        // gravava o veredito da PRIMEIRA redação contra o NOVO texto (scores stale).
+        // Dobrando o sha256 do texto na chave, um texto reescrito força scoring fresco;
+        // um duplicado verdadeiro (mesmo texto) ainda de-dupa via replay.
+        idempotency_key: `${body.candidatura_id}:${body.pergunta_id}:${inputHash}`,
       },
       // Builders REAIS injetados (sem eles callAi cai no no-op `(s)=>s` e quebra
       // AMBOS os provedores). Testes omitem → no-op (inalterado).

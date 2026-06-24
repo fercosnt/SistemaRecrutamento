@@ -109,6 +109,9 @@ function makeMockSupabaseAdmin(opts: {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   const upserts: { table: string; row: Record<string, unknown> }[] = [];
   const updates: { table: string; row: Record<string, unknown> }[] = [];
+  // CR-01 — capture the idempotency_key callAi/tryIdempotencyReplay looks up in
+  // ai_call_logs so the test can assert it is content-addressed (folds inputHash).
+  const idempotencyKeys: string[] = [];
 
   function chainFor(table: string) {
     // Resolves the row a `.eq(...).maybeSingle()` returns for each table.
@@ -121,7 +124,13 @@ function makeMockSupabaseAdmin(opts: {
     };
     const builder = {
       // anti-plágio: .select(...).eq(...).neq(...) → array result.
-      eq: () => builder,
+      // ai_call_logs replay: .select(...).eq("idempotency_key", key).maybeSingle().
+      eq: (col?: string, val?: unknown) => {
+        if (table === "ai_call_logs" && col === "idempotency_key" && typeof val === "string") {
+          idempotencyKeys.push(val);
+        }
+        return builder;
+      },
       neq: () => Promise.resolve({ data: [], error: null, count: 0 }),
       maybeSingle: () => Promise.resolve({ data: rowFor(), error: null }),
       single: () => Promise.resolve({ data: { id: "redacao-1" }, error: null }),
@@ -133,6 +142,7 @@ function makeMockSupabaseAdmin(opts: {
     inserts,
     upserts,
     updates,
+    idempotencyKeys,
     from(table: string) {
       return {
         select: (_cols?: string) => chainFor(table),
@@ -323,4 +333,35 @@ Deno.test("neutral payload — the candidate HTTP response carries no score/colo
   assertEquals(json.ok, true);
   assertEquals("score_ponderado_0_100" in json, false, "no score in candidate payload");
   assertEquals("classificacao_cor" in json, false, "no color in candidate payload");
+});
+
+// ── CR-01: idempotency key is content-addressed (folds the essay hash) ────────
+// An edited re-submit MUST mint a NEW idempotency_key so callAi does a FRESH
+// scoring call instead of replaying the FIRST essay's verdict against the new
+// text. Two essays with different text → two different keys (same candidatura/
+// pergunta prefix); the same text → the same key (true duplicate still de-dupes).
+Deno.test("CR-01 — idempotency_key folds the essay hash (edited re-submit re-scores)", async () => {
+  const { handler } = await loadHandler();
+
+  const bodyA = { ...VALID_BODY, texto: ("alpha ".repeat(210)).trim() };
+  const bodyB = { ...VALID_BODY, texto: ("bravo ".repeat(210)).trim() };
+
+  const { admin, deps } = baseDeps(ESSAY_VERDE);
+  await handler(makeRequest(bodyA), deps);
+  await handler(makeRequest(bodyB), deps);
+  // Same text again → same key as the first call (de-dupe path preserved).
+  await handler(makeRequest(bodyA), deps);
+
+  const keys = admin.idempotencyKeys;
+  assertEquals(keys.length, 3, "callAi consults ai_call_logs by idempotency_key once per submit");
+
+  const prefix = `${VALID_BODY.candidatura_id}:${VALID_BODY.pergunta_id}:`;
+  for (const k of keys) {
+    assert(k.startsWith(prefix), `key keeps candidatura/pergunta prefix: ${k}`);
+    assert(k.length > prefix.length, `key appends a content hash: ${k}`);
+  }
+  // Different essay text → different key (no stale replay across an edit).
+  assert(keys[0] !== keys[1], "edited essay → distinct idempotency_key");
+  // Identical essay text → identical key (true duplicate still de-dupes).
+  assertEquals(keys[0], keys[2], "same essay text → same idempotency_key");
 });
