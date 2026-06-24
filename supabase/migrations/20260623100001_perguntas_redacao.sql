@@ -58,10 +58,13 @@ COMMENT ON TABLE public.perguntas_redacao IS
   'Phase 13 / AVAL-05: banco de prompts de redacao cultural (PRD v1.1 §8.1). O TEXTO do prompt e candidate-visible (nao e answer key); valor_primario/secundario hint o foco de scoring mas nao gabaritam uma redacao livre. RLS: SELECT-all (authenticated); ALL (write) so administrador.';
 
 -- Apenas UMA pergunta com is_padrao=true ativa (PRD §8.1 lines 268-270).
-CREATE UNIQUE INDEX idx_perguntas_padrao_unica
+-- NOTE: index names redacao-prefixed — `idx_perguntas_cargo` collides with the
+-- Phase-11 SJT `perguntas` table index (index names are schema-unique). Applied
+-- to PROD with these renamed identifiers (13-04 apply wave).
+CREATE UNIQUE INDEX idx_perguntas_redacao_padrao_unica
   ON public.perguntas_redacao (is_padrao) WHERE is_padrao = true AND ativa = true;
 
-CREATE INDEX idx_perguntas_cargo
+CREATE INDEX idx_perguntas_redacao_cargo
   ON public.perguntas_redacao (template_cargo) WHERE ativa = true;
 
 -- RLS (PRD §8.2 lines 451-454) --------------------------------------------------

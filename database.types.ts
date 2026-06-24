@@ -2032,6 +2032,48 @@ export type Database = {
           },
         ]
       }
+      perguntas_redacao: {
+        Row: {
+          ativa: boolean
+          codigo: string
+          criada_em: string
+          default_on: boolean
+          id: string
+          is_padrao: boolean
+          template_cargo: string | null
+          texto: string
+          valor_primario: string | null
+          valor_secundario: string | null
+          versao: number
+        }
+        Insert: {
+          ativa?: boolean
+          codigo: string
+          criada_em?: string
+          default_on?: boolean
+          id?: string
+          is_padrao?: boolean
+          template_cargo?: string | null
+          texto: string
+          valor_primario?: string | null
+          valor_secundario?: string | null
+          versao?: number
+        }
+        Update: {
+          ativa?: boolean
+          codigo?: string
+          criada_em?: string
+          default_on?: boolean
+          id?: string
+          is_padrao?: boolean
+          template_cargo?: string | null
+          texto?: string
+          valor_primario?: string | null
+          valor_secundario?: string | null
+          versao?: number
+        }
+        Relationships: []
+      }
       perguntas_vaga_origem: {
         Row: {
           biblioteca_pergunta_id: string
@@ -2486,6 +2528,185 @@ export type Database = {
             columns: ["vaga_id"]
             isOneToOne: false
             referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      redacoes_candidato: {
+        Row: {
+          analise_ia: Json | null
+          bloqueio_avanco: boolean
+          candidatura_id: string
+          classificacao_cor: string | null
+          cost_tokens_input: number | null
+          cost_tokens_output: number | null
+          decisao_revisor: string | null
+          eh_pergunta_padrao: boolean
+          flags: string[]
+          ia_processada_em: string | null
+          id: string
+          input_hash: string | null
+          model_version: string | null
+          notas_revisor: string | null
+          ordem: number
+          pergunta_id: string
+          prompt_version: string | null
+          red_flag_etico: boolean
+          referencia_match: string[]
+          revisada_em: string | null
+          revisada_por: string | null
+          score_ponderado_0_100: number | null
+          scores_dimensao: Json | null
+          scores_humanos: Json | null
+          status_analise: string
+          submetida_em: string
+          tempo_gasto_segundos: number
+          texto: string
+          texto_hash: string
+          word_count: number
+        }
+        Insert: {
+          analise_ia?: Json | null
+          bloqueio_avanco?: boolean
+          candidatura_id: string
+          classificacao_cor?: string | null
+          cost_tokens_input?: number | null
+          cost_tokens_output?: number | null
+          decisao_revisor?: string | null
+          eh_pergunta_padrao: boolean
+          flags?: string[]
+          ia_processada_em?: string | null
+          id?: string
+          input_hash?: string | null
+          model_version?: string | null
+          notas_revisor?: string | null
+          ordem: number
+          pergunta_id: string
+          prompt_version?: string | null
+          red_flag_etico?: boolean
+          referencia_match?: string[]
+          revisada_em?: string | null
+          revisada_por?: string | null
+          score_ponderado_0_100?: number | null
+          scores_dimensao?: Json | null
+          scores_humanos?: Json | null
+          status_analise?: string
+          submetida_em?: string
+          tempo_gasto_segundos: number
+          texto: string
+          texto_hash: string
+          word_count: number
+        }
+        Update: {
+          analise_ia?: Json | null
+          bloqueio_avanco?: boolean
+          candidatura_id?: string
+          classificacao_cor?: string | null
+          cost_tokens_input?: number | null
+          cost_tokens_output?: number | null
+          decisao_revisor?: string | null
+          eh_pergunta_padrao?: boolean
+          flags?: string[]
+          ia_processada_em?: string | null
+          id?: string
+          input_hash?: string | null
+          model_version?: string | null
+          notas_revisor?: string | null
+          ordem?: number
+          pergunta_id?: string
+          prompt_version?: string | null
+          red_flag_etico?: boolean
+          referencia_match?: string[]
+          revisada_em?: string | null
+          revisada_por?: string | null
+          score_ponderado_0_100?: number | null
+          scores_dimensao?: Json | null
+          scores_humanos?: Json | null
+          status_analise?: string
+          submetida_em?: string
+          tempo_gasto_segundos?: number
+          texto?: string
+          texto_hash?: string
+          word_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redacoes_candidato_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redacoes_candidato_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redacoes_candidato_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_redacao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      redacoes_candidato_em_progresso: {
+        Row: {
+          candidatura_id: string
+          completou_em: string | null
+          id: string
+          iniciado_em: string
+          pergunta_id: string
+          texto_em_progresso: string | null
+          ultima_atividade_em: string
+          user_agent: string | null
+          word_count: number | null
+        }
+        Insert: {
+          candidatura_id: string
+          completou_em?: string | null
+          id?: string
+          iniciado_em?: string
+          pergunta_id: string
+          texto_em_progresso?: string | null
+          ultima_atividade_em?: string
+          user_agent?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          candidatura_id?: string
+          completou_em?: string | null
+          id?: string
+          iniciado_em?: string
+          pergunta_id?: string
+          texto_em_progresso?: string | null
+          ultima_atividade_em?: string
+          user_agent?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redacoes_candidato_em_progresso_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redacoes_candidato_em_progresso_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "redacoes_candidato_em_progresso_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_redacao"
             referencedColumns: ["id"]
           },
         ]
@@ -4069,6 +4290,15 @@ export type Database = {
           p_semver: string
         }
         Returns: string
+      }
+      salvar_revisao_redacao: {
+        Args: {
+          p_decisao: string
+          p_notas: string
+          p_redacao_id: string
+          p_scores_humanos: Json
+        }
+        Returns: Json
       }
       slugify: { Args: { p_input: string }; Returns: string }
       submit_candidatura_atomic: {
