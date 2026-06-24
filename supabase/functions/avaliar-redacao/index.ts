@@ -182,8 +182,19 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
   if (candErr) {
     return errorResponse("SERVER_ERROR", "Falha ao verificar a candidatura.", 500);
   }
-  // posse: o candidato logado tem de ser o dono da candidatura; etapa: back-lock.
-  if (!candRow || candRow.candidato_id !== user.id) {
+  if (!candRow) {
+    return errorResponse("FORBIDDEN", "Acesso negado.", 403);
+  }
+  // posse: resolve o candidato do usuário logado via candidatos.user_id=auth.uid()
+  //   e compara contra candaturas.candidato_id (= candidatos.id). Comparar
+  //   `candRow.candidato_id` direto contra `user.id` é um bug: candidato_id é
+  //   candidatos.id, NÃO o auth uid — eles diferem em PROD → 403 para todo candidato.
+  const { data: candidatoRow } = await supabaseAdmin
+    .from("candidatos")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!candidatoRow || candidatoRow.id !== candRow.candidato_id) {
     return errorResponse("FORBIDDEN", "Acesso negado.", 403);
   }
   if (candRow.etapa_atual !== "avaliacao_assincrona") {

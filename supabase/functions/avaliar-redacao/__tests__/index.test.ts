@@ -108,16 +108,26 @@ const PERGUNTA_CASO_ABERTO = {
 };
 
 // Mock Supabase admin (service_role): returns the candidatura ownership/etapa row
-// for the authz guard, the perguntas row for the by-id case lookup, and captures
-// every INSERT/UPDATE so the test can assert (a) a scores_candidato row is written
-// and (b) candidaturas is NEVER updated.
+// for the authz guard, the candidatos row that the authed user owns (resolved by
+// user_id), the perguntas row for the by-id case lookup, and captures every
+// INSERT/UPDATE so the test can assert (a) a scores_candidato row is written and
+// (b) candidaturas is NEVER updated.
 //
-// `candidaturaRow` is what the ownership guard reads for `candidatura_id`:
-//   { candidato_id, etapa_atual } | null (null → candidatura not found).
-// `perguntaRow` is what the by-id case lookup reads (null → 400 invalid pergunta).
+// The REAL ownership contract (the bug this mock now reflects): candaturas.candidato_id
+// is a candidatos.id value, NOT an auth uid. The EF resolves the candidato owned by
+// the authed user via `candidatos.select('id').eq('user_id', auth.uid())` and compares
+// that candidatos.id against candaturas.candidato_id. So:
+//   - `candidaturaRow` is what the ownership guard reads for `candidatura_id`:
+//       { candidato_id, etapa_atual } | null (null → candidatura not found).
+//       `candidato_id` is a candidatos.id value (NOT the auth uid).
+//   - `candidatoOwnerRow` is the candidatos row the authed user owns ({ id } | null):
+//       its `id` must equal candidaturaRow.candidato_id for the happy path; a
+//       different id (or null) proves a non-owner → 403.
+//   - `perguntaRow` is what the by-id case lookup reads (null → 400 invalid pergunta).
 function makeMockSupabaseAdmin(
   candidaturaRow: { candidato_id: string; etapa_atual: string } | null,
   perguntaRow: Record<string, unknown> | null = PERGUNTA_CASO_ABERTO,
+  candidatoOwnerRow: { id: string } | null = { id: CANDIDATO_ROW_ID },
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   const updates: { table: string; row: Record<string, unknown> }[] = [];
@@ -126,7 +136,11 @@ function makeMockSupabaseAdmin(
     updates,
     from(table: string) {
       // Each table resolves its own `.eq(...).maybeSingle()` row.
-      const row = table === "perguntas" ? perguntaRow : candidaturaRow;
+      const row = table === "perguntas"
+        ? perguntaRow
+        : table === "candidatos"
+        ? candidatoOwnerRow
+        : candidaturaRow;
       return {
         select: (_cols?: string) => ({
           eq: () => ({
@@ -185,11 +199,18 @@ function makeRequest(body: unknown, withAuth = true): Request {
   });
 }
 
-const OWNER = { id: "cand-1", app_metadata: { role: "candidato" } };
-const OTHER = { id: "cand-2", app_metadata: { role: "candidato" } };
+// `OWNER.id` / `OTHER.id` are AUTH user ids (auth.users.id — the JWT's user.id).
+// They are DISTINCT from candidatos.id: the EF resolves the candidato owned by the
+// authed user via candidatos.user_id=auth.uid() and compares the resolved
+// candidatos.id against candaturas.candidato_id (= CANDIDATO_ROW_ID for the owner).
+const OWNER = { id: "auth-uid-1", app_metadata: { role: "candidato" } };
+const OTHER = { id: "auth-uid-2", app_metadata: { role: "candidato" } };
 
 const CANDIDATURA_ID = "cand-vaga-1";
 const PERGUNTA_ID = "perg-1";
+// candaturas.candidato_id is a candidatos.id value — NOT an auth uid (they differ
+// in PROD; comparing candidato_id directly against user.id is the bug this fixes).
+const CANDIDATO_ROW_ID = "candidato-row-1";
 const VALID_BODY = {
   candidatura_id: CANDIDATURA_ID,
   pergunta_id: PERGUNTA_ID,
@@ -199,7 +220,7 @@ const VALID_BODY = {
 // ── C1 (a): authentication — no session → 401 ────────────────────────────────
 Deno.test("C1(a) — no session (getUser null) → 401 UNAUTHORIZED, never scores", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
     openai: makeMockOpenAI(),
@@ -212,10 +233,17 @@ Deno.test("C1(a) — no session (getUser null) → 401 UNAUTHORIZED, never score
 });
 
 // ── C1 (b): authorization — authenticated non-owner → 403 ─────────────────────
+// The candidatura is owned by candidatos.id=CANDIDATO_ROW_ID, but the authed user
+// (OTHER) resolves via candidatos.user_id to a DIFFERENT candidatos row
+// (id="candidato-row-2") → its id ≠ candidato_id → 403. This proves the resolved
+// candidatos.id ownership check (not the old broken candidato_id===user.id equality).
 Deno.test("C1(b) — authenticated user who does NOT own the candidatura → 403 FORBIDDEN", async () => {
   const { handler } = await loadHandler();
-  // candidatura is owned by OWNER, but the caller is OTHER.
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    PERGUNTA_CASO_ABERTO,
+    { id: "candidato-row-2" }, // OTHER resolves to a different candidato → not the owner
+  );
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
     openai: makeMockOpenAI(),
@@ -229,10 +257,33 @@ Deno.test("C1(b) — authenticated user who does NOT own the candidatura → 403
   assertEquals(admin.inserts.length, 0, "non-owner must never reach scoring");
 });
 
+// ── C1 (b'): authorization — authed user has NO candidatos row → 403 ──────────
+// If candidatos.user_id=auth.uid() resolves to no row at all, ownership cannot be
+// proven → 403. Guards against a NULL candidatoOwnerRow short-circuiting to allow.
+Deno.test("C1(b') — authed user with no candidatos row (user_id unmatched) → 403 FORBIDDEN", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    PERGUNTA_CASO_ABERTO,
+    null, // candidatos lookup by user_id returns nothing
+  );
+  const deps = {
+    anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  };
+  const res = await handler(makeRequest(VALID_BODY), deps);
+  assertEquals(res.status, 403);
+  const json = await res.json();
+  assertEquals(json.error_code, "FORBIDDEN");
+  assertEquals(admin.inserts.length, 0, "unresolved candidato must never reach scoring");
+});
+
 // ── C1 (c): authorization — owner but wrong etapa → 403 (back-lock at EF) ─────
 Deno.test("C1(c) — owner but etapa_atual !== 'avaliacao_assincrona' → 403 FORBIDDEN", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "triagem" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "triagem" });
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
     openai: makeMockOpenAI(),
@@ -249,7 +300,7 @@ Deno.test("C1(c) — owner but etapa_atual !== 'avaliacao_assincrona' → 403 FO
 // ── AVAL-03: composite mapping + threshold routing → pendente_humano ──────────
 Deno.test("AVAL-03 — low composite (<13/25) routes to status='pendente_humano'", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_LOW),
     openai: makeMockOpenAI(),
@@ -265,7 +316,7 @@ Deno.test("AVAL-03 — low composite (<13/25) routes to status='pendente_humano'
 
 Deno.test("AVAL-03 — any red_flag routes to status='pendente_humano' regardless of composite", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_REDFLAG),
     openai: makeMockOpenAI(),
@@ -283,7 +334,7 @@ Deno.test("AVAL-03 — any red_flag routes to status='pendente_humano' regardles
 Deno.test("C2 — missing pergunta (by id) → 400 VALIDATION, never scores", async () => {
   const { handler } = await loadHandler();
   const admin = makeMockSupabaseAdmin(
-    { candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" },
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
     null, // perguntas lookup returns no row
   );
   const deps = {
@@ -302,7 +353,7 @@ Deno.test("C2 — missing pergunta (by id) → 400 VALIDATION, never scores", as
 Deno.test("C2 — pergunta with formato !== 'caso_aberto' → 400 VALIDATION", async () => {
   const { handler } = await loadHandler();
   const admin = makeMockSupabaseAdmin(
-    { candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" },
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
     { ...PERGUNTA_CASO_ABERTO, formato: "multipla_escolha" },
   );
   const deps = {
@@ -326,7 +377,7 @@ Deno.test("C2 — pergunta with formato !== 'caso_aberto' → 400 VALIDATION", a
 Deno.test("C2 — composite uses the pergunta rubric weights (not a uniform average)", async () => {
   const { handler } = await loadHandler();
   const admin = makeMockSupabaseAdmin({
-    candidato_id: OWNER.id,
+    candidato_id: CANDIDATO_ROW_ID,
     etapa_atual: "avaliacao_assincrona",
   });
   const fixture = {
@@ -357,7 +408,7 @@ Deno.test("C2 — composite uses the pergunta rubric weights (not a uniform aver
 // ── RNF-07a: the EF NEVER writes candidaturas (no auto-reject, no etapa change) ─
 Deno.test("RNF-07a — handler NEVER updates the candidaturas table (no auto-reject)", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = {
     anthropic: makeMockAnthropic(SCORING_FIXTURE_PASS),
     openai: makeMockOpenAI(),
