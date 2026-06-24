@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)"
-last_updated: "2026-06-24T21:08:24.872Z"
-last_activity: 2026-06-24 -- Phase 14 planning complete
+stopped_at: "Completed 14-01-PLAN.md (Wave-0 RED layer + cognitive CTT-soma scorer + language/accent flag derivation + anti-tamper EF body schemas + SQL-smoke runbook, ENTREV-01/03/04/05)"
+last_updated: "2026-06-24T21:24:23.030Z"
+last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 51
-  completed_plans: 45
+  completed_plans: 46
   percent: 73
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 14 — Entrevistas com IA Companion (next)
+**Current focus:** Phase 14 — Entrevistas com IA Companion (Etapas 4+5)
 
 ## Current Position
 
-Phase: 14 (Entrevistas com IA Companion) — DISCUSS DONE (14-CONTEXT.md captured); next = ui-phase→plan→execute
-Plan: Phase 13 closed (all gates); Phase 14 discuss done; ui-phase/plan/execute/gates remain; then 15, 16 + lifecycle
+Phase: 14 (Entrevistas com IA Companion (Etapas 4+5)) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-06-24 -- Phase 14 planning complete
+Last activity: 2026-06-24
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -133,6 +133,7 @@ Last activity: 2026-06-24 -- Phase 14 planning complete
 | Phase 13 P13-02 | 18min | 3 tasks (Task 3 TDD RED+GREEN) | 8 files |
 | Phase 13 P13-03 | ~8min | 3 tasks | 10 files |
 | Phase 13 P13-05 | ~70min | 3 tasks (Task 1 TDD RED+GREEN) | 11 files |
+| Phase 14 P01 | 18min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -269,6 +270,9 @@ Recent decisions affecting current work:
 - [Phase 13]: Phase 13 component RED scaffolds use @ts-expect-error on module-not-found imports to hold the tsc baseline flat at 291 (Phase 4.1 precedent) while staying runtime-RED under Vitest
 - [Phase ?]: Plan 13-03: candidate redacao read uses REDACAO_CANDIDATO_ALLOWLIST (verdict-excluding) on redacoes_candidato — allowlist hides columns RLS cannot (RNF-07a)
 - [Phase ?]: Plan 13-03: redacao autosave reuses respostas_avaliacao via upsertResposta(teste='redacao') per Phase-11 hook, namespaced by pergunta_id — NOT redacoes_candidato_em_progresso
+- [Phase 14]: Plan 14-01: scoreRaciocinio takes a caller-supplied secoesByItem partition (matriz/letra_numero from cognitivo_itens.secao) — pure scorer, exact section sum; server-only gabarito, forged client score ignored (anti-tamper, RNF-07a)
+- [Phase 14]: Plan 14-01: cognitive banding uses wide proportion-correct quintiles (provisoria_item_difficulty_sapa, PRD §8.3 L183) — v2 swaps a local norm behind the stable interface; contextual band carries no eliminatory weight (RNF-07a)
+- [Phase 14]: Plan 14-01: EF body schemas pin npm:zod@3.25.76 v3 for .safeParse; /v4 reserved for the SDK structured-output OUTPUT schemas in 14-03 (Pitfall 3); language/accent flag is server-derived (score<3 && regional_markers_ignored===false), NOT the LLM (resolved Q2)
 
 ### Pending Todos
 
@@ -303,7 +307,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-24T16:35:03.354Z
+Last session: 2026-06-24T21:23:39.609Z
 Stopped at: Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.

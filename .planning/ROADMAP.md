@@ -324,7 +324,7 @@ Plans:
 Plans:
 **Wave 1** *(parallel — no deps)*
 
-- [ ] 14-01-PLAN.md — Wave-0 RED test layer + EF body schemas (.strict anti-tamper) + deterministic cognitive scorer (CTT soma + 5-faixa banding) + language/accent flag-derivation + weak-dim coverage + SQL-smoke runbook
+- [x] 14-01-PLAN.md — Wave-0 RED test layer + EF body schemas (.strict anti-tamper) + deterministic cognitive scorer (CTT soma + 5-faixa banding) + language/accent flag-derivation + weak-dim coverage + SQL-smoke runbook
 - [ ] 14-02-PLAN.md — CC0 cognitive item bank sourcing (Harvard Dataverse doi:10.7910/DVN/TZJGAT) + LICENSE-CC0 + ItemRaciocinio contract [non-autonomous content checkpoint]
 
 **Wave 2** *(blocked on Wave 1)*
@@ -393,7 +393,7 @@ Plans:
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
-| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/6 | Planned | - |
+| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 1/6 | In Progress|  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 

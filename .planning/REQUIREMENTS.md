@@ -47,11 +47,11 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 ### Entrevistas (Etapas 4 + 5)
 
-- [ ] **ENTREV-01**: EF `gerar-guia-entrevista` (tipo `online`) retorna 5-7 perguntas STAR/PEI customizadas com âncoras BARS 1-5 + dimensão; prioriza dimensões fracas (≥1 pergunta cobre dimensão com score <3) [RF-20, RF-21]
+- [x] **ENTREV-01**: EF `gerar-guia-entrevista` (tipo `online`) retorna 5-7 perguntas STAR/PEI customizadas com âncoras BARS 1-5 + dimensão; prioriza dimensões fracas (≥1 pergunta cobre dimensão com score <3) [RF-20, RF-21]
 - [ ] **ENTREV-02**: Tela do gestor `/rh/candidato/:id/entrevista` mostra dashboard do candidato + guia + scorecard inline editável (`notas_humanas`); notificação ao gestor 24h antes (agendamento manual no V1 — auto-scheduling deferido, ver Future) [RF-22, RF-20c]
-- [ ] **ENTREV-03**: Análise de transcrição — RH cola transcrição → EF `avaliar-transcricao-entrevista` retorna scores BARS por competência + flags + citações; flag linguagem/sotaque em score <3 bloqueia `avancar_etapa()` até revisão humana confirmada [RF-23, RF-24]
-- [ ] **ENTREV-04**: EF `gerar-guia-entrevista` (tipo `presencial`) gera guia focado nos GAPS da entrevista online (dimensões com score <4) [RF-25]
-- [ ] **ENTREV-05**: Prova de raciocínio lógico (matriz + letra-número, itens CC0) aplicável online com proctoring leve, opt-in (`vaga.aplica_cognitivo`, default false); banda qualitativa (5 faixas) marcada **CONTEXTUAL** no painel; bloqueia rejeição por cognitivo isolado (override exige justificativa expandida + `bias_audit_log`) [RF-26, RF-27]
+- [x] **ENTREV-03**: Análise de transcrição — RH cola transcrição → EF `avaliar-transcricao-entrevista` retorna scores BARS por competência + flags + citações; flag linguagem/sotaque em score <3 bloqueia `avancar_etapa()` até revisão humana confirmada [RF-23, RF-24]
+- [x] **ENTREV-04**: EF `gerar-guia-entrevista` (tipo `presencial`) gera guia focado nos GAPS da entrevista online (dimensões com score <4) [RF-25]
+- [x] **ENTREV-05**: Prova de raciocínio lógico (matriz + letra-número, itens CC0) aplicável online com proctoring leve, opt-in (`vaga.aplica_cognitivo`, default false); banda qualitativa (5 faixas) marcada **CONTEXTUAL** no painel; bloqueia rejeição por cognitivo isolado (override exige justificativa expandida + `bias_audit_log`) [RF-26, RF-27]
 
 ### Decisão Final (Etapa 6)
 
@@ -158,11 +158,11 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | AVAL-05 | Phase 13 | Complete |
 | AVAL-06 | Phase 13 | Complete |
 | AVAL-07 | Phase 13 | Complete |
-| ENTREV-01 | Phase 14 | Pending |
+| ENTREV-01 | Phase 14 | Complete |
 | ENTREV-02 | Phase 14 | Pending |
-| ENTREV-03 | Phase 14 | Pending |
-| ENTREV-04 | Phase 14 | Pending |
-| ENTREV-05 | Phase 14 | Pending |
+| ENTREV-03 | Phase 14 | Complete |
+| ENTREV-04 | Phase 14 | Complete |
+| ENTREV-05 | Phase 14 | Complete |
 | DECISAO-01 | Phase 15 | Pending |
 | DECISAO-02 | Phase 15 | Pending |
 | DECISAO-03 | Phase 15 | Pending |
