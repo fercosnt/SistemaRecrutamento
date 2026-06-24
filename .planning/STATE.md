@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 13-02-PLAN.md (4 migrations + avaliar-redacao-cultural EF authored, NOT applied/deployed)
-last_updated: "2026-06-24T14:28:48.438Z"
+stopped_at: "Completed 13-03-PLAN.md (candidate essay layer: schema + service + 3 components + route)"
+last_updated: "2026-06-24T14:43:44.047Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
   completed_phases: 7
   total_plans: 45
-  completed_plans: 42
+  completed_plans: 43
   percent: 64
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 13 (Redação Cultural + Revisão Humana) — EXECUTING
-Plan: 3 of 5
-Status: Ready to execute 13-03 (13-02 complete — migrations + EF authored, NOT applied)
-Last activity: 2026-06-24 -- 13-02 SHIPPED (authored-not-applied): 4 migrations (3 tables + 11-row seed + review-fields trigger + salvar_revisao_redacao RPC, no-wrapper D-22) + new avaliar-redacao-cultural EF (static imports + two-client + callAi; status always pendente_humano, bloqueio only on vermelho, never writes candidaturas — RNF-07a). 3 PRD→live reconciliations (role admin→administrador, auth_user_id→user_id, seed 11-not-13). deno 8/8 GREEN, tsc 291 flat, redacao-contract Vitest 5/5. PROD apply+deploy = [BLOCKING] Plan 13-04.
+Plan: 4 of 5
+Status: Ready to execute
+Last activity: 2026-06-24
 
 ## Latest Plan (05-07 gap-closure)
 
@@ -131,6 +131,7 @@ Last activity: 2026-06-24 -- 13-02 SHIPPED (authored-not-applied): 4 migrations 
 | Phase 12 P12-05 | ~10 min | 2 tasks | 9 files |
 | Phase 13 P13-01 | 18min | 3 tasks | 10 files |
 | Phase 13 P13-02 | 18min | 3 tasks (Task 3 TDD RED+GREEN) | 8 files |
+| Phase 13 P13-03 | ~8min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -264,6 +265,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 13 EssayScoringV1 schema authored verbatim from PRD §8.4 on npm:zod@3.25.76/v4 (/v4 load-bearing for SDK structured-output helpers; NOT the drifted CultureFitEssaySchema)
 - [Phase 13]: Phase 13 computeScoreAndCors caps + 3-color are deterministic EF code (PRD §8.3 verbatim); the LLM emits only raw 1-5 BARS scores
 - [Phase 13]: Phase 13 component RED scaffolds use @ts-expect-error on module-not-found imports to hold the tsc baseline flat at 291 (Phase 4.1 precedent) while staying runtime-RED under Vitest
+- [Phase ?]: Plan 13-03: candidate redacao read uses REDACAO_CANDIDATO_ALLOWLIST (verdict-excluding) on redacoes_candidato — allowlist hides columns RLS cannot (RNF-07a)
+- [Phase ?]: Plan 13-03: redacao autosave reuses respostas_avaliacao via upsertResposta(teste='redacao') per Phase-11 hook, namespaced by pergunta_id — NOT redacoes_candidato_em_progresso
 
 ### Pending Todos
 
@@ -298,8 +301,8 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-24T14:11:14.182Z
-Stopped at: Completed 13-01-PLAN.md (Wave-0 contracts + RED battery)
+Last session: 2026-06-24T14:43:44.038Z
+Stopped at: Completed 13-03-PLAN.md (candidate essay layer: schema + service + 3 components + route)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
 

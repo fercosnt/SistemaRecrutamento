@@ -39,8 +39,8 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 - [x] **AVAL-02**: Work Sample/SJT múltipla escolha — scoring determinístico Σ pesos (escala 4/2/1/0), threshold `<60% OU ≥1 atencao` → revisão humana (nunca auto-reject); persiste `scores_candidato` tipo=`sjt` [RF-13]
 - [x] **AVAL-03**: Work Sample/SJT case aberto avaliado por `avaliar-redacao` com rubric BARS (0-25 + citações + red_flags Zod-validado), threshold `<13/25 OU red flag` → revisão humana [RF-14]
 - [x] **AVAL-04**: Big Five IPIP-NEO-120 PT-BR (120 itens Likert) — scoring TS-port server-side anti-tampering via `submit-bigfive-final`; 5 dimensões OCEAN + 30 facetas + norm_group; persiste `scores_candidato` tipo=`big_five` com `metadata` jsonb [RF-15]
-- [ ] **AVAL-05**: Redação fit cultural v1.1 — 1 pergunta padrão BS + 1-2 customizáveis por template; 200-500 palavras hard min/max; autosave 30s local + 30s DB; seed `perguntas_redacao` [RF-16]
-- [ ] **AVAL-06**: Avaliação de redação por `avaliar-redacao` — 4 dimensões BARS (pesos iguais V1) + 3 caps determinísticos + sistema 3 cores + few-shot cacheado; Zod `EssayScoringV1`; persiste `redacoes_candidato` + `bloqueio_avanco` se vermelho [RF-17, RF-17b]
+- [x] **AVAL-05**: Redação fit cultural v1.1 — 1 pergunta padrão BS + 1-2 customizáveis por template; 200-500 palavras hard min/max; autosave 30s local + 30s DB; seed `perguntas_redacao` [RF-16]
+- [x] **AVAL-06**: Avaliação de redação por `avaliar-redacao` — 4 dimensões BARS (pesos iguais V1) + 3 caps determinísticos + sistema 3 cores + few-shot cacheado; Zod `EssayScoringV1`; persiste `redacoes_candidato` + `bloqueio_avanco` se vermelho [RF-17, RF-17b]
 - [ ] **AVAL-07**: Revisão humana sempre obrigatória pós-IA (status `pendente_humano`) — UI 1-redação-por-vez, sidebar por cor, sliders override, `notas_revisor ≥50 chars`, `decisao_revisor` (aprovado/reprovado/duvida); "duvida" escala ao gestor [RF-17a]
 - [x] **AVAL-08**: Devolutiva Big Five D-lite (híbrido 25 templates oficiais + IA; 5 dim + percentil + 5 bandas + texto ~150-200 palavras/dim + disclaimers LGPD sem nominalização CRP) via `gerar-devolutiva-bigfive`; in-app + email (n8n); persiste `devolutivas_candidato`. **Nunca** devolutiva para SJT/Redação [RF-19a, RF-19b]
 - [x] **AVAL-09**: Autosave de progresso a cada 30s + bloqueio de back após avançar etapa; RLS + EF impedem candidato fazer testes fora de `etapa_atual='avaliacao_assincrona'` [RF-18, RF-19]
@@ -155,8 +155,8 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | AVAL-09 | Phase 11 | Complete |
 | AVAL-04 | Phase 12 | Complete |
 | AVAL-08 | Phase 12 | Complete |
-| AVAL-05 | Phase 13 | Pending |
-| AVAL-06 | Phase 13 | Pending |
+| AVAL-05 | Phase 13 | Complete |
+| AVAL-06 | Phase 13 | Complete |
 | AVAL-07 | Phase 13 | Pending |
 | ENTREV-01 | Phase 14 | Pending |
 | ENTREV-02 | Phase 14 | Pending |

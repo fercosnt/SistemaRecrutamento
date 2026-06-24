@@ -16,3 +16,28 @@ directly caused by the current plan's changes).
   cast (`(payloadWithForbiddenKey as Record<string, unknown>)[forbiddenKey]`) would close
   it, but that touches a Phase-8 file outside this plan's scope.
 - **Discovered:** Plan 13-02, Task 3 (full-suite deno run).
+
+## DI-13-02 — Plan 13-05 RH-queue RED scaffolds fail under `vitest run` (whole-suite)
+
+- **Files:** `src/features/triagem/components/__tests__/RedacaoOverrideForm.test.tsx`,
+  `src/features/triagem/components/__tests__/RedacaoSidebar.test.tsx`
+- **Error:** Cannot find module — `RedacaoOverrideForm` / `RedacaoSidebar` do not exist yet.
+- **Origin:** Plan 13-01 (`3364b8d` — Wave-0 RED scaffolds). These are the **RH human-review
+  queue** surfaces, authored in **Plan 13-05**. They are calibrated RED until 13-05 lands.
+- **Impact:** A whole-suite `vitest run` reports 2 failing *files* (0 failing tests — they
+  fail at module-resolution, not assertion). Plan 13-03's own surface (the candidate essay
+  layer) is GREEN: redacaoService 4/4 + redacao-contract 5/5 + RedacaoCounter 3/3 = 12/12.
+- **Disposition:** Deferred to Plan 13-05 (RH review queue) — NOT in Plan 13-03's scope
+  (this plan owns only the candidate essay layer; the RH queue is a separate wave).
+- **Discovered:** Plan 13-03, full-suite regression check.
+
+## DI-13-03 — `essay-schemas.test.ts` (Deno EF test) fails under `vitest run`
+
+- **File:** `supabase/functions/_shared/__tests__/essay-schemas.test.ts`
+- **Error:** The EF schema imports `npm:zod@3.25.76/v4` (a Deno specifier); Vitest runs under
+  Node/Vite and has no resolver for `npm:` → the file fails at module resolution under
+  `vitest run`. It passes under `deno test` (Plan 13-01/13-02 ran it GREEN 16/16).
+- **Origin:** Plan 13-01 (`3af37d8` — EssayScoringV1 schema + GREEN deno test).
+- **Disposition:** Deferred / expected — Deno EF tests are run via `deno test`, not Vitest
+  (precedent: `strict-schema.test.ts`, DI-13-01). Not caused by Plan 13-03.
+- **Discovered:** Plan 13-03, full-suite regression check.
