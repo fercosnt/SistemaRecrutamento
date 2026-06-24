@@ -22,10 +22,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-// RED: this module does not exist yet — import throws "Cannot find module" at
-// runtime (Vitest) AND tsc TS2307. The @ts-expect-error keeps the tsc baseline flat
-// (Phase 4.1 precedent); it self-resolves the moment Plan 13-03 authors the component.
-// @ts-expect-error — module lands in Plan 13-03; RED until then.
+// GREEN (Plan 13-03): the module now exists and resolves under tsc + Vitest.
 import { RedacaoCounter } from '@/features/avaliacao/components/RedacaoCounter'
 
 const ACCENT = '#35BFAD'
