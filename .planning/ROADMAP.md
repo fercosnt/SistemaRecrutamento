@@ -320,7 +320,29 @@ Plans:
   4. `gerar-guia-entrevista` (tipo `presencial`) gera guia focado nos GAPS da entrevista online (dimensões com score <4).
   5. A prova de raciocínio lógico (itens CC0, opt-in via `vaga.aplica_cognitivo`) aplica online com proctoring leve, exibe banda qualitativa marcada CONTEXTUAL, e rejeição por cognitivo isolado exige justificativa expandida + `bias_audit_log`.
 
-**Plans**: TBD
+**Plans**: 6 plans (5 waves)
+Plans:
+**Wave 1** *(parallel — no deps)*
+
+- [ ] 14-01-PLAN.md — Wave-0 RED test layer + EF body schemas (.strict anti-tamper) + deterministic cognitive scorer (CTT soma + 5-faixa banding) + language/accent flag-derivation + weak-dim coverage + SQL-smoke runbook
+- [ ] 14-02-PLAN.md — CC0 cognitive item bank sourcing (Harvard Dataverse doi:10.7910/DVN/TZJGAT) + LICENSE-CC0 + ItemRaciocinio contract [non-autonomous content checkpoint]
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 14-03-PLAN.md — 4 no-wrapper migrations (entrevista/cognitivo tables+RLS + salvar_avaliacao_entrevista RPC + pontuar_cognitivo RPC + avancar_etapa flag guard) + 2 EFs (gerar-guia-entrevista online/presencial + avaliar-transcricao-entrevista) [authored, PROD apply deferred to 14-04]
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 14-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + hydrate/activate interview_guide + transcript_analysis prompts + deploy both EFs JWT-on + seed cognitive items + db:types + 7 SQL smokes [non-autonomous]
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 14-05-PLAN.md — RH interview workspace `/rh/candidato/:id/entrevista` (Painel + 24h marker + GuiaPanel + inline scorecard + TranscricaoReviewPanel flag-block on avancar_etapa + CognitivoBandCard CONTEXTUAL + bias_audit_log reject gate) + allowlist service/hooks
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 14-06-PLAN.md — candidate cognitive prova `/candidato/prova-cognitiva/:candidaturaId` (opt-in via aplica_cognitivo + SJT ScreenShell + light proctoring + raw-picks-only submit + neutral acknowledgment) + opt-in e2e
+
 **UI hint**: yes
 
 ### Phase 15: Decisão Final Auditável & LGPD Art. 20
@@ -371,7 +393,7 @@ Plans:
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
-| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
+| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/6 | Planned | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
