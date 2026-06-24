@@ -36,6 +36,11 @@ export const AvaliarRedacaoCulturalBodySchema = z
     candidatura_id: z.string().min(1),
     pergunta_id: z.string().min(1),
     texto: z.string().min(1),
+    // WR-03 — segundos decorridos no editor (anti-cheat `tempo_anormalmente_curto`,
+    // <90s). Sinal de tempo, NÃO uma nota — não viola o anti-tamper. Opcional p/
+    // compat: clientes que não enviam caem no default 0 (flag tratada como dead).
+    // O EF revalida word_count server-side; o tempo é advisory (o humano decide).
+    tempo_gasto_segundos: z.number().int().nonnegative().optional(),
   })
   .strict();
 

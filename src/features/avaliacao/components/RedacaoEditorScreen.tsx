@@ -25,7 +25,7 @@
  * @see .planning/phases/13-reda-o-cultural-revis-o-humana/13-UI-SPEC.md §Copywriting Contract
  * @module features/avaliacao/components/RedacaoEditorScreen
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -125,6 +125,15 @@ export function RedacaoEditorScreen() {
   const [isValid, setIsValid] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // WR-03 — elapsed seconds for the CURRENT prompt, fed by RedacaoCronometro.onTick.
+  // A ref (not state) so the per-second tick never re-renders the editor; read at
+  // submit and threaded into the EF body so `tempo_anormalmente_curto` (<90s) is a
+  // live anti-cheat signal instead of a permanent 0. Reset when the prompt changes.
+  const elapsedSecondsRef = useRef(0)
+  const handleTick = useCallback((elapsed: number) => {
+    elapsedSecondsRef.current = elapsed
+  }, [])
+
   const pergunta = (perguntas ?? [])[idx] as PerguntaRedacao | undefined
   const total = (perguntas ?? []).length
 
@@ -152,6 +161,7 @@ export function RedacaoEditorScreen() {
     setIdx((i) => Math.min(i + 1, total - 1))
     setTexto('')
     setIsValid(false)
+    elapsedSecondsRef.current = 0 // WR-03 — restart the timer accounting for the next prompt.
   }
 
   const handleSubmit = async () => {
@@ -163,6 +173,8 @@ export function RedacaoEditorScreen() {
         candidatura_id: candidaturaId as string,
         pergunta_id: pergunta.id,
         texto,
+        // WR-03 — real elapsed seconds from the cronômetro (anti-cheat <90s flag).
+        tempo_gasto_segundos: elapsedSecondsRef.current,
       })
       // NEUTRAL acknowledgement — no score, no feedback on quality (RF-R-06).
       toast.success('Resposta registrada. Você pode revisar até concluir a etapa.')
@@ -300,7 +312,9 @@ export function RedacaoEditorScreen() {
             {pergunta.texto}
           </p>
           <p className="text-sm text-white/70 pt-1">Tempo estimado: 15-25 min</p>
-          <RedacaoCronometro />
+          {/* WR-03 — `key={pergunta.id}` remounts the timer per prompt (resets its
+              internal elapsed); onTick feeds elapsedSecondsRef for the submit payload. */}
+          <RedacaoCronometro key={pergunta.id} onTick={handleTick} />
         </div>
 
         <div className="space-y-2">

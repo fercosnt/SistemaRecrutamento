@@ -35,11 +35,14 @@ import { z } from 'zod'
 
 // ── Part 1: the runtime contract via a Node-local replica of the EF body schema ──
 // This is the EXACT shape the EF body schema must have in Plan 02.
+// WR-03 — `tempo_gasto_segundos` is an OPTIONAL anti-cheat timing signal (NOT a
+// score), so `.strict()` accepts it but still rejects an injected `score`.
 const AvaliarRedacaoCulturalBodySchemaReplica = z
   .object({
     candidatura_id: z.string().min(1),
     pergunta_id: z.string().min(1),
     texto: z.string().min(1),
+    tempo_gasto_segundos: z.number().int().nonnegative().optional(),
   })
   .strict()
 
@@ -67,6 +70,11 @@ describe('Redação client↔EF body contract (AVAL-06 / Pitfall 5)', () => {
   it('an empty texto fails (min(1) — server still revalidates word_count)', () => {
     const body = { ...buildClientBody(), texto: '' }
     expect(AvaliarRedacaoCulturalBodySchemaReplica.safeParse(body).success).toBe(false)
+  })
+
+  it('the optional WR-03 tempo_gasto_segundos (anti-cheat timing) parses', () => {
+    const body = { ...buildClientBody(), tempo_gasto_segundos: 412 }
+    expect(AvaliarRedacaoCulturalBodySchemaReplica.safeParse(body).success).toBe(true)
   })
 
   // ── Part 2: source-text probe — RED until Plan 02 authors the real EF body schema ──

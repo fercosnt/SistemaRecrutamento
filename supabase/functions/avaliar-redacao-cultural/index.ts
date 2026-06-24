@@ -146,7 +146,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
   const user = userRes.user;
 
   // ── 2. Parse + valida o body (SEM campo de score — anti-tamper, Pitfall 5) ──
-  let body: { candidatura_id: string; pergunta_id: string; texto: string };
+  let body: { candidatura_id: string; pergunta_id: string; texto: string; tempo_gasto_segundos?: number };
   try {
     const raw = await req.json();
     const parsed = AvaliarRedacaoCulturalBodySchema.safeParse(raw);
@@ -217,6 +217,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
     }
     const textoHash = await sha256Hex(normalizeForHash(body.texto));
     const inputHash = await sha256Hex(body.texto);
+    // WR-03 — segundos decorridos coletados pelo cliente (RedacaoCronometro.onTick).
+    // Advisory/anti-cheat (flag <90s); o humano sempre decide (RNF-07a). Ausente
+    // (clientes antigos) → 0 (a flag de tempo trata como dado desconhecido).
+    const tempoGastoSegundos = Math.max(0, Math.trunc(body.tempo_gasto_segundos ?? 0));
 
     // ── 6. Resolve o prompt culture_fit_essay + callAi ────────────────────────
     let resolved: ResolvedPrompt;
@@ -287,7 +291,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
           texto: body.texto,
           word_count: wordCount,
           texto_hash: textoHash,
-          tempo_gasto_segundos: 0,
+          tempo_gasto_segundos: tempoGastoSegundos,
           input_hash: inputHash,
           flags: [failFlag],
           prompt_version: resolved.prompt_version,
@@ -311,7 +315,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
       parsedRaw,
       threshold,
       wordCount,
-      0, // tempo_gasto_segundos: coletado pelo cliente em V2; 0 aqui (flag <90s não dispara).
+      tempoGastoSegundos, // WR-03 — tempo real do cronômetro do cliente; <90s arma a flag anti-cheat.
     );
 
     // ── 9. Anti-plágio intercandidato: hash igual em OUTRA candidatura → flag. ─
@@ -338,7 +342,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
         texto: body.texto,
         word_count: wordCount,
         texto_hash: textoHash,
-        tempo_gasto_segundos: 0,
+        tempo_gasto_segundos: tempoGastoSegundos,
         analise_ia: parsedRaw,
         scores_dimensao: extractScoresDim(parsedRaw),
         score_ponderado_0_100: scoreGeral,

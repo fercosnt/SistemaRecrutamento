@@ -32,6 +32,10 @@ export const respostaRedacaoSchema = z
     candidatura_id: z.string().uuid(),
     pergunta_id: z.string().uuid(),
     texto: z.string().min(1, 'Redação obrigatória'),
+    // WR-03 — segundos decorridos no editor (RedacaoCronometro). Sinal anti-cheat
+    // de tempo (`tempo_anormalmente_curto`, <90s) — NÃO uma nota, então não viola
+    // o anti-tamper de `.strict()`. Opcional: a EF cai em 0 se ausente.
+    tempo_gasto_segundos: z.number().int().nonnegative().optional(),
   })
   .strict()
 

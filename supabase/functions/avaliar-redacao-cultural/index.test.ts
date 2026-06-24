@@ -365,3 +365,51 @@ Deno.test("CR-01 — idempotency_key folds the essay hash (edited re-submit re-s
   // Identical essay text → identical key (true duplicate still de-dupes).
   assertEquals(keys[0], keys[2], "same essay text → same idempotency_key");
 });
+
+// ── WR-03: client-supplied tempo_gasto_segundos threads into the persisted row ─
+// The cronômetro's elapsed seconds flow through the body → the EF persists them
+// (no longer a hardcoded 0) and feeds them to computeScoreAndCors so the
+// `tempo_anormalmente_curto` (<90s) anti-cheat flag is live.
+Deno.test("WR-03 — tempo_gasto_segundos from the body is persisted (not hardcoded 0)", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = baseDeps(ESSAY_VERDE);
+  const res = await handler(makeRequest({ ...VALID_BODY, tempo_gasto_segundos: 740 }), deps);
+  assertEquals(res.status, 200);
+  const row = persistedRow(admin);
+  assert(row, "must persist a redacoes_candidato row");
+  assertEquals(row!.tempo_gasto_segundos, 740, "persists the client-supplied elapsed seconds");
+});
+
+Deno.test("WR-03 — a fast submit (<90s) arms the tempo_anormalmente_curto flag", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = baseDeps(ESSAY_VERDE);
+  await handler(makeRequest({ ...VALID_BODY, tempo_gasto_segundos: 12 }), deps);
+  const row = persistedRow(admin);
+  assert(Array.isArray(row!.flags), "flags is an array");
+  assert(
+    (row!.flags as string[]).includes("tempo_anormalmente_curto"),
+    "12s < 90s → tempo_anormalmente_curto flag is set",
+  );
+});
+
+Deno.test("WR-03 — a normal submit (>=90s) does NOT arm tempo_anormalmente_curto", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = baseDeps(ESSAY_VERDE);
+  await handler(makeRequest({ ...VALID_BODY, tempo_gasto_segundos: 600 }), deps);
+  const row = persistedRow(admin);
+  assert(Array.isArray(row!.flags), "flags is an array");
+  assertEquals(
+    (row!.flags as string[]).includes("tempo_anormalmente_curto"),
+    false,
+    "600s >= 90s → no fast-submit flag",
+  );
+});
+
+// ── WR-03: missing tempo_gasto_segundos (older client) falls back to 0 ────────
+Deno.test("WR-03 — absent tempo_gasto_segundos falls back to 0 (backward compat)", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = baseDeps(ESSAY_VERDE);
+  await handler(makeRequest(VALID_BODY), deps); // no tempo field
+  const row = persistedRow(admin);
+  assertEquals(row!.tempo_gasto_segundos, 0, "no timing field → persisted 0");
+});
