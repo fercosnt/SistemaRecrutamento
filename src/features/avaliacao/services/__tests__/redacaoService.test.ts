@@ -46,9 +46,8 @@ vi.mock('@/lib/supabase/client', () => {
   return { supabase: { from: vi.fn(() => makeQuery()) } }
 })
 
-// RED: this module does not exist yet — import throws "Cannot find module".
-// The candidate-facing read function (name per PLAN 03; assert via the captured select string).
-// @ts-expect-error — module lands in Plan 13-03; RED until then.
+// GREEN (Plan 13-03): the module now exists. The candidate-facing read function
+// (asserted via the captured select string) is `getRedacaoCandidato`.
 import * as redacaoService from '@/features/avaliacao/services/redacaoService'
 
 // The verdict columns that must NEVER appear in a candidate-facing projection.
