@@ -62,6 +62,8 @@ function testeLabel(teste: string): string {
     case 'big_five':
     case 'bigfive':
       return 'Avaliação comportamental'
+    case 'redacao':
+      return 'Redação cultural'
     default:
       return teste
         .replace(/_/g, ' ')
@@ -304,6 +306,12 @@ function ConnectedAvaliacaoContainer() {
   }
 
   const handleOpenTeste = (card: TesteCard) => {
+    // The essay editor lives on its own candidate route (not under the
+    // /avaliacao/:id/:target tree) — one more teste card opening the redação screen.
+    if (card.teste === 'redacao') {
+      navigate(`/candidato/redacao/${candidaturaId}`)
+      return
+    }
     let target = 'mc'
     if (card.teste === 'big_five' || card.teste === 'bigfive') {
       target = 'bigfive'

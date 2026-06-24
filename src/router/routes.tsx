@@ -52,6 +52,7 @@ import {
   SjtCasoAbertoScreen,
   BigFiveQuestionnaireScreen,
   DevolutivaBigFiveView,
+  RedacaoEditorScreen,
 } from '../features/avaliacao/components'
 
 // Páginas RH/Admin
@@ -237,6 +238,17 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <DevolutivaBigFiveView />
+      </RoleGuard>
+    ),
+  },
+  // Redação cultural (Phase 13 / AVAL-05 · AVAL-06). The essay editor opens from
+  // the AvaliacaoContainer as one more teste card; it lives on its own candidate
+  // route. The candidate NEVER sees a score/color/threshold (RNF-07a).
+  {
+    path: '/candidato/redacao/:candidaturaId',
+    element: (
+      <RoleGuard role="candidato">
+        <RedacaoEditorScreen />
       </RoleGuard>
     ),
   },

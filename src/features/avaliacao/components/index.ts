@@ -15,3 +15,7 @@ export type { ScorecardAvaliacaoProps } from './ScorecardAvaliacao'
 // Phase 12 (Big Five candidate flow — AVAL-04 / AVAL-08)
 export { BigFiveQuestionnaireScreen } from './BigFiveQuestionnaireScreen'
 export { DevolutivaBigFiveView } from './DevolutivaBigFiveView'
+// Phase 13 (Redação cultural candidate flow — AVAL-05 / AVAL-06)
+export { RedacaoEditorScreen } from './RedacaoEditorScreen'
+export { RedacaoCounter } from './RedacaoCounter'
+export { RedacaoCronometro } from './RedacaoCronometro'
