@@ -21,7 +21,8 @@
 --
 -- LGPD-04: all 11 seed texts are neutral behavioral prompts about past lived
 -- situations; none use the clinical-label product copy banned by RNF-11/RNF-12
--- ("teste psicologico" etc.). The forbidden-strings grep guard scans this dir.
+-- (the forbidden clinical-evaluation term). Product language is always
+-- "avaliacao comportamental/cognitiva". The forbidden-strings grep guard scans this dir.
 --
 -- ROLE-VALUE RECONCILIATION (load-bearing): the PRD §8.2 writes the write policy as
 -- role = 'admin'. The LIVE M2 policies (scores_candidato.sql, bigfive_itens.sql) and

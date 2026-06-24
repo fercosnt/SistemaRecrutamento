@@ -168,7 +168,7 @@ function makeMockSupabaseUser(user: Record<string, unknown> | null) {
 
 async function loadHandler() {
   const mod = await import("./index.ts");
-  return mod as {
+  return mod as unknown as {
     handler: (req: Request, deps: Record<string, unknown>) => Promise<Response>;
   };
 }
