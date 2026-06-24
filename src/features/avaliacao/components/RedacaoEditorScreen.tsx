@@ -27,7 +27,7 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, AlertCircle, Lock, CheckCircle2 } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
@@ -91,6 +91,7 @@ function AutosaveAffordance({ status }: { status: AutosaveStatus }) {
 
 export function RedacaoEditorScreen() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
   const { data: perguntas, isLoading, error, refetch } = useQuery({
@@ -106,9 +107,17 @@ export function RedacaoEditorScreen() {
     enabled: Boolean(candidaturaId),
   })
 
+  // WR-02 — the submitted set is the UNION of the server `minhas` ids and the
+  // ids submitted in THIS session. Mutating a memoized Set in place
+  // (`submittedIds.add(...)`) never re-renders React and desyncs on the next
+  // `minhas` recompute; tracking session submits in state (immutable Set) makes
+  // the all-done screen / "Próxima pergunta" CTA update instantly, before the
+  // `minhas` query refetches.
+  const [localSubmitted, setLocalSubmitted] = useState<Set<string>>(new Set())
+
   const submittedIds = useMemo(
-    () => new Set((minhas ?? []).map((m) => m.pergunta_id)),
-    [minhas],
+    () => new Set([...(minhas ?? []).map((m) => m.pergunta_id), ...localSubmitted]),
+    [minhas, localSubmitted],
   )
 
   const [idx, setIdx] = useState(0)
@@ -157,7 +166,13 @@ export function RedacaoEditorScreen() {
       })
       // NEUTRAL acknowledgement — no score, no feedback on quality (RF-R-06).
       toast.success('Resposta registrada. Você pode revisar até concluir a etapa.')
-      submittedIds.add(pergunta.id)
+      // WR-02 — immutable state update (new Set) so React re-renders the all-done
+      // / next-question UI immediately; + invalidate `minhas` so the server set
+      // reconciles on the next refetch (IN-03 — no more stale-UI-until-manual-refetch).
+      setLocalSubmitted((prev) => new Set(prev).add(pergunta.id))
+      void queryClient.invalidateQueries({
+        queryKey: redacaoKeys.minhas(candidaturaId ?? ''),
+      })
       if (idx < total - 1) {
         goNext()
       } else {
