@@ -280,11 +280,31 @@ Plans:
 **Requirements**: AVAL-05, AVAL-06, AVAL-07
 **Success Criteria** (what must be TRUE):
 
-  1. O candidato responde 1 pergunta padrão BS + 1-2 customizáveis por template, com hard min/max 200-500 palavras e autosave 30s local + 30s DB; o seed `perguntas_redacao` (13 rows) existe.
-  2. `avaliar-redacao` retorna 4 dimensões BARS + 3 caps determinísticos + classificação 3-cores (Zod `EssayScoringV1`), persiste `redacoes_candidato`, e marca `bloqueio_avanco` se vermelho.
+  1. O candidato responde 1 pergunta padrão BS + 1-2 customizáveis por template, com hard min/max 200-500 palavras e autosave 30s local + 30s DB; o seed `perguntas_redacao` existe.
+  2. `avaliar-redacao-cultural` (EF NOVA dedicada) retorna 4 dimensões BARS + 3 caps determinísticos + classificação 3-cores (Zod `EssayScoringV1`), persiste `redacoes_candidato`, e marca `bloqueio_avanco` se vermelho.
   3. Toda redação analisada entra em status `pendente_humano`; a UI 1-redação-por-vez com sidebar por cor permite override por sliders, exige `notas_revisor ≥50 chars` e `decisao_revisor`, e "duvida" escala ao gestor — nunca há auto-rejeição.
 
-**Plans**: TBD
+**Plans**: 5 plans (4 waves)
+Plans:
+**Wave 1**
+
+- [ ] 13-01-PLAN.md — Wave-0 RED battery + the 2 contracts (EssayScoringV1 schema §8.4 GREEN + computeScoreAndCors §8.3 GREEN) + 13-VALIDATION.md SQL-smoke runbook
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 13-02-PLAN.md — 4 migrations authored (perguntas_redacao + seed 11 + em_progresso + redacoes_candidato + review-fields trigger + salvar_revisao_redacao RPC; no-wrapper) + new avaliar-redacao-cultural EF (static imports + two-client + callAi + always pendente_humano) [PROD apply deferred to 13-04]
+- [ ] 13-03-PLAN.md — candidate essay layer: redacaoSchema (.strict()) + redacaoService (allowlist, EF neutral-ack) + RedacaoCounter (3-band) + RedacaoCronometro + RedacaoEditorScreen (reuse useAutosaveAvaliacao) + AvaliacaoContainer redacao branch + candidate route
+
+**Wave 3** *(blocked on Wave 2 + Wave 2)*
+
+- [ ] 13-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + verify-sync + activate culture_fit_essay prompt + deploy avaliar-redacao-cultural EF (JWT-ON) + db:types + 8 SQL smokes [non-autonomous]
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 13-05-PLAN.md — RH human-review queue: revisaoRedacaoService (allowlist + salvar_revisao_redacao RPC) + useRedacaoRevisao + RedacaoCorBadge + RedacaoSidebar (severity sort) + RedacaoOverrideForm (BARS sliders + notas≥50 + decisao) + RedacaoReviewPanel (1-at-a-time 35/65) + gestor duvida list + RH route
+
+**Note**: New dedicated EF `avaliar-redacao-cultural` (NOT a branch of the live SJT `avaliar-redacao`). EssayScoringV1 on `npm:zod@3.25.76/v4`; static `npm:` imports (the 4×-recurring `.join` bug avoided). Seed source (`pergunta-padrao-redacao.md` v1.1) defines 11 codes (PADRAO_BS + D1/D2/D3 + R1/R2/R3 + C1/C2/C3 + F1) — the PRD prose's "13 rows" overcounts the freela template (F1 is the only freela code); seed = 11 rows. Migration-heavy ($$ trigger/RPC bodies) → apply via Supabase MCP (CLAUDE.md §Commands).
+
 **UI hint**: yes
 
 ### Phase 14: Entrevistas com IA Companion (Etapas 4+5)
@@ -350,7 +370,7 @@ Plans:
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 13. Redação Cultural + Revisão Humana | v2.0 | 0/0 | Not started | - |
+| 13. Redação Cultural + Revisão Humana | v2.0 | 0/5 | Planned | - |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
