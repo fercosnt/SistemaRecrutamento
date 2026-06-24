@@ -34,9 +34,17 @@
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const OWNER = { id: "cand-1", app_metadata: { role: "candidato" } };
-const OTHER = { id: "cand-2", app_metadata: { role: "candidato" } };
+// `OWNER.id` / `OTHER.id` are AUTH user ids (auth.users.id) — the value carried by
+// the JWT (user.id). They are DISTINCT from candidatos.id: the EF resolves the
+// candidato owned by the authed user via candidatos.user_id=auth.uid() and compares
+// the resolved candidatos.id against candaturas.candidato_id. The OWNER's auth id
+// maps to candidatos.id=CANDIDATO_ROW_ID (the value stored in candaturas.candidato_id).
+const OWNER = { id: "auth-uid-1", app_metadata: { role: "candidato" } };
+const OTHER = { id: "auth-uid-2", app_metadata: { role: "candidato" } };
 const CANDIDATURA_ID = "cand-vaga-1";
+// candaturas.candidato_id is a candidatos.id value — NOT an auth uid (they differ
+// in PROD; comparing candidato_id directly against user.id is the bug this fixes).
+const CANDIDATO_ROW_ID = "candidato-row-1";
 
 // A complete 120-answer Likert body (every item answered 3 — neutral). The EF
 // re-scores this server-side; the client never sends a score (.strict, Pitfall 3).
@@ -48,8 +56,22 @@ const VALID_BODY = { candidatura_id: CANDIDATURA_ID, respostas: RESPOSTAS_120 };
 // for the authz guard and captures every INSERT/UPDATE so the test can assert
 // (a) a scores_candidato row is written status='sucesso', and (b) candidaturas is
 // NEVER written (the contextual / never-reject invariant, RNF-07a).
+//
+// The REAL ownership contract (the bug this mock now reflects): candaturas.candidato_id
+// is a candidatos.id value, NOT an auth uid. The EF resolves the candidato owned by
+// the authed user via `candidatos.select('id').eq('user_id', auth.uid())` and compares
+// that candidatos.id against candaturas.candidato_id. So:
+//   - `.from('candidaturas')` resolves to `candidaturaRow` (carries candidato_id).
+//   - `.from('candidatos')` resolves to `candidatoOwnerRow` (the row the authed user
+//     owns, keyed by user_id) — its `id` must equal candidaturaRow.candidato_id for
+//     the happy path; a different id (or null) proves a non-owner → 403.
+// `candidatoOwnerRow` also carries `data_nascimento` so the later norm-group lookup
+// (`.eq('id', candRow.candidato_id)`) reads a usable dob from the same table mock.
 function makeMockSupabaseAdmin(
   candidaturaRow: { candidato_id: string; etapa_atual: string } | null,
+  candidatoOwnerRow: { id: string; data_nascimento?: string } | null = {
+    id: CANDIDATO_ROW_ID,
+  },
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   const updates: { table: string; row: Record<string, unknown> }[] = [];
@@ -57,10 +79,11 @@ function makeMockSupabaseAdmin(
     inserts,
     updates,
     from(table: string) {
+      const row = table === "candidatos" ? candidatoOwnerRow : candidaturaRow;
       return {
         select: (_cols?: string) => ({
           eq: () => ({
-            maybeSingle: () => Promise.resolve({ data: candidaturaRow, error: null }),
+            maybeSingle: () => Promise.resolve({ data: row, error: null }),
           }),
         }),
         insert: (insertRow: Record<string, unknown>) => {
@@ -122,7 +145,7 @@ function makeRequest(body: unknown, withAuth = true): Request {
 // ── C1 (a): authentication — no session → 401, never scores ───────────────────
 Deno.test("C1(a) — no session (getUser null) → 401, never writes a score", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(null) };
   const res = await handler(makeRequest(VALID_BODY, false), deps);
   assertEquals(res.status, 401);
@@ -130,9 +153,16 @@ Deno.test("C1(a) — no session (getUser null) → 401, never writes a score", a
 });
 
 // ── C1 (b): authorization — authenticated non-owner → 403 (IDOR) ──────────────
+// The candidatura is owned by candidatos.id=CANDIDATO_ROW_ID, but the authed user
+// (OTHER) resolves via candidatos.user_id to a DIFFERENT candidatos row
+// (id="candidato-row-2") → its id ≠ candidato_id → 403. This proves the resolved
+// candidatos.id ownership check (not the old broken candidato_id===user.id equality).
 Deno.test("C1(b) — authenticated user who does NOT own the candidatura → 403", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    { id: "candidato-row-2" }, // OTHER resolves to a different candidato → not the owner
+  );
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OTHER) };
   const res = await handler(makeRequest(VALID_BODY), deps);
   assertEquals(res.status, 403);
@@ -141,10 +171,27 @@ Deno.test("C1(b) — authenticated user who does NOT own the candidatura → 403
   assertEquals(admin.inserts.length, 0, "non-owner must never reach scoring");
 });
 
+// ── C1 (b'): authorization — authed user has NO candidatos row → 403 ──────────
+// If candidatos.user_id=auth.uid() resolves to no row at all, ownership cannot be
+// proven → 403. Guards against a NULL candidatoOwnerRow short-circuiting to allow.
+Deno.test("C1(b') — authed user with no candidatos row (user_id unmatched) → 403", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    null, // candidatos lookup by user_id returns nothing
+  );
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
+  const res = await handler(makeRequest(VALID_BODY), deps);
+  assertEquals(res.status, 403);
+  const json = await res.json();
+  assertEquals(json.error_code, "FORBIDDEN");
+  assertEquals(admin.inserts.length, 0, "unresolved candidato must never reach scoring");
+});
+
 // ── C1 (c): authorization — owner but wrong etapa → 403 (back-lock at EF) ─────
 Deno.test("C1(c) — owner but etapa_atual !== 'avaliacao_assincrona' → 403", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "triagem" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "triagem" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const res = await handler(makeRequest(VALID_BODY), deps);
   assertEquals(res.status, 403);
@@ -156,7 +203,7 @@ Deno.test("C1(c) — owner but etapa_atual !== 'avaliacao_assincrona' → 403", 
 // ── AVAL-04: success → scores_candidato tipo='big_five' status='sucesso' ──────
 Deno.test("AVAL-04 — success INSERTs scores_candidato tipo='big_five' status='sucesso'", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const res = await handler(makeRequest(VALID_BODY), deps);
   assertEquals(res.status, 200);
@@ -169,7 +216,7 @@ Deno.test("AVAL-04 — success INSERTs scores_candidato tipo='big_five' status='
 // ── RNF-07a / Pitfall 4: NEVER touch candidaturas, never a trait threshold ────
 Deno.test("RNF-07a — never writes/updates candidaturas (contextual, never-reject)", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   await handler(makeRequest(VALID_BODY), deps);
   const candWrite =
@@ -184,7 +231,7 @@ Deno.test("RNF-07a — never writes/updates candidaturas (contextual, never-reje
 // ── Anti-tamper / neutral payload: the response carries NO score ──────────────
 Deno.test("AVAL-04 — response body is the neutral { ok:true }, never a score (RNF-07a)", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const res = await handler(makeRequest(VALID_BODY), deps);
   const json = await res.json();
@@ -198,7 +245,7 @@ Deno.test("AVAL-04 — response body is the neutral { ok:true }, never a score (
 // ── Anti-tamper: a body carrying a `score` field is rejected (.strict) ─────────
 Deno.test("AVAL-04 — a body with an extra `score` field is rejected 400 (.strict, Pitfall 3)", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const tampered = { ...VALID_BODY, score: 99 };
   const res = await handler(makeRequest(tampered), deps);
@@ -209,7 +256,7 @@ Deno.test("AVAL-04 — a body with an extra `score` field is rejected 400 (.stri
 // ── Validation: an incomplete (119-item) body is rejected 400 ─────────────────
 Deno.test("AVAL-04 — an incomplete (<120) responses map is rejected 400", async () => {
   const { handler } = await loadHandler();
-  const admin = makeMockSupabaseAdmin({ candidato_id: OWNER.id, etapa_atual: "avaliacao_assincrona" });
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
   const partial: Record<string, number> = { ...RESPOSTAS_120 };
   delete partial["120"]; // 119 answers
