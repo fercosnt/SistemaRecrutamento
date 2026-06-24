@@ -31,7 +31,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 - [x] **Phase 10: Triagem RH com IA + Comparativo (Etapa 2)** — `score_match` automático, painel de candidatos, comparativo até 10 + export PDF (completed 2026-06-09)
 - [x] **Phase 11: Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3)** — Bloco de testes, scoring determinístico SJT 4/2/1/0, case aberto BARS, autosave + back-lock (completed 2026-06-09)
 - [x] **Phase 12: Big Five + Devolutiva** — IPIP-NEO-120 PT-BR scoring anti-tampering server-side + devolutiva D-lite híbrida (completed 2026-06-09)
-- [ ] **Phase 13: Redação Cultural + Revisão Humana** — Redação fit-cultural 4-dim BARS + 3-cores + fila de revisão humana obrigatória
+- [x] **Phase 13: Redação Cultural + Revisão Humana** — Redação fit-cultural 4-dim BARS + 3-cores + fila de revisão humana obrigatória (completed 2026-06-24)
 - [ ] **Phase 14: Entrevistas com IA Companion (Etapas 4+5)** — Guias STAR/PEI, análise de transcrição BARS, dashboard do gestor, raciocínio lógico contextual
 - [ ] **Phase 15: Decisão Final Auditável & LGPD Art. 20** — Consolidação de scorecards, justificativa obrigatória, explicação ao candidato, bias audit
 - [ ] **Phase 16: Compliance & A11y Hardening** — WCAG AA cross-screen + fechamento de tech-debt herdado do M1
@@ -297,11 +297,11 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 + Wave 2)*
 
-- [ ] 13-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + verify-sync + activate culture_fit_essay prompt + deploy avaliar-redacao-cultural EF (JWT-ON) + db:types + 8 SQL smokes [non-autonomous]
+- [x] 13-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + verify-sync + activate culture_fit_essay prompt + deploy avaliar-redacao-cultural EF (JWT-ON) + db:types + 8 SQL smokes [non-autonomous]
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 13-05-PLAN.md — RH human-review queue: revisaoRedacaoService (allowlist + salvar_revisao_redacao RPC) + useRedacaoRevisao + RedacaoCorBadge + RedacaoSidebar (severity sort) + RedacaoOverrideForm (BARS sliders + notas≥50 + decisao) + RedacaoReviewPanel (1-at-a-time 35/65) + gestor duvida list + RH route
+- [x] 13-05-PLAN.md — RH human-review queue: revisaoRedacaoService (allowlist + salvar_revisao_redacao RPC) + useRedacaoRevisao + RedacaoCorBadge + RedacaoSidebar (severity sort) + RedacaoOverrideForm (BARS sliders + notas≥50 + decisao) + RedacaoReviewPanel (1-at-a-time 35/65) + gestor duvida list + RH route
 
 **Note**: New dedicated EF `avaliar-redacao-cultural` (NOT a branch of the live SJT `avaliar-redacao`). EssayScoringV1 on `npm:zod@3.25.76/v4`; static `npm:` imports (the 4×-recurring `.join` bug avoided). Seed source (`pergunta-padrao-redacao.md` v1.1) defines 11 codes (PADRAO_BS + D1/D2/D3 + R1/R2/R3 + C1/C2/C3 + F1) — the PRD prose's "13 rows" overcounts the freela template (F1 is the only freela code); seed = 11 rows. Migration-heavy ($$ trigger/RPC bodies) → apply via Supabase MCP (CLAUDE.md §Commands).
 
@@ -370,7 +370,7 @@ Plans:
 | 10. Triagem RH com IA + Comparativo (Etapa 2) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
-| 13. Redação Cultural + Revisão Humana | v2.0 | 3/5 | In Progress|  |
+| 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 0/0 | Not started | - |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |

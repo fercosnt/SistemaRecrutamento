@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Completed 13-03-PLAN.md (candidate essay layer: schema + service + 3 components + route)"
-last_updated: "2026-06-24T14:43:44.047Z"
+stopped_at: "Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)"
+last_updated: "2026-06-24T16:35:03.363Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 11
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 45
-  completed_plans: 43
-  percent: 64
+  completed_plans: 45
+  percent: 73
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 13 (Redação Cultural + Revisão Humana) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-06-24
 
@@ -132,6 +132,7 @@ Last activity: 2026-06-24
 | Phase 13 P13-01 | 18min | 3 tasks | 10 files |
 | Phase 13 P13-02 | 18min | 3 tasks (Task 3 TDD RED+GREEN) | 8 files |
 | Phase 13 P13-03 | ~8min | 3 tasks | 10 files |
+| Phase 13 P13-05 | ~70min | 3 tasks (Task 1 TDD RED+GREEN) | 11 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,7 @@ Last activity: 2026-06-24
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- [13-05]: RH human-review queue (AVAL-07) — the ONE genuinely-new RH surface. Review WRITE goes ONLY through the live salvar_revisao_redacao SECURITY DEFINER RPC (no direct UPDATE; the trg_redacao_rh_only_review_fields trigger backstops it); RH read uses REDACAO_ALLOWLIST joined to candidaturas (never select('*')). 1-at-a-time two-column panel (35% AI+override / 65% essay leading-relaxed), severity-DESC 3-color sidebar (RH-only, default filter vermelho+amarelo), 4 BARS sliders live-recompute composite/cor mirroring the EF compute-score caps (red-flag MIN 30, D1<=2 MIN 50, per-vaga 40/64), notas>=50 gate (client+server) + decisao radio, A/R AlertDialog confirm + D inline gestor escalation (duvida stays pendente_humano — never finalizes, RNF-07a). The :id route param is a candidatura id → getVagaIdForCandidatura resolves the per-vaga queue. Plan 01 RedacaoOverrideForm + RedacaoSidebar RED scaffolds flipped GREEN (stale @ts-expect-error removed). 15/15 plan-verify vitest, full suite 510/510, build 0, tsc flat 291. AVAL-05/06/07 now all have a live surface end-to-end.
 - [13-02]: redação migrations authored (perguntas_redacao + 11-row seed + redacoes_candidato_em_progresso + redacoes_candidato + BEFORE UPDATE review-fields trigger + salvar_revisao_redacao SECURITY DEFINER RPC; no-BEGIN/COMMIT wrapper D-22) + new avaliar-redacao-cultural EF (static npm imports cloning analise-candidato-individual, two-client authenticate-THEN-authorize, callAi + EssayScoringV1Schema + computeScoreAndCors). status_analise='pendente_humano' ALWAYS + bloqueio_avanco only on vermelho + NEVER writes candidaturas (RNF-07a). AUTHORED-NOT-APPLIED — PROD apply + EF deploy + prompt activation is the [BLOCKING] Plan 13-04.
 - [13-02]: 3 PRD→live reconciliations applied as bug-fixes (the binding PRD prose drifted from the live schema/guard idioms): (a) role 'admin'→'administrador' (custom_access_token_hook output; a mismatch silently denies every RH read — [[reference_auth_hook_rls_gap]]); (b) candidatos.auth_user_id→user_id (the PRD column does not exist; the live link is user_id, confirmed vs database.types.ts + pontuar_sjt); (c) seed 11-not-13 (pergunta-padrao-redacao.md v1.1 ships exactly 11 codes; the PRD prose's 13 overcounted freela — F1 only).
 - [13-02]: avaliar-redacao-cultural resolves candidate ownership via candidatos.user_id=auth.uid() (the CORRECT IDOR check). LATENT BUG NOTED: the SJT avaliar-redacao + submit-bigfive-final EFs compare candidato_id===user.id directly, but candidato_id is candidatos.id (not the auth uid) — structurally wrong ownership check; flagged for a future correctness pass (out of scope this plan). tsc 291 flat, deno 8/8 GREEN, redacao-contract Vitest 5/5 GREEN.
@@ -301,8 +303,8 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-24T14:43:44.038Z
-Stopped at: Completed 13-03-PLAN.md (candidate essay layer: schema + service + 3 components + route)
+Last session: 2026-06-24T16:35:03.354Z
+Stopped at: Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
 
