@@ -123,7 +123,7 @@ function makeMockSupabaseAdmin(opts: {
       return null;
     };
     const builder = {
-      // anti-plágio: .select(...).eq(...).neq(...) → array result.
+      // anti-plágio: .select(...).eq(...).neq(...).limit(50) → array result (WR-06).
       // ai_call_logs replay: .select(...).eq("idempotency_key", key).maybeSingle().
       eq: (col?: string, val?: unknown) => {
         if (table === "ai_call_logs" && col === "idempotency_key" && typeof val === "string") {
@@ -131,7 +131,9 @@ function makeMockSupabaseAdmin(opts: {
         }
         return builder;
       },
-      neq: () => Promise.resolve({ data: [], error: null, count: 0 }),
+      neq: () => builder,
+      // WR-06 — the anti-plágio query terminates on `.limit(n)`; resolves to the array.
+      limit: () => Promise.resolve({ data: [], error: null, count: 0 }),
       maybeSingle: () => Promise.resolve({ data: rowFor(), error: null }),
       single: () => Promise.resolve({ data: { id: "redacao-1" }, error: null }),
     };

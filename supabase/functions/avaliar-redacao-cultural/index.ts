@@ -319,11 +319,15 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
     );
 
     // ── 9. Anti-plágio intercandidato: hash igual em OUTRA candidatura → flag. ─
+    //      WR-06 — .limit(50) bound: a flag dispara por PRESENÇA (length>0), então
+    //      não precisamos do match-set inteiro; o cap evita gravar um array
+    //      arbitrariamente grande em referencia_match num pathological boilerplate.
     const { data: matchRows } = await supabaseAdmin
       .from("redacoes_candidato")
       .select("candidatura_id")
       .eq("texto_hash", textoHash)
-      .neq("candidatura_id", body.candidatura_id);
+      .neq("candidatura_id", body.candidatura_id)
+      .limit(50);
     const referenciaMatch: string[] = Array.isArray(matchRows)
       ? matchRows.map((m: { candidatura_id: string }) => m.candidatura_id)
       : [];
