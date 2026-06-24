@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 14 (Entrevistas com IA Companion) — NEXT (discuss→plan→execute)
-Plan: Phase 13 closed (all gates); Phases 14-16 remain + milestone lifecycle
-Status: Ready to start Phase 14
+Phase: 14 (Entrevistas com IA Companion) — DISCUSS DONE (14-CONTEXT.md captured); next = ui-phase→plan→execute
+Plan: Phase 13 closed (all gates); Phase 14 discuss done; ui-phase/plan/execute/gates remain; then 15, 16 + lifecycle
+Status: Paused at context limit — resume with /gsd-autonomous --from 14 (will skip discuss, run ui-phase→plan→execute)
 Last activity: 2026-06-24
 
 ## Latest Plan (05-07 gap-closure)
