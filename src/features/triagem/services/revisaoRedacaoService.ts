@@ -173,6 +173,31 @@ export async function getDuvidasGestor(vagaId?: string): Promise<RedacaoReviewRo
   return ((data as unknown as Record<string, unknown>[] | null) ?? []).map(flattenRow)
 }
 
+/**
+ * Resolves the vaga id for a candidatura (the `:id` route param of the RH review
+ * panel is a candidatura id; the queue is per-vaga). Allowlist projection — never
+ * `select('*')`. Returns null when the candidatura is missing / has no vaga.
+ */
+export async function getVagaIdForCandidatura(candidaturaId: string): Promise<string | null> {
+  if (!candidaturaId) {
+    throw new RevisaoRedacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+  const { data, error } = await supabase
+    .from('candidaturas')
+    .select('vaga_id')
+    .eq('id', candidaturaId)
+    .maybeSingle()
+
+  if (error) {
+    throw new RevisaoRedacaoServiceError(
+      `Não foi possível resolver a vaga: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+  return (data as { vaga_id: string | null } | null)?.vaga_id ?? null
+}
+
 /** Payload for a single review decision. */
 export interface SalvarRevisaoPayload {
   decisao: DecisaoRevisor

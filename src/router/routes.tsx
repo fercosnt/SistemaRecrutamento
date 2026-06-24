@@ -68,6 +68,9 @@ import { MeuPerfilPage } from '../components/pages/MeuPerfilPage'
 import { SuporteRHPage } from '../components/pages/SuporteRHPage'
 import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
 
+// Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
+import { RedacaoReviewPanel } from '../features/triagem/components/RedacaoReviewPanel'
+
 // Páginas Admin (compliance / AI infra — read-only, role administrador only)
 import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
 import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
@@ -337,6 +340,17 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <PerfilCandidatoRHPage />
+      </RoleGuard>
+    ),
+  },
+  // Revisão de redações (Phase 13 / AVAL-07) — RH human-review queue, role-gated.
+  // 1-redação-por-vez, severity-sorted color sidebar, BARS override, decisão+notas≥50.
+  // The candidate NEVER reaches this surface (RoleGuard + RLS deny).
+  {
+    path: '/rh/candidato/:id/redacao',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <RedacaoReviewPanel />
       </RoleGuard>
     ),
   },

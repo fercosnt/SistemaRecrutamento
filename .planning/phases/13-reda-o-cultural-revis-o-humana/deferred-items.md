@@ -30,6 +30,10 @@ directly caused by the current plan's changes).
 - **Disposition:** Deferred to Plan 13-05 (RH review queue) — NOT in Plan 13-03's scope
   (this plan owns only the candidate essay layer; the RH queue is a separate wave).
 - **Discovered:** Plan 13-03, full-suite regression check.
+- **RESOLVED in Plan 13-05** (`commit pending`): both `RedacaoOverrideForm` and
+  `RedacaoSidebar` are now authored; the Wave-0 RED scaffolds flipped GREEN (6/6). The
+  stale `@ts-expect-error` directives were removed (they had self-resolved per the scaffold
+  note). tsc baseline stays flat at 291.
 
 ## DI-13-03 — `essay-schemas.test.ts` (Deno EF test) fails under `vitest run`
 
