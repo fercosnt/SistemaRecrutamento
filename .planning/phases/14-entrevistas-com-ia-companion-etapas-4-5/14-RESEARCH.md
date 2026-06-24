@@ -405,23 +405,29 @@ await supabaseAdmin.from("scores_candidato").upsert({
 
 **The above are the decisions that need user confirmation before execution** — especially A3 (the bias-flag predicate) and the `tipo='cognitivo'` vs PRD `raciocinio_logico` reconciliation (Open Q1).
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All 4 questions were resolved via the autonomous Smart-discuss phase (14-CONTEXT.md) and locked by the orchestrator's `<resolved_open_questions>` handoff. Resolutions are implemented in the Phase-14 plans (cited per question). No open question remains.
 
 1. **Cognitive `tipo` naming: `cognitivo` (live enum) vs `raciocinio_logico` (PRD prose).**
+   - **RESOLVED:** Use the live enum `tipo='cognitivo'` + `subtipo='raciocinio_logico'`, NO `ALTER TYPE`. Position per CONTEXT (Etapa 4/5, opt-in). PRD-prose mismatch documented as a deviation. Implemented in 14-01 (scorer/schemas) + 14-03 (pontuar_cognitivo RPC).
    - What we know: `tipo_score` enum in PROD has `'cognitivo'` (forward-declared Phase 11). PRD-cognitivo §6/§8 says `tipo='raciocinio_logico'` and EF `submit-cognitivo-final`. Phase position also differs (PRD: Etapa 3; CONTEXT: Etapa 4/5).
    - What's unclear: whether to honor the live enum (`tipo='cognitivo'`, `subtipo='raciocinio_logico'`) or add the PRD value.
    - Recommendation: **Use the live enum** `tipo='cognitivo'` with `subtipo='raciocinio_logico'` (no `ALTER TYPE`). Position per CONTEXT (Etapa 4/5, opt-in). This is non-blocking but should be stated explicitly in the plan so the PRD-prose mismatch is a documented deviation, not a surprise.
 
 2. **Where does the language/accent block live — `avancar_etapa` RPC or a separate guard?**
+   - **RESOLVED:** Enforce inside `avancar_etapa()` itself (server-authoritative invariant; UI-only blocking is bypassable). The human-confirmed state lives on `entrevista_analises.revisao_confirmada_em`; the trigger guard reads it. Implemented in 14-03 T1 (avancar_etapa_flag_guard.sql) + 14-04 live smoke + 14-05 UI defense-in-depth.
    - What we know: RF-24 says the system "bloqueia `avancar_etapa()` até gestor confirmar revisão". `avancar_etapa(candidatura_uuid, usuario_rh_uuid)` is an existing RPC.
    - What's unclear: whether to add a guard clause inside `avancar_etapa` (CREATE OR REPLACE) or a precondition check the UI calls first.
    - Recommendation: enforce in `avancar_etapa` itself (server-authoritative invariant) — UI-only blocking is bypassable. The flag's "human-confirmed" state lives on the `entrevista_analises` row (a `revisao_confirmada_em` column); `avancar_etapa` reads it.
 
 3. **Cognitive scoring: EF `submit-cognitivo-final` vs RPC `pontuar_cognitivo`.**
+   - **RESOLVED:** A no-LLM SECURITY DEFINER RPC `pontuar_cognitivo` (clones `pontuar_sjt`); no EF (no file handling needed). Implemented in 14-03 T1.
    - What we know: scoring has NO LLM (CTT soma simples). PRD names an EF; `pontuar_sjt` is a precedent RPC for deterministic scoring.
    - Recommendation: an RPC is simpler/cheaper for no-LLM work and matches `pontuar_sjt`. Use an EF only if the candidate flow needs server-side file handling (it doesn't). Confirm with the user.
 
 4. **Interview BARS competency set (Claude's discretion per CONTEXT).**
+   - **RESOLVED (planner discretion):** Derive the competency set from the vaga's critical competencies (the same source the guide EF reads); pass as the `{{BARS_RUBRIC_PER_COMPETENCY}}` block — no hardcoded set. Implemented in 14-03 T2.
    - What we know: the rubric is per-vaga/per-cargo; `bars-rubrics-por-dimensao.md` exists in `docs/conhecimento/sjt/`.
    - Recommendation: derive the competency set from the vaga's critical competencies (the same source the guide EF reads). Do not hardcode a fixed set; pass them as the `{{BARS_RUBRIC_PER_COMPETENCY}}` block.
 
