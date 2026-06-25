@@ -341,7 +341,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 14-06-PLAN.md — candidate cognitive prova `/candidato/prova-cognitiva/:candidaturaId` (opt-in via aplica_cognitivo + SJT ScreenShell + light proctoring + raw-picks-only submit + neutral acknowledgment) + opt-in e2e
+- [x] 14-06-PLAN.md — candidate cognitive prova `/candidato/prova-cognitiva/:candidaturaId` (opt-in via aplica_cognitivo + SJT ScreenShell + light proctoring + raw-picks-only submit + neutral acknowledgment) + opt-in e2e
 
 **UI hint**: yes
 
@@ -393,7 +393,7 @@ Plans:
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
-| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 5/6 | In Progress|  |
+| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 6/6 | Plan exec done — phase gates pending |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
