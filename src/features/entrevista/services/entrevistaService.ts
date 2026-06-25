@@ -114,6 +114,11 @@ export interface EntrevistaGuiaRow {
 /** One BARS competency dimension from the transcript analysis (AI-derived). */
 export interface AnaliseCompetencia {
   competencia: string
+  /**
+   * The raw English key the EF persists (`competency`) — kept on the shape so the
+   * normalization in `getAnalise` is non-lossy. Consumers read `competencia`.
+   */
+  competency?: string | null
   score?: number | null
   reasoning?: string | null
   bias_flags?: {
@@ -270,9 +275,34 @@ export async function getGuia(candidaturaId: string): Promise<EntrevistaGuiaRow 
 }
 
 /**
+ * Normalizes one persisted competency entry (CR-04). The EF writes the English key
+ * `competency` (`extractCompetencias` in avaliar-transcricao-entrevista/index.ts);
+ * every RH consumer reads the pt-BR key `competencia`. We bridge the two in the
+ * SERVICE READ LAYER ONLY — the EF write is NOT renamed (gerar-guia's
+ * weakDimsFromScores keeps reading `competency`, IN-03). A missing label falls
+ * through to an empty string so the UI filters/keys never crash.
+ */
+function normalizeCompetencia(c: AnaliseCompetencia): AnaliseCompetencia {
+  return {
+    ...c,
+    competencia:
+      typeof c.competencia === 'string' && c.competencia.length > 0
+        ? c.competencia
+        : typeof c.competency === 'string'
+          ? c.competency
+          : '',
+    score: typeof c.score === 'number' ? c.score : null,
+  }
+}
+
+/**
  * Reads the latest transcript analysis for a candidatura. Allowlist projection of
  * `entrevista_analises` (transcript competencies + citations + the flag + the
  * human-review markers). Returns null when no transcript has been analyzed yet.
+ *
+ * CR-04: the EF persists the English `competency` key; this read normalizes it to
+ * the pt-BR `competencia` the RH UI (scorecard + transcript panel) reads, so the
+ * AI-seeded competencies actually reach the workspace (ENTREV-03).
  */
 export async function getAnalise(
   candidaturaId: string,
@@ -295,7 +325,16 @@ export async function getAnalise(
     )
   }
   const rows = (data as unknown as EntrevistaAnaliseRow[] | null) ?? []
-  return rows[0] ?? null
+  const row = rows[0] ?? null
+  if (!row) return null
+  // CR-04: normalize the EF's English `competency` → the pt-BR `competencia` the
+  // RH components read. competencias/citacoes/bias_flags all carry the English key.
+  return {
+    ...row,
+    competencias: Array.isArray(row.competencias)
+      ? row.competencias.map(normalizeCompetencia)
+      : row.competencias,
+  }
 }
 
 /**
@@ -419,6 +458,14 @@ interface AvaliarTranscricaoBody {
 }
 
 /**
+ * Server-authoritative minimum transcript length (mirrors the EF
+ * `MIN_TRANSCRICAO_LEN = 200` in avaliar-transcricao-entrevista/index.ts). WR-05:
+ * the client guards this BEFORE invoking so a too-short transcript surfaces a
+ * specific, non-retryable message instead of a generic network error.
+ */
+export const MIN_TRANSCRICAO_LEN = 200
+
+/**
  * Invokes the LIVE `avaliar-transcricao-entrevista` EF. The client body carries
  * ONLY `{ candidatura_id, transcricao }` — the transcript is UNTRUSTED text and
  * the EF does injection-detect + maskPII server-side. Never a score/band on the
@@ -435,14 +482,34 @@ export async function analisarTranscricao(
   if (!transcricao || transcricao.trim().length === 0) {
     throw new EntrevistaServiceError('A transcrição é obrigatória.', 'INVALID_INPUT')
   }
+  // WR-05: mirror the EF's 200-char floor client-side with a SPECIFIC pt-BR message
+  // — a too-short transcript is a deterministic validation failure, not a retryable
+  // network error.
+  if (transcricao.trim().length < MIN_TRANSCRICAO_LEN) {
+    throw new EntrevistaServiceError(
+      `A transcrição é muito curta para análise (mínimo de ${MIN_TRANSCRICAO_LEN} caracteres).`,
+      'INVALID_INPUT',
+    )
+  }
   const body: AvaliarTranscricaoBody = {
     candidatura_id: candidaturaId,
     transcricao,
   }
-  const { error } = await supabase.functions.invoke('avaliar-transcricao-entrevista', {
+  const { data, error } = await supabase.functions.invoke('avaliar-transcricao-entrevista', {
     body,
   })
   if (error) {
+    // WR-05: surface the EF `error_code:'VALIDATION'` distinctly instead of
+    // collapsing every EF error into NETWORK_ERROR. The FunctionsHttpError carries
+    // the parsed body on `context` (a Response); fall back to the error shape.
+    const efCode = await extractEfErrorCode(error, data)
+    if (efCode === 'VALIDATION') {
+      throw new EntrevistaServiceError(
+        'A transcrição não passou na validação. Verifique se há texto suficiente para análise.',
+        'INVALID_INPUT',
+        error,
+      )
+    }
     throw new EntrevistaServiceError(
       'Não foi possível analisar a transcrição. Tente novamente.',
       'NETWORK_ERROR',
@@ -454,36 +521,78 @@ export async function analisarTranscricao(
 }
 
 /**
+ * Best-effort extraction of the EF `error_code` from a `supabase.functions.invoke`
+ * failure (WR-05). The Edge runtime returns `{ ok:false, error_code, message }`;
+ * supabase-js surfaces a non-2xx as a `FunctionsHttpError` carrying the raw
+ * `Response` on `.context`. We read the code without throwing — any parse failure
+ * just yields `null` and the caller falls back to NETWORK_ERROR.
+ */
+async function extractEfErrorCode(error: unknown, data: unknown): Promise<string | null> {
+  // Some transports already surface the parsed body as the resolved `data`.
+  const fromData = (data as { error_code?: string } | null)?.error_code
+  if (typeof fromData === 'string') return fromData
+  const ctx = (error as { context?: unknown }).context
+  if (ctx && typeof (ctx as Response).json === 'function') {
+    try {
+      const body = (await (ctx as Response).clone().json()) as { error_code?: string }
+      return typeof body.error_code === 'string' ? body.error_code : null
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+/**
  * Confirms human review on the transcript analysis — sets
  * `entrevista_analises.revisao_confirmada_em`, which the server `avancar_etapa`
  * guard reads to RELEASE the language/accent flag block (RF-24 / RNF-07a). This
  * is the only enabled path out of the flag block; the human always decides.
  *
- * Authorized via the allowlisted update (RLS + the rh-only review-fields trigger
- * backstop the write at the DB). Error map mirrors the RPC writes.
+ * CR-03 + WR-07: routes through the `confirmar_revisao_entrevista` SECURITY DEFINER
+ * RPC (role + vaga-ownership guarded) — NEVER a direct UPDATE. `entrevista_analises`
+ * has RLS with only a SELECT policy, so a client UPDATE would be RLS-filtered to a
+ * silent 0-row no-op (no error, no write). The RPC RETURNS the updated row; we ASSERT
+ * the marker landed and throw NOT_FOUND when nothing came back — no silent success.
+ * Error map: 42501 → FORBIDDEN, P0002/no_data_found → NOT_FOUND, else → NETWORK_ERROR.
  */
 export async function confirmarRevisaoHumana(analiseId: string): Promise<void> {
   if (!analiseId) {
     throw new EntrevistaServiceError('analiseId é obrigatório', 'INVALID_INPUT')
   }
-  const { error } = await supabase
-    .from('entrevista_analises')
-    .update({ revisao_confirmada_em: new Date().toISOString() })
-    .eq('id', analiseId)
-    .select('id, revisao_confirmada_em')
-    .maybeSingle()
+  // NOTE: `confirmar_revisao_entrevista` is authored in the 14-07 migration but not
+  // yet applied to PROD, so it is absent from the generated database.types.ts union.
+  // The cast is removed once the orchestrator applies the migration + regenerates
+  // types ([[feedback_integration_contract_gap]] — drop casts as soon as types regen).
+  const { data, error } = await supabase.rpc(
+    'confirmar_revisao_entrevista' as never,
+    { p_analise_id: analiseId } as never,
+  )
 
   if (error) {
     throw mapRpcError(error, 'Não foi possível confirmar a revisão. Tente novamente.')
   }
+
+  // Readback assertion (WR-07): the RPC returns the updated row carrying
+  // revisao_confirmada_em. A null/empty return means nothing was confirmed —
+  // surface NOT_FOUND instead of an optimistic "released".
+  const row = Array.isArray(data) ? data[0] : data
+  const marker = (row as { revisao_confirmada_em?: string | null } | null)?.revisao_confirmada_em
+  if (!row || !marker) {
+    throw new EntrevistaServiceError(
+      'A análise não foi encontrada ou a revisão não pôde ser confirmada.',
+      'NOT_FOUND',
+      data,
+    )
+  }
 }
 
 /**
- * Records a reject-by-cognitive-alone decision in `bias_audit_log` BEFORE the
- * rejection (ENTREV-05 / RNF-07a / RF-27). The cognitive band NEVER auto-rejects;
- * if the gestor rejects based on cognitive alone, the UI forces an expanded
- * justification and writes this audit row. NEVER advances/decides the funil here —
- * this is the audit trail, the human owns the decision elsewhere.
+ * Records an AUDIT-ONLY cognitive-band ressalva in `bias_audit_log` (ENTREV-05 /
+ * RNF-07a / RF-27). WR-03: this does NOT reject the candidate — the cognitive band
+ * never decides; the real auditable rejection is the Phase-15 decisão final. The UI
+ * forces an expanded justification and writes this audit row. NEVER advances/decides
+ * the funil here — this is the audit trail, the human owns the decision elsewhere.
  */
 export async function registrarRejeicaoCognitiva(input: {
   candidaturaId: string

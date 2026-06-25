@@ -36,29 +36,48 @@ const ETAPA_LABEL: Record<string, string> = {
   rejeitado: 'Rejeitado',
 }
 
-/** Formats an ISO datetime as `dd/mm/aaaa às hh:mm` (pt-BR). */
-export function formatDataHora(iso: string | null): string | null {
-  if (!iso) return null
+/**
+ * The domain timezone for displayed interview datetimes (IN-04). The
+ * `entrevista_agendada_em` is a `timestamptz`; pinning to America/Sao_Paulo keeps the
+ * shown time stable across viewer timezones instead of the browser's local zone.
+ */
+const DISPLAY_TIME_ZONE = 'America/Sao_Paulo'
+
+/** Reads the timezone-pinned dd/mm/yyyy/hh/min parts of an ISO timestamptz. */
+function saoPauloParts(
+  iso: string,
+): { dd: string; mm: string; yyyy: string; hh: string; min: string } | null {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  const hh = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm}/${yyyy} às ${hh}:${min}`
+  const parts = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: DISPLAY_TIME_ZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  // hour12:false can render midnight as '24' in some engines — normalize to '00'.
+  const hh = pick('hour') === '24' ? '00' : pick('hour')
+  return { dd: pick('day'), mm: pick('month'), yyyy: pick('year'), hh, min: pick('minute') }
 }
 
-/** Short `dd/mm às hh:mm` form for the tooltip. */
+/** Formats an ISO datetime as `dd/mm/aaaa às hh:mm` pinned to America/Sao_Paulo (IN-04). */
+export function formatDataHora(iso: string | null): string | null {
+  if (!iso) return null
+  const p = saoPauloParts(iso)
+  if (!p) return null
+  return `${p.dd}/${p.mm}/${p.yyyy} às ${p.hh}:${p.min}`
+}
+
+/** Short `dd/mm às hh:mm` form (America/Sao_Paulo) for the tooltip. */
 function formatCurto(iso: string | null): string | null {
   if (!iso) return null
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${dd}/${mm} às ${hh}:${min}`
+  const p = saoPauloParts(iso)
+  if (!p) return null
+  return `${p.dd}/${p.mm} às ${p.hh}:${p.min}`
 }
 
 /**

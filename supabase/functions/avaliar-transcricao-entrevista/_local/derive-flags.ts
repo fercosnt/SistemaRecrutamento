@@ -31,11 +31,18 @@
 export interface TranscriptCompetencyEval {
   competency: string;
   score: number;
-  bias_flags: {
-    content_dependent_only: boolean;
-    regional_markers_ignored: boolean;
-    disfluencies_ignored: boolean;
-  };
+  /**
+   * WR-06: `bias_flags` is OPTIONAL on this slice because `parsed` is the loosely
+   * cast LLM output — a partial parse (or a no-op zodOutputFormat on some provider
+   * paths) can yield an entry with no `bias_flags`. Reading it unguarded threw a
+   * TypeError → the outer try/catch returned 500 and NO analysis row was persisted,
+   * violating the never-absent-persist invariant. Treat absent as non-firing.
+   */
+  bias_flags?: {
+    content_dependent_only?: boolean;
+    regional_markers_ignored?: boolean;
+    disfluencies_ignored?: boolean;
+  } | null;
 }
 
 export interface TranscriptAnalysisSlice {
@@ -60,7 +67,13 @@ export function deriveLanguageAccentFlag(parsed: TranscriptAnalysisSlice): Langu
   const blockedCompetencies: string[] = [];
 
   for (const c of parsed.competency_evaluations ?? []) {
-    const fires = c.score < 3 && c.bias_flags.regional_markers_ignored === false;
+    // WR-06: guard `bias_flags` — a missing field is NON-FIRING, never a throw. The
+    // predicate stays `score < 3 && regional_markers_ignored === false`; an absent
+    // `regional_markers_ignored` is `undefined !== false`, so the competency does
+    // not fire (the EF still persists an analysis row).
+    const bf = c.bias_flags ?? {};
+    const score = typeof c.score === "number" ? c.score : 5;
+    const fires = score < 3 && bf.regional_markers_ignored === false;
     if (fires) blockedCompetencies.push(c.competency);
   }
 

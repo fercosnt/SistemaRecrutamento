@@ -201,8 +201,10 @@ export async function submitProva(
   if (error) {
     const code = (error as { code?: string; status?: number }).code ?? ''
     const status = (error as { status?: number }).status
-    // Back-lock: the etapa advanced mid-session → neutral terminal state.
-    if (code === '42501' || String(status) === '42501' || status === 403) {
+    // Back-lock: the etapa advanced mid-session → neutral terminal state. IN-01:
+    // `status` is a numeric HTTP status (403), never the string '42501', so the
+    // impossible `String(status) === '42501'` disjunct was removed.
+    if (code === '42501' || status === 403) {
       return 'locked'
     }
     throw new CognitivoServiceError(

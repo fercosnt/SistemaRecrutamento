@@ -95,14 +95,17 @@ export function EntrevistaWorkspace() {
     })
   }
 
-  function handleRejeitarPorCognitivo(justificativa: string) {
+  // WR-03: AUDIT-ONLY — writes the bias_audit_log row; it does NOT reject the
+  // candidate (the real auditable rejection is the Phase-15 decision). The toast
+  // no longer claims a "decisão" was taken.
+  function handleRegistrarRessalvaCognitiva(justificativa: string) {
     registrarRejeicaoCognitiva({
       candidaturaId,
       banda,
       justificativa,
     })
-      .then(() => toast.success('Decisão registrada no log de auditoria de viés.'))
-      .catch(() => toast.error('Não foi possível registrar a auditoria. Tente novamente.'))
+      .then(() => toast.success('Ressalva registrada no log de auditoria de viés.'))
+      .catch(() => toast.error('Não foi possível registrar a ressalva. Tente novamente.'))
   }
 
   return (
@@ -149,7 +152,7 @@ export function EntrevistaWorkspace() {
                 <CognitivoBandCard
                   banda={banda}
                   rejecting={false}
-                  onRejeitarPorCognitivo={handleRejeitarPorCognitivo}
+                  onRejeitarPorCognitivo={handleRegistrarRessalvaCognitiva}
                 />
               )
             ) : null}

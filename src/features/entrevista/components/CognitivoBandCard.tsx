@@ -6,10 +6,11 @@
  * decides the etapa. A tooltip states "Contextual — nunca elimina sozinho. Decisão
  * sempre humana." The band header carries the SugestaoIABadge.
  *
- * The reject-by-cognitive-alone path NEVER auto-rejects: it forces an alert-dialog
- * requiring an expanded justification (obrigatória) and writes a `bias_audit_log` row
- * (dados jsonb { candidatura, banda, motivo, flag_demografico }) BEFORE the rejection.
- * The candidate NEVER sees this card (RH panel only — route role-gate + RLS deny).
+ * The cognitive-band path is AUDIT-ONLY (WR-03): it forces an alert-dialog requiring
+ * an expanded justification (obrigatória) and writes a `bias_audit_log` row (dados
+ * jsonb { candidatura, banda, motivo, flag_demografico }). It does NOT reject the
+ * candidate — the real auditable rejection is the Phase-15 decision. The candidate
+ * NEVER sees this card (RH panel only — route role-gate + RLS deny).
  *
  * @module features/entrevista/components/CognitivoBandCard
  * @see src/features/avaliacao/components/ScorecardAvaliacao.tsx (BigFiveBreakdown CONTEXTUAL badge)
@@ -133,24 +134,27 @@ export function CognitivoBandCard({
           <p className="text-sm text-white/60">Banda ainda não disponível.</p>
         )}
 
-        {/* Reject-by-cognitive-alone gate — forces justification + bias_audit_log. */}
+        {/* Audit-only gate (WR-03) — forces an expanded justification + writes the
+            bias_audit_log row. It does NOT reject the candidate; the real auditable
+            rejection is the Phase-15 decision. The copy no longer promises a reject. */}
         <button
           type="button"
           onClick={() => setOpen(true)}
           disabled={rejecting || banda == null}
-          className="min-h-[44px] rounded-lg border border-red-400/30 bg-red-500/15 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          className="min-h-[44px] rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/90 transition-colors hover:bg-white/20 disabled:opacity-50"
         >
-          Rejeitar com base no raciocínio lógico
+          Registrar ressalva no log de auditoria
         </button>
       </CardContent>
 
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rejeitar com base no raciocínio lógico?</AlertDialogTitle>
+            <AlertDialogTitle>Registrar ressalva sobre o raciocínio lógico?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta decisão exige justificativa expandida e será registrada no log de
-              auditoria de viés (bias_audit_log).
+              Esta ação NÃO rejeita o candidato — ela registra uma ressalva, com
+              justificativa expandida, no log de auditoria de viés (bias_audit_log). A
+              decisão de avançar ou não acontece na decisão final (sempre humana).
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -159,14 +163,14 @@ export function CognitivoBandCard({
               htmlFor="rejeicao-justificativa"
               className="text-sm font-semibold text-white/90"
             >
-              Justificativa expandida (obrigatória ao rejeitar com base no raciocínio
-              lógico)
+              Justificativa expandida (obrigatória ao registrar uma ressalva sobre o
+              raciocínio lógico)
             </Label>
             <Textarea
               id="rejeicao-justificativa"
               value={justificativa}
               onChange={(e) => setJustificativa(e.target.value)}
-              placeholder="Explique por que a decisão se apoia no raciocínio lógico. Esta justificativa entra no registro de auditoria de viés."
+              placeholder="Explique a ressalva sobre o raciocínio lógico. Esta justificativa entra no registro de auditoria de viés."
               className="min-h-24 bg-white/5 text-base text-white placeholder:text-white/40"
             />
           </div>
@@ -176,9 +180,9 @@ export function CognitivoBandCard({
             <AlertDialogAction
               disabled={!justificativaOk || rejecting}
               onClick={confirmReject}
-              className="bg-[#EF4444] text-white hover:bg-[#EF4444]/90"
+              className="bg-white/20 text-white hover:bg-white/30"
             >
-              Registrar e rejeitar
+              Registrar no log de auditoria
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

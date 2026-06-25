@@ -52,7 +52,6 @@ import {
   getContexto,
   listItens,
   submitProva,
-  CognitivoServiceError,
   type ItemCognitivoCandidato,
 } from '@/features/avaliacao-cognitiva/services/cognitivoService'
 import { useProctoring } from '@/features/avaliacao-cognitiva/hooks/useProctoring'
@@ -144,12 +143,10 @@ export function ProvaCognitivaScreen() {
         return
       }
       setDone(true)
-    } catch (err) {
-      if (err instanceof CognitivoServiceError && err.code === 'NETWORK_ERROR') {
-        toast.error('Não foi possível enviar a prova agora. Tente novamente.')
-      } else {
-        toast.error('Não foi possível enviar a prova agora. Tente novamente.')
-      }
+    } catch {
+      // IN-01: collapsed the duplicate-toast if/else — both branches showed the
+      // identical message. Any submit failure surfaces the same retryable toast.
+      toast.error('Não foi possível enviar a prova agora. Tente novamente.')
     } finally {
       setSubmitting(false)
     }

@@ -14,6 +14,11 @@
  * real block is server-authoritative (14-03); the UI is defense-in-depth (RNF-07a).
  * RH-facing only.
  *
+ * WR-02: the funil advance is NOT wired on this surface — advancing the etapa is the
+ * Phase-15 decisão final. The "Avançar etapa" CTA is therefore rendered DISABLED with
+ * a tooltip naming the decisão final (no dead button); when an `onAvancarEtapa` handler
+ * is provided in the future the normal blocked/unblocked gate applies.
+ *
  * @module features/entrevista/components/TranscricaoReviewPanel
  * @see src/features/triagem/components/RedacaoReviewPanel.tsx (per-dim badge + 16px reading idiom)
  * @see .planning/phases/14-entrevistas-com-ia-companion-etapas-4-5/14-UI-SPEC.md (§Color flag block)
@@ -207,9 +212,15 @@ export function TranscricaoReviewPanel({
               </button>
             ) : null}
 
-            {/* Avançar etapa — disabled while the flag block is unresolved. */}
+            {/* Avançar etapa (WR-02): there is NO funil-advance service on this
+                surface — advancing the funil is the Phase-15 decisão final. The CTA
+                is rendered DISABLED with a tooltip naming where the advance happens,
+                rather than a dead button that silently no-ops. We never invent an
+                advance RPC here. When a wired handler IS provided (future), the
+                normal blocked/unblocked gate applies. */}
             <AvancarEtapaCTA
-              disabled={bloqueado}
+              disabled={bloqueado || !onAvancarEtapa}
+              blockedByFlag={bloqueado}
               onClick={onAvancarEtapa}
             />
           </div>
@@ -219,12 +230,20 @@ export function TranscricaoReviewPanel({
   )
 }
 
-/** The Avançar etapa CTA — disabled while the flag block fires; tooltip names the rule. */
+/**
+ * The Avançar etapa CTA — disabled while the flag block fires OR while no funil-advance
+ * handler is wired (WR-02). The tooltip names the rule: when blocked by the flag it
+ * tells the gestor to review first; when unwired it points to the decisão final (the
+ * Phase-15 surface that owns the actual advance).
+ */
 function AvancarEtapaCTA({
   disabled,
+  blockedByFlag,
   onClick,
 }: {
   disabled: boolean
+  /** True when the disable is the language/accent flag (vs. no wired advance handler). */
+  blockedByFlag?: boolean
   onClick?: () => void
 }) {
   const button = (
@@ -245,7 +264,9 @@ function AvancarEtapaCTA({
           <span className="inline-block cursor-not-allowed">{button}</span>
         </TooltipTrigger>
         <TooltipContent>
-          Revise a bandeira de linguagem/sotaque antes de avançar a etapa.
+          {blockedByFlag
+            ? 'Revise a bandeira de linguagem/sotaque antes de avançar a etapa.'
+            : 'O avanço de etapa acontece na decisão final.'}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
