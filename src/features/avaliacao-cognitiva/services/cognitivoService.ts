@@ -215,13 +215,13 @@ export async function submitProva(
   const { error } = await supabase.rpc('pontuar_cognitivo', {
     p_candidatura_id: candidaturaId,
     p_respostas: rawResponses,
-    p_shuffle_seed: shuffleSeed ?? null,
-    p_completion_time_seconds: proctoring?.completionTimeSeconds ?? null,
+    p_shuffle_seed: shuffleSeed ?? undefined,
+    p_completion_time_seconds: proctoring?.completionTimeSeconds ?? undefined,
     p_proctoring: {
       blur_count: proctoring?.blurCount ?? 0,
       events: proctoring?.events ?? [],
     },
-  } as never)
+  })
 
   if (error) {
     const code = (error as { code?: string; status?: number }).code ?? ''

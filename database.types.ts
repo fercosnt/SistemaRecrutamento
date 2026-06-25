@@ -4322,6 +4322,10 @@ export type Database = {
         Args: { p_cpf: string; p_email: string }
         Returns: Json
       }
+      confirmar_revisao_entrevista: {
+        Args: { p_analise_id: string }
+        Returns: Json
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_unique_vaga_slug: {
         Args: { p_exclude_id?: string; p_titulo: string }
@@ -4429,7 +4433,13 @@ export type Database = {
         }[]
       }
       pontuar_cognitivo: {
-        Args: { p_candidatura_id: string; p_respostas: Json }
+        Args: {
+          p_candidatura_id: string
+          p_completion_time_seconds?: number
+          p_proctoring?: Json
+          p_respostas: Json
+          p_shuffle_seed?: string
+        }
         Returns: Json
       }
       pontuar_sjt: {

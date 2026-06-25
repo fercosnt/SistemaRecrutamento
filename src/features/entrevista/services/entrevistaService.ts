@@ -560,14 +560,11 @@ export async function confirmarRevisaoHumana(analiseId: string): Promise<void> {
   if (!analiseId) {
     throw new EntrevistaServiceError('analiseId é obrigatório', 'INVALID_INPUT')
   }
-  // NOTE: `confirmar_revisao_entrevista` is authored in the 14-07 migration but not
-  // yet applied to PROD, so it is absent from the generated database.types.ts union.
-  // The cast is removed once the orchestrator applies the migration + regenerates
-  // types ([[feedback_integration_contract_gap]] — drop casts as soon as types regen).
-  const { data, error } = await supabase.rpc(
-    'confirmar_revisao_entrevista' as never,
-    { p_analise_id: analiseId } as never,
-  )
+  // `confirmar_revisao_entrevista` (14-07 migration) is live in PROD + present in the
+  // regenerated database.types.ts union — no cast needed.
+  const { data, error } = await supabase.rpc('confirmar_revisao_entrevista', {
+    p_analise_id: analiseId,
+  })
 
   if (error) {
     throw mapRpcError(error, 'Não foi possível confirmar a revisão. Tente novamente.')
