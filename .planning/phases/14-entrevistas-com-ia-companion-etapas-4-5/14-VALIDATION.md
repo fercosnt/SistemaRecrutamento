@@ -1,8 +1,8 @@
 ---
 phase: 14
 slug: entrevistas-com-ia-companion-etapas-4-5
-status: draft
-nyquist_compliant: false
+status: smokes-green
+nyquist_compliant: true
 wave_0_complete: true
 created: 2026-06-24
 ---
@@ -129,3 +129,32 @@ created: 2026-06-24
   norm (IRT 2PL / SAPA item-difficulty) in v2; the `scoreRaciocinio` interface stays
   stable. Cognitive is CONTEXTUAL and decides nothing (RNF-07a) so an approximate
   band carries no eliminatory weight.
+
+---
+
+## Live Smoke Results — 14-04 PROD apply (2026-06-24)
+
+Run live against PROD (`isljnozzlvckrgjjbjwp`) by the orchestrator via Supabase MCP
+`apply_migration` + `execute_sql` (D-22), against a disposable fixture (candidatura
+`14040404-…0001` at `entrevista_online` + a flagged `entrevista_analises` row), with
+`set_config('request.jwt.claims', …)` role simulation and ROLLBACK-free cleanup
+(Phase-8/11 precedent). Fixture fully torn down after (0 residual rows).
+
+| # | Smoke | Requirement | Verdict | Evidence |
+|---|-------|-------------|---------|----------|
+| 1 | language/accent flag BLOCKS `avancar_etapa` until human confirm | ENTREV-03 / RF-24 | **PASS** | advance past `entrevista_online` raised `check_violation` ("bloqueio: revise a bandeira…"); after `revisao_confirmada_em` set → advance SUCCEEDED (server-authoritative, RNF-07a) |
+| 2 | `pontuar_cognitivo` non-owner → 42501 | ENTREV-05 | **PASS** | non-owner `sub` → `42501 forbidden` (in-DEFINER ownership guard) |
+| 3 | cognitive scoring NEVER auto-rejects | ENTREV-05 / RNF-07a | **PASS** | owner call wrote 1 `scores_candidato` (tipo=cognitivo) row; `candidaturas.etapa_atual` UNCHANGED — no candidaturas mutation |
+| 4 | `aplica_cognitivo` opt-in gate | ENTREV-05 | **PASS** | `vaga.aplica_cognitivo=false` (default OFF — no cognitive invite path) |
+| 5 | `salvar_avaliacao_entrevista` non-owner RH → 42501 | ENTREV-04 | **PASS** | RH (not vaga owner) → `42501 forbidden` (own-vaga guard) |
+| 6 | candidate-DENY RLS on new RH tables | ENTREV-04 / LGPD | **PASS** | candidato role `SELECT entrevista_analises` → 0 rows |
+| 7 | both EFs JWT-on (anon → 401) | ENTREV-01/03 | **PASS** | anon `curl` POST `gerar-guia-entrevista` + `avaliar-transcricao-entrevista` → HTTP 401 |
+
+Plus: both prompt rows (`interview_guide`, `transcript_analysis`) hydrated with real
+templates + `is_active=true`, `deployed_at` still NULL (Pitfall-6 content-first ordering);
+`database.types.ts` regenerated (15 matches for the new tables/columns/RPCs);
+`tipo_score` enum already carried `cognitivo`/`entrevista` (no `ALTER TYPE`).
+
+**7/7 live smokes PASS — RNF-07a confirmed live.** Cognitive item seed = 0 rows
+(ENTREV-05 live items deferred per user; smokes 2/3 exercise the empty-seed defensive
+path). UI-wave (14-05/06) tests flip their own RED rows as those plans land.

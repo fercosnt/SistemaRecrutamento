@@ -966,6 +966,81 @@ export type Database = {
           },
         ]
       }
+      cognitivo_itens: {
+        Row: {
+          alternativas: Json
+          created_at: string
+          enunciado: string
+          gabarito_idx: number
+          id: string
+          ordem: number
+          secao: string
+        }
+        Insert: {
+          alternativas: Json
+          created_at?: string
+          enunciado: string
+          gabarito_idx: number
+          id?: string
+          ordem?: number
+          secao: string
+        }
+        Update: {
+          alternativas?: Json
+          created_at?: string
+          enunciado?: string
+          gabarito_idx?: number
+          id?: string
+          ordem?: number
+          secao?: string
+        }
+        Relationships: []
+      }
+      cognitivo_respostas: {
+        Row: {
+          candidatura_id: string
+          completion_time_seconds: number | null
+          created_at: string
+          id: string
+          proctoring: Json
+          raw_responses: Json
+          shuffle_seed: string | null
+        }
+        Insert: {
+          candidatura_id: string
+          completion_time_seconds?: number | null
+          created_at?: string
+          id?: string
+          proctoring?: Json
+          raw_responses?: Json
+          shuffle_seed?: string | null
+        }
+        Update: {
+          candidatura_id?: string
+          completion_time_seconds?: number | null
+          created_at?: string
+          id?: string
+          proctoring?: Json
+          raw_responses?: Json
+          shuffle_seed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cognitivo_respostas_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cognitivo_respostas_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: true
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comparativo_solicitado: {
         Row: {
           candidatura_ids: string[]
@@ -1312,6 +1387,111 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_triagem_panel"
             referencedColumns: ["candidato_id"]
+          },
+        ]
+      }
+      entrevista_analises: {
+        Row: {
+          bias_flags: Json | null
+          bloqueio_avanco: boolean
+          candidatura_id: string
+          citacoes: Json | null
+          competencias: Json | null
+          created_at: string
+          id: string
+          notas_humanas: string | null
+          prompt_version: string | null
+          revisada_por: string | null
+          revisao_confirmada_em: string | null
+          scores_humanos: Json | null
+          status_analise: string
+        }
+        Insert: {
+          bias_flags?: Json | null
+          bloqueio_avanco?: boolean
+          candidatura_id: string
+          citacoes?: Json | null
+          competencias?: Json | null
+          created_at?: string
+          id?: string
+          notas_humanas?: string | null
+          prompt_version?: string | null
+          revisada_por?: string | null
+          revisao_confirmada_em?: string | null
+          scores_humanos?: Json | null
+          status_analise?: string
+        }
+        Update: {
+          bias_flags?: Json | null
+          bloqueio_avanco?: boolean
+          candidatura_id?: string
+          citacoes?: Json | null
+          competencias?: Json | null
+          created_at?: string
+          id?: string
+          notas_humanas?: string | null
+          prompt_version?: string | null
+          revisada_por?: string | null
+          revisao_confirmada_em?: string | null
+          scores_humanos?: Json | null
+          status_analise?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrevista_analises_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrevista_analises_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entrevista_guias: {
+        Row: {
+          candidatura_id: string
+          created_at: string
+          guia: Json
+          id: string
+          prompt_version: string | null
+          tipo: string
+        }
+        Insert: {
+          candidatura_id: string
+          created_at?: string
+          guia: Json
+          id?: string
+          prompt_version?: string | null
+          tipo: string
+        }
+        Update: {
+          candidatura_id?: string
+          created_at?: string
+          guia?: Json
+          id?: string
+          prompt_version?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entrevista_guias_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entrevista_guias_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3428,6 +3608,7 @@ export type Database = {
       }
       vagas: {
         Row: {
+          aplica_cognitivo: boolean
           beneficios: string | null
           cidade: string | null
           created_at: string
@@ -3439,6 +3620,7 @@ export type Database = {
           descricao_curta: string | null
           diferenciais: string | null
           endereco_completo: string | null
+          entrevista_agendada_em: string | null
           estado: string | null
           exibir_salario: boolean | null
           faixa_salarial_max: number | null
@@ -3469,6 +3651,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          aplica_cognitivo?: boolean
           beneficios?: string | null
           cidade?: string | null
           created_at?: string
@@ -3480,6 +3663,7 @@ export type Database = {
           descricao_curta?: string | null
           diferenciais?: string | null
           endereco_completo?: string | null
+          entrevista_agendada_em?: string | null
           estado?: string | null
           exibir_salario?: boolean | null
           faixa_salarial_max?: number | null
@@ -3510,6 +3694,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          aplica_cognitivo?: boolean
           beneficios?: string | null
           cidade?: string | null
           created_at?: string
@@ -3521,6 +3706,7 @@ export type Database = {
           descricao_curta?: string | null
           diferenciais?: string | null
           endereco_completo?: string | null
+          entrevista_agendada_em?: string | null
           estado?: string | null
           exibir_salario?: boolean | null
           faixa_salarial_max?: number | null
@@ -4242,6 +4428,10 @@ export type Database = {
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
       }
+      pontuar_cognitivo: {
+        Args: { p_candidatura_id: string; p_respostas: Json }
+        Returns: Json
+      }
       pontuar_sjt: {
         Args: { p_candidatura_id: string; p_respostas: Json }
         Returns: Json
@@ -4290,6 +4480,14 @@ export type Database = {
           p_semver: string
         }
         Returns: string
+      }
+      salvar_avaliacao_entrevista: {
+        Args: {
+          p_candidatura_id: string
+          p_notas: string
+          p_scores_humanos: Json
+        }
+        Returns: Json
       }
       salvar_revisao_redacao: {
         Args: {
