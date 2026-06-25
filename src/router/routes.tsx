@@ -71,6 +71,9 @@ import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
 // Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
 import { RedacaoReviewPanel } from '../features/triagem/components/RedacaoReviewPanel'
 
+// Workspace de entrevista (Phase 14 / ENTREV-01..05 — RH/gestor, role-gated)
+import { EntrevistaWorkspace } from '../features/entrevista/components/EntrevistaWorkspace'
+
 // Páginas Admin (compliance / AI infra — read-only, role administrador only)
 import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
 import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
@@ -351,6 +354,18 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <RedacaoReviewPanel />
+      </RoleGuard>
+    ),
+  },
+  // Workspace de entrevista (Phase 14 / ENTREV-01..05) — RH/gestor interview
+  // workspace: Painel do candidato (24h marker) / Guia STAR-PEI / Análise da
+  // transcrição (flag-block on avancar_etapa) / Avaliação (inline scorecard) +
+  // RH-only CONTEXTUAL cognitive band. Candidate NEVER reaches it (RoleGuard + RLS).
+  {
+    path: '/rh/candidato/:id/entrevista',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <EntrevistaWorkspace />
       </RoleGuard>
     ),
   },
