@@ -393,7 +393,7 @@ Plans:
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
-| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 6/6 | Plan exec done — phase gates pending |  |
+| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 6/6 (+14-07 gap-closure) | Review gap-closure landed — migration 20260625000001 AUTHORED-NOT-APPLIED + EF redeploy pending; phase gates resume after orchestrator apply |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: "Completed 14-06-PLAN.md (candidate cognitive prova: cognitivoService raw-picks RPC + useProctoring + ProvaCognitivaScreen opt-in + candidate route + e2e, ENTREV-05). Phase 14 plan execution 6/6 — orchestrator-owned phase gates next (code-review → verify → secure → ui-review)."
-last_updated: "2026-06-25T03:30:00.000Z"
-last_activity: 2026-06-25 -- Phase 14 plan 14-06 complete (candidate cognitive prova)
+status: Phase 14 gap-closure 14-07 landed (code-review blockers closed); orchestrator applies migration + redeploys EF, then phase gates resume
+stopped_at: "Completed 14-07-PLAN.md (gap-closure for code-review blockers CR-01..04 + WR-02/03/04/05/06/07 + IN-01/04). Migration 20260625000001 AUTHORED-NOT-APPLIED; EF avaliar-transcricao-entrevista needs redeploy (WR-06)."
+last_updated: "2026-06-25T03:43:48.061Z"
+last_activity: 2026-06-25 -- Phase 14 plan 14-07 complete (code-review gap closure)
 progress:
   total_phases: 11
-  completed_phases: 8
-  total_plans: 51
-  completed_plans: 51
-  percent: 75
+  completed_phases: 9
+  total_plans: 52
+  completed_plans: 52
+  percent: 82
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 14 (Entrevistas com IA Companion (Etapas 4+5)) — EXECUTING (plan execution 6/6 complete)
-Plan: 6 of 6 — complete
-Status: Phase 14 plan execution closed (6/6); orchestrator-owned phase gates next
-Last activity: 2026-06-25 -- Phase 14 plan 14-06 complete (candidate cognitive prova)
+Phase: 14 (Entrevistas com IA Companion (Etapas 4+5)) — EXECUTING (6/6 plans + 14-07 gap-closure landed)
+Plan: 14-07 (gap-closure) — complete
+Status: 14-07 code-review gap closure landed; migration 20260625000001 AUTHORED-NOT-APPLIED + EF avaliar-transcricao-entrevista pending redeploy (orchestrator owns PROD apply + redeploy + types regen)
+Last activity: 2026-06-25 -- Phase 14 plan 14-07 complete (code-review gap closure: CR-01..04 + WR-02/03/04/05/06/07 + IN-01/04)
 
 ## Latest Plan (14-06 — candidate cognitive prova, ENTREV-05)
 
@@ -137,6 +137,7 @@ Last activity: 2026-06-25 -- Phase 14 plan 14-06 complete (candidate cognitive p
 | Phase 14 P03 | 30min | 3 tasks | 7 files |
 | Phase 14 P05 | 10min | 3 tasks | 9 files |
 | Phase 14 P06 | ~22min | 2 tasks (Task 1 TDD RED→GREEN) | 6 files (5 created + 1 modified) |
+| Phase 14 P07 | 32min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -279,6 +280,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 14 interview/cognitive OUTPUT schemas authored in _shared/interview-output-schemas.ts (not docs/ — not in EF deploy bundle); /v4 import for SDK structured-output helpers
 - [Phase ?]: pontuar_cognitivo banding CASE mirrors scoring.ts bandaFromTotal cutoffs verbatim (TS/SQL no-drift); cognitive back-lock etapa = entrevista_online/presencial (CONTEXT Etapa 4/5)
 - [Phase ?]: avancar_etapa flag guard fires only on FORWARD advance PAST entrevista_online when bloqueio_avanco=true AND revisao_confirmada_em IS NULL; salvar_avaliacao_entrevista releases it but never advances candidaturas (RNF-07a)
+- [Phase ?]: 14-07: CR-04 normalized in service read layer (EF competency->competencia), EF write unchanged (IN-03).
+- [Phase ?]: 14-07: confirm/release marker via confirmar_revisao_entrevista DEFINER RPC + readback row, not a client UPDATE on SELECT-only RLS (CR-03/WR-07).
+- [Phase ?]: 14-07: scores_candidato rh_le_scores SELECT scoped table-wide to vaga-ownership (WR-04); administrador bypass; candidate-DENY preserved.
 
 ### Pending Todos
 
@@ -313,7 +317,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-25T02:46:35.467Z
+Last session: 2026-06-25T03:43:20.658Z
 Stopped at: Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
