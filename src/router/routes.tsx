@@ -74,6 +74,9 @@ import { RedacaoReviewPanel } from '../features/triagem/components/RedacaoReview
 // Workspace de entrevista (Phase 14 / ENTREV-01..05 — RH/gestor, role-gated)
 import { EntrevistaWorkspace } from '../features/entrevista/components/EntrevistaWorkspace'
 
+// Prova cognitiva (Phase 14 / ENTREV-05 — candidato, opt-in via vaga.aplica_cognitivo)
+import { ProvaCognitivaScreen } from '../features/avaliacao-cognitiva/components/ProvaCognitivaScreen'
+
 // Páginas Admin (compliance / AI infra — read-only, role administrador only)
 import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
 import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
@@ -255,6 +258,20 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <RedacaoEditorScreen />
+      </RoleGuard>
+    ),
+  },
+  // Prova cognitiva (Phase 14 / ENTREV-05). Opt-in only via vaga.aplica_cognitivo
+  // (default false): the screen mounts the "Esta etapa não está disponível" empty
+  // state when off. One CC0 item at a time + light proctoring (soft timer, tab-blur
+  // logging, paste-block); the candidate posts ONLY raw picks → the server re-scores
+  // and the candidate NEVER sees a score/band (RNF-07a). Product language is
+  // "prova de raciocínio lógico" (LGPD-04), never the clinical framing.
+  {
+    path: '/candidato/prova-cognitiva/:candidaturaId',
+    element: (
+      <RoleGuard role="candidato">
+        <ProvaCognitivaScreen />
       </RoleGuard>
     ),
   },
