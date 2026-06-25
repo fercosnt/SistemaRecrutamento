@@ -130,13 +130,29 @@ export function ProvaCognitivaScreen() {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
 
+  // A stable per-session shuffle seed (advisory anti-cheat context, NOT a score). The
+  // prova presents items in `ordem`; the seed records the session for the audit trail.
+  const [shuffleSeed] = useState<string>(() =>
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `seed-${Date.now()}`,
+  )
+
   // Light proctoring — soft timer + tab-blur logging + paste-block (context only).
-  const { seconds, pasteBlockHandler } = useProctoring({ enabled: optedIn && !done })
+  // CR-02: blurCount + events are now read and persisted via submitProva (the
+  // "registramos quando a aba perde o foco" disclosure is truthful).
+  const { seconds, blurCount, events, pasteBlockHandler } = useProctoring({
+    enabled: optedIn && !done,
+  })
 
   const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      const outcome = await submitProva(candidaturaId as string, respostas)
+      const outcome = await submitProva(candidaturaId as string, respostas, shuffleSeed, {
+        blurCount,
+        events,
+        completionTimeSeconds: seconds,
+      })
       if (outcome === 'locked') {
         toast.info(COPY.etapaAdvanced)
         setDone(true)

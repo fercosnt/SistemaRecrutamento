@@ -90,6 +90,20 @@ export type SubmitProvaOutcome = 'registrado' | 'locked'
 export type RawResponses = Record<string, number>
 
 /**
+ * The advisory proctoring context the candidate's session collected (CR-02). NEVER a
+ * score/band — it is tab-blur/paste context that NEVER auto-rejects (the server
+ * persists it as the `proctoring` jsonb on cognitivo_respostas). All fields optional.
+ */
+export interface ProctoringContext {
+  /** Total tab-blur / visibility-hidden events observed (context). */
+  blurCount?: number
+  /** The accumulated, timestamped proctoring events. */
+  events?: Array<{ type: string; at: number }>
+  /** The soft-timer elapsed seconds (advisory, no hard cutoff). */
+  completionTimeSeconds?: number
+}
+
+/**
  * Resolves the candidate context for the prova: the candidatura's vaga, current
  * etapa, and the cognitive opt-in gate. Allowlist projection — never a star
  * projection. The `:candidaturaId` route param is a candidatura id. Returns null
@@ -166,11 +180,16 @@ export async function listItens(): Promise<ItemCognitivoCandidato[]> {
 
 /**
  * Submits the candidate's prova via the LIVE `pontuar_cognitivo` SECURITY DEFINER
- * RPC, posting ONLY raw picks (`{ itemId -> optionIndex }`) — NEVER a score/band/
- * threshold (anti-tamper, T-14-06-02; the body matches `SubmitCognitivoBodySchema`).
- * The server re-scores from the server-only answer key and returns a NEUTRAL
- * payload — the candidate never receives a score (RNF-07a). `shuffleSeed` +
- * `clientTimings` are advisory anti-cheat context (not a score).
+ * RPC, posting the raw picks (`{ itemId -> optionIndex }`) + advisory shuffle seed +
+ * proctoring context — NEVER a score/band/threshold (anti-tamper, T-14-06-02; the
+ * server is the sole scorer). The server re-scores from the server-only answer key,
+ * persists the raw picks + proctoring to `cognitivo_respostas` (CR-02), and returns a
+ * NEUTRAL payload — the candidate never receives a score (RNF-07a).
+ *
+ * CR-02: `shuffleSeed` + `proctoring` (tab-blur/paste context + soft-timer seconds)
+ * are NO LONGER dead — they are passed to the RPC so the "registramos quando a aba
+ * perde o foco" disclosure is truthful. They are advisory context; the score is still
+ * derived purely from `rawResponses` server-side (a forged score field is ignored).
  *
  * Outcome:
  *  - `'registrado'` — the prova was recorded (neutral acknowledgment).
@@ -182,21 +201,27 @@ export async function listItens(): Promise<ItemCognitivoCandidato[]> {
 export async function submitProva(
   candidaturaId: string,
   rawResponses: RawResponses,
-  _shuffleSeed?: string,
-  _clientTimings?: number[],
+  shuffleSeed?: string,
+  proctoring?: ProctoringContext,
 ): Promise<SubmitProvaOutcome> {
   if (!candidaturaId) {
     throw new CognitivoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // The RPC takes ONLY the candidatura id + the raw picks (no score/band — the
-  // server is the sole scorer). `shuffleSeed`/`clientTimings` are advisory context
-  // carried in the `SubmitCognitivoBodySchema` contract; the live RPC re-scores
-  // purely from raw picks, so they are not part of the privileged call.
+  // The RPC re-scores purely from raw picks (no score/band reaches the server — it is
+  // the sole scorer). CR-02: it ALSO persists the raw picks + the advisory shuffle seed
+  // + proctoring context to cognitivo_respostas. `p_proctoring` carries the tab-blur/
+  // paste events + the blur count (context only — NEVER auto-rejects).
   const { error } = await supabase.rpc('pontuar_cognitivo', {
     p_candidatura_id: candidaturaId,
     p_respostas: rawResponses,
-  })
+    p_shuffle_seed: shuffleSeed ?? null,
+    p_completion_time_seconds: proctoring?.completionTimeSeconds ?? null,
+    p_proctoring: {
+      blur_count: proctoring?.blurCount ?? 0,
+      events: proctoring?.events ?? [],
+    },
+  } as never)
 
   if (error) {
     const code = (error as { code?: string; status?: number }).code ?? ''

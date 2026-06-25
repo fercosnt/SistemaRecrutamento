@@ -158,16 +158,31 @@ describe('cognitivo_itens read (no gabarito, no star)', () => {
 
 // ── (anti-tamper) submitProva posts ONLY raw picks; no score/band in the body ──
 describe('submitProva (raw picks only → pontuar_cognitivo)', () => {
-  it('calls rpc("pontuar_cognitivo") with ONLY {p_candidatura_id, p_respostas} — no score/band', async () => {
+  it('calls rpc("pontuar_cognitivo") with raw picks + advisory proctoring — never a score/band (CR-02)', async () => {
     rpcMock.mockResolvedValue({ error: null })
     const rawPicks = { item_01: 2, item_02: 0 }
-    const outcome = await submitProva('cand-1', rawPicks, 'seed-1', [10, 8])
+    const outcome = await submitProva('cand-1', rawPicks, 'seed-1', {
+      blurCount: 2,
+      events: [{ type: 'blur', at: 1 }],
+      completionTimeSeconds: 42,
+    })
 
     expect(outcome).toBe('registrado')
     expect(rpcArgs.fn).toBe('pontuar_cognitivo')
-    // The body carries ONLY the candidatura id + the raw picks.
-    expect(Object.keys(rpcArgs.params).sort()).toEqual(['p_candidatura_id', 'p_respostas'])
+    // CR-02: the body carries the candidatura id + raw picks + the advisory shuffle
+    // seed + proctoring/timing context (no longer dead) — but NEVER a score/band.
+    expect(Object.keys(rpcArgs.params).sort()).toEqual([
+      'p_candidatura_id',
+      'p_completion_time_seconds',
+      'p_proctoring',
+      'p_respostas',
+      'p_shuffle_seed',
+    ])
     expect(rpcArgs.params.p_respostas).toEqual(rawPicks)
+    expect(rpcArgs.params.p_shuffle_seed).toBe('seed-1')
+    expect(rpcArgs.params.p_completion_time_seconds).toBe(42)
+    // The proctoring context is persisted (tab-blur is registered server-side).
+    expect((rpcArgs.params.p_proctoring as { blur_count: number }).blur_count).toBe(2)
     // Anti-tamper: no score/band/banda/threshold key reaches the RPC body.
     const bodyJson = JSON.stringify(rpcArgs.params)
     expect(bodyJson).not.toMatch(/"score"|"banda"|"band"|"threshold"|"nota"/i)
