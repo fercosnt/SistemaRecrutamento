@@ -333,11 +333,11 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 14-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + hydrate/activate interview_guide + transcript_analysis prompts + deploy both EFs JWT-on + seed cognitive items + db:types + 7 SQL smokes [non-autonomous]
+- [x] 14-04-PLAN.md — [BLOCKING] apply 4 migrations to PROD via MCP + hydrate/activate interview_guide + transcript_analysis prompts + deploy both EFs JWT-on + seed cognitive items + db:types + 7 SQL smokes [non-autonomous]
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 14-05-PLAN.md — RH interview workspace `/rh/candidato/:id/entrevista` (Painel + 24h marker + GuiaPanel + inline scorecard + TranscricaoReviewPanel flag-block on avancar_etapa + CognitivoBandCard CONTEXTUAL + bias_audit_log reject gate) + allowlist service/hooks
+- [x] 14-05-PLAN.md — RH interview workspace `/rh/candidato/:id/entrevista` (Painel + 24h marker + GuiaPanel + inline scorecard + TranscricaoReviewPanel flag-block on avancar_etapa + CognitivoBandCard CONTEXTUAL + bias_audit_log reject gate) + allowlist service/hooks
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -393,7 +393,7 @@ Plans:
 | 11. Avaliação Assíncrona — Infra + Work Sample/SJT (Etapa 3) | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
-| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 3/6 | In Progress|  |
+| 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 5/6 | In Progress|  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
