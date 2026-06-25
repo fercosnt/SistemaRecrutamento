@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: "Completed 14-05-PLAN.md (RH interview workspace: entrevistaService + 4 hooks + 6 components + route, ENTREV-01..05)"
+status: paused
+stopped_at: "PAUSED BY USER 2026-06-25 (autonomous run, clean wave boundary). Phase 14 plans 5/6 done + committed: 14-01 (Wave-0 RED+scorer+schemas), 14-02 (PARTIAL — ItemRaciocinio contract done, CC0 live items DEFERRED per user → .planning/todos/pending/cc0-cognitive-item-bank-sourcing.md), 14-03 (4 migrations + 2 EFs authored), 14-04 (LIVE PROD APPLY ✅ — 4 migrations via MCP + 2 EFs JWT-on + prompts active + 7/7 smokes PASS, RNF-07a confirmed live), 14-05 (RH interview workspace /rh/candidato/:id/entrevista, allowlist RED→GREEN). REMAINING: 14-06 (candidate cognitive prova — opt-in, builds against live types/endpoints) then phase gates code-review→verify→secure→ui-review, then Phases 15 + 16 + milestone lifecycle. RESUME: /clear then /gsd-autonomous --from 14 (skips the 5 done SUMMARYs, picks up at Wave 5 / 14-06)."
 last_updated: "2026-06-25T02:47:58.282Z"
 last_activity: 2026-06-25
 progress:
