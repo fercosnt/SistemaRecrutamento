@@ -23,7 +23,7 @@ import { toast } from 'sonner'
 import { RHLayout } from '@/components/RHLayout'
 import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/components/ui/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EntrevistaDashboard } from './EntrevistaDashboard'
 import { GuiaEntrevistaPanel } from './GuiaEntrevistaPanel'
 import { EntrevistaScorecardInline, SCORECARD_TOAST } from './EntrevistaScorecardInline'
@@ -113,29 +113,22 @@ export function EntrevistaWorkspace() {
       <div className="space-y-6">
         <h1 className="text-3xl font-semibold text-white md:text-4xl">Entrevista</h1>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t.v}
-              type="button"
-              onClick={() => setTab(t.v)}
-              aria-pressed={tab === t.v}
-              className={cn(
-                'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-colors',
-                tab === t.v
-                  ? 'border-white/30 bg-white/20 text-white'
-                  : 'border-white/15 bg-white/5 text-white/60 hover:bg-white/10',
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs — Radix tablist/tab/tabpanel (FX-04): roving arrow-key focus + aria-selected */}
+        <Tabs value={tab} onValueChange={(v: string) => setTab(v as TabValue)} className="space-y-6">
+          <TabsList className="flex h-auto w-fit flex-wrap gap-2 bg-transparent p-0">
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t.v}
+                value={t.v}
+                className="min-h-[44px] rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 data-[state=active]:border-white/30 data-[state=active]:bg-white/20 data-[state=active]:text-white"
+              >
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {/* Painel do candidato — dashboard + 24h marker + RH-only cognitive band */}
-        {tab === 'painel' ? (
-          <div className="space-y-6">
+          {/* Painel do candidato — dashboard + 24h marker + RH-only cognitive band */}
+          <TabsContent value="painel" className="space-y-6">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
               {loadingContexto ? (
                 <Skeleton className="h-24 w-full bg-white/5" />
@@ -156,45 +149,45 @@ export function EntrevistaWorkspace() {
                 />
               )
             ) : null}
-          </div>
-        ) : null}
+          </TabsContent>
 
-        {/* Guia de entrevista */}
-        {tab === 'guia' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            <GuiaEntrevistaPanel
-              guia={guia ?? null}
-              loading={loadingGuia}
-              generating={gerarGuia.isPending}
-              onGerar={(tipo) => gerarGuia.mutate(tipo)}
-            />
-          </Glass>
-        ) : null}
+          {/* Guia de entrevista */}
+          <TabsContent value="guia">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              <GuiaEntrevistaPanel
+                guia={guia ?? null}
+                loading={loadingGuia}
+                generating={gerarGuia.isPending}
+                onGerar={(tipo) => gerarGuia.mutate(tipo)}
+              />
+            </Glass>
+          </TabsContent>
 
-        {/* Análise da transcrição */}
-        {tab === 'transcricao' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            <TranscricaoReviewPanel
-              analise={analise ?? null}
-              loading={loadingAnalise}
-              analyzing={analisar.isPending}
-              confirming={confirmarRevisao.isPending}
-              onAnalisar={(t) => analisar.mutate(t)}
-              onConfirmarRevisao={(analiseId) => confirmarRevisao.mutate(analiseId)}
-            />
-          </Glass>
-        ) : null}
+          {/* Análise da transcrição */}
+          <TabsContent value="transcricao">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              <TranscricaoReviewPanel
+                analise={analise ?? null}
+                loading={loadingAnalise}
+                analyzing={analisar.isPending}
+                confirming={confirmarRevisao.isPending}
+                onAnalisar={(t) => analisar.mutate(t)}
+                onConfirmarRevisao={(analiseId) => confirmarRevisao.mutate(analiseId)}
+              />
+            </Glass>
+          </TabsContent>
 
-        {/* Avaliação da entrevista — inline scorecard */}
-        {tab === 'avaliacao' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            <EntrevistaScorecardInline
-              competenciasIA={analise?.competencias ?? null}
-              saving={salvarAvaliacao.isPending}
-              onSalvar={handleSalvarAvaliacao}
-            />
-          </Glass>
-        ) : null}
+          {/* Avaliação da entrevista — inline scorecard */}
+          <TabsContent value="avaliacao">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              <EntrevistaScorecardInline
+                competenciasIA={analise?.competencias ?? null}
+                saving={salvarAvaliacao.isPending}
+                onSalvar={handleSalvarAvaliacao}
+              />
+            </Glass>
+          </TabsContent>
+        </Tabs>
       </div>
     </RHLayout>
   )

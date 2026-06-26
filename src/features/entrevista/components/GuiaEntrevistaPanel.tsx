@@ -60,8 +60,8 @@ function PerguntaRow({ p, idx }: { p: GuiaPergunta; idx: number }) {
           </span>
         ) : null}
       </div>
-      {hint ? <p className="text-sm font-semibold text-white/60">{hint}</p> : null}
-      <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+      {hint ? <p className="text-sm font-semibold text-white/75">{hint}</p> : null}
+      <p className="text-xs font-semibold uppercase tracking-wide text-white/70">
         Âncoras BARS 1–5
       </p>
     </li>
@@ -112,7 +112,7 @@ export function GuiaEntrevistaPanel({
         </button>
       </div>
       {guia?.tipo === 'presencial' ? (
-        <p className="text-sm font-semibold text-white/60">
+        <p className="text-sm font-semibold text-white/75">
           Foco nos gaps da entrevista online (dimensões com score &lt; 4).
         </p>
       ) : null}
@@ -123,7 +123,7 @@ export function GuiaEntrevistaPanel({
           <Skeleton className="h-16 w-full bg-white/5" />
         </div>
       ) : perguntas.length === 0 ? (
-        <p className="text-sm text-white/60">
+        <p className="text-sm text-white/75">
           Nenhum guia gerado ainda. Gere o guia para preparar a entrevista.
         </p>
       ) : (

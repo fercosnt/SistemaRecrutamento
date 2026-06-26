@@ -119,9 +119,12 @@ export interface EntrevistaDashboardProps {
 function Marker24h({ agendadaEm }: { agendadaEm: string | null }) {
   const { variant, label } = compute24hMarker(agendadaEm)
   const curto = formatCurto(agendadaEm)
+  // FX-07: amber-on-translucent over the #00109E glass composite was a near-miss at
+  // 4.5:1 — darken the text token (amber-300→amber-100) and raise the tint opacity so
+  // the pill clears AA. The amber *semantic* (the <24h warning signal) is unchanged.
   const tint =
     variant === 'amber'
-      ? 'bg-amber-500/15 text-amber-300 border-amber-400/30'
+      ? 'bg-amber-500/25 text-amber-100 border-amber-300/40'
       : 'border-white/20 bg-white/5 text-white/80'
 
   const badge = (
@@ -178,12 +181,12 @@ export function EntrevistaDashboard({
           {dataHora ? (
             <p className="text-sm font-semibold text-white/90">
               Entrevista agendada: <span className="text-white">{dataHora}</span>{' '}
-              <span className="text-white/50">(manual no V1)</span>
+              <span className="text-white/70">(manual no V1)</span>
             </p>
           ) : (
             <p className="text-sm font-semibold text-white/80">
               Sem horário definido.{' '}
-              <span className="font-normal text-white/60">
+              <span className="font-normal text-white/75">
                 Defina a data e a hora da entrevista.
               </span>
             </p>
@@ -191,13 +194,34 @@ export function EntrevistaDashboard({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onAgendar}
-        className="min-h-[44px] rounded-lg border border-white/20 bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/30"
-      >
-        Agendar entrevista
-      </button>
+      {/*
+        FX-12: scheduling is V1-deferred (no datetime-picker pipeline). Render the
+        CTA `disabled` so it is NOT a live no-op focusable control, and name where
+        scheduling happens via a Radix tooltip on a focusable wrapper (a disabled
+        button doesn't receive focus/hover, so the keyboard/SR hint lives on the
+        tabIndex=0 span).
+      */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0} className="inline-flex w-fit rounded-lg">
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                onClick={onAgendar}
+                className="min-h-[44px] cursor-not-allowed rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white/60 transition-colors"
+              >
+                Agendar entrevista
+              </button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            Agendamento é manual no V1 — combine a data e a hora diretamente com o
+            candidato.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   )
 }
