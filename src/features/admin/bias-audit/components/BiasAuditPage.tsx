@@ -84,7 +84,7 @@ export function BiasAuditPage() {
     <RHLayout>
       <div className="space-y-8">
         <header className="flex flex-wrap items-center justify-between gap-4">
-          <h1 className="text-[28px] font-semibold leading-tight text-white">Auditoria de viés</h1>
+          <h1 className="text-3xl font-semibold leading-tight text-white md:text-4xl">Auditoria de viés</h1>
           <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={handleGerar}
@@ -149,7 +149,7 @@ export function BiasAuditPage() {
             </div>
 
             {snapshot.dados?.small_sample_warning ? (
-              <p className="flex items-center gap-2 text-sm text-amber-200">
+              <p className="flex items-center gap-2 text-sm text-amber-100">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 Amostra pequena em ao menos uma faixa (&lt; 30) — a regra 4/5 é estatisticamente
                 menos confiável.
@@ -193,10 +193,17 @@ export function BiasAuditPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="inline-flex cursor-help items-center gap-1">
+                                {/* FX-10: a real <button> so the trigger is keyboard-focusable;
+                                    Radix wires aria-describedby on focus — the 4/5 explanation is
+                                    no longer pointer-only. */}
+                                <button
+                                  type="button"
+                                  aria-label={`Razão 4/5 sinalizada: ${formatRatio(band.razao_4_5)} — possível impacto adverso`}
+                                  className="inline-flex cursor-help items-center gap-1 rounded-sm font-mono text-inherit focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
+                                >
                                   <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                                   {formatRatio(band.razao_4_5)}
-                                </span>
+                                </button>
                               </TooltipTrigger>
                               <TooltipContent>
                                 Razão de selection-rate &lt; 0,8 vs a faixa de maior taxa — regra
