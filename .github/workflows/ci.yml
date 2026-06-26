@@ -9,10 +9,15 @@
 # precedence; otherwise the placeholders let the app boot so page.route mocks apply.
 # Tier-2 live/real-email specs stay skip-with-reason (E2E_AUTH_TEST_USERS OFF). See 05-RESEARCH.md §Q1.
 #
-# tsc legacy debt: `tsc --noEmit` reports a frozen baseline of 292 pre-existing errors in
+# tsc legacy debt: `tsc --noEmit` reports a frozen baseline of 291 pre-existing errors in
 # legacy src/components/pages/*.tsx (scheduled for a dedicated cleanup phase). The unit job
-# enforces a ZERO-GROWTH invariant (CI red only if the count rises above 292) instead of
+# enforces a ZERO-GROWTH invariant (CI red only if the count rises above 291) instead of
 # failing on the baseline — this is the gate the original comment promised but never implemented.
+# Phase 16 (16-04) re-measured the live count and lowered the baseline 292 -> 291 (gate tightens).
+# The FOUND-08 trivial enum typos (clinica/big_five in vagasTypes.ts) proved STRUCTURAL — each
+# one-line rename only unmasks the next stale key in the same Record<> map (DEPARTAMENTO_LABELS /
+# ETAPA_TO_KANBAN are wholesale-stale vs their unions) so they were reverted, not applied; the
+# map-realignment is deferred with the tempo_integral/TIPO_VAGA_LABELS decision (16-01 backlog).
 #
 # SECURITY (CLAUDE.md hard rule / Pitfall 2): only the anon-safe VITE_SUPABASE_URL +
 # VITE_SUPABASE_ANON_KEY are VITE_-prefixed (inlined into the browser bundle). The
@@ -40,12 +45,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Type-check (frozen tsc baseline 292 — CI red only on growth)
+      - name: Type-check (frozen tsc baseline 291 — CI red only on growth)
         run: |
           COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
-          echo "tsc errors: $COUNT (frozen baseline: 292)"
-          if [ "$COUNT" -gt 292 ]; then
-            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (292) — new type errors introduced"
+          echo "tsc errors: $COUNT (frozen baseline: 291)"
+          if [ "$COUNT" -gt 291 ]; then
+            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (291) — new type errors introduced"
             npm run -s lint 2>&1 | grep "error TS" | head -50
             exit 1
           fi
