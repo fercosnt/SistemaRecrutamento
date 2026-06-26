@@ -275,7 +275,7 @@ export function RHSidebar({
 
       {/* Mobile Menu Toggle Button */}
       <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        onClick={() => setInternalMobileOpen(!isMobileOpen)}
         className="lg:hidden fixed top-6 left-6 z-30 w-12 h-12 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl border border-white/20"
         style={{ background: 'rgba(255, 255, 255, 0.15)' }}
       >

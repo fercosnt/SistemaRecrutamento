@@ -45,12 +45,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Type-check (frozen tsc baseline 291 — CI red only on growth)
+      - name: Type-check (frozen tsc baseline 290 — CI red only on growth)
         run: |
           COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
-          echo "tsc errors: $COUNT (frozen baseline: 291)"
-          if [ "$COUNT" -gt 291 ]; then
-            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (291) — new type errors introduced"
+          echo "tsc errors: $COUNT (frozen baseline: 290)"
+          if [ "$COUNT" -gt 290 ]; then
+            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (290) — new type errors introduced"
             npm run -s lint 2>&1 | grep "error TS" | head -50
             exit 1
           fi
