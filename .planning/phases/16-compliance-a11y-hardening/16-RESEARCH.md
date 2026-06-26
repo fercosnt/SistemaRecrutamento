@@ -350,7 +350,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 **If this table is empty:** it is not — A1 and A5 are the load-bearing ones for the planner.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three resolved at planning (Phase 16 plan set, commit a6f30e7):
+> - **Q1 (Tier-A vs Tier-B split) — RESOLVED:** R6 EntrevistaWorkspace + R7 DecisaoFinalPage are Tier-A (unconditional gate); only R5 (redação) + C5 (BigFive 120-Likert) default to Tier-B. Wired in 16-01 Task 1 + asserted by 16-02/16-03 acceptance criteria.
+> - **Q2 (real RH PROD account) — RESOLVED:** handled as 16-04 Task 3 `checkpoint:human-verify` with an explicit fallback — if no RH account is available, record a deferred item in 16-HUMAN-UAT.md and proceed.
+> - **Q3 (post-burn-down tsc baseline) — RESOLVED:** 16-04 Task 2 re-measures `tsc` after the fixes and lowers the `ci.yml` baseline to the new (dropped) count.
 
 1. **Which of the 16 screens render faithfully under a mocked session (Tier-A) vs need real login (Tier-B)?**
    - What we know: R1 (login form), R2 (vaga config), R3/R4 (tables), C1 (form), C2/C9 (hub/transparency) likely mock cleanly. R5/R6/R7/C5 read live scores/seeded etapa state.
