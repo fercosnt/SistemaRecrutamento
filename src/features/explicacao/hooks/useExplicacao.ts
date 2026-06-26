@@ -81,6 +81,12 @@ export function useSolicitarRevisao(candidaturaId: string | undefined) {
       if (outcome === 'denied') {
         throw new Error('Não foi possível enviar a solicitação. Tente novamente.')
       }
+      // WR-05: the reachability gate failed — there is no rejected decision to revise
+      // (it was withdrawn/amended). This is NON-retryable: surface a clear neutral
+      // message, NOT the generic "tente novamente" retry copy.
+      if (outcome === 'unavailable') {
+        throw new Error('Não há decisão rejeitada para revisar nesta página.')
+      }
     },
     onSuccess: () => {
       toast.success('Solicitação enviada. A equipe responsável foi notificada.')

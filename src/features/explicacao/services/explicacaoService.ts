@@ -35,17 +35,16 @@
  *    stamp — transparency evidence, T-15-15). A 42501 / 403 from either RPC (own-row
  *    denial) surfaces as a neutral no-op outcome, NOT an error.
  *
- * AUTHORED-NOT-APPLIED: the two candidate RPCs live in the migration
- * `20260625100001_decisao_final_phase15.sql`, applied in PROD by Plan 15-06 (which
- * also regenerates `database.types.ts`). Until then the RPC names are absent from the
- * `Functions` type → minimal `as never` casts (precedent: 15-03 `registrarDecisao`
- * `decisaoService.ts:144`). 15-06 cleans the casts after the regen.
+ * The two candidate RPCs (`solicitar_revisao_decisao` / `stamp_explicacao_acessada`)
+ * are LIVE in PROD (migration `20260625100001_decisao_final_phase15.sql`) and typed in
+ * `database.types.ts` (regen da Plan 15-06) — the `rpc()` calls below are fully typed,
+ * no `as never` casts remain.
  *
  * @module features/explicacao/services/explicacaoService
  * @see src/features/avaliacao-cognitiva/services/cognitivoService.ts (allowlist read + RPC + error class analog)
- * @see src/features/decisao/services/decisaoService.ts (the AUTHORED-NOT-APPLIED `as never` RPC cast precedent)
+ * @see src/features/decisao/services/decisaoService.ts (the own-row SECURITY DEFINER RPC precedent)
  * @see supabase/functions/submit-candidatura/index.ts (the redacted fire-and-forget N8N webhook idiom)
- * @see supabase/migrations/20260625100001_decisao_final_phase15.sql (solicitar_revisao_decisao / stamp_explicacao_acessada — AUTHORED-NOT-APPLIED)
+ * @see supabase/migrations/20260625100001_decisao_final_phase15.sql (solicitar_revisao_decisao / stamp_explicacao_acessada — LIVE in PROD)
  */
 import { supabase } from '@/lib/supabase/client'
 
@@ -103,8 +102,18 @@ export interface ExplicacaoCandidato {
   explicacao_solicitada_em: string | null
 }
 
-/** The neutral outcome of an own-row RPC write — NEVER an error on an own-row denial. */
-export type ExplicacaoWriteOutcome = 'ok' | 'denied'
+/**
+ * The neutral outcome of an own-row RPC write — NEVER an error on an own-row denial.
+ *
+ *  - `'ok'`         — the write landed.
+ *  - `'denied'`     — own-row denial (42501/403): the candidate is acting on someone
+ *                     else's decision the RLS/RPC blocks.
+ *  - `'unavailable'`— the reachability gate failed (`no_data_found` / P0002): there is
+ *                     no rejected decision to revise (e.g. it was withdrawn/amended).
+ *                     Distinct from a generic retryable network error (WR-05) — the
+ *                     action can NEVER succeed, so the candidate is NOT told to retry.
+ */
+export type ExplicacaoWriteOutcome = 'ok' | 'denied' | 'unavailable'
 
 /**
  * URL do webhook N8N para a solicitação de revisão de decisão (LGPD Art. 20).
@@ -214,7 +223,7 @@ export async function getExplicacao(
  * resolves to the neutral `'denied'` outcome, NOT an error (the stamp is best-effort —
  * a denied stamp must never break the page render).
  *
- * AUTHORED-NOT-APPLIED: `as never` cast until the 15-06 regen (precedent 15-03).
+ * The RPC is LIVE in PROD + typed in `database.types.ts` (15-06 regen) — fully typed.
  */
 export async function stampExplicacao(
   candidaturaId: string,
@@ -255,7 +264,12 @@ export async function stampExplicacao(
  * A 42501 / 403 own-row denial resolves to `'denied'` (a neutral outcome — the
  * candidate is acting on someone else's decision the RLS/RPC blocks), NOT an error.
  *
- * AUTHORED-NOT-APPLIED: `as never` cast until the 15-06 regen (precedent 15-03).
+ * WR-05: the reachability `no_data_found` (PG code `P0002`) the RPC raises when there
+ * is no `decisao='rejeitado'` row (decision withdrawn/amended between page load and
+ * click) resolves to the NON-RETRYABLE `'unavailable'` outcome — NOT a generic
+ * NETWORK_ERROR "tente novamente" the candidate could never satisfy.
+ *
+ * The RPC is LIVE in PROD + typed in `database.types.ts` (15-06 regen) — fully typed.
  */
 export async function solicitarRevisao(
   candidaturaId: string,
@@ -273,6 +287,9 @@ export async function solicitarRevisao(
     const code = (error as { code?: string }).code ?? ''
     const status = (error as { status?: number }).status
     if (code === '42501' || status === 403) return 'denied'
+    // WR-05: the reachability gate (no rejected decision to revise) is non-retryable —
+    // distinguish `no_data_found`/P0002 from a generic retryable network error.
+    if (code === 'P0002' || code === 'no_data_found') return 'unavailable'
     throw new ExplicacaoServiceError(
       'Não foi possível enviar a solicitação. Tente novamente.',
       'NETWORK_ERROR',

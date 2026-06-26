@@ -18,13 +18,21 @@
  * ~30 selections/group → `small_sample_warning` when any band's applicants < 30.
  *
  * ── null/invalid birthdate (Pitfall 4) ── candidates with no usable birthdate are
- * NOT silently dropped — an `excluded_sem_data` count is surfaced so band totals
+ * NOT silently dropped — an `excluidos_sem_data` count is surfaced so band totals
  * reconcile against the population.
  *
- * ── No-drift invariant ── this is the TS mirror of the server-side
- * `gerar_bias_snapshot` SQL (Plan 02): the formula here MUST stay identical to the
- * SQL (the cognitivo `bandaFromTotal` TS/SQL no-drift precedent). NO DB/network
- * imports — pure deterministic functions only.
+ * ── PRODUCTION SCORER vs PARITY ORACLE (WR-02) ── the LIVE bias scorer is the
+ * server-side `gerar_bias_snapshot` SQL RPC; `BiasAuditPage` renders the SQL-produced
+ * jsonb directly and this module has ZERO non-test production callers. It exists ONLY
+ * as the parity oracle the golden test (`__tests__/biasMath.test.ts`) checks the SQL
+ * contract against — so it MUST stay byte-aligned to the SQL truth:
+ *   • field `excluidos_sem_data` (the pt-BR key the SQL `jsonb_build_object` writes,
+ *     migration line 420), NOT `excluded_sem_data`;
+ *   • `n_total` = Σ applicants ONLY (matches the SQL `v_n_total := sum(applicants)`,
+ *     line 362) — the excluded count is NOT added in;
+ *   • reference-band tie-break = highest selection_rate then `faixa ASC` (matches the
+ *     SQL `ORDER BY rate DESC, faixa ASC`, line 370).
+ * NO DB/network imports — pure deterministic functions only.
  *
  * @module features/admin/bias-audit/biasMath
  * @see src/features/admin/bias-audit/__tests__/biasMath.test.ts (the Wave-0 golden test this satisfies)
@@ -60,7 +68,7 @@ export interface BandResult {
 /** Optional accounting passed alongside the bands (Pitfall 4). */
 export interface ComputeOptions {
   /** Count of candidates with a null/invalid birthdate, excluded from banding. */
-  excluded_sem_data?: number
+  excluidos_sem_data?: number
 }
 
 /** The full adverse-impact snapshot payload (mirrors `bias_audit_log.dados`). */
@@ -70,7 +78,9 @@ export interface AdverseImpactResult {
   bands: BandResult[]
   faixa_referencia: string | null
   small_sample_warning: boolean
-  excluded_sem_data: number
+  /** pt-BR key — matches the SQL `jsonb_build_object('excluidos_sem_data', …)`. */
+  excluidos_sem_data: number
+  /** Σ applicants ONLY — matches the SQL `v_n_total` (excluded count NOT added). */
   n_total: number
 }
 
@@ -101,17 +111,19 @@ export function bandFromAge(age: number): AgeBand {
  * Computes the EEOC 4/5 adverse-impact snapshot over per-band counts.
  *
  * - `selection_rate = selected / applicants` (0 when applicants is 0).
- * - `reference_band` = the band with the HIGHEST selection rate (razao_4_5 = 1.0).
+ * - `reference_band` = the band with the HIGHEST selection rate, tie-broken by
+ *   `faixa ASC` (matches the SQL `ORDER BY rate DESC, faixa ASC`); razao_4_5 = 1.0.
  * - `razao_4_5 = selection_rate / reference_rate` (1.0 for the reference band).
  * - `flag = razao_4_5 < 0.8` (never flags the reference band).
  * - `small_sample_warning = true` if any band has `applicants < 30`.
- * - `excluded_sem_data` is surfaced (never dropped) — Pitfall 4.
+ * - `excluidos_sem_data` is surfaced (never dropped) — Pitfall 4.
+ * - `n_total` = Σ applicants ONLY (the excluded count is NOT added — SQL `v_n_total`).
  */
 export function computeAdverseImpact(
   bands: BandInput[],
   opts: ComputeOptions = {},
 ): AdverseImpactResult {
-  const excluded_sem_data = opts.excluded_sem_data ?? 0
+  const excluidos_sem_data = opts.excluidos_sem_data ?? 0
 
   const withRate = bands.map((b) => ({
     faixa: b.faixa,
@@ -120,11 +132,20 @@ export function computeAdverseImpact(
     selection_rate: b.applicants > 0 ? b.selected / b.applicants : 0,
   }))
 
-  // Reference = the band with the highest selection rate.
+  // Reference = the eligible band with the highest selection rate, tie-broken by
+  // faixa ASC — mirrors the SQL `... WHERE applicants > 0 ORDER BY (selected/applicants)
+  // DESC, faixa ASC LIMIT 1` (migration line 369-371). Only bands with applicants > 0
+  // are eligible; when every eligible band ties (even at rate 0) the lowest faixa wins,
+  // exactly as the SQL LIMIT 1 resolves it.
   let referenceRate = 0
   let faixa_referencia: string | null = null
   for (const b of withRate) {
-    if (b.selection_rate > referenceRate) {
+    if (b.applicants <= 0) continue
+    const isFirst = faixa_referencia === null
+    const higherRate = b.selection_rate > referenceRate
+    const tieLowerFaixa =
+      b.selection_rate === referenceRate && !isFirst && b.faixa < faixa_referencia!
+    if (isFirst || higherRate || tieLowerFaixa) {
       referenceRate = b.selection_rate
       faixa_referencia = b.faixa
     }
@@ -144,8 +165,9 @@ export function computeAdverseImpact(
   })
 
   const small_sample_warning = bands.some((b) => b.applicants < SMALL_SAMPLE_FLOOR)
-  const n_total =
-    bands.reduce((acc, b) => acc + b.applicants, 0) + excluded_sem_data
+  // n_total = Σ applicants ONLY — the SQL `v_n_total := COALESCE(sum(applicants), 0)`
+  // does NOT add the excluded count (it is surfaced separately).
+  const n_total = bands.reduce((acc, b) => acc + b.applicants, 0)
 
   return {
     metodo: METODO,
@@ -153,7 +175,7 @@ export function computeAdverseImpact(
     bands: resultBands,
     faixa_referencia,
     small_sample_warning,
-    excluded_sem_data,
+    excluidos_sem_data,
     n_total,
   }
 }

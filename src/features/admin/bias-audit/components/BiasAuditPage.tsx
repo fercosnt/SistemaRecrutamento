@@ -214,9 +214,9 @@ export function BiasAuditPage() {
               </TableBody>
             </Table>
 
-            {snapshot.dados?.excluded_sem_data ? (
+            {snapshot.dados?.excluidos_sem_data ? (
               <p className="text-xs text-white/50">
-                {snapshot.dados.excluded_sem_data} candidato(s) sem data de nascimento válida —
+                {snapshot.dados.excluidos_sem_data} candidato(s) sem data de nascimento válida —
                 excluídos do banding (contabilizados, nunca descartados).
               </p>
             ) : null}

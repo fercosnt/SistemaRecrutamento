@@ -103,10 +103,32 @@ describe('LGPD-03 — EEOC 4/5 adverse-impact ratio (computeAdverseImpact)', () 
         { faixa: '25-34', applicants: 40, selected: 20 },
         { faixa: '45-54', applicants: 40, selected: 14 },
       ],
-      { excluded_sem_data: 3 },
+      { excluidos_sem_data: 3 },
     )
     // the excluded count is surfaced in the snapshot, never dropped on the floor.
-    expect(result.excluded_sem_data).toBe(3)
+    expect(result.excluidos_sem_data).toBe(3)
+  })
+
+  it('n_total = Σ applicants ONLY — the excluded count is NOT added in (SQL v_n_total)', () => {
+    const result = computeAdverseImpact(
+      [
+        { faixa: '25-34', applicants: 40, selected: 20 },
+        { faixa: '45-54', applicants: 40, selected: 14 },
+      ],
+      { excluidos_sem_data: 3 },
+    )
+    // SQL: v_n_total := COALESCE(sum(applicants), 0) — excluded count surfaced separately.
+    expect(result.n_total).toBe(80)
+  })
+
+  it('reference-band tie-break = highest rate then faixa ASC (matches SQL ORDER BY rate DESC, faixa ASC)', () => {
+    // Two bands tie at the SAME selection rate (0.50). The SQL LIMIT 1 over
+    // `ORDER BY rate DESC, faixa ASC` picks the lexicographically-lowest faixa.
+    const result = computeAdverseImpact([
+      { faixa: '45-54', applicants: 40, selected: 20 }, // 0.50 — ties
+      { faixa: '25-34', applicants: 40, selected: 20 }, // 0.50 — ties; lower faixa wins
+    ])
+    expect(result.faixa_referencia).toBe('25-34')
   })
 
   it('the method + age-only limitation are self-described in the result (LGPD-01 honesty)', () => {

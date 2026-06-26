@@ -9,10 +9,9 @@
  * T-15-16). A leitura usa o allowlist `BIAS_AUDIT_COLUMNS`, nunca a estrela
  * ([[reference_select_star_leaks_pii]]).
  *
- * NOTA (15-06): `bias_audit_log` + `gerar_bias_snapshot` são AUTORADOS na Plan 02 e
- * aplicados em PROD pela Plan 06 [BLOCKING]. Até a regeneração de `database.types.ts`,
- * a tabela/RPC não existem nos tipos gerados → usamos casts `as never` nos pontos de
- * contato com o supabase client. Remover os casts após `npm run db:types` em 15-06.
+ * NOTA: `bias_audit_log` + `gerar_bias_snapshot` estão LIVE em PROD e tipados em
+ * `database.types.ts` (regen da Plan 15-06). Nenhum cast `as never` permanece nas
+ * chamadas ao supabase client; o snapshot é o único produzido pelo SQL RPC.
  *
  * @module features/admin/bias-audit/services/biasAuditService
  * @see src/features/admin/ai-costs/services/aiCostsService.ts (analog: allowlist read + error class)

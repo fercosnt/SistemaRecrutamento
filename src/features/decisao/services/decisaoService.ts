@@ -23,7 +23,7 @@
  * @module features/decisao/services/decisaoService
  * @see src/features/triagem/services/triagemService.ts (error class + EF/RPC invoke analogs)
  * @see supabase/functions/consolidar-decisao-final/index.ts (the EF this invokes)
- * @see supabase/migrations/20260625100001_decisao_final_phase15.sql (the registrar_decisao RPC — AUTHORED-NOT-APPLIED)
+ * @see supabase/migrations/20260625100001_decisao_final_phase15.sql (the registrar_decisao RPC — LIVE in PROD)
  */
 
 import { supabase } from '@/lib/supabase/client'
@@ -121,10 +121,9 @@ export async function getConsolidacao(
  * (false)`). Ela re-assere `length(justificativa) >= 50` (defense in depth) e
  * dispara a transição terminal `avancar_etapa()`. NUNCA decide por score (RNF-07a).
  *
- * AUTHORED-NOT-APPLIED: a RPC vive na migration `20260625100001_decisao_final_phase15.sql`,
- * aplicada em PROD no Plan 15-06 (que também regenera database.types.ts). Até lá a
- * RPC não consta no tipo `Functions` → cast mínimo `as never` (precedente
- * triagemService updateCandidaturaEtapa). 15-06 limpa o cast após o regen.
+ * A RPC `registrar_decisao` está LIVE em PROD (migration
+ * `20260625100001_decisao_final_phase15.sql`) e tipada em `database.types.ts` (regen da
+ * Plan 15-06) — a chamada abaixo é totalmente tipada, sem cast `as never`.
  */
 export async function registrarDecisao({
   candidaturaId,

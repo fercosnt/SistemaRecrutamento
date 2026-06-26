@@ -209,4 +209,18 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + N8N notification)
     await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('denied')
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it.each(['P0002', 'no_data_found'] as const)(
+    'returns "unavailable" on the reachability %s (no rejected decision) — distinct from a retryable error (WR-05)',
+    async (code) => {
+      rpcMock.mockResolvedValue({
+        error: { code, message: 'revisao indisponivel: nao ha decisao rejeitada' },
+      })
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      // Non-retryable neutral outcome — NOT a thrown NETWORK_ERROR, NOT a webhook fire.
+      await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('unavailable')
+      expect(fetchMock).not.toHaveBeenCalled()
+    },
+  )
 })
