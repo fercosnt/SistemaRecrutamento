@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Completed 16-01-PLAN.md (Wave-0 RED gates: Tier-A axe loop + FX-14 grep guard + 3 backlog docs; LGPD-05 calibrated RED, flips GREEN in later FX waves)"
-last_updated: "2026-06-26T12:39:04.604Z"
+stopped_at: "Completed 16-02-PLAN.md (R7 DecisaoFinalPage→Radix Tabs+RadioGroup FX-01/02/05/07; R8 BiasAuditPage H1/amber/cursor-help FX-03/07/10; +Rule-2 RHSidebar button-name shared-shell fix → Tier-A axe GREEN for R7+R8, zero serious/critical; build 0, tsc 291=291). LGPD-05 partial."
+last_updated: "2026-06-26T13:14:09.747Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 63
-  completed_plans: 60
-  percent: 91
+  completed_plans: 61
+  percent: 92
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 16 (compliance-a11y-hardening) — EXECUTING
-Plan: 2 of 4
-Status: Ready to execute
+Plan: 3 of 4
+Status: Ready to execute (16-02 complete — R7+R8 Tier-A axe GREEN)
 Last activity: 2026-06-26
 
 See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
@@ -149,6 +149,7 @@ PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/compone
 | Phase 15 P05 | 8min | 2 tasks | 4 files |
 | Phase 15 P07 | ~6 min | 2 tasks | 9 files |
 | Phase 16 P16-01 | ~19 min | 3 tasks | 6 files |
+| Phase 16 P02 | 28min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -307,6 +308,9 @@ Recent decisions affecting current work:
 - [Phase ?]: [15-07] WR-02: biasMath.ts is the parity ORACLE only (zero prod callers; the SQL RPC is the live scorer) — aligned to the SQL truth: field excluidos_sem_data, n_total=Σ applicants only, reference tie-break highest rate then faixa ASC (matches ORDER BY rate DESC, faixa ASC)
 - [Phase ?]: [15-07] WR-03: rh_le_decisao_final scoped to vaga ownership (administrador bypass OR rh AND candidatura on own vaga via candidaturas→vagas.created_by=auth.uid()) — mirrors Phase-14 WR-04; migration 20260625100002 AUTHORED-NOT-APPLIED (orchestrator applies to PROD); candidato_le_propria_decisao + decisao_final_no_client_insert untouched
 - [Phase ?]: Phase 16 Wave-0 RED gates: Tier-A unconditional axe loop (15 screens incl. R6/R7) + Tier-B R5/C5; FX-14 RH-console grep guard RED; tsc baseline held 291
+- [Phase ?]: 16-02: Tier-A GREEN flip can be gated by a SHARED RHLayout/RHSidebar defect even when in-scope component edits are clean — scan the whole rendered shell (RHSidebar button-name Rule-2 fix unblocked R7+R8)
+- [Phase ?]: 16-02: Radix RadioGroup kept controlled via value={decisao ?? ''}; decisão options are Label htmlFor cards wrapping RadioGroupItem to preserve glass card + min-h-[44px]
+- [Phase ?]: 16-02: FX-07 amber AA fixed by raising lightness (amber-300→200, amber-200→100) NOT changing semantic; FX-10 cursor-help span→real <button> for Radix aria-describedby on focus
 
 ### Pending Todos
 
