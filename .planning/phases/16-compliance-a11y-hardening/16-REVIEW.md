@@ -37,7 +37,7 @@ status: resolved
 **Reviewed:** 2026-06-26
 **Depth:** standard
 **Files Reviewed:** 20
-**Status:** issues_found
+**Status:** resolved (WR-01 fixed; WR-02 is a known pre-existing Deno-runner gap, deferred)
 
 ## Summary
 
