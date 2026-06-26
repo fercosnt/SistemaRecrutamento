@@ -113,6 +113,7 @@ export function EntrevistaScorecardInline({
               value={[scores[c.key]]}
               onValueChange={(v: number[]) => setDim(c.key, v[0])}
               aria-label={c.label}
+              aria-valuetext={`${scores[c.key]} de 5`}
               disabled={saving}
             />
           </div>

@@ -38,6 +38,12 @@ import { GlassPanel, GlassButton, Glass } from '@/components/ui/glass'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -59,8 +65,11 @@ import { useProctoring } from '@/features/avaliacao-cognitiva/hooks/useProctorin
 /** Verbatim pt-BR copy from 14-UI-SPEC §Copywriting Contract (candidate cognitive prova). */
 const COPY = {
   heading: 'Prova de raciocínio lógico',
+  // FX-13: the prova has NO autosave (picks live in local state and are posted only
+  // at submit, unlike the Big Five). Softened to not promise persistence the screen
+  // does not deliver — directs the candidate to finish in one sitting.
   intro:
-    'Esta etapa avalia raciocínio lógico. Faça com calma — não há limite rígido de tempo e suas respostas ficam salvas.',
+    'Esta etapa avalia raciocínio lógico. Faça com calma — não há limite rígido de tempo. Conclua a prova em uma única sessão; suas respostas são enviadas ao finalizar.',
   proctoring:
     'Para garantir uma avaliação justa, registramos quando a aba perde o foco e o campo de resposta não aceita colar. Nenhuma câmera, gravação ou biometria é usada.',
   questionLabel: (n: number, total: number) => `Questão ${n} de ${total}`,
@@ -363,24 +372,39 @@ export function ProvaCognitivaScreen() {
             </GlassButton>
           ) : (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <span title={!allAnswered ? COPY.submitDisabledTooltip : undefined}>
-                  <GlassButton
-                    variant="white"
-                    hover
-                    disabled={!allAnswered || submitting}
-                    className="text-white min-h-[44px]"
-                  >
-                    {submitting ? (
-                      <span className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Enviando…
-                      </span>
-                    ) : (
-                      COPY.submitCta
-                    )}
-                  </GlassButton>
-                </span>
-              </AlertDialogTrigger>
+              {/*
+                FX-09: the submit-disabled hint was a native title= (not reliably
+                keyboard/SR reachable). Use the Radix Tooltip on a focusable span so
+                the hint is announced; a disabled button doesn't receive focus, so the
+                tabIndex=0 span carries the trigger when the CTA is gated.
+              */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={!allAnswered ? 0 : undefined} className="inline-flex">
+                      <AlertDialogTrigger asChild>
+                        <GlassButton
+                          variant="white"
+                          hover
+                          disabled={!allAnswered || submitting}
+                          className="text-white min-h-[44px]"
+                        >
+                          {submitting ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" /> Enviando…
+                            </span>
+                          ) : (
+                            COPY.submitCta
+                          )}
+                        </GlassButton>
+                      </AlertDialogTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  {!allAnswered ? (
+                    <TooltipContent>{COPY.submitDisabledTooltip}</TooltipContent>
+                  ) : null}
+                </Tooltip>
+              </TooltipProvider>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>{COPY.dialogTitle}</AlertDialogTitle>

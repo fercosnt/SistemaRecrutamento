@@ -220,6 +220,7 @@ export function RedacaoOverrideForm({
               value={[scores[dim.key]]}
               onValueChange={(v: number[]) => setDim(dim.key, v[0])}
               aria-label={dim.label}
+              aria-valuetext={`${scores[dim.key]} de 5`}
               disabled={saving}
             />
           </div>
