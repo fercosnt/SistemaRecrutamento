@@ -224,10 +224,38 @@ export async function getDecisaoAtual(candidaturaId: string): Promise<DecisaoAtu
   }
 }
 
+/**
+ * Resolve a vaga de uma candidatura (DECISAO-02) — ALLOWLIST `vaga_id` apenas, NUNCA
+ * o wildcard. Usado pela DecisaoFinalPage para escopar a consolidação + o Comparativo.
+ * Retorna null quando ausente. (Espelha entrevistaService.getVagaIdForCandidatura.)
+ */
+export async function getVagaIdDaCandidatura(candidaturaId: string): Promise<string | null> {
+  if (!candidaturaId) {
+    throw new DecisaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  const { data, error } = await supabase
+    .from('candidaturas')
+    .select('vaga_id')
+    .eq('id', candidaturaId)
+    .maybeSingle()
+
+  if (error) {
+    throw new DecisaoServiceError(
+      `Não foi possível resolver a vaga: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+
+  return (data as { vaga_id: string | null } | null)?.vaga_id ?? null
+}
+
 /** Namespaced object export (camelCaseService convention). */
 export const decisaoService = {
   getConsolidacao,
   registrarDecisao,
   listFinalistas,
   getDecisaoAtual,
+  getVagaIdDaCandidatura,
 }
