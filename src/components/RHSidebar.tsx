@@ -257,15 +257,16 @@ export function RHSidebar({
               )}
             </div>
 
-            {/* Collapse Toggle (Desktop only) */}
+            {/* Collapse Toggle (Desktop only) — icon-only, needs an accessible name (AB-7). */}
             <button
               onClick={handleToggleCollapse}
+              aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               className="hidden lg:flex items-center justify-center h-12 border-t border-white/10 hover:bg-white/10 transition-all duration-200 rounded-b-2xl"
             >
               {isCollapsed ? (
-                <ChevronRight size={20} className="text-white/60 drop-shadow-sm" />
+                <ChevronRight size={20} className="text-white/60 drop-shadow-sm" aria-hidden="true" />
               ) : (
-                <ChevronLeft size={20} className="text-white/60 drop-shadow-sm" />
+                <ChevronLeft size={20} className="text-white/60 drop-shadow-sm" aria-hidden="true" />
               )}
             </button>
           </Glass>
