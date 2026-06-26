@@ -58,7 +58,7 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 - [ ] **DECISAO-01**: EF `consolidar-decisao-final` agrega todos os scorecards (não re-pontua) + aplica pesos da vaga → dashboard JSON com score consolidado + breakdown por etapa + recomendação textual [RF-29]
 - [ ] **DECISAO-02**: UI consolidada permite ver candidato lado-a-lado com finalistas (reusa o Comparativo da Etapa 2) [RF-30]
 - [ ] **DECISAO-03**: Decisão final exige justificativa textual obrigatória ≥50 caracteres → `decisao_final` com `por_usuario` NOT NULL + `decisao` enum (aprovado/rejeitado/em_espera) + DB constraints [RF-31]
-- [ ] **DECISAO-04**: Endpoint `/candidato/explicacao/:id` (LGPD Art. 20) mostra motivo da rejeição + score + opção "Solicitar revisão por pessoa natural" → abre ticket interno + notifica RH responsável [RF-32]
+- [x] **DECISAO-04**: Endpoint `/candidato/explicacao/:id` (LGPD Art. 20) mostra motivo da rejeição + score + opção "Solicitar revisão por pessoa natural" → abre ticket interno + notifica RH responsável [RF-32]
 
 ### Configuração de Vaga (transversal)
 
@@ -166,6 +166,6 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | DECISAO-01 | Phase 15 | Pending |
 | DECISAO-02 | Phase 15 | Pending |
 | DECISAO-03 | Phase 15 | Pending |
-| DECISAO-04 | Phase 15 | Pending |
+| DECISAO-04 | Phase 15 | Complete |
 | LGPD-03 | Phase 15 | Pending |
 | LGPD-05 | Phase 16 | Pending |
