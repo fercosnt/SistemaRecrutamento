@@ -223,11 +223,10 @@ export async function stampExplicacao(
     throw new ExplicacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // `stamp_explicacao_acessada` is not yet in the Functions type (AUTHORED-NOT-APPLIED)
-  // → minimal `as never` cast until the 15-06 regen.
-  const { error } = await supabase.rpc('stamp_explicacao_acessada' as never, {
+  // `stamp_explicacao_acessada` is live in PROD + present in database.types.ts (15-06 regen).
+  const { error } = await supabase.rpc('stamp_explicacao_acessada', {
     p_candidatura_id: candidaturaId,
-  } as never)
+  })
 
   if (error) {
     const code = (error as { code?: string }).code ?? ''
@@ -265,11 +264,10 @@ export async function solicitarRevisao(
     throw new ExplicacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // `solicitar_revisao_decisao` is not yet in the Functions type (AUTHORED-NOT-APPLIED)
-  // → minimal `as never` cast until the 15-06 regen.
-  const { error } = await supabase.rpc('solicitar_revisao_decisao' as never, {
+  // `solicitar_revisao_decisao` is live in PROD + present in database.types.ts (15-06 regen).
+  const { error } = await supabase.rpc('solicitar_revisao_decisao', {
     p_candidatura_id: candidaturaId,
-  } as never)
+  })
 
   if (error) {
     const code = (error as { code?: string }).code ?? ''

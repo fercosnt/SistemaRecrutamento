@@ -81,6 +81,10 @@ import { ProvaCognitivaScreen } from '../features/avaliacao-cognitiva/components
 import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
 import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
 import { AiCostsPage } from '../features/admin/ai-costs/components/AiCostsPage'
+// Decisão Final auditável + LGPD Art. 20 (Phase 15 / DECISAO-01..04, LGPD-03)
+import { DecisaoFinalPage } from '../features/decisao/components/DecisaoFinalPage'
+import { ExplicacaoCandidatoPage } from '../features/explicacao/components/ExplicacaoCandidatoPage'
+import { BiasAuditPage } from '../features/admin/bias-audit/components/BiasAuditPage'
 
 /**
  * Configuração de rotas da aplicação
@@ -275,6 +279,17 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Explicação ao candidato rejeitado (Phase 15 / DECISAO-04 — LGPD Art. 20):
+  // motivo não-clínico + resultado de alto nível (NUNCA score/banda — RNF-07a) +
+  // "Solicitar revisão por pessoa natural". Own-row RLS; só após decisão rejeitada.
+  {
+    path: '/candidato/explicacao/:id',
+    element: (
+      <RoleGuard role="candidato">
+        <ExplicacaoCandidatoPage />
+      </RoleGuard>
+    ),
+  },
 
   // ============================
   // ROTAS DE TESTES
@@ -386,6 +401,17 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Decisão final consolidada (Phase 15 / DECISAO-01..03): dashboard de scorecards
+  // agregados (não re-pontua) + recomendação advisory + Comparativo de finalistas +
+  // captura da decisão (≥50 chars, por_usuario NOT NULL) que dispara avancar_etapa.
+  {
+    path: '/rh/candidato/:id/decisao',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <DecisaoFinalPage />
+      </RoleGuard>
+    ),
+  },
   {
     path: '/rh/vagas',
     element: (
@@ -483,6 +509,16 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="administrador">
         <AiCostsPage />
+      </RoleGuard>
+    ),
+  },
+  // Bias audit (Phase 15 / LGPD-03): adverse-impact por faixa etária (4/5 EEOC) +
+  // banner honesto AGE-only (raça/gênero não coletados) + export CSV. Admin-only.
+  {
+    path: '/admin/bias-audit',
+    element: (
+      <RoleGuard role="administrador">
+        <BiasAuditPage />
       </RoleGuard>
     ),
   },

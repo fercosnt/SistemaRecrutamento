@@ -4331,6 +4331,22 @@ export type Database = {
         Args: { p_exclude_id?: string; p_titulo: string }
         Returns: string
       }
+      gerar_bias_snapshot: {
+        Args: { p_periodo: string }
+        Returns: {
+          criado_em: string
+          dados: Json
+          id: string
+          periodo: string | null
+          snapshot_em: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bias_audit_log"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_bigfive_itens: {
         Args: never
         Returns: {
@@ -4472,6 +4488,30 @@ export type Database = {
         }
         Returns: string
       }
+      registrar_decisao: {
+        Args: {
+          p_candidatura_id: string
+          p_decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          p_justificativa: string
+        }
+        Returns: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em: string
+          explicacao_solicitada_em: string | null
+          id: string
+          justificativa: string
+          por_usuario: string
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decisao_final"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rejeitar_candidato: {
         Args: {
           candidatura_uuid: string
@@ -4509,6 +4549,46 @@ export type Database = {
         Returns: Json
       }
       slugify: { Args: { p_input: string }; Returns: string }
+      solicitar_revisao_decisao: {
+        Args: { p_candidatura_id: string }
+        Returns: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em: string
+          explicacao_solicitada_em: string | null
+          id: string
+          justificativa: string
+          por_usuario: string
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decisao_final"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      stamp_explicacao_acessada: {
+        Args: { p_candidatura_id: string }
+        Returns: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em: string
+          explicacao_solicitada_em: string | null
+          id: string
+          justificativa: string
+          por_usuario: string
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decisao_final"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       submit_candidatura_atomic: {
         Args: {
           p_candidato_id: string

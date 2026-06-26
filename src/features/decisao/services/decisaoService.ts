@@ -139,13 +139,12 @@ export async function registrarDecisao({
     throw new DecisaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // `registrar_decisao` ainda não está no tipo Functions (AUTHORED-NOT-APPLIED) →
-  // cast mínimo até o regen do 15-06.
-  const { error } = await supabase.rpc('registrar_decisao' as never, {
+  // `registrar_decisao` is live in PROD + present in database.types.ts (15-06 regen).
+  const { error } = await supabase.rpc('registrar_decisao', {
     p_candidatura_id: candidaturaId,
     p_decisao: decisao,
     p_justificativa: justificativa,
-  } as never)
+  })
 
   if (error) {
     throw new DecisaoServiceError(

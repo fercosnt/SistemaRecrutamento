@@ -60,8 +60,8 @@ export function currentPeriod(): string {
 export async function listLatestSnapshot(): Promise<BiasAuditSnapshot | null> {
   try {
     const { data, error } = await supabase
-      // bias_audit_log ainda não está nos tipos gerados (aplicado em 15-06) — cast.
-      .from('bias_audit_log' as never)
+      // bias_audit_log is live in PROD + present in database.types.ts (15-06 regen).
+      .from('bias_audit_log')
       .select(BIAS_AUDIT_COLUMNS)
       .order('criado_em', { ascending: false })
       .limit(1)
@@ -95,10 +95,10 @@ export async function gerarSnapshot(periodo: string): Promise<BiasAuditSnapshot>
     throw new BiasAuditServiceError('Período inválido (esperado YYYY-MM)', 'INVALID_INPUT')
   }
 
-  // gerar_bias_snapshot ainda não está nos tipos gerados (aplicado em 15-06) — cast.
-  const { data, error } = await supabase.rpc('gerar_bias_snapshot' as never, {
+  // gerar_bias_snapshot is live in PROD + present in database.types.ts (15-06 regen).
+  const { data, error } = await supabase.rpc('gerar_bias_snapshot', {
     p_periodo: periodo,
-  } as never)
+  })
 
   if (error) {
     const code =
