@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: in_progress
-stopped_at: "PHASE 15 CLOSED 2026-06-26 (autonomous resume after /clear). WR-03 RLS migration APPLIED to PROD via MCP apply_migration (rh_le_decisao_final now vaga-ownership-scoped: administrador bypass + rh scoped via candidaturas.vaga_id->vagas.created_by; candidato own-row + INSERT-block policies untouched; smoke PASS). Phase 15 verifier status=human_needed, 5/5 must-haves verified, NO real gaps (600/600 vitest, build 0, tsc 291 flat, LGPD-04 17/17; the 2 failing vitest *suites* are the known Deno-under-vitest collection load failures, non-regressions). UI review 21/24 ship-ready, 0 BLOCK. 15-HUMAN-UAT.md written (2 deferred live round-trips: LGPD Art.20 over a real rejeitado candidatura + N8N webhook delivery; bias snapshot+CSV over a real decided population — both non-blocking, need real PROD data). NEXT (--from 16): Phase 16 (Compliance & A11y Hardening — req LGPD-05, axe-core>=90 WCAG AA + M1 tech-debt) FULL cycle discuss->ui->plan->execute->code-review->verify->ui-review, THEN milestone v2.0 lifecycle audit->complete->cleanup. CARRY INTO PHASE 16: (a) 3 Phase-15 UI polish one-liners [DecisaoFinalPage.tsx:178 text-[#35BFAD]->text-white/70; ConsolidacaoDashboard.tsx:58 font-medium->font-semibold; BiasAuditPage.tsx:87 text-[28px]->text-3xl md:text-4xl]; (b) 5 Phase-15 a11y items [ARIA tablist, custom-radio keyboard nav, amber-on-translucent AA contrast, text-white/50-60 micro-label contrast, tooltip/cursor-help keyboard reach] + the Phase-14 a11y carry-in batch (same patterns); (c) dead Agendar CTA + autosave-copy-mismatch + WR-02 biasMath dead-mirror (consider delete); (d) M1 tech-debt PERF-01 (cache-invalidation <=60s), HARD-02 (bundle 661KiB monolithic -> code-splitting), FOUND-08 (tsc baseline 291 burn-down + husky hook bypassed via core.hooksPath=/dev/null), console.log in RH-path; (e) the UNMIGRATED auth-hook RLS gap that breaks RH login (custom_access_token_hook missing supabase_auth_admin SELECT on usuarios_rh -> all RH login JWTs degrade to candidato; see reference_auth_hook_rls_gap) — high-value, decide whether Phase 16 fixes it. MIGRATION DRIFT (defer/handle in P16): MCP apply_migration records its own timestamp version, not the filename version 20260625100002, so supabase db push --linked may report version-not-found drift (same as Phase 11). PRE-EXISTING UNCOMMITTED (NOT autonomous-run work, leave alone): src/components/pages/LoginRHPage.tsx, .planning/phases/11-*/11-HUMAN-UAT.md, .planning/ui-reviews/ (gitignore-candidate binary screenshots)."
-last_updated: "2026-06-26T04:00:00.000Z"
+status: executing
+stopped_at: "Completed 16-01-PLAN.md (Wave-0 RED gates: Tier-A axe loop + FX-14 grep guard + 3 backlog docs; LGPD-05 calibrated RED, flips GREEN in later FX waves)"
+last_updated: "2026-06-26T12:39:04.604Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 10
-  total_plans: 59
-  completed_plans: 59
+  total_plans: 63
+  completed_plans: 60
   percent: 91
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 15 — Decisão Final Auditável & LGPD Art. 20
+**Current focus:** Phase 16 — compliance-a11y-hardening
 
 ## Current Position
 
-Phase: 16 (Compliance & A11y Hardening) — NOT STARTED (next). Phase 15 CLOSED 2026-06-26.
-Plan: — (Phase 16 not yet planned)
-Status: Milestone v2.0 — 10/11 phases complete (6–15). Phase 15 verified (human_needed, 5/5 must-haves, 2 live UAT items deferred to 15-HUMAN-UAT.md); WR-03 RLS applied to PROD + smoked; UI 21/24 ship-ready. Only Phase 16 remains before milestone lifecycle (audit → complete → cleanup).
+Phase: 16 (compliance-a11y-hardening) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-06-26
 
 See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
@@ -148,6 +148,7 @@ PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/compone
 | Phase 15 P04 | 10 min | 2 tasks | 6 files |
 | Phase 15 P05 | 8min | 2 tasks | 4 files |
 | Phase 15 P07 | ~6 min | 2 tasks | 9 files |
+| Phase 16 P16-01 | ~19 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -305,6 +306,7 @@ Recent decisions affecting current work:
 - [Phase ?]: 15-05: bias_audit_log/gerar_bias_snapshot via as-never casts (AUTHORED 15-02, applied LIVE 15-06) — remove after db:types regen
 - [Phase ?]: [15-07] WR-02: biasMath.ts is the parity ORACLE only (zero prod callers; the SQL RPC is the live scorer) — aligned to the SQL truth: field excluidos_sem_data, n_total=Σ applicants only, reference tie-break highest rate then faixa ASC (matches ORDER BY rate DESC, faixa ASC)
 - [Phase ?]: [15-07] WR-03: rh_le_decisao_final scoped to vaga ownership (administrador bypass OR rh AND candidatura on own vaga via candidaturas→vagas.created_by=auth.uid()) — mirrors Phase-14 WR-04; migration 20260625100002 AUTHORED-NOT-APPLIED (orchestrator applies to PROD); candidato_le_propria_decisao + decisao_final_no_client_insert untouched
+- [Phase ?]: Phase 16 Wave-0 RED gates: Tier-A unconditional axe loop (15 screens incl. R6/R7) + Tier-B R5/C5; FX-14 RH-console grep guard RED; tsc baseline held 291
 
 ### Pending Todos
 
@@ -339,8 +341,8 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-26T03:05:47.544Z
-Stopped at: Completed 15-07-PLAN.md (gap-closure WR-01..05; WR-03 migration AUTHORED-NOT-APPLIED — orchestrator applies)
+Last session: 2026-06-26T12:39:04.592Z
+Stopped at: Completed 16-01-PLAN.md (Wave-0 RED gates: Tier-A axe loop + FX-14 grep guard + 3 backlog docs; LGPD-05 calibrated RED, flips GREEN in later FX waves)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
 

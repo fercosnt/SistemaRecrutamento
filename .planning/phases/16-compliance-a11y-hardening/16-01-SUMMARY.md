@@ -90,3 +90,7 @@ None. The two grep guards and the axe loop are calibrated to be RED by design (t
 ## Pre-existing untouched files (per guardrails)
 
 Left exactly alone, as instructed: `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`, `src/components/pages/LoginRHPage.tsx` (the LoginRHPage race fix commits in a later plan 16-04, not here).
+
+## Self-Check: PASSED
+
+All 6 created files verified present on disk; all 4 commits (`bc662c5`, `ebf2435`, `8f38bef`, `e598fdb`) verified in git log.

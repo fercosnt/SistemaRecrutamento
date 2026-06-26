@@ -394,7 +394,7 @@ Plans:
 Plans:
 **Wave 0**
 
-- [ ] 16-01-PLAN.md — Tier-A RED axe gate (extend e2e/a11y.spec.ts + mocked-session fixture) + FX-14 RH-console grep guard + HARD-02/PERF-01/tsc-tail deferral docs
+- [x] 16-01-PLAN.md — Tier-A RED axe gate (extend e2e/a11y.spec.ts + mocked-session fixture) + FX-14 RH-console grep guard + HARD-02/PERF-01/tsc-tail deferral docs
 
 **Wave 1** *(blocked on Wave 0 — 2 parallel, disjoint feature dirs)*
 
@@ -430,7 +430,7 @@ Plans:
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 7/7 | Complete   | 2026-06-26 |
-| 16. Compliance & A11y Hardening | v2.0 | 0/4 | Planned | - |
+| 16. Compliance & A11y Hardening | v2.0 | 1/4 | In Progress|  |
 
 ---
 
