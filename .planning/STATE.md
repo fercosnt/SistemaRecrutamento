@@ -30,7 +30,7 @@ Plan: — (no active phase / no active milestone)
 Status: v2.0 (M2) shipped + archived. Roadmap + requirements in `milestones/v2.0-*`; ROADMAP.md collapsed to milestone summaries; REQUIREMENTS.md removed (fresh at next milestone); tag `v2.0` local-only (not pushed). 5 HUMAN-UAT docs + 4 advisory WARNINGs deferred across the milestone (all non-blocking, documented in v2.0-MILESTONE-AUDIT.md). NEXT = `/gsd-new-milestone`.
 Last activity: 2026-06-26
 
-See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) NOT done here — handled separately by the orchestrator via `/gsd:cleanup`.
+See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DEFERRED BY USER 2026-06-26 (autonomous run) — the 11 phase dirs (06-16) stay in `.planning/phases/` so the 5 open HUMAN-UAT runbooks (phases 10/11/14/15/16, deferred live tests needing real PROD data) stay easy to reach, and the uncommitted `11-HUMAN-UAT.md` isn't disturbed. Run `/gsd:cleanup` later once the deferred UATs are done.
 
 PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
 
