@@ -77,7 +77,7 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 
 - [x] **LGPD-01**: Minimização de PII no form Etapa 1 (sem foto/CPF/estado civil/saúde); data de nascimento coletada conscientemente **com monitoramento de viés etário** (RNF-07b); schema Zod rejeita campos proibidos [RNF-07, RF-01]
 - [ ] **LGPD-02**: Guardrail — **zero** auto-rejeições por trait/score; 100% das `decisao_final` têm `por_usuario IS NOT NULL` (enforced via RLS + SQL audit) [RNF-07a]
-- [ ] **LGPD-03**: `bias_audit_log` com snapshot mensal de selection rate por raça/gênero/idade (regra 4/5 EEOC — export CSV manual no V1) [RNF-07b, §8.1 mig 14]
+- [x] **LGPD-03**: `bias_audit_log` com snapshot mensal de selection rate por raça/gênero/idade (regra 4/5 EEOC — export CSV manual no V1) [RNF-07b, §8.1 mig 14]
 - [ ] **LGPD-04**: Linguagem de produto "avaliação comportamental/cognitiva" (nunca "teste psicológico") — lint custom/grep de strings proibidas no CI [RNF-12]
 - [ ] **LGPD-05**: UI RH e Candidato passam WCAG AA (axe-core ≥ 90 nas telas principais) [RNF-11]
 
@@ -167,5 +167,5 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | DECISAO-02 | Phase 15 | Pending |
 | DECISAO-03 | Phase 15 | Pending |
 | DECISAO-04 | Phase 15 | Complete |
-| LGPD-03 | Phase 15 | Pending |
+| LGPD-03 | Phase 15 | Complete |
 | LGPD-05 | Phase 16 | Pending |

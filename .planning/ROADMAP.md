@@ -372,7 +372,7 @@ Plans:
 
 - [x] 15-03-PLAN.md — RH decision surface: src/features/decisao (consolidacaoSchema + decisaoService + hooks + ConsolidacaoDashboard + RegistrarDecisaoForm + DecisaoFinalPage; Comparativo reuse)
 - [x] 15-04-PLAN.md — candidate LGPD Art. 20: src/features/explicacao (own-row allowlist service + ExplicacaoCandidatoPage + SolicitarRevisaoCTA; reachability-gated)
-- [ ] 15-05-PLAN.md — admin bias-audit: src/features/admin/bias-audit (biasMath EEOC 4/5 + biasAuditService + BiasAuditPage; honest AGE-only banner + CSV)
+- [x] 15-05-PLAN.md — admin bias-audit: src/features/admin/bias-audit (biasMath EEOC 4/5 + biasAuditService + BiasAuditPage; honest AGE-only banner + CSV)
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -413,7 +413,7 @@ Plans:
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
-| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 4/6 | In Progress|  |
+| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 5/6 | In Progress|  |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
 ---

@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Completed 15-04-PLAN.md (candidate LGPD Art. 20 explicacao surface — DECISAO-04; src/features/explicacao)
-last_updated: "2026-06-26T01:54:28.320Z"
+last_updated: "2026-06-26T02:07:29.866Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 58
-  completed_plans: 56
+  completed_plans: 57
   percent: 82
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-06-26
 
@@ -142,6 +142,7 @@ Last activity: 2026-06-26
 | Phase 15 P02 | 6 min | 2 tasks | 3 files |
 | Phase 15 P03 | ~8min | 2 tasks (data layer + RH UI, TDD) | 10 files (9 created + 1 modified consolidacaoSchema); 2 deviations (Rule 1 prose select('*') in comments, Rule 3 dropped dead v5 query onError); flips consolidacaoContract+decisaoService+RegistrarDecisaoForm GREEN (38/38); build 0, tsc 296 |
 | Phase 15 P04 | 10 min | 2 tasks | 6 files |
+| Phase 15 P05 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -295,6 +296,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 15-04: Open Q5 candidate reason is a server-of-record-side templated REASON_BY_DECISAO map (total over enum) — raw RH justificativa NEVER surfaced verbatim, no score/band/quantile crosses (RNF-07a/LGPD-04); derivation in the data layer so the no-leak invariant is test-asserted
 - [Phase ?]: 15-04: revisao N8N notification PINNED to thin-client fire-and-forget (Open Q3 client fetch not pg_net); VITE_N8N_REVISAO_DECISAO_URL distinct path w/ WR-04 env-fallback; own-row RPC authoritative, webhook best-effort redacted ids-only never throws into the mutation
 - [Phase ?]: 15-04: explicacaoService invokes AUTHORED-NOT-APPLIED candidate RPCs via supabase.rpc(as never) (10x) — 15-06 drops casts after db:types regen; route wiring /candidato/explicacao/:id deferred to 15-06 PROD boundary
+- [Phase ?]: 15-05: biasMath EEOC 4/5 is the TS mirror of gerar_bias_snapshot SQL (no-drift); flag never marks the reference band
+- [Phase ?]: 15-05: bias_audit_log/gerar_bias_snapshot via as-never casts (AUTHORED 15-02, applied LIVE 15-06) — remove after db:types regen
 
 ### Pending Todos
 
@@ -329,7 +332,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-26T01:54:28.305Z
+Last session: 2026-06-26T02:07:25.028Z
 Stopped at: Completed 15-04-PLAN.md (candidate LGPD Art. 20 explicacao surface — DECISAO-04; src/features/explicacao)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
