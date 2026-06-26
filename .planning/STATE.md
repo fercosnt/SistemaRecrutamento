@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: verifying
-stopped_at: "Completed 16-04-PLAN.md (final plan of Phase 16). FX-14 RH-path console.* removed (16-01 grep guard GREEN 4/4); FX-15 dead biasMath runtime fns deleted with live types intact (build 0); FOUND-08 enum typos proved structural→reverted, ci.yml tsc gate tightened 292->291; LoginRHPage cold-DB race+gate fix committed (464ead8, R1 axe GREEN, no migration). Phase 16 plan execution 4/4 → ready_for_verification. DEFERRED: live RH cold-start login round-trip → 16-HUMAN-UAT.md."
-last_updated: "2026-06-26T13:42:18.224Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 16 was final phase)
+last_updated: 2026-06-26T13:57:43.127Z
 last_activity: 2026-06-26
 progress:
   total_phases: 11
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 16 — compliance-a11y-hardening
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 16 (compliance-a11y-hardening) — EXECUTING
-Plan: 4 of 4
-Status: Phase complete — ready for verification
+Phase: 16
+Plan: Not started
+Status: Milestone complete
 Last activity: 2026-06-26
 
 See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
@@ -46,7 +46,7 @@ PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/compone
 
 **Velocity:**
 
-- Total plans completed: 48 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
+- Total plans completed: 52 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
 - Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure), 03-06 (~17 min, fully autonomous, 2 page rewrites + 8 deletions = 1528 LoC removed), 03-07 (~27 min autonomous Tasks 1-3+autofix + ~2.5h human-clock UAT execution; 2 production-only findings captured)
 - Total execution time for Phase 2: ~245 min
 - Total execution time for Phase 3: ~281 min autonomous + ~2.5h human UAT = ~431 min wall-clock (Waves 0-6 / 7 of 7 complete)
@@ -61,6 +61,7 @@ PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/compone
 | 05 | 6 | - | - |
 | 06 | 5 | - | - |
 | 08 | 5 | - | - |
+| 16 | 4 | - | - |
 
 **Per-plan ledger (Phase 3):**
 
