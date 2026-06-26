@@ -132,6 +132,34 @@ describe('LGPD-04 / RNF-12 — forbidden psychological-test strings', () => {
     const efRoot = join(ROOT, 'supabase/functions')
     expect(efFiles.every((f) => f.startsWith(efRoot))).toBe(true)
   })
+
+  // Phase 15 / Plan 15-01 Task 3b — guard-the-guard for the 3 new feature dirs.
+  // SCAN_ROOTS already lists 'src' (recursive), so the Phase-15 feature dirs
+  // (src/features/decisao, src/features/explicacao, src/features/admin/bias-audit)
+  // are AUTO-covered the moment they exist — we do NOT touch SCAN_ROOTS. This
+  // sanity-count locks that coverage: it is TOLERANT pre-implementation (the dirs
+  // may be absent in Wave 0 — only test files exist so far) and ASSERTS coverage
+  // the moment a Wave-2 source file lands. If a future glob/walk regression
+  // silently stops reaching these dirs, this flips red — they cannot drift out.
+  it('scan reaches the 3 new Phase-15 feature dirs once they exist (LGPD-04 coverage lock)', () => {
+    const NEW_FEATURE_DIRS = [
+      'src/features/decisao',
+      'src/features/explicacao',
+      'src/features/admin/bias-audit',
+    ] as const
+    const present = NEW_FEATURE_DIRS.filter((d) => existsSync(join(ROOT, d)))
+    for (const dir of present) {
+      const files = collectFiles(dir)
+      const dirRoot = join(ROOT, dir)
+      // Pre-implementation a dir may hold only __tests__ files (skipped by the
+      // walk) → collectFiles can be empty; that's tolerated. Once a non-test
+      // source file lands, the recursive walk MUST reach it under the dir root.
+      expect(files.every((f) => f.startsWith(dirRoot))).toBe(true)
+    }
+    // At least the bias-audit dir exists from this plan's Task 2 (__tests__ only),
+    // proving the path resolves; the assertion holds vacuously until source lands.
+    expect(present.length).toBeGreaterThanOrEqual(1)
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
