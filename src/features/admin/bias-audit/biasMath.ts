@@ -1,5 +1,5 @@
 /**
- * biasMath — pure deterministic EEOC 4/5 adverse-impact module (LGPD-03).
+ * biasMath — EEOC 4/5 adverse-impact TYPE module (LGPD-03).
  *
  * V1 bias audit = selection-rate per AGE BAND with the EEOC four-fifths rule
  * (29 CFR §1607.4, Uniform Guidelines on Employee Selection Procedures).
@@ -11,31 +11,21 @@
  *   reference_band             = the band with the HIGHEST selection rate
  *   adverse_impact_ratio(band) = selection_rate(band) / selection_rate(reference_band)
  *   FLAG when adverse_impact_ratio < 0.80   (the "four-fifths" / 80% rule)
- * Worked example (eeoc.gov): reference hire 50%, other band 35% →
- *   0.35 / 0.50 = 0.70 < 0.80 → adverse impact indicated → flag true.
  *
- * ── small-N caveat (Pitfall 3) ── the 4/5 rule is statistically unreliable below
- * ~30 selections/group → `small_sample_warning` when any band's applicants < 30.
- *
- * ── null/invalid birthdate (Pitfall 4) ── candidates with no usable birthdate are
- * NOT silently dropped — an `excluidos_sem_data` count is surfaced so band totals
- * reconcile against the population.
- *
- * ── PRODUCTION SCORER vs PARITY ORACLE (WR-02) ── the LIVE bias scorer is the
+ * ── LIVE SCORER vs THIS MODULE (WR-02 / FX-15) ── the LIVE bias scorer is the
  * server-side `gerar_bias_snapshot` SQL RPC; `BiasAuditPage` renders the SQL-produced
- * jsonb directly and this module has ZERO non-test production callers. It exists ONLY
- * as the parity oracle the golden test (`__tests__/biasMath.test.ts`) checks the SQL
- * contract against — so it MUST stay byte-aligned to the SQL truth:
- *   • field `excluidos_sem_data` (the pt-BR key the SQL `jsonb_build_object` writes,
- *     migration line 420), NOT `excluded_sem_data`;
- *   • `n_total` = Σ applicants ONLY (matches the SQL `v_n_total := sum(applicants)`,
- *     line 362) — the excluded count is NOT added in;
- *   • reference-band tie-break = highest selection_rate then `faixa ASC` (matches the
- *     SQL `ORDER BY rate DESC, faixa ASC`, line 370).
- * NO DB/network imports — pure deterministic functions only.
+ * jsonb directly. The TypeScript parity-oracle functions (`computeAdverseImpact`,
+ * `bandFromAge`) that this module used to host had ZERO non-test production callers
+ * and were removed in Phase 16 (FX-15). What REMAINS — and is LIVE — is the shape
+ * contract: `AdverseImpactResult` + `BandResult` (and the supporting types/constants)
+ * are imported by `biasAuditService.ts` (the snapshot `dados` type + CSV export) and
+ * `BiasAuditPage.tsx` (the rendered band rows). The fields stay byte-aligned to the
+ * SQL truth (`excluidos_sem_data` pt-BR key; `n_total` = Σ applicants only).
+ * NO DB/network imports — pure type declarations + constants.
  *
  * @module features/admin/bias-audit/biasMath
- * @see src/features/admin/bias-audit/__tests__/biasMath.test.ts (the Wave-0 golden test this satisfies)
+ * @see src/features/admin/bias-audit/services/biasAuditService.ts (live type consumer)
+ * @see src/features/admin/bias-audit/components/BiasAuditPage.tsx (live type consumer)
  * @see .planning/phases/15-decis-o-final-audit-vel-lgpd-art-20/15-RESEARCH.md §EEOC 4/5
  */
 
@@ -84,98 +74,8 @@ export interface AdverseImpactResult {
   n_total: number
 }
 
-const METODO =
-  'EEOC 4/5 (regra dos quatro quintos) — selection rate por faixa etária vs a faixa de maior taxa.'
-
-const LIMITACAO =
-  'Esta auditoria considera apenas faixa etária. Raça e gênero não são coletados (minimização de dados — LGPD).'
-
-/**
- * Buckets an age (in whole years) into one of the five fixed bands.
- *
- * Boundaries (inclusive lower, inclusive upper except the open top band):
- *   18–24 · 25–34 · 35–44 · 45–54 · 55+
- *
- * TS mirror of the server-side banding-cutoff CASE (no-drift). Ages below 18 fall
- * into the first band defensively; the top band is open-ended.
- */
-export function bandFromAge(age: number): AgeBand {
-  if (age <= 24) return '18-24'
-  if (age <= 34) return '25-34'
-  if (age <= 44) return '35-44'
-  if (age <= 54) return '45-54'
-  return '55+'
-}
-
-/**
- * Computes the EEOC 4/5 adverse-impact snapshot over per-band counts.
- *
- * - `selection_rate = selected / applicants` (0 when applicants is 0).
- * - `reference_band` = the band with the HIGHEST selection rate, tie-broken by
- *   `faixa ASC` (matches the SQL `ORDER BY rate DESC, faixa ASC`); razao_4_5 = 1.0.
- * - `razao_4_5 = selection_rate / reference_rate` (1.0 for the reference band).
- * - `flag = razao_4_5 < 0.8` (never flags the reference band).
- * - `small_sample_warning = true` if any band has `applicants < 30`.
- * - `excluidos_sem_data` is surfaced (never dropped) — Pitfall 4.
- * - `n_total` = Σ applicants ONLY (the excluded count is NOT added — SQL `v_n_total`).
- */
-export function computeAdverseImpact(
-  bands: BandInput[],
-  opts: ComputeOptions = {},
-): AdverseImpactResult {
-  const excluidos_sem_data = opts.excluidos_sem_data ?? 0
-
-  const withRate = bands.map((b) => ({
-    faixa: b.faixa,
-    applicants: b.applicants,
-    selected: b.selected,
-    selection_rate: b.applicants > 0 ? b.selected / b.applicants : 0,
-  }))
-
-  // Reference = the eligible band with the highest selection rate, tie-broken by
-  // faixa ASC — mirrors the SQL `... WHERE applicants > 0 ORDER BY (selected/applicants)
-  // DESC, faixa ASC LIMIT 1` (migration line 369-371). Only bands with applicants > 0
-  // are eligible; when every eligible band ties (even at rate 0) the lowest faixa wins,
-  // exactly as the SQL LIMIT 1 resolves it.
-  let referenceRate = 0
-  let faixa_referencia: string | null = null
-  for (const b of withRate) {
-    if (b.applicants <= 0) continue
-    const isFirst = faixa_referencia === null
-    const higherRate = b.selection_rate > referenceRate
-    const tieLowerFaixa =
-      b.selection_rate === referenceRate && !isFirst && b.faixa < faixa_referencia!
-    if (isFirst || higherRate || tieLowerFaixa) {
-      referenceRate = b.selection_rate
-      faixa_referencia = b.faixa
-    }
-  }
-
-  const resultBands: BandResult[] = withRate.map((b) => {
-    const razao_4_5 = referenceRate > 0 ? b.selection_rate / referenceRate : 0
-    const isReference = b.faixa === faixa_referencia
-    return {
-      faixa: b.faixa,
-      applicants: b.applicants,
-      selected: b.selected,
-      selection_rate: b.selection_rate,
-      razao_4_5,
-      flag: !isReference && razao_4_5 < FOUR_FIFTHS_THRESHOLD,
-    }
-  })
-
-  const small_sample_warning = bands.some((b) => b.applicants < SMALL_SAMPLE_FLOOR)
-  // n_total = Σ applicants ONLY — the SQL `v_n_total := COALESCE(sum(applicants), 0)`
-  // does NOT add the excluded count (it is surfaced separately).
-  const n_total = bands.reduce((acc, b) => acc + b.applicants, 0)
-
-  return {
-    metodo: METODO,
-    limitacao: LIMITACAO,
-    bands: resultBands,
-    faixa_referencia,
-    small_sample_warning,
-    excluidos_sem_data,
-    n_total,
-  }
-}
+// NOTE (FX-15 — Phase 16): the TypeScript parity-oracle functions `bandFromAge` and
+// `computeAdverseImpact` lived here historically. They had ZERO non-test production
+// callers (the live computation runs server-side in the `gerar_bias_snapshot` SQL RPC)
+// and were removed. The exported TYPES + constants above are the live contract —
+// `biasAuditService.ts` + `BiasAuditPage.tsx` import `AdverseImpactResult` / `BandResult`.

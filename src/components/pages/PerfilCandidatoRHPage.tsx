@@ -425,15 +425,14 @@ export function PerfilCandidatoRHPage() {
 
   const handleNavigation = (pageId: string) => {
     setCurrentPage(pageId);
-    console.log('Navegando para:', pageId);
   };
 
   const handleLogout = () => {
-    console.log('Logout');
+    // Logout do painel RH — wiring real deferido (placeholder de navegação local).
   };
 
   const handleVoltar = () => {
-    console.log('Voltar para lista de candidatos');
+    // Voltar para lista de candidatos — wiring real deferido.
   };
 
   const handleToggleTeste = (testeId: TesteType) => {
@@ -482,13 +481,11 @@ export function PerfilCandidatoRHPage() {
   };
 
   const handleSalvarTranscricaoOnline = () => {
-    console.log('Salvando transcrição online:', transcricaoOnline);
-    // Aqui você salvaria no backend
+    // Aqui você salvaria no backend (transcricaoOnline)
   };
 
   const handleSalvarTranscricaoPresencial = () => {
-    console.log('Salvando transcrição presencial:', transcricaoPresencial);
-    // Aqui você salvaria no backend
+    // Aqui você salvaria no backend (transcricaoPresencial)
   };
 
   const handleAdicionarNota = () => {

@@ -98,9 +98,8 @@ export function SuporteRHPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Aqui você enviaria os dados para o backend
-    console.log('Formulário enviado:', formData);
-    
+    // Aqui você enviaria os dados para o backend (formData)
+
     // Simular envio
     setEnviado(true);
     
