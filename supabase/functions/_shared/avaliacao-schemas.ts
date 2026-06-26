@@ -20,7 +20,11 @@
  * @see supabase/functions/_shared/analise-schemas.ts (regra de cópia verbatim, Phase 10)
  */
 
-import { z } from "npm:zod@3.25.76";
+// zod/v4 namespace — os helpers das SDKs (@anthropic-ai/sdk + openai) fazem `require("zod/v4")`
+// e leem `.def`; um schema do namespace v3 clássico (`._def`) faz o zodOutputFormat do Anthropic
+// estourar "Cannot read properties of undefined (reading 'def')". zod@3.25.76 traz ambos.
+// (Mesma correção de analise-schemas.ts, Phase 10 — AVAL-03 gap fix.)
+import { z } from "npm:zod@3.25.76/v4";
 
 // ============================================================================
 // PRIMITIVES (copiadas verbatim de 00-shared-zod-schemas.ts)

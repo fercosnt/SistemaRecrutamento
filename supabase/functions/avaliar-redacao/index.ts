@@ -46,6 +46,13 @@ import {
   AvaliarRedacaoBodySchema,
   WorkSampleScoringSchema,
 } from "../_shared/avaliacao-schemas.ts";
+// SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
+// pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF — AVAL-03 gap).
+// Precedente que deploya E passa o `deno test` type-checked: comparativo-candidatos/index.ts.
+import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
+import { zodOutputFormat } from "npm:@anthropic-ai/sdk@0.102.0/helpers/zod";
+import OpenAI from "npm:openai@6.42.0";
+import { zodResponseFormat } from "npm:openai@6.42.0/helpers/zod";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers
@@ -83,6 +90,9 @@ export interface AvaliarRedacaoDeps {
   supabaseAdmin: any;
   // deno-lint-ignore no-explicit-any
   supabaseUser: any;
+  /** Builders de structured-output (prod injeta os reais; testes omitem → callAi usa no-op). */
+  zodOutputFormat?: (schema: unknown, name: string) => unknown;
+  zodResponseFormat?: (schema: unknown, name: string) => unknown;
 }
 
 /** Linha de dimensão BARS retornada pelo prompt work_sample_sjt. */
@@ -246,7 +256,15 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         vaga_id: candRow.vaga_id,
         schema: WorkSampleScoringSchema,
       },
-      { anthropic, openai, supabase: supabaseAdmin },
+      // Encaminha os builders injetados (prod) — sem eles o schema cru quebra ambos provedores.
+      // Testes omitem → callAi usa no-op (inalterado).
+      {
+        anthropic,
+        openai,
+        supabase: supabaseAdmin,
+        zodOutputFormat: deps.zodOutputFormat,
+        zodResponseFormat: deps.zodResponseFormat,
+      },
     );
 
     // ── 6. Never-absent + injeção → persiste 'falhou', nunca um sucesso falso ─
@@ -362,13 +380,18 @@ if (import.meta.main) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // SDKs reais só são construídos em produção (NUNCA importados nos testes); os
-    // specifiers são montados em runtime para não serem resolvidos no type-check.
-    const { default: Anthropic } = await import(["npm:", "@anthropic-ai/sdk@0.102.0"].join(""));
-    const { default: OpenAI } = await import(["npm:", "openai@6.42.0"].join(""));
+    // SDKs construídos a partir dos imports estáticos do topo (resolvíveis no deploy).
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
-    return await handler(req, { anthropic, openai, supabaseAdmin, supabaseUser });
+    return await handler(req, {
+      anthropic,
+      openai,
+      supabaseAdmin,
+      supabaseUser,
+      // Adapters p/ a assinatura `(schema, name)` do CallAiDeps (Anthropic usa só o schema).
+      zodOutputFormat: (s, _n) => zodOutputFormat(s as never),
+      zodResponseFormat: (s, n) => zodResponseFormat(s as never, n),
+    });
   });
 }
