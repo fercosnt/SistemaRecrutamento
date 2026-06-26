@@ -105,20 +105,22 @@ export function LoginRHPage() {
       // D-14 ROLE GATE (ISSUE-005 — bounded polling, NOT setTimeout(0)).
       //
       // The supabase.auth.onAuthStateChange listener (mounted in App.tsx)
-      // fires SIGNED_IN → authStore.setSession → extractRole → role populated.
-      // That listener runs as a microtask off the SDK's internal Promise
-      // resolution; empirically resolves within 1-2 ticks under React 18
-      // Concurrent Mode, but we bound it to a max of 5 retries × 20ms = 100ms
-      // before assuming failure. Exits the loop AS SOON AS role is populated.
-      //
-      // setTimeout(0) is REJECTED here (research §Pitfall 1) — a 0ms macrotask
-      // is not deterministic under React Concurrent Mode rendering work.
-      for (let i = 0; i < 5 && !useAuthStore.getState().role; i++) {
-        await new Promise((r) => setTimeout(r, 20))
+      // fires SIGNED_IN → setTimeout(0) → authStore.hydrateFromSession, which
+      // AWAITS fetchProfile() (a usuarios_rh round-trip) BEFORE it sets `role`.
+      // On a cold DB connection that round-trip can exceed 100ms, so the prior
+      // 5×20ms bound raced ahead of role population and false-rejected a valid
+      // admin (signOut → "sem acesso" → bounced to /vagas). We poll up to
+      // 60×50ms = 3s, exiting AS SOON AS role is populated (warm logins stay
+      // ~instant). setTimeout(0) is REJECTED here (research §Pitfall 1).
+      for (let i = 0; i < 60 && !useAuthStore.getState().role; i++) {
+        await new Promise((r) => setTimeout(r, 50))
       }
       const role = useAuthStore.getState().role
 
-      if (role !== 'administrador') {
+      // RH panel is for RH staff: recrutador (role 'rh') AND administrador.
+      // (Previously admin-only, which false-rejected legitimate recrutadores —
+      // and also any session still carrying a pre-promotion 'rh' JWT.)
+      if (role !== 'administrador' && role !== 'rh') {
         await supabase.auth.signOut()
         toast.error('Esta conta não tem acesso ao painel RH.', {
           duration: 6000,
