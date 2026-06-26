@@ -32,3 +32,39 @@ export const ConsolidacaoRequestSchema = z
   .strict()
 
 export type ConsolidacaoRequest = z.infer<typeof ConsolidacaoRequestSchema>
+
+/**
+ * The `consolidar-decisao-final` EF response shape (Wave-1 authored, Wave-2
+ * rendered). A pure presentation type — the EF derives every value server-side
+ * (it NEVER re-scores, only aggregates already-recorded results), so this is the
+ * exact contract `ConsolidacaoDashboard` reads.
+ *
+ * @see supabase/functions/consolidar-decisao-final/index.ts (the source emitting it)
+ */
+
+/** A single etapa row in the consolidation breakdown. */
+export interface ConsolidacaoBreakdownRow {
+  /** Weight-key / context-key: triagem | work_sample_sjt | redacao_cultural | entrevista | big_five | cognitivo. */
+  etapa: string
+  /** 0..100 when present; null when N/A or context-only. */
+  normalized: number | null
+  /** `present` (weighted), `na` (missing/unapplied — neutral N/A pill), `context` (big_five/cognitivo — never weighted). */
+  status: 'present' | 'na' | 'context'
+  /** Raw vaga peso (weighted keys); null for context rows. */
+  weight: number | null
+  /** Peso renormalized over the PRESENT etapas; null otherwise. */
+  effective_weight: number | null
+}
+
+/**
+ * The full EF payload: the consolidated weighted aggregate (null when no etapa is
+ * avaliable), the per-etapa breakdown, and a DETERMINISTIC templated advisory
+ * recommendation (NEVER an LLM call — the human always decides, RNF-07a).
+ */
+export interface ConsolidacaoResponse {
+  /** Weighted aggregate 0..100, or null when no PRESENT etapa exists. NOT a verdict — an aggregate. */
+  consolidated: number | null
+  breakdown: ConsolidacaoBreakdownRow[]
+  /** Advisory templated recommendation derived from the breakdown (advisory only). */
+  recommendation: string
+}
