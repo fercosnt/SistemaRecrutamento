@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: verifying
-stopped_at: Completed 15-07-PLAN.md (gap-closure WR-01..05; WR-03 migration AUTHORED-NOT-APPLIED — orchestrator applies)
+stopped_at: "PAUSED BY USER 2026-06-26 (autonomous run --from 14, clean boundary for /clear). Phases 14 ✅ + 15 code-complete (all 7 plans + 15-07 gap-closure SHIPPED, PROD-live except WR-03). RESUME: /clear then /gsd-autonomous --from 15 — fresh context MUST do, IN ORDER: (1) APPLY WR-03 migration `supabase/migrations/20260625100002_decisao_final_rh_vaga_scope.sql` to PROD via Supabase MCP apply_migration (name decisao_final_rh_vaga_scope; no BEGIN/COMMIT wrapper) — it DROP+CREATEs rh_le_decisao_final vaga-scoped (admin bypass), mirrors the verified Phase-14 WR-04 fix; then smoke: rh_le_decisao_final qual contains created_by, candidato_le_propria_decisao + decisao_final_no_client_insert untouched. NO db:types needed (RLS-only). (2) Commit nothing new for the apply (migration file already committed bf20b6b). (3) Phase 15 verification (gsd-verifier — all 7 plans done, reqs DECISAO-01..04+LGPD-03; treat the consolidar-decisao-final + essay-schemas Deno-under-vitest suite-load failures as pre-existing NON-regressions; CC0 cognitive seed + RH-login auth-hook gap are known deferrals). (4) Phase 15 UI review (gsd-ui-review 15 — has UI-SPEC). (5) write 15-HUMAN-UAT.md for deferred live items (LGPD Art.20 round-trip + bias snapshot over real pop). (6) Phase 16 full cycle. (7) milestone lifecycle audit→complete→cleanup. Phase 14 left 14-HUMAN-UAT.md deferred (4 items, blocked on auth-hook + CC0)."
 last_updated: "2026-06-26T03:06:24.105Z"
 last_activity: 2026-06-26
 progress:
@@ -25,12 +25,18 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — EXECUTING
-Plan: 7 of 7 (15-07 gap-closure WR-01..05)
-Status: Phase complete — ready for verification
+Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — code-complete, PAUSED for /clear
+Plan: 7 of 7 (15-01..15-06 + 15-07 gap-closure WR-01..05) all SHIPPED
+Status: PROD-live (migration 20260625100001 + EF consolidar-decisao-final JWT-on + 4 RPCs + 3 routes), EXCEPT the WR-03 RLS migration. Phase 15 verification NOT yet run.
 Last activity: 2026-06-26
 
-⚠️ ORCHESTRATOR ACTION PENDING: apply `supabase/migrations/20260625100002_decisao_final_rh_vaga_scope.sql` (WR-03) to PROD with user authorization — AUTHORED-NOT-APPLIED by the 15-07 executor.
+⚠️ RESUME RUNBOOK (after /clear → /gsd-autonomous --from 15) — do in order:
+  1. APPLY WR-03: `supabase/migrations/20260625100002_decisao_final_rh_vaga_scope.sql` to PROD via Supabase MCP `apply_migration` (verified-safe: DROP+CREATE rh_le_decisao_final vaga-scoped, admin bypass; candidate/INSERT-block policies untouched). Smoke: the policy qual now contains `created_by`.
+  2. Phase 15 verification (gsd-verifier) → 3. Phase 15 UI review (gsd-ui-review) → 4. write 15-HUMAN-UAT.md (deferred live items).
+  5. Phase 16 (Compliance & A11y Hardening — full discuss→ui→plan→execute→review→verify). Carry in: Phase-14 UI-REVIEW (19/24, 5 a11y notes routed to P16: ARIA tablist, native title tooltip, text-white/50-60 contrast, amber-on-translucent AA, slider aria-valuetext) + the dead "Agendar" CTA + autosave-copy-mismatch + WR-02 biasMath dead-mirror (consider delete) + the M1 tech-debt + the unmigrated auth-hook RLS gap (breaks RH login — see [[reference_auth_hook_rls_gap]]).
+  6. Milestone v2.0 lifecycle: audit → complete → cleanup.
+
+PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/components/pages/LoginRHPage.tsx` (auth-hook race fix, part of the unmigrated gap), `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
 
 ## Latest Plan (15-01 — Wave 0 RED golden battery, DECISAO-01/LGPD-03)
 
