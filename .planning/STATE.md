@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Completed 15-02-PLAN.md (backend authoring — 4 RPCs + consolidation EF AUTHORED-NOT-APPLIED)
-last_updated: "2026-06-26T01:23:52.040Z"
+last_updated: "2026-06-26T01:38:08.917Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 9
   total_plans: 58
-  completed_plans: 54
+  completed_plans: 55
   percent: 82
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-06-26
 
@@ -140,6 +140,7 @@ Last activity: 2026-06-26
 | Phase 14 P07 | 32min | 2 tasks | 9 files |
 | Phase 15 P01 | ~7min | 3 tasks (Wave 0 RED golden battery) | 5 files (3 created test + 2 modified: forbidden-strings.grep + 15-VALIDATION) |
 | Phase 15 P02 | 6 min | 2 tasks | 3 files |
+| Phase 15 P03 | ~8min | 2 tasks (data layer + RH UI, TDD) | 10 files (9 created + 1 modified consolidacaoSchema); 2 deviations (Rule 1 prose select('*') in comments, Rule 3 dropped dead v5 query onError); flips consolidacaoContract+decisaoService+RegistrarDecisaoForm GREEN (38/38); build 0, tsc 296 |
 
 ## Accumulated Context
 
@@ -288,6 +289,8 @@ Recent decisions affecting current work:
 - [Phase 15]: [15-02] EF runtime body schema uses z.string() inside .strict() (not .uuid()); UUID format lives in the shared consolidacaoSchema.ts + contract test — Wave-0 golden fixtures are non-UUID and expect 200
 - [Phase 15]: [15-02] registrar_decisao UPSERTs the current decisao_final row (ON CONFLICT candidatura_id) honoring the live UNIQUE; amendment history lives in historico_candidatura via avancar_etapa (no manual INSERT); por_usuario:=auth.uid() ALWAYS (LGPD-02)
 - [Phase 15]: [15-02] gerar_bias_snapshot writes banded aggregates ONLY into bias_audit_log.dados (EEOC 4/5, bands 18-24..55+, applicants:=has decisao_final, selected:=aprovado, server-side age via date_part, small_sample_warning <30, AGE-ONLY per LGPD-01) — no per-candidate rows
+- [Phase 15]: [15-03] src/features/decisao client built composition-first (triagemService/ProvaCognitivaScreen/ScorecardAvaliacao/EntrevistaWorkspace analogs); getConsolidacao validates the SHARED .strict() ConsolidacaoRequestSchema BEFORE invoke (contract-gap closed); all reads allowlist (never wildcard); registrar_decisao RPC is the SOLE terminal writer (client never writes candidaturas.etapa_atual — test-asserted); SugestaoIABadge on the recommendation block ONLY
+- [Phase 15]: [15-03] registrarDecisao uses minimal `as never` on supabase.rpc('registrar_decisao') because the RPC is AUTHORED-NOT-APPLIED (not in Functions type) — triagemService precedent; **15-06 must clear the cast after db:types regen**. useConsolidacao has no query-level onError (dead in TanStack Query v5 — component reads isError); useRegistrarDecisao mutation keeps onSuccess/onError+invalidate
 
 ### Pending Todos
 
@@ -322,7 +325,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-26T01:23:52.023Z
+Last session: 2026-06-26T01:38:08.906Z
 Stopped at: Completed 15-02-PLAN.md (backend authoring — 4 RPCs + consolidation EF AUTHORED-NOT-APPLIED)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
