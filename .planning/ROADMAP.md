@@ -390,7 +390,23 @@ Plans:
   1. As telas principais de RH e Candidato do M2 passam axe-core ≥90 (WCAG AA), verificado em CI.
   2. O tech-debt herdado do M1 é triado e endereçado oportunisticamente (PERF-01 cache-invalidation ≤60s, HARD-02 Lighthouse/bundle code-splitting, FOUND-08 tsc baseline burn-down, console.log RH-path) — escopo documentado mesmo onde diferido.
 
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+Plans:
+**Wave 0**
+
+- [ ] 16-01-PLAN.md — Tier-A RED axe gate (extend e2e/a11y.spec.ts + mocked-session fixture) + FX-14 RH-console grep guard + HARD-02/PERF-01/tsc-tail deferral docs
+
+**Wave 1** *(blocked on Wave 0 — 2 parallel, disjoint feature dirs)*
+
+- [ ] 16-02-PLAN.md — RH decision+bias cluster: Radix Tabs (FX-04) + RadioGroup (FX-05) + accent/weight/H1 polish (FX-01/02/03) + amber/tooltip a11y (FX-07/10) on DecisaoFinalPage/RegistrarDecisaoForm/ConsolidacaoDashboard/BiasAuditPage
+- [ ] 16-03-PLAN.md — entrevista+candidate cluster: Radix Tabs (FX-04) + candidate radiogroup nav (FX-06) + cognitive Tooltip (FX-09) + slider aria-valuetext (FX-11) + amber/eyebrow/CTA/autosave (FX-07/08/12/13)
+
+**Wave 2** *(blocked on Wave 0)*
+
+- [ ] 16-04-PLAN.md — cleanups+auth: FX-14 RH-console removal + FX-15 biasMath dead-fn (types kept) + FOUND-08 enum fixes + ci.yml baseline lower + commit/verify staged LoginRHPage race+gate fix [non-autonomous: RH-login UAT checkpoint]
+
+**Note**: NO migration this phase — the usuarios_rh RLS+grant+hook chain is already PROD-verified complete (CONTEXT fact #1); auth work is frontend-only (commit staged LoginRHPage.tsx + verify the RH-login round-trip).
+
 **UI hint**: yes
 
 ## Progress
@@ -414,7 +430,7 @@ Plans:
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 7/7 | Complete   | 2026-06-26 |
-| 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
+| 16. Compliance & A11y Hardening | v2.0 | 0/4 | Planned | - |
 
 ---
 
