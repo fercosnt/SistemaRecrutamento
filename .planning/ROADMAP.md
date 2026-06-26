@@ -362,7 +362,7 @@ Plans:
 Plans:
 **Wave 0**
 
-- [ ] 15-01-PLAN.md — RED golden battery (consolidation aggregation + EEOC 4/5 + client↔EF contract test) + forbidden-strings coverage lock
+- [x] 15-01-PLAN.md — RED golden battery (consolidation aggregation + EEOC 4/5 + client↔EF contract test) + forbidden-strings coverage lock
 
 **Wave 1** *(blocked on Wave 0)*
 
@@ -413,7 +413,7 @@ Plans:
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
-| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 0/0 | Not started | - |
+| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 1/6 | In Progress|  |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
 ---

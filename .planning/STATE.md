@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: Phase 14 gap-closure 14-07 landed (code-review blockers closed); orchestrator applies migration + redeploys EF, then phase gates resume
-stopped_at: "Completed 14-07-PLAN.md (gap-closure for code-review blockers CR-01..04 + WR-02/03/04/05/06/07 + IN-01/04). Migration 20260625000001 AUTHORED-NOT-APPLIED; EF avaliar-transcricao-entrevista needs redeploy (WR-06)."
-last_updated: "2026-06-25T03:43:48.061Z"
-last_activity: 2026-06-25 -- Phase 14 plan 14-07 complete (code-review gap closure)
+status: executing
+stopped_at: "Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)"
+last_updated: "2026-06-26T01:10:35.749Z"
+last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 9
-  total_plans: 52
-  completed_plans: 52
+  total_plans: 58
+  completed_plans: 53
   percent: 82
 ---
 
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-06)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Phase 14 — Entrevistas com IA Companion (Etapas 4+5)
+**Current focus:** Phase 15 — Decisão Final Auditável & LGPD Art. 20
 
 ## Current Position
 
-Phase: 14 (Entrevistas com IA Companion (Etapas 4+5)) — EXECUTING (6/6 plans + 14-07 gap-closure landed)
-Plan: 14-07 (gap-closure) — complete
-Status: 14-07 code-review gap closure landed; migration 20260625000001 AUTHORED-NOT-APPLIED + EF avaliar-transcricao-entrevista pending redeploy (orchestrator owns PROD apply + redeploy + types regen)
-Last activity: 2026-06-25 -- Phase 14 plan 14-07 complete (code-review gap closure: CR-01..04 + WR-02/03/04/05/06/07 + IN-01/04)
+Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-06-26
 
-## Latest Plan (14-06 — candidate cognitive prova, ENTREV-05)
+## Latest Plan (15-01 — Wave 0 RED golden battery, DECISAO-01/LGPD-03)
 
-- Candidate cognitive prova at `/candidato/prova-cognitiva/:candidaturaId` (RoleGuard role=candidato; opt-in via `vaga.aplica_cognitivo`, default false). The SJT `ScreenShell` + one CC0 item at a time + light proctoring (soft count-up timer, tab-blur/visibilitychange logging, paste-block) + irreversible submit dialog + NEUTRAL "Prova registrada." acknowledgment — the candidate NEVER sees a score/band (RNF-07a). Non-clinical product language (LGPD-04).
-- `cognitivoService`: `listItens` allowlist read EXCLUDES the answer key (no `select('*')`); `submitProva` posts ONLY raw picks to `pontuar_cognitivo` (neutral outcome, 42501→locked); `getContexto` resolves the opt-in gate. `useProctoring`: soft timer + tab-blur logging + paste-block (context only, never auto-rejects; no media-device access).
-- Verification: build exit 0; tsc 291 (≤305, zero growth); `prova-cognitiva` 12/12 GREEN; `forbidden-strings.grep` 16/16 GREEN; `playwright --list -g prova-cognitiva` lists 3 scenarios (opt-in both ways + blocked 2nd submission); 14-05 RH route intact; no `select('*')`/no gabarito/no score-band shown.
-- Commits: 0bf425d (Task 1 — service+hook+test, TDD GREEN) + 545ee82 (Task 2 — screen+route+e2e) + metadata. Hook bypass `git -c core.hooksPath=/dev/null` per project convention.
-- 2 cosmetic deviations (Rule 3 — acceptance-grep + LGPD-04 forbidden-strings comment rewording, zero behavior change) + 2 inline tsc-baseline fixes (typed onValueChange; wrapped GlassButton title). Phase 14 plan execution closed 6/6.
+- Three calibrated RED golden/contract tests authored BEFORE their implementations (Wave-0 smoke-runtime gate): (1) `consolidar-decisao-final/__tests__/index.test.ts` — RED Deno, module-not-found until the EF lands (Wave 1); asserts heterogeneous-scale normalization (triagem 80; sjt 18/25→72; redacao 20/25→80), entrevista `pendente_humano`→N/A (Open Q1: weight ONLY `status='sucesso'`), weight renormalization over PRESENT etapas (Σ effective_weight=1.0; missing redistributes, never blocks), big_five/cognitivo context rows (weight=null), NEVER re-scores, deterministic templated recommendation, + 4 authorize cases (candidato→403, non-owner rh→403, admin bypass→200, no-user→401). (2) `admin/bias-audit/__tests__/biasMath.test.ts` — RED Vitest, module-resolution until `biasMath.ts` lands (Wave 2); EEOC 4/5 selection_rate + highest-rate reference + 0.70 worked-example flag (0.35/0.50<0.80) + `bandFromAge` boundaries (18-24/25-34/35-44/45-54/55+) + small-N (<30) + null-birthdate exclusion accounting + metodo/limitacao self-description. (3) `decisao/schemas/__tests__/consolacaoContract.test.ts` — Node-local Zod `.strict()` replica GREEN (accept-valid + reject unknown-key/score/non-uuid) + `node:fs` source-probe over `../consolidacaoSchema.ts` RED until Wave 2 (closes [[feedback_integration_contract_gap]]).
+- `forbidden-strings.grep` gained ONE sanity-count `it` locking LGPD-04 coverage over the 3 new feature dirs (decisao/explicacao/admin·bias-audit); SCAN_ROOTS UNCHANGED (3 roots); forbidden-term assertion stays GREEN (17/17). 15-VALIDATION.md: nyquist_compliant + wave_0_complete flipped true; Wave 0 + Sign-Off ticked.
+- Verification: Deno consolidation RED (module-not-found); vitest biasMath RED (module-resolution); consolidacaoContract 4 GREEN + 2 source-probe RED; forbidden-strings 17/17 GREEN; tsc 296 (≤305). RED wave — failing/skipped is the intended assertion; downstream waves flip GREEN.
+- Commits: 44ef5dc (Task 1 Deno) + cf1320b (Task 2 Vitest) + e87c94d (Task 3 contract + sanity-count) + metadata. Hook bypass `git -c core.hooksPath=/dev/null` per project convention.
+- 2 deviations (both Rule 3 - blocking test-infra, zero behavior change): biasMath.test.ts relocated under `__tests__/` so the vitest include glob discovers it (sibling `*.test.ts` is never run); consolidacaoContract Part-2 uses a `node:fs` source-text probe instead of a live dynamic import (a dynamic import of an absent module fails vitest suite collection → stops Part-1 assertions; redacao-contract precedent). Requirements NOT marked complete (RED wave; close in Waves 15-02..06). Phase 15 plan execution 1/6.
 
 ## Performance Metrics
 
@@ -138,6 +138,7 @@ Last activity: 2026-06-25 -- Phase 14 plan 14-07 complete (code-review gap closu
 | Phase 14 P05 | 10min | 3 tasks | 9 files |
 | Phase 14 P06 | ~22min | 2 tasks (Task 1 TDD RED→GREEN) | 6 files (5 created + 1 modified) |
 | Phase 14 P07 | 32min | 2 tasks | 9 files |
+| Phase 15 P01 | ~7min | 3 tasks (Wave 0 RED golden battery) | 5 files (3 created test + 2 modified: forbidden-strings.grep + 15-VALIDATION) |
 
 ## Accumulated Context
 
@@ -317,7 +318,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-25T03:43:20.658Z
+Last session: 2026-06-26T01:10:35.740Z
 Stopped at: Completed 13-05-PLAN.md (RH human-review queue: service + hook + 4 components + route, AVAL-07)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
