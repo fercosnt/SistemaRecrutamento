@@ -130,15 +130,24 @@ const N8N_REVISAO_DECISAO_URL =
  * (RNF-07a / LGPD-04). Kept here (not the component) so the no-leak invariant is
  * enforced at the data layer and asserted by the service test.
  */
-function reasonForDecisao(decisao: DecisaoResultado): string {
-  // Only `rejeitado` reaches the candidate page (reachability gate). The template is a
-  // fixed, respectful, non-clinical statement — no score/band, no internal phrasing.
-  return (
+const REASON_BY_DECISAO: Record<DecisaoResultado, string> = {
+  // Only `rejeitado` reaches the candidate page (reachability gate). The templates are
+  // fixed, respectful, non-clinical statements — no numeric result, no internal phrasing.
+  rejeitado:
     'Avaliamos seu processo de forma global, considerando o conjunto das etapas e o ' +
     'alinhamento com o perfil buscado para esta vaga nesta seleção. Com base nessa ' +
     'análise, decidimos não seguir adiante neste momento. Esta decisão se refere a esta ' +
-    'vaga específica e não representa um julgamento sobre o seu valor profissional.'
-  )
+    'vaga específica e não representa um julgamento sobre o seu valor profissional.',
+  // The two states below never reach the page (the gate returns null) — present so the
+  // map is total and the keying-on-decisao design (Open Q5) is explicit.
+  aprovado:
+    'Avaliamos seu processo e seguiremos com a sua candidatura. A equipe entrará em contato.',
+  em_espera:
+    'Sua candidatura segue em análise. Avisaremos você sobre os próximos passos.',
+}
+
+function reasonForDecisao(decisao: DecisaoResultado): string {
+  return REASON_BY_DECISAO[decisao]
 }
 
 /**
