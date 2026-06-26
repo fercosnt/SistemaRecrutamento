@@ -26,6 +26,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/components/ui/utils'
 import { useComparativo } from '@/features/triagem/hooks/useComparativo'
 import {
@@ -129,85 +130,84 @@ export function DecisaoFinalPage() {
       <div className="space-y-6">
         <h1 className="text-3xl font-semibold text-white md:text-4xl">Decisão final</h1>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t.v}
-              type="button"
-              onClick={() => setTab(t.v)}
-              aria-pressed={tab === t.v}
-              className={cn(
-                'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-colors',
-                tab === t.v
-                  ? 'border-white/30 bg-white/20 text-white'
-                  : 'border-white/15 bg-white/5 text-white/60 hover:bg-white/10',
+        {/* Tabs — Radix tablist/tab/tabpanel (keyboard arrow-key roving focus). */}
+        <Tabs value={tab} onValueChange={(v: string) => setTab(v as TabValue)}>
+          <TabsList className="flex flex-wrap gap-2 h-auto w-fit bg-transparent p-0 text-white">
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t.v}
+                value={t.v}
+                className={cn(
+                  'min-h-[44px] rounded-lg border px-4 py-2 text-sm font-semibold transition-colors',
+                  'border-white/15 bg-white/5 text-white/60 hover:bg-white/10',
+                  'data-[state=active]:border-white/30 data-[state=active]:bg-white/20 data-[state=active]:text-white',
+                )}
+              >
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Dashboard — consolidated score + breakdown + recommendation */}
+          <TabsContent value="dashboard">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              {loadingVaga ? (
+                <Skeleton className="h-40 w-full bg-white/5" />
+              ) : (
+                <ConsolidacaoDashboard candidaturaId={candidaturaId} vagaId={vagaId ?? undefined} />
               )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+            </Glass>
+          </TabsContent>
 
-        {/* Dashboard — consolidated score + breakdown + recommendation */}
-        {tab === 'dashboard' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            {loadingVaga ? (
-              <Skeleton className="h-40 w-full bg-white/5" />
-            ) : (
-              <ConsolidacaoDashboard candidaturaId={candidaturaId} vagaId={vagaId ?? undefined} />
-            )}
-          </Glass>
-        ) : null}
+          {/* Comparativo — Phase-10 reuse, scoped to finalists */}
+          <TabsContent value="comparativo">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              {finalistIds.length < 2 ? (
+                <div className="space-y-2 p-12 text-center text-white/80">
+                  <p className="text-xl font-semibold text-white">
+                    Nenhum finalista para comparar ainda.
+                  </p>
+                  <p>
+                    O comparativo aparece quando houver outros candidatos em decisão final para esta
+                    vaga.
+                  </p>
+                </div>
+              ) : isPending ? (
+                <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
+                  <Loader2 className="h-8 w-8 animate-spin text-white/70" aria-hidden="true" />
+                  <p>Gerando comparativo…</p>
+                </div>
+              ) : isError ? (
+                <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
+                  <AlertTriangle className="h-8 w-8 text-red-300" aria-hidden="true" />
+                  <p>Não foi possível gerar o comparativo. Tente novamente.</p>
+                </div>
+              ) : candidates.length > 0 ? (
+                <ComparativoScreen
+                  ranking={comparativoData!.ranking}
+                  candidates={candidates}
+                  onAvancar={() => {}}
+                  onRejeitar={() => {}}
+                />
+              ) : (
+                <div className="p-12 text-center text-white/80">
+                  <p>Não foi possível gerar o comparativo. Tente novamente.</p>
+                </div>
+              )}
+            </Glass>
+          </TabsContent>
 
-        {/* Comparativo — Phase-10 reuse, scoped to finalists */}
-        {tab === 'comparativo' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            {finalistIds.length < 2 ? (
-              <div className="space-y-2 p-12 text-center text-white/80">
-                <p className="text-xl font-semibold text-white">
-                  Nenhum finalista para comparar ainda.
-                </p>
-                <p>
-                  O comparativo aparece quando houver outros candidatos em decisão final para esta
-                  vaga.
-                </p>
-              </div>
-            ) : isPending ? (
-              <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-                <Loader2 className="h-8 w-8 animate-spin text-[#35BFAD]" aria-hidden="true" />
-                <p>Gerando comparativo…</p>
-              </div>
-            ) : isError ? (
-              <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-                <AlertTriangle className="h-8 w-8 text-red-300" aria-hidden="true" />
-                <p>Não foi possível gerar o comparativo. Tente novamente.</p>
-              </div>
-            ) : candidates.length > 0 ? (
-              <ComparativoScreen
-                ranking={comparativoData!.ranking}
-                candidates={candidates}
-                onAvancar={() => {}}
-                onRejeitar={() => {}}
+          {/* Decisão — terminal capture form */}
+          <TabsContent value="decisao">
+            <Glass variant="white" blur="lg" className="rounded-xl p-6">
+              <RegistrarDecisaoForm
+                onConfirm={handleRegistrar}
+                submitting={registrar.isPending}
+                decisaoAtual={decisaoAtual ?? null}
               />
-            ) : (
-              <div className="p-12 text-center text-white/80">
-                <p>Não foi possível gerar o comparativo. Tente novamente.</p>
-              </div>
-            )}
-          </Glass>
-        ) : null}
-
-        {/* Decisão — terminal capture form */}
-        {tab === 'decisao' ? (
-          <Glass variant="white" blur="lg" className="rounded-xl p-6">
-            <RegistrarDecisaoForm
-              onConfirm={handleRegistrar}
-              submitting={registrar.isPending}
-              decisaoAtual={decisaoAtual ?? null}
-            />
-          </Glass>
-        ) : null}
+            </Glass>
+          </TabsContent>
+        </Tabs>
       </div>
     </RHLayout>
   )
