@@ -10,7 +10,22 @@ Brownfield rebuild: sistema iniciado em out/2025 via Figma Make, desenvolvido em
 
 Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir sobre candidatos num unico sistema rastreavel com scores comparaveis.
 
-## Current Milestone: v2.0 M2 — Funil RH + Avaliação por IA
+## Current State
+
+**v2.0 — M2 (Funil RH + Avaliação por IA) ✅ SHIPPED 2026-06-26.** Com o M2, o ATS agora cobre o ciclo completo de contratação: o candidato se cadastra, se candidata, faz a avaliação assíncrona e é avaliado em entrevista; o RH tria com IA, compara candidatos, revisa scorecards e toma a decisão final auditável — IA sempre como *recomendação*, nunca decisão (RNF-07a). 11 fases (6–16), 63 plans, 42/42 requirements, milestone audit **PASSED**.
+
+Entregue no M2: pipeline backbone de 6 etapas + RLS 100% (P6); config de vaga + tags por cargo (P7); inscrição LGPD-clean + knockouts objetivos auditáveis (P8); AI Prompt Library versionada + cost infra + cost-alerter (P9); triagem com IA `score_match` + comparativo + export PDF (P10); avaliação assíncrona — Work-Sample/SJT determinístico + Big Five anti-tampering com devolutiva D-lite + redação cultural com **revisão humana obrigatória** (P11–13); entrevistas com IA companion (guias STAR/PEI + análise de transcrição) + cognitivo CC0 opt-in marcado CONTEXTUAL (P14); decisão final com justificativa obrigatória (`por_usuario` NOT NULL) + explicação LGPD Art. 20 + bias audit EEOC 4/5 (P15); WCAG-AA + fechamento de tech-debt do M1 (P16).
+
+**Codebase atual:** ~67.4k LoC (src). 584/584 vitest, build 0, axe-core Tier-A 15/15 (WCAG AA) em CI. Baseline tsc ~290 (husky pre-commit via `core.hooksPath=/dev/null`, deviation documentada).
+
+**Tech-debt carregado p/ próximo milestone:** HARD-02 bundle code-splitting (661 KiB monolítico), PERF-01 cache-invalidation ≤60s, FOUND-08 tail estrutural do baseline tsc, CC0 cognitive item-bank real seed (pontuar_cognitivo tem empty-bank guard).
+
+**Itens deferidos (não-bloqueantes):** 5 HUMAN-UAT round-trips ao vivo (precisam de dados/contas reais em PROD) + 4 WARNINGs advisory do audit (bigfive_devolutiva prompt não-seeded → fallback in-EF; dois `select('*')` allowlist-discipline sem leak ativo; consolidar-decisao-final mostra Big-Five/cognitivo só como contexto).
+
+**Próximo milestone:** a definir via `/gsd-new-milestone` (requirements frescos). Candidatos: MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo (ver Future Requirements no archive `milestones/v2.0-REQUIREMENTS.md`).
+
+<details>
+<summary>Histórico — escopo & contexto do M2 (congelado no kickoff 2026-06-07)</summary>
 
 **Goal:** Entregar o lado RH do ATS — funil de contratação de 6 etapas com avaliação assistida por IA (recomendação, nunca decisão automática), scorecards estruturados via BARS e trilha de auditoria LGPD-compliant — partindo do handoff do M1 (`etapa_atual='triagem'`).
 
@@ -22,7 +37,9 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 - **AI Prompt Library** — 7 prompts versionados (system + user + Zod schema), logging estruturado de custo/tokens + cost-alerter EF (híbrido git→DB versioning)
 - **LGPD / Bias compliance** — form Etapa 1 LGPD-clean, `bias_audit_log` mensal, zero auto-rejeição por trait (RNF-07a)
 
-**Key context:** Design congelado em `docs/prds/m2-funil-rh/PRD-MASTER-funil-rh-m2.md` (v1.1) + 5 mini-PRDs + knowledge base RAG em `docs/conhecimento/`. Pipeline reorganizado de 8→6 etapas (Modelo B); Work Sample/SJT é o núcleo eliminatório; Big Five degradado a contextual; Raven + ICAR60 descartados (prova de raciocínio CC0 os substitui); cultura vira dimensão da redação. Numeração de fases continua do M1 → M2 começa na **Phase 6**. Tech-debt herdado do M1 a endereçar: PERF-01 cache-invalidation, HARD-02 Lighthouse/bundle, FOUND-08 burn-down do baseline tsc.
+**Key context:** Design congelado em `docs/prds/m2-funil-rh/PRD-MASTER-funil-rh-m2.md` (v1.1) + 5 mini-PRDs + knowledge base RAG em `docs/conhecimento/`. Pipeline reorganizado de 8→6 etapas (Modelo B); Work Sample/SJT é o núcleo eliminatório; Big Five degradado a contextual; Raven + ICAR60 descartados (prova de raciocínio CC0 os substitui); cultura vira dimensão da redação. Numeração de fases continua do M1 → M2 começa na **Phase 6**.
+
+</details>
 
 ## Requirements
 
@@ -30,6 +47,7 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 
 <!-- Existente e funcional no codebase atual (pre-rebuild ou validated em fases concluidas) -->
 
+- ✓ **M2 — Funil RH + Avaliação por IA (Fases 6–15 core)** — v2.0 SHIPPED 2026-06-26, audit PASSED 42/42. Pipeline de 6 etapas auditável + RLS 100% + guardrail zero-auto-rejeição (P6: FUNIL-01..04, LGPD-02); config de vaga por cargo + pesos sliders + tag wizard (P7: VAGACFG-01..03); AI Prompt Library 7-prompts híbrido git→DB + logging custo/tokens + caching + cost-alerter + lint LGPD-04 (P9: IA-01..04, LGPD-04); triagem IA `score_match` + comparativo até 10 + export PDF (P10: TRIAGEM-01..04); Work-Sample/SJT determinístico 4/2/1/0 + open-case BARS (P11: AVAL-01/02/03/09); Big Five IPIP-NEO-120 PT-BR anti-tampering server-side + devolutiva D-lite híbrida (P12: AVAL-04, AVAL-08); redação cultural 4-dim BARS 3-cores + revisão humana obrigatória (P13: AVAL-05/06/07); entrevistas com IA companion STAR/PEI + análise de transcrição + cognitivo CC0 opt-in CONTEXTUAL (P14: ENTREV-01..05); decisão final consolidada + justificativa NOT NULL + explicação LGPD Art. 20 + bias audit EEOC 4/5 (P15: DECISAO-01..04, LGPD-03). Invariante: IA é recomendação, humano decide (RNF-07a). Requirements: FUNIL-01..04, VAGACFG-01..03, IA-01..04, TRIAGEM-01..04, AVAL-01..09, ENTREV-01..05, DECISAO-01..04, LGPD-02/03/04 ✓ (AVAL-03 audit-BLOCKER resolvido pós-audit — EF `avaliar-redacao` redeploy v6, commit 39a164e). Detalhe completo em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`.
 - ✓ **Compliance & A11y Hardening** — v2.0 / Phase 16 completa (FINAL phase do milestone M2): todo o lado RH + candidato do M2 passa WCAG AA. **LGPD-05**: axe-core Tier-A GREEN **15/15** (zero serious/critical) sobre as telas principais M2, enforced em CI (`e2e/a11y.spec.ts` loop incondicional; R5/C5 Tier-B `E2E_REAL_LOGIN` por design — axe sub-testa telas live pesadas). Fixes: hand-rolled tabs/radiogroups → Radix vendored (Tabs/RadioGroup/Tooltip), contrast bumps (amber-on-translucent + low-alpha eyebrows AA), slider `aria-valuetext`, tooltip triggers keyboard-focusable, RHSidebar icon-button accessible-name. Tech-debt M1 triado: FX-14 console.* removido do RH-path (grep guard GREEN 4/4), FX-15 dead biasMath runtime fns removidas com type exports preservados, **RHSidebar WR-01 bug corrigido** (`setIsMobileOpen`→`setInternalMobileOpen`, mobile menu voltou a abrir) → tsc **291→290**, ci.yml gate apertado p/ 290. Deferidos + documentados: HARD-02 bundle code-split, PERF-01 cache, FOUND-08 structural tsc tail (enum renames provaram load-bearing → revertidos + map-realignment diferido). LoginRHPage race+gate fix commitado (poll 100ms→3s cold-DB usuarios_rh + gate {rh,administrador}); NO migration (auth-hook RLS chain já PROD-verified). Validated 2026-06-26 via 16-VERIFICATION human_needed 10/10 must-haves (4 itens live deferidos em 16-HUMAN-UAT.md: RH cold-start login round-trip, Tier-B R5/C5 axe sweep, keyboard roving-focus AB-5/6, BigFive aria-live AB-8) + 16-REVIEW 0 Critical/2 Warning (WR-01 fixed, WR-02 Deno-runner deferido). vitest 584/584, build 0, tsc 290. Requirements: LGPD-05 ✓
 - ✓ **Inscrição & Knock-out (Etapa 1)** — v2.0 / Phase 8 completa: form `/cadastro` LGPD-clean (CPF + gênero fora da coleta, dedup email-only D-03, Zod `.strict()` fail-closed D-04), qualificação Etapa-1 por cargo + knockouts objetivos seeded (D-14), publish gate ≤10/≤1-aberta cliente **e servidor** (D-09). DB-core ao vivo em PROD (migration `20260608000001` via MCP): colunas novas + sweep de knockout server-authoritative dentro de `submit_candidatura_atomic` (auto-rejeição síncrona + 1 linha de auditoria, **nenhum trait/score/idade** participa — RNF-07a), `publish_vaga` deriva `qualificacao_etapa1`. SMOKE-1..4 PASS (2 bugs pegos pelos smokes e corrigidos: survivor double-write + enum `publish_vaga`). Resultado candidato: mensagem neutra D-15 inline + `feedback_rejeicao` em `/perfil` + dashboard (critério nunca exposto). Validated 2026-06-08 via 08-VERIFICATION 4/4 must-haves (human_needed p/ EF redeploy + checks visuais/E2E, rastreados em 08-HUMAN-UAT.md) + **08-SECURITY 16/16 threats closed, threats_open:0** (o gate de segurança pegou e corrigiu um vazamento LGPD HIGH: `listCandidaturas` `select('*')` transmitia `opcao_knockout_id`/`motivo_rejeicao` ao candidato — agora allowlist fail-closed + regression guard). vitest 419/419, lint 293 (↓ de 301), build 0. Requirements: INSCR-01, INSCR-02, INSCR-03, INSCR-04, LGPD-01 ✓
 - ✓ **Perfil + Hardening MVP end-to-end** — v1.0 / Phase 5 completa: `/candidato/perfil` com dados reais (candidaturas via live DB, sem mock), sistema de tokens semânticos reparado na fonte (HSL channel triplets), ErrorBoundary no root do App, **primeira pipeline CI (unit + e2e + lighthouse) GREEN em run real** (GitHub Actions 27076233734), a11y axe-core **zero violações WCAG A/AA** nas 5 rotas públicas, Lighthouse mobile Accessibility 0.96–1.00, recuperação de senha migrada PKCE→email-OTP (fecha a limitação cross-browser do AUTH-04), e 2 migrations de data-hygiene (vaga soft-deleted não fica `status='ativa'` + reconcile `bloco_valido_check`). Validated 2026-06-06 via 05-VERIFICATION 8/8 + HUMAN-UAT passed + audit v1.0 PASSED. Requirements: PERF-01, PERF-02, HARD-01..HARD-06 ✓ (HARD-02 Performance warn-baseline aceito; PERF-01 com tech-debt de cache-invalidation ≤60s)
@@ -54,12 +72,12 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 
 ### Active
 
-<!-- M1 (Fases 1-5, MVP Candidato) shipped 2026-06-06 — todos os 38 requirements movidos para Validated. -->
-<!-- M2 (Funil RH + Avaliação por IA) ainda não tem requirements formais — serão definidos via /gsd-new-milestone consumindo PRD-MASTER v1.1 + 5 mini-PRDs. -->
+<!-- M1 (Fases 1-5) shipped v1.0 2026-06-06 — 38 requirements em Validated. -->
+<!-- M2 (Fases 6-16) shipped v2.0 2026-06-26 — 42 requirements em Validated (ver Validated acima + summary do M2 + archive milestones/v2.0-REQUIREMENTS.md). -->
 
-**M1 (MVP Candidato) — ✅ SHIPPED v1.0 2026-06-06.** Todos os requirements (FOUND, CAD, AUTH, VAGA, PERF, HARD — 38 total) validados; ver Validated acima e `.planning/milestones/v1.0-*`.
+**Nenhum milestone ativo.** M1 (v1.0) e M2 (v2.0) ambos shipped. O próximo milestone (requirements frescos) é iniciado via `/gsd-new-milestone`.
 
-**M2 (Funil RH + Avaliação por IA) — próximo milestone.** Design congelado (PRD-MASTER v1.1 + 5 mini-PRDs: Big Five, Redação fit-cultural, AI Prompt Library, Cognitivo/raciocínio, SJT por cargo). Requirements formais a definir via `/gsd-new-milestone`. Tech-debt herdado do M1 a endereçar no M2: PERF-01 cache-invalidation (≤60s), HARD-02 Lighthouse Performance (bundle 661 KiB), FOUND-08 burn-down do baseline 292-erros tsc, remover console.log debug RH-path.
+**Tech-debt aberto p/ o próximo milestone:** HARD-02 bundle code-splitting (661 KiB monolítico), PERF-01 cache-invalidation ≤60s, FOUND-08 tail estrutural do baseline tsc, CC0 cognitive item-bank real seed. Candidatos de feature em Future Requirements: MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo, carta de devolução por IA.
 
 ### Out of Scope
 
@@ -137,6 +155,13 @@ Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
 | Primeira CI pipeline (unit+e2e+lighthouse) como gate de HARD-01 | "E2E 100%" exige um green check real, não um runbook local; a primeira run live surfou gaps genuínos (GAP-05-CI-1..5) fechados no 05-07 | ✓ Shipped (Phase 5) |
 | Lighthouse Performance = warn-baseline (não error gate) | D-06 measure-first: Performance medida 0.62–0.68 (bundle 661 KiB monolítico); remédio real (code-splitting) é trabalho dedicado pós-M1; Accessibility fica como error-gate >= 0.8 | ✓ Shipped (Phase 5) — revisitar no M2 |
 | a11y contrast fix na fonte (`BackgroundImage` solid dark layer) | axe não computa contraste contra background-image e cai pro body claro (falso white-on-light); 1 fix no primitivo compartilhado cascateia pra todas as rotas glass | ✓ Shipped (Phase 5) |
+| `scores_candidato` como sink genérico com enum `tipo_score` forward-declarado | Forward-declara sjt/big_five/redacao/entrevista/cognitivo/decisao p/ P12-15 sem `ALTER TYPE` recorrente | ✓ Shipped (Phase 11) |
+| Answer-keys em `*_metadata`/`pergunta_opcao_sjt` com candidato-DENY RLS; opções via RPC SECURITY DEFINER | RLS é row-level, não column-level — `select('*')` vazaria gabarito; candidato lê id+texto-only randomizado | ✓ Shipped (Phases 8/11) |
+| Versionamento de prompts híbrido git→DB (git = verdade, DB = runtime) com UPSERT idempotente por content-hash | Permite canary/rollback runtime + audit em git sem filename-suffix `-vN` | ✓ Shipped (Phase 9) |
+| EFs privilegiadas: two-client + autorizar DEPOIS de autenticar | EF que lê via service_role bypassa RLS; só getUser() não basta — checar role + posse senão IDOR/PII | ✓ Shipped (pego como CRITICAL na Phase 10) |
+| Migrations PROD via Supabase MCP `apply_migration`/`execute_sql` | Bypassa o 42601 (prepared-statement) em corpos PL/pgSQL `$$`; grava version row sozinho; no-BEGIN/COMMIT-wrapper authoring | ✓ Shipped (Phases 6–15) |
+| Imports `npm:` ESTÁTICOS em toda EF de IA (nunca `await import([...].join(""))`) | O bundler de deploy do Supabase não resolve o pacote concatenado → ERR_MODULE_NOT_FOUND em runtime (AVAL-03 BLOCKER) | ✓ Shipped (fix v6 pós-audit, commit 39a164e) |
+| Revisão humana SEMPRE obrigatória pós-IA na redação (todo essay → `pendente_humano`); zero auto-rejeição por score | RNF-07a / LGPD-02 — IA é recomendação; `decisao_final` sempre `por_usuario IS NOT NULL` (DB constraint) | ✓ Shipped (Phases 6/13/15) |
 
 ## Evolution
 
@@ -156,4 +181,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-26 — Phase 16 (Compliance & A11y Hardening) complete — FINAL phase of milestone v2.0 (M2). LGPD-05 validated: axe-core Tier-A GREEN 15/15 (zero serious/critical, WCAG AA) enforced in CI; M1 tech-debt triaged (FX-14 console removed, FX-15 biasMath dead-fn removed w/ types kept, RHSidebar WR-01 bug fixed → tsc 291→290, ci.yml gate tightened) + deferred items documented (HARD-02 bundle, PERF-01 cache, FOUND-08 structural tsc tail). Verifier human_needed 10/10 must-haves (4 deferred live items in 16-HUMAN-UAT.md). All 11 M2 phases (6–16) complete — ready for milestone v2.0 lifecycle (audit → complete → cleanup).*
+*Last updated: 2026-06-26 after v2.0 (M2 — Funil RH + Avaliação por IA) milestone — SHIPPED. 11 fases (6–16), 63 plans, 42/42 requirements, audit PASSED (AVAL-03 BLOCKER resolvido pós-audit — EF redeploy v6, commit 39a164e). Roadmap + requirements arquivados em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`. Full PROJECT.md evolution review feita: Current State + Active + Key Decisions (8 decisões M2 adicionadas) + footer atualizados; escopo M2 do kickoff arquivado em `<details>`. Próximo: `/gsd-new-milestone`.*

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: verifying
-stopped_at: Milestone complete (Phase 16 was final phase)
-last_updated: "2026-06-26T05:30:00.000Z"
+status: archived
+stopped_at: "Milestone v2.0 (M2) COMPLETE + ARCHIVED 2026-06-26 — roadmap + requirements archived to milestones/v2.0-*; ROADMAP.md collapsed; REQUIREMENTS.md removed (fresh one at next /gsd-new-milestone); PROJECT.md evolution review done; MILESTONES.md v2.0 entry added; tag v2.0 created LOCALLY (not pushed). Next: /gsd-new-milestone."
+last_updated: "2026-06-26T23:00:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
@@ -18,19 +18,19 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-06)
+See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 
-**Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao
-**Current focus:** Milestone complete
+**Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
+**Current focus:** Nenhum milestone ativo — M1 (v1.0) + M2 (v2.0) ambos shipped. Próximo = `/gsd-new-milestone` (requirements frescos).
 
 ## Current Position
 
-Phase: ALL COMPLETE — milestone v2.0 (M2) phases 6-16 all closed. Phase 16 closed 2026-06-26.
-Plan: — (no active phase)
-Status: 11/11 phases complete. NEXT = milestone v2.0 lifecycle: audit -> complete -> cleanup. 5 HUMAN-UAT docs deferred across the milestone (all non-blocking, need real PROD data/accounts).
+Phase: ALL COMPLETE — milestone v2.0 (M2) phases 6-16 closed; milestone ARCHIVED 2026-06-26.
+Plan: — (no active phase / no active milestone)
+Status: v2.0 (M2) shipped + archived. Roadmap + requirements in `milestones/v2.0-*`; ROADMAP.md collapsed to milestone summaries; REQUIREMENTS.md removed (fresh at next milestone); tag `v2.0` local-only (not pushed). 5 HUMAN-UAT docs + 4 advisory WARNINGs deferred across the milestone (all non-blocking, documented in v2.0-MILESTONE-AUDIT.md). NEXT = `/gsd-new-milestone`.
 Last activity: 2026-06-26
 
-See frontmatter `stopped_at` for the Phase-16 outcome + deviations + the deferred-UAT inventory.
+See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) NOT done here — handled separately by the orchestrator via `/gsd:cleanup`.
 
 PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
 
