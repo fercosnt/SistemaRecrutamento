@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: verifying
-stopped_at: "PAUSED BY USER 2026-06-26 (autonomous run --from 14, clean boundary for /clear). Phases 14 ✅ + 15 code-complete (all 7 plans + 15-07 gap-closure SHIPPED, PROD-live except WR-03). RESUME: /clear then /gsd-autonomous --from 15 — fresh context MUST do, IN ORDER: (1) APPLY WR-03 migration `supabase/migrations/20260625100002_decisao_final_rh_vaga_scope.sql` to PROD via Supabase MCP apply_migration (name decisao_final_rh_vaga_scope; no BEGIN/COMMIT wrapper) — it DROP+CREATEs rh_le_decisao_final vaga-scoped (admin bypass), mirrors the verified Phase-14 WR-04 fix; then smoke: rh_le_decisao_final qual contains created_by, candidato_le_propria_decisao + decisao_final_no_client_insert untouched. NO db:types needed (RLS-only). (2) Commit nothing new for the apply (migration file already committed bf20b6b). (3) Phase 15 verification (gsd-verifier — all 7 plans done, reqs DECISAO-01..04+LGPD-03; treat the consolidar-decisao-final + essay-schemas Deno-under-vitest suite-load failures as pre-existing NON-regressions; CC0 cognitive seed + RH-login auth-hook gap are known deferrals). (4) Phase 15 UI review (gsd-ui-review 15 — has UI-SPEC). (5) write 15-HUMAN-UAT.md for deferred live items (LGPD Art.20 round-trip + bias snapshot over real pop). (6) Phase 16 full cycle. (7) milestone lifecycle audit→complete→cleanup. Phase 14 left 14-HUMAN-UAT.md deferred (4 items, blocked on auth-hook + CC0)."
-last_updated: "2026-06-26T03:06:24.105Z"
+status: in_progress
+stopped_at: "PHASE 15 CLOSED 2026-06-26 (autonomous resume after /clear). WR-03 RLS migration APPLIED to PROD via MCP apply_migration (rh_le_decisao_final now vaga-ownership-scoped: administrador bypass + rh scoped via candidaturas.vaga_id->vagas.created_by; candidato own-row + INSERT-block policies untouched; smoke PASS). Phase 15 verifier status=human_needed, 5/5 must-haves verified, NO real gaps (600/600 vitest, build 0, tsc 291 flat, LGPD-04 17/17; the 2 failing vitest *suites* are the known Deno-under-vitest collection load failures, non-regressions). UI review 21/24 ship-ready, 0 BLOCK. 15-HUMAN-UAT.md written (2 deferred live round-trips: LGPD Art.20 over a real rejeitado candidatura + N8N webhook delivery; bias snapshot+CSV over a real decided population — both non-blocking, need real PROD data). NEXT (--from 16): Phase 16 (Compliance & A11y Hardening — req LGPD-05, axe-core>=90 WCAG AA + M1 tech-debt) FULL cycle discuss->ui->plan->execute->code-review->verify->ui-review, THEN milestone v2.0 lifecycle audit->complete->cleanup. CARRY INTO PHASE 16: (a) 3 Phase-15 UI polish one-liners [DecisaoFinalPage.tsx:178 text-[#35BFAD]->text-white/70; ConsolidacaoDashboard.tsx:58 font-medium->font-semibold; BiasAuditPage.tsx:87 text-[28px]->text-3xl md:text-4xl]; (b) 5 Phase-15 a11y items [ARIA tablist, custom-radio keyboard nav, amber-on-translucent AA contrast, text-white/50-60 micro-label contrast, tooltip/cursor-help keyboard reach] + the Phase-14 a11y carry-in batch (same patterns); (c) dead Agendar CTA + autosave-copy-mismatch + WR-02 biasMath dead-mirror (consider delete); (d) M1 tech-debt PERF-01 (cache-invalidation <=60s), HARD-02 (bundle 661KiB monolithic -> code-splitting), FOUND-08 (tsc baseline 291 burn-down + husky hook bypassed via core.hooksPath=/dev/null), console.log in RH-path; (e) the UNMIGRATED auth-hook RLS gap that breaks RH login (custom_access_token_hook missing supabase_auth_admin SELECT on usuarios_rh -> all RH login JWTs degrade to candidato; see reference_auth_hook_rls_gap) — high-value, decide whether Phase 16 fixes it. MIGRATION DRIFT (defer/handle in P16): MCP apply_migration records its own timestamp version, not the filename version 20260625100002, so supabase db push --linked may report version-not-found drift (same as Phase 11). PRE-EXISTING UNCOMMITTED (NOT autonomous-run work, leave alone): src/components/pages/LoginRHPage.tsx, .planning/phases/11-*/11-HUMAN-UAT.md, .planning/ui-reviews/ (gitignore-candidate binary screenshots)."
+last_updated: "2026-06-26T04:00:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
@@ -25,16 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 15 (Decisão Final Auditável & LGPD Art. 20) — code-complete, PAUSED for /clear
-Plan: 7 of 7 (15-01..15-06 + 15-07 gap-closure WR-01..05) all SHIPPED
-Status: PROD-live (migration 20260625100001 + EF consolidar-decisao-final JWT-on + 4 RPCs + 3 routes), EXCEPT the WR-03 RLS migration. Phase 15 verification NOT yet run.
+Phase: 16 (Compliance & A11y Hardening) — NOT STARTED (next). Phase 15 CLOSED 2026-06-26.
+Plan: — (Phase 16 not yet planned)
+Status: Milestone v2.0 — 10/11 phases complete (6–15). Phase 15 verified (human_needed, 5/5 must-haves, 2 live UAT items deferred to 15-HUMAN-UAT.md); WR-03 RLS applied to PROD + smoked; UI 21/24 ship-ready. Only Phase 16 remains before milestone lifecycle (audit → complete → cleanup).
 Last activity: 2026-06-26
 
-⚠️ RESUME RUNBOOK (after /clear → /gsd-autonomous --from 15) — do in order:
-  1. APPLY WR-03: `supabase/migrations/20260625100002_decisao_final_rh_vaga_scope.sql` to PROD via Supabase MCP `apply_migration` (verified-safe: DROP+CREATE rh_le_decisao_final vaga-scoped, admin bypass; candidate/INSERT-block policies untouched). Smoke: the policy qual now contains `created_by`.
-  2. Phase 15 verification (gsd-verifier) → 3. Phase 15 UI review (gsd-ui-review) → 4. write 15-HUMAN-UAT.md (deferred live items).
-  5. Phase 16 (Compliance & A11y Hardening — full discuss→ui→plan→execute→review→verify). Carry in: Phase-14 UI-REVIEW (19/24, 5 a11y notes routed to P16: ARIA tablist, native title tooltip, text-white/50-60 contrast, amber-on-translucent AA, slider aria-valuetext) + the dead "Agendar" CTA + autosave-copy-mismatch + WR-02 biasMath dead-mirror (consider delete) + the M1 tech-debt + the unmigrated auth-hook RLS gap (breaks RH login — see [[reference_auth_hook_rls_gap]]).
-  6. Milestone v2.0 lifecycle: audit → complete → cleanup.
+See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
 
 PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/components/pages/LoginRHPage.tsx` (auth-hook race fix, part of the unmigrated gap), `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
 
