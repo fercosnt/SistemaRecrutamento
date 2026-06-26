@@ -399,7 +399,7 @@ Plans:
 **Wave 1** *(blocked on Wave 0 — 2 parallel, disjoint feature dirs)*
 
 - [x] 16-02-PLAN.md — RH decision+bias cluster: Radix Tabs (FX-04) + RadioGroup (FX-05) + accent/weight/H1 polish (FX-01/02/03) + amber/tooltip a11y (FX-07/10) on DecisaoFinalPage/RegistrarDecisaoForm/ConsolidacaoDashboard/BiasAuditPage
-- [ ] 16-03-PLAN.md — entrevista+candidate cluster: Radix Tabs (FX-04) + candidate radiogroup nav (FX-06) + cognitive Tooltip (FX-09) + slider aria-valuetext (FX-11) + amber/eyebrow/CTA/autosave (FX-07/08/12/13)
+- [x] 16-03-PLAN.md — entrevista+candidate cluster: Radix Tabs (FX-04) + candidate radiogroup nav (FX-06) + cognitive Tooltip (FX-09) + slider aria-valuetext (FX-11) + amber/eyebrow/CTA/autosave (FX-07/08/12/13)
 
 **Wave 2** *(blocked on Wave 0)*
 
@@ -430,7 +430,7 @@ Plans:
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 7/7 | Complete   | 2026-06-26 |
-| 16. Compliance & A11y Hardening | v2.0 | 2/4 | In Progress|  |
+| 16. Compliance & A11y Hardening | v2.0 | 3/4 | In Progress|  |
 
 ---
 

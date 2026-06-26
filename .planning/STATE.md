@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: "Completed 16-02-PLAN.md (R7 DecisaoFinalPage→Radix Tabs+RadioGroup FX-01/02/05/07; R8 BiasAuditPage H1/amber/cursor-help FX-03/07/10; +Rule-2 RHSidebar button-name shared-shell fix → Tier-A axe GREEN for R7+R8, zero serious/critical; build 0, tsc 291=291). LGPD-05 partial."
-last_updated: "2026-06-26T13:14:09.747Z"
+stopped_at: "Completed 16-03-PLAN.md (R6 EntrevistaWorkspace→Radix Tabs FX-04; amber 24h pill + eyebrows AA FX-07/08; dead Agendar CTA disabled+tooltip FX-12; C8 ProvaCognitiva native title=→Radix Tooltip FX-09 + softened autosave copy FX-13; BARS sliders aria-valuetext FX-11; Task-2 FX-06 candidate radiogroups verify-only — already Radix since Phase 11/12 → Tier-A axe GREEN 15/15 incl R6/C3/C8, zero serious/critical; build 0, tsc 291=291). Only 16-04 remains (LoginRHPage race fix + auth-hook RLS migration + FX-14 console cleanup)."
+last_updated: "2026-06-26T13:28:32.217Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
   completed_phases: 10
   total_plans: 63
-  completed_plans: 61
-  percent: 92
+  completed_plans: 62
+  percent: 98
 ---
 
 # Project State
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 ## Current Position
 
 Phase: 16 (compliance-a11y-hardening) — EXECUTING
-Plan: 3 of 4
-Status: Ready to execute (16-02 complete — R7+R8 Tier-A axe GREEN)
+Plan: 4 of 4
+Status: Ready to execute
 Last activity: 2026-06-26
 
 See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
@@ -311,6 +311,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 16-02: Tier-A GREEN flip can be gated by a SHARED RHLayout/RHSidebar defect even when in-scope component edits are clean — scan the whole rendered shell (RHSidebar button-name Rule-2 fix unblocked R7+R8)
 - [Phase ?]: 16-02: Radix RadioGroup kept controlled via value={decisao ?? ''}; decisão options are Label htmlFor cards wrapping RadioGroupItem to preserve glass card + min-h-[44px]
 - [Phase ?]: 16-02: FX-07 amber AA fixed by raising lightness (amber-300→200, amber-200→100) NOT changing semantic; FX-10 cursor-help span→real <button> for Radix aria-describedby on focus
+- [Phase 16]: 16-03: EntrevistaWorkspace custom aria-pressed tabs → Radix Tabs (FX-04); amber 24h pill + text-white/50-60 eyebrows raised to AA at #00109E glass composite (FX-07/08, amber-300→100 + tint bumps, semantic unchanged); dead Agendar CTA disabled + Radix-tooltip-named on a focusable span (FX-12)
+- [Phase 16]: 16-03: ProvaCognitivaScreen native title= submit hint → Radix Tooltip (FX-09); FX-13 softened-copy branch chosen — the prova has NO autosave (picks post only at submit), so intro no longer promises persistence; BARS sliders (EntrevistaScorecardInline + RedacaoOverrideForm) got aria-valuetext '{n} de 5' (FX-11)
+- [Phase 16]: 16-03: Task 2 (FX-06 candidate radiogroups) was VERIFY-ONLY — SjtMultiplaEscolha (Phase 11 6d658f7) + BigFive (Phase 12 b2579ab) already use Radix RadioGroup with Label htmlFor + min-h-[44px]; no hand-roll, no score/band leaked. Tier-A axe GREEN 15/15 incl R6/C3/C8 (LGPD-05); FX-11 redacao slider lives in RedacaoOverrideForm not RedacaoReviewPanel (Rule-3 reference fix). build 0, tsc 291=291
 
 ### Pending Todos
 
@@ -345,7 +348,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-26T12:39:04.592Z
+Last session: 2026-06-26T13:28:15.888Z
 Stopped at: Completed 16-01-PLAN.md (Wave-0 RED gates: Tier-A axe loop + FX-14 grep guard + 3 backlog docs; LGPD-05 calibrated RED, flips GREEN in later FX waves)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
