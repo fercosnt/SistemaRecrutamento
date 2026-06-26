@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: milestone_complete
+status: verifying
 stopped_at: Milestone complete (Phase 16 was final phase)
-last_updated: 2026-06-26T13:57:43.127Z
+last_updated: "2026-06-26T05:30:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
@@ -25,14 +25,14 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 ## Current Position
 
-Phase: 16
-Plan: Not started
-Status: Milestone complete
+Phase: ALL COMPLETE — milestone v2.0 (M2) phases 6-16 all closed. Phase 16 closed 2026-06-26.
+Plan: — (no active phase)
+Status: 11/11 phases complete. NEXT = milestone v2.0 lifecycle: audit -> complete -> cleanup. 5 HUMAN-UAT docs deferred across the milestone (all non-blocking, need real PROD data/accounts).
 Last activity: 2026-06-26
 
-See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
+See frontmatter `stopped_at` for the Phase-16 outcome + deviations + the deferred-UAT inventory.
 
-PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/components/pages/LoginRHPage.tsx` (auth-hook race fix, part of the unmigrated gap), `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
+PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
 
 ## Latest Plan (15-01 — Wave 0 RED golden battery, DECISAO-01/LGPD-03)
 
