@@ -366,7 +366,7 @@ Plans:
 
 **Wave 1** *(blocked on Wave 0)*
 
-- [ ] 15-02-PLAN.md — backend authoring: migration (4 SECURITY DEFINER RPCs: registrar_decisao + 2 candidate own-row + gerar_bias_snapshot) + deterministic consolidar-decisao-final EF [no-wrapper; PROD apply deferred to 15-06]
+- [x] 15-02-PLAN.md — backend authoring: migration (4 SECURITY DEFINER RPCs: registrar_decisao + 2 candidate own-row + gerar_bias_snapshot) + deterministic consolidar-decisao-final EF [no-wrapper; PROD apply deferred to 15-06]
 
 **Wave 2** *(blocked on Wave 1 — 3 parallel, disjoint feature dirs)*
 
@@ -413,7 +413,7 @@ Plans:
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
-| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 1/6 | In Progress|  |
+| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 2/6 | In Progress|  |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
 ---
