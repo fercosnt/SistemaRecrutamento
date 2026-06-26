@@ -358,7 +358,26 @@ Plans:
   4. O candidato rejeitado acessa `/candidato/explicacao/:id`, vê motivo + score, e "Solicitar revisão por pessoa natural" abre ticket interno + notifica RH.
   5. `bias_audit_log` registra snapshot mensal de selection rate por raça/gênero/idade (regra 4/5 EEOC) com export CSV manual.
 
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+Plans:
+**Wave 0**
+
+- [ ] 15-01-PLAN.md — RED golden battery (consolidation aggregation + EEOC 4/5 + client↔EF contract test) + forbidden-strings coverage lock
+
+**Wave 1** *(blocked on Wave 0)*
+
+- [ ] 15-02-PLAN.md — backend authoring: migration (4 SECURITY DEFINER RPCs: registrar_decisao + 2 candidate own-row + gerar_bias_snapshot) + deterministic consolidar-decisao-final EF [no-wrapper; PROD apply deferred to 15-06]
+
+**Wave 2** *(blocked on Wave 1 — 3 parallel, disjoint feature dirs)*
+
+- [ ] 15-03-PLAN.md — RH decision surface: src/features/decisao (consolidacaoSchema + decisaoService + hooks + ConsolidacaoDashboard + RegistrarDecisaoForm + DecisaoFinalPage; Comparativo reuse)
+- [ ] 15-04-PLAN.md — candidate LGPD Art. 20: src/features/explicacao (own-row allowlist service + ExplicacaoCandidatoPage + SolicitarRevisaoCTA; reachability-gated)
+- [ ] 15-05-PLAN.md — admin bias-audit: src/features/admin/bias-audit (biasMath EEOC 4/5 + biasAuditService + BiasAuditPage; honest AGE-only banner + CSV)
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 15-06-PLAN.md — [BLOCKING] apply migration to PROD via MCP + deploy consolidar-decisao-final EF JWT-on + db:types + wire 3 routes + 6 SQL smokes [non-autonomous]
+
 **UI hint**: yes
 
 ### Phase 16: Compliance & A11y Hardening

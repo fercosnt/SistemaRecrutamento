@@ -491,7 +491,15 @@ fetch(url!, { method:'POST', headers:{'Content-Type':'application/json'},
 | A5 | The revision notification uses a NEW distinct N8N webhook path/env, not the `nova-candidatura` one | Runtime State Inventory | Reusing the candidatura webhook would mis-route the event; low risk, easy to set. |
 | A6 | Recommended age bands 18–24/25–34/35–44/45–54/55+ | EEOC 4/5 | Band boundaries affect which bands flag; Claude's discretion per CONTEXT, self-described in `dados`. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All 6 questions resolved per the recommendations below — adopted by the Phase-15 plans:
+> Q1 RESOLVED: weight ONLY status='sucesso'; entrevista pendente_humano → N/A (Plan 02 EF).
+> Q2 RESOLVED: option (a) — UPSERT current row via ON CONFLICT(candidatura_id), history in historico_candidatura (Plan 02 registrar_decisao).
+> Q3 RESOLVED: two SECURITY DEFINER own-row RPCs; N8N notify via thin-client fire-and-forget (Plan 04 §b), NOT pg_net.
+> Q4 RESOLVED: selected:=decisao='aprovado', applicants:=has a decisao_final row (Plan 02 gerar_bias_snapshot).
+> Q5 RESOLVED: deterministic templated non-clinical reason, never raw justificativa (Plan 04 getExplicacao).
+> Q6 RESOLVED: age bands 18-24/25-34/35-44/45-54/55+, self-described in dados (Plan 02/05).
 
 1. **Should `pendente_humano` entrevista scores weight the consolidated aggregate, or be N/A until human-confirmed?**
    - What we know: entrevista `scores_candidato` rows are `status='pendente_humano'` with BARS in `metadata` and `score=null` until a human confirms (RNF-07a).
