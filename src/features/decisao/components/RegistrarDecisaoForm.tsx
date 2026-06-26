@@ -33,6 +33,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/components/ui/utils'
 import { GlassButton } from '@/components/ui/glass'
 import {
@@ -53,11 +55,16 @@ export interface RegistrarDecisaoFormProps {
   decisaoAtual?: DecisaoAtual | null
 }
 
-/** Selected-state tints per UI-SPEC §Color (rejeitado=destructive, em_espera=amber, aprovado/unselected=neutral glass). */
+/**
+ * Selected-state tints per UI-SPEC §Color (rejeitado=destructive, em_espera=amber,
+ * aprovado/unselected=neutral glass). FX-07: `em_espera` text raised `amber-300`→`amber-200`
+ * (lighter/brighter amber) so it clears ≥4.5:1 over the composited `bg-amber-500/15` glass
+ * on `#00109E` — the amber WARNING semantic is preserved, only the lightness is lifted.
+ */
 const SELECTED_TINT: Record<Decisao, string> = {
   aprovado: 'border-white/30 bg-white/20 text-white',
   rejeitado: 'border-red-400/30 bg-red-500/15 text-red-300',
-  em_espera: 'border-amber-400/30 bg-amber-500/15 text-amber-300',
+  em_espera: 'border-amber-400/30 bg-amber-500/15 text-amber-200',
 }
 
 const UNSELECTED_TINT =
@@ -92,31 +99,36 @@ export function RegistrarDecisaoForm({
         </div>
       ) : null}
 
-      {/* 3-option decisão selector. */}
-      <div
-        role="radiogroup"
+      {/* 3-option decisão selector — Radix RadioGroup (arrow-key roving focus +
+          name/role/state for free; AB-2/AB-3/AB-5). Each card is a Label htmlFor-paired
+          to its RadioGroupItem so the whole card stays clickable + keyboard-operable. */}
+      <RadioGroup
+        value={decisao ?? ''}
+        onValueChange={(v: string) => setDecisao(v as Decisao)}
         aria-label="Decisão"
         className="grid gap-3 sm:grid-cols-3"
       >
         {DECISAO_OPTIONS.map((opt) => {
           const selected = decisao === opt.value
           return (
-            <button
+            <Label
               key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => setDecisao(opt.value)}
+              htmlFor={`decisao-${opt.value}`}
               className={cn(
-                'min-h-[44px] rounded-lg border px-4 py-3 text-sm font-semibold transition-colors',
+                'flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm font-semibold transition-colors',
                 selected ? SELECTED_TINT[opt.value] : UNSELECTED_TINT,
               )}
             >
+              <RadioGroupItem
+                value={opt.value}
+                id={`decisao-${opt.value}`}
+                className="border-current"
+              />
               {opt.label}
-            </button>
+            </Label>
           )
         })}
-      </div>
+      </RadioGroup>
 
       {/* Justificativa — mandatory ≥50 chars + counter. */}
       <div className="space-y-2">

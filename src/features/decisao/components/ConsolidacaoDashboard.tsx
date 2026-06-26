@@ -55,7 +55,7 @@ function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-      <span className="font-medium text-white/90">{label}</span>
+      <span className="font-semibold text-white/90">{label}</span>
       <span className="flex items-center gap-2">
         {row.status === 'present' ? (
           <>
