@@ -28,14 +28,21 @@ accessibility, and quality of existing surfaces. **Requirement: LGPD-05.**
 - Rationale: tractable, low-risk, satisfies LGPD-05 without a multi-day bundle/perf effort.
 
 ### Auth-hook RLS gap (grey area 2 — "Fix in Phase 16")
-- **Fix in-phase:** apply the missing `supabase_auth_admin` SELECT policy/grant on
-  `usuarios_rh` (or make `custom_access_token_hook` SECURITY DEFINER) to PROD, so RH-login
-  JWTs carry the correct `role` instead of degrading to `candidato`. This is a real
-  production login bug (caught in UAT 2026-06-22) — the release-quality blocker this
-  phase exists to close. Pairs with the already-staged `LoginRHPage.tsx` race fix
-  (currently uncommitted). See memory `reference_auth_hook_rls_gap` for the full chain
-  (+confirmation_token NULL, 100ms race, admin-only gate).
-- PROD migration apply is a [BLOCKING] orchestrator step (MCP apply_migration), like prior phases.
+- **User decision:** fix RH-login in-phase. **BUT — verified live in PROD 2026-06-26, the
+  DB-level RLS gap is ALREADY CLOSED** (it was applied sometime after the 2026-06-22 memory).
+  Confirmed by direct PROD inspection:
+  - `usuarios_rh` has policy `auth_admin_le_usuarios_rh` — **SELECT** for `supabase_auth_admin`, `USING true`.
+  - `supabase_auth_admin` holds the **SELECT table grant** on `usuarios_rh` AND **EXECUTE** on the hook.
+  - `custom_access_token_hook` (SECURITY INVOKER) reads `usuarios_rh` (ativo + deleted_at IS NULL),
+    maps `recrutador`→`rh` / `administrador`→`administrador`, falls back to `candidato`. The chain is correct end-to-end.
+- **Therefore DO NOT author a redundant auth-hook RLS migration.** The residual RH-login risk is
+  the **frontend race** — `src/components/pages/LoginRHPage.tsx` reads the role before the JWT
+  rehydrates (the staged, currently-uncommitted fix). Phase 16 auth work = **(1) commit that
+  staged LoginRHPage.tsx race fix, (2) verify a real RH-login round-trip yields role='rh'/'administrador'
+  in the JWT (live UAT — needs a real RH user), (3) document that the RLS+grant+hook chain is
+  PROD-verified complete.** No new PROD migration for the hook unless the live verify surfaces a real DB gap.
+- (The other items in `reference_auth_hook_rls_gap` — confirmation_token NULL, admin-only gate —
+  are GoTrue/data concerns; check during the live verify, don't pre-emptively migrate.)
 
 ### tsc Baseline Burn-down (grey area 3 — "Trivial burn-down")
 - Fix the **cheap, obvious** tsc errors only (unused vars, enum typos like `'bigfive'`
