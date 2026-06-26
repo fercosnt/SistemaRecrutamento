@@ -33,7 +33,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 - [x] **Phase 12: Big Five + Devolutiva** — IPIP-NEO-120 PT-BR scoring anti-tampering server-side + devolutiva D-lite híbrida (completed 2026-06-09)
 - [x] **Phase 13: Redação Cultural + Revisão Humana** — Redação fit-cultural 4-dim BARS + 3-cores + fila de revisão humana obrigatória (completed 2026-06-24)
 - [ ] **Phase 14: Entrevistas com IA Companion (Etapas 4+5)** — Guias STAR/PEI, análise de transcrição BARS, dashboard do gestor, raciocínio lógico contextual
-- [ ] **Phase 15: Decisão Final Auditável & LGPD Art. 20** — Consolidação de scorecards, justificativa obrigatória, explicação ao candidato, bias audit
+- [x] **Phase 15: Decisão Final Auditável & LGPD Art. 20** — Consolidação de scorecards, justificativa obrigatória, explicação ao candidato, bias audit (completed 2026-06-26)
 - [ ] **Phase 16: Compliance & A11y Hardening** — WCAG AA cross-screen + fechamento de tech-debt herdado do M1
 
 ## Phase Details
@@ -376,7 +376,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 15-06-PLAN.md — [BLOCKING] apply migration to PROD via MCP + deploy consolidar-decisao-final EF JWT-on + db:types + wire 3 routes + 6 SQL smokes [non-autonomous]
+- [x] 15-06-PLAN.md — [BLOCKING] apply migration to PROD via MCP + deploy consolidar-decisao-final EF JWT-on + db:types + wire 3 routes + 6 SQL smokes [non-autonomous]
 
 **UI hint**: yes
 
@@ -413,7 +413,7 @@ Plans:
 | 12. Big Five + Devolutiva | v2.0 | 6/6 | Complete   | 2026-06-09 |
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
-| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 5/6 | In Progress|  |
+| 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 7/7 | Complete   | 2026-06-26 |
 | 16. Compliance & A11y Hardening | v2.0 | 0/0 | Not started | - |
 
 ---
