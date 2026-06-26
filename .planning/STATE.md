@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: executing
-stopped_at: "Completed 16-03-PLAN.md (R6 EntrevistaWorkspace→Radix Tabs FX-04; amber 24h pill + eyebrows AA FX-07/08; dead Agendar CTA disabled+tooltip FX-12; C8 ProvaCognitiva native title=→Radix Tooltip FX-09 + softened autosave copy FX-13; BARS sliders aria-valuetext FX-11; Task-2 FX-06 candidate radiogroups verify-only — already Radix since Phase 11/12 → Tier-A axe GREEN 15/15 incl R6/C3/C8, zero serious/critical; build 0, tsc 291=291). Only 16-04 remains (LoginRHPage race fix + auth-hook RLS migration + FX-14 console cleanup)."
-last_updated: "2026-06-26T13:28:32.217Z"
+status: verifying
+stopped_at: "Completed 16-04-PLAN.md (final plan of Phase 16). FX-14 RH-path console.* removed (16-01 grep guard GREEN 4/4); FX-15 dead biasMath runtime fns deleted with live types intact (build 0); FOUND-08 enum typos proved structural→reverted, ci.yml tsc gate tightened 292->291; LoginRHPage cold-DB race+gate fix committed (464ead8, R1 axe GREEN, no migration). Phase 16 plan execution 4/4 → ready_for_verification. DEFERRED: live RH cold-start login round-trip → 16-HUMAN-UAT.md."
+last_updated: "2026-06-26T13:42:18.224Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 63
-  completed_plans: 62
-  percent: 98
+  completed_plans: 63
+  percent: 100
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-06-06)
 
 Phase: 16 (compliance-a11y-hardening) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-06-26
 
 See the frontmatter `stopped_at` for the full Phase-16 carry-in (3 UI polish one-liners + 5 a11y items + Phase-14 a11y carry-in + M1 tech-debt PERF-01/HARD-02/FOUND-08/console.log + the unmigrated auth-hook RLS gap + migration-version drift).
@@ -150,6 +150,7 @@ PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `src/compone
 | Phase 15 P07 | ~6 min | 2 tasks | 9 files |
 | Phase 16 P16-01 | ~19 min | 3 tasks | 6 files |
 | Phase 16 P02 | 28min | 3 tasks | 5 files |
+| Phase 16 P16-04 | 10min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -314,6 +315,9 @@ Recent decisions affecting current work:
 - [Phase 16]: 16-03: EntrevistaWorkspace custom aria-pressed tabs → Radix Tabs (FX-04); amber 24h pill + text-white/50-60 eyebrows raised to AA at #00109E glass composite (FX-07/08, amber-300→100 + tint bumps, semantic unchanged); dead Agendar CTA disabled + Radix-tooltip-named on a focusable span (FX-12)
 - [Phase 16]: 16-03: ProvaCognitivaScreen native title= submit hint → Radix Tooltip (FX-09); FX-13 softened-copy branch chosen — the prova has NO autosave (picks post only at submit), so intro no longer promises persistence; BARS sliders (EntrevistaScorecardInline + RedacaoOverrideForm) got aria-valuetext '{n} de 5' (FX-11)
 - [Phase 16]: 16-03: Task 2 (FX-06 candidate radiogroups) was VERIFY-ONLY — SjtMultiplaEscolha (Phase 11 6d658f7) + BigFive (Phase 12 b2579ab) already use Radix RadioGroup with Label htmlFor + min-h-[44px]; no hand-roll, no score/band leaked. Tier-A axe GREEN 15/15 incl R6/C3/C8 (LGPD-05); FX-11 redacao slider lives in RedacaoOverrideForm not RedacaoReviewPanel (Rule-3 reference fix). build 0, tsc 291=291
+- [Phase 16]: Phase 16-04: FOUND-08 enum typos (clinica->clinico, big_five->bigfive) proved STRUCTURAL — net tsc held 291 (each rename unmasks the next stale key in the same Record<> map); reverted per FOUND-08 guardrail + RESEARCH Pitfall 1. ci.yml gate lowered 292->291. Map-realignment deferred with tempo_integral.
+- [Phase 16]: Phase 16-04: biasMath.ts kept alive for its live type exports (BandResult/AdverseImpactResult imported by biasAuditService.ts + BiasAuditPage.tsx) — only dead runtime fns (computeAdverseImpact, bandFromAge) + their test removed (FX-15). RH-path debug console.* removed (FX-14) → 16-01 rh-console.grep guard GREEN 4/4.
+- [Phase 16]: Phase 16-04: LoginRHPage race+gate fix committed (464ead8; poll 100ms->3s cold-DB usuarios_rh hydration + gate widened to {rh,administrador}); NO migration (RLS+grant+hook PROD-verified). Task-3 checkpoint = approved-with-deferral: R1 axe GREEN, live RH cold-start round-trip deferred to 16-HUMAN-UAT.md.
 
 ### Pending Todos
 
@@ -348,8 +352,8 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-26T13:28:15.888Z
-Stopped at: Completed 16-01-PLAN.md (Wave-0 RED gates: Tier-A axe loop + FX-14 grep guard + 3 backlog docs; LGPD-05 calibrated RED, flips GREEN in later FX waves)
+Last session: 2026-06-26T13:42:18.206Z
+Stopped at: Completed 16-04-PLAN.md (final plan of Phase 16). FX-14 RH-path console.* removed (16-01 grep guard GREEN 4/4); FX-15 dead biasMath runtime fns deleted with live types intact (build 0); FOUND-08 enum typos proved structural→reverted, ci.yml tsc gate tightened 292->291; LoginRHPage cold-DB race+gate fix committed (464ead8, R1 axe GREEN, no migration). Phase 16 plan execution 4/4 → ready_for_verification. DEFERRED: live RH cold-start login round-trip → 16-HUMAN-UAT.md.
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
 

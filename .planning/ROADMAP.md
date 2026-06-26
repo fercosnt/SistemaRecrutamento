@@ -34,7 +34,7 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Audit: `milestones/v1.0-MI
 - [x] **Phase 13: Redação Cultural + Revisão Humana** — Redação fit-cultural 4-dim BARS + 3-cores + fila de revisão humana obrigatória (completed 2026-06-24)
 - [ ] **Phase 14: Entrevistas com IA Companion (Etapas 4+5)** — Guias STAR/PEI, análise de transcrição BARS, dashboard do gestor, raciocínio lógico contextual
 - [x] **Phase 15: Decisão Final Auditável & LGPD Art. 20** — Consolidação de scorecards, justificativa obrigatória, explicação ao candidato, bias audit (completed 2026-06-26)
-- [ ] **Phase 16: Compliance & A11y Hardening** — WCAG AA cross-screen + fechamento de tech-debt herdado do M1
+- [x] **Phase 16: Compliance & A11y Hardening** — WCAG AA cross-screen + fechamento de tech-debt herdado do M1 (completed 2026-06-26)
 
 ## Phase Details
 
@@ -403,7 +403,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 0)*
 
-- [ ] 16-04-PLAN.md — cleanups+auth: FX-14 RH-console removal + FX-15 biasMath dead-fn (types kept) + FOUND-08 enum fixes + ci.yml baseline lower + commit/verify staged LoginRHPage race+gate fix [non-autonomous: RH-login UAT checkpoint]
+- [x] 16-04-PLAN.md — cleanups+auth: FX-14 RH-console removal + FX-15 biasMath dead-fn (types kept) + FOUND-08 enum fixes + ci.yml baseline lower + commit/verify staged LoginRHPage race+gate fix [non-autonomous: RH-login UAT checkpoint]
 
 **Note**: NO migration this phase — the usuarios_rh RLS+grant+hook chain is already PROD-verified complete (CONTEXT fact #1); auth work is frontend-only (commit staged LoginRHPage.tsx + verify the RH-login round-trip).
 
@@ -430,7 +430,7 @@ Plans:
 | 13. Redação Cultural + Revisão Humana | v2.0 | 5/5 | Complete   | 2026-06-24 |
 | 14. Entrevistas com IA Companion (Etapas 4+5) | v2.0 | 7/7 (6 plans + 14-07 gap-closure) | Review gap-closure LIVE — migration 20260625000001 applied to PROD (pontuar_cognitivo empty-bank guard + picks/proctoring persist, confirmar_revisao_entrevista RPC, vaga-scoped RH SELECT RLS) + avaliar-transcricao-entrevista redeployed (WR-06) + types regen; CR-01..04 + WR-04/05/06/07 closed; CC0 content seed deferred |  |
 | 15. Decisão Final Auditável & LGPD Art. 20 | v2.0 | 7/7 | Complete   | 2026-06-26 |
-| 16. Compliance & A11y Hardening | v2.0 | 3/4 | In Progress|  |
+| 16. Compliance & A11y Hardening | v2.0 | 4/4 | Complete   | 2026-06-26 |
 
 ---
 

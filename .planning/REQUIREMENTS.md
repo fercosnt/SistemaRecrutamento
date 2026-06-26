@@ -79,7 +79,7 @@ Requirements for M2. Each maps to roadmap phases. Todos derivados do conjunto **
 - [ ] **LGPD-02**: Guardrail — **zero** auto-rejeições por trait/score; 100% das `decisao_final` têm `por_usuario IS NOT NULL` (enforced via RLS + SQL audit) [RNF-07a]
 - [x] **LGPD-03**: `bias_audit_log` com snapshot mensal de selection rate por raça/gênero/idade (regra 4/5 EEOC — export CSV manual no V1) [RNF-07b, §8.1 mig 14]
 - [ ] **LGPD-04**: Linguagem de produto "avaliação comportamental/cognitiva" (nunca "teste psicológico") — lint custom/grep de strings proibidas no CI [RNF-12]
-- [ ] **LGPD-05**: UI RH e Candidato passam WCAG AA (axe-core ≥ 90 nas telas principais) [RNF-11]
+- [x] **LGPD-05**: UI RH e Candidato passam WCAG AA (axe-core ≥ 90 nas telas principais) [RNF-11]
 
 ## Future Requirements
 
@@ -168,4 +168,4 @@ Rastreado, endereçável oportunisticamente dentro das fases do M2 (decisão 202
 | DECISAO-03 | Phase 15 | Complete |
 | DECISAO-04 | Phase 15 | Complete |
 | LGPD-03 | Phase 15 | Complete |
-| LGPD-05 | Phase 16 | Pending |
+| LGPD-05 | Phase 16 | Complete |
