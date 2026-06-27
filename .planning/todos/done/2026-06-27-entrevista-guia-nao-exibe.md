@@ -29,3 +29,19 @@ TBD — investigar:
 O guia foi seedado via chamada DIRETA a EF `gerar-guia-entrevista` (nao pela UI) —
 confirmar se o shape gerado pela UI e identico ao da EF
 (`SELECT guia FROM entrevista_guias WHERE candidatura_id='a1dd4c42-...'`).
+
+## Resolution (2026-06-27 — RESOLVED)
+
+Root cause = integration-contract mismatch ([[feedback_integration_contract_gap]]):
+a EF `gerar-guia-entrevista` persiste o guia na shape do `InterviewGuideSchema`
+(`{ questions: [{ question, competency, bars_anchors, ... }], ... }` — chaves em
+ingles), mas `GuiaEntrevistaPanel.perguntasOf` le `guia.perguntas[]` com
+`pergunta`/`dimensao` (pt-BR). `getGuia` NAO normalizava (ao contrario de `getAnalise`,
+que ja faz `competency`→`competencia`). Logo `guia.perguntas` era sempre `undefined`
+→ `[]` → "Nenhum guia gerado" para QUALQUER guia, qualquer que fosse a origem.
+
+Fix (frontend-only, sem redeploy de EF): `normalizeGuia` em `entrevistaService.ts`
+(espelha o precedente `normalizeCompetencia`) mapeia `questions[]`→`perguntas[]`
+(`question`→`pergunta`, `competency`→`dimensao`), non-lossy via spread; `getGuia`
+aplica na leitura. Coberto por `src/features/entrevista/__tests__/guia-normalize.test.ts`
+(6/6 — fecha a direcao OUTPUT que o `entrevista-contract.test.ts` nao cobria).

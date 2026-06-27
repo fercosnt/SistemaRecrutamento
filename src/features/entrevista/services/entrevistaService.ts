@@ -247,10 +247,49 @@ export async function getVagaIdForCandidatura(candidaturaId: string): Promise<st
   return (data as { vaga_id: string | null } | null)?.vaga_id ?? null
 }
 
+/** One STAR/PEI guide question as the EF persists it (InterviewGuideSchema, English keys). */
+interface EfGuiaQuestion {
+  question?: string
+  competency?: string
+  bars_anchors?: unknown
+  [k: string]: unknown
+}
+
+/**
+ * Bridges the EF-persisted interview guide to the shape the RH panel reads
+ * (ENTREV-GUIA-DISPLAY-01 — [[feedback_integration_contract_gap]]).
+ *
+ * `gerar-guia-entrevista` persists `guia` under its `InterviewGuideSchema` OUTPUT shape:
+ * `{ questions: [{ question, competency, bars_anchors, ... }], ... }` (English keys). The
+ * RH panel (`GuiaEntrevistaPanel.perguntasOf` + `PerguntaRow`) reads `guia.perguntas[]`
+ * with `pergunta`/`dimensao` (pt-BR). Without this bridge `guia.perguntas` is undefined →
+ * the panel renders "Nenhum guia gerado ainda." for EVERY persisted guide, however created.
+ *
+ * Bridged in the SERVICE READ LAYER ONLY (exact precedent: `normalizeCompetencia` for the
+ * transcript analysis, CR-04) — the EF write is NOT renamed (it keeps `questions`/
+ * `competency`, which `weakDimsFromScores` + the coverage check read). Non-lossy: the
+ * original EF keys are preserved via spread. An incompleto guia (no `questions`) and a
+ * guia already in pt-BR (`perguntas` present) pass through untouched.
+ */
+export function normalizeGuia(guia: EntrevistaGuiaRow['guia']): EntrevistaGuiaRow['guia'] {
+  if (!guia || typeof guia !== 'object') return guia
+  // Already pt-BR (defensive — e.g. a future EF emitting `perguntas`): leave as-is.
+  if (Array.isArray((guia as { perguntas?: unknown }).perguntas)) return guia
+  const questions = (guia as { questions?: EfGuiaQuestion[] }).questions
+  if (!Array.isArray(questions)) return guia
+  const perguntas: GuiaPergunta[] = questions.map((q) => ({
+    ...q,
+    pergunta: typeof q.question === 'string' ? q.question : '',
+    dimensao: typeof q.competency === 'string' ? q.competency : null,
+  }))
+  return { ...guia, perguntas }
+}
+
 /**
  * Reads the latest interview guide for a candidatura (RH/admin only — candidate
  * denied by RLS). Allowlist projection of `entrevista_guias`. Returns null when
- * no guide has been generated yet.
+ * no guide has been generated yet. Normalizes the EF OUTPUT shape (questions[]/
+ * competency) → the pt-BR perguntas[] the panel reads (ENTREV-GUIA-DISPLAY-01).
  */
 export async function getGuia(candidaturaId: string): Promise<EntrevistaGuiaRow | null> {
   if (!candidaturaId) {
@@ -271,7 +310,11 @@ export async function getGuia(candidaturaId: string): Promise<EntrevistaGuiaRow 
     )
   }
   const rows = (data as unknown as EntrevistaGuiaRow[] | null) ?? []
-  return rows[0] ?? null
+  const row = rows[0] ?? null
+  if (!row) return null
+  // Bridge the EF OUTPUT shape (questions[]/competency) → the pt-BR perguntas[] the
+  // panel reads (ENTREV-GUIA-DISPLAY-01). Without this every guide rendered empty.
+  return { ...row, guia: normalizeGuia(row.guia) }
 }
 
 /**
