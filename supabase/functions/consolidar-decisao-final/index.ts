@@ -156,6 +156,31 @@ function normalizeWeighted(
   return (scoreRow.score / scoreRow.score_max) * 100;
 }
 
+/**
+ * Normaliza a etapa COMPOSTA work_sample_sjt para 0..100 (DEC-CONSOLIDA-SJT-01).
+ *
+ * SJT carrega DUAS sub-rows em scores_candidato (tipo='sjt'): subtipo='mc' (múltipla
+ * escolha, determinística, status='sucesso') e subtipo='caso_aberto' (caso aberto,
+ * BARS por IA, status='pendente_humano' até a confirmação humana). O agregado soma
+ * APENAS as sub-rows status='sucesso' (RNF-07a — NUNCA pondera um score de IA não
+ * confirmado) e um caso_aberto pendente_humano NÃO zera a etapa.
+ *
+ * Antes, a leitura colapsava as duas sub-rows numa única por `tipo` (first-occurrence
+ * no Map) — quando o caso_aberto pendente_humano vinha primeiro a etapa INTEIRA virava
+ * N/A, descartando o mc sucesso. Retorna null (N/A) só quando NENHUMA sub-row de SJT
+ * está confirmada.
+ */
+function normalizeSjtComposite(sjtRows: ScoreRow[]): number | null {
+  const confirmed = sjtRows.filter(
+    (r) => r.status === "sucesso" && r.score != null && r.score_max != null && r.score_max > 0,
+  );
+  if (confirmed.length === 0) return null;
+  const sumScore = confirmed.reduce((acc, r) => acc + (r.score as number), 0);
+  const sumMax = confirmed.reduce((acc, r) => acc + (r.score_max as number), 0);
+  if (sumMax === 0) return null;
+  return (sumScore / sumMax) * 100;
+}
+
 /** Recomendação DETERMINÍSTICA/templada (NUNCA LLM) keyed no consolidado + N/A + pendências. */
 function buildRecommendation(
   consolidated: number | null,
@@ -291,14 +316,24 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       : null;
     const scoreByTipo = new Map<string, ScoreRow>();
     for (const s of scores) {
-      // primeira ocorrência por tipo (uma row por etapa no caminho feliz).
+      // primeira ocorrência por tipo (uma row por etapa no caminho feliz —
+      // redacao/entrevista são single-row; sjt é tratado à parte por ser COMPOSTO).
       if (!scoreByTipo.has(s.tipo)) scoreByTipo.set(s.tipo, s);
     }
+    // SJT é COMPOSTO (mc + caso_aberto): precisa de TODAS as sub-rows, não da 1ª.
+    const sjtRows = scores.filter((s) => s.tipo === "sjt");
 
     // Etapas ponderadas: normaliza + marca present/na.
     const weightedRows: BreakdownRow[] = WEIGHTED_KEYS.map((key) => {
-      const scoreRow = key === "triagem" ? undefined : scoreByTipo.get(TIPO_BY_KEY[key as Exclude<WeightKey, "triagem">]);
-      const normalized = normalizeWeighted(key, analiseTriagem, scoreRow);
+      // work_sample_sjt agrega as sub-rows mc+caso_aberto (DEC-CONSOLIDA-SJT-01);
+      // as demais chaves usam a leitura single-row por tipo.
+      const normalized = key === "work_sample_sjt"
+        ? normalizeSjtComposite(sjtRows)
+        : normalizeWeighted(
+          key,
+          analiseTriagem,
+          key === "triagem" ? undefined : scoreByTipo.get(TIPO_BY_KEY[key as Exclude<WeightKey, "triagem">]),
+        );
       const present = normalized != null;
       return {
         etapa: key,

@@ -255,6 +255,57 @@ Deno.test("DECISAO-01 — emits a deterministic templated recommendation and NEV
   );
 });
 
+// ── DEC-CONSOLIDA-SJT-01: SJT é uma etapa COMPOSTA (mc + caso_aberto). Um
+//    caso_aberto pendente_humano NÃO pode zerar a etapa nem descartar o mc sucesso.
+//    Antes a leitura colapsava as duas sub-rows numa só por `tipo` (first-occurrence)
+//    → quando o caso_aberto vinha primeiro a etapa inteira virava N/A. ──
+Deno.test("DEC-CONSOLIDA-SJT-01 — caso_aberto pendente_humano does NOT N/A SJT; the mc sucesso component counts", async () => {
+  const { handler } = await loadHandler();
+  // caso_aberto pendente_humano FIRST (winner of the OLD first-occurrence collapse
+  // → whole SJT N/A), mc sucesso second. entrevista null so only triagem+sjt weigh.
+  const sjtComposite = [
+    { id: "s-sjt-open", candidatura_id: "cand-1", tipo: "sjt", subtipo: "caso_aberto", score: 7, score_max: 25, status: "pendente_humano", metadata: {} },
+    { id: "s-sjt-mc", candidatura_id: "cand-1", tipo: "sjt", subtipo: "mc", score: 10, score_max: 12, status: "sucesso", metadata: {} },
+    { id: "s-ent", candidatura_id: "cand-1", tipo: "entrevista", subtipo: null, score: null, score_max: null, status: "pendente_humano", metadata: {} },
+  ];
+  const supabaseAdmin = makeMockSupabaseAdmin(sjtComposite, ANALISE_TRIAGEM);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  const byEtapa = Object.fromEntries(
+    (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
+  );
+  // SJT present from the mc sucesso component (10/12*100 = 83.33) — NOT N/A.
+  assertEquals(byEtapa["work_sample_sjt"].status, "present");
+  assert(
+    Math.abs((byEtapa["work_sample_sjt"].normalized as number) - 83.33) < 0.1,
+    `SJT must aggregate the sucesso mc component (~83.33), got ${byEtapa["work_sample_sjt"].normalized}`,
+  );
+});
+
+Deno.test("DEC-CONSOLIDA-SJT-01 — both mc + caso_aberto sucesso sum the components (Σscore/Σmax)", async () => {
+  const { handler } = await loadHandler();
+  // Once a human confirms the caso_aberto (status='sucesso'), both sub-rows count.
+  const sjtBoth = [
+    { id: "s-sjt-mc", candidatura_id: "cand-1", tipo: "sjt", subtipo: "mc", score: 10, score_max: 12, status: "sucesso", metadata: {} },
+    { id: "s-sjt-open", candidatura_id: "cand-1", tipo: "sjt", subtipo: "caso_aberto", score: 18, score_max: 25, status: "sucesso", metadata: {} },
+  ];
+  const supabaseAdmin = makeMockSupabaseAdmin(sjtBoth, ANALISE_TRIAGEM);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  const byEtapa = Object.fromEntries(
+    (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
+  );
+  // (10+18)/(12+25)*100 = 28/37*100 = 75.68
+  assert(
+    Math.abs((byEtapa["work_sample_sjt"].normalized as number) - 75.68) < 0.1,
+    `both-sucesso SJT must sum the components (~75.68), got ${byEtapa["work_sample_sjt"].normalized}`,
+  );
+});
+
 // ── DECISAO-01 authorize (Pitfall 7 — authenticate≠authorize, IDOR/PII guard) ───
 Deno.test("authorize — candidato-role caller → 403 FORBIDDEN (never reaches consolidated scores)", async () => {
   const { handler } = await loadHandler();
