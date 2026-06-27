@@ -102,23 +102,47 @@ function AutosaveAffordance({ status }: { status: string }) {
   return <span />
 }
 
-/** One Likert item — statement + a 5-point radio row (selected = glass-white). */
-function LikertItem({
+/**
+ * One Likert item — the affirmation as the visual star (numbered "{n}/120", larger
+ * type, breathing room) + a horizontal 5-point scale (UX-BIGFIVE-01). The 5 points are
+ * equal cells numbered 1..5; ONLY the two extremes carry a visible label so the long
+ * PT-BR labels never wrap and break the linear scale (the old 4+1 grid orphaned the 5th
+ * option). Each point keeps its FULL PT-BR label as an `aria-label` — the radiogroup
+ * roving focus + screen-reader names are preserved (a11y, UAT-16 C5). Selected =
+ * glass-white (NOT the accent, never implying right/wrong — RNF-07a). Exported for the
+ * BigFiveLikert test.
+ */
+export function LikertItem({
   item,
+  numero,
   value,
   onChange,
 }: {
   item: BigfiveItem
+  /** 1-based global position (1..120), shown as "{numero} / 120". */
+  numero: number
   value: number | undefined
   onChange: (v: number) => void
 }) {
+  const headingId = `bigfive-item-${item.item_id}`
   return (
-    <div className="space-y-3 border-b border-white/10 pb-5">
-      <p className="text-base leading-relaxed text-white">{item.texto}</p>
+    <div className="space-y-4 border-b border-white/10 pb-7">
+      {/* The affirmation is the star: position marker + larger, heavier statement. */}
+      <div className="space-y-1.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          {`${numero} / ${BIGFIVE_TOTAL_ITENS}`}
+        </span>
+        <p id={headingId} className="text-lg font-semibold leading-snug text-white sm:text-xl">
+          {item.texto}
+        </p>
+      </div>
+
+      {/* Horizontal 5-point scale — equal cells, numbered, only the extremes labeled. */}
       <RadioGroup
         value={value != null ? String(value) : undefined}
         onValueChange={(v: string) => onChange(Number(v))}
-        className="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+        aria-labelledby={headingId}
+        className="flex items-stretch gap-1.5 sm:gap-2"
       >
         {LIKERT_LABELS.map((label, i) => {
           const optValue = i + 1
@@ -128,20 +152,27 @@ function LikertItem({
             <Label
               key={id}
               htmlFor={id}
-              className={`flex items-center gap-2 min-h-[44px] flex-1 rounded-lg border border-white/20 px-3 py-2 cursor-pointer text-white text-sm font-normal transition-colors ${
-                selected ? 'bg-white/30' : 'bg-white/10 hover:bg-white/20'
+              className={`flex min-h-[44px] flex-1 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border px-1 py-2 transition-colors ${
+                selected ? 'border-white/40 bg-white/30' : 'border-white/20 bg-white/10 hover:bg-white/20'
               }`}
             >
               <RadioGroupItem
                 id={id}
                 value={String(optValue)}
+                aria-label={label}
                 className="border-white text-white"
               />
-              <span className="leading-snug">{label}</span>
+              <span className="text-xs font-semibold text-white/70">{optValue}</span>
             </Label>
           )
         })}
       </RadioGroup>
+
+      {/* Only the two extremes are labeled — the scale reads left→right. */}
+      <div className="flex justify-between text-xs leading-tight text-white/60">
+        <span>{LIKERT_LABELS[0]}</span>
+        <span>{LIKERT_LABELS[LIKERT_LABELS.length - 1]}</span>
+      </div>
     </div>
   )
 }
@@ -240,20 +271,42 @@ export function BigFiveQuestionnaireScreen() {
   if (page === 0) {
     return (
       <ScreenShell>
-        <GlassPanel variant="white" blur="xl" className="text-white space-y-5">
-          <h1 className="text-2xl font-semibold drop-shadow-md">
-            Avaliação comportamental
-          </h1>
-          <p className="text-base leading-relaxed text-white/90">
-            A seguir você verá 120 afirmações. Descreva-se com sinceridade, da forma
-            como você geralmente é — não há respostas certas ou erradas. É um
-            self-assessment do seu estilo de trabalho. Suas respostas são salvas
-            automaticamente; você pode fazer pausas.
-          </p>
-          <p className="text-sm leading-relaxed text-white/70 border-l-2 border-white/20 pl-4">
-            {DISCLAIMER_EMOCIONAL}
-          </p>
-          <div className="flex justify-end pt-2">
+        <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
+            {/* Scannable highlight line — read at a glance before the bullets. */}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#35BFAD]">
+              <span>120 afirmações</span>
+              <span aria-hidden="true" className="text-white/30">·</span>
+              <span>~15 min</span>
+              <span aria-hidden="true" className="text-white/30">·</span>
+              <span>sem resposta certa ou errada</span>
+            </p>
+          </div>
+
+          {/* Scannable bullets (not a dense paragraph). */}
+          <ul className="space-y-2.5 text-base leading-relaxed text-white/90">
+            {[
+              'Descreva-se com sinceridade, da forma como você geralmente é.',
+              'É um self-assessment do seu estilo de trabalho — não é prova nem teste de QI.',
+              'Suas respostas são salvas automaticamente; você pode pausar e voltar quando quiser.',
+            ].map((linha) => (
+              <li key={linha} className="flex items-start gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#35BFAD]" aria-hidden="true" />
+                <span>{linha}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Emotional disclaimer — preserved, but in a subtle expandable footer tone. */}
+          <details className="rounded-lg border border-white/15 bg-white/5 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-white/80 marker:text-white/40">
+              Sobre os resultados
+            </summary>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">{DISCLAIMER_EMOCIONAL}</p>
+          </details>
+
+          <div className="flex justify-end pt-1">
             <GlassButton
               variant="white"
               hover
@@ -292,11 +345,12 @@ export function BigFiveQuestionnaireScreen() {
           </p>
         </div>
 
-        <div className="space-y-5">
-          {pageItens.map((item) => (
+        <div className="space-y-6">
+          {pageItens.map((item, idx) => (
             <LikertItem
               key={item.item_id}
               item={item}
+              numero={pageStart + idx + 1}
               value={respostas[String(item.item_id)]}
               onChange={(v) => handleAnswer(item.item_id, v)}
             />

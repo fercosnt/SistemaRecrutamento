@@ -30,3 +30,18 @@ TBD (so visual — o scoring server-side / re-pontuacao deterministica NAO muda)
    desktop horizontal (padrao IPIP/Big Five).
 A11y: manter roving focus / aria-valuetext (ja era item Tier-B do UAT-16 C5).
 Alinhar ao design system Beauty Smile (glass).
+
+## Resolution (2026-06-27 — RESOLVED)
+
+`BigFiveQuestionnaireScreen.tsx` redesenhado (frontend-only, scoring server-side
+intacto): (1) **Intro** scaneavel — linha de destaque "120 afirmações · ~15 min · sem
+resposta certa ou errada" + bullets com check + disclaimer LGPD num `<details>` sutil
+(antes era paragrafo denso). (2) **Afirmacao como estrela** — numeracao "{n} / 120" +
+fonte `text-lg`/`sm:text-xl` semibold + mais respiro (`space-y-6`/`pb-7`). (3) **Likert
+horizontal de 5 pontos iguais** (`flex flex-1`, fim do grid 4+1 orfa) — celulas numeradas
+1..5, SO os dois extremos rotulados embaixo (fim do wrap dos rotulos longos). A11y
+preservada: cada ponto mantem o rotulo pt-BR COMPLETO em `aria-label` + `RadioGroup`
+`aria-labelledby` na afirmacao (roving focus do Radix intacto). Mantido tint-free
+(selecionado=glass-white, sem gradiente vermelho/verde) p/ nao implicar certo/errado
+(RNF-07a) — desvio consciente do "gradiente de polaridade" sugerido. Coberto por
+`BigFiveLikert.test.tsx` (4/4 — guarda o invariante a11y dos 5 nomes acessiveis).
