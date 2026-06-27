@@ -72,6 +72,85 @@ function DimensaoRow({ c }: { c: AnaliseCompetencia }) {
   )
 }
 
+/** One Citation as the EF emits it ("Cite Before You Speak"): {text, location?}. */
+interface CitacaoEvidencia {
+  texto: string
+  local: string | null
+}
+
+/** A normalized citação: an optional competency label + its legible evidence list. */
+interface CitacaoNormalizada {
+  competencia: string | null
+  evidencias: CitacaoEvidencia[]
+}
+
+/**
+ * Normalizes one stored citação element into a legible shape (ENTREV-CITACOES-01).
+ * The EF persists per-competency groups `{ competency, cited_evidence: [{ text, location }] }`;
+ * a defensive plain string or a flat `{ text, location }` are also accepted. Returns null
+ * when nothing renderable is present — NEVER the raw object (which `JSON.stringify` leaked
+ * verbatim into the DOM).
+ */
+export function normalizeCitacao(c: unknown): CitacaoNormalizada | null {
+  if (typeof c === 'string') {
+    const t = c.trim()
+    return t ? { competencia: null, evidencias: [{ texto: t, local: null }] } : null
+  }
+  if (!c || typeof c !== 'object') return null
+  const obj = c as Record<string, unknown>
+  const competencia =
+    typeof obj.competency === 'string'
+      ? obj.competency
+      : typeof obj.competencia === 'string'
+        ? obj.competencia
+        : null
+  const toEvidencia = (e: unknown): CitacaoEvidencia | null => {
+    if (typeof e === 'string') {
+      const t = e.trim()
+      return t ? { texto: t, local: null } : null
+    }
+    if (!e || typeof e !== 'object') return null
+    const eo = e as Record<string, unknown>
+    const texto =
+      typeof eo.text === 'string' ? eo.text : typeof eo.texto === 'string' ? eo.texto : ''
+    if (!texto) return null
+    const local =
+      typeof eo.location === 'string' ? eo.location : typeof eo.local === 'string' ? eo.local : null
+    return { texto, local }
+  }
+  const evidenciaSource = obj.cited_evidence ?? obj.evidencias
+  if (Array.isArray(evidenciaSource)) {
+    const evidencias = evidenciaSource
+      .map(toEvidencia)
+      .filter((e): e is CitacaoEvidencia => e != null)
+    return evidencias.length ? { competencia, evidencias } : null
+  }
+  // flat Citation {text, location}
+  const flat = toEvidencia(obj)
+  return flat ? { competencia, evidencias: [flat] } : null
+}
+
+/** One citação group — competency label + each evidence as «trecho» — localização. */
+function CitacaoItem({ citacao }: { citacao: unknown }) {
+  const n = normalizeCitacao(citacao)
+  if (!n) return null
+  return (
+    <li className="space-y-1">
+      {n.competencia ? (
+        <p className="text-sm font-semibold text-white/80">{n.competencia}</p>
+      ) : null}
+      <ul className="space-y-1">
+        {n.evidencias.map((e, i) => (
+          <li key={i} className="text-base leading-relaxed text-white/70">
+            <span className="text-white/90">«{e.texto}»</span>
+            {e.local ? <span className="text-white/50"> — {e.local}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </li>
+  )
+}
+
 export interface TranscricaoReviewPanelProps {
   analise: EntrevistaAnaliseRow | null
   loading?: boolean
@@ -152,13 +231,13 @@ export function TranscricaoReviewPanel({
           </ul>
 
           {citacoes.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
                 Citações
               </p>
-              <ul className="list-disc space-y-1 pl-5 text-base leading-relaxed text-white/70">
+              <ul className="space-y-3">
                 {citacoes.map((c, i) => (
-                  <li key={i}>{typeof c === 'string' ? c : JSON.stringify(c)}</li>
+                  <CitacaoItem key={i} citacao={c} />
                 ))}
               </ul>
             </div>
