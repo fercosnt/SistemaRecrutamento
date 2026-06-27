@@ -32,9 +32,13 @@ Last activity: 2026-06-26
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
 
-**2026-06-27 bug-fix session** — os 2 achados [alta] do UAT FORAM CORRIGIDOS (movidos p/ `.planning/todos/done/`): DEC-CONSOLIDA-SJT-01 (commit `350e994`, SJT composto na consolidação + EF redeployada PROD v2; live a1dd4c42 0→55.56) + ENTREV-GUIA-DISPLAY-01 (commit `d999da1`, normalizeGuia bridge, frontend-only). Ambos via TDD (RED→GREEN), tsc 290 baseline mantido, +8 testes.
+**2026-06-27 bug-fix session — TODOS os 4 achados do UAT live FORAM CORRIGIDOS** (movidos p/ `.planning/todos/done/`), via TDD (RED→GREEN), tsc 290 baseline mantido, +21 testes:
+- DEC-CONSOLIDA-SJT-01 [alta] (commit `350e994`) — SJT composto na consolidação + EF `consolidar-decisao-final` redeployada PROD v2; live a1dd4c42 0→55.56.
+- ENTREV-GUIA-DISPLAY-01 [alta] (commit `d999da1`) — `normalizeGuia` bridge EF-output→painel, frontend-only.
+- ENTREV-CITACOES-01 [média] (commit `223e82b`) — citações da transcrição em texto legível (`normalizeCitacao`/`CitacaoItem`), frontend-only.
+- UX-BIGFIVE-01 [média] (commit `a6d8da2`) — UX do questionário Big Five (intro scaneável + afirmação numerada + Likert horizontal 5-pontos, a11y preservada), frontend-only.
 
-Remaining backlog (non-blocking, in `.planning/todos/pending/`): 2 UAT findings [média] — ENTREV-CITACOES-01 [bug-visual/média] (citações renderizam JSON cru), UX-BIGFIVE-01 [ux/média] (refinar UX Big Five) — plus 4 carried tech-debt (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = corrigir os 2 bugs [média] restantes, ou `/gsd-new-milestone`.
+Remaining backlog (non-blocking, em `.planning/todos/pending/`): só os 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = tech-debt backlog, ou `/gsd-new-milestone`.
 
 PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 
