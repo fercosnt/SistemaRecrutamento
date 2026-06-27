@@ -1,12 +1,29 @@
 ---
 phase: 14-entrevistas-com-ia-companion-etapas-4-5
 type: human-uat
-status: deferred
+status: partial
 created: 2026-06-25
+updated: 2026-06-26
 verification: 14-VERIFICATION.md (status: human_needed, 7/7 must-haves verified)
 ---
 
 # Phase 14 — Human UAT (deferred)
+
+## Resultado da sessão live 2026-06-26 (seed E2E do funil)
+
+Exercitado com a candidatura de teste `a1dd4c42-bc92-4c37-a584-dc19a59a631d`
+(vaga [TESTE] Dentista — Funil E2E) via login RH `recruiter@teste.com`.
+
+- **EFs de IA provadas em PROD pela 1ª vez:** `gerar-guia-entrevista` (HTTP 200, guia
+  online com 5 perguntas STAR/PEI) + `avaliar-transcricao-entrevista` (HTTP 200, 4
+  competências BARS + citações + status `pendente_humano`). IA real funcionando.
+- **Avaliação por competência (sliders BARS):** ✅ exibe 5/4/4/5 corretamente.
+- **Análise da transcrição:** ✅ scores + estrutura corretos.
+- **2 bugs abertos** (em `.planning/todos/pending/`):
+  - `ENTREV-GUIA-DISPLAY-01` [alta] — guia gerado NÃO aparece na aba ("Nenhum guia
+    gerado ainda") apesar de existir no banco.
+  - `ENTREV-CITACOES-01` [média] — citações renderizam JSON cru.
+- **Fragilidade:** `gerar-guia-entrevista` levou 102s (limite da EF ~150s).
 
 Phase 14 verification passed all 7 automated must-haves. These 4 items require a live
 end-to-end round-trip (a real candidatura with prior scores + RH login + deployed EFs)

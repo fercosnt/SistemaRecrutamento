@@ -8,7 +8,17 @@ updated: 2026-06-26T13:57:04Z
 
 ## Current Test
 
-[awaiting human testing]
+[live 2026-06-26 — item #1 PASS; #2/#3/#4 ainda pendentes]
+
+## Resultado da sessão live 2026-06-26
+
+- **#1 RH cold-start login: ✅ PASS** — `recruiter@teste.com` (admin) e
+  `recrutador.rh@teste.com` (role rh) logam em `/rh/dashboard` sem o bounce "sem acesso
+  ao painel RH". O login RH também foi provado end-to-end via GoTrue API (JWT
+  `app_metadata.role` = administrador / rh; o auth-hook RLS chain já estava aplicado em
+  PROD). LoginRHPage race+gate fix (464ead8) confirmado.
+- **#2 / #3 / #4** (axe Tier-B em R5/C5, teclado roving-focus, screen-reader aria-live):
+  pendentes — exigem sweep com login real + leitor de tela.
 
 ## Tests
 

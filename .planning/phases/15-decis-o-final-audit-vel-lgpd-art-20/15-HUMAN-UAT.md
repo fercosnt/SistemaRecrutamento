@@ -1,7 +1,8 @@
 ---
 phase: 15-decis-o-final-audit-vel-lgpd-art-20
-status: deferred
+status: partial
 created: 2026-06-26
+updated: 2026-06-26
 source: 15-VERIFICATION.md (status human_needed, 5/5 must-haves verified in code)
 blocking: false
 note: >
@@ -12,6 +13,25 @@ note: >
 ---
 
 # Phase 15 — Human UAT (deferred live round-trips)
+
+## Resultado da sessão live 2026-06-26 (seed E2E do funil)
+
+Candidatura de teste `a1dd4c42-bc92-4c37-a584-dc19a59a631d`, decisão `rejeitado`
+registrada (justificativa 264 chars, por_usuario NOT NULL).
+
+- **UAT-15-01 — Explicação LGPD Art. 20 (candidato): ✅ PASS.** Página
+  `/candidato/explicacao/:id` mostra motivo respeitoso/templated, **sem vazar
+  score/percentil/QI/banda** (LGPD-04 / RNF-07a); botão "Solicitar revisão por pessoa
+  natural" idempotente (já solicitada → desabilitado + "Você já solicitou a revisão").
+  Stamps `explicacao_solicitada_em` + `revisao_solicitada_em` confirmados via RPC.
+- **Consolidação de decisão:** funciona (breakdown por etapa + recomendação advisory
+  "decisão é sempre humana"), mas com **1 bug aberto** `DEC-CONSOLIDA-SJT-01` [alta] —
+  SJT vira N/A e triagem-fantasma puxa o score consolidado para 0
+  (ver `.planning/todos/pending/`).
+- **Comparativo:** ✅ empty-state correto ("Nenhum finalista para comparar ainda").
+- **Append-only:** ✅ detecta decisão existente ("Já existe uma decisão registrada").
+- **Pendente:** entrega real do webhook N8N (`revisao_solicitada`) não verificada
+  in-session.
 
 Two items require **real production data** and an **external delivery channel** that
 cannot be observed by automated tests. The implementations are verified in code

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: archived
-stopped_at: "Milestone v2.0 (M2) COMPLETE + ARCHIVED 2026-06-26 — roadmap + requirements archived to milestones/v2.0-*; ROADMAP.md collapsed; REQUIREMENTS.md removed (fresh one at next /gsd-new-milestone); PROJECT.md evolution review done; MILESTONES.md v2.0 entry added; tag v2.0 created LOCALLY (not pushed). Next: /gsd-new-milestone."
-last_updated: "2026-06-26T23:00:00.000Z"
+stopped_at: "Sessão de VALIDAÇÃO LIVE 2026-06-26 (pós-arquivamento v2.0). (1) Push: branch + tags v1.0/v2.0 → GitHub (antes só local). (2) Login RH provado E2E em PROD via GoTrue API — auth-hook RLS gap já estava resolvido; conta de teste recrutador.rh@teste.com criada. (3) Funil RH seedado E2E (vaga [TESTE] Dentista — Funil E2E; candidaturas a1dd4c42 decisao_final + f73682b6 avaliacao_assincrona) disparando CADA EF de IA com dados reais — caminho de IA real provado pela 1ª vez em PROD (.join bug não existe mais). (4) UAT visual 11/14/15/16: 3 PASS limpos + 2 bugs. (5) Fix F4 commitado (686c460): perguntas status 'ativo'→'active'. 4 achados capturados em .planning/todos/pending/ (ENTREV-GUIA-DISPLAY-01, DEC-CONSOLIDA-SJT-01, ENTREV-CITACOES-01, UX-BIGFIVE-01). Runbooks 11/14/15/16 atualizados com resultados. Milestone v2.0 segue archived. Next: triar os 4 todos / corrigir os 2 bugs alta, ou /gsd-new-milestone."
+last_updated: "2026-06-27T01:50:00.000Z"
 last_activity: 2026-06-26
 progress:
   total_phases: 11
