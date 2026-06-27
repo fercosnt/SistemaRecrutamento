@@ -30,9 +30,11 @@ Plan: — (no active phase / no active milestone)
 Status: v2.0 (M2) shipped + archived. Roadmap + requirements in `milestones/v2.0-*`; ROADMAP.md collapsed to milestone summaries; REQUIREMENTS.md removed (fresh at next milestone); tag `v2.0` local-only (not pushed). 5 HUMAN-UAT docs + 4 advisory WARNINGs deferred across the milestone (all non-blocking, documented in v2.0-MILESTONE-AUDIT.md). NEXT = `/gsd-new-milestone`.
 Last activity: 2026-06-26
 
-See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DEFERRED BY USER 2026-06-26 (autonomous run) — the 11 phase dirs (06-16) stay in `.planning/phases/` so the 5 open HUMAN-UAT runbooks (phases 10/11/14/15/16, deferred live tests needing real PROD data) stay easy to reach, and the uncommitted `11-HUMAN-UAT.md` isn't disturbed. Run `/gsd:cleanup` later once the deferred UATs are done.
+See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
 
-PRE-EXISTING UNCOMMITTED (NOT autonomous-run work — leave alone): `.planning/phases/11-*/11-HUMAN-UAT.md`, `.planning/ui-reviews/`.
+Remaining backlog (non-blocking, in `.planning/todos/pending/`): 4 UAT findings — ENTREV-GUIA-DISPLAY-01 [bug/alta], DEC-CONSOLIDA-SJT-01 [bug-lógica/alta], ENTREV-CITACOES-01 [bug-visual/média], UX-BIGFIVE-01 [ux/média] — plus 4 carried tech-debt (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = triar os todos / corrigir os 2 bugs alta, ou `/gsd-new-milestone`.
+
+PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 
 ## Latest Plan (15-01 — Wave 0 RED golden battery, DECISAO-01/LGPD-03)
 
