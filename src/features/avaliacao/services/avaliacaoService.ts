@@ -133,7 +133,10 @@ export async function getAvaliacaoContext(
   const { data: perguntas, error: pErr } = await supabase
     .from('perguntas')
     .select('id, cargo, cenario, formato, tempo_est_min, rubric, status')
-    .eq('status', 'ativo')
+    // Canonical sentinel is 'active' (en) — matches the `perguntas` DEFAULT, the
+    // partial index, the RLS policy `USING (status = 'active')` and `get_opcoes_sjt`.
+    // The previous 'ativo' (pt) never matched any row → the candidate saw zero SJT items.
+    .eq('status', 'active')
 
   if (pErr) {
     throw new AvaliacaoServiceError(
