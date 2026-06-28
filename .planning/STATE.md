@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
-stopped_at: Completed 17-01-PLAN.md (Wave 0 RED battery — 6 RED specs authored, all calibrated)
-last_updated: "2026-06-28T19:51:32.636Z"
+stopped_at: Completed 17-04-PLAN.md (candidate funnel — Dashboard step-CTA + LGPD card + landing repoint + Perfil strip; D-09/D-10/D-11)
+last_updated: "2026-06-28T20:05:03.000Z"
 last_activity: 2026-06-28
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 ## Current Position
 
 Phase: 17 (navegacao-arquitetura-informacao) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
+Plan: 5 of 5 (17-04 candidate funnel ✅ DONE — Dashboard step-CTA + LGPD card + landing repoint + Perfil strip)
+Status: Ready to execute 17-05 (conservative legacy deletion + navegability smoke promotion — the legacy-routes grep guards stay RED until 17-05)
 Last activity: 2026-06-28
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
@@ -174,6 +174,7 @@ PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 | Phase 17 P01 | 12min | 3 tasks | 7 files |
 | Phase 17 P02 | ~5min | 3 tasks | 3 files (2 created: funilNavMap.ts + NotFoundPage.tsx; 1 modified: routes.tsx); flips funilNavMap (5/5) + routes.nav (4/4) GREEN; tsc 292→291; build 0; 1 deviation (Rule 3 bg-primary grep-guard comment reword) |
 | Phase 17 P03 | 10min | 2 tasks | 7 files |
+| Phase 17 P04 | ~10min | 2 tasks (Task 1 TDD RED+GREEN) | 9 files (2 test created: Dashboard.funnel + RoleGuard.landing; 7 modified: DashboardCandidatoPage step-CTA+LGPD card, RoleGuard ROLE_HOME repoint, LoginCandidatoPage/CadastroMultiStepForm/FormularioCandidaturaPage landing repoints, MeuPerfilCandidatoPage strip −183 LoC, LoginCandidatoPage.test resolveRedirect default). funilNavMap drift-guarded (etapa_atual M1→EtapaFunilM2 cast + neutral fallback); LGPD card on data_decisao_final OR feedback_rejeicao → /candidato/explicacao/:id. 17 own-tests GREEN; tsc 284→281; build 0. 2 deviations (Rule 1 test-target update + Rule 3 comment-prose grep-guard). CAND-DASH-DUP-01 resolved. 12 pre-existing RED failures (legacy-routes grep → 17-05; 2 Deno EF specs) are NOT regressions |
 
 ## Accumulated Context
 
