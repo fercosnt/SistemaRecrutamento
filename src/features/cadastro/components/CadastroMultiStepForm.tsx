@@ -439,11 +439,12 @@ export function CadastroMultiStepForm({
       if (loggedIn) {
         // Phase 4.1 (RESEARCH §Pitfall 5): tryAutoLogin retorna true ANTES
         // do listener SIGNED_IN ter rodado o callback. Aguarda hidratação
-        // até `candidato !== null` para evitar /candidato/perfil render
-        // com fields vazios.
+        // até `candidato !== null` para evitar render com fields vazios.
         await waitForCandidatoHydrated({ timeoutMs: 3000 })
         toast.success(`Cadastro concluído! Bem-vindo(a), ${primeiroNome}.`, { duration: 5000 })
-        navigate('/candidato/perfil', { replace: true })
+        // Phase 17 / D-09: pós-cadastro o candidato cai no funil hub (Dashboard),
+        // não no Perfil — assim a candidatura/avaliação é alcançável por clique.
+        navigate('/candidato/dashboard', { replace: true })
       } else {
         toast.success('Cadastro concluído. Faça login para continuar.', { duration: 5000 })
         navigate('/auth/login?email=' + encodeURIComponent(result.data.dadosPessoais.email))

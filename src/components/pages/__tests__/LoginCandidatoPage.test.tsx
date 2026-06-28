@@ -5,7 +5,8 @@
  * helper guards the post-login navigation against open-redirect attacks: the
  * caller (the page) blindly hands the `?redirect=` query value here, and the
  * helper decides whether to navigate to it or fall back to the default
- * `/candidato/perfil` landing.
+ * `/candidato/dashboard` landing (Phase 17 / D-09 — repointed from
+ * `/candidato/perfil` so the funnel hub is the candidate landing).
  *
  * Why test the helper directly (not the rendered page):
  *   The page consumes `signIn` (calls Supabase Auth), `useRateLimitCooldown`,
@@ -67,37 +68,37 @@ describe('LoginCandidatoPage › resolveRedirect (VAGA-03)', () => {
   // Anti-open-redirect — must reject and use default
   // ============================================================
   it('rejects absolute http(s) URLs (open-redirect attempt)', () => {
-    expect(resolveRedirect('https://evil.com')).toBe('/candidato/perfil')
-    expect(resolveRedirect('http://evil.com/phish')).toBe('/candidato/perfil')
+    expect(resolveRedirect('https://evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('http://evil.com/phish')).toBe('/candidato/dashboard')
   })
 
   it('rejects protocol-relative URLs (//evil.com inherits scheme)', () => {
-    expect(resolveRedirect('//evil.com')).toBe('/candidato/perfil')
-    expect(resolveRedirect('//evil.com/path')).toBe('/candidato/perfil')
+    expect(resolveRedirect('//evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('//evil.com/path')).toBe('/candidato/dashboard')
   })
 
   it('rejects javascript: pseudo-protocol', () => {
-    expect(resolveRedirect('javascript:alert(1)')).toBe('/candidato/perfil')
+    expect(resolveRedirect('javascript:alert(1)')).toBe('/candidato/dashboard')
   })
 
   it('rejects relative paths without a leading slash', () => {
-    expect(resolveRedirect('candidato/perfil')).toBe('/candidato/perfil')
-    expect(resolveRedirect('foo')).toBe('/candidato/perfil')
+    expect(resolveRedirect('candidato/perfil')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('foo')).toBe('/candidato/dashboard')
   })
 
   // ============================================================
   // Empty / missing input
   // ============================================================
   it('returns default when redirect is null', () => {
-    expect(resolveRedirect(null)).toBe('/candidato/perfil')
+    expect(resolveRedirect(null)).toBe('/candidato/dashboard')
   })
 
   it('returns default when redirect is undefined', () => {
-    expect(resolveRedirect(undefined)).toBe('/candidato/perfil')
+    expect(resolveRedirect(undefined)).toBe('/candidato/dashboard')
   })
 
   it('returns default when redirect is an empty string', () => {
-    expect(resolveRedirect('')).toBe('/candidato/perfil')
+    expect(resolveRedirect('')).toBe('/candidato/dashboard')
   })
 
   // ============================================================

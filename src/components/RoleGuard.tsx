@@ -46,7 +46,12 @@ interface RoleGuardProps {
  * ao inves de / ou 403 (UX ruim per D-05).
  */
 const ROLE_HOME: Record<Role, string> = {
-  candidato: '/candidato/perfil',
+  // Phase 17 / D-09 (Pitfall 3 / A5): the candidate landing is the funnel hub
+  // (Dashboard), not Perfil. The Dashboard owns "minhas candidaturas" + the
+  // step-guided CTA; Perfil is reduced to dados pessoais + edição (D-10). This
+  // repoint makes the funnel reachable BY CLICK as the real post-login surface,
+  // so the D-16 smoke journey #1 starts where users actually land.
+  candidato: '/candidato/dashboard',
   rh: '/rh/dashboard',
   administrador: '/rh/dashboard',
 }

@@ -55,13 +55,14 @@ import { waitForCandidatoHydrated } from '@/features/auth/utils'
  * Returns the redirect target ONLY when it is a same-origin, non-protocol-relative
  * absolute path (must start with `/` and must NOT start with `//`). Anything else
  * (`https://evil.com`, `//evil.com`, `javascript:...`, empty/missing) yields the
- * default fallback `/candidato/perfil`.
+ * default fallback `/candidato/dashboard` (Phase 17 / D-09: the funnel hub is the
+ * candidate landing — repointed from `/candidato/perfil`).
  *
  * Exported for unit tests; consumers within this module use `resolveRedirect`.
  */
 export function resolveRedirect(
   raw: string | null | undefined,
-  fallback = '/candidato/perfil'
+  fallback = '/candidato/dashboard'
 ): string {
   if (!raw) return fallback
   // Reject protocol-relative URLs like `//evil.com/path` (browsers treat them as

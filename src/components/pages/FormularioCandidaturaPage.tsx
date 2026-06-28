@@ -355,7 +355,9 @@ export function FormularioCandidaturaPage() {
       // keep the existing success path.
       setSubmitResult('enviado')
       toast.success('Candidatura enviada com sucesso!', { duration: 4000 })
-      navigate('/candidato/perfil', { replace: true })
+      // Phase 17 / D-09: pós-candidatura o candidato cai no funil hub (Dashboard),
+      // onde acompanha a candidatura e segue para a próxima etapa por clique.
+      navigate('/candidato/dashboard', { replace: true })
     } catch (err) {
       setCvUploading(false)
 
@@ -523,7 +525,7 @@ export function FormularioCandidaturaPage() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => navigate('/candidato/perfil', { replace: true })}
+                onClick={() => navigate('/candidato/dashboard', { replace: true })}
                 className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-3 text-white font-semibold hover:bg-primary/90 transition-colors"
               >
                 Voltar
