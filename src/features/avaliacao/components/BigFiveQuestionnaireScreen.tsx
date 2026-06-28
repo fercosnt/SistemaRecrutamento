@@ -88,7 +88,7 @@ function AutosaveAffordance({ status }: { status: string }) {
   }
   if (status === 'saved') {
     return (
-      <span className="flex items-center gap-1.5 text-sm text-[#35BFAD]">
+      <span className="flex items-center gap-1.5 text-sm text-[#6EE6D6]">
         <Check className="w-4 h-4" /> Salvo automaticamente
       </span>
     )
@@ -130,7 +130,7 @@ export function LikertItem({
     <div className="space-y-4 border-b border-white/10 pb-7">
       {/* The affirmation is the star: position marker + larger, heavier statement. */}
       <div className="space-y-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-white/70">
+        <span className="text-xs font-semibold uppercase tracking-wide text-white/80">
           {`${numero} / ${BIGFIVE_TOTAL_ITENS}`}
         </span>
         <p id={headingId} className="text-lg font-semibold leading-snug text-white sm:text-xl">
@@ -179,14 +179,20 @@ export function LikertItem({
 }
 
 /**
- * Dark brand-blue glass surface for the questionnaire (UX-BIGFIVE-02). The old
- * `bg-white/15` over the turquoise→blue gradient washed out white AND turquoise small
- * text (contraste WCAG ruim no re-teste 2026-06-27). A deep `#00109E/85` panel gives a
- * consistently dark surface so white text (~10:1) and the turquoise accent (~5:1) both
- * pass WCAG AA, independent of the gradient behind. `twMerge` (via `cn`/GlassPanel) lets
- * this bg override the variant's `bg-white/15`.
+ * Translucent DARK glass surface for the questionnaire (UX-BIGFIVE-02, refinado).
+ *
+ * O `bg-white/15` original lavava o texto (contraste ruim); a 1ª tentativa
+ * (`#00109E/85`, quase opaco + azul saturado) leu bem mas ficou com cara de "sistema
+ * antigo" (painel chapado, perdeu o glassmorphism). Aqui voltamos ao GLASS de verdade:
+ * um tint PRETO translúcido `bg-black/45` (menos transparente + mais escuro que o
+ * white/15, mas ainda glass — mantém o blur e deixa o gradiente vibrante aparecer
+ * borrado por trás). Sobre o backdrop vibrante (overlay 15, inalterado), o pior caso
+ * (card sobre o ponto mais claro do gradiente) dá: branco 100% 8.1:1, brancos
+ * 80–95% 5.8–7.5:1, branco/70 4.9:1 — todos ≥ WCAG AA. O acento turquesa usa um tom
+ * mais claro (`#6EE6D6`) p/ passar AA como TEXTO (5.4:1) sem o painel precisar escurecer.
+ * `twMerge` (via `cn`/GlassPanel) faz este bg sobrepor o `bg-white/15` da variante.
  */
-const PANEL_DARK = 'bg-[#00109E]/85'
+const PANEL_DARK = 'bg-black/45'
 
 /**
  * The 5-point scale legend (UX-BIGFIVE-02) — explains what each Likert level means
@@ -247,7 +253,7 @@ export function BigFiveIntro({ onComecar }: { onComecar: () => void }) {
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
         {/* Scannable highlight line — turquoise now reads on the dark glass (WCAG AA). */}
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#35BFAD]">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#6EE6D6]">
           <span>120 afirmações</span>
           <span aria-hidden="true" className="text-white/40">·</span>
           <span>~15 min</span>
@@ -264,7 +270,7 @@ export function BigFiveIntro({ onComecar }: { onComecar: () => void }) {
           'São 120 afirmações, em páginas de 10. Você pode pausar e voltar quando quiser — tudo é salvo automaticamente.',
         ].map((linha) => (
           <li key={linha} className="flex items-start gap-2.5">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#35BFAD]" aria-hidden="true" />
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6EE6D6]" aria-hidden="true" />
             <span>{linha}</span>
           </li>
         ))}

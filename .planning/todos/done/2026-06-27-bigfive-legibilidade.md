@@ -64,4 +64,16 @@ A11y preservada (aria-label completo por ponto + aria-labelledby — guarda do
 `BigFiveLikert.test.tsx` segue verde). Novos testes: `BigFiveIntro.test.tsx` (4/4 —
 disclaimer sem `<details>`, EscalaLegenda com os 5 niveis, CTA). avaliacao 57/57,
 tsc 290 baseline. Componentes `BigFiveIntro`/`EscalaLegenda` exportados p/ teste.
-**Re-teste visual do Fernando recomendado** (tela candidato-facing).
+
+## Refinamento visual (2026-06-27, feedback do Fernando)
+
+A 1ª tentativa de contraste (`bg-[#00109E]/85`, quase opaco + azul saturado) leu bem
+mas ficou com cara de "sistema antigo" — painel chapado, perdeu o glassmorphism.
+Ajustado p/ GLASS de verdade mantendo a leitura: `PANEL_DARK = bg-black/45` — tint
+PRETO translucido (menos transparente + mais escuro que o white/15 original, mas ainda
+glass: mantem o blur e deixa o gradiente vibrante aparecer borrado por tras); backdrop
+vibrante INALTERADO (overlay 15). Pior caso (card sobre o ponto mais claro do gradiente)
+ainda passa WCAG AA: branco 100% 8.1:1 · brancos 70–95% 4.9–7.5:1 — todos ≥ 4.5. O
+acento turquesa trocado de `#35BFAD` (falhava como texto, 3.5:1) p/ `#6EE6D6` (mais
+claro, 5.4:1) nos 3 usos (linha de destaque, icones, "Salvo automaticamente"). Visual
+moderno restaurado + leitura mantida. **Re-teste visual do Fernando recomendado.**
