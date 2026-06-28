@@ -5,7 +5,7 @@
  * área de funcionalidade: público, candidato, RH/Admin
  */
 
-import { RouteObject } from 'react-router-dom'
+import { Navigate, RouteObject, useParams } from 'react-router-dom'
 
 // Páginas Públicas
 import { LandingPage } from '../components/pages/LandingPage'
@@ -85,6 +85,29 @@ import { AiCostsPage } from '../features/admin/ai-costs/components/AiCostsPage'
 import { DecisaoFinalPage } from '../features/decisao/components/DecisaoFinalPage'
 import { ExplicacaoCandidatoPage } from '../features/explicacao/components/ExplicacaoCandidatoPage'
 import { BiasAuditPage } from '../features/admin/bias-audit/components/BiasAuditPage'
+
+// 404 catch-all (Phase 17 / D-14) — Beauty Smile glass NotFound, role-aware back-link
+import { NotFoundPage } from '../components/pages/NotFoundPage'
+
+/**
+ * Phase 17 / D-08 — route normalization wrapper.
+ *
+ * Canonical funnel id pattern (RESEARCH Open Q1 / Pitfall 1): the RH candidate HUB mounts
+ * at `/rh/candidatos/:id` (PLURAL) and the per-stage WORKSPACES at `/rh/candidato/:id/{...}`
+ * (SINGULAR) — in BOTH, `:id` is a **candidaturaId** (aligns with TriagemRow.id and every
+ * workspace `useParams`). The hub plural mount stays canonical because TriagemTable already
+ * links to it (D-04 — the link stays, only the destination CONTENT changes in 17-03).
+ *
+ * This bridges a likely user/typo guess: a BARE singular `/rh/candidato/:id` (no sub-segment)
+ * → the canonical plural hub, param-preserving. It is NOT a literal `<Navigate to="...:id">`
+ * (Pitfall 5 — React Router does not interpolate `:id` inside `to`); the param is resolved
+ * via `useParams` and interpolated into a fixed internal template (no open-redirect — the
+ * target is never user-supplied; T-17-02-OR mitigate).
+ */
+function RedirectToHub() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/rh/candidatos/${id}`} replace />
+}
 
 /**
  * Configuração de rotas da aplicação
@@ -371,12 +394,22 @@ export const routes: RouteObject[] = [
     ),
   },
   {
+    // CANONICAL hub mount (D-08): plural + candidaturaId. TriagemTable links here
+    // (D-04). The destination CONTENT becomes the real hub in 17-03; the route stays.
     path: '/rh/candidatos/:id',
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <PerfilCandidatoRHPage />
       </RoleGuard>
     ),
+  },
+  {
+    // D-08 normalization: bare SINGULAR `/rh/candidato/:id` (no sub-segment) →
+    // canonical plural hub, param-preserving (Pitfall 5 — via RedirectToHub wrapper,
+    // never a literal `<Navigate to="...:id">`). The singular workspace sub-routes
+    // (/rh/candidato/:id/{redacao,entrevista,decisao}) keep their form + RoleGuard.
+    path: '/rh/candidato/:id',
+    element: <RedirectToHub />,
   },
   // Revisão de redações (Phase 13 / AVAL-07) — RH human-review queue, role-gated.
   // 1-redação-por-vez, severity-sorted color sidebar, BARS override, decisão+notas≥50.
@@ -521,6 +554,16 @@ export const routes: RouteObject[] = [
         <BiasAuditPage />
       </RoleGuard>
     ),
+  },
+
+  // ============================
+  // CATCH-ALL 404 (Phase 17 / D-14) — MUST stay LAST
+  // ============================
+  // No RoleGuard: renders for any/unknown role (incl. unauthenticated). A '*' route
+  // placed before specific routes would shadow them, so it is appended last.
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ]
 
