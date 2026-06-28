@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Completed 17-01-PLAN.md (Wave 0 RED battery — 6 RED specs authored, all calibrated)
-last_updated: "2026-06-28T19:34:51.252Z"
-last_activity: 2026-06-28 -- Plan 17-02 complete (funilNavMap single-source D-17 + Beauty Smile glass 404 D-14 + routes catch-all/redirect D-08; funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; tsc 292→291; build 0)
+last_updated: "2026-06-28T19:51:32.636Z"
+last_activity: 2026-06-28
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 ## Current Position
 
 Phase: 17 (navegacao-arquitetura-informacao) — EXECUTING
-Plan: 3 of 5
-Status: Ready to execute (17-02 Wave-1 foundation shipped; next = 17-03 Wave-2 RH hub + admin sidebar item, consumes funilNavMap)
-Last activity: 2026-06-28 -- Plan 17-02 complete (funilNavMap single-source D-17 + Beauty Smile glass 404 D-14 + routes catch-all/redirect D-08; funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; tsc 292→291; build 0)
+Plan: 4 of 5
+Status: Ready to execute
+Last activity: 2026-06-28
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
 
@@ -173,6 +173,7 @@ PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 | Phase 16 P16-04 | 10min | 3 tasks | 5 files |
 | Phase 17 P01 | 12min | 3 tasks | 7 files |
 | Phase 17 P02 | ~5min | 3 tasks | 3 files (2 created: funilNavMap.ts + NotFoundPage.tsx; 1 modified: routes.tsx); flips funilNavMap (5/5) + routes.nav (4/4) GREEN; tsc 292→291; build 0; 1 deviation (Rule 3 bg-primary grep-guard comment reword) |
+| Phase 17 P03 | 10min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -345,6 +346,9 @@ Recent decisions affecting current work:
 - [17-02]: D-17 — funilNavMap.ts is the single source `Record<EtapaFunilM2, { label, rotaCandidato, rotaWorkspaceRH, ctaCandidato, ctaRH }>`, reusing EtapaFunilM2 + ETAPA_M2_LABELS from triagemService (no parallel enum; TS enforces exhaustiveness over the 8 stages); every :id route segment carries a candidaturaId (Pitfall 1). Pure lib (no React/Supabase), acyclic feature→lib per opcoesNormalize; consumed by BOTH the candidate Dashboard CTA (17-04) and the RH hub (17-03)
 - [17-02]: D-08 — canonical hub mount = plural `/rh/candidatos/:id` (carries candidaturaId; TriagemTable link stays per D-04, content changes in 17-03); bare singular `/rh/candidato/:id` redirects param-preserving to the plural hub via a `RedirectToHub` useParams wrapper (Pitfall 5 — NOT a literal `<Navigate to=":id">`); workspace sub-routes (/rh/candidato/:id/{redacao,entrevista,decisao}) keep singular form + RoleGuard untouched
 - [17-02]: D-14 — Beauty Smile glass NotFoundPage (standalone surface, no persona navbar, no RoleGuard — renders for any/unknown role) + catch-all `path:'*'` appended LAST in routes.tsx; role-aware SPA back-link reads store role and picks one of 3 fixed internal home routes (candidato→/candidato/dashboard, rh|administrador→/rh/dashboard, null→/), exposing no protected route names (V7/T-17-02-404). No bg-primary (broken token D-26) — bg-[#35BFAD] accent + dark glass. funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; DevNav/App.tsx untouched (D-02); no legacy deleted (deferred to 17-05)
+- [Phase ?]: 17-03: PerfilCandidatoRHPage mock retired to a thin wrapper rendering src/features/hub-candidato/ hub (D-05) — resolves ENTREV-PERFIL-DUP-01
+- [Phase ?]: 17-03: hub composes full M2 pipeline from real allowlist features/* hooks keyed by candidaturaId OR explicit empty states — never invents data, no new select (D-07)
+- [Phase ?]: 17-03: TriagemTable entry is SPA <Link> carrying row.id=candidaturaId (D-04/Pitfall 1); RHSidebar Admin item role-gated administrador, cosmetic over RoleGuard+RLS (D-13)
 
 ### Pending Todos
 
@@ -379,7 +383,7 @@ Full details: `.planning/phases/02-cadastro-candidato/deferred-items.md`
 
 ## Session Continuity
 
-Last session: 2026-06-28T19:22:09.600Z
+Last session: 2026-06-28T19:51:19.970Z
 Stopped at: Completed 17-01-PLAN.md (Wave 0 RED battery — 6 RED specs authored, all calibrated)
 
 **Previous milestone — Phase 4.1 Wave 2 / Plan 04.1-03 landed (defense-in-depth submit handlers).** 4 submit handler sites now consume `waitForCandidatoHydrated` from the Plan 02 utility: LoginCandidatoPage onSubmit awaits hydration after signIn before navigate; RedefinirSenhaPage onSubmit awaits in BOTH happy path (post-`setNewPassword`) AND Pitfall 2 fallback (post-`tryAutoLogin` success) before navigate to /candidato/perfil; CadastroMultiStepForm Step 4 awaits after tryAutoLogin succeeds (Pitfall 5 mitigation) before /candidato/perfil; FormularioCandidaturaPage onSubmit replaces silent-return guard `if (!cvFile || !user || !candidato || !vaga) return` by 3 distinct pt-BR toasts (session-not-hydrated / no-CV / no-vaga) AND submit button gates on `disabled={!candidato || !cvFile || cvUploading || form.formState.isSubmitting}` (inline at JSX call site, removed unused `submitDisabled` local). 7 total `waitForCandidatoHydrated` occurrences across 3 fresh-login pages (2+3+2). Submit happy path (`uploadCV` + `submitCandidaturaWithRespostas` count = 6 = pre-task count) UNCHANGED. 2 atomic commits: aec3e27 (feat 04.1-03 — Task 1) + 1534b45 (fix 04.1-03 — Task 2) + this metadata commit. 1 deviation (Rule 3 procedural `git -c core.hooksPath=/dev/null` lock-in carryover [03-01]..[04.1-02]). All Phase 4.1 Wave 0/Wave 1 GREEN tests preserved GREEN (4 pitfall7 + 4 authStore + 3 RoleGuard); 2 found12 still RED (Plan 04 contract). tsc baseline 296 preserved; production `npm run build` exits 0; full vitest run: 25 files PASS / 2 FAIL — 347 tests PASS / 3 FAIL (the 3 failures: 2 found12 Wave 0 contract + 1 LoadingProgress pre-existing Phase 2/3 carryover, both documented). **Defense-in-depth layer closure:** FLOW-CADASTRO + FLOW-RECOVERY + FLOW-CANDIDATURA at the page layer. Plan 02's listener handles centralized hydration; Plan 03 closes the race window where submit handlers may complete before the listener's setTimeout(0) callback resolves. **Phase 4.1 plan execution: 3/5; next is Plan 04 (FOUND-12 literal close — delete adminAuthStore.ts + migrate App.tsx:28 + useSessionTimeout.ts:19 + LoginRHPage doc-comment). Plan 04 will flip the 2 found12 RED tests GREEN. Plan 05 will run UAT runbook + Playwright SC-1..SC-4 GREEN battery on real auth round-trip.** Net diff Plan 03: 4 files modified (zero created/deleted), +36/−4 LoC.
