@@ -130,20 +130,31 @@ export function normalizeCitacao(c: unknown): CitacaoNormalizada | null {
   return flat ? { competencia, evidencias: [flat] } : null
 }
 
-/** One citação group — competency label + each evidence as «trecho» — localização. */
+/**
+ * One citação group (ENTREV-CITACOES-02) — a card with the competency as a prominent
+ * TAG (Badge) and each evidence as a readable quote with its location as a visible badge
+ * below. Grouped + scannable (antes: competência em texto apagado + localização inline
+ * sumindo no meio da frase).
+ */
 function CitacaoItem({ citacao }: { citacao: unknown }) {
   const n = normalizeCitacao(citacao)
   if (!n) return null
   return (
-    <li className="space-y-1">
+    <li className="space-y-3 rounded-lg border border-white/10 bg-white/[0.03] p-4">
       {n.competencia ? (
-        <p className="text-sm font-semibold text-white/80">{n.competencia}</p>
+        <Badge className="border-white/25 bg-white/10 text-white text-xs font-semibold">
+          {n.competencia}
+        </Badge>
       ) : null}
-      <ul className="space-y-1">
+      <ul className="space-y-3">
         {n.evidencias.map((e, i) => (
-          <li key={i} className="text-base leading-relaxed text-white/70">
-            <span className="text-white/90">«{e.texto}»</span>
-            {e.local ? <span className="text-white/50"> — {e.local}</span> : null}
+          <li key={i} className="space-y-1.5">
+            <p className="text-base leading-relaxed text-white/90">«{e.texto}»</p>
+            {e.local ? (
+              <Badge className="border-white/15 bg-white/5 text-white/70 text-xs font-semibold">
+                {e.local}
+              </Badge>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -218,23 +229,30 @@ export function TranscricaoReviewPanel({
       {loading ? (
         <p className="text-sm text-white/60">Carregando análise…</p>
       ) : competencias.length > 0 ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl font-semibold text-white">Análise da transcrição</h3>
-            <SugestaoIABadge variant="full" />
+        <div className="space-y-6">
+          {/* Scores section. */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xl font-semibold text-white">Análise da transcrição</h3>
+              <SugestaoIABadge variant="full" />
+            </div>
+            <ul className="space-y-3">
+              {competencias.map((c, i) => (
+                <DimensaoRow key={`${c.competencia}-${i}`} c={c} />
+              ))}
+            </ul>
           </div>
 
-          <ul className="space-y-3">
-            {competencias.map((c, i) => (
-              <DimensaoRow key={`${c.competencia}-${i}`} c={c} />
-            ))}
-          </ul>
-
+          {/* Citations section (ENTREV-CITACOES-02) — own prominent heading + divider,
+              separando-a do bloco de scores acima. */}
           {citacoes.length > 0 ? (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                Citações
-              </p>
+            <div className="space-y-4 border-t border-white/15 pt-6">
+              <div className="space-y-1">
+                <h3 className="text-xl font-semibold text-white">Citações</h3>
+                <p className="text-sm text-white/60">
+                  Trechos da transcrição que embasam cada competência avaliada.
+                </p>
+              </div>
               <ul className="space-y-3">
                 {citacoes.map((c, i) => (
                   <CitacaoItem key={i} citacao={c} />

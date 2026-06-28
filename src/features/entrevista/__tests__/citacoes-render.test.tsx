@@ -65,4 +65,17 @@ describe('ENTREV-CITACOES-01 — citações render legibly (not raw JSON)', () =
     render(<TranscricaoReviewPanel analise={a} />)
     expect(screen.getByText(/Uma citação simples em texto puro/)).toBeTruthy()
   })
+
+  // ── ENTREV-CITACOES-02 — hierarquia visual ──────────────────────────────────
+  it('"Citações" é um título de seção (heading), não um rótulo apagado', () => {
+    render(<TranscricaoReviewPanel analise={analiseWithCitacoes()} />)
+    expect(screen.getByRole('heading', { name: 'Citações' })).toBeTruthy()
+  })
+
+  it('a competência e a localização aparecem agrupadas e visíveis (tag + área)', () => {
+    render(<TranscricaoReviewPanel analise={analiseWithCitacoes()} />)
+    expect(screen.getByText('Manejo de Paciente Ansioso / Inteligência Emocional')).toBeTruthy()
+    // a localização aparece como rótulo próprio (não some no meio do texto)
+    expect(screen.getAllByText('Transcrição - Pergunta 1').length).toBeGreaterThan(0)
+  })
 })
