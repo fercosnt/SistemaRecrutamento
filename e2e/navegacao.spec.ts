@@ -82,13 +82,22 @@ test.describe('Navegação — 404 catch-all (D-14, sem auth)', () => {
   test('J4: URL inválida resolve para a 404 estilizada com link de volta', async ({ page }) => {
     await page.goto('/rota/invalida/xyz')
 
-    // The Beauty Smile 404 heading (UI-SPEC §404 copy) — absent today.
+    // The Beauty Smile 404 heading (UI-SPEC §404 copy) — wired in 17-02 (NotFoundPage
+    // catch-all path:'*'). RED in 17-01 (no catch-all), GREEN now.
     await expect(
       page.getByRole('heading', { name: /Página não encontrada/i }),
     ).toBeVisible({ timeout: 10000 })
 
-    // A role-aware back-link ("Voltar ao..." per UI-SPEC) — absent today.
-    await expect(page.getByRole('link', { name: /Voltar/i })).toBeVisible()
+    // The role-aware "Voltar ao..." back affordance (UI-SPEC §404). NotFoundPage renders
+    // it as a GlassButton (role=button, SPA navigate) — accept either button or link so
+    // the assertion is resilient to the affordance kind, asserting ROUTE/affordance
+    // resolution (D-16), not the element tag.
+    await expect(
+      page
+        .getByRole('button', { name: /Voltar/i })
+        .or(page.getByRole('link', { name: /Voltar/i }))
+        .first(),
+    ).toBeVisible()
   })
 })
 
