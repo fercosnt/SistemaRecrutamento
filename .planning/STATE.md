@@ -42,7 +42,9 @@ See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archivin
 
 **4 itens novos capturados em `.planning/todos/pending/`:** UX-BIGFIVE-02 [ux/**alta**] legibilidade Big Five (contraste WCAG AA do turquesa s/ glass claro · disclaimer fora do acordeão · instruções + explicação dos 5 níveis da escala · rótulo por ponto); ENTREV-CITACOES-02 [ux-visual/média] hierarquia das citações ("Citações" como título de seção + chip de competência/pergunta + localização destacada); ENTREV-GUIA-EDIT-01 [feature/média] RH editar/adicionar perguntas no guia (precisa write seguro em entrevista_guias + /gsd-discuss); ENTREV-PERFIL-DUP-01 [investigação/baixa] duplicação perfil `/rh/candidatos/:id` vs workspace `/rh/candidato/:id/entrevista`.
 
-Remaining backlog (non-blocking, em `.planning/todos/pending/`): 4 follow-ups do re-teste (acima) + 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = UX-BIGFIVE-02 (alta), demais follow-ups, tech-debt, ou `/gsd-new-milestone`.
+**UX-BIGFIVE-02 [ux/alta] ✅ RESOLVIDO 2026-06-27** (commit `c7f51ed`, movido p/ done/): glass escurecido p/ azul-marca `#00109E/85` (contraste WCAG AA verificado por razão — turquesa 4.97:1 pior caso, brancos 6.2–10.3:1) + disclaimer fora do `<details>` + `EscalaLegenda` explicando os 5 níveis (intro + topo de cada página). +4 testes; a11y preservada; re-teste visual do Fernando pendente.
+
+Remaining backlog (non-blocking, em `.planning/todos/pending/`): 3 follow-ups do re-teste — ENTREV-CITACOES-02 [ux-visual/média], ENTREV-GUIA-EDIT-01 [feature/média], ENTREV-PERFIL-DUP-01 [investigação/baixa] — + 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = ENTREV-CITACOES-02 (média), demais follow-ups, tech-debt, ou `/gsd-new-milestone`.
 
 PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 
