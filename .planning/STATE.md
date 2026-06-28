@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
 status: executing
 stopped_at: Completed 17-01-PLAN.md (Wave 0 RED battery — 6 RED specs authored, all calibrated)
-last_updated: "2026-06-28T19:22:10.124Z"
-last_activity: 2026-06-28
+last_updated: "2026-06-28T19:34:51.252Z"
+last_activity: 2026-06-28 -- Plan 17-02 complete (funilNavMap single-source D-17 + Beauty Smile glass 404 D-14 + routes catch-all/redirect D-08; funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; tsc 292→291; build 0)
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 5
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 ## Current Position
 
 Phase: 17 (navegacao-arquitetura-informacao) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute (17-01 Wave-0 RED battery shipped; next = 17-02 Wave-1 funilNavMap + 404 + redirects)
-Last activity: 2026-06-28 -- Plan 17-01 complete (calibrated Wave-0 RED battery: 5 Vitest + 1 Playwright nav smoke)
+Plan: 3 of 5
+Status: Ready to execute (17-02 Wave-1 foundation shipped; next = 17-03 Wave-2 RH hub + admin sidebar item, consumes funilNavMap)
+Last activity: 2026-06-28 -- Plan 17-02 complete (funilNavMap single-source D-17 + Beauty Smile glass 404 D-14 + routes catch-all/redirect D-08; funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; tsc 292→291; build 0)
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
 
@@ -172,6 +172,7 @@ PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 | Phase 16 P02 | 28min | 3 tasks | 5 files |
 | Phase 16 P16-04 | 10min | 3 tasks | 5 files |
 | Phase 17 P01 | 12min | 3 tasks | 7 files |
+| Phase 17 P02 | ~5min | 3 tasks | 3 files (2 created: funilNavMap.ts + NotFoundPage.tsx; 1 modified: routes.tsx); flips funilNavMap (5/5) + routes.nav (4/4) GREEN; tsc 292→291; build 0; 1 deviation (Rule 3 bg-primary grep-guard comment reword) |
 
 ## Accumulated Context
 
@@ -341,6 +342,9 @@ Recent decisions affecting current work:
 - [Phase 16]: Phase 16-04: LoginRHPage race+gate fix committed (464ead8; poll 100ms->3s cold-DB usuarios_rh hydration + gate widened to {rh,administrador}); NO migration (RLS+grant+hook PROD-verified). Task-3 checkpoint = approved-with-deferral: R1 axe GREEN, live RH cold-start round-trip deferred to 16-HUMAN-UAT.md.
 - [Phase ?]: 17-01: Wave-0 RED battery (5 Vitest + 1 Playwright nav smoke) authored before wiring per smoke-runtime gate; each calibrated RED now, flips GREEN in 17-02/03/05
 - [Phase ?]: 17-01: legacy grep guard splits dead set by shape — VagaLPPage (unrouted, 0 routes.tsx refs) via node:fs file-existence; 11 route-coupled via ref-count==0 — every dead artifact RED today, none mis-calibrated GREEN. MeuPerfilPage KEEP positive-control green
+- [17-02]: D-17 — funilNavMap.ts is the single source `Record<EtapaFunilM2, { label, rotaCandidato, rotaWorkspaceRH, ctaCandidato, ctaRH }>`, reusing EtapaFunilM2 + ETAPA_M2_LABELS from triagemService (no parallel enum; TS enforces exhaustiveness over the 8 stages); every :id route segment carries a candidaturaId (Pitfall 1). Pure lib (no React/Supabase), acyclic feature→lib per opcoesNormalize; consumed by BOTH the candidate Dashboard CTA (17-04) and the RH hub (17-03)
+- [17-02]: D-08 — canonical hub mount = plural `/rh/candidatos/:id` (carries candidaturaId; TriagemTable link stays per D-04, content changes in 17-03); bare singular `/rh/candidato/:id` redirects param-preserving to the plural hub via a `RedirectToHub` useParams wrapper (Pitfall 5 — NOT a literal `<Navigate to=":id">`); workspace sub-routes (/rh/candidato/:id/{redacao,entrevista,decisao}) keep singular form + RoleGuard untouched
+- [17-02]: D-14 — Beauty Smile glass NotFoundPage (standalone surface, no persona navbar, no RoleGuard — renders for any/unknown role) + catch-all `path:'*'` appended LAST in routes.tsx; role-aware SPA back-link reads store role and picks one of 3 fixed internal home routes (candidato→/candidato/dashboard, rh|administrador→/rh/dashboard, null→/), exposing no protected route names (V7/T-17-02-404). No bg-primary (broken token D-26) — bg-[#35BFAD] accent + dark glass. funilNavMap 5/5 + routes.nav 4/4 flipped GREEN; DevNav/App.tsx untouched (D-02); no legacy deleted (deferred to 17-05)
 
 ### Pending Todos
 
