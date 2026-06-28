@@ -12,10 +12,8 @@ import { LandingPage } from '../components/pages/LandingPage'
 import { VagasPublicasPage } from '../components/pages/VagasPublicasPage'
 import { VagaDetalhePage } from '../components/pages/VagaDetalhePage'
 import { ManifestoPage } from '../components/pages/ManifestoPage'
-import { GlassShowcase } from '../components/GlassShowcase'
 
 // Páginas de Autenticação e Cadastro
-import { InscricaoPage } from '../components/pages/InscricaoPage'
 import { CadastroPage } from '../components/pages/CadastroPage'
 import { LoginCandidatoPage } from '../components/pages/LoginCandidatoPage'
 import { LoginRHPage } from '../components/pages/LoginRHPage'
@@ -27,23 +25,12 @@ import { DashboardCandidatoPage } from '../components/pages/DashboardCandidatoPa
 import { MeuPerfilCandidatoPage } from '../components/pages/MeuPerfilCandidatoPage'
 import { InstrucoesFormularioPage } from '../components/pages/InstrucoesFormularioPage'
 import { FormularioCandidaturaPage } from '../components/pages/FormularioCandidaturaPage'
-import { QuestionarioCulturaPage } from '../components/pages/QuestionarioCulturaPage'
 
 // Protected Route HOC (unified role-aware guard)
 import { RoleGuard } from '../components/RoleGuard'
 
 // Error Boundary
 import { ErrorBoundary } from '../components/ErrorBoundary'
-
-// Testes Psicométricos
-import { InstrucoesBigFivePage } from '../components/pages/InstrucoesBigFivePage'
-import { InstrucoesDISCPage } from '../components/pages/InstrucoesDISCPage'
-import { InstrucoesRavenPage } from '../components/pages/InstrucoesRavenPage'
-import { TesteBigFivePage } from '../components/pages/TesteBigFivePage'
-import { TesteDISCPage } from '../components/pages/TesteDISCPage'
-import { TesteRavenPage } from '../components/pages/TesteRavenPage'
-import { ConclusaoTestesPage } from '../components/pages/ConclusaoTestesPage'
-import { QuestionarioPage } from '../components/pages/QuestionarioPage'
 
 // Avaliação Assíncrona (candidato — Phase 11 / AVAL-01·02·03·09)
 import {
@@ -116,7 +103,6 @@ function RedirectToHub() {
  * - Rotas públicas (/)
  * - Rotas de autenticação (/auth/*)
  * - Rotas de candidato (/candidato/*)
- * - Rotas de testes (/testes/*)
  * - Rotas RH/Admin (/rh/*)
  */
 export const routes: RouteObject[] = [
@@ -140,18 +126,10 @@ export const routes: RouteObject[] = [
     path: '/manifesto',
     element: <ManifestoPage />,
   },
-  {
-    path: '/showcase',
-    element: <GlassShowcase />,
-  },
 
   // ============================
   // ROTAS DE AUTENTICAÇÃO
   // ============================
-  {
-    path: '/auth/inscricao',
-    element: <InscricaoPage />,
-  },
   {
     path: '/cadastro',
     element: <CadastroPage />,
@@ -214,22 +192,6 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <FormularioCandidaturaPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/candidato/questionario-cultura',
-    element: (
-      <RoleGuard role="candidato">
-        <QuestionarioCulturaPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/candidato/questionario',
-    element: (
-      <RoleGuard role="candidato">
-        <QuestionarioPage />
       </RoleGuard>
     ),
   },
@@ -310,66 +272,6 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <ExplicacaoCandidatoPage />
-      </RoleGuard>
-    ),
-  },
-
-  // ============================
-  // ROTAS DE TESTES
-  // ============================
-  {
-    path: '/testes/bigfive/instrucoes',
-    element: (
-      <RoleGuard role="candidato">
-        <InstrucoesBigFivePage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/bigfive',
-    element: (
-      <RoleGuard role="candidato">
-        <TesteBigFivePage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/disc/instrucoes',
-    element: (
-      <RoleGuard role="candidato">
-        <InstrucoesDISCPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/disc',
-    element: (
-      <RoleGuard role="candidato">
-        <TesteDISCPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/raven/instrucoes',
-    element: (
-      <RoleGuard role="candidato">
-        <InstrucoesRavenPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/raven',
-    element: (
-      <RoleGuard role="candidato">
-        <TesteRavenPage />
-      </RoleGuard>
-    ),
-  },
-  {
-    path: '/testes/conclusao',
-    element: (
-      <RoleGuard role="candidato">
-        <ConclusaoTestesPage />
       </RoleGuard>
     ),
   },
@@ -578,7 +480,6 @@ export const devNavigationPages = [
   { path: '/vagas', label: 'Vagas Públicas', icon: '💼', category: 'Público' },
   { path: '/vagas/1', label: 'LP Divulgação Vaga', icon: '📄', category: 'Público' },
   { path: '/manifesto', label: 'Manifesto Beauty Smile', icon: '🦷', category: 'Público' },
-  { path: '/auth/inscricao', label: 'Inscrição Candidato', icon: '📝', category: 'Auth' },
   { path: '/cadastro', label: 'Cadastro Completo (PRD-1)', icon: '📋', category: 'Auth' },
   { path: '/auth/login', label: 'Login Candidato', icon: '🔑', category: 'Auth' },
   { path: '/auth/login-rh', label: 'Login RH', icon: '🔐', category: 'Auth' },
@@ -588,15 +489,6 @@ export const devNavigationPages = [
   { path: '/candidato/perfil', label: 'Meu Perfil', icon: '👤', category: 'Candidato' },
   { path: '/candidato/candidatura/instrucoes', label: 'Instruções Formulário', icon: '📹', category: 'Candidato' },
   { path: '/candidato/candidatura/formulario/1', label: 'Formulário Candidatura', icon: '📋', category: 'Candidato' },
-  { path: '/candidato/questionario-cultura', label: 'Questionário Cultura', icon: '💬', category: 'Candidato' },
-  { path: '/candidato/questionario', label: 'Questionário', icon: '🧠', category: 'Candidato' },
-  { path: '/testes/bigfive/instrucoes', label: 'Instruções Big Five', icon: '🎨', category: 'Testes' },
-  { path: '/testes/bigfive', label: 'Teste Big Five', icon: '✍️', category: 'Testes' },
-  { path: '/testes/disc/instrucoes', label: 'Instruções DISC', icon: '🎯', category: 'Testes' },
-  { path: '/testes/disc', label: 'Teste DISC', icon: '✍️', category: 'Testes' },
-  { path: '/testes/raven/instrucoes', label: 'Instruções Raven', icon: '🧩', category: 'Testes' },
-  { path: '/testes/raven', label: 'Teste Raven', icon: '🧩', category: 'Testes' },
-  { path: '/testes/conclusao', label: 'Conclusão Testes', icon: '✅', category: 'Testes' },
   { path: '/rh/dashboard', label: 'Dashboard RH', icon: '📊', category: 'RH' },
   { path: '/rh/candidatos', label: 'Candidatos RH', icon: '👥', category: 'RH' },
   { path: '/rh/candidatos/1', label: 'Perfil Candidato RH', icon: '👤', category: 'RH' },
@@ -606,5 +498,4 @@ export const devNavigationPages = [
   { path: '/rh/configuracoes', label: 'Configurações', icon: '⚙️', category: 'RH' },
   { path: '/rh/suporte', label: 'Suporte Técnico', icon: '🛠️', category: 'RH' },
   { path: '/rh/relatorios', label: 'Relatórios', icon: '📊', category: 'RH' },
-  { path: '/showcase', label: 'Design Showcase', icon: '🎨', category: 'Dev' },
 ]
