@@ -182,7 +182,7 @@ export function DashboardCandidatoPage() {
         <div className="container mx-auto px-4 space-y-8 mt-8">
           <div className="text-center mb-12">
             <BeautySmileLogo type="horizontal" size="xl" variant="white" className="mx-auto mb-4" />
-            <h1 className="text-white text-5xl mb-2 drop-shadow-lg">Dashboard de Candidato</h1>
+            <h1 className="text-white text-5xl font-semibold mb-2 drop-shadow-lg">Dashboard de Candidato</h1>
             <p className="text-white/90 text-xl drop-shadow-md">Acompanhe seu progresso no processo seletivo</p>
           </div>
 
@@ -191,27 +191,27 @@ export function DashboardCandidatoPage() {
             <h2 className="text-3xl mb-6 drop-shadow-md">Suas Candidaturas</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold">{counts.total}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold">{counts.total}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Total</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-blue-300">{counts.aguardando}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold text-blue-300">{counts.aguardando}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Aguardando</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-yellow-300">{counts.em_analise}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold text-yellow-300">{counts.em_analise}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Em Análise</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-green-300">{counts.aprovadas}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold text-green-300">{counts.aprovadas}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Aprovadas</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-red-300">{counts.rejeitadas}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold text-red-300">{counts.rejeitadas}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Rejeitadas</p>
               </Glass>
               <Glass variant="white" blur="lg" className="p-6 text-center">
-                <p className="text-4xl mb-2 drop-shadow-md font-bold text-gray-300">{counts.finalizadas}</p>
+                <p className="text-4xl mb-2 drop-shadow-md font-semibold text-gray-300">{counts.finalizadas}</p>
                 <p className="text-white/90 drop-shadow-sm text-sm">Finalizadas</p>
               </Glass>
             </div>

@@ -340,7 +340,7 @@ export function MeuPerfilCandidatoPage() {
             <BeautySmileLogo type="horizontal" size="xl" variant="white" className="mx-auto mb-6" />
             <div className="flex items-center justify-center gap-3 mb-3">
               <User className="w-8 h-8 text-white drop-shadow-lg" />
-              <h1 className="text-white text-5xl drop-shadow-lg">Meu Perfil</h1>
+              <h1 className="text-white text-5xl font-semibold drop-shadow-lg">Meu Perfil</h1>
             </div>
             <div className="h-px bg-white/20 mt-4 max-w-2xl mx-auto" />
           </div>

@@ -118,7 +118,7 @@ export function HubCandidatoRH() {
           <Skeleton className="h-20 w-full bg-white/5" />
         ) : (
           <div className="space-y-3">
-            <h1 className="text-3xl font-semibold text-white md:text-4xl">{nomeCandidato}</h1>
+            <h1 className="text-5xl font-semibold text-white">{nomeCandidato}</h1>
             <span className="inline-flex items-center rounded-full bg-[#35BFAD] px-4 py-1 text-sm font-semibold text-white">
               {etapaLabel}
             </span>
