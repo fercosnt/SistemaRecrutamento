@@ -94,6 +94,13 @@ export function HubCandidatoRH() {
   const cognitivoScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'cognitivo')
   const entrevistaScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'entrevista')
 
+  // WR-01: useRedacaoRevisao is a WHOLE-VAGA review queue. Scope the presence flag to THIS
+  // candidatura (RedacaoReviewRow carries candidatura_id) so the section reflects the candidate
+  // in scope — NOT "any candidate in the vaga has a pending redação".
+  const temRedacaoDoCandidato = (redacaoQuery.data ?? []).some(
+    (r) => r.candidatura_id === candidaturaId,
+  )
+
   const nomeCandidato = contexto?.candidato_nome ?? 'Candidato'
   const etapaLabel = etapaAtual ? ETAPA_M2_LABELS[etapaAtual] : '—'
 
@@ -210,17 +217,34 @@ export function HubCandidatoRH() {
           </p>
         </HubSection>
 
-        {/* Redação — vaga-level review queue (the candidate's row surfaces in the workspace) */}
+        {/* Redação — review-queue presence scoped to THIS candidatura (WR-01: RedacaoReviewRow
+            carries candidatura_id, so the section no longer flips to com_dados just because ANY
+            candidate in the vaga has a pending redação). The "data exists" copy below stays gated
+            on temRedacaoDoCandidato; the always-on CTA (IN-04) is rendered as a sibling so it is
+            click-reachable regardless of data state (HubSection only renders children on
+            com_dados) — D-04 requires the hub to reach each of the 3 RH workspaces. */}
         <HubSection
           titulo="Redação"
           isLoading={redacaoQuery.isLoading}
           isError={redacaoQuery.isError}
-          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, (redacaoQuery.data?.length ?? 0) > 0)}
+          estado={estadoDaSecao('avaliacao_assincrona', etapaAtual, temRedacaoDoCandidato)}
         >
           <p className="text-sm text-white/80">
-            Há redações na fila de revisão desta vaga — abra o workspace de redação para revisar.
+            Há redação deste candidato na fila de revisão — abra o workspace de redação para revisar.
           </p>
         </HubSection>
+
+        {/* IN-04 — always-visible navigation affordance to the 3rd RH workspace
+            (RedacaoReviewPanel at /rh/candidato/:id/redacao). NOT gated on data state. */}
+        {candidaturaId ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/rh/candidato/${candidaturaId}/redacao`)}
+            className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
+          >
+            Abrir workspace de redação
+          </button>
+        ) : null}
 
         {/* Entrevista — scorecard rows (tipo='entrevista') */}
         <HubSection
