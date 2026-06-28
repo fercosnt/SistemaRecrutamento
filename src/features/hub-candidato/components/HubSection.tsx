@@ -14,8 +14,8 @@
  * is the D-07 "never invent data" guarantee that the 17-01 hubEmptyState RED spec pins.
  *
  * Surface = dark-enough glass (`variant="dark"` → `bg-black/30`) so white/turquoise 14-16px
- * body text passes WCAG AA (UI-SPEC §Color contrast). NEVER the broken default-primary token
- * (D-26 — it renders transparent project-wide); use hex-literal / glass tokens only.
+ * body text passes WCAG AA (UI-SPEC §Color contrast). The `primary` token resolves correctly
+ * (hsl(var(--primary)) = #00109E) — this section uses glass tokens for the surface.
  *
  * @module features/hub-candidato/components/HubSection
  * @see src/features/entrevista/components/EntrevistaWorkspace.tsx (glass section + Skeleton idiom)

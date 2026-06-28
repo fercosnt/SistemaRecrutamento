@@ -19,9 +19,10 @@ import { useRole } from '@/store/authStore';
  * Copy is the verbatim UI-SPEC §404 contract. The display "404" uses 600 (semibold) at
  * 48px — the size + Montserrat carry the weight; bold (700) is NOT used (UI-SPEC Typography).
  *
- * Broken-token caveat (D-26 / Pitfall 4): the Tailwind "primary" background utility is broken
- * project-wide (HSL-vs-HEX mismatch) — this page uses the `bg-[#00109E]` hex literal + glass
- * tokens (`bg-[#35BFAD]` accent), never the broken utility.
+ * Color tokens: the Tailwind `primary` utility resolves correctly (tailwind.config.js maps
+ * `primary.DEFAULT` to `hsl(var(--primary))` and globals.css sets `--primary: 234 100% 31%`,
+ * i.e. #00109E — the same token LoginCandidatoPage/FormularioCandidaturaPage rely on). This
+ * page uses the candidate gradient background + the `bg-[#35BFAD]` turquoise accent token.
  */
 export function NotFoundPage() {
   const navigate = useNavigate();
