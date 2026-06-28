@@ -38,7 +38,11 @@ See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archivin
 - ENTREV-CITACOES-01 [média] (commit `223e82b`) — citações da transcrição em texto legível (`normalizeCitacao`/`CitacaoItem`), frontend-only.
 - UX-BIGFIVE-01 [média] (commit `a6d8da2`) — UX do questionário Big Five (intro scaneável + afirmação numerada + Likert horizontal 5-pontos, a11y preservada), frontend-only.
 
-Remaining backlog (non-blocking, em `.planning/todos/pending/`): só os 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = tech-debt backlog, ou `/gsd-new-milestone`.
+**Re-teste visual 2026-06-27** (9 commits pushed; consolidar-decisao-final v2 re-verificado server-side: a1dd4c42 = 55.55, SJT present 83.33): **2 APROVADOS/fechados** — DEC-CONSOLIDA-SJT-01 + ENTREV-GUIA-DISPLAY-01 (guia online c/ 5 perguntas aparece). **2 PARCIAIS** (entregaram o escopo do 01, mas geraram follow-up): UX-BIGFIVE-01 (escala horizontal + afirmação OK, mas legibilidade ruim → UX-BIGFIVE-02) e ENTREV-CITACOES-01 (legível, mas hierarquia fraca → ENTREV-CITACOES-02).
+
+**4 itens novos capturados em `.planning/todos/pending/`:** UX-BIGFIVE-02 [ux/**alta**] legibilidade Big Five (contraste WCAG AA do turquesa s/ glass claro · disclaimer fora do acordeão · instruções + explicação dos 5 níveis da escala · rótulo por ponto); ENTREV-CITACOES-02 [ux-visual/média] hierarquia das citações ("Citações" como título de seção + chip de competência/pergunta + localização destacada); ENTREV-GUIA-EDIT-01 [feature/média] RH editar/adicionar perguntas no guia (precisa write seguro em entrevista_guias + /gsd-discuss); ENTREV-PERFIL-DUP-01 [investigação/baixa] duplicação perfil `/rh/candidatos/:id` vs workspace `/rh/candidato/:id/entrevista`.
+
+Remaining backlog (non-blocking, em `.planning/todos/pending/`): 4 follow-ups do re-teste (acima) + 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = UX-BIGFIVE-02 (alta), demais follow-ups, tech-debt, ou `/gsd-new-milestone`.
 
 PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 
