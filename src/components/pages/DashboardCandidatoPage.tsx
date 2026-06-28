@@ -9,7 +9,7 @@ import { useAuthStore, useCandidato } from '@/store/authStore';
 import { useCandidaturas, useCandidaturasCount } from '@/features/vagas/hooks';
 import type { CandidaturasFilters, Candidatura } from '@/features/vagas/types/vagasTypes';
 import { funilNavMap } from '@/lib/navegacao/funilNavMap';
-import type { EtapaFunilM2 } from '@/features/triagem/services/triagemService';
+import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '@/features/triagem/services/triagemService';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -327,7 +327,15 @@ export function DashboardCandidatoPage() {
 
                           {candidatura.etapa_atual && (
                             <p className="text-white/70 text-sm">
-                              Etapa atual: <span className="capitalize">{candidatura.etapa_atual.replace('_', ' ')}</span>
+                              {/* IN-05: render via the single ETAPA_M2_LABELS source (same as the
+                                  step-CTA) so the etapa name matches the rest of the funnel — no
+                                  machine-style "Avaliacao assincrona". Fallback to the raw value
+                                  for unknown/stale (e.g. M1) etapas. */}
+                              Etapa atual:{' '}
+                              <span>
+                                {ETAPA_M2_LABELS[candidatura.etapa_atual as EtapaFunilM2] ??
+                                  candidatura.etapa_atual}
+                              </span>
                             </p>
                           )}
 
