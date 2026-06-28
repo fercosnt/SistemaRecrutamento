@@ -39,3 +39,29 @@ TBD — direcao:
   4 Adequado · 5 Muito adequado) vs legenda unica no topo. Manter aria-label completo
   (a11y ja garantida pelo 01) e os 5 pontos horizontais.
 NAO mexer no scoring server-side (so apresentacao). Manter [[feedback_*]] de a11y.
+
+## Resolution (2026-06-27 — RESOLVED)
+
+Frontend-only (scoring server-side intacto):
+1. **CONTRASTE:** painel da tela (intro + paginas de itens) escurecido para glass
+   azul-marca `bg-[#00109E]/85` (`PANEL_DARK`, overrida o `bg-white/15` via twMerge) —
+   superficie consistentemente escura. Texto branco/turquesa agora passam WCAG AA
+   independente do gradiente. Verificado por calculo de razao (pior caso = painel sobre
+   o ponto mais claro do gradiente): turquesa #35BFAD **4.97:1**, brancos 6.2–10.3:1,
+   afirmacao 11.3:1, legenda 10–11:1 — todos ≥ AA. Alphas baixos subidos
+   (white/50→/70, /60→/80, numero /70→/90).
+2. **DISCLAIMER visivel:** removido o `<details>` colapsado — agora um bloco fixo,
+   sempre visivel, legivel (white/85).
+3. **INSTRUCOES + ESCALA:** intro reescrita (`BigFiveIntro`) com 3 bullets mais
+   detalhados + `EscalaLegenda` explicando os 5 niveis (1..5 → rotulo pt-BR canonico),
+   VISIVEL na intro (full) e repetida compacta no topo de cada pagina de itens.
+4. **5 niveis:** o grid 4+1 ja tinha virado 5 horizontais no 01; agora cada nivel tem
+   significado explicito via `EscalaLegenda` (intro + topo de pagina). Pontos 2/3/4 nao
+   ficam mais so com numero. Rotulo por celula NAO foi usado (rotulos longos quebravam —
+   o problema original); a legenda resolve o significado sem wrap.
+
+A11y preservada (aria-label completo por ponto + aria-labelledby — guarda do
+`BigFiveLikert.test.tsx` segue verde). Novos testes: `BigFiveIntro.test.tsx` (4/4 —
+disclaimer sem `<details>`, EscalaLegenda com os 5 niveis, CTA). avaliacao 57/57,
+tsc 290 baseline. Componentes `BigFiveIntro`/`EscalaLegenda` exportados p/ teste.
+**Re-teste visual do Fernando recomendado** (tela candidato-facing).

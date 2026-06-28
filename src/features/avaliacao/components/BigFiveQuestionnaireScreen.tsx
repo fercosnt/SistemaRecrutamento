@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { Loader2, Check, Lock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { GlassPanel, GlassButton, Glass } from '@/components/ui/glass'
+import { cn } from '@/components/ui/utils'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
@@ -129,7 +130,7 @@ export function LikertItem({
     <div className="space-y-4 border-b border-white/10 pb-7">
       {/* The affirmation is the star: position marker + larger, heavier statement. */}
       <div className="space-y-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        <span className="text-xs font-semibold uppercase tracking-wide text-white/70">
           {`${numero} / ${BIGFIVE_TOTAL_ITENS}`}
         </span>
         <p id={headingId} className="text-lg font-semibold leading-snug text-white sm:text-xl">
@@ -162,18 +163,132 @@ export function LikertItem({
                 aria-label={label}
                 className="border-white text-white"
               />
-              <span className="text-xs font-semibold text-white/70">{optValue}</span>
+              <span className="text-sm font-semibold text-white/90">{optValue}</span>
             </Label>
           )
         })}
       </RadioGroup>
 
       {/* Only the two extremes are labeled — the scale reads left→right. */}
-      <div className="flex justify-between text-xs leading-tight text-white/60">
+      <div className="flex justify-between text-xs leading-tight text-white/80">
         <span>{LIKERT_LABELS[0]}</span>
         <span>{LIKERT_LABELS[LIKERT_LABELS.length - 1]}</span>
       </div>
     </div>
+  )
+}
+
+/**
+ * Dark brand-blue glass surface for the questionnaire (UX-BIGFIVE-02). The old
+ * `bg-white/15` over the turquoise→blue gradient washed out white AND turquoise small
+ * text (contraste WCAG ruim no re-teste 2026-06-27). A deep `#00109E/85` panel gives a
+ * consistently dark surface so white text (~10:1) and the turquoise accent (~5:1) both
+ * pass WCAG AA, independent of the gradient behind. `twMerge` (via `cn`/GlassPanel) lets
+ * this bg override the variant's `bg-white/15`.
+ */
+const PANEL_DARK = 'bg-[#00109E]/85'
+
+/**
+ * The 5-point scale legend (UX-BIGFIVE-02) — explains what each Likert level means
+ * (1..5 → the canonical PT-BR label), shown VISIBLY on the intro (full) and at the top
+ * of each question page (compact) so the candidate never has to guess what 2/3/4 mean.
+ * High-contrast on the dark glass. Exported for the BigFiveIntro test.
+ */
+export function EscalaLegenda({
+  compact = false,
+  className,
+}: {
+  compact?: boolean
+  className?: string
+}) {
+  if (compact) {
+    return (
+      <div className={cn('flex flex-wrap gap-x-3 gap-y-1.5 text-xs text-white/85', className)}>
+        {LIKERT_LABELS.map((label, i) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/40 text-[11px] font-semibold text-white">
+              {i + 1}
+            </span>
+            <span>{label}</span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div className={cn('rounded-lg border border-white/20 bg-black/20 p-4', className)}>
+      <p className="mb-2.5 text-sm font-semibold text-white">
+        Como responder — a escala vai de 1 a 5:
+      </p>
+      <ul className="space-y-2">
+        {LIKERT_LABELS.map((label, i) => (
+          <li key={label} className="flex items-center gap-2.5 text-sm text-white/90">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/10 text-xs font-semibold text-white">
+              {i + 1}
+            </span>
+            <span>{label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/**
+ * The Big Five intro panel (UX-BIGFIVE-02) — scannable + legible. The dark brand-blue
+ * glass gives white + turquoise text WCAG-AA contrast. The emotional disclaimer is
+ * VISIBLE (no collapsed `<details>` — that hid it in the 01), the instructions are
+ * richer, and the 5-level scale is explained up front via EscalaLegenda. Exported for
+ * the BigFiveIntro test (rendered standalone, without ScreenShell).
+ */
+export function BigFiveIntro({ onComecar }: { onComecar: () => void }) {
+  return (
+    <GlassPanel variant="white" blur="xl" className={cn(PANEL_DARK, 'text-white space-y-6')}>
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
+        {/* Scannable highlight line — turquoise now reads on the dark glass (WCAG AA). */}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#35BFAD]">
+          <span>120 afirmações</span>
+          <span aria-hidden="true" className="text-white/40">·</span>
+          <span>~15 min</span>
+          <span aria-hidden="true" className="text-white/40">·</span>
+          <span>sem resposta certa ou errada</span>
+        </p>
+      </div>
+
+      {/* Richer, scannable instructions. */}
+      <ul className="space-y-2.5 text-base leading-relaxed text-white/95">
+        {[
+          'Leia cada afirmação e marque o quanto ela combina com você, pensando em como você é no geral — não só hoje.',
+          'Descreva-se com sinceridade: não há resposta certa ou errada. É só o seu estilo, não uma prova nem teste de QI.',
+          'São 120 afirmações, em páginas de 10. Você pode pausar e voltar quando quiser — tudo é salvo automaticamente.',
+        ].map((linha) => (
+          <li key={linha} className="flex items-start gap-2.5">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#35BFAD]" aria-hidden="true" />
+            <span>{linha}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* The 5-level scale, explained up front and VISIBLE. */}
+      <EscalaLegenda />
+
+      {/* Emotional disclaimer — VISIBLE (no collapsed <details>), subtle but readable. */}
+      <p className="rounded-lg border-l-2 border-white/30 bg-black/15 px-4 py-3 text-sm leading-relaxed text-white/85">
+        {DISCLAIMER_EMOCIONAL}
+      </p>
+
+      <div className="flex justify-end pt-1">
+        <GlassButton
+          variant="white"
+          hover
+          onClick={onComecar}
+          className="text-white min-h-[44px]"
+        >
+          Começar
+        </GlassButton>
+      </div>
+    </GlassPanel>
   )
 }
 
@@ -271,52 +386,7 @@ export function BigFiveQuestionnaireScreen() {
   if (page === 0) {
     return (
       <ScreenShell>
-        <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
-            {/* Scannable highlight line — read at a glance before the bullets. */}
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#35BFAD]">
-              <span>120 afirmações</span>
-              <span aria-hidden="true" className="text-white/30">·</span>
-              <span>~15 min</span>
-              <span aria-hidden="true" className="text-white/30">·</span>
-              <span>sem resposta certa ou errada</span>
-            </p>
-          </div>
-
-          {/* Scannable bullets (not a dense paragraph). */}
-          <ul className="space-y-2.5 text-base leading-relaxed text-white/90">
-            {[
-              'Descreva-se com sinceridade, da forma como você geralmente é.',
-              'É um self-assessment do seu estilo de trabalho — não é prova nem teste de QI.',
-              'Suas respostas são salvas automaticamente; você pode pausar e voltar quando quiser.',
-            ].map((linha) => (
-              <li key={linha} className="flex items-start gap-2.5">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#35BFAD]" aria-hidden="true" />
-                <span>{linha}</span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Emotional disclaimer — preserved, but in a subtle expandable footer tone. */}
-          <details className="rounded-lg border border-white/15 bg-white/5 px-4 py-3">
-            <summary className="cursor-pointer text-sm font-semibold text-white/80 marker:text-white/40">
-              Sobre os resultados
-            </summary>
-            <p className="mt-2 text-sm leading-relaxed text-white/70">{DISCLAIMER_EMOCIONAL}</p>
-          </details>
-
-          <div className="flex justify-end pt-1">
-            <GlassButton
-              variant="white"
-              hover
-              onClick={() => setPage(1)}
-              className="text-white min-h-[44px]"
-            >
-              Começar
-            </GlassButton>
-          </div>
-        </GlassPanel>
+        <BigFiveIntro onComecar={() => setPage(1)} />
       </ScreenShell>
     )
   }
@@ -329,7 +399,7 @@ export function BigFiveQuestionnaireScreen() {
 
   return (
     <ScreenShell>
-      <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+      <GlassPanel variant="white" blur="xl" className={cn(PANEL_DARK, 'text-white space-y-6')}>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-semibold drop-shadow-md">
             Página {page} de {totalQuestionPages}
@@ -340,10 +410,13 @@ export function BigFiveQuestionnaireScreen() {
         {/* Progress: NEUTRAL count only — never a score (RNF-07a). */}
         <div className="space-y-1.5">
           <Progress value={(answeredCount / BIGFIVE_TOTAL_ITENS) * 100} className="h-2" />
-          <p className="text-sm text-white/70 text-right">
+          <p className="text-sm text-white/80 text-right">
             {answeredCount}/{BIGFIVE_TOTAL_ITENS}
           </p>
         </div>
+
+        {/* Compact scale reminder at the top of every page (UX-BIGFIVE-02). */}
+        <EscalaLegenda compact />
 
         <div className="space-y-6">
           {pageItens.map((item, idx) => (
