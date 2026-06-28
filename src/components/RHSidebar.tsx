@@ -43,8 +43,9 @@ export function RHSidebar({
 
   // Nome do usuário (usa nome do candidato se disponível, senão email)
   const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
-  // Role (TODO: adicionar campo de perfil na tabela candidatos ou usuários)
-  const userRole = 'RH';
+  // IN-01: derive the user-card label from the subscribed `role` so an authenticated
+  // administrador is not mislabeled "RH" while seeing the role-gated Admin nav item.
+  const userRole = role === 'administrador' ? 'Administrador' : 'RH';
 
   // Detectar página ativa baseado na rota atual
   const getActivePageFromPath = (pathname: string): string => {
