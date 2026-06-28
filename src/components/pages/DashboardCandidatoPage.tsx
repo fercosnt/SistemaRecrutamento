@@ -275,11 +275,15 @@ export function DashboardCandidatoPage() {
             ) : !candidaturasData?.data || candidaturasData.data.length === 0 ? (
               <Glass variant="white" blur="md" className="p-12 text-center">
                 <Briefcase className="w-16 h-16 text-white/40 mx-auto mb-4" />
-                <p className="text-white/90 text-xl mb-2">Nenhuma candidatura encontrada</p>
+                <p className="text-white/90 text-xl mb-2">
+                  {statusFilter === 'todas'
+                    ? 'Você ainda não se candidatou'
+                    : 'Nenhuma candidatura neste filtro'}
+                </p>
                 <p className="text-white/70 mb-6">
                   {statusFilter === 'todas'
-                    ? 'Você ainda não se candidatou a nenhuma vaga'
-                    : `Você não tem candidaturas com status "${getStatusInfo(statusFilter).label}"`}
+                    ? 'Explore as vagas abertas e dê o primeiro passo.'
+                    : 'Tente outro status ou limpe o filtro.'}
                 </p>
                 <GlassButton
                   variant="white"
@@ -287,7 +291,7 @@ export function DashboardCandidatoPage() {
                   onClick={() => navigate('/vagas')}
                   className="text-white"
                 >
-                  Explorar Vagas Disponíveis
+                  Ver vagas
                 </GlassButton>
               </Glass>
             ) : (

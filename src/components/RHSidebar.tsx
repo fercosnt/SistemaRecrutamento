@@ -263,6 +263,7 @@ export function RHSidebar({
                   onClick={handleLogout}
                   className="w-full flex items-center justify-center p-2 rounded-lg text-white/80 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 backdrop-blur-sm"
                   title="Sair"
+                  aria-label="Sair"
                 >
                   <LogOut size={20} />
                 </button>
