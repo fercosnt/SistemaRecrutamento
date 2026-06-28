@@ -49,6 +49,9 @@ const TEST_ADMIN = {
 
 // A seeded candidatura id reachable for the RH hub journey (provide via env when running the
 // real-login battery; the UAT runbook seeds it).
+// NOTE (WR-02): J1's /candidato/avaliacao/ URL assertion only fires when the seeded candidatura
+// sits at `avaliacao_assincrona` (the one candidate-routable stage); other stages render the
+// no-op "Acompanhar candidatura" CTA and J1 asserts it stays on /candidato/dashboard.
 const CANDIDATURA_ID = process.env.E2E_CANDIDATURA_ID || ''
 const VAGA_ID = process.env.E2E_VAGA_ID || ''
 
@@ -110,14 +113,25 @@ describeRealAuth('Navegação — jornadas com auth real (D-16, gated)', () => {
 
     // D-09: the Dashboard is the funnel hub; the step-guided CTA routes to the pending etapa.
     await page.goto('/candidato/dashboard')
-    await page
+
+    // WR-02: the step-CTA only navigates for stages with a candidate-facing route. For
+    // null-route stages it renders the neutral "Acompanhar candidatura" label and the click is
+    // a no-op (DashboardCandidatoPage: `if (stepCTA.destino) navigate(...)`). So assert
+    // conditionally on the clicked label rather than always expecting /candidato/avaliacao/:
+    //   "Continuar para…"        → routes to the avaliação container (candidaturaId-keyed).
+    //   "Acompanhar candidatura" → no-op; must stay on /candidato/dashboard.
+    const cta = page
       .getByRole('button', { name: /Continuar para|Acompanhar/i })
       .or(page.getByRole('link', { name: /Continuar para|Acompanhar/i }))
       .first()
-      .click()
+    const label = (await cta.textContent()) ?? ''
+    await cta.click()
 
-    // Route resolution: lands on the avaliação container (candidaturaId-keyed). RED today.
-    await expect(page).toHaveURL(/\/candidato\/avaliacao\//, { timeout: 10000 })
+    if (/Continuar para/i.test(label)) {
+      await expect(page).toHaveURL(/\/candidato\/avaliacao\//, { timeout: 10000 })
+    } else {
+      await expect(page).toHaveURL(/\/candidato\/dashboard/, { timeout: 10000 })
+    }
   })
 
   test('J2: RH → TriagemTable → hub do candidato → cada um dos 3 workspaces', async ({ page }) => {
