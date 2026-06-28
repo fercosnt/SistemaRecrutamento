@@ -59,7 +59,7 @@ const describeRealAuth = REAL_AUTH ? test.describe : test.describe.skip
 async function loginCandidato(page: Page) {
   await page.goto('/auth/login')
   await page.locator('#email').first().fill(TEST_USER.email)
-  await page.locator('#senha, #password').first().fill(TEST_USER.password)
+  await page.locator('#password').first().fill(TEST_USER.password)
   await page.getByRole('button', { name: /entrar/i }).click()
   await expect(page).toHaveURL(/\/candidato/, { timeout: 10000 })
 }
@@ -68,7 +68,7 @@ async function loginCandidato(page: Page) {
 async function loginRH(page: Page) {
   await page.goto('/auth/login-rh')
   await page.locator('#email').first().fill(TEST_ADMIN.email)
-  await page.locator('#senha, #password').first().fill(TEST_ADMIN.password)
+  await page.locator('#password').first().fill(TEST_ADMIN.password)
   await page.getByRole('button', { name: /entrar/i }).click()
   await expect(page).toHaveURL(/\/rh/, { timeout: 10000 })
 }
