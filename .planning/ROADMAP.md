@@ -32,7 +32,7 @@ The full RH hiring funnel + AI-assisted evaluation across 11 phases (63 plans): 
 - **Tipo:** mini-fase standalone fora de milestone (pós v2.0 arquivado). Não adiciona capacidades novas — é wiring de navegação + IA + limpeza de legado.
 - **Context:** `.planning/phases/17-navegacao-arquitetura-informacao/17-CONTEXT.md`
 - **Status:** Plan execution complete — 5/5 plans / 4 waves. DoD (D-03 navegable-journey E2E gate) satisfied; ready for `/gsd-verify-work`.
-- **Plans:** 5/5 plans executed
+- **Plans:** 5/5 plans complete
   - [x] 17-01-PLAN.md — Wave 0 RED test battery (funilNavMap + route-table + RHSidebar-admin + hub-empty-state + legacy grep guard + Playwright nav smoke) — D-03/D-16
   - [x] 17-02-PLAN.md — Foundation: funilNavMap single source + NotFoundPage glass 404 + routes.tsx catch-all + normalization redirect — D-17/D-14/D-08/D-15/D-02
   - [x] 17-03-PLAN.md — RH funnel: hub-candidato feature (mock retired) + TriagemTable SPA entry + role-gated Admin sidebar — D-04/D-05/D-06/D-07/D-13/D-15
@@ -45,7 +45,7 @@ The full RH hiring funnel + AI-assisted evaluation across 11 phases (63 plans): 
 |-------|-----------|----------------|--------|-----------|
 | 1–5 (M1) | v1.0 | 40/40 | Complete | 2026-06-06 |
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
-| 17 | standalone | 5/5 | Plan exec complete — verifying |  |
+| 17 | standalone | 5/5 | Complete    | 2026-06-28 |
 
 ---
 

@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: verifying
-stopped_at: Completed 17-05-PLAN.md (conservative legacy purge + navegability DoD gate — D-12/D-16/D-03; Phase 17 plan execution 5/5)
-last_updated: "2026-06-28T20:17:42.103Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 17 was final phase)
+last_updated: 2026-06-28T21:00:24.300Z
 last_activity: 2026-06-28
 progress:
   total_phases: 1
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 17 — navegacao-arquitetura-informacao
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 17 (navegacao-arquitetura-informacao) — PLAN EXECUTION COMPLETE (5/5), ready for verification
-Plan: 5 of 5 (17-05 ✅ DONE — conservative legacy purge: 12 dead files removed + routes.tsx scrub, MeuPerfilPage KEPT; navegability smoke promoted RED→GREEN: J4/404 unconditional GREEN, J1-J3 gated; legacy-routes guard 13/13 GREEN, tsc 281→258, build 0, 637 vitest pass)
-Status: Phase 17 plan execution complete — DoD (D-03 navegable-journey E2E gate) satisfied; ready for `/gsd:verify-work`
+Phase: 17
+Plan: Not started
+Status: Milestone complete
 Last activity: 2026-06-28
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
@@ -65,7 +65,7 @@ PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 
 **Velocity:**
 
-- Total plans completed: 52 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
+- Total plans completed: 57 (Phase 4.1 closes phase #4 — 5/5 plans landed; total 32 plans across milestone v1.0)
 - Recent plan durations (Phase 2 + Phase 3): 02-02 (~15 min), 02-04 (~20 min), 02-05 (~10 min), 02-03 (~50 min), 02-06 (~150 min incl. UAT + 3 bug fixes), 03-01 (~94 min incl. human Dashboard audit), 03-02 (~8 min, fully autonomous), 03-03 (~12 min, fully autonomous), 03-04 (~90 min, fully autonomous, largest wave), 03-05 (~33 min, fully autonomous, 2 page rewrites + D-14 closure), 03-06 (~17 min, fully autonomous, 2 page rewrites + 8 deletions = 1528 LoC removed), 03-07 (~27 min autonomous Tasks 1-3+autofix + ~2.5h human-clock UAT execution; 2 production-only findings captured)
 - Total execution time for Phase 2: ~245 min
 - Total execution time for Phase 3: ~281 min autonomous + ~2.5h human UAT = ~431 min wall-clock (Waves 0-6 / 7 of 7 complete)
@@ -81,6 +81,7 @@ PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
 | 06 | 5 | - | - |
 | 08 | 5 | - | - |
 | 16 | 4 | - | - |
+| 17 | 5 | - | - |
 
 **Per-plan ledger (Phase 3):**
 
