@@ -3,27 +3,24 @@ import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { CandidatoNavbar } from '../layouts/CandidatoNavbar';
 import { Glass, GlassButton, GlassCard } from '../ui/glass';
-import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, Briefcase, FileText, Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Badge } from '../ui/badge';
 import { toast } from 'sonner';
 import { useAuthStore, useCandidato } from '@/store/authStore';
 import { supabase } from '@/lib/supabase/client';
 import { passwordSchema } from '@/features/auth/schemas';
-import { useCandidaturas } from '@/features/vagas/hooks/useCandidaturas';
-import { ETAPA_PROCESSO_LABELS, STATUS_CANDIDATURA_LABELS } from '@/features/vagas/types/vagasTypes';
-import type { Candidatura } from '@/features/vagas/types/vagasTypes';
+
+// Phase 17 / D-10: Perfil = dados pessoais + edição APENAS. A lista de candidaturas
+// + progresso do funil (a sobreposição CAND-DASH-DUP-01) foi removida daqui e vive
+// agora SÓ no Dashboard (D-09). Por isso o hook de busca de candidaturas, os mapas de
+// rótulo M1 de etapa/status, o tipo de candidatura, o Badge e os ícones do funil saíram.
 
 export function MeuPerfilCandidatoPage() {
   const candidato = useCandidato();
   const { setCandidato } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Buscar candidaturas do banco de dados
-  const { data: candidaturasData, isLoading: isLoadingCandidaturas } = useCandidaturas();
-  const candidaturas = candidaturasData?.data || [];
 
   // Estado - Dados do Usuário (inicializado com dados reais do Zustand)
   const [dadosPessoais, setDadosPessoais] = useState({
@@ -317,47 +314,6 @@ export function MeuPerfilCandidatoPage() {
 
   // WR-02-09/WR-01-09: logout now lives in the shared <CandidatoNavbar />.
 
-  /**
-   * Retorna badge com label e cor para status de candidatura
-   */
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { label: string; className: string }> = {
-      aguardando_resposta: {
-        label: STATUS_CANDIDATURA_LABELS.aguardando_resposta,
-        className: 'bg-blue-500/80 text-white border-0'
-      },
-      em_analise: {
-        label: STATUS_CANDIDATURA_LABELS.em_analise,
-        className: 'bg-yellow-500/80 text-white border-0'
-      },
-      aprovado_proxima: {
-        label: STATUS_CANDIDATURA_LABELS.aprovado_proxima,
-        className: 'bg-green-500/80 text-white border-0'
-      },
-      rejeitado: {
-        label: STATUS_CANDIDATURA_LABELS.rejeitado,
-        className: 'bg-red-500/80 text-white border-0'
-      },
-      finalizado: {
-        label: STATUS_CANDIDATURA_LABELS.finalizado,
-        className: 'bg-gray-500/80 text-white border-0'
-      },
-    };
-    return badges[status] || badges.em_analise;
-  };
-
-  /**
-   * Formata data para exibição (ISO → DD/MM/YYYY)
-   */
-  const formatarData = (dataISO: string) => {
-    const data = new Date(dataISO);
-    return data.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
   return (
     <div className="relative min-h-screen">
       {/* Hidden file input for avatar upload */}
@@ -431,8 +387,9 @@ export function MeuPerfilCandidatoPage() {
             </div>
           </Glass>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Coluna Esquerda */}
+          {/* Phase 17 / D-10: Perfil = dados pessoais + edição apenas — coluna única
+              (a antiga coluna direita de candidaturas/progresso foi removida). */}
+          <div className="max-w-2xl mx-auto">
             <div className="space-y-8">
               {/* Dados Pessoais */}
               <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
@@ -649,137 +606,6 @@ export function MeuPerfilCandidatoPage() {
                   </div>
                 </form>
               </Glass>
-            </div>
-
-            {/* Coluna Direita */}
-            <div className="space-y-8">
-              {/* Vagas Participando */}
-              <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="w-5 h-5 text-white drop-shadow-md" />
-                    <h3 className="text-white drop-shadow-md">VAGAS PARTICIPANDO</h3>
-                  </div>
-                  <div className="h-px bg-white/20 mt-3" />
-                </div>
-
-                {isLoadingCandidaturas ? (
-                  <div className="text-center py-8">
-                    <p className="text-white/70 drop-shadow-sm">
-                      Carregando suas candidaturas...
-                    </p>
-                  </div>
-                ) : candidaturas.length > 0 ? (
-                  <div className="space-y-4">
-                    {candidaturas.map((candidatura) => {
-                      const statusBadge = getStatusBadge(candidatura.status);
-                      return (
-                        <Glass key={candidatura.id} variant="white" blur="md" className="p-4 rounded-lg">
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <h4 className="text-white drop-shadow-sm">
-                                {candidatura.vaga?.titulo || 'Vaga não encontrada'}
-                              </h4>
-                              <Badge className={statusBadge.className}>
-                                {statusBadge.label}
-                              </Badge>
-                            </div>
-                            {/* Phase 8 / D-16 — persisted neutral rejection message
-                                below the rejeitado badge. The criterion is NEVER
-                                shown (feedback_rejeicao carries only the single
-                                D-15 neutral copy). Muted tone, not a red alarm. */}
-                            {candidatura.status === 'rejeitado' &&
-                              candidatura.feedback_rejeicao && (
-                                <div className="rounded-lg bg-white/5 border border-white/10 p-3 space-y-1">
-                                  <p className="text-base text-white/80 drop-shadow-sm">
-                                    {candidatura.feedback_rejeicao}
-                                  </p>
-                                  <p className="text-sm text-white/60 drop-shadow-sm">
-                                    Agradecemos seu interesse na Beauty Smile.
-                                  </p>
-                                </div>
-                              )}
-                            <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
-                              <Calendar className="w-4 h-4" />
-                              <span>Inscrição: {formatarData(candidatura.created_at)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
-                              <FileText className="w-4 h-4" />
-                              <span>
-                                Etapa Atual: {ETAPA_PROCESSO_LABELS[candidatura.etapa_atual] || candidatura.etapa_atual}
-                              </span>
-                            </div>
-                          </div>
-                        </Glass>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3">
-                      <Briefcase className="w-8 h-8 text-white/50" />
-                    </div>
-                    <p className="text-white/70 drop-shadow-sm">
-                      Você ainda não se candidatou a nenhuma vaga
-                    </p>
-                  </div>
-                )}
-              </Glass>
-
-              {/* Etapas do Processo - Baseado na Primeira Candidatura */}
-              {candidaturas.length > 0 && (
-                <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-white drop-shadow-md" />
-                      <h3 className="text-white drop-shadow-md">PROGRESSO NO PROCESSO SELETIVO</h3>
-                    </div>
-                    <div className="h-px bg-white/20 mt-3" />
-                  </div>
-
-                  <div className="space-y-4">
-                    {candidaturas.map((candidatura) => (
-                      <Glass key={candidatura.id} variant="white" blur="md" className="p-4 rounded-lg">
-                        <div className="space-y-3">
-                          {/* Vaga */}
-                          <div className="flex items-start justify-between gap-3">
-                            <h4 className="text-white drop-shadow-sm text-sm font-semibold">
-                              {candidatura.vaga?.titulo || 'Vaga'}
-                            </h4>
-                            <Badge className={getStatusBadge(candidatura.status).className}>
-                              {getStatusBadge(candidatura.status).label}
-                            </Badge>
-                          </div>
-
-                          {/* Phase 8 / D-16 — persisted neutral rejection message
-                              on the progresso surface too. Criterion never shown. */}
-                          {candidatura.status === 'rejeitado' &&
-                            candidatura.feedback_rejeicao && (
-                              <p className="text-base text-white/80 drop-shadow-sm">
-                                {candidatura.feedback_rejeicao}
-                              </p>
-                            )}
-
-                          {/* Etapa Atual */}
-                          <div className="flex items-center gap-2 text-sm text-white/80 drop-shadow-sm">
-                            <CheckCircle2 className="w-4 h-4 text-green-400" />
-                            <span>
-                              <strong>Etapa Atual:</strong>{' '}
-                              {ETAPA_PROCESSO_LABELS[candidatura.etapa_atual] || candidatura.etapa_atual}
-                            </span>
-                          </div>
-
-                          {/* Data de Última Atualização */}
-                          <div className="flex items-center gap-2 text-sm text-white/70 drop-shadow-sm">
-                            <Clock className="w-4 h-4" />
-                            <span>Atualizado em: {formatarData(candidatura.updated_at)}</span>
-                          </div>
-                        </div>
-                      </Glass>
-                    ))}
-                  </div>
-                </Glass>
-              )}
             </div>
           </div>
         </div>
