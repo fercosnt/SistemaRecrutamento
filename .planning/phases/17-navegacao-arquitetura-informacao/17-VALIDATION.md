@@ -3,7 +3,7 @@ phase: 17
 slug: navegacao-arquitetura-informacao
 status: planned
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-06-28
 ---
 
@@ -41,9 +41,9 @@ created: 2026-06-28
 
 | Task ID | Plan | Wave | Decision | Secure Behavior | Test Type | Automated Command | File | Status |
 |---------|------|------|----------|-----------------|-----------|-------------------|------|--------|
-| 17-01 T1 | 17-01 | 0 | D-17/D-14/D-13 | n/a (RED scaffolds) | unit (RED) | `npm run test:run -- funilNavMap routes.nav RHSidebar.admin` | src/lib/navegacao/__tests__/funilNavMap.test.ts · src/router/__tests__/routes.nav.test.tsx · src/components/__tests__/RHSidebar.admin.test.tsx | ⬜ pending |
-| 17-01 T2 | 17-01 | 0 | D-07/D-12 | grep guard | unit (RED) | `npm run test:run -- hubEmptyState legacy-routes` | src/features/hub-candidato/components/__tests__/hubEmptyState.test.tsx · src/__tests__/guards/legacy-routes.grep.test.ts | ⬜ pending |
-| 17-01 T3 | 17-01 | 0 | D-16 | gated real-auth creds from env | e2e (RED) | `npx playwright test navegacao --list` | e2e/navegacao.spec.ts | ⬜ pending |
+| 17-01 T1 | 17-01 | 0 | D-17/D-14/D-13 | n/a (RED scaffolds) | unit (RED) | `npm run test:run -- funilNavMap routes.nav RHSidebar.admin` | src/lib/navegacao/__tests__/funilNavMap.test.ts · src/router/__tests__/routes.nav.test.tsx · src/components/__tests__/RHSidebar.admin.test.tsx | ❌ red (calibrated — funilNavMap module-not-found · catch-all path:'*' absent · Admin item absent) |
+| 17-01 T2 | 17-01 | 0 | D-07/D-12 | grep guard | unit (RED) | `npm run test:run -- hubEmptyState legacy-routes` | src/features/hub-candidato/components/__tests__/hubEmptyState.test.tsx · src/__tests__/guards/legacy-routes.grep.test.ts | ❌ red (calibrated — HubSection module-not-found · 12 dead refs present + VagaLPPage.tsx present; MeuPerfilPage KEEP control green) |
+| 17-01 T3 | 17-01 | 0 | D-16 | gated real-auth creds from env | e2e (RED) | `npx playwright test navegacao --list` | e2e/navegacao.spec.ts | ❌ red (calibrated — J4 404 heading absent; lists 12 tests × 3 projects; J1-J3 gated) |
 | 17-02 T1 | 17-02 | 1 | D-17 | pure lib, no I/O | unit | `npm run test:run -- funilNavMap` | src/lib/navegacao/funilNavMap.ts | ⬜ pending |
 | 17-02 T2 | 17-02 | 1 | D-14 | 404 renders for null role, no leak | unit (render) | `npm run lint` + routes.nav | src/components/pages/NotFoundPage.tsx | ⬜ pending |
 | 17-02 T3 | 17-02 | 1 | D-08/D-14 | static internal redirect target only | unit + build | `npm run test:run -- routes.nav devnav-gate` | src/router/routes.tsx | ⬜ pending |
@@ -62,13 +62,13 @@ created: 2026-06-28
 
 > Calibrated RED tests authored before implementation (Plan 17-01), per the smoke-runtime gate established in M1 Phase 4.1. All authored under `__tests__/` dirs (vitest include glob) and the e2e dir.
 
-- [ ] `src/lib/navegacao/__tests__/funilNavMap.test.ts` — exhaustiveness over the 8 `EtapaFunilM2` members + candidaturaId param shape + `ETAPA_M2_LABELS` reuse (D-17) — RED until 17-02
-- [ ] `src/router/__tests__/routes.nav.test.tsx` — catch-all `path:'*'` → NotFoundPage + param-preserving redirect (D-08/D-14) — RED until 17-02
-- [ ] `src/components/__tests__/RHSidebar.admin.test.tsx` — Admin item renders ONLY for administrador (D-13) — RED until 17-03
-- [ ] `src/features/hub-candidato/components/__tests__/hubEmptyState.test.tsx` — future-stage empty state copy, no invented data (D-07) — RED until 17-03
-- [ ] `src/__tests__/guards/legacy-routes.grep.test.ts` — confirmed-dead components have zero routes.tsx refs; MeuPerfilPage kept (D-12) — RED until 17-05
-- [ ] `e2e/navegacao.spec.ts` — 4 journeys resolve to the right route/heading; gated real-auth for RH+candidate, unconditional 404 (D-16) — J4 RED until 17-02, J1-J3 until 17-03/04
-- [ ] `administrador` E2E credential wired into `.env.test` (gated) for the RH/admin journey (J2+J3 cover the rh-role seed gap, A3)
+- [x] `src/lib/navegacao/__tests__/funilNavMap.test.ts` — exhaustiveness over the 8 `EtapaFunilM2` members + candidaturaId param shape + `ETAPA_M2_LABELS` reuse (D-17) — RED (module-not-found) until 17-02
+- [x] `src/router/__tests__/routes.nav.test.tsx` — catch-all `path:'*'` → NotFoundPage + param-preserving redirect (D-08/D-14) — RED until 17-02
+- [x] `src/components/__tests__/RHSidebar.admin.test.tsx` — Admin item renders ONLY for administrador (D-13) — RED until 17-03
+- [x] `src/features/hub-candidato/components/__tests__/hubEmptyState.test.tsx` — future-stage empty state copy, no invented data (D-07) — RED (module-not-found) until 17-03
+- [x] `src/__tests__/guards/legacy-routes.grep.test.ts` — confirmed-dead components have zero routes.tsx refs; MeuPerfilPage kept (D-12) — RED until 17-05
+- [x] `e2e/navegacao.spec.ts` — 4 journeys resolve to the right route/heading; gated real-auth for RH+candidate, unconditional 404 (D-16) — J4 RED until 17-02, J1-J3 until 17-03/04
+- [ ] `administrador` E2E credential wired into `.env.test` (gated) for the RH/admin journey (J2+J3 cover the rh-role seed gap, A3) — env-provision item for the runtime battery (17-05), not a code artifact of this plan
 
 ---
 
