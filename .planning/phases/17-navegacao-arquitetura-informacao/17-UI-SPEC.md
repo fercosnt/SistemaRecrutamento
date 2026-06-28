@@ -1,10 +1,11 @@
 ---
 phase: 17
 slug: navegacao-arquitetura-informacao
-status: draft
+status: approved
 shadcn_initialized: true
 preset: "pre-installed (no components.json tracked at root) — Beauty Smile design system LOCKED"
 created: 2026-06-28
+reviewed_at: 2026-06-28T00:00:00Z
 ---
 
 # Phase 17 — UI Design Contract
@@ -23,12 +24,17 @@ created: 2026-06-28
 | Preset | not applicable — Beauty Smile design system locked via skill `beauty-smile-design-system` |
 | Component library | Radix (shadcn/ui) + Beauty Smile glass primitives (`Glass`, `GlassCard`, `GlassPanel`, `GlassButton`, `GlassNavbar`, `GlassModal` from `src/components/ui/glass.tsx`) |
 | Icon library | Lucide React (`lucide-react`) — already the project standard |
-| Font | Headings: **Montserrat** (semibold/bold). Body/UI: **Inter** (regular/medium). Mono: JetBrains Mono (not used this phase). |
+| Font | Headings: **Montserrat** (semibold). Body/UI: **Inter** (regular/semibold). Mono: JetBrains Mono (not used this phase). |
 
 ### Persona shells (MATCH, do not reinvent — D-27 precedent)
 - **Candidate shell** (Dashboard, Perfil, hub-adjacent): `BackgroundImage` + `BeautySmileLogo` + `CandidatoNavbar` (sticky navbar w/ avatar + logout `GlassButton`) + `GlassCard` wrappers. Canonical reference: `src/components/pages/MeuPerfilCandidatoPage.tsx`.
 - **RH shell** (candidate hub at `/rh/candidatos/:id`, workspaces): existing `RHSidebar` (`src/components/RHSidebar.tsx`) + glass content panels. The hub lives inside the RH sidebar shell.
 - **404 page**: standalone glass surface on `BackgroundImage` (no persona navbar — it must render for any/unknown role). Role-aware back-link only.
+
+### Accessibility carry-forward (icon-only controls — Dimension 2 advisory resolved)
+- The net-new **"Admin"** sidebar item carries a visible text label ("Admin") — no icon-only net-new action is introduced.
+- **Pre-existing icon-only controls** reused by this phase (sidebar collapse `ChevronLeft/Right`, logout, mobile-nav toggle) MUST retain their existing `aria-label` / accessible-name attributes unchanged — **no regression**. If a reused control lacks an `aria-label`, the executor adds one (e.g. `aria-label="Recolher menu"`, `aria-label="Sair"`, `aria-label="Abrir menu"`).
+- The **404 back-link** is text-labeled (role-aware copy below), so it needs no icon-only fallback.
 
 ### Broken-token caveat (M2, LOCKED workaround — D-26)
 - `bg-primary` is **broken project-wide** (tailwind.config expects HSL components; globals.css defines HEX → `hsl(#00109E)` invalid). **Do NOT use `bg-primary`.** Use the established hex-literal workaround `bg-[#00109E]` (precedent: `LoginCandidatoPage`, Phase 4 carryover-B). The glass primitives use `bg-brand-primary/NN` and `bg-white/NN` which are valid — prefer those for glass surfaces.
@@ -55,16 +61,16 @@ LOCKED by Beauty Smile design system (base unit **4px**; every value a multiple 
 
 ## Typography
 
-LOCKED by Beauty Smile design system. Exactly the four roles below are used across the new/rewritten surfaces (Display reserved for the 404 numeral). Two body weights only (400 + 600); heading weight 600 (semibold) is the working default, 700 (bold) reserved for the 404 display numeral.
+LOCKED by Beauty Smile design system. Exactly the four sizes and **two weights** below are used across the new/rewritten surfaces.
 
 | Role | Size | Weight | Line Height | Font | Used for |
 |------|------|--------|-------------|------|----------|
 | Body | 16px | 400 (regular) | 1.5 (24px) | Inter | Section copy, candidatura rows, empty-state body, LGPD card body, 404 body |
 | Label | 14px | 600 (semibold) | 1.43 (20px) | Inter | Badges (etapa/status), CTA button text, field labels, stage chips |
 | Heading | 24px (H4) | 600 (semibold) | 1.33 (32px) | Montserrat | Hub section headings, Dashboard section titles, empty-state headings, card titles |
-| Display | 48px (H1) | 700 (bold) | 1.0 | Montserrat | 404 page title / "404" numeral; hub candidate name header |
+| Display | 48px (H1) | 600 (semibold) | 1.0 | Montserrat | 404 page title / "404" numeral; hub candidate name header |
 
-**Body line-height 1.5 and heading line-height ≈1.2–1.33 are LOCKED** (matches the M2 Big Five legibility fix). Do not introduce font sizes outside {14, 16, 24, 48} on these surfaces (the design system also defines 12/18/20/30/36 — keep this phase to the four roles above to stay scannable).
+**Two weights only: 400 (regular) + 600 (semibold).** Bold (700) is NOT used on these surfaces — the 404 display numeral uses 600 semibold at 48px (the size + Montserrat carry the visual weight; no bold needed). **Body line-height 1.5 and heading line-height ≈1.2–1.33 are LOCKED** (matches the M2 Big Five legibility fix). Do not introduce font sizes outside {14, 16, 24, 48} on these surfaces (the design system also defines 12/18/20/30/36 — keep this phase to the four roles above to stay scannable).
 
 ---
 
@@ -176,7 +182,7 @@ This is the load-bearing interaction spec for the phase. Both personas consume t
 
 **Route normalization (D-08):** standardize `/rh/candidatos/:id` (plural, hub) vs `/rh/candidato/:id/*` (singular, workspaces) to one pattern + redirects from old routes (no broken links). The link `TriagemTable nome → /rh/candidatos/:id` (line 325) stays; only the destination CONTENT changes (mock → real hub).
 
-**Admin sidebar entry (D-13):** new **"Admin"** item in the existing `RHSidebar`, role-gated `administrador` only, opening sub-nav to `/admin/{ai-logs,prompt-versions,ai-costs,bias-audit}`. Reuse the sidebar's existing item/icon pattern (Lucide icon, label, active-state detection via `location.pathname`). Suggested icon: `ShieldCheck` or `Sliders` (Lucide), consistent with existing 24px sidebar icons.
+**Admin sidebar entry (D-13):** new **"Admin"** item in the existing `RHSidebar`, role-gated `administrador` only, opening sub-nav to `/admin/{ai-logs,prompt-versions,ai-costs,bias-audit}`. Reuse the sidebar's existing item/icon pattern (Lucide icon + visible label + active-state detection via `location.pathname`). Suggested icon: `ShieldCheck` or `Sliders` (Lucide), consistent with existing 24px sidebar icons. The item carries a visible "Admin" text label (no icon-only affordance).
 
 ---
 
@@ -193,11 +199,11 @@ No third-party registries are declared in CONTEXT (D-01..D-17) or required by th
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (icon-only carry-forward note added)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS (consolidated to 2 weights — 404 numeral now 600 semibold)
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-06-28
