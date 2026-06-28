@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3 } from 'lucide-react';
+import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -31,6 +31,9 @@ export function RHSidebar({
   const navigate = useNavigate();
   const location = useLocation();
   const { user, candidato, logout: authLogout } = useAuthStore();
+  // D-13: the Admin sidebar item is gated on role === 'administrador'. Visibility is
+  // COSMETIC — the /admin/* routes keep their RoleGuard + RLS as the real control.
+  const role = useAuthStore((s) => s.role);
 
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
@@ -51,6 +54,7 @@ export function RHSidebar({
     if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
     if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
     if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+    if (pathname.startsWith('/admin')) return 'admin';
     return 'dashboard-rh';
   };
 
@@ -89,6 +93,12 @@ export function RHSidebar({
       label: 'Configurações',
       icon: <Settings size={24} />,
     },
+    // D-13: role-gated Admin entry — visible ONLY for administrador (hidden for rh/candidato).
+    // Opens sub-nav to /admin/* (ai-logs default). Visibility is cosmetic; the route RoleGuard
+    // + RLS remain the real access boundary.
+    ...(role === 'administrador'
+      ? [{ id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> }]
+      : []),
   ];
 
   const handleMenuClick = (itemId: string) => {
@@ -100,6 +110,7 @@ export function RHSidebar({
       'relatorios-rh': '/rh/relatorios',
       'suporte-rh': '/rh/suporte',
       'configuracoes-rh': '/rh/configuracoes',
+      'admin': '/admin/ai-logs',
     };
 
     const route = routes[itemId];

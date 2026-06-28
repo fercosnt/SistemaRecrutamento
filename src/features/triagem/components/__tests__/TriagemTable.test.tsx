@@ -18,12 +18,23 @@
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-UI-SPEC.md (§A bands 70/40, compare-bar gating, §C badge)
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-01-PLAN.md (Task 3 — TRIAGEM-02 / RNF-07a)
  */
+import type { ReactElement } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
 // RED: '../TriagemTable' does not exist yet → "Cannot find module".
 import { TriagemTable, SugestaoIABadge } from '../TriagemTable'
+
+/**
+ * Phase 17 (D-04): the "Ver Perfil" link is now an SPA <Link> (was a raw <a href>), so the
+ * table must render inside a Router context. Wrap in MemoryRouter (mirrors the RHSidebar.admin
+ * / RoleGuard render-test analog) — keeps every existing assertion intact.
+ */
+function renderTable(ui: ReactElement) {
+  return render(<MemoryRouter initialEntries={['/rh/candidatos']}>{ui}</MemoryRouter>)
+}
 
 type Row = {
   id: string
@@ -55,7 +66,7 @@ const noop = () => {}
 
 describe('TriagemTable — TRIAGEM-02 score bands (UI-SPEC §A thresholds 70/40)', () => {
   it('score 85 renders the verde (forte) band', () => {
-    render(
+    renderTable(
       <TriagemTable
         rows={[makeRow({ id: '1', analise: { score_match: 85, pontos_fortes: [], gaps: [], flags: [], status: 'sucesso' } })]}
         selectedIds={[]}
@@ -69,7 +80,7 @@ describe('TriagemTable — TRIAGEM-02 score bands (UI-SPEC §A thresholds 70/40)
   })
 
   it('score 55 renders the amarelo (médio) band', () => {
-    render(
+    renderTable(
       <TriagemTable
         rows={[makeRow({ id: '2', analise: { score_match: 55, pontos_fortes: [], gaps: [], flags: [], status: 'sucesso' } })]}
         selectedIds={[]}
@@ -83,7 +94,7 @@ describe('TriagemTable — TRIAGEM-02 score bands (UI-SPEC §A thresholds 70/40)
   })
 
   it('score 20 renders the vermelho (fraco) band', () => {
-    render(
+    renderTable(
       <TriagemTable
         rows={[makeRow({ id: '3', analise: { score_match: 20, pontos_fortes: [], gaps: [], flags: [], status: 'sucesso' } })]}
         selectedIds={[]}
@@ -97,7 +108,7 @@ describe('TriagemTable — TRIAGEM-02 score bands (UI-SPEC §A thresholds 70/40)
   })
 
   it('null score renders the "—" sem-análise band', () => {
-    render(
+    renderTable(
       <TriagemTable
         rows={[makeRow({ id: '4', analise: null })]}
         selectedIds={[]}
@@ -114,14 +125,14 @@ describe('TriagemTable — TRIAGEM-02 compare-bar gating (2-10)', () => {
   const rows = Array.from({ length: 12 }, (_, i) => makeRow({ id: String(i) }))
 
   it('"Comparar" is disabled with fewer than 2 selected', () => {
-    render(
+    renderTable(
       <TriagemTable rows={rows} selectedIds={['0']} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
     expect(screen.getByRole('button', { name: /comparar/i })).toBeDisabled()
   })
 
   it('"Comparar" is enabled with 2-10 selected', () => {
-    render(
+    renderTable(
       <TriagemTable rows={rows} selectedIds={['0', '1']} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
     expect(screen.getByRole('button', { name: /comparar/i })).toBeEnabled()
@@ -129,7 +140,7 @@ describe('TriagemTable — TRIAGEM-02 compare-bar gating (2-10)', () => {
 
   it('checkboxes are disabled once 10 are selected', () => {
     const ten = Array.from({ length: 10 }, (_, i) => String(i))
-    render(
+    renderTable(
       <TriagemTable rows={rows} selectedIds={ten} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
     // Row 11 (not selected) must be disabled because the cap is reached.
@@ -146,7 +157,7 @@ describe('TriagemTable — RNF-07a guardrails + reprocess affordance', () => {
   })
 
   it('a falhou row shows a visible "Reprocessar análise" text label (not tooltip-only)', () => {
-    render(
+    renderTable(
       <TriagemTable
         rows={[makeRow({ id: '9', analise: { score_match: null, pontos_fortes: [], gaps: [], flags: [], status: 'falhou' } })]}
         selectedIds={[]}

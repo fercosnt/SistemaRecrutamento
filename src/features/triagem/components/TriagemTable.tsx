@@ -17,6 +17,7 @@
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-UI-SPEC.md (§A bands 70/40, compare-bar, states)
  */
 
+import { Link } from 'react-router-dom'
 import { Sparkles, RefreshCw, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -321,14 +322,17 @@ export function TriagemTable({
 
                   <TableCell>
                     <div className="flex flex-col items-start gap-1">
-                      <a
-                        href={`/rh/candidatos/${candidato?.id ?? ''}`}
+                      {/* D-04 / Pitfall 1: SPA navigation carrying the candidaturaId (row.id),
+                          NOT candidato.id — the hub + every workspace key on candidaturaId.
+                          <Link> keeps keyboard accessibility (no bare onClick div). */}
+                      <Link
+                        to={`/rh/candidatos/${row.id}`}
                         aria-label="Ver perfil"
                         className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-white/20 bg-white/10 px-3 text-sm text-white hover:bg-white/15 transition-colors"
                       >
                         <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
                         <span>Ver Perfil</span>
-                      </a>
+                      </Link>
                       {flags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {flags.map((flag) => (
