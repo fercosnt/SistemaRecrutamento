@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: M2 — Funil RH + Avaliação por IA
-status: v2.0 (M2) shipped + archived. Roadmap + requirements in `milestones/v2.0-*`; ROADMAP.md collapsed to milestone summaries; REQUIREMENTS.md removed (fresh at next milestone); tag `v2.0` local-only (not pushed). 5 HUMAN-UAT docs + 4 advisory WARNINGs deferred across the milestone (all non-blocking, documented in v2.0-MILESTONE-AUDIT.md). NEXT = `/gsd-new-milestone`.
+status: executing
 stopped_at: "Phase 17 (Navegação & Arquitetura de Informação) context gathered — standalone mini-fase via /gsd-discuss-phase. 17-CONTEXT.md + DISCUSSION-LOG + ROADMAP entry. Next: /gsd-plan-phase 17."
-last_updated: "2026-06-28T17:15:49.167Z"
-last_activity: 2026-06-26
+last_updated: "2026-06-28T18:43:08.925Z"
+last_activity: 2026-06-28 -- Phase 17 planning complete
 progress:
-  total_phases: 11
-  completed_phases: 11
-  total_plans: 63
-  completed_plans: 63
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 5
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
 
 Phase: ALL COMPLETE — milestone v2.0 (M2) phases 6-16 closed; milestone ARCHIVED 2026-06-26.
 Plan: — (no active phase / no active milestone)
-Status: v2.0 (M2) shipped + archived. Roadmap + requirements in `milestones/v2.0-*`; ROADMAP.md collapsed to milestone summaries; REQUIREMENTS.md removed (fresh at next milestone); tag `v2.0` local-only (not pushed). 5 HUMAN-UAT docs + 4 advisory WARNINGs deferred across the milestone (all non-blocking, documented in v2.0-MILESTONE-AUDIT.md). NEXT = `/gsd-new-milestone`.
-Last activity: 2026-06-26
+Status: Ready to execute
+Last activity: 2026-06-28 -- Phase 17 planning complete
 
 See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
 
