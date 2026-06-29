@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: executing
-stopped_at: Phase 19 Plan 02 complete (PERF-03 code-split — eager candidate index 2,788→904 kB, react-vendor 207 kB, lazy /rh/* /admin/* per-page, jsPDF call-site dynamic import, RoleGuard intact); assert-chunks PASS, tsc 258, vitest 659 pass / 2 RED-by-design (19-03); next = Plan 19-03 (PERF-04 invalidation + freshness)
-last_updated: "2026-06-29T18:53:41.966Z"
-last_activity: 2026-06-29 -- Phase 19 Plan 02 complete
+status: verifying
+stopped_at: Phase 19 COMPLETE (Plan 03 — PERF-04 cache invalidation + freshness; Gap A useEntrevistaScorecard + Gap B useRedacaoRevisao both add TARGETED decisaoKeys.consolidacao(candidaturaId, vagaId) invalidation; useCandidaturas per-query refetchOnWindowFocus:true, global default unchanged; RNF-07a preserved; 2 RED-by-design tests now GREEN; vitest 661/661; tsc 258); all 3 plans done → ready_for_verification; next = /gsd-verify-work Phase 19
+last_updated: "2026-06-29T19:00:40.283Z"
+last_activity: 2026-06-29
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 9
-  percent: 25
+  completed_plans: 10
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 ## Current Position
 
-Phase: 19 (Performance — Bundle & Cache) — EXECUTING
-Plan: 3 of 3
-Status: Plan 02 complete (PERF-03 code-split shipped); Plan 03 (PERF-04 invalidation + freshness) next
-Last activity: 2026-06-29 -- Phase 19 Plan 02 complete
+Phase: 19 (Performance — Bundle & Cache) — COMPLETE (ready for verification)
+Plan: 3 of 3 (all done)
+Status: Phase complete — PERF-03 + PERF-04 shipped; ready for /gsd-verify-work
+Last activity: 2026-06-29 -- Phase 19 Plan 03 complete (PERF-04)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -68,6 +68,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 18 P06 | 12min | 2 tasks | 7 files |
 | Phase 19 P01 | 5min | 3 tasks | 6 files |
 | Phase 19 P02 | 7min | 2 tasks | 7 files |
+| Phase Phase 19 P03 P03 | 6min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 18]: [Phase 18/18-05] RESIL-03 (service-plumbing half): shared `extractEfErrorCode(data, error)` em `src/lib/efErrors.ts` — lê error_code do body 200 (`data.error_code`) E do FunctionsHttpError não-2xx (`await error.context.json()`), degrada p/ undefined em body não-JSON, NUNCA throwa, retorna só o código (sem PII, ASVS V7/T-18-05-ID). Wired nos 4 serviços de IA (avaliacaoService.avaliarRedacao=AI_UNAVAILABLE primário · bigfiveService.submitBigfiveFinal=fallback NETWORK_ERROR, LOCKED/INVALID_INPUT intactos · triagemService.invokeComparativo=MIXED_VAGA PRESERVADO+AI_UNAVAILABLE via helper · decisaoService.getConsolidacao=branch error + legacy data.ok===false KEPT, consolidar é NO-LLM) → cada `*ServiceError` carrega `{ error_code, raw }` em details p/ `<AsyncState errorCode>` ramificar sobrecarga-vs-genérico (adoção = Plan 06). Generaliza o read inline MIXED_VAGA num único helper (anti-drift). Achado: bigfiveService NÃO invoca gerar-devolutiva-bigfive do client (server-side off submit-bigfive-final); duplicata inline de extractEfErrorCode existe em entrevistaService L573 (fora de escopo, candidato a follow-up). tsc 258 baseline. 80 testes verdes (7 novos efErrors + 73 existentes).
 - [Phase 19]: [Phase 19/19-01] PERF-03/04 Wave-0 scaffolds (interface-first, no source hooks/routes/vite.config touched). `src/router/lazyNamed.ts` = `lazyNamed(loader,name)` adapter que remapeia o NAMED export sobre o `{default}` que React.lazy exige (CLAUDE.md proíbe default exports — é A razão do helper existir; PRIMEIRO uso de React.lazy no codebase). `PageSkeleton.tsx` = fallback de Suspense glass de marca, self-contained (sem data/hooks), reusa o idiom do AsyncState. `scripts/assert-chunks.mjs` = gate de build-output (só `node:` built-ins, ZERO deps novas; roda sob `npm run build`, NÃO Vitest — `scripts/**` excluído; sai non-zero contra o monolito pré-split, prova que é gate real). 2 testes de regressão PERF-04 RED-by-design (salvarAvaliacao/salvarRevisao ainda NÃO invalidam `decisaoKeys.consolidacao` → 19-03 vira GREEN); estabelece o PRIMEIRO pattern `vi.spyOn(queryClient,'invalidateQueries')` do repo; chamadas contract-typed (cast ScorecardWithVagaId / SalvarRevisaoVars) mantêm tsc flat em 258. lazyNamed.test GREEN. **vitest 659 pass / 2 RED-by-design (661 total), tsc 258, build não rebuildado (Plan 19-02 dono do split+rebuild).**
 - [Phase ?]: [Phase 19/19-02] PERF-03 code-split: narrow react-vendor manualChunks (react/react-dom/react-router/scheduler ONLY — broad node_modules→vendor forbidden, re-triggers prod circular-init blank screen; @radix-ui auto-chunked). 20 /rh/* + /admin/* pages → lazyNamed per-page behind single RootLayout <Suspense fallback={PageSkeleton}>; candidate/auth/avaliação routes EAGER. RoleGuard OUTSIDE every lazy element (31 <RoleGuard> JSX tags intact). jsPDF via call-site await import() (ComparativoScreen chunk 428→7.7 kB; jsPDF isolated 421 kB on-demand). Eager candidate index 2,788→904 kB; react-vendor 207 kB; 41 chunks; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design (PERF-04 → 19-03). Deviations: lazyNamed generic relaxed to <T,K> (RedacaoReviewPanel re-exports redacaoRevisaoKeys — Rule 3); ComparativoScreen export test → async+waitFor (Rule 1).
+- [Phase 19]: [Phase 19/19-03] PERF-04 cache invalidation + freshness (fecha tech-debt PERF-01; **Phase 19 COMPLETE**). Gap A `useEntrevistaScorecard` ganhou `vagaId` posicional (ANTES de options); salvarAvaliacao.onSuccess invalida TARGETED `decisaoKeys.consolidacao(candidaturaId, vagaId)` (mantém scorecard) — NUNCA `decisaoKeys.all` (CONTEXT Área 2 ALVO). Gap B `useRedacaoRevisao` thread per-row `candidaturaId` nas mutation VARS (carregado só p/ invalidação — mutationFn AINDA chama salvarRevisao(redacaoId, payload), service signature intacta); onSuccess(_d, vars) adiciona TARGETED consolidacao (mantém queue+duvidas). Freshness: `useCandidaturas` ganhou per-query `refetchOnWindowFocus:true` (staleTime 1min já ≤60s; precisa dos DOIS p/ disparar — RESEARCH Pitfall 5); global default `App.tsx:43` segue `false` (RH/AI reads não refetcham). Audit: useCandidaturas é o ÚNICO read candidato-facing mutável que precisa do par (useExplicacao estático; useAllCandidaturas/useVagaCandidaturas = RH OOS). RNF-07a preservado (cache-only, zero candidaturas writes; consolidacao read-only/advisory). **Deviation (Rule 3): 2º caller `HubCandidatoRH.tsx:90` (read-only, fora de files_modified) exigiu o novo arg posicional vagaId após a mudança de assinatura → threaded o vagaId já em escopo; tsc voltou 258.** Os 2 testes RED-by-design de 19-01 agora GREEN; **vitest 661/661, tsc 258.** Cross-client ≤60s live = UAT Phase 21.
 
 ### Pending Todos
 
@@ -95,7 +97,7 @@ SEED-001 (`ENTREV-GUIA-EDIT-01`) absorvido como ENTREV-06/07/08 → Phase 20. De
 
 ### Blockers/Concerns
 
-- None. Phase 18 ✅ complete (5/5 must-haves, secured 25/25, UI 23/24) — 3 live UATs deferred to Phase 21 (18-HUMAN-UAT.md). Advancing to Phase 19 (Performance — Bundle & Cache).
+- None. Phase 19 ✅ complete — PERF-03 (code-split, 19-02) + PERF-04 (cache invalidation + freshness, 19-03) shipped; vitest 661/661, tsc 258 baseline. Cross-client ≤60s live freshness check deferred to Phase 21 UAT. Next = /gsd-verify-work Phase 19, then Phase 20 (Refino RH — Editar Guia).
 
 ## Deferred Items
 
@@ -109,6 +111,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T18:53:15.051Z
+Last session: 2026-06-29T19:00:40.274Z
 Stopped at: Phase 19 Plan 02 complete (PERF-03 code-split — eager candidate index 2,788→904 kB; lazy /rh/* /admin/*; jsPDF call-site dynamic import; RoleGuard intact; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design for 19-03); next = Plan 19-03 (PERF-04)
 Resume file: None

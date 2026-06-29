@@ -37,7 +37,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 **Milestone Goal:** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**. Invariante preservado: IA é recomendação, humano decide (RNF-07a); nenhuma escrita nova em `candidaturas` por trait/score/idade; write-paths privilegiados seguem authenticate-THEN-authorize.
 
 - [x] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos (completed 2026-06-29)
-- [ ] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s
+- [x] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s (completed 2026-06-29)
 - [ ] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize
 - [ ] **Phase 21: Production-Readiness — UATs Live** - HUMAN-UAT live deferidos do M2 fechados com dados/contas reais em PROD
 
@@ -73,7 +73,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 **Plans**: 3 plans
 - [x] 19-01-PLAN.md — Wave 0: lazyNamed adapter + PageSkeleton fallback + chunk-assertion harness + 2 invalidation regression tests
 - [x] 19-02-PLAN.md — PERF-03 code-split: manualChunks react-vendor + lazy /rh/* /admin/* (RoleGuard outside) + Suspense + dynamic-import jsPDF + E2E no-regression
-- [ ] 19-03-PLAN.md — PERF-04 cache: targeted decisaoKeys.consolidacao invalidation (2 gaps) + useCandidaturas refetchOnWindowFocus (≤60s)
+- [x] 19-03-PLAN.md — PERF-04 cache: targeted decisaoKeys.consolidacao invalidation (2 gaps) + useCandidaturas refetchOnWindowFocus (≤60s)
 **UI hint**: yes
 
 ### Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)
@@ -111,7 +111,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
-| 19. Performance — Bundle & Cache | v3.0 | 2/3 | In Progress|  |
+| 19. Performance — Bundle & Cache | v3.0 | 3/3 | Complete   | 2026-06-29 |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
