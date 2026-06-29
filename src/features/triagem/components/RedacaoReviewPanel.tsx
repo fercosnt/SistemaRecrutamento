@@ -188,7 +188,7 @@ export function RedacaoReviewPanel() {
   }) {
     if (!selected) return
     salvarRevisao.mutate(
-      { redacaoId: selected.id, payload },
+      { redacaoId: selected.id, candidaturaId: selected.candidatura_id, payload },
       {
         onSuccess: () => toast.success('Revisão salva.'),
         onError: () =>

@@ -22,6 +22,7 @@ import {
   type RedacaoReviewRow,
   type SalvarRevisaoPayload,
 } from '../services/revisaoRedacaoService'
+import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
 
 /** Query keys hierárquicas (espelha triagemKeys). */
 export const redacaoRevisaoKeys = {
@@ -57,12 +58,24 @@ export function useRedacaoRevisao(
       payload,
     }: {
       redacaoId: string
+      // Per-row candidatura_id is carried for invalidation ONLY (PERF-04 Gap B) —
+      // NOT forwarded to the service; the salvarRevisao signature is unchanged.
+      candidaturaId: string
       payload: SalvarRevisaoPayload
     }) => salvarRevisao(redacaoId, payload),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       // Re-ordena a fila por severidade + remove a row revisada do filtro padrão.
       queryClient.invalidateQueries({ queryKey: redacaoRevisaoKeys.queue(vagaId || '') })
       queryClient.invalidateQueries({ queryKey: redacaoRevisaoKeys.duvidas() })
+      // PERF-04 Gap B: a redação review changes the Decisão Final consolidation
+      // input → invalidate the TARGETED consolidacao key using the PER-ROW
+      // candidatura_id (the hook only knows vagaId). Never broad decisaoKeys.all.
+      // Cache-only; no candidaturas write (RNF-07a).
+      if (vagaId && vars.candidaturaId) {
+        queryClient.invalidateQueries({
+          queryKey: decisaoKeys.consolidacao(vars.candidaturaId, vagaId),
+        })
+      }
     },
   })
 

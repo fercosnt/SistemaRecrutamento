@@ -112,6 +112,13 @@ export function useCandidaturas(
     staleTime: 1 * 60 * 1000, // 1 minuto (status pode mudar)
     gcTime: 5 * 60 * 1000,
     retry: 2,
+    // PERF-04 freshness: the candidate dashboard re-reads its own status on tab
+    // refocus so a cross-client RH write is visible in ≤60s. PER-QUERY only — the
+    // global QueryClient default stays false (App.tsx:43); flipping it would refetch
+    // expensive RH/AI reads. Needs BOTH refetchOnWindowFocus AND staleTime ≤60s to
+    // fire (RESEARCH Pitfall 5). useCandidaturas is the only candidate-visible
+    // mutable-status read needing this (audit: useExplicacao is static; RH reads OOS).
+    refetchOnWindowFocus: true,
     ...options,
   })
 }
