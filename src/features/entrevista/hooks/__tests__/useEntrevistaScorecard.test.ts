@@ -1,19 +1,19 @@
 /**
- * Phase 19 / Plan 19-01 — PERF-04 Gap A invalidation regression test (RED until Plan 03).
+ * Phase 19 / Plan 19-01 — PERF-04 Gap A invalidation regression test.
  *
  * Asserts that on `salvarAvaliacao` success the hook invalidates the TARGETED
- * `decisaoKeys.consolidacao(candidaturaId, vagaId)` key — so the Decisão Final
- * dashboard refetches within ≤60s instead of holding pre-write data until the
- * 5min staleTime elapses (RESEARCH Pitfall 4).
+ * Decisão Final consolidacao key — so the dashboard refetches within ≤60s instead
+ * of holding pre-write data until the 5min staleTime elapses (RESEARCH Pitfall 4).
  *
- * RED BY DESIGN (Wave-0 scaffold): `useEntrevistaScorecard` does NOT yet take a
- * `vagaId` param and does NOT yet invalidate `decisaoKeys.consolidacao`. Plan 19-03
- * adds the `vagaId` param + the targeted invalidation, turning this GREEN. The
- * `vagaId` argument is threaded through a contract-typed call (`ScorecardWithVagaId`)
- * so the file type-checks against the intended post-Plan-03 signature without
- * introducing a NEW tsc error against the current signature.
+ * WR-01: `vagaId` is now a NAMED option (`useEntrevistaScorecard(id, { vagaId })`),
+ * not a bare positional arg — removing the footgun of a positional inserted between
+ * params. WR-02: the invalidation must ALSO fire when `vagaId` is undefined (the
+ * contexto query has not resolved at save time); in that case the hook invalidates
+ * the candidatura-PREFIX key `['decisao','consolidacao',candidaturaId]`, which
+ * TanStack matches against the full `[...,vagaId]` key — so the ≤60s freshness guard
+ * is never silently skipped. Both cases stay targeted (never decisaoKeys.all).
  *
- * @see src/features/entrevista/hooks/useEntrevistaScorecard.ts (Plan 19-03 adds vagaId + invalidation)
+ * @see src/features/entrevista/hooks/useEntrevistaScorecard.ts (vagaId option + invalidation)
  * @see src/features/decisao/hooks/useConsolidacao.ts (decisaoKeys.consolidacao L21-22)
  * @see .planning/phases/19-performance-bundle-cache/19-PATTERNS.md (test assignments L406-430)
  */
@@ -45,16 +45,6 @@ import { useEntrevistaScorecard } from '../useEntrevistaScorecard'
 import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
 import type { SalvarAvaliacaoPayload } from '../../services/entrevistaService'
 
-// Post-Plan-03 signature contract: the hook gains a positional `vagaId` BEFORE
-// `options`. Typing the call through this contract keeps the test type-checking
-// against the INTENDED shape (no new tsc error) while the runtime assertion stays
-// RED until Plan 03 implements it.
-type ScorecardWithVagaId = (
-  candidaturaId: string | undefined,
-  vagaId: string | undefined,
-) => ReturnType<typeof useEntrevistaScorecard>
-const useScorecard = useEntrevistaScorecard as unknown as ScorecardWithVagaId
-
 let queryClient: QueryClient
 
 const wrapper = ({ children }: { children: ReactNode }) =>
@@ -63,7 +53,7 @@ const wrapper = ({ children }: { children: ReactNode }) =>
 const CAND_ID = 'cand-uuid'
 const VAGA_ID = 'vaga-uuid'
 
-describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 19-01, RED until 19-03)', () => {
+describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 19-01)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -74,7 +64,9 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
   it('invalidates decisaoKeys.consolidacao(candidaturaId, vagaId) on salvarAvaliacao success', async () => {
     const spy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    const { result } = renderHook(() => useScorecard(CAND_ID, VAGA_ID), { wrapper })
+    const { result } = renderHook(() => useEntrevistaScorecard(CAND_ID, { vagaId: VAGA_ID }), {
+      wrapper,
+    })
 
     const payload: SalvarAvaliacaoPayload = { scoresHumanos: { comunicacao: 4 }, notas: 'ok' }
     result.current.salvarAvaliacao.mutate(payload)
@@ -85,5 +77,29 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
     expect(spy).toHaveBeenCalledWith({
       queryKey: decisaoKeys.consolidacao(CAND_ID, VAGA_ID),
     })
+  })
+
+  it('WR-02: still invalidates the consolidacao PREFIX when vagaId is undefined at save time', async () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    // contexto query unresolved → vagaId is undefined when the save completes.
+    const { result } = renderHook(() => useEntrevistaScorecard(CAND_ID, { vagaId: undefined }), {
+      wrapper,
+    })
+
+    const payload: SalvarAvaliacaoPayload = { scoresHumanos: { comunicacao: 4 }, notas: 'ok' }
+    result.current.salvarAvaliacao.mutate(payload)
+
+    await waitFor(() => expect(result.current.salvarAvaliacao.isSuccess).toBe(true))
+
+    // The candidatura-PREFIX key — TanStack prefix-matches the full
+    // ['decisao','consolidacao',candidaturaId,vagaId] key for ANY vagaId, so the
+    // ≤60s freshness guard fires even without vagaId. It is the consolidacao prefix,
+    // NOT decisaoKeys.all (still targeted to this candidatura's consolidacao).
+    const prefixKey = [...decisaoKeys.all, 'consolidacao', CAND_ID]
+    expect(spy).toHaveBeenCalledWith({ queryKey: prefixKey })
+
+    // Guard against an accidental over-broad sweep: never decisaoKeys.all.
+    expect(spy).not.toHaveBeenCalledWith({ queryKey: decisaoKeys.all })
   })
 })

@@ -84,7 +84,7 @@ export function EntrevistaWorkspace() {
     data: scores,
     isLoading: loadingScores,
     salvarAvaliacao,
-  } = useEntrevistaScorecard(candidaturaId, vagaId)
+  } = useEntrevistaScorecard(candidaturaId, { vagaId })
 
   const banda = useMemo(() => bandaFromScores(scores), [scores])
 

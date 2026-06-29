@@ -129,15 +129,37 @@ export function useTranscricaoAnalise(
 }
 
 /**
+ * Options bag for {@link useEntrevistaScorecard}.
+ *
+ * WR-01: `vagaId` is a NAMED option, never a bare positional arg. Folding it into
+ * the options object removes the previous footgun (a `vagaId` positional inserted
+ * BETWEEN `candidaturaId` and `options` meant a caller copying the old two-arg shape
+ * `useEntrevistaScorecard(id, options)` would silently bind `options` to `vagaId`).
+ * With this shape there is nothing positional after `candidaturaId` to mis-bind.
+ */
+export type UseEntrevistaScorecardOptions = Omit<
+  UseQueryOptions<EntrevistaScoreRow[], Error>,
+  'queryKey' | 'queryFn'
+> & {
+  /**
+   * The candidatura's vaga id — used to invalidate the TARGETED Decisão Final
+   * consolidacao key on a scorecard save (PERF-04). Optional: when absent the
+   * invalidation falls back to the candidatura-prefix key (still targeted), so the
+   * ≤60s freshness guarantee is never silently skipped (WR-02).
+   */
+  vagaId?: string | undefined
+}
+
+/**
  * The inline scorecard hook — reads the interview + cognitive score rows + exposes
  * a `salvar` mutation (BARS notas_humanas via the salvar_avaliacao_entrevista RPC)
  * that invalidates the scorecard on success. The human always decides (RNF-07a).
  */
 export function useEntrevistaScorecard(
   candidaturaId: string | undefined,
-  vagaId: string | undefined,
-  options?: Omit<UseQueryOptions<EntrevistaScoreRow[], Error>, 'queryKey' | 'queryFn'>,
+  options?: UseEntrevistaScorecardOptions,
 ) {
+  const { vagaId, ...queryOptions } = options ?? {}
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -147,7 +169,7 @@ export function useEntrevistaScorecard(
     staleTime: STALE,
     gcTime: STALE,
     retry: 2,
-    ...options,
+    ...queryOptions,
   })
 
   const salvar = useMutation({
@@ -161,10 +183,21 @@ export function useEntrevistaScorecard(
       // input → invalidate the TARGETED consolidacao key (never decisaoKeys.all)
       // so the Decisão Final dashboard refetches in ≤60s. Cache-only; no
       // candidaturas write (RNF-07a — consolidacao stays read-only/advisory).
-      if (candidaturaId && vagaId) {
-        queryClient.invalidateQueries({
-          queryKey: decisaoKeys.consolidacao(candidaturaId, vagaId),
-        })
+      //
+      // WR-02: the invalidation MUST NOT silently no-op when `vagaId` is undefined
+      // (e.g. the scorecard save completes while `useEntrevistaContexto` is still
+      // loading, so `contexto.vaga_id` has not resolved). The consolidacao key is
+      // `['decisao','consolidacao',candidaturaId,vagaId]`; TanStack `invalidateQueries`
+      // does PREFIX matching, so passing the candidatura-prefix `['decisao',
+      // 'consolidacao',candidaturaId]` matches the full key for ANY vagaId. We use
+      // the exact factory key when `vagaId` is known (tightest match) and fall back to
+      // the prefix otherwise — either way the ≤60s freshness guard ALWAYS fires and
+      // stays targeted (never decisaoKeys.all).
+      if (candidaturaId) {
+        const consolidacaoKey = vagaId
+          ? decisaoKeys.consolidacao(candidaturaId, vagaId)
+          : ([...decisaoKeys.all, 'consolidacao', candidaturaId] as const)
+        queryClient.invalidateQueries({ queryKey: consolidacaoKey })
       }
     },
   })
