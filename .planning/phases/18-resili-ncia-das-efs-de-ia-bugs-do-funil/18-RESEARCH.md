@@ -438,7 +438,9 @@ Deno.test("RESIL-01: per-call timeout + maxRetries:0 passed to messages.parse", 
 | A4 | Default `AI_CALL_TIMEOUT_MS = 25000` keeps single-call EFs under the 150s idle ceiling | Pattern 1/2 | Low — 25s × 3 attempts + exp-backoff (2+4s) ≈ 81s worst case < 150s. If Sonnet routinely exceeds 25s for large prompts, tune up (env-configurable by design). |
 | A5 | Full 5-way `Promise.allSettled` won't trigger Anthropic 429 clustering for a single devolutiva | Pattern 2 | Low — 5 small concurrent calls per candidate; per-dim degrade absorbs any 429. Fallback lever: concurrency cap of 2. |
 
-## Open Questions
+## Open Questions (RESOLVED — addressed in plans)
+
+> All three questions have documented resolution paths in the Phase 18 plans: Q1/A2 (parse() signature) → 18-01 Task 1 investigation + constructor fallback; Q2 (uniform 503 vs legacy error shapes) → `extractEfErrorCode` handles both body shapes (18-05); Q3 (redeploy set + consolidar deploy state) → 18-07 Task 1 `get_edge_function` diff.
 
 1. **Does `messages.parse()` accept the `RequestOptions` second arg in 0.102.0?**
    - What we know: `messages.create()` does (docs, verified). `parse` is the structured-output wrapper.
