@@ -559,19 +559,25 @@ remains valid for that RPC (not changed here).
 **Note:** Assumptions A1/A3 are planner-resolvable from the codebase; A2/A4 are verified. No
 user confirmation required (the architecture is already locked in CONTEXT.md).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should `origem` live in the EF output Zod schema, or be stamped post-parse?**
+> Both resolved at planning time (2026-06-29) and implemented in the Phase-20 plans.
+
+1. **Should `origem` live in the EF output Zod schema, or be stamped post-parse?** — **RESOLVED: stamp post-parse.**
    - What we know: The EF can stamp `origem:'ia'` in TS after `callAi` returns (Pattern 3 (c)),
      which keeps the LLM contract unchanged.
    - What's unclear: Whether the planner wants schema-level enforcement.
    - Recommendation: Stamp post-parse (A1). Add to the schema only if a later phase lets the AI
      itself emit mixed provenance (not this phase).
+   - **Resolution (planned in 20-04 T1):** stamp `origem:'ia'` post-parse in the EF; the zod/v4
+     `interview-output-schemas.ts` + helper surface are left untouched.
 
-2. **`updated_at`: RPC/EF-set vs trigger?**
+2. **`updated_at`: RPC/EF-set vs trigger?** — **RESOLVED: explicit set in both writers (no trigger).**
    - What we know: Both writers (RPC + EF upsert) set `now()` explicitly.
    - Recommendation: Explicit set in both (no trigger) — fewer moving parts, no double-write
      ambiguity (CONTEXT discretion).
+   - **Resolution (planned in 20-01 T1 / 20-04 T1):** the migration adds the column with
+     `DEFAULT now()`; the RPC sets `updated_at = now()` and the EF upsert sets it explicitly. No trigger.
 
 ## Environment Availability
 
