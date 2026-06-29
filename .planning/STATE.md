@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Phase 19 complete (6/6 must-haves; UAT deferred to P21); secured 12/12; advancing to Phase 20
-last_updated: "2026-06-29T20:34:56.733Z"
-last_activity: 2026-06-29 -- Phase 20 planning complete
+stopped_at: Completed 20-01-PLAN.md (authored migration+smoke+RED Deno test; no PROD apply)
+last_updated: "2026-06-29T20:43:11.809Z"
+last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 15
-  completed_plans: 10
-  percent: 50
+  completed_plans: 11
+  percent: 73
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 19 — Performance — Bundle & Cache
+**Current focus:** Phase 20 — Refino RH — Editar Guia de Entrevista (SEED-001)
 
 ## Current Position
 
-Phase: 19 (Performance — Bundle & Cache) — COMPLETE (ready for verification)
-Plan: 3 of 3 (all done)
+Phase: 20 (Refino RH — Editar Guia de Entrevista (SEED-001)) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-06-29 -- Phase 20 planning complete
+Last activity: 2026-06-29
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 73%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -69,6 +69,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 19 P01 | 5min | 3 tasks | 6 files |
 | Phase 19 P02 | 7min | 2 tasks | 7 files |
 | Phase Phase 19 P03 P03 | 6min | 2 tasks | 6 files |
+| Phase 20 P01 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 19]: [Phase 19/19-01] PERF-03/04 Wave-0 scaffolds (interface-first, no source hooks/routes/vite.config touched). `src/router/lazyNamed.ts` = `lazyNamed(loader,name)` adapter que remapeia o NAMED export sobre o `{default}` que React.lazy exige (CLAUDE.md proíbe default exports — é A razão do helper existir; PRIMEIRO uso de React.lazy no codebase). `PageSkeleton.tsx` = fallback de Suspense glass de marca, self-contained (sem data/hooks), reusa o idiom do AsyncState. `scripts/assert-chunks.mjs` = gate de build-output (só `node:` built-ins, ZERO deps novas; roda sob `npm run build`, NÃO Vitest — `scripts/**` excluído; sai non-zero contra o monolito pré-split, prova que é gate real). 2 testes de regressão PERF-04 RED-by-design (salvarAvaliacao/salvarRevisao ainda NÃO invalidam `decisaoKeys.consolidacao` → 19-03 vira GREEN); estabelece o PRIMEIRO pattern `vi.spyOn(queryClient,'invalidateQueries')` do repo; chamadas contract-typed (cast ScorecardWithVagaId / SalvarRevisaoVars) mantêm tsc flat em 258. lazyNamed.test GREEN. **vitest 659 pass / 2 RED-by-design (661 total), tsc 258, build não rebuildado (Plan 19-02 dono do split+rebuild).**
 - [Phase ?]: [Phase 19/19-02] PERF-03 code-split: narrow react-vendor manualChunks (react/react-dom/react-router/scheduler ONLY — broad node_modules→vendor forbidden, re-triggers prod circular-init blank screen; @radix-ui auto-chunked). 20 /rh/* + /admin/* pages → lazyNamed per-page behind single RootLayout <Suspense fallback={PageSkeleton}>; candidate/auth/avaliação routes EAGER. RoleGuard OUTSIDE every lazy element (31 <RoleGuard> JSX tags intact). jsPDF via call-site await import() (ComparativoScreen chunk 428→7.7 kB; jsPDF isolated 421 kB on-demand). Eager candidate index 2,788→904 kB; react-vendor 207 kB; 41 chunks; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design (PERF-04 → 19-03). Deviations: lazyNamed generic relaxed to <T,K> (RedacaoReviewPanel re-exports redacaoRevisaoKeys — Rule 3); ComparativoScreen export test → async+waitFor (Rule 1).
 - [Phase 19]: [Phase 19/19-03] PERF-04 cache invalidation + freshness (fecha tech-debt PERF-01; **Phase 19 COMPLETE**). Gap A `useEntrevistaScorecard` ganhou `vagaId` posicional (ANTES de options); salvarAvaliacao.onSuccess invalida TARGETED `decisaoKeys.consolidacao(candidaturaId, vagaId)` (mantém scorecard) — NUNCA `decisaoKeys.all` (CONTEXT Área 2 ALVO). Gap B `useRedacaoRevisao` thread per-row `candidaturaId` nas mutation VARS (carregado só p/ invalidação — mutationFn AINDA chama salvarRevisao(redacaoId, payload), service signature intacta); onSuccess(_d, vars) adiciona TARGETED consolidacao (mantém queue+duvidas). Freshness: `useCandidaturas` ganhou per-query `refetchOnWindowFocus:true` (staleTime 1min já ≤60s; precisa dos DOIS p/ disparar — RESEARCH Pitfall 5); global default `App.tsx:43` segue `false` (RH/AI reads não refetcham). Audit: useCandidaturas é o ÚNICO read candidato-facing mutável que precisa do par (useExplicacao estático; useAllCandidaturas/useVagaCandidaturas = RH OOS). RNF-07a preservado (cache-only, zero candidaturas writes; consolidacao read-only/advisory). **Deviation (Rule 3): 2º caller `HubCandidatoRH.tsx:90` (read-only, fora de files_modified) exigiu o novo arg posicional vagaId após a mudança de assinatura → threaded o vagaId já em escopo; tsc voltou 258.** Os 2 testes RED-by-design de 19-01 agora GREEN; **vitest 661/661, tsc 258.** Cross-client ≤60s live = UAT Phase 21.
+- [Phase ?]: [Phase 20/20-01] ENTREV-08 authored (NOT applied): save_entrevista_guia_edits SECURITY DEFINER deriva role de public.usuarios_rh (NÃO do claim JWT — desvio ENTREV-08; ativo+deleted_at IS NULL, recrutador→rh, administrador→administrador) + own-vaga via candidaturas→vagas.created_by + admin bypass; RH-sem-posse+candidato→42501. Migration order load-bearing: dedup(DISTINCT ON keep-latest)→updated_at→UNIQUE(candidatura_id,tipo)→CREATE FUNCTION; ON CONFLICT upsert; REVOKE PUBLIC+GRANT authenticated; search_path=''; NO BEGIN/COMMIT (D-22); never escreve candidaturas (RNF-07a). SQL smoke (BEGIN/ROLLBACK) cobre 7 casos incl. claim-says-rh-no-table-row→DENY (prova role-from-table). Deno merge-preserve test RED-by-design (3/3 fail calibrado) até 20-04. vitest 662/662, tsc 257.
 
 ### Pending Todos
 
@@ -111,6 +113,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T19:23:13.568Z
-Stopped at: Phase 19 complete (6/6 must-haves; UAT deferred to P21); secured 12/12; advancing to Phase 20
-Resume file: .planning/phases/20-refino-rh-editar-guia
+Last session: 2026-06-29T20:43:11.799Z
+Stopped at: Completed 20-01-PLAN.md (authored migration+smoke+RED Deno test; no PROD apply)
+Resume file: None

@@ -87,7 +87,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
   4. Cada pergunta fica marcada `origem: 'ia' | 'manual'`, e regenerar o guia por IA **não** descarta as perguntas manuais silenciosamente (ENTREV-08).
   5. O guia continua sem escrever em `candidaturas` — RNF-07a preservada em todo o write-path (ENTREV-08).
 **Plans**: 5 plans
-- [ ] 20-01-PLAN.md — Author migration (dedup→UNIQUE→updated_at→save_entrevista_guia_edits RPC role-from-usuarios_rh) + SQL smoke + Deno merge-preserve scaffold (RED)
+- [x] 20-01-PLAN.md — Author migration (dedup→UNIQUE→updated_at→save_entrevista_guia_edits RPC role-from-usuarios_rh) + SQL smoke + Deno merge-preserve scaffold (RED)
 - [ ] 20-02-PLAN.md — [BLOCKING] Apply migration via Supabase MCP + run authz SQL smokes + regen database.types.ts
 - [ ] 20-03-PLAN.md — Service saveGuiaEdits + origem-aware normalizeGuia + updated_at allowlist + useGuiaEntrevista.saveEdits mutation + vitest
 - [ ] 20-04-PLAN.md — [BLOCKING] EF gerar-guia-entrevista merge-preserve (INSERT→upsert, keep origem:'manual', failed-regen guard, origem:'ia' stamp) + Deno test green + redeploy
@@ -117,7 +117,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
 | 19. Performance — Bundle & Cache | v3.0 | 3/3 | Complete   | 2026-06-29 |
-| 20. Refino RH — Editar Guia | v3.0 | 0/5 | Planned | - |
+| 20. Refino RH — Editar Guia | v3.0 | 1/5 | In Progress|  |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
 ---
