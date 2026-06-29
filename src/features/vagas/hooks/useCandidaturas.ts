@@ -344,20 +344,16 @@ export function useUpdateCandidaturaStatus(
     mutationFn: updateCandidaturaStatus,
     onSuccess: async (data, variables, context) => {
       if (data.success) {
-        console.log('🔄 Invalidando queries de candidaturas...')
-
         // 1. Invalidar TODAS as queries de candidaturas (marca como stale)
         queryClient.invalidateQueries({
           queryKey: candidaturasKeys.all,
         })
 
         // 2. Refetch TODAS as queries ativas de candidaturas (força reload imediato)
-        const refetchResult = await queryClient.refetchQueries({
+        await queryClient.refetchQueries({
           queryKey: candidaturasKeys.all,
           type: 'active',
         })
-
-        console.log('✅ Queries refetchadas:', refetchResult.length)
 
         // 3. Também invalidar queries de vagas (podem ter contador de candidaturas)
         queryClient.invalidateQueries({
