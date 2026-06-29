@@ -178,6 +178,9 @@ export function SjtCasoAbertoScreen() {
   // Read region (the open-case prompt) via the shared <AsyncState>: loading → slow →
   // error + retry — was loading-only; now never a blank screen (RESIL-03). errorCode
   // threaded so AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  // WR-04: o read do open-case é uma leitura de DB simples (sem IA); override neutro da
+  // slow-note p/ não exibir "processando com IA / ~30s" num read lento (a slow-copy de
+  // IA fica só nas telas de IA reais — Consolidação/Comparativo).
   if (isLoading || isError) {
     return (
       <ScreenShell>
@@ -186,6 +189,7 @@ export function SjtCasoAbertoScreen() {
           isError={isError}
           errorCode={errorCodeOf(error)}
           onRetry={() => refetch()}
+          copy={{ slow: { heading: 'Carregando…', body: 'Isso pode levar alguns segundos.' } }}
         />
       </ScreenShell>
     )

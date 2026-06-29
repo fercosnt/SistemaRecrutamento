@@ -369,9 +369,13 @@ export function BigFiveQuestionnaireScreen() {
     }
   }
 
-  // Read region (the 120 items) via the shared <AsyncState>: loading → slow (~30s) →
+  // Read region (the 120 items) via the shared <AsyncState>: loading → slow →
   // error + retry — never the old bare skeleton, never a blank screen (RESIL-03).
   // errorCode threaded so AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  // WR-04: getBigfiveItens é uma RPC simples (NÃO há chamada de IA aqui); a slow-copy
+  // default ("processando com IA / ~30s") seria factualmente errada num read de DB
+  // lento. Override neutro p/ a slow-note (a slow-copy de IA fica só nas telas de IA
+  // de verdade — Consolidação/Comparativo).
   if (isLoading || isError) {
     return (
       <ScreenShell>
@@ -380,6 +384,7 @@ export function BigFiveQuestionnaireScreen() {
           isError={isError}
           errorCode={errorCodeOf(error)}
           onRetry={() => refetch()}
+          copy={{ slow: { heading: 'Carregando…', body: 'Isso pode levar alguns segundos.' } }}
         />
       </ScreenShell>
     )

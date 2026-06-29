@@ -89,6 +89,9 @@ export function HubSection({ titulo, estado, isLoading, isError, children }: Hub
         isError={isError}
         isEmpty={isEmpty}
         copy={{
+          // WR-04: o Hub lê dados do funil do DB (sem IA); override neutro da slow-note
+          // p/ não dizer "processando com IA / ~30s" num read de DB lento.
+          slow: { heading: 'Carregando…', body: 'Isso pode levar alguns segundos.' },
           error: { heading: COPY.erro.heading, generic: COPY.erro.body },
           empty: { heading: emptyCopy.heading, body: emptyCopy.body },
         }}

@@ -234,6 +234,9 @@ export function RedacaoEditorScreen() {
   // retry. Migrated from the bespoke skeleton + "Tentar novamente" block so the wrapper
   // owns the standardized retry (no per-screen drift). errorCode threaded so
   // AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  // WR-04: getRedacaoContext é um read de tabela simples (sem IA); override neutro da
+  // slow-note p/ não dizer "processando com IA / ~30s" num read de DB lento (a slow-copy
+  // de IA fica só nas telas de IA reais — Consolidação/Comparativo).
   if (isLoading || error) {
     return (
       <ScreenShell>
@@ -242,6 +245,7 @@ export function RedacaoEditorScreen() {
           isError={Boolean(error)}
           errorCode={errorCodeOf(error)}
           onRetry={() => refetch()}
+          copy={{ slow: { heading: 'Carregando…', body: 'Isso pode levar alguns segundos.' } }}
         />
       </ScreenShell>
     )
