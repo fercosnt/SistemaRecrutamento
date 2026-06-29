@@ -1,7 +1,8 @@
 ---
 phase: 17-navegacao-arquitetura-informacao
 verified: 2026-06-28T17:43:00Z
-status: human_needed
+status: passed
+human_verification_closed: 2026-06-28
 score: 13/13
 overrides_applied: 0
 human_verification:
@@ -23,8 +24,19 @@ human_verification:
 
 **Phase Goal:** Cabear na navegação real de produção o funil construído no M2 (avaliação do candidato + workspaces RH de entrevista/redação/decisão + telas admin), hoje só alcançável por URL direta / DevNavigationMenu DEV-only. Reescreve o perfil mock do RH como hub de candidato real (guiado por etapa), consolida Dashboard × Perfil do candidato, dá entrada às telas admin, adiciona 404, remove legado morto comprovado, e protege as jornadas com teste E2E de navegabilidade.
 **Verified:** 2026-06-28T17:43:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Status:** passed (13/13 automated must-haves + 4/4 human-verification items closed)
+**Re-verification:** Human-needed items closed via live UAT 2026-06-28
+
+## Human Verification — Closed ✓
+
+All 4 `human_verification` items were executed live and **PASSED 4/4** via real-auth Playwright (`npx playwright test navegacao --project=chromium`), recorded in `17-HUMAN-UAT.md` (status: complete) and committed in `a76a34e`:
+
+- **J1** candidato → Dashboard step-CTA → avaliação — PASS (both branches: route branch via temporary regression of the seed to `avaliacao_assincrona` then restored pristine; no-op "Acompanhar candidatura" branch on `decisao_final`).
+- **J2** RH TriagemTable → hub → workspaces — PASS (hub renders; current-stage workspace reachable; covers D-04 + redação-CTA fix bbeab99).
+- **J3** Admin sidebar → /admin/* — PASS ("Admin" item visible for `administrador` → `/admin/ai-logs`).
+- **Hub data sections** (WR-01 Redação scope) — PASS (per-candidatura scope confirmed via the navigable hub).
+
+Two **E2E-test-only** bugs were found and fixed during the UAT (not product defects): login helpers missing `.blur()` (RHF `mode:'onBlur'` + `disabled={!isValid}`), and the J3 `/Admin/i` selector colliding with the user-card when the account name contains "admin" → `{ name: 'Admin', exact: true }`. A test `administrador` account was created in PROD for the run (`e2e.admin@beautysmile.com.br`) — **to be deactivated when no longer needed**.
 
 ## Goal Achievement
 
