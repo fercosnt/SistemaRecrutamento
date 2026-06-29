@@ -31,3 +31,12 @@ TBD — precisa de design + decisao de persistencia (envolve escrita em `entrevi
   `normalizeGuia`, ENTREV-GUIA-DISPLAY-01) ou normalizar na escrita.
 Item maior — provavelmente quer um /gsd-discuss antes de implementar (escopo + contrato
 de escrita). NAO e so frontend.
+
+## Earmark (2026-06-29)
+
+Decidido pelo usuario: fazer no PROXIMO MILESTONE (M3), executado via /gsd-autonomous junto
+com o batch. Plantado como **SEED-001** (`.planning/seeds/SEED-001-rh-editar-guia-entrevista.md`)
+— enriquecido com o scouting read-only + 6 gray areas a fechar no /gsd-discuss do M3
+(transporte de escrita RPC-DEFINER-vs-EF, persistencia UPDATE-vs-append, shape+origem,
+UX de edicao, edge regenerar-vs-editar, RLS). O /gsd-new-milestone vai surfacar a SEED-001
+automaticamente; este todo segue como a captura detalhada (cross-ref via todo.match-phase).
