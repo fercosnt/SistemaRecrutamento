@@ -59,7 +59,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 - [x] 18-03-PLAN.md — FIX-01/FIX-02: travar bugs já corrigidos com testes de regressão (normalizeSjtComposite + status='active')
 - [x] 18-04-PLAN.md — RESIL-03: shared <AsyncState> wrapper + contract test + refactor HubSection
 - [x] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
-- [ ] 18-06-PLAN.md — RESIL-03: adotar <AsyncState> nas 5 telas de IA (candidato + RH)
+- [x] 18-06-PLAN.md — RESIL-03: adotar <AsyncState> nas 5 telas de IA (candidato + RH) — RESIL-03 DONE
 - [ ] 18-07-PLAN.md — [BLOCKING] redeploy de todas as EFs de IA em PROD (gate humano)
 
 ### Phase 19: Performance — Bundle & Cache
@@ -107,7 +107,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 1–5 (M1) | v1.0 | 40/40 | Complete | 2026-06-06 |
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
-| 18. Resiliência EFs & Bugs Funil | v3.0 | 4/7 | In Progress|  |
+| 18. Resiliência EFs & Bugs Funil | v3.0 | 6/7 | In Progress|  |
 | 19. Performance — Bundle & Cache | v3.0 | 0/TBD | Not started | - |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |

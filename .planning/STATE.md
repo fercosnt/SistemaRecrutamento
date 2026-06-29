@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Completed 18-05-PLAN.md (RESIL-03 extractEfErrorCode helper + error_code wired into 4 AI services)
-last_updated: "2026-06-29T03:33:00.000Z"
+stopped_at: Completed 18-06-PLAN.md (RESIL-03 <AsyncState> adopted on all 5 AI-backed screens — RESIL-03 done)
+last_updated: "2026-06-29T03:50:00.000Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 ## Current Position
 
 Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
-Plan: 6 of 7
-Status: Ready to execute
+Plan: 7 of 7
+Status: 18-06 complete (RESIL-03 done) — only 18-07 [BLOCKING] EF redeploy remains
 Last activity: 2026-06-29
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 86%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -65,6 +65,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 18 P03 | 4min | 2 tasks | 3 files |
 | Phase 18 P04 | 9min | 3 tasks | 3 files |
 | Phase 18 P05 | 7min | 2 tasks | 6 files |
+| Phase 18 P06 | 12min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 18]: [Phase 18/18-02] RESIL-02: gerar-devolutiva-bigfive paraleliza as 5 dims OCEAN via Promise.allSettled (index-mapped → ordem O-C-E-A-N preservada), 1 tentativa/dim (era 2), degrade per-dim inline ao BAND_TEMPLATES; mata o timeout achado #2. NOT Promise.all. Code-only — live so apos redeploy Plan 18-07 (bundle freeze).
 - [Phase ?]: [Phase 18/18-03] FIX-01/FIX-02 travados por testes de regressão SEM re-fix: única mudança de produção é o keyword export em normalizeSjtComposite (corpo byte-unchanged 350e994). FIX-01 = 2 casos Deno (pendente-único→null; MC 8/10→80 preservado); FIX-02 = Vitest mock multi-tabela assertando .eq('status','active') retorna rows. consolidar segue NO-LLM (RNF-07a).
 - [Phase 18]: [Phase 18/18-04] RESIL-03 (component half): shared `<AsyncState>` (src/components/ui/) generaliza o pattern do HubSection + retry exemplar do ConsolidacaoDashboard → contrato único de 5 estados (loading → slow@8s → error → empty → success) em priority order vinculante. errorCode==='AI_UNAVAILABLE' → copy de sobrecarga; senão genérica. COPY PT-BR verbatim single-sourced; retry só no error state (GlassButton variant=white min-h-[44px], 'Tentando…'+disabled). Renderiza só copy estática por errorCode — nunca ecoa erro cru/PII (T-18-04-ID). HubSection delega (glass={false}, mantém shell+título), futuro/sem_dados/erro preservados como overrides via copy prop, sem onRetry → error stays retry-less (no drift; hubEmptyState D-07 verde). +AsyncStateCopyOverride (slot+field optional). tsc 258. Plan 05 = extractEfErrorCode + wire error_code nos services; Plan 06 = adotar nas 5 telas de IA.
+- [Phase 18]: [Phase 18/18-06] RESIL-03 (adoption — DONE): `<AsyncState>` adotado nas 5 telas de IA. RH: ConsolidacaoDashboard (bloco inline de retry — o exemplar — removido → `<AsyncState glass={false}>`, errorCode de useConsolidacao().error, success body extraído p/ ConsolidacaoBody, empty domínio fica success-branch) · ComparativoScreen (tela presentacional pura ganhou props async OPCIONAIS + hospeda `<AsyncState glass={false}>`; estado real do invoke threaded de ComparativoCandidatosPage + DecisaoFinalPage via errorCodeOf(TriagemServiceError); **MIXED_VAGA PRESERVADO via copy override** — T-18-06-T2). Candidato: BigFiveQuestionnaireScreen (skeleton bare → loading→slow~30s→error+retry sobre getBigfiveItens; submit mantém 'Enviando…') · SjtCasoAbertoScreen (loading-only → +error+retry) · RedacaoEditorScreen ('Tentar novamente' bespoke → wrapper compartilhado). errorCode code-only via errorCodeOf() local (NÃO editou os services — 18-05 é dono); reads de DB → genérico, AI_UNAVAILABLE surge nos invokes. Nunca tela em branco; min-h-[44px] no retry. tsc 258. **657/657 vitest verdes.** Deviation (Rule 3): editou 2 consumer pages fora de files_modified p/ threadar o errorCode que os must_haves exigem. Deferred: DevolutivaBigFiveView (~30s devolutiva literal) fora de files_modified → follow-up. Live visual UAT → Phase 21.
 - [Phase 18]: [Phase 18/18-05] RESIL-03 (service-plumbing half): shared `extractEfErrorCode(data, error)` em `src/lib/efErrors.ts` — lê error_code do body 200 (`data.error_code`) E do FunctionsHttpError não-2xx (`await error.context.json()`), degrada p/ undefined em body não-JSON, NUNCA throwa, retorna só o código (sem PII, ASVS V7/T-18-05-ID). Wired nos 4 serviços de IA (avaliacaoService.avaliarRedacao=AI_UNAVAILABLE primário · bigfiveService.submitBigfiveFinal=fallback NETWORK_ERROR, LOCKED/INVALID_INPUT intactos · triagemService.invokeComparativo=MIXED_VAGA PRESERVADO+AI_UNAVAILABLE via helper · decisaoService.getConsolidacao=branch error + legacy data.ok===false KEPT, consolidar é NO-LLM) → cada `*ServiceError` carrega `{ error_code, raw }` em details p/ `<AsyncState errorCode>` ramificar sobrecarga-vs-genérico (adoção = Plan 06). Generaliza o read inline MIXED_VAGA num único helper (anti-drift). Achado: bigfiveService NÃO invoca gerar-devolutiva-bigfive do client (server-side off submit-bigfive-final); duplicata inline de extractEfErrorCode existe em entrevistaService L573 (fora de escopo, candidato a follow-up). tsc 258 baseline. 80 testes verdes (7 novos efErrors + 73 existentes).
 
 ### Pending Todos
@@ -103,6 +105,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T03:33:00.000Z
-Stopped at: Completed 18-05-PLAN.md (RESIL-03 extractEfErrorCode helper + error_code wired into 4 AI services)
+Last session: 2026-06-29T03:50:00.000Z
+Stopped at: Completed 18-06-PLAN.md (RESIL-03 <AsyncState> adopted on all 5 AI-backed screens — RESIL-03 done; only 18-07 [BLOCKING] EF redeploy remains)
 Resume file: None

@@ -16,7 +16,7 @@ Requirements deste milestone. Cada um mapeia para exatamente uma fase do roadmap
 
 - [x] **RESIL-01**: As EFs de IA resistem a latência alta e overload transiente da Anthropic — timeout configurável + retry com backoff exponencial + tratamento explícito de 429/529/overload (sem falha dura na 1ª tentativa). *[achado live #1: EFs 38–102s + overload transiente → retry]*
 - [ ] **RESIL-02**: `gerar-devolutiva-bigfive` completa dentro do limite de execução (reduzir/paralelizar/encadear as 5 chamadas de IA ou tornar a geração assíncrona) — não estoura timeout. *[achado live #2]*
-- [ ] **RESIL-03**: Candidato e RH veem estado claro quando uma EF de IA demora ou falha (loading + erro + retry visível; nenhuma tela trava em branco) — graceful degradation.
+- [x] **RESIL-03**: Candidato e RH veem estado claro quando uma EF de IA demora ou falha (loading + erro + retry visível; nenhuma tela trava em branco) — graceful degradation. *[18-04 <AsyncState> + 18-05 errorCode plumbing + 18-06 adoção nas 5 telas]*
 
 ### Correção de bugs do funil (E2E live)
 
@@ -76,7 +76,7 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 |-------------|-------|--------|
 | RESIL-01 | Phase 18 | Complete |
 | RESIL-02 | Phase 18 | Pending |
-| RESIL-03 | Phase 18 | Pending |
+| RESIL-03 | Phase 18 | Complete |
 | FIX-01 | Phase 18 | Complete |
 | FIX-02 | Phase 18 | Complete |
 | PERF-03 | Phase 19 | Pending |
