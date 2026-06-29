@@ -1,7 +1,7 @@
 ---
 phase: 20
 slug: refino-rh-editar-guia-de-entrevista-seed-001
-status: draft
+status: approved
 shadcn_initialized: true
 preset: "vendored (Figma Make export — no components.json; Radix + cva primitives in src/components/ui/)"
 created: 2026-06-29
@@ -157,7 +157,7 @@ no-drift convention).
 
 | Action | Confirmation approach |
 |--------|----------------------|
-| Remover pergunta | `AlertDialog` confirm (established idiom). Title: **"Remover esta pergunta?"** · Body: **"A pergunta será removida do guia ao salvar. Esta ação não pode ser desfeita após salvar."** · Confirm: **"Remover"** (destructive-tinted `text-red-300`) · Cancel: **"Cancelar"**. NOTE: removal is staged in local edit state; it is only persisted on "Salvar edições" — the dialog copy must not claim immediate deletion. |
+| Remover pergunta | `AlertDialog` confirm (established idiom). Title: **"Remover esta pergunta?"** · Body: **"A pergunta será removida do guia ao salvar. Esta ação não pode ser desfeita após salvar."** · Confirm: **"Remover pergunta"** (destructive-tinted `text-red-300`) · Cancel: **"Cancelar"**. NOTE: removal is staged in local edit state; it is only persisted on "Salvar edições" — the dialog copy must not claim immediate deletion. |
 | Cancelar (discard edits) | If the guide is dirty, exiting MAY prompt — but the lighter-weight, locked default is: **Cancelar always reverts to the last-saved guide without a dialog** (cheap, reversible, no data loss to PROD). No confirm dialog for Cancelar. |
 
 **Merge-preserve note (not UI, but governs copy honesty — CONTEXT Área 2):** a future AI regen never
@@ -218,11 +218,11 @@ NOT used here (up/down buttons per CONTEXT Área 3).
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS (FLAG resolved — confirm button "Remover pergunta")
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-06-29
