@@ -26,16 +26,20 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 // ── Mock Anthropic SDK ──────────────────────────────────────────────────────
-// A fake `messages.parse()` that records the request shape and returns a fixture
-// carrying usage.cache_read_input_tokens (so cost calc can prove cache billing).
+// A fake `messages.parse()` that records BOTH the request shape AND the per-call
+// options arg (RESIL-01 — Pitfall 2: a missing timeout/maxRetries:0 must be caught
+// by asserting on the recorded options). Returns a fixture carrying
+// usage.cache_read_input_tokens (so cost calc can prove cache billing).
 function makeMockAnthropic(opts: { failTimes?: number } = {}) {
-  const calls: unknown[] = [];
+  // Each entry is a [req, opts] tuple — opts is the 2nd positional RequestOptions
+  // arg callAi now passes ({ timeout, maxRetries: 0 }).
+  const calls: [unknown, unknown][] = [];
   let remainingFailures = opts.failTimes ?? 0;
   return {
     calls,
     messages: {
-      parse: (req: unknown) => {
-        calls.push(req);
+      parse: (req: unknown, callOpts?: unknown) => {
+        calls.push([req, callOpts]);
         if (remainingFailures > 0) {
           remainingFailures--;
           return Promise.reject(new Error("anthropic 529 overloaded"));
@@ -145,14 +149,14 @@ Deno.test("IA-03 — callAi picks Haiku for cv_summary, Sonnet for other call_ty
   await callAi({ prompt: HAIKU_PROMPT, ...baseArgs }, {
     anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
   });
-  const req = anthropic.calls[0] as { model: string };
+  const req = anthropic.calls[0][0] as { model: string };
   assertEquals(req.model, "claude-haiku-4-5", "cv_summary must route to Haiku");
 
   const anthropic2 = makeMockAnthropic();
   await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
     anthropic: anthropic2, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
   });
-  assertEquals((anthropic2.calls[0] as { model: string }).model, "claude-sonnet-4-6");
+  assertEquals((anthropic2.calls[0][0] as { model: string }).model, "claude-sonnet-4-6");
 });
 
 Deno.test("IA-03 — callAi emits system + (vaga+rubric) blocks with cache_control ephemeral", async () => {
@@ -161,7 +165,7 @@ Deno.test("IA-03 — callAi emits system + (vaga+rubric) blocks with cache_contr
   await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
     anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
   });
-  const req = anthropic.calls[0] as { system: Array<{ cache_control?: { type: string } }> };
+  const req = anthropic.calls[0][0] as { system: Array<{ cache_control?: { type: string } }> };
   assert(Array.isArray(req.system) && req.system.length >= 2, "system must be 2+ cached blocks");
   for (const block of req.system) {
     assertEquals(block.cache_control?.type, "ephemeral", "each system block must be ephemeral-cached");
@@ -190,5 +194,58 @@ Deno.test("IA-02/03/04 — callAi INSERTs an ai_call_logs row with the audit col
   assert(logRow, "an ai_call_logs row must be inserted");
   for (const col of ["prompt_version", "model_id", "input_hash", "output", "cost_usd"]) {
     assert(col in logRow!.row, `ai_call_logs row must carry "${col}"`);
+  }
+});
+
+// ── RESIL-01 — per-call timeout + maxRetries:0 reach the provider ────────────
+// Pitfall 2 regression: if the { timeout, maxRetries: 0 } 2nd arg is ever dropped
+// from `messages.parse(...)`, this test fails. Without it the EF inherits the SDK
+// default timeout (10-60min) + maxRetries:2 (3x3=9 calls) and hangs past the 150s
+// idle ceiling (the live 38-102s achado #1).
+Deno.test("RESIL-01 — per-call timeout + maxRetries:0 passed to messages.parse", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
+  });
+  const [, opts] = anthropic.calls[0] as [unknown, { timeout?: number; maxRetries?: number }];
+  assert(opts, "the 2nd positional options arg must be passed to messages.parse");
+  assertEquals(opts.maxRetries, 0, "maxRetries MUST be 0 — the hand-rolled loop owns retry (Pitfall 1)");
+  assert(
+    typeof opts.timeout === "number" && opts.timeout > 0,
+    "a finite per-call timeout > 0 MUST be passed (Pitfall 2: no cap = 60min hang)",
+  );
+});
+
+// ── RESIL-01 — env defaults apply when env vars are unset ────────────────────
+// AI_CALL_TIMEOUT_MS / MAX_ATTEMPTS are default-guarded so absence in PROD is
+// non-breaking: the call still proceeds and carries the default 25000ms timeout.
+Deno.test("RESIL-01 — default timeout (25000) applies when AI_CALL_TIMEOUT_MS unset", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
+  });
+  assertEquals(result.provider, "anthropic", "call must proceed with the default env config");
+  const [, opts] = anthropic.calls[0] as [unknown, { timeout?: number }];
+  assertEquals(opts.timeout, 25000, "default AI_CALL_TIMEOUT_MS must be 25000 when env is unset");
+});
+
+// ── RESIL-01 — a timeout-classified error is still retried by the existing loop ─
+// The { timeout } route throws an APIConnectionTimeoutError whose message matches
+// /timeout/i in isRetryable, so the hand-rolled loop retries before exhaustion.
+// `failTimes: 1` simulates one retryable failure, then success on attempt 2.
+Deno.test("RESIL-01 — retryable failure is retried by the loop (timeout path stays retryable)", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic({ failTimes: 1 });
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
+  });
+  assertEquals(result.provider, "anthropic", "must succeed on the retry, not fall to OpenAI");
+  assertEquals(anthropic.calls.length, 2, "the loop must make a 2nd real attempt after the retryable failure");
+  // EACH attempt must carry the maxRetries:0 + timeout options (not just the first).
+  for (const [, opts] of anthropic.calls as [unknown, { timeout?: number; maxRetries?: number }][]) {
+    assertEquals(opts.maxRetries, 0, "every attempt must disable SDK retry");
+    assert(typeof opts.timeout === "number" && opts.timeout > 0, "every attempt must carry a finite timeout");
   }
 });
