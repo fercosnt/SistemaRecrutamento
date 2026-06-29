@@ -87,7 +87,7 @@ export function HubCandidatoRH() {
 
   // Pipeline section reads — each a real, RLS-correct, allowlist-projected hook.
   const triagemQuery = useScorecardCandidato(candidaturaId) // Avaliação Assíncrona (SJT/Work-Sample + Big Five)
-  const entrevistaQuery = useEntrevistaScorecard(candidaturaId) // Entrevista + Cognitiva (split by tipo)
+  const entrevistaQuery = useEntrevistaScorecard(candidaturaId, vagaId) // Entrevista + Cognitiva (split by tipo)
   const redacaoQuery = useRedacaoRevisao(vagaId) // Redação (vaga-level queue)
   const decisaoQuery = useConsolidacao(candidaturaId, vagaId) // Decisão Final
 

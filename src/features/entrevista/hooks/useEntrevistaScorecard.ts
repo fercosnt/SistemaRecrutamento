@@ -31,6 +31,7 @@ import {
   type SalvarAvaliacaoPayload,
   type TipoEntrevista,
 } from '../services/entrevistaService'
+import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
 
 /** Hierarchical query-key namespace (mirrors `redacaoRevisaoKeys`). */
 export const entrevistaKeys = {
@@ -134,6 +135,7 @@ export function useTranscricaoAnalise(
  */
 export function useEntrevistaScorecard(
   candidaturaId: string | undefined,
+  vagaId: string | undefined,
   options?: Omit<UseQueryOptions<EntrevistaScoreRow[], Error>, 'queryKey' | 'queryFn'>,
 ) {
   const queryClient = useQueryClient()
@@ -155,6 +157,15 @@ export function useEntrevistaScorecard(
       queryClient.invalidateQueries({
         queryKey: entrevistaKeys.scorecard(candidaturaId || ''),
       })
+      // PERF-04 Gap A: a scorecard save changes the Decisão Final consolidation
+      // input → invalidate the TARGETED consolidacao key (never decisaoKeys.all)
+      // so the Decisão Final dashboard refetches in ≤60s. Cache-only; no
+      // candidaturas write (RNF-07a — consolidacao stays read-only/advisory).
+      if (candidaturaId && vagaId) {
+        queryClient.invalidateQueries({
+          queryKey: decisaoKeys.consolidacao(candidaturaId, vagaId),
+        })
+      }
     },
   })
 
