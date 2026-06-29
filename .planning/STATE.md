@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: "Completed 18-01-PLAN.md (RESIL-01 callAi timeout + maxRetries:0)"
-last_updated: "2026-06-29T06:00:33.238Z"
+stopped_at: Completed 18-02-PLAN.md (RESIL-02 bigfive Promise.allSettled fan-out)
+last_updated: "2026-06-29T06:10:29.598Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
-  percent: 14
+  completed_plans: 2
+  percent: 0
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 ## Current Position
 
 Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-06-29
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [███░░░░░░░] 29%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -61,6 +61,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 
 *Updated after each plan completion.*
 | Phase 18 P01 | 18min | 3 tasks | 2 files |
+| Phase 18 P02 | 7min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [M2/Phases 6/13/15]: Revisão humana sempre obrigatória pós-IA; zero auto-rejeição por score (RNF-07a) — invariante a preservar no guia (ENTREV-08).
 - [Phase ?]: [Phase 18/18-01] RESIL-01: callAi passa { timeout: AI_CALL_TIMEOUT_MS (25s default), maxRetries:0 } no 2o arg de parse() em ambos os provedores; loop hand-rolled e o unico dono do retry (Pitfall 1). Env-config com default-guard.
 - [Phase ?]: [Phase 18/18-01] Open Question A2 RESOLVIDA: parse() aceita 2o arg RequestOptions em @anthropic-ai/sdk@0.102.0 + openai@6.42.0 (verificado nos .d.ts cacheados); rota per-call escolhida (sem fallback de constructor). _shared change so vale em PROD apos redeploy (Plan 18-07, Pitfall 6).
+- [Phase 18]: [Phase 18/18-02] RESIL-02: gerar-devolutiva-bigfive paraleliza as 5 dims OCEAN via Promise.allSettled (index-mapped → ordem O-C-E-A-N preservada), 1 tentativa/dim (era 2), degrade per-dim inline ao BAND_TEMPLATES; mata o timeout achado #2. NOT Promise.all. Code-only — live so apos redeploy Plan 18-07 (bundle freeze).
 
 ### Pending Todos
 
@@ -95,6 +97,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T06:00:33.224Z
-Stopped at: Completed 18-01-PLAN.md (RESIL-01 callAi timeout + maxRetries:0)
+Last session: 2026-06-29T06:10:29.593Z
+Stopped at: Completed 18-02-PLAN.md (RESIL-02 bigfive Promise.allSettled fan-out)
 Resume file: None

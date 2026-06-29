@@ -55,7 +55,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
   5. A tela de avaliação do RH carrega as perguntas independentemente do mismatch `status='active'` vs filtro `'ativo'` — status e filtro alinhados na fonte (FIX-02).
 **Plans**: 7 plans
 - [x] 18-01-PLAN.md — RESIL-01: callAi per-call timeout + maxRetries:0 + env-config (hardening do helper compartilhado)
-- [ ] 18-02-PLAN.md — RESIL-02: paralelizar gerar-devolutiva-bigfive (5 dims, allSettled, 1 attempt, degrade)
+- [x] 18-02-PLAN.md — RESIL-02: paralelizar gerar-devolutiva-bigfive (5 dims, allSettled, 1 attempt, degrade)
 - [ ] 18-03-PLAN.md — FIX-01/FIX-02: travar bugs já corrigidos com testes de regressão (normalizeSjtComposite + status='active')
 - [ ] 18-04-PLAN.md — RESIL-03: shared <AsyncState> wrapper + contract test + refactor HubSection
 - [ ] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
@@ -107,7 +107,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 1–5 (M1) | v1.0 | 40/40 | Complete | 2026-06-06 |
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
-| 18. Resiliência EFs & Bugs Funil | v3.0 | 1/7 | In Progress|  |
+| 18. Resiliência EFs & Bugs Funil | v3.0 | 2/7 | In Progress|  |
 | 19. Performance — Bundle & Cache | v3.0 | 0/TBD | Not started | - |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
