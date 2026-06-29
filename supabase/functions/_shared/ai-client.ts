@@ -100,10 +100,28 @@ export function resolvedPromptFromLoaded(
   };
 }
 
+/**
+ * Opcoes por-chamada que o SDK aceita como SEGUNDO argumento posicional de
+ * `parse()` (RESIL-01). Verificado nos `.d.ts` cacheados em Wave 0:
+ *   - @anthropic-ai/sdk@0.102.0 resources/messages/messages.d.ts:52
+ *       parse<Params>(params: Params, options?: RequestOptions): APIPromise<...>
+ *   - openai@6.42.0 resources/chat/completions/completions.d.ts:107
+ *       parse<Params>(body: Params, options?: RequestOptions): APIPromise<...>
+ *   - RequestOptions (internal/request-options.d.ts) expoe `maxRetries`,
+ *     `timeout` e `signal` — exatamente os campos que precisamos.
+ * Logo a rota escolhida e a de opcoes por-chamada (NAO o fallback de
+ * constructor da RESEARCH A2).
+ */
+interface AiCallOptions {
+  timeout?: number;
+  maxRetries?: number;
+  signal?: AbortSignal;
+}
+
 /** Cliente Anthropic minimo (estrutural — real ou mock). */
 interface AnthropicLike {
   messages: {
-    parse(req: unknown): Promise<{
+    parse(req: unknown, opts?: AiCallOptions): Promise<{
       parsed_output?: unknown;
       usage?: { input_tokens?: number; cache_read_input_tokens?: number; output_tokens?: number };
       model?: string;
@@ -115,7 +133,7 @@ interface AnthropicLike {
 interface OpenAILike {
   chat: {
     completions: {
-      parse(req: unknown): Promise<{
+      parse(req: unknown, opts?: AiCallOptions): Promise<{
         choices?: Array<{ message?: { parsed?: unknown } }>;
         usage?: { prompt_tokens?: number; completion_tokens?: number };
         model?: string;
