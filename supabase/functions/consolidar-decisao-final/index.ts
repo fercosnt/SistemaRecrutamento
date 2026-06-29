@@ -293,7 +293,9 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);
     }
 
-    const pesos = (vagaRow.pesos_avaliacao ?? {}) as Record<string, number>;
+    // WR-06: tipado como `unknown` (não `number`) — a coluna é jsonb e um peso pode
+    // chegar como string/valor inválido; cada leitura coage+valida (ver weightedRows).
+    const pesos = (vagaRow.pesos_avaliacao ?? {}) as Record<string, unknown>;
 
     // ── 4. Leituras privilegiadas (allowlist explícita de colunas — NUNCA o
     //      wildcard, [[reference_select_star_leaks_pii]]).
@@ -335,11 +337,18 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
           key === "triagem" ? undefined : scoreByTipo.get(TIPO_BY_KEY[key as Exclude<WeightKey, "triagem">]),
         );
       const present = normalized != null;
+      // WR-06: `pesos` é um cast não-checado sobre uma coluna jsonb. publish_vaga é o
+      // garantidor upstream de que os pesos são numéricos, mas a EF não deve confiar
+      // cegamente: um peso gravado como string ("40") ou jsonb inválido propagaria
+      // p/ acc + (r.weight ?? 0) e (r.weight ?? 0) / sumPresentWeight, podendo render
+      // NaN no consolidado (que o dashboard exibe). Coage defensivamente p/ number|null.
+      const rawW = pesos[key];
+      const weight = typeof rawW === "number" && Number.isFinite(rawW) ? rawW : null;
       return {
         etapa: key,
         normalized: present ? Math.round(normalized! * 100) / 100 : null,
         status: present ? "present" : "na",
-        weight: pesos[key] ?? null,
+        weight,
         effective_weight: null, // preenchido após a renormalização
       } as BreakdownRow;
     });
