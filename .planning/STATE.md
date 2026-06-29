@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: completed
+status: executing
 stopped_at: Phase 18 complete (5/5 must-haves; UAT deferred to P21); secured 25/25; advancing to Phase 19
-last_updated: "2026-06-29T17:47:34.926Z"
-last_activity: 2026-06-29
+last_updated: "2026-06-29T18:33:19.089Z"
+last_activity: 2026-06-29 -- Phase 19 planning complete
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 7
+  total_plans: 10
   completed_plans: 7
   percent: 25
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
 Plan: 7 of 7
-Status: 18-06 complete (RESIL-03 done) — only 18-07 [BLOCKING] EF redeploy remains
-Last activity: 2026-06-29
+Status: Ready to execute
+Last activity: 2026-06-29 -- Phase 19 planning complete
 
 Progress: [████████░░] 86%
 
