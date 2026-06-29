@@ -370,9 +370,18 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
     const breakdown: BreakdownRow[] = [...weightedRows, ...contextRows];
 
     // ── 6. Recomendação DETERMINÍSTICA (NUNCA LLM) ────────────────────────────
-    const naKeys = weightedRows.filter((r) => r.status === "na").map((r) => r.etapa);
+    // WR-02: computa `pendenteHuman` ANTES de `naKeys`. Uma entrevista
+    // 'pendente_humano' já é descrita por buildRecommendation como "Revisão humana
+    // pendente em entrevista"; sem excluí-la de naKeys a copy a listava TAMBÉM em
+    // "Etapas não avaliadas: entrevista" — a mesma etapa simultaneamente "pendente
+    // de revisão" e "não avaliada" (contraditório p/ o RH). Excluímos entrevista de
+    // naKeys quando é o caso pendente-humano para as duas cláusulas não colidirem.
     const entrevistaRow = scoreByTipo.get("entrevista");
     const pendenteHuman = !!entrevistaRow && entrevistaRow.status === "pendente_humano";
+    const naKeys = weightedRows
+      .filter((r) => r.status === "na")
+      .map((r) => r.etapa)
+      .filter((etapa) => !(etapa === "entrevista" && pendenteHuman));
     const recommendation = buildRecommendation(consolidated, naKeys, pendenteHuman);
 
     // Log redigido (T-15-07) — só ids/counts; NUNCA scores/justificativa/PII.
