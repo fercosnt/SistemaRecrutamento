@@ -4,7 +4,8 @@
 
 - ✅ **v1.0 — M1 MVP Candidato** — Phases 1–5 (shipped 2026-06-06)
 - ✅ **v2.0 — M2 Funil RH + Avaliação por IA** — Phases 6–16 (shipped 2026-06-26)
-- 🔧 **Standalone (pós-v2.0)** — Phase 17 (Navegação & Arquitetura de Informação) — mini-fase fora de milestone
+- 🔧 **Standalone (pós-v2.0)** — Phase 17 (Navegação & Arquitetura de Informação) — mini-fase fora de milestone (shipped 2026-06-28)
+- 🚧 **v3.0 — M3 Refinamento RH & Hardening** — Phases 18–21 (in progress)
 
 ## Phases
 
@@ -24,30 +25,88 @@ The full RH hiring funnel + AI-assisted evaluation across 11 phases (63 plans): 
 
 </details>
 
-### Phase 17 — Navegação & Arquitetura de Informação (standalone mini-fase)
+<details>
+<summary>✅ Phase 17 — Navegação & Arquitetura de Informação (standalone mini-fase) — SHIPPED 2026-06-28</summary>
 
-**Goal:** Cabear na navegação real de produção o funil construído no M2 (avaliação do candidato + workspaces RH de entrevista/redação/decisão + telas admin), hoje só alcançável por URL direta / DevNavigationMenu DEV-only. Reescreve o perfil mock do RH como hub de candidato real (guiado por etapa), consolida Dashboard × Perfil do candidato, dá entrada às telas admin, adiciona 404, remove legado morto comprovado, e protege as jornadas com teste E2E de navegabilidade.
+Cabeou na navegação real de produção o funil construído no M2 (avaliação do candidato + workspaces RH de entrevista/redação/decisão + telas admin), antes só alcançável por URL direta / DevNavigationMenu DEV-only. Hub de candidato real, Dashboard × Perfil consolidados, entrada às telas admin, 404 glass, remoção de legado morto, teste E2E de navegabilidade. 5/5 plans / 4 waves. Verifier 13/13, security 18/18 closed, 4 UATs live fechados 4/4. Standalone — sem lifecycle de milestone.
 
-- **Origem:** auditoria `.planning/ui-reviews/nav-audit-2026-06-28.md` (§6 recomendações). Absorve os todos RH-NAV-WIRING-01, CAND-DASH-DUP-01, ENTREV-PERFIL-DUP-01.
-- **Tipo:** mini-fase standalone fora de milestone (pós v2.0 arquivado). Não adiciona capacidades novas — é wiring de navegação + IA + limpeza de legado.
-- **Context:** `.planning/phases/17-navegacao-arquitetura-informacao/17-CONTEXT.md`
-- **Status:** Plan execution complete — 5/5 plans / 4 waves. DoD (D-03 navegable-journey E2E gate) satisfied; ready for `/gsd-verify-work`.
-- **Plans:** 5/5 plans complete
-  - [x] 17-01-PLAN.md — Wave 0 RED test battery (funilNavMap + route-table + RHSidebar-admin + hub-empty-state + legacy grep guard + Playwright nav smoke) — D-03/D-16
-  - [x] 17-02-PLAN.md — Foundation: funilNavMap single source + NotFoundPage glass 404 + routes.tsx catch-all + normalization redirect — D-17/D-14/D-08/D-15/D-02
-  - [x] 17-03-PLAN.md — RH funnel: hub-candidato feature (mock retired) + TriagemTable SPA entry + role-gated Admin sidebar — D-04/D-05/D-06/D-07/D-13/D-15
-  - [x] 17-04-PLAN.md — Candidate funnel: Dashboard step-CTA + LGPD card + landing repoint + Perfil strip — D-09/D-10/D-11
-  - [x] 17-05-PLAN.md — Conservative legacy deletion (12 dead files removed, MeuPerfilPage KEPT) + navegability smoke promoted RED→GREEN (J4/404 unconditional, J1-J3 gated; legacy-routes guard 13/13 GREEN, tsc 281→258) — D-12/D-01/D-16
+</details>
+
+### 🚧 v3.0 — M3 Refinamento RH & Hardening (In Progress)
+
+**Milestone Goal:** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**. Invariante preservado: IA é recomendação, humano decide (RNF-07a); nenhuma escrita nova em `candidaturas` por trait/score/idade; write-paths privilegiados seguem authenticate-THEN-authorize.
+
+- [ ] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos
+- [ ] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s
+- [ ] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize
+- [ ] **Phase 21: Production-Readiness — UATs Live** - HUMAN-UAT live deferidos do M2 fechados com dados/contas reais em PROD
+
+## Phase Details
+
+### Phase 18: Resiliência das EFs de IA & Bugs do Funil
+**Goal**: As Edge Functions de IA do funil resistem a latência alta e overload transiente da Anthropic sem falha dura, candidato e RH veem estado claro durante chamadas lentas/falhas, e os 4 achados do E2E live em PROD (candidatura `a1dd4c42`) deixam de travar o funil.
+**Depends on**: Nothing (first phase of M3; builds on shipped M2 EFs)
+**Requirements**: RESIL-01, RESIL-02, RESIL-03, FIX-01, FIX-02
+**Success Criteria** (what must be TRUE):
+  1. Uma EF de IA que recebe 429/529/overload da Anthropic não falha na 1ª tentativa — ela retenta com backoff exponencial dentro de um timeout configurável e só falha depois de esgotar as tentativas (RESIL-01).
+  2. `gerar-devolutiva-bigfive` completa dentro do limite de execução sem estourar timeout, mesmo com o conjunto de chamadas de IA que hoje a derruba (RESIL-02).
+  3. Quando uma EF de IA demora ou falha, a tela do candidato e a do RH mostram loading, erro legível e retry visível — nenhuma tela trava em branco (RESIL-03).
+  4. `consolidar-decisao-final` produz um consolidado correto quando `work_sample_sjt='na'` e há caso aberto pendente — não trava nem zera o consolidado (FIX-01).
+  5. A tela de avaliação do RH carrega as perguntas independentemente do mismatch `status='active'` vs filtro `'ativo'` — status e filtro alinhados na fonte (FIX-02).
+**Plans**: TBD
+
+### Phase 19: Performance — Bundle & Cache
+**Goal**: O candidato mobile-first deixa de pagar o bundle monolítico de 661 KiB no first paint, e qualquer mudança escrita por candidato ou RH aparece no perfil/dashboard do candidato em ≤60s.
+**Depends on**: Nothing (independent of Phase 18; can run after it for stability)
+**Requirements**: PERF-03, PERF-04
+**Success Criteria** (what must be TRUE):
+  1. O bundle é servido em chunks separados (code-splitting route-level + vendor) — o first paint do candidato carrega só o chunk da rota inicial, não os 661 KiB monolíticos (PERF-03, fecha HARD-02).
+  2. Uma mudança escrita relevante (candidato ou RH) aparece no perfil/dashboard do candidato em ≤60s — invalidação de cache alvo nas mutations relevantes (PERF-04, fecha PERF-01).
+  3. As rotas do candidato e do RH continuam funcionando após o code-splitting (sem regressão de navegação; chunks resolvem em runtime).
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)
+**Goal**: O RH consegue editar, adicionar, remover e reordenar perguntas no guia de entrevista, com as edições persistidas por um write-path seguro authenticate-THEN-authorize, marcação de origem por pergunta para auditoria, e sem que a regeneração por IA descarte edições manuais silenciosamente.
+**Depends on**: Phase 18 (guia de entrevista é uma das superfícies de IA endurecidas)
+**Requirements**: ENTREV-06, ENTREV-07, ENTREV-08
+**Success Criteria** (what must be TRUE):
+  1. RH edita o texto e a dimensão de uma pergunta existente no guia (online/presencial) e a mudança persiste (ENTREV-06).
+  2. RH adiciona uma pergunta manual (texto + dimensão), remove uma pergunta e reordena as perguntas do guia (ENTREV-07).
+  3. A persistência passa por RPC/EF authenticate-THEN-authorize: role RH derivado de `usuarios_rh` + posse via `candidatura → vaga.created_by`, `administrador` bypassa; um RH sem posse e um candidato recebem negação — **não** existe policy RH UPDATE ampla em `entrevista_guias` (ENTREV-08).
+  4. Cada pergunta fica marcada `origem: 'ia' | 'manual'`, e regenerar o guia por IA **não** descarta as perguntas manuais silenciosamente (ENTREV-08).
+  5. O guia continua sem escrever em `candidaturas` — RNF-07a preservada em todo o write-path (ENTREV-08).
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 21: Production-Readiness — UATs Live
+**Goal**: Os HUMAN-UAT live deferidos do M2 — que precisam de dados e contas reais em PROD — são executados e fechados, validando em produção o hardening feito nas fases anteriores deste milestone.
+**Depends on**: Phase 18, Phase 19, Phase 20 (valida em PROD o que foi endurecido/refinado)
+**Requirements**: PROD-01, PROD-02
+**Success Criteria** (what must be TRUE):
+  1. O UAT live da Phase 11 (Work-Sample/SJT open-case + redação — scoring round-trip com candidato real) é executado em PROD e marcado PASS (PROD-01).
+  2. Os HUMAN-UAT live deferidos da Phase 16 (cold-start login RH, Tier-B R5/C5 axe sweep, keyboard roving-focus, Big Five aria-live) são fechados em PROD — ou explicitamente re-deferidos com justificativa registrada (PROD-02).
+  3. Cada resultado de UAT (PASS / re-deferido) fica registrado com evidência (dados/contas reais usados, achados) no artefato de UAT da fase.
+**Plans**: TBD
+**UI hint**: yes
 
 ## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 18 → 19 → 20 → 21
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1–5 (M1) | v1.0 | 40/40 | Complete | 2026-06-06 |
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
-| 17 | standalone | 5/5 | Complete    | 2026-06-28 |
+| 17 | standalone | 5/5 | Complete | 2026-06-28 |
+| 18. Resiliência EFs & Bugs Funil | v3.0 | 0/TBD | Not started | - |
+| 19. Performance — Bundle & Cache | v3.0 | 0/TBD | Not started | - |
+| 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
+| 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
 ---
 
 *v1.0 milestone shipped 2026-06-06 — full requirements and roadmap detail archived under `.planning/milestones/v1.0-*`.*
 *v2.0 milestone shipped 2026-06-26 — full requirements and roadmap detail archived under `.planning/milestones/v2.0-*`. 11 phases (6–16), 42/42 requirements, audit PASSED.*
+*v3.0 milestone roadmap created 2026-06-29 — 4 phases (18–21), 12/12 requirements mapped. Hardening/consolidação, não expansão. Phase numbering continues from M2 (Phase 17 was standalone post-M2).*

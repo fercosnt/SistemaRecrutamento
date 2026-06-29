@@ -74,24 +74,30 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RESIL-01 | TBD | Pending |
-| RESIL-02 | TBD | Pending |
-| RESIL-03 | TBD | Pending |
-| FIX-01 | TBD | Pending |
-| FIX-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| ENTREV-06 | TBD | Pending |
-| ENTREV-07 | TBD | Pending |
-| ENTREV-08 | TBD | Pending |
-| PROD-01 | TBD | Pending |
-| PROD-02 | TBD | Pending |
+| RESIL-01 | Phase 18 | Pending |
+| RESIL-02 | Phase 18 | Pending |
+| RESIL-03 | Phase 18 | Pending |
+| FIX-01 | Phase 18 | Pending |
+| FIX-02 | Phase 18 | Pending |
+| PERF-03 | Phase 19 | Pending |
+| PERF-04 | Phase 19 | Pending |
+| ENTREV-06 | Phase 20 | Pending |
+| ENTREV-07 | Phase 20 | Pending |
+| ENTREV-08 | Phase 20 | Pending |
+| PROD-01 | Phase 21 | Pending |
+| PROD-02 | Phase 21 | Pending |
 
 **Coverage:**
 - v1 requirements: 12 total
-- Mapped to phases: 0 (roadmap pendente) ⚠️
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12 ✓
+- Unmapped: 0 ✓
+
+**Por fase:**
+- Phase 18 (Resiliência EFs & Bugs Funil): RESIL-01, RESIL-02, RESIL-03, FIX-01, FIX-02 (5)
+- Phase 19 (Performance — Bundle & Cache): PERF-03, PERF-04 (2)
+- Phase 20 (Refino RH — Editar Guia): ENTREV-06, ENTREV-07, ENTREV-08 (3)
+- Phase 21 (Production-Readiness — UATs): PROD-01, PROD-02 (2)
 
 ---
 *Requirements defined: 2026-06-29 (M3 — Refinamento RH & Hardening, via `/gsd-new-milestone`)*
-*Last updated: 2026-06-29 after initial definition*
+*Last updated: 2026-06-29 — traceability mapped to roadmap phases 18–21 (12/12 coverage, 0 unmapped)*
