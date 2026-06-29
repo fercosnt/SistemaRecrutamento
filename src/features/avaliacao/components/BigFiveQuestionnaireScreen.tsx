@@ -23,7 +23,8 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, Lock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
-import { GlassPanel, GlassButton, Glass } from '@/components/ui/glass'
+import { GlassPanel, GlassButton } from '@/components/ui/glass'
+import { AsyncState } from '@/components/ui/AsyncState'
 import { cn } from '@/components/ui/utils'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
@@ -56,6 +57,15 @@ import {
 } from '@/features/avaliacao/schemas/bigfiveSchema'
 
 const ITENS_POR_PAGINA = 10
+
+/** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a BigfiveServiceError — code-only, no PII. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof BigfiveServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    return typeof details?.error_code === 'string' ? details.error_code : undefined
+  }
+  return undefined
+}
 
 /** Fixed emotional disclaimer (templates-devolutiva.md L28) — shown on the intro. */
 const DISCLAIMER_EMOCIONAL =
@@ -302,7 +312,7 @@ export function BigFiveQuestionnaireScreen() {
   const navigate = useNavigate()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
-  const { data: itens, isLoading } = useQuery({
+  const { data: itens, isLoading, isError, error, refetch } = useQuery({
     queryKey: bigfiveKeys.itens(),
     queryFn: getBigfiveItens,
     staleTime: Infinity,
@@ -359,16 +369,18 @@ export function BigFiveQuestionnaireScreen() {
     }
   }
 
-  if (isLoading) {
+  // Read region (the 120 items) via the shared <AsyncState>: loading → slow (~30s) →
+  // error + retry — never the old bare skeleton, never a blank screen (RESIL-03).
+  // errorCode threaded so AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  if (isLoading || isError) {
     return (
       <ScreenShell>
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Glass key={i} variant="white" blur="md" className="p-6 animate-pulse h-16">
-              <span />
-            </Glass>
-          ))}
-        </div>
+        <AsyncState
+          isLoading={isLoading}
+          isError={isError}
+          errorCode={errorCodeOf(error)}
+          onRetry={() => refetch()}
+        />
       </ScreenShell>
     )
   }

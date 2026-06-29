@@ -23,7 +23,8 @@ import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, AlertCircle, Lock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
-import { GlassPanel, GlassButton, Glass } from '@/components/ui/glass'
+import { GlassPanel, GlassButton } from '@/components/ui/glass'
+import { AsyncState } from '@/components/ui/AsyncState'
 import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
@@ -51,6 +52,15 @@ import {
 const TESTE = 'sjt_caso_aberto'
 const MIN_WORDS = 200
 const MAX_WORDS = 500
+
+/** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off an AvaliacaoServiceError — code-only, no PII. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof AvaliacaoServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    return typeof details?.error_code === 'string' ? details.error_code : undefined
+  }
+  return undefined
+}
 
 function countWords(text: string): number {
   const trimmed = text.trim()
@@ -89,7 +99,7 @@ export function SjtCasoAbertoScreen() {
   const navigate = useNavigate()
   const { candidaturaId } = useParams<{ candidaturaId: string }>()
 
-  const { data: ctx, isLoading } = useQuery({
+  const { data: ctx, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['avaliacao', 'context', candidaturaId],
     queryFn: () => getAvaliacaoContext(candidaturaId as string),
     enabled: Boolean(candidaturaId),
@@ -165,12 +175,18 @@ export function SjtCasoAbertoScreen() {
     )
   }
 
-  if (isLoading) {
+  // Read region (the open-case prompt) via the shared <AsyncState>: loading → slow →
+  // error + retry — was loading-only; now never a blank screen (RESIL-03). errorCode
+  // threaded so AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  if (isLoading || isError) {
     return (
       <ScreenShell>
-        <Glass variant="white" blur="md" className="p-6 animate-pulse h-48">
-          <span />
-        </Glass>
+        <AsyncState
+          isLoading={isLoading}
+          isError={isError}
+          errorCode={errorCodeOf(error)}
+          onRetry={() => refetch()}
+        />
       </ScreenShell>
     )
   }

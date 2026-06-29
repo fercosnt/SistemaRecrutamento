@@ -31,7 +31,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Check, AlertCircle, Lock, CheckCircle2 } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
-import { GlassPanel, GlassButton, Glass } from '@/components/ui/glass'
+import { GlassPanel, GlassButton } from '@/components/ui/glass'
+import { AsyncState } from '@/components/ui/AsyncState'
 import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
@@ -61,6 +62,15 @@ import { RedacaoCounter, countWords, MIN_WORDS, MAX_WORDS } from './RedacaoCount
 import { RedacaoCronometro } from './RedacaoCronometro'
 
 const TESTE = 'redacao'
+
+/** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a RedacaoServiceError — code-only, no PII. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof RedacaoServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    return typeof details?.error_code === 'string' ? details.error_code : undefined
+  }
+  return undefined
+}
 
 /** The neutral autosave affordance (the single accent touchpoint, #35BFAD). */
 function AutosaveAffordance({ status }: { status: AutosaveStatus }) {
@@ -220,29 +230,19 @@ export function RedacaoEditorScreen() {
     )
   }
 
-  if (isLoading) {
+  // Read region (the prompts) via the shared <AsyncState>: loading → slow → error +
+  // retry. Migrated from the bespoke skeleton + "Tentar novamente" block so the wrapper
+  // owns the standardized retry (no per-screen drift). errorCode threaded so
+  // AI_UNAVAILABLE → sobrecarga copy (generic for DB reads).
+  if (isLoading || error) {
     return (
       <ScreenShell>
-        <Glass variant="white" blur="md" className="p-6 animate-pulse h-48">
-          <span />
-        </Glass>
-      </ScreenShell>
-    )
-  }
-
-  if (error) {
-    return (
-      <ScreenShell>
-        <GlassPanel variant="white" blur="xl" className="text-white text-center p-12">
-          <AlertCircle className="w-14 h-14 text-[#EF4444] mx-auto mb-4" />
-          <p className="text-white/90 text-xl mb-2">
-            Não foi possível carregar a redação.
-          </p>
-          <p className="text-white/70 mb-6">Verifique sua conexão e tente novamente.</p>
-          <GlassButton variant="white" hover onClick={() => refetch()} className="text-white">
-            Tentar novamente
-          </GlassButton>
-        </GlassPanel>
+        <AsyncState
+          isLoading={isLoading}
+          isError={Boolean(error)}
+          errorCode={errorCodeOf(error)}
+          onRetry={() => refetch()}
+        />
       </ScreenShell>
     )
   }
