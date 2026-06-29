@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: ROADMAP.md criado p/ M3 (4 fases 18–21) + REQUIREMENTS.md traceability preenchida (12/12).
-last_updated: "2026-06-29T05:51:23.770Z"
-last_activity: 2026-06-29 -- Phase 18 planning complete
+stopped_at: "Completed 18-01-PLAN.md (RESIL-01 callAi timeout + maxRetries:0)"
+last_updated: "2026-06-29T06:00:33.238Z"
+last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 14
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** M3 (v3.0 — Refinamento RH & Hardening) — roadmap criado, pronto para planejar Phase 18.
+**Current focus:** Phase 18 — Resiliência das EFs de IA & Bugs do Funil
 
 ## Current Position
 
-Phase: 18 of 21 (Resiliência das EFs de IA & Bugs do Funil) — not started
-Plan: — of TBD
+Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-06-29 -- Phase 18 planning complete
+Last activity: 2026-06-29
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 14%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -60,6 +60,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | 21 | TBD | - | - |
 
 *Updated after each plan completion.*
+| Phase 18 P01 | 18min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [M2/Phase 10]: EFs privilegiadas = two-client + autorizar DEPOIS de autenticar (IDOR/PII guard) — base direta do write-path do ENTREV-08.
 - [M2/AVAL-03]: Imports `npm:` ESTÁTICOS em toda EF de IA (nunca `await import([...].join(""))`) — relevante p/ RESIL-01/02.
 - [M2/Phases 6/13/15]: Revisão humana sempre obrigatória pós-IA; zero auto-rejeição por score (RNF-07a) — invariante a preservar no guia (ENTREV-08).
+- [Phase ?]: [Phase 18/18-01] RESIL-01: callAi passa { timeout: AI_CALL_TIMEOUT_MS (25s default), maxRetries:0 } no 2o arg de parse() em ambos os provedores; loop hand-rolled e o unico dono do retry (Pitfall 1). Env-config com default-guard.
+- [Phase ?]: [Phase 18/18-01] Open Question A2 RESOLVIDA: parse() aceita 2o arg RequestOptions em @anthropic-ai/sdk@0.102.0 + openai@6.42.0 (verificado nos .d.ts cacheados); rota per-call escolhida (sem fallback de constructor). _shared change so vale em PROD apos redeploy (Plan 18-07, Pitfall 6).
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29
-Stopped at: ROADMAP.md criado p/ M3 (4 fases 18–21) + REQUIREMENTS.md traceability preenchida (12/12).
-Resume file: None — próximo passo `/gsd-discuss-phase 18` ou `/gsd-plan-phase 18`.
+Last session: 2026-06-29T06:00:33.224Z
+Stopped at: Completed 18-01-PLAN.md (RESIL-01 callAi timeout + maxRetries:0)
+Resume file: None
