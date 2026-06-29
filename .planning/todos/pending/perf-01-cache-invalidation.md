@@ -3,7 +3,7 @@ id: perf-01-cache-invalidation
 created: 2026-06-26
 source: Phase 16 / Plan 16-01 (documented-deferral; 16-CONTEXT §Deferred + UI-SPEC §5)
 priority: medium
-resolves_phase: null
+resolves_phase: 19
 tags: [perf-01, cache, tanstack-query, freshness, deferred, m1-tech-debt]
 ---
 

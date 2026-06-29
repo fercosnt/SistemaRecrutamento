@@ -3,7 +3,7 @@ id: hard-02-bundle-code-splitting
 created: 2026-06-26
 source: Phase 16 / Plan 16-01 (documented-deferral; 16-CONTEXT §Deferred + UI-SPEC §5)
 priority: medium
-resolves_phase: null
+resolves_phase: 19
 tags: [hard-02, performance, bundle, code-splitting, lighthouse, deferred, m1-tech-debt]
 ---
 

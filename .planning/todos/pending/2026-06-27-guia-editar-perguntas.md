@@ -3,6 +3,7 @@ created: 2026-06-27
 title: RH editar/adicionar perguntas no guia de entrevista (ENTREV-GUIA-EDIT-01)
 area: entrevista
 severity: media
+resolves_phase: 20
 files:
   - src/features/entrevista/components/GuiaEntrevistaPanel.tsx
   - src/features/entrevista/components/EntrevistaWorkspace.tsx
