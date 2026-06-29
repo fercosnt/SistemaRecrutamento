@@ -411,17 +411,21 @@ return useQuery({
 | A3 | Per-query `refetchOnWindowFocus: true` on candidate-visible reads is more surgical than flipping the global default | Pattern 4 / Pitfall 5 | Low — CONTEXT marks this as Claude's Discretion; either satisfies ≤60s if staleTime ≤60s. |
 | A4 | The exact set of candidate-visible reads needing the refetchOnWindowFocus+staleTime pairing = `useCandidaturas` (dashboard) + any status read on `MeuPerfilCandidatoPage`/`DashboardCandidatoPage`; the planner should grep for candidate-facing `useQuery` reads of status to confirm the full set | Validation Architecture | Medium — if a candidate-visible status read is missed, that surface won't meet ≤60s. The "quick audit" in CONTEXT covers this; planner must enumerate. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Both resolved during Phase 19 planning (2026-06-29). Resolutions captured inline below and in 19-03-PLAN.md interfaces block.
 
 1. **Which candidate-visible reads beyond `useCandidaturas` need the freshness pairing?**
    - What we know: `useCandidaturas` (staleTime 1min) is the primary dashboard read; `useUpdateCandidaturaStatus` already invalidates + active-refetches on the RH side (same-client path is covered).
    - What's unclear: whether `MeuPerfilCandidatoPage` / `ExplicacaoCandidatoPage` have their own status reads that an open candidate tab could hold stale.
    - Recommendation: planner runs the CONTEXT-scoped "quick audit" — grep candidate-facing components for `useQuery` reads of mutable status, apply `refetchOnWindowFocus: true` + ensure `staleTime ≤ 60s` to each. Treat `useCandidaturas` as the known-required minimum.
+   - **RESOLVED (2026-06-29):** Quick audit run this planning session (verified in codebase). `useCandidaturas` (DashboardCandidatoPage, mutable status, staleTime 1min) is the ONLY candidate-visible mutable-status read needing the pairing → gets `refetchOnWindowFocus: true` in 19-03/T2. `useExplicacao` (ExplicacaoCandidatoPage) is an own-row rejection explanation, effectively static once a decision exists (no staleTime override, inherits 5min) → does NOT need the pairing, left unchanged. RH reads (`useAllCandidaturas`, `useVagaCandidaturas`) are out of scope. See 19-03-PLAN.md interfaces block.
 
 2. **Group lazy RH/admin chunks, or one chunk per page?**
    - What we know: 15+ `/rh/*` routes and 4 `/admin/*` routes. One chunk per page = many small files; grouping = fewer, larger files.
    - What's unclear: optimal granularity for this low-traffic, auth-gated area.
    - Recommendation: start with per-page `React.lazy` (Rollup emits one chunk per dynamic import naturally) — simplest, and the candidate never downloads any of them. Revisit only if RH navigation feels slow (out of scope this phase).
+   - **RESOLVED (2026-06-29):** Per-page `lazyNamed` (one dynamic `import()` per `/rh/*` + `/admin/*` page) chosen — Rollup auto-emits one chunk per import; the candidate never downloads any of them. Implemented in 19-02/T1. Grouping revisited only if RH navigation feels slow (out of scope this phase).
 
 ## Environment Availability
 
