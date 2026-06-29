@@ -41,6 +41,20 @@ Entregue no M2: pipeline backbone de 6 etapas + RLS 100% (P6); config de vaga + 
 
 </details>
 
+## Current Milestone: v3.0 Refinamento RH & Hardening
+
+**Goal:** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**.
+
+**Target features:**
+- **Resiliência das EFs de IA** — timeouts/retry/backoff nas EFs lentas + correção dos 4 achados live: (1) latência 38–102s + overload transiente da Anthropic, (2) `devolutiva-bigfive` estoura timeout com 5 chamadas de IA, (3) `consolidar-decisao-final` edge case (`work_sample_sjt='na'` + caso aberto pendente), (4) bug de UI perguntas `status='active'` vs filtro `'ativo'` trava a tela de avaliação.
+- **Performance** — HARD-02 code-splitting do bundle 661 KiB monolítico + PERF-01 cache-invalidation ≤60s no perfil do candidato.
+- **Refino RH (SEED-001 / ENTREV-GUIA-EDIT-01)** — RH editar/adicionar/remover/reordenar perguntas no guia de entrevista, via **novo write-path seguro** em `entrevista_guias` (authenticate-THEN-authorize; role RH de `usuarios_rh` + posse via `vaga.created_by`; **sem** policy RH UPDATE ampla; RNF-07a preservada — guia nunca escreve `candidaturas`).
+- **Production-readiness** — fechar os HUMAN-UAT live deferidos do M2 (ex: Phase 11 redação open-case) com dados/contas reais em PROD.
+
+**Fora do escopo (deferido p/ M4):** FOUND-08 (tsc burn-down tail), CC0 (item-bank cognitivo real seed), MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo, carta de devolução por IA.
+
+**Numeração de fases:** continua a partir da **Phase 18** (M2 terminou na Phase 16; Phase 17 foi mini-fase standalone pós-M2).
+
 ## Requirements
 
 ### Validated
@@ -75,9 +89,9 @@ Entregue no M2: pipeline backbone de 6 etapas + RLS 100% (P6); config de vaga + 
 <!-- M1 (Fases 1-5) shipped v1.0 2026-06-06 — 38 requirements em Validated. -->
 <!-- M2 (Fases 6-16) shipped v2.0 2026-06-26 — 42 requirements em Validated (ver Validated acima + summary do M2 + archive milestones/v2.0-REQUIREMENTS.md). -->
 
-**Nenhum milestone ativo.** M1 (v1.0) e M2 (v2.0) ambos shipped. O próximo milestone (requirements frescos) é iniciado via `/gsd-new-milestone`.
+**M3 (v3.0 — Refinamento RH & Hardening) ATIVO** — escopo definido 2026-06-29 via `/gsd-new-milestone` (consolidação, **não** expansão). Requirements frescos definidos neste ciclo em `.planning/REQUIREMENTS.md`; fases continuam a partir da Phase 18. Foco: resiliência das EFs de IA + 4 achados live, performance (HARD-02 bundle / PERF-01 cache), SEED-001 editar guia de entrevista, e fechamento dos UATs live deferidos. Ver `## Current Milestone` acima.
 
-**Tech-debt aberto p/ o próximo milestone:** HARD-02 bundle code-splitting (661 KiB monolítico), PERF-01 cache-invalidation ≤60s, FOUND-08 tail estrutural do baseline tsc, CC0 cognitive item-bank real seed. Candidatos de feature em Future Requirements: MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo, carta de devolução por IA.
+**Tech-debt — HARD-02 + PERF-01 ENTRAM no M3.** Deferido p/ M4: FOUND-08 tail estrutural do baseline tsc, CC0 cognitive item-bank real seed. Candidatos de feature p/ M4 (Future Requirements): MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo, carta de devolução por IA.
 
 ### Out of Scope
 
@@ -181,4 +195,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-26 after v2.0 (M2 — Funil RH + Avaliação por IA) milestone — SHIPPED. 11 fases (6–16), 63 plans, 42/42 requirements, audit PASSED (AVAL-03 BLOCKER resolvido pós-audit — EF redeploy v6, commit 39a164e). Roadmap + requirements arquivados em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`. Full PROJECT.md evolution review feita: Current State + Active + Key Decisions (8 decisões M2 adicionadas) + footer atualizados; escopo M2 do kickoff arquivado em `<details>`. Próximo: `/gsd-new-milestone`.*
+*Last updated: 2026-06-29 — milestone **v3.0 (M3 — Refinamento RH & Hardening)** iniciado via `/gsd-new-milestone` (escopo: hardening/consolidação, **não** expansão). Ver `## Current Milestone` + `.planning/REQUIREMENTS.md` (definido neste ciclo). Fases continuam a partir da Phase 18. SEED-001 incluído; FOUND-08 + CC0 + features novas deferidas p/ M4. Histórico v2.0: SHIPPED 2026-06-26 — 11 fases (6–16), 63 plans, 42/42 requirements, audit PASSED (AVAL-03 BLOCKER resolvido pós-audit — EF redeploy v6, commit 39a164e); roadmap+requirements arquivados em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`.*

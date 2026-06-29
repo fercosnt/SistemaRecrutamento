@@ -1,57 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: M2 — Funil RH + Avaliação por IA
-status: milestone_complete
-stopped_at: Milestone complete (Phase 17 was final phase)
-last_updated: 2026-06-28T21:00:24.300Z
-last_activity: 2026-06-28
+milestone: v3.0
+milestone_name: M3 — Refinamento RH & Hardening
+status: planning
+last_updated: "2026-06-29T04:12:04.386Z"
+last_activity: 2026-06-29
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-26 after v2.0 milestone)
+See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Milestone complete
+**Current focus:** M3 (v3.0 — Refinamento RH & Hardening) — definindo requirements
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-06-28
-
-See frontmatter `stopped_at` for the milestone-close outcome. Phase-dir archiving (cleanup) DONE 2026-06-27 via `/gsd:cleanup` — the 11 v2.0 phase dirs (06-16) moved from `.planning/phases/` to `.planning/milestones/v2.0-phases/`; `.planning/phases/` is now empty. UAT runbooks stay readable at the new path; the 4 live-session findings live in `.planning/todos/pending/` (capture list, independent of phase dirs). Deferral blocker cleared: UATs run + findings captured + `11-HUMAN-UAT.md` committed (`86934ef`).
-
-**2026-06-27 bug-fix session — TODOS os 4 achados do UAT live FORAM CORRIGIDOS** (movidos p/ `.planning/todos/done/`), via TDD (RED→GREEN), tsc 290 baseline mantido, +21 testes:
-
-- DEC-CONSOLIDA-SJT-01 [alta] (commit `350e994`) — SJT composto na consolidação + EF `consolidar-decisao-final` redeployada PROD v2; live a1dd4c42 0→55.56.
-- ENTREV-GUIA-DISPLAY-01 [alta] (commit `d999da1`) — `normalizeGuia` bridge EF-output→painel, frontend-only.
-- ENTREV-CITACOES-01 [média] (commit `223e82b`) — citações da transcrição em texto legível (`normalizeCitacao`/`CitacaoItem`), frontend-only.
-- UX-BIGFIVE-01 [média] (commit `a6d8da2`) — UX do questionário Big Five (intro scaneável + afirmação numerada + Likert horizontal 5-pontos, a11y preservada), frontend-only.
-
-**Re-teste visual 2026-06-27** (9 commits pushed; consolidar-decisao-final v2 re-verificado server-side: a1dd4c42 = 55.55, SJT present 83.33): **2 APROVADOS/fechados** — DEC-CONSOLIDA-SJT-01 + ENTREV-GUIA-DISPLAY-01 (guia online c/ 5 perguntas aparece). **2 PARCIAIS** (entregaram o escopo do 01, mas geraram follow-up): UX-BIGFIVE-01 (escala horizontal + afirmação OK, mas legibilidade ruim → UX-BIGFIVE-02) e ENTREV-CITACOES-01 (legível, mas hierarquia fraca → ENTREV-CITACOES-02).
-
-**4 itens novos capturados em `.planning/todos/pending/`:** UX-BIGFIVE-02 [ux/**alta**] legibilidade Big Five (contraste WCAG AA do turquesa s/ glass claro · disclaimer fora do acordeão · instruções + explicação dos 5 níveis da escala · rótulo por ponto); ENTREV-CITACOES-02 [ux-visual/média] hierarquia das citações ("Citações" como título de seção + chip de competência/pergunta + localização destacada); ENTREV-GUIA-EDIT-01 [feature/média] RH editar/adicionar perguntas no guia (precisa write seguro em entrevista_guias + /gsd-discuss); ENTREV-PERFIL-DUP-01 [investigação/baixa] duplicação perfil `/rh/candidatos/:id` vs workspace `/rh/candidato/:id/entrevista`.
-
-**UX-BIGFIVE-02 [ux/alta] ✅ RESOLVIDO 2026-06-27** (commit `c7f51ed`, movido p/ done/): glass escurecido p/ azul-marca `#00109E/85` (contraste WCAG AA verificado por razão — turquesa 4.97:1 pior caso, brancos 6.2–10.3:1) + disclaimer fora do `<details>` + `EscalaLegenda` explicando os 5 níveis (intro + topo de cada página). +4 testes; a11y preservada; re-teste visual do Fernando pendente.
-
-**UX-BIGFIVE-02 ✅ APROVADO pelo Fernando 2026-06-27** ("ficou perfeito") após o refino do glass (commit `0132fa9`). **ENTREV-CITACOES-02 [ux-visual/média] ✅ RESOLVIDO 2026-06-27** (commit `dc84fb8`, movido p/ done/): "Citações" virou título de seção (`<h3>`) + subtítulo + divisor; `CitacaoItem` virou card com competência como Badge + localização como Badge próprio. +2 testes; re-teste visual pendente.
-
-**ENTREV-PERFIL-DUP-01 ✅ INVESTIGAÇÃO CONCLUÍDA 2026-06-27** (commit `6005885`, read-only, movido p/ done/). **Achado grande:** `PerfilCandidatoRHPage` (`/rh/candidatos/:id`) é MOCK legado 100% hardcoded (1864 linhas, sem backend, abas próprias entrevista/bigfive/disc/raven baseadas em funil ANTIGO); os workspaces RH reais (entrevista/redação/decisão — Phases 13/14/15) estão **ÓRFÃOS** — nenhum navigate/Link aponta p/ eles, só URL direta (foi assim que o UAT E2E rodou). Perfil→entrevista não existe. Trabalho acionável capturado em **RH-NAV-WIRING-01 [media]** (cabear workspaces reais + aposentar/substituir o perfil mock).
-
-Remaining backlog (non-blocking, em `.planning/todos/pending/`): ENTREV-GUIA-EDIT-01 [feature/média] (RH editar/adicionar perguntas no guia — write seguro em entrevista_guias + /gsd-discuss) · **RH-NAV-WIRING-01 [media]** (navegação RH — escopo grande, /gsd-discuss ou mini-fase) · 4 tech-debt carregados (cc0-cognitive, found-08-tsc, hard-02-bundle, perf-01-cache). A few UAT steps stay partial pending live data/E2E (UAT-11 redação open-case; UAT-16 #2/#3/#4) — documented in the archived runbooks. NEXT = ENTREV-GUIA-EDIT-01 ou RH-NAV-WIRING-01 (ambos /gsd-discuss), tech-debt, ou `/gsd-new-milestone`.
-
-PRE-EXISTING UNCOMMITTED (leave alone): `.planning/ui-reviews/`.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-06-29 — Milestone v3.0 started
 
 ## Latest Plan (15-01 — Wave 0 RED golden battery, DECISAO-01/LGPD-03)
 
