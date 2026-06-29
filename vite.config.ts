@@ -35,6 +35,12 @@
         // into __tests__/ (matching the _shared/__tests__/ convention). It uses
         // https://deno.land + npm: specifiers → run under `deno test`, not Vitest.
         'supabase/functions/gerar-devolutiva-bigfive/**/*.test.ts',
+        // Phase 18 post-merge gate: two Deno `__tests__/` tests using https://deno.land
+        // specifiers were never added to this list (essay-schemas from Phase 13;
+        // consolidar-decisao-final golden test from Phase 15, extended by 18-03 FIX-01).
+        // They run under `deno test`, not Vitest → exclude to keep `npm run test:run` green.
+        'supabase/functions/_shared/__tests__/essay-schemas.test.ts',
+        'supabase/functions/consolidar-decisao-final/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
