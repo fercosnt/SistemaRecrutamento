@@ -31,7 +31,7 @@ was already verified across chromium + mobile-chrome + tablet in 17-VERIFICATION
 
 ### 1. J1 — candidato → Dashboard step-CTA → avaliação
 expected: Login as test candidato → lands on `/candidato/dashboard` (ROLE_HOME repointed, D-09). Click "Continuar para Avaliação Assíncrona" → URL becomes `/candidato/avaliacao/:id`. For a non-routable stage the neutral "Acompanhar candidatura" CTA stays on `/candidato/dashboard`.
-result: [pass] — candidatura `a1dd4c42` está em `decisao_final` (não `avaliacao_assincrona`), então o teste exercitou o ramo WR-02 "Acompanhar candidatura" (no-op, permanece em `/candidato/dashboard`). O ramo de rota `/candidato/avaliacao/:id` NÃO foi exercitado por esta candidatura — exigiria uma candidatura seedada em `avaliacao_assincrona` (gap conhecido, não bloqueante).
+result: [pass] — **ambos os ramos verificados.** (a) ramo no-op WR-02: com a1dd4c42 em `decisao_final` o CTA "Acompanhar candidatura" permaneceu em `/candidato/dashboard`. (b) ramo de rota: a1dd4c42 foi regredida temporariamente para `avaliacao_assincrona` (justificativa exigida pelo trigger `avancar_etapa`), J1 re-rodou e o CTA "Continuar para Avaliação Assíncrona" navegou para `/candidato/avaliacao/:id`; depois a candidatura foi restaurada para `decisao_final` (estado + justificativa originais) e as 2 linhas de `historico_candidatura` do teste foram removidas. Seed pristine.
 
 ### 2. J2 — RH TriagemTable → hub → each of the 3 workspaces
 expected: Login as administrador → click a candidate row in TriagemTable (SPA Link carrying `row.id` = candidaturaId) → hub heading renders → dominant CTA opens the current-stage workspace (entrevista/decisão) → the "Abrir workspace de redação" CTA opens `/rh/candidato/:id/redacao` (RedacaoReviewPanel). Validates D-04 + the redação-reachability fix (commit bbeab99).
@@ -63,8 +63,8 @@ blocked: 0
   2. Seletor de J3 `getByRole('button', { name: /Admin/i })` dava strict-mode violation:
      casava também com o trigger do user-card quando o nome/email da conta contém "admin"
      (`e2e.admin`). Trocado para `{ name: 'Admin', exact: true }`.
-- **J1** validou apenas o ramo no-op (candidatura em `decisao_final`). Para exercitar a rota
-  `/candidato/avaliacao/:id`, seedar uma candidatura em `avaliacao_assincrona`.
+- **J1** validou AMBOS os ramos (no-op + rota) — o ramo de rota via regressão temporária de
+  a1dd4c42 para `avaliacao_assincrona`, revertida em seguida (seed pristine, histórico limpo).
 - **Admin de teste criado em PROD**: `e2e.admin@beautysmile.com.br` (user_id
   `4a1fa998-cfce-4ab6-8263-4a9157b63dff`, usuarios_rh role=`administrador`). A senha antiga de
   `fernando@beautysmile.com.br` no `.env.test` estava inválida. ⚠️ Deletar/desativar a conta de
