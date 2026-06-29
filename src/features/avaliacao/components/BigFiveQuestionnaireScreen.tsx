@@ -405,6 +405,23 @@ export function BigFiveQuestionnaireScreen() {
     )
   }
 
+  // WR-05: empty-items guard. Se getBigfiveItens resolve [] (gap de seed/dados, não
+  // erro), isLoading/isError são false → sem este guard o intro renderiza, "Começar"
+  // leva a "Página 1 de 0" sem itens nem como submeter (dead-end). Espelha o branch
+  // total===0 da RedacaoEditorScreen / !pergunta da SjtCasoAbertoScreen, ANTES do intro.
+  if (ordered.length === 0) {
+    return (
+      <ScreenShell>
+        <GlassPanel variant="white" blur="xl" className="text-white text-center p-12">
+          <p className="text-white/90 text-xl mb-4">Avaliação indisponível no momento</p>
+          <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
+            Voltar ao painel
+          </GlassButton>
+        </GlassPanel>
+      </ScreenShell>
+    )
+  }
+
   // ── Intro page (page 0) ──
   if (page === 0) {
     return (
