@@ -11,7 +11,7 @@
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-UI-SPEC.md (§B + Copywriting)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 // Mock do util de PDF — o teste só verifica que a tela o chama.
@@ -136,7 +136,7 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     expect(onRejeitar).toHaveBeenCalledWith('abc')
   })
 
-  it('"Exportar PDF" chama o exportComparativo mockado', () => {
+  it('"Exportar PDF" chama o exportComparativo mockado', async () => {
     const candidates = [
       makeCandidate({ candidaturaId: '1', rank: 1 }),
       makeCandidate({ candidaturaId: '2', rank: 2 }),
@@ -151,9 +151,13 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }))
+    // PERF-03 (Plan 19-02): handleExport now `await import('../pdf/exportComparativo')`
+    // at the call site (jsPDF behind the dynamic boundary), so the call resolves on a
+    // microtask AFTER the click — assert via waitFor, not synchronously. The vi.mock of
+    // '../../pdf/exportComparativo' intercepts the dynamic import too (same module id).
     // W1: o PDF recebe os candidatos JÁ RESOLVIDOS (com `.nome` real), não o ranking
     // cru da EF (que anonimiza C1/C2… e não popula nome).
-    expect(exportComparativo).toHaveBeenCalledWith(candidates)
+    await waitFor(() => expect(exportComparativo).toHaveBeenCalledWith(candidates))
   })
 })
 

@@ -30,11 +30,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from './SugestaoIABadge'
-import {
-  exportComparativo,
-  type ComparativeRankingView,
-  type RankedCandidate,
-} from '../pdf/exportComparativo'
+// PERF-03 (Plan 19-02): TYPE-ONLY import at top level — the runtime `exportComparativo`
+// value (which statically pulls in jspdf + jspdf-autotable) is loaded via a call-site
+// `await import()` in handleExport so jsPDF is emitted in a separate async chunk and
+// never paid for unless the RH actually clicks "Exportar PDF" (RESEARCH Pitfall 3).
+import type { ComparativeRankingView, RankedCandidate } from '../pdf/exportComparativo'
 
 /**
  * Candidato ranqueado já resolvido pelo client: o ranking da EF + o id de candidatura
@@ -116,9 +116,11 @@ export function ComparativoScreen({
   const errorCopyOverride =
     errorCode === 'MIXED_VAGA' ? { error: { generic: MIXED_VAGA_COPY } } : undefined
 
-  const handleExport = () => {
+  const handleExport = async () => {
     setIsGenerating(true)
     try {
+      // PERF-03: load jsPDF only on click (separate async chunk; not in the eager path).
+      const { exportComparativo } = await import('../pdf/exportComparativo')
       // W1: passa os candidatos JÁ RESOLVIDOS (carregam `.nome` real) — a EF
       // anonimiza C1/C2… e não popula `nome` no ranking, então o PDF deve ler daqui.
       exportComparativo(candidates)

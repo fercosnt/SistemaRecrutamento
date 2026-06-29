@@ -161,13 +161,19 @@ describeRealAuth('Navegação — jornadas com auth real (D-16, gated)', () => {
     // Then "Abrir {label}" CTAs route to each reachable workspace heading (D-06). The
     // workspace headings are verified exact strings (PATTERNS §e2e workspace headings):
     // "Entrevista" (EntrevistaWorkspace), "Decisão final" (DecisaoFinalPage), the Redação panel.
+    //
+    // PERF-03 NO-REGRESSION (Plan 19-02): EntrevistaWorkspace / DecisaoFinalPage /
+    // RedacaoReviewPanel are now LAZY route chunks (lazyNamed) rendered behind the
+    // RootLayout <Suspense fallback={PageSkeleton}>. Asserting the destination heading
+    // renders (with a generous timeout to absorb the chunk fetch) proves the lazy chunk
+    // resolves and replaces the skeleton — no navigation regression, no blank route.
     await expect(
       page
         .getByRole('heading', { name: /Entrevista/i })
         .or(page.getByRole('heading', { name: /Decisão final/i }))
         .or(page.getByRole('heading', { name: /Redação/i }))
         .first(),
-    ).toBeVisible({ timeout: 10000 })
+    ).toBeVisible({ timeout: 15000 })
   })
 
   test('J3: admin → sidebar "Admin" → /admin/*', async ({ page }) => {
@@ -180,6 +186,12 @@ describeRealAuth('Navegação — jornadas com auth real (D-16, gated)', () => {
 
     await expect(page).toHaveURL(/\/admin\//, { timeout: 10000 })
     // An admin surface heading is visible (route resolution, not data).
-    await expect(page.getByRole('heading').first()).toBeVisible()
+    //
+    // PERF-03 NO-REGRESSION (Plan 19-02): the /admin/* pages (AiLogsPage,
+    // PromptVersionsPage, AiCostsPage, BiasAuditPage) are now LAZY route chunks
+    // (lazyNamed) behind the RootLayout <Suspense fallback={PageSkeleton}>. The heading
+    // becoming visible (15s timeout to absorb the chunk fetch) proves the lazy admin
+    // chunk resolves and the skeleton is replaced — the split did not regress admin nav.
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 15000 })
   })
 })
