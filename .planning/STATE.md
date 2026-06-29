@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Completed 18-02-PLAN.md (RESIL-02 bigfive Promise.allSettled fan-out)
-last_updated: "2026-06-29T06:17:06.737Z"
+stopped_at: Completed 18-04-PLAN.md (RESIL-03 shared <AsyncState> wrapper + HubSection delegation)
+last_updated: "2026-06-29T03:24:00.000Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 ## Current Position
 
 Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-06-29
 
-Progress: [████░░░░░░] 43%
+Progress: [██████░░░░] 57%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -63,6 +63,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 18 P01 | 18min | 3 tasks | 2 files |
 | Phase 18 P02 | 7min | 2 tasks | 3 files |
 | Phase 18 P03 | 4min | 2 tasks | 3 files |
+| Phase 18 P04 | 9min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase ?]: [Phase 18/18-01] Open Question A2 RESOLVIDA: parse() aceita 2o arg RequestOptions em @anthropic-ai/sdk@0.102.0 + openai@6.42.0 (verificado nos .d.ts cacheados); rota per-call escolhida (sem fallback de constructor). _shared change so vale em PROD apos redeploy (Plan 18-07, Pitfall 6).
 - [Phase 18]: [Phase 18/18-02] RESIL-02: gerar-devolutiva-bigfive paraleliza as 5 dims OCEAN via Promise.allSettled (index-mapped → ordem O-C-E-A-N preservada), 1 tentativa/dim (era 2), degrade per-dim inline ao BAND_TEMPLATES; mata o timeout achado #2. NOT Promise.all. Code-only — live so apos redeploy Plan 18-07 (bundle freeze).
 - [Phase ?]: [Phase 18/18-03] FIX-01/FIX-02 travados por testes de regressão SEM re-fix: única mudança de produção é o keyword export em normalizeSjtComposite (corpo byte-unchanged 350e994). FIX-01 = 2 casos Deno (pendente-único→null; MC 8/10→80 preservado); FIX-02 = Vitest mock multi-tabela assertando .eq('status','active') retorna rows. consolidar segue NO-LLM (RNF-07a).
+- [Phase 18]: [Phase 18/18-04] RESIL-03 (component half): shared `<AsyncState>` (src/components/ui/) generaliza o pattern do HubSection + retry exemplar do ConsolidacaoDashboard → contrato único de 5 estados (loading → slow@8s → error → empty → success) em priority order vinculante. errorCode==='AI_UNAVAILABLE' → copy de sobrecarga; senão genérica. COPY PT-BR verbatim single-sourced; retry só no error state (GlassButton variant=white min-h-[44px], 'Tentando…'+disabled). Renderiza só copy estática por errorCode — nunca ecoa erro cru/PII (T-18-04-ID). HubSection delega (glass={false}, mantém shell+título), futuro/sem_dados/erro preservados como overrides via copy prop, sem onRetry → error stays retry-less (no drift; hubEmptyState D-07 verde). +AsyncStateCopyOverride (slot+field optional). tsc 258. Plan 05 = extractEfErrorCode + wire error_code nos services; Plan 06 = adotar nas 5 telas de IA.
 
 ### Pending Todos
 
@@ -99,6 +101,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T06:16:59.897Z
-Stopped at: Completed 18-02-PLAN.md (RESIL-02 bigfive Promise.allSettled fan-out)
+Last session: 2026-06-29T03:24:00.000Z
+Stopped at: Completed 18-04-PLAN.md (RESIL-03 shared <AsyncState> wrapper + HubSection delegation)
 Resume file: None
