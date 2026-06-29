@@ -58,21 +58,34 @@ const VAGA_ID = process.env.E2E_VAGA_ID || ''
 const REAL_AUTH = process.env.E2E_AUTH_TEST_USERS === 'true'
 const describeRealAuth = REAL_AUTH ? test.describe : test.describe.skip
 
-/** Candidate login helper (explicacao-flow.spec.ts precedent). */
+/**
+ * Candidate login helper (explicacao-flow.spec.ts precedent).
+ * NOTE: both login forms use react-hook-form `mode: 'onBlur'` with a submit button gated by
+ * `disabled={!isValid}`. Programmatic `fill()` does NOT blur the field, so validation never
+ * runs and the button stays disabled forever. Blur each field explicitly to flip `isValid`.
+ */
 async function loginCandidato(page: Page) {
   await page.goto('/auth/login')
   await page.locator('#email').first().fill(TEST_USER.email)
+  await page.locator('#email').first().blur()
   await page.locator('#password').first().fill(TEST_USER.password)
-  await page.getByRole('button', { name: /entrar/i }).click()
+  await page.locator('#password').first().blur()
+  const entrar = page.getByRole('button', { name: /entrar/i })
+  await expect(entrar).toBeEnabled({ timeout: 5000 })
+  await entrar.click()
   await expect(page).toHaveURL(/\/candidato/, { timeout: 10000 })
 }
 
-/** RH/admin login helper (login-rh form). */
+/** RH/admin login helper (login-rh form). Same onBlur gating as the candidate form. */
 async function loginRH(page: Page) {
   await page.goto('/auth/login-rh')
   await page.locator('#email').first().fill(TEST_ADMIN.email)
+  await page.locator('#email').first().blur()
   await page.locator('#password').first().fill(TEST_ADMIN.password)
-  await page.getByRole('button', { name: /entrar/i }).click()
+  await page.locator('#password').first().blur()
+  const entrar = page.getByRole('button', { name: /entrar/i })
+  await expect(entrar).toBeEnabled({ timeout: 5000 })
+  await entrar.click()
   await expect(page).toHaveURL(/\/rh/, { timeout: 10000 })
 }
 
@@ -161,7 +174,9 @@ describeRealAuth('Navegação — jornadas com auth real (D-16, gated)', () => {
     await loginRH(page)
 
     // D-13: the role-gated "Admin" sidebar item (administrador only). RED today: no item.
-    await page.getByRole('button', { name: /Admin/i }).click()
+    // exact:true — avoid matching the topbar user-card trigger when the account name/email
+    // contains the substring "admin" (the sidebar nav item's accessible name is exactly "Admin").
+    await page.getByRole('button', { name: 'Admin', exact: true }).click()
 
     await expect(page).toHaveURL(/\/admin\//, { timeout: 10000 })
     // An admin surface heading is visible (route resolution, not data).
