@@ -1461,6 +1461,7 @@ export type Database = {
           id: string
           prompt_version: string | null
           tipo: string
+          updated_at: string
         }
         Insert: {
           candidatura_id: string
@@ -1469,6 +1470,7 @@ export type Database = {
           id?: string
           prompt_version?: string | null
           tipo: string
+          updated_at?: string
         }
         Update: {
           candidatura_id?: string
@@ -1477,6 +1479,7 @@ export type Database = {
           id?: string
           prompt_version?: string | null
           tipo?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -4546,6 +4549,10 @@ export type Database = {
           p_redacao_id: string
           p_scores_humanos: Json
         }
+        Returns: Json
+      }
+      save_entrevista_guia_edits: {
+        Args: { p_candidatura_id: string; p_guia: Json; p_tipo: string }
         Returns: Json
       }
       slugify: { Args: { p_input: string }; Returns: string }
