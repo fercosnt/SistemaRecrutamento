@@ -170,7 +170,7 @@ function normalizeWeighted(
  * N/A, descartando o mc sucesso. Retorna null (N/A) só quando NENHUMA sub-row de SJT
  * está confirmada.
  */
-function normalizeSjtComposite(sjtRows: ScoreRow[]): number | null {
+export function normalizeSjtComposite(sjtRows: ScoreRow[]): number | null {
   const confirmed = sjtRows.filter(
     (r) => r.status === "sucesso" && r.score != null && r.score_max != null && r.score_max > 0,
   );

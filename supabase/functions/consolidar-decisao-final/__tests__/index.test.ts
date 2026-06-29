@@ -345,3 +345,44 @@ Deno.test("authorize — unauthenticated (no user) → 401 UNAUTHORIZED", async 
   const res = await handler(makeRequest(BODY), deps);
   assertEquals(res.status, 401);
 });
+
+// ── Phase 18 / Plan 18-03 Task 1 — FIX-01 regression (live bug 350e994) ────────
+// The composite SJT etapa (work_sample_sjt) carries TWO sub-rows in scores_candidato
+// (tipo='sjt'): subtipo='mc' (deterministic, status='sucesso') and subtipo='caso_aberto'
+// (BARS-by-IA, status='pendente_humano' until human confirmation). The original bug
+// collapsed both sub-rows by `tipo` (first-occurrence in a Map): when the pending
+// caso_aberto came first, the WHOLE etapa went N/A and the confirmed MC score was
+// discarded. `normalizeSjtComposite` sums ONLY status='sucesso' sub-rows (RNF-07a —
+// never weights an unconfirmed IA score) and a pending caso_aberto does NOT zero the
+// etapa. These two cases would have caught the original regression.
+
+// Loaded via dynamic import (mirrors `loadHandler`). The exported signature takes the
+// full `ScoreRow[]`; the regression only exercises status/score/score_max, so the test
+// fixtures are cast `as never` at the call boundary (only the three relevant fields).
+async function loadNormalize() {
+  const mod = (await import("../index.ts")) as unknown as {
+    normalizeSjtComposite: (rows: never) => number | null;
+  };
+  return mod.normalizeSjtComposite;
+}
+
+Deno.test("FIX-01: caso_aberto pendente-único → null (no confirmed sub-row)", async () => {
+  const normalizeSjtComposite = await loadNormalize();
+  assertEquals(
+    normalizeSjtComposite([
+      { status: "pendente_humano", score: null, score_max: null },
+    ] as never),
+    null,
+  );
+});
+
+Deno.test("FIX-01: MC sucesso preserved when caso_aberto pendente (8/10 → 80, not zeroed)", async () => {
+  const normalizeSjtComposite = await loadNormalize();
+  assertEquals(
+    normalizeSjtComposite([
+      { status: "sucesso", score: 8, score_max: 10 },
+      { status: "pendente_humano", score: null, score_max: null },
+    ] as never),
+    80,
+  );
+});
