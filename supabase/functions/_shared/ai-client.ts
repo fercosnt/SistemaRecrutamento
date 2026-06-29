@@ -61,7 +61,21 @@ export { CircuitBreaker, calculateCost, detectPromptInjection, loadPrompt, logAi
 const OPENAI_FALLBACK_MODEL = "gpt-4o-mini";
 /** Status HTTP retentaveis na Anthropic (rate-limit / overloaded / unavailable). */
 const RETRYABLE_STATUS = new Set([429, 503, 529]);
-const MAX_ATTEMPTS = 3;
+/**
+ * Numero maximo de tentativas REAIS por chamada (RESIL-01). Env-configuravel com
+ * default-guard: ausencia em PROD e segura (cai em 3). Este loop hand-rolled e o
+ * UNICO dono do retry — o SDK roda com `maxRetries: 0` (vide call sites) para nao
+ * multiplicar tentativas (Pitfall 1: 3x3=9 chamadas + bypass do breaker).
+ */
+const MAX_ATTEMPTS = Number(Deno.env.get("MAX_ATTEMPTS") ?? "3");
+/**
+ * Teto de wall-clock POR chamada ao provedor, em ms (RESIL-01). Passado como
+ * `{ timeout }` no 2o arg de `parse()`. Sem isto, o timeout default do SDK (10min,
+ * escalado ate 60min p/ max_tokens grandes) estoura o teto de 150s idle do EF
+ * antes do loop de retry rodar (achado live #1: hang de 38-102s). Env-configuravel
+ * com default-guard (25s). 25s x 3 tentativas + backoff (~6s) ~= 81s < 150s.
+ */
+const AI_CALL_TIMEOUT_MS = Number(Deno.env.get("AI_CALL_TIMEOUT_MS") ?? "25000");
 
 /** Versao de prompt ja resolvida (formato que prompt-loader retornaria). */
 export interface ResolvedPrompt {
@@ -345,6 +359,14 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         ],
         messages: [{ role: "user", content: maskedInput }],
         output_config: { format: zodOutputFormat(schema, prompt.call_type) },
+      }, {
+        // RESIL-01: teto por-chamada + DESLIGA o retry do SDK. `maxRetries: 0` e
+        // OBRIGATORIO — o loop `while (attempt < MAX_ATTEMPTS)` acima e o unico dono
+        // do retry; sem isto o SDK retentaria 2x dentro de cada attempt (3x3=9 chamadas)
+        // e bypassaria `breaker.recordFailure()`/`attempt_number` (Pitfall 1). O timeout
+        // lanca `APIConnectionTimeoutError` cuja mensagem casa /timeout/i em isRetryable.
+        timeout: AI_CALL_TIMEOUT_MS,
+        maxRetries: 0,
       });
 
       const inputTokens = response.usage?.input_tokens ?? 0;
@@ -440,6 +462,12 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
         { role: "user", content: a.maskedInput },
       ],
       response_format: a.zodResponseFormat(a.schema, a.prompt.call_type),
+    }, {
+      // RESIL-01: mesmo teto por-chamada + maxRetries:0 no fallback OpenAI. Sem retry
+      // hand-rolled aqui (1 unica chamada de fallback), mas o teto evita que o fallback
+      // tambem fique pendurado alem do teto de 150s idle do EF.
+      timeout: AI_CALL_TIMEOUT_MS,
+      maxRetries: 0,
     });
   } catch (openaiErr) {
     const anthMsg = a.triggerError instanceof Error
