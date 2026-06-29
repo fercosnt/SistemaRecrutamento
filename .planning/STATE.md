@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: verifying
-stopped_at: Phase 19 COMPLETE (Plan 03 — PERF-04 cache invalidation + freshness; Gap A useEntrevistaScorecard + Gap B useRedacaoRevisao both add TARGETED decisaoKeys.consolidacao(candidaturaId, vagaId) invalidation; useCandidaturas per-query refetchOnWindowFocus:true, global default unchanged; RNF-07a preserved; 2 RED-by-design tests now GREEN; vitest 661/661; tsc 258); all 3 plans done → ready_for_verification; next = /gsd-verify-work Phase 19
-last_updated: "2026-06-29T19:00:40.283Z"
-last_activity: 2026-06-29
+stopped_at: Phase 19 complete (6/6 must-haves; UAT deferred to P21); secured 12/12; advancing to Phase 20
+last_updated: "2026-06-29T19:23:13.576Z"
+last_activity: 2026-06-29 -- Phase 19 Plan 03 complete (PERF-04)
 progress:
   total_phases: 4
   completed_phases: 2
@@ -111,6 +111,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T19:00:40.274Z
-Stopped at: Phase 19 Plan 02 complete (PERF-03 code-split — eager candidate index 2,788→904 kB; lazy /rh/* /admin/*; jsPDF call-site dynamic import; RoleGuard intact; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design for 19-03); next = Plan 19-03 (PERF-04)
-Resume file: None
+Last session: 2026-06-29T19:23:13.568Z
+Stopped at: Phase 19 complete (6/6 must-haves; UAT deferred to P21); secured 12/12; advancing to Phase 20
+Resume file: .planning/phases/20-refino-rh-editar-guia
