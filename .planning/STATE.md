@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Phase 19 Plan 01 complete (Wave-0 scaffolds — lazyNamed + PageSkeleton + chunk gate + 2 RED PERF-04 tests); tsc 258, vitest 659 pass / 2 RED-by-design; next = Plan 19-02 (PERF-03 code-split)
-last_updated: "2026-06-29T18:41:05.128Z"
-last_activity: 2026-06-29 -- Phase 19 Plan 01 complete
+stopped_at: Phase 19 Plan 02 complete (PERF-03 code-split — eager candidate index 2,788→904 kB, react-vendor 207 kB, lazy /rh/* /admin/* per-page, jsPDF call-site dynamic import, RoleGuard intact); assert-chunks PASS, tsc 258, vitest 659 pass / 2 RED-by-design (19-03); next = Plan 19-03 (PERF-04 invalidation + freshness)
+last_updated: "2026-06-29T18:53:41.966Z"
+last_activity: 2026-06-29 -- Phase 19 Plan 02 complete
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 25
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 ## Current Position
 
 Phase: 19 (Performance — Bundle & Cache) — EXECUTING
-Plan: 2 of 3
-Status: Plan 01 complete (Wave-0 scaffolds shipped); Plan 02 (PERF-03 code-split) next
-Last activity: 2026-06-29 -- Phase 19 Plan 01 complete
+Plan: 3 of 3
+Status: Plan 02 complete (PERF-03 code-split shipped); Plan 03 (PERF-04 invalidation + freshness) next
+Last activity: 2026-06-29 -- Phase 19 Plan 02 complete
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -67,6 +67,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 18 P05 | 7min | 2 tasks | 6 files |
 | Phase 18 P06 | 12min | 2 tasks | 7 files |
 | Phase 19 P01 | 5min | 3 tasks | 6 files |
+| Phase 19 P02 | 7min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 18]: [Phase 18/18-06] RESIL-03 (adoption — DONE): `<AsyncState>` adotado nas 5 telas de IA. RH: ConsolidacaoDashboard (bloco inline de retry — o exemplar — removido → `<AsyncState glass={false}>`, errorCode de useConsolidacao().error, success body extraído p/ ConsolidacaoBody, empty domínio fica success-branch) · ComparativoScreen (tela presentacional pura ganhou props async OPCIONAIS + hospeda `<AsyncState glass={false}>`; estado real do invoke threaded de ComparativoCandidatosPage + DecisaoFinalPage via errorCodeOf(TriagemServiceError); **MIXED_VAGA PRESERVADO via copy override** — T-18-06-T2). Candidato: BigFiveQuestionnaireScreen (skeleton bare → loading→slow~30s→error+retry sobre getBigfiveItens; submit mantém 'Enviando…') · SjtCasoAbertoScreen (loading-only → +error+retry) · RedacaoEditorScreen ('Tentar novamente' bespoke → wrapper compartilhado). errorCode code-only via errorCodeOf() local (NÃO editou os services — 18-05 é dono); reads de DB → genérico, AI_UNAVAILABLE surge nos invokes. Nunca tela em branco; min-h-[44px] no retry. tsc 258. **657/657 vitest verdes.** Deviation (Rule 3): editou 2 consumer pages fora de files_modified p/ threadar o errorCode que os must_haves exigem. Deferred: DevolutivaBigFiveView (~30s devolutiva literal) fora de files_modified → follow-up. Live visual UAT → Phase 21.
 - [Phase 18]: [Phase 18/18-05] RESIL-03 (service-plumbing half): shared `extractEfErrorCode(data, error)` em `src/lib/efErrors.ts` — lê error_code do body 200 (`data.error_code`) E do FunctionsHttpError não-2xx (`await error.context.json()`), degrada p/ undefined em body não-JSON, NUNCA throwa, retorna só o código (sem PII, ASVS V7/T-18-05-ID). Wired nos 4 serviços de IA (avaliacaoService.avaliarRedacao=AI_UNAVAILABLE primário · bigfiveService.submitBigfiveFinal=fallback NETWORK_ERROR, LOCKED/INVALID_INPUT intactos · triagemService.invokeComparativo=MIXED_VAGA PRESERVADO+AI_UNAVAILABLE via helper · decisaoService.getConsolidacao=branch error + legacy data.ok===false KEPT, consolidar é NO-LLM) → cada `*ServiceError` carrega `{ error_code, raw }` em details p/ `<AsyncState errorCode>` ramificar sobrecarga-vs-genérico (adoção = Plan 06). Generaliza o read inline MIXED_VAGA num único helper (anti-drift). Achado: bigfiveService NÃO invoca gerar-devolutiva-bigfive do client (server-side off submit-bigfive-final); duplicata inline de extractEfErrorCode existe em entrevistaService L573 (fora de escopo, candidato a follow-up). tsc 258 baseline. 80 testes verdes (7 novos efErrors + 73 existentes).
 - [Phase 19]: [Phase 19/19-01] PERF-03/04 Wave-0 scaffolds (interface-first, no source hooks/routes/vite.config touched). `src/router/lazyNamed.ts` = `lazyNamed(loader,name)` adapter que remapeia o NAMED export sobre o `{default}` que React.lazy exige (CLAUDE.md proíbe default exports — é A razão do helper existir; PRIMEIRO uso de React.lazy no codebase). `PageSkeleton.tsx` = fallback de Suspense glass de marca, self-contained (sem data/hooks), reusa o idiom do AsyncState. `scripts/assert-chunks.mjs` = gate de build-output (só `node:` built-ins, ZERO deps novas; roda sob `npm run build`, NÃO Vitest — `scripts/**` excluído; sai non-zero contra o monolito pré-split, prova que é gate real). 2 testes de regressão PERF-04 RED-by-design (salvarAvaliacao/salvarRevisao ainda NÃO invalidam `decisaoKeys.consolidacao` → 19-03 vira GREEN); estabelece o PRIMEIRO pattern `vi.spyOn(queryClient,'invalidateQueries')` do repo; chamadas contract-typed (cast ScorecardWithVagaId / SalvarRevisaoVars) mantêm tsc flat em 258. lazyNamed.test GREEN. **vitest 659 pass / 2 RED-by-design (661 total), tsc 258, build não rebuildado (Plan 19-02 dono do split+rebuild).**
+- [Phase ?]: [Phase 19/19-02] PERF-03 code-split: narrow react-vendor manualChunks (react/react-dom/react-router/scheduler ONLY — broad node_modules→vendor forbidden, re-triggers prod circular-init blank screen; @radix-ui auto-chunked). 20 /rh/* + /admin/* pages → lazyNamed per-page behind single RootLayout <Suspense fallback={PageSkeleton}>; candidate/auth/avaliação routes EAGER. RoleGuard OUTSIDE every lazy element (31 <RoleGuard> JSX tags intact). jsPDF via call-site await import() (ComparativoScreen chunk 428→7.7 kB; jsPDF isolated 421 kB on-demand). Eager candidate index 2,788→904 kB; react-vendor 207 kB; 41 chunks; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design (PERF-04 → 19-03). Deviations: lazyNamed generic relaxed to <T,K> (RedacaoReviewPanel re-exports redacaoRevisaoKeys — Rule 3); ComparativoScreen export test → async+waitFor (Rule 1).
 
 ### Pending Todos
 
@@ -107,6 +109,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T18:41:05.118Z
-Stopped at: Phase 18 complete (5/5 must-haves; UAT deferred to P21); secured 25/25; advancing to Phase 19
+Last session: 2026-06-29T18:53:15.051Z
+Stopped at: Phase 19 Plan 02 complete (PERF-03 code-split — eager candidate index 2,788→904 kB; lazy /rh/* /admin/*; jsPDF call-site dynamic import; RoleGuard intact; assert-chunks PASS; tsc 258; vitest 659 pass / 2 RED-by-design for 19-03); next = Plan 19-03 (PERF-04)
 Resume file: None

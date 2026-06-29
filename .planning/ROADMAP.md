@@ -72,7 +72,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
   3. As rotas do candidato e do RH continuam funcionando após o code-splitting (sem regressão de navegação; chunks resolvem em runtime).
 **Plans**: 3 plans
 - [x] 19-01-PLAN.md — Wave 0: lazyNamed adapter + PageSkeleton fallback + chunk-assertion harness + 2 invalidation regression tests
-- [ ] 19-02-PLAN.md — PERF-03 code-split: manualChunks react-vendor + lazy /rh/* /admin/* (RoleGuard outside) + Suspense + dynamic-import jsPDF + E2E no-regression
+- [x] 19-02-PLAN.md — PERF-03 code-split: manualChunks react-vendor + lazy /rh/* /admin/* (RoleGuard outside) + Suspense + dynamic-import jsPDF + E2E no-regression
 - [ ] 19-03-PLAN.md — PERF-04 cache: targeted decisaoKeys.consolidacao invalidation (2 gaps) + useCandidaturas refetchOnWindowFocus (≤60s)
 **UI hint**: yes
 
@@ -111,7 +111,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
-| 19. Performance — Bundle & Cache | v3.0 | 1/3 | In Progress|  |
+| 19. Performance — Bundle & Cache | v3.0 | 2/3 | In Progress|  |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 

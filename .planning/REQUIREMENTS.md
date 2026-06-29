@@ -25,7 +25,7 @@ Requirements deste milestone. Cada um mapeia para exatamente uma fase do roadmap
 
 ### Performance
 
-- [ ] **PERF-03**: Bundle servido em chunks (code-splitting route-level + vendor) — candidato mobile-first não paga os 661 KiB monolíticos no first paint. *(fecha tech-debt HARD-02)*
+- [x] **PERF-03**: Bundle servido em chunks (code-splitting route-level + vendor) — candidato mobile-first não paga os 661 KiB monolíticos no first paint. *(fecha tech-debt HARD-02)*
 - [ ] **PERF-04**: Mudança escrita (candidato/RH) aparece no perfil/dashboard do candidato em ≤60s — invalidação de cache alvo nas mutations relevantes. *(fecha tech-debt PERF-01)*
 
 ### Refino RH — Guia de Entrevista (SEED-001)
@@ -79,7 +79,7 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 | RESIL-03 | Phase 18 | Complete |
 | FIX-01 | Phase 18 | Complete |
 | FIX-02 | Phase 18 | Complete |
-| PERF-03 | Phase 19 | Pending |
+| PERF-03 | Phase 19 | Complete |
 | PERF-04 | Phase 19 | Pending |
 | ENTREV-06 | Phase 20 | Pending |
 | ENTREV-07 | Phase 20 | Pending |
