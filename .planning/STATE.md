@@ -91,7 +91,7 @@ SEED-001 (`ENTREV-GUIA-EDIT-01`) absorvido como ENTREV-06/07/08 → Phase 20. De
 
 ### Blockers/Concerns
 
-- Phase 18 sem CONTEXT.md ainda — recomendado `/gsd-discuss-phase 18` antes de planejar (achados live #1–4 têm detalhe operacional em MEMORY `project_funil_e2e_seed_achados`).
+- None. Phase 18 ✅ complete (5/5 must-haves, secured 25/25, UI 23/24) — 3 live UATs deferred to Phase 21 (18-HUMAN-UAT.md). Advancing to Phase 19 (Performance — Bundle & Cache).
 
 ## Deferred Items
 
