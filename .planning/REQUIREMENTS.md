@@ -20,8 +20,8 @@ Requirements deste milestone. Cada um mapeia para exatamente uma fase do roadmap
 
 ### Correção de bugs do funil (E2E live)
 
-- [ ] **FIX-01**: `consolidar-decisao-final` lida corretamente com `work_sample_sjt='na'` + caso aberto pendente (não trava nem zera o consolidado). *[achado live #3]*
-- [ ] **FIX-02**: A tela de avaliação carrega as perguntas independentemente do mismatch `status='active'` vs filtro `'ativo'` — alinhar status/filtro na fonte. *[achado live #4]*
+- [x] **FIX-01**: `consolidar-decisao-final` lida corretamente com `work_sample_sjt='na'` + caso aberto pendente (não trava nem zera o consolidado). *[achado live #3]*
+- [x] **FIX-02**: A tela de avaliação carrega as perguntas independentemente do mismatch `status='active'` vs filtro `'ativo'` — alinhar status/filtro na fonte. *[achado live #4]*
 
 ### Performance
 
@@ -77,8 +77,8 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 | RESIL-01 | Phase 18 | Complete |
 | RESIL-02 | Phase 18 | Pending |
 | RESIL-03 | Phase 18 | Pending |
-| FIX-01 | Phase 18 | Pending |
-| FIX-02 | Phase 18 | Pending |
+| FIX-01 | Phase 18 | Complete |
+| FIX-02 | Phase 18 | Complete |
 | PERF-03 | Phase 19 | Pending |
 | PERF-04 | Phase 19 | Pending |
 | ENTREV-06 | Phase 20 | Pending |
