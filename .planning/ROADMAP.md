@@ -58,7 +58,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 - [x] 18-02-PLAN.md — RESIL-02: paralelizar gerar-devolutiva-bigfive (5 dims, allSettled, 1 attempt, degrade)
 - [x] 18-03-PLAN.md — FIX-01/FIX-02: travar bugs já corrigidos com testes de regressão (normalizeSjtComposite + status='active')
 - [x] 18-04-PLAN.md — RESIL-03: shared <AsyncState> wrapper + contract test + refactor HubSection
-- [ ] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
+- [x] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
 - [ ] 18-06-PLAN.md — RESIL-03: adotar <AsyncState> nas 5 telas de IA (candidato + RH)
 - [ ] 18-07-PLAN.md — [BLOCKING] redeploy de todas as EFs de IA em PROD (gate humano)
 

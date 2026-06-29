@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Completed 18-04-PLAN.md (RESIL-03 shared <AsyncState> wrapper + HubSection delegation)
-last_updated: "2026-06-29T03:24:00.000Z"
+stopped_at: Completed 18-05-PLAN.md (RESIL-03 extractEfErrorCode helper + error_code wired into 4 AI services)
+last_updated: "2026-06-29T03:33:00.000Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 7
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 ## Current Position
 
 Phase: 18 (Resiliência das EFs de IA & Bugs do Funil) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-06-29
 
-Progress: [██████░░░░] 57%
+Progress: [███████░░░] 71%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -64,6 +64,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 18 P02 | 7min | 2 tasks | 3 files |
 | Phase 18 P03 | 4min | 2 tasks | 3 files |
 | Phase 18 P04 | 9min | 3 tasks | 3 files |
+| Phase 18 P05 | 7min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 18]: [Phase 18/18-02] RESIL-02: gerar-devolutiva-bigfive paraleliza as 5 dims OCEAN via Promise.allSettled (index-mapped → ordem O-C-E-A-N preservada), 1 tentativa/dim (era 2), degrade per-dim inline ao BAND_TEMPLATES; mata o timeout achado #2. NOT Promise.all. Code-only — live so apos redeploy Plan 18-07 (bundle freeze).
 - [Phase ?]: [Phase 18/18-03] FIX-01/FIX-02 travados por testes de regressão SEM re-fix: única mudança de produção é o keyword export em normalizeSjtComposite (corpo byte-unchanged 350e994). FIX-01 = 2 casos Deno (pendente-único→null; MC 8/10→80 preservado); FIX-02 = Vitest mock multi-tabela assertando .eq('status','active') retorna rows. consolidar segue NO-LLM (RNF-07a).
 - [Phase 18]: [Phase 18/18-04] RESIL-03 (component half): shared `<AsyncState>` (src/components/ui/) generaliza o pattern do HubSection + retry exemplar do ConsolidacaoDashboard → contrato único de 5 estados (loading → slow@8s → error → empty → success) em priority order vinculante. errorCode==='AI_UNAVAILABLE' → copy de sobrecarga; senão genérica. COPY PT-BR verbatim single-sourced; retry só no error state (GlassButton variant=white min-h-[44px], 'Tentando…'+disabled). Renderiza só copy estática por errorCode — nunca ecoa erro cru/PII (T-18-04-ID). HubSection delega (glass={false}, mantém shell+título), futuro/sem_dados/erro preservados como overrides via copy prop, sem onRetry → error stays retry-less (no drift; hubEmptyState D-07 verde). +AsyncStateCopyOverride (slot+field optional). tsc 258. Plan 05 = extractEfErrorCode + wire error_code nos services; Plan 06 = adotar nas 5 telas de IA.
+- [Phase 18]: [Phase 18/18-05] RESIL-03 (service-plumbing half): shared `extractEfErrorCode(data, error)` em `src/lib/efErrors.ts` — lê error_code do body 200 (`data.error_code`) E do FunctionsHttpError não-2xx (`await error.context.json()`), degrada p/ undefined em body não-JSON, NUNCA throwa, retorna só o código (sem PII, ASVS V7/T-18-05-ID). Wired nos 4 serviços de IA (avaliacaoService.avaliarRedacao=AI_UNAVAILABLE primário · bigfiveService.submitBigfiveFinal=fallback NETWORK_ERROR, LOCKED/INVALID_INPUT intactos · triagemService.invokeComparativo=MIXED_VAGA PRESERVADO+AI_UNAVAILABLE via helper · decisaoService.getConsolidacao=branch error + legacy data.ok===false KEPT, consolidar é NO-LLM) → cada `*ServiceError` carrega `{ error_code, raw }` em details p/ `<AsyncState errorCode>` ramificar sobrecarga-vs-genérico (adoção = Plan 06). Generaliza o read inline MIXED_VAGA num único helper (anti-drift). Achado: bigfiveService NÃO invoca gerar-devolutiva-bigfive do client (server-side off submit-bigfive-final); duplicata inline de extractEfErrorCode existe em entrevistaService L573 (fora de escopo, candidato a follow-up). tsc 258 baseline. 80 testes verdes (7 novos efErrors + 73 existentes).
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T03:24:00.000Z
-Stopped at: Completed 18-04-PLAN.md (RESIL-03 shared <AsyncState> wrapper + HubSection delegation)
+Last session: 2026-06-29T03:33:00.000Z
+Stopped at: Completed 18-05-PLAN.md (RESIL-03 extractEfErrorCode helper + error_code wired into 4 AI services)
 Resume file: None
