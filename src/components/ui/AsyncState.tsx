@@ -44,6 +44,11 @@ export interface AsyncStateCopy {
   retry: { label: string; inflight: string }
 }
 
+/** Per-call copy override — every slot AND every field within a slot is optional. */
+export type AsyncStateCopyOverride = {
+  [K in keyof AsyncStateCopy]?: Partial<AsyncStateCopy[K]>
+}
+
 /**
  * Verbatim PT-BR copy (18-UI-SPEC §Copywriting Contract) — single source so the strings
  * never drift between AsyncState and its delegating consumers (e.g. HubSection).
@@ -90,7 +95,7 @@ export interface AsyncStateProps {
   /** Wrap the state surface in `<Glass variant="dark">`; default true. */
   glass?: boolean
   /** Per-call copy overrides merged over the verbatim defaults (e.g. HubSection futuro/sem_dados). */
-  copy?: Partial<AsyncStateCopy>
+  copy?: AsyncStateCopyOverride
   /** Success content. */
   children?: ReactNode
 }
@@ -106,7 +111,7 @@ function EstadoVazio({ heading, body }: { heading: string; body: string }) {
 }
 
 /** Merge a partial copy override over the defaults, slot by slot (shallow per-slot). */
-function mergeCopy(override?: Partial<AsyncStateCopy>): AsyncStateCopy {
+function mergeCopy(override?: AsyncStateCopyOverride): AsyncStateCopy {
   if (!override) return COPY
   return {
     slow: { ...COPY.slow, ...override.slow },

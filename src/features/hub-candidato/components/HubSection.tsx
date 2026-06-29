@@ -2,9 +2,11 @@
  * HubSection — empty-state-aware section wrapper for the RH candidate hub (D-07).
  *
  * Each hub section is SERVICE-BACKED or shows an explicit empty state — NEVER invented
- * data (the sin of the 1864-line PerfilCandidatoRHPage mock this feature replaces). This
- * presentational wrapper renders the UI-SPEC states in priority order:
- *   1. loading      → skeleton (mirrors EntrevistaWorkspace's `<Skeleton className="… bg-white/5" />`)
+ * data (the sin of the 1864-line PerfilCandidatoRHPage mock this feature replaces). The
+ * loading/error/empty rendering MECHANICS are delegated to the shared `<AsyncState>`
+ * (18-04, RESIL-03) so the two never drift; HubSection keeps only its funnel-relative
+ * COPY overrides. The UI-SPEC states render in priority order:
+ *   1. loading      → skeleton (via <AsyncState>, `<Skeleton className="… bg-white/5" />`)
  *   2. error        → "Não foi possível carregar esta seção." / "Tente recarregar a página."
  *   3. futuro       → "Etapa ainda não iniciada" / "Esta etapa será liberada quando o candidato avançar no funil."
  *   4. sem_dados    → "Sem dados nesta etapa" / "Nenhum registro foi gerado ainda para esta etapa."
@@ -18,12 +20,12 @@
  * (hsl(var(--primary)) = #00109E) — this section uses glass tokens for the surface.
  *
  * @module features/hub-candidato/components/HubSection
- * @see src/features/entrevista/components/EntrevistaWorkspace.tsx (glass section + Skeleton idiom)
+ * @see src/components/ui/AsyncState.tsx (shared loading/slow/error/empty wrapper — delegated to here)
  * @see .planning/phases/17-navegacao-arquitetura-informacao/17-UI-SPEC.md (§Empty states — verbatim copy)
  */
 import type { ReactNode } from 'react'
 import { Glass } from '@/components/ui/glass'
-import { Skeleton } from '@/components/ui/skeleton'
+import { AsyncState } from '@/components/ui/AsyncState'
 
 /**
  * The section render state. `estado` is the canonical driver (matches the 17-01 RED
@@ -45,7 +47,12 @@ export interface HubSectionProps {
   children?: ReactNode
 }
 
-/** Verbatim UI-SPEC copy — single source so the strings never drift. */
+/**
+ * Verbatim UI-SPEC copy — single source so the strings never drift. These are the
+ * HUB-SPECIFIC funnel-relative overrides (`futuro` / `sem_dados` / `erro`); the
+ * loading/slow/empty/error *mechanics* are delegated to the shared <AsyncState> so the
+ * two components never drift (18-UI-SPEC §Adoption — "keep its futuro/sem_dados semantics").
+ */
 const COPY = {
   futuro: {
     heading: 'Etapa ainda não iniciada',
@@ -61,32 +68,33 @@ const COPY = {
   },
 } as const
 
-/** Centered empty/error block — heading + body, no fabricated data. */
-function EstadoVazio({ heading, body }: { heading: string; body: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-      <p className="text-base font-semibold text-white md:text-lg">{heading}</p>
-      <p className="max-w-md text-sm text-white/70">{body}</p>
-    </div>
-  )
-}
-
 export function HubSection({ titulo, estado, isLoading, isError, children }: HubSectionProps) {
+  // `futuro` and `sem_dados` are HubSection's two funnel-relative empty states. Map the
+  // active one onto <AsyncState>'s single empty slot via the `copy.empty` override so the
+  // verbatim funnel copy stays HubSection-owned while the rendering mechanics are shared.
+  const isEmpty = estado === 'futuro' || estado === 'sem_dados'
+  const emptyCopy = estado === 'futuro' ? COPY.futuro : COPY.sem_dados
+
   return (
     <Glass variant="dark" blur="lg" className="rounded-xl p-6">
       <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">{titulo}</h2>
 
-      {isLoading ? (
-        <Skeleton className="h-24 w-full bg-white/5" />
-      ) : isError ? (
-        <EstadoVazio heading={COPY.erro.heading} body={COPY.erro.body} />
-      ) : estado === 'futuro' ? (
-        <EstadoVazio heading={COPY.futuro.heading} body={COPY.futuro.body} />
-      ) : estado === 'sem_dados' ? (
-        <EstadoVazio heading={COPY.sem_dados.heading} body={COPY.sem_dados.body} />
-      ) : (
-        children
-      )}
+      {/* Delegate loading/error/empty rendering to the shared <AsyncState> (no drift).
+          glass={false} — HubSection already owns the dark-glass surface + title above.
+          No onRetry → HubSection's error state stays retry-less (recarregar a página),
+          identical to its pre-refactor behavior. */}
+      <AsyncState
+        glass={false}
+        isLoading={isLoading}
+        isError={isError}
+        isEmpty={isEmpty}
+        copy={{
+          error: { heading: COPY.erro.heading, generic: COPY.erro.body },
+          empty: { heading: emptyCopy.heading, body: emptyCopy.body },
+        }}
+      >
+        {children}
+      </AsyncState>
     </Glass>
   )
 }
