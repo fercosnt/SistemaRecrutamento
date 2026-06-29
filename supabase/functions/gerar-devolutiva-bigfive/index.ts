@@ -579,6 +579,16 @@ if (import.meta.main) {
           // não mais "" (que tornava as linhas de ai_call_logs inrastreáveis).
           candidato_id: dimArgs.candidato_id ?? "",
           vaga_id: dimArgs.vaga_id ?? "",
+          // WR-01: chave de idempotência ESTÁVEL por candidato/dim/banda. O fan-out
+          // RESIL-02 + o retry best-effort do n8n re-invocavam esta EF re-rodando as 5
+          // chamadas callAi a custo cheio e gravando 5 linhas novas em ai_call_logs por
+          // retry — exatamente o que o guard de replay (tryIdempotencyReplay, ai-client)
+          // existe para evitar, mas que estava morto aqui por falta de key. Com a key
+          // estável, um re-invoke devolve o resultado anterior a custo zero (cache_hit)
+          // em vez de re-chamar o provedor (a linha do DB já era idempotente via upsert
+          // onConflict; o SPEND não era). Não afeta a saída ao candidato.
+          idempotency_key:
+            `bigfive_devolutiva:${dimArgs.candidato_id ?? ""}:${dimArgs.dim_label}:${dimArgs.banda}`,
           schema: PaginaSchema,
         },
         // WR-02: injeta os builders dos helpers de structured-output. Sem eles, o
