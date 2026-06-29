@@ -38,3 +38,16 @@ task that found them. Logged here per the executor SCOPE BOUNDARY rule — NOT f
     one-screen adoption identical to the three done in 18-06.
 - **Duplicate inline `extractEfErrorCode` in `entrevistaService.ts` (L573)** — carried
   forward from 18-05's deferred list; still the same drift, still out of scope here.
+
+## From 18 UI review (advisory, 23/24 — non-blocking polish backlog)
+
+- **`ConsolidacaoDashboard` domain-empty typography drifts** from the standardized
+  `EstadoVazio` block (`text-xl` + un-muted body vs `text-base` / `text-sm text-white/70`)
+  — `ConsolidacaoDashboard.tsx:118-125`. One-line className alignment; contradicts the
+  "never drift" goal but only in the empty-state branch. Polish — fix when touching that file.
+- **`errorCodeOf()` copy-pasted across the 5 adopter components** — overlaps the
+  entrevistaService duplicate above; the clean fix is to export one shared `errorCodeOf`
+  from `@/lib/efErrors` and have all consumers (and the entrevistaService dedupe) use it.
+- **RESOLVED (post-merge gate):** the two unexcluded Deno test suites (`essay-schemas`,
+  `consolidar-decisao-final/__tests__`) were added to `vite.config.ts` `test.exclude`
+  in commit `f90c934` — `npm run test:run` is fully green (76/76 files, 657 tests).
