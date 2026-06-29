@@ -39,19 +39,29 @@ export async function extractEfErrorCode(
   data: unknown,
   error: EfInvokeError | null | undefined,
 ): Promise<string | undefined> {
-  // 1) 200/parsed-body shape: error_code sits directly on `data`.
-  if (data && typeof data === 'object' && 'error_code' in data) {
-    return String((data as { error_code?: unknown }).error_code ?? '') || undefined
+  // WR-03: quando um `error` de transporte está presente, o corpo da Response
+  // (`error.context`) é a fonte AUTORITATIVA do error_code de nível HTTP. Lê-lo
+  // PRIMEIRO; o `data` (corpo 200/parseado) só é consultado se o body não render
+  // nenhum código. A ordem antiga (data primeiro, incondicional) deixava um
+  // 200-com-corpo-stale OU um `{ok:false, error_code}` em `data` mascarar o código
+  // HTTP real do transporte — o curto-circuito descartava silenciosamente o body.
+  // 1) non-2xx FunctionsHttpError: o Response cru está em `error.context`.
+  if (error) {
+    try {
+      const body = await error?.context?.json?.()
+      if (body && typeof body === 'object' && 'error_code' in body) {
+        const c = String((body as { error_code?: unknown }).error_code ?? '')
+        if (c) return c
+      }
+    } catch {
+      /* body not JSON / .json() threw — degrade to `data` then generic (NEVER throw) */
+    }
   }
 
-  // 2) non-2xx FunctionsHttpError: the raw Response is on `error.context`.
-  try {
-    const body = await error?.context?.json?.()
-    if (body && typeof body === 'object' && 'error_code' in body) {
-      return String((body as { error_code?: unknown }).error_code ?? '') || undefined
-    }
-  } catch {
-    /* body not JSON / .json() threw — degrade to generic (NEVER throw) */
+  // 2) 200/parsed-body shape (ou fallback quando o body do erro não tem código):
+  //    error_code direto em `data`.
+  if (data && typeof data === 'object' && 'error_code' in data) {
+    return String((data as { error_code?: unknown }).error_code ?? '') || undefined
   }
 
   return undefined
