@@ -16,13 +16,14 @@
  *   (`persistSession: true` em `src/lib/supabase/client.ts`).
  */
 
-import React, { useEffect, useRef } from 'react'
+import React, { Suspense, useEffect, useRef } from 'react'
 import { RouterProvider, createBrowserRouter, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet'
 import { ScrollArea } from './components/ui/scroll-area'
+import { PageSkeleton } from './components/ui/PageSkeleton'
 import { routes, devNavigationPages } from './router/routes'
 import { useAuthStore } from './store/authStore'
 import { supabase } from './lib/supabase/client'
@@ -218,7 +219,13 @@ function RootLayout() {
 
   return (
     <>
-      <Outlet />
+      {/* PERF-03 (Plan 19-02): single Suspense boundary covering every lazy /rh/* +
+          /admin/* route. The branded glass PageSkeleton shows while a route chunk
+          resolves — never a blank flash. React caches the resolved chunk Promise,
+          so a re-visited lazy route renders instantly with no fallback flash. */}
+      <Suspense fallback={<PageSkeleton />}>
+        <Outlet />
+      </Suspense>
       {import.meta.env.DEV && <DevNavigationMenu />}
       <Toaster position="top-right" />
     </>

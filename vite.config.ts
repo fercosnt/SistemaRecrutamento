@@ -111,6 +111,27 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          // PERF-03 (Plan 19-02): NARROW react-vendor chunk only. Keep react +
+          // react-dom + react-router(-dom) + scheduler together so the whole-app
+          // init libs share ONE long-lived, cacheable chunk. Everything else falls
+          // through (return undefined) → Rollup auto-chunks the lazy /rh/* + /admin/*
+          // route imports and @radix-ui. A BROAD `node_modules → vendor` branch is
+          // FORBIDDEN: it re-triggers the prod-only "Cannot access X before
+          // initialization" circular-init blank screen (19-RESEARCH Pitfall 1).
+          manualChunks(id: string) {
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/react-router') ||
+              id.includes('node_modules/scheduler/')
+            ) {
+              return 'react-vendor'
+            }
+          },
+        },
+      },
     },
     server: {
       port: 3003,

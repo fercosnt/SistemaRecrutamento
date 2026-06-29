@@ -17,9 +17,17 @@
  */
 import { lazy, type ComponentType } from 'react'
 
-export function lazyNamed<T extends Record<string, ComponentType<any>>>(
+/**
+ * Generic constraint: the module `T` only needs the export at `name` to be a
+ * `ComponentType` — other members (re-exported query-key factories, types, etc.,
+ * e.g. `RedacaoReviewPanel.tsx` re-exports `redacaoRevisaoKeys`) may be ANY shape.
+ * `K extends keyof T` + `T[K] extends ComponentType` keeps the named export
+ * type-checked as a component without forcing the WHOLE module to be a
+ * `Record<string, ComponentType>` (which a mixed-export module is not).
+ */
+export function lazyNamed<T, K extends keyof T>(
   loader: () => Promise<T>,
-  name: keyof T,
+  name: K & (T[K] extends ComponentType<any> ? K : never),
 ) {
-  return lazy(() => loader().then((m) => ({ default: m[name] })))
+  return lazy(() => loader().then((m) => ({ default: m[name] as ComponentType<any> })))
 }

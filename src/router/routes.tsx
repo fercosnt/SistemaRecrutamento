@@ -32,6 +32,12 @@ import { RoleGuard } from '../components/RoleGuard'
 // Error Boundary
 import { ErrorBoundary } from '../components/ErrorBoundary'
 
+// PERF-03 (Plan 19-02): named-export → React.lazy adapter. Every /rh/* + /admin/*
+// page below is lazy-loaded via lazyNamed so the candidate first-paint never
+// downloads the RH/admin code. RoleGuard stays OUTSIDE the lazy element (the
+// access-control invariant). Candidate/auth/public/avaliação imports stay STATIC.
+import { lazyNamed } from './lazyNamed'
+
 // Avaliação Assíncrona (candidato — Phase 11 / AVAL-01·02·03·09)
 import {
   AvaliacaoContainer,
@@ -42,36 +48,39 @@ import {
   RedacaoEditorScreen,
 } from '../features/avaliacao/components'
 
-// Páginas RH/Admin
-import { DashboardRHPage } from '../components/pages/DashboardRHPage'
-import { CandidatosRHPage } from '../components/pages/CandidatosRHPage'
-import { PerfilCandidatoRHPage } from '../components/pages/PerfilCandidatoRHPage'
-import { VagasRHPage } from '../components/pages/VagasRHPage'
-import { VagaCandidatosRHPage } from '../components/pages/VagaCandidatosRHPage'
-import { ComparativoCandidatosPage } from '../components/pages/ComparativoCandidatosPage'
-import { CriarEditarVagaPage } from '../components/pages/CriarEditarVagaPage'
-import { ConfiguracoesPage } from '../components/pages/ConfiguracoesPage'
-import { MeuPerfilPage } from '../components/pages/MeuPerfilPage'
-import { SuporteRHPage } from '../components/pages/SuporteRHPage'
-import { RelatoriosRHPage } from '../components/pages/RelatoriosRHPage'
+// Páginas RH/Admin — LAZY (PERF-03 / Plan 19-02). One dynamic import() per page →
+// Rollup emits one chunk per page; the candidate never downloads any of them.
+const DashboardRHPage = lazyNamed(() => import('../components/pages/DashboardRHPage'), 'DashboardRHPage')
+const CandidatosRHPage = lazyNamed(() => import('../components/pages/CandidatosRHPage'), 'CandidatosRHPage')
+const PerfilCandidatoRHPage = lazyNamed(() => import('../components/pages/PerfilCandidatoRHPage'), 'PerfilCandidatoRHPage')
+const VagasRHPage = lazyNamed(() => import('../components/pages/VagasRHPage'), 'VagasRHPage')
+const VagaCandidatosRHPage = lazyNamed(() => import('../components/pages/VagaCandidatosRHPage'), 'VagaCandidatosRHPage')
+const ComparativoCandidatosPage = lazyNamed(() => import('../components/pages/ComparativoCandidatosPage'), 'ComparativoCandidatosPage')
+const CriarEditarVagaPage = lazyNamed(() => import('../components/pages/CriarEditarVagaPage'), 'CriarEditarVagaPage')
+const ConfiguracoesPage = lazyNamed(() => import('../components/pages/ConfiguracoesPage'), 'ConfiguracoesPage')
+const MeuPerfilPage = lazyNamed(() => import('../components/pages/MeuPerfilPage'), 'MeuPerfilPage')
+const SuporteRHPage = lazyNamed(() => import('../components/pages/SuporteRHPage'), 'SuporteRHPage')
+const RelatoriosRHPage = lazyNamed(() => import('../components/pages/RelatoriosRHPage'), 'RelatoriosRHPage')
 
 // Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
-import { RedacaoReviewPanel } from '../features/triagem/components/RedacaoReviewPanel'
+const RedacaoReviewPanel = lazyNamed(() => import('../features/triagem/components/RedacaoReviewPanel'), 'RedacaoReviewPanel')
 
 // Workspace de entrevista (Phase 14 / ENTREV-01..05 — RH/gestor, role-gated)
-import { EntrevistaWorkspace } from '../features/entrevista/components/EntrevistaWorkspace'
+const EntrevistaWorkspace = lazyNamed(() => import('../features/entrevista/components/EntrevistaWorkspace'), 'EntrevistaWorkspace')
 
-// Prova cognitiva (Phase 14 / ENTREV-05 — candidato, opt-in via vaga.aplica_cognitivo)
+// Prova cognitiva (Phase 14 / ENTREV-05 — candidato, opt-in via vaga.aplica_cognitivo).
+// EAGER — candidate-facing route, stays in the first-paint graph.
 import { ProvaCognitivaScreen } from '../features/avaliacao-cognitiva/components/ProvaCognitivaScreen'
 
-// Páginas Admin (compliance / AI infra — read-only, role administrador only)
-import { AiLogsPage } from '../features/admin/ai-logs/components/AiLogsPage'
-import { PromptVersionsPage } from '../features/admin/prompt-versions/components/PromptVersionsPage'
-import { AiCostsPage } from '../features/admin/ai-costs/components/AiCostsPage'
-// Decisão Final auditável + LGPD Art. 20 (Phase 15 / DECISAO-01..04, LGPD-03)
-import { DecisaoFinalPage } from '../features/decisao/components/DecisaoFinalPage'
+// Páginas Admin (compliance / AI infra — read-only, role administrador only) — LAZY
+const AiLogsPage = lazyNamed(() => import('../features/admin/ai-logs/components/AiLogsPage'), 'AiLogsPage')
+const PromptVersionsPage = lazyNamed(() => import('../features/admin/prompt-versions/components/PromptVersionsPage'), 'PromptVersionsPage')
+const AiCostsPage = lazyNamed(() => import('../features/admin/ai-costs/components/AiCostsPage'), 'AiCostsPage')
+// Decisão Final auditável + LGPD Art. 20 (Phase 15 / DECISAO-01..04, LGPD-03) — LAZY (RH)
+const DecisaoFinalPage = lazyNamed(() => import('../features/decisao/components/DecisaoFinalPage'), 'DecisaoFinalPage')
+// Explicação ao candidato — EAGER (candidate-facing route, stays in first-paint graph).
 import { ExplicacaoCandidatoPage } from '../features/explicacao/components/ExplicacaoCandidatoPage'
-import { BiasAuditPage } from '../features/admin/bias-audit/components/BiasAuditPage'
+const BiasAuditPage = lazyNamed(() => import('../features/admin/bias-audit/components/BiasAuditPage'), 'BiasAuditPage')
 
 // 404 catch-all (Phase 17 / D-14) — Beauty Smile glass NotFound, role-aware back-link
 import { NotFoundPage } from '../components/pages/NotFoundPage'
