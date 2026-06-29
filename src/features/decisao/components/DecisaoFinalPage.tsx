@@ -22,13 +22,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Loader2 } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { cn } from '@/components/ui/utils'
 import { useComparativo } from '@/features/triagem/hooks/useComparativo'
+import { TriagemServiceError } from '@/features/triagem/services/triagemService'
 import {
   ComparativoScreen,
   type ComparativoCandidate,
@@ -52,6 +52,16 @@ const TABS = [
 ] as const
 
 type TabValue = (typeof TABS)[number]['v']
+
+/** Pull the EF `error_code` (AI_UNAVAILABLE / MIXED_VAGA) off a TriagemServiceError — code-only. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof TriagemServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    if (typeof details?.error_code === 'string') return details.error_code
+    if (error.code === 'MIXED_VAGA') return 'MIXED_VAGA'
+  }
+  return undefined
+}
 
 /** Resolve the anonymized ranking ids (C1/C2…) back to the finalist candidaturaIds. */
 function resolveFinalistCandidates(
@@ -101,7 +111,13 @@ export function DecisaoFinalPage() {
 
   // Comparativo (Phase-10 reuse) — invoked when the Comparativo tab opens with ≥2 finalists.
   const comparativo = useComparativo()
-  const { mutate: runComparativo, data: comparativoData, isPending, isError } = comparativo
+  const {
+    mutate: runComparativo,
+    data: comparativoData,
+    isPending,
+    isError,
+    error: comparativoError,
+  } = comparativo
 
   useEffect(() => {
     if (tab === 'comparativo' && vagaId && finalistIds.length >= 2 && finalistIds.length <= 10) {
@@ -172,27 +188,24 @@ export function DecisaoFinalPage() {
                     vaga.
                   </p>
                 </div>
-              ) : isPending ? (
-                <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-                  <Loader2 className="h-8 w-8 animate-spin text-white/70" aria-hidden="true" />
-                  <p>Gerando comparativo…</p>
-                </div>
-              ) : isError ? (
-                <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-                  <AlertTriangle className="h-8 w-8 text-red-300" aria-hidden="true" />
-                  <p>Não foi possível gerar o comparativo. Tente novamente.</p>
-                </div>
-              ) : candidates.length > 0 ? (
+              ) : (
+                // O <AsyncState> do ComparativoScreen é a fonte única de
+                // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
                 <ComparativoScreen
-                  ranking={comparativoData!.ranking}
+                  ranking={comparativoData?.ranking ?? { ranked_candidates: [] }}
                   candidates={candidates}
                   onAvancar={() => {}}
                   onRejeitar={() => {}}
+                  isLoading={isPending}
+                  isError={isError}
+                  errorCode={errorCodeOf(comparativoError)}
+                  retrying={isPending}
+                  onRetry={() => {
+                    if (vagaId && finalistIds.length >= 2 && finalistIds.length <= 10) {
+                      runComparativo({ vagaId, candidaturaIds: finalistIds })
+                    }
+                  }}
                 />
-              ) : (
-                <div className="p-12 text-center text-white/80">
-                  <p>Não foi possível gerar o comparativo. Tente novamente.</p>
-                </div>
               )}
             </Glass>
           </TabsContent>

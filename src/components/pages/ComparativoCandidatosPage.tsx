@@ -15,7 +15,7 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, AlertTriangle, Loader2 } from 'lucide-react'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { RHLayout } from '../RHLayout'
 import { Glass, GlassButton } from '@/components/ui/glass'
@@ -24,12 +24,24 @@ import { triagemKeys } from '@/features/triagem/hooks/useTriagemPanel'
 import {
   updateCandidaturaEtapa,
   PROXIMA_ETAPA_APOS_TRIAGEM,
+  TriagemServiceError,
 } from '@/features/triagem/services/triagemService'
 import {
   ComparativoScreen,
   type ComparativoCandidate,
 } from '@/features/triagem/components/ComparativoScreen'
 import type { RankedCandidate } from '@/features/triagem/pdf/exportComparativo'
+
+/** Pull the EF `error_code` (AI_UNAVAILABLE / MIXED_VAGA) off a TriagemServiceError — code-only. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof TriagemServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    if (typeof details?.error_code === 'string') return details.error_code
+    // MIXED_VAGA may arrive as the service `code` even if details omit error_code.
+    if (error.code === 'MIXED_VAGA') return 'MIXED_VAGA'
+  }
+  return undefined
+}
 
 /** Seleção carregada pelo painel: candidatura id + nome, em ordem de score DESC. */
 interface SelectionItem {
@@ -132,35 +144,32 @@ export function ComparativoCandidatosPage() {
         </div>
 
         <Glass variant="white" blur="lg" className="p-6">
-          {/* Seleção inválida */}
+          {/* Seleção inválida — pré-condição (não é estado assíncrono). */}
           {ids.length < 2 ? (
             <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
               <AlertTriangle className="h-8 w-8 text-white/60" aria-hidden="true" />
               <p>Selecione ao menos 2 candidatos para comparar.</p>
               <GlassButton onClick={voltar}>Voltar ao painel</GlassButton>
             </div>
-          ) : isPending ? (
-            <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-              <Loader2 className="h-8 w-8 animate-spin text-[#35BFAD]" aria-hidden="true" />
-              <p>Gerando comparativo…</p>
-            </div>
-          ) : isError ? (
-            <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-              <AlertTriangle className="h-8 w-8 text-red-300" aria-hidden="true" />
-              <p>{error?.message ?? 'Não foi possível gerar o comparativo. Tente novamente.'}</p>
-              <GlassButton onClick={voltar}>Voltar ao painel</GlassButton>
-            </div>
-          ) : candidates.length > 0 ? (
+          ) : (
+            // O <AsyncState> dentro do ComparativoScreen é a fonte única de
+            // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
+            // MIXED_VAGA preservado via errorCode (ComparativoScreen ramifica a cópia).
             <ComparativoScreen
-              ranking={data!.ranking}
+              ranking={data?.ranking ?? { ranked_candidates: [] }}
               candidates={candidates}
               onAvancar={handleAvancar}
               onRejeitar={handleRejeitar}
+              isLoading={isPending}
+              isError={isError}
+              errorCode={errorCodeOf(error)}
+              retrying={isPending}
+              onRetry={() => {
+                if (vagaId && ids.length >= 2 && ids.length <= 10) {
+                  mutate({ vagaId, candidaturaIds: ids })
+                }
+              }}
             />
-          ) : (
-            <div className="p-12 text-center text-white/80">
-              <p>Não foi possível gerar o comparativo. Tente novamente.</p>
-            </div>
           )}
         </Glass>
       </div>

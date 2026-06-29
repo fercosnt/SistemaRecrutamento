@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { Download, Loader2, ArrowRight, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { AsyncState } from '@/components/ui/AsyncState'
 import { Badge } from '@/components/ui/badge'
 import {
   AlertDialog,
@@ -53,7 +54,29 @@ export interface ComparativoScreenProps {
   onAvancar: (candidaturaId: string) => void
   /** Rejeita a candidatura (confirmação já feita; sem justificativa longa). */
   onRejeitar: (candidaturaId: string) => void
+  /**
+   * Estado do invoke do comparativo (EF `comparativo-candidatos`), delegado ao
+   * `<AsyncState>` interno: loading/slow (~vários segundos) / erro / retry — nunca
+   * tela em branco (RESIL-03). Opcionais p/ retrocompat com os consumidores que já
+   * gateiam o invoke por fora; quando passados, a tela é a dona do estado assíncrono.
+   */
+  isLoading?: boolean
+  isError?: boolean
+  /** `'AI_UNAVAILABLE'` → cópia de sobrecarga; `'MIXED_VAGA'` → cópia de vagas diferentes. */
+  errorCode?: string
+  /** Re-invoca o comparativo (botão "Tentar novamente" do <AsyncState>). */
+  onRetry?: () => void
+  /** Enquanto true o botão de retry mostra "Tentando…" e fica disabled (sem dupla submissão). */
+  retrying?: boolean
 }
+
+/**
+ * Cópia pt-BR exata de "vagas diferentes" (MIXED_VAGA, EF 400) — PRESERVADA do
+ * contrato Phase-10. Quando o invoke falha com MIXED_VAGA o <AsyncState> mostra esta
+ * mensagem (override), não a genérica/sobrecarga — sem regressão do UX existente.
+ */
+const MIXED_VAGA_COPY =
+  'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.'
 
 /** Band de score (mesmas thresholds do painel TriagemTable — 70 / 40). */
 function scoreBandClass(score: number | null): string {
@@ -78,10 +101,20 @@ export function ComparativoScreen({
   candidates,
   onAvancar,
   onRejeitar,
+  isLoading,
+  isError,
+  errorCode,
+  onRetry,
+  retrying,
 }: ComparativoScreenProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const ordered = [...candidates].sort((a, b) => a.rank - b.rank)
+
+  // PRESERVE MIXED_VAGA: branch the error body so "vagas diferentes" never collapses
+  // into the generic/sobrecarga copy when adopting <AsyncState> (T-18-06-T2).
+  const errorCopyOverride =
+    errorCode === 'MIXED_VAGA' ? { error: { generic: MIXED_VAGA_COPY } } : undefined
 
   const handleExport = () => {
     setIsGenerating(true)
@@ -98,6 +131,15 @@ export function ComparativoScreen({
   }
 
   return (
+    <AsyncState
+      isLoading={isLoading}
+      isError={isError}
+      errorCode={errorCode}
+      onRetry={onRetry}
+      retrying={retrying}
+      copy={errorCopyOverride}
+      glass={false}
+    >
     <div className="space-y-6">
       {/* Header band: SugestaoIABadge (RNF-07a) + Exportar PDF */}
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -324,5 +366,6 @@ export function ComparativoScreen({
         </table>
       </div>
     </div>
+    </AsyncState>
   )
 }

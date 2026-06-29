@@ -20,19 +20,27 @@
  * @see src/features/triagem/components/SugestaoIABadge.tsx (advisory badge — recommendation only)
  * @see .planning/phases/15-decis-o-final-audit-vel-lgpd-art-20/15-UI-SPEC.md (copy + color)
  */
-import { AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { GlassButton } from '@/components/ui/glass'
+import { AsyncState } from '@/components/ui/AsyncState'
 import { SugestaoIABadge } from '@/features/triagem/components/SugestaoIABadge'
 import { useConsolidacao } from '../hooks/useConsolidacao'
+import { DecisaoServiceError } from '../services/decisaoService'
 import type { ConsolidacaoBreakdownRow } from '../schemas/consolidacaoSchema'
+
+/** Pull the EF `error_code` (e.g. AI_UNAVAILABLE) off a DecisaoServiceError — code-only, no PII. */
+function errorCodeOf(error: unknown): string | undefined {
+  if (error instanceof DecisaoServiceError) {
+    const details = error.details as { error_code?: unknown } | undefined
+    return typeof details?.error_code === 'string' ? details.error_code : undefined
+  }
+  return undefined
+}
 
 export interface ConsolidacaoDashboardProps {
   candidaturaId: string
@@ -88,44 +96,48 @@ function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
 }
 
 export function ConsolidacaoDashboard({ candidaturaId, vagaId }: ConsolidacaoDashboardProps) {
-  const { data, isLoading, isError, refetch } = useConsolidacao(candidaturaId, vagaId)
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-28 w-full bg-white/5" />
-        <Skeleton className="h-40 w-full bg-white/5" />
-      </div>
-    )
-  }
-
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
-        <AlertTriangle className="h-8 w-8 text-red-300" aria-hidden="true" />
-        <p className="font-semibold text-white">Não foi possível carregar a consolidação.</p>
-        <p>Verifique a conexão e tente novamente.</p>
-        <GlassButton onClick={() => refetch()}>Tentar novamente</GlassButton>
-      </div>
-    )
-  }
+  const { data, isLoading, isError, error, refetch } = useConsolidacao(candidaturaId, vagaId)
 
   const breakdown = data?.breakdown ?? []
   const hasAnyPresent = breakdown.some((r) => r.status === 'present')
 
-  // Empty state — no scorecards yet to consolidate.
-  if (!hasAnyPresent) {
-    return (
-      <div className="space-y-2 p-12 text-center text-white/80">
-        <p className="text-xl font-semibold text-white">Ainda não há scorecards para consolidar</p>
-        <p>
-          Os scorecards das etapas concluídas aparecerão aqui. A decisão final pode ser registrada
-          mesmo com etapas não aplicadas (marcadas como N/A).
-        </p>
-      </div>
-    )
-  }
+  // Loading / error / retry now come from the shared <AsyncState> (this dashboard's
+  // inline block was the retry exemplar — it becomes the shared default). The parent
+  // already provides the dark-glass shell, so glass={false} (no double surface).
+  // The domain "no scorecards yet" empty stays as a success-path branch below (it is
+  // a loaded-but-empty content state distinct from AsyncState's generic empty copy).
+  return (
+    <AsyncState
+      isLoading={isLoading}
+      isError={isError}
+      errorCode={errorCodeOf(error)}
+      onRetry={() => refetch()}
+      glass={false}
+    >
+      {/* Empty state — no scorecards yet to consolidate. */}
+      {!hasAnyPresent ? (
+        <div className="space-y-2 p-12 text-center text-white/80">
+          <p className="text-xl font-semibold text-white">Ainda não há scorecards para consolidar</p>
+          <p>
+            Os scorecards das etapas concluídas aparecerão aqui. A decisão final pode ser registrada
+            mesmo com etapas não aplicadas (marcadas como N/A).
+          </p>
+        </div>
+      ) : (
+        <ConsolidacaoBody data={data} breakdown={breakdown} />
+      )}
+    </AsyncState>
+  )
+}
 
+/** The consolidated score + breakdown + recommendation body (success path). */
+function ConsolidacaoBody({
+  data,
+  breakdown,
+}: {
+  data: ReturnType<typeof useConsolidacao>['data']
+  breakdown: ConsolidacaoBreakdownRow[]
+}) {
   return (
     <div className="space-y-8">
       {/* Hero consolidated score — neutral, NO tint. */}
