@@ -22,6 +22,7 @@ import {
   getScores,
   salvarAvaliacao,
   gerarGuia,
+  saveGuiaEdits,
   analisarTranscricao,
   confirmarRevisaoHumana,
   type EntrevistaContextoRow,
@@ -30,6 +31,7 @@ import {
   type EntrevistaScoreRow,
   type SalvarAvaliacaoPayload,
   type TipoEntrevista,
+  type GuiaPergunta,
 } from '../services/entrevistaService'
 import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
 
@@ -88,7 +90,20 @@ export function useGuiaEntrevista(
     },
   })
 
-  return { ...query, gerarGuia: gerar }
+  // ENTREV-06/07/08 batch-save: persists the RH-edited guide via the
+  // save_entrevista_guia_edits RPC (20-02) and invalidates the SAME guide key the
+  // read query + gerar use — so the panel re-renders with the saved guide (origem
+  // preserved). `tipo` is threaded through the mutation vars: the guide can be
+  // online or presencial, and the panel knows which one it is editing.
+  const saveEdits = useMutation({
+    mutationFn: (vars: { tipo: TipoEntrevista; perguntas: GuiaPergunta[] }) =>
+      saveGuiaEdits(candidaturaId!, vars.tipo, vars.perguntas),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: entrevistaKeys.guia(candidaturaId || '') })
+    },
+  })
+
+  return { ...query, gerarGuia: gerar, saveEdits }
 }
 
 /**

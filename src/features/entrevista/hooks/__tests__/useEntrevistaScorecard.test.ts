@@ -26,24 +26,32 @@ import { createElement, type ReactNode } from 'react'
 const mocks = vi.hoisted(() => ({
   salvarAvaliacao: vi.fn(),
   getScores: vi.fn(),
+  getGuia: vi.fn(),
+  saveGuiaEdits: vi.fn(),
 }))
 
 vi.mock('../../services/entrevistaService', () => ({
   salvarAvaliacao: mocks.salvarAvaliacao,
   getScores: mocks.getScores,
   // The hook module imports several service symbols at the top — provide inert
-  // stubs so the import does not throw (only salvarAvaliacao/getScores are used here).
+  // stubs so the import does not throw (only salvarAvaliacao/getScores/getGuia/
+  // saveGuiaEdits are exercised here).
   getEntrevistaContexto: vi.fn(),
-  getGuia: vi.fn(),
+  getGuia: mocks.getGuia,
   getAnalise: vi.fn(),
   gerarGuia: vi.fn(),
+  saveGuiaEdits: mocks.saveGuiaEdits,
   analisarTranscricao: vi.fn(),
   confirmarRevisaoHumana: vi.fn(),
 }))
 
-import { useEntrevistaScorecard } from '../useEntrevistaScorecard'
+import { useEntrevistaScorecard, useGuiaEntrevista } from '../useEntrevistaScorecard'
 import { decisaoKeys } from '@/features/decisao/hooks/useConsolidacao'
-import type { SalvarAvaliacaoPayload } from '../../services/entrevistaService'
+import { entrevistaKeys } from '../useEntrevistaScorecard'
+import type {
+  SalvarAvaliacaoPayload,
+  GuiaPergunta,
+} from '../../services/entrevistaService'
 
 let queryClient: QueryClient
 
@@ -101,5 +109,46 @@ describe('useEntrevistaScorecard — PERF-04 Gap A targeted invalidation (Plan 1
 
     // Guard against an accidental over-broad sweep: never decisaoKeys.all.
     expect(spy).not.toHaveBeenCalledWith({ queryKey: decisaoKeys.all })
+  })
+})
+
+const VAGA_ID_GUIA = 'vaga-guia-uuid'
+
+describe('useGuiaEntrevista — saveEdits mutation (ENTREV-06/07/08 / Plan 20-03)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    mocks.getGuia.mockResolvedValue(null)
+    mocks.saveGuiaEdits.mockResolvedValue(null)
+  })
+
+  const perguntas: GuiaPergunta[] = [
+    { pergunta: 'Pergunta IA', dimensao: 'Comunicação', origem: 'ia' },
+    { pergunta: 'Pergunta manual', dimensao: 'Clínica', origem: 'manual' },
+  ]
+
+  it('calls saveGuiaEdits(candidaturaId, tipo, perguntas) with the mutation vars', async () => {
+    const { result } = renderHook(() => useGuiaEntrevista(CAND_ID, VAGA_ID_GUIA), { wrapper })
+
+    await result.current.saveEdits.mutateAsync({ tipo: 'online', perguntas })
+
+    expect(mocks.saveGuiaEdits).toHaveBeenCalledWith(CAND_ID, 'online', perguntas)
+  })
+
+  it('invalidates entrevistaKeys.guia(candidaturaId) on success — the same key the read + gerar use', async () => {
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useGuiaEntrevista(CAND_ID, VAGA_ID_GUIA), { wrapper })
+
+    await result.current.saveEdits.mutateAsync({ tipo: 'presencial', perguntas })
+
+    await waitFor(() => expect(result.current.saveEdits.isSuccess).toBe(true))
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: entrevistaKeys.guia(CAND_ID) })
+  })
+
+  it('exposes saveEdits alongside gerarGuia (does not replace it)', () => {
+    const { result } = renderHook(() => useGuiaEntrevista(CAND_ID, VAGA_ID_GUIA), { wrapper })
+    expect(result.current.saveEdits).toBeDefined()
+    expect(result.current.gerarGuia).toBeDefined()
   })
 })
