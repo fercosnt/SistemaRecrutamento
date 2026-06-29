@@ -315,12 +315,45 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     }
     if (needsHumanFlag) persistFlags.push("weak_dim_uncovered");
 
-    await supabaseAdmin.from("entrevista_guias").insert({
-      candidatura_id: body.candidatura_id,
-      tipo: body.tipo,
-      guia: guide ?? { incompleto: true, flags: persistFlags },
-      prompt_version: resolved.prompt_version,
-    });
+    // ── 8a. MERGE-PRESERVE (ENTREV-08 anti-silent-discard) ─────────────────────
+    //   Lê a guia ATUAL (allowlist `select("guia")` — NUNCA select('*'),
+    //   reference_select_star_leaks_pii) e separa as perguntas por `origem`. As
+    //   `origem:'manual'` são PRESERVADAS (identificadas pelo campo `origem`, não por
+    //   texto/ordem — o campo é autoritativo e sobrevive a reorder/edit). Apenas as
+    //   `origem:'ia'` são substituídas pela geração fresca, cada uma estampada
+    //   `origem:'ia'` POST-parse (A1 — NÃO via o schema zod/v4; helper surface intacta).
+    //   CRÍTICO (Pitfall 3): este merge roda ANTES do fallback `guide ?? {incompleto}` —
+    //   um regen FALHO (guide==null) carrega `manualQs` no payload incompleto, então
+    //   NUNCA apaga uma edição manual. RNF-07a: ainda não escreve `candidaturas`.
+    const { data: currentRow } = await supabaseAdmin
+      .from("entrevista_guias")
+      .select("guia")
+      .eq("candidatura_id", body.candidatura_id)
+      .eq("tipo", body.tipo)
+      .maybeSingle();
+    const currentGuia = currentRow?.guia as Record<string, unknown> | undefined;
+    const currentQs = (currentGuia?.questions ?? currentGuia?.perguntas ?? []) as Array<
+      Record<string, unknown>
+    >;
+    const manualQs = currentQs.filter((q) => q.origem === "manual");
+    const freshIaQs = ((guide?.questions ?? []) as Array<Record<string, unknown>>).map((q) => ({
+      ...q,
+      origem: "ia" as const,
+    }));
+    const mergedQuestions = [...manualQs, ...freshIaQs];
+
+    await supabaseAdmin.from("entrevista_guias").upsert(
+      {
+        candidatura_id: body.candidatura_id,
+        tipo: body.tipo,
+        guia: guide
+          ? { ...guide, questions: mergedQuestions }
+          : { incompleto: true, flags: persistFlags, questions: manualQs },
+        prompt_version: resolved.prompt_version,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "candidatura_id,tipo" },
+    );
 
     // Log redigido (LGPD-02 / Pitfall 7) — só ids/counts/status; NUNCA o conteúdo/nome.
     console.log("[gerar-guia-entrevista] ok", {
