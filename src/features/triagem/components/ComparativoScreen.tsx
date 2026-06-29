@@ -34,7 +34,7 @@ import { SugestaoIABadge } from './SugestaoIABadge'
 // value (which statically pulls in jspdf + jspdf-autotable) is loaded via a call-site
 // `await import()` in handleExport so jsPDF is emitted in a separate async chunk and
 // never paid for unless the RH actually clicks "Exportar PDF" (RESEARCH Pitfall 3).
-import type { ComparativeRankingView, RankedCandidate } from '../pdf/exportComparativo'
+import type { RankedCandidate } from '../pdf/exportComparativo'
 
 /**
  * Candidato ranqueado já resolvido pelo client: o ranking da EF + o id de candidatura
@@ -47,7 +47,6 @@ export interface ComparativoCandidate extends RankedCandidate {
 }
 
 export interface ComparativoScreenProps {
-  ranking: ComparativeRankingView
   /** Candidatos resolvidos (nome + candidaturaId), em ordem de ranking. */
   candidates: ComparativoCandidate[]
   /** Avança a candidatura para a próxima etapa (confirmação já feita). */

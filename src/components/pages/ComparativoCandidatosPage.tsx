@@ -156,7 +156,6 @@ export function ComparativoCandidatosPage() {
             // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
             // MIXED_VAGA preservado via errorCode (ComparativoScreen ramifica a cópia).
             <ComparativoScreen
-              ranking={data?.ranking ?? { ranked_candidates: [] }}
               candidates={candidates}
               onAvancar={handleAvancar}
               onRejeitar={handleRejeitar}

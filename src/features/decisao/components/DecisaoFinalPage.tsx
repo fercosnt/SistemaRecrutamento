@@ -192,7 +192,6 @@ export function DecisaoFinalPage() {
                 // O <AsyncState> do ComparativoScreen é a fonte única de
                 // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
                 <ComparativoScreen
-                  ranking={comparativoData?.ranking ?? { ranked_candidates: [] }}
                   candidates={candidates}
                   onAvancar={() => {}}
                   onRejeitar={() => {}}

@@ -24,7 +24,7 @@ vi.mock('../../pdf/exportComparativo', async (orig) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { ComparativoScreen, type ComparativoCandidate } from '../ComparativoScreen'
-import { exportComparativo, type ComparativeRankingView } from '../../pdf/exportComparativo'
+import { exportComparativo } from '../../pdf/exportComparativo'
 
 function makeCandidate(over: Partial<ComparativoCandidate> & { candidaturaId: string }): ComparativoCandidate {
   return {
@@ -40,20 +40,6 @@ function makeCandidate(over: Partial<ComparativoCandidate> & { candidaturaId: st
   }
 }
 
-function makeRanking(candidates: ComparativoCandidate[]): ComparativeRankingView {
-  return {
-    ranked_candidates: candidates.map((c) => ({
-      candidate_id: c.candidate_id,
-      nome: c.nome,
-      rank: c.rank,
-      composite_score: c.composite_score,
-      relative_strengths: c.relative_strengths,
-      relative_weaknesses: c.relative_weaknesses,
-      rationale: c.rationale,
-    })),
-  }
-}
-
 describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -65,7 +51,6 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     )
     render(
       <ComparativoScreen
-        ranking={makeRanking(candidates)}
         candidates={candidates}
         onAvancar={vi.fn()}
         onRejeitar={vi.fn()}
@@ -84,7 +69,6 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     const candidates = [makeCandidate({ candidaturaId: '1', rank: 1 }), makeCandidate({ candidaturaId: '2', rank: 2 })]
     render(
       <ComparativoScreen
-        ranking={makeRanking(candidates)}
         candidates={candidates}
         onAvancar={vi.fn()}
         onRejeitar={vi.fn()}
@@ -99,7 +83,6 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     candidates.push(makeCandidate({ candidaturaId: 'def', nome: 'João', rank: 2 }))
     render(
       <ComparativoScreen
-        ranking={makeRanking(candidates)}
         candidates={candidates}
         onAvancar={onAvancar}
         onRejeitar={vi.fn()}
@@ -121,7 +104,6 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     ]
     render(
       <ComparativoScreen
-        ranking={makeRanking(candidates)}
         candidates={candidates}
         onAvancar={vi.fn()}
         onRejeitar={onRejeitar}
@@ -141,10 +123,8 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
       makeCandidate({ candidaturaId: '1', rank: 1 }),
       makeCandidate({ candidaturaId: '2', rank: 2 }),
     ]
-    const ranking = makeRanking(candidates)
     render(
       <ComparativoScreen
-        ranking={ranking}
         candidates={candidates}
         onAvancar={vi.fn()}
         onRejeitar={vi.fn()}
