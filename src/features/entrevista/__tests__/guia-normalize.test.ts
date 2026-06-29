@@ -95,3 +95,52 @@ describe('ENTREV-GUIA-DISPLAY-01 — normalizeGuia bridges the EF output shape t
     expect(normalizeGuia(null)).toBeNull()
   })
 })
+
+describe('ENTREV-08 — normalizeGuia is origem-aware (provenance survives the read)', () => {
+  it('defaults a missing/legacy origem → "ia" (legacy guides are wholly AI-generated, A2)', () => {
+    // The EF-persisted fixture has NO origem on its questions (pre-edit, legacy).
+    const normalized = normalizeGuia(efPersistedGuia() as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas).toHaveLength(2)
+    expect(perguntas[0].origem).toBe('ia')
+    expect(perguntas[1].origem).toBe('ia')
+  })
+
+  it('preserves an explicit origem:"manual" on a question (RH-added)', () => {
+    const withManual = {
+      ...efPersistedGuia(),
+      questions: [
+        { ...efPersistedGuia().questions[0], origem: 'manual' },
+        efPersistedGuia().questions[1],
+      ],
+    }
+    const normalized = normalizeGuia(withManual as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas[0].origem).toBe('manual')
+    expect(perguntas[1].origem).toBe('ia')
+  })
+
+  it('coerces any non-"manual" origem value → "ia" (defensive)', () => {
+    const garbled = {
+      ...efPersistedGuia(),
+      questions: [{ ...efPersistedGuia().questions[0], origem: 'whatever' }],
+    }
+    const normalized = normalizeGuia(garbled as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas[0].origem).toBe('ia')
+  })
+
+  it('leaves an already pt-BR guia with origem untouched (passthrough branch)', () => {
+    const ptbr = {
+      perguntas: [
+        { pergunta: 'Já em pt-BR', dimensao: 'X', origem: 'manual' },
+        { pergunta: 'Outra', dimensao: 'Y', origem: 'ia' },
+      ],
+    }
+    const normalized = normalizeGuia(ptbr as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas).toHaveLength(2)
+    expect(perguntas[0].origem).toBe('manual')
+    expect(perguntas[1].origem).toBe('ia')
+  })
+})

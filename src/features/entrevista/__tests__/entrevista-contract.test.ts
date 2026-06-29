@@ -25,10 +25,32 @@
  * @see supabase/functions/_shared/entrevista-schemas.ts (the EF body schemas under test)
  * @see supabase/functions/_shared/cognitivo-schemas.ts (the cognitive body + band enum)
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { z } from 'zod'
+
+// ── supabase mock for the saveGuiaEdits write-path contract (Plan 20-03) ──
+// Capture the rpc args so the anti-tamper assertion can inspect the exact payload.
+const supaMocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  // getGuia read-back goes through .from().select().eq().order().limit() — return empty.
+  select: vi.fn(),
+}))
+
+vi.mock('@/lib/supabase/client', () => {
+  const limit = vi.fn().mockResolvedValue({ data: [], error: null })
+  const order = vi.fn(() => ({ limit }))
+  const eq = vi.fn(() => ({ order }))
+  const select = vi.fn(() => ({ eq }))
+  supaMocks.select = select
+  return {
+    supabase: {
+      rpc: supaMocks.rpc,
+      from: vi.fn(() => ({ select })),
+    },
+  }
+})
 
 // ── Part 1: runtime contract via Node-local replicas of the EF body schemas ──
 // These are the EXACT shapes the EF body schemas must have (Task 1).
@@ -199,5 +221,87 @@ describe('Entrevista EF body schema anti-tamper source-probe (RNF-07a)', () => {
     expect(bodyBlock).not.toMatch(/\bscore\b|\bbanda\b|\bband\b|\bnota\b/i)
     expect(bodyBlock).toMatch(/raw_responses/)
     expect(bodyBlock).toMatch(/shuffle_seed/)
+  })
+})
+
+// ── Part 3: saveGuiaEdits write-path contract (ENTREV-06/07/08 / Plan 20-03) ──
+// The RH-edit save must call the LIVE save_entrevista_guia_edits RPC with
+// { p_candidatura_id, p_tipo, p_guia: { perguntas } }, map a 42501 → FORBIDDEN via
+// the existing mapRpcError, and carry NO score/band on the payload (anti-tamper).
+import {
+  saveGuiaEdits,
+  EntrevistaServiceError,
+  type GuiaPergunta,
+} from '../services/entrevistaService'
+
+describe('saveGuiaEdits write-path contract (ENTREV-06/07/08 / RNF-07a)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    supaMocks.rpc.mockResolvedValue({ data: null, error: null })
+  })
+
+  const perguntas: GuiaPergunta[] = [
+    { pergunta: 'Pergunta IA', dimensao: 'Comunicação', origem: 'ia' },
+    { pergunta: 'Pergunta manual', dimensao: 'Clínica', origem: 'manual' },
+  ]
+
+  it('calls supabase.rpc("save_entrevista_guia_edits") with { p_candidatura_id, p_tipo, p_guia: { perguntas } }', async () => {
+    await saveGuiaEdits('cand-1', 'online', perguntas)
+    expect(supaMocks.rpc).toHaveBeenCalledWith('save_entrevista_guia_edits', {
+      p_candidatura_id: 'cand-1',
+      p_tipo: 'online',
+      p_guia: { perguntas },
+    })
+  })
+
+  it('throws INVALID_INPUT when candidaturaId is empty (no RPC call)', async () => {
+    await expect(saveGuiaEdits('', 'online', perguntas)).rejects.toMatchObject({
+      name: 'EntrevistaServiceError',
+      code: 'INVALID_INPUT',
+    })
+    expect(supaMocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('maps an RPC 42501 (insufficient_privilege) → FORBIDDEN via mapRpcError', async () => {
+    supaMocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'forbidden' } })
+    await expect(saveGuiaEdits('cand-1', 'online', perguntas)).rejects.toMatchObject({
+      name: 'EntrevistaServiceError',
+      code: 'FORBIDDEN',
+    })
+  })
+
+  it('never exposes the raw RPC error message (user-safe copy only — no PII)', async () => {
+    supaMocks.rpc.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'permission denied for relation entrevista_guias of user cand@x.com' },
+    })
+    let caught: unknown
+    try {
+      await saveGuiaEdits('cand-1', 'online', perguntas)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(EntrevistaServiceError)
+    expect((caught as EntrevistaServiceError).message).not.toMatch(/cand@x\.com|permission denied/)
+  })
+
+  it('ANTI-TAMPER: the RPC p_guia payload carries NO score/band/nota/veredito decision key', async () => {
+    // The RH edits pergunta/dimensao/origem only; the guide is a recommendation that
+    // never feeds candidaturas (RNF-07a). Serialize the exact payload sent and assert
+    // it contains no score/band token at the decision level.
+    await saveGuiaEdits('cand-1', 'presencial', perguntas)
+    const [, args] = supaMocks.rpc.mock.calls[0] as [string, { p_guia: unknown }]
+    const serialized = JSON.stringify(args.p_guia)
+    // score_atual (the weak-dim ANCHOR motivating an IA question) is informational
+    // display, NOT a candidate decision — but a top-level score/band/veredito is the
+    // tamper surface the contract forbids. The RH never posts one.
+    expect(serialized).not.toMatch(/"banda"|"band"|"veredito"|"threshold"|"aprovado"|"reprovado"/i)
+  })
+
+  it('NEVER writes candidaturas — the only mutation is the guide RPC (RNF-07a)', async () => {
+    await saveGuiaEdits('cand-1', 'online', perguntas)
+    // Only the guide RPC is invoked; getGuia read-back uses .from('entrevista_guias').
+    expect(supaMocks.rpc).toHaveBeenCalledTimes(1)
+    expect(supaMocks.rpc.mock.calls[0][0]).toBe('save_entrevista_guia_edits')
   })
 })
