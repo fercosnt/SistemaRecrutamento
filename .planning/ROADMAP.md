@@ -86,7 +86,12 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
   3. A persistência passa por RPC/EF authenticate-THEN-authorize: role RH derivado de `usuarios_rh` + posse via `candidatura → vaga.created_by`, `administrador` bypassa; um RH sem posse e um candidato recebem negação — **não** existe policy RH UPDATE ampla em `entrevista_guias` (ENTREV-08).
   4. Cada pergunta fica marcada `origem: 'ia' | 'manual'`, e regenerar o guia por IA **não** descarta as perguntas manuais silenciosamente (ENTREV-08).
   5. O guia continua sem escrever em `candidaturas` — RNF-07a preservada em todo o write-path (ENTREV-08).
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 20-01-PLAN.md — Author migration (dedup→UNIQUE→updated_at→save_entrevista_guia_edits RPC role-from-usuarios_rh) + SQL smoke + Deno merge-preserve scaffold (RED)
+- [ ] 20-02-PLAN.md — [BLOCKING] Apply migration via Supabase MCP + run authz SQL smokes + regen database.types.ts
+- [ ] 20-03-PLAN.md — Service saveGuiaEdits + origem-aware normalizeGuia + updated_at allowlist + useGuiaEntrevista.saveEdits mutation + vitest
+- [ ] 20-04-PLAN.md — [BLOCKING] EF gerar-guia-entrevista merge-preserve (INSERT→upsert, keep origem:'manual', failed-regen guard, origem:'ia' stamp) + Deno test green + redeploy
+- [ ] 20-05-PLAN.md — Edit-mode UI: EditablePerguntaRow (inline edit, up/down, delete-confirm, add-manual), IA/Manual badges, batch Salvar edições + AsyncState states + workspace wiring + RTL test
 **UI hint**: yes
 
 ### Phase 21: Production-Readiness — UATs Live
@@ -112,7 +117,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
 | 19. Performance — Bundle & Cache | v3.0 | 3/3 | Complete   | 2026-06-29 |
-| 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
+| 20. Refino RH — Editar Guia | v3.0 | 0/5 | Planned | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
 ---
