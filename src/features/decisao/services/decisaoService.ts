@@ -27,6 +27,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client'
+import { extractEfErrorCode } from '@/lib/efErrors'
 import {
   ConsolidacaoRequestSchema,
   type ConsolidacaoResponse,
@@ -94,19 +95,27 @@ export async function getConsolidacao(
   })
 
   if (error) {
+    // consolidar-decisao-final is NO-LLM (deterministic aggregate — never emits
+    // AI_UNAVAILABLE), but we wire the shared helper for uniformity so the
+    // dashboard's <AsyncState errorCode> reads the same contract as the AI services.
+    // Code-only, no PII (ASVS V7).
+    const error_code = await extractEfErrorCode(data, error)
     throw new DecisaoServiceError(
       'Não foi possível carregar a consolidação. Verifique a conexão e tente novamente.',
       'NETWORK_ERROR',
-      error,
+      { error_code, raw: error },
     )
   }
 
   // A EF devolve { ok:false, error_code } em falha de autorização/validação.
+  // KEEP this legacy 200-body branch unchanged (consolidar is NO-LLM) — surface its
+  // error_code too so the component can read a single, uniform contract.
   if (data && (data as { ok?: boolean }).ok === false) {
+    const error_code = await extractEfErrorCode(data, error)
     throw new DecisaoServiceError(
       'Não foi possível carregar a consolidação. Verifique a conexão e tente novamente.',
       'NETWORK_ERROR',
-      data,
+      { error_code, raw: data },
     )
   }
 

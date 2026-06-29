@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client'
+import { extractEfErrorCode } from '@/lib/efErrors'
 import type {
   PaginationParams,
   StatusCandidatura,
@@ -248,26 +249,34 @@ export async function invokeComparativo(
     body: { vaga_id: vagaId, candidatura_ids: candidaturaIds },
   })
 
+  // Shared helper reads the EF error_code from BOTH the 200 body and a non-2xx
+  // FunctionsHttpError (generalizes the old inline MIXED_VAGA read; degrades safely).
+  // Carried on `details.error_code` so <AsyncState errorCode> can branch the copy
+  // (e.g. AI_UNAVAILABLE → "serviço de IA sobrecarregado"); only the code, never PII.
+  const error_code = await extractEfErrorCode(data, error)
+
   if (error) {
     throw new TriagemServiceError(
       'Não foi possível gerar o comparativo. Tente novamente.',
       'NETWORK_ERROR',
-      error,
+      { error_code, raw: error },
     )
   }
 
   if (!data?.ok) {
-    if (data?.error_code === 'MIXED_VAGA') {
+    // PRESERVE MIXED_VAGA behavior (the existing contract) — now routed through the
+    // shared helper's extracted code.
+    if (error_code === 'MIXED_VAGA') {
       throw new TriagemServiceError(
         'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.',
         'MIXED_VAGA',
-        data,
+        { error_code, raw: data },
       )
     }
     throw new TriagemServiceError(
       'Não foi possível gerar o comparativo. Tente novamente.',
       'NETWORK_ERROR',
-      data,
+      { error_code, raw: data },
     )
   }
 

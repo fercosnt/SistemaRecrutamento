@@ -27,6 +27,7 @@
  * @see .planning/phases/11-avalia-o-ass-ncrona-infra-work-sample-sjt-etapa-3/11-PATTERNS.md §avaliacaoService
  */
 import { supabase } from '@/lib/supabase/client'
+import { extractEfErrorCode } from '@/lib/efErrors'
 import type { RespostaMcItem } from '../schemas/respostaAvaliacaoSchema'
 
 /** Service error mirroring the `camelCaseService.ts` convention (CLAUDE.md). */
@@ -314,10 +315,15 @@ export async function avaliarRedacao(body: {
   })
 
   if (error) {
+    // The PRIMARY AI_UNAVAILABLE surface: avaliar-redacao is an AI EF that emits a
+    // 503 { error_code:'AI_UNAVAILABLE', retryable:true } under overload. The shared
+    // helper pulls that code (code-only, no PII) so <AsyncState errorCode> can show
+    // the "serviço de IA sobrecarregado" copy instead of the generic network one.
+    const error_code = await extractEfErrorCode(data, error)
     throw new AvaliacaoServiceError(
       'Não foi possível enviar sua resposta. Tente novamente.',
       'NETWORK_ERROR',
-      error,
+      { error_code, raw: error },
     )
   }
 

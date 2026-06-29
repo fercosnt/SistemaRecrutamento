@@ -26,6 +26,7 @@
  * @module features/avaliacao/services/bigfiveService
  */
 import { supabase } from '@/lib/supabase/client'
+import { extractEfErrorCode } from '@/lib/efErrors'
 import {
   buildSubmitBigfiveBody,
   type SubmitBigfiveBody,
@@ -189,10 +190,14 @@ export async function submitBigfiveFinal(
         error,
       )
     }
+    // submit-bigfive-final fans out to the devolutiva AI generation; under overload it
+    // emits a 503 { error_code:'AI_UNAVAILABLE', retryable:true }. The shared helper
+    // pulls that code (code-only, no PII) so <AsyncState errorCode> can branch the copy.
+    const error_code = await extractEfErrorCode(data, error)
     throw new BigfiveServiceError(
       'Não foi possível enviar sua avaliação. Tente novamente.',
       'NETWORK_ERROR',
-      error,
+      { error_code, raw: error },
     )
   }
 
