@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: roadmap_created
-last_updated: "2026-06-29"
-last_activity: 2026-06-29
+status: executing
+stopped_at: ROADMAP.md criado p/ M3 (4 fases 18–21) + REQUIREMENTS.md traceability preenchida (12/12).
+last_updated: "2026-06-29T05:51:23.770Z"
+last_activity: 2026-06-29 -- Phase 18 planning complete
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 7
   completed_plans: 0
   percent: 0
 ---
@@ -26,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 Phase: 18 of 21 (Resiliência das EFs de IA & Bugs do Funil) — not started
 Plan: — of TBD
-Status: Roadmap created — ready to plan Phase 18
-Last activity: 2026-06-29 — ROADMAP.md criado (4 fases 18–21, 12/12 requirements mapeados)
+Status: Ready to execute
+Last activity: 2026-06-29 -- Phase 18 planning complete
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -45,6 +46,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 ## Performance Metrics
 
 **Velocity (histórico de milestones):**
+
 - M1 (v1.0): 7 fases / ~32 plans — shipped 2026-06-06. · M2 (v2.0): 11 fases / 63 plans — shipped 2026-06-26. · Phase 17 standalone: 5 plans — shipped 2026-06-28.
 - Ledger detalhado por plano arquivado em `milestones/v1.0-*`, `milestones/v2.0-*` e nos SUMMARY de cada fase.
 
