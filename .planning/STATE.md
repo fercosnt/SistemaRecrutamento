@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: executing
-stopped_at: Completed 18-06-PLAN.md (RESIL-03 <AsyncState> adopted on all 5 AI-backed screens — RESIL-03 done)
-last_updated: "2026-06-29T03:50:00.000Z"
+status: completed
+stopped_at: Phase 18 complete (5/5 must-haves; UAT deferred to P21); secured 25/25; advancing to Phase 19
+last_updated: "2026-06-29T17:47:34.926Z"
 last_activity: 2026-06-29
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
-  completed_plans: 6
-  percent: 0
+  completed_plans: 7
+  percent: 25
 ---
 
 # Project State
@@ -105,6 +105,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T03:50:00.000Z
-Stopped at: Completed 18-06-PLAN.md (RESIL-03 <AsyncState> adopted on all 5 AI-backed screens — RESIL-03 done; only 18-07 [BLOCKING] EF redeploy remains)
-Resume file: None
+Last session: 2026-06-29T17:47:34.913Z
+Stopped at: Phase 18 complete (5/5 must-haves; UAT deferred to P21); secured 25/25; advancing to Phase 19
+Resume file: .planning/phases/19-performance-bundle-cache
