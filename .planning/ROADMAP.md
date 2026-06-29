@@ -70,7 +70,10 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
   1. O bundle é servido em chunks separados (code-splitting route-level + vendor) — o first paint do candidato carrega só o chunk da rota inicial, não os 661 KiB monolíticos (PERF-03, fecha HARD-02).
   2. Uma mudança escrita relevante (candidato ou RH) aparece no perfil/dashboard do candidato em ≤60s — invalidação de cache alvo nas mutations relevantes (PERF-04, fecha PERF-01).
   3. As rotas do candidato e do RH continuam funcionando após o code-splitting (sem regressão de navegação; chunks resolvem em runtime).
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 19-01-PLAN.md — Wave 0: lazyNamed adapter + PageSkeleton fallback + chunk-assertion harness + 2 invalidation regression tests
+- [ ] 19-02-PLAN.md — PERF-03 code-split: manualChunks react-vendor + lazy /rh/* /admin/* (RoleGuard outside) + Suspense + dynamic-import jsPDF + E2E no-regression
+- [ ] 19-03-PLAN.md — PERF-04 cache: targeted decisaoKeys.consolidacao invalidation (2 gaps) + useCandidaturas refetchOnWindowFocus (≤60s)
 **UI hint**: yes
 
 ### Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)
@@ -108,7 +111,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
-| 19. Performance — Bundle & Cache | v3.0 | 0/TBD | Not started | - |
+| 19. Performance — Bundle & Cache | v3.0 | 0/3 | Planned | - |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
