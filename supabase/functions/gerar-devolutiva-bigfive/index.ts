@@ -110,7 +110,7 @@ export function bandOf(percentil: number): Banda {
 // verdade comportamental e o destino do graceful-degrade.
 // ---------------------------------------------------------------------------
 
-const BAND_TEMPLATES: Record<Dim, Record<Banda, string>> = {
+export const BAND_TEMPLATES: Record<Dim, Record<Banda, string>> = {
   O: {
     muito_baixo:
       "Pessoas com Abertura muito baixa tendem a valorizar tradição, métodos comprovados, e processos estabelecidos. Costumam ter preferência clara por rotinas previsíveis e tarefas concretas, com menor entusiasmo por mudanças constantes ou exploração de ideias abstratas. Em ambientes de trabalho, geralmente se destacam quando há protocolos claros e papéis bem definidos. Situações que exigem reinvenção frequente podem demandar mais energia — isso não é limitação, é onde sua estabilidade de preferências aparece.",
@@ -309,8 +309,11 @@ async function personalizeDim(
     vaga_id: attribution.vaga_id,
   };
 
-  // Até 2 tentativas (1 chamada + 1 retry). Se ambas saírem do range, degrada.
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // RESIL-02 (D-Área1): 1 tentativa por dim sob o fan-out paralelo (antes 2). As 5
+  // dims rodam concorrentes via Promise.allSettled no handler; uma única chamada por
+  // dim mantém o pior caso ≈ max(1 chamada) << janela de execução da EF (RESEARCH
+  // budget proof). Se a saída sair do range OU a chamada falhar, degrada ao template.
+  for (let attempt = 0; attempt < 1; attempt++) {
     const res = await callAi({ ...baseArgs, attempt });
     const texto = res?.parsed?.texto_interpretativo ?? "";
     const palavras =
@@ -384,27 +387,58 @@ export async function handler(
     : [];
   const byDim = new Map<Dim, DimMeta>(dimsMeta.map((d) => [d.dim, d]));
 
-  const paginas: PaginaOut[] = [];
-  const dashboard: { dim: Dim; percentil: number; banda: Banda }[] = [];
+  // RESIL-02: fan-out paralelo das 5 dims via Promise.allSettled (antes: 5 awaits
+  // sequenciais × até 2 tentativas = a causa documentada do timeout, achado #2). Cada
+  // dim faz 1 tentativa; personalizeDim já degrada internamente ao template e nunca
+  // lança. allSettled (NÃO Promise.all) garante que uma dim rejeitada não derruba as
+  // outras 4 — o mapeamento de volta é por ÍNDICE, então a ordem O-C-E-A-N de DIMS é
+  // preservada independentemente da ordem de resolução. O degrade inline cobre o caso
+  // (teórico) de rejeição de personalizeDim — defesa-em-profundidade T-18-02-T.
+  const settled = await Promise.allSettled(
+    DIMS.map((dim) => {
+      const meta = byDim.get(dim);
+      const percentil = typeof meta?.percentil === "number" ? meta.percentil : 50;
+      const banda = bandOf(percentil); // determinístico — fonte da verdade da banda
+      const rawTemplate = BAND_TEMPLATES[dim][banda];
+      return personalizeDim(dim, percentil, banda, rawTemplate, callAi, {
+        candidato_id: candidatoId,
+        vaga_id: vagaId,
+      });
+    }),
+  );
 
-  for (const dim of DIMS) {
+  const paginas: PaginaOut[] = settled.map((r, i) => {
+    const dim = DIMS[i];
     const meta = byDim.get(dim);
     const percentil = typeof meta?.percentil === "number" ? meta.percentil : 50;
-    const banda = bandOf(percentil); // determinístico — fonte da verdade da banda
+    const banda = bandOf(percentil);
+    if (r.status === "fulfilled") {
+      return {
+        dim,
+        banda,
+        percentil,
+        texto_interpretativo: r.value.texto,
+        palavras: r.value.palavras,
+      };
+    }
+    // Degrade defensivo: personalizeDim não deveria rejeitar, mas se rejeitar a dim
+    // cai no template determinístico — o candidato nunca perde uma página (RNF-07a:
+    // nada decisional é escrito; o template é a fonte da verdade comportamental).
     const rawTemplate = BAND_TEMPLATES[dim][banda];
-
-    const { texto, palavras } = await personalizeDim(
+    return {
       dim,
-      percentil,
       banda,
-      rawTemplate,
-      callAi,
-      { candidato_id: candidatoId, vaga_id: vagaId },
-    );
+      percentil,
+      texto_interpretativo: rawTemplate,
+      palavras: wordCount(rawTemplate),
+    };
+  });
 
-    paginas.push({ dim, banda, percentil, texto_interpretativo: texto, palavras });
-    dashboard.push({ dim, percentil, banda });
-  }
+  const dashboard: { dim: Dim; percentil: number; banda: Banda }[] = paginas.map((p) => ({
+    dim: p.dim,
+    percentil: p.percentil,
+    banda: p.banda,
+  }));
 
   // ── 4. Monta o conteudo_jsonb (dashboard + 5 páginas + disclaimers) ───────
   const conteudo = {

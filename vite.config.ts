@@ -31,6 +31,10 @@
         // Phase 11 EF integration test (Deno, https:// specifiers — run under `deno test`,
         // not Vitest; RED scaffold landed in 11-01, impl in the Phase-11 EF wave).
         'supabase/functions/avaliar-redacao/**/*.test.ts',
+        // Phase 18 / Plan 18-02 (RESIL-02): the bigfive devolutiva Deno test moved
+        // into __tests__/ (matching the _shared/__tests__/ convention). It uses
+        // https://deno.land + npm: specifiers → run under `deno test`, not Vitest.
+        'supabase/functions/gerar-devolutiva-bigfive/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
