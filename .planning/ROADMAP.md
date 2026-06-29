@@ -36,7 +36,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 
 **Milestone Goal:** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**. Invariante preservado: IA é recomendação, humano decide (RNF-07a); nenhuma escrita nova em `candidaturas` por trait/score/idade; write-paths privilegiados seguem authenticate-THEN-authorize.
 
-- [ ] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos
+- [x] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos (completed 2026-06-29)
 - [ ] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s
 - [ ] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize
 - [ ] **Phase 21: Production-Readiness — UATs Live** - HUMAN-UAT live deferidos do M2 fechados com dados/contas reais em PROD
@@ -60,7 +60,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 - [x] 18-04-PLAN.md — RESIL-03: shared <AsyncState> wrapper + contract test + refactor HubSection
 - [x] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
 - [x] 18-06-PLAN.md — RESIL-03: adotar <AsyncState> nas 5 telas de IA (candidato + RH) — RESIL-03 DONE
-- [ ] 18-07-PLAN.md — [BLOCKING] redeploy de todas as EFs de IA em PROD (gate humano)
+- [x] 18-07-PLAN.md — [BLOCKING] redeploy de todas as EFs de IA em PROD (gate humano)
 
 ### Phase 19: Performance — Bundle & Cache
 **Goal**: O candidato mobile-first deixa de pagar o bundle monolítico de 661 KiB no first paint, e qualquer mudança escrita por candidato ou RH aparece no perfil/dashboard do candidato em ≤60s.
@@ -107,7 +107,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 1–5 (M1) | v1.0 | 40/40 | Complete | 2026-06-06 |
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
-| 18. Resiliência EFs & Bugs Funil | v3.0 | 6/7 | In Progress|  |
+| 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
 | 19. Performance — Bundle & Cache | v3.0 | 0/TBD | Not started | - |
 | 20. Refino RH — Editar Guia | v3.0 | 0/TBD | Not started | - |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
