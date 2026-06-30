@@ -101,3 +101,7 @@ None.
 - `supabase/functions/gerar-guia-entrevista/index.ts` — present (modified; contains `onConflict: "candidatura_id,tipo"` upsert).
 - `.planning/phases/20-refino-rh-editar-guia-de-entrevista-seed-001/20-04-SUMMARY.md` — present (this file).
 - Commit `099ade9` — present in git log (`feat(20-04): merge-preserve upsert in gerar-guia-entrevista`).
+
+## Redeploy (orchestrator gate, 2026-06-30)
+
+gerar-guia-entrevista redeployed to PROD via `supabase functions deploy` (CLI, user-run): **v2 → v3**, verify_jwt:true preserved, new bundle hash, ACTIVE. ENTREV-08 merge-preserve is now LIVE. Live regen round-trip verification deferred to Phase 21.
