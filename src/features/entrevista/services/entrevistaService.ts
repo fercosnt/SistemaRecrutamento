@@ -257,10 +257,22 @@ export async function getVagaIdForCandidatura(candidaturaId: string): Promise<st
   return (data as { vaga_id: string | null } | null)?.vaga_id ?? null
 }
 
-/** One STAR/PEI guide question as the EF persists it (InterviewGuideSchema, English keys). */
+/**
+ * One STAR/PEI guide question as it can appear inside the persisted `questions[]`
+ * array. The EF emits English keys (`question`/`competency`); but a PRESERVED manual
+ * row carries the pt-BR keys (`pergunta`/`dimensao`) — it was written by the RPC
+ * (`saveGuiaEdits` → `{ perguntas: [{ pergunta, dimensao, origem:'manual' }] }`) and
+ * then concatenated verbatim into the English-keyed `questions[]` by the EF merge
+ * (`mergedQuestions = [...manualQs, ...freshIaQs]`). normalizeGuia therefore tolerates
+ * BOTH key shapes per element so a manual row never normalizes to an empty `pergunta`
+ * (CR-01) and never loses its `dimensao` (WR-02).
+ */
 interface EfGuiaQuestion {
   question?: string
   competency?: string
+  /** pt-BR shape — present on a preserved manual row living under `questions[]` (CR-01/WR-02). */
+  pergunta?: string
+  dimensao?: string | null
   bars_anchors?: unknown
   /** Provenance, when present (the EF stamps `'ia'`; RH edits stamp `'manual'`). */
   origem?: string
@@ -282,6 +294,15 @@ interface EfGuiaQuestion {
  * `competency`, which `weakDimsFromScores` + the coverage check read). Non-lossy: the
  * original EF keys are preserved via spread. An incompleto guia (no `questions`) and a
  * guia already in pt-BR (`perguntas` present) pass through untouched.
+ *
+ * CR-01/WR-01/WR-02 (key-shape collision): after an EF regen the `questions[]` array is
+ * HETEROGENEOUS — fresh IA rows carry English keys (`question`/`competency`), but a
+ * PRESERVED manual row carries the pt-BR keys (`pergunta`/`dimensao`) because the RPC
+ * wrote it that way and the EF merge concatenated it verbatim. Deriving `pergunta`
+ * SOLELY from `q.question` blanked the manual row's text (it has none) — data loss to
+ * the RH. The fix reads BOTH shapes per element: `pergunta = q.pergunta ?? q.question`
+ * and `dimensao = q.dimensao ?? q.competency`, so a manual row in either shape renders
+ * its real text/dimension regardless of which writer last touched it.
  */
 export function normalizeGuia(guia: EntrevistaGuiaRow['guia']): EntrevistaGuiaRow['guia'] {
   if (!guia || typeof guia !== 'object') return guia
@@ -291,8 +312,22 @@ export function normalizeGuia(guia: EntrevistaGuiaRow['guia']): EntrevistaGuiaRo
   if (!Array.isArray(questions)) return guia
   const perguntas: GuiaPergunta[] = questions.map((q) => ({
     ...q,
-    pergunta: typeof q.question === 'string' ? q.question : '',
-    dimensao: typeof q.competency === 'string' ? q.competency : null,
+    // CR-01: a preserved manual row carries `pergunta` (no `question`); fall back to it
+    // so its text survives a regen-merge instead of normalizing to '' (silent data loss).
+    pergunta:
+      typeof q.pergunta === 'string'
+        ? q.pergunta
+        : typeof q.question === 'string'
+          ? q.question
+          : '',
+    // WR-02: likewise carry the manual row's `dimensao` when the English `competency`
+    // is absent, so a preserved manual row keeps its dimension through the round-trip.
+    dimensao:
+      typeof q.dimensao === 'string'
+        ? q.dimensao
+        : typeof q.competency === 'string'
+          ? q.competency
+          : null,
     // ENTREV-08: the read layer is origem-aware. Provenance survives the read; a
     // missing/legacy/garbled value defaults to 'ia' (legacy guides are wholly
     // AI-generated — no data backfill, A2). Only an explicit 'manual' is preserved.

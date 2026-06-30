@@ -144,3 +144,58 @@ describe('ENTREV-08 — normalizeGuia is origem-aware (provenance survives the r
     expect(perguntas[1].origem).toBe('ia')
   })
 })
+
+describe('CR-01 — normalizeGuia survives a regen-merge with a manual pt-BR row under questions[]', () => {
+  /**
+   * The post-regen persisted shape: the EF merge writes `mergedQuestions = [...manualQs,
+   * ...freshIaQs]` under the English `questions` key. A manual row written by the RPC
+   * carries the pt-BR keys (`pergunta`/`dimensao`, NO `question`/`competency`); an IA row
+   * carries English keys. So `questions[]` is HETEROGENEOUS. normalizeGuia must read both
+   * shapes per element — the manual row's text must NOT normalize to '' (CR-01 data loss).
+   */
+  function mergedGuiaAfterRegen() {
+    return {
+      job_title: 'TESTE Dentista — Funil E2E',
+      format: 'online',
+      questions: [
+        // Preserved MANUAL row — pt-BR keys only (as the RPC wrote it, then EF merge
+        // concatenated it verbatim into the English-keyed questions[]).
+        {
+          pergunta: 'Como você lida com um paciente irritado na recepção?',
+          dimensao: 'Resiliência',
+          origem: 'manual',
+        },
+        // Fresh IA row — English keys (as the EF emits).
+        {
+          type: 'star',
+          question: 'Descreva uma situação de triagem clínica sob pressão.',
+          competency: 'Triagem clínica',
+          origem: 'ia',
+        },
+      ],
+    }
+  }
+
+  it('keeps the manual row pergunta text non-empty (no silent blanking on regen)', () => {
+    const normalized = normalizeGuia(mergedGuiaAfterRegen() as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas).toHaveLength(2)
+    expect(perguntas[0].pergunta).toBe('Como você lida com um paciente irritado na recepção?')
+    expect(perguntas[0].pergunta).not.toBe('')
+  })
+
+  it('carries the manual row origem="manual" and its dimensao through the merge (WR-02)', () => {
+    const normalized = normalizeGuia(mergedGuiaAfterRegen() as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas[0].origem).toBe('manual')
+    expect(perguntas[0].dimensao).toBe('Resiliência')
+  })
+
+  it('still maps the fresh IA row English keys → pt-BR (question→pergunta, competency→dimensao)', () => {
+    const normalized = normalizeGuia(mergedGuiaAfterRegen() as never)
+    const perguntas = (normalized as { perguntas: Array<Record<string, unknown>> }).perguntas
+    expect(perguntas[1].pergunta).toBe('Descreva uma situação de triagem clínica sob pressão.')
+    expect(perguntas[1].dimensao).toBe('Triagem clínica')
+    expect(perguntas[1].origem).toBe('ia')
+  })
+})
