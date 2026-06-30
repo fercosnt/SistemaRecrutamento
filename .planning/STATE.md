@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: executing
-stopped_at: Completed 20-05-PLAN.md (edit-mode GuiaEntrevistaPanel UI; 13 RTL tests; tsc 257; vitest 688/688; build green — Phase 20 plans 5/5 done)
-last_updated: "2026-06-30T01:22:30.000Z"
+status: verifying
+stopped_at: Phase 20 complete (8/9 must-haves; UAT deferred P21); secured 19/19; UI 21/24; advancing to Phase 21
+last_updated: "2026-06-30T15:03:45.014Z"
 last_activity: 2026-06-30
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 15
   completed_plans: 15
-  percent: 100
+  percent: 75
 ---
 
 # Project State
@@ -105,8 +105,7 @@ SEED-001 (`ENTREV-GUIA-EDIT-01`) absorvido como ENTREV-06/07/08 → Phase 20. De
 
 ### Blockers/Concerns
 
-- None. Phase 19 ✅ complete — PERF-03 (code-split, 19-02) + PERF-04 (cache invalidation + freshness, 19-03) shipped; vitest 661/661, tsc 258 baseline. Cross-client ≤60s live freshness check deferred to Phase 21 UAT. Next = /gsd-verify-work Phase 19, then Phase 20 (Refino RH — Editar Guia).
-
+- None. Phases 18, 19, 20 ✅ complete (shipped + secured). M3 is 3/4 phases. NEXT = Phase 21 (Production-Readiness — live PROD UATs PROD-01/02 + deferred live UATs from Phases 11/16/18/19/20). Phase 21 is human/interactive (real RH+candidate accounts, live PROD) — best run in a fresh context window.
 ## Deferred Items
 
 Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PERF-04; o resto fica para M4.
@@ -119,6 +118,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-30T01:22:30.000Z
-Stopped at: Completed 20-05-PLAN.md (edit-mode GuiaEntrevistaPanel UI; 13 RTL tests; tsc 257; vitest 688/688; build green — Phase 20 plans 5/5 done)
-Resume file: None
+Last session: 2026-06-30T15:03:44.971Z
+Stopped at: Phase 20 complete (8/9 must-haves; UAT deferred P21); secured 19/19; UI 21/24; advancing to Phase 21
+Resume file: .planning/phases/21
