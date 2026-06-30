@@ -36,8 +36,8 @@ Requirements deste milestone. Cada um mapeia para exatamente uma fase do roadmap
 
 ### Production-Readiness
 
-- [ ] **PROD-01**: UAT live da Phase 11 (Work-Sample/SJT open-case + redação — scoring round-trip com candidato real) fechado em PROD.
-- [ ] **PROD-02**: HUMAN-UAT live deferidos da Phase 16 fechados (cold-start login RH, Tier-B R5/C5 axe sweep, keyboard roving-focus, Big Five aria-live) — ou explicitamente re-deferidos com justificativa registrada.
+- [x] **PROD-01**: UAT live da Phase 11 (Work-Sample/SJT open-case + redação — scoring round-trip com candidato real) fechado em PROD.
+- [x] **PROD-02**: HUMAN-UAT live deferidos da Phase 16 fechados (cold-start login RH, Tier-B R5/C5 axe sweep, keyboard roving-focus, Big Five aria-live) — ou explicitamente re-deferidos com justificativa registrada.
 
 ## Future Requirements
 
@@ -84,8 +84,8 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 | ENTREV-06 | Phase 20 | Complete |
 | ENTREV-07 | Phase 20 | Complete |
 | ENTREV-08 | Phase 20 | Complete |
-| PROD-01 | Phase 21 | Pending |
-| PROD-02 | Phase 21 | Pending |
+| PROD-01 | Phase 21 | Complete |
+| PROD-02 | Phase 21 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
