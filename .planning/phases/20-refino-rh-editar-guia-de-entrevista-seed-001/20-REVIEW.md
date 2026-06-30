@@ -135,3 +135,7 @@ if (upsertErr) return errorResponse("SERVER_ERROR", "Falha ao persistir a guia."
 _Reviewed: 2026-06-30_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+## Redeploy #2 (WR-04, 2026-06-30)
+
+gerar-guia-entrevista redeployed v3 -> v4 (CLI, user-run) shipping the WR-04 upsert-error fix (failed persist now returns structured 500, no fabricated {ok:true}). ACTIVE.
