@@ -1,5 +1,28 @@
 # Milestones
 
+## v3.0 M3 — Refinamento RH & Hardening (Shipped: 2026-06-30)
+
+**Phases completed:** 4 phases, 16 plans, 32 tasks
+
+**Key accomplishments:**
+
+- Per-call wall-clock timeout (25s default, env-configurable) + `maxRetries:0` added to both the Anthropic `messages.parse()` and OpenAI fallback `parse()` calls in the shared `callAi()` orchestrator — closing the live 38–102s hang (achado #1) without rebuilding the existing retry/backoff/circuit-breaker/fallback machinery.
+- gerar-devolutiva-bigfive now fans out its 5 OCEAN dims via Promise.allSettled at 1 attempt/dim with per-dim deterministic degrade and preserved O-C-E-A-N order — killing the 5×2 sequential AI-call timeout (achado #2) while keeping RNF-07a (degrade writes only templates, never a decision).
+- Exported `normalizeSjtComposite` (body byte-unchanged) + 2 Deno cases locking the SJT-composite aggregation, and a multi-table mocked-supabase Vitest locking the avaliação perguntas `status='active'` sentinel — the two live PROD bugs (350e994, 686c460) now have the regression coverage that would have caught each.
+- Extracted ONE shared `<AsyncState>` presentational wrapper that renders the binding 5-state contract (loading → slow@8s → error → empty → success) with single-sourced verbatim PT-BR copy, an `AI_UNAVAILABLE`-driven sobrecarga/generic error split, and the standardized "Tentar novamente" retry — then refactored `HubSection` to delegate to it with zero behavior drift.
+- 1. [Scope clarification] bigfiveService has no client-side `gerar-devolutiva-bigfive` invoke.
+- Wired the shared `<AsyncState>` (18-04) + the `error_code` service plumbing (18-05) onto the five AI-backed screens — Consolidação, Comparativo, BigFive, SJT caso aberto, Redação — so candidate and RH always see loading / slow / error / retry (never a blank screen), with `AI_UNAVAILABLE` rendering the sobrecarga copy, generic errors the generic copy, and `MIXED_VAGA` preserved.
+- Plan:
+- 1. [Rule 3 - Blocking] Relaxed the `lazyNamed` generic so a mixed-export module type-checks
+- Gap A — `useEntrevistaScorecard` (Task 1):
+- 1. [Rule 3 - Blocking] Migration grep gate tripped on an explanatory comment
+- Plan:
+- One-liner:
+- One-liner:
+- One-liner:
+
+---
+
 ## v1.0 M1 — MVP Candidato (Shipped: 2026-06-06)
 
 **Phases completed:** 7 phases (1, 2, 3, 4, 4.1, 4.2, 5), 43 plans, 95 tasks

@@ -43,6 +43,37 @@
 
 ---
 
+## Milestone: v3.0 — M3 Refinamento RH & Hardening
+
+**Shipped:** 2026-06-30
+**Phases:** 4 (18–21) | **Plans:** 16
+
+### What Was Built
+EF resilience (per-call AI timeout + retry/backoff, devolutiva 5-dim parallel, `<AsyncState>` 5-state contract on 5 AI screens) + 2 funnel bug regressions (P18); route+vendor code-splitting (eager index 2.7MB→904KB) + targeted cache invalidation ≤60s (P19); secure RH guide-edit write-path (authenticate-THEN-authorize RPC + merge-preserve anti-silent-discard) (P20); live PROD UAT closure for the M2/M3 deferred HUMAN-UATs (P21).
+
+### What Worked
+- **Live UAT execution surfaced real defects no test had caught.** Driving the actual EFs in PROD (curl + Supabase MCP) found 3 genuine prod-breakers: the Big Five devolutiva never persisted (FK auth-uid vs candidatos.id), guide generation 500'd on every call (RESIL-01's 25s timeout was too tight), and autosave was silent to screen readers. All three pass unit tests / look fine in code review — only a live round-trip exposed them.
+- **RESIL-02 fixing the devolutiva timeout *unmasked* the latent persist bug** — a reminder that one fix can reveal the next defect behind it.
+- Deterministic-first validation (Playwright nav E2E, Supabase SQL/logs, prod build chunk-assert) closed the verifiable half cheaply; the visual residue went to a human runbook.
+
+### What Was Inefficient
+- The Tier-B a11y Playwright test claims a "real-login axe sweep" but has no login wiring → it never exercised the populated screens. Test-claim drift that a live UAT caught.
+- The unit-test mock for `gerar-devolutiva-bigfive` collapsed `candidatos.id` and the auth uid into one value — exactly why the FK bug survived to prod (the mock didn't model the two id-spaces). The shared-contract-test lesson (`feedback_integration_contract_gap`) recurred.
+
+### Patterns Established
+- **Per-call AI timeout override** on the shared `callAi` (backward-compatible; only the heavy EF opts in) — the right shape for "one EF needs more time" without weakening global fast-fail.
+- **Persistent aria-live region** for autosave affordances (stable wrapper, content swaps inside) — the reliable announce pattern.
+
+### Key Lessons
+- Live PROD UATs are not a formality — for an AI funnel they are the only thing that catches FK/timeout/RLS-id-space bugs that unit tests + code review pass clean.
+- Model id-space indirections (candidatos.id vs auth.uid) explicitly in mocks, or the FK that enforces them in prod will be the test.
+
+### Cost Observations
+- Single autonomous session (Opus 4.8, 1M context) drove discuss→plan→execute→audit→complete. 3 EFs redeployed, 6 commits.
+- Gates at close: vitest 692/692 · tsc 257 · build 0 · Deno EF 19/19.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution

@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
-status: milestone_complete_pending_lifecycle
-stopped_at: Phase 21 complete (PROD-01/02 closed; 3 PROD defects found+fixed live); all 4 M3 phases done → milestone lifecycle next
-last_updated: "2026-06-30T17:30:00.000Z"
-last_activity: 2026-06-30
+status: Awaiting next milestone
+stopped_at: Phase 20 complete (8/9 must-haves; UAT deferred P21); secured 19/19; UI 21/24; advancing to Phase 21
+last_updated: "2026-06-30T20:53:58.885Z"
+last_activity: 2026-06-30 — Milestone v3.0 completed and archived
 progress:
   total_phases: 4
   completed_phases: 4
@@ -21,16 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricao — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 20 — Refino RH — Editar Guia de Entrevista (SEED-001)
+**Current focus:** v3.0 (M3) SHIPPED 2026-06-30. Awaiting M4 (`/gsd-new-milestone`). Phase 21 found+fixed 3 live PROD defects (devolutiva FK, gerar-guia timeout, autosave aria-live).
 
 ## Current Position
 
-Phase: 21 (Production-Readiness — UATs Live) — COMPLETE (all 4 M3 phases done)
-Plan: 1 of 1 (complete)
-Status: Phase 21 ✅ — deferred live HUMAN-UATs of M2 (P11/P16) + M3 (P18/P19/P20) executed/closed against PROD (app :3003 → PROD Supabase) via Playwright + Supabase MCP + curl with real accounts. PROD-01 ✅ (P11 scoring round-trip reconciled + reconfirmed), PROD-02 ✅ (P16: login PASS, Tier-A axe green, #4 aria-live FIXED; literal SR/overload re-deferred justified). **3 PROD defects found+fixed live: F1 devolutiva-bigfive persist (FK auth.uid vs candidatos.id, 6501f70), F2 gerar-guia 25s-timeout regression (per-call timeoutMs override, 0e85ee6), F3 autosave aria-live missing (ce2d683).** EFs gerar-devolutiva-bigfive + gerar-guia-entrevista redeployed. Gates: vitest 692/692, tsc 257, build ✓, Deno EF 19/19. Visual residue → 21-RUNBOOK.md (Fernando). NEXT = milestone lifecycle (audit → complete → cleanup).
-Last activity: 2026-06-30
-
-Progress: [██████████] 100%
+Phase: Milestone v3.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-06-30 — Milestone v3.0 completed and archived
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -108,6 +106,7 @@ SEED-001 (`ENTREV-GUIA-EDIT-01`) absorvido como ENTREV-06/07/08 → Phase 20. De
 - None. **Phases 18, 19, 20, 21 ✅ complete — M3 is 4/4 phases.** NEXT = milestone lifecycle: `/gsd-audit-milestone` → `/gsd-complete-milestone v3.0` → `/gsd-cleanup`.
 - Phase 21 left coherent test data on the `[TESTE] Dentista — Funil E2E` candidatura (a1dd4c42): guia online (1 manual + 5 IA), devolutiva 379ae45b, recomputed consolidado. Intentional (useful as the 21-RUNBOOK starting state); not real-user data.
 - Visual UAT residue (AsyncState UX, cross-client ≤60s, sighted keyboard, literal screen-reader, populated Tier-B axe) documented in `.planning/phases/21-.../21-RUNBOOK.md` for Fernando — advisory, non-blocking (human-eye/AT confirmations).
+
 ## Deferred Items
 
 Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PERF-04; o resto fica para M4.
@@ -123,3 +122,7 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 Last session: 2026-06-30T15:03:44.971Z
 Stopped at: Phase 20 complete (8/9 must-haves; UAT deferred P21); secured 19/19; UI 21/24; advancing to Phase 21
 Resume file: .planning/phases/21
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

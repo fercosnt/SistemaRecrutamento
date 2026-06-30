@@ -5,7 +5,7 @@
 - ✅ **v1.0 — M1 MVP Candidato** — Phases 1–5 (shipped 2026-06-06)
 - ✅ **v2.0 — M2 Funil RH + Avaliação por IA** — Phases 6–16 (shipped 2026-06-26)
 - 🔧 **Standalone (pós-v2.0)** — Phase 17 (Navegação & Arquitetura de Informação) — mini-fase fora de milestone (shipped 2026-06-28)
-- 🚧 **v3.0 — M3 Refinamento RH & Hardening** — Phases 18–21 (in progress)
+- ✅ **v3.0 — M3 Refinamento RH & Hardening** — Phases 18–21 (shipped 2026-06-30)
 
 ## Phases
 
@@ -32,78 +32,14 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 
 </details>
 
-### 🚧 v3.0 — M3 Refinamento RH & Hardening (In Progress)
+<details>
+<summary>✅ v3.0 — M3 Refinamento RH & Hardening (Phases 18–21) — SHIPPED 2026-06-30</summary>
 
-**Milestone Goal:** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**. Invariante preservado: IA é recomendação, humano decide (RNF-07a); nenhuma escrita nova em `candidaturas` por trait/score/idade; write-paths privilegiados seguem authenticate-THEN-authorize.
+Full detail archived in `milestones/v3.0-ROADMAP.md`. Requirements: `milestones/v3.0-REQUIREMENTS.md`. Audit: `milestones/v3.0-MILESTONE-AUDIT.md` (12/12 reqs, integration OK, status tech_debt — known/tracked items to M4).
 
-- [x] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos (completed 2026-06-29)
-- [x] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s (completed 2026-06-29)
-- [x] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize (completed 2026-06-30)
-- [x] **Phase 21: Production-Readiness — UATs Live** - HUMAN-UAT live deferidos do M2/M3 fechados em PROD; 3 defeitos PROD achados+corrigidos (devolutiva FK, gerar-guia timeout, autosave aria-live) (completed 2026-06-30)
+Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliência das Edge Functions (RESIL-01 per-call timeout+backoff, RESIL-02 devolutiva 5-dim paralela, RESIL-03 `<AsyncState>` nas 5 telas de IA) + 2 bugs de funil (FIX-01/02) (P18); code-splitting route+vendor e invalidação de cache ≤60s (PERF-03/04) (P19); RH edita/adiciona/remove/reordena o guia de entrevista por write-path seguro authenticate-THEN-authorize + merge-preserve anti-silent-discard (ENTREV-06/07/08) (P20); e fechamento dos HUMAN-UAT live deferidos do M2/M3 em PROD (PROD-01/02) (P21). **A Phase 21 achou + corrigiu 3 defeitos live em PROD: devolutiva-bigfive nunca persistia (FK auth uid vs candidatos.id), gerar-guia-entrevista 500 em toda geração (timeout 25s RESIL-01 curto demais → override per-call), e autosave sem região aria-live (P16 #4).** Invariante preservada: IA recomenda, humano decide (RNF-07a); write-paths privilegiados authenticate-THEN-authorize.
 
-## Phase Details
-
-### Phase 18: Resiliência das EFs de IA & Bugs do Funil
-**Goal**: As Edge Functions de IA do funil resistem a latência alta e overload transiente da Anthropic sem falha dura, candidato e RH veem estado claro durante chamadas lentas/falhas, e os 4 achados do E2E live em PROD (candidatura `a1dd4c42`) deixam de travar o funil.
-**Depends on**: Nothing (first phase of M3; builds on shipped M2 EFs)
-**Requirements**: RESIL-01, RESIL-02, RESIL-03, FIX-01, FIX-02
-**Success Criteria** (what must be TRUE):
-  1. Uma EF de IA que recebe 429/529/overload da Anthropic não falha na 1ª tentativa — ela retenta com backoff exponencial dentro de um timeout configurável e só falha depois de esgotar as tentativas (RESIL-01).
-  2. `gerar-devolutiva-bigfive` completa dentro do limite de execução sem estourar timeout, mesmo com o conjunto de chamadas de IA que hoje a derruba (RESIL-02).
-  3. Quando uma EF de IA demora ou falha, a tela do candidato e a do RH mostram loading, erro legível e retry visível — nenhuma tela trava em branco (RESIL-03).
-  4. `consolidar-decisao-final` produz um consolidado correto quando `work_sample_sjt='na'` e há caso aberto pendente — não trava nem zera o consolidado (FIX-01).
-  5. A tela de avaliação do RH carrega as perguntas independentemente do mismatch `status='active'` vs filtro `'ativo'` — status e filtro alinhados na fonte (FIX-02).
-**Plans**: 7 plans
-- [x] 18-01-PLAN.md — RESIL-01: callAi per-call timeout + maxRetries:0 + env-config (hardening do helper compartilhado)
-- [x] 18-02-PLAN.md — RESIL-02: paralelizar gerar-devolutiva-bigfive (5 dims, allSettled, 1 attempt, degrade)
-- [x] 18-03-PLAN.md — FIX-01/FIX-02: travar bugs já corrigidos com testes de regressão (normalizeSjtComposite + status='active')
-- [x] 18-04-PLAN.md — RESIL-03: shared <AsyncState> wrapper + contract test + refactor HubSection
-- [x] 18-05-PLAN.md — RESIL-03: extractEfErrorCode helper + wire error_code nos services de IA
-- [x] 18-06-PLAN.md — RESIL-03: adotar <AsyncState> nas 5 telas de IA (candidato + RH) — RESIL-03 DONE
-- [x] 18-07-PLAN.md — [BLOCKING] redeploy de todas as EFs de IA em PROD (gate humano)
-
-### Phase 19: Performance — Bundle & Cache
-**Goal**: O candidato mobile-first deixa de pagar o bundle monolítico de 661 KiB no first paint, e qualquer mudança escrita por candidato ou RH aparece no perfil/dashboard do candidato em ≤60s.
-**Depends on**: Nothing (independent of Phase 18; can run after it for stability)
-**Requirements**: PERF-03, PERF-04
-**Success Criteria** (what must be TRUE):
-  1. O bundle é servido em chunks separados (code-splitting route-level + vendor) — o first paint do candidato carrega só o chunk da rota inicial, não os 661 KiB monolíticos (PERF-03, fecha HARD-02).
-  2. Uma mudança escrita relevante (candidato ou RH) aparece no perfil/dashboard do candidato em ≤60s — invalidação de cache alvo nas mutations relevantes (PERF-04, fecha PERF-01).
-  3. As rotas do candidato e do RH continuam funcionando após o code-splitting (sem regressão de navegação; chunks resolvem em runtime).
-**Plans**: 3 plans
-- [x] 19-01-PLAN.md — Wave 0: lazyNamed adapter + PageSkeleton fallback + chunk-assertion harness + 2 invalidation regression tests
-- [x] 19-02-PLAN.md — PERF-03 code-split: manualChunks react-vendor + lazy /rh/* /admin/* (RoleGuard outside) + Suspense + dynamic-import jsPDF + E2E no-regression
-- [x] 19-03-PLAN.md — PERF-04 cache: targeted decisaoKeys.consolidacao invalidation (2 gaps) + useCandidaturas refetchOnWindowFocus (≤60s)
-**UI hint**: yes
-
-### Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)
-**Goal**: O RH consegue editar, adicionar, remover e reordenar perguntas no guia de entrevista, com as edições persistidas por um write-path seguro authenticate-THEN-authorize, marcação de origem por pergunta para auditoria, e sem que a regeneração por IA descarte edições manuais silenciosamente.
-**Depends on**: Phase 18 (guia de entrevista é uma das superfícies de IA endurecidas)
-**Requirements**: ENTREV-06, ENTREV-07, ENTREV-08
-**Success Criteria** (what must be TRUE):
-  1. RH edita o texto e a dimensão de uma pergunta existente no guia (online/presencial) e a mudança persiste (ENTREV-06).
-  2. RH adiciona uma pergunta manual (texto + dimensão), remove uma pergunta e reordena as perguntas do guia (ENTREV-07).
-  3. A persistência passa por RPC/EF authenticate-THEN-authorize: role RH derivado de `usuarios_rh` + posse via `candidatura → vaga.created_by`, `administrador` bypassa; um RH sem posse e um candidato recebem negação — **não** existe policy RH UPDATE ampla em `entrevista_guias` (ENTREV-08).
-  4. Cada pergunta fica marcada `origem: 'ia' | 'manual'`, e regenerar o guia por IA **não** descarta as perguntas manuais silenciosamente (ENTREV-08).
-  5. O guia continua sem escrever em `candidaturas` — RNF-07a preservada em todo o write-path (ENTREV-08).
-**Plans**: 5 plans
-- [x] 20-01-PLAN.md — Author migration (dedup→UNIQUE→updated_at→save_entrevista_guia_edits RPC role-from-usuarios_rh) + SQL smoke + Deno merge-preserve scaffold (RED)
-- [x] 20-02-PLAN.md — [BLOCKING] Apply migration via Supabase MCP + run authz SQL smokes + regen database.types.ts
-- [x] 20-03-PLAN.md — Service saveGuiaEdits + origem-aware normalizeGuia + updated_at allowlist + useGuiaEntrevista.saveEdits mutation + vitest
-- [x] 20-04-PLAN.md — [BLOCKING] EF gerar-guia-entrevista merge-preserve (INSERT→upsert, keep origem:'manual', failed-regen guard, origem:'ia' stamp) + Deno test green + redeploy
-- [x] 20-05-PLAN.md — Edit-mode UI: EditablePerguntaRow (inline edit, up/down, delete-confirm, add-manual), IA/Manual badges, batch Salvar edições + AsyncState states + workspace wiring + RTL test
-**UI hint**: yes
-
-### Phase 21: Production-Readiness — UATs Live
-**Goal**: Os HUMAN-UAT live deferidos do M2 — que precisam de dados e contas reais em PROD — são executados e fechados, validando em produção o hardening feito nas fases anteriores deste milestone.
-**Depends on**: Phase 18, Phase 19, Phase 20 (valida em PROD o que foi endurecido/refinado)
-**Requirements**: PROD-01, PROD-02
-**Success Criteria** (what must be TRUE):
-  1. O UAT live da Phase 11 (Work-Sample/SJT open-case + redação — scoring round-trip com candidato real) é executado em PROD e marcado PASS (PROD-01).
-  2. Os HUMAN-UAT live deferidos da Phase 16 (cold-start login RH, Tier-B R5/C5 axe sweep, keyboard roving-focus, Big Five aria-live) são fechados em PROD — ou explicitamente re-deferidos com justificativa registrada (PROD-02).
-  3. Cada resultado de UAT (PASS / re-deferido) fica registrado com evidência (dados/contas reais usados, achados) no artefato de UAT da fase.
-**Plans**: TBD
-**UI hint**: yes
+</details>
 
 ## Progress
 
@@ -124,4 +60,4 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 
 *v1.0 milestone shipped 2026-06-06 — full requirements and roadmap detail archived under `.planning/milestones/v1.0-*`.*
 *v2.0 milestone shipped 2026-06-26 — full requirements and roadmap detail archived under `.planning/milestones/v2.0-*`. 11 phases (6–16), 42/42 requirements, audit PASSED.*
-*v3.0 milestone roadmap created 2026-06-29 — 4 phases (18–21), 12/12 requirements mapped. Hardening/consolidação, não expansão. Phase numbering continues from M2 (Phase 17 was standalone post-M2).*
+*v3.0 milestone shipped 2026-06-30 — full requirements and roadmap detail archived under `.planning/milestones/v3.0-*`. 4 phases (18–21), 12/12 requirements, audit OK (tech_debt accepted). Phase 21 found+fixed 3 live PROD defects beyond the planned UAT scope.*
