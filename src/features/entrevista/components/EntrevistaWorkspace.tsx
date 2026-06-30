@@ -17,7 +17,7 @@
  * @see src/features/triagem/components/RedacaoReviewPanel.tsx (RHLayout tabs host + :id→vaga)
  * @see .planning/phases/14-entrevistas-com-ia-companion-etapas-4-5/14-UI-SPEC.md (§Component Inventory)
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RHLayout } from '@/components/RHLayout'
@@ -37,6 +37,7 @@ import {
 } from '../hooks/useEntrevistaScorecard'
 import {
   registrarRejeicaoCognitiva,
+  EntrevistaServiceError,
   type BandaCognitiva,
   type EntrevistaScoreRow,
 } from '../services/entrevistaService'
@@ -71,6 +72,7 @@ export function EntrevistaWorkspace() {
     data: guia,
     isLoading: loadingGuia,
     gerarGuia,
+    saveEdits,
   } = useGuiaEntrevista(candidaturaId, vagaId)
 
   const {
@@ -87,6 +89,13 @@ export function EntrevistaWorkspace() {
   } = useEntrevistaScorecard(candidaturaId, { vagaId })
 
   const banda = useMemo(() => bandaFromScores(scores), [scores])
+
+  // ENTREV-06/07: fire the success toast once the guide edit-save resolves. The
+  // hook already invalidates the guide key, so the panel re-renders with the saved
+  // guide (origem preserved) — this only surfaces the confirmation toast.
+  useEffect(() => {
+    if (saveEdits.isSuccess) toast.success('Edições do guia salvas.')
+  }, [saveEdits.isSuccess])
 
   function handleSalvarAvaliacao(payload: { scoresHumanos: Record<string, number>; notas: string }) {
     salvarAvaliacao.mutate(payload, {
@@ -159,6 +168,12 @@ export function EntrevistaWorkspace() {
                 loading={loadingGuia}
                 generating={gerarGuia.isPending}
                 onGerar={(tipo) => gerarGuia.mutate(tipo)}
+                onSaveEdits={(vars) => saveEdits.mutate(vars)}
+                saving={saveEdits.isPending}
+                saveError={!!saveEdits.error}
+                saveErrorCode={
+                  (saveEdits.error as EntrevistaServiceError | undefined)?.code
+                }
               />
             </Glass>
           </TabsContent>
