@@ -342,7 +342,12 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     }));
     const mergedQuestions = [...manualQs, ...freshIaQs];
 
-    await supabaseAdmin.from("entrevista_guias").upsert(
+    // WR-04: CHECK the upsert error. A swallowed write error is an anti-silent-discard
+    // hole at the persistence layer — the regen would appear to succeed (ok:true) while
+    // the new guide was never persisted, and the client reads back the STALE guide. The
+    // merge-preserve logic above is moot if the write silently fails. Surface a
+    // structured non-200 so the client treats it as a failure (NEVER a fabricated ok).
+    const { error: upsertErr } = await supabaseAdmin.from("entrevista_guias").upsert(
       {
         candidatura_id: body.candidatura_id,
         tipo: body.tipo,
@@ -354,6 +359,15 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
       },
       { onConflict: "candidatura_id,tipo" },
     );
+    if (upsertErr) {
+      // Redacted log (LGPD-02) — only ids + the error message, never the guide content.
+      console.error("[gerar-guia-entrevista] falha ao persistir a guia", {
+        candidatura_id: body.candidatura_id,
+        tipo: body.tipo,
+        error: (upsertErr as { message?: string }).message ?? String(upsertErr),
+      });
+      return errorResponse("SERVER_ERROR", "Falha ao persistir a guia de entrevista.", 500);
+    }
 
     // Log redigido (LGPD-02 / Pitfall 7) — só ids/counts/status; NUNCA o conteúdo/nome.
     console.log("[gerar-guia-entrevista] ok", {

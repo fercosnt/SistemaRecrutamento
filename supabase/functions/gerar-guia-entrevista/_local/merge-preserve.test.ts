@@ -72,7 +72,12 @@ const OWNER_ID = "rh-owner-0000-0000-0000-000000000001";
 const VAGA_ID = "vaga-0000-0000-0000-000000000002";
 const CAND_ID = "cand-0000-0000-0000-000000000003";
 
-function makeMockSupabaseAdmin(currentGuia: Record<string, unknown> | null) {
+function makeMockSupabaseAdmin(
+  currentGuia: Record<string, unknown> | null,
+  // WR-04: when set, the entrevista_guias upsert resolves with this error so the test
+  // can assert the EF surfaces a failed persist instead of returning a fabricated ok.
+  upsertError: { message: string } | null = null,
+) {
   const writes: { table: string; row: Record<string, unknown>; onConflict?: string }[] = [];
 
   function rowFor(table: string): Record<string, unknown> | null {
@@ -124,7 +129,10 @@ function makeMockSupabaseAdmin(currentGuia: Record<string, unknown> | null) {
         },
         upsert(row: Record<string, unknown>, options?: { onConflict?: string }) {
           writes.push({ table, row, onConflict: options?.onConflict });
-          return Promise.resolve({ data: null, error: null });
+          // WR-04: the entrevista_guias upsert can fail; surface the injected error so
+          // the handler's error check is exercised. Other tables resolve clean.
+          const error = table === "entrevista_guias" ? upsertError : null;
+          return Promise.resolve({ data: null, error });
         },
       };
       return builder;
@@ -222,4 +230,27 @@ Deno.test("ENTREV-08 [RED until 20-04] — freshly-generated questions are stamp
   const qs = persistedQuestions(supabaseAdmin.writes);
   const ia = qs.filter((q) => q.origem === "ia");
   assertEquals(ia.length, 2, "every freshly-generated question must be stamped origem:'ia'");
+});
+
+Deno.test("WR-04 — a FAILED upsert returns a non-200 error_code, NOT a fabricated { ok: true }", async () => {
+  // The entrevista_guias upsert fails (constraint/transient). The EF must NOT report
+  // success — a swallowed write error would have the client read back the stale guide.
+  const supabaseAdmin = makeMockSupabaseAdmin(
+    { questions: [MANUAL_QUESTION] },
+    { message: "duplicate key value violates unique constraint" },
+  );
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Pergunta gerada pela IA.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 500, "a failed persist must surface as a non-200");
+  const body = (await res.json()) as { ok?: boolean; error_code?: string };
+  assertEquals(body.ok, false, "a failed persist must NOT report { ok: true }");
+  assertEquals(body.error_code, "SERVER_ERROR");
 });
