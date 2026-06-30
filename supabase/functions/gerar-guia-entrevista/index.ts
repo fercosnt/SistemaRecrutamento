@@ -267,6 +267,11 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
           vaga_id: body.vaga_id,
           schema: InterviewGuideSchema,
           idempotency_key: `${body.candidatura_id}:${body.tipo}${extraInstruction ? ":reprompt" : ""}`,
+          // P21-FIX: a geração do roteiro (Sonnet, structured-output STAR + âncoras BARS,
+          // ~4000 tokens) excede legitimamente o teto global de 25s (RESIL-01) e estava
+          // estourando timeout → 500 em TODA geração de guia em PROD. Teto por-chamada de
+          // 60s dá folga p/ 1 passada completar; não afrouxa o fast-fail das outras EFs.
+          timeoutMs: 60_000,
         },
         {
           anthropic,

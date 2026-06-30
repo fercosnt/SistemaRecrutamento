@@ -231,6 +231,21 @@ Deno.test("RESIL-01 — default timeout (25000) applies when AI_CALL_TIMEOUT_MS 
   assertEquals(opts.timeout, 25000, "default AI_CALL_TIMEOUT_MS must be 25000 when env is unset");
 });
 
+// ── P21 — per-call timeoutMs override reaches the provider ────────────────────
+// gerar-guia-entrevista's heavy structured-output generation legitimately exceeds the
+// 25s global default and was timing out → 500 in PROD. A per-call `timeoutMs` override
+// must reach messages.parse so such EFs get more time WITHOUT loosening the global
+// fast-fail. Absence of timeoutMs keeps the 25000 default (asserted above).
+Deno.test("P21 — per-call timeoutMs overrides the global default at messages.parse", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  await callAi({ prompt: SONNET_PROMPT, ...baseArgs, timeoutMs: 60_000 }, {
+    anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
+  });
+  const [, opts] = anthropic.calls[0] as [unknown, { timeout?: number }];
+  assertEquals(opts.timeout, 60_000, "per-call timeoutMs must override AI_CALL_TIMEOUT_MS");
+});
+
 // ── RESIL-01 — a timeout-classified error is still retried by the existing loop ─
 // The { timeout } route throws an APIConnectionTimeoutError whose message matches
 // /timeout/i in isRetryable, so the hand-rolled loop retries before exhaustion.

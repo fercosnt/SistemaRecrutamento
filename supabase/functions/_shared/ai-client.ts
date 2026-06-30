@@ -182,6 +182,14 @@ interface CallAiArgs {
   /** Zod schema para structured output; opcional nos testes mockados. */
   schema?: unknown;
   idempotency_key?: string;
+  /**
+   * Teto por-chamada (ms) que SOBRESCREVE AI_CALL_TIMEOUT_MS só para esta chamada.
+   * Default global = 25s (RESIL-01). EFs cuja geração de structured-output excede
+   * legitimamente 25s (ex.: gerar-guia-entrevista — roteiro STAR + âncoras BARS, Sonnet
+   * 4000 tokens) passam um teto maior para não falhar por timeout, SEM afrouxar o
+   * fast-fail das demais EFs. Backward-compatible: ausente → default RESIL-01.
+   */
+  timeoutMs?: number;
 }
 
 interface BreakerLike {
@@ -280,8 +288,15 @@ async function tryIdempotencyReplay(
  */
 export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAiResult> {
   const start = Date.now();
-  const { prompt, rawInput, vagaRubricBlock, candidato_id, vaga_id, schema, idempotency_key } = args;
+  const { prompt, rawInput, vagaRubricBlock, candidato_id, vaga_id, schema, idempotency_key, timeoutMs } =
+    args;
   const { anthropic, openai, supabase } = deps;
+  // RESIL-01 + P21: teto por-chamada. Override só vale se for um número finito > 0;
+  // senão cai no default global AI_CALL_TIMEOUT_MS (25s). Aplica ao primário Anthropic
+  // E ao fallback OpenAI para o teto efetivo ser coerente em todo o caminho da chamada.
+  const effectiveTimeoutMs = typeof timeoutMs === "number" && timeoutMs > 0
+    ? timeoutMs
+    : AI_CALL_TIMEOUT_MS;
   const breaker: BreakerLike = deps.breaker ?? new CircuitBreaker();
   const zodOutputFormat = deps.zodOutputFormat ?? ((s: unknown, _n: string) => s);
   const zodResponseFormat = deps.zodResponseFormat ?? ((s: unknown, _n: string) => s);
@@ -338,7 +353,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   if (!breaker.canRequest()) {
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-      idempotency_key, openai, supabase, zodResponseFormat, start,
+      idempotency_key, timeoutMs, openai, supabase, zodResponseFormat, start,
       circuitWasOpen: true,
     });
   }
@@ -365,7 +380,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         // do retry; sem isto o SDK retentaria 2x dentro de cada attempt (3x3=9 chamadas)
         // e bypassaria `breaker.recordFailure()`/`attempt_number` (Pitfall 1). O timeout
         // lanca `APIConnectionTimeoutError` cuja mensagem casa /timeout/i em isRetryable.
-        timeout: AI_CALL_TIMEOUT_MS,
+        timeout: effectiveTimeoutMs,
         maxRetries: 0,
       });
 
@@ -420,7 +435,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // ── 5. Anthropic esgotou os retries -> fallback OpenAI ────────────────────
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-    idempotency_key, openai, supabase, zodResponseFormat, start,
+    idempotency_key, timeoutMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
     circuitWasOpen: false,
   });
@@ -434,6 +449,8 @@ interface FallbackArgs {
   vaga_id: string;
   schema?: unknown;
   idempotency_key?: string;
+  /** Teto por-chamada herdado do callAi (override de AI_CALL_TIMEOUT_MS). */
+  timeoutMs?: number;
   openai: OpenAILike;
   supabase: SupabaseLike;
   zodResponseFormat: (schema: unknown, name: string) => unknown;
@@ -466,7 +483,7 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
       // RESIL-01: mesmo teto por-chamada + maxRetries:0 no fallback OpenAI. Sem retry
       // hand-rolled aqui (1 unica chamada de fallback), mas o teto evita que o fallback
       // tambem fique pendurado alem do teto de 150s idle do EF.
-      timeout: AI_CALL_TIMEOUT_MS,
+      timeout: a.timeoutMs && a.timeoutMs > 0 ? a.timeoutMs : AI_CALL_TIMEOUT_MS,
       maxRetries: 0,
     });
   } catch (openaiErr) {
