@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: M3 — Refinamento RH & Hardening
 status: executing
-stopped_at: Completed 20-04-PLAN.md (EF merge-preserve code half; Deno 3/3 GREEN; tsc 257; vitest 675/675; [BLOCKING] redeploy deferred to orchestrator)
-last_updated: "2026-06-29T22:28:47.084Z"
-last_activity: 2026-06-29
+stopped_at: Completed 20-05-PLAN.md (edit-mode GuiaEntrevistaPanel UI; 13 RTL tests; tsc 257; vitest 688/688; build green — Phase 20 plans 5/5 done)
+last_updated: "2026-06-30T01:22:30.000Z"
+last_activity: 2026-06-30
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 15
-  completed_plans: 14
-  percent: 93
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 ## Current Position
 
-Phase: 20 (Refino RH — Editar Guia de Entrevista (SEED-001)) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute (20-04 EF merge-preserve CODE done — Deno 3/3 GREEN, tsc 257, vitest 675/675; [BLOCKING] gerar-guia-entrevista PROD redeploy pending at orchestrator gate; next = 20-05 edit UI)
-Last activity: 2026-06-29
+Phase: 20 (Refino RH — Editar Guia de Entrevista (SEED-001)) — ALL PLANS DONE
+Plan: 5 of 5 (complete)
+Status: Phase 20 plans 5/5 done. 20-05 edit-mode UI shipped — toggle 'Editar guia' + EditablePerguntaRow (inline edit, up/down, delete-confirm, add-manual), IA/Manual badges, batch 'Salvar edições' via saveEdits + AsyncState save-error contract, workspace wiring. 13 RTL tests, tsc 257, vitest 688/688, build green. ENTREV-06/07/08 user-observable surface closed. Next = /gsd-verify-work Phase 20 (then /gsd-secure-phase 20), then Phase 21 (UATs live). [BLOCKING] reminders still open from prior plans: 20-04 EF gerar-guia-entrevista PROD redeploy (merge-preserve) at orchestrator gate.
+Last activity: 2026-06-30
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Roadmap (M3 — Phases 18–21)
 
@@ -72,6 +72,7 @@ Coverage: 12/12 requirements mapeados ✓ · 0 unmapped. Execução numérica: 1
 | Phase 20 P01 | 4min | 2 tasks | 3 files |
 | Phase 20 P03 | 9min | 2 tasks | 5 files |
 | Phase 20 P04 | 6min | 1 task | 1 file |
+| Phase 20 P05 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M3:
 - [Phase 19]: [Phase 19/19-03] PERF-04 cache invalidation + freshness (fecha tech-debt PERF-01; **Phase 19 COMPLETE**). Gap A `useEntrevistaScorecard` ganhou `vagaId` posicional (ANTES de options); salvarAvaliacao.onSuccess invalida TARGETED `decisaoKeys.consolidacao(candidaturaId, vagaId)` (mantém scorecard) — NUNCA `decisaoKeys.all` (CONTEXT Área 2 ALVO). Gap B `useRedacaoRevisao` thread per-row `candidaturaId` nas mutation VARS (carregado só p/ invalidação — mutationFn AINDA chama salvarRevisao(redacaoId, payload), service signature intacta); onSuccess(_d, vars) adiciona TARGETED consolidacao (mantém queue+duvidas). Freshness: `useCandidaturas` ganhou per-query `refetchOnWindowFocus:true` (staleTime 1min já ≤60s; precisa dos DOIS p/ disparar — RESEARCH Pitfall 5); global default `App.tsx:43` segue `false` (RH/AI reads não refetcham). Audit: useCandidaturas é o ÚNICO read candidato-facing mutável que precisa do par (useExplicacao estático; useAllCandidaturas/useVagaCandidaturas = RH OOS). RNF-07a preservado (cache-only, zero candidaturas writes; consolidacao read-only/advisory). **Deviation (Rule 3): 2º caller `HubCandidatoRH.tsx:90` (read-only, fora de files_modified) exigiu o novo arg posicional vagaId após a mudança de assinatura → threaded o vagaId já em escopo; tsc voltou 258.** Os 2 testes RED-by-design de 19-01 agora GREEN; **vitest 661/661, tsc 258.** Cross-client ≤60s live = UAT Phase 21.
 - [Phase ?]: [Phase 20/20-01] ENTREV-08 authored (NOT applied): save_entrevista_guia_edits SECURITY DEFINER deriva role de public.usuarios_rh (NÃO do claim JWT — desvio ENTREV-08; ativo+deleted_at IS NULL, recrutador→rh, administrador→administrador) + own-vaga via candidaturas→vagas.created_by + admin bypass; RH-sem-posse+candidato→42501. Migration order load-bearing: dedup(DISTINCT ON keep-latest)→updated_at→UNIQUE(candidatura_id,tipo)→CREATE FUNCTION; ON CONFLICT upsert; REVOKE PUBLIC+GRANT authenticated; search_path=''; NO BEGIN/COMMIT (D-22); never escreve candidaturas (RNF-07a). SQL smoke (BEGIN/ROLLBACK) cobre 7 casos incl. claim-says-rh-no-table-row→DENY (prova role-from-table). Deno merge-preserve test RED-by-design (3/3 fail calibrado) até 20-04. vitest 662/662, tsc 257.
 - [Phase 20]: [Phase 20/20-03] ENTREV-06/07/08 service+hook layer (clone-with-one-swap): saveGuiaEdits(candidaturaId, tipo, perguntas) clona salvarAvaliacao → chama save_entrevista_guia_edits RPC com { p_candidatura_id, p_tipo, p_guia:{ perguntas } }, mapRpcError REUSADO verbatim (42501→FORBIDDEN, nunca expõe erro cru/PII), read-back via getGuia; nunca escreve candidaturas (RNF-07a). normalizeGuia agora origem-aware — carrega q.origem, default legacy/missing/garbled → 'ia' (A2, sem backfill), só 'manual' explícito preservado (read layer carrega proveniência p/ ENTREV-08 audit). ENTREVISTA_GUIA_ALLOWLIST += updated_at (NUNCA select('*') — Pitfall 6). GuiaPergunta += origem?:'ia'|'manual'; EntrevistaGuiaRow += updated_at. useGuiaEntrevista.saveEdits useMutation (vars { tipo, perguntas }) invalida entrevistaKeys.guia(candidaturaId) — MESMA key do read+gerar (batch-save plumbing p/ 20-05). Deviation (Rule 3): p_guia cast `as unknown as Json` no boundary do RPC (GuiaPergunta `[k]:unknown` é structuralmente wider que Json; precedente configVagaService p_opcoes) → tsc voltou 257. vitest 675/675 (+13 novos: origem normalize, saveGuiaEdits contract anti-tamper, hook invalidation), tsc 257 baseline. Anti-tamper test pin: p_guia payload não carrega banda/band/veredito/threshold. Próximo = 20-04 (EF merge-preserve, [BLOCKING] redeploy) + 20-05 (edit UI).
+- [Phase 20]: [Phase 20/20-05] ENTREV-06/07/08 edit-mode UI (user-observable surface — Phase 20 plans 5/5 done): read-only GuiaEntrevistaPanel → edit mode. Toggle 'Editar guia' (disabled when no guide) → EditablePerguntaRow: inline `Input` (pergunta) + Radix `Select` (dimensão; options = closed union of the guide's dimensões + the row's current value, since AI dimensões have no fixed enum) + up/down `ChevronUp/Down` (aria-labels, boundary buttons `disabled` not hidden) + delete `Trash2`→`AlertDialog` ('Remover esta pergunta?'/confirm 'Remover pergunta'; removal staged in draft, persisted on save). Add-manual inline form (Pergunta Input + Dimensão Input → free-text so a NEW dimensão isn't trapped by a closed Select) stamps `origem:'manual'`. Per-question IA (accent #35BFAD + Sparkles) / Manual (neutral) `OrigemBadge`; missing origem → IA — the ENTREV-08 audit affordance, rendered in BOTH modes. Batch footer 'Salvar edições' (accent GlassButton, disabled-until-dirty + 'Salvando…' while saving) calling `onSaveEdits({ tipo: guia.tipo, perguntas: draft })` + 'Cancelar' (neutral, reverts to last-saved WITHOUT a dialog). Edit state = local `draft[]` reset via `useEffect` on saved-guide reference change → a successful save invalidates the guide key (20-03 hook), the saved guide flows in, effect exits edit mode. Save-error band = static PT-BR copy keyed by code (FORBIDDEN/insufficient_privilege → 'Você não tem permissão para editar este guia.'; else generic) — NEVER echoes the raw RPC error/SQLSTATE/table (T-20-16/T-18-04-ID); test pins no leak of '42501'/'insufficient_privilege'/'entrevista_guias'. IA-only Âncoras BARS read-only in both modes. Accent ONLY on IA badge/Sparkles/Salvar (UI-SPEC §Color). Panel only edits the guide jsonb — never touches candidaturas (RNF-07a). EntrevistaWorkspace destructures `saveEdits`, passes onSaveEdits/saving/saveError/saveErrorCode (code cast via EntrevistaServiceError), fires Sonner toast 'Edições do guia salvas.' on isSuccess; no other tabs touched. RTL idiom = fireEvent (repo convention); Radix Select popper NOT driven under happy-dom (flaky) → dimensão exercised via the deterministic add-manual Input. **13 new RTL tests; vitest 688/688 (was 675); tsc 257 baseline; build green.** Commits `eb2aeb2` (panel+test) + `100548b` (workspace wiring). ENTREV-06/07/08 user-observable half CLOSED (backend already live 20-02/20-04). Next = /gsd-verify-work + /gsd-secure-phase Phase 20.
 - [Phase 20]: [Phase 20/20-04] ENTREV-08 EF merge-preserve (CODE half — [BLOCKING] PROD redeploy DEFERRED ao gate do orchestrator, precedente Phase-18): gerar-guia-entrevista trocou o blind `.insert()` por read-merge-upsert ON CONFLICT(candidatura_id,tipo). Lê a guia atual via `select("guia")` allowlist (NUNCA select('*') — reference_select_star_leaks_pii), separa por `q.origem==='manual'` (campo autoritativo, NÃO match por texto/ordem), PRESERVA toda pergunta manual, estampa as frescas `origem:'ia'` POST-parse (schema zod/v4 + helper zodOutputFormat/zodResponseFormat intactos — A1), merge `[manualQs, freshIaQs]`. CRÍTICO Pitfall 3: o merge roda ANTES do fallback `guide ?? {incompleto}` — um regen FALHO/poisoned (guide==null) carrega `manualQs` no payload incompleto, NUNCA apaga uma edição manual. Two-client auth (L143-199) + log LGPD redigido + persistFlags build UNCHANGED; nunca escreve candidaturas (RNF-07a); imports `npm:` estáticos. O teste Deno merge-preserve RED-by-design de 20-01 agora GREEN 3/3 (manual-sobrevive + failed-regen-mantém-manual + ia-stamp); tsc 257 baseline; vitest 675/675. **EF NÃO redeployada** — Task 2 (deploy PROD) é orchestrator-gated/human-gated; round-trip live = Phase 21. Commit `099ade9`.
 
 ### Pending Todos
@@ -117,6 +119,6 @@ Carregados do fechamento do M2. HARD-02 + PERF-01 entraram no M3 como PERF-03/PE
 
 ## Session Continuity
 
-Last session: 2026-06-29T22:28:47.077Z
-Stopped at: Completed 20-04-PLAN.md (EF merge-preserve code half; Deno 3/3 GREEN; tsc 257; vitest 675/675; [BLOCKING] redeploy deferred to orchestrator)
+Last session: 2026-06-30T01:22:30.000Z
+Stopped at: Completed 20-05-PLAN.md (edit-mode GuiaEntrevistaPanel UI; 13 RTL tests; tsc 257; vitest 688/688; build green — Phase 20 plans 5/5 done)
 Resume file: None

@@ -30,9 +30,9 @@ Requirements deste milestone. Cada um mapeia para exatamente uma fase do roadmap
 
 ### Refino RH — Guia de Entrevista (SEED-001)
 
-- [ ] **ENTREV-06**: RH edita o texto e a dimensão de perguntas existentes no guia de entrevista (online/presencial).
-- [ ] **ENTREV-07**: RH adiciona perguntas manuais (texto + dimensão), remove e reordena perguntas no guia.
-- [ ] **ENTREV-08**: Edições do guia persistem por write-path seguro (RPC/EF authenticate-THEN-authorize: role RH derivado de `usuarios_rh` + posse via `candidatura → vaga.created_by`, `administrador` bypassa; **sem** policy RH UPDATE ampla em `entrevista_guias`); cada pergunta marcada `origem: 'ia' | 'manual'` para auditoria; regenerar o guia por IA **não** descarta edições manuais silenciosamente; RNF-07a preservada (guia nunca escreve `candidaturas`).
+- [x] **ENTREV-06**: RH edita o texto e a dimensão de perguntas existentes no guia de entrevista (online/presencial).
+- [x] **ENTREV-07**: RH adiciona perguntas manuais (texto + dimensão), remove e reordena perguntas no guia.
+- [x] **ENTREV-08**: Edições do guia persistem por write-path seguro (RPC/EF authenticate-THEN-authorize: role RH derivado de `usuarios_rh` + posse via `candidatura → vaga.created_by`, `administrador` bypassa; **sem** policy RH UPDATE ampla em `entrevista_guias`); cada pergunta marcada `origem: 'ia' | 'manual'` para auditoria; regenerar o guia por IA **não** descarta edições manuais silenciosamente; RNF-07a preservada (guia nunca escreve `candidaturas`).
 
 ### Production-Readiness
 
@@ -81,9 +81,9 @@ Quais fases cobrem quais requirements. Preenchido durante a criação do roadmap
 | FIX-02 | Phase 18 | Complete |
 | PERF-03 | Phase 19 | Complete |
 | PERF-04 | Phase 19 | Complete |
-| ENTREV-06 | Phase 20 | Pending |
-| ENTREV-07 | Phase 20 | Pending |
-| ENTREV-08 | Phase 20 | Pending |
+| ENTREV-06 | Phase 20 | Complete |
+| ENTREV-07 | Phase 20 | Complete |
+| ENTREV-08 | Phase 20 | Complete |
 | PROD-01 | Phase 21 | Pending |
 | PROD-02 | Phase 21 | Pending |
 
