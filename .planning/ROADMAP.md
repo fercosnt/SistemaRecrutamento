@@ -38,7 +38,7 @@ Cabeou na navegação real de produção o funil construído no M2 (avaliação 
 
 - [x] **Phase 18: Resiliência das EFs de IA & Bugs do Funil** - EFs de IA resistem a latência/overload e os 4 achados live do E2E em PROD são corrigidos (completed 2026-06-29)
 - [x] **Phase 19: Performance — Bundle & Cache** - Candidato mobile-first não paga 661 KiB no first paint e mudanças escritas aparecem em ≤60s (completed 2026-06-29)
-- [ ] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize
+- [x] **Phase 20: Refino RH — Editar Guia de Entrevista (SEED-001)** - RH edita/adiciona/remove/reordena perguntas do guia por write-path seguro authenticate-THEN-authorize (completed 2026-06-30)
 - [ ] **Phase 21: Production-Readiness — UATs Live** - HUMAN-UAT live deferidos do M2 fechados com dados/contas reais em PROD
 
 ## Phase Details
@@ -117,7 +117,7 @@ Phases execute in numeric order: 18 → 19 → 20 → 21
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18. Resiliência EFs & Bugs Funil | v3.0 | 7/7 | Complete   | 2026-06-29 |
 | 19. Performance — Bundle & Cache | v3.0 | 3/3 | Complete   | 2026-06-29 |
-| 20. Refino RH — Editar Guia | v3.0 | 5/5 | Plans Done | 2026-06-30 |
+| 20. Refino RH — Editar Guia | v3.0 | 5/5 | Complete   | 2026-06-30 |
 | 21. Production-Readiness — UATs | v3.0 | 0/TBD | Not started | - |
 
 ---
