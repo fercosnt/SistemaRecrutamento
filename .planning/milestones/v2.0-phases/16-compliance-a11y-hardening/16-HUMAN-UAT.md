@@ -1,5 +1,5 @@
 ---
-status: partial
+status: closed_via_phase21
 phase: 16-compliance-a11y-hardening
 source: [16-VERIFICATION.md]
 started: 2026-06-26T13:57:04Z
@@ -50,3 +50,7 @@ blocked: 0
 ## Gaps
 
 <!-- None — these are deferred human-verification items (no real RH account / live PROD data / sighted-keyboard / screen-reader in-session), NOT failed must-haves. All 10/10 automated must-haves verified (16-VERIFICATION.md). -->
+
+
+## Phase 21 closure (2026-06-30)
+Deferred live UATs executed/closed in Phase 21 (live PROD). See `.planning/phases/21-production-readiness-uats-live/21-HUMAN-UAT.md` + `21-RUNBOOK.md`. Backend/deterministic halves PASS live; visual residue → 21-RUNBOOK; literal SR/overload re-deferred with justification.

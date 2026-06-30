@@ -1,5 +1,5 @@
 ---
-status: partial
+status: closed_via_phase21
 phase: 11-avalia-o-ass-ncrona-infra-work-sample-sjt-etapa-3
 source: [11-VERIFICATION.md, 11-REVIEW.md, 11-UI-REVIEW.md]
 started: 2026-06-09
@@ -68,3 +68,7 @@ blocked: 1
 (code-review C1/C2 — open-case submit contract was fully broken, FIXED commit c183cd3 + EF redeployed; UAT #2 verifies live)
 (UI-review 17/24 — typography/spacing drift + MC already-submitted read-only state → Phase 16 hardening; MC SugestaoIABadge mislabel FIXED)
 (I2 — per-card "Tempo estimado" is a constant ~10 min placeholder until wired to perguntas.tempo_est_min — Phase 16/backlog)
+
+
+## Phase 21 closure (2026-06-30)
+Deferred live UATs executed/closed in Phase 21 (live PROD). See `.planning/phases/21-production-readiness-uats-live/21-HUMAN-UAT.md` + `21-RUNBOOK.md`. Backend/deterministic halves PASS live; visual residue → 21-RUNBOOK; literal SR/overload re-deferred with justification.

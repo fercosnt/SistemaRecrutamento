@@ -1,5 +1,5 @@
 ---
-status: partial
+status: closed_via_phase21
 phase: 18-resili-ncia-das-efs-de-ia-bugs-do-funil
 source: [18-VERIFICATION.md]
 started: 2026-06-29
@@ -41,3 +41,7 @@ deferred there per the phase design (CONTEXT Área 3, RESEARCH Manual-Only Verif
 
 - Item "REQUIREMENTS.md doc drift (RESIL-02 Pending→Complete)" from the verifier was resolved inline by the orchestrator (not a deferred UAT).
 - Live verification of these 3 items is the home of Phase 21 (PROD-01/PROD-02). When Phase 21 runs them green, re-run `/gsd-verify-work 18` to flip 18-VERIFICATION.md to `passed`.
+
+
+## Phase 21 closure (2026-06-30)
+Deferred live UATs executed/closed in Phase 21 (live PROD). See `.planning/phases/21-production-readiness-uats-live/21-HUMAN-UAT.md` + `21-RUNBOOK.md`. Backend/deterministic halves PASS live; visual residue → 21-RUNBOOK; literal SR/overload re-deferred with justification.

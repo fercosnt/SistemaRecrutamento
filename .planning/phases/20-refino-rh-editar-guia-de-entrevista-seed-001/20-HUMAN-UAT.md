@@ -1,5 +1,5 @@
 ---
-status: partial
+status: closed_via_phase21
 phase: 20-refino-rh-editar-guia-de-entrevista-seed-001
 source: [20-VERIFICATION.md]
 started: 2026-06-30
@@ -39,3 +39,7 @@ guide in PROD — Phase 21's scope.
   scoring_instructions) are not preserved across a manual save (anti-tamper tradeoff; recoverable
   via regen). Not part of these UATs.
 - When Phase 21 runs these green, re-run /gsd-verify-work 20 to flip 20-VERIFICATION.md to passed.
+
+
+## Phase 21 closure (2026-06-30)
+Deferred live UATs executed/closed in Phase 21 (live PROD). See `.planning/phases/21-production-readiness-uats-live/21-HUMAN-UAT.md` + `21-RUNBOOK.md`. Backend/deterministic halves PASS live; visual residue → 21-RUNBOOK; literal SR/overload re-deferred with justification.
