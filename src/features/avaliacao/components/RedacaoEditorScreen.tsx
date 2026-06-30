@@ -72,31 +72,29 @@ function errorCodeOf(error: unknown): string | undefined {
   return undefined
 }
 
-/** The neutral autosave affordance (the single accent touchpoint, #35BFAD). */
+/** The neutral autosave affordance (the single accent touchpoint, #35BFAD).
+ *  AB-8 (P16 #4): persistent aria-live region so save-state changes are announced. */
 function AutosaveAffordance({ status }: { status: AutosaveStatus }) {
-  if (status === 'saving') {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-white/70">
-        <Loader2 className="w-4 h-4 animate-spin" /> Salvando…
-      </span>
-    )
-  }
-  if (status === 'saved') {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-[#35BFAD]">
-        <Check className="w-4 h-4" /> Salvo automaticamente
-      </span>
-    )
-  }
-  if (status === 'error') {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-white/70">
-        <AlertCircle className="w-4 h-4" /> Não foi possível salvar agora — tentando
-        novamente…
-      </span>
-    )
-  }
-  return <span />
+  return (
+    <span role="status" aria-live="polite" aria-atomic="true">
+      {status === 'saving' && (
+        <span className="flex items-center gap-1.5 text-sm text-white/70">
+          <Loader2 className="w-4 h-4 animate-spin" /> Salvando…
+        </span>
+      )}
+      {status === 'saved' && (
+        <span className="flex items-center gap-1.5 text-sm text-[#35BFAD]">
+          <Check className="w-4 h-4" /> Salvo automaticamente
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="flex items-center gap-1.5 text-sm text-white/70">
+          <AlertCircle className="w-4 h-4" /> Não foi possível salvar agora — tentando
+          novamente…
+        </span>
+      )}
+    </span>
+  )
 }
 
 export function RedacaoEditorScreen() {

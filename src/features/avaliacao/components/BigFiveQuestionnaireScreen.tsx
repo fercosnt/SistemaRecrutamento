@@ -87,30 +87,30 @@ function ScreenShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Top-right autosave affordance (Saving… / Salvo automaticamente / falha transitória). */
+/** Top-right autosave affordance (Saving… / Salvo automaticamente / falha transitória).
+ *  AB-8 (P16 #4): the outer span is a PERSISTENT aria-live region so each save-state
+ *  change is announced by a screen reader (the inner content swaps; the live region
+ *  itself never unmounts — a conditionally-rendered region would not reliably announce). */
 function AutosaveAffordance({ status }: { status: string }) {
-  if (status === 'saving') {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-white/70">
-        <Loader2 className="w-4 h-4 animate-spin" /> Salvando…
-      </span>
-    )
-  }
-  if (status === 'saved') {
-    return (
-      <span className="flex items-center gap-1.5 text-sm text-[#6EE6D6]">
-        <Check className="w-4 h-4" /> Salvo automaticamente
-      </span>
-    )
-  }
-  if (status === 'error') {
-    return (
-      <span className="text-sm text-white/70">
-        Não foi possível salvar agora — tentando novamente…
-      </span>
-    )
-  }
-  return <span />
+  return (
+    <span role="status" aria-live="polite" aria-atomic="true">
+      {status === 'saving' && (
+        <span className="flex items-center gap-1.5 text-sm text-white/70">
+          <Loader2 className="w-4 h-4 animate-spin" /> Salvando…
+        </span>
+      )}
+      {status === 'saved' && (
+        <span className="flex items-center gap-1.5 text-sm text-[#6EE6D6]">
+          <Check className="w-4 h-4" /> Salvo automaticamente
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-sm text-white/70">
+          Não foi possível salvar agora — tentando novamente…
+        </span>
+      )}
+    </span>
+  )
 }
 
 /**
