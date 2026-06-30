@@ -235,7 +235,7 @@ interface SupabaseAdminLike {
   from(table: string): {
     select: (cols?: string) => {
       eq: (col?: string, val?: unknown) => {
-        maybeSingle: () => Promise<MaybeSingleResult<ScoreRow & CandidaturaRow>>;
+        maybeSingle: () => Promise<MaybeSingleResult<ScoreRow & CandidaturaRow & { user_id?: string }>>;
       };
     };
     // CR-04: upsert keyed na UNIQUE(candidatura_id) + .select("id").single() para
@@ -381,6 +381,27 @@ export async function handler(
   const candidatoId = candRow.candidato_id;
   const vagaId = typeof candRow.vaga_id === "string" ? candRow.vaga_id : "";
 
+  // ── 2c. Resolve o AUTH UID do candidato (P21-FIX, achado live Phase 21) ───
+  // `devolutivas_candidato.candidato_id` REFERENCES auth.users(id) e a RLS own-row é
+  // `USING candidato_id = auth.uid()`. Mas candRow.candidato_id é `candidatos.id`
+  // (FK candidaturas→candidatos), NÃO o auth uid — gravá-lo viola a FK 23503 e a
+  // devolutiva NUNCA persiste (status 'falhou' silencioso). O auth uid mora em
+  // `candidatos.user_id`. (ai_call_logs.candidato_id → candidatos.id, então candidatoId
+  // é mantido na atribuição LGPD-02 do callAi abaixo; só a persistência usa o auth uid.)
+  const { data: ownerRow, error: ownerErr } = await supabaseAdmin
+    .from("candidatos")
+    .select("user_id")
+    .eq("id", candidatoId)
+    .maybeSingle();
+
+  if (ownerErr || !ownerRow?.user_id) {
+    console.error("[gerar-devolutiva-bigfive] candidato.user_id (auth uid) ausente", {
+      candidatura_id: scoreRow.candidatura_id,
+    });
+    return { status: "falhou" };
+  }
+  const candidatoAuthUid = ownerRow.user_id;
+
   // ── 3. Para cada dim: banda determinística + personalização IA ────────────
   const dimsMeta: DimMeta[] = Array.isArray(scoreRow.metadata?.dimensoes)
     ? (scoreRow.metadata!.dimensoes as DimMeta[])
@@ -460,7 +481,8 @@ export async function handler(
     .upsert(
       {
         candidatura_id: scoreRow.candidatura_id,
-        candidato_id: candidatoId,
+        // P21-FIX: auth uid (candidatos.user_id), NÃO candidatos.id — FK auth.users + RLS auth.uid().
+        candidato_id: candidatoAuthUid,
         conteudo_jsonb: conteudo,
         modelo_ia: "claude-sonnet-4-6",
         prompt_version: "1.0.0",

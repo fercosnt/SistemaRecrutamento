@@ -80,7 +80,13 @@ function makeMockCallAi(texts: string[]) {
   };
 }
 
-const CANDIDATO_ID = "auth-user-1";
+// candidatos.id — what candidaturas.candidato_id holds (FK candidaturas→candidatos).
+const CANDIDATO_ID = "candidato-row-1";
+// auth uid (candidatos.user_id) — what devolutivas_candidato.candidato_id MUST hold
+// (FK→auth.users + RLS `USING candidato_id = auth.uid()`). Kept DISTINCT from
+// CANDIDATO_ID so the test models the real two-id-space indirection the prod FK
+// enforces. The old mock collapsed both into one value, hiding the live 23503 (P21-FIX).
+const AUTH_UID = "auth-uid-1";
 
 function makeMockSupabaseAdmin(scoreRow: Record<string, unknown> | null) {
   // Capture BOTH inserts and upserts so a test can assert the devolutiva is
@@ -102,6 +108,14 @@ function makeMockSupabaseAdmin(scoreRow: Record<string, unknown> | null) {
               if (table === "candidaturas") {
                 return Promise.resolve({
                   data: scoreRow ? { candidato_id: CANDIDATO_ID, vaga_id: "vaga-1" } : null,
+                  error: null,
+                });
+              }
+              // P21-FIX: the handler resolves the candidate's AUTH uid via
+              // candidatos.user_id — devolutivas_candidato.candidato_id FK→auth.users.
+              if (table === "candidatos") {
+                return Promise.resolve({
+                  data: scoreRow ? { user_id: AUTH_UID } : null,
                   error: null,
                 });
               }
@@ -180,9 +194,16 @@ Deno.test("AVAL-08 — in-range text on first attempt → no retry, devolutiva p
   // CR-04: persisted via upsert (idempotent regeneration), not a plain insert.
   const devRow = admin.upserts.find((i) => i.table === "devolutivas_candidato");
   assert(devRow, "must UPSERT one devolutivas_candidato row");
-  // CR-02: the upserted row carries candidato_id (NOT NULL + own-row RLS) and
-  // omits the non-existent score_id/tipo columns.
-  assertEquals(devRow!.row.candidato_id, CANDIDATO_ID, "upsert must include candidato_id");
+  // CR-02 + P21-FIX: the upserted candidato_id is the candidate's AUTH uid
+  // (candidatos.user_id), NOT candidatos.id — devolutivas_candidato.candidato_id
+  // FK→auth.users + RLS `auth.uid()`. Persisting candidatos.id violates the FK (23503)
+  // and the devolutiva silently never saves (the live Phase-21 defect). Asserting
+  // AUTH_UID (≠ CANDIDATO_ID) is the regression guard.
+  assertEquals(devRow!.row.candidato_id, AUTH_UID, "upsert must persist the candidate's AUTH uid");
+  assert(
+    devRow!.row.candidato_id !== CANDIDATO_ID,
+    "must NOT persist candidatos.id into the auth.users FK column (the 23503 bug)",
+  );
   assert(!("score_id" in devRow!.row), "must NOT write the non-existent score_id column");
   assert(!("tipo" in devRow!.row), "must NOT write the non-existent tipo column");
   assertEquals((out.paginas ?? []).length, 5, "5 dimension pages");
