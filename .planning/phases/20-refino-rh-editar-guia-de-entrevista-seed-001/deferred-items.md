@@ -22,3 +22,13 @@
 ## From the code review (INFO, skipped per fix scope)
 
 - IN-01 / IN-02 / IN-03 (20-REVIEW.md) — non-trivial behavior/copy refinements, left for backlog.
+
+## From 20 UI review (advisory, 21/24 — non-blocking polish backlog)
+
+- **Save-error reuses static band, not `<AsyncState>`** — UI-SPEC contracts a "Tentar novamente"
+  retry + slow@8s via AsyncState; the panel hand-rolled a static error band (GuiaEntrevistaPanel
+  ~L568). Recoverable (Salvar stays enabled, draft preserved). Fix: route save-error through
+  `<AsyncState onRetry={handleSave} retrying={saving}>`. (Experience Design 2/4.)
+- **Hardcoded `#00109E` on the Select popover** (GuiaEntrevistaPanel ~L223 `bg-[#00109E]/95`) →
+  use the `bg-primary/95` token (per reference_bg_primary_token_fixed). One-line token swap.
+- **AsyncState slow@8s dropped on save** — folded in once save-error routes through AsyncState (fix #1).
