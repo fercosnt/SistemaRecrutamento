@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-01 complete — Deno EF corpus green under type-check ON (148/0, exit 0); strict-schema probe excluded, stale timeoutMs type fixed; CI-01/CI-02 done"
-last_updated: "2026-07-05T20:44:40.105Z"
-last_activity: "2026-07-05 -- Plan 22-01 complete (Deno corpus green under type-check)"
+stopped_at: "Phase 22 / Plan 22-02 complete — supply-chain hardened: 8 wildcards pinned, 2 dead deps removed, vitest/@vitest/ui/happy-dom advisories cleared, 691/691 non-guard Vitest green (CI-09/11/12)"
+last_updated: "2026-07-05T21:09:16.479Z"
+last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 1
-  percent: 17
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-05
 
-Progress: [██░░░░░░░░] 17%
+Progress: [███░░░░░░░] 33%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -65,6 +65,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 
 *Updated after each plan completion.*
 | Phase 22 P01 | 13min | 2 tasks | 2 files |
+| Phase 22 P02 | 18min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [M2/Phases 6/13/15]: Revisão humana sempre obrigatória pós-IA; zero auto-rejeição por score (RNF-07a) — invariante a preservar em FUNIL-02, e o `submit-candidatura` é o único auto-reject sancionado (CI-03).
 - [Phase ?]: [Phase 22/22-01] Deno EF corpus green under type-check ON via deno.json top-level exclude of the strict-schema Vitest probe; canonical CI command = deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions (--ignore= fallback NOT needed on Deno 2.7.7)
 - [Phase ?]: [Phase 22/22-01] Fixed stale LOCAL timeoutMs type in ai-client.test.ts loadClient(), not product CallAiArgs (already has it) — zero product change
+- [Phase ?]: [Phase 22/22-02] Pinned 8 wildcard prod deps to EXACT lockfile versions (no ^) as supply-chain ceiling — @tiptap/* 3.10.1, clsx 2.1.1, react-dnd/html5-backend 16.0.1, tailwind-merge 3.3.1 (CI-09); removed dead deps motion + @supabase/auth-helpers-react (CI-12)
+- [Phase ?]: [Phase 22/22-02] Bumped vitest+@vitest/ui 4.0.7→4.1.9 lockstep (UI-server RCE) + happy-dom 20.0.10→20.10.6 (code-exec); vite 6.3.5 unchanged; 3 named advisories cleared, 691/691 non-guard Vitest green (CI-11)
+- [Phase ?]: [Phase 22/22-02] Pre-existing LGPD-04 guard red (psicólogo literal in gerar-devolutiva-bigfive:192, commit 7853eac) is version-independent + out of supply-chain scope → deferred not fixed; trivial fragment-join fix logged in deferred-items.md for UX-02/Phase-24
 
 ### Pending Todos
 
@@ -104,8 +108,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T20:44:26.015Z
-Stopped at: Roadmap M4 criado (6 fases 22–27, 56/56 reqs mapeados, 0 órfãos); STATE + REQUIREMENTS traceability atualizados
+Last session: 2026-07-05T21:08:55.723Z
+Stopped at: Phase 22 / Plan 22-02 complete — supply-chain hardened: 8 wildcards pinned, 2 dead deps removed, vitest/@vitest/ui/happy-dom advisories cleared, 691/691 non-guard Vitest green (CI-09/11/12)
 Resume file: None
 
 ## Operator Next Steps
