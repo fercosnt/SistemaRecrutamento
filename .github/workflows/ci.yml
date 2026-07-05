@@ -9,11 +9,14 @@
 # precedence; otherwise the placeholders let the app boot so page.route mocks apply.
 # Tier-2 live/real-email specs stay skip-with-reason (E2E_AUTH_TEST_USERS OFF). See 05-RESEARCH.md §Q1.
 #
-# tsc legacy debt: `tsc --noEmit` reports a frozen baseline of 291 pre-existing errors in
-# legacy src/components/pages/*.tsx (scheduled for a dedicated cleanup phase). The unit job
-# enforces a ZERO-GROWTH invariant (CI red only if the count rises above 291) instead of
-# failing on the baseline — this is the gate the original comment promised but never implemented.
-# Phase 16 (16-04) re-measured the live count and lowered the baseline 292 -> 291 (gate tightens).
+# tsc legacy debt: `tsc --noEmit` enforces a ZERO-GROWTH invariant (CI red only if the error
+# count rises above the frozen baseline). The baseline is MEASURED, not guessed.
+# Phase 16 (16-04) lowered it 292 -> 291; earlier ci.yml froze it at 290.
+# Phase 22 (22-06, measure-first / CI-04+05+14): resolving the 65 phantom TS2307 via tsconfig
+# `paths` (CI-05) cascaded the total 257 -> 133 (versioned imports were silently typing whole
+# shadcn components as `any`), and expanding tsc coverage to e2e/scripts/playwright with the
+# Deno files excluded (CI-14) added 0 net errors. The gate is now pinned to the REAL measured
+# green value 133 (down from the loose 290) — red only on growth above 133.
 # The FOUND-08 trivial enum typos (clinica/big_five in vagasTypes.ts) proved STRUCTURAL — each
 # one-line rename only unmasks the next stale key in the same Record<> map (DEPARTAMENTO_LABELS /
 # ETAPA_TO_KANBAN are wholesale-stale vs their unions) so they were reverted, not applied; the
@@ -45,16 +48,33 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Type-check (frozen tsc baseline 290 — CI red only on growth)
+      - name: Type-check (frozen tsc baseline 133 — CI red only on growth)
         run: |
           COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
-          echo "tsc errors: $COUNT (frozen baseline: 290)"
-          if [ "$COUNT" -gt 290 ]; then
-            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (290) — new type errors introduced"
+          echo "tsc errors: $COUNT (frozen baseline: 133)"
+          if [ "$COUNT" -gt 133 ]; then
+            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (133) — new type errors introduced"
             npm run -s lint 2>&1 | grep "error TS" | head -50
             exit 1
           fi
       - run: npm run test:run      # Vitest single run
+
+  # Phase 22 / Plan 22-06 (CI-01): the never-CI-run Deno Edge-Function test corpus now runs
+  # as a BLOCKING job (type-check ON, no continue-on-error) so the EF layer that produced every
+  # live defect stops apodrecendo. Command is the canonical one proven green in Plan 22-01
+  # (148 passed / 0 failed): --config is REQUIRED (Deno discovers config from CWD, not the
+  # target path) and its top-level `exclude` collect-skips the strict-schema Vitest probe —
+  # the `--ignore=` fallback was NOT needed on Deno 2.7.7. --allow-env is required (tests call
+  # Deno.env.get); --allow-read is harmless; no --allow-net (tests inject mocks).
+  deno-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno EF corpus (blocking, type-check on)
+        run: deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions
 
   e2e:
     runs-on: ubuntu-latest
