@@ -105,6 +105,11 @@ export function LoginCandidatoPage() {
       // BEFORE fetchProfile resolves. Block until candidato populated OR
       // hard timeout (3s) — degrades gracefully (RoleGuard catches role).
       await waitForCandidatoHydrated({ timeoutMs: 3000 })
+      // UX-05 (Phase 22 / Plan 22-03): clear the orphan `candidatura_vaga_id`
+      // localStorage key on successful login. It is written by CadastroPage from
+      // `?vagaId` and read by InstrucoesFormularioPage, but no code path ever
+      // removed it — it lingered across sessions (stale-state / info-leak surface).
+      localStorage.removeItem('candidatura_vaga_id')
       toast.success('Login realizado com sucesso!', { duration: 3000 })
       // VAGA-03: consume `?redirect=` query param (e.g. set by VagaDetalhePage
       // when an unauthenticated visitor clicks "Candidatar-se"). Guarded against
@@ -472,7 +477,16 @@ export function LoginCandidatoPage() {
             Não tem uma conta?{' '}
             <button
               type="button"
-              onClick={() => navigate('/cadastro')}
+              onClick={() => {
+                // UX-05: carry the `?redirect` param across to cadastro so it
+                // survives login→cadastro→post-login. encodeURIComponent it (the
+                // value is a path that may contain query chars); CadastroPage
+                // re-guards it via resolveRedirect on consumption.
+                const r = searchParams.get('redirect')
+                navigate(
+                  r ? `/cadastro?redirect=${encodeURIComponent(r)}` : '/cadastro'
+                )
+              }}
               className="text-white hover:underline py-1"
             >
               Criar conta →

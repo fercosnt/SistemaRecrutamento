@@ -22,9 +22,12 @@
  * needing real Supabase env wired up at test time.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+
+// Capture the router navigation target for the UX-05 redirect-propagation tests.
+const routerMocks = vi.hoisted(() => ({ navigateMock: vi.fn() }))
 
 // Stub supabase client before importing the page under test.
 vi.mock('@/lib/supabase/client', () => ({
@@ -44,6 +47,21 @@ vi.mock('@/features/auth/services', () => ({
   signIn: vi.fn(),
   resendConfirmation: vi.fn(),
 }))
+
+// Resolve the post-login hydration wait instantly (real impl polls up to 3s on
+// an unpopulated candidato). NOTE: this mocks the barrel ONLY — the direct
+// `@/features/auth/utils/resolveRedirect` import used by the page stays REAL,
+// so the anti-open-redirect guard is exercised for real in these tests.
+vi.mock('@/features/auth/utils', () => ({
+  waitForCandidatoHydrated: vi.fn().mockResolvedValue(undefined),
+}))
+
+// Spy on useNavigate while keeping MemoryRouter + useSearchParams real.
+vi.mock('react-router-dom', async () => {
+  const actual =
+    await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return { ...actual, useNavigate: () => routerMocks.navigateMock }
+})
 
 import { resolveRedirect, LoginCandidatoPage } from '../LoginCandidatoPage'
 import { LoginRHPage } from '../LoginRHPage'
@@ -163,5 +181,57 @@ describe('Login submit buttons enabled by default (UX-04)', () => {
     // ...and populates role="alert" validation errors.
     const alerts = await screen.findAllByRole('alert')
     expect(alerts.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * UX-05 — `?redirect` propagation + orphan localStorage cleanup on login success
+ * (Phase 22 / Plan 22-03).
+ *
+ * Drives a full successful login (signIn + hydration mocked) and asserts:
+ *   - a valid `?redirect` is honored (routed through the REAL resolveRedirect),
+ *   - a `//evil` open-redirect attempt falls back to /candidato/dashboard,
+ *   - the orphan `candidatura_vaga_id` localStorage key is removed on success.
+ */
+describe('login-success ?redirect propagation + orphan cleanup (UX-05)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  async function submitLoginFrom(initialUrl: string) {
+    vi.mocked(signIn).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={[initialUrl]}>
+        <LoginCandidatoPage />
+      </MemoryRouter>
+    )
+    await user.type(screen.getByPlaceholderText('seu@email.com'), 'ana@teste.com')
+    await user.type(screen.getByPlaceholderText('Digite sua senha'), 'Senha@123')
+    await user.click(screen.getByRole('button', { name: /entrar/i }))
+  }
+
+  it('honors a valid ?redirect and clears the orphan candidatura_vaga_id on success', async () => {
+    localStorage.setItem('candidatura_vaga_id', 'vaga-xyz')
+    await submitLoginFrom('/auth/login?redirect=%2Fvagas%2F123')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith('/vagas/123', {
+        replace: true,
+      })
+    )
+    expect(localStorage.getItem('candidatura_vaga_id')).toBeNull()
+  })
+
+  it('falls back to /candidato/dashboard for a //evil open-redirect ?redirect', async () => {
+    await submitLoginFrom('/auth/login?redirect=%2F%2Fevil.com')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith(
+        '/candidato/dashboard',
+        { replace: true }
+      )
+    )
   })
 })

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { CadastroMultiStepForm } from '@/features/cadastro/components';
+import { resolveRedirect } from '@/features/auth/utils/resolveRedirect';
 
 /**
  * Página de Cadastro Completo de Candidatos
@@ -25,6 +26,11 @@ export function CadastroPage() {
   // Obter vagaId dos query params para persistência cross-session
   const vagaIdFromQuery = searchParams.get('vagaId');
 
+  // UX-05: propagar `?redirect` do login → pós-cadastro (auto-login). SEMPRE
+  // guardado por `resolveRedirect` (nunca navegar para o param cru — anti
+  // open-redirect). Ausência/inválido → fallback `/candidato/dashboard`.
+  const redirectTo = resolveRedirect(searchParams.get('redirect'));
+
   // Salvar vagaId no localStorage — Phase 4 candidatura flow lê este valor
   // após o login do candidato e redireciona para /candidato/candidatura
   useEffect(() => {
@@ -42,7 +48,10 @@ export function CadastroPage() {
     >
       <div className="min-h-screen py-12 px-4">
         <div className="w-full max-w-4xl mx-auto">
-          <CadastroMultiStepForm onCancel={() => navigate('/auth/login')} />
+          <CadastroMultiStepForm
+            onCancel={() => navigate('/auth/login')}
+            redirectTo={redirectTo}
+          />
         </div>
       </div>
     </BackgroundImage>

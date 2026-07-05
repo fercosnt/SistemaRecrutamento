@@ -52,6 +52,7 @@ import {
   FIELD_TO_STEP_PATH,
 } from '../services/cadastroService'
 import { waitForCandidatoHydrated } from '@/features/auth/utils'
+import { resolveRedirect } from '@/features/auth/utils/resolveRedirect'
 
 // Import dos componentes de cada step
 import { DadosPessoaisStep } from './steps/DadosPessoaisStep'
@@ -118,6 +119,13 @@ interface CadastroMultiStepFormProps {
   onSubmit?: (data: CandidatoFormData) => Promise<void>
   onCancel?: () => void
   initialData?: Partial<CandidatoFormData>
+  /**
+   * UX-05: post-auto-login navigation target, propagated from the login
+   * `?redirect` param via CadastroPage. ALWAYS re-guarded here through
+   * `resolveRedirect` before navigating (never navigate to a raw param).
+   * Absent/invalid → fallback `/candidato/dashboard`.
+   */
+  redirectTo?: string
 }
 
 // ============================================
@@ -185,6 +193,7 @@ export function CadastroMultiStepForm({
   onSubmit: _onSubmit,
   onCancel,
   initialData,
+  redirectTo,
 }: CadastroMultiStepFormProps) {
   // State do step atual
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
@@ -444,7 +453,10 @@ export function CadastroMultiStepForm({
         toast.success(`Cadastro concluído! Bem-vindo(a), ${primeiroNome}.`, { duration: 5000 })
         // Phase 17 / D-09: pós-cadastro o candidato cai no funil hub (Dashboard),
         // não no Perfil — assim a candidatura/avaliação é alcançável por clique.
-        navigate('/candidato/dashboard', { replace: true })
+        // UX-05 (Phase 22 / Plan 22-03): honra o `?redirect` propagado do login,
+        // SEMPRE via `resolveRedirect` (anti open-redirect). Sem redirect →
+        // fallback `/candidato/dashboard`.
+        navigate(resolveRedirect(redirectTo), { replace: true })
       } else {
         toast.success('Cadastro concluído. Faça login para continuar.', { duration: 5000 })
         navigate('/auth/login?email=' + encodeURIComponent(result.data.dadosPessoais.email))
