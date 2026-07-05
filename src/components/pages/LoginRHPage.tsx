@@ -80,7 +80,7 @@ export function LoginRHPage() {
     handleSubmit,
     control,
     getValues,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema) as Resolver<LoginFormData>,
     mode: 'onBlur',
@@ -398,7 +398,7 @@ export function LoginRHPage() {
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isSubmitting || !isValid || isInCooldown}
+                disabled={isSubmitting || isInCooldown}
                 className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
                 {isSubmitting ? (

@@ -74,7 +74,7 @@ export function LoginCandidatoPage() {
     handleSubmit,
     control,
     getValues,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     // Cast: Resolver v5 cross-validates Zod input vs output; loginSchema's
     // `rememberMe: z.boolean().optional().default(false)` produces input
@@ -379,7 +379,7 @@ export function LoginCandidatoPage() {
               {/* Submit */}
               <Button
                 type="submit"
-                disabled={isSubmitting || !isValid || isInCooldown}
+                disabled={isSubmitting || isInCooldown}
                 className="w-full bg-primary hover:bg-primary/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-primary/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
                 {isSubmitting ? (
