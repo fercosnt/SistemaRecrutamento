@@ -48,30 +48,13 @@ import { signIn, resendConfirmation } from '@/features/auth/services'
 import { AuthError, isAuthError } from '@/features/auth/types'
 import { useRateLimitCooldown } from '@/features/auth/hooks'
 import { waitForCandidatoHydrated } from '@/features/auth/utils'
+import { resolveRedirect } from '@/features/auth/utils/resolveRedirect'
 
-/**
- * VAGA-03 — Anti-open-redirect guard for the `?redirect=` query param.
- *
- * Returns the redirect target ONLY when it is a same-origin, non-protocol-relative
- * absolute path (must start with `/` and must NOT start with `//`). Anything else
- * (`https://evil.com`, `//evil.com`, `javascript:...`, empty/missing) yields the
- * default fallback `/candidato/dashboard` (Phase 17 / D-09: the funnel hub is the
- * candidate landing — repointed from `/candidato/perfil`).
- *
- * Exported for unit tests; consumers within this module use `resolveRedirect`.
- */
-export function resolveRedirect(
-  raw: string | null | undefined,
-  fallback = '/candidato/dashboard'
-): string {
-  if (!raw) return fallback
-  // Reject protocol-relative URLs like `//evil.com/path` (browsers treat them as
-  // absolute by inheriting the current scheme — anti-open-redirect).
-  if (raw.startsWith('//')) return fallback
-  // Only accept relative paths anchored at root.
-  if (!raw.startsWith('/')) return fallback
-  return raw
-}
+// Phase 22 / Plan 22-03 (UX-05): `resolveRedirect` was extracted into a shared
+// auth util so login AND cadastro consume ONE anti-open-redirect guard. It is
+// re-exported here so the pre-existing routing test (`LoginCandidatoPage.test.tsx`,
+// which imports `resolveRedirect` from this module) keeps working unchanged.
+export { resolveRedirect }
 
 export function LoginCandidatoPage() {
   const navigate = useNavigate()
