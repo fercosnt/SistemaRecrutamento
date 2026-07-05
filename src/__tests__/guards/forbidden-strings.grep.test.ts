@@ -5,13 +5,19 @@
  * It MUST NEVER ship the clinical/psychometric framing the law (LGPD) and the
  * product spec (RNF-12) forbid. This Vitest grep test scans the committed
  * product-facing source (`src/`) and the Edge Functions (`supabase/functions/`)
- * and FAILS the build the moment any of the 5 forbidden terms appears:
+ * and FAILS the build the moment any of the 7 forbidden terms appears:
  *
- *   1. "teste psicológico"   (teste\s+psicol[oó]gico)
- *   2. "teste psicotécnico"  (teste\s+psicot[eé]cnico)
- *   3. "psicotécnico"        (psicot[eé]cnico)
- *   4. "laudo psicológico"   (laudo\s+psicol[oó]gico)
- *   5. "psicólogo"           (psic[oó]logo)
+ *   1. "teste psicológico"    (teste\s+psicol[oó]gico)
+ *   2. "teste psicotécnico"   (teste\s+psicot[eé]cnico)
+ *   3. "psicotécnico"         (psicot[eé]cnico)
+ *   4. "laudo psicológico"    (laudo\s+psicol[oó]gico)
+ *   5. "psicólogo"            (psic[oó]logo)
+ *   6. "testes psicométricos" (testes?\s+psicom[eé]tricos?)   ← Phase 22 / UX-02
+ *   7. "análise de perfil"    (an[aá]lise\s+de\s+perfil)      ← Phase 22 / UX-02
+ *
+ * Terms 6–7 are the *marketing* framing (as opposed to the clinical terms 1–5)
+ * that RNF-12a also forbids on the candidate-facing landing. They were added in
+ * Phase 22 (UX-02) so a copy regression cannot silently reintroduce them.
  *
  * Replacement product copy: "avaliação comportamental/cognitiva".
  *
@@ -56,16 +62,20 @@ const SCAN_ROOTS = ['src', 'supabase/functions', 'supabase/migrations'] as const
  * accent tolerance (o/ó, e/é) so an un-accented slip is still caught.
  */
 const FORBIDDEN =
-  /teste\s+psicol[oó]gico|teste\s+psicot[eé]cnico|psicot[eé]cnico|laudo\s+psicol[oó]gico|psic[oó]logo/i
+  /teste\s+psicol[oó]gico|teste\s+psicot[eé]cnico|psicot[eé]cnico|laudo\s+psicol[oó]gico|psic[oó]logo|testes?\s+psicom[eé]tricos?|an[aá]lise\s+de\s+perfil/i
 
-// The 5 RNF-12 terms, used by the regex-correctness sub-test. Each MUST match
+// The 7 RNF-12 terms, used by the regex-correctness sub-test. Each MUST match
 // FORBIDDEN — proves the regex is correct independent of the filesystem scan.
+// Terms 6–7 are the marketing framing added by Phase 22 / UX-02 (the clinical
+// terms 1–5 were the original Phase-9 set).
 const RNF_12_TERMS = [
   'teste psicológico',
   'teste psicotécnico',
   'psicotécnico',
   'laudo psicológico',
   'psicólogo',
+  'testes psicométricos',
+  'análise de perfil',
 ] as const
 
 function collectFiles(pathRel: string): string[] {
@@ -112,6 +122,12 @@ describe('LGPD-04 / RNF-12 — forbidden psychological-test strings', () => {
 
   it('FORBIDDEN regex does NOT match the approved replacement copy', () => {
     expect(FORBIDDEN.test('avaliação comportamental/cognitiva')).toBe(false)
+    // Phase 22 / UX-02 — the exact landing replacements must also read clean, so
+    // the new marketing-term alternations cannot false-positive on honest copy.
+    expect(
+      FORBIDDEN.test('Avaliação comportamental e cognitiva com design moderno e tecnológico'),
+    ).toBe(false)
+    expect(FORBIDDEN.test('Acompanhe seu progresso e sua avaliação comportamental')).toBe(false)
   })
 
   it('scan covers at least one source file (sanity check — roots resolve)', () => {
