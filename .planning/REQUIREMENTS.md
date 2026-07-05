@@ -133,22 +133,72 @@ Exclusões explícitas para prevenir scope creep.
 
 ## Traceability
 
-Preenchida durante a criação do roadmap (fases continuam a partir da Phase 22).
+Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 56 requirements. Cada requirement mapeia a exatamente uma fase (sem órfãos, sem duplicatas).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01..11 | TBD | Pending |
-| AI-01..07 | TBD | Pending |
-| FUNIL-01..12 | TBD | Pending |
-| DBMIG-01..02 | TBD | Pending |
-| CI-01..15 | TBD | Pending |
-| UX-01..09 | TBD | Pending |
+| SEC-01 | Phase 24 | Pending |
+| SEC-02 | Phase 24 | Pending |
+| SEC-03 | Phase 24 | Pending |
+| SEC-04 | Phase 24 | Pending |
+| SEC-05 | Phase 24 | Pending |
+| SEC-06 | Phase 24 | Pending |
+| SEC-07 | Phase 24 | Pending |
+| SEC-08 | Phase 24 | Pending |
+| SEC-09 | Phase 24 | Pending |
+| SEC-10 | Phase 24 | Pending |
+| SEC-11 | Phase 24 | Pending |
+| AI-01 | Phase 23 | Pending |
+| AI-02 | Phase 23 | Pending |
+| AI-03 | Phase 23 | Pending |
+| AI-04 | Phase 23 | Pending |
+| AI-05 | Phase 23 | Pending |
+| AI-06 | Phase 23 | Pending |
+| AI-07 | Phase 23 | Pending |
+| FUNIL-01 | Phase 26 | Pending |
+| FUNIL-02 | Phase 25 | Pending |
+| FUNIL-03 | Phase 25 | Pending |
+| FUNIL-04 | Phase 25 | Pending |
+| FUNIL-05 | Phase 25 | Pending |
+| FUNIL-06 | Phase 25 | Pending |
+| FUNIL-07 | Phase 26 | Pending |
+| FUNIL-08 | Phase 26 | Pending |
+| FUNIL-09 | Phase 25 | Pending |
+| FUNIL-10 | Phase 26 | Pending |
+| FUNIL-11 | Phase 25 | Pending |
+| FUNIL-12 | Phase 26 | Pending |
+| DBMIG-01 | Phase 27 | Pending |
+| DBMIG-02 | Phase 27 | Pending |
+| CI-01 | Phase 22 | Pending |
+| CI-02 | Phase 22 | Pending |
+| CI-03 | Phase 27 | Pending |
+| CI-04 | Phase 22 | Pending |
+| CI-05 | Phase 22 | Pending |
+| CI-06 | Phase 27 | Pending |
+| CI-07 | Phase 27 | Pending |
+| CI-08 | Phase 22 | Pending |
+| CI-09 | Phase 22 | Pending |
+| CI-10 | Phase 27 | Pending |
+| CI-11 | Phase 22 | Pending |
+| CI-12 | Phase 22 | Pending |
+| CI-13 | Phase 27 | Pending |
+| CI-14 | Phase 22 | Pending |
+| CI-15 | Phase 27 | Pending |
+| UX-01 | Phase 26 | Pending |
+| UX-02 | Phase 22 | Pending |
+| UX-03 | Phase 25 | Pending |
+| UX-04 | Phase 22 | Pending |
+| UX-05 | Phase 22 | Pending |
+| UX-06 | Phase 25 | Pending |
+| UX-07 | Phase 23 | Pending |
+| UX-08 | Phase 24 | Pending |
+| UX-09 | Phase 23 | Pending |
 
 **Coverage:**
 - v1 requirements: **56 total** (SEC 11 · AI 7 · FUNIL 12 · DBMIG 2 · CI 15 · UX 9)
-- Mapped to phases: 0 (roadmap pendente)
-- Unmapped: 56 ⚠️ (será resolvido pelo gsd-roadmapper)
+- Mapped to phases: **56** (Phase 22: 12 · Phase 23: 9 · Phase 24: 12 · Phase 25: 9 · Phase 26: 6 · Phase 27: 8)
+- Unmapped: **0** ✓
 
 ---
 *Requirements defined: 2026-07-05*
-*Last updated: 2026-07-05 — milestone v4.0 (M4) kickoff, transcrição fiel do recorte aprovado `.planning/M4-SCOPE-PROPOSAL.md`*
+*Last updated: 2026-07-05 — traceability preenchida pelo gsd-roadmapper; 56/56 mapeados a 6 fases (22–27), 0 órfãos. Ver `.planning/ROADMAP.md`.*
