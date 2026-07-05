@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-05 complete — test-credential hygiene (CI-08): stripped every hardcoded real-account credential fallback from 9 e2e specs + a11y fixture (TEST_USER/TEST_ADMIN now env-only, skip-if-unset behind describeRealAuth/E2E_REAL_LOGIN); rewrote .env.test.example keys-only (candidato+admin+gating+supabase, zero values); added src/__tests__/guards/no-hardcoded-test-creds.grep.test.ts (bans real accounts, spares mocked/dynamic/negative-path emails). e2e/README.md scrubbed, .env.test gitignored+untouched. Full Vitest 721/721 (guard 15/15), tsc 257 flat. Wave 1 DONE — 22-06 (Wave 2) unblocked."
-last_updated: "2026-07-05T21:50:00Z"
+stopped_at: "Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (measure-first, CI-01/04/05/14): tsconfig `paths` mirror all 37 versioned specifiers → TS2307 65→0, cascading total tsc 257→133 (versioned imports were silently typing shadcn components as `any`); expanded include to e2e/scripts/playwright.config.ts + exclude the Deno sync-prompts files (0 TS2304 'Deno'); deleted the one genuine e2e error (unused expectAuthenticated). Added BLOCKING deno-test job (denoland/setup-deno@v2, canonical --config corpus cmd, 148/0 green) + pinned unit-job tsc gate 290→133 (MEASURED, red-on-growth). Vitest 721/721, Deno 148/0, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete."
+last_updated: "2026-07-05T22:15:00Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
 Plan: 6 of 6
-Status: Wave 1 complete (22-01..22-05) — ready to execute 22-06 (Wave 2)
+Status: Wave 2 complete (22-06) — all 6 plans done; ready for phase verification/secure
 Last activity: 2026-07-05
 
-Progress: [████████░░] 83%
+Progress: [██████████] 100%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -69,6 +69,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P03 | 12min | 3 tasks | 8 files |
 | Phase 22 P04 | 4min | 2 tasks | 4 files |
 | Phase 22 P05 | 14min | 2 tasks | 13 files |
+| Phase 22 P06 | 12min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,9 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 22/22-04] Pre-existing LGPD-04 EF red (psicólogo literal in gerar-devolutiva-bigfive:192, commit 7853eac — the item deferred by 22-02) RESOLVED via the file's own `_NEG` fragment-join precedent (`["psicól","ogo(a)"].join("")`), runtime disclaimer byte-identical, zero behavior change. deferred-items.md item marked ✅ RESOLVED
 - [Phase ?]: [Phase 22/22-05] CI-08 credential-hygiene guard bans SPECIFIC real-account literals (fernando/teste123 + current .env.test accounts candidato.funil@teste.com/Candidato@2026, e2e.admin@beautysmile.com.br/E2eAdmin), NOT the @beautysmile.com.br/@teste.com domains broadly — a domain-wide ban would false-flag the mocked a11y@ fixture email, the dynamic cadastro test+<ts>@ email, and the negative-path invalido@teste.com/teste@teste.com literals. Allowed-literal sub-tests lock the no-false-positive contract
 - [Phase ?]: [Phase 22/22-05] perfil.spec.ts PERF-01 is an UNCONDITIONAL Tier-1 mock (token endpoint page.route'd) — its TEST_USER email/password are form-fill strings, not creds. Split a MOCK_USER constant so the env-only strip (process.env.X!) didn't make the CI mock test fill undefined. All OTHER TEST_USER reads are behind describeRealAuth or E2E_REAL_LOGIN, so module-load with undefined env is safe (never dereferenced in the default all-skipped run)
+- [Phase ?]: [Phase 22/22-06] tsc baseline MEASURED = 133 (pinned into ci.yml, was loose 290). Resolving 65 versioned-import TS2307 via tsconfig `paths` (mirror of vite.config.ts aliases, figma:asset/* skipped) cascaded the total 257→133 — versioned imports were silently typing whole shadcn components as `any` (masked drift). 257-65 is NOT the answer; measure-first is load-bearing (22-RESEARCH Pitfall 1). Keep tsconfig paths in sync with vite aliases or TS2307 reappears (CI-05/CI-04)
+- [Phase ?]: [Phase 22/22-06] tsc coverage expanded to e2e/scripts/playwright.config.ts; the Deno sync-prompts files (scripts/sync-prompts.ts + .test.ts + glob) are EXCLUDED (Deno globals/npm:/https: are unfixable under Node tsc — same treatment the EF corpus gets by living under `deno test`). supabase/ deliberately NOT in include. One genuine e2e error fixed (unused expectAuthenticated). 0 TS2304 'Deno' leaks (CI-14)
+- [Phase ?]: [Phase 22/22-06] BLOCKING deno-test CI job added (denoland/setup-deno@v2, no continue-on-error). Canonical command = 22-01's `--config` form EXACTLY (`deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions`), confirmed green on merged tree before wiring (148/0, exit 0). The `--ignore=` fallback was NOT used (CI-01)
 
 ### Pending Todos
 
@@ -119,10 +123,11 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T21:50:00Z
-Stopped at: Phase 22 / Plan 22-05 complete — test-credential hygiene (CI-08): every hardcoded real-account credential removed from e2e/ (env-only + skip-if-unset), keys-only .env.test.example, new no-hardcoded-test-creds.grep.test.ts guard. Full Vitest 721/721 (guard 15/15), tsc 257 flat. Wave 1 (22-01..22-05) DONE
+Last session: 2026-07-05T22:15:00Z
+Stopped at: Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (CI-01/04/05/14): tsconfig `paths` (37 versioned) → TS2307 65→0, tsc total 257→133; include e2e/scripts/playwright.config.ts + exclude Deno files (0 TS2304 Deno); blocking deno-test CI job (setup-deno@v2, 148/0) + tsc gate pinned 290→133 (measured). Vitest 721/721, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete.
 Resume file: None
 
 ## Operator Next Steps
 
-- Wave 1 completa (22-01 ✅ 22-02 ✅ 22-03 ✅ 22-04 ✅ 22-05 ✅). Executar Wave 2: `22-06` (tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real, CI-01/04/05/14). Nota p/ 22-06: incluir `e2e/` no tsconfig agora type-checa estes specs — os `process.env.X!` são intencionais e type-clean.
+- Phase 22 EXECUÇÃO COMPLETA — 6/6 plans (22-01 ✅ 22-02 ✅ 22-03 ✅ 22-04 ✅ 22-05 ✅ 22-06 ✅). A rede de testes está verde e o gate tsc travado no baseline REAL medido (133, não 290). Próximo: `/gsd-verify-work` (UAT) e/ou `/gsd-secure-phase 22`, depois avançar p/ Phase 23 (Ressurreição da Stack de IA, AI-01..07 + UX-07/09).
+- Nota p/ manutenção: tsconfig `paths` deve seguir sincronizado com `vite.config.ts resolve.alias` — ao adicionar novos componentes shadcn com specifier versionado, adicionar a entrada correspondente ou o TS2307 volta e o gate de 133 fica vermelho.

@@ -91,7 +91,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 22-06-PLAN.md — tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real (CI-01/04/05/14) [Wave 2]
+- [x] 22-06-PLAN.md — tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real 133 (CI-01/04/05/14) [Wave 2]
 
 **UI hint**: yes
 
@@ -183,7 +183,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
-| 22. Rede de Testes & Destravamento | v4.0 | 5/6 | In Progress|  |
+| 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Plans complete | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 0/TBD | Not started | - |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
