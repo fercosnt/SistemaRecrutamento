@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: executing
-stopped_at: "Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (measure-first, CI-01/04/05/14): tsconfig `paths` mirror all 37 versioned specifiers → TS2307 65→0, cascading total tsc 257→133 (versioned imports were silently typing shadcn components as `any`); expanded include to e2e/scripts/playwright.config.ts + exclude the Deno sync-prompts files (0 TS2304 'Deno'); deleted the one genuine e2e error (unused expectAuthenticated). Added BLOCKING deno-test job (denoland/setup-deno@v2, canonical --config corpus cmd, 148/0 green) + pinned unit-job tsc gate 290→133 (MEASURED, red-on-growth). Vitest 721/721, Deno 148/0, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete."
-last_updated: "2026-07-05T22:15:00Z"
+status: ready_to_plan
+stopped_at: Phase 22 complete (6/6) — ready to discuss Phase 23
+last_updated: 2026-07-05T22:48:10.111Z
 last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
   completed_plans: 6
-  percent: 100
+  percent: 0
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 22 — Rede de Testes, Destravamento & Varredura de Honestidade
+**Current focus:** Phase 23 — ressurreição da stack de ia
 
 ## Current Position
 
-Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
-Plan: 6 of 6
-Status: Wave 2 complete (22-06) — all 6 plans done; ready for phase verification/secure
+Phase: 23
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-07-05
 
 Progress: [██████████] 100%
@@ -56,7 +56,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 22 | TBD | - | - |
+| 22 | 6 | - | - |
 | 23 | TBD | - | - |
 | 24 | TBD | - | - |
 | 25 | TBD | - | - |
