@@ -34,17 +34,20 @@
  */
 import { test, expect, type Page } from '@playwright/test'
 
-// Candidate test user (login-flow.spec.ts convention).
+// Candidate test user (login-flow.spec.ts convention). CI-08: env-only, no hardcoded
+// fallback — read ONLY inside describeRealAuth (E2E_AUTH_TEST_USERS==='true').
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
 }
 
 // Administrador test user — covers BOTH the RH and admin journeys (RESEARCH A3:
 // no 'recrutador' account exists to exercise the generic-rh path separately).
+// CI-08: falls back to the candidate env vars (not a hardcoded credential); read
+// only inside describeRealAuth. Real values live in .env.test (gitignored).
 const TEST_ADMIN = {
-  email: process.env.TEST_ADMIN_EMAIL || process.env.TEST_USER_EMAIL || 'admin@beautysmile.com.br',
-  password: process.env.TEST_ADMIN_PASSWORD || process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_ADMIN_EMAIL || process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_ADMIN_PASSWORD || process.env.TEST_USER_PASSWORD!,
 }
 
 // A seeded candidatura id reachable for the RH hub journey (provide via env when running the

@@ -61,17 +61,26 @@ Categorias de testes:
 
 ### Configurar Credenciais de Teste
 
+> **CI-08 — credenciais fora do repositório.** Nenhum email/senha de conta de teste
+> é commitado. Os valores reais vivem apenas em `.env.test` (gitignored); o arquivo
+> versionado `.env.test.example` documenta as CHAVES necessárias, sem valores reais.
+
 1. Copie o arquivo de exemplo:
    ```bash
    cp .env.test.example .env.test
    ```
 
-2. Edite `.env.test` com credenciais de um usuário de teste válido:
+2. Edite `.env.test` preenchendo os valores das chaves documentadas em
+   `.env.test.example` (candidato de teste, admin/RH, gating e Supabase):
    ```env
-   TEST_USER_EMAIL=fernando@beautysmile.com.br
-   TEST_USER_PASSWORD=teste123
-   TEST_USER_NAME=Fernando
+   TEST_USER_EMAIL=<email-do-candidato-de-teste>
+   TEST_USER_PASSWORD=<senha-do-candidato-de-teste>
+   TEST_USER_NAME=<nome-do-candidato-de-teste>
    ```
+   > Consulte `.env.test.example` para a lista completa de chaves — incluindo
+   > `TEST_ADMIN_EMAIL`/`TEST_ADMIN_PASSWORD`, os flags de gating
+   > (`E2E_AUTH_TEST_USERS`, `E2E_CANDIDATURA_ID`, `E2E_VAGA_ID`) e as chaves do
+   > Supabase. NUNCA escreva valores reais em `.env.test.example`.
 
 3. **IMPORTANTE:** Certifique-se de que:
    - O usuário existe em `auth.users` no Supabase

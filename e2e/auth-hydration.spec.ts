@@ -19,9 +19,12 @@
 import { test, expect, type Page } from '@playwright/test'
 import { resolve } from 'node:path'
 
+// CI-08: env-only, no hardcoded fallback. TEST_USER is read ONLY by SC-2, which
+// is gated by E2E_REAL_LOGIN + E2E_ALLOW_DB_WRITE + a TEST_USER_EMAIL skip.
+// Real values live only in .env.test (gitignored); see .env.test.example.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
 }
 
 function makeJwt(payload: Record<string, unknown>): string {
@@ -63,6 +66,7 @@ test.describe('Phase 4.1 Auth Hydration', () => {
   test('SC-2: anon redirect-after-login submits candidatura with hydrated candidato', async ({ page }) => {
     test.skip(!process.env.E2E_REAL_LOGIN, 'Requires E2E_REAL_LOGIN=1 (real auth round-trip)')
     test.skip(!process.env.E2E_ALLOW_DB_WRITE, 'DB-writing — set E2E_ALLOW_DB_WRITE=1')
+    test.skip(!process.env.TEST_USER_EMAIL, 'Requires TEST_USER_EMAIL (see .env.test.example)')
 
     // 1. Anon → /vagas → /vagas/:slug
     await page.goto('/vagas')

@@ -17,10 +17,15 @@
 import { test, expect, type Page } from '@playwright/test'
 
 // Test data
+// CI-08: NO hardcoded credential fallbacks — read from env, skip-if-unset.
+// Every block that reads TEST_USER is gated behind `describeRealAuth`
+// (E2E_AUTH_TEST_USERS==='true'), so these are never dereferenced in a
+// non-skipped default run. Real values live only in .env.test (gitignored);
+// see .env.test.example for the documented keys.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
-  name: process.env.TEST_USER_NAME || 'Fernando',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
+  name: process.env.TEST_USER_NAME!,
 }
 
 const INVALID_CREDENTIALS = {
@@ -146,7 +151,7 @@ describeRealAuth('Testes Funcionais Básicos', () => {
 
   test('1.4 - Validação de formulário - Email vazio', async ({ page }) => {
     // Deixar email em branco e preencher senha
-    await page.getByLabel(/senha/i).fill('teste123')
+    await page.getByLabel(/senha/i).fill('SenhaValida1')
 
     // Dar blur no campo de email para triggerar validação
     await page.getByLabel(/email/i).click()
@@ -162,7 +167,7 @@ describeRealAuth('Testes Funcionais Básicos', () => {
 
   test('1.4 - Validação de formulário - Email formato inválido', async ({ page }) => {
     await page.getByLabel(/email/i).fill('emailsemarroba.com')
-    await page.getByLabel(/senha/i).fill('teste123')
+    await page.getByLabel(/senha/i).fill('SenhaValida1')
 
     // Verificar mensagem de erro
     await expect(page.getByText(/email inválido/i)).toBeVisible()

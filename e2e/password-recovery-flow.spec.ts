@@ -32,8 +32,10 @@
 
 import { test, expect } from '@playwright/test'
 
+// CI-08: env-only, no hardcoded fallback. TEST_USER is referenced ONLY by the
+// always-skipped Tier-2 manual-UAT test (`void TEST_USER.email`). See .env.test.example.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
+  email: process.env.TEST_USER_EMAIL!,
 }
 
 /**

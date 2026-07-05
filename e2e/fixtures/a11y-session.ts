@@ -99,7 +99,9 @@ export async function driveLogin(page: Page): Promise<void> {
   await page.goto('/auth/login')
   await page.locator('#email').fill('a11y@beautysmile.com.br')
   await page.locator('#email').blur()
-  await page.locator('#password, #senha').first().fill('teste123')
+  // CI-08: mock fill value only — the token endpoint is intercepted by mockSession,
+  // so this never authenticates against real Supabase (not a real credential).
+  await page.locator('#password, #senha').first().fill('mock-password-123')
   await page.locator('#password, #senha').first().blur()
   await page.getByRole('button', { name: /^Entrar$/ }).click()
 }

@@ -38,9 +38,18 @@ function makeJwt(payload: Record<string, unknown>): string {
   return `${header}.${body}.fake-signature-not-verified`
 }
 
+// Tier-1 deterministic MOCK values — the auth round-trip is fully intercepted by
+// page.route, so these are just form-fill strings, NOT real credentials (CI-08).
+const MOCK_USER = {
+  email: 'candidato.mock@example.test',
+  password: 'mock-password-123',
+}
+
+// Tier-2 REAL credentials — env-only, no hardcoded fallback. Read ONLY by the
+// login() helper inside the E2E_REAL_LOGIN-gated PERF-02 test. See .env.test.example.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
 }
 
 async function fillAndBlur(page: Page, selector: string, value: string) {
@@ -69,7 +78,7 @@ test.describe('perfil — Tier-1 (mocked auth, deterministic)', () => {
   test('PERF-01: authenticated candidato lands on /candidato/perfil with personal-data shell', async ({ page }) => {
     const candidateJwt = makeJwt({
       sub: 'test-uuid',
-      email: TEST_USER.email,
+      email: MOCK_USER.email,
       app_metadata: { role: 'candidato', provider: 'email' },
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
@@ -86,7 +95,7 @@ test.describe('perfil — Tier-1 (mocked auth, deterministic)', () => {
           token_type: 'bearer',
           user: {
             id: 'test-uuid',
-            email: TEST_USER.email,
+            email: MOCK_USER.email,
             app_metadata: { provider: 'email' },
           },
         }),
@@ -103,7 +112,7 @@ test.describe('perfil — Tier-1 (mocked auth, deterministic)', () => {
             id: 'cand-uuid',
             user_id: 'test-uuid',
             nome_completo: 'Candidato Teste',
-            email: TEST_USER.email,
+            email: MOCK_USER.email,
             celular: '(11) 98765-4321',
             avatar_url: null,
             deleted_at: null,
@@ -130,9 +139,9 @@ test.describe('perfil — Tier-1 (mocked auth, deterministic)', () => {
     })
 
     await page.goto('/auth/login')
-    await page.locator('#email').fill(TEST_USER.email)
+    await page.locator('#email').fill(MOCK_USER.email)
     await page.locator('#email').blur()
-    await page.locator('#password, #senha').first().fill(TEST_USER.password)
+    await page.locator('#password, #senha').first().fill(MOCK_USER.password)
     await page.locator('#password, #senha').first().blur()
     await page.getByRole('button', { name: /^Entrar$/ }).click()
 

@@ -11,9 +11,11 @@
  */
 import { test, expect, type Page } from '@playwright/test'
 
+// CI-08: env-only, no hardcoded fallback. TEST_USER is read ONLY by B-J04, which
+// is gated by `test.skip(!process.env.TEST_USER_EMAIL, …)`. See .env.test.example.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
 }
 
 async function fillAndBlur(page: Page, selector: string, value: string) {

@@ -19,9 +19,11 @@
 import { test, expect, type Page } from '@playwright/test'
 import { resolve } from 'node:path'
 
+// CI-08: env-only, no hardcoded fallback. TEST_USER is read by the login() helper,
+// called ONLY from the E2E_REAL_LOGIN-gated B-J06..B-J12 tests. See .env.test.example.
 const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'fernando@beautysmile.com.br',
-  password: process.env.TEST_USER_PASSWORD || 'teste123',
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
 }
 
 async function fillAndBlur(page: Page, selector: string, value: string) {
