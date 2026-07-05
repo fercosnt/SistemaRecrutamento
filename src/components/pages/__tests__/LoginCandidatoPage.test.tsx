@@ -234,4 +234,39 @@ describe('login-success ?redirect propagation + orphan cleanup (UX-05)', () => {
       )
     )
   })
+
+  // ============================================================
+  // WR-01 — vaga context must survive the cadastro auto-login-failure bounce
+  //
+  // When post-signup auto-login fails, CadastroMultiStepForm bounces the user to
+  // `/auth/login?email=...`. The candidatura is still in flight, so a manual
+  // login on THAT path must NOT wipe `candidatura_vaga_id` — otherwise the
+  // candidate lands on the hardcoded `vagaId='1'` fallback. It is cleared at
+  // consumption (InstrucoesFormularioPage) instead. A plain login still cleans up.
+  // ============================================================
+  it('PRESERVES candidatura_vaga_id on the cadastro bounce (?email) so it survives the manual login', async () => {
+    localStorage.setItem('candidatura_vaga_id', 'vaga-xyz')
+    await submitLoginFrom('/auth/login?email=ana%40teste.com')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith(
+        '/candidato/dashboard',
+        { replace: true }
+      )
+    )
+    expect(localStorage.getItem('candidatura_vaga_id')).toBe('vaga-xyz')
+  })
+
+  it('still clears the orphan candidatura_vaga_id on a plain login with no pending candidatura (no ?email)', async () => {
+    localStorage.setItem('candidatura_vaga_id', 'vaga-abc')
+    await submitLoginFrom('/auth/login')
+
+    await waitFor(() =>
+      expect(routerMocks.navigateMock).toHaveBeenCalledWith(
+        '/candidato/dashboard',
+        { replace: true }
+      )
+    )
+    expect(localStorage.getItem('candidatura_vaga_id')).toBeNull()
+  })
 })

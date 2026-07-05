@@ -16,6 +16,16 @@ export function InstrucoesFormularioPage() {
   const vagaId = vagaIdFromQuery || vagaIdFromStorage;
 
   const handleIniciar = () => {
+    // WR-01 (Phase 22 code review): read-then-clear the orphan
+    // `candidatura_vaga_id` at its point of consumption. The cadastro
+    // auto-login-failure bounce intentionally preserves this key across the
+    // manual login (LoginCandidatoPage skips its orphan cleanup when `?email`
+    // is present), so consumption is the correct place to finally clear it and
+    // keep the UX-05 orphan-key hygiene intact.
+    if (vagaIdFromStorage) {
+      localStorage.removeItem('candidatura_vaga_id');
+    }
+
     toast.success('Iniciando formulário...', {
       description: 'Boa sorte! Seja autêntico.',
     });

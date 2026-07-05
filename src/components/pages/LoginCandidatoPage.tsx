@@ -109,7 +109,19 @@ export function LoginCandidatoPage() {
       // localStorage key on successful login. It is written by CadastroPage from
       // `?vagaId` and read by InstrucoesFormularioPage, but no code path ever
       // removed it — it lingered across sessions (stale-state / info-leak surface).
-      localStorage.removeItem('candidatura_vaga_id')
+      //
+      // WR-01 (Phase 22 code review): do NOT clear it when this login arrived via
+      // the cadastro auto-login-failure bounce (`/auth/login?email=...`, navigated
+      // ONLY by CadastroMultiStepForm when post-signup auto-login fails). On that
+      // path the candidatura is still in flight and InstrucoesFormularioPage must
+      // consume the vaga context AFTER this manual login — clearing it here would
+      // strand the candidate on the hardcoded `vagaId='1'` fallback. On that flow
+      // the key is instead cleared at its point of consumption
+      // (InstrucoesFormularioPage). A plain login (no `?email`) still runs cleanup.
+      const cameFromCadastroBounce = searchParams.get('email') !== null
+      if (!cameFromCadastroBounce) {
+        localStorage.removeItem('candidatura_vaga_id')
+      }
       toast.success('Login realizado com sucesso!', { duration: 3000 })
       // VAGA-03: consume `?redirect=` query param (e.g. set by VagaDetalhePage
       // when an unauthenticated visitor clicks "Candidatar-se"). Guarded against
