@@ -1,0 +1,23 @@
+[
+  { "id": "ln_01", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n2, 4, 6, 8, ?", "alternativas": ["10", "12", "9", "14"], "gabarito_idx": 0 },
+  { "id": "ln_02", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n3, 6, 12, 24, ?", "alternativas": ["36", "48", "30", "40"], "gabarito_idx": 1 },
+  { "id": "ln_03", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n1, 4, 9, 16, ?", "alternativas": ["20", "24", "25", "36"], "gabarito_idx": 2 },
+  { "id": "ln_04", "secao": "letra_numero", "enunciado": "Qual letra completa a série?\nA, C, E, G, ?", "alternativas": ["H", "I", "J", "F"], "gabarito_idx": 1 },
+  { "id": "ln_05", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n2, 3, 5, 7, 11, ?", "alternativas": ["12", "13", "14", "15"], "gabarito_idx": 1 },
+  { "id": "ln_06", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n100, 50, 25, ?", "alternativas": ["12,5", "10", "15", "20"], "gabarito_idx": 0 },
+  { "id": "ln_07", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n1, 1, 2, 3, 5, ?", "alternativas": ["7", "8", "6", "9"], "gabarito_idx": 1 },
+  { "id": "ln_08", "secao": "letra_numero", "enunciado": "Qual letra completa a série?\nZ, X, V, T, ?", "alternativas": ["S", "R", "Q", "U"], "gabarito_idx": 1 },
+  { "id": "ln_09", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n5, 10, 20, 40, ?", "alternativas": ["60", "70", "80", "100"], "gabarito_idx": 2 },
+  { "id": "ln_10", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n81, 27, 9, 3, ?", "alternativas": ["0", "1", "2", "3"], "gabarito_idx": 1 },
+  { "id": "ln_11", "secao": "letra_numero", "enunciado": "Qual número completa a série?\n2, 5, 10, 17, ?", "alternativas": ["24", "26", "28", "25"], "gabarito_idx": 1 },
+  { "id": "ln_12", "secao": "letra_numero", "enunciado": "Qual letra completa a série?\nB, D, G, K, ?", "alternativas": ["N", "O", "P", "Q"], "gabarito_idx": 2 },
+
+  { "id": "mat_01", "secao": "matriz", "enunciado": "Cada linha da matriz repete os mesmos três símbolos deslocados uma posição à esquerda. Qual símbolo completa a matriz?\nLinha 1:  ● ▲ ■\nLinha 2:  ▲ ■ ●\nLinha 3:  ■ ● ?", "alternativas": ["●", "▲", "■", "◆"], "gabarito_idx": 1 },
+  { "id": "mat_02", "secao": "matriz", "enunciado": "Em cada linha os números aumentam de 1 em 1, e cada linha começa 1 acima da anterior. Qual número completa a matriz?\nLinha 1:  1  2  3\nLinha 2:  2  3  4\nLinha 3:  3  4  ?", "alternativas": ["4", "5", "6", "3"], "gabarito_idx": 1 },
+  { "id": "mat_03", "secao": "matriz", "enunciado": "A seta gira 90° no sentido horário a cada passo. Qual completa a sequência?\n↑  →  ↓  ?", "alternativas": ["↑", "→", "←", "↓"], "gabarito_idx": 2 },
+  { "id": "mat_04", "secao": "matriz", "enunciado": "A cada passo a figura perde um ponto. Quantos pontos tem a próxima figura?\n●●●●   ●●●   ●●   ?", "alternativas": ["nenhum", "●", "●●", "●●●"], "gabarito_idx": 1 },
+  { "id": "mat_05", "secao": "matriz", "enunciado": "A cada passo a figura ganha um lado. Qual figura vem a seguir?\ntriângulo (3 lados) → quadrado (4) → pentágono (5) → ?", "alternativas": ["círculo", "hexágono (6)", "losango (4)", "estrela"], "gabarito_idx": 1 },
+  { "id": "mat_06", "secao": "matriz", "enunciado": "O padrão alterna as cores. Qual completa a sequência?\npreto, branco, preto, branco, ?", "alternativas": ["branco", "preto", "cinza", "nenhum"], "gabarito_idx": 1 },
+  { "id": "mat_07", "secao": "matriz", "enunciado": "Cada letra é espelhada horizontalmente (b↔d, p↔q). Se 'b' vira 'd' e 'p' vira 'q', então 'q' vira ?", "alternativas": ["p", "d", "b", "g"], "gabarito_idx": 0 },
+  { "id": "mat_08", "secao": "matriz", "enunciado": "A cada passo a figura dobra a quantidade de elementos. Quantos elementos tem a próxima?\n● (1)  ●● (2)  ●●●● (4)  ?", "alternativas": ["6", "8", "10", "5"], "gabarito_idx": 1 }
+]

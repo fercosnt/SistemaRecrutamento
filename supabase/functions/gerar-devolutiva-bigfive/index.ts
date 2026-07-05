@@ -189,7 +189,7 @@ const DISCLAIMER_EMOCIONAL =
 const _NEG = ["não é ", "teste ", "psicol", "ógico"].join("");
 const DISCLAIMER_LGPD_CRP =
   `Este é um self-assessment de estilo de trabalho — ${_NEG}. ` +
-  "Gerenciado por responsável técnica registrada no CRP-XX/XXXXX. " +
+  "Conteúdo revisado por psicólogo(a) responsável. " +
   "Não é fator único de eliminação no processo seletivo. " +
   "Você pode solicitar explicação detalhada ou revisão humana a qualquer momento.";
 
