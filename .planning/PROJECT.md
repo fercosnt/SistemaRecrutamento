@@ -43,6 +43,25 @@ Entregue no M2: pipeline backbone de 6 etapas + RLS 100% (P6); config de vaga + 
 
 </details>
 
+## Current Milestone: v4.0 M4 — Correção & Blindagem do Funil
+
+**Goal:** Endurecer e corrigir o funil ponta-a-ponta (hardening, **não** expansão) — fechar todo vazamento de PII/gabarito e IDOR, ressuscitar a stack de IA silenciosamente morta, eliminar o drift M1→M2 (enums mortos, colunas fantasma, contratos quebrados, scoring manipulável), fazer as migrations reconstruírem o banco do zero, e blindar tudo com a rede de testes/CI que originou todos os defeitos live.
+
+**Target features (5 categorias-fase, 50 achados aprovados ~100pt · ~47 requirements efetivos após 3 pares deduplicados):**
+- **M4-A · 🔒 Segurança / PII / LGPD** (12) — RLS row-level nunca é segredo de coluna → RPC SECURITY DEFINER / column REVOKE; toda EF privilegiada autentica-**E**-autoriza (fecha IDOR/PII em devolutiva-bigfive, análise/comparativo, redação, cognitivo; webhook n8n sem auth; backup PII fora de RLS; console.log RH em PROD)
+- **M4-B · 🤖 Confiabilidade & Versionamento de IA** (7) — prompt library ativa nos 7 call_types (não stub de 1 linha), circuit breaker real, retry de timeout que casa, guardrails de custo com escopo/alarme corretos, replay de idempotência regenerável, guarda de NaN em env
+- **M4-C · 🔀 Correção do Funil (drift M1→M2)** (12) — `pontuar_sjt` anti-tampering, RH não rejeita sem trilha (RNF-07a), Kanban/UpdateStatus/Editar-Vaga sobre enums+colunas que existem, contrato cargoTemplates↔container, SJT filtrado por cargo/vaga, cognitivo alcançável, `registrar_decisao` sem destruir histórico, reinscrição pós-soft-delete, cards refletem conclusão
+- **M4-D · 🗄️ Integridade de Migrations/DB** (2) — 49 migrations reconstroem o banco do zero + ledger de versões converge (destrava pgTAP e reprodutibilidade); semântica de `auto_rejeitado` corrigida
+- **M4-E · 🧪 Rede de Testes & Higiene de CI** (17) — corpus Deno das EFs (~126 testes) roda em CI e não apodrece; testes da EF submit-candidatura (único auto-reject sancionado); gates tsc/bundle/lint wired; supply-chain (wildcards, vulns dev-tooling); credenciais fora do repo; contract tests reais; imports versionados no tsconfig
+- **+ Overlay de produto (12 quick-wins)** — o *lado de experiência* dos achados já escopados, feito no mesmo file-touch: copy honesta ("acompanhe no painel" vs "avisaremos por e-mail"), roteamento+alcançabilidade do cognitivo, landing sem "teste psicométrico", hub `candidatura.id`, login sem `!isValid`, percentil→descritor qualitativo, affordances mortas
+
+**Key context:**
+- **Filosofia:** hardening/correção, não features. Feature-work sai para **M5 (Operação & Comunicação)** — draft em `.planning/M5-DRAFT.md` (pipeline de notificação, agendamento, relatórios/KPIs, banco de talentos, LGPD retenção, substância psicométrica).
+- **Fontes aprovadas:** `.planning/M4-SYSTEM-AUDIT.md` (56 achados técnicos adversariais), `.planning/M4-PRODUCT-EVALUATION.md` (74 recs de 6 personas), `.planning/M4-SCOPE-PROPOSAL.md` (recorte APROVADO 2026-07-05), `.planning/M4-CANDIDATE-JOURNEY.md` (jornada tela-a-tela).
+- **Diferidos:** A14/A37 (gestão de usuários RH + perfil RH reais) → M5 (no M4 são gateados/ocultados); A45/A46 (pgTAP + e2e real completos) → backlog stretch; A53/A55 (UX low) → backlog.
+- **Sequência recomendada:** M4-B → M4-A → M4-C (+ Onda 2 de produto no mesmo touch) → M4-D/E em paralelo, com os 12 quick-wins como varredura imediata.
+- **Numeração de fases:** continua a partir da **Phase 22** (M3 terminou na Phase 21).
+
 ## Last Milestone: v3.0 Refinamento RH & Hardening ✅ SHIPPED 2026-06-30
 
 **Goal (atingido):** Endurecer o funil de IA recém-construído (M2) para uso real em produção — resiliência das Edge Functions, performance e fechamento de UATs live — e refinar a experiência do RH, **sem expandir superfície de features**. Todos os 12 requirements atingidos; a Phase 21 ainda achou+corrigiu 3 defeitos live em PROD (ver `## Current State`).
@@ -92,9 +111,9 @@ Entregue no M2: pipeline backbone de 6 etapas + RLS 100% (P6); config de vaga + 
 <!-- M1 (Fases 1-5) shipped v1.0 2026-06-06 — 38 requirements em Validated. -->
 <!-- M2 (Fases 6-16) shipped v2.0 2026-06-26 — 42 requirements em Validated (ver Validated acima + summary do M2 + archive milestones/v2.0-REQUIREMENTS.md). -->
 
-**M3 (v3.0) ✅ SHIPPED 2026-06-30** — 42 reqs do M2 + 12 reqs do M3 todos em Validated. Nenhum milestone ativo no momento.
+**M1 (v1.0) + M2 (v2.0) + M3 (v3.0) ✅ SHIPPED** — 92 reqs todos em Validated.
 
-**M4 (próximo) — a definir** via `/gsd-new-milestone` (requirements frescos). Tech-debt carregado: FOUND-08 (tsc burn-down tail, baseline 257), CC0-01 (item-bank cognitivo real seed), consolidação do `extractEfErrorCode` do entrevistaService no `@/lib/efErrors` (WARNING do audit M3). Candidatos de feature: MS Bookings auto-scheduling, bias audit automatizado, LLM-as-judge calibrado, norma local do cognitivo, carta de devolução por IA. Resíduo visual de UAT em `21-RUNBOOK.md`.
+**M4 (v4.0) — Correção & Blindagem do Funil 🟢 ABERTO 2026-07-05** via `/gsd-new-milestone`. Requirements frescos em `.planning/REQUIREMENTS.md` (categorias SEC · AI · FUNIL · DBMIG · CI · UX), derivados do recorte aprovado `.planning/M4-SCOPE-PROPOSAL.md`. Hardening/correção, não expansão. Absorve o tech-debt carregado do M3: FOUND-08 (tsc burn-down tail, baseline 257 → CI-04), CC0-01 (item-bank cognitivo real seed — *fica em M5/PSICO*, no M4 só o gabarito é blindado SEC), `extractEfErrorCode` dedup no `@/lib/efErrors` (A39 → CI). Feature-work (MS Bookings, banco de talentos, relatórios/KPIs, pipeline de notificação, norma local do cognitivo, carta de devolução) → **M5 (Operação & Comunicação)**, draft em `.planning/M5-DRAFT.md`.
 
 ### Out of Scope
 
@@ -198,4 +217,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-30 — milestone **v3.0 (M3 — Refinamento RH & Hardening) SHIPPED** (4 fases 18–21, 16 plans, 12/12 reqs, audit OK/tech_debt; Phase 21 achou+corrigiu 3 defeitos live em PROD). Roadmap+requirements+audit arquivados em `milestones/v3.0-*`. Próximo: M4 via `/gsd-new-milestone`. — histórico: milestone **v3.0** iniciado 2026-06-29 via `/gsd-new-milestone` (escopo: hardening/consolidação, **não** expansão). Ver `## Current Milestone` + `.planning/REQUIREMENTS.md` (definido neste ciclo). Fases continuam a partir da Phase 18. SEED-001 incluído; FOUND-08 + CC0 + features novas deferidas p/ M4. Histórico v2.0: SHIPPED 2026-06-26 — 11 fases (6–16), 63 plans, 42/42 requirements, audit PASSED (AVAL-03 BLOCKER resolvido pós-audit — EF redeploy v6, commit 39a164e); roadmap+requirements arquivados em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`.*
+*Last updated: 2026-07-05 — milestone **v4.0 (M4 — Correção & Blindagem do Funil) ABERTO** via `/gsd-new-milestone` (escopo: hardening/correção do funil, **não** expansão — 50 achados aprovados das 5 categorias A–E + overlay de produto; ver `## Current Milestone` + `.planning/REQUIREMENTS.md` + `.planning/M4-SCOPE-PROPOSAL.md`). Fases continuam a partir da Phase 22. Feature-work diferido p/ M5 (`.planning/M5-DRAFT.md`). — histórico: milestone **v3.0 (M3 — Refinamento RH & Hardening) SHIPPED** (4 fases 18–21, 16 plans, 12/12 reqs, audit OK/tech_debt; Phase 21 achou+corrigiu 3 defeitos live em PROD). Roadmap+requirements+audit arquivados em `milestones/v3.0-*`. Próximo: M4 via `/gsd-new-milestone`. — histórico: milestone **v3.0** iniciado 2026-06-29 via `/gsd-new-milestone` (escopo: hardening/consolidação, **não** expansão). Ver `## Current Milestone` + `.planning/REQUIREMENTS.md` (definido neste ciclo). Fases continuam a partir da Phase 18. SEED-001 incluído; FOUND-08 + CC0 + features novas deferidas p/ M4. Histórico v2.0: SHIPPED 2026-06-26 — 11 fases (6–16), 63 plans, 42/42 requirements, audit PASSED (AVAL-03 BLOCKER resolvido pós-audit — EF redeploy v6, commit 39a164e); roadmap+requirements arquivados em `milestones/v2.0-ROADMAP.md` + `milestones/v2.0-REQUIREMENTS.md`.*

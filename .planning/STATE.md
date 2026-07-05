@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: M3 — Refinamento RH & Hardening
-status: Awaiting next milestone
-stopped_at: Phase 20 complete (8/9 must-haves; UAT deferred P21); secured 19/19; UI 21/24; advancing to Phase 21
-last_updated: "2026-06-30T20:53:58.885Z"
-last_activity: 2026-06-30 — Milestone v3.0 completed and archived
+milestone: v4.0
+milestone_name: M4 — Correção & Blindagem do Funil
+status: planning
+last_updated: "2026-07-05T17:18:12.781Z"
+last_activity: 2026-07-05
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-29 — M3/v3.0 kickoff)
 
 ## Current Position
 
-Phase: Milestone v3.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-06-30 — Milestone v3.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-05 — Milestone v4.0 started
 
 ## Roadmap (M3 — Phases 18–21)
 
