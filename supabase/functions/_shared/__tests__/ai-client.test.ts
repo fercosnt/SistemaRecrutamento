@@ -112,6 +112,10 @@ async function loadClient() {
         vagaRubricBlock: string;
         candidato_id: string;
         vaga_id: string;
+        // Real CallAiArgs (ai-client.ts:192) already carries the optional
+        // per-call timeout override (added Phase 18/21). The local shape must
+        // mirror it so the P21 override test (`timeoutMs: 60_000` below) type-checks.
+        timeoutMs?: number;
       },
       deps: {
         anthropic: unknown;
