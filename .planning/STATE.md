@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-02 complete — supply-chain hardened: 8 wildcards pinned, 2 dead deps removed, vitest/@vitest/ui/happy-dom advisories cleared, 691/691 non-guard Vitest green (CI-09/11/12)"
-last_updated: "2026-07-05T21:09:16.479Z"
+stopped_at: "Phase 22 / Plan 22-03 complete — candidate-facing auth honesty: shared resolveRedirect util (extracted, not duplicated), both login buttons enabled by default (no !isValid; blur() hack dead), ?redirect threaded login→cadastro→post-login behind the guard, orphan candidatura_vaga_id cleared on login (UX-04/UX-05). tsc 257 flat, plan tests green"
+last_updated: "2026-07-05T21:25:17Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
-  percent: 33
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-05
 
-Progress: [███░░░░░░░] 33%
+Progress: [█████░░░░░] 50%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -66,6 +66,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 *Updated after each plan completion.*
 | Phase 22 P01 | 13min | 2 tasks | 2 files |
 | Phase 22 P02 | 18min | 2 tasks | 2 files |
+| Phase 22 P03 | 12min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 22/22-02] Pinned 8 wildcard prod deps to EXACT lockfile versions (no ^) as supply-chain ceiling — @tiptap/* 3.10.1, clsx 2.1.1, react-dnd/html5-backend 16.0.1, tailwind-merge 3.3.1 (CI-09); removed dead deps motion + @supabase/auth-helpers-react (CI-12)
 - [Phase ?]: [Phase 22/22-02] Bumped vitest+@vitest/ui 4.0.7→4.1.9 lockstep (UI-server RCE) + happy-dom 20.0.10→20.10.6 (code-exec); vite 6.3.5 unchanged; 3 named advisories cleared, 691/691 non-guard Vitest green (CI-11)
 - [Phase ?]: [Phase 22/22-02] Pre-existing LGPD-04 guard red (psicólogo literal in gerar-devolutiva-bigfive:192, commit 7853eac) is version-independent + out of supply-chain scope → deferred not fixed; trivial fragment-join fix logged in deferred-items.md for UX-02/Phase-24
+- [Phase ?]: [Phase 22/22-03] resolveRedirect EXTRACTED to one shared util (src/features/auth/utils/resolveRedirect.ts) + re-exported from LoginCandidatoPage so the legacy routing test import stays valid — security guard never duplicated (CI-06 dedup lesson); consumed by login + cadastro
+- [Phase ?]: [Phase 22/22-03] Dropping !isValid from a login button's disabled expr MUST also drop isValid from the formState destructure — noUnusedLocals turns the leftover into a fresh TS6133 that would inflate the frozen 257 baseline (Pitfall 4). Both login pages done; Esqueci/Redefinir already clean (grep regression guard)
+- [Phase ?]: [Phase 22/22-03] ?redirect double-guarded (CadastroPage boundary + CadastroMultiStepForm navigate site) — resolveRedirect is idempotent so no raw param reaches navigate(); orphan candidatura_vaga_id localStorage key cleared on login success. react-router@6.30.1 HIGH open-redirect CVE flagged for Phase 24 (T-22-03-02, accept)
 
 ### Pending Todos
 
@@ -108,11 +112,11 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T21:08:55.723Z
-Stopped at: Phase 22 / Plan 22-02 complete — supply-chain hardened: 8 wildcards pinned, 2 dead deps removed, vitest/@vitest/ui/happy-dom advisories cleared, 691/691 non-guard Vitest green (CI-09/11/12)
+Last session: 2026-07-05T21:25:17Z
+Stopped at: Phase 22 / Plan 22-03 complete — candidate-facing auth honesty (UX-04/UX-05): shared resolveRedirect util, both login buttons enabled by default (blur() hack dead), ?redirect threaded login→cadastro→post-login behind the guard, orphan candidatura_vaga_id cleared on login. tsc 257 flat, plan tests green
 Resume file: None
 
 ## Operator Next Steps
 
-- Revisar o draft do roadmap (`.planning/ROADMAP.md`)
-- Planejar a primeira fase com `/gsd-plan-phase 22`
+- Executar o próximo plano da Wave 1: `22-04` (landing honesta + estender forbidden-strings guard, UX-02) e `22-05` (credenciais de teste fora do repo, CI-08)
+- Wave 2 (`22-06`) fica bloqueada até Wave 1 completar

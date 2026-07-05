@@ -85,7 +85,7 @@ Plans:
 
 - [x] 22-01-PLAN.md — Deno EF corpus green under type-check (CI-02) [Wave 1]
 - [x] 22-02-PLAN.md — Supply-chain: pin 8 wildcards, bump vitest/happy-dom vulns, drop 2 dead deps (CI-09/11/12) [Wave 1]
-- [ ] 22-03-PLAN.md — Login buttons sem !isValid + ?redirect propagado (shared resolveRedirect) + orphan localStorage limpo (UX-04/05) [Wave 1]
+- [x] 22-03-PLAN.md — Login buttons sem !isValid + ?redirect propagado (shared resolveRedirect) + orphan localStorage limpo (UX-04/05) [Wave 1]
 - [ ] 22-04-PLAN.md — Landing honesta + estender forbidden-strings guard (UX-02) [Wave 1]
 - [ ] 22-05-PLAN.md — Credenciais de teste fora do repo + .env.test.example + guard (CI-08) [Wave 1]
 
@@ -183,7 +183,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
-| 22. Rede de Testes & Destravamento | v4.0 | 2/6 | In Progress|  |
+| 22. Rede de Testes & Destravamento | v4.0 | 3/6 | In Progress|  |
 | 23. Ressurreição da Stack de IA | v4.0 | 0/TBD | Not started | - |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
