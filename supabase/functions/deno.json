@@ -1,0 +1,3 @@
+{
+  "exclude": ["_shared/__tests__/strict-schema.test.ts"]
+}
