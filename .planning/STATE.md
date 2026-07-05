@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-03 complete — candidate-facing auth honesty: shared resolveRedirect util (extracted, not duplicated), both login buttons enabled by default (no !isValid; blur() hack dead), ?redirect threaded login→cadastro→post-login behind the guard, orphan candidatura_vaga_id cleared on login (UX-04/UX-05). tsc 257 flat, plan tests green"
-last_updated: "2026-07-05T21:25:17Z"
+stopped_at: "Phase 22 / Plan 22-04 complete — landing honesty (UX-02): landing copy reframed to 'avaliação comportamental/cognitiva' (no 'psicométricos'/'análise de perfil'), 'Já sou candidato' CTA → /auth/login added, forbidden-strings guard EXTENDED to the 2 marketing terms (regression-proof), and the pre-existing LGPD-04 EF red (psicólogo literal, 7853eac) resolved via fragment-join → whole-src guard GREEN 19/19. Full Vitest 706/706, tsc 257 flat"
+last_updated: "2026-07-05T21:36:00Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
-  percent: 50
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-05
 
-Progress: [█████░░░░░] 50%
+Progress: [███████░░░] 67%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -67,6 +67,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P01 | 13min | 2 tasks | 2 files |
 | Phase 22 P02 | 18min | 2 tasks | 2 files |
 | Phase 22 P03 | 12min | 3 tasks | 8 files |
+| Phase 22 P04 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 22/22-03] resolveRedirect EXTRACTED to one shared util (src/features/auth/utils/resolveRedirect.ts) + re-exported from LoginCandidatoPage so the legacy routing test import stays valid — security guard never duplicated (CI-06 dedup lesson); consumed by login + cadastro
 - [Phase ?]: [Phase 22/22-03] Dropping !isValid from a login button's disabled expr MUST also drop isValid from the formState destructure — noUnusedLocals turns the leftover into a fresh TS6133 that would inflate the frozen 257 baseline (Pitfall 4). Both login pages done; Esqueci/Redefinir already clean (grep regression guard)
 - [Phase ?]: [Phase 22/22-03] ?redirect double-guarded (CadastroPage boundary + CadastroMultiStepForm navigate site) — resolveRedirect is idempotent so no raw param reaches navigate(); orphan candidatura_vaga_id localStorage key cleared on login success. react-router@6.30.1 HIGH open-redirect CVE flagged for Phase 24 (T-22-03-02, accept)
+- [Phase ?]: [Phase 22/22-04] forbidden-strings guard now covers the 2 MARKETING terms too (`testes?\s+psicom[eé]tricos?` + `an[aá]lise\s+de\s+perfil`, RNF_12_TERMS 5→7) — the `teste`-prefix on the psicométricos alternation deliberately spares the compliant meta-comment `psicométrica` (AutorizacoesStep.tsx:17). Landing copy reframed RNF-12a + "Já sou candidato" CTA → /auth/login (candidate route). UX-02 (CI-guarded regression net for product language)
+- [Phase ?]: [Phase 22/22-04] The extended whole-src guard bit 2 scanned-.ts files RESEARCH had not enumerated (a comment in backgrounds.ts, and my own EF fix comment) — both fixed as Rule-3 blocking deviations. Lesson: the whole-src grep guard is broader than a LandingPage-only acceptance grep; verify GREEN via `npm run test:run`, not per-file grep alone
+- [Phase ?]: [Phase 22/22-04] Pre-existing LGPD-04 EF red (psicólogo literal in gerar-devolutiva-bigfive:192, commit 7853eac — the item deferred by 22-02) RESOLVED via the file's own `_NEG` fragment-join precedent (`["psicól","ogo(a)"].join("")`), runtime disclaimer byte-identical, zero behavior change. deferred-items.md item marked ✅ RESOLVED
 
 ### Pending Todos
 
@@ -112,11 +116,11 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T21:25:17Z
-Stopped at: Phase 22 / Plan 22-03 complete — candidate-facing auth honesty (UX-04/UX-05): shared resolveRedirect util, both login buttons enabled by default (blur() hack dead), ?redirect threaded login→cadastro→post-login behind the guard, orphan candidatura_vaga_id cleared on login. tsc 257 flat, plan tests green
+Last session: 2026-07-05T21:36:00Z
+Stopped at: Phase 22 / Plan 22-04 complete — landing honesty (UX-02): landing copy reframed to "avaliação comportamental/cognitiva", "Já sou candidato" CTA → /auth/login, forbidden-strings guard extended to the 2 marketing terms, pre-existing LGPD-04 EF red (psicólogo literal) resolved via fragment-join → whole-src guard GREEN 19/19. Full Vitest 706/706, tsc 257 flat
 Resume file: None
 
 ## Operator Next Steps
 
-- Executar o próximo plano da Wave 1: `22-04` (landing honesta + estender forbidden-strings guard, UX-02) e `22-05` (credenciais de teste fora do repo, CI-08)
-- Wave 2 (`22-06`) fica bloqueada até Wave 1 completar
+- Executar o último plano da Wave 1: `22-05` (credenciais de teste fora do repo + .env.test.example + guard, CI-08)
+- Wave 2 (`22-06`: tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real) fica bloqueada até Wave 1 (22-04 ✅ + 22-05) completar

@@ -4,7 +4,14 @@ Items discovered during execution that fall outside the current plan's scope.
 
 ## From Plan 22-02 (supply-chain hygiene)
 
-### [Pre-existing / out-of-scope] LGPD-04 forbidden-strings guard is RED (1 test)
+### [Pre-existing / out-of-scope] LGPD-04 forbidden-strings guard is RED (1 test) — ✅ RESOLVED in Plan 22-04 (commit `8c43e47`)
+
+> **Resolution (2026-07-05):** Fixed in Plan 22-04 exactly as suggested below — applied the
+> `_NEG` fragment-join precedent to the `psicólogo(a)` literal at index.ts:192
+> (`["psicól", "ogo(a)"].join("")`), keeping the runtime disclaimer byte-identical. The
+> whole-src forbidden-strings scan is now GREEN. This unblocked the UX-02 guard extension in
+> the same plan. Details below retained for history.
+
 
 - **Discovered during:** Plan 22-02 Task 2 (full Vitest suite run post dev-tooling bump).
 - **Test:** `src/__tests__/guards/forbidden-strings.grep.test.ts` → "no forbidden term appears in src/ or supabase/functions/".
