@@ -57,17 +57,6 @@ async function fillLoginForm(page: Page, email: string, password: string, rememb
 }
 
 /**
- * Helper: Verificar se está autenticado
- */
-async function expectAuthenticated(page: Page) {
-  // Verifica se está na página de perfil ou dashboard
-  await expect(page).toHaveURL(/\/(candidato\/perfil|dashboard-candidato)/)
-
-  // Verifica se o botão de logout está visível
-  await expect(page.getByRole('button', { name: /sair/i })).toBeVisible()
-}
-
-/**
  * Helper: Verificar se NÃO está autenticado
  */
 async function expectNotAuthenticated(page: Page) {

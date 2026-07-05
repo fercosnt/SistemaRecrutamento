@@ -70,6 +70,11 @@
       "@radix-ui/react-accordion@1.2.3": ["./node_modules/@radix-ui/react-accordion"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "e2e", "scripts", "playwright.config.ts"],
+  "exclude": [
+    "scripts/sync-prompts.ts",
+    "scripts/sync-prompts.test.ts",
+    "scripts/**/sync-prompts*.ts"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
