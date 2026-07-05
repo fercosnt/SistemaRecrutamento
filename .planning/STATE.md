@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Roadmap M4 criado (6 fases 22–27, 56/56 reqs mapeados, 0 órfãos); STATE + REQUIREMENTS traceability atualizados
-last_updated: "2026-07-05T20:27:47.043Z"
-last_activity: 2026-07-05 -- Phase 22 planning complete
+stopped_at: "Phase 22 / Plan 22-01 complete — Deno EF corpus green under type-check ON (148/0, exit 0); strict-schema probe excluded, stale timeoutMs type fixed; CI-01/CI-02 done"
+last_updated: "2026-07-05T20:44:40.105Z"
+last_activity: "2026-07-05 -- Plan 22-01 complete (Deno corpus green under type-check)"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 17
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** M4 (v4.0) — Correção & Blindagem do Funil. Roadmap criado (6 fases, 22–27, 56/56 reqs mapeados). Hardening/correção, não expansão. Próximo: `/gsd-plan-phase 22`.
+**Current focus:** Phase 22 — Rede de Testes, Destravamento & Varredura de Honestidade
 
 ## Current Position
 
-Phase: Not started (roadmap criado — 6 fases, 22–27)
-Plan: —
+Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-07-05 -- Phase 22 planning complete
+Last activity: 2026-07-05
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 17%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -64,6 +64,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | 27 | TBD | - | - |
 
 *Updated after each plan completion.*
+| Phase 22 P01 | 13min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [M2/AVAL-03]: Imports `npm:` ESTÁTICOS em toda EF de IA (nunca `await import([...].join(""))`) — relevante p/ AI-01..07 ao mexer nas EFs de IA.
 - [M3/Phase 18]: callAi tem per-call timeout (25s default) + maxRetries:0 + retry/backoff hand-rolled — AI-03/04 corrigem o casamento do timeout retriável e o override per-EF.
 - [M2/Phases 6/13/15]: Revisão humana sempre obrigatória pós-IA; zero auto-rejeição por score (RNF-07a) — invariante a preservar em FUNIL-02, e o `submit-candidatura` é o único auto-reject sancionado (CI-03).
+- [Phase ?]: [Phase 22/22-01] Deno EF corpus green under type-check ON via deno.json top-level exclude of the strict-schema Vitest probe; canonical CI command = deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions (--ignore= fallback NOT needed on Deno 2.7.7)
+- [Phase ?]: [Phase 22/22-01] Fixed stale LOCAL timeoutMs type in ai-client.test.ts loadClient(), not product CallAiArgs (already has it) — zero product change
 
 ### Pending Todos
 
@@ -101,7 +104,7 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05
+Last session: 2026-07-05T20:44:26.015Z
 Stopped at: Roadmap M4 criado (6 fases 22–27, 56/56 reqs mapeados, 0 órfãos); STATE + REQUIREMENTS traceability atualizados
 Resume file: None
 

@@ -67,8 +67,8 @@
 
 *A camada que originou TODOS os defeitos live (EFs Deno, lógica DB, contratos) roda em CI e não pode regredir verde.*
 
-- [ ] **CI-01**: Corpus Deno das EFs (~126 testes) roda em algum job de CI. `(A2≡A33, CRIT — destrava todo o resto)`
-- [ ] **CI-02**: `deno test` padrão passa em código verde — cast stale + asserts corrigidos (a suíte para de apodrecer). `(A21, HIGH — destrava A2)`
+- [x] **CI-01**: Corpus Deno das EFs (~126 testes) roda em algum job de CI. `(A2≡A33, CRIT — destrava todo o resto)`
+- [x] **CI-02**: `deno test` padrão passa em código verde — cast stale + asserts corrigidos (a suíte para de apodrecer). `(A21, HIGH — destrava A2)`
 - [ ] **CI-03**: `submit-candidatura` (EF + RPC de knockout, único auto-reject sancionado) tem cobertura de teste. `(A22, HIGH/L)`
 - [ ] **CI-04**: Baseline do gate tsc no CI apertado ao real (257, não 290 frouxo) — novo type error é pego. `(A35, MEDI · absorve FOUND-08)`
 - [ ] **CI-05**: Imports versionados (`lucide-react@0.487.0` etc.) com paths no tsconfig — 65 TS2307 resolvidos, typecheck destravado. `(A38, MEDI)`
@@ -169,8 +169,8 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | FUNIL-12 | Phase 26 | Pending |
 | DBMIG-01 | Phase 27 | Pending |
 | DBMIG-02 | Phase 27 | Pending |
-| CI-01 | Phase 22 | Pending |
-| CI-02 | Phase 22 | Pending |
+| CI-01 | Phase 22 | Complete |
+| CI-02 | Phase 22 | Complete |
 | CI-03 | Phase 27 | Pending |
 | CI-04 | Phase 22 | Pending |
 | CI-05 | Phase 22 | Pending |
