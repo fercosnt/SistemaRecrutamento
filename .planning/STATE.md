@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: planning
-last_updated: "2026-07-05T00:00:00.000Z"
-last_activity: 2026-07-05
+status: executing
+stopped_at: Roadmap M4 criado (6 fases 22–27, 56/56 reqs mapeados, 0 órfãos); STATE + REQUIREMENTS traceability atualizados
+last_updated: "2026-07-05T20:27:47.043Z"
+last_activity: 2026-07-05 -- Phase 22 planning complete
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
+  total_plans: 6
   completed_plans: 0
   percent: 0
 ---
@@ -26,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 Phase: Not started (roadmap criado — 6 fases, 22–27)
 Plan: —
-Status: Ready to plan (Phase 22)
-Last activity: 2026-07-05 — Roadmap M4 criado; 56 requirements mapeados a 6 fases; 0 órfãos
+Status: Ready to execute
+Last activity: 2026-07-05 -- Phase 22 planning complete
 
 Progress: [░░░░░░░░░░] 0%
 
