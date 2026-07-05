@@ -40,3 +40,18 @@ tags: [entrev-05, cognitivo, cc0, license, item-bank, deferred]
 ENTREV-05 is CONTEXTUAL + opt-in + never auto-rejects (RNF-07a) — deferring the live
 items does not affect the core M2 interview flow (guide EF + transcript BARS EF + RH
 workspace), which ship fully in Phase 14.
+
+## ⚠️ FINDING 2026-07-05 — Path A (CC0 ICAR sourcing) is BLOCKED
+Web sourcing (2026-07-05) confirmed the CC0 premise above is **false**: the Harvard
+Dataverse CC0 dedication covers the SCORED RESPONSE DATA + the `superKey60` scoring
+key, **NOT the item stems**. Per the authoritative source (jopd.25, Condon & Revelle):
+*"the data provided here have already been scored. The raw unscored data may be obtained
+by contacting the first author."* The item CONTENT is withheld; it lives at
+icar-project.com under **non-commercial** terms — incompatible with a commercial ATS
+(same call item-bank.ts already made). **There is no commercially-usable CC0 source for
+validated ICAR item content.** → PIVOT: author ORIGINAL items (letter-number series +
+text logic are cheap to author fresh and sidestep the license entirely), validated by
+the project psychologist. Matrix Reasoning + 3D Rotation are VISUAL → out of scope for
+the text-only `matriz|letra_numero` V1 schema anyway. Verbal Reasoning is text but does
+not map to the current 2-section enum. Decision pending user (Fernando has a psychologist
+to approve content). Do NOT re-attempt the Dataverse download for items.
