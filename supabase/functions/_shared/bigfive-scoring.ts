@@ -9,16 +9,15 @@
  * on-disk source (cited below). The scoring/reverse key NEVER reaches the client —
  * the candidate posts only Likert 1-5; the EF re-scores server-side (anti-tamper).
  *
- * NORM TABLE — V1 fallback. The full Johnson 2014 international norm table (560
- * mean/sd values, 8 groups × [5 domain mean + 5 domain sd + 30 facet mean + 30
- * facet sd]) lives in `NeuroQuestAi/five-factor-e/ipipneo/norm.py` (MIT,
- * Johnson-approved) and is NOT present in this repo (verified 2026-06-09; only the
- * item JSONs are in docs/conhecimento/big-five/fontes/). Per 12-CONTEXT post-research,
- * V1 falls back to the combined sex='N' adult norm only, with mean centered on the
- * scale midpoint. Percentile precision is a V2/UAT refinement — Big Five is
- * CONTEXTUAL and decides nothing (RNF-07a), so an approximate percentile carries no
- * eliminatory weight. When norm.py is obtained, replace NORMS with the full table
- * keyed by NormGroup and pin the source commit here.
+ * NORM TABLE — Johnson 2014 international norms (real, wired 2026-07-05). Domain
+ * mean/sd for the neutral (sex='N' = M+F combined) norm per age band (<21 / 21-40 /
+ * 41-60 / >60), transcribed PROGRAMMATICALLY from `NeuroQuestAi/five-factor-e/ipipneo/
+ * norm.py` v1.13.1 (MIT, Johnson-approved) — the parser averaged the M and F groups
+ * exactly as norm.py's own neutral combine does (round-2). Sex is NOT collected
+ * (LGPD-01), so every candidate uses the neutral band; the age band comes from the DOB
+ * (`normGroupFromBirthDate`). Only DOMAIN norms are used by score() (percentiles are
+ * domain-level; facetas report raw only) — facet norms remain the midpoint placeholder
+ * (V2). Percentiles are non-eliminatory (RNF-07a). An unknown band → FALLBACK_NORM.
  *
  * @see docs/conhecimento/big-five/PESQUISA-big-five-ipip-neo-120-ptbr.md L289-294 (reverse set), L304-361 (T + cubic + Python reference), L416-429 (norm strategy)
  * @see supabase/functions/_shared/bigfive-scoring.test.ts (the 12-01 golden test this satisfies)
@@ -75,15 +74,18 @@ interface NormSet {
   facet: Record<number, { mean: number; sd: number }>;
 }
 
-// V1 fallback — precision is a V2/UAT refinement; Big Five is contextual.
-// Domain raw range is 24-120 (mid 72); facet raw range is 4-20 (mid 12). We center
-// the fallback norm on the scale midpoint with a representative spread, so a neutral
-// response vector yields T≈50 / a mid-band percentile. Replace with the Johnson
-// 2014 norm.py table (per NormGroup) in V2.
+// FALLBACK — ultimate default for a norm group whose age band is not present in NORMS.
+// Centered on the scale midpoint (domain raw 24-120, mid 72; facet raw 4-20, mid 12).
 const FALLBACK_DOMAIN_MEAN = 72; // midpoint of 24..120
 const FALLBACK_DOMAIN_SD = 18;
 const FALLBACK_FACET_MEAN = 12; // midpoint of 4..20
 const FALLBACK_FACET_SD = 3;
+
+// Facet norms are unused by score() (facetas report raw only); real facet-level
+// percentiles are a V2 item. This midpoint placeholder is shared by every NORMS entry.
+const FALLBACK_FACET: Record<number, { mean: number; sd: number }> = Object.fromEntries(
+  Array.from({ length: 30 }, (_, i) => [i + 1, { mean: FALLBACK_FACET_MEAN, sd: FALLBACK_FACET_SD }]),
+) as Record<number, { mean: number; sd: number }>;
 
 const FALLBACK_NORM: NormSet = {
   domain: {
@@ -93,21 +95,62 @@ const FALLBACK_NORM: NormSet = {
     A: { mean: FALLBACK_DOMAIN_MEAN, sd: FALLBACK_DOMAIN_SD },
     N: { mean: FALLBACK_DOMAIN_MEAN, sd: FALLBACK_DOMAIN_SD },
   },
-  facet: Object.fromEntries(
-    Array.from({ length: 30 }, (_, i) => [i + 1, { mean: FALLBACK_FACET_MEAN, sd: FALLBACK_FACET_SD }]),
-  ) as Record<number, { mean: number; sd: number }>,
+  facet: FALLBACK_FACET,
 };
 
 /**
- * NORMS keyed by the resolved norm-group label. V1 routes every group to the single
- * combined sex='N' adult fallback. The score() function reads NORMS[label] and falls
- * back to FALLBACK_NORM, so adding the real Johnson groups here later is additive.
+ * NORMS — Johnson 2014 international norms, neutral (sex='N' = M+F combined average)
+ * per age band. Domain mean/sd transcribed PROGRAMMATICALLY from norm.py v1.13.1
+ * (NeuroQuestAi/five-factor-e, MIT), 120-item block, groups 1-8, neutral combine =
+ * round((M+F)/2, 2) — the same combine norm.py itself applies. score() reads
+ * NORMS[label] and falls back to FALLBACK_NORM for an unknown band.
  */
 export const NORMS: Record<string, NormSet> = {
-  "N:adult": FALLBACK_NORM,
+  "N:<21": {
+    domain: {
+      O: { mean: 87.5, sd: 12.11 },
+      C: { mean: 80.47, sd: 14.44 },
+      E: { mean: 82.48, sd: 15.18 },
+      A: { mean: 85.56, sd: 13.94 },
+      N: { mean: 70.62, sd: 15.72 },
+    },
+    facet: FALLBACK_FACET,
+  },
+  "N:21-40": {
+    domain: {
+      O: { mean: 87.38, sd: 12.4 },
+      C: { mean: 86.53, sd: 14.07 },
+      E: { mean: 79.84, sd: 14.93 },
+      A: { mean: 88.06, sd: 12.25 },
+      N: { mean: 69.56, sd: 16.32 },
+    },
+    facet: FALLBACK_FACET,
+  },
+  "N:41-60": {
+    domain: {
+      O: { mean: 84.59, sd: 12.84 },
+      C: { mean: 92.36, sd: 13.14 },
+      E: { mean: 77.84, sd: 14.25 },
+      A: { mean: 92.03, sd: 10.8 },
+      N: { mean: 65.75, sd: 16.07 },
+    },
+    facet: FALLBACK_FACET,
+  },
+  "N:>60": {
+    domain: {
+      O: { mean: 80.67, sd: 12.44 },
+      C: { mean: 95.88, sd: 12.21 },
+      E: { mean: 78.97, sd: 13.18 },
+      A: { mean: 93.69, sd: 10.62 },
+      N: { mean: 60.95, sd: 15.2 },
+    },
+    facet: FALLBACK_FACET,
+  },
 };
 
-const normGroupLabel = (g: NormGroup): string => `N:adult`; // V1 — single combined group
+// Sex is 'N' (not collected — LGPD-01); the age band comes from the DOB. An unknown
+// band resolves to FALLBACK_NORM via the ?? in score().
+const normGroupLabel = (g: NormGroup): string => `N:${g.faixa}`;
 
 // ============================================================================
 // T-SCORE / PERCENTILE / BAND

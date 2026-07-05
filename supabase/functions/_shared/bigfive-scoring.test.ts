@@ -225,3 +225,33 @@ Deno.test("AVAL-04 GOLDEN — a hand-built variant moves a single domain raw cor
   assertEquals(byDim.O, 72, "O domain untouched by the C-only variant");
   assertEquals(byDim.N, 72, "N domain untouched by the C-only variant");
 });
+
+// ───────────────────── real Johnson norm wired (2026-07-05) ─────────────────
+// The neutral vector (raw 72 everywhere) run against the REAL age-band norm must
+// yield BELOW-average percentiles on O/A (population means ≫ scale midpoint) and a
+// mid percentile on N — NOT the ~50-everywhere the old synthetic fallback produced.
+// This is the transcription/routing guard: it fails loudly if NORMS reverts to the
+// midpoint fallback or the age-band label routing breaks. Boundary-safe (no exact
+// pin near a band cutoff).
+Deno.test("AVAL-04 — real Johnson norm is wired: neutral vector is below-average on O/A vs N:21-40", async () => {
+  const { score } = await loadScorer();
+  const out = score(NEUTRAL_VECTOR, { sexo: "N", faixa: "21-40" });
+  const p = Object.fromEntries(out.dimensoes.map((d) => [d.dim, d.percentil]));
+  // real pop means: O≈87, A≈88 (≫72) → a midpoint self-report lands low
+  assert(p.O < 25, `O percentil ${p.O} should be well below average against the real norm`);
+  assert(p.A < 25, `A percentil ${p.A} should be well below average against the real norm`);
+  // N pop mean ≈70 (closer to 72) → mid band
+  assert(p.N > 40 && p.N < 70, `N percentil ${p.N} should be mid-band against the real norm`);
+});
+
+Deno.test("AVAL-04 — age-band routing is live: unknown band falls back to the midpoint norm (≈50)", async () => {
+  const { score } = await loadScorer();
+  const real = score(NEUTRAL_VECTOR, { sexo: "N", faixa: "21-40" });
+  const fallback = score(NEUTRAL_VECTOR, { sexo: "N", faixa: "band-that-does-not-exist" });
+  const realO = real.dimensoes.find((d) => d.dim === "O")!.percentil;
+  const fbO = fallback.dimensoes.find((d) => d.dim === "O")!.percentil;
+  // the fallback norm is centered on the midpoint → neutral raw 72 → T=50 → percentil ≈50
+  assert(fbO >= 45 && fbO <= 55, `unknown-band fallback O percentil ${fbO} should be ~50 (midpoint norm)`);
+  // and the real band must differ from the fallback — proves the label routing actually selects a norm
+  assert(realO !== fbO, "the real age-band norm must differ from the midpoint fallback (routing is live)");
+});
