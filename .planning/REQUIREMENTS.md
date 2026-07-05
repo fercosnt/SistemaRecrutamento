@@ -74,7 +74,7 @@
 - [ ] **CI-05**: Imports versionados (`lucide-react@0.487.0` etc.) com paths no tsconfig — 65 TS2307 resolvidos, typecheck destravado. `(A38, MEDI)`
 - [ ] **CI-06**: `extractEfErrorCode` deduplicado no helper compartilhado `@/lib/efErrors` (remove a cópia com assinatura invertida no entrevistaService). `(A39, MEDI · tech-debt v3.0)`
 - [ ] **CI-07**: Contract tests client↔EF são reais — o corpo do client parseia no Zod schema da EF (não replicam ambos os lados dentro do teste). `(A44, MEDI)`
-- [ ] **CI-08**: Credenciais de conta de teste (emails reais + senhas) fora do repo — sem fallback hardcoded nos specs E2E. `(A31≡A47, MEDI)`
+- [x] **CI-08**: Credenciais de conta de teste (emails reais + senhas) fora do repo — sem fallback hardcoded nos specs E2E. `(A31≡A47, MEDI)`
 - [x] **CI-09**: As 8 deps de produção com versão wildcard `"*"` ficam pinadas — teto de versão contra supply-chain. `(A32, MEDI)`
 - [ ] **CI-10**: Gate de bundle PERF-03 (`assert-chunks.mjs`) wired em build **e** CI — regressão de bundle é pega. `(A34, MEDI)`
 - [x] **CI-11**: Vulns críticas/altas no dev-tooling resolvidas (vitest/@vitest/ui RCE, happy-dom code-exec). `(A36, MEDI)`
@@ -176,7 +176,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | CI-05 | Phase 22 | Pending |
 | CI-06 | Phase 27 | Pending |
 | CI-07 | Phase 27 | Pending |
-| CI-08 | Phase 22 | Pending |
+| CI-08 | Phase 22 | Complete |
 | CI-09 | Phase 22 | Complete |
 | CI-10 | Phase 27 | Pending |
 | CI-11 | Phase 22 | Complete |

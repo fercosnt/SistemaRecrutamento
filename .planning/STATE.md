@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-04 complete — landing honesty (UX-02): landing copy reframed to 'avaliação comportamental/cognitiva' (no 'psicométricos'/'análise de perfil'), 'Já sou candidato' CTA → /auth/login added, forbidden-strings guard EXTENDED to the 2 marketing terms (regression-proof), and the pre-existing LGPD-04 EF red (psicólogo literal, 7853eac) resolved via fragment-join → whole-src guard GREEN 19/19. Full Vitest 706/706, tsc 257 flat"
-last_updated: "2026-07-05T21:36:00Z"
+stopped_at: "Phase 22 / Plan 22-05 complete — test-credential hygiene (CI-08): stripped every hardcoded real-account credential fallback from 9 e2e specs + a11y fixture (TEST_USER/TEST_ADMIN now env-only, skip-if-unset behind describeRealAuth/E2E_REAL_LOGIN); rewrote .env.test.example keys-only (candidato+admin+gating+supabase, zero values); added src/__tests__/guards/no-hardcoded-test-creds.grep.test.ts (bans real accounts, spares mocked/dynamic/negative-path emails). e2e/README.md scrubbed, .env.test gitignored+untouched. Full Vitest 721/721 (guard 15/15), tsc 257 flat. Wave 1 DONE — 22-06 (Wave 2) unblocked."
+last_updated: "2026-07-05T21:50:00Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 22 (Rede de Testes, Destravamento & Varredura de Honestidade) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
+Plan: 6 of 6
+Status: Wave 1 complete (22-01..22-05) — ready to execute 22-06 (Wave 2)
 Last activity: 2026-07-05
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 83%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -68,6 +68,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P02 | 18min | 2 tasks | 2 files |
 | Phase 22 P03 | 12min | 3 tasks | 8 files |
 | Phase 22 P04 | 4min | 2 tasks | 4 files |
+| Phase 22 P05 | 14min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 22/22-04] forbidden-strings guard now covers the 2 MARKETING terms too (`testes?\s+psicom[eé]tricos?` + `an[aá]lise\s+de\s+perfil`, RNF_12_TERMS 5→7) — the `teste`-prefix on the psicométricos alternation deliberately spares the compliant meta-comment `psicométrica` (AutorizacoesStep.tsx:17). Landing copy reframed RNF-12a + "Já sou candidato" CTA → /auth/login (candidate route). UX-02 (CI-guarded regression net for product language)
 - [Phase ?]: [Phase 22/22-04] The extended whole-src guard bit 2 scanned-.ts files RESEARCH had not enumerated (a comment in backgrounds.ts, and my own EF fix comment) — both fixed as Rule-3 blocking deviations. Lesson: the whole-src grep guard is broader than a LandingPage-only acceptance grep; verify GREEN via `npm run test:run`, not per-file grep alone
 - [Phase ?]: [Phase 22/22-04] Pre-existing LGPD-04 EF red (psicólogo literal in gerar-devolutiva-bigfive:192, commit 7853eac — the item deferred by 22-02) RESOLVED via the file's own `_NEG` fragment-join precedent (`["psicól","ogo(a)"].join("")`), runtime disclaimer byte-identical, zero behavior change. deferred-items.md item marked ✅ RESOLVED
+- [Phase ?]: [Phase 22/22-05] CI-08 credential-hygiene guard bans SPECIFIC real-account literals (fernando/teste123 + current .env.test accounts candidato.funil@teste.com/Candidato@2026, e2e.admin@beautysmile.com.br/E2eAdmin), NOT the @beautysmile.com.br/@teste.com domains broadly — a domain-wide ban would false-flag the mocked a11y@ fixture email, the dynamic cadastro test+<ts>@ email, and the negative-path invalido@teste.com/teste@teste.com literals. Allowed-literal sub-tests lock the no-false-positive contract
+- [Phase ?]: [Phase 22/22-05] perfil.spec.ts PERF-01 is an UNCONDITIONAL Tier-1 mock (token endpoint page.route'd) — its TEST_USER email/password are form-fill strings, not creds. Split a MOCK_USER constant so the env-only strip (process.env.X!) didn't make the CI mock test fill undefined. All OTHER TEST_USER reads are behind describeRealAuth or E2E_REAL_LOGIN, so module-load with undefined env is safe (never dereferenced in the default all-skipped run)
 
 ### Pending Todos
 
@@ -116,11 +119,10 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T21:36:00Z
-Stopped at: Phase 22 / Plan 22-04 complete — landing honesty (UX-02): landing copy reframed to "avaliação comportamental/cognitiva", "Já sou candidato" CTA → /auth/login, forbidden-strings guard extended to the 2 marketing terms, pre-existing LGPD-04 EF red (psicólogo literal) resolved via fragment-join → whole-src guard GREEN 19/19. Full Vitest 706/706, tsc 257 flat
+Last session: 2026-07-05T21:50:00Z
+Stopped at: Phase 22 / Plan 22-05 complete — test-credential hygiene (CI-08): every hardcoded real-account credential removed from e2e/ (env-only + skip-if-unset), keys-only .env.test.example, new no-hardcoded-test-creds.grep.test.ts guard. Full Vitest 721/721 (guard 15/15), tsc 257 flat. Wave 1 (22-01..22-05) DONE
 Resume file: None
 
 ## Operator Next Steps
 
-- Executar o último plano da Wave 1: `22-05` (credenciais de teste fora do repo + .env.test.example + guard, CI-08)
-- Wave 2 (`22-06`: tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real) fica bloqueada até Wave 1 (22-04 ✅ + 22-05) completar
+- Wave 1 completa (22-01 ✅ 22-02 ✅ 22-03 ✅ 22-04 ✅ 22-05 ✅). Executar Wave 2: `22-06` (tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real, CI-01/04/05/14). Nota p/ 22-06: incluir `e2e/` no tsconfig agora type-checa estes specs — os `process.env.X!` são intencionais e type-clean.
