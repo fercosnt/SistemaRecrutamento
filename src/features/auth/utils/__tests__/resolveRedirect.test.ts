@@ -64,4 +64,45 @@ describe('resolveRedirect (shared anti-open-redirect guard)', () => {
     expect(resolveRedirect('x', '/rh/dashboard')).toBe('/rh/dashboard')
     expect(resolveRedirect(null, '/rh/dashboard')).toBe('/rh/dashboard')
   })
+
+  // ============================================================
+  // <behavior> case 6 — backslash open-redirect bypasses (CR-01, CWE-601)
+  //
+  // The WHATWG URL parser treats `\` as `/` for http(s) schemes, so a value
+  // that starts with a single `/` followed by `\` normalizes to a
+  // protocol-relative cross-origin URL — it MUST be rejected even though it
+  // passes a naive `startsWith('/')` / `!startsWith('//')` check.
+  // ============================================================
+  it('rejects backslash-relative open-redirect bypasses', () => {
+    expect(resolveRedirect('/\\evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('/\\\\evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('/\\/evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('\\/\\/evil.com')).toBe('/candidato/dashboard')
+  })
+
+  // ============================================================
+  // <behavior> case 7 — control-character open-redirect bypasses (CR-01)
+  //
+  // Browsers strip TAB/LF/CR from a URL BEFORE parsing, so `/<TAB>/evil.com`
+  // (the decoded form of `?redirect=%2F%09%2Fevil.com`) normalizes to
+  // `//evil.com`. Reject any value carrying control characters.
+  // ============================================================
+  it('rejects control-character open-redirect bypasses (stripped TAB/LF/CR)', () => {
+    expect(resolveRedirect('/\t/evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('\thttps://evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('/\nevil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect('/\revil.com')).toBe('/candidato/dashboard')
+  })
+
+  it('rejects leading-whitespace open-redirect bypasses', () => {
+    expect(resolveRedirect('  //evil.com')).toBe('/candidato/dashboard')
+    expect(resolveRedirect(' /\\evil.com')).toBe('/candidato/dashboard')
+  })
+
+  // ============================================================
+  // <behavior> case 8 — legit paths still pass after hardening
+  // ============================================================
+  it('still accepts a legit root-anchored path with query + hash', () => {
+    expect(resolveRedirect('/vagas/abc?x=1#h')).toBe('/vagas/abc?x=1#h')
+  })
 })
