@@ -12,7 +12,7 @@ import bgDarkBlue from '../5feab6fe2a4e5e85a5b01894d30667ea3a06a9d0.webp';
 import bgGold from '../91b67d31b9aa67c340ac4a375a9832d8c0284448.png';
 
 // Background gradiente turquesa/azul moderno
-// Ideal para: Questionários, Testes psicométricos, Áreas tecnológicas
+// Ideal para: Questionários, avaliações comportamentais/cognitivas, Áreas tecnológicas
 import bgGradient from '../72212e27083bc5aff34e367036bc5f1a36b908b7.jpeg';
 
 export const backgrounds = {

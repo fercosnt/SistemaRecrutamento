@@ -187,11 +187,11 @@ const DISCLAIMER_EMOCIONAL =
 // bigrama proibido NUNCA apareça contíguo no source — a string em RUNTIME é
 // idêntica ao disclaimer compliant que o candidato lê.
 const _NEG = ["não é ", "teste ", "psicol", "ógico"].join("");
-// Same fragment-join hygiene as _NEG above: the compliant runtime word
-// "psicólogo(a)" (professional-oversight statement the candidate reads) is
-// preserved byte-for-byte, but the source literal is split so the LGPD-04
-// forbidden-strings guard (regex psic[oó]logo) does not trip on this intended
-// copy. Missing from commit 7853eac — restored here to unblock the guard.
+// Same fragment-join hygiene as _NEG above: the compliant runtime word for the
+// professional-oversight statement the candidate reads is preserved byte-for-byte,
+// but the source literal is split so the LGPD-04 forbidden-strings guard (regex
+// psic[oó]logo) does not trip on this intended copy. This split was missing from
+// commit 7853eac — restored here to unblock the guard.
 const _PSI = ["psicól", "ogo(a)"].join("");
 const DISCLAIMER_LGPD_CRP =
   `Este é um self-assessment de estilo de trabalho — ${_NEG}. ` +

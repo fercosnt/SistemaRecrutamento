@@ -38,6 +38,14 @@ export function LandingPage() {
                   variant="white"
                   hover
                   className="px-8 py-4 text-white text-lg drop-shadow-sm"
+                  onClick={() => navigate('/auth/login')}
+                >
+                  Já sou candidato
+                </GlassButton>
+                <GlassButton
+                  variant="white"
+                  hover
+                  className="px-8 py-4 text-white text-lg drop-shadow-sm"
                   onClick={() => navigate('/auth/login-rh')}
                 >
                   Área do RH
@@ -62,7 +70,7 @@ export function LandingPage() {
                 </div>
                 <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Questionários</h3>
                 <p className="text-white/90 drop-shadow-sm">
-                  Testes psicométricos com design moderno e tecnológico
+                  Avaliação comportamental e cognitiva com design moderno e tecnológico
                 </p>
               </div>
             </GlassCard>
@@ -86,7 +94,7 @@ export function LandingPage() {
                 </div>
                 <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Resultados</h3>
                 <p className="text-white/90 drop-shadow-sm">
-                  Acompanhe seu progresso e análise de perfil
+                  Acompanhe seu progresso e sua avaliação comportamental
                 </p>
               </div>
             </GlassCard>
