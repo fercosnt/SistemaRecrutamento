@@ -75,7 +75,14 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
   3. Botões de login (candidato, RH, esqueci/redefinir) habilitam corretamente sem `!isValid` — os E2E não precisam mais do hack `blur()` — e nenhum email/senha de conta de teste vive no repo (UX-04, CI-08).
   4. A landing não usa "testes psicométricos"/"análise de perfil" e oferece CTA "Já sou candidato" (RNF-12a); `?redirect` sobrevive login→cadastro→pós-login com `localStorage` órfão limpo (UX-02, UX-05).
   5. As 8 deps wildcard `"*"` ficam pinadas, as vulns críticas/altas do dev-tooling (vitest/@vitest/ui RCE, happy-dom) resolvidas, e as deps nunca-importadas (`motion`, `@supabase/auth-helpers-react`) removidas (CI-09, CI-11, CI-12).
-**Plans**: TBD
+**Plans**: 6 plans (2 waves)
+Plans:
+- [ ] 22-01-PLAN.md — Deno EF corpus green under type-check (CI-02) [Wave 1]
+- [ ] 22-02-PLAN.md — Supply-chain: pin 8 wildcards, bump vitest/happy-dom vulns, drop 2 dead deps (CI-09/11/12) [Wave 1]
+- [ ] 22-03-PLAN.md — Login buttons sem !isValid + ?redirect propagado (shared resolveRedirect) + orphan localStorage limpo (UX-04/05) [Wave 1]
+- [ ] 22-04-PLAN.md — Landing honesta + estender forbidden-strings guard (UX-02) [Wave 1]
+- [ ] 22-05-PLAN.md — Credenciais de teste fora do repo + .env.test.example + guard (CI-08) [Wave 1]
+- [ ] 22-06-PLAN.md — tsconfig paths+coverage + Deno CI job + measure-and-pin do baseline tsc real (CI-01/04/05/14) [Wave 2]
 **UI hint**: yes
 
 ### Phase 23: Ressurreição da Stack de IA
@@ -151,7 +158,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
-| 22. Rede de Testes & Destravamento | v4.0 | 0/TBD | Not started | - |
+| 22. Rede de Testes & Destravamento | v4.0 | 0/6 | Planned | - |
 | 23. Ressurreição da Stack de IA | v4.0 | 0/TBD | Not started | - |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
