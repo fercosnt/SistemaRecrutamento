@@ -3,7 +3,7 @@ id: found-08-tsc-burndown-tail
 created: 2026-06-26
 source: Phase 16 / Plan 16-01 (documented-deferral; 16-RESEARCH §Pitfall 1 + 16-CONTEXT §Deferred)
 priority: low
-resolves_phase: null
+resolves_phase: 22
 tags: [found-08, tsc, typescript, type-check, husky, deferred, m1-tech-debt]
 ---
 
