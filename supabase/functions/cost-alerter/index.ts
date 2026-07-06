@@ -37,6 +37,9 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// AI-06 (Phase 23): CostAnomalyBody + alertMessage extraídos para um módulo puro,
+// unit-testável sem Deno.serve (supabase/functions/_shared/__tests__/cost-alerter-messages.test.ts).
+import { alertMessage, type CostAnomalyBody } from './messages.ts'
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -69,33 +72,7 @@ function errorResponse(
   return jsonResponse({ ok: false, error_code: code, message }, status)
 }
 
-// ---------------------------------------------------------------------------
-// Body shape — mirrors notify_cost_anomaly() net.http_post body
-// ---------------------------------------------------------------------------
-
-interface CostAnomalyBody {
-  /** maps to recruiter_alerts.threshold_violated, e.g. 'vaga_cost_over_200' | 'error_rate' */
-  alert_type: string
-  vaga_id: string | null
-  /** ISO date (YYYY-MM-DD) — the ai_cost_daily aggregation day */
-  date: string
-  value: number
-  threshold: number
-}
-
-/** pt-BR alert copy per threshold. No forbidden product terms. */
-function alertMessage(b: CostAnomalyBody): string {
-  switch (b.alert_type) {
-    case 'vaga_cost_over_200':
-      return `Custo de IA da vaga ultrapassou o limite (US$ ${b.value} / limite US$ ${b.threshold}).`
-    case 'error_rate':
-      return `Taxa de erro das chamadas de IA acima do limite (${b.value}% / limite ${b.threshold}%).`
-    case 'candidate_cost_over_1':
-      return `Custo de IA por candidato ultrapassou o limite (US$ ${b.value} / limite US$ ${b.threshold}).`
-    default:
-      return `Anomalia de custo de IA detectada (valor ${b.value} / limite ${b.threshold}).`
-  }
-}
+// CostAnomalyBody + alertMessage → ./messages.ts (AI-06 extraction, byte-idêntico).
 
 // ---------------------------------------------------------------------------
 // Handler
