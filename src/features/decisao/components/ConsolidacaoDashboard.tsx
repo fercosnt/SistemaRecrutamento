@@ -4,6 +4,10 @@
  * Three zones:
  *   1. Hero CONSOLIDATED SCORE — `text-3xl` neutral white, NO red/green tint (it is an
  *      AGGREGATE, not a verdict), with the caption "Agregado ponderado — não re-pontuado".
+ *      UX-09: with <2 weighted etapas concluídas the EF suppresses the aggregate
+ *      (consolidated=null); the hero then shows a DISTINCT "Agregado suprimido até ≥2
+ *      etapas concluídas" message (never the generic empty-state) while the per-etapa
+ *      breakdown stays visible — a single-etapa number would mislead the RH to decide early.
  *   2. Per-etapa BREAKDOWN — neutral `ScorecardAvaliacao`-style badges
  *      (`border-white/15 bg-white/5 text-white/70`); a missing/unapplied etapa renders a
  *      neutral "N/A" pill + tooltip ("Etapa não aplicada — não pondera no agregado").
@@ -75,9 +79,18 @@ function BreakdownRow({ row }: { row: ConsolidacaoBreakdownRow }) {
             ) : null}
           </>
         ) : row.status === 'context' ? (
-          <Badge className="border-white/15 bg-white/5 text-white/60 text-xs font-semibold">
-            Contextual · não pondera
-          </Badge>
+          <>
+            {/* UX-09: triagem (pré-triagem de CV) é contexto VISÍVEL — mostra o score de
+                CV quando presente, marcado "não pondera" (nunca entra no agregado). */}
+            {row.normalized != null ? (
+              <Badge className="border-white/15 bg-white/5 text-white/70 text-xs font-semibold">
+                {row.normalized} / 100
+              </Badge>
+            ) : null}
+            <Badge className="border-white/15 bg-white/5 text-white/60 text-xs font-semibold">
+              Contextual · não pondera
+            </Badge>
+          </>
         ) : (
           <TooltipProvider>
             <Tooltip>
@@ -99,7 +112,13 @@ export function ConsolidacaoDashboard({ candidaturaId, vagaId }: ConsolidacaoDas
   const { data, isLoading, isError, error, refetch } = useConsolidacao(candidaturaId, vagaId)
 
   const breakdown = data?.breakdown ?? []
-  const hasAnyPresent = breakdown.some((r) => r.status === 'present')
+  // UX-09: a triagem agora é uma row de CONTEXTO que carrega o score de CV. Mostrar o
+  // corpo (breakdown + supressão do agregado) sempre que houver QUALQUER conteúdo — uma
+  // etapa ponderada present OU o contexto de triagem com valor. Só cai no empty-state
+  // genérico quando não há absolutamente nada a mostrar.
+  const hasAnyContent = breakdown.some(
+    (r) => r.status === 'present' || (r.status === 'context' && r.normalized != null),
+  )
 
   // Loading / error / retry now come from the shared <AsyncState> (this dashboard's
   // inline block was the retry exemplar — it becomes the shared default). The parent
@@ -115,7 +134,7 @@ export function ConsolidacaoDashboard({ candidaturaId, vagaId }: ConsolidacaoDas
       glass={false}
     >
       {/* Empty state — no scorecards yet to consolidate. */}
-      {!hasAnyPresent ? (
+      {!hasAnyContent ? (
         <div className="space-y-2 p-12 text-center text-white/80">
           <p className="text-xl font-semibold text-white">Ainda não há scorecards para consolidar</p>
           <p>
@@ -141,15 +160,31 @@ function ConsolidacaoBody({
   return (
     <div className="space-y-8">
       {/* Hero consolidated score — neutral, NO tint. */}
-      <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-          Score consolidado
-        </p>
-        <p className="text-3xl font-semibold text-white">
-          {data?.consolidated != null ? data.consolidated : '—'}
-        </p>
-        <p className="text-sm text-white/60">Agregado ponderado — não re-pontuado</p>
-      </div>
+      {data?.consolidated != null ? (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            Score consolidado
+          </p>
+          <p className="text-3xl font-semibold text-white">{data.consolidated}</p>
+          <p className="text-sm text-white/60">Agregado ponderado — não re-pontuado</p>
+        </div>
+      ) : (
+        // UX-09: com <2 etapas ponderadas concluídas o agregado é SUPRIMIDO
+        // (server-authoritative — a EF devolve consolidated=null). Mensagem DISTINTA, não
+        // o empty-state genérico: as rows de breakdown por etapa seguem visíveis abaixo.
+        <div className="space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+            Score consolidado
+          </p>
+          <p className="text-lg font-semibold text-white">
+            Agregado suprimido até ≥2 etapas concluídas
+          </p>
+          <p className="text-sm text-white/60">
+            As etapas já avaliadas aparecem abaixo — o número consolidado é exibido quando ao
+            menos duas etapas ponderadas estiverem concluídas.
+          </p>
+        </div>
+      )}
 
       {/* Per-etapa breakdown — neutral badges + N/A pill. */}
       <div className="space-y-2">

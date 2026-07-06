@@ -10,11 +10,11 @@
  * (RNF-07a) — the consolidated score is advisory, the RH decides.
  *
  * ── The load-bearing mapping (RESEARCH §Consolidation Aggregation, VERIFIED) ──
- * The 4 weight keys and the score sources do NOT line up 1:1 and the scales differ:
- *   • 'triagem'          ← analise_candidato_vaga.score_match   (0..100 already)
+ * The 3 weight keys and the score sources do NOT line up 1:1 and the scales differ:
  *   • 'work_sample_sjt'  ← scores_candidato tipo='sjt'          (score/score_max*100)
  *   • 'redacao_cultural' ← scores_candidato tipo='redacao'      (score/25*100)
  *   • 'entrevista'       ← scores_candidato tipo='entrevista'   (N/A unless status='sucesso' — Open Q1)
+ *   • 'triagem' (UX-09)  ← analise_candidato_vaga.score_match   (CONTEXT-ONLY — never weighted)
  *   • big_five/cognitivo ← scores_candidato                     (CONTEXT-ONLY, never weighted)
  * PRESENT only when status='sucesso'; else N/A. The EF normalizes each etapa to
  * 0..100, renormalizes weights over PRESENT etapas (effective_weight[k] =
@@ -180,13 +180,18 @@ Deno.test("DECISAO-01 — normalizes heterogeneous scales to 0..100 and weights 
   const byEtapa = Object.fromEntries(
     (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
   );
-  // (a) heterogeneous normalization: triagem 80→80; sjt 18/25→72; redacao 20/25→80.
-  assertEquals(byEtapa["triagem"].normalized, 80);
+  // (a) heterogeneous normalization: sjt 18/25→72; redacao 20/25→80.
   assertEquals(byEtapa["work_sample_sjt"].normalized, 72);
   assertEquals(byEtapa["redacao_cultural"].normalized, 80);
-  assertEquals(byEtapa["triagem"].status, "present");
   assertEquals(byEtapa["work_sample_sjt"].status, "present");
   assertEquals(byEtapa["redacao_cultural"].status, "present");
+
+  // UX-09: triagem SAIU das chaves ponderadas → row de CONTEXTO (sem peso). Continua
+  // visível carregando score_match (80), mas NÃO pondera no agregado.
+  assertEquals(byEtapa["triagem"].status, "context");
+  assertEquals(byEtapa["triagem"].normalized, 80);
+  assertEquals(byEtapa["triagem"].weight, null);
+  assertEquals(byEtapa["triagem"].effective_weight, null);
 
   // entrevista status='pendente_humano' → N/A (Open Q1: weight ONLY status='sucesso').
   assertEquals(byEtapa["entrevista"].status, "na");
@@ -200,26 +205,27 @@ Deno.test("DECISAO-01 — normalizes heterogeneous scales to 0..100 and weights 
   assertEquals(byEtapa["cognitivo"].status, "context");
   assertEquals(byEtapa["cognitivo"].weight, null);
 
-  // (b) renormalization over PRESENT etapas (triagem 40 + sjt 30 + redacao 20 = 90;
-  // entrevista 10 dropped). Σ effective_weight of present = 1.0.
+  // (b) renormalization over PRESENT weighted etapas (sjt 30 + redacao 20 = 50; triagem
+  // NÃO pondera, entrevista 10 dropped). Σ effective_weight of present = 1.0.
   const presentEff = (json.breakdown as Array<Record<string, unknown>>)
     .filter((b) => b.status === "present")
     .map((b) => b.effective_weight as number);
   const sumEff = presentEff.reduce((a, c) => a + c, 0);
   assert(Math.abs(sumEff - 1.0) < 1e-6, `Σ effective_weight of present must be 1.0, got ${sumEff}`);
 
-  // consolidated = 80*(40/90) + 72*(30/90) + 80*(20/90) = 77.33… (entrevista/context excluded).
-  const expected = 80 * (40 / 90) + 72 * (30 / 90) + 80 * (20 / 90);
+  // consolidated = 72*(30/50) + 80*(20/50) = 75.2 (triagem/entrevista/context excluded).
+  const expected = 72 * (30 / 50) + 80 * (20 / 50);
   assert(
     Math.abs((json.consolidated as number) - expected) < 0.5,
     `consolidated must aggregate present etapas (~${expected.toFixed(2)}), got ${json.consolidated}`,
   );
 });
 
-// ── DECISAO-01: missing etapa → effective_weight redistributed over the rest ────
-Deno.test("DECISAO-01 — a missing/N-A etapa redistributes its weight; consolidated never blocks", async () => {
+// ── DECISAO-01: missing weighted etapa → effective_weight redistributed over the rest ──
+Deno.test("DECISAO-01 — a missing/N-A weighted etapa redistributes its weight; consolidated never blocks", async () => {
   const { handler } = await loadHandler();
-  // triagem analise absent (null) → triagem N/A; the other present etapas absorb its weight.
+  // triagem analise absent (null) → triagem context row carries null; entrevista pendente
+  // → N/A; the two present weighted etapas (sjt+redacao) absorb entrevista's weight.
   const supabaseAdmin = makeMockSupabaseAdmin(scoresRows(), null);
   const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
   const res = await handler(makeRequest(BODY), deps);
@@ -228,10 +234,11 @@ Deno.test("DECISAO-01 — a missing/N-A etapa redistributes its weight; consolid
   const byEtapa = Object.fromEntries(
     (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
   );
-  // triagem now N/A (no analise row), but the decision is NOT blocked.
-  assertEquals(byEtapa["triagem"].status, "na");
-  assertExists(json.consolidated, "consolidated must still be produced from the remaining present etapas");
-  // present etapas now sjt(30) + redacao(20) = 50 → effective weights 0.6 / 0.4.
+  // UX-09: triagem is a CONTEXT row (never N/A-weighted); with no analise it carries null.
+  assertEquals(byEtapa["triagem"].status, "context");
+  assertEquals(byEtapa["triagem"].normalized, null);
+  assertExists(json.consolidated, "consolidated must still be produced from the present weighted etapas");
+  // present etapas sjt(30) + redacao(20) = 50 → effective weights 0.6 / 0.4.
   assert(Math.abs((byEtapa["work_sample_sjt"].effective_weight as number) - 0.6) < 1e-6);
   assert(Math.abs((byEtapa["redacao_cultural"].effective_weight as number) - 0.4) < 1e-6);
 });
@@ -253,6 +260,75 @@ Deno.test("DECISAO-01 — emits a deterministic templated recommendation and NEV
     !supabaseAdmin.calledTables.includes("redacoes_candidato"),
     "consolidation must not re-read source essays to re-score",
   );
+});
+
+// ── UX-09: gate ≥2 etapas present + triagem fora dos WEIGHTED_KEYS ───────────────
+// Um número consolidado sobre 1 única etapa (ou ponderando triagem, que é pré-triagem
+// de CV) engana o RH a decidir cedo. O agregado só aparece com ≥2 etapas ponderadas
+// present; triagem é contexto (não pondera). Gate server-authoritative (RNF-07a).
+
+Deno.test("UX-09 — 1 etapa present → consolidated null (gate ≥2 etapas)", async () => {
+  const { handler } = await loadHandler();
+  // Só o SJT present; redacao ausente, entrevista pendente, triagem ausente (analise null).
+  const oneStage = [
+    { id: "s-sjt", candidatura_id: "cand-1", tipo: "sjt", subtipo: "mc", score: 18, score_max: 25, status: "sucesso", metadata: {} },
+    { id: "s-ent", candidatura_id: "cand-1", tipo: "entrevista", subtipo: null, score: null, score_max: null, status: "pendente_humano", metadata: {} },
+  ];
+  const supabaseAdmin = makeMockSupabaseAdmin(oneStage, null);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  const byEtapa = Object.fromEntries(
+    (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
+  );
+  // Exatamente 1 etapa ponderada present → agregado SUPRIMIDO (null).
+  assertEquals(byEtapa["work_sample_sjt"].status, "present");
+  assertEquals(json.consolidated, null);
+  // A recomendação usa a mensagem de supressão DISTINTA (não "nenhuma etapa concluída").
+  assert(
+    (json.recommendation as string).includes("suprimido até ≥2 etapas"),
+    `recommendation must carry the distinct suppression message, got: ${json.recommendation}`,
+  );
+});
+
+Deno.test("UX-09 — 2 etapas present → número consolidado", async () => {
+  const { handler } = await loadHandler();
+  // sjt + redacao present (entrevista pendente, triagem ausente) → ≥2 → consolidated existe.
+  const twoStages = [
+    { id: "s-sjt", candidatura_id: "cand-1", tipo: "sjt", subtipo: "mc", score: 18, score_max: 25, status: "sucesso", metadata: {} },
+    { id: "s-red", candidatura_id: "cand-1", tipo: "redacao", subtipo: null, score: 20, score_max: 25, status: "sucesso", metadata: {} },
+  ];
+  const supabaseAdmin = makeMockSupabaseAdmin(twoStages, null);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertExists(json.consolidated, "consolidated must exist with ≥2 present etapas");
+  // 72*(30/50) + 80*(20/50) = 75.2
+  const expected = 72 * (30 / 50) + 80 * (20 / 50);
+  assert(
+    Math.abs((json.consolidated as number) - expected) < 0.5,
+    `consolidated ~${expected.toFixed(2)}, got ${json.consolidated}`,
+  );
+});
+
+Deno.test("UX-09 — triagem-only present → consolidated null (triagem não pondera)", async () => {
+  const { handler } = await loadHandler();
+  // Análise de triagem bem-sucedida, mas NENHUMA etapa ponderada present → agregado null.
+  const supabaseAdmin = makeMockSupabaseAdmin([], ANALISE_TRIAGEM);
+  const deps = { supabaseAdmin, supabaseUser: makeMockSupabaseUser(RH_USER) };
+  const res = await handler(makeRequest(BODY), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  const byEtapa = Object.fromEntries(
+    (json.breakdown as Array<Record<string, unknown>>).map((b) => [b.etapa, b]),
+  );
+  // triagem visível como CONTEXTO (score_match 80), mas NÃO pondera → consolidated null.
+  assertEquals(byEtapa["triagem"].status, "context");
+  assertEquals(byEtapa["triagem"].normalized, 80);
+  assertEquals(byEtapa["triagem"].weight, null);
+  assertEquals(json.consolidated, null);
 });
 
 // ── DEC-CONSOLIDA-SJT-01: SJT é uma etapa COMPOSTA (mc + caso_aberto). Um

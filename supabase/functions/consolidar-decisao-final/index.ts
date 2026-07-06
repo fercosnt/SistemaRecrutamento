@@ -95,13 +95,19 @@ const ConsolidacaoRequestSchema = z
 // Aggregation domain (RESEARCH §Consolidation Aggregation steps 1-7)
 // ---------------------------------------------------------------------------
 
-/** Mapa chave-de-peso → tipo de score em scores_candidato (triagem é a exceção). */
-const WEIGHTED_KEYS = ["triagem", "work_sample_sjt", "redacao_cultural", "entrevista"] as const;
+/**
+ * Mapa chave-de-peso → tipo de score em scores_candidato.
+ *
+ * UX-09: `triagem` SAIU das chaves ponderadas — é pré-triagem de CV, não etapa de
+ * avaliação; ponderá-la distorce o agregado. Agora vira uma row de CONTEXTO visível
+ * (sem peso), montada à parte a partir de analise_candidato_vaga.score_match.
+ */
+const WEIGHTED_KEYS = ["work_sample_sjt", "redacao_cultural", "entrevista"] as const;
 const CONTEXT_KEYS = ["big_five", "cognitivo"] as const;
 type WeightKey = (typeof WEIGHTED_KEYS)[number];
 
-/** scores_candidato.tipo correspondente a cada chave ponderada (triagem fora — lê outra tabela). */
-const TIPO_BY_KEY: Record<Exclude<WeightKey, "triagem">, string> = {
+/** scores_candidato.tipo correspondente a cada chave ponderada. */
+const TIPO_BY_KEY: Record<WeightKey, string> = {
   work_sample_sjt: "sjt",
   redacao_cultural: "redacao",
   entrevista: "entrevista",
@@ -133,15 +139,10 @@ interface ScoreRow {
 /** Normaliza o score bruto de uma etapa ponderada para 0..100 (apenas status='sucesso'). */
 function normalizeWeighted(
   key: WeightKey,
-  analise: { score_match: number | null; status: string | null } | null,
   scoreRow: ScoreRow | undefined,
 ): number | null {
-  if (key === "triagem") {
-    // triagem ← analise_candidato_vaga.score_match (0..100 já). PRESENT só se status='sucesso'.
-    if (!analise || analise.status !== "sucesso" || analise.score_match == null) return null;
-    return analise.score_match;
-  }
   // sjt / redacao / entrevista ← scores_candidato. PRESENT só se status='sucesso'.
+  // (triagem NÃO pondera mais — UX-09 — e é montada como row de contexto à parte.)
   if (!scoreRow || scoreRow.status !== "sucesso") return null;
   if (key === "entrevista") {
     // entrevista: score só existe após confirmação humana (status='sucesso'). Open Q1 —
@@ -186,11 +187,19 @@ function buildRecommendation(
   consolidated: number | null,
   naKeys: string[],
   pendenteHuman: boolean,
+  presentCount: number,
 ): string {
   const parts: string[] = [];
 
   if (consolidated == null) {
-    parts.push("Nenhuma etapa avaliável concluída — sem agregado disponível.");
+    if (presentCount >= 1) {
+      // UX-09: 1 etapa concluída — o número consolidado fica SUPRIMIDO até ≥2 etapas
+      // (um agregado sobre uma única etapa engana o RH a decidir cedo). Distinto do
+      // caso "nenhuma etapa concluída".
+      parts.push("Agregado suprimido até ≥2 etapas concluídas.");
+    } else {
+      parts.push("Nenhuma etapa avaliável concluída — sem agregado disponível.");
+    }
   } else if (consolidated >= 75) {
     parts.push("Forte aderência nas etapas avaliadas.");
   } else if (consolidated >= 50) {
@@ -331,11 +340,7 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       // as demais chaves usam a leitura single-row por tipo.
       const normalized = key === "work_sample_sjt"
         ? normalizeSjtComposite(sjtRows)
-        : normalizeWeighted(
-          key,
-          analiseTriagem,
-          key === "triagem" ? undefined : scoreByTipo.get(TIPO_BY_KEY[key as Exclude<WeightKey, "triagem">]),
-        );
+        : normalizeWeighted(key, scoreByTipo.get(TIPO_BY_KEY[key]));
       const present = normalized != null;
       // WR-06: `pesos` é um cast não-checado sobre uma coluna jsonb. publish_vaga é o
       // garantidor upstream de que os pesos são numéricos, mas a EF não deve confiar
@@ -357,7 +362,10 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
     const presentRows = weightedRows.filter((r) => r.status === "present");
     const sumPresentWeight = presentRows.reduce((acc, r) => acc + (r.weight ?? 0), 0);
     let consolidated: number | null = null;
-    if (presentRows.length > 0 && sumPresentWeight > 0) {
+    // UX-09: só consolida com ≥2 etapas present (um número sobre 1 única etapa engana o
+    // RH). Gate server-authoritative — o client apenas reflete consolidated=null. Com <2
+    // etapas as rows individuais seguem visíveis; só o AGREGADO é suprimido.
+    if (presentRows.length >= 2 && sumPresentWeight > 0) {
       let agg = 0;
       for (const r of presentRows) {
         const eff = (r.weight ?? 0) / sumPresentWeight;
@@ -366,6 +374,21 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       }
       consolidated = Math.round(agg * 100) / 100;
     }
+
+    // UX-09: triagem (pré-triagem de CV) saiu das chaves ponderadas e vira uma row de
+    // CONTEXTO visível (sem peso) — o RH continua vendo o score de CV marcado
+    // "Contextual · não pondera", sem distorcer o agregado. Carrega score_match (0..100)
+    // quando a análise foi bem-sucedida; null caso contrário.
+    const triagemContextRow: BreakdownRow = {
+      etapa: "triagem",
+      normalized:
+        analiseTriagem && analiseTriagem.status === "sucesso" && analiseTriagem.score_match != null
+          ? Math.round(analiseTriagem.score_match * 100) / 100
+          : null,
+      status: "context",
+      weight: null,
+      effective_weight: null,
+    };
 
     // Etapas de contexto (big_five/cognitivo): sem peso, contribuem 0.
     const contextRows: BreakdownRow[] = CONTEXT_KEYS.map((key) => ({
@@ -376,7 +399,7 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       effective_weight: null,
     }));
 
-    const breakdown: BreakdownRow[] = [...weightedRows, ...contextRows];
+    const breakdown: BreakdownRow[] = [triagemContextRow, ...weightedRows, ...contextRows];
 
     // ── 6. Recomendação DETERMINÍSTICA (NUNCA LLM) ────────────────────────────
     // WR-02: computa `pendenteHuman` ANTES de `naKeys`. Uma entrevista
@@ -391,7 +414,7 @@ export async function handler(req: Request, deps: ConsolidacaoDeps): Promise<Res
       .filter((r) => r.status === "na")
       .map((r) => r.etapa)
       .filter((etapa) => !(etapa === "entrevista" && pendenteHuman));
-    const recommendation = buildRecommendation(consolidated, naKeys, pendenteHuman);
+    const recommendation = buildRecommendation(consolidated, naKeys, pendenteHuman, presentRows.length);
 
     // Log redigido (T-15-07) — só ids/counts; NUNCA scores/justificativa/PII.
     console.log("[consolidacao] ok", {
