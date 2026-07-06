@@ -288,6 +288,13 @@ async function tryIdempotencyReplay(
       .eq("idempotency_key", idempotency_key)
       .maybeSingle();
     if (error || !existing) return null;
+    // AI-05: só faz replay de linhas de SUCESSO. Uma falha cacheada (success=false,
+    // ex.: timeout transiente ou injection-detected) NÃO deve ser devolvida como
+    // resultado terminal — cair p/ null aqui faz o callAi fazer uma chamada NOVA,
+    // destravando o reprocessamento do RH (guia/transcrição/devolutiva reusam a
+    // mesma idempotency_key estável; sem isto a falha se replayaria p/ sempre).
+    // (T-23-01-03: impede que uma falha envenenada seja replayada como sucesso.)
+    if (existing.success !== true) return null;
     return {
       provider: String(existing.provider ?? "unknown"),
       parsed: existing.output ?? null,
@@ -296,7 +303,6 @@ async function tryIdempotencyReplay(
       cache_hit: true,
       prompt_version,
       error_code: existing.error_code != null ? String(existing.error_code) : undefined,
-      flagged_for_human_review: existing.success === false ? true : undefined,
     };
   } catch {
     return null;

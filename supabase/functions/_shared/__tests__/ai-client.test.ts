@@ -97,6 +97,30 @@ function makeMockSupabase() {
   };
 }
 
+// ── Mock Supabase with an idempotency-replay row (AI-05) ─────────────────────
+// Implements the `from("ai_call_logs").select(...).eq(...).maybeSingle()` chain
+// that tryIdempotencyReplay probes, returning `row` (or null). Also spies inserts
+// so a fresh call (when replay is skipped) still writes an ai_call_logs row.
+function makeMockSupabaseWithReplay(row: Record<string, unknown> | null) {
+  const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  return {
+    inserts,
+    from(table: string) {
+      return {
+        insert: (r: Record<string, unknown>) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        select: (_columns: string) => ({
+          eq: (_column: string, _value: unknown) => ({
+            maybeSingle: () => Promise.resolve({ data: row, error: null }),
+          }),
+        }),
+      };
+    },
+  };
+}
+
 // Prompt-version fixture as `prompt-loader` would return it.
 const SONNET_PROMPT = {
   call_type: "cv_job_match",
@@ -125,6 +149,8 @@ async function loadClient() {
         // per-call timeout override (added Phase 18/21). The local shape must
         // mirror it so the P21 override test (`timeoutMs: 60_000` below) type-checks.
         timeoutMs?: number;
+        // idempotency_key drives tryIdempotencyReplay (AI-05 tests below).
+        idempotency_key?: string;
       },
       deps: {
         anthropic: unknown;
@@ -132,7 +158,9 @@ async function loadClient() {
         supabase: unknown;
         breaker?: { canRequest(): boolean; recordSuccess(): void; recordFailure(): void };
       },
-    ) => Promise<{ provider: string; parsed: unknown; cost_usd: number; error_code?: string }>;
+    ) => Promise<
+      { provider: string; parsed: unknown; cost_usd: number; cache_hit?: boolean; error_code?: string }
+    >;
   };
 }
 
@@ -346,4 +374,50 @@ Deno.test("AI-04 — retry-budget cap: timeoutMs 60s → 2 attempts (not 3), the
   assertEquals(anthropic.calls.length, 2, "the cap must limit long-timeout calls to 2 attempts (floor(140000/60000))");
   assertEquals(result.provider, "openai", "after the capped attempts exhaust, callAi falls to OpenAI");
   assertEquals(result.error_code, "anthropic_retries_exhausted", "fallback cause = retries exhausted (breaker was CLOSED)");
+});
+
+// ── AI-05 — idempotency replay only replays SUCCESS rows ─────────────────────
+// A cached FAILURE (success=false) must NOT be returned as a terminal result — it
+// should fall through to a fresh provider call so the RH can reprocess. A cached
+// SUCCESS (success=true) replays with cache_hit + cost 0 and touches no provider.
+Deno.test("AI-05 — a cached FAILURE (success=false) is NOT replayed → fresh provider call", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseWithReplay({
+    provider: "anthropic",
+    success: false, // a prior transient failure
+    output: null,
+    error_code: "anthropic_retries_exhausted",
+  });
+  const result = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:transcript" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  // The definitive discriminator between "replay" and "fresh call" is whether the
+  // provider was invoked. (The `cache_hit` field is overloaded: a fresh call can still
+  // report cache_hit=true from an EPHEMERAL PROMPT-cache read — distinct from an
+  // idempotency replay — so it is not a reliable signal here.)
+  assertEquals(anthropic.calls.length, 1, "a cached failure must NOT short-circuit — the provider IS called");
+  assertEquals(result.provider, "anthropic", "the fresh call succeeds and returns anthropic, not the cached failure");
+  assertEquals(result.error_code, undefined, "the fresh success carries no error_code (not the cached failure's)");
+});
+
+Deno.test("AI-05 — a cached SUCCESS (success=true) IS replayed → no provider call, cost 0", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseWithReplay({
+    provider: "anthropic",
+    success: true,
+    output: { resumo: "cacheado", bias_flags: { has_demographic_proxy: false } },
+    cost_usd: 0.0123,
+    error_code: null,
+  });
+  const result = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:transcript" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  assertEquals(anthropic.calls.length, 0, "a cached SUCCESS must replay WITHOUT touching the provider");
+  assertEquals(result.cache_hit, true, "replay must flag cache_hit");
+  assertEquals(result.cost_usd, 0, "replay must not re-bill (cost_usd 0 — original already accounted)");
+  assertEquals(result.provider, "anthropic", "replay echoes the original provider");
 });
