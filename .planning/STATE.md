@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (CI-01/04/05/14): tsconfig `paths` (37 versioned) → TS2307 65→0, tsc total 257→133; include e2e/scripts/playwright.config.ts + exclude Deno files (0 TS2304 Deno); blocking deno-test CI job (setup-deno@v2, 148/0) + tsc gate pinned 290→133 (measured). Vitest 721/721, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete."
-last_updated: "2026-07-06T01:15:55.072Z"
-last_activity: 2026-07-06 -- Phase 23 planning complete
+stopped_at: "Phase 23 / Plan 23-01 complete — núcleo de resiliência _shared: parseIntEnv (AI-07), sharedBreaker singleton + THRESHOLD≤MAX_ATTEMPTS (AI-02), isRetryable timeout name+regex (AI-03), cap de retry-budget (AI-04), replay success-only (AI-05). Corpus Deno 154/0, tsc 133. 3 tasks committed 03f6c1b/94313e8/de9d84a."
+last_updated: "2026-07-06T01:35:42.939Z"
+last_activity: 2026-07-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 6
+  completed_plans: 7
   percent: 17
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 23 — ressurreição da stack de ia
+**Current focus:** Phase 23 — Ressurreição da Stack de IA
 
 ## Current Position
 
-Phase: 23
-Plan: Not started
+Phase: 23 (Ressurreição da Stack de IA) — EXECUTING
+Plan: 2 of 6
 Status: Ready to execute
-Last activity: 2026-07-06 -- Phase 23 planning complete
+Last activity: 2026-07-06
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 58%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -70,6 +70,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P04 | 4min | 2 tasks | 4 files |
 | Phase 22 P05 | 14min | 2 tasks | 13 files |
 | Phase 22 P06 | 12min | 3 tasks | 3 files |
+| Phase 23 P01 | 16min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,9 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 22/22-06] tsc baseline MEASURED = 133 (pinned into ci.yml, was loose 290). Resolving 65 versioned-import TS2307 via tsconfig `paths` (mirror of vite.config.ts aliases, figma:asset/* skipped) cascaded the total 257→133 — versioned imports were silently typing whole shadcn components as `any` (masked drift). 257-65 is NOT the answer; measure-first is load-bearing (22-RESEARCH Pitfall 1). Keep tsconfig paths in sync with vite aliases or TS2307 reappears (CI-05/CI-04)
 - [Phase ?]: [Phase 22/22-06] tsc coverage expanded to e2e/scripts/playwright.config.ts; the Deno sync-prompts files (scripts/sync-prompts.ts + .test.ts + glob) are EXCLUDED (Deno globals/npm:/https: are unfixable under Node tsc — same treatment the EF corpus gets by living under `deno test`). supabase/ deliberately NOT in include. One genuine e2e error fixed (unused expectAuthenticated). 0 TS2304 'Deno' leaks (CI-14)
 - [Phase ?]: [Phase 22/22-06] BLOCKING deno-test CI job added (denoland/setup-deno@v2, no continue-on-error). Canonical command = 22-01's `--config` form EXACTLY (`deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions`), confirmed green on merged tree before wiring (148/0, exit 0). The `--ignore=` fallback was NOT used (CI-01)
+- [Phase 23]: [Phase 23/23-01] sharedBreaker singleton module-level virou o default de callAi (deps.breaker ?? sharedBreaker) — falhas ACUMULAM entre chamadas do mesmo isolate; antes new CircuitBreaker() por chamada nunca abria. Testes de falha SEMPRE injetam breaker fresh (Pitfall 3)
+- [Phase 23]: [Phase 23/23-01] isRetryable casa timeout do SDK por name===APIConnectionTimeoutError (Anthropic E OpenAI, sem import) + regex tim(e|ed)\\s*out — a antiga /timeout/i perdia 'Request timed out.' no espaço; cap de retry-budget min(MAX_ATTEMPTS, floor(140000/teto)) quando teto>25s (AI-03/04)
+- [Phase 23]: [Phase 23/23-01] parseIntEnv exportado (NaN/≤0→default) reusável por 23-02; circuit-breaker.ts replica guarda como envInt local p/ evitar ciclo; replay success-only via guard existing.success!==true (AI-05/07)
 
 ### Pending Todos
 
@@ -123,8 +127,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-05T22:15:00Z
-Stopped at: Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (CI-01/04/05/14): tsconfig `paths` (37 versioned) → TS2307 65→0, tsc total 257→133; include e2e/scripts/playwright.config.ts + exclude Deno files (0 TS2304 Deno); blocking deno-test CI job (setup-deno@v2, 148/0) + tsc gate pinned 290→133 (measured). Vitest 721/721, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete.
+Last session: 2026-07-06T01:35:42.932Z
+Stopped at: Phase 23 / Plan 23-01 complete — núcleo de resiliência _shared: parseIntEnv (AI-07), sharedBreaker singleton + THRESHOLD≤MAX_ATTEMPTS (AI-02), isRetryable timeout name+regex (AI-03), cap de retry-budget (AI-04), replay success-only (AI-05). Corpus Deno 154/0, tsc 133. 3 tasks committed 03f6c1b/94313e8/de9d84a.
 Resume file: None
 
 ## Operator Next Steps
