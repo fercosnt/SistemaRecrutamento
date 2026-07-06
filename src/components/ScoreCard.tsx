@@ -14,6 +14,18 @@ import React from 'react'
 import { Brain, Users, TrendingUp, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+/**
+ * The cognitivo (Raven) score IS a job-fit score → an evaluative 3-band frame fits
+ * here (unlike the non-evaluative Big Five). The raw percentil digit is NEVER shown
+ * to the RH (UX-07, Phase 23) — only a provisional band. Cutoffs are PROVISIONAL
+ * (a real local norm is deferred to M5); the band replaces the misleading `P{n}`.
+ */
+function cognitivoBanda(percentil: number): string {
+  if (percentil >= 70) return 'Acima do esperado'
+  if (percentil >= 40) return 'Dentro do esperado'
+  return 'Abaixo do esperado'
+}
+
 interface ScoreCardProps {
   bigFive?: number | null // 0-100 average
   disc?: string | null // Ex: "DI", "SC"
@@ -103,7 +115,7 @@ export function ScoreCard({
               )}
             >
               {inteligencia !== null && inteligencia !== undefined
-                ? `P${inteligencia}`
+                ? cognitivoBanda(inteligencia)
                 : 'N/A'}
             </div>
           </div>

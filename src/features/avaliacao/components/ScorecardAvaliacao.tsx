@@ -238,9 +238,11 @@ const BIGFIVE_BANDA_LABEL: Record<string, string> = {
 
 /**
  * Big Five contextual card (tipo='big_five'). Marked CONTEXTUAL / não-eliminatório
- * (RNF-07a) — the traits NEVER drive a pass/fail. The SugestaoIABadge appears ONLY
- * on the AI-polished executive summary, NOT on the raw percentil rows. Reads via
- * the `scoresRhService` allowlist (never `select('*')`).
+ * (RNF-07a) — the traits NEVER drive a pass/fail. Each dimension shows only its
+ * NEUTRAL band (muito baixo…muito alto) — the raw percentil digit is NEVER rendered
+ * (UX-07, Phase 23; Big Five is non-evaluative). The SugestaoIABadge appears ONLY on
+ * the AI-polished executive summary. Reads via the `scoresRhService` allowlist
+ * (never `select('*')`).
  */
 function BigFiveBreakdown({ row }: { row: ScoreRow }) {
   const meta = (row.metadata ?? {}) as BigFiveMetadata
@@ -268,12 +270,13 @@ function BigFiveBreakdown({ row }: { row: ScoreRow }) {
                 key={`${d.dim}-${i}`}
                 className="flex flex-wrap items-center justify-between gap-2 text-sm"
               >
-                {/* Raw percentil rows are NOT AI-derived → no SugestaoIABadge here. */}
+                {/* NEUTRAL band only — the raw percentil digit is NEVER rendered (UX-07,
+                    Phase 23): Big Five is non-evaluative, so the RH sees the band, not a
+                    number. Not AI-derived → no SugestaoIABadge here. */}
                 <span className="font-medium text-white/90">
                   {BIGFIVE_DIM_LABEL[d.dim] ?? d.dim}
                 </span>
                 <span className="flex items-center gap-2">
-                  <span className="text-white/70">Percentil {d.percentil}</span>
                   <Badge className="border-white/15 bg-white/5 text-white/70 text-xs">
                     {BIGFIVE_BANDA_LABEL[d.banda] ?? d.banda}
                   </Badge>
