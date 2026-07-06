@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 23 / Plan 23-02 complete — prompt library religada (AI-01): SCHEMA_VERSIONS espelha o enum + 7 catches estreitados + emitPromptStubAlert; transcricao timeoutMs 60s (AI-04); devolutiva prompt banda-only (UX-07 EF-side). Deno 166/0, tsc 133. 3 tasks: 98e760d/90405e0/5004e15. As 7 EFs redeployam no 23-06; enum bigfive = 23-05."
-last_updated: "2026-07-06T02:35:09.056Z"
+stopped_at: "Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD default 50, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1, deixa de ser código morto). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 (T1) · 7ca8737/e12807f (T2). NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05."
+last_updated: "2026-07-06T02:45:00.000Z"
 last_activity: 2026-07-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 23 (Ressurreição da Stack de IA) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-06
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 83%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -73,6 +73,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 23 P01 | 16min | 3 tasks | 4 files |
 | Phase 23 P04 | 17min | 3 tasks | 10 files |
 | Phase 23 P02 | 22min | 3 tasks | 18 files |
+| Phase 23 P03 | 22min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 23/23-04] UX-09: triagem fora de WEIGHTED_KEYS → contexto visível (score_match, 'não pondera'); gate consolidação >0 → ≥2 etapas present (server-authoritative, consolidated=null com <2); dashboard mostra supressão distinta; RNF-07a preservado. EF consolidar redeploya no 23-06
 - [Phase ?]: [Phase 23/23-02] AI-01: SCHEMA_VERSIONS espelha o enum llm_call_type (5 chaves órfãs de Fase 9 removidas, sweep-test guarda); catch das 7 EFs estreitado (SchemaVersionMismatch/PromptNotConfigured → 500 + emitPromptStubAlert em recruiter_alerts). Alarme NO CATCH, não scan de ai_call_logs (row 0.0.0 22P02-falha na FK uuid — Pitfall 1)
 - [Phase ?]: [Phase 23/23-02] UX-07 EF-side: buildDevolutivaUserBlock passa banda qualitativa neutra (label pt-BR), percentil cru FORA do prompt do LLM (Big Five não-avaliativo, Pitfall 5); AI-04: transcricao timeoutMs 60s env-overridable. AI-01/AI-04 ficam LIVE só no 23-06 (redeploy das 7 EFs bundle-freeze); bigfive_devolutiva 500a por design até enum+seed do 23-05
+- [Phase 23]: [Phase 23/23-03] AI-06: kill-switch PRÉ-chamada em callAi (isDailyCostCapExceeded — SUM cost_usd success=true do dia UTC por vaga vs AI_DAILY_COST_CAP_USD lido POR CHAMADA, default 50) é o único corte de gasto em RUNTIME; wired após replay/antes de injection. FAIL-OPEN por design (feature-detect select + try/catch → erro/ausência procede; trigger DB é backstop; tradeoff = disponibilidade > teto de custo). Recusa = provider 'none' (sem fallback OpenAI) + error_code cost_cap_exceeded + hold + flagged_for_human_review (RNF-07a, nunca reject). Usa idx parcial idx_ai_logs_vaga_cost
+- [Phase 23]: [Phase 23/23-03] AI-06: alertMessage + CostAnomalyBody extraídos de cost-alerter/index.ts p/ cost-alerter/messages.ts (módulo puro sem Deno.serve) → 4 canais unit-testáveis, candidate_cost_over_1 deixa de ser código morto (emissão pelo trigger = 23-05). Handler importa de './messages.ts', byte-idêntico. NÃO redeploya (bundle-freeze → 23-06)
 
 ### Pending Todos
 
@@ -133,8 +136,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-06T02:34:40.467Z
-Stopped at: Phase 23 / Plan 23-02 complete — prompt library religada (AI-01): SCHEMA_VERSIONS espelha o enum + 7 catches estreitados + emitPromptStubAlert; transcricao timeoutMs 60s (AI-04); devolutiva prompt banda-only (UX-07 EF-side). Deno 166/0, tsc 133. 3 tasks: 98e760d/90405e0/5004e15. As 7 EFs redeployam no 23-06; enum bigfive = 23-05.
+Last session: 2026-07-06T02:45:00.000Z
+Stopped at: Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 · 7ca8737/e12807f. NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05. Restam 23-05 (migration PROD) + 23-06 (redeploy) na Phase 23.
 Resume file: None
 
 ## Operator Next Steps

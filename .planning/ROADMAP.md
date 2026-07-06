@@ -118,7 +118,7 @@ Plans:
 
 **Wave 2** *(toca ai-client.ts — serializado após 23-01)*
 
-- [ ] 23-03-PLAN.md — Guardrails de custo: kill-switch pré-chamada por-vaga (fail-open) + cost-alerter alertMessage testável (candidate_cost_over_1) (AI-06) [Wave 2]
+- [x] 23-03-PLAN.md — Guardrails de custo: kill-switch pré-chamada por-vaga (fail-open) + cost-alerter alertMessage testável (candidate_cost_over_1) (AI-06) [Wave 2]
 
 **Wave 3** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 3/6 | In Progress|  |
+| 23. Ressurreição da Stack de IA | v4.0 | 4/6 | In Progress|  |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
