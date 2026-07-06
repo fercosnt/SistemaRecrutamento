@@ -608,17 +608,30 @@ if (import.meta.main) {
       const loaded = await loadPrompt("bigfive_devolutiva", supabaseAdmin as any);
       resolved = resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
     } catch (e) {
-      // AI-01: NÃO degradar para um stub silencioso. `bigfive_devolutiva` ainda NÃO
-      // é valor válido do enum `public.llm_call_type` (o ALTER TYPE ADD VALUE + seed
-      // são o Plan 23-05) → `loadPrompt` lança `PromptNotConfiguredError` e esta EF
-      // 500a POR DESIGN (alarme honesto). Uma vez que o enum+seed aterrissem em PROD,
-      // `loadPrompt` resolve o prompt real. Enquanto isso: alarma e propaga para o
-      // try/catch externo do handler (nunca a avaliação-stub de 12 palavras).
+      // WR-01 / AI-01: NÃO degradar para um stub silencioso E NÃO deixar o erro
+      // escapar como unhandled rejection (500 genérico do Deno, silencioso). Enquanto
+      // `bigfive_devolutiva` não for valor válido do enum `public.llm_call_type` (o
+      // ALTER TYPE ADD VALUE + seed são o Plan 23-05), `loadPrompt` lança
+      // `PromptNotConfiguredError`. Os OUTROS 6 EFs resolvem o prompt DENTRO do outer
+      // try/catch do handler, onde uma falha vira uma resposta 'falhou' honesta. Aqui
+      // o prompt é resolvido no wrapper Deno.serve (o handler recebe uma `callAi` já
+      // adaptada por DI), então espelhamos aquele padrão AQUI: alarma no ponto de
+      // degradação (emitPromptStubAlert) e RETORNA o MESMO 500 estruturado 'falhou'
+      // que o handler produziria — a devolutiva nunca fica silenciosamente ausente e o
+      // structured-500 é preservado (não enfraquecido). Uma vez que o enum+seed
+      // aterrissem em PROD, `loadPrompt` resolve o prompt real e este caminho não roda.
       if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
         // deno-lint-ignore no-explicit-any
         await emitPromptStubAlert(supabaseAdmin as any, "bigfive_devolutiva");
       }
-      throw e;
+      // Log redigido (Pitfall 7) — só o nome do erro, nunca payload bruto.
+      console.error("[gerar-devolutiva-bigfive] prompt não resolvido → 'falhou'", {
+        error: e instanceof Error ? e.name : "unknown",
+      });
+      return new Response(JSON.stringify({ status: "falhou" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Adapta a `callAi` real (ai-client) ao contrato per-dim que o handler usa.
