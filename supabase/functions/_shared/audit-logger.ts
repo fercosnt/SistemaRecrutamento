@@ -147,3 +147,52 @@ export async function logAiCall(supabaseAdmin: SupabaseLike, row: AiCallLogRow):
     console.error(`[audit-logger] ai_call_logs INSERT falhou (call_type=${row.call_type}): ${summary}`);
   }
 }
+
+/**
+ * AI-01 (Phase 23) — alarme de "prompt stub disparado".
+ *
+ * Quando uma EF de IA nao consegue resolver a versao real de um prompt
+ * (`SchemaVersionMismatchError` / `PromptNotConfiguredError`), o caminho antigo
+ * degradava SILENCIOSAMENTE para um prompt-stub de 1 linha persistido como
+ * avaliacao oficial. O fix (Plans 23-02) estreita o catch para propagar o erro
+ * como 500 estruturado; ESTE helper emite, no ponto de degradacao, uma linha de
+ * alerta dedicada para que a falha NUNCA rode morta em silencio.
+ *
+ * Por que NAO escanear ai_call_logs por prompt_version='0.0.0' (Pitfall 1):
+ * `ai_call_logs.prompt_version_id` e `uuid NOT NULL REFERENCES prompt_versions(id)`
+ * — um "0.0.0" faria o INSERT falhar (22P02), engolido → nenhuma row 0.0.0
+ * persiste. O alarme correto e AQUI, no catch, numa tabela que aceita o valor
+ * (`recruiter_alerts.threshold_violated` e `text NOT NULL`).
+ *
+ * INVARIANTE: NUNCA lanca. Roda no caminho de ERRO da EF — nao pode mascarar o
+ * 500 original nem quebrar o re-throw. Em falha de escrita, loga so codigo+resumo
+ * (padrao logAiCall). `call_type` da row de alerta e null (a coluna e o enum
+ * `llm_call_type` e `bigfive_devolutiva` ainda nao e valor valido → 22P02).
+ */
+export async function emitPromptStubAlert(supabaseAdmin: SupabaseLike, call_type: string): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.from("recruiter_alerts").insert({
+      threshold_violated: "ai_prompt_stub_fired",
+      channel: "ai_stack",
+      message:
+        `Prompt stub disparado para call_type='${call_type}' — versão de prompt não resolvida (falha alta).`,
+      value: 0,
+      threshold: 0,
+      call_type: null, // coluna e o enum llm_call_type — evitar 22P02 (bigfive_devolutiva)
+      vaga_id: null,
+      candidato_id: null,
+      created_at: new Date().toISOString(),
+    });
+    if (error) {
+      const summary = typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "insert_failed";
+      console.error(`[audit-logger] emitPromptStubAlert INSERT falhou (call_type=${call_type}): ${summary}`);
+    }
+  } catch (e) {
+    // Belt-and-suspenders: um throw do client (rede/mock) NAO pode escapar deste
+    // helper — ele roda no caminho de erro da EF e o 500 original deve prevalecer.
+    const summary = e instanceof Error ? e.name : "throw";
+    console.error(`[audit-logger] emitPromptStubAlert lançou (call_type=${call_type}): ${summary}`);
+  }
+}

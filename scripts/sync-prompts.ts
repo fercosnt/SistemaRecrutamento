@@ -28,7 +28,10 @@
 import { z } from "npm:zod@3.25.76";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-// ── The 7 canonical call_type values (mirrors llm_call_type enum + 00-shared-zod-schemas.ts) ──
+// ── The canonical call_type values (mirrors llm_call_type enum + 00-shared-zod-schemas.ts) ──
+// AI-01 (Phase 23): `bigfive_devolutiva` foi adicionado (template 08 existe desde
+// Fase 12). O enum ganha o valor no Plan 23-05 (ALTER TYPE ADD VALUE); o sync ja
+// reconhece a chave para que o template 08 valide e possa ser upsertado.
 export const CALL_TYPES = [
   "cv_summary",
   "cv_job_match",
@@ -37,6 +40,7 @@ export const CALL_TYPES = [
   "transcript_analysis",
   "culture_fit_essay",
   "work_sample_sjt",
+  "bigfive_devolutiva",
 ] as const;
 
 // ── RF-PL-01 frontmatter schema (Zod). Rejects a missing field and a non-SemVer version. ──

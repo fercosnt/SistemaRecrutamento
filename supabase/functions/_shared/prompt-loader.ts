@@ -29,16 +29,30 @@
 const PROMPT_COLUMNS =
   "id, semver, system_template, user_template, model_id, temperature, max_tokens, schema_version_required, content_hash";
 
-/** Versoes de schema conhecidas pelo CODIGO (fail-fast RF-PL-13). */
+/**
+ * Versoes de schema conhecidas pelo CODIGO (fail-fast RF-PL-13).
+ *
+ * AI-01 (Phase 23): estas chaves DEVEM espelhar o enum `public.llm_call_type` —
+ * a fonte de verdade dos call_types que as 7 EFs de IA passam a `loadPrompt`.
+ * As 5 chaves FICTICIAS de Fase 9 (ver 23-RESEARCH §AI-01, tabela de call_types)
+ * NUNCA existiram no enum/template/EF e faziam 5 dos 7 call_types cairem num stub
+ * silencioso 0.0.0 (SchemaVersionMismatchError engolido pelo catch mudo). Foram
+ * REMOVIDAS — o sweep-test prompt-loader.test.ts guarda a regressao.
+ *
+ * `bigfive_devolutiva` e a excecao profunda: ainda NAO e valor valido do enum
+ * (o `ALTER TYPE ADD VALUE` + seed sao o Plan 23-05). Ate la, `loadPrompt` desta
+ * EF lanca `PromptNotConfiguredError` e a EF 500a POR DESIGN (alarme honesto). A
+ * chave ja fica pronta aqui para quando o enum+seed aterrissarem.
+ */
 export const SCHEMA_VERSIONS: Record<string, string> = {
-  cv_summary: "1.0.0",
-  cv_job_match: "1.0.0",
-  comparative_ranking: "1.0.0",
-  sjt_evaluation: "1.0.0",
-  interview_questions: "1.0.0",
-  interview_summary: "1.0.0",
-  reference_check: "1.0.0",
-  final_recommendation: "1.0.0",
+  cv_summary: "1.0.0", // real/seedado — sem EF consumidora hoje (espelha o enum)
+  cv_job_match: "1.0.0", // analise-candidato-individual
+  comparative_ranking: "1.0.0", // comparativo-candidatos
+  interview_guide: "1.0.0", // gerar-guia-entrevista
+  transcript_analysis: "1.0.0", // avaliar-transcricao-entrevista
+  culture_fit_essay: "1.0.0", // avaliar-redacao-cultural
+  work_sample_sjt: "1.0.0", // avaliar-redacao
+  bigfive_devolutiva: "1.0.0", // gerar-devolutiva-bigfive (enum+seed = Plan 23-05)
 };
 
 /** Forma da versao de prompt resolvida e retornada ao chamador. */
