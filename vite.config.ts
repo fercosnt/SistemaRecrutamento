@@ -41,6 +41,13 @@
         // They run under `deno test`, not Vitest → exclude to keep `npm run test:run` green.
         'supabase/functions/_shared/__tests__/essay-schemas.test.ts',
         'supabase/functions/consolidar-decisao-final/**/*.test.ts',
+        // Phase 23 (AI stack revival): three new Deno-only `_shared/__tests__/` tests using
+        // npm:/https:// specifiers → run under `deno test`, not Vitest. NOT a broad
+        // `_shared/__tests__/**` glob because strict-schema.test.ts in the same dir is a
+        // Vitest-only Node probe that must keep running under Vitest.
+        'supabase/functions/_shared/__tests__/prompt-loader.test.ts',
+        'supabase/functions/_shared/__tests__/prompt-catch.test.ts',
+        'supabase/functions/_shared/__tests__/cost-alerter-messages.test.ts',
       ],
       coverage: {
         provider: 'v8',
