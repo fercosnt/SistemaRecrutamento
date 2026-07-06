@@ -181,6 +181,14 @@ interface OpenAILike {
 interface SupabaseLike {
   from(table: string): {
     insert(row: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+    // CR-01: logAiCall faz UPSERT `onConflict: idempotency_key` (um retry AI-05 reusa
+    // a mesma key -> sobrescreve a linha stale em vez de colidir 23505). O client
+    // injetado em `deps.supabase` precisa expor `upsert` p/ o `logAiCall(supabase, ...)`
+    // type-checar — em PROD o SupabaseClient real ja o provê; nos testes o mock é `unknown`.
+    upsert(
+      row: Record<string, unknown>,
+      opts?: { onConflict?: string },
+    ): Promise<{ data: unknown; error: unknown }>;
     select?(columns: string): {
       eq(column: string, value: unknown): {
         maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: unknown }>;

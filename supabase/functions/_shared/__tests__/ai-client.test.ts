@@ -24,6 +24,10 @@
  * @see .planning/phases/09-ai-prompt-library-cost-infra/09-RESEARCH.md (Patterns 1-3, IA-02/03/04)
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+// CR-01 (Phase 23): logAiCall is exercised directly against a schema-faithful mock
+// (idempotency_key UNIQUE) to prove the retry-after-failure now UPSERTs instead of
+// colliding. Imported from the source module (audit-logger) it lives in.
+import { type AiCallLogRow, logAiCall } from "../audit-logger.ts";
 
 // ── Mock Anthropic SDK ──────────────────────────────────────────────────────
 // A fake `messages.parse()` that records BOTH the request shape AND the per-call
@@ -92,6 +96,12 @@ function makeMockSupabase() {
           inserts.push({ table, row });
           return Promise.resolve({ data: null, error: null });
         },
+        // CR-01: logAiCall UPSERTs when a call carries an idempotency_key. The real
+        // SupabaseClient exposes `.upsert`; the mock must model it (mock-vs-real gap).
+        upsert: (row: Record<string, unknown>, _opts?: { onConflict?: string }) => {
+          inserts.push({ table, row });
+          return Promise.resolve({ data: null, error: null });
+        },
       };
     },
   };
@@ -108,6 +118,12 @@ function makeMockSupabaseWithReplay(row: Record<string, unknown> | null) {
     from(table: string) {
       return {
         insert: (r: Record<string, unknown>) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        // CR-01: the fresh keyed retry (after a cached failure) reaches logAiCall,
+        // which now UPSERTs on idempotency_key instead of a colliding plain insert.
+        upsert: (r: Record<string, unknown>, _opts?: { onConflict?: string }) => {
           inserts.push({ table, row: r });
           return Promise.resolve({ data: null, error: null });
         },
@@ -145,6 +161,11 @@ function makeMockSupabaseWithCostLogs(
     from(table: string) {
       return {
         insert: (r: Record<string, unknown>) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        // CR-01: model the real client's upsert surface (logAiCall may UPSERT).
+        upsert: (r: Record<string, unknown>, _opts?: { onConflict?: string }) => {
           inserts.push({ table, row: r });
           return Promise.resolve({ data: null, error: null });
         },
@@ -505,6 +526,147 @@ Deno.test("AI-06 — over-cap: kill-switch refuses the call (0 provider calls, h
   } finally {
     Deno.env.delete("AI_DAILY_COST_CAP_USD");
   }
+});
+
+// ── CR-01 — logAiCall must UPSERT on idempotency_key (retry-after-failure) ────
+// `ai_call_logs.idempotency_key` is `text UNIQUE`. AI-05 makes a cached FAILURE fall
+// through to a FRESH provider call that REUSES the same key; a plain second INSERT
+// would collide (23505) with the stale success=false row, the error would be swallowed,
+// and the retry outcome would NEVER persist (audit broken, its real spend invisible to
+// the AI-06 cap `WHERE success=true`, and it never converges). The other mocks in this
+// file are plain spies with NO uniqueness enforcement — exactly why this collision was
+// invisible at the unit level (mock-vs-real-schema gap, cf. feedback_integration_contract_gap).
+// This mock models the constraint: a duplicate PLAIN insert of a non-null key raises
+// 23505 (as the DB would), NULL keys are always distinct (Postgres treats NULLs as
+// non-equal in a UNIQUE index), and the upsert path overwrites.
+function makeUniquenessEnforcingSupabase() {
+  const byKey = new Map<string, Record<string, unknown>>();
+  const nullKeyRows: Record<string, unknown>[] = [];
+  const dupErrors: string[] = [];
+  return {
+    byKey,
+    nullKeyRows,
+    dupErrors,
+    from(_table: string) {
+      return {
+        insert: (row: Record<string, unknown>) => {
+          const key = row.idempotency_key;
+          if (key == null) {
+            nullKeyRows.push(row); // NULL keys never dedup
+            return Promise.resolve({ data: null, error: null });
+          }
+          if (byKey.has(String(key))) {
+            // UNIQUE violation — exactly what the real INSERT raises against the stale row.
+            dupErrors.push(String(key));
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: "23505",
+                message:
+                  'duplicate key value violates unique constraint "ai_call_logs_idempotency_key_key"',
+              },
+            });
+          }
+          byKey.set(String(key), row);
+          return Promise.resolve({ data: null, error: null });
+        },
+        upsert: (row: Record<string, unknown>, _opts?: { onConflict?: string }) => {
+          const key = row.idempotency_key;
+          if (key == null) {
+            nullKeyRows.push(row);
+          } else {
+            byKey.set(String(key), row); // onConflict overwrite — latest outcome wins
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+      };
+    },
+  };
+}
+
+// A minimal valid AiCallLogRow carrying the audit fields the logger requires.
+function aiCallLogRow(overrides: Partial<AiCallLogRow>): AiCallLogRow {
+  return {
+    candidato_id: "11111111-1111-1111-1111-111111111111",
+    vaga_id: "22222222-2222-2222-2222-222222222222",
+    call_type: "interview_transcript",
+    prompt_version_id: "33333333-3333-3333-3333-333333333333",
+    prompt_hash: "deadbeef",
+    provider: "anthropic",
+    model_id: "claude-sonnet-4-6",
+    system_prompt: "sys",
+    user_prompt_template: "template sem PII",
+    input_token_count: 10,
+    raw_response: { ok: true },
+    output_token_count: 5,
+    latency_ms: 100,
+    attempt_number: 1,
+    cost_usd: 0,
+    success: true,
+    ...overrides,
+  };
+}
+
+Deno.test("CR-01 — the uniqueness-enforcing mock rejects a duplicate PLAIN insert (models the real 23505)", () => {
+  // Guards against a vacuous regression test: prove the mock actually enforces the
+  // UNIQUE(idempotency_key) constraint before relying on it below.
+  const supabase = makeUniquenessEnforcingSupabase();
+  const table = supabase.from("ai_call_logs");
+  return table.insert({ idempotency_key: "k", success: false }).then((first) => {
+    assertEquals(first.error, null, "the first insert of a key succeeds");
+    return table.insert({ idempotency_key: "k", success: true }).then((second) => {
+      assert(second.error, "a second PLAIN insert of the same non-null key MUST raise a unique violation");
+      assertEquals(
+        (second.error as { code: string }).code,
+        "23505",
+        "the collision is a 23505 unique_violation (the real schema constraint)",
+      );
+    });
+  });
+});
+
+Deno.test("CR-01 — logAiCall UPSERTs on idempotency_key so a retry after a cached FAILURE persists (no 23505 collision)", async () => {
+  const supabase = makeUniquenessEnforcingSupabase();
+  const KEY = "cand:transcript";
+
+  // 1) A transient FAILURE lands first with the stable key (success=false, cost 0).
+  await logAiCall(
+    supabase,
+    aiCallLogRow({ idempotency_key: KEY, success: false, error_code: "anthropic_retries_exhausted", cost_usd: 0 }),
+  );
+
+  // 2) AI-05 unlocks a FRESH retry; its real (paid) SUCCESS reaches logAiCall with the
+  //    SAME key. With the OLD insert-only path this collides (23505) and is swallowed →
+  //    the outcome never persists. With the CR-01 upsert fix it OVERWRITES the stale row.
+  await logAiCall(
+    supabase,
+    aiCallLogRow({ idempotency_key: KEY, success: true, cost_usd: 0.0231 }),
+  );
+
+  // Exactly ONE row for the key (schema invariant preserved), and it is the SUCCESS —
+  // the retry converged and its spend is now visible to the AI-06 cost kill-switch.
+  assertEquals(supabase.byKey.size, 1, "exactly one ai_call_logs row per idempotency_key");
+  const stored = supabase.byKey.get(KEY)!;
+  assertEquals(stored.success, true, "the retried SUCCESS must OVERWRITE the stale failed row (AI-05)");
+  assertEquals(
+    stored.cost_usd,
+    0.0231,
+    "the retry's real spend now persists → visible to the AI-06 cap (WHERE success=true)",
+  );
+  assertEquals(supabase.dupErrors.length, 0, "logAiCall must NOT hit the swallowed-23505 insert path for a keyed retry");
+});
+
+Deno.test("CR-01 — a NULL idempotency_key uses plain insert and never dedups (each call is a distinct row)", async () => {
+  const supabase = makeUniquenessEnforcingSupabase();
+  await logAiCall(supabase, aiCallLogRow({ idempotency_key: null }));
+  await logAiCall(supabase, aiCallLogRow({ idempotency_key: undefined }));
+  assertEquals(
+    supabase.nullKeyRows.length,
+    2,
+    "two null-key calls must persist as two distinct rows (NULLs are distinct in the UNIQUE)",
+  );
+  assertEquals(supabase.byKey.size, 0, "no keyed row is written for null-key calls");
+  assertEquals(supabase.dupErrors.length, 0, "null-key inserts never collide");
 });
 
 Deno.test("AI-06 — under-cap: the day's cost is below the cap → the call proceeds (Anthropic)", async () => {

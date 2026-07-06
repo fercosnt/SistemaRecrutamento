@@ -30,10 +30,34 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const RETAIN_ADVANCE_MS = 5 * 365 * DAY_MS; // 5 anos
 const RETAIN_DEFAULT_MS = 180 * DAY_MS; // reject | hold | desconhecido
 
-/** Cliente minimo do supabase-js usado pelo logger (estrutural p/ mock). */
+/** Cliente minimo do supabase-js usado por `emitPromptStubAlert` (estrutural p/ mock). */
 interface SupabaseLike {
   from(table: string): {
     insert(row: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+  };
+}
+
+/**
+ * Cliente do supabase-js usado por `logAiCall` — precisa de UPSERT alem de INSERT.
+ *
+ * CR-01 (Phase 23): `ai_call_logs.idempotency_key` e `text UNIQUE`. O fix AI-05
+ * (uma FALHA cacheada NAO e replayada -> cai p/ uma chamada NOVA) faz o retry
+ * REUSAR a MESMA idempotency_key. Um plain `.insert()` colidiria (23505) com a
+ * linha stale `success=false`, o erro seria engolido e o resultado do retry NUNCA
+ * persistiria: audit quebrado (IA-02), o custo real do retry fica invisivel ao teto
+ * AI-06 (que soma `cost_usd WHERE success=true`), e nunca converge (a mesma chamada
+ * paga se repete p/ sempre). Por isso `logAiCall` faz UPSERT `onConflict:
+ * idempotency_key` quando ha key: 1 linha por key, ULTIMO resultado vence. Keys
+ * NULL NAO deduplicam (Postgres trata NULLs como distintos na UNIQUE) -> cada
+ * chamada sem key e uma linha propria, via plain insert.
+ */
+interface SupabaseUpsertLike {
+  from(table: string): {
+    insert(row: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+    upsert(
+      row: Record<string, unknown>,
+      opts?: { onConflict?: string },
+    ): Promise<{ data: unknown; error: unknown }>;
   };
 }
 
@@ -100,7 +124,7 @@ export async function computeInputHash(maskedInput: string): Promise<string> {
  * O input_hash e calculado sobre o texto mascarado. Em falha de escrita, loga
  * somente codigo+resumo (jamais o payload bruto).
  */
-export async function logAiCall(supabaseAdmin: SupabaseLike, row: AiCallLogRow): Promise<void> {
+export async function logAiCall(supabaseAdmin: SupabaseUpsertLike, row: AiCallLogRow): Promise<void> {
   // ── 1. MASCARAR PII ANTES de qualquer escrita (Pitfall 6) ──────────────
   const { masked: maskedUserPrompt } = maskPII(row.user_prompt_template ?? "");
   const input_hash = await computeInputHash(maskedUserPrompt);
@@ -137,8 +161,17 @@ export async function logAiCall(supabaseAdmin: SupabaseLike, row: AiCallLogRow):
     triggered_by: row.triggered_by ?? "system",
   };
 
-  // ── 3. INSERT via service_role (bypass RLS) ────────────────────────────
-  const { error } = await supabaseAdmin.from("ai_call_logs").insert(insertRow);
+  // ── 3. Escrita via service_role (bypass RLS) ───────────────────────────
+  // CR-01: UPSERT quando ha idempotency_key. Um retry AI-05 reusa a MESMA key e um
+  // plain insert colidiria (23505) com a linha stale `success=false` -> o erro seria
+  // engolido e o resultado do retry nunca persistiria (audit quebrado + custo real
+  // invisivel ao teto AI-06 + nunca converge). O UPSERT sobrescreve a linha stale
+  // (1 linha por key, ultimo resultado vence). Keys NULL sao distintas na UNIQUE
+  // (Postgres) -> mantem-se o plain insert (cada chamada sem key e uma linha propria).
+  const logsTable = supabaseAdmin.from("ai_call_logs");
+  const { error } = insertRow.idempotency_key != null
+    ? await logsTable.upsert(insertRow, { onConflict: "idempotency_key" })
+    : await logsTable.insert(insertRow);
   if (error) {
     // Loga apenas codigo+resumo — NUNCA o payload bruto (precedente submit-candidatura).
     const summary = typeof error === "object" && error !== null && "code" in error
