@@ -113,7 +113,7 @@ Plans:
 **Wave 1** *(código local, Deno/Vitest-testável, sem conflito de arquivo)*
 
 - [x] 23-01-PLAN.md — Núcleo de resiliência: sharedBreaker + THRESHOLD≤MAX_ATTEMPTS + isRetryable(timeout) + cap de retry + replay success-only + parseIntEnv (AI-02/03/04/05/07) [Wave 1]
-- [ ] 23-02-PLAN.md — Prompt library revival: SCHEMA_VERSIONS espelha o enum + catch estreitado nas 7 EFs + alarme ai_prompt_stub_fired + transcricao 60s + percentil fora do prompt da devolutiva (AI-01/04, UX-07) [Wave 1]
+- [x] 23-02-PLAN.md — Prompt library revival: SCHEMA_VERSIONS espelha o enum + catch estreitado nas 7 EFs + alarme ai_prompt_stub_fired + transcricao 60s + percentil fora do prompt da devolutiva (AI-01/04, UX-07) [Wave 1]
 - [x] 23-04-PLAN.md — Honestidade psicométrica: devolutiva + telas RH sem percentil cru (bandas) + triagem fora da consolidação + ≥2 etapas (UX-07/09) [Wave 1]
 
 **Wave 2** *(toca ai-client.ts — serializado após 23-01)*
@@ -203,7 +203,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 2/6 | In Progress|  |
+| 23. Ressurreição da Stack de IA | v4.0 | 3/6 | In Progress|  |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |

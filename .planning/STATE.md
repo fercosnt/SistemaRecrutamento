@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 23 / Plan 23-04 complete — honestidade psicométrica (UX-07/09): percentil cru fora da devolutiva+telas RH (Big Five 5 bandas neutras, cognitivo banda avaliativa 3-níveis), triagem fora da consolidação (contexto sem peso) + gate ≥2 etapas server-authoritative. Vitest 739/739, Deno 157/0, tsc 133. 3 tasks: 35a754e/8bcac83/6d9d1c4. EF consolidar redeploya no 23-06."
-last_updated: "2026-07-06T02:01:02.279Z"
+stopped_at: "Phase 23 / Plan 23-02 complete — prompt library religada (AI-01): SCHEMA_VERSIONS espelha o enum + 7 catches estreitados + emitPromptStubAlert; transcricao timeoutMs 60s (AI-04); devolutiva prompt banda-only (UX-07 EF-side). Deno 166/0, tsc 133. 3 tasks: 98e760d/90405e0/5004e15. As 7 EFs redeployam no 23-06; enum bigfive = 23-05."
+last_updated: "2026-07-06T02:35:09.056Z"
 last_activity: 2026-07-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 9
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 23 (Ressurreição da Stack de IA) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-07-06
 
-Progress: [███████░░░] 67%
+Progress: [████████░░] 75%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -72,6 +72,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P06 | 12min | 3 tasks | 3 files |
 | Phase 23 P01 | 16min | 3 tasks | 4 files |
 | Phase 23 P04 | 17min | 3 tasks | 10 files |
+| Phase 23 P02 | 22min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 23]: [Phase 23/23-01] parseIntEnv exportado (NaN/≤0→default) reusável por 23-02; circuit-breaker.ts replica guarda como envInt local p/ evitar ciclo; replay success-only via guard existing.success!==true (AI-05/07)
 - [Phase ?]: [Phase 23/23-04] UX-07: percentil cru sai da devolutiva+telas RH — Big Five = 5 bandas NEUTRAS (não-avaliativo, nunca 'abaixo/dentro/acima do esperado', Pitfall 5); cognitivo/Raven = banda avaliativa 3-níveis provisória (norma real M5); Progress value=percentil → indicador de 5 segmentos keyed na banda
 - [Phase ?]: [Phase 23/23-04] UX-09: triagem fora de WEIGHTED_KEYS → contexto visível (score_match, 'não pondera'); gate consolidação >0 → ≥2 etapas present (server-authoritative, consolidated=null com <2); dashboard mostra supressão distinta; RNF-07a preservado. EF consolidar redeploya no 23-06
+- [Phase ?]: [Phase 23/23-02] AI-01: SCHEMA_VERSIONS espelha o enum llm_call_type (5 chaves órfãs de Fase 9 removidas, sweep-test guarda); catch das 7 EFs estreitado (SchemaVersionMismatch/PromptNotConfigured → 500 + emitPromptStubAlert em recruiter_alerts). Alarme NO CATCH, não scan de ai_call_logs (row 0.0.0 22P02-falha na FK uuid — Pitfall 1)
+- [Phase ?]: [Phase 23/23-02] UX-07 EF-side: buildDevolutivaUserBlock passa banda qualitativa neutra (label pt-BR), percentil cru FORA do prompt do LLM (Big Five não-avaliativo, Pitfall 5); AI-04: transcricao timeoutMs 60s env-overridable. AI-01/AI-04 ficam LIVE só no 23-06 (redeploy das 7 EFs bundle-freeze); bigfive_devolutiva 500a por design até enum+seed do 23-05
 
 ### Pending Todos
 
@@ -130,8 +133,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-06T02:01:02.256Z
-Stopped at: Phase 23 / Plan 23-04 complete — honestidade psicométrica (UX-07/09): percentil cru fora da devolutiva+telas RH (Big Five 5 bandas neutras, cognitivo banda avaliativa 3-níveis), triagem fora da consolidação (contexto sem peso) + gate ≥2 etapas server-authoritative. Vitest 739/739, Deno 157/0, tsc 133. 3 tasks: 35a754e/8bcac83/6d9d1c4. EF consolidar redeploya no 23-06.
+Last session: 2026-07-06T02:34:40.467Z
+Stopped at: Phase 23 / Plan 23-02 complete — prompt library religada (AI-01): SCHEMA_VERSIONS espelha o enum + 7 catches estreitados + emitPromptStubAlert; transcricao timeoutMs 60s (AI-04); devolutiva prompt banda-only (UX-07 EF-side). Deno 166/0, tsc 133. 3 tasks: 98e760d/90405e0/5004e15. As 7 EFs redeployam no 23-06; enum bigfive = 23-05.
 Resume file: None
 
 ## Operator Next Steps
