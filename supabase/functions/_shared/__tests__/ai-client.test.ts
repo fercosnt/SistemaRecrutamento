@@ -35,10 +35,15 @@ function makeMockAnthropic(opts: { failTimes?: number; error?: Error } = {}) {
   // arg callAi now passes ({ timeout, maxRetries: 0 }).
   const calls: [unknown, unknown][] = [];
   let remainingFailures = opts.failTimes ?? 0;
-  // Tests that want a NON-retryable failure (e.g. accumulating breaker failures
-  // without triggering the retry loop) inject `error` explicitly. The Task 2 edit
-  // swaps this default for the REAL SDK timeout shape to exercise isRetryable.
-  const failureError = opts.error ?? new Error("anthropic 529 overloaded");
+  // Default failure = the REAL SDK timeout shape (AI-03): `APIConnectionTimeoutError`
+  // with message "Request timed out." (verified against the official Anthropic/OpenAI
+  // SDK source). The old default "529 overloaded" MASKED the bug — it matched
+  // /overloaded/i so the retry test passed even though the literal timeout message
+  // never matched the old /timeout/i regex. This shape exercises the widened matcher
+  // (err.name === "APIConnectionTimeoutError" OR /tim(e|ed)\s*out/i).
+  // Tests that want a NON-retryable failure inject `error` explicitly.
+  const failureError = opts.error ??
+    Object.assign(new Error("Request timed out."), { name: "APIConnectionTimeoutError" });
   return {
     calls,
     messages: {
@@ -295,21 +300,50 @@ Deno.test("P21 — per-call timeoutMs overrides the global default at messages.p
   assertEquals(opts.timeout, 60_000, "per-call timeoutMs must override AI_CALL_TIMEOUT_MS");
 });
 
-// ── RESIL-01 — a timeout-classified error is still retried by the existing loop ─
-// The { timeout } route throws an APIConnectionTimeoutError whose message matches
-// /timeout/i in isRetryable, so the hand-rolled loop retries before exhaustion.
-// `failTimes: 1` simulates one retryable failure, then success on attempt 2.
-Deno.test("RESIL-01 — retryable failure is retried by the loop (timeout path stays retryable)", async () => {
+// ── AI-03 — the REAL SDK timeout shape is retried by the existing loop ────────
+// The { timeout } route throws an `APIConnectionTimeoutError` with message
+// "Request timed out." (makeMockAnthropic's default failure). isRetryable matches
+// it by `err.name === "APIConnectionTimeoutError"` AND the widened regex
+// `/tim(e|ed)\s*out/i` — NOT the old `/timeout/i`, which failed on the space in
+// "timed out" and made the timeout fatal on attempt 1. `failTimes: 1` = one timeout
+// failure, then success on attempt 2. Regression guard for the masking bug: the old
+// mock used "529 overloaded" (matched /overloaded/i) so this test never exercised
+// the literal timeout message.
+Deno.test("AI-03 — real timeout shape (APIConnectionTimeoutError / 'Request timed out.') stays retryable", async () => {
   const { callAi } = await loadClient();
   const anthropic = makeMockAnthropic({ failTimes: 1 });
   const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
     anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(),
   });
   assertEquals(result.provider, "anthropic", "must succeed on the retry, not fall to OpenAI");
-  assertEquals(anthropic.calls.length, 2, "the loop must make a 2nd real attempt after the retryable failure");
+  assertEquals(anthropic.calls.length, 2, "the loop must make a 2nd real attempt after the timeout failure");
   // EACH attempt must carry the maxRetries:0 + timeout options (not just the first).
   for (const [, opts] of anthropic.calls as [unknown, { timeout?: number; maxRetries?: number }][]) {
     assertEquals(opts.maxRetries, 0, "every attempt must disable SDK retry");
     assert(typeof opts.timeout === "number" && opts.timeout > 0, "every attempt must carry a finite timeout");
   }
+});
+
+// ── AI-04 — retry-budget cap: a long per-call timeout reduces the attempt count ─
+// With timeoutMs=60_000 (>25s), effectiveMaxAttempts = min(MAX_ATTEMPTS(3),
+// floor(140000/60000)=2) = 2. So even though the mock keeps failing (failTimes: 2),
+// the loop makes at MOST 2 real attempts before falling to OpenAI — 3×60s + backoff
+// would blow the ~150s EF idle ceiling. Guards T-23-01-01 (financial DoS).
+Deno.test("AI-04 — retry-budget cap: timeoutMs 60s → 2 attempts (not 3), then OpenAI fallback", async () => {
+  const { callAi } = await loadClient();
+  // Inject a FRESH breaker (Pitfall 3): 2 failures here would otherwise linger on
+  // the shared singleton and pollute later tests in this file.
+  const { CircuitBreaker } = await import("../circuit-breaker.ts");
+  const breaker = new CircuitBreaker(99) as {
+    canRequest(): boolean;
+    recordSuccess(): void;
+    recordFailure(): void;
+  };
+  const anthropic = makeMockAnthropic({ failTimes: 2 }); // both attempts time out
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs, timeoutMs: 60_000 }, {
+    anthropic, openai: makeMockOpenAI(), supabase: makeMockSupabase(), breaker,
+  });
+  assertEquals(anthropic.calls.length, 2, "the cap must limit long-timeout calls to 2 attempts (floor(140000/60000))");
+  assertEquals(result.provider, "openai", "after the capped attempts exhaust, callAi falls to OpenAI");
+  assertEquals(result.error_code, "anthropic_retries_exhausted", "fallback cause = retries exhausted (breaker was CLOSED)");
 });

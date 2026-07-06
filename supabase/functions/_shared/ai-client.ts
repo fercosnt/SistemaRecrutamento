@@ -250,8 +250,17 @@ function statusOf(err: unknown): number | undefined {
 function isRetryable(err: unknown): boolean {
   const s = statusOf(err);
   if (s !== undefined && RETRYABLE_STATUS.has(s)) return true;
+  // AI-03: casa o timeout do SDK por TIPO. `APIConnectionTimeoutError` (Anthropic E
+  // OpenAI, mesma classe/mensagem) NÃO tem `status` e a msg default é "Request timed
+  // out." — sem espaço "timed out" a regex antiga `/timeout/i` falhava e o timeout
+  // virava fatal na 1ª tentativa. Checar name/constructor.name cobre ambos os SDKs
+  // sem importar o SDK aqui (que hoje só é injetado via deps).
+  const name = (err as { name?: string })?.name ??
+    (err as { constructor?: { name?: string } })?.constructor?.name;
+  if (name === "APIConnectionTimeoutError") return true;
   const msg = err instanceof Error ? err.message : String(err);
-  return /529|overloaded|timeout|503|429/i.test(msg);
+  // Regex ampliada: `tim(e|ed)\s*out` casa "timeout" E "timed out" (com espaço).
+  return /529|overloaded|503|429|tim(e|ed)\s*out/i.test(msg);
 }
 
 /**
@@ -313,6 +322,14 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   const effectiveTimeoutMs = typeof timeoutMs === "number" && timeoutMs > 0
     ? timeoutMs
     : AI_CALL_TIMEOUT_MS;
+  // AI-04 — cap de retry-budget: quando o teto por-chamada é longo (>25s, ex.: o
+  // override de 60s do avaliar-transcricao/gerar-guia), 3 tentativas × 60s + backoff
+  // exp (2^n s) estouram o teto ~150s idle do EF (23-RESEARCH Open Q2). Limita o nº de
+  // tentativas a floor(140000 / teto) para o total caber sob ~150s. Chamadas curtas
+  // (≤25s) mantêm MAX_ATTEMPTS integral. Nunca abaixo de 1 (sempre ao menos 1 tentativa).
+  const effectiveMaxAttempts = effectiveTimeoutMs > 25000
+    ? Math.max(1, Math.min(MAX_ATTEMPTS, Math.floor(140000 / effectiveTimeoutMs)))
+    : MAX_ATTEMPTS;
   // AI-02: default = sharedBreaker (singleton por-isolate) para as falhas ACUMULAREM
   // entre chamadas e o disjuntor realmente abrir. Antes `new CircuitBreaker()` por
   // chamada zerava o contador toda vez → THRESHOLD inalcançável.
@@ -380,7 +397,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // ── 4. Caminho Anthropic com cache efemero + retry exp-backoff ────────────
   let attempt = 0;
   let lastErr: unknown = null;
-  while (attempt < MAX_ATTEMPTS) {
+  while (attempt < effectiveMaxAttempts) {
     attempt++;
     try {
       const response = await anthropic.messages.parse({
@@ -395,10 +412,12 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         output_config: { format: zodOutputFormat(schema, prompt.call_type) },
       }, {
         // RESIL-01: teto por-chamada + DESLIGA o retry do SDK. `maxRetries: 0` e
-        // OBRIGATORIO — o loop `while (attempt < MAX_ATTEMPTS)` acima e o unico dono
-        // do retry; sem isto o SDK retentaria 2x dentro de cada attempt (3x3=9 chamadas)
-        // e bypassaria `breaker.recordFailure()`/`attempt_number` (Pitfall 1). O timeout
-        // lanca `APIConnectionTimeoutError` cuja mensagem casa /timeout/i em isRetryable.
+        // OBRIGATORIO — o loop `while (attempt < effectiveMaxAttempts)` acima e o unico
+        // dono do retry; sem isto o SDK retentaria 2x dentro de cada attempt (3x3=9
+        // chamadas) e bypassaria `breaker.recordFailure()`/`attempt_number` (Pitfall 1).
+        // AI-03: o timeout lanca `APIConnectionTimeoutError` (name) com msg "Request timed
+        // out." — isRetryable casa por name E pela regex `tim(e|ed)\s*out` (NAO `/timeout/i`,
+        // que falhava no espaco de "timed out"), entao o loop retenta antes do fallback.
         timeout: effectiveTimeoutMs,
         maxRetries: 0,
       });
@@ -443,7 +462,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     } catch (err) {
       lastErr = err;
       breaker.recordFailure();
-      if (attempt < MAX_ATTEMPTS && isRetryable(err)) {
+      if (attempt < effectiveMaxAttempts && isRetryable(err)) {
         await sleep(Math.pow(2, attempt) * 1000 + Math.random() * 500);
         continue;
       }
