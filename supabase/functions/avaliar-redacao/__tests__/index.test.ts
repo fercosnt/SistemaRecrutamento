@@ -124,6 +124,20 @@ const PERGUNTA_CASO_ABERTO = {
 //       its `id` must equal candidaturaRow.candidato_id for the happy path; a
 //       different id (or null) proves a non-owner → 403.
 //   - `perguntaRow` is what the by-id case lookup reads (null → 400 invalid pergunta).
+// AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
+// '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
+const PROMPT_ROW_FIXTURE = {
+  id: "pv-fixture",
+  semver: "1.0.0",
+  system_template: "SYS",
+  user_template: "USR",
+  model_id: "claude-sonnet-4-6",
+  temperature: 0,
+  max_tokens: 2048,
+  schema_version_required: "1.0.0",
+  content_hash: "hash-fixture",
+};
+
 function makeMockSupabaseAdmin(
   candidaturaRow: { candidato_id: string; etapa_atual: string } | null,
   perguntaRow: Record<string, unknown> | null = PERGUNTA_CASO_ABERTO,
@@ -135,6 +149,15 @@ function makeMockSupabaseAdmin(
     inserts,
     updates,
     from(table: string) {
+      // AI-01 (23-02): loadPrompt FALHA ALTO agora (stub silencioso removido) — o
+      // mock responde à query de prompt_versions (3 eq encadeados) com a row ativa.
+      if (table === "prompt_versions") {
+        const pchain = {
+          eq: () => pchain,
+          maybeSingle: () => Promise.resolve({ data: PROMPT_ROW_FIXTURE, error: null }),
+        };
+        return { select: (_cols?: string) => pchain };
+      }
       // Each table resolves its own `.eq(...).maybeSingle()` row.
       const row = table === "perguntas"
         ? perguntaRow

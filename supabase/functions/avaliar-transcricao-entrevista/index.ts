@@ -44,9 +44,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   callAi,
   loadPrompt,
+  parseIntEnv,
   resolvedPromptFromLoaded,
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
+// AI-01: catch estreitado — propaga a falha de resolução de prompt como 500
+// estruturado (nunca stub 0.0.0) + alarme no ponto de degradação.
+import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
+import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { AvaliarTranscricaoBodySchema } from "../_shared/entrevista-schemas.ts";
 import { TranscriptAnalysisSchema } from "../_shared/interview-output-schemas.ts";
 import {
@@ -193,16 +198,14 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     try {
       const loaded = await loadPrompt("transcript_analysis", supabaseAdmin);
       resolved = resolvedPromptFromLoaded(loaded, "transcript_analysis", "gpt-4o-mini");
-    } catch {
-      resolved = {
-        call_type: "transcript_analysis",
-        model_id: "claude-sonnet-4-6",
-        fallback_model_id: "gpt-4o-mini",
-        prompt_version: "0.0.0",
-        system_template: "Analise a transcrição de entrevista (transcript_analysis).",
-        max_tokens: 4000,
-        temperature: 0,
-      };
+    } catch (e) {
+      // AI-01: NÃO degradar para um stub silencioso. Uma versão de prompt não
+      // resolvida (schema mismatch / não configurada) FALHA ALTO — alarma e
+      // propaga para o try/catch externo do handler (500 estruturado pt-BR).
+      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+        await emitPromptStubAlert(supabaseAdmin, "transcript_analysis");
+      }
+      throw e;
     }
 
     const result = await callAi(
@@ -215,6 +218,12 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
         vaga_id: candRow.vaga_id,
         schema: TranscriptAnalysisSchema,
         idempotency_key: `${body.candidatura_id}:transcript`,
+        // AI-04: a análise de transcrição (Sonnet, structured-output, ~4000
+        // tokens sobre a transcrição completa) tem o mesmo perfil que fazia
+        // gerar-guia estourar o teto global de 25s (RESIL-01). Teto por-chamada
+        // de 60s (env-overridable) dá folga; o cap de retry-budget de 23-01
+        // mantém o total sob ~150s do EF. Espelha gerar-guia-entrevista:274.
+        timeoutMs: parseIntEnv("TRANSCRICAO_TIMEOUT_MS", 60000),
       },
       {
         anthropic,

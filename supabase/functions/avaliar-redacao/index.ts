@@ -42,6 +42,10 @@ import {
   resolvedPromptFromLoaded,
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
+// AI-01: catch estreitado — propaga a falha de resolução de prompt como 500
+// estruturado (nunca stub 0.0.0) + alarme no ponto de degradação.
+import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
+import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import {
   AvaliarRedacaoBodySchema,
   WorkSampleScoringSchema,
@@ -235,16 +239,14 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     try {
       const loaded = await loadPrompt("work_sample_sjt", supabaseAdmin);
       resolved = resolvedPromptFromLoaded(loaded, "work_sample_sjt", "gpt-4o-mini");
-    } catch {
-      resolved = {
-        call_type: "work_sample_sjt",
-        model_id: "claude-sonnet-4-6",
-        fallback_model_id: "gpt-4o-mini",
-        prompt_version: "0.0.0",
-        system_template: "Avalie a resposta de caso aberto (work_sample_sjt).",
-        max_tokens: 2048,
-        temperature: 0,
-      };
+    } catch (e) {
+      // AI-01: NÃO degradar para um stub silencioso. Uma versão de prompt não
+      // resolvida (schema mismatch / não configurada) FALHA ALTO — alarma e
+      // propaga para o try/catch externo do handler (500 estruturado pt-BR).
+      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+        await emitPromptStubAlert(supabaseAdmin, "work_sample_sjt");
+      }
+      throw e;
     }
 
     const result = await callAi(

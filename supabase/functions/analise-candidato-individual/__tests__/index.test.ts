@@ -55,6 +55,20 @@ function makeMockOpenAI() {
 }
 
 // ── Mock Supabase client (records UPSERTs into analise_candidato_vaga) ───────
+// AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
+// '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
+const PROMPT_ROW_FIXTURE = {
+  id: "pv-fixture",
+  semver: "1.0.0",
+  system_template: "SYS",
+  user_template: "USR",
+  model_id: "claude-sonnet-4-6",
+  temperature: 0,
+  max_tokens: 2048,
+  schema_version_required: "1.0.0",
+  content_hash: "hash-fixture",
+};
+
 // Captures every from(table).upsert(row) so the test can assert the pt-BR
 // mapping AND the never-absent 'falhou' invariant on the error path.
 function makeMockSupabase(
@@ -75,9 +89,16 @@ function makeMockSupabase(
           // `.eq(...)` is BOTH thenable (respostas_formulario reads `await select().eq()`)
           // AND exposes maybeSingle/single (candidaturas/vagas reads). respostas_formulario
           // resolves to the injected respostasRows so the injection path can be exercised.
+          // AI-01 (23-02): `.eq` é encadeável (a query de prompt_versions faz 3 eq) e
+          // maybeSingle devolve a row ativa de prompt_versions — loadPrompt FALHA ALTO
+          // agora (o stub silencioso 0.0.0 foi removido do EF).
           const eqResult = {
+            eq: () => eqResult,
             maybeSingle: () =>
-              Promise.resolve({ data: opts.candidaturaRow ?? null, error: null }),
+              Promise.resolve({
+                data: table === "prompt_versions" ? PROMPT_ROW_FIXTURE : (opts.candidaturaRow ?? null),
+                error: null,
+              }),
             single: () =>
               Promise.resolve({ data: opts.candidaturaRow ?? null, error: null }),
             then: (

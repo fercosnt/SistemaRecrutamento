@@ -59,6 +59,20 @@ function makeMockOpenAI() {
 // `vagaOwner` is the `vagas.created_by` returned for the ownership guard (C1). The
 // happy-path RH user (RH_USER.id === 'rh-1') OWNS the vaga by default; an rh who does
 // NOT own it is exercised by passing a different vagaOwner.
+// AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
+// '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
+const PROMPT_ROW_FIXTURE = {
+  id: "pv-fixture",
+  semver: "1.0.0",
+  system_template: "SYS",
+  user_template: "USR",
+  model_id: "claude-sonnet-4-6",
+  temperature: 0,
+  max_tokens: 2048,
+  schema_version_required: "1.0.0",
+  content_hash: "hash-fixture",
+};
+
 function makeMockSupabaseAdmin(
   analiseRows: Record<string, unknown>[],
   vagaOwner: string | null = "rh-1",
@@ -70,6 +84,15 @@ function makeMockSupabaseAdmin(
   return {
     inserts,
     from(table: string) {
+      // AI-01 (23-02): loadPrompt FALHA ALTO agora (stub silencioso removido) — o
+      // mock responde à query de prompt_versions (3 eq encadeados) com a row ativa.
+      if (table === "prompt_versions") {
+        const pchain = {
+          eq: () => pchain,
+          maybeSingle: () => Promise.resolve({ data: PROMPT_ROW_FIXTURE, error: null }),
+        };
+        return { select: (_cols?: string) => pchain };
+      }
       // usuarios_rh role lookup: .select('role').eq('user_id').eq('ativo').is('deleted_at').maybeSingle()
       if (table === "usuarios_rh") {
         const chain = {

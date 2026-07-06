@@ -48,6 +48,10 @@ import {
   resolvedPromptFromLoaded,
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
+// AI-01: catch estreitado — propaga a falha de resolução de prompt como 500
+// estruturado (nunca stub 0.0.0) + alarme no ponto de degradação.
+import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
+import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { EssayScoringV1Schema, type EssayScoringV1 } from "../_shared/essay-schemas.ts";
 import { AvaliarRedacaoCulturalBodySchema } from "../_shared/redacao-schemas.ts";
 import { computeScoreAndCors, normalizeForHash } from "./_local/compute-score.ts";
@@ -227,16 +231,14 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
     try {
       const loaded = await loadPrompt("culture_fit_essay", supabaseAdmin);
       resolved = resolvedPromptFromLoaded(loaded, "culture_fit_essay", "gpt-4o-mini");
-    } catch {
-      resolved = {
-        call_type: "culture_fit_essay",
-        model_id: "claude-sonnet-4-6",
-        fallback_model_id: "gpt-4o-mini",
-        prompt_version: "0.0.0",
-        system_template: "Avalie a redação de fit cultural (culture_fit_essay).",
-        max_tokens: 3000,
-        temperature: 0,
-      };
+    } catch (e) {
+      // AI-01: NÃO degradar para um stub silencioso. Uma versão de prompt não
+      // resolvida (schema mismatch / não configurada) FALHA ALTO — alarma e
+      // propaga para o try/catch externo do handler (500 estruturado pt-BR).
+      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+        await emitPromptStubAlert(supabaseAdmin, "culture_fit_essay");
+      }
+      throw e;
     }
 
     const perguntaBlock =

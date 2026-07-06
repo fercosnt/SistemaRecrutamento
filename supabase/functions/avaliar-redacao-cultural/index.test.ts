@@ -102,6 +102,20 @@ const PERGUNTA_ROW = {
  * Captures every insert/upsert/update so the test can assert the persisted payload
  * and that candidaturas is NEVER written.
  */
+// AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
+// '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
+const PROMPT_ROW_FIXTURE = {
+  id: "pv-fixture",
+  semver: "1.0.0",
+  system_template: "SYS",
+  user_template: "USR",
+  model_id: "claude-sonnet-4-6",
+  temperature: 0,
+  max_tokens: 2048,
+  schema_version_required: "1.0.0",
+  content_hash: "hash-fixture",
+};
+
 function makeMockSupabaseAdmin(opts: {
   candidaturaRow: { id: string; candidato_id: string; vaga_id: string; etapa_atual: string } | null;
   candidatoRow: { id: string } | null;
@@ -120,6 +134,9 @@ function makeMockSupabaseAdmin(opts: {
       if (table === "candidatos") return opts.candidatoRow;
       if (table === "perguntas_redacao") return PERGUNTA_ROW;
       if (table === "vagas") return { id: opts.candidaturaRow?.vaga_id ?? "vaga-1", testes_aplicaveis: [] };
+      // AI-01 (23-02): loadPrompt FALHA ALTO agora (stub silencioso removido) — o
+      // mock responde à query de prompt_versions com a row ativa válida.
+      if (table === "prompt_versions") return PROMPT_ROW_FIXTURE;
       return null;
     };
     const builder = {

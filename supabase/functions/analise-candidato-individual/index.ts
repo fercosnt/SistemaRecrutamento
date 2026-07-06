@@ -42,6 +42,10 @@ import {
   resolvedPromptFromLoaded,
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
+// AI-01: catch estreitado — propaga a falha de resolução de prompt como 500
+// estruturado (nunca stub 0.0.0) + alarme no ponto de degradação.
+import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
+import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { AnaliseBodySchema, CvJobMatchSchema } from "../_shared/analise-schemas.ts";
 // SDKs + unpdf como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy → ERR_MODULE_NOT_FOUND no runtime do EF (o EF nunca rodou
@@ -227,16 +231,14 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
     try {
       const loaded = await loadPrompt("cv_job_match", supabaseAdmin);
       resolved = resolvedPromptFromLoaded(loaded, "cv_job_match", "gpt-4o-mini");
-    } catch {
-      resolved = {
-        call_type: "cv_job_match",
-        model_id: "claude-sonnet-4-6",
-        fallback_model_id: "gpt-4o-mini",
-        prompt_version: "0.0.0",
-        system_template: "Avalie o fit do candidato com a vaga (cv_job_match).",
-        max_tokens: 2048,
-        temperature: 0,
-      };
+    } catch (e) {
+      // AI-01: NÃO degradar para um stub silencioso. Uma versão de prompt não
+      // resolvida (schema mismatch / não configurada) FALHA ALTO — alarma e
+      // propaga para o try/catch externo do handler (500 estruturado pt-BR).
+      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+        await emitPromptStubAlert(supabaseAdmin, "cv_job_match");
+      }
+      throw e;
     }
 
     const vagaRubricBlock = vaga

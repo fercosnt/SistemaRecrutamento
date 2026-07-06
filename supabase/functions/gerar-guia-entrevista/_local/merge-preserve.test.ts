@@ -72,6 +72,20 @@ const OWNER_ID = "rh-owner-0000-0000-0000-000000000001";
 const VAGA_ID = "vaga-0000-0000-0000-000000000002";
 const CAND_ID = "cand-0000-0000-0000-000000000003";
 
+// AI-01 (23-02): row ativa de prompt_versions que loadPrompt resolve (schema
+// '1.0.0' casa SCHEMA_VERSIONS) — o stub silencioso 0.0.0 foi removido do EF.
+const PROMPT_ROW_FIXTURE = {
+  id: "pv-fixture",
+  semver: "1.0.0",
+  system_template: "SYS",
+  user_template: "USR",
+  model_id: "claude-sonnet-4-6",
+  temperature: 0,
+  max_tokens: 4000,
+  schema_version_required: "1.0.0",
+  content_hash: "hash-fixture",
+};
+
 function makeMockSupabaseAdmin(
   currentGuia: Record<string, unknown> | null,
   // WR-04: when set, the entrevista_guias upsert resolves with this error so the test
@@ -97,6 +111,10 @@ function makeMockSupabaseAdmin(
         return { id: CAND_ID, vaga_id: VAGA_ID };
       case "entrevista_guias":
         return currentGuia === null ? null : { guia: currentGuia };
+      // AI-01 (23-02): loadPrompt FALHA ALTO agora (stub silencioso removido) — o
+      // mock responde à query de prompt_versions com a row ativa válida.
+      case "prompt_versions":
+        return PROMPT_ROW_FIXTURE;
       default:
         return null;
     }
