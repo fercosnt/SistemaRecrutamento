@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: ready_to_plan
-stopped_at: Phase 22 complete (6/6) — ready to discuss Phase 23
-last_updated: 2026-07-05T22:48:10.111Z
-last_activity: 2026-07-05
+status: executing
+stopped_at: "Phase 22 / Plan 22-06 complete — typecheck destravamento + CI wiring (CI-01/04/05/14): tsconfig `paths` (37 versioned) → TS2307 65→0, tsc total 257→133; include e2e/scripts/playwright.config.ts + exclude Deno files (0 TS2304 Deno); blocking deno-test CI job (setup-deno@v2, 148/0) + tsc gate pinned 290→133 (measured). Vitest 721/721, tsc 133. Wave 2 DONE — Phase 22 all 6 plans complete."
+last_updated: "2026-07-06T01:15:55.072Z"
+last_activity: 2026-07-06 -- Phase 23 planning complete
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 6
+  completed_phases: 1
+  total_plans: 12
   completed_plans: 6
-  percent: 0
+  percent: 17
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 Phase: 23
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-05
+Status: Ready to execute
+Last activity: 2026-07-06 -- Phase 23 planning complete
 
 Progress: [██████████] 100%
 
