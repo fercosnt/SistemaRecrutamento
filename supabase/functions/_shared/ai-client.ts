@@ -310,6 +310,64 @@ async function tryIdempotencyReplay(
 }
 
 /**
+ * AI-06 — teto HARD de custo diário por vaga, avaliado ANTES da chamada (corte de
+ * gasto em RUNTIME). Soma o `cost_usd` das chamadas de SUCESSO do dia UTC corrente
+ * para a vaga; se a soma >= `AI_DAILY_COST_CAP_USD` (default 50) devolve `true` e o
+ * `callAi` recusa a chamada. É o teto operacional de SEGURANÇA — o ÚNICO fix que
+ * corta gasto na hora, distinto do threshold de NEGÓCIO (R$200/mês por vaga) que o
+ * trigger `notify_cost_anomaly` + `cost-alerter` cobrem (com ~1 dia de atraso, pois
+ * agregam o dia ANTERIOR às 01:30).
+ *
+ * O env `AI_DAILY_COST_CAP_USD` é lido POR CHAMADA (não módulo-level) para que o
+ * operador possa ajustar o teto sem redeploy e para que os testes o exercitem.
+ *
+ * FAIL-OPEN por design (T-23-03-02): feature-detecta o `select` (como
+ * `tryIdempotencyReplay`) e envolve TUDO em try/catch — ausência do select, erro
+ * do lookup ou payload malformado → devolve `false` (NÃO bloqueia). Um lookup de
+ * custo que falha JAMAIS pode matar o funil; o trigger DB é o backstop. A tradeoff
+ * é deliberada: disponibilidade acima do teto de custo. Preserva RNF-07a — quem
+ * chama devolve 'hold' + flagged_for_human_review, NUNCA rejeita candidato.
+ *
+ * Usa o índice parcial `idx_ai_logs_vaga_cost (vaga_id, cost_usd) WHERE success=true`
+ * → a soma per-vaga do dia é barata (23-RESEARCH:316).
+ */
+async function isDailyCostCapExceeded(
+  supabase: SupabaseLike,
+  vaga_id: string,
+): Promise<boolean> {
+  try {
+    const dailyCap = parseIntEnv("AI_DAILY_COST_CAP_USD", 50);
+    const table = supabase.from("ai_call_logs") as {
+      select?: (columns: string) => unknown;
+    };
+    // Feature-detect (mocks de teste que só espionam INSERT não têm select) → fail-open.
+    if (typeof table.select !== "function") return false;
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    // PostgREST filter builder: chainable + thenable → { data, error }. Cast defensivo;
+    // qualquer método ausente/erro cai no catch abaixo → fail-open.
+    const builder = (table.select("cost_usd") as {
+      eq: (c: string, v: unknown) => {
+        eq: (c: string, v: unknown) => { gte: (c: string, v: unknown) => unknown };
+      };
+    })
+      .eq("vaga_id", vaga_id)
+      .eq("success", true)
+      .gte("created_at", dayStart.toISOString());
+    const { data, error } = await (builder as unknown as Promise<{
+      data: Array<{ cost_usd: number | null }> | null;
+      error: unknown;
+    }>);
+    if (error || !Array.isArray(data)) return false; // fail-open
+    const total = data.reduce((sum, r) => sum + (Number(r?.cost_usd) || 0), 0);
+    return total >= dailyCap;
+  } catch {
+    // fail-open — o lookup nunca bloqueia o funil (o trigger DB é o backstop).
+    return false;
+  }
+}
+
+/**
  * Executa uma chamada de IA ponta-a-ponta: idempotencia -> injecao -> mascara ->
  * disjuntor -> Anthropic (cache + retry) ou fallback OpenAI -> custo -> log.
  *
@@ -349,6 +407,47 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // (evita custo duplicado + inflacao de ai_cost_daily em retries pg_net).
   const replay = await tryIdempotencyReplay(supabase, idempotency_key, prompt.prompt_version);
   if (replay) return replay;
+
+  // ── 0.5. Kill-switch de custo PRÉ-chamada (AI-06) — corte de gasto em RUNTIME
+  // Soma o custo do dia por vaga e RECUSA a chamada acima do teto HARD, ANTES de
+  // tocar qualquer provedor. É o único ponto que corta gasto na hora (o alerta do
+  // cron só detecta o dia seguinte). FAIL-OPEN em erro de lookup. RNF-07a: devolve
+  // 'hold' + flagged_for_human_review — NUNCA rejeita candidato por custo.
+  if (await isDailyCostCapExceeded(supabase, vaga_id)) {
+    const latency_ms = Date.now() - start;
+    await logAiCall(supabase, {
+      candidato_id,
+      vaga_id,
+      call_type: prompt.call_type,
+      prompt_version_id: prompt.prompt_version_id ?? prompt.prompt_version,
+      prompt_version: prompt.prompt_version,
+      prompt_hash: prompt.prompt_hash ?? "",
+      provider: "none",
+      model_id: prompt.model_id,
+      system_prompt: prompt.system_template,
+      user_prompt_template: rawInput, // logAiCall mascara antes de escrever
+      input_token_count: 0,
+      raw_response: { error: "cost_cap_exceeded" },
+      output_token_count: 0,
+      latency_ms,
+      attempt_number: 1,
+      cost_usd: 0,
+      success: false,
+      error_code: "cost_cap_exceeded",
+      idempotency_key,
+      recommendation: "hold",
+    });
+    return {
+      provider: "none",
+      parsed: { recommendation: "hold", flagged_for_human_review: true },
+      cost_usd: 0,
+      latency_ms,
+      cache_hit: false,
+      prompt_version: prompt.prompt_version,
+      error_code: "cost_cap_exceeded",
+      flagged_for_human_review: true,
+    };
+  }
 
   // ── 1. Deteccao de prompt injection — curto-circuito ANTES de qualquer API ─
   const injection = detectPromptInjection(rawInput);
