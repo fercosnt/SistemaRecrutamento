@@ -30,11 +30,15 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 // options arg (RESIL-01 — Pitfall 2: a missing timeout/maxRetries:0 must be caught
 // by asserting on the recorded options). Returns a fixture carrying
 // usage.cache_read_input_tokens (so cost calc can prove cache billing).
-function makeMockAnthropic(opts: { failTimes?: number } = {}) {
+function makeMockAnthropic(opts: { failTimes?: number; error?: Error } = {}) {
   // Each entry is a [req, opts] tuple — opts is the 2nd positional RequestOptions
   // arg callAi now passes ({ timeout, maxRetries: 0 }).
   const calls: [unknown, unknown][] = [];
   let remainingFailures = opts.failTimes ?? 0;
+  // Tests that want a NON-retryable failure (e.g. accumulating breaker failures
+  // without triggering the retry loop) inject `error` explicitly. The Task 2 edit
+  // swaps this default for the REAL SDK timeout shape to exercise isRetryable.
+  const failureError = opts.error ?? new Error("anthropic 529 overloaded");
   return {
     calls,
     messages: {
@@ -42,7 +46,7 @@ function makeMockAnthropic(opts: { failTimes?: number } = {}) {
         calls.push([req, callOpts]);
         if (remainingFailures > 0) {
           remainingFailures--;
-          return Promise.reject(new Error("anthropic 529 overloaded"));
+          return Promise.reject(failureError);
         }
         return Promise.resolve({
           parsed_output: { resumo: "ok", bias_flags: { has_demographic_proxy: false } },
@@ -186,6 +190,47 @@ Deno.test("IA-04 — when the breaker is OPEN, callAi routes to OpenAI gpt-4o-mi
   assertEquals(result.provider, "openai");
   assertEquals(result.error_code, "anthropic_circuit_open");
   assertEquals((openai.calls[0] as { model: string }).model, "gpt-4o-mini");
+});
+
+// ── AI-02 (Phase 23) — o MESMO CircuitBreaker acumula falhas entre chamadas e ABRE ──
+// O bug histórico: cada callAi criava um `new CircuitBreaker()` novo → o contador
+// zerava toda chamada e o disjuntor nunca abria. Agora o default é o sharedBreaker
+// e as falhas ACUMULAM. Aqui injetamos uma instância FRESH própria (Pitfall 3 — NUNCA
+// o sharedBreaker, para não poluir o resto do corpus) e provamos que ela abre.
+Deno.test("AI-02 — o mesmo CircuitBreaker acumula falhas entre chamadas e ABRE (roteia OpenAI)", async () => {
+  const { callAi } = await loadClient();
+  const { CircuitBreaker } = await import("../circuit-breaker.ts");
+  // THRESHOLD explícito (3) p/ determinismo; erro NÃO-retriável (400) → cada callAi
+  // quebra na 1ª tentativa (1 recordFailure, sem sleep de backoff).
+  const breaker = new CircuitBreaker(3) as {
+    canRequest(): boolean;
+    recordSuccess(): void;
+    recordFailure(): void;
+  };
+  const openai = makeMockOpenAI();
+  const nonRetryable = () => makeMockAnthropic({ failTimes: 999, error: new Error("bad request 400") });
+
+  // 3 chamadas → 3 falhas acumuladas no MESMO breaker → OPEN.
+  for (let i = 0; i < 3; i++) {
+    const r = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic: nonRetryable(), openai, supabase: makeMockSupabase(), breaker,
+    });
+    assertEquals(r.provider, "openai", "cada falha não-retriável cai p/ OpenAI");
+  }
+  assertEquals(
+    breaker.canRequest(),
+    false,
+    "o breaker deve ABRIR após THRESHOLD(3) falhas acumuladas ENTRE chamadas",
+  );
+
+  // 4ª chamada: breaker OPEN → roteia direto p/ OpenAI SEM tocar Anthropic.
+  const anthropic = makeMockAnthropic({ failTimes: 999, error: new Error("bad request 400") });
+  const last = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai, supabase: makeMockSupabase(), breaker,
+  });
+  assertEquals(last.provider, "openai");
+  assertEquals(last.error_code, "anthropic_circuit_open", "breaker OPEN → circuit_open (não retries_exhausted)");
+  assertEquals(anthropic.calls.length, 0, "com o breaker OPEN, a Anthropic NÃO é chamada de novo");
 });
 
 Deno.test("IA-02/03/04 — callAi INSERTs an ai_call_logs row with the audit columns", async () => {

@@ -19,8 +19,9 @@
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-// The contract Plan 05 must satisfy: THRESHOLD=5, RESET_MS=60000.
-const THRESHOLD = 5;
+// Contrato Phase 23 / 23-01 (AI-02): THRESHOLD default env-config = 3 (era o literal
+// 5 da Phase 9), com a invariante THRESHOLD ≤ MAX_ATTEMPTS. RESET_MS=60000 inalterado.
+const THRESHOLD = 3;
 const RESET_MS = 60_000;
 
 // RED until Plan 09-05.
@@ -39,13 +40,13 @@ Deno.test("IA-04 — fresh breaker is CLOSED (canRequest === true)", async () =>
   assertEquals(cb.canRequest(), true);
 });
 
-Deno.test("IA-04 — THRESHOLD (5) failures within RESET_MS opens the breaker", async () => {
+Deno.test(`IA-04 — THRESHOLD (${THRESHOLD}) failures within RESET_MS opens the breaker`, async () => {
   const cb = await newBreaker();
   for (let i = 0; i < THRESHOLD; i++) cb.recordFailure();
   assertEquals(cb.canRequest(), false, `breaker must OPEN after ${THRESHOLD} failures`);
 });
 
-Deno.test("IA-04 — 4 failures (below THRESHOLD) keep the breaker CLOSED", async () => {
+Deno.test(`IA-04 — ${THRESHOLD - 1} failures (below THRESHOLD) keep the breaker CLOSED`, async () => {
   const cb = await newBreaker();
   for (let i = 0; i < THRESHOLD - 1; i++) cb.recordFailure();
   assertEquals(cb.canRequest(), true, "breaker must stay CLOSED below threshold");
@@ -75,4 +76,38 @@ Deno.test("IA-04 — recordSuccess resets the breaker to CLOSED", async () => {
   cb.recordSuccess();
   for (let i = 0; i < THRESHOLD - 1; i++) cb.recordFailure();
   assert(cb.canRequest(), "after a success, the failure count must restart from zero");
+});
+
+// ── AI-02 (Phase 23) — invariante THRESHOLD ≤ MAX_ATTEMPTS ───────────────────
+// A função pura `effectiveThreshold(raw, max)` = Math.min(raw, max). Testada
+// diretamente (determinística, sem depender do env de module-load) + provada no
+// comportamento: um breaker construído com o threshold clampado abre exatamente aí.
+Deno.test("AI-02 — effectiveThreshold clampa RAW ao teto de MAX_ATTEMPTS (invariante ≤)", async () => {
+  const mod = await import("../circuit-breaker.ts");
+  const effectiveThreshold = mod.effectiveThreshold as (raw: number, max: number) => number;
+  assertEquals(effectiveThreshold(10, 3), 3, "RAW alto (10) é limitado por MAX_ATTEMPTS(3)");
+  assertEquals(effectiveThreshold(2, 5), 2, "RAW baixo (2) mantém-se quando já ≤ MAX");
+  assertEquals(effectiveThreshold(3, 3), 3, "iguais → 3 (default casando MAX_ATTEMPTS default 3)");
+
+  // Comportamento: CIRCUIT_BREAKER_THRESHOLD=10 + MAX_ATTEMPTS=3 → abre após 3 falhas.
+  const CircuitBreaker = mod.CircuitBreaker as new (t?: number) => {
+    canRequest(): boolean;
+    recordFailure(): void;
+  };
+  const cb = new CircuitBreaker(effectiveThreshold(10, 3));
+  cb.recordFailure();
+  cb.recordFailure();
+  assert(cb.canRequest(), "2 falhas < 3 → ainda CLOSED (RAW=10 não afrouxa a invariante)");
+  cb.recordFailure();
+  assertEquals(cb.canRequest(), false, "3ª falha atinge o THRESHOLD clampado (min(10,3)) → OPEN");
+});
+
+// ── AI-02 (Phase 23) — sharedBreaker é um singleton module-level exportado ────
+Deno.test("AI-02 — sharedBreaker é exportado como instância de CircuitBreaker (singleton)", async () => {
+  const mod = await import("../circuit-breaker.ts");
+  assert(mod.sharedBreaker, "circuit-breaker.ts deve exportar sharedBreaker");
+  assert(
+    mod.sharedBreaker instanceof mod.CircuitBreaker,
+    "sharedBreaker deve ser uma instância de CircuitBreaker",
+  );
 });

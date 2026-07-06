@@ -48,34 +48,50 @@
 
 import { maskPII } from "./pii-masker.ts";
 import { detectPromptInjection } from "./injection-detector.ts";
-import { CircuitBreaker } from "./circuit-breaker.ts";
+import { CircuitBreaker, sharedBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
 import { logAiCall } from "./audit-logger.ts";
 import { loadPrompt } from "./prompt-loader.ts";
 import type { LoadedPrompt } from "./prompt-loader.ts";
 
 // Re-exporta os composables para os consumidores (Fase 10+) que so importam ai-client.
-export { CircuitBreaker, calculateCost, detectPromptInjection, loadPrompt, logAiCall, maskPII };
+export { CircuitBreaker, calculateCost, detectPromptInjection, loadPrompt, logAiCall, maskPII, sharedBreaker };
 
 /** Modelo OpenAI usado no fallback quando o disjuntor Anthropic esta OPEN. */
 const OPENAI_FALLBACK_MODEL = "gpt-4o-mini";
 /** Status HTTP retentaveis na Anthropic (rate-limit / overloaded / unavailable). */
 const RETRYABLE_STATUS = new Set([429, 503, 529]);
+
+/**
+ * Lê um env numérico com guarda de NaN/≤0 (AI-07). Um env malformado
+ * (`MAX_ATTEMPTS="abc"` → NaN, ou `"25s"` → NaN, ou `"0"`/negativo) cai no
+ * `fallback` em vez de envenenar o loop de retry (`while (attempt < NaN)` nunca
+ * roda → nenhuma chamada de API). Exportado para reuso (circuit-breaker replica
+ * a mesma guarda localmente p/ evitar ciclo; as EFs de Phase 23-02 importam este).
+ */
+export function parseIntEnv(name: string, fallback: number): number {
+  const raw = Deno.env.get(name);
+  const n = raw == null ? NaN : Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  if (raw != null) console.warn(`[ai-client] env ${name}="${raw}" inválido → default ${fallback}`);
+  return fallback;
+}
+
 /**
  * Numero maximo de tentativas REAIS por chamada (RESIL-01). Env-configuravel com
- * default-guard: ausencia em PROD e segura (cai em 3). Este loop hand-rolled e o
- * UNICO dono do retry — o SDK roda com `maxRetries: 0` (vide call sites) para nao
- * multiplicar tentativas (Pitfall 1: 3x3=9 chamadas + bypass do breaker).
+ * default-guard (AI-07): ausencia OU valor malformado em PROD cai em 3. Este loop
+ * hand-rolled e o UNICO dono do retry — o SDK roda com `maxRetries: 0` (vide call
+ * sites) para nao multiplicar tentativas (Pitfall 1: 3x3=9 chamadas + bypass do breaker).
  */
-const MAX_ATTEMPTS = Number(Deno.env.get("MAX_ATTEMPTS") ?? "3");
+const MAX_ATTEMPTS = parseIntEnv("MAX_ATTEMPTS", 3);
 /**
  * Teto de wall-clock POR chamada ao provedor, em ms (RESIL-01). Passado como
  * `{ timeout }` no 2o arg de `parse()`. Sem isto, o timeout default do SDK (10min,
  * escalado ate 60min p/ max_tokens grandes) estoura o teto de 150s idle do EF
  * antes do loop de retry rodar (achado live #1: hang de 38-102s). Env-configuravel
- * com default-guard (25s). 25s x 3 tentativas + backoff (~6s) ~= 81s < 150s.
+ * com default-guard (AI-07, 25s). 25s x 3 tentativas + backoff (~6s) ~= 81s < 150s.
  */
-const AI_CALL_TIMEOUT_MS = Number(Deno.env.get("AI_CALL_TIMEOUT_MS") ?? "25000");
+const AI_CALL_TIMEOUT_MS = parseIntEnv("AI_CALL_TIMEOUT_MS", 25000);
 
 /** Versao de prompt ja resolvida (formato que prompt-loader retornaria). */
 export interface ResolvedPrompt {
@@ -297,7 +313,10 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   const effectiveTimeoutMs = typeof timeoutMs === "number" && timeoutMs > 0
     ? timeoutMs
     : AI_CALL_TIMEOUT_MS;
-  const breaker: BreakerLike = deps.breaker ?? new CircuitBreaker();
+  // AI-02: default = sharedBreaker (singleton por-isolate) para as falhas ACUMULAREM
+  // entre chamadas e o disjuntor realmente abrir. Antes `new CircuitBreaker()` por
+  // chamada zerava o contador toda vez → THRESHOLD inalcançável.
+  const breaker: BreakerLike = deps.breaker ?? sharedBreaker;
   const zodOutputFormat = deps.zodOutputFormat ?? ((s: unknown, _n: string) => s);
   const zodResponseFormat = deps.zodResponseFormat ?? ((s: unknown, _n: string) => s);
 
