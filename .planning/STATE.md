@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 23 / Plan 23-01 complete — núcleo de resiliência _shared: parseIntEnv (AI-07), sharedBreaker singleton + THRESHOLD≤MAX_ATTEMPTS (AI-02), isRetryable timeout name+regex (AI-03), cap de retry-budget (AI-04), replay success-only (AI-05). Corpus Deno 154/0, tsc 133. 3 tasks committed 03f6c1b/94313e8/de9d84a."
-last_updated: "2026-07-06T01:35:42.939Z"
+stopped_at: "Phase 23 / Plan 23-04 complete — honestidade psicométrica (UX-07/09): percentil cru fora da devolutiva+telas RH (Big Five 5 bandas neutras, cognitivo banda avaliativa 3-níveis), triagem fora da consolidação (contexto sem peso) + gate ≥2 etapas server-authoritative. Vitest 739/739, Deno 157/0, tsc 133. 3 tasks: 35a754e/8bcac83/6d9d1c4. EF consolidar redeploya no 23-06."
+last_updated: "2026-07-06T02:01:02.279Z"
 last_activity: 2026-07-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 7
+  completed_plans: 8
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 23 (Ressurreição da Stack de IA) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-06
 
-Progress: [██████░░░░] 58%
+Progress: [███████░░░] 67%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -71,6 +71,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 22 P05 | 14min | 2 tasks | 13 files |
 | Phase 22 P06 | 12min | 3 tasks | 3 files |
 | Phase 23 P01 | 16min | 3 tasks | 4 files |
+| Phase 23 P04 | 17min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 23]: [Phase 23/23-01] sharedBreaker singleton module-level virou o default de callAi (deps.breaker ?? sharedBreaker) — falhas ACUMULAM entre chamadas do mesmo isolate; antes new CircuitBreaker() por chamada nunca abria. Testes de falha SEMPRE injetam breaker fresh (Pitfall 3)
 - [Phase 23]: [Phase 23/23-01] isRetryable casa timeout do SDK por name===APIConnectionTimeoutError (Anthropic E OpenAI, sem import) + regex tim(e|ed)\\s*out — a antiga /timeout/i perdia 'Request timed out.' no espaço; cap de retry-budget min(MAX_ATTEMPTS, floor(140000/teto)) quando teto>25s (AI-03/04)
 - [Phase 23]: [Phase 23/23-01] parseIntEnv exportado (NaN/≤0→default) reusável por 23-02; circuit-breaker.ts replica guarda como envInt local p/ evitar ciclo; replay success-only via guard existing.success!==true (AI-05/07)
+- [Phase ?]: [Phase 23/23-04] UX-07: percentil cru sai da devolutiva+telas RH — Big Five = 5 bandas NEUTRAS (não-avaliativo, nunca 'abaixo/dentro/acima do esperado', Pitfall 5); cognitivo/Raven = banda avaliativa 3-níveis provisória (norma real M5); Progress value=percentil → indicador de 5 segmentos keyed na banda
+- [Phase ?]: [Phase 23/23-04] UX-09: triagem fora de WEIGHTED_KEYS → contexto visível (score_match, 'não pondera'); gate consolidação >0 → ≥2 etapas present (server-authoritative, consolidated=null com <2); dashboard mostra supressão distinta; RNF-07a preservado. EF consolidar redeploya no 23-06
 
 ### Pending Todos
 
@@ -127,8 +130,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-06T01:35:42.932Z
-Stopped at: Phase 23 / Plan 23-01 complete — núcleo de resiliência _shared: parseIntEnv (AI-07), sharedBreaker singleton + THRESHOLD≤MAX_ATTEMPTS (AI-02), isRetryable timeout name+regex (AI-03), cap de retry-budget (AI-04), replay success-only (AI-05). Corpus Deno 154/0, tsc 133. 3 tasks committed 03f6c1b/94313e8/de9d84a.
+Last session: 2026-07-06T02:01:02.256Z
+Stopped at: Phase 23 / Plan 23-04 complete — honestidade psicométrica (UX-07/09): percentil cru fora da devolutiva+telas RH (Big Five 5 bandas neutras, cognitivo banda avaliativa 3-níveis), triagem fora da consolidação (contexto sem peso) + gate ≥2 etapas server-authoritative. Vitest 739/739, Deno 157/0, tsc 133. 3 tasks: 35a754e/8bcac83/6d9d1c4. EF consolidar redeploya no 23-06.
 Resume file: None
 
 ## Operator Next Steps
