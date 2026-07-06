@@ -121,6 +121,42 @@ function makeMockSupabaseWithReplay(row: Record<string, unknown> | null) {
   };
 }
 
+// ── Mock Supabase for the AI-06 cost kill-switch (Phase 23) ──────────────────
+// The pre-call kill-switch probes
+//   from("ai_call_logs").select("cost_usd").eq("vaga_id",…).eq("success",true).gte("created_at",…)
+// and AWAITS the builder for `{ data: rows[], error }` (the real PostgREST filter
+// builder is chainable AND thenable). This mock returns a chainable/thenable
+// builder resolving to `rows`, and still spies inserts so the `cost_cap_exceeded`
+// audit row is recorded. `throwOnSelect` exercises the FAIL-OPEN path (a lookup
+// that throws must NOT block the call — the DB trigger is the backstop).
+function makeMockSupabaseWithCostLogs(
+  rows: Array<{ cost_usd: number }>,
+  opts: { throwOnSelect?: boolean } = {},
+) {
+  const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  const builder = {
+    eq: (_c: string, _v: unknown) => builder,
+    gte: (_c: string, _v: unknown) => builder,
+    then: (resolve: (r: { data: typeof rows; error: null }) => unknown) =>
+      resolve({ data: rows, error: null }),
+  };
+  return {
+    inserts,
+    from(table: string) {
+      return {
+        insert: (r: Record<string, unknown>) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        select: (_columns: string) => {
+          if (opts.throwOnSelect) throw new Error("cost lookup boom");
+          return builder;
+        },
+      };
+    },
+  };
+}
+
 // Prompt-version fixture as `prompt-loader` would return it.
 const SONNET_PROMPT = {
   call_type: "cv_job_match",
@@ -159,7 +195,16 @@ async function loadClient() {
         breaker?: { canRequest(): boolean; recordSuccess(): void; recordFailure(): void };
       },
     ) => Promise<
-      { provider: string; parsed: unknown; cost_usd: number; cache_hit?: boolean; error_code?: string }
+      {
+        provider: string;
+        parsed: unknown;
+        cost_usd: number;
+        cache_hit?: boolean;
+        error_code?: string;
+        // AI-06 kill-switch (Phase 23): over-cap returns a 'hold' result flagged
+        // for human review — never an auto-reject (RNF-07a).
+        flagged_for_human_review?: boolean;
+      }
     >;
   };
 }
@@ -420,4 +465,82 @@ Deno.test("AI-05 — a cached SUCCESS (success=true) IS replayed → no provider
   assertEquals(result.cache_hit, true, "replay must flag cache_hit");
   assertEquals(result.cost_usd, 0, "replay must not re-bill (cost_usd 0 — original already accounted)");
   assertEquals(result.provider, "anthropic", "replay echoes the original provider");
+});
+
+// ── AI-06 — pre-call cost kill-switch (RUNTIME spend cut) ────────────────────
+// The cost guardrail chain has 4 holes (window ~25h, daily-slice scope, dead
+// candidate channel, silent dispatch). The ONLY fix that actually cuts spend at
+// runtime is a pre-call cap in the EF: BEFORE any provider call, sum the day's
+// cost_usd for the vaga and refuse new calls above AI_DAILY_COST_CAP_USD. It is
+// the operational HARD cap — distinct from the business threshold (R$200/mês per
+// vaga) that the trigger/cost-alerter cover with a 1-day lag.
+//
+// RNF-07a: over-cap returns a 'hold' + flagged_for_human_review — NEVER an
+// auto-reject. The kill-switch must never become a silent candidate-rejection path.
+Deno.test("AI-06 — over-cap: kill-switch refuses the call (0 provider calls, hold + human review)", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const openai = makeMockOpenAI();
+  // Two success rows for the day summing 2.5 > cap 1.
+  const supabase = makeMockSupabaseWithCostLogs([{ cost_usd: 1.5 }, { cost_usd: 1.0 }]);
+  Deno.env.set("AI_DAILY_COST_CAP_USD", "1");
+  try {
+    const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, { anthropic, openai, supabase });
+    assertEquals(result.error_code, "cost_cap_exceeded", "over-cap → error_code cost_cap_exceeded");
+    assertEquals(result.provider, "none", "over-cap → NO provider is called");
+    assertEquals(result.cost_usd, 0, "a refused call bills nothing");
+    assertEquals(result.flagged_for_human_review, true, "RNF-07a: hold + human review, never auto-reject");
+    assertEquals(
+      (result.parsed as { recommendation?: string }).recommendation,
+      "hold",
+      "the refused result recommends 'hold' — never 'reject'",
+    );
+    assertEquals(anthropic.calls.length, 0, "Anthropic MUST NOT be called over-cap");
+    assertEquals(openai.calls.length, 0, "OpenAI MUST NOT be called over-cap (no fallback for a cost refusal)");
+    const capLog = supabase.inserts.find(
+      (i) => i.table === "ai_call_logs" && i.row.error_code === "cost_cap_exceeded",
+    );
+    assert(capLog, "a cost_cap_exceeded ai_call_logs row must be recorded");
+    assertEquals(capLog!.row.success, false, "the audit row marks the refusal as success=false");
+  } finally {
+    Deno.env.delete("AI_DAILY_COST_CAP_USD");
+  }
+});
+
+Deno.test("AI-06 — under-cap: the day's cost is below the cap → the call proceeds (Anthropic)", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseWithCostLogs([{ cost_usd: 0.10 }, { cost_usd: 0.05 }]);
+  Deno.env.set("AI_DAILY_COST_CAP_USD", "50");
+  try {
+    const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic, openai: makeMockOpenAI(), supabase,
+    });
+    assertEquals(result.provider, "anthropic", "under-cap → the call proceeds normally");
+    assertEquals(result.error_code, undefined, "under-cap → no cost_cap_exceeded");
+    assertEquals(anthropic.calls.length, 1, "the provider IS called under-cap");
+  } finally {
+    Deno.env.delete("AI_DAILY_COST_CAP_USD");
+  }
+});
+
+// FAIL-OPEN (T-23-03-02): a lookup that throws must NOT block the funnel. The
+// cost-lookup is a guard around availability — if it breaks, the DB trigger is the
+// backstop. A broken kill-switch can NEVER become a spend-blocking outage.
+Deno.test("AI-06 — FAIL-OPEN: a cost-lookup error does NOT block the call", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  // select() throws → the kill-switch must swallow it and proceed.
+  const supabase = makeMockSupabaseWithCostLogs([], { throwOnSelect: true });
+  Deno.env.set("AI_DAILY_COST_CAP_USD", "1"); // low cap: if it did NOT fail open it could block
+  try {
+    const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic, openai: makeMockOpenAI(), supabase,
+    });
+    assertEquals(result.provider, "anthropic", "lookup error → fail-open → the call proceeds");
+    assertEquals(result.error_code, undefined, "fail-open does not inject cost_cap_exceeded");
+    assertEquals(anthropic.calls.length, 1, "the provider IS called (fail-open)");
+  } finally {
+    Deno.env.delete("AI_DAILY_COST_CAP_USD");
+  }
 });
