@@ -31,12 +31,12 @@
 
 *Ressuscitar a stack de IA silenciosamente morta: prompt library ativa, circuit breaker real, retry de timeout, guardrails de custo, auditoria IA-02 rastreável.*
 
-- [ ] **AI-01**: Os 7 call_types de IA rodam com o prompt real da library (não o stub de 1 linha do `SCHEMA_VERSIONS` órfão) + alarme 0.0.0 no ai-logs + catch restrito. `(A3, HIGH · inclui QW6)`
+- [x] **AI-01**: Os 7 call_types de IA rodam com o prompt real da library (não o stub de 1 linha do `SCHEMA_VERSIONS` órfão) + alarme 0.0.0 no ai-logs + catch restrito. `(A3, HIGH · inclui QW6)`
 - [x] **AI-02**: Circuit breaker é código vivo — instância compartilhada entre chamadas e `THRESHOLD ≤ MAX_ATTEMPTS` (não uma instância nova por chamada com threshold inalcançável). `(A4, HIGH)`
 - [x] **AI-03**: `isRetryable` casa o erro de timeout do SDK (`'Request timed out.'`) — timeout passa a ser retriável. `(A5, HIGH)`
-- [ ] **AI-04**: `avaliar-transcricao-entrevista` recebe override de `timeoutMs` adequado ao seu perfil (Sonnet/4000 tokens). `(A6, HIGH)`
+- [x] **AI-04**: `avaliar-transcricao-entrevista` recebe override de `timeoutMs` adequado ao seu perfil (Sonnet/4000 tokens). `(A6, HIGH)`
 - [x] **AI-05**: Replay de idempotência é regenerável — RH consegue reprocessar após falha cacheada (não devolve a falha para sempre). `(A23, MEDI)`
-- [ ] **AI-06**: Guardrails de custo com escopo/janela/canal corretos e não-silenciosos (não detect-only com 1 dia de atraso). `(A24, MEDI · complementa F2)`
+- [x] **AI-06**: Guardrails de custo com escopo/janela/canal corretos e não-silenciosos (não detect-only com 1 dia de atraso). `(A24, MEDI · complementa F2)`
 - [x] **AI-07**: `MAX_ATTEMPTS` / `AI_CALL_TIMEOUT_MS` via `Number(env)` com guarda de NaN — env malformado não quebra a stack. `(A48, LOW)`
 
 ### 🔀 FUNIL — Correção do Funil (drift M1→M2) (M4-C)
@@ -148,12 +148,12 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | SEC-09 | Phase 24 | Pending |
 | SEC-10 | Phase 24 | Pending |
 | SEC-11 | Phase 24 | Pending |
-| AI-01 | Phase 23 | Pending |
+| AI-01 | Phase 23 | Complete |
 | AI-02 | Phase 23 | Complete |
 | AI-03 | Phase 23 | Complete |
-| AI-04 | Phase 23 | Pending |
+| AI-04 | Phase 23 | Complete |
 | AI-05 | Phase 23 | Complete |
-| AI-06 | Phase 23 | Pending |
+| AI-06 | Phase 23 | Complete |
 | AI-07 | Phase 23 | Complete |
 | FUNIL-01 | Phase 26 | Pending |
 | FUNIL-02 | Phase 25 | Pending |

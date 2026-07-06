@@ -203,7 +203,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete   | 2026-07-06 |
+| 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |

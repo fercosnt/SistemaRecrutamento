@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: executing
-stopped_at: "Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD default 50, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1, deixa de ser código morto). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 (T1) · 7ca8737/e12807f (T2). NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05."
-last_updated: "2026-07-06T02:45:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 23 complete (6/6) — ready to discuss Phase 24
+last_updated: 2026-07-06T05:04:02.103Z
 last_activity: 2026-07-06
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 12
   percent: 17
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 23 — Ressurreição da Stack de IA
+**Current focus:** Phase 24 — blindagem de segurança / pii / lgpd
 
 ## Current Position
 
-Phase: 23 (Ressurreição da Stack de IA) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
+Phase: 24
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-07-06
 
 Progress: [████████░░] 83%
@@ -57,7 +57,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 22 | 6 | - | - |
-| 23 | TBD | - | - |
+| 23 | 6 | - | - |
 | 24 | TBD | - | - |
 | 25 | TBD | - | - |
 | 26 | TBD | - | - |
