@@ -58,7 +58,7 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
 **Milestone Goal:** Endurecer e corrigir o funil ponta-a-ponta (hardening, **não** expansão) — fechar todo vazamento de PII/gabarito e IDOR, ressuscitar a stack de IA silenciosamente morta, eliminar o drift M1→M2 (enums mortos, colunas fantasma, contratos quebrados, scoring manipulável), fazer as migrations reconstruírem o banco do zero, e blindar tudo com a rede de testes/CI que originou todos os defeitos live. 56 requirements (SEC 11 · AI 7 · FUNIL 12 · DBMIG 2 · CI 15 · UX 9). Invariante em toda fase: IA recomenda, humano decide (RNF-07a); linguagem "avaliação comportamental/cognitiva" (RNF-12a).
 
 - [x] **Phase 22: Rede de Testes, Destravamento & Varredura de Honestidade** - Corpus Deno em CI + typecheck destravado + varredura Onda-1 de copy/login honestos (completed 2026-07-05)
-- [ ] **Phase 23: Ressurreição da Stack de IA** - Prompts reais nos 7 call_types + circuit breaker/retry/guardrails que funcionam + honestidade psicométrica
+- [x] **Phase 23: Ressurreição da Stack de IA** - Prompts reais nos 7 call_types + circuit breaker/retry/guardrails que funcionam + honestidade psicométrica (completed 2026-07-06)
 - [ ] **Phase 24: Blindagem de Segurança / PII / LGPD** - RLS nunca é segredo de coluna + toda EF privilegiada autentica-E-autoriza + IDOR/PII fechados
 - [ ] **Phase 25: Correção do Funil (lado RH — enums, colunas & contratos)** - RH opera Kanban/Editar-Vaga/decisão sobre enums+colunas que existem, sem rejeição sem trilha
 - [ ] **Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)** - Candidato alcança e conclui cada etapa com scoring íntegro + reinscrição pós soft-delete
@@ -126,7 +126,7 @@ Plans:
 
 **Wave 4** *(BLOCKING · non-autonomous · deploy PROD)*
 
-- [ ] 23-06-PLAN.md — Redeploy das 9 EFs (bundle-freeze) + smoke live (semver real, não 0.0.0) — sem tocar verify_jwt (AI-01/04/06, UX-07/09) [Wave 4]
+- [x] 23-06-PLAN.md — Redeploy das 9 EFs (bundle-freeze) + smoke live (semver real, não 0.0.0) — sem tocar verify_jwt (AI-01/04/06, UX-07/09) [Wave 4]
 
 **UI hint**: yes
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 5/6 | In Progress|  |
+| 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete   | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
