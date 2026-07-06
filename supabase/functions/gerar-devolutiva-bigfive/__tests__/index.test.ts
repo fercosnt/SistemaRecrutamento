@@ -326,3 +326,24 @@ Deno.test("RESIL-02 — one dim's callAi rejection degrades that dim, the other 
   // RNF-07a: degrade persists a devolutiva (templates), never a score/decision.
   assert(out.devolutiva_id, "degrade path still persists a (template) devolutiva — no decisional write");
 });
+
+// ── UX-07: o prompt do LLM é banda-only — o percentil cru NUNCA é injetado ────
+Deno.test("UX-07 — buildDevolutivaUserBlock emite banda qualitativa, nunca o percentil cru", async () => {
+  const mod = await import("../index.ts");
+  const build = (mod as {
+    buildDevolutivaUserBlock: (a: { dim_label: string; banda: string; rawInput: string }) => string;
+  }).buildDevolutivaUserBlock;
+
+  const block = build({
+    dim_label: "Abertura",
+    banda: "muito_alto",
+    rawInput: "Texto oficial neutro, sem qualquer número.",
+  });
+
+  // (a) a banda qualitativa neutra (label pt-BR) ESTÁ presente
+  assert(block.includes("Muito alto"), "deve conter a label neutra da banda ('Muito alto')");
+  // (b) o cabeçalho de percentil FOI removido
+  assert(!/PERCENTIL/i.test(block), "não pode conter o cabeçalho '## PERCENTIL' (UX-07)");
+  // (c) nenhum dígito de percentil vaza para o texto do prompt (guard forte)
+  assert(!/\d/.test(block), "nenhum dígito de percentil pode entrar no prompt do LLM (UX-07)");
+});

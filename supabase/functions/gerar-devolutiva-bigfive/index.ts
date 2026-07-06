@@ -54,6 +54,10 @@ import {
   resolvedPromptFromLoaded,
   type ResolvedPrompt,
 } from "../_shared/ai-client.ts";
+// AI-01: catch estreitado — propaga a falha de resolução de prompt como 500
+// estruturado (nunca stub silencioso 1.0.0) + alarme no ponto de degradação.
+import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
+import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 
 // ---------------------------------------------------------------------------
 // Tipos do domínio
@@ -100,6 +104,39 @@ export function bandOf(percentil: number): Banda {
   if (percentil <= 64) return "medio";
   if (percentil <= 84) return "mod_alto";
   return "muito_alto";
+}
+
+/**
+ * Labels pt-BR NEUTRAS das 5 bandas de traço (UX-07 / Pitfall 5).
+ * Big Five NÃO é avaliativo — nunca "abaixo/dentro/acima do esperado". Um traço
+ * alto de Neuroticismo não é "pior". Estas são descrições neutras de intensidade.
+ */
+const BANDA_LABEL_PT: Record<Banda, string> = {
+  muito_baixo: "Muito baixo",
+  mod_baixo: "Moderadamente baixo",
+  medio: "Médio",
+  mod_alto: "Moderadamente alto",
+  muito_alto: "Muito alto",
+};
+
+/**
+ * UX-07 — monta o bloco de usuário do prompt da devolutiva SEM o percentil cru.
+ *
+ * O LLM recebe APENAS a banda qualitativa neutra (label pt-BR) — o dígito do
+ * percentil NUNCA entra no texto enviado ao modelo (honestidade psicométrica).
+ * O percentil segue derivando a banda a montante (via `bandOf`), mas fora do
+ * prompt. Função pura EXPORTADA para ser testável isoladamente (o call site real
+ * vive no `callAiAdapter` do `Deno.serve`, não coberto pelo teste do handler).
+ */
+export function buildDevolutivaUserBlock(dimArgs: {
+  dim_label: string;
+  banda: Banda;
+  rawInput: string;
+}): string {
+  return (
+    `## DIMENSÃO\n${dimArgs.dim_label} (banda: ${BANDA_LABEL_PT[dimArgs.banda]})\n\n` +
+    `## TEXTO OFICIAL\n<TEMPLATE_OFICIAL>\n${dimArgs.rawInput}\n</TEMPLATE_OFICIAL>`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -570,16 +607,18 @@ if (import.meta.main) {
       // deno-lint-ignore no-explicit-any
       const loaded = await loadPrompt("bigfive_devolutiva", supabaseAdmin as any);
       resolved = resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
-    } catch {
-      resolved = {
-        call_type: "bigfive_devolutiva",
-        model_id: "claude-sonnet-4-6",
-        fallback_model_id: "gpt-4o-mini",
-        prompt_version: "1.0.0",
-        system_template: "Personalize o template oficial de devolutiva (bigfive_devolutiva).",
-        max_tokens: 1200,
-        temperature: 0,
-      };
+    } catch (e) {
+      // AI-01: NÃO degradar para um stub silencioso. `bigfive_devolutiva` ainda NÃO
+      // é valor válido do enum `public.llm_call_type` (o ALTER TYPE ADD VALUE + seed
+      // são o Plan 23-05) → `loadPrompt` lança `PromptNotConfiguredError` e esta EF
+      // 500a POR DESIGN (alarme honesto). Uma vez que o enum+seed aterrissem em PROD,
+      // `loadPrompt` resolve o prompt real. Enquanto isso: alarma e propaga para o
+      // try/catch externo do handler (nunca a avaliação-stub de 12 palavras).
+      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+        // deno-lint-ignore no-explicit-any
+        await emitPromptStubAlert(supabaseAdmin as any, "bigfive_devolutiva");
+      }
+      throw e;
     }
 
     // Adapta a `callAi` real (ai-client) ao contrato per-dim que o handler usa.
@@ -592,10 +631,13 @@ if (import.meta.main) {
         candidato_id?: string;
         vaga_id?: string;
       };
-      const userBlock =
-        `## DIMENSÃO\n${dimArgs.dim_label} (banda: ${dimArgs.banda})\n\n` +
-        `## PERCENTIL\n${dimArgs.percentil}\n\n` +
-        `## TEXTO OFICIAL\n<TEMPLATE_OFICIAL>\n${dimArgs.rawInput}\n</TEMPLATE_OFICIAL>`;
+      // UX-07: banda-only — o percentil cru (dimArgs.percentil) NUNCA entra no
+      // prompt do LLM. buildDevolutivaUserBlock passa apenas a banda qualitativa.
+      const userBlock = buildDevolutivaUserBlock({
+        dim_label: dimArgs.dim_label,
+        banda: dimArgs.banda,
+        rawInput: dimArgs.rawInput,
+      });
       const result = await callAi(
         {
           prompt: resolved,
