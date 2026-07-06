@@ -108,7 +108,26 @@ Plans:
   4. Um env var malformado (`MAX_ATTEMPTS`/`AI_CALL_TIMEOUT_MS`) não derruba a stack (guarda de NaN), e os guardrails de custo alarmam com escopo/janela/canal corretos — não detect-only com 1 dia de atraso (AI-06, AI-07).
   5. Devolutiva e telas RH mostram **descritores qualitativos** (sem percentil numérico) e o peso de `triagem` sai das chaves ponderadas da consolidação (ou cap ≤15), com número consolidado exigindo ≥2 etapas (UX-07, UX-09).
 
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+Plans:
+**Wave 1** *(código local, Deno/Vitest-testável, sem conflito de arquivo)*
+
+- [ ] 23-01-PLAN.md — Núcleo de resiliência: sharedBreaker + THRESHOLD≤MAX_ATTEMPTS + isRetryable(timeout) + cap de retry + replay success-only + parseIntEnv (AI-02/03/04/05/07) [Wave 1]
+- [ ] 23-02-PLAN.md — Prompt library revival: SCHEMA_VERSIONS espelha o enum + catch estreitado nas 7 EFs + alarme ai_prompt_stub_fired + transcricao 60s + percentil fora do prompt da devolutiva (AI-01/04, UX-07) [Wave 1]
+- [ ] 23-04-PLAN.md — Honestidade psicométrica: devolutiva + telas RH sem percentil cru (bandas) + triagem fora da consolidação + ≥2 etapas (UX-07/09) [Wave 1]
+
+**Wave 2** *(toca ai-client.ts — serializado após 23-01)*
+
+- [ ] 23-03-PLAN.md — Guardrails de custo: kill-switch pré-chamada por-vaga (fail-open) + cost-alerter alertMessage testável (candidate_cost_over_1) (AI-06) [Wave 2]
+
+**Wave 3** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
+
+- [ ] 23-05-PLAN.md — Migrations PROD: enum bigfive_devolutiva + seed/activate + ativar 3 call_types + fix do trigger de custo + reconciliar ledger (AI-01/06) [Wave 3]
+
+**Wave 4** *(BLOCKING · non-autonomous · deploy PROD)*
+
+- [ ] 23-06-PLAN.md — Redeploy das 9 EFs (bundle-freeze) + smoke live (semver real, não 0.0.0) — sem tocar verify_jwt (AI-01/04/06, UX-07/09) [Wave 4]
+
 **UI hint**: yes
 
 ### Phase 24: Blindagem de Segurança / PII / LGPD
@@ -184,7 +203,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 0/TBD | Not started | - |
+| 23. Ressurreição da Stack de IA | v4.0 | 0/6 | Planned     | - |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
