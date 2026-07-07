@@ -17,8 +17,8 @@
 
 - [x] **SEC-01**: Gabarito do teste cognitivo (`gabarito_idx`) deixa de ser legível por qualquer usuário autenticado — column REVOKE / leitura só via RPC SECURITY DEFINER. `(A1, CRIT)`
 - [x] **SEC-02**: Candidato não lê o veredito da IA da própria redação (score, cor, red_flag ético, notas do revisor) — projeção allowlist candidate-facing, nunca `select('*')`. `(A7, HIGH)`
-- [ ] **SEC-03**: URLs de webhook n8n não ficam hardcoded/expostas no bundle público — removidas do client (resolver por substituição via EF, não patch). `(A11, HIGH)`
-- [ ] **SEC-04**: `gerar-devolutiva-bigfive` EF autentica-**E**-autoriza (Bearer interno + role + posse) — fecha o IDOR de leitura de devolutiva alheia. `(A19≡A25, HIGH)`
+- [x] **SEC-03**: URLs de webhook n8n não ficam hardcoded/expostas no bundle público — removidas do client (resolver por substituição via EF, não patch). `(A11, HIGH)`
+- [x] **SEC-04**: `gerar-devolutiva-bigfive` EF autentica-**E**-autoriza (Bearer interno + role + posse) — fecha o IDOR de leitura de devolutiva alheia. `(A19≡A25, HIGH)`
 - [x] **SEC-05**: SELECT policies de `analise_candidato_vaga` / `comparativo_solicitado` são vaga-scoped, não role-only. `(A20, HIGH)`
 - [x] **SEC-06**: Scoping horizontal por vaga (padrão WR-03/WR-04) aplicado a `analise_candidato_vaga` e ao caminho de reprocessar. `(A30, MEDI)`
 - [x] **SEC-07**: Serviço candidate-facing não seleciona a coluna `rubric` (critérios BARS) das perguntas. `(A40, MEDI)`
@@ -139,8 +139,8 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 |-------------|-------|--------|
 | SEC-01 | Phase 24 | Complete |
 | SEC-02 | Phase 24 | Complete |
-| SEC-03 | Phase 24 | Pending |
-| SEC-04 | Phase 24 | Pending |
+| SEC-03 | Phase 24 | Complete |
+| SEC-04 | Phase 24 | Complete |
 | SEC-05 | Phase 24 | Complete |
 | SEC-06 | Phase 24 | Complete |
 | SEC-07 | Phase 24 | Complete |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 24 / Plan 24-04 complete — SEC-05/06/08 vaga-scope (WR-04) em analise_candidato_vaga/comparativo_solicitado/candidaturas (SELECT+UPDATE)/redacoes_candidato RH; reprocessar_analise já-scoped regression-guard (42501) + RNF-07a pontuar-no-write smoke. Files only; PROD apply + smoke = 24-08. Commits 3277e9c/07e93be. tsc 133."
-last_updated: "2026-07-07T04:08:42.201Z"
+stopped_at: Phase 24 / Plan 24-05 complete — SEC-04 gerar-devolutiva-bigfive Bearer self-auth (exported guardDevolutivaBearer, no getUser/role — Pitfall 4, IDOR closed) + SEC-03 n8n dispatch server-side (migration 20260706110005 — 3 pg_net+Vault triggers, graceful NULL skip) + deleted all client URL/VITE_/fetch + build-artifact grep guard. Files only; Vault+apply=24-08, EF redeploy=24-09. Commits 595727d/cb02563/5fb72fe. tsc 128.
+last_updated: "2026-07-07T04:25:42.419Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 21
-  completed_plans: 16
+  completed_plans: 17
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [████████░░] 76%
+Progress: [████████░░] 81%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -77,6 +77,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 24 P02 | 30 | 3 tasks | 8 files |
 | Phase 24 P03 | ~12min | 3 tasks | 4 files |
 | Phase 24 P04 | ~10min | 2 tasks | 2 files |
+| Phase 24 P05 | ~30min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 24]: SEC-07: rubric BARS blindado via REVOKE(rubric)+allowlist drop; caveat 24-08 — grant table-level pode neutralizar column REVOKE, o SQL smoke detecta o leak — Plano 24-02
 - [Phase ?]: SEC-02: candidate-DENY row (DROP redacao_candidato_select) + get_minha_redacao DEFINER RPC — NOT column REVOKE (RH shares authenticated role); status_analise coarsened so pendente_humano cannot leak the verdict
 - [Phase 24]: SEC-05/06/08: 6 policies RH role-only → vaga-scoped (WR-04: admin bypass OR rh owns vaga); analise/comparativo/candidaturas scope vaga_id direto, redacoes via candidaturas→vagas JOIN; UPDATE=USING+WITH CHECK; reprocessar_analise já-scoped só regression-guard (42501); RNF-07a pontuar-no-write. Files-only, PROD apply 24-08. Commits 3277e9c/07e93be — Plano 24-04
+- [Phase 24]: SEC-04: gerar-devolutiva-bigfive (era ZERO auth — IDOR aberto) fechado com exported guardDevolutivaBearer() exact-match Bearer self-auth no topo do Deno.serve (secret DEVOLUTIVA_INVOKE_SECRET ?? SERVICE_KEY); SEM getUser()/role/posse (Pitfall 4 — EF server-to-server-only, grep src/ de caller vazio → Bearer é suficiente). Bearer-only aprovado pelo Fernando. Guard exportado = testável (4 casos deno) sem Deno.serve. Commit 595727d — Plano 24-05
+- [Phase 24]: SEC-03: n8n dispatch server-side via migration 20260706110005 (3 AFTER triggers pg_net+Vault n8n_webhook_base único, graceful RETURN se NULL, body id-only sem PII, RNF-07a); deletado TODO o subtree client (2 URLs+VITE_+fetch+2 helper fns+WEBHOOK_CONFIG/webhookLogger/sleep/isRetryableError+2 locais órfãos), tsc 133→128; build-artifact grep guard (n8n.cloud|fernandocosta em build/ + VITE_N8N em src/). Vault+apply=24-08, EF redeploy=24-09 (dropar fire redundante do submit-candidatura env-var). Files-only. Commits cb02563/5fb72fe — Plano 24-05. ⚠️ threat-flag: n8nService.ts (cadastro) é 2º leak PII-no-bundle (9 URLs hstgr + cpf/email) → deferred-items, Phase 25
 
 ### Pending Todos
 
@@ -143,8 +146,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-07T04:07:47.812Z
-Stopped at: Phase 24 / Plan 24-04 complete — SEC-05/06/08 vaga-scope (WR-04) em analise_candidato_vaga/comparativo_solicitado/candidaturas (SELECT+UPDATE)/redacoes_candidato RH; reprocessar_analise já-scoped regression-guard (42501) + RNF-07a pontuar-no-write smoke. Files only; PROD apply + smoke = 24-08. Commits 3277e9c/07e93be. tsc 133.
+Last session: 2026-07-07T04:25:42.404Z
+Stopped at: Phase 24 / Plan 24-05 complete — SEC-04 gerar-devolutiva-bigfive Bearer self-auth (exported guardDevolutivaBearer, no getUser/role — Pitfall 4, IDOR closed) + SEC-03 n8n dispatch server-side (migration 20260706110005 — 3 pg_net+Vault triggers, graceful NULL skip) + deleted all client URL/VITE_/fetch + build-artifact grep guard. Files only; Vault+apply=24-08, EF redeploy=24-09. Commits 595727d/cb02563/5fb72fe. tsc 128.
 Resume file: None
 
 ## Operator Next Steps
