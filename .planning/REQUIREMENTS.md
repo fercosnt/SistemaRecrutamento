@@ -15,13 +15,13 @@
 
 *RLS row-level nunca é segredo de coluna → RPC SECURITY DEFINER / column REVOKE; toda EF privilegiada autentica-**E**-autoriza.*
 
-- [ ] **SEC-01**: Gabarito do teste cognitivo (`gabarito_idx`) deixa de ser legível por qualquer usuário autenticado — column REVOKE / leitura só via RPC SECURITY DEFINER. `(A1, CRIT)`
+- [x] **SEC-01**: Gabarito do teste cognitivo (`gabarito_idx`) deixa de ser legível por qualquer usuário autenticado — column REVOKE / leitura só via RPC SECURITY DEFINER. `(A1, CRIT)`
 - [ ] **SEC-02**: Candidato não lê o veredito da IA da própria redação (score, cor, red_flag ético, notas do revisor) — projeção allowlist candidate-facing, nunca `select('*')`. `(A7, HIGH)`
 - [ ] **SEC-03**: URLs de webhook n8n não ficam hardcoded/expostas no bundle público — removidas do client (resolver por substituição via EF, não patch). `(A11, HIGH)`
 - [ ] **SEC-04**: `gerar-devolutiva-bigfive` EF autentica-**E**-autoriza (Bearer interno + role + posse) — fecha o IDOR de leitura de devolutiva alheia. `(A19≡A25, HIGH)`
 - [ ] **SEC-05**: SELECT policies de `analise_candidato_vaga` / `comparativo_solicitado` são vaga-scoped, não role-only. `(A20, HIGH)`
 - [ ] **SEC-06**: Scoping horizontal por vaga (padrão WR-03/WR-04) aplicado a `analise_candidato_vaga` e ao caminho de reprocessar. `(A30, MEDI)`
-- [ ] **SEC-07**: Serviço candidate-facing não seleciona a coluna `rubric` (critérios BARS) das perguntas. `(A40, MEDI)`
+- [x] **SEC-07**: Serviço candidate-facing não seleciona a coluna `rubric` (critérios BARS) das perguntas. `(A40, MEDI)`
 - [ ] **SEC-08**: RH policies da base-table `candidaturas` são vaga-scoped — recrutador não-dono não lê todos os candidatos. `(A42, MEDI)`
 - [ ] **SEC-09**: A policy SELECT de `supabase_auth_admin` sobre `usuarios_rh` (dependência do `custom_access_token_hook`) fica declarada em migration file — elimina o drift execute_sql-only. `(A43, MEDI)`
 - [ ] **SEC-10**: Backup PII (`backup_m2.candidaturas_pre_funil`) fica coberto por RLS/erasure ou é removido — não é PII permanente fora do alcance. `(A49, LOW/LGPD)`
@@ -137,13 +137,13 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 24 | Pending |
+| SEC-01 | Phase 24 | Complete |
 | SEC-02 | Phase 24 | Pending |
 | SEC-03 | Phase 24 | Pending |
 | SEC-04 | Phase 24 | Pending |
 | SEC-05 | Phase 24 | Pending |
 | SEC-06 | Phase 24 | Pending |
-| SEC-07 | Phase 24 | Pending |
+| SEC-07 | Phase 24 | Complete |
 | SEC-08 | Phase 24 | Pending |
 | SEC-09 | Phase 24 | Pending |
 | SEC-10 | Phase 24 | Pending |

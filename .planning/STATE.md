@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 · 7ca8737/e12807f. NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05. Restam 23-05 (migration PROD) + 23-06 (redeploy) na Phase 23."
-last_updated: "2026-07-07T03:19:09.551Z"
-last_activity: 2026-07-07 -- Phase 24 execution started
+stopped_at: "Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133."
+last_updated: "2026-07-07T03:41:41.627Z"
+last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 21
-  completed_plans: 12
+  completed_plans: 14
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 1 of 9
-Status: Executing Phase 24
-Last activity: 2026-07-07 -- Phase 24 execution started
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-07-07
 
-Progress: [████████░░] 83%
+Progress: [███████░░░] 67%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -74,6 +74,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 23 P04 | 17min | 3 tasks | 10 files |
 | Phase 23 P02 | 22min | 3 tasks | 18 files |
 | Phase 23 P03 | 22min | 2 tasks | 5 files |
+| Phase 24 P02 | 30 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 23/23-02] UX-07 EF-side: buildDevolutivaUserBlock passa banda qualitativa neutra (label pt-BR), percentil cru FORA do prompt do LLM (Big Five não-avaliativo, Pitfall 5); AI-04: transcricao timeoutMs 60s env-overridable. AI-01/AI-04 ficam LIVE só no 23-06 (redeploy das 7 EFs bundle-freeze); bigfive_devolutiva 500a por design até enum+seed do 23-05
 - [Phase 23]: [Phase 23/23-03] AI-06: kill-switch PRÉ-chamada em callAi (isDailyCostCapExceeded — SUM cost_usd success=true do dia UTC por vaga vs AI_DAILY_COST_CAP_USD lido POR CHAMADA, default 50) é o único corte de gasto em RUNTIME; wired após replay/antes de injection. FAIL-OPEN por design (feature-detect select + try/catch → erro/ausência procede; trigger DB é backstop; tradeoff = disponibilidade > teto de custo). Recusa = provider 'none' (sem fallback OpenAI) + error_code cost_cap_exceeded + hold + flagged_for_human_review (RNF-07a, nunca reject). Usa idx parcial idx_ai_logs_vaga_cost
 - [Phase 23]: [Phase 23/23-03] AI-06: alertMessage + CostAnomalyBody extraídos de cost-alerter/index.ts p/ cost-alerter/messages.ts (módulo puro sem Deno.serve) → 4 canais unit-testáveis, candidate_cost_over_1 deixa de ser código morto (emissão pelo trigger = 23-05). Handler importa de './messages.ts', byte-idêntico. NÃO redeploya (bundle-freeze → 23-06)
+- [Phase 24]: SEC-01: gabarito cognitivo blindado via DROP row policy (candidato lê 0 rows) + get_cognitivo_itens DEFINER RPC + REVOKE(gabarito_idx); row-deny é a real teeth, column REVOKE é defense-in-depth — Plano 24-02
+- [Phase 24]: SEC-07: rubric BARS blindado via REVOKE(rubric)+allowlist drop; caveat 24-08 — grant table-level pode neutralizar column REVOKE, o SQL smoke detecta o leak — Plano 24-02
 
 ### Pending Todos
 
@@ -136,8 +139,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-06T02:45:00.000Z
-Stopped at: Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 · 7ca8737/e12807f. NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05. Restam 23-05 (migration PROD) + 23-06 (redeploy) na Phase 23.
+Last session: 2026-07-07T03:41:30.769Z
+Stopped at: Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133.
 Resume file: None
 
 ## Operator Next Steps
