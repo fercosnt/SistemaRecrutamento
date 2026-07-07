@@ -327,6 +327,58 @@ Deno.test("RESIL-02 — one dim's callAi rejection degrades that dim, the other 
   assert(out.devolutiva_id, "degrade path still persists a (template) devolutiva — no decisional write");
 });
 
+// ── SEC-04 (T-24-05-01): Bearer self-auth — the devolutiva IDOR is closed ─────
+// The EF is server-to-server only (submit-bigfive-final, service_role). Before this
+// guard it had ZERO caller authz — any JWT could read another candidate's devolutiva.
+// `guardDevolutivaBearer` returns a 401 Response on absent/wrong Bearer, or `null`
+// (proceed) on an exact-match secret. We assert the guard directly (no Deno.serve).
+async function loadBearerGuard() {
+  const mod = await import("../index.ts");
+  return (mod as {
+    guardDevolutivaBearer: (req: Request, expectedSecret: string) => Response | null;
+  }).guardDevolutivaBearer;
+}
+
+const DEVOLUTIVA_SECRET = "service-role-secret-xyz";
+
+function reqWithAuth(auth?: string): Request {
+  const headers: Record<string, string> = {};
+  if (auth !== undefined) headers["Authorization"] = auth;
+  return new Request("http://localhost/functions/v1/gerar-devolutiva-bigfive", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ score_id: SCORE_ID }),
+  });
+}
+
+Deno.test("SEC-04 — no Bearer header → 401 (IDOR closed)", async () => {
+  const guard = await loadBearerGuard();
+  const res = guard(reqWithAuth(undefined), DEVOLUTIVA_SECRET);
+  assert(res, "an absent Bearer must be rejected with a Response");
+  assertEquals(res!.status, 401, "no Bearer → 401");
+});
+
+Deno.test("SEC-04 — wrong Bearer → 401 (IDOR closed)", async () => {
+  const guard = await loadBearerGuard();
+  const res = guard(reqWithAuth("Bearer not-the-secret"), DEVOLUTIVA_SECRET);
+  assert(res, "a mismatched Bearer must be rejected with a Response");
+  assertEquals(res!.status, 401, "wrong Bearer → 401");
+});
+
+Deno.test("SEC-04 — correct service Bearer → null (handler proceeds, 200 path)", async () => {
+  const guard = await loadBearerGuard();
+  const res = guard(reqWithAuth(`Bearer ${DEVOLUTIVA_SECRET}`), DEVOLUTIVA_SECRET);
+  assertEquals(res, null, "an exact-match Bearer must NOT be rejected — the handler proceeds");
+});
+
+Deno.test("SEC-04 — a raw token without the 'Bearer ' scheme prefix → 401", async () => {
+  const guard = await loadBearerGuard();
+  // Only the `Bearer <secret>` shape is accepted; a bare secret is rejected.
+  const res = guard(reqWithAuth(DEVOLUTIVA_SECRET), DEVOLUTIVA_SECRET);
+  assert(res, "a token missing the 'Bearer ' scheme must be rejected");
+  assertEquals(res!.status, 401, "no scheme → 401");
+});
+
 // ── UX-07: o prompt do LLM é banda-only — o percentil cru NUNCA é injetado ────
 Deno.test("UX-07 — buildDevolutivaUserBlock emite banda qualitativa, nunca o percentil cru", async () => {
   const mod = await import("../index.ts");

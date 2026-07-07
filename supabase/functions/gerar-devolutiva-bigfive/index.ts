@@ -566,6 +566,46 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// ---------------------------------------------------------------------------
+// SEC-04 (T-24-05-01) — Bearer self-auth guard.
+//
+// This EF reads a candidate's devolutiva via service_role and had ZERO caller
+// authorization: any JWT (or an unauthenticated caller) could POST a `score_id`
+// and trigger a service_role read of ANOTHER candidate's devolutiva — an open
+// IDOR / information-disclosure hole. The EF is invoked ONLY server-to-server
+// (submit-bigfive-final, via service_role); there is no candidate/browser caller
+// (grep of `src/` is empty — assumption A4). We therefore gate the handler on an
+// exact-match Bearer shared secret, mirroring cost-alerter/index.ts:90-113.
+//
+// Landmine (RESEARCH Pitfall 4): we deliberately do NOT derive role from the
+// caller's decoded JWT metadata. The custom-access-token hook injects role only
+// into the SIGNED token, never into raw_app_meta_data, so a decode-based role read
+// is always undefined and would false-pass/false-fail. Bearer self-auth is the
+// sufficient guard for a server-to-server-only EF — there is no end-user caller to
+// apply a role+posse check to.
+//
+// Returns a 401 Response when the Bearer is absent/mismatched, or `null` when the
+// caller is authorized (the handler proceeds). Exported so the deno test suite can
+// exercise the no-Bearer / wrong-Bearer / correct-Bearer cases directly without
+// standing up Deno.serve.
+export function guardDevolutivaBearer(
+  req: Request,
+  expectedSecret: string,
+): Response | null {
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ")
+    ? authHeader.slice("Bearer ".length).trim()
+    : "";
+  if (!bearer || bearer !== expectedSecret) {
+    console.warn("[gerar-devolutiva-bigfive] Rejected request: invalid/absent Bearer");
+    return new Response(JSON.stringify({ error: "Não autorizado." }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return null;
+}
+
 if (import.meta.main) {
   // @ts-ignore — Deno global existe em runtime na Edge Function.
   Deno.serve(async (req: Request) => {
@@ -587,6 +627,16 @@ if (import.meta.main) {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ---- SEC-04 (T-24-05-01): Bearer self-auth — close the IDOR ---------------
+    // Reject any caller that does not present the internal shared secret BEFORE
+    // resolving the prompt or reading any candidate row. Rotation-friendly override
+    // via DEVOLUTIVA_INVOKE_SECRET; falls back to the service_role key (the value the
+    // service invoker already sends). See guardDevolutivaBearer + Pitfall 4 above.
+    // @ts-ignore — Deno.env existe em runtime.
+    const expectedSecret = Deno.env.get("DEVOLUTIVA_INVOKE_SECRET") ?? SERVICE_KEY;
+    const bearerRejection = guardDevolutivaBearer(req, expectedSecret);
+    if (bearerRejection) return bearerRejection;
 
     // Clientes construídos a partir dos imports ESTÁTICOS do topo do módulo
     // (CR-01 / WR-02). Nenhum specifier dinâmico — o bundler de deploy resolve
