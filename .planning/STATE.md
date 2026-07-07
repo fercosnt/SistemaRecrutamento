@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 24 / Plan 24-05 complete — SEC-04 gerar-devolutiva-bigfive Bearer self-auth (exported guardDevolutivaBearer, no getUser/role — Pitfall 4, IDOR closed) + SEC-03 n8n dispatch server-side (migration 20260706110005 — 3 pg_net+Vault triggers, graceful NULL skip) + deleted all client URL/VITE_/fetch + build-artifact grep guard. Files only; Vault+apply=24-08, EF redeploy=24-09. Commits 595727d/cb02563/5fb72fe. tsc 128.
-last_updated: "2026-07-07T04:25:42.419Z"
+stopped_at: Phase 24 / Plan 24-06 complete — SEC-09 auth_admin policy mirror + SEC-10 backup PII drop migrations (files-only, apply 24-08) + SEC-11 RH console.log strip + grep guard extended. Commits 9eed6e9/27aa3dd. tsc 128.
+last_updated: "2026-07-07T04:33:23.604Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 21
-  completed_plans: 17
+  completed_plans: 18
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [████████░░] 81%
+Progress: [█████████░] 86%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -78,6 +78,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 24 P03 | ~12min | 3 tasks | 4 files |
 | Phase 24 P04 | ~10min | 2 tasks | 2 files |
 | Phase 24 P05 | ~30min | 3 tasks | 7 files |
+| Phase 24 P06 | 12min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -122,6 +123,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 24]: SEC-05/06/08: 6 policies RH role-only → vaga-scoped (WR-04: admin bypass OR rh owns vaga); analise/comparativo/candidaturas scope vaga_id direto, redacoes via candidaturas→vagas JOIN; UPDATE=USING+WITH CHECK; reprocessar_analise já-scoped só regression-guard (42501); RNF-07a pontuar-no-write. Files-only, PROD apply 24-08. Commits 3277e9c/07e93be — Plano 24-04
 - [Phase 24]: SEC-04: gerar-devolutiva-bigfive (era ZERO auth — IDOR aberto) fechado com exported guardDevolutivaBearer() exact-match Bearer self-auth no topo do Deno.serve (secret DEVOLUTIVA_INVOKE_SECRET ?? SERVICE_KEY); SEM getUser()/role/posse (Pitfall 4 — EF server-to-server-only, grep src/ de caller vazio → Bearer é suficiente). Bearer-only aprovado pelo Fernando. Guard exportado = testável (4 casos deno) sem Deno.serve. Commit 595727d — Plano 24-05
 - [Phase 24]: SEC-03: n8n dispatch server-side via migration 20260706110005 (3 AFTER triggers pg_net+Vault n8n_webhook_base único, graceful RETURN se NULL, body id-only sem PII, RNF-07a); deletado TODO o subtree client (2 URLs+VITE_+fetch+2 helper fns+WEBHOOK_CONFIG/webhookLogger/sleep/isRetryableError+2 locais órfãos), tsc 133→128; build-artifact grep guard (n8n.cloud|fernandocosta em build/ + VITE_N8N em src/). Vault+apply=24-08, EF redeploy=24-09 (dropar fire redundante do submit-candidatura env-var). Files-only. Commits cb02563/5fb72fe — Plano 24-05. ⚠️ threat-flag: n8nService.ts (cadastro) é 2º leak PII-no-bundle (9 URLs hstgr + cpf/email) → deferred-items, Phase 25
+- [Phase ?]: [Phase 24]: SEC-09 auth_admin_le_usuarios_rh declared in migration 20260706110006 (idempotent DROP+CREATE, byte-for-behavior mirror of live predicate per 24-01/A2 — zero behavior change, drift-fix; version-row reconcile → Phase 27). SEC-10 DROP backup_m2.candidaturas_pre_funil + DROP SCHEMA CASCADE (20260706110007, LGPD erasure 35-col PII). Files-only, apply 24-08. Commits 9eed6e9/27aa3dd — Plano 24-06
+- [Phase ?]: [Phase 24]: SEC-11 stripped 8 operational console.log from RH pages (ConfiguracoesPage L491 candidate-email leak +4; MeuPerfilPage 3); stubs kept M5; console.error left intact (FX-14); rh-console.grep RH_PATH_FILES += ConfiguracoesPage/MeuPerfilPage. tsc 128 — Plano 24-06
 
 ### Pending Todos
 
@@ -146,8 +149,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-07T04:25:42.404Z
-Stopped at: Phase 24 / Plan 24-05 complete — SEC-04 gerar-devolutiva-bigfive Bearer self-auth (exported guardDevolutivaBearer, no getUser/role — Pitfall 4, IDOR closed) + SEC-03 n8n dispatch server-side (migration 20260706110005 — 3 pg_net+Vault triggers, graceful NULL skip) + deleted all client URL/VITE_/fetch + build-artifact grep guard. Files only; Vault+apply=24-08, EF redeploy=24-09. Commits 595727d/cb02563/5fb72fe. tsc 128.
+Last session: 2026-07-07T04:33:23.591Z
+Stopped at: Phase 24 / Plan 24-06 complete — SEC-09 auth_admin policy mirror + SEC-10 backup PII drop migrations (files-only, apply 24-08) + SEC-11 RH console.log strip + grep guard extended. Commits 9eed6e9/27aa3dd. tsc 128.
 Resume file: None
 
 ## Operator Next Steps

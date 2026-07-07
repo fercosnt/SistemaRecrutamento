@@ -23,9 +23,9 @@
 - [x] **SEC-06**: Scoping horizontal por vaga (padrão WR-03/WR-04) aplicado a `analise_candidato_vaga` e ao caminho de reprocessar. `(A30, MEDI)`
 - [x] **SEC-07**: Serviço candidate-facing não seleciona a coluna `rubric` (critérios BARS) das perguntas. `(A40, MEDI)`
 - [x] **SEC-08**: RH policies da base-table `candidaturas` são vaga-scoped — recrutador não-dono não lê todos os candidatos. `(A42, MEDI)`
-- [ ] **SEC-09**: A policy SELECT de `supabase_auth_admin` sobre `usuarios_rh` (dependência do `custom_access_token_hook`) fica declarada em migration file — elimina o drift execute_sql-only. `(A43, MEDI)`
-- [ ] **SEC-10**: Backup PII (`backup_m2.candidaturas_pre_funil`) fica coberto por RLS/erasure ou é removido — não é PII permanente fora do alcance. `(A49, LOW/LGPD)`
-- [ ] **SEC-11**: `console.log` operacional removido das páginas RH em PROD (não expõe movimentação de candidatos nem emails no console). `(A54, LOW)`
+- [x] **SEC-09**: A policy SELECT de `supabase_auth_admin` sobre `usuarios_rh` (dependência do `custom_access_token_hook`) fica declarada em migration file — elimina o drift execute_sql-only. `(A43, MEDI)`
+- [x] **SEC-10**: Backup PII (`backup_m2.candidaturas_pre_funil`) fica coberto por RLS/erasure ou é removido — não é PII permanente fora do alcance. `(A49, LOW/LGPD)`
+- [x] **SEC-11**: `console.log` operacional removido das páginas RH em PROD (não expõe movimentação de candidatos nem emails no console). `(A54, LOW)`
 
 ### 🤖 AI — Confiabilidade & Versionamento de IA (M4-B)
 
@@ -145,9 +145,9 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | SEC-06 | Phase 24 | Complete |
 | SEC-07 | Phase 24 | Complete |
 | SEC-08 | Phase 24 | Complete |
-| SEC-09 | Phase 24 | Pending |
-| SEC-10 | Phase 24 | Pending |
-| SEC-11 | Phase 24 | Pending |
+| SEC-09 | Phase 24 | Complete |
+| SEC-10 | Phase 24 | Complete |
+| SEC-11 | Phase 24 | Complete |
 | AI-01 | Phase 23 | Complete |
 | AI-02 | Phase 23 | Complete |
 | AI-03 | Phase 23 | Complete |
