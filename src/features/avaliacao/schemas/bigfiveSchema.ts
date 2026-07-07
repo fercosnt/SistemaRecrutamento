@@ -1,12 +1,14 @@
 /**
  * Phase 12 / Plan 12-05 (AVAL-04 / RF-15) — the CLIENT Big Five Likert form schema.
  *
- * The candidate answers exactly 120 IPIP-NEO-120 PT-BR items on a 5-point Likert
- * scale (1..5). The schema mirrors the EF's `SubmitBigfiveFinalBodySchema`
+ * The candidate answers the active IPIP-NEO-120 PT-BR items on a 5-point Likert scale
+ * (1..5). UX-08 (Phase 24) deactivated the 4 political O6 items {28,58,88,118} (LGPD
+ * special-category), so the administered set is 116 items with non-contiguous ids. The
+ * schema mirrors the EF's `SubmitBigfiveFinalBodySchema`
  * (supabase/functions/_shared/avaliacao-schemas.ts) so the body the client builds
  * parses there byte-for-byte (the 12-01 contract test pins this). It is the
  * anti-tamper boundary (RESEARCH Pitfall 3): the client posts ONLY
- * `{ candidatura_id, respostas: { "1".."120" → 1..5 } }` — NEVER a score, never a
+ * `{ candidatura_id, respostas: { "<active item_id>" → 1..5 } }` — NEVER a score, never a
  * dimension/facet/reverse key. `.strict()` rejects any extra field rather than
  * silently stripping it.
  *
@@ -26,8 +28,14 @@ export const LIKERT_LABELS: readonly string[] = [
   'Muito adequado',
 ]
 
-/** Exactly the number of items in the IPIP-NEO-120 instrument. */
-export const BIGFIVE_TOTAL_ITENS = 120
+/**
+ * The number of ACTIVE items administered by the IPIP-NEO-120 instrument. UX-08
+ * (Phase 24) deactivated the 4 political O6 items {28,58,88,118} (LGPD special-category),
+ * so the candidate answers 116 items. This is the presentation/copy default; the true
+ * completion gate is driven off the loaded item ids (get_bigfive_itens = the active set,
+ * non-contiguous) — see isAllAnswered.
+ */
+export const BIGFIVE_TOTAL_ITENS = 116
 
 /**
  * The client submit body — EXACT twin of the EF `SubmitBigfiveFinalBodySchema`:
@@ -46,8 +54,8 @@ export type SubmitBigfiveBody = z.infer<typeof SubmitBigfiveBodySchema>
 
 /**
  * Builds the submit body from the answer map keyed by item_id. Does NOT inject a
- * score (the EF derives it). The caller asserts completeness (all 120) before
- * enabling submit; the EF re-validates via `.strict` + a 1..120 coverage check.
+ * score (the EF derives it). The caller asserts completeness (all loaded/active items)
+ * before enabling submit; the EF re-validates via `.strict` + an active-set coverage check.
  */
 export function buildSubmitBigfiveBody(
   candidaturaId: string,
@@ -59,21 +67,32 @@ export function buildSubmitBigfiveBody(
   })
 }
 
-/** True once all 120 items carry a 1..5 answer (the Concluir gate). */
-export function isAllAnswered(respostas: Record<string, number | undefined>): boolean {
-  let count = 0
-  for (let id = 1; id <= BIGFIVE_TOTAL_ITENS; id++) {
+/**
+ * True once EVERY loaded item carries a 1..5 answer (the Concluir gate). Driven off the
+ * loaded item ids — the active set from `get_bigfive_itens` (116 non-contiguous ids
+ * after UX-08 deactivated {28,58,88,118}). The caller passes those ids so a gap never
+ * blocks completion; iterating a literal `1..N` range would count the deactivated ids
+ * as forever-unanswered and the gate would never satisfy.
+ */
+export function isAllAnswered(
+  respostas: Record<string, number | undefined>,
+  itemIds: readonly number[],
+): boolean {
+  if (itemIds.length === 0) return false
+  return itemIds.every((id) => {
     const v = respostas[String(id)]
-    if (typeof v === 'number' && v >= 1 && v <= 5) count++
-  }
-  return count === BIGFIVE_TOTAL_ITENS
+    return typeof v === 'number' && v >= 1 && v <= 5
+  })
 }
 
-/** How many of the 120 items currently carry a valid answer (progress count). */
+/**
+ * How many loaded items currently carry a valid 1..5 answer (progress count). Counts the
+ * answered entries directly — the map is only ever keyed by loaded item ids (which are
+ * non-contiguous after UX-08), never a literal `1..N` loop.
+ */
 export function countAnswered(respostas: Record<string, number | undefined>): number {
   let count = 0
-  for (let id = 1; id <= BIGFIVE_TOTAL_ITENS; id++) {
-    const v = respostas[String(id)]
+  for (const v of Object.values(respostas)) {
     if (typeof v === 'number' && v >= 1 && v <= 5) count++
   }
   return count

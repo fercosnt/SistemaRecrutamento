@@ -6,7 +6,7 @@
  *
  * Arquitetura (two-client D-23 + C1 authenticate-THEN-authorize, lição Phase 10/11,
  * clonada VERBATIM de avaliar-redacao):
- *   Recebe `{ candidatura_id, respostas: {1..120 → 1-5} }`, verifica o JWT do
+ *   Recebe `{ candidatura_id, respostas: {116 ids ativos → 1-5} }`, verifica o JWT do
  *   candidato (supabaseUser anon + Authorization → auth.getUser()), AUTORIZA que
  *   auth.uid() é dono da candidatura E etapa_atual='avaliacao_assincrona' (403 caso
  *   contrário — service_role bypassa RLS, então a checagem é OBRIGATÓRIA ANTES de
@@ -36,7 +36,13 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { score, normGroupFromBirthDate, type NormGroup } from "../_shared/bigfive-scoring.ts";
+import {
+  score,
+  normGroupFromBirthDate,
+  type NormGroup,
+  ACTIVE_ITEM_IDS,
+  ACTIVE_ITEM_COUNT,
+} from "../_shared/bigfive-scoring.ts";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers
@@ -76,8 +82,10 @@ export interface SubmitBigfiveFinalDeps {
  * Anti-tamper body gate (Pitfall 3). Espelha `SubmitBigfiveFinalBodySchema.strict()`
  * sem impor o formato UUID no `candidatura_id` (a existência/posse é provada pelo
  * lookup de autorização — um id inexistente cai em 403). Rejeita qualquer campo
- * extra (ex.: `score`), exige que `respostas` cubra EXATAMENTE os ids 1..120 e que
- * cada valor seja int 1-5. O cliente NUNCA envia um score — ele é derivado server-side.
+ * extra (ex.: `score`), exige que `respostas` cubra EXATAMENTE os 116 ids ATIVOS
+ * (UX-08: os 4 itens políticos O6 {28,58,88,118} foram desativados → o conjunto de ids
+ * é NÃO-CONTÍGUO, derivado server-side de ACTIVE_ITEM_IDS no scorer) e que cada valor
+ * seja int 1-5. O cliente NUNCA envia um score — ele é derivado server-side.
  */
 function validateBody(raw: Record<string, unknown>): {
   ok: boolean;
@@ -94,9 +102,12 @@ function validateBody(raw: Record<string, unknown>): {
     return { ok: false, numeric: {} };
   }
   const rec = respostas as Record<string, unknown>;
-  if (Object.keys(rec).length !== 120) return { ok: false, numeric: {} };
+  // UX-08: cobertura exata do conjunto ATIVO (116 ids não-contíguos). Isso rejeita um
+  // body de 120 itens, um body carregando um id desativado (28/58/88/118), ou qualquer
+  // cobertura errada — o loop exige que CADA id ativo esteja presente e 1-5.
+  if (Object.keys(rec).length !== ACTIVE_ITEM_COUNT) return { ok: false, numeric: {} };
   const numeric: Record<number, number> = {};
-  for (let id = 1; id <= 120; id++) {
+  for (const id of ACTIVE_ITEM_IDS) {
     const v = rec[String(id)];
     if (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > 5) {
       return { ok: false, numeric: {} };
@@ -169,7 +180,7 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
   }
 
   // ── 4. SÓ AGORA valida o body (anti-tamper, Pitfall 3 — rejeita qualquer campo
-  //      extra como `score`) e a cobertura exata de 1..120 (1-5 cada).
+  //      extra como `score`) e a cobertura exata dos 116 ids ativos (1-5 cada).
   const validated = validateBody(raw);
   if (!validated.ok) {
     return errorResponse("VALIDATION", "Payload da avaliação inválido.");

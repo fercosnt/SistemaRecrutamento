@@ -6,7 +6,7 @@
  * `getBigfiveItens` — item_id/texto/ordem ONLY, never the scoring key) paginated
  * 12 pages × 10 (page 0 = intro). Each item is a statement + a 5-point Likert
  * `radio-group` using the fixed PT-BR labels; the selected option is glass-white
- * (`bg-white/30`), NOT the accent. A progress bar + a NEUTRAL "{n}/120" count is
+ * (`bg-white/30`), NOT the accent. A progress bar + a NEUTRAL "{n}/{total}" count is
  * the ONLY feedback — the candidate NEVER sees a score/threshold/pass-fail during
  * the questionnaire (RNF-07a, T-12-20). Autosave reuses `useAutosaveAvaliacao`
  * (teste='big_five', 30s debounce + 42501 back-lock). Submit → `submitBigfiveFinal`
@@ -114,7 +114,7 @@ function AutosaveAffordance({ status }: { status: string }) {
 }
 
 /**
- * One Likert item — the affirmation as the visual star (numbered "{n}/120", larger
+ * One Likert item — the affirmation as the visual star (numbered "{n}/{total}", larger
  * type, breathing room) + a horizontal 5-point scale (UX-BIGFIVE-01). The 5 points are
  * equal cells numbered 1..5; ONLY the two extremes carry a visible label so the long
  * PT-BR labels never wrap and break the linear scale (the old 4+1 grid orphaned the 5th
@@ -128,12 +128,15 @@ export function LikertItem({
   numero,
   value,
   onChange,
+  total = BIGFIVE_TOTAL_ITENS,
 }: {
   item: BigfiveItem
-  /** 1-based global position (1..120), shown as "{numero} / 120". */
+  /** 1-based global position, shown as "{numero} / {total}". */
   numero: number
   value: number | undefined
   onChange: (v: number) => void
+  /** Total administered items — defaults to the active count; the screen passes the loaded length. */
+  total?: number
 }) {
   const headingId = `bigfive-item-${item.item_id}`
   return (
@@ -141,7 +144,7 @@ export function LikertItem({
       {/* The affirmation is the star: position marker + larger, heavier statement. */}
       <div className="space-y-1.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-white/80">
-          {`${numero} / ${BIGFIVE_TOTAL_ITENS}`}
+          {`${numero} / ${total}`}
         </span>
         <p id={headingId} className="text-lg font-semibold leading-snug text-white sm:text-xl">
           {item.texto}
@@ -257,14 +260,21 @@ export function EscalaLegenda({
  * richer, and the 5-level scale is explained up front via EscalaLegenda. Exported for
  * the BigFiveIntro test (rendered standalone, without ScreenShell).
  */
-export function BigFiveIntro({ onComecar }: { onComecar: () => void }) {
+export function BigFiveIntro({
+  onComecar,
+  totalItens = BIGFIVE_TOTAL_ITENS,
+}: {
+  onComecar: () => void
+  /** Number of administered items shown in the intro copy — defaults to the active count. */
+  totalItens?: number
+}) {
   return (
     <GlassPanel variant="white" blur="xl" className={cn(PANEL_DARK, 'text-white space-y-6')}>
       <div className="space-y-2">
         <h1 className="text-2xl font-semibold drop-shadow-md">Avaliação comportamental</h1>
         {/* Scannable highlight line — turquoise now reads on the dark glass (WCAG AA). */}
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-[#6EE6D6]">
-          <span>120 afirmações</span>
+          <span>{totalItens} afirmações</span>
           <span aria-hidden="true" className="text-white/40">·</span>
           <span>~15 min</span>
           <span aria-hidden="true" className="text-white/40">·</span>
@@ -277,7 +287,7 @@ export function BigFiveIntro({ onComecar }: { onComecar: () => void }) {
         {[
           'Leia cada afirmação e marque o quanto ela combina com você, pensando em como você é no geral — não só hoje.',
           'Descreva-se com sinceridade: não há resposta certa ou errada. É só o seu estilo, não uma prova nem teste de QI.',
-          'São 120 afirmações, em páginas de 10. Você pode pausar e voltar quando quiser — tudo é salvo automaticamente.',
+          `São ${totalItens} afirmações, em páginas de 10. Você pode pausar e voltar quando quiser — tudo é salvo automaticamente.`,
         ].map((linha) => (
           <li key={linha} className="flex items-start gap-2.5">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#6EE6D6]" aria-hidden="true" />
@@ -340,7 +350,11 @@ export function BigFiveQuestionnaireScreen() {
   // 12 question pages of 10 (after the intro page 0).
   const totalQuestionPages = Math.ceil(ordered.length / ITENS_POR_PAGINA)
   const answeredCount = countAnswered(respostas)
-  const allAnswered = isAllAnswered(respostas)
+  // UX-08: the completion gate is driven off the LOADED item ids (the active set from
+  // get_bigfive_itens = 116 non-contiguous ids), never a literal 1..N range — a gap at
+  // 28/58/88/118 must not block "Concluir".
+  const itemIds = useMemo(() => ordered.map((i) => i.item_id), [ordered])
+  const allAnswered = isAllAnswered(respostas, itemIds)
 
   const handleAnswer = (itemId: number, value: number) => {
     setRespostas((r) => {
@@ -426,7 +440,7 @@ export function BigFiveQuestionnaireScreen() {
   if (page === 0) {
     return (
       <ScreenShell>
-        <BigFiveIntro onComecar={() => setPage(1)} />
+        <BigFiveIntro onComecar={() => setPage(1)} totalItens={ordered.length} />
       </ScreenShell>
     )
   }
@@ -449,9 +463,9 @@ export function BigFiveQuestionnaireScreen() {
 
         {/* Progress: NEUTRAL count only — never a score (RNF-07a). */}
         <div className="space-y-1.5">
-          <Progress value={(answeredCount / BIGFIVE_TOTAL_ITENS) * 100} className="h-2" />
+          <Progress value={(answeredCount / ordered.length) * 100} className="h-2" />
           <p className="text-sm text-white/80 text-right">
-            {answeredCount}/{BIGFIVE_TOTAL_ITENS}
+            {answeredCount}/{ordered.length}
           </p>
         </div>
 
@@ -464,6 +478,7 @@ export function BigFiveQuestionnaireScreen() {
               key={item.item_id}
               item={item}
               numero={pageStart + idx + 1}
+              total={ordered.length}
               value={respostas[String(item.item_id)]}
               onChange={(v) => handleAnswer(item.item_id, v)}
             />

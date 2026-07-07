@@ -2,8 +2,9 @@
  * Phase 12 / Plan 12-01 Task 1 — Wave 0 RED scaffold for the candidate-invoked
  * Edge Function `submit-bigfive-final` (AVAL-04 / RF-15 — IPIP-NEO-120 scoring).
  *
- * The candidate (etapa_atual='avaliacao_assincrona') submits ONLY the 120 Likert
- * answers (1-5). The EF re-scores server-side (the reverse/dim/faceta answer-key
+ * The candidate (etapa_atual='avaliacao_assincrona') submits ONLY the 116 active
+ * Likert answers (1-5; UX-08 deactivated the 4 political O6 items {28,58,88,118}).
+ * The EF re-scores server-side (the reverse/dim/faceta answer-key
  * NEVER leaves the server), persists a `scores_candidato` row tipo='big_five'
  * status='sucesso', and returns the NEUTRAL { ok:true } payload — never a score
  * (RNF-07a). Big Five is CONTEXTUAL: the EF NEVER writes `candidaturas`, never
@@ -46,11 +47,13 @@ const CANDIDATURA_ID = "cand-vaga-1";
 // in PROD; comparing candidato_id directly against user.id is the bug this fixes).
 const CANDIDATO_ROW_ID = "candidato-row-1";
 
-// A complete 120-answer Likert body (every item answered 3 — neutral). The EF
+// UX-08: the 4 political O6 items {28,58,88,118} are deactivated → a complete body is
+// the 116 ACTIVE ids (non-contiguous), every item answered 3 (neutral). The EF
 // re-scores this server-side; the client never sends a score (.strict, Pitfall 3).
-const RESPOSTAS_120: Record<string, number> = {};
-for (let id = 1; id <= 120; id++) RESPOSTAS_120[String(id)] = 3;
-const VALID_BODY = { candidatura_id: CANDIDATURA_ID, respostas: RESPOSTAS_120 };
+const DEACTIVATED_ITEM_IDS = new Set([28, 58, 88, 118]);
+const RESPOSTAS_116: Record<string, number> = {};
+for (let id = 1; id <= 120; id++) if (!DEACTIVATED_ITEM_IDS.has(id)) RESPOSTAS_116[String(id)] = 3;
+const VALID_BODY = { candidatura_id: CANDIDATURA_ID, respostas: RESPOSTAS_116 };
 
 // Mock Supabase admin (service_role): returns the candidatura ownership/etapa row
 // for the authz guard and captures every INSERT/UPDATE so the test can assert
@@ -253,14 +256,29 @@ Deno.test("AVAL-04 — a body with an extra `score` field is rejected 400 (.stri
   assertEquals(admin.inserts.length, 0, "tampered body must never reach scoring");
 });
 
-// ── Validation: an incomplete (119-item) body is rejected 400 ─────────────────
-Deno.test("AVAL-04 — an incomplete (<120) responses map is rejected 400", async () => {
+// ── Validation: an incomplete (115-item) body is rejected 400 ─────────────────
+Deno.test("AVAL-04 — an incomplete (<116) responses map is rejected 400", async () => {
   const { handler } = await loadHandler();
   const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
   const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
-  const partial: Record<string, number> = { ...RESPOSTAS_120 };
-  delete partial["120"]; // 119 answers
+  const partial: Record<string, number> = { ...RESPOSTAS_116 };
+  delete partial["120"]; // 115 answers (116 active − 1)
   const res = await handler(makeRequest({ candidatura_id: CANDIDATURA_ID, respostas: partial }), deps);
-  assertEquals(res.status, 400, "must require all 120 answers");
+  assertEquals(res.status, 400, "must require all 116 active answers");
   assertEquals(admin.inserts.length, 0);
+});
+
+// ── UX-08: the old 120-item contiguous body (incl. the deactivated political ids)
+//    is now REJECTED — the active-set coverage check enforces the 116 non-contiguous
+//    ids, so a 120-key body (which carries 28/58/88/118) fails on count + on the
+//    deactivated ids being present. Proves the count-lockstep landed. ───────────────
+Deno.test("UX-08 — a 120-item body (with the deactivated political ids) is rejected 400", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
+  const respostas120: Record<string, number> = {};
+  for (let id = 1; id <= 120; id++) respostas120[String(id)] = 3; // includes 28/58/88/118
+  const res = await handler(makeRequest({ candidatura_id: CANDIDATURA_ID, respostas: respostas120 }), deps);
+  assertEquals(res.status, 400, "a 120-item body must be rejected post-UX-08 (active set is 116)");
+  assertEquals(admin.inserts.length, 0, "a wrong-coverage body must never reach scoring");
 });
