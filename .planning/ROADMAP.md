@@ -143,7 +143,30 @@ Plans:
   4. A policy SELECT de `supabase_auth_admin` sobre `usuarios_rh` (dependência do `custom_access_token_hook`) está declarada em migration file — sem drift execute_sql-only — e o backup PII `backup_m2.candidaturas_pre_funil` fica coberto por RLS/erasure ou é removido (SEC-09, SEC-10).
   5. Os 4 itens políticos O6 do Big Five são removidos do banco de itens (dado sensível, mesma natureza LGPD) (UX-08).
 
-**Plans**: TBD
+**Plans**: 9 plans (4 waves)
+Plans:
+**Wave 1** *(BLOCKING · non-autonomous · MCP live-state reads — first task of the phase)*
+
+- [ ] 24-01-PLAN.md — Live-state verification via Supabase MCP (pg_policies + column ACLs + backup existence + auth_admin predicate) → 24-LIVE-STATE.md [Wave 1]
+
+**Wave 2** *(código local, disjoint files — migration FILES + client rewires + EF edits + tests)*
+
+- [ ] 24-02-PLAN.md — SEC-01 gabarito (column REVOKE + get_cognitivo_itens DEFINER RPC) + SEC-07 rubric (REVOKE + allowlist drop) [Wave 2]
+- [ ] 24-03-PLAN.md — SEC-02 veredito redação (candidate-DENY row + get_minha_redacao DEFINER RPC — NOT column REVOKE) [Wave 2]
+- [ ] 24-04-PLAN.md — SEC-05/06/08 policies vaga-scoped (WR-04) em analise/comparativo/candidaturas/redacoes RH + reprocessar regression-guard [Wave 2]
+- [ ] 24-05-PLAN.md — SEC-04 devolutiva EF Bearer self-auth + SEC-03 n8n server-side (pg_net+Vault) + remoção do bundle + grep guard [Wave 2]
+- [ ] 24-06-PLAN.md — SEC-09 auth_admin policy em migration file + SEC-10 DROP backup PII + SEC-11 strip console.log RH + guard [Wave 2]
+- [ ] 24-07-PLAN.md — UX-08 desativar 4 itens O6 {28,58,88,118} + scorer 116-item/O-prorate + submit-final/schema/copy/golden lockstep [Wave 2]
+
+**Wave 3** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
+
+- [ ] 24-08-PLAN.md — Aplicar as 8 migrations via apply_migration + n8n Vault secret + SQL smokes ao vivo (candidato-DENY / non-owner-0-rows / 42501 / to_regclass NULL / 116 ativos) [Wave 3]
+
+**Wave 4** *(BLOCKING · non-autonomous · redeploy PROD)*
+
+- [ ] 24-09-PLAN.md — Redeploy gerar-devolutiva-bigfive (401/200) + submit-bigfive-final (116-item bundle) + smokes ao vivo [Wave 4]
+
+**UI hint**: no
 
 ### Phase 25: Correção do Funil (lado RH — enums, colunas & contratos)
 
@@ -204,7 +227,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/TBD | Not started | - |
+| 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/9 | Not started | - |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
