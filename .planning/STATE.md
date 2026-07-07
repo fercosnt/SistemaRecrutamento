@@ -4,13 +4,13 @@ milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
 stopped_at: "Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133."
-last_updated: "2026-07-07T03:41:41.627Z"
+last_updated: "2026-07-07T03:53:19.822Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 21
-  completed_plans: 14
+  completed_plans: 15
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [███████░░░] 67%
+Progress: [███████░░░] 71%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -75,6 +75,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 23 P02 | 22min | 3 tasks | 18 files |
 | Phase 23 P03 | 22min | 2 tasks | 5 files |
 | Phase 24 P02 | 30 | 3 tasks | 8 files |
+| Phase 24 P03 | ~12min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 23]: [Phase 23/23-03] AI-06: alertMessage + CostAnomalyBody extraídos de cost-alerter/index.ts p/ cost-alerter/messages.ts (módulo puro sem Deno.serve) → 4 canais unit-testáveis, candidate_cost_over_1 deixa de ser código morto (emissão pelo trigger = 23-05). Handler importa de './messages.ts', byte-idêntico. NÃO redeploya (bundle-freeze → 23-06)
 - [Phase 24]: SEC-01: gabarito cognitivo blindado via DROP row policy (candidato lê 0 rows) + get_cognitivo_itens DEFINER RPC + REVOKE(gabarito_idx); row-deny é a real teeth, column REVOKE é defense-in-depth — Plano 24-02
 - [Phase 24]: SEC-07: rubric BARS blindado via REVOKE(rubric)+allowlist drop; caveat 24-08 — grant table-level pode neutralizar column REVOKE, o SQL smoke detecta o leak — Plano 24-02
+- [Phase ?]: SEC-02: candidate-DENY row (DROP redacao_candidato_select) + get_minha_redacao DEFINER RPC — NOT column REVOKE (RH shares authenticated role); status_analise coarsened so pendente_humano cannot leak the verdict
 
 ### Pending Todos
 
@@ -139,7 +141,7 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-07T03:41:30.769Z
+Last session: 2026-07-07T03:52:40.585Z
 Stopped at: Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133.
 Resume file: None
 

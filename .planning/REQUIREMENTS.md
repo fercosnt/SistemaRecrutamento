@@ -16,7 +16,7 @@
 *RLS row-level nunca é segredo de coluna → RPC SECURITY DEFINER / column REVOKE; toda EF privilegiada autentica-**E**-autoriza.*
 
 - [x] **SEC-01**: Gabarito do teste cognitivo (`gabarito_idx`) deixa de ser legível por qualquer usuário autenticado — column REVOKE / leitura só via RPC SECURITY DEFINER. `(A1, CRIT)`
-- [ ] **SEC-02**: Candidato não lê o veredito da IA da própria redação (score, cor, red_flag ético, notas do revisor) — projeção allowlist candidate-facing, nunca `select('*')`. `(A7, HIGH)`
+- [x] **SEC-02**: Candidato não lê o veredito da IA da própria redação (score, cor, red_flag ético, notas do revisor) — projeção allowlist candidate-facing, nunca `select('*')`. `(A7, HIGH)`
 - [ ] **SEC-03**: URLs de webhook n8n não ficam hardcoded/expostas no bundle público — removidas do client (resolver por substituição via EF, não patch). `(A11, HIGH)`
 - [ ] **SEC-04**: `gerar-devolutiva-bigfive` EF autentica-**E**-autoriza (Bearer interno + role + posse) — fecha o IDOR de leitura de devolutiva alheia. `(A19≡A25, HIGH)`
 - [ ] **SEC-05**: SELECT policies de `analise_candidato_vaga` / `comparativo_solicitado` são vaga-scoped, não role-only. `(A20, HIGH)`
@@ -138,7 +138,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | SEC-01 | Phase 24 | Complete |
-| SEC-02 | Phase 24 | Pending |
+| SEC-02 | Phase 24 | Complete |
 | SEC-03 | Phase 24 | Pending |
 | SEC-04 | Phase 24 | Pending |
 | SEC-05 | Phase 24 | Pending |
