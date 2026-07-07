@@ -28,21 +28,41 @@
 // ============================================================================
 
 /**
- * The 55 reverse-keyed item ids, transcribed VERBATIM from PESQUISA L289-294.
- * Per-domain counts: N7 E6 O12 A17 C13 = 55 (asserted by the golden test).
+ * The 53 reverse-keyed item ids, transcribed VERBATIM from PESQUISA L289-294 MINUS the
+ * 2 political O6 items 88 & 118 (UX-08 — deactivated, see DEACTIVATED_ITEM_IDS).
+ * Per-domain counts: N7 E6 O10 A17 C13 = 53 (asserted by the golden test).
  */
 export const REVERSED: Set<number> = new Set<number>([
   // Neuroticismo (N) — 7
   51, 81, 96, 101, 106, 111, 116,
   // Extroversão (E) — 6
   62, 67, 92, 97, 102, 107,
-  // Abertura (O) — 12
-  48, 53, 68, 73, 78, 83, 88, 98, 103, 108, 113, 118,
+  // Abertura (O) — 10 (UX-08: 88 & 118 removed with the deactivated political O6 items)
+  48, 53, 68, 73, 78, 83, 98, 103, 108, 113,
   // Amabilidade (A) — 17
   9, 19, 24, 39, 49, 54, 69, 74, 79, 84, 89, 94, 99, 104, 109, 114, 119,
   // Conscienciosidade (C) — 13
   30, 40, 60, 70, 75, 80, 85, 90, 100, 105, 110, 115, 120,
 ]);
+
+/**
+ * UX-08 (Phase 24): the 4 political-opinion O6 items {28, 58, 88, 118} (LGPD
+ * special-category — "convicção política") are deactivated from the item bank
+ * (get_bigfive_itens filters WHERE ativo). They are all facet 28 (O6) — removing them
+ * drops the whole O6 facet, so the administered instrument is 116 NON-CONTIGUOUS ids
+ * (1..120 minus this set). The scorer accepts exactly this active set and prorates the
+ * O domain ×6/5 so the wired 24-item Johnson O norm stays valid. Reversible in M5.
+ */
+export const DEACTIVATED_ITEM_IDS: ReadonlySet<number> = new Set<number>([28, 58, 88, 118]);
+
+/** The count of active (administered) IPIP-NEO items after UX-08 (120 − 4 = 116). */
+export const ACTIVE_ITEM_COUNT = 116;
+
+/** The 116 active item ids in order (1..120 minus DEACTIVATED_ITEM_IDS) — non-contiguous. */
+export const ACTIVE_ITEM_IDS: readonly number[] = Array.from(
+  { length: 120 },
+  (_, i) => i + 1,
+).filter((id) => !DEACTIVATED_ITEM_IDS.has(id));
 
 export type Domain = "O" | "C" | "E" | "A" | "N";
 
@@ -216,10 +236,12 @@ export interface ScoreResult {
 const DOMAIN_ORDER: Domain[] = ["O", "C", "E", "A", "N"];
 
 /**
- * Deterministically score a 120-item Likert response vector.
- * 1. reverse the 55 keyed items (corrected = 6 - v);
- * 2. sum the 4 corrected items per facet → 30 facet raws (range 4-20);
- * 3. sum the 6 facets per domain → 5 domain raws (range 24-120);
+ * Deterministically score the 116-item active Likert response vector (UX-08 — the 4
+ * political O6 items {28,58,88,118} are deactivated; the id set is non-contiguous).
+ * 1. reverse the 53 keyed items (corrected = 6 - v);
+ * 2. sum the 4 corrected items per facet → 30 facet raws (range 4-20; O6 facet 28 = 0);
+ * 3. sum the facets per domain → 5 domain raws; O is summed over its 5 surviving facets
+ *    and prorated ×6/5 (24-item Johnson O norm preserved); N/E/A/C stay 6-facet 24-120;
  * 4. T-score per domain via the norm group; 5. percentile via the cubic;
  * 6. band by the percentile cutoffs.
  * Matches the 12-CONTEXT metadata shape: { dimensoes, facetas, norm_group }.
@@ -229,18 +251,20 @@ export const score = (
   normGroup: NormGroup,
 ): ScoreResult => {
   // WR-03: defensive coverage guard (RESEARCH Pitfall 1). The scorer is exported,
-  // so the 120-key invariant cannot live only in submit-bigfive-final.validateBody.
+  // so the active-set invariant cannot live only in submit-bigfive-final.validateBody.
   // A partial/empty map would otherwise silently yield a structurally-valid all-zero
   // score (every percentil clamped to 1) with NO error — corrupting the band, the
-  // template, and the devolutiva. Assert exactly 120 keys, each an integer 1..120.
+  // template, and the devolutiva. Assert exactly the 116 ACTIVE ids (UX-08: the 4
+  // political O6 items {28,58,88,118} are deactivated → the id set is non-contiguous),
+  // each an integer within 1..120 and NOT a deactivated id.
   const keys = Object.keys(respostas);
-  if (keys.length !== 120) {
-    throw new Error(`bigfive-scoring: expected 120 responses, got ${keys.length}`);
+  if (keys.length !== ACTIVE_ITEM_COUNT) {
+    throw new Error(`bigfive-scoring: expected ${ACTIVE_ITEM_COUNT} responses, got ${keys.length}`);
   }
   for (const k of keys) {
     const id = Number(k);
-    if (!Number.isInteger(id) || id < 1 || id > 120) {
-      throw new Error(`bigfive-scoring: invalid item id "${k}" (must be an integer 1..120)`);
+    if (!Number.isInteger(id) || id < 1 || id > 120 || DEACTIVATED_ITEM_IDS.has(id)) {
+      throw new Error(`bigfive-scoring: invalid item id "${k}" (must be an active integer id, 1..120 minus the deactivated O6 set)`);
     }
   }
 
@@ -258,6 +282,13 @@ export const score = (
   for (let f = 1; f <= 30; f++) {
     domainRaw[FACET_TO_DOMAIN[f]] += facetRaw[f];
   }
+
+  // 3b. UX-08 O-prorate: facet 28 (the political O6 facet) is deactivated, so O is
+  // summed over its 5 surviving facets (20 items, range 20-100). Prorate ×6/5 so the
+  // wired 24-item Johnson O domain norm (range 24-120) stays valid — a documented V1
+  // stopgap; M5 restores a real 4-item O6 facet and this prorate reverts. ONLY O is
+  // prorated; N/E/A/C keep their full 6 facets (Johnson norm preserved).
+  domainRaw.O = Math.round((domainRaw.O * 6) / 5);
 
   const norm = NORMS[normGroupLabel(normGroup)] ?? FALLBACK_NORM;
 

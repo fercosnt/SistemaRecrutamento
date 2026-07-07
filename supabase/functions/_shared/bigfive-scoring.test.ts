@@ -35,11 +35,12 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 // ─── The reverse-key answer-key, transcribed VERBATIM from PESQUISA md L289-294 /
-//     L329-340. These literals are the CONTRACT — the scorer's exported set must
-//     equal this exactly. Per-domain counts: N7 E6 O12 A17 C13 = 55.
+//     L329-340, MINUS the 2 political O6 items 88 & 118 (UX-08 — deactivated).
+//     These literals are the CONTRACT — the scorer's exported set must equal this
+//     exactly. Per-domain counts after UX-08: N7 E6 O10 A17 C13 = 53.
 const REVERSED_N = [51, 81, 96, 101, 106, 111, 116]; // 7
 const REVERSED_E = [62, 67, 92, 97, 102, 107]; // 6
-const REVERSED_O = [48, 53, 68, 73, 78, 83, 88, 98, 103, 108, 113, 118]; // 12
+const REVERSED_O = [48, 53, 68, 73, 78, 83, 98, 103, 108, 113]; // 10 (UX-08: dropped 88, 118)
 const REVERSED_A = [9, 19, 24, 39, 49, 54, 69, 74, 79, 84, 89, 94, 99, 104, 109, 114, 119]; // 17
 const REVERSED_C = [30, 40, 60, 70, 75, 80, 85, 90, 100, 105, 110, 115, 120]; // 13
 const EXPECTED_REVERSED = [
@@ -77,32 +78,60 @@ async function loadScorer() {
     facetOf: mod.facetOf as (id: number) => number,
     reverse: mod.reverse as (v: number) => number,
     score: mod.score as ScoreFn,
+    ACTIVE_ITEM_COUNT: mod.ACTIVE_ITEM_COUNT as number,
+    ACTIVE_ITEM_IDS: mod.ACTIVE_ITEM_IDS as readonly number[],
+    DEACTIVATED_ITEM_IDS: mod.DEACTIVATED_ITEM_IDS as ReadonlySet<number>,
   };
 }
 
-// A fixed, fully-neutral 120-response vector (every item answered 3). After reverse
-// (6-3 = 3), EVERY corrected response is still 3 → every facet raw = 4×3 = 12 →
-// every domain raw = 6×12 = 72. This is norm-independent and deterministic, so it
-// pins the reverse + facet + domain summation math exactly (Pitfall 1 detection).
+// UX-08: the 4 political O6 items {28,58,88,118} are deactivated → the administered
+// instrument is 116 non-contiguous ids (asserted against the scorer's ACTIVE_ITEM_IDS).
+const DEACTIVATED_ITEM_IDS = new Set([28, 58, 88, 118]);
+
+// A fixed, fully-neutral 116-response vector (every ACTIVE item answered 3). After
+// reverse (6-3 = 3), EVERY corrected response is still 3 → every SURVIVING facet raw =
+// 4×3 = 12. For N/E/A/C (6 facets each) domain raw = 6×12 = 72; for O the political
+// facet 28 has no items (raw 0) → O over 5 facets = 60, prorated ×6/5 = 72. So every
+// domain raw is still 72 (norm-independent, deterministic) — this pins the reverse +
+// facet + domain summation + O-prorate math exactly (Pitfall 1 detection).
 const NEUTRAL_VECTOR: Record<number, number> = {};
-for (let id = 1; id <= 120; id++) NEUTRAL_VECTOR[id] = 3;
+for (let id = 1; id <= 120; id++) if (!DEACTIVATED_ITEM_IDS.has(id)) NEUTRAL_VECTOR[id] = 3;
 
 // ───────────────────────────── reverse-key contract ─────────────────────────
 
-Deno.test("AVAL-04 — REVERSED set has exactly 55 ids (Pitfall 1)", async () => {
+Deno.test("AVAL-04 — REVERSED set has exactly 53 ids after UX-08 (Pitfall 1)", async () => {
   const { REVERSED } = await loadScorer();
-  assertEquals(REVERSED.size, 55, "the reverse-keyed answer-key must hold exactly 55 ids");
+  assertEquals(REVERSED.size, 53, "the reverse-keyed answer-key must hold exactly 53 ids (UX-08 dropped 88, 118)");
 });
 
-Deno.test("AVAL-04 — per-domain reverse counts are N7 E6 O12 A17 C13 (D-12-AVAL-04)", async () => {
+Deno.test("AVAL-04 — per-domain reverse counts are N7 E6 O10 A17 C13 after UX-08 (D-12-AVAL-04)", async () => {
   const { REVERSED, FACET_TO_DOMAIN, facetOf } = await loadScorer();
   const counts: Record<string, number> = { N: 0, E: 0, O: 0, A: 0, C: 0 };
   for (const id of REVERSED) counts[FACET_TO_DOMAIN[facetOf(id)]]++;
   assertEquals(counts.N, 7, "N reverse count");
   assertEquals(counts.E, 6, "E reverse count");
-  assertEquals(counts.O, 12, "O reverse count");
+  assertEquals(counts.O, 10, "O reverse count (UX-08: 12 → 10, dropped 88 & 118)");
   assertEquals(counts.A, 17, "A reverse count");
   assertEquals(counts.C, 13, "C reverse count");
+});
+
+Deno.test("UX-08 — the deactivated political O6 items {28,58,88,118} are NOT in REVERSED", async () => {
+  const { REVERSED } = await loadScorer();
+  for (const id of [88, 118]) {
+    assert(!REVERSED.has(id), `reverse-keyed political O6 item ${id} must be dropped (UX-08)`);
+  }
+});
+
+Deno.test("UX-08 — the scorer exposes the 116-item non-contiguous active set", async () => {
+  const { ACTIVE_ITEM_COUNT, ACTIVE_ITEM_IDS, DEACTIVATED_ITEM_IDS } = await loadScorer();
+  assertEquals(ACTIVE_ITEM_COUNT, 116, "120 − 4 deactivated political O6 items = 116");
+  assertEquals(ACTIVE_ITEM_IDS.length, 116, "the active id list is 116 long");
+  for (const id of [28, 58, 88, 118]) {
+    assert(DEACTIVATED_ITEM_IDS.has(id), `${id} must be deactivated`);
+    assert(!ACTIVE_ITEM_IDS.includes(id), `${id} must NOT be in the active administered set`);
+  }
+  // the active set is 1..120 minus the deactivated set, in order (non-contiguous).
+  assertEquals(ACTIVE_ITEM_IDS[27], 29, "gap after 27 skips 28 → next active id is 29");
 });
 
 Deno.test("AVAL-04 — REVERSED equals the verbatim PESQUISA id list (no transcription drift)", async () => {
@@ -134,20 +163,50 @@ Deno.test("AVAL-04 — FACET_TO_DOMAIN matches the PESQUISA L342-348 cycle", asy
 
 // ───────────────────────────── golden vector ────────────────────────────────
 
-Deno.test("AVAL-04 GOLDEN — neutral vector yields raw 72 for every domain + 12 for every facet", async () => {
+Deno.test("AVAL-04 GOLDEN — neutral vector yields raw 72 for every domain (O prorated) + 12 for every surviving facet", async () => {
   const { score } = await loadScorer();
   const out = score(NEUTRAL_VECTOR, { sexo: "N", faixa: "21-40" });
-  // 5 domains, each raw = 72 (6 facets × (4 items × corrected-3)). norm-independent.
+  // 5 domains, each raw = 72. N/E/A/C = 6 facets × 12. O = 5 surviving facets × 12 = 60,
+  // prorated ×6/5 = 72 — so O still equals the others (norm-independent). UX-08 prorate.
   assertEquals(out.dimensoes.length, 5, "exactly 5 OCEAN domains");
   for (const d of out.dimensoes) {
-    assertEquals(d.raw, 72, `domain ${d.dim} raw (neutral vector → 72)`);
+    assertEquals(d.raw, 72, `domain ${d.dim} raw (neutral vector → 72, O via ×6/5 prorate)`);
   }
-  // 30 facets, each raw = 12.
-  assertEquals(out.facetas.length, 30, "exactly 30 facets");
+  // 30 facets: every surviving facet raw = 12; the deactivated O6 facet 28 has no items → 0.
+  assertEquals(out.facetas.length, 30, "exactly 30 facets (facet 28 reported raw 0)");
   for (const f of out.facetas) {
-    assertEquals(f.raw, 12, `facet ${f.faceta} raw (neutral vector → 12)`);
+    const expected = f.faceta === 28 ? 0 : 12;
+    assertEquals(f.raw, expected, `facet ${f.faceta} raw (neutral vector → ${expected})`);
   }
   assertEquals(out.norm_group.sexo, "N", "norm_group echoed for auditability");
+});
+
+// UX-08 — EXPLICIT O-prorate assertion. Build an O-only variant so the pre-prorate O
+// sum is unambiguous, then assert the scored O raw = round(preProrate × 6/5) AND that
+// the prorate actually scaled it (outO ≠ preProrate). N/A/C/E stay unprorated.
+Deno.test("UX-08 — O domain is prorated ×6/5 over its 5 surviving facets (Johnson norm preserved)", async () => {
+  const { score, facetOf, FACET_TO_DOMAIN, reverse, ACTIVE_ITEM_IDS } = await loadScorer();
+  // Answer every active O item 4, everything else neutral (3). O then differs from 72.
+  const REVERSED_SET = new Set([...REVERSED_N, ...REVERSED_E, ...REVERSED_O, ...REVERSED_A, ...REVERSED_C]);
+  const variant: Record<number, number> = { ...NEUTRAL_VECTOR };
+  for (const id of ACTIVE_ITEM_IDS) {
+    if (FACET_TO_DOMAIN[facetOf(id)] === "O") variant[id] = 4;
+  }
+  // pre-prorate O sum = Σ corrected over the 20 active O items (facet 28 has none → 0).
+  let preProrateO = 0;
+  for (const id of ACTIVE_ITEM_IDS) {
+    if (FACET_TO_DOMAIN[facetOf(id)] === "O") {
+      preProrateO += REVERSED_SET.has(id) ? reverse(4) : 4;
+    }
+  }
+  const out = score(variant, { sexo: "N", faixa: "21-40" });
+  const outO = out.dimensoes.find((d) => d.dim === "O")!.raw;
+  assertEquals(outO, Math.round((preProrateO * 6) / 5), "O raw must equal round(preProrate × 6/5)");
+  assert(outO !== preProrateO, "the ×6/5 prorate must actually scale O, not leave it raw");
+  // N/E/A/C stay neutral 72 — only O is prorated.
+  const byDim = Object.fromEntries(out.dimensoes.map((d) => [d.dim, d.raw]));
+  assertEquals(byDim.N, 72, "N is NOT prorated (stays neutral 72)");
+  assertEquals(byDim.C, 72, "C is NOT prorated (stays neutral 72)");
 });
 
 Deno.test("AVAL-04 GOLDEN — every percentile is clamped to [1,99] and every band is one of the 5 (cutoffs ≤15/16-35/36-64/65-84/≥85)", async () => {
@@ -171,10 +230,10 @@ Deno.test("AVAL-04 GOLDEN — every percentile is clamped to [1,99] and every ba
 
 // ───────────────────────────── coverage guard (WR-03) ───────────────────────
 
-Deno.test("WR-03 — score() THROWS on a partial (<120) responses map (Pitfall 1, no silent zero score)", async () => {
+Deno.test("WR-03 — score() THROWS on a partial (<116) responses map (Pitfall 1, no silent zero score)", async () => {
   const { score } = await loadScorer();
   const partial: Record<number, number> = { ...NEUTRAL_VECTOR };
-  delete partial[120]; // 119 answers
+  delete partial[120]; // 115 answers (116 active − 1)
   let threw = false;
   try {
     score(partial, { sexo: "N", faixa: "21-40" });
@@ -199,14 +258,29 @@ Deno.test("WR-03 — score() THROWS when an item id falls outside 1..120", async
   const { score } = await loadScorer();
   const outOfRange: Record<number, number> = { ...NEUTRAL_VECTOR };
   delete outOfRange[1];
-  outOfRange[121] = 3; // still 120 keys, but id 121 is invalid
+  outOfRange[121] = 3; // still 116 keys, but id 121 is invalid
   let threw = false;
   try {
     score(outOfRange, { sexo: "N", faixa: "21-40" });
   } catch {
     threw = true;
   }
-  assert(threw, "an id outside 1..120 must throw even when the key count is 120");
+  assert(threw, "an id outside 1..120 must throw even when the key count is 116");
+});
+
+Deno.test("UX-08 — score() THROWS when a DEACTIVATED political id (28/58/88/118) is present", async () => {
+  const { score } = await loadScorer();
+  // 116 keys, but swap an active id for a deactivated one (28) — must be rejected.
+  const withDeactivated: Record<number, number> = { ...NEUTRAL_VECTOR };
+  delete withDeactivated[1];
+  withDeactivated[28] = 3; // a deactivated political O6 id sneaking back in
+  let threw = false;
+  try {
+    score(withDeactivated, { sexo: "N", faixa: "21-40" });
+  } catch {
+    threw = true;
+  }
+  assert(threw, "a deactivated political O6 id must be rejected even at 116 keys");
 });
 
 Deno.test("AVAL-04 GOLDEN — a hand-built variant moves a single domain raw correctly (reverse math is wired)", async () => {
