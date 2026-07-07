@@ -4,14 +4,19 @@
  *
  * Three load-bearing invariants (the same security model as `avaliacaoService` /
  * `bigfiveService`):
- *  1. ALLOWLIST reads — every read names its columns explicitly; NEVER a star
- *     projection. RLS is row-level only and does NOT hide columns
- *     ([[reference_select_star_leaks_pii]], Phase-8 LGPD lesson). The candidate
- *     own-row read of `redacoes_candidato` uses `REDACAO_CANDIDATO_ALLOWLIST`,
- *     which EXCLUDES every verdict column (analise_ia, scores_dimensao,
- *     score_ponderado_0_100, classificacao_cor, red_flag_etico, flags,
- *     scores_humanos, notas_revisor, decisao_revisor) — the candidate NEVER sees a
- *     score/color/threshold (RNF-07a, T-13-03-01).
+ *  1. VERDICT-SAFE reads — RLS is row-level only and does NOT hide columns
+ *     ([[reference_select_star_leaks_pii]], Phase-8 LGPD lesson). SEC-02 (Phase 24):
+ *     the candidate own-row read of `redacoes_candidato` no longer touches the base
+ *     table — its candidate row policy was DROPPED — and instead goes through the
+ *     `get_minha_redacao` SECURITY DEFINER RPC, which enforces posse
+ *     (`candidatos.user_id = auth.uid()`) and projects ONLY the safe columns
+ *     (`MinhaRedacaoRow`). Neither path ever exposes a verdict column (analise_ia,
+ *     scores_dimensao, score_ponderado_0_100, classificacao_cor, red_flag_etico,
+ *     flags, scores_humanos, notas_revisor, decisao_revisor) — the candidate NEVER
+ *     sees a score/color/threshold (RNF-07a, T-13-03-01, T-24-03-01). Other reads
+ *     (e.g. `perguntas_redacao`) keep explicit column allowlists; NEVER a star
+ *     projection. `REDACAO_CANDIDATO_ALLOWLIST` remains as a defense-in-depth
+ *     documentation/test anchor for the safe column set.
  *  2. SERVER-AUTHORITATIVE scoring — `enviarRedacao` posts ONLY identifiers + the
  *     essay text (validated via `respostaRedacaoSchema.strict()`); the EF derives
  *     the BARS composite + the 3-color triage server-side. No code path here
@@ -151,10 +156,14 @@ export async function getRedacaoContext(
 }
 
 /**
- * Loads ONE candidate own-row of `redacoes_candidato` (own-row RLS). Uses
- * `REDACAO_CANDIDATO_ALLOWLIST` — NEVER `select('*')`; the projection EXCLUDES
- * every verdict column so the candidate never receives a score/color (RNF-07a,
- * T-13-03-01). Returns null when the candidate has not submitted a redação yet.
+ * Loads ONE candidate own-row of `redacoes_candidato` via the `get_minha_redacao`
+ * SECURITY DEFINER RPC (SEC-02, Phase 24). The RPC enforces posse
+ * (`candidatos.user_id = auth.uid()`) INSIDE the function and projects ONLY the
+ * safe columns (`MinhaRedacaoRow`) — NEVER a verdict column, so the candidate never
+ * receives a score/color (RNF-07a, T-13-03-01, T-24-03-01). The base-table candidate
+ * row policy was DROPPED, so a direct `.from('redacoes_candidato')` read now returns
+ * 0 rows — the RPC is the ONLY candidate path. Returns null when the candidate has
+ * not submitted a redação yet.
  */
 export async function getRedacaoCandidato(
   candidaturaId: string,
@@ -163,24 +172,17 @@ export async function getRedacaoCandidato(
     throw new RedacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // NARROW confined cast (13-04 regen drops it): `redacoes_candidato` is not yet in
-  // the generated types. The EXPLICIT REDACAO_CANDIDATO_ALLOWLIST (never `'*'`)
-  // keeps the verdict-excluding projection auditable — only the table name widens.
-  const { data, error } = await (supabase.from as unknown as (
-    table: string,
-  ) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        maybeSingle: () => Promise<{
-          data: unknown
-          error: { message: string } | null
-        }>
-      }
-    }
-  })('redacoes_candidato')
-    .select(REDACAO_CANDIDATO_ALLOWLIST)
-    .eq('candidatura_id', candidaturaId)
-    .maybeSingle()
+  // SEC-02 (Phase 24): candidate own-row read goes through get_minha_redacao — the
+  // verdict-safe DEFINER RPC — NOT the base table (its candidate row policy was dropped).
+  // NARROW confined cast (24-08 regen drops it): get_minha_redacao is not yet in the
+  // generated types. Only the RPC name/args are widened — NOT a blanket UntypedClient.
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: { p_candidatura_id: string },
+  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+    'get_minha_redacao',
+    { p_candidatura_id: candidaturaId },
+  )
 
   if (error) {
     throw new RedacaoServiceError(
@@ -190,13 +192,17 @@ export async function getRedacaoCandidato(
     )
   }
 
-  return (data as MinhaRedacaoRow | null) ?? null
+  // The RPC RETURNS TABLE (an array, ordered by `ordem`). This reader historically
+  // returned a single own-row — take the first safe row or null.
+  const rows = (data as MinhaRedacaoRow[] | null) ?? []
+  return rows[0] ?? null
 }
 
 /**
- * Lists the candidate's OWN submitted redações for a candidatura (own-row RLS).
- * Uses `REDACAO_CANDIDATO_ALLOWLIST` — NEVER `select('*')`; the projection
- * EXCLUDES every verdict column (RNF-07a, T-13-03-01). Ordered by submission time.
+ * Lists the candidate's OWN submitted redações for a candidatura via the
+ * `get_minha_redacao` SECURITY DEFINER RPC (SEC-02, Phase 24). Own-row posse is
+ * enforced INSIDE the RPC; the projection EXCLUDES every verdict column (RNF-07a,
+ * T-13-03-01, T-24-03-01). The RPC returns the rows ordered by `ordem`.
  */
 export async function getMinhasRedacoes(
   candidaturaId: string,
@@ -205,22 +211,16 @@ export async function getMinhasRedacoes(
     throw new RedacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // NARROW confined cast (13-04 regen drops it) — same auditable allowlist as the
-  // single-row reader; only the table name widens, never the client.
-  const { data, error } = await (supabase.from as unknown as (
-    table: string,
-  ) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        order: (
-          col: string,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>
-      }
-    }
-  })('redacoes_candidato')
-    .select(REDACAO_CANDIDATO_ALLOWLIST)
-    .eq('candidatura_id', candidaturaId)
-    .order('submetida_em')
+  // SEC-02 (Phase 24): list via get_minha_redacao — the verdict-safe DEFINER RPC —
+  // NOT the base table (its candidate row policy was dropped). NARROW confined cast
+  // (24-08 regen drops it) widens only the RPC name/args, never the client.
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+    args: { p_candidatura_id: string },
+  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+    'get_minha_redacao',
+    { p_candidatura_id: candidaturaId },
+  )
 
   if (error) {
     throw new RedacaoServiceError(
