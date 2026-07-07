@@ -36,7 +36,7 @@ export function MeuPerfilPage({ onVoltar }: MeuPerfilPageProps) {
   });
 
   const handleSalvarDados = () => {
-    console.log('Salvando dados pessoais:', dadosPessoais);
+    // TODO(M5): persistir dados pessoais do usuário RH (stub — sem log de PII, SEC-11)
   };
 
   const handleAlterarSenha = () => {
@@ -44,12 +44,12 @@ export function MeuPerfilPage({ onVoltar }: MeuPerfilPageProps) {
       alert('As senhas não coincidem!');
       return;
     }
-    console.log('Alterando senha...');
+    // TODO(M5): persistir alteração de senha (stub — sem log, SEC-11)
     setSenhas({ atual: '', nova: '', confirmar: '' });
   };
 
   const handleAlterarFoto = () => {
-    console.log('Abrindo seletor de foto...');
+    // TODO(M5): abrir seletor de foto (stub — sem log, SEC-11)
   };
 
   const getNivelBadgeColor = (nivel: string): string => {

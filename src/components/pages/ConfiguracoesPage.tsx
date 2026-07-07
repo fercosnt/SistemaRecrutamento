@@ -415,7 +415,7 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
   const [buscaAudit, setBuscaAudit] = useState('');
 
   const handleSalvarEmpresa = () => {
-    console.log('Salvando dados da empresa:', dadosEmpresa);
+    // TODO(M5): persistir dados da empresa (stub — sem log, SEC-11)
   };
 
   const handleEditarTemplate = (template: TemplateEmail) => {
@@ -433,8 +433,8 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
     }
   };
 
-  const handleSalvarWebhook = (id: string) => {
-    console.log('Salvando webhook:', webhooks.find((w) => w.id === id));
+  const handleSalvarWebhook = (_id: string) => {
+    // TODO(M5): persistir webhook (stub — sem log, SEC-11)
   };
 
   const handleUpdateWebhook = (id: string, url: string) => {
@@ -471,7 +471,7 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
   };
 
   const handleSalvarPermissoes = () => {
-    console.log('Salvando permissões:', permissoesEditando);
+    // TODO(M5): persistir permissões (stub — sem log, SEC-11)
     setModalPermissoes(false);
   };
 
@@ -488,7 +488,7 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
   };
 
   const handleRedefinirSenha = () => {
-    console.log('Enviando email de redefinição para:', usuarioSelecionado?.email);
+    // TODO(M5): disparar email de redefinição (stub — sem log de email do candidato, SEC-11)
     setModalRedefinirSenha(false);
     setUsuarioSelecionado(null);
   };
@@ -1252,7 +1252,9 @@ export function ConfiguracoesPage({ onVoltar }: ConfiguracoesPageProps) {
               <div className="flex justify-end gap-3 pt-4">
                 <GlassButton
                   variant="white"
-                  onClick={() => console.log('Preview do template:', templateEditando)}
+                  onClick={() => {
+                    /* TODO(M5): preview do template (stub — sem log, SEC-11) */
+                  }}
                   className="flex items-center gap-2"
                 >
                   <Eye className="w-4 h-4" />

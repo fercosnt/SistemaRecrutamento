@@ -46,6 +46,12 @@ const ROOT = resolve(__dirname, '../../..')
 const RH_PATH_FILES = [
   'src/components/pages/PerfilCandidatoRHPage.tsx',
   'src/components/pages/SuporteRHPage.tsx',
+  // SEC-11 (Phase 24 / 24-06): ConfiguracoesPage leaked a candidate email via
+  // console.log (`Enviando email de redefinição para:`) and MeuPerfilPage logged
+  // RH profile data. Their operational console.log calls were stripped; adding both
+  // here locks the guard so a regression re-fails.
+  'src/components/pages/ConfiguracoesPage.tsx',
+  'src/components/pages/MeuPerfilPage.tsx',
   'src/features/decisao', // whole subtree (recursive)
   'src/features/entrevista', // whole subtree (recursive)
   'src/features/triagem', // whole subtree (recursive)
