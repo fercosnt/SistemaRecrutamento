@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133."
-last_updated: "2026-07-07T03:53:19.822Z"
+stopped_at: "Phase 24 / Plan 24-04 complete — SEC-05/06/08 vaga-scope (WR-04) em analise_candidato_vaga/comparativo_solicitado/candidaturas (SELECT+UPDATE)/redacoes_candidato RH; reprocessar_analise já-scoped regression-guard (42501) + RNF-07a pontuar-no-write smoke. Files only; PROD apply + smoke = 24-08. Commits 3277e9c/07e93be. tsc 133."
+last_updated: "2026-07-07T04:08:42.201Z"
 last_activity: 2026-07-07
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 21
-  completed_plans: 15
+  completed_plans: 16
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 3 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-07-07
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 76%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -76,6 +76,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 23 P03 | 22min | 2 tasks | 5 files |
 | Phase 24 P02 | 30 | 3 tasks | 8 files |
 | Phase 24 P03 | ~12min | 3 tasks | 4 files |
+| Phase 24 P04 | ~10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 24]: SEC-01: gabarito cognitivo blindado via DROP row policy (candidato lê 0 rows) + get_cognitivo_itens DEFINER RPC + REVOKE(gabarito_idx); row-deny é a real teeth, column REVOKE é defense-in-depth — Plano 24-02
 - [Phase 24]: SEC-07: rubric BARS blindado via REVOKE(rubric)+allowlist drop; caveat 24-08 — grant table-level pode neutralizar column REVOKE, o SQL smoke detecta o leak — Plano 24-02
 - [Phase ?]: SEC-02: candidate-DENY row (DROP redacao_candidato_select) + get_minha_redacao DEFINER RPC — NOT column REVOKE (RH shares authenticated role); status_analise coarsened so pendente_humano cannot leak the verdict
+- [Phase 24]: SEC-05/06/08: 6 policies RH role-only → vaga-scoped (WR-04: admin bypass OR rh owns vaga); analise/comparativo/candidaturas scope vaga_id direto, redacoes via candidaturas→vagas JOIN; UPDATE=USING+WITH CHECK; reprocessar_analise já-scoped só regression-guard (42501); RNF-07a pontuar-no-write. Files-only, PROD apply 24-08. Commits 3277e9c/07e93be — Plano 24-04
 
 ### Pending Todos
 
@@ -141,8 +143,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-07T03:52:40.585Z
-Stopped at: Phase 24 / Plan 24-02 complete — SEC-01 (get_cognitivo_itens DEFINER + DROP auth_le_cognitivo_itens + REVOKE gabarito_idx) + SEC-07 (REVOKE rubric + allowlist drop). Files only; PROD apply + smoke = 24-08. Caveat: bare column REVOKE pode ser no-op vs grant table-level (nota inline nas migrations). Commits 20cf5b2/6603ac8/69f8601. tsc 133.
+Last session: 2026-07-07T04:07:47.812Z
+Stopped at: Phase 24 / Plan 24-04 complete — SEC-05/06/08 vaga-scope (WR-04) em analise_candidato_vaga/comparativo_solicitado/candidaturas (SELECT+UPDATE)/redacoes_candidato RH; reprocessar_analise já-scoped regression-guard (42501) + RNF-07a pontuar-no-write smoke. Files only; PROD apply + smoke = 24-08. Commits 3277e9c/07e93be. tsc 133.
 Resume file: None
 
 ## Operator Next Steps
