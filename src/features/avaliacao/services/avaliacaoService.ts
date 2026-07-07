@@ -48,14 +48,18 @@ export class AvaliacaoServiceError extends Error {
   }
 }
 
-/** A SJT question the candidate answers (allowlist — never a star projection). */
+/**
+ * A SJT question the candidate answers (allowlist — never a star projection).
+ * SEC-07 (Phase 24): the BARS open-case answer-key column is DROPPED from this
+ * candidate-facing shape and column-REVOKE'd at Postgres — only the `avaliar-redacao`
+ * EF (service_role) reads it. See the SEC-07 migration (20260706110002).
+ */
 export interface PerguntaSjt {
   id: string
   cargo: string
   cenario: string
   formato: string
   tempo_est_min: number | null
-  rubric: unknown
   status: string
 }
 
@@ -130,10 +134,12 @@ export async function getAvaliacaoContext(
 
   const testesAplicaveis = candRow.vaga?.testes_aplicaveis ?? null
 
-  // Active SJT items — allowlist columns only (never a star projection).
+  // Active SJT items — allowlist columns only (never a star projection). SEC-07
+  // (Phase 24): the BARS open-case answer-key column is DROPPED from this candidate
+  // projection and column-REVOKE'd at Postgres — the candidate never sees the key.
   const { data: perguntas, error: pErr } = await supabase
     .from('perguntas')
-    .select('id, cargo, cenario, formato, tempo_est_min, rubric, status')
+    .select('id, cargo, cenario, formato, tempo_est_min, status')
     // Canonical sentinel is 'active' (en) — matches the `perguntas` DEFAULT, the
     // partial index, the RLS policy `USING (status = 'active')` and `get_opcoes_sjt`.
     // The previous 'ativo' (pt) never matched any row → the candidate saw zero SJT items.
