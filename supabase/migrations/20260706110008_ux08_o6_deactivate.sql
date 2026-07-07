@@ -16,7 +16,7 @@
 -- assessment. This migration removes the exposure WITHOUT breaking the psychometric
 -- calculation:
 --   * a reversible `ativo` boolean flag (NOT a hard DELETE) — M5 flips it back to
---     true for the authoral non-political O6 replacement (deferred to M5/psicólogo);
+--     true for the authoral non-political O6 replacement (deferred to M5);
 --   * get_bigfive_itens() filters `WHERE b.ativo` → the candidate never sees the 4
 --     political items (the administered instrument becomes 116 items, non-contiguous).
 --
