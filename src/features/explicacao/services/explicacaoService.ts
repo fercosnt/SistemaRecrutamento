@@ -116,20 +116,6 @@ export interface ExplicacaoCandidato {
 export type ExplicacaoWriteOutcome = 'ok' | 'denied' | 'unavailable'
 
 /**
- * URL do webhook N8N para a solicitação de revisão de decisão (LGPD Art. 20).
- *
- * DISTINCT from the nova-candidatura webhook (`VITE_N8N_NOVA_CANDIDATURA_URL`) — this
- * is its own path so an RH automation can route a "revisão solicitada" event
- * separately. Read from `VITE_N8N_REVISAO_DECISAO_URL` with a hardcoded fallback so a
- * deploy without the env var still posts (same WR-04 env-with-fallback idiom as
- * `candidaturasService.N8N_WEBHOOK_URL`). The own-row RPC is the source of record; the
- * webhook is a fire-and-forget NOTIFICATION only.
- */
-const N8N_REVISAO_DECISAO_URL =
-  (import.meta.env?.VITE_N8N_REVISAO_DECISAO_URL as string | undefined) ??
-  'https://fernandocosta.app.n8n.cloud/webhook/revisao-decisao'
-
-/**
  * Derives a respectful, NON-CLINICAL templated reason keyed on the decision (Open Q5).
  *
  * The candidate NEVER receives the raw internal RH justificativa tone, a score, a band,
@@ -254,12 +240,14 @@ export async function stampExplicacao(
 /**
  * Requests a human review of the decision (LGPD Art. 20 / DECISAO-04) via the own-row
  * `solicitar_revisao_decisao` SECURITY DEFINER RPC, which sets
- * `decisao_final.revisao_solicitada_em` idempotently. On RPC success it ALSO fires a
- * fire-and-forget N8N webhook (the redacted thin-client idiom) to notify the
- * responsible RH (`vaga.created_by`) — the webhook is NON-BLOCKING and NEVER throws
- * into the mutation (the request is already registered server-side once the RPC
- * resolves OK; a failed notification must not fail the request). The body carries NO
- * PII beyond ids.
+ * `decisao_final.revisao_solicitada_em` idempotently.
+ *
+ * SEC-03: the RH notification is now fired SERVER-SIDE by the AFTER UPDATE trigger
+ * `trg_n8n_revisao_decisao` on `decisao_final` (pg_net + Vault n8n_webhook_base) when
+ * `revisao_solicitada_em` transitions NULL -> NOT NULL. This service NO LONGER carries
+ * the n8n URL — VITE_-prefixed vars are inlined into the public bundle (Pitfall 5), so
+ * a "configurable" webhook URL still shipped to every browser. The body carries NO PII
+ * beyond the candidatura id.
  *
  * A 42501 / 403 own-row denial resolves to `'denied'` (a neutral outcome — the
  * candidate is acting on someone else's decision the RLS/RPC blocks), NOT an error.
@@ -297,24 +285,10 @@ export async function solicitarRevisao(
     )
   }
 
-  // Fire-and-forget RH notification AFTER the RPC committed — non-blocking. A webhook
-  // failure MUST NOT fail the request (already registered server-side). NO PII beyond
-  // the candidatura id (redacted body — copies submit-candidatura/index.ts:303-323).
-  fetch(N8N_REVISAO_DECISAO_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'decisao.revisao_solicitada',
-      timestamp: new Date().toISOString(),
-      data: { candidatura_id: candidaturaId },
-    }),
-  }).catch((e) =>
-    console.warn(
-      '[explicacaoService] N8N revisão webhook failed (non-blocking):',
-      (e as { message?: string })?.message ?? String(e),
-    ),
-  )
-
+  // SEC-03: the RH notification is fired SERVER-SIDE by trg_n8n_revisao_decisao on the
+  // NULL -> NOT NULL transition of revisao_solicitada_em (pg_net + Vault). No client
+  // fetch — the n8n URL must never ship in the bundle (Pitfall 5). The RPC is the
+  // source of record; once it resolves OK the request is registered server-side.
   return 'ok'
 }
 

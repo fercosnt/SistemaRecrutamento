@@ -13,8 +13,9 @@
  *    raw internal justificativa is NEVER surfaced verbatim, and no score leaks.
  *  - `stampExplicacao` / `solicitarRevisao` call the own-row SECURITY DEFINER RPCs
  *    with 42501/403 → neutral `'denied'` (not an error).
- *  - `solicitarRevisao` fires the N8N webhook ONCE on RPC success (redacted body,
- *    ids only) AND still resolves if the fetch REJECTS (non-blocking).
+ *  - SEC-03: `solicitarRevisao` fires NO client webhook — the RH notification moved to
+ *    the trg_n8n_revisao_decisao DB trigger (pg_net + Vault). The service resolves 'ok'
+ *    from the RPC alone; the n8n URL must never ship in the bundle (Pitfall 5).
  *
  * @see src/features/decisao/services/__tests__/decisaoService.test.ts (the mock idiom)
  * @see src/features/explicacao/services/explicacaoService.ts (the unit under test)
@@ -171,8 +172,8 @@ describe('explicacaoService — stampExplicacao (T-15-15 visit stamp)', () => {
   })
 })
 
-describe('explicacaoService — solicitarRevisao (DECISAO-04 + N8N notification)', () => {
-  it('invokes solicitar_revisao_decisao and fires the N8N webhook ONCE on success', async () => {
+describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-side notify)', () => {
+  it('invokes solicitar_revisao_decisao and fires NO client webhook (SEC-03: dispatch is server-side)', async () => {
     rpcMock.mockResolvedValue({ error: null })
     const fetchMock = vi.fn().mockResolvedValue({ ok: true })
     vi.stubGlobal('fetch', fetchMock)
@@ -182,27 +183,22 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + N8N notification)
     expect(rpcMock).toHaveBeenCalledWith('solicitar_revisao_decisao', {
       p_candidatura_id: VALID_CAND,
     })
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [, init] = fetchMock.mock.calls[0]
-    const body = JSON.parse((init as { body: string }).body)
-    // Redacted body — ids only, NO PII beyond the candidatura id.
-    expect(body).toMatchObject({
-      event: 'decisao.revisao_solicitada',
-      data: { candidatura_id: VALID_CAND },
-    })
-    expect(JSON.stringify(body)).not.toMatch(/cpf|email|nome|score|banda|justificativa/i)
+    // SEC-03: the RH notification moved to the trg_n8n_revisao_decisao DB trigger
+    // (pg_net + Vault). The client MUST NOT dispatch — the n8n URL must never ship in
+    // the bundle (Pitfall 5). So no fetch fires from this service.
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('still resolves "ok" when the N8N webhook fetch REJECTS (non-blocking)', async () => {
+  it('resolves "ok" from the RPC alone — no client fetch to fail (SEC-03)', async () => {
     rpcMock.mockResolvedValue({ error: null })
     const fetchMock = vi.fn().mockRejectedValue(new Error('network down'))
     vi.stubGlobal('fetch', fetchMock)
-    // The mutation must NOT throw — the request is already registered server-side.
+    // The mutation resolves on the RPC; there is no client notification path to break.
     await expect(solicitarRevisao(VALID_CAND)).resolves.toBe('ok')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('returns "denied" on a 42501 own-row denial and does NOT fire the webhook', async () => {
+  it('returns "denied" on a 42501 own-row denial and fires no client dispatch', async () => {
     rpcMock.mockResolvedValue({ error: { code: '42501', message: 'forbidden' } })
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)

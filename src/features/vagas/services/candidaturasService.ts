@@ -5,8 +5,12 @@
  * - Criar nova candidatura
  * - Listar candidaturas do candidato
  * - Verificar duplicatas
- * - Trigger N8N webhook
  * - Update de status (HR)
+ *
+ * SEC-03: the n8n webhook dispatch was moved SERVER-SIDE (pg_net + Vault, migration
+ * 20260706110005_sec03_n8n_serverside.sql). This client service no longer carries any
+ * n8n URL — VITE_-prefixed vars are inlined into the public bundle (RESEARCH Pitfall 5),
+ * so a "configurable" URL is not a private one.
  *
  * @module features/vagas/services/candidaturasService
  */
@@ -25,9 +29,6 @@ import type {
   CheckDuplicateApplicationResponse,
   UpdateCandidaturaStatusRequest,
   UpdateCandidaturaStatusResponse,
-  N8NNovaCandidaturaPayload,
-  N8NStatusUpdatePayload,
-  N8NWebhookResponse,
   StatusCandidatura,
   EtapaProcesso,
 } from '../types/vagasTypes'
@@ -52,106 +53,6 @@ export class CandidaturasServiceError extends Error {
     super(message)
     this.name = 'CandidaturasServiceError'
   }
-}
-
-/**
- * URL do webhook N8N para nova candidatura.
- *
- * WR-04 (Phase 4 review fix): URL is read from VITE_N8N_NOVA_CANDIDATURA_URL
- * env var with a hardcoded fallback so existing deploys keep working until
- * the env var is set. The Edge Function `submit-candidatura` ALSO fires this
- * webhook post-commit using its own N8N_NOVA_CANDIDATURA_URL env var; the
- * legacy `createCandidatura` path below is preserved per Plan 04-05 / 04-RESEARCH
- * §1926 (Phase 6 RH-side may need a direct DB-only path). Any future caller
- * of `createCandidatura` should expect a duplicate-fire-by-design webhook
- * relative to the EF path; coordinate via env to avoid drift between paths.
- */
-const N8N_WEBHOOK_URL =
-  (import.meta.env?.VITE_N8N_NOVA_CANDIDATURA_URL as string | undefined) ??
-  'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
-
-/**
- * URL do webhook N8N para mudança de status (RH-side status updates).
- *
- * WR-04: same env-var pattern as N8N_WEBHOOK_URL above, behind
- * VITE_N8N_STATUS_UPDATE_URL. Phase 4 candidate flow does NOT touch this
- * webhook; it is consumed by RH/Admin status-transition flows that arrive
- * in Phase 6.
- */
-const N8N_STATUS_UPDATE_WEBHOOK_URL =
-  (import.meta.env?.VITE_N8N_STATUS_UPDATE_URL as string | undefined) ??
-  'https://fernandocosta.app.n8n.cloud/webhook/status-candidatura'
-
-/**
- * Configurações do webhook
- */
-const WEBHOOK_CONFIG = {
-  timeout: 10000, // 10 segundos
-  maxRetries: 3,
-  retryDelayBase: 1000, // 1 segundo (será exponencial: 1s, 2s, 4s)
-} as const
-
-/**
- * Logger estruturado para webhook
- */
-const webhookLogger = {
-  info: (message: string, context?: Record<string, unknown>) => {
-    console.log(
-      JSON.stringify({
-        level: 'info',
-        timestamp: new Date().toISOString(),
-        service: 'n8n-webhook',
-        message,
-        ...context,
-      })
-    )
-  },
-  warn: (message: string, context?: Record<string, unknown>) => {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        timestamp: new Date().toISOString(),
-        service: 'n8n-webhook',
-        message,
-        ...context,
-      })
-    )
-  },
-  error: (message: string, error?: unknown, context?: Record<string, unknown>) => {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        timestamp: new Date().toISOString(),
-        service: 'n8n-webhook',
-        message,
-        error: error instanceof Error ? { name: error.name, message: error.message } : error,
-        ...context,
-      })
-    )
-  },
-}
-
-/**
- * Sleep helper para retry delays
- */
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-/**
- * Verifica se erro é retryable (network errors, 5xx)
- */
-function isRetryableError(error: unknown, statusCode?: number): boolean {
-  // Retry em erros de rede (sem status code)
-  if (!statusCode && error instanceof Error) {
-    return true
-  }
-
-  // Retry apenas em 5xx (server errors)
-  if (statusCode && statusCode >= 500 && statusCode < 600) {
-    return true
-  }
-
-  // Não retry em 4xx (client errors - bad request, not found, etc)
-  return false
 }
 
 /**
@@ -217,284 +118,6 @@ export async function checkDuplicateApplication(
       error
     )
   }
-}
-
-/**
- * Envia payload para webhook N8N com retry logic e timeout
- *
- * Features:
- * - Timeout de 10 segundos por tentativa
- * - 3 tentativas com exponential backoff (1s, 2s, 4s)
- * - Retry apenas em erros de rede e 5xx
- * - Logging estruturado com contexto rico
- *
- * @param payload - Dados da candidatura
- * @returns Response do webhook
- *
- * @throws {CandidaturasServiceError} Se webhook falhar após todas as tentativas
- */
-async function triggerN8NWebhook(
-  payload: N8NNovaCandidaturaPayload
-): Promise<N8NWebhookResponse> {
-  const startTime = Date.now()
-  let lastError: unknown
-
-  // Retry loop com exponential backoff
-  for (let attempt = 1; attempt <= WEBHOOK_CONFIG.maxRetries; attempt++) {
-    try {
-      webhookLogger.info('Tentando enviar webhook', {
-        attempt,
-        maxRetries: WEBHOOK_CONFIG.maxRetries,
-        candidaturaId: payload.data.candidatura.id,
-      })
-
-      // Configurar AbortController para timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_CONFIG.timeout)
-
-      try {
-        const response = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        // Verificar status code
-        if (!response.ok) {
-          const errorMessage = `Webhook retornou status ${response.status}`
-
-          // Se não é retryable (4xx), falha imediatamente
-          if (!isRetryableError(null, response.status)) {
-            webhookLogger.error(errorMessage, null, {
-              statusCode: response.status,
-              attempt,
-              candidaturaId: payload.data.candidatura.id,
-            })
-
-            throw new CandidaturasServiceError(errorMessage, 'WEBHOOK_ERROR')
-          }
-
-          // É retryable (5xx), continua para próxima tentativa
-          throw new Error(errorMessage)
-        }
-
-        // Sucesso!
-        const data: N8NWebhookResponse = await response.json()
-        const duration = Date.now() - startTime
-
-        webhookLogger.info('Webhook enviado com sucesso', {
-          attempt,
-          duration,
-          candidaturaId: payload.data.candidatura.id,
-        })
-
-        return data
-      } catch (fetchError) {
-        clearTimeout(timeoutId)
-
-        // Verificar se foi timeout (AbortError)
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          webhookLogger.warn('Webhook timeout', {
-            attempt,
-            timeout: WEBHOOK_CONFIG.timeout,
-            candidaturaId: payload.data.candidatura.id,
-          })
-          throw new Error(`Webhook timeout após ${WEBHOOK_CONFIG.timeout}ms`)
-        }
-
-        throw fetchError
-      }
-    } catch (error) {
-      lastError = error
-
-      // Verificar se deve fazer retry
-      const shouldRetry =
-        attempt < WEBHOOK_CONFIG.maxRetries &&
-        isRetryableError(error, error instanceof CandidaturasServiceError ? undefined : 500)
-
-      if (shouldRetry) {
-        // Calcular delay exponencial: 1s, 2s, 4s
-        const delay = WEBHOOK_CONFIG.retryDelayBase * Math.pow(2, attempt - 1)
-
-        webhookLogger.warn('Webhook falhou, tentando novamente', {
-          attempt,
-          nextAttempt: attempt + 1,
-          delayMs: delay,
-          error: error instanceof Error ? error.message : String(error),
-          candidaturaId: payload.data.candidatura.id,
-        })
-
-        await sleep(delay)
-        continue // Próxima tentativa
-      }
-
-      // Não retry ou última tentativa - propagar erro
-      break
-    }
-  }
-
-  // Se chegou aqui, todas as tentativas falharam
-  const duration = Date.now() - startTime
-
-  webhookLogger.error('Webhook falhou após todas as tentativas', lastError, {
-    attempts: WEBHOOK_CONFIG.maxRetries,
-    duration,
-    candidaturaId: payload.data.candidatura.id,
-  })
-
-  // Re-throw se for erro customizado
-  if (lastError instanceof CandidaturasServiceError) {
-    throw lastError
-  }
-
-  throw new CandidaturasServiceError(
-    `Erro ao enviar webhook N8N após ${WEBHOOK_CONFIG.maxRetries} tentativas`,
-    'WEBHOOK_ERROR',
-    lastError
-  )
-}
-
-/**
- * Trigger webhook N8N para mudança de status
- * Usa mesmo retry logic e timeout do webhook de nova candidatura
- *
- * @param payload - Dados da mudança de status
- * @returns Response do webhook N8N
- *
- * @throws {CandidaturasServiceError} Se webhook falhar após todas tentativas
- */
-async function triggerStatusUpdateWebhook(
-  payload: N8NStatusUpdatePayload
-): Promise<N8NWebhookResponse> {
-  const startTime = Date.now()
-  let lastError: unknown
-
-  // Retry loop com exponential backoff
-  for (let attempt = 1; attempt <= WEBHOOK_CONFIG.maxRetries; attempt++) {
-    try {
-      webhookLogger.info('Tentando enviar webhook de status update', {
-        attempt,
-        maxRetries: WEBHOOK_CONFIG.maxRetries,
-        candidaturaId: payload.data.candidatura.id,
-        statusAnterior: payload.data.candidatura.status_anterior,
-        statusNovo: payload.data.candidatura.status_novo,
-      })
-
-      // Configurar AbortController para timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_CONFIG.timeout)
-
-      try {
-        const response = await fetch(N8N_STATUS_UPDATE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        })
-
-        clearTimeout(timeoutId)
-
-        // Verificar status code
-        if (!response.ok) {
-          const errorMessage = `Webhook status update retornou status ${response.status}`
-
-          // Se não é retryable (4xx), falha imediatamente
-          if (!isRetryableError(null, response.status)) {
-            webhookLogger.error(errorMessage, null, {
-              statusCode: response.status,
-              attempt,
-              candidaturaId: payload.data.candidatura.id,
-            })
-
-            throw new CandidaturasServiceError(errorMessage, 'WEBHOOK_ERROR')
-          }
-
-          // É retryable (5xx), continua para próxima tentativa
-          throw new Error(errorMessage)
-        }
-
-        // Sucesso!
-        const data: N8NWebhookResponse = await response.json()
-        const duration = Date.now() - startTime
-
-        webhookLogger.info('Webhook status update enviado com sucesso', {
-          attempt,
-          duration,
-          candidaturaId: payload.data.candidatura.id,
-          emailSent: data.email_sent,
-        })
-
-        return data
-      } catch (fetchError) {
-        clearTimeout(timeoutId)
-
-        // Verificar se foi timeout (AbortError)
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          webhookLogger.warn('Webhook status update timeout', {
-            attempt,
-            timeout: WEBHOOK_CONFIG.timeout,
-            candidaturaId: payload.data.candidatura.id,
-          })
-          throw new Error(`Webhook timeout após ${WEBHOOK_CONFIG.timeout}ms`)
-        }
-
-        throw fetchError
-      }
-    } catch (error) {
-      lastError = error
-
-      // Verificar se deve fazer retry
-      const shouldRetry =
-        attempt < WEBHOOK_CONFIG.maxRetries &&
-        isRetryableError(error, error instanceof CandidaturasServiceError ? undefined : 500)
-
-      if (shouldRetry) {
-        // Calcular delay exponencial: 1s, 2s, 4s
-        const delay = WEBHOOK_CONFIG.retryDelayBase * Math.pow(2, attempt - 1)
-
-        webhookLogger.warn('Webhook status update falhou, tentando novamente', {
-          attempt,
-          nextAttempt: attempt + 1,
-          delayMs: delay,
-          error: error instanceof Error ? error.message : String(error),
-          candidaturaId: payload.data.candidatura.id,
-        })
-
-        await sleep(delay)
-        continue // Próxima tentativa
-      }
-
-      // Não retry ou última tentativa - propagar erro
-      break
-    }
-  }
-
-  // Se chegou aqui, todas as tentativas falharam
-  const duration = Date.now() - startTime
-
-  webhookLogger.error('Webhook status update falhou após todas as tentativas', lastError, {
-    attempts: WEBHOOK_CONFIG.maxRetries,
-    duration,
-    candidaturaId: payload.data.candidatura.id,
-  })
-
-  // Re-throw se for erro customizado
-  if (lastError instanceof CandidaturasServiceError) {
-    throw lastError
-  }
-
-  throw new CandidaturasServiceError(
-    `Erro ao enviar webhook N8N status update após ${WEBHOOK_CONFIG.maxRetries} tentativas`,
-    'WEBHOOK_ERROR',
-    lastError
-  )
 }
 
 /**
@@ -575,56 +198,11 @@ export async function createCandidatura(
       )
     }
 
-    // 4. Buscar dados do candidato e vaga para webhook
-    const [candidatoResult, vagaResult] = await Promise.all([
-      supabase
-        .from('candidatos')
-        .select('id, nome_completo, email, celular')
-        .eq('id', candidato_id)
-        .single(),
-      supabase
-        .from('vagas')
-        .select('id, titulo, cidade, estado, departamento')
-        .eq('id', vaga_id)
-        .single(),
-    ])
+    // 4. SEC-03: the n8n nova-candidatura webhook is now fired SERVER-SIDE by the
+    //    AFTER INSERT trigger trg_n8n_nova_candidatura (pg_net + Vault). No client
+    //    dispatch here — the URL must never ship in the bundle (Pitfall 5).
 
-    if (candidatoResult.error || vagaResult.error) {
-      // Log erro mas não falha a candidatura (já foi criada)
-      console.error('Erro ao buscar dados para webhook:', {
-        candidatoError: candidatoResult.error,
-        vagaError: vagaResult.error,
-      })
-    }
-
-    // 5. Trigger webhook N8N (não bloqueia se falhar)
-    if (candidatoResult.data && vagaResult.data) {
-      try {
-        const webhookPayload: N8NNovaCandidaturaPayload = {
-          event: 'candidatura.created',
-          timestamp: new Date().toISOString(),
-          data: {
-            candidatura: {
-              id: candidatura.id,
-              candidato_id: candidatura.candidato_id,
-              vaga_id: candidatura.vaga_id,
-              status_candidatura: candidatura.status as StatusCandidatura,
-              etapa_atual: candidatura.etapa_atual,
-              data_aplicacao: candidatura.created_at,
-            },
-            candidato: candidatoResult.data,
-            vaga: vagaResult.data,
-          },
-        }
-
-        await triggerN8NWebhook(webhookPayload)
-      } catch (webhookError) {
-        // Log erro mas não falha a candidatura
-        console.error('Webhook N8N falhou (não bloqueante):', webhookError)
-      }
-    }
-
-    // 6. Retornar candidatura criada
+    // 5. Retornar candidatura criada
     return {
       success: true,
       data: candidatura as Candidatura,
@@ -829,7 +407,6 @@ export async function updateCandidaturaStatus(
       status_candidatura,
       etapa_atual,
       motivo_rejeicao,
-      notificar_candidato = true,
     } = request
 
     // Validar inputs
@@ -855,7 +432,6 @@ export async function updateCandidaturaStatus(
       )
     }
 
-    const statusAnterior = candidaturaAtual.status as StatusCandidatura
     const etapaAtualAnterior = candidaturaAtual.etapa_atual as EtapaProcesso
 
     // AUTO-AVANÇAR ETAPA quando aprovar para próxima etapa
@@ -939,48 +515,10 @@ export async function updateCandidaturaStatus(
       etapa_atual: data.etapa_atual,
     })
 
-    // Trigger webhook N8N para notificação de status (async, não bloqueia)
-    if (notificar_candidato && candidaturaAtual.candidato && candidaturaAtual.vaga) {
-      const candidato = candidaturaAtual.candidato as any
-      const vaga = candidaturaAtual.vaga as any
-
-      const webhookPayload: N8NStatusUpdatePayload = {
-        event: 'candidatura.status_updated',
-        timestamp: new Date().toISOString(),
-        data: {
-          candidatura: {
-            id: data.id,
-            candidato_id: data.candidato_id,
-            vaga_id: data.vaga_id,
-            status_anterior: statusAnterior,
-            status_novo: novoStatus, // ✅ Usar novoStatus (pode ter sido alterado para aguardando_resposta)
-            etapa_atual: data.etapa_atual,
-            ...(motivo_rejeicao && { motivo_rejeicao }),
-          },
-          candidato: {
-            id: candidato.id,
-            nome_completo: candidato.nome_completo,
-            email: candidato.email,
-            telefone: candidato.celular,
-          },
-          vaga: {
-            id: vaga.id,
-            titulo: vaga.titulo,
-            localizacao: [vaga.cidade, vaga.estado].filter(Boolean).join(', ') || null,
-            departamento: vaga.departamento,
-          },
-        },
-      }
-
-      // Fire and forget (não bloqueia resposta)
-      triggerStatusUpdateWebhook(webhookPayload).catch((error) => {
-        webhookLogger.error('Erro ao enviar webhook de status update (não bloqueante)', error, {
-          candidaturaId: data.id,
-          statusAnterior,
-          statusNovo: novoStatus, // ✅ Usar novoStatus
-        })
-      })
-    }
+    // SEC-03: the n8n status-candidatura webhook is now fired SERVER-SIDE by the
+    // AFTER UPDATE OF status trigger trg_n8n_status_candidatura (pg_net + Vault) on
+    // the actual status transition. No client dispatch here — the URL must never ship
+    // in the bundle (Pitfall 5). `notificar_candidato` is honored server-side/M5.
 
     return {
       success: true,
