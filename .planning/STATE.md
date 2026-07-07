@@ -4,8 +4,8 @@ milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
 stopped_at: "Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 · 7ca8737/e12807f. NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05. Restam 23-05 (migration PROD) + 23-06 (redeploy) na Phase 23."
-last_updated: "2026-07-07T00:44:02.410Z"
-last_activity: 2026-07-07 -- Phase 24 planning complete
+last_updated: "2026-07-07T03:19:09.551Z"
+last_activity: 2026-07-07 -- Phase 24 execution started
 progress:
   total_phases: 6
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 24 — blindagem de segurança / pii / lgpd
+**Current focus:** Phase 24 — Blindagem de Segurança / PII / LGPD
 
 ## Current Position
 
-Phase: 24
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-07-07 -- Phase 24 planning complete
+Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 24
+Last activity: 2026-07-07 -- Phase 24 execution started
 
 Progress: [████████░░] 83%
 

@@ -147,7 +147,7 @@ Plans:
 Plans:
 **Wave 1** *(BLOCKING · non-autonomous · MCP live-state reads — first task of the phase)*
 
-- [ ] 24-01-PLAN.md — Live-state verification via Supabase MCP (pg_policies + column ACLs + backup existence + auth_admin predicate) → 24-LIVE-STATE.md [Wave 1]
+- [x] 24-01-PLAN.md — Live-state verification via Supabase MCP (pg_policies + column ACLs + backup existence + auth_admin predicate) → 24-LIVE-STATE.md [Wave 1]
 
 **Wave 2** *(código local, disjoint files — migration FILES + client rewires + EF edits + tests)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 0/9 | Not started | - |
+| 24. Blindagem Segurança / PII / LGPD | v4.0 | 1/9 | In Progress|  |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
