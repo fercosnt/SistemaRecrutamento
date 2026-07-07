@@ -50,16 +50,20 @@ export class CognitivoServiceError extends Error {
 export type SecaoCognitiva = 'matriz' | 'letra_numero'
 
 /**
- * The EXPLICIT candidate-facing column allowlist for `cognitivo_itens`. It names
- * ONLY the columns the candidate may see — `id, secao, enunciado, alternativas,
- * ordem`. It DELIBERATELY EXCLUDES the answer-key index (server-only,
- * T-14-06-01). NEVER `'*'` ([[reference_select_star_leaks_pii]]) — a star
- * projection would leak the answer key. Listed as one auditable constant.
+ * The EXPLICIT candidate-facing column allowlist for `cognitivo_itens` — RETAINED as
+ * the documented, auditable list of the ONLY columns the candidate may ever see
+ * (`id, secao, enunciado, alternativas, ordem`), and asserted by the
+ * `prova-cognitiva.test.tsx` regression as a second guard. It DELIBERATELY EXCLUDES
+ * the answer-key index (server-only, T-14-06-01). NEVER `'*'`
+ * ([[reference_select_star_leaks_pii]]).
+ *
+ * SEC-01 (Phase 24): `listItens` no longer reads the base table with this allowlist —
+ * it now goes through the `get_cognitivo_itens` SECURITY DEFINER RPC (the base-table
+ * candidate row policy `auth_le_cognitivo_itens` was DROPPED and `gabarito_idx`
+ * column-REVOKE'd), so a direct `?select=gabarito_idx` returns 0 rows. The RPC
+ * projects exactly these same columns server-side.
  */
 export const COGNITIVO_ITENS_ALLOWLIST = 'id, secao, enunciado, alternativas, ordem'
-
-/** Defensive bound on the items read (no unbounded query — WR-05 precedent). */
-const ITENS_LIMIT = 100
 
 /**
  * One CC0 reasoning item as the CANDIDATE sees it — enunciado + alternativas ONLY.
@@ -145,18 +149,24 @@ export async function getContexto(
 }
 
 /**
- * Lists the CC0 reasoning items the candidate must answer. Allowlist projection of
- * `cognitivo_itens` that EXCLUDES the answer key — the candidate receives ONLY
- * `id, secao, enunciado, alternativas, ordem` (never the answer key, T-14-06-01).
- * Ordered by `ordem` for a stable presentation; `alternativas` is normalized to a
- * `string[]` (the column is jsonb).
+ * Lists the CC0 reasoning items the candidate must answer. SEC-01 (Phase 24): reads
+ * via the `get_cognitivo_itens` SECURITY DEFINER RPC — which projects ONLY
+ * `id, secao, enunciado, alternativas, ordem` server-side and NEVER `gabarito_idx`
+ * (the answer key, T-14-06-01) — instead of the base table. The base-table candidate
+ * row policy was dropped and `gabarito_idx` column-REVOKE'd, so the candidate can no
+ * longer reach the answer key even with a direct `?select=gabarito_idx`. Mirrors the
+ * `pontuar_cognitivo` rpc idiom below. Ordered by `ordem` for a stable presentation
+ * (the RPC returns them ordered); `alternativas` is normalized to a `string[]`.
  */
 export async function listItens(): Promise<ItemCognitivoCandidato[]> {
-  const { data, error } = await supabase
-    .from('cognitivo_itens')
-    .select(COGNITIVO_ITENS_ALLOWLIST)
-    .order('ordem', { ascending: true })
-    .limit(ITENS_LIMIT)
+  // NARROW confined cast (mirrors bigfiveService.getBigfiveItens): `get_cognitivo_itens`
+  // is not yet in the generated `database.types.ts` (regen is the 24-08 wave). Only the
+  // RPC name is widened — NOT a blanket UntypedClient. Drop the cast after the regen.
+  const { data, error } = await (supabase.rpc as unknown as (
+    fn: string,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+    'get_cognitivo_itens',
+  )
 
   if (error) {
     throw new CognitivoServiceError(

@@ -126,6 +126,9 @@ describe('opt-in gate (vaga.aplica_cognitivo)', () => {
 })
 
 // ── (no-gabarito) the items read never projects the answer key ────────────────
+// SEC-01 (Phase 24): listItens now reads via the get_cognitivo_itens SECURITY DEFINER
+// RPC (the base-table row policy was dropped + gabarito_idx column-REVOKE'd) — it no
+// longer touches cognitivo_itens directly, so no `?select=gabarito_idx` surface remains.
 describe('cognitivo_itens read (no gabarito, no star)', () => {
   it('COGNITIVO_ITENS_ALLOWLIST names columns explicitly and never contains `*` or the gabarito', () => {
     expect(COGNITIVO_ITENS_ALLOWLIST).not.toContain('*')
@@ -134,21 +137,21 @@ describe('cognitivo_itens read (no gabarito, no star)', () => {
     expect(COGNITIVO_ITENS_ALLOWLIST).toContain('alternativas')
   })
 
-  it('listItens select() projection carries no `*` and no gabarito', async () => {
-    queryResult.value = { data: [], error: null }
+  it('listItens reads via the get_cognitivo_itens RPC — never a base-table gabarito select', async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null })
     await listItens()
-    expect(lastSelect.value).not.toContain('*')
-    expect(lastSelect.value).not.toMatch(/gabarito/)
-    expect(lastSelect.value.length).toBeGreaterThan(0)
+    expect(rpcArgs.fn).toBe('get_cognitivo_itens')
+    // The base-table select is gone: no `?select=...` (and thus no gabarito) surface.
+    expect(lastSelect.value).toBe('')
   })
 
   it('listItens normalizes the jsonb alternativas to a string[] (no gabarito surfaced)', async () => {
-    queryResult.value = {
+    rpcMock.mockResolvedValue({
       data: [
         { id: 'i1', secao: 'matriz', enunciado: 'E?', alternativas: ['a', 'b', 'c'], ordem: 1 },
       ],
       error: null,
-    }
+    })
     const itens = await listItens()
     expect(itens[0].alternativas).toEqual(['a', 'b', 'c'])
     // The candidate item shape carries no gabarito_idx field.
