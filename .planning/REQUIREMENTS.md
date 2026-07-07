@@ -94,7 +94,7 @@
 - [x] **UX-05**: `?redirect` propagado login→cadastro→pós-login + limpeza de `localStorage` órfão. `(QW10)` — Phase 22 / Plan 22-03 (shared resolveRedirect guard; orphan candidatura_vaga_id limpo no login)
 - [ ] **UX-06**: Varredura de affordances mortas — menus, badges 12/5, botões no-op, tiles "-", incl. ocultar os no-op de avançar/rejeitar da DecisaoFinalPage + cache do comparativo por finalistas. `(QW11 + parte de QW9)`
 - [x] **UX-07**: Devolutiva e telas RH sem percentil numérico — descritores qualitativos (honestidade psicométrica). `(QW12)`
-- [ ] **UX-08**: Remoção dos 4 itens políticos O6 do Big Five (dado sensível — mesma natureza LGPD). `(QW7)`
+- [x] **UX-08**: Remoção dos 4 itens políticos O6 do Big Five (dado sensível — mesma natureza LGPD). `(QW7)`
 - [x] **UX-09**: Peso de `triagem` fora das chaves ponderadas da consolidação (ou cap ≤15) + exigir ≥2 etapas para exibir número consolidado. `(QW8)`
 
 ## Future Requirements
@@ -191,7 +191,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | UX-05 | Phase 22 | Done (22-03) |
 | UX-06 | Phase 25 | Pending |
 | UX-07 | Phase 23 | Complete |
-| UX-08 | Phase 24 | Pending |
+| UX-08 | Phase 24 | Complete |
 | UX-09 | Phase 23 | Complete |
 
 **Coverage:**

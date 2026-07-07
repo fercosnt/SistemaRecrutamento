@@ -156,7 +156,7 @@ Plans:
 - [x] 24-04-PLAN.md — SEC-05/06/08 policies vaga-scoped (WR-04) em analise/comparativo/candidaturas/redacoes RH + reprocessar regression-guard [Wave 2]
 - [x] 24-05-PLAN.md — SEC-04 devolutiva EF Bearer self-auth + SEC-03 n8n server-side (pg_net+Vault) + remoção do bundle + grep guard [Wave 2]
 - [x] 24-06-PLAN.md — SEC-09 auth_admin policy em migration file + SEC-10 DROP backup PII + SEC-11 strip console.log RH + guard [Wave 2]
-- [ ] 24-07-PLAN.md — UX-08 desativar 4 itens O6 {28,58,88,118} + scorer 116-item/O-prorate + submit-final/schema/copy/golden lockstep [Wave 2]
+- [x] 24-07-PLAN.md — UX-08 desativar 4 itens O6 {28,58,88,118} + scorer 116-item/O-prorate + submit-final/schema/copy/golden lockstep [Wave 2]
 
 **Wave 3** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 6/9 | In Progress|  |
+| 24. Blindagem Segurança / PII / LGPD | v4.0 | 7/9 | In Progress|  |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
