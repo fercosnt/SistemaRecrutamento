@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: ready_to_plan
-stopped_at: Phase 23 complete (6/6) — ready to discuss Phase 24
-last_updated: 2026-07-06T05:04:02.103Z
-last_activity: 2026-07-06
+status: executing
+stopped_at: "Phase 23 / Plan 23-03 complete — guardrails de custo (AI-06): kill-switch PRÉ-chamada em callAi (SUM cost_usd do dia por vaga vs AI_DAILY_COST_CAP_USD, fail-OPEN, hold nunca reject — RNF-07a) + cost-alerter alertMessage extraído p/ messages.ts (4 canais incl candidate_cost_over_1). Deno 175/0. 4 commits TDD: 96cfb2b/da63409 · 7ca8737/e12807f. NÃO redeploya (23-06); janela/escopo/trigger canal candidate = 23-05. Restam 23-05 (migration PROD) + 23-06 (redeploy) na Phase 23."
+last_updated: "2026-07-07T00:44:02.410Z"
+last_activity: 2026-07-07 -- Phase 24 planning complete
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 12
+  completed_phases: 2
+  total_plans: 21
   completed_plans: 12
-  percent: 17
+  percent: 33
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 Phase: 24
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-06
+Status: Ready to execute
+Last activity: 2026-07-07 -- Phase 24 planning complete
 
 Progress: [████████░░] 83%
 
