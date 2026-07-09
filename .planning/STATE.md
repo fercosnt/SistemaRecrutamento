@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: executing
-stopped_at: Phase 24 / Plan 24-07 complete — UX-08 deactivate 4 political O6 items (reversible ativo) + scorer 116/O-prorate + 6-site count lockstep. Files-only, apply 24-08 / EF redeploy 24-09. Commits 279f8ca/5bc2fdf/00755f4/678637e. tsc 128.
-last_updated: "2026-07-07T04:54:24.059Z"
-last_activity: 2026-07-07
+status: ready_to_plan
+stopped_at: Phase 24 SHIPPED + SECURED (9/9 plans, 4 waves) — all 12 SEC/UX reqs live on PROD. Verifier 5/5 criteria + 12/12 reqs (human_needed — 4 confirmatory live UATs deferred). Security 39/39 threats closed, threats_open:0. Next = Phase 25 (Funil lado RH).
+last_updated: "2026-07-09T22:45:00.000Z"
+last_activity: 2026-07-09
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 21
-  completed_plans: 19
-  percent: 33
+  completed_plans: 21
+  percent: 50
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 24 — Blindagem de Segurança / PII / LGPD
+**Current focus:** Phase 25 — Correção do Funil (lado RH)
 
 ## Current Position
 
-Phase: 24 (Blindagem de Segurança / PII / LGPD) — EXECUTING
-Plan: 8 of 9
-Status: Ready to execute
-Last activity: 2026-07-07
+Phase: 25 (Correção do Funil — lado RH) — NOT STARTED (Phase 24 ✅ shipped+secured)
+Plan: Not started
+Status: Ready to discuss/plan
+Last activity: 2026-07-09
 
-Progress: [█████████░] 90%
+Progress: [█████░░░░░] 50%
 
 ## Roadmap (M4 — Phases 22–27)
 
