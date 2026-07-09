@@ -160,7 +160,7 @@ Plans:
 
 **Wave 3** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
 
-- [ ] 24-08-PLAN.md — Aplicar as 8 migrations via apply_migration + n8n Vault secret + SQL smokes ao vivo (candidato-DENY / non-owner-0-rows / 42501 / to_regclass NULL / 116 ativos) [Wave 3]
+- [x] 24-08-PLAN.md — Aplicar as 8 migrations via apply_migration + n8n Vault secret + SQL smokes ao vivo (candidato-DENY / non-owner-0-rows / 42501 / to_regclass NULL / 116 ativos) [Wave 3]
 
 **Wave 4** *(BLOCKING · non-autonomous · redeploy PROD)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 7/9 | In Progress|  |
+| 24. Blindagem Segurança / PII / LGPD | v4.0 | 8/9 | In Progress|  |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
