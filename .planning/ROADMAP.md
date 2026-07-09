@@ -59,7 +59,7 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
 
 - [x] **Phase 22: Rede de Testes, Destravamento & Varredura de Honestidade** - Corpus Deno em CI + typecheck destravado + varredura Onda-1 de copy/login honestos (completed 2026-07-05)
 - [x] **Phase 23: Ressurreição da Stack de IA** - Prompts reais nos 7 call_types + circuit breaker/retry/guardrails que funcionam + honestidade psicométrica (completed 2026-07-06)
-- [ ] **Phase 24: Blindagem de Segurança / PII / LGPD** - RLS nunca é segredo de coluna + toda EF privilegiada autentica-E-autoriza + IDOR/PII fechados
+- [x] **Phase 24: Blindagem de Segurança / PII / LGPD** - RLS nunca é segredo de coluna + toda EF privilegiada autentica-E-autoriza + IDOR/PII fechados (completed 2026-07-09)
 - [ ] **Phase 25: Correção do Funil (lado RH — enums, colunas & contratos)** - RH opera Kanban/Editar-Vaga/decisão sobre enums+colunas que existem, sem rejeição sem trilha
 - [ ] **Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)** - Candidato alcança e conclui cada etapa com scoring íntegro + reinscrição pós soft-delete
 - [ ] **Phase 27: Integridade de Migrations & Fechamento da Rede de Testes** - Migrations reconstroem o banco do zero + rede de testes cobre auto-reject sancionado e contratos
@@ -164,7 +164,7 @@ Plans:
 
 **Wave 4** *(BLOCKING · non-autonomous · redeploy PROD)*
 
-- [ ] 24-09-PLAN.md — Redeploy gerar-devolutiva-bigfive (401/200) + submit-bigfive-final (116-item bundle) + smokes ao vivo [Wave 4]
+- [x] 24-09-PLAN.md — Redeploy gerar-devolutiva-bigfive (401/200) + submit-bigfive-final (116-item bundle) + smokes ao vivo [Wave 4]
 
 **UI hint**: no
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 8/9 | In Progress|  |
+| 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |

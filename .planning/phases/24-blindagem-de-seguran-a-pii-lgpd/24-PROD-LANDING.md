@@ -51,3 +51,31 @@ Both structural checks passed; the **behavioral** smokes (simulated attacker JWT
 ## RNF-07a
 
 Every applied statement only tightens SELECT/UPDATE, adds a DEFINER reader, moves a dispatch server-side, deactivates items, or drops a backup. No statement writes `candidaturas.status` or auto-rejects.
+
+---
+
+# Wave 4 / Plan 24-09 — Edge Function Redeploys (SEC-04, UX-08)
+
+**Deployed:** 2026-07-09 via `supabase functions deploy` (CLI auto-bundles `_shared`; `verify_jwt=true` preserved on both — unchanged).
+
+| EF | Before | After | verify_jwt |
+|----|--------|-------|-----------|
+| `submit-bigfive-final` | v6 (OLD 120-item bundle) | **v7** (116 active-set + O ×6/5 prorate) | true (unchanged) |
+| `gerar-devolutiva-bigfive` | v11 (no auth) | **v12** (SEC-04 Bearer self-auth) | true (unchanged) |
+
+> **Bundle-freeze confirmed:** `get_edge_function` showed the deployed v6 `submit-bigfive-final` still hard-coded `!== 120` / `for id=1..120` and the scorer threw unless 120 keys. Because 24-08 already made `get_bigfive_itens()` return 116, the candidate Big-Five submit was **broken in PROD** (116 answers → 400) in the window between Wave 3 and this redeploy — the redeploy restores it. This is why 24-09 is Wave 4 immediately after Wave 3.
+
+## Live smoke results
+
+| Req | Smoke | Result |
+|-----|-------|--------|
+| SEC-04 | POST `gerar-devolutiva-bigfive` **no Authorization** → 401 | ✅ PASS |
+| SEC-04 | POST **wrong Bearer** → 401 | ✅ PASS |
+| SEC-04 | correct service Bearer → 200 | ✔ proven by deploy of the known-local guard (`guardDevolutivaBearer`, `DEVOLUTIVA_INVOKE_SECRET ?? SERVICE_KEY`) + deno 12/12; not curled (would expose the service key + trigger a real devolutiva side-effect) |
+| UX-08 | deployed v7 bundles the 116 active-set scorer | ✔ version bump v6→v7 + script size changed + deno 10/10 (incl. 116-active submit + 120-body rejection) + DB `get_bigfive_itens()`=116 |
+| UX-08 | **live** 116-item candidate submit → 200 (prorated O, no auto-reject) + 120-body → 400 | ⏸ HUMAN-UAT (`24-HUMAN-UAT.md`) — verify_jwt=true means the gateway 401s a raw curl before validateBody; needs a real candidate session in etapa `avaliacao_assincrona` |
+
+**verify_jwt:** unchanged on both EFs (the SEC-04 Bearer guard is the control; config.toml verify_jwt is Phase-27/CI-13). RNF-07a: `submit-bigfive-final` still writes only `scores_candidato` (status='sucesso' always), never `candidaturas` / never auto-rejects.
+
+## Deferred (24-09)
+- **submit-candidatura redundant n8n env-var fire** — the SEC-03 nova-candidatura trigger now owns that dispatch canonically, but it graceful-skips until the Vault secret is set, so there is **no active double-fire** today. Drop the EF's `N8N_NOVA_CANDIDATURA_URL` env-var fire when the Vault secret is set (bundled with the SEC-03 Vault deferral). → `deferred-items.md`.
