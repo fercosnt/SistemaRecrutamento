@@ -72,15 +72,20 @@ afterEach(() => {
 })
 
 describe('explicacaoService — allowlist (T-15-12 / LGPD-04, no score leak)', () => {
-  it('the allowlist names EXACTLY the 5 own-row columns and NO score/band/percentile', () => {
+  it('the allowlist names EXACTLY the 4 own-row columns and NO score/band/percentile', () => {
     const cols = DECISAO_EXPLICACAO_ALLOWLIST.split(',').map((c) => c.trim())
     expect(cols).toEqual([
       'decisao',
-      'justificativa',
       'revisao_solicitada_em',
       'revisao_resultado',
       'explicacao_solicitada_em',
     ])
+  })
+
+  it('the allowlist EXCLUDES the internal RH justificativa (Phase-24 CR-01 — network leak)', () => {
+    // justificativa is never read (reason is derived from `decisao`); selecting it shipped
+    // the internal RH reasoning text to the candidate's browser. It must not be projected.
+    expect(DECISAO_EXPLICACAO_ALLOWLIST).not.toMatch(/justificativa/)
   })
 
   it('the allowlist is NEVER a star projection and NEVER references scores_candidato', () => {

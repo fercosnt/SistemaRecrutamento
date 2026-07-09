@@ -6,12 +6,13 @@
  * error class). The genuinely load-bearing invariants (RNF-07a + LGPD-04):
  *
  *  - `getExplicacao` reads `decisao_final` via an EXPLICIT own-row allowlist
- *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 5 named columns) that EXCLUDES every score /
- *    band / percentile column and NEVER joins the psychometric scores table. RLS is
- *    row-level only and does NOT hide columns ([[reference_select_star_leaks_pii]] — the
- *    Phase-8 LGPD leak lesson, T-15-12). NEVER a star projection. The own-row scope
- *    is enforced by the LIVE `candidato_le_propria_decisao` RLS policy
- *    (`candidatos.user_id = auth.uid()`).
+ *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 4 named columns) that EXCLUDES the internal RH
+ *    `justificativa` free text (Phase-24 CR-01 — a column read but never used still ships
+ *    over the wire) AND every score / band / percentile column, and NEVER joins the
+ *    psychometric scores table. RLS is row-level only and does NOT hide columns
+ *    ([[reference_select_star_leaks_pii]] — the Phase-8 LGPD leak lesson, T-15-12). NEVER
+ *    a star projection. The own-row scope is enforced by the LIVE
+ *    `candidato_le_propria_decisao` RLS policy (`candidatos.user_id = auth.uid()`).
  *
  *  - REACHABILITY GATE (Pitfall 6 / T-15-14): the read returns the decision only
  *    when `decisao = 'rejeitado'`. Any other state (no row / aprovado / em_espera)
@@ -67,18 +68,21 @@ export class ExplicacaoServiceError extends Error {
 
 /**
  * The EXPLICIT own-row column allowlist for the candidate read of `decisao_final`. It
- * names ONLY the 5 columns the candidate may see — the high-level `decisao`, the
- * internal `justificativa` (consumed SERVER-of-record-side to derive a non-clinical
- * reason — never surfaced verbatim), and the LGPD Art. 20 lifecycle stamps
- * (`revisao_solicitada_em`, `revisao_resultado`, `explicacao_solicitada_em`).
+ * names ONLY the 4 columns the candidate may see — the high-level `decisao` and the
+ * LGPD Art. 20 lifecycle stamps (`revisao_solicitada_em`, `revisao_resultado`,
+ * `explicacao_solicitada_em`).
  *
- * It DELIBERATELY EXCLUDES every score/band/percentile column and NEVER joins the
- * psychometric scores table (RNF-07a / LGPD-04, T-15-12). NEVER the wildcard
- * ([[reference_select_star_leaks_pii]]) — a star projection would leak PII the RLS
- * row-scope cannot hide. Listed as one auditable constant.
+ * SEC-02-class fix (Phase 24 / CR-01): the internal RH `justificativa` free text is
+ * DELIBERATELY EXCLUDED. RLS is row-level only and does NOT hide columns
+ * ([[reference_select_star_leaks_pii]]); selecting `justificativa` transmitted the raw
+ * internal reasoning to the candidate's browser (visible in DevTools) even though the
+ * candidate-facing `reason` is derived purely from `decisao` via REASON_BY_DECISAO —
+ * `justificativa` was never read. Dropping it from the projection closes the leak at the
+ * network layer. Also EXCLUDES every score/band/percentile column and NEVER joins the
+ * psychometric scores table (RNF-07a / LGPD-04, T-15-12). NEVER the wildcard.
  */
 export const DECISAO_EXPLICACAO_ALLOWLIST =
-  'decisao, justificativa, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em'
+  'decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em'
 
 /** The candidate-facing decision result — the live `decisao_final_resultado` enum. */
 export type DecisaoResultado = 'aprovado' | 'rejeitado' | 'em_espera'
@@ -119,11 +123,11 @@ export type ExplicacaoWriteOutcome = 'ok' | 'denied' | 'unavailable'
  * Derives a respectful, NON-CLINICAL templated reason keyed on the decision (Open Q5).
  *
  * The candidate NEVER receives the raw internal RH justificativa tone, a score, a band,
- * or a percentile — only this deterministic, high-level, respectful phrasing. The
- * internal `justificativa` is read by the allowlist (it is the RH audit record) but is
- * intentionally NOT surfaced verbatim; this template is the candidate-facing substitute
- * (RNF-07a / LGPD-04). Kept here (not the component) so the no-leak invariant is
- * enforced at the data layer and asserted by the service test.
+ * or a percentile — only this deterministic, high-level, respectful phrasing keyed on
+ * `decisao`. The internal `justificativa` is NOT even fetched (Phase-24 CR-01 dropped it
+ * from the projection); this template is the candidate-facing substitute (RNF-07a /
+ * LGPD-04). Kept here (not the component) so the no-leak invariant is enforced at the
+ * data layer and asserted by the service test.
  */
 const REASON_BY_DECISAO: Record<DecisaoResultado, string> = {
   // Only `rejeitado` reaches the candidate page (reachability gate). The templates are
@@ -181,7 +185,6 @@ export async function getExplicacao(
 
   const raw = data as unknown as {
     decisao: DecisaoResultado
-    justificativa: string
     revisao_solicitada_em: string | null
     revisao_resultado: string | null
     explicacao_solicitada_em: string | null

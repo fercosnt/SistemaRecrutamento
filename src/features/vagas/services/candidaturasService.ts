@@ -446,21 +446,10 @@ export async function updateCandidaturaStatus(
         // Avançar para próxima etapa e mudar status para aguardando_resposta
         novaEtapa = proximaEtapa
         novoStatus = 'aguardando_resposta'
-
-        console.log('🚀 Auto-avançando etapa:', {
-          candidaturaId,
-          etapaAnterior: etapaAtualAnterior,
-          proximaEtapa: novaEtapa,
-          statusAnterior: status_candidatura,
-          statusNovo: novoStatus,
-        })
-      } else {
-        // Chegou na última etapa (aprovado ou rejeitado)
-        console.log('⚠️ Candidato já está na última etapa:', {
-          candidaturaId,
-          etapaAtual: etapaAtualAnterior,
-        })
       }
+      // else: chegou na última etapa (aprovado ou rejeitado) — nada a fazer.
+      // SEC-11 (Phase 24 / WR-03): operational RH console.log removed (leaked
+      // candidaturaId/etapa/status into the PROD browser console).
     }
 
     // Preparar dados para update
@@ -478,12 +467,12 @@ export async function updateCandidaturaStatus(
       .eq('id', candidaturaId)
 
     if (updateError) {
-      console.error('❌ Erro no update da candidatura:', {
+      // SEC-11 (Phase 24 / WR-03): never log `updateData` — it carries
+      // feedback_rejeicao (RH free-text rejection feedback). Log only the id +
+      // the error fields (no candidate PII crosses into the console).
+      console.error('Erro no update da candidatura:', {
         candidaturaId,
-        updateData,
         error: updateError.message,
-        details: updateError.details,
-        hint: updateError.hint,
         code: updateError.code,
       })
       throw new CandidaturasServiceError(
@@ -509,11 +498,7 @@ export async function updateCandidaturaStatus(
       )
     }
 
-    console.log('✅ Candidatura atualizada com sucesso:', {
-      id: data.id,
-      status: data.status,
-      etapa_atual: data.etapa_atual,
-    })
+    // SEC-11 (Phase 24 / WR-03): operational success console.log removed (RH path).
 
     // SEC-03: the n8n status-candidatura webhook is now fired SERVER-SIDE by the
     // AFTER UPDATE OF status trigger trg_n8n_status_candidatura (pg_net + Vault) on

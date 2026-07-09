@@ -588,6 +588,25 @@ const corsHeaders = {
 // caller is authorized (the handler proceeds). Exported so the deno test suite can
 // exercise the no-Bearer / wrong-Bearer / correct-Bearer cases directly without
 // standing up Deno.serve.
+/**
+ * Constant-time string equality (WR-01) — compares every byte regardless of where
+ * the first mismatch is, so the 401 path leaks no timing signal about how many
+ * leading bytes of the shared secret were guessed. Length difference folds into the
+ * same accumulator (still walks max(len) bytes) so a shorter/longer guess is not
+ * early-rejected.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 export function guardDevolutivaBearer(
   req: Request,
   expectedSecret: string,
@@ -596,7 +615,7 @@ export function guardDevolutivaBearer(
   const bearer = authHeader.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length).trim()
     : "";
-  if (!bearer || bearer !== expectedSecret) {
+  if (!bearer || !timingSafeEqualStr(bearer, expectedSecret)) {
     console.warn("[gerar-devolutiva-bigfive] Rejected request: invalid/absent Bearer");
     return new Response(JSON.stringify({ error: "Não autorizado." }), {
       status: 401,
@@ -630,12 +649,14 @@ if (import.meta.main) {
 
     // ---- SEC-04 (T-24-05-01): Bearer self-auth — close the IDOR ---------------
     // Reject any caller that does not present the internal shared secret BEFORE
-    // resolving the prompt or reading any candidate row. Rotation-friendly override
-    // via DEVOLUTIVA_INVOKE_SECRET; falls back to the service_role key (the value the
-    // service invoker already sends). See guardDevolutivaBearer + Pitfall 4 above.
-    // @ts-ignore — Deno.env existe em runtime.
-    const expectedSecret = Deno.env.get("DEVOLUTIVA_INVOKE_SECRET") ?? SERVICE_KEY;
-    const bearerRejection = guardDevolutivaBearer(req, expectedSecret);
+    // resolving the prompt or reading any candidate row. The expected secret IS the
+    // service_role key — the value the ONLY caller (submit-bigfive-final, via
+    // supabaseAdmin.functions.invoke) already sends as its Bearer. WR-02: a separate
+    // DEVOLUTIVA_INVOKE_SECRET override was removed — it was a footgun (the caller
+    // never sent it, so setting the env var would silently 401 every devolutiva,
+    // swallowed by submit-bigfive-final's best-effort try/catch). Rotating the guard
+    // means rotating the service_role key (which the caller already tracks).
+    const bearerRejection = guardDevolutivaBearer(req, SERVICE_KEY);
     if (bearerRejection) return bearerRejection;
 
     // Clientes construídos a partir dos imports ESTÁTICOS do topo do módulo

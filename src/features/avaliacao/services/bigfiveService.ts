@@ -139,7 +139,8 @@ export async function getBigfiveItens(): Promise<BigfiveItem[]> {
 }
 
 /**
- * Submits the 120 Likert answers for server-side scoring (AVAL-04). Posts ONLY
+ * Submits the 116 active Likert answers for server-side scoring (AVAL-04; UX-08 —
+ * the 4 political O6 items are deactivated). Posts ONLY
  * `{ candidatura_id, respostas }` (validated via `SubmitBigfiveBodySchema`); the EF
  * derives the OCEAN score server-side. The candidate never computes or receives a
  * score (RNF-07a). A 42501/403 back-lock maps to a neutral LOCKED throw.
