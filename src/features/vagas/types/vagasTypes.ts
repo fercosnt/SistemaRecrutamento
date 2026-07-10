@@ -189,25 +189,21 @@ export type StatusCandidatura =
   | 'finalizado'
 
 /**
- * Etapa do processo seletivo (valores do ENUM PostgreSQL etapa_processo)
- * IMPORTANTE: Estes valores devem corresponder EXATAMENTE ao enum no banco!
+ * Etapa do processo seletivo — ALIAS do enum `etapa_processo` do DB (funil M2).
  *
- * ORDEM DO PROCESSO SELETIVO:
- * 1. triagem → 2. bigfive → 3. disc → 4. entrevista_online →
- * 5. raven → 6. entrevista_presencial → 7. cultura → 8. avaliacao_final →
- * 9. aprovado OU rejeitado
+ * Phase 25 / FUNIL-03/06 (A12/A16): o enum M1 de 10 valores
+ * (triagem/big-five/disc/raven/cultura/avaliacao-final) foi DERRUBADO do banco pelo
+ * cutover `20260607000002_etapa_processo_v2_cutover.sql`. Selecionar um valor morto
+ * gerava um filtro eq sobre etapa_atual → Postgres 22P02 (invalid enum). Este tipo agora
+ * re-aponta para a fonte única `Database['public']['Enums']['etapa_processo']`, os 8
+ * valores reais (6 etapas + 2 terminais): inscricao, triagem, avaliacao_assincrona,
+ * entrevista_online, entrevista_presencial, decisao_final, aprovado, rejeitado.
+ *
+ * O NOME é preservado de propósito (Pitfall 6): 5 campos de interface o consomem — ao
+ * re-aliasar, todos se auto-corrigem. Os rótulos vivem em
+ * `triagemService.ETAPA_M2_LABELS` (fonte única — NÃO recriar um segundo map aqui).
  */
-export type EtapaProcesso =
-  | 'triagem'
-  | 'bigfive'              // Teste Big Five (SEM underscore!)
-  | 'disc'                 // Teste DISC
-  | 'entrevista_online'    // Entrevista online (vídeo)
-  | 'raven'                // Teste Cognitivo (antigo: Raven)
-  | 'entrevista_presencial' // Entrevista presencial
-  | 'cultura'              // Análise de fit cultural
-  | 'avaliacao_final'      // Avaliação final (NOVO - requer migração DB)
-  | 'aprovado'             // Aprovado final
-  | 'rejeitado'            // Rejeitado final
+export type EtapaProcesso = Database['public']['Enums']['etapa_processo']
 
 /**
  * Candidatura com informações completas
@@ -598,21 +594,9 @@ export const STATUS_CANDIDATURA_LABELS: Record<StatusCandidatura, string> = {
 }
 
 /**
- * Mapeamento de etapas para labels
- * ORDEM: Triagem → Big Five → DISC → Online → Cognitivo → Presencial → Cultura → Avaliação Final → Aprovado/Rejeitado
+ * Phase 25 / FUNIL-06: ETAPA_PROCESSO_LABELS (map M1 morto) removido.
+ * A fonte única de rótulos de etapa é `triagemService.ETAPA_M2_LABELS`.
  */
-export const ETAPA_PROCESSO_LABELS: Record<EtapaProcesso, string> = {
-  triagem: 'Triagem Inicial',
-  bigfive: 'Teste Big Five',
-  disc: 'Teste DISC',
-  entrevista_online: 'Entrevista Online',
-  raven: 'Teste Cognitivo',                    // ✅ RENOMEADO: era "Teste Raven (QI)"
-  entrevista_presencial: 'Entrevista Presencial',  // ✅ REORDENADO: vem antes de Cultura
-  cultura: 'Análise Cultural',                 // ✅ REORDENADO: vem depois de Presencial
-  avaliacao_final: 'Avaliação Final',          // ✅ NOVO
-  aprovado: 'Aprovado',
-  rejeitado: 'Rejeitado',
-}
 
 /**
  * Cores para badges de status
@@ -629,55 +613,12 @@ export const STATUS_COLORS: Record<
 }
 
 /**
- * Helper para calcular progresso percentual baseado na etapa
- * ORDEM CORRIGIDA: 10 etapas totais (incluindo Avaliação Final)
+ * Phase 25 / FUNIL-06 (A16): ETAPA_PROGRESS, ETAPAS_SEQUENCIA e o helper de
+ * próxima-etapa (o auto-avanço M1 — vetor de crash 22P02 triagem→big-five) foram REMOVIDOS.
+ * A movimentação de etapa passa pelo caminho M2 server-authoritative
+ * (`triagemService.updateCandidaturaEtapa` → trigger `avancar_etapa`, que valida +
+ * audita a transição). Nenhum map M1 de valores mortos sobrevive neste arquivo.
  */
-export const ETAPA_PROGRESS: Record<EtapaProcesso, number> = {
-  triagem: 10,                  // 1/10
-  bigfive: 20,                  // 2/10
-  disc: 30,                     // 3/10
-  entrevista_online: 40,        // 4/10
-  raven: 50,                    // 5/10 (Cognitivo)
-  entrevista_presencial: 60,    // 6/10 ✅ REORDENADO
-  cultura: 70,                  // 7/10 ✅ REORDENADO
-  avaliacao_final: 80,          // 8/10 ✅ NOVO
-  aprovado: 100,                // 10/10 - Final
-  rejeitado: 0,                 // Rejeitado (sem progresso)
-}
-
-/**
- * Ordem sequencial das etapas do processo seletivo
- * Usado para avanço automático de etapa
- */
-export const ETAPAS_SEQUENCIA: EtapaProcesso[] = [
-  'triagem',
-  'bigfive',
-  'disc',
-  'entrevista_online',
-  'raven',
-  'entrevista_presencial',
-  'cultura',
-  'avaliacao_final',
-  'aprovado', // Estado final
-  'rejeitado', // Estado final
-]
-
-/**
- * Retorna a próxima etapa na sequência
- * @param etapaAtual - Etapa atual do candidato
- * @returns Próxima etapa ou null se já estiver na última
- */
-export function getProximaEtapa(etapaAtual: EtapaProcesso): EtapaProcesso | null {
-  const index = ETAPAS_SEQUENCIA.indexOf(etapaAtual)
-
-  // Se não encontrou ou já está em etapa final, retorna null
-  if (index === -1 || index >= ETAPAS_SEQUENCIA.length - 1) {
-    return null
-  }
-
-  // Retorna próxima etapa
-  return ETAPAS_SEQUENCIA[index + 1]
-}
 
 // ============================================
 // SCORE TYPES (Test Results)
@@ -722,32 +663,11 @@ export interface CandidaturaComScores extends Candidatura {
 }
 
 /**
- * Kanban stages for visual board
+ * Phase 25 / FUNIL-03/06: KanbanStage, ETAPA_TO_KANBAN e KANBAN_STAGE_LABELS
+ * (mapa Kanban→etapa M1 morto, com chaves inexistentes big_five/entrevista_telefonica/
+ * analise_final/contratacao) foram REMOVIDOS. O KanbanBoard agora deriva suas colunas
+ * dos 6 estágios reais via `triagemService.ETAPA_M2_LABELS`.
  */
-export type KanbanStage = 'triagem' | 'testes' | 'cultura' | 'entrevista'
-
-/**
- * Mapeamento de etapas para colunas Kanban
- */
-export const ETAPA_TO_KANBAN: Record<EtapaProcesso, KanbanStage> = {
-  triagem: 'triagem',
-  big_five: 'testes',
-  disc: 'testes',
-  entrevista_telefonica: 'cultura',
-  entrevista_presencial: 'entrevista',
-  analise_final: 'entrevista',
-  contratacao: 'entrevista',
-}
-
-/**
- * Labels para colunas Kanban
- */
-export const KANBAN_STAGE_LABELS: Record<KanbanStage, string> = {
-  triagem: '🔍 Triagem',
-  testes: '📝 Testes',
-  cultura: '❤️ Cultura',
-  entrevista: '🎯 Entrevista',
-}
 
 // ============================================
 // SCORE HELPER FUNCTIONS

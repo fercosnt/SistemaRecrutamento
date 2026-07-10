@@ -32,7 +32,6 @@ import type {
   StatusCandidatura,
   EtapaProcesso,
 } from '../types/vagasTypes'
-import { getProximaEtapa } from '../types/vagasTypes'
 
 /**
  * Custom Error para operações de candidaturas
@@ -434,23 +433,14 @@ export async function updateCandidaturaStatus(
 
     const etapaAtualAnterior = candidaturaAtual.etapa_atual as EtapaProcesso
 
-    // AUTO-AVANÇAR ETAPA quando aprovar para próxima etapa
-    let novoStatus = status_candidatura
-    let novaEtapa = etapa_atual || etapaAtualAnterior
-
-    if (status_candidatura === 'aprovado_proxima') {
-      // Calcular próxima etapa
-      const proximaEtapa = getProximaEtapa(etapaAtualAnterior)
-
-      if (proximaEtapa) {
-        // Avançar para próxima etapa e mudar status para aguardando_resposta
-        novaEtapa = proximaEtapa
-        novoStatus = 'aguardando_resposta'
-      }
-      // else: chegou na última etapa (aprovado ou rejeitado) — nada a fazer.
-      // SEC-11 (Phase 24 / WR-03): operational RH console.log removed (leaked
-      // candidaturaId/etapa/status into the PROD browser console).
-    }
+    // Phase 25 / FUNIL-06 (A16): o auto-avanço M1 (o helper de próxima-etapa) foi
+    // REMOVIDO — era o vetor de crash 22P02 triagem→big-five (etapa que não existe mais
+    // no banco). A movimentação de etapa agora passa pelo caminho M2 server-authoritative
+    // (`triagemService.updateCandidaturaEtapa` → trigger `avancar_etapa`, que valida +
+    // audita). Este caminho continua servindo apenas mudanças de status (ou a etapa
+    // explicitamente informada pelo chamador), sem inferir a próxima etapa.
+    const novoStatus = status_candidatura
+    const novaEtapa = etapa_atual || etapaAtualAnterior
 
     // Preparar dados para update
     const updateData: Partial<CandidaturaRow> = {
