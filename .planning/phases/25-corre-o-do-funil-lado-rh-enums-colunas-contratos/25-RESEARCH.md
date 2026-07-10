@@ -526,15 +526,19 @@ UPDATE public.candidaturas
 | A5 | `cognitivo` container id needs only a label + route stub here (reachability = Phase 26) | §2d | If the container must actually route cognitivo now, that pulls Phase-26 scope forward. |
 | A6 | No new npm package needed | §Standard Stack | If a helper is wanted (unlikely), the Package Legitimacy Gate must run. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 1. **Should `registrar_decisao` set `candidaturas.status='rejeitado'` (not only `etapa_atual`)?**
    - Known: today it sets etapa only; status stays whatever it was. The dashboard/filter read `status`.
    - Recommendation: YES — fold `status`, `etapa_atual`, `etapa_justificativa` into one UPDATE inside the flag context, so the terminal is consistent across both columns.
+   - **RESOLVED: YES** — planned in 25-01 Task 2 (registrar_decisao amend folds status/etapa_atual/etapa_justificativa in one UPDATE inside the flag context).
 2. **Does the comparativo inline "Rejeitar" (path #2) need a mandatory justificativa?**
    - Known: it's audited (etapa transition) but justificativa-optional today.
    - Recommendation: for a clean RNF-07a story, route it through `registrar_decisao` too; if out of budget, the hybrid guard keeps it working (audited) and this is a documented residual.
+   - **RESOLVED: DEFERRED (accepted residual)** — operator decision 2026-07-09. Path stays audited-but-justificativa-optional; the hybrid guard keeps it safe. Tracked in `.planning/todos/pending/funil-02-comparativo-reject-justificativa.md`. Out of M4 hardening scope (would add UI + change screening→decisão semantics).
 3. **Reroute target for the UpdateStatusModal reject (path #1):** `registrar_decisao` directly, or a new thin `rejeitar_candidatura` RPC? Recommendation: reuse `registrar_decisao` (already enforces justificativa + audit) unless the modal's UX diverges from Decisão Final.
+   - **RESOLVED: reuse `registrar_decisao`** — planned in 25-02 Task 3 (UpdateStatusModal reject rerouted through registrar_decisao).
 4. **Should `EtapaFunilM2` (triagemService) and `EtapaProcesso` (vagasTypes) be collapsed into one alias of the DB enum?** Recommendation: yes — one `Database['public']['Enums']['etapa_processo']` alias, re-exported, to kill the duplicate hand-written union (prevents future drift).
+   - **RESOLVED: re-alias to the DB enum (Claude's discretion in 25-02 Task 1)** — `EtapaProcesso` re-aliased to `Database['public']['Enums']['etapa_processo']` (Pitfall 6: re-alias, don't delete the name). Full collapse of the duplicate union is at the executor's discretion within 25-02.
 
 ## Environment Availability
 | Dependency | Required By | Available | Version | Fallback |
