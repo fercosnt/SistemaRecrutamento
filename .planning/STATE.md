@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: ready_to_plan
-stopped_at: Phase 24 SHIPPED + SECURED (9/9 plans, 4 waves) — all 12 SEC/UX reqs live on PROD. Verifier 5/5 criteria + 12/12 reqs (human_needed — 4 confirmatory live UATs deferred). Security 39/39 threats closed, threats_open:0. Next = Phase 25 (Funil lado RH).
-last_updated: "2026-07-09T22:45:00.000Z"
-last_activity: 2026-07-09
+status: executing
+stopped_at: Phase 24 / Plan 24-07 complete — UX-08 deactivate 4 political O6 items (reversible ativo) + scorer 116/O-prorate + 6-site count lockstep. Files-only, apply 24-08 / EF redeploy 24-09. Commits 279f8ca/5bc2fdf/00755f4/678637e. tsc 128.
+last_updated: "2026-07-10T03:04:47.675Z"
+last_activity: 2026-07-10
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 29
+  completed_plans: 22
   percent: 50
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 25 — Correção do Funil (lado RH)
+**Current focus:** Phase 25 — Correção do Funil (lado RH — enums, colunas & contratos)
 
 ## Current Position
 
-Phase: 25 (Correção do Funil — lado RH) — NOT STARTED (Phase 24 ✅ shipped+secured)
-Plan: Not started
-Status: Ready to discuss/plan
-Last activity: 2026-07-09
+Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTING
+Plan: 2 of 8
+Status: Ready to execute
+Last activity: 2026-07-10
 
-Progress: [█████░░░░░] 50%
+Progress: [████████░░] 76%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -80,6 +80,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 24 P05 | ~30min | 3 tasks | 7 files |
 | Phase 24 P06 | 12min | 2 tasks | 5 files |
 | Phase 24 P07 | ~40min | 3 tasks | 6 files |
+| Phase 25 P01 | 10min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 24]: SEC-09 auth_admin_le_usuarios_rh declared in migration 20260706110006 (idempotent DROP+CREATE, byte-for-behavior mirror of live predicate per 24-01/A2 — zero behavior change, drift-fix; version-row reconcile → Phase 27). SEC-10 DROP backup_m2.candidaturas_pre_funil + DROP SCHEMA CASCADE (20260706110007, LGPD erasure 35-col PII). Files-only, apply 24-08. Commits 9eed6e9/27aa3dd — Plano 24-06
 - [Phase ?]: [Phase 24]: SEC-11 stripped 8 operational console.log from RH pages (ConfiguracoesPage L491 candidate-email leak +4; MeuPerfilPage 3); stubs kept M5; console.error left intact (FX-14); rh-console.grep RH_PATH_FILES += ConfiguracoesPage/MeuPerfilPage. tsc 128 — Plano 24-06
 - [Phase ?]: [Phase 24]: UX-08: 4 political O6 items {28,58,88,118} deactivated via reversible ativo flag (get_bigfive_itens WHERE ativo → 116); scorer prorates O ×6/5 over 5 surviving facets (neutral vector O stays 72 → Johnson percentile/norm byte-identical, no re-norm); 6 count-sites moved in lockstep (scorer/submit-EF/schema/copy/2 golden tests), no 1..120 loop survives; files-only, apply=24-08 EF-redeploy=24-09. Commits 279f8ca/5bc2fdf/00755f4 — Plano 24-07
+- [Phase 25]: [25-01] 5 DB migrations authored files-only (apply=25-07 BLOCKING via MCP apply_migration): hybrid BEFORE UPDATE OF status guard (flag OR etapa-transition) closes A9 reject-hole (FUNIL-02); NEW txn-local GUC app.rejeicao_sancionada (set_config is_local=true / current_setting missing_ok); decisao_final_historico append-only + AFTER UPDATE snapshot preserves OLD.* actor (FUNIL-09); registrar_decisao rejeitado folds status+etapa+etapa_justificativa em UM UPDATE sancionado (Open Q1=YES); upsert_pergunta_opcoes_metadata status hard-block + ownership (FUNIL-11); submit_candidatura_atomic flag p/ knockout. Renumbered 000001..05 → 000010..14 (Rule-3 collision fix vs Phase-24 sec07/sec08). Structural greps green; behavioral gate = live smokes A-E no 25-07.
 
 ### Pending Todos
 
@@ -151,7 +153,7 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-07T04:54:24.049Z
+Last session: 2026-07-10T03:04:47.668Z
 Stopped at: Phase 24 / Plan 24-07 complete — UX-08 deactivate 4 political O6 items (reversible ativo) + scorer 116/O-prorate + 6-site count lockstep. Files-only, apply 24-08 / EF redeploy 24-09. Commits 279f8ca/5bc2fdf/00755f4/678637e. tsc 128.
 Resume file: None
 
