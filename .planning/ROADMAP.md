@@ -181,7 +181,22 @@ Plans:
   4. Editar opções de uma vaga **ATIVA** é bloqueado/controlado por guard de status (FUNIL-11).
   5. A navegação do hub RH usa `candidatura.id` (com estado 404 no hub) e as affordances mortas — menus, badges 12/5, botões no-op, tiles "-", os no-op de avançar/rejeitar da DecisaoFinalPage e as telas mock A14/A37 — ficam ligadas ou ocultas (UX-03, UX-06).
 
-**Plans**: TBD
+**Plans**: 8 plans (2 waves)
+Plans:
+**Wave 1** *(parallel — file-disjoint, autonomous)*
+
+- [ ] 25-01-PLAN.md — DB migrations (files): reject-guard trigger + decisao_final_historico + registrar_decisao/upsert/submit amendments (FUNIL-02/09/11) [Wave 1]
+- [ ] 25-02-PLAN.md — Enum cutover + Kanban rewire (M2 audited path) + reject reroute via registrar_decisao + Kanban nav (FUNIL-02/03/06, UX-03) [Wave 1]
+- [ ] 25-03-PLAN.md — Editar Vaga: real-column hydration + updateVagaBase persist + no-op button removal (FUNIL-04, UX-06) [Wave 1]
+- [ ] 25-04-PLAN.md — cargoTemplates<->container test-id contract lib + contract test + deriveCards rewire (FUNIL-05) [Wave 1]
+- [ ] 25-05-PLAN.md — Hub nav (candidatura.id) + in-shell 404 not-found (UX-03) [Wave 1]
+- [ ] 25-06-PLAN.md — Dead-affordance sweep + mock-screen empty-state gating A14/A37 (UX-06) [Wave 1]
+
+**Wave 2** *(25-07 BLOCKING - non-autonomous - PROD apply; 25-08 CI re-pin)*
+
+- [ ] 25-07-PLAN.md — [BLOCKING] Apply 5 migrations via Supabase MCP + regen types + live SQL smokes A-E (FUNIL-02/09/11) [Wave 2]
+- [ ] 25-08-PLAN.md — Re-measure + re-pin ci.yml tsc baseline (stale 133 -> measured) (FUNIL-04) [Wave 2]
+
 **UI hint**: yes
 
 ### Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)
@@ -229,7 +244,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
-| 25. Funil — lado RH | v4.0 | 0/TBD | Not started | - |
+| 25. Funil — lado RH | v4.0 | 0/8 | Planned | - |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
