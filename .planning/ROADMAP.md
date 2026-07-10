@@ -196,6 +196,7 @@ Plans:
   3. A prova cognitiva é **alcançável** pela navegação (`funilNavMap` ↔ `AvaliacaoContainer` consistentes + roteamento/label/filtro por `aplica_cognitivo`) (FUNIL-08).
   4. Os cards da avaliação refletem conclusão (status derivado de campo que existe no payload, não de um campo fantasma), e a copy de espera diz "acompanhe no painel" — não "avisaremos por e-mail" — em 5+ telas (FUNIL-12, UX-01).
   5. Um candidato soft-deletado consegue se reinscrever — índice unique com filtro `deleted_at` em PROD (FUNIL-10).
+  6. **[Adicionado pós-P24, roteado por Fernando 2026-07-09]** O `src/features/cadastro/services/n8nService.ts` NÃO envia PII do candidato (nome/email/telefone/**cpf**) do browser nem embute URLs n8n (`n8n.srv881294.hstgr.cloud`) no bundle — dispatch movido server-side (pg_net + Vault, padrão SEC-03) + grep guard. Segundo vazamento n8n, fora do escopo A11 do SEC-03; ver `24-deferred-items.md`.
 
 **Plans**: TBD
 **UI hint**: yes
