@@ -1,11 +1,16 @@
 ---
 phase: 25
 slug: corre-o-do-funil-lado-rh-enums-colunas-contratos
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-07-09
+reviewed_at: 2026-07-09
+review_verdict: approved
+review_flags: "D2 focal-point (addressed)"
 ---
+
+> **Kanban focal point (D2, added post-review):** During drag, the **drop-target column highlight + the dragged card** are the primary visual anchor; at rest, the **column headers + per-column counts** anchor the eye first (left-to-right stage progression). The executor should not introduce a competing focal element.
 
 # Phase 25 — UI Design Contract
 
