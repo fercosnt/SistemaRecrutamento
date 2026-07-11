@@ -35,6 +35,11 @@ import {
   getAvaliacaoContext,
   type AvaliacaoContext,
 } from '@/features/avaliacao/services/avaliacaoService'
+import {
+  CANDIDATE_FACING,
+  templateTesteToContainerCards,
+  type ContainerTeste,
+} from '@/lib/testes/testeContract'
 
 /** A neutral card descriptor derived from a `testes_aplicaveis` entry. */
 export interface TesteCard {
@@ -52,23 +57,59 @@ interface AvaliacaoContainerProps {
   testes?: TesteCard[]
 }
 
-/** Human label for a teste id (neutral — no scoring framing). */
+/**
+ * The container's per-card SOURCE OF TRUTH — one entry per recognized container
+ * id (label + route). `testeLabel`, `handleOpenTeste` and `CONTAINER_RECOGNIZED`
+ * all derive from this map, so there is NO duplicate id switch to drift apart
+ * ([[feedback_integration_contract_gap]]). A new card id is added in ONE place.
+ */
+const CONTAINER_TESTE_CONFIG: Record<
+  ContainerTeste,
+  { label: string; route: (candidaturaId: string) => string }
+> = {
+  sjt_mc: {
+    label: 'Avaliação de situações',
+    route: (id) => `/candidato/avaliacao/${id}/mc`,
+  },
+  sjt_caso_aberto: {
+    label: 'Caso prático',
+    route: (id) => `/candidato/avaliacao/${id}/caso`,
+  },
+  big_five: {
+    label: 'Avaliação comportamental',
+    route: (id) => `/candidato/avaliacao/${id}/bigfive`,
+  },
+  redacao: {
+    // The essay editor lives on its own candidate route (not under the
+    // /avaliacao/:id/:target tree).
+    label: 'Redação cultural',
+    route: (id) => `/candidato/redacao/${id}`,
+  },
+  cognitivo: {
+    // Label + route STUB only — actual reachability is Phase 26 (FUNIL-05 closes
+    // the id contract; nothing pulls the cognitivo screen forward here).
+    label: 'Avaliação cognitiva',
+    route: (id) => `/candidato/avaliacao/${id}/cognitivo`,
+  },
+}
+
+/**
+ * The container card ids this component RECOGNIZES — each has a real label + a
+ * real route above (never the default fall-through). Exported so the FUNIL-05
+ * contract test asserts the lib's emitted ids ⊆ this set against the REAL
+ * container, not a replica (invariant E / [[feedback_integration_contract_gap]]).
+ */
+export const CONTAINER_RECOGNIZED: ReadonlySet<string> = new Set(
+  Object.keys(CONTAINER_TESTE_CONFIG),
+)
+
+/** Human label for a container card id (neutral — no scoring framing). */
 function testeLabel(teste: string): string {
-  switch (teste) {
-    case 'sjt_mc':
-      return 'Avaliação de situações'
-    case 'sjt_caso_aberto':
-      return 'Caso prático'
-    case 'big_five':
-    case 'bigfive':
-      return 'Avaliação comportamental'
-    case 'redacao':
-      return 'Redação cultural'
-    default:
-      return teste
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-  }
+  const cfg = CONTAINER_TESTE_CONFIG[teste as ContainerTeste]
+  if (cfg) return cfg.label
+  // Legacy alias: the M1/Phase-11 container also received `bigfive`.
+  if (teste === 'bigfive') return CONTAINER_TESTE_CONFIG.big_five.label
+  return teste.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 /** Neutral status presentation (RNF-07a-safe — never red/green pass-fail). */
@@ -251,22 +292,37 @@ function WrongEtapaState({ onBack }: { onBack: () => void }) {
   )
 }
 
-/** Map the `testes_aplicaveis` jsonb to neutral card descriptors. */
+/**
+ * Map the `testes_aplicaveis` jsonb to neutral card descriptors. FUNIL-05: filter
+ * to CANDIDATE_FACING template tests and map each TEMPLATE id to the CONTAINER
+ * card ids the container recognizes (via the shared lib) — instead of copying the
+ * template id verbatim, which fell to the default 'mc' target for
+ * work_sample_sjt/redacao_cultural/cognitivo (redacao routed WRONG). One template
+ * entry may fan out to multiple cards (work_sample_sjt → sjt_mc + sjt_caso_aberto).
+ */
 function deriveCards(ctx: AvaliacaoContext | undefined): TesteCard[] {
   if (!ctx) return []
   const raw = ctx.testes_aplicaveis
   if (!Array.isArray(raw)) return []
-  return (raw as Array<Record<string, unknown>>).map((t) => ({
-    teste: String(t.teste ?? ''),
-    status: String(t.status ?? 'pendente'),
-    tempoEstimadoMin:
-      typeof t.tempoEstimadoMin === 'number'
-        ? t.tempoEstimadoMin
-        : typeof t.tempo_est_min === 'number'
-          ? (t.tempo_est_min as number)
-          : null,
-    formato: typeof t.formato === 'string' ? (t.formato as string) : undefined,
-  }))
+  const cards: TesteCard[] = []
+  for (const entry of raw as Array<Record<string, unknown>>) {
+    const templateTeste = String(entry.teste ?? '')
+    // Drop non-candidate-facing tests (triagem/entrevista) + unknown ids.
+    if (!CANDIDATE_FACING.has(templateTeste)) continue
+    const status = String(entry.status ?? 'pendente')
+    const tempoEstimadoMin =
+      typeof entry.tempoEstimadoMin === 'number'
+        ? entry.tempoEstimadoMin
+        : typeof entry.tempo_est_min === 'number'
+          ? (entry.tempo_est_min as number)
+          : null
+    const formato =
+      typeof entry.formato === 'string' ? (entry.formato as string) : undefined
+    for (const containerId of templateTesteToContainerCards(templateTeste)) {
+      cards.push({ teste: containerId, status, tempoEstimadoMin, formato })
+    }
+  }
+  return cards
 }
 
 /**
@@ -306,18 +362,19 @@ function ConnectedAvaliacaoContainer() {
   }
 
   const handleOpenTeste = (card: TesteCard) => {
-    // The essay editor lives on its own candidate route (not under the
-    // /avaliacao/:id/:target tree) — one more teste card opening the redação screen.
-    if (card.teste === 'redacao') {
-      navigate(`/candidato/redacao/${candidaturaId}`)
+    // Route through the single container config (label + route co-located); the
+    // essay editor's own /candidato/redacao/:id path is encoded there too.
+    const cfg =
+      CONTAINER_TESTE_CONFIG[card.teste as ContainerTeste] ??
+      (card.teste === 'bigfive' ? CONTAINER_TESTE_CONFIG.big_five : undefined)
+    if (cfg) {
+      navigate(cfg.route(candidaturaId as string))
       return
     }
-    let target = 'mc'
-    if (card.teste === 'big_five' || card.teste === 'bigfive') {
-      target = 'bigfive'
-    } else if (card.formato === 'caso_aberto' || card.teste === 'sjt_caso_aberto') {
-      target = 'caso'
-    }
+    // Legacy fallback: an unlabeled card with a `formato` hint routes to the open
+    // case; otherwise the MC screen. deriveCards now filters unknown ids out via
+    // the lib, so this only guards stray presentational-mode inputs.
+    const target = card.formato === 'caso_aberto' ? 'caso' : 'mc'
     navigate(`/candidato/avaliacao/${candidaturaId}/${target}`)
   }
 
