@@ -3,11 +3,16 @@
  *
  * Kanban board with drag-and-drop for managing candidaturas.
  *
- * Features:
- * - 7 columns (one per stage): Triagem, Big Five, DISC, Tel., Presencial, Análise, Contratação
- * - Drag-and-drop to move candidates between stages
- * - Updates etapa_atual on drop
- * - Shows candidate cards with Score Geral only
+ * Phase 25 / FUNIL-03/06 (A12/A16): rewired onto the REAL M2 funnel.
+ * - 6 working drop columns (inscricao, triagem, avaliacao_assincrona,
+ *   entrevista_online, entrevista_presencial, decisao_final) — labels sourced from
+ *   the single source `triagemService.ETAPA_M2_LABELS` (no hardcoded 2nd copy).
+ * - Terminals (aprovado/rejeitado) are NOT drop columns — a terminal-state
+ *   candidatura renders a terminal pill on its card (UI-SPEC §1).
+ * - Drag→drop moves etapa_atual through the server-authoritative M2 write-path
+ *   (`updateCandidaturaEtapa` → trigger `avancar_etapa`, which validates + audits),
+ *   never the raw auto-advance status write.
+ * - "Ver Perfil" forwards candidatura.id (the candidaturaId the hub route resolves).
  *
  * @module components/KanbanBoard
  */
@@ -18,43 +23,105 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Glass, GlassButton } from './ui/glass'
 import { Mail, Phone, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { type CandidaturaComScores } from '@/features/vagas/types/vagasTypes'
 import {
-  type CandidaturaComScores,
-  type EtapaProcesso,
-  type StatusCandidatura,
-} from '@/features/vagas/types/vagasTypes'
-import { useUpdateCandidaturaStatus } from '@/features/vagas/hooks/useCandidaturas'
+  ETAPA_M2_LABELS,
+  type EtapaFunilM2,
+} from '@/features/triagem/services/triagemService'
+import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
 
 const DRAG_TYPE = 'CANDIDATO_CARD'
 
 interface KanbanBoardProps {
   candidaturas: CandidaturaComScores[]
-  onViewPerfil: (candidatoId: string) => void
+  /** UX-03: recebe a candidatura.id (o :id que o Hub RH resolve como candidaturaId). */
+  onViewPerfil: (candidaturaId: string) => void
 }
 
 interface DragItem {
   candidaturaId: string
-  currentEtapa: EtapaProcesso
+  currentEtapa: EtapaFunilM2
 }
 
 /**
- * Configuração das 7 colunas do Kanban (excluindo aprovado/rejeitado que são finais)
- * IMPORTANTE: Etapas correspondem aos valores do ENUM PostgreSQL
+ * As 6 etapas de trabalho do funil M2, na ordem (UI-SPEC §1). Terminais
+ * (aprovado/rejeitado) NÃO são colunas — viram pill no card.
  */
+const WORKING_STAGES: EtapaFunilM2[] = [
+  'inscricao',
+  'triagem',
+  'avaliacao_assincrona',
+  'entrevista_online',
+  'entrevista_presencial',
+  'decisao_final',
+]
+
+type WorkingStage = (typeof WORKING_STAGES)[number]
+
+/** Glyph + gradient hue por coluna (UI-SPEC §1 — Claude's discretion; glyph aria-hidden). */
+const STAGE_STYLE: Record<WorkingStage, { emoji: string; color: string }> = {
+  inscricao: { emoji: '📥', color: 'from-blue-500 to-blue-600' },
+  triagem: { emoji: '🔍', color: 'from-cyan-500 to-cyan-600' },
+  avaliacao_assincrona: { emoji: '📝', color: 'from-purple-500 to-purple-600' },
+  entrevista_online: { emoji: '🎥', color: 'from-teal-500 to-teal-600' },
+  entrevista_presencial: { emoji: '🤝', color: 'from-orange-500 to-orange-600' },
+  decisao_final: { emoji: '⚖️', color: 'from-indigo-500 to-indigo-600' },
+}
+
+/** Colunas derivadas dos rótulos M2 (fonte única) — sem 2ª cópia hardcoded. */
 const KANBAN_COLUMNS: Array<{
-  etapa: EtapaProcesso
+  etapa: WorkingStage
   label: string
   emoji: string
   color: string
-}> = [
-  { etapa: 'triagem', label: 'Triagem', emoji: '🔍', color: 'from-blue-500 to-blue-600' },
-  { etapa: 'bigfive', label: 'Big Five', emoji: '🧠', color: 'from-purple-500 to-purple-600' },
-  { etapa: 'disc', label: 'DISC', emoji: '👥', color: 'from-green-500 to-green-600' },
-  { etapa: 'entrevista_online', label: 'Online', emoji: '🎥', color: 'from-cyan-500 to-cyan-600' },
-  { etapa: 'raven', label: 'Raven (QI)', emoji: '🧩', color: 'from-indigo-500 to-indigo-600' },
-  { etapa: 'cultura', label: 'Cultura', emoji: '❤️', color: 'from-pink-500 to-pink-600' },
-  { etapa: 'entrevista_presencial', label: 'Presencial', emoji: '🤝', color: 'from-orange-500 to-orange-600' },
-]
+}> = WORKING_STAGES.map((etapa) => ({
+  etapa,
+  label: ETAPA_M2_LABELS[etapa],
+  emoji: STAGE_STYLE[etapa].emoji,
+  color: STAGE_STYLE[etapa].color,
+}))
+
+/**
+ * Pill terminal (UI-SPEC §1): candidatura em estado terminal ganha um selo no card.
+ * Chave em etapa_atual terminal (aprovado/rejeitado) OU status === 'rejeitado' (o
+ * caminho A9 em que o status vira rejeitado com a etapa ainda numa etapa de trabalho).
+ */
+function getTerminalBadge(
+  candidatura: CandidaturaComScores
+): { key: 'aprovado' | 'rejeitado'; label: string; className: string } | null {
+  const etapa = candidatura.etapa_atual as EtapaFunilM2 | undefined
+  if (etapa === 'aprovado') {
+    return {
+      key: 'aprovado',
+      label: 'Aprovado',
+      className: 'bg-green-500/20 text-green-300 border border-green-400/30',
+    }
+  }
+  if (etapa === 'rejeitado' || candidatura.status === 'rejeitado') {
+    return {
+      key: 'rejeitado',
+      label: 'Rejeitado',
+      className: 'bg-red-500/20 text-red-300 border border-red-400/30',
+    }
+  }
+  return null
+}
+
+/**
+ * A coluna de trabalho onde o card aparece. Terminais (aprovado/rejeitado) são
+ * ancorados em `decisao_final` (a etapa em que a decisão terminal ocorre) com o pill
+ * — não criam uma 7ª coluna. Etapa desconhecida/legada → null (não renderiza; sem
+ * log ruidoso — a candidatura permanece alcançável pelo filtro de etapa do painel).
+ */
+function columnForEtapa(etapa: EtapaFunilM2 | undefined): WorkingStage | null {
+  if (etapa && (WORKING_STAGES as string[]).includes(etapa)) {
+    return etapa as WorkingStage
+  }
+  if (etapa === 'aprovado' || etapa === 'rejeitado') {
+    return 'decisao_final'
+  }
+  return null
+}
 
 /**
  * Helper para obter cor do Score Geral
@@ -75,12 +142,12 @@ function CandidatoKanbanCard({
   onViewPerfil,
 }: {
   candidatura: CandidaturaComScores
-  onViewPerfil: (candidatoId: string) => void
+  onViewPerfil: (candidaturaId: string) => void
 }) {
   const candidato = candidatura.candidato as any
   const vaga = candidatura.vaga as any
 
-  const currentEtapa = candidatura.etapa_atual as EtapaProcesso
+  const currentEtapa = candidatura.etapa_atual as EtapaFunilM2
 
   const initials =
     candidato?.nome_completo
@@ -91,6 +158,7 @@ function CandidatoKanbanCard({
       .toUpperCase() || '??'
 
   const scoreGeral = candidatura.score_geral
+  const terminalBadge = getTerminalBadge(candidatura)
 
   // Drag setup
   const [{ isDragging }, dragRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
@@ -107,6 +175,7 @@ function CandidatoKanbanCard({
   return (
     <div
       ref={dragRef}
+      data-testid={`kanban-card-${candidatura.id}`}
       className={cn(
         'transition-all duration-200',
         isDragging && 'opacity-50 scale-95'
@@ -135,6 +204,19 @@ function CandidatoKanbanCard({
                 {vaga?.titulo || 'N/A'}
               </p>
             </div>
+
+            {/* Terminal pill (UI-SPEC §1) — só quando a candidatura está finalizada. */}
+            {terminalBadge && (
+              <span
+                data-testid={`terminal-pill-${candidatura.id}`}
+                className={cn(
+                  'flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold drop-shadow-sm',
+                  terminalBadge.className
+                )}
+              >
+                {terminalBadge.label}
+              </span>
+            )}
           </div>
 
           {/* Contatos (compacto e truncado) */}
@@ -168,12 +250,12 @@ function CandidatoKanbanCard({
             </div>
           )}
 
-          {/* Botão Ver Perfil */}
+          {/* Botão Ver Perfil — UX-03: encaminha candidatura.id */}
           <GlassButton
             variant="white"
             onClick={(e) => {
               e.stopPropagation()
-              onViewPerfil(candidato?.id)
+              onViewPerfil(candidatura.id)
             }}
             className="w-full text-white text-xs drop-shadow-sm flex items-center justify-center gap-1.5 font-medium min-h-[32px]"
           >
@@ -198,13 +280,13 @@ function KanbanColumn({
   onViewPerfil,
   onDrop,
 }: {
-  etapa: EtapaProcesso
+  etapa: WorkingStage
   label: string
   emoji: string
   color: string
   candidaturas: CandidaturaComScores[]
-  onViewPerfil: (candidatoId: string) => void
-  onDrop: (candidaturaId: string, newEtapa: EtapaProcesso) => void
+  onViewPerfil: (candidaturaId: string) => void
+  onDrop: (candidaturaId: string, newEtapa: WorkingStage) => void
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop<
     DragItem,
@@ -229,14 +311,18 @@ function KanbanColumn({
   )
 
   return (
-    <div ref={dropRef} className={cn('flex flex-col h-full w-full min-w-[200px] relative isolate', bgColorClass)}>
+    <div
+      ref={dropRef}
+      data-testid={`kanban-column-${etapa}`}
+      className={cn('flex flex-col h-full w-full min-w-[200px] relative isolate', bgColorClass)}
+    >
       <Glass variant="white" blur="lg" className="p-3 rounded-xl h-full flex flex-col relative z-0 w-full">
         {/* Header */}
         <div className="flex flex-col gap-2 mb-3 pb-2 border-b border-white/20 flex-shrink-0">
           <div className={`w-full h-1.5 rounded-full bg-gradient-to-r ${color}`} />
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-white drop-shadow-lg font-semibold text-sm flex items-center gap-1.5 min-w-0">
-              <span className="text-base flex-shrink-0">{emoji}</span>
+              <span className="text-base flex-shrink-0" aria-hidden="true">{emoji}</span>
               <span className="truncate">{label}</span>
             </h3>
             <div className="text-white/80 font-semibold drop-shadow-md bg-white/20 rounded-full px-2 py-0.5 text-xs flex-shrink-0">
@@ -277,84 +363,39 @@ function KanbanColumn({
  * KanbanBoard principal
  */
 export function KanbanBoard({ candidaturas, onViewPerfil }: KanbanBoardProps) {
-  const { mutate: updateStatus } = useUpdateCandidaturaStatus()
+  const { mutate: moveEtapa } = useUpdateCandidaturaEtapa()
 
-  // Agrupar candidaturas por etapa
+  // Agrupar candidaturas pelas 8 etapas reais; terminais ancorados em decisao_final.
   const groupedCandidaturas = useMemo(() => {
-    const grouped: Record<EtapaProcesso, CandidaturaComScores[]> = {
+    const grouped: Record<EtapaFunilM2, CandidaturaComScores[]> = {
+      inscricao: [],
       triagem: [],
-      bigfive: [],
-      disc: [],
+      avaliacao_assincrona: [],
       entrevista_online: [],
-      raven: [],
-      cultura: [],
       entrevista_presencial: [],
+      decisao_final: [],
       aprovado: [],
       rejeitado: [],
     }
 
     candidaturas.forEach((candidatura) => {
-      const etapa = candidatura.etapa_atual as EtapaProcesso
-      if (etapa && grouped[etapa]) {
-        grouped[etapa].push(candidatura)
-      } else {
-        // Default para triagem se etapa inválida ou não mapeada
-        console.warn('⚠️ Etapa não reconhecida:', etapa, 'para candidatura:', candidatura.id)
-        grouped.triagem.push(candidatura)
+      const etapa = candidatura.etapa_atual as EtapaFunilM2 | undefined
+      const col = columnForEtapa(etapa)
+      if (col) {
+        grouped[col].push(candidatura)
       }
+      // else: etapa desconhecida/legada → não renderiza no board (alcançável pelo
+      // filtro de etapa do painel). Sem console.warn: todo valor vivo agora mapeia.
     })
 
     return grouped
   }, [candidaturas])
 
-  // Handler para drop
-  const handleDrop = (candidaturaId: string, newEtapa: EtapaProcesso) => {
-    // Encontrar a candidatura para pegar o status atual
+  // Handler para drop — caminho M2 server-authoritative (avancar_etapa valida + audita).
+  const handleDrop = (candidaturaId: string, novaEtapa: WorkingStage) => {
     const candidatura = candidaturas.find((c) => c.id === candidaturaId)
-    if (!candidatura) {
-      console.error('❌ Candidatura não encontrada:', candidaturaId)
-      return
-    }
-
-    // Validar que o status é válido
-    const currentStatus = candidatura.status as string
-    const validStatuses: StatusCandidatura[] = [
-      'aguardando_resposta',
-      'em_analise',
-      'aprovado_proxima',
-      'rejeitado',
-      'finalizado',
-    ]
-
-    if (!validStatuses.includes(currentStatus as StatusCandidatura)) {
-      console.error('❌ Status inválido:', currentStatus, 'ID:', candidaturaId)
-      return
-    }
-
-    console.log('📦 Movendo candidato:', {
-      id: candidaturaId,
-      de: candidatura.etapa_atual,
-      para: newEtapa,
-      status: currentStatus,
-    })
-
-    // Atualizar apenas a etapa, mantendo o status atual
-    updateStatus(
-      {
-        candidaturaId,
-        status_candidatura: currentStatus as StatusCandidatura,
-        etapa_atual: newEtapa,
-        notificar_candidato: false, // Não notificar ao mudar apenas a etapa
-      },
-      {
-        onSuccess: (data) => {
-          console.log('✅ Candidato movido com sucesso!', data)
-        },
-        onError: (error) => {
-          console.error('❌ Erro ao mover candidato:', error)
-        },
-      }
-    )
+    if (!candidatura) return
+    moveEtapa({ candidaturaId, novaEtapa })
   }
 
   return (
@@ -362,8 +403,8 @@ export function KanbanBoard({ candidaturas, onViewPerfil }: KanbanBoardProps) {
       <div className="w-full h-[calc(100vh-280px)] min-h-[600px] max-h-[800px] overflow-hidden">
         {/* Container com scroll horizontal */}
         <div className="h-full w-full overflow-x-auto overflow-y-hidden pb-2">
-          {/* Grid responsivo: 2 cols em mobile, 4 em tablet, 7 em desktop */}
-          <div className="grid grid-cols-[repeat(2,minmax(200px,280px))] md:grid-cols-[repeat(4,minmax(200px,280px))] lg:grid-cols-[repeat(7,minmax(200px,280px))] gap-3 h-full w-max">
+          {/* Grid responsivo: 2 cols em mobile, 4 em tablet, 6 em desktop */}
+          <div className="grid grid-cols-[repeat(2,minmax(200px,280px))] md:grid-cols-[repeat(4,minmax(200px,280px))] lg:grid-cols-[repeat(6,minmax(200px,280px))] gap-3 h-full w-max">
             {KANBAN_COLUMNS.map((col) => (
               <KanbanColumn
                 key={col.etapa}

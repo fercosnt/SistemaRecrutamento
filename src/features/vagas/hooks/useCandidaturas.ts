@@ -27,6 +27,10 @@ import {
   checkDuplicateApplication,
   updateCandidaturaStatus,
 } from '../services/candidaturasService'
+import {
+  updateCandidaturaEtapa,
+  type EtapaFunilM2,
+} from '@/features/triagem/services/triagemService'
 import { vagasKeys } from './useVagas'
 import type {
   Candidatura,
@@ -379,6 +383,64 @@ export function useUpdateCandidaturaStatus(
       options?.onError?.(error, variables, context)
     },
     // Spread das outras options (mas NÃO onSuccess/onError pois já tratamos acima)
+    ...Object.fromEntries(
+      Object.entries(options || {}).filter(
+        ([key]) => key !== 'onSuccess' && key !== 'onError'
+      )
+    ),
+  })
+}
+
+/**
+ * Phase 25 / FUNIL-03 — variáveis da mutation de movimentação de etapa (M2).
+ */
+export interface UpdateCandidaturaEtapaVars {
+  candidaturaId: string
+  novaEtapa: EtapaFunilM2
+}
+
+/**
+ * Mutation para MOVER a etapa de uma candidatura pelo caminho M2
+ * server-authoritative (`triagemService.updateCandidaturaEtapa` → trigger
+ * `avancar_etapa`, que valida + audita a transição). Substitui o antigo
+ * `useUpdateCandidaturaStatus` + auto-avanço para o drag-and-drop do Kanban:
+ * aquele caminho inferia a próxima etapa via um map M1 morto (crash 22P02).
+ *
+ * Espelha a invalidação de `useUpdateCandidaturaStatus` (invalida + refetch das
+ * queries de candidaturas + invalida vagas para contadores).
+ *
+ * @see src/features/triagem/services/triagemService.ts (updateCandidaturaEtapa)
+ */
+export function useUpdateCandidaturaEtapa(
+  options?: UseMutationOptions<void, Error, UpdateCandidaturaEtapaVars>
+) {
+  const queryClient = useQueryClient()
+
+  return useMutation<void, Error, UpdateCandidaturaEtapaVars>({
+    mutationFn: ({ candidaturaId, novaEtapa }) =>
+      updateCandidaturaEtapa(candidaturaId, novaEtapa),
+    onSuccess: async (data, variables, context) => {
+      // 1. Marca stale + 2. refetch imediato das queries ativas de candidaturas.
+      queryClient.invalidateQueries({ queryKey: candidaturasKeys.all })
+      await queryClient.refetchQueries({
+        queryKey: candidaturasKeys.all,
+        type: 'active',
+      })
+      // 3. Invalida vagas (contadores de candidaturas por etapa).
+      queryClient.invalidateQueries({ queryKey: vagasKeys.all })
+
+      toast.success('Etapa atualizada com sucesso!')
+
+      options?.onSuccess?.(data, variables, context)
+    },
+    onError: (error, variables, context) => {
+      toast.error('Erro ao mover candidato', {
+        description: error.message,
+      })
+
+      options?.onError?.(error, variables, context)
+    },
+    // Spread das outras options (mas NÃO onSuccess/onError — já tratados acima).
     ...Object.fromEntries(
       Object.entries(options || {}).filter(
         ([key]) => key !== 'onSuccess' && key !== 'onError'
