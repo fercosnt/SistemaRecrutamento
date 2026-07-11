@@ -189,7 +189,7 @@ Plans:
 - [x] 25-02-PLAN.md — Enum cutover + Kanban rewire (M2 audited path) + reject reroute via registrar_decisao + Kanban nav (FUNIL-02/03/06, UX-03) [Wave 1]
 - [x] 25-03-PLAN.md — Editar Vaga: real-column hydration + updateVagaBase persist + no-op button removal (FUNIL-04, UX-06) [Wave 1]
 - [x] 25-04-PLAN.md — cargoTemplates<->container test-id contract lib + contract test + deriveCards rewire (FUNIL-05) [Wave 1]
-- [ ] 25-05-PLAN.md — Hub nav (candidatura.id) + in-shell 404 not-found (UX-03) [Wave 1]
+- [x] 25-05-PLAN.md — Hub nav (candidatura.id) + in-shell 404 not-found (UX-03) [Wave 1]
 - [ ] 25-06-PLAN.md — Dead-affordance sweep + mock-screen empty-state gating A14/A37 (UX-06) [Wave 1]
 
 **Wave 2** *(25-07 BLOCKING - non-autonomous - PROD apply; 25-08 CI re-pin)*
@@ -244,7 +244,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
-| 25. Funil — lado RH | v4.0 | 4/8 | In Progress|  |
+| 25. Funil — lado RH | v4.0 | 5/8 | In Progress|  |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 

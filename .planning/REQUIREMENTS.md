@@ -89,7 +89,7 @@
 
 - [ ] **UX-01**: Copy honesta em todas as telas de espera do candidato ("acompanhe no painel", não "avisaremos por e-mail" — 5+ telas). `(QW1)`
 - [x] **UX-02**: Landing sem linguagem "testes psicométricos"/"análise de perfil" + CTA "Já sou candidato" (RNF-12a). `(QW3)`
-- [ ] **UX-03**: Navegação do hub usa `candidatura.id` (não `candidato.id`) + estado 404 no hub. `(QW4)`
+- [x] **UX-03**: Navegação do hub usa `candidatura.id` (não `candidato.id`) + estado 404 no hub. `(QW4)`
 - [x] **UX-04**: Botões de login habilitados corretamente — remover `!isValid` do disabled (candidato, RH, esqueci/redefinir); elimina a gambiarra `blur()` dos E2E. `(QW5)` — Phase 22 / Plan 22-03 (candidato+RH dropados; esqueci/redefinir já limpos, regression-guard grep)
 - [x] **UX-05**: `?redirect` propagado login→cadastro→pós-login + limpeza de `localStorage` órfão. `(QW10)` — Phase 22 / Plan 22-03 (shared resolveRedirect guard; orphan candidatura_vaga_id limpo no login)
 - [x] **UX-06**: Varredura de affordances mortas — menus, badges 12/5, botões no-op, tiles "-", incl. ocultar os no-op de avançar/rejeitar da DecisaoFinalPage + cache do comparativo por finalistas. `(QW11 + parte de QW9)`
@@ -186,7 +186,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | CI-15 | Phase 27 | Pending |
 | UX-01 | Phase 26 | Pending |
 | UX-02 | Phase 22 | Complete |
-| UX-03 | Phase 25 | Pending |
+| UX-03 | Phase 25 | Complete |
 | UX-04 | Phase 22 | Done (22-03) |
 | UX-05 | Phase 22 | Done (22-03) |
 | UX-06 | Phase 25 | Complete |
