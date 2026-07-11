@@ -27,8 +27,9 @@
  * @see .planning/phases/17-navegacao-arquitetura-informacao/17-UI-SPEC.md (§Interaction Contract; §Empty states)
  */
 import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
-import { Glass } from '@/components/ui/glass'
+import { Glass, GlassCard, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { funilNavMap } from '@/lib/navegacao/funilNavMap'
 import {
@@ -109,6 +110,46 @@ export function HubCandidatoRH() {
   const rotaWorkspaceAtual = entradaAtual && candidaturaId
     ? entradaAtual.rotaWorkspaceRH(candidaturaId)
     : null
+
+  // UX-03: explicit in-shell not-found for an unresolvable candidaturaId. The route is a
+  // valid RH-only mount (RoleGuard), but the `:id` resolves to no row — render an explicit
+  // not-found INSIDE the RH shell (NOT the global NotFoundPage, the catch-all for unknown
+  // ROUTES), instead of degrading silently to the generic "Candidato"/"—" header. Gated on
+  // the query having SETTLED (`!loadingContexto`) so it never flashes while still loading.
+  // The early return sits AFTER every hook call above (rules of hooks) — UI-SPEC §3.
+  if (!loadingContexto && (errorContexto || !contexto)) {
+    return (
+      <RHLayout>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <GlassCard
+            variant="dark"
+            blur="lg"
+            className="w-full max-w-lg mx-auto text-center px-8 py-12 space-y-4"
+          >
+            {/* Heading — 20px / 600 (UI-SPEC §3 Typography) */}
+            <h1 className="text-xl font-semibold text-white drop-shadow-md">
+              Candidatura não encontrada
+            </h1>
+            {/* Body — 16px / 400 */}
+            <p className="text-base text-white/85 leading-relaxed">
+              Não encontramos essa candidatura. Ela pode ter sido removida ou o link está incorreto.
+            </p>
+            {/* Single accent back-link — visible label, leading ArrowLeft (aria-hidden), ≥44px */}
+            <div className="flex justify-center pt-2">
+              <GlassButton
+                variant="accent"
+                onClick={() => navigate('/rh/candidatos')}
+                className="min-h-11 bg-[#35BFAD]/30 text-white font-semibold"
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                Voltar aos candidatos
+              </GlassButton>
+            </div>
+          </GlassCard>
+        </div>
+      </RHLayout>
+    )
+  }
 
   return (
     <RHLayout>
