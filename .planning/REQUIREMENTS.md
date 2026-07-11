@@ -46,7 +46,7 @@
 - [ ] **FUNIL-01**: `pontuar_sjt` não é manipulável — deduplicação de respostas + denominador correto (não só sobre perguntas respondidas). `(A8, HIGH)`
 - [ ] **FUNIL-02**: RH não consegue rejeitar candidato via UPDATE direto de `candidaturas.status` sem auditoria/justificativa — trilha obrigatória (RNF-07a). `(A9, HIGH)`
 - [ ] **FUNIL-03**: RH Kanban e UpdateStatusModal operam sobre o enum de etapas que existe no DB (não o enum M1 removido). `(A12, HIGH · inclui QW-affordances)`
-- [ ] **FUNIL-04**: Editar Vaga hidrata apenas colunas existentes **e** persiste os campos de configuração (não hidrata 8 colunas fantasma nem descarta a config no save). `(A13, HIGH · casa com B1)`
+- [x] **FUNIL-04**: Editar Vaga hidrata apenas colunas existentes **e** persiste os campos de configuração (não hidrata 8 colunas fantasma nem descarta a config no save). `(A13, HIGH · casa com B1)`
 - [ ] **FUNIL-05**: Contrato cargoTemplates↔container honrado — ids de teste (`work_sample_sjt`, `redacao_cultural`, …) casam entre template e runtime. `(A15, HIGH)`
 - [ ] **FUNIL-06**: Ação legada 'Aprovado para Próxima Etapa' não grava etapa M1 inexistente — removida/redirecionada ao enum atual. `(A16, HIGH)`
 - [ ] **FUNIL-07**: Banco SJT é filtrado por cargo **e** por `itens_ids` da vaga — candidato não responde pergunta de outro cargo. `(A17, HIGH · casa com C4-filtro)`
@@ -92,7 +92,7 @@
 - [ ] **UX-03**: Navegação do hub usa `candidatura.id` (não `candidato.id`) + estado 404 no hub. `(QW4)`
 - [x] **UX-04**: Botões de login habilitados corretamente — remover `!isValid` do disabled (candidato, RH, esqueci/redefinir); elimina a gambiarra `blur()` dos E2E. `(QW5)` — Phase 22 / Plan 22-03 (candidato+RH dropados; esqueci/redefinir já limpos, regression-guard grep)
 - [x] **UX-05**: `?redirect` propagado login→cadastro→pós-login + limpeza de `localStorage` órfão. `(QW10)` — Phase 22 / Plan 22-03 (shared resolveRedirect guard; orphan candidatura_vaga_id limpo no login)
-- [ ] **UX-06**: Varredura de affordances mortas — menus, badges 12/5, botões no-op, tiles "-", incl. ocultar os no-op de avançar/rejeitar da DecisaoFinalPage + cache do comparativo por finalistas. `(QW11 + parte de QW9)`
+- [x] **UX-06**: Varredura de affordances mortas — menus, badges 12/5, botões no-op, tiles "-", incl. ocultar os no-op de avançar/rejeitar da DecisaoFinalPage + cache do comparativo por finalistas. `(QW11 + parte de QW9)`
 - [x] **UX-07**: Devolutiva e telas RH sem percentil numérico — descritores qualitativos (honestidade psicométrica). `(QW12)`
 - [x] **UX-08**: Remoção dos 4 itens políticos O6 do Big Five (dado sensível — mesma natureza LGPD). `(QW7)`
 - [x] **UX-09**: Peso de `triagem` fora das chaves ponderadas da consolidação (ou cap ≤15) + exigir ≥2 etapas para exibir número consolidado. `(QW8)`
@@ -158,7 +158,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | FUNIL-01 | Phase 26 | Pending |
 | FUNIL-02 | Phase 25 | Pending |
 | FUNIL-03 | Phase 25 | Pending |
-| FUNIL-04 | Phase 25 | Pending |
+| FUNIL-04 | Phase 25 | Complete |
 | FUNIL-05 | Phase 25 | Pending |
 | FUNIL-06 | Phase 25 | Pending |
 | FUNIL-07 | Phase 26 | Pending |
@@ -189,7 +189,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | UX-03 | Phase 25 | Pending |
 | UX-04 | Phase 22 | Done (22-03) |
 | UX-05 | Phase 22 | Done (22-03) |
-| UX-06 | Phase 25 | Pending |
+| UX-06 | Phase 25 | Complete |
 | UX-07 | Phase 23 | Complete |
 | UX-08 | Phase 24 | Complete |
 | UX-09 | Phase 23 | Complete |
