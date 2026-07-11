@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 25 / Plan 25-05 complete — RH hub nav param fix + in-shell 404 (UX-03). CandidatosRHPage.handleVerPerfil param renamed candidatoId→candidaturaId; both list call sites (card button L411 + table dropdown L776) now pass candidatura.id instead of candidato?.id (the route /rh/candidatos/:id IS a candidaturaId → HubCandidatoRH reads useParams().id as candidaturaId; Kanban half already fixed in 25-02). HubCandidatoRH gained an explicit in-shell not-found GlassCard (heading "Candidatura não encontrada" + verbatim body + accent "Voltar aos candidatos"→/rh/candidatos, ArrowLeft aria-hidden, min-h-11) gated on !loadingContexto && (errorContexto || !contexto), early-return AFTER all hooks — replaces silent degrade to generic "Candidato"/"—" header. NOT the global NotFoundPage (RH persona shell kept). tsc flat 115, hubNotFound 6/6, full suite 781/781, build green. Commits c954800(T1)/3726a6a(RED)/41bb1cb(GREEN). Resume execute-phase 25 for 25-06..25-08.
-last_updated: "2026-07-11T20:40:00.000Z"
+stopped_at: Phase 25 / Plan 25-06 complete — dead-affordance sweep + mock-screen empty-state gating (UX-06); Wave 1 now COMPLETE. Removed RHSidebar 12/5 badges + RHTopBar no-op global search + DecisaoFinalPage no-op avançar/rejeitar (ComparativoScreen action row now gated on both handlers present — read-only embed omits them). Gutted the two 100%-mock RH screens: /rh/configuracoes (A14 — fake user list + PII-shaped audit logs + dead M1 webhook names + stub handlers) and RH MeuPerfilPage (A37 — stub save/senha/foto) → each a single centered GlassCard empty-state ("Gestão de usuários ainda não disponível" / "Edição de perfil em breve"), RH shell + header + route + RoleGuard kept, real impl → M5 (offboarding-LGPD minimum). tsc 115→107 (−8, not increased), full suite 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3). Resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin).
+last_updated: "2026-07-11T20:43:22.415Z"
 last_activity: 2026-07-11
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 27
   percent: 50
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTING
-Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05 ✅ · 25-06..25-08 pending
-Status: Wave 1 in progress (25-01..25-05 done; 25-06 pending); resume execute-phase 25 for 25-06..25-08
+Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05 ✅ · 25-06 ✅ · 25-07..25-08 pending
+Status: Wave 1 COMPLETE (25-01..25-06 done); resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin)
 Last activity: 2026-07-11
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 93%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -84,6 +84,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 25 P03 | ~15min | 3 tasks | 3 files |
 | Phase 25 P04 | 12min | 2 tasks (RED+GREEN) | 3 files |
 | Phase 25 P05 | ~14min | 2 tasks (T1 + RED/GREEN) | 3 files |
+| Phase 25 P06 | 12min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -133,6 +134,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 24]: UX-08: 4 political O6 items {28,58,88,118} deactivated via reversible ativo flag (get_bigfive_itens WHERE ativo → 116); scorer prorates O ×6/5 over 5 surviving facets (neutral vector O stays 72 → Johnson percentile/norm byte-identical, no re-norm); 6 count-sites moved in lockstep (scorer/submit-EF/schema/copy/2 golden tests), no 1..120 loop survives; files-only, apply=24-08 EF-redeploy=24-09. Commits 279f8ca/5bc2fdf/00755f4 — Plano 24-07
 - [Phase 25]: [25-03] Editar Vaga round-trips (FUNIL-04): `configVagaService.updateVagaBase` = sibling of `updateVagaConfig` (single anon-client `.from('vagas').update({...16 real cols..., status}).eq(id)`, `isForbidden`→42501→FORBIDDEN); hydration cut over from 8 phantom reads to real columns (`faixa_salarial_min/max`, `jornada_trabalho`, `responsabilidades`, `requisitos_*`, `perfil_ideal`, `diferenciais`) + async/await try-finally (kills `.finally`-on-PromiseLike). "Salvar alterações" (accent, isEdicao-gated) persists base+status+config in one action; config controls untouched (publish_vaga still `perguntas:[]`, F7 deferred). Split single salary input → salarioMin/max. Rule-2: added `perfil_ideal` to the writer so `pessoaCerta` doesn't silently discard edits. No-op "Usar da Biblioteca" buttons removed (UX-06); functional slug Preview kept. **tsc 124→115 (−9: 8 phantom + .finally), NOT increased; ci.yml re-pin = 25-08. vitest 765/765, build green. Commits 87d5286/10a8752/2a232d5/b9deb60/0b796f4.**
 - [Phase 25]: [25-04] FUNIL-05: ONE canonical `@/lib/testes/testeContract` maps TEMPLATE ids `{triagem,work_sample_sjt,redacao_cultural,big_five,cognitivo,entrevista}` → CONTAINER card ids `{sjt_mc,sjt_caso_aberto,big_five,redacao,cognitivo}` (`work_sample_sjt`→both SJT cards; `triagem`/`entrevista`→`[]` non-candidate-facing). `deriveCards` now **filters** CANDIDATE_FACING + maps through the lib instead of copying `t.teste` verbatim (which fell to default label + accidental `target='mc'` → `redacao_cultural` mis-routed; now routes `/candidato/redacao/:id`). `testeLabel`/`handleOpenTeste` collapsed into ONE co-located `CONTAINER_TESTE_CONFIG` (label+route) — no duplicate id switch to drift ([[feedback_integration_contract_gap]]); `CONTAINER_RECOGNIZED` **exported** so the contract test asserts the lib's emitted ids ⊆ the REAL container's set, not a replica (invariant E). `cognitivo` carries label + route STUB only — reachability = Phase 26 (NOT pulled forward). `type: tdd` gate honored: `test(cb8a8a9)` RED → `feat(f8d3428)` GREEN; REFACTOR (single-source config) folded into GREEN. tsc flat **115** (not increased), tests **13/13** (10 contract + 3 existing container), build green.
+- [Phase 25]: [25-06] UX-06 dead-affordance sweep + mock-screen gating (Wave 1 done): removed RHSidebar hardcoded `badge:12`/`badge:5` (Candidatos/Vagas — rows reflow), RHTopBar no-op global search (input+`handleSearch`+dead `searchQuery`/`React`/`Badge`/`Search` imports pruned), and the DecisaoFinalPage no-op `onAvancar={()=>{}}`/`onRejeitar={()=>{}}` passthrough. To hide the latter WITHOUT breaking the shared `ComparativoScreen` (also used by ComparativoCandidatosPage with real handlers), made `onAvancar`/`onRejeitar` **optional** + gated the "Ação" `<tr>` on `showActions = Boolean(onAvancar && onRejeitar)` (optional-call `onAvancar?.()` inside) — read-only embed omits the handlers → no buttons; the 6/6 ComparativoScreen test always passes both → unchanged. The two 100%-mock RH screens gutted to a single centered `GlassCard` empty-state each (RH shell + page header/title + route + RoleGuard KEPT; NO CTA; real impl → M5): **ConfiguracoesPage (A14)** heading "Gestão de usuários ainda não disponível" (Users icon) — deletes fake user list + PII-shaped audit logs naming candidates + dead M1 webhook names (Big Five/DISC/Raven/Cultura) + all stub save/toggle/excluir/reset handlers (offboarding-LGPD minimum, T-25-06-01); **MeuPerfilPage (A37)** heading "Edição de perfil em breve" (UserRound icon) — deletes stub save/senha/foto forms seeded with a hardcoded fake user. No-op vs 25-03: 25-03 already removed the "Usar da Biblioteca" buttons in CriarEditarVagaPage (b9deb60) → NOT re-touched here (file-disjoint; 25-06 swept the *remaining* affordances). Empty-state typography = UI-SPEC §2 (20px/600 heading `text-xl font-semibold`, 14px body `text-white/70`, `py-12`), reuses the AsyncState.EstadoVazio rhythm (no new visual language). Deviation: ComparativoScreen.tsx (not in files_modified) got the optional-handler change (Rule-3 blocking — the only clean way to hide the embedded no-op without a 2nd copy). **tsc 115→107 (−8: gutted pages cleared React/onVoltar/Glass-onClick/Vaga errors + RHTopBar Badge; NOT increased), vitest 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3).**
 - [Phase 25]: [25-05] UX-03: the route `/rh/candidatos/:id` IS a candidaturaId (PerfilCandidatoRHPage→HubCandidatoRH reads `useParams().id` as candidaturaId). `CandidatosRHPage.handleVerPerfil` param renamed candidatoId→candidaturaId; BOTH list call sites (card button + table dropdown) now pass `candidatura.id` (was `candidato?.id` — a person id the hub mis-loaded → silent degrade). Kanban half already fixed in 25-02 (both UX-03 halves consistent, file-disjoint). HubCandidatoRH gained an **in-shell** not-found GlassCard (heading "Candidatura não encontrada" 20px/600 + verbatim body + single accent GlassButton "Voltar aos candidatos"→/rh/candidatos, ArrowLeft aria-hidden, min-h-11) gated on `!loadingContexto && (errorContexto || !contexto)`; early-return placed AFTER all hook calls (rules of hooks) + gated on settled query (no flash) — replaces the silent degrade to the generic "Candidato"/"—" header. NOT the global NotFoundPage (RH persona shell kept; UI-SPEC §3). RTL hubNotFound.test.tsx mocks RHLayout passthrough + the 5 hooks + router; RED (3726a6a) 4-fail/2-pass → GREEN (41bb1cb). **tsc flat 115 (not increased), hubNotFound 6/6, hub-candidato suite 9/9, full suite 781/781, build green. Commits c954800(T1 nav)/3726a6a(RED)/41bb1cb(GREEN).**
 - [Phase 25]: [25-01] 5 DB migrations authored files-only (apply=25-07 BLOCKING via MCP apply_migration): hybrid BEFORE UPDATE OF status guard (flag OR etapa-transition) closes A9 reject-hole (FUNIL-02); NEW txn-local GUC app.rejeicao_sancionada (set_config is_local=true / current_setting missing_ok); decisao_final_historico append-only + AFTER UPDATE snapshot preserves OLD.* actor (FUNIL-09); registrar_decisao rejeitado folds status+etapa+etapa_justificativa em UM UPDATE sancionado (Open Q1=YES); upsert_pergunta_opcoes_metadata status hard-block + ownership (FUNIL-11); submit_candidatura_atomic flag p/ knockout. Renumbered 000001..05 → 000010..14 (Rule-3 collision fix vs Phase-24 sec07/sec08). Structural greps green; behavioral gate = live smokes A-E no 25-07.
 
@@ -159,8 +161,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-11T20:40:00.000Z
-Stopped at: Phase 25 / Plan 25-05 complete — RH hub nav param fix + in-shell 404 (UX-03). CandidatosRHPage list call sites pass candidatura.id (Kanban half already in 25-02); HubCandidatoRH renders an explicit in-shell not-found GlassCard ("Candidatura não encontrada" + "Voltar aos candidatos"→/rh/candidatos) on an unresolved candidaturaId instead of degrading silently to the generic "Candidato"/"—" header. tsc flat 115, hubNotFound 6/6, full suite 781/781, build green. Commits c954800(T1)/3726a6a(RED)/41bb1cb(GREEN). Resume execute-phase 25 for 25-06..25-08.
+Last session: 2026-07-11T20:43:22.408Z
+Stopped at: Phase 25 / Plan 25-06 complete — UX-06 dead-affordance sweep + mock-screen empty-state gating; Wave 1 COMPLETE. Removed RHSidebar 12/5 badges + RHTopBar no-op search + DecisaoFinalPage no-op avançar/rejeitar (ComparativoScreen action row gated on both handlers). Gutted /rh/configuracoes (A14) and RH MeuPerfilPage (A37) to single GlassCard empty-states (shell+route+RoleGuard kept, real impl → M5; offboarding-LGPD minimum). tsc 115→107 (−8, not increased), full suite 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3). Resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin).
 Resume file: None
 
 ## Operator Next Steps

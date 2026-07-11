@@ -190,7 +190,7 @@ Plans:
 - [x] 25-03-PLAN.md — Editar Vaga: real-column hydration + updateVagaBase persist + no-op button removal (FUNIL-04, UX-06) [Wave 1]
 - [x] 25-04-PLAN.md — cargoTemplates<->container test-id contract lib + contract test + deriveCards rewire (FUNIL-05) [Wave 1]
 - [x] 25-05-PLAN.md — Hub nav (candidatura.id) + in-shell 404 not-found (UX-03) [Wave 1]
-- [ ] 25-06-PLAN.md — Dead-affordance sweep + mock-screen empty-state gating A14/A37 (UX-06) [Wave 1]
+- [x] 25-06-PLAN.md — Dead-affordance sweep + mock-screen empty-state gating A14/A37 (UX-06) [Wave 1]
 
 **Wave 2** *(25-07 BLOCKING - non-autonomous - PROD apply; 25-08 CI re-pin)*
 
