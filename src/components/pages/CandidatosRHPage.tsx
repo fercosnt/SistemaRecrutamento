@@ -248,9 +248,11 @@ export function CandidatosRHPage() {
     return etapas
   }, [vagaCandidaturas])
 
-  // Handler Ver Perfil
-  const handleVerPerfil = (candidatoId: string) => {
-    navigate(`/rh/candidatos/${candidatoId}`)
+  // Handler Ver Perfil — UX-03: o :id da rota `/rh/candidatos/:id` É um candidaturaId
+  // (HubCandidatoRH lê `useParams().id` como candidaturaId). Encaminhar candidato.id
+  // fazia o hub carregar o contexto errado (ou nenhum) e degradar em silêncio.
+  const handleVerPerfil = (candidaturaId: string) => {
+    navigate(`/rh/candidatos/${candidaturaId}`)
   }
 
   // Handler Aprovar
@@ -406,7 +408,7 @@ export function CandidatosRHPage() {
           <div className="flex items-center gap-2">
             <GlassButton
               variant="white"
-              onClick={() => handleVerPerfil(candidato?.id)}
+              onClick={() => handleVerPerfil(candidatura.id)}
               className="flex-1 text-white text-sm drop-shadow-sm flex items-center justify-center gap-2 font-medium min-h-[40px]"
             >
               <Eye className="w-4 h-4 flex-shrink-0" />
@@ -771,7 +773,7 @@ export function CandidatosRHPage() {
                             className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white"
                           >
                             <DropdownMenuItem
-                              onClick={() => handleVerPerfil(candidato?.id)}
+                              onClick={() => handleVerPerfil(candidatura.id)}
                               className="text-white hover:bg-white/20 cursor-pointer"
                             >
                               <Eye className="w-4 h-4 mr-2" />
