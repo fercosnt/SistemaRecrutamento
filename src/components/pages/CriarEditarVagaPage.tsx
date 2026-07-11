@@ -953,16 +953,6 @@ export function CriarEditarVagaPage() {
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Pergunta
                   </GlassButton>
-
-                  <div className="text-center text-white/60 drop-shadow-sm">OU</div>
-
-                  <GlassButton 
-                    variant="white" 
-                    className="w-full justify-center"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    📚 Usar da Biblioteca
-                  </GlassButton>
                 </div>
               </div>
             </Glass>
@@ -1064,16 +1054,6 @@ export function CriarEditarVagaPage() {
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Pergunta
-                  </GlassButton>
-
-                  <div className="text-center text-white/60 drop-shadow-sm">OU</div>
-
-                  <GlassButton 
-                    variant="white" 
-                    className="w-full justify-center"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    📚 Usar da Biblioteca
                   </GlassButton>
                 </div>
               </div>
