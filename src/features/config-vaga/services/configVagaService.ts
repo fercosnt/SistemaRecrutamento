@@ -38,6 +38,7 @@ export interface VagaBaseInput {
   experiencia: string | null
   tecnicos: string | null
   habilidades: string | null
+  perfilIdeal: string | null
   diferenciais: string | null
   status: Database['public']['Enums']['status_vaga']
 }
@@ -134,6 +135,7 @@ export async function updateVagaBase(
       requisitos_experiencia: base.experiencia,
       requisitos_tecnicos: base.tecnicos,
       requisitos_habilidades: base.habilidades,
+      perfil_ideal: base.perfilIdeal,
       diferenciais: base.diferenciais,
       status: base.status,
     })

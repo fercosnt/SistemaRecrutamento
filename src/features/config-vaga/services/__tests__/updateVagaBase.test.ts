@@ -42,6 +42,7 @@ const sampleBase: VagaBaseInput = {
   experiencia: '2 anos',
   tecnicos: 'Radiologia',
   habilidades: 'Boa comunicação',
+  perfilIdeal: 'Proativo e empático',
   diferenciais: 'Inglês fluente',
   status: 'rascunho',
 }
@@ -77,6 +78,7 @@ describe('updateVagaBase (Plan 25-03 — FUNIL-04)', () => {
     expect(payload).toHaveProperty('requisitos_experiencia', '2 anos')
     expect(payload).toHaveProperty('requisitos_tecnicos', 'Radiologia')
     expect(payload).toHaveProperty('requisitos_habilidades', 'Boa comunicação')
+    expect(payload).toHaveProperty('perfil_ideal', 'Proativo e empático')
     expect(payload).toHaveProperty('diferenciais', 'Inglês fluente')
     expect(payload).toHaveProperty('status', 'rascunho')
 

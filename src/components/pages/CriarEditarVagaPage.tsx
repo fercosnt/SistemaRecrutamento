@@ -356,6 +356,7 @@ export function CriarEditarVagaPage() {
         experiencia: dados.experiencia || null,
         tecnicos: dados.conhecimentosTecnicos || null,
         habilidades: dados.habilidadesEssenciais || null,
+        perfilIdeal: dados.pessoaCerta || null,
         diferenciais: dados.diferenciais || null,
         status: dados.status,
       });
