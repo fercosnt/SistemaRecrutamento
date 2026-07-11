@@ -4,7 +4,7 @@ milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
 stopped_at: Phase 24 / Plan 24-07 complete — UX-08 deactivate 4 political O6 items (reversible ativo) + scorer 116/O-prorate + 6-site count lockstep. Files-only, apply 24-08 / EF redeploy 24-09. Commits 279f8ca/5bc2fdf/00755f4/678637e. tsc 128.
-last_updated: "2026-07-10T03:04:47.675Z"
+last_updated: "2026-07-11T19:50:08.410Z"
 last_activity: 2026-07-10
 progress:
   total_phases: 6
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTING
-Plan: 2 of 8
-Status: Ready to execute
-Last activity: 2026-07-10
+Plan: 25-01 ✅ · 25-02 ✅ (closeout on resume) · 25-03..25-08 pending
+Status: Wave 1 in progress (25-01/25-02 done); resume execute-phase 25 for 25-03..25-08
+Last activity: 2026-07-11
 
 Progress: [████████░░] 76%
 
