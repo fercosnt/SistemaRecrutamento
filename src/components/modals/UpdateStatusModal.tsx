@@ -3,9 +3,11 @@
  *
  * Features:
  * - Dropdown de status com validação de transições
- * - Textarea para motivo de rejeição (obrigatório se rejeitando)
+ * - Rejeição roteada pelo caminho auditado `registrar_decisao` (FUNIL-02): exige
+ *   uma justificativa ≥50 caracteres e grava uma linha auditável (RNF-07a/LGPD-02),
+ *   nunca um status-only write que escapa da trilha (A9). Transições não-rejeição
+ *   seguem no `useUpdateCandidaturaStatus`.
  * - Checkbox "Notificar candidato"
- * - Integração com useUpdateCandidaturaStatus hook
  *
  * @module components/modals/UpdateStatusModal
  */
@@ -32,8 +34,11 @@ import { Checkbox } from '../ui/checkbox'
 import { GlassButton } from '../ui/glass'
 import { Alert, AlertDescription } from '../ui/alert'
 import { useUpdateCandidaturaStatus } from '@/features/vagas/hooks/useCandidaturas'
+import { useRegistrarDecisao } from '@/features/decisao/hooks/useRegistrarDecisao'
+import { JUSTIFICATIVA_MIN } from '@/features/decisao/schemas/decisaoSchema'
 import type { StatusCandidatura } from '@/features/vagas/types/vagasTypes'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * Labels de status em português
@@ -83,21 +88,25 @@ export function UpdateStatusModal({
   const [notificarCandidato, setNotificarCandidato] = useState(true)
   const [validationError, setValidationError] = useState<string | null>(null)
 
-  const { mutate: updateStatus, isPending } = useUpdateCandidaturaStatus({
-    onSuccess: () => {
-      // Resetar form
-      setNovoStatus('')
-      setMotivoRejeicao('')
-      setNotificarCandidato(true)
-      setValidationError(null)
+  // Sucesso (qualquer caminho): reseta o form, fecha o modal, dispara o callback.
+  const resetAndClose = () => {
+    setNovoStatus('')
+    setMotivoRejeicao('')
+    setNotificarCandidato(true)
+    setValidationError(null)
+    onOpenChange(false)
+    onSuccess?.()
+  }
 
-      // Fechar modal
-      onOpenChange(false)
+  const { mutate: updateStatus, isPending: isUpdatingStatus } =
+    useUpdateCandidaturaStatus({ onSuccess: resetAndClose })
 
-      // Callback opcional
-      onSuccess?.()
-    },
-  })
+  // FUNIL-02: a rejeição escreve pelo caminho auditado `registrar_decisao` (que grava
+  // `decisao_final` com `por_usuario := auth.uid()` + dispara `avancar_etapa`), nunca
+  // um status-only write que escapa da trilha.
+  const { mutate: registrarRejeicao, isPending: isRejecting } = useRegistrarDecisao()
+
+  const isPending = isUpdatingStatus || isRejecting
 
   // Resetar form quando modal abre/fecha
   useEffect(() => {
@@ -115,6 +124,11 @@ export function UpdateStatusModal({
   // Validar se motivo de rejeição é necessário
   const precisaMotivoRejeicao = novoStatus === 'rejeitado'
 
+  // A justificativa da rejeição precisa de ≥50 chars (espelha o CHECK do DB + a
+  // re-asserção da RPC `registrar_decisao` — defense in depth; o servidor é a verdade).
+  const justificativa = motivoRejeicao.trim()
+  const justificativaValida = justificativa.length >= JUSTIFICATIVA_MIN
+
   // Handler de submit
   const handleSubmit = () => {
     setValidationError(null)
@@ -125,23 +139,31 @@ export function UpdateStatusModal({
       return
     }
 
-    // Validação: motivo de rejeição obrigatório
-    if (precisaMotivoRejeicao && !motivoRejeicao.trim()) {
-      setValidationError('Motivo da rejeição é obrigatório')
-      return
-    }
-
     // Validação: não pode ser o mesmo status
     if (novoStatus === statusAtual) {
       setValidationError('Selecione um status diferente do atual')
       return
     }
 
-    // Executar mutation
+    // Rejeição → caminho auditado `registrar_decisao` (FUNIL-02), NUNCA status-only.
+    if (precisaMotivoRejeicao) {
+      if (!justificativaValida) {
+        setValidationError(
+          `A justificativa da rejeição precisa de pelo menos ${JUSTIFICATIVA_MIN} caracteres.`,
+        )
+        return
+      }
+      registrarRejeicao(
+        { candidaturaId, decisao: 'rejeitado', justificativa },
+        { onSuccess: resetAndClose },
+      )
+      return
+    }
+
+    // Transições não-rejeição: caminho de status inalterado.
     updateStatus({
       candidaturaId,
       status_candidatura: novoStatus,
-      motivo_rejeicao: precisaMotivoRejeicao ? motivoRejeicao.trim() : undefined,
       notificar_candidato: notificarCandidato,
     })
   }
@@ -216,17 +238,29 @@ export function UpdateStatusModal({
               </Label>
               <Textarea
                 id="motivo-rejeicao"
-                placeholder="Descreva o motivo da rejeição para o candidato..."
+                placeholder="Descreva o motivo da rejeição (mínimo 50 caracteres)..."
                 value={motivoRejeicao}
                 onChange={(e) => setMotivoRejeicao(e.target.value)}
                 disabled={isPending}
                 rows={4}
+                aria-describedby="motivo-rejeicao-ajuda"
                 className="resize-none bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 focus:border-white/30"
               />
-              <p className="text-xs text-white/70 drop-shadow-sm">
-                Seja específico e profissional. Este motivo será enviado ao candidato se a
-                notificação estiver ativada.
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <p id="motivo-rejeicao-ajuda" className="text-xs text-white/70 drop-shadow-sm">
+                  A rejeição é registrada como uma decisão auditável (RNF-07a/LGPD-02). Seja
+                  específico e profissional — este motivo será enviado ao candidato se a
+                  notificação estiver ativada.
+                </p>
+                <span
+                  className={cn(
+                    'flex-shrink-0 text-xs tabular-nums drop-shadow-sm',
+                    justificativaValida ? 'text-green-300' : 'text-white/60',
+                  )}
+                >
+                  {justificativa.length}/{JUSTIFICATIVA_MIN}
+                </span>
+              </div>
             </div>
           )}
 
@@ -288,7 +322,12 @@ export function UpdateStatusModal({
           <GlassButton
             variant="secondary"
             onClick={handleSubmit}
-            disabled={isPending || !novoStatus || transicoesValidas.length === 0}
+            disabled={
+              isPending ||
+              !novoStatus ||
+              transicoesValidas.length === 0 ||
+              (precisaMotivoRejeicao && !justificativaValida)
+            }
             className="text-white"
           >
             {isPending ? 'Salvando...' : 'Salvar Alterações'}
