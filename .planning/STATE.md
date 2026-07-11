@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 25 / Plan 25-03 complete — Editar Vaga round-trip (FUNIL-04, updateVagaBase + real-column hydration + "Salvar alterações" CTA) + no-op button removal (UX-06). tsc 124→115 (−9), vitest 765/765, build green. Commits 87d5286/10a8752/2a232d5/b9deb60/0b796f4. Resume 25-04..25-08.
-last_updated: "2026-07-11T20:08:21.040Z"
+stopped_at: Phase 25 / Plan 25-04 complete — canonical template↔container test-id contract (FUNIL-05). New @/lib/testes/testeContract maps TEMPLATE ids → CONTAINER card ids; deriveCards filters CANDIDATE_FACING + maps through it (kills verbatim t.teste→default 'mc' misroute; redacao_cultural now routes /candidato/redacao/:id). testeLabel/handleOpenTeste collapsed into ONE co-located CONTAINER_TESTE_CONFIG; CONTAINER_RECOGNIZED exported so the contract test asserts vs the REAL container. cognitivo = label+route stub (reachability Phase 26). tsc flat 115, tests 13/13, build green. Commits cb8a8a9(RED)/f8d3428(GREEN). Resume execute-phase 25 for 25-05..25-08.
+last_updated: "2026-07-11T20:18:50.586Z"
 last_activity: 2026-07-11
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 29
-  completed_plans: 24
+  completed_plans: 25
   percent: 50
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTING
-Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04..25-08 pending
-Status: Wave 1 in progress (25-01/25-02/25-03 done); resume execute-phase 25 for 25-04..25-08
+Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05..25-08 pending
+Status: Wave 1 in progress (25-01/25-02/25-03/25-04 done); resume execute-phase 25 for 25-05..25-08
 Last activity: 2026-07-11
 
 Progress: [████████░░] 83%
@@ -82,6 +82,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 24 P07 | ~40min | 3 tasks | 6 files |
 | Phase 25 P01 | 10min | 3 tasks | 5 files |
 | Phase 25 P03 | ~15min | 3 tasks | 3 files |
+| Phase 25 P04 | 12min | 2 tasks (RED+GREEN) | 3 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase ?]: [Phase 24]: SEC-11 stripped 8 operational console.log from RH pages (ConfiguracoesPage L491 candidate-email leak +4; MeuPerfilPage 3); stubs kept M5; console.error left intact (FX-14); rh-console.grep RH_PATH_FILES += ConfiguracoesPage/MeuPerfilPage. tsc 128 — Plano 24-06
 - [Phase ?]: [Phase 24]: UX-08: 4 political O6 items {28,58,88,118} deactivated via reversible ativo flag (get_bigfive_itens WHERE ativo → 116); scorer prorates O ×6/5 over 5 surviving facets (neutral vector O stays 72 → Johnson percentile/norm byte-identical, no re-norm); 6 count-sites moved in lockstep (scorer/submit-EF/schema/copy/2 golden tests), no 1..120 loop survives; files-only, apply=24-08 EF-redeploy=24-09. Commits 279f8ca/5bc2fdf/00755f4 — Plano 24-07
 - [Phase 25]: [25-03] Editar Vaga round-trips (FUNIL-04): `configVagaService.updateVagaBase` = sibling of `updateVagaConfig` (single anon-client `.from('vagas').update({...16 real cols..., status}).eq(id)`, `isForbidden`→42501→FORBIDDEN); hydration cut over from 8 phantom reads to real columns (`faixa_salarial_min/max`, `jornada_trabalho`, `responsabilidades`, `requisitos_*`, `perfil_ideal`, `diferenciais`) + async/await try-finally (kills `.finally`-on-PromiseLike). "Salvar alterações" (accent, isEdicao-gated) persists base+status+config in one action; config controls untouched (publish_vaga still `perguntas:[]`, F7 deferred). Split single salary input → salarioMin/max. Rule-2: added `perfil_ideal` to the writer so `pessoaCerta` doesn't silently discard edits. No-op "Usar da Biblioteca" buttons removed (UX-06); functional slug Preview kept. **tsc 124→115 (−9: 8 phantom + .finally), NOT increased; ci.yml re-pin = 25-08. vitest 765/765, build green. Commits 87d5286/10a8752/2a232d5/b9deb60/0b796f4.**
+- [Phase 25]: [25-04] FUNIL-05: ONE canonical `@/lib/testes/testeContract` maps TEMPLATE ids `{triagem,work_sample_sjt,redacao_cultural,big_five,cognitivo,entrevista}` → CONTAINER card ids `{sjt_mc,sjt_caso_aberto,big_five,redacao,cognitivo}` (`work_sample_sjt`→both SJT cards; `triagem`/`entrevista`→`[]` non-candidate-facing). `deriveCards` now **filters** CANDIDATE_FACING + maps through the lib instead of copying `t.teste` verbatim (which fell to default label + accidental `target='mc'` → `redacao_cultural` mis-routed; now routes `/candidato/redacao/:id`). `testeLabel`/`handleOpenTeste` collapsed into ONE co-located `CONTAINER_TESTE_CONFIG` (label+route) — no duplicate id switch to drift ([[feedback_integration_contract_gap]]); `CONTAINER_RECOGNIZED` **exported** so the contract test asserts the lib's emitted ids ⊆ the REAL container's set, not a replica (invariant E). `cognitivo` carries label + route STUB only — reachability = Phase 26 (NOT pulled forward). `type: tdd` gate honored: `test(cb8a8a9)` RED → `feat(f8d3428)` GREEN; REFACTOR (single-source config) folded into GREEN. tsc flat **115** (not increased), tests **13/13** (10 contract + 3 existing container), build green.
 - [Phase 25]: [25-01] 5 DB migrations authored files-only (apply=25-07 BLOCKING via MCP apply_migration): hybrid BEFORE UPDATE OF status guard (flag OR etapa-transition) closes A9 reject-hole (FUNIL-02); NEW txn-local GUC app.rejeicao_sancionada (set_config is_local=true / current_setting missing_ok); decisao_final_historico append-only + AFTER UPDATE snapshot preserves OLD.* actor (FUNIL-09); registrar_decisao rejeitado folds status+etapa+etapa_justificativa em UM UPDATE sancionado (Open Q1=YES); upsert_pergunta_opcoes_metadata status hard-block + ownership (FUNIL-11); submit_candidatura_atomic flag p/ knockout. Renumbered 000001..05 → 000010..14 (Rule-3 collision fix vs Phase-24 sec07/sec08). Structural greps green; behavioral gate = live smokes A-E no 25-07.
 
 ### Pending Todos
@@ -155,8 +157,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-11T20:10:00.000Z
-Stopped at: Phase 25 / Plan 25-03 complete — Editar Vaga round-trip (FUNIL-04) + no-op button removal (UX-06). updateVagaBase writer (real cols + status, anon/42501→FORBIDDEN) + real-column hydration (8 phantom reads gone) + "Salvar alterações" CTA + Rule-2 perfil_ideal. tsc 124→115 (−9), vitest 765/765, build green. Commits 87d5286/10a8752/2a232d5/b9deb60/0b796f4. Resume execute-phase 25 for 25-04..25-08.
+Last session: 2026-07-11T20:18:50.580Z
+Stopped at: Phase 25 / Plan 25-04 complete — canonical template↔container test-id contract (FUNIL-05). @/lib/testes/testeContract + deriveCards filter/map rewire + single-source CONTAINER_TESTE_CONFIG + exported CONTAINER_RECOGNIZED; contract test (invariant E) guards it. cognitivo = stub (Phase 26). tsc flat 115, tests 13/13, build green. Commits cb8a8a9(RED)/f8d3428(GREEN). Resume execute-phase 25 for 25-05..25-08.
 Resume file: None
 
 ## Operator Next Steps

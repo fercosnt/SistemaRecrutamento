@@ -47,7 +47,7 @@
 - [ ] **FUNIL-02**: RH não consegue rejeitar candidato via UPDATE direto de `candidaturas.status` sem auditoria/justificativa — trilha obrigatória (RNF-07a). `(A9, HIGH)`
 - [ ] **FUNIL-03**: RH Kanban e UpdateStatusModal operam sobre o enum de etapas que existe no DB (não o enum M1 removido). `(A12, HIGH · inclui QW-affordances)`
 - [x] **FUNIL-04**: Editar Vaga hidrata apenas colunas existentes **e** persiste os campos de configuração (não hidrata 8 colunas fantasma nem descarta a config no save). `(A13, HIGH · casa com B1)`
-- [ ] **FUNIL-05**: Contrato cargoTemplates↔container honrado — ids de teste (`work_sample_sjt`, `redacao_cultural`, …) casam entre template e runtime. `(A15, HIGH)`
+- [x] **FUNIL-05**: Contrato cargoTemplates↔container honrado — ids de teste (`work_sample_sjt`, `redacao_cultural`, …) casam entre template e runtime. `(A15, HIGH)`
 - [ ] **FUNIL-06**: Ação legada 'Aprovado para Próxima Etapa' não grava etapa M1 inexistente — removida/redirecionada ao enum atual. `(A16, HIGH)`
 - [ ] **FUNIL-07**: Banco SJT é filtrado por cargo **e** por `itens_ids` da vaga — candidato não responde pergunta de outro cargo. `(A17, HIGH · casa com C4-filtro)`
 - [ ] **FUNIL-08**: Prova cognitiva é alcançável pela navegação — `funilNavMap` ↔ `AvaliacaoContainer` consistentes + roteamento/label/filtro por `aplica_cognitivo`. `(A18, HIGH · inclui QW2)`
@@ -159,7 +159,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | FUNIL-02 | Phase 25 | Pending |
 | FUNIL-03 | Phase 25 | Pending |
 | FUNIL-04 | Phase 25 | Complete |
-| FUNIL-05 | Phase 25 | Pending |
+| FUNIL-05 | Phase 25 | Complete |
 | FUNIL-06 | Phase 25 | Pending |
 | FUNIL-07 | Phase 26 | Pending |
 | FUNIL-08 | Phase 26 | Pending |
