@@ -26,6 +26,7 @@ import {
   useUpdateVagaConfig,
   usePublishVaga,
 } from '@/features/config-vaga/hooks/useConfigVaga';
+import { updateVagaBase } from '@/features/config-vaga/services/configVagaService';
 import { publishGate } from '@/features/config-vaga/publishGate';
 import type {
   PesosAvaliacao,
@@ -61,7 +62,8 @@ interface DadosVaga {
   estado: string;
   tipoContrato: string;
   modalidade: string;
-  salario: string;
+  salarioMin: string;
+  salarioMax: string;
   jornada: string;
   status: StatusVaga;
   
@@ -90,6 +92,7 @@ export function CriarEditarVagaPage() {
   const [currentPage, setCurrentPage] = useState('vagas-rh');
   const [activeTab, setActiveTab] = useState('informacoes');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingBase, setIsSavingBase] = useState(false);
   const isEdicao = !!vagaId;
   
   const [dados, setDados] = useState<DadosVaga>({
@@ -100,7 +103,8 @@ export function CriarEditarVagaPage() {
     estado: '',
     tipoContrato: '',
     modalidade: '',
-    salario: '',
+    salarioMin: '',
+    salarioMax: '',
     jornada: '',
     status: 'rascunho',
     nomeVaga: '',
@@ -128,64 +132,76 @@ export function CriarEditarVagaPage() {
   const updateVagaConfigMut = useUpdateVagaConfig(vagaId ?? '');
   const publishVagaMut = usePublishVaga(vagaId ?? '');
 
-  // Carregar dados da vaga se estiver editando
+  // Carregar dados da vaga se estiver editando. Hydration reads ONLY real
+  // `vagas` columns (FUNIL-04) — the 8 phantom reads are gone. async/await so
+  // setIsLoading(false) lives in a try/finally (no `.finally` on PromiseLike).
   useEffect(() => {
-    if (isEdicao && vagaId) {
-      setIsLoading(true);
-      supabase
-        .from('vagas')
-        .select('*')
-        .eq('id', vagaId)
-        .single()
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('Erro ao carregar vaga:', error);
-            toast.error('Erro ao carregar dados da vaga');
-            navigate('/rh/vagas');
-            return;
-          }
+    if (!isEdicao || !vagaId) return;
+    setIsLoading(true);
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('vagas')
+          .select('*')
+          .eq('id', vagaId)
+          .single();
 
-          if (data) {
-            // Mapear dados do banco para o formulário
-            setDados({
-              titulo: data.titulo || '',
-              slug: data.slug || '',
-              area: data.departamento || '',
-              cidade: data.cidade || '',
-              estado: data.estado || '',
-              tipoContrato: data.tipo_contrato || '',
-              modalidade: data.modelo_trabalho || '',
-              salario: data.faixa_salarial || '',
-              jornada: data.carga_horaria || '',
-              status: (data.status as StatusVaga) || 'rascunho',
-              nomeVaga: data.titulo || '',
-              oQueVoceFaz: data.descricao_curta || '',
-              responsabilidades: data.descricao_completa || '',
-              formacao: data.requisito_formacao || '',
-              experiencia: data.requisito_experiencia || '',
-              conhecimentosTecnicos: data.requisito_tecnico || '',
-              habilidadesEssenciais: data.requisito_comportamental || '',
-              pessoaCerta: data.requisito_diferencial || '',
-              diferenciais: data.beneficios || '',
-              perguntasTriagem: [], // TODO: carregar perguntas da tabela relacionada
-              perguntasCultura: [], // TODO: carregar perguntas da tabela relacionada
-              instrucoesIA: '', // TODO: carregar instruções se houver
-            });
+        if (error) {
+          console.error('Erro ao carregar vaga:', error);
+          toast.error('Erro ao carregar dados da vaga');
+          navigate('/rh/vagas');
+          return;
+        }
 
-            // ── M2 config hydration (Phase 7) ──────────────────────────────
-            setDbStatus((data.status as DbStatusVaga) || 'rascunho');
-            if (data.pesos_avaliacao) {
-              setPesos(data.pesos_avaliacao as unknown as PesosAvaliacao);
-            }
-            if (data.testes_aplicaveis) {
-              setTestesAplicaveis(
-                data.testes_aplicaveis as unknown as TestesAplicaveis
-              );
-            }
+        if (data) {
+          // Mapear dados do banco (colunas reais) para o formulário.
+          setDados({
+            titulo: data.titulo || '',
+            slug: data.slug || '',
+            area: data.departamento || '',
+            cidade: data.cidade || '',
+            estado: data.estado || '',
+            tipoContrato: data.tipo_contrato || '',
+            modalidade: data.modelo_trabalho || '',
+            salarioMin:
+              data.faixa_salarial_min != null
+                ? String(data.faixa_salarial_min)
+                : '',
+            salarioMax:
+              data.faixa_salarial_max != null
+                ? String(data.faixa_salarial_max)
+                : '',
+            jornada: data.jornada_trabalho || '',
+            status: (data.status as StatusVaga) || 'rascunho',
+            nomeVaga: data.titulo || '',
+            oQueVoceFaz: data.descricao_curta || '',
+            responsabilidades: data.responsabilidades || '',
+            formacao: data.requisitos_formacao || '',
+            experiencia: data.requisitos_experiencia || '',
+            conhecimentosTecnicos: data.requisitos_tecnicos || '',
+            habilidadesEssenciais: data.requisitos_habilidades || '',
+            pessoaCerta: data.perfil_ideal || '',
+            diferenciais: data.diferenciais || '',
+            perguntasTriagem: [], // TODO: carregar perguntas da tabela relacionada
+            perguntasCultura: [], // TODO: carregar perguntas da tabela relacionada
+            instrucoesIA: '', // TODO: carregar instruções se houver
+          });
+
+          // ── M2 config hydration (Phase 7) ──────────────────────────────
+          setDbStatus((data.status as DbStatusVaga) || 'rascunho');
+          if (data.pesos_avaliacao) {
+            setPesos(data.pesos_avaliacao as unknown as PesosAvaliacao);
           }
-        })
-        .finally(() => setIsLoading(false));
-    }
+          if (data.testes_aplicaveis) {
+            setTestesAplicaveis(
+              data.testes_aplicaveis as unknown as TestesAplicaveis
+            );
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, [isEdicao, vagaId, navigate]);
 
   // Estados brasileiros
@@ -314,6 +330,48 @@ export function CriarEditarVagaPage() {
       toast.error(
         e instanceof Error ? e.message : 'Erro ao salvar a configuração.'
       );
+    }
+  };
+
+  // Salvar alterações (edit path, FUNIL-04) — persists the BASE fields + status
+  // radio via updateVagaBase AND the existing config save (updateVagaConfigMut).
+  // Config controls are unchanged; publish_vaga is not expanded (F7 deferred).
+  const handleSalvarAlteracoes = async () => {
+    if (!vagaId) {
+      toast.error('Salve a vaga primeiro para persistir as alterações.');
+      return;
+    }
+    setIsSavingBase(true);
+    try {
+      await updateVagaBase(vagaId, {
+        titulo: dados.titulo,
+        departamento: dados.area || null,
+        cidade: dados.cidade || null,
+        estado: dados.estado || null,
+        faixaSalarialMin: dados.salarioMin ? Number(dados.salarioMin) : null,
+        faixaSalarialMax: dados.salarioMax ? Number(dados.salarioMax) : null,
+        jornada: dados.jornada || null,
+        responsabilidades: dados.responsabilidades || null,
+        formacao: dados.formacao || null,
+        experiencia: dados.experiencia || null,
+        tecnicos: dados.conhecimentosTecnicos || null,
+        habilidades: dados.habilidadesEssenciais || null,
+        diferenciais: dados.diferenciais || null,
+        status: dados.status,
+      });
+      // Persist the config slice too (unchanged controls).
+      await updateVagaConfigMut.mutateAsync({
+        testes_aplicaveis: testesAplicaveis,
+        pesos_avaliacao: pesos,
+      });
+      setDbStatus(dados.status as DbStatusVaga);
+      toast.success('Alterações salvas.');
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Erro ao salvar as alterações.'
+      );
+    } finally {
+      setIsSavingBase(false);
     }
   };
 
@@ -605,17 +663,31 @@ export function CriarEditarVagaPage() {
                   </div>
                 </div>
 
-                {/* Salário e Jornada */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Faixa salarial e Jornada */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="salario" className="text-white drop-shadow-sm">
-                      Salário (R$)
+                    <Label htmlFor="salarioMin" className="text-white drop-shadow-sm">
+                      Salário mínimo (R$)
                     </Label>
                     <Input
-                      id="salario"
-                      value={dados.salario}
-                      onChange={(e) => setDados({ ...dados, salario: e.target.value })}
+                      id="salarioMin"
+                      value={dados.salarioMin}
+                      onChange={(e) => setDados({ ...dados, salarioMin: e.target.value })}
                       placeholder="Ex: 3000"
+                      type="number"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="salarioMax" className="text-white drop-shadow-sm">
+                      Salário máximo (R$)
+                    </Label>
+                    <Input
+                      id="salarioMax"
+                      value={dados.salarioMax}
+                      onChange={(e) => setDados({ ...dados, salarioMax: e.target.value })}
+                      placeholder="Ex: 5000"
                       type="number"
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
@@ -1096,6 +1168,20 @@ export function CriarEditarVagaPage() {
               >
                 Salvar Rascunho
               </GlassButton>
+              {/* FUNIL-04: edit-path primary CTA — persists base fields +
+                  status radio + config in one action. */}
+              {isEdicao && (
+                <GlassButton
+                  variant="accent"
+                  disabled={isSavingBase}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void handleSalvarAlteracoes();
+                  }}
+                >
+                  Salvar alterações
+                </GlassButton>
+              )}
               {/* Pitfall 5: Publicar só renderiza para vagas em rascunho.
                   status_vaga tem 4 valores (rascunho/ativa/inativa/arquivada) e o
                   RPC publish_vaga só transiciona rascunho→ativa. */}
