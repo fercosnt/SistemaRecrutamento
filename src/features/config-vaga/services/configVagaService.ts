@@ -7,18 +7,40 @@
  *   - `publish_vaga` — server-side D-12 publish gate (rascunho→ativa)
  *
  * Mirrors `features/vagas/services/vagasService.ts` (custom error class +
- * try/catch error mapping). Uses the ANON client only — never `supabaseAdmin`
- * (CLAUDE.md Security Rules). Authorization is enforced server-side by the RLS
+ * try/catch error mapping). Uses the ANON client only — never the admin /
+ * service-role client (CLAUDE.md Security Rules). Authorization is enforced
+ * server-side by the RLS
  * policies + the in-body role check inside the SECURITY DEFINER RPCs (Plan 02).
  *
  * @module features/config-vaga/services/configVagaService
  */
 import { supabase } from '@/lib/supabase/client'
-import type { Json } from '../../../../database.types'
+import type { Json, Database } from '../../../../database.types'
 import type {
   VagaConfig,
   OpcaoMetadataInput,
 } from '../types/configVagaTypes'
+
+/**
+ * Base-field write payload for `updateVagaBase` (FUNIL-04). Field names carry the
+ * form's semantics; the writer maps each to its real `vagas` column.
+ */
+export interface VagaBaseInput {
+  titulo: string
+  departamento: string | null
+  cidade: string | null
+  estado: string | null
+  faixaSalarialMin: number | null
+  faixaSalarialMax: number | null
+  jornada: string | null
+  responsabilidades: string | null
+  formacao: string | null
+  experiencia: string | null
+  tecnicos: string | null
+  habilidades: string | null
+  diferenciais: string | null
+  status: Database['public']['Enums']['status_vaga']
+}
 
 /**
  * Custom Error for config-vaga operations.
@@ -78,6 +100,55 @@ export async function updateVagaConfig(
     }
     throw new ConfigVagaServiceError(
       `Erro ao salvar configuração da vaga: ${error.message}`,
+      'DATABASE_ERROR',
+      error
+    )
+  }
+}
+
+/**
+ * Persist the vaga BASE fields + status on the Editar Vaga edit-save path
+ * (FUNIL-04). Mirrors `updateVagaConfig`: a single real `.from('vagas').update`
+ * keyed on the vaga id, anon client only (RLS + the Phase-24 vaga-scoping govern
+ * who may UPDATE which vaga); a Supabase `42501` maps to code 'FORBIDDEN'.
+ *
+ * The payload writes ONLY columns that exist on the `vagas` Row — closing the
+ * silent no-op persistence hole (T-25-03-02).
+ */
+export async function updateVagaBase(
+  vagaId: string,
+  base: VagaBaseInput
+): Promise<void> {
+  const { error } = await supabase
+    .from('vagas')
+    .update({
+      titulo: base.titulo,
+      departamento: base.departamento,
+      cidade: base.cidade,
+      estado: base.estado,
+      faixa_salarial_min: base.faixaSalarialMin,
+      faixa_salarial_max: base.faixaSalarialMax,
+      jornada_trabalho: base.jornada,
+      responsabilidades: base.responsabilidades,
+      requisitos_formacao: base.formacao,
+      requisitos_experiencia: base.experiencia,
+      requisitos_tecnicos: base.tecnicos,
+      requisitos_habilidades: base.habilidades,
+      diferenciais: base.diferenciais,
+      status: base.status,
+    })
+    .eq('id', vagaId)
+
+  if (error) {
+    if (isForbidden(error)) {
+      throw new ConfigVagaServiceError(
+        'Sem permissão para salvar as alterações desta vaga.',
+        'FORBIDDEN',
+        error
+      )
+    }
+    throw new ConfigVagaServiceError(
+      `Erro ao salvar a vaga: ${error.message}`,
       'DATABASE_ERROR',
       error
     )
