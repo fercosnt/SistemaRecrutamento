@@ -71,13 +71,11 @@ export function RHSidebar({
       id: 'candidatos-rh',
       label: 'Candidatos',
       icon: <Users size={24} />,
-      badge: 12,
     },
     {
       id: 'vagas-rh',
       label: 'Vagas',
       icon: <Briefcase size={24} />,
-      badge: 5,
     },
     {
       id: 'relatorios-rh',

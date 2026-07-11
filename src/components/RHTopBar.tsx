@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, User, Settings, LogOut, Menu } from 'lucide-react';
+import { ChevronDown, User, Settings, LogOut, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Badge } from './ui/badge';
 import { Glass } from './ui/glass';
 import { useAuthStore } from '@/store/authStore';
 
@@ -22,17 +20,10 @@ export function RHTopBar({
 }: RHTopBarProps) {
   const navigate = useNavigate();
   const { user, candidato, logout: authLogout } = useAuthStore();
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Nome do usuário (usa nome do candidato se disponível, senão email)
   const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
   const userRole = 'RH';
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Implementar busca global (pode ser feito depois)
-    console.log('Buscar:', searchQuery);
-  };
 
   const handleProfileClick = () => {
     navigate('/rh/perfil');
@@ -54,11 +45,11 @@ export function RHTopBar({
 
   return (
     <header className="sticky top-0 z-40 px-4 lg:px-6 pt-4">
-      <Glass 
-        variant="white" 
-        blur="xl" 
+      <Glass
+        variant="white"
+        blur="xl"
         className="h-[72px] rounded-2xl border border-white/30 backdrop-blur-xl"
-        style={{ 
+        style={{
           backgroundColor: 'rgba(255, 255, 255, 0.25)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}
@@ -73,27 +64,10 @@ export function RHTopBar({
             >
               <Menu size={22} className="text-white drop-shadow-sm" />
             </button>
-            
+
             <div className="hidden lg:block">
               <h6 className="text-white drop-shadow-md">Beauty Smile</h6>
             </div>
-          </div>
-
-          {/* Center Section - Search */}
-          <div className="flex-1 max-w-md">
-            <form onSubmit={handleSearch} className="relative">
-              <Search
-                size={20}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 drop-shadow-sm"
-              />
-              <input
-                type="text"
-                placeholder="Buscar candidatos, vagas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#35BFAD] focus:border-transparent focus:bg-white/15 transition-all duration-200 backdrop-blur-sm drop-shadow-sm"
-              />
-            </form>
           </div>
 
           {/* Right Section - User */}
@@ -117,7 +91,7 @@ export function RHTopBar({
               <DropdownMenuContent
                 align="end"
                 className="w-56 border border-white/30 shadow-2xl rounded-xl overflow-hidden text-white"
-                style={{ 
+                style={{
                   backgroundColor: 'rgba(255, 255, 255, 0.25)',
                   backdropFilter: 'blur(20px)'
                 }}

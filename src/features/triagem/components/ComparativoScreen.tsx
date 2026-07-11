@@ -49,10 +49,15 @@ export interface ComparativoCandidate extends RankedCandidate {
 export interface ComparativoScreenProps {
   /** Candidatos resolvidos (nome + candidaturaId), em ordem de ranking. */
   candidates: ComparativoCandidate[]
-  /** Avança a candidatura para a próxima etapa (confirmação já feita). */
-  onAvancar: (candidaturaId: string) => void
-  /** Rejeita a candidatura (confirmação já feita; sem justificativa longa). */
-  onRejeitar: (candidaturaId: string) => void
+  /**
+   * Avança a candidatura para a próxima etapa (confirmação já feita). OPCIONAL:
+   * quando ausente (ex.: embutido na Decisão Final), a linha de Ação Avançar/Rejeitar
+   * não é renderizada — a comparação segue visível e a decisão vai por `registrar_decisao`
+   * em outra parte da tela (UX-06 — sem botão no-op).
+   */
+  onAvancar?: (candidaturaId: string) => void
+  /** Rejeita a candidatura (confirmação já feita; sem justificativa longa). Opcional — ver `onAvancar`. */
+  onRejeitar?: (candidaturaId: string) => void
   /**
    * Estado do invoke do comparativo (EF `comparativo-candidatos`), delegado ao
    * `<AsyncState>` interno: loading/slow (~vários segundos) / erro / retry — nunca
@@ -109,6 +114,11 @@ export function ComparativoScreen({
   const [isGenerating, setIsGenerating] = useState(false)
 
   const ordered = [...candidates].sort((a, b) => a.rank - b.rank)
+
+  // UX-06: a linha de Ação (Avançar/Rejeitar) só renderiza quando AMBOS os handlers são
+  // fornecidos. Consumidores read-only (DecisaoFinalPage) omitem os handlers → nenhum
+  // botão no-op aparece; a comparação em si permanece visível.
+  const showActions = Boolean(onAvancar && onRejeitar)
 
   // PRESERVE MIXED_VAGA: branch the error body so "vagas diferentes" never collapses
   // into the generic/sobrecarga copy when adopting <AsyncState> (T-18-06-T2).
@@ -290,7 +300,9 @@ export function ComparativoScreen({
               ))}
             </tr>
 
-            {/* Ação: Avançar (accent) + Rejeitar (destructive), via confirm dialog */}
+            {/* Ação: Avançar (accent) + Rejeitar (destructive), via confirm dialog.
+                UX-06: oculto quando os handlers não são fornecidos (embed read-only). */}
+            {showActions && (
             <tr>
               <th className={cn(labelCell, 'text-left')} scope="row">
                 Ação
@@ -321,7 +333,7 @@ export function ComparativoScreen({
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => onAvancar(c.candidaturaId)}>
+                          <AlertDialogAction onClick={() => onAvancar?.(c.candidaturaId)}>
                             Avançar
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -351,7 +363,7 @@ export function ComparativoScreen({
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => onRejeitar(c.candidaturaId)}
+                            onClick={() => onRejeitar?.(c.candidaturaId)}
                             className="bg-red-500 text-white hover:bg-red-500/90"
                           >
                             Rejeitar
@@ -363,6 +375,7 @@ export function ComparativoScreen({
                 </td>
               ))}
             </tr>
+            )}
           </tbody>
         </table>
       </div>

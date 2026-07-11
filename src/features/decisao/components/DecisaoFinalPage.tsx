@@ -193,8 +193,6 @@ export function DecisaoFinalPage() {
                 // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
                 <ComparativoScreen
                   candidates={candidates}
-                  onAvancar={() => {}}
-                  onRejeitar={() => {}}
                   isLoading={isPending}
                   isError={isError}
                   errorCode={errorCodeOf(comparativoError)}
