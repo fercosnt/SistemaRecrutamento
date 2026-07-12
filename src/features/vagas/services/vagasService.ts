@@ -59,12 +59,17 @@ export function calcularDiasDesdePublicacao(createdAt: string): number {
  * Enriquece vaga com campos computados
  *
  * @param vaga - Vaga do banco
- * @param candidatoId - ID do candidato (opcional)
+ * @param candidatoId - ID do candidato (opcional; gate do `hasUserApplied`)
+ * @param includeCounts - Quando true, executa a query de contagem por status
+ *   (total / emAnálise / aprovados), independentemente de `candidatoId`.
+ *   Threaded por `useVagas` para sessões autenticadas (RH / administrador /
+ *   candidato). Anon → false. Ver Plan 25-09 (fecha gap UX-06 das tiles RH).
  * @returns Vaga enriquecida
  */
 async function enriquecerVaga(
   vaga: VagaRow,
-  candidatoId?: string
+  candidatoId?: string,
+  includeCounts?: boolean
 ): Promise<Vaga> {
   const vagaEnriquecida: Vaga = {
     ...vaga,
@@ -84,19 +89,30 @@ async function enriquecerVaga(
   // Skipping the read for anon both removes the RLS-bug blast radius and
   // closes one of the round-trips D-17 (Phase 5 list-batch optimization)
   // is targeting: 12 vagas × 0 queries = 0 trips for anon visitors.
-  if (!candidatoId) {
+  //
+  // Plan 25-09: the early-return now gates on BOTH signals. An anonymous
+  // visitor has NEITHER a candidatoId (no session) NOR includeCounts (no RH
+  // context) → skip entirely, preserving the WR-10 blast-radius guard. An RH /
+  // administrador session (authStore.candidato === null, so no candidatoId)
+  // passes includeCounts=true and therefore DOES reach the count query below —
+  // that is the whole point of this gap-closure (RH tiles were structurally 0).
+  if (!candidatoId && !includeCounts) {
     return vagaEnriquecida
   }
 
-  // Se candidatoId fornecido, verificar se já aplicou
-  const { data: candidaturas } = await supabase
-    .from('candidaturas')
-    .select('id')
-    .eq('vaga_id', vaga.id)
-    .eq('candidato_id', candidatoId)
-    .is('deleted_at', null)
+  // `hasUserApplied` só faz sentido para uma sessão de candidato — computado
+  // apenas quando há candidatoId (uma sessão RH não tem, e não deve gerar
+  // este round-trip).
+  if (candidatoId) {
+    const { data: candidaturas } = await supabase
+      .from('candidaturas')
+      .select('id')
+      .eq('vaga_id', vaga.id)
+      .eq('candidato_id', candidatoId)
+      .is('deleted_at', null)
 
-  vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
+    vagaEnriquecida.hasUserApplied = (candidaturas?.length ?? 0) > 0
+  }
 
   // WR-06 (Phase 4 review fix): collapse the previous 3 sequential `count: 'exact'`
   // queries (totalCandidatos / candidatosEmAnalise / candidatosAprovados — D-17
@@ -108,25 +124,32 @@ async function enriquecerVaga(
   // would have, just reads the `status` column instead of asking for `count`.
   // On RLS deny, supabase returns data=null which collapses to all-zero (the
   // same behavior as the old count queries on RLS deny).
-  const { data: statusRows } = await supabase
-    .from('candidaturas')
-    .select('status')
-    .eq('vaga_id', vaga.id)
-    .is('deleted_at', null)
+  //
+  // Plan 25-09: driven by `includeCounts` (not candidatoId) so RH/administrador
+  // sessions get real per-vaga tiles. RLS still scopes the visible rows — a
+  // candidate sees only their own candidaturas; an RH session sees candidaturas
+  // of the vagas they own (administrador reads all). Anon never reaches here.
+  if (includeCounts) {
+    const { data: statusRows } = await supabase
+      .from('candidaturas')
+      .select('status')
+      .eq('vaga_id', vaga.id)
+      .is('deleted_at', null)
 
-  const rows = (statusRows ?? []) as Array<{ status: string | null }>
-  let total = 0
-  let emAnalise = 0
-  let aprovados = 0
-  for (const row of rows) {
-    total += 1
-    if (row.status === 'em_analise') emAnalise += 1
-    else if (row.status === 'aprovado_proxima') aprovados += 1
+    const rows = (statusRows ?? []) as Array<{ status: string | null }>
+    let total = 0
+    let emAnalise = 0
+    let aprovados = 0
+    for (const row of rows) {
+      total += 1
+      if (row.status === 'em_analise') emAnalise += 1
+      else if (row.status === 'aprovado_proxima') aprovados += 1
+    }
+
+    vagaEnriquecida.totalCandidatos = total
+    vagaEnriquecida.candidatosEmAnalise = emAnalise
+    vagaEnriquecida.candidatosAprovados = aprovados
   }
-
-  vagaEnriquecida.totalCandidatos = total
-  vagaEnriquecida.candidatosEmAnalise = emAnalise
-  vagaEnriquecida.candidatosAprovados = aprovados
 
   return vagaEnriquecida
 }
@@ -235,7 +258,8 @@ export async function listVagas(
     orderBy?: VagasOrderBy
     pagination?: PaginationParams
   } = {},
-  candidatoId?: string
+  candidatoId?: string,
+  includeCounts?: boolean
 ): Promise<ListVagasResponse> {
   try {
     const { filters, orderBy = 'mais_recentes', pagination = { page: 1, limit: 12 } } = params
@@ -286,7 +310,7 @@ export async function listVagas(
 
     // Enriquecer vagas com campos computados
     const vagasEnriquecidas = await Promise.all(
-      data.map((vaga) => enriquecerVaga(vaga, candidatoId))
+      data.map((vaga) => enriquecerVaga(vaga, candidatoId, includeCounts))
     )
 
     const total = count ?? 0
@@ -374,8 +398,10 @@ export async function getVagaById(
       )
     }
 
-    // Enriquecer vaga
-    const vagaEnriquecida = await enriquecerVaga(data, candidatoId)
+    // Enriquecer vaga. Preserva o comportamento pré-25-09 dos detalhes: as
+    // contagens rodavam sse-e-somente-se havia candidatoId → includeCounts =
+    // !!candidatoId mantém isso idêntico (anon → nem hasUserApplied nem counts).
+    const vagaEnriquecida = await enriquecerVaga(data, candidatoId, !!candidatoId)
 
     return {
       success: true,
@@ -449,7 +475,8 @@ export async function getVagaBySlug(
       throw new VagasServiceError('Vaga não encontrada', 'NOT_FOUND')
     }
 
-    const vagaEnriquecida = await enriquecerVaga(data, candidatoId)
+    // Preserva o comportamento pré-25-09 (counts sse-e-somente-se candidatoId).
+    const vagaEnriquecida = await enriquecerVaga(data, candidatoId, !!candidatoId)
 
     return {
       success: true,

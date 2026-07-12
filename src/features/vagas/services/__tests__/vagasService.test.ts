@@ -14,7 +14,7 @@ vi.mock('@/lib/supabase/client', () => ({
 }))
 
 import { supabase } from '@/lib/supabase/client'
-import { getVagaBySlug } from '../vagasService'
+import { getVagaBySlug, listVagas } from '../vagasService'
 
 const mockChain = (final: { data?: unknown; error?: unknown }) => ({
   select: vi.fn().mockReturnThis(),
@@ -105,5 +105,98 @@ describe('getVagaBySlug (Plan 04-02)', () => {
     consoleSpy.mockRestore()
     errorSpy.mockRestore()
     warnSpy.mockRestore()
+  })
+})
+
+/**
+ * Plan 25-09 Task 2 — enriquecerVaga per-vaga status counts, threaded from
+ * listVagas via `includeCounts` (independent of candidatoId).
+ *
+ * Closes the UX-06 RH-tile gap: an RH/administrador session has
+ * authStore.candidato === null, so the old candidatoId-gated count path never
+ * ran for the RH VagasRHPage tiles (always 0). The count query is now driven by
+ * includeCounts (true for any authenticated session per useVagas), while the
+ * WR-10 anon-safety early-return is preserved (anon = no candidatoId AND no
+ * includeCounts → zero candidaturas round-trips).
+ */
+const fakeVagaRow = {
+  id: 'vaga-uuid',
+  titulo: 'Dentista',
+  slug: 'dentista',
+  status: 'ativa',
+  created_at: '2026-04-25T00:00:00Z',
+}
+
+/** Thenable list-query mock: chain methods return `this`, `.range()` resolves. */
+const mockVagasListQuery = (rows: unknown[]) => ({
+  select: vi.fn().mockReturnThis(),
+  is: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  or: vi.fn().mockReturnThis(),
+  order: vi.fn().mockReturnThis(),
+  range: vi.fn().mockResolvedValue({ data: rows, error: null, count: rows.length }),
+})
+
+/** candidaturas status-count query mock: `.select().eq().is()` resolves. */
+const mockCandidaturasCountQuery = (
+  statusRows: Array<{ status: string | null }>
+) => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  is: vi.fn().mockResolvedValue({ data: statusRows, error: null }),
+})
+
+describe('listVagas includeCounts (Plan 25-09)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('T7: RH-style call (includeCounts=true, no candidatoId) populates real per-vaga counts', async () => {
+    const statusRows = [
+      { status: 'em_analise' },
+      { status: 'em_analise' },
+      { status: 'aprovado_proxima' },
+      { status: 'rejeitado' },
+    ]
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockImplementation(
+      (table: string) => {
+        if (table === 'vagas') return mockVagasListQuery([fakeVagaRow])
+        return mockCandidaturasCountQuery(statusRows)
+      }
+    )
+
+    // No candidatoId (RH session), includeCounts=true
+    const res = await listVagas(
+      { filters: { apenasAtivas: false }, pagination: { page: 1, limit: 12 } },
+      undefined,
+      true
+    )
+
+    expect(res.success).toBe(true)
+    const vaga = res.data[0]
+    expect(vaga.totalCandidatos).toBe(4)
+    expect(vaga.candidatosEmAnalise).toBe(2)
+    expect(vaga.candidatosAprovados).toBe(1)
+    // RH session has no candidatoId → hasUserApplied query must NOT run,
+    // so the only candidaturas read is the count query itself.
+    expect(supabase.from).toHaveBeenCalledWith('candidaturas')
+  })
+
+  it('T8: anon-style call (no candidatoId, includeCounts falsy) issues NO candidaturas query and leaves counts undefined (WR-10 preserved)', async () => {
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockImplementation(
+      (table: string) => {
+        if (table === 'vagas') return mockVagasListQuery([fakeVagaRow])
+        return mockCandidaturasCountQuery([])
+      }
+    )
+
+    // Anon: no candidatoId, no includeCounts
+    const res = await listVagas({ filters: { apenasAtivas: false } })
+
+    expect(res.success).toBe(true)
+    const vaga = res.data[0]
+    expect(vaga.totalCandidatos).toBeUndefined()
+    expect(vaga.candidatosEmAnalise).toBeUndefined()
+    expect(vaga.candidatosAprovados).toBeUndefined()
+    // The whole point of WR-10: anon issues zero candidaturas round-trips.
+    expect(supabase.from).not.toHaveBeenCalledWith('candidaturas')
   })
 })

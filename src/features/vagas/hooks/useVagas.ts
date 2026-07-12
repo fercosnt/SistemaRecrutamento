@@ -88,8 +88,16 @@ export function useVagas(
     'queryKey' | 'queryFn'
   >
 ) {
-  // Pegar candidato do auth store
+  // Pegar candidato do auth store (fonte do candidatoId para hasUserApplied)
   const candidato = useAuthStore((state) => state.candidato)
+  // Plan 25-09: sinal de sessão autenticada. Uma sessão RH/administrador tem
+  // `candidato === null`, então o antigo gate por candidatoId nunca ligava as
+  // contagens por vaga nas tiles RH (VagasRHPage sempre mostrava 0). `user`
+  // está presente para QUALQUER sessão autenticada (candidato, rh, administrador)
+  // e `null` para visitante anônimo → preserva o skip anon WR-10 e liga as
+  // contagens reais para o RH.
+  const user = useAuthStore((state) => state.user)
+  const includeCounts = !!user
 
   return useQuery({
     queryKey: vagasKeys.list(filters, orderBy, pagination),
@@ -100,7 +108,8 @@ export function useVagas(
           orderBy,
           pagination,
         },
-        candidato?.id
+        candidato?.id,
+        includeCounts
       ),
     // Configurações default
     staleTime: 5 * 60 * 1000, // 5 minutos (vagas não mudam frequentemente)
