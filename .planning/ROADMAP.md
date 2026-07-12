@@ -194,7 +194,7 @@ Plans:
 
 **Wave 2** *(25-07 BLOCKING - non-autonomous - PROD apply; 25-08 CI re-pin)*
 
-- [ ] 25-07-PLAN.md — [BLOCKING] Apply 5 migrations via Supabase MCP + regen types + live SQL smokes A-E (FUNIL-02/09/11) [Wave 2]
+- [x] 25-07-PLAN.md — [BLOCKING] Apply 5 migrations via Supabase MCP + regen types + live SQL smokes A-E (FUNIL-02/09/11) [Wave 2]
 - [ ] 25-08-PLAN.md — Re-measure + re-pin ci.yml tsc baseline (stale 133 -> measured) (FUNIL-04) [Wave 2]
 
 **UI hint**: yes
@@ -244,7 +244,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
-| 25. Funil — lado RH | v4.0 | 5/8 | In Progress|  |
+| 25. Funil — lado RH | v4.0 | 7/8 | In Progress|  |
 | 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
