@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 25 (Funil lado RH) SHIPPED — 9/9 plans, verification PASSED 9/9 (25-09 gap-closure flipped UX-06 to done), 5 migrations LIVE on PROD via MCP apply_migration (version rows 20260712002352..002532; filename drift 20260709000010..14 → reconcile Phase 27), behavioral smokes A-E 8/8 PASS (FUNIL-02/09/11 proven live), zero PROD residue. Code review: MED-01/MED-02/LOW-01 fixed (ea16819/24fb6ca/8eac5b5; MED-01 completed the FUNIL-06 cutover in the Por-Vaga funnel), MED-03+LOW-02 deferred to .planning/todos/pending/25-review-deferred.md. UI review 20/24 advisory. tsc re-pinned 133→107, vitest 784/784, build green. Next: Phase 26 (Funil lado candidato — alcançabilidade & scoring).
-last_updated: "2026-07-12T05:00:00Z"
-last_activity: 2026-07-12
+stopped_at: "Phase 25 / Plan 25-09 (UX-06 gap-closure) complete — closed the 2 open dead-affordance items 25-VERIFICATION flagged (score 8/9→ready-for-9/9). (1) removed the 3 no-op RH dropdown items (Enviar Email/WhatsApp/Exportar PDF, zero onClick) + orphaned separators from both CandidatosRHPage views, pruned MessageSquare/FileText imports; (2) decoupled enriquecerVaga per-vaga counts from candidatoId via includeCounts (useVagas sets !!user → RH/administrador get real tiles, anon user===null still zero-round-trip WR-10 skip); getVagaById/Slug pass !!candidatoId → detail pages byte-identical. Task 3 reconciled REQUIREMENTS.md FUNIL-02/03/06/09/11 Pending→Complete (UX-06 row left for the re-verify per plan). tsc flat 107, vitest 783/783 (+2 T7/T8), build green. Commits f3d36d0(T1)/ad04561(T2)/f8fa1a4(T3), all hook-bypass. Next: /gsd-verify-work Phase 25 (should reach 9/9 + flip UX-06) + /gsd-secure-phase 25, then Phase 26 (Funil lado candidato)."
+last_updated: "2026-07-12T08:41:14.800Z"
+last_activity: 2026-07-12 -- Phase 26 planning complete
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 30
+  total_plans: 37
   completed_plans: 30
   percent: 67
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 Phase: 25 (Funil lado RH) ✅ SHIPPED (9/9 plans, verified 9/9, migrations live on PROD, smokes 8/8, code+UI reviewed) → advancing to Phase 26
 Plan: Phase 26 not started (no CONTEXT yet) — next step: smart discuss → plan → execute
-Status: Phase 25 complete. Phase 26 = candidate-side funnel reachability + non-manipulable scoring + re-inscription post soft-delete (FUNIL-01/07/08/10/12, UX-01). Never auto-reject by score (RNF-07a).
-Last activity: 2026-07-12
+Status: Ready to execute
+Last activity: 2026-07-12 -- Phase 26 planning complete
 
 Progress: [██████████] 100%
 
