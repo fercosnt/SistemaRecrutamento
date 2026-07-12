@@ -228,7 +228,7 @@ Plans:
 
 **Wave 3** *(depends on avaliacaoService)*
 
-- [ ] 26-06-PLAN.md — AvaliacaoContainer: cognitivo card + rota real + card-state-from-RPC + contract/component tests (FUNIL-08/12) [Wave 3]
+- [x] 26-06-PLAN.md — AvaliacaoContainer: cognitivo card + rota real + card-state-from-RPC + contract/component tests (FUNIL-08/12) [Wave 3]
 
 **Wave 4** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
 
@@ -264,7 +264,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 5/7 | In Progress|  |
+| 26. Funil — lado candidato | v4.0 | 6/7 | In Progress|  |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
 ---
