@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 25 / Plan 25-06 complete — dead-affordance sweep + mock-screen empty-state gating (UX-06); Wave 1 now COMPLETE. Removed RHSidebar 12/5 badges + RHTopBar no-op global search + DecisaoFinalPage no-op avançar/rejeitar (ComparativoScreen action row now gated on both handlers present — read-only embed omits them). Gutted the two 100%-mock RH screens: /rh/configuracoes (A14 — fake user list + PII-shaped audit logs + dead M1 webhook names + stub handlers) and RH MeuPerfilPage (A37 — stub save/senha/foto) → each a single centered GlassCard empty-state ("Gestão de usuários ainda não disponível" / "Edição de perfil em breve"), RH shell + header + route + RoleGuard kept, real impl → M5 (offboarding-LGPD minimum). tsc 115→107 (−8, not increased), full suite 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3). Resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin).
-last_updated: "2026-07-11T20:43:22.415Z"
-last_activity: 2026-07-11
+stopped_at: Phase 25 / Plan 25-08 complete — CI tsc frozen baseline re-pinned 133 -> MEASURED 107 (FUNIL-04). Phase 25 EXECUTION COMPLETE (8/8 plans). Measure-first: both `npx tsc --noEmit` and CI's `npm run -s lint` returned 107 (-21 clearance from the 128 entering the phase; plan estimate 113-114 superseded by 25-06's -8 mock-screen gutting). Re-pinned all 4 operative refs in ci.yml (label/echo/-gt compare/error) + added a Phase-25 history line; kept 257->133/290 as narrative history; red-on-growth preserved. Commit 2f75155. Next: verify/secure Phase 25, then Phase 26 (Funil lado candidato).
+last_updated: "2026-07-12T03:44:32.018Z"
+last_activity: 2026-07-12
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 29
-  completed_plans: 27
-  percent: 50
+  completed_plans: 29
+  percent: 67
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 ## Current Position
 
-Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTING
-Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05 ✅ · 25-06 ✅ · 25-07..25-08 pending
-Status: Wave 1 COMPLETE (25-01..25-06 done); resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin)
-Last activity: 2026-07-11
+Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTION COMPLETE (8/8 plans)
+Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05 ✅ · 25-06 ✅ · 25-07 ✅ · 25-08 ✅
+Status: Phase 25 execution done (Wave 2 closed — 25-07 PROD apply + 25-08 CI tsc re-pin 133→107). Next: verify/secure Phase 25, then Phase 26 (Funil lado candidato)
+Last activity: 2026-07-12
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -85,6 +85,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 25 P04 | 12min | 2 tasks (RED+GREEN) | 3 files |
 | Phase 25 P05 | ~14min | 2 tasks (T1 + RED/GREEN) | 3 files |
 | Phase 25 P06 | 12min | 3 tasks | 6 files |
+| Phase 25 P08 | 9min | 1 task | 1 file |
 
 ## Accumulated Context
 
@@ -136,6 +137,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 25]: [25-04] FUNIL-05: ONE canonical `@/lib/testes/testeContract` maps TEMPLATE ids `{triagem,work_sample_sjt,redacao_cultural,big_five,cognitivo,entrevista}` → CONTAINER card ids `{sjt_mc,sjt_caso_aberto,big_five,redacao,cognitivo}` (`work_sample_sjt`→both SJT cards; `triagem`/`entrevista`→`[]` non-candidate-facing). `deriveCards` now **filters** CANDIDATE_FACING + maps through the lib instead of copying `t.teste` verbatim (which fell to default label + accidental `target='mc'` → `redacao_cultural` mis-routed; now routes `/candidato/redacao/:id`). `testeLabel`/`handleOpenTeste` collapsed into ONE co-located `CONTAINER_TESTE_CONFIG` (label+route) — no duplicate id switch to drift ([[feedback_integration_contract_gap]]); `CONTAINER_RECOGNIZED` **exported** so the contract test asserts the lib's emitted ids ⊆ the REAL container's set, not a replica (invariant E). `cognitivo` carries label + route STUB only — reachability = Phase 26 (NOT pulled forward). `type: tdd` gate honored: `test(cb8a8a9)` RED → `feat(f8d3428)` GREEN; REFACTOR (single-source config) folded into GREEN. tsc flat **115** (not increased), tests **13/13** (10 contract + 3 existing container), build green.
 - [Phase 25]: [25-06] UX-06 dead-affordance sweep + mock-screen gating (Wave 1 done): removed RHSidebar hardcoded `badge:12`/`badge:5` (Candidatos/Vagas — rows reflow), RHTopBar no-op global search (input+`handleSearch`+dead `searchQuery`/`React`/`Badge`/`Search` imports pruned), and the DecisaoFinalPage no-op `onAvancar={()=>{}}`/`onRejeitar={()=>{}}` passthrough. To hide the latter WITHOUT breaking the shared `ComparativoScreen` (also used by ComparativoCandidatosPage with real handlers), made `onAvancar`/`onRejeitar` **optional** + gated the "Ação" `<tr>` on `showActions = Boolean(onAvancar && onRejeitar)` (optional-call `onAvancar?.()` inside) — read-only embed omits the handlers → no buttons; the 6/6 ComparativoScreen test always passes both → unchanged. The two 100%-mock RH screens gutted to a single centered `GlassCard` empty-state each (RH shell + page header/title + route + RoleGuard KEPT; NO CTA; real impl → M5): **ConfiguracoesPage (A14)** heading "Gestão de usuários ainda não disponível" (Users icon) — deletes fake user list + PII-shaped audit logs naming candidates + dead M1 webhook names (Big Five/DISC/Raven/Cultura) + all stub save/toggle/excluir/reset handlers (offboarding-LGPD minimum, T-25-06-01); **MeuPerfilPage (A37)** heading "Edição de perfil em breve" (UserRound icon) — deletes stub save/senha/foto forms seeded with a hardcoded fake user. No-op vs 25-03: 25-03 already removed the "Usar da Biblioteca" buttons in CriarEditarVagaPage (b9deb60) → NOT re-touched here (file-disjoint; 25-06 swept the *remaining* affordances). Empty-state typography = UI-SPEC §2 (20px/600 heading `text-xl font-semibold`, 14px body `text-white/70`, `py-12`), reuses the AsyncState.EstadoVazio rhythm (no new visual language). Deviation: ComparativoScreen.tsx (not in files_modified) got the optional-handler change (Rule-3 blocking — the only clean way to hide the embedded no-op without a 2nd copy). **tsc 115→107 (−8: gutted pages cleared React/onVoltar/Glass-onClick/Vaga errors + RHTopBar Badge; NOT increased), vitest 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3).**
 - [Phase 25]: [25-05] UX-03: the route `/rh/candidatos/:id` IS a candidaturaId (PerfilCandidatoRHPage→HubCandidatoRH reads `useParams().id` as candidaturaId). `CandidatosRHPage.handleVerPerfil` param renamed candidatoId→candidaturaId; BOTH list call sites (card button + table dropdown) now pass `candidatura.id` (was `candidato?.id` — a person id the hub mis-loaded → silent degrade). Kanban half already fixed in 25-02 (both UX-03 halves consistent, file-disjoint). HubCandidatoRH gained an **in-shell** not-found GlassCard (heading "Candidatura não encontrada" 20px/600 + verbatim body + single accent GlassButton "Voltar aos candidatos"→/rh/candidatos, ArrowLeft aria-hidden, min-h-11) gated on `!loadingContexto && (errorContexto || !contexto)`; early-return placed AFTER all hook calls (rules of hooks) + gated on settled query (no flash) — replaces the silent degrade to the generic "Candidato"/"—" header. NOT the global NotFoundPage (RH persona shell kept; UI-SPEC §3). RTL hubNotFound.test.tsx mocks RHLayout passthrough + the 5 hooks + router; RED (3726a6a) 4-fail/2-pass → GREEN (41bb1cb). **tsc flat 115 (not increased), hubNotFound 6/6, hub-candidato suite 9/9, full suite 781/781, build green. Commits c954800(T1 nav)/3726a6a(RED)/41bb1cb(GREEN).**
+- [Phase 25]: [25-08] FUNIL-04: CI tsc frozen baseline re-pinned 133 → MEASURED **107** in ci.yml (measure-first). Both `npx tsc --noEmit | grep -c "error TS"` and CI's exact `npm run -s lint 2>&1 | grep -c "error TS"` agree on 107 — a −21 clearance from the 128 that entered Phase 25 (enum re-alias 25-02/03 + Editar-Vaga phantom-column removal 25-03 −9 + mock-screen gutting 25-06 −8). The plan estimate (≈113–114) was superseded by 25-06's extra −8; pinned the EXACT measured N, not the estimate (Pitfall 1 — "keep 128 green" and "trust the estimate" both wrong). Re-pinned all 4 operative refs (step label, echo `frozen baseline: 107`, compare `-gt 107`, `::error::…(107)`); red-on-growth + measurement command unchanged. Kept the Phase-22 `257 -> 133` cascade + `290` as superseded narrative history (mirrors the preserved 292/291/290 chain) — the 4 residual `133` literals are all clearly-labeled history, none is the current baseline. Phase 25 execution now COMPLETE (8/8). Commit `2f75155` (hook-bypass — husky pre-commit `npm run lint` would trip the now-lower baseline until this commit lands).
 - [Phase 25]: [25-01] 5 DB migrations authored files-only (apply=25-07 BLOCKING via MCP apply_migration): hybrid BEFORE UPDATE OF status guard (flag OR etapa-transition) closes A9 reject-hole (FUNIL-02); NEW txn-local GUC app.rejeicao_sancionada (set_config is_local=true / current_setting missing_ok); decisao_final_historico append-only + AFTER UPDATE snapshot preserves OLD.* actor (FUNIL-09); registrar_decisao rejeitado folds status+etapa+etapa_justificativa em UM UPDATE sancionado (Open Q1=YES); upsert_pergunta_opcoes_metadata status hard-block + ownership (FUNIL-11); submit_candidatura_atomic flag p/ knockout. Renumbered 000001..05 → 000010..14 (Rule-3 collision fix vs Phase-24 sec07/sec08). Structural greps green; behavioral gate = live smokes A-E no 25-07.
 
 ### Pending Todos
@@ -161,8 +163,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-11T20:43:22.408Z
-Stopped at: Phase 25 / Plan 25-06 complete — UX-06 dead-affordance sweep + mock-screen empty-state gating; Wave 1 COMPLETE. Removed RHSidebar 12/5 badges + RHTopBar no-op search + DecisaoFinalPage no-op avançar/rejeitar (ComparativoScreen action row gated on both handlers). Gutted /rh/configuracoes (A14) and RH MeuPerfilPage (A37) to single GlassCard empty-states (shell+route+RoleGuard kept, real impl → M5; offboarding-LGPD minimum). tsc 115→107 (−8, not increased), full suite 781/781, build green. Commits b325624(T1)/77ec85d(T2)/d9ea149(T3). Resume execute-phase 25 for Wave 2 (25-07 BLOCKING PROD apply, 25-08 CI re-pin).
+Last session: 2026-07-12T03:44:32.010Z
+Stopped at: Phase 25 / Plan 25-08 complete — CI tsc frozen baseline re-pinned 133 → MEASURED 107 in ci.yml (FUNIL-04, measure-first). Phase 25 EXECUTION COMPLETE (8/8 plans). Both `npx tsc --noEmit` and CI's `npm run -s lint` returned 107 (−21 from the 128 entering the phase; plan estimate 113-114 superseded by 25-06's −8). Re-pinned all 4 operative refs (label/echo/-gt compare/error) + Phase-25 history line; kept 257→133/290 as narrative history; red-on-growth preserved. Commit 2f75155 (hook-bypass). Next: /gsd-verify-work + /gsd-secure-phase 25, then Phase 26 (Funil lado candidato).
 Resume file: None
 
 ## Operator Next Steps
