@@ -25,6 +25,7 @@
  * @see supabase/migrations (salvar_avaliacao_entrevista RPC + avancar_etapa flag guard, 14-03/14-04)
  */
 import { supabase } from '@/lib/supabase/client'
+import { extractEfErrorCode } from '@/lib/efErrors'
 import type { Json } from '@/../database.types'
 
 /** Service error mirroring the `camelCaseService.ts` convention (CLAUDE.md). */
@@ -634,7 +635,7 @@ export async function analisarTranscricao(
     // WR-05: surface the EF `error_code:'VALIDATION'` distinctly instead of
     // collapsing every EF error into NETWORK_ERROR. The FunctionsHttpError carries
     // the parsed body on `context` (a Response); fall back to the error shape.
-    const efCode = await extractEfErrorCode(error, data)
+    const efCode = await extractEfErrorCode(data, error)
     if (efCode === 'VALIDATION') {
       throw new EntrevistaServiceError(
         'A transcrição não passou na validação. Verifique se há texto suficiente para análise.',
@@ -650,29 +651,6 @@ export async function analisarTranscricao(
   }
   // The EF persists to entrevista_analises; read it back via the allowlist.
   return getAnalise(candidaturaId)
-}
-
-/**
- * Best-effort extraction of the EF `error_code` from a `supabase.functions.invoke`
- * failure (WR-05). The Edge runtime returns `{ ok:false, error_code, message }`;
- * supabase-js surfaces a non-2xx as a `FunctionsHttpError` carrying the raw
- * `Response` on `.context`. We read the code without throwing — any parse failure
- * just yields `null` and the caller falls back to NETWORK_ERROR.
- */
-async function extractEfErrorCode(error: unknown, data: unknown): Promise<string | null> {
-  // Some transports already surface the parsed body as the resolved `data`.
-  const fromData = (data as { error_code?: string } | null)?.error_code
-  if (typeof fromData === 'string') return fromData
-  const ctx = (error as { context?: unknown }).context
-  if (ctx && typeof (ctx as Response).json === 'function') {
-    try {
-      const body = (await (ctx as Response).clone().json()) as { error_code?: string }
-      return typeof body.error_code === 'string' ? body.error_code : null
-    } catch {
-      return null
-    }
-  }
-  return null
 }
 
 /**
