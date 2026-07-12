@@ -59,6 +59,10 @@ const WAIT_STATE_FILES = [
   'src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx',
   'src/features/explicacao/components/SolicitarRevisaoCTA.tsx',
   'src/components/pages/SuporteRHPage.tsx',
+  // Phase-26 UI-review addition: the candidatura-submit success toast (funnel entry)
+  // carried the same dishonest "receberá um email" promise — no "por e-mail" substring,
+  // so the original ban + allowlist missed it. Now scoped + covered by the broadened ban.
+  'src/features/vagas/hooks/useCandidaturas.ts',
 ] as const
 
 /** The single canonical honest wait-state line (locked by 26-CONTEXT + 26-UI-SPEC). */
@@ -74,7 +78,11 @@ const CANONICAL = 'Acompanhe o andamento pelo seu painel'
  */
 const BAN_PATTERNS = [
   /avisaremos[\s\S]*por e-?mail/i,
-  /receber[áa][\s\S]*por e-?mail/i,
+  // "receberá … (por) e-mail" — the "por" is now OPTIONAL so the funnel-entry
+  // variant "receberá um email com os próximos passos" is caught. The future-tense
+  // accent/vowel in `receber[áa]` is what still spares the consent "receber emails"
+  // (infinitive "receber" + space, never "receberá").
+  /receber[áa][\s\S]*e-?mail/i,
 ] as const
 
 /** True when any banned promise pattern appears in `text`. */
@@ -127,6 +135,8 @@ describe('UX-01 — honest wait-state copy (no dishonest e-mail promise)', () =>
     'Avisaremos sobre os próximos passos por e-mail.',
     'Volte em alguns instantes — avisaremos por e-mail quando estiver pronta.',
     'Você receberá atualizações por e-mail.',
+    // Funnel-entry variant caught by the broadened (no-"por") receberá pattern.
+    'Você receberá um email com os próximos passos.',
   ])('the ban matches the dishonest promise "%s"', (phrase) => {
     expect(hasEmailPromise(phrase)).toBe(true)
   })
@@ -155,6 +165,6 @@ describe('UX-01 — honest wait-state copy (no dishonest e-mail promise)', () =>
     for (const rel of WAIT_STATE_FILES) {
       expect(existsSync(join(ROOT, rel)), `scoped file must exist: ${rel}`).toBe(true)
     }
-    expect(WAIT_STATE_FILES).toHaveLength(6)
+    expect(WAIT_STATE_FILES).toHaveLength(7)
   })
 })

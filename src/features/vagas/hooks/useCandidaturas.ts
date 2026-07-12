@@ -296,7 +296,7 @@ export function useCreateCandidatura(
 
         // Toast de sucesso
         toast.success('Candidatura enviada com sucesso!', {
-          description: 'Você receberá um email com os próximos passos.',
+          description: 'Acompanhe o andamento pelo seu painel.',
           duration: 5000,
         })
       } else {
