@@ -1,9 +1,12 @@
 ---
 phase: 25-corre-o-do-funil-lado-rh-enums-colunas-contratos
 verified: 2026-07-12T03:58:36Z
-status: gaps_found
-score: 8/9 must-haves verified (1 partial)
+reverified: 2026-07-12T04:40:00Z
+status: passed
+score: 9/9 must-haves verified (UX-06 gap closed by plan 25-09)
 overrides_applied: 0
+reverify_note: "Initial verify was gaps_found (8/9) — UX-06 partial. Gap-closure plan 25-09 (commits f3d36d0/ad04561/f8fa1a4/5fc4b46) removed the 3 no-op RH dropdown items (both views, 0 residue), gave RH VagasRHPage real per-vaga counts (enriquecerVaga includeCounts, anon WR-10 skip preserved, tests T7/T8), and reconciled REQUIREMENTS. Re-verify: dead-items grep=0, includeCounts threaded, tsc 107, vitest 783/783, build green → UX-06 satisfied, phase 9/9."
+gaps_resolved: true
 gaps:
   - truth: "As affordances mortas (menus, badges 12/5, botões no-op, tiles '-', DecisaoFinalPage no-ops, telas mock A14/A37) ficam ligadas ou ocultas (UX-06 / Roadmap SC #5)"
     status: partial
