@@ -61,7 +61,7 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
 - [x] **Phase 23: Ressurreição da Stack de IA** - Prompts reais nos 7 call_types + circuit breaker/retry/guardrails que funcionam + honestidade psicométrica (completed 2026-07-06)
 - [x] **Phase 24: Blindagem de Segurança / PII / LGPD** - RLS nunca é segredo de coluna + toda EF privilegiada autentica-E-autoriza + IDOR/PII fechados (completed 2026-07-09)
 - [x] **Phase 25: Correção do Funil (lado RH — enums, colunas & contratos)** - RH opera Kanban/Editar-Vaga/decisão sobre enums+colunas que existem, sem rejeição sem trilha (completed 2026-07-12)
-- [ ] **Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)** - Candidato alcança e conclui cada etapa com scoring íntegro + reinscrição pós soft-delete
+- [x] **Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)** - Candidato alcança e conclui cada etapa com scoring íntegro + reinscrição pós soft-delete (completed 2026-07-12)
 - [ ] **Phase 27: Integridade de Migrations & Fechamento da Rede de Testes** - Migrations reconstroem o banco do zero + rede de testes cobre auto-reject sancionado e contratos
 
 ## Phase Details
@@ -232,7 +232,7 @@ Plans:
 
 **Wave 4** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
 
-- [ ] 26-07-PLAN.md — [BLOCKING] apply 4 migrations via MCP + FUNIL-10 discover/drop do índice legado + live SQL smokes (FUNIL-01/07/08/10/12 + n8n) [Wave 4]
+- [x] 26-07-PLAN.md — [BLOCKING] apply 4 migrations via MCP + FUNIL-10 discover/drop do índice legado + live SQL smokes (FUNIL-01/07/08/10/12 + n8n) [Wave 4]
 **UI hint**: yes
 
 ### Phase 27: Integridade de Migrations & Fechamento da Rede de Testes
@@ -264,7 +264,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 6/7 | In Progress|  |
+| 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
 ---

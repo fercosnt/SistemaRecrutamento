@@ -50,11 +50,11 @@
 - [x] **FUNIL-05**: Contrato cargoTemplates↔container honrado — ids de teste (`work_sample_sjt`, `redacao_cultural`, …) casam entre template e runtime. `(A15, HIGH)`
 - [x] **FUNIL-06**: Ação legada 'Aprovado para Próxima Etapa' não grava etapa M1 inexistente — removida/redirecionada ao enum atual. `(A16, HIGH)`
 - [x] **FUNIL-07**: Banco SJT é filtrado por cargo **e** por `itens_ids` da vaga — candidato não responde pergunta de outro cargo. `(A17, HIGH · casa com C4-filtro)`
-- [ ] **FUNIL-08**: Prova cognitiva é alcançável pela navegação — `funilNavMap` ↔ `AvaliacaoContainer` consistentes + roteamento/label/filtro por `aplica_cognitivo`. `(A18, HIGH · inclui QW2)`
+- [x] **FUNIL-08**: Prova cognitiva é alcançável pela navegação — `funilNavMap` ↔ `AvaliacaoContainer` consistentes + roteamento/label/filtro por `aplica_cognitivo`. `(A18, HIGH · inclui QW2)`
 - [x] **FUNIL-09**: `registrar_decisao` não destrói a decisão anterior — `por_usuario`/justificativa preservados no histórico. `(A26, MEDI)`
-- [ ] **FUNIL-10**: Reinscrição após soft-delete funciona — índice unique com filtro `deleted_at` em PROD. `(A27, MEDI · prereq de D5)`
+- [x] **FUNIL-10**: Reinscrição após soft-delete funciona — índice unique com filtro `deleted_at` em PROD. `(A27, MEDI · prereq de D5)`
 - [x] **FUNIL-11**: `upsert_pergunta_opcoes_metadata` tem guard de status da vaga — editar opções de vaga ATIVA é bloqueado/controlado. `(A29, MEDI)`
-- [ ] **FUNIL-12**: Cards da avaliação refletem conclusão — status derivado de campo que existe no payload (não de um campo fantasma). `(A41, MEDI)`
+- [x] **FUNIL-12**: Cards da avaliação refletem conclusão — status derivado de campo que existe no payload (não de um campo fantasma). `(A41, MEDI)`
 
 ### 🗄️ DBMIG — Integridade de Migrations/DB (M4-D)
 
@@ -162,11 +162,11 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | FUNIL-05 | Phase 25 | Complete |
 | FUNIL-06 | Phase 25 | Complete |
 | FUNIL-07 | Phase 26 | Complete |
-| FUNIL-08 | Phase 26 | Pending |
+| FUNIL-08 | Phase 26 | Complete |
 | FUNIL-09 | Phase 25 | Complete |
-| FUNIL-10 | Phase 26 | Pending |
+| FUNIL-10 | Phase 26 | Complete |
 | FUNIL-11 | Phase 25 | Complete |
-| FUNIL-12 | Phase 26 | Pending |
+| FUNIL-12 | Phase 26 | Complete |
 | DBMIG-01 | Phase 27 | Pending |
 | DBMIG-02 | Phase 27 | Pending |
 | CI-01 | Phase 22 | Complete |
