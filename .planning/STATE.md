@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Completed 26-06-PLAN.md (AvaliacaoContainer: cognitivo card gated on vaga.aplica_cognitivo → real /candidato/prova-cognitiva/:id route + template-driven entry SKIPed; every card state from get_avaliacao_status booleans, phantom entry.status removed; route↔gate contract test + connected-mode component tests; tsc 104, vitest 774/774). Next: 26-07 (Wave 4 BLOCKING — apply migrations via MCP + funil smokes; flips FUNIL-01/07/08/10/12 to Complete)."
-last_updated: "2026-07-12T10:12:33.696Z"
+stopped_at: "Phase 26 (Funil lado candidato) ✅ SHIPPED — 7/7 plans, verification PASSED 8/8. 4 migrations LIVE on PROD via MCP apply_migration (pontuar_sjt v2, pontuar_cognitivo async gate, get_avaliacao_status, n8n novo-candidato trigger); FUNIL-10 offender constraint unique_candidato_vaga DROPPED (partial keeper remains); 11/11 behavioral assertions PASS on PROD over impersonated candidate JWT + funil10 reinscription smoke green; zero residue. Code review 0 crit/2 warn/3 info — WR-01 (v_max=0 gabarito-less guard) + WR-02 (n8n dispatch exception-wrap) FIXED live+repo+verified. UX-01 honest copy 6 screens. n8n client subtree deleted (bundle guard extended). tsc 104 (≤107), vitest 774/774. FUNIL-01/07/08/10/12 + UX-01 Complete; n8n dispatch dormant until Vault secret set (Fernando human-action). Next: Phase 27 (Migrations & Rede de Testes — DBMIG-01/02, CI-03/06/07/10/13/15)."
+last_updated: "2026-07-12T14:30:00.000Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 37
-  completed_plans: 36
-  percent: 67
+  completed_plans: 37
+  percent: 83
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 ## Current Position
 
-Phase: 26 (Correção do Funil (lado candidato — alcançabilidade & scoring)) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
+Phase: 26 (Correção do Funil (lado candidato — alcançabilidade & scoring)) — ✅ SHIPPED (7/7 plans, verified 8/8, migrations live on PROD, smokes 11/11, code+review fixed) → advancing to Phase 27
+Plan: 7 of 7 complete
+Status: Phase 26 complete. Next = Phase 27 (Integridade de Migrations & Fechamento da Rede de Testes — DBMIG-01/02, CI-03/06/07/10/13/15).
 Last activity: 2026-07-12
 
-Progress: [██████████] 97%
+Progress: [████████░░] 83%
 
 ## Roadmap (M4 — Phases 22–27)
 

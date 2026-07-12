@@ -53,17 +53,25 @@ BEGIN
 
   IF v_base IS NULL THEN RETURN NEW; END IF;  -- graceful-skip: secret not set yet
 
-  PERFORM net.http_post(
-    url := v_base || '/novo-candidato',
-    headers := jsonb_build_object('Content-Type', 'application/json'),
-    body := jsonb_build_object(
-      'event', 'candidato.created',
-      'timestamp', now(),
-      'data', jsonb_build_object(
-        'candidato_id', NEW.id  -- ID ONLY — no candidate personal data crosses (LGPD)
+  -- code-review WR-02: an AFTER INSERT on candidatos must NEVER abort candidate signup.
+  -- Wrap the outbound dispatch so a net.http_post failure (n8n down, bad URL) is swallowed —
+  -- the signup INSERT always commits. Higher-stakes than the SEC-03 precedent it mirrors
+  -- (signup is candidate-facing), so it is fail-open by design.
+  BEGIN
+    PERFORM net.http_post(
+      url := v_base || '/novo-candidato',
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'event', 'candidato.created',
+        'timestamp', now(),
+        'data', jsonb_build_object(
+          'candidato_id', NEW.id  -- ID ONLY — no candidate personal data crosses (LGPD)
+        )
       )
-    )
-  );
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'trg_n8n_novo_candidato: dispatch failed (%: %) — signup unaffected', SQLSTATE, SQLERRM;
+  END;
 
   RETURN NEW;  -- RNF-07a: never writes candidatos
 END;

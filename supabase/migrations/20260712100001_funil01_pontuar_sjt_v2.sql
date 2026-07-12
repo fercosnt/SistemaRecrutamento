@@ -195,6 +195,14 @@ BEGIN
     INTO v_score, v_max, v_has_atencao, v_breakdown
     FROM scored s;
 
+  -- (H2) GABARITO-LESS BATTERY (code-review WR-01) — the battery has active MC perguntas
+  -- but none carry a perguntas_opcao_sjt gabarito → v_max = 0. This is the SAME "silent 0/0
+  -- sucesso" hole as (C2), for a different config state: the status CASE below short-circuits
+  -- to 'sucesso' when v_max = 0. Fail LOUDLY instead of scoring a fabricated 0/0.
+  IF v_max = 0 THEN
+    RAISE EXCEPTION 'bateria SJT nao configurada' USING errcode = '22023';
+  END IF;
+
   -- Threshold (RNF-07a): <mc_min_pct OR ≥1 atencao → pendente_humano. NEVER
   -- auto-reject / no etapa change. mc_min_pct is a percentage (0-100).
   v_status := CASE
