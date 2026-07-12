@@ -12,8 +12,9 @@
  * and the consolidated number is derived, never client-supplied. `.strict()`
  * REJECTS any extra/unknown key.
  *
- * The EF (Deno runtime) re-declares this same shape via a static `npm:zod` import;
- * this module is the Node/Vite-side source the contract test (15-01 Task 3a) probes.
+ * Phase 27 / CI-07: the EF (Deno runtime) now IMPORTS this exact module (not a re-declared
+ * replica) — the contract test does a real `.safeParse` of the client body against this shared
+ * shape, so client and EF share one source of truth (bare `zod` resolves in both runtimes).
  *
  * @see supabase/functions/consolidar-decisao-final/index.ts (Wave 1 — imports the shape)
  * @see src/features/decisao/schemas/__tests__/consolidacaoContract.test.ts (the contract probe)

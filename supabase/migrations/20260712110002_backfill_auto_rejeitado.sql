@@ -15,10 +15,17 @@
 -- existing rows (RESEARCH §Pitfall 4 — code fix ≠ data fix, ship as two distinct migrations).
 -- This file is the data half.
 --
--- CORRECTION: relabel the mismarked non-terminal system-advance rows to false. Genuine
--- terminal-rejection rows (etapa landing on the terminal reject, e.g. the knockout's own
--- explicit history row) are preserved as `true` by the terminal-etapa guard in the WHERE clause
--- below — the backfill never over-corrects a real auto-rejection (T-27-04-02).
+-- CORRECTION: relabel the mismarked non-terminal system-advance rows to false.
+--
+-- ⚠ CR-01 FIX (Phase-27 code review, 2026-07-12): the knockout's OWN explicit audit row
+-- (submit_candidatura_atomic, 20260709000014:147-150) is an `inscricao → inscricao` SELF-LOOP
+-- with auto_rejeitado=true — the knockout flips `status→rejeitado` but keeps `etapa_atual='inscricao'`,
+-- so etapa_para is 'inscricao', NOT 'rejeitado'. An earlier draft guarded only on `etapa_para <> 'rejeitado'`,
+-- which MATCHED (and would have flipped to false) every genuine knockout row — inverting the exact audit
+-- truth this migration exists to make honest. The self-loop exclusion below preserves the knockout's
+-- correct `true`. (Live PROD had 0 knockout rows when the original ran, so no live data was corrupted;
+-- this fix hardens the file for any from-zero replay / other environment.) A survivor advance
+-- (inscricao → triagem) is a real transition and is correctly relabeled to false.
 --
 -- RNF-07a / SAFETY: this UPDATE touches ONLY the audit column `auto_rejeitado`; it does NOT
 -- change any candidatura status, etapa, or decision — no candidate is rejected or un-rejected by
@@ -39,4 +46,5 @@
 UPDATE public.historico_candidatura
    SET auto_rejeitado = false
  WHERE auto_rejeitado = true
-   AND etapa_para <> 'rejeitado';   -- system advances mismarked as rejections; terminal rejects kept true
+   AND etapa_para <> 'rejeitado'                            -- keep any terminal-reject row true
+   AND NOT (etapa_de = 'inscricao' AND etapa_para = 'inscricao');  -- CR-01: keep the knockout self-loop true (its true is correct)
