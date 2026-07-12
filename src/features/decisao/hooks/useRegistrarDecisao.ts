@@ -16,6 +16,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { registrarDecisao } from '../services/decisaoService'
 import { decisaoKeys } from './useConsolidacao'
+import { candidaturasKeys } from '@/features/vagas/hooks/useCandidaturas'
+import { vagasKeys } from '@/features/vagas/hooks/useVagas'
 import type { DecisaoFormValues } from '../schemas/decisaoSchema'
 
 export interface UseRegistrarDecisaoVars {
@@ -36,6 +38,12 @@ export function useRegistrarDecisao() {
     onSuccess: () => {
       toast.success('Decisão registrada e etapa finalizada.')
       queryClient.invalidateQueries({ queryKey: decisaoKeys.all })
+      // MED-02: a decisão terminal também muda status/etapa da candidatura. Sem
+      // invalidar estas duas árvores, a lista RH (useAllCandidaturas, staleTime 30s,
+      // sem refetchOnWindowFocus) fica mostrando o status antigo após um reject via
+      // UpdateStatusModal. Inócuo para DecisaoFinalPage; obrigatório para o modal.
+      queryClient.invalidateQueries({ queryKey: candidaturasKeys.all })
+      queryClient.invalidateQueries({ queryKey: vagasKeys.all })
     },
     onError: () => {
       toast.error('Não foi possível registrar a decisão. Tente novamente.')
