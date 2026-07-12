@@ -577,7 +577,7 @@ CREATE TRIGGER trg_n8n_novo_candidato AFTER INSERT ON public.candidatos
    - What's unclear: whether to hard-delete those rows so a fresh complete submit can prove the new logic live.
    - Recommendation: include a scoped `DELETE FROM scores_candidato WHERE candidatura_id = '<teste>' AND tipo='sjt'` as a UAT-prep step in the BLOCKING apply wave (test data only, never production candidates).
 
-2. **Empty/absent battery behavior.** If a vaga's `testes_aplicaveis` has no SJT element or `itens_ids=[]` and no `cargo` match, `v_expected = 0`.
+2. **Empty/absent battery behavior.** ✅ RESOLVED (Phase 26 planning): chose to RAISE `'bateria SJT nao configurada'` (errcode 22023) when `v_expected = 0`, BEFORE the completeness check — implemented in 26-01 Task 1 and proven by the empty-battery smoke (an empty `p_respostas` submit must RAISE, never short-circuit to 'sucesso' at v_max=0). If a vaga's `testes_aplicaveis` has no SJT element or `itens_ids=[]` and no `cargo` match, `v_expected = 0`.
    - Recommendation: RAISE a clear error (`'bateria SJT nao configurada'`) rather than silently scoring 0/0 — but confirm no live vaga is in that state first (a config gap would then block submit). Ties to `publish_vaga` deriving the battery.
 
 3. **`respostas_avaliacao.teste` key per test (for `em_andamento`).** The neutral status RPC's `iniciado` boolean needs the exact autosave key each screen writes.
