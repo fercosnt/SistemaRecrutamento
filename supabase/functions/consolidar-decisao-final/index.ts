@@ -44,9 +44,11 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // SDKs/AI helpers DELIBERADAMENTE ausentes — esta EF é DETERMINÍSTICA (sem LLM).
-// Import ESTÁTICO `npm:zod` (precedente _shared/analise-schemas.ts) — NUNCA o
-// `["npm:",pkg].join("")` bug (ERR_MODULE_NOT_FOUND no runtime do EF).
-import { z } from "npm:zod@3.25.76/v4";
+// CI-07 — importa o schema `.strict()` COMPARTILHADO (bare `zod` resolvido pelo
+// import map de `supabase/functions/deno.json`) em vez de re-declarar/afrouxar a
+// forma aqui. Assim a EF e o contract test do client validam o MESMO módulo
+// (`.uuid()` restaurado — de-drift). [[feedback_integration_contract_gap]]
+import { ConsolidacaoRequestSchema } from "../../../src/features/decisao/schemas/consolidacaoSchema.ts";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados verbatim de comparativo-candidatos :56-73)
@@ -72,24 +74,11 @@ function errorResponse(code: ErrorCode, message: string, status = 400): Response
 }
 
 // ---------------------------------------------------------------------------
-// Request body schema (.strict() — a MESMA forma que o client constrói; mantida em
-// src/features/decisao/schemas/consolidacaoSchema.ts como fonte compartilhada do
-// contrato — re-declarada aqui porque src/ NÃO é deployado no bundle do EF).
-// [[feedback_integration_contract_gap]] — o contract test (15-01) prova que casam.
-//
-// A propriedade load-bearing é o `.strict()` (anti-tamper: rejeita chave
-// desconhecida / `score` injetado — RNF-07a). O formato UUID é validado pelo schema
-// COMPARTILHADO do client ANTES do invoke (consolidacaoSchema.ts usa z.string().uuid());
-// aqui usamos z.string() para não acoplar o runtime do EF ao formato exato dos ids
-// (o roteamento do Supabase + o client já garantem ids válidos).
+// Request body schema — importado do módulo COMPARTILHADO (topo do arquivo).
+// `ConsolidacaoRequestSchema` = `.strict()` + `.uuid()` nos dois identificadores
+// (anti-tamper: rejeita chave desconhecida / `score` injetado — RNF-07a). Uma
+// única fonte para EF + client; sem re-declaração loose.
 // ---------------------------------------------------------------------------
-
-const ConsolidacaoRequestSchema = z
-  .object({
-    candidatura_id: z.string(),
-    vaga_id: z.string(),
-  })
-  .strict();
 
 // ---------------------------------------------------------------------------
 // Aggregation domain (RESEARCH §Consolidation Aggregation steps 1-7)

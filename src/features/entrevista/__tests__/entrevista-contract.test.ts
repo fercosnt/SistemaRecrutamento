@@ -1,34 +1,29 @@
 /**
- * Phase 14 / Plan 14-01 Task 1 — Wave 0 client↔EF contract test
- * (ENTREV-01/03 / Pitfall 5 — [[feedback_integration_contract_gap]]).
+ * Phase 14 / Plan 14-01 Task 1 — client↔EF contract test (ENTREV-01/03 / Pitfall 5
+ * — [[feedback_integration_contract_gap]]). MIGRATED in Phase 27 / Plan 27-02 (CI-07):
+ * the two entrevista bodies (GerarGuia + AvaliarTranscricao) now do a REAL
+ * `.safeParse` against the ONE shared EF body schema module both runtimes import
+ * (`_shared/entrevista-schemas`, bare `zod` resolved by Deno via the deno.json import
+ * map and by Node via node_modules) — the filesystem source-text probes are gone.
  *
  * THE integration-contract lesson (the Phase-11 SJT C1/C2 lesson): the body the
- * RH/candidate client builds for the new interview/cognitive EFs MUST parse in
- * each EF's Zod body schema, and the body MUST carry only identifiers + raw text
- * — NEVER a score/band (anti-tamper, RNF-07a). We pin that contract as executable
- * assertions co-located with the EF body schema files (smoke-runtime gate).
+ * RH/candidate client builds MUST parse in the EF's `.strict()` Zod body schema, and
+ * the body carries only identifiers + raw text — NEVER a score/band (RNF-07a).
  *
- * ── Why a Node-local Zod replica + a source-text probe (not a live import) ──
- * The EF body schemas live in `_shared` files that import `npm:zod@3.25.76` (a Deno
- * specifier). Vitest runs under Node/Vite and has NO resolver for the `npm:`
- * specifier, so a direct `import` fails at MODULE-RESOLUTION time. The faithful
- * contract (exact precedent: src/features/avaliacao/__tests__/redacao-contract.test.ts)
- * is two parts:
- *   1. Node-local Zod replicas of the EXACT shape each EF body schema must have. The
- *      runtime parse assertions document the contract — the valid client body parses;
- *      an injected `score`/`banda` is rejected (.strict()).
- *   2. `node:fs` source-text probes asserting the EF body schema files actually
- *      EXPORT the body schemas AND carry zero score/band tokens (anti-tamper). This
- *      is GREEN now (Task 1 authored the schemas).
+ * NOTE (scope): the SubmitCognitivo body + BandaCognitivaEnum stay as Node-local
+ * replicas here — `_shared/cognitivo-schemas.ts` was NOT migrated to bare `zod` in
+ * 27-02 (each shared-module rewrite forces an EF redeploy; 27-02 migrates exactly
+ * schemas.ts + redacao-schemas.ts + entrevista-schemas.ts). The cognitivo shared
+ * import can migrate the day its module is rewritten.
  *
- * @see src/features/avaliacao/__tests__/redacao-contract.test.ts (the idiom this clones)
- * @see supabase/functions/_shared/entrevista-schemas.ts (the EF body schemas under test)
- * @see supabase/functions/_shared/cognitivo-schemas.ts (the cognitive body + band enum)
+ * @see supabase/functions/_shared/entrevista-schemas.ts (the shared EF body schemas)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { z } from 'zod'
+import {
+  GerarGuiaBodySchema,
+  AvaliarTranscricaoBodySchema,
+} from '../../../../supabase/functions/_shared/entrevista-schemas'
 
 // ── supabase mock for the saveGuiaEdits write-path contract (Plan 20-03) ──
 // Capture the rpc args so the anti-tamper assertion can inspect the exact payload.
@@ -52,24 +47,7 @@ vi.mock('@/lib/supabase/client', () => {
   }
 })
 
-// ── Part 1: runtime contract via Node-local replicas of the EF body schemas ──
-// These are the EXACT shapes the EF body schemas must have (Task 1).
-
-const GerarGuiaBodySchemaReplica = z
-  .object({
-    candidatura_id: z.string().min(1),
-    vaga_id: z.string().min(1),
-    tipo: z.enum(['online', 'presencial']),
-  })
-  .strict()
-
-const AvaliarTranscricaoBodySchemaReplica = z
-  .object({
-    candidatura_id: z.string().min(1),
-    transcricao: z.string().min(1),
-  })
-  .strict()
-
+// ── Cognitivo replicas (cognitivo-schemas.ts not migrated in 27-02 — see header) ──
 const SubmitCognitivoBodySchemaReplica = z
   .object({
     candidatura_id: z.string().min(1),
@@ -87,7 +65,7 @@ const BandaCognitivaEnumReplica = z.enum([
   'bem_acima',
 ])
 
-// The exact bodies the clients build (mirror the future service layers, 14-05):
+// The exact bodies the clients build (mirror the service layers, 14-05):
 // only identifiers + raw text/picks. NEVER a score/band/threshold (RNF-07a).
 function buildGuiaBody() {
   return {
@@ -113,118 +91,57 @@ function buildCognitivoBody() {
 }
 
 describe('Entrevista client↔EF body contract (ENTREV-01/03 / Pitfall 5)', () => {
-  it('the GerarGuia client body {candidatura_id, vaga_id, tipo} parses in the EF schema', () => {
-    expect(GerarGuiaBodySchemaReplica.safeParse(buildGuiaBody()).success).toBe(true)
+  it('the GerarGuia client body {candidatura_id, vaga_id, tipo} parses in the shared EF schema', () => {
+    expect(GerarGuiaBodySchema.safeParse(buildGuiaBody()).success).toBe(true)
   })
 
   it('.strict REJECTS a GerarGuia body carrying an injected `score` field (anti-tamper)', () => {
     const tampered = { ...buildGuiaBody(), score: 5 }
-    expect(GerarGuiaBodySchemaReplica.safeParse(tampered).success).toBe(false)
+    expect(GerarGuiaBodySchema.safeParse(tampered).success).toBe(false)
   })
 
   it('GerarGuia tipo only accepts online|presencial', () => {
     const bad = { ...buildGuiaBody(), tipo: 'hibrido' }
-    expect(GerarGuiaBodySchemaReplica.safeParse(bad).success).toBe(false)
+    expect(GerarGuiaBodySchema.safeParse(bad).success).toBe(false)
   })
 
-  it('the AvaliarTranscricao client body {candidatura_id, transcricao} parses', () => {
-    expect(AvaliarTranscricaoBodySchemaReplica.safeParse(buildTranscricaoBody()).success).toBe(true)
+  it('the AvaliarTranscricao client body {candidatura_id, transcricao} parses in the shared EF schema', () => {
+    expect(AvaliarTranscricaoBodySchema.safeParse(buildTranscricaoBody()).success).toBe(true)
   })
 
   it('.strict REJECTS an AvaliarTranscricao body carrying an injected `band` field', () => {
     const tampered = { ...buildTranscricaoBody(), banda: 'acima' }
-    expect(AvaliarTranscricaoBodySchemaReplica.safeParse(tampered).success).toBe(false)
+    expect(AvaliarTranscricaoBodySchema.safeParse(tampered).success).toBe(false)
   })
 
   it('an empty transcricao fails (min(1) — server still revalidates length≥200)', () => {
     const body = { ...buildTranscricaoBody(), transcricao: '' }
-    expect(AvaliarTranscricaoBodySchemaReplica.safeParse(body).success).toBe(false)
+    expect(AvaliarTranscricaoBodySchema.safeParse(body).success).toBe(false)
   })
 
-  it('the SubmitCognitivo candidate body {candidatura_id, raw_responses, shuffle_seed} parses', () => {
+  it('the SubmitCognitivo candidate body {candidatura_id, raw_responses, shuffle_seed} parses (replica)', () => {
     expect(SubmitCognitivoBodySchemaReplica.safeParse(buildCognitivoBody()).success).toBe(true)
   })
 
-  it('.strict REJECTS a SubmitCognitivo body carrying an injected `score`/`banda` field', () => {
+  it('.strict REJECTS a SubmitCognitivo body carrying an injected `score`/`banda` field (replica)', () => {
     const tamperedScore = { ...buildCognitivoBody(), score: 21 }
     expect(SubmitCognitivoBodySchemaReplica.safeParse(tamperedScore).success).toBe(false)
     const tamperedBanda = { ...buildCognitivoBody(), banda: 'acima' }
     expect(SubmitCognitivoBodySchemaReplica.safeParse(tamperedBanda).success).toBe(false)
   })
 
-  it('the optional client_timings (advisory anti-cheat) parses', () => {
+  it('the optional client_timings (advisory anti-cheat) parses (replica)', () => {
     const body = { ...buildCognitivoBody(), client_timings: [12, 8, 30] }
     expect(SubmitCognitivoBodySchemaReplica.safeParse(body).success).toBe(true)
   })
 
-  it('BandaCognitivaEnum enumerates exactly the 5 pt-BR faixas', () => {
+  it('BandaCognitivaEnum enumerates exactly the 5 pt-BR faixas (replica)', () => {
     const expected = ['bem_abaixo', 'abaixo', 'na_media', 'acima', 'bem_acima']
     expect(BandaCognitivaEnumReplica.options).toEqual(expected)
   })
 })
 
-// ── Part 2: source-text probes — assert the EF body schemas exist + carry no score ──
-const ROOT = resolve(__dirname, '../../../..')
-const ENTREVISTA_SCHEMA_PATH = resolve(ROOT, 'supabase/functions/_shared/entrevista-schemas.ts')
-const COGNITIVO_SCHEMA_PATH = resolve(ROOT, 'supabase/functions/_shared/cognitivo-schemas.ts')
-
-function readSrc(p: string): string {
-  return existsSync(p) ? readFileSync(p, 'utf8') : ''
-}
-
-// Strip comments + the BandaCognitivaEnum block (which legitimately is the OUTPUT
-// band, not a body field) before probing the LIVE body schema code for score tokens.
-function liveBodyCode(src: string): string {
-  return src
-    .split('\n')
-    .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)) // drop comment lines
-    .join('\n')
-}
-
-describe('Entrevista EF body schema anti-tamper source-probe (RNF-07a)', () => {
-  it('entrevista-schemas.ts EXPORTS GerarGuiaBodySchema + AvaliarTranscricaoBodySchema', () => {
-    const src = readSrc(ENTREVISTA_SCHEMA_PATH)
-    expect(src).toMatch(/export\s+const\s+GerarGuiaBodySchema\b/)
-    expect(src).toMatch(/export\s+const\s+AvaliarTranscricaoBodySchema\b/)
-  })
-
-  it('entrevista-schemas.ts has at least two .strict() bodies', () => {
-    const src = readSrc(ENTREVISTA_SCHEMA_PATH)
-    const matches = src.match(/\.strict\(\)/g) ?? []
-    expect(matches.length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('the live entrevista body schema code carries NO score/band/nota/veredito token', () => {
-    const code = liveBodyCode(readSrc(ENTREVISTA_SCHEMA_PATH))
-    expect(code).not.toMatch(/\bscore\b|\bbanda\b|\bband\b|\bnota\b|\bveredito\b|\bthreshold\b/i)
-  })
-
-  it('the entrevista bodies carry only identifier/text fields', () => {
-    const src = readSrc(ENTREVISTA_SCHEMA_PATH)
-    expect(src).toMatch(/candidatura_id/)
-    expect(src).toMatch(/vaga_id/)
-    expect(src).toMatch(/transcricao/)
-    expect(src).toMatch(/tipo/)
-  })
-
-  it('cognitivo-schemas.ts EXPORTS SubmitCognitivoBodySchema + BandaCognitivaEnum', () => {
-    const src = readSrc(COGNITIVO_SCHEMA_PATH)
-    expect(src).toMatch(/export\s+const\s+SubmitCognitivoBodySchema\b/)
-    expect(src).toMatch(/export\s+const\s+BandaCognitivaEnum\b/)
-  })
-
-  it('the SubmitCognitivo BODY object carries no score/banda field (only raw picks)', () => {
-    const src = readSrc(COGNITIVO_SCHEMA_PATH)
-    // isolate the SubmitCognitivoBodySchema object literal
-    const m = src.match(/SubmitCognitivoBodySchema\s*=\s*z[\s\S]*?\.strict\(\)/)
-    const bodyBlock = m ? m[0] : ''
-    expect(bodyBlock).not.toMatch(/\bscore\b|\bbanda\b|\bband\b|\bnota\b/i)
-    expect(bodyBlock).toMatch(/raw_responses/)
-    expect(bodyBlock).toMatch(/shuffle_seed/)
-  })
-})
-
-// ── Part 3: saveGuiaEdits write-path contract (ENTREV-06/07/08 / Plan 20-03) ──
+// ── saveGuiaEdits write-path contract (ENTREV-06/07/08 / Plan 20-03) ──
 // The RH-edit save must call the LIVE save_entrevista_guia_edits RPC with
 // { p_candidatura_id, p_tipo, p_guia: { perguntas } }, map a 42501 → FORBIDDEN via
 // the existing mapRpcError, and carry NO score/band on the payload (anti-tamper).

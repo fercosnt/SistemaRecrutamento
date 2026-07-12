@@ -160,7 +160,14 @@ function makeRequest(body: unknown): Request {
 const RH_USER = { id: "rh-1", app_metadata: { role: "rh" } };
 const ADMIN_USER = { id: "adm-1", app_metadata: { role: "administrador" } };
 const CANDIDATO_USER = { id: "cand-user-1", app_metadata: { role: "candidato" } };
-const BODY = { candidatura_id: "cand-1", vaga_id: "v1" };
+// CI-07 (27-02): the shared ConsolidacaoRequestSchema restored `.uuid()` (the EF had
+// loosened it to `z.string()`), so the request body MUST carry real UUIDs. The mock
+// `.eq()` stubs ignore the filter value, so the fixture rows' `candidatura_id` labels
+// ("cand-1") are unaffected — only this client-submitted body needs valid UUIDs.
+const BODY = {
+  candidatura_id: "11111111-1111-4111-8111-111111111111",
+  vaga_id: "22222222-2222-4222-8222-222222222222",
+};
 
 // ── DECISAO-01: heterogeneous-scale normalization + weight renormalization ──────
 Deno.test("DECISAO-01 — normalizes heterogeneous scales to 0..100 and weights only PRESENT etapas", async () => {
