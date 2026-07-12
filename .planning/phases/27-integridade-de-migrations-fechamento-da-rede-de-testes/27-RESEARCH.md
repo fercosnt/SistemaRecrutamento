@@ -412,10 +412,16 @@ The knockout in `submit_candidatura_atomic` is the **only** sanctioned auto-reje
 | A4 | Rewriting `_shared/schemas.ts` zod import to bare `zod` keeps all consuming EFs + strict-schema probe green | §3b | A missed consumer could break the deno-test corpus; the corpus is the guard — run it before merge. |
 | A5 | The Figma-Make base schema is dashboard-created and absent from all migration files | Runtime State Inventory | If some base objects ARE in an early migration, the baseline authoring is smaller than assumed — the iterate loop self-corrects. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three resolved during Phase-27 planning + the plan-checker revision (2026-07-12). Inline resolutions appended below.
+
 1. **Exact `create_branch`→empty→files primitive.** Which MCP/CLI sequence yields a *true empty-then-local-files* replay on a branch (vs a history clone)? Recommendation: in the BLOCKING wave, `create_branch`, inspect its `schema_migrations`, then `supabase db push` the local files to the branch and diff — determine empirically. Don't block autonomous waves on this.
+   - **RESOLVED (27-05 Task 1):** after `create_branch`, RESET the branch to an empty/pre-baseline ledger (`reset_branch` to version zero) and PRE-CHECK `supabase_migrations.schema_migrations` count==0 BEFORE pushing, THEN `supabase db push` the local 71 files onto the emptied branch and diff — the pre-check proves the branch was NOT auto-populated from create_branch's tracked-history clone (Pitfall 1 false-green guard).
 2. **config.toml deploy propagation (A2).** Verify with a single low-risk EF redeploy that `import_map`/`verify_jwt` from config.toml take effect before committing to migrating all 4-5 EFs.
+   - **RESOLVED (27-06 Task 1):** the canary redeploy of `avaliar-redacao-cultural` (with a curl-status boot smoke + an authed live-invoke) de-risks config.toml→deploy `import_map` propagation before the remaining four EFs redeploy; `--import-map supabase/functions/deno.json` is the documented fallback.
 3. **Scope of the explicit knockout `auto_rejeitado=true` literal.** Leave the literal in `submit_candidatura_atomic:150` (already correct) or gate it on the same predicate for symmetry — planner's call; both are behavior-equivalent today.
+   - **RESOLVED (27-04 Task 1):** leave the explicit knockout `auto_rejeitado=true` literal in `submit_candidatura_atomic` as-is (already a genuine sanctioned auto-reject; it does not flow through the trigger). Not-on-Pro fallback for the rebuild = local `db reset` with the seed disabled (27-05 user_setup).
 
 ## Environment Availability
 | Dependency | Required By | Available | Version | Fallback |
