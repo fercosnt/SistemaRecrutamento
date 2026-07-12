@@ -213,7 +213,26 @@ Plans:
   5. Um candidato soft-deletado consegue se reinscrever — índice unique com filtro `deleted_at` em PROD (FUNIL-10).
   6. **[Adicionado pós-P24, roteado por Fernando 2026-07-09]** O `src/features/cadastro/services/n8nService.ts` NÃO envia PII do candidato (nome/email/telefone/**cpf**) do browser nem embute URLs n8n (`n8n.srv881294.hstgr.cloud`) no bundle — dispatch movido server-side (pg_net + Vault, padrão SEC-03) + grep guard. Segundo vazamento n8n, fora do escopo A11 do SEC-03; ver `24-deferred-items.md`.
 
-**Plans**: TBD
+**Plans**: 7 plans (4 waves)
+Plans:
+**Wave 1** *(parallel — file-disjoint, autonomous)*
+
+- [ ] 26-01-PLAN.md — pontuar_sjt rewrite (dedup + full-battery denominator + re-submit lock + completeness) + FUNIL-07 server membership + smoke (FUNIL-01/07) [Wave 1]
+- [ ] 26-02-PLAN.md — pontuar_cognitivo gate relax (avaliacao_assincrona) + neutral get_avaliacao_status RPC + smokes (FUNIL-08/12) [Wave 1]
+- [ ] 26-03-PLAN.md — n8n server-side AFTER INSERT candidatos trigger + client subtree deletion + bundle guard (SEC-03 2nd leak) [Wave 1]
+- [ ] 26-04-PLAN.md — honest wait-state copy (6 telas) + scoped grep guard (UX-01) [Wave 1]
+
+**Wave 2** *(depends on migration contracts)*
+
+- [ ] 26-05-PLAN.md — avaliacaoService: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus + pontuarSjt error mapping + unit tests (FUNIL-07/12/01/08) [Wave 2]
+
+**Wave 3** *(depends on avaliacaoService)*
+
+- [ ] 26-06-PLAN.md — AvaliacaoContainer: cognitivo card + rota real + card-state-from-RPC + contract/component tests (FUNIL-08/12) [Wave 3]
+
+**Wave 4** *(BLOCKING · non-autonomous · escreve PROD via Supabase MCP)*
+
+- [ ] 26-07-PLAN.md — [BLOCKING] apply 4 migrations via MCP + FUNIL-10 discover/drop do índice legado + live SQL smokes (FUNIL-01/07/08/10/12 + n8n) [Wave 4]
 **UI hint**: yes
 
 ### Phase 27: Integridade de Migrations & Fechamento da Rede de Testes
@@ -245,7 +264,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 0/TBD | Not started | - |
+| 26. Funil — lado candidato | v4.0 | 0/7 | Planned | - |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
 ---
