@@ -44,16 +44,16 @@
 *Fazer o funil funcionar como projetado ponta-a-ponta: eliminar enums M1 mortos, colunas fantasma, contratos quebrados e scoring manipulável; RNF-07a com trilha.*
 
 - [ ] **FUNIL-01**: `pontuar_sjt` não é manipulável — deduplicação de respostas + denominador correto (não só sobre perguntas respondidas). `(A8, HIGH)`
-- [ ] **FUNIL-02**: RH não consegue rejeitar candidato via UPDATE direto de `candidaturas.status` sem auditoria/justificativa — trilha obrigatória (RNF-07a). `(A9, HIGH)`
-- [ ] **FUNIL-03**: RH Kanban e UpdateStatusModal operam sobre o enum de etapas que existe no DB (não o enum M1 removido). `(A12, HIGH · inclui QW-affordances)`
+- [x] **FUNIL-02**: RH não consegue rejeitar candidato via UPDATE direto de `candidaturas.status` sem auditoria/justificativa — trilha obrigatória (RNF-07a). `(A9, HIGH)`
+- [x] **FUNIL-03**: RH Kanban e UpdateStatusModal operam sobre o enum de etapas que existe no DB (não o enum M1 removido). `(A12, HIGH · inclui QW-affordances)`
 - [x] **FUNIL-04**: Editar Vaga hidrata apenas colunas existentes **e** persiste os campos de configuração (não hidrata 8 colunas fantasma nem descarta a config no save). `(A13, HIGH · casa com B1)`
 - [x] **FUNIL-05**: Contrato cargoTemplates↔container honrado — ids de teste (`work_sample_sjt`, `redacao_cultural`, …) casam entre template e runtime. `(A15, HIGH)`
-- [ ] **FUNIL-06**: Ação legada 'Aprovado para Próxima Etapa' não grava etapa M1 inexistente — removida/redirecionada ao enum atual. `(A16, HIGH)`
+- [x] **FUNIL-06**: Ação legada 'Aprovado para Próxima Etapa' não grava etapa M1 inexistente — removida/redirecionada ao enum atual. `(A16, HIGH)`
 - [ ] **FUNIL-07**: Banco SJT é filtrado por cargo **e** por `itens_ids` da vaga — candidato não responde pergunta de outro cargo. `(A17, HIGH · casa com C4-filtro)`
 - [ ] **FUNIL-08**: Prova cognitiva é alcançável pela navegação — `funilNavMap` ↔ `AvaliacaoContainer` consistentes + roteamento/label/filtro por `aplica_cognitivo`. `(A18, HIGH · inclui QW2)`
-- [ ] **FUNIL-09**: `registrar_decisao` não destrói a decisão anterior — `por_usuario`/justificativa preservados no histórico. `(A26, MEDI)`
+- [x] **FUNIL-09**: `registrar_decisao` não destrói a decisão anterior — `por_usuario`/justificativa preservados no histórico. `(A26, MEDI)`
 - [ ] **FUNIL-10**: Reinscrição após soft-delete funciona — índice unique com filtro `deleted_at` em PROD. `(A27, MEDI · prereq de D5)`
-- [ ] **FUNIL-11**: `upsert_pergunta_opcoes_metadata` tem guard de status da vaga — editar opções de vaga ATIVA é bloqueado/controlado. `(A29, MEDI)`
+- [x] **FUNIL-11**: `upsert_pergunta_opcoes_metadata` tem guard de status da vaga — editar opções de vaga ATIVA é bloqueado/controlado. `(A29, MEDI)`
 - [ ] **FUNIL-12**: Cards da avaliação refletem conclusão — status derivado de campo que existe no payload (não de um campo fantasma). `(A41, MEDI)`
 
 ### 🗄️ DBMIG — Integridade de Migrations/DB (M4-D)
@@ -156,16 +156,16 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | AI-06 | Phase 23 | Complete |
 | AI-07 | Phase 23 | Complete |
 | FUNIL-01 | Phase 26 | Pending |
-| FUNIL-02 | Phase 25 | Pending |
-| FUNIL-03 | Phase 25 | Pending |
+| FUNIL-02 | Phase 25 | Complete |
+| FUNIL-03 | Phase 25 | Complete |
 | FUNIL-04 | Phase 25 | Complete |
 | FUNIL-05 | Phase 25 | Complete |
-| FUNIL-06 | Phase 25 | Pending |
+| FUNIL-06 | Phase 25 | Complete |
 | FUNIL-07 | Phase 26 | Pending |
 | FUNIL-08 | Phase 26 | Pending |
-| FUNIL-09 | Phase 25 | Pending |
+| FUNIL-09 | Phase 25 | Complete |
 | FUNIL-10 | Phase 26 | Pending |
-| FUNIL-11 | Phase 25 | Pending |
+| FUNIL-11 | Phase 25 | Complete |
 | FUNIL-12 | Phase 26 | Pending |
 | DBMIG-01 | Phase 27 | Pending |
 | DBMIG-02 | Phase 27 | Pending |
