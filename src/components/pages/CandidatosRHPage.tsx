@@ -27,8 +27,6 @@ import {
   ChevronRight,
   Mail,
   Phone,
-  FileText,
-  MessageSquare,
   Eye,
 } from 'lucide-react'
 import { Badge } from '../ui/badge'
@@ -440,20 +438,6 @@ export function CandidatosRHPage() {
                     Rejeitar
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator className="bg-white/20" />
-                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                  <Mail className="w-4 h-4 mr-2" />
-                  Enviar Email
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Enviar WhatsApp
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-white/20" />
-                <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Exportar PDF
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -798,20 +782,6 @@ export function CandidatosRHPage() {
                                 Rejeitar
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator className="bg-white/20" />
-                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                              <Mail className="w-4 h-4 mr-2" />
-                              Enviar Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                              <MessageSquare className="w-4 h-4 mr-2" />
-                              Enviar WhatsApp
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-white/20" />
-                            <DropdownMenuItem className="text-white hover:bg-white/20 cursor-pointer">
-                              <FileText className="w-4 h-4 mr-2" />
-                              Exportar PDF
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
