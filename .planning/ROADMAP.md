@@ -251,7 +251,7 @@ Plans:
 Plans:
 **Wave 1** *(parallel — file-disjoint, autonomous)*
 
-- [ ] 27-01-PLAN.md — CI plumbing: dedup extractEfErrorCode + wire assert-chunks (build+CI) + sync-prompts CI step (CI-06/10/15) [Wave 1]
+- [x] 27-01-PLAN.md — CI plumbing: dedup extractEfErrorCode + wire assert-chunks (build+CI) + sync-prompts CI step (CI-06/10/15) [Wave 1]
 - [ ] 27-02-PLAN.md — CI-07 shared-`zod` contract (deno.json map + bare-zod _shared + migrate 3 contract tests + consolidar EF) + CI-13 config.toml (CI-07/13) [Wave 1]
 - [ ] 27-04-PLAN.md — DBMIG-02 trigger fix + backfill (migration files) + "49→71" count correction (DBMIG-02/01) [Wave 1]
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
 | 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 0/6 | Planned | - |
+| 27. Migrations & Rede de Testes | v4.0 | 1/6 | In Progress|  |
 
 ---
 
