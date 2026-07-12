@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Phase 26 / Plan 26-01 (pontuar_sjt v2 + FUNIL-01/07 smoke) complete — files-only, PROD apply deferred to Wave 4 BLOCKING 26-07. Next: continue Phase 26 plans (26-02+)."
-last_updated: "2026-07-12T08:58:38.730Z"
+stopped_at: "Completed 26-02-PLAN.md (files-only: pontuar_cognitivo gate relax + get_avaliacao_status RPC + 2 smokes). Next: 26-03."
+last_updated: "2026-07-12T09:13:02.246Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 37
-  completed_plans: 31
+  completed_plans: 32
   percent: 67
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 26 (Correção do Funil (lado candidato — alcançabilidade & scoring)) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-07-12
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 86%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -88,6 +88,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 25 P08 | 9min | 1 task | 1 file |
 | Phase 25 P09 | ~10min | 3 tasks | 5 files |
 | Phase 26 P01 | 18min | 2 tasks | 2 files |
+| Phase 26 P02 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,8 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 25]: [25-09] UX-06 gap-closure (closes the 2 open items from 25-VERIFICATION, score 8/9→ready-for-9/9). **(1) Dead RH menu:** removed the 3 no-op `DropdownMenuItem`s (Enviar Email / Enviar WhatsApp / Exportar PDF, zero `onClick`) + orphaned separators from BOTH CandidatosRHPage views (card + table); pruned now-unused `MessageSquare`/`FileText` imports (`Mail` KEPT — still used for the email row). **(2) Fake per-vaga tiles:** decoupled `enriquecerVaga`'s status-count query from `candidatoId` via a new `includeCounts?` flag threaded `useVagas`→`listVagas`→`enriquecerVaga`. The anon fast-return now gates on BOTH signals (`!candidatoId && !includeCounts`), so an RH/administrador session (which has `authStore.candidato===null`) reaches the RLS-scoped count query and the VagasRHPage tiles show real total/emAnalise/aprovados instead of a structural 0. `useVagas` sets `includeCounts=!!user` (authenticated candidato/rh/administrador; anon `user===null`→false → WR-10 zero-round-trip skip preserved). `hasUserApplied` still only runs when `candidatoId` present. `getVagaById`/`getVagaBySlug` pass `includeCounts=!!candidatoId` → detail-page behavior (VagaDetalhePage/VagasPublicasPage) byte-identical, no detail-hook/page changes. TDD (Task 2): RED demonstrated (T7 undefined→4 fail, T8 anon-no-query already green) then RED+GREEN committed atomically to respect the ≤107 tsc baseline (RED-only would read 108). Task 3 reconciled REQUIREMENTS.md FUNIL-02/03/06/09/11 Pending→Complete (checklist+coverage); UX-06 row left for the re-verify per plan. **tsc flat 107 (not increased), vitest 783/783 (+2: T7/T8), build green. Commits f3d36d0(T1 fix)/ad04561(T2 feat)/f8fa1a4(T3 docs) — all hook-bypass.**
 - [Phase 25]: [25-01] 5 DB migrations authored files-only (apply=25-07 BLOCKING via MCP apply_migration): hybrid BEFORE UPDATE OF status guard (flag OR etapa-transition) closes A9 reject-hole (FUNIL-02); NEW txn-local GUC app.rejeicao_sancionada (set_config is_local=true / current_setting missing_ok); decisao_final_historico append-only + AFTER UPDATE snapshot preserves OLD.* actor (FUNIL-09); registrar_decisao rejeitado folds status+etapa+etapa_justificativa em UM UPDATE sancionado (Open Q1=YES); upsert_pergunta_opcoes_metadata status hard-block + ownership (FUNIL-11); submit_candidatura_atomic flag p/ knockout. Renumbered 000001..05 → 000010..14 (Rule-3 collision fix vs Phase-24 sec07/sec08). Structural greps green; behavioral gate = live smokes A-E no 25-07.
 - [Phase ?]: [Phase 26]: [26-01] FUNIL-01/07 files-only (apply=26-07 via MCP): pontuar_sjt v2 non-manipulable — dedup(22023)+full-battery denominator ANY(v_battery)+battery-membership 42501 (FUNIL-07 server teeth, client filter UX-only)+completeness(22023)+hard re-submit lock 42501 on non-'falhou' MC row (A41; guarded ON CONFLICT WHERE status='falhou' = failed-retry only)+empty-battery RAISE 22023 'bateria SJT nao configurada' BEFORE completeness (Open Q2); MC-only battery excludes caso_aberto; RNF-07a preserved. Smoke=7 assertions impersonated JWT, disposable fixture around a real candidato (no auth.users insert), RED until 26-07. tsc flat 107; commits hook-bypass 3fda8cd/3501c0b.
+- [Phase 26]: [26-02] FUNIL-08: relaxa o gate do 5-arg pontuar_cognitivo ADICIONANDO 'avaliacao_assincrona' ao etapa IN (mantém entrevista_online/presencial — sem regressão, Pitfall 5); corpo byte-preservado (CR-01 empty-bank guard, CR-02 cognitivo_respostas, CTT+banda). Files-only, apply=26-07.
+- [Phase 26]: [26-02] FUNIL-12: get_avaliacao_status DEFINER retorna booleans de PRESENÇA por card (registrado/iniciado) p/ os 5 cards; redacao vem de redacoes_candidato (NÃO scores tipo redacao — fantasma A41), sjt_caso_aberto de scores subtipo=caso_aberto; guard de posse sem etapa → 42501 IDOR; scores_candidato mantém candidate-DENY. FUNIL-08/12 ficam Pending até client 26-05/06 + apply 26-07.
 
 ### Pending Todos
 
@@ -167,8 +170,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-12T08:58:38.724Z
-Stopped at: Phase 26 / Plan 26-01 (pontuar_sjt v2 + FUNIL-01/07 smoke) complete — files-only, PROD apply deferred to Wave 4 BLOCKING 26-07. Next: continue Phase 26 plans (26-02+).
+Last session: 2026-07-12T09:11:32.514Z
+Stopped at: Completed 26-02-PLAN.md (files-only: pontuar_cognitivo gate relax + get_avaliacao_status RPC + 2 smokes). Next: 26-03.
 Resume file: None
 
 ## Operator Next Steps
