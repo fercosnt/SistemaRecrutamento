@@ -73,13 +73,13 @@
 - [x] **CI-04**: Baseline do gate tsc no CI apertado ao real (medido 133 — abaixo de 257, não 290 frouxo) — novo type error é pego. `(A35, MEDI · absorve FOUND-08)`
 - [x] **CI-05**: Imports versionados (`lucide-react@0.487.0` etc.) com paths no tsconfig — 65 TS2307 resolvidos, typecheck destravado. `(A38, MEDI)`
 - [x] **CI-06**: `extractEfErrorCode` deduplicado no helper compartilhado `@/lib/efErrors` (remove a cópia com assinatura invertida no entrevistaService). `(A39, MEDI · tech-debt v3.0)`
-- [ ] **CI-07**: Contract tests client↔EF são reais — o corpo do client parseia no Zod schema da EF (não replicam ambos os lados dentro do teste). `(A44, MEDI)`
+- [x] **CI-07**: Contract tests client↔EF são reais — o corpo do client parseia no Zod schema da EF (não replicam ambos os lados dentro do teste). `(A44, MEDI)`
 - [x] **CI-08**: Credenciais de conta de teste (emails reais + senhas) fora do repo — sem fallback hardcoded nos specs E2E. `(A31≡A47, MEDI)`
 - [x] **CI-09**: As 8 deps de produção com versão wildcard `"*"` ficam pinadas — teto de versão contra supply-chain. `(A32, MEDI)`
 - [x] **CI-10**: Gate de bundle PERF-03 (`assert-chunks.mjs`) wired em build **e** CI — regressão de bundle é pega. `(A34, MEDI)`
 - [x] **CI-11**: Vulns críticas/altas no dev-tooling resolvidas (vitest/@vitest/ui RCE, happy-dom code-exec). `(A36, MEDI)`
 - [x] **CI-12**: Deps instaladas e nunca importadas removidas (`motion`, `@supabase/auth-helpers-react`). `(A50, LOW)`
-- [ ] **CI-13**: Config `verify_jwt` por Edge Function declarada no repo (`supabase/config.toml`). `(A51, LOW)`
+- [x] **CI-13**: Config `verify_jwt` por Edge Function declarada no repo (`supabase/config.toml`). `(A51, LOW)`
 - [x] **CI-14**: `npm run lint` (tsc) cobre `e2e/`, `scripts/` e `playwright.config` (Deno sync-prompts excluídos). `(A52, LOW)`
 - [x] **CI-15**: Teste de `sync-prompts` (pipeline que escreve em PROD com service_role) roda no CI. `(A56, LOW)`
 
@@ -175,13 +175,13 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | CI-04 | Phase 22 | Complete |
 | CI-05 | Phase 22 | Complete |
 | CI-06 | Phase 27 | Complete |
-| CI-07 | Phase 27 | Pending |
+| CI-07 | Phase 27 | Complete |
 | CI-08 | Phase 22 | Complete |
 | CI-09 | Phase 22 | Complete |
 | CI-10 | Phase 27 | Complete |
 | CI-11 | Phase 22 | Complete |
 | CI-12 | Phase 22 | Complete |
-| CI-13 | Phase 27 | Pending |
+| CI-13 | Phase 27 | Complete |
 | CI-14 | Phase 22 | Complete |
 | CI-15 | Phase 27 | Complete |
 | UX-01 | Phase 26 | Complete |

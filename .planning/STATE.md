@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Completed 26-05-PLAN.md (avaliacaoService client wiring: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus RPC reader + neutral pontuarSjt error mapping; 8 mocked unit tests, no migrations). Next: 26-06 (AvaliacaoContainer cognitivo card + real route + card-state-from-RPC)."
-last_updated: "2026-07-12T19:09:51.126Z"
+stopped_at: "Completed 27-02-PLAN.md (CI-07 cross-runtime shared-zod contract + CI-13 config.toml). Next: 27-03 (submit-candidatura EF+contract test, re-pin tsc)."
+last_updated: "2026-07-12T19:26:39.233Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 43
-  completed_plans: 38
+  completed_plans: 39
   percent: 83
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 27 (Integridade de Migrations & Fechamento da Rede de Testes) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-07-12
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 91%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -94,6 +94,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 26 P05 | 16min | 2 tasks | 2 files |
 | Phase 26 P06 | 15min | 2 tasks | 3 files |
 | Phase 27 P01 | 15min | 3 tasks | 4 files |
+| Phase 27 P02 | 18min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -156,6 +157,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 26]: [26-04] UX-01: as 6 telas de espera candidato/RH agora usam a string canônica única `Acompanhe o andamento pelo seu painel.` (o painel é a fonte de status — NÃO existe infra de e-mail); toda promessa `avisaremos … por e-mail` / `receberá … por e-mail` removida (AvaliacaoContainer all-done :209 + RedacaoEditorScreen :278 + DevolutivaBigFiveView :157 + ProvaCognitivaScreen postSubmit :82 & doc :18 + SolicitarRevisaoCTA dialogBody :45 + SuporteRHPage :162-163). Só strings mudaram (zero layout/cor/tipografia). Guard novo `wait-state-copy.grep.test.ts` (node:fs, allowlist explícito das 6 files, NÃO src-wide) bane `/avisaremos[\s\S]*por e-?mail/i` + `/receber[áa][\s\S]*por e-?mail/i` — o **lead-in de promessa** antes de `por e-mail` é o que mantém consent (`receber emails` AutorizacoesStep:58), toggle RH `Notificar candidato por email` e password-reset **não-flagados** (no-false-positive provado por sub-test). AvaliacaoContainer :209 corrigido AQUI → 26-06 (Wave 3, mesma file) NÃO pode reverter (guard falha CI). tsc flat **104** (≤107), vitest **761/761** (+9 do guard), LGPD-04 guard verde. Commits hook-bypass `8649520`(fix copy)/`8356bbc`(test guard).
 - [Phase 26]: [26-06] FUNIL-08/12 client container: deriveCards SKIPs the always-emitted template cognitivo entry + appends ONE card gated on vaga.aplica_cognitivo -> real /candidato/prova-cognitiva/:id route (dead stub gone); every card state derives from get_avaliacao_status booleans (registrado=Concluido / iniciado=Em andamento / else Pendente) - phantom entry.status read removed for ALL 5 cards (grep 0). Additive em_andamento branch in statusInfo (CircleDot, neutral tint) required by 26-UI-SPEC + must-have (Rule-2 deviation vs the 'unchanged' hint). AVALIACAO_ASSINCRONA_ETAPA + CONTAINER_TESTE_CONFIG exported; cognitivo-contract.test.ts asserts render-etapa in pontuar_cognitivo accepted set against the REAL config (not a replica). testeContract.ts untouched (FUNIL-05 guard green). FUNIL-08/12 stay Pending until 26-07 live apply (honesty theme). tsc flat 104, vitest 774/774 (+5). Commits hook-bypass 8f864c4(feat)/e3404d8(test).
 - [Phase 27]: [27-01] CI-06/10/15 test-net wiring (file-disjoint first wave): entrevistaService deduped onto canonical @/lib/efErrors extractEfErrorCode — inverted local (error,data)->Promise<string|null> copy DELETED, call swapped to (data,error), VALIDATION === branch unaffected by null->undefined; assert-chunks.mjs wired as npm postbuild (build self-gate) + dedicated e2e 'Bundle gate (PERF-03)' CI step (script body byte-unchanged, Phase-19 floors intact); sync-prompts.test.ts TS2352 (closed UpsertRow vs Record<string,unknown>) repaired via double-cast-through-unknown in loadSync() so 'deno test --allow-env --allow-read scripts/__tests__/' exits 0 type-check-ON (7/7), wired as a distinct BLOCKING deno-test step (no --config, no --no-check — matches EF-corpus posture). tsc flat 104 (this plan does NOT re-pin — 27-03 does), vitest 775/775, build 0. Commits hook-bypass d7ae301/381b5fb/c3b6fab.
+- [Phase 27]: [27-02] CI-07: deno.json import map (bare `zod`/`zod/v4` -> npm:zod@3.25.76) so ONE .strict() module resolves under Deno (map) AND Node (node_modules); _shared/schemas.ts+redacao-schemas.ts+entrevista-schemas.ts swapped to bare `zod`; consolidar EF imports shared ConsolidacaoRequestSchema (.uuid() restored, dropped loosened z.string() + dead npm:zod/v4); 3 contract tests (redacao/entrevista/consolidacao) drop replica+fs-probe -> real .safeParse (valid true + injected score false). cognitivo-schemas.ts NOT migrated (out of scope, Pitfall 3) -> its body stays a documented replica in the entrevista test. Rule-3: consolidar Deno test BODY given real UUIDs (loosened schema had tolerated non-uuid; mock .eq() value-agnostic so fixtures unchanged). CI-13: supabase/config.toml authored (12 [functions.*], 3 self-auth false / 9 true, import_map on the 5 shared-zod EFs). Deno 187/0, vitest 765/765, tsc 104 (<=107; 27-03 re-pins). Commits hook-bypass e99a64a/b875352/3db7c8d.
 
 ### Pending Todos
 
@@ -180,8 +182,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-12T19:08:16.877Z
-Stopped at: Completed 26-05-PLAN.md (avaliacaoService client wiring: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus RPC reader + neutral pontuarSjt error mapping; 8 mocked unit tests, no migrations). Next: 26-06 (AvaliacaoContainer cognitivo card + real route + card-state-from-RPC).
+Last session: 2026-07-12T19:26:39.226Z
+Stopped at: Completed 27-02-PLAN.md (CI-07 cross-runtime shared-zod contract + CI-13 config.toml). Next: 27-03 (submit-candidatura EF+contract test, re-pin tsc).
 Resume file: None
 
 ## Operator Next Steps
