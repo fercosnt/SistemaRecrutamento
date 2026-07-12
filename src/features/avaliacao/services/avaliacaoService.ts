@@ -73,6 +73,13 @@ export interface AvaliacaoContext {
   }
   testes_aplicaveis: unknown
   perguntas: PerguntaSjt[]
+  /**
+   * FUNIL-08 (client half): whether this vaga applies the cognitive assessment.
+   * The container (26-06) gates the cognitivo card on `aplica_cognitivo === true`
+   * (NOT the always-emitted template entry). Defaults to false when the column is
+   * absent — never surfaces a score, only a boolean gate.
+   */
+  aplica_cognitivo: boolean
 }
 
 /** A saved autosave row (own-row read; no score columns — those live elsewhere). */
@@ -102,12 +109,13 @@ export async function getAvaliacaoContext(
     throw new AvaliacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // Allowlist explícita — sem `*`, sem colunas PII. Junta a vaga p/ testes_aplicaveis.
+  // Allowlist explícita — sem `*`, sem colunas PII. Junta a vaga p/ testes_aplicaveis
+  // + aplica_cognitivo (FUNIL-08 client half — o container gateia o card cognitivo).
   const { data: cand, error: candErr } = await supabase
     .from('candidaturas')
     .select(
       `id, status, etapa_atual, vaga_id,
-       vaga:vagas ( testes_aplicaveis )`,
+       vaga:vagas ( testes_aplicaveis, aplica_cognitivo )`,
     )
     .eq('id', candidaturaId)
     .is('deleted_at', null)
@@ -129,21 +137,44 @@ export async function getAvaliacaoContext(
     status: string
     etapa_atual: string
     vaga_id: string
-    vaga: { testes_aplicaveis: unknown } | null
+    vaga: { testes_aplicaveis: unknown; aplica_cognitivo?: boolean } | null
   }
 
   const testesAplicaveis = candRow.vaga?.testes_aplicaveis ?? null
+  const aplicaCognitivo = candRow.vaga?.aplica_cognitivo ?? false
+
+  // FUNIL-07 (presentation): filter the SJT bank to the vaga's own battery so the
+  // candidate never sees another cargo's questions. Prefer the work_sample_sjt
+  // element's explicit `itens_ids`; fall back to its `cargo` when the battery is not
+  // itemized. This is UX only — the server-side battery-membership check in
+  // `pontuar_sjt` (26-01) is the security teeth; a client filter is bypassable.
+  const sjtElem = Array.isArray(testesAplicaveis)
+    ? (testesAplicaveis as Array<Record<string, unknown>>).find(
+        (e) => e.tipo === 'sjt',
+      )
+    : undefined
+  const itensIds = Array.isArray(sjtElem?.itens_ids)
+    ? (sjtElem!.itens_ids as string[])
+    : []
+  const cargo =
+    typeof sjtElem?.cargo === 'string' ? (sjtElem!.cargo as string) : undefined
 
   // Active SJT items — allowlist columns only (never a star projection). SEC-07
   // (Phase 24): the BARS open-case answer-key column is DROPPED from this candidate
   // projection and column-REVOKE'd at Postgres — the candidate never sees the key.
-  const { data: perguntas, error: pErr } = await supabase
+  let perguntasQuery = supabase
     .from('perguntas')
     .select('id, cargo, cenario, formato, tempo_est_min, status')
     // Canonical sentinel is 'active' (en) — matches the `perguntas` DEFAULT, the
     // partial index, the RLS policy `USING (status = 'active')` and `get_opcoes_sjt`.
     // The previous 'ativo' (pt) never matched any row → the candidate saw zero SJT items.
     .eq('status', 'active')
+  if (itensIds.length > 0) {
+    perguntasQuery = perguntasQuery.in('id', itensIds)
+  } else if (cargo) {
+    perguntasQuery = perguntasQuery.eq('cargo', cargo)
+  }
+  const { data: perguntas, error: pErr } = await perguntasQuery
 
   if (pErr) {
     throw new AvaliacaoServiceError(
@@ -162,6 +193,76 @@ export async function getAvaliacaoContext(
     },
     testes_aplicaveis: testesAplicaveis,
     perguntas: (perguntas ?? []) as unknown as PerguntaSjt[],
+    aplica_cognitivo: aplicaCognitivo,
+  }
+}
+
+/**
+ * Per-card completion booleans the container derives its state from (FUNIL-12).
+ * PRESENCE only: `registrado` means a score/essay row exists; `iniciado` means an
+ * autosave draft exists. NEVER a score/verdict (RNF-07a) — the source RPC
+ * (`get_avaliacao_status`) projects booleans only, so no numeric crosses this wire.
+ */
+export interface AvaliacaoStatusCard {
+  registrado: boolean
+  iniciado?: boolean
+}
+
+export interface AvaliacaoStatus {
+  sjt_mc: AvaliacaoStatusCard
+  sjt_caso_aberto: AvaliacaoStatusCard
+  big_five: AvaliacaoStatusCard
+  redacao: AvaliacaoStatusCard
+  cognitivo: AvaliacaoStatusCard
+}
+
+/**
+ * Reads the neutral per-card completion status for a candidatura (FUNIL-12). Calls
+ * the `get_avaliacao_status` SECURITY DEFINER RPC, which returns ONLY presence
+ * booleans per test card (never a score/status/verdict) and RAISEs 42501 on a
+ * foreign candidatura (IDOR). The container maps these booleans to its four-state
+ * card contract; the candidate never receives a raw score.
+ */
+export async function getAvaliacaoStatus(
+  candidaturaId: string,
+): Promise<AvaliacaoStatus> {
+  if (!candidaturaId) {
+    throw new AvaliacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  // NARROW confined cast (mirrors cognitivoService.listItens): `get_avaliacao_status`
+  // is not yet in the generated `database.types.ts` (regen is Phase 27). Only the RPC
+  // name is widened — NOT a blanket UntypedClient. Drop the cast after the Phase-27 regen.
+  const { data, error } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>
+  )('get_avaliacao_status', { p_candidatura_id: candidaturaId })
+
+  if (error) {
+    throw new AvaliacaoServiceError(
+      `Não foi possível carregar o status da avaliação: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+
+  // Coerce every leaf to a strict boolean (missing card → false); never trust the
+  // payload to carry a numeric — the RPC returns booleans only.
+  const raw =
+    (data as Record<string, { registrado?: unknown; iniciado?: unknown }> | null) ?? {}
+  const card = (key: string): AvaliacaoStatusCard => ({
+    registrado: raw[key]?.registrado === true,
+    iniciado: raw[key]?.iniciado === true,
+  })
+
+  return {
+    sjt_mc: card('sjt_mc'),
+    sjt_caso_aberto: card('sjt_caso_aberto'),
+    big_five: card('big_five'),
+    redacao: card('redacao'),
+    cognitivo: card('cognitivo'),
   }
 }
 
@@ -272,18 +373,30 @@ export async function pontuarSjt(
   })
 
   if (error) {
-    // RLS back-lock: the etapa advanced. A SECURITY DEFINER RPC denial can surface
-    // as a raw 42501 (code/status) OR as a 403 on the function-call path — map all
-    // of them to the neutral LOCKED throw (mirrors useAutosaveAvaliacao's isBackLock).
+    // The rewritten `pontuar_sjt` v2 (26-01) RAISEs 42501 (RLS back-lock / foreign
+    // pergunta / re-submit lock) and 22023 (unconfigured / duplicate / incomplete
+    // battery). Map BOTH to NEUTRAL codes+messages — never echo a score/threshold to
+    // the candidate (RNF-07a). The 22023 server message can carry counts
+    // ("bateria incompleta (% de %)"), so we NEVER interpolate error.message here.
     const e = error as { code?: string; status?: number }
     if (
       e.code === '42501' ||
       String(e.status) === '42501' ||
       e.status === 403
     ) {
+      // Back-lock (etapa advanced) OR re-submit lock OR out-of-battery pergunta —
+      // all neutral to the candidate (mirrors useAutosaveAvaliacao's isBackLock).
       throw new AvaliacaoServiceError(
         'Sua etapa avançou — esta avaliação não aceita mais respostas.',
         'LOCKED',
+        error,
+      )
+    }
+    if (e.code === '22023' || String(e.status) === '22023') {
+      // Duplicate / incomplete / unconfigured battery — neutral, digit-free copy.
+      throw new AvaliacaoServiceError(
+        'Não foi possível registrar suas respostas. Verifique se respondeu todas as questões e tente novamente.',
+        'DATABASE_ERROR',
         error,
       )
     }
