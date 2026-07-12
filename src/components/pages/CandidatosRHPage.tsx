@@ -67,6 +67,10 @@ import {
   formatDiscProfile,
   getCultureScore,
 } from '@/features/vagas/types/vagasTypes'
+import {
+  ETAPA_M2_OPTIONS,
+  type EtapaFunilM2,
+} from '@/features/triagem/services/triagemService'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { UpdateStatusModal } from '../modals/UpdateStatusModal'
@@ -91,6 +95,22 @@ const STATUS_LABELS: Record<StatusCandidatura, string> = {
   aprovado_proxima: 'Aprovado',
   rejeitado: 'Rejeitado',
   finalizado: 'Finalizado',
+}
+
+/**
+ * Glyph + gradiente por etapa M2 para os tiles do funil "Por Vaga".
+ * Espelha `KanbanBoard.STAGE_STYLE` (mesma paleta) e cobre as 8 etapas do enum
+ * `etapa_processo` — inclusive os terminais aprovado/rejeitado.
+ */
+const FUNIL_STAGE_STYLE: Record<EtapaFunilM2, { emoji: string; color: string }> = {
+  inscricao: { emoji: '📥', color: 'from-blue-500 to-blue-600' },
+  triagem: { emoji: '🔍', color: 'from-cyan-500 to-cyan-600' },
+  avaliacao_assincrona: { emoji: '📝', color: 'from-purple-500 to-purple-600' },
+  entrevista_online: { emoji: '🎥', color: 'from-teal-500 to-teal-600' },
+  entrevista_presencial: { emoji: '🤝', color: 'from-orange-500 to-orange-600' },
+  decisao_final: { emoji: '⚖️', color: 'from-indigo-500 to-indigo-600' },
+  aprovado: { emoji: '✅', color: 'from-green-500 to-green-600' },
+  rejeitado: { emoji: '❌', color: 'from-red-500 to-red-600' },
 }
 
 /**
@@ -225,22 +245,17 @@ export function CandidatosRHPage() {
     }
   }, [candidaturas])
 
-  // Funil de etapas (aba "Por Vaga")
+  // Funil de etapas (aba "Por Vaga") — FUNIL-06: derivado da fonte única do enum M2
+  // (`ETAPA_M2_OPTIONS` do triagemService), NÃO de um map M1 morto
+  // (bigfive/disc/raven/cultura). Conta todas as 8 etapas reais de `etapa_processo`.
   const funilEtapas = useMemo(() => {
-    const etapas: Record<string, number> = {
-      triagem: 0,
-      bigfive: 0,              // Corrigido: SEM underscore
-      disc: 0,
-      entrevista_online: 0,    // Corrigido: mudou de telefonica para online
-      raven: 0,                // Adicionado: teste de QI
-      cultura: 0,              // Adicionado: análise cultural
-      entrevista_presencial: 0,
-    }
+    const etapas = Object.fromEntries(
+      ETAPA_M2_OPTIONS.map((o) => [o.value, 0]),
+    ) as Record<EtapaFunilM2, number>
 
     vagaCandidaturas.forEach((c) => {
-      if (c.etapa_atual && etapas.hasOwnProperty(c.etapa_atual)) {
-        etapas[c.etapa_atual]++
-      }
+      const e = c.etapa_atual as EtapaFunilM2 | undefined
+      if (e && e in etapas) etapas[e]++
     })
 
     return etapas
@@ -854,26 +869,20 @@ export function CandidatosRHPage() {
                   <h3 className="text-white drop-shadow-lg text-lg font-semibold mb-6">
                     📊 Funil de Etapas
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {[
-                      { key: 'triagem', label: '🔍 Triagem', color: 'from-blue-500 to-blue-600' },
-                      { key: 'bigfive', label: '🧠 Big Five', color: 'from-purple-500 to-purple-600' },
-                      { key: 'disc', label: '👥 DISC', color: 'from-green-500 to-green-600' },
-                      { key: 'entrevista_online', label: '🎥 Online', color: 'from-cyan-500 to-cyan-600' },
-                      { key: 'raven', label: '🧩 Raven', color: 'from-indigo-500 to-indigo-600' },
-                      { key: 'cultura', label: '❤️ Cultura', color: 'from-pink-500 to-pink-600' },
-                      { key: 'entrevista_presencial', label: '🤝 Presencial', color: 'from-orange-500 to-orange-600' },
-                    ].map((etapa) => (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                    {ETAPA_M2_OPTIONS.map((etapa) => (
                       <div
-                        key={etapa.key}
+                        key={etapa.value}
                         className="flex flex-col items-center justify-center p-4 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300"
                       >
-                        <div className={`w-full h-2 rounded-full bg-gradient-to-r ${etapa.color} mb-2`} />
+                        <div
+                          className={`w-full h-2 rounded-full bg-gradient-to-r ${FUNIL_STAGE_STYLE[etapa.value].color} mb-2`}
+                        />
                         <div className="text-2xl font-bold text-white drop-shadow-md">
-                          {funilEtapas[etapa.key] || 0}
+                          {funilEtapas[etapa.value] || 0}
                         </div>
                         <div className="text-xs text-white/70 text-center mt-1 drop-shadow-sm">
-                          {etapa.label}
+                          {FUNIL_STAGE_STYLE[etapa.value].emoji} {etapa.label}
                         </div>
                       </div>
                     ))}
