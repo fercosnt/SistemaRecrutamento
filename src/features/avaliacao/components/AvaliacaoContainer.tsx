@@ -26,14 +26,16 @@
 import { useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Circle, CheckCircle2, Lock, AlertCircle, LogOut, User } from 'lucide-react'
+import { Circle, CircleDot, CheckCircle2, Lock, AlertCircle, LogOut, User } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { BeautySmileLogo } from '@/components/BeautySmileLogo'
 import { Glass, GlassPanel, GlassCard, GlassButton } from '@/components/ui/glass'
 import { useAuthStore, useCandidato } from '@/store/authStore'
 import {
   getAvaliacaoContext,
+  getAvaliacaoStatus,
   type AvaliacaoContext,
+  type AvaliacaoStatus,
 } from '@/features/avaliacao/services/avaliacaoService'
 import {
   CANDIDATE_FACING,
@@ -63,7 +65,7 @@ interface AvaliacaoContainerProps {
  * all derive from this map, so there is NO duplicate id switch to drift apart
  * ([[feedback_integration_contract_gap]]). A new card id is added in ONE place.
  */
-const CONTAINER_TESTE_CONFIG: Record<
+export const CONTAINER_TESTE_CONFIG: Record<
   ContainerTeste,
   { label: string; route: (candidaturaId: string) => string }
 > = {
@@ -86,10 +88,12 @@ const CONTAINER_TESTE_CONFIG: Record<
     route: (id) => `/candidato/redacao/${id}`,
   },
   cognitivo: {
-    // Label + route STUB only — actual reachability is Phase 26 (FUNIL-05 closes
-    // the id contract; nothing pulls the cognitivo screen forward here).
+    // FUNIL-08 (26-06): the REAL prova-cognitiva route (routes.tsx:269) — replaces the
+    // dead `/candidato/avaliacao/:id/cognitivo` stub. The card is gated on
+    // `vaga.aplica_cognitivo` in deriveCards and routes to a screen the pontuar_cognitivo
+    // gate now accepts during `avaliacao_assincrona` (26-02).
     label: 'Avaliação cognitiva',
-    route: (id) => `/candidato/avaliacao/${id}/cognitivo`,
+    route: (id) => `/candidato/prova-cognitiva/${id}`,
   },
 }
 
@@ -102,6 +106,15 @@ const CONTAINER_TESTE_CONFIG: Record<
 export const CONTAINER_RECOGNIZED: ReadonlySet<string> = new Set(
   Object.keys(CONTAINER_TESTE_CONFIG),
 )
+
+/**
+ * The etapa in which the async-assessment cards (incl. the cognitivo card) render.
+ * The wrong-etapa gate below AND the route↔gate contract test both read THIS single
+ * constant, so the cognitivo card can never render in an etapa the `pontuar_cognitivo`
+ * RPC would 42501 on submit — the card route and the server gate are two ends of one
+ * contract ([[feedback_integration_contract_gap]]).
+ */
+export const AVALIACAO_ASSINCRONA_ETAPA = 'avaliacao_assincrona'
 
 /** Human label for a container card id (neutral — no scoring framing). */
 function testeLabel(teste: string): string {
@@ -118,6 +131,13 @@ function statusInfo(status: string) {
     case 'feito':
     case 'concluido':
       return { label: 'Concluído', Icon: CheckCircle2, color: 'text-[#35BFAD]' }
+    case 'em_andamento':
+    case 'parcial':
+      // Neutral progress — distinct from Pendente ONLY via icon (CircleDot) + label,
+      // never a warning/accent tint (26-UI-SPEC Card State Contract: same white tint as
+      // Pendente; accent stays reserved for Concluído). Additive branch — the other
+      // states are byte-unchanged.
+      return { label: 'Em andamento', Icon: CircleDot, color: 'text-white/70' }
     case 'bloqueado':
     case 'indisponivel':
       return { label: 'Indisponível', Icon: Lock, color: 'text-white/60' }
@@ -293,14 +313,44 @@ function WrongEtapaState({ onBack }: { onBack: () => void }) {
 }
 
 /**
+ * Derive a card's NEUTRAL completion state from the candidate's OWN status booleans
+ * (FUNIL-12) — never a score/verdict/threshold (RNF-07a). The container card id maps
+ * 1:1 onto the `get_avaliacao_status` key (sjt_mc, sjt_caso_aberto, big_five, redacao,
+ * cognitivo): `registrado` → concluído, `iniciado` → em_andamento, neither → pendente.
+ * The phantom per-entry vaga-config status field (which `testeAplicavelSchema` does NOT
+ * carry) is NOT consulted for any card — this is the FUNIL-12 core fix.
+ */
+function deriveCardState(
+  cardId: string,
+  status: AvaliacaoStatus | undefined,
+): string {
+  const card = status?.[cardId as keyof AvaliacaoStatus]
+  if (card?.registrado) return 'concluido'
+  if (card?.iniciado) return 'em_andamento'
+  return 'pendente'
+}
+
+/**
  * Map the `testes_aplicaveis` jsonb to neutral card descriptors. FUNIL-05: filter
  * to CANDIDATE_FACING template tests and map each TEMPLATE id to the CONTAINER
  * card ids the container recognizes (via the shared lib) — instead of copying the
  * template id verbatim, which fell to the default 'mc' target for
  * work_sample_sjt/redacao_cultural/cognitivo (redacao routed WRONG). One template
  * entry may fan out to multiple cards (work_sample_sjt → sjt_mc + sjt_caso_aberto).
+ *
+ * FUNIL-08 (BLOCKER 1): `cargoTemplates.baseTestes` emits a `cognitivo` template entry
+ * UNCONDITIONALLY for all 8 cargos, so the main loop SKIPS it — the ONLY cognitivo card
+ * is the gated append below, emitted exactly once when `ctx.aplica_cognitivo === true`
+ * (zero otherwise), routed to the real prova-cognitiva screen. `testeContract.ts` is NOT
+ * edited (the Phase-25 FUNIL-05 guard asserts its cognitivo mapping stays `['cognitivo']`).
+ *
+ * FUNIL-12: EVERY card's state is derived from the neutral `get_avaliacao_status`
+ * booleans (`status`), never the phantom per-entry vaga-config status field.
  */
-function deriveCards(ctx: AvaliacaoContext | undefined): TesteCard[] {
+function deriveCards(
+  ctx: AvaliacaoContext | undefined,
+  status: AvaliacaoStatus | undefined,
+): TesteCard[] {
   if (!ctx) return []
   const raw = ctx.testes_aplicaveis
   if (!Array.isArray(raw)) return []
@@ -309,7 +359,9 @@ function deriveCards(ctx: AvaliacaoContext | undefined): TesteCard[] {
     const templateTeste = String(entry.teste ?? '')
     // Drop non-candidate-facing tests (triagem/entrevista) + unknown ids.
     if (!CANDIDATE_FACING.has(templateTeste)) continue
-    const status = String(entry.status ?? 'pendente')
+    // BLOCKER 1: skip the always-emitted template `cognitivo` entry — the cognitivo card
+    // is appended once below, gated on the vaga column (never the template entry).
+    if (templateTeste === 'cognitivo') continue
     const tempoEstimadoMin =
       typeof entry.tempoEstimadoMin === 'number'
         ? entry.tempoEstimadoMin
@@ -319,8 +371,23 @@ function deriveCards(ctx: AvaliacaoContext | undefined): TesteCard[] {
     const formato =
       typeof entry.formato === 'string' ? (entry.formato as string) : undefined
     for (const containerId of templateTesteToContainerCards(templateTeste)) {
-      cards.push({ teste: containerId, status, tempoEstimadoMin, formato })
+      cards.push({
+        teste: containerId,
+        status: deriveCardState(containerId, status),
+        tempoEstimadoMin,
+        formato,
+      })
     }
+  }
+  // FUNIL-08: append the cognitivo card LAST (26-UI-SPEC ordering), gated on the vaga
+  // column `aplica_cognitivo` (source of truth), NOT the always-present template entry.
+  // Emitted EXACTLY ONCE → routes to `/candidato/prova-cognitiva/:id` via CONTAINER_TESTE_CONFIG.
+  if (ctx.aplica_cognitivo === true) {
+    cards.push({
+      teste: 'cognitivo',
+      status: deriveCardState('cognitivo', status),
+      tempoEstimadoMin: null,
+    })
   }
   return cards
 }
@@ -350,7 +417,16 @@ function ConnectedAvaliacaoContainer() {
     enabled: Boolean(candidaturaId),
   })
 
-  const cards = useMemo(() => deriveCards(data), [data])
+  // FUNIL-12: sibling status query — per-card PRESENCE booleans from the candidate's own
+  // rows (get_avaliacao_status). This is the source of truth for card completion state
+  // (replaces the phantom per-entry vaga-config status field); it never carries a raw score.
+  const { data: statusData } = useQuery({
+    queryKey: ['avaliacao', 'status', candidaturaId],
+    queryFn: () => getAvaliacaoStatus(candidaturaId as string),
+    enabled: Boolean(candidaturaId),
+  })
+
+  const cards = useMemo(() => deriveCards(data, statusData), [data, statusData])
 
   const handleLogout = async () => {
     try {
@@ -426,8 +502,9 @@ function ConnectedAvaliacaoContainer() {
     )
   }
 
-  // Etapa gate (server-enforced by RLS; mirror neutrally in the UI).
-  if (data && data.candidatura.etapa_atual !== 'avaliacao_assincrona') {
+  // Etapa gate (server-enforced by RLS; mirror neutrally in the UI). Reads the single
+  // AVALIACAO_ASSINCRONA_ETAPA constant the route↔gate contract test also asserts.
+  if (data && data.candidatura.etapa_atual !== AVALIACAO_ASSINCRONA_ETAPA) {
     return <WrongEtapaState onBack={() => navigate('/candidato/dashboard')} />
   }
 
