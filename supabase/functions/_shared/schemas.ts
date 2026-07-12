@@ -8,8 +8,11 @@
  * aqui deve ser replicada lá (ou vice-versa).
  *
  * Decisões estruturais:
- * - **Import via esm.sh:** Deno não tem module resolver do Node; pinamos
- *   a versão major do zod para evitar drift (`zod@3`).
+ * - **Import bare `zod` (CI-07):** o specifier é resolvido em ambos os runtimes —
+ *   Deno via o import map de `supabase/functions/deno.json`
+ *   (`"zod": "npm:zod@3.25.76"`) e Node/Vitest via `node_modules` (3.25.76,
+ *   byte-idêntico). Assim ESTE mesmo módulo é importado pela EF (submit-candidatura)
+ *   E pelo contract test do client — um único schema, sem réplica, sem drift.
  * - **CPF digit verification** inlinada (não depende de utilidade do src/):
  *   Edge Functions não podem importar de fora de `supabase/functions/`.
  * - **pt-BR messages:** mensagens retornadas ao cliente aparecem em UIs
@@ -22,7 +25,7 @@
  * @module supabase/functions/_shared/schemas
  */
 
-import { z } from 'https://esm.sh/zod@3'
+import { z } from 'zod'
 
 // ============================================================================
 // Validadores auxiliares

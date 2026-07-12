@@ -32,7 +32,7 @@
  * @see supabase/functions/_shared/redacao-schemas.ts (AvaliarRedacaoCulturalBodySchema — precedente Phase 13)
  * @see supabase/functions/_shared/cognitivo-schemas.ts (SubmitCognitivoBodySchema — body do candidato)
  */
-import { z } from "npm:zod@3.25.76";
+import { z } from 'zod';
 
 /**
  * Body do POST do RH para `gerar-guia-entrevista`. Só identificadores + o formato

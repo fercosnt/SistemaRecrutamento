@@ -23,7 +23,7 @@
  * @see src/features/avaliacao/__tests__/redacao-contract.test.ts (contrato RED→GREEN)
  * @see supabase/functions/_shared/avaliacao-schemas.ts (AvaliarRedacaoBodySchema — precedente SJT)
  */
-import { z } from "npm:zod@3.25.76";
+import { z } from 'zod';
 
 /**
  * Body do POST do candidato para `avaliar-redacao-cultural`. Só identificadores +
