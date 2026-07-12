@@ -158,4 +158,30 @@ describe('KanbanBoard — 6 real stages, terminals as pills, M2 drag (FUNIL-03/0
     // The raw auto-advance status path is NOT used for an etapa move.
     expect(mutateStatus).not.toHaveBeenCalled()
   })
+
+  it('LOW-01: a terminal (rejeitado) card is NOT draggable — the drag is refused, no mutation', () => {
+    // A rejected candidatura is anchored in decisao_final with a pill; dragging it to a
+    // working column would trigger an always-failing avancar_etapa (a backward move with
+    // no etapa_justificativa). canDrag:false makes react-dnd refuse to begin the drag, so
+    // the card never enters the dragging state and no etapa mutation is ever attempted.
+    renderBoard([makeRow({ id: 'rej', etapa_atual: 'triagem', status: 'rejeitado' })])
+    const card = screen.getByTestId('kanban-card-rej')
+    const targetColumn = screen.getByTestId('kanban-column-avaliacao_assincrona')
+
+    // Because canDrag returns false, beginDrag is refused; the manually-fired HTML5 drop
+    // then hovers with no active drag, which react-dnd guards with an invariant. Catching
+    // it here is the assertion: had the card been draggable, the drop would have completed
+    // and called the mutation instead of throwing.
+    let refusedDrag = false
+    try {
+      dragCardToColumn(card, targetColumn)
+    } catch {
+      refusedDrag = true
+    }
+    // The card never advertised the drag affordance either.
+    expect(card).not.toHaveClass('opacity-50')
+    expect(refusedDrag).toBe(true)
+    expect(mutateEtapa).not.toHaveBeenCalled()
+    expect(mutateStatus).not.toHaveBeenCalled()
+  })
 })

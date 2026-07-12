@@ -160,13 +160,17 @@ function CandidatoKanbanCard({
   const scoreGeral = candidatura.score_geral
   const terminalBadge = getTerminalBadge(candidatura)
 
-  // Drag setup
+  // Drag setup. LOW-01: cards terminais (aprovado/rejeitado) NÃO são arrastáveis —
+  // ancorados em `decisao_final`, qualquer drop dispararia um "avanço" para trás que
+  // o trigger `avancar_etapa` rejeita (regressão sem `etapa_justificativa`) → toast de
+  // erro garantido. `canDrag: false` remove o affordance "Solte aqui" que sempre falha.
   const [{ isDragging }, dragRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DRAG_TYPE,
     item: {
       candidaturaId: candidatura.id,
       currentEtapa,
     },
+    canDrag: () => !terminalBadge,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -185,7 +189,11 @@ function CandidatoKanbanCard({
         variant="white"
         blur="lg"
         hover
-        className="p-3 rounded-xl transition-all duration-300 cursor-move"
+        className={cn(
+          'p-3 rounded-xl transition-all duration-300',
+          // LOW-01: só sinaliza "arrastável" quando o card não é terminal.
+          terminalBadge ? 'cursor-default' : 'cursor-move'
+        )}
       >
         <div className="space-y-2">
           {/* Header */}
