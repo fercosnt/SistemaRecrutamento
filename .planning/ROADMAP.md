@@ -62,7 +62,7 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
 - [x] **Phase 24: Blindagem de Segurança / PII / LGPD** - RLS nunca é segredo de coluna + toda EF privilegiada autentica-E-autoriza + IDOR/PII fechados (completed 2026-07-09)
 - [x] **Phase 25: Correção do Funil (lado RH — enums, colunas & contratos)** - RH opera Kanban/Editar-Vaga/decisão sobre enums+colunas que existem, sem rejeição sem trilha (completed 2026-07-12)
 - [x] **Phase 26: Correção do Funil (lado candidato — alcançabilidade & scoring)** - Candidato alcança e conclui cada etapa com scoring íntegro + reinscrição pós soft-delete (completed 2026-07-12)
-- [ ] **Phase 27: Integridade de Migrations & Fechamento da Rede de Testes** - Migrations reconstroem o banco do zero + rede de testes cobre auto-reject sancionado e contratos
+- [x] **Phase 27: Integridade de Migrations & Fechamento da Rede de Testes** - Migrations reconstroem o banco do zero + rede de testes cobre auto-reject sancionado e contratos (completed 2026-07-12)
 
 ## Phase Details
 
@@ -265,7 +265,7 @@ Plans:
 
 **Wave 4** *(BLOCKING · non-autonomous · PROD deploy)*
 
-- [ ] 27-06-PLAN.md — [BLOCKING] Redeploy the 5 shared-`zod` EFs + live verify_jwt posture smoke (CI-07/13) [Wave 4]
+- [x] 27-06-PLAN.md — [BLOCKING] Redeploy the 5 shared-`zod` EFs + live verify_jwt posture smoke (CI-07/13) [Wave 4]
 
 ## Progress
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
 | 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 5/6 | In Progress|  |
+| 27. Migrations & Rede de Testes | v4.0 | 6/6 | Complete   | 2026-07-12 |
 
 ---
 
