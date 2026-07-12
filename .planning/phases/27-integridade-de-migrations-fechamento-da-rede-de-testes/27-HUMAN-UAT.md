@@ -39,9 +39,15 @@ pending: 2
 skipped: 0
 blocked: 0
 
+## Orchestrator-confirmed (verifier's items 2–4, closed live via MCP 2026-07-12)
+
+- **Ledger convergence re-confirmed:** `schema_migrations` = 73 rows, 0 malformed versions (item 2). ✓
+- **DBMIG-02 CR-01 live-data integrity:** `SELECT count(*) … auto_rejeitado=false AND etapa_de='inscricao' AND etapa_para='inscricao' AND criterio_texto LIKE 'knockout%'` = **0** — no genuine knockout audit row was corrupted by the (now-fixed) backfill (item 3). ✓
+- **CI-07 EF runtime resolution:** edge-function logs show all 5 redeployed EFs responding with their expected gate/guard statuses (5×401 jwt-on, 405/405/401 self-auth) and **zero boot/ERR_MODULE/5xx errors**; `supabase functions deploy` (esbuild) resolves the bare-`zod` import map at build time and inlines it, so a successful deploy guarantees runtime resolution (item 4). ✓ (A fully-authed deep-invoke of the 3 non-canary EFs is belt-and-suspenders only.)
+
 ## Gaps
 
-- DBMIG-01 rebuild-from-zero proof is environment-gated (no SUPABASE_ACCESS_TOKEN in the
-  autonomous session; the rebuild loop needs Docker + an iterative pass). The ledger IS
-  converged (73/73 exact, 0 orphans/0 missing — verified 2026-07-12) and DBMIG-02/CI-03 are
-  live+smoked; only the baseline body + clean-room replay proof remain.
+- **DBMIG-01 rebuild-from-zero proof (item 1)** remains environment-gated (no SUPABASE_ACCESS_TOKEN /
+  no Docker rebuild loop in the autonomous session). The ledger IS converged (73/73 exact, 0 orphans/
+  0 missing) and DBMIG-02/CI-03 are live+smoked; only the baseline body + clean-room replay proof
+  remain — routed by Fernando 2026-07-12 as a deferred confirmatory item.
