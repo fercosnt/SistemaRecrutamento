@@ -70,10 +70,27 @@ function zodPathToFieldName(path: any[]): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// Handler
+// Deps injetáveis (testes injetam mocks; produção constrói clientes reais)
 // ---------------------------------------------------------------------------
 
-Deno.serve(async (req: Request) => {
+export interface SubmitCandidaturaDeps {
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any
+  // deno-lint-ignore no-explicit-any
+  supabaseUser: any
+}
+
+// ---------------------------------------------------------------------------
+// Handler testável — recebe `deps` injetadas (mirror de submit-bigfive-final).
+// A produção (wrapper no fim) constrói os dois clientes reais a partir do env +
+// do Authorization header e delega para cá. Nenhum status/error_code/mensagem/
+// arg da RPC muda — apenas o seam (o ponto de injeção dos clientes) foi extraído.
+// ---------------------------------------------------------------------------
+
+export async function handler(
+  req: Request,
+  deps: SubmitCandidaturaDeps,
+): Promise<Response> {
   // Preflight CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -123,25 +140,13 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  // ---- 2) Build user-context client to verify auth -------------------------
-  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-  const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
-  const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
-    console.error('[submit-candidatura] Missing env vars')
-    return errorResponse('SERVER_ERROR', 'Servidor mal configurado', undefined, 500)
-  }
-
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader) {
-    return errorResponse('UNAUTHORIZED', 'Sessão inválida.', undefined, 401)
-  }
-
-  // Pitfall 10 — anon client WITH Authorization header forwarded so
-  // auth.getUser() can decode + verify the candidato JWT
-  const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  })
+  // ---- 2) Verify auth via the injected user-context client -----------------
+  // Pitfall 10 — the anon client WITH the Authorization header forwarded is
+  // built in the production wrapper and injected here; auth.getUser() decodes +
+  // verifies the candidato JWT. A missing/invalid Authorization header resolves
+  // to no user here → 401 (byte-identical response to the pre-refactor explicit
+  // no-header 401 — same status/error_code/message).
+  const { supabaseUser, supabaseAdmin } = deps
   const { data: userRes, error: userErr } = await supabaseUser.auth.getUser()
   if (userErr || !userRes?.user) {
     return errorResponse('UNAUTHORIZED', 'Sessão inválida.', undefined, 401)
@@ -149,11 +154,9 @@ Deno.serve(async (req: Request) => {
   const user = userRes.user
 
   // ---- 3) Cross-check body.candidato_id matches user.id via candidatos -----
-  // Pitfall 10 — service_role client used ONLY for privileged reads/writes.
-  // It MUST NOT be used for auth verification (no auth.uid() context).
-  const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
+  // Pitfall 10 — service_role client (built in the production wrapper) used ONLY
+  // for privileged reads/writes. It MUST NOT be used for auth verification (no
+  // auth.uid() context).
   const { data: candidato, error: candErr } = await supabaseAdmin
     .from('candidatos')
     .select('id')
@@ -217,7 +220,11 @@ Deno.serve(async (req: Request) => {
         500,
       )
     }
-    const validSet = new Set((validPerguntas ?? []).map((p) => p.id))
+    const validSet = new Set(
+      // supabaseAdmin is injected as `any` via deps → annotate the row shape so
+      // the map callback param is not an implicit any (noImplicitAny).
+      ((validPerguntas ?? []) as { id: string }[]).map((p) => p.id),
+    )
     const missing = perguntaIds.find((id) => !validSet.has(id))
     if (missing) {
       return errorResponse(
@@ -338,4 +345,41 @@ Deno.serve(async (req: Request) => {
     },
     200,
   )
-})
+}
+
+// ---------------------------------------------------------------------------
+// Deno.serve — wiring de produção (two-client a partir do env + Authorization).
+// Guardado por `import.meta.main` para que `await import('./index.ts')` nos
+// testes NÃO suba um servidor (mirror de submit-bigfive-final).
+// ---------------------------------------------------------------------------
+
+if (import.meta.main) {
+  Deno.serve(async (req: Request) => {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+    const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
+      console.error('[submit-candidatura] Missing env vars')
+      return errorResponse(
+        'SERVER_ERROR',
+        'Servidor mal configurado',
+        undefined,
+        500,
+      )
+    }
+
+    // Pitfall 10 — anon client WITH the Authorization header forwarded so
+    // auth.getUser() can decode + verify the candidato JWT. A missing header
+    // yields no user inside the handler → 401 (same response as before).
+    const authHeader = req.headers.get('Authorization')
+    const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader ?? '' } },
+    })
+    // service_role SÓ para leituras/escritas privilegiadas (Pitfall 10 / D-23).
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    return await handler(req, { supabaseAdmin, supabaseUser })
+  })
+}
