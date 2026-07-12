@@ -60,8 +60,8 @@
 
 *Migrations reconstroem o banco do zero e o ledger de versões converge (destrava pgTAP e reprodutibilidade).*
 
-- [ ] **DBMIG-01**: As 71 migrations reconstroem o banco do zero e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD. `(A10, HIGH/L — âncora/risco; contagem corrigida de 49→71 em Phase 27 — o texto original foi escrito em 2026-07-05, antes de P25/26 adicionarem migrations)`
-- [ ] **DBMIG-02**: Semântica de `historico_candidatura.auto_rejeitado` corrigida — distingue 'escrita do sistema' de 'auto-rejeição'. `(A28, MEDI)`
+- [~] **DBMIG-01**: As 73 migrations reconstroem o banco do zero e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD. `(A10, HIGH/L — âncora/risco)` **PARCIAL (Phase 27, 2026-07-12):** ledger CONVERGIDO (73/73 version+name exatos, 0 drift, 0 órfãos, 0 missing — verificado via MCP) ✓; baseline-fill + prova de rebuild-from-zero DIFERIDOS como environment-gated (precisa sessão CLI-auth/Docker — ver 27-HUMAN-UAT.md).
+- [x] **DBMIG-02**: Semântica de `historico_candidatura.auto_rejeitado` corrigida — distingue 'escrita do sistema' de 'auto-rejeição'. `(A28, MEDI)` **Complete (Phase 27):** trigger GUC-gated (sistema+sancionado+terminal) + backfill de 5 rows aplicados via MCP; smoke live PASS. Guard ENTREV-03 preservado (regressão pega no pré-apply).
 
 ### 🧪 CI — Rede de Testes & Higiene de CI (M4-E)
 
@@ -69,7 +69,7 @@
 
 - [x] **CI-01**: Corpus Deno das EFs (~126 testes) roda em algum job de CI. `(A2≡A33, CRIT — destrava todo o resto)`
 - [x] **CI-02**: `deno test` padrão passa em código verde — cast stale + asserts corrigidos (a suíte para de apodrecer). `(A21, HIGH — destrava A2)`
-- [ ] **CI-03**: `submit-candidatura` (EF + RPC de knockout, único auto-reject sancionado) tem cobertura de teste. `(A22, HIGH/L)`
+- [x] **CI-03**: `submit-candidatura` (EF + RPC de knockout, único auto-reject sancionado) tem cobertura de teste. `(A22, HIGH/L)` **Complete (Phase 27):** handler refatorado testável + Deno EF test (5) + contract test client↔EF (real `.safeParse`) + SQL smoke knockout/survivor/dedup PASS live em PROD.
 - [x] **CI-04**: Baseline do gate tsc no CI apertado ao real (medido 133 — abaixo de 257, não 290 frouxo) — novo type error é pego. `(A35, MEDI · absorve FOUND-08)`
 - [x] **CI-05**: Imports versionados (`lucide-react@0.487.0` etc.) com paths no tsconfig — 65 TS2307 resolvidos, typecheck destravado. `(A38, MEDI)`
 - [x] **CI-06**: `extractEfErrorCode` deduplicado no helper compartilhado `@/lib/efErrors` (remove a cópia com assinatura invertida no entrevistaService). `(A39, MEDI · tech-debt v3.0)`
@@ -167,11 +167,11 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | FUNIL-10 | Phase 26 | Complete |
 | FUNIL-11 | Phase 25 | Complete |
 | FUNIL-12 | Phase 26 | Complete |
-| DBMIG-01 | Phase 27 | Pending |
-| DBMIG-02 | Phase 27 | Pending |
+| DBMIG-01 | Phase 27 | Partial (ledger converged; baseline+rebuild deferred) |
+| DBMIG-02 | Phase 27 | Complete |
 | CI-01 | Phase 22 | Complete |
 | CI-02 | Phase 22 | Complete |
-| CI-03 | Phase 27 | Pending |
+| CI-03 | Phase 27 | Complete |
 | CI-04 | Phase 22 | Complete |
 | CI-05 | Phase 22 | Complete |
 | CI-06 | Phase 27 | Complete |

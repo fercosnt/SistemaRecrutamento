@@ -261,7 +261,7 @@ Plans:
 
 **Wave 3** *(BLOCKING · non-autonomous · PROD via Supabase MCP)*
 
-- [ ] 27-05-PLAN.md — [BLOCKING] DBMIG-01 rebuild-from-zero + baseline fill + ledger reconcile + DBMIG-02 apply/backfill + live smokes + type regen (DBMIG-01/02, CI-03) [Wave 3]
+- [x] 27-05-PLAN.md — [BLOCKING] DBMIG-01 rebuild-from-zero + baseline fill + ledger reconcile + DBMIG-02 apply/backfill + live smokes + type regen (DBMIG-01/02, CI-03) [Wave 3]
 
 **Wave 4** *(BLOCKING · non-autonomous · PROD deploy)*
 
@@ -283,7 +283,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
 | 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 4/6 | In Progress|  |
+| 27. Migrations & Rede de Testes | v4.0 | 5/6 | In Progress|  |
 
 ---
 
