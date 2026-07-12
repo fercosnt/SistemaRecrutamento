@@ -275,7 +275,7 @@ export function RedacaoEditorScreen() {
           <CheckCircle2 className="w-14 h-14 text-[#35BFAD] mx-auto mb-4" />
           <h1 className="text-2xl font-semibold mb-2 drop-shadow-md">Redações concluídas.</h1>
           <p className="text-white/80 mb-6">
-            Avisaremos sobre os próximos passos por e-mail.
+            Acompanhe o andamento pelo seu painel.
           </p>
           <GlassButton variant="white" hover onClick={backToPanel} className="text-white">
             Voltar ao painel

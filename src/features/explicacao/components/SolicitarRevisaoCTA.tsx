@@ -42,7 +42,7 @@ const COPY = {
   alreadyRequested: 'Você já solicitou a revisão desta decisão.',
   dialogTitle: 'Solicitar revisão?',
   dialogBody:
-    'Sua solicitação será enviada à equipe responsável, que revisará a decisão. Avisaremos você sobre o resultado.',
+    'Sua solicitação será enviada à equipe responsável, que revisará a decisão. Acompanhe o andamento pelo seu painel.',
   dialogConfirm: 'Solicitar revisão',
   dialogCancel: 'Voltar',
   sending: 'Enviando…',

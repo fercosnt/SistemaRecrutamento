@@ -206,7 +206,7 @@ function AvaliacaoShell({
                 <CheckCircle2 className="w-14 h-14 text-[#35BFAD] mx-auto mb-4" />
                 <p className="text-white/90 text-xl mb-2">Tudo concluído!</p>
                 <p className="text-white/70">
-                  Você concluiu todas as avaliações desta etapa. Avisaremos sobre os próximos passos por e-mail.
+                  Você concluiu todas as avaliações desta etapa. Acompanhe o andamento pelo seu painel.
                 </p>
               </Glass>
             ) : (

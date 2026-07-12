@@ -15,7 +15,7 @@
  *
  * Submit posts ONLY raw picks via `cognitivoService.submitProva` (the server is the
  * sole scorer; the answer key never reaches the client). On success the candidate
- * sees the NEUTRAL "Prova registrada. Avisaremos sobre os próximos passos." — never
+ * sees the NEUTRAL "Prova registrada. Acompanhe o andamento pelo seu painel." — never
  * a score/band/threshold/pass-fail (RNF-07a); a 42501 back-lock → "Sua etapa avançou."
  *
  * Product language is non-clinical — "prova de raciocínio lógico" / "avaliação
@@ -79,7 +79,7 @@ const COPY = {
   forward: 'Avançar',
   submitCta: 'Concluir prova',
   submitDisabledTooltip: 'Responda todas as questões para concluir.',
-  postSubmit: 'Prova registrada. Avisaremos sobre os próximos passos.',
+  postSubmit: 'Prova registrada. Acompanhe o andamento pelo seu painel.',
   etapaAdvanced:
     'Sua etapa avançou. Esta prova foi encerrada e suas respostas já estão salvas.',
   notAvailableHeading: 'Esta etapa não está disponível.',

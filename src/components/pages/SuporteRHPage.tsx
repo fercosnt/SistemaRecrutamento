@@ -160,7 +160,7 @@ export function SuporteRHPage() {
             <h2 className="text-white drop-shadow-lg mb-4">Solicitação Enviada!</h2>
             <p className="text-white/80 drop-shadow-md mb-6">
               Recebemos sua solicitação e nossa equipe técnica irá analisá-la em breve.
-              Você receberá atualizações por e-mail.
+              Acompanhe o andamento pelo seu painel.
             </p>
             <div className="text-white/60 drop-shadow-sm text-sm">
               Redirecionando...

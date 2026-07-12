@@ -154,7 +154,7 @@ export function DevolutivaBigFiveView() {
           <AlertCircle className="w-12 h-12 text-white/60 mx-auto mb-4" />
           <p className="text-white/90 text-xl mb-2">Sua devolutiva ainda está sendo preparada.</p>
           <p className="text-white/70 mb-6">
-            Volte em alguns instantes — avisaremos por e-mail quando estiver pronta.
+            Volte em alguns instantes. Acompanhe o andamento pelo seu painel.
           </p>
           <GlassButton
             variant="white"
