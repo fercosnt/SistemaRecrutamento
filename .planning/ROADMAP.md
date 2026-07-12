@@ -217,7 +217,7 @@ Plans:
 Plans:
 **Wave 1** *(parallel — file-disjoint, autonomous)*
 
-- [ ] 26-01-PLAN.md — pontuar_sjt rewrite (dedup + full-battery denominator + re-submit lock + completeness) + FUNIL-07 server membership + smoke (FUNIL-01/07) [Wave 1]
+- [x] 26-01-PLAN.md — pontuar_sjt rewrite (dedup + full-battery denominator + re-submit lock + completeness) + FUNIL-07 server membership + smoke (FUNIL-01/07) [Wave 1]
 - [ ] 26-02-PLAN.md — pontuar_cognitivo gate relax (avaliacao_assincrona) + neutral get_avaliacao_status RPC + smokes (FUNIL-08/12) [Wave 1]
 - [ ] 26-03-PLAN.md — n8n server-side AFTER INSERT candidatos trigger + client subtree deletion + bundle guard (SEC-03 2nd leak) [Wave 1]
 - [ ] 26-04-PLAN.md — honest wait-state copy (6 telas) + scoped grep guard (UX-01) [Wave 1]
@@ -264,7 +264,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 0/7 | Planned | - |
+| 26. Funil — lado candidato | v4.0 | 1/7 | In Progress|  |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
 ---
