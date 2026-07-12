@@ -97,11 +97,16 @@ BEGIN
      'disposable smoke fixture', 'disposable', 'x', 'x', 'Sao Paulo', 'SP', 'CLT', 'ativa', '[]'::jsonb);
 
   -- Two disposable single_choice perguntas, each with a knockout-tagged option 'Não'.
-  INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta) VALUES
+  -- Live-schema constraints tuned at 27-05 apply time (2026-07-12): bloco must be in
+  -- {jornada,tecnologia,valores,curriculo} (bloco_valido_check) and a single_choice pergunta
+  -- MUST carry a non-empty opcoes_resposta [{id,texto}] (opcoes_obrigatorias_check, D-13).
+  INSERT INTO public.perguntas_formulario (id, vaga_id, bloco, ordem, texto_pergunta, tipo_resposta, opcoes_resposta) VALUES
     ('27010001-0000-0000-0000-0000000000f1', '27010001-0000-0000-0000-0000000000b1',
-     'geral', 1, '[SMOKE] Você tem CNH?', 'single_choice'),
+     'valores', 1, '[SMOKE] Você tem CNH?', 'single_choice',
+     '[{"id":"27010001-0000-0000-0000-00000000a101","texto":"Não"},{"id":"27010001-0000-0000-0000-00000000a102","texto":"Sim"}]'::jsonb),
     ('27010001-0000-0000-0000-0000000000f2', '27010001-0000-0000-0000-0000000000b2',
-     'geral', 1, '[SMOKE] Você tem CNH?', 'single_choice');
+     'valores', 1, '[SMOKE] Você tem CNH?', 'single_choice',
+     '[{"id":"27010001-0000-0000-0000-00000000a201","texto":"Não"},{"id":"27010001-0000-0000-0000-00000000a202","texto":"Sim"}]'::jsonb);
 
   -- The knockout answer-key: option TEXT 'Não' tagged 'knockout' (the sweep joins on
   -- pergunta_id + text-containment; peso/opcao_id are audit-only, never the trigger).

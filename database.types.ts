@@ -4376,6 +4376,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_avaliacao_status: {
+        Args: { p_candidatura_id: string }
+        Returns: Json
+      }
       get_bigfive_itens: {
         Args: never
         Returns: {
