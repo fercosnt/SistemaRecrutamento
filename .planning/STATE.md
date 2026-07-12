@@ -41,7 +41,7 @@ Progress: [█████████░] 91%
 | 24 — Blindagem Segurança / PII / LGPD | RLS nunca é segredo de coluna + EF privilegiada autentica-E-autoriza + IDOR/PII fechados | SEC-01..11, UX-08 |
 | 25 — Funil (lado RH) | Kanban/Editar-Vaga/decisão sobre enums+colunas que existem; RH não rejeita sem trilha (RNF-07a) | FUNIL-02/03/04/05/06/09/11, UX-03/06 |
 | 26 — Funil (lado candidato) | Etapas alcançáveis + scoring íntegro/não-manipulável + reinscrição pós soft-delete | FUNIL-01/07/08/10/12, UX-01 |
-| 27 — Migrations & Rede de Testes | 49 migrations reconstroem o banco + ledger converge + testes cobrem auto-reject/contratos | DBMIG-01/02, CI-03/06/07/10/13/15 |
+| 27 — Migrations & Rede de Testes | 71 migrations reconstroem o banco + ledger converge + testes cobrem auto-reject/contratos | DBMIG-01/02, CI-03/06/07/10/13/15 |
 
 Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 22 → 23 → 24 → 25 → 26 → 27.
 

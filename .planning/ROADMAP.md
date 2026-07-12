@@ -237,12 +237,12 @@ Plans:
 
 ### Phase 27: Integridade de Migrations & Fechamento da Rede de Testes
 
-**Goal**: As 49 migrations reconstroem o banco do zero e o ledger de versões converge (destrava pgTAP e reprodutibilidade), e a rede de testes fecha sobre o código já corrigido — cobrindo o único auto-reject sancionado, os contratos client↔EF reais e os gates de bundle/verify_jwt — a blindagem que impede regressão verde silenciosa.
+**Goal**: As 71 migrations reconstroem o banco do zero e o ledger de versões converge (destrava pgTAP e reprodutibilidade), e a rede de testes fecha sobre o código já corrigido — cobrindo o único auto-reject sancionado, os contratos client↔EF reais e os gates de bundle/verify_jwt — a blindagem que impede regressão verde silenciosa.
 **Depends on**: Phase 26 (regress-guarda o código já corrigido em P23–26; DBMIG-01 é âncora/risco L, natural late)
 **Requirements**: DBMIG-01, DBMIG-02, CI-03, CI-06, CI-07, CI-10, CI-13, CI-15
 **Success Criteria** (what must be TRUE):
 
-  1. As 49 migrations reconstroem o banco do zero num ambiente limpo e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD (DBMIG-01).
+  1. As 71 migrations reconstroem o banco do zero num ambiente limpo e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD (DBMIG-01).
   2. `submit-candidatura` (EF + RPC de knockout — o único auto-reject sancionado do sistema) tem cobertura de teste, e a semântica de `historico_candidatura.auto_rejeitado` distingue 'escrita do sistema' de 'auto-rejeição' (CI-03, DBMIG-02).
   3. Os contract tests client↔EF são **reais** — o corpo do client parseia no Zod schema da EF, não replicam ambos os lados dentro do teste — e `extractEfErrorCode` fica deduplicado no helper compartilhado `@/lib/efErrors` (CI-07, CI-06).
   4. O gate de bundle PERF-03 (`assert-chunks.mjs`) está wired em build **e** CI, o `verify_jwt` por Edge Function está declarado em `supabase/config.toml`, e o teste de `sync-prompts` (pipeline que escreve em PROD com service_role) roda no CI (CI-10, CI-13, CI-15).

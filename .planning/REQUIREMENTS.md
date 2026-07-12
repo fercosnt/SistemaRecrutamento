@@ -60,7 +60,7 @@
 
 *Migrations reconstroem o banco do zero e o ledger de versões converge (destrava pgTAP e reprodutibilidade).*
 
-- [ ] **DBMIG-01**: As 49 migrations reconstroem o banco do zero e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD. `(A10, HIGH/L — âncora/risco)`
+- [ ] **DBMIG-01**: As 71 migrations reconstroem o banco do zero e o ledger de versões converge — sem baseline vazio nem objetos só-em-PROD. `(A10, HIGH/L — âncora/risco; contagem corrigida de 49→71 em Phase 27 — o texto original foi escrito em 2026-07-05, antes de P25/26 adicionarem migrations)`
 - [ ] **DBMIG-02**: Semântica de `historico_candidatura.auto_rejeitado` corrigida — distingue 'escrita do sistema' de 'auto-rejeição'. `(A28, MEDI)`
 
 ### 🧪 CI — Rede de Testes & Higiene de CI (M4-E)
