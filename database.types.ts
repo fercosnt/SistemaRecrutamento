@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       ai_call_logs: {
@@ -58,6 +33,7 @@ export type Database = {
           parsed_reasoning: string | null
           parsed_score: number | null
           prompt_hash: string
+          prompt_version: string | null
           prompt_version_id: string
           provider: Database["public"]["Enums"]["llm_provider"]
           raw_response: Json
@@ -86,6 +62,7 @@ export type Database = {
           parsed_reasoning?: string | null
           parsed_score?: number | null
           prompt_hash: string
+          prompt_version?: string | null
           prompt_version_id: string
           provider: Database["public"]["Enums"]["llm_provider"]
           raw_response: Json
@@ -114,6 +91,7 @@ export type Database = {
           parsed_reasoning?: string | null
           parsed_score?: number | null
           prompt_hash?: string
+          prompt_version?: string | null
           prompt_version_id?: string
           provider?: Database["public"]["Enums"]["llm_provider"]
           raw_response?: Json
@@ -569,6 +547,7 @@ export type Database = {
       }
       bigfive_itens: {
         Row: {
+          ativo: boolean
           created_at: string
           dimensao: string
           faceta: number
@@ -578,6 +557,7 @@ export type Database = {
           texto: string
         }
         Insert: {
+          ativo?: boolean
           created_at?: string
           dimensao: string
           faceta: number
@@ -587,6 +567,7 @@ export type Database = {
           texto: string
         }
         Update: {
+          ativo?: boolean
           created_at?: string
           dimensao?: string
           faceta?: number
@@ -1285,6 +1266,51 @@ export type Database = {
             foreignKeyName: "decisao_final_candidatura_id_fkey"
             columns: ["candidatura_id"]
             isOneToOne: true
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      decisao_final_historico: {
+        Row: {
+          arquivado_em: string
+          candidatura_id: string
+          decidido_em: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          id: string
+          justificativa: string
+          por_usuario: string
+        }
+        Insert: {
+          arquivado_em?: string
+          candidatura_id: string
+          decidido_em: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          id?: string
+          justificativa: string
+          por_usuario: string
+        }
+        Update: {
+          arquivado_em?: string
+          candidatura_id?: string
+          decidido_em?: string
+          decisao?: Database["public"]["Enums"]["decisao_final_resultado"]
+          id?: string
+          justificativa?: string
+          por_usuario?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decisao_final_historico_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "decisao_final_historico_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
             referencedRelation: "v_triagem_panel"
             referencedColumns: ["id"]
           },
@@ -4358,6 +4384,16 @@ export type Database = {
           texto: string
         }[]
       }
+      get_cognitivo_itens: {
+        Args: never
+        Returns: {
+          alternativas: Json
+          enunciado: string
+          id: string
+          ordem: number
+          secao: string
+        }[]
+      }
       get_configuracoes: {
         Args: never
         Returns: {
@@ -4409,6 +4445,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_minha_redacao: {
+        Args: { p_candidatura_id: string }
+        Returns: {
+          id: string
+          ordem: number
+          pergunta_id: string
+          status_analise: string
+          submetida_em: string
+          texto: string
+          word_count: number
+        }[]
       }
       get_opcoes_sjt: {
         Args: { p_pergunta_id: string }
@@ -4886,9 +4934,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       candidate_status: [
