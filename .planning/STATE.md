@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Completed 26-04-PLAN.md (UX-01: honest wait-state copy across 6 candidate/RH screens + scoped grep guard, no migrations). Next: 26-05."
-last_updated: "2026-07-12T06:40:00.000Z"
+stopped_at: "Completed 26-05-PLAN.md (avaliacaoService client wiring: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus + neutral pontuarSjt error mapping; unit tests, no migrations). Next: 26-06."
+last_updated: "2026-07-12T07:00:00.000Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 37
-  completed_plans: 34
-  percent: 67
+  completed_plans: 35
+  percent: 68
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 26 (Correção do Funil (lado candidato — alcançabilidade & scoring)) — EXECUTING
-Plan: 5 of 7
+Plan: 6 of 7
 Status: Ready to execute
 Last activity: 2026-07-12
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 93%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -91,6 +91,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 26 P02 | 15min | 2 tasks | 4 files |
 | Phase 26 P03 | ~12min | 2 tasks | 7 files |
 | Phase 26 P04 | ~13min | 2 tasks | 7 files |
+| Phase 26 P05 | 16min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -149,6 +150,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 26]: [26-02] FUNIL-08: relaxa o gate do 5-arg pontuar_cognitivo ADICIONANDO 'avaliacao_assincrona' ao etapa IN (mantém entrevista_online/presencial — sem regressão, Pitfall 5); corpo byte-preservado (CR-01 empty-bank guard, CR-02 cognitivo_respostas, CTT+banda). Files-only, apply=26-07.
 - [Phase 26]: [26-02] FUNIL-12: get_avaliacao_status DEFINER retorna booleans de PRESENÇA por card (registrado/iniciado) p/ os 5 cards; redacao vem de redacoes_candidato (NÃO scores tipo redacao — fantasma A41), sjt_caso_aberto de scores subtipo=caso_aberto; guard de posse sem etapa → 42501 IDOR; scores_candidato mantém candidate-DENY. FUNIL-08/12 ficam Pending até client 26-05/06 + apply 26-07.
 - [Phase 26]: [26-03] n8n 2nd-leak (routed pós-P24, SEC-03 pattern): deletei TODO o subtree client `n8nService.ts` (18 URLs `n8n.srv881294.hstgr.cloud` + payload PII, zero runtime callers) + barrel re-export + test + doc-tree README; migration `20260712100004_n8n_novo_candidato.sql` (files-only, apply=26-07) espelha SEC-03 (`20260706110005`) retargeted a `candidatos` — trg AFTER INSERT SECURITY DEFINER, body SÓ `candidato_id` (sem PII, LGPD), graceful-skip Vault `n8n_webhook_base` NULL, RNF-07a (never writes candidatos). Guard `n8n-bundle.grep.test.ts` ESTENDIDO: dropa o carve-out 24-05, bane o host hstgr (exact tokens) + nomes de campo PII co-localizados com um hostname n8n (regex tight) em build/ E src/, preservando no-false-positive (campo de schema puro + type `N8NWebhookPayload` NÃO disparam). tsc 107→104 (deleção, sem crescimento), vitest 752/752 (−32 = test deletado), build 0, guard 7/7 vs fresh build. Smoke `n8n_novo_candidato_smoke.sql` (graceful-skip / no-PII-body via pg_get_functiondef sem NEW.<pii> / row-unchanged; fixture descartável auth.users+candidato, skip-on-failure) RED até 26-07. Órfãos `N8NWebhookPayload/Response` em `formTypes.ts` (0 consumers, sem host, type-only) deixados intocados → sweep Phase 27. Commits hook-bypass `06e9727`(feat)/`201bbc7`(fix).
+- [Phase 26]: [26-05] Client wiring de avaliacaoService ao DB tier corrigido (Wave 2, sem migrations). **FUNIL-07 (presentation):** `getAvaliacaoContext` resolve o elemento `tipo==='sjt'` de `testes_aplicaveis` e filtra `perguntas` — `.in('id', itens_ids)` quando itemizada, senão `.eq('cargo', cargo)`, senão active-only; allowlist mantida (nunca `select('*')`); é UX only — o membership check server-side em pontuar_sjt (26-01) é a teeth. **FUNIL-08 (client half):** join estendido a `vaga:vagas ( testes_aplicaveis, aplica_cognitivo )` + `aplica_cognitivo` em `AvaliacaoContext` (default false) p/ o container 26-06 gatear o card cognitivo. **FUNIL-12 (client half):** novo `getAvaliacaoStatus()` chama `get_avaliacao_status` RPC via **narrow confined cast** (só o nome da fn; regen=Phase 27) retornando `AvaliacaoStatus` de booleans de presença por card (cada leaf coagido a boolean estrito, card ausente→false, nunca score). **FUNIL-01 (client half):** `pontuarSjt` mapeia 42501 (back-lock/re-submit/foreign pergunta)→LOCKED e **branch novo explícito** 22023 (dup/incompleta/unconfigured)→DATABASE_ERROR com mensagem FIXA sem dígitos — load-bearing pq o RAISE server `'bateria incompleta (% de %)'` embute counts que NÃO podem cruzar o wire (RNF-07a). Testes `avaliacaoService.funil.test.ts` (8, mock thenable+chainable do supabase steered por hoisted state; assert `/\d/` não casa nas msgs; sem live DB). Requirements FUNIL-01/07/08/12 ficam **Pending** (falta container 26-06 + apply 26-07 — honesty theme, espelha 26-02). rubric.test.ts (SEC-07) segue verde (fixture `{}` não-array→branch active-only). tsc flat **104** (≤107), vitest **769/769** (+8), build 0. Commits hook-bypass `813e0e2`(feat)/`b1a2f30`(test).
 - [Phase 26]: [26-04] UX-01: as 6 telas de espera candidato/RH agora usam a string canônica única `Acompanhe o andamento pelo seu painel.` (o painel é a fonte de status — NÃO existe infra de e-mail); toda promessa `avisaremos … por e-mail` / `receberá … por e-mail` removida (AvaliacaoContainer all-done :209 + RedacaoEditorScreen :278 + DevolutivaBigFiveView :157 + ProvaCognitivaScreen postSubmit :82 & doc :18 + SolicitarRevisaoCTA dialogBody :45 + SuporteRHPage :162-163). Só strings mudaram (zero layout/cor/tipografia). Guard novo `wait-state-copy.grep.test.ts` (node:fs, allowlist explícito das 6 files, NÃO src-wide) bane `/avisaremos[\s\S]*por e-?mail/i` + `/receber[áa][\s\S]*por e-?mail/i` — o **lead-in de promessa** antes de `por e-mail` é o que mantém consent (`receber emails` AutorizacoesStep:58), toggle RH `Notificar candidato por email` e password-reset **não-flagados** (no-false-positive provado por sub-test). AvaliacaoContainer :209 corrigido AQUI → 26-06 (Wave 3, mesma file) NÃO pode reverter (guard falha CI). tsc flat **104** (≤107), vitest **761/761** (+9 do guard), LGPD-04 guard verde. Commits hook-bypass `8649520`(fix copy)/`8356bbc`(test guard).
 
 ### Pending Todos
@@ -174,8 +176,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-12T06:40:00.000Z
-Stopped at: Completed 26-04-PLAN.md (UX-01: honest wait-state copy across 6 candidate/RH screens + scoped grep guard, pure client copy, no migrations). Next: 26-05.
+Last session: 2026-07-12T07:00:00.000Z
+Stopped at: Completed 26-05-PLAN.md (avaliacaoService client wiring: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus RPC reader + neutral pontuarSjt error mapping; 8 mocked unit tests, no migrations). Next: 26-06 (AvaliacaoContainer cognitivo card + real route + card-state-from-RPC).
 Resume file: None
 
 ## Operator Next Steps

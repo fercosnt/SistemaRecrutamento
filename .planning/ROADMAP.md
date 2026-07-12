@@ -224,7 +224,7 @@ Plans:
 
 **Wave 2** *(depends on migration contracts)*
 
-- [ ] 26-05-PLAN.md — avaliacaoService: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus + pontuarSjt error mapping + unit tests (FUNIL-07/12/01/08) [Wave 2]
+- [x] 26-05-PLAN.md — avaliacaoService: SJT battery filter + aplica_cognitivo + getAvaliacaoStatus + pontuarSjt error mapping + unit tests (FUNIL-07/12/01/08) [Wave 2] (completed 2026-07-12)
 
 **Wave 3** *(depends on avaliacaoService)*
 
@@ -264,7 +264,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 4/7 | In Progress|  |
+| 26. Funil — lado candidato | v4.0 | 5/7 | In Progress|  |
 | 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
 
 ---
