@@ -92,6 +92,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Build
         run: npm run build
+      # CI-10 (PERF-03): assert-chunks self-gates via package.json `postbuild` after the build
+      # above; this dedicated step re-runs it so a bundle regression emits a clean, distinct
+      # failure signal (route/vendor split intact, eager index chunk under the Phase-19 floor).
+      - name: Bundle gate (PERF-03)
+        run: node scripts/assert-chunks.mjs
       - name: Run Playwright (deterministic core only by default)
         run: npx playwright test --project=chromium
         env:

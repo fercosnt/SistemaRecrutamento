@@ -95,6 +95,8 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "postbuild": "node scripts/assert-chunks.mjs",
+        "assert:chunks": "node scripts/assert-chunks.mjs",
         "preview": "vite preview",
         "lint": "tsc --noEmit",
         "db:types": "npx supabase gen types typescript --linked > database.types.ts",
