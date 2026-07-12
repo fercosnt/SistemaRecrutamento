@@ -79,6 +79,13 @@ jobs:
           deno-version: v2.x
       - name: Deno EF corpus (blocking, type-check on)
         run: deno test --allow-env --allow-read --config supabase/functions/deno.json supabase/functions
+      # Phase 27 / Plan 27-01 (CI-15): the never-CI-run sync-prompts service_role pipeline test
+      # now runs as a distinct BLOCKING step with type-check ON (no type-check-skip flag) — matching the
+      # corpus step's posture. NO --config here (functions/deno.json's exclude is functions-scoped
+      # and the target root differs). The module builds its Supabase client only under
+      # `if (import.meta.main)`, so importing it needs only --allow-read/--allow-env.
+      - name: Deno scripts test (sync-prompts)
+        run: deno test --allow-env --allow-read scripts/__tests__/
 
   e2e:
     runs-on: ubuntu-latest

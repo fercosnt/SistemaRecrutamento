@@ -27,7 +27,12 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 // RED until Plan 09-06.
 async function loadSync() {
   const mod = await import("../sync-prompts.ts");
-  return mod as {
+  // Double-cast through `unknown`: the real exports return the closed `UpsertRow`
+  // interface (no index signature), which is not directly comparable to this
+  // test-local `Record<string, unknown>` shape (TS2352). Narrowing through
+  // `unknown` is the standard idiom for casting a dynamically-imported module to
+  // a test-local shape and keeps `deno test` type-check ON (CI-15, no --no-check).
+  return mod as unknown as {
     contentHash: (system: string, user: string, fmNoHash: Record<string, unknown>) => Promise<string>;
     validateFrontmatter: (fm: Record<string, unknown>) =>
       { success: true; data: Record<string, unknown> } | { success: false; error: unknown };
