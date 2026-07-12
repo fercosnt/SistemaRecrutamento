@@ -87,7 +87,7 @@
 
 *O lado de experiência que a avaliação de 6 personas surfou — quick-wins de varredura imediata (Onda 1). Feitos no mesmo file-touch dos achados técnicos quando possível.*
 
-- [ ] **UX-01**: Copy honesta em todas as telas de espera do candidato ("acompanhe no painel", não "avisaremos por e-mail" — 5+ telas). `(QW1)`
+- [x] **UX-01**: Copy honesta em todas as telas de espera do candidato ("acompanhe no painel", não "avisaremos por e-mail" — 5+ telas). `(QW1)`
 - [x] **UX-02**: Landing sem linguagem "testes psicométricos"/"análise de perfil" + CTA "Já sou candidato" (RNF-12a). `(QW3)`
 - [x] **UX-03**: Navegação do hub usa `candidatura.id` (não `candidato.id`) + estado 404 no hub. `(QW4)`
 - [x] **UX-04**: Botões de login habilitados corretamente — remover `!isValid` do disabled (candidato, RH, esqueci/redefinir); elimina a gambiarra `blur()` dos E2E. `(QW5)` — Phase 22 / Plan 22-03 (candidato+RH dropados; esqueci/redefinir já limpos, regression-guard grep)
@@ -184,7 +184,7 @@ Fases continuam a partir da Phase 22. 6 fases (22–27) mapeadas 1:1 a todos os 
 | CI-13 | Phase 27 | Pending |
 | CI-14 | Phase 22 | Complete |
 | CI-15 | Phase 27 | Pending |
-| UX-01 | Phase 26 | Pending |
+| UX-01 | Phase 26 | Complete |
 | UX-02 | Phase 22 | Complete |
 | UX-03 | Phase 25 | Complete |
 | UX-04 | Phase 22 | Done (22-03) |
