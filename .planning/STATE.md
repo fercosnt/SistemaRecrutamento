@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: "Completed 27-04-PLAN.md (DBMIG-02 trigger fix + backfill files + DBMIG-01 count 49->71). Next: BLOCKING 27-05 MCP apply."
-last_updated: "2026-07-12T19:36:12.304Z"
+stopped_at: "Completed 27-03-PLAN.md (CI-03 submit-candidatura test net + tsc re-pin 107->104). Next: BLOCKING 27-05 MCP apply (DBMIG-02 trigger + baseline/ledger)."
+last_updated: "2026-07-12T20:00:50.418Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
   percent: 83
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 ## Current Position
 
 Phase: 27 (Integridade de Migrations & Fechamento da Rede de Testes) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-07-12
 
-Progress: [█████████░] 93%
+Progress: [██████████] 95%
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -96,6 +96,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 27 P01 | 15min | 3 tasks | 4 files |
 | Phase 27 P02 | 18min | 3 tasks | 9 files |
 | Phase 27 P04 | 5min | 3 tasks | 5 files |
+| Phase 27 P03 | 16min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,7 @@ Log completo em PROJECT.md Key Decisions. Recentes que afetam o M4:
 - [Phase 27]: [27-02] CI-07: deno.json import map (bare `zod`/`zod/v4` -> npm:zod@3.25.76) so ONE .strict() module resolves under Deno (map) AND Node (node_modules); _shared/schemas.ts+redacao-schemas.ts+entrevista-schemas.ts swapped to bare `zod`; consolidar EF imports shared ConsolidacaoRequestSchema (.uuid() restored, dropped loosened z.string() + dead npm:zod/v4); 3 contract tests (redacao/entrevista/consolidacao) drop replica+fs-probe -> real .safeParse (valid true + injected score false). cognitivo-schemas.ts NOT migrated (out of scope, Pitfall 3) -> its body stays a documented replica in the entrevista test. Rule-3: consolidar Deno test BODY given real UUIDs (loosened schema had tolerated non-uuid; mock .eq() value-agnostic so fixtures unchanged). CI-13: supabase/config.toml authored (12 [functions.*], 3 self-auth false / 9 true, import_map on the 5 shared-zod EFs). Deno 187/0, vitest 765/765, tsc 104 (<=107; 27-03 re-pins). Commits hook-bypass e99a64a/b875352/3db7c8d.
 - [Phase ?]: [Phase 27/27-04] DBMIG-02: avancar_etapa auto_rejeitado predicate = (v_ator IS NULL AND current_setting('app.rejeicao_sancionada', true) IS NOT DISTINCT FROM 'on' AND NEW.etapa_atual='rejeitado') — system-write AND GUC-sanctioned AND terminal; a survivor advance now writes false (fixes Phase-6 defect that marked EVERY system write auto-reject). Zero new column (reuses knockout txn-local GUC). Backfill DISTINCT file (Pitfall 4): UPDATE historico_candidatura SET auto_rejeitado=false WHERE auto_rejeitado=true AND etapa_para<>'rejeitado'. Both file-only, no BEGIN/COMMIT (D-22), apply via MCP in BLOCKING 27-05; DBMIG-02 stays Pending. Commits fe87061/749e99c.
 - [Phase ?]: [Phase 27/27-04] DBMIG-01 (docs-only here): '49 migrations'->71 in REQUIREMENTS/ROADMAP/STATE (49 written 2026-07-05 pre-P25/26). Live ls=73 after this plan's own 2 DBMIG-02 files; doc value 71=corpus at planning time per directive. Baseline reconstruction+ledger converge=27-05/06; DBMIG-01 stays Pending. tsc flat 104. Commit 3a67938.
+- [Phase 27]: [27-03] CI-03: submit-candidatura EF refactored to an exported handler(req,deps) (mirror submit-bigfive-final) + import.meta.main Deno.serve wrapper — behavior byte-equivalent (safeParse 400 -> getUser 401 -> ownership 403 -> submit_candidatura_atomic RPC; 23505->DUPLICATE_CANDIDATURA / 23503->VALIDATION; no-Authorization-header 401 preserved via getUser on empty header). Deno EF test 5/5 (CI-runnable) + Vitest client contract 5/5 (REAL .safeParse of the shared submitCandidaturaSchema, injected score/.strict rejected, RNF-07a). submit_candidatura_atomic smoke (knockout sanctioned-reject: 1 history row auto_rejeitado=true/ator NULL; survivor->triagem auto_rejeitado=false; dedup 23505) runs under the privileged role with request.jwt.claims CLEARED (auth.uid()=NULL) — the RPC is service_role-only so SET ROLE authenticated 42501s; RED until 27-05 applies DBMIG-02. tsc re-pinned MEASURED 104 (the 107 pin was stale from Phase 26 26-03; this plan adds 0 net errors); 27-01 bundle+sync-prompts CI steps intact. Corpus 192/0, vitest 770/770. CI-07 already Complete; CI-03+DBMIG-02 stay Pending until the 27-05 live apply. Commits d865cf8/ab5544f/abfb87c (hook-bypass).
 
 ### Pending Todos
 
@@ -185,8 +187,8 @@ Carregados do fechamento do M3 (absorvidos no M4 onde indicado).
 
 ## Session Continuity
 
-Last session: 2026-07-12T19:36:12.295Z
-Stopped at: Completed 27-04-PLAN.md (DBMIG-02 trigger fix + backfill files + DBMIG-01 count 49->71). Next: BLOCKING 27-05 MCP apply.
+Last session: 2026-07-12T20:00:35.782Z
+Stopped at: Completed 27-03-PLAN.md (CI-03 submit-candidatura test net + tsc re-pin 107->104). Next: BLOCKING 27-05 MCP apply (DBMIG-02 trigger + baseline/ledger).
 Resume file: None
 
 ## Operator Next Steps
