@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
 status: executing
-stopped_at: Phase 25 / Plan 25-09 (UX-06 gap-closure) complete — closed the 2 open items from 25-VERIFICATION (score 8/9). (1) swept the 3 no-op RH dropdown items (Enviar Email/WhatsApp/Exportar PDF) from both CandidatosRHPage views; (2) decoupled enriquecerVaga's per-vaga count query from candidatoId via includeCounts (threaded useVagas→listVagas→enriquecerVaga) so RH tiles show real counts while anon still skips (WR-10). Task 3 reconciled REQUIREMENTS.md FUNIL-02/03/06/09/11 Pending→Complete. tsc flat 107, vitest 783/783 (+2), build green. Commits f3d36d0/ad04561/f8fa1a4 (hook-bypass). Next: re-verify Phase 25 (should reach 9/9 + flip UX-06), then Phase 26 (Funil lado candidato).
-last_updated: "2026-07-12T04:36:05Z"
+stopped_at: Phase 25 (Funil lado RH) SHIPPED — 9/9 plans, verification PASSED 9/9 (25-09 gap-closure flipped UX-06 to done), 5 migrations LIVE on PROD via MCP apply_migration (version rows 20260712002352..002532; filename drift 20260709000010..14 → reconcile Phase 27), behavioral smokes A-E 8/8 PASS (FUNIL-02/09/11 proven live), zero PROD residue. Code review: MED-01/MED-02/LOW-01 fixed (ea16819/24fb6ca/8eac5b5; MED-01 completed the FUNIL-06 cutover in the Por-Vaga funnel), MED-03+LOW-02 deferred to .planning/todos/pending/25-review-deferred.md. UI review 20/24 advisory. tsc re-pinned 133→107, vitest 784/784, build green. Next: Phase 26 (Funil lado candidato — alcançabilidade & scoring).
+last_updated: "2026-07-12T05:00:00Z"
 last_activity: 2026-07-12
 progress:
   total_phases: 6
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 25 — Correção do Funil (lado RH — enums, colunas & contratos)
+**Current focus:** Phase 26 — Correção do Funil (lado candidato — alcançabilidade & scoring)
 
 ## Current Position
 
-Phase: 25 (Correção do Funil (lado RH — enums, colunas & contratos)) — EXECUTION COMPLETE (8/8 plans) + 25-09 gap-closure ✅
-Plan: 25-01 ✅ · 25-02 ✅ · 25-03 ✅ · 25-04 ✅ · 25-05 ✅ · 25-06 ✅ · 25-07 ✅ · 25-08 ✅ · 25-09 ✅ (UX-06 gap-closure)
-Status: Phase 25 execution done + 25-09 closed the 2 open UX-06 items (dead RH menu + real per-vaga tiles) from 25-VERIFICATION. Next: re-verify Phase 25 (→ 9/9, flip UX-06), then Phase 26 (Funil lado candidato)
+Phase: 25 (Funil lado RH) ✅ SHIPPED (9/9 plans, verified 9/9, migrations live on PROD, smokes 8/8, code+UI reviewed) → advancing to Phase 26
+Plan: Phase 26 not started (no CONTEXT yet) — next step: smart discuss → plan → execute
+Status: Phase 25 complete. Phase 26 = candidate-side funnel reachability + non-manipulable scoring + re-inscription post soft-delete (FUNIL-01/07/08/10/12, UX-01). Never auto-reject by score (RNF-07a).
 Last activity: 2026-07-12
 
 Progress: [██████████] 100%
