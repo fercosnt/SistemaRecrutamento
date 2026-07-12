@@ -283,7 +283,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
 | 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 6/6 | Complete   | 2026-07-12 |
+| 27. Migrations & Rede de Testes | v4.0 | 6/6 | Complete    | 2026-07-12 |
 
 ---
 

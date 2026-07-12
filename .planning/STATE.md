@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: executing
-stopped_at: "Completed 27-03-PLAN.md (CI-03 submit-candidatura test net + tsc re-pin 107->104). Next: BLOCKING 27-05 MCP apply (DBMIG-02 trigger + baseline/ledger)."
-last_updated: "2026-07-12T20:00:50.418Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 27 was final phase)
+last_updated: 2026-07-12T21:18:01.036Z
 last_activity: 2026-07-12
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 43
-  completed_plans: 41
+  completed_plans: 43
   percent: 83
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 27 — Integridade de Migrations & Fechamento da Rede de Testes
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 27 (Integridade de Migrations & Fechamento da Rede de Testes) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute
+Phase: 27
+Plan: Not started
+Status: Milestone complete
 Last activity: 2026-07-12
 
 Progress: [██████████] 95%
@@ -61,7 +61,7 @@ Coverage: 56/56 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | 24 | TBD | - | - |
 | 25 | TBD | - | - |
 | 26 | TBD | - | - |
-| 27 | TBD | - | - |
+| 27 | 6 | - | - |
 
 *Updated after each plan completion.*
 | Phase 22 P01 | 13min | 2 tasks | 2 files |
