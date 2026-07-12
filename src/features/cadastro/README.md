@@ -16,7 +16,6 @@ cadastro/
 │   ├── viaCepService.ts      # Integração com ViaCEP
 │   ├── candidatoService.ts   # CRUD de candidatos
 │   ├── cadastroService.ts    # Lógica de cadastro completo
-│   ├── n8nService.ts         # Integração com N8N
 │   └── index.ts              # Barrel export
 ├── types/            # TypeScript types e interfaces
 │   ├── formTypes.ts          # Types do formulário
