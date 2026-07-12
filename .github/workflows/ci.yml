@@ -15,8 +15,12 @@
 # Phase 22 (22-06, measure-first / CI-04+05+14): resolving the 65 phantom TS2307 via tsconfig
 # `paths` (CI-05) cascaded the total 257 -> 133 (versioned imports were silently typing whole
 # shadcn components as `any`), and expanding tsc coverage to e2e/scripts/playwright with the
-# Deno files excluded (CI-14) added 0 net errors. The gate is now pinned to the REAL measured
-# green value 133 (down from the loose 290) — red only on growth above 133.
+# Deno files excluded (CI-14) added 0 net errors, pinning that phase's gate to a measured 133.
+# Phase 25 (25-08, measure-first / FUNIL-04): the enum re-alias to the DB enum (25-02/03) +
+# phantom-column removal in Editar-Vaga (25-03, -9) + mock-screen gutting (25-06, -8) cleared
+# the count from 128 (the REAL value entering Phase 25 — the 133 pin had gone stale/loose so CI
+# only tripped at 134) down to a MEASURED 107. The gate is now pinned to the REAL measured green
+# value 107 (down from the now-superseded 133 / loose 290) — red only on growth above 107.
 # The FOUND-08 trivial enum typos (clinica/big_five in vagasTypes.ts) proved STRUCTURAL — each
 # one-line rename only unmasks the next stale key in the same Record<> map (DEPARTAMENTO_LABELS /
 # ETAPA_TO_KANBAN are wholesale-stale vs their unions) so they were reverted, not applied; the
@@ -48,12 +52,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Type-check (frozen tsc baseline 133 — CI red only on growth)
+      - name: Type-check (frozen tsc baseline 107 — CI red only on growth)
         run: |
           COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
-          echo "tsc errors: $COUNT (frozen baseline: 133)"
-          if [ "$COUNT" -gt 133 ]; then
-            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (133) — new type errors introduced"
+          echo "tsc errors: $COUNT (frozen baseline: 107)"
+          if [ "$COUNT" -gt 107 ]; then
+            echo "::error::tsc error count ($COUNT) exceeds frozen baseline (107) — new type errors introduced"
             npm run -s lint 2>&1 | grep "error TS" | head -50
             exit 1
           fi
