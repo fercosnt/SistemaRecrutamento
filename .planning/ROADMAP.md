@@ -247,7 +247,25 @@ Plans:
   3. Os contract tests client↔EF são **reais** — o corpo do client parseia no Zod schema da EF, não replicam ambos os lados dentro do teste — e `extractEfErrorCode` fica deduplicado no helper compartilhado `@/lib/efErrors` (CI-07, CI-06).
   4. O gate de bundle PERF-03 (`assert-chunks.mjs`) está wired em build **e** CI, o `verify_jwt` por Edge Function está declarado em `supabase/config.toml`, e o teste de `sync-prompts` (pipeline que escreve em PROD com service_role) roda no CI (CI-10, CI-13, CI-15).
 
-**Plans**: TBD
+**Plans**: 6 plans (4 waves)
+Plans:
+**Wave 1** *(parallel — file-disjoint, autonomous)*
+
+- [ ] 27-01-PLAN.md — CI plumbing: dedup extractEfErrorCode + wire assert-chunks (build+CI) + sync-prompts CI step (CI-06/10/15) [Wave 1]
+- [ ] 27-02-PLAN.md — CI-07 shared-`zod` contract (deno.json map + bare-zod _shared + migrate 3 contract tests + consolidar EF) + CI-13 config.toml (CI-07/13) [Wave 1]
+- [ ] 27-04-PLAN.md — DBMIG-02 trigger fix + backfill (migration files) + "49→71" count correction (DBMIG-02/01) [Wave 1]
+
+**Wave 2** *(depends on 27-01, 27-02)*
+
+- [ ] 27-03-PLAN.md — CI-03 submit-candidatura coverage (handler refactor + Deno test + client contract test + smoke SQL) + measure-last tsc re-pin (CI-03/07, DBMIG-02) [Wave 2]
+
+**Wave 3** *(BLOCKING · non-autonomous · PROD via Supabase MCP)*
+
+- [ ] 27-05-PLAN.md — [BLOCKING] DBMIG-01 rebuild-from-zero + baseline fill + ledger reconcile + DBMIG-02 apply/backfill + live smokes + type regen (DBMIG-01/02, CI-03) [Wave 3]
+
+**Wave 4** *(BLOCKING · non-autonomous · PROD deploy)*
+
+- [ ] 27-06-PLAN.md — [BLOCKING] Redeploy the 5 shared-`zod` EFs + live verify_jwt posture smoke (CI-07/13) [Wave 4]
 
 ## Progress
 
@@ -265,7 +283,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
 | 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
 | 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 0/TBD | Not started | - |
+| 27. Migrations & Rede de Testes | v4.0 | 0/6 | Planned | - |
 
 ---
 
