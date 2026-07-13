@@ -58,6 +58,10 @@ function toastRowError(err: unknown): void {
     toast.warning(
       'Não foi possível enviar o e-mail de redefinição agora. Tente novamente em instantes.',
     )
+  } else if (code === 'FORBIDDEN') {
+    toast.error('Você não tem permissão para esta ação.')
+  } else if (code === 'NOT_FOUND') {
+    toast.error('Usuário não encontrado. Atualize a lista e tente novamente.')
   } else {
     toast.error('Não foi possível concluir a ação. Tente novamente.')
   }

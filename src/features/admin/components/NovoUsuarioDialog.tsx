@@ -147,7 +147,7 @@ export function NovoUsuarioDialog({ open, onOpenChange }: NovoUsuarioDialogProps
               autoComplete="off"
               aria-invalid={!!errors.email}
               aria-describedby={errors.email ? 'email-error' : undefined}
-              className="border-white/30 bg-white/20 text-white placeholder:text-white/50"
+              className="border-white/30 bg-white/20 text-white placeholder:text-white/60"
             />
             {errors.email && (
               <p
@@ -171,7 +171,7 @@ export function NovoUsuarioDialog({ open, onOpenChange }: NovoUsuarioDialogProps
               {...register('nome_completo')}
               aria-invalid={!!errors.nome_completo}
               aria-describedby={errors.nome_completo ? 'nome_completo-error' : undefined}
-              className="border-white/30 bg-white/20 text-white placeholder:text-white/50"
+              className="border-white/30 bg-white/20 text-white placeholder:text-white/60"
             />
             {errors.nome_completo && (
               <p
@@ -196,7 +196,7 @@ export function NovoUsuarioDialog({ open, onOpenChange }: NovoUsuarioDialogProps
               placeholder="ex.: Analista de RH"
               aria-invalid={!!errors.cargo}
               aria-describedby={errors.cargo ? 'cargo-error' : undefined}
-              className="border-white/30 bg-white/20 text-white placeholder:text-white/50"
+              className="border-white/30 bg-white/20 text-white placeholder:text-white/60"
             />
             {errors.cargo && (
               <p

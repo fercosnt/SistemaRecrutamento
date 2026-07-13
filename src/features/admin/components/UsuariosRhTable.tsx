@@ -158,7 +158,7 @@ function UsuarioRow({ row, currentUserId, isLastActiveAdmin }: UsuarioRowProps) 
           <div className="flex flex-col">
             <span className="flex items-center gap-1 text-sm text-white">
               {row.nome_completo}
-              {isSelf && <span className="text-xs text-white/50">(você)</span>}
+              {isSelf && <span className="text-xs text-white/70">(você)</span>}
             </span>
             <span className="text-xs text-white/60">{row.email}</span>
           </div>

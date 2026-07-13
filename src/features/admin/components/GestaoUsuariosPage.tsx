@@ -48,7 +48,10 @@ export function GestaoUsuariosPage() {
             Gerencie as contas da equipe de RH — papéis, acesso e redefinição de senha.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)} className="min-h-[44px]">
+        <Button
+          onClick={() => setOpen(true)}
+          className="min-h-[44px] bg-[#35BFAD] text-[#04121F] hover:bg-[#2ba99a]"
+        >
           <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
           Novo usuário
         </Button>
