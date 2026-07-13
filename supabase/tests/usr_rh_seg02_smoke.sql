@@ -195,6 +195,47 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (5) SEG-03 EARLY CLOSE (WR-01) — a recrutador CANNOT self-promote. No client WRITE
+--     policy exists on usuarios_rh (28-04 dropped the WITH-CHECK-less UPDATE + names the
+--     baseline write policies in defensive drops), so an own-row UPDATE affects 0 rows.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $$
+BEGIN
+  IF current_setting('smoke2.ready', true) IS DISTINCT FROM 'y' THEN RETURN; END IF;
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', current_setting('smoke2.rec_uid'), 'role', 'authenticated',
+                      'app_metadata', json_build_object('role', 'rh'))::text, false);
+END $$;
+SET ROLE authenticated;
+DO $$
+DECLARE v_affected int; v_role text; v_denied boolean := false;
+BEGIN
+  IF current_setting('smoke2.ready', true) IS DISTINCT FROM 'y' THEN
+    RAISE NOTICE 'SEG-02 SKIP (5 self-promotion): fixture not built'; RETURN; END IF;
+  BEGIN
+    UPDATE public.usuarios_rh SET role = 'administrador'
+      WHERE user_id = (current_setting('smoke2.rec_uid'))::uuid;
+    GET DIAGNOSTICS v_affected = ROW_COUNT;
+  EXCEPTION WHEN insufficient_privilege THEN v_denied := true; v_affected := 0;
+  END;
+  IF v_affected <> 0 THEN
+    RAISE EXCEPTION 'SEG-02 FAIL (5 self-promotion): recrutador UPDATE role=administrador affected % row(s) — self-promotion OPEN (a client WRITE policy survives)', v_affected;
+  END IF;
+  RAISE NOTICE 'PASS (5 self-promotion): recrutador cannot self-promote (0 rows, denied=%)', v_denied;
+END $$;
+RESET ROLE;
+DO $$
+DECLARE v_role text;
+BEGIN
+  IF current_setting('smoke2.ready', true) IS DISTINCT FROM 'y' THEN RETURN; END IF;
+  SELECT role INTO v_role FROM public.usuarios_rh WHERE id = '28030002-0000-0000-0000-000000000001';
+  IF v_role IS DISTINCT FROM 'recrutador' THEN
+    RAISE EXCEPTION 'SEG-02 FAIL (5 self-promotion): the recrutador fixture role changed to % (self-promotion succeeded)', v_role;
+  END IF;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- CLEANUP — ROLLBACK-free: reset the simulated context + drop ONLY the disposable
 --   fixture (child preferencias first, then the usuarios_rh row) by its fixed UUID.
 --   The discovered admin is REAL and is NEVER deleted.

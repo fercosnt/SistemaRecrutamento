@@ -93,6 +93,16 @@ DROP POLICY IF EXISTS usuarios_rh_authenticated_read ON public.usuarios_rh;   --
 DROP POLICY IF EXISTS usuarios_rh_simple_read        ON public.usuarios_rh;   -- qual=true roster leak
 DROP POLICY IF EXISTS "RH pode atualizar seu próprio perfil" ON public.usuarios_rh; -- UPDATE own-row, NO WITH CHECK -> self-promotion (SEG-03 early close)
 
+-- Defense-in-depth (WR-01): idempotently drop every KNOWN baseline client-WRITE policy
+-- name from docs/sql/sql/03-tabela-usuarios-rh.sql. These are ABSENT on live PROD (the
+-- 2026-07-13 pg_policies capture shows only 3 SELECT policies, zero write policies) — but
+-- naming them here makes "no client can write usuarios_rh" DECLARATIVE and clean-rebuild-safe,
+-- not dependent on the Wave-0 capture having been exhaustive. usuarios_rh_update_own's WITH
+-- CHECK only pins user_id (NOT role/ativo) — it would itself be a self-promotion hole.
+DROP POLICY IF EXISTS usuarios_rh_update_own       ON public.usuarios_rh;
+DROP POLICY IF EXISTS usuarios_rh_admin_update_all ON public.usuarios_rh;
+DROP POLICY IF EXISTS usuarios_rh_admin_insert     ON public.usuarios_rh;
+
 -- (3) ADD the admin-only roster SELECT (recursion-safe via the DEFINER helper).
 --     Idempotent DROP+CREATE per the SEC-09 analog (20260706110006).
 DROP POLICY IF EXISTS usuarios_rh_admin_select ON public.usuarios_rh;

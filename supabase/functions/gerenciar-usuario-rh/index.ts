@@ -101,13 +101,54 @@ function errorResponse(
 
 const RECOVERY_PATH = "/auth/redefinir-senha?tipo=rh";
 
-/** Resolve the recovery redirect origin from the request, with an env/prod fallback. */
+/** The RH app origins allowed to receive a recovery link (WR-02 allowlist). */
+const ALLOWED_ORIGINS = new Set<string>(["https://rh.beautysmile.com.br"]);
+
+/**
+ * Resolve the recovery-link origin (WR-02). The set-password token rides in this URL, so a
+ * client-controlled `Origin` MUST NOT steer it (a spoofed origin passing Supabase's redirect
+ * allowlist = account takeover). Prefer the server-trusted `PUBLIC_APP_URL` env; only honor an
+ * `Origin` header if it is on our explicit allowlist; else fall back to the hardcoded prod URL.
+ */
 function resolveOrigin(req: Request): string {
-  const fromHeader = req.headers.get("Origin");
-  if (fromHeader) return fromHeader;
   const fromEnv = safeEnv("PUBLIC_APP_URL");
   if (fromEnv) return fromEnv.replace(/\/$/, "");
+  const fromHeader = req.headers.get("Origin")?.replace(/\/$/, "");
+  if (fromHeader && ALLOWED_ORIGINS.has(fromHeader)) return fromHeader;
   return "https://rh.beautysmile.com.br";
+}
+
+/**
+ * Best-effort SECURITY audit (WR-04) for a denied/blocked privileged attempt — a privilege
+ * surface must record the attempts a `categoria='seguranca'` trail exists for. Non-fatal:
+ * a failed audit is alarmed, never breaks the response. Uses the owner-BYPASSRLS DEFINER
+ * `log_auditoria`; `categoria='seguranca'` rows are purge-exempt (28-04 retention diff).
+ */
+async function auditSecurityDenial(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  actorId: string,
+  acao: string,
+  targetId?: string,
+): Promise<void> {
+  try {
+    await supabaseAdmin.rpc("log_auditoria", {
+      p_usuario_id: actorId,
+      p_usuario_tipo: "admin",
+      p_acao: acao,
+      p_categoria: "seguranca",
+      p_descricao: `Tentativa negada/bloqueada de gestão de usuários: ${acao}`,
+      p_severidade: "aviso",
+      p_recurso_tipo: "usuarios_rh",
+      p_recurso_id: targetId ?? null,
+      p_sucesso: false,
+    });
+  } catch (e) {
+    console.error("[gerenciar-usuario-rh] ALARME: auditoria de segurança falhou (non-fatal)", {
+      acao,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 function safeEnv(key: string): string | undefined {
@@ -143,6 +184,9 @@ function mapMutacaoError(error: { code?: string; message?: string } | null): {
   }
   if (sqlstate === "P0002" || msg.includes("not_found")) {
     return { code: "NOT_FOUND", message: "Usuário não encontrado.", status: 404 };
+  }
+  if (sqlstate === "22023" || msg.startsWith("validation")) {
+    return { code: "VALIDATION", message: "Ação inválida.", status: 400 };
   }
   return { code: "SERVER_ERROR", message: "Não foi possível concluir a operação.", status: 500 };
 }
@@ -229,6 +273,8 @@ export async function handler(req: Request, deps: GerenciarUsuarioRhDeps): Promi
     .is("deleted_at", null)
     .maybeSingle();
   if (rhRow?.role !== "administrador") {
+    // WR-04: a non-admin reaching this privileged EF is a security-relevant denial — record it.
+    await auditSecurityDenial(supabaseAdmin, user.id, "acesso_negado_gestao_usuarios");
     return errorResponse("FORBIDDEN", "Acesso negado.", 403);
   }
 
@@ -297,15 +343,25 @@ async function handleCriar(
   }
   const userId = authData.user.id as string;
 
-  // (b) row + audit in ONE tx via the DEFINER RPC. On failure → COMPENSATE (no orphan).
-  const { error: rpcErr } = await supabaseAdmin.rpc("criar_usuario_rh_com_audit", {
-    p_actor: actorId,
-    p_user_id: userId,
-    p_email: body.email,
-    p_nome: body.nome_completo,
-    p_cargo: body.cargo,
-    p_papel: body.papel,
-  });
+  // (b) row + audit in ONE tx via the DEFINER RPC. On failure (returned error OR a thrown
+  //     rejection — IN-01) → COMPENSATE with deleteUser so no orphan GoTrue identity blocks
+  //     the UNIQUE email. Capture the new usuarios_rh.id the RPC returns (IN-04).
+  let newRowId: string | null = null;
+  let rpcErr: { message?: string } | null = null;
+  try {
+    const res = await supabaseAdmin.rpc("criar_usuario_rh_com_audit", {
+      p_actor: actorId,
+      p_user_id: userId,
+      p_email: body.email,
+      p_nome: body.nome_completo,
+      p_cargo: body.cargo,
+      p_papel: body.papel,
+    });
+    rpcErr = res.error ?? null;
+    newRowId = (res.data as string | null) ?? null;
+  } catch (thrown) {
+    rpcErr = { message: thrown instanceof Error ? thrown.message : String(thrown) };
+  }
   if (rpcErr) {
     await supabaseAdmin.auth.admin.deleteUser(userId).catch((rollbackErr: unknown) => {
       console.error("[gerenciar-usuario-rh] rollback deleteUser falhou:", { userId, rollbackErr });
@@ -327,14 +383,14 @@ async function handleCriar(
     return jsonResponse(
       {
         ok: true,
-        data: { userId },
+        data: { userId, usuarioRhId: newRowId },
         warning: "EMAIL_SEND_FAILED",
         message: "Usuário criado. O email de definição de senha não pôde ser enviado; reenvie depois.",
       },
       201,
     );
   }
-  return jsonResponse({ ok: true, data: { userId } }, 201);
+  return jsonResponse({ ok: true, data: { userId, usuarioRhId: newRowId } }, 201);
 }
 
 /**
@@ -355,6 +411,7 @@ async function handleMutacao(
 
   // USR-07 defense-in-depth: friendly early LAST_ADMIN (the trigger is the hard floor).
   if (await wouldBreakAdminFloor(supabaseAdmin, body.target_id, body.action, novoPapel)) {
+    await auditSecurityDenial(supabaseAdmin, actorId, "lockout_bloqueado", body.target_id); // WR-04
     return errorResponse(
       "LAST_ADMIN",
       "Não é possível remover, rebaixar ou desativar o último administrador ativo.",
@@ -373,6 +430,11 @@ async function handleMutacao(
     if (mapped.code === "SERVER_ERROR") {
       console.error("[gerenciar-usuario-rh] gerir_usuario_rh_mutacao falhou:", error.message);
     }
+    // WR-04: the DB trigger blocked a last-admin lockout after the EF pre-count passed
+    // (e.g. a concurrent demote race) — record the blocked attempt.
+    if (mapped.code === "LAST_ADMIN") {
+      await auditSecurityDenial(supabaseAdmin, actorId, "lockout_bloqueado", body.target_id);
+    }
     return errorResponse(mapped.code, mapped.message, mapped.status);
   }
   return jsonResponse({ ok: true }, 200);
@@ -390,11 +452,13 @@ async function handleResetarSenha(
   actorId: string,
   targetId: string,
 ): Promise<Response> {
-  // Resolve the target email (service_role — bypasses RLS).
+  // Resolve the target email (service_role — bypasses RLS). IN-02: a soft-deleted RH user
+  // must not receive a recovery link → scope the lookup to non-deleted rows.
   const { data: target } = await supabaseAdmin
     .from("usuarios_rh")
     .select("email")
     .eq("id", targetId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (!target?.email) {
     return errorResponse("NOT_FOUND", "Usuário não encontrado.", 404);

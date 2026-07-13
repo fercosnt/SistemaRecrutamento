@@ -104,8 +104,11 @@ BEGIN
       WHERE id = p_target;
     v_sev := 'aviso';
   ELSE
+    -- Invalid action — distinct SQLSTATE from the anti-lockout P0001 (WR-03): the EF's
+    -- mapMutacaoError maps P0001 -> LAST_ADMIN, so reusing it here would mislabel a
+    -- bad-argument bug as "last admin". Unreachable via the EF (Zod-gated) but correct-by-code.
     RAISE EXCEPTION 'VALIDATION: acao % invalida', p_action
-      USING ERRCODE = 'P0001';
+      USING ERRCODE = '22023';  -- invalid_parameter_value -> EF maps to VALIDATION
   END IF;
 
   -- Post-mutation snapshot.

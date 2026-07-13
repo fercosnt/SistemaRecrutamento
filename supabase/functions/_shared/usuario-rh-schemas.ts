@@ -56,7 +56,7 @@ export const gerenciarUsuarioRhSchema = z.discriminatedUnion("action", [
   z
     .object({
       action: z.literal("criar"),
-      email: z.string().email("Email inválido").toLowerCase().trim(),
+      email: z.string().trim().toLowerCase().email("Email inválido"),
       nome_completo: z
         .string()
         .min(3, "Nome deve ter no mínimo 3 caracteres")
