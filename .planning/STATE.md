@@ -4,14 +4,14 @@ milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
 stopped_at: Completed 28-05-PLAN.md (USR-07 anti-lockout trigger + USR-06 atomic mutate+audit RPCs authored; PROD apply is 28-07)
-last_updated: "2026-07-13T05:36:17.688Z"
-last_activity: 2026-07-13
+last_updated: "2026-07-13T06:17:53.193Z"
+last_activity: 2026-07-13 -- Phase 29 execution started
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 8
-  completed_plans: 6
-  percent: 0
+  completed_plans: 8
+  percent: 33
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 28 — Gestão de Usuários RH — Núcleo Seguro
+**Current focus:** Phase 29 — Console de Gestão de Usuários RH
 
 ## Current Position
 
-Phase: 28 (Gestão de Usuários RH — Núcleo Seguro) — EXECUTING
-Plan: 7 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓, 28-04 ✓, 28-05 ✓)
-Status: Ready to execute
-Last activity: 2026-07-13
+Phase: 29 (Console de Gestão de Usuários RH) — EXECUTING
+Plan: 1 of ?
+Status: Executing Phase 29
+Last activity: 2026-07-13 -- Phase 29 execution started
 
 Progress: [████████░░] 75%
 
