@@ -15,11 +15,11 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 
 *`/rh/configuracoes` — hoje um empty-state ("Gestão de usuários ainda não disponível"). RH shell + header + route + `RoleGuard(administrador)` já existem; o M5 preenche o conteúdo real.*
 
-- [ ] **USR-01**: `administrador` visualiza a lista de usuários RH (nome, email, papel, status ativo/inativo). `(A14)`
-- [ ] **USR-02**: `administrador` cria um novo usuário RH (email + papel); o novo usuário consegue definir a própria senha e acessar o painel RH. `(A14)`
-- [ ] **USR-03**: `administrador` altera o papel de um usuário RH (`recrutador` ↔ `administrador`), e a mudança reflete no JWT/role no próximo acesso. `(A14)`
-- [ ] **USR-04**: `administrador` desativa/reativa um usuário RH (soft, sem hard-delete); um usuário desativado não consegue mais acessar o painel RH. `(A14)`
-- [ ] **USR-05**: `administrador` dispara um reset de senha para um usuário RH (o usuário recebe o caminho de redefinição). `(A14)`
+- [x] **USR-01**: `administrador` visualiza a lista de usuários RH (nome, email, papel, status ativo/inativo). `(A14)`
+- [x] **USR-02**: `administrador` cria um novo usuário RH (email + papel); o novo usuário consegue definir a própria senha e acessar o painel RH. `(A14)`
+- [x] **USR-03**: `administrador` altera o papel de um usuário RH (`recrutador` ↔ `administrador`), e a mudança reflete no JWT/role no próximo acesso. `(A14)`
+- [x] **USR-04**: `administrador` desativa/reativa um usuário RH (soft, sem hard-delete); um usuário desativado não consegue mais acessar o painel RH. `(A14)`
+- [x] **USR-05**: `administrador` dispara um reset de senha para um usuário RH (o usuário recebe o caminho de redefinição). `(A14)`
 - [x] **USR-06**: Toda ação de gestão de usuários (criar, mudar papel, desativar/reativar, reset) grava uma trilha de auditoria append-only (ator, alvo, ação, timestamp). `(A14, LGPD)`
 - [x] **USR-07**: Guarda anti-lockout server-enforced — o sistema impede remover, rebaixar ou desativar o **último `administrador` ativo**. `(A14)`
 
@@ -73,11 +73,11 @@ Qual fase cobre qual requirement. Preenchido na criação do roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| USR-01 | Phase 29 | Pending |
-| USR-02 | Phase 29 | Pending |
-| USR-03 | Phase 29 | Pending |
-| USR-04 | Phase 29 | Pending |
-| USR-05 | Phase 29 | Pending |
+| USR-01 | Phase 29 | Complete |
+| USR-02 | Phase 29 | Complete |
+| USR-03 | Phase 29 | Complete |
+| USR-04 | Phase 29 | Complete |
+| USR-05 | Phase 29 | Complete |
 | USR-06 | Phase 28 | Complete |
 | USR-07 | Phase 28 | Complete |
 | PERFIL-01 | Phase 30 | Pending |

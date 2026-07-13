@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: Completed 29-03-PLAN.md (EditarPapelDialog + UsuariosRhTable — glass roster, papel/status badges, primeiro_acesso chip, '(você)' marker, Ações menu, Ativar direct + Desativar/Resetar AlertDialog confirms, last-active-admin anti-lockout disable/tooltip)
-last_updated: "2026-07-13T20:20:00Z"
-last_activity: 2026-07-13 -- Phase 29 Plan 03 complete (roster table + per-row account actions)
+stopped_at: Completed 29-04-PLAN.md (GestaoUsuariosPage — useUsuariosRh query + AsyncState 5-state + 'Novo usuário' CTA owning NovoUsuarioDialog + UsuariosRhTable, wired into ConfiguracoesPage under a single RHLayout; route/RoleGuard preserved). Phase 29 COMPLETE — USR-01..05 reachable end-to-end.
+last_updated: "2026-07-13T20:30:18Z"
+last_activity: 2026-07-13 -- Phase 29 Plan 04 complete (console composed + wired live; USR-01..05 Complete)
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
-  percent: 33
+  completed_plans: 12
+  percent: 66
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 ## Current Position
 
-Phase: 29 (Console de Gestão de Usuários RH) — EXECUTING
-Plan: 4 of 4 (29-01 data layer + 29-02 NovoUsuarioDialog + 29-03 UsuariosRhTable/EditarPapelDialog complete)
-Status: Executing Phase 29
-Last activity: 2026-07-13 -- Phase 29 Plan 03 complete (roster table + per-row account actions)
+Phase: 29 (Console de Gestão de Usuários RH) — COMPLETE
+Plan: 4 of 4 complete (29-01 data layer + 29-02 NovoUsuarioDialog + 29-03 UsuariosRhTable/EditarPapelDialog + 29-04 GestaoUsuariosPage wired into ConfiguracoesPage)
+Status: Phase 29 complete — ready for /gsd-secure-phase 29 + live UAT; next execution Phase 30
+Last activity: 2026-07-13 -- Phase 29 Plan 04 complete (console composed + wired live; USR-01..05 Complete)
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100% (Phase 29 plans)
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -64,6 +64,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 29 P01 | 5min | 3 tasks | 4 files |
 | Phase 29 P02 | 4min | 1 task | 2 files |
 | Phase 29 P03 | 12min | 2 tasks | 3 files |
+| Phase 29 P04 | 5min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M5 (segurança é o e
 - [Phase 28/28-05 · USR-07]: anti-lockout is a BEFORE UPDATE OR DELETE trigger with pg_advisory_xact_lock before the admin count(*) (defeats write-skew to 0 admins); fires inside the DEFINER RPC and for raw service_role, RAISE P0001 -> LAST_ADMIN. EF pre-count is friendly defense-in-depth; the trigger is the hard backstop.
 - [Phase 28/28-05 · USR-06]: gerir_usuario_rh_mutacao + criar_usuario_rh_com_audit are SECURITY DEFINER RPCs that mutate usuarios_rh AND write log_auditoria(categoria=usuario) in one tx (atomic); REVOKE EXECUTE from public/authenticated/anon; param names pinned verbatim to 28-06 EF .rpc() calls.
 - [Phase ?]: 28-06: gerenciar-usuario-rh EF is the single admin-gated write-path — authenticate (anon getUser) THEN authorize administrador-ONLY from usuarios_rh (no recrutador->rh normalization, role never from the JWT); .strict() discriminated-union body; RPC sites pinned to 28-05 sigs; 28-02 Deno test GREEN 9/9; deploy is 28-07.
+- [Phase 29/29-04 · USR-01/02/03/04/05]: GestaoUsuariosPage composes the console (useUsuariosRh query → `<AsyncState>` 5-state → UsuariosRhTable, header + "Novo usuário" CTA owning NovoUsuarioDialog open state) and is wired into ConfiguracoesPage IN PLACE of the M4 empty-state — **single RHLayout owner** (GestaoUsuariosPage is body-only, `space-y-6`, no legacy `p-8`; 0 RHLayout import/JSX). routes.tsx + `RoleGuard role="administrador"` UNTOUCHED (defense-in-depth over the Phase-28 EF authz, T-29-11) — regression-locked by a routes.tsx source assertion in the integration test (T-29-13). AsyncState `copy` override injects the UI-SPEC error/empty strings without editing the shared wrapper; `glass` default true keeps loading/error/empty/success all on a glass surface (never blank, T-29-12). This is the plan that makes USR-01..05 reachable END-TO-END → all 5 marked Complete in REQUIREMENTS.md (checklist + traceability). D-04-DOC deviation: reworded ConfiguracoesPage docstring so the old empty-state string is truly absent (tripped the `! grep` verify). vitest 832/832, tsc flat 104, build 0 (PERF-03 chunks all met). Phase 29 CODE-COMPLETE across 29-01..04.
 - [Phase 29/29-03 · USR-01/03/04/05]: EditarPapelDialog + UsuariosRhTable (UI-only, no backend) — glass roster <table> binding ONLY the 9 allowlisted UsuarioRhRow cols (T-29-07; no avatar_url/telefone/created_by) with papel/status badges (AA tints), "Aguardando 1º acesso" chip, "(você)" self-marker (authStore user.id, row NOT hidden), and a per-row Ações DropdownMenu. Row confirms are CONTROLLED AlertDialogs opened from DropdownMenuItem onClick via per-row state (editOpen + confirm) — NOT AlertDialogTrigger-in-menu (which closes the menu and swallows the open); Ativar bypasses the confirm (direct dispatch ativar:true). Every write via the 29-01 hooks (feedback ownership split — the hook toasts + maps LAST_ADMIN + invalidates; the table only swallows the rejection, no double-toast). Anti-lockout (USR-07 UX, T-29-08) derived from rows (role==='administrador' && ativo, count===1): last-active-admin row disables Desativar + the EditarPapelDialog demote (→recrutador) "Salvar papel" with the TriagemTable `<span className=inline-flex>` keyboard-safe disabled-tooltip idiom; the Phase-28 BEFORE UPDATE/DELETE trigger LAST_ADMIN is the authoritative backstop. Resetar-senha confirm is honest (dispatches an e-mail; current password stays valid — T-29-09, no lock claim). Legacy DB role (gerente/visualizador) normalized to 'recrutador' for the Select default + neutral-tint badge fallback. RTL 13/13 (Radix DropdownMenu/AlertDialog/Dialog/Select/Tooltip mocked native + within(row) scoping). 826/826 vitest, tsc flat 104.
 - [Phase 29/29-02 · USR-02]: NovoUsuarioDialog (UI-only) = bare RHF register/Controller + zodResolver(novoUsuarioSchema) (LoginRHPage idiom, NOT shadcn Form-field — 0 grep matches) dispatching action:'criar' via useCriarUsuario. Feedback ownership split: the HOOK toasts success/EMAIL_SEND_FAILED-warning + invalidates the roster; the DIALOG owns only the ERROR branch — EMAIL_EXISTS → setError('email') + stays open, VALIDATION/FORBIDDEN/NOT_FOUND/SERVER_ERROR → exact UI-SPEC pt-BR toast.error + stays open — and NEVER double-toasts. Dialog CLOSES on any mutateAsync resolve (success OR warning). Honest helper promises only what the EF does (resetPasswordForEmail, T-29-04); papel fixed Select {Recrutador, Administrador} default recrutador (T-29-05). Client Zod blocks the invoke before it happens. RTL tested over Radix Dialog/Select via native-equivalent mocks (repo idiom). 813/813 vitest, tsc flat 104.
 - [Phase 29/29-01 · USR-01..05]: console data layer (UI-only, no backend) = usuariosRhService — allowlist roster read `USUARIOS_RH_LIST_COLUMNS` (9 cols, NEVER wildcard, T-29-01) + 5 EF-backed writes through gerenciar-usuario-rh (T-29-02, client never writes usuarios_rh). Every EF error_code → `.details.error_code`; UNAUTHORIZED is a DISTINCT session-expired outcome; EMAIL_SEND_FAILED resolves success-with-warning (no throw). Client novoUsuarioSchema mirrors the EF `_shared/usuario-rh-schemas` `.strict()` criar branch verbatim — drift guard asserted in the 26-case contract test (safeParse under the shared schema). useUsuariosRh hooks invalidate `usuariosRhKeys.list()` on every mutation success (server-truth for anti-lockout). Flat feature layout per CONTEXT lock. 801/801 vitest, tsc flat 104.
@@ -109,10 +111,11 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-13T20:20:00Z
-Stopped at: Completed 29-03-PLAN.md (EditarPapelDialog + UsuariosRhTable — roster, badges, chip, '(você)', Ações menu, Ativar direct + Desativar/Resetar confirms, last-active-admin anti-lockout disable/tooltip)
+Last session: 2026-07-13T20:30:18Z
+Stopped at: Completed 29-04-PLAN.md (GestaoUsuariosPage composed + wired into ConfiguracoesPage; USR-01..05 Complete). Phase 29 code-complete across 29-01..04.
 Resume file: None
 
 ## Operator Next Steps
 
-- Execute the final Phase-29 plan: 29-04 (GestaoUsuariosPage — useUsuariosRh query + AsyncState + "Novo usuário" CTA, mounting UsuariosRhTable inside ConfiguracoesPage; route/RoleGuard/RHLayout preserved).
+- Phase 29 is code-complete (console live at `/rh/configuracoes`). Recommended next: `/gsd-secure-phase 29` (privilege-escalation surface — RoleGuard defense-in-depth + AsyncState no-blank + route/guard regression) and a `/gsd-verify-work` live UAT with admin `e2e.admin@beautysmile.com.br` (exercise USR-01..05 end-to-end; USR-02 creates the system's first `recrutador`).
+- Then execute Phase 30 (Meu Perfil RH — A37 self-service, SEG-03 anti-privilege-escalation): `/gsd-plan-phase 30`.
