@@ -48,6 +48,9 @@
         'supabase/functions/_shared/__tests__/prompt-loader.test.ts',
         'supabase/functions/_shared/__tests__/prompt-catch.test.ts',
         'supabase/functions/_shared/__tests__/cost-alerter-messages.test.ts',
+        // Phase 28 (gestão de usuários RH): the gerenciar-usuario-rh EF handler
+        // test uses https:// specifiers (Deno) → run under `deno test`, not Vitest.
+        'supabase/functions/gerenciar-usuario-rh/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
