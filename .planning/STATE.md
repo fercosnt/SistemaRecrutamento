@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: Completed 29-01-PLAN.md (usuarioRhSchemas + usuariosRhService allowlist read + 5 EF-backed writes + useUsuariosRh hooks + 26-case contract test)
-last_updated: "2026-07-13T19:52:37Z"
-last_activity: 2026-07-13 -- Phase 29 Plan 01 complete (console data layer)
+stopped_at: Completed 29-02-PLAN.md (NovoUsuarioDialog — RHF+Zod create form → action:'criar'; honest copy; EMAIL_EXISTS field / EMAIL_SEND_FAILED warning / pending disable)
+last_updated: "2026-07-13T20:05:00Z"
+last_activity: 2026-07-13 -- Phase 29 Plan 02 complete (NovoUsuarioDialog create form)
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 33
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 ## Current Position
 
 Phase: 29 (Console de Gestão de Usuários RH) — EXECUTING
-Plan: 2 of 4 (29-01 data layer complete)
+Plan: 3 of 4 (29-01 data layer + 29-02 NovoUsuarioDialog complete)
 Status: Executing Phase 29
-Last activity: 2026-07-13 -- Phase 29 Plan 01 complete (console data layer)
+Last activity: 2026-07-13 -- Phase 29 Plan 02 complete (NovoUsuarioDialog create form)
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 83%
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -62,6 +62,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 28 P05 | 2min | 2 tasks | 2 files |
 | Phase 28 P06 | 6min | 2 tasks | 2 files |
 | Phase 29 P01 | 5min | 3 tasks | 4 files |
+| Phase 29 P02 | 4min | 1 task | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M5 (segurança é o e
 - [Phase 28/28-05 · USR-07]: anti-lockout is a BEFORE UPDATE OR DELETE trigger with pg_advisory_xact_lock before the admin count(*) (defeats write-skew to 0 admins); fires inside the DEFINER RPC and for raw service_role, RAISE P0001 -> LAST_ADMIN. EF pre-count is friendly defense-in-depth; the trigger is the hard backstop.
 - [Phase 28/28-05 · USR-06]: gerir_usuario_rh_mutacao + criar_usuario_rh_com_audit are SECURITY DEFINER RPCs that mutate usuarios_rh AND write log_auditoria(categoria=usuario) in one tx (atomic); REVOKE EXECUTE from public/authenticated/anon; param names pinned verbatim to 28-06 EF .rpc() calls.
 - [Phase ?]: 28-06: gerenciar-usuario-rh EF is the single admin-gated write-path — authenticate (anon getUser) THEN authorize administrador-ONLY from usuarios_rh (no recrutador->rh normalization, role never from the JWT); .strict() discriminated-union body; RPC sites pinned to 28-05 sigs; 28-02 Deno test GREEN 9/9; deploy is 28-07.
+- [Phase 29/29-02 · USR-02]: NovoUsuarioDialog (UI-only) = bare RHF register/Controller + zodResolver(novoUsuarioSchema) (LoginRHPage idiom, NOT shadcn Form-field — 0 grep matches) dispatching action:'criar' via useCriarUsuario. Feedback ownership split: the HOOK toasts success/EMAIL_SEND_FAILED-warning + invalidates the roster; the DIALOG owns only the ERROR branch — EMAIL_EXISTS → setError('email') + stays open, VALIDATION/FORBIDDEN/NOT_FOUND/SERVER_ERROR → exact UI-SPEC pt-BR toast.error + stays open — and NEVER double-toasts. Dialog CLOSES on any mutateAsync resolve (success OR warning). Honest helper promises only what the EF does (resetPasswordForEmail, T-29-04); papel fixed Select {Recrutador, Administrador} default recrutador (T-29-05). Client Zod blocks the invoke before it happens. RTL tested over Radix Dialog/Select via native-equivalent mocks (repo idiom). 813/813 vitest, tsc flat 104.
 - [Phase 29/29-01 · USR-01..05]: console data layer (UI-only, no backend) = usuariosRhService — allowlist roster read `USUARIOS_RH_LIST_COLUMNS` (9 cols, NEVER wildcard, T-29-01) + 5 EF-backed writes through gerenciar-usuario-rh (T-29-02, client never writes usuarios_rh). Every EF error_code → `.details.error_code`; UNAUTHORIZED is a DISTINCT session-expired outcome; EMAIL_SEND_FAILED resolves success-with-warning (no throw). Client novoUsuarioSchema mirrors the EF `_shared/usuario-rh-schemas` `.strict()` criar branch verbatim — drift guard asserted in the 26-case contract test (safeParse under the shared schema). useUsuariosRh hooks invalidate `usuariosRhKeys.list()` on every mutation success (server-truth for anti-lockout). Flat feature layout per CONTEXT lock. 801/801 vitest, tsc flat 104.
 
 ### Pending Todos
@@ -105,8 +107,8 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-13T19:52:37Z
-Stopped at: Completed 29-01-PLAN.md (console data layer — usuarioRhSchemas + usuariosRhService + useUsuariosRh + contract test)
+Last session: 2026-07-13T20:05:00Z
+Stopped at: Completed 29-02-PLAN.md (NovoUsuarioDialog — RHF+Zod create form, honest copy, error_code → field/toast mapping, pending disable)
 Resume file: None
 
 ## Operator Next Steps
