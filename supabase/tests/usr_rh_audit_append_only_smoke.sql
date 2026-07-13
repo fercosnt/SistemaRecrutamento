@@ -115,7 +115,7 @@ END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_actor uuid := '28030006-0000-0000-0000-0000000000ac';
+DECLARE v_actor uuid := current_setting('smoke6.admin_uid', true)::uuid;  -- real admin user_id (usuarios_rh.updated_by/created_by are FK'd to auth.users)
         v_target uuid := '28030006-0000-0000-0000-000000000001'; v_n int;
 BEGIN
   IF current_setting('smoke6.ready', true) IS DISTINCT FROM 'y' THEN
@@ -143,7 +143,7 @@ END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_actor uuid := '28030006-0000-0000-0000-0000000000ac';
+DECLARE v_actor uuid := current_setting('smoke6.admin_uid', true)::uuid;  -- real admin user_id (usuarios_rh.updated_by/created_by are FK'd to auth.users)
         v_auth2 uuid; v_new uuid; v_n int;
 BEGIN
   IF current_setting('smoke6.ready', true) IS DISTINCT FROM 'y' THEN
@@ -178,7 +178,7 @@ END $$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_actor uuid := '28030006-0000-0000-0000-0000000000ac';
+DECLARE v_actor uuid := current_setting('smoke6.admin_uid', true)::uuid;  -- real admin user_id (usuarios_rh.updated_by/created_by are FK'd to auth.users)
         v_bogus uuid := '28030006-0000-0000-0000-0000000000ff';
         v_raised boolean := false; v_n int;
 BEGIN
@@ -304,7 +304,7 @@ END $$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', false);
 DO $$
-DECLARE v_actor uuid := '28030006-0000-0000-0000-0000000000ac';
+DECLARE v_actor uuid := current_setting('smoke6.admin_uid', true)::uuid;  -- real admin user_id (usuarios_rh.updated_by/created_by are FK'd to auth.users)
         v_target uuid := '28030006-0000-0000-0000-000000000001'; v_n int;
 BEGIN
   IF current_setting('smoke6.ready', true) IS DISTINCT FROM 'y' THEN
