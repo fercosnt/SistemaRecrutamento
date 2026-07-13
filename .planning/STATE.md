@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
-status: planning
-last_updated: "2026-07-13T04:00:00.000Z"
-last_activity: 2026-07-13
+status: executing
+stopped_at: "28-02 executado — RED harness A: RED Deno handler test (gerenciar-usuario-rh, 9 casos SEG-01/USR-02/USR-05/USR-06, module-not-found RED) + SEG-01 grep-guard no-service-role-src (GREEN). Commits 5c95629, 65e1aa9. Next: 28-03 (RED harness B — SQL smokes)."
+last_updated: "2026-07-13T04:49:47.000Z"
+last_activity: 2026-07-13 -- 28-02 concluído (RED harness A)
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 8
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -20,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 28 — Gestão de Usuários RH · Núcleo Seguro (pronta para planejar)
+**Current focus:** Phase 28 — Gestão de Usuários RH — Núcleo Seguro
 
 ## Current Position
 
-Phase: 28 of 30 (Gestão de Usuários RH — Núcleo Seguro)
-Plan: — (roadmap criado, plans TBD)
-Status: Ready to plan
-Last activity: 2026-07-13 — ROADMAP.md do M5 criado (3 fases, 28–30; 13/13 requirements mapeados, 0 unmapped)
+Phase: 28 (Gestão de Usuários RH — Núcleo Seguro) — EXECUTING
+Plan: 3 of 8 (28-01 ✓, 28-02 ✓)
+Status: Executing Phase 28
+Last activity: 2026-07-13 -- 28-02 concluído (RED harness A: Deno handler test RED + SEG-01 grep-guard GREEN)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 25%
 
 ## Roadmap (M5 — Phases 28–30)
 
