@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: "28-02 executado — RED harness A: RED Deno handler test (gerenciar-usuario-rh, 9 casos SEG-01/USR-02/USR-05/USR-06, module-not-found RED) + SEG-01 grep-guard no-service-role-src (GREEN). Commits 5c95629, 65e1aa9. Next: 28-03 (RED harness B — SQL smokes)."
-last_updated: "2026-07-13T04:49:47.000Z"
-last_activity: 2026-07-13 -- 28-02 concluído (RED harness A)
+stopped_at: "28-03 executado — RED harness B: 3 behavioral SQL smokes (usr_rh_seg02_smoke.sql SEG-02 roster-leak/own-row/admin-roster/SEC-09; usr_rh_anti_lockout_smoke.sql USR-07 last-admin P0001 + 2-session advisory-lock proof; usr_rh_audit_append_only_smoke.sql USR-06 atomic mutate+audit + append-only). Impersonated JWT, disposable fixtures, ROLLBACK-free cleanup — RED até 28-04/28-05 aplicarem e 28-08 rodar em PROD. Commits 3219e03, 00d4c8a, 5614728. Next: 28-04 (SEG-02 RLS rewrite + logs_auditoria append-only)."
+last_updated: "2026-07-13T05:06:30.000Z"
+last_activity: 2026-07-13 -- 28-03 concluído (RED harness B — SQL smokes)
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 8
-  completed_plans: 2
-  percent: 25
+  completed_plans: 3
+  percent: 38
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 ## Current Position
 
 Phase: 28 (Gestão de Usuários RH — Núcleo Seguro) — EXECUTING
-Plan: 3 of 8 (28-01 ✓, 28-02 ✓)
+Plan: 4 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓)
 Status: Executing Phase 28
-Last activity: 2026-07-13 -- 28-02 concluído (RED harness A: Deno handler test RED + SEG-01 grep-guard GREEN)
+Last activity: 2026-07-13 -- 28-03 concluído (RED harness B: 3 behavioral SQL smokes SEG-02/USR-07/USR-06, RED até apply)
 
-Progress: [██░░░░░░░░] 25%
+Progress: [████░░░░░░] 38%
 
 ## Roadmap (M5 — Phases 28–30)
 
