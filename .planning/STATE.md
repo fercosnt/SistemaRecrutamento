@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: M4 — Correção & Blindagem do Funil
-status: milestone_complete
-stopped_at: Milestone complete (Phase 27 was final phase)
-last_updated: 2026-07-12T21:18:01.036Z
-last_activity: 2026-07-12
+status: Awaiting next milestone
+stopped_at: "Completed 27-03-PLAN.md (CI-03 submit-candidatura test net + tsc re-pin 107->104). Next: BLOCKING 27-05 MCP apply (DBMIG-02 trigger + baseline/ledger)."
+last_updated: "2026-07-13T00:07:22.516Z"
+last_activity: 2026-07-13 — Milestone v4.0 completed and archived
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 43
   completed_plans: 43
-  percent: 83
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 ## Current Position
 
-Phase: 27
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-12
-
-Progress: [██████████] 95%
+Phase: Milestone v4.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-13 — Milestone v4.0 completed and archived
 
 ## Roadmap (M4 — Phases 22–27)
 
@@ -193,5 +191,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Phase 22 EXECUÇÃO COMPLETA — 6/6 plans (22-01 ✅ 22-02 ✅ 22-03 ✅ 22-04 ✅ 22-05 ✅ 22-06 ✅). A rede de testes está verde e o gate tsc travado no baseline REAL medido (133, não 290). Próximo: `/gsd-verify-work` (UAT) e/ou `/gsd-secure-phase 22`, depois avançar p/ Phase 23 (Ressurreição da Stack de IA, AI-01..07 + UX-07/09).
-- Nota p/ manutenção: tsconfig `paths` deve seguir sincronizado com `vite.config.ts resolve.alias` — ao adicionar novos componentes shadcn com specifier versionado, adicionar a entrada correspondente ou o TS2307 volta e o gate de 133 fica vermelho.
+- Start the next milestone with /gsd-new-milestone

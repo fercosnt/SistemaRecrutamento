@@ -74,6 +74,36 @@ EF resilience (per-call AI timeout + retry/backoff, devolutiva 5-dim parallel, `
 
 ---
 
+## Milestone: v4.0 — M4 Correção & Blindagem do Funil
+
+**Shipped:** 2026-07-13
+**Phases:** 6 (22–27) | **Plans:** 43
+
+### What Was Built
+- Closed every candidate-facing PII/gabarito leak (cognitive `gabarito_idx`, SJT `rubric`, essay verdict) via column REVOKE / SECURITY DEFINER reader RPCs, vaga-scoped SELECT policies, and IDOR closure on the privileged EFs — RLS row-level is never a column secret (P24).
+- Revived the silently-dead AI stack: the 7 `call_types` run real library prompts (not the 1-line stub), on a shared circuit breaker with retriable timeouts, a fail-open cost kill-switch, and NaN env guards; raw percentile removed from candidate + RH screens (P23).
+- Eliminated the M1→M2 drift: RH Kanban / Editar-Vaga / decisão now operate over enums+columns that exist, no reject escapes the audit trail (RNF-07a trigger), and the candidate reaches+completes every stage with a non-manipulable `pontuar_sjt`, reachable cognitive, and re-application after soft-delete (P25/P26).
+- Wired the regression net that would have caught every live defect: Deno EF corpus green in a blocking CI job, tsc gate pinned to a measured baseline (257→104), real client↔EF `.safeParse` contract tests, bundle + verify_jwt gates, and coverage of the sole sanctioned auto-reject (submit-candidatura knockout) (P22/P27).
+- Migrations ledger converged live (73/73 version+name exact, 0 drift/orphans/missing); the baseline-fill + from-zero rebuild *proof* is the single sanctioned deferral (DBMIG-01).
+
+### What Worked
+- **Pre-apply / at-review verification caught real regressions before prod damage.** Verifying the LIVE function body (`pg_get_functiondef`) before a re-authored `CREATE OR REPLACE` caught that the DBMIG-02 trigger migration — authored from the Phase-6 body — would have silently dropped the Phase-14 ENTREV-03 bias-review flag-guard; the migration was rewritten to preserve it. Separately, code review caught the DBMIG-02 backfill's WHERE clause corrupting every genuine knockout audit row (CR-01) — fixed, and the live-data integrity query confirmed **0 corrupted rows**. Neither reached a bad prod state.
+- **Behavioral SQL/EF smokes beat structural greps.** Impersonated-JWT + `SET ROLE authenticated` smokes caught two leaks that pg_policies/grep checks passed clean: a column REVOKE that is a no-op against a table-level GRANT (SEC-07), and an M1-era duplicate role-only policy that OR-defeated the new vaga-scoping (SEC-08) — both remediated same-day.
+
+### What Was Inefficient
+- **DBMIG-01 baseline-fill + clean-room rebuild needed infra the headless autonomous session lacked** (Docker / Supabase CLI-auth rebuild loop; `SUPABASE_ACCESS_TOKEN` unavailable) → the from-zero rebuild proof was deferred as an environment-gated sanctioned partial, even though the ledger-convergence half (the actual pgTAP/reproducibility unblock) landed and was verified live.
+
+### Key Lessons
+- **MCP `apply_migration` ledger drift is real and reconcilable.** It stamps a timestamp version-row, not the filename — the drift accumulated across M2–M4 converged in P27 by writing the correct version rows, not by re-running migrations.
+- **Live behavioral smokes > structural greps** for any RLS/column/policy claim: a green grep or pg_policies dump proves the object exists, not that the leak is closed; only an impersonated-role read proves the projection.
+- **Verify the live function body before `CREATE OR REPLACE`.** A migration re-authored from an old body silently reverts whatever the current live body added; diff against `pg_get_functiondef` first.
+
+### Cost Observations
+- Single `/gsd-autonomous` run (Opus 4.8, 1M context) drove all 6 phases discuss→plan→execute + milestone lifecycle. PROD landings (migrations via Supabase MCP `apply_migration`, EF redeploys via CLI) authorized by Fernando in the BLOCKING waves.
+- Gates at close: vitest 774/774 · tsc 104 · Deno EF corpus 192/0 · build 0.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -81,16 +111,20 @@ EF resilience (per-call AI timeout + retry/backoff, devolutiva 5-dim parallel, `
 | Milestone | Phases | Plans | Key Change |
 |-----------|--------|-------|------------|
 | v1.0 (M1 MVP Candidato) | 7 | 43 | First CI pipeline established; smoke-runtime gate pattern introduced (Phase 4.1); measure-first performance baseline |
+| v4.0 (M4 Correção & Blindagem) | 6 (22–27) | 43 | Behavioral SQL/EF smokes as the primary live-verification gate; MCP apply_migration + ledger reconcile (73/73); hardening-only milestone (no feature expansion) |
 
 ### Cumulative Quality
 
 | Milestone | Unit Tests | E2E (CI) | a11y |
 |-----------|-----------|----------|------|
 | v1.0 | 358 passing (Vitest) | full chromium green (31 passed / 0 failed) | 0 WCAG A/AA violations (5 public routes) |
+| v4.0 | 774 passing (Vitest) | Deno EF corpus 192/0 in a blocking CI job; tsc gate pinned 104 | WCAG AA held from v2.0 (no new axe work) |
 
 ### Top Lessons (Verified Across Milestones)
 
 1. Wire CI early — a green local runbook ≠ a green CI check. *(v1.0)*
 2. Fix shared-primitive defects once at the source; they cascade. *(v1.0)*
+3. Live behavioral smokes (impersonated JWT + `SET ROLE`) catch column/policy leaks that structural greps and unit tests pass clean. *(v4.0)*
+4. MCP `apply_migration` stamps a timestamp version-row, not the filename — ledger drift is real but reconcilable without re-running migrations. *(v4.0)*
 
 ---
