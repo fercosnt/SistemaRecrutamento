@@ -23,7 +23,7 @@ M5 é feature-work deliberadamente enxuto — **não** hardening. Depois de o M4
 M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
 
 - [x] **Phase 28: Gestão de Usuários RH — Núcleo Seguro** - EF privilegiada authenticate-THEN-authorize + RLS admin-only (auth-hook preservado) + auditoria append-only + guarda anti-lockout
-- [ ] **Phase 29: Console de Gestão de Usuários RH** - `administrador` lista, cria, muda papel, desativa/reativa e reseta senha de usuários RH pela UI real de `/rh/configuracoes`
+- [x] **Phase 29: Console de Gestão de Usuários RH** - `administrador` lista, cria, muda papel, desativa/reativa e reseta senha de usuários RH pela UI real de `/rh/configuracoes`
 - [ ] **Phase 30: Meu Perfil RH** - usuário RH edita o próprio nome/foto e troca a própria senha (re-auth), sem jamais poder escrever `role`
 
 ## Phase Details
