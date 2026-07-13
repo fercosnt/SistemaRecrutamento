@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       ai_call_logs: {
@@ -4355,6 +4380,17 @@ export type Database = {
         Args: { p_analise_id: string }
         Returns: Json
       }
+      criar_usuario_rh_com_audit: {
+        Args: {
+          p_actor: string
+          p_cargo: string
+          p_email: string
+          p_nome: string
+          p_papel: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
       generate_unique_vaga_slug: {
         Args: { p_exclude_id?: string; p_titulo: string }
@@ -4375,6 +4411,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      gerir_usuario_rh_mutacao: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_novo_papel?: string
+          p_target: string
+        }
+        Returns: undefined
       }
       get_avaliacao_status: {
         Args: { p_candidatura_id: string }
@@ -4469,6 +4514,7 @@ export type Database = {
           opcao_texto: string
         }[]
       }
+      is_active_rh_admin: { Args: never; Returns: boolean }
       limpar_logs_antigos: { Args: never; Returns: number }
       limpar_sessoes_expiradas: { Args: never; Returns: undefined }
       log_auditoria: {
@@ -4938,6 +4984,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       candidate_status: [
