@@ -15,6 +15,7 @@
  *   - SUCCESS / EMAIL_SEND_FAILED → the HOOK toasts (success or success-with-warning)
  *     and invalidates the roster; the dialog just CLOSES + resets (never double-toasts).
  *   - EMAIL_EXISTS → a FIELD error on `email`; the dialog STAYS open.
+ *   - UNAUTHORIZED → a DISTINCT expired-session toast (parity with the hook's toastRowError).
  *   - VALIDATION / FORBIDDEN / NOT_FOUND / SERVER_ERROR / unknown → the exact pt-BR
  *     `toast.error`; the dialog stays open for a retry.
  * Client-side Zod validation blocks the invoke before it happens (defense-in-depth).
@@ -98,6 +99,9 @@ export function NovoUsuarioDialog({ open, onOpenChange }: NovoUsuarioDialogProps
       }
       if (code === 'VALIDATION') {
         toast.error('Verifique os campos e tente novamente.')
+      } else if (code === 'UNAUTHORIZED') {
+        // Sessão expirada — paridade com o `toastRowError` do hook (distinta do balde genérico).
+        toast.error('Sua sessão expirou. Entre novamente.')
       } else if (code === 'FORBIDDEN') {
         toast.error('Você não tem permissão para esta ação.')
       } else if (code === 'NOT_FOUND') {

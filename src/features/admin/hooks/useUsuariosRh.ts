@@ -8,10 +8,12 @@
  *
  * Mapeamento de erro por `error_code` (carregado em `err.details.error_code` pelo
  * serviço): `LAST_ADMIN` → cópia do último-admin; `UNAUTHORIZED` → sessão-expirada
- * DISTINTA (não o balde genérico); demais → cópia genérica. `EMAIL_SEND_FAILED` é
- * sucesso-com-aviso (`toast.warning`, não erro). Os erros do CRIAR NÃO são toastados
- * aqui — o dialog é dono deles (roteamento de `EMAIL_EXISTS` → campo email via
- * `mutateAsync` + try/catch).
+ * DISTINTA (não o balde genérico); `EMAIL_SEND_FAILED` → `toast.warning` (a EF retorna
+ * a falha de envio do reset como 502 → a mutação REJEITA, então o aviso vive na trilha
+ * de erro, NÃO no `onSuccess`); demais → cópia genérica. O `EMAIL_SEND_FAILED` do CRIAR
+ * é OUTRO caso: lá a EF responde 201 (sucesso-com-aviso) e o `onSuccess` de `criar` o
+ * toasta. Os erros do CRIAR NÃO são toastados aqui — o dialog é dono deles (roteamento
+ * de `EMAIL_EXISTS` → campo email via `mutateAsync` + try/catch).
  *
  * @module features/admin/hooks/useUsuariosRh
  * @see src/features/admin/bias-audit/hooks/useBiasAudit.ts (keys + query + mutation + invalidate)
@@ -50,6 +52,12 @@ function toastRowError(err: unknown): void {
     toast.error('Não é possível remover o último administrador ativo do sistema.')
   } else if (code === 'UNAUTHORIZED') {
     toast.error('Sua sessão expirou. Entre novamente.')
+  } else if (code === 'EMAIL_SEND_FAILED') {
+    // A ação em si teve sucesso no servidor, mas o e-mail (reset) não foi enviado —
+    // um aviso, não uma falha. A EF entrega isto como 502 → chega pelo `onError`.
+    toast.warning(
+      'Não foi possível enviar o e-mail de redefinição agora. Tente novamente em instantes.',
+    )
   } else {
     toast.error('Não foi possível concluir a ação. Tente novamente.')
   }
@@ -118,20 +126,18 @@ export function useAtivarDesativar() {
 }
 
 /**
- * Dispara o reset de senha (USR-05). Sucesso → toast + invalidate; `EMAIL_SEND_FAILED`
- * → `toast.warning`; erro → toast mapeado.
+ * Dispara o reset de senha (USR-05). Sucesso → toast + invalidate. A EF retorna a falha
+ * de envio do e-mail como 502 → a mutação REJEITA e `toastRowError` mapeia
+ * `EMAIL_SEND_FAILED` para um `toast.warning` (não o balde genérico). Por isso NÃO há
+ * ramo de `warning` no `onSuccess` aqui — ele seria código morto (o 502 nunca resolve).
  */
 export function useResetarSenha() {
   const queryClient = useQueryClient()
   return useMutation<WriteResult, Error, string>({
     mutationKey: [...usuariosRhKeys.all, 'resetar-senha'],
     mutationFn: (targetId) => resetarSenha(targetId),
-    onSuccess: (result) => {
-      if (result.warning === 'EMAIL_SEND_FAILED') {
-        toast.warning('Não foi possível enviar o e-mail de redefinição agora. Tente novamente em instantes.')
-      } else {
-        toast.success('E-mail de redefinição de senha enviado.')
-      }
+    onSuccess: () => {
+      toast.success('E-mail de redefinição de senha enviado.')
       void queryClient.invalidateQueries({ queryKey: usuariosRhKeys.list() })
     },
     onError: toastRowError,

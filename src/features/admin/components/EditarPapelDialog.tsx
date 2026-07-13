@@ -9,10 +9,16 @@
  *
  * Anti-lockout (USR-07 UX): when `isLastActiveAdmin` is true and the chosen value would
  * DEMOTE the last active administrador (administrador → recrutador), the "Salvar papel"
- * action is DISABLED and carries the keyboard-reachable tooltip idiom
- * (`<span className="inline-flex">` wrapper, TriagemTable :250-263) so the tooltip stays
- * focus-reachable on the disabled control. The EF/trigger `LAST_ADMIN` guard (Phase 28)
+ * action is DISABLED. The disabled control is wrapped in a `<span className="inline-flex">`
+ * that we make ACTUALLY keyboard/SR-reachable — `tabIndex={0}` + `aria-disabled` + a `title`
+ * carrying the reason — improving on the bare mouse-only TriagemTable idiom (:250-263), so
+ * the reason is announced without a mouse. The EF/trigger `LAST_ADMIN` guard (Phase 28)
  * remains authoritative; this client hint is UX only — a race falls back to the server toast.
+ *
+ * Per-row remount hygiene: the dialog is rendered once per row and never unmounts, so the
+ * RHF default seeds only at mount. `reset({ novo_papel })` runs on every `open` to re-sync
+ * the Select to the LIVE role — otherwise a cancelled-then-reopened dialog would show a
+ * stale uncommitted selection (and arm the demote guard from stale input).
  *
  * A legacy/unknown DB role (gerente/visualizador) is normalized to 'recrutador' for the
  * control default (the console only assigns the two-value enum), keeping the label honest.
@@ -20,8 +26,10 @@
  * @module features/admin/components/EditarPapelDialog
  * @see src/features/admin/hooks/useUsuariosRh.ts (useMudarPapel — success/LAST_ADMIN toasts + invalidate)
  * @see src/features/config-vaga/components/BulkMarkDialog.tsx (glass Dialog shell analog)
- * @see src/features/triagem/components/TriagemTable.tsx (keyboard-safe disabled-tooltip idiom :250-263)
+ * @see src/features/admin/components/NovoUsuarioDialog.tsx (reset-on-open/close/success analog)
+ * @see src/features/triagem/components/TriagemTable.tsx (disabled-tooltip idiom :250-263 — mouse-only; we harden it here)
  */
+import { useEffect } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
@@ -86,10 +94,16 @@ export function EditarPapelDialog({
   const mudarPapel = useMudarPapel()
   const currentPapel = normalizePapel(user.role)
 
-  const { handleSubmit, control, watch } = useForm<EditarPapelForm>({
+  const { handleSubmit, control, watch, reset } = useForm<EditarPapelForm>({
     resolver: zodResolver(editarPapelSchema) as Resolver<EditarPapelForm>,
     defaultValues: { novo_papel: currentPapel },
   })
+
+  // O dialog é por-linha e nunca desmonta → re-sincroniza o Select ao papel LIVE a cada
+  // abertura (senão um cancelar-e-reabrir mostraria a seleção obsoleta não confirmada).
+  useEffect(() => {
+    if (open) reset({ novo_papel: normalizePapel(user.role) })
+  }, [open, user.role, reset])
 
   const selected = watch('novo_papel')
 
@@ -180,7 +194,17 @@ export function EditarPapelDialog({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-flex">{saveButton}</span>
+                    {/* Focusable + announced: a disabled control swallows focus, so the
+                        wrapper carries tabIndex/aria-disabled/title → the reason reaches
+                        keyboard + SR users without a mouse (hardens the TriagemTable idiom). */}
+                    <span
+                      className="inline-flex"
+                      tabIndex={0}
+                      aria-disabled="true"
+                      title={ANTI_LOCKOUT_TOOLTIP}
+                    >
+                      {saveButton}
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>{ANTI_LOCKOUT_TOOLTIP}</TooltipContent>
                 </Tooltip>

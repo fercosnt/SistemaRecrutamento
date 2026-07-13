@@ -17,14 +17,14 @@
  * Resetar senha (honest AlertDialog — states only that an e-mail is dispatched, T-29-09).
  *
  * Anti-lockout (USR-07 UX, T-29-08): `activeAdminCount` is derived from the loaded roster;
- * on the SINGLE active administrador's row, Desativar is disabled + the keyboard-reachable
- * tooltip (TriagemTable `<span className="inline-flex">` idiom) and the demote path is
- * blocked via `isLastActiveAdmin` passed to EditarPapelDialog. The EF/trigger LAST_ADMIN
- * (Phase 28) is the AUTHORITATIVE guard — the client hint is UX; a race falls back to the
- * server toast (the 29-01 hook maps LAST_ADMIN).
+ * on the SINGLE active administrador's row, Desativar is disabled and its `<span>` wrapper is
+ * made keyboard/SR-reachable (`tabIndex={0}` + `aria-disabled` + `title`) so the tooltip reason
+ * is announced without a mouse; the demote path is blocked via `isLastActiveAdmin` passed to
+ * EditarPapelDialog. The EF/trigger LAST_ADMIN (Phase 28) is the AUTHORITATIVE guard — the
+ * client hint is UX; a race falls back to the server toast (the 29-01 hook maps LAST_ADMIN).
  *
  * @module features/admin/components/UsuariosRhTable
- * @see src/features/triagem/components/TriagemTable.tsx (glass table + avatar disc + disabled-tooltip idiom)
+ * @see src/features/triagem/components/TriagemTable.tsx (glass table + avatar disc + disabled-tooltip idiom — mouse-only; hardened here)
  * @see src/components/pages/VagasRHPage.tsx (row-level DropdownMenu idiom)
  * @see src/features/decisao/components/RegistrarDecisaoForm.tsx (AlertDialog confirm + pending spinner)
  */
@@ -181,7 +181,7 @@ function UsuarioRow({ row, currentUserId, isLastActiveAdmin }: UsuarioRowProps) 
               'text-xs font-semibold',
               row.ativo
                 ? 'border-green-500/30 bg-green-500/20 text-green-300'
-                : 'border-white/20 bg-white/10 text-white/50',
+                : 'border-white/20 bg-white/10 text-white/70',
             )}
           >
             {row.ativo ? 'Ativo' : 'Inativo'}
@@ -229,7 +229,15 @@ function UsuarioRow({ row, currentUserId, isLastActiveAdmin }: UsuarioRowProps) 
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="inline-flex w-full">
+                      {/* Focusable + announced: the disabled item swallows focus, so the
+                          wrapper carries tabIndex/aria-disabled/title → the anti-lockout
+                          reason reaches keyboard + SR users without a mouse. */}
+                      <span
+                        className="inline-flex w-full"
+                        tabIndex={0}
+                        aria-disabled="true"
+                        title={ANTI_LOCKOUT_TOOLTIP}
+                      >
                         <DropdownMenuItem
                           disabled
                           className="w-full cursor-not-allowed text-red-300/60"
@@ -248,6 +256,7 @@ function UsuarioRow({ row, currentUserId, isLastActiveAdmin }: UsuarioRowProps) 
             ) : (
               <DropdownMenuItem
                 onClick={handleAtivar}
+                disabled={ativarDesativar.isPending}
                 className="cursor-pointer hover:bg-white/10"
               >
                 <UserCheck className="mr-2 h-4 w-4" aria-hidden="true" />

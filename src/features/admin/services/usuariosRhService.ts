@@ -139,6 +139,9 @@ async function invokeWrite(
     throw toServiceError(error_code, { error_code, raw: error })
   }
 
+  // Forward-compat guard: today the EF signals failure via a non-2xx status (`error` above),
+  // so a 2xx body with `ok:false` is currently unreachable. Kept intentionally for a future
+  // EF shape that reports failures in a 200 envelope — do NOT remove (IN-02).
   if (data && (data as { ok?: boolean }).ok === false) {
     const field = (data as { field?: string }).field
     throw toServiceError(error_code, { error_code, field, raw: data })
