@@ -21,7 +21,7 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 - [ ] **USR-04**: `administrador` desativa/reativa um usuário RH (soft, sem hard-delete); um usuário desativado não consegue mais acessar o painel RH. `(A14)`
 - [ ] **USR-05**: `administrador` dispara um reset de senha para um usuário RH (o usuário recebe o caminho de redefinição). `(A14)`
 - [x] **USR-06**: Toda ação de gestão de usuários (criar, mudar papel, desativar/reativar, reset) grava uma trilha de auditoria append-only (ator, alvo, ação, timestamp). `(A14, LGPD)`
-- [ ] **USR-07**: Guarda anti-lockout server-enforced — o sistema impede remover, rebaixar ou desativar o **último `administrador` ativo**. `(A14)`
+- [x] **USR-07**: Guarda anti-lockout server-enforced — o sistema impede remover, rebaixar ou desativar o **último `administrador` ativo**. `(A14)`
 
 ### 🙋 PERFIL — Meu Perfil RH (A37)
 
@@ -79,7 +79,7 @@ Qual fase cobre qual requirement. Preenchido na criação do roadmap.
 | USR-04 | Phase 29 | Pending |
 | USR-05 | Phase 29 | Pending |
 | USR-06 | Phase 28 | Complete |
-| USR-07 | Phase 28 | Pending |
+| USR-07 | Phase 28 | Complete |
 | PERFIL-01 | Phase 30 | Pending |
 | PERFIL-02 | Phase 30 | Pending |
 | PERFIL-03 | Phase 30 | Pending |

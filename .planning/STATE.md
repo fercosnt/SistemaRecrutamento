@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: "ROADMAP.md do M5 criado (3 fases 28–30, 13/13 reqs mapeados) + REQUIREMENTS.md traceability preenchida + STATE.md atualizado. Next: `/gsd-plan-phase 28`."
-last_updated: "2026-07-13T05:17:09.558Z"
+stopped_at: Completed 28-05-PLAN.md (USR-07 anti-lockout trigger + USR-06 atomic mutate+audit RPCs authored; PROD apply is 28-07)
+last_updated: "2026-07-13T05:25:16.036Z"
 last_activity: 2026-07-13
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 8
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 ## Current Position
 
 Phase: 28 (Gestão de Usuários RH — Núcleo Seguro) — EXECUTING
-Plan: 5 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓)
+Plan: 6 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓, 28-04 ✓, 28-05 ✓)
 Status: Ready to execute
 Last activity: 2026-07-13
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 63%
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -59,6 +59,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 
 *Updated after each plan completion.*
 | Phase 28 P04 | 12min | 2 tasks | 2 files |
+| Phase 28 P05 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M5 (segurança é o e
 - [M4/Phase 24 · SEC-11]: os stubs de `ConfiguracoesPage` (A14) e `MeuPerfilPage` (A37) foram gutados a empty-state/stub no M4 (RH shell + route + `RoleGuard` mantidos) — o M5 preenche o conteúdo real (P29/P30).
 - [Phase ?]: [Phase 28/28-04 · SEG-02]: usuarios_rh roster is admin-only via is_active_rh_admin() plpgsql DEFINER predicate; own-row SELECT preserved as live 'RH pode ler seu proprio perfil' (not duplicated); self-promotion UPDATE policy dropped (SEG-03 early close).
 - [Phase ?]: [Phase 28/28-04 · USR-06]: logs_auditoria append-only (drop forgeable authenticated INSERT + REVOKE writes); limpar_logs_antigos() byte-preserved diff excludes categoria usuario/seguranca from the 730-day purge.
+- [Phase 28/28-05 · USR-07]: anti-lockout is a BEFORE UPDATE OR DELETE trigger with pg_advisory_xact_lock before the admin count(*) (defeats write-skew to 0 admins); fires inside the DEFINER RPC and for raw service_role, RAISE P0001 -> LAST_ADMIN. EF pre-count is friendly defense-in-depth; the trigger is the hard backstop.
+- [Phase 28/28-05 · USR-06]: gerir_usuario_rh_mutacao + criar_usuario_rh_com_audit are SECURITY DEFINER RPCs that mutate usuarios_rh AND write log_auditoria(categoria=usuario) in one tx (atomic); REVOKE EXECUTE from public/authenticated/anon; param names pinned verbatim to 28-06 EF .rpc() calls.
 
 ### Pending Todos
 
@@ -98,8 +101,8 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-13T05:17:09.552Z
-Stopped at: ROADMAP.md do M5 criado (3 fases 28–30, 13/13 reqs mapeados) + REQUIREMENTS.md traceability preenchida + STATE.md atualizado. Next: `/gsd-plan-phase 28`.
+Last session: 2026-07-13T05:25:09.186Z
+Stopped at: Completed 28-05-PLAN.md (USR-07 anti-lockout trigger + USR-06 atomic mutate+audit RPCs authored; PROD apply is 28-07)
 Resume file: None
 
 ## Operator Next Steps
