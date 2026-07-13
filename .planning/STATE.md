@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.0
-milestone_name: M4 — Correção & Blindagem do Funil
-status: Awaiting next milestone
-stopped_at: "Completed 27-03-PLAN.md (CI-03 submit-candidatura test net + tsc re-pin 107->104). Next: BLOCKING 27-05 MCP apply (DBMIG-02 trigger + baseline/ledger)."
-last_updated: "2026-07-13T00:07:22.516Z"
-last_activity: 2026-07-13 — Milestone v4.0 completed and archived
+milestone: v5.0
+milestone_name: M5 — Gestão de Usuários & Perfil RH
+status: planning
+last_updated: "2026-07-13T03:11:34.148Z"
+last_activity: 2026-07-13
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 43
-  completed_plans: 43
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-05 — M4/v4.0 kickoff)
 
 ## Current Position
 
-Phase: Milestone v4.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-13 — Milestone v4.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-13 — Milestone v5.0 started
 
 ## Roadmap (M4 — Phases 22–27)
 
