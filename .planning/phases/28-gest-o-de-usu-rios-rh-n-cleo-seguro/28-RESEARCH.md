@@ -469,22 +469,22 @@ REVOKE INSERT, UPDATE, DELETE ON public.logs_auditoria FROM authenticated, anon;
 
 ## Open Questions
 
-1. **Is custom SMTP configured, and what is the auth-email rate limit?**
+1. **Is custom SMTP configured, and what is the auth-email rate limit?** (RESOLVED: EF treats email-send failure as non-fatal EMAIL_SEND_FAILED — 28-06; Wave-0 A3 verifies SMTP config/rate limit)
    - What we know: candidate/RH `resetPasswordForEmail` works today; built-in is 2/hr, custom defaults to 30/hr.
    - What's unclear: whether the project is on built-in or custom SMTP.
    - Recommendation: verify in Supabase dashboard (Auth → SMTP + Rate Limits) during Wave 0; make the EF treat email-send failure as non-fatal (`EMAIL_SEND_FAILED` warning, account already created; USR-05 retries).
 
-2. **Retention of user-management audit rows vs `limpar_logs_antigos()`.**
+2. **Retention of user-management audit rows vs `limpar_logs_antigos()`.** (RESOLVED: 28-04 redefines limpar_logs_antigos() to exclude the usuario/seguranca categories from the purge; 28-01 Wave-0 captures its verbatim body first)
    - What we know: `limpar_logs_antigos()` deletes `severidade IN ('info','aviso')` older than 730 days; there's no confirmed scheduler.
    - What's unclear: whether USR-06 requires indefinite retention.
    - Recommendation: log user-management actions at `critico` (role change, deactivate) / `aviso` (reactivate) and, if indefinite retention is required, exclude `categoria IN ('usuario','seguranca')` from `limpar_logs_antigos` (a tiny, in-scope hardening).
 
-3. **Live triggers on `usuarios_rh` (does a fresh insert fire anything that can fail?).**
+3. **Live triggers on `usuarios_rh` (does a fresh insert fire anything that can fail?).** (RESOLVED: 28-01 Wave-0 pg_get_triggerdef on usuarios_rh — A5)
    - What we know: `docs/sql/03` declares `update_usuarios_rh_updated_at` (BEFORE UPDATE) and `trigger_criar_preferencias_padrao` (AFTER INSERT); 0 RH rows have ever been created through the app.
    - What's unclear: whether the AFTER INSERT trigger (and its target table/function) still exist and succeed.
    - Recommendation: Wave 0 `pg_get_triggerdef` on `usuarios_rh`; if the preferences trigger references a missing table, drop it or make the create RPC resilient.
 
-4. **`cargo`/`nome_completo` for `criar` (NOT NULL).**
+4. **`cargo`/`nome_completo` for `criar` (NOT NULL).** (RESOLVED: 28-06 Zod criar requires nome_completo + cargo — Pitfall 8)
    - What we know: both are NOT NULL; USR-02 is framed as "email + papel".
    - Recommendation: the `criar` Zod input includes `nome_completo` + `cargo` (P29 form provides them). Coordinate the request contract with Phase 29 now so the EF isn't reworked later.
 

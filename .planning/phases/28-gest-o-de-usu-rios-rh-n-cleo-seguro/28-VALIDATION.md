@@ -49,7 +49,10 @@ created: 2026-07-13
 | USR-07 | Demote/deactivate/delete the **last** active admin → raises `LAST_ADMIN` (P0001), 0 mutation | T-DoS | SQL smoke (single-admin fixture) | PROD smoke | ❌ W0 | ⬜ pending |
 | USR-07 | Concurrency: two parallel demotions → exactly one succeeds, ≥1 admin remains (advisory-lock) | T-DoS | SQL smoke (2 sessions) | PROD smoke | ❌ W0 | ⬜ pending |
 | USR-06 | DB-only mutation writes row change **and** one `logs_auditoria` row (`categoria='usuario'`) atomically; forced failure rolls back both | T-Repud | SQL smoke (disposable fixture) | PROD smoke | ❌ W0 | ⬜ pending |
+| USR-06 | `criar_usuario_rh_com_audit` writes exactly one `logs_auditoria` row (`categoria='usuario'`, `acao='criar'`) atomically (create path, not only `ativar`) | T-Repud | SQL smoke (disposable fixture) | PROD smoke | ❌ W0 | ⬜ pending |
+| USR-06 | `resetar_senha` audited best-effort (GoTrue-side): exactly one `logs_auditoria` row (`categoria='usuario'`, `acao='resetar_senha'`) — Deno spy (28-02) + audit-row-shape SQL smoke (28-03) | T-Repud | Deno test + SQL smoke | `deno test …` / PROD smoke | ❌ W0 | ⬜ pending |
 | USR-06 | Candidato/recrutador JWT cannot INSERT/UPDATE/DELETE `logs_auditoria`; admin cannot UPDATE/DELETE either (append-only) | T-Tamper | SQL smoke | PROD smoke | ❌ W0 | ⬜ pending |
+| USR-06 | Retention: `limpar_logs_antigos()` excludes `categoria IN ('usuario','seguranca')` — a `categoria='usuario'` row survives a simulated purge | T-Tamper | SQL smoke (disposable fixture) | PROD smoke | ❌ W0 | ⬜ pending |
 | USR-02* | `criar` orphan-rollback: forced `usuarios_rh` insert failure → `deleteUser` called (no orphan GoTrue user) | T-Integrity | Deno test (mock admin.* + rpc) | `deno test …` | ❌ W0 | ⬜ pending |
 | USR-05* | Recovery email path: `resetPasswordForEmail` invoked w/ correct `redirectTo`; send-failure → `EMAIL_SEND_FAILED` non-fatal | T-Info | Deno test | `deno test …` | ❌ W0 | ⬜ pending |
 
@@ -59,9 +62,9 @@ created: 2026-07-13
 
 ## Wave 0 Requirements
 
-- [ ] **Live-state capture** (resolves RESEARCH A1–A6): `pg_policies` on `usuarios_rh` + `logs_auditoria`; `pg_get_functiondef('custom_access_token_hook')`; `pg_get_triggerdef` on `usuarios_rh`; active-admin `count(*)`; function owners. Write `28-LIVE-STATE.md` (M4 24-01 discipline).
-- [ ] `supabase/functions/gerenciar-usuario-rh/__tests__/index.test.ts` — SEG-01 auth/authz + USR-02 rollback + email path (injected deps, per `consolidar-decisao-final` precedent).
-- [ ] SQL smoke harness for SEG-02 (roster leak), USR-07 (last-admin + concurrency), USR-06 (atomic audit + append-only) — impersonated JWT, disposable fixtures, cleanup.
+- [ ] **Live-state capture** (resolves RESEARCH A1–A6): `pg_policies` on `usuarios_rh` + `logs_auditoria`; `pg_get_functiondef('custom_access_token_hook')`; `pg_get_functiondef('limpar_logs_antigos')`; `pg_get_triggerdef` on `usuarios_rh`; active-admin `count(*)`; function owners. Write `28-LIVE-STATE.md` (M4 24-01 discipline).
+- [ ] `supabase/functions/gerenciar-usuario-rh/__tests__/index.test.ts` — SEG-01 auth/authz + USR-02 rollback + email path + resetar_senha best-effort audit (injected deps, per `consolidar-decisao-final` precedent).
+- [ ] SQL smoke harness for SEG-02 (roster leak), USR-07 (last-admin + concurrency), USR-06 (atomic audit for ativar + criar, resetar_senha audit-shape, append-only, retention exclusion) — impersonated JWT, disposable fixtures, cleanup.
 - [ ] Grep-guard extension: no service_role / privileged client in `src/` (SEG-01).
 
 ---
