@@ -7,10 +7,11 @@
 - 🔧 **Standalone (pós-v2.0)** — Phase 17 (Navegação & Arquitetura de Informação) — mini-fase fora de milestone (shipped 2026-06-28)
 - ✅ **v3.0 — M3 Refinamento RH & Hardening** — Phases 18–21 (shipped 2026-06-30)
 - ✅ **v4.0 — M4 Correção & Blindagem do Funil** — Phases 22–27 (shipped 2026-07-13)
+- 🚧 **v5.0 — M5 Gestão de Usuários & Perfil RH** — Phases 28–30 (em andamento)
 
 ## Overview
 
-M4 é hardening/correção do funil ponta-a-ponta — **não** expansão. Depois de M1–M3 terem construído e resfriado o produto, duas auditorias adversariais (56 achados técnicos + 74 recs de produto de 6 personas) expuseram o débito estrutural: gabarito/PII legíveis por RLS row-level, uma stack de IA silenciosamente morta, o drift M1→M2 (enums mortos, colunas fantasma, contratos quebrados, scoring manipulável), migrations que não reconstroem o banco, e a ausência da rede de testes que teria pego cada defeito live. O milestone fecha isso em 6 fases: primeiro a rede de testes/CI + typecheck destravado + a varredura de honestidade imediata (P22); depois ressuscita a IA (P23); blinda toda a superfície de PII/gabarito/IDOR (P24); corrige o funil pelo lado RH (P25) e pelo lado candidato (P26); e fecha com a reconstrução de migrations + o endurecimento da rede de testes sobre o código já corrigido (P27). Invariante em todas as fases: **IA recomenda, humano decide** — o sistema nunca auto-rejeita por score (RNF-07a), a linguagem é "avaliação comportamental/cognitiva" (RNF-12a).
+M5 é feature-work deliberadamente enxuto — **não** hardening. Depois de o M4 ter corrigido e blindado o funil ponta-a-ponta, o M5 implementa de verdade as duas telas de gestão de contas internas que os milestones anteriores deixaram apenas gateadas/ocultadas: **A14 · Gestão de Usuários RH** (`/rh/configuracoes`, hoje um empty-state) e **A37 · Meu Perfil RH** (`/rh/meu-perfil`, hoje um stub). O eixo é **segurança** — A14/A37 são superfície de escalonamento de privilégio (criar usuário, atribuir o papel `administrador`, resetar senha de terceiro), então toda escrita privilegiada roda numa Edge Function service_role **authenticate-THEN-authorize** (nunca service_role no client), sobre um `usuarios_rh` com RLS admin-only que **preserva** a policy `auth_admin_le_usuarios_rh` da qual o `custom_access_token_hook` depende (declarada em migration file no M4/SEC-09 — não re-migrar), com LGPD via soft-delete/desativação + trilha de auditoria append-only e uma guarda anti-lockout server-enforced. O milestone entrega isso em 3 fases: primeiro o núcleo seguro (EF + RLS + auditoria + anti-lockout), securável isoladamente antes de qualquer UI (P28); depois o console de administração que consome esse write-path seguro (P29); e por fim o self-service de perfil, de menor privilégio, com anti-privilege-escalation — o perfil **nunca** escreve `role` (P30). A visão maior "Operação & Comunicação" do M5-DRAFT foi resequenciada p/ **M6**.
 
 ## Phases
 
@@ -19,7 +20,54 @@ M4 é hardening/correção do funil ponta-a-ponta — **não** expansão. Depois
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-M4 continua a numeração a partir da **Phase 22** (M3 terminou na Phase 21).
+M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
+
+- [ ] **Phase 28: Gestão de Usuários RH — Núcleo Seguro** - EF privilegiada authenticate-THEN-authorize + RLS admin-only (auth-hook preservado) + auditoria append-only + guarda anti-lockout
+- [ ] **Phase 29: Console de Gestão de Usuários RH** - `administrador` lista, cria, muda papel, desativa/reativa e reseta senha de usuários RH pela UI real de `/rh/configuracoes`
+- [ ] **Phase 30: Meu Perfil RH** - usuário RH edita o próprio nome/foto e troca a própria senha (re-auth), sem jamais poder escrever `role`
+
+## Phase Details
+
+### 🚧 v5.0 — M5 Gestão de Usuários & Perfil RH (em andamento)
+
+**Milestone Goal:** Implementar de verdade a gestão de contas internas do RH (A14 + A37) — o feature-debt que o M4 deixou gateado/ocultado — com segurança como eixo: toda operação privilegiada roda numa Edge Function service_role authenticate-THEN-authorize, RLS preserva o auth-hook, e LGPD via soft-delete + auditoria. Cada fase que toca escrita de usuário é candidata a `/gsd-secure-phase`.
+
+### Phase 28: Gestão de Usuários RH — Núcleo Seguro
+**Goal**: Existe — e é comprovadamente seguro — o núcleo de servidor para gerir contas RH: uma Edge Function service_role que **autentica-DEPOIS-autoriza** toda escrita de usuário (criar / mudar papel / desativar-reativar / resetar senha de terceiro) sobre um `usuarios_rh` com RLS admin-only, com trilha de auditoria append-only e guarda anti-lockout server-enforced — zero service_role no client e a policy do auth-hook preservada.
+**Depends on**: Phase 27 (M4 shipped) — nada dentro do M5
+**Requirements**: USR-06, USR-07, SEG-01, SEG-02
+**Success Criteria** (what must be TRUE):
+  1. Toda escrita privilegiada de usuário (criar / mudar papel / desativar / reset) é servida por uma Edge Function service_role que retorna 401 para chamador não autenticado e 403 para chamador autenticado que **não** é `administrador`, **antes** de qualquer escrita — verificável por smoke com JWT impersonado (SEG-01).
+  2. Um `recrutador` ou candidato consultando `usuarios_rh` lê **zero** linhas (a lista é admin-only), enquanto um `administrador` lê a lista completa; a policy `auth_admin_le_usuarios_rh` de que o login-hook depende continua resolvendo o papel de todos os RH corretamente (SEG-02).
+  3. O servidor recusa remover, rebaixar ou desativar o **último `administrador` ativo** (retorna um erro distinto), garantindo ≥1 admin ativo a todo momento (USR-07).
+  4. Cada ação de gestão de usuários grava exatamente uma linha de auditoria imutável (ator, alvo, ação, timestamp) que não pode ser atualizada nem deletada — append-only (USR-06).
+  5. Nenhuma service_role key ou client admin aparece no bundle do cliente; todo caminho privilegiado roda apenas server-side (invariante SEG-01, verificável por grep-guard de bundle).
+**Plans**: TBD
+
+### Phase 29: Console de Gestão de Usuários RH
+**Goal**: O `administrador` opera o console real de gestão de usuários em `/rh/configuracoes` — lista os usuários RH e executa toda ação de conta ponta-a-ponta através do write-path seguro da Phase 28 (nunca escrevendo direto do client).
+**Depends on**: Phase 28
+**Requirements**: USR-01, USR-02, USR-03, USR-04, USR-05
+**Success Criteria** (what must be TRUE):
+  1. O `administrador` abre `/rh/configuracoes` e vê a lista real de usuários RH com nome, email, papel e status ativo/inativo (substituindo o empty-state de hoje) (USR-01).
+  2. O `administrador` cria um novo usuário RH (email + papel); o novo usuário define a própria senha e acessa o painel RH — exercitando a **primeira** conta `recrutador` do sistema (USR-02).
+  3. O `administrador` altera o papel de um usuário (`recrutador` ↔ `administrador`) e a mudança passa a valer no próximo acesso / JWT desse usuário (USR-03).
+  4. O `administrador` desativa um usuário RH e ele deixa de acessar o painel RH; ao reativá-lo, o acesso é restaurado — nenhuma identidade é jamais hard-deletada (USR-04).
+  5. O `administrador` dispara um reset de senha para um usuário RH e esse usuário recebe o caminho de redefinição (USR-05).
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 30: Meu Perfil RH
+**Goal**: Cada usuário RH gerencia o próprio perfil em `/rh/meu-perfil` — edita nome de exibição, troca a própria senha com re-autenticação (senha atual) e faz upload da própria foto — com a garantia dura de que esse caminho self-service **nunca** pode escalar um papel.
+**Depends on**: Phase 28 (compartilha `usuarios_rh` + o isolamento de escrita de `role` estabelecido lá)
+**Requirements**: PERFIL-01, PERFIL-02, PERFIL-03, SEG-03
+**Success Criteria** (what must be TRUE):
+  1. Um usuário RH edita o próprio nome de exibição e a mudança persiste e aparece ao longo do painel RH (PERFIL-01).
+  2. Um usuário RH troca a própria senha somente após informar a senha atual correta; senha atual errada é rejeitada (re-autenticação) (PERFIL-02).
+  3. Um usuário RH faz upload/troca da própria foto de perfil em storage privado, legível apenas por ele (RLS own-row), e a nova foto é exibida (PERFIL-03).
+  4. Nenhuma ação self-service — pela UI, pela API ou por RLS — escreve ou altera `role`; um `recrutador` não tem caminho para se auto-promover a `administrador` (SEG-03, verificável por smoke).
+**Plans**: TBD
+**UI hint**: yes
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -58,14 +106,14 @@ Hardening (não expansão) do funil de IA do M2 para uso real em PROD: resiliên
 
 Full detail archived in `milestones/v4.0-ROADMAP.md`. Requirements: `milestones/v4.0-REQUIREMENTS.md`. Audit: `milestones/v4.0-MILESTONE-AUDIT.md` (status tech_debt — 55/56 reqs Complete + DBMIG-01 sanctioned partial: ledger convergiu live 73/73, baseline+rebuild proof diferido environment-gated; 0 blockers, 0 orphans).
 
-Hardening/correção do funil ponta-a-ponta (**não** expansão) em 6 fases (43 plans): rede de testes/CI + typecheck destravado + varredura de honestidade candidate-facing (P22); ressurreição da stack de IA — 7 call_types rodam o prompt real com circuit breaker/retry/guardrails vivos + honestidade psicométrica (P23); blindagem PII/gabarito/IDOR — RLS nunca é segredo de coluna (column REVOKE / RPC SECURITY DEFINER), toda EF privilegiada autentica-**E**-autoriza, policies vaga-scoped (P24); correção do drift M1→M2 pelo lado RH — enums/colunas que existem, sem rejeição sem trilha (P25) e pelo lado candidato — alcançabilidade + `pontuar_sjt` não-manipulável + reinscrição pós soft-delete (P26); e integridade de migrations (ledger convergido) + fechamento da rede de testes sobre o código já corrigido (P27). Invariante: IA recomenda, humano decide (RNF-07a); linguagem "avaliação comportamental/cognitiva" (RNF-12a).
+Hardening/correção do funil ponta-a-ponta (**não** expansão) em 6 fases (43 plans): rede de testes/CI + typecheck destravado + varredura de honestidade candidate-facing (P22); ressurreição da stack de IA — 7 call_types rodam o prompt real com circuit breaker/retry/guardrails vivos + honestidade psicométrica (P23); blindagem PII/gabarito/IDOR — RLS nunca é segredo de coluna (column REVOKE / RPC SECURITY DEFINER), toda EF privilegiada autentica-**E**-autoriza, policies vaga-scoped (P24); correção do drift M1→M2 pelo lado RH — enums/colunas que existem, sem rejeição sem trilha (P25) e pelo lado candidato — alcançabilidade + `pontuar_sjt` não-manipulável + reinscrição pós soft-delete (P26); e integridade de migrations (ledger convergido) + fechamento da rede de testes sobre o código já corrigido (P27). Invariante: IA recomenda, humano decide (RNF-07a); linguagem "avaliação comportamental/cognitiva" (RNF-12a). A policy `auth_admin_le_usuarios_rh` foi declarada em migration file (SEC-09) — **base direta do M5, não re-migrar**.
 
 </details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
+Phases execute in numeric order: 28 → 29 → 30
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -73,12 +121,10 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 | 6–16 (M2) | v2.0 | 63/63 | Complete | 2026-06-26 |
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
-| 22. Rede de Testes & Destravamento | v4.0 | 6/6 | Complete    | 2026-07-05 |
-| 23. Ressurreição da Stack de IA | v4.0 | 6/6 | Complete    | 2026-07-06 |
-| 24. Blindagem Segurança / PII / LGPD | v4.0 | 9/9 | Complete   | 2026-07-09 |
-| 25. Funil — lado RH | v4.0 | 9/9 | Complete   | 2026-07-12 |
-| 26. Funil — lado candidato | v4.0 | 7/7 | Complete   | 2026-07-12 |
-| 27. Migrations & Rede de Testes | v4.0 | 6/6 | Complete    | 2026-07-12 |
+| 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
+| 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 0/TBD | Not started | - |
+| 29. Console de Gestão de Usuários RH | v5.0 | 0/TBD | Not started | - |
+| 30. Meu Perfil RH | v5.0 | 0/TBD | Not started | - |
 
 ---
 
@@ -86,3 +132,4 @@ Phases execute in numeric order: 22 → 23 → 24 → 25 → 26 → 27
 *v2.0 milestone shipped 2026-06-26 — full requirements and roadmap detail archived under `.planning/milestones/v2.0-*`. 11 phases (6–16), 42/42 requirements, audit PASSED.*
 *v3.0 milestone shipped 2026-06-30 — full requirements and roadmap detail archived under `.planning/milestones/v3.0-*`. 4 phases (18–21), 12/12 requirements, audit OK (tech_debt accepted). Phase 21 found+fixed 3 live PROD defects beyond the planned UAT scope.*
 *v4.0 milestone shipped 2026-07-13 — full requirements and roadmap detail archived under `.planning/milestones/v4.0-*`. 6 phases (22–27), 55/56 requirements Complete + DBMIG-01 sanctioned partial (ledger converged live 73/73; baseline+rebuild deferred environment-gated), audit status tech_debt (accepted). Hardening/correção, não expansão.*
+*v5.0 milestone opened 2026-07-13 — feature-work enxuto (A14 + A37, o feature-debt gateado/ocultado do M4), segurança como eixo. 3 phases (28–30), 13/13 requirements mapeados (0 unmapped). Numeração continua da Phase 28.*

@@ -73,25 +73,30 @@ Qual fase cobre qual requirement. Preenchido na criação do roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| USR-01 | Phase TBD | Pending |
-| USR-02 | Phase TBD | Pending |
-| USR-03 | Phase TBD | Pending |
-| USR-04 | Phase TBD | Pending |
-| USR-05 | Phase TBD | Pending |
-| USR-06 | Phase TBD | Pending |
-| USR-07 | Phase TBD | Pending |
-| PERFIL-01 | Phase TBD | Pending |
-| PERFIL-02 | Phase TBD | Pending |
-| PERFIL-03 | Phase TBD | Pending |
-| SEG-01 | Phase TBD | Pending |
-| SEG-02 | Phase TBD | Pending |
-| SEG-03 | Phase TBD | Pending |
+| USR-01 | Phase 29 | Pending |
+| USR-02 | Phase 29 | Pending |
+| USR-03 | Phase 29 | Pending |
+| USR-04 | Phase 29 | Pending |
+| USR-05 | Phase 29 | Pending |
+| USR-06 | Phase 28 | Pending |
+| USR-07 | Phase 28 | Pending |
+| PERFIL-01 | Phase 30 | Pending |
+| PERFIL-02 | Phase 30 | Pending |
+| PERFIL-03 | Phase 30 | Pending |
+| SEG-01 | Phase 28 | Pending |
+| SEG-02 | Phase 28 | Pending |
+| SEG-03 | Phase 30 | Pending |
 
 **Coverage:**
 - v1 requirements: 13 total (USR ×7 · PERFIL ×3 · SEG ×3)
-- Mapped to phases: 0 (roadmap pendente)
-- Unmapped: 13 ⚠️ (resolvido na criação do roadmap)
+- Mapped to phases: 13 ✓ (Phase 28 ×4 · Phase 29 ×5 · Phase 30 ×4)
+- Unmapped: 0 ✓
+
+**Por fase:**
+- **Phase 28 — Gestão de Usuários RH · Núcleo Seguro** (backend + segurança): USR-06, USR-07, SEG-01, SEG-02
+- **Phase 29 — Console de Gestão de Usuários RH** (A14 UI): USR-01, USR-02, USR-03, USR-04, USR-05
+- **Phase 30 — Meu Perfil RH** (A37 self-service): PERFIL-01, PERFIL-02, PERFIL-03, SEG-03
 
 ---
 
-*Escopo deliberadamente enxuto (A14 + A37). Segurança é o eixo — cada fase que toca escrita de usuário passa por `/gsd-secure-phase`. Numeração de fases continua a partir da **Phase 28** (M4 terminou na Phase 27).*
+*Escopo deliberadamente enxuto (A14 + A37). Segurança é o eixo — Phase 28 (núcleo seguro), Phase 29 (console A14) e Phase 30 (perfil A37) são candidatas a `/gsd-secure-phase`. Numeração de fases continua a partir da **Phase 28** (M4 terminou na Phase 27).*
