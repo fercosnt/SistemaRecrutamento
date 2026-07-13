@@ -20,7 +20,7 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 - [ ] **USR-03**: `administrador` altera o papel de um usuário RH (`recrutador` ↔ `administrador`), e a mudança reflete no JWT/role no próximo acesso. `(A14)`
 - [ ] **USR-04**: `administrador` desativa/reativa um usuário RH (soft, sem hard-delete); um usuário desativado não consegue mais acessar o painel RH. `(A14)`
 - [ ] **USR-05**: `administrador` dispara um reset de senha para um usuário RH (o usuário recebe o caminho de redefinição). `(A14)`
-- [ ] **USR-06**: Toda ação de gestão de usuários (criar, mudar papel, desativar/reativar, reset) grava uma trilha de auditoria append-only (ator, alvo, ação, timestamp). `(A14, LGPD)`
+- [x] **USR-06**: Toda ação de gestão de usuários (criar, mudar papel, desativar/reativar, reset) grava uma trilha de auditoria append-only (ator, alvo, ação, timestamp). `(A14, LGPD)`
 - [ ] **USR-07**: Guarda anti-lockout server-enforced — o sistema impede remover, rebaixar ou desativar o **último `administrador` ativo**. `(A14)`
 
 ### 🙋 PERFIL — Meu Perfil RH (A37)
@@ -36,7 +36,7 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 *Invariantes verificáveis pelo `/gsd-secure-phase` de cada fase.*
 
 - [ ] **SEG-01**: Toda escrita privilegiada de usuários (criar / mudar papel / desativar / reset de senha de terceiro) roda numa Edge Function service_role **authenticate-THEN-authorize** (`getUser()` → papel `administrador` → então age); zero operação com service_role no client-side. `(A14, invariante do projeto)`
-- [ ] **SEG-02**: RLS de `usuarios_rh` mantém "só `administrador` lê a lista / escreve"; `recrutador` e candidato não leem a lista de usuários; a policy `auth_admin_le_usuarios_rh` (dependência do auth-hook) é **preservada** (não removida/quebrada). `(A14, SEC-09-M4)`
+- [x] **SEG-02**: RLS de `usuarios_rh` mantém "só `administrador` lê a lista / escreve"; `recrutador` e candidato não leem a lista de usuários; a policy `auth_admin_le_usuarios_rh` (dependência do auth-hook) é **preservada** (não removida/quebrada). `(A14, SEC-09-M4)`
 - [ ] **SEG-03**: Anti-privilege-escalation — o caminho de perfil (A37) **nunca** altera `role`; nenhuma rota (UI/API/RLS) permite um `recrutador` se auto-promover a `administrador`. `(A37)`
 
 ## v2 Requirements
@@ -78,13 +78,13 @@ Qual fase cobre qual requirement. Preenchido na criação do roadmap.
 | USR-03 | Phase 29 | Pending |
 | USR-04 | Phase 29 | Pending |
 | USR-05 | Phase 29 | Pending |
-| USR-06 | Phase 28 | Pending |
+| USR-06 | Phase 28 | Complete |
 | USR-07 | Phase 28 | Pending |
 | PERFIL-01 | Phase 30 | Pending |
 | PERFIL-02 | Phase 30 | Pending |
 | PERFIL-03 | Phase 30 | Pending |
 | SEG-01 | Phase 28 | Pending |
-| SEG-02 | Phase 28 | Pending |
+| SEG-02 | Phase 28 | Complete |
 | SEG-03 | Phase 30 | Pending |
 
 **Coverage:**

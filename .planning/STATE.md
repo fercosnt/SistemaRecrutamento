@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: "28-03 executado — RED harness B: 3 behavioral SQL smokes (usr_rh_seg02_smoke.sql SEG-02 roster-leak/own-row/admin-roster/SEC-09; usr_rh_anti_lockout_smoke.sql USR-07 last-admin P0001 + 2-session advisory-lock proof; usr_rh_audit_append_only_smoke.sql USR-06 atomic mutate+audit + append-only). Impersonated JWT, disposable fixtures, ROLLBACK-free cleanup — RED até 28-04/28-05 aplicarem e 28-08 rodar em PROD. Commits 3219e03, 00d4c8a, 5614728. Next: 28-04 (SEG-02 RLS rewrite + logs_auditoria append-only)."
-last_updated: "2026-07-13T05:06:30.000Z"
-last_activity: 2026-07-13 -- 28-03 concluído (RED harness B — SQL smokes)
+stopped_at: "ROADMAP.md do M5 criado (3 fases 28–30, 13/13 reqs mapeados) + REQUIREMENTS.md traceability preenchida + STATE.md atualizado. Next: `/gsd-plan-phase 28`."
+last_updated: "2026-07-13T05:17:09.558Z"
+last_activity: 2026-07-13
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 8
-  completed_plans: 3
-  percent: 38
+  completed_plans: 4
+  percent: 0
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 ## Current Position
 
 Phase: 28 (Gestão de Usuários RH — Núcleo Seguro) — EXECUTING
-Plan: 4 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓)
-Status: Executing Phase 28
-Last activity: 2026-07-13 -- 28-03 concluído (RED harness B: 3 behavioral SQL smokes SEG-02/USR-07/USR-06, RED até apply)
+Plan: 5 of 8 (28-01 ✓, 28-02 ✓, 28-03 ✓)
+Status: Ready to execute
+Last activity: 2026-07-13
 
-Progress: [████░░░░░░] 38%
+Progress: [█████░░░░░] 50%
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -58,6 +58,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | 30 | TBD | - | - |
 
 *Updated after each plan completion.*
+| Phase 28 P04 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M5 (segurança é o e
 - [M2/Phases 6–15 · M4]: Migrations PROD via Supabase MCP `apply_migration`/`execute_sql` (bypassa 42601 em corpos PL/pgSQL `$$`; grava version row sozinho; no-BEGIN/COMMIT-wrapper) — caminho p/ as migrations de `usuarios_rh`/auditoria da P28.
 - [Projeto/invariante]: service_role NUNCA no client — toda escrita privilegiada server-side (SEG-01, guard de bundle).
 - [M4/Phase 24 · SEC-11]: os stubs de `ConfiguracoesPage` (A14) e `MeuPerfilPage` (A37) foram gutados a empty-state/stub no M4 (RH shell + route + `RoleGuard` mantidos) — o M5 preenche o conteúdo real (P29/P30).
+- [Phase ?]: [Phase 28/28-04 · SEG-02]: usuarios_rh roster is admin-only via is_active_rh_admin() plpgsql DEFINER predicate; own-row SELECT preserved as live 'RH pode ler seu proprio perfil' (not duplicated); self-promotion UPDATE policy dropped (SEG-03 early close).
+- [Phase ?]: [Phase 28/28-04 · USR-06]: logs_auditoria append-only (drop forgeable authenticated INSERT + REVOKE writes); limpar_logs_antigos() byte-preserved diff excludes categoria usuario/seguranca from the 730-day purge.
 
 ### Pending Todos
 
@@ -95,7 +98,7 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-13T04:00:00.000Z
+Last session: 2026-07-13T05:17:09.552Z
 Stopped at: ROADMAP.md do M5 criado (3 fases 28–30, 13/13 reqs mapeados) + REQUIREMENTS.md traceability preenchida + STATE.md atualizado. Next: `/gsd-plan-phase 28`.
 Resume file: None
 

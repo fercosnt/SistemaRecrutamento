@@ -46,7 +46,7 @@ M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
 - [x] 28-01-PLAN.md — Wave 0 live-state capture (pg_policies/hook/triggers/admin-count/owners → 28-LIVE-STATE.md; resolves A1–A6) [BLOCKING]
 - [x] 28-02-PLAN.md — RED harness A: EF Deno handler test (401/403/rollback/email) + SEG-01 no-service_role-in-src grep-guard
 - [x] 28-03-PLAN.md — RED harness B: 3 behavioral SQL smokes (SEG-02 roster leak · USR-07 last-admin · USR-06 atomic-audit/append-only)
-- [ ] 28-04-PLAN.md — SEG-02 RLS rewrite (drop qual=true leaks · is_active_rh_admin DEFINER helper · admin+own-row SELECT) + logs_auditoria append-only
+- [x] 28-04-PLAN.md — SEG-02 RLS rewrite (drop qual=true leaks · is_active_rh_admin DEFINER helper · admin+own-row SELECT) + logs_auditoria append-only
 - [ ] 28-05-PLAN.md — USR-07 advisory-lock anti-lockout trigger + USR-06 atomic mutate+audit RPCs (gerir_usuario_rh_mutacao · criar_usuario_rh_com_audit)
 - [ ] 28-06-PLAN.md — SEG-01 EF gerenciar-usuario-rh (authenticate-THEN-authorize, admin-only) + strict Zod discriminated-union schema
 - [ ] 28-07-PLAN.md — [BLOCKING] apply 4 migrations via Supabase MCP apply_migration + regen database.types.ts + deploy EF (JWT-ON)
@@ -130,7 +130,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 17 | standalone | 5/5 | Complete | 2026-06-28 |
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
-| 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 3/8 | In Progress|  |
+| 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 4/8 | In Progress|  |
 | 29. Console de Gestão de Usuários RH | v5.0 | 0/TBD | Not started | - |
 | 30. Meu Perfil RH | v5.0 | 0/TBD | Not started | - |
 
