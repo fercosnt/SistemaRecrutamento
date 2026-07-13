@@ -62,7 +62,11 @@ M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
   3. O `administrador` altera o papel de um usuário (`recrutador` ↔ `administrador`) e a mudança passa a valer no próximo acesso / JWT desse usuário (USR-03).
   4. O `administrador` desativa um usuário RH e ele deixa de acessar o painel RH; ao reativá-lo, o acesso é restaurado — nenhuma identidade é jamais hard-deletada (USR-04).
   5. O `administrador` dispara um reset de senha para um usuário RH e esse usuário recebe o caminho de redefinição (USR-05).
-**Plans**: TBD
+**Plans**: 4 plans / 3 waves
+- [ ] 29-01-PLAN.md — Wave 1 · data layer: usuarioRhSchemas + usuariosRhService (allowlist read + 5 EF-backed writes) + useUsuariosRh hooks + service/contract test
+- [ ] 29-02-PLAN.md — Wave 2 · NovoUsuarioDialog (RHF+Zod create form → action:'criar'; honest copy; EMAIL_EXISTS field / EMAIL_SEND_FAILED warning)
+- [ ] 29-03-PLAN.md — Wave 2 · EditarPapelDialog + UsuariosRhTable (roster, badges, Ações menu, Desativar/Resetar confirms, anti-lockout hint)
+- [ ] 29-04-PLAN.md — Wave 3 · GestaoUsuariosPage (query+AsyncState+CTA) wired into ConfiguracoesPage (route/RoleGuard/RHLayout preserved)
 **UI hint**: yes
 
 ### Phase 30: Meu Perfil RH
@@ -131,7 +135,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 8/8 | Complete   | 2026-07-13 |
-| 29. Console de Gestão de Usuários RH | v5.0 | 0/TBD | Not started | - |
+| 29. Console de Gestão de Usuários RH | v5.0 | 0/4 | Planned | - |
 | 30. Meu Perfil RH | v5.0 | 0/TBD | Not started | - |
 
 ---
