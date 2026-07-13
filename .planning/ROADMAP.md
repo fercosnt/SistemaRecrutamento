@@ -65,7 +65,7 @@ M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
 **Plans**: 4 plans / 3 waves
 - [x] 29-01-PLAN.md — Wave 1 · data layer: usuarioRhSchemas + usuariosRhService (allowlist read + 5 EF-backed writes) + useUsuariosRh hooks + service/contract test
 - [x] 29-02-PLAN.md — Wave 2 · NovoUsuarioDialog (RHF+Zod create form → action:'criar'; honest copy; EMAIL_EXISTS field / EMAIL_SEND_FAILED warning)
-- [ ] 29-03-PLAN.md — Wave 2 · EditarPapelDialog + UsuariosRhTable (roster, badges, Ações menu, Desativar/Resetar confirms, anti-lockout hint)
+- [x] 29-03-PLAN.md — Wave 2 · EditarPapelDialog + UsuariosRhTable (roster, badges, Ações menu, Desativar/Resetar confirms, anti-lockout hint)
 - [ ] 29-04-PLAN.md — Wave 3 · GestaoUsuariosPage (query+AsyncState+CTA) wired into ConfiguracoesPage (route/RoleGuard/RHLayout preserved)
 **UI hint**: yes
 
@@ -135,7 +135,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 8/8 | Complete   | 2026-07-13 |
-| 29. Console de Gestão de Usuários RH | v5.0 | 2/4 | Executing | - |
+| 29. Console de Gestão de Usuários RH | v5.0 | 3/4 | Executing | - |
 | 30. Meu Perfil RH | v5.0 | 0/TBD | Not started | - |
 
 ---
