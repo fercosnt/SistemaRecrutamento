@@ -1,7 +1,8 @@
 ---
 phase: 29
 slug: console-de-gest-o-de-usu-rios-rh
-status: draft
+status: approved
+reviewed_at: 2026-07-13
 shadcn_initialized: true
 preset: none (shadcn/ui already vendored in repo — no init/preset step)
 created: 2026-07-13
