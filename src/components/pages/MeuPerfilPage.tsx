@@ -1,45 +1,56 @@
 import { RHLayout } from '../RHLayout';
-import { GlassCard } from '../ui/glass';
-import { UserRound } from 'lucide-react';
+import { AsyncState } from '../ui/AsyncState';
+import { usePerfilRh } from '@/features/perfil-rh/hooks/usePerfilRh';
+import { PerfilSection } from '@/features/perfil-rh/components/PerfilSection';
+import { SenhaSection } from '@/features/perfil-rh/components/SenhaSection';
 
 interface MeuPerfilPageProps {
   onVoltar?: () => void;
 }
 
 /**
- * MeuPerfilPage (RH, /rh/perfil, A37) — gated behind an "em breve" empty-state.
+ * MeuPerfilPage (RH, /rh/perfil, A37) — the real self-service profile (M5 / Phase 30).
  *
- * UX-06: the previous content was stub save / senha / foto forms seeded with a hardcoded
- * fake user ("João Silva") whose submit handlers persisted nothing (all TODO(M5)). Per the
- * locked CONTEXT decision (remove, not disable), the stub forms are replaced with a single
- * centered empty-state.
- * The RH shell, the page header/title, the route, and the RoleGuard (rh/administrador)
- * are kept; real profile editing is deferred to M5.
+ * Replaces the M4 "Edição de perfil em breve" empty-state stub with the live profile:
+ * a Perfil section (name + avatar + read-only SEG-03 context) and a Senha section
+ * (password change with re-auth). The RH shell (single RHLayout owner), the page header,
+ * the route (`routes.tsx`), and the RoleGuard (rh/administrador) are UNCHANGED.
+ *
+ * The own-profile row loads via `usePerfilRh` (own-row allowlist read) and the whole body
+ * is gated by `<AsyncState>` (loading skeleton / error+retry / success) — never blank.
  */
 export function MeuPerfilPage(_props: MeuPerfilPageProps) {
+  const { data, isLoading, isError, refetch } = usePerfilRh();
+
   return (
     <RHLayout>
-      <div className="min-h-screen p-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Header — kept so the recruiter still knows where they are (UI-SPEC §2). */}
-          <div className="mb-8">
-            <h1 className="text-white drop-shadow-lg mb-2">Meu Perfil</h1>
-            <div className="h-px bg-white/20 mt-4" />
-          </div>
+      <div className="max-w-3xl space-y-6">
+        {/* Header — kept so the recruiter still knows where they are (UI-SPEC §Layout). */}
+        <header className="space-y-1">
+          <h1 className="text-3xl font-semibold text-white md:text-4xl">Meu Perfil</h1>
+          <p className="text-sm text-white/80">Atualize seus dados, senha e foto.</p>
+        </header>
 
-          {/* Empty-state — feature unavailable, no CTA (UX-06; real impl → M5). */}
-          <GlassCard variant="white" blur="md" className="rounded-xl">
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <UserRound className="h-12 w-12 text-white/40" aria-hidden="true" />
-              <p className="text-xl font-semibold text-white">
-                Edição de perfil em breve
-              </p>
-              <p className="max-w-md text-sm text-white/70">
-                A edição dos seus dados, senha e foto estará disponível em uma próxima atualização.
-              </p>
+        <AsyncState
+          isLoading={isLoading}
+          isError={isError}
+          onRetry={() => refetch()}
+          glass={false}
+          copy={{
+            error: {
+              heading: 'Não foi possível carregar seu perfil.',
+              generic: 'Verifique a conexão e tente novamente.',
+            },
+            retry: { label: 'Tentar novamente' },
+          }}
+        >
+          {data && (
+            <div className="space-y-6">
+              <PerfilSection perfil={data} />
+              <SenhaSection email={data.email} />
             </div>
-          </GlassCard>
-        </div>
+          )}
+        </AsyncState>
       </div>
     </RHLayout>
   );
