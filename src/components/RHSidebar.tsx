@@ -6,6 +6,8 @@ import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Glass } from './ui/glass';
 import { useAuthStore } from '@/store/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
 
 interface MenuItem {
   id: string;
@@ -34,6 +36,9 @@ export function RHSidebar({
   // D-13: the Admin sidebar item is gated on role === 'administrador'. Visibility is
   // COSMETIC — the /admin/* routes keep their RoleGuard + RLS as the real control.
   const role = useAuthStore((s) => s.role);
+  // Shell identity for an RH user comes from `usuarios_rh` (adminUser); for an RH user the
+  // legacy `candidato` is null, so the email prefix is the LAST-resort fallback only (Task 3).
+  const adminUser = useAuthStore((s) => s.adminUser);
 
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
@@ -41,11 +46,25 @@ export function RHSidebar({
   const isCollapsed = externalCollapsed ?? internalCollapsed;
   const isMobileOpen = externalMobileOpen ?? internalMobileOpen;
 
-  // Nome do usuário (usa nome do candidato se disponível, senão email)
-  const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
+  // Nome do usuário: nome do RH (adminUser) → candidato (legado) → prefixo do email (último recurso)
+  const userName =
+    adminUser?.nome_completo ||
+    candidato?.nome_completo ||
+    user?.email?.split('@')[0] ||
+    'Usuário';
   // IN-01: derive the user-card label from the subscribed `role` so an authenticated
   // administrador is not mislabeled "RH" while seeing the role-gated Admin nav item.
   const userRole = role === 'administrador' ? 'Administrador' : 'RH';
+
+  // Signed avatar (panel-wide). Sign the stored path only when present; NEVER log the URL (Pitfall-7).
+  const avatarPath = adminUser?.avatar_url ?? null;
+  const { data: avatarSignedUrl } = useQuery({
+    queryKey: ['avatar-signed', avatarPath],
+    queryFn: () => getAvatarSignedUrl(avatarPath as string),
+    enabled: !!avatarPath,
+    staleTime: 55 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
 
   // Detectar página ativa baseado na rota atual
   const getActivePageFromPath = (pathname: string): string => {
@@ -240,8 +259,16 @@ export function RHSidebar({
               {!isCollapsed ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#35BFAD]/30">
-                      <span className="text-sm text-white font-medium">{userName.charAt(0)}</span>
+                    <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-[#35BFAD]/30">
+                      {avatarSignedUrl ? (
+                        <img
+                          src={avatarSignedUrl}
+                          alt={`Foto de perfil de ${userName}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm text-white font-medium">{userName.charAt(0)}</span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white truncate drop-shadow-sm">{userName}</p>

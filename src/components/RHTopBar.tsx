@@ -10,6 +10,8 @@ import {
 } from './ui/dropdown-menu';
 import { Glass } from './ui/glass';
 import { useAuthStore } from '@/store/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
 
 interface RHTopBarProps {
   onMobileMenuToggle?: () => void;
@@ -20,10 +22,28 @@ export function RHTopBar({
 }: RHTopBarProps) {
   const navigate = useNavigate();
   const { user, candidato, logout: authLogout } = useAuthStore();
+  // Shell identity for an RH user comes from `usuarios_rh` (adminUser). For an RH user the
+  // legacy `candidato` is null, so the email prefix must be the LAST-resort fallback only —
+  // otherwise the edited nome_completo would never surface across the panel chrome (Task 3).
+  const adminUser = useAuthStore((s) => s.adminUser);
 
-  // Nome do usuário (usa nome do candidato se disponível, senão email)
-  const userName = candidato?.nome_completo || user?.email?.split('@')[0] || 'Usuário';
+  // Nome do usuário: nome do RH (adminUser) → candidato (legado) → prefixo do email (último recurso)
+  const userName =
+    adminUser?.nome_completo ||
+    candidato?.nome_completo ||
+    user?.email?.split('@')[0] ||
+    'Usuário';
   const userRole = 'RH';
+
+  // Signed avatar (panel-wide). Sign the stored path only when present; NEVER log the URL (Pitfall-7).
+  const avatarPath = adminUser?.avatar_url ?? null;
+  const { data: avatarSignedUrl } = useQuery({
+    queryKey: ['avatar-signed', avatarPath],
+    queryFn: () => getAvatarSignedUrl(avatarPath as string),
+    enabled: !!avatarPath,
+    staleTime: 55 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
 
   const handleProfileClick = () => {
     navigate('/rh/perfil');
@@ -76,10 +96,18 @@ export function RHTopBar({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 h-10 px-3 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm">
-                  <div className="w-8 h-8 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 drop-shadow-md">
-                    <span className="text-sm text-white font-medium">
-                      {userName.charAt(0)}
-                    </span>
+                  <div className="w-8 h-8 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 overflow-hidden drop-shadow-md">
+                    {avatarSignedUrl ? (
+                      <img
+                        src={avatarSignedUrl}
+                        alt={`Foto de perfil de ${userName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm text-white font-medium">
+                        {userName.charAt(0)}
+                      </span>
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
                     <p className="text-sm text-white drop-shadow-sm">{userName}</p>

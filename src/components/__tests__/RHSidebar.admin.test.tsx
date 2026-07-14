@@ -24,6 +24,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 vi.mock('@/lib/supabase/client', () => ({
   supabase: {
@@ -52,10 +53,15 @@ function seedRole(role: Role | null) {
 }
 
 function renderSidebar() {
+  // 30-05 Task 3: RHSidebar now signs the shell avatar via `useQuery`, so a
+  // QueryClientProvider is required (avatar_url is unseeded → the query stays disabled).
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter initialEntries={['/rh/dashboard']}>
-      <RHSidebar />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/rh/dashboard']}>
+        <RHSidebar />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
