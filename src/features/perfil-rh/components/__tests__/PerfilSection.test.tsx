@@ -77,7 +77,7 @@ describe('PerfilSection — name edit + save (PERFIL-01)', () => {
   it('the read-only "geridos por um administrador" note is present', () => {
     renderSection()
     expect(
-      screen.getByText('Papel e cargo são geridos por um administrador.'),
+      screen.getByText('E-mail, papel e cargo são geridos por um administrador.'),
     ).toBeInTheDocument()
   })
 })
