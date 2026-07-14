@@ -147,4 +147,17 @@ describe('useUploadAvatar — returns the path, invalidates on success', () => {
     expect(result.current.data).toBe('uid-1/avatar.jpg')
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: perfilRhKeys.me('uid-1') })
   })
+
+  it('invalidates the avatar-signed cache so a same-extension re-upload refreshes the preview (WR-02)', async () => {
+    mocks.uploadAvatar.mockResolvedValue('uid-1/avatar.jpg')
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    const { result } = renderHook(() => useUploadAvatar(), { wrapper })
+    result.current.mutate(new File([new Uint8Array(10)], 'a', { type: 'image/jpeg' }))
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    // Identical path on same-ext re-upload → the signed-URL cache MUST be invalidated too,
+    // else the 55min-stale cache keeps serving the OLD image.
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['avatar-signed'] })
+  })
 })

@@ -170,8 +170,10 @@ export async function atualizarPerfil(nome: string, avatarPath?: string | null):
  *   accepted from a form field (anti-confusion, RESEARCH §Q2).
  * @param senhaAtual The current password (re-auth material).
  * @param novaSenha The new password.
- * @throws {PerfilRhServiceError} `WRONG_CURRENT` if the current password is wrong;
- *   `WEAK_PASSWORD` if GoTrue rejects the new password; `NETWORK_ERROR` otherwise.
+ * @throws {PerfilRhServiceError} `WRONG_CURRENT` ONLY on a genuine wrong-password re-auth
+ *   (GoTrue 400 / `invalid_credentials`); a transient re-auth failure (429 / network / >=500)
+ *   maps to `NETWORK_ERROR` instead — it did NOT verify the password. `WEAK_PASSWORD` if GoTrue
+ *   rejects the new password; `NETWORK_ERROR` on any other rotation failure.
  */
 export async function alterarSenha(
   email: string,
@@ -189,10 +191,22 @@ export async function alterarSenha(
   })
 
   if (signInError) {
-    // Any signIn failure here means the current password did not verify → field error.
+    // Distinguish a genuine wrong-password (→ field error on "Senha atual") from a
+    // transient failure (429 rate-limit / network / >=500). GoTrue returns 400 +
+    // `invalid_credentials` for a wrong password; anything else did NOT verify the
+    // password one way or the other, so surfacing WRONG_CURRENT would be a lie.
+    const isWrongPassword =
+      signInError.status === 400 || signInError.code === 'invalid_credentials'
+    if (isWrongPassword) {
+      throw new PerfilRhServiceError(
+        'Senha atual incorreta.',
+        'WRONG_CURRENT',
+        { code: signInError.code, status: signInError.status },
+      )
+    }
     throw new PerfilRhServiceError(
-      'Senha atual incorreta.',
-      'WRONG_CURRENT',
+      'Não foi possível verificar sua senha. Tente novamente.',
+      'NETWORK_ERROR',
       { code: signInError.code, status: signInError.status },
     )
   }

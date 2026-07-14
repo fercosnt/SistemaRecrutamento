@@ -120,12 +120,15 @@ export function AvatarUpload({ avatarPath, nome, onUploaded }: AvatarUploadProps
           )}
         </button>
 
-        {/* Visually-hidden but focusable + labeled file input. */}
+        {/* Visually-hidden, labeled file input. `tabIndex={-1}` keeps it OUT of the tab order
+            (IN-03) — keyboard users reach it via the visible "Alterar foto" button's
+            `inputRef.current?.click()`, never by tabbing onto an invisible control. */}
         <input
           ref={inputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           aria-label="Selecionar foto de perfil"
+          tabIndex={-1}
           className="sr-only"
           onChange={handleChange}
         />

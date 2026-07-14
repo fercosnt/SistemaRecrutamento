@@ -113,6 +113,30 @@ describe('PerfilSection — avatar (PERFIL-03, WARNING #3)', () => {
     )
   })
 
+  it('an in-progress sub-min (2-char) name is NOT sent on avatar-save — the loaded valid nome is (WR-03)', async () => {
+    renderSection()
+    // The user has typed only "Ma" (2 chars, fails perfilNomeSchema min-3) but not submitted.
+    fireEvent.change(screen.getByLabelText('Nome de exibição'), { target: { value: 'Ma' } })
+
+    const file = new File(['x'], 'foto.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Selecionar foto de perfil'), {
+      target: { files: [file] },
+    })
+
+    await waitFor(() => expect(uploadMutateAsyncMock).toHaveBeenCalledWith(file))
+    // The invalid in-progress "Ma" must NOT be sent — the loaded (valid) nome is used instead,
+    // so the unconditional RPC SET (+ the live min-3 guard) never receives a sub-min name.
+    await waitFor(() =>
+      expect(atualizarMutateMock).toHaveBeenCalledWith({
+        nome: 'Maria Recrutadora',
+        avatarPath: 'uid-1/avatar.png',
+      }),
+    )
+    expect(atualizarMutateMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ nome: 'Ma' }),
+    )
+  })
+
   it('an invalid-mime avatar renders an inline error and does NOT upload', async () => {
     renderSection()
     const bad = new File(['x'], 'foto.gif', { type: 'image/gif' })

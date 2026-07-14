@@ -64,10 +64,16 @@ export function PerfilSection({ perfil }: PerfilSectionProps) {
 
   const nomeAtual = watch('nome_completo') || perfil.nome_completo || ''
 
-  // Avatar auto-saves immediately, ALWAYS carrying the currently-loaded/edited nome (WARNING #3).
+  // Avatar auto-saves immediately, ALWAYS carrying a VALID nome (WARNING #3 + WR-03).
+  // The unconditional RPC SET on `p_nome` (and the live RPC min-3 guard) means an in-progress,
+  // sub-min field value ("Ma") must NOT be sent on an avatar-only save. Only send the current
+  // field value when it passes `perfilNomeSchema` (min 3); otherwise fall back to the loaded
+  // (already-valid) `perfil.nome_completo`.
   const handleUploaded = (path: string) => {
     setAvatarPath(path)
-    const nome = getValues('nome_completo')?.trim() || perfil.nome_completo || ''
+    const candidate = getValues('nome_completo') ?? ''
+    const parsed = perfilNomeSchema.safeParse({ nome_completo: candidate })
+    const nome = parsed.success ? parsed.data.nome_completo : perfil.nome_completo
     atualizar.mutate({ nome, avatarPath: path })
   }
 

@@ -132,7 +132,8 @@ export function useAlterarSenha() {
  * on its own (WARNING #3). The caller MUST follow with
  * `atualizarPerfil({ nome: <current loaded nome>, avatarPath })` so the avatar is written
  * to `usuarios_rh.avatar_url` WITHOUT ever sending a null/blank nome to the unconditional
- * RPC SET. Invalidates the own-row query on success (the path change is reflected on refetch).
+ * RPC SET. Invalidates the own-row query AND the `avatar-signed` family on success — the
+ * latter so a same-extension re-upload (identical path) still refreshes the preview (WR-02).
  */
 export function useUploadAvatar() {
   const queryClient = useQueryClient()
@@ -143,6 +144,10 @@ export function useUploadAvatar() {
     mutationFn: (file) => uploadAvatar(file, uid as string),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: perfilRhKeys.me(uid) })
+      // Same-extension re-upload → identical path → the `['avatar-signed', avatarPath]`
+      // key never changes and its 55min-stale cache would keep serving the OLD image's
+      // signed URL. Invalidate the signed-URL family so the new object is re-fetched (WR-02).
+      void queryClient.invalidateQueries({ queryKey: ['avatar-signed'] })
     },
   })
 }

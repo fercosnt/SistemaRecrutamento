@@ -186,6 +186,34 @@ describe('alterarSenha — GoTrue re-auth (PERFIL-02, T-30-03)', () => {
     expect(signOutMock).not.toHaveBeenCalled()
   })
 
+  it('a 429 rate-limit on re-auth maps to NETWORK_ERROR (NOT WRONG_CURRENT)', async () => {
+    // A transient signIn failure did NOT verify the password one way or the other —
+    // surfacing WRONG_CURRENT here would falsely accuse the user (WR-01).
+    signInMock.mockResolvedValue({
+      data: {},
+      error: { code: 'over_request_rate_limit', status: 429, message: 'Rate limit exceeded' },
+    })
+
+    await expect(alterarSenha('ana@bs.com', 'atual123', 'novaSenha8')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    })
+    // Never rotates after a failed re-auth.
+    expect(updateUserMock).not.toHaveBeenCalled()
+    expect(signOutMock).not.toHaveBeenCalled()
+  })
+
+  it('a network/5xx error on re-auth maps to NETWORK_ERROR (NOT WRONG_CURRENT)', async () => {
+    signInMock.mockResolvedValue({
+      data: {},
+      error: { code: undefined, status: 503, message: 'Service unavailable' },
+    })
+
+    await expect(alterarSenha('ana@bs.com', 'atual123', 'novaSenha8')).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    })
+    expect(updateUserMock).not.toHaveBeenCalled()
+  })
+
   it('a weak new password maps to WEAK_PASSWORD', async () => {
     signInMock.mockResolvedValue({ data: {}, error: null })
     updateUserMock.mockResolvedValue({
