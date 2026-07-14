@@ -52,11 +52,11 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ## Decisões de escopo em aberto (resolver no planejamento das fases)
 
-- **Mecanismo de enforcement da justificativa de rejeição (OPER-02/04):** RPC `rejeitar_candidatura` DEFINER que RAISE em justificativa vazia **(default recomendado — não toca o trigger)** vs. estender o ramo terminal de `avancar_etapa()`. Decidir no plano da fase OPER.
-- **Base de coorte da conversão (KPI-02, "K4"):** coorte fechada por janela de inscrição **(default recomendado — não subconta candidatos ainda em andamento)** vs. taxa bruta. Decidir no plano da fase KPI.
-- **Schema exato de `agendamentos_entrevista` (AGEND):** reconciliar as propostas de ARCHITECTURE.md (`observacoes_rh`, `status`, `agendado_por`) e FEATURES.md (`entrevistador`, `compareceu`) numa única definição autoritativa no plano da fase AGEND.
-- **`historico_candidatura` re-scope (SEG-02):** fazer o endurecimento direto do `rh_le_historico` **e** o DEFINER RPC (belt-and-suspenders, recomendado) vs. só o RPC.
-- **RPCs legadas mortas:** confirmar que nenhum caminho do M6 referencia os overloads M1-era `avancar_etapa(uuid,uuid)` / `rejeitar_candidato(uuid,text,uuid)` (sem migration backing); flag opcional de remoção.
+- **Mecanismo de enforcement da justificativa de rejeição (OPER-02/04):** RPC `rejeitar_candidatura` DEFINER que RAISE em justificativa vazia **(default recomendado — não toca o trigger)** vs. estender o ramo terminal de `avancar_etapa()`. Decidir no plano da fase OPER (Phase 31).
+- **Base de coorte da conversão (KPI-02, "K4"):** coorte fechada por janela de inscrição **(default recomendado — não subconta candidatos ainda em andamento)** vs. taxa bruta. Decidir no plano da fase KPI (Phase 34).
+- **Schema exato de `agendamentos_entrevista` (AGEND):** reconciliar as propostas de ARCHITECTURE.md (`observacoes_rh`, `status`, `agendado_por`) e FEATURES.md (`entrevistador`, `compareceu`) numa única definição autoritativa no plano da fase AGEND (Phase 33).
+- **`historico_candidatura` re-scope (SEG-02):** fazer o endurecimento direto do `rh_le_historico` **e** o DEFINER RPC (belt-and-suspenders, recomendado) vs. só o RPC (Phase 32).
+- **RPCs legadas mortas:** confirmar que nenhum caminho do M6 referencia os overloads M1-era `avancar_etapa(uuid,uuid)` / `rejeitar_candidato(uuid,text,uuid)` (sem migration backing); flag opcional de remoção (Phase 31).
 
 ## v2 Requirements
 
@@ -92,35 +92,42 @@ Exclusões explícitas (anti-features da pesquisa incluídas com o motivo).
 
 ## Traceability
 
-Preenchido durante a criação do roadmap (roadmapper mapeia cada REQ-ID → exatamente 1 fase, a partir da **Phase 31**).
+Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) na criação do roadmap (2026-07-14).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OPER-01 | TBD | Pending |
-| OPER-02 | TBD | Pending |
-| OPER-03 | TBD | Pending |
-| OPER-04 | TBD | Pending |
-| AGEND-01 | TBD | Pending |
-| AGEND-02 | TBD | Pending |
-| AGEND-03 | TBD | Pending |
-| AGEND-04 | TBD | Pending |
-| AGEND-05 | TBD | Pending |
-| VISRH-01 | TBD | Pending |
-| VISRH-02 | TBD | Pending |
-| VISRH-03 | TBD | Pending |
-| KPI-01 | TBD | Pending |
-| KPI-02 | TBD | Pending |
-| KPI-03 | TBD | Pending |
-| KPI-04 | TBD | Pending |
-| SEG-01 | TBD | Pending |
-| SEG-02 | TBD | Pending |
-| SEG-03 | TBD | Pending |
+| OPER-01 | Phase 31 | Pending |
+| OPER-02 | Phase 31 | Pending |
+| OPER-03 | Phase 31 | Pending |
+| OPER-04 | Phase 31 | Pending |
+| AGEND-01 | Phase 33 | Pending |
+| AGEND-02 | Phase 34 | Pending |
+| AGEND-03 | Phase 34 | Pending |
+| AGEND-04 | Phase 35 | Pending |
+| AGEND-05 | Phase 35 | Pending |
+| VISRH-01 | Phase 34 | Pending |
+| VISRH-02 | Phase 34 | Pending |
+| VISRH-03 | Phase 34 | Pending |
+| KPI-01 | Phase 34 | Pending |
+| KPI-02 | Phase 34 | Pending |
+| KPI-03 | Phase 34 | Pending |
+| KPI-04 | Phase 34 | Pending |
+| SEG-01 | Phase 32 | Pending |
+| SEG-02 | Phase 32 | Pending |
+| SEG-03 | Phase 33 | Pending |
 
 **Coverage:**
 - v1 requirements: 19 total
-- Mapped to phases: 0 (roadmap pendente)
-- Unmapped: 19 ⚠️ (resolvido pelo roadmapper)
+- Mapped to phases: 19 ✓
+- Unmapped: 0 ✓
+
+**Por fase:**
+- **Phase 31** (Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo): OPER-01, OPER-02, OPER-03, OPER-04 (4)
+- **Phase 32** (Fechar os Dois Vazamentos Vivos — BLOCKING): SEG-01, SEG-02 (2)
+- **Phase 33** (Camada de Dados do Agendamento): AGEND-01, SEG-03 (2)
+- **Phase 34** (Superfícies do RH — CV/IA, Agendamento, Fila + KPIs): VISRH-01, VISRH-02, VISRH-03, KPI-01, KPI-02, KPI-03, KPI-04, AGEND-02, AGEND-03 (9)
+- **Phase 35** (Painel do Candidato — Leitura do Agendamento): AGEND-04, AGEND-05 (2)
 
 ---
 *Requirements defined: 2026-07-14*
-*Last updated: 2026-07-14 after initial definition (M6 kickoff via /gsd-new-milestone)*
+*Last updated: 2026-07-14 — Traceability preenchida na criação do roadmap (19/19 mapeados, 0 unmapped). Ordem de execução: 31 → 32 → 33 → 34 → 35.*
