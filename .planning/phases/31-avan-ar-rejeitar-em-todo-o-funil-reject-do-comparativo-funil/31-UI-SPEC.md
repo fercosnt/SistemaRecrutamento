@@ -1,10 +1,12 @@
 ---
 phase: 31
 slug: avan-ar-rejeitar-em-todo-o-funil-reject-do-comparativo-funil
-status: draft
+status: approved
 shadcn_initialized: true
 preset: none (vendored, configless — primitives in src/components/ui/)
 created: 2026-07-14
+reviewed_at: 2026-07-14
+review_verdict: APPROVED (4 PASS, 2 non-blocking FLAGs — copywriting/visuals)
 ---
 
 # Phase 31 — UI Design Contract
