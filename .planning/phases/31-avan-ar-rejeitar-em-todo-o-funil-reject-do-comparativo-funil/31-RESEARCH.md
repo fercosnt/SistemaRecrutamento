@@ -493,22 +493,22 @@ RESET ROLE;
 | A4 | Enum literal spelling of `etapa_processo` values matches `'rejeitado'`/`'inscricao'`/etc. | Code Examples | Medium — verify against `Constants.public.Enums.etapa_processo` at authoring (Phase-8 22P02 precedent). |
 | A5 | The `triagemKeys.all` factory exists and is the right invalidation key for the triagem panel | Hook | Low — used in CONTEXT; confirm export path in plan (mirror `candidaturasKeys`/`vagasKeys`). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **RPC return type — `void` vs `RETURNS public.candidaturas`.**
+1. **RPC return type — `void` vs `RETURNS public.candidaturas`.** **(RESOLVED — 31-01 chose `void`.)**
    - What we know: `registrar_decisao`/`reprocessar_analise` differ (`registrar_decisao` returns the row; `reprocessar_analise` returns void).
    - What's unclear: whether the dialog needs a readback beyond the mutation's success/toast.
-   - Recommendation: `void` is simplest (the hook invalidates + refetches). Use readback only if optimistic UI is desired. [Claude's-discretion per CONTEXT.]
+   - Recommendation: `void` is simplest (the hook invalidates + refetches). Use readback only if optimistic UI is desired. [Claude's-discretion per CONTEXT.] → **Resolved: 31-01 authors `rejeitar_candidatura` RETURNS void; the hook invalidates the 3 key trees.**
 
-2. **Should `rejeitar_candidatura` early-RAISE on an already-terminal candidatura?**
+2. **Should `rejeitar_candidatura` early-RAISE on an already-terminal candidatura?** **(RESOLVED — early guard adopted.)**
    - What we know: the trigger no-ops on same-etapa; the UI hides the action on terminals.
    - What's unclear: whether a direct/stale call should error loudly.
-   - Recommendation: add an early guard `IF (SELECT etapa_atual FROM candidaturas WHERE id=p_candidatura_id) IN ('aprovado','rejeitado') THEN RAISE …` for a clean message; low-risk either way.
+   - Recommendation: add an early guard `IF (SELECT etapa_atual FROM candidaturas WHERE id=p_candidatura_id) IN ('aprovado','rejeitado') THEN RAISE …` for a clean message; low-risk either way. → **Resolved: 31-01 includes the early-terminal guard for a clean error message (low-risk discretion).**
 
-3. **`PerfilCandidatoRHPage` vs `HubCandidatoRH` — which is the "perfil" reject surface?**
+3. **`PerfilCandidatoRHPage` vs `HubCandidatoRH` — which is the "perfil" reject surface?** **(RESOLVED — `HubCandidatoRH`.)**
    - What we know: CONTEXT names `PerfilCandidatoRHPage`; 31-UI-SPEC names `HubCandidatoRH` "Próximo passo" action row.
    - What's unclear: whether these are the same route or two surfaces.
-   - Recommendation: the planner should confirm the exact component that renders the RH candidate profile and place the shared dialog there; both references point at the RH candidate detail surface.
+   - Recommendation: the planner should confirm the exact component that renders the RH candidate profile and place the shared dialog there; both references point at the RH candidate detail surface. → **Resolved (31-PATTERNS.md, verified live): `PerfilCandidatoRHPage.tsx` is a 5-line wrapper that renders `HubCandidatoRH.tsx`; the action row lands in `HubCandidatoRH` "Próximo passo" (lines 169-186) — the wrapper is NOT edited.**
 
 ## Environment Availability
 
