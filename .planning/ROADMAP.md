@@ -81,7 +81,7 @@ M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
 **Plans**: 7 plans / 4 waves
 - [x] 30-01-PLAN.md — Wave 0 live-state capture (usuarios_rh policies/columns + log_auditoria sig + no existing RPC → 30-LIVE-STATE.md) [BLOCKING]
 - [x] 30-02-PLAN.md — RED harness: SEG-03 behavioral SQL smoke (own-row-only · role-unchanged · WR-01 regression) + Pitfall-7 grep extension
-- [ ] 30-03-PLAN.md — Migration authoring: atualizar_meu_perfil_rh SECURITY DEFINER RPC (SEG-03 by construction) + private avatars-rh bucket + 4 own-folder policies
+- [x] 30-03-PLAN.md — Migration authoring: atualizar_meu_perfil_rh SECURITY DEFINER RPC (SEG-03 by construction) + private avatars-rh bucket + 4 own-folder policies
 - [ ] 30-04-PLAN.md — Data layer: perfilRhService (own-row allowlist read · RPC dispatch · password re-auth · avatar upload/validate/sign) + usePerfilRh hooks + tests
 - [ ] 30-05-PLAN.md — UI: PerfilSection (name + avatar + read-only SEG-03 context) + SenhaSection (re-auth) + wire MeuPerfilPage (stub replaced, RHLayout/route/RoleGuard preserved)
 - [ ] 30-06-PLAN.md — [BLOCKING] apply migration via Supabase MCP apply_migration + regen database.types.ts + drop as-never cast
@@ -143,7 +143,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 8/8 | Complete   | 2026-07-13 |
 | 29. Console de Gestão de Usuários RH | v5.0 | 4/4 | Complete | 2026-07-13 |
-| 30. Meu Perfil RH | v5.0 | 1/7 | In Progress|  |
+| 30. Meu Perfil RH | v5.0 | 3/7 | In Progress|  |
 
 ---
 
