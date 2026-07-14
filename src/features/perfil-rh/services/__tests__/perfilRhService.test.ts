@@ -140,12 +140,12 @@ describe('atualizarPerfil — RPC dispatch (PERFIL-01)', () => {
     })
   })
 
-  it('a name-only save passes p_avatar_url: null', async () => {
+  it('a name-only save omits the avatar arg (p_avatar_url: undefined → RPC keeps existing via COALESCE)', async () => {
     rpcMock.mockResolvedValue({ data: null, error: null })
     await atualizarPerfil('Só Nome')
     expect(rpcMock).toHaveBeenCalledWith('atualizar_meu_perfil_rh', {
       p_nome: 'Só Nome',
-      p_avatar_url: null,
+      p_avatar_url: undefined,
     })
   })
 

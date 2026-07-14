@@ -4352,6 +4352,10 @@ export type Database = {
       }
     }
     Functions: {
+      atualizar_meu_perfil_rh: {
+        Args: { p_avatar_url?: string; p_nome: string }
+        Returns: undefined
+      }
       avancar_etapa: {
         Args: { candidatura_uuid: string; usuario_rh_uuid: string }
         Returns: undefined

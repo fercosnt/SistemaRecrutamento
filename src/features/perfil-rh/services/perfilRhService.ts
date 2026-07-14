@@ -144,11 +144,10 @@ export async function readMeuPerfil(uid: string): Promise<PerfilRhRow> {
  * @throws {PerfilRhServiceError} `DATABASE_ERROR` on any RPC error.
  */
 export async function atualizarPerfil(nome: string, avatarPath?: string | null): Promise<void> {
-  // TODO(30-06): drop `as never` once database.types.ts regen includes atualizar_meu_perfil_rh
-  const { error } = await supabase.rpc('atualizar_meu_perfil_rh' as never, {
+  const { error } = await supabase.rpc('atualizar_meu_perfil_rh', {
     p_nome: nome,
-    p_avatar_url: avatarPath ?? null,
-  } as never)
+    p_avatar_url: avatarPath ?? undefined,
+  })
 
   if (error) {
     throw new PerfilRhServiceError(
