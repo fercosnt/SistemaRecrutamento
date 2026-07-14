@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
-status: executing
-stopped_at: Completed 30-05-PLAN.md (perfil-rh UI — PerfilSection [name RHF+Zod + AvatarUpload + read-only SEG-03 Email/Cargo/Papel context, NO role affordance] + SenhaSection [current/new/confirm re-auth, WRONG_CURRENT→field, no logout] + real MeuPerfilPage [single RHLayout, AsyncState-gated own-row, stub removed] + RHTopBar/RHSidebar identity from adminUser.nome_completo + signed avatar propagated WITHOUT re-login. 877/877 vitest GREEN, FormField guard GREEN, tsc flat 104, build 0. NEXT = 30-06 [BLOCKING] PROD apply of atualizar_meu_perfil_rh RPC + avatars-rh bucket).
-last_updated: "2026-07-14T05:12:00.000Z"
+status: Awaiting next milestone
+stopped_at: Completed 30-05-PLAN.md (perfil-rh UI — PerfilSection + AvatarUpload + SenhaSection + real MeuPerfilPage [stub replaced, single RHLayout, AsyncState-gated] + RHTopBar/RHSidebar identity from adminUser.nome_completo + signed avatar propagated WITHOUT re-login. SEG-03 verified by absence-of-role/cargo/email-control test. 877/877 vitest, FormField guard GREEN, tsc flat 104, build 0). NEXT = 30-06 ([BLOCKING] non-autonomous — PROD apply of atualizar_meu_perfil_rh RPC + avatars-rh bucket via Supabase MCP).
+last_updated: "2026-07-14T05:47:45.279Z"
 last_activity: 2026-07-14
 progress:
   total_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 Phase: 30 (Meu Perfil RH) — EXECUTING
 Plan: 6 of 7
-Status: Ready to execute (30-06 is [BLOCKING] non-autonomous — PROD apply via MCP)
+Status: Awaiting next milestone
 Last activity: 2026-07-14
 
 Progress: [█████████░] 89%

@@ -1,5 +1,21 @@
 # Milestones
 
+## v5.0 M5 — Gestão de Usuários & Perfil RH (Shipped: 2026-07-14)
+
+**Phases completed:** 3 phases (28–30), 19 plans
+
+**Audit:** tech_debt — 13/13 requirements Complete, 0 gaps, 0 blockers. See `milestones/v5.0-MILESTONE-AUDIT.md`.
+
+**Delivered:** The RH internal account-management the earlier milestones left gated/stubbed — feature-work with **security as the axis**:
+
+- **Gestão de Usuários RH (A14)** — the admin console at `/rh/configuracoes`: an `administrador` lists, creates, changes role (recrutador↔administrador), deactivates/reactivates and resets passwords of RH users. Every privileged write goes through the `gerenciar-usuario-rh` Edge Function (service_role, **authenticate-THEN-authorize**, admin-only), never the client. `usuarios_rh` RLS is admin-only (the two `qual=true` roster leaks **and** the WITH-CHECK-less self-promotion UPDATE policy dropped — closing a live escalation hole), the audit trail is append-only + purge-exempt, and a race-safe `pg_advisory_xact_lock` anti-lockout trigger guarantees ≥1 active administrador. Live on PROD; SEG-02/USR-06/USR-07 behavioral SQL smokes GREEN.
+- **Meu Perfil RH (A37)** — self-service at `/rh/perfil`: edit own name (propagates panel-wide via the authStore, no re-login), change own password with GoTrue re-authentication (`signInWithPassword`→`updateUser`, no logout), upload own avatar to a private own-folder bucket. The write path is a `SECURITY DEFINER` RPC whose SET list physically excludes `role`/`ativo`/`cargo`/`email` — **SEG-03 closed by construction**; the SEG-03 smoke (own-row-only, role-unchanged, self-promotion still 0 rows) is GREEN on PROD.
+- **Security axis proven inline** — no self-service role escalation, service_role never in the client bundle (grep-guard), RLS 100%, Pitfall-7 secret redaction. Gates at close: vitest 881/881, tsc 104, build 0.
+
+**Carried tech-debt → M6:** live HUMAN-UAT round-trips (SMTP email delivery, real password/avatar round-trips, 2-session anti-lockout concurrency, visual/AA sweeps); 2 accepted UI-review cosmetics (turquoise-accent dilution, blue focus-ring); IN-01 avatar extension-orphan; plus carried DBMIG-01 baseline+rebuild, SEC-03 Vault secret, CC0-01. Optional retroactive `/gsd-secure-phase` for standalone `*-SECURITY.md` artifacts (security was proven inline via PROD smokes + 0-Critical code-reviews).
+
+---
+
 ## v4.0 M4 Correção & Blindagem do Funil (Shipped: 2026-07-13)
 
 **Phases completed:** 6 phases, 43 plans, 89 tasks
