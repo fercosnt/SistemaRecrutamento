@@ -53,7 +53,22 @@ const PHASE_4_VAGAS_PATHS = [
   'src/components/pages/VagaDetalhePage.tsx',
 ] as const
 
-const ALL_PATHS = [...PHASE_3_AUTH_PATHS, ...PHASE_4_VAGAS_PATHS] as const
+// Phase 30 surfaces — meu-perfil-rh self-service (PERFIL-02 password re-auth,
+// PERFIL-03 avatar signed URL). Sources land in Waves 2-3; collectFiles
+// graceful-skips them in Wave 1 (dir absent today) exactly like the Phase-4 block.
+const PHASE_30_PERFIL_PATHS = [
+  'src/features/perfil-rh/services',
+  'src/features/perfil-rh/hooks',
+  'src/features/perfil-rh/components',
+  'src/features/perfil-rh/schemas',
+  'src/components/pages/MeuPerfilPage.tsx',
+] as const
+
+const ALL_PATHS = [
+  ...PHASE_3_AUTH_PATHS,
+  ...PHASE_4_VAGAS_PATHS,
+  ...PHASE_30_PERFIL_PATHS,
+] as const
 
 /**
  * Forbidden pattern — matches `console.<method>(...)` where the call
@@ -86,7 +101,7 @@ function collectFiles(pathRel: string): string[] {
 }
 
 describe('B14 — Pitfall 7 redaction guard', () => {
-  it('no console.* logs senha/password/access_token/refresh_token across Phase 3 + Phase 4 surfaces', () => {
+  it('no console.* logs senha/password/access_token/refresh_token across Phase 3 + Phase 4 + Phase 30 surfaces', () => {
     const violations: { file: string; line: number; text: string }[] = []
     const files = ALL_PATHS.flatMap((p) => collectFiles(p))
     for (const file of files) {
@@ -132,6 +147,34 @@ describe('B14 — Pitfall 7 redaction guard', () => {
     if (violations.length > 0) {
       const msg = violations.map((v) => `  ${v.file}:${v.line}  ${v.text}`).join('\n')
       throw new Error(`Pitfall 7 (Phase 4 signed URL): violations:\n${msg}`)
+    }
+    expect(violations).toHaveLength(0)
+  })
+
+  it('Phase 30 path-collection is tolerant of missing sources (Wave 1 — perfil-rh lands Wave 2+)', () => {
+    // collectFiles graceful-skips the not-yet-created perfil-rh subtree; this asserts
+    // path-collection never throws (no >= N hard floor yet — sources land later).
+    const files = PHASE_30_PERFIL_PATHS.flatMap((p) => collectFiles(p))
+    expect(files.length).toBeGreaterThanOrEqual(0)
+  })
+
+  it('Phase 30 — no console.* logs a signed URL / token across perfil-rh surfaces', () => {
+    // Avatar signed URLs must never be logged (PERFIL-03) — reuse the Phase-4 signed-URL regex.
+    const FORBIDDEN_PHASE_30 =
+      /console\.(log|error|warn|info|debug)[\s\S]{0,80}?(signedurl|signed_url|signedURL|\?token=)/i
+    const violations: { file: string; line: number; text: string }[] = []
+    const files = PHASE_30_PERFIL_PATHS.flatMap((p) => collectFiles(p))
+    for (const file of files) {
+      const lines = readFileSync(file, 'utf-8').split('\n')
+      lines.forEach((text, idx) => {
+        if (FORBIDDEN_PHASE_30.test(text)) {
+          violations.push({ file, line: idx + 1, text: text.trim() })
+        }
+      })
+    }
+    if (violations.length > 0) {
+      const msg = violations.map((v) => `  ${v.file}:${v.line}  ${v.text}`).join('\n')
+      throw new Error(`Pitfall 7 (Phase 30 signed URL): violations:\n${msg}`)
     }
     expect(violations).toHaveLength(0)
   })
