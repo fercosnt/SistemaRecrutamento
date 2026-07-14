@@ -1,552 +1,309 @@
-# Architecture Patterns
+# Architecture Research — M6 (Operação do Funil RH)
 
-**Domain:** ATS (Applicant Tracking System) brownfield rebuild - React + Supabase
-**Researched:** 2026-04-19
-**Confidence:** HIGH (based on codebase analysis + verified Supabase/React Router docs)
+**Domain:** ATS funnel operation on an existing React 18 + Vite + TS-strict + Supabase codebase (v5.0 shipped). Integration-heavy, net-new OPER features on top of a shipped 6-stage funnel.
+**Researched:** 2026-07-14
+**Confidence:** HIGH (verified against migration files + generated `database.types.ts` + live-verified function bodies. The Supabase MCP tool is stripped from this restricted agent — upstream bug anthropics/claude-code#13898 — so LIVE checks were done via migration headers that state "verified against PROD via pg_get_functiondef", which is the authoritative reconciled source of truth in this repo, cross-checked against the generated types.)
 
-## Recommended Architecture
+> **Headline for the roadmapper:** M6 is almost entirely a *reuse + tighten* milestone, not a build-from-scratch one. Four of the five features integrate with primitives that already exist (`avancar_etapa()` trigger, `historico_candidatura`, `analise_candidato_vaga`, `curriculos` bucket). The real work is: (1) one clean new table for scheduling, (2) two SECURITY DEFINER read-primitives (KPIs RPC + CV signed-URL EF), (3) **closing two live horizontal-scope leaks** the milestone can't ship without (`curriculos` Storage read + `historico_candidatura` RH RLS are both still role-only), and (4) extending the existing Kanban/triagem write-path to per-stage advance/reject with justification. **Everything server-side + RLS-secured must land before any UI.**
 
-### Target State: Layered SPA with Edge Functions as Security Boundary
+---
 
-```
-Browser (React SPA on Vercel)
-   |
-   +---> Supabase JS Client (anon key ONLY)
-   |        |
-   |        +---> Postgres (RLS enforced on every table)
-   |        +---> Auth (single project, role in profile tables)
-   |        +---> Storage (curriculos, avatares)
-   |        +---> Edge Functions (privileged operations)
-   |
-   +---> ViaCEP API (address autocomplete, public)
-   |
-   X  N8N Webhooks (deferred to Phase 10, out of MVP)
-   X  supabaseAdmin / service_role in client (REMOVED)
-```
+## Standard Architecture
 
-**Key difference from current state:** The `supabaseAdmin` client with `VITE_SUPABASE_SERVICE_ROLE_KEY` is eliminated entirely from the browser bundle. All operations requiring RLS bypass move to Supabase Edge Functions (Deno).
-
-### Component Boundaries
-
-| Component | Responsibility | Communicates With | Trust Level |
-|-----------|---------------|-------------------|-------------|
-| **Unified Auth Store** | Session state, role resolution, profile data | Supabase Auth, profile tables | Client (untrusted) |
-| **RoleGuard** | Route protection by role (candidato/rh/admin) | Auth Store | Client (untrusted) |
-| **Feature Modules** (`src/features/*`) | Business logic per domain: hooks, services, schemas, types | Supabase client (anon), Edge Functions | Client (untrusted) |
-| **Page Components** (`src/features/*/pages/`) | UI composition, layout binding | Feature module hooks/services | Client (untrusted) |
-| **Supabase Edge Functions** | Privileged ops: user creation, admin deletes, RLS bypass | Supabase Admin client (service_role), Postgres | Server (trusted) |
-| **Supabase RLS Policies** | Row-level authorization | auth.uid(), profile tables | Server (trusted) |
-| **Type Generation Pipeline** | `database.types.ts` from live schema | Supabase CLI, pre-commit hook | Build-time |
-
-### Data Flow
-
-#### Flow 1: Candidato Registration (current biggest security issue)
-
-**Current (BROKEN - service_role in browser):**
-```
-Browser -> supabaseAdmin.auth.admin.signUp()     [BYPASSES RLS]
-Browser -> supabaseAdmin.from('candidatos').insert() [BYPASSES RLS]
-```
-
-**Target (Edge Function as security boundary):**
-```
-Browser -> supabase.functions.invoke('cadastrar-candidato', {
-             body: { dadosPessoais, endereco, disponibilidade, autorizacoes }
-           })
-   |
-   v
-Edge Function (Deno, has SUPABASE_SERVICE_ROLE_KEY in env)
-   |
-   +-- Validate input (Zod schema, server-side)
-   +-- supabaseAdmin.auth.admin.signUp()
-   +-- supabaseAdmin.from('candidatos').insert()
-   +-- supabaseAdmin.from('disponibilidade').insert()
-   +-- supabaseAdmin.from('autorizacoes').insert()
-   +-- If any step fails: rollback (delete auth user, delete rows)
-   +-- Return { success, candidatoId } to browser
-```
-
-**Why Edge Function, not RLS-only:** Registration requires creating an `auth.users` entry AND inserting into `candidatos` atomically. The `auth.admin.signUp()` method requires the service_role key. No amount of RLS policy can make this work from anon-key-only client. This is the canonical use case for Edge Functions.
-
-#### Flow 2: Auth State Resolution (login -> role detection)
+### System Overview — where M6 features attach
 
 ```
-1. User signs in via supabase.auth.signInWithPassword()
-2. onAuthStateChange fires with session
-3. Unified auth store receives session:
-   a. Query candidatos WHERE user_id = auth.uid() -> if found, role = 'candidato'
-   b. Query usuarios_rh WHERE user_id = auth.uid() AND ativo = true -> if found, role = RH role
-   c. If neither found -> role = null (limbo state, redirect to appropriate signup)
-4. Store sets: { user, session, role, profile }
-5. RoleGuard reads role from store, permits/blocks route access
+┌────────────────────────────────────────────────────────────────────────┐
+│  CLIENT (React SPA, anon key only)                                       │
+│  ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐     │
+│  │ RH work-queue /  │   │ RH candidate     │   │ Candidate        │     │
+│  │ Kanban + KPIs    │   │ view (CV + IA)   │   │ dashboard        │     │
+│  └───────┬──────────┘   └───────┬──────────┘   └───────┬──────────┘     │
+│          │ TanStack Query        │                       │ own-row read  │
+├──────────┼──────────────────────┼───────────────────────┼───────────────┤
+│  DATA ACCESS (Supabase JS, RLS-enforced)                 │               │
+│  ┌───────▼──────────┐  ┌─────────▼────────┐  ┌───────────▼───────────┐   │
+│  │ UPDATE           │  │ RPC funil_kpis   │  │ SELECT own candidatura│   │
+│  │ candidaturas     │  │ (DEFINER,        │  │ + own historico       │   │
+│  │ .etapa_atual     │  │  vaga-scoped)    │  │ + own agendamento     │   │
+│  └───────┬──────────┘  └─────────┬────────┘  └───────────────────────┘   │
+│          │ fires trigger          │ reads                                 │
+├──────────┼──────────────────────┼───────────────────────────────────────┤
+│  PRIVILEGED (Edge Functions, service_role, authenticate-THEN-authorize)  │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ get-curriculo-url  (NEW — signed URL, vaga-owner authorized)       │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+├──────────────────────────────────────────────────────────────────────────┤
+│  POSTGRES                                                                 │
+│  ┌─────────────┐  ┌──────────────────────┐  ┌────────────────────────┐   │
+│  │ candidaturas │→│ avancar_etapa()      │→│ historico_candidatura   │   │
+│  │ (etapa_atual)│  │ BEFORE UPDATE trigger│  │ (KPI EVENT SOURCE)      │   │
+│  └─────────────┘  └──────────────────────┘  └────────────────────────┘   │
+│  ┌─────────────────────────┐  ┌────────────────────────────────────┐     │
+│  │ agendamentos_entrevista │  │ analise_candidato_vaga /           │     │
+│  │ (NEW)                    │  │ comparativo_solicitado / scores…   │     │
+│  └─────────────────────────┘  └────────────────────────────────────┘     │
+│  Storage bucket: curriculos (private, {auth.uid()}/{uuid}.pdf)           │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Critical invariant:** A single auth.users row can match at most ONE profile table. The store MUST check both tables and resolve to a single role. If both match (data corruption), prefer the RH profile and log a warning.
+### Component Responsibilities
 
-#### Flow 3: Authenticated Candidato Operations (candidatura, profile, tests)
+| Component | Responsibility | New / Modified | Integration point |
+|-----------|----------------|----------------|-------------------|
+| `avancar_etapa()` trigger | Validate transition + write ONE `historico_candidatura` row per transition. **Sole owner** of audit writes. | REUSE as-is (do NOT re-author unless diffed vs live body) | `candidaturas.etapa_atual` UPDATE |
+| `historico_candidatura` | Immutable event log — the KPI source of truth (from/to stage, actor, ts, justification, `auto_rejeitado`). | REUSE; **RH RLS must be tightened** (role-only → vaga-scoped) or read only via DEFINER RPC | trigger writes; KPI RPC reads |
+| `updateCandidaturaEtapa` (triagemService) | Client write-path: `UPDATE candidaturas SET etapa_atual` under RLS. | MODIFY — add optional `justificativa` → `etapa_justificativa`; surface across all 6 stages | drives trigger |
+| `agendamentos_entrevista` (NEW table) | Per-candidatura interview schedule (date/time/link/modality/status). | NEW | candidate own-row read; RH vaga-scoped |
+| `funil_kpis` RPC (NEW, DEFINER) | Server-side, vaga-scoped, PII-safe aggregation over `historico_candidatura`. | NEW | replaces `RelatoriosRHPage` client aggregation |
+| `get-curriculo-url` EF (NEW) | Authenticate-THEN-authorize (vaga owner OR admin) → service_role signed URL for `curriculos`. | NEW | closes the role-only Storage leak |
+| `analise_candidato_vaga` / `comparativo_solicitado` / `scores_candidato` | AI triagem output surfaced on RH candidate view. | REUSE (already vaga-scoped since P24) | RH read; candidate DENY |
 
-```
-Browser (logged in as candidato)
-   |
-   +-- supabase.from('candidaturas').insert()  [RLS: candidato_id = auth.uid()]
-   +-- supabase.storage.upload('curriculos/...') [RLS: bucket policy]
-   +-- supabase.from('candidatos').update()    [RLS: user_id = auth.uid()]
-```
+---
 
-These operations work with anon key + RLS. No Edge Function needed.
+## Feature-by-feature integration (new vs modified + RLS per feature)
 
-#### Flow 4: RH Operations (status updates, candidate review)
+### Feature 1 — Per-stage advance/reject across ALL 6 stages
 
-```
-Browser (logged in as RH user)
-   |
-   +-- supabase.from('candidaturas').update()  [RLS: check usuarios_rh.user_id = auth.uid()]
-   +-- supabase.from('vagas').insert/update()  [RLS: check usuarios_rh role]
-```
+**Verdict: REUSE `avancar_etapa()` + `historico_candidatura`. Do NOT add a new write-path. Do NOT re-author the trigger.**
 
-Most RH operations can work via RLS policies that check `EXISTS (SELECT 1 FROM usuarios_rh WHERE user_id = auth.uid() AND ativo = true)`. Edge Functions only needed for operations that truly bypass RLS (e.g., admin.deleteUser).
+**How it works today (verified):** the RH funnel already moves via `triagemService.updateCandidaturaEtapa()` → a plain `UPDATE candidaturas SET etapa_atual = ..., status = ...` through the **anon client under RLS**. The `avancar_etapa()` BEFORE-UPDATE trigger fires inside that same transaction and:
+- allows forward/skip-ahead freely; allows terminals (`aprovado`/`rejeitado`) from any stage;
+- **requires a non-empty `etapa_justificativa` for regressions** (moving backward by enum ordinal) — else `RAISE EXCEPTION`;
+- holds a forward advance *past* `entrevista_online` while an `entrevista_analises` row has `bloqueio_avanco=true AND revisao_confirmada_em IS NULL` (the ENTREV-03 bias-review flag guard — **the exact guard a past migration silently dropped**);
+- writes exactly ONE `historico_candidatura` row with `ator = auth.uid()` and a GUC-gated `auto_rejeitado`.
 
-## Architecture Decisions
+So "per-stage advance/reject across all 6 stages" is **almost entirely a UI/wiring delta over an already-correct server primitive.** The M4/P25 Kanban already uses this path; M6 exposes explicit per-stage advance + reject controls on every stage (today they are concentrated on the triagem/comparativo surface).
 
-### 1. Unified Auth Store (replaces dual-store pattern)
+**What to MODIFY:** extend `updateCandidaturaEtapa` to accept an optional `justificativa` and write it to `etapa_atual` + `etapa_justificativa` in the same UPDATE. The trigger copies `etapa_justificativa` → `historico_candidatura.criterio_texto`, so the audit trail captures the reason with zero extra writes.
 
-**Current problem:** Two Zustand stores (`authStore` + `adminAuthStore`) both call `supabase.auth.getSession()` on the same session, both listen to `onAuthStateChange`, and race against each other. A candidato login populates `authStore` correctly but `adminAuthStore` also detects the session and tries (and fails) to find a `usuarios_rh` row, causing console errors and state confusion.
+**Avoiding the double-write bug (the Phase-8 regression):** the historical bug wrote `historico_candidatura` *explicitly* AND let the trigger fire → 2 rows. **Invariant for M6: NO code path may INSERT into `historico_candidatura` directly.** The trigger is the sole owner. Every advance/reject is expressed as a `candidaturas` UPDATE and nothing else. (The one sanctioned exception — the knockout row in `submit_candidatura_atomic` — is out of M6 scope and is structured to not double-fire because it leaves `etapa` unchanged.)
 
-**Target pattern:** Single `useAuthStore` with a discriminated union state:
+**Keeping RNF-07a intact:** advance/reject here is always human-initiated → `ator = auth.uid()` is non-null → the GUC-gated `auto_rejeitado` predicate evaluates FALSE. No score-driven auto-rejection path is added. The `guard_rejeicao_auditada` backstop (P25) and the ENTREV-03 flag guard remain untouched.
 
-```typescript
-type AuthRole = 'candidato' | 'recrutador' | 'administrador'
+**⚠ Live-function caveat (explicit, per the DBMIG-02 near-miss):** if any M6 migration must `CREATE OR REPLACE avancar_etapa()`, **first dump the live body with `pg_get_functiondef` and diff it** — a P27 draft re-derived the function from the Phase-6 base and silently dropped the ENTREV-03 flag guard; it was caught pre-apply. The current authoritative body is `supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql` (which states it reproduces the verified-against-PROD body). **Preferred M6 posture: do NOT touch the trigger at all** — the reject-with-justification feature needs zero trigger changes.
 
-interface AuthState {
-  // Core
-  user: User | null
-  session: Session | null
-  role: AuthRole | null
-  isAuthenticated: boolean
-  isLoading: boolean
+**Legacy-RPC trap:** `database.types.ts` still exposes an M1-era `avancar_etapa(candidatura_uuid, usuario_rh_uuid)` overload and `rejeitar_candidato(candidatura_uuid, motivo, usuario_rh_uuid)` — **neither has a migration file and neither is the live write-path.** Do NOT wire M6 to these. The direct-UPDATE-fires-trigger path is the audited one.
 
-  // Profile (discriminated by role)
-  profile: CandidatoProfile | RHProfile | null
+**RLS status:** `candidaturas` UPDATE is already vaga-scoped (P24 `rh_avanca_etapa`: admin bypass OR `vaga_id IN (SELECT id FROM vagas WHERE created_by = auth.uid())`, in both USING and WITH CHECK). ✅ No change needed for advance/reject authorization.
 
-  // Actions
-  initialize: () => Promise<void>
-  login: (email: string, password: string) => Promise<void>
-  logout: () => Promise<void>
+---
 
-  // Role checks
-  hasRole: (required: AuthRole) => boolean
-  isAtLeast: (required: AuthRole) => boolean // hierarchy check
-}
+### Feature 2 — Interview scheduling (in-system, candidate sees on dashboard, no email)
 
-// Role hierarchy for isAtLeast()
-const ROLE_HIERARCHY: Record<AuthRole, number> = {
-  candidato: 0,
-  recrutador: 1,
-  administrador: 2,
-}
-```
+**Verdict: NEW lean table `agendamentos_entrevista`. Do NOT reuse the legacy `entrevistas_online` table. Do NOT add columns to `candidaturas`.**
 
-**Why single store:** One Supabase Auth session = one user = one role. Having two stores pretending there are two independent sessions is architecturally wrong and causes the race conditions proven by E2E failures (9/21 login tests failing).
+**Why not `entrevistas_online`:** it exists with the exact fields (`data_agendada`, `link_videochamada`, `status`, `agendado_por`), but it is the **legacy M1 table explicitly documented as "untracked, unaudited-RLS"** (migration `20260624000001` header). Reusing it means auditing/rewriting all its policies anyway, and it drags in M1 baggage (`transcricao`, `gravacao_url`, `analise_ia`) that overlaps and conflicts with the M2-native `entrevista_analises` table → drift risk. Comparable effort to a clean table, more surface area, more confusion.
 
-**Session persistence:** Use Supabase Auth's native `persistSession: true` (already configured). Remove the custom "Lembrar-me" logic using `sessionStorage` flags -- it fights against Supabase's built-in session management and creates edge cases. If "Lembrar-me" is truly needed, use `supabase.auth.signInWithPassword()` with `options: { persistSession: rememberMe }`.
+**Why not columns on `candidaturas`:** (a) can't cleanly model reschedules or an online-then-presential sequence (1:N); (b) the candidate's own-row `candidaturas` SELECT projects a limited allowlist — bolting a link/date onto that row muddies the projection boundary; (c) bloats the hottest table.
 
-### 2. RoleGuard Component (replaces ProtectedRoute + ProtectedAdminRoute)
+**Recommended table shape** (`agendamentos_entrevista`):
 
-**Current problem:** Two separate guard components (`ProtectedRoute` for candidatos, `ProtectedAdminRoute` for RH) with duplicated loading/redirect logic. `ProtectedRoute` only checks `isAuthenticated` but never verifies the user is actually a candidato -- an RH user accessing `/candidato/dashboard` would pass the guard.
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid pk | |
+| `candidatura_id` | uuid FK → candidaturas | scoping anchor |
+| `modalidade` | enum(`online`,`presencial`) | reuse concept from the 2 legacy interview tables |
+| `data_hora` | timestamptz | the scheduled slot |
+| `link_videochamada` | text null | online only; candidate-visible |
+| `local` | text null | presential only; candidate-visible |
+| `status` | reuse `status_entrevista` enum (`agendada`/`reagendada`/`cancelada`/…) | already exists |
+| `observacoes_rh` | text null | **RH-only, must NOT be projected to candidate** |
+| `agendado_por` | uuid FK → usuarios_rh | actor |
+| `created_at`/`updated_at`/`deleted_at` | timestamptz | soft-delete for reschedule history |
 
-**Target pattern:** Single `RoleGuard` component:
+**RLS (both directions, per feature):**
+- **RH write/read — vaga-scoped (WR-04 predicate, NOT role-only):**
+  `administrador` bypass OR `candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id = c.vaga_id WHERE v.created_by = auth.uid())`. This is the exact join-scoped predicate P24 used for `redacoes_candidato` (which also has no direct `vaga_id`). Apply to SELECT/INSERT/UPDATE with USING + WITH CHECK.
+- **Candidate read — own-row only, PII-safe projection:**
+  candidate SELECT policy: `candidatura_id IN (SELECT id FROM candidaturas WHERE candidato_id IN (SELECT id FROM candidatos WHERE user_id = auth.uid()))`. **But RLS is row-level, not column-level** ([[reference_select_star_leaks_pii]]) — so the candidate client must read an **explicit allowlist** (`modalidade, data_hora, link_videochamada, local, status`) and NEVER `select('*')`, because `observacoes_rh` is on the same row. Belt-and-suspenders: consider a `get_meu_agendamento(candidatura_id)` DEFINER RPC returning only candidate-safe columns if the projection discipline is deemed fragile.
 
-```typescript
-interface RoleGuardProps {
-  children: ReactNode
-  /** Allowed roles. If omitted, any authenticated user passes. */
-  allow: AuthRole[]
-  /** Minimum role level (alternative to explicit list). */
-  minRole?: AuthRole
-  /** Where to redirect if not authenticated. */
-  loginPath?: string
-  /** Where to redirect if authenticated but wrong role. */
-  forbiddenPath?: string
-}
-```
+**How the candidate dashboard reads it:** the candidate hub (`HubCandidatoRH`) is already `etapa_atual`-driven and takes a `contexto` prop assembled from the candidate's own `candidaturas` row (read via the `candidato_le_propria_candidatura` own-row policy). Scheduling slots in as: when `etapa_atual ∈ {entrevista_online, entrevista_presencial}`, fetch the latest non-deleted `agendamentos_entrevista` own-row and render date/link in the existing "Próximo passo" turquoise CTA. No email, no push — pure dashboard read, matching the COMM-out-of-scope constraint.
 
-Usage in routes:
-```tsx
-// Candidato routes
-<RoleGuard allow={['candidato']} loginPath="/auth/login">
-  <DashboardCandidatoPage />
-</RoleGuard>
+**RH action:** create/reschedule/cancel is a plain insert/update to `agendamentos_entrevista` under vaga-scoped RLS (no EF needed — no service_role, no privileged read). Optionally the RH scheduling action ALSO advances `etapa_atual` to the interview stage in the same flow (two independent writes; the funnel move fires the trigger as usual).
 
-// RH routes (any RH role)
-<RoleGuard allow={['recrutador', 'administrador']} loginPath="/auth/login-rh">
-  <DashboardRHPage />
-</RoleGuard>
+---
 
-// Admin-only
-<RoleGuard allow={['administrador']} loginPath="/auth/login-rh" forbiddenPath="/rh/dashboard">
-  <ConfiguracoesPage />
-</RoleGuard>
-```
+### Feature 3 — CV + AI-analysis visible to RH
 
-**Verification requirement:** The RoleGuard MUST verify the role from the database (profile table query), not just from the Zustand store's persisted localStorage. On mount, it should call `supabase.auth.getUser()` (not `getSession()` -- `getUser()` validates with the server) and then check the profile table. This prevents a user from manually editing localStorage to fake a role.
+**Two sub-parts with very different security postures.**
 
-### 3. Edge Functions Architecture
+**3a. AI analysis (`analise_candidato_vaga.score_match/resumo/gaps/flags` + `comparativo_solicitado` + `scores_candidato`):**
+- **Already vaga-scoped since P24** (`rh_le_analise`, `rh_le_comparativo` = admin bypass OR owns vaga). Candidate has DENY (no SELECT policy). ✅
+- This is a **read-only wiring feature**: surface the already-stored analysis on the RH candidate view. No new table, no new RLS, no leak to the candidate (candidate simply has no read path to these tables). Confirm the RH client reads an explicit column allowlist (not `select('*')`) to stay disciplined.
 
-**When to use Edge Functions:**
-1. Operations requiring `service_role` key (user creation, admin user deletion)
-2. Operations that need atomic multi-table transactions beyond RLS scope
-3. Third-party API calls with secrets (future: n8n webhook relay, email sending)
+**3b. CV file (private `curriculos` bucket) — ⚠ CONTAINS A LIVE HORIZONTAL LEAK M6 MUST CLOSE:**
+- The `curriculos` Storage SELECT policy is **role-only**: `role IN ('rh','administrador')` reads **ANY** candidate's CV — the exact horizontal-scope class P24 fixed for the analysis tables but **never fixed for Storage.** A recruiter can currently download the CV of a candidate on a vaga they don't own. Path schema is `{auth.uid()}/{uuid}.pdf` (candidate's auth.uid() as folder), so the object row carries no `vaga_id`.
+- **Recommended fix (matches the codebase's authenticate-THEN-authorize precedent): a new EF `get-curriculo-url`.** It (1) `getUser()` authenticates, (2) resolves role from `usuarios_rh` + authorizes **vaga ownership** (the candidatura's `vaga.created_by = rh.user_id` OR admin), then (3) mints a short-lived `createSignedUrl(path, ~60s)` with service_role. This mirrors the comparativo-EF IDOR guard ([[reference_ef_authenticate_vs_authorize]]) and avoids a gnarly 4-table JOIN inside a Storage RLS predicate that runs per-object. `candidaturas.curriculo_url` already stores the object path.
+- **Critically, ALSO remove the blanket role-only RH read from the Storage policy** so the EF becomes the *only* RH path (otherwise a recruiter can still `createSignedUrl` client-side and bypass the EF). Candidate own-folder read/write/delete policies stay as-is. Net: one vaga-scoped path to a CV, matching the RLS-vaga-scoped invariant.
+- **Do not leak to candidate:** candidate keeps own-folder access only (unchanged); the analysis tables remain DENY for candidates.
 
-**When NOT to use Edge Functions:**
-1. Standard CRUD with RLS (reads, candidato self-updates, RH updates within RLS)
-2. File uploads (Supabase Storage + bucket policies handle this)
-3. Client-side validation (keep Zod in browser for UX; duplicate on server for security)
+---
 
-**Edge Functions to create for M1:**
+### Feature 4 — Funnel KPIs (work-queue + operational metrics)
 
-| Function | Purpose | Trigger |
-|----------|---------|---------|
-| `cadastrar-candidato` | Multi-table registration with auth.admin.signUp | `supabase.functions.invoke()` from CadastroMultiStepForm |
-| `admin-delete-user` | Delete auth.users entry (admin only) | `supabase.functions.invoke()` from RH panel |
+**Verdict: SECURITY DEFINER RPC (or a small set) over `historico_candidatura`, vaga-scoped inside the function. NOT client-side aggregation. NOT an unguarded SQL view.**
 
-**Deployment:** `supabase functions deploy <name>` from `supabase/functions/<name>/index.ts`. Environment variables (`SUPABASE_SERVICE_ROLE_KEY`) are automatically available in Edge Functions without explicit configuration.
+**Why server-side is mandatory here (security, not just performance):** `historico_candidatura`'s RH SELECT policy `rh_le_historico` is **still role-only** — P24 explicitly *deferred* tightening it to the "Phase 25 funil-RH sweep," and no migration ever swept it (verified: no `historico_candidatura` POLICY exists in any migration after the P24 deferral note). So **any client-side aggregation over `historico_candidatura` would read every vaga's events → a horizontal KPI leak.** The current `RelatoriosRHPage.tsx` does exactly this kind of client-side `.from('candidaturas')` aggregation (the "M1 dead dashboard" the M5-DRAFT calls out) and should be replaced.
 
-**Edge Function template:**
-```typescript
-// supabase/functions/cadastrar-candidato/index.ts
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders } from '../_shared/cors.ts'
+Two acceptable ways to make it safe; **recommend the DEFINER RPC**:
+1. **`funil_kpis(...)` SECURITY DEFINER + `SET search_path=''`** that filters to the caller's owned vagas *inside* the function (`WHERE v.created_by = auth.uid()` unless admin). PII-safe (returns only aggregate counts/durations, no candidate identity), vaga-scoped by construction, and independent of the still-loose table RLS. Matches the pattern already used everywhere (`pontuar_sjt`, `get_avaliacao_status`, the KPI-style DEFINER functions).
+2. *(Alternative / complementary)* Tighten `rh_le_historico` to the WR-04 vaga-scoped predicate AND expose a plain SQL view. Lower-effort but the view must still be vaga-scoped, and aggregation-in-the-client is chattier. Prefer the RPC; optionally tighten `rh_le_historico` anyway as defense-in-depth (it is a latent leak regardless of M6).
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+**Query shapes (sketch — all over `historico_candidatura`, joined to `candidaturas`→`vagas` for scope):**
 
-  try {
-    // 1. Create admin client (service_role from env)
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-      { auth: { persistSession: false, autoRefreshToken: false } }
-    )
+- **Volume per vaga/stage** — count of candidaturas that ever reached each stage:
+  ```sql
+  SELECT v.id AS vaga_id, h.etapa_para AS etapa, count(DISTINCT h.candidatura_id) AS volume
+  FROM historico_candidatura h
+  JOIN candidaturas c ON c.id = h.candidatura_id
+  JOIN vagas v ON v.id = c.vaga_id
+  WHERE (<is_admin> OR v.created_by = auth.uid())
+  GROUP BY v.id, h.etapa_para;
+  ```
+- **Conversion (stage N → N+1)** — reached(N+1) / reached(N), computed from the volume-per-stage counts above using the `etapa_processo` enum ordinal ordering (forward stages only; terminals `aprovado`/`rejeitado` handled separately).
+- **Time-in-stage** — timestamp delta between a candidatura's consecutive transitions, via `LEAD` over the ordered event stream:
+  ```sql
+  SELECT h.candidatura_id, h.etapa_de AS etapa,
+         lead(h.criado_em) OVER (PARTITION BY h.candidatura_id ORDER BY h.criado_em) - h.criado_em AS tempo_na_etapa
+  FROM historico_candidatura h
+  -- then aggregate avg/median tempo_na_etapa per etapa, scoped to owned vagas
+  ```
+  (Current in-flight candidaturas: `now() - criado_em` of the last transition gives time-in-current-stage for the work-queue view.)
 
-    // 2. Verify calling user (optional, for authenticated endpoints)
-    const authHeader = req.headers.get('Authorization')!
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    )
+**Work-queue view:** the "fila de trabalho real" is a filtered/sorted `candidaturas` read (already vaga-scoped) — e.g. per-stage buckets sorted by time-in-current-stage — powered by the same DEFINER RPC or a scoped `candidaturas` query, joined to `analise_candidato_vaga.score_match` for triage ordering.
 
-    // 3. Parse and validate body
-    const body = await req.json()
-    // ... Zod validation ...
+---
 
-    // 4. Perform privileged operations
-    // ... signUp, inserts, etc ...
+### Feature 5 — Reject from comparativo with mandatory justification (funil-02, tech-debt)
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
-})
+**Verdict: a thin variant of Feature 1 — same write-path, justification made mandatory at the UI/service layer.**
+
+The comparativo screen already has inline advance/reject actions calling `updateCandidaturaEtapa`. funil-02 adds: reject-from-comparativo **requires a non-empty justification**, written to `etapa_justificativa` (→ `historico_candidatura.criterio_texto` via the trigger) and optionally mirrored to `candidaturas.motivo_rejeicao`. `ator = auth.uid()` (human) → `auto_rejeitado=false`, RNF-07a preserved, full audit trail. **No new server primitive** — enforce the "justification non-empty" rule in the service/Zod schema, since the trigger only *requires* justification for regressions, not terminals. This is the smallest feature; it rides entirely on Feature 1's plumbing.
+
+---
+
+## Architectural Patterns (established in this codebase — reuse verbatim)
+
+### Pattern 1: Funnel move = `UPDATE candidaturas.etapa_atual`; trigger owns the audit
+**What:** never write `historico_candidatura` from application code. Express every transition as a scoped UPDATE; the BEFORE-UPDATE trigger validates + audits atomically.
+**When:** all M6 advance/reject/schedule-then-advance flows.
+**Trade-off:** one indivisible audit row per transition; impossible to double-write **as long as** no code also INSERTs history.
+```ts
+// MODIFY: add optional justificativa; still ONE write, trigger does the rest
+await supabase.from('candidaturas')
+  .update({ etapa_atual: novaEtapa, ...(novaEtapa === 'rejeitado' && { status: 'rejeitado' }), etapa_justificativa: justificativa ?? null })
+  .eq('id', candidaturaId)   // RLS vaga-scopes; trigger writes historico_candidatura
 ```
 
-### 4. Feature-Based Folder Structure Migration
+### Pattern 2: WR-04 vaga-scoped RLS predicate (admin bypass OR owns-vaga), never role-only
+**What:** every RH-facing SELECT/UPDATE policy uses `(auth.jwt() #>> '{app_metadata,role}') = 'administrador' OR (= 'rh' AND vaga_id IN (SELECT id FROM vagas WHERE created_by = auth.uid()))`; join through `candidaturas` when the table has no direct `vaga_id`.
+**When:** the new `agendamentos_entrevista` table; tightening `historico_candidatura` and `curriculos` Storage.
+**Trade-off:** slightly heavier predicate, but it is the only thing that stops horizontal IDOR — behavioral smokes (impersonated JWT) caught role-only / OR-defeat leaks that structural checks missed.
 
-**Current state:** 35 page components in `src/components/pages/`, 3 feature modules in `src/features/` (auth skeleton, cadastro mature, vagas partial).
+### Pattern 3: Privileged read = authenticate-THEN-authorize Edge Function
+**What:** service_role EF that `getUser()`s, resolves role from `usuarios_rh`, checks vaga ownership, THEN acts. Authentication ≠ authorization ([[reference_ef_authenticate_vs_authorize]]).
+**When:** `get-curriculo-url` signed-URL EF.
+**Trade-off:** more moving parts than client-side, but centralizes authorization and keeps service_role off the client (hard security rule).
 
-**Target structure:**
+### Pattern 4: SECURITY DEFINER RPC for reads that must ignore loose table RLS
+**What:** DEFINER + `SET search_path=''`, vaga-scope *inside* the function body, return PII-safe aggregates.
+**When:** `funil_kpis`; optional `get_meu_agendamento` candidate projection.
 
-```
-src/
-  features/
-    auth/                          # Auth (Phase 1)
-      components/
-        LoginForm.tsx
-        ResetPasswordForm.tsx
-      hooks/
-        useAuth.ts                 # wraps unified auth store
-      services/
-        authService.ts             # signIn, signUp (client-side only now)
-      store/
-        authStore.ts               # THE unified auth store (moved from src/store/)
-      types/
-        auth.types.ts
-      guards/
-        RoleGuard.tsx              # Single route guard component
+---
 
-    cadastro/                      # Registration (Phase 4 - already mature)
-      components/                  # Keep existing structure
-      hooks/
-      schemas/
-      services/
-        cadastroService.ts         # Calls Edge Function instead of supabaseAdmin
-      types/
+## Data Flow — the three new/changed flows
 
-    vagas/                         # Job Listings (Phase 5)
-      components/
-        VagaCard.tsx
-        VagaFilters.tsx
-      hooks/
-        useVagas.ts                # existing
-        useCandidaturas.ts         # existing
-      pages/
-        VagasPublicasPage.tsx      # migrated from components/pages/
-        VagaDetalhePage.tsx
-      services/
-        vagasService.ts            # existing
-        candidaturasService.ts     # existing (remove webhook code for MVP)
-      store/
-        vagasStore.ts              # existing
-      types/
-        vagasTypes.ts              # existing
+1. **RH advances/rejects a candidatura (all stages):**
+   `RH action → updateCandidaturaEtapa(id, etapa, justificativa?) → UPDATE candidaturas (RLS vaga-scoped) → avancar_etapa() trigger validates + INSERT historico_candidatura (ator=auth.uid()) → TanStack Query invalidates Kanban + KPIs`
+2. **RH schedules an interview; candidate sees it:**
+   `RH form → INSERT/UPDATE agendamentos_entrevista (RLS vaga-scoped) [+ optional etapa advance] → candidate dashboard SELECT own-row agendamento (allowlist) → render date/link in "Próximo passo"`
+3. **RH opens a candidate's CV + AI analysis:**
+   `RH candidate view → SELECT analise_candidato_vaga/comparativo (already vaga-scoped) + invoke get-curriculo-url EF (authorize vaga owner → service_role signed URL) → render signed link (~60s)`
 
-    candidato/                     # Candidato Area (Phase 5)
-      pages/
-        DashboardCandidatoPage.tsx
-        MeuPerfilCandidatoPage.tsx
-        FormularioCandidaturaPage.tsx
-      hooks/
-      services/
+---
 
-    rh/                            # RH Area (post-M1)
-      pages/
-        DashboardRHPage.tsx
-        CandidatosRHPage.tsx
-        VagasRHPage.tsx
-        ...
-      components/
-        RHLayout.tsx
-        RHSidebar.tsx
-        RHTopBar.tsx
-      hooks/
-      services/
+## Anti-Patterns (specific to this integration)
 
-    testes/                        # Psychometric Tests (post-M1)
-      pages/
-      components/
-      hooks/
-      services/
+### Anti-Pattern 1: Explicitly INSERT-ing `historico_candidatura` alongside a funnel UPDATE
+**What people do:** "record the transition" by writing history in the service, on top of the trigger. **Why wrong:** double-write (the exact Phase-8 bug) — two audit rows, corrupt KPIs. **Instead:** only UPDATE `candidaturas`; the trigger is the sole writer.
 
-  components/
-    ui/                            # shadcn/ui primitives (keep)
-    ErrorBoundary.tsx              # Global error boundary (keep)
-    BackgroundImage.tsx            # Shared visual component (keep)
+### Anti-Pattern 2: `CREATE OR REPLACE avancar_etapa()` from a migration file without diffing the live body
+**What people do:** re-author the trigger from an old migration. **Why wrong:** silently drops guards the live body accreted (the ENTREV-03 flag guard — a real near-miss). **Instead:** don't touch the trigger for M6; if unavoidable, `pg_get_functiondef` first and diff.
 
-  lib/
-    supabase/
-      client.ts                    # ONLY exports anon client (supabaseAdmin REMOVED)
+### Anti-Pattern 3: Client-side aggregation over `historico_candidatura` for KPIs
+**What people do:** `.from('historico_candidatura').select(...)` and aggregate in JS (like the M1 `RelatoriosRHPage`). **Why wrong:** RH RLS on that table is still role-only → every vaga's events leak. **Instead:** DEFINER RPC that vaga-scopes internally.
 
-  router/
-    routes.tsx                     # Route definitions with RoleGuard
-```
+### Anti-Pattern 4: Shipping CV visibility / KPIs on the existing role-only policies "because it works"
+**What people do:** reuse the role-only `curriculos` Storage read / role-only `historico` RLS. **Why wrong:** both are live horizontal leaks. **Instead:** close them as part of the feature (EF + tightened Storage policy; DEFINER RPC or tightened `rh_le_historico`).
 
-**Migration strategy:** Move pages incrementally per phase. Phase 1 moves auth pages. Phase 4-5 moves candidato/vagas pages. RH pages stay in `components/pages/` until M2. Each move is one commit: rename file, update imports, verify build passes.
+### Anti-Pattern 5: `select('*')` on any row a candidate can read (scheduling, own candidatura)
+**What people do:** read the whole row. **Why wrong:** RLS is row-level, not column-level; `observacoes_rh` / internal fields leak ([[reference_select_star_leaks_pii]]). **Instead:** explicit candidate-safe allowlist (or a DEFINER projection RPC).
 
-### 5. Service Layer Decomposition
+### Anti-Pattern 6: Wiring to the legacy `avancar_etapa(uuid,uuid)` / `rejeitar_candidato(uuid,text,uuid)` RPCs
+**What people do:** call the RPCs that appear in `database.types.ts`. **Why wrong:** M1-era, no migration file, not the audited live path. **Instead:** the direct-UPDATE path.
 
-**Current problem:** `candidaturasService.ts` is 1200 lines mixing CRUD, webhook retry logic, N8N payload construction, and structured logging. `cadastroService.ts` is 590 lines with manual multi-table transaction and rollback.
+---
 
-**Decomposition principles:**
-1. **One service file per aggregate root** -- `candidaturasService` handles candidatura CRUD, nothing else
-2. **Extract cross-cutting concerns** -- webhook logic, retry, logging become shared utilities
-3. **Edge Functions absorb privileged logic** -- cadastro's multi-table insert moves server-side
-4. **Services call `supabase` (anon) only** -- no `supabaseAdmin` in any service
+## Integration Points
 
-**Target decomposition for candidaturasService:**
+### Internal boundaries
 
-```
-features/vagas/services/
-  candidaturasService.ts        # CRUD only (create, list, listByVaga, getById)
-  candidaturaStatusService.ts   # Status transitions with business rules
-  (webhookService removed from MVP -- n8n deferred to Phase 10)
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| RH Kanban (P25) ↔ per-stage controls (M6) | Both call `updateCandidaturaEtapa` (extended) | **Reconcile: one shared service, one write-path.** M6 generalizes the existing action from the triagem/comparativo surface to all-stage controls; do not fork a second advance path. |
+| Scheduling ↔ funnel | Independent writes; optionally sequenced | Scheduling is its own table; advancing to the interview stage is a separate `candidaturas` UPDATE. |
+| CV/analysis (RH) ↔ candidate | Hard DENY wall | Analysis tables have no candidate SELECT; CV via own-folder only; scheduling via allowlist. |
+| KPIs ↔ `historico_candidatura` | DEFINER RPC only | Table RLS stays loose unless separately tightened. |
 
-lib/
-  errors/
-    ServiceError.ts             # Base class for typed service errors
-  http/
-    retryFetch.ts              # Generic retry with exponential backoff (reusable)
-```
+### External services
 
-**Target decomposition for cadastroService:**
+| Service | Integration pattern | Notes |
+|---------|---------------------|-------|
+| Supabase Storage (`curriculos`) | signed URL via authorize-first EF | Private bucket; **role-only read is a leak to close**. |
+| Supabase Auth (JWT `app_metadata.role`) | RLS predicates + EF role resolution | `role` claim + `created_by` ownership is the scoping basis. |
+| Migrations → PROD | Supabase MCP `apply_migration`/`execute_sql` | Bypasses 42601 on PL/pgSQL `$$` bodies; no BEGIN/COMMIT wrapper; MCP writes the version row (reconcile ledger). |
 
-```
-features/cadastro/services/
-  cadastroService.ts           # Thin wrapper: validates form data, calls Edge Function
-                               # ~50 lines instead of ~590
-```
+---
 
-The heavy lifting (signUp, multi-table insert, rollback) moves into `supabase/functions/cadastrar-candidato/index.ts`.
+## Recommended Build Order (security-first: data + RLS before UI)
 
-### 6. Type Generation Pipeline
+The roadmapper should decompose into phases in this dependency order. **Every server + RLS item lands and is smoke-verified (impersonated-JWT behavioral smokes) before its UI.**
 
-**Pipeline:**
-```bash
-# In package.json scripts:
-"db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > database.types.ts",
-"db:types:local": "supabase gen types typescript --local > database.types.ts"
-```
+1. **Phase A — Advance/reject + reject-with-justification (Features 1 & 5).** Lowest risk, highest reuse. Server: none new (trigger + RLS already correct). Service: extend `updateCandidaturaEtapa` with justification; enforce mandatory-justification-on-comparativo-reject in Zod. Then UI: per-stage controls across all 6 stages + comparativo reject dialog. Reconcile with the P25 Kanban (shared service). *No trigger edits.*
+2. **Phase B — Security tightening for the read features (blocking prerequisites).** (a) Close the `curriculos` Storage role-only leak + build the `get-curriculo-url` EF (authenticate-THEN-authorize); (b) create the `funil_kpis` DEFINER RPC (and optionally tighten `rh_le_historico`). Ship these server-side + smoke-verified *before* the views that consume them.
+3. **Phase C — Scheduling data layer (Feature 2).** New `agendamentos_entrevista` table + vaga-scoped RH RLS + candidate own-row read (allowlist / projection RPC). Smoke: RH-owns-vaga writes; non-owner denied; candidate reads own only; candidate cannot see `observacoes_rh`.
+4. **Phase D — RH surfaces (UI).** RH candidate view (CV signed-URL + AI analysis wiring) + scheduling form; work-queue + KPI dashboard consuming the Phase-B RPC (replacing the M1 `RelatoriosRHPage` aggregation).
+5. **Phase E — Candidate dashboard read (UI).** Surface the schedule (date/link) in `HubCandidatoRH`'s "Próximo passo" for interview stages. Pure own-row read; no email (COMM out of scope).
 
-**Pre-commit hook (via Husky + lint-staged):**
-```bash
-# .husky/pre-commit
-npx lint-staged
+**Ordering rationale:** Feature 1 is pure reuse (fast win, de-risks the milestone). The two live leaks (Storage + `historico` RLS) gate Features 3 & 4 — they must be closed server-side before any consuming UI, or the milestone ships an IDOR. Scheduling's data layer + RLS precede both its RH and candidate UIs. Candidate-facing read is last because it depends on the scheduling table + RLS being proven safe.
 
-# lint-staged.config.js
-module.exports = {
-  'database.types.ts': () => 'npm run db:types && git add database.types.ts',
-  '*.{ts,tsx}': ['tsc --noEmit'],
-}
-```
+---
 
-**Why auto-generate:** The current `database.types.ts` was hand-maintained and has drifted from the actual schema (evidenced by `as any` casts in candidaturasService.ts). Auto-generation eliminates drift and catches schema changes at build time.
+## Scaling Considerations
 
-## Anti-Patterns to Avoid
+| Scale | Architecture adjustments |
+|-------|--------------------------|
+| Current (single-tenant Beauty Smile, low hundreds of candidaturas) | Everything above is right-sized. KPI RPC computes on-read over `historico_candidatura`; no materialization needed. |
+| 10× volume | Add an index on `historico_candidatura(candidatura_id, criado_em)` for the `LEAD`/time-in-stage window; index `candidaturas(vaga_id, etapa_atual)` for work-queue filters (likely already present from M2). |
+| 100× / heavy dashboards | Consider a materialized KPI rollup refreshed on a schedule (or trigger on `historico_candidatura` insert) if the on-read RPC latency grows; not warranted now. |
 
-### Anti-Pattern 1: service_role Key in Client Bundle
-**What:** Exposing `VITE_SUPABASE_SERVICE_ROLE_KEY` via Vite env vars
-**Why bad:** Any user can extract this key from the browser bundle and bypass ALL RLS policies, reading/writing/deleting any row in any table. This is equivalent to giving every visitor full database admin access.
-**Instead:** Delete `VITE_SUPABASE_SERVICE_ROLE_KEY` from `.env.local`. Move all operations requiring service_role to Edge Functions.
+**First bottleneck:** the time-in-stage window function over a large `historico_candidatura` — fix with the composite index above before any materialization.
 
-### Anti-Pattern 2: Dual Auth Stores for Single Auth Session
-**What:** Two Zustand stores (`authStore` + `adminAuthStore`) both listening to the same `onAuthStateChange` event
-**Why bad:** Race conditions on initialization, state desynchronization, both stores calling `getSession()` simultaneously, one store's `signOut()` doesn't clear the other
-**Instead:** Single unified store with `role` discriminator
-
-### Anti-Pattern 3: Client-Side Role Verification Without Server Check
-**What:** `ProtectedRoute` checks `isAuthenticated` from Zustand localStorage, which can be manually set to `true`
-**Why bad:** Anyone can open devtools, set `auth-storage` in localStorage to `{isAuthenticated: true}`, and access protected routes
-**Instead:** RoleGuard must call `supabase.auth.getUser()` on mount (server-validated) and verify profile table existence
-
-### Anti-Pattern 4: N+1 Queries in Service Layer
-**What:** `enriquecerVaga()` in vagasService.ts makes 3 additional Supabase queries per vaga (totalCandidatos, emAnalise, aprovados) and then `listVagas` calls this in `Promise.all` for every vaga in the page -- up to 12 vagas x 3 queries = 36 extra queries per page load
-**Why bad:** Latency scales linearly with page size, hammers Supabase connection pool
-**Instead:** Use a Postgres VIEW or RPC function that joins candidatura counts in a single query, or use `.select('*, candidaturas(count)')` syntax
-
-### Anti-Pattern 5: Manual Transaction Rollback in Client
-**What:** `cadastroService.ts` manually deletes rows if a subsequent insert fails, but this runs in the browser with service_role
-**Why bad:** Rollback can fail silently (network drop, tab close), leaving orphaned auth.users entries. Also exposes delete capability to the client.
-**Instead:** Edge Function handles the entire transaction server-side. If the function crashes, Deno runtime guarantees cleanup is attempted. For true atomicity, use a Postgres function (`SELECT cadastrar_candidato_completo(...)`) called from the Edge Function.
-
-## Patterns to Follow
-
-### Pattern 1: Discriminated Auth State
-**What:** Auth store uses role field to discriminate which profile data is loaded
-**When:** Always -- this is the core auth pattern
-**Example:**
-```typescript
-// In a component
-const { role, profile } = useAuthStore()
-if (role === 'candidato') {
-  const candidato = profile as CandidatoProfile
-  // TypeScript knows this is safe because role === 'candidato'
-}
-```
-
-### Pattern 2: Edge Function as RPC
-**What:** Call Edge Functions like typed RPCs using `supabase.functions.invoke()`
-**When:** Any operation needing service_role
-**Example:**
-```typescript
-// In cadastroService.ts (client-side, ~50 lines)
-export async function cadastrarCandidato(data: CandidatoFormData) {
-  const { data: result, error } = await supabase.functions.invoke(
-    'cadastrar-candidato',
-    { body: data }
-  )
-  if (error) throw new CadastroError(error.message, 'NETWORK_ERROR')
-  return result as CadastroCompleteResult
-}
-```
-
-### Pattern 3: Feature Module Barrel Exports
-**What:** Each feature exposes a public API via `index.ts`, internals are private
-**When:** Always for cross-feature imports
-**Example:**
-```typescript
-// features/auth/index.ts
-export { useAuthStore, useIsAuthenticated } from './store/authStore'
-export { RoleGuard } from './guards/RoleGuard'
-export type { AuthRole } from './types/auth.types'
-
-// features/vagas/pages/VagasPublicasPage.tsx
-import { useIsAuthenticated } from '@/features/auth'  // clean import
-```
-
-### Pattern 4: React Router Layout Routes for Guards
-**What:** Use layout routes to wrap entire route groups with guards instead of wrapping each route individually
-**When:** Route groups share the same guard configuration
-**Example:**
-```tsx
-// routes.tsx
-{
-  element: <RoleGuard allow={['candidato']} loginPath="/auth/login" />,
-  children: [
-    { path: '/candidato/dashboard', element: <DashboardCandidatoPage /> },
-    { path: '/candidato/perfil', element: <MeuPerfilCandidatoPage /> },
-    // ... all candidato routes inherit the guard
-  ]
-}
-```
-
-This eliminates the current pattern of wrapping every single route in `<ProtectedRoute>`.
-
-## Suggested Build Order (Dependencies Between Components)
-
-The architecture has clear dependency ordering. Building out of order causes rework.
-
-```
-Phase 1: Auth Foundation
-  +-- Unified Auth Store (no dependencies)
-  +-- RoleGuard component (depends on: auth store)
-  +-- Edge Function: cadastrar-candidato (depends on: nothing client-side)
-  +-- Remove supabaseAdmin from client.ts (depends on: Edge Function deployed)
-  +-- Type generation pipeline (depends on: nothing)
-
-Phase 2: Route Infrastructure
-  +-- Layout routes with RoleGuard (depends on: auth store, RoleGuard)
-  +-- Feature folder structure for auth (depends on: auth store moved)
-
-Phase 3: Login/Password Flows
-  +-- Login candidato stable (depends on: unified auth store)
-  +-- Login RH stable (depends on: unified auth store)
-  +-- Password recovery (depends on: auth store)
-
-Phase 4: Cadastro on New Foundation
-  +-- cadastroService calls Edge Function (depends on: Edge Function deployed)
-  +-- Remove supabaseAdmin imports from cadastroService (depends on: Edge Function)
-  +-- E2E tests for registration (depends on: cadastro working)
-
-Phase 5: Candidato MVP Features
-  +-- Public vagas listing (depends on: RLS, no auth needed)
-  +-- Candidatura flow (depends on: auth store, RLS policies)
-  +-- Candidato profile (depends on: auth store)
-  +-- Feature folder migration for candidato/ (depends on: routes working)
-```
-
-**Key dependency chain:** Auth Store -> RoleGuard -> Routes -> Everything else. Do NOT start candidatura features before auth is solid. The 9/21 failing E2E tests prove this.
-
-## Scalability Considerations
-
-| Concern | At 100 users | At 10K users | At 1M users |
-|---------|--------------|--------------|-------------|
-| Auth session | Supabase handles natively | Supabase handles natively | Supabase handles natively |
-| Vagas listing | N+1 is fine (<36 queries) | Move to VIEW/RPC, add pagination | Full-text search with pg_trgm |
-| Candidatura CRUD | RLS direct queries | Add DB indexes on etapa_atual, status | Consider read replicas |
-| Edge Functions | Cold start ~200ms | Warm, no issue | Consider regional deployment |
-| Type generation | Manual trigger OK | Pre-commit hook | CI pipeline |
-
-For M1 (Beauty Smile single-tenant, likely <1000 active users), the N+1 in vagasService is the only performance concern worth addressing. Everything else scales fine at this volume.
+---
 
 ## Sources
 
-- Supabase Edge Functions documentation (Context7, verified 2026-04-19): `supabase.functions.invoke()` API, Deno.env for service_role
-- Supabase Auth documentation (Context7, verified 2026-04-19): `getUser()` vs `getSession()`, `auth.admin` namespace
-- Codebase analysis: `src/lib/supabase/client.ts`, `src/store/authStore.ts`, `src/store/adminAuthStore.ts`, `src/components/ProtectedRoute.tsx`, `src/components/ProtectedAdminRoute.tsx`, `src/features/*/services/*.ts`
-- React Router v6 layout routes: training data (MEDIUM confidence, but pattern is stable since v6.4)
+- `supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql` — current authoritative `avancar_etapa()` body (header: "verified against PROD via pg_get_functiondef"); ENTREV-03 flag guard, GUC-gated `auto_rejeitado`, RNF-07a rationale. **HIGH.**
+- `supabase/migrations/20260706110004_sec05_08_vaga_scope.sql` — WR-04 vaga-scoped predicate for `candidaturas`/`analise`/`comparativo`/`redacoes`; explicit deferral of `historico_candidatura` + `devolutivas_candidato` (still role-only). **HIGH.**
+- `supabase/migrations/20260607000006_rls_policies_m2_backbone.sql` — baseline `candidaturas` + `historico_candidatura` RLS (role-only origin); trigger-owns-audit note. **HIGH.**
+- `supabase/migrations/20260425000002_curriculos_bucket.sql` — private bucket config + **role-only RH Storage read (the live leak)**; `{auth.uid()}/{uuid}.pdf` path schema. **HIGH.**
+- `supabase/migrations/20260624000001_entrevista_cognitivo_tables.sql` — `entrevistas_online`/`entrevistas_presenciais` flagged legacy/"untracked, unaudited-RLS"; M2-native interview tables. **HIGH.**
+- `src/features/triagem/services/triagemService.ts` (`updateCandidaturaEtapa`, L286–378) — current RH funnel write-path (direct UPDATE fires trigger). **HIGH.**
+- `database.types.ts` (repo root) — `candidaturas`, `historico_candidatura`, `entrevistas_online`, `analise_candidato_vaga`, `comparativo_solicitado`, `scores_candidato`, `vagas`, enums `etapa_processo`/`status_candidatura`/`status_entrevista`; legacy `avancar_etapa(uuid,uuid)`/`rejeitar_candidato(uuid,text,uuid)` RPC overloads. **HIGH.**
+- `src/components/pages/RelatoriosRHPage.tsx` — existing client-side aggregation (the M1 dashboard the KPI RPC replaces). **HIGH.**
+- Auto-memory: [[reference_select_star_leaks_pii]], [[reference_ef_authenticate_vs_authorize]], Phase-8 double-write bug, DBMIG-02 flag-guard near-miss. **HIGH.**
+
+---
+*Architecture research for: M6 Operação do Funil RH (integration on shipped v5.0 ATS)*
+*Researched: 2026-07-14*
