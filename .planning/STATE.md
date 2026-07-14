@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
-status: planning
-last_updated: "2026-07-14T22:40:00.000Z"
+status: executing
+stopped_at: 31-01 authored (rejeitar_candidatura RPC + enum + 2 legacy DROPs + RED smoke) — apply is [BLOCKING] 31-06
+last_updated: "2026-07-14T23:58:26.833Z"
 last_activity: 2026-07-14
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 6
+  completed_plans: 1
   percent: 0
 ---
 
@@ -24,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: Not started (roadmap criado)
-Plan: —
-Status: Roadmap M6 criado; aguardando `/gsd-plan-phase 31`
-Last activity: 2026-07-14 — Roadmap v6.0 criado (5 fases 31–35, 19/19 requirements mapeados)
+Phase: 31 (Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute (31-02 — TS service/hook + extended updateCandidaturaEtapa)
+Last activity: 2026-07-14 -- 31-01 authored the DB contract (migration + RED smoke), NOT applied
 
 ## Roadmap (M6 — Phases 31–35)
 
@@ -61,6 +62,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | 35 | TBD | - | - |
 
 *Updated after each plan completion.*
+| Phase 31 P01 | 30min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -104,7 +106,7 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-14T22:40:00.000Z
+Last session: 2026-07-14T23:58:26.827Z
 Stopped at: roadmap M6 criado (5 fases 31–35, 19/19 mapeados)
 Resume file: None
 

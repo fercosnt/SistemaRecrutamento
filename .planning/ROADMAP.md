@@ -55,7 +55,7 @@ M6 continua a numeração a partir da **Phase 31** (M5 terminou na Phase 30).
 **Plans**: 6 plans in 4 waves
 
 Plans:
-- [ ] 31-01-PLAN.md — DB contract: enum `motivo_rejeicao_rh` + DEFINER RPC `rejeitar_candidatura` (≥50 RAISE + vaga-owner guard) + 2 exact-signature DROPs (dead M1 overloads) + RED behavioral smoke (authored-not-applied)
+- [x] 31-01-PLAN.md — DB contract: enum `motivo_rejeicao_rh` + DEFINER RPC `rejeitar_candidatura` (≥50 RAISE + vaga-owner guard) + 2 exact-signature DROPs (dead M1 overloads) + RED behavioral smoke (authored-not-applied)
 - [ ] 31-02-PLAN.md — service + hook: extend `updateCandidaturaEtapa` (always SET `etapa_justificativa`) + `rejeitarCandidatura` service + `useRejeitarCandidatura` (3-tree invalidation) + tests
 - [ ] 31-03-PLAN.md — shared dialogs: `RejeitarCandidaturaDialog` (motivo Select + ≥50 counter, light modal) + `RetrocederCandidaturaDialog` (earlier-stage destino + required justificativa)
 - [ ] 31-04-PLAN.md — RH surfaces: Kanban card `DropdownMenu` (avançar/retroceder/rejeitar) + `HubCandidatoRH` "Próximo passo" action row (OPER-01/02/03)
@@ -189,7 +189,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
-| 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 0/6 | Not started | - |
+| 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 1/6 | In Progress|  |
 | 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 0/TBD | Not started | - |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 0/TBD | Not started | - |
 | 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/TBD | Not started | - |
