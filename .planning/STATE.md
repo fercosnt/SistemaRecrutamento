@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v5.0
-milestone_name: M5 — Gestão de Usuários & Perfil RH
-status: Awaiting next milestone
-stopped_at: Completed 30-05-PLAN.md (perfil-rh UI — PerfilSection + AvatarUpload + SenhaSection + real MeuPerfilPage [stub replaced, single RHLayout, AsyncState-gated] + RHTopBar/RHSidebar identity from adminUser.nome_completo + signed avatar propagated WITHOUT re-login. SEG-03 verified by absence-of-role/cargo/email-control test. 877/877 vitest, FormField guard GREEN, tsc flat 104, build 0). NEXT = 30-06 ([BLOCKING] non-autonomous — PROD apply of atualizar_meu_perfil_rh RPC + avatars-rh bucket via Supabase MCP).
-last_updated: "2026-07-14T05:47:45.279Z"
+milestone: v6.0
+milestone_name: Operação do Funil RH
+status: planning
+last_updated: "2026-07-14T22:05:43.194Z"
 last_activity: 2026-07-14
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 19
-  completed_plans: 17
-  percent: 89
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 ## Current Position
 
-Phase: 30 (Meu Perfil RH) — EXECUTING
-Plan: 6 of 7
-Status: Awaiting next milestone
-Last activity: 2026-07-14
-
-Progress: [█████████░] 89%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-14 — Milestone v6.0 started
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -118,8 +115,8 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-14T05:12:00.000Z
-Stopped at: Completed 30-05-PLAN.md (perfil-rh UI — PerfilSection + AvatarUpload + SenhaSection + real MeuPerfilPage [stub replaced, single RHLayout, AsyncState-gated] + RHTopBar/RHSidebar identity from adminUser.nome_completo + signed avatar propagated WITHOUT re-login. SEG-03 verified by absence-of-role/cargo/email-control test. 877/877 vitest, FormField guard GREEN, tsc flat 104, build 0). NEXT = 30-06 ([BLOCKING] non-autonomous — PROD apply of atualizar_meu_perfil_rh RPC + avatars-rh bucket via Supabase MCP).
+Last session: 2026-07-14T16:29:57.009Z
+Stopped at: context exhaustion at 75% (2026-07-14)
 Resume file: None
 
 ## Operator Next Steps
