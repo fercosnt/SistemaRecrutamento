@@ -143,7 +143,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 8/8 | Complete   | 2026-07-13 |
 | 29. Console de Gestão de Usuários RH | v5.0 | 4/4 | Complete | 2026-07-13 |
-| 30. Meu Perfil RH | v5.0 | 3/7 | In Progress|  |
+| 30. Meu Perfil RH | v5.0 | 4/7 | In Progress|  |
 
 ---
 

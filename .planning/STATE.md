@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: Completed 30-03-PLAN.md (authored migration 20260714000001_perfil_rh_rpc_avatars.sql — atualizar_meu_perfil_rh DEFINER RPC SEG-03-by-construction/GRANT authenticated + private avatars-rh bucket + 4 own-folder policies; no BEGIN/COMMIT; NOT applied to PROD — 30-06 owns MCP apply). Both SET-list grep guards PASS.
-last_updated: "2026-07-14T04:43:17.168Z"
+stopped_at: Completed 30-04-PLAN.md (perfil-rh client data layer — perfilRhService [own-row 7-col allowlist read · atualizar_meu_perfil_rh RPC dispatch (as never until 30-06 regen) · GoTrue signInWithPassword→updateUser re-auth · avatars-rh validate/upload/sign] + usePerfilRh hooks [own-row query + 3 mutations; useAtualizarPerfil refreshes authStore.adminUser via setAdminUser so RH chrome updates without re-login] + schemas. 21/21 vitest GREEN, pitfall-7 guard GREEN, tsc flat 104).
+last_updated: "2026-07-14T05:00:00.000Z"
 last_activity: 2026-07-14
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 19
-  completed_plans: 15
-  percent: 79
+  completed_plans: 16
+  percent: 84
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 ## Current Position
 
 Phase: 30 (Meu Perfil RH) — EXECUTING
-Plan: 4 of 7
+Plan: 5 of 7
 Status: Ready to execute
 Last activity: 2026-07-14
 
-Progress: [████████░░] 79%
+Progress: [████████░░] 84%
 
 ## Roadmap (M5 — Phases 28–30)
 
@@ -67,6 +67,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 29 P04 | 5min | 3 tasks | 4 files |
 | Phase 30 P02 | 8min | 2 tasks | 2 files |
 | Phase 30 P03 | 2min | 2 tasks | 1 file |
+| Phase 30 P04 | 10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M5 (segurança é o e
 - [Phase 29/29-03 · USR-01/03/04/05]: EditarPapelDialog + UsuariosRhTable (UI-only, no backend) — glass roster <table> binding ONLY the 9 allowlisted UsuarioRhRow cols (T-29-07; no avatar_url/telefone/created_by) with papel/status badges (AA tints), "Aguardando 1º acesso" chip, "(você)" self-marker (authStore user.id, row NOT hidden), and a per-row Ações DropdownMenu. Row confirms are CONTROLLED AlertDialogs opened from DropdownMenuItem onClick via per-row state (editOpen + confirm) — NOT AlertDialogTrigger-in-menu (which closes the menu and swallows the open); Ativar bypasses the confirm (direct dispatch ativar:true). Every write via the 29-01 hooks (feedback ownership split — the hook toasts + maps LAST_ADMIN + invalidates; the table only swallows the rejection, no double-toast). Anti-lockout (USR-07 UX, T-29-08) derived from rows (role==='administrador' && ativo, count===1): last-active-admin row disables Desativar + the EditarPapelDialog demote (→recrutador) "Salvar papel" with the TriagemTable `<span className=inline-flex>` keyboard-safe disabled-tooltip idiom; the Phase-28 BEFORE UPDATE/DELETE trigger LAST_ADMIN is the authoritative backstop. Resetar-senha confirm is honest (dispatches an e-mail; current password stays valid — T-29-09, no lock claim). Legacy DB role (gerente/visualizador) normalized to 'recrutador' for the Select default + neutral-tint badge fallback. RTL 13/13 (Radix DropdownMenu/AlertDialog/Dialog/Select/Tooltip mocked native + within(row) scoping). 826/826 vitest, tsc flat 104.
 - [Phase 29/29-02 · USR-02]: NovoUsuarioDialog (UI-only) = bare RHF register/Controller + zodResolver(novoUsuarioSchema) (LoginRHPage idiom, NOT shadcn Form-field — 0 grep matches) dispatching action:'criar' via useCriarUsuario. Feedback ownership split: the HOOK toasts success/EMAIL_SEND_FAILED-warning + invalidates the roster; the DIALOG owns only the ERROR branch — EMAIL_EXISTS → setError('email') + stays open, VALIDATION/FORBIDDEN/NOT_FOUND/SERVER_ERROR → exact UI-SPEC pt-BR toast.error + stays open — and NEVER double-toasts. Dialog CLOSES on any mutateAsync resolve (success OR warning). Honest helper promises only what the EF does (resetPasswordForEmail, T-29-04); papel fixed Select {Recrutador, Administrador} default recrutador (T-29-05). Client Zod blocks the invoke before it happens. RTL tested over Radix Dialog/Select via native-equivalent mocks (repo idiom). 813/813 vitest, tsc flat 104.
 - [Phase 29/29-01 · USR-01..05]: console data layer (UI-only, no backend) = usuariosRhService — allowlist roster read `USUARIOS_RH_LIST_COLUMNS` (9 cols, NEVER wildcard, T-29-01) + 5 EF-backed writes through gerenciar-usuario-rh (T-29-02, client never writes usuarios_rh). Every EF error_code → `.details.error_code`; UNAUTHORIZED is a DISTINCT session-expired outcome; EMAIL_SEND_FAILED resolves success-with-warning (no throw). Client novoUsuarioSchema mirrors the EF `_shared/usuario-rh-schemas` `.strict()` criar branch verbatim — drift guard asserted in the 26-case contract test (safeParse under the shared schema). useUsuariosRh hooks invalidate `usuariosRhKeys.list()` on every mutation success (server-truth for anti-lockout). Flat feature layout per CONTEXT lock. 801/801 vitest, tsc flat 104.
+- [Phase 30/30-04 · PERFIL-01/PERFIL-02/PERFIL-03]: perfil-rh CLIENT data layer (5 files, RED→GREEN in-plan). `perfilRhService`: own-row read via EXACT 7-col allowlist `.select(PERFIL_RH_COLUMNS).eq('user_id',uid)` (test asserts no `*` — T-30-06); `atualizarPerfil` → `rpc('atualizar_meu_perfil_rh',{p_nome,p_avatar_url})` carrying `as never` + `TODO(30-06)` (RPC not yet in database.types.ts); `alterarSenha` = `signInWithPassword(current)` BEFORE `updateUser(new)` (ANY signIn error → typed WRONG_CURRENT field, never rotates; weak/same_password → WEAK_PASSWORD; NO signOut); `validateAvatar`/`uploadAvatar` (avatars-rh `{uid}/avatar.<ext>` upsert, returns PATH not signed-URL)/`getAvatarSignedUrl`. Pitfall-7 redaction (`{hasPassword}`/`{sizeKb,mime,hasFile}`). `usePerfilRh` hooks: own-row query + 3 mutations. **BLOCKER fix: `useAtualizarPerfil` onSuccess merges edited `{nome_completo,avatar_url,updated_at}` onto current `adminUser` and calls `setAdminUser(merged)` → RH panel chrome (RHTopBar/RHSidebar) reflects new name/avatar WITHOUT a re-login.** **Avatar-always-carries-nome (WARNING #3): `useUploadAvatar` returns ONLY the path; persistence flows through `atualizarPerfil({nome:<loaded>,avatarPath})` so the unconditional RPC SET never blanks nome.** `useAlterarSenha` has NO onError toast — WRONG_CURRENT is a field error owned by SenhaSection (30-05). 21/21 vitest + pitfall-7 guard GREEN, tsc flat 104. Zero deviations.
 - [Phase 30/30-03 · PERFIL-01/PERFIL-03/SEG-03]: authored `20260714000001_perfil_rh_rpc_avatars.sql` (files-only; NOT applied — 30-06 owns the MCP apply). `atualizar_meu_perfil_rh(p_nome, p_avatar_url)` DEFINER SET search_path=public: SET list column-limited to nome_completo/avatar_url (+updated_by/updated_at), `WHERE user_id=auth.uid()` own-row-only (NOT_FOUND→P0002), `COALESCE` keeps the avatar on name-only save, best-effort in-RPC `log_auditoria(categoria=usuario,info)` — **SEG-03 by construction** (role/ativo/cargo/email/deleted_at physically absent from SET). `GRANT EXECUTE TO authenticated` — the INVERSE of Phase-28's REVOKE; safe because uid-scoped + column-limited; NO client UPDATE RLS policy re-added (Phase-28 hole stays dropped). Private `avatars-rh` bucket (2MB png/jpeg/webp, idempotent) + 4 own-folder `storage.objects` policies gated `(storage.foldername(name))[1]=(select auth.uid()::text)` — owner-only, NO rh/admin reads-any clause (curriculos analog MINUS cross-user). No BEGIN/COMMIT wrapper (MCP wraps it; wrapper trips 42601 on CLI pooler). Both SET-list grep guards PASS (first-item + comma-preceded); foldername count 5≥4. One atomic commit (both tasks, single file).
 
 ### Pending Todos
@@ -114,8 +116,8 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-14T04:43:17.161Z
-Stopped at: Completed 30-03-PLAN.md (authored migration 20260714000001_perfil_rh_rpc_avatars.sql — atualizar_meu_perfil_rh DEFINER RPC SEG-03-by-construction/GRANT authenticated + private avatars-rh bucket + 4 own-folder policies; no BEGIN/COMMIT wrapper; NOT applied to PROD — 30-06 owns the MCP apply). Both SET-list grep guards PASS.
+Last session: 2026-07-14T05:00:00.000Z
+Stopped at: Completed 30-04-PLAN.md (perfil-rh client data layer — perfilRhService + usePerfilRh hooks + schemas; useAtualizarPerfil refreshes authStore.adminUser on success so the RH chrome updates without a re-login; avatar-save always carries the loaded nome. 21/21 vitest GREEN, pitfall-7 guard GREEN, tsc flat 104). NEXT = 30-05 (perfil UI wiring MeuPerfilPage).
 Resume file: None
 
 ## Operator Next Steps
