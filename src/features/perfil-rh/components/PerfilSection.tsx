@@ -135,7 +135,7 @@ export function PerfilSection({ perfil }: PerfilSectionProps) {
               </dd>
             </div>
             <p className="text-xs text-white/60">
-              Papel e cargo são geridos por um administrador.
+              E-mail, papel e cargo são geridos por um administrador.
             </p>
           </dl>
 
