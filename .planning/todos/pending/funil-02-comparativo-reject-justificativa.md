@@ -3,7 +3,7 @@ id: funil-02-comparativo-reject-justificativa
 created: 2026-07-09
 source: Phase 25 planning (RESEARCH Open Q2 — deviation candidate, accepted-as-residual by Fernando)
 priority: low
-resolves_phase: null
+resolves_phase: 31
 tags: [funil-02, rnf-07a, comparativo, justificativa, audit-trail, deferred, m4-hardening-scope]
 ---
 
