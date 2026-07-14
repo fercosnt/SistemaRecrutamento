@@ -27,9 +27,9 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 
 *`MeuPerfilPage` — hoje um stub ("Edição de perfil em breve"). Fluxo self-service do próprio usuário RH; separado de A14 p/ impedir auto-escalonamento.*
 
-- [ ] **PERFIL-01**: Usuário RH edita o próprio perfil (nome de exibição). `(A37)`
-- [ ] **PERFIL-02**: Usuário RH troca a própria senha, exigindo a senha atual (re-autenticação). `(A37)`
-- [ ] **PERFIL-03**: Usuário RH faz upload/troca da própria foto de perfil (storage privado + RLS own-row). `(A37)`
+- [x] **PERFIL-01**: Usuário RH edita o próprio perfil (nome de exibição). `(A37)`
+- [x] **PERFIL-02**: Usuário RH troca a própria senha, exigindo a senha atual (re-autenticação). `(A37)`
+- [x] **PERFIL-03**: Usuário RH faz upload/troca da própria foto de perfil (storage privado + RLS own-row). `(A37)`
 
 ### 🔒 SEG — Segurança & Autorização (eixo cross-cutting)
 
@@ -37,7 +37,7 @@ Requirements desta release. Cada um mapeia p/ uma fase do roadmap.
 
 - [x] **SEG-01**: Toda escrita privilegiada de usuários (criar / mudar papel / desativar / reset de senha de terceiro) roda numa Edge Function service_role **authenticate-THEN-authorize** (`getUser()` → papel `administrador` → então age); zero operação com service_role no client-side. `(A14, invariante do projeto)`
 - [x] **SEG-02**: RLS de `usuarios_rh` mantém "só `administrador` lê a lista / escreve"; `recrutador` e candidato não leem a lista de usuários; a policy `auth_admin_le_usuarios_rh` (dependência do auth-hook) é **preservada** (não removida/quebrada). `(A14, SEC-09-M4)`
-- [ ] **SEG-03**: Anti-privilege-escalation — o caminho de perfil (A37) **nunca** altera `role`; nenhuma rota (UI/API/RLS) permite um `recrutador` se auto-promover a `administrador`. `(A37)`
+- [x] **SEG-03**: Anti-privilege-escalation — o caminho de perfil (A37) **nunca** altera `role`; nenhuma rota (UI/API/RLS) permite um `recrutador` se auto-promover a `administrador`. `(A37)`
 
 ## v2 Requirements
 
@@ -80,12 +80,12 @@ Qual fase cobre qual requirement. Preenchido na criação do roadmap.
 | USR-05 | Phase 29 | Complete |
 | USR-06 | Phase 28 | Complete |
 | USR-07 | Phase 28 | Complete |
-| PERFIL-01 | Phase 30 | Pending |
-| PERFIL-02 | Phase 30 | Pending |
-| PERFIL-03 | Phase 30 | Pending |
+| PERFIL-01 | Phase 30 | Complete |
+| PERFIL-02 | Phase 30 | Complete |
+| PERFIL-03 | Phase 30 | Complete |
 | SEG-01 | Phase 28 | Complete |
 | SEG-02 | Phase 28 | Complete |
-| SEG-03 | Phase 30 | Pending |
+| SEG-03 | Phase 30 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total (USR ×7 · PERFIL ×3 · SEG ×3)
