@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v5.0
 milestone_name: M5 — Gestão de Usuários & Perfil RH
 status: executing
-stopped_at: Completed 29-04-PLAN.md (GestaoUsuariosPage — useUsuariosRh query + AsyncState 5-state + 'Novo usuário' CTA owning NovoUsuarioDialog + UsuariosRhTable, wired into ConfiguracoesPage under a single RHLayout; route/RoleGuard preserved). Phase 29 COMPLETE — USR-01..05 reachable end-to-end.
-last_updated: "2026-07-13T20:30:18Z"
-last_activity: 2026-07-13 -- Phase 29 Plan 04 complete (console composed + wired live; USR-01..05 Complete)
+stopped_at: Completed 30-02-PLAN.md (SEG-03 RED harness — perfil_rh_seg03_smoke.sql RED-by-design + Pitfall-7 grep extended to perfil-rh). Phase 30 Wave 1 done (30-01..02).
+last_updated: "2026-07-14T05:00:00.000Z"
+last_activity: 2026-07-14 -- Phase 30 plan 30-02 complete (SEG-03 smoke + Pitfall-7 guard)
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
-  percent: 66
+  total_plans: 19
+  completed_plans: 14
+  percent: 74
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-13 — M5/v5.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 29 — Console de Gestão de Usuários RH
+**Current focus:** Phase 30 — Meu Perfil RH
 
 ## Current Position
 
-Phase: 29 (Console de Gestão de Usuários RH) — COMPLETE
-Plan: 4 of 4 complete (29-01 data layer + 29-02 NovoUsuarioDialog + 29-03 UsuariosRhTable/EditarPapelDialog + 29-04 GestaoUsuariosPage wired into ConfiguracoesPage)
-Status: Phase 29 complete — ready for /gsd-secure-phase 29 + live UAT; next execution Phase 30
-Last activity: 2026-07-13 -- Phase 29 Plan 04 complete (console composed + wired live; USR-01..05 Complete)
+Phase: 30 (Meu Perfil RH) — EXECUTING
+Plan: 3 of 7
+Status: Executing Phase 30 (Wave 1 harness complete — 30-01 live-state + 30-02 SEG-03 RED smoke)
+Last activity: 2026-07-14 -- Phase 30 plan 30-02 complete (SEG-03 smoke + Pitfall-7 guard)
 
 Progress: [██████████] 100% (Phase 29 plans)
 
@@ -65,6 +65,7 @@ Coverage: 13/13 requirements mapeados ✓ · 0 unmapped. Execução numérica: 2
 | Phase 29 P02 | 4min | 1 task | 2 files |
 | Phase 29 P03 | 12min | 2 tasks | 3 files |
 | Phase 29 P04 | 5min | 3 tasks | 4 files |
+| Phase 30 P02 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -111,8 +112,8 @@ Herdados/deferidos, fora do escopo enxuto do M5 (rastreados p/ M6/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-13T20:30:18Z
-Stopped at: Completed 29-04-PLAN.md (GestaoUsuariosPage composed + wired into ConfiguracoesPage; USR-01..05 Complete). Phase 29 code-complete across 29-01..04.
+Last session: 2026-07-14T05:00:00Z
+Stopped at: Completed 30-02-PLAN.md (SEG-03 RED harness — perfil_rh_seg03_smoke.sql RED-by-design [cases 1+3 undefined_function until 30-06; cases 2/4/5 GREEN] + Pitfall-7 grep extended to perfil-rh, 6/6 GREEN). tsc flat 104.
 Resume file: None
 
 ## Operator Next Steps
