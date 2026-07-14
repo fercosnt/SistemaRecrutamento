@@ -2,7 +2,7 @@
  * Phase 30 / Plan 30-05 — PerfilSection (PERFIL-01 name + PERFIL-03 avatar + SEG-03 read-only).
  *
  * The "Perfil" GlassCard: an editable "Nome de exibição" (bare RHF + `zodResolver(perfilNomeSchema)`
- * — NOT the shadcn FormField primitive, Phase-29 parity), the AvatarUpload block, and a READ-ONLY
+ * — NOT the shadcn Form-field primitive, Phase-29 parity), the AvatarUpload block, and a READ-ONLY
  * definition-list rendering Email / Cargo / Papel as labelled context rows.
  *
  * SEG-03 (load-bearing): role / cargo / email are read-only context — there is NO input, select,
