@@ -82,8 +82,8 @@ M5 continua a numeração a partir da **Phase 28** (M4 terminou na Phase 27).
 - [x] 30-01-PLAN.md — Wave 0 live-state capture (usuarios_rh policies/columns + log_auditoria sig + no existing RPC → 30-LIVE-STATE.md) [BLOCKING]
 - [x] 30-02-PLAN.md — RED harness: SEG-03 behavioral SQL smoke (own-row-only · role-unchanged · WR-01 regression) + Pitfall-7 grep extension
 - [x] 30-03-PLAN.md — Migration authoring: atualizar_meu_perfil_rh SECURITY DEFINER RPC (SEG-03 by construction) + private avatars-rh bucket + 4 own-folder policies
-- [ ] 30-04-PLAN.md — Data layer: perfilRhService (own-row allowlist read · RPC dispatch · password re-auth · avatar upload/validate/sign) + usePerfilRh hooks + tests
-- [ ] 30-05-PLAN.md — UI: PerfilSection (name + avatar + read-only SEG-03 context) + SenhaSection (re-auth) + wire MeuPerfilPage (stub replaced, RHLayout/route/RoleGuard preserved)
+- [x] 30-04-PLAN.md — Data layer: perfilRhService (own-row allowlist read · RPC dispatch · password re-auth · avatar upload/validate/sign) + usePerfilRh hooks + tests
+- [x] 30-05-PLAN.md — UI: PerfilSection (name + avatar + read-only SEG-03 context) + SenhaSection (re-auth) + wire MeuPerfilPage (stub replaced, RHLayout/route/RoleGuard preserved) + RHTopBar/RHSidebar identity from adminUser (propagated without re-login)
 - [ ] 30-06-PLAN.md — [BLOCKING] apply migration via Supabase MCP apply_migration + regen database.types.ts + drop as-never cast
 - [ ] 30-07-PLAN.md — [BLOCKING] SEG-03 SQL smoke GREEN on PROD + full gate (Vitest/tsc≤104/build/Pitfall-7) + mark PERFIL-01/02/03/SEG-03 Complete + 30-HUMAN-UAT
 **UI hint**: yes
@@ -143,7 +143,7 @@ Phases execute in numeric order: 28 → 29 → 30
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28. Gestão de Usuários RH — Núcleo Seguro | v5.0 | 8/8 | Complete   | 2026-07-13 |
 | 29. Console de Gestão de Usuários RH | v5.0 | 4/4 | Complete | 2026-07-13 |
-| 30. Meu Perfil RH | v5.0 | 4/7 | In Progress|  |
+| 30. Meu Perfil RH | v5.0 | 5/7 | In Progress|  |
 
 ---
 
