@@ -57,6 +57,19 @@ AS $$
 DECLARE
   v_row_id uuid;
 BEGIN
+  -- WR-03 (code-review): authoritative server-side name validation — the client min(3)
+  -- can be bypassed by the avatar-only save path. btrim + length 3..255.
+  IF length(btrim(coalesce(p_nome, ''))) < 3 OR length(btrim(p_nome)) > 255 THEN
+    RAISE EXCEPTION 'VALIDATION: nome deve ter entre 3 e 255 caracteres' USING ERRCODE = '22023';
+  END IF;
+
+  -- IN-02 (code-review): defense-in-depth — an avatar path must live inside the caller's
+  -- OWN folder ({auth.uid()}/...). Storage RLS already bounds reads; reject a crafted path.
+  IF p_avatar_url IS NOT NULL
+     AND left(p_avatar_url, length(auth.uid()::text) + 1) <> (auth.uid()::text || '/') THEN
+    RAISE EXCEPTION 'VALIDATION: avatar_url fora da pasta do usuario' USING ERRCODE = '22023';
+  END IF;
+
   -- SEG-03 BOUNDARY: only nome_completo + avatar_url are writable here. role / ativo /
   -- cargo / email / deleted_at are DELIBERATELY absent from this SET list — the
   -- self-service path cannot touch them (privilege escalation impossible by construction).
@@ -64,7 +77,7 @@ BEGIN
   -- not wipe the stored photo). WHERE user_id = auth.uid() (GUC-based under DEFINER —
   -- Phase-28 precedent) scopes the write to the caller's OWN single row (IDOR impossible).
   UPDATE public.usuarios_rh
-    SET nome_completo = p_nome,
+    SET nome_completo = btrim(p_nome),
         avatar_url    = COALESCE(p_avatar_url, avatar_url),
         updated_by    = auth.uid(),
         updated_at    = now()
