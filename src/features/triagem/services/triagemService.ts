@@ -347,16 +347,41 @@ export const ETAPA_M2_OPTIONS: { value: EtapaFunilM2; label: string }[] = (
   ] as EtapaFunilM2[]
 ).map((value) => ({ value, label: ETAPA_M2_LABELS[value] }))
 
+/**
+ * Motivo estruturado da rejeição RH (OPER-02) — espelha o enum `public.motivo_rejeicao_rh`
+ * (6 literais pt-BR) autorado na migration 31-01. O motivo entra como param da RPC
+ * `rejeitar_candidatura`; o enum valida no boundary do parâmetro no servidor.
+ */
+export type MotivoRejeicaoRh =
+  | 'perfil_desalinhado'
+  | 'reprovado_avaliacao'
+  | 'reprovado_entrevista'
+  | 'nao_compareceu'
+  | 'desistencia'
+  | 'outro'
+
 export async function updateCandidaturaEtapa(
   candidaturaId: string,
   novaEtapa: EtapaFunilM2,
+  justificativa?: string,
 ): Promise<void> {
   if (!candidaturaId) {
     throw new TriagemServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  const update: { etapa_atual: EtapaFunilM2; status?: StatusCandidatura } = {
+  // `etapa_justificativa` ENTRA SEMPRE no SET (nunca omitido) — o trigger
+  // `avancar_etapa()` copia `NEW.etapa_justificativa` para
+  // `historico_candidatura.criterio_texto`; se a coluna ficar fora do UPDATE, o
+  // trigger lê o valor ANTIGO armazenado (Pitfall 3 — o hazard da justificativa
+  // stale). Avanço forward → null; retrocesso → o texto fresco (RAISE do trigger se
+  // vazio); rejeição → o texto ≥50. OPER-01/03.
+  const update: {
+    etapa_atual: EtapaFunilM2
+    status?: StatusCandidatura
+    etapa_justificativa: string | null
+  } = {
     etapa_atual: novaEtapa,
+    etapa_justificativa: justificativa ?? null,
   }
   // Rejeição terminal também marca o status como 'rejeitado' (badge no painel + dashboard).
   if (novaEtapa === 'rejeitado') {
@@ -371,6 +396,46 @@ export async function updateCandidaturaEtapa(
   if (error) {
     throw new TriagemServiceError(
       `Não foi possível atualizar a candidatura: ${error.message}`,
+      'DATABASE_ERROR',
+      error,
+    )
+  }
+}
+
+/**
+ * Rejeita uma candidatura (OPER-02) via a RPC SECURITY DEFINER `rejeitar_candidatura`
+ * (autorada em 31-01, aplicada LIVE no [BLOCKING] 31-06).
+ *
+ * A RPC é a autoridade do servidor: re-autoriza (WR-04 vaga-owner), aplica o gate
+ * `char_length(btrim(justificativa)) >= 50` (RAISE `check_violation`) e faz UM único
+ * `UPDATE candidaturas` (etapa_atual+status='rejeitado' + `etapa_justificativa`) que
+ * dispara o trigger `avancar_etapa()` — o ÚNICO escritor de `historico_candidatura`.
+ * Nunca decide por score (RNF-07a). Este serviço é um pass-through tipado; ele NÃO
+ * reimplementa o ≥50 — apenas mapeia o erro da RPC para `TriagemServiceError` (toast).
+ *
+ * NOTA (Warning #2 — cast pré-regen): a migration/types só são regenerados em 31-06,
+ * então `rejeitar_candidatura` ainda NÃO é uma chave válida de `supabase.rpc()`. A
+ * chamada usa `as never` (o mesmo padrão pré-regen do `decisaoService` intermediário da
+ * Phase 15). 31-06 remove os `as never` após `npm run db:types`.
+ */
+export async function rejeitarCandidatura(
+  candidaturaId: string,
+  motivo: MotivoRejeicaoRh,
+  justificativa: string,
+): Promise<void> {
+  if (!candidaturaId) {
+    throw new TriagemServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
+  }
+
+  const { error } = await supabase.rpc('rejeitar_candidatura' as never, {
+    p_candidatura_id: candidaturaId,
+    p_motivo: motivo,
+    p_justificativa: justificativa,
+  } as never)
+
+  if (error) {
+    throw new TriagemServiceError(
+      `Não foi possível rejeitar o candidato: ${error.message}`,
       'DATABASE_ERROR',
       error,
     )
