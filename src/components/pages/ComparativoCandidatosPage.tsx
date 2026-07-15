@@ -6,10 +6,15 @@
  * do usuário). Resolve os ids anonimizados da IA (C1/C2…) de volta para a candidatura
  * real + nome, ordenando a seleção por score (a EF anonimiza nessa ordem). Renderiza
  * `ComparativoScreen` com estados loading/erro — vagas diferentes (EF 400) mostra a
- * cópia pt-BR exata. Ações inline Avançar/Rejeitar chamam `updateCandidaturaEtapa`.
+ * cópia pt-BR exata. Avançar chama `updateCandidaturaEtapa` (OPER-01); Rejeitar abre o
+ * `RejeitarCandidaturaDialog` compartilhado (montado no `ComparativoScreen`) que grava
+ * pela RPC auditada `rejeitar_candidatura` (motivo + justificativa ≥50) — funil-02 /
+ * OPER-04, substituindo o antigo update de etapa cru (sem justificativa).
  *
  * @module components/pages/ComparativoCandidatosPage
  * @see src/features/triagem/components/ComparativoScreen.tsx
+ * @see src/features/triagem/components/RejeitarCandidaturaDialog.tsx
+ * @see src/features/triagem/hooks/useRejeitarCandidatura.ts
  */
 
 import { useEffect, useMemo } from 'react'
@@ -120,14 +125,14 @@ export function ComparativoCandidatosPage() {
     }
   }
 
-  const handleRejeitar = async (candidaturaId: string) => {
-    try {
-      await updateCandidaturaEtapa(candidaturaId, 'rejeitado')
-      toast.success('Candidato movido para “Rejeitado”.')
-      invalidatePanel()
-    } catch {
-      toast.error('Não foi possível rejeitar o candidato. Tente novamente.')
-    }
+  // funil-02 / OPER-04: a rejeição em si — motivo + justificativa ≥50 — é feita pelo
+  // RejeitarCandidaturaDialog compartilhado (montado no ComparativoScreen), que grava
+  // pela RPC auditada `rejeitar_candidatura` via `useRejeitarCandidatura` (e já emite o
+  // toast de sucesso + invalida candidaturasKeys/vagasKeys/triagemKeys). Aqui fica só o
+  // callback pós-sucesso — NUNCA mais o update de etapa cru sem justificativa
+  // (disposição não-auditável), que era a dívida funil-02.
+  const handleRejeitar = () => {
+    invalidatePanel()
   }
 
   const voltar = () => navigate(vagaId ? `/rh/vagas/${vagaId}/candidatos` : '/rh/vagas')
