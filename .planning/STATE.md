@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: 31-03 shipped (RejeitarCandidaturaDialog + RetrocederCandidaturaDialog — shared light-modal dialogs; ≥50 btrim gate + earlier-stage destino) — next is 31-04 (RH surfaces)
-last_updated: "2026-07-15T00:20:00.000Z"
-last_activity: 2026-07-14
+stopped_at: 31-04 shipped (Kanban card ⋯ menu + HubCandidatoRH "Próximo passo" action row mount the shared dialogs; avançar/rejeitar/retroceder at any of the 6 working stages) — next is 31-05 (Comparativo rewires reject to the shared dialog)
+last_updated: "2026-07-15T00:32:27.217Z"
+last_activity: 2026-07-15
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 6
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 ## Current Position
 
 Phase: 31 (Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)) — EXECUTING
-Plan: 4 of 6
-Status: Ready to execute (31-04 — RH surfaces: Kanban card DropdownMenu + HubCandidatoRH action row mount the shared dialogs)
-Last activity: 2026-07-14 -- 31-03 shipped the two shared dialogs (RejeitarCandidaturaDialog motivo Select + ≥50 btrim counter light modal; RetrocederCandidaturaDialog earlier-stage destino + required justificativa); component test 6/6, triagem suite 51/51, tsc held at 104 baseline
+Plan: 5 of 6
+Status: Ready to execute (31-05 — ComparativoScreen rewires its no-justificativa reject to the shared RejeitarCandidaturaDialog, OPER-04)
+Last activity: 2026-07-15 -- 31-04 wired the two shared dialogs + 1-click Avançar into the two RH detail surfaces (Kanban card ⋯ DropdownMenu + Hub "Próximo passo" action row); full suite 896/896, tsc held at 104 baseline. OPER-01/02/03 complete.
 
 ## Roadmap (M6 — Phases 31–35)
 
@@ -65,6 +65,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 31 P01 | 30min | 2 tasks | 2 files |
 | Phase 31 P02 | ~12min | 2 tasks (TDD) | 5 files |
 | Phase 31 P03 | ~8min | 2 tasks (1 TDD) | 3 files |
+| Phase 31 P04 | ~10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -108,7 +109,7 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-15T00:20:00.000Z
+Last session: 2026-07-15T00:32:27.210Z
 Stopped at: Completed 31-03-PLAN.md (shared dialogs); next is 31-04 (RH surfaces — Kanban card menu + Hub action row)
 Resume file: None
 

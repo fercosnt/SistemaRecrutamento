@@ -18,9 +18,9 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ### OPER — Operação do funil (avançar / rejeitar / mover)
 
-- [ ] **OPER-01**: RH pode avançar um candidato para a próxima etapa em qualquer uma das 6 etapas do funil (hoje concentrado na etapa 5/Kanban), com a transição registrada em `historico_candidatura` pelo write-path existente (trigger único; nenhuma escrita direta na tabela de auditoria).
-- [ ] **OPER-02**: RH pode rejeitar um candidato em qualquer etapa informando um motivo estruturado (enum) **e** uma justificativa livre ≥50 caracteres, exigida no servidor (RAISE, não só validação de formulário), sem nunca rejeitar por score (RNF-07a).
-- [ ] **OPER-03**: RH pode mover um candidato para uma etapa anterior (regressão) informando justificativa obrigatória, respeitando o guard de regressão do trigger e registrando a trilha.
+- [x] **OPER-01**: RH pode avançar um candidato para a próxima etapa em qualquer uma das 6 etapas do funil (hoje concentrado na etapa 5/Kanban), com a transição registrada em `historico_candidatura` pelo write-path existente (trigger único; nenhuma escrita direta na tabela de auditoria).
+- [x] **OPER-02**: RH pode rejeitar um candidato em qualquer etapa informando um motivo estruturado (enum) **e** uma justificativa livre ≥50 caracteres, exigida no servidor (RAISE, não só validação de formulário), sem nunca rejeitar por score (RNF-07a).
+- [x] **OPER-03**: RH pode mover um candidato para uma etapa anterior (regressão) informando justificativa obrigatória, respeitando o guard de regressão do trigger e registrando a trilha.
 - [ ] **OPER-04**: RH pode rejeitar um candidato a partir da tela de comparativo, exigindo justificativa, escrevendo pelo mesmo write-path auditável — fecha o débito **funil-02** (os botões hoje são no-op).
 
 ### AGEND — Agendamento de entrevista
@@ -96,9 +96,9 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OPER-01 | Phase 31 | Pending |
-| OPER-02 | Phase 31 | Pending |
-| OPER-03 | Phase 31 | Pending |
+| OPER-01 | Phase 31 | Complete |
+| OPER-02 | Phase 31 | Complete |
+| OPER-03 | Phase 31 | Complete |
 | OPER-04 | Phase 31 | Pending |
 | AGEND-01 | Phase 33 | Pending |
 | AGEND-02 | Phase 34 | Pending |
