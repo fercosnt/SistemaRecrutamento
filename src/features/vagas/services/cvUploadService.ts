@@ -57,9 +57,10 @@ export const ALLOWED_MIME = 'application/pdf'
  * Result of a successful upload.
  *
  * Pitfall 11 (transient URL in DB): `path` is the STABLE storage key —
- * stored in `candidaturas.curriculo_url`. RH (Phase 6) calls
- * `getSignedUrl(path)` on demand. NEVER persist a signed URL in DB —
- * it expires in 1h.
+ * stored in `candidaturas.curriculo_url`. RH calls
+ * `getSignedUrl(candidaturaId)` on demand (via the get-curriculo-url Edge
+ * Function, which resolves the path server-side). NEVER persist a signed URL
+ * in DB — it is short-lived (60s TTL, minted by the EF).
  */
 export interface UploadCVResult {
   /** Stable storage path (e.g. `{authUid}/{uuid}.pdf`). Persist this. */
@@ -176,33 +177,39 @@ export async function uploadCV(
 }
 
 /**
- * Generate a signed URL for a CV (1h expiry per D-08).
+ * Fetch a signed URL for a candidate CV via the `get-curriculo-url` Edge Function.
  *
- * Used by RH (Phase 6) to view/download CVs. TanStack Query consumers
- * should cache with `staleTime: 55 * 60 * 1000` (55min) to refresh
- * before the 1h expiry window.
+ * Phase 32 / SEG-01: the client NO LONGER signs the private `curriculos` bucket
+ * itself. The Edge Function (service_role) is the SINGLE privileged signer — it
+ * authenticates the RH JWT, authorizes role + vaga ownership (vagas.created_by;
+ * administrador bypasses), resolves `curriculo_url` server-side from the
+ * `candidatura_id`, and mints a 60s signed URL. Migration A drops the role-only
+ * Storage read branch so no RH can read a CV outside their owned vagas, and the
+ * `candidatura_id` input can never be a forged storage path.
  *
- * SECURITY NOTE: NEVER log the returned signed URL — Pitfall 7 forbids
- * this. The static grep guard scans for `signedurl`/`signed_url`/`?token=`
- * in any `console.*` call within Phase 4 surfaces.
+ * SECURITY NOTE: NEVER log the returned signed URL — Pitfall 7 forbids this.
+ * The static grep guard scans for `signedurl`/`signed_url`/`?token=` in any
+ * `console.*` call within Phase 4 surfaces.
  *
- * @param path - Stable storage path (from `UploadCVResult.path`).
- * @returns Signed URL string with embedded JWT-style token.
- * @throws {CVUploadServiceError} `UPLOAD_FAILED` on any error or empty response.
+ * @param candidaturaId - The candidatura whose CV to sign. NOT a storage path —
+ *   the EF resolves `curriculo_url` server-side (a client path is forgeable).
+ * @returns Signed URL string (60s TTL, minted by the EF).
+ * @throws {CVUploadServiceError} `UPLOAD_FAILED` on any EF error or empty response.
  */
-export async function getSignedUrl(path: string): Promise<string> {
-  const EXPIRES_IN_SECONDS = 3600 // 1 hour per D-08
-  const { data, error } = await supabase.storage.from('curriculos').createSignedUrl(path, EXPIRES_IN_SECONDS)
+export async function getSignedUrl(candidaturaId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('get-curriculo-url', {
+    body: { candidatura_id: candidaturaId },
+  })
 
   if (error || !data?.signedUrl) {
     throw new CVUploadServiceError(
       'Não foi possível gerar URL de download',
       'UPLOAD_FAILED',
-      error
+      error ?? data
     )
   }
   // DO NOT log data.signedUrl — Pitfall 7
-  return data.signedUrl
+  return data.signedUrl as string
 }
 
 /**
