@@ -2,8 +2,8 @@
 phase: 32
 slug: fechar-os-dois-vazamentos-vivos-cv-signed-url-ef-kpi-definer
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-15
 ---
 
@@ -75,10 +75,10 @@ created: 2026-07-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have automated verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (EF + deno test + seg32 smokes + 2 extended)
-- [ ] Behavioral smoke (JWT-impersonated) is the load-bearing gate
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have automated verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (EF + deno test + seg32 smokes + 2 extended)
+- [x] Behavioral smoke (JWT-impersonated) is the load-bearing gate
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved — Wave 0 captured as tasks in 32-01-PLAN.md; behavioral smoke (seg32_smokes.sql) is the load-bearing gate, run GREEN in 32-04.

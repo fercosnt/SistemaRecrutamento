@@ -72,13 +72,13 @@ Plans:
   2. A agregação de KPIs roda numa RPC `funil_kpis` SECURITY DEFINER vaga-scoped por construção (scoping interno `WHERE v.created_by = auth.uid()` salvo admin); um smoke prova que o recrutador A **não** vê números da vaga do recrutador B, e a RPC retorna apenas agregados PII-safe (nunca identidade de candidato) (SEG-02).
   3. A policy `rh_le_historico` de `historico_candidatura` está endurecida para o predicado vaga-scoped WR-04 (defense-in-depth), fechando o vazamento role-only diferido na P24 e nunca varrido — verificado por smoke comportamental, **não** por inspeção de `pg_policies` (SEG-02).
   4. Nenhuma service_role key aparece no bundle do cliente e não há `createSignedUrl` client-side sobre `curriculos` — a EF é o único caminho privilegiado (verificável por grep-guard de bundle) (SEG-01).
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 32-01: RED harness — smokes comportamentais (JWT impersonado) para cross-recrutador do CV, cross-recrutador dos KPIs e leak de PII (RED até apply)
-- [ ] 32-02: EF `get-curriculo-url` (authenticate-THEN-authorize, posse da vaga OR admin → `createSignedUrl` TTL curto) + remoção da policy role-only do bucket `curriculos` + client rewire (sem `createSignedUrl` client-side)
-- [ ] 32-03: RPC `funil_kpis` SECURITY DEFINER `SET search_path=''` (vaga-scoped interno, agregados PII-safe: mediana por etapa via `LEAD`, conversão etapa→etapa, volume) + endurecimento `rh_le_historico` WR-04
-- [ ] 32-04: [BLOCKING] apply via Supabase MCP + deploy EF (JWT-ON) + regen `database.types.ts` + smokes GREEN em PROD
+- [ ] 32-01-PLAN.md — [wave 1] RED harness: deno EF unit test + JWT-impersonated `seg32_smokes.sql` (a)-(e) + extend bundle guard + update cvUploadService test (RED-first)
+- [ ] 32-02-PLAN.md — [wave 2] EF `get-curriculo-url` (authorize-THEN-authenticate, vaga-owner guard → 60s signed URL) + Migration A drop RH branch of `curriculos_select_own_or_rh` + client rewire to `functions.invoke`
+- [ ] 32-03-PLAN.md — [wave 2] Migration B: RPC `funil_kpis` SECURITY DEFINER `search_path=''` (vaga-scoped, PII-safe jsonb — median via LEAD/percentile_cont, raw conversion, volume) + `rh_le_historico` WR-04 hardening
+- [ ] 32-04-PLAN.md — [wave 3] [BLOCKING] deploy EF (JWT-ON) → apply both migrations via Supabase MCP (ordered) → reconcile ledger + regen `database.types.ts` → `seg32_smokes.sql` GREEN + live curl
 **UI hint**: no
 
 ### Phase 33: Camada de Dados do Agendamento de Entrevista
@@ -190,7 +190,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
-| 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 0/TBD | Not started | - |
+| 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 0/4 | Planned | - |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 0/TBD | Not started | - |
 | 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/TBD | Not started | - |
 | 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
