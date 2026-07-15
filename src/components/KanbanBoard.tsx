@@ -21,7 +21,7 @@ import { useMemo } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Glass, GlassButton } from './ui/glass'
-import { Mail, Phone, Eye } from 'lucide-react'
+import { Mail, Phone, Eye, MoreVertical, ArrowRight, ArrowLeft, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { type CandidaturaComScores } from '@/features/vagas/types/vagasTypes'
 import {
@@ -29,6 +29,14 @@ import {
   type EtapaFunilM2,
 } from '@/features/triagem/services/triagemService'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { RejeitarCandidaturaDialog } from '@/features/triagem/components/RejeitarCandidaturaDialog'
+import { RetrocederCandidaturaDialog } from '@/features/triagem/components/RetrocederCandidaturaDialog'
 
 const DRAG_TYPE = 'CANDIDATO_CARD'
 
@@ -140,9 +148,12 @@ function getScoreColor(score: number | null | undefined): string {
 function CandidatoKanbanCard({
   candidatura,
   onViewPerfil,
+  onAvancar,
 }: {
   candidatura: CandidaturaComScores
   onViewPerfil: (candidaturaId: string) => void
+  /** Avança para a próxima etapa de trabalho — reusa o write-path auditável (moveEtapa). */
+  onAvancar: (candidaturaId: string, novaEtapa: EtapaFunilM2) => void
 }) {
   const candidato = candidatura.candidato as any
   const vaga = candidatura.vaga as any
@@ -159,6 +170,14 @@ function CandidatoKanbanCard({
 
   const scoreGeral = candidatura.score_geral
   const terminalBadge = getTerminalBadge(candidatura)
+
+  // Menu de ações (OPER-01/02/03): próxima etapa de trabalho após a atual (undefined em
+  // decisao_final → sem "Avançar"). Terminais (aprovado/rejeitado) não têm menu — nem
+  // avançar (sem etapa à frente) nem rejeitar/retroceder (T-31-04). O nome alimenta o
+  // título dos dialogs compartilhados.
+  const currentIndex = WORKING_STAGES.indexOf(currentEtapa)
+  const proximaEtapa = currentIndex >= 0 ? WORKING_STAGES[currentIndex + 1] : undefined
+  const nomeCandidato = candidato?.nome_completo || 'este candidato'
 
   // Drag setup. LOW-01: cards terminais (aprovado/rejeitado) NÃO são arrastáveis —
   // ancorados em `decisao_final`, qualquer drop dispararia um "avanço" para trás que
@@ -258,18 +277,83 @@ function CandidatoKanbanCard({
             </div>
           )}
 
-          {/* Botão Ver Perfil — UX-03: encaminha candidatura.id */}
-          <GlassButton
-            variant="white"
-            onClick={(e) => {
-              e.stopPropagation()
-              onViewPerfil(candidatura.id)
-            }}
-            className="w-full text-white text-xs drop-shadow-sm flex items-center justify-center gap-1.5 font-medium min-h-[32px]"
-          >
-            <Eye className="w-3 h-3 flex-shrink-0" />
-            <span>Ver Perfil</span>
-          </GlassButton>
+          {/* Ações do card: Ver Perfil (UX-03: encaminha candidatura.id) + menu ⋯. */}
+          <div className="flex items-center gap-2">
+            <GlassButton
+              variant="white"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewPerfil(candidatura.id)
+              }}
+              className="flex-1 text-white text-xs drop-shadow-sm flex items-center justify-center gap-1.5 font-medium min-h-[32px]"
+            >
+              <Eye className="w-3 h-3 flex-shrink-0" />
+              <span>Ver Perfil</span>
+            </GlassButton>
+
+            {/* Menu de ações (OPER-01/02/03) — só em cards NÃO terminais (T-31-04).
+                Avançar é 1-clique (mesmo write-path auditável do drag-drop, sem confirm,
+                consistente com o arraste). Retroceder/Rejeitar abrem os dialogs
+                compartilhados (única via de rejeição — nunca um status write direto). */}
+            {!terminalBadge && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Ações do candidato"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
+                  >
+                    <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="z-50 border-white/20 bg-[#00109E]/95 text-white backdrop-blur-xl"
+                >
+                  {proximaEtapa && (
+                    <DropdownMenuItem
+                      onClick={() => onAvancar(candidatura.id, proximaEtapa)}
+                      className="cursor-pointer text-[#35BFAD]"
+                    >
+                      <ArrowRight className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Avançar
+                    </DropdownMenuItem>
+                  )}
+
+                  <RetrocederCandidaturaDialog
+                    candidaturaId={candidatura.id}
+                    nome={nomeCandidato}
+                    etapaAtual={currentEtapa}
+                    trigger={
+                      <DropdownMenuItem
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Retroceder
+                      </DropdownMenuItem>
+                    }
+                  />
+
+                  <RejeitarCandidaturaDialog
+                    candidaturaId={candidatura.id}
+                    nome={nomeCandidato}
+                    trigger={
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(e) => e.preventDefault()}
+                        className="cursor-pointer"
+                      >
+                        <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Rejeitar
+                      </DropdownMenuItem>
+                    }
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </Glass>
     </div>
@@ -286,6 +370,7 @@ function KanbanColumn({
   color,
   candidaturas,
   onViewPerfil,
+  onAvancar,
   onDrop,
 }: {
   etapa: WorkingStage
@@ -294,6 +379,7 @@ function KanbanColumn({
   color: string
   candidaturas: CandidaturaComScores[]
   onViewPerfil: (candidaturaId: string) => void
+  onAvancar: (candidaturaId: string, novaEtapa: EtapaFunilM2) => void
   onDrop: (candidaturaId: string, newEtapa: WorkingStage) => void
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop<
@@ -351,6 +437,7 @@ function KanbanColumn({
                 key={candidatura.id}
                 candidatura={candidatura}
                 onViewPerfil={onViewPerfil}
+                onAvancar={onAvancar}
               />
             ))
           )}
@@ -406,6 +493,12 @@ export function KanbanBoard({ candidaturas, onViewPerfil }: KanbanBoardProps) {
     moveEtapa({ candidaturaId, novaEtapa })
   }
 
+  // Handler para "Avançar" pelo menu do card — MESMO write-path auditável do drop
+  // (moveEtapa → trigger avancar_etapa); é o caminho explícito/teclado para OPER-01.
+  const handleAvancar = (candidaturaId: string, novaEtapa: EtapaFunilM2) => {
+    moveEtapa({ candidaturaId, novaEtapa })
+  }
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full h-[calc(100vh-280px)] min-h-[600px] max-h-[800px] overflow-hidden">
@@ -422,6 +515,7 @@ export function KanbanBoard({ candidaturas, onViewPerfil }: KanbanBoardProps) {
                 color={col.color}
                 candidaturas={groupedCandidaturas[col.etapa]}
                 onViewPerfil={onViewPerfil}
+                onAvancar={handleAvancar}
                 onDrop={handleDrop}
               />
             ))}
