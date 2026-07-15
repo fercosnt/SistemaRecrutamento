@@ -27,10 +27,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // allowlist projection and the comparativo contract without a network round-trip.
 // vi.hoisted keeps these captures available to the hoisted vi.mock factory
 // (top-level `const`s would throw "Cannot access before initialization").
-const { lastSelect, rangeArgs, invokeMock } = vi.hoisted(() => ({
+const { lastSelect, rangeArgs, invokeMock, lastUpdate, rpcMock } = vi.hoisted(() => ({
   lastSelect: { value: '' },
   rangeArgs: {} as { from?: number; to?: number },
   invokeMock: vi.fn(),
+  // Captures the payload passed to `.update(...)` on the candidaturas mutation so the
+  // updateCandidaturaEtapa tests can assert `etapa_justificativa` is ALWAYS in the SET.
+  lastUpdate: { value: null as Record<string, unknown> | null },
+  // Captures `supabase.rpc('rejeitar_candidatura', {...})` — args + configurable result.
+  rpcMock: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/client', () => {
@@ -38,6 +43,10 @@ vi.mock('@/lib/supabase/client', () => {
     const q: Record<string, unknown> = {}
     q.select = vi.fn((cols: string) => {
       lastSelect.value = cols
+      return q
+    })
+    q.update = vi.fn((payload: Record<string, unknown>) => {
+      lastUpdate.value = payload
       return q
     })
     q.eq = vi.fn(() => q)
@@ -56,14 +65,16 @@ vi.mock('@/lib/supabase/client', () => {
     supabase: {
       from: vi.fn(() => makeQuery()),
       functions: { invoke: invokeMock },
+      rpc: rpcMock,
     },
   }
 })
 
-// RED: '../triagemService' does not exist yet → Vitest "Cannot find module".
 import {
   listTriagemPanel,
   invokeComparativo,
+  updateCandidaturaEtapa,
+  rejeitarCandidatura,
 } from '../triagemService'
 
 describe('triagemService — TRIAGEM-02 panel read (allowlist projection)', () => {
@@ -124,5 +135,81 @@ describe('triagemService — TRIAGEM-03 invokeComparativo', () => {
     await expect(invokeComparativo('vaga-1', ['c1', 'c2'])).rejects.toThrow(
       'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.',
     )
+  })
+})
+
+// ── OPER-01/03: updateCandidaturaEtapa ALWAYS SETs etapa_justificativa ──────
+// Pitfall 3 — the trigger reads NEW.etapa_justificativa; if the UPDATE omits the
+// column the trigger reads a STALE stored value. So etapa_justificativa MUST be in
+// the SET list on EVERY call (forward advance → null, regression → the fresh text,
+// reject → the ≥50 text). Assert the captured payload.
+describe('triagemService — updateCandidaturaEtapa always writes etapa_justificativa (OPER-01/03)', () => {
+  beforeEach(() => {
+    lastUpdate.value = null
+  })
+
+  it('forward advance (no justificativa) → payload includes etapa_justificativa: null', async () => {
+    await updateCandidaturaEtapa('cand-1', 'triagem')
+    expect(lastUpdate.value).not.toBeNull()
+    expect(lastUpdate.value).toHaveProperty('etapa_justificativa', null)
+    expect(lastUpdate.value).toHaveProperty('etapa_atual', 'triagem')
+    // Forward advance is NOT a reject → no status override.
+    expect(lastUpdate.value).not.toHaveProperty('status')
+  })
+
+  it('regression WITH text → payload carries the fresh justificativa (no stale OLD)', async () => {
+    await updateCandidaturaEtapa('cand-1', 'inscricao', 'voltou por X')
+    expect(lastUpdate.value).toHaveProperty('etapa_justificativa', 'voltou por X')
+    expect(lastUpdate.value).toHaveProperty('etapa_atual', 'inscricao')
+  })
+
+  it("reject → payload includes status:'rejeitado' AND etapa_justificativa in the SET", async () => {
+    await updateCandidaturaEtapa('cand-1', 'rejeitado')
+    expect(lastUpdate.value).toHaveProperty('etapa_atual', 'rejeitado')
+    expect(lastUpdate.value).toHaveProperty('status', 'rejeitado')
+    // etapa_justificativa is ALWAYS present (null here — no text passed).
+    expect(lastUpdate.value).toHaveProperty('etapa_justificativa', null)
+  })
+
+  it('empty candidaturaId → throws TriagemServiceError INVALID_INPUT', async () => {
+    await expect(updateCandidaturaEtapa('', 'triagem')).rejects.toMatchObject({
+      name: 'TriagemServiceError',
+      code: 'INVALID_INPUT',
+    })
+  })
+})
+
+// ── OPER-02: rejeitarCandidatura calls the SECURITY DEFINER RPC ─────────────
+// The service is a thin typed pass-through — the DB RPC (31-01) is the ≥50 authority.
+// Assert the exact p_-prefixed params and the RPC-error → TriagemServiceError mapping.
+describe('triagemService — rejeitarCandidatura (OPER-02)', () => {
+  beforeEach(() => {
+    rpcMock.mockReset()
+  })
+
+  it("calls supabase.rpc('rejeitar_candidatura', {p_candidatura_id,p_motivo,p_justificativa})", async () => {
+    rpcMock.mockResolvedValue({ error: null })
+    const justificativa = 'x'.repeat(60)
+    await rejeitarCandidatura('cand-9', 'perfil_desalinhado', justificativa)
+    expect(rpcMock).toHaveBeenCalledWith('rejeitar_candidatura', {
+      p_candidatura_id: 'cand-9',
+      p_motivo: 'perfil_desalinhado',
+      p_justificativa: justificativa,
+    })
+  })
+
+  it('RPC error → throws TriagemServiceError with code DATABASE_ERROR', async () => {
+    rpcMock.mockResolvedValue({ error: { message: 'check_violation' } })
+    await expect(
+      rejeitarCandidatura('cand-9', 'outro', 'y'.repeat(60)),
+    ).rejects.toMatchObject({ name: 'TriagemServiceError', code: 'DATABASE_ERROR' })
+  })
+
+  it('empty candidaturaId → throws TriagemServiceError INVALID_INPUT (no RPC call)', async () => {
+    rpcMock.mockResolvedValue({ error: null })
+    await expect(
+      rejeitarCandidatura('', 'outro', 'z'.repeat(60)),
+    ).rejects.toMatchObject({ name: 'TriagemServiceError', code: 'INVALID_INPUT' })
+    expect(rpcMock).not.toHaveBeenCalled()
   })
 })
