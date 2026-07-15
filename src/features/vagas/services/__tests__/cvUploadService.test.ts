@@ -20,8 +20,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // statements, so any vi.fn() referenced by the factory must be created via
 // `vi.hoisted()` so it runs in the same hoisted phase. See:
 // https://vitest.dev/api/vi.html#vi-hoisted
-const { mockUpload, mockCreateSignedUrl, mockRemove, mockFrom } = vi.hoisted(
-  () => {
+const { mockUpload, mockCreateSignedUrl, mockRemove, mockFrom, mockInvoke } =
+  vi.hoisted(() => {
     const mockUpload = vi.fn()
     const mockCreateSignedUrl = vi.fn()
     const mockRemove = vi.fn()
@@ -30,12 +30,17 @@ const { mockUpload, mockCreateSignedUrl, mockRemove, mockFrom } = vi.hoisted(
       createSignedUrl: mockCreateSignedUrl,
       remove: mockRemove,
     }))
-    return { mockUpload, mockCreateSignedUrl, mockRemove, mockFrom }
-  }
-)
+    // Phase 32 (SEG-01): getSignedUrl now routes through the get-curriculo-url Edge Function
+    // instead of client-side storage signing → mock supabase.functions.invoke alongside storage.
+    const mockInvoke = vi.fn()
+    return { mockUpload, mockCreateSignedUrl, mockRemove, mockFrom, mockInvoke }
+  })
 
 vi.mock('@/lib/supabase/client', () => ({
-  supabase: { storage: { from: mockFrom } },
+  supabase: {
+    storage: { from: mockFrom },
+    functions: { invoke: mockInvoke },
+  },
 }))
 
 beforeEach(() => {
@@ -227,27 +232,35 @@ describe('cvUploadService (Plan 04-03)', () => {
     })
   })
 
+  // Phase 32 (SEG-01) — RED until 32-02 rewires getSignedUrl.
+  // These encode the post-rewire contract: getSignedUrl(candidaturaId) invokes the
+  // get-curriculo-url Edge Function (the ONLY curriculos signer) instead of client-side
+  // storage.createSignedUrl. They FAIL now because cvUploadService.ts still calls
+  // createSignedUrl (mockInvoke is never reached) — the intended RED. GREEN in 32-02.
   describe('getSignedUrl', () => {
-    it('T3.1: happy path returns signed URL string', async () => {
-      mockCreateSignedUrl.mockResolvedValue({
+    const CANDIDATURA_ID = '11111111-1111-4111-8111-111111111111'
+
+    it('T3.1: invokes the get-curriculo-url EF with candidatura_id and returns its signedUrl', async () => {
+      mockInvoke.mockResolvedValue({
         data: { signedUrl: 'https://example.com/signed?token=abc' },
         error: null,
       })
-      const url = await getSignedUrl('auth-uid/file.pdf')
+      const url = await getSignedUrl(CANDIDATURA_ID)
       expect(url).toBe('https://example.com/signed?token=abc')
-      expect(mockCreateSignedUrl).toHaveBeenCalledWith(
-        'auth-uid/file.pdf',
-        3600
-      )
+      expect(mockInvoke).toHaveBeenCalledWith('get-curriculo-url', {
+        body: { candidatura_id: CANDIDATURA_ID },
+      })
+      // The client must NEVER sign the curriculos bucket itself (SEG-01).
+      expect(mockCreateSignedUrl).not.toHaveBeenCalled()
     })
 
-    it('T3.2: error case throws UPLOAD_FAILED', async () => {
-      mockCreateSignedUrl.mockResolvedValue({
+    it('T3.2: EF error → throws UPLOAD_FAILED', async () => {
+      mockInvoke.mockResolvedValue({
         data: null,
-        error: { message: 'object not found' },
+        error: { message: 'forbidden' },
       })
       try {
-        await getSignedUrl('missing/file.pdf')
+        await getSignedUrl(CANDIDATURA_ID)
         throw new Error('should have thrown')
       } catch (e) {
         if (e instanceof CVUploadServiceError) {
@@ -301,6 +314,15 @@ describe('cvUploadService (Plan 04-03)', () => {
         data: { path: 'auth-uid/u.pdf' },
         error: null,
       })
+      // Phase 32 (SEG-01): getSignedUrl now drives the get-curriculo-url EF (invoke), whose
+      // signedUrl carries the SECRET token the redaction assertion must never see logged. Both
+      // signing paths are stubbed with the SECRET token so this redaction guard stays GREEN
+      // whether the pre-32-02 client-signing path or the post-32-02 invoke path runs — redaction
+      // is an always-on invariant, not one of the intended-RED getSignedUrl contract surfaces.
+      mockInvoke.mockResolvedValue({
+        data: { signedUrl: 'https://example.com/signed?token=SECRET' },
+        error: null,
+      })
       mockCreateSignedUrl.mockResolvedValue({
         data: { signedUrl: 'https://example.com/signed?token=SECRET' },
         error: null,
@@ -315,7 +337,7 @@ describe('cvUploadService (Plan 04-03)', () => {
         'CONFIDENTIAL_CV_Joao_Silva.pdf'
       )
       await uploadCV(file, 'auth-uid')
-      await getSignedUrl('auth-uid/u.pdf')
+      await getSignedUrl('11111111-1111-4111-8111-111111111111')
       await removeCV('auth-uid/u.pdf')
 
       // Aggregate every console.* call's arg list into one searchable string.

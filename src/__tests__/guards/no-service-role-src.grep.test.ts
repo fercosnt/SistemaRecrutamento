@@ -73,6 +73,30 @@ export function firstServiceRoleViolation(text: string): string | null {
 }
 
 /**
+ * SEG-01 (Phase 32): a client-side `createSignedUrl` over the `curriculos` bucket must NEVER
+ * survive under src/. After Phase 32 the `get-curriculo-url` Edge Function (service_role) is the
+ * ONLY signer of candidate CVs — the role-only Storage read branch is removed, so a client that
+ * still mints its own curriculos signed URL both leaks (any RH signs any CV) and cannot work once
+ * the bucket branch is dropped.
+ *
+ * Scoped to the `curriculos` bucket by SAME-LINE co-location, so the LEGITIMATE avatar-bucket
+ * signer (`perfilRhService.getAvatarSignedUrl` — a DIFFERENT private bucket, `.from(AVATAR_BUCKET)`
+ * on its own line) is NOT flagged. Returns the violation tag if a line references BOTH
+ * `createSignedUrl` and `curriculos`, else null.
+ *
+ * NOTE (intended RED until 32-02): the current `cvUploadService.getSignedUrl` still runs
+ * `supabase.storage.from('curriculos').createSignedUrl(path, …)` on one line → the SCAN case
+ * below FAILS on purpose. 32-02 rewires it to `functions.invoke('get-curriculo-url', …)` → GREEN.
+ */
+const CURRICULOS_SIGN_RE = /\bcreateSignedUrl\b/
+export function firstCurriculosSignViolation(text: string): string | null {
+  if (CURRICULOS_SIGN_RE.test(text) && /curriculos/.test(text)) {
+    return 'createSignedUrl(curriculos)'
+  }
+  return null
+}
+
+/**
  * Comment-aware line filter (mirrors rh-console / n8n-bundle): a pure line/JSDoc comment
  * cannot trip the guard, so legitimate doc-comment prose mentioning `service_role`
  * (client.ts, cadastroService.ts, avaliacaoService.ts) — and this file's own prose — is
@@ -153,5 +177,53 @@ describe('SEG-01 — no service_role / privileged client in the shipped src/ bun
   it('scan resolves the src tree (sanity — path must not silently drift)', () => {
     const files = collectFiles('src')
     expect(files.length).toBeGreaterThan(50)
+  })
+})
+
+describe('SEG-01 (Phase 32) — no client createSignedUrl over the curriculos bucket in src/', () => {
+  // AUTHORED RED (32-01): the SCAN case below FAILS while cvUploadService.getSignedUrl still calls
+  // createSignedUrl('curriculos', …). 32-02 rewires it to functions.invoke('get-curriculo-url') → GREEN.
+  // The function-level contract cases (positive/negative/comment-aware) PASS now and must stay green.
+  it('src/ carries NO client createSignedUrl over curriculos (the EF is the only signer)', () => {
+    const files = collectFiles('src')
+    const violations: { file: string; line: number; text: string }[] = []
+    for (const file of files) {
+      const lines = readFileSync(file, 'utf-8').split('\n')
+      lines.forEach((text, idx) => {
+        if (isCommentLine(text)) return // comment-aware: doc/line comments cannot trip the gate
+        if (firstCurriculosSignViolation(text)) {
+          violations.push({ file: file.replace(`${ROOT}/`, ''), line: idx + 1, text: text.trim() })
+        }
+      })
+    }
+    if (violations.length > 0) {
+      const msg = violations.map((v) => `  ${v.file}:${v.line}  →  ${v.text}`).join('\n')
+      throw new Error(
+        `SEG-01 — the curriculos CV must be signed ONLY by the get-curriculo-url Edge Function:\n${msg}\n` +
+          `Replace client createSignedUrl over 'curriculos' with ` +
+          `supabase.functions.invoke('get-curriculo-url', { body: { candidatura_id } }).`,
+      )
+    }
+    expect(violations).toHaveLength(0)
+  })
+
+  it('flags a client createSignedUrl over curriculos (positive contract)', () => {
+    expect(
+      firstCurriculosSignViolation("await supabase.storage.from('curriculos').createSignedUrl(path, 60)"),
+    ).toBe('createSignedUrl(curriculos)')
+  })
+
+  it('does NOT flag createSignedUrl over a DIFFERENT bucket or the EF invoke (no false positive)', () => {
+    // The avatar bucket (perfilRhService.getAvatarSignedUrl) is a legitimate, unrelated signer.
+    expect(firstCurriculosSignViolation('.from(AVATAR_BUCKET).createSignedUrl(path, 3600)')).toBeNull()
+    expect(firstCurriculosSignViolation("supabase.storage.from('avatars-rh').createSignedUrl(p, 60)")).toBeNull()
+    expect(
+      firstCurriculosSignViolation("supabase.functions.invoke('get-curriculo-url', { body: { candidatura_id } })"),
+    ).toBeNull()
+  })
+
+  it('comment lines mentioning curriculos createSignedUrl are exempt (comment-aware)', () => {
+    expect(isCommentLine('// getSignedUrl no longer calls createSignedUrl over curriculos')).toBe(true)
+    expect(isCommentLine(" * the EF signs curriculos via createSignedUrl server-side")).toBe(true)
   })
 })
