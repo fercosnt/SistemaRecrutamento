@@ -542,20 +542,19 @@ Two viable shapes (Claude's discretion): (a) extend the existing `no-service-rol
 | A4 | No recruiter (`role='recrutador'`) test account exists in PROD; cross-recruiter live curl is not runnable and must be proven at the deno-test/SQL-smoke layer. | Pitfall 6 / Open Q1 | MEDIUM — if a recruiter account exists, a fuller live curl is possible; verify at plan time. |
 | A5 | `funil_kpis` reads `auth.jwt()`/`auth.uid()` successfully inside SECURITY DEFINER (the "Phase-6 proof" that these read the per-request GUC). | Code Examples #3 | LOW — verified pattern in `get_avaliacao_status`; the smoke will catch any regression. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Cross-recruiter EF 403 live proof without a recruiter account**
+1. **Cross-recruiter EF 403 live proof without a recruiter account** **(RESOLVED — deno+SQL are authoritative, no live recruiter curl.)**
    - What we know: only `administrador` test accounts exist (`e2e.admin@beautysmile.com.br`); MEMORY notes 0 `role='recrutador'` accounts. The deno unit test deterministically covers the role='rh'-non-owner→403 branch (mocked `usuarios_rh`+`vagas`). The SQL smokes cover cross-recruiter DENY at the DB layer via impersonated claims.
-   - What's unclear: whether the plan should seed a temporary recruiter account for a fuller live curl, or rely on deno test + SQL smoke as the authoritative 403 gate.
-   - Recommendation: **deno unit test + SQL smokes are the authoritative 403 gates**; live curl proves no-auth→401, `candidato` JWT→403, `administrador`→200. Do NOT block the phase on a recruiter-vs-recruiter live curl. (Optionally seed a disposable recruiter in a HUMAN-UAT step if P34 needs it.)
+   - Recommendation: **deno unit test + SQL smokes are the authoritative 403 gates**; live curl proves no-auth→401, `candidato` JWT→403, `administrador`→200. → **RESOLVED: 32-04 adopts exactly this — no recruiter-vs-recruiter live curl gate; the cross-recruiter deny is proven by the deno test + seg32_smokes.sql assertion (a)/(b)/(c). Recorded in 32-VALIDATION.md §Manual-Only.**
 
-2. **Policy rename vs. keep name**
+2. **Policy rename vs. keep name** **(RESOLVED — keep the name.)**
    - What we know: after removing the RH branch, `curriculos_select_own_or_rh` is misnamed (it's now own-only).
-   - Recommendation: keep the name to avoid churn (a rename is cosmetic), or rename to `curriculos_select_own` — Claude's discretion; either passes the smoke.
+   - Recommendation: keep the name to avoid churn (a rename is cosmetic). → **RESOLVED: 32-02 keeps the policy name (own-folder branch retained under the same name); cosmetic rename not done.**
 
-3. **`p_vaga_id` for admin scoping**
+3. **`p_vaga_id` for admin scoping** **(RESOLVED — CTE handles both.)**
    - What we know: admin bypasses owner-scope; `p_vaga_id` narrows to one vaga.
-   - Recommendation: when admin + `p_vaga_id` is set, still narrow to that vaga (no owner check needed since admin) — the CTE `WHERE (v_is_admin OR …) AND (p_vaga_id IS NULL OR v.id=p_vaga_id)` handles both. Confirm the smoke covers admin-sees-all AND admin+p_vaga_id-narrows.
+   - Recommendation: `WHERE (v_is_admin OR v.created_by=auth.uid()) AND (p_vaga_id IS NULL OR v.id=p_vaga_id)`. → **RESOLVED: 32-03 implements this CTE predicate; seg32_smokes.sql assertion (e) covers admin-sees-all AND admin+p_vaga_id-narrows.**
 
 ## Environment Availability
 
