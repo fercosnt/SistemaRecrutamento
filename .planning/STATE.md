@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: 31-04 shipped (Kanban card ⋯ menu + HubCandidatoRH "Próximo passo" action row mount the shared dialogs; avançar/rejeitar/retroceder at any of the 6 working stages) — next is 31-05 (Comparativo rewires reject to the shared dialog)
-last_updated: "2026-07-15T00:32:27.217Z"
+stopped_at: Completed 31-05-PLAN.md (comparativo reject → shared dialog → rejeitar_candidatura RPC; funil-02/OPER-04 closed)
+last_updated: "2026-07-15T00:55:01.208Z"
 last_activity: 2026-07-15
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 ## Current Position
 
 Phase: 31 (Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)) — EXECUTING
-Plan: 5 of 6
-Status: Ready to execute (31-05 — ComparativoScreen rewires its no-justificativa reject to the shared RejeitarCandidaturaDialog, OPER-04)
-Last activity: 2026-07-15 -- 31-04 wired the two shared dialogs + 1-click Avançar into the two RH detail surfaces (Kanban card ⋯ DropdownMenu + Hub "Próximo passo" action row); full suite 896/896, tsc held at 104 baseline. OPER-01/02/03 complete.
+Plan: 6 of 6
+Status: Ready to execute
+Last activity: 2026-07-15
 
 ## Roadmap (M6 — Phases 31–35)
 
@@ -66,6 +66,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 31 P02 | ~12min | 2 tasks (TDD) | 5 files |
 | Phase 31 P03 | ~8min | 2 tasks (1 TDD) | 3 files |
 | Phase 31 P04 | ~10min | 2 tasks | 3 files |
+| Phase 31 P05 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [M2/Phases 6–15 · M4]: Migrations PROD via Supabase MCP `apply_migration`/`execute_sql` (bypassa 42601 em corpos PL/pgSQL `$$`; grava version row sozinho; no-BEGIN/COMMIT-wrapper) — caminho para as migrations da Phase 32/33.
 - [Projeto/invariante]: service_role NUNCA no client — a EF `get-curriculo-url` é o único caminho privilegiado ao CV (guard de bundle grep). Bucket `curriculos` = leak role-only vivo a fechar (a policy role-only é **removida**, não só complementada).
 - [Stack/M6]: **zero dependências npm novas** — recharts (via `@/components/ui/chart`), date-fns + `Intl.DateTimeFormat('pt-BR', {timeZone:'America/Sao_Paulo'})` (idioma já em `EntrevistaDashboard.tsx`), shadcn Calendar + `<input type="time">`, `cvUploadService.getSignedUrl` — tudo já instalado/usado.
+- [Phase ?]: Phase 31/OPER-04: comparativo reject rewired to shared RejeitarCandidaturaDialog → rejeitar_candidatura RPC (dialog owns the write; page handleRejeitar is post-success, no page-level mutate → no double-write); showActions gate + read-only DecisaoFinalPage embed preserved
 
 ### Pending Todos
 
@@ -109,8 +111,8 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-15T00:32:27.210Z
-Stopped at: Completed 31-03-PLAN.md (shared dialogs); next is 31-04 (RH surfaces — Kanban card menu + Hub action row)
+Last session: 2026-07-15T00:55:01.196Z
+Stopped at: Completed 31-05-PLAN.md (comparativo reject → shared dialog → rejeitar_candidatura RPC; funil-02/OPER-04 closed)
 Resume file: None
 
 ## Operator Next Steps
