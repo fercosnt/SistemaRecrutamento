@@ -397,6 +397,12 @@ export function useUpdateCandidaturaStatus(
 export interface UpdateCandidaturaEtapaVars {
   candidaturaId: string
   novaEtapa: EtapaFunilM2
+  /**
+   * Phase 31 / OPER-03 — justificativa do retrocesso (obrigatória no server para
+   * regressões: o trigger `avancar_etapa()` faz RAISE se vazia). Forward-advance a
+   * omite (o serviço grava null). Repassada ao serviço `updateCandidaturaEtapa`.
+   */
+  justificativa?: string
 }
 
 /**
@@ -417,8 +423,8 @@ export function useUpdateCandidaturaEtapa(
   const queryClient = useQueryClient()
 
   return useMutation<void, Error, UpdateCandidaturaEtapaVars>({
-    mutationFn: ({ candidaturaId, novaEtapa }) =>
-      updateCandidaturaEtapa(candidaturaId, novaEtapa),
+    mutationFn: ({ candidaturaId, novaEtapa, justificativa }) =>
+      updateCandidaturaEtapa(candidaturaId, novaEtapa, justificativa),
     onSuccess: async (data, variables, context) => {
       // 1. Marca stale + 2. refetch imediato das queries ativas de candidaturas.
       queryClient.invalidateQueries({ queryKey: candidaturasKeys.all })
