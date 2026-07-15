@@ -53,6 +53,15 @@ vi.mock('@/features/triagem/hooks/useRedacaoRevisao', () => ({
 vi.mock('@/features/decisao/hooks/useConsolidacao', () => ({
   useConsolidacao: () => ({ data: null, isLoading: false, isError: false }),
 }))
+// Phase 31 (31-04): the hub now mounts the avançar/retroceder/rejeitar action row, which
+// consumes useUpdateCandidaturaEtapa (advance + Retroceder dialog) and useRejeitarCandidatura
+// (Rejeitar dialog). Stub both so these hooks don't need a QueryClientProvider in this suite.
+vi.mock('@/features/vagas/hooks/useCandidaturas', () => ({
+  useUpdateCandidaturaEtapa: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+vi.mock('@/features/triagem/hooks/useRejeitarCandidatura', () => ({
+  useRejeitarCandidatura: () => ({ mutate: vi.fn(), isPending: false }),
+}))
 
 import { HubCandidatoRH } from '../HubCandidatoRH'
 

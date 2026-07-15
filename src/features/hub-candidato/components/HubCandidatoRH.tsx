@@ -27,7 +27,7 @@
  * @see .planning/phases/17-navegacao-arquitetura-informacao/17-UI-SPEC.md (§Interaction Contract; §Empty states)
  */
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { Glass, GlassCard, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -40,6 +40,9 @@ import { useEntrevistaContexto, useEntrevistaScorecard } from '@/features/entrev
 import { useScorecardCandidato } from '@/features/avaliacao/hooks/useScorecardCandidato'
 import { useRedacaoRevisao } from '@/features/triagem/hooks/useRedacaoRevisao'
 import { useConsolidacao } from '@/features/decisao/hooks/useConsolidacao'
+import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
+import { RejeitarCandidaturaDialog } from '@/features/triagem/components/RejeitarCandidaturaDialog'
+import { RetrocederCandidaturaDialog } from '@/features/triagem/components/RetrocederCandidaturaDialog'
 import { HubSection, type HubSectionEstado } from './HubSection'
 
 /**
@@ -56,6 +59,10 @@ const TIMELINE: EtapaFunilM2[] = [
   'aprovado',
   'rejeitado',
 ]
+
+/** As 6 etapas de trabalho (TIMELINE sem os terminais aprovado/rejeitado) — a ordem que
+ *  decide a "próxima etapa" para o Avançar (OPER-01). */
+const WORKING_STAGES: EtapaFunilM2[] = TIMELINE.slice(0, 6)
 
 /**
  * Maps a stage's funnel position relative to `etapa_atual` to a HubSection `estado`.
@@ -110,6 +117,13 @@ export function HubCandidatoRH() {
   const rotaWorkspaceAtual = entradaAtual && candidaturaId
     ? entradaAtual.rotaWorkspaceRH(candidaturaId)
     : null
+
+  // OPER-01/02/03 — a linha de ações do funil (avançar/retroceder/rejeitar) beside the CTA.
+  // Avançar é 1-clique pelo write-path auditável (useUpdateCandidaturaEtapa → trigger
+  // avancar_etapa); undefined em decisao_final (sem etapa de trabalho à frente).
+  const { mutate: avancarEtapa } = useUpdateCandidaturaEtapa()
+  const idxTrabalho = etapaAtual ? WORKING_STAGES.indexOf(etapaAtual) : -1
+  const proximaEtapa = idxTrabalho >= 0 ? WORKING_STAGES[idxTrabalho + 1] : undefined
 
   // UX-03: explicit in-shell not-found for an unresolvable candidaturaId. The route is a
   // valid RH-only mount (RoleGuard), but the `:id` resolves to no row — render an explicit
@@ -166,7 +180,10 @@ export function HubCandidatoRH() {
           </div>
         )}
 
-        {/* Próximo passo — the single dominant turquoise CTA for etapa_atual (D-06) */}
+        {/* Próximo passo — the single dominant turquoise CTA for etapa_atual (D-06), plus the
+            OPER-01/02/03 action row (avançar/retroceder/rejeitar) BESIDE it. The block only
+            renders for non-terminal etapas (rotaWorkspaceAtual && entradaAtual), so the action
+            group is naturally hidden on aprovado/rejeitado (T-31-04). */}
         {rotaWorkspaceAtual && entradaAtual ? (
           <Glass variant="dark" blur="lg" className="rounded-xl p-6">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">Próximo passo</p>
@@ -174,13 +191,63 @@ export function HubCandidatoRH() {
               <p className="text-base text-white/80">
                 Continue o funil pela etapa atual do candidato.
               </p>
-              <button
-                type="button"
-                onClick={() => navigate(rotaWorkspaceAtual)}
-                className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
-              >
-                {entradaAtual.ctaRH}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {etapaAtual ? (
+                  <>
+                    {/* Avançar — 1-clique pelo write-path auditável (accent, subordinado ao CTA). */}
+                    {proximaEtapa ? (
+                      <button
+                        type="button"
+                        onClick={() => avancarEtapa({ candidaturaId, novaEtapa: proximaEtapa })}
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#35BFAD]/40 bg-[#35BFAD]/10 px-4 text-sm font-semibold text-[#35BFAD] transition-colors hover:bg-[#35BFAD]/20"
+                      >
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        Avançar
+                      </button>
+                    ) : null}
+
+                    {/* Retroceder — dialog compartilhado, gatilho neutro dark-glass. */}
+                    <RetrocederCandidaturaDialog
+                      candidaturaId={candidaturaId}
+                      nome={nomeCandidato}
+                      etapaAtual={etapaAtual}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
+                        >
+                          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                          Retroceder
+                        </button>
+                      }
+                    />
+
+                    {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo. */}
+                    <RejeitarCandidaturaDialog
+                      candidaturaId={candidaturaId}
+                      nome={nomeCandidato}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-4 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                          Rejeitar
+                        </button>
+                      }
+                    />
+                  </>
+                ) : null}
+
+                {/* O CTA dominante permanece — não é deslocado (turquesa sólido). */}
+                <button
+                  type="button"
+                  onClick={() => navigate(rotaWorkspaceAtual)}
+                  className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
+                >
+                  {entradaAtual.ctaRH}
+                </button>
+              </div>
             </div>
           </Glass>
         ) : null}
