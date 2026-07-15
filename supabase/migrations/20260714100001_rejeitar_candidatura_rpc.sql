@@ -166,12 +166,15 @@ COMMENT ON FUNCTION public.rejeitar_candidatura(uuid, public.motivo_rejeicao_rh,
 -- ─────────────────────────────────────────────────────────────────────────────
 -- (3) Legacy cleanup — DROP the two dead M1-era overloads (zero callers), resolving the
 --     database.types.ts drift. EXACT verified signatures, IF EXISTS, no dependent-dropping.
---     database.types.ts:4359-4362 → avancar_etapa(uuid, uuid) {candidatura_uuid, usuario_rh_uuid}
---     database.types.ts:4620-4627 → rejeitar_candidato(uuid, text, uuid) {candidatura_uuid, motivo, usuario_rh_uuid}
+--     avancar_etapa(uuid, uuid) {candidatura_uuid, usuario_rh_uuid}
+--     rejeitar_candidato(uuid, uuid, text) {candidatura_uuid, usuario_rh_uuid, motivo}
+--       (NOTE: database.types.ts:4620 rendered the args as (uuid,text,uuid); the LIVE identity
+--        signature is (uuid,uuid,text) — verified via pg_get_function_identity_arguments at
+--        apply time in wave 31-06. The DROP below uses the real positional signature.)
 --     ⚠ HIGH-SEVERITY LANDMINE (Pitfall 1): the zero-argument overload public.avancar_etapa
 --       (RETURNS trigger, bound to candidaturas_avancar_etapa_trg) is the LIVE trigger
 --       function and must NEVER be dropped. Specify the exact two-arg signature; a
 --       zero-arg drop (or dropping dependents) would silently break ALL funnel auditing.
 -- ─────────────────────────────────────────────────────────────────────────────
 DROP FUNCTION IF EXISTS public.avancar_etapa(uuid, uuid);            -- dead M1 RPC ONLY
-DROP FUNCTION IF EXISTS public.rejeitar_candidato(uuid, text, uuid); -- dead M1 RPC ONLY
+DROP FUNCTION IF EXISTS public.rejeitar_candidato(uuid, uuid, text); -- dead M1 RPC ONLY (real signature: uuid,uuid,text)

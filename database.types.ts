@@ -4356,10 +4356,6 @@ export type Database = {
         Args: { p_avatar_url?: string; p_nome: string }
         Returns: undefined
       }
-      avancar_etapa: {
-        Args: { candidatura_uuid: string; usuario_rh_uuid: string }
-        Returns: undefined
-      }
       calcular_score_geral: {
         Args: { candidatura_uuid: string }
         Returns: number
@@ -4617,11 +4613,11 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      rejeitar_candidato: {
+      rejeitar_candidatura: {
         Args: {
-          candidatura_uuid: string
-          motivo: string
-          usuario_rh_uuid: string
+          p_candidatura_id: string
+          p_justificativa: string
+          p_motivo: Database["public"]["Enums"]["motivo_rejeicao_rh"]
         }
         Returns: undefined
       }
@@ -4779,6 +4775,13 @@ export type Database = {
         | "work_sample_sjt"
         | "bigfive_devolutiva"
       llm_provider: "anthropic" | "openai" | "google"
+      motivo_rejeicao_rh:
+        | "perfil_desalinhado"
+        | "reprovado_avaliacao"
+        | "reprovado_entrevista"
+        | "nao_compareceu"
+        | "desistencia"
+        | "outro"
       recomendacao_avaliacao: "aprovar" | "rejeitar" | "indeciso"
       serie_raven: "A" | "B" | "C" | "D" | "E"
       severidade_log: "info" | "aviso" | "erro" | "critico"
@@ -5054,6 +5057,14 @@ export const Constants = {
         "bigfive_devolutiva",
       ],
       llm_provider: ["anthropic", "openai", "google"],
+      motivo_rejeicao_rh: [
+        "perfil_desalinhado",
+        "reprovado_avaliacao",
+        "reprovado_entrevista",
+        "nao_compareceu",
+        "desistencia",
+        "outro",
+      ],
       recomendacao_avaliacao: ["aprovar", "rejeitar", "indeciso"],
       serie_raven: ["A", "B", "C", "D", "E"],
       severidade_log: ["info", "aviso", "erro", "critico"],

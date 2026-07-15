@@ -427,11 +427,11 @@ export async function rejeitarCandidatura(
     throw new TriagemServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  const { error } = await supabase.rpc('rejeitar_candidatura' as never, {
+  const { error } = await supabase.rpc('rejeitar_candidatura', {
     p_candidatura_id: candidaturaId,
     p_motivo: motivo,
     p_justificativa: justificativa,
-  } as never)
+  })
 
   if (error) {
     throw new TriagemServiceError(
