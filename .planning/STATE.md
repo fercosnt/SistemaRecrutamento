@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: Completed 32-01-PLAN.md (Phase 32 RED acceptance harness: deno EF test + seg32 smoke + guard tripwire + cvUploadService test)
-last_updated: "2026-07-15T04:48:24.728Z"
-last_activity: 2026-07-15 -- Phase 32 Plan 01 (RED harness) complete
+stopped_at: Completed 32-02-PLAN.md (SEG-01 code layer — get-curriculo-url EF authenticate-THEN-authorize + client rewire to functions.invoke + Migration A authored; deno test 5/5 GREEN, guard GREEN, tsc baseline 104)
+last_updated: "2026-07-15T04:58:16.198Z"
+last_activity: 2026-07-15
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 20
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 ## Current Position
 
 Phase: 32 (Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-07-15
 
@@ -68,6 +68,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 31 P04 | ~10min | 2 tasks | 3 files |
 | Phase 31 P05 | 8min | 2 tasks | 3 files |
 | Phase 32 P01 | ~8min | 3 tasks | 4 files (2 new / 2 mod) |
+| Phase 32 P02 | ~5min | 3 tasks | 3 files (2 new / 1 mod) |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Projeto/invariante]: service_role NUNCA no client — a EF `get-curriculo-url` é o único caminho privilegiado ao CV (guard de bundle grep). Bucket `curriculos` = leak role-only vivo a fechar (a policy role-only é **removida**, não só complementada).
 - [Stack/M6]: **zero dependências npm novas** — recharts (via `@/components/ui/chart`), date-fns + `Intl.DateTimeFormat('pt-BR', {timeZone:'America/Sao_Paulo'})` (idioma já em `EntrevistaDashboard.tsx`), shadcn Calendar + `<input type="time">`, `cvUploadService.getSignedUrl` — tudo já instalado/usado.
 - [Phase ?]: Phase 31/OPER-04: comparativo reject rewired to shared RejeitarCandidaturaDialog → rejeitar_candidatura RPC (dialog owns the write; page handleRejeitar is post-success, no page-level mutate → no double-write); showActions gate + read-only DecisaoFinalPage embed preserved
+- [Phase 32/32-02]: SEG-01 code layer greened — EF `get-curriculo-url/index.ts` clones the `comparativo-candidatos` two-client D-23 skeleton verbatim (getUser 401 → role from `usuarios_rh` recrutador→rh 403 → `candidatura_id`-only body → `candidaturas` allowlist projection NULL→404 → `vagas.created_by` ownership, admin bypasses 403 → `createSignedUrl(path, 60)`); static `esm.sh` import (never `.join("npm:")`); signed URL never logged. Migration A (`20260715000001`) DROP+CREATE `curriculos_select_own_or_rh` candidate-own-folder-branch ONLY (role-only OR removed), upload policies untouched, no BEGIN/COMMIT — **authored, applied in 32-04** (RESEARCH Pitfall 1: deploy EF FIRST). `cvUploadService.getSignedUrl(path→candidaturaId)` rewired to `functions.invoke('get-curriculo-url', { body: { candidatura_id } })`; last client `createSignedUrl` over `curriculos` removed from `src/`. deno test 6/6 GREEN, cvUploadService+guard 23/23 GREEN, tsc baseline 104 held, build green. `candidatura_id` parsed with a manual `typeof string` guard (no zod dep); Tampering guard by construction (EF never reads a client path). `seg32_smokes.sql` stays RED until 32-03 (funil_kpis + rh_le_historico) + 32-04 apply/deploy.
 - [Phase 32/32-01]: Phase 32 RED acceptance harness authored (Wave 0) — deno EF test (5 branches: 401/403-role/403-owner/404/200) targeting the not-yet-authored `get-curriculo-url`; `seg32_smokes.sql` (a-e) whose **assertion (a) is a DIRECT `storage.objects` deny/allow proof** (recruiter-A rh JWT → 0 rows, owning candidate → 1 row) — the load-bearing SEG-01 gate, above pg_policies (P24 precedent); guard tripwire `firstCurriculosSignViolation` (curriculos-scoped, avatar signer not flagged); cvUploadService `getSignedUrl` → `functions.invoke('get-curriculo-url')`. All RED for known reasons: EF absent → GREEN 32-02; funil_kpis + tightened policies absent → GREEN 32-04. Smoke fixture = real discovered candidato (FK-bound CV owner) + **synthetic recruiters** (vagas.created_by has no FK) for deterministic vaga-scope assertions.
 
 ### Pending Todos
@@ -113,13 +115,13 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-15T04:48:24.720Z
-Stopped at: Completed 32-01-PLAN.md (Phase 32 RED acceptance harness — deno EF test + seg32 smoke + guard tripwire + cvUploadService test; all RED for known reasons)
+Last session: 2026-07-15T04:58:16.190Z
+Stopped at: Completed 32-02-PLAN.md (SEG-01 code layer — get-curriculo-url EF authenticate-THEN-authorize + client rewire + Migration A authored; deno 5/5 GREEN, guard GREEN, tsc baseline 104, build green)
 Resume file: None
 
 ## Operator Next Steps
 
-- Phase 32 Plan 01 (RED harness) complete. Próximo: `/gsd-execute-phase 32` → Plan 02 (EF `get-curriculo-url` + client rewire + Migration A) greens the deno test + guard + cvUploadService `getSignedUrl`; Plan 03 (funil_kpis DEFINER + rh_le_historico WR-04) targets seg32_smokes (b)/(c)/(d)/(e); Plan 04 applies migrations via MCP + deploys the EF + RUNs `seg32_smokes.sql` (load-bearing gate).
+- Phase 32 Plan 02 (EF + client rewire + Migration A) complete — SEG-01 greened at the code layer. Próximo: `/gsd-execute-phase 32` → Plan 03 (Migration B: `funil_kpis` DEFINER vaga-scoped PII-safe jsonb + `rh_le_historico` WR-04 hardening) targets `seg32_smokes` (b)/(c)/(d)/(e); Plan 04 [BLOCKING] applies both migrations via MCP + deploys the EF + RUNs `seg32_smokes.sql` (load-bearing gate).
 - Ordem de execução: 31 → 32 → 33 → 34 → 35. **Phase 32 é BLOCKING** para a Phase 34.
 - 32-04 ordering landmine (RESEARCH Pitfall 1): deploy EF → rewire client → drop the `curriculos` RH Storage branch → run smokes. Reconcile `supabase_migrations.schema_migrations` + regen `database.types.ts` (repo ROOT) after `funil_kpis` lands.
 - Research flags (pesquisa mais profunda no planejamento): **Phase 33** (agendamento — divergência no-email sem precedente de mercado; reschedule/cancel semantics; schema `agendamentos_entrevista`) e **Phase 34** (work-queue UX + 1ª RPC DEFINER com window-functions `LEAD`/`LAG` neste codebase; decisão de coorte K4). Phases 31/32/35 são HIGH confidence (precedente aplicado — skip research-phase).

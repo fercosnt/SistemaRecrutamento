@@ -76,7 +76,7 @@ Plans:
 
 Plans:
 - [x] 32-01-PLAN.md — [wave 1] RED harness: deno EF unit test + JWT-impersonated `seg32_smokes.sql` (a)-(e) + extend bundle guard + update cvUploadService test (RED-first)
-- [ ] 32-02-PLAN.md — [wave 2] EF `get-curriculo-url` (authorize-THEN-authenticate, vaga-owner guard → 60s signed URL) + Migration A drop RH branch of `curriculos_select_own_or_rh` + client rewire to `functions.invoke`
+- [x] 32-02-PLAN.md — [wave 2] EF `get-curriculo-url` (authorize-THEN-authenticate, vaga-owner guard → 60s signed URL) + Migration A drop RH branch of `curriculos_select_own_or_rh` + client rewire to `functions.invoke`
 - [ ] 32-03-PLAN.md — [wave 2] Migration B: RPC `funil_kpis` SECURITY DEFINER `search_path=''` (vaga-scoped, PII-safe jsonb — median via LEAD/percentile_cont, raw conversion, volume) + `rh_le_historico` WR-04 hardening
 - [ ] 32-04-PLAN.md — [wave 3] [BLOCKING] deploy EF (JWT-ON) → apply both migrations via Supabase MCP (ordered) → reconcile ledger + regen `database.types.ts` → `seg32_smokes.sql` GREEN + live curl
 **UI hint**: no
@@ -190,7 +190,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
-| 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 1/4 | In Progress|  |
+| 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 2/4 | In Progress|  |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 0/TBD | Not started | - |
 | 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/TBD | Not started | - |
 | 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
