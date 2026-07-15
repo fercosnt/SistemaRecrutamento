@@ -1,18 +1,58 @@
+/// <reference types="@testing-library/jest-dom" />
 /**
- * Phase 10 / Plan 10-06 Task 2 — ComparativoScreen (UI-SPEC §B candidatos-coluna).
+ * ComparativoScreen — UI-SPEC §B candidatos-coluna + funil-02 / OPER-04 reject rewire.
  *
- * Cobre o contrato da tela de comparativo:
- *  - renderiza ≤10 candidatos como colunas (cabeçalho com nome + medalha de ranking);
- *  - o SugestaoIABadge (RNF-07a) aparece uma vez no topo;
- *  - Avançar/Rejeitar abrem confirm dialogs (alert-dialog) e disparam os callbacks;
- *  - "Exportar PDF" chama o `exportComparativo` mockado;
- *  - a cópia pt-BR de vagas diferentes (EF 400) é a string exata do contrato.
+ * Cobre o contrato da tela de comparativo E o rewire da Phase 31 (OPER-04): o botão
+ * "Rejeitar" agora abre o `RejeitarCandidaturaDialog` COMPARTILHADO (motivo `<Select>` +
+ * justificativa `<Textarea>` ≥50) que grava pela RPC `rejeitar_candidatura`
+ * (`useRejeitarCandidatura`) — NÃO mais o `updateCandidaturaEtapa(id,'rejeitado')` cru sem
+ * justificativa. O "Avançar" (OPER-01) permanece inalterado, e o embed read-only da
+ * Decisão Final (omite `onAvancar`/`onRejeitar` de propósito) não renderiza a linha de Ação.
  *
+ * O Radix `Select` é mockado para um `<select>` nativo (idioma repo, `RejeitarCandidaturaDialog.test`)
+ * e `useRejeitarCandidatura` é mockado para capturar o `mutate` (prova do caminho da RPC) —
+ * o Radix `AlertDialog` renderiza sem mock.
+ *
+ * @see .planning/phases/31-avan-ar-rejeitar-em-todo-o-funil-reject-do-comparativo-funil/31-05-PLAN.md
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-UI-SPEC.md (§B + Copywriting)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
+
+// ── Radix Select → native <select> (driveable com fireEvent.change em happy-dom) ──
+vi.mock('@/components/ui/select', async () => {
+  const React = await vi.importActual<typeof import('react')>('react')
+  return {
+    Select: ({ value, onValueChange, children }: any) =>
+      React.createElement(
+        'select',
+        {
+          'aria-label': 'Motivo da rejeição',
+          value: value ?? '',
+          onChange: (e: any) => onValueChange(e.target.value),
+        },
+        children,
+      ),
+    SelectTrigger: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    SelectValue: () => null,
+    SelectContent: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    SelectItem: ({ value, children }: any) => React.createElement('option', { value }, children),
+  }
+})
+
+// ── A mutation de rejeição consumida pelo RejeitarCandidaturaDialog compartilhado.
+// Capturamos o `mutate` para provar que o reject roteia pela RPC (não o update cru). ──
+const { mutateMock, useRejeitarMock } = vi.hoisted(() => {
+  const mutateMock = vi.fn()
+  return {
+    mutateMock,
+    useRejeitarMock: vi.fn(() => ({ mutate: mutateMock, isPending: false })),
+  }
+})
+vi.mock('../../hooks/useRejeitarCandidatura', () => ({
+  useRejeitarCandidatura: useRejeitarMock,
+}))
 
 // Mock do util de PDF — o teste só verifica que a tela o chama.
 vi.mock('../../pdf/exportComparativo', async (orig) => {
@@ -40,11 +80,12 @@ function makeCandidate(over: Partial<ComparativoCandidate> & { candidaturaId: st
   }
 }
 
-describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  useRejeitarMock.mockReturnValue({ mutate: mutateMock, isPending: false })
+})
 
+describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
   it('renderiza ≤10 candidatos como colunas com nome + medalha de ranking', () => {
     const candidates = Array.from({ length: 3 }, (_, i) =>
       makeCandidate({ candidaturaId: String(i + 1), rank: i + 1 }),
@@ -77,7 +118,7 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     expect(screen.getByText('Sugestão da IA — decisão é sempre humana')).toBeInTheDocument()
   })
 
-  it('Avançar abre confirm dialog e dispara onAvancar', () => {
+  it('Avançar abre confirm dialog e dispara onAvancar (OPER-01 — inalterado)', () => {
     const onAvancar = vi.fn()
     const candidates = [makeCandidate({ candidaturaId: 'abc', nome: 'Maria', rank: 1 })]
     candidates.push(makeCandidate({ candidaturaId: 'def', nome: 'João', rank: 2 }))
@@ -96,7 +137,7 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
     expect(onAvancar).toHaveBeenCalledWith('abc')
   })
 
-  it('Rejeitar abre confirm destructive e dispara onRejeitar (sem justificativa longa)', () => {
+  it('Rejeitar abre o RejeitarCandidaturaDialog compartilhado e roteia pela RPC (funil-02 / OPER-04)', () => {
     const onRejeitar = vi.fn()
     const candidates = [
       makeCandidate({ candidaturaId: 'abc', nome: 'Maria', rank: 1 }),
@@ -109,13 +150,48 @@ describe('ComparativoScreen — UI-SPEC §B candidatos-coluna', () => {
         onRejeitar={onRejeitar}
       />,
     )
-    fireEvent.click(screen.getAllByRole('button', { name: /rejeitar/i })[0])
+    // Abre o dialog compartilhado a partir do trigger "Rejeitar" da 1ª coluna.
+    fireEvent.click(screen.getAllByRole('button', { name: /^rejeitar$/i })[0])
     expect(screen.getByText('Rejeitar Maria?')).toBeInTheDocument()
-    // Não há campo de justificativa longa (textarea) no dialog.
+
+    // NOVO caminho: há um campo de justificativa longa (o antigo confirm cru NÃO tinha).
     const dialog = screen.getByRole('alertdialog')
-    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
-    fireEvent.click(within(dialog).getByRole('button', { name: /^rejeitar$/i }))
-    expect(onRejeitar).toHaveBeenCalledWith('abc')
+    expect(within(dialog).getByLabelText(/Justificativa/i)).toBeInTheDocument()
+
+    // Preenche motivo + justificativa ≥50 e confirma.
+    fireEvent.change(within(dialog).getByLabelText('Motivo da rejeição'), {
+      target: { value: 'perfil_desalinhado' },
+    })
+    const justificativa =
+      'A candidata não possui o registro profissional exigido para a vaga anunciada.'
+    fireEvent.change(within(dialog).getByLabelText(/Justificativa/i), {
+      target: { value: justificativa },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rejeitar candidato' }))
+
+    // Roteia pela RPC `rejeitar_candidatura` (useRejeitarCandidatura) com motivo +
+    // justificativa — NÃO o antigo `onRejeitar(id)`/update cru sem justificativa.
+    expect(mutateMock).toHaveBeenCalledTimes(1)
+    expect(mutateMock.mock.calls[0][0]).toEqual({
+      candidaturaId: 'abc',
+      motivo: 'perfil_desalinhado',
+      justificativa,
+    })
+  })
+
+  it('embed read-only (sem handlers): a linha de Ação não é renderizada (showActions gate)', () => {
+    const candidates = [
+      makeCandidate({ candidaturaId: '1', rank: 1 }),
+      makeCandidate({ candidaturaId: '2', rank: 2 }),
+    ]
+    // DecisaoFinalPage embute o ComparativoScreen SEM onAvancar/onRejeitar (read-only).
+    render(<ComparativoScreen candidates={candidates} />)
+    expect(screen.queryByRole('button', { name: /^avançar$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^rejeitar$/i })).not.toBeInTheDocument()
+    // A comparação em si permanece visível (colunas renderizadas).
+    expect(screen.getByText('Candidato 1')).toBeInTheDocument()
+    // Nenhum dialog de rejeição é montado → o hook da RPC nunca roda.
+    expect(useRejeitarMock).not.toHaveBeenCalled()
   })
 
   it('"Exportar PDF" chama o exportComparativo mockado', async () => {

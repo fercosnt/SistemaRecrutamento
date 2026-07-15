@@ -4,9 +4,11 @@
  * Renderiza ≤10 candidatos como COLUNAS e atributos como LINHAS (Ranking IA, Score IA
  * band, Pontos fortes, Gaps, Justificativa IA, Flags, Ação). A primeira coluna (rótulos
  * de atributo) é sticky-left; scroll horizontal no overflow. O SugestaoIABadge (full,
- * RNF-07a) é renderizado UMA vez no topo. Ações inline Avançar (accent) / Rejeitar
- * (destructive) são gateadas por alert-dialog confirm — IA é sugestão, nunca auto-ação.
- * Botão "Exportar PDF" chama `exportComparativo` com estados Gerando/sucesso/erro.
+ * RNF-07a) é renderizado UMA vez no topo. Avançar (accent) é gateado por alert-dialog
+ * confirm; Rejeitar (destructive) abre o `RejeitarCandidaturaDialog` COMPARTILHADO
+ * (motivo + justificativa ≥50) que grava pela RPC `rejeitar_candidatura` auditada
+ * (funil-02 / OPER-04) — NÃO mais o update cru sem justificativa. IA é sugestão, nunca
+ * auto-ação. Botão "Exportar PDF" chama `exportComparativo` com estados Gerando/sucesso/erro.
  *
  * @module features/triagem/components/ComparativoScreen
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-UI-SPEC.md (§B candidatos-coluna, copy)
@@ -30,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/components/ui/utils'
 import { SugestaoIABadge } from './SugestaoIABadge'
+import { RejeitarCandidaturaDialog } from './RejeitarCandidaturaDialog'
 // PERF-03 (Plan 19-02): TYPE-ONLY import at top level — the runtime `exportComparativo`
 // value (which statically pulls in jspdf + jspdf-autotable) is loaded via a call-site
 // `await import()` in handleExport so jsPDF is emitted in a separate async chunk and
@@ -56,7 +59,13 @@ export interface ComparativoScreenProps {
    * em outra parte da tela (UX-06 — sem botão no-op).
    */
   onAvancar?: (candidaturaId: string) => void
-  /** Rejeita a candidatura (confirmação já feita; sem justificativa longa). Opcional — ver `onAvancar`. */
+  /**
+   * Callback pós-rejeição bem-sucedida. A rejeição em si — motivo + justificativa ≥50 —
+   * é feita pelo `RejeitarCandidaturaDialog` compartilhado (grava pela RPC auditada
+   * `rejeitar_candidatura`, que já invalida as árvores de query). OPCIONAL: quando ausente
+   * (junto com `onAvancar`), a linha de Ação não é renderizada — o embed read-only da
+   * Decisão Final omite ambos de propósito (UX-06 — sem botão no-op).
+   */
   onRejeitar?: (candidaturaId: string) => void
   /**
    * Estado do invoke do comparativo (EF `comparativo-candidatos`), delegado ao
@@ -340,9 +349,16 @@ export function ComparativoScreen({
                       </AlertDialogContent>
                     </AlertDialog>
 
-                    {/* Rejeitar (destructive, sem justificativa longa) */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
+                    {/* Rejeitar — funil-02 / OPER-04: abre o RejeitarCandidaturaDialog
+                        COMPARTILHADO (motivo + justificativa ≥50) que grava pela RPC
+                        auditada `rejeitar_candidatura`, substituindo o antigo confirm
+                        sem justificativa. Mount-don't-fork: o dialog é dono da escrita +
+                        do gate ≥50; `onRejeitar` fica como callback pós-sucesso opcional. */}
+                    <RejeitarCandidaturaDialog
+                      candidaturaId={c.candidaturaId}
+                      nome={c.nome ?? 'candidato'}
+                      onRejected={() => onRejeitar?.(c.candidaturaId)}
+                      trigger={
                         <button
                           type="button"
                           className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20"
@@ -350,27 +366,8 @@ export function ComparativoScreen({
                           <X className="h-4 w-4" aria-hidden="true" />
                           Rejeitar
                         </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Rejeitar {c.nome}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            O candidato será movido para “Rejeitado”. Você poderá reverter
-                            manualmente. (Justificativa detalhada será exigida apenas na Decisão
-                            Final.)
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => onRejeitar?.(c.candidaturaId)}
-                            className="bg-red-500 text-white hover:bg-red-500/90"
-                          >
-                            Rejeitar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      }
+                    />
                   </div>
                 </td>
               ))}
