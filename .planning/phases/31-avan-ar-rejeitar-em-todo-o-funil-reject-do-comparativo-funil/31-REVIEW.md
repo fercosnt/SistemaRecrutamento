@@ -20,8 +20,24 @@ findings:
   warning: 5
   info: 3
   total: 8
-status: issues_found
+status: resolved
+resolved: 2026-07-15
+resolution: "WR-01/WR-02/WR-05 fixed; WR-03/WR-04/INFO-1/2/3 deferred (documented below)"
 ---
+
+# Phase 31: Code Review Report
+
+## Resolution (autonomous code_review_gate, 2026-07-15)
+
+**Fixed:**
+- **WR-01 (Hub staleness)** — `useRejeitarCandidatura` + `useUpdateCandidaturaEtapa` now also invalidate `entrevistaKeys.all` (`['entrevista']`), so an action taken from `HubCandidatoRH` (which derives its etapa UI from `useEntrevistaContexto`) refreshes instead of re-offering a now-terminal action.
+- **WR-02 (guard-order existence oracle)** — the `rejeitar_candidatura` RPC now runs the role-membership check (`role IN (rh,administrador)`) **before** the candidatura lookup, so candidato/anon always get `insufficient_privilege` (never `no_data_found`). Applied live via `CREATE OR REPLACE` in PROD + migration file updated; a new smoke assertion **(f)** proves the oracle is closed (candidato + non-existent id → `insufficient_privilege`). All 6 smokes GREEN.
+- **WR-05 (dead bare-reject bypass)** — `updateCandidaturaEtapa(id,'rejeitado')` now throws `INVALID_INPUT` (pointing to the audited `rejeitarCandidatura` RPC) instead of performing an ungated status write; the cementing test was rewritten to assert the throw + no payload sent.
+
+**Deferred (documented, non-blocking):**
+- **WR-03** (Kanban `canDrop` accepts always-failing backward drops) — minor UX affordance; the drop fails safely (trigger RAISE). Backlog UX polish.
+- **WR-04** (Comparativo positional `C{n}`→`selection[n-1]` identity mapping) — **pre-existing** pattern, not introduced by this phase; a broader fix (stable candidate keys) belongs in a dedicated change. Reject is still owner-authorized + audited server-side.
+- **INFO-1/2/3** (hardcoded comparativo advance target, Retroceder dead-end on `inscricao` cards, a grouping comment) — cosmetic; backlog.
 
 # Phase 31: Code Review Report
 

@@ -25,6 +25,7 @@ import {
 import { triagemKeys } from './useTriagemPanel'
 import { candidaturasKeys } from '@/features/vagas/hooks/useCandidaturas'
 import { vagasKeys } from '@/features/vagas/hooks/useVagas'
+import { entrevistaKeys } from '@/features/entrevista/hooks/useEntrevistaScorecard'
 
 export interface UseRejeitarCandidaturaVars {
   candidaturaId: string
@@ -49,6 +50,11 @@ export function useRejeitarCandidatura() {
       queryClient.invalidateQueries({ queryKey: candidaturasKeys.all })
       queryClient.invalidateQueries({ queryKey: vagasKeys.all })
       queryClient.invalidateQueries({ queryKey: triagemKeys.all })
+      // WR-01: o HubCandidatoRH deriva a UI de etapa via `useEntrevistaContexto`
+      // (chave `['entrevista', …]`). Sem invalidar essa árvore, uma ação disparada
+      // DE DENTRO do Hub deixa o Hub stale e re-oferece Rejeitar → RPC bate no guard
+      // terminal. Invalidar a árvore da entrevista mantém o Hub coerente.
+      queryClient.invalidateQueries({ queryKey: entrevistaKeys.all })
     },
     onError: () => {
       toast.error('Não foi possível rejeitar o candidato. Tente novamente.')

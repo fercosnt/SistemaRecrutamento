@@ -134,6 +134,31 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (f) WR-02 (code-review hardening) — a candidato (role NOT rh/administrador) calling with a
+--     NON-EXISTENT candidatura id must get insufficient_privilege, NEVER no_data_found. Proves
+--     the role-membership guard runs BEFORE the candidatura lookup → no existence oracle over
+--     candidaturas.id.
+-- ─────────────────────────────────────────────────────────────────────────────
+SET ROLE authenticated;
+DO $$
+BEGIN
+  IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN
+    RAISE NOTICE 'OPER-31 SKIP (f oracle): fixture not built'; RETURN; END IF;
+  PERFORM set_config('request.jwt.claims', jsonb_build_object(
+    'sub', '00000000-0000-0000-0000-0000000000ca', 'role', 'authenticated',
+    'app_metadata', jsonb_build_object('role', 'candidato'))::text, false);
+  BEGIN
+    PERFORM public.rejeitar_candidatura('99999999-9999-9999-9999-999999999999'::uuid, 'outro', repeat('x', 60));
+    RAISE EXCEPTION 'OPER-31 FAIL (f): a candidato reject on a non-existent candidatura was accepted';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS (f): candidato + non-existent id → insufficient_privilege (no existence oracle)';
+    WHEN no_data_found THEN
+      RAISE EXCEPTION 'OPER-31 FAIL (f): existence oracle LEAK — got no_data_found (role guard ran AFTER the lookup)';
+  END;
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (c) OPER-03 — the REGRESSION guard is the reused avancar_etapa TRIGGER, not the RPC.
 --     A BARE UPDATE (NOT the RPC) to an earlier etapa with an EMPTY justificativa must be
 --     RAISEd by the trigger. Run privileged (RESET ROLE) so RLS never masks the trigger.

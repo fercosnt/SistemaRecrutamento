@@ -91,14 +91,26 @@ DECLARE
   v_etapa      public.etapa_processo;
   v_just       text := btrim(coalesce(p_justificativa, ''));
 BEGIN
-  -- (0) Server-authoritative ≥50 gate (OPER-02) — btrim'd length, pt-BR message.
+  -- (0) Role MEMBERSHIP guard FIRST (WR-02 — code-review hardening): candidato/anon are
+  --     rejected BEFORE any candidatura lookup, so the returned SQLSTATE never leaks whether
+  --     a candidatura id exists (no existence oracle over candidaturas.id: an unauthorized
+  --     caller always gets insufficient_privilege, never no_data_found). auth.jwt() is
+  --     GUC-based → survives the DEFINER role.
+  v_role := (select auth.jwt() #>> '{app_metadata,role}');
+  IF v_role IS NULL OR v_role NOT IN ('rh', 'administrador') THEN
+    RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  -- (1) Server-authoritative ≥50 gate (OPER-02) — btrim'd length, pt-BR message.
   --     This is the enforcement; the client counter is only UX. 'outro' is not exempt.
   IF char_length(v_just) < 50 THEN
     RAISE EXCEPTION 'A justificativa da rejeição precisa de pelo menos 50 caracteres'
       USING ERRCODE = 'check_violation';
   END IF;
 
-  -- (1) Resolve the candidatura → its vaga owner + current etapa. Missing → not found.
+  -- (2) Resolve the candidatura → its vaga owner + current etapa. Missing → not found.
+  --     Only rh/administrador reach this point (step 0), so no_data_found leaks nothing to
+  --     an unprivileged caller.
   SELECT v.created_by, c.etapa_atual
     INTO v_vaga_owner, v_etapa
     FROM public.candidaturas c
@@ -110,14 +122,8 @@ BEGIN
       USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- (2) Role + own-vaga guard (WR-04 — mirror registrar_decisao :107-117).
-  --     candidato/anon → forbidden. rh → must own the vaga. administrador → bypass.
-  v_role := (select auth.jwt() #>> '{app_metadata,role}');
-
-  IF v_role NOT IN ('rh', 'administrador') THEN
-    RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
-  END IF;
-
+  -- (2b) Own-vaga guard (WR-04 — mirror registrar_decisao): an rh must own the vaga;
+  --     administrador bypasses.
   IF v_role = 'rh' AND v_vaga_owner IS DISTINCT FROM (select auth.uid()) THEN
     RAISE EXCEPTION 'forbidden' USING ERRCODE = 'insufficient_privilege';
   END IF;

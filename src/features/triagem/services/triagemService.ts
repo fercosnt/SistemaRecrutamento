@@ -369,6 +369,19 @@ export async function updateCandidaturaEtapa(
     throw new TriagemServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
+  // WR-05: rejeição NÃO passa por este caminho. O único reject auditado é
+  // `rejeitarCandidatura` (RPC SECURITY DEFINER com gate ≥50 + posse de vaga +
+  // motivo estruturado). Um `updateCandidaturaEtapa(id, 'rejeitado')` seria um
+  // bypass silencioso desse gate (o trigger auditaria a transição, mas sem motivo,
+  // sem justificativa ≥50 e sem checagem de posse). Fechamos o caminho morto: qualquer
+  // chamador que tente rejeitar por aqui recebe um erro explícito apontando para a RPC.
+  if (novaEtapa === 'rejeitado') {
+    throw new TriagemServiceError(
+      'Rejeição deve usar rejeitarCandidatura (RPC auditada), não updateCandidaturaEtapa',
+      'INVALID_INPUT',
+    )
+  }
+
   // `etapa_justificativa` ENTRA SEMPRE no SET (nunca omitido) — o trigger
   // `avancar_etapa()` copia `NEW.etapa_justificativa` para
   // `historico_candidatura.criterio_texto`; se a coluna ficar fora do UPDATE, o
@@ -382,10 +395,6 @@ export async function updateCandidaturaEtapa(
   } = {
     etapa_atual: novaEtapa,
     etapa_justificativa: justificativa ?? null,
-  }
-  // Rejeição terminal também marca o status como 'rejeitado' (badge no painel + dashboard).
-  if (novaEtapa === 'rejeitado') {
-    update.status = 'rejeitado'
   }
 
   const { error } = await supabase

@@ -163,12 +163,16 @@ describe('triagemService — updateCandidaturaEtapa always writes etapa_justific
     expect(lastUpdate.value).toHaveProperty('etapa_atual', 'inscricao')
   })
 
-  it("reject → payload includes status:'rejeitado' AND etapa_justificativa in the SET", async () => {
-    await updateCandidaturaEtapa('cand-1', 'rejeitado')
-    expect(lastUpdate.value).toHaveProperty('etapa_atual', 'rejeitado')
-    expect(lastUpdate.value).toHaveProperty('status', 'rejeitado')
-    // etapa_justificativa is ALWAYS present (null here — no text passed).
-    expect(lastUpdate.value).toHaveProperty('etapa_justificativa', null)
+  it("reject via updateCandidaturaEtapa is REJECTED (WR-05) — the audited path is rejeitarCandidatura", async () => {
+    // WR-05: a bare updateCandidaturaEtapa(id,'rejeitado') would bypass the ≥50 +
+    // vaga-owner gate of the rejeitar_candidatura RPC. The service now throws instead
+    // of performing the write, so this dead path can never become a silent bypass.
+    await expect(updateCandidaturaEtapa('cand-1', 'rejeitado')).rejects.toMatchObject({
+      name: 'TriagemServiceError',
+      code: 'INVALID_INPUT',
+    })
+    // No UPDATE payload should have been sent to Supabase (reset to null in beforeEach).
+    expect(lastUpdate.value).toBeNull()
   })
 
   it('empty candidaturaId → throws TriagemServiceError INVALID_INPUT', async () => {

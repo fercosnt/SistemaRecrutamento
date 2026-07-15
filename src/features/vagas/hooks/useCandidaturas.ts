@@ -32,6 +32,7 @@ import {
   type EtapaFunilM2,
 } from '@/features/triagem/services/triagemService'
 import { vagasKeys } from './useVagas'
+import { entrevistaKeys } from '@/features/entrevista/hooks/useEntrevistaScorecard'
 import type {
   Candidatura,
   CreateCandidaturaRequest,
@@ -434,6 +435,10 @@ export function useUpdateCandidaturaEtapa(
       })
       // 3. Invalida vagas (contadores de candidaturas por etapa).
       queryClient.invalidateQueries({ queryKey: vagasKeys.all })
+      // 4. WR-01: o HubCandidatoRH deriva a UI de etapa via `useEntrevistaContexto`
+      //    (chave `['entrevista', …]`). Avançar/retroceder DE DENTRO do Hub precisa
+      //    invalidar essa árvore, senão o Hub fica stale após a ação.
+      queryClient.invalidateQueries({ queryKey: entrevistaKeys.all })
 
       toast.success('Etapa atualizada com sucesso!')
 
