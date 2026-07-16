@@ -38,6 +38,14 @@ export class FilaTrabalhoServiceError extends Error {
 export const FILA_ALLOWLIST =
   'candidatura_id, vaga_id, vaga_titulo, candidato_id, candidato_nome, etapa_atual, status, entrou_etapa_em'
 
+/**
+ * Defensive bound on the cross-vaga queue read (no unbounded queries — WR-05 precedent,
+ * mirroring `historicoCandidaturaService.READ_LIMIT`). The fila grows with every waiting
+ * candidatura across all owned vagas; cap the read so a large backlog can never issue an
+ * unbounded query. 200 covers the oldest-waiting-first head of the queue that RH acts on.
+ */
+const FILA_READ_LIMIT = 200
+
 /** One allowlist-projected work-queue row (oldest-waiting first in the returned array). */
 export interface FilaRow {
   /** The candidatura id — the `/rh/candidatos/:id` route param (Pitfall 1). */
@@ -62,6 +70,7 @@ export async function listFila(): Promise<FilaRow[]> {
     .from('v_fila_trabalho')
     .select(FILA_ALLOWLIST)
     .order('entrou_etapa_em', { ascending: true })
+    .limit(FILA_READ_LIMIT)
 
   if (error) {
     throw new FilaTrabalhoServiceError(
