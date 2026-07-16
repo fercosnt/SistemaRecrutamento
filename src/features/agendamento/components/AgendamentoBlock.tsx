@@ -301,6 +301,20 @@ function AgendamentoForm({
         />
       </div>
 
+      {/* Entrevistador (opcional) */}
+      <div className="space-y-2">
+        <label htmlFor="agendamento-entrevistador" className="text-sm font-semibold text-white">
+          Entrevistador{' '}
+          <span className="font-normal text-white/50">(opcional)</span>
+        </label>
+        <Input
+          id="agendamento-entrevistador"
+          {...register('entrevistador')}
+          placeholder="ex.: Ana Paula (RH)"
+          className="border-white/20 bg-white/5 text-white placeholder:text-white/50"
+        />
+      </div>
+
       {/* Observações internas (RH-only) */}
       <div className="space-y-2">
         <label htmlFor="agendamento-obs" className="text-sm font-semibold text-white">
