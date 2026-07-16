@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: Completed 32-03-PLAN.md (SEG-02 authoring — Migration B: funil_kpis DEFINER RPC vaga-scoped PII-safe jsonb + rh_le_historico WR-04 hardening; both task greps PASS, tsc baseline 104)
-last_updated: "2026-07-15T05:10:00.000Z"
-last_activity: 2026-07-15
+stopped_at: Phase 33 COMPLETE + SHIPPED LIVE PROD (agendamentos_entrevista data layer — table + WR-04 join-through RLS + get_meu_agendamento DEFINER RPC + write-stamp trigger; SEG-03 gate 9/9 GREEN; code-review WR-01/02/03+IN-01 resolved). Next = Phase 34.
+last_updated: "2026-07-16T00:00:00.000Z"
+last_activity: 2026-07-16
 progress:
   total_phases: 5
-  completed_phases: 1
-  total_plans: 10
+  completed_phases: 3
+  total_plans: 13
   completed_plans: 9
   percent: 20
 ---
@@ -25,10 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: 32 (Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)) — EXECUTING
-Plan: 4 of 4
-Status: Ready to execute (Plan 04 is [BLOCKING] non-autonomous — apply via MCP + deploy EF + run smokes)
-Last activity: 2026-07-15
+Phase: 33 (Camada de Dados do Agendamento de Entrevista) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
+Plan: 3 of 3 (all complete)
+Status: Verification PASSED 9/9 must-haves; SEG-03 gate 9/9 GREEN in PROD (a–i); code-review resolved. NEXT = Phase 34 (Superfícies do RH — CV/IA, Agendamento, Fila + KPIs).
+Last activity: 2026-07-16
+
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · **P33 ✅** (3/5 phases). Remaining: P34, P35.
 
 ## Roadmap (M6 — Phases 31–35)
 
@@ -117,9 +119,16 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-15T05:10:00.000Z
-Stopped at: Completed 32-03-PLAN.md (SEG-02 authoring — Migration B: funil_kpis DEFINER RPC vaga-scoped PII-safe jsonb + rh_le_historico WR-04 hardening; both task greps PASS, tsc baseline 104, authored-not-applied)
+Last session: 2026-07-16 (M6 autonomous run — Phase 33)
+Stopped at: **Phase 33 COMPLETE + LIVE PROD.** `agendamentos_entrevista` table + WR-04 join-through RLS (`rh_gerencia_agendamento`, single FOR ALL policy) + `get_meu_agendamento` DEFINER allowlist RPC (excludes `observacoes_rh`) + `agendamento_normaliza_vaga_id` BEFORE trigger (vaga_id normalize + `agendado_por`/`updated_by`/`updated_at` server-stamp). Migrations `20260716000001` (base) + `20260716000002` (audit hardening) applied via MCP + ledger reconciled; `database.types.ts` regen, tsc 104. **SEG-03 gate 9/9 GREEN (a–i)** run 3× independently. Verifier PASSED 9/9. Code-review WR-01/02/03+IN-01 resolved.
 Resume file: None
+
+**P33 key learnings (for P34/P35):**
+- **Table `agendamentos_entrevista`**: per-candidatura; RH reads/writes DIRECT (`.insert/.update/.delete`, RLS-gated); candidate reads ONLY via `public.get_meu_agendamento(candidatura_id)` DEFINER RPC (7-col allowlist, NO `observacoes_rh`). P35's card calls this RPC. P34 writes trust the trigger for `vaga_id`/`agendado_por`/`updated_by`/`updated_at` (do NOT pass them — trigger overwrites).
+- **Reused enums** `status_entrevista` (agendada/em_andamento/concluida/cancelada/reagendada/nao_compareceu) + `tipo_entrevista_avaliacao` (online/presencial). Reagendar=update in place (status reagendada); cancelar=status cancelada (row kept, candidate sees it); `compareceu` boolean nullable = KPI-04 no-show source.
+- **⚠ MCP apply drift is REAL**: `apply_migration` records a fresh-timestamp version ≠ filename → must reconcile `schema_migrations.version` to filename prefix (P27 idiom) after EVERY apply. Did it for both P33 migrations.
+- **⚠ `db push --linked` NOT "up to date"** = pre-existing **DBMIG-01** debt (7 remote M5 timestamp-versions `20260713*/20260714*`, 2 of them fileless: `usr_rh_review_fixes_wr01_wr03`, `perfil_rh_rpc_hardening`). NOT a P33 defect; P33 rows reconciled on both sides. Deferred.
+- **⚠ MCP `execute_sql` does NOT surface `RAISE NOTICE`** → SEG smokes verified via a result-returning adaptation (per-assertion `set_config('seg33.<x>',...)` + final SELECT). Canonical `.sql` keeps NOTICE form for SQL Editor.
 
 ## Operator Next Steps
 
