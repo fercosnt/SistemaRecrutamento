@@ -4,7 +4,7 @@ milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
 stopped_at: "Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard)."
-last_updated: "2026-07-16T17:11:12.646Z"
+last_updated: "2026-07-16T17:28:17.334Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 ## Current Position
 
 Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-07-16
 
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation). Remaining in P34: 34-02..05 (4 UI plans). Then P35.
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation) · **34-02 ✅** (VISRH CV/IA/Histórico) · **34-03 ✅** (AGEND-02/03 agendamento form). Remaining in P34: 34-04 (Fila) · 34-05 (KPI dashboard). Then P35.
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
@@ -77,6 +77,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 32 P02 | ~5min | 3 tasks | 3 files (2 new / 1 mod) |
 | Phase 32 P03 | ~8min | 2 tasks | 1 file (1 new) |
 | Phase 34 P02 | 11min | 3 tasks | 13 files |
+| Phase 34 P03 | 12min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Phase 32/32-01]: Phase 32 RED acceptance harness authored (Wave 0) — deno EF test (5 branches: 401/403-role/403-owner/404/200) targeting the not-yet-authored `get-curriculo-url`; `seg32_smokes.sql` (a-e) whose **assertion (a) is a DIRECT `storage.objects` deny/allow proof** (recruiter-A rh JWT → 0 rows, owning candidate → 1 row) — the load-bearing SEG-01 gate, above pg_policies (P24 precedent); guard tripwire `firstCurriculosSignViolation` (curriculos-scoped, avatar signer not flagged); cvUploadService `getSignedUrl` → `functions.invoke('get-curriculo-url')`. All RED for known reasons: EF absent → GREEN 32-02; funil_kpis + tightened policies absent → GREEN 32-04. Smoke fixture = real discovered candidato (FK-bound CV owner) + **synthetic recruiters** (vagas.created_by has no FK) for deterministic vaga-scope assertions.
 - [Phase 34/34-02]: VISRH-01/02/03 wired on HubCandidatoRH against shipped-secure primitives — CvButton imperative getSignedUrl->window.open (URL never cached/logged, Pitfall 7); AnaliseIABlock renders FULL pontos_fortes/gaps (no slice — that truncation is vaga-table-only) via allowlist analiseCandidatoService (score_match/pontos_fortes/gaps/flags/status->analise_status, never star); HistoricoBlock read-only newest-first via allowlist historicoCandidaturaService. IA block RH-only (candidate DB-denied rh_le_analise). Zero new npm; 22 tests GREEN; tsc 104.
 - [Phase 34/34-02 · exec]: pre-commit runs strict tsc (npm run lint), which FAILS on the 104 pre-existing errors baseline (all cadastro/*·vagas/*, 0 in hub-candidato) → sequential executor used --no-verify (the hook's own documented GSD-executor protocol); each task re-proved tsc<=104 + 0 new errors to preserve the type-check gate intent.
+- [Phase 34]: 34-03 AGEND-02/03 agendamento surface — agendamentoService writes DIRECT to agendamentos_entrevista; every payload built LITERALLY with only client-writable cols so the trigger-stamped scope/audit cols never touch a body (T-34-03-01); insert body cast at the boundary (as never) because the generated Insert still requires the NOT-NULL trigger-stamped col we intentionally omit. cancelar=UPDATE status cancelada (row kept — never a delete); reagendar=status reagendada; compareceu true/false/null = KPI-04 no-show source. AgendamentoBlock etapa-gated (HubSection futuro outside entrevista_*), RHF+zod Calendar+time Popover, Cancelar via AlertDialog. 15 tests GREEN, tsc 104.
 
 ### Pending Todos
 
@@ -126,7 +128,7 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-16T17:09:33.247Z
+Last session: 2026-07-16T17:27:32.584Z
 Stopped at: Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard).
 Resume file: None
 

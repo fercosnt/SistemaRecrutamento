@@ -26,8 +26,8 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 ### AGEND — Agendamento de entrevista
 
 - [ ] **AGEND-01**: RH pode agendar uma entrevista para um candidato (modalidade online/presencial, data e hora, link de videochamada ou local), gravada com o autor (`agendado_por`) e vaga-scoped, na tabela nova `agendamentos_entrevista`.
-- [ ] **AGEND-02**: RH pode reagendar ou cancelar um agendamento existente, refletido no card do candidato no painel.
-- [ ] **AGEND-03**: RH pode registrar o comparecimento/no-show do candidato à entrevista (campo `compareceu`) — habilita o KPI de no-show.
+- [x] **AGEND-02**: RH pode reagendar ou cancelar um agendamento existente, refletido no card do candidato no painel.
+- [x] **AGEND-03**: RH pode registrar o comparecimento/no-show do candidato à entrevista (campo `compareceu`) — habilita o KPI de no-show.
 - [ ] **AGEND-04**: O candidato vê a entrevista agendada num card no painel — data/hora em `America/Sao_Paulo` + link ou local — sendo o painel o **único** canal (sem e-mail); leitura restrita à própria linha por allowlist explícita (nunca expõe observações internas do RH).
 - [ ] **AGEND-05**: O candidato pode baixar um arquivo `.ics` do agendamento e vê um badge de lembrete quando a entrevista está a ≤24h (substitutos client-side/painel do que o mercado faz por e-mail).
 
@@ -101,8 +101,8 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 | OPER-03 | Phase 31 | Complete |
 | OPER-04 | Phase 31 | Complete |
 | AGEND-01 | Phase 33 | Pending |
-| AGEND-02 | Phase 34 | Pending |
-| AGEND-03 | Phase 34 | Pending |
+| AGEND-02 | Phase 34 | Complete |
+| AGEND-03 | Phase 34 | Complete |
 | AGEND-04 | Phase 35 | Pending |
 | AGEND-05 | Phase 35 | Pending |
 | VISRH-01 | Phase 34 | Complete |
