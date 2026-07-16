@@ -44,9 +44,14 @@ card do candidato na Phase 35).
   - `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`
   - `candidatura_id uuid NOT NULL REFERENCES public.candidaturas(id) ON DELETE CASCADE`
   - `vaga_id uuid NOT NULL REFERENCES public.vagas(id)` — denormalizado (imutável, setado
-    do candidatura no insert) p/ simplificar a RLS WR-04 e habilitar KPI no-show por vaga;
-    WITH CHECK garante posse. *(O planner pode optar pelo join-through-candidaturas
-    idêntico ao `rh_le_historico` se preferir evitar denormalização — ambos seguros.)*
+    do candidatura no insert) apenas p/ conveniência de KPI no-show por vaga.
+    **⚠ CORREÇÃO pós-research (RESEARCH.md Pitfall 1):** a RLS **NÃO** deve usar o predicado
+    `vaga_id IN (…)` — ele é *spoofável* (recrutador A insere `candidatura_id` da vítima +
+    `vaga_id` próprio, passa o WITH CHECK). A RLS **DEVE** usar o predicado
+    **join-through-candidaturas** (idêntico a `rh_le_historico`), que ancora a autorização na
+    vaga REAL da candidatura. Se `vaga_id` for mantido, um BEFORE trigger deve forçar
+    `vaga_id = (SELECT vaga_id FROM candidaturas WHERE id = NEW.candidatura_id)` — planner decide
+    (Open Question 1). Alternativa: dropar a coluna `vaga_id` e derivar por join.
   - `tipo tipo_entrevista_avaliacao NOT NULL`
   - `data_hora timestamptz NOT NULL`
   - `local_ou_link text` — **coluna única**; semântica inferida por `tipo` (link se online,
@@ -97,11 +102,12 @@ card do candidato na Phase 35).
   Autorização de PROD-apply autônomo é standing (M4/M5/P31/P32 landed live via MCP).
 
 ### Claude's Discretion
-- Forma exata do predicado WR-04 (denormalized `vaga_id IN (…)` vs join-through-candidaturas)
-  — ambos seguros; escolher o mais consistente com o restante da migration.
+- Se manter a coluna `vaga_id` denormalizada (+ BEFORE trigger de consistência) ou dropá-la e
+  derivar por join. **O predicado RLS NÃO é discricionário** — DEVE ser join-through-candidaturas
+  (RESEARCH.md Pitfall 1). Só a presença da coluna auxiliar é opcional.
 - Nomes finais de policies/índices/RPC; se adicionar o partial-unique de 1-ativo.
-- Estrutura do fixture de smoke (recrutadores sintéticos — `vagas.created_by` sem FK — +
-  candidato real FK-bound, precedente P32).
+- `compareceu` vs `status='nao_compareceu'` como fonte-de-verdade do no-show (RESEARCH Open Q2 —
+  confirmar na P34; nesta camada ambas as colunas existem).
 
 </decisions>
 
@@ -156,8 +162,10 @@ card do candidato na Phase 35).
   autoritativa. Todas as 5 colunas entram (ver Area 1).
 - SEG-03 exige que o smoke prove **explicitamente** a exclusão de `observacoes_rh` da projeção
   do candidato — a asserção load-bearing da fase.
-- Precedente de fixture de smoke (P32): recrutadores **sintéticos** (`vagas.created_by` não tem
-  FK → inserção livre) + candidato **real** FK-bound, p/ asserções vaga-scope determinísticas.
+- Fixture de smoke: **⚠ CORREÇÃO pós-research (RESEARCH.md Pitfall 4):** `vagas.created_by` **TEM**
+  FK (`vagas_created_by_fkey`, verificado live na P32) — UUIDs sintéticos violam a FK. Usar
+  **usuarios_rh reais com 0 vagas** (padrão P32) + candidato **real** FK-bound p/ as asserções
+  vaga-scope cross-recrutador.
 
 </specifics>
 
