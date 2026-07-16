@@ -47,6 +47,7 @@ import { HubSection, type HubSectionEstado } from './HubSection'
 import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
+import { AgendamentoBlock } from '@/features/agendamento/components/AgendamentoBlock'
 import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
 import { useHistoricoCandidatura } from '../hooks/useHistoricoCandidatura'
 
@@ -377,6 +378,12 @@ export function HubCandidatoRH() {
             Avaliação de entrevista registrada — abra o workspace de entrevista para revisar.
           </p>
         </HubSection>
+
+        {/* Agendamento de entrevista (AGEND-02/03) — sibling of the Entrevista section,
+            etapa-gated to entrevista_online/entrevista_presencial (locked "futuro"
+            otherwise). RH schedules/reschedules/cancels + records compareceu; writes go
+            DIRECT to agendamentos_entrevista (payloads exclude the trigger-stamped cols). */}
+        <AgendamentoBlock candidaturaId={candidaturaId} etapaAtual={etapaAtual} />
 
         {/* Decisão Final — consolidação (candidaturaId + vagaId) */}
         <HubSection
