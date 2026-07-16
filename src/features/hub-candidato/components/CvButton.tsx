@@ -2,12 +2,16 @@
  * CvButton — imperative "open the candidate CV" button (VISRH-01).
  *
  * The ONLY privileged CV path is the P32 `get-curriculo-url` EF (authenticate-THEN-
- * authorize, owner/admin, 60s-TTL signed URL). This button calls
- * `cvUploadService.getSignedUrl(candidaturaId)` on click and opens the URL immediately
- * with `window.open(url,'_blank')`. The signed URL is NEVER stored in component state
- * or a query cache and is NEVER passed to any `console.*` (Pitfall 7) — only a boolean
- * loading/error flag lives in state. The client passes only `candidaturaId` (never a
- * storage path — the EF resolves `curriculo_url` server-side, so a forged path is
+ * authorize, owner/admin, 60s-TTL signed URL). On click this button opens a blank
+ * `_blank` tab SYNCHRONOUSLY (inside the gesture, so the browser's transient user
+ * activation is preserved — CR-01), then, once `cvUploadService.getSignedUrl(candidaturaId)`
+ * resolves, points that already-open tab at the signed URL. Opening the URL *after* the
+ * await (the old code) loses activation and is popup-blocked by Safari (always) and Chrome
+ * (frequently); a blocked `window.open` returns `null`, so we detect that and surface the
+ * inline error instead of failing silently. The signed URL is NEVER stored in component
+ * state or a query cache and is NEVER passed to any `console.*` (Pitfall 7) — only a
+ * boolean loading/error flag lives in state. The client passes only `candidaturaId` (never
+ * a storage path — the EF resolves `curriculo_url` server-side, so a forged path is
  * impossible; CV IDOR is enforced server-side, T-34-02-04).
  *
  * @module features/hub-candidato/components/CvButton
@@ -32,11 +36,29 @@ export function CvButton({ candidaturaId }: CvButtonProps) {
     if (loading) return
     setLoading(true)
     setError(false)
+    // Open the tab NOW, synchronously inside the click handler, so the browser
+    // keeps the transient user activation (CR-01). A window.open that runs AFTER
+    // the await is popup-blocked (Safari always / Chrome frequently) and returns
+    // null silently. We deliberately do NOT pass the 'noopener' feature string:
+    // it would force window.open to return null, breaking this placeholder-then-
+    // navigate pattern. Instead we sever the reverse-tabnabbing back-reference
+    // manually via win.opener = null once we hold the handle (IN-02).
+    const win = window.open('about:blank', '_blank')
+    if (win) win.opener = null
     try {
       const url = await getSignedUrl(candidaturaId)
-      // Open immediately; do not keep the URL around, do not log it (Pitfall 7).
-      window.open(url, '_blank')
+      if (win) {
+        // Navigate the already-open tab. The signed URL is assigned straight to
+        // the tab's location and is NEVER stored in state, cached, or logged
+        // (Pitfall 7 preserved).
+        win.location.href = url
+      } else {
+        // window.open returned null → the popup was blocked. Surface the inline
+        // error instead of failing silently (the old bug).
+        setError(true)
+      }
     } catch {
+      if (win) win.close()
       setError(true)
     } finally {
       setLoading(false)
