@@ -62,6 +62,14 @@ vi.mock('@/features/vagas/hooks/useCandidaturas', () => ({
 vi.mock('@/features/triagem/hooks/useRejeitarCandidatura', () => ({
   useRejeitarCandidatura: () => ({ mutate: vi.fn(), isPending: false }),
 }))
+// Phase 34 (34-02): the hub now reads the RH-only IA analysis (VISRH-02) + the read-only
+// history feed (VISRH-03). Stub both so these useQuery hooks don't need a QueryClientProvider.
+vi.mock('@/features/hub-candidato/hooks/useAnaliseCandidato', () => ({
+  useAnaliseCandidato: () => ({ data: null, isLoading: false, isError: false }),
+}))
+vi.mock('@/features/hub-candidato/hooks/useHistoricoCandidatura', () => ({
+  useHistoricoCandidatura: () => ({ data: [], isLoading: false, isError: false }),
+}))
 
 import { HubCandidatoRH } from '../HubCandidatoRH'
 

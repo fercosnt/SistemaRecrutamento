@@ -44,6 +44,11 @@ import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidatura
 import { RejeitarCandidaturaDialog } from '@/features/triagem/components/RejeitarCandidaturaDialog'
 import { RetrocederCandidaturaDialog } from '@/features/triagem/components/RetrocederCandidaturaDialog'
 import { HubSection, type HubSectionEstado } from './HubSection'
+import { CvButton } from './CvButton'
+import { AnaliseIABlock } from './AnaliseIABlock'
+import { HistoricoBlock } from './HistoricoBlock'
+import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
+import { useHistoricoCandidatura } from '../hooks/useHistoricoCandidatura'
 
 /**
  * The funnel timeline order (the 8 M2 stages). The candidate's position in this order
@@ -98,6 +103,8 @@ export function HubCandidatoRH() {
   const entrevistaQuery = useEntrevistaScorecard(candidaturaId, { vagaId }) // Entrevista + Cognitiva (split by tipo)
   const redacaoQuery = useRedacaoRevisao(vagaId) // Redação (vaga-level queue)
   const decisaoQuery = useConsolidacao(candidaturaId, vagaId) // Decisão Final
+  const analiseQuery = useAnaliseCandidato(candidaturaId) // Análise da IA (VISRH-02 — RH-only)
+  const historicoQuery = useHistoricoCandidatura(candidaturaId) // Histórico read-only (VISRH-03)
 
   const cognitivoScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'cognitivo')
   const entrevistaScores = (entrevistaQuery.data ?? []).filter((s) => s.tipo === 'entrevista')
@@ -289,17 +296,22 @@ export function HubCandidatoRH() {
           </ol>
         </Glass>
 
-        {/* Score de Triagem (IA) — read off the same allowlist scorecard read */}
-        <HubSection
-          titulo="Score de Triagem"
-          isLoading={loadingContexto}
-          isError={errorContexto}
-          estado={estadoDaSecao('triagem', etapaAtual, false)}
-        >
-          <p className="text-sm text-white/70">
-            O score de triagem por IA é exibido no painel de triagem da vaga.
-          </p>
-        </HubSection>
+        {/* Currículo (VISRH-01) — opens the CV via the P32 signed-URL EF (owner/admin,
+            60s TTL); the URL is never cached nor logged (Pitfall 7). High-value cluster
+            right after the funnel timeline. */}
+        <Glass variant="dark" blur="lg" className="rounded-xl p-6">
+          <h2 className="mb-4 text-xl font-semibold text-white md:text-2xl">Currículo</h2>
+          <CvButton candidaturaId={candidaturaId} />
+        </Glass>
+
+        {/* Análise da IA (VISRH-02) — REPLACES the empty "Score de Triagem" placeholder.
+            Renders the FULL analysis (pontos_fortes/gaps in full, band chip, disclaimer).
+            RH-ONLY surface: the candidate has no rh_le_analise SELECT and never sees it. */}
+        <AnaliseIABlock
+          analise={analiseQuery.data ?? null}
+          isLoading={analiseQuery.isLoading}
+          isError={analiseQuery.isError}
+        />
 
         {/* Avaliação Assíncrona — Work-Sample/SJT + Big Five (comportamental, contextual) */}
         <HubSection
@@ -377,6 +389,14 @@ export function HubCandidatoRH() {
             A consolidação da decisão está disponível — abra o workspace de decisão para revisar.
           </p>
         </HubSection>
+
+        {/* Histórico (VISRH-03) — read-only feed of etapa transitions, newest-first.
+            The LAST block (after Decisão Final), per UI-SPEC §Surface 1 placement. */}
+        <HistoricoBlock
+          rows={historicoQuery.data ?? []}
+          isLoading={historicoQuery.isLoading}
+          isError={historicoQuery.isError}
+        />
       </div>
     </RHLayout>
   )
