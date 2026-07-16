@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: "Phase 34 Plan 34-04 COMPLETE — KPI-01/03 Fila de trabalho cross-vaga (4th 'fila' tab on CandidatosRHPage reading v_fila_trabalho allowlist/oldest-first, coexisting with the preserved Kanban) + SLA_POR_ETAPA hardcoded + classifySla within/aging/breach + SlaBadge (text+day-count, colorblind-safe); funil 26/26 GREEN, tsc 104, build green. Remaining P34: 34-05 (KPI dashboard). Then P35."
-last_updated: "2026-07-16T17:42:37.551Z"
+stopped_at: "Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard: funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed — 1208 lines) as 3 MetricCards (time_to_hire→days, no_show/knockout taxa, null→'—') + 4 charts via @/components/ui/chart wrapper (--chart-1/2/3/5, never raw recharts) + loading/empty/error states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Phase 34 done → /gsd-verify-work (UI hint) → Phase 35 (last M6 phase)."
+last_updated: "2026-07-16T17:56:38.534Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 18
-  completed_plans: 17
-  percent: 60
+  completed_plans: 18
+  percent: 80
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
+Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — ✅ COMPLETE (5/5)
+Plan: 5 of 5
+Status: Phase complete — next Phase 35 (last M6 phase)
 Last activity: 2026-07-16
 
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation) · **34-02 ✅** (VISRH CV/IA/Histórico) · **34-03 ✅** (AGEND-02/03 agendamento form) · **34-04 ✅** (KPI-01/03 Fila de trabalho cross-vaga + SLA badge). Remaining in P34: 34-05 (KPI dashboard). Then P35.
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). Next: Phase 35 (candidate agendamento card read).
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
@@ -79,6 +79,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 34 P02 | 11min | 3 tasks | 13 files |
 | Phase 34 P03 | 12min | 2 tasks | 7 files |
 | Phase 34 P04 | 13min | 2 tasks | 8 files |
+| Phase 34 P05 | ~13min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Phase 34/34-02]: VISRH-01/02/03 wired on HubCandidatoRH against shipped-secure primitives — CvButton imperative getSignedUrl->window.open (URL never cached/logged, Pitfall 7); AnaliseIABlock renders FULL pontos_fortes/gaps (no slice — that truncation is vaga-table-only) via allowlist analiseCandidatoService (score_match/pontos_fortes/gaps/flags/status->analise_status, never star); HistoricoBlock read-only newest-first via allowlist historicoCandidaturaService. IA block RH-only (candidate DB-denied rh_le_analise). Zero new npm; 22 tests GREEN; tsc 104.
 - [Phase 34/34-02 · exec]: pre-commit runs strict tsc (npm run lint), which FAILS on the 104 pre-existing errors baseline (all cadastro/*·vagas/*, 0 in hub-candidato) → sequential executor used --no-verify (the hook's own documented GSD-executor protocol); each task re-proved tsc<=104 + 0 new errors to preserve the type-check gate intent.
 - [Phase 34]: 34-03 AGEND-02/03 agendamento surface — agendamentoService writes DIRECT to agendamentos_entrevista; every payload built LITERALLY with only client-writable cols so the trigger-stamped scope/audit cols never touch a body (T-34-03-01); insert body cast at the boundary (as never) because the generated Insert still requires the NOT-NULL trigger-stamped col we intentionally omit. cancelar=UPDATE status cancelada (row kept — never a delete); reagendar=status reagendada; compareceu true/false/null = KPI-04 no-show source. AgendamentoBlock etapa-gated (HubSection futuro outside entrevista_*), RHF+zod Calendar+time Popover, Cancelar via AlertDialog. 15 tests GREEN, tsc 104.
+- [Phase 34/34-05]: KPI-02/04 KPI dashboard — `funilKpisService.getFunilKpis(vagaId|null)` reads the SINGLE data path `rpc('funil_kpis',{p_vaga_id})` (7 keys, 34-01 DEFINER, PII-free/vaga-scoped) — NO client-side aggregation (T-34-05-01; test asserts `supabase.from` never called). `FunilKpis` type = 7 keys, taxa/time `number|null` (transient `as unknown as FunilKpis` because RPC `Returns: Json`). `useFunilKpis` = funilKpisKeys factory + useQuery(5min/retry2). `RelatoriosRHPage` fully rewritten (1208 dead M1 lines removed) on the SAME route/export: 3 MetricCards (time_to_hire secs→days, no_show/knockout taxa, **null→'—' never 0%** T-34-05-03) + 4 BarCharts (Volume/Tempo mediano/Conversão/Drop) via `@/components/ui/chart` wrapper (--chart-1/2/3/5, accessibilityLayer, **never raw ResponsiveContainer** Pitfall 6) cloned from AiCostsPage + loading/empty/error states (verbatim UI-SPEC copy). Optional per-vaga Select filter OMITTED (planner discretion → all-vagas default; useFunilKpis already accepts vagaId). Zero new npm; funil+page 38/38 GREEN; **tsc 97 (dropped from 104 — dead file's own errors removed), 0 new in touched**; build green (--no-verify, documented pre-existing debt). Grep gate near-miss: docstring literal `from('candidaturas')` tripped the negative gate → reworded (Rule 3).
 - [Phase 34/34-04]: KPI-01/03 Fila de trabalho cross-vaga — new `src/features/funil/` dir. filaTrabalhoService.listFila() reads the `v_fila_trabalho` security_invoker view via FILA_ALLOWLIST (never select('*'), scope inherited — no client re-scope) ordered `entrou_etapa_em ASC` (oldest-waiting first). SLA_POR_ETAPA hardcoded per-etapa thresholds (triagem 3/avaliacao_assincrona 5/entrevista_online 4/entrevista_presencial 4/decisao_final 3) + pure classifySla within/aging/breach (aging INCLUSIVE at threshold, breach > 1.5×; undefined-threshold etapa → within, never throws) + diasNaEtapa (differenceInCalendarDays, clamps negatives). SlaBadge = amber `Atenção · Nd` / red `Atrasado · Nd` / subtle `Nd`, ALWAYS text+day-count (colorblind-safe, T-34-04-03 ScoreCell invariant). 4th `value="fila"` tab (grid-cols-4) COEXISTS with the untouched Kanban (KPI-01 explicit). Zero new npm; funil 26/26 GREEN; tsc 104 baseline held (--no-verify, 0 new errors in touched files — CandidatosRHPage `React unread` confirmed pre-existing via stash check).
 
 ### Pending Todos
@@ -130,8 +132,8 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-16T17:42:37.551Z
-Stopped at: Phase 34 Plan 34-04 COMPLETE — KPI-01/03 Fila de trabalho cross-vaga: 4th 'fila' tab on CandidatosRHPage reading v_fila_trabalho (allowlist, oldest-waiting first) coexisting with the preserved Kanban + SLA_POR_ETAPA hardcoded thresholds + classifySla within/aging/breach + SlaBadge (text+day-count, colorblind-safe). New src/features/funil/ dir; zero new npm; funil 26/26 GREEN, tsc 104, build green. Remaining P34: 34-05 (KPI dashboard). Then P35.
+Last session: 2026-07-16T18:00:00.000Z
+Stopped at: Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard shipped (code-level). funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed) = 3 MetricCards (null→'—') + 4 charts via @/components/ui/chart (--chart-1/2/3/5, never raw recharts) + states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Next: Phase 35 (candidate agendamento card read) — last M6 phase.
 Resume file: None
 
 **P33 key learnings (for P34/P35):**
@@ -144,7 +146,7 @@ Resume file: None
 
 ## Operator Next Steps
 
-- **Próximo: 34-05** (último plano da Phase 34) — Dashboard de KPIs em `@/components/ui/chart` (recharts wrapper, zero npm novo) consumindo a RPC `funil_kpis` DEFINER (7 keys, single-arg all-time cohort K4) + `Select` opcional por-vaga → `p_vaga_id`; substitui a agregação client-side morta do M1 no MESMO route `/rh/relatorios` (KPI-02/04). Autonomous/no-MCP (frontend-only). Espelhar `AiCostsPage` (MetricCards + ChartContainer h-56). Depois 34-05: Phase 34 completa → `/gsd-verify-work` (UI hint) → Phase 35.
-- 34-04 ✅ SHIPPED (code-level, no live UAT): Fila de trabalho cross-vaga + SLA badge. `v_fila_trabalho` já vive em PROD (34-01). Nada a aplicar (frontend-only).
-- Ordem de execução M6: 31 → 32 → 33 → 34 → 35. Phases 31–33 ✅; Phase 34 = 4/5 planos (34-05 restante).
+- **Próximo: Phase 35** (último plano do M6) — Painel do candidato: card do agendamento own-row (`America/Sao_Paulo`) via `get_meu_agendamento` DEFINER na superfície "Próximo passo" + `.ics` client-side + badge lembrete ≤24h (AGEND-04/05). Antes: **Phase 34 completa → `/gsd-verify-work`** (UI hint) para os live HUMAN-UATs das 4 superfícies RH (CV/IA/Histórico · agendamento · fila · KPI dashboard).
+- 34-05 ✅ SHIPPED (code-level, no live UAT): KPI dashboard via `funil_kpis` RPC no MESMO route `/rh/relatorios`, substituindo a agregação M1 morta. Frontend-only — nada a aplicar (a RPC 7-key + `v_fila_trabalho` já vivem em PROD desde 34-01). Filtro opcional por-vaga OMITIDO (all-vagas default; `useFunilKpis` já aceita vagaId → wire trivial no futuro).
+- Ordem de execução M6: 31 → 32 → 33 → 34 → 35. Phases 31–34 ✅ (Phase 34 = 5/5 planos COMPLETO); resta Phase 35.
 - Deferido → backlog (per CONTEXT): thresholds de SLA configuráveis por-vaga (v1 é o `SLA_POR_ETAPA` hardcoded). Live HUMAN-UATs de P34 (CV/IA/Histórico/agendamento/fila) continuam pendentes junto com os demais UATs do M6.
