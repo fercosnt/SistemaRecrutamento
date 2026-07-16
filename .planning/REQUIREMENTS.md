@@ -33,9 +33,9 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ### VISRH — Visibilidade do candidato para o RH
 
-- [ ] **VISRH-01**: RH pode abrir/baixar o CV do candidato via URL assinada emitida por Edge Function *authenticate-THEN-authorize* (dono da vaga ou admin) — nenhum recrutador acessa o CV de uma vaga que não é sua.
-- [ ] **VISRH-02**: RH vê a análise da IA completa do candidato (score_match + forças/gaps na íntegra, não truncados a 2) na tela do candidato; o candidato nunca vê score/análise.
-- [ ] **VISRH-03**: RH vê um feed de atividade read-only do candidato (transições de `historico_candidatura`: etapa origem→destino, autor, data, justificativa).
+- [x] **VISRH-01**: RH pode abrir/baixar o CV do candidato via URL assinada emitida por Edge Function *authenticate-THEN-authorize* (dono da vaga ou admin) — nenhum recrutador acessa o CV de uma vaga que não é sua.
+- [x] **VISRH-02**: RH vê a análise da IA completa do candidato (score_match + forças/gaps na íntegra, não truncados a 2) na tela do candidato; o candidato nunca vê score/análise.
+- [x] **VISRH-03**: RH vê um feed de atividade read-only do candidato (transições de `historico_candidatura`: etapa origem→destino, autor, data, justificativa).
 
 ### KPI — Fila de trabalho & indicadores operacionais
 
@@ -105,9 +105,9 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 | AGEND-03 | Phase 34 | Pending |
 | AGEND-04 | Phase 35 | Pending |
 | AGEND-05 | Phase 35 | Pending |
-| VISRH-01 | Phase 34 | Pending |
-| VISRH-02 | Phase 34 | Pending |
-| VISRH-03 | Phase 34 | Pending |
+| VISRH-01 | Phase 34 | Complete |
+| VISRH-02 | Phase 34 | Complete |
+| VISRH-03 | Phase 34 | Complete |
 | KPI-01 | Phase 34 | Pending |
 | KPI-02 | Phase 34 | Pending |
 | KPI-03 | Phase 34 | Pending |

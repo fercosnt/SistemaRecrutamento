@@ -112,7 +112,7 @@ Plans:
 
 Plans:
 - [x] 34-01-PLAN.md — [BLOCKING · MCP] DB foundation: estender `funil_kpis` IN-PLACE +4 keys KPI-04 (diff `pg_get_functiondef` ANTES de CREATE OR REPLACE, preserva 3 keys) + view `v_fila_trabalho` security_invoker + `funil34_kpis_smokes.sql` (real 0-vaga usuarios_rh) aplicado via MCP + ledger + regen types (KPI-01/02/03/04)
-- [ ] 34-02-PLAN.md — VISRH no hub RH: CV via EF (getSignedUrl->window.open, nunca cache/log) + bloco "Análise da IA" completo (forças/gaps na íntegra, band chip) + feed "Histórico" read-only allowlist (VISRH-01/02/03)
+- [x] 34-02-PLAN.md — VISRH no hub RH: CV via EF (getSignedUrl->window.open, nunca cache/log) + bloco "Análise da IA" completo (forças/gaps na íntegra, band chip) + feed "Histórico" read-only allowlist (VISRH-01/02/03)
 - [ ] 34-03-PLAN.md — Form de agendamento (Calendar + `<input type="time">` em Popover) gated a `entrevista_*`: `agendamentoService` (.insert/.update, payload EXCLUI vaga_id/agendado_por/updated_*) + reagendar/cancelar (AlertDialog)/`compareceu` (AGEND-02/03)
 - [ ] 34-04-PLAN.md — Fila de trabalho cross-vaga (nova aba em `CandidatosRHPage`, lê `v_fila_trabalho`, sort por tempo-em-etapa) + badge SLA aging/breach (`SLA_POR_ETAPA` hardcoded), coexiste com Kanban (KPI-01/03)
 - [ ] 34-05-PLAN.md — Dashboard de KPIs (`@/components/ui/chart`, consumindo `funil_kpis` — coorte K4 all-time/single-arg) substituindo a agregação M1 morta do `RelatoriosRHPage` na mesma rota `/rh/relatorios` (KPI-02/04)
@@ -194,7 +194,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
 | 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 4/4 | Complete   | 2026-07-16 |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 3/3 | Complete   | 2026-07-16 |
-| 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 1/5 | In Progress|  |
+| 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 2/5 | In Progress|  |
 | 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
 
 ---

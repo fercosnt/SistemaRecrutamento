@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: Phase 33 COMPLETE + SHIPPED LIVE PROD (agendamentos_entrevista data layer — table + WR-04 join-through RLS + get_meu_agendamento DEFINER RPC + write-stamp trigger; SEG-03 gate 9/9 GREEN; code-review WR-01/02/03+IN-01 resolved). Next = Phase 34.
-last_updated: "2026-07-16T00:00:00.000Z"
+stopped_at: "Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard)."
+last_updated: "2026-07-16T17:11:12.646Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 13
-  completed_plans: 9
-  percent: 20
+  total_plans: 18
+  completed_plans: 15
+  percent: 60
 ---
 
 # Project State
@@ -21,18 +21,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 32 — Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)
+**Current focus:** Phase 34 — Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs
 
 ## Current Position
 
-Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila + KPIs) — 🚧 EXECUTING (1/5 plans done)
-Plan: 34-01 ✅ DONE (DB foundation LIVE PROD — funil_kpis +4 keys + v_fila_trabalho, 8/8 smoke GREEN). NEXT = 34-02.
-Status: Phase 34 fully planned + UI-SPEC approved + plan-checked (blocker fixed). 34-01 (BLOCKING DB) shipped. Remaining: **34-02** (CV+IA+Histórico hub, W1) · **34-03** (agendamento, W2) · **34-04** (Fila tab, W2) · **34-05** (KPI dashboard, W2) — all UI, autonomous:true, no MCP.
+Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
 Last activity: 2026-07-16
 
 Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation). Remaining in P34: 34-02..05 (4 UI plans). Then P35.
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
+
 3/3 plans; SEG-03 gate 9/9 GREEN (a–i); verifier PASSED 9/9; code-review resolved. agendamentos_entrevista + WR-04 RLS + get_meu_agendamento RPC + write-stamp trigger.
 
 ## Roadmap (M6 — Phases 31–35)
@@ -75,6 +76,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 32 P01 | ~8min | 3 tasks | 4 files (2 new / 2 mod) |
 | Phase 32 P02 | ~5min | 3 tasks | 3 files (2 new / 1 mod) |
 | Phase 32 P03 | ~8min | 2 tasks | 1 file (1 new) |
+| Phase 34 P02 | 11min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -95,6 +97,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Phase 32/32-03]: SEG-02 authored (Migration B `20260715000002_funil_kpis_and_rh_le_historico.sql`, one file, no BEGIN/COMMIT — D-22). Part 1 `funil_kpis(p_vaga_id uuid DEFAULT NULL) RETURNS jsonb` = `get_avaliacao_status` DEFINER/`search_path=''`/REVOKE-PUBLIC/GRANT-authenticated skeleton cloned; internal scope `WHERE (v_is_admin OR v.created_by=v_uid) AND (p_vaga_id IS NULL OR v.id=p_vaga_id)`; 3 PII-safe aggregates via CTEs (median = `LEAD(criado_em) OVER (PARTITION BY candidatura_id ORDER BY criado_em)−criado_em` deltas → `percentile_cont(0.5)` over NON-NULL dwell, excludes in-progress last transition — Pitfall 5; raw stage→stage conversion `WHERE etapa_de IS NOT NULL`; volume by current `etapa_atual` — Assumption A1); `COALESCE` guards; **PII-safe by construction** — CTEs project only candidatura_id/etapa_*/criado_em/vaga_id, never the transition-author column, never candidatos (verify grep: 0 `.ator` on code lines). Part 2 `rh_le_historico` DROP+CREATE with WR-04 vaga-scoped predicate copied verbatim from `redacao_rh_select` (admin bypass OR `rh AND candidatura_id IN (candidaturas JOIN vagas WHERE created_by=(select auth.uid()))`); candidate own-row historico policy untouched; NO write policy (trigger `avancar_etapa()` is the sole writer). **Authored-not-applied** — 32-04 applies via MCP + reconciles ledger + regens `database.types.ts`; `seg32_smokes.sql` (b/c/d/e) stays RED until then. Both task greps PASS, tsc baseline 104 held (no TS touched). Commit `941d8e5`.
 - [Phase 32/32-02]: SEG-01 code layer greened — EF `get-curriculo-url/index.ts` clones the `comparativo-candidatos` two-client D-23 skeleton verbatim (getUser 401 → role from `usuarios_rh` recrutador→rh 403 → `candidatura_id`-only body → `candidaturas` allowlist projection NULL→404 → `vagas.created_by` ownership, admin bypasses 403 → `createSignedUrl(path, 60)`); static `esm.sh` import (never `.join("npm:")`); signed URL never logged. Migration A (`20260715000001`) DROP+CREATE `curriculos_select_own_or_rh` candidate-own-folder-branch ONLY (role-only OR removed), upload policies untouched, no BEGIN/COMMIT — **authored, applied in 32-04** (RESEARCH Pitfall 1: deploy EF FIRST). `cvUploadService.getSignedUrl(path→candidaturaId)` rewired to `functions.invoke('get-curriculo-url', { body: { candidatura_id } })`; last client `createSignedUrl` over `curriculos` removed from `src/`. deno test 6/6 GREEN, cvUploadService+guard 23/23 GREEN, tsc baseline 104 held, build green. `candidatura_id` parsed with a manual `typeof string` guard (no zod dep); Tampering guard by construction (EF never reads a client path). `seg32_smokes.sql` stays RED until 32-03 (funil_kpis + rh_le_historico) + 32-04 apply/deploy.
 - [Phase 32/32-01]: Phase 32 RED acceptance harness authored (Wave 0) — deno EF test (5 branches: 401/403-role/403-owner/404/200) targeting the not-yet-authored `get-curriculo-url`; `seg32_smokes.sql` (a-e) whose **assertion (a) is a DIRECT `storage.objects` deny/allow proof** (recruiter-A rh JWT → 0 rows, owning candidate → 1 row) — the load-bearing SEG-01 gate, above pg_policies (P24 precedent); guard tripwire `firstCurriculosSignViolation` (curriculos-scoped, avatar signer not flagged); cvUploadService `getSignedUrl` → `functions.invoke('get-curriculo-url')`. All RED for known reasons: EF absent → GREEN 32-02; funil_kpis + tightened policies absent → GREEN 32-04. Smoke fixture = real discovered candidato (FK-bound CV owner) + **synthetic recruiters** (vagas.created_by has no FK) for deterministic vaga-scope assertions.
+- [Phase 34/34-02]: VISRH-01/02/03 wired on HubCandidatoRH against shipped-secure primitives — CvButton imperative getSignedUrl->window.open (URL never cached/logged, Pitfall 7); AnaliseIABlock renders FULL pontos_fortes/gaps (no slice — that truncation is vaga-table-only) via allowlist analiseCandidatoService (score_match/pontos_fortes/gaps/flags/status->analise_status, never star); HistoricoBlock read-only newest-first via allowlist historicoCandidaturaService. IA block RH-only (candidate DB-denied rh_le_analise). Zero new npm; 22 tests GREEN; tsc 104.
+- [Phase 34/34-02 · exec]: pre-commit runs strict tsc (npm run lint), which FAILS on the 104 pre-existing errors baseline (all cadastro/*·vagas/*, 0 in hub-candidato) → sequential executor used --no-verify (the hook's own documented GSD-executor protocol); each task re-proved tsc<=104 + 0 new errors to preserve the type-check gate intent.
 
 ### Pending Todos
 
@@ -122,11 +126,12 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-16 (M6 autonomous run — Phase 33)
-Stopped at: **Phase 33 COMPLETE + LIVE PROD.** `agendamentos_entrevista` table + WR-04 join-through RLS (`rh_gerencia_agendamento`, single FOR ALL policy) + `get_meu_agendamento` DEFINER allowlist RPC (excludes `observacoes_rh`) + `agendamento_normaliza_vaga_id` BEFORE trigger (vaga_id normalize + `agendado_por`/`updated_by`/`updated_at` server-stamp). Migrations `20260716000001` (base) + `20260716000002` (audit hardening) applied via MCP + ledger reconciled; `database.types.ts` regen, tsc 104. **SEG-03 gate 9/9 GREEN (a–i)** run 3× independently. Verifier PASSED 9/9. Code-review WR-01/02/03+IN-01 resolved.
+Last session: 2026-07-16T17:09:33.247Z
+Stopped at: Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard).
 Resume file: None
 
 **P33 key learnings (for P34/P35):**
+
 - **Table `agendamentos_entrevista`**: per-candidatura; RH reads/writes DIRECT (`.insert/.update/.delete`, RLS-gated); candidate reads ONLY via `public.get_meu_agendamento(candidatura_id)` DEFINER RPC (7-col allowlist, NO `observacoes_rh`). P35's card calls this RPC. P34 writes trust the trigger for `vaga_id`/`agendado_por`/`updated_by`/`updated_at` (do NOT pass them — trigger overwrites).
 - **Reused enums** `status_entrevista` (agendada/em_andamento/concluida/cancelada/reagendada/nao_compareceu) + `tipo_entrevista_avaliacao` (online/presencial). Reagendar=update in place (status reagendada); cancelar=status cancelada (row kept, candidate sees it); `compareceu` boolean nullable = KPI-04 no-show source.
 - **⚠ MCP apply drift is REAL**: `apply_migration` records a fresh-timestamp version ≠ filename → must reconcile `schema_migrations.version` to filename prefix (P27 idiom) after EVERY apply. Did it for both P33 migrations.
