@@ -39,3 +39,14 @@ USING (
   bucket_id = 'curriculos'
   AND (storage.foldername(name))[1] = (select auth.uid()::text)
 );
+
+-- ⚠ SECOND role-only RH read policy — caught by the seg32_smokes.sql (a) behavioral gate at
+-- apply time (32-04), NOT by the plan/scout (which only found curriculos_select_own_or_rh).
+-- `RH lê currículos` was a SEPARATE `EXISTS (SELECT 1 FROM usuarios_rh WHERE user_id=auth.uid()
+-- AND ativo)` policy on the curriculos bucket → ANY active RH read ANY CV, no vaga scope. This
+-- is the exact P24-class failure mode (structural inspection of ONE policy passes while a second
+-- role-only policy keeps the leak open). Both role-only RH read paths must be removed so the EF
+-- is the single privileged RH CV path (SEG-01). The candidate own-folder reads
+-- (`Candidato lê próprios currículos` via candidatos.id, `curriculos_select_own_or_rh` via
+-- auth.uid()) are intact; the three upload policies are untouched.
+DROP POLICY IF EXISTS "RH lê currículos" ON storage.objects;

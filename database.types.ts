@@ -4392,6 +4392,7 @@ export type Database = {
         Returns: string
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      funil_kpis: { Args: { p_vaga_id?: string }; Returns: Json }
       generate_unique_vaga_slug: {
         Args: { p_exclude_id?: string; p_titulo: string }
         Returns: string
