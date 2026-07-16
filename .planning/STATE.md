@@ -25,12 +25,15 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: 33 (Camada de Dados do Agendamento de Entrevista) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
-Plan: 3 of 3 (all complete)
-Status: Verification PASSED 9/9 must-haves; SEG-03 gate 9/9 GREEN in PROD (a–i); code-review resolved. NEXT = Phase 34 (Superfícies do RH — CV/IA, Agendamento, Fila + KPIs).
+Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila + KPIs) — 🚧 EXECUTING (1/5 plans done)
+Plan: 34-01 ✅ DONE (DB foundation LIVE PROD — funil_kpis +4 keys + v_fila_trabalho, 8/8 smoke GREEN). NEXT = 34-02.
+Status: Phase 34 fully planned + UI-SPEC approved + plan-checked (blocker fixed). 34-01 (BLOCKING DB) shipped. Remaining: **34-02** (CV+IA+Histórico hub, W1) · **34-03** (agendamento, W2) · **34-04** (Fila tab, W2) · **34-05** (KPI dashboard, W2) — all UI, autonomous:true, no MCP.
 Last activity: 2026-07-16
 
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · **P33 ✅** (3/5 phases). Remaining: P34, P35.
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation). Remaining in P34: 34-02..05 (4 UI plans). Then P35.
+
+### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
+3/3 plans; SEG-03 gate 9/9 GREEN (a–i); verifier PASSED 9/9; code-review resolved. agendamentos_entrevista + WR-04 RLS + get_meu_agendamento RPC + write-stamp trigger.
 
 ## Roadmap (M6 — Phases 31–35)
 
