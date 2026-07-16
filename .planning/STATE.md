@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: "Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard)."
+stopped_at: "Phase 34 Plan 34-04 COMPLETE — KPI-01/03 Fila de trabalho cross-vaga (4th 'fila' tab on CandidatosRHPage reading v_fila_trabalho allowlist/oldest-first, coexisting with the preserved Kanban) + SLA_POR_ETAPA hardcoded + classifySla within/aging/breach + SlaBadge (text+day-count, colorblind-safe); funil 26/26 GREEN, tsc 104, build green. Remaining P34: 34-05 (KPI dashboard). Then P35."
 last_updated: "2026-07-16T17:42:37.551Z"
 last_activity: 2026-07-16
 progress:
@@ -30,7 +30,7 @@ Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-07-16
 
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation) · **34-02 ✅** (VISRH CV/IA/Histórico) · **34-03 ✅** (AGEND-02/03 agendamento form). Remaining in P34: 34-04 (Fila) · 34-05 (KPI dashboard). Then P35.
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 34-01 ✅** (DB foundation) · **34-02 ✅** (VISRH CV/IA/Histórico) · **34-03 ✅** (AGEND-02/03 agendamento form) · **34-04 ✅** (KPI-01/03 Fila de trabalho cross-vaga + SLA badge). Remaining in P34: 34-05 (KPI dashboard). Then P35.
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
@@ -78,6 +78,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 32 P03 | ~8min | 2 tasks | 1 file (1 new) |
 | Phase 34 P02 | 11min | 3 tasks | 13 files |
 | Phase 34 P03 | 12min | 2 tasks | 7 files |
+| Phase 34 P04 | 13min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Phase 34/34-02]: VISRH-01/02/03 wired on HubCandidatoRH against shipped-secure primitives — CvButton imperative getSignedUrl->window.open (URL never cached/logged, Pitfall 7); AnaliseIABlock renders FULL pontos_fortes/gaps (no slice — that truncation is vaga-table-only) via allowlist analiseCandidatoService (score_match/pontos_fortes/gaps/flags/status->analise_status, never star); HistoricoBlock read-only newest-first via allowlist historicoCandidaturaService. IA block RH-only (candidate DB-denied rh_le_analise). Zero new npm; 22 tests GREEN; tsc 104.
 - [Phase 34/34-02 · exec]: pre-commit runs strict tsc (npm run lint), which FAILS on the 104 pre-existing errors baseline (all cadastro/*·vagas/*, 0 in hub-candidato) → sequential executor used --no-verify (the hook's own documented GSD-executor protocol); each task re-proved tsc<=104 + 0 new errors to preserve the type-check gate intent.
 - [Phase 34]: 34-03 AGEND-02/03 agendamento surface — agendamentoService writes DIRECT to agendamentos_entrevista; every payload built LITERALLY with only client-writable cols so the trigger-stamped scope/audit cols never touch a body (T-34-03-01); insert body cast at the boundary (as never) because the generated Insert still requires the NOT-NULL trigger-stamped col we intentionally omit. cancelar=UPDATE status cancelada (row kept — never a delete); reagendar=status reagendada; compareceu true/false/null = KPI-04 no-show source. AgendamentoBlock etapa-gated (HubSection futuro outside entrevista_*), RHF+zod Calendar+time Popover, Cancelar via AlertDialog. 15 tests GREEN, tsc 104.
+- [Phase 34/34-04]: KPI-01/03 Fila de trabalho cross-vaga — new `src/features/funil/` dir. filaTrabalhoService.listFila() reads the `v_fila_trabalho` security_invoker view via FILA_ALLOWLIST (never select('*'), scope inherited — no client re-scope) ordered `entrou_etapa_em ASC` (oldest-waiting first). SLA_POR_ETAPA hardcoded per-etapa thresholds (triagem 3/avaliacao_assincrona 5/entrevista_online 4/entrevista_presencial 4/decisao_final 3) + pure classifySla within/aging/breach (aging INCLUSIVE at threshold, breach > 1.5×; undefined-threshold etapa → within, never throws) + diasNaEtapa (differenceInCalendarDays, clamps negatives). SlaBadge = amber `Atenção · Nd` / red `Atrasado · Nd` / subtle `Nd`, ALWAYS text+day-count (colorblind-safe, T-34-04-03 ScoreCell invariant). 4th `value="fila"` tab (grid-cols-4) COEXISTS with the untouched Kanban (KPI-01 explicit). Zero new npm; funil 26/26 GREEN; tsc 104 baseline held (--no-verify, 0 new errors in touched files — CandidatosRHPage `React unread` confirmed pre-existing via stash check).
 
 ### Pending Todos
 
@@ -128,8 +130,8 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-16T17:27:32.584Z
-Stopped at: Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard).
+Last session: 2026-07-16T17:42:37.551Z
+Stopped at: Phase 34 Plan 34-04 COMPLETE — KPI-01/03 Fila de trabalho cross-vaga: 4th 'fila' tab on CandidatosRHPage reading v_fila_trabalho (allowlist, oldest-waiting first) coexisting with the preserved Kanban + SLA_POR_ETAPA hardcoded thresholds + classifySla within/aging/breach + SlaBadge (text+day-count, colorblind-safe). New src/features/funil/ dir; zero new npm; funil 26/26 GREEN, tsc 104, build green. Remaining P34: 34-05 (KPI dashboard). Then P35.
 Resume file: None
 
 **P33 key learnings (for P34/P35):**
@@ -142,7 +144,7 @@ Resume file: None
 
 ## Operator Next Steps
 
-- Phase 32 Plan 03 (Migration B) complete — SEG-02 authored: `funil_kpis` DEFINER vaga-scoped PII-safe jsonb (median/conversion/volume) + `rh_le_historico` WR-04 hardening, both in `20260715000002_funil_kpis_and_rh_le_historico.sql`, authored-not-applied (commit `941d8e5`). Próximo: `/gsd-execute-phase 32` → Plan 04 [BLOCKING, non-autonomous] — deploy EF `get-curriculo-url` (JWT-ON) FIRST → apply Migration A (`...0001` curriculos drop) + Migration B (`...0002` funil_kpis + rh_le_historico) via Supabase MCP `apply_migration` (ordered per Pitfall 1) → reconcile `supabase_migrations.schema_migrations` + regen `database.types.ts` (repo ROOT) → run `seg32_smokes.sql` via MCP `execute_sql` (the load-bearing gate — every assertion must NOTICE PASS) + live curl (no-auth→401, candidato→403, admin→200).
-- Ordem de execução: 31 → 32 → 33 → 34 → 35. **Phase 32 é BLOCKING** para a Phase 34.
-- 32-04 ordering landmine (RESEARCH Pitfall 1): deploy EF → rewire client → drop the `curriculos` RH Storage branch → run smokes. Reconcile `supabase_migrations.schema_migrations` + regen `database.types.ts` (repo ROOT) after `funil_kpis` lands.
-- Research flags (pesquisa mais profunda no planejamento): **Phase 33** (agendamento — divergência no-email sem precedente de mercado; reschedule/cancel semantics; schema `agendamentos_entrevista`) e **Phase 34** (work-queue UX + 1ª RPC DEFINER com window-functions `LEAD`/`LAG` neste codebase; decisão de coorte K4). Phases 31/32/35 são HIGH confidence (precedente aplicado — skip research-phase).
+- **Próximo: 34-05** (último plano da Phase 34) — Dashboard de KPIs em `@/components/ui/chart` (recharts wrapper, zero npm novo) consumindo a RPC `funil_kpis` DEFINER (7 keys, single-arg all-time cohort K4) + `Select` opcional por-vaga → `p_vaga_id`; substitui a agregação client-side morta do M1 no MESMO route `/rh/relatorios` (KPI-02/04). Autonomous/no-MCP (frontend-only). Espelhar `AiCostsPage` (MetricCards + ChartContainer h-56). Depois 34-05: Phase 34 completa → `/gsd-verify-work` (UI hint) → Phase 35.
+- 34-04 ✅ SHIPPED (code-level, no live UAT): Fila de trabalho cross-vaga + SLA badge. `v_fila_trabalho` já vive em PROD (34-01). Nada a aplicar (frontend-only).
+- Ordem de execução M6: 31 → 32 → 33 → 34 → 35. Phases 31–33 ✅; Phase 34 = 4/5 planos (34-05 restante).
+- Deferido → backlog (per CONTEXT): thresholds de SLA configuráveis por-vaga (v1 é o `SLA_POR_ETAPA` hardcoded). Live HUMAN-UATs de P34 (CV/IA/Histórico/agendamento/fila) continuam pendentes junto com os demais UATs do M6.
