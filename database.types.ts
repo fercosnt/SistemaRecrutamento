@@ -39,6 +39,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      agendamentos_entrevista: {
+        Row: {
+          agendado_por: string | null
+          candidatura_id: string
+          compareceu: boolean | null
+          created_at: string
+          data_hora: string
+          deleted_at: string | null
+          entrevistador: string | null
+          id: string
+          local_ou_link: string | null
+          observacoes_rh: string | null
+          status: Database["public"]["Enums"]["status_entrevista"]
+          tipo: Database["public"]["Enums"]["tipo_entrevista_avaliacao"]
+          updated_at: string
+          updated_by: string | null
+          vaga_id: string
+        }
+        Insert: {
+          agendado_por?: string | null
+          candidatura_id: string
+          compareceu?: boolean | null
+          created_at?: string
+          data_hora: string
+          deleted_at?: string | null
+          entrevistador?: string | null
+          id?: string
+          local_ou_link?: string | null
+          observacoes_rh?: string | null
+          status?: Database["public"]["Enums"]["status_entrevista"]
+          tipo: Database["public"]["Enums"]["tipo_entrevista_avaliacao"]
+          updated_at?: string
+          updated_by?: string | null
+          vaga_id: string
+        }
+        Update: {
+          agendado_por?: string | null
+          candidatura_id?: string
+          compareceu?: boolean | null
+          created_at?: string
+          data_hora?: string
+          deleted_at?: string | null
+          entrevistador?: string | null
+          id?: string
+          local_ou_link?: string | null
+          observacoes_rh?: string | null
+          status?: Database["public"]["Enums"]["status_entrevista"]
+          tipo?: Database["public"]["Enums"]["tipo_entrevista_avaliacao"]
+          updated_at?: string
+          updated_by?: string | null
+          vaga_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_entrevista_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_entrevista_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_entrevista_vaga_id_fkey"
+            columns: ["vaga_id"]
+            isOneToOne: false
+            referencedRelation: "vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_call_logs: {
         Row: {
           attempt_number: number
@@ -4495,6 +4571,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_meu_agendamento: {
+        Args: { p_candidatura_id: string }
+        Returns: {
+          candidatura_id: string
+          compareceu: boolean
+          data_hora: string
+          id: string
+          local_ou_link: string
+          status: Database["public"]["Enums"]["status_entrevista"]
+          tipo: Database["public"]["Enums"]["tipo_entrevista_avaliacao"]
+        }[]
       }
       get_minha_redacao: {
         Args: { p_candidatura_id: string }
