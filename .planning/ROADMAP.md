@@ -93,7 +93,7 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 33-01-PLAN.md — Schema autoritativo de `agendamentos_entrevista` (CREATE TABLE 15 colunas reconciliando ARCHITECTURE × FEATURES, enums existentes reusados, índices, COMMENT) + trigger BEFORE de consistência de `vaga_id` (belt Pitfall 1) — authored-not-applied
+- [x] 33-01-PLAN.md — Schema autoritativo de `agendamentos_entrevista` (CREATE TABLE 15 colunas reconciliando ARCHITECTURE × FEATURES, enums existentes reusados, índices, COMMENT) + trigger BEFORE de consistência de `vaga_id` (belt Pitfall 1) — authored-not-applied
 - [ ] 33-02-PLAN.md — RLS bidirecional (única policy RH `rh_gerencia_agendamento` FOR ALL WR-04 **join-through-candidaturas**, USING+WITH CHECK) + RPC DEFINER `get_meu_agendamento` (allowlist sem `observacoes_rh`, candidato SEM policy SELECT direta) + RED harness `seg33_agendamento_smokes.sql` (8 asserções a–h)
 - [ ] 33-03-PLAN.md — [BLOCKING] apply via Supabase MCP `apply_migration` + reconciliar ledger + regen `database.types.ts` (raiz) + gate SEG-03: 8 smokes GREEN em PROD
 **UI hint**: no
@@ -191,7 +191,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
 | 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 4/4 | Complete   | 2026-07-16 |
-| 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 0/3 | Not started | - |
+| 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 1/3 | In Progress|  |
 | 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/TBD | Not started | - |
 | 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
 
