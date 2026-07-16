@@ -40,6 +40,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { ScoreCard } from '../ScoreCard'
 import { KanbanBoard } from '../KanbanBoard'
+import { FilaTrabalhoTab } from '@/features/funil/components/FilaTrabalhoTab'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -140,7 +141,7 @@ export function CandidatosRHPage() {
   const navigate = useNavigate()
 
   // Estados locais
-  const [activeTab, setActiveTab] = useState<'todos' | 'por-vaga' | 'kanban'>('todos')
+  const [activeTab, setActiveTab] = useState<'todos' | 'por-vaga' | 'kanban' | 'fila'>('todos')
   const [viewMode, setViewMode] = useState<'cards' | 'tabela'>('cards')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<StatusCandidatura | 'todos'>('todos')
@@ -560,7 +561,7 @@ export function CandidatosRHPage() {
         {/* Tabs de Visualização */}
         <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="space-y-6">
           <Glass variant="white" blur="lg" className="p-4 rounded-xl">
-            <TabsList className="grid w-full grid-cols-3 bg-white/10 p-1.5 rounded-lg gap-2 h-auto">
+            <TabsList className="grid w-full grid-cols-4 bg-white/10 p-1.5 rounded-lg gap-2 h-auto">
               <TabsTrigger
                 value="todos"
                 className="data-[state=active]:bg-white/30 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:backdrop-blur-md text-white/70 hover:text-white hover:bg-white/15 transition-all duration-300 px-4 py-2.5 rounded-md font-medium text-sm border-0 h-auto"
@@ -588,6 +589,16 @@ export function CandidatosRHPage() {
                 <span className="flex items-center justify-center gap-2">
                   <span className="text-base">🎯</span>
                   <span>Kanban</span>
+                </span>
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="fila"
+                className="data-[state=active]:bg-white/30 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:backdrop-blur-md text-white/70 hover:text-white hover:bg-white/15 transition-all duration-300 px-4 py-2.5 rounded-md font-medium text-sm border-0 h-auto"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <span className="text-base">⏱️</span>
+                  <span>Fila</span>
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -945,6 +956,11 @@ export function CandidatosRHPage() {
                 />
               </div>
             )}
+          </TabsContent>
+
+          {/* Tab: Fila de Trabalho (cross-vaga, priorizada por tempo-em-etapa/SLA — KPI-01/03) */}
+          <TabsContent value="fila" className="mt-0">
+            <FilaTrabalhoTab />
           </TabsContent>
         </Tabs>
       </div>
