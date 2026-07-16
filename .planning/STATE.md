@@ -4,13 +4,13 @@ milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
 stopped_at: "Phase 34 Plan 34-02 COMPLETE — VISRH-01/02/03 (CV button + full IA analysis + read-only Historico) wired on HubCandidatoRH against P32/P33/P10 shipped-secure primitives; 22 tests GREEN, tsc 104, build green. Remaining P34: 34-03/04/05 (agendamento form, Fila tab, KPI dashboard)."
-last_updated: "2026-07-16T17:28:17.334Z"
+last_updated: "2026-07-16T17:42:37.551Z"
 last_activity: 2026-07-16
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 17
   percent: 60
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 ## Current Position
 
 Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-07-16
 

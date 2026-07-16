@@ -39,9 +39,9 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ### KPI — Fila de trabalho & indicadores operacionais
 
-- [ ] **KPI-01**: RH vê uma fila de trabalho cross-vaga priorizada por tempo-em-etapa/SLA ("o que precisa da minha ação agora"), mantendo o Kanban por-vaga existente (dois artefatos, ambos preservados).
+- [x] **KPI-01**: RH vê uma fila de trabalho cross-vaga priorizada por tempo-em-etapa/SLA ("o que precisa da minha ação agora"), mantendo o Kanban por-vaga existente (dois artefatos, ambos preservados).
 - [ ] **KPI-02**: RH vê KPIs operacionais essenciais sobre `historico_candidatura` — tempo **mediano** por etapa, taxa de conversão etapa-a-etapa, volume por vaga/etapa — computados por RPC SECURITY DEFINER **vaga-scoped** (nunca agregação client-side, nunca PII).
-- [ ] **KPI-03**: RH vê um indicador de aging/SLA breach (candidatos parados além do limite configurado por etapa).
+- [x] **KPI-03**: RH vê um indicador de aging/SLA breach (candidatos parados além do limite configurado por etapa).
 - [ ] **KPI-04**: RH vê KPIs adicionais no mesmo RPC — time-to-hire, taxa de knockout, drop por etapa e taxa de no-show (esta habilitada por AGEND-03).
 
 ### SEG — Blindagem (security-first; invariantes testáveis por smoke comportamental)
@@ -108,9 +108,9 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 | VISRH-01 | Phase 34 | Complete |
 | VISRH-02 | Phase 34 | Complete |
 | VISRH-03 | Phase 34 | Complete |
-| KPI-01 | Phase 34 | Pending |
+| KPI-01 | Phase 34 | Complete |
 | KPI-02 | Phase 34 | Pending |
-| KPI-03 | Phase 34 | Pending |
+| KPI-03 | Phase 34 | Complete |
 | KPI-04 | Phase 34 | Pending |
 | SEG-01 | Phase 32 | Pending |
 | SEG-02 | Phase 32 | Pending |
