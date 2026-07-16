@@ -108,15 +108,17 @@ Plans:
   3. RH agenda, reagenda e cancela uma entrevista e registra o comparecimento/no-show do candidato (`compareceu`), refletido no card do candidato no painel (AGEND-02, AGEND-03).
   4. RH vê uma fila de trabalho **cross-vaga** priorizada por tempo-em-etapa/SLA + um indicador de aging/SLA breach (candidatos parados além do limite por etapa), mantendo o Kanban por-vaga existente — os dois artefatos coexistem (KPI-01, KPI-03).
   5. RH vê KPIs operacionais sobre `historico_candidatura` — tempo **mediano** por etapa, conversão etapa-a-etapa, volume por vaga/etapa, time-to-hire, taxa de knockout, drop por etapa e taxa de no-show (habilitada por AGEND-03) — computados pela RPC `funil_kpis` DEFINER vaga-scoped (nunca agregação client-side, nunca PII) (KPI-02, KPI-04).
-**Plans**: TBD
+**Plans**: 5 plans in 2 waves
 
 Plans:
-- [ ] 34-01: Tela do candidato no hub RH — CV via EF (signed URL), painel "Análise da IA" completo (forças/gaps na íntegra, bandas neutras Big Five) + card de identidade allowlist (VISRH-01/02)
-- [ ] 34-02: Seção "Histórico" read-only renderizando `historico_candidatura` (feed de atividade, allowlist) (VISRH-03)
-- [ ] 34-03: Form de agendamento (shadcn Calendar + `<input type="time">` em Popover) escrevendo `agendamentos_entrevista` + reagendar/cancelar + `compareceu` (AGEND-02/03)
-- [ ] 34-04: Fila de trabalho cross-vaga (sort por time-in-stage/SLA) + badge de aging/SLA breach (KPI-01/03)
-- [ ] 34-05: Dashboard de KPIs (recharts via `@/components/ui/chart`, consumindo `funil_kpis`) substituindo a agregação M1 do `RelatoriosRHPage`; decidir base de coorte da conversão K4 (recomendação: coorte fechada por janela de inscrição) (KPI-02/04)
+- [ ] 34-01-PLAN.md — [BLOCKING · MCP] DB foundation: estender `funil_kpis` IN-PLACE +4 keys KPI-04 (diff `pg_get_functiondef` ANTES de CREATE OR REPLACE, preserva 3 keys) + view `v_fila_trabalho` security_invoker + `funil34_kpis_smokes.sql` (real 0-vaga usuarios_rh) aplicado via MCP + ledger + regen types (KPI-01/02/03/04)
+- [ ] 34-02-PLAN.md — VISRH no hub RH: CV via EF (getSignedUrl->window.open, nunca cache/log) + bloco "Análise da IA" completo (forças/gaps na íntegra, band chip) + feed "Histórico" read-only allowlist (VISRH-01/02/03)
+- [ ] 34-03-PLAN.md — Form de agendamento (Calendar + `<input type="time">` em Popover) gated a `entrevista_*`: `agendamentoService` (.insert/.update, payload EXCLUI vaga_id/agendado_por/updated_*) + reagendar/cancelar (AlertDialog)/`compareceu` (AGEND-02/03)
+- [ ] 34-04-PLAN.md — Fila de trabalho cross-vaga (nova aba em `CandidatosRHPage`, lê `v_fila_trabalho`, sort por tempo-em-etapa) + badge SLA aging/breach (`SLA_POR_ETAPA` hardcoded), coexiste com Kanban (KPI-01/03)
+- [ ] 34-05-PLAN.md — Dashboard de KPIs (`@/components/ui/chart`, consumindo `funil_kpis` — coorte K4 all-time/single-arg) substituindo a agregação M1 morta do `RelatoriosRHPage` na mesma rota `/rh/relatorios` (KPI-02/04)
 **UI hint**: yes
+
+Waves: Wave 1 = 34-01 (DB foundation, BLOCKING) + 34-02 (VISRH — usa primitivos P32/P33 já shipados, independente). Wave 2 = 34-03 (deps 34-02, hub) · 34-04 (deps 34-01, view) · 34-05 (deps 34-01, RPC) — paralelos (sem overlap de arquivo).
 
 ### Phase 35: Painel do Candidato — Leitura do Agendamento
 **Goal**: O candidato acompanha a entrevista agendada **exclusivamente** pelo painel — um card na superfície "Próximo passo" com data/hora em `America/Sao_Paulo` + link clicável ou local (leitura own-row por allowlist), download `.ics` client-side e badge de lembrete quando a entrevista está a ≤24h — fechando o modelo "sem e-mail = painel é o canal único". É a menor fase; depende da tabela + RLS da Phase 33.
@@ -192,7 +194,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
 | 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 4/4 | Complete   | 2026-07-16 |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 3/3 | Complete   | 2026-07-16 |
-| 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/TBD | Not started | - |
+| 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 0/5 | Not started | - |
 | 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
 
 ---
