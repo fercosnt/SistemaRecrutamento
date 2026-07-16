@@ -1,7 +1,8 @@
 ---
 phase: 34
 slug: superf-cies-do-rh-cv-ia-agendamento-fila-de-trabalho-kpis
-status: draft
+status: approved
+reviewed_at: 2026-07-16
 shadcn_initialized: true
 preset: none
 created: 2026-07-16
@@ -163,7 +164,7 @@ Per-surface copy (verbatim strings — single source for executor):
 | Primary CTA (none yet) | `Agendar entrevista` |
 | Field labels | `Data` · `Horário` · `Modalidade` (Online / Presencial) · `Link da videochamada` (online) / `Local` (presencial) · `Observações internas` (RH-only) |
 | Save | `Salvar agendamento` → success toast `Entrevista agendada.` |
-| Reschedule | `Reagendar` → success toast `Entrevista reagendada.` |
+| Reschedule | `Reagendar entrevista` → success toast `Entrevista reagendada.` |
 | Cancel | `Cancelar entrevista` (destructive; AlertDialog confirm above) → toast `Entrevista cancelada.` |
 | Comparecimento control | segmented: `Compareceu` / `Não compareceu` / `Pendente` |
 | Empty (in entrevista etapa, none scheduled) | heading `Nenhuma entrevista agendada` · body `Agende a entrevista deste candidato — ele verá a data e o link no painel.` |
@@ -216,7 +217,7 @@ Per-surface copy (verbatim strings — single source for executor):
 
 ### Surface 2 — Agendamento form (AGEND-02/03) — block in the hub's Entrevista section
 - **Gating:** render only when `etapa_atual ∈ {'entrevista_online','entrevista_presencial'}`; otherwise `HubSection estado="futuro"`.
-- **Layout:** a `<Glass variant="dark">` block. When an agendamento exists → **summary card** (status chip + data/hora + modalidade + link/local + `compareceu` control + `Reagendar` / `Cancelar entrevista` actions). When none → the form + `Agendar entrevista`.
+- **Layout:** a `<Glass variant="dark">` block. When an agendamento exists → **summary card** (status chip + data/hora + modalidade + link/local + `compareceu` control + `Reagendar entrevista` / `Cancelar entrevista` actions). When none → the form + `Agendar entrevista`.
 - **Form controls (all shadcn, already vendored):**
   - `Data`: shadcn **`Calendar`** inside a **`Popover`** (trigger button shows the selected date).
   - `Horário`: `<input type="time">` (native) alongside the calendar in the popover.
