@@ -3,7 +3,7 @@
 -- =============================================================================
 -- The LOAD-BEARING acceptance gate for Phase 33 (above any structural pg_policies/grep —
 -- P24/P32 precedent). Run via Supabase MCP `execute_sql` AFTER 33-03 applies the migration.
--- GREEN gate = all EIGHT `PASS (a..h)` NOTICEs present (Pitfall 2: "no EXCEPTION" is
+-- GREEN gate = all NINE `PASS (a..i)` NOTICEs present (Pitfall 2: "no EXCEPTION" is
 -- insufficient — an all-SKIP run masks a fixture failure; COUNT the PASS notices).
 --
 -- The 8 assertions:
@@ -26,6 +26,9 @@
 --   (g) SEG-03 cross-candidate RPC deny: a DIFFERENT candidate calls
 --       get_meu_agendamento(other's candidatura) → 0 rows (ownership join inside DEFINER).
 --   (h) SEG-03 candidate write deny: owning candidate INSERT → 42501; UPDATE/DELETE → 0 rows.
+--   (i) WR-01/WR-03 write-stamp: admin INSERTs for candidatura d01 with a WRONG vaga_id
+--       (vagaA) + a bogus agendado_por → stored vaga_id is normalized to d01's real vaga
+--       (vagaB) AND agendado_por is stamped to the actor (admin), not the client value.
 --
 -- FIXTURE (disposable, fixed-UUID namespace 33010033-*, ROLLBACK-free — real rows NEVER deleted):
 --   · a REAL candidato (discovered by user_id) = owning candidate on candidatura d01.
@@ -53,7 +56,8 @@ DECLARE
   v_admin      uuid;   -- real usuarios_rh (impersonated administrador)
 BEGIN
   DELETE FROM public.agendamentos_entrevista WHERE id IN (
-    '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02');
+    '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02',
+    '33010033-0000-4000-8000-000000000e03');
   DELETE FROM public.candidaturas WHERE id = '33010033-0000-4000-8000-000000000d01';
   DELETE FROM public.vagas WHERE id IN (
     '33010033-0000-4000-8000-000000000a01', '33010033-0000-4000-8000-000000000b01');
@@ -222,11 +226,32 @@ BEGIN
   RAISE NOTICE 'PASS (h): candidate INSERT denied (42501) + UPDATE/DELETE affect 0 rows (no candidate write policy)';
 END $$;
 
+-- (i) WR-01/WR-03 write-stamp — admin INSERTs a row with a WRONG vaga_id + bogus agendado_por;
+--     the BEFORE trigger normalizes vaga_id to d01's real vaga (vagaB) AND stamps agendado_por
+--     to the actor (admin), ignoring the client-supplied values.
+SET ROLE authenticated;
+DO $$
+DECLARE v_vaga uuid; v_author uuid;
+BEGIN
+  IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (i)'; RETURN; END IF;
+  PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.admin'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'administrador'))::text, false);
+  INSERT INTO public.agendamentos_entrevista (id, candidatura_id, vaga_id, tipo, data_hora, agendado_por)
+  VALUES ('33010033-0000-4000-8000-000000000e03', current_setting('smoke.cand')::uuid,
+     '33010033-0000-4000-8000-000000000a01',  -- WRONG vaga (vagaA); trigger must normalize to vagaB
+     'presencial'::public.tipo_entrevista_avaliacao, now() + interval '3 days',
+     '00000000-0000-4000-8000-000000000bad'::uuid);  -- bogus author; trigger must overwrite with auth.uid()
+  SELECT vaga_id, agendado_por INTO v_vaga, v_author FROM public.agendamentos_entrevista WHERE id = '33010033-0000-4000-8000-000000000e03';
+  IF v_vaga <> '33010033-0000-4000-8000-000000000b01' THEN RAISE EXCEPTION 'SEG-33 FAIL (i): vaga_id not normalized (got %, expected vagaB)', v_vaga; END IF;
+  IF v_author <> current_setting('smoke.admin')::uuid THEN RAISE EXCEPTION 'SEG-33 FAIL (i): agendado_por not stamped to actor (got %, client-spoofable)', v_author; END IF;
+  RAISE NOTICE 'PASS (i): trigger normalized vaga_id to the real vaga AND stamped agendado_por to the actor (WR-01/WR-03)';
+END $$;
+
 -- CLEANUP — ROLLBACK-free. Deletes ONLY the disposable 33010033-* rows.
 SELECT set_config('request.jwt.claims', '', false);
 RESET ROLE;
 DELETE FROM public.agendamentos_entrevista WHERE id IN (
-  '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02');
+  '33010033-0000-4000-8000-000000000e01', '33010033-0000-4000-8000-000000000e02',
+  '33010033-0000-4000-8000-000000000e03');
 DELETE FROM public.candidaturas WHERE id = '33010033-0000-4000-8000-000000000d01';
 DELETE FROM public.vagas WHERE id IN (
   '33010033-0000-4000-8000-000000000a01', '33010033-0000-4000-8000-000000000b01');

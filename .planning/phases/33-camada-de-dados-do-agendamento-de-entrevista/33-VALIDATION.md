@@ -52,7 +52,7 @@ created: 2026-07-16
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
-**GREEN gate rule (Pitfall 2):** count the `PASS (…)` notices — all **8** must be present. "No EXCEPTION raised" is INSUFFICIENT (a fixture failure that SKIPs every assertion can masquerade as success).
+**GREEN gate rule (Pitfall 2):** count the `PASS (…)` notices — all **9** must be present (a–i; assertion **(i)** was added in the code-review hardening — migration `20260716000002` — to behaviorally prove the trigger normalizes a wrong `vaga_id` + stamps `agendado_por`, closing WR-01/WR-03). "No EXCEPTION raised" is INSUFFICIENT (a fixture failure that SKIPs every assertion can masquerade as success).
 
 ---
 
