@@ -112,13 +112,18 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   //      reflete raw_app_meta_data (SEM role); o custom_access_token_hook injeta o
   //      role SÓ nos claims do JWT assinado. Fonte de verdade = usuarios_rh (mesma
   //      derivação do hook: recrutador→rh, administrador→administrador).
-  const { data: rhRow } = await supabaseAdmin
+  const { data: rhRow, error: rhErr } = await supabaseAdmin
     .from("usuarios_rh")
     .select("role")
     .eq("user_id", user.id)
     .eq("ativo", true)
     .is("deleted_at", null)
     .maybeSingle();
+  // WR-04: do NOT swallow the query error — a transient DB error or a duplicate usuarios_rh
+  // row must surface as 500, not a misleading permanent 403 (the sibling reads below already 500).
+  if (rhErr) {
+    return errorResponse("SERVER_ERROR", "Falha ao verificar permissão.", 500);
+  }
   const dbRole = (rhRow?.role as string | undefined) ?? null;
   const role = dbRole === "recrutador"
     ? "rh"
@@ -139,7 +144,12 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     if (typeof id !== "string" || id.trim() === "") {
       return errorResponse("VALIDATION", "candidatura_id é obrigatório.");
     }
-    candidaturaId = id;
+    // WR-05: a non-UUID id must be a 4xx (VALIDATION), not a downstream 500 from a bad `.eq('id', …)`.
+    const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!UUID_RE.test(id.trim())) {
+      return errorResponse("VALIDATION", "candidatura_id inválido.");
+    }
+    candidaturaId = id.trim();
   } catch {
     return errorResponse("VALIDATION", "Corpo da requisição inválido (JSON malformado).");
   }
@@ -152,19 +162,23 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       .from("candidaturas")
       .select("curriculo_url, vaga_id")
       .eq("id", candidaturaId)
+      .is("deleted_at", null) // WR-03: NEVER mint a URL for a soft-deleted candidatura's CV
       .maybeSingle();
     if (candErr) {
       return errorResponse("SERVER_ERROR", "Falha ao carregar a candidatura.", 500);
     }
     const cand = (candRaw ?? null) as CandidaturaRow | null;
-    if (!cand || !cand.curriculo_url) {
-      return errorResponse("NOT_FOUND", "Currículo não encontrado.", 404);
+    if (!cand) {
+      return errorResponse("NOT_FOUND", "Candidatura não encontrada.", 404);
     }
 
-    // ── 5. AUTHORIZE ownership (C1 — espelha comparativo/reprocessar_analise):
+    // ── 5. AUTHORIZE ownership FIRST (C1 — espelha comparativo/reprocessar_analise):
     //      role='rh' DEVE ser o dono da vaga (vagas.created_by === user.id);
     //      'administrador' bypassa (nunca lê `vagas`). Sem isso, um RH de OUTRA
     //      vaga leria o CV de candidatos alheios (cross-recruiter T-32-01).
+    //      WR-01: a checagem de posse vem ANTES do 404-sem-CV — assim um NÃO-dono recebe
+    //      sempre 403 e nunca descobre se a candidatura tem (ou não) currículo (oráculo
+    //      de existência de CV cross-recruiter).
     if (role === "rh") {
       const { data: vagaRow, error: vagaErr } = await supabaseAdmin
         .from("vagas")
@@ -177,6 +191,11 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       if (!vagaRow || vagaRow.created_by !== user.id) {
         return errorResponse("FORBIDDEN", "Acesso negado.", 403);
       }
+    }
+
+    // ── 5b. Só APÓS a posse: currículo ausente (NULL) → 404.
+    if (!cand.curriculo_url) {
+      return errorResponse("NOT_FOUND", "Currículo não encontrado.", 404);
     }
 
     // ── 6. Minta a URL assinada de 60s. curriculo_url é `{auth.uid()}/{uuid}.pdf`

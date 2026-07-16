@@ -72,6 +72,7 @@ BEGIN
       JOIN public.vagas        v ON v.id = c.vaga_id
      WHERE (v_is_admin OR v.created_by = v_uid)
        AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL   -- WR-02: soft-deleted candidaturas must not inflate the KPIs
   ),
   deltas AS (
     -- time-in-stage(etapa_para) = next transition's criado_em − this criado_em.
@@ -106,6 +107,7 @@ BEGIN
       JOIN public.vagas       v ON v.id = c.vaga_id
      WHERE (v_is_admin OR v.created_by = v_uid)
        AND (p_vaga_id IS NULL OR v.id = p_vaga_id)
+       AND c.deleted_at IS NULL   -- WR-02: exclude soft-deleted candidaturas from volume
      GROUP BY c.etapa_atual
   )
   SELECT jsonb_build_object(
