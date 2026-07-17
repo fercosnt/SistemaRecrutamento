@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/components/ui/utils'
+import { formatDataHoraSP, saoPauloParts } from '@/lib/datetime/formatDataHoraSP'
 import type { EntrevistaContextoRow } from '../services/entrevistaService'
 
 /** Human-readable pt-BR etapa labels (mirrors the etapa_processo enum). */
@@ -36,41 +37,11 @@ const ETAPA_LABEL: Record<string, string> = {
   rejeitado: 'Rejeitado',
 }
 
-/**
- * The domain timezone for displayed interview datetimes (IN-04). The
- * `entrevista_agendada_em` is a `timestamptz`; pinning to America/Sao_Paulo keeps the
- * shown time stable across viewer timezones instead of the browser's local zone.
- */
-const DISPLAY_TIME_ZONE = 'America/Sao_Paulo'
-
-/** Reads the timezone-pinned dd/mm/yyyy/hh/min parts of an ISO timestamptz. */
-function saoPauloParts(
-  iso: string,
-): { dd: string; mm: string; yyyy: string; hh: string; min: string } | null {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const parts = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: DISPLAY_TIME_ZONE,
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(d)
-  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
-  // hour12:false can render midnight as '24' in some engines — normalize to '00'.
-  const hh = pick('hour') === '24' ? '00' : pick('hour')
-  return { dd: pick('day'), mm: pick('month'), yyyy: pick('year'), hh, min: pick('minute') }
-}
-
-/** Formats an ISO datetime as `dd/mm/aaaa às hh:mm` pinned to America/Sao_Paulo (IN-04). */
-export function formatDataHora(iso: string | null): string | null {
-  if (!iso) return null
-  const p = saoPauloParts(iso)
-  if (!p) return null
-  return `${p.dd}/${p.mm}/${p.yyyy} às ${p.hh}:${p.min}`
-}
+// The SP-pinned datetime formatter (`saoPauloParts` + `formatDataHoraSP`) now lives in
+// the shared `@/lib/datetime/formatDataHoraSP` util (extracted Phase 35 / Plan 35-01) so
+// the candidate agendamento card consumes the SAME implementation. `formatCurto` (the
+// tooltip short form) and `compute24hMarker` (the RH label) stay local — the candidate
+// needs neither.
 
 /** Short `dd/mm às hh:mm` form (America/Sao_Paulo) for the tooltip. */
 function formatCurto(iso: string | null): string | null {
@@ -157,7 +128,7 @@ export function EntrevistaDashboard({
 }: EntrevistaDashboardProps) {
   const etapa = contexto ? (ETAPA_LABEL[contexto.etapa_atual] ?? contexto.etapa_atual) : '—'
   const agendadaEm = contexto?.entrevista_agendada_em ?? null
-  const dataHora = formatDataHora(agendadaEm)
+  const dataHora = formatDataHoraSP(agendadaEm)
 
   return (
     <div className={cn('space-y-4', className)}>
