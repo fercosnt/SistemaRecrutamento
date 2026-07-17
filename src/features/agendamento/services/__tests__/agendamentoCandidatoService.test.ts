@@ -59,7 +59,11 @@ vi.mock('@/lib/supabase/client', () => ({
 
 import {
   getMeuAgendamento,
+  gerarIcsAgendamento,
+  ehUpcomingNaoCancelada,
+  estaDentroDe24h,
   MeuAgendamentoServiceError,
+  type MeuAgendamentoRow,
 } from '@/features/agendamento/services/agendamentoCandidatoService'
 
 const RH_INTERNAL_KEYS = [
@@ -130,5 +134,110 @@ describe('agendamentoCandidatoService — SEG-03 candidate read goes through get
     await expect(getMeuAgendamento(CANDIDATURA_ID)).rejects.toMatchObject({
       code: 'DATABASE_ERROR',
     })
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan 35-02 Task 1 — the hand-rolled .ics builder (AGEND-05) + the upcoming/≤24h
+// pure predicates. All deterministic (fixed `now` injected), no network, no DOM.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A minimal MeuAgendamentoRow factory for the .ics builder tests. */
+function makeRow(over: Partial<MeuAgendamentoRow> = {}): MeuAgendamentoRow {
+  return {
+    id: 'abc',
+    candidatura_id: '11111111-1111-4111-8111-111111111111',
+    tipo: 'presencial',
+    data_hora: '2026-07-20T17:30:00Z',
+    local_ou_link: 'Av. Paulista, 1000',
+    status: 'agendada',
+    compareceu: null,
+    ...over,
+  }
+}
+
+describe('gerarIcsAgendamento — RFC 5545 VCALENDAR/VEVENT (AGEND-05)', () => {
+  it('emits a valid VCALENDAR/VEVENT with UTC DTSTART, +1h DTEND, generic SUMMARY, UID and DTSTAMP', () => {
+    const ics = gerarIcsAgendamento(makeRow())
+    expect(ics).toContain('BEGIN:VCALENDAR')
+    expect(ics).toContain('BEGIN:VEVENT')
+    // 2026-07-20T17:30:00Z → basic UTC form 20260720T173000Z
+    expect(ics).toContain('DTSTART:20260720T173000Z')
+    // DTEND = DTSTART + 1h
+    expect(ics).toContain('DTEND:20260720T183000Z')
+    // SUMMARY is the GENERIC constant — never a vaga/candidate field
+    expect(ics).toContain('SUMMARY:Entrevista Beauty Smile')
+    expect(ics).toContain('UID:abc@')
+    expect(ics).toMatch(/DTSTAMP:\d{8}T\d{6}Z/)
+    expect(ics).toContain('END:VEVENT')
+    expect(ics).toContain('END:VCALENDAR')
+  })
+
+  it('joins lines with CRLF (\\r\\n) — Outlook rejects bare LF', () => {
+    const ics = gerarIcsAgendamento(makeRow())
+    expect(ics.includes('\r\n')).toBe(true)
+  })
+
+  it('escapes a comma in LOCATION per RFC 5545 §3.3.11', () => {
+    const ics = gerarIcsAgendamento(makeRow({ local_ou_link: 'Av. Paulista, 1000' }))
+    expect(ics).toContain('LOCATION:Av. Paulista\\, 1000')
+  })
+
+  it('emits NO LOCATION line when local_ou_link is null', () => {
+    const ics = gerarIcsAgendamento(makeRow({ local_ou_link: null }))
+    expect(ics).not.toContain('LOCATION:')
+  })
+
+  it('SUMMARY carries no vaga/candidate interpolation — the generic constant only', () => {
+    const ics = gerarIcsAgendamento(
+      makeRow({ local_ou_link: 'Vaga Secreta XYZ' }),
+    )
+    // the summary line is exactly the generic label
+    const summaryLine = ics.split('\r\n').find((l) => l.startsWith('SUMMARY:'))
+    expect(summaryLine).toBe('SUMMARY:Entrevista Beauty Smile')
+  })
+})
+
+describe('ehUpcomingNaoCancelada — future AND non-cancelled gate (AGEND-05)', () => {
+  const now = new Date('2026-07-19T12:00:00Z')
+  const future = '2026-07-20T12:00:00Z'
+  const past = '2026-07-18T12:00:00Z'
+
+  it('future + agendada → true', () => {
+    expect(ehUpcomingNaoCancelada(future, 'agendada', now)).toBe(true)
+  })
+  it('past + agendada → false', () => {
+    expect(ehUpcomingNaoCancelada(past, 'agendada', now)).toBe(false)
+  })
+  it('future + cancelada → false', () => {
+    expect(ehUpcomingNaoCancelada(future, 'cancelada', now)).toBe(false)
+  })
+  it('invalid ISO → false (Number.isNaN guard)', () => {
+    expect(ehUpcomingNaoCancelada('not-a-date', 'agendada', now)).toBe(false)
+  })
+})
+
+describe('estaDentroDe24h — 0 < (data_hora − now) ≤ 24h boundary (AGEND-05)', () => {
+  const now = new Date('2026-07-19T12:00:00Z')
+  const H = 60 * 60 * 1000
+
+  it('exactly +24h00m00s → true (inclusive)', () => {
+    const iso = new Date(now.getTime() + 24 * H).toISOString()
+    expect(estaDentroDe24h(iso, now)).toBe(true)
+  })
+  it('+24h00m01s → false (over the boundary)', () => {
+    const iso = new Date(now.getTime() + 24 * H + 1000).toISOString()
+    expect(estaDentroDe24h(iso, now)).toBe(false)
+  })
+  it('+23h59m → true', () => {
+    const iso = new Date(now.getTime() + 23 * H + 59 * 60 * 1000).toISOString()
+    expect(estaDentroDe24h(iso, now)).toBe(true)
+  })
+  it('now (0 diff) → false', () => {
+    expect(estaDentroDe24h(now.toISOString(), now)).toBe(false)
+  })
+  it('past → false', () => {
+    const iso = new Date(now.getTime() - H).toISOString()
+    expect(estaDentroDe24h(iso, now)).toBe(false)
   })
 })
