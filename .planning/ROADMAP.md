@@ -132,7 +132,7 @@ Waves: Wave 1 = 34-01 (DB foundation, BLOCKING) + 34-02 (VISRH — usa primitivo
 **Plans**: 2 plans
 
 Plans:
-- [ ] 35-01-PLAN.md — shared `America/Sao_Paulo` TZ util (extract) + candidate own-row read service via the `get_meu_agendamento` DEFINER RPC (7-col allowlist) + `useMeuAgendamento` hook (AGEND-04)
+- [x] 35-01-PLAN.md — shared `America/Sao_Paulo` TZ util (extract) + candidate own-row read service via the `get_meu_agendamento` DEFINER RPC (7-col allowlist) + `useMeuAgendamento` hook (AGEND-04)
 - [ ] 35-02-PLAN.md — `AgendamentoCandidatoCard` inline in `DashboardCandidatoPage` (5 states, SP date, safe link/local) + client-side `.ics` download + ≤24h reminder badge, upcoming-non-cancelled only (AGEND-04, AGEND-05)
 **UI hint**: yes
 
@@ -195,7 +195,7 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 4/4 | Complete   | 2026-07-16 |
 | 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 3/3 | Complete   | 2026-07-16 |
 | 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 5/5 | Complete   | 2026-07-16 |
-| 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 0/TBD | Not started | - |
+| 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 1/2 | In Progress|  |
 
 ---
 

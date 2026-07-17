@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: "Phase 34 COMPLETE (5/5) + reviewed + verified. Autonomous run: 34-02 (VISRH CV/IA/histórico), 34-03 (agendamento), 34-04 (Fila+SLA), 34-05 (KPI dashboard) all shipped. Post-exec gates GREEN: build ok, tsc 97, full suite 980/980. Verifier 23/23 automated must-haves (incl. live PROD curl of funil_kpis 7-key + v_fila_trabalho). Code review found 1 BLOCKER + 2 WARN → ALL FIXED (commits 1b462b3 CR-01 CvButton popup-block via about:blank+win.opener=null; 2c0df39 WR-01 entrevistador input; 0dd31f8 WR-02 fila .limit 200). 4 live browser UATs DEFERRED per user (saved 34-HUMAN-UAT.md: CV open + cross-recruiter, agendamento flow, Fila SLA badges, KPI charts). Next: Phase 35 (last M6 phase) → milestone lifecycle."
-last_updated: "2026-07-17T00:00:00.000Z"
+stopped_at: "Phase 35 Plan 35-01 COMPLETE (1/2) — candidate agendamento READ foundation (AGEND-04). agendamentoCandidatoService.getMeuAgendamento reads the candidate own-row ONLY via typed rpc('get_meu_agendamento') (7-col allowlist, no cast — RPC in database.types.ts; never base-table/select('*')); MeuAgendamentoRow widens local_ou_link/compareceu to |null (Pitfall 1). formatDataHoraSP extracted to src/lib/datetime/ (America/Sao_Paulo) — EntrevistaDashboard re-imports (behavior-preserving); useMeuAgendamento mirrors useAgendamento read-half. RPC-guard test asserts the call+shape not JSX. TDD test→feat ×2 (1cde7c3/92d1d97, c37d816/e59f17f). full suite 991/991, tsc 97 (≤104), 0 new in touched, --no-verify (pre-existing debt). AGEND-04 stays Pending (visible card + .ics + ≤24h badge ship in 35-02). Next: Plan 35-02 (AgendamentoCandidatoCard + .ics + badge)."
+last_updated: "2026-07-17T07:06:56.997Z"
 last_activity: 2026-07-17
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 20
+  completed_plans: 19
   percent: 80
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 34 — Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs
+**Current focus:** Phase 35 — Painel do Candidato — Leitura do Agendamento
 
 ## Current Position
 
-Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — ✅ COMPLETE (5/5)
-Plan: 5 of 5
-Status: Phase complete (reviewed: 1 blocker + 2 warn FIXED; verified 23/23; 4 live UATs deferred → 34-HUMAN-UAT.md) — next Phase 35 (last M6 phase)
+Phase: 35 (Painel do Candidato — Leitura do Agendamento) — EXECUTING
+Plan: 2 of 2
+Status: 35-01 ✅ DONE (read foundation) — Ready to execute 35-02 (card + .ics + badge)
 Last activity: 2026-07-17
 
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). Next: Phase 35 (candidate agendamento card read).
+Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). **P35 🚧 1/2: 35-01 ✅** (AGEND-04 read foundation — getMeuAgendamento via get_meu_agendamento DEFINER RPC 7-col allowlist + formatDataHoraSP shared util + useMeuAgendamento; TDD test→feat ×2, 991/991, tsc 97). Next: 35-02 (AgendamentoCandidatoCard inline + client-side .ics + ≤24h badge, AGEND-04/05).
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
@@ -80,6 +80,7 @@ Coverage: 19/19 requirements mapeados ✓ · 0 unmapped. **Phase 32 é BLOCKING*
 | Phase 34 P03 | 12min | 2 tasks | 7 files |
 | Phase 34 P04 | 13min | 2 tasks | 8 files |
 | Phase 34 P05 | ~13min | 2 tasks | 5 files |
+| Phase 35 P01 | 7min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,7 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M6 (reuse-and-tighten
 - [Phase 34]: 34-03 AGEND-02/03 agendamento surface — agendamentoService writes DIRECT to agendamentos_entrevista; every payload built LITERALLY with only client-writable cols so the trigger-stamped scope/audit cols never touch a body (T-34-03-01); insert body cast at the boundary (as never) because the generated Insert still requires the NOT-NULL trigger-stamped col we intentionally omit. cancelar=UPDATE status cancelada (row kept — never a delete); reagendar=status reagendada; compareceu true/false/null = KPI-04 no-show source. AgendamentoBlock etapa-gated (HubSection futuro outside entrevista_*), RHF+zod Calendar+time Popover, Cancelar via AlertDialog. 15 tests GREEN, tsc 104.
 - [Phase 34/34-05]: KPI-02/04 KPI dashboard — `funilKpisService.getFunilKpis(vagaId|null)` reads the SINGLE data path `rpc('funil_kpis',{p_vaga_id})` (7 keys, 34-01 DEFINER, PII-free/vaga-scoped) — NO client-side aggregation (T-34-05-01; test asserts `supabase.from` never called). `FunilKpis` type = 7 keys, taxa/time `number|null` (transient `as unknown as FunilKpis` because RPC `Returns: Json`). `useFunilKpis` = funilKpisKeys factory + useQuery(5min/retry2). `RelatoriosRHPage` fully rewritten (1208 dead M1 lines removed) on the SAME route/export: 3 MetricCards (time_to_hire secs→days, no_show/knockout taxa, **null→'—' never 0%** T-34-05-03) + 4 BarCharts (Volume/Tempo mediano/Conversão/Drop) via `@/components/ui/chart` wrapper (--chart-1/2/3/5, accessibilityLayer, **never raw ResponsiveContainer** Pitfall 6) cloned from AiCostsPage + loading/empty/error states (verbatim UI-SPEC copy). Optional per-vaga Select filter OMITTED (planner discretion → all-vagas default; useFunilKpis already accepts vagaId). Zero new npm; funil+page 38/38 GREEN; **tsc 97 (dropped from 104 — dead file's own errors removed), 0 new in touched**; build green (--no-verify, documented pre-existing debt). Grep gate near-miss: docstring literal `from('candidaturas')` tripped the negative gate → reworded (Rule 3).
 - [Phase 34/34-04]: KPI-01/03 Fila de trabalho cross-vaga — new `src/features/funil/` dir. filaTrabalhoService.listFila() reads the `v_fila_trabalho` security_invoker view via FILA_ALLOWLIST (never select('*'), scope inherited — no client re-scope) ordered `entrou_etapa_em ASC` (oldest-waiting first). SLA_POR_ETAPA hardcoded per-etapa thresholds (triagem 3/avaliacao_assincrona 5/entrevista_online 4/entrevista_presencial 4/decisao_final 3) + pure classifySla within/aging/breach (aging INCLUSIVE at threshold, breach > 1.5×; undefined-threshold etapa → within, never throws) + diasNaEtapa (differenceInCalendarDays, clamps negatives). SlaBadge = amber `Atenção · Nd` / red `Atrasado · Nd` / subtle `Nd`, ALWAYS text+day-count (colorblind-safe, T-34-04-03 ScoreCell invariant). 4th `value="fila"` tab (grid-cols-4) COEXISTS with the untouched Kanban (KPI-01 explicit). Zero new npm; funil 26/26 GREEN; tsc 104 baseline held (--no-verify, 0 new errors in touched files — CandidatosRHPage `React unread` confirmed pre-existing via stash check).
+- [Phase 35]: [Phase 35/35-01]: AGEND-04 read foundation — getMeuAgendamento reads candidate own-row ONLY via typed rpc('get_meu_agendamento') (7-col allowlist, no cast; never base-table/select('*')); MeuAgendamentoRow widens local_ou_link/compareceu to |null (Pitfall 1). formatDataHoraSP extracted to src/lib/datetime/ (America/Sao_Paulo), EntrevistaDashboard re-imports (behavior-preserving); useMeuAgendamento mirrors useAgendamento read-half. RPC-guard test asserts call+shape. TDD test->feat x2. full suite 991/991, tsc 97. AGEND-04 stays Pending (card ships 35-02). --no-verify (pre-existing tsc debt). — 35-01 is the security-critical read primitive; UI lands in 35-02
 
 ### Pending Todos
 
@@ -132,7 +134,7 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 
 ## Session Continuity
 
-Last session: 2026-07-16T18:00:00.000Z
+Last session: 2026-07-17T07:05:38.326Z
 Stopped at: Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard shipped (code-level). funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed) = 3 MetricCards (null→'—') + 4 charts via @/components/ui/chart (--chart-1/2/3/5, never raw recharts) + states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Next: Phase 35 (candidate agendamento card read) — last M6 phase.
 Resume file: None
 
