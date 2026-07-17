@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
 status: executing
-stopped_at: "Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard: funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed — 1208 lines) as 3 MetricCards (time_to_hire→days, no_show/knockout taxa, null→'—') + 4 charts via @/components/ui/chart wrapper (--chart-1/2/3/5, never raw recharts) + loading/empty/error states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Phase 34 done → /gsd-verify-work (UI hint) → Phase 35 (last M6 phase)."
-last_updated: "2026-07-16T17:56:38.534Z"
-last_activity: 2026-07-16
+stopped_at: "Phase 34 COMPLETE (5/5) + reviewed + verified. Autonomous run: 34-02 (VISRH CV/IA/histórico), 34-03 (agendamento), 34-04 (Fila+SLA), 34-05 (KPI dashboard) all shipped. Post-exec gates GREEN: build ok, tsc 97, full suite 980/980. Verifier 23/23 automated must-haves (incl. live PROD curl of funil_kpis 7-key + v_fila_trabalho). Code review found 1 BLOCKER + 2 WARN → ALL FIXED (commits 1b462b3 CR-01 CvButton popup-block via about:blank+win.opener=null; 2c0df39 WR-01 entrevistador input; 0dd31f8 WR-02 fila .limit 200). 4 live browser UATs DEFERRED per user (saved 34-HUMAN-UAT.md: CV open + cross-recruiter, agendamento flow, Fila SLA badges, KPI charts). Next: Phase 35 (last M6 phase) → milestone lifecycle."
+last_updated: "2026-07-17T00:00:00.000Z"
+last_activity: 2026-07-17
 progress:
   total_phases: 5
   completed_phases: 4
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 Phase: 34 (Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs) — ✅ COMPLETE (5/5)
 Plan: 5 of 5
-Status: Phase complete — next Phase 35 (last M6 phase)
-Last activity: 2026-07-16
+Status: Phase complete (reviewed: 1 blocker + 2 warn FIXED; verified 23/23; 4 live UATs deferred → 34-HUMAN-UAT.md) — next Phase 35 (last M6 phase)
+Last activity: 2026-07-17
 
 Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). Next: Phase 35 (candidate agendamento card read).
 

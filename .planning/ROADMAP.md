@@ -34,7 +34,7 @@ M6 continua a numeração a partir da **Phase 31** (M5 terminou na Phase 30).
 - [ ] **Phase 31: Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)** - controles per-etapa de avançar/rejeitar/retroceder nas 6 etapas + reject-do-comparativo, tudo pelo write-path auditável único (trigger), justificativa server-enforced, RNF-07a
 - [ ] **Phase 32: Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)** - EF `get-curriculo-url` authenticate-THEN-authorize (policy role-only do bucket removida) + RPC `funil_kpis` DEFINER vaga-scoped + `rh_le_historico` endurecido — server-only, gatilho da Phase 34
 - [ ] **Phase 33: Camada de Dados do Agendamento de Entrevista** - tabela nova `agendamentos_entrevista` + RLS bidirecional (RH vaga-scoped, candidato own-row allowlist sem `observacoes_rh`), provada por smoke antes de qualquer UI
-- [ ] **Phase 34: Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs** - telas do RH contra os primitivos já seguros: CV + análise IA completa + feed de histórico, form de agendar/reagendar/cancelar/comparecimento, fila de trabalho cross-vaga + dashboard de KPIs
+- [x] **Phase 34: Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs** - telas do RH contra os primitivos já seguros: CV + análise IA completa + feed de histórico, form de agendar/reagendar/cancelar/comparecimento, fila de trabalho cross-vaga + dashboard de KPIs
 - [ ] **Phase 35: Painel do Candidato — Leitura do Agendamento** - card do agendamento no painel do candidato (own-row, `America/Sao_Paulo`) + download `.ics` + badge de lembrete ≤24h, sem e-mail
 
 ## Phase Details
