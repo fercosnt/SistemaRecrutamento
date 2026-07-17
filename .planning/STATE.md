@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
-status: verifying
-stopped_at: "Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard shipped (code-level). funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed) = 3 MetricCards (null→'—') + 4 charts via @/components/ui/chart (--chart-1/2/3/5, never raw recharts) + states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Next: Phase 35 (candidate agendamento card read) — last M6 phase."
-last_updated: "2026-07-17T07:22:26.926Z"
+status: milestone_lifecycle
+stopped_at: "M6 ALL PHASES COMPLETE (5/5). Phase 35 (last) shipped: 35-01 candidate read foundation (shared formatDataHoraSP util + getMeuAgendamento via DEFINER RPC 7-col allowlist + useMeuAgendamento hook) + 35-02 AgendamentoCandidatoCard (5 states, SP date, safe link/local, .ics client download + ≤24h badge, mounted inline in DashboardCandidatoPage — no new route). Verifier 12/12 (human_needed, 2 live UATs deferred). Code review 0 blocker/2 warn → FIXED (WR-01 link-scheme guard, WR-02 .ics line folding + IN-03 date guard; commits cd668d9, e44d6b3). UI review 21/24 (3 cosmetic, deferred). Full suite 1013/1013, tsc 97, build green. Next: milestone lifecycle (audit → complete → cleanup)."
+last_updated: "2026-07-17T07:40:00.000Z"
 last_activity: 2026-07-17
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 20
-  completed_plans: 19
-  percent: 80
+  completed_plans: 20
+  percent: 100
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: 35 (Painel do Candidato — Leitura do Agendamento) — EXECUTING
+Phase: 35 (Painel do Candidato — Leitura do Agendamento) — ✅ COMPLETE (2/2)
 Plan: 2 of 2
-Status: Phase complete — ready for verification
+Status: ALL M6 PHASES COMPLETE (5/5) — running milestone lifecycle (audit → complete → cleanup). Live UATs deferred: P34 (4) + P35 (2) in *-HUMAN-UAT.md.
 Last activity: 2026-07-17
 
 Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). **P35 🚧 1/2: 35-01 ✅** (AGEND-04 read foundation — getMeuAgendamento via get_meu_agendamento DEFINER RPC 7-col allowlist + formatDataHoraSP shared util + useMeuAgendamento; TDD test→feat ×2, 991/991, tsc 97). Next: 35-02 (AgendamentoCandidatoCard inline + client-side .ics + ≤24h badge, AGEND-04/05).
