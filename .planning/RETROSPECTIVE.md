@@ -104,6 +104,39 @@ EF resilience (per-call AI timeout + retry/backoff, devolutiva 5-dim parallel, `
 
 ---
 
+## Milestone: v6.0 — Operação do Funil RH
+
+**Shipped:** 2026-07-17
+**Phases:** 5 (31–35) | **Plans:** 20 | **Tasks:** 25
+
+### What Was Built
+The operational "esteira" that makes the already-evaluative funnel move by the RH's hand: avançar/rejeitar/retroceder across all 6 stages + reject-from-comparativo through one auditable write-path (P31); closure of the two live horizontal leaks — CV signed-URL EF authenticate-THEN-authorize + `funil_kpis` DEFINER + `rh_le_historico` WR-04 (P32, BLOCKING); the interview-scheduling data layer with bidirectional RLS + own-row RPC (P33); the RH surfaces — CV/IA/histórico, agendamento form, cross-vaga Fila + SLA badges, KPI dashboard replacing the dead M1 aggregation (P34); and the candidate's read-only agendamento card + client-side `.ics` + ≤24h badge (P35, "panel is the only channel").
+
+### What Worked
+- **Security-first ordering held end-to-end:** P32 (BLOCKING) closed the leaks and was smoke-proven (JWT-impersonated) *before* P34 rendered any UI that reads them — no IDOR/PII embarked on day 1. The retro-verification of P32 this cycle (deno 6/6 + live PROD schema dump + EF 401/403/404 curl) confirmed the choice paid off.
+- **Reuse-and-tighten discipline:** 1 new table, 2 new read-primitives, 0 new npm, trigger `avancar_etapa()` never edited. The integration checker found 9/9 seams wired, 0 orphaned primitives, 0 bypassed secure paths.
+- **Plan-checker caught a real coverage gap pre-execution** (P35 W1: a grep can't catch an inverted boolean on the `.ics`/badge gating → upgraded the card RTL test from optional to required), and it paid off — the test shipped and passed.
+- **Adversarial code review + fix chain caught real defects post-execution:** P34 CR-01 (CV `window.open` after `await` → popup-blocked silent failure of the flagship feature) and P35 WR-01 (unvalidated link scheme reaching a candidate anchor) were both fixed before close.
+
+### What Was Inefficient
+- **Stale bookkeeping carried across sessions:** P32 shipped in a prior session without a VERIFICATION.md, and REQUIREMENTS.md checkboxes for AGEND-01/SEG-01/02/03 stayed `[ ]` even though satisfied — surfaced only at milestone audit. A per-phase "flip the checkbox + write VERIFICATION.md at close" habit would avoid the retro-verify.
+- **The husky strict-`tsc` pre-commit vs. the 97-error pre-existing baseline** forced `--no-verify` on nearly every commit — sanctioned, but noisy. The baseline (cadastro/vagas + KanbanBoard P25) is real debt that keeps taxing every phase.
+
+### Patterns Established
+- Candidate own-row reads via DEFINER RPC allowlist (never `select('*')`, never base table) — column isolation from the RPC signature, not RLS.
+- Client-side `.ics` (RFC 5545, CRLF, octet-aware line folding, UTC) as the no-email substitute; Blob/anchor download idiom.
+- Extract-to-shared-util when a formatter (SP timezone) is needed by two surfaces, rather than component-to-component import.
+
+### Key Lessons
+- W-1 (Histórico renders `ator` UUID instead of recruiter name) shows a class of gap that passes functional verification + code review + security review but fails the *rendered contract* — the UI-audit was the first pass to catch display-contract completeness. Worth a name-resolution join as the top M6 follow-up.
+
+### Cost Observations
+- Model mix: executors/planner/fixers opus; verifiers/reviewers/auditors/checkers sonnet.
+- Run: single autonomous `/gsd-autonomous` session (resumed at P34 after /clear), all subagents backgrounded to keep the orchestrator lean.
+- Gates at close: **vitest 1013/1013 · tsc 97 (≤104 baseline) · build 0** · integration 9/9 · audit tech_debt.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
