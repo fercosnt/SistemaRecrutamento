@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v6.0
-milestone_name: Operação do Funil RH
-status: Awaiting next milestone
-stopped_at: "Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard shipped (code-level). funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed) = 3 MetricCards (null→'—') + 4 charts via @/components/ui/chart (--chart-1/2/3/5, never raw recharts) + states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Next: Phase 35 (candidate agendamento card read) — last M6 phase."
-last_updated: "2026-07-17T14:12:01.646Z"
-last_activity: 2026-07-17 — Milestone v6.0 completed and archived
+milestone: v7.0
+milestone_name: Comunicação com o Candidato
+status: planning
+last_updated: "2026-07-17T15:47:44.732Z"
+last_activity: 2026-07-17
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 20
-  completed_plans: 20
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: Milestone v6.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-17 — Milestone v6.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-17 — Milestone v7.0 started
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
