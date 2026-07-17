@@ -417,7 +417,7 @@ const { data, error } = await supabase.rpc('get_meu_agendamento', { p_candidatur
 
 **Nota:** Nenhuma assumption de compliance/segurança/retenção. O isolamento SEG-03 já é enforced e testado no servidor (P33, 9/9 smokes a–i GREEN por MEMORY).
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Home/nome exato do shared util** (`formatDataHoraSP.ts` em `src/lib/datetime/`?)
    - What we know: não existe `src/lib/datetime/` hoje; `src/lib/` já hospeda utils cross-feature (`navegacao`, `opcoes`, `utils.ts`). CONTEXT sugere `formatDataHoraSP`.
