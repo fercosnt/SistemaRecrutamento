@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v6.0
 milestone_name: Operação do Funil RH
-status: milestone_lifecycle
-stopped_at: "M6 ALL PHASES COMPLETE (5/5). Phase 35 (last) shipped: 35-01 candidate read foundation (shared formatDataHoraSP util + getMeuAgendamento via DEFINER RPC 7-col allowlist + useMeuAgendamento hook) + 35-02 AgendamentoCandidatoCard (5 states, SP date, safe link/local, .ics client download + ≤24h badge, mounted inline in DashboardCandidatoPage — no new route). Verifier 12/12 (human_needed, 2 live UATs deferred). Code review 0 blocker/2 warn → FIXED (WR-01 link-scheme guard, WR-02 .ics line folding + IN-03 date guard; commits cd668d9, e44d6b3). UI review 21/24 (3 cosmetic, deferred). Full suite 1013/1013, tsc 97, build green. Next: milestone lifecycle (audit → complete → cleanup)."
-last_updated: "2026-07-17T07:40:00.000Z"
-last_activity: 2026-07-17
+status: Awaiting next milestone
+stopped_at: "Phase 34 COMPLETE (5/5) — Plan 34-05 KPI-02/04 KPI dashboard shipped (code-level). funilKpisService + useFunilKpis read the single funil_kpis DEFINER RPC (7 keys, no client aggregation, PII-free); RelatoriosRHPage rewritten on the SAME route /rh/relatorios (dead M1 aggregation removed) = 3 MetricCards (null→'—') + 4 charts via @/components/ui/chart (--chart-1/2/3/5, never raw recharts) + states. funil+page 38/38 GREEN, tsc 97 (≤104, dead-file errors removed), build green. Next: Phase 35 (candidate agendamento card read) — last M6 phase."
+last_updated: "2026-07-17T14:12:01.646Z"
+last_activity: 2026-07-17 — Milestone v6.0 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
@@ -25,12 +25,10 @@ See: .planning/PROJECT.md (updated 2026-07-14 — M6/v6.0 kickoff)
 
 ## Current Position
 
-Phase: 35 (Painel do Candidato — Leitura do Agendamento) — ✅ COMPLETE (2/2)
-Plan: 2 of 2
-Status: ALL M6 PHASES COMPLETE (5/5) — running milestone lifecycle (audit → complete → cleanup). Live UATs deferred: P34 (4) + P35 (2) in *-HUMAN-UAT.md.
-Last activity: 2026-07-17
-
-Completed this run (M6 autonomous): P31 ✅ · P32 ✅ · P33 ✅ · **P34 ✅ COMPLETE (5/5)**: 34-01 (DB foundation) · 34-02 (VISRH CV/IA/Histórico) · 34-03 (AGEND-02/03 agendamento form) · 34-04 (KPI-01/03 Fila de trabalho cross-vaga + SLA badge) · **34-05 ✅** (KPI-02/04 KPI dashboard via funil_kpis RPC on /rh/relatorios, replacing dead M1 aggregation). **P35 🚧 1/2: 35-01 ✅** (AGEND-04 read foundation — getMeuAgendamento via get_meu_agendamento DEFINER RPC 7-col allowlist + formatDataHoraSP shared util + useMeuAgendamento; TDD test→feat ×2, 991/991, tsc 97). Next: 35-02 (AgendamentoCandidatoCard inline + client-side .ics + ≤24h badge, AGEND-04/05).
+Phase: Milestone v6.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-17 — Milestone v6.0 completed and archived
 
 ### Phase 33 (prior) — ✅ COMPLETE + SHIPPED LIVE PROD 2026-07-16
 
@@ -133,6 +131,10 @@ Herdados/deferidos, fora do escopo do M6 (rastreados p/ M7/backlog):
 | Feature | COMM (notificação e-mail) · TALENT (banco de talentos) · LGPD-OPS (retenção/Art. 20) · PSICO · relatórios completos + export | Deferred → M7+ | M6 kickoff |
 | Tech-debt | DBMIG-01 baseline+rebuild (environment-gated) · SEC-03 Vault secret · CC0-01 seed cognitivo | Deferred → M7/backlog | M4/M5 close |
 | Tech-debt | live HUMAN-UATs P28/29/30 · IN-01 avatar orphan · UI cosmetics · secure-phase retroativo P28/29/30 | Deferred → backlog | M5 close |
+| UX gap (M6) | W-1: Histórico VISRH-03 renders `ator` UUID instead of recruiter name (needs usuarios_rh join) | Deferred → backlog (highest-value M6 follow-up) | M6 close |
+| Live UAT (M6) | 6 deferred HUMAN-UATs: P31 (4) · P34 (4) · P35 (2) — browser + real-login + real-calendar checks in `*-HUMAN-UAT.md` | Deferred → live UAT session | M6 close |
+| UI polish (M6) | P34 UI review 14/24 (44px Calendar cells, CvButton empty-state, token drift) · P35 21/24 (weight leak, unused token) + INFO code-review items | Deferred → backlog | M6 close |
+| Inbox todos | 25-review-deferred (MED-03/LOW-02) · cc0-cognitive-item-bank-sourcing · funil-02-comparativo-reject-justificativa | Deferred → backlog | M6 close |
 
 ## Session Continuity
 
@@ -150,7 +152,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-- **Próximo: Phase 35** (último plano do M6) — Painel do candidato: card do agendamento own-row (`America/Sao_Paulo`) via `get_meu_agendamento` DEFINER na superfície "Próximo passo" + `.ics` client-side + badge lembrete ≤24h (AGEND-04/05). Antes: **Phase 34 completa → `/gsd-verify-work`** (UI hint) para os live HUMAN-UATs das 4 superfícies RH (CV/IA/Histórico · agendamento · fila · KPI dashboard).
-- 34-05 ✅ SHIPPED (code-level, no live UAT): KPI dashboard via `funil_kpis` RPC no MESMO route `/rh/relatorios`, substituindo a agregação M1 morta. Frontend-only — nada a aplicar (a RPC 7-key + `v_fila_trabalho` já vivem em PROD desde 34-01). Filtro opcional por-vaga OMITIDO (all-vagas default; `useFunilKpis` já aceita vagaId → wire trivial no futuro).
-- Ordem de execução M6: 31 → 32 → 33 → 34 → 35. Phases 31–34 ✅ (Phase 34 = 5/5 planos COMPLETO); resta Phase 35.
-- Deferido → backlog (per CONTEXT): thresholds de SLA configuráveis por-vaga (v1 é o `SLA_POR_ETAPA` hardcoded). Live HUMAN-UATs de P34 (CV/IA/Histórico/agendamento/fila) continuam pendentes junto com os demais UATs do M6.
+- Start the next milestone with /gsd-new-milestone
