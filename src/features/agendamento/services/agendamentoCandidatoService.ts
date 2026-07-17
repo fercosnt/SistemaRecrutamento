@@ -84,3 +84,112 @@ export async function getMeuAgendamento(
   const rows = (data ?? []) as MeuAgendamentoRow[]
   return rows[0] ?? null
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGEND-05 — client-side `.ics` (RFC 5545) + the upcoming/≤24h pure predicates.
+//
+// The calendar file is hand-rolled (LOCKED: zero new npm — no `ics`/`ical-generator`
+// dependency). The format is tiny and stable; the ONLY subtleties are the mandatory
+// CRLF line joins (Outlook rejects bare LF), the TEXT escaping of SUMMARY/LOCATION
+// (a comma in an address would otherwise break the VEVENT — RFC 5545 §3.3.11), and
+// emitting the timestamptz in basic UTC form (`YYYYMMDDTHHMMSSZ`). The SUMMARY is a
+// GENERIC constant — `vaga_id` is outside the RPC allowlist, so no vaga name / no PII
+// ever reaches the file (T-35-01/T-35-04).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UMA_HORA_MS = 60 * 60 * 1000
+const VINTE_QUATRO_HORAS_MS = 24 * UMA_HORA_MS
+
+/** The generic calendar title — never a vaga name (vaga_id is outside the allowlist). */
+const ICS_SUMMARY = 'Entrevista Beauty Smile'
+
+/**
+ * ISO timestamptz → the iCalendar basic UTC form.
+ * `2026-07-20T17:30:00.000Z` → `20260720T173000Z`.
+ */
+function toIcsUtc(iso: string): string {
+  return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
+}
+
+/** Escapes iCalendar TEXT (RFC 5545 §3.3.11): backslash, semicolon, comma, newline. */
+function escapeIcsText(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n')
+}
+
+/**
+ * Builds the VCALENDAR/VEVENT string for the candidate's interview. Required VEVENT
+ * fields (UID/DTSTAMP/DTSTART) + DTEND (+1h) + generic SUMMARY + optional LOCATION
+ * (only when a link/local exists). Lines joined with CRLF (`\r\n`) — mandatory.
+ */
+export function gerarIcsAgendamento(row: MeuAgendamentoRow): string {
+  const dtStart = toIcsUtc(row.data_hora)
+  const dtEnd = toIcsUtc(
+    new Date(new Date(row.data_hora).getTime() + UMA_HORA_MS).toISOString(),
+  )
+  const dtStamp = toIcsUtc(new Date().toISOString())
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Beauty Smile//Recrutamento//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${row.id}@recrutamento.beautysmile`,
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${escapeIcsText(ICS_SUMMARY)}`,
+    ...(row.local_ou_link
+      ? [`LOCATION:${escapeIcsText(row.local_ou_link)}`]
+      : []),
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ]
+  return lines.join('\r\n') // CRLF is mandatory (Outlook rejects bare LF)
+}
+
+/**
+ * Triggers the `.ics` download synchronously — mirrors the Blob/anchor idiom of
+ * `biasAuditService.ts:147-155` (no npm, no loading state).
+ */
+export function baixarIcsAgendamento(row: MeuAgendamentoRow): void {
+  const blob = new Blob([gerarIcsAgendamento(row)], {
+    type: 'text/calendar;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'entrevista-beauty-smile.ics'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * The AGEND-05 gate shared by the `.ics` button AND the ≤24h badge: the interview is
+ * in the future AND not cancelled. An invalid ISO is treated as not-upcoming (guard).
+ */
+export function ehUpcomingNaoCancelada(
+  iso: string,
+  status: StatusAgendamento,
+  now: Date = new Date(),
+): boolean {
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return false
+  return t > now.getTime() && status !== 'cancelada'
+}
+
+/**
+ * True when the interview is within the next 24h: `0 < (data_hora − now) ≤ 24h`
+ * (inclusive at exactly 24h). Past/now → false.
+ */
+export function estaDentroDe24h(iso: string, now: Date = new Date()): boolean {
+  const diff = new Date(iso).getTime() - now.getTime()
+  return diff > 0 && diff <= VINTE_QUATRO_HORAS_MS
+}
