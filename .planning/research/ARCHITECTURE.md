@@ -1,309 +1,336 @@
-# Architecture Research — M6 (Operação do Funil RH)
+# Architecture Research — M7 Transactional Email Pipeline (COMM)
 
-**Domain:** ATS funnel operation on an existing React 18 + Vite + TS-strict + Supabase codebase (v5.0 shipped). Integration-heavy, net-new OPER features on top of a shipped 6-stage funnel.
-**Researched:** 2026-07-14
-**Confidence:** HIGH (verified against migration files + generated `database.types.ts` + live-verified function bodies. The Supabase MCP tool is stripped from this restricted agent — upstream bug anthropics/claude-code#13898 — so LIVE checks were done via migration headers that state "verified against PROD via pg_get_functiondef", which is the authoritative reconciled source of truth in this repo, cross-checked against the generated types.)
+**Domain:** Transactional email/notification layer bolted onto an existing Supabase (Postgres + Auth + Storage + Edge Functions/Deno) ATS
+**Researched:** 2026-07-17
+**Confidence:** HIGH (every integration point verified against shipped in-repo code; only cross-checked external detail is the Resend attachments API, verified against Resend docs)
 
-> **Headline for the roadmapper:** M6 is almost entirely a *reuse + tighten* milestone, not a build-from-scratch one. Four of the five features integrate with primitives that already exist (`avancar_etapa()` trigger, `historico_candidatura`, `analise_candidato_vaga`, `curriculos` bucket). The real work is: (1) one clean new table for scheduling, (2) two SECURITY DEFINER read-primitives (KPIs RPC + CV signed-URL EF), (3) **closing two live horizontal-scope leaks** the milestone can't ship without (`curriculos` Storage read + `historico_candidatura` RH RLS are both still role-only), and (4) extending the existing Kanban/triagem write-path to per-stage advance/reject with justification. **Everything server-side + RLS-secured must land before any UI.**
+> Scope note: this is an INTEGRATION study, not a greenfield stack study. The stack is locked (Resend, server-side dispatch, 4 events, transactional LGPD, panel timeline). Everything below answers "how does the new notification layer wire into the existing architecture" and hands the roadmapper explicit new-vs-modified components + a dependency-ordered build sequence.
+
+---
+
+## Executive Answer (the 6 decisions, up front)
+
+1. **Trigger source of truth = a MIX, and that is the correct answer.** Two of the four events are `historico_candidatura` INSERTs (the canonical transition log); two are NOT recorded there and must fire off their own table mutation. `historico_candidatura` is written by `avancar_etapa()` which is a **BEFORE UPDATE OF etapa_atual** trigger — so a candidatura INSERT and an interview-scheduling INSERT produce **no** transition row. Forcing all four through `historico_candidatura` is impossible; forcing them through the per-table SEC-03 status triggers loses the fine-grained etapa mapping. Use the transition log for the two real transitions (event 2, event 4) and satellite triggers for the two non-transition mutations (event 1, event 3).
+2. **Dispatch topology = DB trigger → `net.http_post` → EF `notificar-candidato` → Resend.** Reject trigger→direct-Resend-REST. PII resolution (allowlist read of nome/email) and template rendering live in the EF. The trigger body carries **ids only, zero PII** (SEC-03 discipline). The EF authenticates the DB-originated request by **self-authenticating a shared-secret Bearer** (`--no-verify-jwt` deploy + `Bearer == NOTIFICAR_SECRET ?? service_role`), mirroring `analise-candidato-individual` verbatim.
+3. **`notificacoes_enviadas` is one table doing triple duty:** audit log + idempotency guard (UNIQUE `dedupe_key`) + retry queue (partial index on `status IN ('pendente','falhou')`). RH-readable (vaga-scoped), candidate-hidden (no candidate SELECT policy). Retry = **pg_cron sweep** (pg_cron already live in this project), tentativas-capped; manual RH re-send is a deferrable enhancement.
+4. **`.ics` for the interview invite is regenerated server-side in the EF** — the existing client-side RFC-5545 builder (`agendamentoCandidatoService.gerarIcsAgendamento`) is a **pure function**; port it verbatim into a Deno `_shared/ics.ts` and attach as a base64 Resend attachment (`content_type: 'text/calendar'`).
+5. **Timeline estimate = a small static per-stage SLA config table** (`config_sla_etapa`, non-PII, public-read), surfaced in the candidate dashboard waiting-state cards. A DEFINER-RPC computing turnaround from `historico_candidatura` history is a **future** upgrade (needs data volume M6 hasn't accumulated) — note it, don't build it in M7.
+6. **Build order:** enums+tables → EF+Resend+ics port+templates (deploy dormant) → triggers rewire (retire n8n, resolve SEC-03) → timeline (parallelizable) → pg_cron retry sweep → (deferred) RH re-send.
 
 ---
 
 ## Standard Architecture
 
-### System Overview — where M6 features attach
+### System Overview
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│  CLIENT (React SPA, anon key only)                                       │
-│  ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐     │
-│  │ RH work-queue /  │   │ RH candidate     │   │ Candidate        │     │
-│  │ Kanban + KPIs    │   │ view (CV + IA)   │   │ dashboard        │     │
-│  └───────┬──────────┘   └───────┬──────────┘   └───────┬──────────┘     │
-│          │ TanStack Query        │                       │ own-row read  │
-├──────────┼──────────────────────┼───────────────────────┼───────────────┤
-│  DATA ACCESS (Supabase JS, RLS-enforced)                 │               │
-│  ┌───────▼──────────┐  ┌─────────▼────────┐  ┌───────────▼───────────┐   │
-│  │ UPDATE           │  │ RPC funil_kpis   │  │ SELECT own candidatura│   │
-│  │ candidaturas     │  │ (DEFINER,        │  │ + own historico       │   │
-│  │ .etapa_atual     │  │  vaga-scoped)    │  │ + own agendamento     │   │
-│  └───────┬──────────┘  └─────────┬────────┘  └───────────────────────┘   │
-│          │ fires trigger          │ reads                                 │
-├──────────┼──────────────────────┼───────────────────────────────────────┤
-│  PRIVILEGED (Edge Functions, service_role, authenticate-THEN-authorize)  │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ get-curriculo-url  (NEW — signed URL, vaga-owner authorized)       │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-├──────────────────────────────────────────────────────────────────────────┤
-│  POSTGRES                                                                 │
-│  ┌─────────────┐  ┌──────────────────────┐  ┌────────────────────────┐   │
-│  │ candidaturas │→│ avancar_etapa()      │→│ historico_candidatura   │   │
-│  │ (etapa_atual)│  │ BEFORE UPDATE trigger│  │ (KPI EVENT SOURCE)      │   │
-│  └─────────────┘  └──────────────────────┘  └────────────────────────┘   │
-│  ┌─────────────────────────┐  ┌────────────────────────────────────┐     │
-│  │ agendamentos_entrevista │  │ analise_candidato_vaga /           │     │
-│  │ (NEW)                    │  │ comparativo_solicitado / scores…   │     │
-│  └─────────────────────────┘  └────────────────────────────────────┘     │
-│  Storage bucket: curriculos (private, {auth.uid()}/{uuid}.pdf)           │
-└──────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│  POSTGRES (source-of-truth mutations)                                      │
+│                                                                            │
+│  candidaturas ──INSERT──────────────────► trg_notif_candidatura_recebida   │  event 1
+│      │  UPDATE OF etapa_atual                                              │
+│      ▼                                                                      │
+│  avancar_etapa() [BEFORE UPDATE, unbypassable] ──writes one row──►         │
+│  historico_candidatura ──INSERT──► trg_notif_transicao (CASE etapa_para)   │  events 2 & 4
+│                                                                            │
+│  agendamentos_entrevista ──INSERT──► trg_notif_convite_entrevista          │  event 3
+│                                                                            │
+│  Each trigger: SECURITY DEFINER, search_path='', reads Vault               │
+│  (project_url + edge_invoke_key), graceful-skip if NULL,                   │
+│  PERFORM net.http_post(body = IDS ONLY, no PII)                            │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                 │  pg_net (async, fire-and-forget)
+                                 │  Authorization: Bearer <edge_invoke_key>
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  EDGE FUNCTION  notificar-candidato   (Deno, --no-verify-jwt)              │
+│   1. self-auth Bearer == NOTIFICAR_SECRET ?? service_role  → 401 else      │
+│   2. parse { evento, candidatura_id, [historico_id|agendamento_id] }       │
+│   3. IDEMPOTENT CLAIM: INSERT notificacoes_enviadas(status='pendente')     │
+│         ON CONFLICT (dedupe_key) DO NOTHING RETURNING id  → 0 rows = skip   │
+│   4. allowlist read: candidatos(nome_completo,email) + vaga/agendamento    │
+│         (NEVER select('*'); never observacoes_rh)                          │
+│   5. render Beauty Smile template (4 variants; D-15 neutral for rejection) │
+│   6. [event 3] build .ics via _shared/ics.ts → base64 attachment          │
+│   7. POST api.resend.com/emails  (reuse cost-alerter fetch pattern)        │
+│   8. UPDATE row → status='enviado'+provider_message_id  |  'falhou'+erro   │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                 │  HTTPS
+                                 ▼
+                          ┌───────────────┐       ┌──────────────────────────┐
+                          │    RESEND     │       │  pg_cron sweep (retry)   │
+                          │ (DKIM/domain) │       │  falhou/pendente rows,   │
+                          └───────────────┘       │  tentativas<MAX →         │
+                                                  │  re-net.http_post the EF │
+                                                  └──────────────────────────┘
+
+CANDIDATE PANEL (pull, complements the push)
+  DashboardCandidatoPage waiting-state card
+     └─ reads config_sla_etapa (etapa → prazo_dias) → "triagem — resposta em até X dias"
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | New / Modified | Integration point |
-|-----------|----------------|----------------|-------------------|
-| `avancar_etapa()` trigger | Validate transition + write ONE `historico_candidatura` row per transition. **Sole owner** of audit writes. | REUSE as-is (do NOT re-author unless diffed vs live body) | `candidaturas.etapa_atual` UPDATE |
-| `historico_candidatura` | Immutable event log — the KPI source of truth (from/to stage, actor, ts, justification, `auto_rejeitado`). | REUSE; **RH RLS must be tightened** (role-only → vaga-scoped) or read only via DEFINER RPC | trigger writes; KPI RPC reads |
-| `updateCandidaturaEtapa` (triagemService) | Client write-path: `UPDATE candidaturas SET etapa_atual` under RLS. | MODIFY — add optional `justificativa` → `etapa_justificativa`; surface across all 6 stages | drives trigger |
-| `agendamentos_entrevista` (NEW table) | Per-candidatura interview schedule (date/time/link/modality/status). | NEW | candidate own-row read; RH vaga-scoped |
-| `funil_kpis` RPC (NEW, DEFINER) | Server-side, vaga-scoped, PII-safe aggregation over `historico_candidatura`. | NEW | replaces `RelatoriosRHPage` client aggregation |
-| `get-curriculo-url` EF (NEW) | Authenticate-THEN-authorize (vaga owner OR admin) → service_role signed URL for `curriculos`. | NEW | closes the role-only Storage leak |
-| `analise_candidato_vaga` / `comparativo_solicitado` / `scores_candidato` | AI triagem output surfaced on RH candidate view. | REUSE (already vaga-scoped since P24) | RH read; candidate DENY |
+| Component | Responsibility | New / Modified | Implementation basis |
+|-----------|----------------|----------------|----------------------|
+| `trg_notif_candidatura_recebida` | Fire event 1 on `AFTER INSERT ON candidaturas` | **NEW** | clone of `trg_candidatura_analise` (10-02) |
+| `trg_notif_transicao` | Fire events 2 & 4 on `AFTER INSERT ON historico_candidatura`, CASE on `etapa_para` | **NEW** | new trigger on the canonical log |
+| `trg_notif_convite_entrevista` | Fire event 3 on `AFTER INSERT ON agendamentos_entrevista` | **NEW** | clone of 10-02 pattern |
+| SEC-03 n8n triggers (`trg_n8n_nova_candidatura`, `_status_candidatura`, `_revisao_decisao`) + `trg_n8n_novo_candidato` | — | **DROPPED** (retire n8n; resolves SEC-03 by substitution) | were dormant/graceful-skip |
+| EF `notificar-candidato` | Self-auth, idempotent claim, allowlist PII read, template render, Resend send, log outcome | **NEW** | structure = `analise-candidato-individual`; Resend call = `cost-alerter` |
+| `_shared/ics.ts` (Deno) | Server-side RFC-5545 `.ics` builder | **NEW (verbatim port)** | port of `agendamentoCandidatoService.gerarIcsAgendamento` |
+| `notificacoes_enviadas` + 2 enums | Audit + idempotency + retry queue | **NEW** | schema below |
+| `config_sla_etapa` + seed | Static per-stage turnaround estimate | **NEW** | non-PII reference table |
+| pg_cron retry job | Sweep failed/pending sends, re-fire EF | **NEW** | reuse pg_cron (Phase 9 precedent) |
+| DashboardCandidatoPage waiting-state card | Surface the estimate | **MODIFIED** | existing candidate dashboard |
+| `avancar_etapa()` trigger + `historico_candidatura` table | — | **UNTOUCHED** (reuse-and-tighten) | canonical write-path |
+| Vault secrets `project_url` + `edge_invoke_key` | DB→EF invoke auth | **REUSED as-is** | live since Phase 9; NOT `n8n_webhook_base` |
 
 ---
 
-## Feature-by-feature integration (new vs modified + RLS per feature)
+## Architectural Patterns
 
-### Feature 1 — Per-stage advance/reject across ALL 6 stages
+### Pattern 1: Canonical-transition-log trigger + two satellites (the source-of-truth mix)
 
-**Verdict: REUSE `avancar_etapa()` + `historico_candidatura`. Do NOT add a new write-path. Do NOT re-author the trigger.**
+**What:** Events that ARE etapa transitions fire from `historico_candidatura` (one row per transition, already written by `avancar_etapa()` for every advance/reject/knockout). Events that are NOT transitions fire from their own mutation.
 
-**How it works today (verified):** the RH funnel already moves via `triagemService.updateCandidaturaEtapa()` → a plain `UPDATE candidaturas SET etapa_atual = ..., status = ...` through the **anon client under RLS**. The `avancar_etapa()` BEFORE-UPDATE trigger fires inside that same transaction and:
-- allows forward/skip-ahead freely; allows terminals (`aprovado`/`rejeitado`) from any stage;
-- **requires a non-empty `etapa_justificativa` for regressions** (moving backward by enum ordinal) — else `RAISE EXCEPTION`;
-- holds a forward advance *past* `entrevista_online` while an `entrevista_analises` row has `bloqueio_avanco=true AND revisao_confirmada_em IS NULL` (the ENTREV-03 bias-review flag guard — **the exact guard a past migration silently dropped**);
-- writes exactly ONE `historico_candidatura` row with `ator = auth.uid()` and a GUC-gated `auto_rejeitado`.
+**Why the mix is forced (not a compromise):**
+- `avancar_etapa()` is **BEFORE UPDATE OF etapa_atual** — a candidatura INSERT writes **no** historico row (verified: `20260607000005_avancar_etapa_trigger.sql:96-99` binds `BEFORE UPDATE OF etapa_atual`). So **event 1 (confirmation) cannot come from the log.**
+- Interview scheduling is an `agendamentos_entrevista` INSERT (M6), independent of the etapa move; the etapa may already be `entrevista_online` with no date yet. The invite needs `data_hora`/`local_ou_link`, which only the agendamento row carries. So **event 3 cannot come from the log.**
+- Events 2 and 4 ARE transitions and DO land in the log: `avancar_etapa()` writes `etapa_de → etapa_para` for every `UPDATE OF etapa_atual`, including the `rejeitar_candidatura` RPC (`20260714100001:146-151` sets `etapa_atual='rejeitado'`) and the synchronous knockout auto-reject (ator NULL, auto_rejeitado=true).
 
-So "per-stage advance/reject across all 6 stages" is **almost entirely a UI/wiring delta over an already-correct server primitive.** The M4/P25 Kanban already uses this path; M6 exposes explicit per-stage advance + reject controls on every stage (today they are concentrated on the triagem/comparativo surface).
+**Event → trigger mapping (LOCKED recommendation):**
 
-**What to MODIFY:** extend `updateCandidaturaEtapa` to accept an optional `justificativa` and write it to `etapa_atual` + `etapa_justificativa` in the same UPDATE. The trigger copies `etapa_justificativa` → `historico_candidatura.criterio_texto`, so the audit trail captures the reason with zero extra writes.
+| # | Event | Trigger | Predicate | dedupe_key |
+|---|-------|---------|-----------|------------|
+| 1 | `candidatura_recebida` | `AFTER INSERT ON candidaturas` | (optional survivor guard — see Open Q1) | `candidatura_id \|\| ':candidatura_recebida'` |
+| 2 | `avaliacao_liberada` | `AFTER INSERT ON historico_candidatura` | `etapa_para = 'avaliacao_assincrona'` | `historico_id` (unique per transition) |
+| 3 | `convite_entrevista` | `AFTER INSERT ON agendamentos_entrevista` | `status <> 'cancelada'` | `agendamento_id` |
+| 4 | `decisao_final` | `AFTER INSERT ON historico_candidatura` | `etapa_para IN ('aprovado','rejeitado')` | `historico_id` |
 
-**Avoiding the double-write bug (the Phase-8 regression):** the historical bug wrote `historico_candidatura` *explicitly* AND let the trigger fire → 2 rows. **Invariant for M6: NO code path may INSERT into `historico_candidatura` directly.** The trigger is the sole owner. Every advance/reject is expressed as a `candidaturas` UPDATE and nothing else. (The one sanctioned exception — the knockout row in `submit_candidatura_atomic` — is out of M6 scope and is structured to not double-fire because it leaves `etapa` unchanged.)
+Events 2 and 4 are **one trigger** (`trg_notif_transicao`) with a CASE on `etapa_para` selecting the event — one place to reason about all transition-driven mail.
 
-**Keeping RNF-07a intact:** advance/reject here is always human-initiated → `ator = auth.uid()` is non-null → the GUC-gated `auto_rejeitado` predicate evaluates FALSE. No score-driven auto-rejection path is added. The `guard_rejeicao_auditada` backstop (P25) and the ENTREV-03 flag guard remain untouched.
+**Avoiding double-fire:**
+- The SEC-03 `trg_n8n_status_candidatura` fires on `UPDATE OF status`. A single reject changes BOTH `status` and `etapa_atual`, so keeping it alongside the historico trigger would double-fire. **Resolution: drop all SEC-03 n8n triggers entirely** (they are dormant graceful-skips; M7 replaces the mechanism, not patches it — PROJECT.md "resolve SEC-03 por substituição").
+- Belt-and-suspenders: the `dedupe_key` UNIQUE index makes a second delivery physically impossible even if a trigger double-fires (pg_net retry, a double UPDATE). This is the same idempotency posture as `analise-candidato-individual`'s `UNIQUE(candidatura_id) + UPSERT`.
 
-**⚠ Live-function caveat (explicit, per the DBMIG-02 near-miss):** if any M6 migration must `CREATE OR REPLACE avancar_etapa()`, **first dump the live body with `pg_get_functiondef` and diff it** — a P27 draft re-derived the function from the Phase-6 base and silently dropped the ENTREV-03 flag guard; it was caught pre-apply. The current authoritative body is `supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql` (which states it reproduces the verified-against-PROD body). **Preferred M6 posture: do NOT touch the trigger at all** — the reject-with-justification feature needs zero trigger changes.
+**Trade-off:** three triggers instead of one. Accepted — it is the minimum that covers all four events without losing the etapa granularity or inventing PII-carrying payloads.
 
-**Legacy-RPC trap:** `database.types.ts` still exposes an M1-era `avancar_etapa(candidatura_uuid, usuario_rh_uuid)` overload and `rejeitar_candidato(candidatura_uuid, motivo, usuario_rh_uuid)` — **neither has a migration file and neither is the live write-path.** Do NOT wire M6 to these. The direct-UPDATE-fires-trigger path is the audited one.
+### Pattern 2: DB-trigger → pg_net → EF self-auth (dispatch + auth), NOT trigger → direct Resend
 
-**RLS status:** `candidaturas` UPDATE is already vaga-scoped (P24 `rh_avanca_etapa`: admin bypass OR `vaga_id IN (SELECT id FROM vagas WHERE created_by = auth.uid())`, in both USING and WITH CHECK). ✅ No change needed for advance/reject authorization.
+**What:** The trigger does one thing — `PERFORM net.http_post` to the EF with an ids-only body and a Vault Bearer. All logic (PII resolution, templating, Resend call, logging, idempotency) lives in the Deno EF.
 
----
+**Why not trigger → direct Resend REST from PL/pgSQL:**
+- HTML templating, base64 `.ics` attachment assembly, Resend error handling, and per-send audit-row writes are miserable in PL/pgSQL and trivial in TypeScript.
+- `net.http_post` is fire-and-forget async — it cannot do read→render→send→capture-result in one place. The EF can.
+- The precedent is already shipped and proven: `trg_candidatura_analise` (10-02) → `analise-candidato-individual`. Cloning it is zero-novelty.
 
-### Feature 2 — Interview scheduling (in-system, candidate sees on dashboard, no email)
+**The DB→EF auth mechanism (chosen, with rationale):**
+`net.http_post` carries **no user JWT** (there is no user session behind a trigger). Three candidates were considered:
 
-**Verdict: NEW lean table `agendamentos_entrevista`. Do NOT reuse the legacy `entrevistas_online` table. Do NOT add columns to `candidaturas`.**
+| Mechanism | Verdict |
+|-----------|---------|
+| Service-role JWT via `--no-verify-jwt` + EF self-auth of a shared-secret Bearer | **CHOSEN** — exact `analise-candidato-individual` pattern |
+| Supabase gateway JWT verification (default deploy) | Rejected — no user token exists to verify; would 401 every trigger call |
+| Anon key | Rejected — grants nothing; EF still needs service_role internally |
 
-**Why not `entrevistas_online`:** it exists with the exact fields (`data_agendada`, `link_videochamada`, `status`, `agendado_por`), but it is the **legacy M1 table explicitly documented as "untracked, unaudited-RLS"** (migration `20260624000001` header). Reusing it means auditing/rewriting all its policies anyway, and it drags in M1 baggage (`transcricao`, `gravacao_url`, `analise_ia`) that overlaps and conflicts with the M2-native `entrevista_analises` table → drift risk. Comparable effort to a clean table, more surface area, more confusion.
+Concretely, mirroring `analise-candidato-individual/index.ts:148-156` and its `Deno.serve` wiring (`ANALISE_SECRET ?? SERVICE_KEY`):
+- Trigger sends `Authorization: 'Bearer ' || <edge_invoke_key>` (the existing Vault secret, value == service_role — verified in 10-02 comment "the EF validates the Bearer == service_role").
+- EF deployed `--no-verify-jwt`; on entry compares `bearer !== (Deno.env NOTIFICAR_SECRET ?? SUPABASE_SERVICE_ROLE_KEY)` → 401. The env override exists purely for secret rotation without touching the service_role key.
 
-**Why not columns on `candidaturas`:** (a) can't cleanly model reschedules or an online-then-presential sequence (1:N); (b) the candidate's own-row `candidaturas` SELECT projects a limited allowlist — bolting a link/date onto that row muddies the projection boundary; (c) bloats the hottest table.
+**PII placement:** the trigger body is **ids only** (`evento`, `candidatura_id`, and one of `historico_id` / `agendamento_id`) — never nome/email/cpf. This is the exact SEC-03 rule ("Body = ids/status/event only, no PII"). The EF resolves `candidato_id` + nome + email from `candidatura_id` via an allowlist projection (`candidatos.select('nome_completo, email')`, never `select('*')` — [[reference_select_star_leaks_pii]]).
 
-**Recommended table shape** (`agendamentos_entrevista`):
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid pk | |
-| `candidatura_id` | uuid FK → candidaturas | scoping anchor |
-| `modalidade` | enum(`online`,`presencial`) | reuse concept from the 2 legacy interview tables |
-| `data_hora` | timestamptz | the scheduled slot |
-| `link_videochamada` | text null | online only; candidate-visible |
-| `local` | text null | presential only; candidate-visible |
-| `status` | reuse `status_entrevista` enum (`agendada`/`reagendada`/`cancelada`/…) | already exists |
-| `observacoes_rh` | text null | **RH-only, must NOT be projected to candidate** |
-| `agendado_por` | uuid FK → usuarios_rh | actor |
-| `created_at`/`updated_at`/`deleted_at` | timestamptz | soft-delete for reschedule history |
-
-**RLS (both directions, per feature):**
-- **RH write/read — vaga-scoped (WR-04 predicate, NOT role-only):**
-  `administrador` bypass OR `candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id = c.vaga_id WHERE v.created_by = auth.uid())`. This is the exact join-scoped predicate P24 used for `redacoes_candidato` (which also has no direct `vaga_id`). Apply to SELECT/INSERT/UPDATE with USING + WITH CHECK.
-- **Candidate read — own-row only, PII-safe projection:**
-  candidate SELECT policy: `candidatura_id IN (SELECT id FROM candidaturas WHERE candidato_id IN (SELECT id FROM candidatos WHERE user_id = auth.uid()))`. **But RLS is row-level, not column-level** ([[reference_select_star_leaks_pii]]) — so the candidate client must read an **explicit allowlist** (`modalidade, data_hora, link_videochamada, local, status`) and NEVER `select('*')`, because `observacoes_rh` is on the same row. Belt-and-suspenders: consider a `get_meu_agendamento(candidatura_id)` DEFINER RPC returning only candidate-safe columns if the projection discipline is deemed fragile.
-
-**How the candidate dashboard reads it:** the candidate hub (`HubCandidatoRH`) is already `etapa_atual`-driven and takes a `contexto` prop assembled from the candidate's own `candidaturas` row (read via the `candidato_le_propria_candidatura` own-row policy). Scheduling slots in as: when `etapa_atual ∈ {entrevista_online, entrevista_presencial}`, fetch the latest non-deleted `agendamentos_entrevista` own-row and render date/link in the existing "Próximo passo" turquoise CTA. No email, no push — pure dashboard read, matching the COMM-out-of-scope constraint.
-
-**RH action:** create/reschedule/cancel is a plain insert/update to `agendamentos_entrevista` under vaga-scoped RLS (no EF needed — no service_role, no privileged read). Optionally the RH scheduling action ALSO advances `etapa_atual` to the interview stage in the same flow (two independent writes; the funnel move fires the trigger as usual).
-
----
-
-### Feature 3 — CV + AI-analysis visible to RH
-
-**Two sub-parts with very different security postures.**
-
-**3a. AI analysis (`analise_candidato_vaga.score_match/resumo/gaps/flags` + `comparativo_solicitado` + `scores_candidato`):**
-- **Already vaga-scoped since P24** (`rh_le_analise`, `rh_le_comparativo` = admin bypass OR owns vaga). Candidate has DENY (no SELECT policy). ✅
-- This is a **read-only wiring feature**: surface the already-stored analysis on the RH candidate view. No new table, no new RLS, no leak to the candidate (candidate simply has no read path to these tables). Confirm the RH client reads an explicit column allowlist (not `select('*')`) to stay disciplined.
-
-**3b. CV file (private `curriculos` bucket) — ⚠ CONTAINS A LIVE HORIZONTAL LEAK M6 MUST CLOSE:**
-- The `curriculos` Storage SELECT policy is **role-only**: `role IN ('rh','administrador')` reads **ANY** candidate's CV — the exact horizontal-scope class P24 fixed for the analysis tables but **never fixed for Storage.** A recruiter can currently download the CV of a candidate on a vaga they don't own. Path schema is `{auth.uid()}/{uuid}.pdf` (candidate's auth.uid() as folder), so the object row carries no `vaga_id`.
-- **Recommended fix (matches the codebase's authenticate-THEN-authorize precedent): a new EF `get-curriculo-url`.** It (1) `getUser()` authenticates, (2) resolves role from `usuarios_rh` + authorizes **vaga ownership** (the candidatura's `vaga.created_by = rh.user_id` OR admin), then (3) mints a short-lived `createSignedUrl(path, ~60s)` with service_role. This mirrors the comparativo-EF IDOR guard ([[reference_ef_authenticate_vs_authorize]]) and avoids a gnarly 4-table JOIN inside a Storage RLS predicate that runs per-object. `candidaturas.curriculo_url` already stores the object path.
-- **Critically, ALSO remove the blanket role-only RH read from the Storage policy** so the EF becomes the *only* RH path (otherwise a recruiter can still `createSignedUrl` client-side and bypass the EF). Candidate own-folder read/write/delete policies stay as-is. Net: one vaga-scoped path to a CV, matching the RLS-vaga-scoped invariant.
-- **Do not leak to candidate:** candidate keeps own-folder access only (unchanged); the analysis tables remain DENY for candidates.
-
----
-
-### Feature 4 — Funnel KPIs (work-queue + operational metrics)
-
-**Verdict: SECURITY DEFINER RPC (or a small set) over `historico_candidatura`, vaga-scoped inside the function. NOT client-side aggregation. NOT an unguarded SQL view.**
-
-**Why server-side is mandatory here (security, not just performance):** `historico_candidatura`'s RH SELECT policy `rh_le_historico` is **still role-only** — P24 explicitly *deferred* tightening it to the "Phase 25 funil-RH sweep," and no migration ever swept it (verified: no `historico_candidatura` POLICY exists in any migration after the P24 deferral note). So **any client-side aggregation over `historico_candidatura` would read every vaga's events → a horizontal KPI leak.** The current `RelatoriosRHPage.tsx` does exactly this kind of client-side `.from('candidaturas')` aggregation (the "M1 dead dashboard" the M5-DRAFT calls out) and should be replaced.
-
-Two acceptable ways to make it safe; **recommend the DEFINER RPC**:
-1. **`funil_kpis(...)` SECURITY DEFINER + `SET search_path=''`** that filters to the caller's owned vagas *inside* the function (`WHERE v.created_by = auth.uid()` unless admin). PII-safe (returns only aggregate counts/durations, no candidate identity), vaga-scoped by construction, and independent of the still-loose table RLS. Matches the pattern already used everywhere (`pontuar_sjt`, `get_avaliacao_status`, the KPI-style DEFINER functions).
-2. *(Alternative / complementary)* Tighten `rh_le_historico` to the WR-04 vaga-scoped predicate AND expose a plain SQL view. Lower-effort but the view must still be vaga-scoped, and aggregation-in-the-client is chattier. Prefer the RPC; optionally tighten `rh_le_historico` anyway as defense-in-depth (it is a latent leak regardless of M6).
-
-**Query shapes (sketch — all over `historico_candidatura`, joined to `candidaturas`→`vagas` for scope):**
-
-- **Volume per vaga/stage** — count of candidaturas that ever reached each stage:
-  ```sql
-  SELECT v.id AS vaga_id, h.etapa_para AS etapa, count(DISTINCT h.candidatura_id) AS volume
-  FROM historico_candidatura h
-  JOIN candidaturas c ON c.id = h.candidatura_id
-  JOIN vagas v ON v.id = c.vaga_id
-  WHERE (<is_admin> OR v.created_by = auth.uid())
-  GROUP BY v.id, h.etapa_para;
-  ```
-- **Conversion (stage N → N+1)** — reached(N+1) / reached(N), computed from the volume-per-stage counts above using the `etapa_processo` enum ordinal ordering (forward stages only; terminals `aprovado`/`rejeitado` handled separately).
-- **Time-in-stage** — timestamp delta between a candidatura's consecutive transitions, via `LEAD` over the ordered event stream:
-  ```sql
-  SELECT h.candidatura_id, h.etapa_de AS etapa,
-         lead(h.criado_em) OVER (PARTITION BY h.candidatura_id ORDER BY h.criado_em) - h.criado_em AS tempo_na_etapa
-  FROM historico_candidatura h
-  -- then aggregate avg/median tempo_na_etapa per etapa, scoped to owned vagas
-  ```
-  (Current in-flight candidaturas: `now() - criado_em` of the last transition gives time-in-current-stage for the work-queue view.)
-
-**Work-queue view:** the "fila de trabalho real" is a filtered/sorted `candidaturas` read (already vaga-scoped) — e.g. per-stage buckets sorted by time-in-current-stage — powered by the same DEFINER RPC or a scoped `candidaturas` query, joined to `analise_candidato_vaga.score_match` for triage ordering.
-
----
-
-### Feature 5 — Reject from comparativo with mandatory justification (funil-02, tech-debt)
-
-**Verdict: a thin variant of Feature 1 — same write-path, justification made mandatory at the UI/service layer.**
-
-The comparativo screen already has inline advance/reject actions calling `updateCandidaturaEtapa`. funil-02 adds: reject-from-comparativo **requires a non-empty justification**, written to `etapa_justificativa` (→ `historico_candidatura.criterio_texto` via the trigger) and optionally mirrored to `candidaturas.motivo_rejeicao`. `ator = auth.uid()` (human) → `auto_rejeitado=false`, RNF-07a preserved, full audit trail. **No new server primitive** — enforce the "justification non-empty" rule in the service/Zod schema, since the trigger only *requires* justification for regressions, not terminals. This is the smallest feature; it rides entirely on Feature 1's plumbing.
-
----
-
-## Architectural Patterns (established in this codebase — reuse verbatim)
-
-### Pattern 1: Funnel move = `UPDATE candidaturas.etapa_atual`; trigger owns the audit
-**What:** never write `historico_candidatura` from application code. Express every transition as a scoped UPDATE; the BEFORE-UPDATE trigger validates + audits atomically.
-**When:** all M6 advance/reject/schedule-then-advance flows.
-**Trade-off:** one indivisible audit row per transition; impossible to double-write **as long as** no code also INSERTs history.
-```ts
-// MODIFY: add optional justificativa; still ONE write, trigger does the rest
-await supabase.from('candidaturas')
-  .update({ etapa_atual: novaEtapa, ...(novaEtapa === 'rejeitado' && { status: 'rejeitado' }), etapa_justificativa: justificativa ?? null })
-  .eq('id', candidaturaId)   // RLS vaga-scopes; trigger writes historico_candidatura
+**Example (trigger body — clone of 10-02):**
+```sql
+PERFORM net.http_post(
+  url := v_project_url || '/functions/v1/notificar-candidato',
+  headers := jsonb_build_object('Content-Type','application/json',
+                                'Authorization','Bearer ' || v_invoke_key),
+  body := jsonb_build_object('evento','avaliacao_liberada',
+                             'candidatura_id', NEW.candidatura_id,
+                             'historico_id',   NEW.id)   -- ids only, no PII
+);
 ```
 
-### Pattern 2: WR-04 vaga-scoped RLS predicate (admin bypass OR owns-vaga), never role-only
-**What:** every RH-facing SELECT/UPDATE policy uses `(auth.jwt() #>> '{app_metadata,role}') = 'administrador' OR (= 'rh' AND vaga_id IN (SELECT id FROM vagas WHERE created_by = auth.uid()))`; join through `candidaturas` when the table has no direct `vaga_id`.
-**When:** the new `agendamentos_entrevista` table; tightening `historico_candidatura` and `curriculos` Storage.
-**Trade-off:** slightly heavier predicate, but it is the only thing that stops horizontal IDOR — behavioral smokes (impersonated JWT) caught role-only / OR-defeat leaks that structural checks missed.
+### Pattern 3: The audit row IS the idempotency guard AND the retry queue
 
-### Pattern 3: Privileged read = authenticate-THEN-authorize Edge Function
-**What:** service_role EF that `getUser()`s, resolves role from `usuarios_rh`, checks vaga ownership, THEN acts. Authentication ≠ authorization ([[reference_ef_authenticate_vs_authorize]]).
-**When:** `get-curriculo-url` signed-URL EF.
-**Trade-off:** more moving parts than client-side, but centralizes authorization and keeps service_role off the client (hard security rule).
+**What:** `notificacoes_enviadas` is not a passive log. The EF's first DB write is an **idempotent claim**: insert a `pendente` row `ON CONFLICT (dedupe_key) DO NOTHING RETURNING id`. Zero rows returned ⇒ a prior attempt already owns this send ⇒ skip (exactly-once). After a successful Resend call it flips the row to `enviado` + `provider_message_id`; on failure to `falhou` + `erro` and `tentativas = tentativas + 1`. The partial index over `status IN ('pendente','falhou')` is the retry queue the pg_cron sweep drains.
 
-### Pattern 4: SECURITY DEFINER RPC for reads that must ignore loose table RLS
-**What:** DEFINER + `SET search_path=''`, vaga-scope *inside* the function body, return PII-safe aggregates.
-**When:** `funil_kpis`; optional `get_meu_agendamento` candidate projection.
+**When to use:** any at-least-once delivery source (pg_net can retry; a double UPDATE can double-fire) that must become exactly-once. Same discipline as the analise EF's UPSERT-on-unique.
 
----
+**Trade-off:** one extra round-trip (the claim) before every send. Cheap, and it is the single mechanism that makes double-fire, replay, and retry all safe.
 
-## Data Flow — the three new/changed flows
+### Pattern 4: Pure `.ics` builder ported across the Deno boundary (don't re-derive, don't share-import)
 
-1. **RH advances/rejects a candidatura (all stages):**
-   `RH action → updateCandidaturaEtapa(id, etapa, justificativa?) → UPDATE candidaturas (RLS vaga-scoped) → avancar_etapa() trigger validates + INSERT historico_candidatura (ator=auth.uid()) → TanStack Query invalidates Kanban + KPIs`
-2. **RH schedules an interview; candidate sees it:**
-   `RH form → INSERT/UPDATE agendamentos_entrevista (RLS vaga-scoped) [+ optional etapa advance] → candidate dashboard SELECT own-row agendamento (allowlist) → render date/link in "Próximo passo"`
-3. **RH opens a candidate's CV + AI analysis:**
-   `RH candidate view → SELECT analise_candidato_vaga/comparativo (already vaga-scoped) + invoke get-curriculo-url EF (authorize vaga owner → service_role signed URL) → render signed link (~60s)`
+**What:** `agendamentoCandidatoService.gerarIcsAgendamento` + `escapeIcsText` + `foldIcsLine` + `toIcsUtc` are **pure, dependency-free** (verified — RFC-5545 CRLF joins, §3.3.11 TEXT escaping, §3.1 75-octet folding, basic-UTC timestamps, generic non-PII `SUMMARY`). They live in `src/` (browser); the EF lives in `supabase/functions/` (Deno) — the two trees can't share a module cleanly.
+
+**Recommendation:** port them **verbatim** into `supabase/functions/_shared/ics.ts` (a ~60-line copy). Regenerate the `.ics` in the EF from the agendamento allowlist read, then attach to Resend as `{ filename:'entrevista-beauty-smile.ics', content: base64(ics), content_type:'text/calendar' }` (Resend attachments API confirmed: `content` accepts a base64 string, `content_type` derivable/overridable). Keep the generic `SUMMARY` constant — `vaga_id` stays outside the projection, so no vaga name / no PII reaches the file (matches the client builder's T-35-01/04 note).
+
+**Do NOT** re-invent the ics logic in the EF (drift risk) and do NOT try to import the `src/` module (cross-runtime). A verbatim port with a comment pointing back to the source is the honest choice. (Minor: the ported builder emits `METHOD:PUBLISH` — an "add to calendar" attachment, not a REQUEST/accept-decline invite. That matches the existing client behavior and is fine for MVP; flag REQUEST semantics as a future nicety.)
 
 ---
 
-## Anti-Patterns (specific to this integration)
+## Data Flow (per event, end-to-end)
 
-### Anti-Pattern 1: Explicitly INSERT-ing `historico_candidatura` alongside a funnel UPDATE
-**What people do:** "record the transition" by writing history in the service, on top of the trigger. **Why wrong:** double-write (the exact Phase-8 bug) — two audit rows, corrupt KPIs. **Instead:** only UPDATE `candidaturas`; the trigger is the sole writer.
+**Event 1 — candidatura_recebida**
+`INSERT candidaturas` → `trg_notif_candidatura_recebida` → pg_net(body: `{evento, candidatura_id, candidato_id:NEW.candidato_id}`) → EF: claim(`candidatura_id:candidatura_recebida`) → allowlist read `candidatos(nome,email)` + `vagas(titulo)` → render "recebemos sua candidatura para <vaga>" → Resend (no attachment) → log. *No `.ics`.* Survivor-guard decision flagged in Open Q1.
 
-### Anti-Pattern 2: `CREATE OR REPLACE avancar_etapa()` from a migration file without diffing the live body
-**What people do:** re-author the trigger from an old migration. **Why wrong:** silently drops guards the live body accreted (the ENTREV-03 flag guard — a real near-miss). **Instead:** don't touch the trigger for M6; if unavoidable, `pg_get_functiondef` first and diff.
+**Event 2 — avaliacao_liberada**
+`UPDATE candidaturas.etapa_atual='avaliacao_assincrona'` → `avancar_etapa()` writes historico row → `trg_notif_transicao` (etapa_para match) → pg_net(`{evento:'avaliacao_liberada', candidatura_id, historico_id}`) → EF resolves candidato_id + PII from candidatura_id → render "sua próxima etapa está liberada" + panel link → Resend → log(dedupe=historico_id). *No `.ics`.*
 
-### Anti-Pattern 3: Client-side aggregation over `historico_candidatura` for KPIs
-**What people do:** `.from('historico_candidatura').select(...)` and aggregate in JS (like the M1 `RelatoriosRHPage`). **Why wrong:** RH RLS on that table is still role-only → every vaga's events leak. **Instead:** DEFINER RPC that vaga-scopes internally.
+**Event 3 — convite_entrevista**
+`INSERT agendamentos_entrevista(status='agendada')` → `trg_notif_convite_entrevista` → pg_net(`{evento:'convite_entrevista', candidatura_id, agendamento_id}`) → EF: allowlist read `agendamentos_entrevista(data_hora, local_ou_link, tipo)` (NEVER observacoes_rh) + `candidatos(nome,email)` → render invite (date/time/local, `America/Sao_Paulo`) → **build `.ics` via `_shared/ics.ts` → base64 attachment** → Resend → log(dedupe=agendamento_id). *Reagendamento handling (fire on `UPDATE OF data_hora` too, dedupe = agendamento_id + data_hora) is a discuss-phase decision; MVP = INSERT only.*
 
-### Anti-Pattern 4: Shipping CV visibility / KPIs on the existing role-only policies "because it works"
-**What people do:** reuse the role-only `curriculos` Storage read / role-only `historico` RLS. **Why wrong:** both are live horizontal leaks. **Instead:** close them as part of the feature (EF + tightened Storage policy; DEFINER RPC or tightened `rh_le_historico`).
+**Event 4 — decisao_final**
+`UPDATE candidaturas.etapa_atual IN ('aprovado','rejeitado')` (via `rejeitar_candidatura` RPC, the approve path, or synchronous knockout) → historico terminal row → `trg_notif_transicao` → pg_net(`{evento:'decisao_final', candidatura_id, historico_id, resultado:etapa_para}`) → EF renders **neutral D-15** language for rejeitado (criterio_texto/score NEVER in the email — RNF-12a/D-15), congrats+next-steps for aprovado → Resend → log(dedupe=historico_id). Unifies human reject + approve + knockout auto-reject in one path.
 
-### Anti-Pattern 5: `select('*')` on any row a candidate can read (scheduling, own candidatura)
-**What people do:** read the whole row. **Why wrong:** RLS is row-level, not column-level; `observacoes_rh` / internal fields leak ([[reference_select_star_leaks_pii]]). **Instead:** explicit candidate-safe allowlist (or a DEFINER projection RPC).
+---
 
-### Anti-Pattern 6: Wiring to the legacy `avancar_etapa(uuid,uuid)` / `rejeitar_candidato(uuid,text,uuid)` RPCs
-**What people do:** call the RPCs that appear in `database.types.ts`. **Why wrong:** M1-era, no migration file, not the audited live path. **Instead:** the direct-UPDATE path.
+## Proposed Schema — `notificacoes_enviadas`
+
+```sql
+-- enums (pt-BR domain; DO $$ ... duplicate_object guard for MCP replay-idempotency)
+CREATE TYPE public.evento_notificacao AS ENUM
+  ('candidatura_recebida','avaliacao_liberada','convite_entrevista','decisao_final');
+CREATE TYPE public.status_notificacao AS ENUM
+  ('pendente','enviado','falhou','ignorado');   -- ignorado = deliberately skipped (e.g. no-email policy)
+
+CREATE TABLE public.notificacoes_enviadas (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  candidatura_id      uuid NOT NULL REFERENCES public.candidaturas(id) ON DELETE CASCADE,
+  candidato_id        uuid NOT NULL REFERENCES public.candidatos(id),
+  evento              public.evento_notificacao NOT NULL,
+  status              public.status_notificacao NOT NULL DEFAULT 'pendente',
+  destino_email       text NOT NULL,                -- snapshot of the address sent-to (audit; email may later change)
+  provider            text NOT NULL DEFAULT 'resend',
+  provider_message_id text,                          -- Resend id; NULL until delivered
+  erro                text,                          -- last error on failure
+  tentativas          smallint NOT NULL DEFAULT 0,
+  dedupe_key          text NOT NULL,                 -- idempotency (see Pattern 3)
+  historico_id        uuid REFERENCES public.historico_candidatura(id),      -- events 2,4; NULL otherwise
+  agendamento_id      uuid REFERENCES public.agendamentos_entrevista(id),    -- event 3; NULL otherwise
+  criado_em           timestamptz NOT NULL DEFAULT now(),
+  enviado_em          timestamptz,                   -- set when status='enviado'
+  updated_at          timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX notificacoes_dedupe_uidx ON public.notificacoes_enviadas (dedupe_key);
+CREATE INDEX notificacoes_retry_idx
+  ON public.notificacoes_enviadas (status, criado_em)
+  WHERE status IN ('pendente','falhou');            -- the retry queue
+
+ALTER TABLE public.notificacoes_enviadas ENABLE ROW LEVEL SECURITY;
+```
+
+**RLS (mirror `rh_gerencia_agendamento` WR-04 join-through):**
+- ONE RH SELECT policy, vaga-scoped: `administrador` bypass OR `rh` owning the candidatura's real vaga (`candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id=c.vaga_id WHERE v.created_by = auth.uid())`). The **direct `vaga_id IN (...)` form is forbidden** (Pitfall-1 spoof) — join through candidaturas.
+- **No candidate SELECT/INSERT/UPDATE policy.** It is an internal delivery log; the candidate learns of delivery by receiving the email + reading the panel timeline, not by reading this table. `destino_email` and `erro` are internal.
+- All writes are by the EF via service_role (bypasses RLS). No second permissive policy (OR-defeat, SEC-08 lesson).
+
+**Retention:** define in discuss-phase (PROJECT.md flags it). A pg_cron purge of rows past a retention window is the natural mechanism (pg_cron already used for `ai-logs-retention-cleanup`, `20260609000003`).
+
+**Retry:** a pg_cron job (every ~5-15 min) selects `notificacoes_retry_idx` rows with `tentativas < MAX` (e.g. 3) and re-fires `net.http_post` to the EF (or a small batch variant). Resend does not re-drive a failed **API call** to us (it retries downstream delivery/bounces, not our request), so the sweep is required for send-time failures. Manual RH re-send (a button → JWT-ON invoke or an authorize-first RPC that re-enqueues) is a **deferrable** enhancement; the sweep covers automatic recovery.
+
+---
+
+## Timeline / SLA Estimate (the pull side)
+
+**Recommendation: static per-stage config table, surfaced in the candidate dashboard.**
+
+```sql
+CREATE TABLE public.config_sla_etapa (
+  etapa      public.etapa_processo PRIMARY KEY,
+  prazo_dias smallint NOT NULL,
+  rotulo     text NOT NULL          -- e.g. 'Triagem de currículos'
+);
+-- seed one row per waiting etapa (triagem/avaliacao_assincrona/entrevista_*/decisao_final)
+ALTER TABLE public.config_sla_etapa ENABLE ROW LEVEL SECURITY;
+-- non-PII reference data → single permissive SELECT policy for authenticated (or anon), no client writes
+```
+
+- **Data source = the config table**, not a computation. The candidate dashboard (`DashboardCandidatoPage.tsx`, the existing waiting-state cards keyed on `etapa_atual`/`status`) does an etapa→config lookup and renders "triagem — resposta em até X dias." Framed explicitly as an estimate (anxiety reduction, not a promise).
+- **Why not a DEFINER RPC over `historico_candidatura` history now:** a data-driven median-time-in-stage estimate needs volume M6 has not accumulated (funnel operations just shipped), and adds complexity for little early value. It is the right **future** upgrade — note it for M8+, when the log has enough transitions to compute honest turnarounds. (Same table, `historico_candidatura`, is already the KPI source — the plumbing will exist.)
+- The table (vs a frontend TS constant) is chosen so RH can tune prazos without a redeploy; a TS constant is the zero-infra fallback if a table feels heavy for MVP.
+
+---
+
+## Suggested Build Order (dependency-ordered, for the roadmapper)
+
+1. **Foundation — enums + tables** (no deps): `evento_notificacao` + `status_notificacao` enums, `notificacoes_enviadas` (+ RLS RH-read vaga-scoped, no candidate policy, dedupe UNIQUE, retry partial index), `config_sla_etapa` + seed. Apply via **Supabase MCP `apply_migration`** (bypasses 42601 on `$$` bodies) → **ledger reconcile** (MCP stamps a timestamp version-row ≠ filename → `migration repair` / `schema_migrations` UPDATE, per M4 DBMIG-01 lesson).
+2. **EF `notificar-candidato` + Resend + `_shared/ics.ts` port + 4 templates** (needs 1 — it writes the table): structure cloned from `analise-candidato-individual` (self-auth Bearer, injectable deps, `import.meta.main` wiring, redacted logs), Resend `fetch` cloned from `cost-alerter`, `.ics` ported from `agendamentoCandidatoService`. Set the `RESEND_API_KEY` (+ optional `NOTIFICAR_SECRET`) EF secret via `supabase secrets set` (**never** the bundle). Deploy `--no-verify-jwt`. Testable in isolation via a manual `net.http_post` before any trigger exists (dormant, like SEC-03 was). Templates can be a parallel sub-task inside this step (a `_shared/templates` module).
+3. **Triggers rewire — retire n8n, resolve SEC-03** (needs 2 deployed so pg_net has a live target): DROP `trg_n8n_nova_candidatura` / `_status_candidatura` / `_revisao_decisao` / `trg_n8n_novo_candidato`; CREATE `trg_notif_candidatura_recebida` (candidaturas INSERT), `trg_notif_transicao` (historico_candidatura INSERT, CASE etapa_para → events 2+4), `trg_notif_convite_entrevista` (agendamentos_entrevista INSERT) — all reusing the 10-02 skeleton (SECURITY DEFINER, `search_path=''`, Vault `project_url`+`edge_invoke_key`, graceful-skip, REVOKE FROM PUBLIC), ids-only bodies. This step is where "aposenta o n8n / resolve SEC-03 por substituição" lands. Apply via MCP + ledger reconcile.
+4. **Timeline** (needs 1's config table; independent of 2-3 — parallelizable): DashboardCandidatoPage waiting-state estimate from `config_sla_etapa`.
+5. **Retry sweep (pg_cron)** (needs 1+2+3): the sweep job re-firing the EF for `falhou`/`pendente` rows under the tentativas cap. Resilience — the pipeline works without it; add last.
+6. **Deferred:** manual RH re-send button/RPC; reagendamento-triggered invite; retention purge cron; data-driven SLA RPC.
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Force all four events through one trigger on `historico_candidatura`
+**What people do:** "the transition log is canonical, put one trigger there." **Why it's wrong:** `avancar_etapa()` is BEFORE UPDATE — candidatura INSERT and agendamento INSERT write no log row, so events 1 and 3 would never fire. **Instead:** the documented mix — log trigger for the two real transitions, satellite triggers for the two non-transition mutations.
+
+### Anti-Pattern 2: Trigger → direct Resend REST from PL/pgSQL
+**What people do:** read `RESEND_API_KEY` from Vault in the trigger and `net.http_post` straight to `api.resend.com`. **Why it's wrong:** buries HTML templating, base64 `.ics`, error capture, and per-send audit writes in Postgres; no clean place to write `notificacoes_enviadas` with `provider_message_id`/`erro`. **Instead:** trigger → EF → Resend; the EF owns render + send + log.
+
+### Anti-Pattern 3: PII in the trigger payload
+**What people do:** put nome/email in the `net.http_post` body "to save a query." **Why it's wrong:** breaks the SEC-03 "ids only, no PII" discipline; PII in pg_net request logs. **Instead:** ids only; the EF resolves PII via an allowlist `select` (never `select('*')`).
+
+### Anti-Pattern 4: `select('*')` on candidatos/agendamentos in the EF
+**What people do:** `candidatos.select('*')` to grab nome+email. **Why it's wrong:** RLS is row-level, not column-level — a star select drags cpf/telefone/endereço (and, for agendamentos, `observacoes_rh`) into the render path ([[reference_select_star_leaks_pii]]). **Instead:** explicit `nome_completo, email` (and `data_hora, local_ou_link, tipo` for agendamentos — never `observacoes_rh`).
+
+### Anti-Pattern 5: No idempotency claim → double emails
+**What people do:** send first, log after. **Why it's wrong:** pg_net retry or a double UPDATE sends twice. **Instead:** claim-then-send on a UNIQUE `dedupe_key` (Pattern 3).
+
+### Anti-Pattern 6: Editing `avancar_etapa()` / `historico_candidatura` to add a "notified" flag
+**What people do:** add a column or CREATE OR REPLACE the trigger body to track notifications. **Why it's wrong:** near-miss P27 lesson — re-authoring a live trigger body drops guards; M6 reuse-and-tighten forbids touching the canonical write-path. **Instead:** all notification state lives in `notificacoes_enviadas`; read the log, never mutate it.
 
 ---
 
 ## Integration Points
 
-### Internal boundaries
+### External Services
+
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Resend | EF `fetch('https://api.resend.com/emails', Bearer RESEND_API_KEY)` — clone of `cost-alerter/index.ts:216-234` | `html`+`text` bodies; `attachments:[{filename, content:base64, content_type:'text/calendar'}]` for the invite (40MB post-base64 cap; `.ics` is ~1KB). DKIM/verified domain required. Key is an EF secret, never bundle. |
+| Supabase Vault | Trigger reads `project_url` + `edge_invoke_key` (existing) for the pg_net invoke | Reuse the analise pair; do NOT introduce/keep `n8n_webhook_base` (that path is retired). |
+
+### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| RH Kanban (P25) ↔ per-stage controls (M6) | Both call `updateCandidaturaEtapa` (extended) | **Reconcile: one shared service, one write-path.** M6 generalizes the existing action from the triagem/comparativo surface to all-stage controls; do not fork a second advance path. |
-| Scheduling ↔ funnel | Independent writes; optionally sequenced | Scheduling is its own table; advancing to the interview stage is a separate `candidaturas` UPDATE. |
-| CV/analysis (RH) ↔ candidate | Hard DENY wall | Analysis tables have no candidate SELECT; CV via own-folder only; scheduling via allowlist. |
-| KPIs ↔ `historico_candidatura` | DEFINER RPC only | Table RLS stays loose unless separately tightened. |
-
-### External services
-
-| Service | Integration pattern | Notes |
-|---------|---------------------|-------|
-| Supabase Storage (`curriculos`) | signed URL via authorize-first EF | Private bucket; **role-only read is a leak to close**. |
-| Supabase Auth (JWT `app_metadata.role`) | RLS predicates + EF role resolution | `role` claim + `created_by` ownership is the scoping basis. |
-| Migrations → PROD | Supabase MCP `apply_migration`/`execute_sql` | Bypasses 42601 on PL/pgSQL `$$` bodies; no BEGIN/COMMIT wrapper; MCP writes the version row (reconcile ledger). |
+| Postgres trigger ↔ EF | pg_net async `net.http_post`, Bearer edge_invoke_key | fire-and-forget; graceful-skip if Vault NULL; EF self-auths |
+| EF ↔ `notificacoes_enviadas` | service_role writes (claim/update) | bypasses RLS; RH reads via vaga-scoped policy |
+| EF ↔ candidatos/candidaturas/agendamentos/vagas | service_role allowlist reads | never `select('*')`; never `observacoes_rh` |
+| Candidate dashboard ↔ `config_sla_etapa` | anon/authenticated SELECT (non-PII reference) | the pull half; independent of the email path |
+| `_shared/ics.ts` (Deno) ↔ `agendamentoCandidatoService` (browser) | verbatim code port (no shared import) | keep in sync manually; comment the provenance |
 
 ---
 
-## Recommended Build Order (security-first: data + RLS before UI)
+## Open Questions for discuss-phase / requirements (flag for roadmapper)
 
-The roadmapper should decompose into phases in this dependency order. **Every server + RLS item lands and is smoke-verified (impersonated-JWT behavioral smokes) before its UI.**
-
-1. **Phase A — Advance/reject + reject-with-justification (Features 1 & 5).** Lowest risk, highest reuse. Server: none new (trigger + RLS already correct). Service: extend `updateCandidaturaEtapa` with justification; enforce mandatory-justification-on-comparativo-reject in Zod. Then UI: per-stage controls across all 6 stages + comparativo reject dialog. Reconcile with the P25 Kanban (shared service). *No trigger edits.*
-2. **Phase B — Security tightening for the read features (blocking prerequisites).** (a) Close the `curriculos` Storage role-only leak + build the `get-curriculo-url` EF (authenticate-THEN-authorize); (b) create the `funil_kpis` DEFINER RPC (and optionally tighten `rh_le_historico`). Ship these server-side + smoke-verified *before* the views that consume them.
-3. **Phase C — Scheduling data layer (Feature 2).** New `agendamentos_entrevista` table + vaga-scoped RH RLS + candidate own-row read (allowlist / projection RPC). Smoke: RH-owns-vaga writes; non-owner denied; candidate reads own only; candidate cannot see `observacoes_rh`.
-4. **Phase D — RH surfaces (UI).** RH candidate view (CV signed-URL + AI analysis wiring) + scheduling form; work-queue + KPI dashboard consuming the Phase-B RPC (replacing the M1 `RelatoriosRHPage` aggregation).
-5. **Phase E — Candidate dashboard read (UI).** Surface the schedule (date/link) in `HubCandidatoRH`'s "Próximo passo" for interview stages. Pure own-row read; no email (COMM out of scope).
-
-**Ordering rationale:** Feature 1 is pure reuse (fast win, de-risks the milestone). The two live leaks (Storage + `historico` RLS) gate Features 3 & 4 — they must be closed server-side before any consuming UI, or the milestone ships an IDOR. Scheduling's data layer + RLS precede both its RH and candidate UIs. Candidate-facing read is last because it depends on the scheduling table + RLS being proven safe.
-
----
-
-## Scaling Considerations
-
-| Scale | Architecture adjustments |
-|-------|--------------------------|
-| Current (single-tenant Beauty Smile, low hundreds of candidaturas) | Everything above is right-sized. KPI RPC computes on-read over `historico_candidatura`; no materialization needed. |
-| 10× volume | Add an index on `historico_candidatura(candidatura_id, criado_em)` for the `LEAD`/time-in-stage window; index `candidaturas(vaga_id, etapa_atual)` for work-queue filters (likely already present from M2). |
-| 100× / heavy dashboards | Consider a materialized KPI rollup refreshed on a schedule (or trigger on `historico_candidatura` insert) if the on-read RPC latency grows; not warranted now. |
-
-**First bottleneck:** the time-in-stage window function over a large `historico_candidatura` — fix with the composite index above before any materialization.
-
----
+1. **Confirmation for knockouts?** Event 1 fires on candidaturas INSERT; a knockout is auto-rejected synchronously in the same txn → the candidate would get "recebemos sua candidatura" AND a neutral rejection near-simultaneously. Decide: add a survivor guard to event 1 (mirror `trg_candidatura_analise`'s `status<>'rejeitado' AND opcao_knockout_id IS NULL`), or accept both. *(Product decision; both are one-line implementations.)*
+2. **Does the APPROVE path move `etapa_atual` to `'aprovado'`?** Event 4 keys on the historico terminal transition. The reject RPC provably sets `etapa_atual='rejeitado'` (`20260714100001`). **Verify** the approve/consolidation path (`registrar_decisao`/`consolidar-decisao-final`) also UPDATEs `etapa_atual='aprovado'` (writes a historico row). If approval only writes `decisao_final` without moving etapa, add a satellite trigger on `decisao_final` for approvals. *(One SQL check against the decisao flow resolves this — do it in discuss-phase.)*
+3. **Reagendamento (event 3):** MVP fires on agendamento INSERT only. A reschedule (`UPDATE OF data_hora`) sending a fresh invite (dedupe = agendamento_id + data_hora) is a scoped enhancement — in or out for M7?
+4. **`notificacoes_enviadas` retention window** — PROJECT.md explicitly defers this to discuss-phase; needed before any volume campaign.
+5. **`.ics` METHOD:PUBLISH vs REQUEST** — the ported builder emits PUBLISH ("add to calendar"). REQUEST (accept/decline, organizer) is a future nicety; confirm PUBLISH is acceptable for MVP.
 
 ## Sources
 
-- `supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql` — current authoritative `avancar_etapa()` body (header: "verified against PROD via pg_get_functiondef"); ENTREV-03 flag guard, GUC-gated `auto_rejeitado`, RNF-07a rationale. **HIGH.**
-- `supabase/migrations/20260706110004_sec05_08_vaga_scope.sql` — WR-04 vaga-scoped predicate for `candidaturas`/`analise`/`comparativo`/`redacoes`; explicit deferral of `historico_candidatura` + `devolutivas_candidato` (still role-only). **HIGH.**
-- `supabase/migrations/20260607000006_rls_policies_m2_backbone.sql` — baseline `candidaturas` + `historico_candidatura` RLS (role-only origin); trigger-owns-audit note. **HIGH.**
-- `supabase/migrations/20260425000002_curriculos_bucket.sql` — private bucket config + **role-only RH Storage read (the live leak)**; `{auth.uid()}/{uuid}.pdf` path schema. **HIGH.**
-- `supabase/migrations/20260624000001_entrevista_cognitivo_tables.sql` — `entrevistas_online`/`entrevistas_presenciais` flagged legacy/"untracked, unaudited-RLS"; M2-native interview tables. **HIGH.**
-- `src/features/triagem/services/triagemService.ts` (`updateCandidaturaEtapa`, L286–378) — current RH funnel write-path (direct UPDATE fires trigger). **HIGH.**
-- `database.types.ts` (repo root) — `candidaturas`, `historico_candidatura`, `entrevistas_online`, `analise_candidato_vaga`, `comparativo_solicitado`, `scores_candidato`, `vagas`, enums `etapa_processo`/`status_candidatura`/`status_entrevista`; legacy `avancar_etapa(uuid,uuid)`/`rejeitar_candidato(uuid,text,uuid)` RPC overloads. **HIGH.**
-- `src/components/pages/RelatoriosRHPage.tsx` — existing client-side aggregation (the M1 dashboard the KPI RPC replaces). **HIGH.**
-- Auto-memory: [[reference_select_star_leaks_pii]], [[reference_ef_authenticate_vs_authorize]], Phase-8 double-write bug, DBMIG-02 flag-guard near-miss. **HIGH.**
+- `supabase/migrations/20260610000002_analise_trigger.sql` — the DB→EF pg_net pattern reused for all three triggers (HIGH)
+- `supabase/functions/analise-candidato-individual/index.ts` — DB-triggered EF self-auth (`--no-verify-jwt` + Bearer) reused for `notificar-candidato` (HIGH)
+- `supabase/functions/get-curriculo-url/index.ts` — authenticate-THEN-authorize + allowlist projection discipline (HIGH)
+- `supabase/functions/cost-alerter/index.ts:204-235` — the Resend `fetch` call, cloned verbatim (HIGH)
+- `supabase/migrations/20260607000005_avancar_etapa_trigger.sql` — proves `historico_candidatura` is written only on BEFORE UPDATE OF etapa_atual (source-of-truth mix rationale) (HIGH)
+- `supabase/migrations/20260607000001_historico_candidatura.sql` — canonical transition-log schema (HIGH)
+- `supabase/migrations/20260716000001_agendamentos_entrevista.sql` — event-3 source table + `get_meu_agendamento` allowlist + WR-04 RLS pattern reused for `notificacoes_enviadas` RLS (HIGH)
+- `supabase/migrations/20260714100001_rejeitar_candidatura_rpc.sql` — reject funnels through `etapa_atual` → historico (event-4 unification) (HIGH)
+- `src/features/agendamento/services/agendamentoCandidatoService.ts` — the pure RFC-5545 `.ics` builder to port server-side (HIGH)
+- `supabase/migrations/20260706110005_sec03_n8n_serverside.sql` + `20260712100004_n8n_novo_candidato.sql` — the dormant n8n triggers retired by M7 (HIGH)
+- `supabase/migrations/20260609000003_prompt_library_cron.sql` — pg_cron is live in this project (retry sweep + retention feasibility) (HIGH)
+- Resend send-email API docs (attachments `content` base64 + `content_type`; `html`/`text` bodies) — https://resend.com/docs/api-reference/emails/send-email (HIGH, verified 2026-07-17)
 
 ---
-*Architecture research for: M6 Operação do Funil RH (integration on shipped v5.0 ATS)*
-*Researched: 2026-07-14*
+*Architecture research for: M7 transactional email pipeline integration into the Beauty Smile ATS*
+*Researched: 2026-07-17*

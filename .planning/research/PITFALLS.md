@@ -1,378 +1,297 @@
 # Pitfalls Research
 
-**Domain:** Adding funnel-OPERATION features (per-stage advance/reject · in-system interview scheduling · CV+AI visibility to RH · operational KPIs · reject-from-comparativo) to an already-shipped React 18 + Vite + Supabase ATS (M6 — Operação do Funil RH, Phases 31+)
-**Researched:** 2026-07-14
-**Confidence:** HIGH — verified against the LIVE migration source (`supabase/migrations/*`) and the LIVE RH client service (`src/features/triagem/services/triagemService.ts`), not training data. Each pitfall cites the exact object/line it derives from.
+**Domain:** Transactional email pipeline (Resend) + DB-trigger dispatch (pg_net) bolted onto a shipped Supabase/Deno ATS — M7 "Comunicação com o Candidato" (COMM)
+**Researched:** 2026-07-17
+**Confidence:** HIGH (Resend + pg_net facts verified via Context7 official docs + Supabase docs; repo scars from PROJECT.md / MEMORY / SEC-03 migration)
 
-> **Scope note.** These are integration pitfalls specific to *reusing* the funnel machinery this codebase already ships — `avancar_etapa()` / `historico_candidatura`, vaga-scoped RLS, the private `curriculos` bucket, the `guard_rejeicao_auditada` backstop — while preserving four HARD invariants that MUST survive M6:
-> - **RNF-07a** — the system NEVER auto-rejects on a score; a human always decides.
-> - **RNF-12a** — product language is always "avaliação comportamental/cognitiva", never "teste psicológico".
-> - **RLS-is-not-a-column-secret** — RLS filters rows, not columns; `select('*')` leaks answer-keys/PII/verdicts even with RLS on.
-> - **No-email / dashboard-only** — COMM (email/notification) is OUT of scope this milestone; the candidate learns everything via the in-app dashboard.
+> Scope note: these are pitfalls specific to adding **this** email layer to **this** system, not generic email advice. Phase numbers are provisional groupings (M7 starts at **Phase 36**); the roadmapper assigns final numbers. Proposed groupings used below:
+> - **P36 — Deliverability & Sender Identity** (domain verify, DKIM/SPF/DMARC, Vault secret, Resend account)
+> - **P37 — Notification Data Layer** (`notificacoes_enviadas` table, idempotency constraint, state machine, RLS, retire/repoint SEC-03)
+> - **P38 — EF `notificar-candidato`** (self-auth, allowlist reads, D-15 neutral templates, Resend Idempotency-Key, static `npm:` import)
+> - **P39 — Trigger Dispatch & Reconciliation** (event→source mapping, single canonical source, pg_net wiring, webhook/poll reconcile)
+> - **P40 — Candidate Timeline & `.ics`** (pull panel, `America/Sao_Paulo` correctness)
+> - **P41 — Testing, Observability & Live UAT** (Resend test addresses, CI mocks, retention/LGPD)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Double-writing to `historico_candidatura` (writing the audit row yourself)
+### Pitfall 1: Double-send — the same funnel event emails the candidate twice
 
 **What goes wrong:**
-M6 adds per-stage advance/reject controls and — wanting an explicit audit row — does `INSERT INTO historico_candidatura` *in addition to* the `candidaturas.etapa_atual` UPDATE. Result: **two** audit rows for one transition. Every KPI that counts transitions (time-in-stage, conversion, volume-per-stage) is now inflated/wrong, and the trail lies about what happened.
+A single logical event ("candidate advanced to async assessment") fires from *more than one place* and the candidate gets two identical emails. In this repo the collision surfaces are already wired and dormant:
+- The three **SEC-03 triggers** (`trg_n8n_nova_candidatura` on `candidaturas` INSERT, `trg_n8n_status_candidatura` on `candidaturas` UPDATE OF status, `trg_n8n_revisao_decisao` on `decisao_final`) fire on the *table mutation*.
+- A **new trigger on `historico_candidatura`** (the M6 canonical transition log written by `avancar_etapa()`) fires on the *same* transition — so a status change writes a `candidaturas` row AND a `historico_candidatura` row, double-firing.
+- The `submit-candidatura` EF **also** fires nova-candidatura post-commit via its own `N8N_NOVA_CANDIDATURA_URL` env var (the SEC-03 migration header itself flags this as a redundant fire to drop in "24-09").
+- `pg_net` gives *at-most-once per call*, but a trigger that re-fires (statement retry, a corrective RH re-save, an idempotent-looking UPDATE that still touches the watched column) produces *at-least-once from the caller's perspective* — no dedup in the pipe.
 
 **Why it happens:**
-The audit write is invisible at the call site. `avancar_etapa()` is a `BEFORE UPDATE OF etapa_atual` trigger (`supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql:110-117`) that writes **exactly one** `historico_candidatura` row per transition *inside the same transaction*. A developer who doesn't know the trigger exists "adds" the audit row the trigger already wrote. **This is a CONFIRMED historical bug in this codebase** — the Phase-8 survivor-advance once wrote a second `historico_candidatura` row because `submit_candidatura_atomic` inserted explicitly *and* the trigger fired (MEMORY: "survivor double-write").
+The dispatch source was never consolidated — SEC-03 left three table-level triggers PLUS an EF env-var fire, and M7 adds a fourth surface (`historico_candidatura`) without retiring the others. Nobody owns "exactly one email per event."
 
 **How to avoid:**
-- The ONLY way M6 code changes a stage is a plain UPDATE of `candidaturas.etapa_atual` (+ `etapa_justificativa`, + `status` for terminals). NEVER `INSERT INTO historico_candidatura` from application code, an EF, or a new RPC. The trigger owns that table. Reuse the shipped `updateCandidaturaEtapa()` shape (`triagemService.ts:350-378`).
-- If a new SECURITY DEFINER RPC drives the transition, it too must UPDATE `etapa_atual` (let the trigger write the row) — do not add its own INSERT.
+1. **Pick ONE canonical dispatch source per event and retire the rest.** `historico_candidatura` is the right spine for *transition* events (it's the audited M6 log); `candidaturas` INSERT is right for confirmation; `agendamentos_entrevista` INSERT for the interview invite; `decisao_final`/`rejeitar_candidatura` for the decision. Repoint or drop the three SEC-03 triggers and the `submit-candidatura` env-var fire in the same phase you add the new ones (SEC-03 is "resolved by substitution," not patched).
+2. **Durable DB idempotency gate** in `notificacoes_enviadas`:
+   ```sql
+   UNIQUE (candidatura_id, evento)   -- natural idempotency key
+   ```
+   The trigger does `INSERT ... ON CONFLICT (candidatura_id, evento) DO NOTHING RETURNING id;` and **only** `PERFORM net.http_post(...)` when a row was actually inserted (`IF FOUND`). A second fire inserts nothing → no dispatch. This is the *durable* guarantee. (Caveat: the interview-invite event can legitimately recur on reschedule — for that event the key must include `agendamento_id` or a version, else a re-invite is wrongly suppressed.)
+3. **Resend `Idempotency-Key` header** as a fast second belt: deterministic from the natural key, e.g. `notif/{candidatura_id}/{evento}`. Resend dedups identical keys — but the key **expires after 24h and max 256 chars**, so it only protects a 24h window. Treat it as belt-and-suspenders; the DB UNIQUE is the source of truth.
+4. **Filter the `historico_candidatura` trigger by transition**, not "any row." That log also records **retrocesso** (RH moving a candidate backward to fix a mistake) — a backward move must NOT email "próxima etapa liberada." Fire only on the specific forward transitions you have a template for. Never modify `avancar_etapa()` itself (hard invariant) — add a *separate* AFTER trigger.
 
 **Warning signs:**
-- Any `historico_candidatura` INSERT outside the `avancar_etapa()` / knockout paths.
-- Two rows in `historico_candidatura` with the same `candidatura_id`, `etapa_para`, and `criado_em` within milliseconds.
+- Two `notificacoes_enviadas` rows for one `(candidatura_id, evento)` — impossible if the UNIQUE exists; if you see it, the constraint is missing or the key is wrong.
+- A candidate reports "I got the same email twice."
+- `net._http_response` shows two POSTs to the EF within milliseconds for one transition.
 
-**Phase to address:** Per-stage advance/reject phase (first M6 phase). **Test:** advance one candidatura one stage, assert `select count(*) from historico_candidatura where candidatura_id=$1 and etapa_para=$2` returns exactly 1.
+**Phase to address:** P37 (constraint + state machine + retire SEC-03), P39 (single canonical source + event→source mapping + transition filter).
 
 ---
 
-### Pitfall 2: Bypassing `avancar_etapa()` — a stage change with no audit row
+### Pitfall 2: `net.http_post` is fire-and-forget — the funnel advances but the email silently never sent
 
 **What goes wrong:**
-The inverse of Pitfall 1. M6 introduces a path that changes the *effective* stage without going through `UPDATE candidaturas.etapa_atual` — e.g. flipping only `status='rejeitado'` while leaving `etapa_atual` unchanged, or writing a bespoke `estagio` column, or a bulk action that updates a side table. No `historico_candidatura` row is written → the transition is invisible to the audit trail and to KPIs, violating FUNIL-03/RNF-07a.
+`net.http_post(...)` returns a `bigint` request_id **immediately and non-blocking**; the actual HTTP call is made later by the `pg_net` background worker. It **does not block the transaction and never reports failure back to it** — the AFTER trigger returns `NEW`, `candidaturas.etapa_atual` commits, the funnel moves on, and if the EF was down / the worker stalled / Resend 500'd, *the email is just gone*. pg_net is **at-most-once**: no automatic retry. The response lands in `net._http_response`, an **UNLOGGED table retained only ~6 hours** by default, then auto-deleted — so after 6h you can't even answer "did it send?"
 
 **Why it happens:**
-`avancar_etapa()` is a `BEFORE UPDATE **OF etapa_atual**` trigger (note the column list) — it fires ONLY when `etapa_atual` is in the UPDATE's SET list. A "quick reject" that sets `status='rejeitado'` alone never fires it. **This exact hole existed in the live UpdateStatusModal reject path** and had to be closed in Phase 25 by a second trigger, `guard_rejeicao_auditada` (`supabase/migrations/20260709000010_guard_rejeicao_auditada.sql:60-70`), which RAISEs on any `status→rejeitado` that is neither sanctioned (txn-local GUC `app.rejeicao_sancionada='on'`) nor accompanied by an `etapa_atual` transition.
+Developers read `PERFORM net.http_post(...)` as "send the email" the way a synchronous HTTP client would. It isn't — it's "enqueue a request and forget." The SEC-03 skeleton already has this shape (`PERFORM net.http_post` then `RETURN NEW`), so it's easy to copy the fire-and-forget without adding reconciliation.
 
 **How to avoid:**
-- Every stage move (including reject) drives `etapa_atual`. To reject, set `etapa_atual='rejeitado'` **and** `status='rejeitado'` in the *same* UPDATE (the shipped comparativo pattern, `triagemService.ts:358-369`) — this satisfies `guard_rejeicao_auditada`'s etapa branch and produces the audit row.
-- If a reject must leave `etapa_atual` unchanged (a knockout-style case), it MUST run through a SECURITY DEFINER RPC that sets `set_config('app.rejeicao_sancionada','on',true)` — the ONLY sanctioned no-etapa reject path.
-- Do NOT invent a new "stage" column; `etapa_atual` (enum `etapa_processo`) is the single source of truth.
+1. **`pendente → enviado → entregue / falhou / bounce` state machine** in `notificacoes_enviadas`. The trigger writes the row as `pendente` **synchronously** (this is also the idempotency gate from Pitfall 1) and stores the `net.http_post` `request_id`. The EF flips it to `enviado` and stores the `resend_email_id`. Reconciliation flips it to `entregue`/`falhou`/`bounce`.
+2. **Reconcile — two options, prefer the webhook:**
+   - **Resend webhooks** (`email.sent`, `email.delivered`, `email.bounced`, `email.complained`) → a small `--no-verify-jwt` EF that verifies the Svix signature and updates `notificacoes_enviadas` by `resend_email_id`. Durable, push-based, survives the 6h window.
+   - **Poll `net._http_response`** via `pg_cron` (NOT a trigger — see Integration Gotchas) *within 6h* to catch requests that never reached the EF (worker stalled, timeout). Use it as a safety net for the "EF never answered" case the webhook can't cover.
+3. **Raise the pg_net timeout.** Default `timeout_milliseconds` is **2000ms**. If the EF blocks on a Resend round-trip + template render it can exceed 2s, and pg_net marks the request `timed_out=true` even if the EF actually completes — producing a false "failed" (or a real drop). Pass an explicit higher timeout (e.g. 5000) **and** make the EF fast (send, then return; don't do heavy work after the Resend call).
+4. **A pending-row sweeper**: rows stuck in `pendente` past N minutes are the queryable answer to "which candidates didn't get their email" — the whole point of the audit table.
 
 **Warning signs:**
-- A reject UI that calls `.update({ status: 'rejeitado' })` with no `etapa_atual`.
-- `PostgREST` error `check_violation` "Rejeição sem trilha de auditoria não é permitida" surfacing to RH — that's the backstop catching a bypass; fix the caller, don't disable the guard.
+- No SQL query can answer "which candidates are missing their notification" → you have no state machine.
+- `notificacoes_enviadas` rows exist but all say `pendente` (or the table has no status column at all).
+- `net._http_response` shows `timed_out=true` or `status_code >= 500` for the EF URL.
+- Emails arrive in dev but "sometimes don't" in prod and nobody can tell why.
 
-**Phase to address:** Per-stage advance/reject phase. **Test:** attempt a `status→rejeitado` with `etapa_atual` unchanged and no GUC — assert it RAISEs `check_violation`.
+**Phase to address:** P37 (state machine columns), P39 (pg_net wiring + timeout + reconciliation webhook/poll + cron sweeper).
 
 ---
 
-### Pitfall 3: Allowing a reject with no justification (breaking the audit trail)
+### Pitfall 3: PII / criterion leak in the rejection email (breaks D-15, RNF-12a, RNF-07a)
 
 **What goes wrong:**
-M6 lets RH reject a candidate — from a stage control or from the comparativo — and the reject lands with `criterio_texto = NULL` in `historico_candidatura`. The audit trail records *that* a rejection happened but not *why*, defeating the whole point of the trail (LGPD Art. 20 explainability, RNF-07a "human decided — on what basis?").
+Four distinct leaks, all live risks here:
+1. **D-15 violation:** the rejection email interpolates the knockout reason / score / "you failed the SJT" / `motivo_rejeicao` / `opcao_knockout_id`. D-15 requires the rejection message to be **neutral — the criterion is NEVER exposed**. The candidate-facing surfaces already enforce this (P8 caught `listCandidaturas` leaking `opcao_knockout_id`/`motivo_rejeicao`); an email is a *new* candidate-facing surface that must inherit the same discipline.
+2. **RNF-12a violation:** template copy says "teste psicológico" / raw Big Five percentile / trait labels instead of "avaliação comportamental/cognitiva," or exposes behavioral bands the product deliberately neutralized (UX-07).
+3. **RNF-07a violation:** wiring the rejection email to fire off an *automatic score gate* rather than a *human-recorded decision*. The email must only dispatch off a human decision (`decisao_final` with `por_usuario IS NOT NULL`, or `rejeitar_candidatura` RPC), never "score < X → email rejection." (The one sanctioned exception — the Etapa-1 objective knockout in `submit_candidatura_atomic`, which uses no trait/score/idade — already has its own neutral D-15 path; do not build a second auto-reject.)
+4. **RLS-as-column-secret (the recurring scar):** the EF reads candidate data with `select('*')` and ships internal fields into the template; or `notificacoes_enviadas` is exposed to the candidate via a too-broad RLS policy so they can read the stored body / other candidates' rows. RLS is **row-level, not column-level** — it does not hide `motivo_rejeicao` sitting in a selected row.
 
 **Why it happens:**
-The trigger's regression branch requires a non-empty `etapa_justificativa`, but the **terminal branch does NOT** — `IF NEW.etapa_atual IN ('aprovado','rejeitado') THEN NULL` allows terminals from any stage with no justification (`20260712110001_...:76-78`). The live comparativo reject (`triagemService.ts:updateCandidaturaEtapa`) sets `etapa_atual='rejeitado'` but **never sets `etapa_justificativa`** → the audit row's `criterio_texto` is NULL. This is exactly the **funil-02 tech-debt** M6 pulls in ("rejeição a partir do comparativo exigindo justificativa"). The justification is NOT enforced server-side today.
+Templates are written by copy-pasting the RH-facing decision view (which legitimately shows the criterion) into the candidate email. And "just `select('*')` the candidatura" is the path of least resistance in a fresh EF.
 
 **How to avoid:**
-- Enforce the justification **server-side**, not just in the form. Two viable routes:
-  1. Route rejects through a SECURITY DEFINER RPC (e.g. `rejeitar_candidatura(p_candidatura_id, p_justificativa)`) that RAISEs on empty `p_justificativa`, then UPDATEs `etapa_atual='rejeitado', status='rejeitado', etapa_justificativa=p_justificativa` and sets the sanction GUC — the trigger copies `etapa_justificativa` into `criterio_texto`. Mirror the existing `registrar_decisao` fold (`20260709000012_registrar_decisao_amend.sql`).
-  2. OR extend `avancar_etapa()` to also require `etapa_justificativa` when `NEW.etapa_atual='rejeitado'` — **but** see Pitfall 15 (you must reproduce the live body verbatim, including the ENTREV-03 flag guard and the GUC-gated `auto_rejeitado`).
-- A client-only "required" attribute is insufficient — a direct PostgREST call bypasses it.
+- **Rejection template = a FIXED neutral string.** It interpolates only name + vaga title + a generic "não seguiremos com sua candidatura neste momento." Zero interpolation of score/criterion/trait. Add a grep/unit guard that the rejection template source contains none of `motivo_rejeicao|opcao_knockout|score|knockout|percentil|psicológic`.
+- **EF reads via explicit allowlist**, never `select('*')` (reuse the P8/P24 allowlist discipline; the M6 own-row RPC pattern is the model). Select only `{ nome, email, vaga_titulo, evento }`.
+- **`notificacoes_enviadas` RLS:** candidate **DENY** (RH/service-role only) is safest — the candidate doesn't need to read the audit log; the *panel timeline* (Pitfall 9's pull) reads `historico_candidatura` own-row, not this table. If any candidate read is ever needed, it's an own-row **allowlist RPC** that excludes `destinatario`, the rendered body, and internal status detail.
+- **Don't persist full rendered HTML with PII.** Store `evento` + `resend_email_id` + `status` + timestamps. If you must store the body for debug, redact PII or set a short retention (Pitfall 8).
+- **RNF-07a gate:** the decision-email trigger fires on the human write-path (`rejeitar_candidatura` / `decisao_final`), never on a score threshold.
 
 **Warning signs:**
-- `select count(*) from historico_candidatura where etapa_para='rejeitado' and (criterio_texto is null or btrim(criterio_texto)='')` returns > 0.
-- The reject dialog has a "motivo" textarea but the network payload doesn't carry it.
+- The rejection template file mentions any scoring/criterion token.
+- The EF's candidate query is `select('*')` or `select()` without an explicit column list.
+- A candidate JWT can `SELECT` from `notificacoes_enviadas` (test it with an impersonated JWT smoke — the M4 pattern that caught SEC-07/08).
+- Copy uses "teste psicológico" or shows a raw percentile.
 
-**Phase to address:** funil-02 / comparativo-reject phase AND the per-stage reject phase (same enforcement). **Test:** a reject with empty justification RAISEs; a reject with text lands `criterio_texto = <text>`.
+**Phase to address:** P38 (allowlist reads + neutral templates + grep guard), P37 (`notificacoes_enviadas` RLS shape).
 
 ---
 
-### Pitfall 4: A "backward move" or bulk action that trips the never-unjustified-regression guard
+### Pitfall 4: Trigger→EF auth — a spoofable send endpoint, or an over-verified call that the DB can't make
 
 **What goes wrong:**
-M6 adds "move back a stage" or a bulk "advance selected" action. A backward move (e.g. `entrevista_online → triagem`) fails at runtime with `Regressão de etapa exige justificativa preenchida`, OR a bulk action half-applies (some rows advance, one hits the ENTREV-03 flag guard and RAISEs, and — if not wrapped in a transaction — the batch is left inconsistent).
+Two failure modes at opposite ends:
+- **Over-verified (blocked):** deploy `notificar-candidato` with `verify_jwt` ON (the default). The pg_net call from the trigger carries no end-user JWT → the EF returns **401** and no email ever sends. Silent, because pg_net won't report the 401 to the transaction (Pitfall 2).
+- **Under-verified (spoofable):** deploy `--no-verify-jwt` with no self-auth → **anyone on the internet can `curl` the EF and send email as Beauty Smile**, forging notifications, burning quota, and torching domain reputation with spam complaints.
 
 **Why it happens:**
-- The regression branch RAISEs unless `etapa_justificativa` is non-empty (`20260712110001_...:79-83`). The live client `updateCandidaturaEtapa` **never sets `etapa_justificativa`** (`triagemService.ts:358`) — it only ever moves forward or to terminal, so it never hit this. A new backward-move UI that reuses that shape without wiring a justification field will always RAISE.
-- The Phase-14 flag guard RAISEs `check_violation` on a *forward* advance past `entrevista_online` while an `entrevista_analises` row has `bloqueio_avanco=true AND revisao_confirmada_em IS NULL` (`20260712110001_...:91-104`). A bulk "advance all" will trip this for any held candidate.
+The DB-originated call has no user identity, so `verify_jwt` ON is wrong; but flipping it off without a replacement check leaves the door open. The repo already has the exact right pattern (the `analise` EF is `--no-verify-jwt` + self-auth Bearer) and it's easy to not mirror it.
 
 **How to avoid:**
-- Backward-move UI MUST collect and send `etapa_justificativa` in the same UPDATE. Surface the RAISE message as a field error, not a toast.
-- Bulk actions: wrap each transition so a partial failure is visible per-row (report "3 advanced, 1 held for language/accent review, 1 needs justification"), and run each as its own statement — do NOT assume all-or-nothing unless you explicitly open a transaction. Never suppress the flag-guard RAISE.
-- Do not "fix" a failing bulk advance by removing or weakening the ENTREV-03 guard (that's a live anti-regional-bias control, RF-24).
+**Mirror the `analise` EF pattern exactly:** deploy `--no-verify-jwt`, but **self-authenticate with a shared Bearer secret**. The trigger reads an invoke key from Vault (the repo already uses a Vault `edge_invoke_key` for `reprocessar_analise`) and passes it in the pg_net `headers` (`Authorization: Bearer <key>`); the EF compares against its own env/Vault copy and 401s on mismatch. This authenticates *the caller is our DB*, which is the correct authorization boundary for a system-originated dispatch (there's no end user to authorize — the trigger already proved the transition happened). If the EF *also* reads candidate PII, it reads via service-role + allowlist (Pitfall 3), and the Bearer check is the only "authorize" step needed because the payload identifies the candidatura.
 
 **Warning signs:**
-- Backward-move requests with no `etapa_justificativa` in the payload.
-- A bulk-advance that silently skips held rows, or one that disables the flag guard to "make it work".
+- `curl -X POST https://<proj>.functions.supabase.co/notificar-candidato -d '{...}'` with no auth header **sends an email**.
+- EF logs show 401 for every trigger-originated call (verify_jwt left ON).
+- The Bearer key lives in the client bundle or a `VITE_` var (it must be Vault/EF-env only — VITE_ vars inline into the public bundle, the exact SEC-03 leak class).
 
-**Phase to address:** Per-stage advance/reject phase. **Test:** backward move without justification RAISEs; with justification lands a regression audit row; bulk advance past a held candidate reports the hold instead of failing the batch.
+**Phase to address:** P38 (EF self-auth), P36/P39 (Vault invoke-key provisioning + trigger header wiring).
 
 ---
 
-### Pitfall 5: A path that *looks like* an auto-reject on a score (RNF-07a)
+### Pitfall 5: Deliverability — verified-domain / DKIM / SPF / DMARC gaps land every email in spam
 
 **What goes wrong:**
-M6 surfaces `score_match` next to the advance/reject controls and someone adds a convenience — "auto-reject below 40", a default-selected "Reject" when the AI flags gaps, or a batch action that rejects everyone under a threshold. Any of these makes the *system* the deciding actor on a score. Violates RNF-07a and the LGPD-20 posture; also poisons `historico_candidatura.auto_rejeitado` semantics.
+Emails send "successfully" (Resend 200) but never reach the inbox: they hit spam/quarantine or are outright rejected. Root causes, in order of frequency:
+- Sending from an **unverified domain** or from `onboarding@resend.dev` in production.
+- **No DMARC record** — Gmail and Yahoo have *required* DMARC for senders since 2024; without it, delivery to the two biggest providers degrades.
+- **No reply-to**, or from-address at a bare domain the candidate doesn't recognize.
+- **Link/domain mismatch** — links in the email pointing to a domain different from the sending domain trip spam filters (Resend "Attention Insights" flags this explicitly).
+- Portuguese content with spammy phrasing / all-image emails / no plain-text part.
 
 **Why it happens:**
-The score is right there, the KPI dashboard makes low scores salient, and "help the recruiter" feels benign. The codebase deliberately has NO score→reject path: the ONLY sanctioned auto-reject is the objective knockout in `submit_candidatura_atomic` (no trait/score/age), and `auto_rejeitado=true` is written ONLY for `(v_ator IS NULL AND app.rejeicao_sancionada='on' AND NEW.etapa_atual='rejeitado')` (`20260712110001_...:115-116`). A human reject carries `ator=auth.uid()` and `auto_rejeitado=false`.
+DKIM+SPF are auto-configured by Resend *when you verify the domain*, so teams assume "verified = done" and skip DMARC (which Resend does **not** add automatically — it must be published manually). And the free-tier `onboarding@resend.dev` works in dev, masking the missing prod domain.
 
-**How to avoid:**
-- Every reject in M6 is human-initiated with a human `ator` (`auth.uid()`) and a justification. The AI score is *displayed as context*, never wired to an action.
-- No threshold config that rejects. No pre-selected "Reject". No "reject all below X" batch.
-- Preserve `auto_rejeitado`'s meaning: any M6 reject RPC must NOT set `app.rejeicao_sancionada` (that GUC is for the knockout path only) — so human rejects correctly record `auto_rejeitado=false`.
+**How to avoid — actionable DKIM/deliverability checklist (do this in P36, before any send code):**
+- [ ] Verify a **real Beauty Smile sending subdomain** in Resend (e.g. `mail.beautysmile.com.br` / `rh.beautysmile.com.br`) — this auto-publishes **SPF + DKIM** DNS records; confirm the domain shows "Verified" in the Resend dashboard.
+- [ ] **Publish DMARC manually**: `v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@beautysmile.com.br` (Resend does not add this).
+- [ ] Set a real **From**: `Beauty Smile <nao-responda@mail.beautysmile.com.br>` — never `onboarding@resend.dev` in prod.
+- [ ] Set a real **Reply-To**: a monitored RH inbox (`rh@beautysmile.com.br`) so candidate replies don't black-hole.
+- [ ] Ensure **every link in the email is on the sending domain** (or the app domain that aligns with SPF/DKIM). No mismatched tracking domains.
+- [ ] Send both **HTML and a plain-text** part.
+- [ ] Smoke each template through `delivered@resend.dev`, `bounced@resend.dev`, `complained@resend.dev` and inspect the Resend dashboard/webhook (Pitfall 10).
 
 **Warning signs:**
-- Any code branch: `if (score < N) { reject }`.
-- A new `historico_candidatura` row with `ator IS NULL` and `auto_rejeitado=true` outside the submit/knockout path.
-- Product copy implying the AI "decides" or "reprova".
+- Test emails land in Spam/Promotions in a real Gmail account.
+- Resend dashboard shows the domain as "Pending"/"Not verified."
+- Rising bounce/complaint rate in Resend analytics; From uses `resend.dev`.
 
-**Phase to address:** Per-stage advance/reject phase + KPI phase (KPIs must not offer a reject-from-metric shortcut). **Test:** grep guard for score→reject; assert no M6 write path produces `ator IS NULL` on a reject.
+**Phase to address:** P36 (domain verify + DKIM/SPF/DMARC + sender identity — a hard prerequisite for every later phase; largely a human/DNS action for Fernando).
 
 ---
 
-### Pitfall 6: Interview scheduling assuming an email/notification layer exists (it does NOT)
+### Pitfall 6: Hard bounces & complaints quietly poisoning domain reputation
 
 **What goes wrong:**
-M6 builds "schedule interview" and wires it to "send the candidate an email/notification" — a step that does not exist this milestone. Either it silently no-ops (candidate never learns), or someone reaches for the deferred `n8n` webhook / a half-built EF and ships a broken/insecure notification path. The candidate misses the interview because nothing told them.
+Candidates fat-finger their email at signup; sending to those addresses generates **hard bounces**. A rising hard-bounce rate and spam-complaint rate degrade domain reputation, which then hurts deliverability for *every* candidate — a slow, invisible decay. Because the funnel writes `historico_candidatura` regardless of email outcome, the ATS keeps "notifying" bad addresses forever with no feedback loop.
 
 **Why it happens:**
-"Schedule → notify" is the universal ATS mental model. But COMM (the `notificar-candidato` EF pipeline) is explicitly **deferred to a future milestone** (`.planning/M5-DRAFT.md` COMM group; PROJECT.md M6 "Fora de escopo: COMM"). There is no email transport, no `notificacoes_enviadas` table, no Resend/SMTP in scope. The `n8n` webhook is a separate, security-flagged (SEC-03) tech-debt item, NOT a notification channel.
+The pipeline treats "sent to Resend" as success and never ingests bounce/complaint webhooks, so bad addresses are re-hit every stage and Resend's suppression list is invisible to the ATS.
 
 **How to avoid:**
-- The candidate learns about the interview **only via the in-app dashboard**. Scheduling writes a row the candidate's own-row read surfaces on their timeline/status card — that IS the notification for M6.
-- Do NOT add a "send email" step, a trigger dispatching `pg_net`/n8n for scheduling, or a `notificacoes_enviadas` write. If a stakeholder asks "does it email them?", the honest answer is "dashboard-only this milestone; email is a later COMM milestone."
-- Design the dashboard surface so the scheduled date/time/link is unmissable (empty-state → "Entrevista agendada para …").
+- **Ingest `email.bounced` and `email.complained` webhooks** (same reconciliation EF as Pitfall 2) and mark the `notificacoes_enviadas` row `bounce`/`reclamado`.
+- **Flag the candidato** (a soft `email_invalido` / `email_suprimido` marker) so RH sees "we couldn't reach this candidate" in the funnel and the pipeline stops re-sending to a known-bad address (Resend also auto-suppresses, but the ATS should reflect it).
+- Validate email format at signup (already done via Zod) — but format-valid ≠ deliverable; the webhook is the only real signal.
+- Keep hard-bounce rate low by not emailing addresses already marked suppressed.
 
 **Warning signs:**
-- Any `functions.invoke('notificar-candidato')`, `resend`, `smtp`, or scheduling-triggered `pg_net`/n8n reference in an M6 diff.
-- A scheduling flow whose only candidate-facing output is an email nobody built.
+- Resend dashboard bounce rate climbing over time.
+- Same address bounces on every stage transition.
+- RH says "candidate never got anything" but pipeline shows `enviado`.
 
-**Phase to address:** Interview-scheduling phase. **Test:** schedule an interview, then load the candidate dashboard as that candidate and assert the date/time/link render; assert NO email/notification EF is invoked.
+**Phase to address:** P39 (bounce/complaint webhook ingestion + suppression marker), surfaced to RH in the funnel.
 
 ---
 
-### Pitfall 7: Timezone bugs in scheduling (store UTC, render America/São_Paulo)
+### Pitfall 7: Re-authoring the SEC-03 triggers / migration-ledger drift (repo-specific scars)
 
 **What goes wrong:**
-An interview scheduled for "14:00" shows as "11:00" or "17:00" to the candidate, or shifts by an hour around a DST boundary, or a `date`-only column drops the time. Missed interviews, eroded trust.
+M7 must repoint or drop three existing SEC-03 triggers and add new ones. Three known repo scars bite here:
+1. **`CREATE OR REPLACE FUNCTION` silently dropping live guards** — a re-authored trigger body that doesn't reproduce the *live* function loses behavior. (M4/P27 DBMIG-02 caught a re-authored migration about to drop the ENTREV-03 flag-guard; the SEC-03 functions carry a `graceful-skip if secret NULL` guard and `RETURN NEW` semantics that must survive.)
+2. **`42601` on PL/pgSQL `$$` bodies** — `supabase db push --linked` over the transaction pooler fails with "cannot insert multiple commands into a prepared statement" when `CREATE FUNCTION`/`DO $$…$$` sits next to adjacent `COMMENT`/`REVOKE`/`GRANT`.
+3. **MCP `apply_migration` stamps a timestamp version-row** (not the filename version) → ledger drift; and **DBMIG-01 baseline debt is already open** — entangling the new email migrations with baseline-fill work compounds the drift.
 
 **Why it happens:**
-Brazil is UTC−03 (no DST since 2019, but libraries and Postgres still carry historical DST rules, so naive offset math is fragile). Common mistakes: storing a wall-clock string with no zone; using `timestamp` (without tz) instead of `timestamptz`; converting to a hardcoded `-03:00` offset instead of the IANA zone; or formatting on the server in the server's zone.
+The obvious path (`db push`) fails on `$$` bodies; the workaround (MCP) introduces its own ledger accounting that must be reconciled; and re-authoring a live function from an old file is easy to get subtly wrong.
 
 **How to avoid:**
-- Column type `timestamptz`. Store the instant in UTC (Postgres normalizes `timestamptz` to UTC internally). Never store a zone-less wall-clock string.
-- Render in `America/Sao_Paulo` explicitly at the display layer (IANA zone name, not a numeric offset) — same on RH and candidate views so both see the same wall-clock time.
-- Send an ISO-8601 instant (with `Z`/offset) over the wire; never a bare `"2026-08-01 14:00"`.
+- **Diff the LIVE function body first** (`pg_get_functiondef` / MCP `get_edge_function` for EFs) before any `CREATE OR REPLACE` — the DBMIG-02 discipline.
+- **Apply via Supabase MCP `apply_migration` / `execute_sql`** (bypasses 42601), **no `BEGIN;…COMMIT;` wrapper** (CLAUDE.md D-22 — the CLI driver wraps each migration itself; the outer BEGIN/COMMIT is the 42601 trigger), add an inline note explaining why.
+- **Reconcile the ledger after apply** (`supabase migration repair --status applied <version>` or the MCP-written version row) — record the version rows, don't re-migrate. Keep the M7 migrations **self-contained**; do **not** touch or depend on the DBMIG-01 baseline-fill (it's environment-gated/deferred — leave it out of scope).
+- **Retire SEC-03 in the same phase** you add the replacement — either `DROP TRIGGER` the three n8n triggers or repoint their bodies to the new EF, and drop the `submit-candidatura` env-var fire. Don't leave both live.
 
 **Warning signs:**
-- A `timestamp`/`date`/`time` (no tz) column for the interview slot.
-- Hardcoded `-3` / `-03:00` anywhere.
-- The RH-entered time and the candidate-displayed time differ.
+- `db push` errors with SQLSTATE 42601.
+- `supabase migration list` shows drift after an MCP apply.
+- The new trigger works but the graceful-skip/no-PII invariant regressed vs the live SEC-03 body.
 
-**Phase to address:** Interview-scheduling phase. **Test:** schedule at a known instant; assert RH view and candidate view both render the same `America/Sao_Paulo` wall-clock; assert stored value is `timestamptz`.
+**Phase to address:** P37 (data-layer migrations + SEC-03 retirement, applied via MCP with ledger reconcile).
 
 ---
 
-### Pitfall 8: Scheduling RLS — candidate reads others' slots, or RH is role-only, or interviewer notes leak
+### Pitfall 8: LGPD, timezone, and transactional-vs-marketing classification
 
 **What goes wrong:**
-The net-new scheduling table ships with weak RLS: a candidate can read another candidate's interview row, OR any recruiter reads/writes every vaga's interviews (role-only, not vaga-scoped), OR the candidate's own-row read pulls `select('*')` and leaks an `notas_entrevistador` / internal-notes column.
+- **Timezone drift:** timestamps stored in UTC but rendered in the email / `.ics` without converting to `America/Sao_Paulo` → the interview invite says the wrong hour. M6 already hand-rolled a client-side RFC-5545 `.ics` in `America/Sao_Paulo`; an email-attached `.ics` that uses a different TZ (or floating time) contradicts the panel card.
+- **Reclassification risk:** the decision to send **transactional, no opt-out** is only defensible if the email *stays* transactional — triggered by the candidate's own action/decision, purely service content. Adding any promotional line ("conheça nossas outras vagas!"), a newsletter, or batching reclassifies it as marketing under LGPD and *retroactively* creates an opt-out/consent obligation.
+- **Retention creep:** `notificacoes_enviadas` accumulates candidate email + (if stored) body forever — a growing PII liability with no retention policy, exactly the "passivo que cresce a cada candidatura" the M5-DRAFT LGPD-OPS group flags.
 
 **Why it happens:**
-No scheduling table exists today (verified: no `agendamento`/scheduling table in `supabase/migrations/*`), so M6 writes RLS from scratch — and the tempting shortcut is to copy the *old* role-only pattern (`role IN ('rh','administrador')`) that this codebase already had to remediate on four tables in Phase 24. Plus, "the candidate reads their own row" is true at the *row* level but `select('*')` still leaks *columns* — the RLS-is-not-a-column-secret trap (CONFIRMED repeatedly: Phase-8 knockout leak, Phase-24 verdict/rubric REVOKEs).
+Postgres `timestamptz` + naive rendering hides TZ bugs until a real invite goes out; and "it's just one helpful extra line" is how transactional email drifts into marketing.
 
 **How to avoid:**
-- **Candidate read:** own-row only, via a candidatura→candidato→`user_id = auth.uid()` predicate (mirror `candidato_le_proprio_historico`, `20260607000006_...:61-70`), AND an **explicit column allowlist** (or a candidate-facing view / column REVOKE) that excludes interviewer notes and any internal fields. Do NOT `select('*')`.
-- **RH read/write:** **vaga-scoped**, not role-only — copy the shipped WR-04 predicate verbatim: `administrador` bypass `OR (role='rh' AND vaga_id IN (SELECT id FROM vagas WHERE created_by = auth.uid()))` (`20260706110004_...:76-87`). If the scheduling row has no direct `vaga_id`, scope through the `candidaturas→vagas` JOIN (the redacoes pattern, same file:94-124).
-- **Interviewer notes:** put them in a column the candidate policy/allowlist excludes — or a separate RH-only table. Never in a column a candidate `select('*')` could reach.
+- **Render all candidate-facing times in `America/Sao_Paulo`** in both the email body and any `.ics`; reuse the M6 `.ics` generation (share the helper, don't fork it — Pitfall 11). Store UTC, convert at render.
+- **Keep the four emails strictly transactional**: confirmation, next-stage-unlocked, interview invite, decision. No cross-sell, no batch, no promo. Footer is informative (who we are, why you got this), not a marketing opt-out.
+- **Define `notificacoes_enviadas` retention up front** (discuss-phase decision per PROJECT.md): store minimal fields (event + resend_email_id + status + timestamps), avoid persisting full bodies with PII, and set a retention window / purge job aligned with LGPD minimization. Don't hoard.
+- The `.ics`/invite must not leak internal RH notes (M6 already excludes `observacoes_rh` from the candidate own-row — the email must inherit that allowlist).
 
 **Warning signs:**
-- A scheduling SELECT policy that is `role IN ('rh','administrador')` with no `vaga_id` predicate.
-- A candidate-facing scheduling query using `select('*')` or `select('*, ...')`.
-- A behavioral smoke where recruiter B reads recruiter A's interview row.
+- Interview email time ≠ panel card time.
+- A template contains any non-service/promotional sentence.
+- `notificacoes_enviadas` stores full HTML bodies with name/email and has no purge job.
 
-**Phase to address:** Interview-scheduling phase. **Test:** behavioral smoke (JWT impersonation via `set_config` + `SET ROLE authenticated`) — candidate A cannot read candidate B's slot; recruiter B cannot read recruiter A's vaga's slots; candidate projection excludes interviewer-notes column.
+**Phase to address:** P40 (TZ + `.ics` reuse), P37/P41 (retention policy on `notificacoes_enviadas`), P38 (template content discipline).
 
 ---
 
-### Pitfall 9: Storage bucket RLS lets the wrong recruiter fetch a CV (role-only, not vaga-scoped)
+### Pitfall 9: The "estimativa de prazo / timeline" pull panel over-promises or contradicts the push
 
 **What goes wrong:**
-M6 exposes the CV to RH by reusing the existing `curriculos` SELECT policy — which is **role-only**: `(auth.jwt() #>> '{app_metadata,role}') IN ('rh','administrador')` (`20260425000002_curriculos_bucket.sql:55-68`). So ANY recruiter downloads ANY candidate's CV regardless of whether they own the vaga. Horizontal PII leak / IDOR, LGPD violation.
+The dashboard timeline shows a hard date ("resposta até 12/07") the RH can't meet, creating a promise/expectation the business then breaks — worse anxiety than silence, and arguably a commitment. Or the *pull* (panel says "em triagem") contradicts the *push* (email said "avançou para avaliação") because they read different sources or update at different times.
 
 **Why it happens:**
-The bucket policy predates the Phase-24 vaga-scoping sweep and was never tightened (verified: only `20260425000002` and `20260607000006` touch it). And Storage RLS can't easily do the vaga→`created_by` join because the object path is `{auth.uid()}/{uuid}.pdf` (the *candidate's* uid — `20260425000002_...:8-9`), which is not linked to a vaga. So a naive "just let RH read the bucket" is role-only by construction.
+It's tempting to compute a precise SLA date; and the panel and the email evolve separately.
 
 **How to avoid:**
-- Do NOT hand RH a direct bucket read or a broad signed URL. Mint the CV signed URL from an **Edge Function that authenticate-THEN-authorizes**: verify the caller's role AND that the caller owns (or is admin over) the vaga tied to that candidatura, THEN `createSignedUrl` server-side with a short TTL. This is the shipped authenticate-then-authorize EF pattern (M2 P10 IDOR fix; `reference_ef_authenticate_vs_authorize`).
-- Alternatively, tighten the bucket SELECT policy to a vaga-scoped predicate joining `candidaturas→vagas`, but the EF route is cleaner given the path schema doesn't carry vaga_id.
-- Keep the candidate's own-folder write/read policies untouched.
+- Show a **soft range in business days** ("triagem — costuma levar até X dias úteis"), not a hard calendar deadline the RH is contractually held to.
+- Drive the panel timeline from the **same `historico_candidatura` source** the email dispatch reads, so push and pull can't disagree about the current stage.
+- Keep copy neutral and consistent with D-15 (the waiting-state text must not hint at outcome/criterion either).
 
 **Warning signs:**
-- A CV link built from a role-only bucket read or a long-lived/public signed URL.
-- No vaga-ownership check between "recruiter clicked download" and "URL minted".
-- Recruiter B can download a CV for recruiter A's vaga in a smoke.
+- Panel shows a hard date; RH regularly blows past it.
+- Panel stage ≠ the last email's stage for the same candidate.
 
-**Phase to address:** CV + AI-analysis visibility phase. **Test:** EF/smoke — owner recruiter gets a working signed URL; non-owner recruiter gets 403; candidate cannot mint an RH download URL.
+**Phase to address:** P40 (timeline panel, sourced from `historico_candidatura`).
 
 ---
 
-### Pitfall 10: Exposing the CV signed URL or the AI analysis/score to the CANDIDATE
+### Pitfall 10: Testing that spams real candidates or needs a live key in CI
 
 **What goes wrong:**
-While wiring CV+analysis visibility for RH, the candidate-facing dashboard query accidentally reads `analise_candidato_vaga` (score_match, pontos_fortes, gaps, flags) or the RH CV download URL. The candidate sees their own AI score / the recruiter's private assessment. Breaks RNF-07a posture (candidate learns of an AI "verdict"), leaks internal evaluation, and can imply a "teste" (RNF-12a).
+An integration test (or a careless prod smoke) emails `candidato.funil@teste.com` — or worse a real applicant — repeatedly; or CI can't run because the EF hard-requires a live `RESEND_API_KEY`, so the email path ships untested.
 
 **Why it happens:**
-The analysis rows live alongside candidatura data; a shared query or a `select('*')` on the candidatura sweeps them in. The candidate-DENY RLS on analysis exists, but a service_role EF or a mis-scoped view can bypass it, and column-level exposure via `select('*')` is the recurring trap (Phase-8: `listCandidaturas` `select('*')` leaked `opcao_knockout_id`/`motivo_rejeicao` to the candidate; `reference_select_star_leaks_pii`).
+No test-mode discipline; the EF calls Resend unconditionally.
 
 **How to avoid:**
-- The AI analysis / `score_match` / comparativo is **RH-only**. The candidate dashboard NEVER queries `analise_candidato_vaga`, `comparativo_solicitado`, or `scores_candidato` verdict columns. Its funnel view is the neutral `etapa_atual` + `historico_candidatura` own-row (which carries no score).
-- CV signed URLs for RH download are minted server-side and never returned to a candidate-facing endpoint.
-- Reuse the explicit-allowlist / `security_invoker` view pattern for RH reads (`v_triagem_panel`, `triagemService.ts:118-131`) so even the RH projection is column-disciplined — never `select('*')`.
+- **Use Resend's dedicated test addresses** for behavior/UAT: `delivered@resend.dev` (success), `bounced@resend.dev` (SMTP 550 5.1.1 hard bounce), `complained@resend.dev` (spam report), `suppressed@resend.dev`. They exercise the full webhook/status path **without harming domain reputation** — but note they **count against sending quota**.
+- **CI has no live key:** the Deno EF corpus (the existing `deno-test` job pattern) **mocks the Resend fetch/SDK** — inject the sender as a dependency (`deps.send`) so unit tests assert the payload (from/to/subject/idempotency-key/neutral-body) without a network call. Contract-test the trigger payload against the EF's Zod schema (the M4 "integration contract gap" lesson — mock both sides and the real contract can still be broken).
+- **Env guard**: in non-prod, refuse to send to any address not on an allowlist (`*@resend.dev` + the known test accounts), so a stray test can't reach a real inbox.
+- Reconciliation/webhook path is testable by POSTing recorded Resend webhook fixtures to the reconcile EF.
 
 **Warning signs:**
-- The candidate dashboard's network calls include `analise_candidato_vaga` / `score_match`.
-- A candidate can see a numeric fit score, "pontos fortes/gaps", or an RH CV link.
+- A test's assertion depends on an email actually arriving in a real mailbox.
+- CI skips or red-X's the email EF for "missing RESEND_API_KEY."
+- A prod smoke sent to a real candidate address.
 
-**Phase to address:** CV + AI-analysis visibility phase. **Test:** load the candidate dashboard as a real candidate; assert no analysis/score columns and no RH CV URL appear in any response; behavioral smoke confirms candidate SELECT on `analise_candidato_vaga` returns 0 rows.
+**Phase to address:** P41 (test-address UAT + CI mocks + env allowlist guard + contract test).
 
 ---
 
-### Pitfall 11: KPI query is role-only — every recruiter sees every vaga's numbers
+### Pitfall 11: `_shared` bundle freeze + dynamic-import scar in the new EF
 
 **What goes wrong:**
-The operational KPI dashboard (time-in-stage, conversion, volume per vaga/stage) queries `historico_candidatura` — whose RH SELECT policy `rh_le_historico` is **role-only**: `role IN ('rh','administrador')` (`20260607000006_...:73-77`). So every recruiter's KPIs aggregate EVERY vaga's audit rows, including other recruiters' candidates. Horizontal data leak and misleading per-recruiter metrics.
+Two known EF scars recur:
+1. **`await import([...].join("npm:"))`-style dynamic import hides the package from the Supabase deploy bundler → `ERR_MODULE_NOT_FOUND` 500 at runtime.** If the Resend SDK is imported dynamically/concatenated, the EF boots then 500s on first send.
+2. **`_shared/*.ts` bundle freeze:** if `notificar-candidato` (and the reconcile EF, and any repointed dispatch) share a helper (cors, `efErrors`, auth) and you edit it, **only the EF you redeploy** picks up the change; the others keep the frozen bundle → silent drift.
 
 **Why it happens:**
-This is a **CONFIRMED, still-live gap**. Phase 24 explicitly flagged `rh_le_historico` (and `rh_le_devolutivas`) as carrying "the SAME role-only gap" and **deferred it to Phase 25's funil-RH sweep** (`20260706110004_...:126-131`) — but no Phase-25/26/27 migration ever re-scoped it (verified: `rh_le_historico` appears only in its original Phase-6 definition and the Phase-24 deferral comment). So the KPI feature is being built directly on top of an un-remediated role-only policy.
+Copy-paste from an older EF that used the dynamic-import trick; and forgetting that shared-file edits require redeploying every consumer.
 
 **How to avoid:**
-- **Re-scope `rh_le_historico` to vaga-ownership FIRST**, as part of the KPI phase, before building any aggregation on it. `historico_candidatura` has no direct `vaga_id` → scope through the `candidatura_id → candidaturas → vagas.created_by` JOIN (the redacoes JOIN pattern, `20260706110004_...:94-124`), with the `administrador` bypass branch.
-- Aggregate server-side (SQL/RPC/view) so the vaga-scoped RLS actually applies to the rows being counted; do not aggregate in the browser after a role-only pull (see Pitfall 12).
-- Verify with a behavioral smoke, not `pg_policies` inspection — Phase 24 proved structural checks pass while the leak persists (the REVOKE no-op / OR-defeat lessons, PROJECT Key Decisions).
+- **Static `npm:` import** for the Resend SDK (`import { Resend } from 'npm:resend@x'`) — or skip the SDK entirely and `fetch('https://api.resend.com/emails', ...)` with the `Idempotency-Key` header, which sidesteps the bundler question and keeps the EF tiny.
+- **Redeploy every EF that consumes an edited `_shared` file** in the same phase; use MCP `get_edge_function` to diff deployed-vs-local before declaring done.
 
 **Warning signs:**
-- KPI numbers that don't change when you switch between two recruiters who own disjoint vagas.
-- Any KPI query on `historico_candidatura` shipped before `rh_le_historico` is vaga-scoped.
+- EF boot smoke passes (401/health) but first real send returns 500 `ERR_MODULE_NOT_FOUND`.
+- A shared helper change works in one EF and not another.
 
-**Phase to address:** KPI / work-queue phase (with the RLS re-scope as its first task). **Test:** behavioral smoke — recruiter A's KPI totals exclude recruiter B's vaga rows; admin sees all.
-
----
-
-### Pitfall 12: Client-side KPI aggregation pulling whole tables to the browser
-
-**What goes wrong:**
-The KPI dashboard fetches raw `candidaturas`/`historico_candidatura` rows to the browser and computes counts/averages in JS. It's slow, it ships PII to the client that the KPI never needed, and it silently breaks the moment data grows (or when RLS is later tightened and the client math assumes rows it can no longer see).
-
-**Why it happens:**
-The existing `RelatoriosRHPage.tsx` already does exactly this — `useQuery` + direct `supabase` client + `recharts`, aggregating client-side (the "M1 dead model" the M6 brief explicitly wants to replace, `.planning/M5-DRAFT.md` "não o modelo M1 morto"). Copying that page's shape carries the anti-pattern forward.
-
-**How to avoid:**
-- Aggregate in the database: a `security_invoker` view or a SECURITY-scoped RPC that returns pre-aggregated KPI rows (counts, avg time-in-stage per stage/vaga), so RLS applies to the aggregation and only the numbers cross the wire — no candidate PII.
-- The client renders numbers, never re-derives them from raw candidate rows.
-- Explicit column selection on any supporting query; never `select('*')`.
-
-**Warning signs:**
-- A KPI component that fetches per-candidate rows and `.reduce()`s them.
-- Candidate names/CPF present in a KPI network response.
-- Growing payload sizes as candidatura volume grows.
-
-**Phase to address:** KPI / work-queue phase. **Test:** KPI endpoint returns aggregates only (assert no PII columns in the response); payload size is O(stages·vagas), not O(candidaturas).
-
----
-
-### Pitfall 13: Time-in-stage math that breaks on terminals or re-entrant transitions
-
-**What goes wrong:**
-"Time in stage" and "conversion" are computed naively (e.g. `now() - entered_stage`) and give nonsense for: candidates sitting in terminal `aprovado`/`rejeitado` (infinite/ever-growing "time in stage"); candidates who moved backward and re-entered a stage (double-counted, or negative durations); or the first transition where `etapa_de IS NULL`.
-
-**Why it happens:**
-`historico_candidatura` is a transition log, not a stage-duration table. Duration = time between *consecutive* transition rows for a candidatura — which requires window functions (`lead()`/`lag()` over `partition by candidatura_id order by criado_em`). Terminals have no "next" row (`etapa_para IN ('aprovado','rejeitado')` is an endpoint). Regressions mean a stage can be entered more than once (`etapa_de` can be `NULL` on first entry — the column is nullable, `20260607000001_...:40`). Enum ordinal comparison (`NEW < OLD`) means re-entry is real, not a bug.
-
-**How to avoid:**
-- Compute stage duration as `lead(criado_em) - criado_em` over the ordered transition rows; the terminal row has no lead → treat as "time to decision" or exclude from "time-in-stage", not "still waiting forever".
-- Decide and document the semantics for re-entrant stages (sum all visits, or count last visit) and for `etapa_de IS NULL` (first entry).
-- Conversion = distinct candidaturas that reached stage N+1 ÷ distinct that reached stage N — over distinct candidaturas, not transition-row counts (which double-count re-entries).
-
-**Warning signs:**
-- A candidate in `rejeitado` showing an ever-increasing "time in stage".
-- Negative or double-counted durations after a backward move.
-- Conversion > 100% (transition-row counting instead of distinct candidaturas).
-
-**Phase to address:** KPI / work-queue phase. **Test:** fixture with a re-entrant transition and a terminal; assert durations are non-negative, terminals excluded from "waiting", conversion ≤ 100%.
-
----
-
-### Pitfall 14: Reject-from-comparativo justification not persisted / not required server-side (funil-02)
-
-**What goes wrong:**
-The comparativo screen gets a "reject with justification" control, but the justification is only a client-side field — the actual write is still the shipped `updateCandidaturaEtapa('rejeitado')` that sets `etapa_atual='rejeitado'` with no `etapa_justificativa`. The reason never reaches `historico_candidatura.criterio_texto`. Looks done in the UI, empty in the trail.
-
-**Why it happens:**
-This is the specific instantiation of Pitfall 3 at the comparativo surface, and it's the literal funil-02 tech-debt. The current comparativo reject path (`triagemService.ts:updateCandidaturaEtapa`, called from the comparativo inline actions per its docstring `:287-300`) writes no justification because the terminal branch of `avancar_etapa()` doesn't demand one.
-
-**How to avoid:**
-- Persist the justification on the same write that flips the stage: send `etapa_justificativa` in the UPDATE (trigger copies it to `criterio_texto`) or go through the reject RPC from Pitfall 3.
-- Enforce non-empty server-side (RPC RAISE or trigger extension), not just a required form field.
-- One enforcement mechanism shared by the comparativo reject AND the per-stage reject (don't build two divergent reject paths).
-
-**Warning signs:**
-- The comparativo reject network payload has no `etapa_justificativa`.
-- A comparativo-originated `rejeitado` row with NULL `criterio_texto`.
-
-**Phase to address:** funil-02 / comparativo-reject phase (share enforcement with the per-stage reject phase). **Test:** reject from comparativo with a reason; assert the resulting `historico_candidatura` row's `criterio_texto` equals that reason.
-
----
-
-### Pitfall 15: `CREATE OR REPLACE` a live function without reproducing its live body
-
-**What goes wrong:**
-M6 needs to change `avancar_etapa()` (e.g. to require justification on terminal reject, Pitfall 3/14) and re-authors it from an *older* migration file. The new body silently DROPS a control the live function carries — most dangerously the **Phase-14 ENTREV-03 flag guard** (anti-regional-bias hold) and/or the GUC-gated `auto_rejeitado` semantics — because `CREATE OR REPLACE` replaces the whole body, and the file it was copied from predates those additions.
-
-**Why it happens:**
-The function has been re-authored multiple times across phases; the migration files are NOT cumulative-obvious. **This is a CONFIRMED near-miss in THIS codebase**: in Phase 27 an early draft of `20260712110001` was derived from the Phase-6 body and "would have regressed a live bias-review control" — caught pre-apply only because the author diffed against `pg_get_functiondef` (the file's own `⚠ CORRECTNESS NOTE`, `20260712110001_...:10-16`; PROJECT Key Decisions "Verificar o corpo LIVE da função ANTES de CREATE OR REPLACE").
-
-**How to avoid:**
-- Before ANY `CREATE OR REPLACE` of a live function, dump the LIVE body (`pg_get_functiondef`) and diff — start from the live definition, change only the intended lines, keep everything else verbatim. The current live `avancar_etapa()` is `20260712110001` (Phase 6 transition/audit + Phase-14 `v_blocked` flag guard + Phase-27 GUC-gated `auto_rejeitado`). Any re-author MUST preserve: the `IS NOT DISTINCT FROM` no-op guard, the regression justification RAISE, the ENTREV-03 block (`:91-104`), the exact `auto_rejeitado` predicate (`:115-116`), `SECURITY DEFINER`, `SET search_path=''`, and the `REVOKE ... FROM PUBLIC`.
-- Prefer a NEW wrapper RPC over editing the shared trigger function when possible (smaller blast radius).
-
-**Warning signs:**
-- A migration `CREATE OR REPLACE`ing `avancar_etapa()` / `guard_rejeicao_auditada()` / `registrar_decisao()` whose body is shorter than the live one.
-- No `pg_get_functiondef` diff in the plan/PR.
-
-**Phase to address:** Any phase touching the trigger functions (advance/reject, funil-02). **Test:** post-apply, assert the ENTREV-03 hold still fires and `auto_rejeitado` still writes false for a survivor advance.
-
----
-
-### Pitfall 16: Migration authoring — the 42601 pooler trap and the ledger drift
-
-**What goes wrong:**
-A PL/pgSQL migration (`CREATE FUNCTION`/`DO $$…$$` + adjacent `COMMENT`/`GRANT`/`REVOKE`) fails with `SQLSTATE 42601 — cannot insert multiple commands into a prepared statement` via `supabase db push` on the transaction pooler, OR it's applied via MCP but the migration ledger drifts (MCP writes a timestamp version row, not the filename version).
-
-**Why it happens:**
-The Supabase CLI driver wraps each migration in its own implicit transaction; an outer `BEGIN; … COMMIT;` combined with `$$` bodies breaks the prepared-statement boundary parser (CLAUDE.md §Migrations workaround, D-22). And MCP `apply_migration` reconciles the ledger by timestamp, so the file's version prefix must match to avoid drift (PROJECT Key Decisions; DBMIG-01).
-
-**How to avoid:**
-- Author PL/pgSQL migrations with **no outer `BEGIN;/COMMIT;` wrapper** (each shipped funnel migration already follows this — see the header notes in `20260607000005`, `20260712110001`).
-- Apply PROD via **Supabase MCP `apply_migration`/`execute_sql`** (bypasses 42601), then reconcile the version row; confirm `supabase db push --linked` reports "up to date".
-- Use fresh contiguous version prefixes — two migrations sharing a prefix breaks the version row (the Phase-25 renumber lesson, `20260709000010_...:8-13`).
-
-**Warning signs:**
-- `42601` on `db push`.
-- `db push` reporting "migration versions not found" after an MCP apply (ledger drift).
-
-**Phase to address:** Every M6 phase with a migration. **Test:** post-apply `supabase db push --linked` reports "Remote database is up to date".
-
----
-
-### Pitfall 17: Letting the `tsc` baseline grow (and `as never` casts masking schema drift)
-
-**What goes wrong:**
-M6 adds features and the pinned `tsc --noEmit` error baseline (currently **104**, red-on-growth in CI) creeps up, or new code uses `.update(x as never)` to silence type errors — which then masks a real column/enum mismatch against the regenerated `database.types.ts`.
-
-**Why it happens:**
-The baseline is a CI gate (`ci.yml`, PROJECT). The live advance path already uses `.update(update as never)` (`triagemService.ts:368`) — a known smell (`feedback_integration_contract_gap`: casts mask nonexistent columns). New scheduling/KPI tables mean regenerated types; code written before regeneration tends to accrete casts.
-
-**How to avoid:**
-- Regenerate `database.types.ts` (`npm run db:types`) after every schema change; drop `as never`/`as any` casts once types exist. The file lives at repo ROOT, never edit by hand.
-- Keep the baseline flat or shrinking; treat a baseline bump as a review red flag, not a routine.
-
-**Warning signs:**
-- CI tsc gate red (baseline grew).
-- New `as never`/`as any` in service writes against new tables.
-
-**Phase to address:** Every M6 phase (cross-cutting gate). **Test:** CI `tsc` gate stays ≤ pinned baseline; grep for new `as never` in M6 diffs.
+**Phase to address:** P38 (EF authoring — static import, shared-file redeploy discipline).
 
 ---
 
@@ -380,122 +299,114 @@ The baseline is a CI gate (`ci.yml`, PROJECT). The live advance path already use
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Reuse the role-only `rh_le_historico` / `curriculos` SELECT for KPIs/CV instead of vaga-scoping | Ship faster; no new policy | Horizontal PII/IDOR leak across recruiters; LGPD exposure; the exact class Phase 24 spent a whole phase remediating | **Never** — vaga-scope before building on either |
-| Client-side KPI aggregation (copy `RelatoriosRHPage`) | Fast to render with recharts | Ships PII to browser, slow, breaks when RLS tightens | Only a throwaway internal spike, never the shipped dashboard |
-| Client-only "justification required" on reject | Quick UI | Direct PostgREST bypass leaves unjustified rejects; funil-02 stays open | Never — enforce server-side (RPC/trigger) |
-| `.update(x as never)` to pass tsc | Unblocks the write | Masks column/enum drift against `database.types.ts` (contract-gap lesson) | Only transiently until `npm run db:types` regenerates; drop the cast same PR |
-| Re-author `avancar_etapa()` from an old migration file | Familiar starting point | Silently drops the live ENTREV-03 guard / GUC `auto_rejeitado` (Phase-27 near-miss) | Never — start from `pg_get_functiondef` of the live body |
-| Store interview time as zone-less `timestamp`/wall-clock string | Simple form binding | DST/offset bugs, missed interviews | Never — `timestamptz` + IANA render |
+| Skip `notificacoes_enviadas` state machine; just `PERFORM net.http_post` | Ship faster; mirrors SEC-03 skeleton | No idempotency (Pitfall 1) + no "did it send?" answer (Pitfall 2); silent drops in prod | **Never** — the audit/idempotency table is the whole point of the milestone |
+| Resend `Idempotency-Key` as the *only* dedup | One header, no DB gate | 24h expiry → a re-fire >24h later double-sends; not durable | Only as a *second* belt behind the DB UNIQUE |
+| Store full rendered HTML body in `notificacoes_enviadas` for debug | Easy replay/inspection | Growing PII liability, LGPD retention problem (Pitfall 8) | Short-lived, redacted, with a purge job — else never |
+| Deploy EF `--no-verify-jwt` and defer self-auth | Trigger call works immediately | Public spoofable send endpoint (Pitfall 4) | **Never** ship without the Bearer self-auth |
+| Poll `net._http_response` only (no webhook) | No extra EF | 6h retention → misses late delivery/bounce signals; no complaint feedback | Acceptable as a *safety net* alongside the webhook, not instead of it |
+| Keep SEC-03 triggers live "temporarily" alongside new ones | Don't touch working code | Guaranteed double-send (Pitfall 1); SEC-03 never actually retired | Never — retire in the same phase |
+| Reuse `onboarding@resend.dev` in prod | No DNS work | Spam-foldered, unbranded, reputation-less (Pitfall 5) | Dev/CI only |
 
 ## Integration Gotchas
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| `avancar_etapa()` trigger | Also `INSERT INTO historico_candidatura` from app code → double-write | Only UPDATE `etapa_atual`; the trigger owns the audit row |
-| `guard_rejeicao_auditada` trigger | `status='rejeitado'` alone (etapa unchanged, no GUC) → `check_violation` | Reject drives `etapa_atual='rejeitado'` in the same UPDATE, or a sanctioned DEFINER RPC |
-| `curriculos` private bucket | Reuse role-only SELECT → any recruiter downloads any CV | EF authenticate-THEN-authorize + short-TTL `createSignedUrl`, vaga-ownership checked |
-| `analise_candidato_vaga` / `score_match` | Sweep into a candidate query via `select('*')` | RH-only; candidate dashboard never queries analysis/score |
-| Supabase Storage RLS | Assume `select('*')` on a candidate row is safe because RLS is on | RLS is row-level only; use explicit allowlist / view / column REVOKE |
-| Migration apply | `supabase db push` on `$$` bodies → 42601 | MCP `apply_migration`, no BEGIN/COMMIT wrapper, reconcile version row |
-| COMM / email | Wire scheduling to a "notify candidate" step | No email this milestone — dashboard-only; do not touch n8n/`notificar-candidato` |
+| **Resend `/emails` API** | Treating a 200 as "delivered" | 200 = *accepted*; delivery/bounce arrives later via webhook — reconcile status |
+| **Resend Idempotency-Key** | Assuming it dedups forever | Expires after **24h**, max 256 chars — durable dedup is the DB UNIQUE |
+| **pg_net `net.http_post`** | Reading it as a blocking send | Non-blocking, **at-most-once**, returns a request_id; failures only in `net._http_response` (6h TTL) |
+| **pg_net timeout** | Leaving default 2000ms with a slow EF | Set explicit higher `timeout_milliseconds`; keep EF fast; false `timed_out` otherwise |
+| **`net._http_response`** | Adding a trigger to it to react to responses | **Never** — a trigger that calls a pg_net fn here can infinite-loop; poll via `pg_cron` instead |
+| **Resend webhooks** | Not verifying the Svix signature | Verify signature in the reconcile EF (`--no-verify-jwt` + signature check), else spoofable status updates |
+| **Vault secret** | Putting Resend key / invoke key in a `VITE_` env | `VITE_` inlines into the public bundle (the SEC-03 leak class) — Vault / EF-env only |
+| **`historico_candidatura` trigger** | Firing on every row incl. retrocesso | Filter by the specific forward transitions with a template; never modify `avancar_etapa()` itself |
+| **`.ics` in email** | Regenerating separately from M6's panel `.ics` | Share the M6 RFC-5545 helper; same `America/Sao_Paulo`; exclude `observacoes_rh` |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Client-side KPI aggregation over raw rows | Slow dashboard, large payloads, PII on wire | DB-side aggregate view/RPC | Grows with total candidatura volume (hundreds+) |
-| Time-in-stage without window functions | Wrong/negative/infinite durations | `lead()/lag()` over ordered transitions; exclude terminals | Any re-entrant transition or terminal candidate |
-| Unindexed KPI scans on `historico_candidatura` | Slow group-bys | The shipped `(candidatura_id, criado_em)` index (`20260607000001_...:49`); add a JOIN-supporting index if grouping by vaga | Larger history tables |
-| Per-row bulk advance without batching feedback | Batch appears to hang/half-apply | Report per-row outcome; don't assume atomicity | Bulk actions across many candidates |
+| `net.http_request_queue` backs up when EF/endpoint is slow or down | Emails delayed minutes/hours; worker busy | Keep EF fast (send-then-return); reasonable timeout; monitor queue depth | Sustained EF latency or outage; low volume masks it |
+| pg_net background worker stalls | All dispatch stops silently, funnel keeps moving | Monitor; `pg_net` ≥0.8 has a worker restart fn; alert on `pendente` backlog | Any worker crash; recovers only on restart |
+| `net._http_response` (UNLOGGED) growth | Table bloat if not auto-cleared | Rely on the default ~6h purge; don't disable it | High send volume without the purge |
+| `notificacoes_enviadas` unbounded PII growth | Slow queries, LGPD liability | Retention/purge job (Pitfall 8); index `(candidatura_id, evento)` and `status` | Every candidature adds rows forever |
+| Resend free-tier quota (incl. test-address sends) | Sends start failing at the cap | Track volume; test-address smokes count against quota | Bursty stage transitions + heavy testing |
+
+> At Beauty Smile's single-tenant recruiting volume these are low-probability, but the *silent* failure modes (worker stall, queue backup) matter more than throughput — a stalled worker with a moving funnel is the dangerous case.
 
 ## Security Mistakes
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| KPIs on role-only `rh_le_historico` | Recruiter sees every vaga's numbers (horizontal leak) | Vaga-scope `rh_le_historico` via candidaturas→vagas JOIN BEFORE building KPIs |
-| Role-only CV bucket read | Any recruiter downloads any candidate's CV (IDOR/PII, LGPD) | EF-minted vaga-scoped signed URL |
-| AI score/analysis reaching the candidate | Candidate sees internal verdict; RNF-07a/12a posture broken | RH-only analysis; candidate dashboard excludes it; behavioral smoke |
-| `select('*')` on candidate/scheduling/analysis rows | Column-level leak (notes, score, criteria) despite RLS | Explicit allowlist / `security_invoker` view / column REVOKE |
-| Scheduling table role-only RLS | Recruiter reads other vagas' interviews; candidate reads others' slots | Vaga-scoped RH + candidate own-row; verify via impersonation smoke |
-| Structural-only RLS verification (`pg_policies`) | Passes while leak persists (REVOKE no-op / OR-defeat) | Behavioral smokes: `set_config` JWT + `SET ROLE authenticated` |
-| Any score→reject convenience | Auto-rejection on a score (RNF-07a) + LGPD-20 breach | Human-only reject with `ator=auth.uid()`; grep guard |
+| EF `--no-verify-jwt` with no self-auth | Anyone sends email as Beauty Smile → spoof/spam/reputation | Bearer invoke-key from Vault, checked in the EF (mirror `analise`) |
+| `select('*')` in the EF's candidate read | PII / internal fields (motivo_rejeicao, score) into the email | Explicit allowlist column list only |
+| `notificacoes_enviadas` readable by candidate | Reads other candidates' emails / internal status / body | Candidate DENY (RH/service only); RLS is row-level, not a column secret |
+| Resend key or invoke key in bundle / `VITE_` var | Public key exfiltration, forged sends (the SEC-03 leak class) | Vault / EF-env only; grep guard against `VITE_.*RESEND` |
+| Webhook EF trusts unsigned payloads | Forged delivery/bounce status flips `notificacoes_enviadas` | Verify Svix signature before any DB write |
+| Rejection email exposes criterion/score | D-15 breach; LGPD/legal exposure | Fixed neutral template + grep guard; RNF-07a human-gated dispatch |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Scheduled interview only "sent by email" | Candidate never learns (no email exists) | Unmissable dashboard card: date/time/link + `America/Sao_Paulo` |
-| Reject dialog without a required reason | Empty audit trail; candidate gets no basis | Server-enforced justification; neutral candidate-facing copy |
-| Showing raw AI score to the candidate | Feels like an automated "teste"/verdict (RNF-12a/07a) | Neutral stage status only for the candidate |
-| Backward-move button that errors on click | Recruiter confusion (`Regressão exige justificativa`) | Require + send `etapa_justificativa`; surface as a field prompt |
-| Product copy "teste psicológico"/"reprovado pela IA" | RNF-12a / RNF-07a breach | "avaliação comportamental/cognitiva"; "análise da IA" as context |
+| Rejection email reveals why they were cut | Distress, disputes, D-15 breach | Neutral fixed copy; criterion never exposed |
+| Hard SLA date the RH misses | Broken promise worse than silence | Soft "até X dias úteis" range |
+| Push email contradicts pull panel | Confusion, distrust | Both read `historico_candidatura`; single source |
+| Interview time in wrong timezone | Missed interviews | `America/Sao_Paulo` everywhere; reuse M6 `.ics` |
+| No reply-to / unbranded from | Replies black-hole; looks like phishing → spam-reported | Real From + monitored Reply-To on verified domain |
+| "teste psicológico" / raw percentile in copy | RNF-12a breach; misleads candidate | "avaliação comportamental/cognitiva"; neutral bands |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Advance/reject controls:** often missing — verify exactly ONE `historico_candidatura` row per transition (trigger-owned, no app INSERT).
-- [ ] **Reject (any surface):** often missing — verify `criterio_texto` is non-empty and enforcement is server-side, not just a form field.
-- [ ] **Backward move:** often missing — verify `etapa_justificativa` is collected and sent (else the regression guard RAISEs).
-- [ ] **Interview scheduling:** often missing — verify the candidate can SEE it on the dashboard (no email exists) and the time renders in `America/Sao_Paulo`.
-- [ ] **Scheduling RLS:** often missing — verify candidate own-row only, RH vaga-scoped, interviewer notes excluded from the candidate projection.
-- [ ] **CV visibility:** often missing — verify the download URL is vaga-scoped (EF), not the role-only bucket read.
-- [ ] **AI analysis visibility:** often missing — verify the candidate dashboard does NOT include `score_match`/analysis.
-- [ ] **KPIs:** often missing — verify `rh_le_historico` is vaga-scoped and aggregation is DB-side (no PII on the wire).
-- [ ] **Time-in-stage:** often missing — verify terminals and re-entrant transitions don't produce infinite/negative durations.
-- [ ] **Trigger edit:** often missing — verify a `pg_get_functiondef` diff exists and the ENTREV-03 guard + `auto_rejeitado` predicate survive.
-- [ ] **Migrations:** often missing — verify no `BEGIN/COMMIT` wrapper, MCP-applied, ledger reconciled ("up to date").
-- [ ] **Types/tsc:** often missing — verify `database.types.ts` regenerated, `as never` casts dropped, baseline not grown.
+- [ ] **Idempotency:** `notificacoes_enviadas` has a `UNIQUE (candidatura_id, evento)` and the trigger gates dispatch on `ON CONFLICT DO NOTHING RETURNING` — verify a double-fire produces exactly one email.
+- [ ] **"Did it send?":** a single SQL query lists candidates whose notification is `pendente`/`falhou` — verify the state machine flips on a real send.
+- [ ] **Reconciliation:** Resend webhook (or `pg_cron` poll of `net._http_response` within 6h) updates status — verify `bounced@resend.dev` flips a row to `bounce`.
+- [ ] **SEC-03 retired:** the three n8n triggers + `submit-candidatura` env-var fire are dropped/repointed — verify no double-fire from the old path.
+- [ ] **EF auth:** unauth `curl` to the EF is rejected (401) — verify the Bearer self-auth, not just verify_jwt behavior.
+- [ ] **PII allowlist:** the EF's candidate read is an explicit column list, not `select('*')` — grep the EF.
+- [ ] **D-15:** rejection template contains no criterion/score token — grep the template source.
+- [ ] **Deliverability:** domain shows "Verified" in Resend; SPF+DKIM present; DMARC published manually; From/Reply-To real — verify a real Gmail inbox delivery (not test address).
+- [ ] **Timezone:** email time == panel card time == `.ics` time, all `America/Sao_Paulo`.
+- [ ] **Ledger:** M7 migrations applied via MCP with `schema_migrations` reconciled; no DBMIG-01 entanglement; `db push --linked` says "up to date."
+- [ ] **CI:** email EF unit tests pass with no live `RESEND_API_KEY` (mocked sender); non-prod refuses non-allowlisted recipients.
 
 ## Recovery Strategies
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Double-write to `historico_candidatura` | MEDIUM | Remove the app/RPC INSERT; de-dup existing rows (keep the trigger-written one); re-verify KPI counts |
-| Role-only `rh_le_historico` shipped with KPIs | MEDIUM | Re-scope policy to vaga JOIN; behavioral smoke; audit whether cross-vaga numbers were exposed |
-| Role-only CV bucket exposed to all RH | MEDIUM | Replace direct read with EF signed-URL; revoke broad access; check download logs for cross-vaga access |
-| Unjustified rejects already written | LOW–MEDIUM | Add server enforcement; backfill/annotate historical NULL `criterio_texto` rows if policy requires |
-| `avancar_etapa()` re-authored dropping a guard | HIGH | Restore from `pg_get_functiondef` of a known-good version; re-apply; regression-test the ENTREV-03 hold live |
-| Timezone bug in scheduling | LOW | Migrate column to `timestamptz`; fix render to IANA zone; re-notify affected candidates via dashboard |
-| Score→reject shipped | HIGH | Remove the path immediately; audit `historico_candidatura` for illegitimate `auto_rejeitado`/`ator IS NULL` rejects; manual review |
+| Double-send shipped (no UNIQUE) | MEDIUM | Add `UNIQUE (candidatura_id, evento)` (dedup existing rows first), add `ON CONFLICT` gate, redeploy; apologize to affected candidates |
+| Silent drops (no state machine) | MEDIUM | Add status columns + backfill `pendente` from `historico_candidatura`; add reconciliation; manually re-notify the gap |
+| Criterion leaked in a rejection email | HIGH | Cannot unsend; fix template + grep guard immediately; assess LGPD notification obligation; audit `notificacoes_enviadas` for scope |
+| Spoofable EF discovered | HIGH | Add Bearer self-auth + redeploy immediately; rotate the invoke key; check Resend logs for forged sends |
+| Domain not verified → all spam | LOW | Verify domain (auto SPF/DKIM), publish DMARC, fix From/Reply-To; wait for DNS/reputation to recover |
+| Ledger drift after MCP apply | LOW | `migration repair --status applied <version>`; do NOT re-run migrations |
+| pg_net worker stalled | LOW | Restart worker (pg_net ≥0.8); reprocess `pendente` rows via the reconcile path |
 
 ## Pitfall-to-Phase Mapping
 
-Phases are thematic (M6 numbering starts at **Phase 31**; the roadmapper assigns exact numbers/order). Suggested grouping: **(A)** per-stage advance/reject + funil-02 comparativo reject; **(B)** interview scheduling; **(C)** CV + AI-analysis visibility to RH; **(D)** work-queue dashboard + operational KPIs. Cross-cutting pitfalls (15–17) apply to every phase that ships a migration.
-
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| 1 Double-write | A (advance/reject) | Exactly 1 history row per transition |
-| 2 Bypass trigger / no audit row | A | `status→rejeitado` w/o etapa RAISEs `check_violation` |
-| 3 Reject without justification | A + funil-02 | Empty justification RAISES; text lands in `criterio_texto` |
-| 4 Backward-move / bulk guard | A | Backward w/o justification RAISEs; bulk reports held rows |
-| 5 Auto-reject on score (RNF-07a) | A + D | Grep guard; no `ator NULL` human-reject; no threshold reject |
-| 6 Assumes email exists | B (scheduling) | Candidate sees schedule on dashboard; no notify EF invoked |
-| 7 Timezone | B | RH & candidate render same `America/Sao_Paulo`; `timestamptz` |
-| 8 Scheduling RLS + notes leak | B | Impersonation smoke: own-row candidate, vaga-scoped RH, notes excluded |
-| 9 CV bucket role-only | C (CV/AI visibility) | Owner recruiter 200, non-owner 403, candidate cannot mint |
-| 10 Analysis/CV to candidate | C | Candidate dashboard has no score/analysis/CV URL |
-| 11 KPI role-only leak | D (KPIs) — re-scope `rh_le_historico` FIRST | Recruiter A KPIs exclude recruiter B's vagas |
-| 12 Client-side aggregation | D | KPI endpoint returns aggregates only, no PII |
-| 13 Time-in-stage math | D | Non-negative durations; terminals/re-entries handled; conversion ≤100% |
-| 14 Comparativo reject justification (funil-02) | funil-02 | `criterio_texto` equals the entered reason |
-| 15 `CREATE OR REPLACE` live body | any phase editing triggers | `pg_get_functiondef` diff; ENTREV-03 + `auto_rejeitado` survive |
-| 16 42601 / ledger drift | any phase w/ migration | MCP apply; `db push` "up to date" |
-| 17 tsc baseline / `as never` | all phases | tsc gate ≤ baseline; types regenerated |
+| 1 — Double-send | P37 (constraint) + P39 (single source + transition filter) | Double-fire test → exactly one `notificacoes_enviadas` row + one email |
+| 2 — Fire-and-forget silent drop | P37 (state machine) + P39 (timeout + reconcile + cron sweep) | Query lists `pendente`/`falhou`; `bounced@resend.dev` flips status |
+| 3 — PII / D-15 leak | P38 (allowlist + neutral template) + P37 (RLS) | Grep template for criterion tokens; impersonated-JWT smoke on `notificacoes_enviadas` |
+| 4 — Trigger→EF auth | P38 (self-auth) + P36/P39 (Vault key + header) | Unauth `curl` → 401; trigger call → 200 |
+| 5 — Deliverability | P36 (domain/DKIM/SPF/DMARC/sender) | Resend "Verified"; real Gmail inbox delivery |
+| 6 — Bounce/complaint reputation | P39 (webhook ingest + suppression marker) | `bounced@`/`complained@` flip status + mark candidato |
+| 7 — Migration/ledger | P37 (MCP apply + reconcile, SEC-03 retire) | `db push` "up to date"; live-body diff pre-replace |
+| 8 — LGPD/TZ/retention | P40 (TZ/`.ics`) + P37/P41 (retention) | Email time == panel == `.ics`; retention/purge exists |
+| 9 — Timeline over-promise | P40 (panel from `historico_candidatura`) | Soft range; push/pull stage agree |
+| 10 — Testing/spam/CI | P41 (test addresses + mocks + env guard) | CI green without live key; no real inbox hit |
+| 11 — `_shared` freeze / dynamic import | P38 (static import + redeploy discipline) | First real send ≠ 500; `get_edge_function` diff clean |
 
 ## Sources
 
-- **Live migration source (authoritative, HIGH):**
-  - `supabase/migrations/20260712110001_avancar_etapa_auto_rejeitado_fix.sql` — CURRENT live `avancar_etapa()` body (transition validation + audit write + Phase-14 ENTREV-03 flag guard + GUC-gated `auto_rejeitado`); its `⚠ CORRECTNESS NOTE` documents the Phase-27 re-author near-miss.
-  - `supabase/migrations/20260607000005_avancar_etapa_trigger.sql` + `20260624000004_avancar_etapa_flag_guard.sql` — trigger evolution / SECURITY DEFINER rationale.
-  - `supabase/migrations/20260607000001_historico_candidatura.sql` — append-only audit table (nullable `etapa_de`, `(candidatura_id, criado_em)` index).
-  - `supabase/migrations/20260607000006_rls_policies_m2_backbone.sql` — role-only `rh_le_historico` + candidate own-row `candidato_le_proprio_historico`.
-  - `supabase/migrations/20260706110004_sec05_08_vaga_scope.sql` — WR-04 vaga-scoped predicate; **line 126-131 defers `rh_le_historico` re-scope to Phase 25 (never completed)**.
-  - `supabase/migrations/20260709000010_guard_rejeicao_auditada.sql` — reject-without-trail backstop + sanction GUC idiom.
-  - `supabase/migrations/20260425000002_curriculos_bucket.sql` — private bucket, **role-only RH SELECT**, `{auth.uid()}/{uuid}.pdf` path.
-- **Live RH client (HIGH):** `src/features/triagem/services/triagemService.ts` — `updateCandidaturaEtapa` (direct `etapa_atual` UPDATE, no `etapa_justificativa`), `v_triagem_panel` allowlist read, `as never` cast.
-- **Existing reports surface:** `src/components/pages/RelatoriosRHPage.tsx` — client-side recharts aggregation (the "M1 dead model").
-- **Project memory / decisions (HIGH):** `.planning/PROJECT.md` Key Decisions (SECURITY DEFINER + GUC actor capture; RLS-not-a-column-secret; behavioral smokes > structural; verify live body before `CREATE OR REPLACE`; MCP apply / 42601); `CLAUDE.md` §Migrations workaround + Security Rules; MEMORY references `reference_select_star_leaks_pii`, `reference_ef_authenticate_vs_authorize`, `feedback_integration_contract_gap` (survivor double-write, Phase-8 leak, contract casts).
-- **Scope (HIGH):** `.planning/M5-DRAFT.md` OPER group + COMM deferral; PROJECT.md `## Current Milestone` (COMM/TALENT/LGPD-OPS out of scope; RNF-07a/RNF-12a invariants).
+- Resend — Idempotency-Key (POST /emails header: max 256 chars, expires 24h; SMTP `Resend-Idempotency-Key`): https://resend.com/docs (via Context7 `/websites/resend`) — HIGH
+- Resend — Test addresses (`delivered@`/`bounced@`/`complained@`/`suppressed@resend.dev`; count against quota; safe for reputation): https://resend.com/docs/dashboard/emails/send-test-emails and /docs/knowledge-base/what-email-addresses-to-use-for-testing — HIGH
+- Resend — Deliverability (SPF+DKIM auto on domain verify, DMARC manual, Gmail/Yahoo require DMARC since 2024, URL/domain match): https://resend.com/docs/knowledge-base/why-are-my-emails-going-to-spam — HIGH
+- Resend — Webhooks (`email.sent`/`delivered`/`bounced`/`complained`, Svix signature, tags): https://resend.com/docs/webhooks/emails — HIGH
+- Supabase pg_net — signature (returns bigint request_id, default timeout 2000ms), `net._http_response` UNLOGGED table: https://supabase.com/docs/guides/database/extensions/pg_net — HIGH
+- Supabase pg_net — at-most-once, no retry, ~6h response retention, worker restart (≥0.8), do-not-trigger `net._http_response`: https://github.com/supabase/pg_net + https://supabase.com/docs/guides/troubleshooting/webhook-debugging-guide-M8sk47 — HIGH
+- Repo scars: `.planning/PROJECT.md` (Key Decisions: MCP timestamp ledger, static `npm:` import, RLS-not-column-secret, EF authenticate-THEN-authorize), `CLAUDE.md` (42601 workaround / D-22), `supabase/migrations/20260706110005_sec03_n8n_serverside.sql` (dormant SEC-03 triggers, graceful-skip, RNF-07a comments, double-fire note), MEMORY (`reference_select_star_leaks_pii`, `reference_ef_authenticate_vs_authorize`, `reference_ef_shared_bundle_freeze`, `reference_ef_npm_join_import_bug`, `feedback_integration_contract_gap`) — HIGH
 
 ---
-*Pitfalls research for: funnel-operation features on the Beauty Smile ATS (M6 — Operação do Funil RH)*
-*Researched: 2026-07-14*
+*Pitfalls research for: transactional email (Resend) + pg_net DB-trigger dispatch on a Supabase/Deno ATS (M7 COMM)*
+*Researched: 2026-07-17*
