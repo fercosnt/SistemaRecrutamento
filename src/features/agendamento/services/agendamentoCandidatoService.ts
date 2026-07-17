@@ -121,15 +121,58 @@ function escapeIcsText(s: string): string {
 }
 
 /**
+ * RFC 5545 §3.1 content-line folding (WR-02): a content line longer than 75 OCTETS must
+ * be split into physical lines of ≤75 octets, joined by CRLF + a single leading space
+ * (the continuation marker). We measure in UTF-8 OCTETS (not chars) via `TextEncoder`
+ * and iterate by code point (`for…of`) so a multi-byte codepoint is never split — a long
+ * `LOCATION` (a meeting URL or a full street address after `escapeIcsText`) can exceed 75
+ * octets, which a strict/legacy parser would otherwise truncate or reject. The first
+ * physical line carries 75 octets; each continuation reserves 1 octet for the leading
+ * space → 74 octets of payload, so every emitted physical line stays ≤75 octets.
+ */
+function foldIcsLine(line: string): string {
+  const encoder = new TextEncoder()
+  if (encoder.encode(line).length <= 75) return line
+
+  const chunks: string[] = []
+  let current = ''
+  let currentOctets = 0
+  let limit = 75 // first physical line: full 75 octets; continuations: 74 (+ leading space)
+  for (const char of line) {
+    const charOctets = encoder.encode(char).length
+    if (currentOctets + charOctets > limit) {
+      chunks.push(current)
+      current = char
+      currentOctets = charOctets
+      limit = 74
+    } else {
+      current += char
+      currentOctets += charOctets
+    }
+  }
+  chunks.push(current)
+  return chunks.join('\r\n ')
+}
+
+/**
  * Builds the VCALENDAR/VEVENT string for the candidate's interview. Required VEVENT
  * fields (UID/DTSTAMP/DTSTART) + DTEND (+1h) + generic SUMMARY + optional LOCATION
  * (only when a link/local exists). Lines joined with CRLF (`\r\n`) — mandatory.
  */
 export function gerarIcsAgendamento(row: MeuAgendamentoRow): string {
+  // IN-03: guard the un-guarded seam — `toIcsUtc` would throw an opaque
+  // `RangeError: Invalid time value` on an empty/unparseable `data_hora`. Mirror the
+  // `Number.isNaN` guards on the sibling predicates and surface a typed caller error.
+  const startMs = new Date(row.data_hora).getTime()
+  if (Number.isNaN(startMs)) {
+    throw new MeuAgendamentoServiceError(
+      'data_hora inválida — não é possível gerar o .ics',
+      'INVALID_INPUT',
+    )
+  }
+
   const dtStart = toIcsUtc(row.data_hora)
-  const dtEnd = toIcsUtc(
-    new Date(new Date(row.data_hora).getTime() + UMA_HORA_MS).toISOString(),
-  )
+  const dtEnd = toIcsUtc(new Date(startMs + UMA_HORA_MS).toISOString())
   const dtStamp = toIcsUtc(new Date().toISOString())
 
   const lines = [
@@ -150,7 +193,9 @@ export function gerarIcsAgendamento(row: MeuAgendamentoRow): string {
     'END:VEVENT',
     'END:VCALENDAR',
   ]
-  return lines.join('\r\n') // CRLF is mandatory (Outlook rejects bare LF)
+  // Fold each content line to ≤75 octets (RFC 5545 §3.1) BEFORE the CRLF join. CRLF is
+  // mandatory (Outlook rejects bare LF).
+  return lines.map(foldIcsLine).join('\r\n')
 }
 
 /**

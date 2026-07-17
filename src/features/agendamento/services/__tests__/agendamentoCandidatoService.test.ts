@@ -196,6 +196,48 @@ describe('gerarIcsAgendamento — RFC 5545 VCALENDAR/VEVENT (AGEND-05)', () => {
     const summaryLine = ics.split('\r\n').find((l) => l.startsWith('SUMMARY:'))
     expect(summaryLine).toBe('SUMMARY:Entrevista Beauty Smile')
   })
+
+  it('folds a LOCATION longer than 75 octets per RFC 5545 §3.1 (WR-02): every physical line ≤75 octets, continuations start with a space, value round-trips', () => {
+    const longUrl =
+      'https://meet.example.com/rooms/entrevista-beauty-smile/av-paulista-1000-conjunto-1234-sala-de-reuniao-principal'
+    const ics = gerarIcsAgendamento(
+      makeRow({ tipo: 'online', local_ou_link: longUrl }),
+    )
+    const encoder = new TextEncoder()
+    const physicalLines = ics.split('\r\n')
+
+    // (1) the unfolded input WAS long enough to require folding
+    expect(encoder.encode(`LOCATION:${longUrl}`).length).toBeGreaterThan(75)
+    // (2) NO physical line exceeds the 75-octet limit
+    for (const line of physicalLines) {
+      expect(encoder.encode(line).length).toBeLessThanOrEqual(75)
+    }
+    // (3) the LOCATION was actually split across ≥2 physical lines whose continuations
+    //     begin with the mandatory single leading space
+    const continuations = physicalLines.filter((l) => l.startsWith(' '))
+    expect(continuations.length).toBeGreaterThan(0)
+    // (4) unfolding (strip CRLF + one leading space) reconstructs the original value
+    const unfolded = ics.replace(/\r\n /g, '')
+    expect(unfolded).toContain(`LOCATION:${longUrl}`)
+  })
+
+  it('short content lines are NOT folded (no spurious continuation lines)', () => {
+    const ics = gerarIcsAgendamento(makeRow({ local_ou_link: 'Av. Paulista, 1000' }))
+    // none of these short lines should have gained a CRLF+space continuation
+    expect(ics).toContain('DTSTART:20260720T173000Z')
+    expect(ics).toContain('SUMMARY:Entrevista Beauty Smile')
+    expect(ics).toContain('LOCATION:Av. Paulista\\, 1000')
+    expect(ics).not.toContain('\r\n ') // no fold markers for the short fixture
+  })
+
+  it('throws INVALID_INPUT for an unparseable data_hora instead of an opaque RangeError (IN-03)', () => {
+    expect(() => gerarIcsAgendamento(makeRow({ data_hora: 'not-a-date' }))).toThrow(
+      MeuAgendamentoServiceError,
+    )
+    expect(() => gerarIcsAgendamento(makeRow({ data_hora: '' }))).toThrow(
+      /data_hora inválida/,
+    )
+  })
 })
 
 describe('ehUpcomingNaoCancelada — future AND non-cancelled gate (AGEND-05)', () => {
