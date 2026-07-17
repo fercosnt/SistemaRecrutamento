@@ -146,6 +146,33 @@ describe('AgendamentoCandidatoCard — states + AGEND-05 gating', () => {
     ).toBeInTheDocument()
   })
 
+  it('(WR-01) online with a javascript:-scheme link → NOT rendered as <a>, shown as inert text', () => {
+    const evil = 'javascript:alert(document.cookie)'
+    useMeuAgendamentoMock.mockReturnValue(
+      hookState({ data: makeRow({ tipo: 'online', local_ou_link: evil }) }),
+    )
+    renderCard()
+
+    // defense-in-depth: an unsafe scheme is NEVER linkified
+    expect(screen.queryByRole('link')).toBeNull()
+    // the value is still shown, but as inert text (visible, not clickable)
+    expect(screen.getByText(evil)).toBeInTheDocument()
+  })
+
+  it('(WR-01) online with a data:-scheme link → NOT rendered as <a>', () => {
+    useMeuAgendamentoMock.mockReturnValue(
+      hookState({
+        data: makeRow({
+          tipo: 'online',
+          local_ou_link: 'data:text/html,<script>alert(1)</script>',
+        }),
+      }),
+    )
+    renderCard()
+
+    expect(screen.queryByRole('link')).toBeNull()
+  })
+
   it('loading → shows the eyebrow, no .ics button', () => {
     useMeuAgendamentoMock.mockReturnValue(hookState({ isLoading: true }))
     renderCard()

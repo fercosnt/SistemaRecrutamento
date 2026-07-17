@@ -60,6 +60,21 @@ const STATUS_CONFIG: Record<
   nao_compareceu: { icon: AlertCircle, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Não compareceu' },
 }
 
+/**
+ * Defense-in-depth (WR-01): only linkify an RH-written online meeting URL when it parses
+ * AND its scheme is `http:`/`https:`. `local_ou_link` comes from the RH write layer, so a
+ * `javascript:`/`data:` URL is reachable via bad/compromised data; such a value is
+ * rendered as inert plain text instead of a candidate-clickable anchor.
+ */
+function isSafeHttpUrl(u: string): boolean {
+  try {
+    const { protocol } = new URL(u.trim())
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 /** Long-form pt-BR date for the screen-reader aria-label (SP-pinned). */
 function formatDataHoraLonga(iso: string): string {
   const d = new Date(iso)
@@ -187,7 +202,12 @@ export function AgendamentoCandidatoCard({ candidaturaId }: AgendamentoCandidato
       {/* link (online) / local (presencial) — presencial is NEVER a link */}
       <div className={dimClass}>
         {row.tipo === 'online' ? (
-          row.local_ou_link ? (
+          !row.local_ou_link ? (
+            // W4: RH hasn't set a link yet — graceful fallback.
+            <p className="text-sm text-white/70">
+              Link da videochamada será informado em breve
+            </p>
+          ) : isSafeHttpUrl(row.local_ou_link) ? (
             <a
               href={row.local_ou_link}
               target="_blank"
@@ -199,9 +219,10 @@ export function AgendamentoCandidatoCard({ candidaturaId }: AgendamentoCandidato
               Entrar na videochamada
             </a>
           ) : (
-            <p className="text-sm text-white/70">
-              Link da videochamada será informado em breve
-            </p>
+            // WR-01: an RH-written link with a non-http(s) scheme (javascript:/data:) is
+            // NEVER linkified — render the raw value as inert plain text (same non-link
+            // treatment as presencial), never a candidate-clickable anchor.
+            <p className="break-words text-sm text-white/90">{row.local_ou_link}</p>
           )
         ) : (
           <p className="break-words text-sm text-white/90">
