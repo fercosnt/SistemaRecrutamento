@@ -129,11 +129,11 @@ Waves: Wave 1 = 34-01 (DB foundation, BLOCKING) + 34-02 (VISRH — usa primitivo
   2. A leitura do candidato é restrita à própria linha por allowlist explícita e **nunca** expõe `observacoes_rh` (observações internas do RH) (AGEND-04).
   3. O candidato baixa um arquivo `.ics` do agendamento, gerado client-side no navegador (substituto do convite `.ics` que o mercado manda por e-mail — zero e-mail, zero backend de calendário) (AGEND-05).
   4. O candidato vê um badge de lembrete quando a entrevista está a ≤24h (AGEND-05).
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 35-01: `rotaCandidato` para `entrevista_online`/`entrevista_presencial` no `funilNavMap` + card do agendamento own-row (allowlist) na superfície "Próximo passo" do `HubCandidatoRH` (AGEND-04)
-- [ ] 35-02: Download `.ics` client-side + badge de lembrete ≤24h (reusa o idioma `America/Sao_Paulo` de `EntrevistaDashboard.tsx`) (AGEND-05)
+- [ ] 35-01-PLAN.md — shared `America/Sao_Paulo` TZ util (extract) + candidate own-row read service via the `get_meu_agendamento` DEFINER RPC (7-col allowlist) + `useMeuAgendamento` hook (AGEND-04)
+- [ ] 35-02-PLAN.md — `AgendamentoCandidatoCard` inline in `DashboardCandidatoPage` (5 states, SP date, safe link/local) + client-side `.ics` download + ≤24h reminder badge, upcoming-non-cancelled only (AGEND-04, AGEND-05)
 **UI hint**: yes
 
 <details>
