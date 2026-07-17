@@ -25,7 +25,7 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ### AGEND — Agendamento de entrevista
 
-- [ ] **AGEND-01**: RH pode agendar uma entrevista para um candidato (modalidade online/presencial, data e hora, link de videochamada ou local), gravada com o autor (`agendado_por`) e vaga-scoped, na tabela nova `agendamentos_entrevista`.
+- [x] **AGEND-01**: RH pode agendar uma entrevista para um candidato (modalidade online/presencial, data e hora, link de videochamada ou local), gravada com o autor (`agendado_por`) e vaga-scoped, na tabela nova `agendamentos_entrevista`.
 - [x] **AGEND-02**: RH pode reagendar ou cancelar um agendamento existente, refletido no card do candidato no painel.
 - [x] **AGEND-03**: RH pode registrar o comparecimento/no-show do candidato à entrevista (campo `compareceu`) — habilita o KPI de no-show.
 - [x] **AGEND-04**: O candidato vê a entrevista agendada num card no painel — data/hora em `America/Sao_Paulo` + link ou local — sendo o painel o **único** canal (sem e-mail); leitura restrita à própria linha por allowlist explícita (nunca expõe observações internas do RH).
@@ -46,9 +46,9 @@ Requirements para este milestone. Cada um mapeia para exatamente uma fase (ver T
 
 ### SEG — Blindagem (security-first; invariantes testáveis por smoke comportamental)
 
-- [ ] **SEG-01**: O acesso ao CV é vaga-scoped — a policy de leitura role-only do bucket `curriculos` é **removida** e substituída pela EF (única via RH); um smoke com JWT impersonado prova que o recrutador A não obtém o CV de um candidato da vaga de B.
-- [ ] **SEG-02**: A agregação de KPIs é vaga-scoped por construção (scoping interno no RPC DEFINER) e o read role-only de `historico_candidatura` (`rh_le_historico`, diferido na P24 e nunca varrido) é endurecido para o predicado vaga-scoped WR-04 (defense-in-depth); smoke prova que o recrutador A não vê números da vaga de B.
-- [ ] **SEG-03**: O agendamento respeita isolamento — o candidato lê apenas a própria linha (sem observações internas do RH) e o RH é vaga-scoped; smokes cross-candidato e cross-recrutador (incl. exclusão de `observacoes_rh` da projeção do candidato).
+- [x] **SEG-01**: O acesso ao CV é vaga-scoped — a policy de leitura role-only do bucket `curriculos` é **removida** e substituída pela EF (única via RH); um smoke com JWT impersonado prova que o recrutador A não obtém o CV de um candidato da vaga de B.
+- [x] **SEG-02**: A agregação de KPIs é vaga-scoped por construção (scoping interno no RPC DEFINER) e o read role-only de `historico_candidatura` (`rh_le_historico`, diferido na P24 e nunca varrido) é endurecido para o predicado vaga-scoped WR-04 (defense-in-depth); smoke prova que o recrutador A não vê números da vaga de B.
+- [x] **SEG-03**: O agendamento respeita isolamento — o candidato lê apenas a própria linha (sem observações internas do RH) e o RH é vaga-scoped; smokes cross-candidato e cross-recrutador (incl. exclusão de `observacoes_rh` da projeção do candidato).
 
 ## Decisões de escopo em aberto (resolver no planejamento das fases)
 
@@ -100,7 +100,7 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 | OPER-02 | Phase 31 | Complete |
 | OPER-03 | Phase 31 | Complete |
 | OPER-04 | Phase 31 | Complete |
-| AGEND-01 | Phase 33 | Pending |
+| AGEND-01 | Phase 33 | Complete |
 | AGEND-02 | Phase 34 | Complete |
 | AGEND-03 | Phase 34 | Complete |
 | AGEND-04 | Phase 35 | Complete |
@@ -112,9 +112,9 @@ Cada REQ-ID mapeia para exatamente 1 fase. Coverage validada 19/19 (0 unmapped) 
 | KPI-02 | Phase 34 | Complete |
 | KPI-03 | Phase 34 | Complete |
 | KPI-04 | Phase 34 | Complete |
-| SEG-01 | Phase 32 | Pending |
-| SEG-02 | Phase 32 | Pending |
-| SEG-03 | Phase 33 | Pending |
+| SEG-01 | Phase 32 | Complete |
+| SEG-02 | Phase 32 | Complete |
+| SEG-03 | Phase 33 | Complete |
 
 **Coverage:**
 - v1 requirements: 19 total
