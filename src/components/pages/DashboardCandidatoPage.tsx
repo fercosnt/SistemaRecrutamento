@@ -10,6 +10,7 @@ import { useCandidaturas, useCandidaturasCount } from '@/features/vagas/hooks';
 import type { CandidaturasFilters, Candidatura } from '@/features/vagas/types/vagasTypes';
 import { funilNavMap } from '@/lib/navegacao/funilNavMap';
 import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '@/features/triagem/services/triagemService';
+import { AgendamentoCandidatoCard } from '@/features/agendamento/components/AgendamentoCandidatoCard';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -302,6 +303,12 @@ export function DashboardCandidatoPage() {
                   // Phase 17 / D-09 — funnel step-CTA (drift-guarded) + D-11 LGPD card.
                   const stepCTA = getStepCTA(candidatura);
                   const mostrarLGPD = hasDecisaoFinal(candidatura);
+                  // Phase 35 / AGEND-04 — for the two entrevista etapas, the "Próximo
+                  // passo" footer (a dead no-op: funilNavMap.rotaCandidato returns null)
+                  // is replaced by the inline agendamento card. Same drift-guard cast.
+                  const etapa = candidatura.etapa_atual as EtapaFunilM2;
+                  const ehEntrevista =
+                    etapa === 'entrevista_online' || etapa === 'entrevista_presencial';
 
                   return (
                     <GlassCard
@@ -376,26 +383,30 @@ export function DashboardCandidatoPage() {
                           (#35BFAD) when there is a route, neutral glass otherwise.
                           stopPropagation so the funnel CTA wins over the card's
                           vaga-navigation onClick. */}
-                      <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-xs uppercase tracking-wide text-white/60">
-                          Próximo passo
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (stepCTA.destino) navigate(stepCTA.destino);
-                          }}
-                          className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all duration-200 active:scale-95 ${
-                            stepCTA.destino
-                              ? 'bg-[#35BFAD] hover:bg-[#35BFAD]/90 shadow-lg'
-                              : 'bg-white/10 hover:bg-white/20 border border-white/20'
-                          }`}
-                        >
-                          {stepCTA.label}
-                          <ArrowRight className="h-4 w-4" />
-                        </button>
-                      </div>
+                      {ehEntrevista ? (
+                        <AgendamentoCandidatoCard candidaturaId={candidatura.id} />
+                      ) : (
+                        <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="text-xs uppercase tracking-wide text-white/60">
+                            Próximo passo
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (stepCTA.destino) navigate(stepCTA.destino);
+                            }}
+                            className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all duration-200 active:scale-95 ${
+                              stepCTA.destino
+                                ? 'bg-[#35BFAD] hover:bg-[#35BFAD]/90 shadow-lg'
+                                : 'bg-white/10 hover:bg-white/20 border border-white/20'
+                            }`}
+                          >
+                            {stepCTA.label}
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
 
                       {/* Phase 17 / D-11 — in-app LGPD card. Shown only when a
                           final decision exists. CTA opens the LGPD Art. 20
