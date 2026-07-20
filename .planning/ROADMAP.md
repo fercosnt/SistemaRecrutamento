@@ -9,18 +9,23 @@
 - ✅ **v4.0 — M4 Correção & Blindagem do Funil** — Phases 22–27 (shipped 2026-07-13) — `milestones/v4.0-ROADMAP.md`
 - ✅ **v5.0 — M5 Gestão de Usuários & Perfil RH** — Phases 28–30 (shipped 2026-07-14) — `milestones/v5.0-ROADMAP.md`
 - ✅ **v6.0 — M6 Operação do Funil RH** — Phases 31–35 (shipped 2026-07-17) — `milestones/v6.0-ROADMAP.md`
+- 🚧 **v7.0 — M7 Comunicação com o Candidato (COMM)** — Phases 36–41 (em andamento)
 
 ## Overview
 
-O M6 não constrói um ATS — constrói a **esteira** que faz o funil (já avaliativo) **andar** pela mão do RH. É deliberadamente um milestone de *reuse-and-tighten*, **não** build-from-scratch: 1 tabela nova (`agendamentos_entrevista`), 2 read-primitives novos (a EF `get-curriculo-url` e a RPC `funil_kpis` DEFINER), o fechamento de 2 vazamentos horizontais vivos, e a generalização do write-path de funil que já existe — zero dependências npm novas. As quatro dimensões de pesquisa (stack, features, arquitetura, pitfalls) convergiram independentemente na mesma **ordem security-first**: dados + RLS aterrissam e são provados por smoke comportamental (JWT impersonado) **antes** de qualquer UI que os consome. O milestone entrega em 5 fases: primeiro o avançar/rejeitar per-etapa em todo o funil + reject-do-comparativo, puro reuso do trigger auditável já correto (P31 — a vitória de menor risco, que desriscar o milestone cedo); depois o fechamento server-only dos dois leaks (CV role-only no bucket + `rh_le_historico` role-only nunca varrido) via EF authenticate-THEN-authorize + RPC DEFINER vaga-scoped, **BLOCKING** para as telas de leitura (P32); a camada de dados do agendamento — tabela nova + RLS bidirecional provada por smoke antes de qualquer form (P33); as superfícies do RH cabeadas contra primitivos já seguros — CV + análise da IA + feed de histórico + agendamento + fila de trabalho + dashboard de KPIs (P34); e por fim a leitura do agendamento pelo painel do candidato, fechando o modelo "sem e-mail = painel é o canal único" (P35).
+O M7 não constrói uma nova capacidade de funil — faz o candidato **saber** que o funil (já operado pela mão do RH desde o M6) está andando. É uma **integração aditiva**, não greenfield: gatilhos de DB → `pg_net` → uma EF nova `notificar-candidato` (self-auth) → Resend — um clone quase-verbatim do padrão SEC-03/`analise-candidato-individual` já shipado e provado, com **zero dependências npm novas**. Isto **aposenta o n8n pessoal e resolve SEC-03 por substituição** (não patch): os 3 triggers dormentes do SEC-03 (`net.http_post` + Vault, hoje graceful-skip) são **removidos** no mesmo phase que cria os novos.
+
+As quatro dimensões de pesquisa convergiram independentemente numa mesma forma de **6 fases dependency-ordered**, e três invariantes estruturais mandam na ordem: **(1) security-first** — a RLS candidato-DENY do ledger (LEDGER-03) e o self-auth do hop trigger→EF (DISPATCH-04) aterrissam antes de qualquer superfície candidato-facing; **(2) anti-double-send** — o DROP dos triggers n8n antigos e o CREATE dos novos acontecem no **mesmo** phase (P39, o de maior risco), respaldados por um `UNIQUE(dedupe_key)` durável; **(3) fire-and-forget reconciliado por último** — `net.http_post` é at-most-once (funil avança mesmo se o e-mail cair), então a state machine `pendente→enviado→entregue/falhou/bounce` + webhook + `pg_cron` fecham o loop na P41.
+
+O milestone entrega em: identidade de remetente & entregabilidade (P36 — gate humano/DNS, paralelizável); a camada de dados do ledger + `config_sla_etapa` (P37 — migrations primeiro); a EF `notificar-candidato` com os 4 templates + port do `.ics` (P38 — deployável dormente, smoke via `net.http_post` manual); o rewire dos triggers + aposentadoria do n8n (P39 — cadeia estrita 37→38→39); a timeline de prazo no painel (P40 — paralelizável, lê só `config_sla_etapa`); e a reconciliação/retry/testing que fecha o fire-and-forget (P41 — por último).
 
 **Invariantes preservadas em toda fase (gates, não requisitos):**
-- **RNF-07a** — o sistema **nunca** rejeita/avança por score; toda transição é um write disparado por humano (`ator=auth.uid()` → `auto_rejeitado=false`).
+- **RNF-07a** — o disparo de decisão (COMM-05) é gatilhado por uma decisão **registrada por humano**, nunca por limiar de score; o sistema nunca auto-decide.
+- **D-15** — o template de rejeição é **fixo e neutro**; nunca interpola `motivo_rejeicao`/score/percentil/trait (grep-guard contra tokens de scoring).
 - **RNF-12a** — linguagem sempre "avaliação comportamental/cognitiva" (nunca "teste psicológico").
-- **No-email** — COMM está fora do M6; o candidato é notificado **apenas** pelo painel in-app (nenhum wiring de `notificar-candidato`/n8n/pg_net num diff do M6).
-- **Trilha única** — nenhum código do M6 faz `INSERT` direto em `historico_candidatura`; toda transição é `UPDATE candidaturas.etapa_atual` (+ opcional `etapa_justificativa`) e o trigger `avancar_etapa()` é o único escritor. O trigger **não é editado** no M6 (carrega o guard ENTREV-03 + o predicado GUC `auto_rejeitado`).
-- **RLS não é segredo de coluna** — leituras candidato-facing usam allowlist explícita, nunca `select('*')`.
-- **Migrations PROD via Supabase MCP** `apply_migration`/`execute_sql` (bypassa 42601 em corpos PL/pgSQL); **baseline tsc permanece flat** (104).
+- **PII allowlist** — a EF resolve dados do candidato por allowlist explícita, nunca `select('*')`; a RLS de `notificacoes_enviadas` é candidato-DENY (o log de PII nunca é legível candidate-side).
+- **Trilha canônica única** — uma fonte de disparo por evento; nenhuma superfície de envio dupla ativa (o n8n é removido, não coexiste).
+- **Migrations PROD via Supabase MCP** `apply_migration`/`execute_sql` (bypassa 42601 em corpos PL/pgSQL; reconcilia o ledger); **baseline tsc permanece flat** (~97, `core.hooksPath=/dev/null`).
 
 ## Phases
 
@@ -29,112 +34,94 @@ O M6 não constrói um ATS — constrói a **esteira** que faz o funil (já aval
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-M6 continua a numeração a partir da **Phase 31** (M5 terminou na Phase 30).
+M7 continua a numeração a partir da **Phase 36** (M6 terminou na Phase 35).
 
-- [ ] **Phase 31: Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)** - controles per-etapa de avançar/rejeitar/retroceder nas 6 etapas + reject-do-comparativo, tudo pelo write-path auditável único (trigger), justificativa server-enforced, RNF-07a
-- [ ] **Phase 32: Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)** - EF `get-curriculo-url` authenticate-THEN-authorize (policy role-only do bucket removida) + RPC `funil_kpis` DEFINER vaga-scoped + `rh_le_historico` endurecido — server-only, gatilho da Phase 34
-- [ ] **Phase 33: Camada de Dados do Agendamento de Entrevista** - tabela nova `agendamentos_entrevista` + RLS bidirecional (RH vaga-scoped, candidato own-row allowlist sem `observacoes_rh`), provada por smoke antes de qualquer UI
-- [x] **Phase 34: Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs** - telas do RH contra os primitivos já seguros: CV + análise IA completa + feed de histórico, form de agendar/reagendar/cancelar/comparecimento, fila de trabalho cross-vaga + dashboard de KPIs
-- [x] **Phase 35: Painel do Candidato — Leitura do Agendamento** - card do agendamento no painel do candidato (own-row, `America/Sao_Paulo`) + download `.ics` + badge de lembrete ≤24h, sem e-mail
+- [ ] **Phase 36: Deliverability & Sender Identity** - domínio de envio Beauty Smile verificado no Resend (SPF/DKIM auto + DMARC manual), From/Reply-To reais, `RESEND_API_KEY` só no Vault, disciplina de test-address `resend.dev` no dev/CI
+- [ ] **Phase 37: Camada de Dados de Notificação (`notificacoes_enviadas` + `config_sla_etapa`)** - tabela ledger (audit + idempotência `UNIQUE(dedupe_key)` + fila de retry, RLS RH vaga-scoped join-through, candidato-DENY) + tabela estática de SLA seedada do PRD, provadas por smoke antes de qualquer EF/trigger
+- [ ] **Phase 38: EF `notificar-candidato` (COMM)** - EF self-auth que resolve dados por allowlist, renderiza os 4 templates Beauty Smile (+ port verbatim do `.ics` do M6), envia via `fetch` ao Resend e grava no ledger; deployável dormente, smoke via `net.http_post` manual
+- [ ] **Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03)** - trigger CASE canônico em `historico_candidatura` (avanço + decisão) + 2 satélites (confirmação + convite); DROP dos 3 triggers n8n do SEC-03 no MESMO phase (resolve SEC-03 por substituição, sem double-send)
+- [ ] **Phase 40: Timeline de Prazo no Painel do Candidato** - `DashboardCandidatoPage` mostra em cada estado de espera a estimativa de prazo da etapa (lê `config_sla_etapa`), enquadrada como estimativa, nunca countdown — o *pull* que complementa o *push* do e-mail
+- [ ] **Phase 41: Reconciliação de Entrega, Retry & Testing** - EF de webhook do Resend (Svix) atualiza status por `provider_message_id` + varredura `pg_cron` de `pendente`/`falhou` + testes CI com sender mockado (sem chave viva) + UAT via `delivered@`/`bounced@`/`complained@resend.dev`
 
 ## Phase Details
 
-### 🚧 v6.0 — M6 Operação do Funil RH (em andamento)
+### 🚧 v7.0 — M7 Comunicação com o Candidato (COMM) (em andamento)
 
-**Milestone Goal:** Fazer o funil (já avaliativo desde o M2) *andar* pela mão do RH — controles de avanço/rejeição/retrocesso auditáveis em todas as 6 etapas (RNF-07a), agendamento de entrevista dentro do sistema com o candidato acompanhando pelo painel (sem e-mail), CV + análise da IA visíveis ao RH, e o dashboard/lista como fila de trabalho real com KPIs operacionais sobre `historico_candidatura` — construído security-first (os 2 leaks vivos fecham server-side antes de qualquer UI que os leia). Feature-work (net-new operação), **não** hardening.
+**Milestone Goal:** O funil já *anda* pela mão do RH (M6); o M7 faz o candidato **saber** que ele anda — pipeline de notificação transacional por e-mail (Resend) disparado nas transições do funil, aposentando o n8n pessoal (resolve SEC-03 por substituição), + timeline de estimativa de prazo no painel do candidato pra reduzir ansiedade na espera. Feature-work (net-new comunicação), **não** hardening. Deriva do grupo **COMM** do `.planning/M5-DRAFT.md`.
 
-### Phase 31: Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo (funil-02)
-**Goal**: O RH move cada candidatura por qualquer uma das 6 etapas do funil — avançar, rejeitar (motivo estruturado por enum + justificativa livre ≥50 exigida no servidor) e retroceder (justificativa obrigatória) — e rejeita direto da tela de comparativo, tudo pelo **mesmo** write-path auditável único (`UPDATE candidaturas.etapa_atual` → trigger `avancar_etapa()`), sem nunca auto-rejeitar por score.
-**Depends on**: Phase 30 (M5 shipped) — nada dentro do M6 (é o primeiro; puro reuso do trigger + RLS já vaga-scoped desde a P24)
-**Requirements**: OPER-01, OPER-02, OPER-03, OPER-04
+### Phase 36: Deliverability & Sender Identity
+**Goal**: A identidade de remetente da Beauty Smile é real e confiável — um subdomínio de envio dedicado verificado no Resend (SPF/DKIM auto + DMARC publicado manualmente), um From/Reply-To real, e a `RESEND_API_KEY` vivendo **apenas** no Vault — pra que, quando o pipeline for ao ar, o e-mail caia na caixa de entrada (não no spam) e nenhum segredo de provedor toque o bundle. Engenharia procede em paralelo via os endereços de teste `resend.dev`.
+**Depends on**: Phase 35 (M6 shipped) — nada dentro do M7; é um gate humano/DNS, lateralmente paralelizável com as Phases 37–38 (só precisa aterrissar antes do 1º envio a candidato real na P41).
+**Requirements**: DELIV-01, DELIV-02, DELIV-03
 **Success Criteria** (what must be TRUE):
-  1. RH avança um candidato para a próxima etapa em **qualquer** uma das 6 etapas (não só a etapa 5/Kanban) e a transição aparece na trilha com origem→destino, autor e timestamp — escrita exclusivamente pelo trigger (nenhum `INSERT` direto em `historico_candidatura`) (OPER-01).
-  2. RH rejeita um candidato em qualquer etapa informando um motivo estruturado (enum) **e** uma justificativa livre; o servidor recusa a rejeição com justificativa < 50 caracteres (RAISE na camada RPC/serviço, não só validação de formulário) e nenhuma rejeição é disparada por score (`auto_rejeitado=false` — RNF-07a) (OPER-02).
-  3. RH move um candidato para uma etapa **anterior** informando justificativa obrigatória, respeitando o guard de regressão do trigger, e a regressão fica registrada na trilha (OPER-03).
-  4. RH rejeita um candidato a partir da tela de **comparativo** exigindo justificativa, pelo mesmo write-path auditável — os botões `onRejeitar`/`onAvancar` que hoje são no-op passam a escrever de verdade (débito funil-02 fechado) (OPER-04).
-**Plans**: 6 plans in 4 waves
+  1. Um subdomínio de envio Beauty Smile está verificado no Resend com SPF+DKIM (auto) e um registro DMARC publicado manualmente, e o From/Reply-To real está definido — um envio de teste desse domínio cai na caixa de entrada, não no spam (DELIV-01).
+  2. A `RESEND_API_KEY` existe **apenas** no Supabase Vault (nunca em env `VITE_`, nunca no bundle); um grep-guard de bundle prova que nenhuma chave/URL do Resend aparece no build público (DELIV-02).
+  3. Dev/CI enviam exclusivamente aos endereços de teste do Resend (`delivered@`/`bounced@`/`complained@resend.dev`) com o sender mockado nos unit tests — CI não requer chave viva e nunca spama um candidato real (DELIV-03).
+**Plans**: TBD (planejado em `/gsd-plan-phase 36`)
 
-Plans:
-- [x] 31-01-PLAN.md — DB contract: enum `motivo_rejeicao_rh` + DEFINER RPC `rejeitar_candidatura` (≥50 RAISE + vaga-owner guard) + 2 exact-signature DROPs (dead M1 overloads) + RED behavioral smoke (authored-not-applied)
-- [x] 31-02-PLAN.md — service + hook: extend `updateCandidaturaEtapa` (always SET `etapa_justificativa`) + `rejeitarCandidatura` service + `useRejeitarCandidatura` (3-tree invalidation) + tests
-- [x] 31-03-PLAN.md — shared dialogs: `RejeitarCandidaturaDialog` (motivo Select + ≥50 counter, light modal) + `RetrocederCandidaturaDialog` (earlier-stage destino + required justificativa)
-- [x] 31-04-PLAN.md — RH surfaces: Kanban card `DropdownMenu` (avançar/retroceder/rejeitar) + `HubCandidatoRH` "Próximo passo" action row (OPER-01/02/03)
-- [x] 31-05-PLAN.md — comparativo rewire (OPER-04): replace no-justificativa reject with the shared dialog → `rejeitar_candidatura` RPC; advance + read-only embed preserved
-- [x] 31-06-PLAN.md — [BLOCKING] apply migration via Supabase MCP `apply_migration` + 5 behavioral smokes GREEN + regen `database.types.ts`
+*Nota (discuss-phase):* DELIV-01 é ação humana/DNS do Fernando — deve aterrissar antes do 1º envio ao vivo (UAT da P41); codificação/teste procede em paralelo via `resend.dev`.
+
+### Phase 37: Camada de Dados de Notificação (`notificacoes_enviadas` + `config_sla_etapa`)
+**Goal**: As tabelas que todo o pipeline lê e escreve existem e estão blindadas **antes** de qualquer EF ou trigger tocá-las: `notificacoes_enviadas` (audit trail + guarda de idempotência + fila de retry, RLS RH vaga-scoped join-through espelhando `rh_gerencia_agendamento`, candidato-DENY) e a tabela estática `config_sla_etapa` seedada dos prazos do PRD §5.1.1. Aplicadas pelo caminho estabelecido MCP `apply_migration` + reconcile do ledger.
+**Depends on**: Phase 35 (M6 shipped) — primeira fase de encanamento; **BLOCKING** para as Phases 38, 39 e 40.
+**Requirements**: LEDGER-01, LEDGER-02, LEDGER-03, TIMELINE-01
+**Success Criteria** (what must be TRUE):
+  1. A tabela `notificacoes_enviadas` registra cada disparo (evento, candidatura, candidato, template, `status`, `provider_message_id`, erro, timestamps) — existe um audit trail persistido em PROD (LEDGER-01).
+  2. Um `UNIQUE(dedupe_key)` durável — com a chave incluindo `etapa_destino`/`agendamento_id` — torna o envio idempotente: um retrocede-then-readvance ou reagendamento **legítimo** re-notifica, enquanto um retry do mesmo evento não consegue inserir linha duplicada (LEDGER-02).
+  3. Um candidato JWT-impersonado lendo `notificacoes_enviadas` obtém **zero linhas** (candidato-DENY, sem policy de candidato), e um recrutador não-dono não lê linhas de outra vaga — provado por smoke comportamental, espelhando o join-through de `rh_gerencia_agendamento` (LEDGER-03).
+  4. `config_sla_etapa` existe (non-PII, public-read) seedada com o prazo esperado por etapa a partir do PRD §5.1.1 (TIMELINE-01).
+**Plans**: TBD (planejado em `/gsd-plan-phase 37`)
+
+*Nota (discuss-phase):* resolver a janela de retenção/purga de `notificacoes_enviadas` (minimização LGPD — purge vs purge-exempt) ao planejar esta fase.
+
+### Phase 38: EF `notificar-candidato` (COMM)
+**Goal**: Uma única EF self-authenticating que, dado um payload ids-only, resolve os dados do candidato por allowlist explícita (nunca `select('*')`), reivindica idempotência contra o ledger, renderiza o template Beauty Smile correto para cada um dos 4 eventos (com um port server-side verbatim do `.ics` do M6 para o convite), envia via `fetch` plano ao Resend e grava o resultado de volta — **deployável dormente** e smoke-testável via `net.http_post` manual **antes** de qualquer trigger existir.
+**Depends on**: Phase 37 (precisa da `notificacoes_enviadas` para reivindicar/logar). Cadeia estrita 37 → 38 → 39.
+**Requirements**: COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06
+**Success Criteria** (what must be TRUE):
+  1. A EF `notificar-candidato` existe — self-auth Bearer via Vault (`--no-verify-jwt`), resolve os dados do candidato por **allowlist explícita de colunas** (nunca `select('*')`), envia via `fetch` à API do Resend e grava o resultado no ledger (COMM-01).
+  2. Invocada por evento, a EF produz o e-mail correto: **confirmação** de candidatura recebida — suprimida pelo survivor-guard quando a candidatura nasce auto-rejeitada por knockout (COMM-02); **avanço** p/ avaliação assíncrona (COMM-03); **convite de entrevista** com data/hora em `America/Sao_Paulo`, link/local e anexo `.ics` (RFC-5545) de `_shared/ics.ts` portado verbatim do M6 (COMM-04); **decisão ≤24h** com template **fixo e neutro** que nunca interpola `motivo_rejeicao`/score/percentil/trait — D-15, disparada só por decisão registrada por humano, nunca por limiar de score — RNF-07a (COMM-05).
+  3. Os 4 templates HTML são hand-rolled com identidade Beauty Smile (inline CSS, **não** react-email); a cópia de rejeição é revisada e congelada, e um grep-guard prova que nenhum token de scoring/critério vaza no template de rejeição (COMM-06).
+  4. Um `net.http_post` manual à EF (dormente, sem trigger ainda) envia o e-mail correto a um endereço de teste `resend.dev` e grava uma linha `enviado` no ledger — a EF é provada ponta-a-ponta **antes** do rewire dos triggers (COMM-01).
+**Plans**: TBD (planejado em `/gsd-plan-phase 38`)
+
+*Nota (discuss-phase):* o `METHOD` do `.ics` (PUBLISH vs REQUEST) é questão aberta desta fase. A cópia de rejeição (COMM-05) precisa de uma string neutra revisada e **congelada** antes do fecho.
+
+### Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03)
+**Goal**: Os eventos reais do funil passam a auto-disparar a EF a partir de uma fonte canônica única por evento — um trigger baseado em `CASE` sobre `historico_candidatura` (avanço + decisão) mais dois triggers satélites em `candidaturas` (confirmação) e `agendamentos_entrevista` (convite) — enquanto os 3 triggers dormentes do SEC-03 e o disparo por env-var do `submit-candidatura` são **DROPPED no MESMO phase**, aposentando o n8n e resolvendo **SEC-03 por substituição**, sem superfície de double-send. Fase de **maior risco** do milestone.
+**Depends on**: Phase 38 (os triggers precisam de um alvo EF vivo), Phase 37 (a guarda `dedupe_key`).
+**Requirements**: DISPATCH-01, DISPATCH-02, DISPATCH-03, DISPATCH-04
+**Success Criteria** (what must be TRUE):
+  1. Um trigger `AFTER INSERT ON historico_candidatura` é a **fonte canônica única** dos eventos de transição — um `CASE` sobre `etapa_para` dispara avanço (COMM-03) e decisão (COMM-05, unificando aprovado/rejeitado/knockout via `etapa_atual`) com corpo ids-only, zero-PII, graceful-skip (DISPATCH-01).
+  2. Triggers satélites em `candidaturas` INSERT (confirmação, com o survivor-guard de knockout) e `agendamentos_entrevista` INSERT (convite) cobrem os dois eventos que **não** são transições de etapa — uma candidatura real, um avanço, um convite e uma decisão disparam **exatamente um** e-mail cada, sem duplicatas (DISPATCH-02).
+  3. Os 3 triggers n8n do SEC-03 são **DROPPED** e o disparo por env-var do `submit-candidatura` é aposentado **na mesma migration** que cria os novos triggers — um grep/diff-live prova que nenhuma superfície de disparo dupla permanece e o n8n está totalmente aposentado (SEC-03 resolvido por substituição) (DISPATCH-03).
+  4. O hop trigger→EF autentica por um segredo Bearer self-auth do Vault (mirror do `analise-candidato-individual`), e o corpo do `net.http_post` carrega só ids — a EF não é um endpoint de envio público/spoofable e nenhuma PII trafega no payload do trigger (DISPATCH-04).
+**Plans**: TBD (planejado em `/gsd-plan-phase 39`)
+
+*Nota (discuss-phase):* antes de finalizar o predicado do `CASE`, **confirmar que o caminho de aprovação escreve `etapa_atual='aprovado'`** (questão aberta) — se só escreve `decisao_final`, um trigger satélite em `decisao_final` é necessário para aprovações. Diff dos corpos de função vivos **antes** de qualquer `CREATE OR REPLACE` (disciplina DBMIG-02; sem wrapper `BEGIN;...COMMIT;`).
+
+### Phase 40: Timeline de Prazo no Painel do Candidato
+**Goal**: Cada estado de espera do painel do candidato mostra o prazo esperado da etapa a partir de `config_sla_etapa` ("triagem — resposta em até X dias úteis"), enquadrado explicitamente como **estimativa** (nunca countdown rígido) — o *pull* que complementa o *push* do e-mail, arquiteturalmente independente do pipeline (lê só a tabela de config estática).
+**Depends on**: Phase 37 (seed de `config_sla_etapa`) — **lateralmente paralelizável** com as Phases 38–39 (zero acoplamento ao push de e-mail).
+**Requirements**: TIMELINE-02
+**Success Criteria** (what must be TRUE):
+  1. Em cada estado de espera do `DashboardCandidatoPage`, o candidato vê a estimativa de prazo da etapa atual, sourced de `config_sla_etapa` (TIMELINE-02).
+  2. A estimativa é enquadrada **explicitamente** como estimativa ("resposta em até X dias úteis"), nunca como countdown rígido ou data prometida, e lê a **mesma** etapa derivada de `historico_candidatura` que o push do e-mail keya — sem contradição entre painel e e-mail (TIMELINE-02).
+**Plans**: TBD (planejado em `/gsd-plan-phase 40`)
 **UI hint**: yes
 
-### Phase 32: Fechar os Dois Vazamentos Vivos — CV Signed-URL EF + KPI DEFINER RPC (BLOCKING)
-**Goal**: Existe — e é comprovadamente seguro por smoke comportamental (JWT impersonado) — o par de read-primitives vaga-scoped que as telas do RH da Phase 34 vão consumir: a EF `get-curriculo-url` (authenticate-THEN-authorize, com a policy de leitura role-only do bucket `curriculos` **removida**) e a RPC `funil_kpis` SECURITY DEFINER (vaga-scoped internamente), com `rh_le_historico` endurecido em defesa-em-profundidade. **Zero UI end-user** — esta fase é gatilho (BLOCKING) da Phase 34.
-**Depends on**: Phase 30 (M5 shipped) — independente da Phase 31; **BLOCKING** para a Phase 34
-**Requirements**: SEG-01, SEG-02
+### Phase 41: Reconciliação de Entrega, Retry & Testing
+**Goal**: O loop fire-and-forget é fechado e o pipeline fica seguro para tráfego real — uma EF de webhook do Resend (assinatura Svix verificada) reconcilia o status de entrega por `provider_message_id`, uma varredura `pg_cron` re-tenta linhas `pendente`/`falhou` sob cap de tentativas, e o CI trava um sender mockado + guard de destinatário non-prod para que nenhum teste jamais spame um candidato real. Última fase; deve aterrissar **antes** de qualquer volume de candidato real.
+**Depends on**: Phase 38 e Phase 39 (precisa de um caminho de envio funcionando pra reconciliar/testar), Phase 36 (domínio verificado para o UAT ao vivo).
+**Requirements**: RECON-01, RECON-02, RECON-03
 **Success Criteria** (what must be TRUE):
-  1. O CV de um candidato só é acessível via a EF `get-curriculo-url`, que autentica e **depois** autoriza posse da vaga (dono ou admin) antes de emitir um signed URL de TTL curto; um smoke com JWT impersonado prova que o recrutador A **não** obtém o CV de um candidato da vaga do recrutador B, e a policy de leitura role-only do bucket `curriculos` foi removida (a EF é o único caminho RH) (SEG-01).
-  2. A agregação de KPIs roda numa RPC `funil_kpis` SECURITY DEFINER vaga-scoped por construção (scoping interno `WHERE v.created_by = auth.uid()` salvo admin); um smoke prova que o recrutador A **não** vê números da vaga do recrutador B, e a RPC retorna apenas agregados PII-safe (nunca identidade de candidato) (SEG-02).
-  3. A policy `rh_le_historico` de `historico_candidatura` está endurecida para o predicado vaga-scoped WR-04 (defense-in-depth), fechando o vazamento role-only diferido na P24 e nunca varrido — verificado por smoke comportamental, **não** por inspeção de `pg_policies` (SEG-02).
-  4. Nenhuma service_role key aparece no bundle do cliente e não há `createSignedUrl` client-side sobre `curriculos` — a EF é o único caminho privilegiado (verificável por grep-guard de bundle) (SEG-01).
-**Plans**: 4 plans in 3 waves
+  1. `notificacoes_enviadas` implementa a state machine `pendente → enviado → entregue/falhou/bounce` — o status reflete o resultado real do envio, e o funil avança independentemente (o e-mail nunca carrega estado de funil sozinho) (RECON-01).
+  2. Uma EF de webhook do Resend com assinatura Svix verificada atualiza o status por `provider_message_id` nos eventos `email.delivered`/`email.bounced`/`email.complained` — rastreamento durável de entrega/bounce (RECON-02).
+  3. Uma varredura `pg_cron` re-dispara as linhas `pendente`/`falhou` sob cap de `tentativas` como rede de segurança para a janela de ~6h do `net._http_response` (o `net.http_post` é fire-and-forget/at-most-once) (RECON-03).
+  4. Testes CI rodam contra um sender do Resend mockado (sem chave viva) com um guard de destinatário non-prod, e um UAT ao vivo usando os endereços `delivered@`/`bounced@`/`complained@resend.dev` exercita a reconciliação completa de entrega/bounce/complaint (RECON-02, RECON-03).
+**Plans**: TBD (planejado em `/gsd-plan-phase 41`)
 
-Plans:
-- [x] 32-01-PLAN.md — [wave 1] RED harness: deno EF unit test + JWT-impersonated `seg32_smokes.sql` (a)-(e) + extend bundle guard + update cvUploadService test (RED-first)
-- [x] 32-02-PLAN.md — [wave 2] EF `get-curriculo-url` (authorize-THEN-authenticate, vaga-owner guard → 60s signed URL) + Migration A drop RH branch of `curriculos_select_own_or_rh` + client rewire to `functions.invoke`
-- [x] 32-03-PLAN.md — [wave 2] Migration B: RPC `funil_kpis` SECURITY DEFINER `search_path=''` (vaga-scoped, PII-safe jsonb — median via LEAD/percentile_cont, raw conversion, volume) + `rh_le_historico` WR-04 hardening
-- [x] 32-04-PLAN.md — [wave 3] [BLOCKING] deploy EF (JWT-ON) → apply both migrations via Supabase MCP (ordered) → reconcile ledger + regen `database.types.ts` → `seg32_smokes.sql` GREEN + live curl
-**UI hint**: no
-
-### Phase 33: Camada de Dados do Agendamento de Entrevista
-**Goal**: Existe — e é comprovadamente isolado por smoke — a tabela nova `agendamentos_entrevista` com RLS bidirecional: RH vaga-scoped (write/read, predicado WR-04 via join `candidaturas→vagas`) e candidato own-row read por allowlist explícita que **exclui** `observacoes_rh`. Provada segura **antes** de qualquer UI de agendamento (form RH na P34, card do candidato na P35).
-**Depends on**: Phase 30 (M5 shipped) — independente das Phases 31/32
-**Requirements**: AGEND-01, SEG-03
-**Success Criteria** (what must be TRUE):
-  1. RH agenda uma entrevista para um candidato (modalidade online/presencial, data/hora `timestamptz`, link de videochamada **ou** local) gravada com o autor (`agendado_por`) na tabela `agendamentos_entrevista`, vaga-scoped — verificável por smoke: o RH dono da vaga escreve, o RH não-dono é **negado** (AGEND-01).
-  2. O candidato lê **apenas** a própria linha de agendamento; um smoke cross-candidato prova que o candidato A não vê o agendamento de B (SEG-03).
-  3. A projeção do candidato exclui `observacoes_rh` (observações internas do RH) — verificado por smoke de allowlist, nunca `select('*')` (SEG-03).
-  4. Um recrutador não-dono da vaga não lê nem escreve agendamentos daquela vaga (isolamento cross-recrutador vaga-scoped) (SEG-03).
-**Plans**: 3 plans in 3 waves
-
-Plans:
-- [x] 33-01-PLAN.md — Schema autoritativo de `agendamentos_entrevista` (CREATE TABLE 15 colunas reconciliando ARCHITECTURE × FEATURES, enums existentes reusados, índices, COMMENT) + trigger BEFORE de consistência de `vaga_id` (belt Pitfall 1) — authored-not-applied
-- [x] 33-02-PLAN.md — RLS bidirecional (única policy RH `rh_gerencia_agendamento` FOR ALL WR-04 **join-through-candidaturas**, USING+WITH CHECK) + RPC DEFINER `get_meu_agendamento` (allowlist sem `observacoes_rh`, candidato SEM policy SELECT direta) + RED harness `seg33_agendamento_smokes.sql` (8 asserções a–h)
-- [x] 33-03-PLAN.md — [BLOCKING] apply via Supabase MCP `apply_migration` + reconciliar ledger + regen `database.types.ts` (raiz) + gate SEG-03: 8 smokes GREEN em PROD
-**UI hint**: no
-
-### Phase 34: Superfícies do RH — CV/IA, Agendamento, Fila de Trabalho + KPIs
-**Goal**: O RH opera o funil pelas superfícies reais, cabeadas contra primitivos **já seguros** (Phases 32/33): vê o CV + a análise da IA completa + o feed de atividade do candidato; agenda / reagenda / cancela entrevistas e registra comparecimento; e usa a fila de trabalho cross-vaga priorizada por aging/SLA + o dashboard de KPIs operacionais que substitui a agregação client-side morta do M1 (`RelatoriosRHPage`).
-**Depends on**: Phase 31 (write-path unificado), Phase 32 (EF CV + RPC KPIs seguros — **BLOCKING**), Phase 33 (tabela de agendamento)
-**Requirements**: VISRH-01, VISRH-02, VISRH-03, KPI-01, KPI-02, KPI-03, KPI-04, AGEND-02, AGEND-03
-**Success Criteria** (what must be TRUE):
-  1. RH abre/baixa o CV do candidato pela URL assinada da EF `get-curriculo-url` (dono da vaga ou admin); nenhum recrutador acessa o CV de uma vaga que não é sua (VISRH-01).
-  2. RH vê a análise da IA **completa** (score_match + forças/gaps na íntegra, não truncados a 2) na tela do candidato, além de um feed de atividade **read-only** do histórico (etapa origem→destino, autor, data, justificativa) por allowlist; o candidato nunca vê score/análise (VISRH-02, VISRH-03).
-  3. RH agenda, reagenda e cancela uma entrevista e registra o comparecimento/no-show do candidato (`compareceu`), refletido no card do candidato no painel (AGEND-02, AGEND-03).
-  4. RH vê uma fila de trabalho **cross-vaga** priorizada por tempo-em-etapa/SLA + um indicador de aging/SLA breach (candidatos parados além do limite por etapa), mantendo o Kanban por-vaga existente — os dois artefatos coexistem (KPI-01, KPI-03).
-  5. RH vê KPIs operacionais sobre `historico_candidatura` — tempo **mediano** por etapa, conversão etapa-a-etapa, volume por vaga/etapa, time-to-hire, taxa de knockout, drop por etapa e taxa de no-show (habilitada por AGEND-03) — computados pela RPC `funil_kpis` DEFINER vaga-scoped (nunca agregação client-side, nunca PII) (KPI-02, KPI-04).
-**Plans**: 5 plans in 2 waves
-
-Plans:
-- [x] 34-01-PLAN.md — [BLOCKING · MCP] DB foundation: estender `funil_kpis` IN-PLACE +4 keys KPI-04 (diff `pg_get_functiondef` ANTES de CREATE OR REPLACE, preserva 3 keys) + view `v_fila_trabalho` security_invoker + `funil34_kpis_smokes.sql` (real 0-vaga usuarios_rh) aplicado via MCP + ledger + regen types (KPI-01/02/03/04)
-- [x] 34-02-PLAN.md — VISRH no hub RH: CV via EF (getSignedUrl->window.open, nunca cache/log) + bloco "Análise da IA" completo (forças/gaps na íntegra, band chip) + feed "Histórico" read-only allowlist (VISRH-01/02/03)
-- [x] 34-03-PLAN.md — Form de agendamento (Calendar + `<input type="time">` em Popover) gated a `entrevista_*`: `agendamentoService` (.insert/.update, payload EXCLUI as cols carimbadas pelo trigger) + reagendar/cancelar (AlertDialog, linha mantida)/`compareceu` (AGEND-02/03) ✅
-- [x] 34-04-PLAN.md — Fila de trabalho cross-vaga (nova aba em `CandidatosRHPage`, lê `v_fila_trabalho`, sort por tempo-em-etapa) + badge SLA aging/breach (`SLA_POR_ETAPA` hardcoded), coexiste com Kanban (KPI-01/03) ✅
-- [x] 34-05-PLAN.md — Dashboard de KPIs (`@/components/ui/chart`, consumindo `funil_kpis` — coorte K4 all-time/single-arg) substituindo a agregação M1 morta do `RelatoriosRHPage` na mesma rota `/rh/relatorios` (KPI-02/04)
-**UI hint**: yes
-
-Waves: Wave 1 = 34-01 (DB foundation, BLOCKING) + 34-02 (VISRH — usa primitivos P32/P33 já shipados, independente). Wave 2 = 34-03 (deps 34-02, hub) · 34-04 (deps 34-01, view) · 34-05 (deps 34-01, RPC) — paralelos (sem overlap de arquivo).
-
-### Phase 35: Painel do Candidato — Leitura do Agendamento
-**Goal**: O candidato acompanha a entrevista agendada **exclusivamente** pelo painel — um card na superfície "Próximo passo" com data/hora em `America/Sao_Paulo` + link clicável ou local (leitura own-row por allowlist), download `.ics` client-side e badge de lembrete quando a entrevista está a ≤24h — fechando o modelo "sem e-mail = painel é o canal único". É a menor fase; depende da tabela + RLS da Phase 33.
-**Depends on**: Phase 33 (tabela `agendamentos_entrevista` + RLS provada segura)
-**Requirements**: AGEND-04, AGEND-05
-**Success Criteria** (what must be TRUE):
-  1. O candidato vê a entrevista agendada num card no painel — data/hora em `America/Sao_Paulo` + link clicável ou local — com a rota das etapas `entrevista_online`/`entrevista_presencial` mapeada no `funilNavMap` (hoje ausente, sem isso o agendamento é invisível ao candidato); o painel é o **único** canal (sem e-mail) (AGEND-04).
-  2. A leitura do candidato é restrita à própria linha por allowlist explícita e **nunca** expõe `observacoes_rh` (observações internas do RH) (AGEND-04).
-  3. O candidato baixa um arquivo `.ics` do agendamento, gerado client-side no navegador (substituto do convite `.ics` que o mercado manda por e-mail — zero e-mail, zero backend de calendário) (AGEND-05).
-  4. O candidato vê um badge de lembrete quando a entrevista está a ≤24h (AGEND-05).
-**Plans**: 2 plans
-
-Plans:
-- [x] 35-01-PLAN.md — shared `America/Sao_Paulo` TZ util (extract) + candidate own-row read service via the `get_meu_agendamento` DEFINER RPC (7-col allowlist) + `useMeuAgendamento` hook (AGEND-04)
-- [x] 35-02-PLAN.md — `AgendamentoCandidatoCard` inline in `DashboardCandidatoPage` (5 states, SP date, safe link/local) + client-side `.ics` download + ≤24h reminder badge, upcoming-non-cancelled only (AGEND-04, AGEND-05)
-**UI hint**: yes
+*Nota (discuss-phase):* verificar os números exatos de rate-limit/free-tier do Resend no dashboard vivo antes de assumir a cadência da varredura de retry (questão aberta).
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -146,14 +133,14 @@ Full detail archived in `milestones/v1.0-ROADMAP.md`. Requirements: `milestones/
 <details>
 <summary>✅ v2.0 — M2 Funil RH + Avaliação por IA (Phases 6–16) — SHIPPED 2026-06-26</summary>
 
-Full detail archived in `milestones/v2.0-ROADMAP.md`. Requirements: `milestones/v2.0-REQUIREMENTS.md`. Audit: `v2.0-MILESTONE-AUDIT.md` (PASSED, 42/42 reqs; the single BLOCKER AVAL-03 was fixed + redeployed + PROD-smoked post-audit). Pipeline backbone de 6 etapas + IA-assisted evaluation; `historico_candidatura` + o trigger `avancar_etapa()` (único escritor da trilha) nascem aqui, na Phase 6 — a fundação que o M6 reusa verbatim.
+Full detail archived in `milestones/v2.0-ROADMAP.md`. Requirements: `milestones/v2.0-REQUIREMENTS.md`. Audit: `v2.0-MILESTONE-AUDIT.md` (PASSED, 42/42 reqs; o único BLOCKER AVAL-03 foi corrigido + redeployado + PROD-smoked pós-audit). Pipeline backbone de 6 etapas + IA-assisted evaluation; `historico_candidatura` + o trigger `avancar_etapa()` (único escritor da trilha) nascem aqui, na Phase 6 — a fundação que o M7 reusa (o trigger CASE de DISPATCH-01 lê `historico_candidatura`).
 
 </details>
 
 <details>
 <summary>✅ Phase 17 — Navegação & Arquitetura de Informação (standalone mini-fase) — SHIPPED 2026-06-28</summary>
 
-Cabeou na navegação real de produção o funil construído no M2 (avaliação do candidato + workspaces RH de entrevista/redação/decisão + telas admin), antes só alcançável por URL direta / DevNavigationMenu DEV-only. 5/5 plans / 4 waves. Standalone — sem lifecycle de milestone.
+Cabeou na navegação real de produção o funil construído no M2, antes só alcançável por URL direta / DevNavigationMenu DEV-only. 5/5 plans / 4 waves. Standalone — sem lifecycle de milestone.
 
 </details>
 
@@ -167,21 +154,30 @@ Full detail archived in `milestones/v3.0-ROADMAP.md`. Requirements: `milestones/
 <details>
 <summary>✅ v4.0 — M4 Correção & Blindagem do Funil (Phases 22–27) — SHIPPED 2026-07-13</summary>
 
-Full detail archived in `milestones/v4.0-ROADMAP.md`. Requirements: `milestones/v4.0-REQUIREMENTS.md`. Audit: `milestones/v4.0-MILESTONE-AUDIT.md` (status tech_debt — 55/56 reqs Complete + DBMIG-01 sanctioned partial). Hardening/correção ponta-a-ponta em 6 fases (43 plans): rede de testes/CI, ressurreição da stack de IA, blindagem PII/gabarito/IDOR (RLS nunca é segredo de coluna, policies vaga-scoped WR-04), correção do drift M1→M2, integridade de migrations. **A P24 declarou o predicado WR-04 vaga-scoped mas deferiu o re-scope de `rh_le_historico` — o vazamento role-only que o M6/Phase 32 fecha.** O bucket `curriculos` seguiu role-only (o 2º leak). Invariante: IA recomenda, humano decide (RNF-07a).
+Full detail archived in `milestones/v4.0-ROADMAP.md`. Requirements: `milestones/v4.0-REQUIREMENTS.md`. Audit: `milestones/v4.0-MILESTONE-AUDIT.md` (status tech_debt — 55/56 reqs Complete + DBMIG-01 sanctioned partial). Hardening/correção ponta-a-ponta em 6 fases (43 plans). **A P24/SEC-03 (`20260706110005_sec03_n8n_serverside.sql`) deixou 3 triggers `AFTER` com `net.http_post` + Vault secret `n8n_webhook_base` dormentes (graceful-skip) — a meia-ponte que o M7/Phase 39 completa/substitui, aposentando o n8n.** Invariante: IA recomenda, humano decide (RNF-07a).
 
 </details>
 
 <details>
 <summary>✅ v5.0 — M5 Gestão de Usuários & Perfil RH (Phases 28–30) — SHIPPED 2026-07-14</summary>
 
-Full detail archived in `milestones/v5.0-ROADMAP.md`. Requirements: `milestones/v5.0-REQUIREMENTS.md`. Audit: `milestones/v5.0-MILESTONE-AUDIT.md` (status tech_debt — 13/13 reqs Complete, 0 gaps). Feature-work enxuto com segurança como eixo: A14 console de gestão de usuários RH (EF authenticate-THEN-authorize admin-only, RLS admin-only + self-promotion hole fechado, auditoria append-only, anti-lockout advisory-lock) + A37 meu-perfil self-service (RPC SEG-03-por-construção). O padrão EF authenticate-THEN-authorize + RLS vaga-scoped + smokes comportamentais que o M6 reusa foi provado aqui e no M4.
+Full detail archived in `milestones/v5.0-ROADMAP.md`. Requirements: `milestones/v5.0-REQUIREMENTS.md`. Audit: `milestones/v5.0-MILESTONE-AUDIT.md` (status tech_debt — 13/13 reqs Complete, 0 gaps). Feature-work enxuto com segurança como eixo: A14 console de gestão de usuários RH (EF authenticate-THEN-authorize admin-only) + A37 meu-perfil self-service (RPC SEG-03-por-construção). O padrão EF authenticate-THEN-authorize + smokes comportamentais que o M7 reusa foi provado aqui e no M4.
+
+</details>
+
+<details>
+<summary>✅ v6.0 — M6 Operação do Funil RH (Phases 31–35) — SHIPPED 2026-07-17</summary>
+
+Full detail archived in `milestones/v6.0-ROADMAP.md`. Requirements: `milestones/v6.0-REQUIREMENTS.md`. Audit: `v6.0-MILESTONE-AUDIT.md` (status tech_debt — 19/19 reqs Complete; integração cross-fase 9/9 seams WIRED, 4/4 E2E flows). *Reuse-and-tighten* security-first: construiu a **esteira** que faz o funil andar pela mão do RH — avançar/rejeitar/retroceder auditável (P31), fechamento dos 2 leaks horizontais vivos (P32, BLOCKING), `agendamentos_entrevista` + RLS bidirecional (P33), superfícies RH CV/IA/agendamento/Fila/KPIs (P34), e o card do agendamento no painel do candidato + `.ics` client-side (P35). **O `.ics` hand-rolled (RFC-5545) de `agendamentoCandidatoService.gerarIcsAgendamento` que o M7/Phase 38 porta verbatim para `_shared/ics.ts` nasce aqui.** Invariante: painel é o canal único (sem e-mail) — que o M7 agora complementa com o *push* transacional.
 
 </details>
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
+Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
+
+*(Cadeia estrita 37 → 38 → 39; a Phase 36 e a Phase 40 são lateralmente paralelizáveis mas recebem seu próprio número em sequência.)*
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -191,17 +187,20 @@ Phases execute in numeric order: 31 → 32 → 33 → 34 → 35
 | 18–21 (M3) | v3.0 | 16/16 | Complete | 2026-06-30 |
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
-| 31. Avançar/Rejeitar em Todo o Funil + Reject-do-Comparativo | v6.0 | 6/6 | Complete   | 2026-07-15 |
-| 32. Fechar os Dois Vazamentos Vivos (BLOCKING) | v6.0 | 4/4 | Complete   | 2026-07-16 |
-| 33. Camada de Dados do Agendamento de Entrevista | v6.0 | 3/3 | Complete   | 2026-07-16 |
-| 34. Superfícies do RH — CV/IA, Agendamento, Fila + KPIs | v6.0 | 5/5 | Complete   | 2026-07-16 |
-| 35. Painel do Candidato — Leitura do Agendamento | v6.0 | 2/2 | Complete   | 2026-07-17 |
+| 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
+| 36. Deliverability & Sender Identity | v7.0 | 0/TBD | Not started | - |
+| 37. Camada de Dados de Notificação | v7.0 | 0/TBD | Not started | - |
+| 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
+| 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |
+| 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
+| 41. Reconciliação, Retry & Testing | v7.0 | 0/TBD | Not started | - |
 
 ---
 
 *v1.0 milestone shipped 2026-06-06 — full requirements and roadmap detail archived under `.planning/milestones/v1.0-*`.*
-*v2.0 milestone shipped 2026-06-26 — full requirements and roadmap detail archived under `.planning/milestones/v2.0-*`. 11 phases (6–16), 42/42 requirements, audit PASSED.*
-*v3.0 milestone shipped 2026-06-30 — full requirements and roadmap detail archived under `.planning/milestones/v3.0-*`. 4 phases (18–21), 12/12 requirements, audit OK (tech_debt accepted).*
-*v4.0 milestone shipped 2026-07-13 — full requirements and roadmap detail archived under `.planning/milestones/v4.0-*`. 6 phases (22–27), 55/56 requirements Complete + DBMIG-01 sanctioned partial, audit status tech_debt (accepted).*
-*v5.0 milestone shipped 2026-07-14 — full requirements and roadmap detail archived under `.planning/milestones/v5.0-*`. 3 phases (28–30), 13/13 requirements, audit tech_debt.*
-*v6.0 milestone opened 2026-07-14 — reuse-and-tighten, security-first. 5 phases (31–35), 19/19 requirements mapeados (0 unmapped). Numeração continua da Phase 31.*
+*v2.0 milestone shipped 2026-06-26 — 11 phases (6–16), 42/42 requirements, audit PASSED.*
+*v3.0 milestone shipped 2026-06-30 — 4 phases (18–21), 12/12 requirements, audit tech_debt.*
+*v4.0 milestone shipped 2026-07-13 — 6 phases (22–27), 55/56 requirements Complete + DBMIG-01 sanctioned partial, audit tech_debt.*
+*v5.0 milestone shipped 2026-07-14 — 3 phases (28–30), 13/13 requirements, audit tech_debt.*
+*v6.0 milestone shipped 2026-07-17 — 5 phases (31–35), 19/19 requirements, audit tech_debt.*
+*v7.0 milestone opened 2026-07-17 — additive integration, security-first, dependency-ordered. 6 phases (36–41), 21/21 requirements mapeados (0 unmapped). Numeração continua da Phase 36.*

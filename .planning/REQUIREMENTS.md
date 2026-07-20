@@ -82,44 +82,46 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 
 ## Open Questions (resolver no discuss-phase da fase relevante)
 
-- **Retenção de `notificacoes_enviadas`** (minimização LGPD) — janela de purga vs purge-exempt; decidir ao planejar a fase de dados (LEDGER).
-- **Verificação do caminho de aprovação** — COMM-05/DISPATCH-01 keyam na transição terminal em `historico_candidatura`; a rejeição comprovadamente seta `etapa_atual='rejeitado'`, mas o caminho de **aprovação** precisa de um check de 1 query (se só escreve `decisao_final` sem mover `etapa_atual='aprovado'`, um trigger satélite em `decisao_final` é necessário p/ aprovações). Resolver antes de finalizar o predicado do CASE (fase DISPATCH).
-- **Números exatos de rate-limit / free-tier do Resend** — verificar no dashboard vivo antes de qualquer premissa de volume de campanha (fase RECON).
-- **`.ics` METHOD** — PUBLISH vs REQUEST na semântica do convite (fase COMM/convite).
+- **Retenção de `notificacoes_enviadas`** (minimização LGPD) — janela de purga vs purge-exempt; decidir ao planejar a fase de dados (**Phase 37 / LEDGER**).
+- **Verificação do caminho de aprovação** — COMM-05/DISPATCH-01 keyam na transição terminal em `historico_candidatura`; a rejeição comprovadamente seta `etapa_atual='rejeitado'`, mas o caminho de **aprovação** precisa de um check de 1 query (se só escreve `decisao_final` sem mover `etapa_atual='aprovado'`, um trigger satélite em `decisao_final` é necessário p/ aprovações). Resolver antes de finalizar o predicado do CASE (**Phase 39 / DISPATCH**).
+- **Números exatos de rate-limit / free-tier do Resend** — verificar no dashboard vivo antes de qualquer premissa de volume de campanha (**Phase 41 / RECON**).
+- **`.ics` METHOD** — PUBLISH vs REQUEST na semântica do convite (**Phase 38 / COMM/convite**).
 
 ## Traceability
 
-Mapeamento requisito → fase. Preenchido pelo roadmapper (Phases a partir da 36).
+Mapeamento requisito → fase. Preenchido pelo roadmapper (Phases 36–41).
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DELIV-01 | — | Pending |
-| DELIV-02 | — | Pending |
-| DELIV-03 | — | Pending |
-| COMM-01 | — | Pending |
-| COMM-02 | — | Pending |
-| COMM-03 | — | Pending |
-| COMM-04 | — | Pending |
-| COMM-05 | — | Pending |
-| COMM-06 | — | Pending |
-| LEDGER-01 | — | Pending |
-| LEDGER-02 | — | Pending |
-| LEDGER-03 | — | Pending |
-| DISPATCH-01 | — | Pending |
-| DISPATCH-02 | — | Pending |
-| DISPATCH-03 | — | Pending |
-| DISPATCH-04 | — | Pending |
-| RECON-01 | — | Pending |
-| RECON-02 | — | Pending |
-| RECON-03 | — | Pending |
-| TIMELINE-01 | — | Pending |
-| TIMELINE-02 | — | Pending |
+| DELIV-01 | Phase 36 | Pending |
+| DELIV-02 | Phase 36 | Pending |
+| DELIV-03 | Phase 36 | Pending |
+| LEDGER-01 | Phase 37 | Pending |
+| LEDGER-02 | Phase 37 | Pending |
+| LEDGER-03 | Phase 37 | Pending |
+| TIMELINE-01 | Phase 37 | Pending |
+| COMM-01 | Phase 38 | Pending |
+| COMM-02 | Phase 38 | Pending |
+| COMM-03 | Phase 38 | Pending |
+| COMM-04 | Phase 38 | Pending |
+| COMM-05 | Phase 38 | Pending |
+| COMM-06 | Phase 38 | Pending |
+| DISPATCH-01 | Phase 39 | Pending |
+| DISPATCH-02 | Phase 39 | Pending |
+| DISPATCH-03 | Phase 39 | Pending |
+| DISPATCH-04 | Phase 39 | Pending |
+| TIMELINE-02 | Phase 40 | Pending |
+| RECON-01 | Phase 41 | Pending |
+| RECON-02 | Phase 41 | Pending |
+| RECON-03 | Phase 41 | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
-- Mapped to phases: 0 (roadmapper preenche)
-- Unmapped: 21 ⚠️ (resolvido no roadmap)
+- Mapped to phases: 21 ✓ (Phase 36: 3 · Phase 37: 4 · Phase 38: 6 · Phase 39: 4 · Phase 40: 1 · Phase 41: 3)
+- Unmapped: 0 ✓
+
+**Nota de mapeamento:** `TIMELINE-01` (a tabela `config_sla_etapa` + seed) aterrissa na **Phase 37** (camada de dados — todas as migrations juntas, e a P40 lê essa tabela seedada); `TIMELINE-02` (a superfície no `DashboardCandidatoPage`) é a **Phase 40**. `COMM-02..05` (a EF produz o e-mail correto por evento, provável via `net.http_post` manual) ficam na **Phase 38**; `DISPATCH-01..04` (os triggers reais auto-disparam esses eventos nas transições do funil) ficam na **Phase 39** — a composição ponta-a-ponta "candidato recebe automaticamente" é verificada nas Phases 39/41.
 
 ---
 *Requirements defined: 2026-07-17*
-*Last updated: 2026-07-17 after M7 (COMM) kickoff — research-informed, decisões de kickoff travadas*
+*Last updated: 2026-07-17 after M7 (COMM) roadmap — traceability preenchida (21/21 mapeados, 0 unmapped)*
