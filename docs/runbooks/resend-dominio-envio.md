@@ -47,11 +47,19 @@ Estes valores são **decisões travadas** (36-CONTEXT.md). Copie-os literalmente
 
 Os records que o Resend costuma emitir (para calibrar expectativa, **não** para copiar daqui):
 
-| Papel | Nome (relativo) | Tipo | Origem do valor |
-|-------|-----------------|------|-----------------|
-| SPF (return-path) | `send` | `MX` | dashboard — aponta para `feedback-smtp.sa-east-1.amazonses.com`, prioridade `10` |
-| SPF | `send` | `TXT` | dashboard — `v=spf1 include:amazonses.com ~all` |
-| DKIM | *(token gerado)* | `CNAME` **ou** `TXT` | **somente** o que o dashboard mostrar |
+| Papel | FQDN final (o que o `dig` do Passo 4 deve resolver) | Tipo | Origem do valor |
+|-------|-----------------------------------------------------|------|-----------------|
+| SPF (return-path) | `send.recruta.beautysmile.com.br` | `MX` | dashboard — aponta para `feedback-smtp.sa-east-1.amazonses.com`, prioridade `10` |
+| SPF | `send.recruta.beautysmile.com.br` | `TXT` | dashboard — `v=spf1 include:amazonses.com ~all` |
+| DKIM | *(o nome que o dashboard exibir — ver regra abaixo)* | `CNAME` **ou** `TXT` | **somente** o que o dashboard mostrar |
+
+> 🧩 **O nome do record NÃO é o mesmo campo em todo lugar — e é aqui que se erra.**
+> O que o dashboard exibe já embute o `recruta` (o domínio adicionado no Resend é o **subdomínio inteiro**, mas a zona que você edita é `beautysmile.com.br`). Existem então três formas do mesmo nome, e você precisa saber qual cada campo quer:
+> - **FQDN final** — `send.recruta.beautysmile.com.br`. É o que o `dig` do Passo 4 recebe e o que alguns painéis (Registro.br) exigem no campo *Name*.
+> - **Nome relativo à zona editada** — `send.recruta`. É o que a Cloudflare quer (ela re-acrescenta `beautysmile.com.br` sozinha — ver § 3.1).
+> - **Nome exibido pelo dashboard do Resend** — pode ser qualquer uma das duas formas acima, dependendo da conta/época.
+>
+> **Regra única que fecha os três casos:** o FQDN final tem que conter `recruta` **exatamente uma vez**. Se você contou `recruta` duas vezes (`…recruta.recruta.beautysmile.com.br`), concatenou o sufixo em cima de um nome que já o tinha.
 
 ---
 
@@ -104,10 +112,25 @@ Ordem correta e não negociável: **(1) criar todos os records → (2) confirmar
 dig +short MX  send.recruta.beautysmile.com.br
 dig +short TXT send.recruta.beautysmile.com.br
 
-# DKIM — use o NOME EXATO que o dashboard exibiu (token gerado), e o tipo que ele indicou
-dig +short CNAME <cole-o-nome-do-dashboard>.recruta.beautysmile.com.br
-# ou, se o dashboard indicou TXT:
-dig +short TXT   <cole-o-nome-do-dashboard>.recruta.beautysmile.com.br
+# DKIM — NÃO acrescente sufixo às cegas. Monte o FQDN final e CONFIRA antes de rodar:
+# o FQDN tem que conter "recruta" EXATAMENTE UMA VEZ (ver a regra do § 2).
+#
+#   caso 1 — o dashboard já mostra o FQDN completo (contém "beautysmile.com.br"):
+#            use o nome COMO ESTÁ, sem concatenar nada.
+#            ex.: dashboard mostra "resend._domainkey.recruta.beautysmile.com.br"
+dig +short CNAME resend._domainkey.recruta.beautysmile.com.br
+#
+#   caso 2 — o dashboard mostra o nome relativo à ZONA que você editou (contém
+#            "recruta", mas não "beautysmile.com.br"): acrescente ".beautysmile.com.br".
+#            ex.: dashboard mostra "resend._domainkey.recruta"
+dig +short CNAME resend._domainkey.recruta.beautysmile.com.br
+#
+#   caso 3 — o dashboard mostra um nome SEM "recruta": aí sim o sufixo é o
+#            domínio de envio inteiro.
+dig +short CNAME <nome-do-dashboard>.recruta.beautysmile.com.br
+#
+# Se o dashboard indicou TXT em vez de CNAME, mesma regra de nome, só troca o tipo:
+dig +short TXT   <o-mesmo-FQDN-montado-acima>
 
 # DMARC (o Resend nunca verá este — é conferência sua)
 dig +short TXT _dmarc.recruta.beautysmile.com.br
@@ -115,7 +138,8 @@ dig +short TXT _dmarc.recruta.beautysmile.com.br
 
 Cada comando deve devolver **exatamente** o valor colado no painel. Sinais de erro comuns:
 
-- Resposta vazia → record ainda não propagou, ou o nome ficou errado (sufixo duplicado — ver § 3.1).
+- **FQDN com `recruta.recruta`** (ou com `beautysmile.com.br` duas vezes) → você concatenou o sufixo em cima de um nome que já o tinha. O erro está no **comando `dig`**, não no DNS: corrija o FQDN e rode de novo. **NÃO mexa nos records** — ver o aviso no fim desta seção.
+- Resposta vazia → **primeiro releia o FQDN que você digitou** (regra do § 2: `recruta` exatamente uma vez). Só depois de o nome estar comprovadamente certo é que "resposta vazia" significa "record ainda não propagou" ou nome errado no painel (sufixo duplicado no campo *Name* — ver § 3.1).
 - O CNAME do DKIM devolve algo que **não** termina em `.dkim.amazonses.com` → proxy da Cloudflare ligado.
 - TXT com aspas duplicadas (`""v=spf1…""`) → duplo aspeamento do painel.
 
