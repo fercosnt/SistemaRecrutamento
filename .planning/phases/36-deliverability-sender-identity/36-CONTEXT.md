@@ -53,8 +53,22 @@ Fase é **lateralmente paralelizável**: não bloqueia nem é bloqueada pelas P3
 - **Vault só com chave real:** Fernando gera a chave prod no Resend → `vault.create_secret` executado via Supabase MCP assim que ela existir. **Sem placeholder** (uma EF com chave falsa falha opacamente em 401 em vez de dizer "não configurado"). Se a chave não existir durante a P36, o runbook grava o comando exato e a P38 (smoke) cobra.
 - **Docs em `docs/runbooks/`:** novo diretório, arquivo `resend-dominio-envio.md`. `docs/` raiz já tem ~40 arquivos soltos; runbooks operacionais ganham lar próprio (e não somem no cleanup do milestone, ao contrário de `.planning/phases/…`).
 
+### Correções e Decisões Pós-Research (2026-07-22)
+
+> A pesquisa da fase (`36-RESEARCH.md`) invalidou três premissas do discuss e levantou duas escolhas de operação. Estas entradas **prevalecem** sobre o texto acima onde houver conflito.
+
+- **CORREÇÃO — não existe job `build` no CI.** Os jobs reais de `.github/workflows/ci.yml` são `unit`, `deno-test`, `e2e` e `lighthouse`; o step "Bundle gate (PERF-03)" vive dentro do job **`e2e`** (`ci.yml:111`). O novo guard entra encadeado no `postbuild` do `package.json` — o que já dá enforcement de graça nos **dois** jobs que rodam `npm run build` (`e2e` e `lighthouse`) — mais um step explícito no job `e2e` logo após o bundle gate.
+- **CORREÇÃO — regexes do guard.** `re_[A-Za-z0-9]{8,}` sem `\b` casa dentro de identificadores minificados (ex.: `meas`+`ure_som`+`ething`) e deixaria o guard vermelho no primeiro build. Usar limite de palavra. E **`recruta.beautysmile.com.br` NÃO pode ser padrão do guard** — já está legitimamente no bundle (`src/components/pages/CriarEditarVagaPage.tsx:565`). O guard mira chave (`\bre_…`), `api.resend.com` e `RESEND_API_KEY`; nunca o domínio.
+- **CORREÇÃO — escopo do guard.** Varrer todo o `build/` (inclui `index.html`), não só `build/assets/*`.
+- **NOVO — RPC leitora do Vault, na P36.** O schema `vault` não é exposto ao PostgREST, então uma EF não lê `vault.decrypted_secrets` diretamente. A P36 entrega uma RPC `SECURITY DEFINER` em `public`, **sem argumento** (`ler_resend_api_key()`, blast radius de um segredo e não de todos), `REVOKE` de `public`/`anon`/`authenticated` e `GRANT EXECUTE` só a `service_role`. Sem ela, o DELIV-02 seria um cofre que ninguém abre. Migration aplicada via Supabase MCP `apply_migration` + reconcile do ledger (padrão M2–M6; **não** `db push --linked`).
+- **NOVO — nome do segredo:** `resend_api_key` (snake_case, convenção dos secrets existentes do repo).
+- **DECISÃO DO USUÁRIO — chave dedicada.** O `cost-alerter` (`supabase/functions/cost-alerter/index.ts:208`) já consome `RESEND_API_KEY` como env secret da EF e envia de `alertas@beautysmile.app`. A P36 **gera uma segunda chave Resend, dedicada a notificações**, guardada só no Vault. O `cost-alerter` fica intocado. A divergência (uma chave Resend ainda em env secret) e o bug latente de entregabilidade do TLD `.app` são **registrados como débito**, não corrigidos aqui. Consequência de escopo: DELIV-02 lê-se como "a chave **de notificações** vive apenas no Vault".
+- **DECISÃO DO USUÁRIO — região `sa-east-1` (São Paulo).** Define o MX de `send.recruta.beautysmile.com.br`. Candidatos e RH são todos no Brasil; processamento em território nacional é a melhor postura sob LGPD. Trocar depois exige re-verificar o domínio — o runbook deve dizer isso em destaque.
+- **CORREÇÃO — colisão Vitest/Deno.** `vite.config.ts:13` coleta `**/__tests__/**/*.test.ts`; o novo `_shared/__tests__/email-config.test.ts` usa specifiers Deno e quebraria `npm run test:run`. A entrada em `test.exclude` de `vite.config.ts` deve ser criada **na mesma tarefa** que cria o teste (o arquivo documenta que esse erro já aconteceu duas vezes — `vite.config.ts:38-43`).
+- **NOTA — DKIM não hardcodável.** A doc de API do Resend mostra CNAME token-prefixado da SES; a doc de dashboard descreve TXT com chave pública. Dois shapes em circulação → o runbook copia os valores que o dashboard exibir, sem transcrever um shape fixo.
+
 ### Claude's Discretion
-- Formato exato dos regexes do grep-guard e da mensagem de erro (desde que falha dura e apontando o arquivo/offset ofensor).
+- Formato exato dos regexes do grep-guard e da mensagem de erro (desde que use limite de palavra, falhe duro e aponte o arquivo/offset ofensor).
 - Assinatura precisa de `resolverDestinatario()` e shape do retorno (desde que preserve o destinatário original e o evento).
 - Estrutura interna do runbook (desde que provider-agnóstica no DNS e com os valores canônicos acima literais e copiáveis).
 
