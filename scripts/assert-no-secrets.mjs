@@ -29,13 +29,22 @@
  * length and AT MOST the first 4 characters. The matched value is NEVER printed: a
  * GitHub Actions log is retained and broadly readable, it is not a secret store.
  *
- * META-TEST — proves this gate is real and not a no-op (re-runnable at any time):
+ * META-TEST — proves this gate is real and not a no-op (re-runnable at any time).
+ * Canonical reproduction, proof (a):
  *
  *   npm run build
  *   printf 're_c1tpEyD8_REDACTED_P36_SYNTHETIC' > build/__meta_test_secret.js
  *   node scripts/assert-no-secrets.mjs; echo "exit=$?"   # MUST print exit=1
  *   rm -f build/__meta_test_secret.js
  *   node scripts/assert-no-secrets.mjs; echo "exit=$?"   # MUST print exit=0
+ *
+ * Executed 2026-07-22 as four separate proofs, one per pattern family, each expecting
+ * exit=1 and each verified NOT to echo the planted value (only a 4-char masked prefix):
+ *   (a) `re_c1tpEyD8_…` in build/__meta_test_secret.js -> resend-api-key + resend-key-formatdrift
+ *   (b) `https://api.resend.com/emails`                -> resend-endpoint
+ *   (c) `RESEND_API_KEY`                               -> resend-key-identifier
+ *   (d) the same key inside build/index.html           -> proves the walk is not limited
+ *       to build/assets/* (restore with `npm run build`, never by hand-editing index.html)
  *
  * The planted string is the public example key from the Resend documentation — it is
  * NOT a live credential. Never plant a real key here.
