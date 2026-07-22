@@ -95,8 +95,10 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
-        "postbuild": "node scripts/assert-chunks.mjs",
+        "postbuild": "node scripts/assert-no-secrets.mjs && node scripts/assert-chunks.mjs",
         "assert:chunks": "node scripts/assert-chunks.mjs",
+        "assert:no-secrets": "node scripts/assert-no-secrets.mjs",
+        "check:resend-dominio": "node scripts/check-resend-dominio.mjs",
         "preview": "vite preview",
         "lint": "tsc --noEmit",
         "db:types": "npx supabase gen types typescript --linked > database.types.ts",

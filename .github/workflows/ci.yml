@@ -110,6 +110,13 @@ jobs:
       # failure signal (route/vendor split intact, eager index chunk under the Phase-19 floor).
       - name: Bundle gate (PERF-03)
         run: node scripts/assert-chunks.mjs
+      # DELIV-02: proves no Resend key/endpoint reached the public bundle. Like the
+      # bundle gate above, it already self-gates via package.json `postbuild` (it runs
+      # FIRST there — security before performance); this dedicated step re-runs it so a
+      # leak emits a clean, distinct failure signal instead of hiding inside the build log.
+      # No live provider credential is needed: the guard is a pure fs read of build/.
+      - name: Secret gate (DELIV-02)
+        run: node scripts/assert-no-secrets.mjs
       - name: Run Playwright (deterministic core only by default)
         run: npx playwright test --project=chromium
         env:
