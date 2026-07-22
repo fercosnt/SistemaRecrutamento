@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: executing
-stopped_at: Completed 36-04-PLAN.md (RPC ler_resend_api_key() viva em PROD, service_role-only, graceful skip confirmado + debito da divergencia Resend registrado).
-last_updated: "2026-07-22T04:11:57.149Z"
+status: verifying
+stopped_at: "Completed 36-05-PLAN.md (gate humano do Vault fechado como pendente-humana: UAT-36-2 registrado com o comando exato, sem placeholder; Phase 36 pronta para verificacao)."
+last_updated: "2026-07-22T15:25:02.966Z"
 last_activity: 2026-07-22
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 17
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 Phase: 36 (Deliverability & Sender Identity) — EXECUTING
 Plan: 5 of 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-22
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -58,7 +58,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 36 | 3 of 5 | 59min | ~20min |
+| 36 | 5 of 5 | 73min | ~15min |
 | 37 | TBD | - | - |
 | 38 | TBD | - | - |
 | 39 | TBD | - | - |
@@ -71,6 +71,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 36 P02 | 22min | 3 tasks | 3 files |
 | Phase 36 P03 | 24min | 3 tasks | 3 files |
 | Phase 36 P04 | 8min | 3 tasks | 2 files |
+| Phase 36 P05 | 6min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 36 · 36-04]: RPC leitora do Vault e SEM argumento (ler_resend_api_key()) — rejeitada a generalizacao ler_segredo(text): comprometimento de service_role expoe UM segredo, nao todos
 - [Phase 36 · 36-04]: chave Resend de notificacoes so no Vault; cost-alerter fica com RESEND_API_KEY em EF env secret (confirmado vivo em PROD) — divergencia registrada como debito, nao corrigida
 - [Phase 36 · 36-04]: database.types.ts NAO regenerado — nenhum client chama a RPC (consumidor e a EF da P38 via service-role); regenerar so traria drift
+- [Phase 36 · 36-05]: chave PROD do Resend ainda nao gerada — pendencia UAT-36-2 registrada no HUMAN-UAT com o vault.create_secret literal, SEM placeholder (ausencia = NULL diagnosticavel; chave falsa = 401 opaco)
+- [Phase 36 · 36-05]: Phase 38 nomeada como cobradora do provisionamento — o smoke da EF notificar-candidato e quem trava sem o segredo; a fase 36 fecha com os dois gates humanos (UAT-36-1 dominio/DNS + UAT-36-2 Vault) pendentes e nao-bloqueantes
 
 ### Pending Todos
 
@@ -128,8 +131,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T04:10:16.460Z
-Stopped at: Completed 36-04-PLAN.md (RPC ler_resend_api_key() viva em PROD, service_role-only, graceful skip confirmado + debito da divergencia Resend registrado).
+Last session: 2026-07-22T15:25:02.948Z
+Stopped at: Completed 36-05-PLAN.md (gate humano do Vault fechado como pendente-humana: UAT-36-2 registrado com o comando exato, sem placeholder; Phase 36 pronta para verificacao).
 Resume file: None
 
 ## Operator Next Steps

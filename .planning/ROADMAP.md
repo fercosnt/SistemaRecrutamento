@@ -73,7 +73,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 36-05-PLAN.md — provisionamento de `resend_api_key` no Vault (checkpoint humano; sem placeholder) + smokes de leitura [wave 2]
+- [x] 36-05-PLAN.md — provisionamento de `resend_api_key` no Vault (checkpoint humano; sem placeholder) + smokes de leitura [wave 2]
 
 *Nota (discuss-phase):* DELIV-01 é ação humana/DNS do Fernando — deve aterrissar antes do 1º envio ao vivo (UAT da P41); codificação/teste procede em paralelo via `resend.dev`.
 
@@ -219,7 +219,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
-| 36. Deliverability & Sender Identity | v7.0 | 4/5 | In Progress|  |
+| 36. Deliverability & Sender Identity | v7.0 | 5/5 | Complete   | 2026-07-22 |
 | 37. Camada de Dados de Notificação | v7.0 | 0/TBD | Not started | - |
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |

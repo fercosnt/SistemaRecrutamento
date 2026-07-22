@@ -182,3 +182,10 @@ Sequência para fechar (íntegra em `UAT-36-2` e em `docs/runbooks/resend-domini
 ---
 *Phase: 36-deliverability-sender-identity*
 *Completed: 2026-07-22*
+
+## Self-Check: PASSED
+
+- `.planning/phases/36-deliverability-sender-identity/36-HUMAN-UAT.md` — FOUND (contém `UAT-36-2` e o `vault.create_secret` literal)
+- `.planning/phases/36-deliverability-sender-identity/36-05-SUMMARY.md` — FOUND
+- Commits `3a51a63`, `e9e56a5` — ambos presentes em `git log --all`
+- `git status --porcelain` — árvore limpa
