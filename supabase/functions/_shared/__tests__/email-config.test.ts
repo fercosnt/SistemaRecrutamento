@@ -83,3 +83,53 @@ Deno.test("DELIV-01 — From/Reply-To/domínio são os valores canônicos do CON
   assertEquals(REPLY_TO, "recrutamento@beautysmile.com.br");
   assert(!FROM.includes("resend.dev"), "From de produção nunca pode ser onboarding@resend.dev");
 });
+
+/*
+ * ─── Casos 8 e 9: MUTATION-PROOF do fail-safe do DELIV-03 (code review WR-01) ───
+ *
+ * Os casos 1-7 acima deixavam DUAS mutações fail-open vivas — verificado
+ * empiricamente pelo reviewer, 7 passed / 0 failed em ambas:
+ *
+ *   Mutação A:  `modo: ModoNotificacao = resolverModo()`  →  `= 'producao'`
+ *   Mutação B:  `Deno.env.get('NOTIFICACOES_MODO')`       →  `('NOTIFICACOES_MODE')`
+ *
+ * Causa: os casos 3/4/5 passam `modo` EXPLICITAMENTE como 3º argumento, então
+ * o binding do parâmetro default — exatamente a forma como a P38 vai chamar
+ * (`resolverDestinatario(email, evento)`) — nunca era exercitado; e nenhum caso
+ * cobria o caminho POSITIVO da env (só os negativos, que caem em 'teste' de
+ * qualquer jeito e por isso sobrevivem a um typo no nome da variável).
+ *
+ * O caso (8) mata a mutação B; o caso (9) mata a mutação A. NÃO substituir por
+ * chamadas com `modo` explícito: é justamente a ausência do 3º argumento que
+ * dá valor ao caso (9).
+ */
+
+// (8) o caminho POSITIVO da env — prova que `NOTIFICACOES_MODO` é lida DE VERDADE
+Deno.test("DELIV-03 — NOTIFICACOES_MODO='producao' ⇒ 'producao' (env é lida de verdade)", () => {
+  const original = Deno.env.get("NOTIFICACOES_MODO");
+  Deno.env.set("NOTIFICACOES_MODO", "  PRODUCAO  "); // trim + lowercase
+  try {
+    assertEquals(
+      resolverModo(),
+      "producao",
+      "resolverModo() sem argumento deve ler a env NOTIFICACOES_MODO — nome errado da env mata o modo produção em silêncio",
+    );
+  } finally {
+    if (original === undefined) Deno.env.delete("NOTIFICACOES_MODO");
+    else Deno.env.set("NOTIFICACOES_MODO", original);
+  }
+});
+
+// (9) o DEFAULT de resolverDestinatario — a chamada real da P38, SEM 3º argumento
+Deno.test("DELIV-03 — resolverDestinatario sem modo explícito herda o fail-safe da env", () => {
+  const original = Deno.env.get("NOTIFICACOES_MODO");
+  Deno.env.delete("NOTIFICACOES_MODO");
+  try {
+    const r = resolverDestinatario("candidato.real@gmail.com", "decisao_final");
+    assertEquals(r.para, "delivered+decisao_final@resend.dev");
+    assertEquals(r.destinatario_original, "candidato.real@gmail.com");
+    assert(r.redirecionado, "sem env explícita o default NÃO pode ser producao");
+  } finally {
+    if (original !== undefined) Deno.env.set("NOTIFICACOES_MODO", original);
+  }
+});
