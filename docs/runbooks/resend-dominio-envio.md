@@ -22,6 +22,7 @@ Estes valores são **decisões travadas** (36-CONTEXT.md). Copie-os literalmente
 | DMARC — nome | `_dmarc.recruta.beautysmile.com.br` |
 | DMARC — valor | `v=DMARC1; p=none; rua=mailto:dmarc@beautysmile.com.br` |
 | Segredo no Supabase Vault | `resend_api_key` |
+| Env que arma o envio real | `NOTIFICACOES_MODO=producao` — **ausente ⇒ modo `teste` ⇒ nenhum candidato real recebe e-mail** (§ 9) |
 | Endereços de teste | `delivered@resend.dev` · `bounced@resend.dev` · `complained@resend.dev` (aceitam `+label`) |
 | Open tracking / Click tracking | **DESLIGADOS** neste domínio |
 
@@ -99,7 +100,7 @@ Crie **manualmente**, na mesma zona:
 | Valor | `v=DMARC1; p=none; rua=mailto:dmarc@beautysmile.com.br` |
 | TTL | Auto / 3600 |
 
-`p=none` é deliberado: fase de **monitoramento**. Não rejeita nada; apenas pede relatórios agregados no endereço `rua`. Endurecer para `p=quarantine` ou `p=reject` só depois de acumular relatórios e confirmar que 100% do envio legítimo está alinhado — fora do escopo do M7 (ver § 9).
+`p=none` é deliberado: fase de **monitoramento**. Não rejeita nada; apenas pede relatórios agregados no endereço `rua`. Endurecer para `p=quarantine` ou `p=reject` só depois de acumular relatórios e confirmar que 100% do envio legítimo está alinhado — fora do escopo do M7 (ver § 10).
 
 ---
 
@@ -190,6 +191,12 @@ São **três chaves distintas**, com escopos que não se misturam:
 | b | **PROD de notificações** (nova, dedicada) | **Somente** Supabase Vault, sob o nome `resend_api_key` | EF `notificar-candidato` (P38) |
 | c | **legada do `cost-alerter`** | Env secret da Edge Function (como está hoje) | Alertas internos de custo. **NÃO é migrada nesta fase** |
 
+E existe uma **quarta variável, que NÃO é chave nem segredo** — mas sem ela nenhuma das três acima entrega e-mail a candidato nenhum:
+
+| # | Variável | Onde vive | Para quê |
+|---|----------|-----------|----------|
+| d | **`NOTIFICACOES_MODO`** | **Env secret da Edge Function** (`supabase secrets set`) — **não** vai para o Vault: não é segredo, é chave de operação | Arma o envio real. Ausente ⇒ modo `teste` ⇒ **nenhum candidato real recebe nada**. Ver **§ 9 (Passo 8)** |
+
 Criar a chave (b): Resend Dashboard → **API Keys** → **Create API Key**. Nome sugerido: `notificacoes-ats-prod`. **Não reutilize** a chave do `cost-alerter`.
 
 ### Provisionar no Vault
@@ -230,7 +237,39 @@ Depois do smoke técnico, execute o aceite humano: `.planning/phases/36-delivera
 
 ---
 
-## 9. Notas e débitos conhecidos
+## 9. Passo 8 — Armar o modo produção (`NOTIFICACOES_MODO`) — OBRIGATÓRIO antes do 1º envio real
+
+> ⛔ **Domínio verificado + chave no Vault NÃO bastam.** Se você executou os Passos 1 a 7 e parou aqui, o sistema está funcionando perfeitamente — e **nenhum candidato real recebe e-mail**.
+
+`supabase/functions/_shared/email-config.ts` é **fail-safe por design** (DELIV-03): o modo de envio vem *exclusivamente* da variável `NOTIFICACOES_MODO`, e só a string exata `producao` (após `trim().toLowerCase()`) libera envio a pessoa real.
+
+| Valor de `NOTIFICACOES_MODO` | Modo resultante | Para onde o e-mail vai |
+|------------------------------|-----------------|------------------------|
+| `producao` | `producao` | Endereço **real** do candidato |
+| `teste` | `teste` | `delivered+<evento>@resend.dev` (sandbox do Resend) |
+| **ausente / vazio** | **`teste`** (default fail-safe) | `delivered+<evento>@resend.dev` |
+| qualquer outra coisa (`prod`, `PRODUCTION`, typo) | `teste` + `console.warn` | `delivered+<evento>@resend.dev` |
+
+**Por que isto é um passo de runbook e não uma nota de rodapé.** O modo `teste` é *silencioso e bem-sucedido*: o Resend responde **HTTP 200**, o ledger da P37 grava sucesso, nenhum erro aparece em log — e a variável **ausente não emite nem o `console.warn`** (o warn só dispara quando o valor foi fornecido e é malformado). O único sinal de que 100% dos e-mails foram desviados é a coluna `redirecionado` do ledger, que ninguém está olhando. É o modo de falha mais caro desta operação porque ele **não se parece com uma falha**.
+
+**Onde e quando armar:** no ambiente da Edge Function `notificar-candidato` (**Phase 38**), depois do smoke do Passo 7 e **antes do primeiro envio a candidato real**.
+
+```bash
+npx supabase secrets set NOTIFICACOES_MODO=producao --project-ref <project-ref>
+npx supabase secrets list --project-ref <project-ref>   # confirmar que aparece na lista
+```
+
+> ℹ️ `secrets list` mostra apenas **nome e hash** — nunca o valor. Para `NOTIFICACOES_MODO` isso é irrelevante (não é segredo); a prova de que o valor está certo é o comportamento: o primeiro envio real chega no endereço real, e o campo `redirecionado` do ledger vem `false`.
+
+**Para voltar ao sandbox** (staging, investigação de incidente, teste de carga): remova o secret ou troque para qualquer outro valor — tudo que não for exatamente `producao` cai em `teste`. Não existe caminho em que uma configuração ambígua envie para pessoa real.
+
+> ⚠️ **Nunca deduzir o modo de outra coisa.** Não inferir de `SUPABASE_URL`, de nome de host, de `NODE_ENV` ou de env de build. Inferência implícita é exatamente o que faz um deploy de staging enviar para candidato real — decisão travada no `36-CONTEXT.md` § DELIV-03.
+
+**Aceite formal:** item `UAT-36-3` em `.planning/phases/36-deliverability-sender-identity/36-HUMAN-UAT.md`, cobrado pela **Phase 38**.
+
+---
+
+## 10. Notas e débitos conhecidos
 
 **(a) Segunda chave Resend fora do Vault — `cost-alerter`.**
 `supabase/functions/cost-alerter/index.ts:208` já consome `RESEND_API_KEY` como **env secret da Edge Function** e envia de `alertas@beautysmile.app` para `dpo@beautysmile.app` — note o TLD **`.app`**, não `.com.br`. Isso significa duas coisas: (1) existe uma segunda fonte de verdade para uma chave Resend neste projeto, divergente da disciplina "só no Vault" do DELIV-02 — que aqui se lê estritamente como *"a chave **de notificações** vive apenas no Vault"*; e (2) `beautysmile.app` provavelmente **não é um domínio verificado**, o que faria esses alertas internos falharem em `403` hoje sem ninguém notar — um bug latente de entregabilidade.

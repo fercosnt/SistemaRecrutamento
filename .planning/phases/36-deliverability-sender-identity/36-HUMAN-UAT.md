@@ -80,11 +80,49 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 - **Referência completa:** `docs/runbooks/resend-dominio-envio.md` § Passo 6 ("As três chaves do Resend e onde cada uma vive").
 - **status:** pending
 
+### UAT-36-3 — Armar `NOTIFICACOES_MODO=producao` na EF antes do 1º envio real (DELIV-03)
+
+- **Origem:** code review da Phase 36, achado WR-02. `NOTIFICACOES_MODO` decide se o candidato recebe e-mail, e até então não existia em **nenhum artefato durável de operador** — nem no runbook, nem neste arquivo. A única menção fora do código estava num SUMMARY de `.planning/phases/`, exatamente o tipo de artefato que o `36-CONTEXT.md` (§ Docs em `docs/runbooks/`) justifica **não** usar como lar de procedimento operacional.
+- **Por que é gate humano:** setar um secret de Edge Function exige o `project-ref` e credencial de projeto; não há caminho a partir do repo. Igual ao UAT-36-2.
+
+- **O modo de falha que este item previne (é silencioso — este é o ponto):**
+  1. Operador executa o runbook inteiro, Passos 1 a 7 → domínio `verified`, DMARC publicado, `resend_api_key` no Vault, `ler_resend_api_key()` retorna a chave.
+  2. A P38 deploya `notificar-candidato`. `NOTIFICACOES_MODO` nunca foi provisionado.
+  3. `resolverModo()` → `'teste'` (correto, é o fail-safe do DELIV-03). **Sem `console.warn`** — o warn de `email-config.ts` só dispara quando o valor foi *fornecido* e é malformado; **ausente é silencioso**.
+  4. Todo e-mail de candidato vai para `delivered+<evento>@resend.dev`, o Resend responde **HTTP 200**, o ledger da P37 grava sucesso, e **nenhum candidato recebe nada**. O único sinal é a coluna `redirecionado`, que ninguém está olhando.
+
+  Domínio verificado (UAT-36-1) e chave no Vault (UAT-36-2) **não bastam**: os três itens são independentes e todos os três precisam fechar.
+
+- **Steps (executar na Phase 38, depois do smoke técnico e ANTES do primeiro envio a candidato real):**
+
+1. Confirmar o estado atual (esperado: a variável **não** aparece na lista):
+   ```bash
+   npx supabase secrets list --project-ref <project-ref>
+   ```
+2. Armar o modo produção no ambiente da Edge Function `notificar-candidato`:
+   ```bash
+   npx supabase secrets set NOTIFICACOES_MODO=producao --project-ref <project-ref>
+   ```
+   **Valor exato `producao`** — sem acento, minúsculo, sem aspas. Qualquer outra coisa (`prod`, `PRODUCTION`, `produção`, vazio) cai em `teste` por design, e `prod`/`PRODUCTION` ainda emitem `console.warn`; a **ausência** não emite nada.
+3. Confirmar que o secret aparece em `npx supabase secrets list --project-ref <project-ref>`. A lista mostra **nome e hash, nunca o valor** — o que é irrelevante aqui, porque `NOTIFICACOES_MODO` **não é segredo**, é chave de operação (por isso vai em env secret da EF e **não** no Vault).
+4. Redeployar / reiniciar a EF para que ela leia o novo ambiente.
+5. **Prova de comportamento** (é ela que fecha o item, não o `secrets list`): disparar um envio real de teste e confirmar que
+   - a mensagem chega no **endereço real** informado, e
+   - o registro correspondente no ledger da P37 tem **`redirecionado = false`** e `destinatario_original` igual ao endereço real.
+6. Registrar neste arquivo a data da execução e o resultado do passo 5 — **nunca** o valor de nenhuma chave — e marcar este item como `passed`.
+
+- **Como desarmar (voltar ao sandbox):** remover o secret ou trocá-lo por qualquer valor diferente de `producao`. Não existe configuração ambígua que envie para pessoa real — o default é sempre `teste`.
+- **Prova automatizada que sustenta este item:** `supabase/functions/_shared/__tests__/email-config.test.ts`, casos (8) e (9) — adicionados pelo achado WR-01 do mesmo review. O caso (9) prova que `resolverDestinatario(email, evento)` **sem 3º argumento** (a forma como a P38 chama) redireciona quando a env está ausente; o caso (8) prova que `NOTIFICACOES_MODO='producao'` é lida de verdade. Ambos foram validados por mutação.
+- **Quem cobra esta pendência:** a **Phase 38** (smoke da EF `notificar-candidato`), junto com o UAT-36-2.
+- **Referência completa:** `docs/runbooks/resend-dominio-envio.md` § 9 ("Passo 8 — Armar o modo produção").
+- **status:** pending
+
 ## Gaps
 
 Nenhum must-have automatizado desta fase está vermelho — os gates de código (bundle guard + suíte Deno de `email-config` + `npm run test:run` + `npm run build`) estão verdes. Os itens abertos são:
 
 - **UAT-36-1** — gate humano/DNS do DELIV-01, sem previsão fixa; deve aterrissar antes do UAT da Phase 41.
 - **UAT-36-2** — provisionamento do segredo `resend_api_key` no Supabase Vault. Fechado pelo Plano 36-05 como **pendente-humana**: em 2026-07-22 o operador respondeu `pendente` (chave PROD dedicada ainda não gerada no dashboard do Resend). Confirmado por SQL em PROD que `ler_resend_api_key()` retorna `NULL` — o graceful skip esperado — e que **nenhum placeholder foi criado**, por decisão travada do CONTEXT. O comando exato para fechar está no item UAT-36-2 acima e no Passo 6 do runbook. Cobrado pela **Phase 38**.
+- **UAT-36-3** — armar `NOTIFICACOES_MODO=producao` no ambiente da Edge Function. Registrado a partir do achado **WR-02** do code review da Phase 36: o fail-safe do DELIV-03 está correto, mas o passo que o **desarma deliberadamente** não existia em nenhum artefato durável de operador (`grep -rn "NOTIFICACOES_MODO" docs/` retornava zero). Sem este item, é possível seguir o runbook ponta a ponta, subir PROD, e ter 100% dos e-mails de candidato desviados para `@resend.dev` com HTTP 200 e sem warn. Executado na **Phase 38**, antes do primeiro envio real; procedimento em `docs/runbooks/resend-dominio-envio.md` § 9.
 
-Nenhum dos dois bloqueia o fechamento da Phase 36 nem a cadeia P37 → P38 → P39.
+Nenhum dos três bloqueia o fechamento da Phase 36 nem a cadeia P37 → P38 → P39. Os três são independentes entre si: domínio verificado (UAT-36-1) + chave no Vault (UAT-36-2) + modo armado (UAT-36-3) — os três precisam fechar antes do primeiro e-mail a candidato real (UAT da Phase 41).
