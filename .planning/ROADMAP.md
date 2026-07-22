@@ -94,7 +94,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 37-01-PLAN.md — Dump do catálogo Postgres vivo das duas tabelas (checkpoint MCP; fonte da verdade da reconstrução)
+- [x] 37-01-PLAN.md — Dump do catálogo Postgres vivo das duas tabelas (checkpoint MCP; fonte da verdade da reconstrução)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
