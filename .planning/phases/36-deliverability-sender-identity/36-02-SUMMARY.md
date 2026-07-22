@@ -165,3 +165,7 @@ Nenhuma superfície de segurança nova fora do `<threat_model>` foi introduzida.
 - **36-03** cria `scripts/check-resend-dominio.mjs`; o alias npm já está no `package.json` esperando por ele. Não adicionar esse script a hook nem ao CI.
 - **P38** (EF `notificar-candidato`): qualquer chamada a `api.resend.com` deve viver em `supabase/functions/`, nunca em `src/` — o gate quebra o build se um import cruzar a fronteira.
 - Se o Resend mudar o shape da chave, ajustar `PATTERNS` em `scripts/assert-no-secrets.mjs` (nunca remover uma família para "consertar" um falso-positivo — ancorar melhor).
+
+## Self-Check: PASSED
+
+Arquivos declarados existem em disco (`scripts/assert-no-secrets.mjs`, `36-02-SUMMARY.md`) e os 4 commits (`7f0687f`, `21eedee`, `6bf4ca3`, `c9fc8a1`) estão no histórico.

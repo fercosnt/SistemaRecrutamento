@@ -15,7 +15,7 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 ### DELIV — Identidade de remetente & entregabilidade
 
 - [x] **DELIV-01**: O domínio de envio Beauty Smile (subdomínio dedicado) está verificado no Resend com SPF/DKIM (auto) + DMARC (publicado manualmente), e o From/Reply-To reais estão definidos — sem isso todo e-mail cai em spam. *(Human/DNS gate — ação do Fernando; codificação/teste procede em paralelo via `resend.dev`.)*
-- [ ] **DELIV-02**: A `RESEND_API_KEY` vive no Supabase Vault (nunca no bundle client, nunca em `VITE_` env); nenhuma chave/URL de provedor aparece no bundle público.
+- [x] **DELIV-02**: A `RESEND_API_KEY` vive no Supabase Vault (nunca no bundle client, nunca em `VITE_` env); nenhuma chave/URL de provedor aparece no bundle público.
 - [x] **DELIV-03**: Dev/CI enviam via os endereços de teste do Resend (`delivered@`/`bounced@`/`complained@resend.dev`) com o sender mockado nos unit tests (CI não requer chave viva e nunca spama candidato real).
 
 ### COMM — Notificações transacionais (o núcleo)
@@ -94,7 +94,7 @@ Mapeamento requisito → fase. Preenchido pelo roadmapper (Phases 36–41).
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DELIV-01 | Phase 36 | Complete |
-| DELIV-02 | Phase 36 | Pending |
+| DELIV-02 | Phase 36 | Complete |
 | DELIV-03 | Phase 36 | Complete |
 | LEDGER-01 | Phase 37 | Pending |
 | LEDGER-02 | Phase 37 | Pending |
