@@ -29,9 +29,9 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 
 ### LEDGER — Auditoria, idempotência & fila (`notificacoes_enviadas`)
 
-- [ ] **LEDGER-01**: Existe a tabela `notificacoes_enviadas` registrando cada disparo (evento, candidatura, candidato, template, `status`, `provider_message_id`, erro, timestamps) — audit trail + base do rastreamento de entrega.
-- [ ] **LEDGER-02**: O envio é idempotente por um `UNIQUE(dedupe_key)` durável — a chave inclui `etapa_destino`/`agendamento_id` de modo que um retrocede-then-readvance ou reagendamento **legítimo** re-notifica (não é suprimido), enquanto retries do mesmo evento não duplicam; a EF faz claim `ON CONFLICT DO NOTHING RETURNING` antes de enviar, com o header `Idempotency-Key` do Resend como cinto secundário de 24h.
-- [ ] **LEDGER-03**: A RLS de `notificacoes_enviadas` é RH **vaga-scoped join-through** (espelha `rh_gerencia_agendamento`) e **candidato-DENY** (nenhuma policy de candidato) — o log de PII do candidato nunca é legível candidate-side.
+- [x] **LEDGER-01**: Existe a tabela `notificacoes_enviadas` registrando cada disparo (evento, candidatura, candidato, template, `status`, `provider_message_id`, erro, timestamps) — audit trail + base do rastreamento de entrega.
+- [x] **LEDGER-02**: O envio é idempotente por um `UNIQUE(dedupe_key)` durável — a chave inclui `etapa_destino`/`agendamento_id` de modo que um retrocede-then-readvance ou reagendamento **legítimo** re-notifica (não é suprimido), enquanto retries do mesmo evento não duplicam; a EF faz claim `ON CONFLICT DO NOTHING RETURNING` antes de enviar, com o header `Idempotency-Key` do Resend como cinto secundário de 24h.
+- [x] **LEDGER-03**: A RLS de `notificacoes_enviadas` é RH **vaga-scoped join-through** (espelha `rh_gerencia_agendamento`) e **candidato-DENY** (nenhuma policy de candidato) — o log de PII do candidato nunca é legível candidate-side.
 
 ### DISPATCH — Gatilhos & aposentadoria do n8n (SEC-03)
 
@@ -48,7 +48,7 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 
 ### TIMELINE — Estimativa de prazo no painel do candidato
 
-- [ ] **TIMELINE-01**: Existe a tabela estática `config_sla_etapa` (non-PII, public-read) com o SLA/prazo esperado por etapa, seedada a partir dos prazos do PRD (§5.1.1).
+- [x] **TIMELINE-01**: Existe a tabela estática `config_sla_etapa` (non-PII, public-read) com o SLA/prazo esperado por etapa, seedada a partir dos prazos do PRD (§5.1.1).
 - [ ] **TIMELINE-02**: O `DashboardCandidatoPage` mostra, em cada estado de espera, a estimativa de prazo da etapa atual ("triagem — resposta em até X dias úteis"), enquadrada explicitamente como **estimativa**, nunca como countdown rígido.
 
 ## v2 Requirements (deferidos — rastreados, fora do roadmap M7)
@@ -96,10 +96,10 @@ Mapeamento requisito → fase. Preenchido pelo roadmapper (Phases 36–41).
 | DELIV-01 | Phase 36 | Complete |
 | DELIV-02 | Phase 36 | Complete |
 | DELIV-03 | Phase 36 | Complete |
-| LEDGER-01 | Phase 37 | Pending |
-| LEDGER-02 | Phase 37 | Pending |
-| LEDGER-03 | Phase 37 | Pending |
-| TIMELINE-01 | Phase 37 | Pending |
+| LEDGER-01 | Phase 37 | Complete |
+| LEDGER-02 | Phase 37 | Complete |
+| LEDGER-03 | Phase 37 | Complete |
+| TIMELINE-01 | Phase 37 | Complete |
 | COMM-01 | Phase 38 | Pending |
 | COMM-02 | Phase 38 | Pending |
 | COMM-03 | Phase 38 | Pending |

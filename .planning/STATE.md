@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: "Completed 36-05-PLAN.md (gate humano do Vault fechado como pendente-humana: UAT-36-2 registrado com o comando exato, sem placeholder; Phase 36 pronta para verificacao)."
-last_updated: "2026-07-22T16:35:47.520Z"
-last_activity: 2026-07-22 -- Phase 37 planning complete
+stopped_at: "Completed 37-02-PLAN.md — drift PROD→repo reconciliado. As migrations 20260721000001 e 20260721000002 voltaram ao repo como arquivos declarativos fiéis (NÃO aplicar: as versions já estão no ledger), e `supabase/tests/p37_fidelidade_schema_smoke.sql` fecha o triângulo dump→arquivo→banco. Validado end-to-end num Postgres 17 descartável (12/12 PASS, toggle bidirecional, 4 negativos pegos)."
+last_updated: "2026-07-22T17:34:18.960Z"
+last_activity: 2026-07-22 -- 37-02 executado (Phase 36 permanece completa, aguardando verificação)
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 5
+  completed_plans: 6
   percent: 17
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 36 — Deliverability & Sender Identity
+**Current focus:** Phase 37 — Camada de Dados de Notificação (BLOCKING das P38/39/40)
 
 ## Current Position
 
-Phase: 36 (Deliverability & Sender Identity) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-07-22 -- Phase 37 planning complete
+Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — EXECUTING
+Plan: 2 of 5
+Status: 37-01 (dump do catálogo) e 37-02 (reconciliação do drift) concluídos — próximo: 37-03 (migration aditiva das 2 lacunas)
+Last activity: 2026-07-22 -- 37-02 executado (Phase 36 permanece completa, aguardando verificação)
 
-Progress: [██████████] 100%
+Progress: [██████░░░░] 60%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -59,7 +59,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 36 | 5 of 5 | 73min | ~15min |
-| 37 | TBD | - | - |
+| 37 | 2 de 5 (37-01, 37-02) | 24min (37-02) | 24min |
 | 38 | TBD | - | - |
 | 39 | TBD | - | - |
 | 40 | TBD | - | - |
@@ -72,6 +72,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 36 P03 | 24min | 3 tasks | 3 files |
 | Phase 36 P04 | 8min | 3 tasks | 2 files |
 | Phase 36 P05 | 6min | 2 tasks | 1 files |
+| Phase 37 P02 | 24min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -98,6 +99,9 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 36 · 36-04]: database.types.ts NAO regenerado — nenhum client chama a RPC (consumidor e a EF da P38 via service-role); regenerar so traria drift
 - [Phase 36 · 36-05]: chave PROD do Resend ainda nao gerada — pendencia UAT-36-2 registrada no HUMAN-UAT com o vault.create_secret literal, SEM placeholder (ausencia = NULL diagnosticavel; chave falsa = 401 opaco)
 - [Phase 36 · 36-05]: Phase 38 nomeada como cobradora do provisionamento — o smoke da EF notificar-candidato e quem trava sem o segredo; a fase 36 fecha com os dois gates humanos (UAT-36-1 dominio/DNS + UAT-36-2 Vault) pendentes e nao-bloqueantes
+- [M7/Phase 37 · 37-02]: fidelidade de schema provada por EXECUCAO (migrations aplicadas num Postgres 17 descartavel + smoke 12/12), nunca por revisao de leitura
+- [M7/Phase 37 · 37-02]: o qual de uma policy RLS e asserido por igualdade catalogo-contra-catalogo (contra policy precedente auditada), nao contra string transcrita a mao
+- [M7/Phase 37 · 37-02]: COMMENTs vivos em PROD sao transcritos verbatim nas migrations reconstruidas; glosa pt-BR vai em comentario SQL adjacente
 
 ### Pending Todos
 
@@ -133,8 +137,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T15:25:02.948Z
-Stopped at: Completed 36-05-PLAN.md (gate humano do Vault fechado como pendente-humana: UAT-36-2 registrado com o comando exato, sem placeholder; Phase 36 pronta para verificacao).
+Last session: 2026-07-22T17:31:01.746Z
+Stopped at: Completed 37-02-PLAN.md — drift PROD→repo reconciliado. As migrations 20260721000001 e 20260721000002 voltaram ao repo como arquivos declarativos fiéis (NÃO aplicar: as versions já estão no ledger), e `supabase/tests/p37_fidelidade_schema_smoke.sql` fecha o triângulo dump→arquivo→banco. Validado end-to-end num Postgres 17 descartável (12/12 PASS, toggle bidirecional, 4 negativos pegos).
 Resume file: None
 
 ## Operator Next Steps
