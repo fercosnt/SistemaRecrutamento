@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: ROADMAP M7 criado (6 fases 36–41; 21/21 reqs mapeados, 0 unmapped; traceability de REQUIREMENTS.md preenchida). STATE + ROADMAP + REQUIREMENTS atualizados.
-last_updated: "2026-07-22T03:37:09.101Z"
-last_activity: 2026-07-22 -- Phase 36 planning complete
+stopped_at: Completed 36-01-PLAN.md (_shared/email-config.ts + suite Deno 7/7; DELIV-01 + DELIV-03 marcados completos).
+last_updated: "2026-07-22T03:45:05.785Z"
+last_activity: 2026-07-22 -- Phase 36 Plan 01 concluido (email-config contrato + suite Deno)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 20
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 36 — Deliverability & Sender Identity (M7 primeira fase; gate humano/DNS, paralelizável)
+**Current focus:** Phase 36 — Deliverability & Sender Identity
 
 ## Current Position
 
-Phase: 36 of 41 (Deliverability & Sender Identity) — first phase of M7
-Plan: 5 planos em 2 waves (36-01…36-05) — aguardando `/gsd-execute-phase 36`
-Status: Ready to execute
-Last activity: 2026-07-22 -- Phase 36 planning complete
+Phase: 36 (Deliverability & Sender Identity) — EXECUTING
+Plan: 2 of 5
+Status: Executing Phase 36 (1 de 5 planos concluido)
+Last activity: 2026-07-22 -- Phase 36 Plan 01 concluido (email-config contrato + suite Deno)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██░░░░░░░░] 20%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -58,7 +58,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 36 | TBD | - | - |
+| 36 | 1 of 5 | 13min | 13min |
 | 37 | TBD | - | - |
 | 38 | TBD | - | - |
 | 39 | TBD | - | - |
@@ -66,6 +66,8 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | 41 | TBD | - | - |
 
 *Updated after each plan completion.*
+
+**Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files.
 
 ## Accumulated Context
 
@@ -81,6 +83,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [M2/M4 · reuse]: RLS é row-level, **não** column-level; `select('*')` vaza — a EF resolve dados do candidato por allowlist explícita, e `notificacoes_enviadas` é candidato-DENY (LEDGER-03, espelha `rh_gerencia_agendamento` join-through). Ver [[reference_select_star_leaks_pii]].
 - [M2–M6 · reuse]: Migrations PROD via Supabase MCP `apply_migration`/`execute_sql` (bypassa 42601 em corpos PL/pgSQL `$$`; grava version row; no-BEGIN/COMMIT-wrapper) + reconcile do ledger (`schema_migrations.version` → filename prefix) após CADA apply — caminho das migrations P37/39/41. ⚠ DBMIG-01 (baseline+rebuild) permanece débito environment-gated, não bloqueia.
 - [Kickoff M7 · travado]: Provedor = **Resend** · 4 eventos (confirmação, avanço, convite, decisão/rejeição) · LGPD = **transacional sem opt-out** (footer informativo, sem descadastro) · timeline no painel = **incluída** · nota livre do RH na rejeição (RNF-SLA-06) = **droppada do v1** (template neutro fixo) · reconciliação = **completa (webhook + pg_cron)** · knockout = **suprime a confirmação** (survivor-guard).
+- [Phase 36 · 36-01]: modo de notificação resolvido SOMENTE de NOTIFICACOES_MODO explícito (default fail-safe 'teste'); nunca inferido de URL/env de build/hostname
+- [Phase 36 · 36-01]: _shared/email-config.ts é o contrato único de remetente/destinatário — P37 e P38 importam daqui; zero imports por design (dispensa import_map, deno test sem --allow-net)
 
 ### Pending Todos
 
@@ -114,8 +118,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-17T16:20:00.000Z
-Stopped at: ROADMAP M7 criado (6 fases 36–41; 21/21 reqs mapeados, 0 unmapped; traceability de REQUIREMENTS.md preenchida). STATE + ROADMAP + REQUIREMENTS atualizados.
+Last session: 2026-07-22T03:44:53.574Z
+Stopped at: Completed 36-01-PLAN.md (_shared/email-config.ts + suite Deno 7/7; DELIV-01 + DELIV-03 marcados completos).
 Resume file: None
 
 ## Operator Next Steps

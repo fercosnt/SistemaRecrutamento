@@ -66,7 +66,7 @@ M7 continua a numeração a partir da **Phase 36** (M6 terminou na Phase 35).
 Plans:
 **Wave 1**
 
-- [ ] 36-01-PLAN.md — contrato `_shared/email-config.ts` (From/Reply-To congelados, modo fail-safe `teste`, redirecionamento `@resend.dev`) + suite Deno + `test.exclude` no Vitest [wave 1]
+- [x] 36-01-PLAN.md — contrato `_shared/email-config.ts` (From/Reply-To congelados, modo fail-safe `teste`, redirecionamento `@resend.dev`) + suite Deno + `test.exclude` no Vitest [wave 1]
 - [ ] 36-02-PLAN.md — `scripts/assert-no-secrets.mjs` (guard de bundle), meta-teste do guard, encadeamento no `postbuild` + step no job `e2e` [wave 1]
 - [ ] 36-03-PLAN.md — runbook `docs/runbooks/resend-dominio-envio.md`, `scripts/check-resend-dominio.mjs` (opt-in) e `36-HUMAN-UAT.md` com o checklist de 9 itens [wave 1]
 - [ ] 36-04-PLAN.md — migration da RPC `public.ler_resend_api_key()` (SECURITY DEFINER, service_role-only) aplicada via MCP + débito da divergência de chaves [wave 1]
@@ -219,7 +219,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 22–27 (M4) | v4.0 | 43/43 | Complete | 2026-07-13 |
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
-| 36. Deliverability & Sender Identity | v7.0 | 0/TBD | Not started | - |
+| 36. Deliverability & Sender Identity | v7.0 | 1/5 | In Progress|  |
 | 37. Camada de Dados de Notificação | v7.0 | 0/TBD | Not started | - |
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |
