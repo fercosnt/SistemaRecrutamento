@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: Completed 36-03-PLAN.md (runbook DELIV-01 + checker opt-in do dominio Resend + 36-HUMAN-UAT.md pendente com 9 itens).
-last_updated: "2026-07-22T04:00:59.220Z"
-last_activity: 2026-07-22 -- Phase 36 Plan 03 concluido (runbook + checker opt-in + gate humano DELIV-01 registrado)
+stopped_at: Completed 36-04-PLAN.md (RPC ler_resend_api_key() viva em PROD, service_role-only, graceful skip confirmado + debito da divergencia Resend registrado).
+last_updated: "2026-07-22T04:11:57.149Z"
+last_activity: 2026-07-22
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 36 (Deliverability & Sender Identity) — EXECUTING
-Plan: 4 of 5
-Status: Executing Phase 36 (3 de 5 planos concluidos)
-Last activity: 2026-07-22 -- Phase 36 Plan 03 concluido (runbook + checker opt-in + gate humano DELIV-01 registrado)
+Plan: 5 of 5
+Status: Ready to execute
+Last activity: 2026-07-22
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -70,6 +70,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 **Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files. · 36-02 — 22min · 3 tasks · 3 files. · 36-03 — 24min · 3 tasks · 3 files.
 | Phase 36 P02 | 22min | 3 tasks | 3 files |
 | Phase 36 P03 | 24min | 3 tasks | 3 files |
+| Phase 36 P04 | 8min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,9 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 36 · 36-02]: domínio recruta.beautysmile.com.br PROIBIDO como padrão do guard (já embarca legitimamente); postbuild ordena segurança antes de performance
 - [Phase 36 · 36-03]: DKIM nunca hardcodado em doc — dois shapes em circulação (CNAME token-prefixado da SES vs TXT com chave pública); o runbook manda copiar o que o dashboard exibir
 - [Phase 36 · 36-03]: check-resend-dominio.mjs é reporter opt-in (no-op exit 0 sem chave), proibido em CI/postbuild/hook por docblock; `POST /verify` só atrás de `--verify`; credencial nunca interpolada em console.*
+- [Phase 36 · 36-04]: RPC leitora do Vault e SEM argumento (ler_resend_api_key()) — rejeitada a generalizacao ler_segredo(text): comprometimento de service_role expoe UM segredo, nao todos
+- [Phase 36 · 36-04]: chave Resend de notificacoes so no Vault; cost-alerter fica com RESEND_API_KEY em EF env secret (confirmado vivo em PROD) — divergencia registrada como debito, nao corrigida
+- [Phase 36 · 36-04]: database.types.ts NAO regenerado — nenhum client chama a RPC (consumidor e a EF da P38 via service-role); regenerar so traria drift
 
 ### Pending Todos
 
@@ -124,8 +128,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T04:00:43.383Z
-Stopped at: Completed 36-03-PLAN.md (runbook DELIV-01 + checker opt-in do dominio Resend + 36-HUMAN-UAT.md pendente com 9 itens).
+Last session: 2026-07-22T04:10:16.460Z
+Stopped at: Completed 36-04-PLAN.md (RPC ler_resend_api_key() viva em PROD, service_role-only, graceful skip confirmado + debito da divergencia Resend registrado).
 Resume file: None
 
 ## Operator Next Steps
