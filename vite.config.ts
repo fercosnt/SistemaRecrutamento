@@ -51,6 +51,11 @@
         // Phase 28 (gestão de usuários RH): the gerenciar-usuario-rh EF handler
         // test uses https:// specifiers (Deno) → run under `deno test`, not Vitest.
         'supabase/functions/gerenciar-usuario-rh/**/*.test.ts',
+        // Phase 36 / DELIV-03 (sender identity + fail-safe de modo): the email-config
+        // suite imports `https://deno.land/std` assert → runs under `deno test`, not
+        // Vitest. Literal path on purpose — never a directory-wide glob, since
+        // strict-schema.test.ts in the same dir is a Vitest-only Node probe.
+        'supabase/functions/_shared/__tests__/email-config.test.ts',
       ],
       coverage: {
         provider: 'v8',
