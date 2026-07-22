@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: verifying
+status: executing
 stopped_at: "Completed 36-05-PLAN.md (gate humano do Vault fechado como pendente-humana: UAT-36-2 registrado com o comando exato, sem placeholder; Phase 36 pronta para verificacao)."
-last_updated: "2026-07-22T15:25:02.966Z"
-last_activity: 2026-07-22
+last_updated: "2026-07-22T16:35:47.520Z"
+last_activity: 2026-07-22 -- Phase 37 planning complete
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 5
+  total_plans: 10
   completed_plans: 5
   percent: 17
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 Phase: 36 (Deliverability & Sender Identity) — EXECUTING
 Plan: 5 of 5
-Status: Phase complete — ready for verification
-Last activity: 2026-07-22
+Status: Ready to execute
+Last activity: 2026-07-22 -- Phase 37 planning complete
 
 Progress: [██████████] 100%
 
