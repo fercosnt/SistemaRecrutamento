@@ -156,10 +156,24 @@ if (region === EXPECTED_REGION) {
   )
 }
 
+// Only an EXPLICIT `true` is a violation. A missing flag is not: the payload shape of
+// `GET /domains/:id` varies by account/API version, and treating "not reported" as
+// "tracking is on" made this reporter exit 1 on a correctly-configured domain — a
+// checker that is permanently red is a checker that gets ignored (the same reasoning
+// assert-no-secrets.mjs:81-85 uses to keep the sending domain out of its PATTERNS).
+// The `?? match?.[flag]` fallback to the GET /domains entry mirrors what `status`
+// and `region` above already do; its absence here was an internal asymmetry.
+let trackingConfirmedOff = true
 for (const flag of ['open_tracking', 'click_tracking']) {
-  const value = detail?.[flag]
+  const value = detail?.[flag] ?? match?.[flag]
   if (value === false) {
     notes.push(`✓ ${flag}: false`)
+  } else if (value === undefined || value === null) {
+    trackingConfirmedOff = false
+    notes.push(
+      `… ${flag}: not reported by this API version — not a violation, but confirm it is OFF ` +
+        `in Domain Settings (${RUNBOOK}, Passo 1, item 6).`,
+    )
   } else {
     failures.push(
       `✗ ${flag}: ${String(value)} (expected false). Tracking adds a links.<domain> CNAME ` +
@@ -214,5 +228,8 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log(`✓ check-resend-dominio PASSED — ${DOMAIN} is verified, in ${EXPECTED_REGION}, tracking off.\n`)
+console.log(
+  `✓ check-resend-dominio PASSED — ${DOMAIN} is verified, in ${EXPECTED_REGION}, ` +
+    `${trackingConfirmedOff ? 'tracking off' : 'tracking NOT reported by the API (confirm in Domain Settings)'}.\n`,
+)
 process.exit(0)
