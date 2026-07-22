@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: Completed 36-02-PLAN.md (assert-no-secrets.mjs + postbuild/CI wiring; DELIV-02 marcado completo).
-last_updated: "2026-07-22T03:52:23.857Z"
-last_activity: 2026-07-22 -- Phase 36 Plan 02 concluido (gate de segredo DELIV-02 + meta-teste de 4 provas)
+stopped_at: Completed 36-03-PLAN.md (runbook DELIV-01 + checker opt-in do dominio Resend + 36-HUMAN-UAT.md pendente com 9 itens).
+last_updated: "2026-07-22T04:00:59.220Z"
+last_activity: 2026-07-22 -- Phase 36 Plan 03 concluido (runbook + checker opt-in + gate humano DELIV-01 registrado)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 36 (Deliverability & Sender Identity) — EXECUTING
-Plan: 3 of 5
-Status: Executing Phase 36 (2 de 5 planos concluidos)
-Last activity: 2026-07-22 -- Phase 36 Plan 02 concluido (gate de segredo DELIV-02 + meta-teste de 4 provas)
+Plan: 4 of 5
+Status: Executing Phase 36 (3 de 5 planos concluidos)
+Last activity: 2026-07-22 -- Phase 36 Plan 03 concluido (runbook + checker opt-in + gate humano DELIV-01 registrado)
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -58,7 +58,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 36 | 2 of 5 | 35min | ~18min |
+| 36 | 3 of 5 | 59min | ~20min |
 | 37 | TBD | - | - |
 | 38 | TBD | - | - |
 | 39 | TBD | - | - |
@@ -67,8 +67,9 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 
 *Updated after each plan completion.*
 
-**Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files. · 36-02 — 22min · 3 tasks · 3 files.
+**Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files. · 36-02 — 22min · 3 tasks · 3 files. · 36-03 — 24min · 3 tasks · 3 files.
 | Phase 36 P02 | 22min | 3 tasks | 3 files |
+| Phase 36 P03 | 24min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 36 · 36-01]: _shared/email-config.ts é o contrato único de remetente/destinatário — P37 e P38 importam daqui; zero imports por design (dispensa import_map, deno test sem --allow-net)
 - [Phase 36 · 36-02]: gate de segredo separado do gate de perf — assert-no-secrets.mjs varre TODO o build/ com regex ancorado em \b e nunca imprime o match (mascarado: path+offset+padrão+4 chars)
 - [Phase 36 · 36-02]: domínio recruta.beautysmile.com.br PROIBIDO como padrão do guard (já embarca legitimamente); postbuild ordena segurança antes de performance
+- [Phase 36 · 36-03]: DKIM nunca hardcodado em doc — dois shapes em circulação (CNAME token-prefixado da SES vs TXT com chave pública); o runbook manda copiar o que o dashboard exibir
+- [Phase 36 · 36-03]: check-resend-dominio.mjs é reporter opt-in (no-op exit 0 sem chave), proibido em CI/postbuild/hook por docblock; `POST /verify` só atrás de `--verify`; credencial nunca interpolada em console.*
 
 ### Pending Todos
 
@@ -121,8 +124,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T03:52:10.888Z
-Stopped at: Completed 36-02-PLAN.md (assert-no-secrets.mjs + postbuild/CI wiring; DELIV-02 marcado completo).
+Last session: 2026-07-22T04:00:43.383Z
+Stopped at: Completed 36-03-PLAN.md (runbook DELIV-01 + checker opt-in do dominio Resend + 36-HUMAN-UAT.md pendente com 9 itens).
 Resume file: None
 
 ## Operator Next Steps
