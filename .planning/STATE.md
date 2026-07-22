@@ -2,13 +2,14 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: planning
-last_updated: "2026-07-17T16:20:00.000Z"
-last_activity: 2026-07-17
+status: executing
+stopped_at: ROADMAP M7 criado (6 fases 36–41; 21/21 reqs mapeados, 0 unmapped; traceability de REQUIREMENTS.md preenchida). STATE + ROADMAP + REQUIREMENTS atualizados.
+last_updated: "2026-07-22T03:37:09.101Z"
+last_activity: 2026-07-22 -- Phase 36 planning complete
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
+  total_plans: 5
   completed_plans: 0
   percent: 0
 ---
@@ -25,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 36 of 41 (Deliverability & Sender Identity) — first phase of M7
-Plan: — (roadmap criado; aguardando `/gsd-plan-phase 36`)
-Status: Ready to plan
-Last activity: 2026-07-17 — ROADMAP M7 criado (6 fases 36–41, 21/21 reqs mapeados, 0 unmapped)
+Plan: 5 planos em 2 waves (36-01…36-05) — aguardando `/gsd-execute-phase 36`
+Status: Ready to execute
+Last activity: 2026-07-22 -- Phase 36 planning complete
 
 Progress: [░░░░░░░░░░] 0%
 

@@ -854,26 +854,33 @@ select name, length(decrypted_secret) as len
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Q1–Q4 foram decididas em 2026-07-22 e registradas no `36-CONTEXT.md` § "Correções e Decisões Pós-Research". Q5 é a única em aberto e é legitimamente de tempo-de-execução (ação humana), não bloqueando planejamento nem execução dos trilhos de código.
 
 1. **A RPC leitora do Vault (`public.ler_resend_api_key()`) entra na P36 ou na P38?**
    - Sabemos: o schema `vault` não é exposto ao PostgREST; a EF não lê `decrypted_secrets` sem wrapper.
    - Não está claro: o CONTEXT delimita a P36 a "provisionar o segredo", sem mencionar o leitor.
    - Recomendação: **landar na P36** como migration file-only. Sem ela, DELIV-02 é formalmente satisfeito mas operacionalmente incompleto, e a P38 descobre tarde.
+   - **RESOLVED (2026-07-22): P36.** Implementado no Plano 36-04 (`20260722000001_p36_vault_resend_reader.sql`), função sem argumento, `SECURITY DEFINER`, `GRANT EXECUTE` só a `service_role`.
 
 2. **Nome do segredo no Vault: `resend_api_key` ou `RESEND_API_KEY`?**
    - Sabemos: os 3 segredos existentes são snake_case minúsculo.
    - Recomendação: `resend_api_key`. Registrar literalmente no runbook — a P38 lê pelo mesmo nome.
+   - **RESOLVED (2026-07-22): `resend_api_key`.** Usado consistentemente nos Planos 36-04 e 36-05 e no runbook.
 
 3. **Região do Resend: `us-east-1` (default) ou `sa-east-1` (São Paulo)?**
    - Sabemos: muda o hostname do MX; trocar depois exige re-verificar; irrelevante para latência.
    - Não está claro: se há preferência LGPD por manter o hop em território nacional.
    - Recomendação: decidir **antes** de criar o domínio (é uma decisão de 1 clique agora e uma re-verificação depois). Default `us-east-1` é aceitável; registrar a escolha.
+   - **RESOLVED (2026-07-22): `sa-east-1` (São Paulo)**, escolhido pelo Fernando — candidatos e RH são todos no Brasil; processamento em território nacional é a melhor postura sob LGPD. O runbook (Plano 36-03) destaca que trocar exige re-verificar o domínio.
 
 4. **O `RESEND_API_KEY` já provisionado (consumido pelo `cost-alerter`) é reaproveitado como chave prod ou gera-se uma nova?**
    - Recomendação: **nova chave prod dedicada** ao pipeline de candidatos (blast radius menor; revogar uma não derruba a outra), mantendo a do `cost-alerter` intacta. Documentar as três chaves no runbook: dev/test-mode, prod-notificações, cost-alerter (legada).
+   - **RESOLVED (2026-07-22): nova chave dedicada**, escolhido pelo Fernando. O `cost-alerter` fica intocado; a divergência (uma chave Resend ainda em env secret) e o bug latente do TLD `.app` viram débito registrado (Plano 36-04, Task 3).
 
 5. **Onde está hospedado o DNS de `beautysmile.com.br`?** (item aberto herdado do CONTEXT) — bloqueia a *execução* do gate humano, não o planejamento. O runbook sai com seções "Cloudflare" e "genérico (Registro.br/outro)".
+   - **EM ABERTO — legítimo, não-bloqueante.** É informação de tempo-de-execução que só o Fernando tem; o runbook é provider-agnóstico exatamente para não depender dela. Fecha junto com o HUMAN-UAT do DELIV-01.
 
 ---
 

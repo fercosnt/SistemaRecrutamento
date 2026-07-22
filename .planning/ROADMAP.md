@@ -20,6 +20,7 @@ As quatro dimensões de pesquisa convergiram independentemente numa mesma forma 
 O milestone entrega em: identidade de remetente & entregabilidade (P36 — gate humano/DNS, paralelizável); a camada de dados do ledger + `config_sla_etapa` (P37 — migrations primeiro); a EF `notificar-candidato` com os 4 templates + port do `.ics` (P38 — deployável dormente, smoke via `net.http_post` manual); o rewire dos triggers + aposentadoria do n8n (P39 — cadeia estrita 37→38→39); a timeline de prazo no painel (P40 — paralelizável, lê só `config_sla_etapa`); e a reconciliação/retry/testing que fecha o fire-and-forget (P41 — por último).
 
 **Invariantes preservadas em toda fase (gates, não requisitos):**
+
 - **RNF-07a** — o disparo de decisão (COMM-05) é gatilhado por uma decisão **registrada por humano**, nunca por limiar de score; o sistema nunca auto-decide.
 - **D-15** — o template de rejeição é **fixo e neutro**; nunca interpola `motivo_rejeicao`/score/percentil/trait (grep-guard contra tokens de scoring).
 - **RNF-12a** — linguagem sempre "avaliação comportamental/cognitiva" (nunca "teste psicológico").
@@ -50,82 +51,105 @@ M7 continua a numeração a partir da **Phase 36** (M6 terminou na Phase 35).
 **Milestone Goal:** O funil já *anda* pela mão do RH (M6); o M7 faz o candidato **saber** que ele anda — pipeline de notificação transacional por e-mail (Resend) disparado nas transições do funil, aposentando o n8n pessoal (resolve SEC-03 por substituição), + timeline de estimativa de prazo no painel do candidato pra reduzir ansiedade na espera. Feature-work (net-new comunicação), **não** hardening. Deriva do grupo **COMM** do `.planning/M5-DRAFT.md`.
 
 ### Phase 36: Deliverability & Sender Identity
+
 **Goal**: A identidade de remetente da Beauty Smile é real e confiável — um subdomínio de envio dedicado verificado no Resend (SPF/DKIM auto + DMARC publicado manualmente), um From/Reply-To real, e a `RESEND_API_KEY` vivendo **apenas** no Vault — pra que, quando o pipeline for ao ar, o e-mail caia na caixa de entrada (não no spam) e nenhum segredo de provedor toque o bundle. Engenharia procede em paralelo via os endereços de teste `resend.dev`.
 **Depends on**: Phase 35 (M6 shipped) — nada dentro do M7; é um gate humano/DNS, lateralmente paralelizável com as Phases 37–38 (só precisa aterrissar antes do 1º envio a candidato real na P41).
 **Requirements**: DELIV-01, DELIV-02, DELIV-03
 **Success Criteria** (what must be TRUE):
+
   1. Um subdomínio de envio Beauty Smile está verificado no Resend com SPF+DKIM (auto) e um registro DMARC publicado manualmente, e o From/Reply-To real está definido — um envio de teste desse domínio cai na caixa de entrada, não no spam (DELIV-01).
   2. A `RESEND_API_KEY` existe **apenas** no Supabase Vault (nunca em env `VITE_`, nunca no bundle); um grep-guard de bundle prova que nenhuma chave/URL do Resend aparece no build público (DELIV-02).
   3. Dev/CI enviam exclusivamente aos endereços de teste do Resend (`delivered@`/`bounced@`/`complained@resend.dev`) com o sender mockado nos unit tests — CI não requer chave viva e nunca spama um candidato real (DELIV-03).
+
 **Plans**: 5 plans em 2 waves
 
 Plans:
+**Wave 1**
+
 - [ ] 36-01-PLAN.md — contrato `_shared/email-config.ts` (From/Reply-To congelados, modo fail-safe `teste`, redirecionamento `@resend.dev`) + suite Deno + `test.exclude` no Vitest [wave 1]
 - [ ] 36-02-PLAN.md — `scripts/assert-no-secrets.mjs` (guard de bundle), meta-teste do guard, encadeamento no `postbuild` + step no job `e2e` [wave 1]
 - [ ] 36-03-PLAN.md — runbook `docs/runbooks/resend-dominio-envio.md`, `scripts/check-resend-dominio.mjs` (opt-in) e `36-HUMAN-UAT.md` com o checklist de 9 itens [wave 1]
 - [ ] 36-04-PLAN.md — migration da RPC `public.ler_resend_api_key()` (SECURITY DEFINER, service_role-only) aplicada via MCP + débito da divergência de chaves [wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 36-05-PLAN.md — provisionamento de `resend_api_key` no Vault (checkpoint humano; sem placeholder) + smokes de leitura [wave 2]
 
 *Nota (discuss-phase):* DELIV-01 é ação humana/DNS do Fernando — deve aterrissar antes do 1º envio ao vivo (UAT da P41); codificação/teste procede em paralelo via `resend.dev`.
 
 ### Phase 37: Camada de Dados de Notificação (`notificacoes_enviadas` + `config_sla_etapa`)
+
 **Goal**: As tabelas que todo o pipeline lê e escreve existem e estão blindadas **antes** de qualquer EF ou trigger tocá-las: `notificacoes_enviadas` (audit trail + guarda de idempotência + fila de retry, RLS RH vaga-scoped join-through espelhando `rh_gerencia_agendamento`, candidato-DENY) e a tabela estática `config_sla_etapa` seedada dos prazos do PRD §5.1.1. Aplicadas pelo caminho estabelecido MCP `apply_migration` + reconcile do ledger.
 **Depends on**: Phase 35 (M6 shipped) — primeira fase de encanamento; **BLOCKING** para as Phases 38, 39 e 40.
 **Requirements**: LEDGER-01, LEDGER-02, LEDGER-03, TIMELINE-01
 **Success Criteria** (what must be TRUE):
+
   1. A tabela `notificacoes_enviadas` registra cada disparo (evento, candidatura, candidato, template, `status`, `provider_message_id`, erro, timestamps) — existe um audit trail persistido em PROD (LEDGER-01).
   2. Um `UNIQUE(dedupe_key)` durável — com a chave incluindo `etapa_destino`/`agendamento_id` — torna o envio idempotente: um retrocede-then-readvance ou reagendamento **legítimo** re-notifica, enquanto um retry do mesmo evento não consegue inserir linha duplicada (LEDGER-02).
   3. Um candidato JWT-impersonado lendo `notificacoes_enviadas` obtém **zero linhas** (candidato-DENY, sem policy de candidato), e um recrutador não-dono não lê linhas de outra vaga — provado por smoke comportamental, espelhando o join-through de `rh_gerencia_agendamento` (LEDGER-03).
   4. `config_sla_etapa` existe (non-PII, public-read) seedada com o prazo esperado por etapa a partir do PRD §5.1.1 (TIMELINE-01).
+
 **Plans**: TBD (planejado em `/gsd-plan-phase 37`)
 
 *Nota (discuss-phase):* resolver a janela de retenção/purga de `notificacoes_enviadas` (minimização LGPD — purge vs purge-exempt) ao planejar esta fase.
 
 ### Phase 38: EF `notificar-candidato` (COMM)
+
 **Goal**: Uma única EF self-authenticating que, dado um payload ids-only, resolve os dados do candidato por allowlist explícita (nunca `select('*')`), reivindica idempotência contra o ledger, renderiza o template Beauty Smile correto para cada um dos 4 eventos (com um port server-side verbatim do `.ics` do M6 para o convite), envia via `fetch` plano ao Resend e grava o resultado de volta — **deployável dormente** e smoke-testável via `net.http_post` manual **antes** de qualquer trigger existir.
 **Depends on**: Phase 37 (precisa da `notificacoes_enviadas` para reivindicar/logar). Cadeia estrita 37 → 38 → 39.
 **Requirements**: COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06
 **Success Criteria** (what must be TRUE):
+
   1. A EF `notificar-candidato` existe — self-auth Bearer via Vault (`--no-verify-jwt`), resolve os dados do candidato por **allowlist explícita de colunas** (nunca `select('*')`), envia via `fetch` à API do Resend e grava o resultado no ledger (COMM-01).
   2. Invocada por evento, a EF produz o e-mail correto: **confirmação** de candidatura recebida — suprimida pelo survivor-guard quando a candidatura nasce auto-rejeitada por knockout (COMM-02); **avanço** p/ avaliação assíncrona (COMM-03); **convite de entrevista** com data/hora em `America/Sao_Paulo`, link/local e anexo `.ics` (RFC-5545) de `_shared/ics.ts` portado verbatim do M6 (COMM-04); **decisão ≤24h** com template **fixo e neutro** que nunca interpola `motivo_rejeicao`/score/percentil/trait — D-15, disparada só por decisão registrada por humano, nunca por limiar de score — RNF-07a (COMM-05).
   3. Os 4 templates HTML são hand-rolled com identidade Beauty Smile (inline CSS, **não** react-email); a cópia de rejeição é revisada e congelada, e um grep-guard prova que nenhum token de scoring/critério vaza no template de rejeição (COMM-06).
   4. Um `net.http_post` manual à EF (dormente, sem trigger ainda) envia o e-mail correto a um endereço de teste `resend.dev` e grava uma linha `enviado` no ledger — a EF é provada ponta-a-ponta **antes** do rewire dos triggers (COMM-01).
+
 **Plans**: TBD (planejado em `/gsd-plan-phase 38`)
 
 *Nota (discuss-phase):* o `METHOD` do `.ics` (PUBLISH vs REQUEST) é questão aberta desta fase. A cópia de rejeição (COMM-05) precisa de uma string neutra revisada e **congelada** antes do fecho.
 
 ### Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03)
+
 **Goal**: Os eventos reais do funil passam a auto-disparar a EF a partir de uma fonte canônica única por evento — um trigger baseado em `CASE` sobre `historico_candidatura` (avanço + decisão) mais dois triggers satélites em `candidaturas` (confirmação) e `agendamentos_entrevista` (convite) — enquanto os 3 triggers dormentes do SEC-03 e o disparo por env-var do `submit-candidatura` são **DROPPED no MESMO phase**, aposentando o n8n e resolvendo **SEC-03 por substituição**, sem superfície de double-send. Fase de **maior risco** do milestone.
 **Depends on**: Phase 38 (os triggers precisam de um alvo EF vivo), Phase 37 (a guarda `dedupe_key`).
 **Requirements**: DISPATCH-01, DISPATCH-02, DISPATCH-03, DISPATCH-04
 **Success Criteria** (what must be TRUE):
+
   1. Um trigger `AFTER INSERT ON historico_candidatura` é a **fonte canônica única** dos eventos de transição — um `CASE` sobre `etapa_para` dispara avanço (COMM-03) e decisão (COMM-05, unificando aprovado/rejeitado/knockout via `etapa_atual`) com corpo ids-only, zero-PII, graceful-skip (DISPATCH-01).
   2. Triggers satélites em `candidaturas` INSERT (confirmação, com o survivor-guard de knockout) e `agendamentos_entrevista` INSERT (convite) cobrem os dois eventos que **não** são transições de etapa — uma candidatura real, um avanço, um convite e uma decisão disparam **exatamente um** e-mail cada, sem duplicatas (DISPATCH-02).
   3. Os 3 triggers n8n do SEC-03 são **DROPPED** e o disparo por env-var do `submit-candidatura` é aposentado **na mesma migration** que cria os novos triggers — um grep/diff-live prova que nenhuma superfície de disparo dupla permanece e o n8n está totalmente aposentado (SEC-03 resolvido por substituição) (DISPATCH-03).
   4. O hop trigger→EF autentica por um segredo Bearer self-auth do Vault (mirror do `analise-candidato-individual`), e o corpo do `net.http_post` carrega só ids — a EF não é um endpoint de envio público/spoofable e nenhuma PII trafega no payload do trigger (DISPATCH-04).
+
 **Plans**: TBD (planejado em `/gsd-plan-phase 39`)
 
 *Nota (discuss-phase):* antes de finalizar o predicado do `CASE`, **confirmar que o caminho de aprovação escreve `etapa_atual='aprovado'`** (questão aberta) — se só escreve `decisao_final`, um trigger satélite em `decisao_final` é necessário para aprovações. Diff dos corpos de função vivos **antes** de qualquer `CREATE OR REPLACE` (disciplina DBMIG-02; sem wrapper `BEGIN;...COMMIT;`).
 
 ### Phase 40: Timeline de Prazo no Painel do Candidato
+
 **Goal**: Cada estado de espera do painel do candidato mostra o prazo esperado da etapa a partir de `config_sla_etapa` ("triagem — resposta em até X dias úteis"), enquadrado explicitamente como **estimativa** (nunca countdown rígido) — o *pull* que complementa o *push* do e-mail, arquiteturalmente independente do pipeline (lê só a tabela de config estática).
 **Depends on**: Phase 37 (seed de `config_sla_etapa`) — **lateralmente paralelizável** com as Phases 38–39 (zero acoplamento ao push de e-mail).
 **Requirements**: TIMELINE-02
 **Success Criteria** (what must be TRUE):
+
   1. Em cada estado de espera do `DashboardCandidatoPage`, o candidato vê a estimativa de prazo da etapa atual, sourced de `config_sla_etapa` (TIMELINE-02).
   2. A estimativa é enquadrada **explicitamente** como estimativa ("resposta em até X dias úteis"), nunca como countdown rígido ou data prometida, e lê a **mesma** etapa derivada de `historico_candidatura` que o push do e-mail keya — sem contradição entre painel e e-mail (TIMELINE-02).
+
 **Plans**: TBD (planejado em `/gsd-plan-phase 40`)
 **UI hint**: yes
 
 ### Phase 41: Reconciliação de Entrega, Retry & Testing
+
 **Goal**: O loop fire-and-forget é fechado e o pipeline fica seguro para tráfego real — uma EF de webhook do Resend (assinatura Svix verificada) reconcilia o status de entrega por `provider_message_id`, uma varredura `pg_cron` re-tenta linhas `pendente`/`falhou` sob cap de tentativas, e o CI trava um sender mockado + guard de destinatário non-prod para que nenhum teste jamais spame um candidato real. Última fase; deve aterrissar **antes** de qualquer volume de candidato real.
 **Depends on**: Phase 38 e Phase 39 (precisa de um caminho de envio funcionando pra reconciliar/testar), Phase 36 (domínio verificado para o UAT ao vivo).
 **Requirements**: RECON-01, RECON-02, RECON-03
 **Success Criteria** (what must be TRUE):
+
   1. `notificacoes_enviadas` implementa a state machine `pendente → enviado → entregue/falhou/bounce` — o status reflete o resultado real do envio, e o funil avança independentemente (o e-mail nunca carrega estado de funil sozinho) (RECON-01).
   2. Uma EF de webhook do Resend com assinatura Svix verificada atualiza o status por `provider_message_id` nos eventos `email.delivered`/`email.bounced`/`email.complained` — rastreamento durável de entrega/bounce (RECON-02).
   3. Uma varredura `pg_cron` re-dispara as linhas `pendente`/`falhou` sob cap de `tentativas` como rede de segurança para a janela de ~6h do `net._http_response` (o `net.http_post` é fire-and-forget/at-most-once) (RECON-03).
   4. Testes CI rodam contra um sender do Resend mockado (sem chave viva) com um guard de destinatário non-prod, e um UAT ao vivo usando os endereços `delivered@`/`bounced@`/`complained@resend.dev` exercita a reconciliação completa de entrega/bounce/complaint (RECON-02, RECON-03).
+
 **Plans**: TBD (planejado em `/gsd-plan-phase 41`)
 
 *Nota (discuss-phase):* verificar os números exatos de rate-limit/free-tier do Resend no dashboard vivo antes de assumir a cadência da varredura de retry (questão aberta).
