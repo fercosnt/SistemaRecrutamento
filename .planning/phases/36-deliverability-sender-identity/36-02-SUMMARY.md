@@ -70,15 +70,17 @@ Saída verde contra o bundle atual: `43 files scanned` (3261.40 kB lidos), `✓ 
 
 Executado em 2026-07-22 contra um `build/` recém-gerado. Todas as provas expõem **exit 1** e nenhuma imprime o valor plantado.
 
+> 🔄 **Re-executado em 2026-07-22 (code review, item "literal com forma de chave real").** A fixture plantada deixou de ser o exemplo público da doc do Resend e passou a ser a string sintética `re_TESTFAKE_000000000000000000EXAMPLE` — mesma razão pela qual o guard existe: proveniência é invisível para o gitleaks e para o GitHub Push Protection. As **quatro** provas abaixo foram refeitas integralmente com a fixture nova e os números atualizados (`37 chars`, prefixo mascarado `re_T...`). Estado final reconfirmado: `npm run build` → exit 0, `node scripts/assert-no-secrets.mjs` → exit 0, zero resíduo em `build/`.
+
 **Prova (a) — chave sintética em `build/__meta_test_secret.js`**
 ```
-printf 're_c1tpEyD8_REDACTED_P36_SYNTHETIC' > build/__meta_test_secret.js
+printf 're_TESTFAKE_000000000000000000EXAMPLE' > build/__meta_test_secret.js
 node scripts/assert-no-secrets.mjs                                    → exit=1
 
-  ✗ resend-api-key: build/__meta_test_secret.js @byte 0 (36 chars, starts "re_c...") — ...
-  ✗ resend-key-formatdrift: build/__meta_test_secret.js @byte 0 (36 chars, starts "re_c...") — ...
+  ✗ resend-api-key: build/__meta_test_secret.js @byte 0 (37 chars, starts "re_T...") — ...
+  ✗ resend-key-formatdrift: build/__meta_test_secret.js @byte 0 (37 chars, starts "re_T...") — ...
 
-grep -c 'REDACTED_P36_SYNTHETIC' na saída                           → 0
+grep -c '000000000000000000EXAMPLE' na saída                           → 0
 ```
 
 **Prova (b) — endpoint**
@@ -97,16 +99,16 @@ node scripts/assert-no-secrets.mjs                                    → exit=1
 
 **Prova (d) — chave dentro de `build/index.html`** (prova que o walk não é só `build/assets/*`)
 ```
-printf '\n<!-- re_c1tpEyD8_… -->\n' >> build/index.html
+printf '\n<!-- re_TESTFAKE_… -->\n' >> build/index.html
 node scripts/assert-no-secrets.mjs                                    → exit=1
-  ✗ resend-api-key: build/index.html @byte 527 (36 chars, starts "re_c...") — ...
-  ✗ resend-key-formatdrift: build/index.html @byte 527 (36 chars, starts "re_c...") — ...
-grep -c 'REDACTED_P36_SYNTHETIC' na saída                           → 0
+  ✗ resend-api-key: build/index.html @byte 527 (37 chars, starts "re_T...") — ...
+  ✗ resend-key-formatdrift: build/index.html @byte 527 (37 chars, starts "re_T...") — ...
+grep -c '000000000000000000EXAMPLE' na saída                           → 0
 ```
 
 **Estado final:** `build/index.html` restaurado via `npm run build`; `ls build/__meta_test_secret.js` → *No such file or directory*; `node scripts/assert-no-secrets.mjs` → exit 0. `git status --short` limpo (o `build/` é git-ignored).
 
-A string plantada é o exemplo público da documentação do Resend — **não** é credencial viva.
+A string plantada é **sintética** (`re_TESTFAKE_000000000000000000EXAMPLE`) — não é credencial viva nem exemplo de documentação de terceiro. Existe só para satisfazer os dois padrões de chave do guard: `TESTFAKE` tem 8 caracteres (cabe em `{6,12}`) e `000000000000000000EXAMPLE` tem 25 (cabe em `{16,}`), total 37. Entropia perto de zero, de propósito.
 
 ## Verification Evidence
 

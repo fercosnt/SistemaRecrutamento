@@ -33,21 +33,31 @@
  * Canonical reproduction, proof (a):
  *
  *   npm run build
- *   printf 're_c1tpEyD8_REDACTED_P36_SYNTHETIC' > build/__meta_test_secret.js
+ *   printf 're_TESTFAKE_000000000000000000EXAMPLE' > build/__meta_test_secret.js
  *   node scripts/assert-no-secrets.mjs; echo "exit=$?"   # MUST print exit=1
  *   rm -f build/__meta_test_secret.js
  *   node scripts/assert-no-secrets.mjs; echo "exit=$?"   # MUST print exit=0
  *
- * Executed 2026-07-22 as four separate proofs, one per pattern family, each expecting
- * exit=1 and each verified NOT to echo the planted value (only a 4-char masked prefix):
- *   (a) `re_c1tpEyD8_…` in build/__meta_test_secret.js -> resend-api-key + resend-key-formatdrift
+ * Executed as four separate proofs, one per pattern family, each expecting exit=1 and
+ * each verified NOT to echo the planted value (only a 4-char masked prefix, `re_T...`):
+ *   (a) `re_TESTFAKE_…` in build/__meta_test_secret.js -> resend-api-key + resend-key-formatdrift
  *   (b) `https://api.resend.com/emails`                -> resend-endpoint
  *   (c) `RESEND_API_KEY`                               -> resend-key-identifier
- *   (d) the same key inside build/index.html           -> proves the walk is not limited
+ *   (d) the same fixture inside build/index.html       -> proves the walk is not limited
  *       to build/assets/* (restore with `npm run build`, never by hand-editing index.html)
  *
- * The planted string is the public example key from the Resend documentation — it is
- * NOT a live credential. Never plant a real key here.
+ * ON THE FIXTURE `re_TESTFAKE_000000000000000000EXAMPLE` — it is a SYNTHETIC string,
+ * deliberately not a credential of any provenance. It exists only to satisfy the two key
+ * patterns below: `TESTFAKE` is 8 chars (fits `{6,12}`) and `000000000000000000EXAMPLE`
+ * is 25 (fits `{16,}`), so it matches resend-api-key AND resend-key-formatdrift; total
+ * length 37. Its entropy is near zero on purpose, which keeps entropy-based scanners
+ * quiet, and `TESTFAKE`/`EXAMPLE` make it self-evident to a human reader.
+ * A previous revision used the public example key from the Resend documentation. That
+ * provenance is TRUE and IRRELEVANT to a scanner: GitHub Push Protection ships a partner
+ * detector for Resend keys and the gitleaks rule `resend-api-key` (`re_[a-zA-Z0-9_\-]{20,}`)
+ * matches it — and this file lives under `scripts/`, which any secret-scanning job walks.
+ * The cost of that is not the alert, it is the habit of dismissing it. Never plant a real
+ * key here, and never swap this fixture for one that looks like it came from anywhere.
  *
  * @see .planning/phases/36-deliverability-sender-identity/36-RESEARCH.md (Q5 contract; Pitfalls 4-7)
  * @see scripts/assert-chunks.mjs (sibling build-output gate, PERF-03)

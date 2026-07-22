@@ -529,7 +529,7 @@ vite.config.ts    → 1 entrada em test.exclude
 ### Pitfall 4 — Regex sem âncora: falso-positivo em bundle minificado
 
 **O que dá errado:** o padrão literal do CONTEXT, `re_[A-Za-z0-9]{8,}`, casa **dentro** de identificadores minificados/preservados: `measure_something` contém `re_something` (11 chars ≥ 8). O guard fica vermelho no primeiro build e a reação natural é afrouxá-lo — matando o gate.
-**Como evitar:** ancorar. Chaves Resend têm a forma observada `re_<8>_<24>` (ex. público: `re_c1tpEyD8_REDACTED_P36_SYNTHETIC`). Recomendo dois padrões:
+**Como evitar:** ancorar. Chaves Resend têm a forma observada `re_<8>_<24>` (fixture **sintética** usada pelo meta-teste, com essa mesma forma: `re_TESTFAKE_000000000000000000EXAMPLE`). Recomendo dois padrões:
 - estrito (o shape real): `/\bre_[A-Za-z0-9]{6,12}_[A-Za-z0-9]{16,}\b/`
 - deriva de formato (rede de segurança): `/\bre_[A-Za-z0-9_]{28,}\b/`
 O `\b` inicial é o que impede o match dentro de `measure_`/`store_` (a posição entre duas letras não é fronteira de palavra).
@@ -958,7 +958,7 @@ npm run build                       # postbuild roda assert-no-secrets && assert
 node scripts/assert-no-secrets.mjs  # exit 0 + "N files scanned"
 grep -rn "RESEND\|api\.resend\.com" build/ ; echo "exit=$?"   # exit 1 = nenhum match (cross-check independente)
 ```
-Mais o **meta-teste** que prova que o gate não é no-op: plantar `re_c1tpEyD8_REDACTED_P36_SYNTHETIC` num arquivo temporário dentro de `build/`, rodar o guard, exigir **exit 1**, remover. Sem esse passo o SC2 é indistinguível de um script que sempre passa (a lição literal do docblock do `assert-chunks.mjs:12-13`).
+Mais o **meta-teste** que prova que o gate não é no-op: plantar `re_TESTFAKE_000000000000000000EXAMPLE` num arquivo temporário dentro de `build/`, rodar o guard, exigir **exit 1**, remover. Sem esse passo o SC2 é indistinguível de um script que sempre passa (a lição literal do docblock do `assert-chunks.mjs:12-13`).
 Mais o smoke SQL do Vault (quando a chave existir).
 
 **SC3 (DELIV-03) — totalmente automatizável.**
@@ -1040,7 +1040,7 @@ Mais uma asserção de ambiente: `grep -rn "RESEND" .github/workflows/ci.yml` de
 ### Secondary (MEDIUM confidence)
 - `makerkit.dev/blog/tutorials/supabase-vault` — SQL do `SECURITY DEFINER` + GRANTs para `service_role`; corroborado pela doc oficial ("protect access to this view with the appropriate SQL privilege settings") e por discussões supabase — **MEDIUM→HIGH por corroboração**
 - WebSearch (Brave/built-in) sobre a restrição 403 do `onboarding@resend.dev` — múltiplas fontes convergentes apontando para a mesma KB oficial — **MEDIUM**
-- Formato de chave `re_c1tpEyD8_REDACTED_P36_SYNTHETIC` — exemplo público em doc/ferramenta de terceiros, coerente com o `re_xxxxxxxxx` da doc oficial — **MEDIUM**
+- Formato de chave `re_<8-12>_<24+>` — forma observada em doc/ferramenta de terceiros, coerente com o `re_xxxxxxxxx` da doc oficial. A fixture do meta-teste é sintética e tem essa forma: `re_TESTFAKE_000000000000000000EXAMPLE` — **MEDIUM**
 
 ### Tertiary (LOW confidence — sinalizado para validação)
 - Free tier 3.000/mês, 100/dia (herdado de `STACK.md:161`, preços derivam) — irrelevante nesta fase, relevante na P41
