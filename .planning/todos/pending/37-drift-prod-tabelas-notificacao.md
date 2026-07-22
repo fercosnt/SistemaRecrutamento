@@ -48,6 +48,58 @@ Confirmado independentemente por `ls supabase/migrations/` e por `git log --onel
 | `rotulo_candidato` | text | NO | — |
 | `atualizado_em` | timestamptz | NO | `now()` |
 
+## Retrato completo do que está vivo (capturado 2026-07-22)
+
+**Origem:** desconhecida — o Fernando confirmou que não sabe quem aplicou. Tratar como schema a ser reconstruído por engenharia reversa a partir do banco.
+
+### Constraints reais
+
+| tabela | nome | definição |
+|---|---|---|
+| `notificacoes_enviadas` | `notificacoes_enviadas_pkey` | `PRIMARY KEY (id)` |
+| `notificacoes_enviadas` | **`uq_notif_dedupe`** | **`UNIQUE (dedupe_key)`** ← a guarda de idempotência do LEDGER-02 **já existe** |
+| `notificacoes_enviadas` | `notificacoes_enviadas_evento_check` | `CHECK (evento IN ('confirmacao','avanco','convite','decisao'))` ← os 4 eventos do M7 |
+| `notificacoes_enviadas` | `..._candidatura_id_fkey` | `FK → candidaturas(id) ON DELETE CASCADE` |
+| `notificacoes_enviadas` | `..._candidato_id_fkey` | `FK → candidatos(id) ON DELETE CASCADE` |
+| `config_sla_etapa` | `config_sla_etapa_pkey` | `PRIMARY KEY (etapa)` |
+| `config_sla_etapa` | `ck_sla_prazo_consistente` | `CHECK ((prazo_valor IS NULL) = (prazo_unidade IS NULL))` |
+| `config_sla_etapa` | `..._prazo_unidade_check` | `CHECK (prazo_unidade IS NULL OR prazo_unidade IN ('dias_uteis','dias_corridos','horas'))` |
+| `config_sla_etapa` | `..._prazo_valor_check` | `CHECK (prazo_valor IS NULL OR prazo_valor > 0)` |
+
+### RLS real
+
+- `notificacoes_enviadas` → **`rh_le_notificacoes`** (PERMISSIVE, `{authenticated}`, `SELECT`):
+  `admin` OR (`rh` AND `candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id = c.vaga_id WHERE v.created_by = auth.uid())`).
+  **Isto É o padrão join-through vaga-scoped que o LEDGER-03 pede.** E o **candidato-DENY existe implicitamente**: não há policy que case para role `candidato`, então RLS cai no default-deny. Sem policy de INSERT/UPDATE, apenas `service_role` (que bypassa RLS) escreve — correto para a EF da P38.
+  → *Decisão para a P37:* aceitar o default-deny implícito, ou tornar o candidato-DENY explícito para ficar auto-documentado e à prova de uma policy futura mal escrita?
+- `config_sla_etapa` → `sla_public_read` (PERMISSIVE, `{anon,authenticated}`, `SELECT`, `qual: true`). Leitura pública — correto, é config não-PII, e é o que a TIMELINE-02 (P40) precisa.
+
+### Enums
+
+- `status_notificacao`: `pendente, enviado, entregue, falhou, bounce, reclamado` — cobre a state machine do M7 e ainda inclui `reclamado`.
+- `etapa_processo` (pré-existente): `inscricao, triagem, avaliacao_assincrona, entrevista_online, entrevista_presencial, decisao_final, aprovado, rejeitado`.
+
+### Seed de `config_sla_etapa` — **completo**, 8/8 etapas
+
+| etapa | prazo | rótulo |
+|---|---|---|
+| `inscricao` | 48 horas | "Inscrição recebida — retorno da triagem em até 48 horas." |
+| `triagem` | 48 horas | "Em triagem — retorno em até 48 horas." |
+| `avaliacao_assincrona` | 7 dias corridos | "Avaliação liberada — conclua em até 7 dias corridos." |
+| `entrevista_online` | 7 dias úteis | "Entrevista online — agendamento em até 7 dias úteis." |
+| `entrevista_presencial` | 7 dias úteis | "Entrevista presencial — agendamento em até 7 dias úteis." |
+| `decisao_final` | 3 dias úteis | "Em decisão final — resposta em até 3 dias úteis." |
+| `aprovado` | — | "Parabéns! Você foi aprovado(a). Nossa equipe entrará em contato com os próximos passos." |
+| `rejeitado` | 24 horas | "Processo encerrado — retorno enviado em até 24 horas." |
+
+## Consequência: a P37 encolhe
+
+O schema órfão é **de boa qualidade** e cobre a maior parte de LEDGER-01, LEDGER-02, LEDGER-03 e TIMELINE-01. A Phase 37 deixa de ser "construir a camada de dados" e passa a ser **"reconciliar o drift e fechar 3 lacunas estreitas"**:
+
+1. **Reconciliar** — escrever os arquivos de migration locais que correspondem ao que está vivo, para o repo voltar a ser fonte da verdade. Sem isso, um `db reset` ou um rebuild de ambiente perde as duas tabelas silenciosamente.
+2. **Lacuna: auditoria do modo teste** — faltam colunas para `destinatario_original` e `modo`. O `_shared/email-config.ts` da P36 reescreve o destinatário para `delivered+<evento>@resend.dev` em modo teste **preservando o original**; sem onde gravar isso, um envio de UAT fica indistinguível de um envio real no ledger.
+3. **Lacuna: `atualizado_em` nunca atualiza** — a coluna tem `DEFAULT now()` mas a tabela tem **0 triggers**. Todo UPDATE (reivindicação de idempotência, retry, reconciliação da P41) deixa o campo congelado no instante do INSERT, tornando-o enganoso justamente onde ele seria mais útil.
+
 ## Duas lacunas já visíveis contra o que o M7 planejou
 
 1. **RLS incompleta.** `notificacoes_enviadas` tem **1** policy. O LEDGER-03 exige **duas** posturas distintas: RH vaga-scoped via join-through (espelhando `rh_gerencia_agendamento`) **e** candidato-DENY. Uma policy só provavelmente não cobre ambas — a P37 precisa inspecionar a policy existente (`pg_policies`) antes de decidir entre estender ou substituir.
