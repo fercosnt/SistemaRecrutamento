@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: "Completed 37-02-PLAN.md — drift PROD→repo reconciliado. As migrations 20260721000001 e 20260721000002 voltaram ao repo como arquivos declarativos fiéis (NÃO aplicar: as versions já estão no ledger), e `supabase/tests/p37_fidelidade_schema_smoke.sql` fecha o triângulo dump→arquivo→banco. Validado end-to-end num Postgres 17 descartável (12/12 PASS, toggle bidirecional, 4 negativos pegos)."
-last_updated: "2026-07-22T17:34:18.960Z"
-last_activity: 2026-07-22 -- 37-02 executado (Phase 36 permanece completa, aguardando verificação)
+stopped_at: Completed 37-03-PLAN.md — migration aditiva 20260722000002 (destinatario_original + modo + ck_notif_modo; tocar_atualizado_em + 2 triggers BEFORE UPDATE; ZERO CREATE INDEX, o idx_notif_retry ja vive em PROD) e o smoke comportamental p37_lacunas_rls_idempotencia_smokes.sql (14/14 PASS, gate de contagem auto-exigido). Ambos validados num Postgres 17.6 descartavel, com 10 sabotagens exigidas e TODAS pegas. NADA aplicado em PROD — o apply + o run em PROD sao o checkpoint 37-04.
+last_updated: "2026-07-22T17:53:15.550Z"
+last_activity: 2026-07-22
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 17
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — EXECUTING
-Plan: 2 of 5
-Status: 37-01 (dump do catálogo) e 37-02 (reconciliação do drift) concluídos — próximo: 37-03 (migration aditiva das 2 lacunas)
-Last activity: 2026-07-22 -- 37-02 executado (Phase 36 permanece completa, aguardando verificação)
+Plan: 4 of 5
+Status: Ready to execute
+Last activity: 2026-07-22
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -73,6 +73,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 36 P04 | 8min | 3 tasks | 2 files |
 | Phase 36 P05 | 6min | 2 tasks | 1 files |
 | Phase 37 P02 | 24min | 3 tasks | 3 files |
+| Phase 37 P03 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,10 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [M7/Phase 37 · 37-02]: fidelidade de schema provada por EXECUCAO (migrations aplicadas num Postgres 17 descartavel + smoke 12/12), nunca por revisao de leitura
 - [M7/Phase 37 · 37-02]: o qual de uma policy RLS e asserido por igualdade catalogo-contra-catalogo (contra policy precedente auditada), nao contra string transcrita a mao
 - [M7/Phase 37 · 37-02]: COMMENTs vivos em PROD sao transcritos verbatim nas migrations reconstruidas; glosa pt-BR vai em comentario SQL adjacente
+- [Phase 37 · 37-03]: a migration aditiva NAO cria indice — idx_notif_retry ja existe em PROD como btree (proxima_tentativa_em) WHERE status IN ('pendente','falhou'), a forma CORRETA (o predicado parcial ja fixa status). A assercao (m) do smoke foi escrita para NAO exigir status como primeira coluna da chave: uma assercao assim reprovaria a forma viva
+- [Phase 37 · 37-03]: atualizado_em usa pg_catalog.now() (timestamp de TRANSACAO, coerente com o DEFAULT now() vivo). Como now() e constante dentro da transacao, a prova do trigger foi redesenhada — a linha da fixture nasce com atualizado_em deliberadamente antigo: a comparacao estrita vale em qualquer arranjo transacional E prova que o trigger SOBRESCREVE o valor do cliente
+- [Phase 37 · 37-03]: nenhuma policy nova — o candidato-DENY do LEDGER-03 permanece implicito pelo default-deny e e provado por impersonacao REAL (request.jwt.claims com app_metadata.role='candidato'), nunca por consulta a pg_policies. Policy PERMISSIVE mal escrita abre acesso; a ausencia nunca abre
+- [Phase 37 · 37-03]: gate do smoke AUTO-EXIGIDO via GUC smoke37.pass — a assercao (o) levanta excecao se o total nao for 14, em vez de delegar a contagem de NOTICEs a quem le. Validado: com fixture impossivel o run acumula 2 PASS e falha em (o) em vez de terminar em silencio
 
 ### Pending Todos
 
@@ -137,8 +142,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T17:31:01.746Z
-Stopped at: Completed 37-02-PLAN.md — drift PROD→repo reconciliado. As migrations 20260721000001 e 20260721000002 voltaram ao repo como arquivos declarativos fiéis (NÃO aplicar: as versions já estão no ledger), e `supabase/tests/p37_fidelidade_schema_smoke.sql` fecha o triângulo dump→arquivo→banco. Validado end-to-end num Postgres 17 descartável (12/12 PASS, toggle bidirecional, 4 negativos pegos).
+Last session: 2026-07-22T17:53:15.540Z
+Stopped at: Completed 37-03-PLAN.md — migration aditiva 20260722000002 (destinatario_original + modo + ck_notif_modo; tocar_atualizado_em + 2 triggers BEFORE UPDATE; ZERO CREATE INDEX, o idx_notif_retry ja vive em PROD) e o smoke comportamental p37_lacunas_rls_idempotencia_smokes.sql (14/14 PASS, gate de contagem auto-exigido). Ambos validados num Postgres 17.6 descartavel, com 10 sabotagens exigidas e TODAS pegas. NADA aplicado em PROD — o apply + o run em PROD sao o checkpoint 37-04.
 Resume file: None
 
 ## Operator Next Steps

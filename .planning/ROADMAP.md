@@ -99,7 +99,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 37-02-PLAN.md — Reconstruir os 2 arquivos de migration fiéis + smoke de fidelidade campo-a-campo
-- [ ] 37-03-PLAN.md — Migration aditiva das 3 lacunas + smoke comportamental (RLS, idempotência, CHECKs, trigger)
+- [x] 37-03-PLAN.md — Migration aditiva das 3 lacunas + smoke comportamental (RLS, idempotência, CHECKs, trigger)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -240,7 +240,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36. Deliverability & Sender Identity | v7.0 | 5/5 | Complete   | 2026-07-22 |
-| 37. Camada de Dados de Notificação | v7.0 | 1/5 | In Progress|  |
+| 37. Camada de Dados de Notificação | v7.0 | 2/5 | In Progress|  |
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
