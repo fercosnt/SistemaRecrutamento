@@ -70,7 +70,7 @@ notificacoes_enviadas.dedupe_key:
 
 ## Demais seções
 
-Colunas (A), constraints (B), policies (D), enums (F) e seed (J) foram capturados e estão transcritos em `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md` § "Retrato completo do que está vivo", com uma correção conhecida registrada abaixo.
+Colunas (A), constraints (B), policies (D), enums (F) e seed (J) foram capturados e estão transcritos em `.planning/todos/done/37-drift-prod-tabelas-notificacao.md` § "Retrato completo do que está vivo", com uma correção conhecida registrada abaixo (e consolidada, junto com as demais, na seção `## Resolução` daquele documento).
 
 **(J) Contagens de dados:** `notificacoes_enviadas` = **0 linhas** · `config_sla_etapa` = **8 linhas** (seed completo).
 **(K) Ledger:** `20260721000001`, `20260721000002` e `20260722000001` presentes; `20260722000002` ausente (esperado — é a aditiva ainda não criada).

@@ -103,13 +103,13 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 37-04-PLAN.md — Apply em PROD + reconcile do ledger + os 3 runs de smoke (checkpoint MCP)
+- [x] 37-04-PLAN.md — Apply em PROD + reconcile do ledger + os 3 runs de smoke (checkpoint MCP)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 37-05-PLAN.md — Regenerar `database.types.ts` + arquivar o item de drift
+- [x] 37-05-PLAN.md — Regenerar `database.types.ts` + arquivar o item de drift
 
-*⚠ Nota (planejamento, 2026-07-22):* **o escopo desta fase mudou antes de começar.** Um drift PROD→repo descoberto durante a P36 revelou que as duas tabelas **já existem em produção** (versions `20260721000001` e `20260721000002` no ledger), sem nenhum arquivo de migration local. A P37 deixou de ser "construir a camada de dados" e passou a ser **"reconciliar o drift e fechar 3 lacunas estreitas"** (colunas de auditoria do modo teste, trigger de `atualizado_em`, índice parcial de retry). Os 4 Success Criteria acima permanecem válidos como definição de pronto — mudou o caminho, não o destino. Detalhes: `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md` e `37-CONTEXT.md`.
+*⚠ Nota (planejamento, 2026-07-22):* **o escopo desta fase mudou antes de começar.** Um drift PROD→repo descoberto durante a P36 revelou que as duas tabelas **já existem em produção** (versions `20260721000001` e `20260721000002` no ledger), sem nenhum arquivo de migration local. A P37 deixou de ser "construir a camada de dados" e passou a ser **"reconciliar o drift e fechar 3 lacunas estreitas"** (colunas de auditoria do modo teste, trigger de `atualizado_em`, índice parcial de retry). Os 4 Success Criteria acima permanecem válidos como definição de pronto — mudou o caminho, não o destino. Detalhes: `.planning/todos/done/37-drift-prod-tabelas-notificacao.md` (**arquivado em 2026-07-22 pela 37-05**, com a seção `## Resolução` em 4 blocos) e `37-CONTEXT.md`.
 
 *Nota (discuss-phase):* a janela de retenção/purga de `notificacoes_enviadas` (minimização LGPD) foi **deferida** para um milestone de LGPD-OPS (M8+) — não há volume de dados para decidir hoje (37-CONTEXT § Deferred Ideas).
 
@@ -240,7 +240,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36. Deliverability & Sender Identity | v7.0 | 5/5 | Complete   | 2026-07-22 |
-| 37. Camada de Dados de Notificação | v7.0 | 2/5 | In Progress|  |
+| 37. Camada de Dados de Notificação | v7.0 | 4/5 | In Progress|  |
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |

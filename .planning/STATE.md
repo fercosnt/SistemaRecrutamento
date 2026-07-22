@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: Completed 37-03-PLAN.md — migration aditiva 20260722000002 (destinatario_original + modo + ck_notif_modo; tocar_atualizado_em + 2 triggers BEFORE UPDATE; ZERO CREATE INDEX, o idx_notif_retry ja vive em PROD) e o smoke comportamental p37_lacunas_rls_idempotencia_smokes.sql (14/14 PASS, gate de contagem auto-exigido). Ambos validados num Postgres 17.6 descartavel, com 10 sabotagens exigidas e TODAS pegas. NADA aplicado em PROD — o apply + o run em PROD sao o checkpoint 37-04.
-last_updated: "2026-07-22T17:53:15.550Z"
+stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
+last_updated: "2026-07-22T18:09:10.386Z"
 last_activity: 2026-07-22
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 9
   percent: 17
 ---
 
@@ -25,12 +25,14 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — EXECUTING
-Plan: 4 of 5
-Status: Ready to execute
+Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — **COMPLETE** ✅
+Plan: 5 of 5 (todos executados)
+Status: Fase encerrada — pronta para `/gsd-plan-phase 38`
 Last activity: 2026-07-22
 
-Progress: [███████░░░] 70%
+Progress: [█████████░] 90%
+
+> ⚠ **Contagem 9/10, não 10/10 — e isso é honesto.** O `37-01-PLAN.md` (dump do catálogo vivo) foi executado pelo orquestrador como checkpoint MCP e produziu `37-SCHEMA-VIVO.md` **sem** escrever um `37-01-SUMMARY.md`. Os handlers de progresso contam SUMMARYs, então a P37 aparece como 4/5 no ROADMAP e "In Progress". O trabalho está feito; o que falta é o registro. Fechar escrevendo o `37-01-SUMMARY.md` retroativo (ou marcando o plano como checkpoint-sem-summary).
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -59,7 +61,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 36 | 5 of 5 | 73min | ~15min |
-| 37 | 2 de 5 (37-01, 37-02) | 24min (37-02) | 24min |
+| 37 | 5 of 5 ✅ | ~45min (37-02/03/05; 37-01 e 37-04 foram checkpoints MCP do orquestrador) | ~15min |
 | 38 | TBD | - | - |
 | 39 | TBD | - | - |
 | 40 | TBD | - | - |
@@ -74,6 +76,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 36 P05 | 6min | 2 tasks | 1 files |
 | Phase 37 P02 | 24min | 3 tasks | 3 files |
 | Phase 37 P03 | 12min | 2 tasks | 2 files |
+| Phase 37 P05 | 9min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -107,18 +110,25 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 37 · 37-03]: atualizado_em usa pg_catalog.now() (timestamp de TRANSACAO, coerente com o DEFAULT now() vivo). Como now() e constante dentro da transacao, a prova do trigger foi redesenhada — a linha da fixture nasce com atualizado_em deliberadamente antigo: a comparacao estrita vale em qualquer arranjo transacional E prova que o trigger SOBRESCREVE o valor do cliente
 - [Phase 37 · 37-03]: nenhuma policy nova — o candidato-DENY do LEDGER-03 permanece implicito pelo default-deny e e provado por impersonacao REAL (request.jwt.claims com app_metadata.role='candidato'), nunca por consulta a pg_policies. Policy PERMISSIVE mal escrita abre acesso; a ausencia nunca abre
 - [Phase 37 · 37-03]: gate do smoke AUTO-EXIGIDO via GUC smoke37.pass — a assercao (o) levanta excecao se o total nao for 14, em vez de delegar a contagem de NOTICEs a quem le. Validado: com fixture impossivel o run acumula 2 PASS e falha em (o) em vez de terminar em silencio
+- [Phase 37 · 37-04]: apply em PROD do 20260722000002 precedido do smoke de fidelidade em modo baseline (12/12) — a ordem e o gate: aplicar primeiro destruiria irrecuperavelmente a evidencia de que a reconstrucao da 37-02 era fiel. O MCP grava version com timestamp proprio; o reconcile do ledger e obrigatorio APOS cada apply_migration
+- [Phase 37 · 37-05]: db:types falhou por estado local de link ausente (supabase/.temp/ e gitignored), NAO por falta de auth — provado por `gen types --project-id` antes de escalar; `supabase link` resolveu sem prompt e sem contato de escrita com PROD. Escalar teria reportado bloqueio inexistente
+- [Phase 37 · 37-05]: o gerador de tipos e probado para arquivo TEMPORARIO antes de apontar ao arquivo git-trackeado — o script usa `>` que TRUNCA antes de executar, entao "rodar pra ver se funciona" e destruir o arquivo para descobrir. Backup sozinho protege contra perda, nao contra o repo quebrado no intervalo
+- [Phase 37 · 37-05]: diff de tipos gerados 146/0 (ZERO delecoes) com 6 hunks TODOS esperados; o hunk ler_resend_api_key e debito herdado da P36/36-04 (que decidiu deliberadamente nao regenerar), nao drift novo — nenhum item criado em pending/. Zero delecoes e a evidencia mais forte de ausencia de drift lateral
+- [Phase 37 · 37-05]: arquivamento de todo em DOIS commits (rename puro 100% + conteudo depois) — rename + 78 linhas juntos derrubam a similaridade para ~45%, abaixo do limiar default 50% do git, e `git log --follow` quebraria EM SILENCIO, apagando o commit que registrou a descoberta do drift
+- [Phase 37 · 37-05]: item de debito arquivado em 4 blocos (Resolvido / Corrigido vs retrato original / Deliberadamente NAO feito / Continua em aberto), corpo original preservado byte-a-byte — as imprecisoes da parafrase sao registro forense; a correcao vive em bloco novo, nomeando a CONSEQUENCIA de cada erro
+- [Phase 37 · 37-05]: destinatario_original chega ao compilador como OBRIGATORIO no tipo Insert (NOT NULL sem default no banco), enquanto modo e opcional (default 'teste') — a EF da P38 nao compila se esquecer o destinatario original
 
 ### Pending Todos
 
 Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
-- **Questões abertas do M7 (resolver no discuss-phase da fase relevante):** retenção de `notificacoes_enviadas` (P37) · verificação do caminho de aprovação escreve `etapa_atual='aprovado'`? (P39) · números exatos rate-limit/free-tier Resend (P41) · `.ics` METHOD PUBLISH vs REQUEST (P38).
+- **Questões abertas do M7 (resolver no discuss-phase da fase relevante):** retenção/purga de `notificacoes_enviadas` — **deferida a LGPD-OPS (M8+)** na P37 · coluna `reclamado_em` — **deferida à P41** na P37 · divergência `updated_at` (inglês) vs `atualizado_em` (pt-BR) no resto do schema — **confirmada como débito real na P37**, não endereçada · verificação do caminho de aprovação escreve `etapa_atual='aprovado'`? (P39) · números exatos rate-limit/free-tier Resend (P41) · `.ics` METHOD PUBLISH vs REQUEST (P38).
 - **Carregado do M6 (não puxado ao M7):** W-1 (Histórico VISRH-03 renderiza `ator` UUID em vez do nome do recrutador — needs `usuarios_rh` join) · 6 HUMAN-UATs live P31/34/35 · cosméticos UI P34/P35.
 - **Carregados do M4/M5:** DBMIG-01 baseline+rebuild (environment-gated) · CC0-01 seed cognitivo · HUMAN-UATs P22/23/24/28/29/30. Ver `.planning/todos/`.
 
 ### Blockers/Concerns
 
-- **⚠ DRIFT PROD→repo, material para a Phase 37 (descoberto 2026-07-22).** O ledger de PROD já contém `20260721000001_notificacoes_enviadas` e `20260721000002_config_sla_etapa` — os deliverables da P37 — e **nenhum arquivo local existe** para eles em nenhuma branch ou stash (confirmado por `git log --all --diff-filter=A` e `git stash list`, ambos vazios). Foram aplicados direto em PROD sem passar pelo repo. Schema vivo capturado e duas lacunas já identificadas (RLS com 1 policy só; faltam as colunas de auditoria do modo teste). A P37 precisa **começar diffando o schema vivo**, nunca assumindo criação do zero. Detalhes completos: `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md`.
+- **✅ DRIFT PROD→repo RECONCILIADO na Phase 37 (fechado 2026-07-22) — mas a CAUSA continua desconhecida.** Os 4 arquivos de migration agora existem com correspondência 1:1 contra o ledger (`20260721000001`, `20260721000002` reconstruídos e **não** re-aplicados; `20260722000001` da P36; `20260722000002` aplicada na 37-04), confirmado independentemente por `supabase migration list --linked` (Local/Remote alinhados, zero pendência). As 3 lacunas fechadas e `database.types.ts` regenerado. Item arquivado com resolução em 4 blocos: `.planning/todos/done/37-drift-prod-tabelas-notificacao.md`. **⚠ Continua em aberto:** ninguém sabe **quem/como** aplicou as duas migrations originais direto em PROD — um caminho de apply fora do repositório continua existindo e a mesma falha pode se repetir. Se o padrão reaparecer, tratar como sinal de processo, não incidente isolado.
 - **⚠ Subagentes GSD não recebem os tools MCP do Supabase** (bug upstream anthropics/claude-code#13898 — agentes com `tools:` restrito no frontmatter). Comprovado na P36/Plano 36-04, que bateu num checkpoint por isso. **Toda** inspeção e todo apply em PROD têm de ser feitos pelo orquestrador/main thread. As fases 37, 39 e 41 (todas com migrations) devem ser planejadas assumindo que as tarefas de banco fecham como checkpoint do orquestrador, não como trabalho autônomo do executor.
 - **Débito de infra: `.husky/pre-commit` permanentemente vermelho.** Roda `npm run lint`, que sai não-zero contra um baseline PRÉ-EXISTENTE de 97 erros `tsc` em `src/**` (teto do CI é 104, então o CI passa). Consequência: 100% dos commits da P36 usaram `--no-verify`, cada um com a contagem 97→97 documentada no corpo. Isso treina bypass reflexivo. Seria mais útil como gate de não-regressão (comparar contagem contra o baseline) do que como checagem binária de exit code.
 - **Cadeia estrita 37 → 38 → 39** — a EF precisa da tabela `notificacoes_enviadas`; os triggers precisam de uma EF viva pra apontar (senão disparam num 404, silenciosamente droppado — `net.http_post` é at-most-once).
@@ -142,8 +152,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T17:53:15.540Z
-Stopped at: Completed 37-03-PLAN.md — migration aditiva 20260722000002 (destinatario_original + modo + ck_notif_modo; tocar_atualizado_em + 2 triggers BEFORE UPDATE; ZERO CREATE INDEX, o idx_notif_retry ja vive em PROD) e o smoke comportamental p37_lacunas_rls_idempotencia_smokes.sql (14/14 PASS, gate de contagem auto-exigido). Ambos validados num Postgres 17.6 descartavel, com 10 sabotagens exigidas e TODAS pegas. NADA aplicado em PROD — o apply + o run em PROD sao o checkpoint 37-04.
+Last session: 2026-07-22T18:09:03.087Z
+Stopped at: Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato).
 Resume file: None
 
 ## Operator Next Steps

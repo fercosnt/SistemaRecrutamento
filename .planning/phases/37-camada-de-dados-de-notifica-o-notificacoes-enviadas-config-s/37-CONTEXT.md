@@ -4,7 +4,7 @@
 **Status:** Ready for planning
 **Mode:** Smart discuss (autonomous) — 3 áreas, 12 decisões, todas aceitas como recomendadas
 
-> ⚠ **Esta fase mudou de natureza antes de começar.** A descoberta do drift PROD→repo (durante o reconcile do ledger da P36) revelou que as duas tabelas já existem em produção, com schema de boa qualidade. A P37 deixou de ser "construir a camada de dados" e passou a ser **"reconciliar o drift e fechar 3 lacunas estreitas"**. O retrato completo do schema vivo está em `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md` — **leia antes de planejar**.
+> ⚠ **Esta fase mudou de natureza antes de começar.** A descoberta do drift PROD→repo (durante o reconcile do ledger da P36) revelou que as duas tabelas já existem em produção, com schema de boa qualidade. A P37 deixou de ser "construir a camada de dados" e passou a ser **"reconciliar o drift e fechar 3 lacunas estreitas"**. O retrato completo do schema vivo está em `.planning/todos/done/37-drift-prod-tabelas-notificacao.md` (arquivado pela 37-05 em 2026-07-22) — **leia antes de planejar**, e leia a seção `## Resolução` junto: o corpo do documento é paráfrase e erra o literal de role (`administrador`, não `admin`).
 
 <domain>
 ## Phase Boundary
@@ -57,7 +57,7 @@ Fazer com que a camada de dados de notificação seja **verdadeira no repositór
 ## Existing Code Insights
 
 ### O que já está vivo em PROD (fonte da verdade para a reconstrução)
-Retrato completo em `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md`. Resumo:
+Retrato completo em `.planning/todos/done/37-drift-prod-tabelas-notificacao.md`. Resumo:
 - `notificacoes_enviadas` — 16 colunas, RLS on, `uq_notif_dedupe UNIQUE (dedupe_key)` (a guarda de idempotência do LEDGER-02 **já existe**), FKs `ON DELETE CASCADE` para `candidatos`/`candidaturas`, `CHECK (evento IN ('confirmacao','avanco','convite','decisao'))`, **0 linhas**, 0 triggers.
 - Policy `rh_le_notificacoes` — **é** o join-through vaga-scoped do LEDGER-03: `admin OR (rh AND candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id = c.vaga_id WHERE v.created_by = auth.uid()))`. Sem policy de INSERT/UPDATE → só `service_role` escreve, correto para a EF.
 - `config_sla_etapa` — PK em `etapa`, 3 CHECKs de consistência de prazo, policy `sla_public_read` (`anon`+`authenticated`, `SELECT`, `qual: true`), **seedada 8/8**.
