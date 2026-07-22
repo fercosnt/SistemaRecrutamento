@@ -1181,6 +1181,30 @@ export type Database = {
         }
         Relationships: []
       }
+      config_sla_etapa: {
+        Row: {
+          atualizado_em: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          prazo_unidade: string | null
+          prazo_valor: number | null
+          rotulo_candidato: string
+        }
+        Insert: {
+          atualizado_em?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          prazo_unidade?: string | null
+          prazo_valor?: number | null
+          rotulo_candidato: string
+        }
+        Update: {
+          atualizado_em?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          prazo_unidade?: string | null
+          prazo_valor?: number | null
+          rotulo_candidato?: string
+        }
+        Relationships: []
+      }
       configuracoes_empresa: {
         Row: {
           cor_accent: string | null
@@ -2178,6 +2202,112 @@ export type Database = {
           usuario_tipo?: string | null
         }
         Relationships: []
+      }
+      notificacoes_enviadas: {
+        Row: {
+          atualizado_em: string
+          candidato_id: string
+          candidatura_id: string
+          criado_em: string
+          dedupe_key: string
+          destinatario_email: string
+          destinatario_original: string
+          entregue_em: string | null
+          enviado_em: string | null
+          evento: string
+          id: string
+          modo: string
+          provider_message_id: string | null
+          proxima_tentativa_em: string | null
+          status: Database["public"]["Enums"]["status_notificacao"]
+          template: string
+          tentativas: number
+          ultimo_erro: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          candidato_id: string
+          candidatura_id: string
+          criado_em?: string
+          dedupe_key: string
+          destinatario_email: string
+          destinatario_original: string
+          entregue_em?: string | null
+          enviado_em?: string | null
+          evento: string
+          id?: string
+          modo?: string
+          provider_message_id?: string | null
+          proxima_tentativa_em?: string | null
+          status?: Database["public"]["Enums"]["status_notificacao"]
+          template: string
+          tentativas?: number
+          ultimo_erro?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          candidato_id?: string
+          candidatura_id?: string
+          criado_em?: string
+          dedupe_key?: string
+          destinatario_email?: string
+          destinatario_original?: string
+          entregue_em?: string | null
+          enviado_em?: string | null
+          evento?: string
+          id?: string
+          modo?: string
+          provider_message_id?: string | null
+          proxima_tentativa_em?: string | null
+          status?: Database["public"]["Enums"]["status_notificacao"]
+          template?: string
+          tentativas?: number
+          ultimo_erro?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_enviadas_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_candidatos_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_candidato_id_fkey"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_fila_trabalho"
+            referencedColumns: ["candidatura_id"]
+          },
+          {
+            foreignKeyName: "notificacoes_enviadas_candidatura_id_fkey"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pergunta_opcao_metadata: {
         Row: {
@@ -4821,6 +4951,7 @@ export type Database = {
         }[]
       }
       is_active_rh_admin: { Args: never; Returns: boolean }
+      ler_resend_api_key: { Args: never; Returns: string }
       limpar_logs_antigos: { Args: never; Returns: number }
       limpar_sessoes_expiradas: { Args: never; Returns: undefined }
       log_auditoria: {
@@ -5104,6 +5235,13 @@ export type Database = {
         | "cancelada"
         | "reagendada"
         | "nao_compareceu"
+      status_notificacao:
+        | "pendente"
+        | "enviado"
+        | "entregue"
+        | "falhou"
+        | "bounce"
+        | "reclamado"
       status_score: "sucesso" | "pendente_humano" | "falhou"
       status_vaga: "rascunho" | "ativa" | "inativa" | "arquivada"
       tipo_acao_historico:
@@ -5388,6 +5526,14 @@ export const Constants = {
         "cancelada",
         "reagendada",
         "nao_compareceu",
+      ],
+      status_notificacao: [
+        "pendente",
+        "enviado",
+        "entregue",
+        "falhou",
+        "bounce",
+        "reclamado",
       ],
       status_score: ["sucesso", "pendente_humano", "falhou"],
       status_vaga: ["rascunho", "ativa", "inativa", "arquivada"],
