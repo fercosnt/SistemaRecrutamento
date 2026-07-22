@@ -57,7 +57,14 @@ M7 continua a numeração a partir da **Phase 36** (M6 terminou na Phase 35).
   1. Um subdomínio de envio Beauty Smile está verificado no Resend com SPF+DKIM (auto) e um registro DMARC publicado manualmente, e o From/Reply-To real está definido — um envio de teste desse domínio cai na caixa de entrada, não no spam (DELIV-01).
   2. A `RESEND_API_KEY` existe **apenas** no Supabase Vault (nunca em env `VITE_`, nunca no bundle); um grep-guard de bundle prova que nenhuma chave/URL do Resend aparece no build público (DELIV-02).
   3. Dev/CI enviam exclusivamente aos endereços de teste do Resend (`delivered@`/`bounced@`/`complained@resend.dev`) com o sender mockado nos unit tests — CI não requer chave viva e nunca spama um candidato real (DELIV-03).
-**Plans**: TBD (planejado em `/gsd-plan-phase 36`)
+**Plans**: 5 plans em 2 waves
+
+Plans:
+- [ ] 36-01-PLAN.md — contrato `_shared/email-config.ts` (From/Reply-To congelados, modo fail-safe `teste`, redirecionamento `@resend.dev`) + suite Deno + `test.exclude` no Vitest [wave 1]
+- [ ] 36-02-PLAN.md — `scripts/assert-no-secrets.mjs` (guard de bundle), meta-teste do guard, encadeamento no `postbuild` + step no job `e2e` [wave 1]
+- [ ] 36-03-PLAN.md — runbook `docs/runbooks/resend-dominio-envio.md`, `scripts/check-resend-dominio.mjs` (opt-in) e `36-HUMAN-UAT.md` com o checklist de 9 itens [wave 1]
+- [ ] 36-04-PLAN.md — migration da RPC `public.ler_resend_api_key()` (SECURITY DEFINER, service_role-only) aplicada via MCP + débito da divergência de chaves [wave 1]
+- [ ] 36-05-PLAN.md — provisionamento de `resend_api_key` no Vault (checkpoint humano; sem placeholder) + smokes de leitura [wave 2]
 
 *Nota (discuss-phase):* DELIV-01 é ação humana/DNS do Fernando — deve aterrissar antes do 1º envio ao vivo (UAT da P41); codificação/teste procede em paralelo via `resend.dev`.
 
