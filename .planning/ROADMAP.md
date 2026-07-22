@@ -89,9 +89,18 @@ Plans:
   3. Um candidato JWT-impersonado lendo `notificacoes_enviadas` obtém **zero linhas** (candidato-DENY, sem policy de candidato), e um recrutador não-dono não lê linhas de outra vaga — provado por smoke comportamental, espelhando o join-through de `rh_gerencia_agendamento` (LEDGER-03).
   4. `config_sla_etapa` existe (non-PII, public-read) seedada com o prazo esperado por etapa a partir do PRD §5.1.1 (TIMELINE-01).
 
-**Plans**: TBD (planejado em `/gsd-plan-phase 37`)
+**Plans**: 5 plans
 
-*Nota (discuss-phase):* resolver a janela de retenção/purga de `notificacoes_enviadas` (minimização LGPD — purge vs purge-exempt) ao planejar esta fase.
+Plans:
+- [ ] 37-01-PLAN.md — Dump do catálogo Postgres vivo das duas tabelas (checkpoint MCP; fonte da verdade da reconstrução)
+- [ ] 37-02-PLAN.md — Reconstruir os 2 arquivos de migration fiéis + smoke de fidelidade campo-a-campo
+- [ ] 37-03-PLAN.md — Migration aditiva das 3 lacunas + smoke comportamental (RLS, idempotência, CHECKs, trigger)
+- [ ] 37-04-PLAN.md — Apply em PROD + reconcile do ledger + os 3 runs de smoke (checkpoint MCP)
+- [ ] 37-05-PLAN.md — Regenerar `database.types.ts` + arquivar o item de drift
+
+*⚠ Nota (planejamento, 2026-07-22):* **o escopo desta fase mudou antes de começar.** Um drift PROD→repo descoberto durante a P36 revelou que as duas tabelas **já existem em produção** (versions `20260721000001` e `20260721000002` no ledger), sem nenhum arquivo de migration local. A P37 deixou de ser "construir a camada de dados" e passou a ser **"reconciliar o drift e fechar 3 lacunas estreitas"** (colunas de auditoria do modo teste, trigger de `atualizado_em`, índice parcial de retry). Os 4 Success Criteria acima permanecem válidos como definição de pronto — mudou o caminho, não o destino. Detalhes: `.planning/todos/pending/37-drift-prod-tabelas-notificacao.md` e `37-CONTEXT.md`.
+
+*Nota (discuss-phase):* a janela de retenção/purga de `notificacoes_enviadas` (minimização LGPD) foi **deferida** para um milestone de LGPD-OPS (M8+) — não há volume de dados para decidir hoje (37-CONTEXT § Deferred Ideas).
 
 ### Phase 38: EF `notificar-candidato` (COMM)
 
