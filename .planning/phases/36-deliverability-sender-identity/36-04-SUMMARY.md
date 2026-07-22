@@ -183,3 +183,11 @@ Ou seja: há objetos vivos em PROD que o repositório desconhece. **A Phase 37 d
 ---
 *Phase: 36-deliverability-sender-identity*
 *Completed: 2026-07-22*
+
+## Self-Check: PASSED
+
+- `supabase/migrations/20260722000001_p36_vault_resend_reader.sql` — FOUND
+- `.planning/todos/pending/36-resend-chave-divergencia.md` — FOUND
+- `.planning/phases/36-deliverability-sender-identity/36-04-SUMMARY.md` — FOUND
+- Commits `0722f64`, `f0b5540`, `0726c00` — todos presentes em `git log --all`
+- `git status --porcelain` — árvore limpa
