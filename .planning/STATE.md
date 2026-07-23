@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
 stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
-last_updated: "2026-07-22T18:09:10.386Z"
-last_activity: 2026-07-22
+last_updated: "2026-07-23T17:50:46.823Z"
+last_activity: 2026-07-23 -- Phase 38 planning complete
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 10
-  completed_plans: 9
-  percent: 17
+  completed_phases: 2
+  total_plans: 14
+  completed_plans: 10
+  percent: 33
 ---
 
 # Project State
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — **COMPLETE** ✅
 Plan: 5 of 5 (todos executados)
-Status: Fase encerrada — pronta para `/gsd-plan-phase 38`
-Last activity: 2026-07-22
+Status: Ready to execute
+Last activity: 2026-07-23 -- Phase 38 planning complete
 
 Progress: [█████████░] 90%
 
