@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
-last_updated: "2026-07-23T17:50:46.823Z"
-last_activity: 2026-07-23 -- Phase 38 planning complete
+stopped_at: "FASE 38 FECHADA (código) — EF notificar-candidato entregue e provada por deno test (17/17). 38-01 port .ics→_shared/ics.ts; 38-02 templates Beauty Smile + grep-guard da rejeição; 38-03 a EF (self-auth, allowlist, claim-before-send, ledger 2-fase, fire-and-forget); 38-04 deploy+smoke ADIADO (checkpoint humano, blocked on UAT-36-2 — Vault sem resend_api_key, verificado em PROD read-only). VERIFICATION status=passed (P36 pattern: live smoke deferido não bloqueia). Lint 97->97. Autorização do operador: seguir para a Phase 39. Proximo: /gsd-plan-phase 39 (rewire triggers + aposentadoria n8n — MAIOR RISCO)."
+last_updated: "2026-07-23"
+last_activity: 2026-07-23 -- Phase 38 complete (code); 38-04 smoke deferred (human)
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 14
-  completed_plans: 10
-  percent: 33
+  completed_plans: 14
+  percent: 50
 ---
 
 # Project State
@@ -21,18 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 37 — Camada de Dados de Notificação (BLOCKING das P38/39/40)
+**Current focus:** Phase 39 — Rewire dos Triggers & Aposentadoria do n8n (SEC-03) — **MAIOR RISCO** (P38 código fechado)
 
 ## Current Position
 
-Phase: 37 (Camada de Dados de Notificação — **BLOCKING**) — **COMPLETE** ✅
-Plan: 5 of 5 (todos executados)
-Status: Ready to execute
-Last activity: 2026-07-23 -- Phase 38 planning complete
+Phase: 38 (EF `notificar-candidato` — COMM) — **COMPLETE (código)** ✅ · smoke live deferido (human)
+Plan: 4 of 4 (38-01/02/03 código verde; 38-04 checkpoint deploy+smoke ADIADO)
+Status: Ready to plan Phase 39
+Last activity: 2026-07-23 -- Phase 38 complete (code); 38-04 deferred
 
-Progress: [█████████░] 90%
+Progress: [██████████] 50% (3/6 fases)
 
-> ⚠ **Contagem 9/10, não 10/10 — e isso é honesto.** O `37-01-PLAN.md` (dump do catálogo vivo) foi executado pelo orquestrador como checkpoint MCP e produziu `37-SCHEMA-VIVO.md` **sem** escrever um `37-01-SUMMARY.md`. Os handlers de progresso contam SUMMARYs, então a P37 aparece como 4/5 no ROADMAP e "In Progress". O trabalho está feito; o que falta é o registro. Fechar escrevendo o `37-01-SUMMARY.md` retroativo (ou marcando o plano como checkpoint-sem-summary).
+> ⚠ **P38 fechou o código, não o live.** A EF `notificar-candidato` está entregue e provada por `deno test` (17/17), mas **não foi deployada nem smoke-testada** em PROD — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only em 2026-07-23). Deploy+smoke registrados em `38-HUMAN-UAT.md` (UAT-38-1), adiados por decisão do operador. **A P39 NÃO deve aterrissar em PROD antes desse smoke** — os triggers precisam de uma EF viva e provada como alvo (cadeia estrita 38→39). Planejar a P39 é seguro; o apply/DROP em PROD é que espera o smoke da P38.
 
 ## Roadmap (M7 — Phases 36–41)
 
