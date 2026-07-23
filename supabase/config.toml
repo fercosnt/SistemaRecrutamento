@@ -26,6 +26,10 @@ verify_jwt = false
 [functions.cost-alerter]
 verify_jwt = false
 
+# EF server-interna self-auth (Bearer via Vault) — despachante das notificações M7 (Phase 38)
+[functions.notificar-candidato]
+verify_jwt = false
+
 [functions.gerar-devolutiva-bigfive]
 verify_jwt = false
 
