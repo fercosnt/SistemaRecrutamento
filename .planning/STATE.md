@@ -4,14 +4,14 @@ milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
 stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
-last_updated: "2026-07-24T21:14:54.403Z"
-last_activity: 2026-07-24 -- Phase 40 planning complete
+last_updated: "2026-07-24"
+last_activity: 2026-07-24 -- Phase 40 complete; autonomous paused (P39/P41 gated on Vault)
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 16
-  completed_plans: 14
-  percent: 50
+  completed_plans: 16
+  percent: 67
 ---
 
 # Project State
@@ -21,18 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 39 — Rewire dos Triggers & Aposentadoria do n8n (SEC-03) — **MAIOR RISCO** (P38 código fechado)
+**Current focus:** AUTONOMOUS PAUSADO — P36/37/38(código)/40 fechados; **P39 e P41 gated no Vault** (aguardam o smoke da P38). Retomar com `/gsd-autonomous --from 39` após UAT-36-2 + deploy/smoke da P38.
 
 ## Current Position
 
-Phase: 38 (EF `notificar-candidato` — COMM) — **COMPLETE (código)** ✅ · smoke live deferido (human)
-Plan: 4 of 4 (38-01/02/03 código verde; 38-04 checkpoint deploy+smoke ADIADO)
-Status: Ready to execute
-Last activity: 2026-07-24 -- Phase 40 planning complete
+Phase: 40 (Timeline de Prazo no Painel) — **COMPLETE** ✅ (fase independente, 100% código+UI, sem gate)
+Plan: 2 of 2 (40-01 dados + 40-02 UI); TIMELINE-02 verificado; suíte 1025/1025
+Status: Autonomous pausado por decisão do operador — P39/P41 dependem do gate do Vault
+Last activity: 2026-07-24 -- Phase 40 complete
 
-Progress: [██████████] 50% (3/6 fases)
+Progress: [███████████░░░] 67% (4/6 fases; P39+P41 deferidas)
 
-> ⚠ **P38 fechou o código, não o live.** A EF `notificar-candidato` está entregue e provada por `deno test` (17/17), mas **não foi deployada nem smoke-testada** em PROD — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only em 2026-07-23). Deploy+smoke registrados em `38-HUMAN-UAT.md` (UAT-38-1), adiados por decisão do operador. **A P39 NÃO deve aterrissar em PROD antes desse smoke** — os triggers precisam de uma EF viva e provada como alvo (cadeia estrita 38→39). Planejar a P39 é seguro; o apply/DROP em PROD é que espera o smoke da P38.
+> ⚠ **Duas fases gated no mesmo Vault key.** **P38** (EF): código fechado e provado (`deno test` 17/17), mas **não deployada nem smoke-testada** — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only 2026-07-23; registrado em `38-HUMAN-UAT.md` / UAT-38-1). **P39** (rewire de triggers + DROP n8n — maior risco): o apply em PROD **não pode** aterrissar antes do smoke da P38 (cadeia estrita 38→39: trigger sem EF viva dispara num 404 silencioso). **P41** (webhook + pg_cron): gated em P38+P39 vivas. **P40** foi feita fora de ordem por ser lateralmente independente (lê só `config_sla_etapa`, já seedada). Ordem de retomada: Fernando faz UAT-36-2 → deploy+smoke P38 (UAT-38-1) → `/gsd-autonomous --from 39`.
 
 ## Roadmap (M7 — Phases 36–41)
 
