@@ -55,6 +55,13 @@ vi.mock('@/store/authStore', () => ({
   useCandidato: () => ({ nome_completo: 'Maria Teste', email: 'maria@teste.com' }),
 }))
 
+// TIMELINE-02 — o painel agora consome useSlaEtapas (useQuery). Mockado com um lookup
+// vazio (nenhuma linha de estimativa) para não exigir um QueryClientProvider neste teste.
+vi.mock('@/features/timeline/hooks', () => ({
+  useSlaEtapas: () => ({ isLoading: false, error: null, lookup: new Map() }),
+  rotuloDeEspera: () => null,
+}))
+
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
 
 function renderDashboard() {

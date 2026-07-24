@@ -56,6 +56,13 @@
         // Vitest. Literal path on purpose — never a directory-wide glob, since
         // strict-schema.test.ts in the same dir is a Vitest-only Node probe.
         'supabase/functions/_shared/__tests__/email-config.test.ts',
+        // Phase 38 (EF notificar-candidato): the .ics port, email-templates, and EF
+        // handler Deno tests import `https://deno.land/std` assert + use Deno.* globals →
+        // run under `deno test`, not Vitest. Literal paths on purpose — never a
+        // `_shared/__tests__/**` glob (strict-schema.test.ts must keep running under Vitest).
+        'supabase/functions/_shared/__tests__/ics.test.ts',
+        'supabase/functions/_shared/__tests__/email-templates.test.ts',
+        'supabase/functions/notificar-candidato/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',

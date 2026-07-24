@@ -11,6 +11,8 @@ import type { CandidaturasFilters, Candidatura } from '@/features/vagas/types/va
 import { funilNavMap } from '@/lib/navegacao/funilNavMap';
 import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '@/features/triagem/services/triagemService';
 import { AgendamentoCandidatoCard } from '@/features/agendamento/components/AgendamentoCandidatoCard';
+import { useSlaEtapas, rotuloDeEspera } from '@/features/timeline/hooks';
+import { PrazoEstimadoLinha } from '@/features/timeline/components';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -32,6 +34,11 @@ export function DashboardCandidatoPage() {
     { page: 1, limit: 50 }
   );
   const counts = useCandidaturasCount();
+
+  // TIMELINE-02 — config estática de prazos por etapa (staleTime Infinity). O lookup
+  // alimenta a linha de estimativa de cada card de espera; loading/erro ⇒ Map vazio ⇒
+  // rotuloDeEspera devolve null ⇒ nenhuma linha (enhancement silencioso).
+  const { lookup: slaLookup } = useSlaEtapas();
 
   /**
    * Handler para logout do candidato
@@ -349,6 +356,17 @@ export function DashboardCandidatoPage() {
                               </span>
                             </p>
                           )}
+
+                          {/* TIMELINE-02 — estimativa de prazo (estado de espera). Texto
+                              verbatim de config_sla_etapa; rotuloDeEspera devolve null p/
+                              etapa terminal/stale/sem-prazo → o componente não renderiza. */}
+                          <PrazoEstimadoLinha
+                            rotulo={rotuloDeEspera(
+                              candidatura.etapa_atual
+                                ? slaLookup.get(candidatura.etapa_atual)
+                                : undefined,
+                            )}
+                          />
 
                           {/* Phase 8 / D-16 — persisted neutral rejection message
                               below the status for rejeitado candidaturas. The
