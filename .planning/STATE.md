@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: "FASE 38 FECHADA (código) — EF notificar-candidato entregue e provada por deno test (17/17). 38-01 port .ics→_shared/ics.ts; 38-02 templates Beauty Smile + grep-guard da rejeição; 38-03 a EF (self-auth, allowlist, claim-before-send, ledger 2-fase, fire-and-forget); 38-04 deploy+smoke ADIADO (checkpoint humano, blocked on UAT-36-2 — Vault sem resend_api_key, verificado em PROD read-only). VERIFICATION status=passed (P36 pattern: live smoke deferido não bloqueia). Lint 97->97. Autorização do operador: seguir para a Phase 39. Proximo: /gsd-plan-phase 39 (rewire triggers + aposentadoria n8n — MAIOR RISCO)."
-last_updated: "2026-07-23"
-last_activity: 2026-07-23 -- Phase 38 complete (code); 38-04 smoke deferred (human)
+stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
+last_updated: "2026-07-24T21:14:54.403Z"
+last_activity: 2026-07-24 -- Phase 40 planning complete
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 14
+  total_plans: 16
   completed_plans: 14
   percent: 50
 ---
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 Phase: 38 (EF `notificar-candidato` — COMM) — **COMPLETE (código)** ✅ · smoke live deferido (human)
 Plan: 4 of 4 (38-01/02/03 código verde; 38-04 checkpoint deploy+smoke ADIADO)
-Status: Ready to plan Phase 39
-Last activity: 2026-07-23 -- Phase 38 complete (code); 38-04 deferred
+Status: Ready to execute
+Last activity: 2026-07-24 -- Phase 40 planning complete
 
 Progress: [██████████] 50% (3/6 fases)
 
