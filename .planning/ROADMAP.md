@@ -181,9 +181,24 @@ Plans:
   3. Uma varredura `pg_cron` re-dispara as linhas `pendente`/`falhou` sob cap de `tentativas` como rede de segurança para a janela de ~6h do `net._http_response` (o `net.http_post` é fire-and-forget/at-most-once) (RECON-03).
   4. Testes CI rodam contra um sender do Resend mockado (sem chave viva) com um guard de destinatário non-prod, e um UAT ao vivo usando os endereços `delivered@`/`bounced@`/`complained@resend.dev` exercita a reconciliação completa de entrega/bounce/complaint (RECON-02, RECON-03).
 
-**Plans**: TBD (planejado em `/gsd-plan-phase 41`)
+**Plans**: 5 plans em 3 waves
 
-*Nota (discuss-phase):* verificar os números exatos de rate-limit/free-tier do Resend no dashboard vivo antes de assumir a cadência da varredura de retry (questão aberta).
+Plans:
+**Wave 1** *(SAFE-NOW — zero contato com PROD; sem overlap de arquivo, paralelizáveis)*
+
+- [ ] 41-01-PLAN.md — Wave-0 testabilidade: refactor de `notificar-candidato` p/ deps injetáveis + `computeProximaTentativa` (backoff) + `exigirSinkTeste` (guard non-prod) [wave 1]
+- [ ] 41-02-PLAN.md — EF `resend-webhook` (Svix verify + reconciliação por `provider_message_id`) + `config.toml` verify_jwt=false [wave 1]
+- [ ] 41-03-PLAN.md — migration aditiva (`bounce_em`/`reclamado_em` + `ler_resend_webhook_secret` + `varrer_retry_notificacoes` + cron `notif-retry-sweep`) + smoke gate-GUC [wave 1]
+
+**Wave 2** *(depende de 41-01)*
+
+- [ ] 41-04-PLAN.md — branch retry (`retry_id`) na `notificar-candidato` + `Idempotency-Key` + testes com fetch mockado [wave 2]
+
+**Wave 3** *(GATED — `autonomous: false`, checkpoint do orquestrador; apply/deploy/Vault/dashboard via MCP)*
+
+- [ ] 41-05-PLAN.md — apply da migration via MCP + reconcile + smoke; deploy `resend-webhook` + redeploy `notificar-candidato`; registro do webhook + `resend_webhook_secret` no Vault; UAT ao vivo deferido atrás de DELIV-01 [wave 3]
+
+*Nota (discuss-phase):* verificar os números exatos de rate-limit/free-tier do Resend no dashboard vivo antes de assumir a cadência da varredura de retry (questão aberta). Resolvido na RESEARCH: free 100/dia+3.000/mês, 10 req/s por team; `LIMIT 20` por sweep como ponto de partida.
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
@@ -255,7 +270,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/4 | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
-| 41. Reconciliação, Retry & Testing | v7.0 | 0/TBD | Not started | - |
+| 41. Reconciliação, Retry & Testing | v7.0 | 0/5 | In Progress | - |
 
 ---
 
