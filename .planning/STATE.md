@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: executing
-stopped_at: "Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato)."
-last_updated: "2026-07-24"
-last_activity: 2026-07-24 -- Phase 40 complete; autonomous paused (P39/P41 gated on Vault)
+status: Autonomous pausado por decisão do operador — P39/P41 dependem do gate do Vault
+stopped_at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
+last_updated: "2026-07-26T03:58:22.167Z"
+last_activity: 2026-07-24 -- Phase 40 complete
 progress:
   total_phases: 6
   completed_phases: 4
@@ -32,7 +32,7 @@ Last activity: 2026-07-24 -- Phase 40 complete
 
 Progress: [███████████░░░] 67% (4/6 fases; P39+P41 deferidas)
 
-> ⚠ **Duas fases gated no mesmo Vault key.** **P38** (EF): código fechado e provado (`deno test` 17/17), mas **não deployada nem smoke-testada** — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only 2026-07-23; registrado em `38-HUMAN-UAT.md` / UAT-38-1). **P39** (rewire de triggers + DROP n8n — maior risco): o apply em PROD **não pode** aterrissar antes do smoke da P38 (cadeia estrita 38→39: trigger sem EF viva dispara num 404 silencioso). **P41** (webhook + pg_cron): gated em P38+P39 vivas. **P40** foi feita fora de ordem por ser lateralmente independente (lê só `config_sla_etapa`, já seedada). Ordem de retomada: Fernando faz UAT-36-2 → deploy+smoke P38 (UAT-38-1) → `/gsd-autonomous --from 39`.
+> ⚠ **Duas fases gated no mesmo Vault key.** **P38** (EF): código fechado e provado (`deno test` 17/17), mas **não deployada nem smoke-testada** — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only 2026-07-23; registrado em `38-HUMAN-UAT.md` / UAT-38-1). **P39** (rewire de triggers + DROP n8n — maior risco): o apply em PROD **não pode** aterrissar antes do smoke da P38 (cadeia estrita 38→39: trigger sem EF viva dispara num 404 silencioso). **P41** (webhook + pg_cron): gated em P38+P39 vivas. **P40** foi feita fora de ordem por ser lateralmente independente (lê só `config_sla_etapa`, já seedada). Ordem de retomada: Fernando faz UAT-36-2 → deploy+smoke P38 (UAT-38-1) → `/gsd-autonomous --from 39`. **[RE-VERIFICADO 2026-07-26 ao vivo via Supabase MCP no resume]:** `vault.secrets` contém só `edge_invoke_key` + `project_url` (SEM `resend_api_key`) e a EF `notificar-candidato` NÃO está na lista de functions deployadas — os DOIS gates seguem abertos. Autonomous re-parado antes de qualquer toque em PROD.
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -152,9 +152,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-22T18:09:03.087Z
-Stopped at: Completed 37-05-PLAN.md — FASE 37 FECHADA. database.types.ts regenerado (diff 146/0, zero delecoes, 6 hunks todos esperados: notificacoes_enviadas 18 colunas com destinatario_original OBRIGATORIO no Insert, config_sla_etapa, enum status_notificacao 6 labels, + ler_resend_api_key herdada da P36). Item de drift arquivado em .planning/todos/done/ com resolucao em 4 blocos e git log --follow preservado (rename puro 100% em commit separado). Lint 97->97, build verde, 126 arquivos/1018 testes verdes. Proximo: /gsd-plan-phase 38 (EF notificar-candidato).
-Resume file: None
+Last session: 2026-07-26T03:58:22.157Z
+Stopped at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
+Resume file: .planning/phases/39-rewire-dos-triggers-aposentadoria-do-n8n-sec-03/39-CONTEXT.md
 
 ## Operator Next Steps
 
