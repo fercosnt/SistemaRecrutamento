@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: Autonomous pausado por decisão do operador — P39/P41 dependem do gate do Vault
-stopped_at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
-last_updated: "2026-07-26T03:58:22.167Z"
-last_activity: 2026-07-24 -- Phase 40 complete
+stopped_at: Phase 39 PLANNED + VERIFIED (discuss + research + 4 plans/2 waves, plan-checker PASSED). Wave 1 (39-01/02/03, SAFE-NOW, zero PROD) executável já; Wave 2 (39-04, apply em PROD) GATED em UAT-38-1 + UAT-36-2.
+last_updated: "2026-07-26"
+last_activity: 2026-07-26 -- Phase 39 planejada e verificada (Wave 2 gated no Vault)
 progress:
   total_phases: 6
   completed_phases: 4
@@ -25,12 +25,14 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 40 (Timeline de Prazo no Painel) — **COMPLETE** ✅ (fase independente, 100% código+UI, sem gate)
-Plan: 2 of 2 (40-01 dados + 40-02 UI); TIMELINE-02 verificado; suíte 1025/1025
-Status: Autonomous pausado por decisão do operador — P39/P41 dependem do gate do Vault
-Last activity: 2026-07-24 -- Phase 40 complete
+Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **PLANNED + VERIFIED** ✅ (discuss + research + 4 plans/2 waves; plan-checker PASSED, 0 blockers; cross-checado contra o repo vivo)
+Plan: 0 of 4 executados. **Wave 1** (39-01 migration atômica DROP4+CREATE3 · 39-02 retira o fetch n8n LIVE do submit-candidatura · 39-03 smoke Wave-0) = **SAFE-NOW, zero PROD, executável já** via `/gsd-execute-phase 39` (Wave 1 só). **Wave 2** (39-04 apply em PROD) = checkpoint `autonomous:false` **GATED** em UAT-38-1 + UAT-36-2.
+Status: P39 pronta para executar; a parte que toca PROD segue gated no mesmo Vault key.
+Last activity: 2026-07-26 -- Phase 39 planejada e verificada
 
-Progress: [███████████░░░] 67% (4/6 fases; P39+P41 deferidas)
+Progress: [███████████░░░] 67% (4/6 fases fechadas; P39 planejada/verificada, execute gated; P41 não planejada)
+
+> 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
 > ⚠ **Duas fases gated no mesmo Vault key.** **P38** (EF): código fechado e provado (`deno test` 17/17), mas **não deployada nem smoke-testada** — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only 2026-07-23; registrado em `38-HUMAN-UAT.md` / UAT-38-1). **P39** (rewire de triggers + DROP n8n — maior risco): o apply em PROD **não pode** aterrissar antes do smoke da P38 (cadeia estrita 38→39: trigger sem EF viva dispara num 404 silencioso). **P41** (webhook + pg_cron): gated em P38+P39 vivas. **P40** foi feita fora de ordem por ser lateralmente independente (lê só `config_sla_etapa`, já seedada). Ordem de retomada: Fernando faz UAT-36-2 → deploy+smoke P38 (UAT-38-1) → `/gsd-autonomous --from 39`. **[RE-VERIFICADO 2026-07-26 ao vivo via Supabase MCP no resume]:** `vault.secrets` contém só `edge_invoke_key` + `project_url` (SEM `resend_api_key`) e a EF `notificar-candidato` NÃO está na lista de functions deployadas — os DOIS gates seguem abertos. Autonomous re-parado antes de qualquer toque em PROD.
 
@@ -63,7 +65,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | 36 | 5 of 5 | 73min | ~15min |
 | 37 | 5 of 5 ✅ | ~45min (37-02/03/05; 37-01 e 37-04 foram checkpoints MCP do orquestrador) | ~15min |
 | 38 | TBD | - | - |
-| 39 | TBD | - | - |
+| 39 | 0 of 4 planejados/verificados | - | - (Wave 1 executável; Wave 2 gated) |
 | 40 | TBD | - | - |
 | 41 | TBD | - | - |
 
