@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: P38 DEPLOYADA + SMOKE (funcional provado; entrega gated em DELIV-01). Executando P39 Wave 1 (zero PROD); Wave 2 (apply PROD) segue em checkpoint humano.
-stopped_at: Phase 38 EF deployada dormente + smoke funcional (auth/idempotência/render/graceful-fail OK); entrega bloqueada em DELIV-01 (domínio rh.beautysmile.com.br não verificado no Resend). NOTIFICAR_SECRET setado (gap de auth da P38 corrigido). Prosseguindo p/ P39 Wave 1.
+status: P38 deployada+smoke (funcional); P39 Wave 1 COMPLETO (zero PROD); Wave 2 (39-04 apply PROD) em CHECKPOINT humano, gated em DELIV-01 (domínio).
+stopped_at: Phase 39 Wave 1 completa (39-01 migration escrita · 39-02 fetch n8n removido de submit-candidatura, deno 5/5 · 39-03 smoke escrito) — 3 SUMMARYs, zero PROD, commits 8860631→6c5438a. Wave 2 (39-04) = apply PROD (DROP4+CREATE3 + redeploy submit-candidatura + run smoke) em checkpoint autonomous:false, gated em DELIV-01 (rh.beautysmile.com.br não verificado no Resend → entrega falha 403).
 last_updated: "2026-07-26"
-last_activity: 2026-07-26 -- P38 deploy+smoke (UAT-36-2 clareou; NOTIFICAR_SECRET fix; DELIV-01 é o novo gate de entrega)
+last_activity: 2026-07-26 -- P39 Wave 1 completa; Wave 2 aguarda verificação do domínio (DELIV-01) + go humano
 progress:
   total_phases: 6
   completed_phases: 4
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **PLANNED + VERIFIED** ✅ (discuss + research + 4 plans/2 waves; plan-checker PASSED, 0 blockers; cross-checado contra o repo vivo)
-Plan: 0 of 4 executados. **Wave 1** (39-01 migration atômica DROP4+CREATE3 · 39-02 retira o fetch n8n LIVE do submit-candidatura · 39-03 smoke Wave-0) = **SAFE-NOW, zero PROD, executável já** via `/gsd-execute-phase 39` (Wave 1 só). **Wave 2** (39-04 apply em PROD) = checkpoint `autonomous:false` **GATED** em UAT-38-1 + UAT-36-2.
-Status: P39 pronta para executar; a parte que toca PROD segue gated no mesmo Vault key.
-Last activity: 2026-07-26 -- Phase 39 planejada e verificada
+Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **Wave 1 EXECUTADA** ✅ (3/4 plans; zero PROD). Wave 2 em checkpoint humano.
+Plan: 3 of 4 executados. **Wave 1 ✅** — 39-01 (migration atômica DROP4+CREATE3 escrita, T1/T2 OK, colunas confirmadas ao vivo) · 39-02 (fetch n8n LIVE removido de submit-candidatura + test limpo, deno 5/5, grep n8n=0) · 39-03 (smoke Wave-0 escrito, 351 linhas, contagem adaptativa PROD/descartável). Commits 8860631→6c5438a. **Wave 2 (39-04) — GATED, checkpoint `autonomous:false`**: apply da migration em PROD (DROP 4 triggers/funções n8n + CREATE 3 trg_notif_*) + redeploy de submit-candidatura + run do smoke via MCP + reconcile do ledger. Pré-reqs: (a) EF viva+smoke ✅ / resend_api_key ✅; (b) diff-before-drop DBMIG-02 (a fazer no 39-04); (c) redeploy submit-candidatura (a fazer no 39-04). **BLOQUEADO por DELIV-01** — sem o domínio verificado, o rewire dispararia só `falhou`.
+Status: P39 Wave 1 fechada; Wave 2 aguarda verificação do domínio (DELIV-01) + aprovação humana explícita.
+Last activity: 2026-07-26 -- P39 Wave 1 executada (zero PROD); Wave 2 em checkpoint
 
-Progress: [███████████░░░] 67% (4/6 fases fechadas; P39 planejada/verificada, execute gated; P41 não planejada)
+Progress: [███████████░░░] 67% (4/6 fases fechadas; P39 Wave 1 executada / Wave 2 gated; P41 não planejada)
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
