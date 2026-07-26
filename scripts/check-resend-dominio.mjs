@@ -20,7 +20,7 @@
  * convenience reporter, not a gate.
  *
  * What it reports (RESEARCH § Q2):
- *   1. Whether `recruta.beautysmile.com.br` exists in the Resend account at all.
+ *   1. Whether `rh.beautysmile.com.br` exists in the Resend account at all.
  *   2. The aggregate domain `status` and the `region` (expected `sa-east-1`).
  *   3. `open_tracking` / `click_tracking` (both expected `false` — RESEARCH § Q1).
  *   4. Per-record status, so "not verified" becomes "the SPF TXT on `send` is missing".
@@ -34,9 +34,9 @@
  */
 
 // --- Canonical values (36-CONTEXT.md § Identidade de Remetente) --------------
-const DOMAIN = 'recruta.beautysmile.com.br'
+const DOMAIN = 'rh.beautysmile.com.br'
 const EXPECTED_REGION = 'sa-east-1'
-const DMARC_RECORD = '_dmarc.recruta.beautysmile.com.br'
+const DMARC_RECORD = '_dmarc.rh.beautysmile.com.br'
 const RUNBOOK = 'docs/runbooks/resend-dominio-envio.md'
 
 // Resend marks both domains and individual records with this status on success.

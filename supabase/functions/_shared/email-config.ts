@@ -18,7 +18,7 @@
  */
 
 /** Subdomínio de envio verificado no Resend — SPF/DKIM automáticos (DELIV-01). */
-export const DOMINIO_ENVIO = 'recruta.beautysmile.com.br' as const
+export const DOMINIO_ENVIO = 'rh.beautysmile.com.br' as const
 
 /** Display name exibido na caixa de entrada do candidato. */
 export const REMETENTE_NOME = 'Beauty Smile Recrutamento' as const
@@ -33,7 +33,7 @@ export const FROM = `${REMETENTE_NOME} <${REMETENTE_EMAIL}>` as const
  * Caixa REAL do RH, no domínio ROOT (não no subdomínio de envio) — separa
  * envio de recepção: o candidato que responde cai numa caixa humana.
  */
-export const REPLY_TO = 'recrutamento@beautysmile.com.br' as const
+export const REPLY_TO = 'rh@beautysmile.com.br' as const
 
 /** Modo de operação do envio. Só `producao` alcança pessoas reais. */
 export type ModoNotificacao = 'producao' | 'teste'

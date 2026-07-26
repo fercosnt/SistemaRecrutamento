@@ -3,7 +3,7 @@ status: pending
 phase: 36-deliverability-sender-identity
 source: [36-VALIDATION.md]
 started: 2026-07-22T04:10:00Z
-updated: 2026-07-22T15:20:00Z
+updated: 2026-07-26T19:53:20Z
 ---
 
 ## Current Test
@@ -23,14 +23,14 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 ### UAT-36-1 — Domínio de envio verificado e e-mail real cai na INBOX (DELIV-01)
 - **Pré-requisito:** `docs/runbooks/resend-dominio-envio.md` executado até o Passo 7.
 - **Steps:**
-1. O domínio `recruta.beautysmile.com.br` mostra **Verified** no dashboard do Resend, na região `sa-east-1`.
+1. O domínio `rh.beautysmile.com.br` mostra **Verified** no dashboard do Resend, na região `sa-east-1`.
 2. Open tracking e click tracking estão **desligados** nesse domínio (Domain Settings).
-3. `dig` confirma os 3-4 records emitidos pelo Resend **e** o TXT em `_dmarc.recruta.beautysmile.com.br` (o Resend não publica o DMARC — conferência separada).
-4. Enviar 1 e-mail de teste **de** `nao-responda@recruta.beautysmile.com.br` **para** uma conta **Gmail** e uma conta **Outlook/Hotmail** pessoais.
+3. `dig` confirma os 3-4 records emitidos pelo Resend **e** o TXT em `_dmarc.rh.beautysmile.com.br` (o Resend não publica o DMARC — conferência separada).
+4. Enviar 1 e-mail de teste **de** `nao-responda@rh.beautysmile.com.br` **para** uma conta **Gmail** e uma conta **Outlook/Hotmail** pessoais.
 5. Em ambas as contas: a mensagem chega na **Caixa de entrada** — não em Spam, não em Promoções com aviso de remetente suspeito.
 6. No Gmail, abrir "Mostrar original" e confirmar os três cabeçalhos: `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`.
 7. O remetente exibido na lista de mensagens é **"Beauty Smile Recrutamento"**.
-8. Responder o e-mail recebido → a resposta chega em `recrutamento@beautysmile.com.br` (Reply-To funcionando).
+8. Responder o e-mail recebido → a resposta chega em `rh@beautysmile.com.br` (Reply-To funcionando).
 9. Registrar neste arquivo a data da execução + os prints (dashboard Verified, `dig`, cabeçalhos do Gmail, inbox das duas contas), no padrão dos UATs P22–P35.
 - **status:** pending
 
@@ -78,7 +78,8 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 - **⚠️ REGRA TRAVADA — NÃO CRIAR PLACEHOLDER, EM HIPÓTESE ALGUMA.** Nem `CHANGEME`, nem string vazia, nem a chave de test-mode no lugar da PROD. Uma chave falsa no Vault produz um **401 opaco** no primeiro envio real a candidato ("a chave existe, mas não funciona"); a **ausência** produz `NULL`, que `ler_resend_api_key()` já entrega como *graceful skip* legível ("não configurado"). Ausência é diagnosticável; chave falsa não é. Enquanto a chave real não existir, o segredo simplesmente **não existe**.
 - **Quem cobra esta pendência:** a **Phase 38** (smoke da EF `notificar-candidato`). Sem o segredo, a EF cai no graceful skip e o smoke de envio real não fecha. O UAT-36-1 (domínio/DNS) é independente e continua `pending` — este item não o resolve, e vice-versa.
 - **Referência completa:** `docs/runbooks/resend-dominio-envio.md` § Passo 6 ("As três chaves do Resend e onde cada uma vive").
-- **status:** pending
+- **✅ EXECUTADO (2026-07-26):** chave PROD dedicada (`notificacoes-ats-prod`, separada da do `cost-alerter` — blast radius mantido) provisionada no Vault de PROD (projeto `isljnozzlvckrgjjbjwp`) via `vault.create_secret`. Smoke read-only via Supabase MCP: `count = 1` (sem duplicata), `length(decrypted_secret) = 36`, `ler_resend_api_key() is not null = true`. **Valor nunca registrado.** Nota operacional: a 1ª tentativa gravou no projeto errado e foi migrada para o certo — a cópia no projeto errado deve ser revogada com `vault.delete_secret`. Na mesma sessão, o remetente foi migrado de `recruta.` → `rh.beautysmile.com.br` (From `nao-responda@rh.…`, Reply-To `rh@beautysmile.com.br`) por decisão do operador; `email-config.ts` + `check-resend-dominio.mjs` + runbook + UAT-36-1 atualizados, suíte Deno 9/9 verde.
+- **status:** passed
 
 ### UAT-36-3 — Armar `NOTIFICACOES_MODO=producao` na EF antes do 1º envio real (DELIV-03)
 
@@ -122,7 +123,7 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 Nenhum must-have automatizado desta fase está vermelho — os gates de código (bundle guard + suíte Deno de `email-config` + `npm run test:run` + `npm run build`) estão verdes. Os itens abertos são:
 
 - **UAT-36-1** — gate humano/DNS do DELIV-01, sem previsão fixa; deve aterrissar antes do UAT da Phase 41.
-- **UAT-36-2** — provisionamento do segredo `resend_api_key` no Supabase Vault. Fechado pelo Plano 36-05 como **pendente-humana**: em 2026-07-22 o operador respondeu `pendente` (chave PROD dedicada ainda não gerada no dashboard do Resend). Confirmado por SQL em PROD que `ler_resend_api_key()` retorna `NULL` — o graceful skip esperado — e que **nenhum placeholder foi criado**, por decisão travada do CONTEXT. O comando exato para fechar está no item UAT-36-2 acima e no Passo 6 do runbook. Cobrado pela **Phase 38**.
+- **UAT-36-2** — ✅ **PASSED (2026-07-26).** Segredo `resend_api_key` provisionado no Vault de PROD (`isljnozzlvckrgjjbjwp`): `count = 1`, `length = 36`, `ler_resend_api_key() is not null = true` (smoke read-only via MCP; valor nunca registrado). Registro completo no item UAT-36-2 acima. Pendência residual: revogar a cópia criada por engano no projeto errado (`vault.delete_secret`).
 - **UAT-36-3** — armar `NOTIFICACOES_MODO=producao` no ambiente da Edge Function. Registrado a partir do achado **WR-02** do code review da Phase 36: o fail-safe do DELIV-03 está correto, mas o passo que o **desarma deliberadamente** não existia em nenhum artefato durável de operador (`grep -rn "NOTIFICACOES_MODO" docs/` retornava zero). Sem este item, é possível seguir o runbook ponta a ponta, subir PROD, e ter 100% dos e-mails de candidato desviados para `@resend.dev` com HTTP 200 e sem warn. Executado na **Phase 38**, antes do primeiro envio real; procedimento em `docs/runbooks/resend-dominio-envio.md` § 9.
 
 Nenhum dos três bloqueia o fechamento da Phase 36 nem a cadeia P37 → P38 → P39. Os três são independentes entre si: domínio verificado (UAT-36-1) + chave no Vault (UAT-36-2) + modo armado (UAT-36-3) — os três precisam fechar antes do primeiro e-mail a candidato real (UAT da Phase 41).

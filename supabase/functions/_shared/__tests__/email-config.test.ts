@@ -78,9 +78,9 @@ Deno.test("DELIV-02 — producao sem chave lança erro explícito (não 401 opac
 
 // (7) constantes canônicas congeladas (DELIV-01)
 Deno.test("DELIV-01 — From/Reply-To/domínio são os valores canônicos do CONTEXT", () => {
-  assertEquals(DOMINIO_ENVIO, "recruta.beautysmile.com.br");
-  assertEquals(FROM, "Beauty Smile Recrutamento <nao-responda@recruta.beautysmile.com.br>");
-  assertEquals(REPLY_TO, "recrutamento@beautysmile.com.br");
+  assertEquals(DOMINIO_ENVIO, "rh.beautysmile.com.br");
+  assertEquals(FROM, "Beauty Smile Recrutamento <nao-responda@rh.beautysmile.com.br>");
+  assertEquals(REPLY_TO, "rh@beautysmile.com.br");
   assert(!FROM.includes("resend.dev"), "From de produção nunca pode ser onboarding@resend.dev");
 });
 
