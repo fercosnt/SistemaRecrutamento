@@ -152,21 +152,6 @@ function makeRequest(body: unknown, withAuth = true): Request {
   });
 }
 
-// The webhook is a fire-and-forget `fetch(...)` after the RPC commits. Stub
-// globalThis.fetch so the happy-path test needs no --allow-net and makes no real
-// request; sanitizeOps/Resources are relaxed on that test because the fire-and-
-// forget promise/Response is intentionally never awaited by the handler.
-async function withStubbedFetch<T>(fn: () => Promise<T>): Promise<T> {
-  const original = globalThis.fetch;
-  globalThis.fetch = (() =>
-    Promise.resolve(new Response(null, { status: 204 }))) as typeof fetch;
-  try {
-    return await fn();
-  } finally {
-    globalThis.fetch = original;
-  }
-}
-
 // ── (1) auth gate — no session → 401, never writes (T-27-03-02) ───────────────
 Deno.test("no session (getUser null) → 401, never reaches the RPC", async () => {
   const { handler } = await loadHandler();
@@ -195,13 +180,11 @@ Deno.test("a body with an extra `score` field is rejected 400 (.strict), never r
 // ── (3) happy path — RPC name + p_-prefixed arg shape ─────────────────────────
 Deno.test({
   name: "happy path calls rpc('submit_candidatura_atomic', {p_candidato_id, p_vaga_id, p_respostas, ...})",
-  sanitizeOps: false, // fire-and-forget webhook promise is intentionally not awaited
-  sanitizeResources: false,
   fn: async () => {
     const { handler } = await loadHandler();
     const admin = makeMockSupabaseAdmin();
     const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
-    const res = await withStubbedFetch(() => handler(makeRequest(VALID_BODY), deps));
+    const res = await handler(makeRequest(VALID_BODY), deps);
     assertEquals(res.status, 200);
     assertEquals(admin.rpcCalls.length, 1, "exactly one RPC call on the happy path");
     const call = admin.rpcCalls[0];

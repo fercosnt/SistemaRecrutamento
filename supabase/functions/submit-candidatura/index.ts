@@ -10,8 +10,12 @@
  *   4. Validate curriculo_url path starts with `${user.id}/` (T-04-04 / T-04-11b mitigation)
  *   5. Call submit_candidatura_atomic RPC (SECURITY DEFINER, service_role grant — migration 20260425000003)
  *   6. Map Postgres 23505 → DUPLICATE_CANDIDATURA, 23503 → VALIDATION
- *   7. Fire-and-forget N8N webhook AFTER COMMIT (failure non-blocking; T-XX webhook contract)
- *   8. Return { ok: true, data: { candidaturaId } } or structured error
+ *   7. Return { ok: true, data: { candidaturaId } } or structured error
+ *
+ * Confirmação de candidatura: a partir da Phase 39 é disparada EXCLUSIVAMENTE pelo
+ * trigger AFTER INSERT `trg_notif_confirmacao` (survivor-guarded) → EF notificar-candidato.
+ * Esta EF NÃO dispara mais nenhum webhook (o antigo fire-and-forget pós-commit foi
+ * removido na Phase 39 — era o único caminho de disparo LIVE do funil).
  *
  * Two-client pattern (Pitfall 10):
  *   - supabaseUser (anon + Authorization header) — auth.getUser() resolves user identity
@@ -297,39 +301,7 @@ export async function handler(
   }
   const candidaturaId = rpcResult.candidatura_id
 
-  // ---- 5) Fire-and-forget N8N webhook AFTER COMMIT — non-blocking ----------
-  // Webhook failure MUST NOT roll back the candidatura. The RPC has already
-  // committed; we report success to the client regardless of webhook outcome.
-  // Phase 8 / A5: knocked-out candidaturas ALSO fire the nova-candidatura
-  // webhook in V1 — RH may want the record of every inscrição, including
-  // auto-rejected ones. The webhook is NOT suppressed for status='rejeitado'.
-  // WR-04 (Phase 4 review fix): URL is read from N8N_NOVA_CANDIDATURA_URL env
-  // var with a hardcoded fallback so existing prod deploys keep working until
-  // the env var is set. Drift between this EF and any frontend caller is now
-  // a deploy-time choice rather than a code-edit in two places.
-  const N8N_NOVA_CANDIDATURA_URL =
-    Deno.env.get('N8N_NOVA_CANDIDATURA_URL') ??
-    'https://fernandocosta.app.n8n.cloud/webhook/nova-candidatura'
-  fetch(N8N_NOVA_CANDIDATURA_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'candidatura.created',
-      timestamp: new Date().toISOString(),
-      data: {
-        candidatura_id: candidaturaId,
-        vaga_id: input.vaga_id,
-        candidato_id: input.candidato_id,
-      },
-    }),
-  }).catch((e) =>
-    console.warn(
-      '[submit-candidatura] N8N webhook failed (non-blocking):',
-      (e as { message?: string })?.message ?? String(e),
-    ),
-  )
-
-  // ---- 6) Success ----------------------------------------------------------
+  // ---- 5) Success ----------------------------------------------------------
   // Phase 8 / D-16: surface `status` + `etapa_atual` so the client can render
   // the D-15 neutral inline result on a knockout (status='rejeitado') vs. the
   // normal success confirmation on a survivor. No criterion is leaked.
