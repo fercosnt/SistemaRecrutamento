@@ -141,7 +141,18 @@ Plans:
   3. Os 3 triggers n8n do SEC-03 são **DROPPED** e o disparo por env-var do `submit-candidatura` é aposentado **na mesma migration** que cria os novos triggers — um grep/diff-live prova que nenhuma superfície de disparo dupla permanece e o n8n está totalmente aposentado (SEC-03 resolvido por substituição) (DISPATCH-03).
   4. O hop trigger→EF autentica por um segredo Bearer self-auth do Vault (mirror do `analise-candidato-individual`), e o corpo do `net.http_post` carrega só ids — a EF não é um endpoint de envio público/spoofable e nenhuma PII trafega no payload do trigger (DISPATCH-04).
 
-**Plans**: TBD (planejado em `/gsd-plan-phase 39`)
+**Plans**: 4 plans em 2 waves
+
+Plans:
+**Wave 1** *(SAFE-NOW — zero contato com PROD; paralelizáveis, sem overlap de arquivo)*
+
+- [ ] 39-01-PLAN.md — migration atômica: DROP dos 4 triggers/funções n8n + CREATE de `trg_notif_transicao` (CASE avanço+decisão) / `trg_notif_confirmacao` (survivor-guard) / `trg_notif_convite` (agendamento_id), ids-only/graceful-skip/fail-open [wave 1]
+- [ ] 39-02-PLAN.md — aposentar o disparo n8n LIVE do `submit-candidatura` (remover o `fetch` hardcoded do index.ts + limpar o stub de fetch vestigial no deno test) [wave 1]
+- [ ] 39-03-PLAN.md — Wave-0 smoke `p39_rewire_triggers_smoke.sql` (estrutural via `pg_get_functiondef` + catálogo pós-DROP + graceful-skip/survivor-guard comportamental), gate `smoke39.pass` [wave 1]
+
+**Wave 2** *(GATED — `autonomous: false`, checkpoint do orquestrador; bloqueado em UAT-38-1 (EF viva/smoked) + UAT-36-2 (`resend_api_key` no Vault))*
+
+- [ ] 39-04-PLAN.md — gate ao vivo + diff-before-drop (DBMIG-02) + redeploy de `submit-candidatura` → apply da migration via MCP + reconcile do ledger + catálogo (0 n8n / 3 notif) + smoke → end-to-end por evento via `*@resend.dev` + cleanup do n8n cloud [wave 2]
 
 *Nota (discuss-phase):* antes de finalizar o predicado do `CASE`, **confirmar que o caminho de aprovação escreve `etapa_atual='aprovado'`** (questão aberta) — se só escreve `decisao_final`, um trigger satélite em `decisao_final` é necessário para aprovações. Diff dos corpos de função vivos **antes** de qualquer `CREATE OR REPLACE` (disciplina DBMIG-02; sem wrapper `BEGIN;...COMMIT;`).
 
@@ -242,7 +253,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 36. Deliverability & Sender Identity | v7.0 | 5/5 | Complete   | 2026-07-22 |
 | 37. Camada de Dados de Notificação | v7.0 | 4/5 | In Progress|  |
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
-| 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/TBD | Not started | - |
+| 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/4 | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
 | 41. Reconciliação, Retry & Testing | v7.0 | 0/TBD | Not started | - |
 
