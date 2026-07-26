@@ -40,7 +40,7 @@ M7 continua a numeração a partir da **Phase 36** (M6 terminou na Phase 35).
 - [ ] **Phase 36: Deliverability & Sender Identity** - domínio de envio Beauty Smile verificado no Resend (SPF/DKIM auto + DMARC manual), From/Reply-To reais, `RESEND_API_KEY` só no Vault, disciplina de test-address `resend.dev` no dev/CI
 - [ ] **Phase 37: Camada de Dados de Notificação (`notificacoes_enviadas` + `config_sla_etapa`)** - tabela ledger (audit + idempotência `UNIQUE(dedupe_key)` + fila de retry, RLS RH vaga-scoped join-through, candidato-DENY) + tabela estática de SLA seedada do PRD, provadas por smoke antes de qualquer EF/trigger
 - [ ] **Phase 38: EF `notificar-candidato` (COMM)** - EF self-auth que resolve dados por allowlist, renderiza os 4 templates Beauty Smile (+ port verbatim do `.ics` do M6), envia via `fetch` ao Resend e grava no ledger; deployável dormente, smoke via `net.http_post` manual
-- [ ] **Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03)** - trigger CASE canônico em `historico_candidatura` (avanço + decisão) + 2 satélites (confirmação + convite); DROP dos 3 triggers n8n do SEC-03 no MESMO phase (resolve SEC-03 por substituição, sem double-send)
+- [x] **Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03)** ✅ (aplicada em PROD 2026-07-26; entrega gated em DELIV-01) - trigger CASE canônico em `historico_candidatura` (avanço + decisão) + 2 satélites (confirmação + convite); DROP dos 3 triggers n8n do SEC-03 no MESMO phase (resolve SEC-03 por substituição, sem double-send)
 - [ ] **Phase 40: Timeline de Prazo no Painel do Candidato** - `DashboardCandidatoPage` mostra em cada estado de espera a estimativa de prazo da etapa (lê `config_sla_etapa`), enquadrada como estimativa, nunca countdown — o *pull* que complementa o *push* do e-mail
 - [ ] **Phase 41: Reconciliação de Entrega, Retry & Testing** - EF de webhook do Resend (Svix) atualiza status por `provider_message_id` + varredura `pg_cron` de `pendente`/`falhou` + testes CI com sender mockado (sem chave viva) + UAT via `delivered@`/`bounced@`/`complained@resend.dev`
 
@@ -146,13 +146,13 @@ Plans:
 Plans:
 **Wave 1** *(SAFE-NOW — zero contato com PROD; paralelizáveis, sem overlap de arquivo)*
 
-- [ ] 39-01-PLAN.md — migration atômica: DROP dos 4 triggers/funções n8n + CREATE de `trg_notif_transicao` (CASE avanço+decisão) / `trg_notif_confirmacao` (survivor-guard) / `trg_notif_convite` (agendamento_id), ids-only/graceful-skip/fail-open [wave 1]
-- [ ] 39-02-PLAN.md — aposentar o disparo n8n LIVE do `submit-candidatura` (remover o `fetch` hardcoded do index.ts + limpar o stub de fetch vestigial no deno test) [wave 1]
-- [ ] 39-03-PLAN.md — Wave-0 smoke `p39_rewire_triggers_smoke.sql` (estrutural via `pg_get_functiondef` + catálogo pós-DROP + graceful-skip/survivor-guard comportamental), gate `smoke39.pass` [wave 1]
+- [x] 39-01-PLAN.md — migration atômica: DROP dos 4 triggers/funções n8n + CREATE de `trg_notif_transicao` (CASE avanço+decisão) / `trg_notif_confirmacao` (survivor-guard) / `trg_notif_convite` (agendamento_id), ids-only/graceful-skip/fail-open [wave 1]
+- [x] 39-02-PLAN.md — aposentar o disparo n8n LIVE do `submit-candidatura` (remover o `fetch` hardcoded do index.ts + limpar o stub de fetch vestigial no deno test) [wave 1]
+- [x] 39-03-PLAN.md — Wave-0 smoke `p39_rewire_triggers_smoke.sql` (estrutural via `pg_get_functiondef` + catálogo pós-DROP + graceful-skip/survivor-guard comportamental), gate `smoke39.pass` [wave 1]
 
 **Wave 2** *(GATED — `autonomous: false`, checkpoint do orquestrador; bloqueado em UAT-38-1 (EF viva/smoked) + UAT-36-2 (`resend_api_key` no Vault))*
 
-- [ ] 39-04-PLAN.md — gate ao vivo + diff-before-drop (DBMIG-02) + redeploy de `submit-candidatura` → apply da migration via MCP + reconcile do ledger + catálogo (0 n8n / 3 notif) + smoke → end-to-end por evento via `*@resend.dev` + cleanup do n8n cloud [wave 2]
+- [x] 39-04-PLAN.md — gate ao vivo + diff-before-drop (DBMIG-02) + redeploy de `submit-candidatura` → apply da migration via MCP + reconcile do ledger + catálogo (0 n8n / 3 notif) + smoke → end-to-end por evento via `*@resend.dev` + cleanup do n8n cloud [wave 2]
 
 *Nota (discuss-phase):* antes de finalizar o predicado do `CASE`, **confirmar que o caminho de aprovação escreve `etapa_atual='aprovado'`** (questão aberta) — se só escreve `decisao_final`, um trigger satélite em `decisao_final` é necessário para aprovações. Diff dos corpos de função vivos **antes** de qualquer `CREATE OR REPLACE` (disciplina DBMIG-02; sem wrapper `BEGIN;...COMMIT;`).
 

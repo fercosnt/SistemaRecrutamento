@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: P38 deployada+smoke (funcional); P39 Wave 1 COMPLETO (zero PROD); Wave 2 (39-04 apply PROD) em CHECKPOINT humano, gated em DELIV-01 (domínio).
-stopped_at: Phase 39 Wave 1 completa (39-01 migration escrita · 39-02 fetch n8n removido de submit-candidatura, deno 5/5 · 39-03 smoke escrito) — 3 SUMMARYs, zero PROD, commits 8860631→6c5438a. Wave 2 (39-04) = apply PROD (DROP4+CREATE3 + redeploy submit-candidatura + run smoke) em checkpoint autonomous:false, gated em DELIV-01 (rh.beautysmile.com.br não verificado no Resend → entrega falha 403).
+status: P39 COMPLETA — Wave 2 (39-04) APLICADA em PROD (n8n aposentado do banco+código; 3 triggers canônicos vivos; SEC-03 resolvido). ⛔ DELIV-01 segue ABERTO (aceito): todo envio grava 'falhou' até verificar rh.beautysmile.com.br no Resend (recuperação = pg_cron da P41).
+stopped_at: Phase 39 COMPLETA (Wave 1 39-01/02/03 + Wave 2 39-04 aplicada). Redeploy submit-candidatura (verify_jwt=true, 401 confirmado) ANTES do apply; migration 20260726000001 via MCP apply_migration + reconcile; catálogo 0 n8n / 3 trg_notif_* (ortogonais intactos); smoke 6/6 (fix do falso-negativo (f) — LIKE escapado); E2E hop trg_notif_transicao→EF net._http_response=200 (ledger avanco/falhou, limpo). Próximo: P41 (última fase; planejar) — mas gated em DELIV-01 para UAT ao vivo.
 last_updated: "2026-07-26"
-last_activity: 2026-07-26 -- P39 Wave 1 completa; Wave 2 aguarda verificação do domínio (DELIV-01) + go humano
+last_activity: 2026-07-26 -- P39 Wave 2 APLICADA em PROD (operador aceitou DELIV-01 aberto → sends=falhou até domínio verificado)
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
-  percent: 67
+  completed_phases: 5
+  total_plans: 20
+  completed_plans: 20
+  percent: 83
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **Wave 1 EXECUTADA** ✅ (3/4 plans; zero PROD). Wave 2 em checkpoint humano.
-Plan: 3 of 4 executados. **Wave 1 ✅** — 39-01 (migration atômica DROP4+CREATE3 escrita, T1/T2 OK, colunas confirmadas ao vivo) · 39-02 (fetch n8n LIVE removido de submit-candidatura + test limpo, deno 5/5, grep n8n=0) · 39-03 (smoke Wave-0 escrito, 351 linhas, contagem adaptativa PROD/descartável). Commits 8860631→6c5438a. **Wave 2 (39-04) — GATED, checkpoint `autonomous:false`**: apply da migration em PROD (DROP 4 triggers/funções n8n + CREATE 3 trg_notif_*) + redeploy de submit-candidatura + run do smoke via MCP + reconcile do ledger. Pré-reqs: (a) EF viva+smoke ✅ / resend_api_key ✅; (b) diff-before-drop DBMIG-02 (a fazer no 39-04); (c) redeploy submit-candidatura (a fazer no 39-04). **BLOQUEADO por DELIV-01** — sem o domínio verificado, o rewire dispararia só `falhou`.
-Status: P39 Wave 1 fechada; Wave 2 aguarda verificação do domínio (DELIV-01) + aprovação humana explícita.
-Last activity: 2026-07-26 -- P39 Wave 1 executada (zero PROD); Wave 2 em checkpoint
+Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **COMPLETA** ✅ (4/4 plans; Wave 2 aplicada em PROD 2026-07-26).
+Plan: 4 of 4 executados. **Wave 1 ✅** — 39-01 (migration atômica DROP4+CREATE3) · 39-02 (fetch n8n removido de submit-candidatura, deno 5/5) · 39-03 (smoke Wave-0). **Wave 2 ✅ (39-04, orquestrador via MCP+CLI)** — gate re-verificado ao vivo; diff-before-drop dos 4 corpos n8n (todos graceful-skip); **redeploy submit-candidatura ANTES do apply** (401 confirma verify_jwt=true); `apply_migration` de `20260726000001` + reconcile do ledger; catálogo **0 trg_n8n_* / 3 trg_notif_*** (confirmacao/convite/transicao) com `avancar_etapa`+`trg_candidaturas_analise` intactos; **smoke 6/6 verde** (fix do falso-negativo (f): LIKE `trg_notif_%` casava o touch trigger P37 → escapado p/ `trg\_notif\_%`); **E2E hop provado** (insert em historico → `trg_notif_transicao` → `net._http_response=200`, ledger `avanco`; resíduo limpo). **SEC-03 resolvido por substituição.**
+Status: P39 fechada. **⛔ DELIV-01 ABERTO (aceito pelo operador):** `rh.beautysmile.com.br` não verificado no Resend → todo envio grava `falhou` até a verificação DNS; recuperação = varredura `pg_cron` da P41. **⏳ Cleanup n8n cloud** (workflow em `fernandocosta.app.n8n.cloud`) = ação humana pendente.
+Last activity: 2026-07-26 -- P39 Wave 2 aplicada em PROD (n8n aposentado; SEC-03 resolvido; entrega gated em DELIV-01)
 
-Progress: [███████████░░░] 67% (4/6 fases fechadas; P39 Wave 1 executada / Wave 2 gated; P41 não planejada)
+Progress: [██████████████░░] 83% (5/6 fases fechadas: 36-40; P41 última, não planejada, gated em DELIV-01 p/ UAT ao vivo)
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
@@ -135,7 +135,9 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **Débito de infra: `.husky/pre-commit` permanentemente vermelho.** Roda `npm run lint`, que sai não-zero contra um baseline PRÉ-EXISTENTE de 97 erros `tsc` em `src/**` (teto do CI é 104, então o CI passa). Consequência: 100% dos commits da P36 usaram `--no-verify`, cada um com a contagem 97→97 documentada no corpo. Isso treina bypass reflexivo. Seria mais útil como gate de não-regressão (comparar contagem contra o baseline) do que como checagem binária de exit code.
 - **Cadeia estrita 37 → 38 → 39** — a EF precisa da tabela `notificacoes_enviadas`; os triggers precisam de uma EF viva pra apontar (senão disparam num 404, silenciosamente droppado — `net.http_post` é at-most-once).
 - **Phase 39 é a de maior risco** — a colisão de double-send (3+ triggers n8n dormentes + o disparo env-var do `submit-candidatura`) só é segura com DROP-and-CREATE no MESMO phase + guarda `UNIQUE(dedupe_key)` durável. Não "manter os dois temporariamente".
-- **DELIV-01 (verificação de domínio) — ⛔ ATIVO, confirmado pelo smoke da P38 (2026-07-26).** O subdomínio remetente **`rh.beautysmile.com.br` NÃO está verificado no Resend** → todo envio bate `403 domain not verified` e grava `status='falhou'`. A migração `recruta.→rh.` (`f284672`) trocou o remetente em `_shared/email-config.ts` mas a verificação DNS/Resend do novo subdomínio não foi feita. Ação humana/DNS do Fernando: adicionar+verificar `rh.beautysmile.com.br` em https://resend.com/domains (SPF/DKIM auto + DMARC). **Deve aterrissar antes do 1º envio a candidato real (e antes de a P39 apontar triggers para tráfego real).** Enquanto aberto, o pipeline processa mas não entrega.
+- **DELIV-01 (verificação de domínio) — ⛔ ATIVO, re-confirmado ao vivo na P39-04 (2026-07-26).** O subdomínio remetente **`rh.beautysmile.com.br` NÃO está verificado no Resend** → todo envio bate `403 domain not verified` e grava `status='falhou'`. Re-verificado por smoke fresco no início da P39-04 (contradisse o registro de "verificado" — por isso o gate re-verifica ao vivo, não confia no registro). **O operador optou explicitamente por aplicar a P39 mesmo assim** (rewire vivo, sends=`falhou`), aceitando que a recuperação virá pela varredura `pg_cron` da P41. Ação humana/DNS do Fernando: adicionar+verificar `rh.beautysmile.com.br` em https://resend.com/domains (SPF/DKIM auto + DMARC). **O funil AGORA dispara em tráfego real, mas só registra `falhou` até isto fechar** — quanto antes verificar, menos linhas acumuladas p/ o retry. Re-rodar o smoke da P38 após verificação deve dar `enviado`.
+- **⏳ Cleanup do n8n cloud (DISPATCH-03) — pendente, ação humana.** A P39 aposentou o n8n do BANCO (0 `trg_n8n_*`) e do CÓDIGO deployado (submit-candidatura sem fetch). Falta fechar a superfície EXTERNA: desativar/apagar a(s) workflow(s) em `fernandocosta.app.n8n.cloud` (painel do Fernando). O secret `n8n_webhook_base` já não existe no Vault (nada a remover).
+- **⚠ Drift pré-existente re-surfaced na P39-04 (NÃO-P39).** `db push --linked` reporta 7 versions órfãs (`20260713024106`…`20260714023002`) — migrations de 07-13/07-14 aplicadas via `apply_migration` (timestamp) e nunca reconciliadas ao prefixo do arquivo (2 sem arquivo local: `usr_rh_review_fixes_wr01_wr03`, `perfil_rh_rpc_hardening`). É o débito de drift já documentado (causa desconhecida), 2 semanas antes da P39. A version da P39 (`20260726000001`) está corretamente reconciliada → **zero drift novo**. NÃO reparado (fora de escopo; `--status reverted` do CLI marcaria migrations aplicadas como revertidas — errado). Rastrear p/ backlog de infra.
 - **D-15 / RNF-07a / RNF-12a** — o template de rejeição (COMM-05) é fixo e neutro (grep-guard contra tokens de scoring), disparado só por decisão registrada por humano.
 - **Contas de teste PROD:** `e2e.admin@beautysmile.com.br` (admin) + `recrutador` `fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7` + `candidato.funil@teste.com`.
 

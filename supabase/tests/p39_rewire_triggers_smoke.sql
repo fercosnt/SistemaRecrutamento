@@ -171,10 +171,14 @@ RESET ROLE;
 DO $$
 DECLARE v_n8n_trg int; v_n8n_fn int; v_notif_trg int;
 BEGIN
-  SELECT count(*) INTO v_n8n_trg FROM pg_trigger WHERE tgname LIKE 'trg_n8n_%' AND NOT tgisinternal;
+  -- NB: em LIKE, '_' é curinga de 1 caractere. Escapar (\_) para casar underscore LITERAL —
+  -- senão 'trg_notif_%' também casaria o touch trigger trg_notificacoes_atualizado_em (P37),
+  -- inflando a contagem para 4 e reprovando (f) por FALSO-NEGATIVO. O escape mantém a
+  -- propriedade "exatamente 3 dispatch + nenhum inesperado". (Confirmado ao vivo P39-04.)
+  SELECT count(*) INTO v_n8n_trg FROM pg_trigger WHERE tgname LIKE 'trg\_n8n\_%' AND NOT tgisinternal;
   SELECT count(*) INTO v_n8n_fn  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.proname LIKE 'trg_n8n_%';
-  SELECT count(*) INTO v_notif_trg FROM pg_trigger WHERE tgname LIKE 'trg_notif_%' AND NOT tgisinternal;
+    WHERE n.nspname = 'public' AND p.proname LIKE 'trg\_n8n\_%';
+  SELECT count(*) INTO v_notif_trg FROM pg_trigger WHERE tgname LIKE 'trg\_notif\_%' AND NOT tgisinternal;
 
   IF v_n8n_trg <> 0 THEN
     RAISE EXCEPTION 'P39 FAIL (f): ainda existem % trigger(s) trg_n8n_* — n8n não foi aposentado (superfície de double-send viva)', v_n8n_trg;
