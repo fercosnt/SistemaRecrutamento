@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: Autonomous pausado por decisão do operador — P39/P41 dependem do gate do Vault
-stopped_at: Phase 39 PLANNED + VERIFIED (discuss + research + 4 plans/2 waves, plan-checker PASSED). Wave 1 (39-01/02/03, SAFE-NOW, zero PROD) executável já; Wave 2 (39-04, apply em PROD) GATED em UAT-38-1 + UAT-36-2.
+status: P38 DEPLOYADA + SMOKE (funcional provado; entrega gated em DELIV-01). Executando P39 Wave 1 (zero PROD); Wave 2 (apply PROD) segue em checkpoint humano.
+stopped_at: Phase 38 EF deployada dormente + smoke funcional (auth/idempotência/render/graceful-fail OK); entrega bloqueada em DELIV-01 (domínio rh.beautysmile.com.br não verificado no Resend). NOTIFICAR_SECRET setado (gap de auth da P38 corrigido). Prosseguindo p/ P39 Wave 1.
 last_updated: "2026-07-26"
-last_activity: 2026-07-26 -- Phase 39 planejada e verificada (Wave 2 gated no Vault)
+last_activity: 2026-07-26 -- P38 deploy+smoke (UAT-36-2 clareou; NOTIFICAR_SECRET fix; DELIV-01 é o novo gate de entrega)
 progress:
   total_phases: 6
   completed_phases: 4
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** AUTONOMOUS PAUSADO — P36/37/38(código)/40 fechados; **P39 e P41 gated no Vault** (aguardam o smoke da P38). Retomar com `/gsd-autonomous --from 39` após UAT-36-2 + deploy/smoke da P38.
+**Current focus:** P38 EF **deployada dormente + smoke funcional** (2026-07-26). UAT-36-2 clareou (chave no Vault). Gap de auth da P38 (`NOTIFICAR_SECRET` ausente) **corrigido**. **Novo gate de ENTREGA: DELIV-01 / UAT-36-1** — `rh.beautysmile.com.br` não verificado no Resend (403). Executando **P39 Wave 1** (zero PROD); **P39 Wave 2** (apply PROD) e a entrega real seguem em checkpoint humano.
 
 ## Current Position
 
@@ -34,7 +34,7 @@ Progress: [███████████░░░] 67% (4/6 fases fechadas; 
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
-> ⚠ **Duas fases gated no mesmo Vault key.** **P38** (EF): código fechado e provado (`deno test` 17/17), mas **não deployada nem smoke-testada** — bloqueada em **UAT-36-2** (`resend_api_key` ausente do Vault, verificado read-only 2026-07-23; registrado em `38-HUMAN-UAT.md` / UAT-38-1). **P39** (rewire de triggers + DROP n8n — maior risco): o apply em PROD **não pode** aterrissar antes do smoke da P38 (cadeia estrita 38→39: trigger sem EF viva dispara num 404 silencioso). **P41** (webhook + pg_cron): gated em P38+P39 vivas. **P40** foi feita fora de ordem por ser lateralmente independente (lê só `config_sla_etapa`, já seedada). Ordem de retomada: Fernando faz UAT-36-2 → deploy+smoke P38 (UAT-38-1) → `/gsd-autonomous --from 39`. **[RE-VERIFICADO 2026-07-26 ao vivo via Supabase MCP no resume]:** `vault.secrets` contém só `edge_invoke_key` + `project_url` (SEM `resend_api_key`) e a EF `notificar-candidato` NÃO está na lista de functions deployadas — os DOIS gates seguem abertos. Autonomous re-parado antes de qualquer toque em PROD.
+> ✅/⚠ **Update 2026-07-26 (sessão de deploy+smoke da P38, orquestrador via MCP+CLI).** **UAT-36-2 clareou** — `resend_api_key` agora vive no Vault (`ler_resend_api_key()` não-nulo, len 36; Fernando provisionou após a verificação de 23/07). **P38 deployada dormente** (`notificar-candidato` v2, `verify_jwt=false`, ACTIVE; 0 funções PL/pgSQL a referenciam; os 4 `trg_n8n_*` seguem vivos). **Smoke UAT-38-1:** auth (após fix), idempotência (`skipped:duplicate`, sem 2ª linha), resolução por allowlist, render e degradação graciosa **PROVADOS**; a linha de teste foi limpa. **⚠ GAP DA P38 CORRIGIDO:** a EF batia **401** — `NOTIFICAR_SECRET` nunca fora setado e a invariante `edge_invoke_key==service_role` está **quebrada por rotação** (`edge_invoke_key`/`ANALISE_SECRET`=`823aa757…` ≠ `SUPABASE_SERVICE_ROLE_KEY` injetada=`085073ec…`). Fix: `NOTIFICAR_SECRET`=`edge_invoke_key` (extraído do Vault sem exposição; digest confirmado `823aa757…`). Isto **também** é pré-req dos triggers da P39. **⛔ NOVO GATE — DELIV-01 / UAT-36-1:** a entrega real (`status='enviado'`) segue bloqueada — Resend responde **`403 rh.beautysmile.com.br domain not verified`** (a migração remetente `recruta.→rh.` do `f284672` adiantou-se à verificação DNS). Ação humana do Fernando (DNS + dashboard Resend). Re-smoke após verificação → deve dar `enviado`. **P39** (rewire): a EF-alvo está viva e provada funcionalmente; **P39 Wave 2** (apply PROD) e a **entrega real** seguem em checkpoint. **P41** gated em P38+P39 vivas.
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -135,7 +135,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **Débito de infra: `.husky/pre-commit` permanentemente vermelho.** Roda `npm run lint`, que sai não-zero contra um baseline PRÉ-EXISTENTE de 97 erros `tsc` em `src/**` (teto do CI é 104, então o CI passa). Consequência: 100% dos commits da P36 usaram `--no-verify`, cada um com a contagem 97→97 documentada no corpo. Isso treina bypass reflexivo. Seria mais útil como gate de não-regressão (comparar contagem contra o baseline) do que como checagem binária de exit code.
 - **Cadeia estrita 37 → 38 → 39** — a EF precisa da tabela `notificacoes_enviadas`; os triggers precisam de uma EF viva pra apontar (senão disparam num 404, silenciosamente droppado — `net.http_post` é at-most-once).
 - **Phase 39 é a de maior risco** — a colisão de double-send (3+ triggers n8n dormentes + o disparo env-var do `submit-candidatura`) só é segura com DROP-and-CREATE no MESMO phase + guarda `UNIQUE(dedupe_key)` durável. Não "manter os dois temporariamente".
-- **DELIV-01 (verificação de domínio)** é ação humana/DNS do Fernando — deve aterrissar antes do 1º envio a candidato real (UAT P41). Codificação/teste procede em paralelo via `resend.dev`.
+- **DELIV-01 (verificação de domínio) — ⛔ ATIVO, confirmado pelo smoke da P38 (2026-07-26).** O subdomínio remetente **`rh.beautysmile.com.br` NÃO está verificado no Resend** → todo envio bate `403 domain not verified` e grava `status='falhou'`. A migração `recruta.→rh.` (`f284672`) trocou o remetente em `_shared/email-config.ts` mas a verificação DNS/Resend do novo subdomínio não foi feita. Ação humana/DNS do Fernando: adicionar+verificar `rh.beautysmile.com.br` em https://resend.com/domains (SPF/DKIM auto + DMARC). **Deve aterrissar antes do 1º envio a candidato real (e antes de a P39 apontar triggers para tráfego real).** Enquanto aberto, o pipeline processa mas não entrega.
 - **D-15 / RNF-07a / RNF-12a** — o template de rejeição (COMM-05) é fixo e neutro (grep-guard contra tokens de scoring), disparado só por decisão registrada por humano.
 - **Contas de teste PROD:** `e2e.admin@beautysmile.com.br` (admin) + `recrutador` `fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7` + `candidato.funil@teste.com`.
 

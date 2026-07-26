@@ -1,15 +1,19 @@
 ---
-status: pending
+status: partial
 phase: 38-ef-notificar-candidato-comm
 source: [38-04-PLAN.md, 38-VALIDATION.md]
-blocked_on: [UAT-36-2]
+blocked_on: [UAT-36-1]
 started: 2026-07-23
-updated: 2026-07-23
+updated: 2026-07-26
 ---
 
 ## Current Test
 
-[awaiting human execution — requires (a) a live `resend_api_key` no Supabase Vault (UAT-36-2, ainda pendente) e (b) o deploy da EF em PROD via Supabase MCP/CLI pelo orquestrador]
+[EF deployada + smoke rodado 2026-07-26. Auth/idempotência/render/ledger/graceful-fail PROVADOS.
+A **entrega** (`status='enviado'`) segue bloqueada em **DELIV-01 / UAT-36-1**: o Resend rejeita
+com `403 domain not verified` porque o subdomínio remetente **`rh.beautysmile.com.br` não está
+verificado** no Resend (a migração recruta.→rh. do commit `f284672` adiantou-se à verificação DNS).
+Ver Evidência abaixo.]
 
 ## Context
 
@@ -60,4 +64,46 @@ A Phase 38 fechou **todo o código** da EF `notificar-candidato` e o provou por 
 
 6. Registrar neste arquivo a data + a evidência (ids, status, provider_message_id mascarado).
 
-- **status:** pending (blocked on UAT-36-2)
+- **status:** partial — funcional PROVADO; entrega bloqueada em DELIV-01 (domínio remetente não verificado)
+
+---
+
+## Evidência da execução (2026-07-26, orquestrador via Supabase MCP + CLI)
+
+**Ambiente:** projeto `isljnozzlvckrgjjbjwp`. Candidatura de teste `a1dd4c42-bc92-4c37-a584-dc19a59a631d`
+(`candidato.funil@teste.com`, vaga `[TESTE] Dentista — Funil E2E`).
+
+**Pré-requisito UAT-36-2 — ✅ RESOLVIDO desde a última verificação.** `vault.secrets` agora contém
+`resend_api_key`; `select public.ler_resend_api_key() is null` = **false** (length 36). Fernando
+provisionou a chave em algum momento após a verificação de 2026-07-23.
+
+**Deploy dormente — ✅.** `supabase functions deploy notificar-candidato --no-verify-jwt` (v1→v2).
+`ACTIVE`, `verify_jwt=false`, entrypoint do repo `/Users/fernando/code/SistemaRecrutamento/...`.
+Dormência confirmada por catálogo: **0** funções PL/pgSQL referenciam a EF; os 4 triggers `trg_n8n_*`
+seguem vivos (P39 os dropará); o único `trg_notif_*` presente é o touch de `atualizado_em` da P37.
+
+**⚠ GAP LATENTE DA P38 ENCONTRADO E CORRIGIDO — auth self-secret.** O 1º smoke retornou **401
+UNAUTHORIZED**. Causa-raiz: a EF usa `expectedSecret = NOTIFICAR_SECRET ?? SUPABASE_SERVICE_ROLE_KEY`,
+mas o `NOTIFICAR_SECRET` **nunca foi setado** e a invariante assumida "`edge_invoke_key == service_role`"
+(herdada do comentário do `cost-alerter`) está **quebrada em PROD por rotação da service_role**
+(digests: `edge_invoke_key`/`ANALISE_SECRET` = `823aa757…`; `SUPABASE_SERVICE_ROLE_KEY` injetada = `085073ec…`
+— **diferem**). As EFs-espelho sobrevivem porque pinam um secret explícito (`ANALISE_SECRET`); a P38
+esqueceu o equivalente. **Correção aplicada:** `supabase secrets set NOTIFICAR_SECRET=<edge_invoke_key>`
+(valor extraído do Vault sem exposição — RPC `SECURITY DEFINER` guard-token efêmera + curl anon, dropada
+em seguida). Verificado por digest: `NOTIFICAR_SECRET` = `823aa757…` = `ANALISE_SECRET` = `edge_invoke_key`.
+EF redeployada (v2) para carregar o secret. **Isto também é pré-requisito dos triggers da P39** (que
+enviam `Bearer edge_invoke_key`). *Recomendação: codificar este passo no runbook de deploy da EF.*
+
+**Smoke pós-fix — ✅ funcional / ⚠ entrega:**
+- `net.http_post` → **HTTP 200 `{"ok":true}`**. Auth OK (401→200).
+- Ledger: 1 linha criada, `evento=confirmacao`, `dedupe_key=…:confirmacao`, `destinatario_email=delivered+candidatura_recebida@resend.dev` (sink de teste correto), `destinatario_original=candidato.funil@teste.com`, `modo=teste`.
+- **Entrega FALHOU (esperado, dado o gate):** `status=falhou`, `tentativas=1`, `ultimo_erro="Resend non-2xx: 403 The rh.beautysmile.com.br domain is not verified…"`. A EF degradou como projetado (fire-and-forget: gravou `falhou`, retornou 200, **nunca** 5xx).
+- **Idempotência — ✅.** 2º POST idêntico → **200 `{"ok":true,"skipped":"duplicate"}`**, **0** segunda linha, `tentativas` inalterado (a EF não re-tenta — isso é o `pg_cron` da P41).
+- **Limpeza — ✅.** A linha de teste (`…:confirmacao`, status `falhou`) foi deletada do ledger.
+
+**Veredito UAT-38-1:** a EF está **viva e provada** em auth, idempotência, resolução por allowlist,
+render e degradação graciosa. O único critério não provado é a **entrega real** (`status='enviado'`),
+**bloqueado em DELIV-01 / UAT-36-1** — verificar `rh.beautysmile.com.br` no Resend (ação DNS+dashboard
+do Fernando). Re-rodar o smoke após a verificação deve produzir `status='enviado'` + `provider_message_id`.
+
+- **status:** partial (funcional provado; entrega gated em DELIV-01)
