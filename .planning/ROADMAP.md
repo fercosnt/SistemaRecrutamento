@@ -188,7 +188,7 @@ Plans:
 
 - [x] 41-01-PLAN.md — Wave-0 testabilidade: refactor de `notificar-candidato` p/ deps injetáveis + `computeProximaTentativa` (backoff) + `exigirSinkTeste` (guard non-prod) [wave 1]
 - [x] 41-02-PLAN.md — EF `resend-webhook` (Svix verify + reconciliação por `provider_message_id`) + `config.toml` verify_jwt=false [wave 1]
-- [ ] 41-03-PLAN.md — migration aditiva (`bounce_em`/`reclamado_em` + `ler_resend_webhook_secret` + `varrer_retry_notificacoes` + cron `notif-retry-sweep`) + smoke gate-GUC [wave 1]
+- [x] 41-03-PLAN.md — migration aditiva (`bounce_em`/`reclamado_em` + `ler_resend_webhook_secret` + `varrer_retry_notificacoes` + cron `notif-retry-sweep`) + smoke gate-GUC [wave 1]
 
 **Wave 2** *(depende de 41-01)*
 
@@ -270,7 +270,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/4 | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
-| 41. Reconciliação, Retry & Testing | v7.0 | 2/5 | In Progress|  |
+| 41. Reconciliação, Retry & Testing | v7.0 | 3/5 | In Progress|  |
 
 ---
 
