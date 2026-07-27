@@ -18,6 +18,11 @@
  *
  * Deploy dormente (sem trigger) — provado ponta-a-ponta pelo smoke manual do 38-04.
  *
+ * P41 (RECON-03 / testabilidade): a EF expõe `handler(req, deps)` com `fetch`,
+ * `supabaseAdmin` e `serviceKey` INJETÁVEIS (mirror `analise-candidato-individual`),
+ * e `Deno.serve` só roda sob `import.meta.main`. Isso permite mockar o envio ao Resend
+ * nos testes SEM `--allow-net` — pré-requisito do retry (41-04) e do mock de CI.
+ *
  * @module supabase/functions/notificar-candidato
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -70,7 +75,24 @@ interface CorpoRequisicao {
   agendamento_id?: string;
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+// ---------------------------------------------------------------------------
+// Deps injetáveis (P41 / testabilidade — testes injetam mocks; sem rede)
+// ---------------------------------------------------------------------------
+
+export interface NotificarDeps {
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any;
+  /** `fetch` do envio ao Resend — testes injetam um mock → sem `--allow-net`. */
+  fetchImpl: typeof fetch;
+  /** Segredo esperado no Bearer (== NOTIFICAR_SECRET / service_role em produção). */
+  serviceKey: string;
+}
+
+/**
+ * Handler testável: recebe `deps` injetadas. `Deno.serve` (no fim, sob
+ * `import.meta.main`) constrói os clientes reais a partir do env e delega para cá.
+ */
+export async function handler(req: Request, deps: NotificarDeps): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -78,19 +100,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return errorResponse("SERVER_ERROR", "Método não suportado", 405);
   }
 
+  const { supabaseAdmin } = deps;
+
   // ---- 1) Self-auth do Vault Bearer (mirror cost-alerter) --------------------
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!SUPABASE_URL || !SERVICE_KEY) {
-    console.error("[notificar-candidato] env ausente (URL/SERVICE_KEY)");
-    return errorResponse("SERVER_ERROR", "Servidor mal configurado", 500);
-  }
   const authHeader = req.headers.get("Authorization") ?? "";
   const bearer = authHeader.startsWith("Bearer ")
     ? authHeader.slice("Bearer ".length).trim()
     : "";
-  const expectedSecret = Deno.env.get("NOTIFICAR_SECRET") ?? SERVICE_KEY;
-  if (!bearer || bearer !== expectedSecret) {
+  if (!bearer || bearer !== deps.serviceKey) {
     console.warn("[notificar-candidato] Bearer inválido/ausente");
     return errorResponse("UNAUTHORIZED", "Não autorizado.", 401);
   }
@@ -121,9 +138,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const { evento, candidatura_id, agendamento_id } = body;
-  const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
 
   // ---- 3) Resolver dados por ALLOWLIST de colunas (nunca projeção-estrela) ----
   const { data: candidatura } = await supabaseAdmin
@@ -260,7 +274,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   let resp: Response;
   try {
-    resp = await fetch("https://api.resend.com/emails", {
+    resp = await deps.fetchImpl("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -312,4 +326,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }),
   );
   return jsonResponse({ ok: true, status: "enviado" }, 200);
-});
+}
+
+// ---------------------------------------------------------------------------
+// Deno.serve — wiring de produção (constrói os clientes reais a partir do env)
+// ---------------------------------------------------------------------------
+
+// `import.meta.main` é true só quando o EF é o entrypoint (produção/deploy) e
+// false quando o módulo é importado pelo teste (que injeta deps em `handler`),
+// evitando que `Deno.serve` tente abrir uma porta durante `deno test`.
+if (import.meta.main) {
+  Deno.serve(async (req: Request) => {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      console.error("[notificar-candidato] env ausente (URL/SERVICE_KEY)");
+      return errorResponse("SERVER_ERROR", "Servidor mal configurado", 500);
+    }
+
+    // Override opcional do segredo para rotação sem trocar a service_role key.
+    const expectedSecret = Deno.env.get("NOTIFICAR_SECRET") ?? SERVICE_KEY;
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    return await handler(req, {
+      supabaseAdmin,
+      fetchImpl: fetch,
+      serviceKey: expectedSecret,
+    });
+  });
+}
