@@ -73,6 +73,12 @@ interface CorpoRequisicao {
   evento: EventoLedger;
   candidatura_id: string;
   agendamento_id?: string;
+  /**
+   * P41 / RECON-03: presente APENAS quando a varredura `pg_cron`
+   * (`varrer_retry_notificacoes`) reenvia. Sinaliza o BRANCH RETRY — a EF re-tenta
+   * a linha EXISTENTE por id em vez de reivindicar uma nova (claim-before-send).
+   */
+  retry_id?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,16 +134,50 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     if (raw.evento === "convite" && typeof raw.agendamento_id !== "string") {
       return errorResponse("VALIDATION", "convite exige agendamento_id.");
     }
+    if (raw.retry_id !== undefined && typeof raw.retry_id !== "string") {
+      return errorResponse("VALIDATION", "retry_id inválido.");
+    }
     body = {
       evento: raw.evento as EventoLedger,
       candidatura_id: raw.candidatura_id,
       agendamento_id: raw.agendamento_id ?? undefined,
+      retry_id: typeof raw.retry_id === "string" && raw.retry_id ? raw.retry_id : undefined,
     };
   } catch {
     return errorResponse("VALIDATION", "JSON malformado.");
   }
 
-  const { evento, candidatura_id, agendamento_id } = body;
+  const { evento, candidatura_id, agendamento_id, retry_id } = body;
+
+  // No caminho normal a 1ª falha grava tentativas=1; no branch retry incrementamos
+  // a partir da linha existente (row.tentativas + 1). Fixado logo abaixo (2b).
+  let novasTentativas = 1;
+
+  // ---- 2b) BRANCH RETRY (P41 / RECON-03): re-tenta uma linha EXISTENTE --------
+  // A varredura `pg_cron` reenvia com `retry_id` no body. O caminho normal colapsa
+  // um 2º disparo em skipped:duplicate (o upsert ignoreDuplicates NÃO retorna id,
+  // passos 5 abaixo), então o retry PULA o claim e re-tenta a linha por id. O guard
+  // de elegibilidade roda ANTES de qualquer resolução de dados/envio e respeita o
+  // cap 5 (T-41-14: sem loop de custo/e-mail).
+  if (retry_id) {
+    const { data: row } = await supabaseAdmin
+      .from("notificacoes_enviadas")
+      .select("id, status, tentativas, dedupe_key")
+      .eq("id", retry_id)
+      .maybeSingle();
+    if (
+      !row ||
+      (row.status !== "pendente" && row.status !== "falhou") ||
+      (row.tentativas ?? 0) >= 5
+    ) {
+      console.log(
+        "[notificar-candidato]",
+        logSeguro({ evento, candidatura_id, skipped: "nao_elegivel" }),
+      );
+      return jsonResponse({ ok: true, skipped: "nao_elegivel" }, 200);
+    }
+    novasTentativas = (row.tentativas ?? 0) + 1;
+  }
 
   // ---- 3) Resolver dados por ALLOWLIST de colunas (nunca projeção-estrela) ----
   const { data: candidatura } = await supabaseAdmin
@@ -187,56 +227,57 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   const dedupe_key = montarDedupeKey(evento, candidatura_id, agendamento_id);
 
   // ---- 5) Claim-before-send (ON CONFLICT dedupe_key DO NOTHING) --------------
-  const { data: claim, error: claimErr } = await supabaseAdmin
-    .from("notificacoes_enviadas")
-    .upsert(
-      {
-        candidato_id: candidatura.candidato_id,
-        candidatura_id,
-        dedupe_key,
-        destinatario_email: dest.para,
-        destinatario_original: dest.destinatario_original,
-        evento,
-        template: eventoNotif,
-        status: "pendente",
-        modo,
-      },
-      { onConflict: "dedupe_key", ignoreDuplicates: true },
-    )
-    .select("id");
-  if (claimErr) {
-    console.error(
-      "[notificar-candidato] claim falhou:",
-      logSeguro({ evento, candidatura_id, status: "erro_claim" }),
-    );
-    return errorResponse("SERVER_ERROR", "Falha ao reivindicar notificação.", 500);
-  }
-  if (!claim || claim.length === 0) {
-    // Já reivindicado por outra invocação — no-op idempotente.
-    console.log(
-      "[notificar-candidato]",
-      logSeguro({ evento, candidatura_id, dedupe_key, skipped: "duplicate" }),
-    );
-    return jsonResponse({ ok: true, skipped: "duplicate" }, 200);
+  // SÓ no caminho normal. No branch retry a linha já existe (carregada em 2b) e
+  // reivindicá-la de novo colapsaria em skipped:duplicate — por isso o retry pula.
+  if (!retry_id) {
+    const { data: claim, error: claimErr } = await supabaseAdmin
+      .from("notificacoes_enviadas")
+      .upsert(
+        {
+          candidato_id: candidatura.candidato_id,
+          candidatura_id,
+          dedupe_key,
+          destinatario_email: dest.para,
+          destinatario_original: dest.destinatario_original,
+          evento,
+          template: eventoNotif,
+          status: "pendente",
+          modo,
+        },
+        { onConflict: "dedupe_key", ignoreDuplicates: true },
+      )
+      .select("id");
+    if (claimErr) {
+      console.error(
+        "[notificar-candidato] claim falhou:",
+        logSeguro({ evento, candidatura_id, status: "erro_claim" }),
+      );
+      return errorResponse("SERVER_ERROR", "Falha ao reivindicar notificação.", 500);
+    }
+    if (!claim || claim.length === 0) {
+      // Já reivindicado por outra invocação — no-op idempotente.
+      console.log(
+        "[notificar-candidato]",
+        logSeguro({ evento, candidatura_id, dedupe_key, skipped: "duplicate" }),
+      );
+      return jsonResponse({ ok: true, skipped: "duplicate" }, 200);
+    }
   }
 
-  // registrarFalha: grava `falhou` + backoff (computeProximaTentativa) na linha
-  // já reivindicada. `novasTentativas` default 1 (caminho normal = 1ª falha);
-  // parametrizado p/ o retry do 41-04 (row.tentativas + 1). No cap 5,
+  // registrarFalha: grava `falhou` + backoff na linha em jogo. No caminho normal
+  // keya por `dedupe_key` (a linha recém-reivindicada); no branch retry keya por
+  // `id = retry_id` (a linha existente carregada em 2b). `novasTentativas` vem do
+  // closure: 1 no normal (1ª falha), row.tentativas + 1 no retry. No cap 5,
   // computeProximaTentativa devolve null e a linha permanece falhou (sem novo retry).
-  const registrarFalha = async (
-    motivoLog: string,
-    novasTentativas = 1,
-  ): Promise<Response> => {
-    await supabaseAdmin
-      .from("notificacoes_enviadas")
-      .update({
-        status: "falhou",
-        ultimo_erro: motivoLog.slice(0, 500),
-        proxima_tentativa_em: computeProximaTentativa(novasTentativas),
-        tentativas: novasTentativas,
-      })
-      .eq("dedupe_key", dedupe_key);
+  const registrarFalha = async (motivoLog: string): Promise<Response> => {
+    const patch = {
+      status: "falhou",
+      ultimo_erro: motivoLog.slice(0, 500),
+      proxima_tentativa_em: computeProximaTentativa(novasTentativas),
+      tentativas: novasTentativas,
+    };
+    const q = supabaseAdmin.from("notificacoes_enviadas").update(patch);
+    await (retry_id ? q.eq("id", retry_id) : q.eq("dedupe_key", dedupe_key));
     console.warn(
       "[notificar-candidato]",
       logSeguro({ evento, candidatura_id, status: "falhou" }),
@@ -298,6 +339,10 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        // Cinto secundário (LEDGER-02 / T-41-15): um re-send dentro de 24h para a
+        // mesma chave é no-op no Resend. Chave = retry_id (branch retry) ou
+        // dedupe_key (caminho normal). NUNCA logada/interpolada em console.*.
+        "Idempotency-Key": retry_id ?? dedupe_key,
       },
       body: JSON.stringify(
         construirCorpoResend({ para: dest.para, subject, html, icsBase64 }),
@@ -325,14 +370,14 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     providerMessageId = (ok as { id?: string })?.id ?? null;
   } catch { /* sem corpo — segue sem id */ }
 
-  await supabaseAdmin
+  const qSucesso = supabaseAdmin
     .from("notificacoes_enviadas")
     .update({
       status: "enviado",
       provider_message_id: providerMessageId,
       enviado_em: new Date().toISOString(),
-    })
-    .eq("dedupe_key", dedupe_key);
+    });
+  await (retry_id ? qSucesso.eq("id", retry_id) : qSucesso.eq("dedupe_key", dedupe_key));
 
   console.log(
     "[notificar-candidato]",
