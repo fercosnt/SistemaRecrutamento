@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: "Completed 41-03-PLAN.md — migration aditiva P41 (20260727000001: bounce_em/reclamado_em + ler_resend_webhook_secret + varrer_retry_notificacoes + cron notif-retry-sweep) + smoke gate-GUC escritos (zero PROD; apply/reconcile/smoke = 41-05)"
-last_updated: "2026-07-27T00:43:16.859Z"
+stopped_at: "Completed 41-04-PLAN.md — branch retry (retry_id) na EF notificar-candidato: pula o claim, re-tenta linha existente por id, incrementa tentativas (row+1) com backoff (null no cap 5), guard nao_elegivel (cap 5), Idempotency-Key no fetch Resend; testes com fetch/supabaseAdmin mockados (EF 251 passed SEM --allow-net). Zero PROD; redeploy = 41-05"
+last_updated: "2026-07-27T00:58:11.197Z"
 last_activity: 2026-07-27
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
   percent: 83
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 41 (Reconciliação de Entrega, Retry & Testing) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-07-27
 
-Progress: [█████████░] 92%
+Progress: [██████████] 96%
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
@@ -82,6 +82,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 41 P01 | 20min | 2 tasks | 5 files |
 | Phase 41 P02 | 18min | 2 tasks | 4 files |
 | Phase 41 P03 | 6min | 2 tasks | 2 files |
+| Phase 41 P04 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,9 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 41]: P41-03: migration aditiva 20260727000001 escrita (bounce_em/reclamado_em timestamptz NULL + ler_resend_webhook_secret + varrer_retry_notificacoes + cron notif-retry-sweep */15) + smoke gate-GUC. RECON-01/02/03 mantidos Pending — so escreve .sql, zero PROD; completam no 41-05 (apply via MCP + reconcile + smoke + registro webhook + secret no Vault)
 - [Phase 41]: P41-03: Bearer da varredura = edge_invoke_key do Vault (NUNCA service-role, invariante quebrada por rotacao — Pitfall 5); a varredura NAO incrementa tentativas (net.http_post at-most-once, quem incrementa e a EF ao tentar); cap tentativas<5 + LIMIT 20/sweep (T-41-09/T-41-10)
 - [Phase 41]: P41-03: nenhum CREATE INDEX na migration (idx_notif_retry/idx_notif_provider_msg ja vivem em PROD; recriar com IF NOT EXISTS mascararia divergencia — o smoke b os VERIFICA); smoke p41 e gate-GUC 100% estrutural/catalogo com esperado FIXO 5 (sem INSERT, seguro em PROD vivo, diferente do p39 adaptativo)
+- [Phase 41]: P41-04: branch retry na EF notificar-candidato gateado por retry_id — pula o claim-before-send, re-tenta a linha EXISTENTE por id, incrementa tentativas (row+1) com backoff (null no cap 5); caminho normal preservado byte-a-byte
+- [Phase 41]: P41-04: guard de elegibilidade do retry (ausente|status terminal|tentativas>=5 -> 200 nao_elegivel) roda LOGO apos o parse, antes da resolucao de dados/envio (T-41-14 cap 5); exigirSinkTeste preservado no retry (fora do if !retry_id)
+- [Phase 41]: P41-04: header Idempotency-Key = retry_id ?? dedupe_key no fetch do Resend (cinto secundario 24h LEDGER-02/T-41-15) nunca logado; RECON-01/03 seguem Pending ate 41-05 (deploy+apply cron)
 
 ### Pending Todos
 
@@ -167,8 +171,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-27T00:43:16.853Z
-Stopped at: Completed 41-03-PLAN.md — migration aditiva P41 (20260727000001: bounce_em/reclamado_em + ler_resend_webhook_secret + varrer_retry_notificacoes + cron notif-retry-sweep) + smoke gate-GUC escritos (zero PROD; apply/reconcile/smoke = 41-05)
+Last session: 2026-07-27T00:57:23.218Z
+Stopped at: Completed 41-04-PLAN.md — branch retry (retry_id) na EF notificar-candidato: pula o claim, re-tenta linha existente por id, incrementa tentativas (row+1) com backoff (null no cap 5), guard nao_elegivel (cap 5), Idempotency-Key no fetch Resend; testes com fetch/supabaseAdmin mockados (EF 251 passed SEM --allow-net). Zero PROD; redeploy = 41-05
 Resume file: None
 
 ## Operator Next Steps

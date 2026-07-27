@@ -192,7 +192,7 @@ Plans:
 
 **Wave 2** *(depende de 41-01)*
 
-- [ ] 41-04-PLAN.md — branch retry (`retry_id`) na `notificar-candidato` + `Idempotency-Key` + testes com fetch mockado [wave 2]
+- [x] 41-04-PLAN.md — branch retry (`retry_id`) na `notificar-candidato` + `Idempotency-Key` + testes com fetch mockado [wave 2]
 
 **Wave 3** *(GATED — `autonomous: false`, checkpoint do orquestrador; apply/deploy/Vault/dashboard via MCP)*
 
@@ -270,7 +270,7 @@ Phases execute in numeric order: 36 → 37 → 38 → 39 → 40 → 41
 | 38. EF `notificar-candidato` (COMM) | v7.0 | 0/TBD | Not started | - |
 | 39. Rewire dos Triggers & Aposentadoria do n8n | v7.0 | 0/4 | Not started | - |
 | 40. Timeline de Prazo no Painel | v7.0 | 0/TBD | Not started | - |
-| 41. Reconciliação, Retry & Testing | v7.0 | 3/5 | In Progress|  |
+| 41. Reconciliação, Retry & Testing | v7.0 | 4/5 | In Progress|  |
 
 ---
 
