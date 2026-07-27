@@ -127,3 +127,23 @@ export function exigirChaveApi(chave: string | undefined, modo: ModoNotificacao)
   }
   return chave ?? ''
 }
+
+/**
+ * Hard-fail non-prod (P41 / DELIV-03).
+ *
+ * Em modo `teste`, ABORTA o envio se o destinatário efetivo não for um sink
+ * `*@resend.dev` — nenhum candidato real pode receber um e-mail de um run de teste
+ * (T-41-01). Em `producao` o guard é no-op (produção alcança endereços reais por
+ * design). Chamado na EF logo antes do envio ao Resend.
+ *
+ * SEGURANÇA (V7 / T-41-03): a mensagem NUNCA interpola o destinatário — em teste o
+ * `paraEfetivo` já é o sink produzido por `resolverDestinatario`, não o e-mail real;
+ * mesmo assim o valor não viaja para o log estruturado (mirror `exigirChaveApi`).
+ */
+export function exigirSinkTeste(paraEfetivo: string, modo: ModoNotificacao): void {
+  if (modo === 'teste' && !/@resend\.dev$/i.test(paraEfetivo)) {
+    throw new Error(
+      '[email-config] modo=teste mas destinatário não é sink *@resend.dev — envio abortado (DELIV-03).',
+    )
+  }
+}

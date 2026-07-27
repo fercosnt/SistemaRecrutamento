@@ -62,6 +62,29 @@ export function construirCorpoResend(args: {
   return corpo;
 }
 
+/**
+ * Backoff exponencial capado da varredura de retry (P41 / RECON-03).
+ *
+ * Curva ≈15m → 1h → 6h → 24h, indexada pela NOVA contagem de tentativas, com
+ * CAP de 5: a partir de `novasTentativas >= 5` devolve `null` — sem mais retries,
+ * a linha permanece `falhou` (evita loop de custo/DoS de e-mail, T-41-02).
+ *
+ * @param novasTentativas quantas tentativas a linha terá APÓS esta (1 = 1ª falha).
+ * @returns ISO da próxima tentativa, ou `null` quando esgotou o cap.
+ */
+const BACKOFF_MS = [
+  15 * 60_000, //     após tentativa 1 → +15min
+  60 * 60_000, //     após tentativa 2 → +1h
+  6 * 60 * 60_000, // após tentativa 3 → +6h
+  24 * 60 * 60_000, // após tentativa 4 → +24h
+];
+
+export function computeProximaTentativa(novasTentativas: number): string | null {
+  if (novasTentativas >= 5) return null; // cap: sem mais retries (fica falhou)
+  const ms = BACKOFF_MS[novasTentativas - 1] ?? BACKOFF_MS.at(-1)!;
+  return new Date(Date.now() + ms).toISOString();
+}
+
 /** Allowlist de chaves de log — só ids/evento/status/counts. Nunca email/nome/html/segredo. */
 const CHAVES_LOG_OK = new Set([
   "evento",

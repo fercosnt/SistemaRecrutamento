@@ -27,12 +27,14 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  exigirSinkTeste,
   resolverDestinatario,
   resolverModo,
 } from "../_shared/email-config.ts";
 import { renderarEmail } from "../_shared/email-templates.ts";
 import { gerarIcsAgendamento, icsParaBase64 } from "../_shared/ics.ts";
 import {
+  computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
   logSeguro,
@@ -66,8 +68,6 @@ const EVENTOS_VALIDOS: ReadonlySet<string> = new Set([
   "convite",
   "decisao",
 ]);
-
-const RETRY_INTERVALO_MS = 15 * 60 * 1000; // 15 min → proxima_tentativa_em em falha
 
 interface CorpoRequisicao {
   evento: EventoLedger;
@@ -220,6 +220,42 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     return jsonResponse({ ok: true, skipped: "duplicate" }, 200);
   }
 
+  // registrarFalha: grava `falhou` + backoff (computeProximaTentativa) na linha
+  // já reivindicada. `novasTentativas` default 1 (caminho normal = 1ª falha);
+  // parametrizado p/ o retry do 41-04 (row.tentativas + 1). No cap 5,
+  // computeProximaTentativa devolve null e a linha permanece falhou (sem novo retry).
+  const registrarFalha = async (
+    motivoLog: string,
+    novasTentativas = 1,
+  ): Promise<Response> => {
+    await supabaseAdmin
+      .from("notificacoes_enviadas")
+      .update({
+        status: "falhou",
+        ultimo_erro: motivoLog.slice(0, 500),
+        proxima_tentativa_em: computeProximaTentativa(novasTentativas),
+        tentativas: novasTentativas,
+      })
+      .eq("dedupe_key", dedupe_key);
+    console.warn(
+      "[notificar-candidato]",
+      logSeguro({ evento, candidatura_id, status: "falhou" }),
+    );
+    return jsonResponse({ ok: true }, 200); // fire-and-forget: nunca 5xx ao trigger
+  };
+
+  // ---- 5b) Guard non-prod (DELIV-03) — ANTES de qualquer envio --------------
+  // Em modo teste, aborta se o destinatário efetivo não for um sink *@resend.dev
+  // (T-41-01: nenhum candidato real recebe e-mail de um run de teste). Fire-and-
+  // forget: registra `falhou` na linha reivindicada e retorna 200 (nunca 5xx).
+  try {
+    exigirSinkTeste(dest.para, modo);
+  } catch (e) {
+    return await registrarFalha(
+      `guard non-prod: ${(e as { message?: string })?.message ?? "sink de teste inválido"}`,
+    );
+  }
+
   // ---- 6) Render + anexo .ics (só convite) ----------------------------------
   const dataHoraFmt = agendamento
     ? new Intl.DateTimeFormat("pt-BR", {
@@ -249,23 +285,6 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   }
 
   // ---- 7) Segredo do Vault + envio ------------------------------------------
-  const registrarFalha = async (motivoLog: string): Promise<Response> => {
-    await supabaseAdmin
-      .from("notificacoes_enviadas")
-      .update({
-        status: "falhou",
-        ultimo_erro: motivoLog.slice(0, 500),
-        proxima_tentativa_em: new Date(Date.now() + RETRY_INTERVALO_MS).toISOString(),
-        tentativas: 1,
-      })
-      .eq("dedupe_key", dedupe_key);
-    console.warn(
-      "[notificar-candidato]",
-      logSeguro({ evento, candidatura_id, status: "falhou" }),
-    );
-    return jsonResponse({ ok: true }, 200); // fire-and-forget: nunca 5xx ao trigger
-  };
-
   const { data: apiKey } = await supabaseAdmin.rpc("ler_resend_api_key");
   if (!apiKey || typeof apiKey !== "string") {
     // Sem chave: grava falhou e sai 200 (não vaza 401 opaco; a P41 re-tenta quando houver chave).
