@@ -33,6 +33,10 @@ verify_jwt = false
 [functions.gerar-devolutiva-bigfive]
 verify_jwt = false
 
+# EF pública chamada pelo Resend — self-auth pela assinatura Svix (não JWT de usuário) — Phase 41
+[functions.resend-webhook]
+verify_jwt = false
+
 # ── JWT-ON (auth.getUser) — +import_map for the shared-zod EFs ─────────────────────
 
 [functions.avaliar-redacao]
