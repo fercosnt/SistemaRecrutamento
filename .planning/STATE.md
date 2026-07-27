@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: executing
-stopped_at: "Completed 41-04-PLAN.md — branch retry (retry_id) na EF notificar-candidato: pula o claim, re-tenta linha existente por id, incrementa tentativas (row+1) com backoff (null no cap 5), guard nao_elegivel (cap 5), Idempotency-Key no fetch Resend; testes com fetch/supabaseAdmin mockados (EF 251 passed SEM --allow-net). Zero PROD; redeploy = 41-05"
-last_updated: "2026-07-27T00:58:11.197Z"
-last_activity: 2026-07-27
+status: "P41 Waves 1-2 CONSTRUÍDAS (código completo, zero PROD): 41-01 (deps injetáveis+backoff+guard), 41-02 (EF resend-webhook Svix), 41-03 (migration file recon/retry+cron), 41-04 (branch retry). 41-05 (apply PROD+deploys) HELD por decisão humana até DELIV-01 verificado. Milestone NÃO fechado."
+stopped_at: "Phase 41 Waves 1-2 completas (41-01..04, EF suite 251/0 deno sem --allow-net, 18 commits). 41-05 = checkpoint autonomous:false RETIDO: aplicar a migration aditiva 20260727000001 (bounce_em/reclamado_em + RPC ler_resend_webhook_secret + varrer_retry_notificacoes + cron 15min) + deploy resend-webhook + redeploy notificar-candidato = orquestrador via MCP/CLI; MAS a varredura pg_cron queima os 5 retries (~31h) contra o 403 do domínio se aplicada antes de DELIV-01 → HOLD até o domínio verificado. Human steps do 41-05: registrar webhook no dashboard Resend + provisionar resend_webhook_secret no Vault."
+last_updated: "2026-07-27"
+last_activity: 2026-07-27 -- P41 código construído (Waves 1-2); 41-05 apply PROD retido até DELIV-01
 progress:
   total_phases: 6
   completed_phases: 5
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 41 (Reconciliação de Entrega, Retry & Testing) — EXECUTING
-Plan: 5 of 5
-Status: Ready to execute
-Last activity: 2026-07-27
+Phase: 41 (Reconciliação de Entrega, Retry & Testing) — CÓDIGO CONSTRUÍDO (Waves 1-2); 41-05 apply PROD RETIDO
+Plan: 4 of 5 executados (41-01..04 code+tests, zero PROD, EF 251/0). **41-05 = checkpoint HELD** até DELIV-01 verificado + human steps (webhook registration + resend_webhook_secret no Vault).
+Status: Autonomous parado em checkpoint humano. P41 code completo e commitado. Milestone v7.0 NÃO fechado (41-05 pendente + DELIV-01 aberto).
+Last activity: 2026-07-27 -- P41 Waves 1-2 construídas; 41-05 retido por decisão
 
-Progress: [██████████] 96%
+Progress: [█████████████░] 96% (código de 6/6 fases pronto; P41 41-05 apply PROD + entrega real gated em DELIV-01)
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
@@ -151,6 +151,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **Cadeia estrita 37 → 38 → 39** — a EF precisa da tabela `notificacoes_enviadas`; os triggers precisam de uma EF viva pra apontar (senão disparam num 404, silenciosamente droppado — `net.http_post` é at-most-once).
 - **Phase 39 é a de maior risco** — a colisão de double-send (3+ triggers n8n dormentes + o disparo env-var do `submit-candidatura`) só é segura com DROP-and-CREATE no MESMO phase + guarda `UNIQUE(dedupe_key)` durável. Não "manter os dois temporariamente".
 - **DELIV-01 (verificação de domínio) — ⛔ ATIVO, re-confirmado ao vivo na P39-04 (2026-07-26).** O subdomínio remetente **`rh.beautysmile.com.br` NÃO está verificado no Resend** → todo envio bate `403 domain not verified` e grava `status='falhou'`. Re-verificado por smoke fresco no início da P39-04 (contradisse o registro de "verificado" — por isso o gate re-verifica ao vivo, não confia no registro). **O operador optou explicitamente por aplicar a P39 mesmo assim** (rewire vivo, sends=`falhou`), aceitando que a recuperação virá pela varredura `pg_cron` da P41. Ação humana/DNS do Fernando: adicionar+verificar `rh.beautysmile.com.br` em https://resend.com/domains (SPF/DKIM auto + DMARC). **O funil AGORA dispara em tráfego real, mas só registra `falhou` até isto fechar** — quanto antes verificar, menos linhas acumuladas p/ o retry. Re-rodar o smoke da P38 após verificação deve dar `enviado`.
+- **⏸ P41 / 41-05 (apply PROD) — RETIDO por decisão humana (2026-07-27), gated em DELIV-01.** O código da P41 está 100% construído e commitado (Waves 1-2: EF `resend-webhook`, branch retry, migration file, cron; EF suite 251/0 deno). O checkpoint 41-05 (aplicar a migration `20260727000001` + deploy `resend-webhook` + redeploy `notificar-candidato` via MCP/CLI, + os human steps: registrar webhook no dashboard Resend + provisionar `resend_webhook_secret` no Vault) foi **HELD** porque a migration inicia a varredura `pg_cron` a cada 15 min: com DELIV-01 aberto, ela queimaria os 5 retries (~31h backoff) contra o `403` do domínio e capparia ANTES da verificação, anulando a rede de recuperação. **Sequência correta:** verificar o domínio (DELIV-01) → aplicar 41-05 → a varredura e o webhook ficam efetivos de imediato. Retomar com `/gsd-autonomous --from 41` (ou `/gsd-execute-phase 41 --wave 3`) após o domínio verde.
 - **⏳ Cleanup do n8n cloud (DISPATCH-03) — pendente, ação humana.** A P39 aposentou o n8n do BANCO (0 `trg_n8n_*`) e do CÓDIGO deployado (submit-candidatura sem fetch). Falta fechar a superfície EXTERNA: desativar/apagar a(s) workflow(s) em `fernandocosta.app.n8n.cloud` (painel do Fernando). O secret `n8n_webhook_base` já não existe no Vault (nada a remover).
 - **⚠ Drift pré-existente re-surfaced na P39-04 (NÃO-P39).** `db push --linked` reporta 7 versions órfãs (`20260713024106`…`20260714023002`) — migrations de 07-13/07-14 aplicadas via `apply_migration` (timestamp) e nunca reconciliadas ao prefixo do arquivo (2 sem arquivo local: `usr_rh_review_fixes_wr01_wr03`, `perfil_rh_rpc_hardening`). É o débito de drift já documentado (causa desconhecida), 2 semanas antes da P39. A version da P39 (`20260726000001`) está corretamente reconciliada → **zero drift novo**. NÃO reparado (fora de escopo; `--status reverted` do CLI marcaria migrations aplicadas como revertidas — errado). Rastrear p/ backlog de infra.
 - **D-15 / RNF-07a / RNF-12a** — o template de rejeição (COMM-05) é fixo e neutro (grep-guard contra tokens de scoring), disparado só por decisão registrada por humano.

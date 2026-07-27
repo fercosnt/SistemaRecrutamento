@@ -196,7 +196,7 @@ Plans:
 
 **Wave 3** *(GATED — `autonomous: false`, checkpoint do orquestrador; apply/deploy/Vault/dashboard via MCP)*
 
-- [ ] 41-05-PLAN.md — apply da migration via MCP + reconcile + smoke; deploy `resend-webhook` + redeploy `notificar-candidato`; registro do webhook + `resend_webhook_secret` no Vault; UAT ao vivo deferido atrás de DELIV-01 [wave 3]
+- [ ] 41-05-PLAN.md — ⏸ **RETIDO até DELIV-01 verificado** (2026-07-27): apply da migration via MCP + reconcile + smoke; deploy `resend-webhook` + redeploy `notificar-candidato`; registro do webhook + `resend_webhook_secret` no Vault; UAT ao vivo deferido atrás de DELIV-01. Aplicar ANTES do domínio verde faria a varredura `pg_cron` capar os 5 retries (~31h) contra o `403` — por isso a sequência é: verificar domínio → aplicar 41-05 [wave 3]
 
 *Nota (discuss-phase):* verificar os números exatos de rate-limit/free-tier do Resend no dashboard vivo antes de assumir a cadência da varredura de retry (questão aberta). Resolvido na RESEARCH: free 100/dia+3.000/mês, 10 req/s por team; `LIMIT 20` por sweep como ponto de partida.
 
