@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
 status: executing
-stopped_at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
-last_updated: "2026-07-27T00:09:46.392Z"
+stopped_at: Completed 41-02-PLAN.md — EF resend-webhook (Svix verify + reconciliacao por provider_message_id) codigo-completa e verde no CI; deploy/migration em 41-03/41-05
+last_updated: "2026-07-27T00:30:38.371Z"
 last_activity: 2026-07-27
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 25
-  completed_plans: 21
+  completed_plans: 22
   percent: 83
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 ## Current Position
 
 Phase: 41 (Reconciliação de Entrega, Retry & Testing) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-07-27
 
-Progress: [████████░░] 84%
+Progress: [█████████░] 88%
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
@@ -80,6 +80,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 37 P03 | 12min | 2 tasks | 2 files |
 | Phase 37 P05 | 9min | 2 tasks | 2 files |
 | Phase 41 P01 | 20min | 2 tasks | 5 files |
+| Phase 41 P02 | 18min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 41]: P41-01: notificar-candidato refatorada para handler(req, deps) injetável (fetch/supabaseAdmin/serviceKey) — mockável sem --allow-net; Deno.serve sob import.meta.main
 - [Phase 41]: P41-01: computeProximaTentativa (backoff 15m/1h/6h/24h, cap 5 -> null) + exigirSinkTeste (guard non-prod DELIV-03) como funcoes puras testadas e fiadas no handler
 - [Phase 41]: P41-01: exigirSinkTeste fiado APOS o claim (registrarFalha grava por dedupe_key); RECON-03 segue Pending (varredura pg_cron e 41-03/41-05)
+- [Phase 41]: P41-02: EF resend-webhook (verify_jwt=false) verifica assinatura Svix sobre corpo BRUTO (req.text() antes de qualquer parse) e reconcilia notificacoes_enviadas por provider_message_id de forma idempotente; import npm:svix@1.99.1 estatico; secret do Vault via ler_resend_webhook_secret nunca logado
+- [Phase 41]: P41-02: RECON-01/02 mantidos Pending — EF codigo-completa e verde no CI, mas comportamento vivo depende do 41-03 (migration colunas bounce_em/reclamado_em + RPC) e 41-05 (deploy + registro webhook + secret no Vault); mesmo criterio do 41-01 com RECON-03
 
 ### Pending Todos
 
@@ -160,8 +163,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-27T00:08:26.848Z
-Stopped at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
+Last session: 2026-07-27T00:30:38.360Z
+Stopped at: Completed 41-02-PLAN.md — EF resend-webhook (Svix verify + reconciliacao por provider_message_id) codigo-completa e verde no CI; deploy/migration em 41-03/41-05
 Resume file: None
 
 ## Operator Next Steps
