@@ -13,6 +13,7 @@
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
   logSeguro,
@@ -87,6 +88,37 @@ Deno.test("COMM-01 — logSeguro filtra PII (só ids/evento/status passam)", () 
     candidatura_id: "cand-1",
   });
   assert(!("email" in filtrado) && !("nome_completo" in filtrado) && !("html" in filtrado));
+});
+
+// ─── P41 (41-01 Task 2 / RECON-03): backoff exponencial capado ──────────────
+//
+// computeProximaTentativa(novasTentativas) devolve a ISO da próxima tentativa
+// (≈15m → 1h → 6h → 24h) para 1..4 e `null` no cap 5. Puro; tolerância de janela
+// (comparo o delta em ms com folga, pois `Date.now()` avança entre as chamadas).
+
+Deno.test("RECON-03 — computeProximaTentativa: 1..4 ⇒ 15m/1h/6h/24h (backoff exponencial)", () => {
+  const casos: Array<[number, number]> = [
+    [1, 15 * 60_000],
+    [2, 60 * 60_000],
+    [3, 6 * 60 * 60_000],
+    [4, 24 * 60 * 60_000],
+  ];
+  const FOLGA_MS = 5_000; // janela de tolerância para o avanço do relógio no teste
+  for (const [n, esperadoMs] of casos) {
+    const antes = Date.now();
+    const iso = computeProximaTentativa(n);
+    assert(typeof iso === "string", `computeProximaTentativa(${n}) deveria ser ISO string`);
+    const delta = new Date(iso as string).getTime() - antes;
+    assert(
+      Math.abs(delta - esperadoMs) <= FOLGA_MS,
+      `computeProximaTentativa(${n}) delta=${delta}ms, esperado≈${esperadoMs}ms`,
+    );
+  }
+});
+
+Deno.test("RECON-03 — computeProximaTentativa: cap 5 ⇒ null (sem mais retries)", () => {
+  assertEquals(computeProximaTentativa(5), null);
+  assertEquals(computeProximaTentativa(6), null);
 });
 
 // ─── P41 (41-01 Task 1): handler(req, deps) testável — deps injetáveis ───────

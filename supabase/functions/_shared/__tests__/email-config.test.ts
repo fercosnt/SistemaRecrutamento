@@ -18,6 +18,7 @@ import {
   FROM,
   REPLY_TO,
   exigirChaveApi,
+  exigirSinkTeste,
   resolverDestinatario,
   resolverModo,
 } from "../email-config.ts";
@@ -74,6 +75,26 @@ Deno.test("DELIV-01 — modo producao envia ao endereço real, sem redirecionar"
 Deno.test("DELIV-02 — producao sem chave lança erro explícito (não 401 opaco)", () => {
   assertThrows(() => exigirChaveApi(undefined, "producao"), Error, "RESEND_API_KEY");
   assertEquals(exigirChaveApi(undefined, "teste"), ""); // teste tolera ausência
+});
+
+// (6b) P41 / DELIV-03 — guard non-prod: hard-fail se o sink de teste não for @resend.dev
+Deno.test("DELIV-03 — exigirSinkTeste lança em modo teste se destinatário não é *@resend.dev", () => {
+  assertThrows(
+    () => exigirSinkTeste("candidato.real@empresa.com", "teste"),
+    Error,
+    "resend.dev",
+  );
+});
+
+Deno.test("DELIV-03 — exigirSinkTeste passa em modo teste quando destinatário é *@resend.dev", () => {
+  // não lança
+  exigirSinkTeste("delivered+avanco@resend.dev", "teste");
+  exigirSinkTeste("bounced@resend.dev", "teste");
+});
+
+Deno.test("DELIV-03 — exigirSinkTeste NÃO gateia produção (destinatário real passa)", () => {
+  // produção não é gateada por este guard (só o modo teste é)
+  exigirSinkTeste("candidato.real@gmail.com", "producao");
 });
 
 // (7) constantes canônicas congeladas (DELIV-01)
