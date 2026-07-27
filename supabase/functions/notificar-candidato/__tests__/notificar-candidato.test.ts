@@ -198,3 +198,236 @@ Deno.test("41-01 — handler exposto: Bearer divergente → 401 (compara contra 
   assertEquals(res.status, 401);
   assertEquals(deps.fetchCalls.length, 0);
 });
+
+// ─── P41 (41-04): branch retry (retry_id) — deps mockadas, SEM --allow-net ───
+//
+// A varredura pg_cron (41-03) reenvia com `retry_id` no body. Estes casos provam,
+// com supabaseAdmin + fetchImpl mockados (nada de rede), que o branch retry:
+//   (a) respeita o cap 5 / status terminal / linha ausente → skipped:nao_elegivel
+//       SEM tocar o fetch (T-41-14: nenhum loop de custo);
+//   (b) re-tenta a linha EXISTENTE keando por `id = retry_id` no sucesso
+//       (status=enviado + provider_message_id) — não colapsa em skipped:duplicate;
+//   (c) no non-2xx INCREMENTA tentativas (row.tentativas + 1, não reset p/ 1) e
+//       grava proxima_tentativa_em (backoff); e
+//   (d) o caminho NORMAL (sem retry_id) segue exercitando o claim-before-send.
+// O fetch do Resend carrega Idempotency-Key = retry_id (retry) / dedupe_key (normal).
+
+const RETRY_BEARER = "notificar-secret-fixture";
+
+const CANDIDATURA_FIX = {
+  candidato_id: "cand-x",
+  vaga_id: "vaga-x",
+  etapa_atual: "avaliacao",
+};
+const CANDIDATO_FIX = {
+  nome_completo: "Fulano de Tal",
+  email: "real.candidato@example.com",
+};
+const VAGA_FIX = { titulo: "Dentista Clínico" };
+
+interface UpdateCapt {
+  table: string;
+  patch: Record<string, unknown>;
+  eqCol?: string;
+  eqVal?: unknown;
+}
+interface UpsertCapt {
+  table: string;
+  row: Record<string, unknown>;
+  onConflict?: string;
+}
+
+/**
+ * Mock do client service-role: roteia `.select().eq().maybeSingle()` por tabela
+ * (a linha de retry vem de `notificacoes_enviadas`; candidatura/candidato/vaga das
+ * suas), registra todo `.update(patch).eq(col,val)` e todo `.upsert(row,opts)` em
+ * arrays inspecionáveis, e resolve `.rpc("ler_resend_api_key")` com uma chave fake.
+ */
+function makeRetryMockSupabase(opts: {
+  notifRow?: Record<string, unknown> | null;
+  candidaturaRow?: Record<string, unknown> | null;
+  candidatoRow?: Record<string, unknown> | null;
+  vagaRow?: Record<string, unknown> | null;
+  agendamentoRow?: Record<string, unknown> | null;
+  apiKey?: string | null;
+} = {}) {
+  const updates: UpdateCapt[] = [];
+  const upserts: UpsertCapt[] = [];
+  const rowFor = (table: string): Record<string, unknown> | null => {
+    switch (table) {
+      case "notificacoes_enviadas":
+        return opts.notifRow ?? null;
+      case "candidaturas":
+        return opts.candidaturaRow ?? null;
+      case "candidatos":
+        return opts.candidatoRow ?? null;
+      case "vagas":
+        return opts.vagaRow ?? null;
+      case "agendamentos_entrevista":
+        return opts.agendamentoRow ?? null;
+      default:
+        return null;
+    }
+  };
+  return {
+    updates,
+    upserts,
+    from(table: string) {
+      return {
+        select: (_cols?: string) => {
+          const chain = {
+            eq: () => chain,
+            maybeSingle: () => Promise.resolve({ data: rowFor(table), error: null }),
+            single: () => Promise.resolve({ data: rowFor(table), error: null }),
+          };
+          return chain;
+        },
+        update: (patch: Record<string, unknown>) => ({
+          eq: (eqCol: string, eqVal: unknown) => {
+            updates.push({ table, patch, eqCol, eqVal });
+            return Promise.resolve({ data: null, error: null });
+          },
+        }),
+        upsert: (row: Record<string, unknown>, options?: { onConflict?: string }) => {
+          upserts.push({ table, row, onConflict: options?.onConflict });
+          return {
+            select: (_c?: string) =>
+              Promise.resolve({ data: [{ id: "claimed-id" }], error: null }),
+          };
+        },
+      };
+    },
+    rpc: (name: string) => {
+      if (name === "ler_resend_api_key") {
+        return Promise.resolve({
+          data: opts.apiKey === undefined ? "re_fake_key_para_teste" : opts.apiKey,
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+}
+
+/** `fetchImpl` sintético: conta chamadas e devolve um Response com o status pedido. */
+function makeFetchMock(status: number, jsonBody: unknown = { id: "re_abc" }) {
+  const calls: Array<{ url: unknown; init?: RequestInit }> = [];
+  const impl = ((url: unknown, init?: RequestInit) => {
+    calls.push({ url, init });
+    return Promise.resolve(
+      new Response(JSON.stringify(jsonBody), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }) as unknown as typeof fetch;
+  return { impl, calls };
+}
+
+Deno.test("41-04 — retry guard: linha ausente | status terminal | cap 5 → skipped:nao_elegivel sem fetch", async () => {
+  const { handler } = await loadHandler();
+  const casos: Array<Record<string, unknown> | null> = [
+    null, // linha ausente
+    { id: "n1", status: "enviado", tentativas: 1, dedupe_key: "cand-1:avanco" }, // terminal
+    { id: "n1", status: "entregue", tentativas: 0, dedupe_key: "cand-1:avanco" }, // terminal
+    { id: "n1", status: "falhou", tentativas: 5, dedupe_key: "cand-1:avanco" }, // cap 5
+  ];
+  for (const notifRow of casos) {
+    const supa = makeRetryMockSupabase({ notifRow });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(
+      makeRequest({ retry_id: "n1", evento: "avanco", candidatura_id: "cand-1" }, RETRY_BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).skipped, "nao_elegivel");
+    assertEquals(fetchMock.calls.length, 0); // guard barra antes de qualquer envio
+    assertEquals(supa.updates.length, 0); // linha não elegível → nada escrito
+  }
+});
+
+Deno.test("41-04 — retry sucesso: fetch 200 → UPDATE status=enviado + provider_message_id keado por id", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    notifRow: { id: "n42", status: "falhou", tentativas: 1, dedupe_key: "cand-1:avanco" },
+    candidaturaRow: CANDIDATURA_FIX,
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_success_123" });
+  const res = await handler(
+    makeRequest({ retry_id: "n42", evento: "avanco", candidatura_id: "cand-1" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).status, "enviado");
+  // fetch chamado 1x, carregando Idempotency-Key = retry_id (cinto secundário LEDGER-02)
+  assertEquals(fetchMock.calls.length, 1);
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], "n42");
+  // branch retry PULA o claim (nenhum upsert)
+  assertEquals(supa.upserts.length, 0);
+  // escrita de sucesso keada por id (não por dedupe_key), com provider_message_id
+  const enviado = supa.updates.find((u) =>
+    u.table === "notificacoes_enviadas" && u.patch.status === "enviado"
+  );
+  assert(enviado, "esperava um UPDATE status=enviado");
+  assertEquals(enviado!.eqCol, "id");
+  assertEquals(enviado!.eqVal, "n42");
+  assertEquals(enviado!.patch.provider_message_id, "re_success_123");
+});
+
+Deno.test("41-04 — retry non-2xx (429): UPDATE status=falhou, tentativas incrementado, proxima_tentativa_em não-null", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    notifRow: { id: "n7", status: "pendente", tentativas: 2, dedupe_key: "cand-1:avanco" },
+    candidaturaRow: CANDIDATURA_FIX,
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(429, { message: "rate limited" });
+  const res = await handler(
+    makeRequest({ retry_id: "n7", evento: "avanco", candidatura_id: "cand-1" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1);
+  const falhou = supa.updates.find((u) =>
+    u.table === "notificacoes_enviadas" && u.patch.status === "falhou"
+  );
+  assert(falhou, "esperava um UPDATE status=falhou");
+  assertEquals(falhou!.eqCol, "id"); // keado por id, não por dedupe_key
+  assertEquals(falhou!.eqVal, "n7");
+  assertEquals(falhou!.patch.tentativas, 3); // 2 + 1 (incremento, não reset p/ 1)
+  assert(
+    falhou!.patch.proxima_tentativa_em != null,
+    "backoff deve agendar próxima (n=3 < cap 5)",
+  );
+});
+
+Deno.test("41-04 — caminho normal (sem retry_id) preservado: claim-before-send + escrita por dedupe_key", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_normal_1" });
+  const res = await handler(
+    makeRequest({ evento: "avanco", candidatura_id: "cand-1" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).status, "enviado");
+  // claim-before-send exercido (upsert ON CONFLICT dedupe_key)
+  const claim = supa.upserts.find((u) => u.table === "notificacoes_enviadas");
+  assert(claim, "caminho normal deve reivindicar via upsert");
+  assertEquals(claim!.onConflict, "dedupe_key");
+  // escrita de sucesso keada por dedupe_key (não por id)
+  const enviado = supa.updates.find((u) => u.patch.status === "enviado");
+  assert(enviado, "esperava UPDATE status=enviado");
+  assertEquals(enviado!.eqCol, "dedupe_key");
+  // Idempotency-Key = dedupe_key no caminho normal
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], "cand-1:avanco");
+});
