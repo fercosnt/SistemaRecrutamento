@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: P39 COMPLETA — Wave 2 (39-04) APLICADA em PROD (n8n aposentado do banco+código; 3 triggers canônicos vivos; SEC-03 resolvido). ⛔ DELIV-01 segue ABERTO (aceito): todo envio grava 'falhou' até verificar rh.beautysmile.com.br no Resend (recuperação = pg_cron da P41).
-stopped_at: Phase 39 COMPLETA (Wave 1 39-01/02/03 + Wave 2 39-04 aplicada). Redeploy submit-candidatura (verify_jwt=true, 401 confirmado) ANTES do apply; migration 20260726000001 via MCP apply_migration + reconcile; catálogo 0 n8n / 3 trg_notif_* (ortogonais intactos); smoke 6/6 (fix do falso-negativo (f) — LIKE escapado); E2E hop trg_notif_transicao→EF net._http_response=200 (ledger avanco/falhou, limpo). Próximo: P41 (última fase; planejar) — mas gated em DELIV-01 para UAT ao vivo.
-last_updated: "2026-07-26"
-last_activity: 2026-07-26 -- P39 Wave 2 APLICADA em PROD (operador aceitou DELIV-01 aberto → sends=falhou até domínio verificado)
+status: executing
+stopped_at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
+last_updated: "2026-07-27T00:09:46.392Z"
+last_activity: 2026-07-27
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 25
+  completed_plans: 21
   percent: 83
 ---
 
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** P38 EF **deployada dormente + smoke funcional** (2026-07-26). UAT-36-2 clareou (chave no Vault). Gap de auth da P38 (`NOTIFICAR_SECRET` ausente) **corrigido**. **Novo gate de ENTREGA: DELIV-01 / UAT-36-1** — `rh.beautysmile.com.br` não verificado no Resend (403). Executando **P39 Wave 1** (zero PROD); **P39 Wave 2** (apply PROD) e a entrega real seguem em checkpoint humano.
+**Current focus:** Phase 41 — Reconciliação de Entrega, Retry & Testing
 
 ## Current Position
 
-Phase: 39 (Rewire dos Triggers & Aposentadoria do n8n) — **COMPLETA** ✅ (4/4 plans; Wave 2 aplicada em PROD 2026-07-26).
-Plan: 4 of 4 executados. **Wave 1 ✅** — 39-01 (migration atômica DROP4+CREATE3) · 39-02 (fetch n8n removido de submit-candidatura, deno 5/5) · 39-03 (smoke Wave-0). **Wave 2 ✅ (39-04, orquestrador via MCP+CLI)** — gate re-verificado ao vivo; diff-before-drop dos 4 corpos n8n (todos graceful-skip); **redeploy submit-candidatura ANTES do apply** (401 confirma verify_jwt=true); `apply_migration` de `20260726000001` + reconcile do ledger; catálogo **0 trg_n8n_* / 3 trg_notif_*** (confirmacao/convite/transicao) com `avancar_etapa`+`trg_candidaturas_analise` intactos; **smoke 6/6 verde** (fix do falso-negativo (f): LIKE `trg_notif_%` casava o touch trigger P37 → escapado p/ `trg\_notif\_%`); **E2E hop provado** (insert em historico → `trg_notif_transicao` → `net._http_response=200`, ledger `avanco`; resíduo limpo). **SEC-03 resolvido por substituição.**
-Status: P39 fechada. **⛔ DELIV-01 ABERTO (aceito pelo operador):** `rh.beautysmile.com.br` não verificado no Resend → todo envio grava `falhou` até a verificação DNS; recuperação = varredura `pg_cron` da P41. **⏳ Cleanup n8n cloud** (workflow em `fernandocosta.app.n8n.cloud`) = ação humana pendente.
-Last activity: 2026-07-26 -- P39 Wave 2 aplicada em PROD (n8n aposentado; SEC-03 resolvido; entrega gated em DELIV-01)
+Phase: 41 (Reconciliação de Entrega, Retry & Testing) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-07-27
 
-Progress: [██████████████░░] 83% (5/6 fases fechadas: 36-40; P41 última, não planejada, gated em DELIV-01 p/ UAT ao vivo)
+Progress: [████████░░] 84%
 
 > 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
 
@@ -79,6 +79,7 @@ Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LED
 | Phase 37 P02 | 24min | 3 tasks | 3 files |
 | Phase 37 P03 | 12min | 2 tasks | 2 files |
 | Phase 37 P05 | 9min | 2 tasks | 2 files |
+| Phase 41 P01 | 20min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 37 · 37-05]: arquivamento de todo em DOIS commits (rename puro 100% + conteudo depois) — rename + 78 linhas juntos derrubam a similaridade para ~45%, abaixo do limiar default 50% do git, e `git log --follow` quebraria EM SILENCIO, apagando o commit que registrou a descoberta do drift
 - [Phase 37 · 37-05]: item de debito arquivado em 4 blocos (Resolvido / Corrigido vs retrato original / Deliberadamente NAO feito / Continua em aberto), corpo original preservado byte-a-byte — as imprecisoes da parafrase sao registro forense; a correcao vive em bloco novo, nomeando a CONSEQUENCIA de cada erro
 - [Phase 37 · 37-05]: destinatario_original chega ao compilador como OBRIGATORIO no tipo Insert (NOT NULL sem default no banco), enquanto modo e opcional (default 'teste') — a EF da P38 nao compila se esquecer o destinatario original
+- [Phase 41]: P41-01: notificar-candidato refatorada para handler(req, deps) injetável (fetch/supabaseAdmin/serviceKey) — mockável sem --allow-net; Deno.serve sob import.meta.main
+- [Phase 41]: P41-01: computeProximaTentativa (backoff 15m/1h/6h/24h, cap 5 -> null) + exigirSinkTeste (guard non-prod DELIV-03) como funcoes puras testadas e fiadas no handler
+- [Phase 41]: P41-01: exigirSinkTeste fiado APOS o claim (registrarFalha grava por dedupe_key); RECON-03 segue Pending (varredura pg_cron e 41-03/41-05)
 
 ### Pending Todos
 
@@ -156,9 +160,9 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-26T03:58:22.157Z
+Last session: 2026-07-27T00:08:26.848Z
 Stopped at: Phase 39 context gathered (discuss done — 3 product decisions + PROD-verified topology). Execute GATED on P38 smoke/UAT-38-1.
-Resume file: .planning/phases/39-rewire-dos-triggers-aposentadoria-do-n8n-sec-03/39-CONTEXT.md
+Resume file: None
 
 ## Operator Next Steps
 
