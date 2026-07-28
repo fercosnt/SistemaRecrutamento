@@ -39,6 +39,18 @@ export const COPY_REJEICAO =
   "Sua candidatura não seguirá para as próximas etapas deste processo seletivo. " +
   "Agradecemos sinceramente o seu interesse na Beauty Smile e desejamos sucesso na sua trajetória.";
 
+/**
+ * Cópia de APROVAÇÃO CONGELADA (gap-closure da P39 / CR-01). Mesma disciplina D-15 / RNF-07a
+ * da `COPY_REJEICAO`: NUNCA interpolar dado de avaliação (justificativa, pontuação, faixa,
+ * dimensão de personalidade, classificação). O grep-guard cobre os DOIS desfechos.
+ *
+ * Existe porque o evento `decisao` da P39 cobre `aprovado` E `rejeitado` — antes deste fix o
+ * corpo era exclusivamente `COPY_REJEICAO`, então todo APROVADO recebia a rejeição.
+ */
+export const COPY_APROVACAO =
+  "Temos uma ótima notícia: sua candidatura foi aprovada neste processo seletivo. " +
+  "Nossa equipe entrará em contato em breve com os próximos passos.";
+
 /** Escapa HTML nos valores interpolados (nome, vaga, local vindos de dado do usuário). */
 export function escapeHtml(s: string): string {
   return s
@@ -56,6 +68,12 @@ export interface DadosEmail {
   dataHoraFmt?: string; // já formatado em America/Sao_Paulo pela EF
   localOuLink?: string | null;
   tipoEntrevista?: string;
+  /**
+   * Desfecho da decisão (só o evento `decisao_final` usa). A EF deriva de
+   * `candidaturas.etapa_atual`, que ela já busca na allowlist. Ausente/qualquer outro valor
+   * ⇒ rejeição (fail-safe: o corpo congelado de rejeição é o default histórico).
+   */
+  desfecho?: "aprovado" | "rejeitado";
 }
 
 /** Wrapper table-based inline-CSS: header (logo) + conteúdo + footer LGPD transacional. */
@@ -126,13 +144,16 @@ ${d.tipoEntrevista ? `<tr><td style="padding:4px 0;"><strong>Modalidade:</strong
 }
 
 function corpoDecisao(d: DadosEmail): string {
-  // NEUTRO E FIXO — o corpo sensível usa exclusivamente COPY_REJEICAO. O título da vaga
-  // dá contexto ao candidato e NÃO é dado de avaliação; nada da avaliação é interpolado aqui.
+  // CONGELADO NOS DOIS DESFECHOS — o corpo sensível é exclusivamente COPY_APROVACAO ou
+  // COPY_REJEICAO. O título da vaga dá contexto e NÃO é dado de avaliação; nada da avaliação
+  // é interpolado aqui. `desfecho` ausente ⇒ rejeição (fail-safe, default histórico).
+  const aprovado = d.desfecho === "aprovado";
+  const copy = aprovado ? COPY_APROVACAO : COPY_REJEICAO;
   return `${saudacao(d)}
 <p style="margin:0 0 16px;">Referente à sua candidatura para a vaga <strong>${
     escapeHtml(d.tituloVaga)
   }</strong>:</p>
-<p style="margin:0 0 16px;">${escapeHtml(COPY_REJEICAO)}</p>
+<p style="margin:0 0 16px;">${escapeHtml(copy)}</p>
 <p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
 }
 
@@ -141,7 +162,10 @@ export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   candidatura_recebida: (d) => `Recebemos sua candidatura — ${d.tituloVaga}`,
   avaliacao_liberada: (d) => `Sua candidatura avançou — ${d.tituloVaga}`,
   convite_entrevista: (d) => `Convite de entrevista — ${d.tituloVaga}`,
-  decisao_final: (d) => `Atualização sobre sua candidatura — ${d.tituloVaga}`,
+  decisao_final: (d) =>
+    d.desfecho === "aprovado"
+      ? `Boa notícia sobre sua candidatura — ${d.tituloVaga}`
+      : `Atualização sobre sua candidatura — ${d.tituloVaga}`,
 };
 
 const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {

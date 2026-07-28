@@ -21,6 +21,10 @@ import {
   montarDedupeKey,
 } from "../helpers.ts";
 import { FROM, REPLY_TO } from "../../_shared/email-config.ts";
+import {
+  COPY_APROVACAO,
+  COPY_REJEICAO,
+} from "../../_shared/email-templates.ts";
 
 Deno.test("COMM-01 — dedupe_key: convite usa agendamento_id; demais usam candidatura_id", () => {
   assertEquals(montarDedupeKey("convite", "cand-1", "agd-9"), "agd-9:convite");
@@ -430,4 +434,135 @@ Deno.test("41-04 — caminho normal (sem retry_id) preservado: claim-before-send
   // Idempotency-Key = dedupe_key no caminho normal
   const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
   assertEquals(headers["Idempotency-Key"], "cand-1:avanco");
+});
+
+// ─── Gap-closure P39 (CR-01 / CR-02) — desfecho da decisão + survivor-guard ───
+//
+// Dois defeitos CRÍTICOS achados no code review da P39, ambos latentes só porque a
+// entrega estava em 403 (DELIV-01). Os fixes vivem na EF, não no trigger:
+//
+//   CR-01 — o evento `decisao` do trigger cobre aprovado E rejeitado com corpo ids-only
+//     (sem discriminador). `corpoDecisao` usava exclusivamente COPY_REJEICAO ⇒ todo
+//     APROVADO recebia a rejeição. A EF já resolve `etapa_atual` na allowlist: passa a
+//     derivar `desfecho` dali.
+//
+//   CR-02 — `trg_notif_confirmacao` é AFTER INSERT e o knockout é aplicado por um UPDATE
+//     POSTERIOR (20260709000014:138), então a guarda do trigger lia o estado PRÉ-knockout
+//     e nunca podia ser verdadeira. A EF é o lugar correto: `net.http_post` é assíncrono e
+//     só entrega DEPOIS do COMMIT, então aqui a linha reflete o estado final. A guarda roda
+//     ANTES do claim — knockout não deixa linha `pendente` para a varredura da P41 re-tentar.
+
+/** Extrai o corpo JSON enviado ao Resend a partir da chamada capturada do fetch. */
+function corpoEnviado(call: { init?: RequestInit }): { subject: string; html: string } {
+  return JSON.parse(String(call.init?.body ?? "{}"));
+}
+
+Deno.test("CR-02 — confirmacao de KNOCKOUT (status=rejeitado) → skipped:knockout, zero fetch, zero claim", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "rejeitado", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "confirmacao", candidatura_id: "cand-ko" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).skipped, "knockout");
+  assertEquals(fetchMock.calls.length, 0); // knockout = ZERO e-mail (decisão de kickoff)
+  // guarda roda ANTES do claim → nenhuma linha `pendente` para a varredura re-tentar
+  assertEquals(supa.upserts.length, 0);
+});
+
+Deno.test("CR-02 — confirmacao com opcao_knockout_id preenchido → skipped:knockout", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      status: "aguardando_resposta",
+      opcao_knockout_id: "opt-ko-1",
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "confirmacao", candidatura_id: "cand-ko2" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals((await res.json()).skipped, "knockout");
+  assertEquals(fetchMock.calls.length, 0);
+  assertEquals(supa.upserts.length, 0);
+});
+
+Deno.test("CR-02 — SURVIVOR (sem knockout) segue recebendo a confirmação", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      status: "aguardando_resposta",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_ok" });
+  const res = await handler(
+    makeRequest({ evento: "confirmacao", candidatura_id: "cand-ok" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1); // survivor NÃO é barrado
+});
+
+Deno.test("CR-01 — decisao com etapa_atual='aprovado' envia APROVAÇÃO, nunca a rejeição", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "aprovado",
+      status: "aguardando_resposta",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_aprov" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: "cand-aprov" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(fetchMock.calls.length, 1);
+  const { subject, html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_APROVACAO), "aprovado deveria receber a COPY_APROVACAO");
+  assert(
+    !html.includes(COPY_REJEICAO),
+    "REGRESSÃO CR-01: candidato APROVADO recebeu a cópia de REJEIÇÃO",
+  );
+  assert(/boa not[íi]cia/i.test(subject), `subject não sinaliza aprovação: ${subject}`);
+});
+
+Deno.test("CR-01 — decisao com etapa_atual='rejeitado' mantém a cópia congelada", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "rejeitado",
+      status: "rejeitado",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rej" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: "cand-rej" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(fetchMock.calls.length, 1);
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_REJEICAO), "rejeitado deveria manter a COPY_REJEICAO");
+  assert(!html.includes(COPY_APROVACAO), "rejeitado não pode receber a aprovação");
 });

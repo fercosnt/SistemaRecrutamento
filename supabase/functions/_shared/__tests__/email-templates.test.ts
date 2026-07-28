@@ -9,6 +9,7 @@
  */
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  COPY_APROVACAO,
   COPY_REJEICAO,
   renderarEmail,
 } from "../email-templates.ts";
@@ -63,6 +64,50 @@ Deno.test("COMM-05/06 — GREP-GUARD: e-mail de decisão NÃO contém token de s
 Deno.test("COMM-05 — decisão usa a cópia neutra congelada literal", () => {
   const { html } = renderarEmail("decisao_final", DADOS);
   assert(html.includes(COPY_REJEICAO), "deveria conter a COPY_REJEICAO congelada");
+});
+
+// ── Gap-closure P39 / CR-01 — o desfecho da decisão ─────────────────────────
+// O evento `decisao` do trigger da P39 cobre aprovado E rejeitado com corpo ids-only.
+// Antes do fix, `corpoDecisao` usava exclusivamente COPY_REJEICAO ⇒ todo APROVADO recebia
+// a rejeição. Estes testes são o guard de regressão dessa troca de desfecho.
+
+Deno.test("CR-01 — desfecho 'aprovado' renderiza a APROVAÇÃO e NUNCA a rejeição", () => {
+  const { html, subject } = renderarEmail("decisao_final", {
+    ...DADOS,
+    desfecho: "aprovado",
+  });
+  assert(html.includes(COPY_APROVACAO), "deveria conter a COPY_APROVACAO");
+  assert(
+    !html.includes(COPY_REJEICAO),
+    "REGRESSÃO CR-01: aprovado recebeu a cópia de REJEIÇÃO",
+  );
+  assert(/boa not[íi]cia/i.test(subject), `subject não sinaliza aprovação: ${subject}`);
+});
+
+Deno.test("CR-01 — desfecho 'rejeitado' mantém a cópia congelada de rejeição", () => {
+  const { html } = renderarEmail("decisao_final", {
+    ...DADOS,
+    desfecho: "rejeitado",
+  });
+  assert(html.includes(COPY_REJEICAO), "deveria conter a COPY_REJEICAO congelada");
+  assert(!html.includes(COPY_APROVACAO), "não deveria conter a cópia de aprovação");
+});
+
+Deno.test("CR-01 — desfecho AUSENTE é fail-safe para rejeição (default histórico)", () => {
+  const { html } = renderarEmail("decisao_final", DADOS);
+  assert(html.includes(COPY_REJEICAO), "sem desfecho deveria cair na rejeição");
+  assert(!html.includes(COPY_APROVACAO), "sem desfecho não pode render aprovação");
+});
+
+Deno.test("D-15/RNF-07a — GREP-GUARD cobre os DOIS desfechos da decisão", () => {
+  const proibido = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio/i;
+  for (const desfecho of ["aprovado", "rejeitado"] as const) {
+    const { html } = renderarEmail("decisao_final", { ...DADOS, desfecho });
+    assert(
+      !proibido.test(html),
+      `VAZOU token de scoring no desfecho '${desfecho}' (D-15/RNF-07a)`,
+    );
+  }
 });
 
 Deno.test("COMM-06 — a fonte do módulo não IMPORTA react-email nem react", async () => {

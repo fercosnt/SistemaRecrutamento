@@ -182,11 +182,29 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   // ---- 3) Resolver dados por ALLOWLIST de colunas (nunca projeção-estrela) ----
   const { data: candidatura } = await supabaseAdmin
     .from("candidaturas")
-    .select("candidato_id, vaga_id, etapa_atual")
+    .select("candidato_id, vaga_id, etapa_atual, status, opcao_knockout_id")
     .eq("id", candidatura_id)
     .maybeSingle();
   if (!candidatura) {
     return jsonResponse({ ok: true, skipped: "dados_ausentes" }, 200);
+  }
+
+  // ---- 3a) SURVIVOR-GUARD do knockout (gap-closure da P39 / CR-02) ----
+  // A guarda VIVE AQUI, não no trigger. `trg_notif_confirmacao` é AFTER INSERT e o knockout
+  // é aplicado por um UPDATE POSTERIOR (20260709000014:138) — no INSERT, `status` ainda é o
+  // default e `opcao_knockout_id` é NULL, então a guarda do trigger nunca podia ser verdadeira.
+  // A EF é o lugar correto: `net.http_post` é assíncrono e só entrega DEPOIS do COMMIT, então
+  // aqui a linha já reflete o estado final. Decisão de kickoff: knockout = ZERO e-mail.
+  if (
+    evento === "confirmacao" &&
+    (candidatura.status === "rejeitado" ||
+      candidatura.opcao_knockout_id !== null)
+  ) {
+    console.log(
+      "[notificar-candidato]",
+      logSeguro({ evento, candidatura_id, skipped: "knockout" }),
+    );
+    return jsonResponse({ ok: true, skipped: "knockout" }, 200);
   }
   const { data: candidato } = await supabaseAdmin
     .from("candidatos")
@@ -312,6 +330,10 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     dataHoraFmt,
     localOuLink: agendamento?.local_ou_link ?? null,
     tipoEntrevista: agendamento?.tipo ?? undefined,
+    // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado
+    // com corpo ids-only (sem discriminador). O desfecho vem de `etapa_atual`, que a EF já
+    // resolve acima. Sem isto, TODO aprovado recebia a COPY_REJEICAO.
+    desfecho: candidatura.etapa_atual === "aprovado" ? "aprovado" : "rejeitado",
   });
 
   let icsBase64: string | undefined;
