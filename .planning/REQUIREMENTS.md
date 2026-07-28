@@ -20,12 +20,12 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 
 ### COMM — Notificações transacionais (o núcleo)
 
-- [ ] **COMM-01**: Existe a Edge Function `notificar-candidato` (server-triggered, self-auth Bearer via Vault, `--no-verify-jwt`), que resolve os dados do candidato por **allowlist explícita** (nunca `select('*')`), renderiza o template e envia via `fetch` à API do Resend, gravando o resultado no ledger.
-- [ ] **COMM-02**: O candidato recebe e-mail de **confirmação de candidatura recebida** ao submeter — **exceto** quando a candidatura já nasce auto-rejeitada por knockout síncrono (survivor-guard suprime a confirmação; só a rejeição neutra é enviada).
-- [ ] **COMM-03**: O candidato recebe e-mail de **avanço p/ avaliação assíncrona** ("sua próxima etapa está liberada") quando a candidatura transiciona para a etapa de avaliação.
-- [ ] **COMM-04**: O candidato recebe e-mail de **convite de entrevista** com data/hora em `America/Sao_Paulo`, local/link e um anexo `.ics` (RFC-5545) — o gerador do M6 é portado verbatim para `_shared/ics.ts` (função pura, sem novo npm).
-- [ ] **COMM-05**: O candidato recebe e-mail de **decisão ≤24h** (aprovado ou rejeitado) com **template neutro fixo** — D-15: nunca interpola `motivo_rejeicao`/score/percentil/trait; o disparo é gatilhado por uma decisão registrada por humano (RNF-07a), nunca por limiar de score.
-- [ ] **COMM-06**: Os 4 templates HTML são hand-rolled com identidade Beauty Smile em `_shared/email-templates.ts` (inline CSS; **não** react-email, que quebra no Deno edge); a cópia do template de rejeição (COMM-05) passa por revisão e é congelada antes do fecho.
+- [x] **COMM-01**: Existe a Edge Function `notificar-candidato` (server-triggered, self-auth Bearer via Vault, `--no-verify-jwt`), que resolve os dados do candidato por **allowlist explícita** (nunca `select('*')`), renderiza o template e envia via `fetch` à API do Resend, gravando o resultado no ledger.
+- [x] **COMM-02**: O candidato recebe e-mail de **confirmação de candidatura recebida** ao submeter — **exceto** quando a candidatura já nasce auto-rejeitada por knockout síncrono (survivor-guard suprime a confirmação; só a rejeição neutra é enviada).
+- [x] **COMM-03**: O candidato recebe e-mail de **avanço p/ avaliação assíncrona** ("sua próxima etapa está liberada") quando a candidatura transiciona para a etapa de avaliação.
+- [x] **COMM-04**: O candidato recebe e-mail de **convite de entrevista** com data/hora em `America/Sao_Paulo`, local/link e um anexo `.ics` (RFC-5545) — o gerador do M6 é portado verbatim para `_shared/ics.ts` (função pura, sem novo npm).
+- [x] **COMM-05**: O candidato recebe e-mail de **decisão ≤24h** (aprovado ou rejeitado) com **template neutro fixo** — D-15: nunca interpola `motivo_rejeicao`/score/percentil/trait; o disparo é gatilhado por uma decisão registrada por humano (RNF-07a), nunca por limiar de score.
+- [x] **COMM-06**: Os 4 templates HTML são hand-rolled com identidade Beauty Smile em `_shared/email-templates.ts` (inline CSS; **não** react-email, que quebra no Deno edge); a cópia do template de rejeição (COMM-05) passa por revisão e é congelada antes do fecho.
 
 ### LEDGER — Auditoria, idempotência & fila (`notificacoes_enviadas`)
 
@@ -35,21 +35,21 @@ Requirements for the M7 release. Each maps to exactly one roadmap phase (Phases 
 
 ### DISPATCH — Gatilhos & aposentadoria do n8n (SEC-03)
 
-- [ ] **DISPATCH-01**: Um trigger `AFTER INSERT ON historico_candidatura` com `CASE` sobre `etapa_para` é a **fonte canônica única** dos eventos de transição (avanço = COMM-03; decisão = COMM-05, unificando aprovado/rejeitado/knockout via `etapa_atual`) — corpo ids-only, zero PII, graceful-skip.
-- [ ] **DISPATCH-02**: Triggers satélites em `AFTER INSERT ON candidaturas` (confirmação = COMM-02) e `AFTER INSERT ON agendamentos_entrevista` (convite = COMM-04) cobrem os eventos que **não** são transições de etapa (o `avancar_etapa()` só dispara em UPDATE de `etapa_atual`).
-- [ ] **DISPATCH-03**: Os 3 triggers n8n do SEC-03 são **removidos (DROP)** e o disparo por env-var do `submit-candidatura` é aposentado — no **mesmo phase** que cria os novos triggers (aposenta o n8n pessoal, resolve **SEC-03 por substituição**, sem deixar superfície de disparo dupla ativa).
-- [ ] **DISPATCH-04**: O hop trigger→EF autentica por Vault Bearer self-auth (mirror do `analise-candidato-individual`) — a EF não é um endpoint de envio público/spoofable, e o corpo do `net.http_post` carrega só ids (nenhuma PII no payload do trigger).
+- [x] **DISPATCH-01**: Um trigger `AFTER INSERT ON historico_candidatura` com `CASE` sobre `etapa_para` é a **fonte canônica única** dos eventos de transição (avanço = COMM-03; decisão = COMM-05, unificando aprovado/rejeitado/knockout via `etapa_atual`) — corpo ids-only, zero PII, graceful-skip.
+- [x] **DISPATCH-02**: Triggers satélites em `AFTER INSERT ON candidaturas` (confirmação = COMM-02) e `AFTER INSERT ON agendamentos_entrevista` (convite = COMM-04) cobrem os eventos que **não** são transições de etapa (o `avancar_etapa()` só dispara em UPDATE de `etapa_atual`).
+- [x] **DISPATCH-03**: Os 3 triggers n8n do SEC-03 são **removidos (DROP)** e o disparo por env-var do `submit-candidatura` é aposentado — no **mesmo phase** que cria os novos triggers (aposenta o n8n pessoal, resolve **SEC-03 por substituição**, sem deixar superfície de disparo dupla ativa).
+- [x] **DISPATCH-04**: O hop trigger→EF autentica por Vault Bearer self-auth (mirror do `analise-candidato-individual`) — a EF não é um endpoint de envio público/spoofable, e o corpo do `net.http_post` carrega só ids (nenhuma PII no payload do trigger).
 
 ### RECON — Reconciliação de entrega, retry & bounce
 
-- [ ] **RECON-01**: `notificacoes_enviadas` implementa a state machine `pendente → enviado → entregue/falhou/bounce` — o status reflete o resultado real do envio (o funil avança independentemente; o e-mail nunca carrega estado sozinho).
-- [ ] **RECON-02**: Uma EF de webhook do Resend (assinatura Svix verificada) atualiza o status por `provider_message_id` nos eventos `email.delivered`/`email.bounced`/`email.complained` — rastreamento durável de entrega/bounce.
-- [ ] **RECON-03**: Uma varredura `pg_cron` re-tenta as linhas `pendente`/`falhou` (tentativas-capped) como rede de segurança para a janela de ~6h do `net._http_response` (o `net.http_post` é fire-and-forget/at-most-once).
+- [x] **RECON-01**: `notificacoes_enviadas` implementa a state machine `pendente → enviado → entregue/falhou/bounce` — o status reflete o resultado real do envio (o funil avança independentemente; o e-mail nunca carrega estado sozinho).
+- [x] **RECON-02**: Uma EF de webhook do Resend (assinatura Svix verificada) atualiza o status por `provider_message_id` nos eventos `email.delivered`/`email.bounced`/`email.complained` — rastreamento durável de entrega/bounce.
+- [x] **RECON-03**: Uma varredura `pg_cron` re-tenta as linhas `pendente`/`falhou` (tentativas-capped) como rede de segurança para a janela de ~6h do `net._http_response` (o `net.http_post` é fire-and-forget/at-most-once).
 
 ### TIMELINE — Estimativa de prazo no painel do candidato
 
 - [x] **TIMELINE-01**: Existe a tabela estática `config_sla_etapa` (non-PII, public-read) com o SLA/prazo esperado por etapa, seedada a partir dos prazos do PRD (§5.1.1).
-- [ ] **TIMELINE-02**: O `DashboardCandidatoPage` mostra, em cada estado de espera, a estimativa de prazo da etapa atual ("triagem — resposta em até X dias úteis"), enquadrada explicitamente como **estimativa**, nunca como countdown rígido.
+- [x] **TIMELINE-02**: O `DashboardCandidatoPage` mostra, em cada estado de espera, a estimativa de prazo da etapa atual ("triagem — resposta em até X dias úteis"), enquadrada explicitamente como **estimativa**, nunca como countdown rígido.
 
 ## v2 Requirements (deferidos — rastreados, fora do roadmap M7)
 
@@ -100,20 +100,20 @@ Mapeamento requisito → fase. Preenchido pelo roadmapper (Phases 36–41).
 | LEDGER-02 | Phase 37 | Complete |
 | LEDGER-03 | Phase 37 | Complete |
 | TIMELINE-01 | Phase 37 | Complete |
-| COMM-01 | Phase 38 | Pending |
-| COMM-02 | Phase 38 | Pending |
-| COMM-03 | Phase 38 | Pending |
-| COMM-04 | Phase 38 | Pending |
-| COMM-05 | Phase 38 | Pending |
-| COMM-06 | Phase 38 | Pending |
-| DISPATCH-01 | Phase 39 | Pending |
-| DISPATCH-02 | Phase 39 | Pending |
-| DISPATCH-03 | Phase 39 | Pending |
-| DISPATCH-04 | Phase 39 | Pending |
-| TIMELINE-02 | Phase 40 | Pending |
-| RECON-01 | Phase 41 | Pending |
-| RECON-02 | Phase 41 | Pending |
-| RECON-03 | Phase 41 | Pending |
+| COMM-01 | Phase 38 | Complete |
+| COMM-02 | Phase 38 | Complete |
+| COMM-03 | Phase 38 | Complete |
+| COMM-04 | Phase 38 | Complete |
+| COMM-05 | Phase 38 | Complete |
+| COMM-06 | Phase 38 | Complete |
+| DISPATCH-01 | Phase 39 | Complete |
+| DISPATCH-02 | Phase 39 | Complete |
+| DISPATCH-03 | Phase 39 | Complete |
+| DISPATCH-04 | Phase 39 | Complete |
+| TIMELINE-02 | Phase 40 | Complete |
+| RECON-01 | Phase 41 | Complete |
+| RECON-02 | Phase 41 | Complete |
+| RECON-03 | Phase 41 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total
