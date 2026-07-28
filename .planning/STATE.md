@@ -1,17 +1,18 @@
 ---
 gsd_state_version: 1.0
 milestone: v7.0
-milestone_name: Comunicação com o Candidato
-status: "🎉 M7 COM O PIPELINE PROVADO PONTA-A-PONTA EM PRODUÇÃO (2026-07-28). Um envio REAL atravessou toda a cadeia: dispatch → EF → Resend → webhook → reconciliação, com `status='enviado'` (o 403 acabou) virando `entregue` em 5s via webhook real. `modo='teste'` confirmado por execução: o e-mail foi desviado ao sink @resend.dev e o candidato real NÃO foi contatado, com destinatario_original preservado. Ledger limpo (0 linhas) ao fim. ANTIGO: M7 FUNCIONALMENTE COMPLETO E COM ENTREGA HABILITADA. Os 2 CRITICAL da P39 estão FECHADOS EM PROD (notificar-candidato v3 com o fix f3b7304). A P41 fechou INTEIRA (migration + smoke 5/5 + resend-webhook v1 + cron */15 + reconciliação PROVADA END-TO-END com webhook assinado real). DELIV-01 FECHADO — rh.beautysmile.com.br está Verified no Resend. A ordem obrigatória foi respeitada integralmente: fix deployado ANTES de habilitar entrega. RESTA APENAS: (a) os 2 HUMAN-UATs comportamentais da P39 — agora desbloqueados; (b) conferir/definir NOTIFICACOES_MODO na EF antes de esperar e-mail em caixa real; (c) cleanup do n8n cloud."
-stopped_at: "Nada bloqueado. A P39 segue `human_needed` só pelos 2 UATs comportamentais (aprovação recebe COPY_APROVACAO; knockout não recebe nada) — exigem decisão humana no painel do RH e/ou uma submissão com knockout. Com o DELIV-01 fechado, ambos estão executáveis. Depois deles o milestone pode ir para audit → complete → cleanup."
-last_updated: "2026-07-28"
-last_activity: 2026-07-28 -- P39 CR-01/CR-02 DEPLOYADOS (EF v3); P41 FECHADA (41-05 T1+T2+T3, reconciliação provada end-to-end)
+milestone_name: M7 Comunicação com o Candidato (COMM)
+status: Awaiting next milestone
+stopped_at: "**M7 funcionalmente completo.** Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall em toda a árvore, integridade do lock batendo 1:1 com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido); (6) cron `notif-retry-sweep` ativo e varredura provada como no-op seguro; (7) **Fernando registrou o webhook + provisionou o `resend_webhook_secret`**; (8) **reconciliação provada END-TO-END** — webhook assinado real → `enviado→entregue→bounce` por `provider_message_id`, forjados/replays em 400, assinatura computada dentro do Postgres (segredo nunca saiu do banco), linha de teste removida (ledger 0). Restam só itens humanos: DELIV-01 (`verified` no Resend), 2 UATs comportamentais da P39, cleanup do n8n cloud."
+last_updated: "2026-07-28T05:22:42.855Z"
+last_activity: 2026-07-28
+last_activity_desc: Milestone v7.0 completed and archived
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
   completed_plans: 25
-  percent: 98
+  percent: 100
 ---
 
 # Project State
@@ -25,42 +26,10 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: **TODAS AS 6 FASES DO M7 FECHADAS** — 36 ✅ 37 ✅ 38 ✅ 39 ✅ 40 ✅ 41 ✅
-Plan: P39 4/4 + gap-closure `f3b7304` + W-01 (EF **v5**). P41 **5 of 5** (41-05 Tasks 1–3 em PROD).
-Status: M7 completo e provado ao vivo. Restam só 2 itens humanos NÃO-bloqueantes (cleanup do n8n cloud · virar NOTIFICACOES_MODO para `producao` quando quiser entrega real).
-Last activity: 2026-07-28 -- P39 fechada: CR-01/CR-02 provados ao vivo + W-01 (preheader) achado no UAT, corrigido e re-verificado
-
-Progress: [██████████████] 100% (6/6 fases · pipeline provado ponta-a-ponta em produção)
-
-> ✅ **RESOLVIDO 2026-07-28 — os 2 defeitos CRÍTICOS da P39 estão fora de PROD.** A EF
-> `notificar-candidato` foi redeployada **v2 → v3** com o fix `f3b7304`, na ordem obrigatória
-> (redeploy **antes** do apply do 41-05 e antes de qualquer entrega). Fonte deployada auditada
-> via `get_edge_function`: `COPY_APROVACAO` presente, `corpoDecisao`/`SUBJECTS` ramificam por
-> `desfecho`, survivor-guard na linha 192 **antes** do claim (linha 250). Self-auth intacta
-> (`curl` sem Bearer → 401, corpo da própria EF). Registro histórico do defeito abaixo:
-
-> ⛔ **DESCOBERTA 2026-07-28 (histórico) — a P39 esteve viva em PROD com 2 defeitos CRÍTICOS.** O code
-> review da P39 (nunca rodado até aqui — a fase fechou sem VERIFICATION.md) achou 3 CRITICAL;
-> re-checados no main thread contra PROD: **CR-01 e CR-02 CONFIRMADOS, CR-03 REFUTADO.**
-> **CR-01:** o trigger mapeia `etapa_para IN ('aprovado','rejeitado')` a UM evento `decisao`
-> com corpo ids-only, e `corpoDecisao` usava exclusivamente `COPY_REJEICAO` → **todo APROVADO
-> recebia "sua candidatura não seguirá para as próximas etapas"**.
-> **CR-02:** `trg_notif_confirmacao` é AFTER INSERT mas o knockout é aplicado por UPDATE
-> POSTERIOR (`20260709000014:138`) → a guarda lia estado pré-knockout e **nunca podia ser
-> verdadeira**; knockouts recebiam a confirmação.
-> **CR-03 (Bearer mismatch) REFUTADO:** `net._http_response` mostra `200 {"ok":true}` nos ids
-> 58/60/61 após o fix da P38; o 401 (id 57) é o gap já corrigido. O ledger vazio explica-se por
-> **zero tráfego de funil desde 2026-06-26**, não por 401.
-> **Fix commitado em `f3b7304`** (EF-only, zero migration): `COPY_APROVACAO` congelada +
-> ramificação por `desfecho` (derivado de `etapa_atual`, que a EF já resolvia e ignorava); e o
-> survivor-guard movido para a EF, ANTES do claim (net.http_post é assíncrono ⇒ a EF vê o
-> estado pós-COMMIT; e knockout não deixa linha `pendente` para a varredura re-tentar).
-> **⚠ O fix NÃO está deployado — a EF viva ainda tem os dois bugs.** Testes: EF Deno **260/0**
-> (era 251), vitest 128/1025, tsc 97→97.
-
-> 📋 **P39 descobertas-chave (planning 2026-07-26):** (1) são **4** triggers n8n vivos a DROPar, não 3 (o 4º = `trg_n8n_novo_candidato` em `candidatos`). (2) O disparo n8n do `submit-candidatura` é **LIVE, hardcoded** (`fetch` fallback `fernandocosta.app.n8n.cloud`, index.ts:~310) — NÃO desarma por env-var; exige remoção do bloco + **redeploy ANTES do apply** (anti-double-send). (3) Aprovação escreve `etapa_atual='aprovado'` → 1 trigger CASE em `historico_candidatura` cobre avanço E decisão; **nenhum satélite em `decisao_final`**. (4) Guard do survivor = `candidaturas.status='rejeitado' OR opcao_knockout_id` (NÃO `auto_rejeitado`, que vive em `historico`). 3 decisões de produto travadas com Fernando (avanço=só avaliação assíncrona · knockout=zero e-mail · decisão=e-mail único neutro). Artefatos: `39-{CONTEXT,RESEARCH,VALIDATION,01..04-PLAN}.md`, commits `c309550`→`6a9eea8`.
-
-> ✅/⚠ **Update 2026-07-26 (sessão de deploy+smoke da P38, orquestrador via MCP+CLI).** **UAT-36-2 clareou** — `resend_api_key` agora vive no Vault (`ler_resend_api_key()` não-nulo, len 36; Fernando provisionou após a verificação de 23/07). **P38 deployada dormente** (`notificar-candidato` v2, `verify_jwt=false`, ACTIVE; 0 funções PL/pgSQL a referenciam; os 4 `trg_n8n_*` seguem vivos). **Smoke UAT-38-1:** auth (após fix), idempotência (`skipped:duplicate`, sem 2ª linha), resolução por allowlist, render e degradação graciosa **PROVADOS**; a linha de teste foi limpa. **⚠ GAP DA P38 CORRIGIDO:** a EF batia **401** — `NOTIFICAR_SECRET` nunca fora setado e a invariante `edge_invoke_key==service_role` está **quebrada por rotação** (`edge_invoke_key`/`ANALISE_SECRET`=`823aa757…` ≠ `SUPABASE_SERVICE_ROLE_KEY` injetada=`085073ec…`). Fix: `NOTIFICAR_SECRET`=`edge_invoke_key` (extraído do Vault sem exposição; digest confirmado `823aa757…`). Isto **também** é pré-req dos triggers da P39. **⛔ NOVO GATE — DELIV-01 / UAT-36-1:** a entrega real (`status='enviado'`) segue bloqueada — Resend responde **`403 rh.beautysmile.com.br domain not verified`** (a migração remetente `recruta.→rh.` do `f284672` adiantou-se à verificação DNS). Ação humana do Fernando (DNS + dashboard Resend). Re-smoke após verificação → deve dar `enviado`. **P39** (rewire): a EF-alvo está viva e provada funcionalmente; **P39 Wave 2** (apply PROD) e a **entrega real** seguem em checkpoint. **P41** gated em P38+P39 vivas.
+Phase: Milestone v7.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-28 — Milestone v7.0 completed and archived
 
 ## Roadmap (M7 — Phases 36–41)
 
@@ -197,6 +166,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **🔄 DELIV-01 — registro histórico (2026-07-28, antes da confirmação): o DNS JÁ SUBIU.** `dig` ao vivo mostra os 3 registros Resend publicados em `rh.beautysmile.com.br`: `send.rh…` TXT `v=spf1 include:amazonses.com ~all` (SPF), `send.rh…` MX `10 feedback-smtp.sa-east-1.amazonses.com`, e `resend._domainkey.rh…` TXT com a chave pública DKIM. **Re-conferido ao vivo em 2026-07-28** (`dig`): SPF, DKIM e MX seguem publicados em `send.rh` / `resend._domainkey.rh` ✓. **Falta apenas:** **confirmação autoritativa do flag `verified` do lado do Resend** (rodar `RESEND_API_KEY=… npm run check:resend-dominio`).
 
 > ✅ **CORREÇÃO 2026-07-28 — o "TXT `_dmarc` ausente" NÃO é uma lacuna real.** `_dmarc.rh.beautysmile.com.br` está de fato vazio, **mas o domínio organizacional tem política publicada**: `_dmarc.beautysmile.com.br` = `v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@beautysmile.com.br`. Pela RFC 7489 §6.6.3, um subdomínio sem registro próprio **herda a política do domínio organizacional** — e o registro raiz não traz tag `sp=`, então `rh.` herda `p=quarantine`. Ou seja: **DMARC já cobre o subdomínio remetente**; publicar um `_dmarc.rh` só seria necessário para dar ao subdomínio uma política DIFERENTE da raiz. Como SPF e DKIM estão corretos e alinhados (o DKIM assina com `d=rh.beautysmile.com.br`), o correio autenticado passa. **Não há ação de DNS pendente para o DELIV-01.** Rodar `RESEND_API_KEY=… npm run check:resend-dominio` para fechar. ✅ **O veto foi LEVANTADO em 2026-07-28** — o fix da P39 está deployado (EF v3), então verificar o domínio já **não** transforma CR-01/CR-02 em dano real. DELIV-01 está liberado para fechar. Registro histórico abaixo:
+
 - **DELIV-01 (registro histórico até 2026-07-26) — o subdomínio remetente `rh.beautysmile.com.br` NÃO estava verificado no Resend** → todo envio bate `403 domain not verified` e grava `status='falhou'`. Re-verificado por smoke fresco no início da P39-04 (contradisse o registro de "verificado" — por isso o gate re-verifica ao vivo, não confia no registro). **O operador optou explicitamente por aplicar a P39 mesmo assim** (rewire vivo, sends=`falhou`), aceitando que a recuperação virá pela varredura `pg_cron` da P41. Ação humana/DNS do Fernando: adicionar+verificar `rh.beautysmile.com.br` em https://resend.com/domains (SPF/DKIM auto + DMARC). **O funil AGORA dispara em tráfego real, mas só registra `falhou` até isto fechar** — quanto antes verificar, menos linhas acumuladas p/ o retry. Re-rodar o smoke da P38 após verificação deve dar `enviado`.
 - **✅ RESOLVIDO 2026-07-28 — P41 / 41-05 Tasks 1 e 2 APLICADAS EM PROD.** Migration `20260727000001` aplicada via MCP `apply_migration` + **ledger reconciliado** (`20260728000659` → `20260727000001_p41_recon_retry`, em sequência após a P39, zero drift novo); smoke `p41_recon_retry_smoke.sql` **VERDE 5/5** (gate-GUC, 100% estrutural, zero INSERT); EF `resend-webhook` deployada **v1** (`verify_jwt=false`), com **`npm:svix` resolvido** (Pitfall 2 descartado — a EF executa e devolve a string do próprio código; um `ERR_MODULE_NOT_FOUND` falharia no boot). Cron `notif-retry-sweep` **ativo** `*/15 * * * *`. `varrer_retry_notificacoes()` executada ao vivo **sem exceção** e como **no-op real** (ledger 0 linhas; `net._http_response` inalterado, max id 61). Gate de supply-chain **T-41-SC limpo**: `svix@1.99.1` MIT, repo oficial, **sem `postinstall`** em toda a árvore, integridade do `deno.lock` **batendo 1:1** com o registry nos 4 pacotes (`svix` → `standardwebhooks` → `@stablelib/base64`, `fast-sha256`), `deno check` exit 0.
 - **⏳ Cleanup do n8n cloud (DISPATCH-03) — pendente, ação humana.** A P39 aposentou o n8n do BANCO (0 `trg_n8n_*`) e do CÓDIGO deployado (submit-candidatura sem fetch). Falta fechar a superfície EXTERNA: desativar/apagar a(s) workflow(s) em `fernandocosta.app.n8n.cloud` (painel do Fernando). O secret `n8n_webhook_base` já não existe no Vault (nada a remover).
@@ -247,27 +217,4 @@ Resume file: None
 
 ## Operator Next Steps
 
-Passos 1–4 da lista anterior estão **CONCLUÍDOS** (2026-07-28): escrita restabelecida ·
-`notificar-candidato` v3 com o fix da P39 · migration `20260727000001` aplicada + reconciliada
-+ smoke 5/5 · `resend-webhook` v1 deployada. O que resta é **tudo ação humana**:
-
-1. ~~41-05 Task 3~~ — ✅ **CONCLUÍDA em 2026-07-28** (webhook registrado, secret no Vault,
-   reconciliação provada end-to-end). **A P41 está fechada; a P41 não bloqueia mais nada.**
-
-2. ~~Fechar DELIV-01~~ — ✅ **FECHADO em 2026-07-28** (domínio **Verified** no Resend,
-   confirmado pelo Fernando no dashboard). A entrega real está habilitada.
-   ⚠ **Antes de esperar e-mail em caixa real, conferir a env `NOTIFICACOES_MODO` da EF
-   `notificar-candidato`:** ausente ou qualquer valor ≠ `producao` ⇒ modo `teste`, e todo
-   envio é desviado para o sink `delivered+<evento>@resend.dev` (fail-safe do DELIV-03).
-   Para valer em produção, setar `NOTIFICACOES_MODO=producao` nos secrets da Edge Function.
-
-3. **Cleanup do n8n cloud (DISPATCH-03)** — desativar a(s) workflow(s) em
-   `fernandocosta.app.n8n.cloud`; o banco e o código já estão limpos.
-
-4. ~~HUMAN-UATs ao vivo da P39~~ — ✅ **EXECUTADOS E APROVADOS em 2026-07-28.** CR-01 e CR-02
-   provados ao vivo; conteúdo do e-mail conferido no dashboard. Achado extra W-01 (preheader)
-   corrigido e re-verificado na mesma sessão.
-
-5. **Virar `NOTIFICACOES_MODO` para `producao`** quando quiser que candidatos REAIS passem a
-   receber os e-mails. Hoje está em `teste` — tudo vai para o sink `@resend.dev`. Esta é a
-   única chave que separa o pipeline (já provado) do tráfego real.
+- Start the next milestone with /gsd-new-milestone

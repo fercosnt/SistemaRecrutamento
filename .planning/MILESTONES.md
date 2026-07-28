@@ -1,5 +1,29 @@
 # Milestones
 
+## v7.0 Comunicação com o Candidato (COMM) (Shipped: 2026-07-28)
+
+**Phases completed:** 6 phases, 25 plans, 26 tasks
+
+**Key accomplishments:**
+
+- `supabase/functions/_shared/email-config.ts`
+- Task 1 — `scripts/assert-no-secrets.mjs` (181 linhas, exit 0 contra o bundle atual)
+- Reporter opt-in do domínio Resend (GET /domains + /domains/:id, sem rede no CI e sem imprimir a chave), runbook DELIV-01 provider-agnóstico com os valores canônicos literais, e o gate humano de 9 itens registrado como HUMAN-UAT pendente.
+- `public.ler_resend_api_key()` viva em PROD — leitora `SECURITY DEFINER` de um único segredo do Vault, executável apenas por `service_role`, com deny para `anon`/`authenticated`/`PUBLIC` provado por `has_function_privilege` e graceful-skip NULL confirmado.
+- O gate humano do DELIV-02 fechou como pendente-humana rastreável: a chave PROD dedicada do Resend ainda não existe, então `vault.secrets` continua sem `resend_api_key` — deliberadamente, sem placeholder — e `UAT-36-2` registra o `vault.create_secret` literal, os dois smokes de conferência e o cobrador (Phase 38).
+- As duas tabelas de notificação que só existiam em PROD voltaram a ser declaradas no repositório, byte-a-byte fiéis ao catálogo — e a fidelidade foi provada aplicando as migrations num Postgres 17 real e rodando o gate contra elas, não por revisão de leitura.
+- As 2 lacunas REAIS do schema vivo foram fechadas numa migration aditiva — auditoria do modo teste e `atualizado_em` que de fato atualiza — e o candidato-DENY, o escopo por vaga do RH e a idempotência da `dedupe_key` passaram a ser provados por COMPORTAMENTO, com o gate validado por 10 sabotagens num Postgres descartável.
+- 7/7 PASS.
+- Os tipos do projeto passaram a conhecer a camada de dados de notificação num diff 100% aditivo (146 inserções, 0 deleções, zero surpresa), e o item de drift saiu de `pending/` com um registro que separa o que foi resolvido do que continua sem resposta — a origem do apply original.
+- removida integralmente a seção "5) Fire-and-forget N8N webhook AFTER COMMIT" — a
+- `notificar-candidato` refatorada para `handler(req, deps)` com `fetch`/`supabaseAdmin`/`serviceKey` injetáveis (mockável sem `--allow-net`), mais `computeProximaTentativa` (backoff exponencial capado em 5) e `exigirSinkTeste` (guard non-prod DELIV-03) como funções puras testadas e fiadas no handler.
+- Nova Edge Function `resend-webhook` — endpoint público (`verify_jwt=false`) que verifica a assinatura Svix sobre o corpo BRUTO, mapeia `email.delivered`/`bounced`/`complained` para os status terminais e reconcilia `notificacoes_enviadas` por `provider_message_id` de forma idempotente, tudo via `handler(req, deps)` injetável testado sem `--allow-net` (RECON-01/02, código-completo; deploy em 41-05).
+- A única migration aditiva da P41 (`20260727000001_p41_recon_retry.sql`) + o smoke de fidelidade: adiciona `bounce_em`/`reclamado_em` à state machine (RECON-01), cria `ler_resend_webhook_secret()` (leitora escopada do Vault, mirror de `ler_resend_api_key`, RECON-02) e `varrer_retry_notificacoes()` + o cron `notif-retry-sweep` a cada 15 min que re-invoca a EF `notificar-candidato` em modo retry via `net.http_post` Bearer `edge_invoke_key` (RECON-03) — tudo adaptação cirúrgica de padrões vivos, SEM `CREATE INDEX`, SEM `BEGIN/COMMIT` externo, ZERO contato com PROD (apply é o 41-05).
+- A EF `notificar-candidato` ganhou o BRANCH RETRY que a varredura `pg_cron` (41-03) aciona: um body com `retry_id` pula o claim-before-send, carrega a linha EXISTENTE por id, re-tenta o envio, INCREMENTA `tentativas` (row+1) e grava `proxima_tentativa_em` via backoff (null no cap 5) — mais o header `Idempotency-Key` do Resend como cinto secundário de 24h. Caminho normal preservado; branch coberto por testes com `fetch`/`supabaseAdmin` mockados SEM `--allow-net`.
+- Resultado: Tasks 1, 2 e 3 PASS. O loop fire-and-forget está FECHADO e provado ao vivo.
+
+---
+
 ## v6.0 Operação do Funil RH (Shipped: 2026-07-17)
 
 **Phases completed:** 5 phases, 20 plans, 25 tasks
