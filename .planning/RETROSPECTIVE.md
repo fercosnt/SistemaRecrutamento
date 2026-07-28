@@ -137,6 +137,43 @@ The operational "esteira" that makes the already-evaluative funnel move by the R
 
 ---
 
+## Milestone: v7.0 — M7 Comunicação com o Candidato (COMM)
+
+**Shipped:** 2026-07-28
+**Phases:** 6 (36–41) | **Plans:** 25 | **Tasks:** 26
+
+### What Was Built
+The transactional email pipeline that lets the candidate *know* the funnel is moving: verified sender identity on a dedicated subdomain (P36); the `notificacoes_enviadas` ledger with `UNIQUE(dedupe_key)` idempotency, retry queue and candidate-DENY RLS, plus `config_sla_etapa` (P37); the self-authenticating `notificar-candidato` EF that resolves data by explicit allowlist, claims before sending, renders four hand-rolled Beauty Smile templates and ports the M6 `.ics` verbatim (P38); the canonical `CASE` trigger on `historico_candidatura` plus two satellites, with the four `trg_n8n_*` triggers DROPped in the same phase (P39); the SLA estimate on the candidate panel (P40); and the Svix webhook + `pg_cron` retry sweep that closes the fire-and-forget loop (P41).
+
+### What Worked
+- **Ordering as a load-bearing constraint, not a preference.** The close session inherited two live CRITICAL defects and a verified-domain gate. Redeploying the fix *before* enabling delivery was what kept them latent — verifying the domain first would have converted "approved candidate receives a rejection letter" from a bug into real harm to real people. The STATE file recorded that ordering explicitly, and it was followed literally.
+- **Proving by execution instead of by reading.** Every requirement that could be exercised in production was: a real approval drove `trigger → EF → Resend → webhook → ledger` and reconciled in 5 s. This surfaced things static verification structurally cannot — including that the `403 domain not verified` had actually stopped.
+- **Secrets never left the database.** The Svix signature for the webhook proof was computed inside Postgres (`extensions.hmac`), so only a single-use signature travelled. Same discipline let the `edge_invoke_key` dispatch happen via `net.http_post` without the key entering the agent's context.
+- **Supply-chain gate proved by integrity, not by reputation.** `npm:svix@1.99.1` was cleared by comparing `deno.lock` sha512 against the registry 1:1 across the *entire* transitive closure, and by checking for `postinstall` on every package — not just the top-level one.
+
+### What Was Inefficient
+- **The P39 gate skip cost the most.** The milestone's highest-risk phase closed with no VERIFICATION.md and no code review. Two CRITICAL defects then lived in production for two days. Everything the close session spent on review, live UAT and re-deploy was work that a gate at the right moment would have prevented.
+- **Stale traceability bookkeeping, again.** 14 requirements sat as `Pending` with `[ ]` checkboxes while their phase VERIFICATIONs read `passed` — the same failure mode v6.0 already recorded. The intent was defensible (SUMMARYs deliberately withheld `requirements_completed` until behaviour was live), but the audit still had to reconcile it by hand.
+- **Test-invocation ergonomics.** Running `deno test` with explicit directory paths silently bypasses `deno.json`'s `exclude`, dragging a Vitest-only file into the Deno run and producing a failure that looks like a regression. Cost a detour to characterise.
+
+### Patterns Established
+- **Guard placement relative to the claim matters as much as the guard itself.** CR-02's fix worked because the survivor-guard runs *before* claim-before-send — a guard placed after would have suppressed the email while leaving an orphaned `pendente` row for the retry sweep to resurrect.
+- **Async dispatch means the EF sees post-COMMIT state.** `net.http_post` delivers after commit, so state-dependent guards belong in the Edge Function, not in an `AFTER INSERT` trigger that reads pre-update rows.
+- **Compute signed proofs inside the database** when verifying a signature-authenticated endpoint, so the signing secret never enters the tool context.
+- **Distinguish "absent" from "deliberately off".** `NOTIFICACOES_MODO` unset and set to `teste` behave identically but read very differently to an operator — the silent-failure mode only closes when the value is explicit.
+
+### Key Lessons
+- **Each verification layer catches a different class of defect, and none subsumes the others.** Code review found CR-01/CR-02; the live UAT found W-01 (an unbranched preheader) that review *and* the full test suite both passed clean — because the preheader is `display:none` and every existing assertion inspected visible body text. Skipping a layer does not merely delay discovery; it forfeits a category.
+- **A configuration accident is not a control.** The `403` was containing two critical defects, and it was tempting to treat that as safety. It was an unverified DNS record — one dashboard click from evaporating.
+- **Idempotency belts are worth proving in production.** A re-test using the same `Idempotency-Key` with a modified body was rejected by Resend with `409`. That behaviour had only ever been covered by a unit test.
+
+### Cost Observations
+- Model mix: orchestrator opus throughout; the close session ran entirely in the main thread because GSD subagents don't receive Supabase MCP tools (anthropics/claude-code#13898) and every integration claim here is only verifiable against PROD.
+- Run: one `/gsd-autonomous` session that began blocked (MCP pinned `read_only`) and ended with the milestone archived.
+- Gates at close: **vitest 1025/1025 · Deno EF 139 · tsc 97 (≤104 baseline)** · integration 6/6 · E2E 4/4 · audit tech_debt (0 gaps).
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -145,6 +182,8 @@ The operational "esteira" that makes the already-evaluative funnel move by the R
 |-----------|--------|-------|------------|
 | v1.0 (M1 MVP Candidato) | 7 | 43 | First CI pipeline established; smoke-runtime gate pattern introduced (Phase 4.1); measure-first performance baseline |
 | v4.0 (M4 Correção & Blindagem) | 6 (22–27) | 43 | Behavioral SQL/EF smokes as the primary live-verification gate; MCP apply_migration + ledger reconcile (73/73); hardening-only milestone (no feature expansion) |
+| v6.0 (M6 Operação do Funil RH) | 5 (31–35) | 20 | Security-first phase ordering (BLOCKING leak-closure before any UI that reads it); plan-checker upgraded a test from optional to required pre-execution |
+| v7.0 (M7 Comunicação / COMM) | 6 (36–41) | 25 | **Live production execution as the primary verification** (not code reading); supply-chain gate by lockfile-integrity diff; signed proofs computed inside Postgres so secrets never leave the DB |
 
 ### Cumulative Quality
 
@@ -152,6 +191,8 @@ The operational "esteira" that makes the already-evaluative funnel move by the R
 |-----------|-----------|----------|------|
 | v1.0 | 358 passing (Vitest) | full chromium green (31 passed / 0 failed) | 0 WCAG A/AA violations (5 public routes) |
 | v4.0 | 774 passing (Vitest) | Deno EF corpus 192/0 in a blocking CI job; tsc gate pinned 104 | WCAG AA held from v2.0 (no new axe work) |
+| v6.0 | 1013 passing (Vitest) | tsc 97 (≤104 baseline); build 0 | WCAG AA held |
+| v7.0 | 1025 passing (Vitest) | Deno EF 139; tsc 97 (≤104 baseline) | WCAG AA held (P40 only frontend surface) |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -159,5 +200,8 @@ The operational "esteira" that makes the already-evaluative funnel move by the R
 2. Fix shared-primitive defects once at the source; they cascade. *(v1.0)*
 3. Live behavioral smokes (impersonated JWT + `SET ROLE`) catch column/policy leaks that structural greps and unit tests pass clean. *(v4.0)*
 4. MCP `apply_migration` stamps a timestamp version-row, not the filename — ledger drift is real but reconcilable without re-running migrations. *(v4.0)*
+5. A phase that skips its verification gate does not merely delay discovery — each layer catches a *different class* of defect, so skipping one forfeits a category outright. The highest-risk phase of v7.0 was the one that skipped it, and shipped two CRITICAL defects to production. *(v7.0)*
+6. A configuration accident is not a control. Two critical defects were contained only by an unverified DNS record — one dashboard click from evaporating. *(v7.0)*
+7. Verification bookkeeping drifts from verification *reality* across sessions, in both directions — v6.0 saw satisfied requirements left unchecked, v7.0 saw 14 of them. Reconciling at audit works, but it is rework. *(v6.0, v7.0)*
 
 ---
