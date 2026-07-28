@@ -1,17 +1,17 @@
 ---
 phase: 41-reconcilia-o-de-entrega-retry-testing
 plan: 05
-status: partial
+status: complete
 completed: 2026-07-28
-tasks_done: 2
+tasks_done: 3
 tasks_total: 3
-blocked_on: "Task 3 — ação humana (Fernando): registrar o endpoint no dashboard Resend + provisionar `resend_webhook_secret` no Vault"
+blocked_on: null
 requirements: [RECON-01, RECON-02, RECON-03]
 ---
 
 # Plano 41-05 — Aterrissagem em PROD (SUMMARY)
 
-**Resultado: Tasks 1 e 2 PASS. Task 3 permanece com o Fernando (ação humana, sem caminho autônomo).**
+**Resultado: Tasks 1, 2 e 3 PASS. O loop fire-and-forget está FECHADO e provado ao vivo.**
 
 Sessão de 2026-07-28. O bloqueio da sessão anterior (MCP `read_only=true`) foi removido pelo
 operador; confirmado empiricamente antes de qualquer escrita:
@@ -78,13 +78,12 @@ Todas estruturais/catálogo — zero INSERT, zero `net.http_post`, zero e-mail. 
 - **URL do webhook (insumo da Task 3):**
   `https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook`
 
-### ⏸ Critério deferido — "POST sem assinatura → 400"
+### ✅ Critério "POST sem assinatura → 400" — RESOLVIDO após a Task 3
 
-Hoje um POST sem assinatura devolve **500 `misconfigured`**, não 400. Isso é **correto e
-esperado**: `resend_webhook_secret` ainda não existe no Vault, e o wiring de produção lê o
-segredo **antes** de delegar ao `handler` — então a EF falha fechada antes do ponto onde a
-verificação Svix acontece. O critério 400 só é testável **depois** da Task 3. O que já está
-provado: a EF é inalcançável sem configuração válida e **não escreve nada** (`ledger = 0`).
+Enquanto o Vault não tinha o secret, o POST devolvia **500 `misconfigured`** (correto: o
+wiring lê o segredo **antes** de delegar ao `handler`, então a EF falhava fechada antes do
+ponto da verificação Svix). Com o secret provisionado, virou **400 `invalid signature`**,
+como especificado. Ver Task 3.
 
 ## Prova ao vivo de RECON-03 (segura)
 
@@ -94,33 +93,51 @@ provado: a EF é inalcançável sem configuração válida e **não escreve nada
 - `net._http_response` sem novas linhas (max id continua **61**), 0 dispatches em 10 min
 - `cron.job` → `notif-retry-sweep | */15 * * * * | active=true`
 
-## Task 3 — PENDENTE (ação humana do Fernando)
+## Task 3 — ✅ PASS (ação humana do Fernando + verificação do orquestrador)
 
-Sem caminho autônomo: o `whsec_…` só existe depois do registro no dashboard, e o dashboard
-não tem API para isso.
+O Fernando registrou o endpoint em https://resend.com/webhooks apontando para
+`https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook`
+(`email.delivered` / `email.bounced` / `email.complained`) e provisionou o `whsec_…` no Vault
+como `resend_webhook_secret`.
 
-1. Registrar em https://resend.com/webhooks apontando para
-   `https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook`,
-   assinando `email.delivered` / `email.bounced` / `email.complained`.
-2. Copiar o signing secret `whsec_…`.
-3. Provisionar no Vault como `resend_webhook_secret` (literal, **sem placeholder** — ausência
-   = NULL diagnosticável, mirror UAT-36-2).
-4. Confirmar `select public.ler_resend_webhook_secret() is not null;` → `true` (sem imprimir o valor).
-5. Re-testar a postura: POST sem assinatura Svix → deve virar **400** (não mais 500), zero writes.
+**Confirmado sem expor o valor:** `ler_resend_webhook_secret()` não-nulo, prefixo `whsec_`,
+comprimento 38 (formato Svix legítimo, não placeholder). Vault agora:
+`edge_invoke_key`, `project_url`, `resend_api_key`, `resend_webhook_secret`.
 
-Estado do Vault agora: `edge_invoke_key`, `project_url`, `resend_api_key` — **sem**
-`resend_webhook_secret` (`ler_resend_webhook_secret()` devolve NULL, graceful).
+### Prova end-to-end da reconciliação (RECON-02)
+
+Assinatura Svix calculada **dentro do Postgres** (`extensions.hmac` sobre
+`{svix-id}.{svix-timestamp}.{payload}`, chave = `decode(substring(secret from 7),'base64')`),
+de modo que **o segredo nunca saiu do banco** — só a assinatura, válida exclusivamente para
+aquele payload/timestamp/msg-id, foi usada no request.
+
+| Cenário | Observado |
+|---|---|
+| POST **sem** assinatura | **400** `invalid signature` (antes 500) |
+| POST com headers Svix **forjados** | **400** `invalid signature` (T-41-04) |
+| `GET` | **405** — prova que passou do gate do Vault e alcançou o `handler` |
+| POST **assinado** `email.delivered` | **200** → `enviado` → **`entregue`**, `entregue_em` gravado |
+| POST **assinado** `email.bounced` | **200** → `entregue` → **`bounce`**, `bounce_em` gravado, `entregue_em` preservado |
+| **Replay** com timestamp trocado | **400** — o timestamp integra o conteúdo assinado |
+
+As duas colunas criadas por esta migration (`bounce_em`, `reclamado_em`) foram provadas por
+**escrita real da EF**, não só por catálogo.
+
+**Higiene:** linha de teste (`dedupe_key='P41-SMOKE-WEBHOOK-LIMPAR'`) criada e **removida ao
+fim** — `notificacoes_enviadas` voltou a **0 linhas** (precedente do smoke da P38). Nenhum
+e-mail foi enviado: o webhook apenas ATUALIZA o ledger.
 
 ## Requirements
 
 | Req | Estado |
 |---|---|
-| RECON-01 | ✅ state machine completa — `bounce_em`/`reclamado_em` vivas; EF de reconciliação deployada |
-| RECON-02 | ⏸ código + RPC + índice vivos; **reconciliação real gated no secret do Vault** (Task 3) |
+| RECON-01 | ✅ state machine completa — `bounce_em`/`reclamado_em` vivas e **escritas pela EF ao vivo** |
+| RECON-02 | ✅ **provado end-to-end** — webhook assinado aceito, reconciliação por `provider_message_id` observada no banco; forjados e replays rejeitados com 400 |
 | RECON-03 | ✅ `varrer_retry_notificacoes()` viva + cron `notif-retry-sweep` ativo `*/15`, executada sem exceção |
 
 ## UAT ao vivo — DEFERIDO (não bloqueante)
 
-O UAT `delivered@`/`bounced@`/`complained@resend.dev` segue deferido atrás de **DELIV-01**
-(verificação do domínio no Resend), conforme o plano. Não bloqueia o fecho da fase — a prova
-autônoma é o CI mockado (41-01/02/04) + o smoke SQL 5/5.
+O UAT ponta-a-ponta pelo pipeline REAL do Resend (`delivered@`/`bounced@`/`complained@resend.dev`)
+segue deferido atrás de **DELIV-01**, conforme o plano. Não bloqueia o fecho: o trecho
+**webhook→ledger** — onde vivia todo o risco desta fase — está provado ao vivo; o que resta é
+só o trecho **Resend→webhook**.

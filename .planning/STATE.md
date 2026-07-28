@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: Comunicação com o Candidato
-status: "✅ DESBLOQUEADO. Acesso de escrita restabelecido (MCP sem read_only; postgres, transaction_read_only=off). Os 2 CRITICAL da P39 estão FECHADOS EM PROD: notificar-candidato redeployada v2→v3 com o fix f3b7304 (CR-01 aprovado já NÃO recebe rejeição; CR-02 survivor-guard vivo na EF, antes do claim). 41-05 Tasks 1 e 2 PASS: migration 20260727000001 aplicada + ledger reconciliado + smoke 5/5 VERDE; resend-webhook deployada v1 (verify_jwt=false, npm:svix resolvido); cron notif-retry-sweep ativo */15. RESTA: 41-05 Task 3 = AÇÃO HUMANA do Fernando (registrar webhook no dashboard Resend + provisionar resend_webhook_secret no Vault) e DELIV-01 (TXT _dmarc + confirmar verified) — agora SEGURO de fechar, o fix já está vivo."
-stopped_at: "41-05 Task 3 — ação humana do Fernando, sem caminho autônomo: o signing secret whsec_ só existe após registrar o endpoint em https://resend.com/webhooks (o dashboard não tem API p/ isso). URL a registrar: https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook (eventos email.delivered/bounced/complained) → copiar o whsec_ → provisionar no Vault como resend_webhook_secret → confirmar `select public.ler_resend_webhook_secret() is not null` = true → re-testar POST sem assinatura (deve virar 400, hoje é 500 misconfigured por ausência do secret). Depois: DELIV-01 (publicar TXT _dmarc.rh.beautysmile.com.br + `RESEND_API_KEY=… npm run check:resend-dominio`) e cleanup do n8n cloud."
+status: "✅ M7 FUNCIONALMENTE COMPLETO. Os 2 CRITICAL da P39 estão FECHADOS EM PROD (notificar-candidato v3 com o fix f3b7304). A P41 fechou INTEIRA: migration 20260727000001 aplicada + reconciliada + smoke 5/5; resend-webhook v1 viva; cron notif-retry-sweep ativo */15; e o loop de reconciliação foi PROVADO END-TO-END ao vivo (webhook assinado real → ledger: enviado→entregue→bounce, por provider_message_id; forjados/replays rejeitados com 400). Ledger limpo (0 linhas), zero e-mail enviado. RESTA APENAS: (a) confirmar o flag `verified` do domínio no Resend p/ fechar DELIV-01 — sem ação de DNS pendente, o DMARC já cobre rh. por herança; (b) HUMAN-UATs ao vivo da P39 (gated em DELIV-01); (c) cleanup do n8n cloud."
+stopped_at: "Nada bloqueado tecnicamente. A P39 segue `human_needed` só pelos 2 UATs comportamentais ao vivo (aprovação recebe COPY_APROVACAO; knockout não recebe nada) — exigem decisão humana no painel do RH + entrega real, logo dependem do DELIV-01. Próximo passo natural: `RESEND_API_KEY=… npm run check:resend-dominio` para fechar o DELIV-01, e então rodar os 2 UATs da P39. Depois disso o milestone pode ir para audit → complete → cleanup."
 last_updated: "2026-07-28"
-last_activity: 2026-07-28 -- escrita restabelecida; P39 CR-01/CR-02 DEPLOYADOS (EF v3); 41-05 T1+T2 PASS (migration+smoke 5/5, resend-webhook v1); T3 humano
+last_activity: 2026-07-28 -- P39 CR-01/CR-02 DEPLOYADOS (EF v3); P41 FECHADA (41-05 T1+T2+T3, reconciliação provada end-to-end)
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 25
   completed_plans: 25
-  percent: 92
+  percent: 98
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 39 (CR-01/CR-02 **fechados em PROD** — EF v3; `human_needed` p/ confirmação ao vivo) + 41 (5/5 escritos; 41-05 T1+T2 PASS, T3 humano)
-Plan: P39 4/4 + gap-closure `f3b7304` **DEPLOYADA**. P41 5 of 5 (41-01..04 code+tests; 41-05 Tasks 1–2 aplicadas em PROD).
-Status: Autonomous avançou até o único ponto sem caminho autônomo — 41-05 Task 3 (dashboard Resend + Vault) é ação humana do Fernando.
-Last activity: 2026-07-28 -- escrita restabelecida; EF v3 deployada; migration 20260727000001 + smoke 5/5; resend-webhook v1
+Phase: 39 (CR-01/CR-02 **fechados em PROD** — EF v3; `human_needed` só p/ os 2 UATs comportamentais) + 41 (**PASSED** — 5/5 planos, loop provado end-to-end)
+Plan: P39 4/4 + gap-closure `f3b7304` **DEPLOYADA**. P41 **5 of 5** (41-05 Tasks 1–3 todas concluídas em PROD).
+Status: Nada bloqueado tecnicamente. Só falta fechar o DELIV-01 (confirmar `verified` no Resend) e rodar os 2 UATs ao vivo da P39.
+Last activity: 2026-07-28 -- EF v3 deployada; P41 fechada com reconciliação provada end-to-end (webhook assinado real → ledger)
 
-Progress: [█████████████░] 96% (tudo que é automatizável está vivo em PROD; resta 1 ação humana + DELIV-01)
+Progress: [██████████████] 98% (todo o pipeline vivo e provado em PROD; resta DELIV-01 + 2 UATs comportamentais)
 
 > ✅ **RESOLVIDO 2026-07-28 — os 2 defeitos CRÍTICOS da P39 estão fora de PROD.** A EF
 > `notificar-candidato` foi redeployada **v2 → v3** com o fix `f3b7304`, na ordem obrigatória
@@ -164,6 +164,9 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 41 · 41-05]: `ERR_MODULE_NOT_FOUND` (Pitfall 2) é descartável SEM o secret provisionado — se a EF devolve uma string do PRÓPRIO código (`misconfigured`), o grafo de módulos carregou; um import npm quebrado falha no BOOT e nunca alcança o corpo do `Deno.serve`. O cold start de 2173ms nos logs é a assinatura da resolução npm bem-sucedida
 - [Phase 41 · 41-05]: o smoke gate-GUC precisa rodar numa ÚNICA chamada `execute_sql` — `set_config(..., false)` é escopado à sessão, e statements espalhados por chamadas separadas do MCP zerariam o contador e reprovariam em (z) por run parcial
 - [Phase 39 · gap closure]: o redeploy foi a PRÉ-CONDIÇÃO de tudo o mais, não um passo paralelo — aplicar o 41-05 (ou fechar DELIV-01) antes dele converteria CR-01/CR-02 de latentes em dano real a candidatos. A contenção pelo `403 domain not verified` era acidente de configuração, nunca um controle
+- [Phase 41 · 41-05 T3]: a assinatura Svix foi computada DENTRO do Postgres (`extensions.hmac` sobre `{svix-id}.{svix-timestamp}.{payload}`, chave = `decode(substring(secret from 7),'base64')`) — o `whsec_` nunca saiu do banco e nunca entrou no contexto do agente nem em linha de comando. Só a assinatura viajou, e ela vale exclusivamente para aquele payload/timestamp/msg-id. Padrão reutilizável p/ qualquer prova futura de webhook assinado
+- [Phase 41 · 41-05 T3]: o `GET → 405` é o discriminador que separa "passou do gate do Vault" de "falhou antes dele" — com o secret ausente TODO método dava 500 (a leitura do Vault acontece no `Deno.serve`, antes do `handler`, onde vive o check de método). 405 prova que a execução alcançou o handler; 400 prova que alcançou o verify do Svix
+- [Phase 41 · 41-05 T3]: colunas novas de migration devem ser provadas por ESCRITA REAL do consumidor, não só por catálogo — `bounce_em` foi validada pelo webhook gravando nela, o que também prova que a reconciliação é cirúrgica (cada evento toca só a sua coluna, sem apagar `entregue_em`)
 - [Phase 39 · gap closure]: a ordem guard × claim é a parte que importa do fix de CR-02 — o survivor-guard na linha 192 roda ANTES do claim (linha 250), então um knockout não deixa linha `pendente` para a varredura `*/15` da P41 re-tentar. Guard depois do claim teria fechado o e-mail e aberto um retry órfão
 
 ### Pending Todos
@@ -178,7 +181,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 - **✅ RESOLVIDO 2026-07-28 — P39 CR-01 / CR-02 DEPLOYADOS.** Era o bloqueio mais importante do milestone. A EF `notificar-candidato` está viva em **v3** com o fix `f3b7304`: aprovado recebe `COPY_APROVACAO` (nunca mais a rejeição) e knockout é barrado pelo survivor-guard **na EF, antes do claim** (logo não deixa linha `pendente` para a varredura re-tentar). Auditado na fonte deployada + 401 sem Bearer + ledger intacto (0 linhas). **Consequência prática: fechar DELIV-01 já não é perigoso** — a contenção acidental do `403` deixou de ser necessária.
 - **✅ RESOLVIDO 2026-07-28 — ACESSO DE ESCRITA A PROD RESTABELECIDO.** O operador removeu `&read_only=true` da URL do MCP. Verificado empiricamente antes de qualquer escrita: `current_user=postgres`, `session_user=postgres`, `transaction_read_only=off`. `apply_migration`, `execute_sql` de escrita e `deploy_edge_function` **todos funcionais** nesta sessão. Segue **sem** Supabase CLI instalado e sem `supabase/.temp/` (projeto não linkado) — então o caminho de escrita continua sendo **exclusivamente o MCP pelo main thread**, e `db push` permanece proibido (42601 nos corpos `$$`).
-- **⏸ 41-05 Task 3 — AÇÃO HUMANA DO FERNANDO (único item sem caminho autônomo).** O signing secret `whsec_…` só passa a existir depois do registro no dashboard do Resend, que não tem API. Registrar `https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook` em https://resend.com/webhooks (eventos `email.delivered`/`bounced`/`complained`), copiar o `whsec_`, provisionar no Vault como `resend_webhook_secret`, confirmar `ler_resend_webhook_secret() is not null`. **Enquanto isso, a EF `resend-webhook` falha FECHADA:** POST devolve `500 misconfigured` (lê o Vault antes de delegar ao handler) e **não escreve nada**. Após o secret, o POST sem assinatura deve virar **400**.
+- **✅ RESOLVIDO 2026-07-28 — 41-05 Task 3 CONCLUÍDA e o loop de reconciliação PROVADO AO VIVO.** O Fernando registrou o endpoint no dashboard do Resend e provisionou o `whsec_…` no Vault (`resend_webhook_secret` presente; prefixo `whsec_`, len 38 — formato legítimo, não placeholder). **RECON-02 provado end-to-end contra a EF deployada:** webhook **assinado de verdade** aceito (200) e reconciliação observada no banco — `enviado → entregue` (+`entregue_em`), depois `→ bounce` (+`bounce_em`), por `provider_message_id`; sem assinatura → **400**, forjado → **400**, replay com timestamp trocado → **400**, `GET` → **405** (prova que passou do gate do Vault). A assinatura foi calculada **dentro do Postgres** (`extensions.hmac`), então **o segredo nunca saiu do banco**. Linha de teste criada e **removida** — ledger de volta a **0 linhas**, zero e-mail enviado.
 - **⚠ P39 fechou sem VERIFICATION.md e sem code review — falha de processo, não de código.** Os 2 CRITICAL só apareceram porque esta sessão rodou o review retroativamente. A P39 foi aplicada em PROD (Wave 2, `39-04`) com o gate de verificação nunca executado. Vale tratar como sinal de processo: fase de maior risco do milestone foi a que pulou o gate.
 
 - **✅ DRIFT PROD→repo RECONCILIADO na Phase 37 (fechado 2026-07-22) — mas a CAUSA continua desconhecida.** Os 4 arquivos de migration agora existem com correspondência 1:1 contra o ledger (`20260721000001`, `20260721000002` reconstruídos e **não** re-aplicados; `20260722000001` da P36; `20260722000002` aplicada na 37-04), confirmado independentemente por `supabase migration list --linked` (Local/Remote alinhados, zero pendência). As 3 lacunas fechadas e `database.types.ts` regenerado. Item arquivado com resolução em 4 blocos: `.planning/todos/done/37-drift-prod-tabelas-notificacao.md`. **⚠ Continua em aberto:** ninguém sabe **quem/como** aplicou as duas migrations originais direto em PROD — um caminho de apply fora do repositório continua existindo e a mesma falha pode se repetir. Se o padrão reaparecer, tratar como sinal de processo, não incidente isolado.
@@ -212,7 +215,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-07-28
-Stopped at: 41-05 Tasks 1+2 aplicadas em PROD (após o redeploy obrigatório da P39). Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall, integridade do lock batendo com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido, falha fechada em 500 sem o secret, zero writes); (6) cron `notif-retry-sweep` ativo e `varrer_retry_notificacoes()` provada como no-op seguro. **Parou em 41-05 Task 3 — ação humana do Fernando (dashboard Resend + Vault), sem caminho autônomo.**
+Stopped at: **M7 funcionalmente completo.** Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall em toda a árvore, integridade do lock batendo 1:1 com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido); (6) cron `notif-retry-sweep` ativo e varredura provada como no-op seguro; (7) **Fernando registrou o webhook + provisionou o `resend_webhook_secret`**; (8) **reconciliação provada END-TO-END** — webhook assinado real → `enviado→entregue→bounce` por `provider_message_id`, forjados/replays em 400, assinatura computada dentro do Postgres (segredo nunca saiu do banco), linha de teste removida (ledger 0). Restam só itens humanos: DELIV-01 (`verified` no Resend), 2 UATs comportamentais da P39, cleanup do n8n cloud.
 Resume file: None
 
 ## Operator Next Steps
@@ -221,16 +224,8 @@ Passos 1–4 da lista anterior estão **CONCLUÍDOS** (2026-07-28): escrita rest
 `notificar-candidato` v3 com o fix da P39 · migration `20260727000001` aplicada + reconciliada
 + smoke 5/5 · `resend-webhook` v1 deployada. O que resta é **tudo ação humana**:
 
-1. **41-05 Task 3 (HUMANO — Fernando) — único item que bloqueia o fecho da P41.**
-   a. Registrar em https://resend.com/webhooks o endpoint
-      `https://isljnozzlvckrgjjbjwp.supabase.co/functions/v1/resend-webhook`,
-      assinando `email.delivered` / `email.bounced` / `email.complained`.
-   b. Copiar o signing secret `whsec_…` que o dashboard exibe.
-   c. Provisionar no Vault como `resend_webhook_secret` — literal, **sem placeholder**
-      (ausência = NULL diagnosticável; chave falsa = erro opaco). Mirror do UAT-36-2.
-   d. Confirmar: `select public.ler_resend_webhook_secret() is not null;` → `true`.
-   e. Re-testar a postura: POST sem assinatura Svix deve virar **400** (hoje é `500
-      misconfigured`, correto enquanto o secret não existe).
+1. ~~41-05 Task 3~~ — ✅ **CONCLUÍDA em 2026-07-28** (webhook registrado, secret no Vault,
+   reconciliação provada end-to-end). **A P41 está fechada; a P41 não bloqueia mais nada.**
 
 2. **Fechar DELIV-01 — agora LIBERADO** (o veto caiu com o deploy do fix da P39).
    **Não há ação de DNS pendente:** SPF/DKIM/MX estão publicados e o DMARC já cobre `rh.` por
