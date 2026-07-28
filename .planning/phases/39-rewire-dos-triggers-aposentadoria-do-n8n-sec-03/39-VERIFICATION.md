@@ -1,24 +1,27 @@
 ---
 phase: 39-rewire-dos-triggers-aposentadoria-do-n8n-sec-03
 verified: 2026-07-28T02:30:00Z
-status: gaps_found
-score: 3/4 roadmap success criteria verified (DISPATCH-01 falha na semântica do desfecho; DISPATCH-02 falha no survivor-guard)
+revised: 2026-07-28T07:00:00Z
+status: human_needed
+score: 4/4 roadmap success criteria estruturalmente verificados (CR-01/CR-02 fechados por deploy em 2026-07-28; confirmação COMPORTAMENTAL ao vivo pendente, gated em DELIV-01)
 overrides_applied: 0
 gaps:
   - id: CR-01
     severity: critical
     requirement: DISPATCH-01
     summary: "Candidato APROVADO recebe o e-mail de REJEIÇÃO"
-    status: fix_committed_not_deployed
+    status: fix_deployed
     fix_commit: f3b7304
-    blocks: "redeploy da EF notificar-candidato (acesso de escrita indisponível)"
+    deployed: "2026-07-28 — notificar-candidato v2 → v3 (MCP deploy_edge_function, verify_jwt=false)"
+    evidence: "Fonte deployada confirmada via get_edge_function: COPY_APROVACAO presente, corpoDecisao/SUBJECTS ramificam em `desfecho`, allowlist da EF inclui etapa_atual"
   - id: CR-02
     severity: critical
     requirement: DISPATCH-02
     summary: "Survivor-guard do knockout é dead code — knockout recebe a confirmação"
-    status: fix_committed_not_deployed
+    status: fix_deployed
     fix_commit: f3b7304
-    blocks: "redeploy da EF notificar-candidato (acesso de escrita indisponível)"
+    deployed: "2026-07-28 — notificar-candidato v2 → v3"
+    evidence: "Fonte deployada confirmada: guard `evento==='confirmacao' && (status==='rejeitado' || opcao_knockout_id!==null)` na linha 192, ANTES do claim (linha 250)"
 human_verification:
   - test: "Após o redeploy da notificar-candidato: provar CR-01 ao vivo — registrar uma decisão de APROVAÇÃO e confirmar que o e-mail recebido traz a COPY_APROVACAO, nunca a COPY_REJEICAO"
     expected: "E-mail com assunto 'Boa notícia sobre sua candidatura — <vaga>' e corpo com a cópia de aprovação; ledger grava evento='decisao'"
@@ -60,8 +63,8 @@ toda inspeção de PROD foi feita no main thread.
 
 | # | Critério (DISPATCH) | Veredito |
 |---|---|---|
-| 1 | Trigger CASE em `historico_candidatura` é fonte canônica única, ids-only, graceful-skip (DISPATCH-01) | ⚠ **GAP** — o trigger existe e está correto na forma, mas o `CASE` colapsa `aprovado` e `rejeitado` num único evento `decisao` **sem discriminador no corpo**, e o template renderizava só rejeição ⇒ **CR-01** |
-| 2 | Satélites cobrem confirmação (com survivor-guard) e convite; exatamente um e-mail por evento (DISPATCH-02) | ⚠ **GAP** — os 2 satélites existem, mas o survivor-guard é **inalcançável** (AFTER INSERT lê estado pré-knockout) ⇒ **CR-02** |
+| 1 | Trigger CASE em `historico_candidatura` é fonte canônica única, ids-only, graceful-skip (DISPATCH-01) | ✅ **VERIFICADO (após gap closure)** — o trigger sempre esteve correto na forma; o `CASE` colapsa `aprovado`/`rejeitado` num evento `decisao` ids-only e o **desfecho é resolvido na EF** a partir de `etapa_atual`. Fix `f3b7304` **deployado (v3)** em 2026-07-28 ⇒ CR-01 fechado. Confirmação ao vivo = `human_verification` |
+| 2 | Satélites cobrem confirmação (com survivor-guard) e convite; exatamente um e-mail por evento (DISPATCH-02) | ✅ **VERIFICADO (após gap closure)** — os 2 satélites existem; o survivor-guard **migrou do trigger para a EF**, onde o estado pós-COMMIT é visível, e roda **antes do claim**. Fix `f3b7304` **deployado (v3)** ⇒ CR-02 fechado. Confirmação ao vivo = `human_verification` |
 | 3 | Triggers n8n DROPPADOS + disparo do `submit-candidatura` aposentado na mesma migration (DISPATCH-03) | ✅ **VERIFICADO** — 0 `trg_n8n_*` vivos; EF redeployada sem o `fetch`. Pendente só o cleanup **externo** do n8n cloud (ação humana, fora do banco/código) |
 | 4 | Hop trigger→EF com Bearer self-auth do Vault, corpo ids-only (DISPATCH-04) | ✅ **VERIFICADO** — Bearer `edge_invoke_key` do Vault, corpo ids-only, e o hop **prova-se funcional** pelos 200 no `net._http_response` |
 
@@ -105,19 +108,52 @@ corrigido**. O "ledger vazio é a assinatura" também cai: não há tráfego de 
 
 ## Estado do fix
 
-⚠ **`f3b7304` está commitado mas NÃO deployado.** A EF `notificar-candidato` viva em PROD
-(v2) ainda contém os dois defeitos. O redeploy exige acesso de escrita, indisponível nesta
-sessão (MCP `read_only=true`, sem Supabase CLI / projeto não linkado).
+✅ **RESOLVIDO em 2026-07-28 — `f3b7304` está DEPLOYADO.** A EF `notificar-candidato` foi
+redeployada **v2 → v3** (MCP `deploy_edge_function`, `verify_jwt=false`, ACTIVE) assim que o
+acesso de escrita foi restabelecido (MCP sem `read_only`; `current_user=postgres`,
+`transaction_read_only=off`). A EF viva **não contém mais** os dois defeitos.
 
 Testes do fix: EF Deno **260/0** (era 251 — +5 EF, +4 templates), vitest 128 files/1025,
 `tsc` 97→97 (teto do CI 104). O teste de aprovação asserta `!includes(COPY_REJEICAO)`, logo
 reprova contra o código antigo — é guard de regressão real, não asserção decorativa.
 
-## Contenção atual
+Re-validado no momento do deploy (2026-07-28): Deno alvo do fix **28/0**
+(`notificar-candidato/` + `email-templates.test.ts`), vitest **128 files / 1025 tests**.
+> Nota: rodar `deno test` apontando diretamente para `_shared/` faz o runner ignorar o
+> `exclude` do `deno.json` e coletar `__tests__/strict-schema.test.ts`, que é um teste
+> **Vitest** (`node:fs`/`__dirname`) e falha com `__dirname is not defined`. É ruído de
+> invocação, não regressão: o arquivo vem da P08 (`1ea5bc3`) e está explicitamente em
+> `deno.json → exclude`.
 
-Os dois defeitos estão **latentes** apenas porque todo envio falha com
-`403 domain not verified`. Isso é um acidente de configuração, **não um controle**. O DNS
-Resend de `rh.beautysmile.com.br` já foi publicado (SPF + DKIM + MX), então **fechar DELIV-01
-ou aplicar o 41-05 converteria ambos em dano real a candidatos**.
+### Evidência do deploy (via MCP, main thread)
 
-**Ordem obrigatória:** redeploy da `notificar-candidato` → depois DELIV-01 / 41-05.
+| Verificação | Resultado |
+|---|---|
+| `notificar-candidato` versão viva | **v3** ACTIVE, `verify_jwt=false` ✓ |
+| Fonte deployada = repo | `get_edge_function` confirma `COPY_APROVACAO`, ramificação por `desfecho`, survivor-guard e allowlist expandida ✓ |
+| Ordem guard × claim | guard na linha 192, claim (`upsert`) na 250 ⇒ knockout **não** deixa linha `pendente` ✓ |
+| Self-auth preservada | `curl` sem Bearer → **401**; Bearer inválido → **401**; corpo `{"error_code":"UNAUTHORIZED"}` (resposta da própria EF, não do gateway) ✓ |
+| Logs da EF | `POST | 401 | .../notificar-candidato` em `version: 3` ✓ |
+| Efeito colateral | `notificacoes_enviadas` = **0 linhas**; `net._http_response` inalterado (max id 61) ✓ |
+
+## Contenção → resolução
+
+O relatório original registrou que os dois defeitos estavam **latentes** apenas porque todo
+envio falhava com `403 domain not verified` — um acidente de configuração, não um controle.
+**Essa dependência acabou:** o fix está vivo, então fechar DELIV-01 já **não** converte
+CR-01/CR-02 em dano a candidatos. A ordem obrigatória foi cumprida na sequência correta:
+redeploy da `notificar-candidato` (v3) **antes** do apply do 41-05 e antes de qualquer
+habilitação de entrega.
+
+## Por que `human_needed` e não `passed`
+
+Os dois defeitos estão fechados **estruturalmente** (fonte deployada auditada + testes de
+regressão verdes). O que falta é a confirmação **comportamental ao vivo**, que não é
+obtenível autonomamente:
+
+- não há candidatura com knockout nem com `status='rejeitado'` em PROD (0 linhas), então
+  provar CR-02 ao vivo exigiria **criar uma fixture em PROD**;
+- provar CR-01 ao vivo exige uma **decisão de aprovação registrada por humano** no painel do
+  RH **e** entrega real — que segue gated em DELIV-01.
+
+Os 2 itens de `human_verification` no frontmatter permanecem, agora desbloqueados pelo deploy.
