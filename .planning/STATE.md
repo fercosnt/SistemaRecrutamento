@@ -206,7 +206,29 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 ## Deferred Items
 
-Items acknowledged and carried forward from previous milestone close:
+### Reconhecidos no fecho do v7.0 (2026-07-28) — `override_closeout`
+
+O gate pré-fecho (`audit-open`) listou 7 itens. Todos foram **reconhecidos e diferidos** por
+decisão do operador ("deixe as duas coisas como pendência, finalize o milestone"). Nenhum é
+blocker; todos estão rastreados em arquivo.
+
+| Categoria | Item | Estado | Nota |
+|-----------|------|--------|------|
+| UAT | Phase 36 — UAT-36-1 (caixa de entrada) | `partial` | Infra fechada (domínio Verified, SPF/DKIM/MX, DMARC herdado, entrega provada). Aberto: só teste de **inbox real** em Gmail/Outlook + cabeçalhos PASS + Reply-To + tracking desligado. Não observável por API |
+| UAT | Phase 36 — UAT-36-3 (`NOTIFICACOES_MODO=producao`) | `pending` | A variável agora existe como `teste` (explícito, não por ausência) — o modo de falha silencioso está fechado. Falta o **flip**, que é decisão de negócio |
+| UAT | Phase 38 — UAT-38-1 | ✅ `passed` | **Fechado hoje** — entrega real provada (`enviado` → `entregue`); listado só por completude |
+| todo | `m7-ativar-modo-producao` (**high**) | pending | A única chave entre o pipeline provado e o candidato real |
+| todo | `m7-cleanup-n8n-cloud` (medium) | pending | Superfície externa segue ativa/acionável; banco e código já limpos |
+| todo | `36-resend-chave-divergencia` (medium) | pending | `cost-alerter` mantém a chave Resend em env secret da EF, fora do Vault (blast-radius separado, decisão deliberada) |
+| todo | `25-review-deferred` (medium) | pending | Herdado do M5 |
+| todo | `cc0-cognitive-item-bank-sourcing` (medium) | pending | Herdado do M4 |
+| todo | `processo-origem-do-drift-desconhecida` | pending | Causa do drift PROD→repo nunca identificada; um caminho de apply fora do repo pode existir |
+
+**Cobertura Nyquist (lacuna, não falha):** 4 fases com `VALIDATION.md` em `status: draft`
+(36, 38, 39, 41) e 2 sem arquivo (37, 40). São TODOs de cobertura — rodar
+`/gsd-validate-phase <N>` promove o arquivo e dá o veredito real.
+
+### Carregados de milestones anteriores:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|

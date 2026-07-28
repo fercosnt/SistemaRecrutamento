@@ -1,9 +1,9 @@
 ---
-status: pending
+status: partial
 phase: 36-deliverability-sender-identity
 source: [36-VALIDATION.md]
 started: 2026-07-22T04:10:00Z
-updated: 2026-07-26T19:53:20Z
+updated: 2026-07-28T11:20:00Z
 ---
 
 ## Current Test
@@ -32,7 +32,43 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 7. O remetente exibido na lista de mensagens é **"Beauty Smile Recrutamento"**.
 8. Responder o e-mail recebido → a resposta chega em `rh@beautysmile.com.br` (Reply-To funcionando).
 9. Registrar neste arquivo a data da execução + os prints (dashboard Verified, `dig`, cabeçalhos do Gmail, inbox das duas contas), no padrão dos UATs P22–P35.
-- **status:** pending
+
+- **🟡 PARCIAL (2026-07-28) — a infraestrutura fechou; falta só o teste de CAIXA DE ENTRADA.**
+
+  **Passos 1 e 3 — ✅ FECHADOS.** O Fernando confirmou `rh.beautysmile.com.br` = **Verified**
+  no dashboard do Resend. `dig` ao vivo (2026-07-28) confirma os records emitidos:
+  - `send.rh…` TXT → `v=spf1 include:amazonses.com ~all` (SPF)
+  - `send.rh…` MX → `10 feedback-smtp.sa-east-1.amazonses.com` (região `sa-east-1` ✓)
+  - `resend._domainkey.rh…` TXT → chave pública DKIM
+
+  **Correção sobre o DMARC (o passo 3 exigia um TXT em `_dmarc.rh.…`):** esse registro está
+  de fato ausente, **mas isso NÃO é lacuna.** O domínio organizacional publica
+  `_dmarc.beautysmile.com.br` = `v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@…`, e pela
+  **RFC 7489 §6.6.3** um subdomínio sem registro próprio **herda a política do domínio
+  organizacional**. O registro raiz não traz tag `sp=`, então `rh.` herda `p=quarantine`.
+  Publicar um `_dmarc.rh` só seria necessário para dar ao subdomínio política DIFERENTE da
+  raiz. **Não há ação de DNS pendente.**
+
+  **Prova FUNCIONAL de entregabilidade (vai além do que este UAT pedia):** um envio real
+  atravessou o Resend e foi aceito — `status='enviado'` com `provider_message_id` real —, e o
+  **webhook de entrega do próprio Resend** reconciliou a linha para `entregue` em **5 s**. O
+  `403 domain not verified` que bloqueava tudo **acabou**. Registrado em
+  `.planning/phases/41-*/41-VERIFICATION.md`.
+
+  **❌ O QUE CONTINUA ABERTO — passos 2 e 4 a 8, irredutivelmente humanos:**
+  - Passo 2: confirmar open/click tracking **desligados** em Domain Settings
+  - Passos 4–5: enviar de `nao-responda@rh.…` para Gmail **e** Outlook/Hotmail pessoais e
+    confirmar chegada na **Caixa de entrada** (não Spam, não Promoções)
+  - Passo 6: "Mostrar original" no Gmail → `SPF: PASS`, `DKIM: PASS`, `DMARC: PASS`
+  - Passo 7: remetente exibido = "Beauty Smile Recrutamento"
+  - Passo 8: responder → chega em `rh@beautysmile.com.br` (Reply-To)
+
+  Colocação em caixa de entrada **não é observável por API** — nenhum provedor expõe isso.
+  Só um humano com as duas contas fecha. Note que os testes de hoje foram todos em
+  `modo=teste`, ou seja, para o sink `@resend.dev`: **nenhum e-mail real chegou a uma caixa
+  de entrada de verdade ainda**, e é justamente isso que estes passos medem.
+
+- **status:** partial
 
 ### UAT-36-2 — Provisionar `resend_api_key` no Supabase Vault (DELIV-02)
 
@@ -112,6 +148,23 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
    - o registro correspondente no ledger da P37 tem **`redirecionado = false`** e `destinatario_original` igual ao endereço real.
 6. Registrar neste arquivo a data da execução e o resultado do passo 5 — **nunca** o valor de nenhuma chave — e marcar este item como `passed`.
 
+- **📌 ATUALIZAÇÃO 2026-07-28 — a variável agora EXISTE, setada como `teste`.** O Fernando
+  provisionou `NOTIFICACOES_MODO` nos secrets da Edge Function com valor **`teste`**
+  (explicitamente, não por ausência). Isso **fecha o modo de falha silencioso** que este item
+  previne: antes, "ausente" era indistinguível de "deliberadamente em teste" e não emitia
+  warn algum. Agora o estado é intencional e legível.
+
+  **Confirmado por EXECUÇÃO, não por leitura de config:** um disparo real gravou no ledger
+  `modo='teste'`, `destinatario_email='delivered+decisao_final@resend.dev'` e
+  `destinatario_original='candidato.funil@teste.com'` — o desvio ao sink funcionou e a trilha
+  de auditoria preservou o destinatário real.
+
+  **O item continua `pending`** porque o que ele cobra é o **flip para `producao`**, que é uma
+  decisão de negócio ainda não tomada. Rastreado em
+  `.planning/todos/pending/m7-ativar-modo-producao.md` (prioridade **high**), com checklist
+  pré-flip (volume represado, candidaturas de teste em PROD, rate-limit do free-tier nunca
+  medido) e o procedimento de verificação/rollback.
+
 - **Como desarmar (voltar ao sandbox):** remover o secret ou trocá-lo por qualquer valor diferente de `producao`. Não existe configuração ambígua que envie para pessoa real — o default é sempre `teste`.
 - **Prova automatizada que sustenta este item:** `supabase/functions/_shared/__tests__/email-config.test.ts`, casos (8) e (9) — adicionados pelo achado WR-01 do mesmo review. O caso (9) prova que `resolverDestinatario(email, evento)` **sem 3º argumento** (a forma como a P38 chama) redireciona quando a env está ausente; o caso (8) prova que `NOTIFICACOES_MODO='producao'` é lida de verdade. Ambos foram validados por mutação.
 - **Quem cobra esta pendência:** a **Phase 38** (smoke da EF `notificar-candidato`), junto com o UAT-36-2.
@@ -122,7 +175,14 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
 
 Nenhum must-have automatizado desta fase está vermelho — os gates de código (bundle guard + suíte Deno de `email-config` + `npm run test:run` + `npm run build`) estão verdes. Os itens abertos são:
 
-- **UAT-36-1** — gate humano/DNS do DELIV-01, sem previsão fixa; deve aterrissar antes do UAT da Phase 41.
+- **UAT-36-1** — 🟡 **PARCIAL (2026-07-28).** Infraestrutura **fechada**: domínio **Verified**
+  (`sa-east-1`), SPF/DKIM/MX confirmados por `dig`, DMARC coberto por herança do domínio
+  organizacional (RFC 7489 §6.6.3 — não há DNS pendente), e **entregabilidade provada
+  funcionalmente** (envio real aceito + webhook `entregue` em 5 s; o `403` acabou). **Aberto:**
+  só o teste de **caixa de entrada** em Gmail/Outlook reais + cabeçalhos SPF/DKIM/DMARC PASS +
+  Reply-To + tracking desligado. Não é observável por API; exige humano com as duas contas.
+  Como todos os testes de hoje rodaram em `modo=teste` (sink `@resend.dev`), nenhum e-mail
+  real chegou a uma caixa de entrada ainda.
 - **UAT-36-2** — ✅ **PASSED (2026-07-26).** Segredo `resend_api_key` provisionado no Vault de PROD (`isljnozzlvckrgjjbjwp`): `count = 1`, `length = 36`, `ler_resend_api_key() is not null = true` (smoke read-only via MCP; valor nunca registrado). Registro completo no item UAT-36-2 acima. Pendência residual: revogar a cópia criada por engano no projeto errado (`vault.delete_secret`).
 - **UAT-36-3** — armar `NOTIFICACOES_MODO=producao` no ambiente da Edge Function. Registrado a partir do achado **WR-02** do code review da Phase 36: o fail-safe do DELIV-03 está correto, mas o passo que o **desarma deliberadamente** não existia em nenhum artefato durável de operador (`grep -rn "NOTIFICACOES_MODO" docs/` retornava zero). Sem este item, é possível seguir o runbook ponta a ponta, subir PROD, e ter 100% dos e-mails de candidato desviados para `@resend.dev` com HTTP 200 e sem warn. Executado na **Phase 38**, antes do primeiro envio real; procedimento em `docs/runbooks/resend-dominio-envio.md` § 9.
 

@@ -1,19 +1,17 @@
 ---
-status: partial
+status: passed
 phase: 38-ef-notificar-candidato-comm
 source: [38-04-PLAN.md, 38-VALIDATION.md]
-blocked_on: [UAT-36-1]
+blocked_on: []
 started: 2026-07-23
-updated: 2026-07-26
+updated: 2026-07-28
 ---
 
 ## Current Test
 
-[EF deployada + smoke rodado 2026-07-26. Auth/idempotência/render/ledger/graceful-fail PROVADOS.
-A **entrega** (`status='enviado'`) segue bloqueada em **DELIV-01 / UAT-36-1**: o Resend rejeita
-com `403 domain not verified` porque o subdomínio remetente **`rh.beautysmile.com.br` não está
-verificado** no Resend (a migração recruta.→rh. do commit `f284672` adiantou-se à verificação DNS).
-Ver Evidência abaixo.]
+[✅ FECHADO em 2026-07-28. O gate DELIV-01 caiu (domínio Verified) e o smoke foi re-executado:
+`status='enviado'` com `provider_message_id` real, depois `entregue` via webhook real do Resend
+em 5 s. O `403` acabou. Ver "FECHAMENTO (2026-07-28)" abaixo.]
 
 ## Context
 
@@ -101,9 +99,38 @@ enviam `Bearer edge_invoke_key`). *Recomendação: codificar este passo no runbo
 - **Idempotência — ✅.** 2º POST idêntico → **200 `{"ok":true,"skipped":"duplicate"}`**, **0** segunda linha, `tentativas` inalterado (a EF não re-tenta — isso é o `pg_cron` da P41).
 - **Limpeza — ✅.** A linha de teste (`…:confirmacao`, status `falhou`) foi deletada do ledger.
 
-**Veredito UAT-38-1:** a EF está **viva e provada** em auth, idempotência, resolução por allowlist,
-render e degradação graciosa. O único critério não provado é a **entrega real** (`status='enviado'`),
-**bloqueado em DELIV-01 / UAT-36-1** — verificar `rh.beautysmile.com.br` no Resend (ação DNS+dashboard
-do Fernando). Re-rodar o smoke após a verificação deve produzir `status='enviado'` + `provider_message_id`.
+**Veredito UAT-38-1 (2026-07-26):** a EF está **viva e provada** em auth, idempotência, resolução por
+allowlist, render e degradação graciosa. O único critério não provado é a **entrega real**
+(`status='enviado'`), **bloqueado em DELIV-01 / UAT-36-1**.
 
-- **status:** partial (funcional provado; entrega gated em DELIV-01)
+---
+
+## ✅ FECHAMENTO (2026-07-28) — a entrega real foi PROVADA
+
+O gate DELIV-01 caiu: o Fernando confirmou `rh.beautysmile.com.br` = **Verified** no Resend. O
+smoke foi re-executado exatamente como este UAT previa ("re-rodar o smoke após a verificação
+deve produzir `status='enviado'` + `provider_message_id`") — **na mesma candidatura
+`a1dd4c42-bc92-4c37-a584-dc19a59a631d` e no mesmo evento `confirmacao`.**
+
+**Resultado — o `403` acabou:**
+
+| Critério | 2026-07-26 | 2026-07-28 |
+|---|---|---|
+| `status` | `falhou` | ✅ **`enviado`** → depois **`entregue`** |
+| `ultimo_erro` | `403 domain is not verified` | ✅ `null` |
+| `provider_message_id` | `null` | ✅ `e99ec62a-…` (real) |
+| `tentativas` | 1 | ✅ 0 (sucesso de primeira) |
+| `destinatario_email` | `delivered+candidatura_recebida@resend.dev` | ✅ idem (modo teste preservado) |
+| `destinatario_original` | `candidato.funil@teste.com` | ✅ idem (auditoria preservada) |
+
+**Além do previsto:** o **webhook de entrega do próprio Resend** chamou a EF `resend-webhook`
+(P41) com assinatura Svix legítima e reconciliou a linha para **`entregue`** em **5 s**. A
+cadeia completa — dispatch → EF → Resend → webhook → ledger — está provada ponta-a-ponta.
+
+**Limpeza:** a linha de teste foi removida; `notificacoes_enviadas` voltou a **0 linhas**.
+Nenhum candidato real foi contatado (modo `teste` desviou tudo ao sink `@resend.dev`).
+
+Evidência completa em `.planning/phases/41-*/41-VERIFICATION.md` e
+`.planning/phases/39-*/39-VERIFICATION.md`.
+
+- **status:** passed
