@@ -63,6 +63,10 @@
         'supabase/functions/_shared/__tests__/ics.test.ts',
         'supabase/functions/_shared/__tests__/email-templates.test.ts',
         'supabase/functions/notificar-candidato/**/*.test.ts',
+        // Phase 41 (reconciliação de entrega): the resend-webhook EF test imports
+        // `https://deno.land/std` assert AND `npm:svix@1.99.1` → runs under `deno test`,
+        // not Vitest. Same literal-path convention as above.
+        'supabase/functions/resend-webhook/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
