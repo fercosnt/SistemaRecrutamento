@@ -175,11 +175,24 @@ const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   decisao_final: corpoDecisao,
 };
 
-const PREHEADERS: Record<EventoNotificacao, string> = {
-  candidatura_recebida: "Recebemos a sua candidatura na Beauty Smile.",
-  avaliacao_liberada: "Sua candidatura avançou — nova etapa liberada.",
-  convite_entrevista: "Você foi convidado(a) para uma entrevista.",
-  decisao_final: "Atualização sobre a sua candidatura.",
+/**
+ * Preheader = o texto de PRÉ-VISUALIZAÇÃO que o cliente de e-mail exibe na caixa de entrada,
+ * ao lado do assunto. Assinatura de FUNÇÃO (espelha `SUBJECTS`) porque a decisão precisa
+ * ramificar por `desfecho`: com um literal fixo, um aprovado recebia assunto
+ * "Boa notícia…" ao lado da prévia "Atualização sobre a sua candidatura." — dissonante.
+ *
+ * Achado no UAT ao vivo da P39 (2026-07-28): o fix `f3b7304` ramificou `corpoDecisao` e
+ * `SUBJECTS`, mas o preheader continuou literal. Mesma disciplina D-15 / RNF-07a das cópias
+ * congeladas: NUNCA interpolar dado de avaliação aqui.
+ */
+const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
+  candidatura_recebida: () => "Recebemos a sua candidatura na Beauty Smile.",
+  avaliacao_liberada: () => "Sua candidatura avançou — nova etapa liberada.",
+  convite_entrevista: () => "Você foi convidado(a) para uma entrevista.",
+  decisao_final: (d) =>
+    d.desfecho === "aprovado"
+      ? "Boa notícia sobre a sua candidatura."
+      : "Atualização sobre a sua candidatura.",
 };
 
 /** Ponto único que a EF chama: evento → { subject, html }. */
@@ -189,6 +202,6 @@ export function renderarEmail(
 ): { subject: string; html: string } {
   const subject = SUBJECTS[evento](d);
   const conteudoHtml = CORPOS[evento](d);
-  const html = layoutBase({ preheader: PREHEADERS[evento], conteudoHtml });
+  const html = layoutBase({ preheader: PREHEADERS[evento](d), conteudoHtml });
   return { subject, html };
 }

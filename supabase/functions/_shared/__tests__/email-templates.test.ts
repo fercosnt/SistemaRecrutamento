@@ -99,6 +99,43 @@ Deno.test("CR-01 — desfecho AUSENTE é fail-safe para rejeição (default hist
   assert(!html.includes(COPY_APROVACAO), "sem desfecho não pode render aprovação");
 });
 
+// ── Gap-closure P39 / W-01 — o PREHEADER também ramifica ────────────────────
+// Achado no UAT ao vivo (2026-07-28): o fix f3b7304 ramificou corpo e assunto, mas o
+// preheader continuou literal ("Atualização sobre a sua candidatura."), então na caixa
+// de entrada o aprovado via assunto "Boa notícia…" ao lado de uma prévia morna.
+// O preheader é texto oculto (<span display:none>) — só o cliente de e-mail o exibe na
+// listagem —, por isso os testes acima, que olham o corpo visível, não o pegavam.
+
+Deno.test("W-01 — preheader do desfecho 'aprovado' sinaliza boa notícia", () => {
+  const { html } = renderarEmail("decisao_final", { ...DADOS, desfecho: "aprovado" });
+  assert(
+    html.includes("Boa notícia sobre a sua candidatura."),
+    "REGRESSÃO W-01: preheader do aprovado não sinaliza boa notícia",
+  );
+  assert(
+    !html.includes("Atualização sobre a sua candidatura."),
+    "REGRESSÃO W-01: aprovado ainda carrega o preheader neutro de decisão",
+  );
+});
+
+Deno.test("W-01 — preheader do desfecho 'rejeitado' permanece neutro", () => {
+  const { html } = renderarEmail("decisao_final", { ...DADOS, desfecho: "rejeitado" });
+  assert(
+    html.includes("Atualização sobre a sua candidatura."),
+    "preheader da rejeição deveria seguir neutro",
+  );
+  assert(
+    !html.includes("Boa notícia"),
+    "rejeição NUNCA pode anunciar boa notícia no preheader",
+  );
+});
+
+Deno.test("W-01 — preheader sem desfecho é fail-safe (neutro, nunca boa notícia)", () => {
+  const { html } = renderarEmail("decisao_final", DADOS);
+  assert(html.includes("Atualização sobre a sua candidatura."), "sem desfecho ⇒ neutro");
+  assert(!html.includes("Boa notícia"), "sem desfecho NUNCA pode anunciar aprovação");
+});
+
 Deno.test("D-15/RNF-07a — GREP-GUARD cobre os DOIS desfechos da decisão", () => {
   const proibido = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio/i;
   for (const desfecho of ["aprovado", "rejeitado"] as const) {
