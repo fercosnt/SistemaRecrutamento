@@ -1,15 +1,12 @@
 ---
 phase: 41-reconcilia-o-de-entrega-retry-testing
 verified: 2026-07-28T07:30:00Z
-revised: 2026-07-28T08:15:00Z
+revised: 2026-07-28T09:10:00Z
 status: passed
-score: 4/4 critérios de sucesso do roadmap verificados (RECON-02 provado END-TO-END com webhook assinado de verdade após o Fernando provisionar o secret)
+score: 4/4 critérios verificados — INCLUSIVE o UAT ao vivo, que deixou de ser deferido: o ciclo completo rodou pelo pipeline REAL do Resend (envio real → webhook real → reconciliação)
 overrides_applied: 0
 gaps: []
-human_verification:
-  - test: "UAT ao vivo ponta-a-ponta pelo pipeline REAL do Resend (delivered@ / bounced@ / complained@resend.dev)"
-    expected: "Um e-mail realmente enviado pelo Resend gera o webhook de entrega, que reconcilia a linha por provider_message_id"
-    why_human: "Exige entrega real — gated em DELIV-01. DEFERIDO por decisão explícita do plano 41-05 e NÃO bloqueante: a mecânica de reconciliação já foi provada ao vivo com webhook assinado (ver §Prova end-to-end). O que falta é só o trecho Resend→webhook, não o webhook→ledger."
+human_verification: []
 ---
 
 # Phase 41: Reconciliação de Entrega, Retry & Testing — Verification Report
@@ -90,12 +87,42 @@ Notas de execução:
   **removida ao fim** (precedente do smoke da P38). `notificacoes_enviadas` voltou a **0
   linhas**. Nenhum e-mail foi enviado em nenhum momento — o webhook só ATUALIZA o ledger.
 
-## Por que `passed` (e o que segue deferido)
+## UAT ao vivo — EXECUTADO (deixou de ser deferido)
 
-Os 4 critérios do roadmap estão verificados. O único trecho não exercido é
-**Resend→webhook** (um e-mail real do provedor gerando o evento), que depende de DELIV-01 e
-foi **explicitamente declarado deferido e não-bloqueante** pelo plano 41-05. O trecho
-**webhook→ledger** — que é onde vivia todo o risco desta fase — está provado ao vivo.
+Após o Fernando confirmar `rh.beautysmile.com.br` **Verified** no Resend e definir
+`NOTIFICACOES_MODO=teste`, o ciclo **inteiro** foi exercido pelo pipeline **REAL** do
+provedor — nada sintético.
+
+Disparo feito como o trigger da P39 faz: `net.http_post` com o Bearer lido do Vault **dentro
+do SQL** (o `edge_invoke_key` nunca passou pelo agente), corpo ids-only, contra a candidatura
+de funil E2E `candidato.funil@teste.com`.
+
+| Etapa da cadeia | Evidência |
+|---|---|
+| Trigger-equivalente → EF | dispatch aceito |
+| EF resolve + reivindica | linha criada, `tentativas=0`, `ultimo_erro=null` |
+| **Modo (DELIV-03)** | `modo='teste'` · `destinatario_email='delivered+candidatura_recebida@resend.dev'` · `destinatario_original='candidato.funil@teste.com'` — **candidato real NÃO contatado**, trilha de auditoria preservada |
+| **EF → Resend (envio real)** | `status='enviado'`, `enviado_em=01:08:23`, `provider_message_id='e99ec62a-303e-4a55-b6e4-a883187163d8'` — **o `403 domain not verified` ACABOU** |
+| **Resend → webhook (real)** | Resend chamou a EF com assinatura Svix legítima |
+| **webhook → ledger** | `status='entregue'`, `entregue_em=01:08:28` — **5 s** após o envio, reconciliado por `provider_message_id` |
+
+Isto fecha, de uma vez, o que estava em aberto:
+
+- **DELIV-01 provado FUNCIONALMENTE**, não só por flag de dashboard — um envio real
+  atravessou e foi aceito. Era a maior incógnita restante do milestone.
+- **`NOTIFICACOES_MODO=teste` confirmado por EXECUÇÃO** (o `modo` gravado no ledger), não por
+  leitura de configuração — e o desvio ao sink funcionou como especificado.
+- **RECON-02 pelo caminho REAL** — a prova anterior usava assinatura sintética; esta veio do
+  próprio Resend.
+
+**Higiene:** a linha foi **removida** ao fim (o `dedupe_key` bloquearia uma confirmação
+futura legítima dessa candidatura E2E). `notificacoes_enviadas` de volta a **0 linhas**.
+
+## Por que `passed`
+
+Os 4 critérios do roadmap estão verificados, incluindo o UAT ao vivo — que o plano 41-05
+havia deferido atrás de DELIV-01 e que, com o domínio verificado, pôde ser executado de fato.
+Não resta nenhum trecho da cadeia por exercitar.
 
 ## Nota de sequenciamento
 
