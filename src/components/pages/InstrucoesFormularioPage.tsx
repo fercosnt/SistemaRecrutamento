@@ -1,17 +1,43 @@
 import React from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { CheckCircle, Clock, Target } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function InstrucoesFormularioPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Obter vagaId dos query params ou localStorage
+  const vagaIdFromQuery = searchParams.get('vagaId');
+  const vagaIdFromStorage = localStorage.getItem('candidatura_vaga_id');
+  const vagaId = vagaIdFromQuery || vagaIdFromStorage;
+
   const handleIniciar = () => {
+    // WR-01 (Phase 22 code review): read-then-clear the orphan
+    // `candidatura_vaga_id` at its point of consumption. The cadastro
+    // auto-login-failure bounce intentionally preserves this key across the
+    // manual login (LoginCandidatoPage skips its orphan cleanup when `?email`
+    // is present), so consumption is the correct place to finally clear it and
+    // keep the UX-05 orphan-key hygiene intact.
+    if (vagaIdFromStorage) {
+      localStorage.removeItem('candidatura_vaga_id');
+    }
+
     toast.success('Iniciando formulário...', {
       description: 'Boa sorte! Seja autêntico.',
     });
-    console.log('Redirecionar para formulário de candidatura...');
-    // window.location.href = '/formulario-candidatura';
+
+    // Redirecionar para formulário de candidatura com vagaId
+    if (vagaId) {
+      navigate(`/candidato/candidatura/formulario/${vagaId}`);
+    } else {
+      // Fallback: usar vagaId padrão '1' se não houver
+      console.warn('Nenhum vagaId encontrado, usando fallback 1');
+      navigate('/candidato/candidatura/formulario/1');
+    }
   };
 
   return (

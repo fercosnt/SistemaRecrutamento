@@ -1,0 +1,53 @@
+========================================
+Beauty Smile - Recrutamento e Seleção
+========================================
+
+Confirmação de Alteração de Senha
+
+========================================
+
+Olá, {{NOME_COMPLETO}}!
+
+Confirmamos que a senha da sua conta Beauty Smile foi ALTERADA COM SUCESSO.
+
+----------------------------------------
+DETALHES DA ALTERAÇÃO
+----------------------------------------
+
+Data e Hora:   {{DATA_HORA}}
+Dispositivo:   {{DISPOSITIVO}}
+Navegador:     {{NAVEGADOR}}
+IP:            {{IP_ADDRESS}}
+
+----------------------------------------
+ALERTA DE SEGURANÇA
+----------------------------------------
+
+⚠️ VOCÊ NÃO RECONHECE ESTA ALTERAÇÃO?
+
+Se você NÃO solicitou ou realizou esta alteração de senha, sua conta pode estar comprometida.
+
+Entre em contato imediatamente com nossa equipe de suporte:
+📧 suporte@beautysmile.com.br
+
+----------------------------------------
+
+Esta é uma notificação de segurança para proteger sua conta. Você não precisa tomar nenhuma ação se reconhece esta alteração.
+
+========================================
+DICAS DE SEGURANÇA
+========================================
+
+✓ Nunca compartilhe sua senha com ninguém
+✓ Use senhas diferentes para cada serviço
+✓ Considere usar um gerenciador de senhas
+✓ Ative autenticação de dois fatores quando disponível
+
+========================================
+
+Beauty Smile Recrutamento
+🔒 Precisa de ajuda? suporte@beautysmile.com.br
+
+Este é um email automático de segurança, por favor não responda.
+
+========================================

@@ -1,218 +1,272 @@
-import React, { useState } from 'react';
-import { Toaster } from 'sonner@2.0.3';
-import { Menu } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet';
-import { ScrollArea } from './components/ui/scroll-area';
-import { LandingPage } from './components/pages/LandingPage';
-import { QuestionarioPage } from './components/pages/QuestionarioPage';
-import { DashboardCandidatoPage } from './components/pages/DashboardCandidatoPage';
-import { LoginRHPage } from './components/pages/LoginRHPage';
-import { DashboardRHPage } from './components/pages/DashboardRHPage';
-import { CandidatosRHPage } from './components/pages/CandidatosRHPage';
-import { PerfilCandidatoRHPage } from './components/pages/PerfilCandidatoRHPage';
-import { VagasRHPage } from './components/pages/VagasRHPage';
-import { CriarEditarVagaPage } from './components/pages/CriarEditarVagaPage';
-import { VagaLPPage } from './components/pages/VagaLPPage';
-import { InscricaoPage } from './components/pages/InscricaoPage';
-import { LoginCandidatoPage } from './components/pages/LoginCandidatoPage';
-import { InstrucoesFormularioPage } from './components/pages/InstrucoesFormularioPage';
-import { FormularioCandidaturaPage } from './components/pages/FormularioCandidaturaPage';
-import { InstrucoesDISCPage } from './components/pages/InstrucoesDISCPage';
-import { InstrucoesBigFivePage } from './components/pages/InstrucoesBigFivePage';
-import { InstrucoesRavenPage } from './components/pages/InstrucoesRavenPage';
-import { TesteBigFivePage } from './components/pages/TesteBigFivePage';
-import { TesteDISCPage } from './components/pages/TesteDISCPage';
-import { TesteRavenPage } from './components/pages/TesteRavenPage';
-import { ConclusaoTestesPage } from './components/pages/ConclusaoTestesPage';
-import { ManifestoPage } from './components/pages/ManifestoPage';
-import { QuestionarioCulturaPage } from './components/pages/QuestionarioCulturaPage';
-import { EsqueciSenhaPage } from './components/pages/EsqueciSenhaPage';
-import { RedefinirSenhaPage } from './components/pages/RedefinirSenhaPage';
-import { GlassShowcase } from './components/GlassShowcase';
-import { ConfiguracoesPage } from './components/pages/ConfiguracoesPage';
-import { MeuPerfilPage } from './components/pages/MeuPerfilPage';
-import { MeuPerfilCandidatoPage } from './components/pages/MeuPerfilCandidatoPage';
-import { VagasPublicasPage } from './components/pages/VagasPublicasPage';
-import { SuporteRHPage } from './components/pages/SuporteRHPage';
+/**
+ * App.tsx - Componente principal da aplicação Beauty Smile
+ *
+ * Configuração do React Router e menu de navegação de desenvolvimento.
+ *
+ * Após FOUND-02/06/11 (Phase 1 Plan 05) + Phase 4.1 (auth-hydration-fix):
+ * - Apenas o `useAuthStore` unificado é inicializado (uma única chamada a
+ *   `initialize()` no mount).
+ * - Um único `onAuthStateChange` listener despacha para `hydrateFromSession`
+ *   via `setTimeout(0)` (SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED /
+ *   PASSWORD_RECOVERY) ou `clearAuth` (SIGNED_OUT, sync). O `setTimeout(0)`
+ *   wrapper é mandatório per Supabase docs (Web Lock deadlock prevention) —
+ *   sem stores duplicados, sem race conditions.
+ * - Nenhuma flag manual de "Lembrar-me" é lida ou escrita aqui. A
+ *   persistência de sessão é responsabilidade exclusiva do Supabase
+ *   (`persistSession: true` em `src/lib/supabase/client.ts`).
+ */
 
-type PageType = 'landing' | 'questionario' | 'dashboard-candidato' | 'login-rh' | 'dashboard-rh' | 'candidatos-rh' | 'perfil-candidato-rh' | 'vagas-publicas' | 'vagas-rh' | 'criar-vaga' | 'vaga-lp' | 'inscricao' | 'login-candidato' | 'esqueci-senha' | 'redefinir-senha' | 'instrucoes-formulario' | 'formulario-candidatura' | 'manifesto' | 'questionario-cultura' | 'instrucoes-disc' | 'instrucoes-bigfive' | 'instrucoes-raven' | 'teste-bigfive' | 'teste-disc' | 'teste-raven' | 'conclusao-testes' | 'showcase' | 'configuracoes' | 'meu-perfil' | 'meu-perfil-candidato' | 'suporte-rh';
+import React, { Suspense, useEffect, useRef } from 'react'
+import { RouterProvider, createBrowserRouter, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
+import { Menu } from 'lucide-react'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet'
+import { ScrollArea } from './components/ui/scroll-area'
+import { PageSkeleton } from './components/ui/PageSkeleton'
+import { routes, devNavigationPages } from './router/routes'
+import { useAuthStore } from './store/authStore'
+import { supabase } from './lib/supabase/client'
+import { useSessionTimeout } from './hooks/useSessionTimeout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('landing');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+/**
+ * Instância do QueryClient para TanStack Query
+ * Configuração global de cache, retry e staleTime
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      gcTime: 10 * 60 * 1000, // 10 minutos (anteriormente cacheTime)
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
-  const pages = [
-    { id: 'landing' as PageType, label: 'Landing Page', icon: '🏠' },
-    { id: 'vagas-publicas' as PageType, label: 'Vagas Públicas', icon: '💼' },
-    { id: 'vaga-lp' as PageType, label: 'LP Divulgação Vaga', icon: '📄' },
-    { id: 'inscricao' as PageType, label: 'Inscrição Candidato', icon: '📝' },
-    { id: 'login-candidato' as PageType, label: 'Login Candidato', icon: '🔑' },
-    { id: 'esqueci-senha' as PageType, label: 'Esqueci Minha Senha', icon: '🔓' },
-    { id: 'redefinir-senha' as PageType, label: 'Redefinir Senha', icon: '🔐' },
-    { id: 'instrucoes-formulario' as PageType, label: 'Instruções Formulário', icon: '📹' },
-    { id: 'formulario-candidatura' as PageType, label: 'Formulário Candidatura', icon: '📋' },
-    { id: 'manifesto' as PageType, label: 'Manifesto Beauty Smile', icon: '🦷' },
-    { id: 'questionario-cultura' as PageType, label: 'Questionário Cultura', icon: '💬' },
-    { id: 'instrucoes-disc' as PageType, label: 'Instruções Teste DISC', icon: '🎯' },
-    { id: 'instrucoes-bigfive' as PageType, label: 'Instruções Teste Big Five', icon: '🎨' },
-    { id: 'instrucoes-raven' as PageType, label: 'Instruções Teste Raven', icon: '🧩' },
-    { id: 'teste-bigfive' as PageType, label: 'Teste Big Five', icon: '✍️' },
-    { id: 'teste-disc' as PageType, label: 'Teste DISC', icon: '����' },
-    { id: 'teste-raven' as PageType, label: 'Teste Raven', icon: '🧩' },
-    { id: 'conclusao-testes' as PageType, label: 'Conclusão Testes', icon: '✅' },
-    { id: 'questionario' as PageType, label: 'Questionário', icon: '🧠' },
-    { id: 'dashboard-candidato' as PageType, label: 'Dashboard Candidato', icon: '📊' },
-    { id: 'login-rh' as PageType, label: 'Login RH', icon: '🔐' },
-    { id: 'dashboard-rh' as PageType, label: 'Dashboard RH', icon: '📊' },
-    { id: 'vagas-rh' as PageType, label: 'Vagas RH', icon: '📋' },
-    { id: 'criar-vaga' as PageType, label: 'Criar/Editar Vaga', icon: '✨' },
-    { id: 'candidatos-rh' as PageType, label: 'Candidatos RH', icon: '👥' },
-    { id: 'perfil-candidato-rh' as PageType, label: 'Perfil Candidato RH', icon: '👤' },
-    { id: 'configuracoes' as PageType, label: 'Configurações', icon: '⚙️' },
-    { id: 'meu-perfil' as PageType, label: 'Meu Perfil (RH)', icon: '👤' },
-    { id: 'meu-perfil-candidato' as PageType, label: 'Meu Perfil (Candidato)', icon: '👤' },
-    { id: 'suporte-rh' as PageType, label: 'Suporte Técnico (RH)', icon: '🛠️' },
-    { id: 'showcase' as PageType, label: 'Design Showcase', icon: '🎨' },
-  ];
+/**
+ * Componente de Menu de Desenvolvimento
+ *
+ * Menu flutuante para facilitar navegação durante desenvolvimento.
+ * Renderizado somente quando `import.meta.env.DEV === true`.
+ */
+function DevNavigationMenu() {
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'landing':
-        return <LandingPage />;
-      case 'questionario':
-        return <QuestionarioPage />;
-      case 'dashboard-candidato':
-        return <DashboardCandidatoPage />;
-      case 'login-rh':
-        return <LoginRHPage />;
-      case 'dashboard-rh':
-        return <DashboardRHPage />;
-      case 'candidatos-rh':
-        return <CandidatosRHPage />;
-      case 'perfil-candidato-rh':
-        return <PerfilCandidatoRHPage />;
-      case 'vagas-publicas':
-        return <VagasPublicasPage />;
-      case 'vagas-rh':
-        return <VagasRHPage onNovaVaga={() => setCurrentPage('criar-vaga')} />;
-      case 'criar-vaga':
-        return <CriarEditarVagaPage onVoltar={() => setCurrentPage('vagas-rh')} />;
-      case 'vaga-lp':
-        return <VagaLPPage onCandidatar={() => setCurrentPage('inscricao')} />;
-      case 'inscricao':
-        return <InscricaoPage />;
-      case 'login-candidato':
-        return <LoginCandidatoPage onEsqueciSenha={() => setCurrentPage('esqueci-senha')} />;
-      case 'esqueci-senha':
-        return <EsqueciSenhaPage onVoltarLogin={() => setCurrentPage('login-candidato')} />;
-      case 'redefinir-senha':
-        return <RedefinirSenhaPage onVoltarLogin={() => setCurrentPage('login-candidato')} token="abc123xyz456" />;
-      case 'instrucoes-formulario':
-        return <InstrucoesFormularioPage />;
-      case 'formulario-candidatura':
-        return <FormularioCandidaturaPage />;
-      case 'manifesto':
-        return <ManifestoPage />;
-      case 'questionario-cultura':
-        return <QuestionarioCulturaPage />;
-      case 'instrucoes-disc':
-        return <InstrucoesDISCPage />;
-      case 'instrucoes-bigfive':
-        return <InstrucoesBigFivePage />;
-      case 'instrucoes-raven':
-        return <InstrucoesRavenPage />;
-      case 'teste-bigfive':
-        return <TesteBigFivePage />;
-      case 'teste-disc':
-        return <TesteDISCPage />;
-      case 'teste-raven':
-        return <TesteRavenPage />;
-      case 'conclusao-testes':
-        return <ConclusaoTestesPage />;
-      case 'configuracoes':
-        return <ConfiguracoesPage />;
-      case 'meu-perfil':
-        return <MeuPerfilPage />;
-      case 'meu-perfil-candidato':
-        return <MeuPerfilCandidatoPage />;
-      case 'suporte-rh':
-        return <SuporteRHPage />;
-      case 'showcase':
-        return <GlassShowcase />;
-      default:
-        return <LandingPage />;
+  const handlePageChange = (path: string) => {
+    navigate(path)
+    setIsMenuOpen(false)
+  }
+
+  // Agrupar páginas por categoria
+  const pagesByCategory = devNavigationPages.reduce((acc, page) => {
+    if (!acc[page.category]) {
+      acc[page.category] = []
     }
-  };
+    acc[page.category].push(page)
+    return acc
+  }, {} as Record<string, typeof devNavigationPages>)
 
-  const handlePageChange = (pageId: PageType) => {
-    setCurrentPage(pageId);
-    setIsMenuOpen(false);
-  };
+  return (
+    <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+      <SheetTrigger asChild>
+        <button
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#00109E] hover:bg-[#00109E]/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center backdrop-blur-md border-2 border-white/20"
+          aria-label="Menu de navegação"
+        >
+          <Menu size={24} />
+        </button>
+      </SheetTrigger>
+
+      <SheetContent
+        side="right"
+        className="w-80 bg-[#00109E]/95 backdrop-blur-xl border-l border-white/20 text-white"
+      >
+        <SheetHeader>
+          <SheetTitle className="text-white text-2xl">Navegação Dev</SheetTitle>
+          <SheetDescription className="text-white/70">
+            Menu provisório para navegação entre páginas
+          </SheetDescription>
+        </SheetHeader>
+
+        <ScrollArea className="h-[calc(100vh-220px)] mt-8 pr-4">
+          <div className="space-y-6">
+            {Object.entries(pagesByCategory).map(([category, pages]) => (
+              <div key={category}>
+                <h3 className="text-white/50 text-xs font-semibold uppercase tracking-wider mb-2 px-2">
+                  {category}
+                </h3>
+                <div className="space-y-1">
+                  {pages.map((page) => (
+                    <button
+                      key={page.path}
+                      onClick={() => handlePageChange(page.path)}
+                      className={`
+                        w-full text-left px-3 py-2.5 rounded-lg transition-all duration-200
+                        flex items-center gap-3 text-sm
+                        ${location.pathname === page.path
+                          ? 'bg-white/20 text-white shadow-md'
+                          : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white'
+                        }
+                      `}
+                    >
+                      <span className="text-lg">{page.icon}</span>
+                      <span>{page.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+
+        <div className="absolute bottom-6 left-6 right-6">
+          <div className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20">
+            <p className="text-white/70 text-xs">
+              Menu de desenvolvimento • Remover em produção
+            </p>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+/**
+ * Hook: usuário está autenticado como RH ou administrador?
+ *
+ * Phase 4.1 — substitui `useIsAdminAuthenticated` do `adminAuthStore.ts`
+ * (re-export shim deletado para fechar FOUND-12). Consumido apenas em
+ * RootLayout para gatear `useSessionTimeout` (timeout só para sessões RH).
+ */
+const useIsAdminAuthenticated = () =>
+  useAuthStore((s) => s.isAuthenticated && (s.role === 'rh' || s.role === 'administrador'))
+
+/**
+ * Layout raiz que envolve todas as páginas
+ *
+ * Responsabilidades:
+ * - Inicializar o store de auth unificado UMA única vez.
+ * - Registrar UM único listener supabase.auth.onAuthStateChange que despacha
+ *   para hydrateFromSession (assíncrono, via setTimeout(0) per RESEARCH §Pattern 1)
+ *   ou clearAuth (síncrono) no store unificado. Phase 4.1 fix de
+ *   INT-BLOCKER-1+2: hydrateFromSession chama fetchProfile para popular
+ *   candidato/profile após qualquer SIGNED_IN/TOKEN_REFRESHED/USER_UPDATED/
+ *   PASSWORD_RECOVERY.
+ * - Montar o DevNavigationMenu apenas em ambiente de desenvolvimento.
+ * - Renderizar o Toaster de notificações.
+ */
+function RootLayout() {
+  const isAdminAuthenticated = useIsAdminAuthenticated()
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null)
+
+  // Monitorar inatividade apenas para sessões RH/Admin (30 minutos)
+  useSessionTimeout(isAdminAuthenticated)
+
+  useEffect(() => {
+    const { initialize, clearAuth } = useAuthStore.getState()
+
+    let cancelled = false
+
+    ;(async () => {
+      // Inicializa o store unificado checando sessão existente.
+      await initialize()
+      if (cancelled) return
+
+      // Phase 4.1 (RESEARCH §Pattern 1):
+      //   Async work inside onAuthStateChange MUST be deferred via setTimeout(0)
+      //   to prevent supabase-js Web Lock deadlock.
+      //   Citation: https://supabase.com/docs/reference/javascript/initializing
+      //             https://github.com/supabase/auth-js/issues/762
+      //   Sync work (clearAuth) runs immediately to avoid flash-of-unauth-state.
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          // Sync path — NEVER inside setTimeout (would create flash of unauth state).
+          if (event === 'SIGNED_OUT') {
+            clearAuth()
+            return
+          }
+
+          // Async path — defer to next tick so Web Lock releases.
+          setTimeout(() => {
+            if (
+              event === 'SIGNED_IN' ||
+              event === 'TOKEN_REFRESHED' ||
+              event === 'USER_UPDATED' ||
+              event === 'PASSWORD_RECOVERY'
+            ) {
+              void useAuthStore.getState().hydrateFromSession(session)
+            }
+          }, 0)
+        }
+      )
+
+      subscriptionRef.current = subscription
+    })()
+
+    // Cleanup: remover listener quando componente desmontar
+    return () => {
+      cancelled = true
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe()
+        subscriptionRef.current = null
+      }
+    }
+  }, [])
 
   return (
     <>
-      {/* Botão flutuante para abrir menu */}
-      <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-        <SheetTrigger asChild>
-          <button
-            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#00109E] hover:bg-[#00109E]/90 text-white shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center backdrop-blur-md border-2 border-white/20"
-            aria-label="Menu de navegação"
-          >
-            <Menu size={24} />
-          </button>
-        </SheetTrigger>
-
-        <SheetContent 
-          side="right" 
-          className="w-80 bg-[#00109E]/95 backdrop-blur-xl border-l border-white/20 text-white"
-        >
-          <SheetHeader>
-            <SheetTitle className="text-white text-2xl">Navegação</SheetTitle>
-            <SheetDescription className="text-white/70">
-              Menu provisório para navegar entre as páginas do sistema
-            </SheetDescription>
-          </SheetHeader>
-
-          <ScrollArea className="h-[calc(100vh-220px)] mt-8 pr-4">
-            <div className="space-y-2">
-              {pages.map((page) => (
-                <button
-                  key={page.id}
-                  onClick={() => handlePageChange(page.id)}
-                  className={`
-                    w-full text-left px-4 py-3 rounded-lg transition-all duration-200
-                    flex items-center gap-3
-                    ${currentPage === page.id 
-                      ? 'bg-white/20 text-white shadow-md' 
-                      : 'bg-white/5 text-white/80 hover:bg-white/10 hover:text-white'
-                    }
-                  `}
-                >
-                  <span className="text-2xl">{page.icon}</span>
-                  <span>{page.label}</span>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-
-          <div className="absolute bottom-6 left-6 right-6">
-            <div className="p-4 rounded-lg bg-white/10 backdrop-blur-md border border-white/20">
-              <p className="text-white/70 text-sm">
-                Menu provisório de navegação entre páginas
-              </p>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Página atual */}
-      <div>
-        {renderPage()}
-      </div>
-
+      {/* PERF-03 (Plan 19-02): single Suspense boundary covering every lazy /rh/* +
+          /admin/* route. The branded glass PageSkeleton shows while a route chunk
+          resolves — never a blank flash. React caches the resolved chunk Promise,
+          so a re-visited lazy route renders instantly with no fallback flash. */}
+      <Suspense fallback={<PageSkeleton />}>
+        <Outlet />
+      </Suspense>
+      {import.meta.env.DEV && <DevNavigationMenu />}
       <Toaster position="top-right" />
     </>
-  );
+  )
 }
 
-export default App;
+/**
+ * Configuração de rotas com layout
+ */
+const routesWithLayout = [
+  {
+    path: '/',
+    element: <RootLayout />,
+    children: routes,
+  },
+]
+
+/**
+ * Router configurado
+ */
+const router = createBrowserRouter(routesWithLayout, {
+  future: {
+    v7_startTransition: true,
+  },
+})
+
+/**
+ * Componente App principal
+ */
+function App() {
+  return (
+    // HARD-03 / D-09: ErrorBoundary hoisted to the App root so router-construction,
+    // provider, and any render error in the whole tree shows the fallback UI instead
+    // of a white screen. Per-route ErrorBoundary wrappers (router/routes.tsx) remain
+    // as a finer-grained inner net; this is the outermost catch-all.
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ErrorBoundary>
+  )
+}
+
+export default App

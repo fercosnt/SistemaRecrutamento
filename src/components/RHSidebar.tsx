@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
 import { Glass } from './ui/glass';
+import { useAuthStore } from '@/store/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
 
 interface MenuItem {
   id: string;
@@ -14,11 +18,6 @@ interface MenuItem {
 }
 
 interface RHSidebarProps {
-  activePage: string;
-  onNavigate: (pageId: string) => void;
-  userName?: string;
-  userRole?: string;
-  onLogout?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: (collapsed: boolean) => void;
   isMobileOpen?: boolean;
@@ -26,21 +25,60 @@ interface RHSidebarProps {
 }
 
 export function RHSidebar({
-  activePage,
-  onNavigate,
-  userName = 'João Silva',
-  userRole = 'Administrador',
-  onLogout,
   isCollapsed: externalCollapsed,
   onToggleCollapse,
   isMobileOpen: externalMobileOpen,
   onMobileClose
 }: RHSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, candidato, logout: authLogout } = useAuthStore();
+  // D-13: the Admin sidebar item is gated on role === 'administrador'. Visibility is
+  // COSMETIC — the /admin/* routes keep their RoleGuard + RLS as the real control.
+  const role = useAuthStore((s) => s.role);
+  // Shell identity for an RH user comes from `usuarios_rh` (adminUser); for an RH user the
+  // legacy `candidato` is null, so the email prefix is the LAST-resort fallback only (Task 3).
+  const adminUser = useAuthStore((s) => s.adminUser);
+
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
-  
+
   const isCollapsed = externalCollapsed ?? internalCollapsed;
   const isMobileOpen = externalMobileOpen ?? internalMobileOpen;
+
+  // Nome do usuário: nome do RH (adminUser) → candidato (legado) → prefixo do email (último recurso)
+  const userName =
+    adminUser?.nome_completo ||
+    candidato?.nome_completo ||
+    user?.email?.split('@')[0] ||
+    'Usuário';
+  // IN-01: derive the user-card label from the subscribed `role` so an authenticated
+  // administrador is not mislabeled "RH" while seeing the role-gated Admin nav item.
+  const userRole = role === 'administrador' ? 'Administrador' : 'RH';
+
+  // Signed avatar (panel-wide). Sign the stored path only when present; NEVER log the URL (Pitfall-7).
+  const avatarPath = adminUser?.avatar_url ?? null;
+  const { data: avatarSignedUrl } = useQuery({
+    queryKey: ['avatar-signed', avatarPath],
+    queryFn: () => getAvatarSignedUrl(avatarPath as string),
+    enabled: !!avatarPath,
+    staleTime: 55 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  // Detectar página ativa baseado na rota atual
+  const getActivePageFromPath = (pathname: string): string => {
+    if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
+    if (pathname.startsWith('/rh/candidatos')) return 'candidatos-rh';
+    if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
+    if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
+    if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
+    if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+    if (pathname.startsWith('/admin')) return 'admin';
+    return 'dashboard-rh';
+  };
+
+  const activePage = getActivePageFromPath(location.pathname);
 
   const menuItems: MenuItem[] = [
     {
@@ -52,13 +90,16 @@ export function RHSidebar({
       id: 'candidatos-rh',
       label: 'Candidatos',
       icon: <Users size={24} />,
-      badge: 12,
     },
     {
       id: 'vagas-rh',
       label: 'Vagas',
       icon: <Briefcase size={24} />,
-      badge: 5,
+    },
+    {
+      id: 'relatorios-rh',
+      label: 'Relatórios',
+      icon: <BarChart3 size={24} />,
     },
     {
       id: 'suporte-rh',
@@ -70,10 +111,32 @@ export function RHSidebar({
       label: 'Configurações',
       icon: <Settings size={24} />,
     },
+    // D-13: role-gated Admin entry — visible ONLY for administrador (hidden for rh/candidato).
+    // Opens sub-nav to /admin/* (ai-logs default). Visibility is cosmetic; the route RoleGuard
+    // + RLS remain the real access boundary.
+    ...(role === 'administrador'
+      ? [{ id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> }]
+      : []),
   ];
 
   const handleMenuClick = (itemId: string) => {
-    onNavigate(itemId);
+    // Mapear itemId para rota
+    const routes: Record<string, string> = {
+      'dashboard-rh': '/rh/dashboard',
+      'candidatos-rh': '/rh/candidatos',
+      'vagas-rh': '/rh/vagas',
+      'relatorios-rh': '/rh/relatorios',
+      'suporte-rh': '/rh/suporte',
+      'configuracoes-rh': '/rh/configuracoes',
+      'admin': '/admin/ai-logs',
+    };
+
+    const route = routes[itemId];
+    if (route) {
+      navigate(route);
+    }
+
+    // Fechar menu mobile
     if (onMobileClose) {
       onMobileClose();
     } else {
@@ -81,10 +144,17 @@ export function RHSidebar({
     }
   };
 
-  const handleLogout = () => {
-    if (onLogout) {
-      onLogout();
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+      navigate('/auth/login-rh');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      // Navegar mesmo se houver erro
+      navigate('/auth/login-rh');
     }
+
+    // Fechar menu mobile
     if (onMobileClose) {
       onMobileClose();
     } else {
@@ -189,8 +259,16 @@ export function RHSidebar({
               {!isCollapsed ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#35BFAD]/30">
-                      <span className="text-sm text-white font-medium">{userName.charAt(0)}</span>
+                    <div className="w-10 h-10 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 overflow-hidden shadow-lg shadow-[#35BFAD]/30">
+                      {avatarSignedUrl ? (
+                        <img
+                          src={avatarSignedUrl}
+                          alt={`Foto de perfil de ${userName}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm text-white font-medium">{userName.charAt(0)}</span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white truncate drop-shadow-sm">{userName}</p>
@@ -210,21 +288,23 @@ export function RHSidebar({
                   onClick={handleLogout}
                   className="w-full flex items-center justify-center p-2 rounded-lg text-white/80 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200 backdrop-blur-sm"
                   title="Sair"
+                  aria-label="Sair"
                 >
                   <LogOut size={20} />
                 </button>
               )}
             </div>
 
-            {/* Collapse Toggle (Desktop only) */}
+            {/* Collapse Toggle (Desktop only) — icon-only, needs an accessible name (AB-7). */}
             <button
               onClick={handleToggleCollapse}
+              aria-label={isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               className="hidden lg:flex items-center justify-center h-12 border-t border-white/10 hover:bg-white/10 transition-all duration-200 rounded-b-2xl"
             >
               {isCollapsed ? (
-                <ChevronRight size={20} className="text-white/60 drop-shadow-sm" />
+                <ChevronRight size={20} className="text-white/60 drop-shadow-sm" aria-hidden="true" />
               ) : (
-                <ChevronLeft size={20} className="text-white/60 drop-shadow-sm" />
+                <ChevronLeft size={20} className="text-white/60 drop-shadow-sm" aria-hidden="true" />
               )}
             </button>
           </Glass>
@@ -233,7 +313,7 @@ export function RHSidebar({
 
       {/* Mobile Menu Toggle Button */}
       <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        onClick={() => setInternalMobileOpen(!isMobileOpen)}
         className="lg:hidden fixed top-6 left-6 z-30 w-12 h-12 rounded-xl flex items-center justify-center shadow-xl backdrop-blur-xl border border-white/20"
         style={{ background: 'rgba(255, 255, 255, 0.15)' }}
       >

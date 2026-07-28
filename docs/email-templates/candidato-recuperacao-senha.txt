@@ -1,0 +1,26 @@
+=====================================
+BEAUTY SMILE - RECUPERAÇÃO DE SENHA
+=====================================
+
+Olá!
+
+Recebemos uma solicitação para recuperar a senha da sua conta no sistema de recrutamento Beauty Smile.
+
+Para criar uma nova senha, acesse o link abaixo:
+
+{{ .ConfirmationURL }}
+
+ATENÇÃO: Este link é válido por 24 horas.
+
+Se você não solicitou a recuperação de senha, por favor ignore este email. Sua senha permanecerá inalterada.
+
+-------------------------------------
+PRECISA DE AJUDA?
+-------------------------------------
+
+Em caso de dúvidas, entre em contato:
+Email: recrutamento@beautysmile.com.br
+
+-------------------------------------
+Beauty Smile Recrutamento
+Este é um email automático, por favor não responda.

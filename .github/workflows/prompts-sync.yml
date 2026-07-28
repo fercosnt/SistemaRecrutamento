@@ -1,0 +1,44 @@
+# .github/workflows/prompts-sync.yml
+# Phase 9 / Plan 09-06 (IA-01 — hybrid git->DB prompt-library versioning, RF-PL-07).
+#
+# Runs scripts/sync-prompts.ts ONLY on merge to main and ONLY when a prompt template
+# changes (path filter). The script reads docs/conhecimento/prompts/templates/*.md,
+# Zod-validates each frontmatter, computes a SHA-256 content_hash, and UPSERTs each into
+# prompt_versions at is_active=false + is_canary=false, idempotent ON CONFLICT(content_hash)
+# DO NOTHING. If any frontmatter is invalid (RF-PL-01) or a (call_type, semver) collides
+# with a different hash (RF-PL-11), the script throws -> the step fails -> the build is red
+# BEFORE any DB write lands.
+#
+# ACTIVATION IS NOT AUTOMATIC: synced rows are inert (is_active=false). The first activation
+# per call_type is a one-time MANUAL SQL step (canary path of the PRD — orchestrator-decision #2).
+#
+# SECRETS (configured by Fernando in repo settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL                — project URL.
+#   SUPABASE_SERVICE_ROLE_KEY   — service_role key. SERVER-SIDE ONLY. This workflow runs
+#                                 on the GitHub runner, never in the browser bundle. It is
+#                                 NEVER VITE_-prefixed (CLAUDE.md hard rule / Pitfall 2) and
+#                                 is never echoed/logged.
+#
+# Does NOT touch ci.yml (the LGPD-04 grep guard rides ci.yml's existing unit job).
+name: Prompts Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/conhecimento/prompts/templates/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Sync git templates -> prompt_versions (is_active=false)
+        run: deno run --allow-read --allow-env --allow-net scripts/sync-prompts.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

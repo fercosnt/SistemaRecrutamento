@@ -2,7 +2,7 @@ import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Glass } from './ui/glass';
 
-type MetricVariant = 'primary' | 'success' | 'warning' | 'neutral';
+type MetricVariant = 'primary' | 'success' | 'warning' | 'info' | 'neutral';
 
 interface MetricCardProps {
   icon: React.ReactNode;
@@ -20,6 +20,7 @@ const variantStyles: Record<MetricVariant, string> = {
   primary: 'bg-gradient-to-br from-[#00109E] to-[#000860] text-white',
   success: 'bg-gradient-to-br from-green-500 to-green-700 text-white',
   warning: 'bg-gradient-to-br from-orange-500 to-orange-700 text-white',
+  info: 'bg-gradient-to-br from-blue-500 to-blue-700 text-white',
   neutral: 'bg-neutral-50 text-neutral-900',
 };
 
@@ -50,6 +51,8 @@ export function MetricCard({
                       ? '#00109E, #000860'
                       : variantStyles[variant].includes('from-green')
                       ? '#22c55e, #15803d'
+                      : variantStyles[variant].includes('from-blue')
+                      ? '#3b82f6, #1e40af'
                       : '#f97316, #c2410c'
                   })`
                 : undefined,

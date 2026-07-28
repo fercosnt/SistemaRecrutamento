@@ -1,4 +1,6 @@
-@custom-variant dark (&:is(.dark *));
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Beauty Smile Design System */
 :root {
@@ -40,27 +42,34 @@
   --semantic-info-50: #ECFDF5;
   --semantic-info: #35BFAD;
 
-  /* Standard theme variables */
-  --background: #ffffff;
-  --foreground: var(--neutral-900);
-  --card: #ffffff;
-  --card-foreground: var(--neutral-900);
-  --popover: #ffffff;
-  --popover-foreground: var(--neutral-900);
-  --primary: var(--brand-primary);
-  --primary-foreground: #ffffff;
-  --secondary: var(--brand-secondary);
-  --secondary-foreground: #ffffff;
-  --muted: var(--neutral-100);
-  --muted-foreground: var(--neutral-600);
-  --accent: var(--brand-accent);
-  --accent-foreground: #ffffff;
-  --destructive: var(--semantic-error);
-  --destructive-foreground: #ffffff;
-  --border: var(--neutral-200);
-  --input: var(--neutral-300);
-  --input-background: var(--neutral-white);
-  --ring: var(--brand-primary);
+  /* Standard theme variables
+   * D-07/D-26 FIX (Phase 5 / Plan 05-02): semantic tokens are HSL CHANNEL TRIPLETS,
+   * not hex or brand vars. tailwind.config.js wraps each in hsl(var(--x)); a hex
+   * value there emits an invalid hsl() = transparent UI. Triplets keep the hsl()
+   * wrapper valid AND preserve opacity modifiers (bg-primary/90 per D-25).
+   * The raw brand and neutral hex palette above stays intact for direct-hex
+   * consumers; only the semantic tokens are decoupled to triplets here.
+   * Triplets computed deterministically from the prior hex values (see SUMMARY). */
+  --background: 0 0% 100%;            /* #ffffff */
+  --foreground: 220 3% 18%;          /* neutral-900 #2D2E30 */
+  --card: 0 0% 100%;                 /* #ffffff */
+  --card-foreground: 220 3% 18%;     /* neutral-900 #2D2E30 */
+  --popover: 0 0% 100%;              /* #ffffff */
+  --popover-foreground: 220 3% 18%;  /* neutral-900 #2D2E30 */
+  --primary: 234 100% 31%;           /* brand-primary #00109E */
+  --primary-foreground: 0 0% 100%;   /* #ffffff */
+  --secondary: 37 41% 55%;           /* brand-secondary #BB965B */
+  --secondary-foreground: 0 0% 100%; /* #ffffff */
+  --muted: 180 4% 95%;               /* neutral-100 #F1F2F2 */
+  --muted-foreground: 210 3% 54%;    /* neutral-600 #86898C */
+  --accent: 172 57% 48%;             /* brand-accent #35BFAD */
+  --accent-foreground: 0 0% 100%;    /* #ffffff */
+  --destructive: 0 84% 60%;          /* semantic-error #EF4444 */
+  --destructive-foreground: 0 0% 100%; /* #ffffff */
+  --border: 120 2% 91%;              /* neutral-200 #E8E9E8 */
+  --input: 90 2% 84%;                /* neutral-300 #D6D7D5 */
+  --input-background: 0 0% 100%;     /* neutral-white #FFFFFF */
+  --ring: 234 100% 31%;              /* brand-primary #00109E */
 
   /* Typography */
   --font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -126,12 +135,13 @@
   --duration-300: 300ms;
   --duration-500: 500ms;
 
-  /* Charts */
-  --chart-1: var(--brand-primary);
-  --chart-2: var(--brand-accent);
-  --chart-3: var(--brand-secondary);
-  --chart-4: var(--semantic-success);
-  --chart-5: var(--semantic-warning);
+  /* Charts — HSL channel triplets (consumed via hsl(var(--chart-N)) in tailwind.config.js).
+   * D-07/D-26 FIX (Plan 05-02): same triplet rule as the semantic block above. */
+  --chart-1: 234 100% 31%;  /* brand-primary #00109E */
+  --chart-2: 172 57% 48%;   /* brand-accent #35BFAD */
+  --chart-3: 37 41% 55%;    /* brand-secondary #BB965B */
+  --chart-4: 160 84% 39%;   /* semantic-success #10B981 */
+  --chart-5: 38 92% 50%;    /* semantic-warning #F59E0B */
 
   /* Sidebar */
   --sidebar: var(--neutral-900);
@@ -144,67 +154,6 @@
   --sidebar-ring: var(--brand-accent);
 }
 
-@theme inline {
-  --color-brand-primary: var(--brand-primary);
-  --color-brand-primary-hover: var(--brand-primary-hover);
-  --color-brand-secondary: var(--brand-secondary);
-  --color-brand-accent: var(--brand-accent);
-  
-  --color-neutral-50: var(--neutral-50);
-  --color-neutral-100: var(--neutral-100);
-  --color-neutral-200: var(--neutral-200);
-  --color-neutral-300: var(--neutral-300);
-  --color-neutral-400: var(--neutral-400);
-  --color-neutral-500: var(--neutral-500);
-  --color-neutral-600: var(--neutral-600);
-  --color-neutral-700: var(--neutral-700);
-  --color-neutral-800: var(--neutral-800);
-  --color-neutral-900: var(--neutral-900);
-
-  --color-success: var(--semantic-success);
-  --color-warning: var(--semantic-warning);
-  --color-error: var(--semantic-error);
-  --color-info: var(--semantic-info);
-
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: var(--radius-sm);
-  --radius-md: var(--radius-md);
-  --radius-lg: var(--radius-lg);
-  --radius-xl: var(--radius-xl);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -213,81 +162,6 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-family);
-  }
-}
-
-/**
- * Base typography for Beauty Smile
- */
-@layer base {
-  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 {
-      font-size: var(--text-5xl);
-      font-weight: var(--font-weight-bold);
-      line-height: 1.2;
-      color: var(--neutral-900);
-    }
-
-    h2 {
-      font-size: var(--text-4xl);
-      font-weight: var(--font-weight-bold);
-      line-height: 1.3;
-      color: var(--neutral-900);
-    }
-
-    h3 {
-      font-size: var(--text-3xl);
-      font-weight: var(--font-weight-semibold);
-      line-height: 1.3;
-      color: var(--neutral-900);
-    }
-
-    h4 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-semibold);
-      line-height: 1.4;
-      color: var(--neutral-900);
-    }
-
-    h5 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-semibold);
-      line-height: 1.4;
-      color: var(--neutral-900);
-    }
-
-    h6 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-semibold);
-      line-height: 1.5;
-      color: var(--neutral-900);
-    }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.6;
-      color: var(--neutral-700);
-    }
-
-    label {
-      font-size: var(--text-sm);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-      color: var(--neutral-700);
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-semibold);
-      line-height: 1;
-    }
-
-    input, textarea {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.6;
-    }
   }
 }
 

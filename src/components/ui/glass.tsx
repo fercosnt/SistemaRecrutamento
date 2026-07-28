@@ -174,6 +174,10 @@ export const GlassButton = React.forwardRef<
         'rounded-xl shadow-lg',
         
         // Button styles
+        // D-14 FIX (Plan 05-02): inline-flex + items-center + justify-center + gap-2
+        // centers icon+text children (matches shadcn Button convention). Cascades to
+        // all GlassButton consumers — no per-consumer alignment patch needed.
+        'inline-flex items-center justify-center gap-2',
         'px-6 py-3 cursor-pointer',
         'hover:bg-white/20 active:scale-95',
         'transition-all duration-200',

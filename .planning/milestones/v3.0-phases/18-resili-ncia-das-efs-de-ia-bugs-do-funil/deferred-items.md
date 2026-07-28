@@ -1,0 +1,53 @@
+# Phase 18 — Deferred Items (out-of-scope discoveries during execution)
+
+These items were discovered during plan execution but are OUTSIDE the scope of the
+task that found them. Logged here per the executor SCOPE BOUNDARY rule — NOT fixed.
+
+## From 18-02 (RESIL-02 bigfive parallelization)
+
+- **Vitest tries to load 2 Deno EF tests not in the `vite.config.ts` exclude list.**
+  `npm run test:run` reports 3 failed *suites* (0 failed tests) because Vitest's
+  `include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}']` matches Deno test files that
+  use `https://deno.land` / `npm:` specifiers the Node ESM loader cannot resolve.
+  - `supabase/functions/consolidar-decisao-final/__tests__/index.test.ts` — added in
+    commit `350e994` (FIX-01 work); NOT in the exclude list. **Pre-existing.**
+  - `supabase/functions/_shared/__tests__/essay-schemas.test.ts` — added in commit
+    `3af37d8` (Phase 13); NOT in the exclude list. **Pre-existing.**
+  - (The third, `gerar-devolutiva-bigfive`, was a regression introduced by 18-02's
+    move into `__tests__/` and was FIXED in 18-02 by adding it to the exclude list.)
+  - **Fix when in scope:** add both paths to the `vite.config.ts` `test.exclude`
+    array (same one-line pattern used for the other EF tests). Likely a good fit for
+    Plan 18-07 (deploy/cleanup) or a dedicated FIX-01-regression-test plan, since
+    FIX-01's Deno test is the one consolidar suite that should run under `deno test`.
+  - **Update (18-06):** the full `npm run test:run` now reports **76 passed (76) /
+    657 passed** with NO failed suites — the exclude list already covers both paths
+    (this deferred item appears resolved; verify before re-flagging).
+
+## From 18-06 (RESIL-03 <AsyncState> adoption)
+
+- **`DevolutivaBigFiveView` (the candidate ~30s Big Five devolutiva read) is NOT yet
+  on `<AsyncState>`.** Plan 18-06's `files_modified` listed `BigFiveQuestionnaireScreen.tsx`
+  (the questionnaire read), and the plan's "BigFive devolutiva … slow ~30s" intent was
+  satisfied on the questionnaire screen's read region (slow copy via `slowAfterMs`). The
+  literal ~30s devolutiva read lives in
+  `src/features/avaliacao/components/DevolutivaBigFiveView.tsx` (`loadDevolutiva` query),
+  which is OUTSIDE this plan's `files_modified` (SCOPE BOUNDARY) — left untouched.
+  - **Fix when in scope:** wrap `DevolutivaBigFiveView`'s `loadDevolutiva` read region in
+    `<AsyncState>` (it already has `isLoading`/error markup with bespoke copy + an
+    `AlertCircle`/retry exemplar) for full RESIL-03 consistency. Clean follow-up — a
+    one-screen adoption identical to the three done in 18-06.
+- **Duplicate inline `extractEfErrorCode` in `entrevistaService.ts` (L573)** — carried
+  forward from 18-05's deferred list; still the same drift, still out of scope here.
+
+## From 18 UI review (advisory, 23/24 — non-blocking polish backlog)
+
+- **`ConsolidacaoDashboard` domain-empty typography drifts** from the standardized
+  `EstadoVazio` block (`text-xl` + un-muted body vs `text-base` / `text-sm text-white/70`)
+  — `ConsolidacaoDashboard.tsx:118-125`. One-line className alignment; contradicts the
+  "never drift" goal but only in the empty-state branch. Polish — fix when touching that file.
+- **`errorCodeOf()` copy-pasted across the 5 adopter components** — overlaps the
+  entrevistaService duplicate above; the clean fix is to export one shared `errorCodeOf`
+  from `@/lib/efErrors` and have all consumers (and the entrevistaService dedupe) use it.
+- **RESOLVED (post-merge gate):** the two unexcluded Deno test suites (`essay-schemas`,
+  `consolidar-decisao-final/__tests__`) were added to `vite.config.ts` `test.exclude`
+  in commit `f90c934` — `npm run test:run` is fully green (76/76 files, 657 tests).

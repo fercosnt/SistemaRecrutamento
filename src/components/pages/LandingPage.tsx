@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { GlassPanel, GlassButton, GlassCard } from '../ui/glass';
 
 export function LandingPage() {
+  const navigate = useNavigate();
   return (
     <div className="relative min-h-screen">
       <BackgroundImage 
@@ -24,10 +26,28 @@ export function LandingPage() {
                 Sistema de Recrutamento Inteligente
               </p>
               <div className="flex gap-4 justify-center">
-                <GlassButton variant="white" hover className="px-8 py-4 text-white text-lg drop-shadow-sm">
+                <GlassButton
+                  variant="white"
+                  hover
+                  className="px-8 py-4 text-white text-lg drop-shadow-sm"
+                  onClick={() => navigate('/vagas')}
+                >
                   Ver Vagas
                 </GlassButton>
-                <GlassButton variant="white" hover className="px-8 py-4 text-white text-lg drop-shadow-sm">
+                <GlassButton
+                  variant="white"
+                  hover
+                  className="px-8 py-4 text-white text-lg drop-shadow-sm"
+                  onClick={() => navigate('/auth/login')}
+                >
+                  Já sou candidato
+                </GlassButton>
+                <GlassButton
+                  variant="white"
+                  hover
+                  className="px-8 py-4 text-white text-lg drop-shadow-sm"
+                  onClick={() => navigate('/auth/login-rh')}
+                >
                   Área do RH
                 </GlassButton>
               </div>
@@ -50,7 +70,7 @@ export function LandingPage() {
                 </div>
                 <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Questionários</h3>
                 <p className="text-white/90 drop-shadow-sm">
-                  Testes psicométricos com design moderno e tecnológico
+                  Avaliação comportamental e cognitiva com design moderno e tecnológico
                 </p>
               </div>
             </GlassCard>
@@ -74,7 +94,7 @@ export function LandingPage() {
                 </div>
                 <h3 className="text-2xl drop-shadow-md text-[rgb(255,255,255)]">Resultados</h3>
                 <p className="text-white/90 drop-shadow-sm">
-                  Acompanhe seu progresso e análise de perfil
+                  Acompanhe seu progresso e sua avaliação comportamental
                 </p>
               </div>
             </GlassCard>

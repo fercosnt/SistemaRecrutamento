@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperação de Senha - Beauty Smile Recrutamento</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background: linear-gradient(135deg, #00109E 0%, #0066CC 100%);
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .logo {
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0;
+    }
+    .content {
+      padding: 40px 30px;
+      color: #333333;
+    }
+    .greeting {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #00109E;
+    }
+    .message {
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+      color: #555555;
+    }
+    .button {
+      display: inline-block;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, #00109E 0%, #0066CC 100%);
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 20px 0;
+    }
+    .button:hover {
+      background: linear-gradient(135deg, #000c7a 0%, #0052a3 100%);
+    }
+    .info-box {
+      background-color: #f8f9fa;
+      border-left: 4px solid #00109E;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #666666;
+    }
+    .footer {
+      background-color: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      color: #888888;
+      font-size: 14px;
+    }
+    .footer a {
+      color: #00109E;
+      text-decoration: none;
+    }
+    .divider {
+      height: 1px;
+      background-color: #e0e0e0;
+      margin: 30px 0;
+    }
+    @media only screen and (max-width: 600px) {
+      .content {
+        padding: 30px 20px;
+      }
+      .button {
+        display: block;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1 class="logo">✨ Beauty Smile</h1>
+      <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">Recrutamento e Seleção</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <p class="greeting">Olá!</p>
+
+      <p class="message">
+        Recebemos uma solicitação para recuperar a senha da sua conta no sistema de recrutamento Beauty Smile.
+      </p>
+
+      <p class="message">
+        Para criar uma nova senha, clique no botão abaixo:
+      </p>
+
+      <div style="text-align: center;">
+        <a href="{{ .ConfirmationURL }}" class="button">Redefinir Minha Senha</a>
+      </div>
+
+      <div class="info-box">
+        <p><strong>⏱️ Atenção:</strong> Este link é válido por <strong>24 horas</strong>.</p>
+      </div>
+
+      <p class="message">
+        Se você não solicitou a recuperação de senha, por favor ignore este email. Sua senha permanecerá inalterada.
+      </p>
+
+      <div class="divider"></div>
+
+      <p style="font-size: 14px; color: #888888; margin-bottom: 10px;">
+        <strong>Problemas com o botão?</strong> Copie e cole o link abaixo no seu navegador:
+      </p>
+      <p style="font-size: 13px; color: #0066CC; word-break: break-all;">
+        {{ .ConfirmationURL }}
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p style="margin: 0 0 10px 0; font-weight: 600; color: #666666;">Beauty Smile Recrutamento</p>
+      <p style="margin: 0 0 10px 0;">
+        📧 Dúvidas? Entre em contato: <a href="mailto:recrutamento@beautysmile.com.br">recrutamento@beautysmile.com.br</a>
+      </p>
+      <p style="margin: 0; font-size: 12px;">
+        Este é um email automático, por favor não responda.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,136 @@
+/**
+ * E2E Tests — Vagas Public Browse Flow (Phase 4 / VAGA-01, VAGA-02, VAGA-03)
+ *
+ * Promoted from Wave 0 stub (Plan 04-01 Task 8) per Plan 04-08.
+ * Test IDs B-J01..B-J05 align with RESEARCH.md §Playwright E2E table.
+ *
+ * Gating:
+ *  - B-J01 / B-J03 / B-J05 → unconditional (anon-only / no DB write).
+ *  - B-J02 → unconditional but env-skipped if dev DB has zero seed vagas.
+ *  - B-J04 → env-gated on TEST_USER_EMAIL (requires real candidato login).
+ */
+import { test, expect, type Page } from '@playwright/test'
+
+// CI-08: env-only, no hardcoded fallback. TEST_USER is read ONLY by B-J04, which
+// is gated by `test.skip(!process.env.TEST_USER_EMAIL, …)`. See .env.test.example.
+const TEST_USER = {
+  email: process.env.TEST_USER_EMAIL!,
+  password: process.env.TEST_USER_PASSWORD!,
+}
+
+async function fillAndBlur(page: Page, selector: string, value: string) {
+  const locator = page.locator(selector).first()
+  await locator.fill(value)
+  await locator.blur()
+}
+
+test.describe('Vagas Public Browse (Plan 04-08)', () => {
+
+  test('B-J01: anon visits /vagas and sees the list region', async ({ page }) => {
+    // GAP-05-CI-2: under placeholder Supabase the .from('vagas') REST query errors
+    // (DATABASE_ERROR) → neither cards nor the empty-state render reliably. Mock the
+    // vagas list query so the list region renders deterministically. The content-range
+    // header is what supabase-js reads for the { count: 'exact' } total. Scoped to
+    // B-J01 only — B-J02/B-J03/B-J04 keep their existing self-skip-on-zero-cards gating
+    // and real-navigation behavior untouched.
+    await page.route('**/rest/v1/vagas**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'content-range': '0-0/1' },
+        body: JSON.stringify([
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            titulo: 'Vaga Teste E2E',
+            slug: 'vaga-teste-e2e',
+            descricao_curta: 'Descrição curta de teste',
+            status: 'ativa',
+            deleted_at: null,
+            cidade: 'São Paulo',
+            estado: 'SP',
+            departamento: 'atendimento',
+            tipo_contrato: 'clt',
+            modelo_trabalho: 'presencial',
+            nivel_senioridade: 'pleno',
+            created_at: '2026-06-01T12:00:00Z',
+          },
+        ]),
+      }),
+    )
+    await page.goto('/vagas')
+    // VagasPublicasPage always renders h1 "Vagas Disponíveis" + the resultados counter,
+    // even with zero seed vagas (empty-state branch). Both are valid acceptance per VAGA-01.
+    await expect(page.getByRole('heading', { level: 1, name: /Vagas Disponíveis/i })).toBeVisible({ timeout: 10000 })
+    // Either >= 1 vaga card (h2 with vaga title) OR the empty-state copy "Nenhuma vaga encontrada"
+    const cardTitle = page.locator('h2').first()
+    const empty = page.getByText(/Nenhuma vaga encontrada|sem vagas|nenhum resultado/i)
+    await expect(cardTitle.or(empty.first())).toBeVisible({ timeout: 10000 })
+    // Anon = no auth-protected element visible
+    await expect(page.getByRole('button', { name: /sair|logout/i })).not.toBeVisible()
+  })
+
+  test('B-J02: anon clicks vaga card → arrives at /vagas/:slug (slug-shaped, not UUID)', async ({ page }) => {
+    await page.goto('/vagas')
+    await expect(page.getByRole('heading', { level: 1, name: /Vagas Disponíveis/i })).toBeVisible({ timeout: 10000 })
+    // Card detection: h2 elements inside the vagas list (page-level h2 only renders when ≥ 1 vaga)
+    const cardCount = await page.locator('h2').count()
+    test.skip(cardCount === 0, 'No seed vagas in dev DB — env-gated')
+
+    // Click the first "Candidatar-se" button — handleCandidatar navigates to /vagas/:identifier (D-01)
+    await page.getByRole('button', { name: /Candidatar-se a esta vaga/i }).first().click()
+    await page.waitForURL(/\/vagas\/[a-z0-9-]+/, { timeout: 10000 })
+    const url = page.url()
+    // Slug should NOT match UUID pattern (D-01 — vagas use slugs in URL)
+    expect(url).not.toMatch(/\/vagas\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    // Detail page title visible (h1 of the specific vaga)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  })
+
+  test('B-J03: anon clicks Candidatar-se → redirected to /auth/login?redirect=...', async ({ page }) => {
+    await page.goto('/vagas')
+    await expect(page.getByRole('heading', { level: 1, name: /Vagas Disponíveis/i })).toBeVisible({ timeout: 10000 })
+    const cardCount = await page.locator('h2').count()
+    test.skip(cardCount === 0, 'No seed vagas — env-gated')
+
+    // List-level Candidatar navigates to /vagas/:identifier (handleCandidatar in VagasPublicasPage)
+    await page.getByRole('button', { name: /Candidatar-se a esta vaga/i }).first().click()
+    await page.waitForURL(/\/vagas\/[^/]+$/, { timeout: 10000 })
+    // Detail-level Candidatar (VagaDetalhePage) — clicking when anon redirects to /auth/login
+    const detailCandidatarBtn = page.getByRole('button', { name: /candidatar-se|candidatar me|candidatar/i }).first()
+    await detailCandidatarBtn.click()
+
+    await page.waitForURL(/\/auth\/login\?redirect=/, { timeout: 10000 })
+    const url = new URL(page.url())
+    expect(url.searchParams.get('redirect')).toMatch(/\/candidato\/candidatura\/formulario\//)
+  })
+
+  test('B-J04: after login, lands on /candidato/candidatura/formulario/:slug', async ({ page }) => {
+    test.skip(!process.env.TEST_USER_EMAIL, 'Requires TEST_USER_EMAIL env var')
+    // Step 1: anon → /vagas → click Candidatar-se from list → /vagas/:slug → click Candidatar from detail → /auth/login?redirect=...
+    await page.goto('/vagas')
+    await expect(page.getByRole('heading', { level: 1, name: /Vagas Disponíveis/i })).toBeVisible({ timeout: 10000 })
+    const cardCount = await page.locator('h2').count()
+    test.skip(cardCount === 0, 'No seed vagas — env-gated')
+    await page.getByRole('button', { name: /Candidatar-se a esta vaga/i }).first().click()
+    await page.waitForURL(/\/vagas\/[^/]+$/, { timeout: 10000 })
+    await page.getByRole('button', { name: /candidatar/i }).first().click()
+    await page.waitForURL(/\/auth\/login\?redirect=/, { timeout: 10000 })
+    // Step 2: log in (use #id selectors + .blur() per Phase 3 03-07 Rule 1 auto-fix)
+    await fillAndBlur(page, '#email', TEST_USER.email)
+    await fillAndBlur(page, '#senha, #password', TEST_USER.password)
+    await page.getByRole('button', { name: /entrar/i }).click()
+    // Expected: lands on formulário, NOT back on /vagas/:slug
+    await page.waitForURL(/\/candidato\/candidatura\/formulario\//, { timeout: 15000 })
+  })
+
+  test('B-J05: /vagas/<invalid-slug> shows VagaNotFoundState', async ({ page }) => {
+    await page.goto('/vagas/this-slug-definitely-does-not-exist-04-08-test')
+    // Allow time for the query to resolve + 404 state to render
+    await expect(
+      page.getByText(/Vaga não encontrada ou não está mais ativa/i),
+    ).toBeVisible({ timeout: 10000 })
+    // CTA present
+    await expect(page.getByRole('button', { name: /Voltar para vagas/i })).toBeVisible()
+  })
+
+})

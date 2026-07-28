@@ -1,0 +1,72 @@
+# supabase/config.toml — deploy-posture-as-code (CI-13, Phase 27 / Plan 27-02).
+#
+# Declares each Edge Function's `verify_jwt` (and, for the 5 EFs whose bundle
+# reaches the bare-`zod` shared schema module, the `import_map` pointing at the
+# functions `deno.json` so bare `zod` resolves at DEPLOY time, coupling with CI-07).
+#
+# `verify_jwt` derived from each EF's grep-verified live deploy posture:
+#   - false (3): the Vault Bearer self-auth EFs (server-to-server / cron). Flipping
+#     one to `true` breaks the server-to-server invocation; SEC-04 load-bearing.
+#   - true (9): the JWT-ON EFs that call auth.getUser(). A wrong `false` on any of
+#     them opens an auth hole.
+#
+# This file changes nothing live by itself — the EFs are already deployed with
+# these flags. Its value is drift-proofing future deploys + enabling the import_map.
+# The EF redeploys that make the bare-zod import map take effect live are Plan 27-06.
+# CLI caveat (issues #4059 / #41693): verify_jwt/settings can be ignored on update —
+# verify the live posture after any redeploy (curl no-auth → 401 for verify_jwt=true).
+
+project_id = "isljnozzlvckrgjjbjwp"
+
+# ── self-auth (JWT-OFF) — Vault Bearer self-auth (server-to-server / cron) ─────────
+
+[functions.analise-candidato-individual]
+verify_jwt = false
+
+[functions.cost-alerter]
+verify_jwt = false
+
+# EF server-interna self-auth (Bearer via Vault) — despachante das notificações M7 (Phase 38)
+[functions.notificar-candidato]
+verify_jwt = false
+
+[functions.gerar-devolutiva-bigfive]
+verify_jwt = false
+
+# EF pública chamada pelo Resend — self-auth pela assinatura Svix (não JWT de usuário) — Phase 41
+[functions.resend-webhook]
+verify_jwt = false
+
+# ── JWT-ON (auth.getUser) — +import_map for the shared-zod EFs ─────────────────────
+
+[functions.avaliar-redacao]
+verify_jwt = true
+
+[functions.avaliar-redacao-cultural]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.avaliar-transcricao-entrevista]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.comparativo-candidatos]
+verify_jwt = true
+
+[functions.consolidar-decisao-final]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.gerar-guia-entrevista]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.submit-bigfive-final]
+verify_jwt = true
+
+[functions.submit-candidatura]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.cadastrar-candidato]
+verify_jwt = true

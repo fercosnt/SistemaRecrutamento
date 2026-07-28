@@ -5,15 +5,15 @@
 
 // Background azul escuro com gradiente sutil
 // Ideal para: Hero sections, Login, Areas administrativas
-import bgDarkBlue from 'figma:asset/5feab6fe2a4e5e85a5b01894d30667ea3a06a9d0.png';
+import bgDarkBlue from '../5feab6fe2a4e5e85a5b01894d30667ea3a06a9d0.webp';
 
 // Background dourado com textura elegante
 // Ideal para: Seções premium, Destaques, CTAs especiais
-import bgGold from 'figma:asset/91b67d31b9aa67c340ac4a375a9832d8c0284448.png';
+import bgGold from '../91b67d31b9aa67c340ac4a375a9832d8c0284448.png';
 
 // Background gradiente turquesa/azul moderno
-// Ideal para: Questionários, Testes psicométricos, Áreas tecnológicas
-import bgGradient from 'figma:asset/72212e27083bc5aff34e367036bc5f1a36b908b7.png';
+// Ideal para: Questionários, avaliações comportamentais/cognitivas, Áreas tecnológicas
+import bgGradient from '../72212e27083bc5aff34e367036bc5f1a36b908b7.jpeg';
 
 export const backgrounds = {
   // Background principal - azul escuro (#00109E)

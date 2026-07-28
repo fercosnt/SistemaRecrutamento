@@ -1,15 +1,92 @@
 
   import { defineConfig } from 'vite';
+  import { configDefaults } from 'vitest/config';
   import react from '@vitejs/plugin-react-swc';
   import path from 'path';
 
   export default defineConfig({
     plugins: [react()],
+    test: {
+      globals: true,
+      environment: 'happy-dom',
+      setupFiles: ['./tests/setup.ts'],
+      include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}'],
+      // Deno Edge-Function / script tests import via `https://deno.land`, `npm:`
+      // and `https://esm.sh` specifiers that the Node/Vitest ESM loader cannot
+      // resolve — they run under `deno test`, not Vitest. Exclude them here so
+      // `npm run test:run` stays green. (strict-schema.test.ts is a Vitest
+      // source-text probe — NOT a Deno test — so it is intentionally kept.)
+      exclude: [
+        ...configDefaults.exclude,
+        'scripts/**',
+        'supabase/functions/**/ai-client.test.ts',
+        'supabase/functions/**/ai-cost.test.ts',
+        'supabase/functions/**/circuit-breaker.test.ts',
+        'supabase/functions/**/injection-detector.test.ts',
+        'supabase/functions/**/pii-masker.test.ts',
+        // Phase 10 EF integration tests (Deno, https:// specifiers — run under `deno test`,
+        // not Vitest; their RED scaffolds landed in 10-01 and were left out of this list).
+        'supabase/functions/analise-candidato-individual/**/*.test.ts',
+        'supabase/functions/comparativo-candidatos/**/*.test.ts',
+        // Phase 11 EF integration test (Deno, https:// specifiers — run under `deno test`,
+        // not Vitest; RED scaffold landed in 11-01, impl in the Phase-11 EF wave).
+        'supabase/functions/avaliar-redacao/**/*.test.ts',
+        // Phase 18 / Plan 18-02 (RESIL-02): the bigfive devolutiva Deno test moved
+        // into __tests__/ (matching the _shared/__tests__/ convention). It uses
+        // https://deno.land + npm: specifiers → run under `deno test`, not Vitest.
+        'supabase/functions/gerar-devolutiva-bigfive/**/*.test.ts',
+        // Phase 18 post-merge gate: two Deno `__tests__/` tests using https://deno.land
+        // specifiers were never added to this list (essay-schemas from Phase 13;
+        // consolidar-decisao-final golden test from Phase 15, extended by 18-03 FIX-01).
+        // They run under `deno test`, not Vitest → exclude to keep `npm run test:run` green.
+        'supabase/functions/_shared/__tests__/essay-schemas.test.ts',
+        'supabase/functions/consolidar-decisao-final/**/*.test.ts',
+        // Phase 23 (AI stack revival): three new Deno-only `_shared/__tests__/` tests using
+        // npm:/https:// specifiers → run under `deno test`, not Vitest. NOT a broad
+        // `_shared/__tests__/**` glob because strict-schema.test.ts in the same dir is a
+        // Vitest-only Node probe that must keep running under Vitest.
+        'supabase/functions/_shared/__tests__/prompt-loader.test.ts',
+        'supabase/functions/_shared/__tests__/prompt-catch.test.ts',
+        'supabase/functions/_shared/__tests__/cost-alerter-messages.test.ts',
+        // Phase 28 (gestão de usuários RH): the gerenciar-usuario-rh EF handler
+        // test uses https:// specifiers (Deno) → run under `deno test`, not Vitest.
+        'supabase/functions/gerenciar-usuario-rh/**/*.test.ts',
+        // Phase 36 / DELIV-03 (sender identity + fail-safe de modo): the email-config
+        // suite imports `https://deno.land/std` assert → runs under `deno test`, not
+        // Vitest. Literal path on purpose — never a directory-wide glob, since
+        // strict-schema.test.ts in the same dir is a Vitest-only Node probe.
+        'supabase/functions/_shared/__tests__/email-config.test.ts',
+        // Phase 38 (EF notificar-candidato): the .ics port, email-templates, and EF
+        // handler Deno tests import `https://deno.land/std` assert + use Deno.* globals →
+        // run under `deno test`, not Vitest. Literal paths on purpose — never a
+        // `_shared/__tests__/**` glob (strict-schema.test.ts must keep running under Vitest).
+        'supabase/functions/_shared/__tests__/ics.test.ts',
+        'supabase/functions/_shared/__tests__/email-templates.test.ts',
+        'supabase/functions/notificar-candidato/**/*.test.ts',
+        // Phase 41 (reconciliação de entrega): the resend-webhook EF test imports
+        // `https://deno.land/std` assert AND `npm:svix@1.99.1` → runs under `deno test`,
+        // not Vitest. Same literal-path convention as above.
+        'supabase/functions/resend-webhook/**/*.test.ts',
+      ],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+      },
+    },
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+      // NOTE: `sonner@2.0.3` alias REMOVED in fix(02-06): Vite's optimizeDeps
+      // fingerprints aliased specifiers as DISTINCT pre-bundle entries. The
+      // cache ends up with both `sonner.js` and `sonner@2__0__3.js`, each
+      // producing a separate ES module instance with its own internal
+      // ToastState singleton. The Toaster in App.tsx subscribed to one
+      // instance while `toast.info(...)` calls from versioned-specifier pages
+      // wrote into the other, so toasts never rendered. Fix: rewrite every
+      // `from 'sonner@2.0.3'` import to `from 'sonner'` and drop the alias.
+      // `resolve.dedupe: ['sonner']` enforces a single copy as belt+braces.
+      dedupe: ['sonner'],
       alias: {
         'vaul@1.1.2': 'vaul',
-        'sonner@2.0.3': 'sonner',
         'recharts@2.15.2': 'recharts',
         'react-resizable-panels@2.1.7': 'react-resizable-panels',
         'react-hook-form@7.55.0': 'react-hook-form',
@@ -60,9 +137,30 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          // PERF-03 (Plan 19-02): NARROW react-vendor chunk only. Keep react +
+          // react-dom + react-router(-dom) + scheduler together so the whole-app
+          // init libs share ONE long-lived, cacheable chunk. Everything else falls
+          // through (return undefined) → Rollup auto-chunks the lazy /rh/* + /admin/*
+          // route imports and @radix-ui. A BROAD `node_modules → vendor` branch is
+          // FORBIDDEN: it re-triggers the prod-only "Cannot access X before
+          // initialization" circular-init blank screen (19-RESEARCH Pitfall 1).
+          manualChunks(id: string) {
+            if (
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/react-router') ||
+              id.includes('node_modules/scheduler/')
+            ) {
+              return 'react-vendor'
+            }
+          },
+        },
+      },
     },
     server: {
-      port: 3000,
+      port: 3003,
       open: true,
     },
   });

@@ -1,178 +1,210 @@
-import React, { useState } from 'react';
-import { BackgroundImage } from '../BackgroundImage';
-import { BeautySmileLogo } from '../BeautySmileLogo';
-import { Glass, GlassButton, GlassCard } from '../ui/glass';
-import { MapPin, Briefcase, Clock, Search } from 'lucide-react';
-import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+/**
+ * VagasPublicasPage - Página de listagem de vagas públicas
+ *
+ * Features:
+ * - Listagem de vagas com filtros (tipo, localização, departamento)
+ * - Ordenação (mais recentes, alfabética, localização, departamento)
+ * - Paginação (12 vagas por página)
+ * - Contador de vagas disponíveis
+ * - Indicador de vagas já aplicadas
+ * - Integração com TanStack Query + Zustand store
+ * - Navegação para página de detalhes
+ *
+ * @module components/pages/VagasPublicasPage
+ */
 
-interface Vaga {
-  id: number;
-  titulo: string;
-  area: string;
-  cidade: string;
-  estado: string;
-  tipoContrato: string;
-  modalidade: string;
-  descricao: string;
-}
+import React from 'react'
+import { useNavigate } from 'react-router-dom'
+import { BackgroundImage } from '../BackgroundImage'
+import { BeautySmileLogo } from '../BeautySmileLogo'
+import { CandidatoNavbar } from '../layouts/CandidatoNavbar'
+import { Glass, GlassButton, GlassCard } from '../ui/glass'
+import {
+  MapPin,
+  Briefcase,
+  Clock,
+  Search,
+  Filter,
+  TrendingUp,
+  CheckCircle2,
+  AlertCircle,
+  Loader2
+} from 'lucide-react'
+import { Input } from '../ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../ui/select'
+import { useVagas } from '@/features/vagas/hooks'
+import { useVagasStore } from '@/features/vagas/store/vagasStore'
+import type {
+  TipoVaga,
+  ModeloTrabalho,
+  Departamento,
+  VagasOrderBy
+} from '@/features/vagas/types/vagasTypes'
+
+// Opções de filtros
+// NOTA: Valores devem corresponder exatamente aos valores no banco de dados
+const TIPOS_VAGA: { value: TipoVaga | 'all'; label: string }[] = [
+  { value: 'all', label: 'Todos os tipos' },
+  { value: 'CLT', label: 'CLT' },
+  { value: 'PJ', label: 'PJ' },
+]
+
+const MODELOS_TRABALHO: { value: ModeloTrabalho | 'all'; label: string }[] = [
+  { value: 'all', label: 'Todos os modelos' },
+  { value: 'Presencial', label: 'Presencial' },
+  { value: 'Remoto', label: 'Remoto' },
+  { value: 'Híbrido', label: 'Híbrido' },
+]
+
+const DEPARTAMENTOS: { value: Departamento | 'all'; label: string }[] = [
+  { value: 'all', label: 'Todos os departamentos' },
+  { value: 'atendimento', label: 'Atendimento' },
+  { value: 'administrativo', label: 'Administrativo' },
+  { value: 'comercial', label: 'Comercial' },
+  { value: 'clinico', label: 'Clínico' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'recursos_humanos', label: 'Recursos Humanos' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'tecnologia', label: 'Tecnologia' },
+]
+
+const ORDENACOES: { value: VagasOrderBy; label: string }[] = [
+  { value: 'mais_recentes', label: 'Mais Recentes' },
+  { value: 'alfabetica', label: 'Alfabética' },
+  { value: 'localizacao', label: 'Localização' },
+  { value: 'departamento', label: 'Departamento' },
+]
 
 export function VagasPublicasPage() {
-  const [buscaVaga, setBuscaVaga] = useState('');
-  const [filtroArea, setFiltroArea] = useState('todas');
-  const [filtroEstado, setFiltroEstado] = useState('todos');
-  const [filtroCidade, setFiltroCidade] = useState('todas');
+  const navigate = useNavigate()
 
-  // Mock data - vagas ativas
-  const vagas: Vaga[] = [
-    {
-      id: 1,
-      titulo: 'Assistente Odontológico',
-      area: 'Odontologia',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      descricao: 'Buscamos profissional para auxiliar em procedimentos odontológicos e atendimento ao paciente.',
-    },
-    {
-      id: 2,
-      titulo: 'Recepcionista',
-      area: 'Atendimento',
-      cidade: 'Rio de Janeiro',
-      estado: 'RJ',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      descricao: 'Profissional para atendimento ao cliente, agendamentos e gestão de recepção.',
-    },
-    {
-      id: 3,
-      titulo: 'Auxiliar Administrativo',
-      area: 'Administrativo',
-      cidade: 'Belo Horizonte',
-      estado: 'MG',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      descricao: 'Apoio em atividades administrativas, controle de documentos e atendimento interno.',
-    },
-    {
-      id: 4,
-      titulo: 'Dentista Clínico Geral',
-      area: 'Odontologia',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      descricao: 'Dentista para atendimento clínico geral com foco em excelência no atendimento.',
-    },
-    {
-      id: 5,
-      titulo: 'Analista Financeiro',
-      area: 'Financeiro',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      descricao: 'Profissional para análise financeira, contas a pagar/receber e relatórios gerenciais.',
-    },
-    {
-      id: 6,
-      titulo: 'Especialista em Implantes',
-      area: 'Odontologia',
-      cidade: 'Porto Alegre',
-      estado: 'RS',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      descricao: 'Cirurgião-dentista especializado em implantodontia para atendimento especializado.',
-    },
-    {
-      id: 7,
-      titulo: 'Técnico de TI',
-      area: 'Tecnologia',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      descricao: 'Suporte técnico, manutenção de equipamentos e infraestrutura de TI.',
-    },
-    {
-      id: 8,
-      titulo: 'Coordenador de Marketing',
-      area: 'Marketing',
-      cidade: 'São Paulo',
-      estado: 'SP',
-      tipoContrato: 'CLT',
-      modalidade: 'Híbrido',
-      descricao: 'Coordenação de estratégias de marketing digital e comunicação institucional.',
-    },
-    {
-      id: 9,
-      titulo: 'Ortodontista',
-      area: 'Odontologia',
-      cidade: 'Curitiba',
-      estado: 'PR',
-      tipoContrato: 'PJ',
-      modalidade: 'Presencial',
-      descricao: 'Especialista em ortodontia para atendimento de pacientes com aparelhos ortodônticos.',
-    },
-    {
-      id: 10,
-      titulo: 'Gerente de Clínica',
-      area: 'Gestão',
-      cidade: 'Rio de Janeiro',
-      estado: 'RJ',
-      tipoContrato: 'CLT',
-      modalidade: 'Presencial',
-      descricao: 'Gestão completa de clínica odontológica, equipe e processos operacionais.',
-    },
-  ];
+  // WR-02-09: persona shell (auth selectors + iniciais + handleLogout) moved into
+  // the self-guarding <CandidatoNavbar /> rendered below.
 
-  // Extrair listas únicas para os filtros
-  const areas = ['todas', ...Array.from(new Set(vagas.map(v => v.area)))];
-  const estados = ['todos', ...Array.from(new Set(vagas.map(v => v.estado)))];
-  const cidades = ['todas', ...Array.from(new Set(vagas.map(v => v.cidade)))];
+  // Zustand store (UI state)
+  const {
+    filters,
+    orderBy,
+    pagination,
+    setFilters,
+    resetFilters,
+    setOrderBy,
+    goToPage,
+    isFilterSidebarOpen,
+    toggleFilterSidebar,
+  } = useVagasStore()
 
-  // Aplicar filtros
-  const vagasFiltradas = vagas.filter((vaga) => {
-    const passaBuscaVaga = buscaVaga === '' || vaga.titulo.toLowerCase().includes(buscaVaga.toLowerCase());
-    const passaArea = filtroArea === 'todas' || vaga.area === filtroArea;
-    const passaEstado = filtroEstado === 'todos' || vaga.estado === filtroEstado;
-    const passaCidade = filtroCidade === 'todas' || vaga.cidade === filtroCidade;
+  // TanStack Query (server state)
+  const { data, isLoading, error } = useVagas(filters, orderBy, pagination)
 
-    return passaBuscaVaga && passaArea && passaEstado && passaCidade;
-  });
+  // Handlers
+  const handleSearchChange = (value: string) => {
+    setFilters({ search: value || null })
+    // Note: setFilters already resets to page 1 internally
+  }
 
-  const handleCandidatar = (vaga: Vaga) => {
-    console.log('Candidatar-se à vaga:', vaga.id);
-    // Aqui seria a navegação para o formulário de candidatura
-  };
+  const handleTipoVagaChange = (value: string) => {
+    setFilters({
+      tipo_vaga: value === 'all' ? null : (value as TipoVaga)
+    })
+    // Note: setFilters already resets to page 1 internally
+  }
 
-  const limparFiltros = () => {
-    setBuscaVaga('');
-    setFiltroArea('todas');
-    setFiltroEstado('todos');
-    setFiltroCidade('todas');
-  };
+  const handleModeloTrabalhoChange = (value: string) => {
+    setFilters({
+      modelo_trabalho: value === 'all' ? null : (value as ModeloTrabalho)
+    })
+    // Note: setFilters already resets to page 1 internally
+  }
+
+  const handleDepartamentoChange = (value: string) => {
+    setFilters({
+      departamento: value === 'all' ? null : (value as Departamento)
+    })
+    // Note: setFilters already resets to page 1 internally
+  }
+
+  const handleOrdenacaoChange = (value: VagasOrderBy) => {
+    setOrderBy(value)
+  }
+
+  const handleLimparFiltros = () => {
+    resetFilters()
+  }
+
+  const handleVerDetalhes = (vagaId: string) => {
+    navigate(`/vagas/${vagaId}`)
+  }
+
+  const handleCandidatar = (vagaId: string) => {
+    navigate(`/vagas/${vagaId}`) // Navigate to detail page for application
+  }
+
+  const handlePageChange = (newPage: number) => {
+    goToPage(newPage)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Check if any filter is active
+  const hasActiveFilters =
+    filters.search ||
+    filters.tipo_vaga ||
+    filters.modelo_trabalho ||
+    filters.departamento
+
+  // Vagas from query
+  const vagas = data?.data || []
+  const totalVagas = data?.pagination?.total || 0
+  const totalPages = data?.pagination?.totalPages || 1
+  const hasMore = data?.pagination?.hasMore || false
 
   return (
     <div className="relative min-h-screen">
-      <BackgroundImage 
-        background="gradient" 
+      <BackgroundImage
+        background="gradient"
         className="min-h-screen py-20"
         overlayColor="bg-black"
         overlayOpacity={15}
       >
+        {/*
+          WR-02-09: persona shell extracted to <CandidatoNavbar />. It self-guards on
+          isAuthenticated + role==='candidato' (renders null for anon — preserves
+          VAGA-01 anon-browse). showAreaLink defaults true → "Área do candidato" link.
+        */}
+        <CandidatoNavbar />
+
         <div className="container mx-auto px-4 space-y-8">
           {/* Header */}
           <div className="text-center mb-12">
-            <BeautySmileLogo type="horizontal" size="xl" variant="white" className="mx-auto mb-6" />
-            <h1 className="text-white text-5xl mb-3 drop-shadow-lg">Vagas Disponíveis</h1>
+            <BeautySmileLogo
+              type="horizontal"
+              size="xl"
+              variant="white"
+              className="mx-auto mb-6"
+            />
+            <h1 className="text-white text-5xl mb-3 drop-shadow-lg font-bold">
+              Vagas Disponíveis
+            </h1>
             <p className="text-white/90 text-xl drop-shadow-md">
               Faça parte do time Beauty Smile
             </p>
+            {!isLoading && (
+              <div className="mt-4 flex items-center justify-center gap-2 text-white/80 drop-shadow-sm">
+                <TrendingUp className="w-5 h-5" />
+                <span className="text-lg">
+                  {totalVagas} {totalVagas === 1 ? 'vaga disponível' : 'vagas disponíveis'}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Filtros */}
+          {/* Filtros e Ordenação */}
           <Glass variant="white" blur="xl" className="p-6 rounded-xl">
             <div className="space-y-4">
               {/* Busca por vaga */}
@@ -180,64 +212,94 @@ export function VagasPublicasPage() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
                 <Input
                   type="text"
-                  placeholder="Buscar por vaga..."
-                  value={buscaVaga}
-                  onChange={(e) => setBuscaVaga(e.target.value)}
+                  placeholder="Buscar por título da vaga..."
+                  value={filters.search || ''}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="pl-12 h-12 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 transition-all duration-200"
                 />
               </div>
 
               {/* Filtros dropdown */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Área */}
-                <Select value={filtroArea} onValueChange={setFiltroArea}>
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Todas as áreas" />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Tipo de Vaga */}
+                <Select
+                  value={filters.tipo_vaga || 'all'}
+                  onValueChange={handleTipoVagaChange}
+                >
+                  <SelectTrigger aria-label="Tipo de vaga" className="h-12 bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Tipo de vaga" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
-                    {areas.map((area) => (
-                      <SelectItem 
-                        key={area} 
-                        value={area}
+                  <SelectContent className="bg-accent/95 backdrop-blur-xl border-white/20 text-white">
+                    {TIPOS_VAGA.map((tipo) => (
+                      <SelectItem
+                        key={tipo.value}
+                        value={tipo.value}
                         className="text-white hover:bg-white/10 focus:bg-white/20 focus:text-white cursor-pointer"
                       >
-                        {area === 'todas' ? 'Todas as áreas' : area}
+                        {tipo.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                {/* Estado */}
-                <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Todos os estados" />
+                {/* Modelo de Trabalho */}
+                <Select
+                  value={filters.modelo_trabalho || 'all'}
+                  onValueChange={handleModeloTrabalhoChange}
+                >
+                  <SelectTrigger aria-label="Modelo de trabalho" className="h-12 bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Modelo de trabalho" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
-                    {estados.map((estado) => (
-                      <SelectItem 
-                        key={estado} 
-                        value={estado}
+                  <SelectContent className="bg-accent/95 backdrop-blur-xl border-white/20 text-white">
+                    {MODELOS_TRABALHO.map((modelo) => (
+                      <SelectItem
+                        key={modelo.value}
+                        value={modelo.value}
                         className="text-white hover:bg-white/10 focus:bg-white/20 focus:text-white cursor-pointer"
                       >
-                        {estado === 'todos' ? 'Todos os estados' : estado}
+                        {modelo.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                {/* Cidade */}
-                <Select value={filtroCidade} onValueChange={setFiltroCidade}>
-                  <SelectTrigger className="h-12 bg-white/10 border-white/20 text-white">
-                    <SelectValue placeholder="Todas as cidades" />
+                {/* Departamento */}
+                <Select
+                  value={filters.departamento || 'all'}
+                  onValueChange={handleDepartamentoChange}
+                >
+                  <SelectTrigger aria-label="Departamento" className="h-12 bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Departamento" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#35BFAD]/95 backdrop-blur-xl border-white/20 text-white">
-                    {cidades.map((cidade) => (
-                      <SelectItem 
-                        key={cidade} 
-                        value={cidade}
+                  <SelectContent className="bg-accent/95 backdrop-blur-xl border-white/20 text-white">
+                    {DEPARTAMENTOS.map((dept) => (
+                      <SelectItem
+                        key={dept.value}
+                        value={dept.value}
                         className="text-white hover:bg-white/10 focus:bg-white/20 focus:text-white cursor-pointer"
                       >
-                        {cidade === 'todas' ? 'Todas as cidades' : cidade}
+                        {dept.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Ordenação */}
+                <Select
+                  value={orderBy}
+                  onValueChange={handleOrdenacaoChange}
+                >
+                  <SelectTrigger aria-label="Ordenar por" className="h-12 bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-accent/95 backdrop-blur-xl border-white/20 text-white">
+                    {ORDENACOES.map((ord) => (
+                      <SelectItem
+                        key={ord.value}
+                        value={ord.value}
+                        className="text-white hover:bg-white/10 focus:bg-white/20 focus:text-white cursor-pointer"
+                      >
+                        {ord.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -247,15 +309,32 @@ export function VagasPublicasPage() {
               {/* Resultados e botão limpar */}
               <div className="flex items-center justify-between pt-2">
                 <div className="text-white drop-shadow-sm">
-                  <span className="text-white/80">Resultados:</span>
-                  <span className="ml-3">{vagasFiltradas.length} {vagasFiltradas.length === 1 ? 'vaga' : 'vagas'}</span>
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-white/80">Carregando...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-white/80">Resultados:</span>
+                      <span className="ml-3 font-semibold">
+                        {vagas.length} {vagas.length === 1 ? 'vaga' : 'vagas'}
+                      </span>
+                      {totalPages > 1 && (
+                        <span className="ml-2 text-white/60">
+                          (Página {pagination.page} de {totalPages})
+                        </span>
+                      )}
+                    </>
+                  )}
                 </div>
-                {(buscaVaga || filtroArea !== 'todas' || filtroEstado !== 'todos' || filtroCidade !== 'todas') && (
-                  <GlassButton 
-                    variant="white" 
-                    className="text-white drop-shadow-sm"
-                    onClick={limparFiltros}
+                {hasActiveFilters && (
+                  <GlassButton
+                    variant="white"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm"
+                    onClick={handleLimparFiltros}
                   >
+                    <Filter className="w-4 h-4" />
                     Limpar filtros
                   </GlassButton>
                 )}
@@ -263,80 +342,197 @@ export function VagasPublicasPage() {
             </div>
           </Glass>
 
-          {/* Lista de vagas */}
-          {vagasFiltradas.length > 0 ? (
+          {/* Error State */}
+          {error && (
+            <Glass variant="white" blur="xl" className="p-8 rounded-xl">
+              <div className="flex items-center gap-4 text-white">
+                <AlertCircle className="w-8 h-8 text-red-300" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-1">Erro ao carregar vagas</h3>
+                  <p className="text-white/80">
+                    {error instanceof Error ? error.message : 'Erro desconhecido. Tente novamente.'}
+                  </p>
+                </div>
+              </div>
+            </Glass>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
             <div className="grid grid-cols-1 gap-6">
-              {vagasFiltradas.map((vaga) => (
-                <GlassCard 
-                  key={vaga.id} 
-                  variant="white" 
-                  blur="xl" 
-                  hover 
-                  className="text-white transition-all duration-300"
-                >
-                  <div className="space-y-6">
-                    {/* Header da vaga */}
-                    <div>
-                      <h2 className="text-3xl mb-3 drop-shadow-md">{vaga.titulo}</h2>
-                      <div className="flex flex-wrap gap-4 text-white/80 drop-shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-5 h-5" />
-                          <span>{vaga.cidade}, {vaga.estado}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="w-5 h-5" />
-                          <span>{vaga.area}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-5 h-5" />
-                          <span>{vaga.modalidade}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Descrição */}
-                    <Glass variant="white" blur="md" className="p-4 rounded-lg">
-                      <p className="text-white/90 drop-shadow-sm">{vaga.descricao}</p>
-                    </Glass>
-
-                    {/* Botão de candidatura */}
-                    <div className="pt-2">
-                      <GlassButton 
-                        variant="white" 
-                        hover 
-                        className="w-full py-4 text-white drop-shadow-sm transition-all duration-200"
-                        onClick={() => handleCandidatar(vaga)}
-                      >
-                        Candidatar-se a esta vaga →
-                      </GlassButton>
-                    </div>
+              {[1, 2, 3].map((i) => (
+                <GlassCard key={i} variant="white" blur="xl">
+                  <div className="animate-pulse space-y-4">
+                    <div className="h-8 bg-white/20 rounded w-2/3"></div>
+                    <div className="h-4 bg-white/20 rounded w-1/2"></div>
+                    <div className="h-20 bg-white/10 rounded"></div>
+                    <div className="h-12 bg-white/20 rounded"></div>
                   </div>
                 </GlassCard>
               ))}
             </div>
-          ) : (
+          )}
+
+          {/* Lista de vagas */}
+          {!isLoading && !error && vagas.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 gap-6">
+                {vagas.map((vaga) => (
+                  <GlassCard
+                    key={vaga.id}
+                    variant="white"
+                    blur="xl"
+                    hover
+                    className="text-white transition-all duration-300 cursor-pointer"
+                    onClick={() => handleVerDetalhes(vaga.id)}
+                  >
+                    <div className="space-y-6">
+                      {/* Header da vaga */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h2 className="text-3xl mb-3 drop-shadow-md font-bold">
+                            {vaga.titulo}
+                          </h2>
+                          <div className="flex flex-wrap gap-4 text-white/80 drop-shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-5 h-5" />
+                              <span>{vaga.cidade}{vaga.estado ? `, ${vaga.estado}` : ''}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Briefcase className="w-5 h-5" />
+                              <span className="capitalize">{vaga.departamento?.replace('_', ' ')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-5 h-5" />
+                              <span className="capitalize">{vaga.modelo_trabalho}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Indicador de já aplicado */}
+                        {vaga.hasUserApplied && (
+                          <div className="flex items-center gap-2 bg-green-500/20 text-green-100 px-4 py-2 rounded-lg backdrop-blur-sm border border-green-400/30">
+                            <CheckCircle2 className="w-5 h-5" />
+                            <span className="font-medium">Candidatura enviada</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Descrição resumida */}
+                      <Glass variant="white" blur="md" className="p-4 rounded-lg">
+                        <p className="text-white/90 drop-shadow-sm line-clamp-3">
+                          {vaga.descricao_curta}
+                        </p>
+                      </Glass>
+
+                      {/* Metadados adicionais */}
+                      <div className="flex items-center justify-between text-sm text-white/60">
+                        <span>
+                          Publicada há {vaga.diasDesdePublicacao} {vaga.diasDesdePublicacao === 1 ? 'dia' : 'dias'}
+                        </span>
+                        {vaga.totalCandidatos > 0 && (
+                          <span>
+                            {vaga.totalCandidatos} {vaga.totalCandidatos === 1 ? 'candidato' : 'candidatos'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Botão de ação */}
+                      <div className="pt-2">
+                        {vaga.hasUserApplied ? (
+                          <GlassButton
+                            variant="white"
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white drop-shadow-sm opacity-60 cursor-not-allowed"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                            }}
+                            disabled
+                          >
+                            Você já se candidatou a esta vaga
+                          </GlassButton>
+                        ) : (
+                          <GlassButton
+                            variant="white"
+                            hover
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white drop-shadow-sm transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCandidatar(vaga.id)
+                            }}
+                          >
+                            Candidatar-se a esta vaga →
+                          </GlassButton>
+                        )}
+                      </div>
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
+
+              {/* Paginação */}
+              {totalPages > 1 && (
+                <Glass variant="white" blur="xl" className="p-4 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <GlassButton
+                      variant="white"
+                      disabled={pagination.page === 1}
+                      onClick={() => handlePageChange(pagination.page - 1)}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-white ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      ← Anterior
+                    </GlassButton>
+
+                    <div className="text-white drop-shadow-sm">
+                      Página <span className="font-semibold">{pagination.page}</span> de{' '}
+                      <span className="font-semibold">{totalPages}</span>
+                    </div>
+
+                    <GlassButton
+                      variant="white"
+                      disabled={!hasMore}
+                      onClick={() => handlePageChange(pagination.page + 1)}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap text-white ${!hasMore ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      Próxima →
+                    </GlassButton>
+                  </div>
+                </Glass>
+              )}
+            </>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !error && vagas.length === 0 && (
             <Glass variant="white" blur="xl" className="p-12 rounded-xl text-center">
               <div className="space-y-4">
                 <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center mx-auto backdrop-blur-md">
                   <span className="text-4xl">🔍</span>
                 </div>
-                <h3 className="text-white text-2xl drop-shadow-md">Nenhuma vaga encontrada</h3>
+                <h3 className="text-white text-2xl drop-shadow-md font-semibold">
+                  Nenhuma vaga encontrada
+                </h3>
                 <p className="text-white/80 drop-shadow-sm">
-                  Tente ajustar os filtros para encontrar mais oportunidades
+                  {hasActiveFilters
+                    ? 'Tente ajustar os filtros para encontrar mais oportunidades'
+                    : 'No momento não há vagas disponíveis. Volte em breve!'
+                  }
                 </p>
-                <GlassButton 
-                  variant="white" 
-                  hover
-                  className="text-white drop-shadow-sm mt-4"
-                  onClick={limparFiltros}
-                >
-                  Limpar filtros
-                </GlassButton>
+                {hasActiveFilters && (
+                  <GlassButton
+                    variant="white"
+                    hover
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-white drop-shadow-sm mt-4"
+                    onClick={handleLimparFiltros}
+                  >
+                    <Filter className="w-4 h-4" />
+                    Limpar filtros
+                  </GlassButton>
+                )}
               </div>
             </Glass>
           )}
         </div>
       </BackgroundImage>
     </div>
-  );
+  )
 }

@@ -1,0 +1,37 @@
+-- =============================================================================
+-- Migration: 20260419000000_baseline  (base schema — Figma-Make provisioned)
+-- Phase: 27 (integridade-de-migrations-fechamento-da-rede-de-testes) / DBMIG-01
+-- =============================================================================
+--
+-- STATUS: baseline body reconstruction is DEFERRED (environment-gated) — see below.
+--
+-- The Beauty Smile database was originally provisioned by "Figma Make" (the initial
+-- scaffold: candidatos, vagas, usuarios_rh, candidaturas, respostas_formulario,
+-- perguntas_formulario, base enums, storage buckets) BEFORE the migration chain began.
+-- That base schema exists in live PROD but was never captured into a migration file — this
+-- file (the 20260419000000 baseline) is where it belongs so the 72 later migrations can
+-- replay onto a clean database from zero (DBMIG-01 "sem baseline vazio").
+--
+-- WHAT PHASE 27 COMPLETED + VERIFIED (2026-07-12, via Supabase MCP):
+--   * Ledger CONVERGED — supabase_migrations.schema_migrations version+name == the 73
+--     migration filenames EXACTLY (0 drift rows remaining; the ~42 MCP-apply timestamp rows
+--     from Phases 10-15/24-26 were realigned to their filename timestamps).
+--   * NO ledger-orphan objects — every tracked ledger row maps 1:1 to a local file
+--     (0 orphans, 0 missing) -> strong evidence there are no only-in-PROD tracked objects.
+--   * DBMIG-02 (auto_rejeitado semantics) + CI-03 (submit-candidatura knockout) applied +
+--     smoked green on live PROD.
+--
+-- WHAT IS DEFERRED (needs a CLI-authenticated / Docker environment — routed by Fernando
+-- 2026-07-12 as environment-gated, precedent = the deferred live-UATs of M2/M3):
+--   * Filling this file with the real base-schema DDL requires the iterative from-empty
+--     rebuild loop (local `supabase db reset` with seed disabled, OR a Pro preview branch +
+--     `supabase db push`): replay baseline+72 migrations onto a clean Postgres, add each
+--     "relation/type does not exist" object to this baseline until the replay is clean, then
+--     catalog-fingerprint diff vs live PROD == empty. A best-effort dump-minus-migrations
+--     baseline that is NOT verified by that rebuild loop risks being wrong (worse than
+--     deferring), so it is intentionally left to a dedicated verifiable pass.
+--
+-- Tracking: .planning/phases/27-.../27-HUMAN-UAT.md (DBMIG-01 rebuild-from-zero residual).
+-- No outer BEGIN/COMMIT wrapper (D-22). This file is currently a no-op (like a comment-only
+-- migration) — the ledger already carries its 20260419000000 row.
+-- =============================================================================

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, ChevronDown, User, Settings, LogOut, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, User, Settings, LogOut, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,46 +8,68 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Badge } from './ui/badge';
 import { Glass } from './ui/glass';
+import { useAuthStore } from '@/store/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
 
 interface RHTopBarProps {
-  userName?: string;
-  userRole?: string;
-  notificationCount?: number;
-  onSearch?: (query: string) => void;
-  onProfileClick?: () => void;
-  onSettingsClick?: () => void;
-  onLogout?: () => void;
   onMobileMenuToggle?: () => void;
 }
 
 export function RHTopBar({
-  userName = 'João Silva',
-  userRole = 'Administrador',
-  notificationCount = 0,
-  onSearch,
-  onProfileClick,
-  onSettingsClick,
-  onLogout,
   onMobileMenuToggle,
 }: RHTopBarProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
+  const { user, candidato, logout: authLogout } = useAuthStore();
+  // Shell identity for an RH user comes from `usuarios_rh` (adminUser). For an RH user the
+  // legacy `candidato` is null, so the email prefix must be the LAST-resort fallback only —
+  // otherwise the edited nome_completo would never surface across the panel chrome (Task 3).
+  const adminUser = useAuthStore((s) => s.adminUser);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (onSearch) {
-      onSearch(searchQuery);
+  // Nome do usuário: nome do RH (adminUser) → candidato (legado) → prefixo do email (último recurso)
+  const userName =
+    adminUser?.nome_completo ||
+    candidato?.nome_completo ||
+    user?.email?.split('@')[0] ||
+    'Usuário';
+  const userRole = 'RH';
+
+  // Signed avatar (panel-wide). Sign the stored path only when present; NEVER log the URL (Pitfall-7).
+  const avatarPath = adminUser?.avatar_url ?? null;
+  const { data: avatarSignedUrl } = useQuery({
+    queryKey: ['avatar-signed', avatarPath],
+    queryFn: () => getAvatarSignedUrl(avatarPath as string),
+    enabled: !!avatarPath,
+    staleTime: 55 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+  });
+
+  const handleProfileClick = () => {
+    navigate('/rh/perfil');
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/rh/configuracoes');
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authLogout();
+      navigate('/auth/login-rh');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      navigate('/auth/login-rh');
     }
   };
 
   return (
     <header className="sticky top-0 z-40 px-4 lg:px-6 pt-4">
-      <Glass 
-        variant="white" 
-        blur="xl" 
+      <Glass
+        variant="white"
+        blur="xl"
         className="h-[72px] rounded-2xl border border-white/30 backdrop-blur-xl"
-        style={{ 
+        style={{
           backgroundColor: 'rgba(255, 255, 255, 0.25)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}
@@ -62,27 +84,10 @@ export function RHTopBar({
             >
               <Menu size={22} className="text-white drop-shadow-sm" />
             </button>
-            
+
             <div className="hidden lg:block">
               <h6 className="text-white drop-shadow-md">Beauty Smile</h6>
             </div>
-          </div>
-
-          {/* Center Section - Search */}
-          <div className="flex-1 max-w-md">
-            <form onSubmit={handleSearch} className="relative">
-              <Search
-                size={20}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 drop-shadow-sm"
-              />
-              <input
-                type="text"
-                placeholder="Buscar candidatos, vagas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-[#35BFAD] focus:border-transparent focus:bg-white/15 transition-all duration-200 backdrop-blur-sm drop-shadow-sm"
-              />
-            </form>
           </div>
 
           {/* Right Section - User */}
@@ -91,10 +96,18 @@ export function RHTopBar({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 h-10 px-3 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-200 backdrop-blur-sm">
-                  <div className="w-8 h-8 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 drop-shadow-md">
-                    <span className="text-sm text-white font-medium">
-                      {userName.charAt(0)}
-                    </span>
+                  <div className="w-8 h-8 rounded-full bg-[#35BFAD] flex items-center justify-center flex-shrink-0 overflow-hidden drop-shadow-md">
+                    {avatarSignedUrl ? (
+                      <img
+                        src={avatarSignedUrl}
+                        alt={`Foto de perfil de ${userName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm text-white font-medium">
+                        {userName.charAt(0)}
+                      </span>
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
                     <p className="text-sm text-white drop-shadow-sm">{userName}</p>
@@ -105,8 +118,8 @@ export function RHTopBar({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 border border-white/30 shadow-2xl rounded-xl overflow-hidden"
-                style={{ 
+                className="w-56 border border-white/30 shadow-2xl rounded-xl overflow-hidden text-white"
+                style={{
                   backgroundColor: 'rgba(255, 255, 255, 0.25)',
                   backdropFilter: 'blur(20px)'
                 }}
@@ -116,14 +129,14 @@ export function RHTopBar({
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/20" />
                 <DropdownMenuItem
-                  onClick={onProfileClick}
+                  onClick={handleProfileClick}
                   className="cursor-pointer text-white/90 hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white transition-colors duration-200 py-2.5"
                 >
                   <User size={16} className="mr-2" />
                   <span className="drop-shadow-sm">Meu Perfil</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={onSettingsClick}
+                  onClick={handleSettingsClick}
                   className="cursor-pointer text-white/90 hover:bg-white/20 hover:text-white focus:bg-white/20 focus:text-white transition-colors duration-200 py-2.5"
                 >
                   <Settings size={16} className="mr-2" />
@@ -131,7 +144,7 @@ export function RHTopBar({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/20" />
                 <DropdownMenuItem
-                  onClick={onLogout}
+                  onClick={handleLogout}
                   className="cursor-pointer text-red-300 hover:bg-red-500/30 hover:text-red-200 focus:bg-red-500/30 focus:text-red-200 transition-colors duration-200 py-2.5"
                 >
                   <LogOut size={16} className="mr-2" />

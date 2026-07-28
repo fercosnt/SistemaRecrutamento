@@ -1,371 +1,498 @@
-import React, { useState, useEffect } from 'react';
-import { BackgroundImage } from '../BackgroundImage';
-import { GlassCard } from '../ui/glass';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { BeautySmileLogo } from '../BeautySmileLogo';
-import { Eye, EyeOff, CheckCircle2, Lock, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+/**
+ * RedefinirSenhaPage — Phase 3 Wave 5 (Plan 03-06); Phase 5 Plan 05-06 (D-15 OTP).
+ *
+ * Redefinição de senha via código OTP de 6 dígitos (migração PKCE→OTP, D-15/D-16).
+ *
+ * Fluxo OTP (substitui o magic-link deeplink PKCE):
+ *   1. O usuário recebe um código de 6 dígitos por email (`{{ .Token }}` no
+ *      template do Supabase) e chega aqui vindo de EsqueciSenhaPage com o
+ *      email em `location.state.email` (RESEARCH A3 — sem re-perguntar).
+ *   2. Digita o código de 6 dígitos (input-otp) + a nova senha + confirmação.
+ *   3. No submit: `verifyRecoveryOtp(email, token)` estabelece a sessão de
+ *      recuperação (verifyOtp type:'recovery'); em seguida `setNewPassword`
+ *      (updateUser) define a nova senha.
+ *
+ * Por que OTP (D-15): o fluxo PKCE anterior exigia o `code_verifier` no
+ * localStorage do MESMO browser que originou a solicitação — falhava
+ * silenciosamente cross-browser/device ("Link inválido ou expirado", Phase 3
+ * 03-07 finding). `verifyOtp` é flowType-independente: o código funciona em
+ * QUALQUER browser. O `useRecoverySession` (state machine deeplink-driven) foi
+ * RETIRADO (A4) — o gate agora é a própria verificação do OTP.
+ *
+ * Se o usuário chegar SEM email em router state (navegação direta), exibimos
+ * um campo de email para que ele informe o email do código.
+ *
+ * D-11 silent Zod: sem strength meter, sem live checklist. Validação inline
+ * por campo após submit (RHF mode='onBlur').
+ *
+ * D-12 immediate nav: em sucesso, toast + navigate imediato para
+ * /candidato/perfil (replace: true).
+ *
+ * F-04.1-E (05-03): 422 transiente no primeiro setNewPassword → toast amigável
+ * pedindo nova tentativa (sem auto-retry silencioso).
+ *
+ * Pitfall 2 fallback: se setNewPassword retornar session_expired, tenta
+ * tryAutoLogin(email, novaSenha) e re-roteia.
+ *
+ * Pitfall 7: nenhuma chamada de log nesta page (o token NUNCA é logado);
+ * observabilidade no passwordService.
+ *
+ * @module components/pages/RedefinirSenhaPage
+ */
 
-interface RedefinirSenhaPageProps {
-  onVoltarLogin?: () => void;
-  token?: string;
-}
+import { useState } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { toast } from 'sonner'
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react'
 
-interface PasswordStrength {
-  score: number;
-  label: string;
-  color: string;
-  requirements: {
-    minLength: boolean;
-    hasUpperCase: boolean;
-    hasLowerCase: boolean;
-    hasNumber: boolean;
-    hasSpecialChar: boolean;
-  };
-}
+import { BackgroundImage } from '../BackgroundImage'
+import { GlassCard } from '../ui/glass'
+import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { BeautySmileLogo } from '../BeautySmileLogo'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../ui/input-otp'
 
-export function RedefinirSenhaPage({ onVoltarLogin, token }: RedefinirSenhaPageProps) {
-  const [novaSenha, setNovaSenha] = useState('');
-  const [confirmarSenha, setConfirmarSenha] = useState('');
-  const [showNovaSenha, setShowNovaSenha] = useState(false);
-  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [senhaRedefinida, setSenhaRedefinida] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+import {
+  redefinirSenhaSchema,
+  type RedefinirSenhaFormData,
+} from '@/features/auth/schemas'
+import {
+  verifyRecoveryOtp,
+  setNewPassword,
+  tryAutoLogin,
+} from '@/features/auth/services'
+import { isAuthError } from '@/features/auth/types'
+import { useAuthFlowVariant } from '@/features/auth/hooks'
+import { waitForCandidatoHydrated } from '@/features/auth/utils'
 
-  // Validação de força da senha
-  const calculatePasswordStrength = (password: string): PasswordStrength => {
-    const requirements = {
-      minLength: password.length >= 8,
-      hasUpperCase: /[A-Z]/.test(password),
-      hasLowerCase: /[a-z]/.test(password),
-      hasNumber: /[0-9]/.test(password),
-      hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-    };
+export function RedefinirSenhaPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { isRH } = useAuthFlowVariant()
 
-    const score = Object.values(requirements).filter(Boolean).length;
+  // D-15: email vindo de EsqueciSenhaPage via router state (RESEARCH A3).
+  // Se ausente (navegação direta), expomos um campo de email.
+  const emailFromState =
+    (location.state as { email?: string } | null)?.email ?? ''
+  const [email, setEmail] = useState(emailFromState)
+  const needsEmailInput = !emailFromState
 
-    let label = '';
-    let color = '';
+  const [showNew, setShowNew] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
-    if (score === 0) {
-      label = '';
-      color = '';
-    } else if (score <= 2) {
-      label = 'Fraca';
-      color = 'bg-red-500';
-    } else if (score <= 3) {
-      label = 'Média';
-      color = 'bg-yellow-500';
-    } else if (score <= 4) {
-      label = 'Forte';
-      color = 'bg-green-500';
-    } else {
-      label = 'Muito Forte';
-      color = 'bg-emerald-500';
+  const {
+    register,
+    control,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<RedefinirSenhaFormData>({
+    resolver: zodResolver(redefinirSenhaSchema),
+    mode: 'onBlur',
+    defaultValues: { token: '', nova_senha: '', confirmar_nova_senha: '' },
+  })
+
+  const onSubmit = async (data: RedefinirSenhaFormData) => {
+    const targetEmail = (email || emailFromState).trim()
+    if (!targetEmail) {
+      setError('token', {
+        type: 'manual',
+        message: 'Informe o email para o qual o código foi enviado.',
+      })
+      return
     }
 
-    return { score, label, color, requirements };
-  };
+    try {
+      // D-15: verifica o OTP de 6 dígitos → estabelece a sessão de recuperação.
+      await verifyRecoveryOtp(targetEmail, data.token)
+      // Sessão estabelecida → define a nova senha (updateUser).
+      await setNewPassword(data.nova_senha)
 
-  const passwordStrength = calculatePasswordStrength(novaSenha);
+      // Phase 4.1: aguarda hidratação antes de navegar para evitar
+      // /candidato/perfil renderizar com candidato=null.
+      await waitForCandidatoHydrated({ timeoutMs: 3000 })
+      toast.success('Senha alterada com sucesso.', { duration: 4000 })
+      navigate('/candidato/perfil', { replace: true })
+    } catch (err) {
+      if (isAuthError(err)) {
+        // F-04.1-E: 422 transiente no setNewPassword (recupera no retry).
+        const original = err.originalError as { status?: number } | undefined
+        if (original?.status === 422) {
+          toast.error('Houve um erro temporário. Tente novamente.', {
+            duration: 6000,
+          })
+          return
+        }
 
-  // Countdown para redirect
-  useEffect(() => {
-    if (senhaRedefinida && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (senhaRedefinida && countdown === 0) {
-      handleVoltarLogin();
+        // OTP inválido/expirado: o verifyOtp mapeia para SERVER_ERROR com a
+        // mensagem "Sessão expirada. Solicite um novo link." — mostramos um
+        // erro de campo no token para orientar o usuário a pedir novo código.
+        const looksOtpInvalid =
+          err.code === 'SERVER_ERROR' &&
+          /sess(ã|a)o|expirad|inválid|código/i.test(err.message)
+        if (looksOtpInvalid) {
+          setError('token', {
+            type: 'manual',
+            message:
+              'Código inválido ou expirado. Solicite um novo código.',
+          })
+          toast.error('Código inválido ou expirado. Solicite um novo.', {
+            duration: 6000,
+          })
+          return
+        }
+
+        // Pitfall 2: tryAutoLogin como último recurso quando a sessão é
+        // invalidada mid-flow mas a senha pode ter sido aceita.
+        if (recoveryAutoLoginCandidate(err) && targetEmail) {
+          const ok = await tryAutoLogin(targetEmail, data.nova_senha)
+          if (ok) {
+            await waitForCandidatoHydrated({ timeoutMs: 3000 })
+            toast.success('Senha alterada com sucesso.', { duration: 4000 })
+            navigate('/candidato/perfil', { replace: true })
+            return
+          }
+          toast.success('Senha alterada. Faça login para continuar.', {
+            duration: 5000,
+          })
+          navigate(isRH ? '/auth/login-rh' : '/auth/login', { replace: true })
+          return
+        }
+        toast.error(err.message, { duration: 6000 })
+      } else {
+        toast.error('Não foi possível alterar a senha. Tente novamente.', {
+          duration: 6000,
+        })
+      }
     }
-  }, [senhaRedefinida, countdown]);
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validações
-    if (!novaSenha.trim()) {
-      toast.error('Por favor, digite sua nova senha');
-      return;
-    }
-
-    if (passwordStrength.score < 4) {
-      toast.error('A senha não atende aos requisitos mínimos de segurança');
-      return;
-    }
-
-    if (novaSenha !== confirmarSenha) {
-      toast.error('As senhas não coincidem');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    // Simular chamada de API
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSenhaRedefinida(true);
-      toast.success('Senha redefinida com sucesso!', {
-        description: 'Você será redirecionado para o login.',
-      });
-    }, 1500);
-  };
-
-  const handleVoltarLogin = () => {
-    if (onVoltarLogin) {
-      onVoltarLogin();
-    } else {
-      console.log('Voltando para login...');
-    }
-  };
-
+  /* ============================================================
+     FORM — OTP + nova senha (D-11 silent Zod, D-15 OTP)
+     ============================================================ */
   return (
-    <BackgroundImage 
+    <BackgroundImage
       background="gradient"
       overlayColor="bg-black"
       overlayOpacity={15}
-      className="min-h-screen"
     >
-      <div className="min-h-screen flex items-center justify-center px-4 py-12">
+      <main
+        aria-label="Redefinir senha"
+        className="min-h-screen flex items-center justify-center px-4 py-12"
+      >
         <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <BeautySmileLogo type="vertical" variant="white" size="lg" className="drop-shadow-lg" />
-          </div>
+          <BeautySmileLogo
+            type="vertical"
+            variant="white"
+            size="lg"
+            className="mx-auto mb-8 drop-shadow-lg"
+          />
 
-          {/* Card Principal */}
-          <GlassCard 
-            variant="white" 
-            blur="lg"
-            className="p-8"
-          >
-            {!senhaRedefinida ? (
-              <>
-                {/* Título */}
-                <div className="text-center mb-6">
-                  <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                      <Lock size={32} className="text-white drop-shadow-lg" />
-                    </div>
-                  </div>
-                  <h1 className="text-white mb-3 drop-shadow-lg">
-                    Redefinir Senha
-                  </h1>
-                  <p className="text-white/90 drop-shadow-md">
-                    Crie uma nova senha forte e segura
-                  </p>
-                </div>
-
-                {/* Formulário */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Nova Senha */}
-                  <div className="space-y-2">
-                    <Label htmlFor="novaSenha" className="text-white drop-shadow-sm">
-                      Nova Senha
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="novaSenha"
-                        type={showNovaSenha ? 'text' : 'password'}
-                        value={novaSenha}
-                        onChange={(e) => setNovaSenha(e.target.value)}
-                        placeholder="Digite sua nova senha"
-                        className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNovaSenha(!showNovaSenha)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors duration-200"
-                      >
-                        {showNovaSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    {/* Indicador de Força */}
-                    {novaSenha && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-white/80 drop-shadow-sm text-sm">
-                            Força da senha:
-                          </span>
-                          <span className={`text-sm drop-shadow-sm ${
-                            passwordStrength.score <= 2 ? 'text-red-300' :
-                            passwordStrength.score <= 3 ? 'text-yellow-300' :
-                            passwordStrength.score <= 4 ? 'text-green-300' :
-                            'text-emerald-300'
-                          }`}>
-                            {passwordStrength.label}
-                          </span>
-                        </div>
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map((level) => (
-                            <div
-                              key={level}
-                              className={`h-2 flex-1 rounded-full transition-all duration-300 ${
-                                level <= passwordStrength.score
-                                  ? passwordStrength.color
-                                  : 'bg-white/20'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Requisitos de Senha */}
-                  {novaSenha && (
-                    <div className="bg-white/10 border border-white/20 rounded-lg p-4 backdrop-blur-sm space-y-2">
-                      <p className="text-white/90 drop-shadow-sm text-sm mb-2">
-                        Requisitos de senha:
-                      </p>
-                      <div className="space-y-1 text-sm">
-                        {[
-                          { key: 'minLength', label: 'Mínimo de 8 caracteres' },
-                          { key: 'hasUpperCase', label: 'Pelo menos uma letra maiúscula' },
-                          { key: 'hasLowerCase', label: 'Pelo menos uma letra minúscula' },
-                          { key: 'hasNumber', label: 'Pelo menos um número' },
-                          { key: 'hasSpecialChar', label: 'Pelo menos um caractere especial (!@#$...)' },
-                        ].map((req) => {
-                          const isValid = passwordStrength.requirements[req.key as keyof typeof passwordStrength.requirements];
-                          return (
-                            <div key={req.key} className="flex items-center gap-2">
-                              {isValid ? (
-                                <CheckCircle2 size={16} className="text-green-300 drop-shadow-sm flex-shrink-0" />
-                              ) : (
-                                <AlertCircle size={16} className="text-white/50 drop-shadow-sm flex-shrink-0" />
-                              )}
-                              <span className={`drop-shadow-sm ${isValid ? 'text-white/90' : 'text-white/60'}`}>
-                                {req.label}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Confirmar Senha */}
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmarSenha" className="text-white drop-shadow-sm">
-                      Confirmar Nova Senha
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="confirmarSenha"
-                        type={showConfirmarSenha ? 'text' : 'password'}
-                        value={confirmarSenha}
-                        onChange={(e) => setConfirmarSenha(e.target.value)}
-                        placeholder="Digite novamente sua senha"
-                        className="bg-white/20 border-white/30 text-white placeholder:text-white/50 pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors duration-200"
-                      >
-                        {showConfirmarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {confirmarSenha && novaSenha !== confirmarSenha && (
-                      <p className="text-red-300 drop-shadow-sm text-sm flex items-center gap-1">
-                        <AlertCircle size={14} />
-                        As senhas não coincidem
-                      </p>
-                    )}
-                    {confirmarSenha && novaSenha === confirmarSenha && (
-                      <p className="text-green-300 drop-shadow-sm text-sm flex items-center gap-1">
-                        <CheckCircle2 size={14} />
-                        As senhas coincidem
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Botão Redefinir */}
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || passwordStrength.score < 4 || novaSenha !== confirmarSenha}
-                    className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white py-3 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-300 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-center"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Redefinindo...
-                      </span>
-                    ) : (
-                      'Redefinir Senha'
-                    )}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <>
-                {/* Mensagem de Sucesso */}
-                <div className="text-center space-y-6">
-                  <div className="flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                      <CheckCircle2 size={48} className="text-white drop-shadow-lg" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h2 className="text-white drop-shadow-lg">
-                      Senha Redefinida!
-                    </h2>
-                    <p className="text-white/90 drop-shadow-md leading-relaxed">
-                      Sua senha foi redefinida com sucesso.
-                    </p>
-                  </div>
-
-                  <div className="bg-white/10 border border-white/20 rounded-lg p-4 backdrop-blur-sm">
-                    <p className="text-white/80 drop-shadow-sm text-sm leading-relaxed">
-                      ✅ Você já pode fazer login com sua nova senha.
-                    </p>
-                  </div>
-
-                  {/* Contador de Redirect */}
-                  <div className="space-y-4">
-                    <div className="bg-white/10 border border-white/20 rounded-lg p-6 backdrop-blur-sm">
-                      <p className="text-white/90 drop-shadow-sm mb-2">
-                        Redirecionando em
-                      </p>
-                      <div className="text-white drop-shadow-lg text-4xl">
-                        {countdown}
-                      </div>
-                      <p className="text-white/70 drop-shadow-sm text-sm mt-2">
-                        segundos
-                      </p>
-                    </div>
-
-                    {/* Botão Manual */}
-                    <button
-                      type="button"
-                      onClick={handleVoltarLogin}
-                      className="w-full bg-[#00109E] hover:bg-[#00109E]/90 text-white py-3 rounded-lg border border-[#00109E]/50 backdrop-blur-md transition-all duration-300 hover:shadow-xl active:scale-95"
-                    >
-                      Ir para Login Agora
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </GlassCard>
-
-          {/* Token Info (Debug - remover em produção) */}
-          {token && !senhaRedefinida && (
-            <div className="mt-4 text-center">
-              <p className="text-white/50 drop-shadow-sm text-xs">
-                Token: {token.substring(0, 20)}...
+          <GlassCard variant="white" blur="lg" className="p-6 sm:p-8">
+            <div className="text-center mb-6">
+              <h1 className="text-white text-2xl font-semibold mb-2 drop-shadow-lg">
+                Nova senha
+              </h1>
+              <p className="text-sm text-white/90 drop-shadow-md">
+                Digite o código de 6 dígitos que enviamos para o seu email e
+                escolha uma senha segura.
               </p>
             </div>
-          )}
+
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="space-y-4"
+              aria-label="Formulário de redefinição de senha"
+              autoComplete="off"
+              noValidate
+            >
+              {/* Email (apenas quando ausente do router state) */}
+              {needsEmailInput && (
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="recovery_email"
+                    className="text-white text-sm font-semibold"
+                  >
+                    Email
+                    <span className="text-red-400 ml-1" aria-hidden="true">
+                      *
+                    </span>
+                  </Label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
+                      aria-hidden="true"
+                    >
+                      <Mail className="w-5 h-5" />
+                    </span>
+                    <Input
+                      id="recovery_email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                      aria-required="true"
+                      className="bg-white/20 border-white/30 text-white text-base placeholder:text-white/50 pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Código OTP de 6 dígitos */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="token"
+                  className="text-white text-sm font-semibold"
+                >
+                  Código de verificação
+                  <span className="text-red-400 ml-1" aria-hidden="true">
+                    *
+                  </span>
+                </Label>
+                <Controller
+                  name="token"
+                  control={control}
+                  render={({ field }) => (
+                    <InputOTP
+                      id="token"
+                      maxLength={6}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      containerClassName="justify-center"
+                      aria-label="Código de verificação de 6 dígitos"
+                      aria-required="true"
+                      aria-invalid={!!errors.token}
+                      aria-describedby={
+                        errors.token ? 'token-error' : 'token-helper'
+                      }
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot
+                          index={0}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                        <InputOTPSlot
+                          index={1}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                        <InputOTPSlot
+                          index={2}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                        <InputOTPSlot
+                          index={3}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                        <InputOTPSlot
+                          index={4}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                        <InputOTPSlot
+                          index={5}
+                          className="bg-white/20 border-white/30 text-white"
+                        />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  )}
+                />
+                <p id="token-helper" className="text-xs text-white/80">
+                  Enviamos o código de 6 dígitos para o seu email.
+                </p>
+                {errors.token && (
+                  <p
+                    id="token-error"
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-red-400 text-sm flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                    {errors.token.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Nova senha */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="nova_senha"
+                  className="text-white text-sm font-semibold"
+                >
+                  Nova senha
+                  <span className="text-red-400 ml-1" aria-hidden="true">
+                    *
+                  </span>
+                </Label>
+                <div className="relative">
+                  <span
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
+                    aria-hidden="true"
+                  >
+                    <Lock className="w-5 h-5" />
+                  </span>
+                  <Input
+                    id="nova_senha"
+                    type={showNew ? 'text' : 'password'}
+                    {...register('nova_senha')}
+                    placeholder="Digite a nova senha"
+                    autoComplete="new-password"
+                    aria-required="true"
+                    aria-invalid={!!errors.nova_senha}
+                    aria-describedby={
+                      errors.nova_senha
+                        ? 'nova-senha-error'
+                        : 'nova-senha-helper'
+                    }
+                    className="bg-white/20 border-white/30 text-white text-base placeholder:text-white/50 pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew((v) => !v)}
+                    aria-label={showNew ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 -m-2 text-white/70 hover:text-white transition-colors"
+                  >
+                    {showNew ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {/* D-11: helper text PASSIVE (no live checklist) */}
+                <p id="nova-senha-helper" className="text-xs text-white/80">
+                  Mínimo 8 caracteres, incluindo maiúscula, minúscula e número.
+                </p>
+                {errors.nova_senha && (
+                  <p
+                    id="nova-senha-error"
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-red-400 text-sm flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                    {errors.nova_senha.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Confirmar nova senha */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="confirmar_nova_senha"
+                  className="text-white text-sm font-semibold"
+                >
+                  Confirmar nova senha
+                  <span className="text-red-400 ml-1" aria-hidden="true">
+                    *
+                  </span>
+                </Label>
+                <div className="relative">
+                  <span
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70"
+                    aria-hidden="true"
+                  >
+                    <Lock className="w-5 h-5" />
+                  </span>
+                  <Input
+                    id="confirmar_nova_senha"
+                    type={showConfirm ? 'text' : 'password'}
+                    {...register('confirmar_nova_senha')}
+                    placeholder="Digite novamente a nova senha"
+                    autoComplete="new-password"
+                    aria-required="true"
+                    aria-invalid={!!errors.confirmar_nova_senha}
+                    aria-describedby={
+                      errors.confirmar_nova_senha
+                        ? 'confirmar-senha-error'
+                        : undefined
+                    }
+                    className="bg-white/20 border-white/30 text-white text-base placeholder:text-white/50 pl-10 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    aria-label={showConfirm ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 -m-2 text-white/70 hover:text-white transition-colors"
+                  >
+                    {showConfirm ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.confirmar_nova_senha && (
+                  <p
+                    id="confirmar-senha-error"
+                    role="alert"
+                    aria-live="assertive"
+                    className="text-red-400 text-sm flex items-center gap-1"
+                  >
+                    <AlertCircle className="w-4 h-4" aria-hidden="true" />
+                    {errors.confirmar_nova_senha.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-primary hover:bg-primary/90 text-white text-base font-semibold py-3 min-h-11 rounded-lg border border-primary/50 backdrop-blur-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2
+                      className="mr-2 h-4 w-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Alterando...
+                  </>
+                ) : (
+                  'Redefinir senha'
+                )}
+              </Button>
+
+              {/* Link para solicitar novo código */}
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/auth/esqueci-senha${isRH ? '?tipo=rh' : ''}`,
+                    { replace: true },
+                  )
+                }
+                className="text-sm text-white/80 hover:text-white underline py-2 block mx-auto"
+              >
+                Não recebi o código
+              </button>
+            </form>
+          </GlassCard>
         </div>
-      </div>
+      </main>
     </BackgroundImage>
-  );
+  )
+}
+
+/**
+ * Pitfall 2 — heurística para decidir se vale tentar `tryAutoLogin` como
+ * fallback. Só quando o erro indica sessão expirada/invalidada mid-flow
+ * (a senha pode ter sido aceita server-side antes da sessão cair).
+ */
+function recoveryAutoLoginCandidate(err: { code?: string; message?: string }) {
+  return (
+    err.code === 'SERVER_ERROR' &&
+    /sess(ã|a)o|expired|expirad/i.test(err.message ?? '')
+  )
 }
