@@ -1,9 +1,9 @@
 ---
 phase: 39-rewire-dos-triggers-aposentadoria-do-n8n-sec-03
 verified: 2026-07-28T02:30:00Z
-revised: 2026-07-28T09:40:00Z
-status: human_needed
-score: 4/4 critérios verificados + UAT ao vivo EXECUTADO — CR-02 provado diretamente (skipped:knockout, zero linhas); CR-01 com a cadeia inteira provada por execução, faltando só conferência VISUAL do assunto no dashboard do Resend
+revised: 2026-07-28T10:30:00Z
+status: passed
+score: 4/4 critérios verificados + UAT ao vivo COMPLETO — CR-01 e CR-02 provados ao vivo em PROD, conteúdo do e-mail conferido visualmente; W-01 (preheader) achado no UAT, corrigido e re-verificado
 overrides_applied: 0
 gaps:
   - id: CR-01
@@ -22,10 +22,7 @@ gaps:
     fix_commit: f3b7304
     deployed: "2026-07-28 — notificar-candidato v2 → v3"
     evidence: "Fonte deployada confirmada: guard `evento==='confirmacao' && (status==='rejeitado' || opcao_knockout_id!==null)` na linha 192, ANTES do claim (linha 250)"
-human_verification:
-  - test: "Conferência VISUAL do assunto do e-mail de aprovação no dashboard do Resend (https://resend.com/emails), message id 1aec8ab7-0911-4442-befc-8d2d1c64411c"
-    expected: "Assunto = 'Boa notícia sobre sua candidatura — [TESTE] Dentista — Funil E2E' (NUNCA 'Atualização sobre sua candidatura' com corpo de recusa)"
-    why_human: "A EF não registra assunto/corpo em log nem no ledger, por disciplina de PII (helper logSeguro). A cadeia inteira já foi provada por execução; falta só o olho humano no conteúdo renderizado."
+human_verification: []
 ---
 
 # Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03) — Verification Report
@@ -168,7 +165,14 @@ Contraste no mesmo `net._http_response`: ids 62 e 63, sem knockout, deram `statu
 > contornado** — controle de segurança legítimo. O ramo `opcao_knockout_id` cobre o caminho
 > real do knockout (aplicado por `submit_candidatura_atomic`), que é o do defeito.
 
-### CR-01 — ✅ CADEIA PROVADA POR EXECUÇÃO (falta só conferência visual)
+### CR-01 — ✅ PROVADO AO VIVO E CONFERIDO NO CONTEÚDO (fechado)
+
+**Conteúdo do e-mail entregue, conferido no dashboard do Resend:** assunto
+*"Boa notícia sobre sua candidatura — [TESTE] Dentista — Funil E2E"* e corpo com a
+`COPY_APROVACAO` (*"Temos uma ótima notícia: sua candidatura foi aprovada…"*), **sem
+qualquer traço da `COPY_REJEICAO`**. É a refutação direta do defeito original.
+
+Cadeia que produziu esse e-mail:
 
 `etapa_atual` da candidatura de funil E2E movida para `aprovado`, disparando a cadeia
 canônica: `avancar_etapa()` → `historico_candidatura` → `trg_notif_transicao` → EF → Resend.
@@ -182,25 +186,59 @@ canônica: `avancar_etapa()` → `historico_candidatura` → `trg_notif_transica
 | `desfecho` que a EF derivaria | `etapa_atual='aprovado'` ⇒ `desfecho='aprovado'` (fonte deployada auditada) |
 | Render local da MESMA fonte | `aprovado` ⇒ assunto **"Boa notícia sobre sua candidatura — …"**, corpo com `COPY_APROVACAO` e **sem** `COPY_REJEICAO` |
 
-O único elo não observado diretamente é o **conteúdo renderizado do e-mail entregue** — a EF
-não registra assunto/corpo (disciplina de PII do `logSeguro`), então isso vive só no
-dashboard do Resend. Daí o `human_needed` remanescente: é uma conferência visual de um
-assunto, não uma dúvida sobre a lógica.
+### W-01 (achado NOVO do UAT) — preheader não ramificava · ✅ CORRIGIDO E RE-VERIFICADO
+
+A conferência do corpo revelou um resíduo que o `f3b7304` deixou passar: `PREHEADERS` era
+um literal fixo, então o aprovado recebia assunto *"Boa notícia…"* ao lado da prévia de
+caixa de entrada *"Atualização sobre a sua candidatura."*
+
+Só apareceu porque o conteúdo INTEIRO foi inspecionado, não só o assunto — o preheader é
+`<span style="display:none">`, invisível no corpo renderizado, e as asserções de CR-01 olham
+o texto visível. **Severidade baixa:** texto neutro, não é a cópia de recusa, não viola
+D-15/RNF-07a. Mas era ponta solta real.
+
+Fix: `PREHEADERS` passa a `Record<E,(d)=>string>` (espelha `SUBJECTS`), ramificando por
+`desfecho` com o mesmo fail-safe. Deployado (**v5**) e **re-verificado ao vivo**: o e-mail
+`e9c5dd07-e682-49aa-ba8b-38d2a47310af` traz o preheader *"Boa notícia sobre a sua
+candidatura."* Guard de regressão provado por stash: os 3 testes W-01 **reprovam** contra o
+código antigo.
+
+### Achado incidental — a idempotência do Resend se provou em PROD
+
+O primeiro re-teste do W-01 falhou de propósito:
+`409 — idempotency key has been used within the last 24 hours, but the request body was
+modified`. Reenviar a MESMA `Idempotency-Key` (= `dedupe_key`) com corpo alterado foi
+barrado **pelo provedor**. O cinto secundário do LEDGER-02 / T-41-15, até então só coberto
+por teste unitário, ficou provado ao vivo — e ainda detectou alteração de conteúdo. O
+re-teste usou outra candidatura, gerando chave nova.
+
+> Nota operacional: reenviar o mesmo evento para a mesma candidatura dentro de 24h é
+> bloqueado em DUAS camadas independentes — `UNIQUE(dedupe_key)` no nosso ledger e a
+> idempotência do Resend.
 
 **Restauração pós-teste (verificada):** `etapa_atual` de volta a `decisao_final`, `status`
 `em_analise`, histórico de volta a **2** linhas (trilha `entrevista_online → decisao_final`,
 as linhas de 2026-07-28 removidas), `opcao_knockout_id` de volta a `null`,
 `notificacoes_enviadas` = **0 linhas**. Nenhum candidato real recebeu e-mail.
 
-## Por que `human_needed` e não `passed`
+## Por que `passed`
 
-**CR-02 está fechado por completo** — provado diretamente ao vivo (`skipped:knockout` + zero
-linhas). **CR-01 teve a cadeia inteira provada por execução**, do gatilho à entrega
-reconciliada; o que resta é confirmar com o olho humano que o assunto entregue foi
-*"Boa notícia sobre sua candidatura"* e não a cópia de recusa.
+Os 4 critérios do roadmap estão verificados e os dois defeitos CRÍTICOS foram provados
+fechados **em produção**, não só em código: CR-02 por resposta direta da EF
+(`skipped:knockout` + zero linhas) e CR-01 pela cadeia completa mais **inspeção do conteúdo
+entregue**. O achado extra (W-01) foi corrigido, deployado e re-verificado dentro da mesma
+sessão.
 
-Esse último elo não é automatizável **por decisão de design**: a EF nunca registra assunto,
-corpo nem destinatário em log (allowlist do `logSeguro`, disciplina de PII), e o ledger
-guarda só metadado. O conteúdo renderizado existe apenas no dashboard do Resend. Fechar isso
-é 1 clique em https://resend.com/emails no message id
-`1aec8ab7-0911-4442-befc-8d2d1c64411c`.
+Restauração pós-UAT conferida: as duas candidaturas de teste voltaram a `decisao_final` e
+`avaliacao_assincrona`, `etapa_justificativa` limpa, `opcao_knockout_id` nulo, histórico com
+as linhas originais (a limpeza foi escopada por `criado_em::date`, então nada anterior foi
+tocado) e `notificacoes_enviadas` em **0 linhas**. Nenhum candidato real recebeu e-mail.
+
+## Lição de processo (a mesma que abriu este relatório)
+
+A P39 fechou originalmente **sem VERIFICATION.md e sem code review** — e foi exatamente por
+isso que dois defeitos CRÍTICOS ficaram vivos em PROD. Esta sessão fecha o ciclo ao contrário:
+o UAT ao vivo, feito de verdade, achou **mais um** resíduo (W-01) que nem o code review nem
+a suíte de testes tinham pego, porque só aparecia no conteúdo renderizado do e-mail real.
+Reforça o padrão: a fase de maior risco do milestone foi a que pulou o gate, e cada camada
+de verificação encontrou algo que a anterior não encontrou.

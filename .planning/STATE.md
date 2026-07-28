@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: 39 (CR-01/CR-02 **fechados em PROD** — EF v3; `human_needed` só p/ os 2 UATs comportamentais) + 41 (**PASSED** — 5/5 planos, loop provado end-to-end)
-Plan: P39 4/4 + gap-closure `f3b7304` **DEPLOYADA**. P41 **5 of 5** (41-05 Tasks 1–3 todas concluídas em PROD).
-Status: Nada bloqueado tecnicamente. Só falta fechar o DELIV-01 (confirmar `verified` no Resend) e rodar os 2 UATs ao vivo da P39.
-Last activity: 2026-07-28 -- EF v3 deployada; P41 fechada com reconciliação provada end-to-end (webhook assinado real → ledger)
+Phase: **TODAS AS 6 FASES DO M7 FECHADAS** — 36 ✅ 37 ✅ 38 ✅ 39 ✅ 40 ✅ 41 ✅
+Plan: P39 4/4 + gap-closure `f3b7304` + W-01 (EF **v5**). P41 **5 of 5** (41-05 Tasks 1–3 em PROD).
+Status: M7 completo e provado ao vivo. Restam só 2 itens humanos NÃO-bloqueantes (cleanup do n8n cloud · virar NOTIFICACOES_MODO para `producao` quando quiser entrega real).
+Last activity: 2026-07-28 -- P39 fechada: CR-01/CR-02 provados ao vivo + W-01 (preheader) achado no UAT, corrigido e re-verificado
 
-Progress: [██████████████] 98% (todo o pipeline vivo e provado em PROD; resta DELIV-01 + 2 UATs comportamentais)
+Progress: [██████████████] 100% (6/6 fases · pipeline provado ponta-a-ponta em produção)
 
 > ✅ **RESOLVIDO 2026-07-28 — os 2 defeitos CRÍTICOS da P39 estão fora de PROD.** A EF
 > `notificar-candidato` foi redeployada **v2 → v3** com o fix `f3b7304`, na ordem obrigatória
@@ -181,6 +181,8 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 ### Blockers/Concerns
 
+- **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:none>`, invisível às asserções que olham o texto visível.
+- **📌 Nota operacional (achado incidental do UAT):** reenviar o MESMO evento para a MESMA candidatura em 24h é barrado em **duas camadas independentes** — `UNIQUE(dedupe_key)` no nosso ledger E a idempotência do Resend. Provado ao vivo: um re-teste com a mesma `Idempotency-Key` e corpo alterado recebeu `409 ... request body was modified`. O cinto do LEDGER-02/T-41-15, antes só coberto por teste unitário, está provado em PROD.
 - **✅ RESOLVIDO 2026-07-28 — P39 CR-01 / CR-02 DEPLOYADOS.** Era o bloqueio mais importante do milestone. A EF `notificar-candidato` está viva em **v3** com o fix `f3b7304`: aprovado recebe `COPY_APROVACAO` (nunca mais a rejeição) e knockout é barrado pelo survivor-guard **na EF, antes do claim** (logo não deixa linha `pendente` para a varredura re-tentar). Auditado na fonte deployada + 401 sem Bearer + ledger intacto (0 linhas). **Consequência prática: fechar DELIV-01 já não é perigoso** — a contenção acidental do `403` deixou de ser necessária.
 - **✅ RESOLVIDO 2026-07-28 — ACESSO DE ESCRITA A PROD RESTABELECIDO.** O operador removeu `&read_only=true` da URL do MCP. Verificado empiricamente antes de qualquer escrita: `current_user=postgres`, `session_user=postgres`, `transaction_read_only=off`. `apply_migration`, `execute_sql` de escrita e `deploy_edge_function` **todos funcionais** nesta sessão. Segue **sem** Supabase CLI instalado e sem `supabase/.temp/` (projeto não linkado) — então o caminho de escrita continua sendo **exclusivamente o MCP pelo main thread**, e `db push` permanece proibido (42601 nos corpos `$$`).
 - **✅ RESOLVIDO 2026-07-28 — 41-05 Task 3 CONCLUÍDA e o loop de reconciliação PROVADO AO VIVO.** O Fernando registrou o endpoint no dashboard do Resend e provisionou o `whsec_…` no Vault (`resend_webhook_secret` presente; prefixo `whsec_`, len 38 — formato legítimo, não placeholder). **RECON-02 provado end-to-end contra a EF deployada:** webhook **assinado de verdade** aceito (200) e reconciliação observada no banco — `enviado → entregue` (+`entregue_em`), depois `→ bounce` (+`bounce_em`), por `provider_message_id`; sem assinatura → **400**, forjado → **400**, replay com timestamp trocado → **400**, `GET` → **405** (prova que passou do gate do Vault). A assinatura foi calculada **dentro do Postgres** (`extensions.hmac`), então **o segredo nunca saiu do banco**. Linha de teste criada e **removida** — ledger de volta a **0 linhas**, zero e-mail enviado.
@@ -240,7 +242,10 @@ Passos 1–4 da lista anterior estão **CONCLUÍDOS** (2026-07-28): escrita rest
 3. **Cleanup do n8n cloud (DISPATCH-03)** — desativar a(s) workflow(s) em
    `fernandocosta.app.n8n.cloud`; o banco e o código já estão limpos.
 
-4. **HUMAN-UATs ao vivo da P39** (desbloqueados pelo deploy, gated em DELIV-01 p/ entrega):
-   provar CR-01 (aprovação → `COPY_APROVACAO`, assunto "Boa notícia…") e CR-02 (knockout →
-   zero e-mail, `skipped:knockout`, zero linha nova no ledger). Hoje não há candidatura com
-   knockout nem `status='rejeitado'` em PROD, então exigem fixture/fluxo real.
+4. ~~HUMAN-UATs ao vivo da P39~~ — ✅ **EXECUTADOS E APROVADOS em 2026-07-28.** CR-01 e CR-02
+   provados ao vivo; conteúdo do e-mail conferido no dashboard. Achado extra W-01 (preheader)
+   corrigido e re-verificado na mesma sessão.
+
+5. **Virar `NOTIFICACOES_MODO` para `producao`** quando quiser que candidatos REAIS passem a
+   receber os e-mails. Hoje está em `teste` — tudo vai para o sink `@resend.dev`. Esta é a
+   única chave que separa o pipeline (já provado) do tráfego real.
