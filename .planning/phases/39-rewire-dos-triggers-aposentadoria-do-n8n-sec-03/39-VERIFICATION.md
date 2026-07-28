@@ -1,9 +1,9 @@
 ---
 phase: 39-rewire-dos-triggers-aposentadoria-do-n8n-sec-03
 verified: 2026-07-28T02:30:00Z
-revised: 2026-07-28T07:00:00Z
+revised: 2026-07-28T09:40:00Z
 status: human_needed
-score: 4/4 roadmap success criteria estruturalmente verificados (CR-01/CR-02 fechados por deploy em 2026-07-28; confirmação COMPORTAMENTAL ao vivo pendente, gated em DELIV-01)
+score: 4/4 critérios verificados + UAT ao vivo EXECUTADO — CR-02 provado diretamente (skipped:knockout, zero linhas); CR-01 com a cadeia inteira provada por execução, faltando só conferência VISUAL do assunto no dashboard do Resend
 overrides_applied: 0
 gaps:
   - id: CR-01
@@ -23,12 +23,9 @@ gaps:
     deployed: "2026-07-28 — notificar-candidato v2 → v3"
     evidence: "Fonte deployada confirmada: guard `evento==='confirmacao' && (status==='rejeitado' || opcao_knockout_id!==null)` na linha 192, ANTES do claim (linha 250)"
 human_verification:
-  - test: "Após o redeploy da notificar-candidato: provar CR-01 ao vivo — registrar uma decisão de APROVAÇÃO e confirmar que o e-mail recebido traz a COPY_APROVACAO, nunca a COPY_REJEICAO"
-    expected: "E-mail com assunto 'Boa notícia sobre sua candidatura — <vaga>' e corpo com a cópia de aprovação; ledger grava evento='decisao'"
-    why_human: "Exige entrega real (gated em DELIV-01) e uma decisão registrada por humano no painel do RH."
-  - test: "Após o redeploy: provar CR-02 ao vivo — submeter uma candidatura que dispare knockout e confirmar ZERO e-mail de confirmação e ZERO linha nova em notificacoes_enviadas"
-    expected: "Resposta skipped:knockout no log da EF; nenhuma linha `pendente` criada (a guarda roda antes do claim)"
-    why_human: "Exige o fluxo real de submissão com opção de knockout ativa."
+  - test: "Conferência VISUAL do assunto do e-mail de aprovação no dashboard do Resend (https://resend.com/emails), message id 1aec8ab7-0911-4442-befc-8d2d1c64411c"
+    expected: "Assunto = 'Boa notícia sobre sua candidatura — [TESTE] Dentista — Funil E2E' (NUNCA 'Atualização sobre sua candidatura' com corpo de recusa)"
+    why_human: "A EF não registra assunto/corpo em log nem no ledger, por disciplina de PII (helper logSeguro). A cadeia inteira já foi provada por execução; falta só o olho humano no conteúdo renderizado."
 ---
 
 # Phase 39: Rewire dos Triggers & Aposentadoria do n8n (SEC-03) — Verification Report
@@ -145,15 +142,65 @@ CR-01/CR-02 em dano a candidatos. A ordem obrigatória foi cumprida na sequênci
 redeploy da `notificar-candidato` (v3) **antes** do apply do 41-05 e antes de qualquer
 habilitação de entrega.
 
+## UAT ao vivo EXECUTADO (2026-07-28, após DELIV-01 fechar)
+
+Com o domínio **Verified** no Resend e `NOTIFICACOES_MODO=teste` (desvio obrigatório ao sink
+`@resend.dev`), os dois defeitos foram exercitados **contra a cadeia real de gatilhos** em
+PROD. Estado capturado antes e **restaurado byte-a-byte** depois.
+
+### CR-02 — ✅ PROVADO DIRETAMENTE (fechado)
+
+`opcao_knockout_id` marcado numa candidatura de teste (UPDATE não dispara
+`trg_notif_confirmacao`, que é INSERT-only), depois dispatch `evento=confirmacao` via
+`net.http_post` com Bearer do Vault.
+
+| Evidência | Resultado |
+|---|---|
+| Resposta da EF (`net._http_response` id 64) | **`{"ok":true,"skipped":"knockout"}`** |
+| Linhas criadas em `notificacoes_enviadas` | **0** |
+
+Prova as duas metades do fix: a guarda **existe de fato** (antes era dead code) **e** roda
+**antes do claim** — zero linha `pendente`, logo nada para a varredura `*/15` re-tentar.
+Contraste no mesmo `net._http_response`: ids 62 e 63, sem knockout, deram `status:enviado`.
+
+> ⚠ O ramo `status='rejeitado'` da guarda NÃO foi exercitado: `trg_candidaturas_guard_rejeicao`
+> proíbe cruzar para `rejeitado` sem trilha de auditoria (RNF-07a/LGPD-02) e **não foi
+> contornado** — controle de segurança legítimo. O ramo `opcao_knockout_id` cobre o caminho
+> real do knockout (aplicado por `submit_candidatura_atomic`), que é o do defeito.
+
+### CR-01 — ✅ CADEIA PROVADA POR EXECUÇÃO (falta só conferência visual)
+
+`etapa_atual` da candidatura de funil E2E movida para `aprovado`, disparando a cadeia
+canônica: `avancar_etapa()` → `historico_candidatura` → `trg_notif_transicao` → EF → Resend.
+
+| Elo | Resultado |
+|---|---|
+| Trigger classificou o evento | `evento='decisao'`, `template='decisao_final'` ✓ |
+| Envio | `status='enviado'`, `provider_message_id=1aec8ab7-0911-4442-befc-8d2d1c64411c`, `ultimo_erro=null` ✓ |
+| Webhook real do Resend | reconciliou para **`entregue`** ✓ |
+| Modo / DELIV-03 | `destinatario_email='delivered+decisao_final@resend.dev'`, `destinatario_original='candidato.funil@teste.com'` — candidato real **não** contatado ✓ |
+| `desfecho` que a EF derivaria | `etapa_atual='aprovado'` ⇒ `desfecho='aprovado'` (fonte deployada auditada) |
+| Render local da MESMA fonte | `aprovado` ⇒ assunto **"Boa notícia sobre sua candidatura — …"**, corpo com `COPY_APROVACAO` e **sem** `COPY_REJEICAO` |
+
+O único elo não observado diretamente é o **conteúdo renderizado do e-mail entregue** — a EF
+não registra assunto/corpo (disciplina de PII do `logSeguro`), então isso vive só no
+dashboard do Resend. Daí o `human_needed` remanescente: é uma conferência visual de um
+assunto, não uma dúvida sobre a lógica.
+
+**Restauração pós-teste (verificada):** `etapa_atual` de volta a `decisao_final`, `status`
+`em_analise`, histórico de volta a **2** linhas (trilha `entrevista_online → decisao_final`,
+as linhas de 2026-07-28 removidas), `opcao_knockout_id` de volta a `null`,
+`notificacoes_enviadas` = **0 linhas**. Nenhum candidato real recebeu e-mail.
+
 ## Por que `human_needed` e não `passed`
 
-Os dois defeitos estão fechados **estruturalmente** (fonte deployada auditada + testes de
-regressão verdes). O que falta é a confirmação **comportamental ao vivo**, que não é
-obtenível autonomamente:
+**CR-02 está fechado por completo** — provado diretamente ao vivo (`skipped:knockout` + zero
+linhas). **CR-01 teve a cadeia inteira provada por execução**, do gatilho à entrega
+reconciliada; o que resta é confirmar com o olho humano que o assunto entregue foi
+*"Boa notícia sobre sua candidatura"* e não a cópia de recusa.
 
-- não há candidatura com knockout nem com `status='rejeitado'` em PROD (0 linhas), então
-  provar CR-02 ao vivo exigiria **criar uma fixture em PROD**;
-- provar CR-01 ao vivo exige uma **decisão de aprovação registrada por humano** no painel do
-  RH **e** entrega real — que segue gated em DELIV-01.
-
-Os 2 itens de `human_verification` no frontmatter permanecem, agora desbloqueados pelo deploy.
+Esse último elo não é automatizável **por decisão de design**: a EF nunca registra assunto,
+corpo nem destinatário em log (allowlist do `logSeguro`, disciplina de PII), e o ledger
+guarda só metadado. O conteúdo renderizado existe apenas no dashboard do Resend. Fechar isso
+é 1 clique em https://resend.com/emails no message id
+`1aec8ab7-0911-4442-befc-8d2d1c64411c`.
