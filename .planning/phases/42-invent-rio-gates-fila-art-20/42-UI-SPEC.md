@@ -85,6 +85,24 @@ background="darkBlue"` + `RHSidebar` + `RHTopBar` + `<main className="flex-1 p-4
 background="gradient"` + `max-w-2xl` + `GlassPanel variant="white" blur="xl"` de
 `ExplicacaoCandidatoPage`. Esta fase **edita** essa página, não cria outra.
 
+### Âncora visual primária (uma por tela — declarada, não inferida)
+
+- **`/rh/revisoes`:** **a tabela da fila é a âncora visual primária.** É o objeto maior, mais denso
+  e o único que responde à pergunta que traz o RH a esta tela ("o que está esperando minha ação?").
+  O H1, o subtítulo, a nota de ordenação e o switch são **secundários** e vivem numa faixa de
+  controles compacta acima dela — não competem em peso, não ganham card próprio, não empurram a
+  primeira linha da tabela para fora da dobra em 1366×768. Dentro da tabela, a hierarquia interna é:
+  nome do candidato (16px/400, `text-white`) > badge de acompanhamento (14px/600, único elemento
+  colorido da linha) > demais células (`text-white/80`). A ação "Responder" é o único elemento
+  accent da linha — âncora de **ação**, subordinada à âncora de **leitura**.
+- **`/candidato/explicacao/:id` (bloco novo):** **a linha do veredito é a âncora primária do bloco
+  de resultado da revisão.** É a primeira coisa lida e a que responde "e aí, o que aconteceu?"
+  (16px/400 com o veredito em 600). O eyebrow "Resultado da revisão" e a data são secundários
+  (14px e 12px), e a justificativa vem abaixo como corpo de leitura. O bloco inteiro é subordinado
+  ao H1 já existente da página ("Sobre a sua candidatura") — esta fase **não** disputa a âncora
+  da tela, apenas acrescenta um bloco delimitado (`rounded-lg border border-white/15 bg-white/5 p-4`,
+  o container que já existe hoje para `revisao_resultado`).
+
 **Primitivos shadcn em escopo (todos já vendorizados):** `table`, `badge`, `button`, `dialog`,
 `alert-dialog`, `radio-group`, `textarea`, `label`, `switch`, `tooltip`, `skeleton`, `separator`.
 Sonner (`toast`) para feedback transitório.
@@ -118,7 +136,7 @@ Nenhum valor novo.
 | 3xl | 64px | Respiro superior/inferior da página do candidato (`py-20`, herdado do shell) |
 
 **Exceções:** todo controle acionável carrega o piso `min-h-[44px]` (44 = 4×11, na escala mas
-fora do conjunto nomeado) — botão "Responder" de cada linha, "Registrar resposta"/"Cancelar" do
+fora do conjunto nomeado) — botão "Responder" de cada linha, "Registrar resposta"/"Fechar sem registrar" do
 diálogo, botão de retry do `AsyncState`, e os controles já existentes da página do candidato.
 Precedente: Phases 11/13/14/15/34.
 
@@ -143,9 +161,26 @@ Escala idêntica ao contrato aprovado das Phases 11/13/14/15 — não re-derivad
   line-height 1.5** (`text-base leading-relaxed`), com `whitespace-pre-wrap`, **nunca truncada**
   na página do candidato. É superfície de transparência, não célula de tabela.
 - Somente dois pesos: 400 e 600. Nada de 500/700/800, apesar de existirem em `globals.css`.
-- Micro-rótulos em caixa alta ("Decisão original", "Resultado da revisão") usam
-  `text-xs font-semibold uppercase tracking-wide text-white/50` — tratamento do papel de label
-  de 14px (eyebrow), não um 5º tamanho. Precedente Phases 11/13/14/15.
+### Micro-role de eyebrow (12px) — 5º tamanho, declarado e isento por decisão
+
+Micro-rótulos em caixa alta ("Resultado da revisão", "Decisão original" quando usado como eyebrow)
+usam `text-xs font-semibold uppercase tracking-wide text-white/50`.
+
+**Resolvendo a contradição que as UI-SPECs anteriores empurraram adiante:** `text-xs` **é** um
+token distinto e **resolve a 12px** — `globals.css:79` declara `--text-xs: 0.75rem /* 12px */`, e
+**não** há alias para 14px. Chamar isso de "tratamento do papel de 14px" (como fizeram as specs das
+Phases 11/13/14/15) é factualmente errado. Registrado aqui de uma vez para que nenhum auditor
+futuro precise re-derivar isto a cada fase:
+
+| | |
+|---|---|
+| **O que é** | Um **5º tamanho real** (12px / 600 / 1.4), em uso no projeto desde a Phase 11 |
+| **Status** | **Isento da contagem de 3–4 tamanhos**, deliberadamente |
+| **Por quê** | Não é papel de leitura: nunca carrega conteúdo, só **nomeia** o bloco imediatamente abaixo dele. É redundante por construção — remover o eyebrow não remove informação alguma da tela. O par uppercase + `tracking-wide` + `text-white/50` o marca como cromo estrutural, não como texto |
+| **Cerca (binding)** | Restrito a rótulo de bloco em caixa alta. **Proibido** para: valor de dado, célula de tabela, prosa, mensagem de erro, rótulo de campo de formulário, rótulo de botão, ou qualquer texto que o usuário precise **ler** em vez de **escanear**. Um eyebrow de 12px que carregue significado próprio é violação, não exceção |
+| **Onde aparece nesta fase** | Eyebrow "Resultado da revisão" e a data "Respondida em {dd/mm/aaaa}" no bloco do candidato; eyebrows do bloco de contexto somente-leitura do diálogo |
+
+A contagem de papéis de **leitura** permanece **4 tamanhos / 2 pesos**, conforme a tabela acima.
 
 ---
 
@@ -296,7 +331,7 @@ confirmação aninhado (precedente Phase 15 — a ação é terminal e notifica 
 | Erro de mínimo | **A justificativa precisa de pelo menos 50 caracteres.** |
 | Aviso acima do rodapé | Este texto será exibido ao candidato exatamente como escrito. |
 | CTA primário | **Registrar resposta** *(desabilitado até haver veredito **e** justificativa ≥50)* |
-| CTA secundário | **Cancelar** |
+| CTA secundário | **Fechar sem registrar** *(deliberadamente **não** "Cancelar": rótulo genérico é proibido, e este botão precisa ser distinguível do **Voltar** do `alert-dialog` aninhado — os dois podem aparecer no mesmo fluxo, e o operador tem de saber qual "voltar" está tomando. "Voltar" recua um passo dentro da confirmação; "Fechar sem registrar" abandona a resposta inteira)* |
 | Estado de envio | **Enviando…** *(`Loader2` girando; CTA desabilitado — sem duplo submit)* |
 | Sucesso | toast.success **"Resposta registrada. O candidato foi notificado."** |
 | Erro genérico | toast.error **"Não foi possível registrar a resposta. Tente novamente."** *(o diálogo permanece aberto e o texto digitado é preservado)* |
@@ -305,8 +340,13 @@ confirmação aninhado (precedente Phase 15 — a ação é terminal e notifica 
 
 | Veredito | Confirmação |
 |----------|-------------|
-| `mantida` | Título: **Registrar resposta?** — Corpo: **A decisão original será mantida.** A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail. — Confirmar: **Registrar resposta** / Cancelar: **Voltar** |
-| `revertida` | Título: **Reverter a decisão?** — Corpo: **A decisão original deixará de valer.** A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail. — Confirmar: **Registrar reversão** / Cancelar: **Voltar** |
+| `mantida` | Título: **Registrar resposta?** — Corpo: **A decisão original será mantida.** A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail. — Botão de confirmação: **Registrar resposta** / Botão de recuo: **Voltar** |
+| `revertida` | Título: **Reverter a decisão?** — Corpo: **A decisão original deixará de valer.** A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail. — Botão de confirmação: **Registrar reversão** / Botão de recuo: **Voltar** |
+
+**Distinção obrigatória dos dois recuos** (podem estar visíveis no mesmo fluxo, e o operador
+precisa saber qual está tomando): **Voltar** = fecha só a confirmação e devolve ao formulário
+preenchido. **Fechar sem registrar** = abandona a resposta inteira e fecha o diálogo. Nenhum dos
+dois pode ser rotulado "Cancelar".
 
 ### Recusa do servidor (guard REVISAO-05 disparando de verdade)
 
@@ -317,7 +357,7 @@ toast** — toast some e este é o caso em que o operador precisa entender o que
 |---------|------|
 | Comportamento | O diálogo **permanece aberto**, o texto digitado é preservado, o CTA primário fica desabilitado, e um alerta inline destructive aparece acima do rodapé. A fila é revalidada em segundo plano |
 | Alerta inline *(verbatim)* | **O servidor recusou esta resposta.** Quem registrou a decisão não pode responder à revisão dela. Encaminhe este pedido a outra pessoa do RH ou a um administrador. |
-| Rodapé nesse estado | **Fechar** *(o único botão; "Registrar resposta" fica desabilitado)* |
+| Rodapé nesse estado | **Fechar sem registrar** *(o único botão — mesmo rótulo do CTA secundário normal, porque é literalmente o que aconteceu: nada foi registrado. "Registrar resposta" fica desabilitado)* |
 
 **Proibido:** transformar a recusa em "tente novamente", oferecer retry do mesmo envio, ou
 sugerir que outra tentativa/permissão resolveria.
