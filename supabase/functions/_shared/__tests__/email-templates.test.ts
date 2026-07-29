@@ -30,6 +30,23 @@ const DADOS = {
   tipoEntrevista: "Presencial",
 };
 
+/**
+ * Extrai o PREHEADER do html — o `<span display:none>` que `layoutBase` injeta como
+ * primeiro filho do `<body>`.
+ *
+ * Promovido ao topo do arquivo pela Phase 42 / Plan 42-01 Task 3. Os testes W-01 de
+ * `:109-137` (P39) conferiam o preheader com `html.includes(...)`, que prova PRESENÇA mas
+ * não IGUALDADE: um preheader errado que por acaso contenha a substring esperada passaria,
+ * e um preheader vazio não é distinguível de um ausente. O bloco T-42-V1 no fim do arquivo
+ * precisa comparar a string COMPLETA, então a extração virou explícita. Os testes antigos
+ * seguem intocados de propósito — eles cobrem outra coisa (a ausência do texto do outro
+ * desfecho) e continuam valendo.
+ */
+function extrairPreheader(html: string): string {
+  const m = html.match(/<span style="display:none[^"]*">([\s\S]*?)<\/span>/);
+  return m ? m[1].trim() : "";
+}
+
 Deno.test("COMM-02/03/04/05 — os 4 eventos renderizam subject + html não-vazios", () => {
   for (const evento of EVENTOS) {
     const { subject, html } = renderarEmail(evento, DADOS);
@@ -145,6 +162,72 @@ Deno.test("D-15/RNF-07a — GREP-GUARD cobre os DOIS desfechos da decisão", () 
       `VAZOU token de scoring no desfecho '${desfecho}' (D-15/RNF-07a)`,
     );
   }
+});
+
+// ── T-42-V1 — NÃO-REGRESSÃO W-01: subject E preheader pinados por literal ───
+//
+// Phase 42 / Plan 42-01 Task 3 (D-P42-14).
+//
+// O defeito W-01 (achado no UAT ao vivo em 2026-07-28) foi um preheader que ficou LITERAL
+// quando `subject` e `corpo` passaram a ramificar por desfecho: na caixa de entrada, o
+// candidato aprovado via o assunto "Boa notícia…" ao lado da prévia "Atualização sobre a sua
+// candidatura.". A metade errada era invisível a TODA asserção que olha só o texto visível —
+// o preheader é `<span display:none>`, existe apenas para o cliente de e-mail renderizar na
+// listagem. Foi por isso que escapou dos testes de corpo E do UAT de leitura do e-mail aberto.
+//
+// Os testes W-01 de `:109-137` provam que cada desfecho NÃO carrega a prévia do outro. Este
+// bloco é mais forte e complementar: pina o par (subject, preheader) de cada evento vivo
+// contra a string COMPLETA de hoje, lida do código-fonte. Qualquer mudança de copy passa a
+// exigir uma edição consciente deste arquivo, em vez de escorregar silenciosamente.
+//
+// É a rede que impede a Phase 42 de repetir a classe de defeito ao adicionar o 5º evento no
+// plano 42-08. O 5º evento NÃO entra aqui — este bloco cobre exclusivamente os 4 vivos.
+//
+// DESVIO REGISTRADO (42-01 Task 3): o PLAN pede os 3 desfechos de `decisao_final` como
+// (aprovado, rejeitado, em_espera). `em_espera` NÃO existe: `DadosEmail.desfecho` é
+// `"aprovado" | "rejeitado"` opcional (email-templates.ts:76) e a EF o deriva por ternário
+// de `etapa_atual` (notificar-candidato/index.ts:336), então nunca produz um terceiro valor.
+// Passar "em_espera" seria erro de compilação. O terceiro desfecho REAL é o AUSENTE — o
+// fail-safe documentado em `:74` e `:149`, e o mesmo que o teste W-01 de `:133` já cobre.
+// São esses 3 que estão pinados abaixo.
+
+Deno.test("T-42-V1 — par (subject, preheader) de candidatura_recebida", () => {
+  const { subject, html } = renderarEmail("candidatura_recebida", DADOS);
+  assertEquals(subject, "Recebemos sua candidatura — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Recebemos a sua candidatura na Beauty Smile.");
+});
+
+Deno.test("T-42-V1 — par (subject, preheader) de avaliacao_liberada", () => {
+  const { subject, html } = renderarEmail("avaliacao_liberada", DADOS);
+  assertEquals(subject, "Sua candidatura avançou — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Sua candidatura avançou — nova etapa liberada.");
+});
+
+Deno.test("T-42-V1 — par (subject, preheader) de convite_entrevista", () => {
+  const { subject, html } = renderarEmail("convite_entrevista", DADOS);
+  assertEquals(subject, "Convite de entrevista — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Você foi convidado(a) para uma entrevista.");
+});
+
+Deno.test("T-42-V1 — par (subject, preheader) de decisao_final · desfecho aprovado", () => {
+  const { subject, html } = renderarEmail("decisao_final", { ...DADOS, desfecho: "aprovado" });
+  assertEquals(subject, "Boa notícia sobre sua candidatura — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Boa notícia sobre a sua candidatura.");
+});
+
+Deno.test("T-42-V1 — par (subject, preheader) de decisao_final · desfecho rejeitado", () => {
+  const { subject, html } = renderarEmail("decisao_final", { ...DADOS, desfecho: "rejeitado" });
+  assertEquals(subject, "Atualização sobre sua candidatura — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Atualização sobre a sua candidatura.");
+});
+
+Deno.test("T-42-V1 — par (subject, preheader) de decisao_final · desfecho AUSENTE (fail-safe)", () => {
+  // Sem `desfecho`, o par tem de ser IDÊNTICO ao da rejeição — o default histórico.
+  // Se um dia o fail-safe virar aprovação por acidente, um candidato rejeitado recebe
+  // "Boa notícia" na caixa de entrada. Esta é a asserção que impede isso.
+  const { subject, html } = renderarEmail("decisao_final", DADOS);
+  assertEquals(subject, "Atualização sobre sua candidatura — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Atualização sobre a sua candidatura.");
 });
 
 Deno.test("COMM-06 — a fonte do módulo não IMPORTA react-email nem react", async () => {
