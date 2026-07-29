@@ -11,12 +11,29 @@ import { FROM, REPLY_TO, type EventoNotificacao } from "../_shared/email-config.
 export type EventoLedger = "confirmacao" | "avanco" | "convite" | "decisao";
 
 /** Mapa explícito ledger → email-config (ambas as direções auditáveis num literal). */
-const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
+export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
   confirmacao: "candidatura_recebida",
   avanco: "avaliacao_liberada",
   convite: "convite_entrevista",
   decisao: "decisao_final",
 };
+
+/**
+ * Vocabulário aceito pela validação de payload da EF — DERIVADO do mapa, nunca autoral.
+ *
+ * Antes (P38–P41) isto era um `new Set([...])` escrito à mão em `index.ts`. Como o tipo é
+ * `ReadonlySet<string>`, o compilador NUNCA conferiu que a lista batia com `EVENTO_MAP`:
+ * um evento esquecido aqui fazia a EF responder `400 VALIDATION` a um `net.http_post`, que é
+ * **at-most-once** — a rejeição não volta ao banco, não vira exceção e não vira linha no
+ * ledger. O e-mail some sem rastro. Era o pior dos sítios de registro do vocabulário.
+ *
+ * O tipo DECLARADO segue `ReadonlySet<string>` de propósito: o call site em `index.ts` testa
+ * uma string crua vinda do corpo JSON (`raw.evento`), e estreitar para `ReadonlySet<EventoLedger>`
+ * quebraria a compilação lá. O que mudou é o VALOR: adicionar um evento a `EVENTO_MAP` passa a
+ * registrá-lo aqui automaticamente, então o sítio deixa de existir como ponto de drift.
+ * Paridade pinada por `__tests__/vocabulario-eventos.test.ts` (D-P42-14).
+ */
+export const EVENTOS_VALIDOS: ReadonlySet<string> = new Set(Object.keys(EVENTO_MAP));
 
 export function mapearEvento(e: EventoLedger): EventoNotificacao {
   return EVENTO_MAP[e];

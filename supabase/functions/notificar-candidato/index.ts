@@ -37,6 +37,7 @@ import {
   computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
+  EVENTOS_VALIDOS,
   logSeguro,
   mapearEvento,
   montarDedupeKey,
@@ -61,13 +62,6 @@ function jsonResponse(body: unknown, status: number): Response {
 function errorResponse(code: ErrorCode, message: string, status = 400): Response {
   return jsonResponse({ ok: false, error_code: code, message }, status);
 }
-
-const EVENTOS_VALIDOS: ReadonlySet<string> = new Set([
-  "confirmacao",
-  "avanco",
-  "convite",
-  "decisao",
-]);
 
 interface CorpoRequisicao {
   evento: EventoLedger;
