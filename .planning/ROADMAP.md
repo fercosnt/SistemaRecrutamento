@@ -86,7 +86,23 @@ Toda fase que escreva um `DELETE`/`UPDATE` destrutivo, altere um predicado de pu
   3. Quem registrou a decisão original tenta responder à revisão dela e é **barrado pelo servidor** — provado por tentativa real com JWT impersonado, não por aviso de UI.
   4. Existe um artefato datado, no repositório, que responde: quantos pedidos de revisão já estão pendentes em PROD hoje (**entregue antes de qualquer tela**); qual coluna guarda qual PII e se ela deve ser apagada / anonimizada / preservada (semeado de `FK-AUDIT-LIVE.md`, nunca de arquivos de migration); se o PITR está ligado e com que janela — **com o registro explícito de que Storage não é coberto por nenhum caminho de backup**; e o diff dos `cron.job` vivos contra o repositório, cada job vivo rastreável a uma migration.
   5. O `ai-logs-retention-cleanup` que roda todo dia às 02:00 apaga as linhas que deve apagar — hoje o `NOT IN` com subquery NULL-able pode fazê-lo apagar **zero em silêncio** — e a varredura do idioma `ADD COLUMN IF NOT EXISTS` listou toda migration onde uma cláusula FK foi silenciada (causa identificada do drift `candidatos.user_id`).
-**Plans**: TBD
+**Plans**: 12 plans (5 waves · 11/11 requirements cobertos · 21/21 decisões do CONTEXT com plano implementador)
+
+Plans:
+- [ ] 42-01-PLAN.md — Wave 0: `.husky/pre-commit` convertido em gate de não-regressão (baseline 97) + testes de paridade do vocabulário de evento e não-regressão W-01 dos 4 eventos vivos
+- [ ] 42-02-PLAN.md — REVISAO-06: `docs/compliance/` + o passivo Art. 20 medido e datado, **antes de qualquer tela**
+- [ ] 42-03-PLAN.md — Wave 0: módulos puros da feature (classificador de faixa total, contrato de erro, allowlist de colunas) + o smoke SQL de 8 asserções como espec RED
+- [ ] 42-04-PLAN.md — INVENT-01: inventário PII coluna-a-coluna do catálogo vivo (YAML + Markdown gerado) e a correção da citação da semente FK-AUDIT-LIVE
+- [ ] 42-05-PLAN.md — INVENT-02/03/04: PITR e Storage sem backup · diff dos `cron.job` vivos × repositório · varredura do idioma condicional de `ADD COLUMN` · achados de autorização registrados
+- [ ] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
+- [ ] 42-07-PLAN.md — REVISAO-01: EF nova `notificar-rh` + trigger de disparo, com a colisão entre o ledger compartilhado e a varredura de retry viva fechada explicitamente
+- [ ] 42-08-PLAN.md — REVISAO-04: 5º evento `revisao_respondida` (os 9 sítios em código + o CHECK vivo + o trigger), na ordem obrigatória EF → CHECK → trigger
+- [ ] 42-09-PLAN.md — REVISAO-02: fila `/rh/revisoes` (serviço, hooks, tabela, badges, página, rota com `RoleGuard`)
+- [ ] 42-10-PLAN.md — REVISAO-03/05 na interface: diálogo de resposta com confirmação aninhada e alerta inline de recusa + entrada e contador na `RHSidebar` (três sítios)
+- [ ] 42-11-PLAN.md — REVISAO-04 no painel do candidato: bloco de resultado da revisão + terceiro estado da chamada de ação
+- [ ] 42-12-PLAN.md — INVENT-05 (**portão destrutivo**): correção do predicado do `ai-logs-retention-cleanup`, isolado, medido antes/depois pela mesma query, com review bloqueante e zero bypass do hook
+
+**Waves**: 1 → (42-01, 42-02, 42-03) · 2 → (42-04, 42-05, 42-06) · 3 → (42-07, 42-09, 42-11) · 4 → (42-08, 42-10) · 5 → (42-12)
 **UI hint**: yes — REVISAO-02 é uma superfície RH net-new (fila + badge de SLA), desktop-first
 **Security**: candidata a `/gsd-secure-phase` — REVISAO-05 é autorização server-enforced e REVISAO-01 introduz uma EF nova (`notificar-rh`) com resolução de destinatário distinta da candidate-hard-wired
 **Portão destrutivo**: aplica-se **só a INVENT-05** — é a única edição destrutiva de uma fase read-only. Blast radius hoje é zero (`ai_call_logs` tem 0 linhas), mas o efeito da correção é fazer um `DELETE` vivo passar a apagar de verdade
