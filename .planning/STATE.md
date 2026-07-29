@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: planning
-last_updated: "2026-07-29T03:23:03.177Z"
+last_updated: "2026-07-29T04:10:00.000Z"
 last_activity: 2026-07-29
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,71 +17,86 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
+See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 41 — Reconciliação de Entrega, Retry & Testing
+**Current focus:** Phase 42 — Inventário, Gates & Fila Art. 20
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 42 — Inventário, Gates & Fila Art. 20 (não iniciada)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-29 — Milestone v8.0 started
+Status: Roadmap criado — pronto para `/gsd-plan-phase 42`
+Last activity: 2026-07-29 — ROADMAP.md do M8 escrito (6 fases, 42–47, 52/52 requirements mapeados)
 
-## Roadmap (M7 — Phases 36–41)
+## Roadmap (M8 — Phases 42–47)
 
-Ordem de execução: 36 → 37 → 38 → 39 → 40 → 41. Cadeia **estrita** 37 → 38 → 39 (a EF precisa da tabela; os triggers precisam de uma EF viva). Phase 36 e Phase 40 são lateralmente paralelizáveis.
+Ordem de execução: `42 → 43 → 44 → 45 → 46`, com **47 lateralmente paralelizável com 46**.
+Cadeia **estrita** `44 → 45 → 46` (o inventário do export **é** o plano de exclusão; um cron sobre motor destrutivo não provado é como bug vira incidente).
+`43 → 44` é preferencialmente sequencial: CONSENT-02 adiciona colunas a `candidatos` e EXPORT-04 é justamente o snapshot que detecta coluna nova — em paralelo o snapshot fica vermelho por desenho.
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 36 — Deliverability & Sender Identity | Domínio Beauty Smile verificado no Resend (SPF/DKIM auto + DMARC manual) + From/Reply-To reais + `RESEND_API_KEY` só no Vault + disciplina test-address `resend.dev` no dev/CI. Gate humano/DNS (Fernando), paralelizável | DELIV-01, DELIV-02, DELIV-03 |
-| 37 — Camada de Dados de Notificação (**BLOCKING**) | `notificacoes_enviadas` (audit + `UNIQUE(dedupe_key)` idempotência + fila retry, RLS RH vaga-scoped join-through, candidato-DENY) + `config_sla_etapa` estática seedada do PRD §5.1.1; provadas por smoke antes de qualquer EF/trigger | LEDGER-01, LEDGER-02, LEDGER-03, TIMELINE-01 |
-| 38 — EF `notificar-candidato` (COMM) | EF self-auth Bearer (`--no-verify-jwt`) que resolve dados por allowlist (nunca `select('*')`), reivindica idempotência, renderiza os 4 templates Beauty Smile (+ port verbatim `.ics` M6→`_shared/ics.ts`), envia via `fetch` ao Resend, grava no ledger; deployável dormente, smoke via `net.http_post` manual | COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06 |
-| 39 — Rewire dos Triggers & Aposentadoria do n8n (SEC-03) | Trigger CASE canônico em `historico_candidatura` (avanço + decisão) + 2 satélites (`candidaturas`=confirmação c/ survivor-guard, `agendamentos_entrevista`=convite); **DROP dos 3 triggers n8n do SEC-03 no MESMO phase** (resolve SEC-03 por substituição, sem double-send); hop Vault Bearer self-auth, corpo ids-only. **Fase de maior risco** | DISPATCH-01, DISPATCH-02, DISPATCH-03, DISPATCH-04 |
-| 40 — Timeline de Prazo no Painel | `DashboardCandidatoPage` mostra em cada estado de espera a estimativa de prazo da etapa (lê `config_sla_etapa`), enquadrada como estimativa, nunca countdown. Independente do push — paralelizável | TIMELINE-02 |
-| 41 — Reconciliação, Retry & Testing | EF webhook Resend (Svix) atualiza status por `provider_message_id` + varredura `pg_cron` de `pendente`/`falhou` (cap) + state machine `pendente→enviado→entregue/falhou/bounce` + CI sender mockado (sem chave viva) + UAT via `*@resend.dev`. Fecha o fire-and-forget; último | RECON-01, RECON-02, RECON-03 |
+| 42 — Inventário, Gates & Fila Art. 20 | O RH vê e responde os pedidos de revisão que hoje gravam um timestamp que ninguém lê; e o mapa do que existe (PII coluna-a-coluna, PITR/Storage-sem-backup, diff dos crons vivos, varredura `ADD COLUMN IF NOT EXISTS`) vira fato datado **antes** de qualquer linha destrutiva. Inclui a consulta "quantos pedidos já estão pendentes em PROD hoje", entregue antes de qualquer tela | INVENT-01..05, REVISAO-01..06 (11) |
+| 43 — Consentimentos Honestos & Política de Retenção | Todo checkbox ganha consequência real (desmarcado por padrão, versão+hash+timestamp do texto aceito, transacional separado de marketing com opt-out honrado, click tracking desligado) e a janela de retenção existe como config alterável sem deploy + prévia read-only. **Zero ação destrutiva por desenho** | CONSENT-01..06, RETEN-01/02/03/04/06 (11) |
+| 44 — Exportação & Acesso | Candidato pede cópia dos dados pelo painel; JSON por allowlist explícita (nunca `select('*')`), CV por signed URL de TTL curto, chaves cobertas por snapshot test, prazo Art. 19 II (15 dias) visível ao RH. O inventário nasce aqui **exercitado**, e a Phase 45 o consome | EXPORT-01..06 (6) |
+| 45 — Motor de Exclusão & Anonimização ⚠️ **MAIOR RISCO** | "Retirar candidatura" ≠ "apagar meus dados"; janela de arrependimento cancelável; execução `Storage → Postgres → Auth` idempotente com caminhos capturados antes da 1ª mutação; tombstone in-place via RPC DEFINER; recibo honesto em 2 colunas. **Snapshot de bias com faixa etária materializada ANTES de qualquer anonimização**; as 3 FKs `NO ACTION` nunca relaxadas; as 5 tabelas `SET NULL` tratadas | ERASE-01..10 (10) |
+| 46 — Purga Automática (dry-run → live) | Cron espelhando `notif-retry-sweep`; dry-run pela MESMA query do delete real em rollback; 1ª ativação em PROD é dry-run por período documentado; flip dry-run→live como checkpoint separado (espelho do `NOTIFICACOES_MODO`); cap de blast-radius + kill switch; predicado NULL-safe por allowlist de estados terminais; ledger de execuções + retenção de `notificacoes_enviadas` | PURGA-01..07, RETEN-05 (8) |
+| 47 — Transparência & Consolidação | Página pública de compartilhamento (Art. 18 VII) + "o que guardamos e por quê" derivada da matriz como **dado**; `ator` UUID → nome do recrutador (W-1); zumbi `data_deletion_log` resolvido; checklist "toda promessa de retenção/exclusão tem código que a executa"; veredito Nyquist das 6 fases do M7 | TRANSP-01/02, CONSOL-01..04 (6) |
 
-Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LEDGER-03 (candidato-DENY, P37) + DISPATCH-04 (self-auth, P39) aterrissam antes da única superfície candidato-facing (P40, que lê só `config_sla_etapa` non-PII). **Phase 39 é a de maior risco** (colisão de double-send resolvida por DROP-and-CREATE no mesmo phase). Fases candidatas a `/gsd-secure-phase`: **37** (RLS candidato-DENY do ledger) e **39** (rewire de triggers + self-auth). UI hint: **Phase 40** (única frontend — email HTML da P38 é backend EF, não `/gsd:ui-phase`).
+Coverage: **52/52 requirements mapeados ✓ · 0 órfãos · 0 duplicados.**
+
+**Fase de maior risco: 45.** Mutação de três sistemas genuinamente **não-atômica** (Storage → Postgres → Auth), **sem transação compartilhada**, sobre PII viva, com backups do Supabase de 7 dias que **excluem Storage inteiramente** — um CV apagado é irrecuperável por qualquer meio.
+
+**Portão de fase destrutiva (exit criterion de ROADMAP, não conselho):** fases **45** e **46** integralmente, **42** só em INVENT-05 (edita predicado de `DELETE` cron vivo) e **47** só em CONSOL-03 (`DROP` de tabela com escritor vivo). Exige: `VERIFICATION.md` com veredito (nunca ausente/`draft`) · code review bloqueante **antes** do apply em PROD · asserções **negativas** (o que NÃO aconteceu) · **zero `--no-verify`** · dry-run/rollback exercitado pela mesma query do delete real. Origem: a P39 fechou sem VERIFICATION.md nem code review e 2 CRITICAL chegaram a PROD.
+
+Candidatas a `/gsd-secure-phase`: **45** e **46** (obrigatórias) · **44** (superfície de exfiltração de PII por desenho) · **42** (autorização server-enforced REVISAO-05 + EF nova `notificar-rh`).
+UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação no painel), **44** (pedido de cópia), **45** (fluxo de exclusão — mais forte candidata a `/gsd-ui-phase`: ambiguidade de copy vira ação irreversível), **47** (2 páginas públicas + Histórico). **46** não é frontend.
+
+⚠ **Risco nomeado na Phase 42:** REVISAO-04 exige **uma edição cirúrgica na EF `notificar-candidato` viva** (vocabulário de evento fechado em código **e** em CHECK constraint no banco) — **o mesmo arquivo que já embarcou 2 defeitos CRÍTICOS em produção** (P39 CR-01/CR-02) e cujo W-01 (preheader não ramificado) era invisível a asserções que olham só o texto visível.
 
 ## Performance Metrics
 
 **Velocity (histórico de milestones):**
 
-- M1 (v1.0): 7 fases / 40 plans — 2026-06-06. · M2 (v2.0): 11 fases / 63 plans — 2026-06-26. · Phase 17 standalone: 5 plans — 2026-06-28. · M3 (v3.0): 4 fases / 16 plans — 2026-06-30. · M4 (v4.0): 6 fases / 43 plans — 2026-07-13. · M5 (v5.0): 3 fases / 19 plans — 2026-07-14. · M6 (v6.0): 5 fases / 20 plans — 2026-07-17.
-- Ledger detalhado por plano arquivado em `milestones/v*.0-*` e nos SUMMARY de cada fase.
+- M1 (v1.0): 7 fases / 40 plans — 2026-06-06. · M2 (v2.0): 11 fases / 63 plans — 2026-06-26. · Phase 17 standalone: 5 plans — 2026-06-28. · M3 (v3.0): 4 fases / 16 plans — 2026-06-30. · M4 (v4.0): 6 fases / 43 plans — 2026-07-13. · M5 (v5.0): 3 fases / 19 plans — 2026-07-14. · M6 (v6.0): 5 fases / 20 plans — 2026-07-17. · **M7 (v7.0): 6 fases / 25 plans — 2026-07-28.**
+- Ledger detalhado por plano arquivado em `milestones/v*.0-*` e nos SUMMARY de cada fase. O ledger por plano do M7 está em `milestones/v7.0-*`.
 
-**By Phase (M7):**
+**By Phase (M8):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 36 | 5 of 5 | 73min | ~15min |
-| 37 | 5 of 5 ✅ | ~45min (37-02/03/05; 37-01 e 37-04 foram checkpoints MCP do orquestrador) | ~15min |
-| 38 | TBD | - | - |
-| 39 | 0 of 4 planejados/verificados | - | - (Wave 1 executável; Wave 2 gated) |
-| 40 | TBD | - | - |
-| 41 | TBD | - | - |
+| 42 | TBD | - | - |
+| 43 | TBD | - | - |
+| 44 | TBD | - | - |
+| 45 | TBD | - | - |
+| 46 | TBD | - | - |
+| 47 | TBD | - | - |
 
 *Updated after each plan completion.*
 
-**Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files. · 36-02 — 22min · 3 tasks · 3 files. · 36-03 — 24min · 3 tasks · 3 files.
-| Phase 36 P02 | 22min | 3 tasks | 3 files |
-| Phase 36 P03 | 24min | 3 tasks | 3 files |
-| Phase 36 P04 | 8min | 3 tasks | 2 files |
-| Phase 36 P05 | 6min | 2 tasks | 1 files |
-| Phase 37 P02 | 24min | 3 tasks | 3 files |
-| Phase 37 P03 | 12min | 2 tasks | 2 files |
-| Phase 37 P05 | 9min | 2 tasks | 2 files |
-| Phase 41 P01 | 20min | 2 tasks | 5 files |
-| Phase 41 P02 | 18min | 2 tasks | 4 files |
-| Phase 41 P03 | 6min | 2 tasks | 2 files |
-| Phase 41 P04 | 10min | 2 tasks | 2 files |
+**Por plano (M8):** _(vazio — nenhum plano do M8 executado)_
 
 ## Accumulated Context
 
 ### Decisions
 
-Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integration, security-first, reuse-and-clone):
+Log completo em PROJECT.md Key Decisions.
+
+**Ancorando o M8 (LGPD-OPS) — decisões de roadmap tomadas em 2026-07-29:**
+
+- [M8/roadmap]: **6 fases (42–47), numeração continuando do M7** (que terminou na 41). 52/52 requirements mapeados, 0 órfãos, 0 duplicados. Ordem `42 → 43 → 44 → 45 → 46`, com **47 ∥ 46**.
+- [M8/roadmap · desvio da pesquisa]: **CONSENT ficou íntegro na Phase 43** em vez de dividido (01/02 na 42, 03–06 na 43) como a pesquisa propôs. Razão: CONSENT-02 grava o **hash do texto** que CONSENT-03 **reescreve** — separá-los faria a versão 1 do texto embarcar já sabendo que seria superada uma fase depois, com 2 migrations e 2 edições da EF de cadastro sobre o mesmo formulário. Além disso INVENT-04 (varredura `ADD COLUMN IF NOT EXISTS`) fica **antes** da migration que adiciona colunas a `candidatos` — a tabela exata onde o drift de FK vive.
+- [M8/roadmap · lacuna de cobertura da pesquisa]: **TRANSP-01/02 não aparecia em nenhuma fase** da proposta de 6 fases da pesquisa. Mapeados à **Phase 47** — TRANSP-02 tem de descrever o que o sistema **faz**, não o que promete, e pareado com CONSOL-04 (checklist "toda promessa tem código") a página pública e a auditoria se checam mutuamente.
+- [M8/roadmap]: **RETEN-05** (retenção de `notificacoes_enviadas`) mapeado à **Phase 46**, não à 43. A *linha* na matriz nasce na 43, mas o requirement diz "definida **e aplicada**", e a aplicação é `DELETE` por cron — pôr um cron destrutivo na 43 quebraria a propriedade *zero-ação-destrutiva* que torna aquela fase segura de executar cedo.
+- [M8/roadmap · **portão de fase destrutiva**]: adotado como **exit criterion de ROADMAP**, não conselho em prosa. Toda fase que escreva `DELETE`/`UPDATE` destrutivo, altere predicado de purga vivo, ou faça `DROP` de objeto com escritor vivo só fecha com: `VERIFICATION.md` **com veredito** (nunca ausente/`draft`) · code review bloqueante **antes** do apply em PROD · **asserções negativas** (o que NÃO aconteceu) · **zero `--no-verify`** · dry-run pela **mesma query** do delete real em rollback. Aplica-se a **45** e **46** integralmente, a **42** só em INVENT-05, a **47** só em CONSOL-03. **Origem:** a P39 fechou sem VERIFICATION.md nem code review e 2 CRITICAL chegaram a PROD — aqui a feature central é **irreversível** e o mesmo erro não é recuperável.
+- [M8/roadmap]: **Phase 45 é a de maior risco** — mutação de 3 sistemas não-atômica sem transação compartilhada, sobre PII viva, com backup de 7 dias que **exclui Storage inteiramente**. `DELETE FROM storage.objects` via SQL órfã o blob permanentemente; o único caminho é a Storage Admin API a partir de EF.
+- [M8/ambiente]: **subagentes GSD não recebem os tools MCP do Supabase** — toda migration, inspeção PROD e deploy de EF é checkpoint do orquestrador. **As 6 fases carregam trabalho de DB ou EF**, então isso é premissa de planejamento de wave, não descoberta de meio de fase.
+- [M8/stack]: **zero npm novo, zero extensão nova.** `pg_cron` 1.6.4 · `pg_net` 0.19.5 · `pgcrypto` 1.3 · `supabase_vault` 0.3.1 vivas e versionadas. `anon` **ausente do catálogo** (não-instalável) → o primitivo de anonimização é tombstone `UPDATE` in-place via RPC `SECURITY DEFINER`.
+- [M8/fonte de verdade]: **`.planning/research/FK-AUDIT-LIVE.md` tem precedência** sobre `STACK.md`/`ARCHITECTURE.md` em qualquer questão de `ON DELETE` ou estado de schema — aqueles leram arquivos de migration, aquele é `pg_constraint`.
+
+**Herdadas do M7 (additive integration, security-first, reuse-and-clone) — seguem válidas:**
+
 
 - [M4/Phase 24 · SEC-03]: `20260706110005_sec03_n8n_serverside.sql` deixou 3 triggers `AFTER` com `net.http_post` (pg_net) + Vault secret `n8n_webhook_base` **dormentes** (graceful-skip `RETURN NEW`, secret nunca criado). O M7/Phase 39 **remove (DROP)** esses triggers no MESMO phase que cria os novos → aposenta o n8n, resolve **SEC-03 por substituição** (não patch). ⚠ há triggers n8n adicionais além dos 3 (`20260712100004_n8n_novo_candidato.sql`) — a P39 diffa os corpos vivos antes de qualquer DROP/CREATE.
 - [M2/Phase 10 · reuse]: EFs privilegiadas = self-auth Bearer via Vault + `--no-verify-jwt` (mirror `analise-candidato-individual`) — base direta da EF `notificar-candidato` (COMM-01) e do hop trigger→EF (DISPATCH-04). Ver [[reference_ef_authenticate_vs_authorize]].
@@ -209,10 +224,16 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-28
-Stopped at: **M7 funcionalmente completo.** Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall em toda a árvore, integridade do lock batendo 1:1 com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido); (6) cron `notif-retry-sweep` ativo e varredura provada como no-op seguro; (7) **Fernando registrou o webhook + provisionou o `resend_webhook_secret`**; (8) **reconciliação provada END-TO-END** — webhook assinado real → `enviado→entregue→bounce` por `provider_message_id`, forjados/replays em 400, assinatura computada dentro do Postgres (segredo nunca saiu do banco), linha de teste removida (ledger 0). Restam só itens humanos: DELIV-01 (`verified` no Resend), 2 UATs comportamentais da P39, cleanup do n8n cloud.
+Last session: 2026-07-29
+Stopped at: **ROADMAP do M8 escrito.** Requirements do v8.0 (52, 9 categorias) mapeados a **6 fases, 42–47**, com **52/52 cobertos e 0 órfãos**. Ordem `42 → 43 → 44 → 45 → 46`, com **47 ∥ 46**. As 4 restrições irreversíveis foram verificadas contra o mapeamento (snapshot de bias antes de anonimizar · Storage antes do Auth · CONSENT-02 dentro do milestone · EXPORT antes de ERASE). Adotado como **exit criterion de roadmap** um "portão de fase destrutiva" (VERIFICATION.md com veredito · code review bloqueante antes do apply · asserções negativas · zero `--no-verify` · dry-run pela mesma query), derivado diretamente do achado de processo da P39. **Phase 45 nomeada como a de maior risco.** Sessão anterior (2026-07-28) fechou o M7 com o pipeline COMM provado por execução em produção.
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+1. **Revisar o ROADMAP** (`.planning/ROADMAP.md`) — em especial o desvio deliberado em relação à proposta da pesquisa: CONSENT ficou íntegro na Phase 43 em vez de dividido entre 42 e 43, e **TRANSP-01/02 (que a proposta de 6 fases da pesquisa deixou sem fase) foi mapeado à Phase 47**.
+2. `/gsd-plan-phase 42` para começar. A Phase 42 é read-only exceto por INVENT-05.
+3. **Decisões de negócio que a pesquisa escalou e que ainda não têm resposta** — nenhuma bloqueia a Phase 42, mas todas precisam estar respondidas antes da fase indicada:
+   - **BD-1 (Phase 43):** o número dentro de [0, 2 anos] por estado da candidatura. O teto de 2 anos já é contratual (copy do cadastro); a decisão remanescente é o número, e ela precisa de advogado trabalhista, não de mais pesquisa.
+   - **BD-2/BD-3 (Phase 43):** honrar ou remover `autorizacao_comunicacao`; manter ou reescrever o rótulo "revisão por pessoa natural".
+   - **BD-9 + PITR (Phase 45, ambas antes de qualquer código destrutivo):** redigir ou preservar a justificativa ≥50 caracteres do recrutador em `decisao_final`; e **status do PITR como fato datado** — ligar é decisão de gasto, e Storage não tem backup **independente** do PITR.
+   - **Janela de arrependimento (Phase 45):** número de dias.

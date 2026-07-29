@@ -142,17 +142,94 @@
 
 ## Traceability
 
-Preenchida durante a criação do roadmap.
+Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de execução `42 → 43 → 44 → 45 → 46`, com **47 lateralmente paralelizável com 46**.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| _(pendente)_ | | |
+| INVENT-01 | Phase 42 | Pending |
+| INVENT-02 | Phase 42 | Pending |
+| INVENT-03 | Phase 42 | Pending |
+| INVENT-04 | Phase 42 | Pending |
+| INVENT-05 | Phase 42 | Pending |
+| REVISAO-01 | Phase 42 | Pending |
+| REVISAO-02 | Phase 42 | Pending |
+| REVISAO-03 | Phase 42 | Pending |
+| REVISAO-04 | Phase 42 | Pending |
+| REVISAO-05 | Phase 42 | Pending |
+| REVISAO-06 | Phase 42 | Pending |
+| CONSENT-01 | Phase 43 | Pending |
+| CONSENT-02 | Phase 43 | Pending |
+| CONSENT-03 | Phase 43 | Pending |
+| CONSENT-04 | Phase 43 | Pending |
+| CONSENT-05 | Phase 43 | Pending |
+| CONSENT-06 | Phase 43 | Pending |
+| RETEN-01 | Phase 43 | Pending |
+| RETEN-02 | Phase 43 | Pending |
+| RETEN-03 | Phase 43 | Pending |
+| RETEN-04 | Phase 43 | Pending |
+| RETEN-05 | Phase 46 | Pending |
+| RETEN-06 | Phase 43 | Pending |
+| EXPORT-01 | Phase 44 | Pending |
+| EXPORT-02 | Phase 44 | Pending |
+| EXPORT-03 | Phase 44 | Pending |
+| EXPORT-04 | Phase 44 | Pending |
+| EXPORT-05 | Phase 44 | Pending |
+| EXPORT-06 | Phase 44 | Pending |
+| ERASE-01 | Phase 45 | Pending |
+| ERASE-02 | Phase 45 | Pending |
+| ERASE-03 | Phase 45 | Pending |
+| ERASE-04 | Phase 45 | Pending |
+| ERASE-05 | Phase 45 | Pending |
+| ERASE-06 | Phase 45 | Pending |
+| ERASE-07 | Phase 45 | Pending |
+| ERASE-08 | Phase 45 | Pending |
+| ERASE-09 | Phase 45 | Pending |
+| ERASE-10 | Phase 45 | Pending |
+| PURGA-01 | Phase 46 | Pending |
+| PURGA-02 | Phase 46 | Pending |
+| PURGA-03 | Phase 46 | Pending |
+| PURGA-04 | Phase 46 | Pending |
+| PURGA-05 | Phase 46 | Pending |
+| PURGA-06 | Phase 46 | Pending |
+| PURGA-07 | Phase 46 | Pending |
+| TRANSP-01 | Phase 47 | Pending |
+| TRANSP-02 | Phase 47 | Pending |
+| CONSOL-01 | Phase 47 | Pending |
+| CONSOL-02 | Phase 47 | Pending |
+| CONSOL-03 | Phase 47 | Pending |
+| CONSOL-04 | Phase 47 | Pending |
 
 **Coverage:**
 - v8.0 requirements: **52** total (INVENT 5 · REVISAO 6 · CONSENT 6 · RETEN 6 · EXPORT 6 · ERASE 10 · PURGA 7 · TRANSP 2 · CONSOL 4)
-- Mapeados a fases: 0
-- Não mapeados: 52 ⚠ (preenchido pelo roadmapper)
+- Mapeados a fases: **52** ✓
+- Não mapeados: **0** ✓
+- Duplicados (requirement em mais de uma fase): **0** ✓
+
+**Por fase:**
+
+| Phase | Nome | Reqs | Categorias |
+|-------|------|------|------------|
+| 42 | Inventário, Gates & Fila Art. 20 | 11 | INVENT (5) + REVISAO (6) |
+| 43 | Consentimentos Honestos & Política de Retenção | 11 | CONSENT (6) + RETEN (5 de 6) |
+| 44 | Exportação & Acesso | 6 | EXPORT (6) |
+| 45 | Motor de Exclusão & Anonimização ⚠️ | 10 | ERASE (10) |
+| 46 | Purga Automática (dry-run → live) | 8 | PURGA (7) + RETEN-05 |
+| 47 | Transparência & Consolidação | 6 | TRANSP (2) + CONSOL (4) |
+
+**Duas categorias atravessam fronteira de fase — deliberadamente:**
+
+- **RETEN-05** (retenção de `notificacoes_enviadas`) fica na **Phase 46**, não na 43. A *linha* na matriz de retenção nasce com RETEN-01 na Phase 43, mas o requirement diz "definida **e aplicada**" — e a aplicação é um `DELETE` por cron. Pôr um cron destrutivo na Phase 43 quebraria a propriedade que define aquela fase (*zero ação destrutiva*), que é justamente o que a torna segura de executar cedo.
+- **TRANSP** fica na **Phase 47**, não na 43. TRANSP-02 ("o que guardamos e por quê") tem de descrever o que o sistema **faz**, não o que promete. Escrita na 43 descreveria intenção — exatamente o teatro de compliance que este milestone existe para remover. Pareada com CONSOL-04 (checklist "toda promessa tem código que a executa"), a página pública e a auditoria se checam mutuamente.
+
+**Restrições de ordenação — verificação de conformidade do mapeamento:**
+
+| # | Restrição | Satisfeita? |
+|---|-----------|-------------|
+| 1 | ERASE-01 antes de qualquer anonimização | ✓ intra-fase (Phase 45, primeira wave, must-have de plano) |
+| 2 | Storage antes do Auth `deleteUser` (ERASE-03) | ✓ intra-fase (Phase 45, ordem fixa) |
+| 3 | CONSENT-02 embarca neste milestone | ✓ Phase 43 (2ª de 6), antes de EXPORT e ERASE |
+| 4 | EXPORT completo antes do motor de exclusão | ✓ Phase 44 → Phase 45, cadeia estrita |
 
 ---
 *Requirements definidos: 2026-07-29*
-*Última atualização: 2026-07-29 — definição inicial do M8*
+*Última atualização: 2026-07-29 — traceability preenchida pelo roadmapper (52/52 mapeados, 0 órfãos)*
