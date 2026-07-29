@@ -1,7 +1,7 @@
 ---
 phase: 42
 slug: invent-rio-gates-fila-art-20
-status: draft
+status: approved
 shadcn_initialized: true
 preset: existing project install (shadcn/ui + Radix; tokens in src/styles/globals.css; primitives vendored in src/components/ui/ since M1)
 created: 2026-07-29
@@ -450,22 +450,56 @@ nominal do revisor.
 
 ## UI Considerations
 
-Applicable state considerations resolved: **11 covered, 1 backstop, 0 unresolved**.
+Derivado do `ui-consideration-probe` com **`elements` autorados** (ver nota metodológica ao final
+da seção). Cobertura: **29 aplicáveis · 29 resolvidas · 0 não resolvidas** — 28 explícitas, 1 backstop.
 
-| Category | Element(s) | Status | Resolution / Reason |
-|----------|------------|--------|---------------------|
-| empty | fila-revisoes (list-collection) | ✅ covered | Dois vazios distintos conforme o toggle — copy em §Copywriting (pendentes vs. registrados). Nunca o vazio genérico do `AsyncState` |
-| loading | fila-revisoes + contador da sidebar | ✅ covered | Skeleton do `AsyncState` na tabela; o badge da sidebar fica **oculto** durante o carregamento (nunca renderiza `0` nem `—`) |
-| error | leitura da fila | ✅ covered | Estado de erro do `AsyncState` com copy própria + retry; nunca ecoa erro cru de transporte |
-| error | recusa do servidor no guard REVISAO-05 | ✅ covered | Alerta inline destructive dentro do diálogo, diálogo permanece aberto, texto preservado, sem retry oferecido — copy verbatim em §Copywriting |
-| populated | linha da fila | ✅ covered | As 6 colunas travadas no CONTEXT + coluna de ação; ordem do servidor (mais antigo primeiro) |
-| partial | linhas respondidas com o toggle ligado | ✅ covered | `VereditoBadge` neutro + célula de espera neutra (`Respondida em {n}d`) + meta com data e nome; sem faixa colorida em item fechado |
-| partial | "quem decidiu" sem correspondência em `usuarios_rh` | ✅ covered | Renderiza **Não identificado**; UUID nunca chega à tela (invariante 4) |
-| partial | config de limiar ausente/ilegível | ✅ covered | Faixa degenerada: contagem de dias neutra, sem badge; classificador puro e total, nunca lança |
-| overflow | fila com muitas linhas | 🧪 backstop | Sem paginação no v1 (o REVISAO-06 mede o backlog vivo **antes** de qualquer tela). Header sticky + `max-h-[70vh] overflow-y-auto`; leitura com `LIMIT 200` e aviso de corte quando atingido. Teste de estado visual com 60 linhas sintéticas + 1 caso no cap |
-| zero-one-many | contador de pendentes na sidebar | ✅ covered | `0` → oculto · `1..99` → exato · `>99` → `99+` |
-| long-text | justificativa (diálogo RH e página do candidato) | ✅ covered | `textarea` com contador e `maxLength={2000}` (guarda de UI; o servidor exige apenas o mínimo de 50). No candidato: 16px/1.5, `whitespace-pre-wrap`, **nunca truncada** |
-| long-text | nome do candidato / título da vaga na tabela | ✅ covered | `truncate` com largura máxima por coluna + atributo `title` com o texto completo |
+Elementos sondados: **E1** `FilaRevisoesTable` (list-collection · interactive-control ·
+static-content) · **E2** `RevisaoSlaBadge` (static-content) · **E3** `ResponderRevisaoDialog`
+(form · interactive-control) · **E4** contador da `RHSidebar` (nav · list-collection ·
+static-content) · **E5** bloco de resultado do candidato (static-content) · **E6** botão
+desabilitado do guard (interactive-control) · **E7** `SolicitarRevisaoCTA` (interactive-control) ·
+**E8** `VereditoBadge` (static-content).
+
+| # | Elemento | Category | Status | Resolution / Reason |
+|---|----------|----------|--------|---------------------|
+| E1 | Fila `/rh/revisoes` | empty | ✅ covered | Dois vazios distintos conforme o toggle: sem pendentes vs. sem registrados. Copy própria em §Copywriting, nunca o vazio genérico do `AsyncState` |
+| E1 | Fila | loading | ✅ covered | Skeleton do `AsyncState` na tabela |
+| E1 | Fila | error | ✅ covered | Estado de erro do `AsyncState` com copy própria + retry; nunca ecoa erro cru de transporte |
+| E1 | Fila | populated | ✅ covered | 7 colunas (as 6 travadas no CONTEXT + ação), ordem vinda do servidor, mais antigo primeiro |
+| E1 | Fila | partial | ✅ covered | Três casos parciais nomeados: linha respondida com toggle ligado (`VereditoBadge` neutro, sem faixa colorida); "quem decidiu" sem correspondência em `usuarios_rh` → **Não identificado**, UUID nunca chega à tela (invariante 4); config de limiar ausente → faixa degenerada |
+| E1 | Fila | overflow | 🧪 backstop | Sem paginação no v1. Header sticky + `max-h-[70vh] overflow-y-auto`; leitura com `LIMIT 200` e aviso de corte ao atingir o cap. **Backstop:** teste de estado visual com 60 linhas sintéticas + 1 caso no cap. O REVISAO-06 mede o backlog vivo em PROD **antes** de qualquer tela, então o dimensionamento não é chute |
+| E1 | Fila | zero-one-many | ✅ covered | Zero → vazio próprio por toggle; um → linha única sem tratamento especial; muitos → scroll interno com header sticky, cap em 200 |
+| E1 | Fila | long-text | ✅ covered | Nome do candidato e título da vaga com `truncate` + largura máxima por coluna + atributo `title` com o texto completo |
+| E2 | `RevisaoSlaBadge` | overflow | ✅ covered | Rótulo de faixa é curto e fixo (dias em espera); sem overflow possível no badge |
+| E2 | `RevisaoSlaBadge` | long-text | ✅ covered | Conteúdo numérico limitado à contagem de dias; sem texto livre. Faixa degenerada mostra a contagem neutra sem badge quando a config é ilegível — classificador puro e total, nunca lança |
+| E3 | Diálogo de resposta | empty | ✅ covered | Formulário abre vazio: nenhum veredito pré-selecionado, textarea vazia. Submit bloqueado até veredito escolhido **e** justificativa ≥50 chars |
+| E3 | Diálogo | loading | ✅ covered | Botão de submit em estado pendente durante a mutation; diálogo não fecha até a RPC responder |
+| E3 | Diálogo | error | ✅ covered | Dois erros distintos: recusa do guard REVISAO-05 (alerta inline destructive, diálogo permanece aberto, texto preservado, **sem retry oferecido**) e erro genérico. `RevisaoError.code` distingue `GUARD_DECISOR` de `VALIDACAO` e `DESCONHECIDO` |
+| E3 | Diálogo | partial | ✅ covered | Veredito escolhido sem justificativa suficiente: contador mostra o déficit e o submit fica bloqueado; a validação Zod espelha o mínimo de 50 do servidor |
+| E3 | Diálogo | long-text | ✅ covered | `textarea` com `maxLength={2000}` como guarda de UI (o servidor exige só o mínimo de 50) + contador visível |
+| E4 | Contador da sidebar | empty | ✅ covered | Zero pendentes → badge **oculto** por completo. Nunca renderiza `0` |
+| E4 | Contador | loading | ✅ covered | Durante o carregamento o badge fica **oculto** — nunca `0`, nunca `—`, nunca esqueleto no menu |
+| E4 | Contador | error | ✅ covered | Falha na leitura → badge oculto. Um contador errado no menu é pior que contador nenhum; o item de menu continua acessível |
+| E4 | Contador | populated | ✅ covered | 1 a 99 → número exato ao lado do item `revisoes-rh` |
+| E4 | Contador | partial | ✅ covered | Não há estado parcial: a contagem é um escalar único, presente ou ausente |
+| E4 | Contador | overflow | ✅ covered | Acima de 99 → `99+`, largura do badge permanece fixa |
+| E4 | Contador | zero-one-many | ✅ covered | `0` oculto · `1..99` exato · `>99` → `99+`. Sem copy singular/plural no badge (só número), então não há concordância a errar |
+| E4 | Contador | long-text | ✅ covered | Conteúdo limitado a no máximo 3 caracteres (`99+`) |
+| E5 | Bloco do candidato | overflow | ✅ covered | Bloco cresce verticalmente com a justificativa; sem altura fixa e sem scroll interno |
+| E5 | Bloco do candidato | long-text | ✅ covered | Justificativa a 16px/1.5 com `whitespace-pre-wrap` e **nunca truncada** — truncar a justificativa da revisão esvaziaria o próprio direito do Art. 20 |
+| E6 | Botão barrado pelo guard | long-text | ✅ covered | Motivo do bloqueio em **texto visível** curto e fixo (não só tooltip, por acessibilidade). Copy proibida de prometer exceção, liberação ou sobreposição |
+| E7 | `SolicitarRevisaoCTA` | long-text | ✅ covered | Três estados de rótulo curtos e fixos (disponível, já solicitada, respondida); sem interpolação de texto livre |
+| E8 | `VereditoBadge` | overflow | ✅ covered | Vocabulário fechado de dois valores (`Mantida` / `Revertida`); largura previsível |
+| E8 | `VereditoBadge` | long-text | ✅ covered | Vocabulário fechado, sem texto livre |
+
+> **Nota metodológica — por que os `elements` foram autorados, e não classificados da prosa.**
+> O classificador do probe usa cues **em inglês** (`tables?`, `buttons?`, `forms?`, `lists?`). A
+> prosa deste projeto é pt-BR, então `tabela`, `botão` e `formulário` não casam com cue nenhum: a
+> primeira passada classificou a fila (uma tabela) com apenas `overflow` + `long-text`, deixou 4 dos
+> 8 elementos como `unclassified`, e deu tratamento de coleção ao `VereditoBadge` — que é estático —
+> só porque a palavra "linhas" apareceu na descrição. A cobertura resultante teria sido **falso
+> verde**. Os `elements` acima foram autorados explicitamente por isso. **Toda fase de frontend
+> deste projeto precisa autorar `elements`** — a classificação por prosa não é confiável em pt-BR.
 
 <!-- Status vocabulary (locked by probe-core projectTruths):
      ✅ covered   → a plain truth string lifted into must_haves.truths
@@ -504,11 +538,28 @@ reusados listados em §Design System.
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** APPROVED (gsd-ui-checker, revisão 2, 2026-07-29) — 6/6 dimensões, 0 issues bloqueantes.
+
+Histórico do loop de revisão:
+- **rev 0:** BLOCK em Dimension 1 (CTA genérico `Cancelar`); FLAG em Dimensions 2 e 4.
+- **rev 1:** Dimension 1 fechada (`Fechar sem registrar`, distinto do `Voltar` aninhado, com regra
+  escrita); Dimension 2 fechada (âncora visual declarada por tela). **BLOCK em Dimension 4** — a
+  tentativa de declarar `text-xs` como 5º tamanho *isento* foi rejeitada: uma cerca sobre *onde* um
+  5º tamanho aparece não muda *quantos* existem.
+- **rev 2:** Dimension 4 fechada pela correção real — o papel de 12px foi **eliminado**; eyebrows,
+  datas e metadados dobrados no papel de 14px já declarado. Conjunto final: **14/16/20/28, 4
+  tamanhos, 2 pesos**, contado mecanicamente pelo checker.
+
+**Consequência registrada (não é defeito, é o preço da regra ≤4):** a fila `/rh/revisoes` usará
+eyebrow de 14px enquanto telas de RH vizinhas usam 12px — a convenção dominante viva é 12px (17
+ocorrências de `text-xs uppercase` contra 3 de `text-sm`). O bloco do candidato **não** tem esse
+problema: `src/features/explicacao/` não contém `text-xs`, e `ExplicacaoCandidatoPage.tsx:141` já
+renderiza `text-sm ... uppercase tracking-wide`. O conflito de design system está rastreado em
+`.planning/todos/pending/ui-spec-text-xs-quinto-tamanho.md`.
