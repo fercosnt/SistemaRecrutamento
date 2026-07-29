@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v7.0
 milestone_name: M7 Comunicação com o Candidato (COMM)
-status: Awaiting next milestone
-stopped_at: "**M7 funcionalmente completo.** Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall em toda a árvore, integridade do lock batendo 1:1 com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido); (6) cron `notif-retry-sweep` ativo e varredura provada como no-op seguro; (7) **Fernando registrou o webhook + provisionou o `resend_webhook_secret`**; (8) **reconciliação provada END-TO-END** — webhook assinado real → `enviado→entregue→bounce` por `provider_message_id`, forjados/replays em 400, assinatura computada dentro do Postgres (segredo nunca saiu do banco), linha de teste removida (ledger 0). Restam só itens humanos: DELIV-01 (`verified` no Resend), 2 UATs comportamentais da P39, cleanup do n8n cloud."
-last_updated: "2026-07-28T05:22:42.855Z"
-last_activity: 2026-07-28
-last_activity_desc: Milestone v7.0 completed and archived
+status: "🚀 EM PRODUÇÃO desde 2026-07-29. O v7.0 foi arquivado e o go-live executado: NOTIFICACOES_MODO=producao, entregabilidade validada (Gmail e Outlook na inbox, SPF/DKIM/DMARC os três PASS), n8n cloud desativado e chave Resend duplicada revogada. O sistema de comunicação com o candidato está ATIVO. Aguardando próximo milestone."
+stopped_at: "Nada pendente. O v7.0 foi fechado, arquivado e o GO-LIVE executado em 2026-07-29 — o sistema de comunicação está ATIVO em produção. Único residual: confirmar click tracking desligado no dashboard do Resend (não verificável por API). Próximo passo natural: /gsd-new-milestone (fases a partir da 42)."
+last_updated: "2026-07-29"
+last_activity: 2026-07-29
+last_activity_desc: "v7.0 arquivado + GO-LIVE executado (produção ativa, UATs 36-1/36-3 passed, n8n desligado)"
 progress:
   total_phases: 6
   completed_phases: 6
@@ -26,10 +26,24 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: Milestone v7.0 complete
+Phase: Milestone v7.0 complete + **GO-LIVE EXECUTADO**
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-28 — Milestone v7.0 completed and archived
+Status: 🚀 **Sistema de comunicação ATIVO em produção.** Aguardando próximo milestone.
+Last activity: 2026-07-29 — go-live: modo produção armado, entregabilidade validada em Gmail+Outlook, limpezas de segurança concluídas
+
+> 🚀 **GO-LIVE 2026-07-29 — o candidato agora recebe e-mail de verdade.**
+> Executado pelo Fernando na ordem correta: (1) entregabilidade testada **por fora do
+> sistema** (envio direto pela API do Resend), isolando "o domínio entrega?" de "o sistema
+> está ligado?" — **Gmail e Outlook na Caixa de entrada, `SPF`/`DKIM`/`DMARC` os três
+> `PASS`**, remetente e Reply-To corretos; (2) `NOTIFICACOES_MODO=producao`; (3) prova do
+> caminho real com uma candidatura cujo candidato é o **próprio operador** —
+> `destinatario_email == destinatario_original` (sem desvio ao sink), `status=entregue`,
+> `ultimo_erro=null`; (4) limpeza verificada — ledger de volta a **0 linhas**, candidatura
+> restaurada. **Auditoria pós-flip: um único disparo em 36 h** (`net._http_response` id 68),
+> exatamente o teste — nenhum candidato real recebeu e-mail por acidente.
+> Também concluído: **n8n cloud desativado** (fecha o DISPATCH-03 na 3ª superfície) e a
+> **chave Resend duplicada revogada** do projeto Supabase errado.
+> ⚠️ Residual único: confirmar **click tracking** desligado no dashboard do Resend.
 
 ## Roadmap (M7 — Phases 36–41)
 

@@ -1,8 +1,33 @@
 # Próximos Passos — guia passo a passo (M7 / v7.0)
 
+> # ✅ CONCLUÍDO — 2026-07-29
+>
+> **As Partes 1, 2 e 3 foram executadas. O sistema está EM PRODUÇÃO.**
+>
+> | Parte | Resultado |
+> |---|---|
+> | 1 · Entregabilidade | ✅ Gmail e Outlook na **Caixa de entrada**; `SPF`/`DKIM`/`DMARC` os **três PASS**; remetente e Reply-To corretos |
+> | 2 · Go-live | ✅ `NOTIFICACOES_MODO=producao`; teste real entregue (`destinatario_email == destinatario_original`, `status=entregue`) |
+> | 3 · Limpezas | ✅ n8n cloud desativado · chave Resend duplicada revogada |
+>
+> **Auditoria pós-flip:** um único disparo em 36 h — o próprio teste. Nenhum candidato real
+> recebeu e-mail por acidente. Ledger limpo (0 linhas), candidatura de teste restaurada.
+>
+> **⚠️ Único residual:** confirmar em Resend → Domains → `rh.beautysmile.com.br` → Settings
+> que o **click tracking** está desligado (o checkbox ficou em branco no registro; open
+> tracking foi confirmado). Não é verificável por API.
+>
+> *Nota: a latência maior no Outlook é reputação de subdomínio novo, não defeito — tende a
+> normalizar com volume orgânico.*
+>
+> O texto abaixo fica como registro do procedimento executado.
+
+---
+
+
 **Criado:** 2026-07-28
 **Estado:** o pipeline de e-mail está vivo em produção e provado ponta-a-ponta, **mas em
-modo `teste`** — nenhum candidato real recebe e-mail ainda.
+modo** `teste` — nenhum candidato real recebe e-mail ainda.
 
 ---
 
@@ -27,26 +52,27 @@ Resend. Ninguém nunca recebeu um e-mail de verdade deste domínio. Se houver pr
 spam/reputação, é melhor descobrir mandando para você mesmo do que ligando o sistema.
 
 ---
+
 ---
 
 # PARTE 1 — Testar a caixa de entrada
 
 > Aqui você manda um e-mail **direto pela API do Resend**. Isso não passa pelo sistema, não
-> cria linha no banco, não afeta candidato nenhum. É só para responder: *"e-mail deste
-> domínio chega na inbox ou cai no spam?"*
+> cria linha no banco, não afeta candidato nenhum. É só para responder: _"e-mail deste
+> domínio chega na inbox ou cai no spam?"_
 
 ## Passo 1.1 — Pegar a chave da API
 
 A chave está guardada no Vault do Supabase.
 
-1. Abra https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new
+1. Abra [https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new](https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new)
 2. Cole e execute:
 
 ```sql
 select decrypted_secret from vault.decrypted_secrets where name = 'resend_api_key';
 ```
 
-3. Copie o valor que aparecer (começa com `re_`).
+1. Copie o valor que aparecer (começa com `re_`).
 
 > ⚠️ **Cuidado com essa chave.** Ela envia e-mail como Beauty Smile. Use só no terminal do
 > passo seguinte. **Não** cole em chat, não salve em arquivo, não commite. Depois de usar,
@@ -83,47 +109,61 @@ Abra o Gmail e procure o e-mail "Teste de entregabilidade — Beauty Smile".
 
 ### ✅ Checklist
 
-- [ ] **Onde chegou?** Tem que estar na **Caixa de entrada**.
-      Se estiver em **Spam** ou em **Promoções** com aviso de remetente suspeito → ⚠️ pare
-      e me chame.
+- [x] **Onde chegou?** Tem que estar na **Caixa de entrada**.
 
-- [ ] **Como aparece o remetente na lista?** Tem que mostrar **"Beauty Smile Recrutamento"**,
-      não o endereço cru `nao-responda@...`.
+  ```
+  Se estiver em **Spam** ou em **Promoções** com aviso de remetente suspeito → ⚠️ pare
+  e me chame.
+  ```
 
-- [ ] **Os cabeçalhos de autenticação.** Este é o item mais importante:
-      1. Abra o e-mail
-      2. Clique nos **três pontinhos ⋮** no canto superior direito da mensagem
-      3. Clique em **"Mostrar original"** (abre uma aba nova)
-      4. No topo aparece um quadro. Confirme os três:
+- [x] **Como aparece o remetente na lista?** Tem que mostrar **"Beauty Smile Recrutamento"**,
 
-      ```
-      SPF:    PASS
-      DKIM:   PASS
-      DMARC:  PASS
-      ```
+  ```
+  não o endereço cru `nao-responda@...`.
+  ```
 
-      Se algum vier `FAIL`, `SOFTFAIL` ou `NEUTRAL` → me chame com o print.
+- [x] **Os cabeçalhos de autenticação.** Este é o item mais importante:
 
-- [ ] **O Reply-To funciona.** Clique em **Responder**. O campo "Para" tem que preencher
-      automaticamente com **`rh@beautysmile.com.br`** (e não com `nao-responda@...`).
-      Pode mandar a resposta e conferir se chegou nessa caixa.
+  ```
+  1. Abra o e-mail
+  2. Clique nos **três pontinhos ⋮** no canto superior direito da mensagem
+  3. Clique em **"Mostrar original"** (abre uma aba nova)
+  4. No topo aparece um quadro. Confirme os três:
+
+  ```
+
+  SPF: PASS
+  DKIM: PASS
+  DMARC: PASS
+
+  ```
+
+  Se algum vier `FAIL`, `SOFTFAIL` ou `NEUTRAL` → me chame com o print.
+  ```
+
+- [x] **O Reply-To funciona.** Clique em **Responder**. O campo "Para" tem que preencher
+  ```
+  automaticamente com **`rh@beautysmile.com.br`** (e não com `nao-responda@...`).
+  Pode mandar a resposta e conferir se chegou nessa caixa.
+  ```
 
 ## Passo 1.4 — Conferir no Outlook/Hotmail
 
-- [ ] Chegou na **Caixa de entrada** (não em Lixo Eletrônico)
-- [ ] Remetente aparece como "Beauty Smile Recrutamento"
+- [x] Chegou na **Caixa de entrada** (não em Lixo Eletrônico)
+- [x] Remetente aparece como "Beauty Smile Recrutamento"
 
-*(O Outlook não mostra os cabeçalhos tão facilmente quanto o Gmail — se chegou na inbox,
-está bom.)*
+_(O Outlook não mostra os cabeçalhos tão facilmente quanto o Gmail — se chegou na inbox,
+está bom.)_
 
 ## Passo 1.5 — Desligar o rastreamento
 
-1. Abra https://resend.com/domains
-2. Clique em **`rh.beautysmile.com.br`**
+1. Abra [https://resend.com/domains](https://resend.com/domains)
+2. Clique em `rh.beautysmile.com.br`
 3. Procure **Settings** (ou a aba de configurações do domínio)
 4. Confirme que estão **DESLIGADOS**:
-   - [ ] **Open tracking** (rastreamento de abertura)
-   - [ ] **Click tracking** (rastreamento de cliques)
+
+- [x] **Open tracking** (rastreamento de abertura)
+      [ ] **Click tracking** (rastreamento de cliques)
 
 **Por que desligar:** o rastreamento reescreve os links do e-mail e injeta um pixel
 invisível. Isso (a) piora a reputação de entregabilidade, (b) é coleta de dado
@@ -139,6 +179,7 @@ SPF, DKIM e MX por `dig`, e o DMARC é herdado do domínio raiz), então uma fal
 reputação de domínio novo — o que se resolve com aquecimento gradual, não com configuração.
 
 ---
+
 ---
 
 # PARTE 2 — Ligar o modo produção
@@ -149,7 +190,7 @@ reputação de domínio novo — o que se resolve com aquecimento gradual, não 
 
 Se houver e-mails represados, a varredura automática dispara todos de uma vez ao ligar.
 
-1. Abra https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new
+1. Abra [https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new](https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/sql/new)
 2. Execute:
 
 ```sql
@@ -159,25 +200,30 @@ select count(*) as linhas, status::text
 ```
 
 - [ ] **Resultado esperado: nenhuma linha** (tabela vazia). Era 0 quando fechei o milestone.
+      o resultado foi esse:
+      | linhas | status |
+      | ------ | -------- |
+      | 1 | entregue |
+
 - Se aparecer alguma coisa com status `pendente` ou `falhou` → me chame antes de ligar.
 
 ## Passo 2.2 — Saber o que passa a ser real
 
 A partir do flip, **estes 4 eventos mandam e-mail para pessoas de verdade**:
 
-| Evento | Quando dispara |
-|---|---|
-| Confirmação de candidatura | **toda** submissão de candidatura |
-| Avanço para avaliação | candidatura vai para `avaliacao_assincrona` |
-| Convite de entrevista | agendamento criado (com anexo `.ics`) |
-| Decisão | aprovação **ou** recusa |
+| Evento                     | Quando dispara                              |
+| -------------------------- | ------------------------------------------- |
+| Confirmação de candidatura | **toda** submissão de candidatura           |
+| Avanço para avaliação      | candidatura vai para `avaliacao_assincrona` |
+| Convite de entrevista      | agendamento criado (com anexo `.ics`)       |
+| Decisão                    | aprovação **ou** recusa                     |
 
-- [ ] Li e entendi que isso passa a ser real
+- [x] Li e entendi que isso passa a ser real
 
 ## Passo 2.3 — Virar a chave
 
-1. Abra https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/settings/functions
-2. Ache o secret **`NOTIFICACOES_MODO`** (você criou hoje com o valor `teste`)
+1. Abra [https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/settings/functions](https://supabase.com/dashboard/project/isljnozzlvckrgjjbjwp/settings/functions)
+2. Ache o secret `NOTIFICACOES_MODO` (você criou hoje com o valor `teste`)
 3. Mude o valor para:
 
 ```
@@ -188,7 +234,7 @@ producao
 Qualquer outra coisa (`Produção`, `PROD`, `production`) cai de volta em `teste` — é
 proposital, ligar a produção tem que ser deliberado.
 
-4. Salve.
+1. Salve.
 
 > Não precisa fazer redeploy. A função lê esse valor a cada requisição.
 
@@ -225,23 +271,32 @@ select modo,
  where candidatura_id = '0f09fed1-e6ba-4a16-946f-81a979b98d68';
 ```
 
+resultado
+| modo | destinatario_email | destinatario_original | status | ultimo_erro |
+
+| -------- | --------------------------- | --------------------------- | -------- | ----------- |
+
+| producao | [fernando@beautysmile.com.br](mailto:fernando@beautysmile.com.br) | [fernando@beautysmile.com.br](mailto:fernando@beautysmile.com.br) | entregue | null |
+
 **✅ Deu certo se:**
 
-| Campo | Valor esperado |
-|---|---|
-| `modo` | **`producao`** |
-| `destinatario_email` | **`fernando@beautysmile.com.br`** |
+| Campo                   | Valor esperado                                   |
+| ----------------------- | ------------------------------------------------ |
+| `modo`                  | `producao`                                       |
+| `destinatario_email`    | `fernando@beautysmile.com.br`                    |
 | `destinatario_original` | `fernando@beautysmile.com.br` (igual ao de cima) |
-| `status` | `enviado` ou `entregue` |
-| `ultimo_erro` | vazio (`null`) |
+| `status`                | `enviado` ou `entregue`                          |
+| `ultimo_erro`           | vazio (`null`)                                   |
 
 **❌ Não pegou se:** `destinatario_email` ainda mostrar `delivered+...@resend.dev`.
 Nesse caso o secret não foi salvo — volte ao passo 2.3.
 
 ### Conferir na caixa
 
-- [ ] Chegou um e-mail em `fernando@beautysmile.com.br` com assunto
-      **"Sua candidatura avançou — [TESTE] Auxiliar de Saúde Bucal (ASB)"**
+- [x] Chegou um e-mail em `fernando@beautysmile.com.br` com assunto
+  ```
+  **"Sua candidatura avançou — [TESTE] Auxiliar de Saúde Bucal (ASB)"**
+  ```
 
 ### Limpar depois do teste
 
@@ -267,7 +322,7 @@ delete from public.historico_candidatura
    and criado_em::date = current_date;
 ```
 
-*(Voltar para `triagem` não dispara e-mail — o sistema só notifica avanço, convite e decisão.)*
+_(Voltar para_ `triagem` _não dispara e-mail — o sistema só notifica avanço, convite e decisão.)_
 
 ## Passo 2.5 — Se der errado: rollback
 
@@ -280,10 +335,10 @@ e-mail volta para o sandbox.
 
 Guardadas caso queira testar outros eventos:
 
-| ID | Vaga |
-|---|---|
+| ID                                     | Vaga                                      |
+| -------------------------------------- | ----------------------------------------- |
 | `04864650-61d9-4bb9-9ccf-083318319f98` | `[TESTE] Coordenador de Recursos Humanos` |
-| `387e91c0-cc39-4d7e-943f-f4de3fb01171` | `Dev Backend` |
+| `387e91c0-cc39-4d7e-943f-f4de3fb01171` | `Dev Backend`                             |
 
 Para testar o e-mail de **decisão/aprovação**, troque `avaliacao_assincrona` por `aprovado`
 no comando do passo 2.4. O assunto deve vir **"Boa notícia sobre sua candidatura"**.
@@ -292,6 +347,7 @@ no comando do passo 2.4. O assunto deve vir **"Boa notícia sobre sua candidatur
 > vale 24h no Resend também). Para repetir um teste, use outra candidatura da lista.
 
 ---
+
 ---
 
 # PARTE 3 — Duas limpezas de segurança
@@ -332,30 +388,31 @@ select vault.delete_secret('<cole-o-id-aqui>');
 projeto que ninguém acompanha. Se vazar, alguém manda e-mail se passando pela empresa.
 
 ---
+
 ---
 
 # ✅ O que já está pronto (não precisa verificar)
 
-| Item | Estado |
-|---|---|
-| Domínio `rh.beautysmile.com.br` | **Verified** no Resend |
-| DNS: SPF, DKIM, MX | Publicados, confirmados por `dig` |
-| DMARC | **Herdado do domínio raiz** (`p=quarantine`) — **não há DNS pendente** |
-| `resend_api_key` no Vault | ✅ |
-| `resend_webhook_secret` no Vault | ✅ (você provisionou) |
-| Webhook registrado no Resend | ✅ (delivered / bounced / complained) |
-| EF `notificar-candidato` | **v5** ACTIVE (com as correções CR-01, CR-02, W-01) |
-| EF `resend-webhook` | **v1** ACTIVE |
-| Migration `20260727000001` | Aplicada + ledger reconciliado + smoke 5/5 |
-| Cron de retry (15 em 15 min) | Ativo |
-| Gatilhos do n8n no banco | **0** (removidos) |
-| Tabela `notificacoes_enviadas` | 0 linhas (limpa) |
+| Item                             | Estado                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| Domínio `rh.beautysmile.com.br`  | **Verified** no Resend                                                 |
+| DNS: SPF, DKIM, MX               | Publicados, confirmados por `dig`                                      |
+| DMARC                            | **Herdado do domínio raiz** (`p=quarantine`) — **não há DNS pendente** |
+| `resend_api_key` no Vault        | ✅                                                                     |
+| `resend_webhook_secret` no Vault | ✅ (você provisionou)                                                  |
+| Webhook registrado no Resend     | ✅ (delivered / bounced / complained)                                  |
+| EF `notificar-candidato`         | **v5** ACTIVE (com as correções CR-01, CR-02, W-01)                    |
+| EF `resend-webhook`              | **v1** ACTIVE                                                          |
+| Migration `20260727000001`       | Aplicada + ledger reconciliado + smoke 5/5                             |
+| Cron de retry (15 em 15 min)     | Ativo                                                                  |
+| Gatilhos do n8n no banco         | **0** (removidos)                                                      |
+| Tabela `notificacoes_enviadas`   | 0 linhas (limpa)                                                       |
 
 ## Já provado em produção
 
 - Aprovação real → e-mail **"Boa notícia sobre sua candidatura"** com a cópia de aprovação,
-  sem nenhum traço da recusa *(o defeito crítico CR-01 está morto)*
-- Knockout → **zero e-mail**, zero linha no banco *(CR-02 morto)*
+  sem nenhum traço da recusa _(o defeito crítico CR-01 está morto)_
+- Knockout → **zero e-mail**, zero linha no banco _(CR-02 morto)_
 - Envio real → `enviado` → webhook do Resend → `entregue` em **5 segundos**
 - Webhook forjado, sem assinatura, ou replay → **400**, nenhuma escrita
 - Reenvio duplicado → bloqueado em **duas camadas** (nosso banco + idempotência do Resend)
@@ -364,14 +421,14 @@ projeto que ninguém acompanha. Se vazar, alguém manda e-mail se passando pela 
 
 # Débito opcional (nada bloqueia)
 
-| Item | Como resolver |
-|---|---|
-| Cobertura Nyquist | 4 fases em `draft`, 2 sem arquivo → `/gsd-validate-phase N` |
+| Item                                | Como resolver                                                  |
+| ----------------------------------- | -------------------------------------------------------------- |
+| Cobertura Nyquist                   | 4 fases em `draft`, 2 sem arquivo → `/gsd-validate-phase N`    |
 | `.husky/pre-commit` sempre vermelho | Baseline de 97 erros `tsc`; força `--no-verify` em todo commit |
-| 7 migrations órfãs no ledger | Drift pré-existente, causa nunca identificada |
-| W-1 | Histórico mostra UUID do recrutador em vez do nome |
-| DBMIG-01 · CC0-01 | Carregados de M4–M6 |
-| Rate-limit do Resend | Nunca medido (free: 100/dia, 3.000/mês, 10 req/s) |
+| 7 migrations órfãs no ledger        | Drift pré-existente, causa nunca identificada                  |
+| W-1                                 | Histórico mostra UUID do recrutador em vez do nome             |
+| DBMIG-01 · CC0-01                   | Carregados de M4–M6                                            |
+| Rate-limit do Resend                | Nunca medido (free: 100/dia, 3.000/mês, 10 req/s)              |
 
 Rastreados em `.planning/todos/pending/`.
 
@@ -391,11 +448,11 @@ export.
 
 # Referências
 
-| Documento | O quê |
-|---|---|
-| `.planning/milestones/v7.0-MILESTONE-AUDIT.md` | Auditoria completa, 21/21 requisitos |
+| Documento                                                  | O quê                                            |
+| ---------------------------------------------------------- | ------------------------------------------------ |
+| `.planning/milestones/v7.0-MILESTONE-AUDIT.md`             | Auditoria completa, 21/21 requisitos             |
 | `.planning/milestones/v7.0-phases/39-*/39-VERIFICATION.md` | Os 2 defeitos críticos e a prova de que fecharam |
-| `.planning/milestones/v7.0-phases/41-*/41-VERIFICATION.md` | Prova ponta-a-ponta do webhook |
-| `.planning/milestones/v7.0-phases/36-*/36-HUMAN-UAT.md` | UAT-36-1 original (teste de inbox) |
-| `.planning/RETROSPECTIVE.md` | Lições do ciclo |
-| `docs/runbooks/resend-dominio-envio.md` | Runbook do domínio de envio |
+| `.planning/milestones/v7.0-phases/41-*/41-VERIFICATION.md` | Prova ponta-a-ponta do webhook                   |
+| `.planning/milestones/v7.0-phases/36-*/36-HUMAN-UAT.md`    | UAT-36-1 original (teste de inbox)               |
+| `.planning/RETROSPECTIVE.md`                               | Lições do ciclo                                  |
+| `docs/runbooks/resend-dominio-envio.md`                    | Runbook do domínio de envio                      |

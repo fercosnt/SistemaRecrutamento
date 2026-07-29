@@ -1,11 +1,39 @@
 ---
 id: m7-cleanup-n8n-cloud
 created: 2026-07-28
+resolved: 2026-07-29
+status: done
 source: M7 / Phase 39 (DISPATCH-03) — aposentadoria do n8n concluída no banco e no código; falta a superfície EXTERNA
 priority: medium
 resolves_phase: null
-tags: [m7, phase-39, dispatch-03, sec-03, n8n, acao-humana, superficie-externa]
+tags: [m7, phase-39, dispatch-03, sec-03, n8n, acao-humana, superficie-externa, resolvido]
 ---
+
+## ✅ RESOLVIDO — 2026-07-29
+
+O Fernando executou a limpeza externa junto com o go-live. Com isso o **DISPATCH-03 fecha
+por completo** — o n8n está aposentado nas três superfícies:
+
+| Superfície | Estado |
+|---|---|
+| **Banco** | ✅ 0 triggers `trg_n8n_*` (DROPados na migration `20260726000001`) |
+| **Código** | ✅ `submit-candidatura` v12 sem o `fetch` hardcoded |
+| **Vault** | ✅ segredo `n8n_webhook_base` não existe |
+| **n8n cloud (externa)** | ✅ **workflow(s) desativada(s)** — este item |
+
+Fechado também na mesma passada: a **chave Resend duplicada** que havia sido gravada por
+engano num projeto Supabase errado e nunca removida (registrada no UAT-36-2). Era uma
+credencial de envio viva, capaz de mandar e-mail como Beauty Smile, num projeto sem
+monitoramento.
+
+**Por que isto importava:** o SEC-03 vinha sendo tratado como resolvido desde que o banco e
+o código pararam de chamar o n8n. Mas "ninguém chama" nunca foi o mesmo que "não pode ser
+chamada" — enquanto a workflow existisse e estivesse ativa, permanecia um endpoint público
+acionável, potencialmente com credenciais do Supabase dentro. Só agora a superfície de
+ataque foi de fato removida.
+
+---
+*(corpo original abaixo, preservado)*
 
 # Cleanup do n8n cloud — desativar a(s) workflow(s) externa(s)
 

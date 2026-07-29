@@ -1,11 +1,76 @@
 ---
 id: m7-ativar-modo-producao
 created: 2026-07-28
+resolved: 2026-07-29
+status: done
 source: M7 — pipeline completo e provado ao vivo em modo `teste`; falta a decisão de negócio de ligar a entrega real
 priority: high
 resolves_phase: null
-tags: [m7, deliv-03, go-live, notificacoes-modo, decisao-de-negocio, acao-humana]
+tags: [m7, deliv-03, go-live, notificacoes-modo, decisao-de-negocio, acao-humana, resolvido]
 ---
+
+## ✅ RESOLVIDO — 2026-07-29: o sistema está EM PRODUÇÃO
+
+O Fernando executou o go-live completo. **A comunicação com o candidato está ativa.**
+
+### O que foi feito, na ordem correta
+
+**1. Entregabilidade validada ANTES do flip** (sem tocar o sistema — envio direto pela API
+do Resend, isolando "o domínio entrega?" de "o sistema está ligado?"):
+
+| Verificação | Resultado |
+|---|---|
+| Gmail — Caixa de entrada | ✅ (não spam, não promoções) |
+| Gmail — `SPF` / `DKIM` / `DMARC` | ✅ **os três PASS** |
+| Gmail — remetente exibido | ✅ "Beauty Smile Recrutamento" |
+| Gmail — Reply-To | ✅ preenche `rh@beautysmile.com.br` |
+| Outlook/Hotmail — Caixa de entrada | ✅ (com **latência maior** — ver nota) |
+| Open tracking | ✅ desligado |
+| Click tracking | ⚠️ **não confirmado** — ver pendência residual |
+
+**2. Flip para produção** — `NOTIFICACOES_MODO` = `producao`.
+
+**3. Prova do caminho real**, usando uma candidatura de teste com o e-mail do próprio
+operador (`fernando@beautysmile.com.br`), sem expor candidato algum:
+
+```
+modo=producao · destinatario_email=fernando@beautysmile.com.br
+destinatario_original=fernando@beautysmile.com.br  (IGUAIS ⇒ sem desvio ao sink)
+status=entregue · ultimo_erro=null
+```
+
+E-mail recebido: *"Sua candidatura avançou — [TESTE] Auxiliar de Saúde Bucal (ASB)"*.
+
+**4. Limpeza pós-teste — verificada por consulta ao vivo:** ledger de volta a **0 linhas**,
+candidatura restaurada em `triagem`, `etapa_justificativa` nula, histórico do dia removido.
+
+### Auditoria de segurança do go-live
+
+`net._http_response` nas 36 h seguintes ao flip registra **um único disparo** (id 68,
+`{"ok":true,"status":"enviado"}`) — exatamente o teste acima. **Nenhum candidato real
+recebeu e-mail por acidente.** Zero linhas `pendente`/`falhou`.
+
+### Notas
+
+- **Latência maior no Outlook** é esperada e não é defeito: subdomínio recém-verificado
+  ainda não tem reputação acumulada nos filtros da Microsoft. Tende a normalizar com
+  volume orgânico. Vale reparar se persistir depois de algumas semanas de tráfego real.
+- **Passo 2.1 do guia mostrou 1 linha `entregue`** em vez da tabela vazia esperada. Era a
+  própria linha do teste (ordem de execução das consultas), não tráfego inesperado —
+  confirmado pelo dispatch único no `net._http_response`.
+
+### ⚠️ Pendência residual
+
+O checkbox de **click tracking** ficou desmarcado no registro do operador, enquanto o de
+open tracking foi marcado. Não é verificável por API a partir daqui. **Conferir em**
+Resend → Domains → `rh.beautysmile.com.br` → Settings que *ambos* estão desligados.
+
+Se o click tracking estiver ativo, todo link do e-mail é reescrito para um redirecionador
+do Resend — piora entregabilidade e coleta comportamento de clique do candidato sem
+finalidade declarada (questionável sob a LGPD para e-mail transacional).
+
+---
+*(corpo original abaixo, preservado)*
 
 # Virar `NOTIFICACOES_MODO` para `producao` (go-live da comunicação)
 
