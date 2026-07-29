@@ -77,21 +77,25 @@ Toda fase que escreva um `DELETE`/`UPDATE` destrutivo, altere um predicado de pu
 ## Phase Details
 
 ### Phase 42: Inventário, Gates & Fila Art. 20
+
 **Goal**: O RH vê e responde os pedidos de revisão que hoje caem no vazio — e nenhuma linha destrutiva do milestone é escrita antes de o mapa do que existe (PII coluna-a-coluna, backup, crons vivos, drift de FK) estar em cima da mesa como fato datado.
 **Depends on**: Nada (primeira fase do M8). Consome o pipeline COMM do M7 como fundação já paga.
 **Requirements**: INVENT-01, INVENT-02, INVENT-03, INVENT-04, INVENT-05, REVISAO-01, REVISAO-02, REVISAO-03, REVISAO-04, REVISAO-05, REVISAO-06
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. Um pedido de revisão feito por um candidato aparece numa fila do RH ordenada por antiguidade, com badge de SLA **interno** (nunca exibido ao candidato), e o RH é notificado por e-mail — hoje esse pedido grava um timestamp que ninguém lê.
   2. Quando o RH registra o resultado da revisão por write-path auditável único, o candidato recebe e-mail avisando que sua revisão foi respondida (5º evento do pipeline COMM) e vê o resultado no painel.
   3. Quem registrou a decisão original tenta responder à revisão dela e é **barrado pelo servidor** — provado por tentativa real com JWT impersonado, não por aviso de UI.
   4. Existe um artefato datado, no repositório, que responde: quantos pedidos de revisão já estão pendentes em PROD hoje (**entregue antes de qualquer tela**); qual coluna guarda qual PII e se ela deve ser apagada / anonimizada / preservada (semeado de `FK-AUDIT-LIVE.md`, nunca de arquivos de migration); se o PITR está ligado e com que janela — **com o registro explícito de que Storage não é coberto por nenhum caminho de backup**; e o diff dos `cron.job` vivos contra o repositório, cada job vivo rastreável a uma migration.
   5. O `ai-logs-retention-cleanup` que roda todo dia às 02:00 apaga as linhas que deve apagar — hoje o `NOT IN` com subquery NULL-able pode fazê-lo apagar **zero em silêncio** — e a varredura do idioma `ADD COLUMN IF NOT EXISTS` listou toda migration onde uma cláusula FK foi silenciada (causa identificada do drift `candidatos.user_id`).
+
 **Plans**: 12 plans (5 waves · 11/11 requirements cobertos · 21/21 decisões do CONTEXT com plano implementador)
 
 Plans:
-- [ ] 42-01-PLAN.md — Wave 0: `.husky/pre-commit` convertido em gate de não-regressão (baseline 97) + testes de paridade do vocabulário de evento e não-regressão W-01 dos 4 eventos vivos
-- [ ] 42-02-PLAN.md — REVISAO-06: `docs/compliance/` + o passivo Art. 20 medido e datado, **antes de qualquer tela**
-- [ ] 42-03-PLAN.md — Wave 0: módulos puros da feature (classificador de faixa total, contrato de erro, allowlist de colunas) + o smoke SQL de 8 asserções como espec RED
+
+- [x] 42-01-PLAN.md — Wave 0: `.husky/pre-commit` convertido em gate de não-regressão (baseline 97) + testes de paridade do vocabulário de evento e não-regressão W-01 dos 4 eventos vivos
+- [x] 42-02-PLAN.md — REVISAO-06: `docs/compliance/` + o passivo Art. 20 medido e datado, **antes de qualquer tela**
+- [x] 42-03-PLAN.md — Wave 0: módulos puros da feature (classificador de faixa total, contrato de erro, allowlist de colunas) + o smoke SQL de 8 asserções como espec RED
 - [ ] 42-04-PLAN.md — INVENT-01: inventário PII coluna-a-coluna do catálogo vivo (YAML + Markdown gerado) e a correção da citação da semente FK-AUDIT-LIVE
 - [ ] 42-05-PLAN.md — INVENT-02/03/04: PITR e Storage sem backup · diff dos `cron.job` vivos × repositório · varredura do idioma condicional de `ADD COLUMN` · achados de autorização registrados
 - [ ] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
@@ -109,15 +113,18 @@ Plans:
 **⚠ Risco nomeado**: REVISAO-04 exige **uma edição cirúrgica na EF `notificar-candidato` viva** — vocabulário de evento fechado em dois lugares (uma union em código **e** um CHECK constraint vivo no banco). É **o mesmo arquivo que já embarcou dois defeitos CRÍTICOS em produção** (P39 CR-01/CR-02). Tratar como mudança de alto risco: diff mínimo, review bloqueante, e a prova de que os 4 eventos existentes continuam ramificando corretamente (o defeito W-01 — preheader não ramificado — era invisível a asserções que olham só o texto visível)
 
 ### Phase 43: Consentimentos Honestos & Política de Retenção
+
 **Goal**: Cada checkbox que o candidato marca passa a ter consequência real, e o prazo de validade do dado existe como configuração alterável sem deploy — tudo isso **sem que nada seja apagado ainda**.
 **Depends on**: Phase 42 (INVENT-04 precede a migration que adiciona colunas a `candidatos`; o inventário PII de INVENT-01 informa o que a matriz de retenção cobre)
 **Requirements**: CONSENT-01, CONSENT-02, CONSENT-03, CONSENT-04, CONSENT-05, CONSENT-06, RETEN-01, RETEN-02, RETEN-03, RETEN-04, RETEN-06
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. Um novo candidato encontra os consentimentos opcionais **desmarcados**, e ao marcar o sistema grava **qual texto ele leu** (versão + hash + timestamp) — hoje o `.default(true)` torna "marcou" indistinguível de "não desmarcou", e candidatos pré/pós-enforcement passam a ser separáveis por **dado**, não por inferência.
   2. "Andamento do processo seletivo" e "novas oportunidades de vagas" são **dois consentimentos distintos**; o candidato revoga o de marketing pelo painel e o envio de marketing para de acontecer — provado por envio real bloqueado, não por leitura de flag. O transacional segue sem opt-out sob o Art. 7º, V (decisão travada no M7, preservada).
   3. `autorizacao_analise_video` deixou de ser promessa órfã — foi honrada ou removida, não continua coletada e nunca lida — e clicar num link de e-mail transacional não é mais rastreado (click tracking desligado no Resend, verificado no provedor).
   4. Um administrador altera a janela de retenção de um estado da candidatura **sem deploy**, com o seed de 2 anos documentado como *teto já consentido pela copy do cadastro* e não como recomendação técnica; e a decisão de reusar (ou não) o padrão `retain_until` já vivo em `ai_call_logs` está registrada **com veredito antes** de a estrutura nova existir.
   5. Uma prévia **read-only** responde "estes N candidatos seriam purgados" sem executar nada, e `autorizacao_retencao_curriculo` aparece por candidato como a base legal citada da retenção do currículo — o primeiro consumidor real de um consentimento até hoje órfão.
+
 **Plans**: TBD
 **UI hint**: yes — `AutorizacoesStep` (copy + defaults) e uma superfície nova de revogação no painel do candidato, mobile-first
 **Security**: baixo risco — nenhuma escrita destrutiva, nenhuma EF privilegiada nova. A superfície de revogação lê/escreve own-row
@@ -125,32 +132,38 @@ Plans:
 **Nota de escopo**: `RETEN-05` (retenção de `notificacoes_enviadas`) **não** está aqui — a *linha* na matriz nasce nesta fase junto com RETEN-01, mas o requirement só é observável quando a purga executa, então mapeia para a Phase 46. `preferencias_notificacoes` (achado incidental do FK-AUDIT) deve ser **inspecionada antes** de projetar qualquer estrutura de opt-out — pode ser reuso, não tabela nova
 
 ### Phase 44: Exportação & Acesso
+
 **Goal**: O candidato recebe uma cópia honesta dos próprios dados — e o sistema ganha, **exercitado em produção**, o inventário de PII que a fase irreversível vai consumir como plano de exclusão em vez de um palpite novo.
 **Depends on**: Phase 43 (as colunas de consentimento versionado entram na allowlist do export) · Phase 42 (INVENT-01 é a semente da allowlist)
 **Requirements**: EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04, EXPORT-05, EXPORT-06
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. O candidato pede uma cópia dos seus dados pelo painel e recebe um JSON com o que o sistema realmente guarda sobre ele, montado por **allowlist explícita de colunas** — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto, já responsável por dois incidentes anteriores.
   2. O currículo é entregue por **signed URL de TTL curto** a partir do bucket privado — nunca inline no JSON, nunca base64.
   3. Adicionar uma coluna nova ao banco **quebra o teste de snapshot** das chaves do export: nenhuma coluna entra no export por acidente e nenhuma sai dele em silêncio.
   4. O prazo do **Art. 19, II (15 dias corridos)** é medido a partir do registro do pedido e está visível ao RH — um pedido que se aproxima do prazo é distinguível de um recém-chegado.
   5. O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.
+
 **Plans**: TBD
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia
 **Portão destrutivo**: não se aplica (read-only por construção)
 
 ### Phase 45: Motor de Exclusão & Anonimização
+
 > ⚠️ **FASE DE MAIOR RISCO DO MILESTONE.**
 
 **Goal**: O candidato pede que seus dados sejam apagados e isso acontece de verdade — irreversivelmente, na ordem imposta pela plataforma, sem levar junto a trilha de decisão humana que a RNF-07a existe para proteger.
 **Depends on**: Phase 44 (inventário/plano de exclusão) **e** Phase 43 (política/base legal). Ambas obrigatórias — restrição dura #4
 **Requirements**: ERASE-01, ERASE-02, ERASE-03, ERASE-04, ERASE-05, ERASE-06, ERASE-07, ERASE-08, ERASE-09, ERASE-10
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. O candidato distingue no painel **"retirar minha candidatura"** (encerra o funil na hora) de **"apagar meus dados"** (enfileira e executa após o encerramento), e o pedido de exclusão tem **janela de arrependimento que ele mesmo cancela** pelo painel.
   2. Executado o pedido: o currículo some do Storage, o registro do candidato vira tombstone anônimo e o usuário do Auth deixa de existir — **nessa ordem** — e re-executar o mesmo pedido não muda nada (idempotente em cada passo). Uma falha no meio não perde os ponteiros: os caminhos do Storage foram capturados no plano **antes** da primeira mutação, então o pedido é retomável.
   3. Depois da anonimização ninguém consegue voltar do tombstone à pessoa: não sobra `user_id` apontando para linha viva do Auth (isso é **pseudonimização** sob o Art. 12 §1º e não desincumbe o titular), e as 5 tabelas de FK `SET NULL` (`ai_call_logs`, `candidate_ai_decisions`, `logs_acesso`, `recruiter_alerts`, `autorizacoes`) foram tratadas explicitamente em vez de deixadas órfãs.
   4. `historico_candidatura`, `decisao_final` e `decisao_final_historico` continuam com as mesmas linhas e as **mesmas FKs `NO ACTION`** de antes — a trilha de decisão sobrevive à exclusão do candidato e **nenhuma constraint foi relaxada para CASCADE** (o reflexo errado diante do primeiro 23503).
   5. O candidato recebe um **recibo honesto em duas colunas** — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito; e a série de bias EEOC 4/5 continua produzindo os mesmos números para os períodos anteriores, porque a faixa etária foi **materializada no tombstone antes** de qualquer anonimização rodar.
+
 **Plans**: TBD
 **UI hint**: yes — fluxo candidate-facing net-new (retirar × apagar, confirmação, janela de arrependimento, recibo). É a superfície onde uma ambiguidade de copy vira ação irreversível: forte candidata a `/gsd-ui-phase`
 **Security**: **`/gsd-secure-phase` obrigatório** — service_role, Storage Admin, Auth Admin, mutação cross-sistema sobre PII viva
@@ -159,29 +172,35 @@ Plans:
 **A resolver no discuss-phase (não inferir)**: janela de arrependimento (nº de dias) · BD-9 (redigir ou preservar a justificativa ≥50 caracteres do recrutador em `decisao_final`, que pode conter PII digitada à mão e é simultaneamente a prova legal de não-discriminação sob o Art. 7º, VI) · limiar mínimo de célula (k-anonymity) do `gerar_bias_snapshot()` · comportamento de `shouldSoftDelete` no re-cadastro (**não documentado pelo Supabase** — testar empiricamente numa conta descartável **antes** de desenhar em cima, nunca assumir) · status do PITR como fato datado (decisão de gasto do operador)
 
 ### Phase 46: Purga Automática (dry-run → live)
+
 **Goal**: O dado expira sozinho, dentro de um cerco — e a primeira coisa que a purga faz em produção é **não apagar nada**.
 **Depends on**: Phase 45 (motor provado) **e** Phase 43 (janela/política). Estritamente sequencial após 45 — cabear um cron a um motor destrutivo não provado é como um bug vira incidente
 **Requirements**: PURGA-01, PURGA-02, PURGA-03, PURGA-04, PURGA-05, PURGA-06, PURGA-07, RETEN-05
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. O cron de purga (espelhando o padrão já provado do `notif-retry-sweep`) roda em PROD por um **período documentado em `dry_run`** antes de qualquer execução real, e o relatório do dry-run é gerado pela **MESMA query** do delete real, envolvida em rollback — um dry-run que diverge do predicado real é decoração, e este projeto já embarcou essa exata classe de falha uma vez (P39/CR-02: uma guarda que era dead code).
   2. O flip `dry-run → live` é um **checkpoint separado e evidenciado** (espelho da disciplina `NOTIFICACOES_MODO=teste→producao` do M7), nunca efeito colateral de um deploy.
   3. Uma execução não consegue passar do cap de blast-radius, e um **kill switch** para a purga sem deploy — provado desligando de verdade, não por leitura de config.
   4. Uma candidatura **sem decisão registrada** (`data_decisao` NULL) é classificada corretamente pelo predicado: não é engolida em silêncio nem purgada por engano. O predicado usa `COALESCE` explícito e **allowlist de estados terminais**, nunca denylist de estados ativos — o modo de falha em que o sistema acredita ter uma política funcionando e apaga zero.
   5. Cada execução deixa linha no ledger dizendo **o que foi apagado, quando e sob qual política** — inclusive a retenção de `notificacoes_enviadas`, cujo comentário em produção diz literalmente "Retention INDEFINITE, deferred to LGPD-OPS (M8+)".
+
 **Plans**: TBD
 **UI hint**: não — trabalho de cron/ops/DB. Se surgir uma leitura RH do ledger de purga, é derivada, não a entrega
 **Security**: **candidata a `/gsd-secure-phase`** — automação destrutiva não-supervisionada com cap e kill switch como controles de segurança, não de conveniência
 **Portão destrutivo**: **integral.** Os 5 itens do portão são condição de fechamento
 
 ### Phase 47: Transparência & Consolidação
+
 **Goal**: O que o sistema faz com o dado está escrito onde o candidato lê — e nenhuma promessa de compliance sobrevive neste repositório sem código que a execute.
 **Depends on**: Phase 43 (TRANSP-02 deriva da matriz de retenção como **dado**). Lê melhor depois da 45, mas **não depende da 46** — laterally parallelizable com a Phase 46
 **Requirements**: TRANSP-01, TRANSP-02, CONSOL-01, CONSOL-02, CONSOL-03, CONSOL-04
 **Success Criteria** (o que tem de ser VERDADE):
+
   1. Qualquer visitante lê, numa página pública, **com quem os dados são compartilhados** (Resend, provedor de LLM, Supabase, Vercel — Art. 18, VII) e **o que é guardado, por quanto tempo e por quê** — esta última **derivada da matriz de retenção como dado**, não redigida à mão (uma página escrita à mão diverge da política na primeira mudança de janela).
   2. O Histórico do candidato (VISRH-03) mostra o **nome do recrutador** que agiu, não o UUID do `ator`.
   3. Toda promessa de retenção/exclusão em comentário de migration ou documento tem **código vivo que a executa**, provado por um checklist versionado — e o zumbi `data_deletion_log` (existe desde 2026-06-09 prometendo uma `delete_candidate_data()` que a Phase 15 nunca criou, ausente de `pg_proc`, 0 linhas, repropositado pelo rollback da prompt-library) foi resolvido: removido ou adotado com escritas reais.
   4. As 6 fases do M7 sem veredito Nyquist (36/38/39/41 em `draft`, 37/40 sem arquivo) têm arquivo `VALIDATION.md` com veredito real.
+
 **Plans**: TBD
 **UI hint**: yes — 2 páginas públicas net-new + a correção do Histórico no lado RH
 **Security**: baixo risco — páginas informativas e um join. A exceção é CONSOL-03
@@ -265,7 +284,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
-| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 0/? | Not started | - |
+| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 3/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 0/? | Not started | - |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |

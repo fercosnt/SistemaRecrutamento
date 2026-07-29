@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: não iniciada
 status: planning
-stopped_at: Phase 42 UI-SPEC approved
-last_updated: "2026-07-29T12:32:15.638Z"
+stopped_at: Completed 42-01-PLAN.md
+last_updated: "2026-07-29T14:01:11.580Z"
 last_activity: 2026-07-29
 last_activity_desc: ROADMAP.md do M8 escrito (6 fases, 42–47, 52/52 requirements mapeados)
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 12
+  completed_plans: 3
   percent: 0
 ---
 
@@ -80,6 +80,11 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 *Updated after each plan completion.*
 
 **Por plano (M8):** _(vazio — nenhum plano do M8 executado)_
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 42 P01 | ~35min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -227,9 +232,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-29T12:32:15.632Z
-Stopped at: Phase 42 UI-SPEC approved
-Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md
+Last session: 2026-07-29T14:01:11.572Z
+Stopped at: Completed 42-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

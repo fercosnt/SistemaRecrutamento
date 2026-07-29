@@ -114,14 +114,17 @@
 ## Requirements Futuros (M9+)
 
 ### TALENT
+
 - **TALENT-01**: Banco de talentos + re-candidatura — o M8 é sua pré-condição (base legal, janela e saída do titular)
 
 ### Compliance (não puxado)
+
 - **DPO-01**: Encarregado/DPO nomeado e publicado (Art. 41) — verificar antes se a Beauty Smile é agente de pequeno porte (Res. CD/ANPD 2/2022)
 - **INTL-01**: Transferência internacional ao provedor de LLM (Art. 33 + Res. 19/2024, cláusulas-padrão; período de graça encerrado em ago/2025)
 - **PORT-01**: Portabilidade a outro controlador (Art. 18, V) — dormente até a ANPD regulamentar; não construir contra norma inexistente
 
 ### Outros
+
 - **PSICO**, **RELAT** (relatórios + export CSV/PDF), **WhatsApp**, **COMM v2**, **onboarding pós-aprovação**
 
 ---
@@ -200,6 +203,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSOL-04 | Phase 47 | Pending |
 
 **Coverage:**
+
 - v8.0 requirements: **52** total (INVENT 5 · REVISAO 6 · CONSENT 6 · RETEN 6 · EXPORT 6 · ERASE 10 · PURGA 7 · TRANSP 2 · CONSOL 4)
 - Mapeados a fases: **52** ✓
 - Não mapeados: **0** ✓
