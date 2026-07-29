@@ -24,19 +24,35 @@
 
 ### O que este número significa
 
-**Há uma pessoa real esperando há 33 dias.** O pedido foi registrado em 26/06/2026 e, até a data
-desta coleta, `revisao_resultado` continua `NULL` — ou seja, ninguém respondeu, porque até esta fase
-**não havia superfície alguma onde esse pedido pudesse ser visto**. `solicitar_revisao_decisao`
-gravou o timestamp e o timestamp ficou lá.
+> ### ⚠ CORREÇÃO (2026-07-29, mesma data) — o pedido pendente é de uma CONTA DE TESTE
+>
+> A primeira versão deste artefato afirmava que havia **"uma pessoa real esperando há 33 dias"**.
+> **Isso está errado.** A verificação de a quem pertence a linha foi feita depois, e o pedido é da
+> conta `candidato.funil@teste.com` — conta de teste do próprio projeto, não candidato real.
+>
+> A afirmação original foi escrita sem checar o titular. Registrar como fato uma afirmação não
+> verificada dentro de um artefato de compliance é exatamente a classe de defeito que este
+> milestone existe para eliminar, e a correção fica aqui em vez de o erro ser apagado do histórico.
 
-Isto não é um caso hipotético usado para justificar a fase: é exatamente o comportamento que o
-objetivo da Phase 42 descreve — *"os pedidos de revisão que hoje caem no vazio"* — medido, com data,
-antes de a primeira linha de tela existir.
+**O passivo REAL de candidatos é zero nesta data.** O único pedido de revisão pendente em PROD
+pertence a uma conta de teste, registrado em 26/06/2026, com `revisao_resultado` ainda `NULL`.
 
-**Consequência operacional:** no momento em que a fila entrar no ar, ela **não** nascerá vazia. O
-primeiro item já estará lá, com 33+ dias de espera e badge no pior patamar. Quem for validar a fase
-deve esperar exatamente isso — uma fila vazia na primeira abertura seria sinal de defeito na
-leitura, não de ausência de passivo.
+Isso **não** esvazia o achado, mas muda o que ele prova:
+
+- **O que continua verdadeiro:** o mecanismo do "cai no vazio" é real e está demonstrado. Um pedido
+  foi gravado por `solicitar_revisao_decisao`, ficou 33 dias sem resposta, e **não havia superfície
+  alguma onde ele pudesse ser visto**. Se um candidato real tivesse pedido, teria tido o mesmo
+  destino.
+- **O que NÃO é verdadeiro:** que exista hoje um titular real prejudicado. Não existe.
+- **O que isso remove:** a urgência de reparação individual. Não há ninguém a quem responder com
+  atraso.
+- **O que isso preserva:** a urgência da fase. O buraco é estrutural, não incidental — a ausência
+  de passivo real é sorte de timing (o produto ainda tem pouquíssimo volume), não desenho.
+
+**Consequência operacional para a validação:** a fila **não** nascerá vazia — o item de teste
+aparecerá, com 33+ dias e badge no pior patamar. Quem validar deve esperar exatamente 1 item e
+saber que ele é sintético. Uma fila vazia na primeira abertura seria defeito de leitura; uma fila
+com 1 item é o estado correto.
 
 ---
 
