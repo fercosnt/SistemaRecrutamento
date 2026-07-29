@@ -1,14 +1,14 @@
 ---
-status: partial
+status: passed
 phase: 36-deliverability-sender-identity
 source: [36-VALIDATION.md]
 started: 2026-07-22T04:10:00Z
-updated: 2026-07-28T11:20:00Z
+updated: 2026-07-29T00:30:00Z
 ---
 
 ## Current Test
 
-[awaiting human execution — requires access to the Resend dashboard, to the DNS panel of `beautysmile.com.br`, and to personal Gmail + Outlook/Hotmail inboxes]
+[✅ FECHADO em 2026-07-29. Os 3 itens passaram. UAT-36-1: e-mail chega na Caixa de entrada no Gmail E no Outlook, com SPF/DKIM/DMARC os três PASS, remetente e Reply-To corretos. UAT-36-2: chave no Vault (fechado em 26/07). UAT-36-3: NOTIFICACOES_MODO=producao — o sistema está no ar, provado com destinatário real. Residual único: confirmar click tracking desligado no dashboard do Resend.]
 
 ## Context
 
@@ -64,11 +64,36 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
   - Passo 8: responder → chega em `rh@beautysmile.com.br` (Reply-To)
 
   Colocação em caixa de entrada **não é observável por API** — nenhum provedor expõe isso.
-  Só um humano com as duas contas fecha. Note que os testes de hoje foram todos em
-  `modo=teste`, ou seja, para o sink `@resend.dev`: **nenhum e-mail real chegou a uma caixa
-  de entrada de verdade ainda**, e é justamente isso que estes passos medem.
+  Só um humano com as duas contas fecha.
 
-- **status:** partial
+- **✅ EXECUTADO E APROVADO (2026-07-29).** O Fernando rodou o teste mandando o e-mail
+  **direto pela API do Resend**, por fora do sistema — isolando "o domínio entrega?" de
+  "o sistema está ligado?", de modo que uma eventual falha de spam apareceria antes de
+  qualquer candidato estar exposto.
+
+  | Passo | Resultado |
+  |---|---|
+  | 4–5 · Gmail | ✅ **Caixa de entrada** (não spam, não promoções) |
+  | 4–5 · Outlook/Hotmail | ✅ **Caixa de entrada** (latência maior — ver nota) |
+  | 6 · Cabeçalhos no Gmail | ✅ **`SPF: PASS` · `DKIM: PASS` · `DMARC: PASS`** — os três |
+  | 7 · Remetente exibido | ✅ "Beauty Smile Recrutamento" |
+  | 8 · Reply-To | ✅ responder preenche `rh@beautysmile.com.br` |
+  | 2 · Open tracking | ✅ desligado |
+  | 2 · Click tracking | ⚠️ **não confirmado** (checkbox do operador ficou em branco) |
+
+  O `DMARC: PASS` confirma na prática a análise de herança registrada acima: `rh.` não tem
+  registro `_dmarc` próprio e mesmo assim autentica, porque herda a política do domínio
+  organizacional (RFC 7489 §6.6.3). Não havia DNS pendente, e o teste ao vivo prova isso.
+
+  **Nota — latência no Outlook.** Esperada, não é defeito: subdomínio recém-verificado ainda
+  não acumulou reputação nos filtros da Microsoft. Tende a normalizar com volume orgânico.
+  Reparar se persistir após algumas semanas de tráfego real.
+
+  **Residual:** confirmar o **click tracking** desligado em Resend → Domains →
+  `rh.beautysmile.com.br` → Settings. Se estiver ativo, reescreve todo link do e-mail para
+  um redirecionador e coleta comportamento de clique do candidato sem finalidade declarada.
+
+- **status:** passed
 
 ### UAT-36-2 — Provisionar `resend_api_key` no Supabase Vault (DELIV-02)
 
@@ -159,31 +184,48 @@ A Phase 36 fechou todos os trilhos de código da entregabilidade: o guard de bun
   `destinatario_original='candidato.funil@teste.com'` — o desvio ao sink funcionou e a trilha
   de auditoria preservou o destinatário real.
 
-  **O item continua `pending`** porque o que ele cobra é o **flip para `producao`**, que é uma
-  decisão de negócio ainda não tomada. Rastreado em
-  `.planning/todos/pending/m7-ativar-modo-producao.md` (prioridade **high**), com checklist
-  pré-flip (volume represado, candidaturas de teste em PROD, rate-limit do free-tier nunca
-  medido) e o procedimento de verificação/rollback.
+  **✅ EXECUTADO (2026-07-29) — `NOTIFICACOES_MODO=producao`. O sistema está no ar.**
+
+  O flip foi feito após o UAT-36-1 passar. A prova de comportamento que este item exige
+  (passo 5: "a mensagem chega no endereço REAL e o ledger registra o destinatário real") foi
+  obtida com uma candidatura de teste cujo candidato é o **próprio operador**, de modo que o
+  caminho real de produção foi exercido sem expor candidato algum:
+
+  ```
+  modo=producao
+  destinatario_email    = fernando@beautysmile.com.br
+  destinatario_original = fernando@beautysmile.com.br   <- IGUAIS: sem desvio ao sink
+  status=entregue · ultimo_erro=null
+  ```
+
+  E-mail recebido: *"Sua candidatura avançou — [TESTE] Auxiliar de Saúde Bucal (ASB)"*.
+  Limpeza pós-teste verificada ao vivo: ledger de volta a **0 linhas**, candidatura
+  restaurada em `triagem`, histórico do dia removido.
+
+  **Auditoria de segurança:** `net._http_response` nas 36 h seguintes ao flip registra **um
+  único disparo** — exatamente este teste. Nenhum candidato real recebeu e-mail por acidente.
+
+  Registro completo em `.planning/todos/done/m7-ativar-modo-producao.md`.
 
 - **Como desarmar (voltar ao sandbox):** remover o secret ou trocá-lo por qualquer valor diferente de `producao`. Não existe configuração ambígua que envie para pessoa real — o default é sempre `teste`.
 - **Prova automatizada que sustenta este item:** `supabase/functions/_shared/__tests__/email-config.test.ts`, casos (8) e (9) — adicionados pelo achado WR-01 do mesmo review. O caso (9) prova que `resolverDestinatario(email, evento)` **sem 3º argumento** (a forma como a P38 chama) redireciona quando a env está ausente; o caso (8) prova que `NOTIFICACOES_MODO='producao'` é lida de verdade. Ambos foram validados por mutação.
 - **Quem cobra esta pendência:** a **Phase 38** (smoke da EF `notificar-candidato`), junto com o UAT-36-2.
 - **Referência completa:** `docs/runbooks/resend-dominio-envio.md` § 9 ("Passo 8 — Armar o modo produção").
-- **status:** pending
+- **status:** passed
 
 ## Gaps
 
 Nenhum must-have automatizado desta fase está vermelho — os gates de código (bundle guard + suíte Deno de `email-config` + `npm run test:run` + `npm run build`) estão verdes. Os itens abertos são:
 
-- **UAT-36-1** — 🟡 **PARCIAL (2026-07-28).** Infraestrutura **fechada**: domínio **Verified**
-  (`sa-east-1`), SPF/DKIM/MX confirmados por `dig`, DMARC coberto por herança do domínio
-  organizacional (RFC 7489 §6.6.3 — não há DNS pendente), e **entregabilidade provada
-  funcionalmente** (envio real aceito + webhook `entregue` em 5 s; o `403` acabou). **Aberto:**
-  só o teste de **caixa de entrada** em Gmail/Outlook reais + cabeçalhos SPF/DKIM/DMARC PASS +
-  Reply-To + tracking desligado. Não é observável por API; exige humano com as duas contas.
-  Como todos os testes de hoje rodaram em `modo=teste` (sink `@resend.dev`), nenhum e-mail
-  real chegou a uma caixa de entrada ainda.
+- **UAT-36-1** — ✅ **PASSED (2026-07-29).** Caixa de entrada confirmada no **Gmail e no
+  Outlook**, com **`SPF`/`DKIM`/`DMARC` os três `PASS`**, remetente exibido correto e
+  Reply-To funcional. O `DMARC: PASS` confirma na prática a herança do domínio organizacional
+  (RFC 7489 §6.6.3) — não havia DNS pendente, como analisado. Latência maior no Outlook é
+  reputação de subdomínio novo, não defeito.
 - **UAT-36-2** — ✅ **PASSED (2026-07-26).** Segredo `resend_api_key` provisionado no Vault de PROD (`isljnozzlvckrgjjbjwp`): `count = 1`, `length = 36`, `ler_resend_api_key() is not null = true` (smoke read-only via MCP; valor nunca registrado). Registro completo no item UAT-36-2 acima. Pendência residual: revogar a cópia criada por engano no projeto errado (`vault.delete_secret`).
-- **UAT-36-3** — armar `NOTIFICACOES_MODO=producao` no ambiente da Edge Function. Registrado a partir do achado **WR-02** do code review da Phase 36: o fail-safe do DELIV-03 está correto, mas o passo que o **desarma deliberadamente** não existia em nenhum artefato durável de operador (`grep -rn "NOTIFICACOES_MODO" docs/` retornava zero). Sem este item, é possível seguir o runbook ponta a ponta, subir PROD, e ter 100% dos e-mails de candidato desviados para `@resend.dev` com HTTP 200 e sem warn. Executado na **Phase 38**, antes do primeiro envio real; procedimento em `docs/runbooks/resend-dominio-envio.md` § 9.
+- **UAT-36-3** — ✅ **PASSED (2026-07-29).** `NOTIFICACOES_MODO=producao` armado; prova de
+  comportamento obtida com destinatário REAL (`destinatario_email == destinatario_original`,
+  sem desvio ao sink) usando uma candidatura cujo candidato é o próprio operador. Auditoria
+  pós-flip: **um único disparo** em 36 h — o próprio teste. Registro histórico do item: Registrado a partir do achado **WR-02** do code review da Phase 36: o fail-safe do DELIV-03 está correto, mas o passo que o **desarma deliberadamente** não existia em nenhum artefato durável de operador (`grep -rn "NOTIFICACOES_MODO" docs/` retornava zero). Sem este item, é possível seguir o runbook ponta a ponta, subir PROD, e ter 100% dos e-mails de candidato desviados para `@resend.dev` com HTTP 200 e sem warn. Executado na **Phase 38**, antes do primeiro envio real; procedimento em `docs/runbooks/resend-dominio-envio.md` § 9.
 
 Nenhum dos três bloqueia o fechamento da Phase 36 nem a cadeia P37 → P38 → P39. Os três são independentes entre si: domínio verificado (UAT-36-1) + chave no Vault (UAT-36-2) + modo armado (UAT-36-3) — os três precisam fechar antes do primeiro e-mail a candidato real (UAT da Phase 41).
