@@ -1,18 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: M7 Comunicação com o Candidato (COMM)
-status: "🚀 EM PRODUÇÃO desde 2026-07-29. O v7.0 foi arquivado e o go-live executado: NOTIFICACOES_MODO=producao, entregabilidade validada (Gmail e Outlook na inbox, SPF/DKIM/DMARC os três PASS), n8n cloud desativado e chave Resend duplicada revogada. O sistema de comunicação com o candidato está ATIVO. Aguardando próximo milestone."
-stopped_at: "Nada pendente. O v7.0 foi fechado, arquivado e o GO-LIVE executado em 2026-07-29 — o sistema de comunicação está ATIVO em produção. Único residual: confirmar click tracking desligado no dashboard do Resend (não verificável por API). Próximo passo natural: /gsd-new-milestone (fases a partir da 42)."
-last_updated: "2026-07-29"
+milestone: v8.0
+milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
+status: planning
+last_updated: "2026-07-29T03:23:03.177Z"
 last_activity: 2026-07-29
-last_activity_desc: "v7.0 arquivado + GO-LIVE executado (produção ativa, UATs 36-1/36-3 passed, n8n desligado)"
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 25
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -26,24 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
 
 ## Current Position
 
-Phase: Milestone v7.0 complete + **GO-LIVE EXECUTADO**
+Phase: Not started (defining requirements)
 Plan: —
-Status: 🚀 **Sistema de comunicação ATIVO em produção.** Aguardando próximo milestone.
-Last activity: 2026-07-29 — go-live: modo produção armado, entregabilidade validada em Gmail+Outlook, limpezas de segurança concluídas
-
-> 🚀 **GO-LIVE 2026-07-29 — o candidato agora recebe e-mail de verdade.**
-> Executado pelo Fernando na ordem correta: (1) entregabilidade testada **por fora do
-> sistema** (envio direto pela API do Resend), isolando "o domínio entrega?" de "o sistema
-> está ligado?" — **Gmail e Outlook na Caixa de entrada, `SPF`/`DKIM`/`DMARC` os três
-> `PASS`**, remetente e Reply-To corretos; (2) `NOTIFICACOES_MODO=producao`; (3) prova do
-> caminho real com uma candidatura cujo candidato é o **próprio operador** —
-> `destinatario_email == destinatario_original` (sem desvio ao sink), `status=entregue`,
-> `ultimo_erro=null`; (4) limpeza verificada — ledger de volta a **0 linhas**, candidatura
-> restaurada. **Auditoria pós-flip: um único disparo em 36 h** (`net._http_response` id 68),
-> exatamente o teste — nenhum candidato real recebeu e-mail por acidente.
-> Também concluído: **n8n cloud desativado** (fecha o DISPATCH-03 na 3ª superfície) e a
-> **chave Resend duplicada revogada** do projeto Supabase errado.
-> ⚠️ Residual único: confirmar **click tracking** desligado no dashboard do Resend.
+Status: Defining requirements
+Last activity: 2026-07-29 — Milestone v8.0 started
 
 ## Roadmap (M7 — Phases 36–41)
 
