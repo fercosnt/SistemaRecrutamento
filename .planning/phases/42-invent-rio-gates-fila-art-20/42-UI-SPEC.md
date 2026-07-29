@@ -98,8 +98,10 @@ background="gradient"` + `max-w-2xl` + `GlassPanel variant="white" blur="xl"` de
 - **`/candidato/explicacao/:id` (bloco novo):** **a linha do veredito é a âncora primária do bloco
   de resultado da revisão.** É a primeira coisa lida e a que responde "e aí, o que aconteceu?"
   (16px/400 com o veredito em 600). O eyebrow "Resultado da revisão" e a data são secundários
-  (14px e 12px), e a justificativa vem abaixo como corpo de leitura. O bloco inteiro é subordinado
-  ao H1 já existente da página ("Sobre a sua candidatura") — esta fase **não** disputa a âncora
+  (ambos 14px, o papel de label — ver §Typography), e a justificativa vem abaixo como corpo de
+  leitura. A subordinação do eyebrow ao veredito é feita por **cor e caixa** (`text-white/50`,
+  uppercase) e não por tamanho — o que também é o que a tela hospedeira já faz hoje. O bloco é
+  subordinado ao H1 já existente da página ("Sobre a sua candidatura") — esta fase **não** disputa a âncora
   da tela, apenas acrescenta um bloco delimitado (`rounded-lg border border-white/15 bg-white/5 p-4`,
   o container que já existe hoje para `revisao_resultado`).
 
@@ -150,7 +152,7 @@ Escala idêntica ao contrato aprovado das Phases 11/13/14/15 — não re-derivad
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body / justificativa (RH e candidato) / prosa dos estados vazio e erro / nome do candidato na linha | 16px (`text-base`) | regular (400) | 1.5 |
-| Label / cabeçalho de coluna / badge de SLA / badge de veredito / contador de caracteres / meta de linha / rótulo do switch | 14px (`text-sm`) | semibold (600) | 1.4 |
+| Label / **eyebrow em caixa alta** / cabeçalho de coluna / badge de SLA / badge de veredito / contador de caracteres / meta de linha / data / rótulo do switch | 14px (`text-sm`) | semibold (600) | 1.4 |
 | Título de card/painel/diálogo ("Responder revisão", "Pedidos pendentes") | 20px (`text-xl`) | semibold (600) | 1.2 |
 | H1 da página (`Revisões de decisão`) | 28px (`text-3xl`, cap responsivo `md:text-4xl`) | semibold (600) | 1.2 |
 
@@ -161,26 +163,45 @@ Escala idêntica ao contrato aprovado das Phases 11/13/14/15 — não re-derivad
   line-height 1.5** (`text-base leading-relaxed`), com `whitespace-pre-wrap`, **nunca truncada**
   na página do candidato. É superfície de transparência, não célula de tabela.
 - Somente dois pesos: 400 e 600. Nada de 500/700/800, apesar de existirem em `globals.css`.
-### Micro-role de eyebrow (12px) — 5º tamanho, declarado e isento por decisão
 
-Micro-rótulos em caixa alta ("Resultado da revisão", "Decisão original" quando usado como eyebrow)
-usam `text-xs font-semibold uppercase tracking-wide text-white/50`.
+### Eyebrow — tratamento do papel de 14px, e desta vez literalmente
 
-**Resolvendo a contradição que as UI-SPECs anteriores empurraram adiante:** `text-xs` **é** um
-token distinto e **resolve a 12px** — `globals.css:79` declara `--text-xs: 0.75rem /* 12px */`, e
-**não** há alias para 14px. Chamar isso de "tratamento do papel de 14px" (como fizeram as specs das
-Phases 11/13/14/15) é factualmente errado. Registrado aqui de uma vez para que nenhum auditor
-futuro precise re-derivar isto a cada fase:
+Micro-rótulos em caixa alta ("Resultado da revisão", e os rótulos do bloco de contexto
+somente-leitura do diálogo) usam **`text-sm font-semibold uppercase tracking-wide text-white/50`**
+— o **papel de label de 14px já declarado** na tabela acima, com caixa alta e `tracking-wide` como
+tratamento. **Nenhum tamanho novo. O conjunto declarado permanece 4.**
 
-| | |
-|---|---|
-| **O que é** | Um **5º tamanho real** (12px / 600 / 1.4), em uso no projeto desde a Phase 11 |
-| **Status** | **Isento da contagem de 3–4 tamanhos**, deliberadamente |
-| **Por quê** | Não é papel de leitura: nunca carrega conteúdo, só **nomeia** o bloco imediatamente abaixo dele. É redundante por construção — remover o eyebrow não remove informação alguma da tela. O par uppercase + `tracking-wide` + `text-white/50` o marca como cromo estrutural, não como texto |
-| **Cerca (binding)** | Restrito a rótulo de bloco em caixa alta. **Proibido** para: valor de dado, célula de tabela, prosa, mensagem de erro, rótulo de campo de formulário, rótulo de botão, ou qualquer texto que o usuário precise **ler** em vez de **escanear**. Um eyebrow de 12px que carregue significado próprio é violação, não exceção |
-| **Onde aparece nesta fase** | Eyebrow "Resultado da revisão" e a data "Respondida em {dd/mm/aaaa}" no bloco do candidato; eyebrows do bloco de contexto somente-leitura do diálogo |
+**Por que não os 12px que as specs arquivadas mandavam.** `text-xs` resolve a **12px** —
+`globals.css:79` declara `--text-xs: 0.75rem /* 12px */`, sem alias para 14px. Então o eyebrow de
+12px seria um **5º tamanho**, e um 5º tamanho é um 5º tamanho: uma cerca sobre *onde* ele aparece
+não muda a *contagem*. Não há mecanismo de isenção — a regra é numérica. Esta spec portanto **não**
+adota o eyebrow de 12px.
 
-A contagem de papéis de **leitura** permanece **4 tamanhos / 2 pesos**, conforme a tabela acima.
+**O conflito com a tela hospedeira foi verificado no código e não existe.** O risco previsto era o
+bloco novo do candidato ficar com eyebrow de 14px encostado nos eyebrows de 12px que a Phase 15
+teria estabelecido em `ExplicacaoCandidatoPage`. Verificação empírica:
+
+```
+grep -rn "text-xs" src/features/explicacao/   → NENHUMA ocorrência
+ExplicacaoCandidatoPage.tsx:141  <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
+ExplicacaoCandidatoPage.tsx:152  <p className="text-sm font-semibold text-white/70">
+```
+
+Os dois eyebrows vivos daquela página — "Por que esta decisão" e "Resultado da revisão:" — **já são
+`text-sm` (14px)**. O eyebrow de 12px da 15-UI-SPEC **nunca foi implementado ali**. Ou seja: o
+alinhamento desta fase é com o **código que roda**, e o desalinhamento é da spec arquivada com sua
+própria implementação — não desta fase com a tela.
+
+**Consequência para o achado cross-phase (`.planning/todos/pending/ui-spec-text-xs-quinto-tamanho.md`):**
+a Phase 42 **não** usa mais a via da isenção; usa a via (a), eyebrow a 14px. E isso torna a frase que
+as specs P14/P15 afirmaram — "tratamento do papel de 14px, não um 5º tamanho" — **verdadeira aqui
+pela primeira vez**: elas descreviam corretamente algo que não estavam fazendo. O achado fica mais
+forte, não mais fraco: a citação-fantasma ("precedente Phase 11/13") apontava para fases que não
+têm `text-xs` nenhum porque o que a P11/P13 de fato fazia era exatamente isto — 14px em caixa alta.
+A frase estava certa sobre o precedente e errada sobre a própria implementação.
+
+**Datas e metadados** (ex.: "Respondida em {dd/mm/aaaa}") também caem no papel de label de **14px**,
+não num tamanho menor.
 
 ---
 
