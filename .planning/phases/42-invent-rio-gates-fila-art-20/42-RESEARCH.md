@@ -469,7 +469,34 @@ CREATE POLICY config_revisao_rh_read ON public.config_sla_revisao
   USING ((select auth.jwt() #>> '{app_metadata,role}') IN ('rh', 'administrador'));
 ```
 (o idioma de `rh_le_decisao_final`. Se o limiar já vier resolvido dentro do `listar_revisoes_decisao`, a policy pode até ser omitida — default-deny —, o que é ainda mais forte: a ausência de policy nunca abre acesso, decisão travada no 37-CONTEXT.)
-**Correção adjacente ao CONTEXT:** o CONTEXT descreve `config_sla_etapa` como tendo *"trigger de updated_at"*. **Não tem.** A coluna `atualizado_em timestamptz NOT NULL DEFAULT now()` existe, mas nenhum trigger a mantém (`20260721000002:56-62` — a tabela inteira tem 5 colunas e zero triggers). Se `atualizado_em` precisar refletir edições, o trigger é trabalho novo — não herdado.
+**~~Correção adjacente ao CONTEXT~~ — RETRATADA pelo orquestrador (2026-07-29, verificada em código):**
+
+> A versão original desta nota afirmava que `config_sla_etapa` **não tem** trigger de
+> `atualizado_em` e que o CONTEXT estava errado. **A nota estava errada; o CONTEXT estava certo.**
+> O trigger existe:
+>
+> ```
+> supabase/migrations/20260722000002_p37_notificacoes_lacunas.sql:144  CREATE OR REPLACE FUNCTION public.tocar_atualizado_em()
+> supabase/migrations/20260722000002_p37_notificacoes_lacunas.sql:170  CREATE TRIGGER trg_config_sla_atualizado_em
+> supabase/migrations/20260722000002_p37_notificacoes_lacunas.sql:171    BEFORE UPDATE ON public.config_sla_etapa
+> supabase/migrations/20260722000002_p37_notificacoes_lacunas.sql:172    FOR EACH ROW EXECUTE FUNCTION public.tocar_atualizado_em();
+> ```
+>
+> A busca original olhou apenas `20260721000002_config_sla_etapa.sql` — onde de fato não há
+> trigger — e concluiu ausência. O trigger foi adicionado **depois**, por outra migration (a das
+> lacunas da P37). Esta é a mesma classe de erro que a própria pesquisa identifica como central
+> nesta fase: **ler um objeto vivo a partir de um único arquivo de migration em vez do estado
+> acumulado.**
+>
+> **Consequência para o plano:** a função `public.tocar_atualizado_em()` **já existe e é
+> reutilizável** — `search_path` vazio, referência qualificada, sem privilégio elevado. A tabela
+> de config do SLA desta fase deve **reusá-la** (`CREATE TRIGGER ... EXECUTE FUNCTION
+> public.tocar_atualizado_em()`), **nunca** redefinir a função nem escrever uma nova. Trigger de
+> `atualizado_em` é trabalho **herdado**, não novo.
+>
+> Nota de processo da P37 a respeitar: aquela migration usa `CREATE TRIGGER` puro, sem
+> `DROP TRIGGER` prévio, deliberadamente — *"falhar alto contra um trigger inesperado é preferível
+> a substituí-lo silenciosamente"*. Manter esse idioma.
 **Sinais de alerta:** `TO anon` em qualquer migration desta fase.
 
 ### Pitfall 4 — Gate de rota errado
