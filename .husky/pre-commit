@@ -1,15 +1,40 @@
 #!/usr/bin/env sh
-# Husky pre-commit hook — runs TypeScript type-check (tsc --noEmit)
-# Requirement: FOUND-08
+# Husky pre-commit hook — gate de NÃO-REGRESSÃO de tipos (tsc --noEmit)
+# Requirement: FOUND-08 · Phase 42 / Plan 42-01 Task 1 (REVISAO-04)
 #
-# INSTALLATION (one-time, by a human developer)
-# See .planning/phases/01-foundation-saneada/01-04-CHECKPOINT.md step 2.
-# Copy this file verbatim to .husky/pre-commit at the repo root, then:
-#   chmod +x .husky/pre-commit
-# After that, any subsequent `git commit` will run npm run lint first.
+# POR QUE CONTAGEM E NÃO EXIT CODE BINÁRIO
+# `npm run lint` (tsc --noEmit) sai != 0 desde sempre neste repositório: existe uma
+# baseline PRÉ-EXISTENTE de erros de tipo em `src/**` (débito herdado, documentado em
+# .planning/M7-HANDOFF.md:86). Um gate binário sobre esse estado é um gate que NUNCA
+# passa — e um gate que nunca passa não barra nada: ele só ensina todo mundo a digitar
+# `--no-verify`, o que também deixa passar os erros NOVOS. O gate correto é o de
+# não-regressão: conta os erros e reprova apenas quando a contagem SOBE.
 #
-# If this hook blocks a commit you believe is safe (emergency deploy, etc.)
-# use: git commit --no-verify
-# Parallel worktree executors always use --no-verify per GSD protocol.
+# BASELINE LOCAL (97) É DELIBERADAMENTE MAIS ESTRITA QUE A DO CI (104)
+# O `.github/workflows/ci.yml` roda este mesmo mecanismo desde a Phase 5, com a baseline
+# re-pinada a cada medição (290 → 133 → 107 → 104). O teto do CI está 7 acima do real:
+# é folga herdada, mantida de propósito para não reprovar PR de terceiro por ruído de
+# ambiente. Localmente não há esse motivo — aqui a baseline é a contagem REAL medida
+# (97 em 2026-07-29), então o hook pega uma regressão que o CI ainda toleraria.
+#
+# QUANDO RE-PINAR
+# Quando um trabalho LEGÍTIMO mover a contagem (limpeza que a reduz, ou refactor grande
+# que a eleva com justificativa registrada), re-medir e re-pinar o número abaixo:
+#   npm run -s lint 2>&1 | grep -c "error TS"
+# Re-pinar é um ato consciente, versionado e revisável. Bypass não é.
+#
+# POR QUE ESTA CONVERSÃO EXISTE
+# O portão de fase destrutiva do milestone M8 (.planning/STATE.md) exige commit COM o
+# hook rodando e passando — zero `--no-verify`. Com o hook binário anterior isso era
+# literalmente impossível de satisfazer honestamente. Daí a instrução de escape reflexivo
+# que este docblock trazia ("se o hook bloquear, use --no-verify") ter sido REMOVIDA:
+# a partir daqui, uma reprovação deste hook significa que você introduziu erro de tipo
+# novo. Isso é sinal, não obstáculo — investigue, não contorne.
 
-npm run lint
+COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
+echo "tsc errors: $COUNT (frozen baseline: 97)"
+if [ "$COUNT" -gt 97 ]; then
+  echo "erro: contagem de erros tsc ($COUNT) excede a baseline congelada (97) — erro de tipo novo introduzido"
+  npm run -s lint 2>&1 | grep "error TS" | head -50
+  exit 1
+fi
