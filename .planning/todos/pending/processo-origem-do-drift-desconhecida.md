@@ -1,7 +1,24 @@
+---
+id: processo-origem-do-drift-desconhecida
+created: 2026-07-22
+source: Phase 37 close (recomendação do verifier)
+priority: medium
+resolves_phase: 42
+tags: [processo, drift, migrations, ledger, m8-invent]
+---
+
 # Processo — a origem do drift PROD→repo continua desconhecida
 
 **Aberto:** 2026-07-22, no fechamento da Phase 37 (recomendação do verifier).
 **Tipo:** processo, não incidente. Não bloqueia nenhuma fase.
+
+> **Atualização 2026-07-29 (kickoff do M8) — UMA causa concreta foi identificada, e a fase 42 ataca o resto.**
+>
+> Este todo dizia que existe "um caminho de apply a PROD que não passa pelo repositório" sem que ninguém saiba qual. A auditoria do banco vivo feita no kickoff do M8 achou **um mecanismo real**, diferente do que se supunha: **`ADD COLUMN IF NOT EXISTS` sobre uma coluna pré-existente vira no-op e silencia a cláusula FK junto**. Foi assim que `candidatos.user_id` ficou `ON DELETE CASCADE` em PROD enquanto o repo (`20260421000001_rate_limit_duplicate_check.sql:193`) diz `ON DELETE SET NULL` — o arquivo descreve uma semântica que o banco nunca teve, e nenhum apply fora do repositório precisou acontecer para isso.
+>
+> Isso **não fecha** o item: não explica quem aplicou as duas migrations originais da P37, que continua sendo um apply de fora do repo. Mas mostra que "drift" não é um fenômeno único — há pelo menos duas origens distintas, e uma delas é um idioma que o próprio repositório usa.
+>
+> **Linkado à Phase 42** (`resolves_phase: 42`), que entrega: **INVENT-04** — varredura do idioma `ADD COLUMN IF NOT EXISTS` em todas as migrations, listando cada cláusula silenciada — e **INVENT-03** — diff dos `cron.job` vivos contra o repositório, com cada job vivo rastreável a uma migration. Detalhe da auditoria em `.planning/research/FK-AUDIT-LIVE.md`, que tem **precedência** sobre arquivos de migration em qualquer questão de `ON DELETE`.
 
 ## O fato
 
