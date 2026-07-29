@@ -2,9 +2,13 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
+current_phase: 42
+current_phase_name: não iniciada
 status: planning
-last_updated: "2026-07-29T04:10:00.000Z"
+stopped_at: Phase 42 UI-SPEC approved
+last_updated: "2026-07-29T12:32:15.638Z"
 last_activity: 2026-07-29
+last_activity_desc: ROADMAP.md do M8 escrito (6 fases, 42–47, 52/52 requirements mapeados)
 progress:
   total_phases: 6
   completed_phases: 0
@@ -96,7 +100,6 @@ Log completo em PROJECT.md Key Decisions.
 - [M8/fonte de verdade]: **`.planning/research/FK-AUDIT-LIVE.md` tem precedência** sobre `STACK.md`/`ARCHITECTURE.md` em qualquer questão de `ON DELETE` ou estado de schema — aqueles leram arquivos de migration, aquele é `pg_constraint`.
 
 **Herdadas do M7 (additive integration, security-first, reuse-and-clone) — seguem válidas:**
-
 
 - [M4/Phase 24 · SEC-03]: `20260706110005_sec03_n8n_serverside.sql` deixou 3 triggers `AFTER` com `net.http_post` (pg_net) + Vault secret `n8n_webhook_base` **dormentes** (graceful-skip `RETURN NEW`, secret nunca criado). O M7/Phase 39 **remove (DROP)** esses triggers no MESMO phase que cria os novos → aposenta o n8n, resolve **SEC-03 por substituição** (não patch). ⚠ há triggers n8n adicionais além dos 3 (`20260712100004_n8n_novo_candidato.sql`) — a P39 diffa os corpos vivos antes de qualquer DROP/CREATE.
 - [M2/Phase 10 · reuse]: EFs privilegiadas = self-auth Bearer via Vault + `--no-verify-jwt` (mirror `analise-candidato-individual`) — base direta da EF `notificar-candidato` (COMM-01) e do hop trigger→EF (DISPATCH-04). Ver [[reference_ef_authenticate_vs_authorize]].
@@ -224,9 +227,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-29
-Stopped at: **ROADMAP do M8 escrito.** Requirements do v8.0 (52, 9 categorias) mapeados a **6 fases, 42–47**, com **52/52 cobertos e 0 órfãos**. Ordem `42 → 43 → 44 → 45 → 46`, com **47 ∥ 46**. As 4 restrições irreversíveis foram verificadas contra o mapeamento (snapshot de bias antes de anonimizar · Storage antes do Auth · CONSENT-02 dentro do milestone · EXPORT antes de ERASE). Adotado como **exit criterion de roadmap** um "portão de fase destrutiva" (VERIFICATION.md com veredito · code review bloqueante antes do apply · asserções negativas · zero `--no-verify` · dry-run pela mesma query), derivado diretamente do achado de processo da P39. **Phase 45 nomeada como a de maior risco.** Sessão anterior (2026-07-28) fechou o M7 com o pipeline COMM provado por execução em produção.
-Resume file: None
+Last session: 2026-07-29T12:32:15.632Z
+Stopped at: Phase 42 UI-SPEC approved
+Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md
 
 ## Operator Next Steps
 
