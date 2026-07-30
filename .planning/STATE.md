@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: Inventário, Gates & Fila Art. 20
 status: executing
-stopped_at: 42-07 codigo completo — CHECKPOINT de PROD pendente (apply 20260730000003 + deploy notificar-rh + smoke)
-last_updated: "2026-07-30T05:13:58.453Z"
+stopped_at: Completed 42-11-PLAN.md
+last_updated: "2026-07-30T07:32:13.058Z"
 last_activity: 2026-07-30
-last_activity_desc: 42-07 concluído no código; Task 3 devolvida ao orquestrador
+last_activity_desc: 42-11 concluído — candidato vê o resultado da revisão Art. 20 no painel (REVISAO-04)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 7
+  completed_plans: 8
   percent: 0
 ---
 
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 8 of 12
-Status: 42-07 escrito e verde em CI; **checkpoint de PROD pendente** (apply + deploy + smoke)
-Last activity: 2026-07-30 — 42-07 concluído no código; Task 3 devolvida ao orquestrador
+Plan: 9 of 12
+Status: 42-11 completo (REVISAO-04 exibição); **checkpoint de PROD do 42-07 segue pendente** (apply + deploy + smoke)
+Last activity: 2026-07-30 — 42-11 concluído: o round-trip do Art. 20 fecha no painel do candidato
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -86,6 +86,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 |------|----------|-------|-------|
 | Phase 42 P01 | ~35min | 3 tasks | 5 files |
 | Phase 42 P07 | ~55min | 2 tasks | 6 files |
+| Phase 42 P11 | ~30min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -165,6 +166,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 42 / 42-07]: `dedupe_key` por DESTINATÁRIO quando um evento tem N recipientes: chave só por candidatura faria o 1º RH consumir o claim e 4 de 5 pessoas receberem skipped:duplicate em silêncio
 - [Phase 42 / 42-07]: Evento sem sweep de retry grava `proxima_tentativa_em` NULO — agendar tentativa que nada consumirá é afirmação falsa no ledger (mesma classe do truque `tentativas = 5` que o plano rejeitou). A fila /rh/revisoes é a superfície durável
 - [Phase 42 / 42-07]: Allowlist de log é POR Edge Function, nunca importada da EF vizinha: `dedupe_key` é logável em notificar-candidato e PROIBIDA em notificar-rh porque ali embute o candidatura_id completo e o user_id
+- [Phase 42 / 42-11]: a superfície do candidato NUNCA usa os 3 RPCs RH-only do Art. 20 (revogados de anon na 20260730000002) — a leitura é own-row por PostgREST sob a policy candidato_le_propria_decisao, e a única escrita do candidato é solicitar_revisao_decisao. Confundir os dois lados produziria 42501 em toda a tela
+- [Phase 42 / 42-11]: veredito da revisão é narrowed para união literal com normalização defensiva no cliente — o CHECK do banco já fecha o vocabulário, mas um invariante REMOTO é a coisa errada para uma decisão de RENDERIZAÇÃO se apoiar: valor novo fecha a superfície em vez de ecoar token cru ao candidato
+- [Phase 42 / 42-11]: critério de aceitação com grep negativo sobre literal (revisao_por_usuario, text-xs) é satisfeito montando o literal em runtime no teste (['text','xs'].join('-')) — a asserção fica real e o literal proibido não passa a existir na feature, nem dentro do teste que o proíbe
+- [Phase 42 / 42-11]: RED commit separado é IMPOSSÍVEL para superfície de API nova neste repo — referenciar símbolo/prop inexistente eleva a contagem tsc acima da baseline congelada de 97 e o hook reprova. O RED foi commitado onde tipa (asserções de valor) e verificado empiricamente onde não tipa; contorcer com 'as unknown as' trocaria força de asserção por cerimônia
 
 ### Pending Todos
 
@@ -239,8 +244,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-29T14:01:11.572Z
-Stopped at: Completed 42-01-PLAN.md
+Last session: 2026-07-30T07:32:13.050Z
+Stopped at: Completed 42-11-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
