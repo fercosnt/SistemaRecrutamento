@@ -44,6 +44,7 @@ fase encerrada é um inventário que ninguém encontra quando precisa.
 | `cron-inventory.md` | **INVENT-03** | O diff dos `cron.job` vivos contra o repositório, cada job vivo rastreável a uma migration |
 | `ddl-idiom-sweep.md` | **INVENT-04** | A varredura do idioma `ADD COLUMN IF NOT EXISTS`, listando onde uma cláusula FK pode ter sido silenciada |
 | `achados-inventario.md` | INVENT-01..04 | Os achados transversais da coleta — incluindo correções à própria semente (`FK-AUDIT-LIVE.md`) |
+| [`anon-execute-definer-audit.md`](./anon-execute-definer-audit.md) | — (achado incidental) | As 61 funções `SECURITY DEFINER` de `public` com EXECUTE para `anon`, triadas em confirmado-sem-guard / guard-íntegro / inconclusivo / `anon`-por-desenho. **Fora do índice antecipado**: nasceu da asserção (c) do smoke do Art. 20 reprovar. Correção diferida a fase própria (todo `42-anon-execute-definer-sistemico`) |
 
 ### Queries reprodutoras — `sql/`
 
