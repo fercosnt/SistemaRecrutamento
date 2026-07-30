@@ -37,6 +37,51 @@ tags: [processo, drift, migrations, ledger, m8-invent]
 >
 > **Isto NÃO fecha o item** — segue sem explicar quem aplicou as duas migrations originais da P37. Mas reduz o "desconhecido" a um caminho concreto e testável, e sugere o gate: **asserção de fidelidade pós-apply**, comparando `md5(prosrc)` vivo contra o corpo extraído do arquivo, para cada função que a migration cria ou substitui. Duas de três funções da `20260730000002` passariam essa asserção hoje; a terceira não.
 
+> **Atualização 2026-07-30 (Phase 42, apply do checkpoint da 42-07) — TERCEIRA causa, e o ledger afinal registra O QUE foi aplicado.**
+>
+> Duas descobertas ao aplicar `20260730000003` por `apply_migration`, ambas medidas, não inferidas.
+>
+> **(1) `apply_migration` CARIMBA A PRÓPRIA VERSÃO — o nome do arquivo nunca chega ao ledger.**
+> Passei `name: "20260730000003_p42_trg_revisao_solicitada"`. O ledger gravou
+> `version = '20260730102244'` (timestamp do instante do apply) e só o `name` preservou o
+> prefixo. **Consequência:** `supabase db push` leria `20260730000003_….sql` como
+> **não aplicada** e tentaria reaplicá-la; e `ls supabase/migrations/` versus
+> `schema_migrations` — a checagem de drift "barata" sugerida no fim deste arquivo —
+> acusaria falso positivo para toda migration aplicada por MCP. Corrigido à mão nesta
+> sessão (`UPDATE … SET version='20260730000003'`), que é o que
+> `supabase migration repair` teria feito. **Todo apply por MCP precisa desse reparo, e
+> ele não é opcional.**
+>
+> **(2) O ledger REGISTRA o SQL aplicado — a afirmação contrária na atualização acima está errada.**
+> `supabase_migrations.schema_migrations` tem uma coluna `statements text[]`, e para
+> migrations aplicadas por MCP ela contém o SQL literal recebido. Isso torna o drift
+> **exatamente mensurável no ato**, sem depender de `pg_get_functiondef` nem de
+> normalização:
+>
+> ```sql
+> SELECT md5(statements[1]) FROM supabase_migrations.schema_migrations WHERE version = '<v>';
+> -- comparar com:  printf '%s' "$(cat supabase/migrations/<v>_*.sql)" | md5
+> ```
+>
+> **Medição das três migrations do M8 aplicadas até agora:**
+>
+> | Migration | md5 aplicado vs arquivo | chars aplicados / arquivo | Veredito |
+> |-----------|-------------------------|---------------------------|----------|
+> | `20260730000001` (42-06) | ✗ divergente | 12 816 / 27 440 | comentários descartados |
+> | `20260730000002` (42-06) | ✗ divergente | 7 972 / 15 075 | comentários descartados |
+> | `20260730000003` (42-07) | ✓ **idêntico** `2cfce511…` | 21 860 / 21 861 (só o `\n` final) | **retransmissão fiel** |
+>
+> As duas divergentes batem com "arquivo menos as linhas de comentário" (14 635 e 8 849
+> chars pelo mesmo stripper) dentro da margem do stripper — ou seja, **a perda é de
+> comentário, o SQL executável está inteiro**, confirmado independentemente pelas
+> asserções de objeto vivo desta sessão. Cada arquivo tem **um único commit**, então não
+> foi o arquivo que cresceu depois.
+>
+> **O gate agora é trivial e mais forte que o proposto acima** (`md5(prosrc)` por função,
+> que só cobre funções): comparar `md5(statements[1])` contra o md5 do arquivo logo após
+> cada apply. Custo: uma query. Prova: fidelidade byte-a-byte da migration inteira —
+> `REVOKE`s, predicados de `WHERE`, cláusulas `USING` e tudo mais, não só corpos `$$`.
+
 ## O fato
 
 A Phase 37 **reconciliou** o drift: as tabelas `notificacoes_enviadas` e `config_sla_etapa` agora têm arquivos de migration no repo, provados fiéis contra o catálogo vivo por smoke executável. Mas ela **não descobriu, e não tinha como descobrir, quem as aplicou**.
