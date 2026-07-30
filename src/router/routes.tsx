@@ -62,6 +62,9 @@ const MeuPerfilPage = lazyNamed(() => import('../components/pages/MeuPerfilPage'
 const SuporteRHPage = lazyNamed(() => import('../components/pages/SuporteRHPage'), 'SuporteRHPage')
 const RelatoriosRHPage = lazyNamed(() => import('../components/pages/RelatoriosRHPage'), 'RelatoriosRHPage')
 
+// Fila de revisão de decisão Art. 20 (Phase 42 / REVISAO-02 — RH + administrador)
+const RevisoesRHPage = lazyNamed(() => import('../features/revisao/components/RevisoesRHPage'), 'RevisoesRHPage')
+
 // Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
 const RedacaoReviewPanel = lazyNamed(() => import('../features/triagem/components/RedacaoReviewPanel'), 'RedacaoReviewPanel')
 
@@ -425,6 +428,20 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <RelatoriosRHPage />
+      </RoleGuard>
+    ),
+  },
+  // Fila de revisão Art. 20 (REVISAO-02). MESMO gate das rotas RH vizinhas, e NÃO um
+  // gate admin-only: o recrutador é a persona primária desta tela, e um wrapper
+  // administrador-only o excluiria da própria fila que ele precisa trabalhar. O gate
+  // real de DADOS não é este wrapper — é o escopo por vaga reimplementado dentro do
+  // SECURITY DEFINER de `listar_revisoes_decisao` (plano 42-06), que devolve ao
+  // recrutador apenas as vagas que ele criou e ao administrador tudo.
+  {
+    path: '/rh/revisoes',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <RevisoesRHPage />
       </RoleGuard>
     ),
   },
