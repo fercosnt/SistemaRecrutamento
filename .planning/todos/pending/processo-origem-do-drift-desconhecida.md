@@ -20,6 +20,23 @@ tags: [processo, drift, migrations, ledger, m8-invent]
 >
 > **Linkado à Phase 42** (`resolves_phase: 42`), que entrega: **INVENT-04** — varredura do idioma `ADD COLUMN IF NOT EXISTS` em todas as migrations, listando cada cláusula silenciada — e **INVENT-03** — diff dos `cron.job` vivos contra o repositório, com cada job vivo rastreável a uma migration. Detalhe da auditoria em `.planning/research/FK-AUDIT-LIVE.md`, que tem **precedência** sobre arquivos de migration em qualquer questão de `ON DELETE`.
 
+> **Atualização 2026-07-30 (Phase 42, checkpoint da 42-07) — SEGUNDA causa concreta, e esta explica o drift de CORPO de função.**
+>
+> A causa achada no kickoff (`ADD COLUMN IF NOT EXISTS`) explica drift de **DDL de coluna**. Esta explica drift de **texto de objeto**, e foi medida duas vezes no mesmo dia:
+>
+> **O mecanismo:** `apply_migration` do MCP do Supabase recebe o SQL como **string na chamada da ferramenta**, não como arquivo. O agente que aplica precisa **retransmitir** o conteúdo. Se ele resumir, reindentar ou omitir comentários — o que é tentador em corpos longos, para caber na chamada — **PROD passa a divergir do arquivo sem erro, sem warning e sem linha no ledger**. O ledger registra "a migration X foi aplicada"; ele não registra *o que* foi aplicado.
+>
+> **Duas medições:**
+>
+> | Objeto | Divergência | Natureza |
+> |--------|-------------|----------|
+> | `varrer_retry_notificacoes` (P41, `20260727000001`) | arquivo 1942 chars · vivo 1677 | **bloco de comentário de 4 linhas** ausente em PROD (`-- Seleção coberta por idx_notif_retry …`). Restante byte-idêntico. O arquivo tem **um único commit** e o comentário estava nele desde o início → não foi o arquivo que mudou depois, **foi o apply que o perdeu** |
+> | `responder_revisao_decisao` (P42, `20260730000002`) | arquivo 2699 chars · vivo 1798 | mesma classe, mesma sessão que escreveu este parágrafo. Comparação normalizada (linhas não-vazias, não-comentário): **md5 idêntico `5cccfd0a…`, 1644 chars nos dois** → divergência **exclusivamente de comentário**, zero comportamental |
+>
+> Ambas benignas. **Mas o mecanismo não distingue comentário de código.** A mesma abreviação que descarta um comentário pode descartar um `REVOKE`, um predicado de `WHERE` ou uma cláusula `USING` — e o resultado seria um objeto vivo que faz menos do que o repositório afirma, com o ledger dizendo que está tudo aplicado. É a forma exata do defeito que a 42-06 encontrou por outro caminho (`REVOKE … FROM PUBLIC` sem `FROM anon`).
+>
+> **Isto NÃO fecha o item** — segue sem explicar quem aplicou as duas migrations originais da P37. Mas reduz o "desconhecido" a um caminho concreto e testável, e sugere o gate: **asserção de fidelidade pós-apply**, comparando `md5(prosrc)` vivo contra o corpo extraído do arquivo, para cada função que a migration cria ou substitui. Duas de três funções da `20260730000002` passariam essa asserção hoje; a terceira não.
+
 ## O fato
 
 A Phase 37 **reconciliou** o drift: as tabelas `notificacoes_enviadas` e `config_sla_etapa` agora têm arquivos de migration no repo, provados fiéis contra o catálogo vivo por smoke executável. Mas ela **não descobriu, e não tinha como descobrir, quem as aplicou**.
