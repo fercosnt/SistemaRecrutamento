@@ -101,7 +101,7 @@ Plans:
 - [x] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
 - [x] 42-07-PLAN.md — REVISAO-01: EF nova `notificar-rh` + trigger de disparo, com a colisão entre o ledger compartilhado e a varredura de retry viva fechada explicitamente ⚠ **código completo e verde; apply/deploy/smoke em PROD PENDENTES — REVISAO-01 segue aberto**
 - [ ] 42-08-PLAN.md — REVISAO-04: 5º evento `revisao_respondida` (os 9 sítios em código + o CHECK vivo + o trigger), na ordem obrigatória EF → CHECK → trigger
-- [ ] 42-09-PLAN.md — REVISAO-02: fila `/rh/revisoes` (serviço, hooks, tabela, badges, página, rota com `RoleGuard`)
+- [x] 42-09-PLAN.md — REVISAO-02: fila `/rh/revisoes` (serviço, hooks, tabela, badges, página, rota com `RoleGuard`)
 - [ ] 42-10-PLAN.md — REVISAO-03/05 na interface: diálogo de resposta com confirmação aninhada e alerta inline de recusa + entrada e contador na `RHSidebar` (três sítios)
 - [ ] 42-11-PLAN.md — REVISAO-04 no painel do candidato: bloco de resultado da revisão + terceiro estado da chamada de ação
 - [ ] 42-12-PLAN.md — INVENT-05 (**portão destrutivo**): correção do predicado do `ai-logs-retention-cleanup`, isolado, medido antes/depois pela mesma query, com review bloqueante e zero bypass do hook
@@ -284,7 +284,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
-| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 7/12 | In Progress|  |
+| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 8/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 0/? | Not started | - |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
