@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: Inventário, Gates & Fila Art. 20
 status: executing
-stopped_at: Completed 42-01-PLAN.md
-last_updated: "2026-07-30T04:08:58.292Z"
+stopped_at: 42-07 codigo completo — CHECKPOINT de PROD pendente (apply 20260730000003 + deploy notificar-rh + smoke)
+last_updated: "2026-07-30T05:13:58.453Z"
 last_activity: 2026-07-30
-last_activity_desc: Phase 42 execution started
+last_activity_desc: 42-07 concluído no código; Task 3 devolvida ao orquestrador
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 5
+  completed_plans: 7
   percent: 0
 ---
 
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 1 of 12
-Status: Executing Phase 42
-Last activity: 2026-07-30 — Phase 42 execution started
+Plan: 8 of 12
+Status: 42-07 escrito e verde em CI; **checkpoint de PROD pendente** (apply + deploy + smoke)
+Last activity: 2026-07-30 — 42-07 concluído no código; Task 3 devolvida ao orquestrador
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -85,6 +85,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 42 P01 | ~35min | 3 tasks | 5 files |
+| Phase 42 P07 | ~55min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -160,6 +161,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 41 · 41-05 T3]: o `GET → 405` é o discriminador que separa "passou do gate do Vault" de "falhou antes dele" — com o secret ausente TODO método dava 500 (a leitura do Vault acontece no `Deno.serve`, antes do `handler`, onde vive o check de método). 405 prova que a execução alcançou o handler; 400 prova que alcançou o verify do Svix
 - [Phase 41 · 41-05 T3]: colunas novas de migration devem ser provadas por ESCRITA REAL do consumidor, não só por catálogo — `bounce_em` foi validada pelo webhook gravando nela, o que também prova que a reconciliação é cirúrgica (cada evento toca só a sua coluna, sem apagar `entregue_em`)
 - [Phase 39 · gap closure]: a ordem guard × claim é a parte que importa do fix de CR-02 — o survivor-guard na linha 192 roda ANTES do claim (linha 250), então um knockout não deixa linha `pendente` para a varredura `*/15` da P41 re-tentar. Guard depois do claim teria fechado o e-mail e aberto um retry órfão
+- [Phase 42 / 42-07]: Adicionar evento ao ledger `notificacoes_enviadas` exige estender o CHECK `notificacoes_enviadas_evento_check` na MESMA entrega — o plano 42-07 omitiu isso e a EF do RH falharia com 23514 em todo claim, entregando um no-op silencioso. Ler a forma VIVA da tabela, nunca a lista de sítios que o plano enumera
+- [Phase 42 / 42-07]: `dedupe_key` por DESTINATÁRIO quando um evento tem N recipientes: chave só por candidatura faria o 1º RH consumir o claim e 4 de 5 pessoas receberem skipped:duplicate em silêncio
+- [Phase 42 / 42-07]: Evento sem sweep de retry grava `proxima_tentativa_em` NULO — agendar tentativa que nada consumirá é afirmação falsa no ledger (mesma classe do truque `tentativas = 5` que o plano rejeitou). A fila /rh/revisoes é a superfície durável
+- [Phase 42 / 42-07]: Allowlist de log é POR Edge Function, nunca importada da EF vizinha: `dedupe_key` é logável em notificar-candidato e PROIBIDA em notificar-rh porque ali embute o candidatura_id completo e o user_id
 
 ### Pending Todos
 
@@ -171,7 +176,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 ### Blockers/Concerns
 
-- **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:none>`, invisível às asserções que olham o texto visível.
+- **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:>`, invisível às asserções que olham o texto visível.
 - **📌 Nota operacional (achado incidental do UAT):** reenviar o MESMO evento para a MESMA candidatura em 24h é barrado em **duas camadas independentes** — `UNIQUE(dedupe_key)` no nosso ledger E a idempotência do Resend. Provado ao vivo: um re-teste com a mesma `Idempotency-Key` e corpo alterado recebeu `409 ... request body was modified`. O cinto do LEDGER-02/T-41-15, antes só coberto por teste unitário, está provado em PROD.
 - **✅ RESOLVIDO 2026-07-28 — P39 CR-01 / CR-02 DEPLOYADOS.** Era o bloqueio mais importante do milestone. A EF `notificar-candidato` está viva em **v3** com o fix `f3b7304`: aprovado recebe `COPY_APROVACAO` (nunca mais a rejeição) e knockout é barrado pelo survivor-guard **na EF, antes do claim** (logo não deixa linha `pendente` para a varredura re-tentar). Auditado na fonte deployada + 401 sem Bearer + ledger intacto (0 linhas). **Consequência prática: fechar DELIV-01 já não é perigoso** — a contenção acidental do `403` deixou de ser necessária.
 - **✅ RESOLVIDO 2026-07-28 — ACESSO DE ESCRITA A PROD RESTABELECIDO.** O operador removeu `&read_only=true` da URL do MCP. Verificado empiricamente antes de qualquer escrita: `current_user=postgres`, `session_user=postgres`, `transaction_read_only=off`. `apply_migration`, `execute_sql` de escrita e `deploy_edge_function` **todos funcionais** nesta sessão. Segue **sem** Supabase CLI instalado e sem `supabase/.temp/` (projeto não linkado) — então o caminho de escrita continua sendo **exclusivamente o MCP pelo main thread**, e `db push` permanece proibido (42601 nos corpos `$$`).
@@ -194,6 +199,8 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **⚠ Drift pré-existente re-surfaced na P39-04 (NÃO-P39).** `db push --linked` reporta 7 versions órfãs (`20260713024106`…`20260714023002`) — migrations de 07-13/07-14 aplicadas via `apply_migration` (timestamp) e nunca reconciliadas ao prefixo do arquivo (2 sem arquivo local: `usr_rh_review_fixes_wr01_wr03`, `perfil_rh_rpc_hardening`). É o débito de drift já documentado (causa desconhecida), 2 semanas antes da P39. A version da P39 (`20260726000001`) está corretamente reconciliada → **zero drift novo**. NÃO reparado (fora de escopo; `--status reverted` do CLI marcaria migrations aplicadas como revertidas — errado). Rastrear p/ backlog de infra.
 - **D-15 / RNF-07a / RNF-12a** — o template de rejeição (COMM-05) é fixo e neutro (grep-guard contra tokens de scoring), disparado só por decisão registrada por humano.
 - **Contas de teste PROD:** `e2e.admin@beautysmile.com.br` (admin) + `recrutador` `fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7` + `candidato.funil@teste.com`.
+- 42-07 CHECKPOINT PENDENTE (bloqueante): apply de 20260730000003 + deploy da EF notificar-rh + smoke do round-trip. Ordem obrigatória: EF ANTES do trigger (net.http_post é at-most-once). Ler NOTIFICACOES_MODO na função nova antes do smoke — em PROD é 'producao' e o smoke mandaria e-mail real aos 5 RH. REVISAO-01 NÃO está entregue até isso passar
+- 42-08 tem de renumerar sua migration para 20260730000004 (o 42-07 tomou o 20260730000003) E reescrever as asserções (a)/(b) do seu smoke: o CHECK vivo passa a ter 5 valores com o 42-07 e 6 com o 42-08
 
 ## Deferred Items
 

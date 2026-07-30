@@ -99,7 +99,7 @@ Plans:
 - [x] 42-04-PLAN.md — INVENT-01: inventário PII coluna-a-coluna do catálogo vivo (YAML + Markdown gerado) e a correção da citação da semente FK-AUDIT-LIVE
 - [x] 42-05-PLAN.md — INVENT-02/03/04: PITR e Storage sem backup · diff dos `cron.job` vivos × repositório · varredura do idioma condicional de `ADD COLUMN` · achados de autorização registrados
 - [x] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
-- [ ] 42-07-PLAN.md — REVISAO-01: EF nova `notificar-rh` + trigger de disparo, com a colisão entre o ledger compartilhado e a varredura de retry viva fechada explicitamente
+- [x] 42-07-PLAN.md — REVISAO-01: EF nova `notificar-rh` + trigger de disparo, com a colisão entre o ledger compartilhado e a varredura de retry viva fechada explicitamente ⚠ **código completo e verde; apply/deploy/smoke em PROD PENDENTES — REVISAO-01 segue aberto**
 - [ ] 42-08-PLAN.md — REVISAO-04: 5º evento `revisao_respondida` (os 9 sítios em código + o CHECK vivo + o trigger), na ordem obrigatória EF → CHECK → trigger
 - [ ] 42-09-PLAN.md — REVISAO-02: fila `/rh/revisoes` (serviço, hooks, tabela, badges, página, rota com `RoleGuard`)
 - [ ] 42-10-PLAN.md — REVISAO-03/05 na interface: diálogo de resposta com confirmação aninhada e alerta inline de recusa + entrada e contador na `RHSidebar` (três sítios)
@@ -284,7 +284,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
-| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 6/12 | In Progress|  |
+| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 7/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 0/? | Not started | - |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
