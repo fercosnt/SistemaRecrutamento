@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
-current_phase_name: não iniciada
-status: planning
+current_phase_name: Inventário, Gates & Fila Art. 20
+status: executing
 stopped_at: Completed 42-01-PLAN.md
-last_updated: "2026-07-29T14:01:11.580Z"
-last_activity: 2026-07-29
-last_activity_desc: ROADMAP.md do M8 escrito (6 fases, 42–47, 52/52 requirements mapeados)
+last_updated: "2026-07-30T04:08:58.292Z"
+last_activity: 2026-07-30
+last_activity_desc: Phase 42 execution started
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 3
+  completed_plans: 5
   percent: 0
 ---
 
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 
 ## Current Position
 
-Phase: 42 — Inventário, Gates & Fila Art. 20 (não iniciada)
-Plan: —
-Status: Roadmap criado — pronto para `/gsd-plan-phase 42`
-Last activity: 2026-07-29 — ROADMAP.md do M8 escrito (6 fases, 42–47, 52/52 requirements mapeados)
+Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
+Plan: 1 of 12
+Status: Executing Phase 42
+Last activity: 2026-07-30 — Phase 42 execution started
 
 ## Roadmap (M8 — Phases 42–47)
 
