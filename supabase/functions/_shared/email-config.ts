@@ -78,33 +78,56 @@ export interface DestinatarioResolvido {
 }
 
 /**
- * Decide para onde o e-mail realmente vai.
+ * Decide para onde o e-mail realmente vai, com um rótulo ARBITRÁRIO de sink.
  *
  * Em `producao`, devolve o endereço real. Em `teste`, desvia para
- * `delivered+<evento>@resend.dev` — a sandbox do provedor, que aceita e descarta.
+ * `delivered+<label>@resend.dev` — a sandbox do provedor, que aceita e descarta.
  * Em AMBOS os modos `destinatario_original` carrega o e-mail real recebido: o
  * ledger da P37 audita quem *deveria* receber, não só quem recebeu.
  *
- * PII (T-36-01-02): o `+label` é somente o nome do evento, sanitizado para `[a-z_]`.
- * NUNCA usar `candidatura_id`, e-mail ou nome do candidato no label — esse endereço
- * viaja para um domínio de terceiro. A sanitização também protege o header: um label
- * com caractere inválido quebraria o `to`.
+ * PII (T-36-01-02): o `+label` é sanitizado para `[a-z_]`. NUNCA usar
+ * `candidatura_id`, e-mail ou nome de pessoa no label — esse endereço viaja para um
+ * domínio de TERCEIRO. A sanitização também protege o header: um label com caractere
+ * inválido quebraria o `to`.
+ *
+ * POR QUE ESTA GENERALIZAÇÃO EXISTE (Phase 42 / Plan 42-07 · REVISAO-01)
+ * O rótulo do sink de teste é conceito de **destino**, não de vocabulário de evento de
+ * candidato. A EF `notificar-rh` precisa do rótulo `revisao_solicitada_rh`, que NÃO
+ * pertence — nem deve pertencer — à união `EventoNotificacao`: adicioná-lo àquela união
+ * exigiria entradas correspondentes nos três `Record<EventoNotificacao, …>` de template
+ * de candidato (`SUBJECTS`/`CORPOS`/`PREHEADERS` em `email-templates.ts`), poluindo um
+ * vocabulário que é fechado por outra razão. `resolverDestinatario` delega para cá com
+ * `evento` como rótulo — zero mudança de comportamento para os chamadores existentes.
+ */
+export function resolverDestinatarioComLabel(
+  emailReal: string,
+  label: string,
+  modo: ModoNotificacao = resolverModo(),
+): DestinatarioResolvido {
+  if (modo === 'producao') {
+    return { para: emailReal, destinatario_original: emailReal, modo, redirecionado: false }
+  }
+  const rotulo = label.replace(/[^a-z_]/g, '')
+  return {
+    para: `delivered+${rotulo}@resend.dev`,
+    destinatario_original: emailReal,
+    modo,
+    redirecionado: true,
+  }
+}
+
+/**
+ * Resolução de destinatário para os eventos de CANDIDATO — o rótulo do sink é o
+ * próprio nome do evento. Delega para `resolverDestinatarioComLabel`; a assinatura,
+ * o tipo estreito de `evento` e os endereços produzidos permanecem idênticos aos da
+ * P36/P38 (pinados pelos casos 1-9 de `__tests__/email-config.test.ts`).
  */
 export function resolverDestinatario(
   emailReal: string,
   evento: EventoNotificacao,
   modo: ModoNotificacao = resolverModo(),
 ): DestinatarioResolvido {
-  if (modo === 'producao') {
-    return { para: emailReal, destinatario_original: emailReal, modo, redirecionado: false }
-  }
-  const label = evento.replace(/[^a-z_]/g, '')
-  return {
-    para: `delivered+${label}@resend.dev`,
-    destinatario_original: emailReal,
-    modo,
-    redirecionado: true,
-  }
+  return resolverDestinatarioComLabel(emailReal, evento, modo)
 }
 
 /**
