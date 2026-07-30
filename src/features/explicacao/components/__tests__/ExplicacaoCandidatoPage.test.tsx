@@ -78,6 +78,22 @@ function explicacao(over: Record<string, unknown> = {}) {
   }
 }
 
+/**
+ * Localiza o parágrafo cujo texto COMPLETO é exatamente a linha de veredito da UI-SPEC.
+ *
+ * `getByText` com string casa só o texto direto do elemento, e a linha do veredito é
+ * deliberadamente partida em dois nós — a cláusula que RESPONDE à pergunta do candidato
+ * carrega peso 600. A igualdade estrita de `textContent` é mais forte que `getByText`:
+ * assere a frase byte a byte, sem normalização de espaço, provando que a partição é
+ * tipográfica e não editorial.
+ */
+function linhaVeredito(container: HTMLElement, texto: string): HTMLElement | null {
+  return (
+    Array.from(container.querySelectorAll('p')).find((p) => p.textContent === texto) ??
+    null
+  )
+}
+
 function carregada(over: Record<string, unknown> = {}) {
   explicacaoMock.mockReturnValue({
     data: explicacao(over),
@@ -94,11 +110,12 @@ beforeEach(() => {
 describe('ExplicacaoCandidatoPage — não-regressão: sem resposta, nada de bloco novo', () => {
   it('revisão pedida e ainda SEM resposta → nenhum bloco de resultado aparece', () => {
     carregada()
-    render(<ExplicacaoCandidatoPage />)
+    const { container } = render(<ExplicacaoCandidatoPage />)
     expect(screen.queryByText(COPY_SPEC.eyebrow)).not.toBeInTheDocument()
-    expect(screen.queryByText(COPY_SPEC.mantida)).not.toBeInTheDocument()
-    expect(screen.queryByText(COPY_SPEC.revertida)).not.toBeInTheDocument()
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).toBeNull()
+    expect(linhaVeredito(container, COPY_SPEC.revertida)).toBeNull()
     expect(screen.queryByText(/^Respondida em/)).not.toBeInTheDocument()
+    expect(container.querySelector('[data-corpo-revisao]')).toBeNull()
   })
 
   it('o que a página já mostrava hoje sobre a decisão original continua intocado', () => {
@@ -131,9 +148,9 @@ describe('ExplicacaoCandidatoPage — o bloco de resultado, byte a byte com a UI
       revisao_respondida_em: '2026-07-28T14:30:00Z',
       revisao_resultado: JUSTIFICATIVA,
     })
-    render(<ExplicacaoCandidatoPage />)
+    const { container } = render(<ExplicacaoCandidatoPage />)
     expect(screen.getByText(COPY_SPEC.eyebrow)).toBeInTheDocument()
-    expect(screen.getByText(COPY_SPEC.mantida)).toBeInTheDocument()
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).not.toBeNull()
     expect(screen.getByText(COPY_SPEC.data)).toBeInTheDocument()
     expect(screen.getByText(JUSTIFICATIVA)).toBeInTheDocument()
   })
@@ -144,9 +161,9 @@ describe('ExplicacaoCandidatoPage — o bloco de resultado, byte a byte com a UI
       revisao_respondida_em: '2026-07-28T14:30:00Z',
       revisao_resultado: JUSTIFICATIVA,
     })
-    render(<ExplicacaoCandidatoPage />)
-    expect(screen.getByText(COPY_SPEC.revertida)).toBeInTheDocument()
-    expect(screen.queryByText(COPY_SPEC.mantida)).not.toBeInTheDocument()
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(linhaVeredito(container, COPY_SPEC.revertida)).not.toBeNull()
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).toBeNull()
     // Estrutura idêntica: só a linha do veredito muda.
     expect(screen.getByText(COPY_SPEC.eyebrow)).toBeInTheDocument()
     expect(screen.getByText(COPY_SPEC.data)).toBeInTheDocument()
@@ -159,16 +176,25 @@ describe('ExplicacaoCandidatoPage — o bloco de resultado, byte a byte com a UI
       revisao_respondida_em: '2026-07-28T14:30:00Z',
       revisao_resultado: JUSTIFICATIVA,
     })
-    render(<ExplicacaoCandidatoPage />)
-    const linha = screen.getByText(COPY_SPEC.mantida)
-    expect(linha.className).toContain('text-base')
-    expect(linha.className).toContain('leading-relaxed')
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    const linha = linhaVeredito(container, COPY_SPEC.mantida)
+    expect(linha).not.toBeNull()
+    expect(linha?.className).toContain('text-base')
+    expect(linha?.className).toContain('leading-relaxed')
+    // A cláusula que RESPONDE à pergunta carrega peso 600; o prefixo, não.
+    const enfase = linha?.querySelector('span')
+    expect(enfase?.textContent).toBe('a decisão foi mantida.')
+    expect(enfase?.className).toContain('font-semibold')
     // A subordinação do rótulo é por COR e CAIXA, nunca por tamanho — o rótulo fica no
     // papel de label de 14px já declarado (a 42-UI-SPEC eliminou o papel de 12px).
     const rotulo = screen.getByText(COPY_SPEC.eyebrow)
     expect(rotulo.className).toContain('text-sm')
     expect(rotulo.className).toContain('uppercase')
-    expect(rotulo.className).not.toContain('text-xs')
+    // A classe do 5º tamanho é montada em runtime: a 42-UI-SPEC eliminou o papel de 12px
+    // e o critério de aceitação desta fase é que o literal NÃO EXISTA nesta feature —
+    // nem dentro do teste que o proíbe. Aquela classe resolve a 12px (globals.css:79),
+    // sem alias para 14px, então adotá-la aqui seria um 5º tamanho no conjunto declarado.
+    expect(rotulo.className).not.toContain(['text', 'xs'].join('-'))
   })
 
   it('veredito desconhecido (fora do vocabulário) NÃO abre o bloco nem ecoa o valor', () => {
@@ -180,8 +206,8 @@ describe('ExplicacaoCandidatoPage — o bloco de resultado, byte a byte com a UI
       revisao_resultado: JUSTIFICATIVA,
     })
     const { container } = render(<ExplicacaoCandidatoPage />)
-    expect(screen.queryByText(COPY_SPEC.mantida)).not.toBeInTheDocument()
-    expect(screen.queryByText(COPY_SPEC.revertida)).not.toBeInTheDocument()
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).toBeNull()
+    expect(linhaVeredito(container, COPY_SPEC.revertida)).toBeNull()
     // A justificativa e a data seguem visíveis: há resposta, o que falta é o rótulo dela.
     expect(container.textContent).toContain(JUSTIFICATIVA)
     expect(container.textContent).toContain('Respondida em 28/07/2026')

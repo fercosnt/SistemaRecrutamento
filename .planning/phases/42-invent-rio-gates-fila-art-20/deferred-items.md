@@ -30,3 +30,42 @@ regressão de quem a introduziu.
 **Impacto:** `npm run test:run` sai diferente de zero no repositório desde o 42-07.
 Os 1148 testes que rodam passam; a reprovação é de CARGA de um arquivo, não de
 asserção.
+
+---
+
+## D-42-11-01 · `GlassButton` engole silenciosamente todo prop extra (`aria-*`, `data-*`, `title`)
+
+**Encontrado por:** plano 42-11, ao acrescentar o terceiro estado do
+`SolicitarRevisaoCTA`.
+**Arquivo:** `src/components/ui/glass.tsx:147-192` (`GlassButton`).
+
+**Sintoma:** `<GlassButton aria-disabled="true" />` não produz atributo nenhum no
+`<button>` renderizado. Nenhum erro, nenhum aviso — o atributo simplesmente não
+existe. Descoberto porque um teste do 42-11 asseriu o atributo e reprovou.
+
+**Diagnóstico:** o componente desestrutura `...props` e usa `props.blur`,
+`props.variant`, `props.opacity` e `props.border` para montar as classes, mas
+**nunca faz `{...props}` no `<button>`**. Ou seja: os props "de estilo" são lidos e
+todo o resto é descartado. Isso vale para `aria-*`, `data-*`, `title`, `id`,
+`aria-label`, `aria-describedby`, `onFocus`, `form` — qualquer coisa fora da
+assinatura explícita (`onClick`/`disabled`/`type`).
+
+**Por que importa mais do que parece:** é uma falha *silenciosa* numa primitiva
+compartilhada, e a categoria de prop mais afetada é justamente a de
+**acessibilidade**. Qualquer tela do projeto que tenha tentado passar `aria-label`
+ou `aria-describedby` para um `GlassButton` acredita ter feito isso e não fez. Vale
+uma varredura (`grep -rn 'aria-\|title=' ` nos consumidores de `GlassButton`) junto
+da correção.
+
+**Correção provável (uma linha, com varredura antes):** espalhar o resto dos props
+no `<button>`, separando explicitamente as chaves de estilo (`blur`, `variant`,
+`opacity`, `border`, `hover`) para que não virem atributos DOM inválidos.
+
+**Por que não foi corrigido aqui:** `src/components/ui/glass.tsx` está fora do
+`files_modified` do 42-11, é primitiva usada por dezenas de telas, e a correção
+exige varredura dos consumidores para não trocar um bug silencioso por um monte de
+atributos DOM inválidos. O 42-11 contornou usando o `disabled` **nativo** (que é o
+mecanismo correto ali de qualquer forma) e registrou o achado.
+
+**Impacto no 42-11:** nenhum — o estado desabilitado do CTA usa `disabled` nativo,
+que o componente suporta e que já comunica o estado à tecnologia assistiva.
