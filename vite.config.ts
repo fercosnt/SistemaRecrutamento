@@ -67,6 +67,13 @@
         // `https://deno.land/std` assert AND `npm:svix@1.99.1` → runs under `deno test`,
         // not Vitest. Same literal-path convention as above.
         'supabase/functions/resend-webhook/**/*.test.ts',
+        // Phase 42 (notificação ao RH da revisão Art. 20): notificar-rh importa
+        // `https://deno.land/std` assert → roda sob `deno test`, não Vitest. Mesma
+        // convenção de caminho literal das entradas acima. A ausência desta linha
+        // deixou `npm run test:run` não-zero em todo o repositório desde o 42-07:
+        // a falha é de CARGA do módulo ESM ("Only URLs with a scheme in: file and
+        // data are supported"), não de asserção — nenhum teste passou a reprovar.
+        'supabase/functions/notificar-rh/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
