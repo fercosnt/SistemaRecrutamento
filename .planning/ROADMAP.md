@@ -96,9 +96,9 @@ Plans:
 - [x] 42-01-PLAN.md — Wave 0: `.husky/pre-commit` convertido em gate de não-regressão (baseline 97) + testes de paridade do vocabulário de evento e não-regressão W-01 dos 4 eventos vivos
 - [x] 42-02-PLAN.md — REVISAO-06: `docs/compliance/` + o passivo Art. 20 medido e datado, **antes de qualquer tela**
 - [x] 42-03-PLAN.md — Wave 0: módulos puros da feature (classificador de faixa total, contrato de erro, allowlist de colunas) + o smoke SQL de 8 asserções como espec RED
-- [ ] 42-04-PLAN.md — INVENT-01: inventário PII coluna-a-coluna do catálogo vivo (YAML + Markdown gerado) e a correção da citação da semente FK-AUDIT-LIVE
-- [ ] 42-05-PLAN.md — INVENT-02/03/04: PITR e Storage sem backup · diff dos `cron.job` vivos × repositório · varredura do idioma condicional de `ADD COLUMN` · achados de autorização registrados
-- [ ] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
+- [x] 42-04-PLAN.md — INVENT-01: inventário PII coluna-a-coluna do catálogo vivo (YAML + Markdown gerado) e a correção da citação da semente FK-AUDIT-LIVE
+- [x] 42-05-PLAN.md — INVENT-02/03/04: PITR e Storage sem backup · diff dos `cron.job` vivos × repositório · varredura do idioma condicional de `ADD COLUMN` · achados de autorização registrados
+- [x] 42-06-PLAN.md — **TRACER**: migration `p42_revisao_art20` (colunas, CHECKs, RPC de escrita com o guard reviewer ≠ decider, RPC de leitura com escopo, tabela de config do SLA) provada por impersonação real de dois RHs
 - [ ] 42-07-PLAN.md — REVISAO-01: EF nova `notificar-rh` + trigger de disparo, com a colisão entre o ledger compartilhado e a varredura de retry viva fechada explicitamente
 - [ ] 42-08-PLAN.md — REVISAO-04: 5º evento `revisao_respondida` (os 9 sítios em código + o CHECK vivo + o trigger), na ordem obrigatória EF → CHECK → trigger
 - [ ] 42-09-PLAN.md — REVISAO-02: fila `/rh/revisoes` (serviço, hooks, tabela, badges, página, rota com `RoleGuard`)
@@ -284,7 +284,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 28–30 (M5) | v5.0 | 19/19 | Complete | 2026-07-14 |
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
-| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 3/12 | In Progress|  |
+| 42. Inventário, Gates & Fila Art. 20 | v8.0 | 6/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 0/? | Not started | - |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
