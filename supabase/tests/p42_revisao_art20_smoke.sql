@@ -64,7 +64,16 @@
 --       (como postgres, entre sub-casos), justificativa de 49 caracteres → 22023; de
 --       50 → ACEITA; e uma 2ª chamada sobre a mesma revisão já respondida → 22023
 --       com SQLERRM LIKE '%respondida%'.
---   (z) RESUMO — exige o total de 8 PASS; run parcial falha AQUI, não em silêncio.
+--   (i) FAIL-CLOSED (adicionada na 2ª rodada do checkpoint da Task 2 — ver a
+--       justificativa em (c)): com o papel `authenticated` e NENHUMA claim de JWT,
+--       os TRÊS RPCs têm de levantar 42501. Esta asserção existe porque a sua
+--       AUSÊNCIA foi o que deixou passar um defeito real: os guards nasceram como
+--       `v_role NOT IN ('rh','administrador')`, e `NULL NOT IN (…)` avalia NULL, de
+--       modo que um `IF` com condição NULL não é tomado — o guard era um no-op para
+--       chamador sem JWT. As 8 asserções originais não cobriam esse caminho porque
+--       todas injetam uma claim válida antes de chamar. Um gate que só testa o
+--       caminho autenticado não pode detectar um guard que falha ABERTO.
+--   (z) RESUMO — exige o total de 9 PASS; run parcial falha AQUI, não em silêncio.
 --
 -- -----------------------------------------------------------------------------
 -- ESCOPO DA PROVA — o que ela cobre e o que ela NÃO cobre
@@ -281,11 +290,32 @@ DECLARE
   v_oid oid; v_secdef boolean; v_proconfig text[]; v_proacl aclitem[];
   v_public_exec boolean; v_auth boolean; v_anon boolean;
 BEGIN
+  -- Identidade resolvida por TIPOS via to_regprocedure, não por igualdade de string
+  -- contra pg_get_function_identity_arguments.
+  --
+  -- ⚠ CORREÇÃO DE SPEC (P42-06, nova rodada do checkpoint da Task 2 — justificativa
+  -- registrada conforme o plano exige). A forma original era
+  --     pg_get_function_identity_arguments(p.oid) = 'uuid, text, text'
+  -- e ela era um RED FALSO: `pg_get_function_identity_arguments` omite apenas os
+  -- DEFAULTS, e PRESERVA os nomes dos parâmetros. Em PG 17.6 esta função devolve
+  --     'p_candidatura_id uuid, p_veredito text, p_justificativa text'
+  -- logo a igualdade era insatisfazível para QUALQUER implementação correta — só
+  -- passaria com parâmetros anônimos, impossível em PL/pgSQL (o corpo referencia os
+  -- params pelo nome). Provado contra o catálogo: o builtin has_function_privilege
+  -- devolve 'text, text' porque args de funções C são anônimos, enquanto toda função
+  -- PL/pgSQL nomeada devolve os nomes. Não é a implementação que divergiu da espec:
+  -- era a espec que aferia o catálogo pela coluna errada.
+  --
+  -- A substância da asserção (c) permanece byte-a-byte: DEFINER + search_path vazio
+  -- + REVOKE de PUBLIC/anon + GRANT a authenticated. Só o LOOKUP mudou, e mudou para
+  -- uma forma ESTRITAMENTE mais forte: to_regprocedure resolve por schema + nome +
+  -- tipos de entrada exatos (devolve NULL em vez de levantar, então a mensagem de
+  -- falha abaixo continua sendo a que o operador lê), de modo que uma sobrecarga com
+  -- aridade ou tipos diferentes NÃO casa, e renomear um parâmetro não quebra o gate.
   SELECT p.oid, p.prosecdef, p.proconfig, p.proacl
     INTO v_oid, v_secdef, v_proconfig, v_proacl
-    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-   WHERE n.nspname='public' AND p.proname='responder_revisao_decisao'
-     AND pg_get_function_identity_arguments(p.oid) = 'uuid, text, text';
+    FROM pg_proc p
+   WHERE p.oid = to_regprocedure('public.responder_revisao_decisao(uuid,text,text)');
 
   IF v_oid IS NULL THEN
     RAISE EXCEPTION 'P42 FAIL (c): responder_revisao_decisao(uuid,text,text) NÃO existe — REVISAO-03 incompleto';
@@ -479,9 +509,9 @@ END $$;
 -- (f) parte 2 — T-42-V6: o OUTRO RH responde. TEM de suceder, gravando a autoria
 --     e o timestamp. Só aqui o contador de (f) é incrementado.
 -- ─────────────────────────────────────────────────────────────────────────────
+-- A CHAMADA é feita como `authenticated` (é o papel real do RH no PostgREST).
 SET ROLE authenticated;
 DO $$
-DECLARE v_por uuid; v_resp timestamptz;
 BEGIN
   PERFORM set_config('request.jwt.claims', jsonb_build_object(
     'sub', current_setting('smoke42.outro'), 'role', 'authenticated',
@@ -489,20 +519,43 @@ BEGIN
 
   PERFORM public.responder_revisao_decisao(
     current_setting('smoke42.cand')::uuid, 'mantida', repeat('y', 60));
+END $$;
 
+-- ⚠ CORREÇÃO DE SPEC (P42-06, 2ª rodada do checkpoint da Task 2 — justificativa
+-- registrada). O READBACK precisa de `RESET ROLE`, exatamente como a asserção (g)
+-- já fazia. Na forma original ele vivia DENTRO do mesmo bloco `SET ROLE
+-- authenticated` da chamada, e portanto lia `decisao_final` SOB RLS: a tabela tem
+-- RLS ligada com `rh_le_decisao_final [SELECT]` escopada por vaga, e a candidatura
+-- de fixture pertence a uma vaga que o revisor NÃO criou. O SELECT devolvia ZERO
+-- linhas, `v_por` ficava NULL, e a asserção reprovava com "autoria errada" —
+-- acusando a implementação por um efeito da própria espec.
+--
+-- Este é o modo de falha mais perigoso possível para um gate: RLS filtrando um
+-- readback não levanta erro, devolve vazio. Se o teste fosse escrito ao contrário
+-- (esperando NULL), ele passaria em verde sem NADA ter sido verificado. A verificação
+-- de um write feito sob um papel restrito tem de ser lida por um papel que veja a
+-- tabela inteira, senão o gate afere a RLS em vez de aferir a escrita.
+RESET ROLE;
+DO $$
+DECLARE v_por uuid; v_resp timestamptz;
+BEGIN
   SELECT revisao_por_usuario, revisao_respondida_em INTO v_por, v_resp
     FROM public.decisao_final
    WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
 
+  IF v_por IS NULL THEN
+    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario está NULL após o sucesso — ou a escrita não ocorreu, ou o readback foi filtrado (ler como postgres, nunca sob RLS)';
+  END IF;
   IF v_por::text IS DISTINCT FROM current_setting('smoke42.outro') THEN
-    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario não gravou o REVISOR — a trilha de autoria da revisão está errada';
+    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario gravou % em vez do REVISOR % — a trilha de autoria da revisão está errada',
+      v_por, current_setting('smoke42.outro');
   END IF;
   IF v_resp IS NULL THEN
     RAISE EXCEPTION 'P42 FAIL (f): revisao_respondida_em não foi gravada apesar do sucesso';
   END IF;
 
   PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (f): decisor BARRADO (42501 discriminado) e outro RH ACEITO, com autoria e timestamp gravados — REVISAO-05 server-enforced';
+  RAISE NOTICE 'PASS (f): decisor BARRADO (42501 discriminado) e outro RH ACEITO, com autoria % e timestamp gravados — REVISAO-05 server-enforced', v_por;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -534,12 +587,19 @@ BEGIN
   END;
 
   -- (h.2) FRONTEIRA — exatamente 50 caracteres tem de ser ACEITO.
-  PERFORM public.responder_revisao_decisao(
-    current_setting('smoke42.cand')::uuid, 'revertida', repeat('z', 50));
-  SELECT revisao_respondida_em INTO v_resp
-    FROM public.decisao_final WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
+  --
+  -- ⚠ A prova de aceitação NÃO pode ser um readback aqui: estamos sob `SET ROLE
+  -- authenticated` e `decisao_final` tem RLS escopada por vaga, então o SELECT
+  -- devolveria zero linhas e reprovaria um write que ocorreu (mesma correção de
+  -- spec aplicada em (f) parte 2). O RPC devolve a row via `RETURNING * INTO`, e é
+  -- ESSA row — o retorno do próprio write-path, imune a RLS por vir de dentro do
+  -- DEFINER — que prova a aceitação. Um erro aqui levantaria exceção e abortaria.
+  SELECT (public.responder_revisao_decisao(
+            current_setting('smoke42.cand')::uuid, 'revertida', repeat('z', 50))
+         ).revisao_respondida_em
+    INTO v_resp;
   IF v_resp IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 50 caracteres não foi aceita — a fronteira é >= 50, não > 50';
+    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 50 caracteres foi aceita porém revisao_respondida_em voltou NULL do próprio write-path';
   END IF;
 
   -- (h.3) IDEMPOTÊNCIA — uma resposta, uma vez. 2ª chamada tem de ser recusada
@@ -561,11 +621,60 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (i) FAIL-CLOSED — papel `authenticated` com ZERO claim de JWT. Os três RPCs têm
+--     de recusar com 42501. É a asserção que faltava: um guard escrito como
+--     `v_role NOT IN (…)` é um no-op quando v_role é NULL (três valores), e nenhuma
+--     das 8 asserções originais exercitava o caminho sem claim.
+--
+--     ⚠ Não use o papel `anon` para esta asserção. Após o REVOKE da migration
+--     20260730000002, `anon` é barrado no PORTÃO DE PRIVILÉGIO, e o 42501 que
+--     retorna prova o grant — não o guard. Só `authenticated` sem claim exercita o
+--     corpo da função e portanto o guard propriamente dito.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claims', NULL, false);
+DO $$
+DECLARE v_n int; v_ok int := 0;
+BEGIN
+  BEGIN
+    SELECT public.contar_revisoes_pendentes() INTO v_n;
+    RAISE EXCEPTION 'P42 FAIL (i): contar_revisoes_pendentes EXECUTOU sem claim de JWT (retornou %) — guard falha ABERTO', coalesce(v_n::text,'NULL');
+  EXCEPTION WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+  END;
+
+  BEGIN
+    SELECT count(*) INTO v_n FROM public.listar_revisoes_decisao(false);
+    RAISE EXCEPTION 'P42 FAIL (i): listar_revisoes_decisao EXECUTOU sem claim de JWT (% linhas) — guard falha ABERTO', v_n;
+  EXCEPTION WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+  END;
+
+  BEGIN
+    PERFORM public.responder_revisao_decisao(current_setting('smoke42.cand')::uuid, 'mantida', repeat('q', 60));
+    RAISE EXCEPTION 'P42 FAIL (i): responder_revisao_decisao NAO recusou sem claim de JWT — write-path do Art. 20 com guard aberto';
+  EXCEPTION
+    WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+    -- Qualquer OUTRO SQLSTATE aqui significa que a execucao passou do guard e
+    -- alcancou o corpo — foi exatamente esse o defeito (P0002 / 23514 chegavam ao
+    -- chamador anonimo e formavam um oraculo de estado sobre o pedido do titular).
+    WHEN others THEN
+      RAISE EXCEPTION 'P42 FAIL (i): responder_revisao_decisao passou do guard sem claim e falhou adiante com % / % — o guard nao e o que barra', SQLSTATE, SQLERRM;
+  END;
+
+  IF v_ok <> 3 THEN
+    RAISE EXCEPTION 'P42 FAIL (i): apenas % de 3 RPCs recusaram sem claim de JWT', v_ok;
+  END IF;
+
+  PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'PASS (i): os 3 RPCs recusam com 42501 sem claim de JWT — guard fail-closed';
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_n int; v_esperado int := 8;
+DECLARE v_n int; v_esperado int := 9;
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
