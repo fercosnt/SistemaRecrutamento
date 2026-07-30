@@ -194,3 +194,434 @@ Deno.test("REVISAO-01 — montarUrlFila rejeita base malformada e cai no default
     );
   }
 });
+
+/*
+ * ═══ handler(req, deps) — deps mockadas, ZERO rede ══════════════════════════
+ *
+ * Importa `../index.ts`: como `Deno.serve` está atrás do guard de entrypoint, o import
+ * NÃO abre socket. Estes casos cobrem os invariantes que o checkpoint ao vivo também
+ * afere, mas aqui em CI e de graça:
+ *
+ *   · T-42-25 — `401` sem Bearer e com Bearer divergente, sem tocar rede nem banco.
+ *   · T-42-04 — o filtro do roster usa o vocabulário da COLUNA `usuarios_rh.role`
+ *     (`administrador`/`recrutador`) e NUNCA o do JWT (`rh`). Um `'rh'` aqui
+ *     descartaria em silêncio todo recrutador — 1 de 5 pessoas hoje.
+ *   · T-42-26 — uma linha de ledger POR DESTINATÁRIO, cada uma com `dedupe_key`
+ *     distinta terminando no `user_id`, e `destinatario_original` nos dois modos.
+ *   · Isolamento de falha — um destinatário duplicado ou com envio falho não
+ *     interrompe os demais.
+ */
+
+const BEARER = "edge-invoke-key-fixture";
+
+const ADMIN_1 = { user_id: "u-admin-1", email: "admin1@bs.com.br" };
+const ADMIN_2 = { user_id: "u-admin-2", email: "admin2@bs.com.br" };
+const RECRUTADOR = { user_id: "u-recrut-1", email: "recruta@bs.com.br" };
+
+const CANDIDATURA_FIX = { candidato_id: "cand-x", vaga_id: "vaga-x" };
+const VAGA_FIX = { titulo: "Dentista Sênior" };
+
+interface UpsertCapt {
+  row: Record<string, unknown>;
+  onConflict?: string;
+}
+interface UpdateCapt {
+  patch: Record<string, unknown>;
+  eqCol: string;
+  eqVal: unknown;
+}
+
+/**
+ * Mock do client service-role. Roteia `.select().eq().maybeSingle()` por tabela,
+ * torna a query do roster AWAITABLE (o builder do supabase-js é thenable) e registra
+ * os filtros aplicados, os upserts e os updates em arrays inspecionáveis.
+ */
+function makeMockSupabase(opts: {
+  candidaturaRow?: Record<string, unknown> | null;
+  vagaRow?: Record<string, unknown> | null;
+  roster?: Array<Record<string, unknown>> | null;
+  rosterError?: { message: string } | null;
+  /** dedupe_keys que devem devolver claim VAZIO (simula duplicate). */
+  claimsDuplicados?: string[];
+  apiKey?: string | null;
+} = {}) {
+  const upserts: UpsertCapt[] = [];
+  const updates: UpdateCapt[] = [];
+  const filtrosRoster: { eq: Array<[string, unknown]>; is: Array<[string, unknown]>; in: Array<[string, unknown]> } = {
+    eq: [],
+    is: [],
+    in: [],
+  };
+  const dup = new Set(opts.claimsDuplicados ?? []);
+
+  const rowFor = (table: string) =>
+    table === "candidaturas"
+      ? (opts.candidaturaRow ?? null)
+      : table === "vagas"
+      ? (opts.vagaRow ?? null)
+      : null;
+
+  return {
+    upserts,
+    updates,
+    filtrosRoster,
+    from(table: string) {
+      return {
+        select: (_cols?: string) => {
+          // deno-lint-ignore no-explicit-any
+          const chain: any = {
+            eq: (c: string, v: unknown) => {
+              if (table === "usuarios_rh") filtrosRoster.eq.push([c, v]);
+              return chain;
+            },
+            is: (c: string, v: unknown) => {
+              if (table === "usuarios_rh") filtrosRoster.is.push([c, v]);
+              return chain;
+            },
+            in: (c: string, v: unknown) => {
+              if (table === "usuarios_rh") filtrosRoster.in.push([c, v]);
+              return chain;
+            },
+            maybeSingle: () => Promise.resolve({ data: rowFor(table), error: null }),
+            // thenable: `await supabaseAdmin.from(...).select(...).eq(...)...`
+            then: (
+              res: (v: unknown) => unknown,
+              rej?: (e: unknown) => unknown,
+            ) =>
+              Promise.resolve({
+                data: table === "usuarios_rh" ? (opts.roster ?? []) : null,
+                error: table === "usuarios_rh" ? (opts.rosterError ?? null) : null,
+              }).then(res, rej),
+          };
+          return chain;
+        },
+        upsert: (row: Record<string, unknown>, options?: { onConflict?: string }) => {
+          upserts.push({ row, onConflict: options?.onConflict });
+          const vazio = dup.has(String(row.dedupe_key));
+          return {
+            select: (_c?: string) =>
+              Promise.resolve({ data: vazio ? [] : [{ id: `claim-${upserts.length}` }], error: null }),
+          };
+        },
+        update: (patch: Record<string, unknown>) => ({
+          eq: (eqCol: string, eqVal: unknown) => {
+            updates.push({ patch, eqCol, eqVal });
+            return Promise.resolve({ data: null, error: null });
+          },
+        }),
+      };
+    },
+    rpc: (name: string) => {
+      if (name === "ler_resend_api_key") {
+        return Promise.resolve({
+          data: opts.apiKey === undefined ? "re_fake_key_para_teste" : opts.apiKey,
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+}
+
+function makeFetchMock(status: number, jsonBody: unknown = { id: "re_rh_1" }) {
+  const calls: Array<{ url: unknown; init?: RequestInit }> = [];
+  const impl = ((url: unknown, init?: RequestInit) => {
+    calls.push({ url, init });
+    return Promise.resolve(
+      new Response(JSON.stringify(jsonBody), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }) as unknown as typeof fetch;
+  return { impl, calls };
+}
+
+async function loadHandler() {
+  const mod = await import("../index.ts");
+  return mod as {
+    handler: (
+      req: Request,
+      // deno-lint-ignore no-explicit-any
+      deps: { supabaseAdmin: any; fetchImpl: typeof fetch; serviceKey: string },
+    ) => Promise<Response>;
+  };
+}
+
+function makeRequest(body: unknown, bearer?: string): Request {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (bearer !== undefined) headers["Authorization"] = `Bearer ${bearer}`;
+  return new Request("http://localhost/functions/v1/notificar-rh", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+}
+
+/** Modo `teste` determinístico: sem depender da env do runner. */
+function comModoTeste<T>(fn: () => Promise<T>): Promise<T> {
+  const original = Deno.env.get("NOTIFICACOES_MODO");
+  Deno.env.set("NOTIFICACOES_MODO", "teste");
+  return fn().finally(() => {
+    if (original === undefined) Deno.env.delete("NOTIFICACOES_MODO");
+    else Deno.env.set("NOTIFICACOES_MODO", original);
+  });
+}
+
+Deno.test("T-42-25 — Bearer ausente → 401, zero rede, zero escrita", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase();
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+  );
+  assertEquals(res.status, 401);
+  assertEquals((await res.json()).error_code, "UNAUTHORIZED");
+  assertEquals(fetchMock.calls.length, 0);
+  assertEquals(supa.upserts.length, 0);
+});
+
+Deno.test("T-42-25 — Bearer divergente → 401 (compara contra deps.serviceKey)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase();
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, "segredo-errado"),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+  );
+  assertEquals(res.status, 401);
+  assertEquals(fetchMock.calls.length, 0);
+});
+
+Deno.test("REVISAO-01 — vocabulário fechado: qualquer evento != revisao_solicitada → 400 VALIDATION", async () => {
+  const { handler } = await loadHandler();
+  const invalidos: unknown[] = [
+    { evento: "revisao_invalido", candidatura_id: "cand-1" },
+    { evento: "confirmacao", candidatura_id: "cand-1" },
+    { evento: "revisao_respondida", candidatura_id: "cand-1" }, // evento do plano 42-08
+    { evento: "revisao_solicitada", candidatura_id: "" },
+    { evento: "revisao_solicitada" },
+    {},
+  ];
+  for (const corpo of invalidos) {
+    const supa = makeMockSupabase();
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(makeRequest(corpo, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    });
+    assertEquals(res.status, 400, `esperava 400 para ${JSON.stringify(corpo)}`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(fetchMock.calls.length, 0);
+    assertEquals(supa.upserts.length, 0);
+  }
+});
+
+Deno.test("T-42-04 — roster: filtro usa o vocabulário da COLUNA (administrador/recrutador), nunca 'rh' do JWT", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, RECRUTADOR],
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+
+  const filtroIn = supa.filtrosRoster.in.find(([c]) => c === "role");
+  assert(filtroIn, "o roster deve ser filtrado por role");
+  const roles = filtroIn![1] as readonly string[];
+  assert(roles.includes("administrador"), `roles=${JSON.stringify(roles)}`);
+  assert(
+    roles.includes("recrutador"),
+    "REGRESSÃO T-42-04/A-02: sem 'recrutador' o filtro descarta em silêncio a persona " +
+      "primária da fila de revisão (1 de 5 pessoas hoje)",
+  );
+  assert(
+    !roles.includes("rh"),
+    "REGRESSÃO T-42-04/A-02: 'rh' é valor do JWT, NUNCA da coluna usuarios_rh.role — " +
+      "o CHECK da coluna só admite administrador|gerente|recrutador|visualizador",
+  );
+  // O par literal do hook (`ativo = true AND deleted_at IS NULL`) está aplicado.
+  assert(
+    supa.filtrosRoster.eq.some(([c, v]) => c === "ativo" && v === true),
+    "faltou .eq('ativo', true)",
+  );
+  assert(
+    supa.filtrosRoster.is.some(([c, v]) => c === "deleted_at" && v === null),
+    "faltou .is('deleted_at', null)",
+  );
+});
+
+Deno.test("REVISAO-01 — roster vazio → 200 skipped:sem_destinatarios, zero envio, zero claim", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [],
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).skipped, "sem_destinatarios");
+  assertEquals(fetchMock.calls.length, 0);
+  assertEquals(supa.upserts.length, 0);
+});
+
+Deno.test("T-42-26 — 3 destinatários ⇒ 3 linhas de ledger, dedupe_key distinta terminando no user_id", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, ADMIN_2, RECRUTADOR],
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rh_ok" });
+  const res = await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), {
+    ok: true,
+    destinatarios: 3,
+    enviados: 3,
+    duplicados: 0,
+    falhas: 0,
+  });
+
+  assertEquals(supa.upserts.length, 3);
+  const chaves = supa.upserts.map((u) => String(u.row.dedupe_key));
+  assertEquals(new Set(chaves).size, 3, "chaves colidiram — 2 RH perderiam o nudge");
+  for (const [i, d] of [ADMIN_1, ADMIN_2, RECRUTADOR].entries()) {
+    assertEquals(chaves[i], `cand-1:revisao_solicitada:${d.user_id}`);
+    assertEquals(supa.upserts[i].onConflict, "dedupe_key");
+    // modo teste: `to` é o sink, mas o original é preservado (auditoria do ledger)
+    assertEquals(supa.upserts[i].row.destinatario_email, "delivered+revisao_solicitada_rh@resend.dev");
+    assertEquals(supa.upserts[i].row.destinatario_original, d.email);
+    assertEquals(supa.upserts[i].row.modo, "teste");
+    assertEquals(supa.upserts[i].row.evento, "revisao_solicitada");
+    assertEquals(supa.upserts[i].row.status, "pendente");
+    // `candidato_id` é requisito NOT NULL do ledger, não dado do e-mail
+    assertEquals(supa.upserts[i].row.candidato_id, CANDIDATURA_FIX.candidato_id);
+  }
+
+  // 3 envios, cada um com Idempotency-Key = a própria dedupe_key
+  assertEquals(fetchMock.calls.length, 3);
+  const idemp = fetchMock.calls.map((c) =>
+    (c.init?.headers as Record<string, string>)["Idempotency-Key"]
+  );
+  assertEquals(idemp, chaves);
+  // 3 updates de sucesso, keados por dedupe_key
+  const enviados = supa.updates.filter((u) => u.patch.status === "enviado");
+  assertEquals(enviados.length, 3);
+  for (const u of enviados) assertEquals(u.eqCol, "dedupe_key");
+});
+
+Deno.test("T-42-26 — um destinatário duplicado NÃO interrompe os demais", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, ADMIN_2, RECRUTADOR],
+    claimsDuplicados: [`cand-1:revisao_solicitada:${ADMIN_1.user_id}`],
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  const json = await res.json();
+  assertEquals(json.duplicados, 1);
+  assertEquals(json.enviados, 2, "o claim vazio do 1º não pode abortar o laço");
+  assertEquals(fetchMock.calls.length, 2);
+});
+
+Deno.test("REVISAO-01 — non-2xx do Resend ⇒ falhou com proxima_tentativa_em NULL (não há sweep de RH)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(429, { message: "rate limited" });
+  const res = await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  assertEquals(res.status, 200, "fire-and-forget: net.http_post é at-most-once");
+  assertEquals((await res.json()).falhas, 1);
+  const falhou = supa.updates.find((u) => u.patch.status === "falhou");
+  assert(falhou, "esperava UPDATE status=falhou");
+  assertEquals(falhou!.eqCol, "dedupe_key");
+  assertEquals(
+    falhou!.patch.proxima_tentativa_em,
+    null,
+    "agendar retry que a varredura exclui seria escrever afirmação falsa no ledger",
+  );
+});
+
+Deno.test("T-42-26 — chave do Resend ausente: claim + falhou (a tentativa deixa trilha)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+    apiKey: null,
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  assertEquals(fetchMock.calls.length, 0, "sem chave não se tenta enviar");
+  assertEquals(supa.upserts.length, 1, "mas a tentativa é reivindicada — T-42-26");
+  const falhou = supa.updates.find((u) => u.patch.status === "falhou");
+  assert(falhou, "a ausência de chave deve virar trilha `falhou`, não silêncio");
+});
+
+Deno.test("REVISAO-01 — candidatura/vaga ausente ⇒ skipped:dados_ausentes sem tocar o roster", async () => {
+  const { handler } = await loadHandler();
+  for (const opts of [
+    { candidaturaRow: null, vagaRow: VAGA_FIX },
+    { candidaturaRow: CANDIDATURA_FIX, vagaRow: null },
+  ]) {
+    const supa = makeMockSupabase({ ...opts, roster: [ADMIN_1] });
+    const fetchMock = makeFetchMock(200);
+    const res = await comModoTeste(() =>
+      handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+        supabaseAdmin: supa,
+        fetchImpl: fetchMock.impl,
+        serviceKey: BEARER,
+      })
+    );
+    assertEquals(res.status, 200);
+    assertEquals((await res.json()).skipped, "dados_ausentes");
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
