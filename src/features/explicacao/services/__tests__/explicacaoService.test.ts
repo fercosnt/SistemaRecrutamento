@@ -56,11 +56,25 @@ vi.mock('@/lib/supabase/client', () => {
 import {
   DECISAO_EXPLICACAO_ALLOWLIST,
   getExplicacao,
+  normalizarVeredito,
   solicitarRevisao,
   stampExplicacao,
 } from '../explicacaoService'
 
 const VALID_CAND = '11111111-1111-4111-8111-111111111111'
+
+/** A rejected own row with the review lifecycle fields overridable per case. */
+function linhaRejeitada(over: Record<string, unknown> = {}) {
+  return {
+    decisao: 'rejeitado',
+    revisao_solicitada_em: null,
+    revisao_resultado: null,
+    explicacao_solicitada_em: null,
+    revisao_veredito: null,
+    revisao_respondida_em: null,
+    ...over,
+  }
+}
 
 beforeEach(() => {
   selects.length = 0
@@ -149,6 +163,92 @@ describe('explicacaoService — allowlist estendida com o resultado da revisão 
     // candidato. Aqui isso é trivialmente verdadeiro (não há coluna dessas em
     // `decisao_final`), e a asserção existe para que continue trivialmente verdadeiro.
     expect(DECISAO_EXPLICACAO_ALLOWLIST).not.toMatch(/sla|dias|atraso|atencao|atenção/i)
+  })
+})
+
+describe('explicacaoService — leitura do resultado da revisão (REVISAO-04)', () => {
+  it.each(['mantida', 'revertida'] as const)(
+    'devolve o veredito `%s` e a data da resposta quando a revisão foi respondida',
+    async (veredito) => {
+      maybeSingleMock.mockResolvedValue({
+        data: linhaRejeitada({
+          revisao_solicitada_em: '2026-07-20T10:00:00Z',
+          revisao_respondida_em: '2026-07-28T14:30:00Z',
+          revisao_veredito: veredito,
+          revisao_resultado: 'Reexaminamos o conjunto do processo e a base desta resposta.',
+        }),
+        error: null,
+      })
+      const result = await getExplicacao(VALID_CAND)
+      expect(result?.revisao_veredito).toBe(veredito)
+      expect(result?.revisao_respondida_em).toBe('2026-07-28T14:30:00Z')
+      expect(result?.revisao_resultado).toBe(
+        'Reexaminamos o conjunto do processo e a base desta resposta.',
+      )
+    },
+  )
+
+  it('revisão ainda sem resposta → veredito e data nulos (nada a exibir)', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: linhaRejeitada({ revisao_solicitada_em: '2026-07-20T10:00:00Z' }),
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(result?.revisao_veredito).toBeNull()
+    expect(result?.revisao_respondida_em).toBeNull()
+  })
+
+  it('veredito INESPERADO do servidor resolve para null em vez de vazar para a interface', async () => {
+    // O CHECK do banco já restringe o vocabulário, mas o cliente não deve confiar num
+    // invariante remoto para decidir o que renderiza: um valor novo tem de FECHAR a
+    // superfície, nunca ser ecoado cru ao candidato.
+    maybeSingleMock.mockResolvedValue({
+      data: linhaRejeitada({
+        revisao_respondida_em: '2026-07-28T14:30:00Z',
+        revisao_veredito: 'parcialmente_revertida',
+      }),
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(result?.revisao_veredito).toBeNull()
+  })
+
+  it('a leitura NÃO devolve nenhum campo de autoria da revisão', async () => {
+    // Belt-and-braces sobre a asserção da allowlist: mesmo que o servidor devolva a
+    // coluna de autoria (RLS é row-level e não esconde coluna), a projeção montada aqui
+    // não a repassa. A chave é montada em runtime para que o literal completo não exista
+    // como texto nesta feature.
+    const chaveDeAutoria = ['revisao', 'por', 'usuario'].join('_')
+    maybeSingleMock.mockResolvedValue({
+      data: {
+        ...linhaRejeitada({ revisao_respondida_em: '2026-07-28T14:30:00Z' }),
+        [chaveDeAutoria]: '99999999-9999-4999-8999-999999999999',
+      },
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(Object.keys(result ?? {})).not.toContain(chaveDeAutoria)
+    expect(JSON.stringify(result)).not.toContain('99999999-9999-4999-8999-999999999999')
+  })
+})
+
+describe('explicacaoService — normalizarVeredito (puro e total)', () => {
+  it.each(['mantida', 'revertida'] as const)('aceita `%s`', (v) => {
+    expect(normalizarVeredito(v)).toBe(v)
+  })
+
+  it.each([
+    null,
+    undefined,
+    '',
+    'MANTIDA',
+    'mantido',
+    'parcialmente_revertida',
+    42,
+    {},
+    [],
+  ])('resolve %o para null', (v) => {
+    expect(normalizarVeredito(v)).toBeNull()
   })
 })
 
