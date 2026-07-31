@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: Inventário, Gates & Fila Art. 20
 status: executing
-stopped_at: Completed 42-11-PLAN.md
-last_updated: "2026-07-30T07:32:13.058Z"
-last_activity: 2026-07-30
-last_activity_desc: 42-11 concluído — candidato vê o resultado da revisão Art. 20 no painel (REVISAO-04)
+stopped_at: 42-08 código completo — CHECKPOINT de PROD pendente (Task 3)
+last_updated: "2026-07-31T13:34:35.319Z"
+last_activity: 2026-07-31
+last_activity_desc: "42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 10
   percent: 0
 ---
 
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 9 of 12
-Status: 42-11 completo (REVISAO-04 exibição); **checkpoint de PROD do 42-07 segue pendente** (apply + deploy + smoke)
-Last activity: 2026-07-30 — 42-11 concluído: o round-trip do Art. 20 fecha no painel do candidato
+Plan: 10 of 12 (faltam 42-10 e 42-12)
+Status: 42-08 completo em CÓDIGO (5º evento do pipeline, 309/309 no corpus Deno); **checkpoint de PROD do 42-08 pendente** (deploy da EF + apply do CHECK/trigger + smoke 4/4 + round-trip)
+Last activity: 2026-07-31 — 42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -87,6 +87,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 42 P01 | ~35min | 3 tasks | 5 files |
 | Phase 42 P07 | ~55min | 2 tasks | 6 files |
 | Phase 42 P11 | ~30min | 2 tasks | 6 files |
+| Phase 42 P08 | ~50min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -170,6 +171,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 42 / 42-11]: veredito da revisão é narrowed para união literal com normalização defensiva no cliente — o CHECK do banco já fecha o vocabulário, mas um invariante REMOTO é a coisa errada para uma decisão de RENDERIZAÇÃO se apoiar: valor novo fecha a superfície em vez de ecoar token cru ao candidato
 - [Phase 42 / 42-11]: critério de aceitação com grep negativo sobre literal (revisao_por_usuario, text-xs) é satisfeito montando o literal em runtime no teste (['text','xs'].join('-')) — a asserção fica real e o literal proibido não passa a existir na feature, nem dentro do teste que o proíbe
 - [Phase 42 / 42-11]: RED commit separado é IMPOSSÍVEL para superfície de API nova neste repo — referenciar símbolo/prop inexistente eleva a contagem tsc acima da baseline congelada de 97 e o hook reprova. O RED foi commitado onde tipa (asserções de valor) e verificado empiricamente onde não tipa; contorcer com 'as unknown as' trocaria força de asserção por cerimônia
+- [Phase 42]: 42-08: a prévia de caixa de entrada do 5º evento NÃO ramifica por veredito — decisão escrita no PREHEADERS e pinada por igualdade literal (T-42-V2c); ramificar entregaria o desfecho do Art. 20 na lista de e-mails
+- [Phase 42]: 42-08: a EF notificar-candidato passou a LER decisao_final.revisao_veredito (guardado por evento) — sem isso a ramificação do corpo seria código morto: teste provando o que nenhum e-mail alcança
+- [Phase 42]: 42-08: um Record<União,…> é sítio de vocabulário forçado pelo compilador mesmo vivendo no corpus de TESTE — o plano contava 4 sítios, o compilador apontou 5
 
 ### Pending Todos
 
@@ -206,6 +210,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **Contas de teste PROD:** `e2e.admin@beautysmile.com.br` (admin) + `recrutador` `fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7` + `candidato.funil@teste.com`.
 - 42-07 CHECKPOINT PENDENTE (bloqueante): apply de 20260730000003 + deploy da EF notificar-rh + smoke do round-trip. Ordem obrigatória: EF ANTES do trigger (net.http_post é at-most-once). Ler NOTIFICACOES_MODO na função nova antes do smoke — em PROD é 'producao' e o smoke mandaria e-mail real aos 5 RH. REVISAO-01 NÃO está entregue até isso passar
 - 42-08 tem de renumerar sua migration para 20260730000004 (o 42-07 tomou o 20260730000003) E reescrever as asserções (a)/(b) do seu smoke: o CHECK vivo passa a ter 5 valores com o 42-07 e 6 com o 42-08
+- 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
 
 ## Deferred Items
 
@@ -244,9 +249,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-30T07:32:13.050Z
-Stopped at: Completed 42-11-PLAN.md
-Resume file: None
+Last session: 2026-07-31T13:34:35.250Z
+Stopped at: 42-08 código completo — CHECKPOINT de PROD pendente (Task 3)
+Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-08-SUMMARY.md
 
 ## Operator Next Steps
 
