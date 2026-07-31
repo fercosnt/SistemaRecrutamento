@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: Inventário, Gates & Fila Art. 20
 status: executing
-stopped_at: Completed 42-10-PLAN.md
-last_updated: "2026-07-31T14:11:33.335Z"
+stopped_at: "42-12: correção do INVENT-05 escrita e commitada; CHECKPOINT de decisão + apply em PROD pendentes"
+last_updated: "2026-07-31T14:25:21.663Z"
 last_activity: 2026-07-31
 last_activity_desc: "42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado"
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 12
-  completed_plans: 11
-  percent: 0
+  completed_plans: 12
+  percent: 17
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 11 of 12 (faltam 42-10 e 42-12)
+Plan: 12 of 12 (faltam 42-10 e 42-12)
 Status: 42-08 completo em CÓDIGO (5º evento do pipeline, 309/309 no corpus Deno); **checkpoint de PROD do 42-08 pendente** (deploy da EF + apply do CHECK/trigger + smoke 4/4 + round-trip)
 Last activity: 2026-07-31 — 42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado
 
@@ -89,6 +89,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 42 P11 | ~30min | 2 tasks | 6 files |
 | Phase 42 P08 | ~50min | 2 tasks | 8 files |
 | Phase 42 P10 | ~25 min | 3 tasks | 12 files |
+| Phase 42 P12 | ~45min | 1 task (2 checkpoints pendentes) tasks | 4 files files |
 
 ## Accumulated Context
 
@@ -179,6 +180,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 42]: 42-10: responderRevisao chama a RPC MESMO quando o guard vai recusar (teste prende isso) — atalhar no cliente moveria a barreira para o cliente, e qualquer DevTools a desliga
 - [Phase 42]: 42-10: slot badge do MenuItem ALARGADO para string em vez de derivar o rotulo no render — duas fontes de verdade sobre 'como um contador aparece' e como um 0 volta a vazar; o render virou ternario porque '0 && …' avalia para 0 e o React o renderiza como texto
 - [Phase 42]: 42-10: asserção de copy em dialogo tem de ler document.body — conteudo em portal deixa container.textContent vazio, e toda asserção negativa passa sem olhar nada (3 falsos verdes encontrados)
+- [Phase ?]: [Phase 42 / 42-12]: a consulta `@> ARRAY[NULL]::uuid[]` do §E5 da pesquisa devolveria false SEMPRE (contenção compara por igualdade; igualdade contra nulo nunca é verdadeira) — a coluna que diz se o defeito está latente ou armado reportaria 0 em silêncio, o MESMO modo de falha que o INVENT-05 corrige. Usado array_position(...,NULL) IS NOT NULL, que 02-cron-live.sql:65 já usava: a pesquisa contradizia um artefato versionado da própria fase, e ganhou o artefato
+- [Phase ?]: [Phase 42 / 42-12]: fidelidade de corpo de cron asserida por md5, não por string literal — o critério proibia verbo de escrita dentro do smoke, e transcrever o corpo esperado o traria de volta. O md5 satisfaz os dois e é MAIS forte que a forma proibida (pega espaço a mais/quebra de linha a menos). Resumo derivado por EXECUÇÃO sobre o arquivo, com bloco de proveniência + comando de recomputação no cabeçalho, idioma da baseline do .husky/pre-commit
+- [Phase ?]: [Phase 42 / 42-12]: consulta de raio de impacto carimba a PRÓPRIA data (coletado_em_utc, 6ª coluna) — o portão exige fato datado, e data que depende de alguém lembrar de anotá-la é promessa sem código que a execute; sem carimbo no output não há como distinguir uma medição de hoje de uma colada de 2026-07-29 (Pitfall 7)
+- [Phase ?]: [Phase 42 / 42-12]: o bloco do corpo ANTERIOR no cron-inventory.md ficou marcado como não-editável e a seção 'Depois da correção' foi escrita ANTES do apply com células ⏳ ('campo do checkpoint, não resultado'). Sobrescrever o 'antes' destrói a única evidência que torna o 'depois' interpretável (T-42-42); preencher com números plausíveis seria fabricar evidência
 
 ### Pending Todos
 
@@ -216,6 +221,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 42-07 CHECKPOINT PENDENTE (bloqueante): apply de 20260730000003 + deploy da EF notificar-rh + smoke do round-trip. Ordem obrigatória: EF ANTES do trigger (net.http_post é at-most-once). Ler NOTIFICACOES_MODO na função nova antes do smoke — em PROD é 'producao' e o smoke mandaria e-mail real aos 5 RH. REVISAO-01 NÃO está entregue até isso passar
 - 42-08 tem de renumerar sua migration para 20260730000004 (o 42-07 tomou o 20260730000003) E reescrever as asserções (a)/(b) do seu smoke: o CHECK vivo passa a ter 5 valores com o 42-07 e 6 com o 42-08
 - 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
+- 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
 
 ## Deferred Items
 
@@ -254,9 +260,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-31T14:11:22.077Z
-Stopped at: Completed 42-10-PLAN.md
-Resume file: None
+Last session: 2026-07-31T14:25:21.655Z
+Stopped at: 42-12: correção do INVENT-05 escrita e commitada; CHECKPOINT de decisão + apply em PROD pendentes
+Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-12-SUMMARY.md
 
 ## Operator Next Steps
 
