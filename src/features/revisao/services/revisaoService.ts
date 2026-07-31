@@ -5,7 +5,8 @@
  * ⚠ ESCOPO: o plano 42-03 criou aqui **apenas as partes puras** — o contrato de erro, a
  * allowlist de colunas e o formatador do contador. O plano 42-09 acrescentou os três
  * LEITORES (`listarFilaRevisoes`, `contarRevisoesPendentes`, `lerConfigSlaRevisao`), que
- * são a primeira dependência de rede deste módulo. A mutation entra no plano 42-10.
+ * são a primeira dependência de rede deste módulo. O plano 42-10 fechou o módulo com o
+ * único WRITE-PATH (`responderRevisao`).
  *
  * ── A INVARIANTE DE LEITURA DA FILA (por que RPC e não `.from().select()`) ─────
  *
@@ -52,6 +53,7 @@
  */
 import { supabase } from '@/lib/supabase/client'
 import type { LimiaresSlaRevisao } from '../constants/slaRevisao'
+import type { ResponderRevisaoFormValues } from '../schemas/responderRevisaoSchema'
 
 /**
  * Erro de domínio da revisão, na forma `camelCaseService.ts` do projeto (CLAUDE.md),
@@ -294,6 +296,37 @@ export async function lerConfigSlaRevisao(): Promise<LimiaresSlaRevisao | null> 
   return { diasAtencao: dias_atencao, diasAtraso: dias_atraso }
 }
 
+/** As variáveis do único write-path da resposta à revisão. */
+export interface ResponderRevisaoVars {
+  candidaturaId: string
+  veredito: ResponderRevisaoFormValues['veredito']
+  justificativa: string
+}
+
+/**
+ * Registra a resposta à revisão de decisão pela RPC `responder_revisao_decisao`
+ * (REVISAO-03) — o **único** caminho de escrita que existe.
+ *
+ * ⚠ NENHUMA DECISÃO DE AUTORIZAÇÃO MORA AQUI, E ISSO É DELIBERADO. Esta função não sabe
+ * quem é o usuário, não compara identidades e não checa papel. Ela chama a RPC **mesmo
+ * quando o guard vai recusar** — e é justamente por isso que a recusa é confiável: o que
+ * barra a ação é o `SECURITY DEFINER` do servidor (`decisao_final` não tem policy de
+ * UPDATE, logo não há atalho por PostgREST), não uma condição de cliente que qualquer
+ * DevTools desliga. O `pode_responder` que a fila lê é COSMÉTICO; este caminho é o real.
+ *
+ * Um erro sai classificado por `classificarErroRevisao` — é o `code` do `RevisaoError`
+ * que decide, lá em cima, se a recusa vira alerta inline permanente sem retry
+ * (`GUARD_DECISOR`) ou toast genérico (`VALIDACAO` / `DESCONHECIDO`).
+ */
+export async function responderRevisao(vars: ResponderRevisaoVars): Promise<void> {
+  const { error } = await supabase.rpc('responder_revisao_decisao', {
+    p_candidatura_id: vars.candidaturaId,
+    p_veredito: vars.veredito,
+    p_justificativa: vars.justificativa,
+  })
+  if (error) throw classificarErroRevisao(error)
+}
+
 /** Export namespaced (convenção `camelCaseService`). */
 export const revisaoService = {
   classificarErroRevisao,
@@ -301,4 +334,5 @@ export const revisaoService = {
   listarFilaRevisoes,
   contarRevisoesPendentes,
   lerConfigSlaRevisao,
+  responderRevisao,
 }

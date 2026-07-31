@@ -79,6 +79,7 @@ import {
   listarFilaRevisoes,
   contarRevisoesPendentes,
   lerConfigSlaRevisao,
+  responderRevisao,
   CHAVE_SLA_REVISAO,
 } from '../revisaoService'
 
@@ -419,5 +420,135 @@ describe('lerConfigSlaRevisao — config ausente é faixa degenerada, NUNCA erro
       error: null,
     })
     await expect(lerConfigSlaRevisao()).resolves.toBeNull()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Plano 42-10 Task 1 — o WRITE-PATH (`responderRevisao`)
+//
+// A RPC `responder_revisao_decisao` é o ÚNICO caminho de escrita: `decisao_final` não
+// tem policy de UPDATE, então não existe atalho por PostgREST nem por acidente. O que
+// este bloco prende é (i) que os três parâmetros nomeados batem com a assinatura viva
+// `(p_candidatura_id uuid, p_veredito text, p_justificativa text)` — um nome errado
+// falha em runtime com uma mensagem que não parece um bug de cliente — e (ii) que todo
+// erro sai classificado, porque é o `code` do `RevisaoError` que decide se a recusa vira
+// alerta inline sem retry ou toast genérico.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const CANDIDATURA = '55555555-5555-4555-8555-555555555555'
+const JUSTIFICATIVA = 'Reexaminamos a avaliação comportamental e a decisão segue válida.'
+
+describe('responderRevisao — o único write-path da resposta (REVISAO-03)', () => {
+  it('chama `responder_revisao_decisao` com os TRÊS parâmetros nomeados do servidor', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null })
+    await responderRevisao({
+      candidaturaId: CANDIDATURA,
+      veredito: 'mantida',
+      justificativa: JUSTIFICATIVA,
+    })
+    expect(rpcMock).toHaveBeenCalledWith('responder_revisao_decisao', {
+      p_candidatura_id: CANDIDATURA,
+      p_veredito: 'mantida',
+      p_justificativa: JUSTIFICATIVA,
+    })
+  })
+
+  it('repassa `revertida` sem tradução — o vocabulário do cliente é o do banco', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null })
+    await responderRevisao({
+      candidaturaId: CANDIDATURA,
+      veredito: 'revertida',
+      justificativa: JUSTIFICATIVA,
+    })
+    expect(rpcMock.mock.calls[0][1]).toMatchObject({ p_veredito: 'revertida' })
+  })
+
+  it('NÃO usa `from()` — nenhuma escrita por PostgREST nesta operação', async () => {
+    rpcMock.mockResolvedValue({ data: {}, error: null })
+    await responderRevisao({
+      candidaturaId: CANDIDATURA,
+      veredito: 'mantida',
+      justificativa: JUSTIFICATIVA,
+    })
+    expect(fromMock).not.toHaveBeenCalled()
+    expect(froms).not.toContain('decisao_final')
+  })
+
+  // ── O caso que a UI-SPEC trata de forma ÚNICA: a recusa do guard REVISAO-05 ──
+  it('42501 do guard (mensagem com "decisor") → RevisaoError `GUARD_DECISOR`', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: MSG_GUARD_DECISOR },
+    })
+    await expect(
+      responderRevisao({
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toMatchObject({ code: 'GUARD_DECISOR' })
+  })
+
+  it('42501 genérico ("forbidden") → `DESCONHECIDO`, NÃO `GUARD_DECISOR`', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: 'forbidden' },
+    })
+    await expect(
+      responderRevisao({
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toMatchObject({ code: 'DESCONHECIDO' })
+  })
+
+  it('22023 (justificativa curta, veredito inválido, revisão já respondida) → `VALIDACAO`', async () => {
+    for (const message of [
+      'justificativa precisa de ao menos 50 caracteres',
+      'veredito invalido',
+      'revisao ja respondida',
+    ]) {
+      rpcMock.mockResolvedValue({ data: null, error: { code: '22023', message } })
+      await expect(
+        responderRevisao({
+          candidaturaId: CANDIDATURA,
+          veredito: 'mantida',
+          justificativa: JUSTIFICATIVA,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDACAO' })
+    }
+  })
+
+  it('o erro lançado é sempre um `RevisaoError` — o hook nunca vê o objeto cru', async () => {
+    const cru = { code: '42501', message: MSG_GUARD_DECISOR }
+    rpcMock.mockResolvedValue({ data: null, error: cru })
+    await expect(
+      responderRevisao({
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toBeInstanceOf(RevisaoError)
+  })
+
+  // ── Asserção NEGATIVA: nenhuma decisão de autorização mora no cliente ────────
+  // O serviço não sabe quem é o usuário, não compara identidades e não decide nada
+  // sobre permissão. Se algum dia alguém acrescentar um "atalho" aqui (pular a RPC
+  // quando acha que o usuário é o decisor), este teste continua verde — mas o de
+  // paridade abaixo não: a RPC TEM de ser chamada mesmo no caminho que vai falhar.
+  it('chama a RPC mesmo quando o guard vai recusar — a UI nunca é a barreira', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: '42501', message: MSG_GUARD_DECISOR },
+    })
+    await expect(
+      responderRevisao({
+        candidaturaId: CANDIDATURA,
+        veredito: 'mantida',
+        justificativa: JUSTIFICATIVA,
+      }),
+    ).rejects.toBeInstanceOf(RevisaoError)
+    expect(rpcMock).toHaveBeenCalledTimes(1)
   })
 })
