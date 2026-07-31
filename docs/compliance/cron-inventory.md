@@ -49,6 +49,11 @@ WHERE retain_until < now()
 **É o único `DELETE` vivo em cron neste sistema.** É o alvo do INVENT-05 — ver a análise de
 precisão abaixo, que corrige o enunciado do requirement.
 
+> ⚠ **Este bloco é o lado ESQUERDO do antes/depois e não deve ser editado.** A correção do
+> INVENT-05 está na seção [Depois da correção](#depois-da-correção-invent-05--d-p42-21). O corpo
+> acima é o registro do estado anterior ao apply; sobrescrevê-lo destruiria a única evidência
+> datada de qual era o predicado vivo.
+
 ### 3 · `notif-retry-sweep` — `*/15 * * * *`
 
 ```sql
@@ -107,6 +112,115 @@ para tocar um `DELETE` vivo — e é um fato datado, não uma suposição.
 
 ---
 
+## Depois da correção (INVENT-05 · D-P42-21)
+
+| Campo | Valor |
+|-------|-------|
+| **Requirement coberto** | **INVENT-05** |
+| **Plano** | `42-12` |
+| **Migration** | [`20260730000005_p42_invent05_not_exists.sql`](../../supabase/migrations/20260730000005_p42_invent05_not_exists.sql) |
+| **Consulta de raio de impacto** | [`sql/04-invent05-blast-radius.sql`](./sql/04-invent05-blast-radius.sql) |
+| **Smoke de asserção negativa** | [`../../supabase/tests/p42_invent05_cron_smoke.sql`](../../supabase/tests/p42_invent05_cron_smoke.sql) |
+| **Escrita em** | 2026-07-31 |
+| **Estado em PROD** | ⏳ **NÃO APLICADA** — apply pendente do checkpoint do orquestrador |
+
+> ⚠ **LEIA ISTO ANTES DE CITAR ESTA SEÇÃO.** Enquanto a linha "Estado em PROD" disser
+> **NÃO APLICADA**, esta seção descreve o que está **no repositório**, não o que está **no banco**.
+> O corpo vivo do agendamento continua sendo o do bloco anterior. As células marcadas com ⏳ são
+> **campos a preencher no checkpoint**, não valores medidos — tratá-las como resultado é
+> exatamente o modo de falha que o `04-invent05-blast-radius.sql` existe para impedir.
+
+### O corpo novo (transcrito da migration)
+
+```sql
+DELETE FROM public.ai_call_logs l
+ WHERE l.retain_until < now()
+   AND NOT EXISTS (
+     SELECT 1
+       FROM public.candidate_ai_decisions d
+      WHERE d.status IN ('candidate_review_requested', 'human_reviewing')
+        AND l.id = ANY(d.ai_call_log_ids)
+   );
+```
+
+| Propriedade do corpo novo | Valor |
+|---|---|
+| `md5` do texto entre os delimitadores `$CRON$` | `b64ca58d089f3ed580205e95a40c4e5f` |
+| Tamanho | 299 octetos |
+| Origem do resumo | computado por execução sobre o arquivo de migration em 2026-07-31 — nunca digitado à mão |
+
+Esse `md5` é o que a asserção **(b)** do smoke compara contra `cron.job.command`. Igualdade de
+resumo sobre o texto inteiro **é** comparação byte a byte: um espaço a mais ou uma quebra de linha
+a menos muda o resultado.
+
+### O que muda e o que **não** muda
+
+| Aspecto | Antes | Depois |
+|---|---|---|
+| `jobname` | `ai-logs-retention-cleanup` | **inalterado** |
+| `schedule` | `0 2 * * *` | **inalterado** |
+| `active` | `true` | **inalterado** |
+| Forma do predicado de proteção | negação de pertencimento a uma lista de valores | verificação de **inexistência** de linha correspondente |
+| Comportamento com elemento nulo no array | predicado avalia nulo para **toda** linha ⇒ apaga **zero**, em silêncio | o nulo vale por si mesmo ⇒ a linha é corretamente apagada |
+| Outros dois agendamentos | — | **não são sequer mencionados** na migration (asserido por grep) e são asseridos intocados pela asserção (d) do smoke |
+
+A substituição é **em lugar**: mesmo nome e mesmo horário, precedida do guard de remoção
+condicional (idioma de `20260727000001:220-221`), então reaplicar a migration não duplica o
+agendamento. A asserção **(a)** do smoke prova que a contagem continua **3**.
+
+### Os dois conjuntos de números — a mesma consulta, duas vezes
+
+Ambas as execuções são de `sql/04-invent05-blast-radius.sql`, **sem alterar uma vírgula entre
+elas**. Se as duas medições não forem a mesma consulta, qualquer diferença observada passa a ter
+duas explicações possíveis e nenhuma fica descartada.
+
+| Métrica | Antes do apply | Depois do apply |
+|---|---:|---:|
+| `total_logs` | ⏳ | ⏳ (**tem de ser IDÊNTICO** — ver nota abaixo) |
+| `total_decisions` | ⏳ | ⏳ |
+| `decisions_com_null_no_array` | ⏳ | ⏳ |
+| `alcance_atual` | ⏳ | ⏳ |
+| `alcance_corrigido` | ⏳ | ⏳ |
+| `coletado_em_utc` | ⏳ | ⏳ |
+
+**Delta `alcance_corrigido − alcance_atual` = ⏳ — este número É o raio de impacto real da
+correção**, e é o que decide se o apply é passo automático (delta 0) ou decisão do operador
+(delta > 0).
+
+⚠ **`total_logs` não pode mudar entre as duas medições.** Substituir um agendamento não o executa.
+Se esse número mudar, isso é **incidente, não resultado** — pare e escale.
+
+📌 As contagens de **2026-07-29** registradas na seção anterior (`ai_call_logs` = 0,
+`candidate_ai_decisions` = 0) **não autorizam o apply**. A Phase 23 corrigiu a causa do logging
+quebrado; se o registro de chamadas voltou a funcionar desde então, a primeira execução
+pós-correção apaga o acumulado histórico de uma vez. Só a contagem tirada minutos antes do apply
+autoriza.
+
+### Asserções negativas pós-apply
+
+| # | Asserção | Resultado |
+|---|---|---|
+| (a) | `cron.job` continua com **exatamente 3** agendamentos — nenhum criado, nenhum removido | ⏳ |
+| (b) | Corpo vivo do alvo casa **byte a byte** com a migration (`md5` acima) | ⏳ |
+| (c) | Horário `0 2 * * *` e `active` preservados | ⏳ |
+| (d) | `ai-cost-aggregation` e `notif-retry-sweep` intocados (horário, estado ativo, assinatura de corpo) | ⏳ |
+| (z) | RESUMO — gate de contagem, esperado fixo **4** | ⏳ |
+
+Rodar numa **única** chamada `execute_sql` (o gate por GUC é escopado à sessão).
+
+Complemento do checkpoint, que o arquivo estático do smoke não tem como conhecer de antemão:
+`SELECT jobname, md5(command) FROM cron.job ORDER BY jobname;` coletado **antes** e **depois** do
+apply. Os resumos de `ai-cost-aggregation` e `notif-retry-sweep` têm de ser **idênticos** nas duas
+coletas — é a asserção byte a byte de que a correção não tocou o que não devia.
+
+### Quando o efeito real acontece
+
+O apply **não** executa a purga. A primeira execução com o predicado corrigido acontece às
+**02:00 seguintes**, e a partir dela o comando passa a apagar de verdade as linhas que a política
+de retenção manda apagar. Até lá, o que mudou é a definição do agendamento — não o dado.
+
+---
+
 ## Como reproduzir
 
 Consultas (a), (b) e (c) de [`sql/02-cron-live.sql`](./sql/02-cron-live.sql), via `execute_sql` do
@@ -116,8 +230,9 @@ MCP do Supabase, pelo orquestrador.
 
 ## Limites deste artefato
 
-1. **Fotografia de 2026-07-29.** Um job criado depois desta data não aparece aqui. A re-execução é
-   barata e deve preceder qualquer fase que toque cron (Phase 46).
+1. **Fotografia de 2026-07-29** — exceto a seção "Depois da correção", escrita em 2026-07-31 e
+   cujos números medidos seguem **pendentes do apply**. Um job criado depois de 29/07 não aparece
+   na fotografia. A re-execução é barata e deve preceder qualquer fase que toque cron (Phase 46).
 2. **Rastreabilidade por nome e corpo**, não por hash assinado. Um job cujo corpo tenha sido
    alterado fora do repositório *e depois revertido* seria indistinguível.
 3. **Não cobre `pg_net`/webhooks** disparados por trigger — só `cron.job`. Os triggers vivos são
