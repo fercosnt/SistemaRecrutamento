@@ -15,7 +15,7 @@ provides:
   - "5º evento do pipeline de comunicação em CÓDIGO: `EventoLedger`/`EVENTO_MAP`/`EventoNotificacao`/`SUBJECTS`/`CORPOS`/`PREHEADERS` + `corpoRevisaoRespondida` (309/309 no corpus Deno)"
   - "`DadosEmail.vereditoRevisao` opcional + a leitura de `decisao_final.revisao_veredito` na EF — a ramificação do corpo é ALCANÇÁVEL em produção, não só testável"
   - "`supabase/tests/p42_notif_revisao_smoke.sql` — espec RED de 4 asserções (NÃO executada)"
-  - "`supabase/migrations/20260730000004_p42_evento_revisao_respondida.sql` — CHECK de 6 valores + `trg_notif_revisao_respondida` (NÃO aplicada)"
+  - "`supabase/migrations/20260730000004_p42_evento_revisao_respondida.sql` — CHECK de 6 valores + `trg_notif_revisao_respondida` (APLICADA em PROD 2026-07-31, md5 byte-idêntico)"
   - "Decisão registrada e pinada: a prévia de caixa de entrada do 5º evento NÃO ramifica por veredito"
 affects: [42-12]
 
@@ -53,10 +53,11 @@ patterns-established:
   - "Rodar o type-check entre um sítio de vocabulário e o seguinte, em vez de editar todos de uma vez: a sequência de erros é a EVIDÊNCIA de que os `Record<>` são gate real, e foi ela que revelou o 5º sítio que o plano não listava"
   - "Quando um plano lista os arquivos a tocar, o conjunto é uma HIPÓTESE sobre onde o dado vive — conferir se o dado chega até o template, não só se o template existe"
 
-requirements-completed: []
-requirements-pending-checkpoint: [REVISAO-04]
+requirements-completed: [REVISAO-04]
+requirements-pending-checkpoint: []
 
-checkpoint_pendente: true
+checkpoint_pendente: false
+checkpoint_concluido: 2026-07-31
 checkpoint_task: 3
 
 coverage:
@@ -443,3 +444,111 @@ Arquivos criados/modificados verificados em disco (8/8). Commits verificados em
 ---
 *Phase: 42-invent-rio-gates-fila-art-20*
 *Completed (código): 2026-07-31 — checkpoint de PROD pendente*
+
+---
+
+# ✅ CHECKPOINT CONCLUÍDO — Task 3 executada pelo orquestrador em 2026-07-31
+
+REVISAO-04 está **entregue por inteiro**. A metade da exibição já vivia (42-11); a metade
+do e-mail passou a viver agora. O `REQUIREMENTS.md`, que a Task 2 apontou como afirmando
+mais do que o sistema fazia, **voltou a ser verdadeiro** — sem que o marcador precisasse
+ser tocado.
+
+## Os 8 passos, na ordem, com o que cada um mediu
+
+**1. Constraint viva ANTES de tudo.** `CHECK ((evento = ANY (ARRAY['confirmacao'::text,
+'avanco'::text, 'convite'::text, 'decisao'::text, 'revisao_solicitada'::text])))` — 5
+valores, **nenhuma cláusula além da lista**, exatamente o estado esperado após a 42-07.
+Nada a preservar além dos valores ⇒ apply liberado. Transcrito nas linhas `>>> antes:` /
+`>>> depois:` do cabeçalho da migration **antes** do apply, e o `depois` foi depois
+conferido contra `pg_get_constraintdef` — bate literalmente.
+
+**2. Deploy da EF `notificar-candidato` → v7** (`verify_jwt=false`, preservado).
+**⚠ A lista de dependências do SUMMARY estava incompleta: são CINCO arquivos, não quatro.**
+`index.ts` também importa `../_shared/ics.ts` (`gerarIcsAgendamento` + `icsParaBase64`).
+Deployar as quatro listadas teria quebrado o evento `convite`, que é **vivo em produção** —
+um erro de módulo em runtime no anexo `.ics`. As cinco foram enviadas.
+
+**3. Smoke da EF ANTES do CHECK** — `POST` ids-only com Bearer do Vault (despachado por
+`net.http_post` para o segredo nunca transitar em linha de comando), `candidatura_id`
+inexistente:
+
+```
+200  {"ok":true,"skipped":"dados_ausentes"}
+```
+
+**Não** foi `400 VALIDATION` ⇒ a EF deployada já aceita `revisao_respondida` no
+vocabulário, e o trigger podia nascer sem risco de nudge perdido.
+
+**4. Apply da migration + as duas propriedades do `apply_migration`.**
+`NOTICE P42-08 BLOCO A OK` (o apply não abortou ⇒ as três checagens do bloco `DO` passaram,
+incluindo a que aborta se `revisao_solicitada` tivesse sumido). Ledger reparado de volta
+para `20260730000004`. **Fidelidade provada, não presumida:**
+
+```
+md5(statements[1]) = 9ad3c1ecb3861ccbc0679feb39aa1ef3
+md5 do arquivo     = 9ad3c1ecb3861ccbc0679feb39aa1ef3   ✓ byte-a-byte
+```
+
+**5. Smoke `p42_notif_revisao_smoke.sql`** — chamada ÚNICA, `smoke42n.pass = 4`.
+Gate VERDE: (a) os 6 eventos aceitos por inserção real, (b) o 7º inventado rejeitado com
+23514, (c) `trg_notif_revisao_respondida` é `AFTER UPDATE OF revisao_respondida_em`,
+DEFINER com `search_path` vazio, (d) `trg_notif_revisao_solicitada` da 42-07 **intacto**.
+Teardown aferido: zero linha remanescente, ledger de volta ao tamanho anterior.
+
+**6. Round-trip ao vivo — opção A do operador (sem hard bounce).**
+Fixture: candidatura `0f09fed1…` na vaga `[TESTE] Auxiliar de Saúde Bucal (ASB)`, cujo
+`candidatos.email` é `fernando@beautysmile.com.br` — **caixa interna real e
+inspecionável**. Nenhum `@teste.com` envolvido, então o hard bounce que a Task 2 previu
+não aconteceu. Decisor = `e2e.admin`; quem respondeu = outro RH (guard REVISAO-05
+respeitado pelo caminho real, não contornado).
+
+- (a) linha gravada: `revisao_veredito='mantida'`, `revisao_por_usuario` = o respondente,
+  `revisao_respondida_em` preenchido.
+- (b) **exatamente uma** linha de ledger, `dedupe_key =
+  `0f09fed1-…:revisao_respondida`` — a chave sem ramo novo, como `montarDedupeKey` decidiu.
+- (c) `modo='producao'`, `destinatario_email` = `destinatario_original` =
+  `fernando@beautysmile.com.br`, `tentativas=0`, `ultimo_erro` nulo.
+- **`status='entregue'`, não apenas `enviado`** — o webhook do Resend confirmou a ENTREGA
+  antes mesmo da leitura. Entrega real provada, não só aceitação pelo provedor.
+
+**(d) Conteúdo inspecionado nos TRÊS caminhos** (render do módulo vivo, com os dados reais
+da fixture):
+
+| Veredito | Assunto | Prévia (oculta) | Frase do desfecho |
+|----------|---------|-----------------|-------------------|
+| `mantida` | `Resposta à sua solicitação de revisão — [TESTE] Auxiliar de Saúde Bucal (ASB)` | `Sua solicitação de revisão foi respondida.` | "Após a revisão, a decisão foi mantida." |
+| `revertida` | *(idêntico)* | *(idêntico)* | "Após a revisão, a decisão anterior foi revista." |
+| ausente | *(idêntico)* | *(idêntico)* | *(nenhuma — caminho neutro honesto)* |
+
+**A prévia é LITERALMENTE a mesma nos três casos.** Era o ponto onde o W-01 se escondeu, e
+a decisão registrada de não ramificar está de pé no objeto renderado, não só no teste.
+O corpo não carrega dado de avaliação, não nomeia o revisor e não promete próximo passo.
+
+**Nota de escopo desta prova:** o render foi feito a partir do módulo do repositório. Que o
+código DEPLOYADO produz o mesmo é provado por outra via, e é dedutivo, não confiança: um
+`Record<EventoNotificacao, …>` sem a entrada nova faria `SUBJECTS[evento](d)` lançar
+`TypeError`, o que cairia em `registrarFalha` e gravaria `status='falhou'`. O ledger diz
+`entregue` — logo as três tabelas de template da EF viva têm a entrada do 5º evento.
+
+**7. Asserção negativa de despachante único.** `net._http_response` na janela do RPC:
+**exatamente 1** requisição (id 73 → `{"ok":true,"status":"enviado"}`). A outra linha da
+janela (id 72) é o smoke do passo 3, 4 minutos antes. O RPC `responder_revisao_decisao`
+**não** é um segundo despachante.
+
+**Asserção negativa de idempotência.** 2º `UPDATE` reescrevendo o MESMO
+`revisao_respondida_em` ⇒ **nenhuma** 2ª linha de ledger. O guard `NULL -> NOT NULL`
+segura, como exige um dispatch at-most-once.
+
+**Teardown.** `decisao_final` + `decisao_final_historico` da fixture removidos; a
+candidatura volta ao estado "sem decisão", re-executável. A linha de ledger foi
+**mantida** como evidência (idioma da 42-07). Estado final aferido: 3 triggers em
+`decisao_final` (snapshot + solicitada + respondida), 3 jobs de cron — **inalterado**.
+
+## O que este checkpoint acrescenta ao registro do projeto
+
+- **A dependência de EF pode ser maior que a lista do plano.** O fechamento real se lê nos
+  `import` do entrypoint, não no `files_modified`. Aqui a diferença era um evento vivo
+  (`convite`) quebrar em produção. Vale para todo deploy de EF por MCP.
+- **`status='entregue'` é um gate melhor que `enviado`** quando o webhook do Resend está
+  vivo: distingue "o provedor aceitou" de "a pessoa recebeu".

@@ -69,9 +69,13 @@
 --   CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text,
 --                              'decisao'::text, 'revisao_solicitada'::text])))
 --
--- >>> TRANSCRIÇÃO DO VIVO (preencher no checkpoint, ANTES do apply):
--- >>> antes:
--- >>> depois:
+-- >>> TRANSCRIÇÃO DO VIVO (medida no checkpoint da Task 3, 2026-07-31, ANTES do apply):
+-- >>> antes:  CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text, 'decisao'::text, 'revisao_solicitada'::text])))
+-- >>> depois: CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text, 'decisao'::text, 'revisao_solicitada'::text, 'revisao_respondida'::text])))
+-- >>> O `antes` bate EXATAMENTE o estado esperado logo acima — nenhuma cláusula além da
+-- >>> lista de eventos, então o DROP/ADD não perde nada. O `depois` é ASSERÇÃO, conferida
+-- >>> contra `pg_get_constraintdef` depois do apply (e pela asserção (a) do smoke, que
+-- >>> prova por INSERÇÃO em vez de leitura).
 --
 -- CONTEÚDO
 --   BLOCO A — vocabulário do ledger: `notificacoes_enviadas.evento` passa a aceitar
