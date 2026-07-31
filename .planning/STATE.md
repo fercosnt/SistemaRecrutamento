@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 42
 current_phase_name: Inventário, Gates & Fila Art. 20
 status: executing
-stopped_at: 42-08 código completo — CHECKPOINT de PROD pendente (Task 3)
-last_updated: "2026-07-31T13:34:35.319Z"
+stopped_at: Completed 42-10-PLAN.md
+last_updated: "2026-07-31T14:11:33.335Z"
 last_activity: 2026-07-31
 last_activity_desc: "42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado"
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 10 of 12 (faltam 42-10 e 42-12)
+Plan: 11 of 12 (faltam 42-10 e 42-12)
 Status: 42-08 completo em CÓDIGO (5º evento do pipeline, 309/309 no corpus Deno); **checkpoint de PROD do 42-08 pendente** (deploy da EF + apply do CHECK/trigger + smoke 4/4 + round-trip)
 Last activity: 2026-07-31 — 42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado
 
@@ -88,6 +88,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 42 P07 | ~55min | 2 tasks | 6 files |
 | Phase 42 P11 | ~30min | 2 tasks | 6 files |
 | Phase 42 P08 | ~50min | 2 tasks | 8 files |
+| Phase 42 P10 | ~25 min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -174,6 +175,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 42]: 42-08: a prévia de caixa de entrada do 5º evento NÃO ramifica por veredito — decisão escrita no PREHEADERS e pinada por igualdade literal (T-42-V2c); ramificar entregaria o desfecho do Art. 20 na lista de e-mails
 - [Phase 42]: 42-08: a EF notificar-candidato passou a LER decisao_final.revisao_veredito (guardado por evento) — sem isso a ramificação do corpo seria código morto: teste provando o que nenhum e-mail alcança
 - [Phase 42]: 42-08: um Record<União,…> é sítio de vocabulário forçado pelo compilador mesmo vivendo no corpus de TESTE — o plano contava 4 sítios, o compilador apontou 5
+- [Phase 42]: 42-10: a recusa GUARD_DECISOR NAO vira toast — o hook fica calado e o dialogo renderiza alerta inline permanente sem retry; tentar de novo nunca funciona porque a recusa e sobre QUEM e o usuario
+- [Phase 42]: 42-10: responderRevisao chama a RPC MESMO quando o guard vai recusar (teste prende isso) — atalhar no cliente moveria a barreira para o cliente, e qualquer DevTools a desliga
+- [Phase 42]: 42-10: slot badge do MenuItem ALARGADO para string em vez de derivar o rotulo no render — duas fontes de verdade sobre 'como um contador aparece' e como um 0 volta a vazar; o render virou ternario porque '0 && …' avalia para 0 e o React o renderiza como texto
+- [Phase 42]: 42-10: asserção de copy em dialogo tem de ler document.body — conteudo em portal deixa container.textContent vazio, e toda asserção negativa passa sem olhar nada (3 falsos verdes encontrados)
 
 ### Pending Todos
 
@@ -249,9 +254,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-31T13:34:35.250Z
-Stopped at: 42-08 código completo — CHECKPOINT de PROD pendente (Task 3)
-Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-08-SUMMARY.md
+Last session: 2026-07-31T14:11:22.077Z
+Stopped at: Completed 42-10-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

@@ -42,9 +42,9 @@
 
 - [ ] **REVISAO-01**: RH é notificado quando um candidato solicita revisão da decisão (trigger na transição `revisao_solicitada_em` NULL→NOT NULL → EF `notificar-rh`)
 - [ ] **REVISAO-02**: RH vê a fila de pedidos de revisão pendentes, ordenada por antiguidade, com badge de SLA **interno** (nunca exibido ao candidato)
-- [ ] **REVISAO-03**: RH registra o resultado da revisão em `revisao_resultado` por write-path auditável único
+- [x] **REVISAO-03**: RH registra o resultado da revisão em `revisao_resultado` por write-path auditável único
 - [x] **REVISAO-04**: Candidato é notificado por e-mail quando sua revisão é respondida (5º evento do pipeline COMM)
-- [ ] **REVISAO-05**: Quem registrou a decisão **não pode** responder à revisão dela — bloqueio server-enforced, não aviso de UI
+- [x] **REVISAO-05**: Quem registrou a decisão **não pode** responder à revisão dela — bloqueio server-enforced, não aviso de UI
 - [ ] **REVISAO-06**: Consulta que responde quantos pedidos de revisão já estão pendentes em PROD hoje, entregue **antes** de qualquer tela
 
 ### Consentimentos (CONSENT)
@@ -156,9 +156,9 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | INVENT-05 | Phase 42 | Pending |
 | REVISAO-01 | Phase 42 | Pending |
 | REVISAO-02 | Phase 42 | Pending |
-| REVISAO-03 | Phase 42 | Pending |
+| REVISAO-03 | Phase 42 | Complete |
 | REVISAO-04 | Phase 42 | Complete |
-| REVISAO-05 | Phase 42 | Pending |
+| REVISAO-05 | Phase 42 | Complete |
 | REVISAO-06 | Phase 42 | Pending |
 | CONSENT-01 | Phase 43 | Pending |
 | CONSENT-02 | Phase 43 | Pending |
