@@ -230,6 +230,133 @@ Deno.test("T-42-V1 — par (subject, preheader) de decisao_final · desfecho AUS
   assertEquals(extrairPreheader(html), "Atualização sobre a sua candidatura.");
 });
 
+// ── T-42-V2 — O 5º EVENTO: `revisao_respondida` (Plan 42-08 · REVISAO-04) ───
+//
+// Phase 42 / Plan 42-08 Task 1 (D-P42-14).
+//
+// O e-mail que avisa o candidato de que sua solicitação de revisão do Art. 20 foi
+// RESPONDIDA. É o 5º evento do pipeline de comunicação e a edição de maior risco da fase:
+// os defeitos CR-01, CR-02 e W-01 nasceram todos de um sítio do vocabulário que ficou para
+// trás quando o vizinho mudou.
+//
+// A DECISÃO REGISTRADA E PINADA AQUI (questão aberta nº3 da pesquisa da fase):
+// a PRÉVIA DE CAIXA DE ENTRADA **não ramifica** por veredito. O assunto já diz que se trata
+// da resposta à solicitação; ramificar a prévia por `mantida`/`revertida` anteciparia o
+// desfecho NA LISTA DE E-MAILS, antes de a pessoa abrir a mensagem. A lição do W-01 é que
+// **não decidir** é o defeito — não que ramificar seja sempre certo. O teste T-42-V2c exige
+// IGUALDADE LITERAL da prévia entre os dois vereditos: um futuro que queira ramificar terá de
+// alterar este teste de propósito, e isso aparece no diff.
+//
+// DADOS mínimos de propósito: `DadosEmail.vereditoRevisao` é OPCIONAL, e o corpo tem de ter um
+// caminho honesto para a ausência (T-42-V2d) — foi exatamente um corpo que assumia a presença
+// de um campo que produziu o CR-01.
+
+const DADOS_REV = {
+  nomeCandidato: "Ana <b>Silva</b>",
+  tituloVaga: "Dentista Clínico Geral",
+};
+
+Deno.test("T-42-V2a — revisao_respondida ('mantida') rende subject com a vaga + corpo não-vazio", () => {
+  const { subject, html } = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "mantida",
+  });
+  assert(subject.length > 0, "subject vazio");
+  assert(subject.includes("Dentista Clínico Geral"), `subject sem a vaga: ${subject}`);
+  assert(html.length > 0, "html vazio");
+  assert(extrairPreheader(html).length > 0, "prévia VAZIA (classe de defeito W-01)");
+});
+
+Deno.test("T-42-V2b — o SUBJECT não ramifica por veredito; o CORPO ramifica", () => {
+  const mantida = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "mantida",
+  });
+  const revertida = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "revertida",
+  });
+
+  assertEquals(
+    mantida.subject,
+    revertida.subject,
+    "o ASSUNTO antecipa o desfecho da revisão na caixa de entrada — decisão de produto " +
+      "que esta fase não toma (ver o comentário do PREHEADERS)",
+  );
+  assert(
+    mantida.html !== revertida.html,
+    "o CORPO é idêntico nos dois vereditos — o e-mail não diz o que aconteceu, " +
+      "que é a classe de defeito do CR-01 (corpo genérico para desfechos distintos)",
+  );
+});
+
+Deno.test("T-42-V2c — a PRÉVIA é literalmente IDÊNTICA para 'mantida' e 'revertida'", () => {
+  // Igualdade LITERAL, não `includes`: `includes` prova presença, não igualdade — e foi
+  // essa exata fraqueza que deixou o W-01 passar pelos testes de :109-137.
+  const pMantida = extrairPreheader(
+    renderarEmail("revisao_respondida", { ...DADOS_REV, vereditoRevisao: "mantida" }).html,
+  );
+  const pRevertida = extrairPreheader(
+    renderarEmail("revisao_respondida", { ...DADOS_REV, vereditoRevisao: "revertida" }).html,
+  );
+
+  assert(pMantida.length > 0, "prévia vazia — a caixa de entrada mostraria uma linha em branco");
+  assertEquals(
+    pMantida,
+    pRevertida,
+    "a PRÉVIA passou a ramificar por veredito: o desfecho da revisão vaza na LISTA de " +
+      "e-mails, antes de a pessoa abrir a mensagem. Se isso for intencional, é decisão de " +
+      "produto e este teste tem de ser alterado DE PROPÓSITO.",
+  );
+});
+
+Deno.test("T-42-V2d — vereditoRevisao AUSENTE não lança e ainda rende assunto, prévia e corpo", () => {
+  // `vereditoRevisao` é opcional em DadosEmail. Um corpo que assumisse a presença dele
+  // quebraria em runtime dentro de um dispatch at-most-once — o e-mail sumiria sem rastro.
+  const { subject, html } = renderarEmail("revisao_respondida", DADOS_REV);
+  assert(subject.length > 0, "subject vazio sem o veredito");
+  assert(extrairPreheader(html).length > 0, "prévia vazia sem o veredito");
+  assert(html.length > 0, "html vazio sem o veredito");
+  // O caminho neutro não pode AFIRMAR um desfecho que não conhece.
+  assert(
+    !/decis[ãa]o foi mantida|decis[ãa]o anterior foi revista/i.test(html),
+    "o caminho SEM veredito afirmou um desfecho — fail-safe tem de ser neutro",
+  );
+});
+
+Deno.test("T-42-V2e — GREP-GUARD (D-15/RNF-07a) + proibição de prazo estatutário no 5º evento", () => {
+  // A lista literal de termos vetados vive NESTE arquivo, nunca em outro artefato: um
+  // grep-guard cuja lista mora no código que ele guarda não guarda nada.
+  const proibido = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio/i;
+  // Invariante nº2 da UI-SPEC da fase: o Art. 20 NÃO fixa prazo. A copy nunca o inventa.
+  const prazoVetado = /prazo legal|prazo da lei|prazo lgpd/i;
+
+  for (const veredito of ["mantida", "revertida", undefined] as const) {
+    const { html, subject } = renderarEmail("revisao_respondida", {
+      ...DADOS_REV,
+      vereditoRevisao: veredito,
+    });
+    assert(
+      !proibido.test(html),
+      `VAZOU token de avaliação no 5º evento (veredito=${veredito}) — D-15/RNF-07a`,
+    );
+    assert(
+      !prazoVetado.test(html) && !prazoVetado.test(subject),
+      `o 5º evento promete PRAZO ESTATUTÁRIO (veredito=${veredito}) — o Art. 20 não fixa prazo`,
+    );
+  }
+});
+
+Deno.test("T-42-V2f — tituloVaga com <script> sai ESCAPADO no HTML do 5º evento", () => {
+  const { html } = renderarEmail("revisao_respondida", {
+    nomeCandidato: "Ana Silva",
+    tituloVaga: "<script>alert(1)</script>",
+    vereditoRevisao: "revertida",
+  });
+  assert(!html.includes("<script>"), "tag <script> CRUA no corpo do 5º evento");
+  assert(html.includes("&lt;script&gt;"), "o título da vaga deveria estar escapado");
+});
+
 Deno.test("COMM-06 — a fonte do módulo não IMPORTA react-email nem react", async () => {
   const src = await Deno.readTextFile(
     new URL("../email-templates.ts", import.meta.url),
