@@ -20,7 +20,7 @@
  * @see .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md (§Fila RH · §UI Considerations E1)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const useFilaMock = vi.fn()
@@ -39,6 +39,15 @@ vi.mock('@/features/revisao/hooks/useFilaRevisoes', () => ({
 
 vi.mock('@/features/revisao/hooks/useConfigSlaRevisao', () => ({
   useConfigSlaRevisao: (...args: unknown[]) => useConfigMock(...args),
+}))
+
+// O diálogo tem suíte própria; aqui interessa só QUE a tabela o abre, com QUAL linha.
+const dialogoProps = vi.fn()
+vi.mock('../ResponderRevisaoDialog', () => ({
+  ResponderRevisaoDialog: (props: { linha: unknown; open: boolean }) => {
+    dialogoProps(props)
+    return props.open ? <div data-testid="dialogo-resposta" /> : null
+  },
 }))
 
 import { FilaRevisoesTable } from '../FilaRevisoesTable'
@@ -77,6 +86,7 @@ function filaState(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   useFilaMock.mockReset()
   useConfigMock.mockReset()
+  dialogoProps.mockReset()
   useFilaMock.mockReturnValue(filaState())
   useConfigMock.mockReturnValue({ data: { diasAtencao: 5, diasAtraso: 10 } })
 })
@@ -219,14 +229,29 @@ describe('FilaRevisoesTable — preenchida: 7 colunas na ordem da UI-SPEC', () =
     expect(acao.className).toContain('text-accent')
   })
 
-  it('sem `onResponder` (esta wave) o botão fica desabilitado', () => {
+  // ⚠ MUDANÇA DE CONTRATO DO PLANO 42-10. Na wave anterior a tabela recebia um
+  // `onResponder` opcional e, sem ele, o botão nascia desabilitado — para não oferecer
+  // uma afordância falsa enquanto o diálogo não existia. O diálogo existe agora, e a
+  // tabela o hospeda: a ação está sempre ligada, e o único motivo legítimo para o botão
+  // nascer desabilitado passa a ser o guard REVISAO-05.
+  it('a ação está LIGADA por padrão — o diálogo vive dentro da própria tabela', () => {
     render(<FilaRevisoesTable incluirRespondidos={false} />)
-    expect(screen.getByRole('button', { name: 'Responder' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Responder' })).toBeEnabled()
   })
 
-  it('com `onResponder` o botão fica habilitado', () => {
-    render(<FilaRevisoesTable incluirRespondidos={false} onResponder={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'Responder' })).toBeEnabled()
+  it('clicar em "Responder" abre o diálogo com a linha daquela linha', () => {
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
+    expect(screen.queryByTestId('dialogo-resposta')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Responder' }))
+
+    expect(screen.getByTestId('dialogo-resposta')).toBeInTheDocument()
+    expect(dialogoProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        linha: expect.objectContaining({ candidatura_id: UUID }),
+      }),
+    )
   })
 })
 
@@ -302,11 +327,71 @@ describe('FilaRevisoesTable — casos parciais nomeados (E1 partial)', () => {
     useFilaMock.mockReturnValue(
       filaState({ data: [linha({ pode_responder: false })] }),
     )
-    render(<FilaRevisoesTable incluirRespondidos={false} onResponder={vi.fn()} />)
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
     const acao = screen.getByRole('button', { name: 'Responder' })
     expect(acao).toBeDisabled()
     expect(acao).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByText('Você registrou esta decisão.')).toBeInTheDocument()
+  })
+
+  // A frase longa da UI-SPEC precisa alcançar leitor de tela SEM hover — um tooltip do
+  // Radix só monta o conteúdo quando abre, e nem todo caminho de leitura o dispara.
+  it('a frase longa do bloqueio está no DOM sem depender do tooltip abrir', () => {
+    useFilaMock.mockReturnValue(filaState({ data: [linha({ pode_responder: false })] }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    expect(container.textContent).toContain(
+      'Quem registrou a decisão não pode responder à revisão dela. Encaminhe este pedido a outra pessoa do RH ou a um administrador.',
+    )
+  })
+
+  it('a linha bloqueada NÃO abre o diálogo ao ser clicada', () => {
+    useFilaMock.mockReturnValue(filaState({ data: [linha({ pode_responder: false })] }))
+    render(<FilaRevisoesTable incluirRespondidos={false} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Responder' }))
+    expect(screen.queryByTestId('dialogo-resposta')).not.toBeInTheDocument()
+  })
+
+  // A copy do bloqueio não pode prometer um caminho que não existe.
+  it('a copy do bloqueio nunca promete liberação, exceção ou sobreposição', () => {
+    useFilaMock.mockReturnValue(filaState({ data: [linha({ pode_responder: false })] }))
+    const { container } = render(<FilaRevisoesTable incluirRespondidos={false} />)
+    const texto = (container.textContent ?? '').toLowerCase()
+    // Literais montados em runtime: escrevê-los aqui faria o gate de grep do plano
+    // (que varre `src/features/revisao/` inteiro, testes inclusive) reprovar por causa
+    // do próprio teste que proíbe a copy. Idioma do plano 42-11.
+    for (const proibido of [
+      ['solicitar', ' ', 'liberação'],
+      ['pedir', ' ', 'permissão'],
+      ['pode', ' ', 'liberar'],
+      ['sobre', '', 'por'],
+    ].map((partes) => partes.join(''))) {
+      expect(texto).not.toContain(proibido)
+    }
+  })
+
+  it('linha já respondida abre o diálogo em modo somente-leitura ("Ver resposta")', () => {
+    useFilaMock.mockReturnValue(
+      filaState({
+        data: [
+          linha({
+            revisao_respondida_em: '2026-07-27T12:00:00Z',
+            revisao_veredito: 'mantida',
+            revisao_resultado: 'texto da resposta',
+            pode_responder: false,
+          }),
+        ],
+      }),
+    )
+    render(<FilaRevisoesTable incluirRespondidos />)
+    const acao = screen.getByRole('button', { name: 'Ver resposta' })
+    expect(acao).toBeEnabled()
+    fireEvent.click(acao)
+    expect(dialogoProps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        open: true,
+        linha: expect.objectContaining({ revisao_veredito: 'mantida' }),
+      }),
+    )
   })
 })
 

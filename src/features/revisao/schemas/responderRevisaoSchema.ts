@@ -38,6 +38,10 @@ export const responderRevisaoSchema = z.object({
   veredito: z.enum(['mantida', 'revertida']),
   justificativa: z
     .string()
+    // `.trim()` ANTES dos limites, espelhando o `btrim` do servidor. Sem ele, 60 espaços
+    // passariam no gate do cliente e voltariam como um `22023` opaco — o operador veria
+    // "não foi possível registrar" sem nenhuma pista de por quê.
+    .trim()
     // Mensagem VERBATIM da 42-UI-SPEC (§Diálogo → "Erro de mínimo"). O mesmo texto que
     // `decisaoSchema` já usa: o operador vê uma frase só para este fato, nas duas telas.
     .min(JUSTIFICATIVA_MIN, 'A justificativa precisa de pelo menos 50 caracteres.')

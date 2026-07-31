@@ -62,6 +62,26 @@ describe('responderRevisaoSchema — o mínimo de 50 espelha o guard do servidor
         .success,
     ).toBe(false)
   })
+
+  // O servidor mede `length(btrim(...))`. Sem o `.trim()` aqui, 60 espaços passariam no
+  // cliente e voltariam como um `22023` opaco — erro certo, explicação nenhuma.
+  it('60 espaços não fingem um envio válido (espelha o `btrim` do servidor)', () => {
+    expect(
+      responderRevisaoSchema.safeParse({
+        veredito: 'mantida',
+        justificativa: ' '.repeat(60),
+      }).success,
+    ).toBe(false)
+  })
+
+  it('o valor de saída já vem sem espaços de borda — é ele que vai para a RPC', () => {
+    const r = responderRevisaoSchema.safeParse({
+      veredito: 'mantida',
+      justificativa: `  ${texto(60)}  `,
+    })
+    expect(r.success).toBe(true)
+    if (r.success) expect(r.data.justificativa).toBe(texto(60))
+  })
 })
 
 describe('responderRevisaoSchema — o teto de 2000 é guarda de INTERFACE', () => {

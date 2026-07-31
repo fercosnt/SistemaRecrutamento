@@ -31,6 +31,7 @@
  * @see src/features/funil/components/FilaTrabalhoTab.tsx (o molde estrutural)
  * @see .planning/phases/42-invent-rio-gates-fila-art-20/42-UI-SPEC.md (§Fila RH — /rh/revisoes)
  */
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -46,6 +47,7 @@ import { useFilaRevisoes } from '../hooks/useFilaRevisoes'
 import { useConfigSlaRevisao } from '../hooks/useConfigSlaRevisao'
 import { diasEmEspera } from '../constants/slaRevisao'
 import type { FilaRevisaoRow } from '../services/revisaoService'
+import { ResponderRevisaoDialog } from './ResponderRevisaoDialog'
 import { RevisaoSlaBadge } from './RevisaoSlaBadge'
 import { VereditoBadge } from './VereditoBadge'
 
@@ -91,6 +93,9 @@ const FILA_COPY = {
   },
   /** REVISAO-05: motivo do bloqueio em texto VISÍVEL, sem prometer exceção nem override. */
   guardDecisor: 'Você registrou esta decisão.',
+  /** A frase longa do mesmo bloqueio — tooltip E leitura de tela, nunca só tooltip. */
+  guardDecisorLongo:
+    'Quem registrou a decisão não pode responder à revisão dela. Encaminhe este pedido a outra pessoa do RH ou a um administrador.',
   avisoCorte: `Mostrando os ${CAP_LEITURA} pedidos mais antigos.`,
   decisao: {
     aprovado: 'Aprovado',
@@ -128,20 +133,19 @@ function rotularDecisao(decisao: string | null): string {
 export interface FilaRevisoesTableProps {
   /** O toggle da página. Participa da query key: são DUAS listas, não uma filtrada. */
   incluirRespondidos: boolean
-  /**
-   * Abre o diálogo de resposta. **Ausente nesta wave** (o plano 42-10 o liga): sem ele a
-   * ação de cada linha renderiza desabilitada, em vez de existir como afordância falsa.
-   */
-  onResponder?: (linha: FilaRevisaoRow) => void
 }
 
-export function FilaRevisoesTable({
-  incluirRespondidos,
-  onResponder,
-}: FilaRevisoesTableProps) {
+export function FilaRevisoesTable({ incluirRespondidos }: FilaRevisoesTableProps) {
   const { data, isLoading, isError, refetch, isRefetching } = useFilaRevisoes({
     incluirRespondidos,
   })
+  // ⚠ O DIÁLOGO VIVE AQUI, NÃO NA PÁGINA (plano 42-10). Até a wave anterior a tabela
+  // recebia um `onResponder` opcional e, sem ele, desabilitava a ação — para não oferecer
+  // uma afordância falsa enquanto o diálogo não existia. O diálogo existe agora, e é a
+  // linha que carrega todo o contexto de que ele precisa (candidato, vaga, decisão
+  // original, quem decidiu, pedido feito em, e o resultado quando já respondida). Passar
+  // isso por callback obrigaria a página a re-derivar o que a tabela já tem em mãos.
+  const [linhaEmFoco, setLinhaEmFoco] = useState<FilaRevisaoRow | null>(null)
   // A config de limiar NUNCA vira estado de erro da tela: `null` já é uma apresentação
   // completa (a faixa degenerada), então nem `isError` nem `isLoading` dela entram aqui.
   const { data: limiares } = useConfigSlaRevisao()
@@ -216,9 +220,26 @@ export function FilaRevisoesTable({
                     )
                   : diasEmEspera(linha.revisao_solicitada_em)
                 // Espelho COSMÉTICO do guard REVISAO-05 (mesmo idioma do D-13 em
-                // `RHSidebar`): quem impede a ação é o RPC de escrita, nunca a UI.
+                // `RHSidebar`): quem impede a ação é o RPC de escrita, nunca a UI. Uma
+                // linha JÁ respondida abre em modo somente-leitura, então `pode_responder`
+                // falso ali não bloqueia nada — não há o que responder duas vezes.
                 const bloqueadaPeloGuard = !respondida && !linha.pode_responder
-                const acaoDesabilitada = !onResponder || bloqueadaPeloGuard
+
+                const acao = (
+                  <button
+                    type="button"
+                    disabled={bloqueadaPeloGuard}
+                    aria-disabled={bloqueadaPeloGuard || undefined}
+                    onClick={() => setLinhaEmFoco(linha)}
+                    className={cn(
+                      'inline-flex min-h-[44px] items-center gap-1 rounded-md px-3 text-sm font-semibold text-accent transition-colors hover:bg-white/10',
+                      bloqueadaPeloGuard &&
+                        'cursor-not-allowed opacity-60 hover:bg-transparent',
+                    )}
+                  >
+                    {respondida ? FILA_COPY.acao.verResposta : FILA_COPY.acao.responder}
+                  </button>
+                )
 
                 return (
                   <TableRow
@@ -270,22 +291,37 @@ export function FilaRevisoesTable({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
-                        type="button"
-                        disabled={acaoDesabilitada}
-                        aria-disabled={acaoDesabilitada || undefined}
-                        onClick={() => onResponder?.(linha)}
-                        className={cn(
-                          'inline-flex min-h-[44px] items-center gap-1 rounded-md px-3 text-sm font-semibold text-accent transition-colors hover:bg-white/10',
-                          acaoDesabilitada && 'cursor-not-allowed opacity-60 hover:bg-transparent',
-                        )}
-                      >
-                        {respondida
-                          ? FILA_COPY.acao.verResposta
-                          : FILA_COPY.acao.responder}
-                      </button>
                       {bloqueadaPeloGuard ? (
-                        <p className="text-sm text-white/60">{FILA_COPY.guardDecisor}</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {/* Um controle desabilitado engole o foco e o hover, então o
+                                wrapper é quem carrega `tabIndex`/`title` — assim o motivo
+                                alcança teclado e leitor de tela sem mouse (idioma endurecido
+                                em `EditarPapelDialog`). */}
+                            <span
+                              className="inline-flex"
+                              tabIndex={0}
+                              aria-disabled="true"
+                              title={FILA_COPY.guardDecisorLongo}
+                            >
+                              {acao}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-sm">
+                            {FILA_COPY.guardDecisorLongo}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        acao
+                      )}
+                      {bloqueadaPeloGuard ? (
+                        <>
+                          {/* Texto VISÍVEL, curto e fixo — a UI-SPEC exige que o motivo
+                              não dependa de hover. A frase longa vai junto em leitura de
+                              tela porque o tooltip do Radix só monta ao abrir. */}
+                          <p className="text-sm text-white/60">{FILA_COPY.guardDecisor}</p>
+                          <span className="sr-only">{FILA_COPY.guardDecisorLongo}</span>
+                        </>
                       ) : null}
                     </TableCell>
                   </TableRow>
@@ -298,6 +334,14 @@ export function FilaRevisoesTable({
         {linhas.length >= CAP_LEITURA ? (
           <p className="text-sm text-white/60">{FILA_COPY.avisoCorte}</p>
         ) : null}
+
+        <ResponderRevisaoDialog
+          linha={linhaEmFoco}
+          open={linhaEmFoco !== null}
+          onOpenChange={(aberto) => {
+            if (!aberto) setLinhaEmFoco(null)
+          }}
+        />
       </div>
     </AsyncState>
   )
