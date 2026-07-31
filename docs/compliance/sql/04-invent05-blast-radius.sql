@@ -40,10 +40,19 @@
 -- O QUE CADA NÚMERO SIGNIFICA
 -- ---------------------------
 --   total_logs                   volume total de `ai_call_logs`. Serve de âncora:
---                                ele NÃO pode ter mudado entre a medição de antes
---                                e a de depois. O apply substitui um agendamento;
---                                não executa a purga. Se este número mudar entre
---                                as duas execuções, isso é incidente, não resultado.
+--                                ele NÃO pode ter DIMINUÍDO entre a medição de
+--                                antes e a de depois. O apply substitui um
+--                                agendamento; não executa a purga, então uma QUEDA
+--                                significa que alguma purga rodou — isso é
+--                                incidente, não resultado.
+--
+--                                ⚠ CORREÇÃO (code review do checkpoint, 2026-07-31):
+--                                a redação anterior dizia "não pode ter MUDADO" e
+--                                chamava qualquer mudança de incidente. Isso é falso
+--                                para uma tabela de auditoria append-heavy: a Phase 23
+--                                corrigiu a causa do logging quebrado, então uma
+--                                INSERÇÃO legítima entre as duas execuções dispararia
+--                                um incidente falso. O invariante real é a não-queda.
 --   total_decisions              volume total de `candidate_ai_decisions`. Com esta
 --                                tabela vazia o defeito está latente (a subconsulta
 --                                é vazia, e a negação de pertencimento contra um
@@ -86,7 +95,7 @@ SELECT
   -- A condição que ARMA o defeito. `array_position` acha elemento nulo; o
   -- operador de contenção NÃO acharia (ver nota acima).
   (SELECT count(*) FROM public.candidate_ai_decisions
-    WHERE array_position(ai_call_log_ids, NULL) IS NOT NULL)                   AS decisions_com_null_no_array,
+    WHERE array_position(ai_call_log_ids, NULL::uuid) IS NOT NULL)             AS decisions_com_null_no_array,
 
   -- Alcance do predicado VIVO (negação de pertencimento a uma lista), avaliado
   -- como contagem. Se o defeito estiver armado, este número é 0.
@@ -108,5 +117,20 @@ SELECT
          WHERE d.status IN ('candidate_review_requested', 'human_reviewing')
            AND l.id = ANY(d.ai_call_log_ids)
       ))                                                                       AS alcance_corrigido,
+
+  -- ── Vizinhos INTOCADOS, por igualdade byte a byte ──────────────────────────
+  -- Acrescentados no checkpoint de 2026-07-31, por recomendação do code review
+  -- bloqueante (W5). A asserção (d) do smoke afere que os outros dois agendamentos
+  -- ficaram intocados, mas o faz por SUBSTRING (`strpos`) — que passaria contra um
+  -- corpo materialmente reescrito. O arquivo do smoke admite a limitação e delega a
+  -- igualdade byte a byte a "uma comparação manual de md5 no checkpoint".
+  --
+  -- Delegar a metade mais forte de uma asserção a um passo que alguém precisa lembrar
+  -- de executar é EXATAMENTE a classe de defeito que esta fase existe para eliminar:
+  -- uma promessa sem código que a execute. Como esta consulta já roda ANTES e DEPOIS,
+  -- trazer os dois md5 para cá torna a comparação mecânica — dois números na página,
+  -- não um passo de memória.
+  (SELECT md5(command) FROM cron.job WHERE jobname = 'ai-cost-aggregation')    AS md5_vizinho_agregacao,
+  (SELECT md5(command) FROM cron.job WHERE jobname = 'notif-retry-sweep')      AS md5_vizinho_retry,
 
   now() AT TIME ZONE 'UTC'                                                     AS coletado_em_utc;
