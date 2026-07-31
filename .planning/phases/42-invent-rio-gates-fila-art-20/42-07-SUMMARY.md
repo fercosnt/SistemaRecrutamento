@@ -10,8 +10,8 @@ requires:
   - phase: 42-01
     provides: "hook de não-regressão de tsc (baseline 97) e `vocabulario-eventos.test.ts`"
 provides:
-  - "EF `notificar-rh` (código completo, 22 casos Deno, corpus 301/301) — NÃO deployada"
-  - "`20260730000003_p42_trg_revisao_solicitada.sql` — NÃO aplicada em PROD"
+  - "EF `notificar-rh` (código completo, 22 casos Deno, corpus 301/301) — DEPLOYADA em PROD 2026-07-31 (v1, `verify_jwt=false`)"
+  - "`20260730000003_p42_trg_revisao_solicitada.sql` — APLICADA em PROD 2026-07-31, md5 byte-idêntico ao arquivo"
   - "`resolverDestinatarioComLabel` em `_shared/email-config.ts` — rótulo de sink desacoplado do vocabulário de evento de candidato"
   - "Predicado de exclusão de eventos de RH em `varrer_retry_notificacoes` (fecha T-42-23)"
   - "Extensão do CHECK `notificacoes_enviadas_evento_check` para 5 valores (pré-requisito não previsto pelo plano)"
@@ -49,10 +49,11 @@ patterns-established:
   - "Um plano que adiciona evento ao ledger compartilhado deve ser lido contra o CHECK VIVO da coluna, não contra a lista de sítios que o plano enumera — o CHECK é o sítio que o planner mais esquece"
   - "Antes de substituir função viva, diffar a transcrição contra o arquivo de origem E contra `pg_get_functiondef` do catálogo: o diff contra o arquivo é barato e feito pelo executor; o diff contra o catálogo é o único que prova, e é do orquestrador"
 
-requirements-completed: []
-requirements-pending-checkpoint: [REVISAO-01]
+requirements-completed: [REVISAO-01]
+requirements-pending-checkpoint: []
 
-checkpoint_pendente: true
+checkpoint_pendente: false
+checkpoint_concluido: 2026-07-31
 
 coverage:
   - id: D1
@@ -103,14 +104,74 @@ status: complete
 
 **A EF que notifica o RH e o trigger que a aciona estão escritos e provados sem rede (301/301 no corpus), com a colisão do ledger compartilhado fechada — mas o plano omitia um pré-requisito bloqueante: o CHECK `notificacoes_enviadas_evento_check` recusaria toda linha de RH com `23514`, e o REVISAO-01 seria um no-op silencioso. Nada foi aplicado nem deployado.**
 
-## ⛔ CHECKPOINT PENDENTE — o requirement NÃO está entregue
+## ✅ CHECKPOINT CONCLUÍDO — 2026-07-31, pelo orquestrador
 
-`requirements-completed` está **vazio de propósito**. REVISAO-01 só se cumpre quando o
-trigger estiver vivo em PROD; até lá `solicitar_revisao_decisao` continua gravando um
-timestamp que ninguém lê. Task 3 é `checkpoint:human-verify gate="blocking"` e foi
-devolvida ao orquestrador — subagentes GSD não recebem os tools MCP do Supabase
-(anthropics/claude-code#13898), `supabase db push` é proibido neste projeto (42601
-garantido em corpos `$$`) e o CLI não está autenticado.
+REVISAO-01 está **entregue e provado ao vivo**. O round-trip do Art. 20 fecha: o pedido
+do titular chega ao RH por e-mail. Ordem executada, a canônica: **EF primeiro, migration
+depois** (`net.http_post` é at-most-once).
+
+**Gate do passo 1 — a função viva contra a transcrição.** `pg_get_functiondef` de
+`varrer_retry_notificacoes` diffado contra o BLOCO C **antes** do apply. Única
+divergência: o bloco de comentário `-- Seleção coberta por idx_notif_retry …`, que é
+exatamente o drift já medido e documentado em
+`.planning/todos/pending/processo-origem-do-drift-desconhecida.md` (P41). Corpo funcional
+byte-idêntico ⇒ apply liberado. **O apply reparou o drift** — o comentário voltou.
+
+**Deploy da EF.** `notificar-rh` v1, `verify_jwt=false` (self-auth Bearer, espelho de
+`notificar-candidato`). Fechamento das 4 dependências (`index.ts`, `helpers.ts`,
+`_shared/email-config.ts`, `_shared/email-templates.ts`) retransmitido e **conferido de
+volta** por `get_edge_function`: os blocos longos de comentário voltaram íntegros — a
+classe de perda do drift P41 está descartada nesta EF.
+
+**Apply da migration.** `md5(statements[1])` do ledger == md5 do arquivo
+(`2cfce511251814b227db22d7f0ff2d56`): **fidelidade byte-a-byte provada, não presumida**.
+Duas descobertas de processo saíram daqui e estão no todo do drift: `apply_migration`
+carimba a própria `version` (reparada à mão para `20260730000003`), e
+`schema_migrations.statements[]` registra o SQL aplicado — o que torna o drift mensurável
+por md5 daqui em diante.
+
+**Asserções pós-apply, incluindo as negativas:**
+
+| # | Asserção | Resultado |
+|---|----------|-----------|
+| a | CHECK de `evento`: exatamente **1** constraint, 5 valores | ✅ `confirmacao, avanco, convite, decisao, revisao_solicitada` |
+| b | **Negativa** — triggers de `decisao_final` após o apply | ✅ 2: `trg_decisao_final_snapshot` **intacto** + o novo, com a cláusula exata `AFTER UPDATE OF revisao_solicitada_em` |
+| c | Exclusão de RH presente **e** as 8 substrings de não-regressão da P41 preservadas | ✅ todas; **sem** chave de servidor privilegiada |
+| d | **Negativa** — `anon` sem EXECUTE nas duas funções | ✅ `trg_notif_…`: postgres/authenticated/service_role · `varrer_retry_…`: postgres/service_role. Fecha o `threat_flag: information_disclosure` deste plano |
+| e | **Negativa** — total de jobs de cron | ✅ 3, inalterado |
+
+**Smoke ao vivo (`modo=producao`, envio real).** Fixture `a802bc05-…` recebeu
+`decisao_final` com `revisao_solicitada_em` NULO; o `UPDATE` para `now()` disparou o
+trigger.
+
+- **2 linhas de ledger, uma por destinatário ativo**, `status=enviado` com
+  `provider_message_id` do Resend, `tentativas=0`, `ultimo_erro` nulo.
+- **`dedupe_key` bate o `user_id` de cada destinatário** nos dois casos — a chave
+  por-destinatário funciona, o claim do 1º RH **não** consumiu o do 2º. Era o defeito que
+  faria 4 de 5 pessoas nunca serem notificadas.
+- **Asserção negativa de idempotência:** 2º `UPDATE` reescrevendo o mesmo timestamp
+  **não** produziu 3ª linha — o guard `NULL -> NOT NULL` segura, como exige um dispatch
+  at-most-once.
+- Teardown: `decisao_final` + `decisao_final_historico` da fixture removidos; a
+  candidatura volta ao estado "sem decisão", re-executável. **As 2 linhas de ledger foram
+  mantidas** como evidência do REVISAO-01.
+
+**`NOTIFICACOES_MODO` é de PROJETO, não por função — confirmado, não suposto.** A EF
+nova nasceu em `producao` (o ledger registra `modo=producao`). O risco previsto na seção
+"Risco de envio real" era real.
+
+**Decisão do operador sobre o roster (perguntada, não presumida).** Dos 5 destinatários,
+3 eram endereços sintéticos `@teste.com` que dariam **hard bounce** numa conta Resend de
+free-tier — e dariam em **todo nudge real futuro**, não só no smoke. O operador escolheu
+desativá-los antes do smoke. Executado, com uma ressalva aplicada pelo orquestrador:
+
+- `admin.rh@teste.com` e `recruiter@teste.com` (seeds óbvios, `user_id` `aaaa…`/`bbbb…`)
+  **permanecem `ativo=false`**.
+- `recrutador.rh@teste.com` foi **reativado**: é o **único** `recrutador` vivo — a persona
+  primária da fila. Mantê-lo desativado o removeria de todos os nudges futuros **e**
+  bloquearia o login usado para exercitar o papel nos planos 42-10/42-11. **Fica um
+  problema aberto: o endereço dele é indeliverável e precisa de um real** — enquanto não
+  for, todo pedido de revisão real gera 1 hard bounce.
 
 **Três achados que mudam o checkpoint em relação ao texto do plano — ler antes de aplicar:**
 
