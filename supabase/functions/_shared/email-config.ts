@@ -38,12 +38,24 @@ export const REPLY_TO = 'rh@beautysmile.com.br' as const
 /** Modo de operação do envio. Só `producao` alcança pessoas reais. */
 export type ModoNotificacao = 'producao' | 'teste'
 
-/** Os 4 eventos de notificação do M7 — usados como `+label` no endereço de teste. */
+/**
+ * Os eventos de notificação AO CANDIDATO — usados como `+label` no endereço de teste e como
+ * chave dos três `Record<EventoNotificacao, …>` de template em `email-templates.ts`.
+ *
+ * Os 4 primeiros são do M7. `revisao_respondida` é o 5º (Phase 42 / Plan 42-08 · REVISAO-04):
+ * o aviso de que a solicitação de revisão do Art. 20 foi respondida.
+ *
+ * ⚠ NÃO adicionar aqui rótulo que não seja evento de CANDIDATO. O sink de teste do RH usa
+ * `resolverDestinatarioComLabel` justamente para não inflar esta união (ver o docblock
+ * daquela função) — cada valor acrescentado aqui obriga uma entrada em SUBJECTS, CORPOS e
+ * PREHEADERS, e um template órfão é e-mail que nunca será enviado.
+ */
 export type EventoNotificacao =
   | 'candidatura_recebida'
   | 'avaliacao_liberada'
   | 'convite_entrevista'
   | 'decisao_final'
+  | 'revisao_respondida'
 
 /**
  * Resolve o modo a partir de `NOTIFICACOES_MODO`.

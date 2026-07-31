@@ -7,8 +7,26 @@
  */
 import { FROM, REPLY_TO, type EventoNotificacao } from "../_shared/email-config.ts";
 
-/** Vocabulário do ledger (CHECK vivo `evento IN (...)`), = o que o trigger da P39 envia. */
-export type EventoLedger = "confirmacao" | "avanco" | "convite" | "decisao";
+/**
+ * Vocabulário do ledger (CHECK vivo `evento IN (...)`), = o que os triggers enviam.
+ *
+ * Os 4 primeiros são do M7 (triggers de funil, P39). O 5º — `revisao_respondida` — é da
+ * Phase 42 / Plan 42-08 (REVISAO-04): o aviso ao candidato de que a solicitação de revisão
+ * do Art. 20 foi respondida, disparado por `trg_notif_revisao_respondida`.
+ *
+ * ⚠ ESTE TIPO E O CHECK `notificacoes_enviadas_evento_check` SÃO A MESMA VERDADE ESCRITA
+ * DUAS VEZES, e têm de andar na MESMA entrega (D-P42-14): o valor aqui sem o CHECK produz
+ * `23514` no claim; o CHECK sem o valor aqui produz `400 VALIDATION` sobre um `net.http_post`
+ * que é at-most-once — e aí o e-mail some sem rastro. O CHECK vivo carrega hoje SEIS valores:
+ * os 4 do M7, `revisao_solicitada` (evento de RH, consumido pela EF `notificar-rh` — NÃO
+ * pertence a este tipo) e `revisao_respondida`.
+ */
+export type EventoLedger =
+  | "confirmacao"
+  | "avanco"
+  | "convite"
+  | "decisao"
+  | "revisao_respondida";
 
 /** Mapa explícito ledger → email-config (ambas as direções auditáveis num literal). */
 export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
@@ -16,6 +34,10 @@ export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
   avanco: "avaliacao_liberada",
   convite: "convite_entrevista",
   decisao: "decisao_final",
+  // 5º evento (42-08 / REVISAO-04). Único par em que o nome do ledger e o nome do template
+  // COINCIDEM — os 4 do M7 divergem por herança (o ledger nomeia o gatilho, o template nomeia
+  // a mensagem). Manter a identidade aqui é deliberado: não há gatilho distinto do conteúdo.
+  revisao_respondida: "revisao_respondida",
 };
 
 /**
@@ -42,6 +64,15 @@ export function mapearEvento(e: EventoLedger): EventoNotificacao {
 /**
  * dedupe_key = 1 e-mail por evento por candidatura. Exceção: o CONVITE usa o
  * agendamento_id, para permitir re-convite legítimo (novo agendamento ⇒ nova chave).
+ *
+ * `revisao_respondida` (42-08) NÃO GANHA RAMO, e isso é decisão verificada, não omissão.
+ * O ramo `default` produz `{candidatura_id}:revisao_respondida`, e essa chave é correta
+ * porque `decisao_final.candidatura_id` é UNIQUE (`20260607000003:39`) — há no máximo UMA
+ * revisão por candidatura, logo no máximo um e-mail legítimo. O guard de idempotência do
+ * RPC `responder_revisao_decisao` (plano 42-06, guard 4) recusa uma segunda resposta com
+ * `22023`, então nem sequer existe transição que pudesse pedir uma segunda chave. As duas
+ * decisões juntas fecham a questão: a chave nunca bloqueia um e-mail legítimo porque não
+ * existe segundo e-mail legítimo. Um ramo novo aqui só poderia introduzir colisão.
  */
 export function montarDedupeKey(
   e: EventoLedger,
