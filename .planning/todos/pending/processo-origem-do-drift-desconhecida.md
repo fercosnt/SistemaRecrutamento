@@ -82,6 +82,26 @@ tags: [processo, drift, migrations, ledger, m8-invent]
 > cada apply. Custo: uma query. Prova: fidelidade byte-a-byte da migration inteira —
 > `REVOKE`s, predicados de `WHERE`, cláusulas `USING` e tudo mais, não só corpos `$$`.
 
+> **Atualização 2026-08-01 (Phase 43, plano 43-01) — QUARTA INSTÂNCIA: as 3 policies de `public.autorizacoes`.**
+>
+> Não é uma causa nova; é uma **ocorrência nova da classe original** — DDL que vive em PROD e em nenhum arquivo de migration. Medida em `pg_policies` em 2026-08-01, ao levantar o terreno da Phase 43:
+>
+> | policy | cmd | escopo |
+> |---|---|---|
+> | `Candidatos podem ler suas autorizacoes` | SELECT | own-row via `candidatos.user_id = auth.uid()` |
+> | `RH pode ler todas as autorizacoes` | SELECT | RH ativo |
+> | `Candidatos podem atualizar suas autorizacoes` | **UPDATE** | own-row, com `qual` **e** `with_check` |
+>
+> `docs/RLS_POLICIES.md:158-162` afirmava a policy de UPDATE sem que o DDL estivesse em `supabase/migrations/` — a documentação estava certa e o repositório, incompleto. `grep -rl "autorizacoes" supabase/migrations/` devolve **um único arquivo** (`20260421000001`), que cria a tabela e não cria policy nenhuma.
+>
+> **O que isso custa:** um `supabase db reset` derrubaria as três em silêncio. A de UPDATE é a base do CONSENT-04 (revogação own-row do marketing, plano 43-05) — sem ela, a revogação simplesmente não escreve; com ela reconstruída **sem** o `with_check`, o candidato passaria a poder reapontar a própria linha de autorizações para outro `candidato_id`.
+>
+> **REGISTRO, NÃO CORREÇÃO.** A Phase 43 deliberadamente **não** reaplica esse DDL. A lição do 42-07 é que *o arquivo não é o objeto vivo*: reconstruir uma policy de memória substitui um `pg_get_expr` real por um palpite, e o palpite mais provável aqui — `USING` sem `WITH CHECK` — é justamente o que abre a escrita. Reconciliar exige medir `pg_get_expr(polqual)` e `pg_get_expr(polwithcheck)` vivos primeiro, transcrevê-los, e só então escrever o arquivo. É trabalho com medição própria, não brinde de uma migration aditiva.
+>
+> A migration `20260801000001_p43_consent_prova_e_marketing.sql` declara escopo negativo explícito sobre policies, e a asserção **(e)** de `supabase/tests/p43_consent_prova_smoke.sql` é NEGATIVA: exige exatamente 3 policies, RLS ligada, e exatamente 1 policy de UPDATE com `qual` E `with_check` não vazios. Ela verifica a declaração em vez de acreditar nela.
+>
+> **Sugestão de fechamento (ainda não urgente):** uma varredura única comparando `pg_policies` vivo contra `grep -c "CREATE POLICY" supabase/migrations/*.sql`, tabela a tabela. Se `autorizacoes` é a 4ª, a pergunta que importa deixou de ser "quantas mais?" e passou a ser "quais outras?" — e essa é respondível numa query.
+
 ## O fato
 
 A Phase 37 **reconciliou** o drift: as tabelas `notificacoes_enviadas` e `config_sla_etapa` agora têm arquivos de migration no repo, provados fiéis contra o catálogo vivo por smoke executável. Mas ela **não descobriu, e não tinha como descobrir, quem as aplicou**.
