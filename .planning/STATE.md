@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: Completed 43-01-PLAN.md — migration 20260801000001 e smoke ESCRITOS mas NAO APLICADOS (checkpoint 43-07); EF cadastrar-candidato NAO deployada
-last_updated: "2026-08-01T21:43:26.600Z"
+stopped_at: Completed 43-02-PLAN.md
+last_updated: "2026-08-01T21:57:00.773Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 13
+  completed_plans: 14
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 43 execution started
 
@@ -91,6 +91,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 42 P10 | ~25 min | 3 tasks | 12 files |
 | Phase 42 P12 | ~45min | 1 task (2 checkpoints pendentes) tasks | 4 files files |
 | Phase 43 P01 | 50min | 3 tasks | 15 files |
+| Phase 43 P02 | ~35min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: A3 resolvida por execucao: o import cross-boundary src/ -> supabase/functions/*.json ATRAVESSA (Vite, Vitest, tsc). Texto de consentimento tem fonte UNICA, sem espelho.
 - [Phase ?]: autorizacoesSchema ganhou .strict() proprio: o .strict() do schema pai so fecha o nivel superior; sem ele autorizacao_analise_video seria DESCARTADA em silencio com 200 em vez de rejeitada com 400.
 - [Phase ?]: BD-5 em vigor: autorizacao_marketing_vagas nasce NULL para toda a base historica e NULL = NAO autorizado. Zero candidato ja cadastrado recebe divulgacao de vagas apos esta fase.
+- [Phase 43 / 43-02]: RETEN-06 VEREDITO: NÃO reusar retain_until — o padrão exige DEPLOY para mudar a política e o RETEN-02 exige 'alterável sem deploy'; a estrutura substituta é predicado COMPUTADO (matriz ⨝ data-âncora), planos 43-04/43-06
+- [Phase 43 / 43-02]: D-43-02-01: o portão de copy julga 'automaticamente' por COOCORRÊNCIA com léxico de exclusão, não isolado — 6 usos verdadeiros pré-existentes na allowlist (CEP, progresso) reprovariam um gate literal
 
 ### Pending Todos
 
@@ -286,8 +289,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-01T21:43:26.591Z
-Stopped at: Completed 43-01-PLAN.md — migration 20260801000001 e smoke ESCRITOS mas NAO APLICADOS (checkpoint 43-07); EF cadastrar-candidato NAO deployada
+Last session: 2026-08-01T21:57:00.765Z
+Stopped at: Completed 43-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

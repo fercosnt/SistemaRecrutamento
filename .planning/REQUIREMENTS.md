@@ -64,6 +64,7 @@
 > (checkpoint **43-07**). Enquanto a migration não for aplicada, a EF grava em colunas que não
 > existem. Marcar `[x]` aqui afirmaria em `.planning/` exatamente a classe de coisa que esta
 > fase existe para eliminar — um consentimento declarado sem código que o execute.
+
 - [ ] **CONSENT-06**: Click tracking desligado no Resend — rastrear cliques em e-mail transacional é coleta não consentida
 
 ### Política de Retenção (RETEN) — configuração, zero ação destrutiva
@@ -73,7 +74,7 @@
 - [ ] **RETEN-03**: `autorizacao_retencao_curriculo` é consumido como base legal da retenção do currículo — primeiro consumidor real de um consentimento até hoje órfão
 - [ ] **RETEN-04**: View read-only de prévia ("estes N candidatos seriam purgados") como artefato de revisão próprio, sem qualquer ação destrutiva
 - [ ] **RETEN-05**: Regra de retenção de `notificacoes_enviadas` definida e aplicada — dívida explicitamente diferida pela P37 a este milestone
-- [ ] **RETEN-06**: Avaliado o reuso do padrão `retain_until` já vivo em `ai_call_logs` antes de projetar estrutura nova
+- [x] **RETEN-06**: Avaliado o reuso do padrão `retain_until` já vivo em `ai_call_logs` antes de projetar estrutura nova
 
 ### Exportação & Acesso (EXPORT)
 
@@ -181,7 +182,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | RETEN-03 | Phase 43 | Pending |
 | RETEN-04 | Phase 43 | Pending |
 | RETEN-05 | Phase 46 | Pending |
-| RETEN-06 | Phase 43 | Pending |
+| RETEN-06 | Phase 43 | Complete |
 | EXPORT-01 | Phase 44 | Pending |
 | EXPORT-02 | Phase 44 | Pending |
 | EXPORT-03 | Phase 44 | Pending |
