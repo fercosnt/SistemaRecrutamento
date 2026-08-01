@@ -149,17 +149,17 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INVENT-01 | Phase 42 | Pending |
-| INVENT-02 | Phase 42 | Pending |
-| INVENT-03 | Phase 42 | Pending |
-| INVENT-04 | Phase 42 | Pending |
-| INVENT-05 | Phase 42 | Pending |
-| REVISAO-01 | Phase 42 | Pending |
-| REVISAO-02 | Phase 42 | Pending |
+| INVENT-01 | Phase 42 | Complete |
+| INVENT-02 | Phase 42 | Complete |
+| INVENT-03 | Phase 42 | Complete |
+| INVENT-04 | Phase 42 | Complete |
+| INVENT-05 | Phase 42 | Complete |
+| REVISAO-01 | Phase 42 | Complete |
+| REVISAO-02 | Phase 42 | Complete |
 | REVISAO-03 | Phase 42 | Complete |
 | REVISAO-04 | Phase 42 | Complete |
 | REVISAO-05 | Phase 42 | Complete |
-| REVISAO-06 | Phase 42 | Pending |
+| REVISAO-06 | Phase 42 | Complete |
 | CONSENT-01 | Phase 43 | Pending |
 | CONSENT-02 | Phase 43 | Pending |
 | CONSENT-03 | Phase 43 | Pending |
