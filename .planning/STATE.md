@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: Completed 43-05-PLAN.md
-last_updated: "2026-08-01T22:36:49.897Z"
+stopped_at: Phase 43 wave 2 fechada (5/9 planos) — nada aplicado em PROD; proximo e 43-06, depois o checkpoint 43-07
+last_updated: "2026-08-01T22:38:25.891Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
@@ -300,9 +300,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-01T22:36:42.439Z
-Stopped at: Completed 43-05-PLAN.md
-Resume file: None
+Last session: 2026-08-01T22:38:25.879Z
+Stopped at: Phase 43 wave 2 fechada (5/9 planos) — nada aplicado em PROD; proximo e 43-06, depois o checkpoint 43-07
+Resume file: .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/.continue-here.md
 
 ## Operator Next Steps
 
