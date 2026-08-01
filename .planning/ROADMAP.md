@@ -125,7 +125,19 @@ Plans:
   4. Um administrador altera a janela de retenção de um estado da candidatura **sem deploy**, com o seed de 2 anos documentado como *teto já consentido pela copy do cadastro* e não como recomendação técnica; e a decisão de reusar (ou não) o padrão `retain_until` já vivo em `ai_call_logs` está registrada **com veredito antes** de a estrutura nova existir.
   5. Uma prévia **read-only** responde "estes N candidatos seriam purgados" sem executar nada, e `autorizacao_retencao_curriculo` aparece por candidato como a base legal citada da retenção do currículo — o primeiro consumidor real de um consentimento até hoje órfão.
 
-**Plans**: TBD
+**Plans**: 9 plans (6 waves — a wave 4 é o checkpoint de PROD do orquestrador, e as duas telas novas dependem dele porque não compilam contra tipos antigos)
+
+Plans:
+- [ ] 43-01-PLAN.md — TRACER: texto de consentimento em fonte única → hash SHA-256 no servidor → EF fail-closed → colunas de prova (migration `20260801000001`)
+- [ ] 43-02-PLAN.md — Veredito do RETEN-06 antes da estrutura + copy do Art. 20 em linguagem simples (BD-3) + portão de grep de copy com escopo duplo
+- [ ] 43-03-PLAN.md — `AutorizacoesStep` reescrito e os 6 sítios de default do cliente: nada nasce marcado, nada pede análise de vídeo
+- [ ] 43-04-PLAN.md — Matriz de retenção por estado (seed 24 meses = teto consentido) + RPC de escrita auditada na mesma transação (migration `20260801000002`)
+- [ ] 43-05-PLAN.md — Guard de marketing no `BEFORE INSERT` do ledger de notificações + escopo honesto do SC#2 e declaração BD-5 (migration `20260801000003`)
+- [ ] 43-06-PLAN.md — Predicado único de retenção + prévia agregada com gate de não-divergência por md5 (migration `20260801000004`)
+- [ ] 43-07-PLAN.md — **CHECKPOINT do orquestrador**: apply das 4 migrations na ordem + reparo de ledger + md5 + 4 smokes + deploy da EF (depois das colunas) + `db:types` + CONSENT-06 no Resend
+- [ ] 43-08-PLAN.md — `/candidato/privacidade`: revogação own-row sem fricção + guarda do currículo como base legal citada
+- [ ] 43-09-PLAN.md — `/admin/retencao`: matriz editável sem deploy + diálogo com teto server-enforced + prévia read-only
+
 **UI hint**: yes — `AutorizacoesStep` (copy + defaults) e uma superfície nova de revogação no painel do candidato, mobile-first
 **Security**: baixo risco — nenhuma escrita destrutiva, nenhuma EF privilegiada nova. A superfície de revogação lê/escreve own-row
 **Portão destrutivo**: não se aplica (fase de configuração, zero ação destrutiva por desenho)
