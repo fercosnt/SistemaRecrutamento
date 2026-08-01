@@ -230,3 +230,249 @@ VALUES
   ('aprovado',              24, 'seed'),
   ('rejeitado',             24, 'seed')
 ON CONFLICT (etapa) DO NOTHING;
+
+
+-- ---------------------------------------------------------------------------
+-- 4 · Por que a ESCRITA é RPC e não policy de UPDATE (RETEN-02)
+-- ---------------------------------------------------------------------------
+-- Uma policy de `UPDATE` seria menos código e entregaria "administrador altera pela
+-- tela". Ela NÃO entrega nenhuma das outras duas coisas que o RETEN-02 exige na
+-- mesma respiração:
+--
+--   · **Trilha de auditoria ATÔMICA.** Uma policy não escreve linha de auditoria. A
+--     copy do diálogo promete ao operador "A alteração fica registrada na trilha de
+--     auditoria" — e uma promessa de produto sem código que a execute é exatamente a
+--     classe de coisa que este milestone existe para eliminar. Um trigger de
+--     auditoria chegaria perto, mas não pode RECUSAR (ele roda depois da decisão) e
+--     não tem acesso ao motivo da mudança.
+--   · **Guard server-side sobre o TETO.** O `CHECK` da tabela impõe 1..24, mas o cap
+--     da tela é cosmético e quem impede de verdade tem de ser o servidor, com
+--     mensagem própria — mesmo modelo mental do guard REVISAO-05 (D-13).
+--
+-- As duas funções abaixo são `SECURITY DEFINER` com `SET search_path = ''` e todas as
+-- referências totalmente qualificadas. DEFINER **bypassa RLS**, logo o guard do CORPO
+-- é o ÚNICO controle de acesso das duas — e é por isso que o formato do guard, abaixo,
+-- é load-bearing e não estilo.
+
+
+-- ---------------------------------------------------------------------------
+-- 5 · public.listar_matriz_retencao — leitura com o nome resolvido no SERVIDOR
+-- ---------------------------------------------------------------------------
+-- Existe para que a tela do admin NUNCA precise de acesso a `public.usuarios_rh`,
+-- que é admin-only desde a SEG-02. O `LEFT JOIN` resolve o nome do último alterador
+-- aqui dentro e devolve NULL quando esse usuário não existe mais — que é o caso
+-- parcial "Não identificado" da UI-SPEC, e não um erro.
+--
+-- Devolve APENAS as cinco colunas nomeadas. Nunca `usuarios_rh.*`, nunca o e-mail do
+-- alterador, nunca o `id` dele: a tela precisa de um NOME para exibir, e tudo além
+-- disso seria vazamento por conveniência (`[[reference_select_star_leaks_pii]]`).
+CREATE OR REPLACE FUNCTION public.listar_matriz_retencao()
+RETURNS TABLE (
+  etapa              public.etapa_processo,
+  janela_meses       integer,
+  origem             text,
+  alterado_por_nome  text,
+  atualizado_em      timestamptz
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- Guard NULL-SAFE. Ver a seção 6 para a razão completa de `IS DISTINCT FROM`:
+  -- em SECURITY DEFINER, um guard NULL-cego falha ABERTO para quem chama sem JWT.
+  -- Aqui o que vazaria não é uma escrita, mas a POLÍTICA DE RETENÇÃO da empresa
+  -- somada aos NOMES dos administradores — a RLS admin-only da tabela não protege
+  -- nada se um DEFINER sem guard a lê por baixo.
+  IF (select auth.jwt() #>> '{app_metadata,role}') IS DISTINCT FROM 'administrador' THEN
+    RAISE EXCEPTION 'FORBIDDEN: apenas administrador pode ler a matriz de retencao'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
+  SELECT c.etapa,
+         c.janela_meses,
+         c.origem,
+         u.nome_completo,
+         c.atualizado_em
+    FROM public.config_retencao_etapa c
+    LEFT JOIN public.usuarios_rh u ON u.id = c.alterado_por
+   ORDER BY c.etapa;
+END;
+$$;
+
+COMMENT ON FUNCTION public.listar_matriz_retencao() IS
+  'Phase 43 / RETEN-01: le a matriz de retencao com o NOME do ultimo alterador ja resolvido no '
+  'servidor. SECURITY DEFINER + STABLE com search_path vazio. Existe para que a tela do admin '
+  'nunca precise de acesso a usuarios_rh (admin-only desde a SEG-02): o LEFT JOIN devolve NULL '
+  'quando o alterador nao existe mais, que e o caso "Nao identificado" da UI-SPEC e nao um erro. '
+  'Projecao por allowlist de 5 colunas — nunca usuarios_rh.*, nunca e-mail, nunca o id do '
+  'alterador. Guard NULL-SAFE por IS DISTINCT FROM: recusa com 42501 tanto o papel errado quanto '
+  'o chamador SEM claim nenhuma — DEFINER bypassa RLS, entao este guard e o unico controle. '
+  'REVOKE ALL de PUBLIC/anon/authenticated e so entao GRANT EXECUTE a authenticated.';
+
+
+-- ---------------------------------------------------------------------------
+-- 6 · public.salvar_janela_retencao — a escrita AUDITADA na mesma transação
+-- ---------------------------------------------------------------------------
+-- Molde: `gerir_usuario_rh_mutacao` (`20260713000003:119-132`) — mutação e
+-- `log_auditoria` no MESMO corpo, portanto na MESMA transação: as duas commitam ou
+-- revertem juntas. Não existe estado em que a janela mudou e a trilha não registrou.
+CREATE OR REPLACE FUNCTION public.salvar_janela_retencao(
+  p_etapa public.etapa_processo,
+  p_meses integer
+)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_actor uuid;
+  v_antes integer;
+  antes   jsonb;
+  depois  jsonb;
+BEGIN
+  -- (1) GUARD DE PAPEL, NULL-SAFE. `IS DISTINCT FROM`, NUNCA `NOT IN`.
+  --
+  -- ⚠ O idioma difundido neste repositório — `IF v_role NOT IN ('rh','administrador')`
+  -- — é NULL-CEGO: com `v_role` NULL (chamador sem JWT), a expressão avalia NULL, um
+  -- `IF` NULL **não é tomado**, e o guard FALHA ABERTO. Ele só recusa claim
+  -- presente-e-errada; claim AUSENTE passa direto. Em SECURITY DEFINER isso é grave
+  -- porque DEFINER bypassa RLS e o guard do corpo é o único controle que existe.
+  -- Não é hipótese: é defeito REAL medido na 42-06 e catalogado em
+  -- `.planning/todos/pending/42-anon-execute-definer-sistemico.md` (61 funções
+  -- DEFINER com EXECUTE para `anon`, 39 chamáveis via PostgREST).
+  -- `IS DISTINCT FROM` é NULL-safe por definição: NULL É distinto de 'administrador',
+  -- então o `IF` é tomado e o chamador sem claim é RECUSADO. A asserção (f) do smoke
+  -- prova isso por execução.
+  IF (select auth.jwt() #>> '{app_metadata,role}') IS DISTINCT FROM 'administrador' THEN
+    RAISE EXCEPTION 'FORBIDDEN: apenas administrador pode alterar a janela de retencao'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- (2) O ATOR É RESOLVIDO NO SERVIDOR, nunca recebido por parâmetro — um `p_actor`
+  -- vindo do cliente seria a autoria da trilha de auditoria escolhida por quem está
+  -- sendo auditado. Uma claim de administrador SEM linha viva de RH não é um
+  -- operador deste sistema (conta desativada ou soft-deleted que ainda carrega a
+  -- claim no JWT até o refresh), e o `alterado_por` da matriz é FK para usuarios_rh.
+  SELECT u.id INTO v_actor
+    FROM public.usuarios_rh u
+   WHERE u.user_id = (select auth.uid())
+     AND u.ativo
+     AND u.deleted_at IS NULL;
+
+  IF v_actor IS NULL THEN
+    RAISE EXCEPTION 'FORBIDDEN: nenhuma conta de RH viva corresponde ao chamador'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- (3) O TETO É IMPOSTO NO SERVIDOR. O cap do input na tela é COSMÉTICO; quem
+  -- impede de verdade é aqui (mesmo modelo mental do guard REVISAO-05 / D-13). O
+  -- `CHECK` da tabela é a segunda camada e daria 23514 — esta dá 22023 com mensagem
+  -- que nomeia o teto e sua origem. `p_meses IS NULL` entra no mesmo ramo de
+  -- propósito: a comparação `NULL < 1` avaliaria NULL e cairia para o CHECK.
+  IF p_meses IS NULL OR p_meses < 1 OR p_meses > 24 THEN
+    RAISE EXCEPTION 'VALIDATION: janela de % meses fora do intervalo permitido (1 a 24); 24 e o teto ja consentido pela copy do cadastro', coalesce(p_meses::text, 'NULL')
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- (4) Estado anterior + LOCK da linha, para que o snapshot da auditoria seja
+  -- consistente com a mutação abaixo e alterações concorrentes serializem na linha.
+  SELECT to_jsonb(c), c.janela_meses INTO antes, v_antes
+    FROM public.config_retencao_etapa c
+   WHERE c.etapa = p_etapa
+   FOR UPDATE;
+
+  IF antes IS NULL THEN
+    RAISE EXCEPTION 'VALIDATION: etapa % nao existe na matriz de retencao', p_etapa
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- (5) NO-OP É RECUSA, não sucesso silencioso. Salvar sem mudança escreveria uma
+  -- linha de auditoria que afirma uma alteração que não houve — poluir a trilha
+  -- probatória é o oposto do que o RETEN-02 pede dela. A UI-SPEC já desabilita o CTA
+  -- nesse caso, e o servidor tem de ter o GÊMEO do que a tela promete: uma regra que
+  -- só vive na tela é uma regra que não existe.
+  IF v_antes = p_meses THEN
+    RAISE EXCEPTION 'VALIDATION: a janela de % ja e de % meses — nada a alterar', p_etapa, p_meses
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- (6) A mutação. `origem` passa a 'admin': o valor deixa de ser "ninguém
+  -- contestou" e passa a ser "alguém escolheu" — é esse discriminador que a Phase 46
+  -- tem de consultar antes de ligar a purga. O trigger carimba `atualizado_em`.
+  UPDATE public.config_retencao_etapa c
+     SET janela_meses = p_meses,
+         origem       = 'admin',
+         alterado_por = v_actor
+   WHERE c.etapa = p_etapa;
+
+  SELECT to_jsonb(c) INTO depois
+    FROM public.config_retencao_etapa c
+   WHERE c.etapa = p_etapa;
+
+  -- (7) A LINHA DE AUDITORIA, NA MESMA TRANSAÇÃO. Este `PERFORM` é o que torna
+  -- VERDADEIRA a frase do diálogo "A alteração fica registrada na trilha de
+  -- auditoria" — sem ele a copy seria mais uma promessa órfã. `log_auditoria` é
+  -- SECURITY DEFINER com owner BYPASSRLS, então a linha sobrevive ao REVOKE de
+  -- INSERT que a P28 aplicou sobre logs_auditoria. Os valores 'configuracao' e
+  -- 'aviso' foram MEDIDOS contra os enums vivos `categoria_log_auditoria` e
+  -- `severidade_log` (database.types.ts:5265-5275 e :5318) — não são valores novos.
+  PERFORM public.log_auditoria(
+    p_usuario_id   := v_actor,
+    p_usuario_tipo := 'admin',
+    p_acao         := 'alterar_janela_retencao',
+    p_categoria    := 'configuracao',
+    p_descricao    := format('Janela de retencao da etapa %s alterada de %s para %s meses', p_etapa, v_antes, p_meses),
+    p_severidade   := 'aviso',
+    p_recurso_tipo := 'config_retencao_etapa',
+    p_recurso_id   := NULL::uuid,
+    p_dados_antes  := antes,
+    p_dados_depois := depois,
+    p_sucesso      := true
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.salvar_janela_retencao(public.etapa_processo, integer) IS
+  'Phase 43 / RETEN-02: UNICO caminho de aplicacao para alterar a janela de retencao de uma etapa. '
+  'SECURITY DEFINER + VOLATILE com search_path vazio. E RPC e NAO policy de UPDATE porque uma '
+  'policy nao da nenhuma das duas coisas que o requirement exige junto com a escrita: trilha de '
+  'auditoria ATOMICA (o PERFORM log_auditoria roda no mesmo corpo, logo na mesma transacao — a '
+  'mudanca e o registro commitam ou revertem juntos) e guard SERVER-SIDE sobre o teto de 24 meses '
+  '(o cap da tela e cosmetico). Ordem do corpo e SQLSTATE de cada recusa: '
+  '42501 se o papel nao for administrador — guard NULL-SAFE por IS DISTINCT FROM, que recusa '
+  'TAMBEM o chamador sem claim nenhuma (o idioma NOT IN falha ABERTO com claim NULL, defeito real '
+  'medido na 42-06); 42501 se nenhuma linha VIVA de usuarios_rh corresponder a auth.uid() — o ator '
+  'e resolvido no servidor, nunca recebido por parametro; 22023 se p_meses for NULL ou estiver '
+  'fora de 1..24; 22023 se a etapa nao existir na matriz; 22023 em NO-OP (salvar sem mudanca '
+  'escreveria linha de auditoria de uma alteracao que nao houve). Marca origem=admin e '
+  'alterado_por; o trigger carimba atualizado_em. categoria=configuracao e severidade=aviso sao '
+  'valores medidos dos enums vivos. REVOKE ALL de PUBLIC/anon/authenticated e so entao GRANT '
+  'EXECUTE a authenticated.';
+
+
+-- ---------------------------------------------------------------------------
+-- 7 · Hardening de EXECUTE — `anon` revogado NOMINALMENTE
+-- ---------------------------------------------------------------------------
+-- ⚠ `REVOKE ALL ON FUNCTION … FROM PUBLIC` SOZINHO **NÃO BASTA**, e este é o defeito
+-- sistêmico mais difundido do repositório. O `pg_default_acl` do schema `public`
+-- concede EXECUTE a `anon` em TODO `CREATE FUNCTION`, como grant DIRETO e NOMEADO.
+-- O idioma usado em quase toda migration daqui remove um grant de `PUBLIC` que nunca
+-- existiu — e deixa `anon=X` de pé. Medição de 2026-07-30: **61** funções DEFINER em
+-- `public` com EXECUTE para `anon`, **39** delas chamáveis via PostgREST; apenas 2
+-- migrations em toda a história revogam de `anon` nominalmente
+-- (`.planning/todos/pending/42-anon-execute-definer-sistemico.md`).
+--
+-- Por isso `anon` aparece EXPLICITAMENTE na lista abaixo. A asserção (h) do smoke
+-- verifica o `proacl` das duas funções para que a regressão reprove alto.
+REVOKE ALL ON FUNCTION public.listar_matriz_retencao()
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.salvar_janela_retencao(public.etapa_processo, integer)
+  FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.listar_matriz_retencao() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.salvar_janela_retencao(public.etapa_processo, integer) TO authenticated;
