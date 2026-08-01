@@ -80,6 +80,7 @@
         // `strict-schema.test.ts` mora na mesma pasta e é sonda Vitest que
         // precisa continuar rodando.
         'supabase/functions/_shared/__tests__/consent-hash.test.ts',
+        'supabase/functions/_shared/__tests__/autorizacoes-registro.test.ts',
       ],
       coverage: {
         provider: 'v8',
