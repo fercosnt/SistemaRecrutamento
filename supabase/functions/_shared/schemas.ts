@@ -92,6 +92,45 @@ export const disponibilidadeSchema = z.object({
 /**
  * Autorizações LGPD. `autorizacao_uso_dados` DEVE ser true para cadastro
  * ser aceito — validamos aqui para bloquear bypass do checkbox no client.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 43 / CONSENT-01 — A AUSÊNCIA DE `.default()` AQUI **É** O REQUIREMENT
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Até esta fase o bloco dizia:
+ *
+ *   autorizacao_comunicacao:        z.boolean().optional().default(true)
+ *   autorizacao_retencao_curriculo: z.boolean().optional().default(true)
+ *   autorizacao_analise_video:      z.boolean().optional().default(false)
+ *
+ * ⚠ **ESTE ARQUIVO — não o schema do cliente — É O SÍTIO QUE DECIDE O VALOR
+ * GRAVADO.** Os `.default(true)` do client (`candidatoSchema.ts`,
+ * `CadastroMultiStepForm.tsx`) mudam o que o CHECKBOX mostra; estes mudavam o
+ * que o BANCO GRAVA. Um corpo que omitisse a chave saía daqui com `true`, e o
+ * banco passava a AFIRMAR um consentimento que ninguém deu. Corrigir só o
+ * cliente entregaria o checkbox desmarcado E o banco gravando `true` — o pior
+ * resultado possível, porque *parece* corrigido.
+ *
+ * Por isso as duas flags são `z.boolean()` PURO: sem `.optional()`, sem
+ * `.default()`. O cliente é obrigado a declarar a escolha da pessoa, nos dois
+ * sentidos. `autorizacao_uso_dados` continua `z.literal(true)` — é o gate de
+ * submit (D-15), e uma conta não pode existir sem ele.
+ *
+ * ── `.strict()` — e a consequência que ele tem, dita em voz alta ──
+ * O `.strict()` do `cadastroCandidatoSchema` só fecha o nível SUPERIOR; sem o
+ * `.strict()` deste sub-schema, uma chave desconhecida aqui dentro seria
+ * SILENCIOSAMENTE DESCARTADA e o cliente receberia `200` acreditando ter
+ * registrado uma escolha que não existe. Com ele:
+ *
+ *   · `autorizacao_analise_video` → **400 VALIDATION** (BD-2 / CONSENT-05: a
+ *     coleta PAROU; a coluna permanece com os valores históricos intactos)
+ *   · `autorizacao_comunicacao`   → **400 VALIDATION** (CONSENT-03: a chave foi
+ *     aposentada; a parte transacional não é consentimento — Art. 7º, V — e a
+ *     parte de marketing virou `autorizacao_marketing_vagas`)
+ *
+ * Um cliente desatualizado recebe erro em vez de ter o campo comido. Isso é o
+ * comportamento CORRETO (D-04 / LGPD-01) e é a razão pela qual o deploy desta
+ * Edge Function é um passo **ORDENADO** do checkpoint 43-07 — nunca paralelo ao
+ * deploy do cliente.
  */
 export const autorizacoesSchema = z.object({
   autorizacao_uso_dados: z.literal(true, {
@@ -99,10 +138,19 @@ export const autorizacoesSchema = z.object({
       message: 'Você deve autorizar o uso dos dados para se cadastrar',
     }),
   }),
-  autorizacao_comunicacao: z.boolean().optional().default(true),
-  autorizacao_retencao_curriculo: z.boolean().optional().default(true),
-  autorizacao_analise_video: z.boolean().optional().default(false),
-})
+  autorizacao_marketing_vagas: z.boolean({
+    required_error:
+      'Informe se você quer receber avisos sobre novas vagas',
+    invalid_type_error:
+      'Informe se você quer receber avisos sobre novas vagas',
+  }),
+  autorizacao_retencao_curriculo: z.boolean({
+    required_error:
+      'Informe se você autoriza a guarda do seu currículo',
+    invalid_type_error:
+      'Informe se você autoriza a guarda do seu currículo',
+  }),
+}).strict()
 
 // ============================================================================
 // Schema principal — corpo do invoke `cadastrar-candidato`
