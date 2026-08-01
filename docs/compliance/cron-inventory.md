@@ -122,13 +122,17 @@ para tocar um `DELETE` vivo — e é um fato datado, não uma suposição.
 | **Consulta de raio de impacto** | [`sql/04-invent05-blast-radius.sql`](./sql/04-invent05-blast-radius.sql) |
 | **Smoke de asserção negativa** | [`../../supabase/tests/p42_invent05_cron_smoke.sql`](../../supabase/tests/p42_invent05_cron_smoke.sql) |
 | **Escrita em** | 2026-07-31 |
-| **Estado em PROD** | ⏳ **NÃO APLICADA** — apply pendente do checkpoint do orquestrador |
+| **Estado em PROD** | ✅ **APLICADA em 2026-08-01** — checkpoint do orquestrador, sob o portão de fase destrutiva (medição → dry-run → code review bloqueante `PROCEED` → apply → asserções negativas 4/4) |
 
-> ⚠ **LEIA ISTO ANTES DE CITAR ESTA SEÇÃO.** Enquanto a linha "Estado em PROD" disser
-> **NÃO APLICADA**, esta seção descreve o que está **no repositório**, não o que está **no banco**.
-> O corpo vivo do agendamento continua sendo o do bloco anterior. As células marcadas com ⏳ são
-> **campos a preencher no checkpoint**, não valores medidos — tratá-las como resultado é
-> exatamente o modo de falha que o `04-invent05-blast-radius.sql` existe para impedir.
+> ✅ **APLICADA — esta seção agora descreve o BANCO, não só o repositório.** Até 2026-08-01 este
+> aviso dizia o contrário: enquanto "Estado em PROD" dissesse **NÃO APLICADA**, as células marcadas
+> ⏳ eram *campos a preencher*, não valores medidos, e tratá-las como resultado seria exatamente o
+> modo de falha que o `04-invent05-blast-radius.sql` existe para impedir. Todas foram preenchidas
+> com medição real no checkpoint; nenhuma foi transcrita de expectativa.
+>
+> O bloco de corpo **anterior** (seção 2, acima) permanece intocado de propósito: é a única
+> evidência datada de qual era o predicado vivo antes da correção, e é o lado esquerdo deste
+> antes/depois.
 
 ### O corpo novo (transcrito da migration)
 
@@ -176,14 +180,16 @@ duas explicações possíveis e nenhuma fica descartada.
 
 | Métrica | Antes do apply | Depois do apply |
 |---|---:|---:|
-| `total_logs` | ⏳ | ⏳ (**tem de ser IDÊNTICO** — ver nota abaixo) |
-| `total_decisions` | ⏳ | ⏳ |
-| `decisions_com_null_no_array` | ⏳ | ⏳ |
-| `alcance_atual` | ⏳ | ⏳ |
-| `alcance_corrigido` | ⏳ | ⏳ |
-| `coletado_em_utc` | ⏳ | ⏳ |
+| `total_logs` | **0** | **0** ✅ idêntico |
+| `total_decisions` | **0** | **0** |
+| `decisions_com_null_no_array` | **0** | **0** |
+| `alcance_atual` | **0** | **0** |
+| `alcance_corrigido` | **0** | **0** |
+| `md5_vizinho_agregacao` | `fdd283dc3e266884761a3649c31acd6c` | `fdd283dc3e266884761a3649c31acd6c` ✅ idêntico |
+| `md5_vizinho_retry` | `04bf2150e09f1f7b15abcf074f74ad95` | `04bf2150e09f1f7b15abcf074f74ad95` ✅ idêntico |
+| `coletado_em_utc` | 2026-07-31 14:35:22 UTC | 2026-08-01 05:33:44 UTC |
 
-**Delta `alcance_corrigido − alcance_atual` = ⏳ — este número É o raio de impacto real da
+**Delta `alcance_corrigido − alcance_atual` = 0 — este número É o raio de impacto real da
 correção**, e é o que decide se o apply é passo automático (delta 0) ou decisão do operador
 (delta > 0).
 
@@ -200,11 +206,11 @@ autoriza.
 
 | # | Asserção | Resultado |
 |---|---|---|
-| (a) | `cron.job` continua com **exatamente 3** agendamentos — nenhum criado, nenhum removido | ⏳ |
-| (b) | Corpo vivo do alvo casa **byte a byte** com a migration (`md5` acima) | ⏳ |
-| (c) | Horário `0 2 * * *` e `active` preservados | ⏳ |
-| (d) | `ai-cost-aggregation` e `notif-retry-sweep` intocados (horário, estado ativo, assinatura de corpo) | ⏳ |
-| (z) | RESUMO — gate de contagem, esperado fixo **4** | ⏳ |
+| (a) | `cron.job` continua com **exatamente 3** agendamentos — nenhum criado, nenhum removido | ✅ **PASS** |
+| (b) | Corpo vivo do alvo casa **byte a byte** com a migration (`md5` acima) | ✅ **PASS** — `b64ca58d089f3ed580205e95a40c4e5f`, 299 octetos |
+| (c) | Horário `0 2 * * *` e `active` preservados | ✅ **PASS** |
+| (d) | `ai-cost-aggregation` e `notif-retry-sweep` intocados (horário, estado ativo, assinatura de corpo) | ✅ **PASS** — e a igualdade **byte a byte** dos dois vizinhos deixou de ser passo manual: os `md5` viraram colunas da consulta de raio de impacto (recomendação W5 do code review), e batem nas duas coletas |
+| (z) | RESUMO — gate de contagem, esperado fixo **4** | ✅ **PASS 4/4 — gate VERDE** |
 
 Rodar numa **única** chamada `execute_sql` (o gate por GUC é escopado à sessão).
 

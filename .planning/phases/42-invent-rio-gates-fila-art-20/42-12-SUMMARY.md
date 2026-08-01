@@ -49,10 +49,11 @@ patterns-established:
   - "Quando um plano aponta para um trecho da pesquisa como fonte, o trecho é HIPÓTESE, não contrato — conferir contra os artefatos já versionados da mesma fase. Aqui a pesquisa e o `02-cron-live.sql` discordavam, e quem estava certo era o arquivo versionado"
   - "Critério de aceitação por grep negativo sobre um arquivo (`zero verbo de escrita`) é uma restrição de PROJETO, não uma checagem cosmética: ela empurrou a asserção de fidelidade de string literal para md5, e o resultado ficou mais forte do que a forma que a restrição proibiu"
 
-requirements-completed: []
-requirements-pending-checkpoint: [INVENT-05]
+requirements-completed: [INVENT-05]
+requirements-pending-checkpoint: []
 
-checkpoint_pendente: true
+checkpoint_pendente: false
+checkpoint_concluido: 2026-08-01
 checkpoint_task: 2
 checkpoint_tasks_pendentes: [2, 3]
 
@@ -476,3 +477,79 @@ que a forma que ela proíbe.
 - Gate automatizado do plano — `INVENT05_SHAPE_OK` (3 arquivos existem; `NOT EXISTS`
   não-comentário == 1; negação-por-lista não-comentário == 0; verbos de escrita na consulta == 0;
   verbos de escrita no smoke == 0; `sh .husky/pre-commit` exit 0).
+
+---
+
+# ✅ CHECKPOINT CONCLUÍDO — 2026-08-01, pelo orquestrador
+
+**INVENT-05 entregue.** O portão de fase destrutiva do M8 foi exercitado por inteiro pela
+primeira vez, na ordem que ele exige, e **nenhum passo foi pulado ou reinterpretado**.
+
+## Os 10 passos
+
+**1 · Raio de impacto MEDIDO** (`04-invent05-blast-radius.sql`, UTC 2026-07-31 14:35:22):
+`total_logs` 0 · `total_decisions` 0 · `decisions_com_null_no_array` 0 ·
+`alcance_atual` 0 · `alcance_corrigido` 0.
+
+**2 · Dry-run = delta 0.** Não foi um comando à parte: `alcance_atual` e `alcance_corrigido`
+são o predicado vivo e o predicado novo avaliados como contagem. **O defeito estava LATENTE**,
+como a 42-05 previra — e latente foi *medido*, não presumido.
+
+**3 · CODE REVIEW BLOQUEANTE → `PROCEED`**, sem achado bloqueante; 5 WARNING, 7 INFO.
+O revisor não inspecionou: **provou**. Formalmente, com `S` = multiconjunto de `unnest`:
+o conjunto-verdade novo é **superconjunto** do antigo, e a diferença é exatamente
+`{linhas onde S contém NULL e id ∉ nonnull(S)}` — isto é, linhas **não referenciadas por
+decisão nenhuma em revisão**, que a política de retenção deve mesmo apagar. **Não existe
+entrada em que a forma nova apague um log que a antiga protegia legitimamente.** Casos
+conferidos um a um: array vazio, array só-NULL, array contendo `l.id` **e** NULL
+(segue protegido), ids duplicados, `status` fora da lista.
+
+**As 3 condições do review foram atendidas ANTES do apply, não depois:**
+
+- **W2** (único caminho para job duplicado): medido ao vivo — os 3 agendamentos são
+  `username=postgres`, `database=postgres`, e o papel aplicador **é** `postgres`. Logo o
+  `EXISTS` sob RLS enxerga a linha, o `unschedule` dispara, e não há inserção de 2ª linha.
+- **W5** (a metade forte de (d) não tinha código que a executasse): os `md5` dos dois
+  vizinhos viraram **colunas** da consulta de raio de impacto, que já roda antes e depois.
+  A comparação deixou de ser um passo de memória.
+- **W1** (`flagged_for_review` fora da lista de proteção — pré-existente, mesma classe de
+  defeito) virou todo rastreado, **sem pegar carona** neste apply: seria mudança de
+  POLÍTICA embarcada numa correção de PREDICADO.
+
+**4 · Corpo vivo registrado** imediatamente antes: exatamente 3 agendamentos, todos ativos,
+e o alvo ainda byte-idêntico ao que a 42-05 registrou em 2026-07-29 — **sem drift de fora
+do repositório**.
+
+**5 · APLICADA.** md5 do `statements[1]` == md5 do arquivo (`cb858564f1282f2d77619858dbd8032f`).
+Terceiro apply byte-idêntico do dia. `version` reparada para `20260730000005` — 3ª confirmação
+de que `apply_migration` carimba a própria.
+
+**6 · MEDIDO DEPOIS, pela mesma consulta** (UTC 2026-08-01 05:33:44): todos os 5 números
+idênticos aos do passo 1, e — pela emenda do W5 — os **md5 dos dois vizinhos idênticos**
+nas duas coletas. `total_logs` não caiu: o apply não executou a purga, como previsto.
+
+**7 · ASSERÇÕES NEGATIVAS: 4/4 PASS, gate VERDE.**
+(a) ainda exatamente 3 agendamentos · (b) corpo vivo byte-idêntico à migration
+(`b64ca58d089f3ed580205e95a40c4e5f`, 299 octetos) · (c) horário `0 2 * * *` e `active`
+preservados · (d) vizinhos intocados, agora com igualdade **byte a byte** e não só por
+substring · (z) contagem fixa 4.
+
+**8/9/10 ·** Evidência colada em `42-VERIFICATION.md`; `cron-inventory.md` com a seção
+"Depois da correção" preenchida por **medição** (nenhuma célula transcrita de expectativa) e
+o bloco do corpo anterior **intocado**, que é o lado esquerdo do antes/depois; commits com o
+hook executando e passando, **zero `--no-verify`** em todo o plano.
+
+## O que este checkpoint deixa registrado
+
+- **O portão funcionou como portão, não como decoração.** Ele produziu três mudanças reais
+  no artefato *antes* de qualquer escrita — W5 converteu uma promessa em código, W4 corrigiu
+  um invariante escrito errado (`total_logs` "não pode ter mudado" é falso para uma tabela
+  append-heavy; o invariante real é a **não-queda**), e W2 transformou uma alegação de
+  idempotência em fato medido.
+- **A pesquisa da própria fase continha o defeito que a fase existe para corrigir.**
+  `42-RESEARCH.md` §E5 propunha `ai_call_log_ids @> ARRAY[NULL]::uuid[]` para contar arrays
+  com elemento nulo — expressão que devolve `false` **sempre**, porque contenção compara por
+  igualdade e igualdade contra nulo nunca é verdadeira. Era precisamente o número que decide
+  se o defeito está *latente* ou *armado*: um `0` falso ali teria feito o checkpoint concluir
+  "latente, delta 0, seguro" com nada disso verificado. O executor usou `array_position`, que
+  a 42-05 já usava — a pesquisa contradizia um artefato versionado da sua própria fase.
