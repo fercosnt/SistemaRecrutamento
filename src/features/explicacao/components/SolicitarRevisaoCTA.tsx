@@ -1,5 +1,5 @@
 /**
- * SolicitarRevisaoCTA — the "Solicitar revisão por pessoa natural" CTA (LGPD Art. 20).
+ * SolicitarRevisaoCTA — the "Pedir que uma pessoa revise esta decisão" CTA (LGPD Art. 20).
  *
  * The candidate's right to request human review of a decision (DECISAO-04). Gated by
  * an `alert-dialog` confirm (so the request is deliberate); on confirm it fires
@@ -42,16 +42,30 @@ import {
 } from '@/components/ui/tooltip'
 import { useSolicitarRevisao } from '../hooks/useExplicacao'
 
-/** Verbatim pt-BR copy from 15-UI-SPEC §Candidate LGPD Art. 20. */
+/**
+ * Verbatim pt-BR copy from 15-UI-SPEC §Candidate LGPD Art. 20, com os três rótulos do
+ * pedido REESCRITOS pela 43-UI-SPEC §"Copy do Art. 20 reescrita (BD-3)".
+ *
+ * ⚠ BD-3 (Phase 43): o juridiquês saiu porque um direito só é exercível na medida em que
+ * o titular entende que ele existe — juridiquês é fricção sobre um direito. A ÂNCORA LEGAL
+ * não se perdeu: a citação do Art. 20 vive na introdução da `ExplicacaoCandidatoPage`,
+ * imediatamente acima deste CTA. `solicitar`/`solicitação` NÃO é juridiquês e permanece
+ * nos dois rótulos de estado, que a UI-SPEC declara explicitamente inalterados.
+ *
+ * Os cinco rótulos alterados são pinados por igualdade de string em
+ * `__tests__/SolicitarRevisaoCTA.test.tsx` — três deles (título e confirmação do diálogo,
+ * mais o texto do RH em `RegistrarDecisaoForm`) ganharam pin só na 43-02, que é por que a
+ * reescrita anterior pôde escorregar.
+ */
 const COPY = {
-  cta: 'Solicitar revisão por pessoa natural',
+  cta: 'Pedir que uma pessoa revise esta decisão',
   alreadyRequested: 'Você já solicitou a revisão desta decisão.',
   /** 42-UI-SPEC §Superfície do candidato — the third, terminal state (42-11). */
   alreadyAnswered: 'Sua solicitação de revisão foi respondida.',
-  dialogTitle: 'Solicitar revisão?',
+  dialogTitle: 'Pedir revisão desta decisão?',
   dialogBody:
     'Sua solicitação será enviada à equipe responsável, que revisará a decisão. Acompanhe o andamento pelo seu painel.',
-  dialogConfirm: 'Solicitar revisão',
+  dialogConfirm: 'Pedir revisão',
   dialogCancel: 'Voltar',
   sending: 'Enviando…',
 } as const

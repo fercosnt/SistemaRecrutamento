@@ -278,7 +278,8 @@ export const routes: RouteObject[] = [
   },
   // Explicação ao candidato rejeitado (Phase 15 / DECISAO-04 — LGPD Art. 20):
   // motivo não-clínico + resultado de alto nível (NUNCA score/banda — RNF-07a) +
-  // "Solicitar revisão por pessoa natural". Own-row RLS; só após decisão rejeitada.
+  // "Pedir que uma pessoa revise esta decisão" (copy reescrita na Phase 43 / BD-3 —
+  // linguagem simples, citação do artigo preservada). Own-row RLS; só após decisão rejeitada.
   {
     path: '/candidato/explicacao/:id',
     element: (

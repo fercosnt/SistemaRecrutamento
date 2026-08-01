@@ -42,8 +42,13 @@ const COPY = {
     'Após avaliarmos seu processo, decidimos não seguir com a sua candidatura nesta vaga.',
   reasonEyebrow: 'Por que esta decisão',
   gratitude: 'Agradecemos seu interesse e o tempo dedicado ao processo.',
+  /**
+   * 43-UI-SPEC (BD-3) — reescrita em linguagem que o titular decodifica, COM a citação
+   * do artigo preservada ao lado. É esta linha que carrega a âncora legal da tela; o CTA
+   * logo abaixo pode falar simples porque o direito está nomeado aqui.
+   */
   revisionIntro:
-    'Você tem o direito de solicitar a revisão desta decisão por uma pessoa natural (LGPD, Art. 20).',
+    'Você pode pedir que uma pessoa da nossa equipe revise esta decisão. É um direito seu (LGPD, Art. 20).',
   revisionResultLabel: 'Resultado da revisão:',
   backToPanel: 'Voltar ao painel',
   notAvailableHeading: 'Esta página não está disponível.',
