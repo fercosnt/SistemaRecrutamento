@@ -74,6 +74,12 @@
         // a falha é de CARGA do módulo ESM ("Only URLs with a scheme in: file and
         // data are supported"), não de asserção — nenhum teste passou a reprovar.
         'supabase/functions/notificar-rh/**/*.test.ts',
+        // Phase 43 (consentimentos honestos): o teste do hash do texto de
+        // consentimento importa `https://deno.land/std` assert → roda sob
+        // `deno test`, não Vitest. Caminho LITERAL, nunca glob de diretório —
+        // `strict-schema.test.ts` mora na mesma pasta e é sonda Vitest que
+        // precisa continuar rodando.
+        'supabase/functions/_shared/__tests__/consent-hash.test.ts',
       ],
       coverage: {
         provider: 'v8',
