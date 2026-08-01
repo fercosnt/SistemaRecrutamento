@@ -43,8 +43,10 @@ function exportDe<T>(mod: unknown, nome: string): T | undefined {
   return (mod as Record<string, unknown>)[nome] as T | undefined
 }
 
+// O nome REAL do mapa é `FIELD_TO_STEP_INDEX` — o plano supôs `FIELD_TO_STEP`.
+// A lista de um plano é hipótese sobre onde o dado vive; o compilador tem a real.
 const FIELD_TO_STEP =
-  exportDe<Record<string, number>>(cadastroService, 'FIELD_TO_STEP') ?? {}
+  exportDe<Record<string, number>>(cadastroService, 'FIELD_TO_STEP_INDEX') ?? {}
 const FIELD_TO_STEP_PATH =
   exportDe<Record<string, string>>(cadastroService, 'FIELD_TO_STEP_PATH') ?? {}
 
@@ -129,7 +131,7 @@ describe('43-03 Task 1 — os defaultValues do formulário (CONSENT-01)', () => 
 })
 
 describe('43-03 Task 1 — os dois mapas de campo do service', () => {
-  it('FIELD_TO_STEP conhece a chave de marketing e roteia para o passo 3', () => {
+  it('FIELD_TO_STEP_INDEX conhece a chave de marketing e roteia para o passo 3', () => {
     expect(FIELD_TO_STEP.autorizacao_marketing_vagas).toBe(3)
   })
 

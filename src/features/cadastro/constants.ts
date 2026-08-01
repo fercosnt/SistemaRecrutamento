@@ -34,7 +34,17 @@ export const POLICY_VERSION = 'v1.0-2026-04' as const
 export const CONSENT_TEXT_VERSION = 'v2-2026-08' as const
 
 /**
- * sessionStorage key for the cadastro draft. Suffix `v1` allows future schema
- * migrations — bump to `v2` to automatically invalidate stale drafts. (D-13)
+ * sessionStorage key for the cadastro draft. O sufixo de versão é o mecanismo de
+ * invalidação previsto desde a Phase 2 (D-13): bumpar a chave descarta rascunhos
+ * cuja FORMA não existe mais.
+ *
+ * ⚠ BUMPADO PARA `v2` NA PHASE 43. O formulário mudou de forma: as autorizações
+ * passaram de 4 chaves para 3 (`autorizacao_comunicacao` e
+ * `autorizacao_analise_video` saíram — CONSENT-03 / BD-2). Um rascunho salvo antes
+ * desta fase seria restaurado com a forma ANTIGA e o envio bateria
+ * `400 VALIDATION` no schema `.strict()` do servidor: o candidato veria uma falha
+ * opaca causada por um estado que ele não escolheu e não consegue enxergar.
+ * Descartar o rascunho custa um formulário refeito; não descartar custa um
+ * cadastro que não completa e ninguém sabe por quê.
  */
-export const CADASTRO_DRAFT_KEY = 'cadastro:draft:v1' as const
+export const CADASTRO_DRAFT_KEY = 'cadastro:draft:v2' as const

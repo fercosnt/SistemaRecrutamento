@@ -99,11 +99,13 @@ const minimalFormData = {
     disponibilidade_imediata: true,
     data_disponibilidade: null,
   },
+  // Phase 43: a fixture segue a forma NOVA (3 chaves). Com a forma antiga, este
+  // teste ficaria verde sobre um payload que o schema `.strict()` do servidor
+  // rejeitaria com 400 — verde sobre forma morta.
   autorizacoes: {
     autorizacao_uso_dados: true,
-    autorizacao_comunicacao: true,
-    autorizacao_retencao_curriculo: true,
-    autorizacao_analise_video: false,
+    autorizacao_marketing_vagas: false,
+    autorizacao_retencao_curriculo: false,
   },
 } as unknown as CandidatoFormData
 

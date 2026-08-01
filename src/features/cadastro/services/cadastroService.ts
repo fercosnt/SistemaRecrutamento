@@ -365,10 +365,13 @@ export const FIELD_TO_STEP_INDEX: Record<string, number> = {
   cidade: 1,
   estado: 1,
   // Step 3 — Autorizações LGPD
+  // Phase 43 (CONSENT-03 / CONSENT-05): `autorizacao_comunicacao` virou o canal
+  // transacional (não é campo de formulário) e `autorizacao_analise_video` deixou
+  // de ser coletada. Um mapa desatualizado faz um erro de campo do servidor não
+  // navegar ao passo certo — o candidato vê "erro" sem ver ONDE.
   autorizacao_uso_dados: 3,
-  autorizacao_comunicacao: 3,
+  autorizacao_marketing_vagas: 3,
   autorizacao_retencao_curriculo: 3,
-  autorizacao_analise_video: 3,
 }
 
 /**
@@ -401,9 +404,10 @@ export const FIELD_TO_STEP_PATH: Record<string, string> = {
   bairro: 'endereco.bairro',
   cidade: 'endereco.cidade',
   estado: 'endereco.estado',
-  // Autorizações LGPD
+  // Autorizações LGPD — ver nota em FIELD_TO_STEP (Phase 43). Um path aqui que
+  // aponte para campo inexistente faz `setError` escrever num lugar que nenhum
+  // input lê: a mensagem some em silêncio.
   autorizacao_uso_dados: 'autorizacoes.autorizacao_uso_dados',
-  autorizacao_comunicacao: 'autorizacoes.autorizacao_comunicacao',
+  autorizacao_marketing_vagas: 'autorizacoes.autorizacao_marketing_vagas',
   autorizacao_retencao_curriculo: 'autorizacoes.autorizacao_retencao_curriculo',
-  autorizacao_analise_video: 'autorizacoes.autorizacao_analise_video',
 }

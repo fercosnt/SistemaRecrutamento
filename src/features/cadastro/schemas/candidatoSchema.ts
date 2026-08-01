@@ -348,18 +348,47 @@ export const disponibilidadeSchema = z.object({
 // ============================================
 
 /**
- * Schema completo de autorizações
- * Todos os consentimentos são obrigatórios para cadastro
+ * Schema das autorizações do cadastro (Phase 43 / CONSENT-01, CONSENT-03, CONSENT-05).
+ *
+ * UM é obrigatório (uso de dados, gate de submit — D-15) e DOIS são opcionais
+ * (divulgação de vagas e guarda do currículo). O comentário anterior deste bloco
+ * afirmava que "todos os consentimentos são obrigatórios para cadastro" — falso
+ * desde antes desta fase, e o tipo de afirmação que esta fase existe para eliminar.
+ *
+ * ⚠ NENHUM CAMPO TEM `.default()`, E ISSO É O PONTO DA FASE.
+ * Com `.default(true)`, "a pessoa marcou" e "a pessoa não desmarcou" produzem a
+ * mesma linha no banco: a marcação deixa de ser INEQUÍVOCA (LGPD, Art. 5º, XII)
+ * e a prova de consentimento passa a provar apenas o que o formulário fez por ela.
+ * Sem default, um corpo incompleto REPROVA na validação em vez de ser completado
+ * em silêncio com um consentimento que ninguém deu.
+ *
+ * ⚠ `autorizacao_comunicacao` SAIU DO CONTRATO DE ENTRADA (CONSENT-03): o canal
+ * transacional é fato do sistema sob o Art. 7º, V — não escolha do titular. A tela
+ * o mostra como informação, e o servidor o grava explicitamente
+ * (`_shared/autorizacoes-registro.ts`).
+ *
+ * ⚠ `autorizacao_analise_video` SAIU INTEIRO (BD-2 / CONSENT-05): o sistema não faz
+ * análise de vídeo, então parou de pedir permissão para isso. A COLUNA permanece no
+ * banco com `COMMENT` — registro técnico, não superfície. O schema do servidor é
+ * `.strict()`: mandar a chave agora é `400 VALIDATION`, não descarte silencioso.
+ *
+ * @see supabase/functions/_shared/schemas.ts (o par servidor deste schema)
  */
 export const autorizacoesSchema = z.object({
-  autorizacao_uso_dados: z.literal(true, {
-    errorMap: () => ({
-      message: 'Você deve autorizar o uso dos dados para se cadastrar',
-    }),
+  /**
+   * ⚠ `z.boolean().refine(=== true)` E NÃO `z.literal(true)`.
+   * O gate de submit é IDÊNTICO (a mesma mensagem, a mesma reprovação em `false`),
+   * mas o TIPO passa a ser `boolean` em vez do literal `true`. Com o literal, o
+   * estado inicial `false` que o CONSENT-01 exige era literalmente
+   * INEXPRIMÍVEL no tipo do formulário: `defaultValues` só aceitava `true`, e o
+   * tipo obrigava o campo a nascer marcado — a própria assinatura fabricava o
+   * consentimento que esta fase existe para deixar de fabricar.
+   */
+  autorizacao_uso_dados: z.boolean().refine((v) => v === true, {
+    message: 'Você deve autorizar o uso dos dados para se cadastrar',
   }),
-  autorizacao_comunicacao: z.boolean().default(true),
-  autorizacao_retencao_curriculo: z.boolean().default(true),
-  autorizacao_analise_video: z.boolean().default(false),
+  autorizacao_marketing_vagas: z.boolean(),
+  autorizacao_retencao_curriculo: z.boolean(),
 })
 
 // ============================================

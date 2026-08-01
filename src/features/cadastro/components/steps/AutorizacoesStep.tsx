@@ -52,7 +52,7 @@ const AUTORIZACOES: AutorizacaoItem[] = [
     icon: <Shield className="h-4 w-4" aria-hidden="true" />,
   },
   {
-    name: 'autorizacao_comunicacao',
+    name: 'autorizacao_marketing_vagas',
     label: 'Autorizo receber comunicações',
     description:
       'Concordo em receber emails e notificações sobre o andamento do processo seletivo e novas oportunidades de vagas da Beauty Smile.',
@@ -63,13 +63,6 @@ const AUTORIZACOES: AutorizacaoItem[] = [
     label: 'Autorizo manter meu currículo',
     description:
       'Concordo que a Beauty Smile mantenha meu currículo em banco de dados por até 2 anos para futuras oportunidades, mesmo que eu não seja selecionado(a) no processo atual.',
-    required: false,
-  },
-  {
-    name: 'autorizacao_analise_video',
-    label: 'Autorizo análise de vídeo-entrevistas',
-    description:
-      'Concordo que minhas entrevistas em vídeo sejam gravadas e analisadas para avaliação comportamental e de comunicação.',
     required: false,
   },
 ]

@@ -185,11 +185,16 @@ export interface CreateCandidatoPayload {
   }
 
   // Dados para tabela autorizacoes
+  //
+  // Phase 43 (CONSENT-01/03/05): TRÊS chaves. `autorizacao_comunicacao` saiu do
+  // contrato de ENTRADA — o canal transacional é fato do sistema (Art. 7º, V),
+  // gravado pelo servidor, não escolhido no formulário. `autorizacao_analise_video`
+  // saiu inteiro (BD-2): o sistema não faz análise de vídeo. Nenhuma das duas pode
+  // voltar aqui sem que o schema `.strict()` do servidor rejeite o envio com 400.
   autorizacoes: {
     autorizacao_uso_dados: boolean
-    autorizacao_comunicacao: boolean
+    autorizacao_marketing_vagas: boolean
     autorizacao_retencao_curriculo: boolean
-    autorizacao_analise_video: boolean
   }
 }
 
