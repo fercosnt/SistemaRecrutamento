@@ -133,9 +133,12 @@ describe('ExplicacaoCandidatoPage — não-regressão: sem resposta, nada de blo
     expect(
       screen.getByText('Agradecemos seu interesse e o tempo dedicado ao processo.'),
     ).toBeInTheDocument()
+    // PIN da introdução do Art. 20 — reescrita pela 43-UI-SPEC (BD-3). O juridiquês
+    // morreu; a ÂNCORA LEGAL (LGPD, Art. 20) continua ao lado, que é o ponto inteiro
+    // da decisão: linguagem que o titular decodifica SEM perder a citação do artigo.
     expect(
       screen.getByText(
-        'Você tem o direito de solicitar a revisão desta decisão por uma pessoa natural (LGPD, Art. 20).',
+        'Você pode pedir que uma pessoa da nossa equipe revise esta decisão. É um direito seu (LGPD, Art. 20).',
       ),
     ).toBeInTheDocument()
   })
