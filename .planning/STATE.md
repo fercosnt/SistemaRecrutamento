@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: Completed 43-04-PLAN.md
-last_updated: "2026-08-01T22:23:04.929Z"
+stopped_at: Completed 43-05-PLAN.md
+last_updated: "2026-08-01T22:36:49.897Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 16
+  completed_plans: 17
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
-Plan: 5 of 9
+Plan: 6 of 9
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 43 execution started
 
@@ -94,6 +94,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P02 | ~35min | 3 tasks | 9 files |
 | Phase 43 P03 | ~35min | 3 tasks | 9 files |
 | Phase 43 P04 | ~10min | 3 tasks | 2 files |
+| Phase 43 P05 | ~25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -198,6 +199,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 43 / 43-04] Matriz de retenção chaveada por etapa_processo (8) e não status_candidatura (5): etapa_atual é NOT NULL, então nenhuma candidatura cai em buraco silencioso na Phase 46
 - [Phase ?]: [Phase 43 / 43-04] Escrita da matriz é RPC SECURITY DEFINER auditada, não policy de UPDATE — policy não dá trilha atômica nem guard server-side sobre o teto de 24 meses
 - [Phase ?]: [Phase 43 / 43-04] Guard NULL-safe (IS DISTINCT FROM) nas DUAS RPCs, e anon revogado nominalmente — o idioma NOT IN + REVOKE FROM PUBLIC falha aberto (defeito medido na 42-06)
+- [Phase 43 / 43-05]: D-43-05-01: o guard de marketing vive no BANCO (BEFORE INSERT no ledger), não num if da Edge Function — service_role bypassa RLS mas NÃO bypassa trigger, e um if na EF é contornável pelo próximo emissor (a P39 teve 3+ emissores simultâneos)
+- [Phase 43 / 43-05]: D-43-05-02: fail-closed inclui o 'não sei' — evento sem linha em classe_evento_notificacao é RECUSADO, porque um evento novo não classificado é o caminho por onde um envio de marketing entraria sem ser visto
+- [Phase 43 / 43-05]: D-43-05-03: divulgacao_vagas é vocabulário RESERVADO com guard vivo, não suporte a marketing — zero emissores, e a EF o rejeitaria; precedente exato verificado em revisao_solicitada (no CHECK, fora de EVENTO_MAP)
 
 ### Pending Todos
 
@@ -296,8 +300,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-01T22:22:43.504Z
-Stopped at: Completed 43-04-PLAN.md
+Last session: 2026-08-01T22:36:42.439Z
+Stopped at: Completed 43-05-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
