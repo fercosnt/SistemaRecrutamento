@@ -54,6 +54,16 @@
 - [ ] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
 - [ ] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
 - [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida
+
+> **Estado parcial de CONSENT-01/02/03/05 após o plano 43-01 (2026-08-01) — deliberadamente NÃO marcados como completos.**
+> O **lado SERVIDOR** está fechado em código: `_shared/schemas.ts` sem `.default(true)`,
+> `_shared/autorizacoes-registro.ts` sem coalescência, hash SHA-256 calculado na EF, gravação
+> fail-closed (BD-4), migration `20260801000001` e smoke escritos.
+> **Falta, e sem isso o requirement não é observável:** os 6 sítios de `.default(true)` do
+> CLIENTE (plano **43-03**), o **apply** da migration e o **deploy ORDENADO** da EF
+> (checkpoint **43-07**). Enquanto a migration não for aplicada, a EF grava em colunas que não
+> existem. Marcar `[x]` aqui afirmaria em `.planning/` exatamente a classe de coisa que esta
+> fase existe para eliminar — um consentimento declarado sem código que o execute.
 - [ ] **CONSENT-06**: Click tracking desligado no Resend — rastrear cliques em e-mail transacional é coleta não consentida
 
 ### Política de Retenção (RETEN) — configuração, zero ação destrutiva
@@ -160,11 +170,11 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | REVISAO-04 | Phase 42 | Complete |
 | REVISAO-05 | Phase 42 | Complete |
 | REVISAO-06 | Phase 42 | Complete |
-| CONSENT-01 | Phase 43 | Pending |
-| CONSENT-02 | Phase 43 | Pending |
-| CONSENT-03 | Phase 43 | Pending |
+| CONSENT-01 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
+| CONSENT-02 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
+| CONSENT-03 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-04 | Phase 43 | Pending |
-| CONSENT-05 | Phase 43 | Pending |
+| CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-06 | Phase 43 | Pending |
 | RETEN-01 | Phase 43 | Pending |
 | RETEN-02 | Phase 43 | Pending |

@@ -128,7 +128,8 @@ Plans:
 **Plans**: 9 plans (6 waves — a wave 4 é o checkpoint de PROD do orquestrador, e as duas telas novas dependem dele porque não compilam contra tipos antigos)
 
 Plans:
-- [ ] 43-01-PLAN.md — TRACER: texto de consentimento em fonte única → hash SHA-256 no servidor → EF fail-closed → colunas de prova (migration `20260801000001`)
+
+- [x] 43-01-PLAN.md — TRACER: texto de consentimento em fonte única → hash SHA-256 no servidor → EF fail-closed → colunas de prova (migration `20260801000001`)
 - [ ] 43-02-PLAN.md — Veredito do RETEN-06 antes da estrutura + copy do Art. 20 em linguagem simples (BD-3) + portão de grep de copy com escopo duplo
 - [ ] 43-03-PLAN.md — `AutorizacoesStep` reescrito e os 6 sítios de default do cliente: nada nasce marcado, nada pede análise de vídeo
 - [ ] 43-04-PLAN.md — Matriz de retenção por estado (seed 24 meses = teto consentido) + RPC de escrita auditada na mesma transação (migration `20260801000002`)
@@ -297,7 +298,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
-| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 0/? | Not started | - |
+| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 1/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |

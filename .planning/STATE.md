@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 42
-current_phase_name: Inventário, Gates & Fila Art. 20
+current_phase: 43
+current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: "42-12: correção do INVENT-05 escrita e commitada; CHECKPOINT de decisão + apply em PROD pendentes"
-last_updated: "2026-07-31T14:25:21.663Z"
-last_activity: 2026-07-31
-last_activity_desc: "42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado"
+stopped_at: Completed 43-01-PLAN.md — migration 20260801000001 e smoke ESCRITOS mas NAO APLICADOS (checkpoint 43-07); EF cadastrar-candidato NAO deployada
+last_updated: "2026-08-01T21:43:26.600Z"
+last_activity: 2026-08-01
+last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 21
+  completed_plans: 13
   percent: 17
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 42 — Inventário, Gates & Fila Art. 20
+**Current focus:** Phase 43 — Consentimentos Honestos & Política de Retenção
 
 ## Current Position
 
-Phase: 42 (Inventário, Gates & Fila Art. 20) — EXECUTING
-Plan: 12 of 12 (faltam 42-10 e 42-12)
-Status: 42-08 completo em CÓDIGO (5º evento do pipeline, 309/309 no corpus Deno); **checkpoint de PROD do 42-08 pendente** (deploy da EF + apply do CHECK/trigger + smoke 4/4 + round-trip)
-Last activity: 2026-07-31 — 42-08: o e-mail que avisa o candidato de que a revisão foi respondida existe em código; nada aplicado nem deployado
+Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-08-01 — Phase 43 execution started
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -90,6 +90,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 42 P08 | ~50min | 2 tasks | 8 files |
 | Phase 42 P10 | ~25 min | 3 tasks | 12 files |
 | Phase 42 P12 | ~45min | 1 task (2 checkpoints pendentes) tasks | 4 files files |
+| Phase 43 P01 | 50min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -184,6 +185,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 42 / 42-12]: fidelidade de corpo de cron asserida por md5, não por string literal — o critério proibia verbo de escrita dentro do smoke, e transcrever o corpo esperado o traria de volta. O md5 satisfaz os dois e é MAIS forte que a forma proibida (pega espaço a mais/quebra de linha a menos). Resumo derivado por EXECUÇÃO sobre o arquivo, com bloco de proveniência + comando de recomputação no cabeçalho, idioma da baseline do .husky/pre-commit
 - [Phase ?]: [Phase 42 / 42-12]: consulta de raio de impacto carimba a PRÓPRIA data (coletado_em_utc, 6ª coluna) — o portão exige fato datado, e data que depende de alguém lembrar de anotá-la é promessa sem código que a execute; sem carimbo no output não há como distinguir uma medição de hoje de uma colada de 2026-07-29 (Pitfall 7)
 - [Phase ?]: [Phase 42 / 42-12]: o bloco do corpo ANTERIOR no cron-inventory.md ficou marcado como não-editável e a seção 'Depois da correção' foi escrita ANTES do apply com células ⏳ ('campo do checkpoint, não resultado'). Sobrescrever o 'antes' destrói a única evidência que torna o 'depois' interpretável (T-42-42); preencher com números plausíveis seria fabricar evidência
+- [Phase ?]: A3 resolvida por execucao: o import cross-boundary src/ -> supabase/functions/*.json ATRAVESSA (Vite, Vitest, tsc). Texto de consentimento tem fonte UNICA, sem espelho.
+- [Phase ?]: autorizacoesSchema ganhou .strict() proprio: o .strict() do schema pai so fecha o nivel superior; sem ele autorizacao_analise_video seria DESCARTADA em silencio com 200 em vez de rejeitada com 400.
+- [Phase ?]: BD-5 em vigor: autorizacao_marketing_vagas nasce NULL para toda a base historica e NULL = NAO autorizado. Zero candidato ja cadastrado recebe divulgacao de vagas apos esta fase.
 
 ### Pending Todos
 
@@ -237,9 +241,11 @@ dois sentidos e inventário, todos provados em produção. O que ficou aberto N�
 1. **Guard REVISAO-05 contra JWT de navegador** (D6 do 42-10). Provado no servidor por smoke SQL
    com impersonação real; falta a confirmação contra um JWT emitido pelo `custom_access_token_hook`
    num browser, o que exige dois logins RH distintos.
+
 2. **Caminho do recrutador ponta a ponta.** Resolução de roster provada ao vivo (a EF devolve os 3,
    com `role=recrutador`); a entrega não pode ser provada enquanto o endereço daquela conta for
    indeliverável — ver `42-recrutador-email-indeliveravel`.
+
 3. **PITR** (metade do INVENT-02 / SC#4). Bloqueio de credencial **e** decisão de gasto; o próprio
    ROADMAP já o difere para a Phase 45.
 
@@ -280,9 +286,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-31T14:25:21.655Z
-Stopped at: 42-12: correção do INVENT-05 escrita e commitada; CHECKPOINT de decisão + apply em PROD pendentes
-Resume file: .planning/phases/42-invent-rio-gates-fila-art-20/42-12-SUMMARY.md
+Last session: 2026-08-01T21:43:26.591Z
+Stopped at: Completed 43-01-PLAN.md — migration 20260801000001 e smoke ESCRITOS mas NAO APLICADOS (checkpoint 43-07); EF cadastrar-candidato NAO deployada
+Resume file: None
 
 ## Operator Next Steps
 
