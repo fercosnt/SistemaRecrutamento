@@ -1,7 +1,8 @@
 ---
 phase: 43
 slug: consentimentos-honestos-pol-tica-de-reten-o
-status: draft
+status: approved
+verified_by: gsd-ui-checker 2026-08-01 — 6 dimensoes, 5 PASS + 1 FLAG (escopo do grep), FLAG corrigido nesta versao
 shadcn_initialized: true
 preset: existing project install (shadcn/ui + Radix; tokens em src/styles/globals.css; primitivos vendorizados em src/components/ui/ desde o M1)
 created: 2026-08-01
@@ -311,6 +312,26 @@ ou percentil em superfície de candidato.
 
 **Regra desta fase, adicional e grep-ável:** proibidas em superfície de candidato as strings
 `automaticamente`, `será excluído`, `serão apagados`, `exclusão automática` e `pessoa natural`.
+
+#### ⚠ ESCOPO DO GREP — sem isto o critério REPROVA copy que esta própria spec exige
+
+Achado do checker desta UI-SPEC, corrigido aqui em vez de virar defeito de plano. As duas bans
+têm **escopos diferentes**, e tratá-las como uma só quebra o teste:
+
+| Strings | Escopo do grep | Esperado |
+|---|---|---|
+| `pessoa natural` | **`src/` inteiro** — a string está banida em toda superfície, de candidato **e** de RH (a decisão BD-3 reescreve os 3 sítios, inclusive o `RegistrarDecisaoForm`) | `grep -rn "pessoa natural" src/` → **0** |
+| `automaticamente` · `será excluído` · `serão apagados` · `exclusão automática` | **APENAS superfície de candidato** — allowlist explícita: `src/features/cadastro/`, `src/features/privacidade/`, `src/features/explicacao/` e templates de e-mail ao candidato em `supabase/functions/_shared/email-templates.ts` | **0** dentro da allowlist |
+
+**Por que a allowlist é obrigatória e não estilo:** a página `/admin/retencao` que esta mesma spec
+especifica usa `automaticamente` **duas vezes, verbatim e por exigência** — no banner de escopo e no
+corpo do diálogo de confirmação. Ali a palavra é *honesta*: ela afirma que **nada** apaga
+automaticamente, que é exatamente a verdade que a fase existe para tornar dizível. Um
+`grep -rn "automaticamente" src/` repo-wide reprovaria a copy que a spec **manda escrever** — o
+teste falharia contra o próprio contrato.
+
+O critério de aceitação do plano tem de citar a allowlist, não a string solta. Um teste que reprova
+o comportamento correto é pior que teste nenhum: ele treina quem executa a desligá-lo.
 
 ### Contrato mínimo do template
 
