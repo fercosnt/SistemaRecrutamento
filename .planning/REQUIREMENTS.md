@@ -177,8 +177,8 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSENT-04 | Phase 43 | Pending |
 | CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-06 | Phase 43 | Pending |
-| RETEN-01 | Phase 43 | Pending |
-| RETEN-02 | Phase 43 | Pending |
+| RETEN-01 | Phase 43 | In Progress (estrutura escrita em 43-04; apply + smoke em 43-07) |
+| RETEN-02 | Phase 43 | In Progress (RPC auditada + seed escritos em 43-04; apply + smoke em 43-07) |
 | RETEN-03 | Phase 43 | Pending |
 | RETEN-04 | Phase 43 | Pending |
 | RETEN-05 | Phase 46 | Pending |

@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: Completed 43-03-PLAN.md
-last_updated: "2026-08-01T22:10:21.413Z"
+stopped_at: Completed 43-04-PLAN.md
+last_updated: "2026-08-01T22:23:04.929Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 15
+  completed_plans: 16
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 43 execution started
 
@@ -93,6 +93,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P01 | 50min | 3 tasks | 15 files |
 | Phase 43 P02 | ~35min | 3 tasks | 9 files |
 | Phase 43 P03 | ~35min | 3 tasks | 9 files |
+| Phase 43 P04 | ~10min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 43 / 43-02]: D-43-02-01: o portão de copy julga 'automaticamente' por COOCORRÊNCIA com léxico de exclusão, não isolado — 6 usos verdadeiros pré-existentes na allowlist (CEP, progresso) reprovariam um gate literal
 - [Phase ?]: 43-03: z.literal(true) virou z.boolean().refine(=== true) — com o literal, o estado inicial false que o CONSENT-01 exige era INEXPRIMÍVEL no tipo do formulário
 - [Phase ?]: 43-03: CADASTRO_DEFAULT_VALUES exportado — asserir sobre uma cópia local dos defaults seria verde sobre forma morta
+- [Phase ?]: [Phase 43 / 43-04] Matriz de retenção chaveada por etapa_processo (8) e não status_candidatura (5): etapa_atual é NOT NULL, então nenhuma candidatura cai em buraco silencioso na Phase 46
+- [Phase ?]: [Phase 43 / 43-04] Escrita da matriz é RPC SECURITY DEFINER auditada, não policy de UPDATE — policy não dá trilha atômica nem guard server-side sobre o teto de 24 meses
+- [Phase ?]: [Phase 43 / 43-04] Guard NULL-safe (IS DISTINCT FROM) nas DUAS RPCs, e anon revogado nominalmente — o idioma NOT IN + REVOKE FROM PUBLIC falha aberto (defeito medido na 42-06)
 
 ### Pending Todos
 
@@ -292,8 +296,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-01T22:10:21.404Z
-Stopped at: Completed 43-03-PLAN.md
+Last session: 2026-08-01T22:22:43.504Z
+Stopped at: Completed 43-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
