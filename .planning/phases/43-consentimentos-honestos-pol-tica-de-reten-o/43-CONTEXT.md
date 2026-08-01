@@ -127,3 +127,66 @@ candidato com resultado da revisão) são o vizinho estilístico da superfície 
 - `RETEN-05` (retenção de `notificacoes_enviadas`) → **Phase 46**, por já ser `DELETE` por cron.
 
 </deferred>
+
+---
+
+## Adendo pós-pesquisa — medições de PROD e 2 decisões do operador (2026-08-01)
+
+A pesquisa levantou um **bloqueio de medição** (A1) e dois achados colaterais que exigiam decisão.
+Todos resolvidos aqui, antes do planejamento. Os números são medidos, não estimados.
+
+### A1 · RESOLVIDO — as policies de `autorizacoes` EXISTEM em PROD
+
+`docs/RLS_POLICIES.md:158-162` afirmava UPDATE own-row sem que o DDL estivesse em
+`supabase/migrations/`. Medido em `pg_policies`: **as 3 policies existem**, RLS ligada.
+
+| policy | cmd | escopo |
+|---|---|---|
+| `Candidatos podem ler suas autorizacoes` | SELECT | own-row via `candidatos.user_id = auth.uid()` |
+| `RH pode ler todas as autorizacoes` | SELECT | RH ativo |
+| `Candidatos podem atualizar suas autorizacoes` | **UPDATE** | own-row, com `qual` **e** `with_check` |
+
+**Consequência para o plano — o ramo mais barato está aberto:** a revogação do CONSENT-04 é
+**escrita own-row direta**, não precisa de RPC `SECURITY DEFINER`. O `with_check` presente impede
+que o candidato reaponte a linha para outro `candidato_id`.
+
+⚠ **E é uma QUARTA instância do drift em aberto.** As 3 policies vivem em PROD e em **nenhum
+arquivo de migration** — DDL fora do ledger, que um `db reset` perderia em silêncio. Registrar em
+`processo-origem-do-drift-desconhecida`; **não** tentar "corrigir" reaplicando por migration nesta
+fase sem medir o `pg_get_expr` vivo primeiro (a lição do 42-07: o arquivo não é o objeto vivo).
+
+### BD-4 · Consentimento faltante — **CORRIGIR NESTA FASE** (decisão do operador)
+
+**Medido:** 21 candidatos vivos · **4 sem nenhuma linha em `autorizacoes` (19%)** · 17 linhas, todas
+com `policy_version` preenchida.
+
+O `INSERT` em `cadastrar-candidato/index.ts:307-312` é **best-effort**: falhou, o cadastro conclui
+mesmo assim e ninguém fica sabendo. Não é hipótese — já aconteceu 4 vezes.
+
+**Decisão:** tornar a gravação **fail-closed** — o consentimento entra na mesma transação do
+cadastro, ou o cadastro não conclui. Numa tabela cuja natureza declarada é **prova probatória**,
+19% de linhas ausentes torna a fase inteira menos defensável.
+
+**NÃO fazer backfill dos 4.** Consentimento retroativo é **fabricar prova** — o oposto exato do que
+esta fase entrega. Os 4 permanecem sem linha, e essa ausência é ela própria o registro honesto.
+
+### BD-5 · Base histórica e marketing — **NULL = NÃO AUTORIZADO** (decisão do operador)
+
+`autorizacao_marketing_vagas` nasce NULL para toda a base histórica, e NULL é tratado como não
+autorizado. **Nenhum candidato já cadastrado poderá receber divulgação de vagas.**
+
+**Isto não é regressão — é a correção**, e o plano tem de declará-lo em voz alta em vez de deixar
+alguém descobrir por métrica caindo. Ninguém nunca consentiu marketing separadamente, porque o
+consentimento separado não existia. Herdar de `autorizacao_comunicacao` seria reconstruir
+consentimento por **inferência** — precisamente o que o `.default(true)` fazia e o que esta fase
+existe para eliminar.
+
+### Correções que a pesquisa fez ao meu próprio contexto
+
+- **A tabela é `public.autorizacoes`, não `candidatos`.** O bloco `<code_context>` acima e o
+  ROADMAP falam de colunas em `candidatos`; a tabela real já tem `policy_version`, `ip_aceite`,
+  `user_agent_aceite`. **A pesquisa tem precedência sobre o meu levantamento inicial.**
+- **Os sítios de `.default(true)` são NOVE, não dois — e os que decidem são do SERVIDOR**
+  (`_shared/schemas.ts:102-104` e `cadastrar-candidato/index.ts:293-297` com `?? true`). Mexer só
+  no client entrega o checkbox desmarcado **e o banco gravando `true`** — o pior resultado possível,
+  porque *parece* corrigido.
