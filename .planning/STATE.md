@@ -223,6 +223,26 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
 - 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
 
+## Deferred Verification
+
+| Phase | State | Resume |
+|-------|-------|--------|
+| 42 | verification_deferred_human | `/gsd-verify-work 42` |
+
+**Decisão do operador em 2026-08-01:** diferir e seguir para a Phase 43. A Phase 42 verificou
+**4/5 must-haves** (`42-VERIFICATION.md`, `status: human_needed`) e o **portão de fase
+destrutiva passou 5/5**. A implementação está verificada — fila do RH, round-trip do Art. 20 nos
+dois sentidos e inventário, todos provados em produção. O que ficou aberto NÃO é implementação:
+
+1. **Guard REVISAO-05 contra JWT de navegador** (D6 do 42-10). Provado no servidor por smoke SQL
+   com impersonação real; falta a confirmação contra um JWT emitido pelo `custom_access_token_hook`
+   num browser, o que exige dois logins RH distintos.
+2. **Caminho do recrutador ponta a ponta.** Resolução de roster provada ao vivo (a EF devolve os 3,
+   com `role=recrutador`); a entrega não pode ser provada enquanto o endereço daquela conta for
+   indeliverável — ver `42-recrutador-email-indeliveravel`.
+3. **PITR** (metade do INVENT-02 / SC#4). Bloqueio de credencial **e** decisão de gasto; o próprio
+   ROADMAP já o difere para a Phase 45.
+
 ## Deferred Items
 
 ### Reconhecidos no fecho do v7.0 (2026-07-28) — `override_closeout`
