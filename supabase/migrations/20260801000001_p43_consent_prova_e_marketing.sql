@@ -94,6 +94,27 @@
 --      comentário de código: a mesma abreviação descartaria um `COMMENT ON COLUMN`,
 --      e os COMMENTs DESTE arquivo são onde BD-2 e BD-5 estão declarados em voz alta.
 --
+--      ⚠ NOTA PÓS-APPLY (2026-08-02 · code review WR-03) — LEIA ANTES DE COMPARAR.
+--      O md5 do ledger corresponde ao estado DESTE ARQUIVO NO INSTANTE DO APPLY:
+--      `>>> antes:` do bloco (4) preenchido, `>>> depois:` AINDA VAZIO. As linhas
+--      `>>> depois:` só podem ser medidas DEPOIS do apply e foram escritas no mesmo
+--      commit (`6a1b13f`). Logo o md5 do arquivo COMMITADO já NÃO bate o
+--      `md5(statements[1])` do ledger — e isso é ESPERADO. Não é drift; é
+--      consequência do desenho deste runbook, e não indica perda de conteúdo: a
+--      fidelidade foi conferida byte a byte no instante do apply.
+--
+--        md5(statements[1]) medido e conferido no checkpoint 43-07:
+--          b577295077ee19a1aec0f8982816c631
+--
+--      Confira contra ESSE valor, nunca contra o md5 do arquivo de hoje. Os dois
+--      valores (o do apply e o pin anterior, SUPERSEDIDO) estão registrados em
+--      `.planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-07-SUMMARY.md`
+--      §"Nota de md5: por que o pin de `…0001` e `…0003` mudou".
+--
+--      Para migrations futuras: manter a medição pós-apply no SUMMARY (ou num
+--      `COMMENT ON …` de uma migration seguinte), para o artefato aplicado
+--      permanecer imutável e o próprio check de md5 continuar utilizável.
+--
 -- `ADD COLUMN` puro, **sem `IF NOT EXISTS`**: coluna nova DEVE falhar alto se já
 -- existir. O idioma está medido em `docs/compliance/ddl-idiom-sweep.md` e a razão
 -- está escrita em `20260721000001:35-37` — um `ADD COLUMN … IF NOT EXISTS` sobre

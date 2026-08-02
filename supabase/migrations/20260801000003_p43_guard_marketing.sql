@@ -69,6 +69,33 @@
 --      marketing, e (c) a razão de o guard ser trigger e não `if` de Edge Function.
 --      Perdê-los é perder exatamente o que impede o próximo leitor de errar.
 --
+--      ⚠ NOTA PÓS-APPLY (2026-08-02 · code review WR-03) — LEIA ANTES DE COMPARAR,
+--      E ESPECIALMENTE AQUI, onde o parágrafo acima manda tratar divergência como
+--      sinal grave. O md5 do ledger corresponde ao estado DESTE ARQUIVO NO INSTANTE
+--      DO APPLY: o `>>> antes:` do bloco (3) preenchido, o `>>> depois:` AINDA
+--      VAZIO. A transcrição `>>> depois:` do CHECK vivo só pode ser medida DEPOIS do
+--      apply e foi escrita no mesmo commit (`6a1b13f`). Logo o md5 do arquivo
+--      COMMITADO já NÃO bate o `md5(statements[1])` do ledger — e isso é ESPERADO.
+--      Não é a perda de comentário que o parágrafo acima teme: a fidelidade foi
+--      conferida byte a byte no instante do apply, e os COMMENTs chegaram inteiros.
+--
+--        md5(statements[1]) medido e conferido no checkpoint 43-07:
+--          b73cd76c821931259e4776c33c29e70c
+--
+--      Confira contra ESSE valor, nunca contra o md5 do arquivo de hoje. Os dois
+--      valores (o do apply e o pin anterior, SUPERSEDIDO) estão registrados em
+--      `.planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-07-SUMMARY.md`
+--      §"Nota de md5: por que o pin de `…0001` e `…0003` mudou".
+--
+--      Consequência a jusante que o leitor precisa saber: `p43_previa_smoke.sql`
+--      define seu único caminho de divergência autorizada como "o pin falhou **e** o
+--      md5 do apply bateu". Para ESTE arquivo e para o `…0001`, esse discriminador
+--      só funciona contra o md5 do apply acima — não contra o md5 do arquivo.
+--
+--      Para migrations futuras: manter a medição pós-apply no SUMMARY (ou num
+--      `COMMENT ON …` de uma migration seguinte), para o artefato aplicado
+--      permanecer imutável e o próprio check de md5 continuar utilizável.
+--
 -- -----------------------------------------------------------------------------
 -- (3) ⚠ LEITURA OBRIGATÓRIA ANTES DO APPLY — o CHECK vivo de `evento`
 -- -----------------------------------------------------------------------------
