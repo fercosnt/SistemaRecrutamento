@@ -83,6 +83,9 @@ const AiCostsPage = lazyNamed(() => import('../features/admin/ai-costs/component
 const DecisaoFinalPage = lazyNamed(() => import('../features/decisao/components/DecisaoFinalPage'), 'DecisaoFinalPage')
 // Explicação ao candidato — EAGER (candidate-facing route, stays in first-paint graph).
 import { ExplicacaoCandidatoPage } from '../features/explicacao/components/ExplicacaoCandidatoPage'
+// Seus dados e autorizações (Phase 43 / CONSENT-04 + RETEN-03) — EAGER pelo mesmo
+// motivo: superfície de candidato, mobile-first, fora do grafo lazy de /rh e /admin.
+import { PrivacidadeCandidatoPage } from '../features/privacidade/components/PrivacidadeCandidatoPage'
 const BiasAuditPage = lazyNamed(() => import('../features/admin/bias-audit/components/BiasAuditPage'), 'BiasAuditPage')
 
 // 404 catch-all (Phase 17 / D-14) — Beauty Smile glass NotFound, role-aware back-link
@@ -187,6 +190,19 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <MeuPerfilCandidatoPage />
+      </RoleGuard>
+    ),
+  },
+  // Seus dados e autorizações (Phase 43 / Plano 43-08 — CONSENT-04 + RETEN-03).
+  // A primeira superfície em que um consentimento coletado por este sistema pode ser
+  // desfeito pela própria pessoa. É também a CASA que a Phase 44 (pedir cópia dos dados)
+  // e a Phase 45 (pedir exclusão) vão ocupar — daí a rota genérica `/privacidade` e não
+  // uma rota por direito.
+  {
+    path: '/candidato/privacidade',
+    element: (
+      <RoleGuard role="candidato">
+        <PrivacidadeCandidatoPage />
       </RoleGuard>
     ),
   },
@@ -514,6 +530,7 @@ export const devNavigationPages = [
   { path: '/auth/redefinir-senha', label: 'Redefinir Senha', icon: '🔐', category: 'Auth' },
   { path: '/candidato/dashboard', label: 'Dashboard Candidato', icon: '📊', category: 'Candidato' },
   { path: '/candidato/perfil', label: 'Meu Perfil', icon: '👤', category: 'Candidato' },
+  { path: '/candidato/privacidade', label: 'Seus dados e autorizações', icon: '🛡️', category: 'Candidato' },
   { path: '/candidato/candidatura/instrucoes', label: 'Instruções Formulário', icon: '📹', category: 'Candidato' },
   { path: '/candidato/candidatura/formulario/1', label: 'Formulário Candidatura', icon: '📋', category: 'Candidato' },
   { path: '/rh/dashboard', label: 'Dashboard RH', icon: '📊', category: 'RH' },
