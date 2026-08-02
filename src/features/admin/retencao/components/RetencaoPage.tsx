@@ -38,6 +38,7 @@ import { RHLayout } from '@/components/RHLayout'
 import { GlassCard } from '@/components/ui/glass'
 import { MatrizRetencaoTable, type LinhaMatriz } from './MatrizRetencaoTable'
 import { EditarJanelaDialog } from './EditarJanelaDialog'
+import { PreviaRetencaoBloco } from './PreviaRetencaoBloco'
 
 /** Copy verbatim da 43-UI-SPEC (§`/admin/retencao`, linhas 523-541). */
 export const RETENCAO_PAGINA_COPY = {
@@ -114,6 +115,12 @@ export function RetencaoPage() {
           </h2>
           <MatrizRetencaoTable onEditar={setLinhaEmFoco} />
         </GlassCard>
+
+        {/* A prévia fica ABAIXO da tabela — ela é consequência do que a tabela diz, e
+            colocá-la em cima inverteria a leitura. Fica também a um card inteiro de
+            distância de qualquer controle: a tela não deve sugerir que existe um gatilho,
+            porque não existe (regra 3 da §Prévia read-only). */}
+        <PreviaRetencaoBloco />
 
         <EditarJanelaDialog
           linha={linhaEmFoco}

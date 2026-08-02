@@ -173,6 +173,89 @@ export async function listarMatriz(): Promise<MatrizRetencaoRow[]> {
   return linhas.map(projetarLinhaMatriz)
 }
 
+/**
+ * Uma linha da prévia — a contagem por ESTADO.
+ *
+ * ⚠ `candidaturas_afetadas` e `candidatos_afetados` contam coisas diferentes, e a
+ * 43-UI-SPEC foi EMENDADA (plano 43-06) para que o rótulo diga qual é qual: a linha por
+ * estado exibe **candidaturas**, porque a matriz é chaveada por estado de candidatura e
+ * uma mesma pessoa pode ter várias. Exibir a contagem de candidaturas sob a palavra
+ * "candidatos" contaria uma coisa e nomearia outra.
+ */
+export interface PreviaRetencaoLinha {
+  etapa: EtapaFunilM2
+  candidaturas_afetadas: number
+  candidatos_afetados: number
+}
+
+/**
+ * O total da prévia, com o carimbo do SERVIDOR.
+ *
+ * ⚠ O total **não** é a soma das linhas, e isso é contrato, não arredondamento: ele conta
+ * candidatos cujas candidaturas vivas estão **todas** fora da janela. Um candidato com uma
+ * candidatura ainda ativa não seria afetado por nenhuma definição sã de retenção, e
+ * somá-lo inflaria a prévia. Logo `total <= soma das linhas` — o smoke do 43-06 assere a
+ * desigualdade.
+ *
+ * `calculada_em` vem de `now()` DENTRO da mesma função que computa o número. Um carimbo
+ * montado no cliente diria a hora em que a tela renderizou, não a hora do cálculo.
+ */
+export interface PreviaRetencaoTotal {
+  candidatos_afetados: number
+  calculada_em: string
+}
+
+/** O que a tela consome: as linhas, o total e o carimbo, lidos na mesma passagem. */
+export interface PreviaRetencao {
+  linhas: PreviaRetencaoLinha[]
+  total: number
+  calculadaEm: string | null
+}
+
+/**
+ * Lê a prévia read-only (RETEN-04) — as duas RPCs agregadas, e **nada além delas**.
+ *
+ * ⚠ ZERO IDENTIFICAÇÃO DE CANDIDATO, E A PROIBIÇÃO NÃO MORA AQUI. O predicado de baixo
+ * nível `candidaturas_alem_da_janela()` é o único objeto desta fase que devolve linhas
+ * identificáveis (`candidatura_id`, `candidato_id`), e ele está **revogado de PUBLIC,
+ * anon e authenticated sem `GRANT` de volta** (plano 43-06): não existe caminho PostgREST
+ * para ele. Uma tela capaz de enumerar as pessoas prestes a serem apagadas seria superfície
+ * de exfiltração construída sem necessidade — e a impossibilidade é estrutural, não uma
+ * escolha que este arquivo pudesse reverter.
+ *
+ * As duas leituras são disparadas em paralelo e vivem sob UMA chave de cache: linhas e
+ * total são o mesmo fato visto de dois ângulos, e deixá-los invalidarem separadamente
+ * permitiria exibir um total de antes ao lado de linhas de agora.
+ */
+export async function lerPrevia(): Promise<PreviaRetencao> {
+  const [porEstado, total] = await Promise.all([
+    supabase.rpc('previa_retencao'),
+    supabase.rpc('previa_retencao_total'),
+  ])
+
+  if (porEstado.error) throw classificarErroRetencao(porEstado.error)
+  if (total.error) throw classificarErroRetencao(total.error)
+
+  const linhas = ((porEstado.data ?? []) as unknown as PreviaRetencaoLinha[]).map(
+    (l) => ({
+      etapa: l.etapa,
+      candidaturas_afetadas: Number(l.candidaturas_afetadas ?? 0),
+      candidatos_afetados: Number(l.candidatos_afetados ?? 0),
+    }),
+  )
+
+  // `previa_retencao_total` é SETOF de uma linha só; ausência resolve para zero SEM
+  // carimbo — e a ausência de carimbo é o que a tela usa para não exibir uma data que
+  // ninguém computou.
+  const primeira = ((total.data ?? []) as unknown as PreviaRetencaoTotal[])[0]
+
+  return {
+    linhas,
+    total: Number(primeira?.candidatos_afetados ?? 0),
+    calculadaEm: primeira?.calculada_em ?? null,
+  }
+}
+
 /** As variáveis do único write-path desta feature. */
 export interface SalvarJanelaVars {
   etapa: EtapaFunilM2
@@ -207,5 +290,6 @@ export async function salvarJanela(vars: SalvarJanelaVars): Promise<void> {
 export const retencaoService = {
   classificarErroRetencao,
   listarMatriz,
+  lerPrevia,
   salvarJanela,
 }

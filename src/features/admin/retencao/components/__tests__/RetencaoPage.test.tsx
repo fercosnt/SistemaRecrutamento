@@ -40,6 +40,12 @@ vi.mock('../../hooks/useMatrizRetencao', () => ({
   },
 }))
 
+const usePreviaMock = vi.fn()
+
+vi.mock('../../hooks/usePreviaRetencao', () => ({
+  usePreviaRetencao: (...args: unknown[]) => usePreviaMock(...args),
+}))
+
 // A shell do RH monta sidebar + topbar + store de auth; nada disso é o objeto deste teste.
 vi.mock('@/components/RHLayout', () => ({
   RHLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -93,6 +99,16 @@ function render(ui: React.ReactElement) {
 beforeEach(() => {
   useMatrizMock.mockReset()
   useMatrizMock.mockReturnValue(estado())
+  usePreviaMock.mockReset()
+  // O estado ZERO é o que a tela mostra hoje em PROD (medido no 43-07): a matriz está
+  // semeada em 24 meses e o sistema é mais novo que isso.
+  usePreviaMock.mockReturnValue({
+    data: { linhas: [], total: 0, calculadaEm: '2026-08-02T14:35:00' },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    isRefetching: false,
+  })
 })
 
 describe('RetencaoPage — cabeçalho e os dois banners sempre visíveis', () => {
@@ -157,6 +173,23 @@ describe('RetencaoPage — cabeçalho e os dois banners sempre visíveis', () =>
     expect(
       seed.compareDocumentPosition(tabela as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+  })
+
+  it('a prévia vem ABAIXO da tabela — inverter a ordem inverteria a leitura', () => {
+    const { container } = render(<RetencaoPage />)
+    const tabela = container.querySelector('table') as Node
+    const previa = screen.getByText('Prévia — quantos seriam afetados')
+    expect(
+      tabela.compareDocumentPosition(previa) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('a prévia mostra ZERO hoje, e esse é o número CERTO — não um vazio nem um erro', () => {
+    render(<RetencaoPage />)
+    expect(
+      screen.getByText('Nenhum candidato seria afetado por esta janela hoje.'),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Prévia calculada em/)).toBeInTheDocument()
   })
 })
 
