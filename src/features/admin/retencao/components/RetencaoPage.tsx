@@ -32,10 +32,12 @@
  * @see src/features/admin/bias-audit/components/BiasAuditPage.tsx (o molde ESTRUTURAL — copiar a estrutura, não o conteúdo)
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md (§`/admin/retencao`)
  */
+import { useState } from 'react'
 import { Info } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { GlassCard } from '@/components/ui/glass'
-import { MatrizRetencaoTable } from './MatrizRetencaoTable'
+import { MatrizRetencaoTable, type LinhaMatriz } from './MatrizRetencaoTable'
+import { EditarJanelaDialog } from './EditarJanelaDialog'
 
 /** Copy verbatim da 43-UI-SPEC (§`/admin/retencao`, linhas 523-541). */
 export const RETENCAO_PAGINA_COPY = {
@@ -58,6 +60,12 @@ export const RETENCAO_PAGINA_COPY = {
 } as const
 
 export function RetencaoPage() {
+  // O diálogo vive AQUI, e não dentro da tabela: a tabela continua puramente
+  // apresentacional, e a prop `onEditar` — que existe desde a Task 1 — deixa de ser
+  // `undefined` no mesmo commit em que o diálogo passa a existir. Nunca houve um botão
+  // acionável sem destino.
+  const [linhaEmFoco, setLinhaEmFoco] = useState<LinhaMatriz | null>(null)
+
   return (
     <RHLayout>
       <div className="space-y-8">
@@ -104,8 +112,16 @@ export function RetencaoPage() {
           <h2 className="text-xl font-semibold text-white">
             {RETENCAO_PAGINA_COPY.tituloTabela}
           </h2>
-          <MatrizRetencaoTable />
+          <MatrizRetencaoTable onEditar={setLinhaEmFoco} />
         </GlassCard>
+
+        <EditarJanelaDialog
+          linha={linhaEmFoco}
+          open={linhaEmFoco !== null}
+          onOpenChange={(aberto) => {
+            if (!aberto) setLinhaEmFoco(null)
+          }}
+        />
       </div>
     </RHLayout>
   )

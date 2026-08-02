@@ -202,14 +202,26 @@ describe('EditarJanelaDialog — a confirmação aninhada', () => {
     expect(salvarMock.mock.calls[0][0]).toEqual({ etapa: 'triagem', meses: 12 })
   })
 
-  it('os DOIS recuos existem, têm rótulos distintos e nenhum se chama "Cancelar"', () => {
+  it('os DOIS recuos existem no MESMO fluxo, com rótulos distintos, e nenhum é "Cancelar"', () => {
     abrir()
     fireEvent.change(campo(), { target: { value: '12' } })
+
+    // Recuo LARGO — presente no rodapé do formulário.
+    expect(screen.getByRole('button', { name: 'Fechar sem salvar' })).toBeInTheDocument()
+
     fireEvent.click(ctaSalvar())
 
-    expect(screen.getByRole('button', { name: 'Fechar sem salvar' })).toBeInTheDocument()
+    // Recuo CURTO — presente na confirmação. Ele NÃO substitui o outro: o Radix apenas
+    // retira o diálogo de baixo da árvore acessível enquanto a confirmação está aberta,
+    // e o botão continua no DOM (asserção logo abaixo).
     expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Cancelar$/i })).not.toBeInTheDocument()
+    const rotulos = Array.from(document.body.querySelectorAll('button')).map(
+      (b) => b.textContent ?? '',
+    )
+    expect(rotulos).toContain('Fechar sem salvar')
+    expect(rotulos).toContain('Voltar')
+    // Rótulo genérico é proibido: os dois recuos precisam ser distinguíveis um do outro.
+    expect(rotulos.some((r) => /^cancelar$/i.test(r.trim()))).toBe(false)
   })
 
   it('"Voltar" fecha SÓ a confirmação e devolve ao formulário com o valor digitado', () => {

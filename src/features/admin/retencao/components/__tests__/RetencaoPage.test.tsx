@@ -25,7 +25,8 @@
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render as renderRTL, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
 
 const useMatrizMock = vi.fn()
@@ -77,6 +78,16 @@ function estado(over: Record<string, unknown> = {}) {
     isRefetching: false,
     ...over,
   }
+}
+
+/**
+ * A página monta o `EditarJanelaDialog`, cuja mutação de escrita chama `useQueryClient`
+ * ANTES do `return null` de diálogo fechado (regra dos hooks). O provider é infraestrutura
+ * do teste — nenhuma query é disparada aqui, porque o hook da matriz está mockado.
+ */
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderRTL(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 beforeEach(() => {
