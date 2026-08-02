@@ -221,9 +221,16 @@ export function MatrizRetencaoTable({ onEditar }: MatrizRetencaoTableProps = {})
                       ? MATRIZ_COPY.janelaNaoDefinida
                       : MATRIZ_COPY.janelaMeses(linha.janelaMeses)}
                   </TableCell>
+                  {/*
+                    O `title` tem de restituir o que o `truncate` cortou — logo é o MESMO
+                    texto da célula (code review IN-03). `alteradoPorNome` sozinho
+                    divulgava outra string ("Ana Souza" onde a célula diz "Alterado por
+                    Ana Souza") e sumia por completo nas linhas de seed, cujo rótulo é o
+                    mais longo e o mais provável de ser clipado em viewport estreita.
+                  */}
                   <TableCell
                     className={cn(CELULA_TRUNCADA, 'text-white/80')}
-                    title={linha.alteradoPorNome ?? undefined}
+                    title={rotularOrigem(linha)}
                   >
                     {rotularOrigem(linha)}
                   </TableCell>

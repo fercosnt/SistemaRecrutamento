@@ -162,9 +162,16 @@ function projetarLinhaMatriz(linha: Record<string, unknown>): MatrizRetencaoRow 
 /**
  * Lê a matriz de retenção pela RPC `listar_matriz_retencao` (RETEN-01) — **e só ela**.
  *
- * A ordem é do servidor (ordem do enum `etapa_processo`); a tela **não** reordena. Um erro
- * sai classificado e é **lançado**: o hook nunca recebe o objeto cru do transporte, e a
- * tela nunca ecoa a mensagem do banco.
+ * ⚠ A ORDEM DE CHEGADA NÃO É CONTRATO, e esta função não a promete (code review IN-01).
+ * A RPC devolve na ordem do enum `etapa_processo`, mas quem manda na tela é
+ * `mesclarComEnum`, que itera `ETAPA_M2_OPTIONS` e RECONSTRÓI a lista — a ordem do
+ * servidor é descartada. As duas coincidem hoje, e é justamente por coincidirem que a
+ * versão anterior deste docblock ("a tela **não** reordena") podia sobreviver anos
+ * mentindo sem nada quebrar. `ETAPA_M2_OPTIONS` é a autoridade única de ordenação, como
+ * é de rótulo.
+ *
+ * Um erro sai classificado e é **lançado**: o hook nunca recebe o objeto cru do
+ * transporte, e a tela nunca ecoa a mensagem do banco.
  */
 export async function listarMatriz(): Promise<MatrizRetencaoRow[]> {
   const { data, error } = await supabase.rpc('listar_matriz_retencao')
