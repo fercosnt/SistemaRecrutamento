@@ -134,8 +134,8 @@
 --   SELECT policyname, cmd FROM pg_policies
 --    WHERE schemaname='public' AND tablename='autorizacoes' ORDER BY policyname;
 --
--- >>> antes:  linhas=            policies=
--- >>> depois: linhas=            policies=
+-- >>> antes:  linhas=17           policies=3   (medido 2026-08-02, checkpoint 43-07)
+-- >>> depois: linhas=17           policies=3   (medido 2026-08-02, pos-apply)
 --
 -- ESTADO ESPERADO (medido pelo operador em 2026-08-01, ANTES do planejamento):
 --   linhas   = 17  (de 21 candidatos vivos — 4 sem linha nenhuma, BD-4)

@@ -86,8 +86,14 @@
 --                              'revisao_respondida'::text])))
 --
 -- >>> TRANSCRIÇÃO DO VIVO (a preencher no checkpoint 43-07, ANTES do apply):
--- >>> antes:
--- >>> depois:
+-- >>> antes: (medido 2026-08-02, checkpoint 43-07 — idêntico ao ESTADO ESPERADO acima)
+-- >>>   CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text,
+-- >>>                              'decisao'::text, 'revisao_solicitada'::text,
+-- >>>                              'revisao_respondida'::text])))
+-- >>> depois: (medido 2026-08-02, pos-apply — os 6 vivos preservados + divulgacao_vagas)
+-- >>>   CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text,
+-- >>>                              'decisao'::text, 'revisao_solicitada'::text,
+-- >>>                              'revisao_respondida'::text, 'divulgacao_vagas'::text])))
 --
 -- -----------------------------------------------------------------------------
 -- (4) ESCOPO HONESTO — o que este arquivo prova e o que ele NÃO prova
