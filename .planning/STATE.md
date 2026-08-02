@@ -4,16 +4,16 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
-status: executing
-stopped_at: "Completado 43-08-PLAN.md — /candidato/privacidade escrita e testada; 8/9 planos. Proximo: 43-09 (/admin/retencao)"
-last_updated: "2026-08-02T17:49:29.770Z"
+status: verifying
+stopped_at: "Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43"
+last_updated: "2026-08-02T18:13:28.484Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
   percent: 17
 ---
 
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
 Plan: 9 of 9
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-08-01 — Phase 43 execution started
 
 ## Roadmap (M8 — Phases 42–47)
@@ -97,6 +97,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P05 | ~25min | 3 tasks | 3 files |
 | Phase 43 P06 | ~25min | 3 tasks | 3 files |
 | Phase 43 P08 | ~40min | 3 tasks | 13 files |
+| Phase 43 P09 | ~25min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -212,6 +213,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 43-08: o Prazo previsto da guarda do curriculo sai da autorizacao + 24 meses (teto consentido), NAO da matriz config_retencao_etapa — dependencia da Phase 46 registrada no codigo
 - [Phase ?]: 43-08: a guarda do curriculo nao ganha switch — nao existe motor de exclusao (Phase 45); a revogabilidade do Art. 8 §5 e atendida pelo Encarregado
 - [Phase ?]: 43-08: candidato sem linha de autorizacoes (4 dos 21) nao recebe switch fantasma nem backfill — estado real fail-closed + canal humano nomeado (BD-4)
+- [Phase ?]: 43-09: a tabela da matriz MESCLA a resposta do servidor com o enum fechado de 8 estados: etapa sem politica vira linha visivel '— (nao definida)', nunca omissao silenciosa — e omissao e exatamente o que a Phase 46 nao pode herdar
+- [Phase ?]: 43-09: o seed mostra TRAVESSAO em Ultima alteracao: atualizado_em vem preenchido pelo trigger em toda linha semeada, e exibi-lo seria uma data verdadeira contando historia falsa
+- [Phase ?]: 43-09: o NO-OP desabilita o CTA mas nao vira erro de validacao: nao ha o que corrigir, so nada a salvar. O servidor recusa o mesmo caso com 22023 — a regra vive nos dois lados
+- [Phase ?]: 43-09: a assercao negativa E8 recorta o estado de ERRO explicitamente: ele carrega o 'Tentar novamente' que a UI-SPEC especifica, e sem o recorte o teste reprovaria a copy que a spec manda escrever
 
 ### Pending Todos
 
@@ -310,8 +315,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-02T17:49:13.263Z
-Stopped at: Completado 43-08-PLAN.md — /candidato/privacidade escrita e testada; 8/9 planos. Proximo: 43-09 (/admin/retencao)
+Last session: 2026-08-02T18:13:28.475Z
+Stopped at: Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43
 Resume file: None
 
 ## Operator Next Steps

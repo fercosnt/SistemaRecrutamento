@@ -69,10 +69,10 @@
 
 ### Política de Retenção (RETEN) — configuração, zero ação destrutiva
 
-- [ ] **RETEN-01**: Janela de retenção vive em tabela de configuração por estado da candidatura, alterável sem deploy
-- [ ] **RETEN-02**: Seed inicial de 2 anos (BD-1), documentado como teto consentido e não como recomendação técnica
+- [x] **RETEN-01**: Janela de retenção vive em tabela de configuração por estado da candidatura, alterável sem deploy
+- [x] **RETEN-02**: Seed inicial de 2 anos (BD-1), documentado como teto consentido e não como recomendação técnica
 - [x] **RETEN-03**: `autorizacao_retencao_curriculo` é consumido como base legal da retenção do currículo — primeiro consumidor real de um consentimento até hoje órfão
-- [ ] **RETEN-04**: View read-only de prévia ("estes N candidatos seriam purgados") como artefato de revisão próprio, sem qualquer ação destrutiva
+- [x] **RETEN-04**: View read-only de prévia ("estes N candidatos seriam purgados") como artefato de revisão próprio, sem qualquer ação destrutiva
 - [ ] **RETEN-05**: Regra de retenção de `notificacoes_enviadas` definida e aplicada — dívida explicitamente diferida pela P37 a este milestone
 - [x] **RETEN-06**: Avaliado o reuso do padrão `retain_until` já vivo em `ai_call_logs` antes de projetar estrutura nova
 
@@ -177,10 +177,10 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSENT-04 | Phase 43 | Complete |
 | CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-06 | Phase 43 | Pending |
-| RETEN-01 | Phase 43 | In Progress (estrutura escrita em 43-04; apply + smoke em 43-07) |
-| RETEN-02 | Phase 43 | In Progress (RPC auditada + seed escritos em 43-04; apply + smoke em 43-07) |
+| RETEN-01 | Phase 43 | Complete (tabela + RPCs em 43-04, aplicadas em PROD no 43-07; `/admin/retencao` em 43-09) |
+| RETEN-02 | Phase 43 | Complete (seed 8/8 no teto consentido em 43-04; alteração PELA TELA, auditada, em 43-09) |
 | RETEN-03 | Phase 43 | Complete |
-| RETEN-04 | Phase 43 | Pending |
+| RETEN-04 | Phase 43 | Complete |
 | RETEN-05 | Phase 46 | Pending |
 | RETEN-06 | Phase 43 | Complete |
 | EXPORT-01 | Phase 44 | Pending |
