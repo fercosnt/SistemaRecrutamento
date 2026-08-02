@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: Phase 43 wave 2 fechada (5/9 planos) — nada aplicado em PROD; proximo e 43-06, depois o checkpoint 43-07
-last_updated: "2026-08-01T22:38:25.891Z"
+stopped_at: "Completado 43-06-PLAN.md — wave 3 fechada, 6/9 planos; NADA em PROD. Proximo: checkpoint 43-07 (apply das 4 migrations + EF)"
+last_updated: "2026-08-02T16:51:41.384Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 43 execution started
 
@@ -95,6 +95,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P03 | ~35min | 3 tasks | 9 files |
 | Phase 43 P04 | ~10min | 3 tasks | 2 files |
 | Phase 43 P05 | ~25min | 3 tasks | 3 files |
+| Phase 43 P06 | ~25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -202,6 +203,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 43 / 43-05]: D-43-05-01: o guard de marketing vive no BANCO (BEFORE INSERT no ledger), não num if da Edge Function — service_role bypassa RLS mas NÃO bypassa trigger, e um if na EF é contornável pelo próximo emissor (a P39 teve 3+ emissores simultâneos)
 - [Phase 43 / 43-05]: D-43-05-02: fail-closed inclui o 'não sei' — evento sem linha em classe_evento_notificacao é RECUSADO, porque um evento novo não classificado é o caminho por onde um envio de marketing entraria sem ser visto
 - [Phase 43 / 43-05]: D-43-05-03: divulgacao_vagas é vocabulário RESERVADO com guard vivo, não suporte a marketing — zero emissores, e a EF o rejeitaria; precedente exato verificado em revisao_solicitada (no CHECK, fora de EVENTO_MAP)
+- [Phase ?]: Predicado de retencao UNICO nasce na Phase 43 (nao na 46): a previa read-only e o DELETE futuro consomem candidaturas_alem_da_janela(), com gate de md5 + assercao de chamada contra a criacao de uma segunda copia
+- [Phase ?]: Data-ancora com COALESCE de 4 degraus terminando em data_candidatura (NOT NULL): o modo de falha em que a ladeira rende NULL e a candidatura sai da contagem em silencio fica INEXPRIMIVEL
+- [Phase ?]: candidaturas_alem_da_janela() REVOGADA de todo papel de cliente e SEM GRANT de volta: a proibicao de a previa enumerar PII e estrutural, nao confiada a camada de apresentacao
+- [Phase ?]: BD-1 estendido: autorizacao_retencao_curriculo NAO entra no predicado desta fase — encurtar janela e decisao de POLITICA da Phase 46, com parecer juridico
+- [Phase ?]: 43-UI-SPEC emendada (43-06): linha por estado conta CANDIDATURAS, total conta CANDIDATOS com todas as candidaturas fora da janela — o rotulo aprovado contaria uma coisa e nomearia outra
 
 ### Pending Todos
 
@@ -300,9 +306,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-01T22:38:25.879Z
-Stopped at: Phase 43 wave 2 fechada (5/9 planos) — nada aplicado em PROD; proximo e 43-06, depois o checkpoint 43-07
-Resume file: .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/.continue-here.md
+Last session: 2026-08-02T16:51:29.619Z
+Stopped at: Completado 43-06-PLAN.md — wave 3 fechada, 6/9 planos; NADA em PROD. Proximo: checkpoint 43-07 (apply das 4 migrations + EF)
+Resume file: None
 
 ## Operator Next Steps
 

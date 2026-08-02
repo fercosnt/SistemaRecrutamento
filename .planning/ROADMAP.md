@@ -134,7 +134,7 @@ Plans:
 - [x] 43-03-PLAN.md — `AutorizacoesStep` reescrito e os 6 sítios de default do cliente: nada nasce marcado, nada pede análise de vídeo
 - [x] 43-04-PLAN.md — Matriz de retenção por estado (seed 24 meses = teto consentido) + RPC de escrita auditada na mesma transação (migration `20260801000002`)
 - [x] 43-05-PLAN.md — Guard de marketing no `BEFORE INSERT` do ledger de notificações + escopo honesto do SC#2 e declaração BD-5 (migration `20260801000003`)
-- [ ] 43-06-PLAN.md — Predicado único de retenção + prévia agregada com gate de não-divergência por md5 (migration `20260801000004`)
+- [x] 43-06-PLAN.md — Predicado único de retenção + prévia agregada com gate de não-divergência por md5 (migration `20260801000004`)
 - [ ] 43-07-PLAN.md — **CHECKPOINT do orquestrador**: apply das 4 migrations na ordem + reparo de ledger + md5 + 4 smokes + deploy da EF (depois das colunas) + `db:types` + CONSENT-06 no Resend
 - [ ] 43-08-PLAN.md — `/candidato/privacidade`: revogação own-row sem fricção + guarda do currículo como base legal citada
 - [ ] 43-09-PLAN.md — `/admin/retencao`: matriz editável sem deploy + diálogo com teto server-enforced + prévia read-only
@@ -298,7 +298,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 31–35 (M6) | v6.0 | 20/20 | Complete | 2026-07-17 |
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
-| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 5/9 | In Progress|  |
+| 43. Consentimentos Honestos & Política de Retenção | v8.0 | 6/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 0/? | Not started | - |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
