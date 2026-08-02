@@ -639,12 +639,22 @@ DECLARE
 BEGIN
   EXECUTE 'SELECT count(*) FROM net._http_response' INTO v_agora;
 
-  IF v_agora <> v_antes THEN
-    RAISE EXCEPTION 'P43G FAIL (i): net._http_response saiu de % para % linhas — ALGO FOI DESPACHADO durante o smoke. NOTIFICACOES_MODO é producao em PROD: verificar imediatamente se um e-mail REAL saiu', v_antes, v_agora;
+  -- ⚠ A DIREÇÃO IMPORTA, e só uma delas é notícia (code review WR-05). O que esta
+  -- asserção existe para detectar é um ACRÉSCIMO: requisição nova ⇒ despacho. Uma
+  -- QUEDA é o worker de TTL do próprio pg_net podando respostas velhas — evento
+  -- rotineiro, alheio ao smoke. Um `<>` trataria a poda como despacho e emitiria,
+  -- em voz de urgência, a acusação FALSA de que um e-mail real pode ter saído.
+  -- Um alarme que dispara sozinho é um alarme que alguém desliga.
+  IF v_agora > v_antes THEN
+    RAISE EXCEPTION 'P43G FAIL (i): net._http_response SUBIU de % para % linhas — ALGO FOI DESPACHADO durante o smoke. NOTIFICACOES_MODO é producao em PROD: verificar imediatamente se um e-mail REAL saiu', v_antes, v_agora;
   END IF;
 
   PERFORM set_config('smoke43g.pass', (coalesce(nullif(current_setting('smoke43g.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (i): ZERO requisição HTTP nova (net._http_response estável em % linhas) — nada saiu para o provedor', v_agora;
+  IF v_agora < v_antes THEN
+    RAISE NOTICE 'PASS (i): net._http_response CAIU de % para % linhas (poda de TTL do pg_net) — zero requisição nova, que é o que esta asserção afere', v_antes, v_agora;
+  ELSE
+    RAISE NOTICE 'PASS (i): ZERO requisição HTTP nova (net._http_response estável em % linhas) — nada saiu para o provedor', v_agora;
+  END IF;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -672,9 +682,14 @@ BEGIN
     RAISE EXCEPTION 'P43G FAIL (y1): % linha(s) do smoke sobreviveram às subtransações (removidas agora) — o idioma de rollback não está funcionando como escrito', v_resto;
   END IF;
 
+  -- A checagem PRECISA é a de cima, por `dedupe_key`/`template`: ela isola as linhas
+  -- DO SMOKE e é imune a escrita concorrente. A contagem de tabela inteira abaixo é
+  -- grosseira — em PROD um envio transacional legítimo pode aterrissar no meio da
+  -- execução e ACRESCENTAR uma linha que não é do smoke. Por isso ela só afere a
+  -- direção que nenhuma escrita legítima produz: PERDA (code review WR-05).
   SELECT count(*) INTO v_agora FROM public.notificacoes_enviadas;
-  IF v_antes >= 0 AND v_agora <> v_antes THEN
-    RAISE EXCEPTION 'P43G FAIL (y1): o ledger saiu de % para % linhas — o smoke deixou efeito colateral', v_antes, v_agora;
+  IF v_antes >= 0 AND v_agora < v_antes THEN
+    RAISE EXCEPTION 'P43G FAIL (y1): o ledger CAIU de % para % linhas — o smoke APAGOU registro de envio, numa fase declaradamente zero-destrutiva', v_antes, v_agora;
   END IF;
 
   RAISE NOTICE 'TEARDOWN (y1) ok: zero linha do smoke remanescente; ledger de volta a % linhas', v_agora;
@@ -701,9 +716,15 @@ DECLARE
   v_true   int;
   v_classe int;
 BEGIN
+  -- Mesma razão de (y1) (code review WR-05): um cadastro REAL durante a execução
+  -- acrescenta uma linha de `autorizacoes` que não é do smoke, e acusá-lo de
+  -- "prova fabricada" seria acusar o produto de funcionar. O acréscimo fabricado
+  -- que de fato importa está coberto com PRECISÃO pela asserção seguinte, que olha
+  -- o candidato-fixture por `candidato_id`. Aqui fica só a PERDA — a direção que
+  -- nenhum uso legítimo produz nesta fase, porque nada apaga.
   SELECT count(*) INTO v_agora FROM public.autorizacoes;
-  IF v_antes >= 0 AND v_agora <> v_antes THEN
-    RAISE EXCEPTION 'P43G FAIL (y2): public.autorizacoes saiu de % para % linhas — o smoke ESCREVEU OU APAGOU prova de consentimento de forma persistente. Numa fase zero-destrutiva, isto é a falha mais grave possível', v_antes, v_agora;
+  IF v_antes >= 0 AND v_agora < v_antes THEN
+    RAISE EXCEPTION 'P43G FAIL (y2): public.autorizacoes CAIU de % para % linhas — o smoke APAGOU prova de consentimento de forma persistente. Numa fase zero-destrutiva, isto é a falha mais grave possível', v_antes, v_agora;
   END IF;
 
   SELECT count(*) INTO v_true
