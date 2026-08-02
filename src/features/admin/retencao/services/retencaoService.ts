@@ -173,8 +173,39 @@ export async function listarMatriz(): Promise<MatrizRetencaoRow[]> {
   return linhas.map(projetarLinhaMatriz)
 }
 
+/** As variáveis do único write-path desta feature. */
+export interface SalvarJanelaVars {
+  etapa: EtapaFunilM2
+  meses: number
+}
+
+/**
+ * Salva a janela de retenção de um estado pela RPC `salvar_janela_retencao` (RETEN-02).
+ *
+ * ⚠ NENHUMA DECISÃO DE AUTORIZAÇÃO NEM DE TETO MORA AQUI, E ISSO É DELIBERADO. Esta
+ * função não sabe quem é o usuário, não compara papéis e não confere o teto. Ela chama a
+ * RPC **mesmo quando o servidor vai recusar** — e é justamente por isso que a recusa é
+ * confiável: o que barra a escrita é o `SECURITY DEFINER` do servidor
+ * (`config_retencao_etapa` **não tem policy de UPDATE**, logo não existe atalho por
+ * PostgREST), não uma condição de cliente.
+ *
+ * A escrita é **aditiva e auditável**: a RPC grava o novo valor e a linha correspondente
+ * em `logs_auditoria` na MESMA transação. Nenhum dado de candidato é lido, escrito ou
+ * apagado por este caminho.
+ *
+ * Um erro sai classificado por `classificarErroRetencao` e é **lançado**.
+ */
+export async function salvarJanela(vars: SalvarJanelaVars): Promise<void> {
+  const { error } = await supabase.rpc('salvar_janela_retencao', {
+    p_etapa: vars.etapa,
+    p_meses: vars.meses,
+  })
+  if (error) throw classificarErroRetencao(error)
+}
+
 /** Export namespaced (convenção `camelCaseService`). */
 export const retencaoService = {
   classificarErroRetencao,
   listarMatriz,
+  salvarJanela,
 }
