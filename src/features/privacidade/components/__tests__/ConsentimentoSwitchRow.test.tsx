@@ -182,6 +182,27 @@ describe('ConsentimentoSwitchRow — o estado exibido é o do servidor', () => {
     expect(screen.queryByText(COPY.desativadoEm(DATA_ANTES))).not.toBeInTheDocument()
   })
 
+  it('(b2) `true` SEM data legível → "Ativo", nunca a repetição do rótulo', async () => {
+    // O ramo que faltava (code review WR-08). Uma linha migrada ou parcialmente escrita
+    // carrega `updated_at` nulo/inparseável; `formatarDataPtBr` devolve '' e o recuo
+    // entrava em cena. Ele devolvia o RÓTULO, e a linha de estado — que a regra 4 do
+    // componente declara ser a afirmação colorblind-safe do estado — virava eco literal
+    // do rótulo logo acima, sem dizer ligado nem desligado.
+    linhaNoServidor = linhaBase({
+      autorizacao_marketing_vagas: true,
+      updated_at: 'nao-e-uma-data',
+    })
+    montar()
+
+    expect(await screen.findByRole('switch')).toBeChecked()
+    expect(screen.getByText(COPY.ativo)).toBeInTheDocument()
+
+    // A asserção que carrega o caso: o rótulo aparece UMA vez (o `<Label>`), e a linha
+    // de estado não é uma segunda cópia dele.
+    expect(screen.getAllByText(COPY.rotulo)).toHaveLength(1)
+    expect(COPY.ativo).not.toBe(COPY.rotulo)
+  })
+
   it('(c) EM VOO: o switch fica desabilitado e continua mostrando o estado do SERVIDOR', async () => {
     // Uma promessa que não resolve — a janela em que a UI otimista se denunciaria.
     mocks.revogarMarketing.mockImplementation(() => new Promise(() => {}))

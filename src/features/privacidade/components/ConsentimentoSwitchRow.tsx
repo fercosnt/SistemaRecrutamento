@@ -47,6 +47,15 @@ export const COPY_CONSENTIMENTO_MARKETING = {
   ativoDesde: (data: string) => `Ativo desde ${data}`,
   desativadoEm: (data: string) => `Desativado em ${data}`,
   desativado: 'Desativado',
+  /**
+   * O par SEM DATA de `desativado`. Autorada, porque a 43-UI-SPEC não previu o caso:
+   * ela assume que todo `true` tem data. Uma linha com `updated_at` nulo ou
+   * inparseável — o que uma linha migrada ou parcialmente escrita carrega — cai aqui.
+   * Antes desta constante, o `true` sem data caía no `rotulo`, e a linha de estado
+   * virava repetição literal do rótulo logo acima, sem dizer ligado nem desligado
+   * (code review WR-08). O estado tem de ser DITO, é a regra 4.
+   */
+  ativo: 'Ativo',
   emVoo: 'Salvando…',
   erroTitulo: 'Não foi possível salvar esta mudança.',
   erroCorpo: 'Sua autorização continua como estava. Tente novamente.',
@@ -82,9 +91,11 @@ function rotuloDeEstado(
 
   const data = formatarDataPtBr(confirmadoEm)
   if (valor === true) {
+    // O recuo SEM data é `ativo`, nunca o rótulo: a regra 4 exige que esta linha DIGA o
+    // estado, e repetir o rótulo não diz ligado nem desligado.
     return data
       ? COPY_CONSENTIMENTO_MARKETING.ativoDesde(data)
-      : COPY_CONSENTIMENTO_MARKETING.rotulo
+      : COPY_CONSENTIMENTO_MARKETING.ativo
   }
   if (valor === false && data) {
     return COPY_CONSENTIMENTO_MARKETING.desativadoEm(data)
