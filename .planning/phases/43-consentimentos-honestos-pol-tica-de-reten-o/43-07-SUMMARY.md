@@ -3,7 +3,7 @@ phase: 43
 plan: 07
 subsystem: prod-checkpoint
 tags: [checkpoint, prod, migration, ledger, md5, edge-function, deploy, db-types, zero-destrutivo, consent-06]
-status: complete-with-one-item-open
+status: complete
 requires:
   - 43-01 · 43-03 · 43-04 · 43-05 · 43-06 (os quatro arquivos de migration + os quatro smokes, escritos e RED)
   - MCP Supabase (apply_migration / execute_sql / deploy_edge_function) — subagentes GSD nao os recebem
@@ -306,22 +306,58 @@ Commit `6a1b13f`, hook ativo, zero `--no-verify`.
 
 ---
 
-## Task 3 — CONSENT-06: ⏳ ABERTO
+## Task 3 — CONSENT-06: ✅ FECHADO em 2026-08-02
 
-**Nao fechado.** O reporter `scripts/check-resend-dominio.mjs` exige
-`RESEND_API_KEY`, que nao existe no ambiente local (a chave vive no Vault do
-Supabase / no dashboard do Resend). O operador optou por rodar o reporter ele
-proprio; a saida ainda nao chegou.
+Rodado pelo OPERADOR (a chave nao existe no ambiente local — ela vive no Vault do
+Supabase / dashboard do Resend). Saida datada, verbatim:
 
-Consequencia honesta enquanto isso: **o SC#3 da fase NAO esta fechado**, e a metade
-"tracking desligado" do UAT-36-1 — `partial` desde o encerramento do v7.0 —
-continua `partial`. "Nao reportado pela API" nao contaria como passe de qualquer
-forma; o criterio exige confirmacao POSITIVA.
-
-Retomar com:
 ```
-RESEND_API_KEY=<chave> npm run check:resend-dominio
+check-resend-dominio — reporting on rh.beautysmile.com.br
+
+DNS records emitted by Resend:
+  mark  record   type   name                     status
+  ✓     DKIM     TXT    resend._domainkey.rh     verified
+  ✓     SPF      MX     send.rh                  verified
+  ✓     SPF      TXT    send.rh                  verified
+
+✓ domain status: verified
+✓ region: sa-east-1
+✓ open_tracking: false
+✓ click_tracking: false
+✓ read-only run (pass --verify to trigger verification; it changes provider state).
+
+✓ check-resend-dominio PASSED — rh.beautysmile.com.br is verified, in sa-east-1, tracking off.
 ```
+
+**Confirmacao POSITIVA dos dois flags, vinda da API do provedor** — nao "nao
+reportado", que o plano ja descartava como nao-passe. O dominio verificado e
+nomeado: `rh.beautysmile.com.br`. Run read-only; o `--verify`, unico caminho
+state-changing, NAO foi usado.
+
+**SC#3 fechado.**
+
+### Ganho colateral: a metade "tracking desligado" do UAT-36-1
+
+O UAT-36-1 esta `partial` desde o encerramento do v7.0, e uma de suas metades era
+exatamente esta verificacao. Ela pode ser fechada. O que resta do UAT-36-1 e a
+outra metade — teste de INBOX real em Gmail/Outlook com cabecalhos PASS e Reply-To
+— que nao e observavel por API e segue pendente.
+
+### Escopo: o `cost-alerter`
+
+O `cost-alerter` tambem envia por Resend, com a chave em env secret da EF em vez do
+Vault (divergencia rastreada em `36-resend-chave-divergencia`). E e-mail interno de
+custo, fora do CONSENT-06 — **mas o tracking e configuracao de DOMINIO**, entao se
+o remetente dele for o mesmo `rh.beautysmile.com.br`, esta verificacao o cobre de
+graca. Nao foi medido qual e o caso.
+
+### ⚠ Nota de credencial (2026-08-02)
+
+A chave foi passada inline na linha de comando durante a sessao, o que a gravou no
+transcript em texto claro. Recomendada ROTACAO ao operador no mesmo momento. Nada
+no sistema depende daquela chave especifica: a EF a le de secret, nunca do repo, e
+o reporter e opt-in. Registrado aqui porque uma exposicao de credencial que nao
+fica escrita e uma exposicao que ninguem lembra de fechar.
 
 ---
 
@@ -347,4 +383,4 @@ opcional.
 - [x] As 5 asseracoes negativas confirmadas
 - [x] Nenhuma linha de candidato criada/alterada/apagada alem da fixture, criada e removida
 - [x] `database.types.ts` regenerado apos o ultimo apply, 113 adicoes / 0 delecoes
-- [ ] **CONSENT-06 — tracking do Resend: ABERTO**, aguardando o reporter do operador
+- [x] **CONSENT-06 — tracking do Resend: FECHADO** (2026-08-02, confirmacao positiva pela API)
