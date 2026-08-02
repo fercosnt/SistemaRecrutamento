@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: executing
-stopped_at: "Completado 43-06-PLAN.md — wave 3 fechada, 6/9 planos; NADA em PROD. Proximo: checkpoint 43-07 (apply das 4 migrations + EF)"
-last_updated: "2026-08-02T16:51:41.384Z"
+stopped_at: "Completado 43-08-PLAN.md — /candidato/privacidade escrita e testada; 8/9 planos. Proximo: 43-09 (/admin/retencao)"
+last_updated: "2026-08-02T17:49:29.770Z"
 last_activity: 2026-08-01
 last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 21
-  completed_plans: 17
+  completed_plans: 19
   percent: 17
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 ## Current Position
 
 Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
-Plan: 7 of 9
+Plan: 9 of 9
 Status: Ready to execute
 Last activity: 2026-08-01 — Phase 43 execution started
 
@@ -96,6 +96,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P04 | ~10min | 3 tasks | 2 files |
 | Phase 43 P05 | ~25min | 3 tasks | 3 files |
 | Phase 43 P06 | ~25min | 3 tasks | 3 files |
+| Phase 43 P08 | ~40min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -208,6 +209,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: candidaturas_alem_da_janela() REVOGADA de todo papel de cliente e SEM GRANT de volta: a proibicao de a previa enumerar PII e estrutural, nao confiada a camada de apresentacao
 - [Phase ?]: BD-1 estendido: autorizacao_retencao_curriculo NAO entra no predicado desta fase — encurtar janela e decisao de POLITICA da Phase 46, com parecer juridico
 - [Phase ?]: 43-UI-SPEC emendada (43-06): linha por estado conta CANDIDATURAS, total conta CANDIDATOS com todas as candidaturas fora da janela — o rotulo aprovado contaria uma coisa e nomearia outra
+- [Phase ?]: 43-08: o Prazo previsto da guarda do curriculo sai da autorizacao + 24 meses (teto consentido), NAO da matriz config_retencao_etapa — dependencia da Phase 46 registrada no codigo
+- [Phase ?]: 43-08: a guarda do curriculo nao ganha switch — nao existe motor de exclusao (Phase 45); a revogabilidade do Art. 8 §5 e atendida pelo Encarregado
+- [Phase ?]: 43-08: candidato sem linha de autorizacoes (4 dos 21) nao recebe switch fantasma nem backfill — estado real fail-closed + canal humano nomeado (BD-4)
 
 ### Pending Todos
 
@@ -306,8 +310,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-02T16:51:29.619Z
-Stopped at: Completado 43-06-PLAN.md — wave 3 fechada, 6/9 planos; NADA em PROD. Proximo: checkpoint 43-07 (apply das 4 migrations + EF)
+Last session: 2026-08-02T17:49:13.263Z
+Stopped at: Completado 43-08-PLAN.md — /candidato/privacidade escrita e testada; 8/9 planos. Proximo: 43-09 (/admin/retencao)
 Resume file: None
 
 ## Operator Next Steps

@@ -52,7 +52,7 @@
 - [ ] **CONSENT-01**: Checkboxes de consentimento opcional nascem **desmarcados** — o `.default(true)` atual impede distinguir "marcou" de "não desmarcou"
 - [ ] **CONSENT-02**: Cada consentimento é gravado com versão do texto + hash + timestamp, tornando pré/pós-enforcement distinguíveis por **dado**, não por inferência
 - [ ] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
-- [ ] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
+- [x] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
 - [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida
 
 > **Estado parcial de CONSENT-01/02/03/05 após o plano 43-01 (2026-08-01) — deliberadamente NÃO marcados como completos.**
@@ -71,7 +71,7 @@
 
 - [ ] **RETEN-01**: Janela de retenção vive em tabela de configuração por estado da candidatura, alterável sem deploy
 - [ ] **RETEN-02**: Seed inicial de 2 anos (BD-1), documentado como teto consentido e não como recomendação técnica
-- [ ] **RETEN-03**: `autorizacao_retencao_curriculo` é consumido como base legal da retenção do currículo — primeiro consumidor real de um consentimento até hoje órfão
+- [x] **RETEN-03**: `autorizacao_retencao_curriculo` é consumido como base legal da retenção do currículo — primeiro consumidor real de um consentimento até hoje órfão
 - [ ] **RETEN-04**: View read-only de prévia ("estes N candidatos seriam purgados") como artefato de revisão próprio, sem qualquer ação destrutiva
 - [ ] **RETEN-05**: Regra de retenção de `notificacoes_enviadas` definida e aplicada — dívida explicitamente diferida pela P37 a este milestone
 - [x] **RETEN-06**: Avaliado o reuso do padrão `retain_until` já vivo em `ai_call_logs` antes de projetar estrutura nova
@@ -174,12 +174,12 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSENT-01 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-02 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-03 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
-| CONSENT-04 | Phase 43 | Pending |
+| CONSENT-04 | Phase 43 | Complete |
 | CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
 | CONSENT-06 | Phase 43 | Pending |
 | RETEN-01 | Phase 43 | In Progress (estrutura escrita em 43-04; apply + smoke em 43-07) |
 | RETEN-02 | Phase 43 | In Progress (RPC auditada + seed escritos em 43-04; apply + smoke em 43-07) |
-| RETEN-03 | Phase 43 | Pending |
+| RETEN-03 | Phase 43 | Complete |
 | RETEN-04 | Phase 43 | Pending |
 | RETEN-05 | Phase 46 | Pending |
 | RETEN-06 | Phase 43 | Complete |
