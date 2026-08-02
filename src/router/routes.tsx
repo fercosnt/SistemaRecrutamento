@@ -87,6 +87,9 @@ import { ExplicacaoCandidatoPage } from '../features/explicacao/components/Expli
 // motivo: superfície de candidato, mobile-first, fora do grafo lazy de /rh e /admin.
 import { PrivacidadeCandidatoPage } from '../features/privacidade/components/PrivacidadeCandidatoPage'
 const BiasAuditPage = lazyNamed(() => import('../features/admin/bias-audit/components/BiasAuditPage'), 'BiasAuditPage')
+// Retenção de dados (Phase 43 / RETEN-01/02/04) — superfície de ADMIN, desktop-first:
+// entra no grafo lazy de /admin/* como as quatro páginas irmãs (idioma PERF-03).
+const RetencaoPage = lazyNamed(() => import('../features/admin/retencao/components/RetencaoPage'), 'RetencaoPage')
 
 // 404 catch-all (Phase 17 / D-14) — Beauty Smile glass NotFound, role-aware back-link
 import { NotFoundPage } from '../components/pages/NotFoundPage'
@@ -497,6 +500,19 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="administrador">
         <BiasAuditPage />
+      </RoleGuard>
+    ),
+  },
+  // Retenção de dados (Phase 43 / RETEN-01/02/04): a matriz de janela por estado da
+  // candidatura, editável sem deploy e auditada, com a prévia read-only abaixo dela.
+  // Admin-only — e o gate REAL não é este wrapper: é a policy admin-only de
+  // `config_retencao_etapa` mais o guard NULL-safe dentro das 4 RPCs `SECURITY DEFINER`.
+  // Este `RoleGuard` evita que um recrutador chegue a uma tela que só lhe daria erro.
+  {
+    path: '/admin/retencao',
+    element: (
+      <RoleGuard role="administrador">
+        <RetencaoPage />
       </RoleGuard>
     ),
   },

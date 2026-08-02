@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Scale, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck } from 'lucide-react';
+import { Home, Users, Briefcase, Scale, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck, CalendarClock } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -99,6 +99,11 @@ export function RHSidebar({
     if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
     if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
     if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+    // Sítio 2 de 3 da entrada de Retenção — ANTES do `/admin` genérico (Phase 43 / 43-09).
+    // Sem esta ORDEM o match genérico rouba a rota e o item nunca acende: é a mesma
+    // armadilha que a Phase 42 documentou para /rh/revisoes × /rh/vagas, e ela é
+    // silenciosa — o item navega, a página abre, e o menu continua realçando "Admin".
+    if (pathname.startsWith('/admin/retencao')) return 'retencao-admin';
     if (pathname.startsWith('/admin')) return 'admin';
     return 'dashboard-rh';
   };
@@ -148,8 +153,17 @@ export function RHSidebar({
     // D-13: role-gated Admin entry — visible ONLY for administrador (hidden for rh/candidato).
     // Opens sub-nav to /admin/* (ai-logs default). Visibility is cosmetic; the route RoleGuard
     // + RLS remain the real access boundary.
+    // Sítio 1 de 3 da entrada de Retenção (Phase 43 / RETEN-01) — o item existe. Gateado
+    // no MESMO idioma do item Admin acima: a visibilidade é COSMÉTICA (D-13), quem
+    // controla acesso é o `RoleGuard` da rota + a policy admin-only da tabela + o guard
+    // NULL-safe dentro das RPCs. Sem este item a matriz existiria apenas por URL digitada
+    // — as quatro páginas /admin/* já existentes não têm nenhum link cruzado, e replicar
+    // o padrão vivo seria replicar o defeito.
     ...(role === 'administrador'
-      ? [{ id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> }]
+      ? [
+          { id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> },
+          { id: 'retencao-admin', label: 'Retenção', icon: <CalendarClock size={24} /> },
+        ]
       : []),
   ];
 
@@ -165,6 +179,8 @@ export function RHSidebar({
       'suporte-rh': '/rh/suporte',
       'configuracoes-rh': '/rh/configuracoes',
       'admin': '/admin/ai-logs',
+      // Sítio 3 de 3 — sem esta entrada o item existe, se acende, e não navega.
+      'retencao-admin': '/admin/retencao',
     };
 
     const route = routes[itemId];
