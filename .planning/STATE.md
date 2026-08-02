@@ -26,12 +26,88 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
 **Current focus:** Phase 43 — Consentimentos Honestos & Política de Retenção
 
+## ⛔ BLOQUEADOR ABERTO — o cadastro de candidato está retornando 400 em PROD
+
+**Desde:** 2026-08-02 ~14h20, no deploy da Edge Function `cadastrar-candidato` v16 (checkpoint 43-07).
+**Fecha com:** publicar o bundle do cliente. **Ação do operador**, não do agente.
+
+### O que está fora
+
+Só o cadastro de candidato NOVO (`POST /functions/v1/cadastrar-candidato`). Confirmado contra o
+endpoint vivo, com o payload exato do bundle publicado:
+
+```
+400 VALIDATION · field: autorizacao_marketing_vagas
+"Informe se você quer receber avisos sobre novas vagas"
+```
+
+**Nada foi corrompido:** a validação roda antes de qualquer insert, então nenhuma linha foi escrita.
+Login, candidatura, painel do RH, notificações, guard de marketing, matriz de retenção — tudo
+intacto. Nenhum desses passa pela EF de cadastro.
+
+### Por que quebrou
+
+A EF v16 exige `autorizacao_marketing_vagas` sem default (é literalmente o CONSENT-01) e é
+`.strict()`, então rejeita `autorizacao_comunicacao` e `autorizacao_analise_video`. O bundle
+publicado envia essas duas e não envia a primeira. São incompatíveis **por desenho** — o cabeçalho
+da `20260801000001` prevê isso e impõe a ordem `migration → EF → cliente`. Os passos 1 e 2 foram
+executados; o passo 3 não pertence a nenhum plano da Phase 43, e ninguém o fechou.
+
+### Urgência medida (2026-08-02)
+
+| | |
+|---|---|
+| Último cadastro real | **2026-06-26** (há mais de um mês) |
+| Cadastros em 30 dias | **0** |
+| Vagas vivas | 8 (`ativa` / `inativa`) |
+
+Não há incidente em curso. Mas o caminho está fora e o próximo candidato real bate no 400.
+
+### Auditoria do push (feita 2026-08-02) — o risco técnico é baixo
+
+`origin/backup/local-state-2026-04` = `4bdb0fb` · local `HEAD` = `f8aafbb` · **136 commits** sem
+remote, cobrindo as fases **42 e 43** (2026-07-29 → 2026-08-02), 207 arquivos (73 em `src/`).
+
+| Verificação | Resultado |
+|---|---|
+| Migrations da janela aplicadas em PROD | **10/10** |
+| RPCs chamadas pelo cliente, existentes com `EXECUTE` p/ `authenticated` | **29/29** |
+| EFs invocadas pelo cliente que mudaram | **1** — `cadastrar-candidato`, já na v16 |
+| `submitCandidaturaSchema` | intacto → `submit-candidatura` (não redeployada) segura |
+| Dependências (`package.json` / lock) | **zero mudança** |
+| Env vars novas (`VITE_*`) | **zero** |
+| `npm run build` | **passa**, com as asserções de chunk do PERF-03 |
+
+O backend está à frente do cliente em tudo. O push não aplica migration nem deploya EF — builda o
+cliente, que é justamente a peça que falta.
+
+### ⚠ O que o push também leva junto
+
+Não é só a Phase 43. Sobem de uma vez:
+
+- **a fila de revisão do Art. 20 para o RH** (Phase 42) — cuja verificação está **diferida** em
+  `human_needed`, 4/5 must-haves. A superfície sobe sem a validação humana pendente;
+- **`/candidato/privacidade` e `/admin/retencao`** (Phase 43) — provadas por 1417 testes e
+  **nunca abertas num navegador**.
+
+### Depois do deploy
+
+Criar uma conta de verdade pelo cadastro. Se passar, o 400 morreu e o SC#1 fica provado ponta a
+ponta — servidor **e** cliente.
+
+**Rollback disponível** se algo que a auditoria não pegou aparecer: redeployar a EF a partir do
+código de `4bdb0fb` restaura o comportamento anterior em ~1 minuto. Custo do rollback: volta o
+`.default(true)` em `autorizacao_retencao_curriculo`, ou seja, o banco volta a afirmar consentimento
+de retenção que ninguém declarou. Por isso ele é stopgap, nunca destino.
+
+---
+
 ## Current Position
 
-Phase: 43 (Consentimentos Honestos & Política de Retenção) — EXECUTING
+Phase: 43 (Consentimentos Honestos & Política de Retenção) — VERIFIED WITH GAPS
 Plan: 9 of 9
-Status: Phase complete — ready for verification
-Last activity: 2026-08-01 — Phase 43 execution started
+Status: 9/9 planos executados · `43-VERIFICATION.md` = `gaps_found`, 2/5 must-haves
+Last activity: 2026-08-02 — checkpoint de PROD, code review (CR-01 fechado) e verificação
 
 ## Roadmap (M8 — Phases 42–47)
 
