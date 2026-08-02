@@ -39,8 +39,12 @@ export function useRevogarMarketing(candidatoId: string | undefined) {
 
   return useMutation<AutorizacoesCandidato, Error, VariaveisRevogacao>({
     mutationKey: [...privacidadeKeys.all, 'revogar-marketing', candidatoId],
+    // O `candidatoId` desce para o serviço e vira predicado da escrita (WR-06): a
+    // policy que garantiria o escopo own-row não existe em arquivo de migration nenhum.
+    // Sem `candidatoId` a mutation FALHA em `INVALID_INPUT` em vez de escrever sem
+    // escopo — a tela só a monta depois de o candidato estar hidratado.
     mutationFn: ({ idAutorizacao, novoValor }) =>
-      revogarMarketing(idAutorizacao, novoValor),
+      revogarMarketing(idAutorizacao, novoValor, candidatoId ?? ''),
     // Sem `onMutate`: nada é antecipado. Ver a proibição 1 no docblock.
     onSuccess: (linha) => {
       // O toast fala do que o SERVIDOR devolveu, não do que foi pedido.

@@ -36,6 +36,14 @@
  *    acrescentada sem ganho. A escrita devolve a linha atualizada **pela mesma
  *    allowlist**, e é esse retorno — nunca o valor desejado — que alimenta a tela.
  *
+ *    ⚠ MAS A POLICY NÃO É A ÚNICA DEFESA, e não podia ser (WR-06): as 3 policies vivas
+ *    desta tabela existem em PROD e em arquivo nenhum. `revogarMarketing` escopa a
+ *    escrita por `id` **e** por `candidato_id`, então continua correta mesmo se a
+ *    policy for perdida num reset ou reconstruída com o `with_check` errado. E as
+ *    COLUNAS escrivíveis já não dependem de policy alguma: `20260802000001` deixou
+ *    `authenticated` com UPDATE apenas em `autorizacao_marketing_vagas` e `updated_at`
+ *    (CR-01) — a prova de consentimento deixou de ser escrivível pelo titular.
+ *
  *  - **NENHUM ERRO CRU ECOADO.** `42501`/`403` viram `FORBIDDEN`; qualquer outra falha
  *    vira `DATABASE_ERROR` com mensagem própria. A mensagem do transporte fica em
  *    `details`, para o console, nunca para a interface.
@@ -142,13 +150,27 @@ export async function obterAutorizacoes(
  * As duas direções passam por aqui: o nome fala do caminho que motiva a tela, não de uma
  * restrição. A linha atualizada volta pela MESMA allowlist e é ela — não o valor pedido —
  * que a interface exibe (Invariante 5 da 43-UI-SPEC).
+ *
+ * ⚠ O `candidatoId` NÃO é decorativo e NÃO é redundância (code review WR-06). Sem ele o
+ * escopo da escrita seria só `.eq('id', …)`, e a única coisa entre um candidato e a linha
+ * de consentimento de OUTRO candidato seria o `with_check` da policy viva
+ * `Candidatos podem atualizar suas autorizacoes` — que, medida em `pg_policies`, existe
+ * em PROD e **em arquivo de migration nenhum** (4ª instância do drift em aberto,
+ * `.planning/todos/pending/processo-origem-do-drift-desconhecida.md`). Um
+ * `supabase db reset`, ou uma reconstrução de memória com o `with_check` errado, apagaria
+ * a defesa inteira sem nada no cliente reclamar. O predicado aqui custa zero, sobrevive a
+ * isso, e torna a intenção legível no sítio da chamada.
  */
 export async function revogarMarketing(
   idAutorizacao: string,
   novoValor: boolean,
+  candidatoId: string,
 ): Promise<AutorizacoesCandidato> {
   if (!idAutorizacao) {
     throw new PrivacidadeError('idAutorizacao é obrigatório', 'INVALID_INPUT')
+  }
+  if (!candidatoId) {
+    throw new PrivacidadeError('candidatoId é obrigatório', 'INVALID_INPUT')
   }
 
   const { data, error } = await supabase
@@ -161,6 +183,8 @@ export async function revogarMarketing(
       updated_at: new Date().toISOString(),
     })
     .eq('id', idAutorizacao)
+    // Defesa em profundidade: a policy que garantiria isto não está em arquivo nenhum.
+    .eq('candidato_id', candidatoId)
     .select(AUTORIZACOES_ALLOWLIST)
     .single()
 

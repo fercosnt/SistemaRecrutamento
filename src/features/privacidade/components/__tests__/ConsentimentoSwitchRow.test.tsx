@@ -135,7 +135,7 @@ beforeEach(() => {
   })
   mocks.obterAutorizacoes.mockImplementation(async () => linhaNoServidor)
   mocks.revogarMarketing.mockImplementation(
-    async (_id: string, novoValor: boolean) => {
+    async (_id: string, novoValor: boolean, _candidatoId: string) => {
       linhaNoServidor = {
         ...linhaNoServidor,
         autorizacao_marketing_vagas: novoValor,
@@ -208,7 +208,15 @@ describe('ConsentimentoSwitchRow — o estado exibido é o do servidor', () => {
     await user.click(await screen.findByRole('switch'))
 
     await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked())
-    expect(mocks.revogarMarketing).toHaveBeenCalledWith(AUTORIZACAO_ID, false)
+    // O `candidatoId` é o 3º argumento e não é decorativo: ele vira o segundo predicado
+    // do UPDATE. A policy que sozinha garantiria o escopo own-row existe em PROD e em
+    // arquivo de migration NENHUM — se o hook parar de passá-lo, a escrita volta a ser
+    // escopada só por `id` e nada no cliente reclama (WR-06).
+    expect(mocks.revogarMarketing).toHaveBeenCalledWith(
+      AUTORIZACAO_ID,
+      false,
+      CANDIDATO_ID,
+    )
     expect(screen.getByText(COPY.desativadoEm(DATA_DEPOIS))).toBeInTheDocument()
     expect(mocks.toastSuccess).toHaveBeenCalled()
   })
