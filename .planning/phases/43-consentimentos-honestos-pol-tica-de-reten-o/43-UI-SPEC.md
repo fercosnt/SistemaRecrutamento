@@ -581,11 +581,18 @@ Nenhum dos dois pode ser rotulado "Cancelar".
 |---------|------|
 | Título | **Prévia — quantos seriam afetados** |
 | Corpo | Contagem de candidatos cujos dados já teriam passado da janela definida acima. **Esta prévia não executa nada.** |
-| Linha por estado | {Estado} · **{n} candidatos** |
+| Linha por estado | {Estado} · **{n} candidaturas** |
 | Total | Total: **{n} candidatos** |
 | Zero | **Nenhum candidato seria afetado por esta janela hoje.** |
 | **Carimbo de data** *(obrigatório, 14px)* | Prévia calculada em {dd/mm/aaaa} às {HH:mm}. |
 | Erro | **Não foi possível calcular a prévia.** A matriz acima continua legível e editável. *(+ Tentar novamente)* |
+
+**Contrato das duas contagens — a linha e o total contam coisas diferentes, de propósito.** A linha
+por estado conta **candidaturas**, porque a matriz é chaveada por estado de candidatura e uma mesma
+pessoa pode ter várias. O total conta **candidatos** cujas candidaturas estão **todas** fora da
+janela — um candidato com uma candidatura ainda ativa não seria afetado por nenhuma definição sã de
+retenção, e somá-lo inflaria a prévia. Consequência aritmética esperada, e ela é assim mesmo: o
+total é **menor ou igual** à soma das linhas.
 
 **Três regras substantivas:**
 
@@ -598,6 +605,30 @@ Nenhum dos dois pode ser rotulado "Cancelar".
 3. **A prévia não fica ao lado de nenhum botão de ação.** Nenhum "Executar", nenhum "Aplicar
    agora", nenhum controle a menos de um card de distância. A tela não deve sugerir que existe um
    gatilho — porque não existe.
+
+**Emenda registrada (plano 43-06, 2026-08-01)**
+
+**O que mudou.** A linha por estado passou de `{Estado} · **{n} candidatos**` para
+`{Estado} · **{n} candidaturas**`, e o parágrafo "Contrato das duas contagens" acima foi
+acrescentado. O total, o zero, o carimbo de data, o título, o corpo e o estado de erro permanecem
+**verbatim** como aprovados.
+
+**Por quê.** A matriz de retenção é chaveada por **estado da candidatura**
+(`config_retencao_etapa.etapa`, plano 43-04) e um mesmo candidato pode ter várias candidaturas. O
+rótulo aprovado, portanto, **contaria uma coisa e nomearia outra**: a linha por estado exibiria uma
+contagem de candidaturas sob a palavra "candidatos", inflando a prévia perante quem lê. Numa fase
+cujo tema declarado é copy que diz a verdade, essa discrepância não podia ficar implícita — e o
+lugar de resolvê-la é o contrato, não o código que o implementa. As duas contagens existem
+separadas no banco desde o plano 43-06 (`previa_retencao.candidaturas_afetadas` e
+`previa_retencao.candidatos_afetados`; `previa_retencao_total.candidatos_afetados`), então a
+emenda apenas faz o rótulo dizer o que a função já devolve.
+
+**Natureza da alteração: PRECISÃO, não escopo.** Nenhum elemento novo, nenhuma ação nova, nenhuma
+rota nova, nenhuma mudança de estrutura, de hierarquia visual, de tratamento de cor, de tipografia
+ou de espaçamento. Nenhum token novo, nenhuma dependência nova. A âncora visual da página continua
+sendo a tabela da matriz, e a prévia continua sendo o bloco neutro abaixo dela. **A UI-SPEC
+continua sendo o contrato; esta emenda é parte dele**, e um plano de implementação que renderize
+"candidatos" na linha por estado está violando o contrato — não seguindo a versão antiga.
 
 ---
 
