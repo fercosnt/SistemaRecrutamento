@@ -261,7 +261,15 @@ export function EditarJanelaDialog({ linha, open, onOpenChange }: EditarJanelaDi
                 )}
               </GlassButton>
             </AlertDialogTrigger>
-            {meses !== null && atual !== null ? (
+            {/*
+              A condição é a MESMA de `podeSalvar` no que diz respeito ao valor digitado
+              (code review WR-09). Exigir `atual !== null` aqui era exigir mais do que o
+              CTA: uma linha da matriz com `janela_meses` nulo abre o diálogo (a tabela só
+              bloqueia `!definida`), o operador digita 12, o CTA HABILITA — e o clique
+              abria um `AlertDialog` vazio. Sem confirmação, sem erro, sem salvar: uma
+              mudança válida sem caminho até o servidor.
+            */}
+            {meses !== null ? (
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>
@@ -269,7 +277,11 @@ export function EditarJanelaDialog({ linha, open, onOpenChange }: EditarJanelaDi
                   </AlertDialogTitle>
                   <AlertDialogDescription>
                     O estado <span className="font-semibold">{linha.rotulo}</span> passa de{' '}
-                    <span className="font-semibold">{MATRIZ_COPY.janelaMeses(atual)}</span>{' '}
+                    <span className="font-semibold">
+                      {atual === null
+                        ? MATRIZ_COPY.janelaNaoDefinida
+                        : MATRIZ_COPY.janelaMeses(atual)}
+                    </span>{' '}
                     para{' '}
                     <span className="font-semibold">{MATRIZ_COPY.janelaMeses(meses)}</span>.{' '}
                     {DIALOGO_JANELA_COPY.confirmacao.escopo}

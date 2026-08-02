@@ -188,6 +188,37 @@ describe('EditarJanelaDialog — a confirmação aninhada', () => {
     expect(corpo).toContain(['automatica', 'mente'].join(''))
   })
 
+  it('linha SEM janela definida: o CTA que habilita tem confirmação, e ela nomeia o "não definida"', () => {
+    // O caso que faltava (code review WR-09). `MatrizRetencaoRow.janela_meses` é
+    // `number | null`, `MATRIZ_COPY.janelaNaoDefinida` existe exatamente para esse
+    // estado, e a tabela só bloqueia `Editar` em `!definida` — logo uma linha definida
+    // com janela nula ABRE este diálogo. Antes do fix, a confirmação exigia
+    // `atual !== null` e o CTA não: o operador digitava 12, o CTA habilitava, o clique
+    // abria um alert-dialog VAZIO e nada acontecia. Mudança válida, zero caminho até o
+    // servidor — o inverso exato da regra 1 do docblock.
+    abrir({ linha: linha({ janelaMeses: null, origem: null, definida: true }) })
+
+    expect(campo()).toHaveValue('')
+    fireEvent.change(campo(), { target: { value: '12' } })
+    expect(ctaSalvar()).toBeEnabled()
+
+    fireEvent.click(ctaSalvar())
+
+    const confirmacao = screen.getByRole('alertdialog')
+    const corpo = confirmacao.textContent ?? ''
+    expect(corpo).toContain('Triagem')
+    expect(corpo).toContain('— (não definida)')
+    expect(corpo).toContain('12 meses')
+    expect(corpo).toContain('Nenhum dado de candidato é apagado por esta alteração')
+
+    // E o caminho até o servidor existe de fato.
+    fireEvent.click(
+      within(confirmacao).getByRole('button', { name: 'Salvar janela de retenção' }),
+    )
+    expect(salvarMock).toHaveBeenCalledTimes(1)
+    expect(salvarMock.mock.calls[0][0]).toEqual({ etapa: 'triagem', meses: 12 })
+  })
+
   it('a mutação NÃO é chamada ao abrir a confirmação — só ao confirmar', () => {
     abrir()
     fireEvent.change(campo(), { target: { value: '12' } })
