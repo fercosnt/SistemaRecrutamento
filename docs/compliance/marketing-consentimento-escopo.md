@@ -154,10 +154,35 @@ nenhum link.
 
 ## 6. Estado de aplicação
 
-**⛔ NADA FOI APLICADO EM PRODUÇÃO PELO PLANO 43-05.** A migration `20260801000003` e o smoke
-`p43_guard_marketing_smoke.sql` são **arquivos**. O guard não existe em PROD, a tabela
-`classe_evento_notificacao` não existe, o CHECK ainda tem 6 valores, e o smoke está deliberadamente
-RED contra o banco atual.
+**✅ APLICADO EM PRODUÇÃO em 2026-08-02, pelo checkpoint 43-07.**
 
-O apply, o reparo do ledger, a prova de fidelidade por `md5(statements[1])` e a execução do smoke
-são passos do **checkpoint 43-07**. O protocolo completo está no cabeçalho da própria migration.
+> Esta seção dizia o contrário até o apply. A frase anterior — *"NADA FOI APLICADO EM PRODUÇÃO…
+> o guard não existe em PROD"* — era verdadeira quando o plano 43-05 a escreveu e **passou a ser
+> falsa no instante do apply**. Um documento de compliance que afirma o estado do sistema tem de
+> ser atualizado junto com o estado, senão ele vira a fonte errada que alguém vai citar.
+
+Estado vivo, medido:
+
+| Objeto | Estado |
+|---|---|
+| `20260801000003_p43_guard_marketing.sql` | aplicada · `md5` do ledger = `b73cd76c821931259e4776c33c29e70c`, idêntico ao arquivo |
+| `public.classe_evento_notificacao` | existe · 7 linhas · RLS ligada com ZERO policies |
+| `notificacoes_enviadas_evento_check` | **7 valores** (os 6 vivos preservados + `divulgacao_vagas`) |
+| `trg_guard_marketing_consentimento` | vivo · `BEFORE INSERT` |
+| `p43_guard_marketing_smoke.sql` | executado contra PROD · **9/9 PASS** |
+
+A recusa está provada por **inserção real** (`P0003`), não por leitura de flag: fail-closed nos três
+ramos (sem linha · coluna NULL · classe desconhecida), os 6 eventos vivos seguem aceitos, e o
+caminho positivo discrimina. `net._http_response` não ganhou nenhuma linha — a recusa é anterior ao
+`fetch`, então nada alcançou o provedor.
+
+### ⚠ Duas fronteiras que este documento NÃO pode deixar subentendidas
+
+**O guard é `BEFORE INSERT`, e só.** Um `UPDATE` que trocasse `evento` numa linha já `pendente`
+não passa por ele, e a varredura de retry (`varrer_retry_notificacoes`, a cada 15 min) despacharia
+a linha. Hoje nenhum caminho de código faz esse `UPDATE`, mas a afirmação de que o guard "alcança
+todo caminho presente e futuro" é mais forte do que o que o trigger de fato cobre. Rastreado em
+`.planning/todos/pending/43-guard-marketing-so-before-insert.md`.
+
+**O bundle do cliente não foi publicado.** As telas existem em código e em teste; nenhum plano da
+Phase 43 as publica.
