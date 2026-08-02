@@ -109,7 +109,8 @@ matriz de configuração (janela por estado da candidatura)  ⨝  data-âncora d
 ```
 
 - A matriz é **dado editável** (tabela de config), entregue no plano **43-04**; a superfície de
-  edição do admin, no **43-06** / `/admin/retencao`.
+  edição do admin, no **43-09** / `/admin/retencao`. (O 43-06 entregou o predicado de retenção e
+  os dois invólucros agregados da prévia, `20260801000004` — não a tela.)
 - O prazo de uma candidatura é derivado **na leitura**, cruzando o estado atual com a janela
   configurada e a data-âncora.
 - **Consequência que resolve (a) e (b) de uma vez:** uma edição do admin passa a valer
@@ -148,5 +149,5 @@ prazo é decisão de política com efeito destrutivo, e ela não foi tomada aqui
 | Critério de sucesso | SC#4 — veredito registrado **antes** de a estrutura nova existir |
 | Plano | 43-02, wave 1, `depends_on: []` — a ordem é imposta pela estrutura de waves |
 | Ameaça mitigada | T-43-07 (Repudiation): artefato datado e versionado, não decisão oral |
-| Estrutura substituta | planos 43-04 (matriz) e 43-06 (`/admin/retencao`) |
+| Estrutura substituta | planos 43-04 (matriz), 43-06 (predicado + prévia) e 43-09 (`/admin/retencao`) |
 | Efeito destrutivo | **nenhum nesta fase** — Phase 46, sob D46-1 e D46-2 |
