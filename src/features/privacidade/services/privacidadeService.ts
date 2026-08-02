@@ -177,9 +177,16 @@ export async function revogarMarketing(
     .from('autorizacoes')
     .update({
       autorizacao_marketing_vagas: novoValor,
-      // `autorizacoes` não tem trigger de `updated_at` (medido nas migrations do repo),
-      // e é esta coluna que datará o rótulo "Desativado em …" na tela. Carimbá-la aqui é
-      // o idioma vivo do projeto para esta tabela-família.
+      // ⚠ CARIMBO DO CLIENTE — DÍVIDA CONHECIDA, não descuido (code review WR-07).
+      // `autorizacoes` não tem trigger de `updated_at` (medido nas migrations do repo)
+      // e é ESTA coluna que a tela renderiza como "Desativado em …": um relógio torto
+      // ou adulterado data a própria revogação, e a interface apresenta isso como fato.
+      // A correção certa é de BANCO — `BEFORE UPDATE` reusando `tocar_atualizado_em()`
+      // da P37 — e as duas metades têm de andar JUNTAS: remover esta linha SEM o
+      // trigger congelaria `updated_at` no valor do INSERT e faria a tela datar a
+      // revogação com a data do CADASTRO. Uma data errada convence mais que uma
+      // suspeita. Registrado, com a ordem dos passos, em
+      // `.planning/todos/pending/43-updated-at-do-consentimento-vem-do-cliente.md`.
       updated_at: new Date().toISOString(),
     })
     .eq('id', idAutorizacao)
