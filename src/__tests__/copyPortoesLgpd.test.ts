@@ -172,17 +172,36 @@ const ALLOWLIST_CANDIDATO = [
 const LEXICO_EXCLUSAO = ['exclu', 'apag', 'delet', 'elimin', 'descart'].join('|')
 
 /**
- * Futuro-de-máquina EXPLÍCITO: verbo "ser" no futuro seguido de verbo de exclusão, mais o
- * par substantivo-exclusão ⨝ adjetivo-automático. Superset das strings soltas da spec —
- * pega a flexão de número que a lista literal deixaria passar: o plural de "será … ído"
- * não é a mesma string que o singular, e mentiria exatamente igual.
+ * Futuro-de-máquina EXPLÍCITO. Superset das strings soltas da spec — pega a flexão de
+ * número que a lista literal deixaria passar: o plural não é a mesma string que o
+ * singular, e mentiria exatamente igual.
+ *
+ * ⚠ SÃO QUATRO CONSTRUÇÕES, não uma (code review WR-11). O padrão original cobria só o
+ * futuro simples de "ser" + particípio, e o docblock já se dizia "superset" — era
+ * narrower than its own claim. As três que faltavam (perífrase com "ir", infinitivo
+ * pessoal, e o futuro do próprio verbo sem auxiliar) são as que um copywriter produz com
+ * a mesma facilidade, e a regra de coocorrência do advérbio não as socorre: ela só
+ * dispara quando o advérbio está presente, e nenhuma delas precisa dele. Uma promessa
+ * sem advérbio e sem "será" atravessava os DOIS portões.
  *
  * ⚠ As formas condenadas estão descritas, não transcritas: escrevê-las verbatim aqui faria
  * este arquivo ser a primeira violação do portão que ele mesmo instala (foi o que o teste
  * de auto-consistência lá embaixo acusou na primeira execução — o portão funciona).
  */
 const FUTURO_DE_EXCLUSAO = new RegExp(
-  [`ser[ao]o?\\s+(${LEXICO_EXCLUSAO})`, `${['exclusao', '\\s+', 'automatic'].join('')}`].join('|'),
+  [
+    // futuro simples de "ser" (sing./pl.) + verbo de exclusão no particípio
+    `\\bser[ao]o?\\s+(${LEXICO_EXCLUSAO})`,
+    // perífrase de futuro ("ir" no presente + "ser") + particípio — a forma que um
+    // copywriter escreve primeiro, e a que o padrão anterior deixava passar inteira
+    `\\bv[ao]o\\s+ser\\s+(${LEXICO_EXCLUSAO})`,
+    // infinitivo pessoal de "ser" + particípio ("até … pelo sistema")
+    `\\bserem\\s+(${LEXICO_EXCLUSAO})`,
+    // futuro do PRÓPRIO verbo de exclusão, sem auxiliar: 1ª pl., 3ª pl. e 3ª sing.
+    `\\b(${LEXICO_EXCLUSAO})\\w*(remos|rao|ra)\\b`,
+    // o par substantivo-exclusão ⨝ adjetivo-automático
+    ['exclusao', '\\s+', 'automatic'].join(''),
+  ].join('|'),
   'i',
 )
 
@@ -319,6 +338,50 @@ describe('O escopo 2 é estreito — e isto é provado, não afirmado', () => {
     const plural = `Seus dados serão ${['exclu', 'ídos'].join('')} em 24 meses.`
     expect(FUTURO_DE_EXCLUSAO.test(dobrar(singular))).toBe(true)
     expect(FUTURO_DE_EXCLUSAO.test(dobrar(plural))).toBe(true)
+  })
+
+  it('as OUTRAS construções de futuro também são pegas — não só o par "será + particípio"', () => {
+    // O portão cobria UMA construção e o docblock dizia "superset" (code review WR-11).
+    // Estas são as formas que um copywriter produz com a mesma facilidade — e que
+    // mentiriam exatamente igual, porque nesta fase nada é apagado. A regra de
+    // coocorrência com o advérbio não as pega: ela só dispara quando o advérbio está
+    // presente, e nenhuma destas precisa dele.
+    const perifrase = `Seus dados ${['vão ser ', 'apag'].join('')}ados em 24 meses.`
+    const infinitivo = `Guardamos até ${['serem ', 'elimin'].join('')}ados.`
+    const futuroNos = `Nós ${['exclu', 'iremos'].join('')} seus dados em 24 meses.`
+    const futuroEles = `Os arquivos ${['apag', 'arão'].join('')} sozinhos.`
+    const futuroEle = `O sistema ${['elimin', 'ará'].join('')} o currículo.`
+    const passiva = `Até ${['serem ', 'descart'].join('')}ados pelo sistema.`
+
+    for (const frase of [
+      perifrase,
+      infinitivo,
+      futuroNos,
+      futuroEles,
+      futuroEle,
+      passiva,
+    ]) {
+      expect(FUTURO_DE_EXCLUSAO.test(dobrar(frase)), `passou batido: "${frase}"`).toBe(
+        true,
+      )
+    }
+  })
+
+  it('e o alargamento não é indiscriminado: prosa honesta sobre exclusão continua passando', () => {
+    // A metade que impede o portão de virar ruído. Nenhuma destas PROMETE exclusão
+    // futura; reprová-las treinaria quem executa a desligar o portão.
+    const honestas = [
+      'Hoje nenhuma rotina deste sistema apaga dados de candidato.',
+      `Você pode pedir a ${['exclu', 'são'].join('')} dos seus dados a qualquer momento.`,
+      `Nenhum dado de candidato é ${['apag', 'ado'].join('')} por esta alteração.`,
+      `O botão ${['elimin', 'ar'].join('')} não existe nesta tela.`,
+    ]
+    for (const frase of honestas) {
+      expect(
+        FUTURO_DE_EXCLUSAO.test(dobrar(frase)),
+        `falso positivo — copy honesta reprovada: "${frase}"`,
+      ).toBe(false)
+    }
   })
 })
 
