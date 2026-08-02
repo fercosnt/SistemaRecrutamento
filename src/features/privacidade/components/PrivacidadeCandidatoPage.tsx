@@ -20,6 +20,7 @@
  * @see src/features/explicacao/components/ExplicacaoCandidatoPage.tsx (a shell clonada + o skeleton de 3 blocos)
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md (§`/candidato/privacidade`)
  */
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
@@ -50,10 +51,37 @@ export const COPY_PRIVACIDADE = {
   tentarNovamente: 'Tentar novamente',
 } as const
 
+/**
+ * Teto da espera pela hidratação do candidato, em ms. É o MESMO default de
+ * `waitForCandidatoHydrated` (Phase 4.1, Pattern 2) — a espera por este fato já tem
+ * duração canônica neste projeto e inventar uma segunda seria criar divergência.
+ */
+export const ESPERA_HIDRATACAO_MS = 3000
+
 export function PrivacidadeCandidatoPage() {
   const navigate = useNavigate()
   const candidato = useCandidato()
   const candidatoId = candidato?.id
+
+  /**
+   * ⚠ "AINDA NÃO HIDRATOU" E "CARREGANDO DADO" SÃO FATOS DIFERENTES, e tratá-los como um
+   * só produzia um skeleton SEM SAÍDA (code review WR-10): `usePrivacidade` é
+   * `enabled: Boolean(candidatoId)`, então sem `candidatoId` a query nunca roda, `isError`
+   * nunca fica true, e a tela pulsava para sempre — sem copy de erro, sem nova tentativa,
+   * sem teto. O `RoleGuard role="candidato"` gateia pelo PAPEL do JWT, que é fato distinto
+   * da linha `candidato` hidratada no store; a corrida entre os dois já é reconhecida no
+   * projeto por `waitForCandidatoHydrated`. Numa tela cuja razão de existir é o exercício
+   * de um direito, um carregamento irresolúvel é a degradação errada.
+   */
+  const [esperaEsgotada, setEsperaEsgotada] = useState(false)
+  useEffect(() => {
+    if (candidatoId) {
+      setEsperaEsgotada(false)
+      return
+    }
+    const relogio = setTimeout(() => setEsperaEsgotada(true), ESPERA_HIDRATACAO_MS)
+    return () => clearTimeout(relogio)
+  }, [candidatoId])
 
   const {
     data: autorizacoes,
@@ -67,9 +95,41 @@ export function PrivacidadeCandidatoPage() {
 
   const voltarAoPainel = () => navigate('/candidato/dashboard')
 
+  // ── Hidratação que não veio ─────────────────────────────────────────────────
+  // O DESFECHO LIMITADO da espera acima. Reusa a copy de erro da spec de propósito: da
+  // perspectiva de quem olha, "não carregou" é o mesmo fato, e inventar uma segunda
+  // mensagem para uma causa interna seria explicar ao titular um detalhe de arquitetura.
+  // A nova tentativa é recarregar a página, porque o que falta é a hidratação do store —
+  // um `refetch` da query não a produz.
+  if (!candidatoId && esperaEsgotada) {
+    return (
+      <ScreenShell>
+        <GlassPanel
+          variant="white"
+          blur="xl"
+          className="space-y-4 p-12 text-center text-white"
+        >
+          <p className="text-xl font-semibold text-white drop-shadow-md">
+            {COPY_PRIVACIDADE.erroTitulo}
+          </p>
+          <p className="text-white/80">{COPY_PRIVACIDADE.erroCorpo}</p>
+          <GlassButton
+            variant="white"
+            hover
+            onClick={() => window.location.reload()}
+            className="min-h-[44px] text-white"
+          >
+            {COPY_PRIVACIDADE.tentarNovamente}
+          </GlassButton>
+        </GlassPanel>
+      </ScreenShell>
+    )
+  }
+
   // ── Carregando ──────────────────────────────────────────────────────────────
   // Skeleton de 3 blocos glass pulsantes (idioma verbatim do `ExplicacaoCandidatoPage`),
-  // preservando a altura para não haver salto de layout.
+  // preservando a altura para não haver salto de layout. Agora com TETO: passados
+  // `ESPERA_HIDRATACAO_MS` sem `candidatoId`, o ramo acima assume.
   if (!candidatoId || isLoading) {
     return (
       <ScreenShell>

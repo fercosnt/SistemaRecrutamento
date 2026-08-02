@@ -22,7 +22,7 @@
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
@@ -42,6 +42,8 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   /** Resposta do dublê do PostgREST, sobrescrevível por teste. */
   resposta: { valor: { data: null as unknown, error: null as unknown } },
+  /** O candidato hidratado no store — `null` é a corrida que o caso (g) exercita. */
+  candidato: { valor: null as { id: string } | null },
 }))
 
 vi.mock('../../services/privacidadeService', async () => {
@@ -86,7 +88,7 @@ vi.mock('sonner', () => ({
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }))
 
 vi.mock('@/store/authStore', () => ({
-  useCandidato: () => ({ id: CANDIDATO_ID }),
+  useCandidato: () => mocks.candidato.valor,
 }))
 
 vi.mock('@/components/BackgroundImage', () => ({
@@ -94,7 +96,11 @@ vi.mock('@/components/BackgroundImage', () => ({
 }))
 
 import type { AutorizacoesCandidato } from '../../services/privacidadeService'
-import { PrivacidadeCandidatoPage, COPY_PRIVACIDADE } from '../PrivacidadeCandidatoPage'
+import {
+  PrivacidadeCandidatoPage,
+  COPY_PRIVACIDADE,
+  ESPERA_HIDRATACAO_MS,
+} from '../PrivacidadeCandidatoPage'
 import { COPY_CONSENTIMENTO_MARKETING } from '../ConsentimentoSwitchRow'
 
 function linha(over: Partial<AutorizacoesCandidato> = {}): AutorizacoesCandidato {
@@ -122,6 +128,7 @@ function montar() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.candidato.valor = { id: CANDIDATO_ID }
   queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
@@ -287,5 +294,74 @@ describe('(f) Carregamento e erro renderizam a copy da spec, nunca o erro cru', 
     mocks.obterAutorizacoes.mockResolvedValue(linha())
     await user.click(retry)
     expect(await screen.findByRole('switch')).toBeInTheDocument()
+  })
+})
+
+describe('(g) O skeleton tem TETO: candidato não hidratado não pulsa para sempre', () => {
+  it('sem `candidato` no store, o skeleton cede lugar à copy de erro com nova tentativa', async () => {
+    // A ARMADILHA que este caso fecha (code review WR-10): `usePrivacidade` é
+    // `enabled: Boolean(candidatoId)`. Sem candidato a query NUNCA roda, logo `isError`
+    // nunca fica true — nenhum caminho de erro podia salvar esta tela, e ela pulsava
+    // indefinidamente. Por isso o teto é medido aqui em tempo, e não por mock de erro.
+    vi.useFakeTimers()
+    try {
+      mocks.candidato.valor = null
+      const { container } = montar()
+
+      // Antes do teto: skeleton, e NENHUMA copy de erro (um erro imediato piscaria na
+      // cara de quem só está esperando o store hidratar, que é o caso comum).
+      expect(container.querySelectorAll('.animate-pulse')).toHaveLength(3)
+      expect(screen.queryByText(COPY_PRIVACIDADE.erroTitulo)).not.toBeInTheDocument()
+
+      // A query nunca foi disparada — é o que torna o erro por transporte inalcançável.
+      expect(mocks.obterAutorizacoes).not.toHaveBeenCalled()
+
+      await act(async () => {
+        vi.advanceTimersByTime(ESPERA_HIDRATACAO_MS + 100)
+      })
+
+      expect(screen.getByText(COPY_PRIVACIDADE.erroTitulo)).toBeInTheDocument()
+      expect(screen.getByText(COPY_PRIVACIDADE.erroCorpo)).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: COPY_PRIVACIDADE.tentarNovamente }),
+      ).toBeInTheDocument()
+      expect(container.querySelectorAll('.animate-pulse')).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('se o candidato hidrata DENTRO da janela, o teto não dispara depois do fato', async () => {
+    // A metade que impede o remédio de virar o defeito: um relógio que sobrevivesse à
+    // hidratação jogaria copy de erro por cima de uma tela que já carregou.
+    vi.useFakeTimers()
+    try {
+      mocks.candidato.valor = null
+      const { rerender } = montar()
+
+      await act(async () => {
+        vi.advanceTimersByTime(ESPERA_HIDRATACAO_MS - 500)
+      })
+      expect(screen.queryByText(COPY_PRIVACIDADE.erroTitulo)).not.toBeInTheDocument()
+
+      mocks.candidato.valor = { id: CANDIDATO_ID }
+      await act(async () => {
+        rerender(
+          <QueryClientProvider client={queryClient}>
+            <PrivacidadeCandidatoPage />
+          </QueryClientProvider>,
+        )
+      })
+
+      // A hidratação aconteceu: a query foi disparada, o que não ocorria antes.
+      expect(mocks.obterAutorizacoes).toHaveBeenCalled()
+
+      await act(async () => {
+        vi.advanceTimersByTime(ESPERA_HIDRATACAO_MS * 2)
+      })
+      expect(screen.queryByText(COPY_PRIVACIDADE.erroTitulo)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
