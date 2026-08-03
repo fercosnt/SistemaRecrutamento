@@ -26,79 +26,52 @@ See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current M
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
 **Current focus:** Phase 43 — Consentimentos Honestos & Política de Retenção
 
-## ⛔ BLOQUEADOR ABERTO — o cadastro de candidato está retornando 400 em PROD
+## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
-**Desde:** 2026-08-02 ~14h20, no deploy da Edge Function `cadastrar-candidato` v16 (checkpoint 43-07).
-**Fecha com:** publicar o bundle do cliente. **Ação do operador**, não do agente.
+O cadastro ficou em `400` entre 2026-08-02 ~14h20 (deploy da EF v16) e 2026-08-03 ~00h30.
+Nenhum candidato real foi afetado: zero cadastros nos 30 dias anteriores, último em 2026-06-26.
 
-### O que está fora
+**Foram TRÊS causas, não uma** — e as duas primeiras só apareceram porque a terceira foi corrigida:
 
-Só o cadastro de candidato NOVO (`POST /functions/v1/cadastrar-candidato`). Confirmado contra o
-endpoint vivo, com o payload exato do bundle publicado:
+| # | Causa | Correção |
+|---|-------|----------|
+| 1 | EF v16 breaking contra o bundle publicado (a ordem `migration → EF → cliente` parou no passo 2) | push do cliente (`8346833`) |
+| 2 | **O Vercel não buildava desde 2026-06-27**: preset `vite` procura `dist/`, o repo gera em `build/`. Os 20 deployments visíveis estavam todos em ERROR; o site servia o último build de junho, congelado | `vercel.json#outputDirectory` (`274de2a`) |
+| 3 | **Variáveis de ambiente ausentes no build** — sem `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` o app quebrava no boot e a tela abria em branco | configuradas nas Project Settings pelo operador |
 
-```
-400 VALIDATION · field: autorizacao_marketing_vagas
-"Informe se você quer receber avisos sobre novas vagas"
-```
+⚠ Nota sobre a chave: a `anon` legada está **desabilitada** no projeto Supabase. O valor correto
+é a publishable `frontend_beauty_smile`.
 
-**Nada foi corrompido:** a validação roda antes de qualquer insert, então nenhuma linha foi escrita.
-Login, candidatura, painel do RH, notificações, guard de marketing, matriz de retenção — tudo
-intacto. Nenhum desses passa pela EF de cadastro.
+Corrigidos em seguida, ambos descobertos pelo teste ao vivo:
 
-### Por que quebrou
+- **SPA fallback ausente** (`0adea38`) — nenhuma URL direta funcionava, nem `/cadastro`. O preset
+  `vite` não adiciona o rewrite; para SPA isso é responsabilidade do repo.
+- **Dashboard sem a navbar compartilhada** (`581abe1`) — era a única tela de candidato com barra
+  própria e sem o link "Área do candidato". Como `/candidato/privacidade` tem um único ponto de
+  entrada (card no perfil, decisão explícita da UI-SPEC), quem caía no dashboard ficava sem
+  caminho até a revogação do próprio consentimento.
 
-A EF v16 exige `autorizacao_marketing_vagas` sem default (é literalmente o CONSENT-01) e é
-`.strict()`, então rejeita `autorizacao_comunicacao` e `autorizacao_analise_video`. O bundle
-publicado envia essas duas e não envia a primeira. São incompatíveis **por desenho** — o cabeçalho
-da `20260801000001` prevê isso e impõe a ordem `migration → EF → cliente`. Os passos 1 e 2 foram
-executados; o passo 3 não pertence a nenhum plano da Phase 43, e ninguém o fechou.
+### Provado ao vivo em 2026-08-03
 
-### Urgência medida (2026-08-02)
+**Cadastro real** (`fernando@fotona.com.br`), pelo navegador, em aba anônima:
+`consent_text_version = v2-2026-08` · hash idêntico ao hex pinado · `consent_registrado_em`
+preenchida · `autorizacao_marketing_vagas = false` e `autorizacao_retencao_curriculo = false`,
+batendo com as duas caixas deixadas desmarcadas. **SC#1 fechado ponta a ponta.**
 
-| | |
-|---|---|
-| Último cadastro real | **2026-06-26** (há mais de um mês) |
-| Cadastros em 30 dias | **0** |
-| Vagas vivas | 8 (`ativa` / `inativa`) |
+Print da tela confirmou os invariantes da UI-SPEC: opcionais nascendo desmarcadas, canal
+transacional como linha informativa com base legal citada (nunca controle), ausência de qualquer
+menção a análise de vídeo, e os dois eixos de versão nomeados separadamente.
 
-Não há incidente em curso. Mas o caminho está fora e o próximo candidato real bate no 400.
+**Revogação real** em `/candidato/privacidade`: ligou e desligou o switch de marketing. A escrita
+alterou **exatamente uma coluna**; `consent_text_hash`, `consent_text_version`,
+`consent_registrado_em` e `autorizacao_uso_dados` seguem intactos — o `GRANT` de coluna do CR-01
+segurando numa ação real de usuário. **SC#2 fechado.**
 
-### Auditoria do push (feita 2026-08-02) — o risco técnico é baixo
+### Achado de UI ainda aberto (cosmético)
 
-`origin/backup/local-state-2026-04` = `4bdb0fb` · local `HEAD` = `f8aafbb` · **136 commits** sem
-remote, cobrindo as fases **42 e 43** (2026-07-29 → 2026-08-02), 207 arquivos (73 em `src/`).
-
-| Verificação | Resultado |
-|---|---|
-| Migrations da janela aplicadas em PROD | **10/10** |
-| RPCs chamadas pelo cliente, existentes com `EXECUTE` p/ `authenticated` | **29/29** |
-| EFs invocadas pelo cliente que mudaram | **1** — `cadastrar-candidato`, já na v16 |
-| `submitCandidaturaSchema` | intacto → `submit-candidatura` (não redeployada) segura |
-| Dependências (`package.json` / lock) | **zero mudança** |
-| Env vars novas (`VITE_*`) | **zero** |
-| `npm run build` | **passa**, com as asserções de chunk do PERF-03 |
-
-O backend está à frente do cliente em tudo. O push não aplica migration nem deploya EF — builda o
-cliente, que é justamente a peça que falta.
-
-### ⚠ O que o push também leva junto
-
-Não é só a Phase 43. Sobem de uma vez:
-
-- **a fila de revisão do Art. 20 para o RH** (Phase 42) — cuja verificação está **diferida** em
-  `human_needed`, 4/5 must-haves. A superfície sobe sem a validação humana pendente;
-- **`/candidato/privacidade` e `/admin/retencao`** (Phase 43) — provadas por 1417 testes e
-  **nunca abertas num navegador**.
-
-### Depois do deploy
-
-Criar uma conta de verdade pelo cadastro. Se passar, o 400 morreu e o SC#1 fica provado ponta a
-ponta — servidor **e** cliente.
-
-**Rollback disponível** se algo que a auditoria não pegou aparecer: redeployar a EF a partir do
-código de `4bdb0fb` restaura o comportamento anterior em ~1 minuto. Custo do rollback: volta o
-`.default(true)` em `autorizacao_retencao_curriculo`, ou seja, o banco volta a afirmar consentimento
-de retenção que ninguém declarou. Por isso ele é stopgap, nunca destino.
+No bloco LGPD do passo de autorizações, o ponto final da frase *"…na página **Seus dados e
+autorizações**"* cai sozinho na linha de baixo. Quebra de composição, provavelmente `<strong>`
+seguido de nó de texto com espaço. Não afeta função.
 
 ---
 
