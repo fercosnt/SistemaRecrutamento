@@ -21,7 +21,8 @@
 -- (1) POR QUE ESTA É A PRIMEIRA DAS DUAS MIGRATIONS DA FASE
 -- -----------------------------------------------------------------------------
 -- A ordem `config_sla_dados` → `solicitacoes_dados` é DELIBERADA, e a ordem é o
--- controle. Esta tabela **não tem dependência nenhuma** e **não tem corpo `$$`**:
+-- controle. Esta tabela **não tem dependência nenhuma** e **não tem corpo delimitado
+-- por cifrões**:
 -- o apply dela é o teste BARATO do procedimento 42601 antes da migration que
 -- importa (a `20260804000002`, que tem dois corpos PL/pgSQL cercados de
 -- `COMMENT`/`REVOKE`/`GRANT` — exatamente a combinação que o pooler recusa).
@@ -38,7 +39,13 @@
 -- **Sem wrapper `BEGIN;`/`COMMIT;`**: o driver já envolve cada migration na sua
 -- própria transação implícita, e o BEGIN/COMMIT externo é o gatilho documentado do
 -- SQLSTATE 42601 ("cannot insert multiple commands into a prepared statement")
--- quando há corpo `$$` adjacente a `COMMENT`/`GRANT`/`REVOKE` — CLAUDE.md §Migrations.
+-- quando há corpo delimitado por cifrões adjacente a `COMMENT`/`GRANT`/`REVOKE` —
+-- CLAUDE.md §Migrations.
+--
+-- ⚠ Nota de higiene deste arquivo: o par de cifrões NÃO é escrito literalmente em
+-- lugar nenhum, nem dentro de comentário. Nenhuma migration já aplicada deste
+-- repositório o faz, e não há motivo para esta estrear a prática num arquivo cuja
+-- premissa é justamente não ter corpo nenhum delimitado assim.
 --
 -- ⚠ REPARO OBRIGATÓRIO DO LEDGER. `apply_migration` carimba a PRÓPRIA `version` —
 -- um timestamp do instante do apply, não o do nome deste arquivo. A linha PRECISA
@@ -185,7 +192,8 @@ ON CONFLICT (chave) DO NOTHING;
 -- A função de carimbo já existe desde a P37 (`20260722000002:144`) e é reutilizável
 -- tal como está: sem privilégio elevado, com search_path vazio e referência
 -- totalmente qualificada. Ela **NÃO é redefinida aqui** — redefini-la criaria
--- divergência com a versão viva sem ganho nenhum, e arrastaria um corpo `$$` para
+-- divergência com a versão viva sem ganho nenhum, e arrastaria um corpo delimitado
+-- por cifrões para
 -- dentro de uma migration que hoje não tem nenhum (ver §(1) do cabeçalho).
 --
 -- `CREATE TRIGGER` PURO, sem DROP prévio: idioma deliberado da P37/P42, que prefere
