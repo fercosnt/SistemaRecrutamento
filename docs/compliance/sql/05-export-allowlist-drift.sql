@@ -47,7 +47,7 @@
 --
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
--- O `VALUES` abaixo tem 363 pares, sobre 29 tabelas, e foi **GERADO, NUNCA
+-- O `VALUES` abaixo tem 361 pares, sobre 29 tabelas, e foi **GERADO, NUNCA
 -- DIGITADO**:
 --
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values
@@ -330,8 +330,6 @@ WITH allowlist(tabela, coluna) AS (
     ('redacoes_candidato','bloqueio_avanco'),
     ('redacoes_candidato','candidatura_id'),
     ('redacoes_candidato','classificacao_cor'),
-    ('redacoes_candidato','cost_tokens_input'),
-    ('redacoes_candidato','cost_tokens_output'),
     ('redacoes_candidato','decisao_revisor'),
     ('redacoes_candidato','eh_pergunta_padrao'),
     ('redacoes_candidato','flags'),

@@ -540,6 +540,21 @@ decisoes_por_coluna:
   redacoes_candidato.model_version:
     export: false
     razao: "(i) telemetria_interna — qual modelo rodou. Idem."
+  # ⚠ ESTES DOIS TAMBÉM NÃO VIERAM DO FECHO. Vieram da LEITURA da lista gerada, na
+  # preparação do checkpoint humano da Task 3 — e são o segundo achado do mesmo tipo
+  # que `ai_call_log_ids`. Aqui a fonte do erro não foi o inventário: foi a R3, que
+  # resolve por TIPO. `cost_tokens_input`/`_output` são `integer`, logo "estado de
+  # processo" para a regra — enquanto três irmãs da MESMA tabela e da MESMA família
+  # (`prompt_version`, `model_version`, `input_hash`) saíram por serem `text` e caírem
+  # no fecho. Duas colunas de telemetria entrando e três saindo, por tipagem, é
+  # incoerência de DDL virando decisão de compliance.
+  redacoes_candidato.cost_tokens_input:
+    export: false
+    razao: "(i) telemetria_interna — CUSTO em tokens da chamada ao modelo. Custo de LLM não é dado do titular no sentido do Art. 18, II: é a decisão travada na 44-CONTEXT §Área 2, a mesma por que `ai_cost_daily` e `ai_call_logs` estão fora no nível da tabela. Entrou por R3 (é `integer`); sai por veredito explícito, ao lado das três irmãs de telemetria da mesma tabela."
+  redacoes_candidato.cost_tokens_output:
+    export: false
+    razao: "(i) telemetria_interna — idem, tokens de saída."
+
   redacoes_candidato.input_hash:
     export: false
     razao: "(i) telemetria_interna — hash do insumo enviado ao modelo, usado para deduplicação/cache. É identificador interno de execução; não é fato sobre a pessoa e nada acrescenta à cópia dela."
