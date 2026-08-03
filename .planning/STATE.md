@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 43
 current_phase_name: Consentimentos Honestos & Política de Retenção
 status: verifying
-stopped_at: "Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43"
-last_updated: "2026-08-02T18:13:28.484Z"
-last_activity: 2026-08-01
-last_activity_desc: Phase 43 execution started
+stopped_at: "Phase 44 planejada: 9 planos / 5 waves, plan-checker PASSED (BLOCKER da superficie RH fechado). Proximo: /gsd-execute-phase 44"
+last_updated: "2026-08-03T13:32:43.764Z"
+last_activity: 2026-08-02
+last_activity_desc: checkpoint de PROD, code review (CR-01 fechado) e verificação
 progress:
   total_phases: 6
-  completed_phases: 1
-  total_plans: 21
-  completed_plans: 20
-  percent: 17
+  completed_phases: 2
+  total_plans: 30
+  completed_plans: 21
+  percent: 33
 ---
 
 # Project State
@@ -46,6 +46,7 @@ Corrigidos em seguida, ambos descobertos pelo teste ao vivo:
 
 - **SPA fallback ausente** (`0adea38`) — nenhuma URL direta funcionava, nem `/cadastro`. O preset
   `vite` não adiciona o rewrite; para SPA isso é responsabilidade do repo.
+
 - **Dashboard sem a navbar compartilhada** (`581abe1`) — era a única tela de candidato com barra
   própria e sem o link "Área do candidato". Como `/candidato/privacidade` tem um único ponto de
   entrada (card no perfil, decisão explícita da UI-SPEC), quem caía no dashboard ficava sem
@@ -364,9 +365,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-02T18:13:28.475Z
-Stopped at: Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43
-Resume file: None
+Last session: 2026-08-03T13:32:43.754Z
+Stopped at: Phase 44 planejada: 9 planos / 5 waves, plan-checker PASSED (BLOCKER da superficie RH fechado). Proximo: /gsd-execute-phase 44
+Resume file: .planning/phases/44-exporta-o-acesso/44-UI-SPEC.md
 
 ## Operator Next Steps
 
@@ -377,3 +378,24 @@ Resume file: None
    - **BD-2/BD-3 (Phase 43):** honrar ou remover `autorizacao_comunicacao`; manter ou reescrever o rótulo "revisão por pessoa natural".
    - **BD-9 + PITR (Phase 45, ambas antes de qualquer código destrutivo):** redigir ou preservar a justificativa ≥50 caracteres do recrutador em `decisao_final`; e **status do PITR como fato datado** — ligar é decisão de gasto, e Storage não tem backup **independente** do PITR.
    - **Janela de arrependimento (Phase 45):** número de dias.
+
+## Decision Coverage Override — Phase 44 (2026-08-03)
+
+`check.decision-coverage-plan` devolveu `passed: false` com razão **`could-not-parse`** — não
+"decisão descoberta". O gate procura bullets no formato `- **D-NN:** …`; este projeto nomeia
+decisões como `BD-N` (Phase 43 e 44) e `D-P42-NN` (Phase 42). É **incompatibilidade de formato com
+uma convenção já estabelecida do projeto**, não uma decisão perdida.
+
+Cobertura verificada **à mão** antes de prosseguir, e cada decisão medida tem plano:
+
+| Decisão | Implementada por |
+|---|---|
+| BD-6 — allowlist derivada do catálogo VIVO, coluna sem classificação é erro de fechamento | 44-01, 44-03 |
+| BD-7 — candidato cunha o próprio signed URL client-side (60 s), `service_role` fora do caminho | 44-05, 44-07 |
+| BD-8 — escopo da fila por vaga + admin vê órfãos; fila ≡ contador pelo MESMO predicado | 44-02, 44-08, 44-09 |
+| SC#3 asserção 1 — snapshot inline das chaves | 44-01, 44-03 |
+| SC#3 asserção 2 — smoke SQL contra `information_schema` | 44-03 |
+| M3 — leitura viva de `pg_policies` pós-apply | 44-04, 44-07, 44-08 |
+
+**Para o verify-phase:** este override é de FORMATO. Se o gate for ajustado para aceitar `BD-N`,
+ele deve passar sem mudança nos planos.
