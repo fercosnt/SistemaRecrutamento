@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 43
-current_phase_name: Consentimentos Honestos & Política de Retenção
-status: verifying
-stopped_at: "Phase 44 planejada: 9 planos / 5 waves, plan-checker PASSED (BLOCKER da superficie RH fechado). Proximo: /gsd-execute-phase 44"
-last_updated: "2026-08-03T13:32:43.764Z"
-last_activity: 2026-08-02
-last_activity_desc: checkpoint de PROD, code review (CR-01 fechado) e verificação
+current_phase: 44
+current_phase_name: Exportação & Acesso
+status: executing
+stopped_at: Completed 44-01-PLAN.md
+last_updated: "2026-08-03T19:18:48.473Z"
+last_activity: 2026-08-03
+last_activity_desc: Phase 44 execution started
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 21
+  completed_plans: 22
   percent: 33
 ---
 
@@ -24,7 +24,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 43 — Consentimentos Honestos & Política de Retenção
+**Current focus:** Phase 44 — Exportação & Acesso
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -78,10 +78,10 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-Phase: 43 (Consentimentos Honestos & Política de Retenção) — VERIFIED WITH GAPS
-Plan: 9 of 9
-Status: 9/9 planos executados · `43-VERIFICATION.md` = `gaps_found`, 2/5 must-haves
-Last activity: 2026-08-02 — checkpoint de PROD, code review (CR-01 fechado) e verificação
+Phase: 44 (Exportação & Acesso) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-08-03 — Phase 44 execution started
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -148,6 +148,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P06 | ~25min | 3 tasks | 3 files |
 | Phase 43 P08 | ~40min | 3 tasks | 13 files |
 | Phase 43 P09 | ~25min | 3 tasks | 16 files |
+| Phase 44 P01 | ~20min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -267,6 +268,12 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 43-09: o seed mostra TRAVESSAO em Ultima alteracao: atualizado_em vem preenchido pelo trigger em toda linha semeada, e exibi-lo seria uma data verdadeira contando historia falsa
 - [Phase ?]: 43-09: o NO-OP desabilita o CTA mas nao vira erro de validacao: nao ha o que corrigir, so nada a salvar. O servidor recusa o mesmo caso com 22023 — a regra vive nos dois lados
 - [Phase ?]: 43-09: a assercao negativa E8 recorta o estado de ERRO explicitamente: ele carrega o 'Tentar novamente' que a UI-SPEC especifica, e sem o recorte o teste reprovaria a copy que a spec manda escrever
+- [Phase ?]: [Phase 44 / 44-01]: A precedencia de coluna do gerador da allowlist poe o bloco 'ponteiros' (R2 partida em titular/terceiro) ANTES da entrada explicita do pii-inventory.yaml — a ordem literal do plano exportaria UUID de funcionario na copia do candidato, porque o inventario tem entrada EXPLICITA 'preservar/Funcionario' para agendado_por e avaliador_id e explicita vence regra
+- [Phase ?]: [Phase 44 / 44-01]: R4 do pii-inventory NAO existe como regra de COLUNA no gerador: e regra de TABELA e vive em fora_do_escopo_por_regra. Se resolvesse coluna, 'conteudo do produto' viraria a porta por onde uma coluna nao classificada sairia calada
+- [Phase ?]: [Phase 44 / 44-01]: meta.gerado_em e PINADO do artefato em disco durante --check; carimbo fresco a cada execucao faria o --check divergir pelo relogio e nunca sair 0 — um gate que nunca passa e o defeito que o .husky/pre-commit desta casa ja pagou para aprender
+- [Phase ?]: [Phase 44 / 44-01]: Tabela declarada em escopo_titular e ausente do catalogo vivo e AVISO + meta.escopo_declarado_nao_vivo, nunca erro: tabela ausente nao vaza coluna. O caminho perigoso e o inverso (tabela viva sem disposicao), e esse continua fatal
+- [Phase ?]: [Phase 44 / 44-01]: O fecho do gerador ACUMULA todas as pendencias antes de sair, em vez de morrer na primeira — o 44-03 recebe a lista inteira em vez de uma pendencia por rodada
+- [Phase ?]: [Phase 44 / 44-01]: js-yaml fixado na major 3 (^3.15.1): a 4.x remove safeLoad e quebraria o gen-pii-md.cjs vivo da Phase 42. Verificado APOS o install que gen-pii-md.cjs --check segue saindo 0
 
 ### Pending Todos
 
@@ -305,6 +312,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 42-08 tem de renumerar sua migration para 20260730000004 (o 42-07 tomou o 20260730000003) E reescrever as asserções (a)/(b) do seu smoke: o CHECK vivo passa a ter 5 valores com o 42-07 e 6 com o 42-08
 - 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
 - 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
+- 44-01 NAO fecha EXPORT-02 nem EXPORT-06: constroi o MECANISMO (escopo + gerador + fecho), nao o artefato. export-allowlist.json e _shared/exportAllowlist.ts so nascem no 44-03, com o catalogo vivo. Ate la 'node docs/compliance/sql/gen-export-allowlist.cjs' sai 1 — e essa E a saida correta. Dry-run contra a config real acusou 62 pendencias de fecho de coluna (superestimadas pelo proxy de tipos; ~20 sao temporais que o catalogo vivo resolve por R3): e a carga que o 44-03 herda.
 
 ## Deferred Verification
 
@@ -365,9 +373,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-03T13:32:43.754Z
-Stopped at: Phase 44 planejada: 9 planos / 5 waves, plan-checker PASSED (BLOCKER da superficie RH fechado). Proximo: /gsd-execute-phase 44
-Resume file: .planning/phases/44-exporta-o-acesso/44-UI-SPEC.md
+Last session: 2026-08-03T19:18:13.903Z
+Stopped at: Completed 44-01-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 
