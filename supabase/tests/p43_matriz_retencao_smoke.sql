@@ -22,9 +22,9 @@
 -- chamadas separadas zerariam o contador `smoke43m.pass` e o RESUMO (z) reprovaria um
 -- run que na verdade passou (lição registrada da P41-05).
 --
--- GATE VERDE = o contador `smoke43m.pass` bate **10** no RESUMO (z). O gate NÃO é
+-- GATE VERDE = o contador `smoke43m.pass` bate **11** no RESUMO (z). O gate NÃO é
 -- "não levantou exceção": um run parcial (asserção pulada por erro de ambiente)
--- acumularia < 10 e o RESUMO reprova ALTO. Esperado FIXO — não há metade adaptativa.
+-- acumularia < 11 e o RESUMO reprova ALTO. Esperado FIXO — não há metade adaptativa.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ ESTE SMOKE ESCREVE — E DESFAZ TUDO QUE ESCREVE, POR CONSTRUÇÃO
@@ -40,7 +40,7 @@
 -- decide se uma política de retenção pode ser alterada por quem não deveria.
 --
 -- -----------------------------------------------------------------------------
--- AS 10 ASSERÇÕES — quatro delas NEGATIVAS
+-- AS 11 ASSERÇÕES — quatro delas NEGATIVAS
 -- -----------------------------------------------------------------------------
 --   (a) A tabela existe, RLS está LIGADA, e há EXATAMENTE UMA policy, de SELECT,
 --       com `administrador` na expressão de `qual`.
@@ -65,7 +65,14 @@
 --       `public.candidatos` é IDÊNTICA antes e depois do smoke inteiro. Esta fase é
 --       zero-destrutiva POR DESENHO, e esta asserção existe para que isso seja um
 --       FATO MEDIDO e não uma intenção declarada.
---   (z) RESUMO — exige o total de 10 PASS; run parcial falha AQUI, não em silêncio.
+--   (k) O CAMINHO FELIZ DA LEITURA — `listar_matriz_retencao()` EXECUTA com claim
+--       válida e devolve as 8 etapas. Acrescentada em 2026-08-03, depois de a função
+--       levantar `42804` em produção com este arquivo em 10/10 verdes: a única
+--       asserção que a chamava era a (f), que testa a RECUSA, e o guard levanta na
+--       primeira linha do corpo — o `RETURN QUERY` nunca executava.
+--       **Toda função com guard precisa de DUAS asserções**: a que prova que recusa
+--       quem deve recusar, e a que prova que FUNCIONA para quem deve passar.
+--   (z) RESUMO — exige o total de 11 PASS; run parcial falha AQUI, não em silêncio.
 --
 -- -----------------------------------------------------------------------------
 -- ESCOPO DA PROVA — o que ela cobre e o que ela NÃO cobre
@@ -598,11 +605,61 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (k) O CAMINHO FELIZ DA LEITURA — acrescentada em 2026-08-03, e ela existe por
+--     causa de um defeito que este arquivo deixou passar com 10/10 verdes.
+--
+--     `listar_matriz_retencao()` levantava `42804` em TODA chamada bem-sucedida:
+--     `usuarios_rh.nome_completo` e `varchar(255)` e o `RETURNS TABLE` declara
+--     `text`, e `RETURN QUERY` exige IDENTIDADE de tipo. A tela `/admin/retencao`
+--     nao carregava. Corrigido por `20260803000001` com um `::text`.
+--
+--     ⚠ POR QUE ESTE SMOKE NAO PEGOU: a assercao (f) e a UNICA que chamava esta
+--     funcao, e o cenario dela e "chamador SEM CLAIM deve receber 42501". O guard
+--     levanta na PRIMEIRA linha do corpo — o `RETURN QUERY` nunca executava. As
+--     demais assercoes leem `config_retencao_etapa` DIRETAMENTE.
+--
+--     A licao, que vale alem deste arquivo: **um contador de assercoes verdes mede
+--     caminhos EXERCITADOS, nao caminhos EXISTENTES.** Uma funcao cujo unico teste
+--     e a recusa esta, para efeito de corpo, sem teste nenhum. Toda funcao com
+--     guard precisa de DUAS assercoes — a que prova que ela recusa quem deve
+--     recusar, e a que prova que ela FUNCIONA para quem deve passar.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $$
+DECLARE
+  v_admin_auth uuid := current_setting('smoke43m.admin_auth')::uuid;
+  v_linhas     int;
+  v_etapas     int;
+BEGIN
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_admin_auth::text,
+                      'app_metadata', json_build_object('role', 'administrador'))::text, false);
+
+  -- Executa de verdade. Um 42804 aqui reprova, e era exatamente o que acontecia.
+  SELECT count(*), count(DISTINCT m.etapa)
+    INTO v_linhas, v_etapas
+    FROM public.listar_matriz_retencao() m;
+
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  IF v_linhas <> 8 THEN
+    RAISE EXCEPTION 'P43M FAIL (k): listar_matriz_retencao devolveu % linha(s), esperado 8 — a leitura da matriz e o unico caminho da tela do admin, e ela precisa devolver o enum etapa_processo inteiro', v_linhas;
+  END IF;
+  IF v_etapas <> 8 THEN
+    RAISE EXCEPTION 'P43M FAIL (k): % etapas DISTINTAS em 8 linhas — ha duplicata, e a tela renderizaria a mesma etapa duas vezes', v_etapas;
+  END IF;
+
+  PERFORM set_config('smoke43m.pass', (coalesce(nullif(current_setting('smoke43m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'PASS (k): listar_matriz_retencao EXECUTA com claim valida e devolve as 8 etapas (o caminho que (f) nunca alcancava)';
+END $$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_n int; v_esperado int := 10;
+DECLARE v_n int; v_esperado int := 11;
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke43m.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
