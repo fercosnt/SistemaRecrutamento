@@ -157,7 +157,7 @@ Plans:
   4. O prazo do **Art. 19, II (15 dias corridos)** é medido a partir do registro do pedido e está visível ao RH — um pedido que se aproxima do prazo é distinguível de um recém-chegado.
   5. O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.
 
-**Plans**: 7 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`)
+**Plans**: 9 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`. Os dois planos do lado RH correm em paralelo com os do candidato: arquivos disjuntos, zero conflito de wave)
 
 Plans:
 
@@ -168,6 +168,8 @@ Plans:
 - [ ] 44-05-PLAN.md — **TRACER**: a fatia vertical do clique ao `.json` — EF `exportar-meus-dados` (allowlist, corpo não lido, registro antes da montagem, 429/`COOLDOWN`), serviço, hook, bloco e seção 3, provada ao vivo
 - [ ] 44-06-PLAN.md — A cópia honesta: o segundo arquivo feito para uma pessoa ler (escape + fronteira do inventário escrita) e os dois estados que faltavam ao CTA — sucesso persistente e cooldown que nunca é botão morto
 - [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado
+- [ ] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
+- [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável
 
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia
