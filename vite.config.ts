@@ -81,6 +81,16 @@
         // precisa continuar rodando.
         'supabase/functions/_shared/__tests__/consent-hash.test.ts',
         'supabase/functions/_shared/__tests__/autorizacoes-registro.test.ts',
+        // Phase 44 (exportação & acesso): a EF `exportar-meus-dados` importa
+        // `createClient` de `https://esm.sh` e seu teste importa
+        // `https://deno.land/std` assert → roda sob `deno test`, não Vitest.
+        // O teste dela mora em `__tests__/`, que é EXATAMENTE o que o `include`
+        // acima coleta. Caminho LITERAL, nunca glob de diretório.
+        // ⚠ A linha nasce ANTES do teste de propósito (plano 44-01, Task 1):
+        // uma entrada de `exclude` apontando para caminho inexistente é no-op
+        // inofensivo; uma entrada que chega DEPOIS do teste deixa
+        // `npm run test:run` vermelho no intervalo entre dois commits.
+        'supabase/functions/exportar-meus-dados/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',
