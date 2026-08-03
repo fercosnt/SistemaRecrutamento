@@ -20,6 +20,7 @@ import {
   exigirChaveApi,
   exigirSinkTeste,
   resolverDestinatario,
+  resolverDestinatarioComLabel,
   resolverModo,
 } from "../email-config.ts";
 
@@ -153,4 +154,43 @@ Deno.test("DELIV-03 — resolverDestinatario sem modo explícito herda o fail-sa
   } finally {
     if (original !== undefined) Deno.env.set("NOTIFICACOES_MODO", original);
   }
+});
+
+/*
+ * ─── Casos 10-12: `resolverDestinatarioComLabel` (Phase 42 / Plan 42-07, REVISAO-01) ───
+ *
+ * O rótulo do `+label` do sink de teste é conceito de DESTINO, não de vocabulário de
+ * evento de candidato. A EF `notificar-rh` precisa de um rótulo (`revisao_solicitada_rh`)
+ * que NÃO pertence à união `EventoNotificacao` — adicioná-lo àquela união exigiria
+ * entradas correspondentes nos três `Record<>` de template de candidato, poluindo um
+ * vocabulário que é fechado por outra razão.
+ *
+ * `resolverDestinatario` passa a DELEGAR para esta função. Os casos 1-9 acima provam a
+ * não-regressão dessa delegação e NÃO foram alterados.
+ */
+
+// (10) producao passa direto, com um rótulo fora da união de evento de candidato
+Deno.test("REVISAO-01 — resolverDestinatarioComLabel em producao devolve o endereço real", () => {
+  const r = resolverDestinatarioComLabel("a@b.com", "revisao_solicitada_rh", "producao");
+  assertEquals(r.para, "a@b.com");
+  assertEquals(r.destinatario_original, "a@b.com");
+  assertEquals(r.redirecionado, false);
+});
+
+// (11) teste desvia para o sink com o rótulo do RH e PRESERVA o original
+Deno.test("REVISAO-01 — resolverDestinatarioComLabel em teste ⇒ delivered+revisao_solicitada_rh@resend.dev", () => {
+  const r = resolverDestinatarioComLabel("a@b.com", "revisao_solicitada_rh", "teste");
+  assertEquals(r.para, "delivered+revisao_solicitada_rh@resend.dev");
+  assertEquals(r.destinatario_original, "a@b.com");
+  assert(r.redirecionado);
+});
+
+// (12) sanitização do rótulo — o endereço nunca ganha dígito, espaço ou pontuação
+Deno.test("REVISAO-01 — resolverDestinatarioComLabel sanitiza o rótulo para [a-z_]", () => {
+  const r = resolverDestinatarioComLabel("a@b.com", "ROTULO-com 99 lixo!", "teste");
+  assert(r.para.endsWith("@resend.dev"), `vazou para ${r.para}`);
+  const local = r.para.slice(0, r.para.indexOf("@"));
+  const label = local.slice("delivered+".length);
+  assertEquals(label, "comlixo"); // maiúsculas, dígitos, espaço, '-' e '!' removidos
+  assert(!/[0-9\s!.\-]/.test(local), `local-part com caractere inválido: ${local}`);
 });

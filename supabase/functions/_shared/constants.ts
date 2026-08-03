@@ -6,3 +6,28 @@
  * repo for the old value to catch stray references. (D-16, Phase 2)
  */
 export const POLICY_VERSION = 'v1.0-2026-04' as const
+
+/**
+ * Versão do TEXTO DAS AUTORIZAÇÕES que o candidato lê no cadastro (CONSENT-02).
+ *
+ * IMPORTANT: must match src/features/cadastro/constants.ts. O par tem teste de
+ * paridade em `src/features/cadastro/__tests__/consentTextFonteUnica.test.ts` —
+ * o par `POLICY_VERSION` ficou 4 meses sem nenhum, e um espelho sem teste é um
+ * espelho que já divergiu e ninguém sabe.
+ *
+ * ⚠ NUNCA REUSAR `POLICY_VERSION` AQUI. São eixos INDEPENDENTES: a Política de
+ * Privacidade muda sem que o rótulo de um checkbox mude, e vice-versa. Reusar
+ * faria uma edição de política cunhar versões falsas de consentimento — linhas
+ * afirmando que a pessoa leu um texto novo que nunca existiu.
+ *
+ * ⚠ POR QUE `v2` E NÃO `v1`: nenhuma linha do banco jamais carregará `v1`. As
+ * linhas pré-enforcement carregam NULL, e é o NULL que as torna separáveis por
+ * dado (SC#1 da Phase 43). O rótulo `v1-historico` fica reservado como
+ * identificador DOCUMENTAL do texto que aquelas linhas de fato viram, capturado
+ * verbatim em `consent-text.v1-historico.json`.
+ *
+ * Bumpar esta constante é OBRIGATÓRIO em qualquer edição de `consent-text.json`,
+ * no MESMO commit e nos DOIS arquivos: a entrada do hash inclui a versão, então
+ * editar a copy sem bumpar produz linhas cujo hash não corresponde a texto nenhum.
+ */
+export const CONSENT_TEXT_VERSION = 'v2-2026-08' as const

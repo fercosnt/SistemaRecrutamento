@@ -1,0 +1,32 @@
+{
+  "versao": "v2-2026-08",
+  "_nota": "FONTE ÚNICA do texto de consentimento que o candidato lê. Copy APROVADA na 43-UI-SPEC §AutorizacoesStep, transcrita sem uma vírgula de diferença. Este arquivo é lido pelas DUAS runtimes — pela Edge Function cadastrar-candidato (Deno) para calcular o hash SHA-256 gravado em public.autorizacoes.consent_text_hash, e pelo AutorizacoesStep (browser) para renderizar. Duas cópias do texto produziriam duas verdades que divergem em silêncio, e o hash gravado deixaria de corresponder a texto nenhum — o defeito exato que o CONSENT-02 existe para tornar impossível. MUDAR UMA VÍRGULA AQUI MUDA O HASH e cunha uma versão nova de consentimento: toda edição de copy exige bump de `versao` no mesmo commit, nos dois arquivos de constantes (CONSENT_TEXT_VERSION). O teste supabase/functions/_shared/__tests__/consent-hash.test.ts pina o hex deste arquivo e reprova qualquer edição sem bump. Os rótulos e descrições são armazenados em TEXTO PLANO: a ênfase tipográfica (negrito) da UI-SPEC é decisão de renderização, não parte do texto lido, e incluí-la como marcação faria a formatação entrar na prova.",
+  "consentimentos": [
+    {
+      "id": "autorizacao_uso_dados",
+      "rotulo": "Autorizo o uso dos meus dados",
+      "descricao": "Concordo que a Beauty Smile armazene e utilize meus dados pessoais para participação no processo seletivo. Sem esta autorização não é possível criar a conta.",
+      "obrigatorio": true
+    },
+    {
+      "id": "autorizacao_marketing_vagas",
+      "rotulo": "Quero receber avisos sobre novas vagas",
+      "descricao": "Concordo em receber por e-mail avisos sobre novas oportunidades de vagas na Beauty Smile, mesmo quando eu não estiver participando de um processo seletivo. Você pode desligar isso quando quiser, na página Seus dados e autorizações — e nada muda nos avisos do seu processo.",
+      "obrigatorio": false
+    },
+    {
+      "id": "autorizacao_retencao_curriculo",
+      "rotulo": "Autorizo guardar meu currículo por até 2 anos",
+      "descricao": "Concordo que a Beauty Smile guarde meu currículo e os dados da minha candidatura por até 2 anos, para me considerar em futuras oportunidades, mesmo que eu não seja selecionado(a) no processo atual. Sem esta autorização, seus dados são guardados apenas enquanto o processo em que você está durar.",
+      "obrigatorio": false
+    }
+  ],
+  "informativo_transacional": {
+    "_nota": "ESTE BLOCO NÃO É CONSENTIMENTO, e por isso vive FORA do array `consentimentos` e FORA da entrada do hash. A base legal do canal transacional é a execução de procedimentos preliminares ao contrato (LGPD, Art. 7º, V) — não o consentimento do titular. Incluí-lo no hash afirmaria que a pessoa consentiu com algo que ela não escolheu, e renderizá-lo como checkbox ou switch (um controle que ela não pode desligar) é a forma mais pura da doença que este milestone existe para curar (43-UI-SPEC, Invariante 3). É uma LINHA INFORMATIVA, renderizada fora do fieldset de escolhas, com a base legal nomeada.",
+    "rotulo": "Avisos sobre o andamento da sua candidatura",
+    "estado": "Não é possível desativar",
+    "descricao": "Enquanto você estiver participando de um processo seletivo, enviamos por e-mail os avisos sobre ele: confirmação da candidatura, mudança de etapa, convite de entrevista e o resultado. Esses e-mails fazem parte do próprio processo, então não dependem de autorização e não podem ser desligados.",
+    "base_legal": "Base legal: execução de procedimentos preliminares ao contrato (LGPD, Art. 7º, V).",
+    "fronteira": "Estes avisos nunca incluem divulgação de outras vagas. Isso é a autorização separada logo abaixo."
+  }
+}

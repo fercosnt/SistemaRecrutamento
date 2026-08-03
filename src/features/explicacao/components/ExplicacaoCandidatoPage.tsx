@@ -17,6 +17,12 @@
  * Route wiring (`/candidato/explicacao/:id`, `RoleGuard role="candidato"`) is deferred
  * to Plan 15-06.
  *
+ * Phase 42 / Plan 42-11 (REVISAO-04) closes the Art. 20 round-trip on the candidate's
+ * side: the block that used to render `revisao_resultado` as plain text became
+ * `ResultadoRevisaoBloco` (eyebrow + verdict line + date + untruncated reasoning). See
+ * that component's docblock for the four rules it encodes — they are the load-bearing
+ * part, not the markup.
+ *
  * @see src/features/avaliacao-cognitiva/components/ProvaCognitivaScreen.tsx (the ScreenShell + state machine this clones)
  * @see src/features/explicacao/hooks/useExplicacao.ts (useExplicacao — query + visit stamp)
  * @see src/features/explicacao/components/SolicitarRevisaoCTA.tsx (the revision CTA)
@@ -26,7 +32,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
-import { useExplicacao } from '../hooks/useExplicacao'
+import { useExplicacao, type RevisaoVeredito } from '../hooks/useExplicacao'
 import { SolicitarRevisaoCTA } from './SolicitarRevisaoCTA'
 
 /** Verbatim pt-BR copy from 15-UI-SPEC §Candidate LGPD Art. 20 explanation page. */
@@ -36,8 +42,13 @@ const COPY = {
     'Após avaliarmos seu processo, decidimos não seguir com a sua candidatura nesta vaga.',
   reasonEyebrow: 'Por que esta decisão',
   gratitude: 'Agradecemos seu interesse e o tempo dedicado ao processo.',
+  /**
+   * 43-UI-SPEC (BD-3) — reescrita em linguagem que o titular decodifica, COM a citação
+   * do artigo preservada ao lado. É esta linha que carrega a âncora legal da tela; o CTA
+   * logo abaixo pode falar simples porque o direito está nomeado aqui.
+   */
   revisionIntro:
-    'Você tem o direito de solicitar a revisão desta decisão por uma pessoa natural (LGPD, Art. 20).',
+    'Você pode pedir que uma pessoa da nossa equipe revise esta decisão. É um direito seu (LGPD, Art. 20).',
   revisionResultLabel: 'Resultado da revisão:',
   backToPanel: 'Voltar ao painel',
   notAvailableHeading: 'Esta página não está disponível.',
@@ -46,6 +57,24 @@ const COPY = {
   loadFailedHeading: 'Não foi possível carregar esta página.',
   loadFailedBody: 'Verifique sua conexão e tente novamente.',
   retry: 'Tentar novamente',
+} as const
+
+/**
+ * Verbatim pt-BR copy from 42-UI-SPEC §Superfície do candidato — REVISAO-04.
+ *
+ * The verdict line is split in two so the clause that ANSWERS the candidate's question
+ * carries weight 600 while the sentence stays a single 16px/1.5 reading line. The two
+ * halves concatenate to exactly the UI-SPEC string — the split is typographic, not
+ * editorial.
+ */
+const COPY_REVISAO = {
+  eyebrow: 'Resultado da revisão',
+  vereditoPrefixo: 'Após a revisão, ',
+  veredito: {
+    mantida: 'a decisão foi mantida.',
+    revertida: 'a decisão anterior foi revista.',
+  },
+  respondidaEm: (data: string) => `Respondida em ${data}`,
 } as const
 
 export function ExplicacaoCandidatoPage() {
@@ -146,16 +175,29 @@ export function ExplicacaoCandidatoPage() {
 
         <p className="text-base leading-relaxed text-white/80">{COPY.gratitude}</p>
 
-        {/* If a review result was already provided, surface it (plain text). */}
-        {explicacao.revisao_resultado && (
-          <div className="rounded-lg border border-white/15 bg-white/5 p-4 space-y-1">
-            <p className="text-sm font-semibold text-white/70">
-              {COPY.revisionResultLabel}
-            </p>
-            <p className="text-base leading-relaxed text-white/90">
-              {explicacao.revisao_resultado}
-            </p>
-          </div>
+        {/* The Art. 20 review OUTCOME (REVISAO-04) — gated on `revisao_respondida_em`,
+            the SAME column the 42-08 trigger watches to send the candidate's e-mail, so
+            the panel and the e-mail can never disagree about whether an answer exists.
+            Falls back to the pre-42-11 plain-text block for any legacy row that carries a
+            result WITHOUT an answer stamp: this is a transparency surface, and silently
+            dropping text a candidate can read today would be the regression. */}
+        {explicacao.revisao_respondida_em ? (
+          <ResultadoRevisaoBloco
+            veredito={explicacao.revisao_veredito}
+            respondidaEm={explicacao.revisao_respondida_em}
+            justificativa={explicacao.revisao_resultado}
+          />
+        ) : (
+          explicacao.revisao_resultado && (
+            <div className="rounded-lg border border-white/15 bg-white/5 p-4 space-y-1">
+              <p className="text-sm font-semibold text-white/70">
+                {COPY.revisionResultLabel}
+              </p>
+              <p className="text-base leading-relaxed text-white/90">
+                {explicacao.revisao_resultado}
+              </p>
+            </div>
+          )
         )}
 
         {/* LGPD Art. 20 revision-right block + the CTA. */}
@@ -164,6 +206,7 @@ export function ExplicacaoCandidatoPage() {
           <SolicitarRevisaoCTA
             candidaturaId={id as string}
             revisaoSolicitadaEm={explicacao.revisao_solicitada_em}
+            revisaoRespondidaEm={explicacao.revisao_respondida_em}
           />
         </div>
 
@@ -179,6 +222,90 @@ export function ExplicacaoCandidatoPage() {
         </div>
       </GlassPanel>
     </ScreenShell>
+  )
+}
+
+/** Formats an ISO timestamp as dd/mm/aaaa (pt-BR) — the idiom already used by the CTA. */
+function formatarDataPtBr(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}
+
+/**
+ * The Art. 20 review-outcome block (REVISAO-04) — the candidate reads the verdict, the
+ * date, and the reasoning written by the person who reviewed the decision.
+ *
+ * FOUR RULES THIS BLOCK ENCODES, none of them cosmetic:
+ *
+ *  1. THE VERDICT LINE IS THE ANCHOR of this block — it is the first thing read and the
+ *     one that answers the question that brings the candidate here. The eyebrow and the
+ *     date are subordinated by COLOUR AND CASE (`text-white/50`, uppercase), never by a
+ *     smaller size: the declared type scale has four sizes and the label role is 14px
+ *     (42-UI-SPEC §Typography — the 12px role was eliminated). The block itself stays
+ *     subordinate to the page H1; this phase does not contest the screen's anchor.
+ *  2. THE REASONING IS LOAD-BEARING READING: 16px / line-height 1.5, line breaks
+ *     preserved, and NEVER truncated — no fixed height, no inner scroll, the block grows
+ *     vertically. Truncating the review's reasoning would hollow out the very right the
+ *     Art. 20 grants, so the layout risk is accepted deliberately (T-42-40).
+ *  3. HONESTY: the system writes NO promise of its own about next steps. The RPC behind
+ *     this phase records a verdict and a justification; it does NOT reopen the funnel.
+ *     Whatever comes next is what the reviewing person wrote. A system sentence here
+ *     ("entraremos em contato", "você voltará ao processo") would be a promise with no
+ *     code that executes it — exactly what the Phase-47 CONSOL-04 checklist exists to
+ *     hunt down.
+ *  4. IDENTITY: the reviewer's name does NOT appear, and the reviewer id is not even read
+ *     by the candidate's client (it is absent from `DECISAO_EXPLICACAO_ALLOWLIST`). And
+ *     NOTHING from the RH-side follow-up threshold reaches here — no band, no band
+ *     colour, no waiting-day count, no late label, not in text and not in an attribute
+ *     (D-P42-03 / invariante 1 da 42-UI-SPEC). The Art. 20 fixes no deadline; implying
+ *     one would be the defect.
+ */
+function ResultadoRevisaoBloco({
+  veredito,
+  respondidaEm,
+  justificativa,
+}: {
+  veredito: RevisaoVeredito | null
+  respondidaEm: string
+  justificativa: string | null
+}) {
+  const data = formatarDataPtBr(respondidaEm)
+
+  return (
+    <div className="rounded-lg border border-white/15 bg-white/5 p-4 space-y-2">
+      <p className="text-sm font-semibold uppercase tracking-wide text-white/50">
+        {COPY_REVISAO.eyebrow}
+      </p>
+
+      {/* Anchor: 16px/1.5, with the answering clause at weight 600. A verdict outside the
+          closed vocabulary renders NOTHING rather than echoing a raw server token. */}
+      {veredito && (
+        <p className="text-base leading-relaxed text-white">
+          {COPY_REVISAO.vereditoPrefixo}
+          <span className="font-semibold">{COPY_REVISAO.veredito[veredito]}</span>
+        </p>
+      )}
+
+      {data && (
+        <p className="text-sm font-semibold text-white/50">
+          {COPY_REVISAO.respondidaEm(data)}
+        </p>
+      )}
+
+      {justificativa && (
+        <p
+          data-corpo-revisao
+          className="text-base leading-relaxed whitespace-pre-wrap text-white/90"
+        >
+          {justificativa}
+        </p>
+      )}
+    </div>
   )
 }
 

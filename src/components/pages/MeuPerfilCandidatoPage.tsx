@@ -3,7 +3,8 @@ import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { CandidatoNavbar } from '../layouts/CandidatoNavbar';
 import { Glass, GlassButton, GlassCard } from '../ui/glass';
-import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Camera, ShieldCheck, ChevronRight } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -17,9 +18,26 @@ import { passwordSchema } from '@/features/auth/schemas';
 // agora SÓ no Dashboard (D-09). Por isso o hook de busca de candidaturas, os mapas de
 // rótulo M1 de etapa/status, o tipo de candidatura, o Badge e os ícones do funil saíram.
 
+/**
+ * Phase 43 / Plano 43-08 — copy do card de navegação para `/candidato/privacidade`.
+ *
+ * O card é o ÚNICO caminho de chegada da persona à página nova. Deliberadamente NÃO é um
+ * item novo na `CandidatoNavbar`: ela hoje tem exatamente um link ("Área do candidato") e
+ * engordá-la seria mudança de shell fora do escopo desta fase (43-UI-SPEC §Rotas novas).
+ *
+ * E nada de perfil se move para a página nova: a D-10 da Phase 17 estabeleceu que perfil
+ * é dados pessoais + edição APENAS.
+ */
+const COPY_CARD_PRIVACIDADE = {
+  titulo: 'Seus dados e autorizações',
+  corpo:
+    'Veja o que você autorizou, mude o que é opcional e saiba por quanto tempo guardamos seus dados.',
+} as const;
+
 export function MeuPerfilCandidatoPage() {
   const candidato = useCandidato();
   const { setCandidato } = useAuthStore();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estado - Dados do Usuário (inicializado com dados reais do Zustand)
@@ -391,6 +409,32 @@ export function MeuPerfilCandidatoPage() {
               (a antiga coluna direita de candidaturas/progresso foi removida). */}
           <div className="max-w-2xl mx-auto">
             <div className="space-y-8">
+              {/* Seus dados e autorizações (Phase 43 / CONSENT-04) — card de navegação */}
+              <GlassButton
+                variant="white"
+                blur="xl"
+                hover
+                onClick={() => navigate('/candidato/privacidade')}
+                className="w-full min-h-[44px] p-6 gap-4 justify-start text-left"
+              >
+                <ShieldCheck
+                  aria-hidden="true"
+                  className="w-6 h-6 shrink-0 text-white drop-shadow-md"
+                />
+                <span className="flex-1 space-y-1">
+                  <span className="block text-white font-semibold drop-shadow-md">
+                    {COPY_CARD_PRIVACIDADE.titulo}
+                  </span>
+                  <span className="block text-base leading-relaxed text-white/80">
+                    {COPY_CARD_PRIVACIDADE.corpo}
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="w-5 h-5 shrink-0 text-white/70"
+                />
+              </GlassButton>
+
               {/* Dados Pessoais */}
               <Glass variant="white" blur="xl" className="p-8 rounded-xl space-y-6">
                 <div>

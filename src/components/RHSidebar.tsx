@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck } from 'lucide-react';
+import { Home, Users, Briefcase, Scale, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck, CalendarClock } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -8,12 +8,26 @@ import { Glass } from './ui/glass';
 import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
 import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
+import { useRevisoesPendentesCount } from '@/features/revisao/hooks/useRevisoesPendentesCount';
+import { formatarBadgePendentes } from '@/features/revisao/services/revisaoService';
 
 interface MenuItem {
   id: string;
   label: string;
   icon: React.ReactNode;
-  badge?: number;
+  /**
+   * Conteúdo do contador ao lado do rótulo. Este slot existe na interface desde sempre e
+   * NUNCA teve consumidor — o plano 42-10 é o primeiro.
+   *
+   * ⚠ POR QUE `string` E NÃO `number` (escolha registrada, uma das duas opções do plano):
+   * o transbordo tem de mostrar `99+`, que não é número. Das duas saídas possíveis
+   * (alargar o slot para `number | string`, ou derivar o rótulo do número no render),
+   * escolheu-se ALARGAR — e alargar até o fim: o slot passa a ser `string`, porque quem
+   * decide a apresentação é `formatarBadgePendentes`, e ter DUAS fontes de verdade sobre
+   * "como um contador aparece" é exatamente como um `0` volta a vazar para a tela.
+   * O contrato é: `undefined` some, string aparece.
+   */
+  badge?: string;
   onClick?: () => void;
 }
 
@@ -66,14 +80,30 @@ export function RHSidebar({
     gcTime: 60 * 60 * 1000,
   });
 
+  // Contador de revisões pendentes (REVISAO-02). O valor exibido NUNCA é a contagem
+  // crua: `formatarBadgePendentes` devolve `undefined` para zero, carregando e falha de
+  // leitura, e `'99+'` acima de 99. Passar o número direto colocaria um "0" solto no
+  // menu em três estados distintos — e um contador errado no menu é pior que contador
+  // nenhum, porque manda o operador procurar trabalho que não existe.
+  const { data: revisoesPendentes } = useRevisoesPendentesCount();
+  const badgeRevisoes = formatarBadgePendentes(revisoesPendentes);
+
   // Detectar página ativa baseado na rota atual
   const getActivePageFromPath = (pathname: string): string => {
     if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
     if (pathname.startsWith('/rh/candidatos')) return 'candidatos-rh';
+    // Sítio 2 de 3 da entrada de Revisões — ANTES de /rh/vagas, mantendo a ordem de
+    // especificidade das demais. Sem esta linha o item navega mas nunca se acende.
+    if (pathname.startsWith('/rh/revisoes')) return 'revisoes-rh';
     if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
     if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
     if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
     if (pathname.startsWith('/rh/configuracoes')) return 'configuracoes-rh';
+    // Sítio 2 de 3 da entrada de Retenção — ANTES do `/admin` genérico (Phase 43 / 43-09).
+    // Sem esta ORDEM o match genérico rouba a rota e o item nunca acende: é a mesma
+    // armadilha que a Phase 42 documentou para /rh/revisoes × /rh/vagas, e ela é
+    // silenciosa — o item navega, a página abre, e o menu continua realçando "Admin".
+    if (pathname.startsWith('/admin/retencao')) return 'retencao-admin';
     if (pathname.startsWith('/admin')) return 'admin';
     return 'dashboard-rh';
   };
@@ -90,6 +120,15 @@ export function RHSidebar({
       id: 'candidatos-rh',
       label: 'Candidatos',
       icon: <Users size={24} />,
+    },
+    // Sítio 1 de 3 — o item existe. Posição travada pela 42-UI-SPEC: entre Candidatos e
+    // Vagas. A visibilidade aqui é COSMÉTICA (mesmo modelo mental do D-13 abaixo): quem
+    // controla o acesso é o `RoleGuard` da rota e o escopo por vaga dentro do RPC.
+    {
+      id: 'revisoes-rh',
+      label: 'Revisões',
+      icon: <Scale size={24} />,
+      badge: badgeRevisoes,
     },
     {
       id: 'vagas-rh',
@@ -114,8 +153,17 @@ export function RHSidebar({
     // D-13: role-gated Admin entry — visible ONLY for administrador (hidden for rh/candidato).
     // Opens sub-nav to /admin/* (ai-logs default). Visibility is cosmetic; the route RoleGuard
     // + RLS remain the real access boundary.
+    // Sítio 1 de 3 da entrada de Retenção (Phase 43 / RETEN-01) — o item existe. Gateado
+    // no MESMO idioma do item Admin acima: a visibilidade é COSMÉTICA (D-13), quem
+    // controla acesso é o `RoleGuard` da rota + a policy admin-only da tabela + o guard
+    // NULL-safe dentro das RPCs. Sem este item a matriz existiria apenas por URL digitada
+    // — as quatro páginas /admin/* já existentes não têm nenhum link cruzado, e replicar
+    // o padrão vivo seria replicar o defeito.
     ...(role === 'administrador'
-      ? [{ id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> }]
+      ? [
+          { id: 'admin', label: 'Admin', icon: <ShieldCheck size={24} /> },
+          { id: 'retencao-admin', label: 'Retenção', icon: <CalendarClock size={24} /> },
+        ]
       : []),
   ];
 
@@ -124,11 +172,15 @@ export function RHSidebar({
     const routes: Record<string, string> = {
       'dashboard-rh': '/rh/dashboard',
       'candidatos-rh': '/rh/candidatos',
+      // Sítio 3 de 3 — sem esta entrada o item existe, se acende, e não navega.
+      'revisoes-rh': '/rh/revisoes',
       'vagas-rh': '/rh/vagas',
       'relatorios-rh': '/rh/relatorios',
       'suporte-rh': '/rh/suporte',
       'configuracoes-rh': '/rh/configuracoes',
       'admin': '/admin/ai-logs',
+      // Sítio 3 de 3 — sem esta entrada o item existe, se acende, e não navega.
+      'retencao-admin': '/admin/retencao',
     };
 
     const route = routes[itemId];
@@ -238,16 +290,23 @@ export function RHSidebar({
                       {!isCollapsed && (
                         <>
                           <span className="flex-1 text-left drop-shadow-sm">{item.label}</span>
-                          {item.badge && item.badge > 0 && (
+                          {/* TERNÁRIO, não `&&`. A forma anterior era
+                              `item.badge && item.badge > 0 && (…)`: com `badge` numérico
+                              zerado, `0 && …` curto-circuita para `0` — e o React
+                              renderiza `0` como TEXTO, colocando um algarismo solto no
+                              menu. O bug era latente porque este slot nunca teve
+                              consumidor; o plano 42-10 é o primeiro, e seria a primeira
+                              vítima. Com o ternário, qualquer valor falsy some de fato. */}
+                          {item.badge ? (
                             <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm drop-shadow-md">
                               {item.badge}
                             </Badge>
-                          )}
+                          ) : null}
                         </>
                       )}
-                      {isCollapsed && item.badge && item.badge > 0 && (
+                      {isCollapsed && item.badge ? (
                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#35BFAD] rounded-full shadow-lg shadow-[#35BFAD]/50 border-2 border-white/20" />
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}

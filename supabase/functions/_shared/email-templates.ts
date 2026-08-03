@@ -74,6 +74,18 @@ export interface DadosEmail {
    * ⇒ rejeição (fail-safe: o corpo congelado de rejeição é o default histórico).
    */
   desfecho?: "aprovado" | "rejeitado";
+  /**
+   * Veredito da revisão do Art. 20 (só o evento `revisao_respondida` usa). A EF lê de
+   * `decisao_final.revisao_veredito`, cujo CHECK vivo o restringe a `mantida`/`revertida`
+   * (`20260730000001:129-130`).
+   *
+   * OPCIONAL DE PROPÓSITO, e o corpo TEM de ter um caminho honesto para a ausência: um corpo
+   * que assumisse a presença deste campo produziria e-mail genérico (a classe do CR-01) ou
+   * exceção dentro de um dispatch at-most-once, e aí o e-mail sumiria sem rastro. Ausente ⇒
+   * frase neutra que informa a resposta e remete ao painel, NUNCA um desfecho presumido —
+   * inverter isso diria ao titular que sua decisão foi mantida sem que o sistema saiba disso.
+   */
+  vereditoRevisao?: "mantida" | "revertida";
 }
 
 /** Wrapper table-based inline-CSS: header (logo) + conteúdo + footer LGPD transacional. */
@@ -157,6 +169,47 @@ function corpoDecisao(d: DadosEmail): string {
 <p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
 }
 
+/**
+ * Corpo do 5º evento — a resposta à solicitação de revisão do Art. 20 (42-08 / REVISAO-04).
+ *
+ * As duas frases de veredito são as MESMAS que a UI-SPEC da fase trava para a superfície do
+ * candidato (`42-UI-SPEC.md` § "Superfície do candidato"): o e-mail e a página têm de dizer a
+ * mesma coisa, senão a pessoa lê um desfecho na caixa de entrada e outro no painel.
+ *
+ * TRÊS SILÊNCIOS DELIBERADOS, cada um com um motivo que não é estético:
+ *
+ *   1. NÃO promete próximos passos. A RPC desta fase grava um veredito e uma justificativa —
+ *      ela NÃO reabre o funil. "Entraremos em contato" seria promessa sem código que a
+ *      execute. Qualquer próximo passo é o que a pessoa que revisou escreveu, e isso vive no
+ *      painel, não aqui (regra de honestidade da UI-SPEC).
+ *   2. NÃO identifica quem revisou. É PII de funcionário; a transparência do Art. 20 é
+ *      atendida pelo conteúdo da revisão, não pela identificação nominal do revisor.
+ *   3. NÃO interpola NENHUM campo de avaliação nem a justificativa da revisão. Mesma
+ *      disciplina D-15/RNF-07a das cópias congeladas: o texto livre do revisor é lido no
+ *      painel autenticado, não replicado num e-mail que trafega por terceiro.
+ *
+ * O Art. 20 NÃO fixa prazo — nenhuma frase aqui inventa um (invariante nº2 da UI-SPEC).
+ */
+const COPY_REVISAO_MANTIDA = "Após a revisão, a decisão foi mantida.";
+const COPY_REVISAO_REVERTIDA = "Após a revisão, a decisão anterior foi revista.";
+
+function corpoRevisaoRespondida(d: DadosEmail): string {
+  const veredito = d.vereditoRevisao === "mantida"
+    ? COPY_REVISAO_MANTIDA
+    : d.vereditoRevisao === "revertida"
+    ? COPY_REVISAO_REVERTIDA
+    // Ausente/desconhecido ⇒ silêncio sobre o desfecho. Fail-safe assimétrico de propósito:
+    // afirmar um desfecho que não se conhece é pior do que não afirmar nenhum.
+    : "";
+  return `${saudacao(d)}
+<p style="margin:0 0 16px;">Sua solicitação de revisão referente à candidatura para a vaga <strong>${
+    escapeHtml(d.tituloVaga)
+  }</strong> foi respondida.</p>
+${veredito ? `<p style="margin:0 0 16px;">${escapeHtml(veredito)}</p>` : ""}
+<p style="margin:0 0 16px;">A resposta completa está disponível no seu painel do candidato.</p>
+<p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
+}
+
 /** Subjects pt-BR por evento. */
 export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   candidatura_recebida: (d) => `Recebemos sua candidatura — ${d.tituloVaga}`,
@@ -166,6 +219,10 @@ export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
     d.desfecho === "aprovado"
       ? `Boa notícia sobre sua candidatura — ${d.tituloVaga}`
       : `Atualização sobre sua candidatura — ${d.tituloVaga}`,
+  // O 5º evento NÃO ramifica o assunto por veredito — mesma razão do PREHEADERS abaixo:
+  // o assunto é lido na LISTA de e-mails, antes de a mensagem ser aberta. Ele nomeia o que
+  // chegou (a resposta à solicitação), não o que ela diz. Pinado por T-42-V2b.
+  revisao_respondida: (d) => `Resposta à sua solicitação de revisão — ${d.tituloVaga}`,
 };
 
 const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
@@ -173,6 +230,7 @@ const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   avaliacao_liberada: corpoAvanco,
   convite_entrevista: corpoConvite,
   decisao_final: corpoDecisao,
+  revisao_respondida: corpoRevisaoRespondida,
 };
 
 /**
@@ -193,6 +251,23 @@ const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
     d.desfecho === "aprovado"
       ? "Boa notícia sobre a sua candidatura."
       : "Atualização sobre a sua candidatura.",
+  // ── DECISÃO REGISTRADA (42-08 · questão aberta nº3 da pesquisa da fase) ──────────────
+  // A prévia do 5º evento **NÃO ramifica por veredito**: devolve a MESMA string para
+  // `mantida` e para `revertida`.
+  //
+  // POR QUÊ, e por que isto não contradiz o W-01 logo acima. O preheader é o texto que o
+  // cliente de e-mail exibe NA LISTA, ao lado do assunto — antes de a pessoa abrir a
+  // mensagem. Na `decisao_final`, ramificar é CORRETO porque o assunto já ramifica e uma
+  // prévia morna ao lado de "Boa notícia…" é dissonante. Aqui o assunto DELIBERADAMENTE não
+  // ramifica, e fazer a prévia ramificar entregaria o desfecho da revisão do Art. 20 numa
+  // linha de listagem, possivelmente numa tela de bloqueio, para quem só queria conferir a
+  // caixa. Antecipar isso é escolha de produto que esta fase não toma.
+  //
+  // A lição do W-01 é que **NÃO DECIDIR** é o defeito — não que ramificar seja sempre certo.
+  // Por isso a decisão está escrita aqui E pinada por `T-42-V2c`, que exige IGUALDADE
+  // LITERAL entre os dois vereditos. Um futuro que queira ramificar terá de alterar aquele
+  // teste de propósito, e a mudança aparece no diff em vez de escorregar.
+  revisao_respondida: () => "Sua solicitação de revisão foi respondida.",
 };
 
 /** Ponto único que a EF chama: evento → { subject, html }. */

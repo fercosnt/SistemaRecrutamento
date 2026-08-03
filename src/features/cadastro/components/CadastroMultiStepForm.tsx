@@ -181,6 +181,60 @@ function routeCadastroError(
 }
 
 // ============================================
+// DEFAULT VALUES DO FORMULÁRIO
+// ============================================
+
+/**
+ * Estado inicial do formulário de cadastro — EXPORTADO de propósito.
+ *
+ * ⚠ AS TRÊS AUTORIZAÇÕES NASCEM `false` (Phase 43 / CONSENT-01).
+ * Enquanto `autorizacao_comunicacao` e `autorizacao_retencao_curriculo` nasciam
+ * `true` aqui, o banco não sabia distinguir "a pessoa marcou" de "a pessoa não
+ * desmarcou": as duas produziam a mesma linha. Um consentimento assim não é
+ * INEQUÍVOCO (LGPD, Art. 5º, XII) — ele é uma afirmação do formulário sobre a
+ * pessoa. O obrigatório (`autorizacao_uso_dados`) também nasce `false`: ele segue
+ * sendo o gate de submit (D-15), mas tem de ser marcado por INTERAÇÃO, senão é
+ * ambíguo pelo mesmo motivo.
+ *
+ * ⚠ POR QUE ISTO É EXPORTADO: o teste de defaults
+ * (`__tests__/sitiosDeCampoCliente.test.ts`) precisa asserir sobre o objeto que o
+ * RHF de fato consome. Uma cópia local no teste ficaria verde para sempre enquanto
+ * este objeto derivasse — verde sobre forma morta, que é exatamente o modo de falha
+ * que a fase inteira existe para fechar.
+ */
+export const CADASTRO_DEFAULT_VALUES = {
+  dadosPessoais: {
+    // Phase 8 / Plan 08-02 (D-02, INSCR-01): cpf + genero no longer collected.
+    nome_completo: '',
+    email: '',
+    telefone: '',
+    data_nascimento: '',
+    instagram: null,
+    linkedin: null,
+  },
+  endereco: {
+    cep: '',
+    logradouro: '',
+    numero: '',
+    complemento: null,
+    bairro: '',
+    cidade: '',
+    estado: '',
+  },
+  disponibilidade: {
+    turno_preferido: 'integral',
+    modelo_trabalho: 'presencial',
+    disponibilidade_imediata: false,
+    data_disponibilidade: null,
+  },
+  autorizacoes: {
+    autorizacao_uso_dados: false,
+    autorizacao_marketing_vagas: false,
+    autorizacao_retencao_curriculo: false,
+  },
+} as const
+
+// ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
 
@@ -216,38 +270,7 @@ export function CadastroMultiStepForm({
   const methods = useForm<CandidatoFormData>({
     resolver: zodResolver(candidatoFormSchema),
     mode: 'onBlur', // Valida quando o campo perde foco
-    defaultValues: initialData || {
-      dadosPessoais: {
-        // Phase 8 / Plan 08-02 (D-02, INSCR-01): cpf + genero no longer collected.
-        nome_completo: '',
-        email: '',
-        telefone: '',
-        data_nascimento: '',
-        instagram: null,
-        linkedin: null,
-      },
-      endereco: {
-        cep: '',
-        logradouro: '',
-        numero: '',
-        complemento: null,
-        bairro: '',
-        cidade: '',
-        estado: '',
-      },
-      disponibilidade: {
-        turno_preferido: 'integral',
-        modelo_trabalho: 'presencial',
-        disponibilidade_imediata: false,
-        data_disponibilidade: null,
-      },
-      autorizacoes: {
-        autorizacao_uso_dados: true,
-        autorizacao_comunicacao: true,
-        autorizacao_retencao_curriculo: true,
-        autorizacao_analise_video: false,
-      },
-    },
+    defaultValues: initialData || CADASTRO_DEFAULT_VALUES,
   })
 
   // Leave guard: bloqueia refresh/close acidental enquanto o form está sujo e

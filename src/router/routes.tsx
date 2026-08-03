@@ -62,6 +62,9 @@ const MeuPerfilPage = lazyNamed(() => import('../components/pages/MeuPerfilPage'
 const SuporteRHPage = lazyNamed(() => import('../components/pages/SuporteRHPage'), 'SuporteRHPage')
 const RelatoriosRHPage = lazyNamed(() => import('../components/pages/RelatoriosRHPage'), 'RelatoriosRHPage')
 
+// Fila de revisão de decisão Art. 20 (Phase 42 / REVISAO-02 — RH + administrador)
+const RevisoesRHPage = lazyNamed(() => import('../features/revisao/components/RevisoesRHPage'), 'RevisoesRHPage')
+
 // Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
 const RedacaoReviewPanel = lazyNamed(() => import('../features/triagem/components/RedacaoReviewPanel'), 'RedacaoReviewPanel')
 
@@ -80,7 +83,13 @@ const AiCostsPage = lazyNamed(() => import('../features/admin/ai-costs/component
 const DecisaoFinalPage = lazyNamed(() => import('../features/decisao/components/DecisaoFinalPage'), 'DecisaoFinalPage')
 // Explicação ao candidato — EAGER (candidate-facing route, stays in first-paint graph).
 import { ExplicacaoCandidatoPage } from '../features/explicacao/components/ExplicacaoCandidatoPage'
+// Seus dados e autorizações (Phase 43 / CONSENT-04 + RETEN-03) — EAGER pelo mesmo
+// motivo: superfície de candidato, mobile-first, fora do grafo lazy de /rh e /admin.
+import { PrivacidadeCandidatoPage } from '../features/privacidade/components/PrivacidadeCandidatoPage'
 const BiasAuditPage = lazyNamed(() => import('../features/admin/bias-audit/components/BiasAuditPage'), 'BiasAuditPage')
+// Retenção de dados (Phase 43 / RETEN-01/02/04) — superfície de ADMIN, desktop-first:
+// entra no grafo lazy de /admin/* como as quatro páginas irmãs (idioma PERF-03).
+const RetencaoPage = lazyNamed(() => import('../features/admin/retencao/components/RetencaoPage'), 'RetencaoPage')
 
 // 404 catch-all (Phase 17 / D-14) — Beauty Smile glass NotFound, role-aware back-link
 import { NotFoundPage } from '../components/pages/NotFoundPage'
@@ -187,6 +196,19 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Seus dados e autorizações (Phase 43 / Plano 43-08 — CONSENT-04 + RETEN-03).
+  // A primeira superfície em que um consentimento coletado por este sistema pode ser
+  // desfeito pela própria pessoa. É também a CASA que a Phase 44 (pedir cópia dos dados)
+  // e a Phase 45 (pedir exclusão) vão ocupar — daí a rota genérica `/privacidade` e não
+  // uma rota por direito.
+  {
+    path: '/candidato/privacidade',
+    element: (
+      <RoleGuard role="candidato">
+        <PrivacidadeCandidatoPage />
+      </RoleGuard>
+    ),
+  },
   {
     path: '/candidato/candidatura/instrucoes',
     element: (
@@ -275,7 +297,8 @@ export const routes: RouteObject[] = [
   },
   // Explicação ao candidato rejeitado (Phase 15 / DECISAO-04 — LGPD Art. 20):
   // motivo não-clínico + resultado de alto nível (NUNCA score/banda — RNF-07a) +
-  // "Solicitar revisão por pessoa natural". Own-row RLS; só após decisão rejeitada.
+  // "Pedir que uma pessoa revise esta decisão" (copy reescrita na Phase 43 / BD-3 —
+  // linguagem simples, citação do artigo preservada). Own-row RLS; só após decisão rejeitada.
   {
     path: '/candidato/explicacao/:id',
     element: (
@@ -428,6 +451,20 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Fila de revisão Art. 20 (REVISAO-02). MESMO gate das rotas RH vizinhas, e NÃO um
+  // gate admin-only: o recrutador é a persona primária desta tela, e um wrapper
+  // administrador-only o excluiria da própria fila que ele precisa trabalhar. O gate
+  // real de DADOS não é este wrapper — é o escopo por vaga reimplementado dentro do
+  // SECURITY DEFINER de `listar_revisoes_decisao` (plano 42-06), que devolve ao
+  // recrutador apenas as vagas que ele criou e ao administrador tudo.
+  {
+    path: '/rh/revisoes',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <RevisoesRHPage />
+      </RoleGuard>
+    ),
+  },
 
   // ============================
   // ROTAS ADMIN (AI infra / compliance — administrador only)
@@ -466,6 +503,19 @@ export const routes: RouteObject[] = [
       </RoleGuard>
     ),
   },
+  // Retenção de dados (Phase 43 / RETEN-01/02/04): a matriz de janela por estado da
+  // candidatura, editável sem deploy e auditada, com a prévia read-only abaixo dela.
+  // Admin-only — e o gate REAL não é este wrapper: é a policy admin-only de
+  // `config_retencao_etapa` mais o guard NULL-safe dentro das 4 RPCs `SECURITY DEFINER`.
+  // Este `RoleGuard` evita que um recrutador chegue a uma tela que só lhe daria erro.
+  {
+    path: '/admin/retencao',
+    element: (
+      <RoleGuard role="administrador">
+        <RetencaoPage />
+      </RoleGuard>
+    ),
+  },
 
   // ============================
   // CATCH-ALL 404 (Phase 17 / D-14) — MUST stay LAST
@@ -496,6 +546,7 @@ export const devNavigationPages = [
   { path: '/auth/redefinir-senha', label: 'Redefinir Senha', icon: '🔐', category: 'Auth' },
   { path: '/candidato/dashboard', label: 'Dashboard Candidato', icon: '📊', category: 'Candidato' },
   { path: '/candidato/perfil', label: 'Meu Perfil', icon: '👤', category: 'Candidato' },
+  { path: '/candidato/privacidade', label: 'Seus dados e autorizações', icon: '🛡️', category: 'Candidato' },
   { path: '/candidato/candidatura/instrucoes', label: 'Instruções Formulário', icon: '📹', category: 'Candidato' },
   { path: '/candidato/candidatura/formulario/1', label: 'Formulário Candidatura', icon: '📋', category: 'Candidato' },
   { path: '/rh/dashboard', label: 'Dashboard RH', icon: '📊', category: 'RH' },

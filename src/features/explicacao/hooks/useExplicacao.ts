@@ -11,7 +11,11 @@
  *     explanation query so the CTA flips to the idempotent "já solicitou" state.
  *
  * The hook keeps the candidate-facing read free of any PII beyond the service
- * allowlist — it never reads or exposes a score/band/percentile (RNF-07a / LGPD-04).
+ * allowlist — it never reads or exposes a score/band/percentile (RNF-07a / LGPD-04),
+ * and since Phase 42 / 42-11 it carries the Art. 20 review OUTCOME (`revisao_veredito`
+ * narrowed to the closed vocabulary + `revisao_respondida_em`) through to the page
+ * WITHOUT changing the hook's shape. It carries no reviewer identity: that column is
+ * not in the service allowlist, so it is never read on the candidate's side at all.
  *
  * @module features/explicacao/hooks/useExplicacao
  * @see src/features/explicacao/services/explicacaoService.ts (getExplicacao / stampExplicacao / solicitarRevisao)
@@ -26,7 +30,15 @@ import {
   solicitarRevisao,
   stampExplicacao,
   type ExplicacaoCandidato,
+  type RevisaoVeredito,
 } from '../services/explicacaoService'
+
+/**
+ * Re-exported so the component layer consumes the review verdict type from the hook it
+ * already imports — the established direction of dependency in this feature (the page
+ * talks to the hook, never to the service).
+ */
+export type { ExplicacaoCandidato, RevisaoVeredito }
 
 /** Hierarchical query keys for the explanation surface. */
 export const explicacaoKeys = {

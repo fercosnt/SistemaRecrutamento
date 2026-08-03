@@ -1,0 +1,37 @@
+{
+  "versao": "v1-historico",
+  "nao_editavel": true,
+  "_nota": "TRANSCRIÇÃO VERBATIM, NÃO-EDITÁVEL. Este arquivo é a cópia literal do array AUTORIZACOES que viveu em src/features/cadastro/components/steps/AutorizacoesStep.tsx:45-75 até a Phase 43 — ou seja, é o texto que TODA linha de public.autorizacoes com consent_text_version IS NULL de fato viu na tela. Ele foi criado ANTES de qualquer reescrita de copy desta fase, exatamente para que o texto pré-enforcement continue recuperável; se tivesse sido criado depois, deixaria de corresponder a texto nenhum. NENHUMA LINHA DO BANCO JAMAIS CARREGARÁ O RÓTULO 'v1-historico': as linhas pré-enforcement carregam NULL, e é o NULL que as torna separáveis por dado (SC#1). O rótulo v1 é identificador DOCUMENTAL, não valor de coluna. Insumo direto da página pública de transparência da Phase 47 (CONSOL). NÃO EDITAR — corrigir uma vírgula aqui é falsificar o registro do que as pessoas leram. A entrada 'autorizacao_analise_video' permanece nesta transcrição porque ela existiu e foi coletada; a decisão BD-2 fez a COLETA parar na Phase 43, não o passado desaparecer.",
+  "_origem": {
+    "arquivo": "src/features/cadastro/components/steps/AutorizacoesStep.tsx",
+    "linhas": "45-75",
+    "capturado_em": "2026-08-01",
+    "capturado_por": "Phase 43 / Plan 43-01 Task 1"
+  },
+  "consentimentos": [
+    {
+      "id": "autorizacao_uso_dados",
+      "rotulo": "Autorizo o uso dos meus dados",
+      "descricao": "Concordo que a Beauty Smile armazene e utilize meus dados pessoais para participação no processo seletivo. Sem esta autorização não é possível criar a conta.",
+      "obrigatorio": true
+    },
+    {
+      "id": "autorizacao_comunicacao",
+      "rotulo": "Autorizo receber comunicações",
+      "descricao": "Concordo em receber emails e notificações sobre o andamento do processo seletivo e novas oportunidades de vagas da Beauty Smile.",
+      "obrigatorio": false
+    },
+    {
+      "id": "autorizacao_retencao_curriculo",
+      "rotulo": "Autorizo manter meu currículo",
+      "descricao": "Concordo que a Beauty Smile mantenha meu currículo em banco de dados por até 2 anos para futuras oportunidades, mesmo que eu não seja selecionado(a) no processo atual.",
+      "obrigatorio": false
+    },
+    {
+      "id": "autorizacao_analise_video",
+      "rotulo": "Autorizo análise de vídeo-entrevistas",
+      "descricao": "Concordo que minhas entrevistas em vídeo sejam gravadas e analisadas para avaliação comportamental e de comunicação.",
+      "obrigatorio": false
+    }
+  ]
+}

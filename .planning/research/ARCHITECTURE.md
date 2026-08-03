@@ -1,21 +1,30 @@
-# Architecture Research — M7 Transactional Email Pipeline (COMM)
+# Architecture Research — M8 LGPD-OPS (Retenção, Purga, Direitos do Titular, Fila Art. 20)
 
-**Domain:** Transactional email/notification layer bolted onto an existing Supabase (Postgres + Auth + Storage + Edge Functions/Deno) ATS
-**Researched:** 2026-07-17
-**Confidence:** HIGH (every integration point verified against shipped in-repo code; only cross-checked external detail is the Resend attachments API, verified against Resend docs)
+**Domain:** Data-governance layer (retention, erasure, portability, human-review queue) bolted onto a LIVE Supabase ATS (Postgres + Auth + Storage + Edge Functions/Deno) already in production with real candidates
+**Researched:** 2026-07-29
+**Confidence:** HIGH on the codebase integration points (every claim below is grepped from in-repo migrations / EF source / `database.types.ts`, not inferred from the roadmap) · HIGH on the Supabase platform constraints (verified against Supabase docs, not assumed) · MEDIUM on the legal window sizing (LGPD fixes no number; the recommendation is a defensible default, not a statutory one)
 
-> Scope note: this is an INTEGRATION study, not a greenfield stack study. The stack is locked (Resend, server-side dispatch, 4 events, transactional LGPD, panel timeline). Everything below answers "how does the new notification layer wire into the existing architecture" and hands the roadmapper explicit new-vs-modified components + a dependency-ordered build sequence.
+> **Scope note.** This is an INTEGRATION study against a system that is already live. The stack is locked. Every recommendation below is expressed as *additive vs. modified* against named files, tables and functions that exist today. The strong project prior — additive integration, never refactor a load-bearing live path — is respected, and where I recommend violating it I say so explicitly and name the risk.
 
 ---
 
-## Executive Answer (the 6 decisions, up front)
+## Executive Answer (the 8 decisions, up front)
 
-1. **Trigger source of truth = a MIX, and that is the correct answer.** Two of the four events are `historico_candidatura` INSERTs (the canonical transition log); two are NOT recorded there and must fire off their own table mutation. `historico_candidatura` is written by `avancar_etapa()` which is a **BEFORE UPDATE OF etapa_atual** trigger — so a candidatura INSERT and an interview-scheduling INSERT produce **no** transition row. Forcing all four through `historico_candidatura` is impossible; forcing them through the per-table SEC-03 status triggers loses the fine-grained etapa mapping. Use the transition log for the two real transitions (event 2, event 4) and satellite triggers for the two non-transition mutations (event 1, event 3).
-2. **Dispatch topology = DB trigger → `net.http_post` → EF `notificar-candidato` → Resend.** Reject trigger→direct-Resend-REST. PII resolution (allowlist read of nome/email) and template rendering live in the EF. The trigger body carries **ids only, zero PII** (SEC-03 discipline). The EF authenticates the DB-originated request by **self-authenticating a shared-secret Bearer** (`--no-verify-jwt` deploy + `Bearer == NOTIFICAR_SECRET ?? service_role`), mirroring `analise-candidato-individual` verbatim.
-3. **`notificacoes_enviadas` is one table doing triple duty:** audit log + idempotency guard (UNIQUE `dedupe_key`) + retry queue (partial index on `status IN ('pendente','falhou')`). RH-readable (vaga-scoped), candidate-hidden (no candidate SELECT policy). Retry = **pg_cron sweep** (pg_cron already live in this project), tentativas-capped; manual RH re-send is a deferrable enhancement.
-4. **`.ics` for the interview invite is regenerated server-side in the EF** — the existing client-side RFC-5545 builder (`agendamentoCandidatoService.gerarIcsAgendamento`) is a **pure function**; port it verbatim into a Deno `_shared/ics.ts` and attach as a base64 Resend attachment (`content_type: 'text/calendar'`).
-5. **Timeline estimate = a small static per-stage SLA config table** (`config_sla_etapa`, non-PII, public-read), surfaced in the candidate dashboard waiting-state cards. A DEFINER-RPC computing turnaround from `historico_candidatura` history is a **future** upgrade (needs data volume M6 hasn't accumulated) — note it, don't build it in M7.
-6. **Build order:** enums+tables → EF+Resend+ics port+templates (deploy dormant) → triggers rewire (retire n8n, resolve SEC-03) → timeline (parallelizable) → pg_cron retry sweep → (deferred) RH re-send.
+1. **The central tension is real but the kickoff mis-names its mechanism.** `decisao_final.por_usuario NOT NULL` is the **recruiter's** id, not the candidate's — deleting a candidate never touches it. What *actually* blocks a hard delete is that three audit tables FK to `candidaturas(id)` with **no `ON DELETE` clause at all** (= `NO ACTION`): `historico_candidatura` (`20260607000001:39`), `decisao_final` (`20260607000003:39`), `decisao_final_historico` (`20260709000011:41`). Every other child table CASCADEs. So `DELETE FROM candidaturas` today raises **23503** against exactly the three tables that constitute the audit spine. That is not an accident to work around — it is the invariant, already encoded in DDL. M8 formalizes it; it does not break it.
+
+2. **`bias_audit_log` is NOT an obstacle.** Verified: no FK, no per-candidate rows. `gerar_bias_snapshot()` builds temp tables and inserts **one** row of banded aggregates (`20260625100001:283-340`, source comment: *"BANDED AGGREGATES ONLY (no per-candidate rows; age never persisted per-row)"*). Historical snapshots are already frozen and already anonymous. **But there is a second-order bug the purge will introduce:** the function derives age by JOINing **live** `candidatos.data_nascimento`. Anonymizing that column silently pushes those candidaturas into `v_excluidos` — future snapshots quietly lose the cohort. This needs a fix inside the erasure design, not after it.
+
+3. **Recommendation: anonymize-in-place + explicit tombstone.** Not crypto-shredding, not satellite-table extraction, not pseudonymize-at-write. Reasons and the tradeoff accepted are in §"The Central Tension" below. Short version: LGPD Art. 16 IV *names* anonymization as the conservation basis; FK integrity cost is zero; migration cost against the populated schema is an `UPDATE`, not a re-model; crypto-shredding's legal status as "erasure" is unsettled (EDPB 2025 pseudonymisation guidance treats data as still personal while any re-identifying key exists). **Tradeoff accepted: irreversibility, and free-text residue in `justificativa` / `criterio_texto` that anonymization does not reach.**
+
+4. **SQL cannot delete Storage blobs — verified, and it got stricter.** Supabase docs: storage schema tables are read-only from SQL; a `DELETE FROM storage.objects` removes metadata and **orphans the S3 object** (inaccessible but still billed). Since the 2026-03 Storage release a statement-level trigger **rejects** `DELETE` on storage schema tables unless the session var `storage.allow_delete_query = true` (which only the Storage API sets). → **The purge's Storage half is Edge-Function-only.** And: **an Auth user cannot be deleted while they own Storage objects** — with the `{auth.uid()}/{uuid}.pdf` path schema, `storage.objects.owner = auth.uid()`, so the ordering **Storage → Auth is forced by the platform**, not by preference.
+
+5. **The Art. 20 notification does NOT fit `notificar-candidato`'s event switch — and half of it is a different channel entirely.** `EVENTOS_VALIDOS` (`index.ts:66-71`) and the **live CHECK constraint** `evento IN ('confirmacao','avanco','convite','decisao')` (`20260721000001:75`) both hard-code four candidate-facing events, and recipient resolution is wired to `candidatos.nome_completo, email`. The *request* notification goes to the **RECRUITER** → new sibling EF `notificar-rh` sharing the `_shared/` templates and the same `notificacoes_enviadas` ledger via a new `destinatario_tipo` column. The *answer* notification goes to the candidate → that one **does** belong in `notificar-candidato`, and is the single place that live file must be modified.
+
+6. **Purge orchestration: nominate in SQL, execute in an EF, confirm in a durable table.** `pg_cron` never deletes anything. It selects a capped batch into `solicitacoes_titular` and fires `net.http_post` at `executar-direito-titular`. Because `pg_net` is at-most-once and a 404 is silently dropped (this project already has `notif-retry-sweep` `*/15` precisely because of that), the durable queue + a claim-with-lease + a sweeper are mandatory, not optional.
+
+7. **Export before erasure.** The "what data do we hold about this person" inventory is the *same* query the purge needs. Build it once as a read-only export (Art. 18 V/VI), prove it, then reuse it as the erasure plan. This flips the intuitive order and is the single highest-leverage sequencing decision in the milestone.
+
+8. **Highest-risk piece, named: the erasure engine's Storage ↔ Postgres ↔ Auth boundary (recommended Phase 45).** It is an un-atomic three-system mutation, with irreversible failure modes, against live production data, on a project where subagents have no Supabase MCP so every apply is a human checkpoint. Runner-up risk: the `notificar-candidato` event-vocabulary edit — the one live path that has already burned this project twice (P39 CR-01/CR-02).
 
 ---
 
@@ -24,313 +33,502 @@
 ### System Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│  POSTGRES (source-of-truth mutations)                                      │
-│                                                                            │
-│  candidaturas ──INSERT──────────────────► trg_notif_candidatura_recebida   │  event 1
-│      │  UPDATE OF etapa_atual                                              │
-│      ▼                                                                      │
-│  avancar_etapa() [BEFORE UPDATE, unbypassable] ──writes one row──►         │
-│  historico_candidatura ──INSERT──► trg_notif_transicao (CASE etapa_para)   │  events 2 & 4
-│                                                                            │
-│  agendamentos_entrevista ──INSERT──► trg_notif_convite_entrevista          │  event 3
-│                                                                            │
-│  Each trigger: SECURITY DEFINER, search_path='', reads Vault               │
-│  (project_url + edge_invoke_key), graceful-skip if NULL,                   │
-│  PERFORM net.http_post(body = IDS ONLY, no PII)                            │
-└───────────────────────────────┬───────────────────────────────────────────┘
-                                 │  pg_net (async, fire-and-forget)
-                                 │  Authorization: Bearer <edge_invoke_key>
-                                 ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│  EDGE FUNCTION  notificar-candidato   (Deno, --no-verify-jwt)              │
-│   1. self-auth Bearer == NOTIFICAR_SECRET ?? service_role  → 401 else      │
-│   2. parse { evento, candidatura_id, [historico_id|agendamento_id] }       │
-│   3. IDEMPOTENT CLAIM: INSERT notificacoes_enviadas(status='pendente')     │
-│         ON CONFLICT (dedupe_key) DO NOTHING RETURNING id  → 0 rows = skip   │
-│   4. allowlist read: candidatos(nome_completo,email) + vaga/agendamento    │
-│         (NEVER select('*'); never observacoes_rh)                          │
-│   5. render Beauty Smile template (4 variants; D-15 neutral for rejection) │
-│   6. [event 3] build .ics via _shared/ics.ts → base64 attachment          │
-│   7. POST api.resend.com/emails  (reuse cost-alerter fetch pattern)        │
-│   8. UPDATE row → status='enviado'+provider_message_id  |  'falhou'+erro   │
-└───────────────────────────────┬───────────────────────────────────────────┘
-                                 │  HTTPS
-                                 ▼
-                          ┌───────────────┐       ┌──────────────────────────┐
-                          │    RESEND     │       │  pg_cron sweep (retry)   │
-                          │ (DKIM/domain) │       │  falhou/pendente rows,   │
-                          └───────────────┘       │  tentativas<MAX →         │
-                                                  │  re-net.http_post the EF │
-                                                  └──────────────────────────┘
-
-CANDIDATE PANEL (pull, complements the push)
-  DashboardCandidatoPage waiting-state card
-     └─ reads config_sla_etapa (etapa → prazo_dias) → "triagem — resposta em até X dias"
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  FRONTEND  (React 18 SPA · TanStack Query v5 · Zustand role store)            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  CANDIDATO (mobile-first)              │  RH / ADMIN (desktop-first)          │
+│  ┌──────────────────┐ ┌─────────────┐  │  ┌──────────────┐ ┌───────────────┐ │
+│  │ Meus Dados       │ │ Solicitar   │  │  │ Fila Art. 20 │ │ Painel de     │ │
+│  │ (export/baixar)  │ │ exclusão    │  │  │ + SLA 15d    │ │ Retenção      │ │
+│  └────────┬─────────┘ └──────┬──────┘  │  └───────┬──────┘ └──────┬────────┘ │
+│           │  src/features/lgpd/        │          │ src/features/lgpd/       │
+├───────────┼──────────────────┼─────────┼──────────┼───────────────┼──────────┤
+│           ▼                  ▼         │          ▼               ▼          │
+│  EDGE FUNCTIONS (Deno · service_role · authenticate-THEN-authorize)          │
+│  ┌───────────────────────┐ ┌─────────────────────────┐ ┌───────────────────┐ │
+│  │ exportar-dados-       │ │ executar-direito-titular│ │ notificar-rh      │ │
+│  │ candidato   [NEW]     │ │              [NEW]      │ │        [NEW]      │ │
+│  │ · allowlist inventory │ │ · claim-with-lease      │ │ · RH recipient    │ │
+│  │ · streams JSON        │ │ · Storage.remove()      │ │   resolution      │ │
+│  │ · CV via signed URL   │ │ · RPC anonimização      │ │ · same ledger     │ │
+│  └───────────────────────┘ │ · auth.admin.deleteUser │ └─────────┬─────────┘ │
+│                            └────────────┬────────────┘           │           │
+│  ┌───────────────────────────────────────────────────────────────┼─────────┐ │
+│  │ notificar-candidato  [MODIFIED — 5th evento 'revisao_respondida']        │ │
+│  └───────────────────────────────────────────────────────────────┴─────────┘ │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  POSTGRES                                                                     │
+│  ┌────────────────────┐  ┌──────────────────────┐  ┌───────────────────────┐ │
+│  │ politica_retencao  │  │ solicitacoes_titular │  │ candidatos_anonimizados│ │
+│  │ [NEW · kill switch]│  │ [NEW · durable queue]│  │ [NEW · tombstone]      │ │
+│  └────────────────────┘  └──────────────────────┘  └───────────────────────┘ │
+│  RPCs [NEW]: solicitar_exclusao_dados · executar_anonimizacao ·               │
+│              responder_revisao_decisao · selecionar_candidatos_expirados ·    │
+│              despachar_purga                                                  │
+│  TRIGGERS [NEW]: trg_notif_revisao_solicitada · trg_notif_revisao_respondida  │
+│                  (AFTER UPDATE OF … ON decisao_final)                         │
+│  ┌───────────── AUDIT SPINE — FK NO ACTION, survives every purge ──────────┐  │
+│  │  historico_candidatura   decisao_final   decisao_final_historico        │  │
+│  │  (+ bias_audit_log — no FK at all, already aggregate-anonymous)         │  │
+│  └─────────────────────────────────────────────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  pg_cron                        │  STORAGE (private buckets)                  │
+│  · lgpd-retencao-sweep (daily)  │  · curriculos  {auth.uid()}/{uuid}.pdf      │
+│  · lgpd-purge-sweep   (*/15)    │  · avatars     (perfil RH / candidato)      │
+│  · notif-retry-sweep  (*/15)⟵live│  ⚠ SQL CANNOT delete blobs (verified)      │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | New / Modified | Implementation basis |
-|-----------|----------------|----------------|----------------------|
-| `trg_notif_candidatura_recebida` | Fire event 1 on `AFTER INSERT ON candidaturas` | **NEW** | clone of `trg_candidatura_analise` (10-02) |
-| `trg_notif_transicao` | Fire events 2 & 4 on `AFTER INSERT ON historico_candidatura`, CASE on `etapa_para` | **NEW** | new trigger on the canonical log |
-| `trg_notif_convite_entrevista` | Fire event 3 on `AFTER INSERT ON agendamentos_entrevista` | **NEW** | clone of 10-02 pattern |
-| SEC-03 n8n triggers (`trg_n8n_nova_candidatura`, `_status_candidatura`, `_revisao_decisao`) + `trg_n8n_novo_candidato` | — | **DROPPED** (retire n8n; resolves SEC-03 by substitution) | were dormant/graceful-skip |
-| EF `notificar-candidato` | Self-auth, idempotent claim, allowlist PII read, template render, Resend send, log outcome | **NEW** | structure = `analise-candidato-individual`; Resend call = `cost-alerter` |
-| `_shared/ics.ts` (Deno) | Server-side RFC-5545 `.ics` builder | **NEW (verbatim port)** | port of `agendamentoCandidatoService.gerarIcsAgendamento` |
-| `notificacoes_enviadas` + 2 enums | Audit + idempotency + retry queue | **NEW** | schema below |
-| `config_sla_etapa` + seed | Static per-stage turnaround estimate | **NEW** | non-PII reference table |
-| pg_cron retry job | Sweep failed/pending sends, re-fire EF | **NEW** | reuse pg_cron (Phase 9 precedent) |
-| DashboardCandidatoPage waiting-state card | Surface the estimate | **MODIFIED** | existing candidate dashboard |
-| `avancar_etapa()` trigger + `historico_candidatura` table | — | **UNTOUCHED** (reuse-and-tighten) | canonical write-path |
-| Vault secrets `project_url` + `edge_invoke_key` | DB→EF invoke auth | **REUSED as-is** | live since Phase 9; NOT `n8n_webhook_base` |
+| Component | Responsibility | New / Modified | Implementation |
+|-----------|----------------|----------------|----------------|
+| `politica_retencao` | The retention *decision*, per candidatura state; carries `purga_ativa` (kill switch) + `dry_run` | **NEW** table | Single-row config or per-`etapa_processo` rows; precedent = `configuracoes_empresa.dias_retencao_logs` + `config_sla_etapa` |
+| `solicitacoes_titular` | Durable work queue + audit for every Art. 18 exercise (exclusão, portabilidade) **and** every retention-nominated purge | **NEW** table | `origem ('titular'\|'retencao')`, `status`, `plano jsonb`, `tentativas`, `claimed_at`, `agendado_para`; UNIQUE on `(candidato_id, origem, status)` partial |
+| `candidatos_anonimizados` | Tombstone / proof-of-execution. Survives forever, holds zero PII | **NEW** table | `candidato_id` (kept as opaque UUID), `anonimizado_em`, `base_legal`, `artefatos jsonb` (counts, not values), `faixa_etaria` |
+| `executar-direito-titular` | The **only** thing allowed to mutate across Storage + Postgres + Auth | **NEW** EF | Self-auth Bearer via Vault (mirror `notificar-candidato`), `--no-verify-jwt`, deps-injectable for tests |
+| `exportar-dados-candidato` | Read-only PII inventory → JSON stream + short-TTL signed CV URL | **NEW** EF | authenticate-THEN-authorize + own-row check; allowlist per table |
+| `notificar-rh` | RH-facing transactional email (Art. 20 request landed) | **NEW** EF | Clone of `notificar-candidato` skeleton; shares `_shared/email-config.ts` + `email-templates.ts` |
+| `notificar-candidato` | Candidate-facing email dispatcher | **MODIFIED** | +1 evento, +1 template, +1 dedupe grammar branch |
+| `notificacoes_enviadas` | Ledger / idempotency / retry queue | **MODIFIED** | CHECK constraint swap + `destinatario_tipo` column + its own retention rule (P37 deferred it here explicitly) |
+| `gerar_bias_snapshot()` | EEOC 4/5 evidence | **MODIFIED** | Must stop depending solely on live `data_nascimento` |
+| Audit spine (3 tables) | Evidentiary record of every decision | **UNTOUCHED** | The FK `NO ACTION` stays; this is the invariant |
+| `avancar_etapa()` | Single writer of `historico_candidatura` | **UNTOUCHED — D-12** | Never edited, in any phase |
+
+---
+
+## The Central Tension: purge vs. append-only audit trail
+
+### What the code actually says (verified, not assumed)
+
+```
+candidaturas (id)
+  ├─ NO ACTION  ← historico_candidatura.candidatura_id      20260607000001:39
+  ├─ NO ACTION  ← decisao_final.candidatura_id  (UNIQUE)    20260607000003:39
+  ├─ NO ACTION  ← decisao_final_historico.candidatura_id    20260709000011:41
+  ├─ CASCADE    ← respostas_avaliacao / scores_candidato / redacoes_candidato(+_em_progresso)
+  ├─ CASCADE    ← entrevistas_online / entrevista_analises / cognitivo_respostas
+  ├─ CASCADE    ← agendamentos_entrevista / devolutivas_candidato / analise_candidato_vaga
+  └─ CASCADE    ← notificacoes_enviadas
+candidatos (id)
+  ├─ SET NULL   ← ai_call_logs / candidate_ai_decisions / (prompt_library satellites)
+  └─ CASCADE    ← notificacoes_enviadas.candidato_id, autorizacoes.candidato_id
+bias_audit_log — NO FK AT ALL. dados jsonb = banded aggregates. Untouched by any purge.
+```
+
+So the schema already *decided*: the funnel's evidence survives; the candidate's raw material does not. M8's job is to make that decision explicit and executable, not to re-litigate it.
+
+### The four candidate strategies, compared honestly
+
+| Criterion | **A. Anonymize-in-place + tombstone** | B. Crypto-shredding | C. PII satellite table | D. Pseudonymize at write |
+|---|---|---|---|---|
+| Reversibility | **Irreversible by construction** (overwrite) | Reversible until the key is destroyed — and *that is the legal problem* | Irreversible (DROP the row) | Reversible while the map exists |
+| FK integrity | **Zero impact** — spine UUIDs unchanged | Zero impact | Requires a new FK + backfill; `candidatos.id` still referenced from 8+ places | Zero impact |
+| RLS implications | **None** — own-row / vaga-scoped join-through predicates all key on unchanged UUIDs | New policy surface for the keystore (a service_role-only secret store) | Every candidate-facing read must now join a second table → every allowlist rewritten | None |
+| Migration cost vs. populated schema | **One `UPDATE` + one tombstone insert.** No re-model | Encryption boundary on every PII write path (`cadastrar-candidato`, `submit-candidatura`, perfil) **and** every allowlist read (`notificar-candidato` reads `nome_completo, email` in plaintext today) | ~25 columns moved out of `candidatos`; every `select(...)` allowlist in `src/` + 6 EFs rewritten | Same as B, plus it does not help data already collected |
+| Defensibility to ANPD | **Highest.** LGPD Art. 16 IV literally conditions conservation on *"desde que anonimizados os dados"*; Art. 12 removes anonymized data from the law's scope | **Contested.** EDPB 2025 pseudonymisation guidance: while a re-identifying key exists the data remains personal; key destruction ≠ anonymisation automatically | High, but the story is "we deleted a table row", which invites "prove nothing else references it" | Weakest — pseudonymised ≠ anonymised under LGPD Art. 5 XI/XII |
+| Blast radius on a LIVE system | **Low — additive** | **Very high** | **Very high** | High |
+
+### Recommendation: **A — anonymize-in-place with an explicit tombstone**
+
+**Tradeoffs I am accepting, stated plainly:**
+
+1. **Irreversibility.** A wrongly-triggered erasure cannot be undone. Mitigations: (a) `solicitacoes_titular.status` passes through `pendente_confirmacao` → confirmed by e-mail link → `agendado_para` grace window before execution; (b) `dry_run` writes the computed `plano jsonb` and stops; (c) the tombstone records what happened even though it cannot undo it.
+2. **Free-text residue.** `decisao_final.justificativa` (NOT NULL, recruiter-typed) and `historico_candidatura.criterio_texto` can contain a hand-typed candidate name. Anonymize-in-place does not reach them. **Do not regex-scrub these** — that buys false confidence and risks destroying the legal defensibility of the decision. Instead: keep them under Art. 16 I (obrigação legal — prova em eventual litígio), note that their read surface is already RH-only + vaga-scoped, and log this as a **residual, disclosed risk** with a write-time UI hint deferred to a later milestone. A regulator can be told the truth here; a silently-broken regex cannot.
+3. **`bias_audit_log` degradation.** Because `gerar_bias_snapshot()` joins live `data_nascimento`, anonymization must **carry a `faixa_etaria` band forward** onto `candidatos_anonimizados` (or onto `candidaturas`) *at anonymization time*, and `gerar_bias_snapshot()` must `COALESCE` to it. This is a **verified-diff modification** of a live SECURITY DEFINER function — apply the M4/DBMIG-02 discipline (`pg_get_functiondef` first, byte-preserved diff, never a blind `CREATE OR REPLACE`).
+
+### The per-artifact deletion ladder (this is the concrete policy the roadmapper needs)
+
+| Artifact | Action | Basis |
+|---|---|---|
+| `candidatos`: `nome_completo`, `email`, `cpf`, `celular`, `data_nascimento`, `cep`/`logradouro`/`numero`/`complemento`/`bairro`/`cidade`/`estado`, `instagram*`, `linkedin*`, `genero`, `avatar_url`, `como_conheceu*` | **Overwrite** with deterministic tombstone values (`'[anonimizado]'`, NULLs); set `deleted_at`, `ativo=false` | Art. 16 IV |
+| `candidatos.data_nascimento` | Overwrite **after** materializing `faixa_etaria` on the tombstone | Preserves EEOC 4/5 auditability |
+| CV blob in `curriculos` | **Hard delete via Storage API** (EF only) | No surviving basis; also unblocks Auth delete |
+| `candidaturas.curriculo_url` / `curriculo_nome_original` / `curriculo_tamanho_bytes` | NULL | Dangling pointer to a deleted blob |
+| `respostas_avaliacao`, `respostas_bigfive`, `redacoes_candidato(+_em_progresso)`, `cognitivo_respostas`, `scores_*`, `devolutivas_candidato`, `entrevista_analises`, `analise_candidato_vaga` | **Hard delete** (already CASCADE-shaped) | Raw behavioural material; the *decision* is the evidence, not the raw responses |
+| `historico_candidatura` | **KEEP** (`candidatura_id` + `etapa_de/para` + `criado_em` + `ator` carry no candidate PII once `candidatos` is anonymized) | Art. 16 I |
+| `decisao_final` / `decisao_final_historico` | **KEEP** | Art. 16 I + RNF-07a evidence + the Art. 20 record itself |
+| `notificacoes_enviadas` | Overwrite `destinatario_email` / `destinatario_original`; **KEEP the row** | The row proves the transactional obligation was met; the address itself has no surviving basis. **This is the retention that P37 explicitly deferred to M8.** |
+| `autorizacoes` | **KEEP** the consent record; overwrite `ip_aceite` / `user_agent_aceite` | Art. 37 accountability — deleting the consent proof destroys your own defence |
+| `bias_audit_log` | **UNTOUCHED** | Already aggregate-anonymous |
+| `logs_auditoria` / `logs_acesso` / `sessoes_ativas` | Existing `limpar_logs_antigos()` window, with the live `categoria NOT IN ('usuario','seguranca')` exemption preserved | Precedent already shipped (`20260713000004`) |
+| `auth.users` | `auth.admin.deleteUser(user_id)` — **only after** Storage objects are gone | Platform constraint (verified) |
+
+---
+
+## Where each component belongs (the three-tier assignment)
+
+### Postgres migration (tables, RPCs, triggers, cron)
+
+| Object | Kind | Notes |
+|---|---|---|
+| `politica_retencao` | table | Also carries `purga_ativa boolean NOT NULL DEFAULT false` (kill switch) and `dry_run boolean NOT NULL DEFAULT true` |
+| `solicitacoes_titular` | table | RLS: candidate own-row SELECT/INSERT via `candidatos.user_id = auth.uid()`; **RH/admin read via a DEFINER RPC, not a vaga-scoped policy** — see the deliberate deviation below |
+| `candidatos_anonimizados` | table | Append-only. No UPDATE/DELETE policy, `REVOKE` writes from `authenticated`/`anon` (mirror `20260713000004` §2) |
+| `solicitar_exclusao_dados(p_motivo)` | RPC DEFINER | Own-row write path. `SET search_path = ''`. Mirror of `solicitar_revisao_decisao` |
+| `responder_revisao_decisao(p_candidatura_id, p_resultado)` | RPC DEFINER | Writes `decisao_final.revisao_resultado`. **Role check + vaga-scope + server-enforced min length**, mirroring `rejeitar_candidatura`'s ≥50 rule. There is no RH `UPDATE` policy on `decisao_final` today and there must not be one — `registrar_decisao` is the precedent |
+| `executar_anonimizacao(p_candidato_id, p_motivo)` | RPC DEFINER | **All** DB-side mutations in ONE transaction: cascade deletes + PII overwrite + tombstone insert. Keeps the Postgres half atomic even though the whole operation is not |
+| `selecionar_candidatos_expirados()` | RPC DEFINER | Reads `politica_retencao` + `autorizacoes.autorizacao_retencao_curriculo`; `INSERT … ON CONFLICT DO NOTHING` into `solicitacoes_titular` |
+| `despachar_purga()` | RPC DEFINER | Reads kill switch first; selects a capped batch; `net.http_post` per row |
+| `trg_notif_revisao_solicitada` | trigger | `AFTER UPDATE OF revisao_solicitada_em ON decisao_final`, predicate `OLD IS NULL AND NEW IS NOT NULL`. **AFTER UPDATE, not INSERT** — the row already exists; `solicitar_revisao_decisao` UPDATEs it. Body copied verbatim from `trg_notif_transicao` (Vault graceful-skip + `BEGIN…EXCEPTION…RAISE WARNING` fail-open) |
+| `trg_notif_revisao_respondida` | trigger | `AFTER UPDATE OF revisao_resultado ON decisao_final`, same NULL→NOT NULL predicate |
+| `cron 'lgpd-retencao-sweep'` | cron | Daily, off-peak. Nominates only |
+| `cron 'lgpd-purge-sweep'` | cron | `*/15`. Re-drives `pendente` / stale `em_execucao`. Mirror of `notif-retry-sweep` |
+| `v_lgpd_purga_status` | view | RH observability: pendentes, em execução, falhas, próximos 30 dias, purgados nos últimos 90 |
+| `sla_art20_dias` | config row | **Reuse `config_sla_etapa`** (shipped P37) rather than inventing a second SLA store |
+
+### Edge Function (anything needing service_role, Storage Admin, or outbound HTTP)
+
+| Function | Why it cannot be SQL |
+|---|---|
+| `executar-direito-titular` | `storage.from('curriculos').remove([...])` — **SQL is blocked by the storage delete-guard trigger and would orphan the blob anyway**; `auth.admin.deleteUser` — Admin API only |
+| `exportar-dados-candidato` | `createSignedUrl` (Storage Admin) + streaming a JSON body to the browser |
+| `notificar-rh` | Outbound `fetch` to Resend + Vault secret read |
+| `notificar-candidato` (mod) | Already an EF |
+
+### Frontend (`src/features/lgpd/`)
+
+Follows the established feature layout (`components/ · hooks/ · services/ · schemas/ · types/`), hierarchical TanStack query keys (`lgpdKeys.filaArt20(filters)`, `lgpdKeys.minhasSolicitacoes()`).
+
+- **Candidate:** `MeusDadosPage` (export/download), `SolicitarExclusaoDialog` (two-step confirm), status card for a pending request. Wires next to the existing `src/features/explicacao/` surface (`SolicitarRevisaoCTA.tsx` already exists — the Art. 20 *request* side is built; only the *answer* side is missing).
+- **RH:** `FilaArt20Tab` — clone the shape of `src/features/funil/components/FilaTrabalhoTab.tsx` + `slaThresholds.ts` (badge SLA already solved there); `ResponderRevisaoForm` (calls `responder_revisao_decisao`); `PainelRetencaoPage` (reads `v_lgpd_purga_status`, toggles `purga_ativa`).
+
+---
+
+## The Art. 20 notification — the explicit call-out
+
+**Two events, two recipient classes, and they are not symmetric.**
+
+### Why it does not simply fit the existing switch
+
+| Blocker | Evidence |
+|---|---|
+| Event vocabulary is closed in **two** places | `EVENTOS_VALIDOS` set (`notificar-candidato/index.ts:66-71`) **and** the live DB CHECK `evento IN ('confirmacao','avanco','convite','decisao')` (`20260721000001:75`). Adding an event = a `DROP CONSTRAINT` / `ADD CONSTRAINT` on a populated production table |
+| Recipient resolution is candidate-hard-wired | `candidatos.select('nome_completo, email')` → `resolverDestinatario(candidato.email, …)`; `destinatario_original` + `exigirSinkTeste` are shaped around one candidate address |
+| Dedupe grammar assumes one recipient | `montarDedupeKey` → `${candidatura_id}:${evento}` (`helpers.ts:29-40`) |
+| Ledger RLS is candidate-DENY by design | `notificacoes_enviadas` has exactly one SELECT policy, RH vaga-scoped join-through; no candidate policy exists (`20260721000001` §4) |
+
+### Recommended split
+
+**(a) Request lands → notify the RECRUITER.** New EF **`notificar-rh`**, not a branch inside `notificar-candidato`.
+
+- Writes to the **same** `notificacoes_enviadas` ledger via a new `destinatario_tipo text NOT NULL DEFAULT 'candidato'` column. Both `candidato_id` and `candidatura_id` stay NOT NULL and stay *true* — the row is *about* a candidatura, it is just addressed to a recruiter. Dedupe grammar extends to `${candidatura_id}:revisao_solicitada`.
+- **Why the same ledger is worth it:** retention/purge, the Svix reconciliation EF (`resend-webhook`, keyed on `provider_message_id`), and `varrer_retry_notificacoes()` then all work on the new rows with **zero changes**. A sibling table would fork all three.
+- **Why a separate EF and not a branch:** `notificar-candidato` is the highest-blast-radius live component in the system, and it shipped two CRITICAL defects that four gates missed. Every new branch inside it is a candidate-path regression risk. A sibling EF that imports the same `_shared/email-config.ts` + `_shared/email-templates.ts` is additive.
+- **Recipient resolution** is genuinely different: `candidaturas.vaga_id → vagas.created_by → usuarios_rh.email` (the vaga owner), with a fallback to `configuracoes_empresa.email_notificacoes[]` when the owner is inactive. That resolution logic has no analogue in the candidate EF.
+
+**(b) Answer written → notify the CANDIDATE.** This one **does** belong in `notificar-candidato`. It is the one surgical modification: `EventoLedger` union + `EVENTO_MAP` + `EVENTOS_VALIDOS` + a `revisao_respondida` template + the CHECK constraint swap. Keep the diff minimal, and — the P39 lesson — do **not** close that phase without VERIFICATION.md and a code review.
+
+**(c) The `revisao_resultado` write path does not exist at all today.** `grep revisao_resultado src/` returns only the candidate read side. The RH screen + the `responder_revisao_decisao` DEFINER RPC are net-new, and the RPC (not a client `UPDATE`) is what makes `trg_notif_revisao_respondida` fire from a single auditable write path.
+
+---
+
+## Purge orchestration — the safe pattern
+
+```
+pg_cron 'lgpd-retencao-sweep'  (daily 03:30 BRT)
+    │
+    └─► selecionar_candidatos_expirados()          [SQL · DEFINER · nominates only]
+            · JOIN politica_retencao × candidaturas.etapa_atual × historico.criado_em
+            · AND autorizacoes.autorizacao_retencao_curriculo = false
+              (the consent flag finally gets a consumer)
+            · INSERT INTO solicitacoes_titular (origem='retencao', status='pendente',
+              agendado_para = now() + grace) ON CONFLICT DO NOTHING   ← idempotent
+                                    │
+pg_cron 'lgpd-purge-sweep' (*/15)   │
+    └─► despachar_purga()           ▼
+            · IF NOT purga_ativa THEN RETURN;                      ← KILL SWITCH, read every tick
+            · SELECT … WHERE status IN ('pendente','em_execucao')
+                        AND agendado_para <= now()
+                        AND tentativas < 5
+              ORDER BY criado_em LIMIT 20                          ← BATCH CAP
+            · per row: net.http_post('/functions/v1/executar-direito-titular',
+                                     {solicitacao_id}, Bearer edge_invoke_key)
+                                    │  (at-most-once — fine, the sweep re-drives)
+                                    ▼
+EF executar-direito-titular
+    1. self-auth Bearer (Vault)                             — mirror notificar-candidato
+    2. CLAIM WITH LEASE:
+       UPDATE solicitacoes_titular SET status='em_execucao', tentativas=tentativas+1,
+              claimed_at=now()
+        WHERE id=$1 AND status IN ('pendente','em_execucao')
+          AND (claimed_at IS NULL OR claimed_at < now() - interval '10 minutes')
+       RETURNING *          → 0 rows = someone else owns it → 200, no-op
+    3. BUILD PLAN → solicitacoes_titular.plano jsonb        ⚠ LOAD-BEARING (see below)
+       IF dry_run → stop here, status='simulada', 200
+    4. STORAGE FIRST:  storage.from('curriculos').remove(paths)   ← forced order
+                       storage.from('avatars').remove([...])
+    5. POSTGRES:       rpc('executar_anonimizacao', …)      ← ONE transaction
+    6. AUTH LAST:      auth.admin.deleteUser(user_id)       ← blocked if 4 failed
+    7. status='concluida' + tombstone receipt
+    ✗ NEVER returns 5xx — pg_net would silently drop it and the failure would vanish
+```
+
+**Why step 3 is load-bearing.** The plan must snapshot every Storage path **before** any mutation. If you anonymize first, `candidaturas.curriculo_url` is NULLed and a retry after a partial Storage failure has **no way to find the remaining blobs**. That is the one unrecoverable ordering mistake available here.
+
+**Why Storage-first is the correct order** (two independent reasons, both verified): the platform refuses to delete an Auth user who owns Storage objects; and a mid-flight failure with the CV already deleted but the row still populated is *retryable and no less private*, whereas the reverse leaves an orphan blob with a lost pointer.
+
+**Partial-failure semantics — the honest statement.** This is a distributed transaction across three systems with no 2PC. There is no way to make it atomic; the design goal is that every intermediate state is **safe, retryable, and monotonically more private**. Concretely:
+
+- Each step is idempotent: `storage.remove` on an absent path is a no-op; `executar_anonimizacao` is a no-op when the tombstone already exists; `deleteUser` on an absent user returns 404 → treat as success.
+- `tentativas < 5` cap (mirroring `computeProximaTentativa`'s live 5-cap). Exhausted rows go `status='falhou'` and surface in `v_lgpd_purga_status` for a human, rather than looping and burning quota.
+- The kill switch is a **row UPDATE**, not `cron.unschedule` — killing the sweep must not require a schema change or a migration checkpoint.
+- First PROD activation is `dry_run = true`, and the diff between the simulated plan and the expected inventory is the acceptance gate.
+
+---
+
+## New vs. MODIFIED (the risk ledger the roadmapper needs)
+
+### Purely additive — low risk
+
+- Migrations: `politica_retencao`, `solicitacoes_titular`, `candidatos_anonimizados`, `v_lgpd_purga_status`
+- RPCs: `solicitar_exclusao_dados`, `responder_revisao_decisao`, `executar_anonimizacao`, `selecionar_candidatos_expirados`, `despachar_purga`
+- Triggers: `trg_notif_revisao_solicitada`, `trg_notif_revisao_respondida`
+- Crons: `lgpd-retencao-sweep`, `lgpd-purge-sweep`
+- EFs: `executar-direito-titular`, `exportar-dados-candidato`, `notificar-rh`
+- Frontend: all of `src/features/lgpd/`
+- Config: `sla_art20_dias` row inside the existing `config_sla_etapa`
+
+### MODIFIED — name them, price them
+
+| Component | Change | Risk | Mitigation |
+|---|---|---|---|
+| **`supabase/functions/notificar-candidato/{index.ts,helpers.ts}`** | `EventoLedger` · `EVENTO_MAP` · `EVENTOS_VALIDOS` · `montarDedupeKey` | **HIGH** — live candidate email path; two CRITICAL defects already shipped from this file | Surgical diff, mandatory VERIFICATION.md + code review, Deno test corpus green before deploy |
+| `notificacoes_enviadas` CHECK `evento IN (…)` | DROP + ADD in one migration | **HIGH** — constraint swap on a populated live table | Single atomic migration; verify row count survives; MCP `apply_migration` (subagents have no MCP — orchestrator checkpoint) |
+| `notificacoes_enviadas` | `+ destinatario_tipo NOT NULL DEFAULT 'candidato'` | LOW | Additive column with a default; precedent = `20260722000002` |
+| `notificacoes_enviadas` retention | New purge rule (P37 deferred it here by name) | MEDIUM | Overwrite the address, keep the row — do not delete ledger rows |
+| `_shared/email-templates.ts` + `email-config.ts` | New template(s), widened `EventoNotificacao` union | MEDIUM | Shared by both EFs — a break here breaks the live candidate path too |
+| **`gerar_bias_snapshot()`** | Age band must survive anonymization | MEDIUM | **Verified diff** per DBMIG-02: `pg_get_functiondef` first, byte-preserve everything else |
+| `limpar_logs_antigos()` | Optionally widen to `logs_acesso` / `sessoes_ativas` | LOW | Precedent shipped; keep the `categoria NOT IN ('usuario','seguranca')` exemption byte-intact |
+| `cadastrar-candidato` EF + `src/features/cadastro/components/steps/AutorizacoesStep.tsx` + `candidatoSchema.ts` + `formTypes.ts` + `_shared/schemas.ts` | Only if `autorizacao_comunicacao` is **removed** rather than honored | LOW technically, **product-visible** | Decide honor-or-remove in discuss-phase; removing is 5 coordinated files |
+| `database.types.ts` | Regenerate (`npm run db:types`) | Mechanical | Never hand-edit |
+| `data_deletion_log` (existing stub) | **Decide: adopt or drop** | LOW | Its live schema is `(id, deletion_type, deleted_at, created_at)` — **no subject reference at all**. It is a Figma-Make artifact and **cannot** serve as the tombstone. Recommend: build `candidatos_anonimizados` fresh and drop the stub in the consolidation phase |
+
+### Explicitly UNTOUCHED (invariants)
+
+`avancar_etapa()` (D-12) · `historico_candidatura` schema · `decisao_final.por_usuario NOT NULL` · the three `NO ACTION` FKs · `bias_audit_log` rows · `trg_notif_transicao` / `trg_notif_confirmacao` / `trg_notif_convite` · `get-curriculo-url` · RNF-07a / RNF-12a / D-15 / allowlist-PII / service_role-never-client.
+
+---
+
+## Data Flow
+
+### Art. 20 round trip (closes the live production hole)
+
+```
+Candidato clica "Solicitar revisão por pessoa natural"
+   └─ src/features/explicacao/components/SolicitarRevisaoCTA.tsx   [EXISTS]
+        └─ rpc solicitar_revisao_decisao(candidatura_id)           [EXISTS]
+             └─ UPDATE decisao_final SET revisao_solicitada_em = now()
+                  └─ trg_notif_revisao_solicitada  [NEW · AFTER UPDATE OF]
+                       └─ net.http_post → EF notificar-rh  [NEW]
+                            └─ resolve vagas.created_by → usuarios_rh.email
+                            └─ claim-before-send on notificacoes_enviadas
+                            └─ Resend → recrutador                    ⏱ SLA 15d starts
+RH abre a Fila Art. 20                       [NEW · src/features/lgpd/]
+   └─ rpc responder_revisao_decisao(candidatura_id, resultado)     [NEW · DEFINER]
+        └─ UPDATE decisao_final SET revisao_resultado = …
+             └─ trg_notif_revisao_respondida [NEW]
+                  └─ net.http_post → EF notificar-candidato [MODIFIED · 5º evento]
+                       └─ Resend → candidato
+```
+
+### Erasure / purge
+
+```
+(titular)  MeusDadosPage → rpc solicitar_exclusao_dados  ─┐
+(retenção) cron → selecionar_candidatos_expirados()      ─┴─► solicitacoes_titular
+                                                                    │ status='pendente'
+cron */15 → despachar_purga() ── kill switch ── batch 20 ──► net.http_post
+                                                                    ▼
+                              EF executar-direito-titular  (claim-with-lease)
+                                 plano jsonb ─► Storage.remove ─► executar_anonimizacao
+                                                                  └─ CASCADE deletes
+                                                                  └─ PII overwrite
+                                                                  └─ tombstone insert
+                                                              ─► auth.admin.deleteUser
+                                                              ─► status='concluida'
+AUDIT SPINE UNTOUCHED THROUGHOUT: historico_candidatura · decisao_final ·
+decisao_final_historico · bias_audit_log
+```
+
+### Export / portability
+
+```
+Candidato → EF exportar-dados-candidato (authenticate → authorize own-row)
+   · per-table ALLOWLIST projection (never select('*'))
+   · streams JSON in the response body  ← NO new Storage artifact created
+   · CV delivered as a 60s signed URL (mirror get-curriculo-url), not inlined bytes
+   · WITHHELD by design: gabarito/rubric, motivo_rejeicao, opcao_knockout_id,
+     observacoes_rh, justificativa/criterio_texto, score internals
+```
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Canonical-transition-log trigger + two satellites (the source-of-truth mix)
+### Pattern 1 — Nominate in SQL, execute in an Edge Function, confirm in a durable table
 
-**What:** Events that ARE etapa transitions fire from `historico_candidatura` (one row per transition, already written by `avancar_etapa()` for every advance/reject/knockout). Events that are NOT transitions fire from their own mutation.
-
-**Why the mix is forced (not a compromise):**
-- `avancar_etapa()` is **BEFORE UPDATE OF etapa_atual** — a candidatura INSERT writes **no** historico row (verified: `20260607000005_avancar_etapa_trigger.sql:96-99` binds `BEFORE UPDATE OF etapa_atual`). So **event 1 (confirmation) cannot come from the log.**
-- Interview scheduling is an `agendamentos_entrevista` INSERT (M6), independent of the etapa move; the etapa may already be `entrevista_online` with no date yet. The invite needs `data_hora`/`local_ou_link`, which only the agendamento row carries. So **event 3 cannot come from the log.**
-- Events 2 and 4 ARE transitions and DO land in the log: `avancar_etapa()` writes `etapa_de → etapa_para` for every `UPDATE OF etapa_atual`, including the `rejeitar_candidatura` RPC (`20260714100001:146-151` sets `etapa_atual='rejeitado'`) and the synchronous knockout auto-reject (ator NULL, auto_rejeitado=true).
-
-**Event → trigger mapping (LOCKED recommendation):**
-
-| # | Event | Trigger | Predicate | dedupe_key |
-|---|-------|---------|-----------|------------|
-| 1 | `candidatura_recebida` | `AFTER INSERT ON candidaturas` | (optional survivor guard — see Open Q1) | `candidatura_id \|\| ':candidatura_recebida'` |
-| 2 | `avaliacao_liberada` | `AFTER INSERT ON historico_candidatura` | `etapa_para = 'avaliacao_assincrona'` | `historico_id` (unique per transition) |
-| 3 | `convite_entrevista` | `AFTER INSERT ON agendamentos_entrevista` | `status <> 'cancelada'` | `agendamento_id` |
-| 4 | `decisao_final` | `AFTER INSERT ON historico_candidatura` | `etapa_para IN ('aprovado','rejeitado')` | `historico_id` |
-
-Events 2 and 4 are **one trigger** (`trg_notif_transicao`) with a CASE on `etapa_para` selecting the event — one place to reason about all transition-driven mail.
-
-**Avoiding double-fire:**
-- The SEC-03 `trg_n8n_status_candidatura` fires on `UPDATE OF status`. A single reject changes BOTH `status` and `etapa_atual`, so keeping it alongside the historico trigger would double-fire. **Resolution: drop all SEC-03 n8n triggers entirely** (they are dormant graceful-skips; M7 replaces the mechanism, not patches it — PROJECT.md "resolve SEC-03 por substituição").
-- Belt-and-suspenders: the `dedupe_key` UNIQUE index makes a second delivery physically impossible even if a trigger double-fires (pg_net retry, a double UPDATE). This is the same idempotency posture as `analise-candidato-individual`'s `UNIQUE(candidatura_id) + UPSERT`.
-
-**Trade-off:** three triggers instead of one. Accepted — it is the minimum that covers all four events without losing the etapa granularity or inventing PII-carrying payloads.
-
-### Pattern 2: DB-trigger → pg_net → EF self-auth (dispatch + auth), NOT trigger → direct Resend
-
-**What:** The trigger does one thing — `PERFORM net.http_post` to the EF with an ids-only body and a Vault Bearer. All logic (PII resolution, templating, Resend call, logging, idempotency) lives in the Deno EF.
-
-**Why not trigger → direct Resend REST from PL/pgSQL:**
-- HTML templating, base64 `.ics` attachment assembly, Resend error handling, and per-send audit-row writes are miserable in PL/pgSQL and trivial in TypeScript.
-- `net.http_post` is fire-and-forget async — it cannot do read→render→send→capture-result in one place. The EF can.
-- The precedent is already shipped and proven: `trg_candidatura_analise` (10-02) → `analise-candidato-individual`. Cloning it is zero-novelty.
-
-**The DB→EF auth mechanism (chosen, with rationale):**
-`net.http_post` carries **no user JWT** (there is no user session behind a trigger). Three candidates were considered:
-
-| Mechanism | Verdict |
-|-----------|---------|
-| Service-role JWT via `--no-verify-jwt` + EF self-auth of a shared-secret Bearer | **CHOSEN** — exact `analise-candidato-individual` pattern |
-| Supabase gateway JWT verification (default deploy) | Rejected — no user token exists to verify; would 401 every trigger call |
-| Anon key | Rejected — grants nothing; EF still needs service_role internally |
-
-Concretely, mirroring `analise-candidato-individual/index.ts:148-156` and its `Deno.serve` wiring (`ANALISE_SECRET ?? SERVICE_KEY`):
-- Trigger sends `Authorization: 'Bearer ' || <edge_invoke_key>` (the existing Vault secret, value == service_role — verified in 10-02 comment "the EF validates the Bearer == service_role").
-- EF deployed `--no-verify-jwt`; on entry compares `bearer !== (Deno.env NOTIFICAR_SECRET ?? SUPABASE_SERVICE_ROLE_KEY)` → 401. The env override exists purely for secret rotation without touching the service_role key.
-
-**PII placement:** the trigger body is **ids only** (`evento`, `candidatura_id`, and one of `historico_id` / `agendamento_id`) — never nome/email/cpf. This is the exact SEC-03 rule ("Body = ids/status/event only, no PII"). The EF resolves `candidato_id` + nome + email from `candidatura_id` via an allowlist projection (`candidatos.select('nome_completo, email')`, never `select('*')` — [[reference_select_star_leaks_pii]]).
-
-**Example (trigger body — clone of 10-02):**
-```sql
-PERFORM net.http_post(
-  url := v_project_url || '/functions/v1/notificar-candidato',
-  headers := jsonb_build_object('Content-Type','application/json',
-                                'Authorization','Bearer ' || v_invoke_key),
-  body := jsonb_build_object('evento','avaliacao_liberada',
-                             'candidatura_id', NEW.candidatura_id,
-                             'historico_id',   NEW.id)   -- ids only, no PII
-);
-```
-
-### Pattern 3: The audit row IS the idempotency guard AND the retry queue
-
-**What:** `notificacoes_enviadas` is not a passive log. The EF's first DB write is an **idempotent claim**: insert a `pendente` row `ON CONFLICT (dedupe_key) DO NOTHING RETURNING id`. Zero rows returned ⇒ a prior attempt already owns this send ⇒ skip (exactly-once). After a successful Resend call it flips the row to `enviado` + `provider_message_id`; on failure to `falhou` + `erro` and `tentativas = tentativas + 1`. The partial index over `status IN ('pendente','falhou')` is the retry queue the pg_cron sweep drains.
-
-**When to use:** any at-least-once delivery source (pg_net can retry; a double UPDATE can double-fire) that must become exactly-once. Same discipline as the analise EF's UPSERT-on-unique.
-
-**Trade-off:** one extra round-trip (the claim) before every send. Cheap, and it is the single mechanism that makes double-fire, replay, and retry all safe.
-
-### Pattern 4: Pure `.ics` builder ported across the Deno boundary (don't re-derive, don't share-import)
-
-**What:** `agendamentoCandidatoService.gerarIcsAgendamento` + `escapeIcsText` + `foldIcsLine` + `toIcsUtc` are **pure, dependency-free** (verified — RFC-5545 CRLF joins, §3.3.11 TEXT escaping, §3.1 75-octet folding, basic-UTC timestamps, generic non-PII `SUMMARY`). They live in `src/` (browser); the EF lives in `supabase/functions/` (Deno) — the two trees can't share a module cleanly.
-
-**Recommendation:** port them **verbatim** into `supabase/functions/_shared/ics.ts` (a ~60-line copy). Regenerate the `.ics` in the EF from the agendamento allowlist read, then attach to Resend as `{ filename:'entrevista-beauty-smile.ics', content: base64(ics), content_type:'text/calendar' }` (Resend attachments API confirmed: `content` accepts a base64 string, `content_type` derivable/overridable). Keep the generic `SUMMARY` constant — `vaga_id` stays outside the projection, so no vaga name / no PII reaches the file (matches the client builder's T-35-01/04 note).
-
-**Do NOT** re-invent the ics logic in the EF (drift risk) and do NOT try to import the `src/` module (cross-runtime). A verbatim port with a comment pointing back to the source is the honest choice. (Minor: the ported builder emits `METHOD:PUBLISH` — an "add to calendar" attachment, not a REQUEST/accept-decline invite. That matches the existing client behavior and is fine for MVP; flag REQUEST semantics as a future nicety.)
-
----
-
-## Data Flow (per event, end-to-end)
-
-**Event 1 — candidatura_recebida**
-`INSERT candidaturas` → `trg_notif_candidatura_recebida` → pg_net(body: `{evento, candidatura_id, candidato_id:NEW.candidato_id}`) → EF: claim(`candidatura_id:candidatura_recebida`) → allowlist read `candidatos(nome,email)` + `vagas(titulo)` → render "recebemos sua candidatura para <vaga>" → Resend (no attachment) → log. *No `.ics`.* Survivor-guard decision flagged in Open Q1.
-
-**Event 2 — avaliacao_liberada**
-`UPDATE candidaturas.etapa_atual='avaliacao_assincrona'` → `avancar_etapa()` writes historico row → `trg_notif_transicao` (etapa_para match) → pg_net(`{evento:'avaliacao_liberada', candidatura_id, historico_id}`) → EF resolves candidato_id + PII from candidatura_id → render "sua próxima etapa está liberada" + panel link → Resend → log(dedupe=historico_id). *No `.ics`.*
-
-**Event 3 — convite_entrevista**
-`INSERT agendamentos_entrevista(status='agendada')` → `trg_notif_convite_entrevista` → pg_net(`{evento:'convite_entrevista', candidatura_id, agendamento_id}`) → EF: allowlist read `agendamentos_entrevista(data_hora, local_ou_link, tipo)` (NEVER observacoes_rh) + `candidatos(nome,email)` → render invite (date/time/local, `America/Sao_Paulo`) → **build `.ics` via `_shared/ics.ts` → base64 attachment** → Resend → log(dedupe=agendamento_id). *Reagendamento handling (fire on `UPDATE OF data_hora` too, dedupe = agendamento_id + data_hora) is a discuss-phase decision; MVP = INSERT only.*
-
-**Event 4 — decisao_final**
-`UPDATE candidaturas.etapa_atual IN ('aprovado','rejeitado')` (via `rejeitar_candidatura` RPC, the approve path, or synchronous knockout) → historico terminal row → `trg_notif_transicao` → pg_net(`{evento:'decisao_final', candidatura_id, historico_id, resultado:etapa_para}`) → EF renders **neutral D-15** language for rejeitado (criterio_texto/score NEVER in the email — RNF-12a/D-15), congrats+next-steps for aprovado → Resend → log(dedupe=historico_id). Unifies human reject + approve + knockout auto-reject in one path.
-
----
-
-## Proposed Schema — `notificacoes_enviadas`
+**What:** `pg_cron` never performs an irreversible side effect. It selects a capped batch, writes it to a durable queue, and fires an at-most-once HTTP nudge. The EF claims a row with a lease, does the work, and records the outcome. A second cron re-drives anything stale.
+**When:** Any scheduled work that touches Storage, Auth, or an external API.
+**Trade-offs:** One more table and one more cron than a naive `DELETE`. In exchange you get idempotency, observability, a kill switch, and survivability of `pg_net`'s at-most-once delivery — which this project has already been bitten by (that is why `notif-retry-sweep` exists).
 
 ```sql
--- enums (pt-BR domain; DO $$ ... duplicate_object guard for MCP replay-idempotency)
-CREATE TYPE public.evento_notificacao AS ENUM
-  ('candidatura_recebida','avaliacao_liberada','convite_entrevista','decisao_final');
-CREATE TYPE public.status_notificacao AS ENUM
-  ('pendente','enviado','falhou','ignorado');   -- ignorado = deliberately skipped (e.g. no-email policy)
-
-CREATE TABLE public.notificacoes_enviadas (
-  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  candidatura_id      uuid NOT NULL REFERENCES public.candidaturas(id) ON DELETE CASCADE,
-  candidato_id        uuid NOT NULL REFERENCES public.candidatos(id),
-  evento              public.evento_notificacao NOT NULL,
-  status              public.status_notificacao NOT NULL DEFAULT 'pendente',
-  destino_email       text NOT NULL,                -- snapshot of the address sent-to (audit; email may later change)
-  provider            text NOT NULL DEFAULT 'resend',
-  provider_message_id text,                          -- Resend id; NULL until delivered
-  erro                text,                          -- last error on failure
-  tentativas          smallint NOT NULL DEFAULT 0,
-  dedupe_key          text NOT NULL,                 -- idempotency (see Pattern 3)
-  historico_id        uuid REFERENCES public.historico_candidatura(id),      -- events 2,4; NULL otherwise
-  agendamento_id      uuid REFERENCES public.agendamentos_entrevista(id),    -- event 3; NULL otherwise
-  criado_em           timestamptz NOT NULL DEFAULT now(),
-  enviado_em          timestamptz,                   -- set when status='enviado'
-  updated_at          timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX notificacoes_dedupe_uidx ON public.notificacoes_enviadas (dedupe_key);
-CREATE INDEX notificacoes_retry_idx
-  ON public.notificacoes_enviadas (status, criado_em)
-  WHERE status IN ('pendente','falhou');            -- the retry queue
-
-ALTER TABLE public.notificacoes_enviadas ENABLE ROW LEVEL SECURITY;
+-- claim-with-lease: safe under concurrent sweeps, no advisory lock needed
+UPDATE public.solicitacoes_titular
+   SET status = 'em_execucao', tentativas = tentativas + 1, claimed_at = now()
+ WHERE id = p_id
+   AND status IN ('pendente', 'em_execucao')
+   AND (claimed_at IS NULL OR claimed_at < now() - interval '10 minutes')
+RETURNING *;   -- zero rows ⇒ another worker owns it ⇒ return 200, no-op
 ```
 
-**RLS (mirror `rh_gerencia_agendamento` WR-04 join-through):**
-- ONE RH SELECT policy, vaga-scoped: `administrador` bypass OR `rh` owning the candidatura's real vaga (`candidatura_id IN (SELECT c.id FROM candidaturas c JOIN vagas v ON v.id=c.vaga_id WHERE v.created_by = auth.uid())`). The **direct `vaga_id IN (...)` form is forbidden** (Pitfall-1 spoof) — join through candidaturas.
-- **No candidate SELECT/INSERT/UPDATE policy.** It is an internal delivery log; the candidate learns of delivery by receiving the email + reading the panel timeline, not by reading this table. `destino_email` and `erro` are internal.
-- All writes are by the EF via service_role (bypasses RLS). No second permissive policy (OR-defeat, SEC-08 lesson).
+### Pattern 2 — Anonymize-in-place behind a SECURITY DEFINER RPC, one transaction
 
-**Retention:** define in discuss-phase (PROJECT.md flags it). A pg_cron purge of rows past a retention window is the natural mechanism (pg_cron already used for `ai-logs-retention-cleanup`, `20260609000003`).
+**What:** All Postgres-side mutations of an erasure live in a single `SECURITY DEFINER … SET search_path = ''` function. The EF calls it exactly once. The three-system operation is not atomic, but its Postgres half is.
+**When:** Whenever a multi-table mutation must be all-or-nothing and the caller is an EF.
+**Trade-offs:** A large PL/pgSQL body (and therefore the known 42601 apply hazard — use MCP `apply_migration`, never `db push`). In exchange, a mid-flight EF crash cannot leave half a candidate anonymized.
 
-**Retry:** a pg_cron job (every ~5-15 min) selects `notificacoes_retry_idx` rows with `tentativas < MAX` (e.g. 3) and re-fires `net.http_post` to the EF (or a small batch variant). Resend does not re-drive a failed **API call** to us (it retries downstream delivery/bounces, not our request), so the sweep is required for send-time failures. Manual RH re-send (a button → JWT-ON invoke or an authorize-first RPC that re-enqueues) is a **deferrable** enhancement; the sweep covers automatic recovery.
+### Pattern 3 — Allowlist-projected export (the inverse of the allowlist read)
 
----
+**What:** The export enumerates, per table, exactly which columns the *titular* is entitled to — and is written as a literal column list, never `select('*')`.
+**When:** Every Art. 18 V/VI surface.
+**Trade-offs:** Verbose and must be maintained as the schema grows. The alternative is catastrophic: see Anti-Pattern 1.
 
-## Timeline / SLA Estimate (the pull side)
+### Pattern 4 — Extend the existing ledger rather than fork it
 
-**Recommendation: static per-stage config table, surfaced in the candidate dashboard.**
-
-```sql
-CREATE TABLE public.config_sla_etapa (
-  etapa      public.etapa_processo PRIMARY KEY,
-  prazo_dias smallint NOT NULL,
-  rotulo     text NOT NULL          -- e.g. 'Triagem de currículos'
-);
--- seed one row per waiting etapa (triagem/avaliacao_assincrona/entrevista_*/decisao_final)
-ALTER TABLE public.config_sla_etapa ENABLE ROW LEVEL SECURITY;
--- non-PII reference data → single permissive SELECT policy for authenticated (or anon), no client writes
-```
-
-- **Data source = the config table**, not a computation. The candidate dashboard (`DashboardCandidatoPage.tsx`, the existing waiting-state cards keyed on `etapa_atual`/`status`) does an etapa→config lookup and renders "triagem — resposta em até X dias." Framed explicitly as an estimate (anxiety reduction, not a promise).
-- **Why not a DEFINER RPC over `historico_candidatura` history now:** a data-driven median-time-in-stage estimate needs volume M6 has not accumulated (funnel operations just shipped), and adds complexity for little early value. It is the right **future** upgrade — note it for M8+, when the log has enough transitions to compute honest turnarounds. (Same table, `historico_candidatura`, is already the KPI source — the plumbing will exist.)
-- The table (vs a frontend TS constant) is chosen so RH can tune prazos without a redeploy; a TS constant is the zero-infra fallback if a table feels heavy for MVP.
-
----
-
-## Suggested Build Order (dependency-ordered, for the roadmapper)
-
-1. **Foundation — enums + tables** (no deps): `evento_notificacao` + `status_notificacao` enums, `notificacoes_enviadas` (+ RLS RH-read vaga-scoped, no candidate policy, dedupe UNIQUE, retry partial index), `config_sla_etapa` + seed. Apply via **Supabase MCP `apply_migration`** (bypasses 42601 on `$$` bodies) → **ledger reconcile** (MCP stamps a timestamp version-row ≠ filename → `migration repair` / `schema_migrations` UPDATE, per M4 DBMIG-01 lesson).
-2. **EF `notificar-candidato` + Resend + `_shared/ics.ts` port + 4 templates** (needs 1 — it writes the table): structure cloned from `analise-candidato-individual` (self-auth Bearer, injectable deps, `import.meta.main` wiring, redacted logs), Resend `fetch` cloned from `cost-alerter`, `.ics` ported from `agendamentoCandidatoService`. Set the `RESEND_API_KEY` (+ optional `NOTIFICAR_SECRET`) EF secret via `supabase secrets set` (**never** the bundle). Deploy `--no-verify-jwt`. Testable in isolation via a manual `net.http_post` before any trigger exists (dormant, like SEC-03 was). Templates can be a parallel sub-task inside this step (a `_shared/templates` module).
-3. **Triggers rewire — retire n8n, resolve SEC-03** (needs 2 deployed so pg_net has a live target): DROP `trg_n8n_nova_candidatura` / `_status_candidatura` / `_revisao_decisao` / `trg_n8n_novo_candidato`; CREATE `trg_notif_candidatura_recebida` (candidaturas INSERT), `trg_notif_transicao` (historico_candidatura INSERT, CASE etapa_para → events 2+4), `trg_notif_convite_entrevista` (agendamentos_entrevista INSERT) — all reusing the 10-02 skeleton (SECURITY DEFINER, `search_path=''`, Vault `project_url`+`edge_invoke_key`, graceful-skip, REVOKE FROM PUBLIC), ids-only bodies. This step is where "aposenta o n8n / resolve SEC-03 por substituição" lands. Apply via MCP + ledger reconcile.
-4. **Timeline** (needs 1's config table; independent of 2-3 — parallelizable): DashboardCandidatoPage waiting-state estimate from `config_sla_etapa`.
-5. **Retry sweep (pg_cron)** (needs 1+2+3): the sweep job re-firing the EF for `falhou`/`pendente` rows under the tentativas cap. Resilience — the pipeline works without it; add last.
-6. **Deferred:** manual RH re-send button/RPC; reagendamento-triggered invite; retention purge cron; data-driven SLA RPC.
+**What:** RH-facing notifications land in `notificacoes_enviadas` with `destinatario_tipo='rh'` instead of in a new table.
+**When:** A new message class shares the same lifecycle (send → provider ack → webhook reconcile → retry → retention).
+**Trade-offs:** One column and one CHECK-constraint edit on a live table (real risk, priced above). In exchange, `resend-webhook`, `varrer_retry_notificacoes()`, the retry index, and the new retention rule all cover the new rows for free.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Force all four events through one trigger on `historico_candidatura`
-**What people do:** "the transition log is canonical, put one trigger there." **Why it's wrong:** `avancar_etapa()` is BEFORE UPDATE — candidatura INSERT and agendamento INSERT write no log row, so events 1 and 3 would never fire. **Instead:** the documented mix — log trigger for the two real transitions, satellite triggers for the two non-transition mutations.
+### Anti-Pattern 1: building the export with `select('*')` per table
 
-### Anti-Pattern 2: Trigger → direct Resend REST from PL/pgSQL
-**What people do:** read `RESEND_API_KEY` from Vault in the trigger and `net.http_post` straight to `api.resend.com`. **Why it's wrong:** buries HTML templating, base64 `.ics`, error capture, and per-send audit writes in Postgres; no clean place to write `notificacoes_enviadas` with `provider_message_id`/`erro`. **Instead:** trigger → EF → Resend; the EF owns render + send + log.
+**What people do:** "It's the user's own data, just dump every row that references them."
+**Why it's wrong:** In *this* schema that would ship, in one file, to the data subject: the SJT `rubric` and cognitive `gabarito` (deliberately REVOKEd in M4/P24 SEC-01/SEC-07), the essay `veredito` (SEC-02), `opcao_knockout_id` / `motivo_rejeicao` (the LGPD leak that P8's security gate caught), `observacoes_rh` (deliberately excluded from the candidate allowlist in M6/P33), and the recruiter's `justificativa`. It would be the single largest PII-and-trade-secret leak the project has ever shipped, and it would be *handed to the person most motivated to litigate*.
+**Do this instead:** Explicit per-table column allowlists. LGPD Art. 18 V covers the titular's data; it does not compel disclosure of the controller's assessment instruments or commercial secrets (Art. 20 §1 expressly preserves segredo comercial e industrial).
 
-### Anti-Pattern 3: PII in the trigger payload
-**What people do:** put nome/email in the `net.http_post` body "to save a query." **Why it's wrong:** breaks the SEC-03 "ids only, no PII" discipline; PII in pg_net request logs. **Instead:** ids only; the EF resolves PII via an allowlist `select` (never `select('*')`).
+### Anti-Pattern 2: `DELETE FROM storage.objects` in the purge SQL
 
-### Anti-Pattern 4: `select('*')` on candidatos/agendamentos in the EF
-**What people do:** `candidatos.select('*')` to grab nome+email. **Why it's wrong:** RLS is row-level, not column-level — a star select drags cpf/telefone/endereço (and, for agendamentos, `observacoes_rh`) into the render path ([[reference_select_star_leaks_pii]]). **Instead:** explicit `nome_completo, email` (and `data_hora, local_ou_link, tipo` for agendamentos — never `observacoes_rh`).
+**What people do:** Storage metadata is in Postgres, so they delete it there.
+**Why it's wrong:** Verified against Supabase docs — the row disappears, the S3 object does not. You get an inaccessible-but-still-billed orphan and a *false* compliance record saying the CV was deleted. Since the 2026-03 Storage release the statement-level guard trigger will reject the statement outright unless `storage.allow_delete_query` is set, so on a current project it fails loudly instead of quietly — but the temptation to "just set the flag" is exactly the trap.
+**Do this instead:** `supabaseAdmin.storage.from('curriculos').remove(paths)` from an Edge Function, with the paths snapshotted into `plano jsonb` first.
 
-### Anti-Pattern 5: No idempotency claim → double emails
-**What people do:** send first, log after. **Why it's wrong:** pg_net retry or a double UPDATE sends twice. **Instead:** claim-then-send on a UNIQUE `dedupe_key` (Pattern 3).
+### Anti-Pattern 3: deleting the Auth user before the Storage objects
 
-### Anti-Pattern 6: Editing `avancar_etapa()` / `historico_candidatura` to add a "notified" flag
-**What people do:** add a column or CREATE OR REPLACE the trigger body to track notifications. **Why it's wrong:** near-miss P27 lesson — re-authoring a live trigger body drops guards; M6 reuse-and-tighten forbids touching the canonical write-path. **Instead:** all notification state lives in `notificacoes_enviadas`; read the log, never mutate it.
+**What people do:** "Delete the account, everything else cascades."
+**Why it's wrong:** Supabase refuses to delete an Auth user who owns Storage objects — and with the `{auth.uid()}/{uuid}.pdf` path schema, every candidate owns theirs. The call fails, the erasure stalls halfway, and the retry has no clean state to resume from.
+**Do this instead:** Storage → Postgres → Auth, always, with the plan snapshotted before step one.
+
+### Anti-Pattern 4: regex-scrubbing free-text audit fields
+
+**What people do:** Run the candidate's name through `justificativa` and `criterio_texto` with a `regexp_replace`.
+**Why it's wrong:** It cannot be verified, it silently corrupts the legal defensibility of a decision that RNF-07a says a human owns, and it produces a compliance claim you cannot substantiate under audit.
+**Do this instead:** Retain under Art. 16 I, keep the read surface RH-only and vaga-scoped, disclose the residue as a known limitation, and fix it at the write path in a later milestone.
+
+### Anti-Pattern 5: `cron.unschedule` as the kill switch
+
+**What people do:** "If the purge misbehaves, unschedule the job."
+**Why it's wrong:** It requires DB-level access at 3 a.m., it is a change to live infrastructure (and on this project every PROD DB action is an orchestrator checkpoint because subagents have no Supabase MCP), and re-scheduling risks drifting from the migration file.
+**Do this instead:** `politica_retencao.purga_ativa`, read at the top of `despachar_purga()` on every tick. Turning the purge off becomes a one-row UPDATE from the RH panel.
+
+### Anti-Pattern 6: making the candidate's deletion request instantaneous and self-service
+
+**What people do:** Button → immediate hard delete.
+**Why it's wrong:** A hijacked session becomes a data-destruction weapon, and there is no window to detect a mistaken or coerced request. LGPD requires a prompt *response*, not necessarily an instantaneous *execution*.
+**Do this instead:** Immediate acknowledgement + `pendente_confirmacao` → e-mail confirmation → short `agendado_para` grace window → execution. Log every state transition in `solicitacoes_titular`. **Confirm the grace duration with legal before locking it — this is a MEDIUM-confidence recommendation, not a statutory reading.**
 
 ---
 
 ## Integration Points
 
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Resend | EF `fetch('https://api.resend.com/emails', Bearer RESEND_API_KEY)` — clone of `cost-alerter/index.ts:216-234` | `html`+`text` bodies; `attachments:[{filename, content:base64, content_type:'text/calendar'}]` for the invite (40MB post-base64 cap; `.ics` is ~1KB). DKIM/verified domain required. Key is an EF secret, never bundle. |
-| Supabase Vault | Trigger reads `project_url` + `edge_invoke_key` (existing) for the pg_net invoke | Reuse the analise pair; do NOT introduce/keep `n8n_webhook_base` (that path is retired). |
-
-### Internal Boundaries
+### Internal boundaries
 
 | Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Postgres trigger ↔ EF | pg_net async `net.http_post`, Bearer edge_invoke_key | fire-and-forget; graceful-skip if Vault NULL; EF self-auths |
-| EF ↔ `notificacoes_enviadas` | service_role writes (claim/update) | bypasses RLS; RH reads via vaga-scoped policy |
-| EF ↔ candidatos/candidaturas/agendamentos/vagas | service_role allowlist reads | never `select('*')`; never `observacoes_rh` |
-| Candidate dashboard ↔ `config_sla_etapa` | anon/authenticated SELECT (non-PII reference) | the pull half; independent of the email path |
-| `_shared/ics.ts` (Deno) ↔ `agendamentoCandidatoService` (browser) | verbatim code port (no shared import) | keep in sync manually; comment the provenance |
+|---|---|---|
+| `decisao_final` ↔ `notificar-rh` | DB trigger → `net.http_post` (Bearer from Vault) | New trigger; body copied verbatim from `trg_notif_transicao` including graceful-skip + fail-open |
+| `decisao_final` ↔ `notificar-candidato` | Same | The 5th evento; the only modification to the live candidate path |
+| `solicitacoes_titular` ↔ `executar-direito-titular` | cron → `net.http_post` + claim-with-lease | Durable queue absorbs `pg_net`'s at-most-once semantics |
+| EF ↔ Storage | Storage Admin API only | SQL is structurally excluded (verified) |
+| EF ↔ Auth | `auth.admin.deleteUser` | Must run last |
+| `autorizacoes.autorizacao_retencao_curriculo` ↔ `selecionar_candidatos_expirados()` | Direct read | **This is the flag's first and only consumer** — the orphan-consent finding is closed here |
+| `config_sla_etapa` ↔ Fila Art. 20 | Direct read | Reuse the P37 store; do not create a second SLA table |
+| Frontend ↔ everything | TanStack Query v5, hierarchical keys | `lgpdKeys.*` |
+
+### Deliberate deviation from the vaga-scoped RLS idiom — flagged
+
+Every RH-facing table in this system is vaga-scoped via join-through (`rh_le_notificacoes`, `rh_gerencia_agendamento`, `rh_le_historico`/WR-04). **`solicitacoes_titular` cannot be**, because an erasure request is about a *person*, not about a vaga — a candidate may have applied to several vagas owned by different recruiters, or to none. Recommendation: candidate own-row policy for SELECT/INSERT, and **admin-only** read for the RH side (via a DEFINER RPC or an `is_active_rh_admin()`-gated policy — that helper already exists). Treat data-subject requests as an admin/DPO function, not a recruiter function. **Call this out in the phase plan so a reviewer does not read it as a missed vaga-scope.**
+
+### External services
+
+| Service | Integration | Gotchas |
+|---|---|---|
+| Resend | `fetch` from EF, key from Vault via `ler_resend_api_key()` | RH template is a new recipient class — the `exigirSinkTeste` non-prod guard must be extended to RH addresses or it will happily mail a real recruiter from a test run |
+| Resend click tracking | Dashboard/API setting, not code | The milestone asks to disable it. It is a **provider-side config change**, not a migration — plan it as a human checkpoint alongside the Vault work, and verify by inspecting a delivered message's link |
+| Supabase Storage | Admin API from EF | Delete-guard trigger; owner constraint on Auth delete |
+| Supabase Auth Admin | `auth.admin.deleteUser` | Blocked while the user owns Storage objects |
 
 ---
 
-## Open Questions for discuss-phase / requirements (flag for roadmapper)
+## Suggested Build Order
 
-1. **Confirmation for knockouts?** Event 1 fires on candidaturas INSERT; a knockout is auto-rejected synchronously in the same txn → the candidate would get "recebemos sua candidatura" AND a neutral rejection near-simultaneously. Decide: add a survivor guard to event 1 (mirror `trg_candidatura_analise`'s `status<>'rejeitado' AND opcao_knockout_id IS NULL`), or accept both. *(Product decision; both are one-line implementations.)*
-2. **Does the APPROVE path move `etapa_atual` to `'aprovado'`?** Event 4 keys on the historico terminal transition. The reject RPC provably sets `etapa_atual='rejeitado'` (`20260714100001`). **Verify** the approve/consolidation path (`registrar_decisao`/`consolidar-decisao-final`) also UPDATEs `etapa_atual='aprovado'` (writes a historico row). If approval only writes `decisao_final` without moving etapa, add a satellite trigger on `decisao_final` for approvals. *(One SQL check against the decisao flow resolves this — do it in discuss-phase.)*
-3. **Reagendamento (event 3):** MVP fires on agendamento INSERT only. A reschedule (`UPDATE OF data_hora`) sending a fresh invite (dedupe = agendamento_id + data_hora) is a scoped enhancement — in or out for M7?
-4. **`notificacoes_enviadas` retention window** — PROJECT.md explicitly defers this to discuss-phase; needed before any volume campaign.
-5. **`.ics` METHOD:PUBLISH vs REQUEST** — the ported builder emits PUBLISH ("add to calendar"). REQUEST (accept/decline, organizer) is a future nicety; confirm PUBLISH is acceptable for MVP.
+| # | Phase | Depends on | Blocking? | Risk | Rationale |
+|---|---|---|---|---|---|
+| **42** | **Fila Art. 20 (request → RH, answer → candidate)** | Nothing inside M8 (COMM already paid) | **Blocking by legal urgency, not by dependency** | **HIGH** (touches the live email path) | There is an **active hole in PROD with a 15-day statutory clock**. Smallest surface, largest legal delta. Delivers: `responder_revisao_decisao`, 2 triggers, `notificar-rh`, the `notificar-candidato` 5th evento + CHECK swap, `destinatario_tipo`, RH queue screen |
+| **43** | **Política de retenção + consentimentos órfãos** (SQL + config only, **zero destructive action**) | 42 (for the `config_sla_etapa`/config touch only — otherwise independent) | Blocking for 46 | LOW | Decides the window, creates `politica_retencao`, wires `autorizacao_retencao_curriculo` as a real consumer, resolves honor-or-remove for `autorizacao_comunicacao`, turns off Resend click tracking. Produces a **read-only** `v_lgpd_purga_status` preview: "these N candidates would be purged" — the number itself is the review artifact |
+| **44** | **Exportação / portabilidade (Art. 18 V/VI)** | 43 for framing only | **Laterally parallel with 43** | LOW-MEDIUM (allowlist discipline is the whole game) | Read-only. **Deliberately before erasure**: this phase produces the per-table PII inventory that Phase 45 consumes as its erasure plan. Building it once, read-only first, means the destructive phase inherits a proven map |
+| **45** | **Motor de exclusão** (`executar_anonimizacao` RPC + `executar-direito-titular` EF + tombstone + candidate-initiated flow) | 43 (policy) **and** 44 (inventory) | Blocking for 46 | **HIGHEST — this is the milestone's risk centre** | The un-atomic Storage↔Postgres↔Auth boundary. Irreversible. Live data. Every apply is a human checkpoint. Also carries the `gerar_bias_snapshot()` verified diff |
+| **46** | **Purga automática** (cron wiring, batching, kill switch, observability, dry-run → live) | 45 (engine) + 43 (window) | — | MEDIUM | Pure orchestration on top of a proven engine. First PROD activation is `dry_run=true`; flipping to live is its own gated step. Includes the `notificacoes_enviadas` retention rule P37 deferred here |
+| **47** | **Consolidação** (Nyquist das 6 fases sem veredito + W-1 `ator` UUID→nome + drop `data_deletion_log` stub) | All | — | LOW | **Fully parallelizable with 46** if worktrees allow — no shared files |
+
+### Ordering rationale
+
+- **42 first is a legal call, not a technical one.** Nothing depends on it; everything else could go first. It goes first because the clock is running.
+- **44 before 45 is the non-obvious, high-leverage call.** Instinct says "delete, then export". But the export *is* the inventory, and building it read-only first means the irreversible phase starts from a tested artifact instead of a fresh guess.
+- **43 and 44 are laterally parallelizable.** 43 is DB/config; 44 is an EF + a candidate screen. No file overlap.
+- **45 and 46 must be sequential.** Wiring a cron to an unproven destructive engine is how you turn a bug into an incident.
+- **47 is parallelizable with 46.**
+
+### Highest-risk piece — stated explicitly
+
+**Phase 45's `executar-direito-titular` Storage↔Postgres↔Auth boundary.** It is the only place in the entire system where a single logical operation spans three systems with no shared transaction, where the failure modes are irreversible, where the data is live production PII, and where the executor cannot self-verify (no Supabase MCP in subagents → every apply and every inspection is an orchestrator checkpoint). Everything about that phase should be planned as *gated*: dry-run first, one real candidate second (a test account), batch third.
+
+**Runner-up: Phase 42's edit to `notificar-candidato`.** Not because the change is hard — it is four lines and a constraint — but because that file has already shipped two CRITICAL defects that four gates missed, and the mechanism was a phase that closed without VERIFICATION.md and without code review. The mitigation is procedural, not technical: that phase does not close without both.
+
+---
+
+## Open Question the Research Cannot Close
+
+**The retention window number.** LGPD fixes no period; Art. 16 anchors it to purpose exhaustion plus the applicable prescription window. For a candidate who was **never hired there is no employment relationship**, so the CLT 2-year/5-year framing does not directly apply — the anchor is civil, plus the practical need to defend a discrimination claim. Market practice in the Brazilian sources surveyed clusters at 90–180 days, 6–12 months, or 1–2 years *with explicit talent-bank consent*. **Architecturally this does not matter** — `politica_retencao` is a config row, and the number can change without a migration. **Legally it is the milestone's central business decision** and should be set with counsel in discuss-phase, not inferred from this document. Confidence: MEDIUM.
+
+---
 
 ## Sources
 
-- `supabase/migrations/20260610000002_analise_trigger.sql` — the DB→EF pg_net pattern reused for all three triggers (HIGH)
-- `supabase/functions/analise-candidato-individual/index.ts` — DB-triggered EF self-auth (`--no-verify-jwt` + Bearer) reused for `notificar-candidato` (HIGH)
-- `supabase/functions/get-curriculo-url/index.ts` — authenticate-THEN-authorize + allowlist projection discipline (HIGH)
-- `supabase/functions/cost-alerter/index.ts:204-235` — the Resend `fetch` call, cloned verbatim (HIGH)
-- `supabase/migrations/20260607000005_avancar_etapa_trigger.sql` — proves `historico_candidatura` is written only on BEFORE UPDATE OF etapa_atual (source-of-truth mix rationale) (HIGH)
-- `supabase/migrations/20260607000001_historico_candidatura.sql` — canonical transition-log schema (HIGH)
-- `supabase/migrations/20260716000001_agendamentos_entrevista.sql` — event-3 source table + `get_meu_agendamento` allowlist + WR-04 RLS pattern reused for `notificacoes_enviadas` RLS (HIGH)
-- `supabase/migrations/20260714100001_rejeitar_candidatura_rpc.sql` — reject funnels through `etapa_atual` → historico (event-4 unification) (HIGH)
-- `src/features/agendamento/services/agendamentoCandidatoService.ts` — the pure RFC-5545 `.ics` builder to port server-side (HIGH)
-- `supabase/migrations/20260706110005_sec03_n8n_serverside.sql` + `20260712100004_n8n_novo_candidato.sql` — the dormant n8n triggers retired by M7 (HIGH)
-- `supabase/migrations/20260609000003_prompt_library_cron.sql` — pg_cron is live in this project (retry sweep + retention feasibility) (HIGH)
-- Resend send-email API docs (attachments `content` base64 + `content_type`; `html`/`text` bodies) — https://resend.com/docs/api-reference/emails/send-email (HIGH, verified 2026-07-17)
+**Codebase (HIGH — read directly, this session):**
+- `supabase/migrations/20260607000001_historico_candidatura.sql:39`, `20260607000003_decisao_final.sql:39`, `20260709000011_decisao_final_historico.sql:41` — the three `NO ACTION` FKs
+- `supabase/migrations/20260607000004_bias_audit_log.sql`, `20260625100001_decisao_final_phase15.sql:283-340` — `gerar_bias_snapshot()` aggregate-only + live `data_nascimento` join
+- `supabase/migrations/20260721000001_notificacoes_enviadas.sql` — CHECK constraint, RLS, indexes
+- `supabase/migrations/20260726000001_p39_rewire_triggers_aposenta_n8n.sql` — the DROPped `trg_n8n_revisao_decisao`, the canonical trigger skeleton
+- `supabase/migrations/20260727000001_p41_recon_retry.sql` — `pg_cron` + `pg_net` + Vault + backoff-cap precedent
+- `supabase/migrations/20260713000004_logs_auditoria_append_only.sql` — `limpar_logs_antigos()` purge-exemption precedent
+- `supabase/functions/notificar-candidato/{index.ts,helpers.ts}` — event vocabulary, allowlist resolution, claim-before-send
+- `supabase/functions/get-curriculo-url/index.ts` — authenticate-THEN-authorize + signed-URL pattern
+- `database.types.ts` — `autorizacoes`, `data_deletion_log` stub, `candidatos`, `decisao_final`, `configuracoes_empresa`
+
+**Supabase platform (HIGH — Context7 / official docs):**
+- Storage `delete-objects` + `schema/design` guides — SQL cannot delete blobs; storage tables are read-only from SQL
+- Supabase blog 2026-03 Storage release — statement-level `DELETE` guard trigger on storage schema
+- `auth/managing-user-data` — Auth user cannot be deleted while owning Storage objects
+- `database/extensions/pg_net`, `cron/quickstart`, `ai/automatic-embeddings` — cron → EF batching pattern
+
+**Legal / domain (MEDIUM — secondary sources, no ANPD numeric guidance exists):**
+- LGPD Lei 13.709/2018 Art. 12, 16 (I–IV), 18, 20 — via [LGPD Brasil Art. 16](https://lgpd-brasil.info/capitulo_02/artigo_16), [ANPD FAQ 5.5](https://www.gov.br/anpd/pt-br/acesso-a-informacao/perguntas-frequentes/perguntas-frequentes/5-adequacao-a-lgpd/5-5-por-quanto-tempo), [ConJur — LGPD nas relações de trabalho](https://www.conjur.com.br/2020-mar-14/leandro-araujo-impactos-lgpd-relacoes-trabalho/)
+- Candidate CV retention practice — [LinkVagas](https://linkvagas.com.br/blog/ver/116/lgpd-no-recrutamento-sua-empresa-pode-guardar-curriculos-por-quanto-tempo), [Solides](https://blog.solides.com.br/lgpd-no-recrutamento-e-selecao/)
+- Crypto-shredding vs. anonymization tradeoffs, EDPB 2025 pseudonymisation position — [Granit](https://granit-fx.dev/blog/crypto-shredding-gdpr-erasure-without-deleting-rows/), [VeritasChain](https://veritaschain.org/blog/posts/2026-01-18-crypto-shredding-gdpr-mifid-ii-reconciliation/), [RemoteReason](https://remotereason.com/blog/balancing-auditability-and-privacy-with-crypto-shredding)
 
 ---
-*Architecture research for: M7 transactional email pipeline integration into the Beauty Smile ATS*
-*Researched: 2026-07-17*
+*Architecture research for: LGPD data-governance integration into a live Supabase ATS*
+*Researched: 2026-07-29*

@@ -6,7 +6,7 @@
  * error class). The genuinely load-bearing invariants (RNF-07a + LGPD-04):
  *
  *  - `getExplicacao` reads `decisao_final` via an EXPLICIT own-row allowlist
- *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 4 named columns) that EXCLUDES the internal RH
+ *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 6 named columns) that EXCLUDES the internal RH
  *    `justificativa` free text (Phase-24 CR-01 — a column read but never used still ships
  *    over the wire) AND every score / band / percentile column, and NEVER joins the
  *    psychometric scores table. RLS is row-level only and does NOT hide columns
@@ -68,9 +68,11 @@ export class ExplicacaoServiceError extends Error {
 
 /**
  * The EXPLICIT own-row column allowlist for the candidate read of `decisao_final`. It
- * names ONLY the 4 columns the candidate may see — the high-level `decisao` and the
+ * names ONLY the 6 columns the candidate may see — the high-level `decisao` and the
  * LGPD Art. 20 lifecycle stamps (`revisao_solicitada_em`, `revisao_resultado`,
- * `explicacao_solicitada_em`).
+ * `explicacao_solicitada_em`) plus, since Phase 42 / 42-11 (REVISAO-04), the review
+ * OUTCOME the candidate has a right to read: `revisao_veredito` and
+ * `revisao_respondida_em`.
  *
  * SEC-02-class fix (Phase 24 / CR-01): the internal RH `justificativa` free text is
  * DELIBERATELY EXCLUDED. RLS is row-level only and does NOT hide columns
@@ -80,12 +82,50 @@ export class ExplicacaoServiceError extends Error {
  * `justificativa` was never read. Dropping it from the projection closes the leak at the
  * network layer. Also EXCLUDES every score/band/percentile column and NEVER joins the
  * psychometric scores table (RNF-07a / LGPD-04, T-15-12). NEVER the wildcard.
+ *
+ * TWO EXCLUSIONS THAT SURVIVED THE 42-11 EXTENSION, both asserted negatively in the
+ * service test (an extension is exactly where an exclusion is lost by accident):
+ *
+ *  1. THE REVIEWER'S IDENTITY IS NOT HERE. The column that records WHO answered the
+ *     review is NOT in this allowlist, and the candidate's client does not read it at
+ *     all. The reviewer's name is employee PII, and the Art. 20 transparency duty is
+ *     discharged by the CONTENT of the review — the verdict and the written reasoning —
+ *     not by naming the person who wrote it (42-UI-SPEC §Regra de identidade).
+ *  2. `justificativa` STAYS OUT. That exclusion is the Phase-24 CR-01 fix and must not
+ *     be reverted by accident: a column that is read and never used still travels over
+ *     the wire into the candidate's browser.
  */
 export const DECISAO_EXPLICACAO_ALLOWLIST =
-  'decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em'
+  'decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em, revisao_veredito, revisao_respondida_em'
 
 /** The candidate-facing decision result — the live `decisao_final_resultado` enum. */
 export type DecisaoResultado = 'aprovado' | 'rejeitado' | 'em_espera'
+
+/**
+ * The LGPD Art. 20 review verdict — a CLOSED two-value vocabulary, mirroring the live
+ * `p_veredito NOT IN ('mantida','revertida')` guard of `responder_revisao_decisao`
+ * (migration `20260730000002`).
+ *
+ * The union is narrowed HERE rather than typed as `string` because the client decides
+ * what to RENDER from it. The DB CHECK already restricts the vocabulary, but a remote
+ * invariant is the wrong thing for a rendering decision to rest on: the day a fifth
+ * verdict is added server-side, this surface must fall silent instead of echoing an
+ * unknown token at the candidate.
+ */
+export type RevisaoVeredito = 'mantida' | 'revertida'
+
+const VEREDITOS_CONHECIDOS: readonly string[] = ['mantida', 'revertida']
+
+/**
+ * Defensive normalization of the verdict read from the server: anything outside the
+ * closed vocabulary — including `null`, `undefined` and a future value this build has
+ * never heard of — resolves to `null` instead of leaking into the UI. Pure and total.
+ */
+export function normalizarVeredito(valor: unknown): RevisaoVeredito | null {
+  return typeof valor === 'string' && VEREDITOS_CONHECIDOS.includes(valor)
+    ? (valor as RevisaoVeredito)
+    : null
+}
 
 /**
  * The own-row explanation the candidate sees. It carries the HIGH-LEVEL result + the
@@ -104,6 +144,17 @@ export interface ExplicacaoCandidato {
   revisao_resultado: string | null
   /** Stamped on the first visit — transparency evidence (T-15-15). */
   explicacao_solicitada_em: string | null
+  /**
+   * The review verdict, narrowed to the closed vocabulary (REVISAO-04). `null` while the
+   * review is unanswered AND whenever the server sends a value this build cannot render.
+   */
+  revisao_veredito: RevisaoVeredito | null
+  /**
+   * When the review was answered. This is the SAME column the 42-08 trigger watches to
+   * fire the candidate's e-mail, so it is also what tells this surface that there is an
+   * answer to show at all — the panel and the e-mail cannot disagree about that fact.
+   */
+  revisao_respondida_em: string | null
 }
 
 /**
@@ -188,6 +239,8 @@ export async function getExplicacao(
     revisao_solicitada_em: string | null
     revisao_resultado: string | null
     explicacao_solicitada_em: string | null
+    revisao_veredito: string | null
+    revisao_respondida_em: string | null
   }
 
   // Reachability gate: the page exists ONLY after a rejection. aprovado / em_espera →
@@ -202,6 +255,9 @@ export async function getExplicacao(
     revisao_solicitada_em: raw.revisao_solicitada_em ?? null,
     revisao_resultado: raw.revisao_resultado ?? null,
     explicacao_solicitada_em: raw.explicacao_solicitada_em ?? null,
+    // Defensive: an unexpected verdict resolves to null instead of reaching the UI.
+    revisao_veredito: normalizarVeredito(raw.revisao_veredito),
+    revisao_respondida_em: raw.revisao_respondida_em ?? null,
   }
 }
 
@@ -300,4 +356,5 @@ export const explicacaoService = {
   getExplicacao,
   stampExplicacao,
   solicitarRevisao,
+  normalizarVeredito,
 }

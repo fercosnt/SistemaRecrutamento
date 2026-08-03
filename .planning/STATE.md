@@ -1,103 +1,199 @@
 ---
 gsd_state_version: 1.0
-milestone: v7.0
-milestone_name: M7 Comunicação com o Candidato (COMM)
-status: "🚀 EM PRODUÇÃO desde 2026-07-29. O v7.0 foi arquivado e o go-live executado: NOTIFICACOES_MODO=producao, entregabilidade validada (Gmail e Outlook na inbox, SPF/DKIM/DMARC os três PASS), n8n cloud desativado e chave Resend duplicada revogada. O sistema de comunicação com o candidato está ATIVO. Aguardando próximo milestone."
-stopped_at: "Nada pendente. O v7.0 foi fechado, arquivado e o GO-LIVE executado em 2026-07-29 — o sistema de comunicação está ATIVO em produção. Único residual: confirmar click tracking desligado no dashboard do Resend (não verificável por API). Próximo passo natural: /gsd-new-milestone (fases a partir da 42)."
-last_updated: "2026-07-29"
-last_activity: 2026-07-29
-last_activity_desc: "v7.0 arquivado + GO-LIVE executado (produção ativa, UATs 36-1/36-3 passed, n8n desligado)"
+milestone: v8.0
+milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
+current_phase: 43
+current_phase_name: Consentimentos Honestos & Política de Retenção
+status: verifying
+stopped_at: "Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43"
+last_updated: "2026-08-02T18:13:28.484Z"
+last_activity: 2026-08-01
+last_activity_desc: Phase 43 execution started
 progress:
   total_phases: 6
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 25
-  percent: 100
+  completed_phases: 1
+  total_plans: 21
+  completed_plans: 20
+  percent: 17
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-17 — M7/v7.0 kickoff)
+See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 41 — Reconciliação de Entrega, Retry & Testing
+**Current focus:** Phase 43 — Consentimentos Honestos & Política de Retenção
+
+## ⛔ BLOQUEADOR ABERTO — o cadastro de candidato está retornando 400 em PROD
+
+**Desde:** 2026-08-02 ~14h20, no deploy da Edge Function `cadastrar-candidato` v16 (checkpoint 43-07).
+**Fecha com:** publicar o bundle do cliente. **Ação do operador**, não do agente.
+
+### O que está fora
+
+Só o cadastro de candidato NOVO (`POST /functions/v1/cadastrar-candidato`). Confirmado contra o
+endpoint vivo, com o payload exato do bundle publicado:
+
+```
+400 VALIDATION · field: autorizacao_marketing_vagas
+"Informe se você quer receber avisos sobre novas vagas"
+```
+
+**Nada foi corrompido:** a validação roda antes de qualquer insert, então nenhuma linha foi escrita.
+Login, candidatura, painel do RH, notificações, guard de marketing, matriz de retenção — tudo
+intacto. Nenhum desses passa pela EF de cadastro.
+
+### Por que quebrou
+
+A EF v16 exige `autorizacao_marketing_vagas` sem default (é literalmente o CONSENT-01) e é
+`.strict()`, então rejeita `autorizacao_comunicacao` e `autorizacao_analise_video`. O bundle
+publicado envia essas duas e não envia a primeira. São incompatíveis **por desenho** — o cabeçalho
+da `20260801000001` prevê isso e impõe a ordem `migration → EF → cliente`. Os passos 1 e 2 foram
+executados; o passo 3 não pertence a nenhum plano da Phase 43, e ninguém o fechou.
+
+### Urgência medida (2026-08-02)
+
+| | |
+|---|---|
+| Último cadastro real | **2026-06-26** (há mais de um mês) |
+| Cadastros em 30 dias | **0** |
+| Vagas vivas | 8 (`ativa` / `inativa`) |
+
+Não há incidente em curso. Mas o caminho está fora e o próximo candidato real bate no 400.
+
+### Auditoria do push (feita 2026-08-02) — o risco técnico é baixo
+
+`origin/backup/local-state-2026-04` = `4bdb0fb` · local `HEAD` = `f8aafbb` · **136 commits** sem
+remote, cobrindo as fases **42 e 43** (2026-07-29 → 2026-08-02), 207 arquivos (73 em `src/`).
+
+| Verificação | Resultado |
+|---|---|
+| Migrations da janela aplicadas em PROD | **10/10** |
+| RPCs chamadas pelo cliente, existentes com `EXECUTE` p/ `authenticated` | **29/29** |
+| EFs invocadas pelo cliente que mudaram | **1** — `cadastrar-candidato`, já na v16 |
+| `submitCandidaturaSchema` | intacto → `submit-candidatura` (não redeployada) segura |
+| Dependências (`package.json` / lock) | **zero mudança** |
+| Env vars novas (`VITE_*`) | **zero** |
+| `npm run build` | **passa**, com as asserções de chunk do PERF-03 |
+
+O backend está à frente do cliente em tudo. O push não aplica migration nem deploya EF — builda o
+cliente, que é justamente a peça que falta.
+
+### ⚠ O que o push também leva junto
+
+Não é só a Phase 43. Sobem de uma vez:
+
+- **a fila de revisão do Art. 20 para o RH** (Phase 42) — cuja verificação está **diferida** em
+  `human_needed`, 4/5 must-haves. A superfície sobe sem a validação humana pendente;
+- **`/candidato/privacidade` e `/admin/retencao`** (Phase 43) — provadas por 1417 testes e
+  **nunca abertas num navegador**.
+
+### Depois do deploy
+
+Criar uma conta de verdade pelo cadastro. Se passar, o 400 morreu e o SC#1 fica provado ponta a
+ponta — servidor **e** cliente.
+
+**Rollback disponível** se algo que a auditoria não pegou aparecer: redeployar a EF a partir do
+código de `4bdb0fb` restaura o comportamento anterior em ~1 minuto. Custo do rollback: volta o
+`.default(true)` em `autorizacao_retencao_curriculo`, ou seja, o banco volta a afirmar consentimento
+de retenção que ninguém declarou. Por isso ele é stopgap, nunca destino.
+
+---
 
 ## Current Position
 
-Phase: Milestone v7.0 complete + **GO-LIVE EXECUTADO**
-Plan: —
-Status: 🚀 **Sistema de comunicação ATIVO em produção.** Aguardando próximo milestone.
-Last activity: 2026-07-29 — go-live: modo produção armado, entregabilidade validada em Gmail+Outlook, limpezas de segurança concluídas
+Phase: 43 (Consentimentos Honestos & Política de Retenção) — VERIFIED WITH GAPS
+Plan: 9 of 9
+Status: 9/9 planos executados · `43-VERIFICATION.md` = `gaps_found`, 2/5 must-haves
+Last activity: 2026-08-02 — checkpoint de PROD, code review (CR-01 fechado) e verificação
 
-> 🚀 **GO-LIVE 2026-07-29 — o candidato agora recebe e-mail de verdade.**
-> Executado pelo Fernando na ordem correta: (1) entregabilidade testada **por fora do
-> sistema** (envio direto pela API do Resend), isolando "o domínio entrega?" de "o sistema
-> está ligado?" — **Gmail e Outlook na Caixa de entrada, `SPF`/`DKIM`/`DMARC` os três
-> `PASS`**, remetente e Reply-To corretos; (2) `NOTIFICACOES_MODO=producao`; (3) prova do
-> caminho real com uma candidatura cujo candidato é o **próprio operador** —
-> `destinatario_email == destinatario_original` (sem desvio ao sink), `status=entregue`,
-> `ultimo_erro=null`; (4) limpeza verificada — ledger de volta a **0 linhas**, candidatura
-> restaurada. **Auditoria pós-flip: um único disparo em 36 h** (`net._http_response` id 68),
-> exatamente o teste — nenhum candidato real recebeu e-mail por acidente.
-> Também concluído: **n8n cloud desativado** (fecha o DISPATCH-03 na 3ª superfície) e a
-> **chave Resend duplicada revogada** do projeto Supabase errado.
-> ⚠️ Residual único: confirmar **click tracking** desligado no dashboard do Resend.
+## Roadmap (M8 — Phases 42–47)
 
-## Roadmap (M7 — Phases 36–41)
-
-Ordem de execução: 36 → 37 → 38 → 39 → 40 → 41. Cadeia **estrita** 37 → 38 → 39 (a EF precisa da tabela; os triggers precisam de uma EF viva). Phase 36 e Phase 40 são lateralmente paralelizáveis.
+Ordem de execução: `42 → 43 → 44 → 45 → 46`, com **47 lateralmente paralelizável com 46**.
+Cadeia **estrita** `44 → 45 → 46` (o inventário do export **é** o plano de exclusão; um cron sobre motor destrutivo não provado é como bug vira incidente).
+`43 → 44` é preferencialmente sequencial: CONSENT-02 adiciona colunas a `candidatos` e EXPORT-04 é justamente o snapshot que detecta coluna nova — em paralelo o snapshot fica vermelho por desenho.
 
 | Phase | Goal | Requirements |
 |-------|------|--------------|
-| 36 — Deliverability & Sender Identity | Domínio Beauty Smile verificado no Resend (SPF/DKIM auto + DMARC manual) + From/Reply-To reais + `RESEND_API_KEY` só no Vault + disciplina test-address `resend.dev` no dev/CI. Gate humano/DNS (Fernando), paralelizável | DELIV-01, DELIV-02, DELIV-03 |
-| 37 — Camada de Dados de Notificação (**BLOCKING**) | `notificacoes_enviadas` (audit + `UNIQUE(dedupe_key)` idempotência + fila retry, RLS RH vaga-scoped join-through, candidato-DENY) + `config_sla_etapa` estática seedada do PRD §5.1.1; provadas por smoke antes de qualquer EF/trigger | LEDGER-01, LEDGER-02, LEDGER-03, TIMELINE-01 |
-| 38 — EF `notificar-candidato` (COMM) | EF self-auth Bearer (`--no-verify-jwt`) que resolve dados por allowlist (nunca `select('*')`), reivindica idempotência, renderiza os 4 templates Beauty Smile (+ port verbatim `.ics` M6→`_shared/ics.ts`), envia via `fetch` ao Resend, grava no ledger; deployável dormente, smoke via `net.http_post` manual | COMM-01, COMM-02, COMM-03, COMM-04, COMM-05, COMM-06 |
-| 39 — Rewire dos Triggers & Aposentadoria do n8n (SEC-03) | Trigger CASE canônico em `historico_candidatura` (avanço + decisão) + 2 satélites (`candidaturas`=confirmação c/ survivor-guard, `agendamentos_entrevista`=convite); **DROP dos 3 triggers n8n do SEC-03 no MESMO phase** (resolve SEC-03 por substituição, sem double-send); hop Vault Bearer self-auth, corpo ids-only. **Fase de maior risco** | DISPATCH-01, DISPATCH-02, DISPATCH-03, DISPATCH-04 |
-| 40 — Timeline de Prazo no Painel | `DashboardCandidatoPage` mostra em cada estado de espera a estimativa de prazo da etapa (lê `config_sla_etapa`), enquadrada como estimativa, nunca countdown. Independente do push — paralelizável | TIMELINE-02 |
-| 41 — Reconciliação, Retry & Testing | EF webhook Resend (Svix) atualiza status por `provider_message_id` + varredura `pg_cron` de `pendente`/`falhou` (cap) + state machine `pendente→enviado→entregue/falhou/bounce` + CI sender mockado (sem chave viva) + UAT via `*@resend.dev`. Fecha o fire-and-forget; último | RECON-01, RECON-02, RECON-03 |
+| 42 — Inventário, Gates & Fila Art. 20 | O RH vê e responde os pedidos de revisão que hoje gravam um timestamp que ninguém lê; e o mapa do que existe (PII coluna-a-coluna, PITR/Storage-sem-backup, diff dos crons vivos, varredura `ADD COLUMN IF NOT EXISTS`) vira fato datado **antes** de qualquer linha destrutiva. Inclui a consulta "quantos pedidos já estão pendentes em PROD hoje", entregue antes de qualquer tela | INVENT-01..05, REVISAO-01..06 (11) |
+| 43 — Consentimentos Honestos & Política de Retenção | Todo checkbox ganha consequência real (desmarcado por padrão, versão+hash+timestamp do texto aceito, transacional separado de marketing com opt-out honrado, click tracking desligado) e a janela de retenção existe como config alterável sem deploy + prévia read-only. **Zero ação destrutiva por desenho** | CONSENT-01..06, RETEN-01/02/03/04/06 (11) |
+| 44 — Exportação & Acesso | Candidato pede cópia dos dados pelo painel; JSON por allowlist explícita (nunca `select('*')`), CV por signed URL de TTL curto, chaves cobertas por snapshot test, prazo Art. 19 II (15 dias) visível ao RH. O inventário nasce aqui **exercitado**, e a Phase 45 o consome | EXPORT-01..06 (6) |
+| 45 — Motor de Exclusão & Anonimização ⚠️ **MAIOR RISCO** | "Retirar candidatura" ≠ "apagar meus dados"; janela de arrependimento cancelável; execução `Storage → Postgres → Auth` idempotente com caminhos capturados antes da 1ª mutação; tombstone in-place via RPC DEFINER; recibo honesto em 2 colunas. **Snapshot de bias com faixa etária materializada ANTES de qualquer anonimização**; as 3 FKs `NO ACTION` nunca relaxadas; as 5 tabelas `SET NULL` tratadas | ERASE-01..10 (10) |
+| 46 — Purga Automática (dry-run → live) | Cron espelhando `notif-retry-sweep`; dry-run pela MESMA query do delete real em rollback; 1ª ativação em PROD é dry-run por período documentado; flip dry-run→live como checkpoint separado (espelho do `NOTIFICACOES_MODO`); cap de blast-radius + kill switch; predicado NULL-safe por allowlist de estados terminais; ledger de execuções + retenção de `notificacoes_enviadas` | PURGA-01..07, RETEN-05 (8) |
+| 47 — Transparência & Consolidação | Página pública de compartilhamento (Art. 18 VII) + "o que guardamos e por quê" derivada da matriz como **dado**; `ator` UUID → nome do recrutador (W-1); zumbi `data_deletion_log` resolvido; checklist "toda promessa de retenção/exclusão tem código que a executa"; veredito Nyquist das 6 fases do M7 | TRANSP-01/02, CONSOL-01..04 (6) |
 
-Coverage: **21/21 requirements mapeados ✓ · 0 unmapped.** Security-first: LEDGER-03 (candidato-DENY, P37) + DISPATCH-04 (self-auth, P39) aterrissam antes da única superfície candidato-facing (P40, que lê só `config_sla_etapa` non-PII). **Phase 39 é a de maior risco** (colisão de double-send resolvida por DROP-and-CREATE no mesmo phase). Fases candidatas a `/gsd-secure-phase`: **37** (RLS candidato-DENY do ledger) e **39** (rewire de triggers + self-auth). UI hint: **Phase 40** (única frontend — email HTML da P38 é backend EF, não `/gsd:ui-phase`).
+Coverage: **52/52 requirements mapeados ✓ · 0 órfãos · 0 duplicados.**
+
+**Fase de maior risco: 45.** Mutação de três sistemas genuinamente **não-atômica** (Storage → Postgres → Auth), **sem transação compartilhada**, sobre PII viva, com backups do Supabase de 7 dias que **excluem Storage inteiramente** — um CV apagado é irrecuperável por qualquer meio.
+
+**Portão de fase destrutiva (exit criterion de ROADMAP, não conselho):** fases **45** e **46** integralmente, **42** só em INVENT-05 (edita predicado de `DELETE` cron vivo) e **47** só em CONSOL-03 (`DROP` de tabela com escritor vivo). Exige: `VERIFICATION.md` com veredito (nunca ausente/`draft`) · code review bloqueante **antes** do apply em PROD · asserções **negativas** (o que NÃO aconteceu) · **zero `--no-verify`** · dry-run/rollback exercitado pela mesma query do delete real. Origem: a P39 fechou sem VERIFICATION.md nem code review e 2 CRITICAL chegaram a PROD.
+
+Candidatas a `/gsd-secure-phase`: **45** e **46** (obrigatórias) · **44** (superfície de exfiltração de PII por desenho) · **42** (autorização server-enforced REVISAO-05 + EF nova `notificar-rh`).
+UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação no painel), **44** (pedido de cópia), **45** (fluxo de exclusão — mais forte candidata a `/gsd-ui-phase`: ambiguidade de copy vira ação irreversível), **47** (2 páginas públicas + Histórico). **46** não é frontend.
+
+⚠ **Risco nomeado na Phase 42:** REVISAO-04 exige **uma edição cirúrgica na EF `notificar-candidato` viva** (vocabulário de evento fechado em código **e** em CHECK constraint no banco) — **o mesmo arquivo que já embarcou 2 defeitos CRÍTICOS em produção** (P39 CR-01/CR-02) e cujo W-01 (preheader não ramificado) era invisível a asserções que olham só o texto visível.
 
 ## Performance Metrics
 
 **Velocity (histórico de milestones):**
 
-- M1 (v1.0): 7 fases / 40 plans — 2026-06-06. · M2 (v2.0): 11 fases / 63 plans — 2026-06-26. · Phase 17 standalone: 5 plans — 2026-06-28. · M3 (v3.0): 4 fases / 16 plans — 2026-06-30. · M4 (v4.0): 6 fases / 43 plans — 2026-07-13. · M5 (v5.0): 3 fases / 19 plans — 2026-07-14. · M6 (v6.0): 5 fases / 20 plans — 2026-07-17.
-- Ledger detalhado por plano arquivado em `milestones/v*.0-*` e nos SUMMARY de cada fase.
+- M1 (v1.0): 7 fases / 40 plans — 2026-06-06. · M2 (v2.0): 11 fases / 63 plans — 2026-06-26. · Phase 17 standalone: 5 plans — 2026-06-28. · M3 (v3.0): 4 fases / 16 plans — 2026-06-30. · M4 (v4.0): 6 fases / 43 plans — 2026-07-13. · M5 (v5.0): 3 fases / 19 plans — 2026-07-14. · M6 (v6.0): 5 fases / 20 plans — 2026-07-17. · **M7 (v7.0): 6 fases / 25 plans — 2026-07-28.**
+- Ledger detalhado por plano arquivado em `milestones/v*.0-*` e nos SUMMARY de cada fase. O ledger por plano do M7 está em `milestones/v7.0-*`.
 
-**By Phase (M7):**
+**By Phase (M8):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 36 | 5 of 5 | 73min | ~15min |
-| 37 | 5 of 5 ✅ | ~45min (37-02/03/05; 37-01 e 37-04 foram checkpoints MCP do orquestrador) | ~15min |
-| 38 | TBD | - | - |
-| 39 | 0 of 4 planejados/verificados | - | - (Wave 1 executável; Wave 2 gated) |
-| 40 | TBD | - | - |
-| 41 | TBD | - | - |
+| 42 | TBD | - | - |
+| 43 | TBD | - | - |
+| 44 | TBD | - | - |
+| 45 | TBD | - | - |
+| 46 | TBD | - | - |
+| 47 | TBD | - | - |
 
 *Updated after each plan completion.*
 
-**Por plano (M7):** 36-01 — 13min · 2 tasks · 3 files. · 36-02 — 22min · 3 tasks · 3 files. · 36-03 — 24min · 3 tasks · 3 files.
-| Phase 36 P02 | 22min | 3 tasks | 3 files |
-| Phase 36 P03 | 24min | 3 tasks | 3 files |
-| Phase 36 P04 | 8min | 3 tasks | 2 files |
-| Phase 36 P05 | 6min | 2 tasks | 1 files |
-| Phase 37 P02 | 24min | 3 tasks | 3 files |
-| Phase 37 P03 | 12min | 2 tasks | 2 files |
-| Phase 37 P05 | 9min | 2 tasks | 2 files |
-| Phase 41 P01 | 20min | 2 tasks | 5 files |
-| Phase 41 P02 | 18min | 2 tasks | 4 files |
-| Phase 41 P03 | 6min | 2 tasks | 2 files |
-| Phase 41 P04 | 10min | 2 tasks | 2 files |
+**Por plano (M8):** _(vazio — nenhum plano do M8 executado)_
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 42 P01 | ~35min | 3 tasks | 5 files |
+| Phase 42 P07 | ~55min | 2 tasks | 6 files |
+| Phase 42 P11 | ~30min | 2 tasks | 6 files |
+| Phase 42 P08 | ~50min | 2 tasks | 8 files |
+| Phase 42 P10 | ~25 min | 3 tasks | 12 files |
+| Phase 42 P12 | ~45min | 1 task (2 checkpoints pendentes) tasks | 4 files files |
+| Phase 43 P01 | 50min | 3 tasks | 15 files |
+| Phase 43 P02 | ~35min | 3 tasks | 9 files |
+| Phase 43 P03 | ~35min | 3 tasks | 9 files |
+| Phase 43 P04 | ~10min | 3 tasks | 2 files |
+| Phase 43 P05 | ~25min | 3 tasks | 3 files |
+| Phase 43 P06 | ~25min | 3 tasks | 3 files |
+| Phase 43 P08 | ~40min | 3 tasks | 13 files |
+| Phase 43 P09 | ~25min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
 ### Decisions
 
-Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integration, security-first, reuse-and-clone):
+Log completo em PROJECT.md Key Decisions.
+
+**Ancorando o M8 (LGPD-OPS) — decisões de roadmap tomadas em 2026-07-29:**
+
+- [M8/roadmap]: **6 fases (42–47), numeração continuando do M7** (que terminou na 41). 52/52 requirements mapeados, 0 órfãos, 0 duplicados. Ordem `42 → 43 → 44 → 45 → 46`, com **47 ∥ 46**.
+- [M8/roadmap · desvio da pesquisa]: **CONSENT ficou íntegro na Phase 43** em vez de dividido (01/02 na 42, 03–06 na 43) como a pesquisa propôs. Razão: CONSENT-02 grava o **hash do texto** que CONSENT-03 **reescreve** — separá-los faria a versão 1 do texto embarcar já sabendo que seria superada uma fase depois, com 2 migrations e 2 edições da EF de cadastro sobre o mesmo formulário. Além disso INVENT-04 (varredura `ADD COLUMN IF NOT EXISTS`) fica **antes** da migration que adiciona colunas a `candidatos` — a tabela exata onde o drift de FK vive.
+- [M8/roadmap · lacuna de cobertura da pesquisa]: **TRANSP-01/02 não aparecia em nenhuma fase** da proposta de 6 fases da pesquisa. Mapeados à **Phase 47** — TRANSP-02 tem de descrever o que o sistema **faz**, não o que promete, e pareado com CONSOL-04 (checklist "toda promessa tem código") a página pública e a auditoria se checam mutuamente.
+- [M8/roadmap]: **RETEN-05** (retenção de `notificacoes_enviadas`) mapeado à **Phase 46**, não à 43. A *linha* na matriz nasce na 43, mas o requirement diz "definida **e aplicada**", e a aplicação é `DELETE` por cron — pôr um cron destrutivo na 43 quebraria a propriedade *zero-ação-destrutiva* que torna aquela fase segura de executar cedo.
+- [M8/roadmap · **portão de fase destrutiva**]: adotado como **exit criterion de ROADMAP**, não conselho em prosa. Toda fase que escreva `DELETE`/`UPDATE` destrutivo, altere predicado de purga vivo, ou faça `DROP` de objeto com escritor vivo só fecha com: `VERIFICATION.md` **com veredito** (nunca ausente/`draft`) · code review bloqueante **antes** do apply em PROD · **asserções negativas** (o que NÃO aconteceu) · **zero `--no-verify`** · dry-run pela **mesma query** do delete real em rollback. Aplica-se a **45** e **46** integralmente, a **42** só em INVENT-05, a **47** só em CONSOL-03. **Origem:** a P39 fechou sem VERIFICATION.md nem code review e 2 CRITICAL chegaram a PROD — aqui a feature central é **irreversível** e o mesmo erro não é recuperável.
+- [M8/roadmap]: **Phase 45 é a de maior risco** — mutação de 3 sistemas não-atômica sem transação compartilhada, sobre PII viva, com backup de 7 dias que **exclui Storage inteiramente**. `DELETE FROM storage.objects` via SQL órfã o blob permanentemente; o único caminho é a Storage Admin API a partir de EF.
+- [M8/ambiente]: **subagentes GSD não recebem os tools MCP do Supabase** — toda migration, inspeção PROD e deploy de EF é checkpoint do orquestrador. **As 6 fases carregam trabalho de DB ou EF**, então isso é premissa de planejamento de wave, não descoberta de meio de fase.
+- [M8/stack]: **zero npm novo, zero extensão nova.** `pg_cron` 1.6.4 · `pg_net` 0.19.5 · `pgcrypto` 1.3 · `supabase_vault` 0.3.1 vivas e versionadas. `anon` **ausente do catálogo** (não-instalável) → o primitivo de anonimização é tombstone `UPDATE` in-place via RPC `SECURITY DEFINER`.
+- [M8/fonte de verdade]: **`.planning/research/FK-AUDIT-LIVE.md` tem precedência** sobre `STACK.md`/`ARCHITECTURE.md` em qualquer questão de `ON DELETE` ou estado de schema — aqueles leram arquivos de migration, aquele é `pg_constraint`.
+
+**Herdadas do M7 (additive integration, security-first, reuse-and-clone) — seguem válidas:**
 
 - [M4/Phase 24 · SEC-03]: `20260706110005_sec03_n8n_serverside.sql` deixou 3 triggers `AFTER` com `net.http_post` (pg_net) + Vault secret `n8n_webhook_base` **dormentes** (graceful-skip `RETURN NEW`, secret nunca criado). O M7/Phase 39 **remove (DROP)** esses triggers no MESMO phase que cria os novos → aposenta o n8n, resolve **SEC-03 por substituição** (não patch). ⚠ há triggers n8n adicionais além dos 3 (`20260712100004_n8n_novo_candidato.sql`) — a P39 diffa os corpos vivos antes de qualquer DROP/CREATE.
 - [M2/Phase 10 · reuse]: EFs privilegiadas = self-auth Bearer via Vault + `--no-verify-jwt` (mirror `analise-candidato-individual`) — base direta da EF `notificar-candidato` (COMM-01) e do hop trigger→EF (DISPATCH-04). Ver [[reference_ef_authenticate_vs_authorize]].
@@ -153,6 +249,50 @@ Log completo em PROJECT.md Key Decisions. As que ancoram o M7 (additive integrat
 - [Phase 41 · 41-05 T3]: o `GET → 405` é o discriminador que separa "passou do gate do Vault" de "falhou antes dele" — com o secret ausente TODO método dava 500 (a leitura do Vault acontece no `Deno.serve`, antes do `handler`, onde vive o check de método). 405 prova que a execução alcançou o handler; 400 prova que alcançou o verify do Svix
 - [Phase 41 · 41-05 T3]: colunas novas de migration devem ser provadas por ESCRITA REAL do consumidor, não só por catálogo — `bounce_em` foi validada pelo webhook gravando nela, o que também prova que a reconciliação é cirúrgica (cada evento toca só a sua coluna, sem apagar `entregue_em`)
 - [Phase 39 · gap closure]: a ordem guard × claim é a parte que importa do fix de CR-02 — o survivor-guard na linha 192 roda ANTES do claim (linha 250), então um knockout não deixa linha `pendente` para a varredura `*/15` da P41 re-tentar. Guard depois do claim teria fechado o e-mail e aberto um retry órfão
+- [Phase 42 / 42-07]: Adicionar evento ao ledger `notificacoes_enviadas` exige estender o CHECK `notificacoes_enviadas_evento_check` na MESMA entrega — o plano 42-07 omitiu isso e a EF do RH falharia com 23514 em todo claim, entregando um no-op silencioso. Ler a forma VIVA da tabela, nunca a lista de sítios que o plano enumera
+- [Phase 42 / 42-07]: `dedupe_key` por DESTINATÁRIO quando um evento tem N recipientes: chave só por candidatura faria o 1º RH consumir o claim e 4 de 5 pessoas receberem skipped:duplicate em silêncio
+- [Phase 42 / 42-07]: Evento sem sweep de retry grava `proxima_tentativa_em` NULO — agendar tentativa que nada consumirá é afirmação falsa no ledger (mesma classe do truque `tentativas = 5` que o plano rejeitou). A fila /rh/revisoes é a superfície durável
+- [Phase 42 / 42-07]: Allowlist de log é POR Edge Function, nunca importada da EF vizinha: `dedupe_key` é logável em notificar-candidato e PROIBIDA em notificar-rh porque ali embute o candidatura_id completo e o user_id
+- [Phase 42 / 42-11]: a superfície do candidato NUNCA usa os 3 RPCs RH-only do Art. 20 (revogados de anon na 20260730000002) — a leitura é own-row por PostgREST sob a policy candidato_le_propria_decisao, e a única escrita do candidato é solicitar_revisao_decisao. Confundir os dois lados produziria 42501 em toda a tela
+- [Phase 42 / 42-11]: veredito da revisão é narrowed para união literal com normalização defensiva no cliente — o CHECK do banco já fecha o vocabulário, mas um invariante REMOTO é a coisa errada para uma decisão de RENDERIZAÇÃO se apoiar: valor novo fecha a superfície em vez de ecoar token cru ao candidato
+- [Phase 42 / 42-11]: critério de aceitação com grep negativo sobre literal (revisao_por_usuario, text-xs) é satisfeito montando o literal em runtime no teste (['text','xs'].join('-')) — a asserção fica real e o literal proibido não passa a existir na feature, nem dentro do teste que o proíbe
+- [Phase 42 / 42-11]: RED commit separado é IMPOSSÍVEL para superfície de API nova neste repo — referenciar símbolo/prop inexistente eleva a contagem tsc acima da baseline congelada de 97 e o hook reprova. O RED foi commitado onde tipa (asserções de valor) e verificado empiricamente onde não tipa; contorcer com 'as unknown as' trocaria força de asserção por cerimônia
+- [Phase 42]: 42-08: a prévia de caixa de entrada do 5º evento NÃO ramifica por veredito — decisão escrita no PREHEADERS e pinada por igualdade literal (T-42-V2c); ramificar entregaria o desfecho do Art. 20 na lista de e-mails
+- [Phase 42]: 42-08: a EF notificar-candidato passou a LER decisao_final.revisao_veredito (guardado por evento) — sem isso a ramificação do corpo seria código morto: teste provando o que nenhum e-mail alcança
+- [Phase 42]: 42-08: um Record<União,…> é sítio de vocabulário forçado pelo compilador mesmo vivendo no corpus de TESTE — o plano contava 4 sítios, o compilador apontou 5
+- [Phase 42]: 42-10: a recusa GUARD_DECISOR NAO vira toast — o hook fica calado e o dialogo renderiza alerta inline permanente sem retry; tentar de novo nunca funciona porque a recusa e sobre QUEM e o usuario
+- [Phase 42]: 42-10: responderRevisao chama a RPC MESMO quando o guard vai recusar (teste prende isso) — atalhar no cliente moveria a barreira para o cliente, e qualquer DevTools a desliga
+- [Phase 42]: 42-10: slot badge do MenuItem ALARGADO para string em vez de derivar o rotulo no render — duas fontes de verdade sobre 'como um contador aparece' e como um 0 volta a vazar; o render virou ternario porque '0 && …' avalia para 0 e o React o renderiza como texto
+- [Phase 42]: 42-10: asserção de copy em dialogo tem de ler document.body — conteudo em portal deixa container.textContent vazio, e toda asserção negativa passa sem olhar nada (3 falsos verdes encontrados)
+- [Phase ?]: [Phase 42 / 42-12]: a consulta `@> ARRAY[NULL]::uuid[]` do §E5 da pesquisa devolveria false SEMPRE (contenção compara por igualdade; igualdade contra nulo nunca é verdadeira) — a coluna que diz se o defeito está latente ou armado reportaria 0 em silêncio, o MESMO modo de falha que o INVENT-05 corrige. Usado array_position(...,NULL) IS NOT NULL, que 02-cron-live.sql:65 já usava: a pesquisa contradizia um artefato versionado da própria fase, e ganhou o artefato
+- [Phase ?]: [Phase 42 / 42-12]: fidelidade de corpo de cron asserida por md5, não por string literal — o critério proibia verbo de escrita dentro do smoke, e transcrever o corpo esperado o traria de volta. O md5 satisfaz os dois e é MAIS forte que a forma proibida (pega espaço a mais/quebra de linha a menos). Resumo derivado por EXECUÇÃO sobre o arquivo, com bloco de proveniência + comando de recomputação no cabeçalho, idioma da baseline do .husky/pre-commit
+- [Phase ?]: [Phase 42 / 42-12]: consulta de raio de impacto carimba a PRÓPRIA data (coletado_em_utc, 6ª coluna) — o portão exige fato datado, e data que depende de alguém lembrar de anotá-la é promessa sem código que a execute; sem carimbo no output não há como distinguir uma medição de hoje de uma colada de 2026-07-29 (Pitfall 7)
+- [Phase ?]: [Phase 42 / 42-12]: o bloco do corpo ANTERIOR no cron-inventory.md ficou marcado como não-editável e a seção 'Depois da correção' foi escrita ANTES do apply com células ⏳ ('campo do checkpoint, não resultado'). Sobrescrever o 'antes' destrói a única evidência que torna o 'depois' interpretável (T-42-42); preencher com números plausíveis seria fabricar evidência
+- [Phase ?]: A3 resolvida por execucao: o import cross-boundary src/ -> supabase/functions/*.json ATRAVESSA (Vite, Vitest, tsc). Texto de consentimento tem fonte UNICA, sem espelho.
+- [Phase ?]: autorizacoesSchema ganhou .strict() proprio: o .strict() do schema pai so fecha o nivel superior; sem ele autorizacao_analise_video seria DESCARTADA em silencio com 200 em vez de rejeitada com 400.
+- [Phase ?]: BD-5 em vigor: autorizacao_marketing_vagas nasce NULL para toda a base historica e NULL = NAO autorizado. Zero candidato ja cadastrado recebe divulgacao de vagas apos esta fase.
+- [Phase 43 / 43-02]: RETEN-06 VEREDITO: NÃO reusar retain_until — o padrão exige DEPLOY para mudar a política e o RETEN-02 exige 'alterável sem deploy'; a estrutura substituta é predicado COMPUTADO (matriz ⨝ data-âncora), planos 43-04/43-06
+- [Phase 43 / 43-02]: D-43-02-01: o portão de copy julga 'automaticamente' por COOCORRÊNCIA com léxico de exclusão, não isolado — 6 usos verdadeiros pré-existentes na allowlist (CEP, progresso) reprovariam um gate literal
+- [Phase ?]: 43-03: z.literal(true) virou z.boolean().refine(=== true) — com o literal, o estado inicial false que o CONSENT-01 exige era INEXPRIMÍVEL no tipo do formulário
+- [Phase ?]: 43-03: CADASTRO_DEFAULT_VALUES exportado — asserir sobre uma cópia local dos defaults seria verde sobre forma morta
+- [Phase ?]: [Phase 43 / 43-04] Matriz de retenção chaveada por etapa_processo (8) e não status_candidatura (5): etapa_atual é NOT NULL, então nenhuma candidatura cai em buraco silencioso na Phase 46
+- [Phase ?]: [Phase 43 / 43-04] Escrita da matriz é RPC SECURITY DEFINER auditada, não policy de UPDATE — policy não dá trilha atômica nem guard server-side sobre o teto de 24 meses
+- [Phase ?]: [Phase 43 / 43-04] Guard NULL-safe (IS DISTINCT FROM) nas DUAS RPCs, e anon revogado nominalmente — o idioma NOT IN + REVOKE FROM PUBLIC falha aberto (defeito medido na 42-06)
+- [Phase 43 / 43-05]: D-43-05-01: o guard de marketing vive no BANCO (BEFORE INSERT no ledger), não num if da Edge Function — service_role bypassa RLS mas NÃO bypassa trigger, e um if na EF é contornável pelo próximo emissor (a P39 teve 3+ emissores simultâneos)
+- [Phase 43 / 43-05]: D-43-05-02: fail-closed inclui o 'não sei' — evento sem linha em classe_evento_notificacao é RECUSADO, porque um evento novo não classificado é o caminho por onde um envio de marketing entraria sem ser visto
+- [Phase 43 / 43-05]: D-43-05-03: divulgacao_vagas é vocabulário RESERVADO com guard vivo, não suporte a marketing — zero emissores, e a EF o rejeitaria; precedente exato verificado em revisao_solicitada (no CHECK, fora de EVENTO_MAP)
+- [Phase ?]: Predicado de retencao UNICO nasce na Phase 43 (nao na 46): a previa read-only e o DELETE futuro consomem candidaturas_alem_da_janela(), com gate de md5 + assercao de chamada contra a criacao de uma segunda copia
+- [Phase ?]: Data-ancora com COALESCE de 4 degraus terminando em data_candidatura (NOT NULL): o modo de falha em que a ladeira rende NULL e a candidatura sai da contagem em silencio fica INEXPRIMIVEL
+- [Phase ?]: candidaturas_alem_da_janela() REVOGADA de todo papel de cliente e SEM GRANT de volta: a proibicao de a previa enumerar PII e estrutural, nao confiada a camada de apresentacao
+- [Phase ?]: BD-1 estendido: autorizacao_retencao_curriculo NAO entra no predicado desta fase — encurtar janela e decisao de POLITICA da Phase 46, com parecer juridico
+- [Phase ?]: 43-UI-SPEC emendada (43-06): linha por estado conta CANDIDATURAS, total conta CANDIDATOS com todas as candidaturas fora da janela — o rotulo aprovado contaria uma coisa e nomearia outra
+- [Phase ?]: 43-08: o Prazo previsto da guarda do curriculo sai da autorizacao + 24 meses (teto consentido), NAO da matriz config_retencao_etapa — dependencia da Phase 46 registrada no codigo
+- [Phase ?]: 43-08: a guarda do curriculo nao ganha switch — nao existe motor de exclusao (Phase 45); a revogabilidade do Art. 8 §5 e atendida pelo Encarregado
+- [Phase ?]: 43-08: candidato sem linha de autorizacoes (4 dos 21) nao recebe switch fantasma nem backfill — estado real fail-closed + canal humano nomeado (BD-4)
+- [Phase ?]: 43-09: a tabela da matriz MESCLA a resposta do servidor com o enum fechado de 8 estados: etapa sem politica vira linha visivel '— (nao definida)', nunca omissao silenciosa — e omissao e exatamente o que a Phase 46 nao pode herdar
+- [Phase ?]: 43-09: o seed mostra TRAVESSAO em Ultima alteracao: atualizado_em vem preenchido pelo trigger em toda linha semeada, e exibi-lo seria uma data verdadeira contando historia falsa
+- [Phase ?]: 43-09: o NO-OP desabilita o CTA mas nao vira erro de validacao: nao ha o que corrigir, so nada a salvar. O servidor recusa o mesmo caso com 22023 — a regra vive nos dois lados
+- [Phase ?]: 43-09: a assercao negativa E8 recorta o estado de ERRO explicitamente: ele carrega o 'Tentar novamente' que a UI-SPEC especifica, e sem o recorte o teste reprovaria a copy que a spec manda escrever
 
 ### Pending Todos
 
@@ -164,7 +304,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 ### Blockers/Concerns
 
-- **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:none>`, invisível às asserções que olham o texto visível.
+- **🎉 P39 FECHADA 2026-07-28 — CR-01 e CR-02 PROVADOS AO VIVO EM PROD.** CR-02: a EF respondeu `{"ok":true,"skipped":"knockout"}` com **zero** linhas no ledger (a guarda existe de fato E roda antes do claim). CR-01: a cadeia canônica inteira disparou de uma aprovação real e o **conteúdo entregue foi inspecionado** — assunto *"Boa notícia sobre sua candidatura"* + `COPY_APROVACAO`, sem traço da recusa. **+1 achado NOVO no UAT (W-01):** o `PREHEADERS` não ramificava por desfecho, então o aprovado via prévia *"Atualização sobre a sua candidatura."* na caixa de entrada — corrigido (EF **v5**), com 3 testes de regressão provados por stash, e re-verificado ao vivo. Só apareceu porque o corpo INTEIRO foi inspecionado: o preheader é `<span display:>`, invisível às asserções que olham o texto visível.
 - **📌 Nota operacional (achado incidental do UAT):** reenviar o MESMO evento para a MESMA candidatura em 24h é barrado em **duas camadas independentes** — `UNIQUE(dedupe_key)` no nosso ledger E a idempotência do Resend. Provado ao vivo: um re-teste com a mesma `Idempotency-Key` e corpo alterado recebeu `409 ... request body was modified`. O cinto do LEDGER-02/T-41-15, antes só coberto por teste unitário, está provado em PROD.
 - **✅ RESOLVIDO 2026-07-28 — P39 CR-01 / CR-02 DEPLOYADOS.** Era o bloqueio mais importante do milestone. A EF `notificar-candidato` está viva em **v3** com o fix `f3b7304`: aprovado recebe `COPY_APROVACAO` (nunca mais a rejeição) e knockout é barrado pelo survivor-guard **na EF, antes do claim** (logo não deixa linha `pendente` para a varredura re-tentar). Auditado na fonte deployada + 401 sem Bearer + ledger intacto (0 linhas). **Consequência prática: fechar DELIV-01 já não é perigoso** — a contenção acidental do `403` deixou de ser necessária.
 - **✅ RESOLVIDO 2026-07-28 — ACESSO DE ESCRITA A PROD RESTABELECIDO.** O operador removeu `&read_only=true` da URL do MCP. Verificado empiricamente antes de qualquer escrita: `current_user=postgres`, `session_user=postgres`, `transaction_read_only=off`. `apply_migration`, `execute_sql` de escrita e `deploy_edge_function` **todos funcionais** nesta sessão. Segue **sem** Supabase CLI instalado e sem `supabase/.temp/` (projeto não linkado) — então o caminho de escrita continua sendo **exclusivamente o MCP pelo main thread**, e `db push` permanece proibido (42601 nos corpos `$$`).
@@ -187,6 +327,32 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - **⚠ Drift pré-existente re-surfaced na P39-04 (NÃO-P39).** `db push --linked` reporta 7 versions órfãs (`20260713024106`…`20260714023002`) — migrations de 07-13/07-14 aplicadas via `apply_migration` (timestamp) e nunca reconciliadas ao prefixo do arquivo (2 sem arquivo local: `usr_rh_review_fixes_wr01_wr03`, `perfil_rh_rpc_hardening`). É o débito de drift já documentado (causa desconhecida), 2 semanas antes da P39. A version da P39 (`20260726000001`) está corretamente reconciliada → **zero drift novo**. NÃO reparado (fora de escopo; `--status reverted` do CLI marcaria migrations aplicadas como revertidas — errado). Rastrear p/ backlog de infra.
 - **D-15 / RNF-07a / RNF-12a** — o template de rejeição (COMM-05) é fixo e neutro (grep-guard contra tokens de scoring), disparado só por decisão registrada por humano.
 - **Contas de teste PROD:** `e2e.admin@beautysmile.com.br` (admin) + `recrutador` `fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7` + `candidato.funil@teste.com`.
+- 42-07 CHECKPOINT PENDENTE (bloqueante): apply de 20260730000003 + deploy da EF notificar-rh + smoke do round-trip. Ordem obrigatória: EF ANTES do trigger (net.http_post é at-most-once). Ler NOTIFICACOES_MODO na função nova antes do smoke — em PROD é 'producao' e o smoke mandaria e-mail real aos 5 RH. REVISAO-01 NÃO está entregue até isso passar
+- 42-08 tem de renumerar sua migration para 20260730000004 (o 42-07 tomou o 20260730000003) E reescrever as asserções (a)/(b) do seu smoke: o CHECK vivo passa a ter 5 valores com o 42-07 e 6 com o 42-08
+- 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
+- 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
+
+## Deferred Verification
+
+| Phase | State | Resume |
+|-------|-------|--------|
+| 42 | verification_deferred_human | `/gsd-verify-work 42` |
+
+**Decisão do operador em 2026-08-01:** diferir e seguir para a Phase 43. A Phase 42 verificou
+**4/5 must-haves** (`42-VERIFICATION.md`, `status: human_needed`) e o **portão de fase
+destrutiva passou 5/5**. A implementação está verificada — fila do RH, round-trip do Art. 20 nos
+dois sentidos e inventário, todos provados em produção. O que ficou aberto NÃO é implementação:
+
+1. **Guard REVISAO-05 contra JWT de navegador** (D6 do 42-10). Provado no servidor por smoke SQL
+   com impersonação real; falta a confirmação contra um JWT emitido pelo `custom_access_token_hook`
+   num browser, o que exige dois logins RH distintos.
+
+2. **Caminho do recrutador ponta a ponta.** Resolução de roster provada ao vivo (a EF devolve os 3,
+   com `role=recrutador`); a entrega não pode ser provada enquanto o endereço daquela conta for
+   indeliverável — ver `42-recrutador-email-indeliveravel`.
+
+3. **PITR** (metade do INVENT-02 / SC#4). Bloqueio de credencial **e** decisão de gasto; o próprio
+   ROADMAP já o difere para a Phase 45.
 
 ## Deferred Items
 
@@ -225,10 +391,16 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-07-28
-Stopped at: **M7 funcionalmente completo.** Nesta sessão, em ordem: (1) verificado o acesso de escrita (postgres, read_only=off); (2) `notificar-candidato` v2→v3 com o fix f3b7304 — CR-01/CR-02 fora de PROD, fonte deployada auditada, 401 sem Bearer; (3) gate T-41-SC do `npm:svix` limpo (sem postinstall em toda a árvore, integridade do lock batendo 1:1 com o registry, `deno check` ok) — aprovado pelo operador; (4) migration `20260727000001` aplicada + ledger reconciliado + smoke **5/5 VERDE**; (5) `resend-webhook` v1 deployada (`verify_jwt=false`, svix resolvido); (6) cron `notif-retry-sweep` ativo e varredura provada como no-op seguro; (7) **Fernando registrou o webhook + provisionou o `resend_webhook_secret`**; (8) **reconciliação provada END-TO-END** — webhook assinado real → `enviado→entregue→bounce` por `provider_message_id`, forjados/replays em 400, assinatura computada dentro do Postgres (segredo nunca saiu do banco), linha de teste removida (ledger 0). Restam só itens humanos: DELIV-01 (`verified` no Resend), 2 UATs comportamentais da P39, cleanup do n8n cloud.
+Last session: 2026-08-02T18:13:28.475Z
+Stopped at: Completado 43-09-PLAN.md — /admin/retencao escrita e testada; 9/9 planos da Phase 43. Nada da fase esta no navegador (bundle do cliente nao publicado). Proximo: /gsd-verify-work 43
 Resume file: None
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+1. **Revisar o ROADMAP** (`.planning/ROADMAP.md`) — em especial o desvio deliberado em relação à proposta da pesquisa: CONSENT ficou íntegro na Phase 43 em vez de dividido entre 42 e 43, e **TRANSP-01/02 (que a proposta de 6 fases da pesquisa deixou sem fase) foi mapeado à Phase 47**.
+2. `/gsd-plan-phase 42` para começar. A Phase 42 é read-only exceto por INVENT-05.
+3. **Decisões de negócio que a pesquisa escalou e que ainda não têm resposta** — nenhuma bloqueia a Phase 42, mas todas precisam estar respondidas antes da fase indicada:
+   - **BD-1 (Phase 43):** o número dentro de [0, 2 anos] por estado da candidatura. O teto de 2 anos já é contratual (copy do cadastro); a decisão remanescente é o número, e ela precisa de advogado trabalhista, não de mais pesquisa.
+   - **BD-2/BD-3 (Phase 43):** honrar ou remover `autorizacao_comunicacao`; manter ou reescrever o rótulo "revisão por pessoa natural".
+   - **BD-9 + PITR (Phase 45, ambas antes de qualquer código destrutivo):** redigir ou preservar a justificativa ≥50 caracteres do recrutador em `decisao_final`; e **status do PITR como fato datado** — ligar é decisão de gasto, e Storage não tem backup **independente** do PITR.
+   - **Janela de arrependimento (Phase 45):** número de dias.

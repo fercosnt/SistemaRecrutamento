@@ -369,9 +369,13 @@ export type Database = {
         Row: {
           autorizacao_analise_video: boolean
           autorizacao_comunicacao: boolean
+          autorizacao_marketing_vagas: boolean | null
           autorizacao_retencao_curriculo: boolean
           autorizacao_uso_dados: boolean
           candidato_id: string
+          consent_registrado_em: string | null
+          consent_text_hash: string | null
+          consent_text_version: string | null
           created_at: string
           id: string
           ip_aceite: unknown
@@ -383,9 +387,13 @@ export type Database = {
         Insert: {
           autorizacao_analise_video?: boolean
           autorizacao_comunicacao?: boolean
+          autorizacao_marketing_vagas?: boolean | null
           autorizacao_retencao_curriculo?: boolean
           autorizacao_uso_dados?: boolean
           candidato_id: string
+          consent_registrado_em?: string | null
+          consent_text_hash?: string | null
+          consent_text_version?: string | null
           created_at?: string
           id?: string
           ip_aceite?: unknown
@@ -397,9 +405,13 @@ export type Database = {
         Update: {
           autorizacao_analise_video?: boolean
           autorizacao_comunicacao?: boolean
+          autorizacao_marketing_vagas?: boolean | null
           autorizacao_retencao_curriculo?: boolean
           autorizacao_uso_dados?: boolean
           candidato_id?: string
+          consent_registrado_em?: string | null
+          consent_text_hash?: string | null
+          consent_text_version?: string | null
           created_at?: string
           id?: string
           ip_aceite?: unknown
@@ -1069,6 +1081,24 @@ export type Database = {
           },
         ]
       }
+      classe_evento_notificacao: {
+        Row: {
+          classe: string
+          descricao: string
+          evento: string
+        }
+        Insert: {
+          classe: string
+          descricao: string
+          evento: string
+        }
+        Update: {
+          classe?: string
+          descricao?: string
+          evento?: string
+        }
+        Relationships: []
+      }
       cognitivo_itens: {
         Row: {
           alternativas: Json
@@ -1181,6 +1211,45 @@ export type Database = {
         }
         Relationships: []
       }
+      config_retencao_etapa: {
+        Row: {
+          alterado_por: string | null
+          atualizado_em: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses: number
+          origem: string
+        }
+        Insert: {
+          alterado_por?: string | null
+          atualizado_em?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses: number
+          origem?: string
+        }
+        Update: {
+          alterado_por?: string | null
+          atualizado_em?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses?: number
+          origem?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_retencao_etapa_alterado_por_fkey"
+            columns: ["alterado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_rh"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "config_retencao_etapa_alterado_por_fkey"
+            columns: ["alterado_por"]
+            isOneToOne: false
+            referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       config_sla_etapa: {
         Row: {
           atualizado_em: string
@@ -1202,6 +1271,30 @@ export type Database = {
           prazo_unidade?: string | null
           prazo_valor?: number | null
           rotulo_candidato?: string
+        }
+        Relationships: []
+      }
+      config_sla_revisao: {
+        Row: {
+          atualizado_em: string
+          chave: string
+          descricao: string | null
+          dias_atencao: number
+          dias_atraso: number
+        }
+        Insert: {
+          atualizado_em?: string
+          chave: string
+          descricao?: string | null
+          dias_atencao: number
+          dias_atraso: number
+        }
+        Update: {
+          atualizado_em?: string
+          chave?: string
+          descricao?: string | null
+          dias_atencao?: number
+          dias_atraso?: number
         }
         Relationships: []
       }
@@ -1382,8 +1475,11 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
           revisao_resultado: string | null
           revisao_solicitada_em: string | null
+          revisao_veredito: string | null
         }
         Insert: {
           candidatura_id: string
@@ -1393,8 +1489,11 @@ export type Database = {
           id?: string
           justificativa: string
           por_usuario: string
+          revisao_por_usuario?: string | null
+          revisao_respondida_em?: string | null
           revisao_resultado?: string | null
           revisao_solicitada_em?: string | null
+          revisao_veredito?: string | null
         }
         Update: {
           candidatura_id?: string
@@ -1404,8 +1503,11 @@ export type Database = {
           id?: string
           justificativa?: string
           por_usuario?: string
+          revisao_por_usuario?: string | null
+          revisao_respondida_em?: string | null
           revisao_resultado?: string | null
           revisao_solicitada_em?: string | null
+          revisao_veredito?: string | null
         }
         Relationships: [
           {
@@ -2206,6 +2308,7 @@ export type Database = {
       notificacoes_enviadas: {
         Row: {
           atualizado_em: string
+          bounce_em: string | null
           candidato_id: string
           candidatura_id: string
           criado_em: string
@@ -2219,6 +2322,7 @@ export type Database = {
           modo: string
           provider_message_id: string | null
           proxima_tentativa_em: string | null
+          reclamado_em: string | null
           status: Database["public"]["Enums"]["status_notificacao"]
           template: string
           tentativas: number
@@ -2226,6 +2330,7 @@ export type Database = {
         }
         Insert: {
           atualizado_em?: string
+          bounce_em?: string | null
           candidato_id: string
           candidatura_id: string
           criado_em?: string
@@ -2239,6 +2344,7 @@ export type Database = {
           modo?: string
           provider_message_id?: string | null
           proxima_tentativa_em?: string | null
+          reclamado_em?: string | null
           status?: Database["public"]["Enums"]["status_notificacao"]
           template: string
           tentativas?: number
@@ -2246,6 +2352,7 @@ export type Database = {
         }
         Update: {
           atualizado_em?: string
+          bounce_em?: string | null
           candidato_id?: string
           candidatura_id?: string
           criado_em?: string
@@ -2259,6 +2366,7 @@ export type Database = {
           modo?: string
           provider_message_id?: string | null
           proxima_tentativa_em?: string | null
+          reclamado_em?: string | null
           status?: Database["public"]["Enums"]["status_notificacao"]
           template?: string
           tentativas?: number
@@ -4795,6 +4903,14 @@ export type Database = {
         Args: { candidatura_uuid: string }
         Returns: undefined
       }
+      candidaturas_alem_da_janela: {
+        Args: never
+        Returns: {
+          candidato_id: string
+          candidatura_id: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+        }[]
+      }
       check_candidato_duplicate: {
         Args: { p_cpf: string; p_email: string }
         Returns: Json
@@ -4803,6 +4919,7 @@ export type Database = {
         Args: { p_analise_id: string }
         Returns: Json
       }
+      contar_revisoes_pendentes: { Args: never; Returns: number }
       criar_usuario_rh_com_audit: {
         Args: {
           p_actor: string
@@ -4952,8 +5069,35 @@ export type Database = {
       }
       is_active_rh_admin: { Args: never; Returns: boolean }
       ler_resend_api_key: { Args: never; Returns: string }
+      ler_resend_webhook_secret: { Args: never; Returns: string }
       limpar_logs_antigos: { Args: never; Returns: number }
       limpar_sessoes_expiradas: { Args: never; Returns: undefined }
+      listar_matriz_retencao: {
+        Args: never
+        Returns: {
+          alterado_por_nome: string
+          atualizado_em: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses: number
+          origem: string
+        }[]
+      }
+      listar_revisoes_decisao: {
+        Args: { p_incluir_respondidos?: boolean }
+        Returns: {
+          candidato_nome: string
+          candidatura_id: string
+          decidido_por_nome: string
+          decisao: string
+          pode_responder: boolean
+          respondida_por_nome: string
+          revisao_respondida_em: string
+          revisao_resultado: string
+          revisao_solicitada_em: string
+          revisao_veredito: string
+          vaga_titulo: string
+        }[]
+      }
       log_auditoria: {
         Args: {
           p_acao?: string
@@ -4986,6 +5130,10 @@ export type Database = {
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
       }
+      pode_receber_marketing: {
+        Args: { p_candidato_id: string }
+        Returns: boolean
+      }
       pontuar_cognitivo: {
         Args: {
           p_candidatura_id: string
@@ -4999,6 +5147,21 @@ export type Database = {
       pontuar_sjt: {
         Args: { p_candidatura_id: string; p_respostas: Json }
         Returns: Json
+      }
+      previa_retencao: {
+        Args: never
+        Returns: {
+          candidatos_afetados: number
+          candidaturas_afetadas: number
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+        }[]
+      }
+      previa_retencao_total: {
+        Args: never
+        Returns: {
+          calculada_em: string
+          candidatos_afetados: number
+        }[]
       }
       promote_canary_to_active: {
         Args: {
@@ -5040,8 +5203,11 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
           revisao_resultado: string | null
           revisao_solicitada_em: string | null
+          revisao_veredito: string | null
         }
         SetofOptions: {
           from: "*"
@@ -5062,6 +5228,33 @@ export type Database = {
         Args: { p_candidatura_id: string }
         Returns: undefined
       }
+      responder_revisao_decisao: {
+        Args: {
+          p_candidatura_id: string
+          p_justificativa: string
+          p_veredito: string
+        }
+        Returns: {
+          candidatura_id: string
+          decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          em: string
+          explicacao_solicitada_em: string | null
+          id: string
+          justificativa: string
+          por_usuario: string
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+          revisao_veredito: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "decisao_final"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rollback_to_version: {
         Args: {
           p_call_type: Database["public"]["Enums"]["llm_call_type"]
@@ -5076,6 +5269,13 @@ export type Database = {
           p_scores_humanos: Json
         }
         Returns: Json
+      }
+      salvar_janela_retencao: {
+        Args: {
+          p_etapa: Database["public"]["Enums"]["etapa_processo"]
+          p_meses: number
+        }
+        Returns: undefined
       }
       salvar_revisao_redacao: {
         Args: {
@@ -5101,8 +5301,11 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
           revisao_resultado: string | null
           revisao_solicitada_em: string | null
+          revisao_veredito: string | null
         }
         SetofOptions: {
           from: "*"
@@ -5121,8 +5324,11 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
           revisao_resultado: string | null
           revisao_solicitada_em: string | null
+          revisao_veredito: string | null
         }
         SetofOptions: {
           from: "*"
@@ -5155,6 +5361,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      varrer_retry_notificacoes: { Args: never; Returns: undefined }
     }
     Enums: {
       candidate_status:

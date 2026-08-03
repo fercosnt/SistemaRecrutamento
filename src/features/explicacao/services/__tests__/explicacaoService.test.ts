@@ -4,9 +4,10 @@
  * Asserts the EXACT LGPD Art. 20 / RNF-07a contracts the candidate explanation data
  * layer must satisfy — the same allowlist + own-row-RPC idioms the Phase-14
  * cognitivoService test encodes:
- *  - the own-row read uses the EXPLICIT `DECISAO_EXPLICACAO_ALLOWLIST` (5 named
- *    columns) and NEVER `select('*')`, NEVER joins `scores_candidato` — the candidate
- *    never sees a score/band/percentile ([[reference_select_star_leaks_pii]], T-15-12).
+ *  - the own-row read uses the EXPLICIT `DECISAO_EXPLICACAO_ALLOWLIST` (6 named
+ *    columns since Phase 42 / 42-11) and NEVER `select('*')`, NEVER joins
+ *    `scores_candidato` — the candidate never sees a score/band/percentile
+ *    ([[reference_select_star_leaks_pii]], T-15-12).
  *  - the REACHABILITY GATE (Pitfall 6 / T-15-14): `getExplicacao` returns `null`
  *    unless `decisao = 'rejeitado'` (no row / aprovado / em_espera → not-available).
  *  - the derived candidate reason is a TEMPLATED non-clinical string (Open Q5) — the
@@ -55,11 +56,25 @@ vi.mock('@/lib/supabase/client', () => {
 import {
   DECISAO_EXPLICACAO_ALLOWLIST,
   getExplicacao,
+  normalizarVeredito,
   solicitarRevisao,
   stampExplicacao,
 } from '../explicacaoService'
 
 const VALID_CAND = '11111111-1111-4111-8111-111111111111'
+
+/** A rejected own row with the review lifecycle fields overridable per case. */
+function linhaRejeitada(over: Record<string, unknown> = {}) {
+  return {
+    decisao: 'rejeitado',
+    revisao_solicitada_em: null,
+    revisao_resultado: null,
+    explicacao_solicitada_em: null,
+    revisao_veredito: null,
+    revisao_respondida_em: null,
+    ...over,
+  }
+}
 
 beforeEach(() => {
   selects.length = 0
@@ -72,13 +87,15 @@ afterEach(() => {
 })
 
 describe('explicacaoService — allowlist (T-15-12 / LGPD-04, no score leak)', () => {
-  it('the allowlist names EXACTLY the 4 own-row columns and NO score/band/percentile', () => {
+  it('the allowlist names EXACTLY the 6 own-row columns and NO score/band/percentile', () => {
     const cols = DECISAO_EXPLICACAO_ALLOWLIST.split(',').map((c) => c.trim())
     expect(cols).toEqual([
       'decisao',
       'revisao_solicitada_em',
       'revisao_resultado',
       'explicacao_solicitada_em',
+      'revisao_veredito',
+      'revisao_respondida_em',
     ])
   })
 
@@ -108,6 +125,130 @@ describe('explicacaoService — allowlist (T-15-12 / LGPD-04, no score leak)', (
     expect(fromMock).toHaveBeenCalledWith('decisao_final')
     expect(selects).toContain(DECISAO_EXPLICACAO_ALLOWLIST)
     expect(selects.some((s) => s.includes('*'))).toBe(false)
+  })
+})
+
+describe('explicacaoService — allowlist estendida com o resultado da revisão (REVISAO-04)', () => {
+  it('nomeia o veredito e a data da resposta, além das 4 chaves que já tinha', () => {
+    // Fechar o round-trip do Art. 20 do lado do candidato exige exatamente estas duas
+    // colunas e nenhuma outra: o veredito e QUANDO a resposta foi dada. A justificativa
+    // escrita por quem revisou já viajava em `revisao_resultado` desde a Phase 15.
+    const cols = DECISAO_EXPLICACAO_ALLOWLIST.split(',').map((c) => c.trim())
+    expect(cols).toContain('revisao_veredito')
+    expect(cols).toContain('revisao_respondida_em')
+    expect(cols).toHaveLength(6)
+  })
+
+  it('NUNCA nomeia coluna de autoria — a identidade de quem revisou não chega ao cliente', () => {
+    // A transparência do Art. 20 é atendida pelo CONTEÚDO da revisão, não pela
+    // identificação nominal de quem a fez: o nome do revisor é PII de funcionário
+    // (42-UI-SPEC §Regra de identidade). O regexp cobre as DUAS colunas de autoria de
+    // `decisao_final` — a de quem decidiu e a de quem revisou —, e é deliberadamente
+    // parcial para que o literal completo não passe a existir nesta feature.
+    // RLS é row-level e NÃO esconde coluna: a allowlist é o ÚNICO controle de coluna
+    // nesta superfície, então a asserção tem de ser sobre ela, não sobre a policy.
+    expect(DECISAO_EXPLICACAO_ALLOWLIST).not.toMatch(/por_usuario/)
+  })
+
+  it('continua EXCLUINDO a justificativa interna do recrutador (fix CR-01 da Phase 24)', () => {
+    // Redundante de propósito com a asserção da Phase 15 acima: aquela guardava a
+    // allowlist de 4 colunas, esta guarda a de 6. Estender a allowlist é precisamente a
+    // operação em que uma exclusão de segurança se perde por acidente — uma coluna lida
+    // e nunca usada ainda viaja pela rede até o navegador do candidato.
+    expect(DECISAO_EXPLICACAO_ALLOWLIST).not.toMatch(/justificativa/)
+  })
+
+  it('não nomeia nenhum valor de acompanhamento interno do RH (D-P42-03)', () => {
+    // O limiar de acompanhamento da fila é config INTERNA e nunca alcança superfície de
+    // candidato. Aqui isso é trivialmente verdadeiro (não há coluna dessas em
+    // `decisao_final`), e a asserção existe para que continue trivialmente verdadeiro.
+    expect(DECISAO_EXPLICACAO_ALLOWLIST).not.toMatch(/sla|dias|atraso|atencao|atenção/i)
+  })
+})
+
+describe('explicacaoService — leitura do resultado da revisão (REVISAO-04)', () => {
+  it.each(['mantida', 'revertida'] as const)(
+    'devolve o veredito `%s` e a data da resposta quando a revisão foi respondida',
+    async (veredito) => {
+      maybeSingleMock.mockResolvedValue({
+        data: linhaRejeitada({
+          revisao_solicitada_em: '2026-07-20T10:00:00Z',
+          revisao_respondida_em: '2026-07-28T14:30:00Z',
+          revisao_veredito: veredito,
+          revisao_resultado: 'Reexaminamos o conjunto do processo e a base desta resposta.',
+        }),
+        error: null,
+      })
+      const result = await getExplicacao(VALID_CAND)
+      expect(result?.revisao_veredito).toBe(veredito)
+      expect(result?.revisao_respondida_em).toBe('2026-07-28T14:30:00Z')
+      expect(result?.revisao_resultado).toBe(
+        'Reexaminamos o conjunto do processo e a base desta resposta.',
+      )
+    },
+  )
+
+  it('revisão ainda sem resposta → veredito e data nulos (nada a exibir)', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: linhaRejeitada({ revisao_solicitada_em: '2026-07-20T10:00:00Z' }),
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(result?.revisao_veredito).toBeNull()
+    expect(result?.revisao_respondida_em).toBeNull()
+  })
+
+  it('veredito INESPERADO do servidor resolve para null em vez de vazar para a interface', async () => {
+    // O CHECK do banco já restringe o vocabulário, mas o cliente não deve confiar num
+    // invariante remoto para decidir o que renderiza: um valor novo tem de FECHAR a
+    // superfície, nunca ser ecoado cru ao candidato.
+    maybeSingleMock.mockResolvedValue({
+      data: linhaRejeitada({
+        revisao_respondida_em: '2026-07-28T14:30:00Z',
+        revisao_veredito: 'parcialmente_revertida',
+      }),
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(result?.revisao_veredito).toBeNull()
+  })
+
+  it('a leitura NÃO devolve nenhum campo de autoria da revisão', async () => {
+    // Belt-and-braces sobre a asserção da allowlist: mesmo que o servidor devolva a
+    // coluna de autoria (RLS é row-level e não esconde coluna), a projeção montada aqui
+    // não a repassa. A chave é montada em runtime para que o literal completo não exista
+    // como texto nesta feature.
+    const chaveDeAutoria = ['revisao', 'por', 'usuario'].join('_')
+    maybeSingleMock.mockResolvedValue({
+      data: {
+        ...linhaRejeitada({ revisao_respondida_em: '2026-07-28T14:30:00Z' }),
+        [chaveDeAutoria]: '99999999-9999-4999-8999-999999999999',
+      },
+      error: null,
+    })
+    const result = await getExplicacao(VALID_CAND)
+    expect(Object.keys(result ?? {})).not.toContain(chaveDeAutoria)
+    expect(JSON.stringify(result)).not.toContain('99999999-9999-4999-8999-999999999999')
+  })
+})
+
+describe('explicacaoService — normalizarVeredito (puro e total)', () => {
+  it.each(['mantida', 'revertida'] as const)('aceita `%s`', (v) => {
+    expect(normalizarVeredito(v)).toBe(v)
+  })
+
+  it.each([
+    null,
+    undefined,
+    '',
+    'MANTIDA',
+    'mantido',
+    'parcialmente_revertida',
+    42,
+    {},
+    [],
+  ])('resolve %o para null', (v) => {
+    expect(normalizarVeredito(v)).toBeNull()
   })
 })
 

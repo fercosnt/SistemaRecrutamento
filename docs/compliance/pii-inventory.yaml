@@ -1,0 +1,527 @@
+# Inventário PII coluna-a-coluna — fonte de verdade legível por máquina
+# Requirement: INVENT-01 · Decisão: D-P42-17/18 · Phase 42 / Plan 42-04
+#
+# Este arquivo é a FONTE. `pii-inventory.md` é gerado dele e existe só para
+# leitura humana — em caso de divergência, este arquivo vence.
+---
+meta:
+  requirement: INVENT-01
+  fase: 42
+  plano: 42-04
+  coletado_em: "2026-07-29T14:08:18Z"
+  fonte: |
+    Catálogo VIVO de PROD (information_schema.columns + pg_constraint), projeto
+    isljnozzlvckrgjjbjwp, via execute_sql do MCP do Supabase. NUNCA derivado de
+    arquivos de migration — o DDL base de ~40 tabelas legadas vive fora do
+    ledger, em docs/sql/sql/*.sql (49 scripts), e um inventário que lê só
+    supabase/migrations/ enxerga um fragmento do schema.
+  semente: .planning/research/FK-AUDIT-LIVE.md
+  query_reprodutora: docs/compliance/sql/01-pii-catalog.sql
+  escopo:
+    tabelas_base_public: 64
+    colunas_public: 993
+    fks_public: 102
+    fks_para_auth_users: 26
+  consumidores:
+    - "Phase 44 — allowlist explícita do export (EXPORT-02)"
+    - "Phase 45 — plano de exclusão/anonimização (ERASE-02, ERASE-06)"
+
+# ---------------------------------------------------------------------------
+# VOCABULÁRIO DE CLASSIFICAÇÃO
+# ---------------------------------------------------------------------------
+classificacoes:
+  apagar: |
+    Dado pessoal sem função probatória. Pode ser removido ou zerado na execução
+    do direito do titular sem quebrar auditoria nem invariante do sistema.
+  anonimizar: |
+    Dado pessoal cuja LINHA precisa sobreviver (FK NO ACTION, série
+    longitudinal, prova de não-discriminação), mas cujo CONTEÚDO identificante
+    deve ser destruído in-place (tombstone). Art. 12 caput + Art. 16, IV.
+  preservar: |
+    Não é dado pessoal, OU é dado cuja preservação é exigida por obrigação
+    legal/probatória (Art. 7º, II e Art. 16, I). Sobrevive intacto.
+  preservar_com_ressalva: |
+    Estruturalmente não-PII, mas pode CARREGAR PII digitada por humano ou
+    embutida por IA em campo livre/JSONB. Exige tratamento caso a caso na
+    Phase 45 — não pode ser classificado em massa.
+
+# ---------------------------------------------------------------------------
+# REGRA DE COBERTURA (torna a classificação de 993 colunas auditável)
+# ---------------------------------------------------------------------------
+# Toda coluna do schema `public` está classificada: pelas REGRAS abaixo, ou por
+# entrada explícita em `tabelas:`. Entrada explícita SEMPRE vence a regra.
+regras_padrao:
+  - id: R1
+    padrao: "id, *_id (chaves técnicas), created_at, updated_at, deleted_at, *_em"
+    classificacao: preservar
+    razao: "Identificador técnico ou carimbo temporal — não identifica pessoa por si só."
+    excecao: "user_id / candidato_id / ator / por_usuario / usuario_id — ver R2."
+  - id: R2
+    padrao: "user_id, candidato_id, usuario_id, ator, por_usuario, revisada_por, avaliador_id, agendado_por, realizado_por, solicitado_por, revogado_por, created_by, updated_by"
+    classificacao: anonimizar
+    razao: |
+      Ponteiro para pessoa. Apagar quebra FK NO ACTION da trilha de auditoria;
+      preservar mantém vínculo identificante. ERASE-10: user_id apontando para
+      linha VIVA do Auth é pseudonimização (Art. 12 §1º) e NÃO desincumbe o
+      titular — a linha do Auth tem de morrer junto.
+  - id: R3
+    padrao: "flags booleanas, contadores, enums de status/etapa, scores numéricos, timestamps de fluxo"
+    classificacao: preservar
+    razao: "Estado de processo, não atributo de pessoa."
+  - id: R4
+    padrao: "campos de configuração de vaga, biblioteca de perguntas, templates, itens de teste"
+    classificacao: preservar
+    razao: "Conteúdo do produto, não do candidato."
+  - id: R5
+    padrao: "colunas jsonb de análise de IA (analise_ia*, raw_response, conteudo_jsonb, metadata, dados_antes, dados_depois)"
+    classificacao: preservar_com_ressalva
+    razao: |
+      Estrutura não-PII, conteúdo potencialmente PII embutida por IA ou por
+      captura de estado. Phase 45 precisa inspecionar, não classificar em massa.
+
+# ---------------------------------------------------------------------------
+# TABELAS COM PII — classificação explícita coluna-a-coluna
+# ---------------------------------------------------------------------------
+tabelas:
+
+  candidatos:
+    natureza: "Núcleo de PII do titular. Alvo primário da anonimização."
+    fk_para_auth_users: "candidatos_user_id_fkey → auth.users(id) ON DELETE CASCADE (VIVO, confirmado em PROD)"
+    colunas:
+      nome_completo:      { classificacao: anonimizar, tipo: varchar, nota: "Tombstone: substituir por marcador não-reversível" }
+      email:              { classificacao: anonimizar, tipo: varchar, nota: "UNIQUE — o tombstone precisa preservar unicidade" }
+      celular:            { classificacao: apagar,     tipo: varchar }
+      cpf:                { classificacao: apagar,     tipo: varchar, nota: "Identificador nacional direto. Nullable hoje" }
+      data_nascimento:    { classificacao: anonimizar, tipo: date, nota: "⚠ ERASE-01 — a FAIXA ETÁRIA tem de ser materializada no tombstone ANTES de anonimizar, senão gerar_bias_snapshot() corrompe a série EEOC 4/5 em silêncio e para sempre" }
+      genero:             { classificacao: anonimizar, tipo: varchar, nota: "Mesma restrição do bias snapshot" }
+      cep:                { classificacao: apagar,     tipo: varchar }
+      logradouro:         { classificacao: apagar,     tipo: varchar }
+      numero:             { classificacao: apagar,     tipo: varchar }
+      complemento:        { classificacao: apagar,     tipo: varchar }
+      bairro:             { classificacao: apagar,     tipo: varchar }
+      cidade:             { classificacao: anonimizar, tipo: varchar, nota: "NOT NULL — não pode ser apagada, só generalizada" }
+      estado:             { classificacao: anonimizar, tipo: char,    nota: "NOT NULL. Granularidade UF é útil ao bias snapshot" }
+      instagram:          { classificacao: apagar,     tipo: varchar }
+      instagram_url:      { classificacao: apagar,     tipo: varchar }
+      linkedin:           { classificacao: apagar,     tipo: varchar }
+      linkedin_url:       { classificacao: apagar,     tipo: varchar }
+      avatar_url:         { classificacao: apagar,     tipo: varchar, nota: "⚠ Aponta para Storage — ERASE-04 exige capturar o caminho ANTES de mutar" }
+      como_conheceu:          { classificacao: preservar, tipo: varchar, nota: "Categórico de marketing" }
+      como_conheceu_detalhes: { classificacao: apagar,   tipo: text,    nota: "Texto livre — pode conter nome de terceiro" }
+      bloqueado_motivo:   { classificacao: preservar_com_ressalva, tipo: text, nota: "Texto livre do RH; pode conter PII digitada" }
+      email_verificado:   { classificacao: preservar, tipo: boolean }
+      bloqueado:          { classificacao: preservar, tipo: boolean }
+      ativo:              { classificacao: preservar, tipo: boolean }
+      data_ultimo_acesso: { classificacao: apagar,    tipo: timestamptz, nota: "Comportamental" }
+      user_id:            { classificacao: anonimizar, regra: R2 }
+      created_by:         { classificacao: anonimizar, regra: R2 }
+      updated_by:         { classificacao: anonimizar, regra: R2 }
+
+  candidaturas:
+    natureza: "Vínculo candidato↔vaga. Carrega currículo e texto livre do RH."
+    colunas:
+      curriculo_url:            { classificacao: apagar, tipo: text, nota: "⚠ Ponteiro de Storage — ERASE-04. Storage NÃO tem backup (ver backup-posture.md)" }
+      curriculo_nome_original:  { classificacao: apagar, tipo: text, nota: "Nome de arquivo costuma conter o nome da pessoa" }
+      curriculo_tamanho_bytes:  { classificacao: preservar, tipo: integer }
+      observacoes_rh:           { classificacao: preservar_com_ressalva, tipo: text }
+      motivo_rejeicao:          { classificacao: preservar_com_ressalva, tipo: text, nota: "Prova de não-discriminação (Art. 7º, VI) vs. texto livre — decisão BD-9" }
+      feedback_rejeicao:        { classificacao: preservar_com_ressalva, tipo: text }
+      etapa_justificativa:      { classificacao: preservar_com_ressalva, tipo: text }
+      origem_candidatura:       { classificacao: preservar, tipo: text }
+      analise_ia_bigfive:                { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_cultura:                { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_disc:                   { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_entrevista_online:      { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_entrevista_presencial:  { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_formulario:             { classificacao: preservar_com_ressalva, regra: R5 }
+      analise_ia_raven:                  { classificacao: preservar_com_ressalva, regra: R5 }
+
+  autorizacoes:
+    natureza: "Prova de consentimento. Base legal — preservação tem função probatória."
+    fk_para_auth_users: "autorizacoes_user_id_fkey → auth.users(id) ON DELETE SET NULL (VIVO)"
+    colunas:
+      autorizacao_uso_dados:            { classificacao: preservar, tipo: boolean, nota: "Prova de base legal" }
+      autorizacao_comunicacao:          { classificacao: preservar, tipo: boolean, nota: "BD-2 em aberto" }
+      autorizacao_retencao_curriculo:   { classificacao: preservar, tipo: boolean, nota: "RETEN-03 — 1º consumidor real na Phase 43" }
+      autorizacao_analise_video:        { classificacao: preservar, tipo: boolean, nota: "CONSENT-05 — hoje coletado e nunca lido" }
+      policy_version:                   { classificacao: preservar, tipo: text }
+      ip_aceite:                        { classificacao: anonimizar, tipo: inet, nota: "IP é dado pessoal, mas é a prova do aceite. Truncar em vez de apagar" }
+      user_agent_aceite:                { classificacao: anonimizar, tipo: text }
+      user_id:                          { classificacao: anonimizar, regra: R2, nota: "⚠ ERASE-09 — SET NULL deixa linha órfã sobrevivendo a qualquer CASCADE" }
+      candidato_id:                     { classificacao: anonimizar, regra: R2 }
+
+  decisao_final:
+    natureza: "⚠ ESPINHA DE AUDITORIA. FK NO ACTION — NUNCA relaxar para CASCADE (ERASE-08)."
+    fk_para_auth_users: "decisao_final_por_usuario_fkey → auth.users(id) — SEM ON DELETE (= NO ACTION)"
+    colunas:
+      decisao:                  { classificacao: preservar, tipo: enum, nota: "RNF-07a — prova de que houve decisão humana" }
+      justificativa:            { classificacao: preservar_com_ressalva, tipo: text, nota: "⚠ BD-9 EM ABERTO — ≥50 chars digitados por humano; é simultaneamente prova de não-discriminação (Art. 7º, VI) e vetor de PII de terceiro. Decisão do operador, não da engenharia" }
+      por_usuario:              { classificacao: preservar, tipo: uuid, nota: "NOT NULL = guardrail LGPD-02. É funcionário, não titular — preservar" }
+      em:                       { classificacao: preservar, tipo: timestamptz }
+      explicacao_solicitada_em: { classificacao: preservar, tipo: timestamptz }
+      revisao_solicitada_em:    { classificacao: preservar, tipo: timestamptz, nota: "Art. 20 — prova de exercício de direito" }
+      revisao_resultado:        { classificacao: preservar_com_ressalva, tipo: text, nota: "Passa a ser a justificativa da revisão na Phase 42" }
+      candidatura_id:           { classificacao: preservar, tipo: uuid }
+
+  decisao_final_historico:
+    natureza: "⚠ ESPINHA DE AUDITORIA append-only. FK NO ACTION (ERASE-08)."
+    colunas:
+      justificativa:  { classificacao: preservar_com_ressalva, tipo: text, nota: "Mesma ressalva BD-9 de decisao_final" }
+      por_usuario:    { classificacao: preservar, tipo: uuid }
+      decisao:        { classificacao: preservar, tipo: enum }
+      decidido_em:    { classificacao: preservar, tipo: timestamptz }
+      arquivado_em:   { classificacao: preservar, tipo: timestamptz }
+      candidatura_id: { classificacao: preservar, tipo: uuid }
+
+  historico_candidatura:
+    natureza: "⚠ ESPINHA DE AUDITORIA. FK NO ACTION (ERASE-08)."
+    fk_para_auth_users: "historico_candidatura_ator_fkey → auth.users(id) — SEM ON DELETE (= NO ACTION)"
+    colunas:
+      ator:            { classificacao: preservar, tipo: uuid, nota: "W-1/CONSOL-02 — hoje renderiza UUID em vez do nome; Phase 47" }
+      etapa_de:        { classificacao: preservar, tipo: enum }
+      etapa_para:      { classificacao: preservar, tipo: enum }
+      criterio_texto:  { classificacao: preservar_com_ressalva, tipo: text }
+      auto_rejeitado:  { classificacao: preservar, tipo: boolean, nota: "RNF-07a — prova de que NÃO houve rejeição automática" }
+
+  logs_acesso:
+    natureza: "Telemetria de autenticação. ERASE-09 — SET NULL deixa órfã."
+    fk_para_auth_users: "logs_acesso_user_id_fkey → auth.users(id) ON DELETE SET NULL (VIVO)"
+    colunas:
+      ip_address:       { classificacao: apagar, tipo: inet, nota: "NOT NULL — apagar exige tornar nullable ou truncar" }
+      email_tentativa:  { classificacao: apagar, tipo: varchar }
+      device_info:      { classificacao: apagar, tipo: text }
+      browser:          { classificacao: apagar, tipo: varchar }
+      operating_system: { classificacao: apagar, tipo: varchar }
+      device_type:      { classificacao: apagar, tipo: varchar }
+      city:             { classificacao: apagar, tipo: varchar }
+      country:          { classificacao: preservar, tipo: varchar, nota: "Granularidade de país é agregável" }
+      evento:           { classificacao: preservar, tipo: varchar }
+      erro_mensagem:    { classificacao: preservar_com_ressalva, tipo: text }
+      user_id:          { classificacao: anonimizar, regra: R2 }
+
+  sessoes_ativas:
+    natureza: "Sessões. CASCADE para auth.users — morre junto com o Auth."
+    fk_para_auth_users: "sessoes_ativas_user_id_fkey → auth.users(id) ON DELETE CASCADE (VIVO)"
+    colunas:
+      session_token:    { classificacao: apagar, tipo: varchar, nota: "Credencial — deve morrer antes de tudo" }
+      ip_address:       { classificacao: apagar, tipo: inet }
+      device_info:      { classificacao: apagar, tipo: text }
+      browser:          { classificacao: apagar, tipo: varchar }
+      operating_system: { classificacao: apagar, tipo: varchar }
+      device_type:      { classificacao: apagar, tipo: varchar }
+      city:             { classificacao: apagar, tipo: varchar }
+      country:          { classificacao: apagar, tipo: varchar }
+      user_id:          { classificacao: anonimizar, regra: R2 }
+      revogado_por:     { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  logs_auditoria:
+    natureza: "Trilha de auditoria geral."
+    colunas:
+      ip_address:  { classificacao: apagar, tipo: inet }
+      user_agent:  { classificacao: apagar, tipo: text }
+      dados_antes: { classificacao: preservar_com_ressalva, regra: R5, nota: "⚠ Snapshot de estado — pode conter PII completa da linha alterada" }
+      dados_depois: { classificacao: preservar_com_ressalva, regra: R5, nota: "⚠ idem" }
+      descricao:   { classificacao: preservar_com_ressalva, tipo: text }
+      acao:        { classificacao: preservar, tipo: text }
+      usuario_id:  { classificacao: anonimizar, regra: R2 }
+
+  notificacoes_enviadas:
+    natureza: "Ledger de e-mail. RETEN-05 — regra de retenção própria, diferida da P37."
+    colunas:
+      destinatario_email:    { classificacao: apagar, tipo: text }
+      destinatario_original: { classificacao: apagar, tipo: text, nota: "Guarda o e-mail real mesmo em modo teste" }
+      dedupe_key:            { classificacao: preservar, tipo: text }
+      evento:                { classificacao: preservar, tipo: text }
+      template:              { classificacao: preservar, tipo: text }
+      status:                { classificacao: preservar, tipo: enum }
+      provider_message_id:   { classificacao: preservar, tipo: text }
+      ultimo_erro:           { classificacao: preservar_com_ressalva, tipo: text }
+      candidato_id:          { classificacao: anonimizar, regra: R2 }
+      candidatura_id:        { classificacao: preservar, tipo: uuid }
+
+  entrevistas_online:
+    natureza: "Conteúdo de entrevista — alta densidade de PII."
+    colunas:
+      transcricao:         { classificacao: apagar, tipo: text, nota: "Fala literal do titular" }
+      gravacao_url:        { classificacao: apagar, tipo: text, nota: "⚠ Ponteiro de Storage — ERASE-04" }
+      gravacao_tamanho_mb: { classificacao: preservar, tipo: numeric }
+      feedback_candidato:  { classificacao: apagar, tipo: text }
+      resumo_ia:           { classificacao: apagar, tipo: text }
+      analise_ia:          { classificacao: preservar_com_ressalva, regra: R5 }
+      notas_durante:       { classificacao: preservar_com_ressalva, tipo: text }
+      notas_preparacao:    { classificacao: preservar_com_ressalva, tipo: text }
+      observacoes_gerais:  { classificacao: preservar_com_ressalva, tipo: text }
+      link_videochamada:   { classificacao: apagar, tipo: text }
+      agendado_por:        { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+      realizado_por:       { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  entrevistas_presenciais:
+    natureza: "Idem online, mais documentos apresentados."
+    colunas:
+      documentos_apresentados: { classificacao: apagar, regra: R5, nota: "⚠ Pode listar RG/CPF/CNH" }
+      documentos_necessarios:  { classificacao: preservar, regra: R4 }
+      primeira_impressao:      { classificacao: preservar_com_ressalva, tipo: text, nota: "⚠ Campo de impressão subjetiva — risco de viés registrado" }
+      notas_durante:           { classificacao: preservar_com_ressalva, tipo: text }
+      notas_preparacao:        { classificacao: preservar_com_ressalva, tipo: text }
+      observacoes_gerais:      { classificacao: preservar_com_ressalva, tipo: text }
+      instrucoes_acesso:       { classificacao: preservar, tipo: text }
+      local_entrevista:        { classificacao: preservar, tipo: text }
+      sala_numero:             { classificacao: preservar, tipo: text }
+
+  entrevista_analises:
+    colunas:
+      citacoes:      { classificacao: apagar, regra: R5, nota: "Trechos literais da fala do titular" }
+      notas_humanas: { classificacao: preservar_com_ressalva, tipo: text }
+      competencias:  { classificacao: preservar_com_ressalva, regra: R5 }
+      bias_flags:    { classificacao: preservar, regra: R5, nota: "Insumo de auditoria de viés" }
+      scores_humanos: { classificacao: preservar, regra: R5 }
+      revisada_por:  { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  redacoes_candidato:
+    colunas:
+      texto:          { classificacao: apagar, tipo: text, nota: "Produção escrita do titular" }
+      texto_hash:     { classificacao: preservar, tipo: text, nota: "Hash — permite detectar plágio sem guardar o texto" }
+      notas_revisor:  { classificacao: preservar_com_ressalva, tipo: text }
+      analise_ia:     { classificacao: preservar_com_ressalva, regra: R5 }
+      scores_dimensao: { classificacao: preservar, regra: R5 }
+      scores_humanos: { classificacao: preservar, regra: R5 }
+      decisao_revisor: { classificacao: preservar, tipo: text }
+      revisada_por:   { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  redacoes_candidato_em_progresso:
+    colunas:
+      texto_em_progresso: { classificacao: apagar, tipo: text }
+      user_agent:         { classificacao: apagar, tipo: text }
+
+  respostas_cultura:
+    colunas:
+      resposta_texto: { classificacao: apagar, tipo: text }
+
+  respostas_formulario:
+    colunas:
+      resposta_texto:   { classificacao: apagar, tipo: text }
+      resposta_opcoes:  { classificacao: preservar_com_ressalva, regra: R5 }
+      resposta_numerica: { classificacao: preservar, tipo: numeric }
+
+  devolutivas_candidato:
+    fk_para_auth_users: "devolutivas_candidato_candidato_id_fkey → auth.users(id) ON DELETE CASCADE (VIVO)"
+    colunas:
+      conteudo_jsonb: { classificacao: apagar, regra: R5, nota: "Devolutiva comportamental completa do titular" }
+      candidato_id:   { classificacao: anonimizar, regra: R2 }
+
+  ai_call_logs:
+    natureza: "⚠ Alvo do INVENT-05. ERASE-09 — SET NULL deixa órfã. 0 linhas em 2026-07-29."
+    colunas:
+      system_prompt:        { classificacao: preservar, tipo: text, nota: "Template, não dado do titular" }
+      user_prompt_template: { classificacao: preservar, tipo: text }
+      raw_response:         { classificacao: apagar, regra: R5, nota: "⚠ Contém o payload enviado à LLM — pode embutir PII completa" }
+      parsed_reasoning:     { classificacao: apagar, tipo: text }
+      parsed_score:         { classificacao: preservar, tipo: numeric }
+      prompt_hash:          { classificacao: preservar, tipo: text }
+      retain_until:         { classificacao: preservar, tipo: timestamptz, nota: "RETEN-06 — padrão de retenção JÁ VIVO, avaliar reuso antes de projetar estrutura nova" }
+      candidato_id:         { classificacao: anonimizar, regra: R2 }
+
+  candidate_ai_decisions:
+    natureza: "ERASE-09 — SET NULL deixa órfã. 0 linhas em 2026-07-29."
+    colunas:
+      ai_reasoning_summary: { classificacao: apagar, tipo: text }
+      ai_composite_score:   { classificacao: preservar, tipo: numeric }
+      ai_recommendation:    { classificacao: preservar, tipo: text }
+      human_notes:          { classificacao: preservar_com_ressalva, tipo: text }
+      human_decision:       { classificacao: preservar, tipo: text, nota: "RNF-07a" }
+      human_overrode_ai:    { classificacao: preservar, tipo: boolean, nota: "RNF-07a" }
+      ai_call_log_ids:      { classificacao: preservar, tipo: array, nota: "⚠ INVENT-05 — é o array cujo NULL arma o bug do NOT IN" }
+      candidato_id:         { classificacao: anonimizar, regra: R2 }
+      reviewer_id:          { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  recruiter_alerts:
+    natureza: "ERASE-09 — SET NULL deixa órfã."
+    colunas:
+      message:      { classificacao: preservar_com_ressalva, tipo: text }
+      candidato_id: { classificacao: anonimizar, regra: R2 }
+
+  rate_limit_check_duplicate:
+    colunas:
+      hash_cpf_email:  { classificacao: apagar, tipo: text, nota: "Hash de CPF+e-mail — pseudônimo, ainda vinculável" }
+      x_forwarded_for: { classificacao: apagar, tipo: text, nota: "IP" }
+
+  agendamentos_entrevista:
+    colunas:
+      entrevistador:  { classificacao: preservar, tipo: text, nota: "Funcionário" }
+      local_ou_link:  { classificacao: preservar, tipo: text }
+      observacoes_rh: { classificacao: preservar_com_ressalva, tipo: text }
+      compareceu:     { classificacao: preservar, tipo: boolean }
+
+  avaliacoes_rh:
+    colunas:
+      justificativa_recomendacao: { classificacao: preservar_com_ressalva, tipo: text, nota: "Prova de não-discriminação; mesma tensão BD-9" }
+      observacoes:                { classificacao: preservar_com_ressalva, tipo: text }
+      pontos_fortes:              { classificacao: preservar_com_ressalva, tipo: array }
+      pontos_fracos:              { classificacao: preservar_com_ressalva, tipo: array }
+      avaliador_id:               { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  disponibilidade:
+    colunas:
+      periodo_disponivel:       { classificacao: apagar, tipo: varchar }
+      regime_trabalho:          { classificacao: apagar, tipo: varchar }
+      disponibilidade_imediata: { classificacao: apagar, tipo: boolean }
+      data_disponibilidade:     { classificacao: apagar, tipo: timestamptz }
+      candidato_id:             { classificacao: anonimizar, regra: R2 }
+
+  cognitivo_respostas:
+    colunas:
+      raw_responses: { classificacao: apagar, regra: R5, nota: "Respostas do titular" }
+      proctoring:    { classificacao: apagar, regra: R5, nota: "⚠ Telemetria de vigilância durante a prova" }
+      shuffle_seed:  { classificacao: preservar, tipo: text }
+
+  respostas_bigfive:  { colunas: { resposta: { classificacao: apagar, tipo: integer, nota: "Resposta comportamental do titular" } } }
+  respostas_disc:     { colunas: { mais_caracteristico: { classificacao: apagar, tipo: text }, menos_caracteristico: { classificacao: apagar, tipo: text } } }
+  respostas_raven:    { colunas: { resposta: { classificacao: apagar, tipo: integer } } }
+  respostas_avaliacao: { colunas: { respostas: { classificacao: apagar, regra: R5 } } }
+
+  scores_bigfive: { natureza: "Score derivado — sensível (perfil comportamental)", colunas: { analise_ia: { classificacao: preservar_com_ressalva, regra: R5 } } }
+  scores_disc:    { natureza: "idem", colunas: { analise_ia: { classificacao: preservar_com_ressalva, regra: R5 } } }
+  scores_raven:   { natureza: "idem", colunas: { analise_ia: { classificacao: preservar_com_ressalva, regra: R5 } } }
+  scores_candidato:
+    colunas:
+      citacoes:  { classificacao: apagar, regra: R5, nota: "Trechos literais" }
+      red_flags: { classificacao: preservar, regra: R5 }
+      metadata:  { classificacao: preservar_com_ressalva, regra: R5 }
+
+  comparativo_solicitado:
+    colunas:
+      ranking:         { classificacao: preservar_com_ressalva, regra: R5, nota: "Pode embutir nomes" }
+      candidatura_ids: { classificacao: preservar, tipo: array }
+      solicitado_por:  { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+
+  historico_acoes:
+    colunas:
+      descricao:  { classificacao: preservar_com_ressalva, tipo: text }
+      metadata:   { classificacao: preservar_com_ressalva, regra: R5 }
+      usuario_id: { classificacao: anonimizar, regra: R2 }
+
+  # --- PII de FUNCIONÁRIO (não do titular candidato) -------------------------
+  usuarios_rh:
+    natureza: |
+      PII de FUNCIONÁRIO, não de titular candidato. Fora do escopo do direito do
+      titular candidato — mas é dado pessoal e entra em qualquer pedido de um
+      funcionário. Registrado para completude; a Phase 45 NÃO o toca.
+    fk_para_auth_users: "usuarios_rh_user_id_fkey → auth.users(id) ON DELETE CASCADE (VIVO)"
+    populacao_viva_2026_07_29: { administrador: 4, recrutador: 1, gerente: 0, visualizador: 0 }
+    colunas:
+      nome_completo: { classificacao: preservar, tipo: varchar, nota: "Fora do escopo do titular candidato" }
+      email:         { classificacao: preservar, tipo: varchar }
+      telefone:      { classificacao: preservar, tipo: varchar }
+      avatar_url:    { classificacao: preservar, tipo: varchar }
+      cargo:         { classificacao: preservar, tipo: varchar }
+      role:          { classificacao: preservar, tipo: varchar, nota: "⚠ CHECK = administrador|gerente|recrutador|visualizador — vocabulário DIFERENTE do JWT (administrador|rh|candidato)" }
+
+  preferencias_notificacoes:
+    natureza: "PII de funcionário."
+    colunas:
+      whatsapp_numero: { classificacao: preservar, tipo: varchar, nota: "Fora do escopo do titular candidato" }
+
+  configuracoes_empresa:
+    natureza: "Configuração da empresa. NÃO é dado de titular. Contém SEGREDOS."
+    colunas:
+      smtp_senha_encrypted: { classificacao: preservar, tipo: text, nota: "⚠ SEGREDO — nunca pode entrar em export algum (EXPORT-02)" }
+      webhook_secret:       { classificacao: preservar, tipo: text, nota: "⚠ SEGREDO — idem" }
+      email_contato:        { classificacao: preservar, tipo: text }
+      telefone_contato:     { classificacao: preservar, tipo: text }
+      endereco_completo:    { classificacao: preservar, tipo: text }
+
+  webhooks_config:
+    natureza: "Configuração. Contém SEGREDO."
+    colunas:
+      secret: { classificacao: preservar, tipo: text, nota: "⚠ SEGREDO — nunca em export" }
+
+  webhooks_logs:
+    colunas:
+      payload_enviado:   { classificacao: preservar_com_ressalva, regra: R5, nota: "⚠ Payload pode conter PII completa" }
+      resposta_recebida: { classificacao: preservar_com_ressalva, regra: R5 }
+
+  data_deletion_log:
+    natureza: |
+      ⚠ ZUMBI. CONSOL-03 — a tabela existe mas nunca recebeu escrita real. Não
+      tem FK, não tem candidato_id, só deletion_type + timestamps. A recomendação
+      da pesquisa é construir o tombstone novo (Phase 45) e DROPAR este stub na
+      Phase 47.
+    colunas:
+      deletion_type: { classificacao: preservar, tipo: text }
+
+# ---------------------------------------------------------------------------
+# TABELAS SEM PII DE TITULAR — cobertas integralmente pelas regras R3/R4
+# ---------------------------------------------------------------------------
+tabelas_sem_pii_titular:
+  regra_aplicada: R4
+  nota: "Conteúdo do produto, catálogo de itens de teste ou configuração de vaga."
+  lista:
+    - ai_cost_daily
+    - analise_candidato_vaga        # ⚠ ressalva R5 em resumo_cv/resumo_respostas/gaps/pontos_fortes
+    - bias_audit_log                # ⚠ agregado — ERASE-01 depende dele
+    - biblioteca_perguntas
+    - bigfive_itens
+    - cognitivo_itens
+    - config_sla_etapa
+    - entrevista_guias              # ⚠ ressalva R5 no jsonb `guia`
+    - pergunta_opcao_metadata
+    - perguntas
+    - perguntas_cultura
+    - perguntas_formulario
+    - perguntas_opcao_sjt
+    - perguntas_redacao
+    - perguntas_vaga_origem
+    - prompt_versions
+    - questoes_bigfive
+    - questoes_disc
+    - questoes_raven
+    - templates_email
+    - vagas
+    - vagas_associadas_recrutadores
+
+# ---------------------------------------------------------------------------
+# ACHADOS QUE A PHASE 45 PRECISA CONSUMIR
+# ---------------------------------------------------------------------------
+achados:
+  - id: A-01
+    severidade: alta
+    titulo: "ERASE-01 é uma ordem, não uma preferência"
+    detalhe: |
+      candidatos.data_nascimento e candidatos.genero alimentam gerar_bias_snapshot().
+      Anonimizar antes de materializar a faixa etária no tombstone corrompe a série
+      longitudinal EEOC 4/5 de forma silenciosa e permanente.
+  - id: A-02
+    severidade: alta
+    titulo: "Três ponteiros de Storage, e Storage não tem backup"
+    detalhe: |
+      candidatos.avatar_url, candidaturas.curriculo_url, entrevistas_online.gravacao_url.
+      ERASE-04 exige capturar os caminhos ANTES de qualquer mutação — uma falha
+      parcial perde os ponteiros permanentemente e órfã o blob para sempre.
+  - id: A-03
+    severidade: media
+    titulo: "As 5 tabelas SET NULL do ERASE-09 não apontam todas para auth.users"
+    detalhe: |
+      Só autorizacoes.user_id e logs_acesso.user_id têm FK SET NULL para auth.users
+      (confirmado no catálogo vivo). ai_call_logs, candidate_ai_decisions e
+      recruiter_alerts referenciam candidatos/vagas, não auth.users diretamente.
+      O ERASE-09 precisa ser reformulado sobre o alvo certo.
+  - id: A-04
+    severidade: media
+    titulo: "BD-9 continua em aberto e agora tem 4 colunas, não 1"
+    detalhe: |
+      decisao_final.justificativa, decisao_final_historico.justificativa,
+      candidaturas.motivo_rejeicao e avaliacoes_rh.justificativa_recomendacao são
+      todas texto livre digitado por humano com função probatória. A decisão de
+      redigir vs. preservar tem de cobrir as quatro.
+  - id: A-05
+    severidade: media
+    titulo: "Segredos vivem em tabela do schema public"
+    detalhe: |
+      configuracoes_empresa.smtp_senha_encrypted e .webhook_secret, e
+      webhooks_config.secret. A allowlist do export (EXPORT-02) tem de ser
+      construída por inclusão explícita — um select('*') aqui vaza credencial,
+      não só PII.
+  - id: A-06
+    severidade: baixa
+    titulo: "data_deletion_log é zumbi confirmado no catálogo vivo"
+    detalhe: "4 colunas, nenhuma FK, nenhum vínculo com titular. CONSOL-03."

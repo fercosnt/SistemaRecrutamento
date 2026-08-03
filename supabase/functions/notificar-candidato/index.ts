@@ -37,6 +37,7 @@ import {
   computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
+  EVENTOS_VALIDOS,
   logSeguro,
   mapearEvento,
   montarDedupeKey,
@@ -61,13 +62,6 @@ function jsonResponse(body: unknown, status: number): Response {
 function errorResponse(code: ErrorCode, message: string, status = 400): Response {
   return jsonResponse({ ok: false, error_code: code, message }, status);
 }
-
-const EVENTOS_VALIDOS: ReadonlySet<string> = new Set([
-  "confirmacao",
-  "avanco",
-  "convite",
-  "decisao",
-]);
 
 interface CorpoRequisicao {
   evento: EventoLedger;
@@ -238,6 +232,29 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     agendamento = data;
   }
 
+  // ---- 3b) Veredito da revisão — SÓ o 5º evento (42-08 / REVISAO-04) ---------
+  // Sem esta leitura o corpo de `revisao_respondida` cairia SEMPRE no caminho neutro e as
+  // duas frases de veredito (alinhadas à UI-SPEC e pinadas por T-42-V2b/T-42-V2c) seriam
+  // código morto em produção: o teste provaria uma ramificação que nenhum e-mail real
+  // alcança. É a mesma assimetria tested-vs-entregue que produziu o W-01.
+  //
+  // Guardada por `evento === "revisao_respondida"`: os 4 eventos vivos não ganham uma
+  // consulta sequer. Allowlist de UMA coluna — `revisao_resultado` (a justificativa escrita
+  // pelo revisor) NÃO é lida, porque o corpo não a usa; ler PII que não se vai usar é
+  // superfície gratuita. `decisao_final.candidatura_id` é UNIQUE (20260607000003:39), então
+  // `maybeSingle` é exato. Valor ausente ou fora do vocabulário ⇒ `undefined` ⇒ frase neutra:
+  // afirmar um desfecho que o servidor não confirmou seria pior que não afirmar nenhum.
+  let vereditoRevisao: "mantida" | "revertida" | undefined;
+  if (evento === "revisao_respondida") {
+    const { data: decisao } = await supabaseAdmin
+      .from("decisao_final")
+      .select("revisao_veredito")
+      .eq("candidatura_id", candidatura_id)
+      .maybeSingle();
+    const v = decisao?.revisao_veredito;
+    vereditoRevisao = v === "mantida" || v === "revertida" ? v : undefined;
+  }
+
   // ---- 4) Idempotência + destinatário ---------------------------------------
   const eventoNotif = mapearEvento(evento);
   const modo = resolverModo();
@@ -334,6 +351,8 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     // com corpo ids-only (sem discriminador). O desfecho vem de `etapa_atual`, que a EF já
     // resolve acima. Sem isto, TODO aprovado recebia a COPY_REJEICAO.
     desfecho: candidatura.etapa_atual === "aprovado" ? "aprovado" : "rejeitado",
+    // 42-08 / REVISAO-04: `undefined` para os 4 eventos vivos (nenhum corpo deles o lê).
+    vereditoRevisao,
   });
 
   let icsBase64: string | undefined;

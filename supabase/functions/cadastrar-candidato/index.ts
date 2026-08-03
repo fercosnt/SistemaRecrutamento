@@ -6,12 +6,28 @@
  * 2. Insert em `public.candidatos` (bypassa RLS via service_role)
  * 3. Insert em `public.disponibilidade` (best-effort — tabela pode não existir
  *    no baseline atual; falha silenciosa registrada em log)
- * 4. Insert em `public.autorizacoes` (best-effort — idem)
+ * 4. Insert em `public.autorizacoes` (**FAIL-CLOSED** desde a Phase 43 / BD-4)
  *
  * Rollback: se qualquer passo após createUser falhar de forma crítica, o
  * usuário Auth criado é removido via `auth.admin.deleteUser` para evitar
- * contas órfãs. Best-effort steps (disponibilidade, autorizacoes) NÃO
- * disparam rollback — falha de tabela inexistente não deve derrubar o cadastro.
+ * contas órfãs. `disponibilidade` continua best-effort e NÃO dispara rollback —
+ * disponibilidade não é prova de consentimento. `autorizacoes` DISPARA rollback.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Phase 43 / BD-4 — POR QUE `autorizacoes` DEIXOU DE SER BEST-EFFORT
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Numa tabela cuja natureza declarada é PROVA PROBATÓRIA, um cadastro sem linha
+ * de consentimento é evidência que não existe. Não é hipótese: medido em PROD em
+ * 2026-08-01, **4 dos 21 candidatos vivos (19%) não têm nenhuma linha em
+ * `autorizacoes`** — o insert falhou, o cadastro concluiu mesmo assim, e ninguém
+ * ficou sabendo. Os 4 NÃO são back-fillados: consentimento retroativo é fabricar
+ * prova, o oposto exato do que esta fase entrega. A ausência deles é ela própria
+ * o registro honesto.
+ *
+ * Phase 43 / CONSENT-02 — o hash SHA-256 do texto lido é calculado AQUI, no
+ * servidor, a partir de `_shared/consent-text.json`. Nenhum campo de hash existe
+ * no schema de entrada e o `.strict()` rejeita qualquer chave que tentasse
+ * injetá-lo (T-43-01): um hash controlado pelo titular não prova nada.
  *
  * Contract (D-05, D-08 — Phase 2):
  *   body   -> ver `_shared/schemas.ts` (`cadastroCandidatoSchema`)
@@ -37,13 +53,41 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { POLICY_VERSION } from '../_shared/constants.ts'
+import { CONSENT_TEXT_VERSION, POLICY_VERSION } from '../_shared/constants.ts'
 import {
   cadastroCandidatoSchema,
   zodPathToFieldName,
   type CadastroCandidatoInput,
   type CadastroErrorCode,
 } from '../_shared/schemas.ts'
+import { calcularHashConsentimento } from '../_shared/consent-hash.ts'
+import { montarRegistroAutorizacoes } from '../_shared/autorizacoes-registro.ts'
+import consentText from '../_shared/consent-text.json' with { type: 'json' }
+
+// ---------------------------------------------------------------------------
+// Hash do texto de consentimento (CONSENT-02) — memoizado em escopo de módulo
+// ---------------------------------------------------------------------------
+/**
+ * A entrada do hash é CONSTANTE em runtime (o arquivo JSON e a constante de
+ * versão são compilados junto com a função), então o digest é computado UMA vez
+ * por instância e reusado. Memoizamos a PROMISE, não o valor: duas requisições
+ * concorrentes na mesma instância compartilham o mesmo cálculo em vez de
+ * dispararem dois.
+ *
+ * ⚠ O hash é do SERVIDOR, ponto. Ele nunca é lido do corpo da requisição, nunca
+ * é comparado contra um valor enviado pelo cliente, e nenhuma chave de hash
+ * existe em `cadastroCandidatoSchema` — o `.strict()` rejeitaria uma (T-43-01).
+ */
+let hashConsentimentoMemo: Promise<string> | undefined
+function obterHashConsentimento(): Promise<string> {
+  if (hashConsentimentoMemo === undefined) {
+    hashConsentimentoMemo = calcularHashConsentimento(
+      consentText.consentimentos,
+      CONSENT_TEXT_VERSION,
+    )
+  }
+  return hashConsentimentoMemo
+}
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -275,43 +319,90 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // ---- 6. Insert autorizacoes LGPD (best-effort) ---------------------------
-  // Trilha de auditoria LGPD: IP + timestamp + flags de consentimento.
-  // Mesma lógica best-effort da disponibilidade.
-  let autorizacoesId: string | undefined
+  // ---- 6. Insert autorizacoes LGPD (FAIL-CLOSED — BD-4) --------------------
+  // Trilha de auditoria LGPD: IP + timestamp + flags de consentimento + a PROVA
+  // do texto lido (versão + hash + instante).
+  //
+  // ⚠ ESTE PASSO DEIXOU DE SER BEST-EFFORT NA PHASE 43. Numa tabela cuja natureza
+  // declarada é prova probatória, um cadastro sem linha de consentimento é
+  // evidência que não existe — e isso JÁ ACONTECEU 4 vezes em 21 candidatos vivos
+  // (medição do operador em PROD, 2026-08-01). O consentimento entra junto com o
+  // cadastro, ou o cadastro não conclui.
+  //
+  // ⚠ ASSIMETRIA DELIBERADA com o passo 5: `disponibilidade` CONTINUA best-effort
+  // e não foi tocada. Disponibilidade não é prova de consentimento; perdê-la custa
+  // uma preferência de agenda, perder a autorização custa a defensabilidade do
+  // tratamento inteiro.
+  //
+  // NOTA: data_aceite NÃO existe na tabela (auditamos em 02-AUDIT-RESULTS.md e
+  // decidimos não criar — é redundante com created_at que é DEFAULT now()). A
+  // coluna nova `consent_registrado_em` NÃO é redundante com `created_at`:
+  // `created_at` está preenchida em TODA linha histórica e por isso não discrimina
+  // nada; `consent_registrado_em` é NULL exatamente onde não houve prova.
   const ipAceite =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('cf-connecting-ip') ||
     null
 
+  const registroAutorizacoes = montarRegistroAutorizacoes(
+    input.autorizacoes,
+    {
+      candidatoId,
+      userId,
+      ipAceite,
+      policyVersion: POLICY_VERSION,
+      consentTextVersion: CONSENT_TEXT_VERSION,
+      consentTextHash: await obterHashConsentimento(),
+      registradoEm: new Date().toISOString(),
+    },
+  )
+
   const { data: autData, error: autError } = await supabaseAdmin
     .from('autorizacoes')
-    .insert({
-      candidato_id: candidatoId,
-      user_id: userId,
-      autorizacao_uso_dados: input.autorizacoes.autorizacao_uso_dados,
-      autorizacao_comunicacao: input.autorizacoes.autorizacao_comunicacao ?? true,
-      autorizacao_retencao_curriculo:
-        input.autorizacoes.autorizacao_retencao_curriculo ?? true,
-      autorizacao_analise_video:
-        input.autorizacoes.autorizacao_analise_video ?? false,
-      ip_aceite: ipAceite,
-      // NOTA: data_aceite NÃO existe na tabela (auditamos em 02-AUDIT-RESULTS.md
-      // e decidimos não criar — é redundante com created_at que é DEFAULT now()).
-      // Se um dia auditoria pedir coluna explicitamente nomeada, usar view/alias.
-      policy_version: POLICY_VERSION,
-    })
+    .insert(registroAutorizacoes)
     .select('id')
     .maybeSingle()
 
-  if (autError) {
-    console.warn(
-      '[cadastrar-candidato] autorizacoes insert skipped (best-effort):',
-      autError.message,
+  if (autError || !autData) {
+    // Log sem PII: apenas ids e a mensagem do driver (T-43-05).
+    console.error('[cadastrar-candidato] insert autorizacoes failed (FAIL-CLOSED):', {
+      userId,
+      candidatoId,
+      message: autError?.message,
+    })
+
+    // Compensação na ORDEM INVERSA da criação: a linha de `candidatos` primeiro
+    // (ela referencia o usuário), o usuário Auth depois. Mesmo idioma de
+    // `.catch()` + `console.error` do rollback do passo 4 — uma compensação que
+    // falha não pode mascarar o erro que a motivou.
+    await supabaseAdmin
+      .from('candidatos')
+      .delete()
+      .eq('id', candidatoId)
+      .then(({ error }) => {
+        if (error) {
+          console.error('[cadastrar-candidato] rollback delete candidato failed:', {
+            candidatoId,
+            message: error.message,
+          })
+        }
+      })
+    await supabaseAdmin.auth.admin.deleteUser(userId).catch((rollbackErr) => {
+      console.error('[cadastrar-candidato] rollback deleteUser failed:', { userId, rollbackErr })
+    })
+
+    // Reusa `SERVER_ERROR` de propósito: a união `CadastroErrorCode` é consumida
+    // pelo cliente, e ampliá-la nesta mesma fase criaria um contrato novo sem
+    // consumidor. A distinção fica no LOG, que é quem precisa dela.
+    return errorResponse(
+      'SERVER_ERROR',
+      'Não foi possível registrar suas autorizações. Nenhuma conta foi criada — tente novamente.',
+      undefined,
+      500,
     )
-  } else if (autData) {
-    autorizacoesId = autData.id as string
   }
+
+  const autorizacoesId = autData.id as string
 
   // ---- 7. Success ----------------------------------------------------------
   return jsonResponse(

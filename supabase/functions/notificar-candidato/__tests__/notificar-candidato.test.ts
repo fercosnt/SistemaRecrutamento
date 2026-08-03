@@ -33,12 +33,18 @@ Deno.test("COMM-01 — dedupe_key: convite usa agendamento_id; demais usam candi
   assertEquals(montarDedupeKey("decisao", "cand-1"), "cand-1:decisao");
 });
 
-Deno.test("COMM-01 — mapa de evento cobre os 4 (ledger → email-config)", () => {
+Deno.test("COMM-01 / 42-08 — mapa de evento cobre os 5 (ledger → email-config)", () => {
+  // ⚠ Este literal é um Record<EventoLedger, …> e portanto um SÍTIO DO VOCABULÁRIO forçado
+  // pelo compilador — o 5º, e o único que vive no corpus de TESTE. A tabela de sítios do
+  // plano 42-08 enumerava quatro (os três Record<EventoNotificacao,…> de template mais o
+  // EVENTO_MAP) e não contava este. Ele é uma rede legítima: um espelho escrito à mão do
+  // mapa, que só passa se a implementação e a expectativa concordarem valor a valor.
   const esperado: Record<EventoLedger, string> = {
     confirmacao: "candidatura_recebida",
     avanco: "avaliacao_liberada",
     convite: "convite_entrevista",
     decisao: "decisao_final",
+    revisao_respondida: "revisao_respondida",
   };
   for (const e of Object.keys(esperado) as EventoLedger[]) {
     assertEquals(mapearEvento(e), esperado[e]);
@@ -253,6 +259,8 @@ function makeRetryMockSupabase(opts: {
   candidatoRow?: Record<string, unknown> | null;
   vagaRow?: Record<string, unknown> | null;
   agendamentoRow?: Record<string, unknown> | null;
+  /** 42-08: linha de `decisao_final` lida SÓ pelo 5º evento (veredito da revisão). */
+  decisaoFinalRow?: Record<string, unknown> | null;
   apiKey?: string | null;
 } = {}) {
   const updates: UpdateCapt[] = [];
@@ -269,6 +277,8 @@ function makeRetryMockSupabase(opts: {
         return opts.vagaRow ?? null;
       case "agendamentos_entrevista":
         return opts.agendamentoRow ?? null;
+      case "decisao_final":
+        return opts.decisaoFinalRow ?? null;
       default:
         return null;
     }
@@ -565,4 +575,76 @@ Deno.test("CR-01 — decisao com etapa_atual='rejeitado' mantém a cópia congel
   const { html } = corpoEnviado(fetchMock.calls[0]);
   assert(html.includes(COPY_REJEICAO), "rejeitado deveria manter a COPY_REJEICAO");
   assert(!html.includes(COPY_APROVACAO), "rejeitado não pode receber a aprovação");
+});
+
+// ─── 42-08 / REVISAO-04 — o 5º evento CABEADO, não só templatizado ──────────
+//
+// T-42-V2b/c pinam o TEMPLATE. Estes dois casos pinam a LIGAÇÃO: que o handler lê
+// `decisao_final.revisao_veredito` e o entrega ao corpo. Sem eles, as duas frases de
+// veredito passariam nos testes de template e mesmo assim NENHUM e-mail real as
+// carregaria — a assimetria entre o que é testado e o que é entregue que produziu o W-01.
+
+Deno.test("42-08 — revisao_respondida: o veredito VIVO chega ao corpo entregue", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const [veredito, esperada, proibida] of [
+      ["mantida", "a decisão foi mantida", "decisão anterior foi revista"],
+      ["revertida", "decisão anterior foi revista", "a decisão foi mantida"],
+    ] as const
+  ) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+      decisaoFinalRow: { revisao_veredito: veredito },
+    });
+    const fetchMock = makeFetchMock(200, { id: `re_rev_${veredito}` });
+    const res = await handler(
+      makeRequest(
+        { evento: "revisao_respondida", candidatura_id: "cand-rev" },
+        RETRY_BEARER,
+      ),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    assertEquals(res.status, 200);
+    assertEquals(fetchMock.calls.length, 1, `${veredito}: o e-mail não foi enviado`);
+
+    const { html } = corpoEnviado(fetchMock.calls[0]);
+    assert(html.includes(esperada), `${veredito}: o corpo entregue não diz "${esperada}"`);
+    assert(
+      !html.includes(proibida),
+      `${veredito}: o corpo entregue carrega a frase do OUTRO veredito`,
+    );
+
+    // O claim usa a chave do ramo `default` de montarDedupeKey e o template do 5º evento.
+    assertEquals(supa.upserts.length, 1);
+    assertEquals(supa.upserts[0].row.dedupe_key, "cand-rev:revisao_respondida");
+    assertEquals(supa.upserts[0].row.evento, "revisao_respondida");
+    assertEquals(supa.upserts[0].row.template, "revisao_respondida");
+  }
+});
+
+Deno.test("42-08 — revisao_respondida SEM linha de decisao_final: neutro, nunca desfecho inventado", async () => {
+  // Fail-safe do sítio nº9: o campo é opcional e a leitura pode não achar nada (corrida
+  // com um teardown, linha removida). O e-mail ainda sai, e NÃO afirma um desfecho.
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    decisaoFinalRow: null,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rev_neutro" });
+  const res = await handler(
+    makeRequest({ evento: "revisao_respondida", candidatura_id: "cand-rev" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1, "sem veredito o e-mail deveria sair mesmo assim");
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(
+    !/decis[ãa]o foi mantida|decis[ãa]o anterior foi revista/.test(html),
+    "sem veredito o corpo AFIRMOU um desfecho — o servidor não sabia qual",
+  );
+  assert(html.includes("foi respondida"), "o corpo neutro ainda tem de informar a resposta");
 });

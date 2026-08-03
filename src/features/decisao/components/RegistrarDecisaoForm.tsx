@@ -6,7 +6,8 @@
  * client mirror of the DB CHECK + the `registrar_decisao` re-assertion) + a char
  * counter + a "Registrar decisão" CTA gated on a selection AND ≥50 chars. The confirm
  * runs through an irreversible alert-dialog whose body mentions LGPD Art. 20 for the
- * `rejeitado` path (the candidate may request human review). The RPC owns the terminal
+ * `rejeitado` path (the candidate may ask for a human to review the decision — the copy
+ * was rewritten in plain language in Phase 43 / BD-3, and is pinned by test). The RPC owns the terminal
  * `avancar_etapa()` transition — this form NEVER writes `candidaturas` directly, and a
  * decision NEVER persists without a human actor (RNF-07a / LGPD-02).
  *
@@ -186,7 +187,7 @@ export function RegistrarDecisaoForm({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {isRejeitado
-                ? 'Esta decisão finaliza o funil e o candidato poderá solicitar revisão por pessoa natural (LGPD Art. 20). Fica registrada na trilha de auditoria.'
+                ? 'Esta decisão finaliza o funil e o candidato poderá pedir que uma pessoa revise esta decisão (LGPD, Art. 20). Fica registrada na trilha de auditoria.'
                 : 'Esta decisão finaliza o funil desta candidatura e fica registrada na trilha de auditoria.'}
             </AlertDialogDescription>
           </AlertDialogHeader>

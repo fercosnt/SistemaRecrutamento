@@ -146,18 +146,27 @@ export function GlassPanel({
  */
 export const GlassButton = React.forwardRef<
   HTMLButtonElement,
-  GlassProps & { 
-    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
-    disabled?: boolean;
-    type?: 'button' | 'submit' | 'reset';
-  }
+  GlassProps &
+    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className' | 'type'> & {
+      type?: 'button' | 'submit' | 'reset';
+    }
 >(({
   children,
   className = '',
   onClick,
   disabled,
   type = 'button',
-  ...props
+  // As props de ESTILO do Glass são consumidas aqui e NÃO podem ser repassadas ao
+  // <button>: `blur`/`variant`/`border`/`hover`/`as` não são atributos HTML válidos e
+  // vazariam como warning do React no console.
+  blur,
+  opacity,
+  variant,
+  border,
+  hover: _hover,
+  as: _as,
+  // ...rest é tudo o que RESTA — e é justamente o que era descartado em silêncio.
+  ...rest
 }, ref) => {
   return (
     <button
@@ -165,12 +174,22 @@ export const GlassButton = React.forwardRef<
       type={type}
       onClick={onClick}
       disabled={disabled}
+      // FIX (achado pelo plano 42-11): este spread não existia. O componente
+      // desestruturava `...props` e usava o objeto SOMENTE para computar classes, então
+      // todo `aria-*`, `data-*`, `title`, `id`, `role` e `tabIndex` passado por um
+      // consumidor era descartado sem erro e sem warning — a pior forma de falhar, porque
+      // o call site parece correto e o teste de a11y que o consumidor escreve reprova sem
+      // explicação. Havia 2 vítimas reais em CandidatoNavbar.tsx, ambas botões que ficam
+      // ICON-ONLY no mobile (o rótulo visível está em `hidden sm:inline`), ou seja
+      // exatamente o caso em que o aria-label é o ÚNICO nome acessível — num projeto
+      // mobile-first para o candidato.
+      {...rest}
       className={cn(
         // Glass effects
-        props.blur ? blurVariants[props.blur] : blurVariants.md,
+        blur ? blurVariants[blur] : blurVariants.md,
         'backdrop-saturate-150',
-        !props.opacity && (props.variant ? variantStyles[props.variant] : variantStyles.white),
-        props.border !== false && 'border',
+        !opacity && (variant ? variantStyles[variant] : variantStyles.white),
+        border !== false && 'border',
         'rounded-xl shadow-lg',
         
         // Button styles

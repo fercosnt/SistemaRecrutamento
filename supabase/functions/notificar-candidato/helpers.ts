@@ -7,16 +7,55 @@
  */
 import { FROM, REPLY_TO, type EventoNotificacao } from "../_shared/email-config.ts";
 
-/** Vocabulário do ledger (CHECK vivo `evento IN (...)`), = o que o trigger da P39 envia. */
-export type EventoLedger = "confirmacao" | "avanco" | "convite" | "decisao";
+/**
+ * Vocabulário do ledger (CHECK vivo `evento IN (...)`), = o que os triggers enviam.
+ *
+ * Os 4 primeiros são do M7 (triggers de funil, P39). O 5º — `revisao_respondida` — é da
+ * Phase 42 / Plan 42-08 (REVISAO-04): o aviso ao candidato de que a solicitação de revisão
+ * do Art. 20 foi respondida, disparado por `trg_notif_revisao_respondida`.
+ *
+ * ⚠ ESTE TIPO E O CHECK `notificacoes_enviadas_evento_check` SÃO A MESMA VERDADE ESCRITA
+ * DUAS VEZES, e têm de andar na MESMA entrega (D-P42-14): o valor aqui sem o CHECK produz
+ * `23514` no claim; o CHECK sem o valor aqui produz `400 VALIDATION` sobre um `net.http_post`
+ * que é at-most-once — e aí o e-mail some sem rastro. O CHECK vivo carrega hoje SEIS valores:
+ * os 4 do M7, `revisao_solicitada` (evento de RH, consumido pela EF `notificar-rh` — NÃO
+ * pertence a este tipo) e `revisao_respondida`.
+ */
+export type EventoLedger =
+  | "confirmacao"
+  | "avanco"
+  | "convite"
+  | "decisao"
+  | "revisao_respondida";
 
 /** Mapa explícito ledger → email-config (ambas as direções auditáveis num literal). */
-const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
+export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
   confirmacao: "candidatura_recebida",
   avanco: "avaliacao_liberada",
   convite: "convite_entrevista",
   decisao: "decisao_final",
+  // 5º evento (42-08 / REVISAO-04). Único par em que o nome do ledger e o nome do template
+  // COINCIDEM — os 4 do M7 divergem por herança (o ledger nomeia o gatilho, o template nomeia
+  // a mensagem). Manter a identidade aqui é deliberado: não há gatilho distinto do conteúdo.
+  revisao_respondida: "revisao_respondida",
 };
+
+/**
+ * Vocabulário aceito pela validação de payload da EF — DERIVADO do mapa, nunca autoral.
+ *
+ * Antes (P38–P41) isto era um `new Set([...])` escrito à mão em `index.ts`. Como o tipo é
+ * `ReadonlySet<string>`, o compilador NUNCA conferiu que a lista batia com `EVENTO_MAP`:
+ * um evento esquecido aqui fazia a EF responder `400 VALIDATION` a um `net.http_post`, que é
+ * **at-most-once** — a rejeição não volta ao banco, não vira exceção e não vira linha no
+ * ledger. O e-mail some sem rastro. Era o pior dos sítios de registro do vocabulário.
+ *
+ * O tipo DECLARADO segue `ReadonlySet<string>` de propósito: o call site em `index.ts` testa
+ * uma string crua vinda do corpo JSON (`raw.evento`), e estreitar para `ReadonlySet<EventoLedger>`
+ * quebraria a compilação lá. O que mudou é o VALOR: adicionar um evento a `EVENTO_MAP` passa a
+ * registrá-lo aqui automaticamente, então o sítio deixa de existir como ponto de drift.
+ * Paridade pinada por `__tests__/vocabulario-eventos.test.ts` (D-P42-14).
+ */
+export const EVENTOS_VALIDOS: ReadonlySet<string> = new Set(Object.keys(EVENTO_MAP));
 
 export function mapearEvento(e: EventoLedger): EventoNotificacao {
   return EVENTO_MAP[e];
@@ -25,6 +64,15 @@ export function mapearEvento(e: EventoLedger): EventoNotificacao {
 /**
  * dedupe_key = 1 e-mail por evento por candidatura. Exceção: o CONVITE usa o
  * agendamento_id, para permitir re-convite legítimo (novo agendamento ⇒ nova chave).
+ *
+ * `revisao_respondida` (42-08) NÃO GANHA RAMO, e isso é decisão verificada, não omissão.
+ * O ramo `default` produz `{candidatura_id}:revisao_respondida`, e essa chave é correta
+ * porque `decisao_final.candidatura_id` é UNIQUE (`20260607000003:39`) — há no máximo UMA
+ * revisão por candidatura, logo no máximo um e-mail legítimo. O guard de idempotência do
+ * RPC `responder_revisao_decisao` (plano 42-06, guard 4) recusa uma segunda resposta com
+ * `22023`, então nem sequer existe transição que pudesse pedir uma segunda chave. As duas
+ * decisões juntas fecham a questão: a chave nunca bloqueia um e-mail legítimo porque não
+ * existe segundo e-mail legítimo. Um ramo novo aqui só poderia introduzir colisão.
  */
 export function montarDedupeKey(
   e: EventoLedger,
