@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-01-PLAN.md
-last_updated: "2026-08-03T19:18:48.473Z"
+stopped_at: Completed 44-02-PLAN.md
+last_updated: "2026-08-03T19:36:22.872Z"
 last_activity: 2026-08-03
 last_activity_desc: Phase 44 execution started
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 22
+  completed_plans: 23
   percent: 33
 ---
 
@@ -79,7 +79,7 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-08-03 — Phase 44 execution started
 
@@ -149,6 +149,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P08 | ~40min | 3 tasks | 13 files |
 | Phase 43 P09 | ~25min | 3 tasks | 16 files |
 | Phase 44 P01 | ~20min | 3 tasks | 6 files |
+| Phase 44 P02 | ~35min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -274,6 +275,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 44 / 44-01]: Tabela declarada em escopo_titular e ausente do catalogo vivo e AVISO + meta.escopo_declarado_nao_vivo, nunca erro: tabela ausente nao vaza coluna. O caminho perigoso e o inverso (tabela viva sem disposicao), e esse continua fatal
 - [Phase ?]: [Phase 44 / 44-01]: O fecho do gerador ACUMULA todas as pendencias antes de sair, em vez de morrer na primeira — o 44-03 recebe a lista inteira em vez de uma pendencia por rodada
 - [Phase ?]: [Phase 44 / 44-01]: js-yaml fixado na major 3 (^3.15.1): a 4.x remove safeLoad e quebraria o gen-pii-md.cjs vivo da Phase 42. Verificado APOS o install que gen-pii-md.cjs --check segue saindo 0
+- [Phase ?]: O smoke resolve identidades vivas e escreve so em solicitacoes_dados: fabricar candidatos exigiria escrever em auth.users de PROD (44-02)
+- [Phase ?]: Contador de gate-GUC incrementado FORA da subtransacao — GUC e transacional e o rollback levaria o incremento junto (44-02)
+- [Phase ?]: FK de solicitacoes_dados sem ON DELETE: a decisao pertence a Phase 45, que carrega o portao destrutivo (44-02)
 
 ### Pending Todos
 
@@ -373,8 +377,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-03T19:18:13.903Z
-Stopped at: Completed 44-01-PLAN.md
+Last session: 2026-08-03T19:36:15.986Z
+Stopped at: Completed 44-02-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

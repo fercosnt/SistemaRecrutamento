@@ -162,7 +162,7 @@ Plans:
 Plans:
 
 - [x] 44-01-PLAN.md — Os dois insumos da allowlist antes de qualquer linha de export: o arquivo que declara o escopo do titular e o gerador que funde catálogo vivo + classificação do YAML, falhando alto quando não fecham (BD-6)
-- [ ] 44-02-PLAN.md — As duas tabelas que fazem o pedido existir como fato durável (`solicitacoes_dados` É o cooldown e É o marco do Art. 19, II; `config_sla_dados`) e as duas RPCs de supervisão com o predicado do BD-8 escrito uma vez
+- [x] 44-02-PLAN.md — As duas tabelas que fazem o pedido existir como fato durável (`solicitacoes_dados` É o cooldown e É o marco do Art. 19, II; `config_sla_dados`) e as duas RPCs de supervisão com o predicado do BD-8 escrito uma vez
 - [ ] 44-03-PLAN.md — O inventário do export como artefato versionado, gerado e nunca digitado, com os DOIS guardas do SC#3 — e o smoke SQL provado **mordendo**
 - [ ] 44-04-PLAN.md — **CHECKPOINT do orquestrador**: apply das 2 migrations na ordem, ledger reconciliado, fidelidade por md5, smoke executado e M3 (policies vivas) LIDO antes de qualquer afirmação de RLS
 - [ ] 44-05-PLAN.md — **TRACER**: a fatia vertical do clique ao `.json` — EF `exportar-meus-dados` (allowlist, corpo não lido, registro antes da montagem, 429/`COOLDOWN`), serviço, hook, bloco e seção 3, provada ao vivo
@@ -312,7 +312,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
-| 44. Exportação & Acesso | v8.0 | 1/9 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 2/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
