@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, User, Briefcase, Clock, CheckCircle2, AlertCircle, FileText, ArrowRight, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import { Briefcase, Clock, CheckCircle2, AlertCircle, FileText, ArrowRight, ShieldCheck } from 'lucide-react';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { Glass, GlassPanel, GlassCard, GlassButton } from '../ui/glass';
-import { useAuthStore, useCandidato } from '@/store/authStore';
+import { CandidatoNavbar } from '../layouts/CandidatoNavbar';
 import { useCandidaturas, useCandidaturasCount } from '@/features/vagas/hooks';
 import type { CandidaturasFilters, Candidatura } from '@/features/vagas/types/vagasTypes';
 import { funilNavMap } from '@/lib/navegacao/funilNavMap';
@@ -16,8 +15,6 @@ import { PrazoEstimadoLinha } from '@/features/timeline/components';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
-  const candidato = useCandidato();
-  const { logout } = useAuthStore();
 
   // Estado para filtro de candidaturas
   const [statusFilter, setStatusFilter] = useState<CandidaturasFilters['status'] | 'todas'>('todas');
@@ -39,27 +36,6 @@ export function DashboardCandidatoPage() {
   // alimenta a linha de estimativa de cada card de espera; loading/erro ⇒ Map vazio ⇒
   // rotuloDeEspera devolve null ⇒ nenhuma linha (enhancement silencioso).
   const { lookup: slaLookup } = useSlaEtapas();
-
-  /**
-   * Handler para logout do candidato
-   * - Chama authStore.logout() para limpar sessão
-   * - Mostra toast de sucesso
-   * - Redireciona para página de login
-   */
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Você saiu da sua conta com sucesso', {
-        description: 'Até breve!',
-      });
-      navigate('/auth/login', { replace: true });
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      toast.error('Erro ao sair', {
-        description: 'Tente novamente.',
-      });
-    }
-  };
 
   /**
    * Handler para navegar para detalhes da vaga
@@ -156,38 +132,24 @@ export function DashboardCandidatoPage() {
         overlayColor="bg-black"
         overlayOpacity={15}
       >
-        {/* Barra de navegação superior */}
-        <div className="w-full border-b border-white/10 backdrop-blur-md bg-white/5 sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              {/* Nome do usuário */}
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-md">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-white font-medium drop-shadow-md">
-                    {candidato?.nome_completo || 'Candidato'}
-                  </p>
-                  <p className="text-white/70 text-sm drop-shadow-sm">
-                    {candidato?.email || ''}
-                  </p>
-                </div>
-              </div>
+        {/*
+          Phase 43 (pos-verificacao) — a barra persona COMPARTILHADA, e nao mais uma
+          copia local. O dashboard era a UNICA tela de candidato sem a <CandidatoNavbar />:
+          tinha avatar+nome+e-mail+Sair feitos a mao e, crucialmente, NAO tinha o link
+          "Área do candidato". Como `/candidato/privacidade` (CONSENT-04) tem um unico
+          ponto de entrada — o card em `/candidato/perfil` — e o perfil so e alcancavel
+          por esse link, o candidato que caisse aqui ficava SEM CAMINHO ate a revogacao
+          do proprio consentimento. Uma pagina que ninguem alcanca e promessa sem caminho.
 
-              {/* Botão de Logout */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg border border-white/20 backdrop-blur-md transition-all duration-300 hover:shadow-lg active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="drop-shadow-sm">Sair</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          A compartilhada e estritamente mais rica (logo, avatar com imagem + fallback de
+          iniciais, logout com tratamento de erro) e se auto-guarda em
+          `isAuthenticated && role === 'candidato'`, entao a troca nao perde nada.
+          Ela ja traz `sticky top-0` e `mb-8` proprios — daí o container abaixo perder o
+          `mt-8` que compensava a barra antiga.
+        */}
+        <CandidatoNavbar />
 
-        <div className="container mx-auto px-4 space-y-8 mt-8">
+        <div className="container mx-auto px-4 space-y-8">
           <div className="text-center mb-12">
             <BeautySmileLogo type="horizontal" size="xl" variant="white" className="mx-auto mb-4" />
             <h1 className="text-white text-5xl font-semibold mb-2 drop-shadow-lg">Dashboard de Candidato</h1>
