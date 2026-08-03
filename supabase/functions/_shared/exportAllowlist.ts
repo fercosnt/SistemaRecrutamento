@@ -70,13 +70,13 @@ export const EXPORT_ALLOWLIST = {
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-08-03T19:53:27.208Z",
+    "gerado_em": "2026-08-03T19:55:55.069Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-03T19:38:03Z",
     "requirement": "EXPORT-02",
     "totais": {
       "colunas_colhidas": 724,
-      "colunas_exportadas": 361,
+      "colunas_exportadas": 358,
       "tabelas_catalogadas": 67,
       "tabelas_com_colunas_colhidas": 50,
       "tabelas_em_escopo": 29,
@@ -98,7 +98,6 @@ export const EXPORT_ALLOWLIST = {
         "created_at",
         "data_hora",
         "deleted_at",
-        "entrevistador",
         "id",
         "local_ou_link",
         "observacoes_rh",
@@ -109,6 +108,7 @@ export const EXPORT_ALLOWLIST = {
       ],
       "colunas_excluidas": {
         "agendado_por": "pii_de_terceiro (R2)",
+        "entrevistador": "decisoes_por_coluna: pii_de_terceiro — o `pii-inventory.yaml` anota esta coluna com uma palavra só:\n\"Funcionário\". É o NOME de quem conduziu a entrevista, em `text`.\n\nA regra R2 de `ponteiros` não a pega porque ela não é um UUID: é o mesmo modo de\nevasão de `redacoes_candidato.referencia_match`, e a segunda ocorrência dele nesta\nfase. O escopo já exclui `agendado_por` e `avaliador_id` pela mesma razão; excluir\no UUID do funcionário e exportar o nome dele seria a exclusão em forma, não em\nefeito. A migration `20260716000001_agendamentos_entrevista.sql:131` já declara\nesta coluna fora da assinatura de resultado exposta — este veredito apenas mantém\na allowlist coerente com o que o banco já decidiu.\n",
         "updated_by": "pii_de_terceiro (R2)"
       },
       "ligacao": "via:candidaturas",
@@ -118,7 +118,6 @@ export const EXPORT_ALLOWLIST = {
         "created_at": "R1",
         "data_hora": "R3",
         "deleted_at": "R1",
-        "entrevistador": "inventario:preservar",
         "id": "R1",
         "local_ou_link": "inventario:preservar",
         "observacoes_rh": "inventario:preservar_com_ressalva",
@@ -491,13 +490,13 @@ export const EXPORT_ALLOWLIST = {
         "em",
         "explicacao_solicitada_em",
         "id",
-        "justificativa",
         "revisao_respondida_em",
         "revisao_resultado",
         "revisao_solicitada_em",
         "revisao_veredito"
       ],
       "colunas_excluidas": {
+        "justificativa": "decisoes_por_coluna: DECISÃO DO OPERADOR EM ABERTO (BD-9) + correção de segurança viva — NÃO é decisão\nda engenharia, e por isso a engenharia escolhe o lado que não vaza.\n\nO `explicacaoService.ts` projeta para o candidato exatamente\n`decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em,\nrevisao_veredito, revisao_respondida_em` — e `justificativa` está FORA por uma\ncorreção que embarcou: a Phase-24 CR-01 removeu-a da projeção porque a RLS é\nrow-level e não esconde coluna, e o texto interno cru do RH estava atravessando a\nrede até o navegador do candidato. O docblock do serviço diz, verbatim, que essa\nexclusão \"must not\" ser desfeita.\n\nPô-la na allowlist do export reabriria o MESMO vazamento por uma porta nova,\nsem que ninguém assinasse. E o `pii-inventory.yaml` marca a coluna como\n\"⚠ BD-9 EM ABERTO — … simultaneamente prova de não-discriminação (Art. 7º, VI) e\nvetor de PII de terceiro. Decisão do operador, não da engenharia\".\n\n⚠ ESTA LINHA É REVERSÍVEL COM UMA PALAVRA. Se o operador decidir que o Art. 18, II\nprevalece sobre o CR-01, troque `false` por `true`, regere e o par volta. O que\nnão pode acontecer é a coluna entrar por omissão — que é exatamente o que\naconteceria sem este veredito.\n",
         "por_usuario": "pii_de_terceiro (R2)",
         "revisao_por_usuario": "pii_de_terceiro (R2)"
       },
@@ -508,7 +507,6 @@ export const EXPORT_ALLOWLIST = {
         "em": "inventario:preservar",
         "explicacao_solicitada_em": "inventario:preservar",
         "id": "R1",
-        "justificativa": "inventario:preservar_com_ressalva",
         "revisao_respondida_em": "R1",
         "revisao_resultado": "inventario:preservar_com_ressalva",
         "revisao_solicitada_em": "inventario:preservar",
@@ -523,10 +521,10 @@ export const EXPORT_ALLOWLIST = {
         "candidatura_id",
         "decidido_em",
         "decisao",
-        "id",
-        "justificativa"
+        "id"
       ],
       "colunas_excluidas": {
+        "justificativa": "decisoes_por_coluna: Mesma coluna, versões arquivadas da mesma decisão. Um veredito que valesse só para a linha corrente deixaria o histórico entregando o que a corrente esconde. Reverte junto com `decisao_final.justificativa` se o operador decidir por `true`.",
         "por_usuario": "pii_de_terceiro (R2)"
       },
       "ligacao": "via:candidaturas",
@@ -535,8 +533,7 @@ export const EXPORT_ALLOWLIST = {
         "candidatura_id": "inventario:preservar",
         "decidido_em": "inventario:preservar",
         "decisao": "inventario:preservar",
-        "id": "R1",
-        "justificativa": "inventario:preservar_com_ressalva"
+        "id": "R1"
       },
       "razao": "Decisões anteriores arquivadas da mesma candidatura."
     },

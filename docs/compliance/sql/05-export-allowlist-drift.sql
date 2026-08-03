@@ -47,7 +47,7 @@
 --
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
--- O `VALUES` abaixo tem 361 pares, sobre 29 tabelas, e foi **GERADO, NUNCA
+-- O `VALUES` abaixo tem 358 pares, sobre 29 tabelas, e foi **GERADO, NUNCA
 -- DIGITADO**:
 --
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values
@@ -82,7 +82,6 @@ WITH allowlist(tabela, coluna) AS (
     ('agendamentos_entrevista','created_at'),
     ('agendamentos_entrevista','data_hora'),
     ('agendamentos_entrevista','deleted_at'),
-    ('agendamentos_entrevista','entrevistador'),
     ('agendamentos_entrevista','id'),
     ('agendamentos_entrevista','local_ou_link'),
     ('agendamentos_entrevista','observacoes_rh'),
@@ -230,7 +229,6 @@ WITH allowlist(tabela, coluna) AS (
     ('decisao_final','em'),
     ('decisao_final','explicacao_solicitada_em'),
     ('decisao_final','id'),
-    ('decisao_final','justificativa'),
     ('decisao_final','revisao_respondida_em'),
     ('decisao_final','revisao_resultado'),
     ('decisao_final','revisao_solicitada_em'),
@@ -240,7 +238,6 @@ WITH allowlist(tabela, coluna) AS (
     ('decisao_final_historico','decidido_em'),
     ('decisao_final_historico','decisao'),
     ('decisao_final_historico','id'),
-    ('decisao_final_historico','justificativa'),
     ('devolutivas_candidato','candidato_id'),
     ('devolutivas_candidato','candidatura_id'),
     ('devolutivas_candidato','conteudo_jsonb'),

@@ -598,6 +598,50 @@ decisoes_por_coluna:
       O titular não perde nada do Art. 20: `ai_recommendation`, `ai_composite_score` e
       `ai_reasoning_summary` — o RESULTADO e a EXPLICAÇÃO — continuam na cópia.
 
+  # ⚠ TERCEIRO ACHADO DA LEITURA — e o mais grave, porque desfaria uma correção de
+  # SEGURANÇA que já embarcou. Também não veio do fecho: veio de ler a lista e conferir
+  # cada coluna contra a superfície de candidato que já existe.
+  decisao_final.justificativa:
+    export: false
+    razao: |
+      DECISÃO DO OPERADOR EM ABERTO (BD-9) + correção de segurança viva — NÃO é decisão
+      da engenharia, e por isso a engenharia escolhe o lado que não vaza.
+
+      O `explicacaoService.ts` projeta para o candidato exatamente
+      `decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em,
+      revisao_veredito, revisao_respondida_em` — e `justificativa` está FORA por uma
+      correção que embarcou: a Phase-24 CR-01 removeu-a da projeção porque a RLS é
+      row-level e não esconde coluna, e o texto interno cru do RH estava atravessando a
+      rede até o navegador do candidato. O docblock do serviço diz, verbatim, que essa
+      exclusão "must not" ser desfeita.
+
+      Pô-la na allowlist do export reabriria o MESMO vazamento por uma porta nova,
+      sem que ninguém assinasse. E o `pii-inventory.yaml` marca a coluna como
+      "⚠ BD-9 EM ABERTO — … simultaneamente prova de não-discriminação (Art. 7º, VI) e
+      vetor de PII de terceiro. Decisão do operador, não da engenharia".
+
+      ⚠ ESTA LINHA É REVERSÍVEL COM UMA PALAVRA. Se o operador decidir que o Art. 18, II
+      prevalece sobre o CR-01, troque `false` por `true`, regere e o par volta. O que
+      não pode acontecer é a coluna entrar por omissão — que é exatamente o que
+      aconteceria sem este veredito.
+  decisao_final_historico.justificativa:
+    export: false
+    razao: "Mesma coluna, versões arquivadas da mesma decisão. Um veredito que valesse só para a linha corrente deixaria o histórico entregando o que a corrente esconde. Reverte junto com `decisao_final.justificativa` se o operador decidir por `true`."
+
+  agendamentos_entrevista.entrevistador:
+    export: false
+    razao: |
+      pii_de_terceiro — o `pii-inventory.yaml` anota esta coluna com uma palavra só:
+      "Funcionário". É o NOME de quem conduziu a entrevista, em `text`.
+
+      A regra R2 de `ponteiros` não a pega porque ela não é um UUID: é o mesmo modo de
+      evasão de `redacoes_candidato.referencia_match`, e a segunda ocorrência dele nesta
+      fase. O escopo já exclui `agendado_por` e `avaliador_id` pela mesma razão; excluir
+      o UUID do funcionário e exportar o nome dele seria a exclusão em forma, não em
+      efeito. A migration `20260716000001_agendamentos_entrevista.sql:131` já declara
+      esta coluna fora da assinatura de resultado exposta — este veredito apenas mantém
+      a allowlist coerente com o que o banco já decidiu.
+
   redacoes_candidato.referencia_match:
     export: false
     razao: |
