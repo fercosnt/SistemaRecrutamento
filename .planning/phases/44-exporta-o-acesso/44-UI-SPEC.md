@@ -707,8 +707,17 @@ Elementos sondados: **E1** `PedirCopiaBloco` (static-content · interactive-cont
 seus cinco estados (interactive-control) · **E3** `CurriculosBloco` (list-collection ·
 interactive-control) · **E4** os dois arquivos entregues (static-content) · **E5** faixa de
 controles de `/rh/pedidos-dados` (static-content · interactive-control) · **E6**
-`FilaPedidosDadosTable` (list-collection) · **E7** `SituacaoPedidoBadge` (static-content) · **E8**
-`RevisaoSlaBadge` reusado (static-content) · **E9** item "Pedidos de dados" da `RHSidebar` (nav).
+`FilaPedidosDadosTable` (list-collection · static-content) · **E7** `SituacaoPedidoBadge`
+(static-content) · **E8** `RevisaoSlaBadge` reusado (static-content) · **E9** item "Pedidos de
+dados" da `RHSidebar` (nav).
+
+> **Reprodutibilidade da contagem (verificado contra o motor em 2026-08-03).** `E6` é
+> `list-collection` **e** `static-content`: a tabela é uma coleção, mas suas células carregam texto
+> livre (nome do candidato, título da vaga). `list-collection` sozinho **não** gera a categoria
+> `long-text`, e sem ela a linha `E6 · long-text` — que é onde `CELULA_TRUNCADA` é travada — não
+> reapareceria numa re-execução do probe. Com a união declarada acima o motor devolve **37
+> aplicáveis**, idêntico à tabela. Sem o `static-content`, devolveria 36 e a linha sumiria em
+> silêncio.
 
 > **Nota de método, herdada da 43 (E8):** onde o risco real de um elemento é **semântico** e não
 > dimensional, ele é registrado na categoria de forma mais próxima (`long-text` para
