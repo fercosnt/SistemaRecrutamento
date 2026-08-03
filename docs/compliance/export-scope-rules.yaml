@@ -32,7 +32,7 @@ meta:
   requirement: EXPORT-02
   fase: 44
   plano: 44-01
-  versao: "1.0.0"
+  versao: "1.1.0"
   fonte: |
     Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
     código nem inferida do schema: é o julgamento jurídico/de produto que o
@@ -54,6 +54,37 @@ meta:
       29 + 21 + 17 = 67. Este total é CONFERÊNCIA DE ESCRITA, não prova: a prova
       é o fecho executado pelo gerador contra o catálogo VIVO a cada geração.
       Uma tabela viva que não caia em nenhum dos três baldes falha a geração.
+
+      O bloco `escopo_titular` tem 30 chaves, não 29: a 30ª é
+      `solicitacoes_dados`, DECLARADA e ainda NÃO VIVA (nasce no plano 44-04).
+      Ver `pendentes_por_desenho` abaixo.
+  # --- Fecho executado (a prova, não a conferência) -------------------------
+  fecho_executado:
+    catalogo_medido_em: "2026-08-03T19:38:03Z"
+    totais_do_catalogo: { tabelas: 67, colunas: 1013, fks: 104 }
+    delta_contra_m1: "zero — os três totais são idênticos aos de 2026-08-03 06:09"
+    resultado: |
+      Fecho de TABELA: zero pendências, como a conferência de escrita previu.
+      Fecho de COLUNA: 30 pendências na primeira execução, todas resolvidas com
+      veredito nomeado em `decisoes_por_coluna` (21 `true` / 9 `false`) — zero
+      afrouxamento do gerador. A lista completa e o critério de cada uma estão
+      no bloco 6, sob o cabeçalho "FECHO DO CATÁLOGO VIVO".
+  # --- O que está declarado e ainda não existe -----------------------------
+  # Registrado aqui para que a ausência não seja lida como esquecimento e para
+  # que ninguém a "resolva" apagando a declaração.
+  pendentes_por_desenho:
+    - tabela: solicitacoes_dados
+      nasce_em: "plano 44-04 (DDL) — o 44-02 escreveu a migration, o 44-04 a aplica"
+      efeito_hoje: |
+        Ausente do catálogo vivo de 2026-08-03T19:38:03Z, logo NENHUMA coluna
+        dela entra na allowlist desta geração. O gerador AVISA no stderr e a
+        registra em `meta.escopo_declarado_nao_vivo` do artefato — ela não some
+        do radar. A allowlist é REGERADA depois do 44-04, e é a geração
+        posterior que dá veredito às colunas dela.
+      por_que_nao_e_erro: |
+        Tabela declarada e ausente não vaza coluna nenhuma. O caminho perigoso é
+        o inverso (tabela viva sem disposição) e esse continua sendo erro fatal.
+        Decisão registrada no 44-01 (desvio 3) e mantida.
 
 # ---------------------------------------------------------------------------
 # 1 · ESCOPO DO TITULAR — tabela → como a linha se amarra à pessoa
@@ -383,6 +414,171 @@ decisoes_por_coluna:
   candidaturas.curriculo_url:
     export: true
     razao: "Caminho do arquivo no Storage, não URL assinada. O link de 60 s é cunhado client-side pelo próprio titular (BD-7); o export nunca embute credencial de acesso."
+
+  # =========================================================================
+  # FECHO DO CATÁLOGO VIVO — 30 vereditos escritos no plano 44-03
+  # =========================================================================
+  # O `catalogo-vivo-44.json` (medido em 2026-08-03T19:38:03Z, 67 tabelas /
+  # 1013 colunas / 104 FKs — ZERO drift contra o M1) fez o gerador reprovar com
+  # 30 ERROS DE FECHAMENTO. Cada um é uma coluna VIVA de tabela em escopo que
+  # nenhuma fonte resolvia. Nenhum deles foi resolvido afrouxando o gerador.
+  #
+  # A PERGUNTA RESPONDIDA AQUI NÃO É A DO INVENTÁRIO. O `pii-inventory.yaml`
+  # pergunta "o que a exclusão faz com esta coluna" (vocabulário `apagar` /
+  # `anonimizar` / `preservar`); estas 30 linhas respondem "ISTO É DADO DO
+  # TITULAR, de que o Art. 18, II lhe dá direito a uma cópia?". Os dois eixos
+  # são ORTOGONAIS — o cabeçalho deste arquivo dá três contraexemplos.
+  #
+  # Três critérios decidiram os 30, e cada linha diz qual:
+  #
+  #   (i)  RESULTADO e EXPLICAÇÃO entram; PROMPT e TELEMETRIA não.
+  #        Decisão travada na 44-CONTEXT §Área 2. `prompt_version`,
+  #        `model_version`, `input_hash` e `modelo_ia` descrevem COMO O SISTEMA
+  #        RODOU, não a pessoa — são a mesma família de `ai_call_logs`, que o
+  #        bloco 2 já exclui pelo mesmo motivo. A UI-SPEC §Arquivos diz a mesma
+  #        coisa ao titular, em português: "registros internos de funcionamento
+  #        do sistema, que descrevem o sistema e não a pessoa".
+  #
+  #   (ii) ESTADO DE PROCESSO É R3 EM ESPÍRITO, e `text` no DDL é acidente.
+  #        `scores_candidato.status` e `entrevistas_online.status` são enums e
+  #        saem por R3 sem intervenção; `analise_candidato_vaga.status`,
+  #        `redacoes_candidato.status_analise` e `entrevista_analises.status_analise`
+  #        são o MESMO fato tipado como `text`. Exportar um e não o outro seria
+  #        incoerência de tipagem virando decisão de compliance. O veredito é
+  #        explícito, coluna a coluna — a alternativa (relaxar a R3 para aceitar
+  #        `text`) abriria a porta por onde texto livre não classificado sairia
+  #        calado, que é exatamente o que o fecho existe para impedir.
+  #
+  #  (iii) O CRITÉRIO DA CÓPIA HONESTA: se o RH enxerga sobre a pessoa, entra.
+  #        Vale inclusive para o que é desconfortável — uma flag de suspeita de
+  #        plágio é precisamente o julgamento sobre o qual o Art. 20 dá direito
+  #        a saber. Esquecimento nunca é razão; desconforto tampouco.
+  #
+  # 21 saíram `true`, 9 saíram `false`. Os 9 estão agrupados no fim, cada um
+  # com a razão nomeada — nunca omissão silenciosa.
+
+  # --- redacoes_candidato · a produção escrita e o que a IA achou dela ------
+  redacoes_candidato.classificacao_cor:
+    export: true
+    razao: "(iii) Faixa de 3 cores da avaliação da redação (verde/amarelo/vermelho, RF-17). É o RESULTADO que o RH vê sobre a pessoa e que aciona `bloqueio_avanco`; o Art. 20 dá direito a conhecer o julgamento que afetou o processo."
+  redacoes_candidato.flags:
+    export: true
+    razao: "(iii) Achados nomeados da análise da redação (`possivel_plagio_intercandidato`, `situacao_generica_ou_inventada`, `fora_do_tema`, `prompt_injection` — PRD-redacao §RF-R-18). São julgamentos SOBRE a pessoa que o RH lê; omiti-los da cópia por serem desconfortáveis seria a mentira por omissão que o EXPORT-06 combate. Vocabulário fechado, sem texto livre e sem terceiro."
+  redacoes_candidato.status_analise:
+    export: true
+    razao: "(ii) Estado do processamento da análise da própria redação. Mesmo fato que `scores_candidato.status`, que sai por R3 por ser enum; aqui é `text` por acaso do DDL."
+
+  # --- analise_candidato_vaga · o RESULTADO da IA sobre a pessoa -----------
+  analise_candidato_vaga.resumo_cv:
+    export: true
+    razao: "(iii) Resumo que a IA escreveu DO CURRÍCULO DA PESSOA. Texto livre derivado exclusivamente de dado do titular; é o que o RH lê na triagem."
+  analise_candidato_vaga.resumo_respostas:
+    export: true
+    razao: "(iii) Resumo do que a PRÓPRIA PESSOA respondeu. Se o sistema guarda e o RH vê, aparece na cópia."
+  analise_candidato_vaga.pontos_fortes:
+    export: true
+    razao: "(i) RESULTADO da análise de aderência à vaga — o lado favorável do julgamento. Entra pelo mesmo motivo que `gaps`: metade de um parecer não é um parecer."
+  analise_candidato_vaga.gaps:
+    export: true
+    razao: "(i)+(iii) Lacunas apontadas pela IA contra a vaga. É a parte do parecer que pesa CONTRA a pessoa e, justamente por isso, a que o Art. 20 mais claramente cobre."
+  analise_candidato_vaga.flags:
+    export: true
+    razao: "(iii) Sinalizações da análise sobre a candidatura. Vocabulário do próprio pipeline, sem PII de terceiro."
+  analise_candidato_vaga.status:
+    export: true
+    razao: "(ii) Estado de processo da análise. Sem ele, uma análise vazia no export é indistinguível de uma análise que nunca rodou — e essa ambiguidade é exatamente o tipo de silêncio que o EXPORT-06 proíbe."
+
+  # --- scores · o RESULTADO das avaliações --------------------------------
+  scores_disc.perfil_primario:
+    export: true
+    razao: "(i) Perfil comportamental primário derivado das respostas da própria pessoa. Os quatro scores numéricos já saem por R3; o rótulo que os interpreta é o mesmo fato em forma legível."
+  scores_disc.perfil_secundario:
+    export: true
+    razao: "(i) Idem, perfil secundário."
+  scores_raven.classificacao:
+    export: true
+    razao: "(i) Classificação da avaliação cognitiva. `percentil` e `percentual_acerto` já saem por R3; a faixa é o mesmo resultado por outro nome."
+  scores_raven.acertos_por_serie:
+    export: true
+    razao: "(i) Desempenho da PRÓPRIA PESSOA série a série. jsonb de números derivados das respostas dela; zero conteúdo de terceiro."
+  scores_candidato.subtipo:
+    export: true
+    razao: "(iii) Qualifica o `tipo` do score (que já sai por R3, sendo enum). Um número sem o rótulo do que ele mede é ilegível — e um export ilegível não atende ao Art. 18, II, que pede formato 'que permita a sua utilização'."
+
+  # --- respostas e entrevistas --------------------------------------------
+  respostas_avaliacao.teste:
+    export: true
+    razao: "(iii) Qual instrumento estas respostas respondem ('sjt' ou id de `testes_aplicaveis`). O jsonb `respostas` sem esse rótulo é um blob sem referente; o rótulo NÃO é conteúdo do produto — é a etiqueta da resposta da pessoa."
+  entrevistas_online.plataforma:
+    export: true
+    razao: "(iii) Onde a entrevista com a pessoa aconteceu. Nome de produto de terceiros ('Meet'/'Zoom'), não identificador interno de infraestrutura nem credencial; é contexto de um evento do qual ELA participou."
+  entrevista_analises.status_analise:
+    export: true
+    razao: "(ii) Estado de processo da análise da entrevista. Mesmo veredito e mesmo motivo de `redacoes_candidato.status_analise`."
+  avaliacoes_rh.competencias:
+    export: true
+    razao: "(iii) A avaliação por competência que o RH lançou SOBRE a pessoa — o núcleo do que o RH enxerga. Vizinhas do mesmo parecer (`observacoes`, `justificativa_recomendacao`, `pontos_fortes`) já entram; excluir a nota estruturada entregaria um parecer sem as notas. ⚠ jsonb com texto humano: pode CARREGAR menção a terceiro (o `preservar_com_ressalva` do inventário). A ressalva é do conteúdo digitado, não da titularidade do campo — a coluna é dado sobre o titular, e a resposta a texto livre contaminado é a governança de quem digita, não a supressão da cópia."
+
+  # --- decisão e explicação (Art. 20 já visível ao titular) ----------------
+  decisao_final.revisao_veredito:
+    export: true
+    razao: "(iii) 'mantida' ou 'revertida' — o desfecho do pedido de revisão do Art. 20. A `ExplicacaoCandidatoPage` JÁ MOSTRA este campo ao titular em /explicacao desde o M2 (VereditoBadge); omitir da cópia o que a tela já exibe seria incoerente com o próprio produto."
+  candidate_ai_decisions.explanation_channel:
+    export: true
+    razao: "(iii) POR ONDE a explicação do Art. 20 foi entregue AO TITULAR. `explanation_delivered_at` já sai por R3: exportar o QUANDO e sonegar o POR ONDE partiria um fato só em dois. É registro do cumprimento de uma obrigação da empresa PERANTE A PESSOA — o oposto de `recruiter_alerts.channel`, que é entrega a um funcionário (ver abaixo)."
+
+  # =========================================================================
+  # Os 9 que ficam FORA — cada um com a razão nomeada
+  # =========================================================================
+  # Nenhum sai por esquecimento e nenhum sai por conveniência. Seis são
+  # telemetria de execução do LLM, um é payload de erro de infraestrutura, um é
+  # entrega interna ao RH, e UM É PII DE OUTRO CANDIDATO.
+
+  redacoes_candidato.prompt_version:
+    export: false
+    razao: "(i) telemetria_interna — versão do prompt que rodou. Descreve o SISTEMA, não a pessoa. Mesma família de `ai_call_logs`, fora do escopo por decisão travada na 44-CONTEXT §Área 2."
+  redacoes_candidato.model_version:
+    export: false
+    razao: "(i) telemetria_interna — qual modelo rodou. Idem."
+  redacoes_candidato.input_hash:
+    export: false
+    razao: "(i) telemetria_interna — hash do insumo enviado ao modelo, usado para deduplicação/cache. É identificador interno de execução; não é fato sobre a pessoa e nada acrescenta à cópia dela."
+  entrevista_analises.prompt_version:
+    export: false
+    razao: "(i) telemetria_interna — idem `redacoes_candidato.prompt_version`."
+  devolutivas_candidato.prompt_version:
+    export: false
+    razao: "(i) telemetria_interna — idem. O CONTEÚDO da devolutiva (`conteudo_jsonb`) entra por R5; é ele que a pessoa recebeu."
+  devolutivas_candidato.modelo_ia:
+    export: false
+    razao: "(i) telemetria_interna — qual modelo gerou a devolutiva. O RESULTADO entregue à pessoa entra; a ficha técnica de como ele foi produzido, não."
+
+  analise_candidato_vaga.erro:
+    export: false
+    razao: "(i) telemetria_interna — mensagem de FALHA do pipeline. Pode carregar payload de provedor, stack e identificador interno de infraestrutura, e a 44-UI-SPEC §Arquivos proíbe literalmente 'qualquer chave, token ou identificador interno de infraestrutura' nos dois arquivos entregues. O titular não fica sem o fato: `status` ENTRA e diz que a análise falhou — o que se omite é o payload interno, não a informação."
+
+  recruiter_alerts.channel:
+    export: false
+    razao: "(i) telemetria_interna — canal de ENTREGA do alerta AO FUNCIONÁRIO ('email' | 'cost_anomaly'), medido no DDL da migration 20260609000001. Descreve como o sistema notificou o RH, não a pessoa; é o mesmo ledger operacional de entrega por que `notificacoes_enviadas` está fora. Contrasta deliberadamente com `candidate_ai_decisions.explanation_channel`, que é entrega AO TITULAR e por isso ENTRA."
+  recruiter_alerts.threshold_violated:
+    export: true
+    razao: "(iii) O TIPO do alerta ('candidate_cost_over_1' | 'spam' | 'error_rate' | 'vaga_cost_over_200'). A tabela está em `escopo_titular` porque o RH enxerga o alerta SOBRE a pessoa; uma linha de alerta sem o motivo diria ao titular 'existe um alerta a seu respeito' e negaria qual — a omissão por metade que o EXPORT-06 combate. Vocabulário fechado do próprio alerter, sem texto livre e sem terceiro. ⚠ Só chega à cópia a linha cujo `candidato_id` é o do titular; as linhas de custo por vaga têm `candidato_id` nulo e nunca entram na projeção."
+
+  redacoes_candidato.referencia_match:
+    export: false
+    razao: |
+      pii_de_terceiro — E ESTE É O ACHADO QUE JUSTIFICA O FECHO COLUNA A COLUNA.
+      O DDL (20260623100003_redacoes_candidato.sql:70) é literal: `uuid[] NOT NULL
+      -- candidatura_ids match no hash`. São os identificadores das candidaturas
+      de OUTRAS PESSOAS cuja redação bateu no mesmo hash anti-plágio (RF-R-18).
+      Exportá-lo entregaria ao titular uma lista de candidaturas alheias — a mesma
+      `pii_de_terceiro` por que `comparativo_solicitado` está fora no nível da
+      tabela. A regra R2 de `ponteiros` não o pega porque o nome não termina em
+      `_id`; foi o ERRO DE FECHAMENTO que o trouxe à mesa. É exatamente o vazamento
+      que uma allowlist "gerada por regra" teria produzido em silêncio.
+      O titular não perde o fato: `flags` ENTRA e carrega
+      `possivel_plagio_intercandidato` — ele fica sabendo da suspeita levantada
+      sobre ele sem receber a identidade de quem mais foi apanhado no mesmo hash.
 
 # ---------------------------------------------------------------------------
 # 7 · REGRA DE FECHO — o contrato que o gerador implementa
