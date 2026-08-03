@@ -218,10 +218,18 @@ as Phases 42 e 43 já executaram duas vezes:
   acende / item que não navega).
 
 **Contador do menu:** `badge` = quantidade de pedidos **não atendidos**, formatada por
-`formatarBadgePendentes` **importada verbatim** de `revisaoService` (`''` para 0/indefinido, `'99+'`
-acima de 99). Não reimplementar: o 42-10 registrou que passar o número direto reintroduz o `0` solto
-no menu, e que a renderização tem de ser **ternário**, nunca `&&` (`'0 && …'` avalia para `0` e o
-React o renderiza como texto).
+`formatarBadgePendentes` **importada verbatim** de `revisaoService`. Não reimplementar: o 42-10
+registrou que passar o número direto reintroduz o `0` solto no menu, e que a renderização tem de ser
+**ternário**, nunca `&&` (`'0 && …'` avalia para `0` e o React o renderiza como texto).
+
+> **⚠ Correção factual (verificada no código vivo em 2026-08-03).** Uma versão anterior desta spec
+> dizia que a função devolve `''` para 0/indefinido. **Ela devolve `undefined`.** Assinatura real:
+> `formatarBadgePendentes(n: number | null | undefined): string | undefined`
+> (`src/features/revisao/services/revisaoService.ts:180-188`), e o teste prende o comportamento com
+> `toBeUndefined()` (`revisaoService.test.ts:213`). A **intenção** da spec estava certa — o badge
+> some em vez de mostrar `0` — mas o valor citado não. **O plano importa a função e nunca compara o
+> retorno com `''`**: uma comparação `=== ''` seria sempre falsa e faria o badge reaparecer como
+> vazio. Este é o tipo de erro que só o código vivo desmente.
 
 ### Âncora visual primária (uma por tela — declarada, não inferida)
 
@@ -760,7 +768,7 @@ dados" da `RHSidebar` (nav).
 | E7 | `SituacaoPedidoBadge` | long-text | ✅ covered | Vocabulário fechado e normalizado no cliente; valor desconhecido cai no tratamento neutro exibindo o token cru — nunca célula vazia, nunca superfície fechada (precedente 42-11) |
 | E8 | `RevisaoSlaBadge` reusado | overflow | ✅ covered | Rótulo + contagem num único elemento inline; a faixa degenerada é ainda mais curta. Sem contêiner de altura fixa |
 | E8 | `RevisaoSlaBadge` reusado | long-text | ✅ covered | Rótulos fixos de uma palavra + `{n}d`. **A faixa degenerada é a resolução do caso extremo:** config ausente/ilegível de `config_sla_dados` — estado alcançável em produção porque a tabela é alterável sem deploy — renderiza a contagem sem badge, nunca uma tela de erro (Invariante 7) |
-| E9 | Item "Pedidos de dados" da sidebar | loading | ✅ covered | O item renderiza junto com o menu; o contador chega depois e é **ausente** enquanto indefinido (`formatarBadgePendentes` devolve `''`), nunca um `0` provisório. Precedente direto: 42-10 |
+| E9 | Item "Pedidos de dados" da sidebar | loading | ✅ covered | O item renderiza junto com o menu; o contador chega depois e é **ausente** enquanto indefinido (`formatarBadgePendentes` devolve `undefined` — ver a correção factual em §Rota nova), nunca um `0` provisório. Precedente direto: 42-10 |
 | E9 | Item "Pedidos de dados" da sidebar | error | ✅ covered | Falha da contagem → sem badge, item plenamente funcional. Um contador errado no menu é pior que contador nenhum: manda o operador procurar trabalho que não existe |
 | E9 | Item "Pedidos de dados" da sidebar | overflow | ✅ covered | Rótulo de duas palavras; no menu recolhido vira só ícone com `title`, comportamento vivo do componente |
 | E9 | Item "Pedidos de dados" da sidebar | long-text | ✅ covered | "Pedidos de dados" — 16 caracteres, mais curto que "Configurações" + badge, combinação que o menu já acomoda hoje em "Revisões" |
