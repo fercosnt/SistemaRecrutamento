@@ -213,3 +213,78 @@ Medido no repositório em 2026-08-03, antes de qualquer planejamento.
   titular). Se algum dia entrar, é decisão nova e nomeada.
 
 </deferred>
+
+---
+
+## Adendo pós-pesquisa — medições do catálogo vivo e 1 decisão do operador (2026-08-03)
+
+A `44-RESEARCH.md` declarou uma lacuna honesta (subagentes GSD não recebem os tools MCP do
+Supabase) e prescreveu cinco medições READ-ONLY para o orquestrador. **Quatro rodaram**; os números
+estão em `44-MEASUREMENTS.md`, medidos em 2026-08-03 06:09–06:11 UTC. Uma questão de política foi
+levada ao operador e respondida.
+
+### BD-6 · A allowlist NÃO pode ter o YAML como fonte única — **medido, não suposto**
+
+O catálogo vivo tem **67 tabelas / 1013 colunas / 104 FKs**; o `pii-inventory.yaml` declara
+**64 / 993 / 102**. Cinco dias de drift. E o drift caiu exatamente no lugar que esta fase depende:
+
+**Quatro colunas de `autorizacoes` não aparecem NENHUMA vez no YAML** —
+`consent_text_version`, `consent_text_hash`, `consent_registrado_em`, `autorizacao_marketing_vagas`.
+São precisamente as "colunas de consentimento versionado" que o ROADMAP nomeia como a razão de a
+Phase 44 depender da Phase 43.
+
+**A decisão da Área 2 (allowlist derivada do inventário) continua certa — o insumo é que está
+velho.** Executada literalmente contra o YAML de hoje, ela produziria um `export-allowlist.json`
+que omite em silêncio a própria dependência declarada da fase.
+
+**Resolução travada:** o gerador lê o **catálogo vivo** como fonte da *existência* de colunas e o
+YAML como fonte da *classificação*. Coluna viva sem classificação é **erro de fechamento** que
+falha a geração — nunca omissão silenciosa. (A alternativa — atualizar o YAML primeiro — resolve
+hoje e reabre no próximo drift, que a Phase 45 herdaria.)
+
+### BD-7 · Caminho do CV — **client-side**, confirmado por medição
+
+O `get-curriculo-url` devolve **403 ao candidato** (é RH-only por desenho, Phase 32). A pesquisa
+recomendou o caminho client-side e condicionou-o a M4+M5. Ambas mediram a favor:
+
+- **M4:** as policies de SELECT do bucket `curriculos` são **duas**, OR'd, com convenções de pasta
+  diferentes (`candidatos.id` e `auth.uid()`). O titular lê o próprio CV sob **qualquer** das duas.
+- **M5:** dos **3** CVs vivos, **3** usam o prefixo `auth.uid()`, zero usam `candidatos.id`.
+
+**O candidato cunha o próprio signed URL de 60 s client-side**, com `service_role` fora do caminho
+do CV do titular — estritamente menos superfície que a EF. ⚠ **n = 3**: o plano trata "o titular lê
+o próprio CV" como asserção **testada em runtime com falha por linha**, nunca como invariante
+assumido a partir de três linhas.
+
+### BD-8 · Escopo da fila `/rh/pedidos-dados` — **por vaga + administrador vê tudo** (decisão do operador)
+
+Um pedido de acesso **não tem vaga**, então o predicado de escopo-por-vaga da P42/SEC-05-08 não se
+aplica sozinho. Decisão do operador em 2026-08-03:
+
+- **Recrutador** vê pedidos de candidatos com candidatura em vaga sua (preserva o invariante
+  horizontal que a P32 fechou como BLOCKING).
+- **Administrador** vê a fila inteira — **inclusive os órfãos** (pedido de candidato sem candidatura
+  nenhuma). O órfão é justamente o pedido que consome prazo legal sem ter dono natural; o admin é
+  o dono.
+
+⚠ **Invariante que a engenharia impõe sobre esta decisão:** **fila e contador do menu usam o MESMO
+predicado.** Um badge que conta o que a tela não mostra manda o operador procurar trabalho
+invisível — e aqui esse trabalho tem prazo de 15 dias.
+
+### Decisões adotadas das recomendações da pesquisa (sem escalar)
+
+- **Duas migrations**, na ordem `config_sla_dados` → `solicitacoes_dados`. A config não tem
+  dependência: seu apply é o teste barato do procedimento 42601 antes da tabela que importa.
+- **`js-yaml` promovido a devDependency explícita.** Hoje é dependência-fantasma (usado por
+  `gen-pii-md.cjs:22`, ausente do `package.json`, presente só por hoisting de
+  `@testing-library` em 3.14.2). Um bump futuro mataria o gerador e seu `--check` juntos. Usar
+  `safeLoad` (3.x `load` usa `DEFAULT_FULL_SCHEMA`).
+- **O `.html` carrega a versão da allowlist no rodapé**, junto ao carimbo de data. É o que permite
+  provar meses depois qual escopo estava vigente naquele dia.
+
+### M3 continua pendente, por construção
+
+`pg_policies` das duas tabelas novas só é mensurável **depois** do apply. É tarefa do plano,
+imediatamente após a migration e antes de qualquer asserção de RLS ser declarada satisfeita — o
+idioma "o arquivo não é o objeto vivo" que a P42 (42-07) e a P43 (A1) já pagaram duas vezes para
+aprender.
