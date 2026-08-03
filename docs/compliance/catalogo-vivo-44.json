@@ -1,0 +1,5152 @@
+{
+  "meta": {
+    "medido_em": "2026-08-03T19:38:03Z",
+    "projeto": "isljnozzlvckrgjjbjwp",
+    "fonte": "information_schema via execute_sql do MCP, pelo orquestrador",
+    "query_reprodutora": "docs/compliance/sql/01-pii-catalog.sql (consultas (a) e (d))",
+    "totais": {
+      "tabelas_base_public": 67,
+      "colunas_public": 1013,
+      "fks_public": 104
+    }
+  },
+  "tabelas": [
+    "agendamentos_entrevista",
+    "ai_call_logs",
+    "ai_cost_daily",
+    "analise_candidato_vaga",
+    "autorizacoes",
+    "avaliacoes_rh",
+    "bias_audit_log",
+    "biblioteca_perguntas",
+    "bigfive_itens",
+    "candidate_ai_decisions",
+    "candidatos",
+    "candidaturas",
+    "classe_evento_notificacao",
+    "cognitivo_itens",
+    "cognitivo_respostas",
+    "comparativo_solicitado",
+    "config_retencao_etapa",
+    "config_sla_etapa",
+    "config_sla_revisao",
+    "configuracoes_empresa",
+    "data_deletion_log",
+    "decisao_final",
+    "decisao_final_historico",
+    "devolutivas_candidato",
+    "disponibilidade",
+    "entrevista_analises",
+    "entrevista_guias",
+    "entrevistas_online",
+    "entrevistas_presenciais",
+    "historico_acoes",
+    "historico_candidatura",
+    "logs_acesso",
+    "logs_auditoria",
+    "notificacoes_enviadas",
+    "pergunta_opcao_metadata",
+    "perguntas",
+    "perguntas_cultura",
+    "perguntas_formulario",
+    "perguntas_opcao_sjt",
+    "perguntas_redacao",
+    "perguntas_vaga_origem",
+    "preferencias_notificacoes",
+    "prompt_versions",
+    "questoes_bigfive",
+    "questoes_disc",
+    "questoes_raven",
+    "rate_limit_check_duplicate",
+    "recruiter_alerts",
+    "redacoes_candidato",
+    "redacoes_candidato_em_progresso",
+    "respostas_avaliacao",
+    "respostas_bigfive",
+    "respostas_cultura",
+    "respostas_disc",
+    "respostas_formulario",
+    "respostas_raven",
+    "scores_bigfive",
+    "scores_candidato",
+    "scores_disc",
+    "scores_raven",
+    "sessoes_ativas",
+    "templates_email",
+    "usuarios_rh",
+    "vagas",
+    "vagas_associadas_recrutadores",
+    "webhooks_config",
+    "webhooks_logs"
+  ],
+  "colunas": [
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "tipo",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "data_hora",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "local_ou_link",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "observacoes_rh",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "entrevistador",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "compareceu",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "agendado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "agendamentos_entrevista",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 2
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "call_type",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "prompt_version_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "prompt_hash",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "provider",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "model_id",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "model_snapshot",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "system_prompt",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "user_prompt_template",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "input_token_count",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "raw_response",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "parsed_score",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "parsed_reasoning",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "output_token_count",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 16
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "latency_ms",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 17
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "attempt_number",
+      "tipo": "smallint",
+      "nullable": false,
+      "ordem": 18
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "cost_usd",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "success",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 20
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "error_code",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "error_message",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "idempotency_key",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 24
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "retain_until",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 25
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "triggered_by",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 26
+    },
+    {
+      "tabela": "ai_call_logs",
+      "coluna": "prompt_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 27
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "date",
+      "tipo": "date",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "call_type",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "provider",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "call_count",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "total_input_tokens",
+      "tipo": "bigint",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "total_output_tokens",
+      "tipo": "bigint",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "total_cost_usd",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "ai_cost_daily",
+      "coluna": "error_count",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "score_match",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "pontos_fortes",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "gaps",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "flags",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "resumo_cv",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "resumo_respostas",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "status",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "erro",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "analise_candidato_vaga",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "autorizacao_uso_dados",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "autorizacao_comunicacao",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "autorizacao_retencao_curriculo",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "autorizacao_analise_video",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "policy_version",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "ip_aceite",
+      "tipo": "inet",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "user_agent_aceite",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "user_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "consent_text_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "consent_text_hash",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "consent_registrado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "autorizacoes",
+      "coluna": "autorizacao_marketing_vagas",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "tipo_entrevista",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "entrevista_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "competencias",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "score_geral",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "recomendacao",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "pontos_fortes",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "pontos_fracos",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "observacoes",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "justificativa_recomendacao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "adequacao_tecnica",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "adequacao_cultural",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "potencial_crescimento",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 15
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 16
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "avaliacoes_rh",
+      "coluna": "avaliador_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 18
+    },
+    {
+      "tabela": "bias_audit_log",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "bias_audit_log",
+      "coluna": "snapshot_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "bias_audit_log",
+      "coluna": "periodo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "bias_audit_log",
+      "coluna": "dados",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "bias_audit_log",
+      "coluna": "criado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "ai_call_log_ids",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "ai_composite_score",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "ai_recommendation",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "ai_reasoning_summary",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "review_requested_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "review_requested_by",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "reviewer_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "reviewed_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "human_decision",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "human_notes",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "human_overrode_ai",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "explanation_delivered_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "explanation_channel",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 18
+    },
+    {
+      "tabela": "candidate_ai_decisions",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 19
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "user_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "nome_completo",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "email",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "cpf",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "celular",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "data_nascimento",
+      "tipo": "date",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "genero",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "cep",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "logradouro",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "numero",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "complemento",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "bairro",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "cidade",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 14
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "estado",
+      "tipo": "character",
+      "nullable": false,
+      "ordem": 15
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "linkedin_url",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "instagram_url",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "como_conheceu",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "como_conheceu_detalhes",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "avatar_url",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "ativo",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 21
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "email_verificado",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 22
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "bloqueado",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 23
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "bloqueado_motivo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 24
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "data_ultimo_acesso",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 26
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 27
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 28
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 29
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 30
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "instagram",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 31
+    },
+    {
+      "tabela": "candidatos",
+      "coluna": "linkedin",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 32
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "etapa_atual",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_candidatura",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_formulario_enviado",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_bigfive_enviado",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_disc_enviado",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_raven_enviado",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_cultura_enviado",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_entrevista_online",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_entrevista_presencial",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "data_decisao_final",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "curriculo_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "curriculo_nome_original",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "curriculo_tamanho_bytes",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "tempo_preenchimento_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "origem_candidatura",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_formulario",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_bigfive",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_disc",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_raven",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_cultura",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 24
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_entrevista_online",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "analise_ia_entrevista_presencial",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 26
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "score_geral",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 27
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "feedback_rejeicao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 28
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "observacoes_rh",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 29
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "is_rascunho",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 30
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "is_favorito",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 31
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 32
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 33
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 34
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 35
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 36
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "etapa_justificativa",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 37
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "motivo_rejeicao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 38
+    },
+    {
+      "tabela": "candidaturas",
+      "coluna": "opcao_knockout_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 39
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "raw_responses",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "shuffle_seed",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "completion_time_seconds",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "proctoring",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "cognitivo_respostas",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "candidatura_ids",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "ranking",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "latencia_ms",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "solicitado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "comparativo_solicitado",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "empresa_id",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "nome_empresa",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "logo_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "favicon_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "cor_primaria",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "cor_secundaria",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "cor_accent",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "email_contato",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "telefone_contato",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "site_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "endereco_completo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_host",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_port",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_usuario",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_senha_encrypted",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_from_email",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_from_nome",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "smtp_usar_tls",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_formulario_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_bigfive_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_disc_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_raven_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_cultura_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 24
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_analise_entrevista_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_envio_emails_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 26
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_lembretes_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 27
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_timeout_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 28
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_retry_tentativas",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 29
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "webhook_secret",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 30
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "notificar_nova_candidatura",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 31
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "notificar_teste_concluido",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 32
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "email_notificacoes",
+      "tipo": "ARRAY",
+      "nullable": true,
+      "ordem": 33
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "timezone",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 34
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "idioma",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 35
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "max_tamanho_curriculo_mb",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 36
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "max_tamanho_gravacao_mb",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 37
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "dias_retencao_logs",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 38
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 39
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 40
+    },
+    {
+      "tabela": "configuracoes_empresa",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 41
+    },
+    {
+      "tabela": "data_deletion_log",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "data_deletion_log",
+      "coluna": "deletion_type",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "data_deletion_log",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "data_deletion_log",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "decisao",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "justificativa",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "por_usuario",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "explicacao_solicitada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "revisao_solicitada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "revisao_resultado",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "revisao_veredito",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "revisao_por_usuario",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "revisao_respondida_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "decisao",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "justificativa",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "por_usuario",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "decidido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "arquivado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "conteudo_jsonb",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "modelo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "prompt_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "devolutivas_candidato",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "periodo_disponivel",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "regime_trabalho",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "disponibilidade_imediata",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "data_disponibilidade",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "disponibilidade",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "competencias",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "citacoes",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "bias_flags",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "bloqueio_avanco",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "revisao_confirmada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "revisada_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "notas_humanas",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "scores_humanos",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "status_analise",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "prompt_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "entrevista_analises",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "tipo",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "guia",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "prompt_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "entrevista_guias",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "data_agendada",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "duracao_estimada_minutos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "link_videochamada",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "plataforma",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "data_inicio_real",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "data_fim_real",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "duracao_real_minutos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "gravacao_url",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "gravacao_tamanho_mb",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "transcricao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "resumo_ia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "analise_ia",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "notas_preparacao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "notas_durante",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "observacoes_gerais",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "feedback_candidato",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "avaliacao_candidato_score",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 21
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 22
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "agendado_por",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 24
+    },
+    {
+      "tabela": "entrevistas_online",
+      "coluna": "realizado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "data_agendada",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "duracao_estimada_minutos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "local_entrevista",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "sala_numero",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "instrucoes_acesso",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "data_inicio_real",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "data_fim_real",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "duracao_real_minutos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "documentos_necessarios",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "documentos_apresentados",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "notas_preparacao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "notas_durante",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "observacoes_gerais",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "primeira_impressao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 18
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 19
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "agendado_por",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 21
+    },
+    {
+      "tabela": "entrevistas_presenciais",
+      "coluna": "realizado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "tipo_acao",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "descricao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "metadata",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "historico_acoes",
+      "coluna": "usuario_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "etapa_de",
+      "tipo": "USER-DEFINED",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "etapa_para",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "criterio_texto",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "ator",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "auto_rejeitado",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "historico_candidatura",
+      "coluna": "criado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "user_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 2
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "evento",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "email_tentativa",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "ip_address",
+      "tipo": "inet",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "device_info",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "device_type",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "browser",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "operating_system",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "country",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "city",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "erro_mensagem",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "logs_acesso",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "usuario_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 2
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "usuario_tipo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "acao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "categoria",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "descricao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "severidade",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "recurso_tipo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "recurso_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "dados_antes",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "dados_depois",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "ip_address",
+      "tipo": "inet",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "user_agent",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "sessao_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "duracao_ms",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "sucesso",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "erro_mensagem",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "logs_auditoria",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "evento",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "template",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "destinatario_email",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "provider_message_id",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "dedupe_key",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "tentativas",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "proxima_tentativa_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "ultimo_erro",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "criado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "atualizado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 14
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "entregue_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "destinatario_original",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 17
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "modo",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 18
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "bounce_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "notificacoes_enviadas",
+      "coluna": "reclamado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "usuario_rh_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "email_novos_candidatos",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "email_testes_completos",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "email_entrevistas_agendadas",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "email_resumo_diario",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "email_resumo_semanal",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "whatsapp_enabled",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "whatsapp_numero",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "whatsapp_entrevistas",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "whatsapp_urgentes",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "notificacoes_app",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 14
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "preferencias_notificacoes",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "call_type",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "semver",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "content_hash",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "system_template",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "user_template",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "model_id",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "temperature",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "max_tokens",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "is_active",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "is_canary",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "canary_pct",
+      "tipo": "smallint",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "schema_version_required",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "change_summary",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 14
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "changed_by",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 15
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "approved_by",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "previous_version_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "avg_score_delta",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "p95_latency_ms",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "error_rate_pct",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 21
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "deployed_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "prompt_versions",
+      "coluna": "deprecated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "rate_limit_check_duplicate",
+      "coluna": "id",
+      "tipo": "bigint",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "rate_limit_check_duplicate",
+      "coluna": "x_forwarded_for",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 2
+    },
+    {
+      "tabela": "rate_limit_check_duplicate",
+      "coluna": "hash_cpf_email",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "rate_limit_check_duplicate",
+      "coluna": "called_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "call_type",
+      "tipo": "USER-DEFINED",
+      "nullable": true,
+      "ordem": 2
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "threshold_violated",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "value",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "threshold",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "channel",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "message",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "is_read",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "recruiter_alerts",
+      "coluna": "resolved_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "pergunta_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "ordem",
+      "tipo": "smallint",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "eh_pergunta_padrao",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "texto",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "word_count",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "texto_hash",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "tempo_gasto_segundos",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "submetida_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "analise_ia",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "scores_dimensao",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "score_ponderado_0_100",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "classificacao_cor",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "red_flag_etico",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 15
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "flags",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 16
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "referencia_match",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 17
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "prompt_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "model_version",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "input_hash",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "cost_tokens_input",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "cost_tokens_output",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "ia_processada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "revisada_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 24
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "revisada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "scores_humanos",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 26
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "notas_revisor",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 27
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "decisao_revisor",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 28
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "status_analise",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 29
+    },
+    {
+      "tabela": "redacoes_candidato",
+      "coluna": "bloqueio_avanco",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 30
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "pergunta_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "texto_em_progresso",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "word_count",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "iniciado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "ultima_atividade_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "completou_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "redacoes_candidato_em_progresso",
+      "coluna": "user_agent",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "respostas_avaliacao",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_avaliacao",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_avaliacao",
+      "coluna": "teste",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_avaliacao",
+      "coluna": "respostas",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_avaliacao",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "respostas_bigfive",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_bigfive",
+      "coluna": "questao_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_bigfive",
+      "coluna": "resposta",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_bigfive",
+      "coluna": "tempo_resposta_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_bigfive",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "pergunta_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "resposta_texto",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "tempo_resposta_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "respostas_cultura",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "questao_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "mais_caracteristico",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "menos_caracteristico",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "tempo_resposta_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "respostas_disc",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "pergunta_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "resposta_texto",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "resposta_opcoes",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "resposta_numerica",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "respostas_formulario",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "respostas_raven",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "respostas_raven",
+      "coluna": "questao_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "respostas_raven",
+      "coluna": "resposta",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "respostas_raven",
+      "coluna": "tempo_resposta_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "respostas_raven",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "score_openness",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "score_conscientiousness",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "score_extraversion",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "score_agreeableness",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "score_neuroticism",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "tempo_total_segundos",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "scores_bigfive",
+      "coluna": "analise_ia",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "tipo",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "subtipo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "pergunta_id",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "score",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "score_max",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "metadata",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "citacoes",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "red_flags",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "scores_candidato",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "score_d",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "score_i",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "score_s",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "score_c",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "perfil_primario",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "perfil_secundario",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "tempo_total_segundos",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "scores_disc",
+      "coluna": "analise_ia",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "candidatura_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "total_acertos",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "percentual_acerto",
+      "tipo": "numeric",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "percentil",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "classificacao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "acertos_por_serie",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "tempo_total_segundos",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "scores_raven",
+      "coluna": "analise_ia",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "user_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "session_token",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 3
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "device_info",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "device_type",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "browser",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "operating_system",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "ip_address",
+      "tipo": "inet",
+      "nullable": false,
+      "ordem": 8
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "country",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "city",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "last_activity",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 11
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "expires_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "ativo",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "revogado",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 14
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "revogado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "revogado_por",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "sessoes_ativas",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 17
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "tipo",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "versao",
+      "tipo": "integer",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "assunto",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "corpo_html",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "corpo_texto",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "variaveis_disponiveis",
+      "tipo": "ARRAY",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "descricao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "ativo",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "is_padrao",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "templates_email",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "user_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "nome_completo",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "email",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "cargo",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "telefone",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "role",
+      "tipo": "character varying",
+      "nullable": false,
+      "ordem": 7
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "avatar_url",
+      "tipo": "character varying",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "ativo",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 9
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "primeiro_acesso",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 10
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "data_ultimo_login",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 12
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 13
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "usuarios_rh",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "slug",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "titulo",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "subtitulo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "descricao_curta",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "departamento",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "tipo_contrato",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "modelo_trabalho",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "nivel_senioridade",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "cidade",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "estado",
+      "tipo": "character",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "endereco_completo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "faixa_salarial_min",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "faixa_salarial_max",
+      "tipo": "numeric",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "exibir_salario",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "status",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 16
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "data_abertura",
+      "tipo": "date",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "data_fechamento",
+      "tipo": "date",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "total_vagas",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "sobre_empresa",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "sobre_cargo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "responsabilidades",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "requisitos_formacao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 23
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "requisitos_experiencia",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 24
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "requisitos_tecnicos",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 25
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "requisitos_habilidades",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 26
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "perfil_ideal",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 27
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "diferenciais",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 28
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "beneficios",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 29
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "jornada_trabalho",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 30
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "prompt_ia_descricao",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 31
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 32
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 33
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 34
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 35
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 36
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "testes_aplicaveis",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 37
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "pesos_avaliacao",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 38
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "qualificacao_etapa1",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 39
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "aplica_cognitivo",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 40
+    },
+    {
+      "tabela": "vagas",
+      "coluna": "entrevista_agendada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 41
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "usuario_rh_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "vaga_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 5
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "vagas_associadas_recrutadores",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "nome",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "tipo",
+      "tipo": "USER-DEFINED",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "url",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "metodo",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "headers",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 6
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "secret",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "usar_auth",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "timeout_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "retry_tentativas",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "retry_delay_segundos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "ativo",
+      "tipo": "boolean",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "ultima_chamada_sucesso",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "ultima_chamada_erro",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "total_chamadas",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "total_sucessos",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 16
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "total_erros",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 17
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 18
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "updated_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 19
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "deleted_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 20
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "created_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 21
+    },
+    {
+      "tabela": "webhooks_config",
+      "coluna": "updated_by",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 22
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "webhook_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "payload_enviado",
+      "tipo": "jsonb",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "resposta_recebida",
+      "tipo": "jsonb",
+      "nullable": true,
+      "ordem": 4
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "status_code",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "sucesso",
+      "tipo": "boolean",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "erro_mensagem",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 7
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "tempo_resposta_ms",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "tentativa_numero",
+      "tipo": "integer",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "webhooks_logs",
+      "coluna": "created_at",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 10
+    }
+  ]
+}
