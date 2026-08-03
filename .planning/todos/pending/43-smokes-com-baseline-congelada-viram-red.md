@@ -2,7 +2,7 @@
 id: 43-smokes-com-baseline-congelada-viram-red
 created: 2026-08-02
 source: Phase 43 code review (WR-02), confirmado pelo smoke do caminho feliz no 43-07
-priority: medium
+priority: high
 resolves_phase: 44
 tags: [testes, smoke, gate, falso-positivo, m8-consent]
 ---
@@ -74,3 +74,36 @@ Vale tambem para `p43_matriz_retencao_smoke.sql` assercao (c), que exige `origem
 'seed'` em 8/8 — ela reprova de proposito assim que um administrador editar uma
 janela pela tela, e o cabecalho ja diz isso em voz alta. Aquela e uma escolha
 DELIBERADA e documentada; estas duas nao sao.
+
+---
+
+## ⚠ CONFIRMADO — a previsao virou fato em 2026-08-03
+
+Medido no banco, no mesmo dia em que o primeiro cadastro real pos-enforcement
+aconteceu (`fernando@fotona.com.br`, pelo navegador):
+
+| | |
+|---|---|
+| Pin em `p43_consent_prova_smoke.sql:84` | `17` |
+| Linhas em `public.autorizacoes` hoje | **18** |
+| Linhas com prova de consentimento | **1** |
+| Assercao (b) reprovaria | **sim** |
+| Assercao (f) reprovaria | **sim** |
+
+**(b) roda ANTES de (f)**, entao o run aborta na mensagem:
+
+> `P43C FAIL (b): (…) o apply BACK-FILLOU prova de consentimento`
+
+A acusacao e FALSA. Nao houve back-fill; houve um cadastro. O smoke perdeu a
+capacidade de distinguir abuso de uso legitimo — e nomeia como culpado um defeito
+que nao existe.
+
+**Consequencia de leitura, e ela inverte o sinal:** os `6/6 PASS` registrados no
+`43-07-SUMMARY.md` sao HISTORICOS, validos para o estado do banco no instante do
+apply. **Um run verde deste smoke hoje seria sinal de PROBLEMA**, nao de saude —
+significaria que nenhum cadastro real ocorreu desde o enforcement, ou que alguem
+afrouxou as assercoes.
+
+Isso eleva a prioridade: enquanto nao for corrigido, este arquivo nao pode ser
+usado como gate, e quem o rodar sem ler este todo vai investigar um back-fill que
+nunca houve.

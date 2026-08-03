@@ -164,12 +164,26 @@ export function AutorizacoesStep() {
       */}
       <Alert className="bg-blue-500/10 border-blue-400/30 text-white">
         <Info className="h-5 w-5 text-blue-400" aria-hidden="true" />
+        {/*
+          ⚠ Os dois <p> NAO sao cosmetica: `AlertDescription` e
+          `grid justify-items-start gap-1` (ui/alert.tsx), entao CADA FILHO vira uma
+          LINHA do grid. Com nos soltos — <strong>, <br />, texto, <strong>, "." — a
+          frase quebrava em cinco linhas e o ponto final aparecia SOZINHO na ultima,
+          numa tela cujo assunto e justamente clareza. Observado em producao em
+          2026-08-03.
+          Envolver em <p> devolve o fluxo inline (um <p> = um item de grid) e ativa o
+          `[&_p]:leading-relaxed` que o proprio componente ja declara — ou seja, <p>
+          sempre foi o filho que ele esperava. O `gap-1` do grid substitui o <br />.
+        */}
         <AlertDescription className="text-white/90 ml-2">
-          <strong>Lei Geral de Proteção de Dados (LGPD)</strong>
-          <br />
-          Seus dados pessoais são protegidos por lei. Depois de criar sua conta,
-          você pode ver e mudar suas autorizações quando quiser, na página{' '}
-          <strong>Seus dados e autorizações</strong>.
+          <p>
+            <strong>Lei Geral de Proteção de Dados (LGPD)</strong>
+          </p>
+          <p>
+            Seus dados pessoais são protegidos por lei. Depois de criar sua conta,
+            você pode ver e mudar suas autorizações quando quiser, na página{' '}
+            <strong>Seus dados e autorizações</strong>.
+          </p>
         </AlertDescription>
       </Alert>
 

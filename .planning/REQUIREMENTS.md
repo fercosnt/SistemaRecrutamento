@@ -49,9 +49,9 @@
 
 ### Consentimentos (CONSENT)
 
-- [ ] **CONSENT-01**: Checkboxes de consentimento opcional nascem **desmarcados** — o `.default(true)` atual impede distinguir "marcou" de "não desmarcou"
-- [ ] **CONSENT-02**: Cada consentimento é gravado com versão do texto + hash + timestamp, tornando pré/pós-enforcement distinguíveis por **dado**, não por inferência
-- [ ] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
+- [x] **CONSENT-01**: Checkboxes de consentimento opcional nascem **desmarcados** — o `.default(true)` atual impede distinguir "marcou" de "não desmarcou"
+- [x] **CONSENT-02**: Cada consentimento é gravado com versão do texto + hash + timestamp, tornando pré/pós-enforcement distinguíveis por **dado**, não por inferência
+- [x] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
 - [x] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
 - [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida
 
@@ -65,7 +65,7 @@
 > existem. Marcar `[x]` aqui afirmaria em `.planning/` exatamente a classe de coisa que esta
 > fase existe para eliminar — um consentimento declarado sem código que o execute.
 
-- [ ] **CONSENT-06**: Click tracking desligado no Resend — rastrear cliques em e-mail transacional é coleta não consentida
+- [x] **CONSENT-06**: Click tracking desligado no Resend — rastrear cliques em e-mail transacional é coleta não consentida
 
 ### Política de Retenção (RETEN) — configuração, zero ação destrutiva
 

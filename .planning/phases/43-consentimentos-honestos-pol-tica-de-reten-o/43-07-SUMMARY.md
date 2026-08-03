@@ -363,6 +363,35 @@ fica escrita e uma exposicao que ninguem lembra de fechar.
 
 ## O que este checkpoint NAO entrega
 
+> ### ✅ CORRECAO (2026-08-03) — a secao abaixo esta SUPERADA
+>
+> **O bundle do cliente FOI publicado.** `origin/main` = `581abe1`, deploy Ready, e o
+> cadastro e a revogacao foram exercitados por um navegador real (ver §"Provado ao
+> vivo" no `43-VERIFICATION.md` e § do bloqueador no `STATE.md`).
+>
+> A secao original fica AQUI, intacta, porque ela previu corretamente o risco — e
+> porque foi exatamente o risco que ela nomeia que se materializou: entre 2026-08-02
+> ~14h20 e 2026-08-03 ~00h30 o cadastro devolveu `400 VALIDATION` em producao. Apagar
+> o texto que acertou o diagnostico para deixar o arquivo bonito seria remover a unica
+> evidencia de que o aviso existia antes do incidente.
+>
+> **Tres causas empilhadas, e so a primeira estava prevista aqui:**
+> 1. a EF v16 breaking contra o bundle publicado — **esta secao**;
+> 2. o Vercel nao buildava desde 2026-06-27 (preset `vite` procura `dist/`, o repo
+>    emite em `build/`); os 20 deployments visiveis estavam em ERROR e o site servia
+>    um build de junho, congelado. **Nenhum artefato deste repositorio observava
+>    isso** — cinco semanas de builds quebrados passaram invisiveis;
+> 3. variaveis de ambiente ausentes no build → app quebrava no boot, tela em branco.
+>
+> Correcoes: `274de2a` (`outputDirectory`), `0adea38` (SPA fallback — nenhuma URL
+> direta funcionava, nem `/cadastro`), `581abe1` (navbar compartilhada no dashboard,
+> sem a qual `/candidato/privacidade` era inalcancavel), mais as env vars nas Project
+> Settings.
+>
+> ⚠ **A licao de processo continua ABERTA:** publicar o cliente nao pertence a plano,
+> fase ou todo nenhum — e as Phases 44, 45 e 47 tambem entregam frontend. Rastreado em
+> `.planning/todos/pending/publicar-cliente-nao-pertence-a-plano-nenhum.md`.
+
 **O bundle do cliente nao foi publicado.** Nenhum plano desta fase o publica. As 4
 migrations estao vivas e a EF esta na v16, mas as telas dos planos 43-08 e 43-09
 existem em codigo e em teste, nao no navegador de ninguem.
