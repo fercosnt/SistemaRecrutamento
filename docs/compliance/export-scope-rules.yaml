@@ -1,0 +1,421 @@
+# Escopo do titular — a pergunta que o inventário da Phase 42 NÃO responde
+#
+# Requirement: EXPORT-02 · Phase 44 / Plan 44-01 (Task 2)
+# Decisão de origem: 44-CONTEXT §Área 2 + BD-6 · 44-MEASUREMENTS §M1/§M2
+# Consumido por: docs/compliance/sql/gen-export-allowlist.cjs
+#
+# POR QUE ESTE ARQUIVO EXISTE
+# O `pii-inventory.yaml` responde O QUE A EXCLUSÃO FAZ COM ESTA COLUNA — seu
+# vocabulário é `apagar` / `anonimizar` / `preservar` / `preservar_com_ressalva`,
+# e ele foi escrito para a Phase 45. A Phase 44 precisa de outra resposta:
+# ISTO É DADO DO TITULAR SOB O ART. 18, II?
+#
+# Os dois eixos NÃO coincidem, e três famílias provam:
+#   · `autorizacoes.autorizacao_uso_dados` é `preservar` — E É do titular.
+#   · `configuracoes_empresa.smtp_senha_encrypted` é `preservar` — E É SEGREDO.
+#   · `usuarios_rh.*` é PII de FUNCIONÁRIO, e o próprio YAML declara, em prosa,
+#     que está fora do escopo do direito do titular candidato.
+#
+# Ler o inventário como se ele respondesse a pergunta desta fase produziria um
+# export que vaza credencial e PII de terceiro enquanto omite consentimento.
+#
+# PRINCÍPIO DE ESCOPO (o critério do 44-CONTEXT §Specific Ideas, em uma frase)
+# Entra na cópia o que o sistema guarda SOBRE A PESSOA ENQUANTO CANDIDATA —
+# cadastro, consentimentos, candidaturas, respostas e scores de avaliação,
+# entrevistas, análises de IA (o RESULTADO e a EXPLICAÇÃO), decisões e a trilha
+# do processo. Fica fora, SEMPRE COM RAZÃO NOMEADA, o que é telemetria de
+# infraestrutura/segurança/entrega, PII de terceiro, segredo, configuração do
+# produto ou vocabulário do sistema. "Se o RH enxerga sobre a pessoa, aparece na
+# cópia" é o critério; esquecimento nunca é razão.
+---
+meta:
+  requirement: EXPORT-02
+  fase: 44
+  plano: 44-01
+  versao: "1.0.0"
+  fonte: |
+    Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
+    código nem inferida do schema: é o julgamento jurídico/de produto que o
+    gerador VALIDA contra o catálogo vivo, nunca substitui. As chaves de titular
+    aqui declaradas foram conferidas contra `database.types.ts` (67 tabelas base,
+    mesmo total do catálogo vivo medido em 2026-08-03) e são RE-VALIDADAS a cada
+    geração: chave declarada que não exista como coluna viva falha a geração.
+  consumidores:
+    - "Phase 44 — projeção da Edge Function `exportar-meus-dados` (EXPORT-02)"
+    - "Phase 45 — plano de exclusão/anonimização: o escopo do titular exercitado
+       em produção é o insumo do motor destrutivo (ERASE-02, ERASE-06)"
+  cobertura_declarada_em: "2026-08-03"
+  cobertura_declarada:
+    tabelas_vivas_no_momento_da_escrita: 67
+    em_escopo_titular: 29
+    fora_do_escopo_explicito: 21
+    fora_do_escopo_por_regra: 17
+    nota: |
+      29 + 21 + 17 = 67. Este total é CONFERÊNCIA DE ESCRITA, não prova: a prova
+      é o fecho executado pelo gerador contra o catálogo VIVO a cada geração.
+      Uma tabela viva que não caia em nenhum dos três baldes falha a geração.
+
+# ---------------------------------------------------------------------------
+# 1 · ESCOPO DO TITULAR — tabela → como a linha se amarra à pessoa
+# ---------------------------------------------------------------------------
+# `chave_titular` é a coluna que amarra a linha ao titular.
+# `ligacao` é `direta` (a coluna é `id` / `candidato_id`) ou `via:<tabela>`
+# quando o vínculo é indireto (o caminho passa por `candidaturas`).
+#
+# ⚠ ESTE MAPA É DADO, NUNCA INFERÊNCIA DO CÓDIGO. O gerador o valida contra o
+# catálogo vivo: `chave_titular` inexistente ⇒ erro de fechamento. Uma chave
+# errada produziria leitura vazia em runtime — um export honesto por acidente
+# de estar em branco.
+escopo_titular:
+
+  # --- Núcleo do titular (ligação direta) ----------------------------------
+  candidatos:
+    chave_titular: id
+    ligacao: direta
+    razao: "O cadastro. É a pessoa; a EF resolve esta linha de `auth.uid()` via `user_id`."
+  autorizacoes:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Prova de consentimento — inclusive a versão e o hash do texto aceito (dependência declarada da Phase 43)."
+  disponibilidade:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Declaração de disponibilidade feita pela própria pessoa."
+  devolutivas_candidato:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Devolutiva comportamental entregue ao titular — já é mostrada a ele no painel."
+  candidate_ai_decisions:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Resultado e explicação da decisão apoiada em IA (Art. 20). O sistema já expõe a explicação em /explicacao desde o M2."
+  recruiter_alerts:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Alerta que o RH enxerga SOBRE a pessoa — o critério da cópia honesta é o que o RH vê, não o que é confortável mostrar."
+
+  # --- Candidatura e tudo que pende dela (ligação via candidaturas) ---------
+  candidaturas:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Vínculo candidato↔vaga: currículo, etapa, scores e o texto livre do RH sobre a pessoa."
+  agendamentos_entrevista:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Entrevistas marcadas com a pessoa (EXPORT-02 · 44-CONTEXT §Área 2)."
+  historico_candidatura:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Trilha de etapas da candidatura — é a história do processo dela."
+  decisao_final:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "A decisão e sua justificativa. Art. 20 dá direito à explicação; omitir seria incoerente com a tela que já a mostra."
+  decisao_final_historico:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Decisões anteriores arquivadas da mesma candidatura."
+  entrevistas_online:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Conteúdo de entrevista — alta densidade de PII do titular."
+  entrevistas_presenciais:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, presencial."
+  entrevista_analises:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Análise da entrevista, incluindo citações da fala da pessoa."
+  avaliacoes_rh:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Avaliação humana do RH sobre a pessoa — o que o RH enxerga entra na cópia."
+  analise_candidato_vaga:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Resumo e gaps produzidos por IA sobre a pessoa: RESULTADO, não prompt nem telemetria."
+
+  # --- Respostas de avaliação (o que a pessoa respondeu) -------------------
+  respostas_bigfive:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Respostas comportamentais dadas pela própria pessoa."
+  respostas_disc:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, DISC."
+  respostas_raven:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, avaliação cognitiva."
+  respostas_cultura:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, adequação cultural."
+  respostas_formulario:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, formulário da vaga."
+  respostas_avaliacao:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, avaliação genérica."
+  cognitivo_respostas:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Respostas do teste cognitivo. A telemetria de proctoring é vigilância SOBRE a pessoa e o titular tem direito de vê-la."
+  redacoes_candidato:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Produção escrita do titular."
+  redacoes_candidato_em_progresso:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Rascunho da produção escrita — o sistema guarda, logo a pessoa tem direito à cópia."
+
+  # --- Scores derivados (o RESULTADO das avaliações) -----------------------
+  scores_bigfive:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Perfil comportamental derivado — resultado da avaliação, direito do Art. 20."
+  scores_disc:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, DISC."
+  scores_raven:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Idem, cognitivo."
+  scores_candidato:
+    chave_titular: candidatura_id
+    ligacao: via:candidaturas
+    razao: "Score consolidado por pergunta, com citações literais do que a pessoa disse."
+
+  # --- Nasce na Phase 44 (plano 44-02) — ainda não existe no catálogo vivo --
+  # O gerador AVISA no stderr e registra em `meta.escopo_declarado_nao_vivo` do
+  # artefato quando uma tabela declarada aqui não existe no catálogo; não falha,
+  # porque tabela ausente não pode vazar coluna nenhuma. O caminho inverso —
+  # tabela viva sem disposição — é que é erro de fechamento.
+  solicitacoes_dados:
+    chave_titular: candidato_id
+    ligacao: direta
+    razao: "Os próprios pedidos de acesso/exclusão do titular. DDL nasce no plano 44-02."
+
+# ---------------------------------------------------------------------------
+# 2 · FORA DO ESCOPO — tabela → razão NOMEADA (vocabulário fechado de 5 valores)
+# ---------------------------------------------------------------------------
+# Vocabulário fechado:
+#   telemetria_interna      — operação, segurança, entrega, custo, auditoria
+#   pii_de_terceiro         — dado pessoal de outra pessoa (funcionário ou outro candidato)
+#   segredo                 — credencial; um `select('*')` aqui vaza mais que PII (achado A-05)
+#   configuracao_do_produto — conteúdo do produto, não do candidato
+#   vocabulario_do_sistema  — tabela de domínio/enumeração
+fora_do_escopo:
+  # decisão TRAVADA na 44-CONTEXT §Área 2 e §Deferred: prompt, custo e
+  # telemetria de LLM não são dado do titular no sentido do Art. 18, II.
+  ai_call_logs: telemetria_interna
+  ai_cost_daily: telemetria_interna
+  # série agregada de auditoria de viés — não é a linha de uma pessoa
+  bias_audit_log: telemetria_interna
+  # `ranking` e `candidatura_ids` embutem OUTROS candidatos
+  comparativo_solicitado: pii_de_terceiro
+  # achado A-05 do próprio inventário: smtp_senha_encrypted, webhook_secret
+  configuracoes_empresa: segredo
+  webhooks_config: segredo
+  # zumbi confirmado (A-06): sem FK, sem candidato_id — CONSOL-03/Phase 47
+  data_deletion_log: telemetria_interna
+  entrevista_guias: configuracao_do_produto
+  historico_acoes: telemetria_interna
+  # telemetria de autenticação: IP, device, cidade, tentativas falhas
+  logs_acesso: telemetria_interna
+  # `dados_antes`/`dados_depois` são snapshots de linhas de terceiros também
+  logs_auditoria: telemetria_interna
+  # ledger operacional de entrega (provider_message_id, tentativas, backoff).
+  # O CONTEÚDO entregue já está na caixa do titular; LEDGER-03 declara a tabela
+  # candidato-DENY desde o M7.
+  notificacoes_enviadas: telemetria_interna
+  # M2 mediu: chaveia por `usuario_rh_id`. É o exemplo vivo de um `preservar`
+  # que é PII de OUTRA pessoa.
+  preferencias_notificacoes: pii_de_terceiro
+  usuarios_rh: pii_de_terceiro
+  vagas_associadas_recrutadores: pii_de_terceiro
+  prompt_versions: configuracao_do_produto
+  # controle anti-abuso; `hash_cpf_email` também está no veto absoluto abaixo
+  rate_limit_check_duplicate: telemetria_interna
+  # carrega `session_token` — credencial; veto absoluto cobre a coluna
+  sessoes_ativas: telemetria_interna
+  templates_email: configuracao_do_produto
+  vagas: configuracao_do_produto
+  webhooks_logs: telemetria_interna
+
+# ---------------------------------------------------------------------------
+# 3 · FORA DO ESCOPO POR REGRA — famílias que não merecem uma linha cada
+# ---------------------------------------------------------------------------
+# `padrao` é glob de NOME DE TABELA (`*` = qualquer sufixo/prefixo).
+# ⚠ Toda regra carrega `razao`. Uma regra sem razão é a MESMA omissão que este
+# arquivo existe para impedir — o gerador recusa uma regra sem `razao`.
+#
+# O M1 mediu 3 tabelas novas ausentes por completo do `pii-inventory.yaml`
+# (`config_sla_revisao`, `config_retencao_etapa`, `classe_evento_notificacao`).
+# Nenhuma é PII do titular. São exatamente o caso que este bloco resolve sem
+# inflar o arquivo — e sem depender de alguém lembrar de listá-las.
+fora_do_escopo_por_regra:
+  - id: FE1
+    padrao: "config_*"
+    razao: configuracao_do_produto
+    nota: "Limiares e janelas alteráveis sem deploy. Inclui `config_sla_dados`, que nasce no plano 44-02."
+  - id: FE2
+    padrao: "perguntas*"
+    razao: configuracao_do_produto
+    nota: "Biblioteca de perguntas da vaga — conteúdo do produto (regra R4 do inventário)."
+  - id: FE3
+    padrao: "pergunta_*"
+    razao: configuracao_do_produto
+    nota: "Metadados de opção de pergunta."
+  - id: FE4
+    padrao: "questoes_*"
+    razao: configuracao_do_produto
+    nota: "Itens dos instrumentos de avaliação. O que a PESSOA respondeu está em `respostas_*`, que ESTÁ no escopo."
+  - id: FE5
+    padrao: "*_itens"
+    razao: configuracao_do_produto
+    nota: "Itens de teste (bigfive, cognitivo)."
+  - id: FE6
+    padrao: "biblioteca_*"
+    razao: configuracao_do_produto
+    nota: "Biblioteca reutilizável de conteúdo de vaga."
+  - id: FE7
+    padrao: "classe_*"
+    razao: vocabulario_do_sistema
+    nota: "Vocabulário fechado de eventos de notificação (guard de marketing da Phase 43)."
+
+# ---------------------------------------------------------------------------
+# 4 · VETO ABSOLUTO — colunas que NUNCA saem, em tabela nenhuma
+# ---------------------------------------------------------------------------
+# Precede toda outra resolução, inclusive tabela em escopo e entrada explícita
+# no inventário. É o veto que sobrevive a alguém pôr uma tabela nova em
+# `escopo_titular` sem ler o que há dentro dela.
+colunas_nunca:
+  - smtp_senha_encrypted
+  - webhook_secret
+  - secret
+  - session_token
+  - hash_cpf_email
+
+# ---------------------------------------------------------------------------
+# 5 · PONTEIROS DE PESSOA — a regra R2 do inventário, partida em dois
+# ---------------------------------------------------------------------------
+# O inventário classifica TODA coluna-ponteiro como `anonimizar` (regra R2),
+# porque para a Phase 45 as duas se comportam igual: apagar quebra FK.
+# Para a Phase 44 elas são OPOSTAS — uma aponta para o titular (é dele), a
+# outra aponta para um funcionário (é de terceiro).
+#
+# ⚠ ORDEM DE PRECEDÊNCIA — DESVIO DELIBERADO DO PLANO, registrado:
+# o plano 44-01 escreveu a precedência como
+#   colunas_nunca → decisoes_por_coluna → entrada explícita no inventário → R1–R5.
+# Seguida À LETRA, ela exportaria `entrevistas_online.agendado_por` e
+# `avaliacoes_rh.avaliador_id`: o inventário tem entrada EXPLÍCITA para essas
+# colunas (`preservar`, nota "Funcionário"), e entrada explícita venceria a
+# regra R2. O resultado seria vazar o UUID de funcionário na cópia do
+# candidato — a mesma `pii_de_terceiro` que este arquivo exclui no nível da
+# tabela. Por isso R2 (este bloco) roda ANTES da entrada explícita do
+# inventário e DEPOIS de `decisoes_por_coluna` — um veto estrutural que
+# sobrevive a uma tabela nova, e ainda assim sobrescrevível caso a caso com
+# razão nomeada.
+#
+# Fecho sobre a própria regra: todo nome citado no `padrao` da R2 do
+# `pii-inventory.yaml` tem de aparecer em UMA destas duas listas. Sobra ⇒ erro
+# de fechamento. É o que impede a regra do inventário de crescer sem que este
+# arquivo tome conhecimento.
+ponteiros:
+  do_titular:
+    - user_id
+    - candidato_id
+  de_terceiro:
+    - usuario_id
+    - usuario_rh_id
+    - ator
+    - por_usuario
+    - revisada_por
+    - revisao_por_usuario
+    - avaliador_id
+    - agendado_por
+    - realizado_por
+    - solicitado_por
+    - revogado_por
+    - reviewer_id
+    - review_requested_by
+    - alterado_por
+    - created_by
+    - updated_by
+
+# ---------------------------------------------------------------------------
+# 6 · DECISÕES POR COLUNA — o que nem o inventário nem as regras resolvem
+# ---------------------------------------------------------------------------
+# Chave: `tabela.coluna`. Vence tudo, exceto o veto absoluto.
+#
+# As QUATRO primeiras são a razão de este bloco existir. O BD-6 mediu que elas
+# aparecem ZERO vezes no `pii-inventory.yaml` (44-MEASUREMENTS §M1) — e são
+# exatamente as "colunas de consentimento versionado" que o ROADMAP §Phase 44
+# (*Depends on*) nomeia como a dependência desta fase sobre a Phase 43.
+# Derivar a allowlist só do inventário omitiria, EM SILÊNCIO, a própria
+# dependência declarada da fase.
+decisoes_por_coluna:
+
+  autorizacoes.consent_text_version:
+    export: true
+    razao: "ROADMAP §Phase 44 *Depends on* — consentimento versionado. 0 ocorrências no inventário (BD-6). É a prova de QUAL texto a pessoa aceitou."
+  autorizacoes.consent_text_hash:
+    export: true
+    razao: "ROADMAP §Phase 44 *Depends on* — hash do texto aceito. 0 ocorrências no inventário (BD-6). Sem ele a versão é afirmação sem prova."
+  autorizacoes.consent_registrado_em:
+    export: true
+    razao: "ROADMAP §Phase 44 *Depends on* — QUANDO o consentimento foi registrado. 0 ocorrências no inventário (BD-6)."
+  autorizacoes.autorizacao_marketing_vagas:
+    export: true
+    razao: "ROADMAP §Phase 44 *Depends on* — opt-in de divulgação de vagas, separado do transacional (CONSENT-04). 0 ocorrências no inventário (BD-6). BD-5: NULL = NÃO autorizado, e o titular tem direito de ver o próprio estado."
+
+  candidaturas.opcao_knockout_id:
+    export: true
+    razao: "5ª coluna nova medida pelo M1 com 0 ocorrências no inventário. É a opção que eliminou a candidatura — o motivo do desfecho é precisamente o que o Art. 20 manda ser explicável."
+
+  candidaturas.curriculo_url:
+    export: true
+    razao: "Caminho do arquivo no Storage, não URL assinada. O link de 60 s é cunhado client-side pelo próprio titular (BD-7); o export nunca embute credencial de acesso."
+
+# ---------------------------------------------------------------------------
+# 7 · REGRA DE FECHO — o contrato que o gerador implementa
+# ---------------------------------------------------------------------------
+regra_de_fecho: |
+  TODA tabela viva do schema `public` tem de cair em `escopo_titular`, em
+  `fora_do_escopo`, ou em uma regra de `fora_do_escopo_por_regra`. E TODA
+  coluna viva de tabela em escopo tem de ter veredito — por `colunas_nunca`,
+  por `decisoes_por_coluna`, por `ponteiros` (regra R2), por entrada explícita
+  de coluna no `pii-inventory.yaml`, ou pelas regras R1/R3/R5 do inventário
+  aplicadas por padrão. QUALQUER SOBRA É ERRO DE FECHAMENTO QUE FALHA A
+  GERAÇÃO, nomeando no stderr a tabela ou a `tabela.coluna` que sobrou.
+
+  Nunca omissão silenciosa. Esta é a lição do BD-6: o insumo datado
+  (`pii-inventory.yaml`, colhido em 2026-07-29) envelheceu em cinco dias
+  exatamente no lugar de que esta fase depende, e uma allowlist derivada dele
+  sozinho teria ficado verde enquanto omitia o consentimento versionado.
+  Um fecho que falha alto é a única forma de a próxima janela de drift ser
+  descoberta pela geração em vez de pelo titular.
+
+  A ordem de precedência das colunas é:
+    1. `colunas_nunca`        (veto absoluto)
+    2. `decisoes_por_coluna`  (decisão explícita, com razão)
+    3. `ponteiros`            (R2 partida: titular sai, terceiro não)
+    4. entrada explícita de coluna no `pii-inventory.yaml`
+    5. R1 (`id`, `*_id`, `created_at`, `updated_at`, `deleted_at`, `*_em`)
+    6. R3 (tipo booleano, numérico, enum ou temporal — estado de processo)
+    7. R5 (`analise_ia*`, `raw_response`, `conteudo_jsonb`, `metadata`,
+           `dados_antes`, `dados_depois` — saída de IA: o RESULTADO entra)
+    8. sobra ⇒ ERRO DE FECHAMENTO
+
+  R4 do inventário ("configuração de vaga, biblioteca de perguntas, templates,
+  itens de teste") NÃO é regra de coluna: é regra de TABELA, e vive em
+  `fora_do_escopo_por_regra`. Nenhuma coluna de tabela em escopo do titular
+  pode ser resolvida por R4 — se pudesse, "conteúdo do produto" viraria a porta
+  por onde uma coluna não classificada sairia calada.
