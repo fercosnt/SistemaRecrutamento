@@ -157,7 +157,18 @@ Plans:
   4. O prazo do **Art. 19, II (15 dias corridos)** é medido a partir do registro do pedido e está visível ao RH — um pedido que se aproxima do prazo é distinguível de um recém-chegado.
   5. O inventário que o export projeta é um artefato **nomeado e versionado** que a Phase 45 consome como plano de exclusão — a fase irreversível não refaz o levantamento.
 
-**Plans**: TBD
+**Plans**: 7 plans (5 waves — o tracer é a wave 3, e as duas expansões do candidato ficam em série porque ambas tocam `exportacaoService.ts` e `PrivacidadeCandidatoPage.tsx`)
+
+Plans:
+
+- [ ] 44-01-PLAN.md — Os dois insumos da allowlist antes de qualquer linha de export: o arquivo que declara o escopo do titular e o gerador que funde catálogo vivo + classificação do YAML, falhando alto quando não fecham (BD-6)
+- [ ] 44-02-PLAN.md — As duas tabelas que fazem o pedido existir como fato durável (`solicitacoes_dados` É o cooldown e É o marco do Art. 19, II; `config_sla_dados`) e as duas RPCs de supervisão com o predicado do BD-8 escrito uma vez
+- [ ] 44-03-PLAN.md — O inventário do export como artefato versionado, gerado e nunca digitado, com os DOIS guardas do SC#3 — e o smoke SQL provado **mordendo**
+- [ ] 44-04-PLAN.md — **CHECKPOINT do orquestrador**: apply das 2 migrations na ordem, ledger reconciliado, fidelidade por md5, smoke executado e M3 (policies vivas) LIDO antes de qualquer afirmação de RLS
+- [ ] 44-05-PLAN.md — **TRACER**: a fatia vertical do clique ao `.json` — EF `exportar-meus-dados` (allowlist, corpo não lido, registro antes da montagem, 429/`COOLDOWN`), serviço, hook, bloco e seção 3, provada ao vivo
+- [ ] 44-06-PLAN.md — A cópia honesta: o segundo arquivo feito para uma pessoa ler (escape + fronteira do inventário escrita) e os dois estados que faltavam ao CTA — sucesso persistente e cooldown que nunca é botão morto
+- [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado
+
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia
 **Portão destrutivo**: não se aplica (read-only por construção)
