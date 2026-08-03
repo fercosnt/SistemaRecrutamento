@@ -564,6 +564,25 @@ decisoes_por_coluna:
     export: true
     razao: "(iii) O TIPO do alerta ('candidate_cost_over_1' | 'spam' | 'error_rate' | 'vaga_cost_over_200'). A tabela está em `escopo_titular` porque o RH enxerga o alerta SOBRE a pessoa; uma linha de alerta sem o motivo diria ao titular 'existe um alerta a seu respeito' e negaria qual — a omissão por metade que o EXPORT-06 combate. Vocabulário fechado do próprio alerter, sem texto livre e sem terceiro. ⚠ Só chega à cópia a linha cujo `candidato_id` é o do titular; as linhas de custo por vaga têm `candidato_id` nulo e nunca entram na projeção."
 
+  # ⚠ ESTE NÃO VEIO DO FECHO. Veio da asserção (c) do `exportAllowlist.test.ts`, na
+  # PRIMEIRA execução contra o artefato real. O fecho não o pegou porque o
+  # `pii-inventory.yaml` tem entrada EXPLÍCITA para ele (`preservar`) — e `preservar`
+  # responde à pergunta da EXCLUSÃO, não à do ACESSO. É a ortogonalidade dos dois eixos
+  # produzindo, ao vivo, exatamente o erro que o cabeçalho deste arquivo descreve em
+  # prosa. Prova de que a asserção negativa nomeada é rede e não enfeite.
+  candidate_ai_decisions.ai_call_log_ids:
+    export: false
+    razao: |
+      telemetria_interna — `uuid[]` de PONTEIROS para linhas de `ai_call_logs`, tabela
+      que o bloco 2 exclui por decisão travada na 44-CONTEXT §Área 2 (prompt, custo e
+      telemetria de LLM não são dado do titular). Exportar os ponteiros seria exportar a
+      tabela pela porta dos fundos, em forma de UUID opaco para um registro que o titular
+      não pode ler — e a 44-UI-SPEC §Arquivos proíbe literalmente "qualquer chave, token
+      ou identificador interno de infraestrutura" nos dois arquivos entregues.
+      A regra R2 de `ponteiros` não o pega: o nome termina em `_ids`, não em `_id`.
+      O titular não perde nada do Art. 20: `ai_recommendation`, `ai_composite_score` e
+      `ai_reasoning_summary` — o RESULTADO e a EXPLICAÇÃO — continuam na cópia.
+
   redacoes_candidato.referencia_match:
     export: false
     razao: |
