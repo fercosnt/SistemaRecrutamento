@@ -47,8 +47,10 @@
 --   (b) ⊖ NEGATIVA — ZERO policies de INSERT/UPDATE/DELETE/ALL. Default-deny é a
 --       postura; uma policy de escrita acrescentada depois contornaria a auditoria
 --       que o RETEN-02 exige, e sairia daqui em silêncio sem esta metade.
---   (c) Seed: 8 linhas, todas com janela_meses = 24, origem = 'seed', alterado_por
---       NULL. Um estado a menos aqui vira, na Phase 46, candidatura sem regra.
+--   (c) A matriz por INVARIANTE (reescrita 2026-08-03): os 8 estados existem, toda
+--       janela respeita 1..24, seed intacto (24 + sem alterador) e admin com autor.
+--       A versao anterior fixava o estado NASCENTE e morria no 1o uso legitimo —
+--       sendo a 3a de 11 num lote unico, ela levava (d)..(k) e (z) junto.
 --   (d) O CHECK é provado por UPDATE REAL: 25 e 0 são recusados com 23514.
 --   (e) `salvar_janela_retencao` recusa 25 meses (22023), recusa valor idêntico ao
 --       atual (22023) e recusa impersonação de papel `rh` (42501).
@@ -213,41 +215,84 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (c) SEED — 8 linhas, todas em 24 meses, origem 'seed', alterado_por NULL.
+-- (c) A MATRIZ, POR INVARIANTE — e não por instantâneo do estado nascente.
 --
---     ⚠ Esta asserção é escrita para o estado RECÉM-APLICADO. Se um administrador
---     já tiver alterado alguma janela pela tela (origem = 'admin'), ela reprova de
---     propósito: o gate desta fase é sobre o estado NASCENTE da matriz, e uma
---     alteração legítima posterior significa que o smoke cumpriu seu papel e não
---     deve ser re-rodado como se fosse regressão.
+--     ⚠ REESCRITA EM 2026-08-03, e o motivo importa mais que a asserção.
+--
+--     A versão anterior exigia "8 linhas, TODAS em 24 meses, TODAS origem='seed'",
+--     e o cabeçalho declarava que reprovar após uma edição legítima era proposital.
+--     A intenção era defensável; a MECÂNICA não era:
+--
+--       · esta é a 3ª asserção de 11, numa chamada ÚNICA. Um `RAISE EXCEPTION`
+--         aqui ABORTA O LOTE INTEIRO — (d) até (k) e o RESUMO (z) nunca executam.
+--         Entre as mortas ficavam a **(j)** (invariante zero-destrutiva, que define
+--         a fase) e a **(k)** (o guard do 42804, escrito no mesmo dia);
+--       · o primeiro `IF` a disparar era `v_em24 <> 8`, cuja mensagem acusa
+--         violação do TETO consentido. Mas `rejeitado` foi para 18, que é MENOR
+--         que 24 — um ENCURTAMENTO, mais protetivo. O gate acusava de violar um
+--         teto quem tinha ficado abaixo dele;
+--       · e a acusação declarada ("alguma linha já foi alterada") era o TERCEIRO
+--         `IF`, que nunca era alcançado.
+--
+--     Um smoke que morre no primeiro uso legítimo do produto que ele protege não é
+--     estrito, é inutilizável — e some em silêncio, porque quem o roda vê uma falha
+--     plausível e não percebe que oito asserções deixaram de existir.
+--
+--     A REESCRITA troca instantâneo por INVARIANTE. O que tem de valer SEMPRE:
+--       (c.1) os 8 estados do enum existem — um ausente vira, na Phase 46,
+--             candidatura sem regra de retenção;
+--       (c.2) toda janela respeita 1..24 — o teto consentido, que um encurtamento
+--             NÃO viola;
+--       (c.3) linha `origem='seed'` está em 24 e sem alterador — ninguém a tocou;
+--       (c.4) linha `origem='admin'` TEM alterador — procedência não se perde.
+--
+--     Assim uma edição legítima passa, e os defeitos reais continuam reprovando:
+--     estado sumido, janela fora do teto, seed adulterado, ou alteração sem autor.
+--     A distinção `seed` × `admin` que a Phase 46 tem de consultar antes de armar a
+--     purga fica ASSERIDA em vez de apenas descrita.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_total   int;
-  v_em24    int;
-  v_seed    int;
-  v_semdono int;
+  v_total       int;
+  v_fora_teto   int;
+  v_seed_sujo   int;
+  v_admin_orfao int;
+  v_seed        int;
+  v_admin       int;
 BEGIN
   SELECT count(*),
-         count(*) FILTER (WHERE c.janela_meses = 24),
+         count(*) FILTER (WHERE c.janela_meses NOT BETWEEN 1 AND 24),
+         count(*) FILTER (WHERE c.origem = 'seed'
+                            AND (c.janela_meses <> 24 OR c.alterado_por IS NOT NULL)),
+         count(*) FILTER (WHERE c.origem = 'admin' AND c.alterado_por IS NULL),
          count(*) FILTER (WHERE c.origem = 'seed'),
-         count(*) FILTER (WHERE c.alterado_por IS NULL)
-    INTO v_total, v_em24, v_seed, v_semdono
+         count(*) FILTER (WHERE c.origem = 'admin')
+    INTO v_total, v_fora_teto, v_seed_sujo, v_admin_orfao, v_seed, v_admin
     FROM public.config_retencao_etapa c;
 
+  -- (c.1) o enum etapa_processo INTEIRO
   IF v_total <> 8 THEN
-    RAISE EXCEPTION 'P43M FAIL (c): a matriz tem % linhas, esperado 8 (o enum etapa_processo inteiro) — um estado ausente vira, na Phase 46, candidatura sem regra de retencao', v_total;
+    RAISE EXCEPTION 'P43M FAIL (c.1): a matriz tem % linhas, esperado 8 (o enum etapa_processo inteiro) — um estado ausente vira, na Phase 46, candidatura sem regra de retencao', v_total;
   END IF;
-  IF v_em24 <> 8 THEN
-    RAISE EXCEPTION 'P43M FAIL (c): apenas % de 8 linhas estao em 24 meses — o seed BD-1 e o TETO JA CONSENTIDO pela copy do cadastro, uniforme por decisao do operador', v_em24;
+
+  -- (c.2) o teto consentido, nos DOIS sentidos. Encurtar e legitimo; passar de 24 nao.
+  IF v_fora_teto <> 0 THEN
+    RAISE EXCEPTION 'P43M FAIL (c.2): % linha(s) com janela fora de 1..24 — 24 e o TETO JA CONSENTIDO pela copy do cadastro (BD-1), e nem a RPC nem o CHECK deveriam ter deixado passar', v_fora_teto;
   END IF;
-  IF v_seed <> 8 OR v_semdono <> 8 THEN
-    RAISE EXCEPTION 'P43M FAIL (c): % linha(s) com origem=seed e % com alterado_por nulo, esperado 8/8 — alguma linha ja foi alterada, ou o seed gravou procedencia errada', v_seed, v_semdono;
+
+  -- (c.3) o seed intacto e o seed intacto: 24 meses, sem alterador.
+  IF v_seed_sujo <> 0 THEN
+    RAISE EXCEPTION 'P43M FAIL (c.3): % linha(s) com origem=seed mas janela <> 24 ou alterado_por preenchido — ou o seed gravou procedencia errada, ou algo alterou a linha SEM passar por salvar_janela_retencao (que marcaria origem=admin)', v_seed_sujo;
+  END IF;
+
+  -- (c.4) procedencia nao se perde: quem foi alterado tem autor.
+  IF v_admin_orfao <> 0 THEN
+    RAISE EXCEPTION 'P43M FAIL (c.4): % linha(s) com origem=admin e alterado_por NULL — a trilha perdeu o autor da alteracao, e a Phase 46 consulta essa procedencia antes de armar a purga', v_admin_orfao;
   END IF;
 
   PERFORM set_config('smoke43m.pass', (coalesce(nullif(current_setting('smoke43m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (c): 8/8 estados semeados em 24 meses, origem=seed, sem alterador';
+  RAISE NOTICE 'PASS (c): 8 estados, todas as janelas dentro de 1..24, % em seed (24 meses, sem alterador) e % alterada(s) por admin com autor registrado', v_seed, v_admin;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────

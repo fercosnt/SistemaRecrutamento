@@ -107,3 +107,33 @@ afrouxou as assercoes.
 Isso eleva a prioridade: enquanto nao for corrigido, este arquivo nao pode ser
 usado como gate, e quem o rodar sem ler este todo vai investigar um back-fill que
 nunca houve.
+
+
+---
+
+## ✅ PARCIALMENTE FECHADO em 2026-08-03 — a asserção (c) da matriz foi reescrita
+
+A seção §Escopo acima EXIMIA a (c) de `p43_matriz_retencao_smoke.sql`, tratando o
+"reprova de propósito" do cabeçalho dela como decisão deliberada. **A intenção era, a
+mecânica não era** — e a diferença só apareceu quando a asserção de fato disparou:
+
+- (c) é a **3ª de 11**, numa chamada ÚNICA. Um `RAISE` ali **aborta o lote**: (d) até (k)
+  e o RESUMO (z) nunca executam. Entre as mortas ficavam a **(j)** (invariante
+  zero-destrutiva, que define a fase) e a **(k)** (o guard do 42804, do mesmo dia);
+- o primeiro `IF` a disparar era `v_em24 <> 8`, acusando violação do **teto** consentido —
+  mas a edição real levou `rejeitado` de 24 para **18**, um ENCURTAMENTO, mais protetivo.
+  O gate acusava de estourar um teto quem tinha ficado abaixo dele;
+- a acusação declarada no cabeçalho ("alguma linha já foi alterada") era o TERCEIRO `IF`,
+  nunca alcançado.
+
+**Reescrita por INVARIANTE em vez de instantâneo:** os 8 estados existem · toda janela em
+1..24 · linha `seed` em 24 e sem alterador · linha `admin` com autor registrado. Edição
+legítima passa; estado sumido, janela fora do teto, seed adulterado e alteração sem autor
+continuam reprovando. Rodado contra PROD com `rejeitado` em 18: **11/11 PASS**.
+
+### O que continua ABERTO neste todo
+
+`p43_consent_prova_smoke.sql` — as asserções **(b)** e **(f)**, que congelam "zero colunas
+de prova" e "exatamente 17 linhas". Essas seguem vermelhas e ainda acusam back-fill que não
+houve. A reescrita da (c) acima é o MOLDE: trocar instantâneo por invariante, ancorando em
+`created_at < <carimbo do apply>` em vez de contar a tabela inteira.

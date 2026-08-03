@@ -171,12 +171,12 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | REVISAO-04 | Phase 42 | Complete |
 | REVISAO-05 | Phase 42 | Complete |
 | REVISAO-06 | Phase 42 | Complete |
-| CONSENT-01 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
-| CONSENT-02 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
-| CONSENT-03 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
+| CONSENT-01 | Phase 43 | Complete (provado AO VIVO em 2026-08-03: duas caixas deixadas desmarcadas gravaram `false`) |
+| CONSENT-02 | Phase 43 | Complete (cadastro real: versão + hash idêntico ao hex pinado + timestamp) |
+| CONSENT-03 | Phase 43 | Complete (transacional como linha informativa; marketing com consentimento próprio) |
 | CONSENT-04 | Phase 43 | Complete |
-| CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
-| CONSENT-06 | Phase 43 | Pending |
+| CONSENT-05 | **Phase 47** | Deferred (a COLETA parou na 43 — campo fora do formulário e `.strict()` rejeita a chave. O que resta é `autorizacao_analise_video NOT NULL DEFAULT false`, que faz cada linha nova AFIRMAR resposta a pergunta que não se faz mais; o `DROP`/`ALTER` é decisão da 47 sob portão destrutivo — ver `todos/pending/43-analise-video-default-false-fabrica-afirmacao.md`) |
+| CONSENT-06 | Phase 43 | Complete (reporter do Resend rodado 2026-08-02: `open_tracking:false` e `click_tracking:false`, confirmação POSITIVA pela API) |
 | RETEN-01 | Phase 43 | Complete (tabela + RPCs em 43-04, aplicadas em PROD no 43-07; `/admin/retencao` em 43-09) |
 | RETEN-02 | Phase 43 | Complete (seed 8/8 no teto consentido em 43-04; alteração PELA TELA, auditada, em 43-09) |
 | RETEN-03 | Phase 43 | Complete |

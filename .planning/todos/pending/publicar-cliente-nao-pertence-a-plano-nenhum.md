@@ -53,6 +53,12 @@ Nao um lembrete em prosa: uma task com `<verify>` proprio, no mesmo nivel do app
 migration. A ordem `migration → EF → cliente` ja esta escrita nos cabecalhos das
 migrations; falta ela existir onde a execucao a le.
 
+> ⚠ **Isto e mudanca de TEMPLATE de planejamento, nao entregavel de uma fase.** Se a
+> Phase 44 o implementar so para si mesma, as Phases 45 e 47 repetem o defeito — que e
+> exatamente o padrao que este todo existe para quebrar. A alteracao tem de viver onde os
+> planos sao GERADOS, nao dentro de um plano. `resolves_phase: 44` marca QUANDO isso deixa
+> de poder ser adiado, nao o escopo do conserto.
+
 **2. Um gate que observe o DEPLOY, nao o repo.** O minimo util, em ordem de custo:
 
 - `curl` da rota raiz + uma rota interna (prova o SPA fallback) apos cada publicacao;

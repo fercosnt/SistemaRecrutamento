@@ -1,125 +1,327 @@
 ---
 phase: 43-consentimentos-honestos-pol-tica-de-reten-o
-verified: 2026-08-03T04:18:24Z
+verified: 2026-08-03T05:02:00Z
 status: human_needed
-score: 4/5 must-haves verified
-behavior_unverified: 1
+score: 5/5 must-haves verified
+behavior_unverified: 0
 overrides_applied: 0
 re_verification:
-  previous_status: gaps_found
-  previous_score: 2/5
-  previous_verified: 2026-08-02T18:59:05Z
+  previous_status: human_needed
+  previous_score: 4/5
+  previous_verified: 2026-08-03T04:18:24Z
+  pass_number: 3
   gaps_closed:
-    - "SC#1 — o cliente foi publicado (origin/main = 581abe1) e o cadastro foi provado ponta a ponta por registro REAL em navegador; a incompatibilidade cliente↔EF v16 que eu media como 400 VALIDATION deixou de existir, reconferida POR EXECUÇÃO nesta passagem"
-    - "SC#2 — a revogação foi exercitada por AÇÃO REAL de usuário em /candidato/privacidade, e o GRANT de coluna do CR-01 segurou: exatamente uma coluna escrita, as quatro colunas de prova intactas"
-    - "SC#3 — CONSENT-06 executado com confirmação POSITIVA do provedor (open_tracking=false, click_tracking=false); verifiquei no fonte do reporter que o marcador `✓` só é emitido para um `false` explícito da API, então a saída não pode ter vindo de flag ausente"
-  gaps_remaining: []
-  regressions: []
-  downgrades:
+    - >-
+      SC#4 — o caminho de LEITURA e o de ESCRITA foram ambos exercitados ao vivo. O
+      rebaixamento da 2ª passagem produziu um bug REAL de produção (42804 em toda chamada
+      bem-sucedida de `listar_matriz_retencao`), corrigido por `20260803000001`. A escrita
+      foi feita por administrador real pela tela (`rejeitado` 24 → 18), com `origem` indo a
+      `admin`, `alterado_por` resolvido ATRAVÉS do LEFT JOIN que estava quebrado, e
+      EXATAMENTE uma linha nova em `logs_auditoria` na mesma transação
+  upgrades:
     - truth: "SC#4 — Um administrador altera a janela de retenção sem deploy"
-      from: "VERIFIED (com W-1)"
-      to: "PRESENT_BEHAVIOR_UNVERIFIED"
+      from: "PRESENT_BEHAVIOR_UNVERIFIED"
+      to: "VERIFIED"
       reason: >-
-        Não é regressão — é padrão aplicado com consistência mais um fato NOVO. Na passagem
-        anterior creditei "o mecanismo é o que 'sem deploy' significa" porque a tela era
-        inalcançável e o mecanismo era tudo o que havia. Agora que SC#1 e SC#2 foram levados
-        ao padrão VIVO — e o atingiram — manter um padrão mais fraco para SC#4 seria
-        inconsistência. E esta passagem mediu algo que a anterior não tinha: `retencaoService`,
-        `useSalvarJanela`, `usePreviaRetencao` e `useMatrizRetencao` não têm NENHUM teste; os
-        17 casos do `EditarJanelaDialog` mockam a mutação. O elo cliente→RPC é o único da
-        cadeia sem teste E sem execução viva.
-behavior_unverified_items:
-  - truth: "SC#4 — Um administrador altera a janela de retenção de um estado da candidatura sem deploy"
-    test: "Abrir /admin/retencao como administrador real e mudar um estado de 24 para 12 meses, confirmando no diálogo aninhado"
-    expected: >-
-      A matriz reflete a mudança sem qualquer deploy; `log_auditoria` ganha EXATAMENTE uma
-      linha, na mesma transação; nenhuma linha de candidatura é tocada; um valor acima de 24
-      é recusado pelo servidor (22023) e não apenas pelo formulário.
-    why_human: >-
-      Transição de estado com invariante de atomicidade e uma asserção negativa (o que NÃO
-      foi tocado). O `smoke 10/10` prova a transição na camada da RPC contra PROD, e os 17
-      casos do diálogo provam o formulário — mas o hop entre os dois (`useSalvarJanela` →
-      `retencaoService.salvarJanela` → `rpc('salvar_janela_retencao')`) não tem teste algum e
-      nunca foi executado por ninguém. Só uma claim de admin real produz a autorização, e o
-      efeito de auditoria só é observável no banco depois da ação humana.
+        O padrão que eu mesmo fixei na 2ª passagem foi "até que um administrador de verdade
+        mude uma janela de verdade". Foi exatamente o que aconteceu. Manter o rebaixamento
+        agora exigiria de SC#4 uma guarda de regressão que eu NÃO exigi de SC#1 nem de SC#2
+        — os dois fecharam por ação humana única, sem teste novo no elo cliente→servidor.
+        Seria a mesma inconsistência da 1ª passagem, com o sinal trocado.
+  regressions:
+    - >-
+      ⚠ NÃO é regressão de produto, e sim do APARATO DE VERIFICAÇÃO:
+      `p43_matriz_retencao_smoke.sql` deixou de ser executável como gate. A asserção (c)
+      aborta o run, e as asserções (d)…(k) e (z) — incluindo a (k), a guarda de regressão do
+      42804 acrescentada no MESMO dia — tornaram-se inalcançáveis. Ver W-1
+  new_findings:
+    - "W-1 — a (c) mata o resto do arquivo, e a mensagem que DE FATO dispara não é a que o cabeçalho declarou"
+    - "W-2 — a escrita ao vivo (24 → 18) não está registrada em NENHUM artefato do repositório"
+    - "W-3 — `services/` e `hooks/` de `admin/retencao` seguem sem teste, e isso não tem todo"
+    - "W-4 — a lição do contador de asserções vive só em `supabase/`, nada em `.planning/`"
+    - "W-5 — a disciplina das DUAS asserções já estava aplicada em 43-05 e 43-06; faltou só no 43-04, que foi escrito primeiro"
+    - "W-6 — `REQUIREMENTS.md` contradiz a si mesmo: checklist atualizado, tabela de status não"
+    - "W-7 — `STATE.md` § Current Position ainda diz `gaps_found, 2/5`; o 2º incidente não está lá"
+  retractions:
+    - >-
+      RETEN-02, linha 181 de `REQUIREMENTS.md` — a parentética "alteração PELA TELA,
+      auditada, em 43-09". Eu a chamei de sobreafirmação em DUAS passagens. Ela agora é
+      VERDADEIRA, literalmente: a alteração foi pela tela e foi auditada. Retirada.
+    - >-
+      `43-07-SUMMARY.md:366` "o bundle do cliente nao foi publicado" — o bloco de correção
+      datado foi acrescentado, com o corpo original preservado, exatamente no padrão da
+      P37/37-05 que eu citei. Fechado.
 human_verification:
-  - test: "Abrir /admin/retencao como administrador real e mudar um estado de 24 para 12 meses"
-    expected: "Matriz atualizada sem deploy · exatamente 1 linha nova em log_auditoria · zero linhas de candidatura tocadas · teto de 24 recusado pelo servidor, não só pelo formulário"
-    why_human: "A tela NUNCA foi aberta por ninguém. É o único SC cuja superfície humana não tem nem execução viva nem teste no elo cliente→RPC."
-  - test: "Ver a prévia de retenção no estado POPULADO"
-    expected: "As linhas por estado contam CANDIDATURAS e o total conta CANDIDATOS, com o carimbo `calculada_em` do servidor"
-    why_human: >-
-      Impossível hoje e por meses: a janela é de 24 meses num sistema mais novo que isso, e a
-      prévia devolve zero — que é a resposta CERTA. Encurtar a janela para produzir a condição
-      seria fabricar a evidência. Provado só por teste, deliberadamente.
   - test: "Ver o bloco de guarda do currículo no ramo AUTORIZADO, em /candidato/privacidade"
     expected: "A linha «Base da guarda: sua autorização de {data}. Prazo previsto: até {prazo}.» aparece na tela"
     why_human: >-
-      O operador abriu a página ao vivo, mas com `autorizacao_retencao_curriculo = false` — o
-      ramo que satisfaz o RETEN-03 renderiza SÓ quando `autorizado === true`. O que foi visto
-      ao vivo foi o ramo NÃO-autorizado. O ramo autorizado passa em teste e nunca apareceu numa
-      tela real.
-  - test: "Correções de artefato (não é teste de produto — é decisão do operador)"
+      É o único item de produto que resta, e é barato: basta um cadastro com a caixa
+      `autorizacao_retencao_curriculo` MARCADA. O ramo que satisfaz o RETEN-03 renderiza só
+      sob `autorizado === true` (`GuardaCurriculoBloco.tsx:114`); a conta de teste ao vivo
+      deixou justamente aquela caixa desmarcada, então o que foi visto foi o ramo NÃO-autorizado.
+  - test: "Prévia de retenção no estado POPULADO — aceitação permanente, não ação pendente"
+    expected: "As linhas por estado contam CANDIDATURAS e o total conta CANDIDATOS, com o carimbo `calculada_em` do servidor"
+    why_human: >-
+      Impossível hoje e por meses (janela de 24 meses num sistema mais novo que isso), e
+      produzir a condição encurtando a janela seria fabricar a evidência. Isto NÃO é uma
+      pendência acionável — recomendo convertê-lo em `overrides:` no fecho do milestone, com
+      `accepted_by`, para que pare de manter a fase em `human_needed` para sempre.
+  - test: "Correções de registro (decisão do operador, não comportamento de produto)"
     expected: >-
-      (1) 43-07-SUMMARY §«O que este checkpoint NÃO entrega» afirma «O bundle do cliente nao foi
-      publicado» — hoje FALSO; precisa de bloco de correção datado, com o corpo original
-      preservado (o padrão que a própria P37 estabeleceu). (2) REQUIREMENTS.md está desatualizado
-      no sentido INVERSO ao que apontei antes: CONSENT-01/02/03 seguem `[ ]`/«In Progress» e
-      CONSENT-06 segue `[ ]`/«Pending», todos agora provados. (3) A publicação do cliente —
-      passo 3 da ordem que os planos chamam de OBRIGATÓRIA — continua sem dono em plano, fase
-      ou todo algum.
+      (1) Registrar a escrita ao vivo `rejeitado` 24 → 18 em algum artefato durável — hoje a
+      ÚNICA evidência que fecha o SC#4 não existe no repositório. (2) `REQUIREMENTS.md`
+      tabela de status (linhas 174-184) segue dizendo CONSENT-01/02/03/05 "In Progress" e
+      CONSENT-06 "Pending", contradizendo o checklist logo acima; e o bloco de nota 58-66
+      afirma que 01/02/03 estão deliberadamente sem `[x]`, o que deixou de ser verdade.
+      (3) CONSENT-05 deveria apontar para a Phase 47 do jeito que RETEN-05 aponta para a 46.
+      (4) `STATE.md` § Current Position ainda diz `gaps_found, 2/5` e não menciona o 42804.
+      (5) `43-09-SUMMARY.md` § `requires:` afirma "8 linhas, todas em 24 meses, origem='seed'"
+      — falso desde a alteração ao vivo.
     why_human: "São decisões de registro do milestone, não comportamento de produto."
 deferred:
   - truth: "`autorizacao_analise_video` continua `NOT NULL DEFAULT false` — cada linha nova ainda afirma resposta a uma pergunta que deixou de ser feita"
     addressed_in: "Phase 47"
-    evidence: "`.planning/todos/pending/43-analise-video-default-false-fabrica-afirmacao.md`, `resolves_phase: 47`; ROADMAP Phase 47 / CONSOL-03 detém o portão destrutivo do DROP"
+    evidence: "`.planning/todos/pending/43-analise-video-default-false-fabrica-afirmacao.md`, `resolves_phase: 47` (reconferido nesta passagem)"
   - truth: "O guard de marketing é `BEFORE INSERT` e só — um `UPDATE` de `evento` numa linha pendente escaparia dele"
     addressed_in: "Phase 46"
-    evidence: "`.planning/todos/pending/43-guard-marketing-so-before-insert.md`, `resolves_phase: 46`; nenhum caminho de código faz esse UPDATE hoje"
+    evidence: "`.planning/todos/pending/43-guard-marketing-so-before-insert.md`, `resolves_phase: 46` (reconferido)"
   - truth: "Os smokes com baseline congelada viram RED no primeiro cadastro real — e acusam a coisa errada"
     addressed_in: "Phase 44"
     evidence: >-
       `.planning/todos/pending/43-smokes-com-baseline-congelada-viram-red.md`, `resolves_phase: 44`.
-      ⚠ A falha PREVISTA CHEGOU — ver «A falha prevista chegou» no corpo. Não conta como gap
-      (está rastreada), mas os verdes 6/6 daquele smoke passaram a ser HISTÓRICOS, não correntes.
+      ⚠ O arquivo ganhou um bloco «CONFIRMADO — a previsão virou fato», e a §Escopo distingue
+      corretamente a (c) da matriz como DELIBERADA. Mas essa mesma §Escopo a EXIME da correção
+      — e é justamente ela que agora mata o arquivo inteiro. Ver W-1: o todo precisa ser
+      emendado, senão a Phase 44 conserta o smoke do consentimento e deixa o da matriz morto.
   - truth: "`updated_at` do consentimento é carimbado pelo relógio do navegador, e a tela apresenta essa data como fato"
     addressed_in: "Phase 46"
-    evidence: "`.planning/todos/pending/43-updated-at-do-consentimento-vem-do-cliente.md`, `resolves_phase: 46`"
+    evidence: "`.planning/todos/pending/43-updated-at-do-consentimento-vem-do-cliente.md`, `resolves_phase: 46` (reconferido)"
+  - truth: "Publicar o cliente não pertence a plano, fase ou todo nenhum, e nada observa o artefato deployado"
+    addressed_in: "Phase 44"
+    evidence: >-
+      `.planning/todos/pending/publicar-cliente-nao-pertence-a-plano-nenhum.md`, `priority: high`,
+      `resolves_phase: 44` — NOVO desde a 2ª passagem, e ele fecha o achado que eu abri. Ressalva
+      em W-8: a ação nº 1 que ele prescreve é mudança de TEMPLATE de plano, não entregável da 44.
+untracked_debt:
+  - "`src/features/admin/retencao/services/` e `hooks/` seguem com ZERO arquivo de teste — nenhum todo cobre isso (W-3)"
+  - "A lição «contador de asserções mede caminhos exercitados, não existentes» não existe em `.planning/` (W-4)"
+  - "A ordenação que torna (d)…(k) inalcançáveis não está em todo nenhum (W-1)"
 ---
 
-# Phase 43: Consentimentos Honestos & Política de Retenção — Verification Report (2ª passagem)
+# Phase 43: Consentimentos Honestos & Política de Retenção — Verification Report (3ª passagem)
 
 **Phase Goal:** Cada checkbox que o candidato marca passa a ter consequência real, e o prazo de validade do dado existe como configuração alterável sem deploy — tudo isso **sem que nada seja apagado ainda**.
-**Verified:** 2026-08-03T04:18:24Z
-**Status:** human_needed — 4/5, com 1 truth presente-porém-não-exercitado
-**Re-verification:** Sim — depois do fechamento do bloqueador de 2026-08-03
+**Verified:** 2026-08-03T05:02:00Z
+**Status:** human_needed — **5/5**, zero truths não-exercitados
+**Re-verification:** Sim — 3ª passagem, após o fechamento do SC#4
 
 ---
 
 ## Veredito em uma frase
 
-Os três gaps que eu abri estão **genuinamente fechados**, e dois deles pelo padrão mais forte que existe neste projeto — uma pessoa real, num navegador real, produzindo uma linha real cujos valores eu consigo amarrar a um hash pinado independentemente. **O que resta não é um resíduo do que eu apontei: é uma tela que ninguém nunca abriu**, e o elo que a liga ao mecanismo provado é o único da fase sem teste e sem execução.
+**SC#4 está genuinamente fechado**, e fechou pelo mesmo padrão que fechou SC#1 e SC#2 — pessoa real, tela real, linha real. O rebaixamento da 2ª passagem se pagou imediatamente: ele encontrou um bug que fazia **toda chamada bem-sucedida** de `listar_matriz_retencao` levantar `42804` desde o apply. **Mas o que ele comprou foi o conserto, não uma guarda.** A única asserção que exercita o caminho corrigido nasceu dentro de um arquivo que a ação seguinte do operador tornou inalcançável — e a fase não registrou isso.
 
 ---
 
-## Sobre o critério que eu rejeitei — resposta direta
+## SC#4 — a resposta direta à pergunta 1
 
-Na 1ª passagem eu rejeitei o critério "código + banco, não deploy" e escrevi que os `[x]` de **CONSENT-04**, **RETEN-02** e **RETEN-03** afirmavam superfícies que ninguém conseguia abrir.
+### As três cláusulas
 
-**A objeção mudou materialmente, e eu a retiro em dois dos três casos.**
+| Cláusula | Estado | Como sei |
+|---|---|---|
+| «Um administrador altera a janela de retenção de um estado **sem deploy**» | ✓ **EXERCITADA** | Leitura E escrita, ambas ao vivo. Detalhe abaixo |
+| «seed de 2 anos documentado como *teto já consentido*, não recomendação técnica» | ✓ VERIFIED (2ª passagem) | `COMMENT` do banco + texto de ajuda do diálogo, enquadramento BD-1 |
+| «veredito RETEN-06 registrado **antes** de a estrutura nova existir» | ✓ VERIFIED (2ª passagem) | `reten06-veredito-retain-until.md` na wave 1 (43-02), antes da migration da matriz (43-04, wave 2) |
 
-| Marca | Antes (1ª passagem) | Agora | Julgamento |
+### O caminho de LEITURA — e por que ele é mais forte que uma atestação
+
+A cadeia que verifiquei **no repositório**, não por leitura de SUMMARY:
+
+1. `20260803000001_p43_fix_listar_matriz_cast.sql` existe, e o `::text` está na projeção (linha 102). O comentário explica por que **não** se troca a declaração para `varchar(255)` — argumento correto: `text` é o tipo certo na fronteira da API.
+2. **A migration é auto-verificável por construção.** O bloco `DO $verifica_leitura$` (linhas 121-150) resolve um administrador vivo, injeta a claim, **EXECUTA** `listar_matriz_retencao()` e levanta se o retorno não for 8 linhas. Levanta também se não houver administrador vivo — com a mensagem certa: *"verificar so a recusa foi exatamente o defeito que esta migration corrige"*. **Consequência lógica: se o apply teve sucesso, o caminho feliz executou em PROD.** Isso é qualitativamente melhor que "o operador diz que aplicou".
+3. **O md5 registrado é reproduzível a partir do arquivo.** `7e9b9797ac3fe22f95b34b25db30bfa4` é exatamente `md5` do conteúdo do arquivo sem a newline final — reproduzi byte a byte nesta passagem. Não prova que PROD tem essa versão (não tenho MCP), mas prova que o hash registrado no commit `8fb4449` **não foi fabricado** e corresponde a este conteúdo.
+4. O operador abriu a tela e a matriz carregou.
+
+### O caminho de ESCRITA
+
+`rejeitado` foi de 24 para 18 meses pela tela. O que isso prova, e prova de um jeito que nenhum teste teria provado:
+
+- `alterado_por` resolveu para "Fernando Costa Neto" **através do mesmo `LEFT JOIN` que estava quebrado**. A leitura que falhava é a que exibiu o resultado da escrita — o conserto se prova pelo próprio defeito;
+- `origem` foi de `'seed'` a `'admin'` — o discriminador de que a Phase 46 depende;
+- **exatamente uma** linha em `logs_auditoria`, `acao = alterar_janela_retencao`, `dados_antes.janela_meses = 24`, `dados_depois.janela_meses = 18`, `sucesso = true`. A atomicidade que o smoke (g) prova em subtransação revertida foi honrada em uso real;
+- 7 dos 8 estados seguem `origem = 'seed'` — a escrita foi cirúrgica.
+
+### Por que eu subo o SC#4 a VERIFIED, sem hesitar
+
+O padrão que **eu mesmo** fixei na 2ª passagem foi, verbatim: *"até que um administrador de verdade mude uma janela de verdade"*. Foi exatamente o que aconteceu.
+
+Manter o rebaixamento agora exigiria do SC#4 uma **guarda de regressão** que eu não exigi do SC#1 nem do SC#2. Aqueles dois fecharam por ação humana única, e nenhum teste novo foi acrescentado ao elo cliente→EF nem ao elo tela→PostgREST. Seria a mesma inconsistência da 1ª passagem, com o sinal trocado. **5/5.**
+
+### O que isso deixa exposto — dito sem eufemismo
+
+**A prova viva é um evento, não um mecanismo.** Confirmado por medição nesta passagem, não por leitura:
+
+```
+src/features/admin/retencao/services/  → 0 arquivos de teste
+src/features/admin/retencao/hooks/     → 0 arquivos de teste
+suíte inteira: 1422 testes (155 arquivos) — IDÊNTICO à 2ª passagem
+arquivos alterados desde a 2ª passagem: index.html, a migration, o smoke. Só.
+```
+
+O elo `EditarJanelaDialog` → `useSalvarJanela` → `retencaoService.salvarJanela` → `rpc(...)` foi **executado uma vez, por uma pessoa, num dia**. Amanhã, um refactor que troque o nome do parâmetro da RPC, ou que quebre a invalidação do TanStack Query, passa por `tsc` 97 e por 1422/1422 sem que nada acuse. Os 50 casos da feature mockam a mutação — eles provam o formulário, não o hop.
+
+**Isto é dívida, não gap.** Não é gap porque o SC#4 pergunta se um administrador consegue alterar a janela sem deploy, e a resposta medida é sim. Mas é dívida **NÃO RASTREADA**: varri `.planning/todos/pending/` e nenhum dos cinco todos da fase cobre a ausência de teste em `services/`/`hooks/`. Ela sobreviveu a três passagens de verificação sendo nomeada e nunca virando arquivo. **Nomear um débito três vezes sem lhe dar arquivo é a forma lenta de esquecê-lo.**
+
+---
+
+## Pergunta 2 — o padrão, e por que "número de asserções" é o defeito
+
+Sim, há um padrão, e ele é mais específico e mais incômodo do que "escrevemos gates fracos".
+
+### Os quatro smokes da fase, comparados
+
+| Smoke | Plano | Recusa | Caminho positivo | Veredito |
+|---|---|---|---|---|
+| `p43_guard_marketing_smoke.sql` | 43-05 | (a) por INSERT real | **(f) «O CAMINHO POSITIVO EXISTE»** | ✓ disciplina aplicada |
+| `p43_previa_smoke.sql` | 43-06 | (d), 4 casos | **(h) «COERÊNCIA — a prévia EXECUTA»** | ✓ disciplina aplicada |
+| `p43_matriz_retencao_smoke.sql` | **43-04** | (f) | **nenhum** (até 2026-08-03) | ✗ **o buraco** |
+| `p43_consent_prova_smoke.sql` | 43-01 | — | — | n/a (assertivas estruturais, sem função guardada) |
+
+**A disciplina não era desconhecida da fase. Ela foi aplicada em dois dos três casos aplicáveis.** E o 43-06 não a aplicou por acaso — o comentário da (h) raciocina explicitamente sobre ela:
+
+> *"A impersonação é de `administrador` porque (d) já provou a recusa; aqui o que se mede é o NÚMERO."*
+
+O 43-04 foi escrito **antes** dos outros dois. A disciplina emergiu no meio da fase e **nunca foi retrofitada** ao artefato anterior. Nada — nenhum revisor, nenhum gate, nenhum checklist — comparou os quatro smokes entre si.
+
+### O defeito de métrica, nomeado
+
+A fase mediu seus smokes por **contagem de asserções verdes** (`10/10`, `9/9`, `6/6`, `9/9`) e essa contagem apareceu como evidência em SUMMARY, em REVIEW e nas minhas duas passagens anteriores — **inclusive nas minhas**, e é justo que isso fique escrito aqui.
+
+Um contador de asserções mede **quantos caminhos foram exercitados, não quantos existem**. `listar_matriz_retencao` tinha cobertura declarada e cobertura de corpo igual a zero: sua única asserção testava a recusa, e o guard levanta na primeira linha — o `RETURN QUERY` nunca executava. **10/10 verdes com o corpo da função jamais executado, em nenhum lugar do sistema.**
+
+O invariante certo é estrutural, não numérico: **toda função com guard precisa de duas asserções — a que prova que ela recusa quem deve recusar, e a que prova que ela FUNCIONA para quem deve passar.** Uma função cujo único teste é a recusa está, para efeito de corpo, sem teste nenhum.
+
+### Onde essa lição está registrada — e onde não está
+
+| Lugar | Registra? | Durabilidade |
+|---|---|---|
+| `20260803000001` §2, no corpo do arquivo | ✓ e muito bem | Alta — arquivo versionado |
+| `COMMENT ON FUNCTION listar_matriz_retencao` | ✓ | **Máxima — vive no BANCO**, sobrevive ao repositório |
+| `p43_matriz_retencao_smoke.sql`, cabeçalho da (k) | ✓ | Alta |
+| Mensagem do commit `8fb4449` | ✓ | Média — ninguém faz `git log` ao planejar |
+| **`.planning/` — todo, learning, ADR, checklist** | ✗ **NADA** | — |
+
+**Este é o achado desta pergunta.** A lição está escrita nos três lugares onde quem já está lendo aquele código a encontrará, e em **nenhum** lugar onde quem vai *planejar* a Phase 46 a encontrará. A Phase 46 é a que arma um `DELETE` por cron sobre funções guardadas. É precisamente a fase onde uma função cujo único teste é a recusa custa caro.
+
+**Recomendação concreta:** um todo (ou uma entrada de learnings) que diga a regra estrutural em uma linha, com `resolves_phase: 46`, e que exija a varredura retroativa dos smokes existentes — a mesma varredura que eu fiz nesta passagem em três comandos e que ninguém tinha feito.
+
+---
+
+## Pergunta 3 — a asserção (c): por desenho, sim; mas a declaração não cobre o que vai disparar
+
+Esta era a pergunta mais afiada e a resposta é dividida. Investiguei por `git`, não por leitura do cabeçalho.
+
+### O que É genuinamente por desenho
+
+O cabeçalho da (c) está no commit **`b01e11e`** — o commit ORIGINAL da especificação, escrito **antes** do apply e muito antes da escrita ao vivo. Confirmei que `8fb4449` não tocou uma linha do bloco (c). Verbatim, de `b01e11e`:
+
+> *"⚠ Esta asserção é escrita para o estado RECÉM-APLICADO. Se um administrador já tiver alterado alguma janela pela tela (`origem = 'admin'`), ela reprova de propósito (…) e não deve ser re-rodada como se fosse regressão."*
+
+E o todo `43-smokes-com-baseline-congelada-viram-red.md` §Escopo já fazia a distinção que a pergunta pede, **sem que ninguém tivesse me perguntado**:
+
+> *"Vale tambem para `p43_matriz_retencao_smoke.sql` assercao (c) (…) Aquela e uma escolha DELIBERADA e documentada; estas duas nao sao."*
+
+**Isso é o oposto do defeito de baseline congelada do smoke do consentimento.** Lá, a acusação é FALSA (*"o apply BACK-FILLOU prova de consentimento"* quando houve um cadastro legítimo) e não foi prevista. Aqui foi prevista, declarada por escrito antes do fato, e distinguida em todo. **Crédito devido, e é crédito raro.**
+
+### O que NÃO é por desenho — e o cabeçalho não cobre
+
+Fui ler a ordem interna dos três `IF` da (c). Com `rejeitado` em 18 meses:
+
+| Checagem | Valor | Dispara? | Mensagem |
 |---|---|---|---|
-| **CONSENT-04** `[x]` | Prematura — o painel não existia no navegador | A revogação foi feita **ao vivo**, por ação real de usuário, na tela | **Aceito.** Este `[x]` está ganho, e ganho pelo padrão alto |
-| **RETEN-03** `[x]` | Prematura — `GuardaCurriculoBloco` inalcançável | A página foi aberta e o bloco está no seu `<section>` incondicionalmente | **Aceito, com uma ressalva nomeada abaixo** |
-| **RETEN-02** `[x]` | A parentética "alteração PELA TELA" sobreafirmava | A tela existe, está publicada e alcançável — mas **ninguém a abriu** | **Aceito para o requirement; a parentética da linha 181 continua sobreafirmando** |
+| `v_total <> 8` | 8 | não | — |
+| **`v_em24 <> 8`** | **7** | **✗ DISPARA AQUI** | *"apenas 7 de 8 linhas estao em 24 meses — o seed BD-1 e o **TETO JA CONSENTIDO** pela copy do cadastro, uniforme por decisao do operador"* |
+| `v_seed <> 8 OR v_semdono <> 8` | 7 / 7 | nunca alcançada | *"alguma linha ja foi alterada"* ← **esta é a que o cabeçalho declarou** |
 
-**O que segue sem exercício, nomeado sem eufemismo:**
+**A falha que o cabeçalho previu é a terceira. A que vai disparar é a segunda.** E a mensagem da segunda enquadra como violação do teto consentido o que é, de fato, um **aperto**: 18 < 24 é mais conservador que o seed, é exatamente o ato que o RETEN-01 existe para permitir, e é o mais protetivo dos dois para o titular. Quem rodar o arquivo lê uma acusação sobre "o teto já consentido" a respeito de uma ação que respeitou o teto com folga.
 
-1. **`/admin/retencao` nunca foi aberta por pessoa alguma.** RETEN-01/02/04 apoiam-se numa tela sem nenhuma evidência viva.
-2. **O elo cliente→RPC dessa tela não tem teste algum.** Medido nesta passagem: `retencaoService.ts`, `useSalvarJanela.ts`, `usePreviaRetencao.ts` e `useMatrizRetencao.ts` **não têm arquivo de teste** — o diretório `src/features/admin/retencao/` só tem `components/__tests__/`. Os 17 casos do `EditarJanelaDialog` mockam a mutação. Então entre "a pessoa clica" e "a RPC provada por smoke executa" há um trecho que nenhuma asserção e nenhuma execução tocaram.
-3. **A prévia devolve ZERO e devolverá por meses** (janela de 24 meses num sistema mais novo). O estado populado é provado só por teste — e isso é **correto**: produzi-lo com dado real exigiria encurtar a janela, o que seria fabricar a condição.
-4. **O ramo AUTORIZADO da guarda do currículo nunca apareceu numa tela.** A linha *"Base da guarda: sua autorização de {data}. Prazo previsto: até {prazo}."* — que **é** o RETEN-03 — renderiza só sob `autorizado === true` (`GuardaCurriculoBloco.tsx:114`). A conta de teste ao vivo tinha `autorizacao_retencao_curriculo = false`. O operador viu o ramo NÃO-autorizado. O ramo que satisfaz o requirement passa em teste e nunca foi visto.
+**Portanto: sim, é uma segunda instância — parcialmente.** Não na dimensão que a pergunta suspeitava (a reprovação em si foi declarada), mas na dimensão que importa operacionalmente: *a mensagem que o operador vai ler acusa a coisa errada*, e a declaração de "por desenho" não a cobre porque descreve outra checagem.
+
+### E a consequência que ninguém registrou — a mais séria das duas
+
+A (c) é a **3ª de 11** asserções. O gate (z) exige 11 PASS fixos. O arquivo roda numa **única chamada** `execute_sql` (obrigatório por mecânica de `set_config`), então uma exceção num bloco `DO` aborta o batch inteiro.
+
+**Consequência: as asserções (d), (e), (f), (g), (h), (i), (j), (k) e (z) tornaram-se inalcançáveis.** O que morreu junto:
+
+| Asserção | O que ela guardava | Perda |
+|---|---|---|
+| **(k)** | O caminho feliz de `listar_matriz_retencao` | **A guarda de regressão do 42804, acrescentada no MESMO dia** |
+| (f) | Guard NULL-cego em DEFINER | O gate do defeito sistêmico da 42-06 (`42-anon-execute-definer-sistemico`, priority alta) |
+| (g) | Atomicidade da trilha de auditoria | A promessa da copy do diálogo |
+| (h) | `anon` sem EXECUTE | O hardening de privilégio |
+| (j) | Zero linha de candidato tocada | **A invariante que define a fase** |
+
+A ironia é exata: a (k) foi acrescentada em 2026-08-03 com enquadramento de guarda durável (*"Toda função com guard precisa de DUAS asserções"*), e a `COMMENT` da migration diz que ela *"fecha essa lacuna especifica"*. **A ação seguinte do operador — a escrita legítima que fecha o SC#4 — tornou-a inalcançável.** Vida útil efetiva: um run.
+
+E o todo que deveria cobrir isso **exime** a (c) da correção: sua §Escopo a classifica como deliberada e prescreve remediação apenas para a (b) e a (f) do smoke do consentimento. **Do jeito que está escrito, a Phase 44 vai consertar um smoke e deixar o outro morto.**
+
+**Recomendação concreta:** emendar `43-smokes-com-baseline-congelada-viram-red.md` com (1) o achado de que a (c) mata (d)…(k)(z), (2) a inversão da mensagem do `v_em24`, e (3) a decisão explícita entre extrair a (k) para um arquivo próprio ou reordenar a (c) para depois dela. A opção barata e honesta é mover a (c) para o fim, junto de (z) — o estado nascente da matriz é um fato histórico e não precisa ser a terceira coisa medida.
+
+---
+
+## Pergunta 4 — os todos diferidos
+
+### Os quatro anteriores: todos íntegros, reconferidos por leitura de frontmatter
+
+| Todo | `priority` | `resolves_phase` | Confere? |
+|---|---|---|---|
+| `43-analise-video-default-false-fabrica-afirmacao` | medium | **47** | ✓ |
+| `43-guard-marketing-so-before-insert` | medium | **46** | ✓ |
+| `43-smokes-com-baseline-congelada-viram-red` | high | **44** | ✓ — e ganhou um bloco «CONFIRMADO — a previsão virou fato». Ver a ressalva de W-1 |
+| `43-updated-at-do-consentimento-vem-do-cliente` | medium | **46** | ✓ |
+
+### O novo: `publicar-cliente-nao-pertence-a-plano-nenhum.md`
+
+**Ele captura o defeito de processo bem, e melhor do que eu esperava.** Ele não narra o incidente — nomeia as três falhas estruturais separadamente (o passo 3 sem dono; nenhum artefato observando o deploy; a titularidade do push indefinida), quantifica o invisível (*"cinco semanas invisíveis"*), e prescreve três ações concretas em ordem de custo. A frase que o justifica é a certa:
+
+> *"O repo prova exaustivamente o que ele CONTEM e nada sobre o que esta NO AR."*
+
+E ele nomeia explicitamente as Phases 44, 45 e 47 como dependentes, com o argumento correto: entregar um direito do titular que existe em teste e não no navegador é *"precisamente a classe de defeito que este milestone existe para eliminar, so que aplicada ao proprio milestone."*
+
+**Uma ressalva, e ela é de mecânica, não de conteúdo.** O todo tem `resolves_phase: 44`, mas a ação nº 1 que ele prescreve — *"um passo de publicação explícito no plano de TODA fase que toque `src/`"* — é mudança no **template de planejamento**, não entregável da Phase 44. Se a 44 a implementar só para si, a 45 e a 47 recorrem, e o todo fecha tendo consertado uma instância de um defeito de classe. As ações 2 e 3 (o gate que observa o deploy; decidir de quem é o passo) são genuinamente da 44. **Vale marcar essa distinção no arquivo antes que ele seja fechado como resolvido.**
+
+---
+
+## Pergunta 5 — RETEN-05 e CONSENT-05 seguem `[ ]`. Ambos corretos.
+
+### RETEN-05 — correto, e bem fundamentado em quatro lugares consistentes
+
+| Local | Conteúdo |
+|---|---|
+| `REQUIREMENTS.md:76` | `[ ]` no checklist |
+| `REQUIREMENTS.md:184` | `RETEN-05 \| **Phase 46** \| Pending` |
+| `REQUIREMENTS.md:231` | Phase 46 = `PURGA (7) + RETEN-05` |
+| `REQUIREMENTS.md:236` | A razão, explícita |
+
+A razão registrada é a certa, e é a razão que **protege a propriedade que define a Phase 43**:
+
+> *"o requirement diz 'definida **e aplicada**' — e a aplicação é um `DELETE` por cron. Pôr um cron destrutivo na Phase 43 quebraria a propriedade que define aquela fase (zero ação destrutiva), que é justamente o que a torna segura de executar cedo."*
+
+**Não é omissão. É escopo defendido, com o argumento escrito.** Nada a fazer.
+
+### CONSENT-05 — o `[ ]` é correto, mas o roteamento está errado
+
+O `[ ]` é **defensável e correto**. O requirement pede `autorizacao_analise_video` **resolvido**. Metade está feita e provada: a coleta parou (chave nunca emitida, `.strict()` recusa, Deno 16/16, e o print do cadastro ao vivo sem menção alguma a vídeo). A outra metade não: a coluna segue `NOT NULL DEFAULT false`, então **cada linha nova ainda afirma uma resposta a uma pergunta que deixou de ser feita**. Um `[x]` aqui afirmaria em `.planning/` exatamente a classe de coisa que esta fase existe para eliminar.
+
+**Mas o roteamento contradiz o todo.** `REQUIREMENTS.md:178` diz:
+
+```
+| CONSENT-05 | Phase 43 | In Progress (servidor em 43-01; cliente em 43-03; apply/deploy em 43-07) |
+```
+
+O trabalho que resta **não é** da Phase 43 — `43-analise-video-default-false-fabrica-afirmacao.md` o roteia para a **47**, e o ROADMAP põe o portão destrutivo do `DROP` sob CONSOL-03/Phase 47. Do jeito que está, no fecho do milestone o CONSENT-05 vai ler como *"item inacabado da Phase 43"* em vez de *"deferimento deliberado para a 47"*.
+
+**A correção é de uma linha, e o modelo certo está na linha 184, seis linhas abaixo:** RETEN-05 aponta para a Phase 46, não para a 43. CONSENT-05 deveria apontar para a 47 do mesmo jeito.
 
 ---
 
@@ -128,129 +330,43 @@ Na 1ª passagem eu rejeitei o critério "código + banco, não deploy" e escrevi
 ### Observable Truths (ROADMAP Success Criteria)
 
 | # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 1 | Consentimentos opcionais nascem desmarcados; ao marcar, grava versão + hash + timestamp | ✓ **VERIFIED** | **Cadastro REAL em navegador (aba anônima, `fernando@fotona.com.br`, 2026-08-03)**: `consent_text_version = v2-2026-08` · `consent_text_hash` idêntico ao hex pinado em `consent-hash.test.ts` · `consent_registrado_em` preenchida · `autorizacao_marketing_vagas = false` **e** `autorizacao_retencao_curriculo = false`, batendo com as duas caixas deixadas desmarcadas. Print confirmou os invariantes da UI-SPEC. Cliente publicado (`origin/main = 581abe1`) e compatibilidade **reconferida por execução** nesta passagem |
-| 2 | Dois consentimentos distintos; revogação de marketing pelo painel para o envio, provado por envio real bloqueado | ✓ **VERIFIED** | Metade "envio bloqueado": trigger `BEFORE INSERT` vivo, recusa provada por **INSERÇÃO REAL** (`P0003`), fail-closed em 3 ramos, 6 eventos transacionais vivos preservados (smoke 9/9). Metade "pelo painel": **revogação REAL** em `/candidato/privacidade` — `autorizacao_marketing_vagas = false`, `updated_at` moveu, e `consent_text_hash` / `consent_text_version` / `consent_registrado_em` / `autorizacao_uso_dados` **intactos**. Caminho até a tela restituído em `581abe1` |
-| 3 | `autorizacao_analise_video` deixou de ser promessa órfã **e** click tracking desligado no Resend, verificado no provedor | ✓ **VERIFIED** | Metade 1: chave nunca emitida + `.strict()` recusa (Deno **16/16**, incl. o pin do hex), coluna preservada com `COMMENT`, e o print do cadastro ao vivo sem menção alguma a vídeo. Metade 2: **CONSENT-06 executado** — `open_tracking: false`, `click_tracking: false`, domínio `rh.beautysmile.com.br` verificado em `sa-east-1`, run read-only. Ressalva `DEFAULT false` diferida à Phase 47, rastreada |
-| 4 | Admin altera a janela de retenção sem deploy; seed de 2 anos documentado como teto consentido; veredito RETEN-06 registrado ANTES da estrutura nova | ⚠️ **PRESENT_BEHAVIOR_UNVERIFIED** | **2 de 3 cláusulas VERIFIED**: veredito `reten06-veredito-retain-until.md` na wave 1 (43-02), antes da migration da matriz (43-04, wave 2) — a ordem que o requirement exige; seed 8/8 @24 com o enquadramento BD-1 nos `COMMENT` do banco e no texto de ajuda do diálogo. **Cláusula 1 não exercitada**: a RPC é provada por smoke 10/10 (recusa não-admin **e** chamador sem claim, 42501; auditoria na mesma transação), a tela existe, está publicada e alcançável — mas **nunca foi aberta**, e o hop cliente→RPC não tem teste algum |
-| 5 | Prévia read-only responde "estes N seriam purgados" sem executar nada; `autorizacao_retencao_curriculo` aparece por candidato como base legal citada | ✓ **VERIFIED** | Read-only provado **estruturalmente E por privilégio**: `candidaturas_alem_da_janela()` (a única que enumera) com `REVOKE ALL` e sem grant de volta — a proibição não está confiada à camada de apresentação; `md5(prosrc)` do predicado bateu o pin; `calculada_em := now()` computado pela própria função; asserção negativa estrutural (nenhum `<button>`/`<a>` descendente, nos dois estados). `GuardaCurriculoBloco` no `<section>` da página que o operador abriu, com os 3 casos em teste. ⚠ Ver as duas ressalvas de "nunca visto ao vivo" acima |
-
-**Score:** 4/5 truths verified · **1 presente, comportamento não exercitado** · 0 falhados
-
----
-
-## O que mudou desde a 1ª passagem — medido, não lido
-
-### 1. O cliente foi publicado, e a incompatibilidade acabou
-
-| Fato | 1ª passagem (2026-08-02) | Agora (2026-08-03) |
-|---|---|---|
-| `origin/main` | `8306f3e` (pré-43) | **`581abe1`** — contém a fase 43 inteira |
-| `AutorizacoesStep.tsx` em remote | ausente | **presente** (`git cat-file -e origin/main:…` → ok) |
-| `src/features/privacidade/**` em remote | ausente | **11 arquivos presentes** |
-| `src/features/admin/retencao/**` em remote | ausente | **13 arquivos presentes** |
-| Defaults do cliente publicado | `.default(true)` vivo | `autorizacao_uso_dados/marketing_vagas/retencao_curriculo: false` (`CadastroMultiStepForm.tsx:231-233`) |
-| Payload do cliente × `autorizacoesSchema` da EF v16 | **RECUSADO** (2 issues) | **ACEITO** |
-
-A última linha é a que importa, e eu a reproduzi **por execução**, não por leitura. Rodei o `autorizacoesSchema` do repositório (byte-idêntico ao da EF v16) sobre o objeto exato que o cliente publicado monta:
-
-```
-ACCEPTED? true
-  parsed: {"autorizacao_uso_dados":true,"autorizacao_marketing_vagas":false,"autorizacao_retencao_curriculo":false}
-```
-
-O key link que eu marquei `✗ NOT_WIRED — QUEBRADO` está **WIRED**.
-
-### 2. Eu estava certo sobre o cadastro quebrado, e a causa era mais funda
-
-Foram **três** causas empilhadas, e as duas que eu não vi são piores que a que eu vi:
-
-| # | Causa | Como foi fechada | Verificação minha |
 |---|---|---|---|
-| 1 | EF v16 breaking contra o bundle publicado | push do cliente (`8346833`) | `origin/main` contém o código; payload aceito por execução |
-| 2 | **Vercel sem build bem-sucedido desde 2026-06-27** — preset `vite` procura `dist/`, o repo emite em `build/`; os 20 deployments visíveis em ERROR; o site servia um build de junho congelado | `vercel.json#outputDirectory` (`274de2a`) | `vercel.json` tem `"outputDirectory": "build"`; `vite.config.ts:153` tem `outDir: 'build'`; `npm run build` emite `build/index.html` + `build/assets/` (49 arquivos) — **casam** |
-| 3 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` ausentes no build → app quebrava no boot, tela branca | Project Settings (operador) | Não verificável daqui — atestado do operador |
-| 4 | **SPA fallback ausente** — nenhuma URL direta funcionava, nem `/cadastro` | `0adea38` | `vercel.json` traz `{"source":"/((?!assets/).*)","destination":"/index.html"}`; a exclusão casa com o `assets/` que o build emite |
-| 5 | Dashboard do candidato com cópia LOCAL da navbar, **sem** o link "Área do candidato" — e `/candidato/privacidade` tem um único ponto de entrada pelo perfil | `581abe1` | Diff é **troca, não adição**; 5 casos novos, **verificados por reversão** (com o fix desfeito só o caso (a) reprova — é ele que discrimina); o mock respeita seletor, senão a navbar se auto-guardaria e o teste passaria por vacuidade |
+| 1 | Consentimentos opcionais nascem desmarcados; ao marcar, grava versão + hash + timestamp | ✓ **VERIFIED** | Cadastro REAL em navegador (2ª passagem): `v2-2026-08`, hash idêntico ao hex pinado, `consent_registrado_em` preenchida, as duas caixas desmarcadas gravando `false`. Sem alteração nesta passagem |
+| 2 | Dois consentimentos distintos; revogação de marketing pelo painel honrada no envio | ✓ **VERIFIED** | Recusa por INSERÇÃO REAL (`P0003`) + revogação REAL na tela com o GRANT de coluna do CR-01 segurando. Sem alteração nesta passagem |
+| 3 | `autorizacao_analise_video` deixou de ser promessa órfã **e** click tracking desligado, verificado no provedor | ✓ **VERIFIED** | Chave nunca emitida + `.strict()` recusa (Deno 16/16); CONSENT-06 executado com confirmação POSITIVA (`open_tracking:false`, `click_tracking:false`), lógica do marcador `✓` conferida no fonte. Ressalva `DEFAULT false` → Phase 47 |
+| 4 | Admin altera a janela de retenção sem deploy; seed de 2 anos como teto consentido; veredito RETEN-06 ANTES da estrutura | ✓ **VERIFIED** *(era ⚠️ PRESENT_BEHAVIOR_UNVERIFIED)* | **As 3 cláusulas fechadas.** Leitura: `20260803000001` com `::text`, auto-verificável por `DO` que EXECUTA e exige 8 linhas; md5 `7e9b9797…` reproduzido do arquivo nesta passagem; tela carregou. Escrita: `rejeitado` 24 → 18 pela tela, `origem`→`admin`, `alterado_por` resolvido **pelo LEFT JOIN que estava quebrado**, **exatamente 1** linha de auditoria com `dados_antes/depois` corretos, 7/8 estados intactos. ⚠ Ver W-3: prova por evento, sem guarda de regressão |
+| 5 | Prévia read-only responde "estes N seriam purgados" sem executar nada; `autorizacao_retencao_curriculo` citado como base legal | ✓ **VERIFIED** | `candidaturas_alem_da_janela()` com `REVOKE ALL` sem grant de volta; `md5(prosrc)` bateu o pin; `calculada_em := now()` no servidor; asserção negativa estrutural. ⚠ Duas ressalvas de "nunca visto ao vivo" seguem, em human_verification |
 
-O item 5 é o achado mais afiado do lote: era o motivo **concreto** de a metade "revoga pelo painel" do SC#2 ser inalcançável, e eu tinha nomeado o sintoma sem achar a causa.
+**Score:** **5/5** truths verified · 0 presentes-não-exercitados · 0 falhados
 
-### 3. CONSENT-06 — não aceitei a saída de olho fechado
+---
 
-A saída colada no `43-07-SUMMARY.md:314-330` afirma `✓ open_tracking: false` e `✓ click_tracking: false`. Fui ao fonte do reporter conferir se esse marcador pode ser produzido por outra coisa:
+## O que mudou desde a 2ª passagem — medido
 
-```js
-// scripts/check-resend-dominio.mjs:167-181
-const value = detail?.[flag] ?? match?.[flag]
-if (value === false)              notes.push(`✓ ${flag}: false`)
-else if (value == null)           notes.push(`… ${flag}: not reported by this API version …`)
-else                              failures.push(`✗ ${flag}: ${value} (expected false)`)
+Apenas **três arquivos** mudaram (`git diff --name-only 1076434..HEAD`). Listo-os todos porque a economia da mudança é ela própria uma evidência:
+
+| Arquivo | Mudança | Verificação minha |
+|---|---|---|
+| `supabase/migrations/20260803000001…` | **NOVO** — o `::text` que fecha o 42804 | Lido linha a linha. O `DO` de auto-verificação executa o caminho feliz e exige 8 linhas. md5 reproduzido |
+| `supabase/tests/p43_matriz_retencao_smoke.sql` | +67/−5 — a (k) e o gate 10 → 11 | Diff conferido: a (k) executa de verdade, com claim válida, e assere 8 linhas E 8 etapas distintas. O bloco (c) **não foi tocado** |
+| `index.html` | Título e `lang` | `<html lang="pt-BR">`, `<title>Beauty Smile — Carreiras</title>`, `<meta description>` em pt-BR. O título do protótipo do Figma sumiu |
+
+**Zero linhas de `src/` mudaram. Zero testes acrescentados** — 1422 antes, 1422 depois, em 155 arquivos. Isso é consistente com a narrativa e é o fato que sustenta W-3.
+
+### O 42804, e por que o rebaixamento se pagou
+
+O rebaixamento do SC#4 na 2ª passagem foi feito por dois motivos: consistência de padrão, e o fato novo de que `services/`/`hooks/` não tinham teste. **Ele encontrou um bug que fazia toda chamada bem-sucedida da função falhar desde o apply.** A cadeia causal é limpa e vale registrar:
+
+```
+rebaixamento por "a tela nunca foi aberta"
+  → operador abre a tela
+    → matriz não carrega (prévia carrega — o contraste já localiza o defeito no CORPO)
+      → 42804: RETURNS TABLE declara text, u.nome_completo é varchar(255)
+        → RETURN QUERY exige IDENTIDADE de tipo, não compatibilidade
+          → ::text, migration, (k), 11/11
 ```
 
-O `✓` **só** é emitido para um `false` explícito vindo da API. Flag ausente produz `…`, um marcador diferente. Portanto a saída registrada **não pode** ter vindo de "não reportado" — que é exatamente a saída que a própria fase descartou como não-passe. Os demais literais (`reporting on`, `read-only run (pass --verify …)`, `PASSED — … is verified, in …, tracking off`) batem com as linhas 114, 212 e 232 do script.
-
-**SC#3 fechado.** Fica registrado o que o próprio SUMMARY registra: a chave foi passada inline na linha de comando e ficou no transcript em claro; rotação foi recomendada ao operador.
-
----
-
-## A falha prevista chegou — e ela acusa a coisa errada
-
-O todo `43-smokes-com-baseline-congelada-viram-red.md` (`resolves_phase: 44`) previu que os smokes ficariam RED no primeiro cadastro real. **Aconteceu.** Confirmado por leitura do SQL, que é determinístico:
-
-`supabase/tests/p43_consent_prova_smoke.sql` conta sobre a tabela **inteira**, sem recorte de data ou de linha:
-
-- **(f)**, linha 331: `esperado_linhas` está fixado em `'17'` (`set_config`, linha 84). Com a linha nova são **18** → `P43C FAIL (f): public.autorizacoes tem 18 linhas, esperado 17`.
-- **(b)**, linhas 162-176: `count(*) FILTER (WHERE consent_text_version IS NOT NULL)` etc., sobre `FROM public.autorizacoes` sem `WHERE`. A linha nova tem as quatro colunas preenchidas → dispara no primeiro `IF`.
-
-**E aqui está o que mais importa:** (b) roda **antes** de (f) no arquivo, então o run aborta com a mensagem de (b) — *"o apply BACK-FILLOU prova de consentimento (…) essas linhas agora AFIRMAM que o titular leu um texto que ele nunca viu"*. **Isso é falso.** Nada foi back-fillado; um candidato de verdade se cadastrou de verdade e leu o texto de verdade. O smoke perdeu a capacidade de distinguir *back-fill* de *uso legítimo*, e o que ele grita é a acusação errada.
-
-Os dois fatos são mutuamente exclusivos: ou o SC#1 foi provado ao vivo (e o smoke está RED), ou o smoke está verde (e não houve cadastro real). **Consequência para quem ler este relatório depois: os verdes 6/6 daquele smoke são HISTÓRICOS, não correntes. Um re-run que reporte verde é sinal de problema, não de saúde.**
-
-Não conta como gap — está rastreado com `resolves_phase: 44`. Mas é a diferença entre "previmos" e "está previsto e permanentemente vermelho a partir de agora".
-
----
-
-## Os quatro itens diferidos — confirmados como genuinamente rastreados
-
-| Item | Arquivo | `resolves_phase` | Confere? |
-|---|---|---|---|
-| `autorizacao_analise_video NOT NULL DEFAULT false` | `43-analise-video-default-false-fabrica-afirmacao.md` | **47** | ✓ — e a Phase 47/CONSOL-03 detém o portão destrutivo do DROP |
-| Guard de marketing é `BEFORE INSERT` e só | `43-guard-marketing-so-before-insert.md` | **46** | ✓ — nenhum caminho de código faz o `UPDATE` que escaparia, hoje |
-| Smokes com baseline congelada viram RED | `43-smokes-com-baseline-congelada-viram-red.md` | **44** | ✓ — **e já está vermelho**, ver seção acima |
-| `updated_at` do relógio do cliente | `43-updated-at-do-consentimento-vem-do-cliente.md` | **46** | ✓ — `privacidadeService.ts:190` confirma o sítio; o prompt dizia "recorded", e o arquivo é mais forte que isso: tem fase |
-
-Nenhum é gap. Todos têm arquivo, corpo e fase.
-
----
-
-## O processo — o que sobrevive ao incidente e o que não sobrevive
-
-A fase embarcou uma mudança que deixou o cadastro em produção respondendo `400` por ~10 horas. **Zero candidatos afetados** (zero cadastros nos 30 dias anteriores; o último real em 2026-06-26) — atestado do operador, que não consigo verificar daqui. Sorte, e a fase reconhece que foi sorte.
-
-**O que sobrevive, e sobrevive bem:**
-
-- A fase **nomeou o risco antes de ele acontecer**, com precisão cirúrgica: `43-07-SUMMARY §"O que este checkpoint NÃO entrega"` escreveu que a EF v16 é breaking, que publicar o cliente é passo **ordenado e não opcional**, e por quê. Isso não é narrativa retroativa — está no commit `4aca449`, anterior ao incidente.
-- Os gates seguraram durante a correção: `tsc` **97** (baseline congelada, conferido), Vitest **1422/1422** em **155 arquivos** (conferido), build verde com os gates de chunk e de segredo. Nenhum `--no-verify` aparece nas mensagens dos commits da fase.
-- O fix do dashboard veio **verificado por reversão** — o padrão mais forte de prova de teste, e o único que descarta teste que passa por vacuidade.
-- O commit `0adea38` **corrige por escrito um erro do commit anterior** ("Erro meu no commit anterior (274de2a): escrevi que não mexeria em rewrites…"). Autocorreção datada no registro durável, não em conversa.
-
-**O que NÃO sobrevive — e o que devia ser corrigido em vez de narrado:**
-
-1. 🔴 **A publicação do cliente continua sem dono.** O passo 3 da ordem que os planos chamam de **obrigatória** (`migration → EF → cliente`) não pertence a plano nenhum, a fase nenhuma do ROADMAP, e a todo nenhum — verificado por varredura em `.planning/`. As Phases **44** (pedido de cópia), **45** (fluxo de exclusão) e **47** (2 páginas públicas) todas embarcam superfície de frontend. **A mesma lacuna vai recorrer.** O incidente foi fechado por ação ad-hoc do operador mais um registro em `STATE.md`; o defeito de processo que o produziu não foi corrigido em lugar durável.
-2. 🔴 **Nenhum gate observa o artefato deployado.** O Vercel ficou cinco semanas sem build bem-sucedido e nada acusou. O repo tem `postbuild` (`assert-no-secrets`, `assert-chunks`) — que roda **local**, sobre um build que ninguém serve. Também não rastreado.
-3. ⚠️ **`43-07-SUMMARY.md:366` afirma «O bundle do cliente nao foi publicado».** Hoje é **falso**. Nenhum bloco de correção foi acrescentado. Isto importa porque o projeto **já tem o padrão certo estabelecido**: a P37/37-05 arquivou um item de débito em quatro blocos com o corpo original preservado byte-a-byte, precisamente para que a imprecisão vire registro forense em vez de sumir. O padrão existe e não foi aplicado aqui.
-4. ⚠️ **`REQUIREMENTS.md` está desatualizado — agora no sentido INVERSO ao que eu apontei.** Meu achado anterior era sobre `[x]` prematuro; hoje o problema é `[ ]` atrasado:
-
-| Requirement | Marca atual | Estado real |
-|---|---|---|
-| CONSENT-01 | `[ ]` / "In Progress" | **Provado ao vivo, ponta a ponta** |
-| CONSENT-02 | `[ ]` / "In Progress" | **Provado ao vivo** (versão + hash + timestamp na linha real) |
-| CONSENT-03 | `[ ]` / "In Progress" | **Provado** — dois consentimentos distintos, guard vivo, transacional como linha informativa confirmado em tela |
-| CONSENT-05 | `[ ]` / "In Progress" | Parcial de verdade — a coleta parou, a coluna `DEFAULT false` não. O `[ ]` é **defensável** |
-| CONSENT-06 | `[ ]` / "Pending" | **Fechado** com confirmação positiva do provedor |
-| RETEN-02 (linha 181) | "alteração PELA TELA, auditada, em 43-09" | A tela **nunca foi aberta**. A parentética continua sobreafirmando |
-
-O bloco de nota em `REQUIREMENTS.md:58-66`, onde três executores recusaram marcar `[x]` prematuro, é o mesmo rigor que agora precisa ser aplicado na direção oposta.
+O diagnóstico registrado no cabeçalho da migration é o de alguém que raciocinou em vez de tentar: *"As duas funcoes tem o MESMO guard, entao o contraste ja localizava o problema no CORPO desta, nao na autorizacao."*
 
 ---
 
@@ -258,125 +374,166 @@ O bloco de nota em `REQUIREMENTS.md:58-66`, onde três executores recusaram marc
 
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
-| `supabase/functions/_shared/consent-text.json` | Fonte única do texto | ✓ VERIFIED | `versao: v2-2026-08` em `origin/main`; lido pelas duas runtimes |
-| `supabase/functions/_shared/consent-hash.ts` | SHA-256 só no servidor | ✓ VERIFIED | Deno 16/16 com o pin do hex — **e o hash da linha real ao vivo bateu com esse pin** |
-| `supabase/functions/_shared/autorizacoes-registro.ts` | Payload sem coalescência | ✓ VERIFIED | Zero `??`; chave de vídeo nunca emitida (teste 5) |
-| `supabase/functions/_shared/schemas.ts` | `.strict()`, sem defaults | ✓ VERIFIED | **Aceita o payload do cliente publicado** (execução nesta passagem); recusa `autorizacao_analise_video` |
-| `supabase/migrations/20260801000001…04` | 4 migrations da fase | ✓ VERIFIED | Vivas, md5 4/4, smokes 6/6 · 10/10 · 9/9 · 9/9 |
-| `supabase/migrations/20260802000001…` | Fix do CR-01 | ✓ VERIFIED | `REVOKE UPDATE … FROM anon, authenticated` (linha 83) + `GRANT UPDATE (autorizacao_marketing_vagas, updated_at)` (linha 91). **Segurou numa ação REAL de usuário** — exatamente 1 coluna escrita |
-| `vercel.json` | Output + SPA fallback | ✓ VERIFIED | `outputDirectory: "build"` casa com `vite.config.ts:153`; rewrite exclui `assets/`, que é o que o build emite |
-| `src/features/cadastro/components/steps/AutorizacoesStep.tsx` | Passo reescrito | ✓ VERIFIED | Publicado; invariantes confirmados **em tela** por print |
-| `src/features/privacidade/**` | Superfície de revogação | ✓ VERIFIED | Publicada e **exercitada ao vivo**; 11 arquivos em `origin/main`; 20 casos verdes. ⚠ ramo autorizado da guarda nunca visto ao vivo |
-| `src/features/admin/retencao/**` | Matriz editável + prévia | ⚠️ **PUBLICADO, NUNCA EXERCITADO** | 13 arquivos em `origin/main`, 53 casos verdes de componente — **mas `services/` e `hooks/` sem nenhum teste**, e a tela nunca aberta |
-| `src/components/pages/DashboardCandidatoPage.tsx` | Barra compartilhada | ✓ VERIFIED | `<CandidatoNavbar />` no lugar da cópia local; 5 casos, verificados por reversão |
-| `docs/compliance/reten06-veredito-retain-until.md` | Veredito datado antes da estrutura | ✓ VERIFIED | Wave 1 (43-02), antes da migration da matriz (43-04, wave 2) |
-| `docs/compliance/marketing-consentimento-escopo.md` | Escopo honesto do SC#2 | ✓ VERIFIED | §6 corrigida pós-apply (WR-01 fechada) |
-| `scripts/check-resend-dominio.mjs` | Reporter do CONSENT-06 | ✓ VERIFIED | **Executado**, com confirmação positiva; a lógica do `✓` conferida no fonte |
-| `database.types.ts` | Regenerado pós-apply | ✓ VERIFIED | 4 colunas novas + `config_retencao_etapa` + 5 funções |
+| `supabase/migrations/20260803000001…` | O cast que fecha o 42804 | ✓ **VERIFIED** | `::text` na linha 102; auto-verificação que EXECUTA o caminho feliz; md5 `7e9b9797…` **reproduzido do arquivo nesta passagem**; `COMMENT` carrega a lição para dentro do banco |
+| `supabase/tests/p43_matriz_retencao_smoke.sql` | Asserção (k), gate 11 | ⚠️ **PRESENTE E CORRETA, MAS INALCANÇÁVEL** | A (k) é bem escrita (8 linhas E 8 etapas distintas). Mas a (c) aborta o run antes dela desde a escrita ao vivo. Ver W-1 |
+| `index.html` | Identidade do produto | ✓ VERIFIED | `lang="pt-BR"`, título e description do produto real |
+| `src/features/admin/retencao/**` | Matriz editável + prévia | ✓ **VERIFIED — E AGORA EXERCITADO** *(era ⚠ NUNCA EXERCITADO)* | Tela aberta, matriz renderizada, escrita executada. 50 casos verdes em 4 arquivos. ⚠ `services/` e `hooks/` seguem com **zero** teste |
+| `supabase/migrations/20260801000001…04` + `20260802000001` | 5 migrations da fase | ✓ VERIFIED | Inalteradas. Ver a ressalva de probes |
+| `src/features/privacidade/**` | Superfície de revogação | ✓ VERIFIED | Inalterada; exercitada ao vivo na 2ª passagem. ⚠ ramo autorizado da guarda nunca visto |
+| `43-07-SUMMARY.md` | Bloco de correção datado | ✓ **VERIFIED** *(era ⚠ Warning)* | Linha 366: `✅ CORRECAO (2026-08-03) — a secao abaixo esta SUPERADA`, com o corpo original **preservado** e a razão da preservação escrita. Exatamente o padrão da P37/37-05 que apontei |
+| `.planning/todos/pending/publicar-cliente…` | Dono para o defeito de processo | ✓ **VERIFIED** *(era 🔴 sem dono)* | `priority: high`, `resolves_phase: 44`, três ações concretas, Phases 44/45/47 nomeadas. Ressalva em W-8 |
+| `REQUIREMENTS.md` | Marcas alinhadas ao estado real | ⚠️ **PARCIAL** | Checklist corrigido (CONSENT-01/02/03/04/06 → `[x]`). **Tabela de status 174-184 NÃO corrigida** — contradiz o checklist. Ver W-6 |
+| `STATE.md` | Registro do incidente | ⚠️ **PARCIAL** | §BLOQUEADOR FECHADO cobre bem o 1º incidente. **Current Position ainda diz `gaps_found, 2/5`; o 42804 não está em lugar nenhum.** Ver W-7 |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |---|---|---|---|---|
-| **Cliente publicado (`origin/main`)** | **EF `cadastrar-candidato` v16** | POST `/cadastrar-candidato` | ✓ **WIRED** *(era `✗ QUEBRADO`)* | Payload **ACEITO** — reconferido por execução nesta passagem. Confirmado end-to-end por cadastro real |
-| `consent-text.json` | `public.autorizacoes` | `calcularHashConsentimento` → `montarRegistroAutorizacoes` → INSERT | ✓ WIRED | Hash da linha real ao vivo == pin do teste |
-| `consent-text.json` | `AutorizacoesStep` | import direto | ✓ WIRED | Uma fonte, dois leitores |
-| `autorizacoes.autorizacao_marketing_vagas` | `notificacoes_enviadas` | `pode_receber_marketing()` → trigger `BEFORE INSERT` | ✓ WIRED | Recusa provada por inserção real (`P0003`) |
-| `PrivacidadeCandidatoPage` | `public.autorizacoes` | `revogarMarketing` → PostgREST `.update().eq(id).eq(candidato_id)` | ✓ **WIRED — exercitado ao vivo** | 1 coluna escrita, 4 colunas de prova intactas |
-| `DashboardCandidatoPage` | `/candidato/perfil` → card → `/candidato/privacidade` | `<CandidatoNavbar />` | ✓ **WIRED** *(era o beco sem saída)* | Caso (a) discrimina por reversão |
-| `config_retencao_etapa` | `previa_retencao()` | `candidaturas_alem_da_janela()` | ✓ WIRED | Os dois wrappers CHAMAM o predicado; asserido no smoke |
-| `salvar_janela_retencao` | `log_auditoria` | `PERFORM` no mesmo corpo | ✓ WIRED | Mesma transação, asserido no smoke 10/10 |
-| `EditarJanelaDialog` | `rpc('salvar_janela_retencao')` | `useSalvarJanela` → `retencaoService.salvarJanela` | ⚠️ **WIRED EM CÓDIGO, SEM TESTE E SEM EXECUÇÃO** | `EditarJanelaDialog.tsx:72,132,155` → `useSalvarJanela.ts:41` → `retencaoService.ts:288-291`. **Zero testes** em `services/` e `hooks/`; o teste do diálogo mocka a mutação. Nunca executado por ninguém |
-| `/admin/retencao` | `RHSidebar` (3 sítios) | item + rota + `getActivePageFromPath` | ✓ WIRED em código | `RHSidebar.tsx:106, 165, 183` — a linha vem ANTES do `/admin` genérico. Nunca navegado |
+| `MatrizRetencaoTable` | `rpc('listar_matriz_retencao')` | `useMatrizRetencao` → `retencaoService.listarMatriz` | ✓ **WIRED — EXERCITADO AO VIVO** *(era ✓ em código, nunca renderizado)* | `retencaoService.ts:177`. A matriz carregou na tela depois do fix. ⚠ sem teste no elo |
+| `EditarJanelaDialog` | `rpc('salvar_janela_retencao')` | `useSalvarJanela` → `retencaoService.salvarJanela` | ✓ **WIRED — EXERCITADO AO VIVO** *(era ⚠ SEM TESTE E SEM EXECUÇÃO)* | `retencaoService.ts:289`. Escrita real 24 → 18, auditada. ⚠ **segue sem teste** — a execução foi evento único |
+| `salvar_janela_retencao` | `logs_auditoria` | `PERFORM` no mesmo corpo | ✓ **WIRED — CONFIRMADO EM USO REAL** | Exatamente 1 linha, `dados_antes:24` / `dados_depois:18`, `sucesso:true`. A atomicidade que (g) prova em rollback foi honrada em produção |
+| `config_retencao_etapa.alterado_por` | `usuarios_rh.nome_completo` | `LEFT JOIN` em `listar_matriz_retencao` | ✓ **WIRED** *(era QUEBRADO em silêncio)* | `::text` no `20260803000001`. Provado pela leitura que exibiu o nome do próprio alterador |
+| Cliente publicado | EF `cadastrar-candidato` v16 | POST | ✓ WIRED | Reconferido por execução na 2ª passagem |
+| `PrivacidadeCandidatoPage` | `public.autorizacoes` | `revogarMarketing` → PostgREST | ✓ WIRED — exercitado ao vivo | 1 coluna escrita, 4 colunas de prova intactas |
+| `config_retencao_etapa` | `previa_retencao()` | `candidaturas_alem_da_janela()` | ✓ WIRED | Gate de md5 + asserção (f) do previa smoke |
 
 ### Data-Flow Trace (Level 4)
 
 | Artifact | Data Variable | Source | Produces Real Data | Status |
 |---|---|---|---|---|
-| `AutorizacoesStep` | `AUTORIZACOES`, `TRANSACIONAL` | `consent-text.json` | Sim — **confirmado em tela ao vivo** | ✓ FLOWING |
-| `PrivacidadeCandidatoPage` | `autorizacoes` | `usePrivacidade` → `.select(AUTORIZACOES_ALLOWLIST)` | Sim — **confirmado ao vivo** | ✓ FLOWING |
-| `GuardaCurriculoBloco` | `autorizado`, `temCurriculo`, `autorizadoEm` | `.select(CANDIDATURA_CURRICULO_ALLOWLIST)` | Sim, mas só o ramo **NÃO-autorizado** foi visto | ⚠️ FLOWING — ramo autorizado só em teste |
-| `MatrizRetencaoTable` | `linhas` | `rpc('listar_matriz_retencao')` | Sim — 8 linhas vivas | ✓ FLOWING (nunca renderizado ao vivo) |
-| `PreviaRetencaoBloco` | `linhas`, `total` | `rpc('previa_retencao')` + `previa_retencao_total` | **Zero hoje, e zero é a resposta certa** | ✓ FLOWING (estado zero explícito, com carimbo) |
+| `MatrizRetencaoTable` | `linhas` | `rpc('listar_matriz_retencao')` | **Sim — 8 linhas renderizadas na tela, ao vivo** | ✓ **FLOWING** *(era "nunca renderizado")* |
+| `EditarJanelaDialog` | `janela_meses` → RPC | `useSalvarJanela` | **Sim — escrita real chegou ao banco e voltou pela leitura** | ✓ FLOWING |
+| `PreviaRetencaoBloco` | `linhas`, `total` | `rpc('previa_retencao')` + `_total` | Zero hoje, e zero é a resposta certa. Carimbo do servidor visto ao vivo (`01:36`) | ✓ FLOWING (estado zero explícito) |
+| `AutorizacoesStep` | `AUTORIZACOES` | `consent-text.json` | Sim — confirmado em tela | ✓ FLOWING |
+| `GuardaCurriculoBloco` | `autorizado`, `autorizadoEm` | `.select(ALLOWLIST)` | Sim, mas só o ramo **NÃO-autorizado** foi visto | ⚠️ FLOWING — ramo autorizado só em teste |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| **Payload do cliente PUBLICADO × schema da EF v16** | `deno run` do `autorizacoesSchema` sobre o objeto de `origin/main` | **`ACCEPTED? true`** | ✓ **PASS** *(era FAIL)* |
-| Suíte inteira do repositório | `npm run test:run` | **155 arquivos · 1422 testes · 0 falhas** | ✓ PASS |
 | Baseline `tsc` congelada em 97 | `npm run lint` | **97** — idêntico | ✓ PASS |
-| Build + gates de segredo/chunk | `npm run build` | verde · 45 chunks · `assert-chunks PASSED` | ✓ PASS |
-| Corpus Deno do consentimento | `deno test consent-hash + autorizacoes-registro` | **16 passed / 0 failed** (incl. o pin do hex) | ✓ PASS |
-| Superfícies da fase (privacidade + retenção) | `npx vitest run src/features/privacidade src/features/admin/retencao` | **7 arquivos · 73 testes · 0 falhas** | ✓ PASS |
-| `outputDirectory` × `outDir` × artefato emitido | `vercel.json` vs `vite.config.ts:153` vs `ls build/` | `build` == `build` == `build/{index.html,assets/}` | ✓ PASS |
-| `p43_consent_prova_smoke.sql` (b) e (f) | leitura determinística do SQL + linha real existente | **RED previsto — (b) aborta com acusação FALSA de back-fill** | ✗ **RED (rastreado → Phase 44)** |
-| `/admin/retencao` ao vivo | — | nunca aberta | ? **SKIP → human_needed** |
+| Suíte inteira | `npm run test:run` | **155 arquivos · 1422 testes · 0 falhas** | ✓ PASS |
+| Feature `admin/retencao` | `npx vitest run src/features/admin/retencao` | **4 arquivos · 50 testes · 0 falhas** — todos de componente | ✓ PASS |
+| Testes em `services/` ou `hooks/` de retenção | `find … -name "*.test.*" \| wc -l` | **0** | ✗ **AUSENTE (W-3)** |
+| Build + gates PERF-03/segredo | `npm run build` | verde · 45 chunks · eager 922.84 kB < 2722.92 kB · `assert-chunks PASSED` | ✓ PASS |
+| md5 do `20260803000001` × o hash registrado | `printf '%s' "$(cat …)" \| md5` | **`7e9b9797ac3fe22f95b34b25db30bfa4`** — bate | ✓ **PASS** |
+| Origem sincronizada | `git rev-list --left-right --count origin/main...HEAD` | **`0  0`** — `origin/main` = `6588ba6` = HEAD | ✓ PASS |
+| Marcadores de dívida nos arquivos mudados | `grep -nE "TBD\|FIXME\|XXX"` em `1076434..HEAD` | **nenhum** | ✓ PASS |
+| `p43_matriz_retencao_smoke.sql` re-run | análise determinística da ordem dos `IF` de (c) | **RED em (c) via `v_em24=7`; (d)…(k),(z) inalcançáveis** | ✗ **RED (W-1)** |
+| `p43_consent_prova_smoke.sql` re-run | análise determinística (2ª passagem) | **RED em (b), com acusação falsa** | ✗ RED (rastreado → 44) |
 
 ### Probe Execution
 
-Não há probes `scripts/*/tests/probe-*.sh` neste repositório. Os equivalentes da fase são os quatro smokes SQL, que exigem MCP do Supabase — indisponível a subagentes (restrição registrada no ROADMAP). Seus resultados (6/6, 10/10, 9/9, 9/9) foram tomados do estado medido no checkpoint 43-07 e corroborados por evidência que **não** depende do MCP: `database.types.ts` contém as 4 colunas, `config_retencao_etapa` e as 5 funções, e esse arquivo é gerado do banco vivo. **Ver a ressalva acima: o smoke (b)/(f) do consentimento passou a ser RED e seus verdes são históricos.**
+Não há probes `scripts/*/tests/probe-*.sh` neste repositório. Os equivalentes são os quatro smokes SQL, que exigem MCP do Supabase — **indisponível a subagentes** (bug upstream registrado no cabeçalho dos próprios smokes). Não executei nenhum, e não tomo nenhum resultado de execução como meu.
+
+| Probe | Como o avaliei | Status |
+|---|---|---|
+| `p43_matriz_retencao_smoke.sql` (11 asserções) | Análise determinística do SQL + do estado conhecido do banco | ✗ **RED em (c)** — ver W-1. O `11/11` registrado é **histórico**, válido para o instante entre o apply do fix e a escrita ao vivo |
+| `p43_consent_prova_smoke.sql` (6) | Análise determinística (2ª passagem) | ✗ **RED em (b)**, com acusação falsa. `6/6` é histórico |
+| `p43_guard_marketing_smoke.sql` (9) | Não re-avaliado; sem baseline congelada de linha | ? Presumido válido |
+| `p43_previa_smoke.sql` (9) | Não re-avaliado; assertivas estruturais + coerência relativa | ? Presumido válido |
+
+**Substituto que não depende de MCP, e é forte:** a migration `20260803000001` **é** seu próprio probe. O bloco `DO $verifica_leitura$` executa `listar_matriz_retencao()` com claim de administrador real e levanta se o retorno não for 8 linhas. Um apply bem-sucedido implica, logicamente, que o caminho feliz executou em PROD. Somado ao md5 que reproduzi do arquivo, isto é corroboração estrutural — não atestação.
 
 ### Requirements Coverage
 
-Todos os 11 IDs do ROADMAP aparecem no frontmatter de algum plano. **Zero requirements órfãos.** `RETEN-05` está corretamente fora (Phase 46).
+| Requirement | Marca em REQUIREMENTS.md | Status real | Evidence |
+|---|---|---|---|
+| CONSENT-01 | `[x]` ✓ *(corrigido)* | ✓ SATISFIED | As duas caixas desmarcadas gravaram `false`, ao vivo |
+| CONSENT-02 | `[x]` ✓ *(corrigido)* | ✓ SATISFIED | Versão + hash + timestamp na linha real; hash == pin |
+| CONSENT-03 | `[x]` ✓ *(corrigido)* | ✓ SATISFIED | Dois consentimentos distintos; guard vivo; transacional informativo em tela |
+| CONSENT-04 | `[x]` | ✓ SATISFIED | Revogação real pelo painel, GRANT do CR-01 segurando |
+| CONSENT-05 | `[ ]` | ⚠️ **PARCIAL — `[ ]` CORRETO** | Coleta parou (provado); coluna `NOT NULL DEFAULT false` não. ⚠ tabela de status roteia p/ 43, o todo p/ **47** |
+| CONSENT-06 | `[x]` ✓ *(corrigido)* | ✓ SATISFIED | Confirmação POSITIVA do provedor |
+| RETEN-01 | `[x]` | ✓ **SATISFIED — agora com a tela exercitada** | Tabela + RPCs vivas; **a leitura estava quebrada e foi consertada**; matriz renderizada ao vivo |
+| RETEN-02 | `[x]` | ✓ **SATISFIED — parentética RETIRADA da objeção** | Seed 8/8 @24 com enquadramento BD-1. *"alteração PELA TELA, auditada, em 43-09"* agora é **literalmente verdadeira** |
+| RETEN-03 | `[x]` | ✓ SATISFIED (com ressalva) | Bloco na página aberta ao vivo; 3 casos em teste. **Ramo autorizado nunca visto em tela** |
+| RETEN-04 | `[x]` | ✓ SATISFIED | Prévia agregada viva, enumerador revogado, carimbo no servidor, gate de md5 |
+| RETEN-06 | `[x]` | ✓ SATISFIED | Veredito datado, wave anterior à da estrutura |
+| RETEN-05 | `[ ]` → Phase 46 | ✓ **CORRETO, não omissão** | Justificado em 4 locais consistentes; ver Pergunta 5 |
 
-| Requirement | Status | Evidence |
-|---|---|---|
-| CONSENT-01 | ✓ **SATISFIED** | Provado ao vivo: as duas caixas deixadas desmarcadas gravaram `false` |
-| CONSENT-02 | ✓ **SATISFIED** | Versão + hash + timestamp na linha real; hash == pin do teste |
-| CONSENT-03 | ✓ **SATISFIED** | Dois consentimentos distintos; transacional como linha informativa com base legal nomeada (confirmado em print); guard vivo |
-| CONSENT-04 | ✓ **SATISFIED** | **Revogação real pelo painel**, com o GRANT do CR-01 segurando |
-| CONSENT-05 | ⚠️ PARCIAL | Coleta parou (provado). Coluna `NOT NULL DEFAULT false` — diferido à Phase 47, rastreado |
-| CONSENT-06 | ✓ **SATISFIED** | Confirmação POSITIVA do provedor, com o marcador `✓` conferido no fonte |
-| RETEN-01 | ✓ SATISFIED (mecanismo) | Tabela + RPCs vivas, smoke 10/10. Tela publicada, nunca aberta |
-| RETEN-02 | ✓ SATISFIED (com ressalva) | Seed 8/8 @24 com o enquadramento BD-1 no `COMMENT` do banco e no diálogo. **A parentética "PELA TELA" na linha 181 continua sem exercício** |
-| RETEN-03 | ✓ SATISFIED (com ressalva) | Bloco na página que foi aberta ao vivo; os 3 casos em teste. **O ramo autorizado — que é o requirement — nunca apareceu em tela** |
-| RETEN-04 | ✓ SATISFIED | Prévia agregada viva, enumerador revogado, carimbo no servidor, gate de md5, asserção negativa estrutural |
-| RETEN-06 | ✓ SATISFIED | Veredito datado, na wave anterior à da estrutura nova |
+**Zero requirements órfãos.** Todos os 11 IDs do ROADMAP aparecem no frontmatter de algum plano.
 
 ### Anti-Patterns Found
 
 | File | Line | Pattern | Severity | Impact |
 |---|---|---|---|---|
-| — | — | `TBD` / `FIXME` / `XXX` nos arquivos da fase | — | **Nenhum.** Varredura em `src/features/privacidade`, `src/features/admin/retencao`, `AutorizacoesStep.tsx`, `supabase/functions/_shared/`, `vercel.json`: zero ocorrências |
-| `43-07-SUMMARY.md` | 366 | Afirmação hoje FALSA ("o bundle não foi publicado"), sem bloco de correção | ⚠️ Warning | O projeto já estabeleceu o padrão certo (P37/37-05) e não o aplicou aqui |
-| `REQUIREMENTS.md` | 52-55, 68, 181 | 4 requirements `[ ]` que estão provados + 1 parentética que sobreafirma | ⚠️ Warning | Registro do milestone desalinhado do estado real, nos DOIS sentidos |
-| `src/features/admin/retencao/{services,hooks}` | — | Zero cobertura de teste na camada que fala com a RPC | ⚠️ Warning | É o elo do SC#4 sem teste **e** sem execução |
-| `privacidadeService.ts` | 190 | `updated_at` do relógio do cliente | ℹ️ Info | WR-07, rastreado com `resolves_phase: 46` |
-| `AutorizacoesStep.tsx` | 172 | `<strong>Seus dados e autorizações</strong>.` — ponto final em nó de texto separado | ℹ️ Info | **Cosmético, confirmado por leitura.** O `<strong>` é um bloco inline longo e o `.` é nó irmão, então quebra sozinho na linha de baixo. Não afeta função. Também presente na linha 261 |
+| — | — | `TBD`/`FIXME`/`XXX` nos arquivos mudados em `1076434..HEAD` | — | **Nenhum.** Varredura limpa |
+| `p43_matriz_retencao_smoke.sql` | 242-244 | Mensagem que acusa violação de teto quando houve **aperto** de teto | ⚠️ **Warning** | Quem rodar lê a acusação errada. E o `IF` mata (d)…(k)(z). **W-1** |
+| `src/features/admin/retencao/{services,hooks}` | — | Zero cobertura na camada que fala com a RPC | ⚠️ Warning | **Sem todo.** Dívida não rastreada. **W-3** |
+| `REQUIREMENTS.md` | 58-66, 174-184 | Tabela de status contradiz o checklist; bloco de nota descreve estado superado | ⚠️ Warning | O arquivo contradiz a si mesmo. **W-6** |
+| `.planning/` (varredura completa) | — | A escrita ao vivo 24 → 18 não existe em artefato nenhum | ⚠️ Warning | A evidência que fecha o SC#4 só existe em conversa. **W-2** |
+| `STATE.md` | Current Position, Session Continuity | `gaps_found, 2/5`; 42804 ausente | ⚠️ Warning | **W-7** |
+| `43-09-SUMMARY.md` | `requires:` | *"8 linhas, todas em 24 meses, origem='seed'"* | ℹ️ Info | Falso desde a alteração ao vivo. Correção de uma linha |
+| `privacidadeService.ts` | 190 | `updated_at` do relógio do cliente | ℹ️ Info | Rastreado, `resolves_phase: 46` |
 
 ---
 
 ## Warnings
 
-**W-1 — `/admin/retencao` é a única superfície da fase sem nenhuma evidência viva, e o elo que a liga ao mecanismo provado é o único sem teste.** Não é dúvida sobre o mecanismo: a RPC recusa não-admin **e** o chamador sem claim (42501) e escreve auditoria na mesma transação, provado por smoke 10/10 contra PROD. É sobre o trecho entre a pessoa e o mecanismo.
+**W-1 — 🔴 O smoke da matriz morreu, e a mensagem que ele vai dar é a errada.** A (c) dispara em `v_em24 = 7` acusando violação do *"teto já consentido"* a respeito de um **aperto** (18 < 24). A declaração de "por desenho" do cabeçalho cobre a **terceira** checagem, que nunca é alcançada. E porque a (c) é a 3ª de 11 num batch de chamada única, **(d), (e), (f), (g), (h), (i), (j), (k) e (z) tornaram-se inalcançáveis** — incluindo a **(k)**, a guarda do 42804 acrescentada no mesmo dia, e a **(j)**, a asserção que mede a invariante zero-destrutiva que define a fase. O todo existente **exime** a (c) da correção, então a Phase 44 vai consertar um smoke e deixar este morto. **É o achado mais consequente desta passagem.**
 
-**W-2 — A prévia devolve ZERO e devolverá por meses, e isso é correto.** O componente trata zero como **resposta** e não como vazio (`isEmpty` do `AsyncState` deliberadamente não usado) e carimba a data mesmo no zero. O estado populado é impossível de produzir com dado real sem encurtar a janela — o que seria fabricar a condição. Provado só por teste, **deliberadamente**.
+**W-2 — 🔴 A escrita que fecha o SC#4 não está escrita em lugar nenhum.** Varri `.planning/` e `docs/`: zero ocorrências de `18 meses`, `janela_meses = 18`, `24 → 18`. A evidência decisiva do critério de sucesso mais disputado da fase existe apenas na conversa que me trouxe até aqui. Se este relatório for lido em três meses, o `VERIFIED` do SC#4 não terá lastro consultável — exceto por este próprio parágrafo. O 42804 tem registro excelente (migration, smoke, commit); **a escrita que o validou, nenhum.**
 
-**W-3 — Os 4 candidatos sem linha de consentimento continuam sem linha.** Correto e deliberado (BD-4: back-fill seria fabricar prova). Registrado para que ninguém "corrija" depois por engano.
+**W-3 — 🔴 `services/` e `hooks/` de `admin/retencao` seguem sem um único teste, e isso não tem arquivo.** Medido: 0 arquivos de teste; suíte idêntica (1422) antes e depois. A prova viva é um **evento**, não um mecanismo — um refactor que quebre o hop passa por `tsc` 97 e 1422/1422 sem que nada acuse. **Nomeado em três passagens de verificação e nunca convertido em todo.** É a única dívida desta fase sem dono em arquivo.
 
-**W-4 — A revogação depende de uma policy que não existe em arquivo nenhum.** `Candidatos podem atualizar suas autorizacoes` vive em PROD e em nenhuma migration (4ª instância do drift, com todo aberto). O serviço se defende com `.eq('candidato_id', …)` e o CR-01 estreitou o privilégio de coluna — mas um `db reset` ainda perderia a policy em silêncio. **A revogação ao vivo funcionou porque essa policy está lá.**
+**W-4 — ⚠️ A lição do contador de asserções vive só em `supabase/`.** Registrada de forma exemplar em três lugares (migration, smoke, e a `COMMENT` que a leva para dentro do banco — durabilidade máxima). **Nada em `.planning/`.** Quem planejar a Phase 46 — a fase que arma um `DELETE` por cron sobre funções guardadas — não vai encontrá-la.
 
-**W-5 — Nenhum artefato de planejamento é dono da publicação do cliente, e nenhum gate observa o artefato deployado.** As duas causas mais fundas do incidente. Ver §"O processo". As Phases 44, 45 e 47 embarcam frontend.
+**W-5 — ⚠️ A disciplina já existia na própria fase.** 43-05 tem a (f) *"O CAMINHO POSITIVO EXISTE"*; 43-06 tem a (h) *"a prévia EXECUTA"*, com o raciocínio explícito no comentário. Só o 43-04 não tem — e foi escrito primeiro. **Isto não foi ignorância; foi inconsistência sem ninguém verificando consistência.** A varredura que a teria pego custa três comandos e foi feita pela primeira vez nesta passagem.
+
+**W-6 — ⚠️ `REQUIREMENTS.md` contradiz a si mesmo.** Checklist corrigido (linhas 52-68); tabela de status (174-184) **não** — segue "In Progress"/"Pending" para itens que o checklist marca `[x]`. E o bloco de nota 58-66 ainda afirma que CONSENT-01/02/03 estão deliberadamente sem `[x]`. Meia correção é pior que nenhuma: agora o arquivo tem duas respostas para a mesma pergunta.
+
+**W-7 — ⚠️ `STATE.md` está uma passagem atrás.** Current Position: `gaps_found, 2/5`, *"Last activity: 2026-08-02"*. O §BLOQUEADOR FECHADO cobre bem o primeiro incidente e **não menciona o 42804** — o segundo incidente da fase, e o único encontrado por verificação em vez de por acaso.
+
+**W-8 — ⚠️ O novo todo é bom, mas sua ação nº 1 não é entregável da Phase 44.** *"Um passo de publicação explícito no plano de TODA fase que toque `src/`"* é mudança de template. Se a 44 a implementar só para si, a 45 e a 47 recorrem e o todo fecha tendo consertado uma instância de um defeito de classe.
+
+**W-9 — ⚠️ A revogação depende de uma policy que não existe em arquivo nenhum.** `Candidatos podem atualizar suas autorizacoes` vive em PROD e em nenhuma migration — 4ª instância do drift, com todo aberto (`processo-origem-do-drift-desconhecida`). Um `db reset` a perderia em silêncio. Inalterado desde a 2ª passagem.
+
+**W-10 — ⚠️ Os 4 candidatos sem linha de consentimento continuam sem linha.** Correto e deliberado (BD-4: back-fill seria fabricar prova). Registrado para que ninguém "corrija" depois por engano.
 
 ---
 
 ## Gaps Summary
 
-**Não há gaps.** Os três que eu abri estão fechados, e os dois principais pelo padrão mais alto disponível: uma pessoa real, num navegador real, produzindo uma linha real cujos valores amarram a um hash pinado de forma independente. O terceiro fechou com confirmação positiva do provedor, e conferi no fonte do reporter que aquele marcador não pode ser produzido por ausência de dado.
+**Não há gaps.** Os cinco critérios de sucesso do ROADMAP são verdadeiros no código e no banco, e os dois que dependiam de comportamento de runtime — SC#2 e SC#4 — foram exercitados por pessoas reais em produção. **5/5.**
 
-O que resta é de outra natureza. **`/admin/retencao` nunca foi aberta**, e o elo entre a tela e a RPC provada não tem teste nenhum. Levei SC#1 e SC#2 ao padrão vivo e eles o atingiram; aplicar padrão mais frouxo ao SC#4 seria inconsistência, então ele fica ⚠️ presente-porém-não-exercitado até que um administrador de verdade mude uma janela de verdade. Dois outros pontos ficam nomeados sem entrar no placar: a prévia populada é impossível de produzir com dado real hoje, e o ramo autorizado da guarda do currículo nunca apareceu numa tela porque a conta de teste deixou justamente aquela caixa desmarcada.
+O SC#4 fechou pelo padrão que eu mesmo estipulei, e o caminho até lá foi o melhor argumento possível a favor do rebaixamento: ele produziu um bug real, de produção, que três smokes verdes, 1422 testes e duas passagens de verificação não tinham visto. **`listar_matriz_retencao` falhava em toda chamada bem-sucedida desde o apply, e nada no sistema sabia.**
 
-Uma última observação, no mesmo padrão que a fase aplicou a si mesma. A fase **previu o incidente por escrito antes de ele acontecer** — isso é raro e vale registrar. Mas fechou o incidente com ação ad-hoc mais narrativa em `STATE.md`, e o defeito de processo continua exatamente onde estava: publicar o cliente não pertence a plano nenhum, e nada olha o artefato que a produção serve. Cinco semanas de deploy quebrado passaram invisíveis. A fase existe para acabar com promessa que nenhum código executa — a ordem `migration → EF → cliente` é, hoje, uma promessa dessas, um diretório acima.
+O que resta não falsifica critério nenhum, mas eu não o suavizo. **A fase corrigiu o defeito e não corrigiu a condição que o produziu.** A (k) — a asserção que existe exatamente para impedir que o 42804 volte — nasceu dentro de um arquivo que a ação legítima seguinte tornou inalcançável, junto com a asserção que mede a invariante zero-destrutiva da fase inteira. A lição sobre contadores de asserções está escrita com uma clareza que merece elogio, em três lugares, e em nenhum deles quem planeja a próxima fase vai olhar. E o elo cliente→RPC segue provado por um evento de um dia, sem uma linha de teste, com essa dívida nomeada em três passagens consecutivas e ainda sem arquivo.
+
+Há uma simetria que vale dizer em voz alta, porque é a mesma da 2ª passagem com outro objeto. Lá, a fase previu o incidente do deploy por escrito e mesmo assim o sofreu, porque o aviso não estava onde a execução o lê. Aqui, a fase diagnosticou a doença do gate com precisão — *"um contador de asserções verdes mede caminhos exercitados, não caminhos existentes"* — e escreveu o remédio dentro do frasco que acabou de lacrar. **Diagnóstico excelente, entrega no endereço errado, duas vezes.** Essa, e não nenhum dos dois bugs, é a coisa que a Phase 44 precisa levar consigo.
 
 ---
 
 # ── HISTÓRICO ──────────────────────────────────────────────────────────
 
-## 1ª passagem — 2026-08-02T18:59:05Z · `gaps_found` · **2/5**
+Preservado porque o registro de uma fase que embarcou quebrada, foi pega, consertada, pega de novo e consertada de novo vale mais que um arquivo de aparência limpa. As duas passagens abaixo ficam com o veredito que tinham **no momento em que foram escritas** — não são retro-editadas.
 
-Preservado porque o registro de a fase ter embarcado quebrada e sido consertada vale mais que um arquivo de aparência limpa.
+## 2ª passagem — 2026-08-03T04:18:24Z · `human_needed` · **4/5**
+
+**Veredito de então, verbatim:**
+
+> Os três gaps que eu abri estão **genuinamente fechados**, e dois deles pelo padrão mais forte que existe neste projeto — uma pessoa real, num navegador real, produzindo uma linha real cujos valores eu consigo amarrar a um hash pinado independentemente. **O que resta não é um resíduo do que eu apontei: é uma tela que ninguém nunca abriu**, e o elo que a liga ao mecanismo provado é o único da fase sem teste e sem execução.
+
+**Placar de então:** SC#1 ✓ · SC#2 ✓ · SC#3 ✓ · **SC#4 ⚠️ PRESENT_BEHAVIOR_UNVERIFIED** · SC#5 ✓.
+
+**O movimento que definiu a passagem — o rebaixamento do SC#4.** Na 1ª passagem o SC#4 estava ✓ VERIFIED, creditado com *"o mecanismo é o que 'sem deploy' significa"*. A 2ª passagem o rebaixou por dois motivos: consistência (SC#1 e SC#2 tinham acabado de ser levados ao padrão vivo, e manter padrão mais frouxo para o SC#4 seria incoerência) e um fato novo medido (`retencaoService`, `useSalvarJanela`, `usePreviaRetencao` e `useMatrizRetencao` sem nenhum teste; os casos do `EditarJanelaDialog` mockam a mutação).
+
+**O que o rebaixamento produziu:** o operador abriu `/admin/retencao` pela primeira vez e a matriz não carregou. `42804 — structure of query does not match function result type`. **A função falhava em toda chamada bem-sucedida desde o apply**, e o smoke 10/10 não pegou porque sua única asserção sobre aquela função testava a recusa sem claim — o guard levanta na primeira linha e o `RETURN QUERY` nunca executava.
+
+**Os três gaps da 1ª passagem e seu desfecho, confirmados nesta 2ª:**
+
+| # | Gap | Desfecho |
+|---|---|---|
+| 1 | **SC#1** — cliente nunca publicado; 136 commits fora de remote; EF v16 recusa o payload → 400 em produção | **FECHADO.** `origin/main = 581abe1`; payload aceito, reconferido por execução; cadastro real ponta a ponta |
+| 2 | **SC#2** — `/candidato/privacidade` existia em código e em teste, não em produção | **FECHADO.** Revogação real na tela, com o GRANT do CR-01 segurando |
+| 3 | **SC#3** — CONSENT-06 nunca executado | **FECHADO.** Confirmação positiva do provedor; lógica do marcador `✓` conferida no fonte |
+
+**O que a 2ª passagem descobriu que a 1ª não viu:** que havia **três** causas empilhadas no incidente do cadastro, não uma. Que o Vercel não buildava desde **2026-06-27** — cinco semanas servindo um build congelado, os 20 deployments visíveis em ERROR, por uma divergência `dist/` × `build/`. Que o SPA fallback nunca existiu (nenhuma URL direta funcionava, nem `/cadastro`). E que o dashboard do candidato renderizava uma cópia local da barra persona **sem** o link "Área do candidato" — a causa concreta de a revogação ser inalcançável.
+
+**Achados de processo que ela abriu:** que publicar o cliente não pertencia a plano, fase ou todo nenhum; e que nenhum gate observava o artefato deployado. **Ambos fechados na 3ª passagem** pelo todo `publicar-cliente-nao-pertence-a-plano-nenhum.md` (high, → 44).
+
+## 1ª passagem — 2026-08-02T18:59:05Z · `gaps_found` · **2/5**
 
 **Veredito de então, verbatim:**
 
@@ -384,29 +541,30 @@ Preservado porque o registro de a fase ter embarcado quebrada e sido consertada 
 
 **Placar de então:** SC#1 ✗ FAILED · SC#2 ✗ FAILED (metade) · SC#3 ✗ FAILED · SC#4 ✓ VERIFIED · SC#5 ✓ VERIFIED.
 
-**Os três gaps e o que aconteceu com cada um:**
+**O que a 1ª passagem acertou:** que o cadastro estava quebrado em produção, e **por execução, não por leitura**. Que parar no passo 2 de uma sequência declarada obrigatória não é pausa neutra. Que "não reportado pela API" não conta como confirmação de tracking desligado.
 
-| # | Gap | Desfecho |
-|---|---|---|
-| 1 | **SC#1** — cliente nunca publicado; `origin/*` parado em `4bdb0fb`/`8306f3e`; **136 commits fora de remote algum**; EF v16 recusa o payload do cliente vivo (`ACCEPTED? false`, 2 issues) → 400 VALIDATION em produção | **FECHADO.** `origin/main = 581abe1`. Payload **aceito**, reconferido por execução. Cadastro real ponta a ponta |
-| 2 | **SC#2** — `/candidato/privacidade` existia em código e em teste, não em produção | **FECHADO.** Revogação real na tela, com o GRANT do CR-01 segurando |
-| 3 | **SC#3** — CONSENT-06 nunca executado; nenhum artefato do repositório registrava resultado | **FECHADO.** Confirmação positiva do provedor, colada verbatim no `43-07-SUMMARY` |
+**O que a 1ª passagem errou, e foi corrigido depois:** creditou o SC#4 como VERIFIED sobre o mecanismo, sem a tela — julgamento que a 2ª passagem reverteu e que a 3ª mostrou ter sido a reversão certa: **havia um bug ali, e ele só apareceu quando a tela foi aberta.**
 
-**O que a 1ª passagem acertou:** que o cadastro estava quebrado em produção, e por execução, não por leitura. Que parar no passo 2 de uma sequência declarada obrigatória não é pausa neutra. Que "não reportado pela API" não conta como confirmação de tracking desligado.
+## Evolução do julgamento entre as três passagens
 
-**O que a 1ª passagem não viu:** que havia **três** causas empilhadas, não uma. Que o Vercel não buildava desde **2026-06-27** — cinco semanas servindo um build congelado, com todos os 20 deployments visíveis em ERROR, por uma divergência `dist/` × `build/`. Que as env vars de build estavam ausentes. Que o SPA fallback nunca existiu (**nenhuma** URL direta funcionava, nem `/cadastro`). E que o dashboard do candidato renderizava uma cópia local da barra persona **sem** o link "Área do candidato" — a causa concreta, e não apenas o sintoma, de a revogação ser inalcançável.
-
-**O que mudou no julgamento entre as passagens:**
-
-| Item | 1ª passagem | 2ª passagem | Por quê |
+| Item | 1ª (2026-08-02) | 2ª (2026-08-03 04:18) | 3ª (2026-08-03 05:02) |
 |---|---|---|---|
-| `[x]` de **CONSENT-04** | "prematuro" | **aceito** | A revogação foi exercitada ao vivo |
-| `[x]` de **RETEN-03** | "prematuro" | **aceito, com ressalva** | A página foi aberta; o ramo autorizado, não |
-| `[x]` de **RETEN-02** | "a parentética sobreafirma" | **mantido: continua sobreafirmando** | A tela segue sem ser aberta |
-| **SC#4** | ✓ VERIFIED (com W-1) | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | Padrão consistente com SC#1/SC#2 **+ fato novo**: o elo cliente→RPC não tem teste algum |
-| Achado sobre `REQUIREMENTS.md` | `[x]` prematuro em 3 itens | `[ ]` atrasado em 4 itens | O arquivo ficou desatualizado no sentido inverso |
+| **Placar** | 2/5 · `gaps_found` | 4/5 · `human_needed` | **5/5 · `human_needed`** |
+| **SC#1** | ✗ FAILED | ✓ VERIFIED (ao vivo) | ✓ VERIFIED |
+| **SC#2** | ✗ FAILED (metade) | ✓ VERIFIED (ao vivo) | ✓ VERIFIED |
+| **SC#3** | ✗ FAILED | ✓ VERIFIED (provedor) | ✓ VERIFIED |
+| **SC#4** | ✓ VERIFIED (mecanismo) | ⚠️ **rebaixado** | ✓ **VERIFIED (ao vivo)** — o rebaixamento achou um bug real |
+| **SC#5** | ✓ VERIFIED | ✓ VERIFIED | ✓ VERIFIED |
+| `[x]` de **CONSENT-04** | "prematuro" | aceito | aceito |
+| `[x]` de **RETEN-03** | "prematuro" | aceito, com ressalva | aceito, ressalva mantida (ramo autorizado) |
+| Parentética de **RETEN-02** | "sobreafirma" | "continua sobreafirmando" | **RETIRADA — agora é literalmente verdadeira** |
+| `REQUIREMENTS.md` | `[x]` prematuro em 3 | `[ ]` atrasado em 4 | **checklist corrigido; tabela de status não (W-6)** |
+| Publicação do cliente sem dono | não visto | 🔴 aberto | ✓ **fechado** por todo high → 44 |
+| `43-07-SUMMARY` sem correção | não visto | ⚠ aberto | ✓ **fechado** — bloco datado, corpo preservado |
+| Smokes com baseline congelada | não visto | 1 arquivo RED (consentimento) | **2 arquivos RED** — o da matriz morreu (W-1) |
+| `services/`/`hooks/` sem teste | não medido | medido, nomeado | **medido, nomeado 3ª vez, ainda sem todo (W-3)** |
 
 ---
 
-_Verified: 2026-08-03T04:18:24Z_
-_Verifier: Claude (gsd-verifier) — 2ª passagem, re-verificação após fechamento de gaps_
+_Verified: 2026-08-03T05:02:00Z_
+_Verifier: Claude (gsd-verifier) — 3ª passagem, re-verificação após o fechamento do SC#4_
