@@ -856,5 +856,3 @@ reprovaria copy aprovada de outra fase.
    `npm run test:run` a menos que `vite.config.ts` ganhe uma linha de `exclude`. O irmão
    `index.test.ts` não quebra nada.
 3. **`js-yaml` não está no `package.json`** (0 linhas) — dependência-fantasma confirmada.
-</content>
-</invoke>
