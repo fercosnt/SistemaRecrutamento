@@ -213,10 +213,32 @@ function construir() {
   }
 
   // --- fecho de TABELAS ----------------------------------------------------
+  // ⚠ O universo do fecho é `cat.tabelas` (a lista COMPLETA de tabelas base de
+  // `public`), NÃO as tabelas que aparecem em `cat.colunas`. A medição do
+  // catálogo colhe colunas apenas das tabelas do escopo declarado — derivar o
+  // universo delas faria o fecho perguntar "toda tabela que eu já sabia que
+  // existia tem disposição?", que é uma tautologia. A tabela NOVA, que é
+  // precisamente o caso do BD-6, nunca teria coluna colhida e escaparia calada.
+  // `cat.tabelas` é opcional por compatibilidade com catálogos antigos; quando
+  // ausente, o fecho degrada para o universo das colunas e diz isso no artefato.
+  const universoTabelas = Array.isArray(cat.tabelas) && cat.tabelas.length ? cat.tabelas : [...vivo.keys()];
+  const fechoSobreCatalogoCompleto = Array.isArray(cat.tabelas) && cat.tabelas.length > 0;
+
   const excluidas = {};
   const emEscopo = [];
-  for (const tabela of [...vivo.keys()].sort()) {
+  for (const tabela of [...new Set(universoTabelas)].sort()) {
     if (esc.escopo_titular[tabela]) {
+      // Tabela em escopo cujo catálogo não trouxe coluna nenhuma produziria uma
+      // entrada de allowlist VAZIA — um export honesto por acidente de estar em
+      // branco. É o mesmo modo de falha que o fecho de `chave_titular` cobre.
+      if (!vivo.has(tabela)) {
+        erros.push(
+          `ERRO DE FECHAMENTO (catálogo incompleto): \`${tabela}\` está em \`escopo_titular\` e existe ` +
+            `em \`tabelas\` do catálogo, mas NENHUMA coluna dela foi colhida. Refaça a medição incluindo-a — ` +
+            `gerar assim produziria uma projeção vazia que parece cópia honesta.`,
+        );
+        continue;
+      }
       emEscopo.push(tabela);
       continue;
     }
@@ -371,13 +393,23 @@ function construir() {
       fonte_escopo: REL(ESCOPO),
       gerador: REL(path.join(__dirname, 'gen-export-allowlist.cjs')),
       consumidores: esc.meta.consumidores,
+      // ⚠ NOMES LITERAIS. `tabelas_catalogadas` é o universo do fecho de tabela;
+      // `tabelas_com_colunas_colhidas` é o universo do fecho de COLUNA. Chamar
+      // qualquer um dos dois de "tabelas_vivas" faria o artefato afirmar que
+      // `public` tem 50 tabelas quando a medição registrou 67 — número falso em
+      // arquivo de compliance é pior que número ausente.
       totais: {
-        tabelas_vivas: vivo.size,
-        colunas_vivas: cat.colunas.length,
+        tabelas_catalogadas: [...new Set(universoTabelas)].length,
+        tabelas_com_colunas_colhidas: vivo.size,
+        colunas_colhidas: cat.colunas.length,
         tabelas_em_escopo: emEscopo.length,
         colunas_exportadas: colunasExportadas,
         tabelas_excluidas: Object.keys(excluidas).length,
       },
+      // Os totais MEDIDOS contra o banco, copiados do catálogo como `medido_em`
+      // — nunca recontados aqui. É o denominador honesto do fecho.
+      totais_medidos_em_public: (cat.meta && cat.meta.totais) || null,
+      fecho_de_tabela_sobre_catalogo_completo: fechoSobreCatalogoCompleto,
       escopo_declarado_nao_vivo: declaradasNaoVivas,
     },
     tabelas,
