@@ -204,7 +204,16 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   }
   if (ultimo?.solicitado_em) {
     const solicitadoEm = new Date(ultimo.solicitado_em).getTime();
-    if (Number.isFinite(solicitadoEm) && Date.now() - solicitadoEm < JANELA_COOLDOWN_MS) {
+    // ⚠ FECHA no ilegível. Enquanto isto era `Number.isFinite(...) && ...`, um
+    // `solicitado_em` que não parseasse fazia o guard ser PULADO e o pedido
+    // seguir — um controle de segurança cujo ramo de entrada-ilegível é "permitir".
+    // É a mesma forma do defeito `NOT IN`/NULL que a migration desta fase
+    // (`20260804000002:242-247`) chama de "REAL, medido na 42-06". Um marco que
+    // não sabemos ler não é um marco expirado.
+    if (!Number.isFinite(solicitadoEm)) {
+      return errorResponse("SERVER_ERROR", "Falha ao verificar pedidos anteriores.", 500);
+    }
+    if (Date.now() - solicitadoEm < JANELA_COOLDOWN_MS) {
       return jsonResponse(
         {
           ok: false,
@@ -266,6 +275,15 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       const ids = linhasDaPonte
         .map((linha) => (linha as { id?: unknown }).id)
         .filter((id): id is string => typeof id === "string");
+      // ⚠ FALHA FECHADA: ponte COM linhas que não produz id nenhum é defeito
+      // ESTRUTURAL, nunca "o titular não tem candidatura". Sem esta guarda os dois
+      // casos produzem o MESMO `[]` silencioso — e se `candidaturas.id` sair da
+      // projeção, ou uma ponte futura tiver PK com outro nome, as 18 tabelas de
+      // ligação indireta voltam VAZIAS e a cópia se apresenta como completa. Sem
+      // erro, sem log, sem teste vermelho: o caso vazio é um ramo legítimo.
+      if (linhasDaPonte.length > 0 && ids.length === 0) {
+        throw new Error(`ponte ${ponte} não produziu ids para ${tabela}`);
+      }
       if (ids.length === 0) {
         // Sem candidatura nenhuma não há o que ler — e N round-trips vazios seriam
         // custo sem informação. O bloco existe no payload, vazio, dizendo a verdade.
@@ -281,10 +299,37 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     }
 
     // ── 6 · MARCA o pedido como atendido ────────────────────────────────────
-    await supabaseAdmin
+    const atendidoEm = new Date().toISOString();
+    const { error: marcaErr } = await supabaseAdmin
       .from("solicitacoes_dados")
-      .update({ situacao: "atendido", atendido_em: new Date().toISOString() })
+      .update({ situacao: "atendido", atendido_em: atendidoEm })
       .eq("id", pedidoId);
+    if (marcaErr) {
+      // A cópia FOI entregue; só o carimbo falhou. Não vira 500 — vira SINAL.
+      // Descartar o erro deixava a linha `pendente` com `causa = NULL`, e a fila
+      // do RH então renderiza "Motivo não registrado." + "Atender pelo Encarregado
+      // de Dados" para um pedido que foi atendido: o operador é despachado atrás
+      // de trabalho que não existe, contra um relógio de 15 dias.
+      console.error("[exportar-meus-dados] marca de atendido falhou", { pedido_id: pedidoId });
+    }
+
+    // ⚠ O bloco `solicitacoes_dados` foi projetado no passo 5, ANTES da marca —
+    // então a linha do pedido que está sendo servido AGORA foi lida como
+    // `pendente`/`atendido_em: null`. Sem esta correção, o arquivo que a pessoa
+    // acabou de baixar com sucesso contém um registro afirmando que o próprio
+    // pedido que o gerou ficou sem atendimento. Numa peça de compliance cuja
+    // premissa inteira é honestidade, isso é uma linha auto-desmentida.
+    //
+    // Só é aplicado quando a marca DEU CERTO: se ela falhou, a linha no banco
+    // continua `pendente`, e afirmar `atendido` na cópia seria trocar uma
+    // afirmação falsa por outra.
+    if (!marcaErr) {
+      payload.solicitacoes_dados = (payload.solicitacoes_dados ?? []).map((linha) =>
+        (linha as { id?: unknown }).id === pedidoId
+          ? { ...(linha as Record<string, unknown>), situacao: "atendido", atendido_em: atendidoEm }
+          : linha
+      );
+    }
 
     // ── 7 · RESPONDE ────────────────────────────────────────────────────────
     //      DESVIO 5 — nenhuma URL assinada é cunhada nem devolvida. O CV do
@@ -303,7 +348,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   } catch {
     // A linha PERMANECE `pendente` e ganha causa: o único pedido que consome prazo
     // é o que falhou, e é ele que a fila do RH existe para mostrar.
-    await supabaseAdmin
+    const { error: causaErr } = await supabaseAdmin
       .from("solicitacoes_dados")
       .update({ situacao: "pendente", causa: "falha_geracao" })
       .eq("id", pedidoId);
@@ -311,6 +356,12 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     // nunca uma URL. A allowlist de log é POR Edge Function e não se importa da
     // vizinha (lição do 42-07).
     console.error("[exportar-meus-dados] erro", { pedido_id: pedidoId });
+    if (causaErr) {
+      // Sem isto a causa se perde inteira e a linha fica indistinguível de uma
+      // marca de sucesso que falhou — os dois desfechos convergem para
+      // `pendente` + `causa NULL`, e a divergência é inobservável dos dois lados.
+      console.error("[exportar-meus-dados] registro da causa falhou", { pedido_id: pedidoId });
+    }
     return errorResponse("SERVER_ERROR", "Falha ao preparar a cópia.", 500);
   }
 }

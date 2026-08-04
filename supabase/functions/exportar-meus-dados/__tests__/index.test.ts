@@ -105,6 +105,8 @@ interface AdminOpts {
   linhas?: Record<string, unknown[]>;
   /** Nome da tabela cuja leitura de payload deve falhar (caso 13). */
   erroLeitura?: string;
+  /** Erro devolvido por TODO `update` — os casos (16) e (17) vivem disto. */
+  updateErr?: unknown;
 }
 
 function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
@@ -160,7 +162,10 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
         },
         update: (linha: Record<string, unknown>) => {
           const op = novo("update", tabela, linha);
-          return makeChainable(op, () => ({ data: null, error: null }));
+          return makeChainable(op, () => ({
+            data: null,
+            error: opts.updateErr ?? null,
+          }));
         },
       };
     },
@@ -550,4 +555,171 @@ Deno.test("(14) nem a resposta nem o log carregam URL assinada ou payload", asyn
   const serializado = JSON.stringify(capturados);
   assert(!serializado.includes(OUTRA_PESSOA_ID), "o corpo do request vazou para o log");
   assert(!serializado.includes("payload"), "o payload vazou para o log");
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// (15)-(18) — os quatro casos que a revisão da Phase 44 abriu. Cada um prende
+// um ramo que existia e não era exercido por asserção nenhuma.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── (15) WR-02 · o cooldown FECHA no marco ilegível ─────────────────────────
+Deno.test("(15) solicitado_em ilegível → 500, e o pedido NÃO é registrado", async () => {
+  const { handler } = await loadHandler();
+  // O guard era `Number.isFinite(x) && dentroDaJanela` — um `&&` cujo ramo de
+  // entrada-ilegível é PERMITIR. Um controle de segurança não pode falhar aberto:
+  // um marco que não sabemos ler não é um marco expirado.
+  const admin = makeMockSupabaseAdmin({ ultimoPedido: { solicitado_em: "não é um instante" } });
+  const res = await handler(makeRequest(), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(USER),
+  });
+
+  assertEquals(res.status, 500);
+  assertEquals((await res.json()).error_code, "SERVER_ERROR");
+  // A prova FORTE: nada foi registrado nem projetado. Antes da correção, este
+  // mesmo cenário produzia um 200 com a cópia inteira.
+  assertEquals(admin.ops.filter((o) => o.op === "insert").length, 0);
+  assertEquals(leiturasDeProjecao(admin.ops).length, 0);
+});
+
+// ── (16) WR-03 · a marca que falha vira SINAL, nunca silêncio ───────────────
+Deno.test("(16) UPDATE da marca falhando → 200 (a cópia foi entregue) + log do pedido", async () => {
+  const { handler } = await loadHandler();
+  const capturados: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => {
+    capturados.push(args);
+  };
+  let res: Response;
+  try {
+    const admin = makeMockSupabaseAdmin({ updateErr: { message: "falha no update" } });
+    res = await handler(makeRequest(), {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(USER),
+    });
+  } finally {
+    console.error = original;
+  }
+
+  // A cópia FOI montada e entregue — a falha do carimbo não vira 500.
+  assertEquals(res.status, 200);
+  // …mas deixa de ser invisível. Sem isto, a linha fica `pendente` com
+  // `causa NULL` e a fila do RH despacha alguém atrás de trabalho inexistente,
+  // com "Motivo não registrado.", contra um relógio de 15 dias.
+  assertEquals(capturados.length, 1);
+  const [, contexto] = capturados[0];
+  assertEquals(contexto, { pedido_id: PEDIDO_ID });
+  // O log continua REDIGIDO: só o id (mesma regra do (14b)).
+  assert(!JSON.stringify(capturados).includes("payload"));
+});
+
+// ── (17) WR-04 · a cópia não afirma que o próprio pedido ficou sem atendimento ─
+Deno.test("(17) o bloco de pedidos da cópia mostra o próprio pedido como atendido", async () => {
+  const { handler } = await loadHandler();
+  // `solicitacoes_dados` é projetado no passo 5, ANTES da marca do passo 6 — a
+  // linha do pedido em curso é lida `pendente`/`atendido_em: null`. O arquivo que
+  // a pessoa acabou de baixar com sucesso afirmava, nele mesmo, que o pedido que o
+  // gerou não foi atendido. Numa peça de compliance é uma linha auto-desmentida.
+  const admin = makeMockSupabaseAdmin({
+    linhas: {
+      solicitacoes_dados: [
+        { id: PEDIDO_ID, situacao: "pendente", atendido_em: null },
+        // Um pedido ANTIGO na mesma lista: a correção só toca a linha do pedido
+        // em curso, nunca reescreve o histórico do titular.
+        { id: "outro-pedido", situacao: "pendente", atendido_em: null },
+      ],
+    },
+  });
+  const res = await handler(makeRequest(), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(USER),
+  });
+
+  assertEquals(res.status, 200);
+  const corpo = await res.json();
+  const linhas = corpo.payload.solicitacoes_dados as Array<Record<string, unknown>>;
+  const esteP = linhas.find((l) => l.id === PEDIDO_ID)!;
+  assertEquals(esteP.situacao, "atendido");
+  assert(typeof esteP.atendido_em === "string" && esteP.atendido_em.length > 0);
+  // O histórico fica INTOCADO.
+  const outro = linhas.find((l) => l.id === "outro-pedido")!;
+  assertEquals(outro.situacao, "pendente");
+  assertEquals(outro.atendido_em, null);
+});
+
+// ── (17b) …e NÃO afirma `atendido` quando a marca falhou ────────────────────
+Deno.test("(17b) marca que falhou → a cópia NÃO afirma atendido (o banco diz pendente)", async () => {
+  const { handler } = await loadHandler();
+  // Trocar uma afirmação falsa por outra não é correção. Se o carimbo não entrou
+  // no banco, a cópia não pode dizer que entrou.
+  const original = console.error;
+  console.error = () => {};
+  let res: Response;
+  try {
+    const admin = makeMockSupabaseAdmin({
+      updateErr: { message: "falha no update" },
+      linhas: { solicitacoes_dados: [{ id: PEDIDO_ID, situacao: "pendente", atendido_em: null }] },
+    });
+    res = await handler(makeRequest(), {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(USER),
+    });
+  } finally {
+    console.error = original;
+  }
+
+  const corpo = await res.json();
+  const linhas = corpo.payload.solicitacoes_dados as Array<Record<string, unknown>>;
+  assertEquals(linhas.find((l) => l.id === PEDIDO_ID)!.situacao, "pendente");
+});
+
+// ── (18) WR-05 · ponte com linhas e sem ids é DEFEITO, não "sem candidatura" ─
+Deno.test("(18) ponte com linhas e sem ids → 500, nunca 200 com as indiretas vazias", async () => {
+  const { handler } = await loadHandler();
+  // A chave da ponte é inferida como `id` no código — a única coisa que o
+  // docblock do módulo diz que nunca se deve fazer. Se `candidaturas.id` sair da
+  // projeção, ou uma ponte futura tiver PK com outro nome, `ids` fica vazio e as
+  // 18 tabelas de ligação indireta voltam VAZIAS: a cópia se apresenta como
+  // completa, sem erro, sem log, sem teste vermelho — porque o caso vazio é um
+  // ramo legítimo. Os dois desfechos produziam o MESMO `[]`.
+  const original = console.error;
+  console.error = () => {};
+  let res: Response;
+  let admin: ReturnType<typeof makeMockSupabaseAdmin>;
+  try {
+    admin = makeMockSupabaseAdmin({
+      // A ponte TEM linha — o titular tem candidatura — e ela não traz `id`.
+      linhas: { candidaturas: [{ candidato_id: CANDIDATO_ID, curriculo_url: "uid/cv.pdf" }] },
+    });
+    res = await handler(makeRequest(), {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(USER),
+    });
+  } finally {
+    console.error = original;
+  }
+
+  assertEquals(res.status, 500);
+  assertEquals((await res.json()).error_code, "SERVER_ERROR");
+  // E a linha do pedido registra a causa — é o pedido que consome prazo.
+  const marca = admin!.ops.find((o) => o.op === "update");
+  assertEquals(marca?.linha?.causa, "falha_geracao");
+});
+
+// ── (18b) o caso LEGÍTIMO continua passando: sem candidatura, blocos vazios ──
+Deno.test("(18b) titular SEM candidatura → 200 e as indiretas vazias, sem erro", async () => {
+  const { handler } = await loadHandler();
+  // O contrapeso do (18), e ele é obrigatório: uma guarda que também reprovasse
+  // o caso honesto trocaria um silêncio por um 500 na cara de quem nunca se
+  // candidatou.
+  const admin = makeMockSupabaseAdmin({ linhas: { candidaturas: [] } });
+  const res = await handler(makeRequest(), {
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(USER),
+  });
+
+  assertEquals(res.status, 200);
+  const corpo = await res.json();
+  assertEquals(corpo.payload.candidaturas, []);
+  assertEquals(corpo.payload.entrevistas_online, []);
 });
