@@ -41,8 +41,10 @@ import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
 import { useCandidato } from '@/store/authStore'
 import { usePrivacidade, useGuardaCurriculo } from '../hooks/usePrivacidade'
+import { useMeusCurriculos } from '../hooks/useMeusCurriculos'
 import { useRevogarMarketing } from '../hooks/useRevogarMarketing'
 import { AutorizacoesLista } from './AutorizacoesLista'
+import { CurriculosBloco } from './CurriculosBloco'
 import { GuardaCurriculoBloco } from './GuardaCurriculoBloco'
 import { PedirCopiaBloco } from './PedirCopiaBloco'
 
@@ -110,6 +112,13 @@ export function PrivacidadeCandidatoPage() {
 
   const guarda = useGuardaCurriculo(candidatoId)
   const revogar = useRevogarMarketing(candidatoId)
+  /**
+   * A lista de currículos por candidatura (44-07). Mora AQUI, no nível da página, ao
+   * lado das outras leituras — é o que mantém o `CurriculosBloco` de apresentação
+   * pura, com os estados de voo e de erro DA LEITURA tratados no idioma que a seção 2
+   * já usa.
+   */
+  const curriculos = useMeusCurriculos(candidatoId)
 
   const voltarAoPainel = () => navigate('/candidato/dashboard')
 
@@ -259,6 +268,50 @@ export function PrivacidadeCandidatoPage() {
             {COPY_PRIVACIDADE.secao3}
           </h2>
           <PedirCopiaBloco />
+
+          {/* ── O sub-bloco do currículo (EXPORT-03) ─────────────────────────
+              Os três ramos são COPIADOS do gabarito da seção 2 (`:205-232`), não
+              redesenhados — e a copy de erro é REUSADA: `erroGuardaTitulo` já diz
+              exatamente este fato sobre exatamente este objeto, e a Phase 43 a
+              aprovou junto com o docblock que declara o escopo de seção. Um segundo
+              texto seria a segunda verdade sobre a MESMA coisa na MESMA tela.
+
+              ⚠ E o silêncio não é opção: se a leitura falhasse e o bloco
+              simplesmente não renderizasse, a tela se contradiria dentro de um
+              scroll — a seção 2 dizendo "Currículo guardado" e a seção 3 não
+              mostrando currículo nenhum. Falhar visível é a única saída honesta, e
+              por isso o ramo de erro é de BLOCO, nunca de página. */}
+          {curriculos.isLoading ? (
+            /* O `div` existe só para carregar o gancho: o `Glass` não repassa
+               atributos arbitrários, e sem gancho próprio a asserção de "em voo"
+               casaria com o pulsante que o `PedirCopiaBloco` já renderiza — falso
+               verde medido no RED do caso (ar). Ele não tem classe: nenhum efeito
+               visual, nenhuma alteração de fluxo. */
+            <div data-carregando="curriculos">
+              <Glass variant="white" blur="md" className="h-16 animate-pulse p-6">
+                <span />
+              </Glass>
+            </div>
+          ) : curriculos.isError ? (
+            <div className="space-y-2 rounded-lg border border-white/15 bg-white/5 p-4">
+              <p className="text-sm font-semibold text-white">
+                {COPY_PRIVACIDADE.erroGuardaTitulo}
+              </p>
+              <p className="text-base leading-relaxed text-white/90">
+                {COPY_PRIVACIDADE.erroCorpo}
+              </p>
+              <GlassButton
+                variant="white"
+                hover
+                onClick={() => curriculos.refetch()}
+                className="min-h-[44px] text-white"
+              >
+                {COPY_PRIVACIDADE.tentarNovamente}
+              </GlassButton>
+            </div>
+          ) : (
+            <CurriculosBloco linhas={curriculos.data ?? []} />
+          )}
         </section>
 
         <div className="pt-2">

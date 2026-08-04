@@ -22,7 +22,7 @@
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
@@ -44,7 +44,24 @@ const mocks = vi.hoisted(() => ({
   resposta: { valor: { data: null as unknown, error: null as unknown } },
   /** O candidato hidratado no store — `null` é a corrida que o caso (g) exercita. */
   candidato: { valor: null as { id: string } | null },
+  /** A leitura da lista de currículos (44-07), mockada no MÓDULO DE SERVIÇO. */
+  listarMeusCurriculos: vi.fn(),
 }))
+
+/**
+ * ⚠ Só `listarMeusCurriculos` é substituída. O resto do módulo continua REAL —
+ * inclusive `lerUltimoPedidoDados`, que o `PedirCopiaBloco` consome através do dublê
+ * inerte do client abaixo. E a cunhagem NÃO é exercitada por aqui: o dublê daquela
+ * suíte não tem `storage`, e o caminho do CV é asserido nas Tasks 1 e 2, com dublês
+ * próprios.
+ */
+vi.mock('../../services/exportacaoService', async () => {
+  const real =
+    await vi.importActual<typeof import('../../services/exportacaoService')>(
+      '../../services/exportacaoService',
+    )
+  return { ...real, listarMeusCurriculos: mocks.listarMeusCurriculos }
+})
 
 vi.mock('../../services/privacidadeService', async () => {
   const real =
@@ -138,6 +155,9 @@ beforeEach(() => {
     linha({ autorizacao_marketing_vagas: false }),
   )
   mocks.resposta.valor = { data: null, error: null }
+  // Lista VAZIA por padrão: com ela o `CurriculosBloco` não renderiza, e todos os
+  // casos herdados da Phase 43 seguem verdes sem uma linha de alteração.
+  mocks.listarMeusCurriculos.mockResolvedValue([])
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -363,5 +383,106 @@ describe('(g) O skeleton tem TETO: candidato não hidratado não pulsa para semp
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 44-07 · O sub-bloco do currículo na SEÇÃO 3 (EXPORT-03)
+// ═════════════════════════════════════════════════════════════════════════════
+
+const LINHA_CURRICULO = {
+  id: 'cndt-1',
+  caminho: 'uid-1/cv.pdf',
+  enviadoEm: '2026-07-01T12:00:00.000Z',
+  vagaTitulo: 'Dentista',
+}
+
+describe('(aq-at) A seção 3 hospeda o CTA e, abaixo dele, o bloco do currículo', () => {
+  it('(aq) ORDEM no DOM: o bloco de currículos vive DENTRO da seção 3 e DEPOIS do CTA', async () => {
+    mocks.listarMeusCurriculos.mockResolvedValue([LINHA_CURRICULO])
+    const { container } = montar()
+
+    const bloco = await screen.findByText('Seu currículo')
+    const cta = container.querySelector('[data-bloco="pedir-copia"]')
+    const curriculos = container.querySelector('[data-bloco="curriculos"]')
+    expect(cta).not.toBeNull()
+    expect(curriculos).not.toBeNull()
+    expect(bloco).toBeInTheDocument()
+
+    // ⚠ A asserção é de ORDEM, não de presença: presença sozinha passaria com o
+    // bloco montado no topo da página — a UI errada com o teste verde.
+    const posicao = cta!.compareDocumentPosition(curriculos!)
+    expect(posicao & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // E DENTRO da mesma seção: a §Component Inventory da UI-SPEC diz seção 3, e um
+    // bloco solto no fim da página satisfaria "depois" sem satisfazer "dentro".
+    expect(cta!.closest('section')).toBe(curriculos!.closest('section'))
+  })
+
+  it('(ar) leitura em voo ⇒ Glass pulsante de UMA linha, e o CTA continua renderizado', async () => {
+    mocks.listarMeusCurriculos.mockReturnValue(new Promise(() => {}))
+    const { container } = montar()
+
+    await waitFor(() =>
+      expect(container.querySelector('[data-bloco="pedir-copia"]')).not.toBeNull(),
+    )
+    const secao3 = container.querySelector('[data-bloco="pedir-copia"]')!.closest('section')!
+
+    // ⚠ A asserção é sobre o esqueleto DESTA leitura, por gancho próprio, e não
+    // sobre `.animate-pulse` na seção: o `PedirCopiaBloco:130` já renderiza um
+    // pulsante seu, então a forma genérica passava com o ramo novo inexistente —
+    // um falso verde medido no RED deste caso.
+    const esqueleto = secao3.querySelector('[data-carregando="curriculos"]')
+    expect(esqueleto).not.toBeNull()
+    const pulsante = esqueleto!.querySelector('.animate-pulse')
+    expect(pulsante).not.toBeNull()
+    // O MESMO molde de uma linha das seções irmãs, preservando a altura.
+    expect(pulsante!.className).toContain('h-16')
+
+    // A lista de currículos não é pré-requisito do CTA de exportação.
+    expect(container.querySelector('[data-bloco="pedir-copia"]')).not.toBeNull()
+    expect(container.querySelector('[data-bloco="curriculos"]')).toBeNull()
+  })
+
+  it('(as) leitura em erro ⇒ a copy JÁ APROVADA + nova tentativa; o resto da seção 3 fica de pé', async () => {
+    mocks.listarMeusCurriculos.mockRejectedValue(new Error('PGRST301 JWT expired'))
+    const { container } = montar()
+
+    // Copy REUSADA, não autorada: `erroGuardaTitulo` já diz este fato sobre este
+    // objeto, e um segundo texto seria a segunda verdade sobre a MESMA coisa na
+    // MESMA tela — que é o que esta fase inteira combate.
+    await waitFor(() =>
+      expect(screen.getAllByText(COPY_PRIVACIDADE.erroGuardaTitulo).length).toBeGreaterThan(0),
+    )
+    const secao3 = container.querySelector('[data-bloco="pedir-copia"]')!.closest('section')!
+    expect(within(secao3).getByText(COPY_PRIVACIDADE.erroGuardaTitulo)).toBeInTheDocument()
+    expect(
+      within(secao3).getByRole('button', { name: COPY_PRIVACIDADE.tentarNovamente }),
+    ).toBeInTheDocument()
+
+    // ⚠ O silêncio não é opção: sem este ramo a tela se contradiria dentro de um
+    // scroll — a seção 2 dizendo "Currículo guardado" e a seção 3 sem currículo algum.
+    expect(container.querySelector('[data-bloco="pedir-copia"]')).not.toBeNull()
+    // E o erro cru do transporte nunca chega à tela.
+    expect(container.textContent).not.toContain('PGRST301')
+  })
+
+  it('(at) as seções 1 e 2 seguem intactas, presentes e na mesma ordem relativa', async () => {
+    mocks.listarMeusCurriculos.mockResolvedValue([LINHA_CURRICULO])
+    const { container } = montar()
+
+    await screen.findByText('Seu currículo')
+
+    const guarda = container.querySelector('[data-bloco="guarda-curriculo"]')
+    const curriculos = container.querySelector('[data-bloco="curriculos"]')
+    expect(guarda).not.toBeNull()
+    expect(screen.getByText(COPY_PRIVACIDADE.secao1)).toBeInTheDocument()
+    expect(screen.getByText(COPY_PRIVACIDADE.secao2)).toBeInTheDocument()
+    expect(screen.getByText(COPY_PRIVACIDADE.secao3)).toBeInTheDocument()
+
+    // A seção 2 continua ANTES do bloco novo — o bloco não roubou a posição de ninguém.
+    expect(
+      guarda!.compareDocumentPosition(curriculos!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
   })
 })
