@@ -376,6 +376,15 @@ function construir() {
   }
 
   const colunasExportadas = Object.values(tabelas).reduce((a, t) => a + t.colunas.length, 0);
+  // ⚠ A CONTRAPARTE DO NÚMERO ACIMA, e ela não é decoração. `colunas_exportadas`
+  // sozinha não permite a ninguém — nem à Phase 45, que consome este artefato como
+  // plano de exclusão (EXPORT-06) — saber se as colunas que ficaram de fora ficaram
+  // por VEREDITO ou por ESQUECIMENTO. A soma das duas TEM de fechar com as colunas
+  // vivas das tabelas em escopo, e é essa identidade que o smoke SQL verifica.
+  const colunasExcluidasEmEscopo = Object.values(tabelas).reduce(
+    (a, t) => a + Object.keys(t.colunas_excluidas || {}).length,
+    0,
+  );
 
   return {
     meta: {
@@ -404,6 +413,11 @@ function construir() {
         colunas_colhidas: cat.colunas.length,
         tabelas_em_escopo: emEscopo.length,
         colunas_exportadas: colunasExportadas,
+        colunas_excluidas_em_escopo: colunasExcluidasEmEscopo,
+        // A identidade que o smoke verifica contra `information_schema`:
+        // exportadas + excluídas = colunas vivas das tabelas em escopo. Uma coluna
+        // que não esteja em nenhum dos dois lados é coluna SEM VEREDITO.
+        colunas_com_veredito_em_escopo: colunasExportadas + colunasExcluidasEmEscopo,
         tabelas_excluidas: Object.keys(excluidas).length,
       },
       // Os totais MEDIDOS contra o banco, copiados do catálogo como `medido_em`
@@ -461,16 +475,50 @@ function serializarTs(doc) {
 // ---------------------------------------------------------------------------
 const args = process.argv.slice(2);
 
-if (args.includes('--sql-values')) {
-  const doc = construir();
+/**
+ * Os DOIS conjuntos que o smoke SQL precisa — e por que são dois.
+ *
+ * A allowlist é, POR DESENHO, um subconjunto próprio das colunas vivas das
+ * tabelas em escopo (358 de 392 na geração de 2026-08-03). Um smoke que
+ * definisse drift como `viva AND NOT IN allowlist` devolveria as 34 exclusões
+ * TODA VEZ, para sempre — e um relatório que sempre mostra 34 linhas treina
+ * todo mundo a ignorá-lo. A linha 35, que é o vazamento real, passaria
+ * despercebida, e a prova de mordida não distinguiria 35 de ruído.
+ *
+ * É a imagem espelhada do P39/CR-02: uma guarda que grita sempre é tão inútil
+ * quanto uma que nunca grita.
+ *
+ * Por isso o universo com veredito é `allowlist ∪ excluídas`, e é contra ELE
+ * que o catálogo vivo é comparado. Sobra dos dois lados = coluna sem veredito.
+ */
+function paresPor(doc, quais) {
   const pares = [];
   for (const [tabela, t] of Object.entries(doc.tabelas)) {
-    for (const coluna of t.colunas) pares.push(`('${tabela}','${coluna}')`);
+    const nomes = quais === 'colunas' ? t.colunas : Object.keys(t.colunas_excluidas || {});
+    for (const coluna of nomes) pares.push(`('${tabela}','${coluna}')`);
   }
-  pares.sort();
-  // Nada além dos pares: a saída é para ser COLADA no VALUES do smoke SQL.
+  return pares.sort();
+}
+
+/** Nada além dos pares: a saída é para ser COLADA no `VALUES` do smoke SQL. */
+function emitirPares(pares) {
+  if (!pares.length) {
+    // Um `VALUES` vazio é SQL inválido. Melhor falhar alto aqui do que colar um
+    // bloco que só quebra quando alguém rodar a consulta contra PROD.
+    morrer('ERRO: conjunto vazio — não há pares para emitir. O smoke SQL não pode receber um `VALUES` vazio.');
+  }
   process.stdout.write(pares.map((p, i) => (i === pares.length - 1 ? p : p + ',')).join('\n') + '\n');
   process.exit(0);
+}
+
+// `--sql-values-excluidas` ANTES de `--sql-values`: `includes` não é prefixo,
+// mas a ordem deixa explícito que a flag mais específica manda.
+if (args.includes('--sql-values-excluidas')) {
+  emitirPares(paresPor(construir(), 'excluidas'));
+}
+
+if (args.includes('--sql-values')) {
+  emitirPares(paresPor(construir(), 'colunas'));
 }
 
 if (args.includes('--check')) {

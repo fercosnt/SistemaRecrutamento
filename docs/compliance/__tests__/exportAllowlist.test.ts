@@ -45,6 +45,7 @@ const REPO = resolve(__dirname, '..', '..', '..')
 const CAMINHO_JSON = resolve(REPO, 'docs/compliance/export-allowlist.json')
 const CAMINHO_TS = resolve(REPO, 'supabase/functions/_shared/exportAllowlist.ts')
 const CAMINHO_CATALOGO = resolve(REPO, 'docs/compliance/catalogo-vivo-44.json')
+const CAMINHO_SMOKE = resolve(REPO, 'docs/compliance/sql/05-export-allowlist-drift.sql')
 
 interface TabelaAllowlist {
   chave_titular: string
@@ -75,6 +76,35 @@ function chavesAchatadas(): string[] {
   return Object.entries(a.tabelas)
     .flatMap(([tabela, t]) => t.colunas.map((coluna) => `${tabela}.${coluna}`))
     .sort()
+}
+
+/**
+ * `['tabela.coluna', …]` ordenado — o conjunto achatado do que FICOU DE FORA, com
+ * veredito, de tabela que ESTÁ em escopo.
+ *
+ * Este conjunto é tão contratual quanto o de cima, por duas razões independentes:
+ *  · o smoke SQL compara o catálogo vivo contra a UNIÃO dos dois (ver (k));
+ *  · a Phase 45 consome este artefato como plano de exclusão (EXPORT-06), e um plano
+ *    que não diz o que ficou de fora obriga a fase IRREVERSÍVEL a adivinhar.
+ */
+function excluidasAchatadas(): string[] {
+  const a = allowlist()
+  return Object.entries(a.tabelas)
+    .flatMap(([tabela, t]) => Object.keys(t.colunas_excluidas ?? {}).map((coluna) => `${tabela}.${coluna}`))
+    .sort()
+}
+
+/**
+ * Extrai os pares `('tabela','coluna')` dos DOIS blocos `VALUES` do smoke SQL.
+ * Linhas de comentário começam com `--` e nunca com quatro espaços, então o recorte
+ * por indentação não confunde o exemplo do bloco META-TEST com o `VALUES` real.
+ */
+function paresDoSmoke(): { allowlist: string[]; excluidas: string[] } {
+  const sql = readFileSync(CAMINHO_SMOKE, 'utf8')
+  const corte = sql.indexOf('excluidas(tabela, coluna) AS (')
+  const ler = (trecho: string) =>
+    [...trecho.matchAll(/^ {4}\('([a-z0-9_]+)','([a-z0-9_]+)'\),?$/gim)].map((m) => `${m[1]}.${m[2]}`).sort()
+  return { allowlist: ler(sql.slice(0, corte)), excluidas: ler(sql.slice(corte)) }
 }
 
 // Tokens de segredo e de telemetria montados em runtime — ver docblock.
@@ -582,5 +612,107 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
       presente || declaradaNaoViva,
       '`solicitacoes_dados` sumiu da allowlist E de `meta.escopo_declarado_nao_vivo`',
     ).toBe(true)
+  })
+
+  it('(j) o conjunto do que FICOU DE FORA com veredito também está congelado', () => {
+    const a = allowlist()
+
+    // Uma coluna NOVA no banco que receba veredito `false` não move o snapshot (b) —
+    // ela nunca esteve lá. Sem este terceiro snapshot, a superfície de compliance
+    // poderia crescer em silêncio pelo lado da exclusão, e o smoke SQL (que compara
+    // contra a UNIÃO) ficaria verde o tempo todo. É o mesmo raciocínio de universos
+    // disjuntos que separa este arquivo do smoke, aplicado dentro do artefato.
+    expect(excluidasAchatadas()).toMatchInlineSnapshot(`
+      [
+        "agendamentos_entrevista.agendado_por",
+        "agendamentos_entrevista.entrevistador",
+        "agendamentos_entrevista.updated_by",
+        "analise_candidato_vaga.erro",
+        "avaliacoes_rh.avaliador_id",
+        "candidate_ai_decisions.ai_call_log_ids",
+        "candidate_ai_decisions.review_requested_by",
+        "candidate_ai_decisions.reviewer_id",
+        "candidatos.created_by",
+        "candidatos.updated_by",
+        "candidaturas.created_by",
+        "candidaturas.updated_by",
+        "decisao_final.justificativa",
+        "decisao_final.por_usuario",
+        "decisao_final.revisao_por_usuario",
+        "decisao_final_historico.justificativa",
+        "decisao_final_historico.por_usuario",
+        "devolutivas_candidato.modelo_ia",
+        "devolutivas_candidato.prompt_version",
+        "entrevista_analises.prompt_version",
+        "entrevista_analises.revisada_por",
+        "entrevistas_online.agendado_por",
+        "entrevistas_online.realizado_por",
+        "entrevistas_presenciais.agendado_por",
+        "entrevistas_presenciais.realizado_por",
+        "historico_candidatura.ator",
+        "recruiter_alerts.channel",
+        "redacoes_candidato.cost_tokens_input",
+        "redacoes_candidato.cost_tokens_output",
+        "redacoes_candidato.input_hash",
+        "redacoes_candidato.model_version",
+        "redacoes_candidato.prompt_version",
+        "redacoes_candidato.referencia_match",
+        "redacoes_candidato.revisada_por",
+      ]
+    `)
+
+    // Nenhuma coluna nos DOIS lados. Um par duplicado inflaria a CTE `com_veredito`
+    // do smoke e mascararia uma sumida — o `FULL OUTER JOIN` casaria pela outra ponta.
+    for (const [tabela, t] of Object.entries(a.tabelas)) {
+      const dentro = new Set(t.colunas)
+      for (const fora of Object.keys(t.colunas_excluidas ?? {})) {
+        expect(dentro.has(fora), `\`${tabela}.${fora}\` está em \`colunas\` E em \`colunas_excluidas\``).toBe(false)
+      }
+      // Toda exclusão carrega razão NOMEADA. Uma exclusão sem motivo é a omissão
+      // silenciosa que todo este mecanismo existe para impedir, só que por dentro.
+      for (const [fora, motivo] of Object.entries(t.colunas_excluidas ?? {})) {
+        expect(String(motivo).trim(), `\`${tabela}.${fora}\` foi excluída sem razão nomeada`).not.toBe('')
+      }
+    }
+
+    // A identidade que o smoke verifica contra `information_schema`:
+    // exportadas + excluídas = colunas vivas das tabelas em escopo.
+    expect(a.meta.totais.colunas_com_veredito_em_escopo).toBe(
+      a.meta.totais.colunas_exportadas + a.meta.totais.colunas_excluidas_em_escopo,
+    )
+    expect(chavesAchatadas().length + excluidasAchatadas().length).toBe(
+      a.meta.totais.colunas_com_veredito_em_escopo,
+    )
+  })
+
+  it('(k) os dois `VALUES` do smoke SQL estão em sincronia com o artefato', () => {
+    // ⚠ ESTA ASSERÇÃO NASCEU DE UM DEFEITO REAL, e a lição não é sobre sincronia.
+    // A primeira versão do smoke definia drift como `viva AND NOT IN allowlist` e
+    // devolveu 34 linhas contra PROD em 2026-08-03T19:58:54Z — as 34 exclusões
+    // deliberadas. Um relatório que sempre mostra 34 treina todo mundo a ignorá-lo, e
+    // a linha 35 (o vazamento real) passa despercebida: a imagem espelhada do
+    // P39/CR-02. O predicado passou a comparar contra `allowlist ∪ excluídas`.
+    //
+    // O cabeçalho do smoke AVISA que toda regeração obriga a regerar os dois blocos.
+    // Um aviso que depende de alguém lembrar de obedecê-lo é promessa sem código que
+    // a execute — e esta fase inteira gira em torno de não escrever mais uma dessas.
+    // Aqui o aviso vira asserção: os dois `VALUES` são extraídos do .sql e comparados
+    // com o artefato. Um bloco envelhecido é falso positivo no gate que grita e falso
+    // NEGATIVO no gate que protege — o pior par possível.
+    const doSmoke = paresDoSmoke()
+    expect(doSmoke.allowlist, 'o `VALUES` da CTE `allowlist` envelheceu — rode --sql-values').toEqual(
+      chavesAchatadas(),
+    )
+    expect(
+      doSmoke.excluidas,
+      'o `VALUES` da CTE `excluidas` envelheceu — rode --sql-values-excluidas',
+    ).toEqual(excluidasAchatadas())
+
+    // O smoke é READ-ONLY em PROD, e isso é invariante do arquivo, não do runbook.
+    const semComentario = readFileSync(CAMINHO_SMOKE, 'utf8')
+      .split('\n')
+      .filter((l) => !l.trimStart().startsWith('--'))
+      .join('\n')
+    expect(semComentario).not.toMatch(/\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|GRANT|REVOKE)\b/i)
   })
 })

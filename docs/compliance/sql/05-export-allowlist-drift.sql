@@ -1,11 +1,11 @@
 -- =============================================================================
--- 05-export-allowlist-drift.sql — a allowlist do export contra o catálogo VIVO
+-- 05-export-allowlist-drift.sql — os vereditos do export contra o catálogo VIVO
 -- =============================================================================
 --
 -- Requirement coberto : EXPORT-02 · EXPORT-04 · EXPORT-06
 -- Decisão de origem   : 44-CONTEXT §Área 3 (SC#3, asserção 2) · BD-6
 -- Milestone           : M8 / v8.0 — Phase 44 / Plano 44-03 (Task 3)
--- Autoria             : 2026-08-03
+-- Autoria             : 2026-08-03 · predicado corrigido no mesmo dia (ver abaixo)
 -- Natureza            : **READ-ONLY — seguro em PROD.** Zero statement de escrita.
 --
 -- COMO EXECUTAR
@@ -18,60 +18,88 @@
 -- POR QUE ESTE ARQUIVO EXISTE, E POR QUE O TESTE VITEST **NÃO** O SUBSTITUI
 -- ------------------------------------------------------------------------
 -- `docs/compliance/__tests__/exportAllowlist.test.ts` congela as chaves do
--- `export-allowlist.json` num snapshot inline. Ele pega alteração silenciosa DO
+-- `export-allowlist.json` em snapshots inline. Ele pega alteração silenciosa DO
 -- ARTEFATO. Ele é ESTRUTURALMENTE CEGO para uma coluna nova no BANCO: uma migration
 -- que adicione `candidatos.numero_documento` amanhã não move um byte do JSON
 -- commitado, e o snapshot continua verde para sempre.
 --
 -- E é exatamente essa a falha que o SC#3 nomeia. Os dois guardas leem universos
--- DISJUNTOS: o Vitest lê o ARTEFATO, este lê o CATÁLOGO. Nenhum dos dois é
--- redundante com o outro; cada um enxerga o que o outro não pode ver.
+-- DISJUNTOS: o Vitest lê o ARTEFATO, este lê o CATÁLOGO.
 --
--- Este projeto já embarcou uma vez a classe "guarda que era dead code" (P39/CR-02).
--- Uma asserção que não pode falhar pelo motivo declarado é a mesma classe de defeito,
--- e é por isso que o rodapé deste arquivo carrega a PROVA DE MORDIDA.
+-- ⚠ O DEFEITO QUE A PRIMEIRA VERSÃO DESTE ARQUIVO TINHA — E QUE PROD REVELOU
+-- --------------------------------------------------------------------------
+-- A primeira versão definia drift como `viva AND NOT IN allowlist`. Executada
+-- contra PROD em **2026-08-03T19:58:54Z**, devolveu **34 linhas** onde esperava 0.
 --
--- AS DUAS DIREÇÕES IMPORTAM — E POR RAZÕES DIFERENTES
--- ---------------------------------------------------
---   COLUNA NOVA NO BANCO — fora da allowlist
---       É o VAZAMENTO EM POTENCIAL. Alguém precisa decidir se ela é dado do titular
---       sob o Art. 18, II, e essa decisão vai para `export-scope-rules.yaml`, nunca
---       para o gerador. Enquanto ninguém decide, a coluna fica fora da cópia — o que
---       é seguro, mas silencioso. Esta linha quebra o silêncio.
+-- E as 34 estavam CERTAS de existirem: a allowlist é, POR DESENHO, um subconjunto
+-- próprio das colunas vivas (358 de 392). As 34 são as colunas que
+-- receberam veredito `export: false` — `agendado_por`, `entrevistador`,
+-- `referencia_match`, `prompt_version`, `justificativa`… Cada uma tem razão nomeada
+-- em `export-scope-rules.yaml`. Nenhuma é drift.
+--
+-- Num sistema CORRETO aquele predicado devolveria 34 linhas PARA SEMPRE. E um
+-- relatório que sempre mostra 34 treina todo mundo a ignorá-lo: a linha 35 — o
+-- vazamento real — passa despercebida, e a própria prova de mordida deixa de provar
+-- nada, porque somar 1 a 34 não se distingue de ruído.
+--
+-- É a IMAGEM ESPELHADA do P39/CR-02 que o parágrafo acima cita. Uma guarda que grita
+-- sempre é tão inútil quanto uma que nunca grita, e é bem mais difícil de flagrar:
+-- a primeira parece estar trabalhando.
+--
+-- **A CORREÇÃO:** o universo comparado não é a allowlist, é
+-- `allowlist ∪ excluídas` — TUDO O QUE TEM VEREDITO. Sobra dos dois lados é o que
+-- ninguém decidiu. A asserção volta a ser `0 linhas` com significado real.
+--
+-- AS TRÊS DIREÇÕES, E A RAZÃO DE CADA UMA
+-- ----------------------------------------
+--   COLUNA NOVA NO BANCO — sem veredito
+--       O VAZAMENTO EM POTENCIAL. Ninguém decidiu se ela é dado do titular sob o
+--       Art. 18, II. Enquanto ninguém decide ela fica fora da cópia — seguro, porém
+--       SILENCIOSO. Esta linha quebra o silêncio. A decisão vai para
+--       `export-scope-rules.yaml`, NUNCA para o predicado desta consulta.
 --
 --   COLUNA DA ALLOWLIST SUMIU DO BANCO
---       É o export ENTREGANDO MENOS DO QUE DECLARA. A projeção da Edge Function
---       referencia uma coluna que não existe: ou a chamada quebra, ou (pior) ela é
---       silenciosamente omitida e o titular recebe uma cópia incompleta que se
---       apresenta como completa. É a mentira por omissão que o EXPORT-06 combate.
+--       O export ENTREGANDO MENOS DO QUE DECLARA. A projeção da Edge Function
+--       referencia coluna inexistente: ou a chamada quebra, ou (pior) ela é omitida
+--       em silêncio e o titular recebe cópia incompleta que se apresenta como
+--       completa. É a mentira por omissão que o EXPORT-06 combate.
+--
+--   COLUNA EXCLUÍDA SUMIU DO BANCO
+--       Veredito ÓRFÃO: o YAML carrega decisão sobre coluna que não existe mais.
+--       Não vaza nada — mas é apodrecimento do registro que a Phase 45 vai herdar
+--       como plano de exclusão (EXPORT-06). Um plano que fala de colunas fantasmas
+--       é um plano em que não se pode confiar para a fase irreversível.
 --
 -- REGRA DE HONESTIDADE DE NÚMERO (herdada de 04-invent05-blast-radius.sql:30-40)
 -- ------------------------------------------------------------------------------
--- O `VALUES` abaixo tem 358 pares, sobre 29 tabelas, e foi **GERADO, NUNCA
--- DIGITADO**:
+-- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 358 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 34  pares
 --
--- Ele espelha o `export-allowlist.json` derivado do catálogo medido em
+-- Soma: **392 colunas com veredito**, sobre 29 tabelas — e é exatamente o número de
+-- colunas vivas dessas tabelas medido em PROD em 2026-08-03T19:58:54Z. O artefato
+-- de origem é o `export-allowlist.json` derivado do catálogo medido em
 -- **2026-08-03T19:38:03Z** (67 tabelas base / 1013 colunas / 104 FKs em `public`).
--- ⚠ **Toda regeração da allowlist obriga a regerar este bloco.** Um `VALUES` colado
--- à mão, ou envelhecido em relação ao artefato, transforma o guarda em gerador de
--- falso positivo — e um guarda que grita sem motivo é um guarda que se aprende a
--- ignorar.
+--
+-- ⚠ Toda regeração da allowlist obriga a regerar os DOIS blocos. Essa obrigação
+-- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
+-- extrai os dois `VALUES` deste arquivo e os compara com o artefato, e falha se um
+-- dos dois envelhecer. Um aviso que depende de alguém lembrar de obedecê-lo é
+-- exatamente o que esta fase aprendeu a não escrever.
 --
 -- ESCOPO DELIBERADO: COLUNA, NÃO TABELA
 -- --------------------------------------
--- O predicado restringe `information_schema` às tabelas que a PRÓPRIA allowlist
--- declara. Portanto esta consulta NÃO enxerga uma tabela nova inteira aparecendo em
--- `public`. Isso não é lacuna: é divisão de trabalho, e os três mecanismos são
--- nomeados aqui para que ninguém os presuma.
+-- O predicado restringe `information_schema` às tabelas que a allowlist declara.
+-- Esta consulta NÃO vê uma tabela nova inteira aparecendo em `public`. Não é
+-- lacuna, é divisão de trabalho — e os três mecanismos ficam nomeados para que
+-- ninguém os presuma:
 --
 --   · tabela NOVA sem disposição   ⇒ `gen-export-allowlist.cjs` FALHA a geração
 --                                    (fecho de tabela sobre `catalogo-vivo-44.json`.tabelas)
---   · tabela DECLARADA e não viva  ⇒ `meta.escopo_declarado_nao_vivo` no artefato,
---                                    mais a asserção (i) do teste Vitest
---                                    (é o caso de `solicitacoes_dados`, que nasce no 44-04)
---   · coluna nova ou sumida        ⇒ ESTA CONSULTA
+--   · tabela DECLARADA e não viva  ⇒ `meta.escopo_declarado_nao_vivo` + asserção (i)
+--                                    do Vitest (é o caso de `solicitacoes_dados`, 44-04)
+--   · coluna nova, sumida ou órfã  ⇒ ESTA CONSULTA
 --
 -- =============================================================================
 
@@ -436,9 +464,54 @@ WITH allowlist(tabela, coluna) AS (
     ('scores_raven','total_acertos'),
     ('scores_raven','updated_at')
 ),
+excluidas(tabela, coluna) AS (
+  -- Colunas VIVAS de tabela em escopo com veredito `export: false`. Elas não entram
+  -- na cópia — e é justamente por TEREM veredito que não podem ser reportadas como
+  -- drift. Ver o bloco "O DEFEITO QUE PROD REVELOU", acima.
+  VALUES
+    ('agendamentos_entrevista','agendado_por'),
+    ('agendamentos_entrevista','entrevistador'),
+    ('agendamentos_entrevista','updated_by'),
+    ('analise_candidato_vaga','erro'),
+    ('avaliacoes_rh','avaliador_id'),
+    ('candidate_ai_decisions','ai_call_log_ids'),
+    ('candidate_ai_decisions','review_requested_by'),
+    ('candidate_ai_decisions','reviewer_id'),
+    ('candidatos','created_by'),
+    ('candidatos','updated_by'),
+    ('candidaturas','created_by'),
+    ('candidaturas','updated_by'),
+    ('decisao_final','justificativa'),
+    ('decisao_final','por_usuario'),
+    ('decisao_final','revisao_por_usuario'),
+    ('decisao_final_historico','justificativa'),
+    ('decisao_final_historico','por_usuario'),
+    ('devolutivas_candidato','modelo_ia'),
+    ('devolutivas_candidato','prompt_version'),
+    ('entrevista_analises','prompt_version'),
+    ('entrevista_analises','revisada_por'),
+    ('entrevistas_online','agendado_por'),
+    ('entrevistas_online','realizado_por'),
+    ('entrevistas_presenciais','agendado_por'),
+    ('entrevistas_presenciais','realizado_por'),
+    ('historico_candidatura','ator'),
+    ('recruiter_alerts','channel'),
+    ('redacoes_candidato','cost_tokens_input'),
+    ('redacoes_candidato','cost_tokens_output'),
+    ('redacoes_candidato','input_hash'),
+    ('redacoes_candidato','model_version'),
+    ('redacoes_candidato','prompt_version'),
+    ('redacoes_candidato','referencia_match'),
+    ('redacoes_candidato','revisada_por')
+),
+com_veredito(tabela, coluna, destino) AS (
+  SELECT a.tabela, a.coluna, 'allowlist'::text FROM allowlist a
+  UNION ALL
+  SELECT e.tabela, e.coluna, 'excluida'::text  FROM excluidas e
+),
 vivo AS (
   -- Só tabelas BASE de `public` — view e foreign table não são o que a EF projeta.
-  SELECT c.table_name::text AS tabela,
+  SELECT c.table_name::text  AS tabela,
          c.column_name::text AS coluna
   FROM information_schema.columns c
   JOIN information_schema.tables t
@@ -446,29 +519,29 @@ vivo AS (
    AND t.table_name   = c.table_name
   WHERE c.table_schema = 'public'
     AND t.table_type   = 'BASE TABLE'
-    -- `::text` explícito: `information_schema.columns.table_name` é do domínio
-    -- `sql_identifier` (sobre `name`), e o `VALUES` acima produz `text`. A comparação
-    -- funciona por coerção implícita, mas depender de coerção implícita numa consulta
-    -- de compliance é depender de um detalhe que uma versão futura do Postgres pode
-    -- apertar. O cast custa nada e remove a dúvida.
+    -- `::text` explícito: `table_name` é do domínio `sql_identifier` (sobre `name`)
+    -- e o `VALUES` produz `text`. Funciona por coerção implícita, mas depender de
+    -- coerção implícita numa consulta de compliance é depender de um detalhe que uma
+    -- versão futura do Postgres pode apertar. O cast custa nada e remove a dúvida.
     AND c.table_name::text IN (SELECT DISTINCT a.tabela FROM allowlist a)
 )
 SELECT
-  COALESCE(v.tabela, a.tabela) AS tabela,
-  COALESCE(v.coluna, a.coluna) AS coluna,
+  COALESCE(v.tabela, d.tabela) AS tabela,
+  COALESCE(v.coluna, d.coluna) AS coluna,
   CASE
-    WHEN a.coluna IS NULL THEN 'COLUNA NOVA NO BANCO — fora da allowlist'
-    ELSE                       'COLUNA DA ALLOWLIST SUMIU DO BANCO'
+    WHEN d.coluna IS NULL              THEN 'COLUNA NOVA NO BANCO — sem veredito em export-scope-rules.yaml'
+    WHEN d.destino = 'allowlist'       THEN 'COLUNA DA ALLOWLIST SUMIU DO BANCO — o export entrega menos do que declara'
+    ELSE                                    'COLUNA EXCLUÍDA SUMIU DO BANCO — veredito órfão no YAML'
   END AS veredito
 FROM vivo v
-FULL OUTER JOIN allowlist a
-  ON a.tabela = v.tabela
- AND a.coluna = v.coluna
--- O `FULL OUTER JOIN` é o que torna as DUAS direções visíveis numa consulta só.
--- Um `LEFT JOIN` veria apenas metade do drift, e a metade invisível seria escolhida
--- por acidente de escrita em vez de por decisão.
+FULL OUTER JOIN com_veredito d
+  ON d.tabela = v.tabela
+ AND d.coluna = v.coluna
+-- O `FULL OUTER JOIN` é o que torna as duas pontas visíveis numa consulta só. Um
+-- `LEFT JOIN` veria metade do drift, e a metade invisível seria escolhida por
+-- acidente de escrita em vez de por decisão.
 WHERE v.coluna IS NULL
-   OR a.coluna IS NULL
+   OR d.coluna IS NULL
 ORDER BY 3, 1, 2;
 
 -- =============================================================================
@@ -478,9 +551,10 @@ ORDER BY 3, 1, 2;
 --   APROVADO  = 0 linhas
 --   REPROVADO = QUALQUER linha
 --
--- Uma linha NUNCA se resolve afrouxando esta consulta. Ela se resolve dando um
--- veredito nomeado em `docs/compliance/export-scope-rules.yaml` e regerando os
--- artefatos — e depois regerando o `VALUES` acima.
+-- Uma linha NUNCA se resolve afrouxando esta consulta — foi assim que a primeira
+-- versão dela quase virou ruído de fundo. Resolve-se dando veredito nomeado em
+-- `docs/compliance/export-scope-rules.yaml`, regerando os artefatos e regerando os
+-- dois `VALUES` acima.
 --
 -- =============================================================================
 -- META-TEST — prova que este gate é real e não um no-op
@@ -489,28 +563,38 @@ ORDER BY 3, 1, 2;
 -- falhando não é um gate: ele é verde no mundo em que funciona E no mundo em que
 -- está quebrado, e os dois mundos são indistinguíveis de fora.
 --
+-- ⚠ A prova SÓ É SIGNIFICATIVA com a baseline em 0. Com a baseline em 34 que a
+-- primeira versão produzia, "esperar exatamente 1" viraria "esperar 35", que não se
+-- distingue de ruído — motivo pelo qual o operador se recusou, corretamente, a rodar
+-- a prova antes da correção do predicado.
+--
 -- Reprodução canônica (READ-ONLY do início ao fim — o experimento inteiro é uma
 -- consulta; `information_schema` NUNCA é escrito):
 --
---   1. Copie este arquivo para um scratch FORA do repositório.
---   2. Remova do `VALUES` a linha:
+--   1. Confirme que a execução limpa deu **0 linhas**. Sem isso, pare.
+--   2. Copie este arquivo para um scratch FORA do repositório.
+--   3. Remova do `VALUES` da CTE `allowlist` a linha:
 --
 --          ('autorizacoes','consent_text_hash'),
 --
 --      A escolha não é arbitrária: é uma das quatro colunas do BD-6, a dependência
 --      declarada da Phase 44 sobre a Phase 43. Se o guarda não morde nela, ele não
 --      protege o que esta fase mais precisa proteger.
---   3. Execute o arquivo do scratch contra PROD.
---   4. ESPERADO: **exatamente 1 linha** —
+--   4. Execute o arquivo do scratch contra PROD.
+--   5. ESPERADO: **exatamente 1 linha** —
 --
 --          tabela        | coluna            | veredito
---          autorizacoes  | consent_text_hash | COLUNA NOVA NO BANCO — fora da allowlist
+--          autorizacoes  | consent_text_hash | COLUNA NOVA NO BANCO — sem veredito em export-scope-rules.yaml
 --
---      "Nova" do ponto de vista do smoke: uma coluna VIVA que a allowlist não declara.
---      É a mesma forma que uma migration futura produziria, e é por isso que remover
---      uma linha simula fielmente adicionar uma coluna.
---   5. Descarte o arquivo do scratch. O versionado permanece intacto, e o par
---      antes/depois (0 linhas × 1 linha, com timestamp de cada execução) vai colado
+--      "Nova" do ponto de vista do smoke: uma coluna VIVA que nenhum dos dois
+--      conjuntos declara. É a mesma forma que uma migration futura produziria, e é
+--      por isso que remover uma linha simula fielmente adicionar uma coluna.
+--   6. OPCIONAL, para exercitar a terceira direção: remova em vez disso uma linha da
+--      CTE `excluidas` — p.ex. `('agendamentos_entrevista','entrevistador'),` — e
+--      espere **1 linha** com o MESMO veredito de "sem veredito". As duas remoções
+--      provam que o universo comparado é a UNIÃO, e não só a allowlist.
+--   7. Descarte o arquivo do scratch. O versionado permanece intacto, e os pares
+--      antes/depois (0 linhas × 1 linha, com timestamp de cada execução) vão colados
 --      no `44-VERIFICATION.md`.
 --
 -- ⚠ O arquivo alterado NUNCA é commitado.
