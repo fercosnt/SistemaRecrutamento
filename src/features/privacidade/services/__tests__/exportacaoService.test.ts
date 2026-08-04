@@ -24,11 +24,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), from: vi.fn() }))
-
-vi.mock('@/lib/supabase/client', () => ({
-  supabase: { functions: { invoke: mocks.invoke }, from: mocks.from },
+const mocks = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  from: vi.fn(),
+  /**
+   * O dublê de `storage` (44-07). O molde é `perfilRhService.test.ts:40-73` — o
+   * ÚNICO `createSignedUrl` mockado vivo neste repositório.
+   */
+  storageFrom: vi.fn(),
+  createSignedUrl: vi.fn(),
 }))
+
+vi.mock('@/lib/supabase/client', () => {
+  mocks.storageFrom.mockImplementation(() => ({ createSignedUrl: mocks.createSignedUrl }))
+  return {
+    supabase: {
+      functions: { invoke: mocks.invoke },
+      from: mocks.from,
+      storage: { from: mocks.storageFrom },
+    },
+  }
+})
 
 import {
   ExportacaoError,
@@ -40,6 +56,11 @@ import {
   nomeArquivoExport,
   lerUltimoPedidoDados,
   calcularLiberacaoCooldown,
+  listarMeusCurriculos,
+  mintarUrlCurriculoProprio,
+  CURRICULOS_ALLOWLIST,
+  TTL_CURRICULO_SEGUNDOS,
+  BUCKET_CURRICULOS,
   ULTIMO_PEDIDO_COLUNAS,
   JANELA_COOLDOWN_MS,
   COPY_PEDIR_COPIA,
@@ -80,9 +101,30 @@ function cadeia(resultado: { data: unknown; error: unknown }) {
   return c
 }
 
+/**
+ * Cadeia da LISTA de currículos (44-07). Diferente da de cima em duas coisas que
+ * importam: termina em `await` sobre o próprio builder (é uma lista, não há
+ * `maybeSingle`), e expõe `is` **de propósito** — o caso (ac) precisa poder provar
+ * que ele NÃO foi chamado, e um método ausente falharia por `TypeError` em vez de
+ * pela asserção, que é a diferença entre um teste que mede e um que explode.
+ */
+function cadeiaLista(resultado: { data: unknown; error: unknown }) {
+  const c = {
+    select: vi.fn((_colunas: string) => c),
+    eq: vi.fn((_coluna: string, _valor: unknown) => c),
+    not: vi.fn((_coluna: string, _operador: string, _valor: unknown) => c),
+    is: vi.fn((_coluna: string, _valor: unknown) => c),
+    order: vi.fn((_coluna: string, _opcoes: { ascending: boolean }) => c),
+    then: (aceitar: (v: { data: unknown; error: unknown }) => unknown) =>
+      Promise.resolve(resultado).then(aceitar),
+  }
+  return c
+}
+
 beforeEach(() => {
   mocks.invoke.mockReset()
   mocks.from.mockReset()
+  mocks.createSignedUrl.mockReset()
 })
 
 // ── (a) o gerador é PURO ──────────────────────────────────────────────────────
@@ -534,6 +576,168 @@ describe('calcularLiberacaoCooldown', () => {
     expect(calcularLiberacaoCooldown(null, agora)).toBeNull()
     expect(calcularLiberacaoCooldown(undefined, agora)).toBeNull()
     expect(String(calcularLiberacaoCooldown('nao é data', agora))).not.toContain('NaN')
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 44-07 · O CV DO TITULAR — a leitura own-row e a cunhagem client-side (EXPORT-03)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('listarMeusCurriculos', () => {
+  const LINHA = {
+    id: 'cndt-1',
+    curriculo_url: 'uid-1/cv.pdf',
+    created_at: '2026-07-01T10:00:00.000Z',
+    vaga: { titulo: 'Dentista' },
+  }
+
+  it('(aa) projeta pela allowlist NOMEADA, com o embed da vaga também por allowlist', async () => {
+    const c = cadeiaLista({ data: [LINHA], error: null })
+    mocks.from.mockReturnValue(c)
+
+    await listarMeusCurriculos('cand-1')
+
+    expect(mocks.from).toHaveBeenCalledWith('candidaturas')
+    // Igualdade com a CONSTANTE, não com um literal transcrito: um literal aqui
+    // seria uma segunda verdade sobre a projeção, e as duas divergiriam no dia em
+    // que alguém editasse uma delas.
+    expect(c.select.mock.calls[0][0]).toBe(CURRICULOS_ALLOWLIST)
+    expect(CURRICULOS_ALLOWLIST).toContain('vaga')
+    expect(CURRICULOS_ALLOWLIST).toContain('titulo')
+  })
+
+  it('(ab) NEGATIVA: a string de select não contém projeção total', () => {
+    const projecaoTotal = ['*'].join('')
+    expect(CURRICULOS_ALLOWLIST).not.toContain(projecaoTotal)
+    expect(`x${projecaoTotal}y`).toContain(projecaoTotal) // META-TEST
+  })
+
+  it('(ac) filtra own-row + currículo presente, e NÃO esconde candidatura removida', async () => {
+    const c = cadeiaLista({ data: [LINHA], error: null })
+    mocks.from.mockReturnValue(c)
+
+    await listarMeusCurriculos('cand-1')
+
+    expect(c.eq.mock.calls).toContainEqual(['candidato_id', 'cand-1'])
+    expect(c.not).toHaveBeenCalledWith('curriculo_url', 'is', null)
+
+    // ⚠ A ASSERÇÃO LOAD-BEARING DESTE CASO. O predicado oposto vive no
+    // `get-curriculo-url` (WR-03) e a tentação de copiá-lo é alta — mas lá o leitor
+    // é um RH, aqui é o DONO do arquivo. O arquivo continua no Storage; negar-lhe a
+    // existência seria a mentira oposta à que este milestone corrige.
+    expect(c.is).not.toHaveBeenCalled()
+    expect(c.eq.mock.calls.map(([coluna]) => coluna)).not.toContain('deleted_at')
+    expect(c.not.mock.calls.map(([coluna]) => coluna)).not.toContain('deleted_at')
+  })
+
+  it('(ag) normaliza o embed: objeto, lista de um, e ausente produzem a MESMA forma', async () => {
+    const comObjeto = cadeiaLista({ data: [LINHA], error: null })
+    mocks.from.mockReturnValue(comObjeto)
+    const [aObjeto] = await listarMeusCurriculos('cand-1')
+
+    const comLista = cadeiaLista({
+      data: [{ ...LINHA, vaga: [{ titulo: 'Dentista' }] }],
+      error: null,
+    })
+    mocks.from.mockReturnValue(comLista)
+    const [aLista] = await listarMeusCurriculos('cand-1')
+
+    expect(aObjeto).toEqual({
+      id: 'cndt-1',
+      caminho: 'uid-1/cv.pdf',
+      enviadoEm: '2026-07-01T10:00:00.000Z',
+      vagaTitulo: 'Dentista',
+    })
+    expect(aLista).toEqual(aObjeto)
+
+    // Vaga ausente ⇒ título NULO. Nunca `undefined`, nunca objeto vazio: quem
+    // renderiza decide entre "Vaga não identificada" e o título, e um terceiro
+    // valor faria o componente conhecer as formas do PostgREST.
+    const semVaga = cadeiaLista({
+      data: [{ ...LINHA, vaga: null }, { ...LINHA, id: 'cndt-2', vaga: [] }],
+      error: null,
+    })
+    mocks.from.mockReturnValue(semVaga)
+    const linhas = await listarMeusCurriculos('cand-1')
+    expect(linhas.map((l) => l.vagaTitulo)).toEqual([null, null])
+  })
+
+  it('(ac2) sem candidatoId a leitura nem acontece', async () => {
+    await expect(listarMeusCurriculos('')).resolves.toEqual([])
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it('(ae2) erro do PostgREST vira ExportacaoError sem a mensagem crua', async () => {
+    mocks.from.mockReturnValue(
+      cadeiaLista({ data: null, error: { code: '42501', message: 'permission denied for schema' } }),
+    )
+    const erro = await listarMeusCurriculos('cand-1').catch((e: unknown) => e)
+    expect(erro).toBeInstanceOf(ExportacaoError)
+    expect((erro as ExportacaoError).message).not.toContain('permission denied')
+  })
+})
+
+describe('mintarUrlCurriculoProprio', () => {
+  it('(ad) cunha com o caminho EXATO recebido e com o TTL canônico de 60 s', async () => {
+    mocks.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: 'https://exemplo.test/assinada' },
+      error: null,
+    })
+
+    const url = await mintarUrlCurriculoProprio('uid-1/cv.pdf')
+
+    expect(url).toBe('https://exemplo.test/assinada')
+    expect(mocks.storageFrom).toHaveBeenCalledWith(BUCKET_CURRICULOS)
+    // Os DOIS argumentos. Uma asserção que só olhasse o caminho deixaria passar um
+    // TTL frouxo — e o TTL é o que torna honesta a frase "válido por poucos
+    // segundos" que a seção 3 mostra ao titular.
+    expect(mocks.createSignedUrl).toHaveBeenCalledWith('uid-1/cv.pdf', 60)
+    expect(TTL_CURRICULO_SEGUNDOS).toBe(60)
+    expect(BUCKET_CURRICULOS).toBe('curriculos')
+  })
+
+  it('(ae) erro do Storage vira ExportacaoError, sem a mensagem crua do transporte', async () => {
+    mocks.createSignedUrl.mockResolvedValue({
+      data: null,
+      error: { message: 'Object not found: bucket curriculos' },
+    })
+    const erro = await mintarUrlCurriculoProprio('uid-1/cv.pdf').catch((e: unknown) => e)
+    expect(erro).toBeInstanceOf(ExportacaoError)
+    expect((erro as ExportacaoError).message).not.toContain('Object not found')
+    expect((erro as ExportacaoError).message).not.toContain('bucket')
+  })
+
+  it('(ae3) resposta SEM URL assinada também é erro — nunca uma string vazia na aba', async () => {
+    mocks.createSignedUrl.mockResolvedValue({ data: {}, error: null })
+    await expect(mintarUrlCurriculoProprio('uid-1/cv.pdf')).rejects.toBeInstanceOf(ExportacaoError)
+  })
+})
+
+// ── (af) sonda de texto-fonte: o MÓDULO INTEIRO é livre de chamada de log ─────
+// O escopo é o **módulo**, não a função, e a diferença é o ponto: uma linha de log
+// acrescentada seis meses depois em qualquer ponto deste serviço tem a URL assinada
+// ao alcance da mão, e um TTL de 60 s vira um link colado no console de quem
+// estiver olhando a tela (Invariante 4 · Pitfall 7).
+describe('o serviço não loga', () => {
+  it('(af) nenhuma chamada de log no módulo inteiro do exportacaoService', () => {
+    // ⚠ O caminho passa por VARIÁVEL, e não é estilo: o Vite reescreve
+    // estaticamente `new URL('<literal>', import.meta.url)` para uma URL de asset
+    // (`http:`), e `fileURLToPath` então recusa com "must be of scheme file". Com
+    // variável a análise estática não dispara — idioma vivo do caso (t) logo abaixo.
+    const relativo = '../exportacaoService.ts'
+    const fonte = readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), 'utf8')
+    // Literal montado em runtime (idioma 42-11): um arquivo que proíbe uma string
+    // e a contém verbatim é sua própria primeira violação.
+    const alvos = [
+      ['con', 'sole', '.'].join(''),
+      ['logg', 'er', '.'].join(''),
+    ]
+    for (const alvo of alvos) {
+      expect(fonte.includes(alvo), `chamada de log "${alvo}" encontrada no serviço`).toBe(false)
+    }
+    for (const alvo of alvos) {
+      expect(`prefixo ${alvo} sufixo`).toContain(alvo) // META-TEST
+    }
   })
 })
 

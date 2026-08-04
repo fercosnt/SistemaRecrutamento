@@ -755,6 +755,162 @@ export function calcularLiberacaoCooldown(
   return new Date(liberacao).toISOString()
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// O CV DO TITULAR — leitura own-row + cunhagem CLIENT-SIDE (EXPORT-03, BD-7)
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** O bucket dos currículos. Constante nomeada: o literal solto não é contrato. */
+export const BUCKET_CURRICULOS = 'curriculos'
+
+/**
+ * A duração da URL assinada do currículo, em segundos.
+ *
+ * É o MESMO número de `get-curriculo-url/index.ts:206`, que é a duração canônica de
+ * URL assinada sobre PII neste projeto. O `3600` de `perfilRhService.ts:294` **não**
+ * é precedente: aquilo é foto de perfil, que não é PII do titular sob o Art. 18, II.
+ * Um segundo número aqui exigiria justificar por que o CV do próprio dono merece
+ * janela mais frouxa que o CV visto pela equipe de recrutamento — e não há resposta.
+ */
+export const TTL_CURRICULO_SEGUNDOS = 60
+
+/**
+ * Allowlist NOMEADA da lista de currículos do titular — inclusive o embed da vaga,
+ * que traz **só** o título.
+ *
+ * Cada coluna a mais é payload que atravessa a rede e senta no cache do TanStack
+ * Query mesmo sem nunca ser renderizada: `RLS é row-level, não column-level`. É a
+ * lição literal do comentário T-08-09 de `candidaturasService.ts`, e a classe de
+ * vulnerabilidade nº 1 deste projeto.
+ */
+export const CURRICULOS_ALLOWLIST = 'id, curriculo_url, created_at, vaga:vagas ( titulo )'
+
+/** Uma candidatura com currículo, na forma que a apresentação consome. */
+export interface LinhaCurriculo {
+  /** Id da candidatura — é a chave do estado por linha do bloco. */
+  id: string
+  /** Caminho de Storage. O único produtor legítimo do argumento da cunhagem. */
+  caminho: string
+  enviadoEm: string
+  /** `null` quando a vaga não tem título resolvível — nunca `undefined`. */
+  vagaTitulo: string | null
+}
+
+/** A forma crua que o PostgREST devolve, antes da normalização. */
+interface LinhaCurriculoBruta {
+  id?: unknown
+  curriculo_url?: unknown
+  created_at?: unknown
+  vaga?: unknown
+}
+
+/**
+ * Normaliza o embed de vaga num lugar SÓ.
+ *
+ * O embed de relação um-para-um do PostgREST chega ora como objeto, ora como lista
+ * de um elemento, conforme a tipagem gerada — e um componente que conheça as duas
+ * formas é um componente que vai renderizar `[object Object]` no dia em que a
+ * tipagem mudar. Normalização defensiva no serviço (precedente 42-11).
+ */
+function tituloDaVaga(vaga: unknown): string | null {
+  const alvo = Array.isArray(vaga) ? vaga[0] : vaga
+  if (!alvo || typeof alvo !== 'object') return null
+  const titulo = (alvo as { titulo?: unknown }).titulo
+  return typeof titulo === 'string' && titulo.trim() !== '' ? titulo : null
+}
+
+/**
+ * Lista as candidaturas do titular **que têm currículo** — own-row, por allowlist.
+ *
+ * ⚠ **NÃO esconde candidatura removida de forma suave, e isso é decisão.** O
+ * predicado oposto existe em `get-curriculo-url/index.ts:164` (WR-03) e serve a
+ * outro fato: lá o leitor é um RH, e o controle impede que ele veja o CV de uma
+ * candidatura retirada — um fato entre pessoas diferentes. Aqui o leitor é o **dono
+ * do arquivo**; o arquivo continua no Storage porque nenhuma rotina apaga dado de
+ * candidato hoje, e negar ao dono a existência de um arquivo que a empresa guarda é
+ * a mentira oposta à que este milestone existe para corrigir. A razão já está
+ * escrita, verbatim, no docblock de `obterGuardaCurriculo`
+ * (`privacidadeService.ts:212-220`).
+ */
+export async function listarMeusCurriculos(
+  candidatoId: string | undefined,
+): Promise<LinhaCurriculo[]> {
+  if (!candidatoId) return []
+
+  const { data, error } = await supabase
+    .from('candidaturas')
+    .select(CURRICULOS_ALLOWLIST)
+    .eq('candidato_id', candidatoId)
+    .not('curriculo_url', 'is', null)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    // A mensagem crua do transporte fica de fora inteira (idioma do tradutor
+    // privado de `privacidadeService`). A tela decide por `code`, nunca pelo texto.
+    const status = (error as { code?: string })?.code
+    throw new ExportacaoError(
+      COPY_PEDIR_COPIA.erroTitulo,
+      status === '42501' ? 'FORBIDDEN' : 'SERVER_ERROR',
+    )
+  }
+
+  const linhas = (data ?? []) as unknown as LinhaCurriculoBruta[]
+  return linhas
+    .filter((linha) => typeof linha?.curriculo_url === 'string' && linha.curriculo_url !== '')
+    .map((linha) => ({
+      id: String(linha.id),
+      caminho: linha.curriculo_url as string,
+      enviadoEm: typeof linha.created_at === 'string' ? linha.created_at : '',
+      vagaTitulo: tituloDaVaga(linha.vaga),
+    }))
+}
+
+/**
+ * A copy da falha da LINHA (44-UI-SPEC §Sub-bloco "Seu currículo"). Mora no serviço
+ * porque é ele quem lança — e assim há uma frase só para o fato, do lado que a
+ * produz e do lado que a mostra.
+ */
+export const COPY_CURRICULO_ERRO = 'Não foi possível abrir este currículo.'
+
+/**
+ * Cunha a URL assinada do currículo do PRÓPRIO titular — client anon, JWT dele,
+ * `service_role` fora do caminho inteiro (BD-7).
+ *
+ * Três fatos tornam esta função defensável, e nenhum deles é óbvio:
+ *
+ * 1. **`get-curriculo-url` devolve 403 a candidato** (`index.ts:139-141`) e seu único
+ *    sítio vivo é uma tela de RH. Sem saber disso, o próximo executor "reusa o
+ *    `CvButton` inteiro" e o titular leva 403. O `CvButton` é molde de **mecanismo**
+ *    (abrir aba dentro do gesto), nunca de fonte de dados (44-RESEARCH §Achado #1).
+ * 2. **As duas policies de SELECT do bucket são OR'd** e cobrem convenções de pasta
+ *    diferentes — `candidatos.id` e `auth.uid()` (44-MEASUREMENTS §M4). É o que
+ *    autoriza a cunhagem sem `service_role`, e é uma propriedade MELHOR do que a
+ *    pesquisa supôs: o titular lê o próprio CV sob qualquer das duas convenções.
+ * 3. **n = 3** (§M5): três CVs vivos, três com prefixo `auth.uid()`, zero com o
+ *    outro. Três linhas não provam um formato — por isso "o titular lê o próprio CV"
+ *    é asserção testada em runtime, com **falha por linha e visível**, jamais
+ *    invariante assumido.
+ *
+ * ⚠ **O parâmetro é caminho de Storage, e o único produtor legítimo dele é
+ * `listarMeusCurriculos`.** Nunca id de candidatura, nunca parâmetro de rota, nunca
+ * entrada de usuário: um segundo produtor de caminho é literalmente como o acesso
+ * horizontal entra neste desenho, e do lado do servidor a única coisa que o impede é
+ * a RLS medida no M4 — que é o lado que vale.
+ *
+ * A URL é o RETORNO desta função e morre no chamador. Este módulo não registra
+ * nada em lugar nenhum (sonda de texto-fonte (af)): um registro acrescentado depois
+ * transformaria um TTL de 60 s num link ao alcance de quem estiver olhando a tela.
+ */
+export async function mintarUrlCurriculoProprio(caminho: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(BUCKET_CURRICULOS)
+    .createSignedUrl(caminho, TTL_CURRICULO_SEGUNDOS)
+
+  if (error || !data?.signedUrl) {
+    throw new ExportacaoError(COPY_CURRICULO_ERRO, 'SERVER_ERROR')
+  }
+  return data.signedUrl
+}
+
 /** Export nomeado do namespace (convenção `camelCaseService`). */
 export const exportacaoService = {
   invocarExportMeusDados,
@@ -766,4 +922,6 @@ export const exportacaoService = {
   dispararDownloads,
   lerUltimoPedidoDados,
   calcularLiberacaoCooldown,
+  listarMeusCurriculos,
+  mintarUrlCurriculoProprio,
 }
