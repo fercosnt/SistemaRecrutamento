@@ -32,9 +32,17 @@ import {
   COPY_CONSENTIMENTO_MARKETING,
 } from './ConsentimentoSwitchRow'
 import { formatarDataPtBr } from '../lib/datas'
+import { ENCARREGADO_EMAIL } from '../constants/encarregado'
 
-/** O canal humano nomeado — o único que existe hoje para os direitos ainda sem código. */
-export const ENCARREGADO_EMAIL = 'lgpd@beautysmile.com.br'
+/**
+ * O canal humano nomeado — RE-EXPORTADO da camada de constantes, não declarado
+ * aqui. A fonte mudou de lugar para que `exportacaoService` (camada de serviço)
+ * pudesse deixar de importar de um componente; a re-exportação mantém os sítios
+ * de chamada existentes intactos.
+ *
+ * @see src/features/privacidade/constants/encarregado.ts
+ */
+export { ENCARREGADO_EMAIL }
 
 /** Copy verbatim da 43-UI-SPEC §`/candidato/privacidade` (linhas 470-476). */
 export const COPY_TRANSACIONAL = {

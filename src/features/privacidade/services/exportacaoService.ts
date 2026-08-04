@@ -47,7 +47,13 @@ import { supabase } from '@/lib/supabase/client'
 // O endereço do Encarregado tem UMA fonte no projeto. Duplicá-lo aqui criaria duas
 // verdades sobre o mesmo canal humano — e é o canal que a copy de erro oferece
 // quando o caminho automático falha.
-import { ENCARREGADO_EMAIL } from '../components/AutorizacoesLista'
+//
+// ⚠ Vem da camada de CONSTANTES, nunca de um componente. Importar de
+// `components/AutorizacoesLista` (como este módulo fazia) invertia a direção de
+// camada e arrastava React e os primitivos glass para dentro do grafo de um
+// serviço que se anuncia PURO e sem DOM — quebrando o próprio corte que torna os
+// geradores testáveis sem simular um clique.
+import { ENCARREGADO_EMAIL } from '../constants/encarregado'
 // ⚠ O MESMO artefato gerado que a Edge Function projeta. A importação é o ponto:
 // o que sai do arquivo legível passa a ser dado do artefato, não literal deste
 // módulo — e o gerador reprova a coluna de endereço sem veredito. Ver
@@ -713,7 +719,18 @@ export function nomesArquivosExport(resposta: RespostaExport): {
   json: string
   html: string
 } {
-  const quando = new Date(resposta.gerado_em)
+  // ⚠ O instante é RESOLVIDO AQUI, uma vez — inclusive o fallback.
+  //
+  // Deixá-lo para `nomeArquivoExport` reabria, no caminho degradado, exatamente a
+  // divergência que esta função existe para fechar: quando `gerado_em` é
+  // ilegível, cada chamada faz o seu PRÓPRIO `new Date()`, e são duas leituras
+  // independentes do relógio. Na virada de dia em UTC o `.json` e o `.html` saem
+  // com datas diferentes — e `PedirCopiaBloco` renderiza o texto de sucesso a
+  // partir de uma TERCEIRA invocação, então a tela pode nomear arquivos que
+  // ninguém escreveu. O titular procuraria na pasta de downloads um nome que não
+  // existe.
+  const bruto = new Date(resposta.gerado_em)
+  const quando = Number.isNaN(bruto.getTime()) ? new Date() : bruto
   return {
     json: nomeArquivoExport('json', quando),
     html: nomeArquivoExport('html', quando),

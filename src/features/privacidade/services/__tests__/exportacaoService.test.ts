@@ -55,6 +55,7 @@ import {
   formatarDataPuraPtBr,
   dispararDownloads,
   nomeArquivoExport,
+  nomesArquivosExport,
   lerUltimoPedidoDados,
   calcularLiberacaoCooldown,
   listarMeusCurriculos,
@@ -872,6 +873,50 @@ describe('o serviço não loga', () => {
     for (const alvo of alvos) {
       expect(`prefixo ${alvo} sufixo`).toContain(alvo) // META-TEST
     }
+  })
+
+  it('(ag) `nomesArquivosExport` lê o relógio UMA vez — inclusive no fallback', () => {
+    // A função existe para que os DOIS nomes saiam do MESMO instante. No caminho
+    // degradado (`gerado_em` ilegível) isso deixava de valer: o fallback morava
+    // dentro de `nomeArquivoExport`, que é chamada duas vezes, e eram duas
+    // leituras independentes do relógio. Na virada de dia em UTC os dois arquivos
+    // saíam com datas diferentes — e o texto de sucesso, gerado de uma TERCEIRA
+    // invocação, podia nomear arquivo que ninguém escreveu.
+    const RelogioReal = globalThis.Date
+    let leiturasSemArgumento = 0
+    class DateEspiao extends RelogioReal {
+      constructor(valor?: string | number | Date) {
+        if (valor === undefined) {
+          leiturasSemArgumento += 1
+          // Cada leitura devolve um DIA diferente: havendo duas, os nomes divergem.
+          super(RelogioReal.UTC(2026, 7, 3 + leiturasSemArgumento))
+        } else {
+          super(valor)
+        }
+      }
+    }
+    vi.stubGlobal('Date', DateEspiao)
+    try {
+      const nomes = nomesArquivosExport({ ...resposta(), gerado_em: 'não é uma data' })
+      expect(leiturasSemArgumento, 'o relógio foi lido mais de uma vez').toBeLessThanOrEqual(1)
+      // E a consequência observável: os dois nomes carregam o MESMO dia.
+      expect(nomes.json.replace(/\.json$/, '')).toBe(nomes.html.replace(/\.html$/, ''))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('(af2) o serviço não importa da camada de COMPONENTES', () => {
+    // A direção de camada do projeto (CLAUDE.md §File Structure) é
+    // components → services, nunca o contrário. Um import de componente aqui
+    // arrasta React, `lucide-react` e os primitivos glass para o grafo de um
+    // módulo cujo docblock anuncia `gerarJsonExport`/`gerarHtmlExport` como PUROS
+    // e sem DOM — e é esse corte que os torna testáveis sem simular um clique.
+    const relativo = '../exportacaoService.ts'
+    const fonte = readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), 'utf8')
+    const alvo = ["from '", '../components/'].join('')
+    expect(fonte.includes(alvo), 'o serviço voltou a importar de `components/`').toBe(false)
+    expect(`x${alvo}y`).toContain(alvo) // META-TEST
   })
 })
 
