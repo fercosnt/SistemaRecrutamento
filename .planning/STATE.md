@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-02-PLAN.md
-last_updated: "2026-08-03T19:36:22.872Z"
+stopped_at: Completed 44-03-PLAN.md
+last_updated: "2026-08-04T01:21:03.317Z"
 last_activity: 2026-08-03
 last_activity_desc: Phase 44 execution started
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 23
+  completed_plans: 24
   percent: 33
 ---
 
@@ -79,7 +79,7 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 3 of 9
+Plan: 4 of 9
 Status: Ready to execute
 Last activity: 2026-08-03 — Phase 44 execution started
 
@@ -150,6 +150,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 43 P09 | ~25min | 3 tasks | 16 files |
 | Phase 44 P01 | ~20min | 3 tasks | 6 files |
 | Phase 44 P02 | ~35min | 3 tasks | 3 files |
+| Phase 44 P03 | ~2h | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -278,6 +279,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: O smoke resolve identidades vivas e escreve so em solicitacoes_dados: fabricar candidatos exigiria escrever em auth.users de PROD (44-02)
 - [Phase ?]: Contador de gate-GUC incrementado FORA da subtransacao — GUC e transacional e o rollback levaria o incremento junto (44-02)
 - [Phase ?]: FK de solicitacoes_dados sem ON DELETE: a decisao pertence a Phase 45, que carrega o portao destrutivo (44-02)
+- [Phase ?]: 44-03: decisao_final.justificativa FICA FORA da copia do titular (Phase-24/CR-01 viva + BD-9 aberto), enquanto as 38 outras colunas de texto livre do RH ficam DENTRO — assimetria HISTORICA, nao de principio; reversivel com uma palavra no YAML
+- [Phase ?]: 44-03: scores/bandas/percentis ENTRAM nos arquivos entregues ao titular — o ban da UI-SPEC governa TELA (apresentacao), o Art. 18 II governa o DIREITO a copia
+- [Phase ?]: 44-03: o smoke de drift compara o catalogo vivo contra allowlist UNIAO excluidas (392), nunca contra a allowlist sozinha (358) — guarda que grita 34 vezes por desenho e a imagem espelhada do dead code do P39/CR-02
+- [Phase ?]: 44-03: ponteiro de pessoa e conceito SEMANTICO, nao sufixo _id — referencia_match (uuid[] de candidaturas de terceiros) e entrevistador (nome de funcionario, text) evadiriam a regra R2. Insumo direto para a Phase 45
 
 ### Pending Todos
 
@@ -377,8 +382,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-03T19:36:15.986Z
-Stopped at: Completed 44-02-PLAN.md
+Last session: 2026-08-04T01:20:42.152Z
+Stopped at: Completed 44-03-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

@@ -81,7 +81,7 @@
 - [ ] **EXPORT-01**: Candidato solicita cópia dos próprios dados pelo painel
 - [ ] **EXPORT-02**: Export em JSON por allowlist explícita de colunas — nunca `select('*')`, a classe de vulnerabilidade nº 1 recorrente deste projeto
 - [ ] **EXPORT-03**: Currículo entregue por signed URL de TTL curto a partir de bucket privado, nunca inline nem base64
-- [ ] **EXPORT-04**: Chaves do export cobertas por snapshot test — uma coluna nova no banco não pode vazar silenciosamente para o export
+- [x] **EXPORT-04**: Chaves do export cobertas por snapshot test — uma coluna nova no banco não pode vazar silenciosamente para o export
 - [ ] **EXPORT-05**: Pedido de acesso atendido dentro do prazo do **Art. 19, II** (15 dias corridos)
 - [ ] **EXPORT-06**: O inventário construído aqui é o artefato consumido pelo motor de exclusão (EXPORT antes de ERASE)
 
@@ -186,7 +186,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | EXPORT-01 | Phase 44 | Pending |
 | EXPORT-02 | Phase 44 | Pending |
 | EXPORT-03 | Phase 44 | Pending |
-| EXPORT-04 | Phase 44 | Pending |
+| EXPORT-04 | Phase 44 | Complete |
 | EXPORT-05 | Phase 44 | Pending |
 | EXPORT-06 | Phase 44 | Pending |
 | ERASE-01 | Phase 45 | Pending |
