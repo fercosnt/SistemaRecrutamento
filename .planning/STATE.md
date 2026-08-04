@@ -369,6 +369,47 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 | Phase | State | Resume |
 |-------|-------|--------|
 | 42 | verification_deferred_human | `/gsd-verify-work 42` |
+| 44 (plano 44-05) | checkpoint_deferred_human | prova ao vivo no navegador — ver abaixo |
+
+### 44-05 — prova ao vivo diferida (decisão do operador em 2026-08-04)
+
+O operador escolheu **diferir e seguir a fase**. Isto é deferral de **checkpoint de plano**,
+não de verificação de fase: a `44-VERIFICATION.md` ainda nem existe.
+
+**O que JÁ está provado ao vivo** (orquestrador, `44-05-EVIDENCIA-DEPLOY.md`, commit `072c3d4`):
+
+- EF `exportar-meus-dados` **criada** em PROD — **version 1**, `ACTIVE`, **`verify_jwt: true`**.
+  Não existia antes; nenhuma versão foi sobrescrita.
+- **Assunção A1 FECHADA positivamente.** O import `../_shared/exportAllowlist.ts` sobreviveu ao
+  bundler: `POST` + publishable key devolveu `{"ok":false,"error_code":"UNAUTHORIZED",
+  "message":"Sessão inválida."}` — strings do próprio `index.ts`, inalcançáveis se o módulo
+  falhasse no boot. `GET` → 405 do handler; `OPTIONS` → 200. ⚠ **A forma do discriminador no
+  plano estava errada**: sem `Authorization`, com JWT-ON quem responde é o *gateway*
+  (`UNAUTHORIZED_NO_AUTH_HEADER`) e a requisição nunca chega à função — a prova é a **diferença
+  entre os dois corpos**, não o 401 sozinho.
+- **Asserção negativa:** `solicitacoes_dados` seguia em **0 linhas** após as sondas (401 sai no
+  passo 1, antes do INSERT do passo 4).
+- **Policies vivas (M3)** lidas de `pg_policies`: zero policy de escrita para o candidato; o RH
+  não lê por policy, lê pelas RPCs `SECURITY DEFINER` `listar_pedidos_dados` /
+  `contar_pedidos_dados_pendentes`.
+
+**O que continua NÃO provado** (exige navegador + login de titular):
+
+1. Caminho feliz ponta a ponta — clique → `.json` no aparelho → 1 linha `tipo='acesso'`,
+   `situacao='atendido'`, `causa` NULA, `atendido_em` preenchida.
+2. Render da seção 3 abaixo das duas vivas, seções 1 e 2 intactas.
+3. Estado de carregamento com o botão desabilitado barrando o segundo clique.
+4. Cooldown por tentativa real (segundo clique → erro, banco sem linha nova).
+
+**Deliberadamente não exercido:** cunhar sessão de titular via Auth admin provaria o caminho
+feliz sem navegador, mas **queimaria a janela de cooldown de 24 h** da conta de teste — o
+primeiro clique humano cairia em 429 e destruiria a evidência que o passo 3 existe para produzir.
+
+⚠ **A fase 44 NÃO pode fechar como completa enquanto isto estiver aberto.** A linha do ROADMAP
+diz "provada ao vivo", e o portão de fase destrutiva do M8 exige `VERIFICATION.md` com veredito.
+**O scanner do ROADMAP já re-marcou `44-05` como `[x]` DUAS vezes** (conta arquivos de SUMMARY,
+e o do 44-05 é `status: checkpoint`) — revertido à mão nas duas. Conferir a linha 168 do
+ROADMAP após cada plano.
 
 **Decisão do operador em 2026-08-01:** diferir e seguir para a Phase 43. A Phase 42 verificou
 **4/5 must-haves** (`42-VERIFICATION.md`, `status: human_needed`) e o **portão de fase
