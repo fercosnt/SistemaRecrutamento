@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Briefcase, Scale, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck, CalendarClock } from 'lucide-react';
+import { Home, Users, Briefcase, Scale, Settings, ChevronLeft, ChevronRight, LogOut, Bug, BarChart3, ShieldCheck, CalendarClock, FileDown } from 'lucide-react';
 import { BeautySmileLogo } from './BeautySmileLogo';
 import { Badge } from './ui/badge';
 import { ScrollArea } from './ui/scroll-area';
@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useQuery } from '@tanstack/react-query';
 import { getAvatarSignedUrl } from '@/features/perfil-rh/services/perfilRhService';
 import { useRevisoesPendentesCount } from '@/features/revisao/hooks/useRevisoesPendentesCount';
+import { usePedidosDadosPendentesCount } from '@/features/pedidos-dados/hooks/usePedidosDadosPendentesCount';
 import { formatarBadgePendentes } from '@/features/revisao/services/revisaoService';
 
 interface MenuItem {
@@ -88,6 +89,19 @@ export function RHSidebar({
   const { data: revisoesPendentes } = useRevisoesPendentesCount();
   const badgeRevisoes = formatarBadgePendentes(revisoesPendentes);
 
+  // Contador de pedidos de cópia de dados NÃO ATENDIDOS (EXPORT-05). A MESMA
+  // `formatarBadgePendentes` acima — importada, jamais reescrita: reescrevê-la
+  // reintroduziria o "0" solto no menu. ⚠ Ela devolve `undefined` para zero/ausente, NÃO
+  // string vazia; nenhuma comparação do retorno com `''` pode existir aqui (seria sempre
+  // falsa e faria o badge reaparecer como pílula em branco).
+  //
+  // ⚠ O INVARIANTE DO BD-8 VIVE ENTRE ESTA LINHA E A TABELA DA TELA: o contador e a fila
+  // leem o MESMO par de RPCs `SECURITY DEFINER`, com o predicado de escopo escrito uma
+  // vez no servidor. Um badge que contasse o que a tela não mostra mandaria o operador
+  // procurar trabalho invisível — com o prazo de 15 dias corridos do Art. 19, II correndo.
+  const { data: pedidosDadosPendentes } = usePedidosDadosPendentesCount();
+  const badgePedidosDados = formatarBadgePendentes(pedidosDadosPendentes);
+
   // Detectar página ativa baseado na rota atual
   const getActivePageFromPath = (pathname: string): string => {
     if (pathname.startsWith('/rh/dashboard')) return 'dashboard-rh';
@@ -95,6 +109,10 @@ export function RHSidebar({
     // Sítio 2 de 3 da entrada de Revisões — ANTES de /rh/vagas, mantendo a ordem de
     // especificidade das demais. Sem esta linha o item navega mas nunca se acende.
     if (pathname.startsWith('/rh/revisoes')) return 'revisoes-rh';
+    // Sítio 2 de 3 da entrada de Pedidos de dados (Phase 44 / EXPORT-05) — junto das
+    // irmãs de /rh/*. Sem esta linha o item navega e nunca se acende. Não há armadilha de
+    // precedência de prefixo aqui: não existe rota `/rh` genérica.
+    if (pathname.startsWith('/rh/pedidos-dados')) return 'pedidos-dados-rh';
     if (pathname.startsWith('/rh/vagas')) return 'vagas-rh';
     if (pathname.startsWith('/rh/relatorios')) return 'relatorios-rh';
     if (pathname.startsWith('/rh/suporte')) return 'suporte-rh';
@@ -129,6 +147,18 @@ export function RHSidebar({
       label: 'Revisões',
       icon: <Scale size={24} />,
       badge: badgeRevisoes,
+    },
+    // Sítio 1 de 3 da entrada de Pedidos de dados (Phase 44 / EXPORT-05) — o item
+    // existe. Posição travada pela 44-UI-SPEC: logo APÓS Revisões e ANTES de Vagas, para
+    // que as duas filas de direito do titular fiquem adjacentes (Art. 20 e Art. 18, II).
+    // NÃO é role-gated: supervisão é trabalho de RH, igual a Revisões. A visibilidade
+    // aqui é COSMÉTICA (mesmo modelo mental do D-13 abaixo) — quem controla o acesso é o
+    // `RoleGuard` da rota e o predicado de escopo dentro das RPCs.
+    {
+      id: 'pedidos-dados-rh',
+      label: 'Pedidos de dados',
+      icon: <FileDown size={24} />,
+      badge: badgePedidosDados,
     },
     {
       id: 'vagas-rh',
@@ -174,6 +204,8 @@ export function RHSidebar({
       'candidatos-rh': '/rh/candidatos',
       // Sítio 3 de 3 — sem esta entrada o item existe, se acende, e não navega.
       'revisoes-rh': '/rh/revisoes',
+      // Sítio 3 de 3 — sem esta entrada o item existe, se acende, e não navega.
+      'pedidos-dados-rh': '/rh/pedidos-dados',
       'vagas-rh': '/rh/vagas',
       'relatorios-rh': '/rh/relatorios',
       'suporte-rh': '/rh/suporte',

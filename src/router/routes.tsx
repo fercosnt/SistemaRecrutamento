@@ -65,6 +65,9 @@ const RelatoriosRHPage = lazyNamed(() => import('../components/pages/RelatoriosR
 // Fila de revisão de decisão Art. 20 (Phase 42 / REVISAO-02 — RH + administrador)
 const RevisoesRHPage = lazyNamed(() => import('../features/revisao/components/RevisoesRHPage'), 'RevisoesRHPage')
 
+// Fila de pedidos de cópia de dados Art. 18, II (Phase 44 / EXPORT-05 — RH + administrador)
+const PedidosDadosRHPage = lazyNamed(() => import('../features/pedidos-dados/components/PedidosDadosRHPage'), 'PedidosDadosRHPage')
+
 // Revisão de redações (Phase 13 / AVAL-07 — RH human-review queue, role-gated)
 const RedacaoReviewPanel = lazyNamed(() => import('../features/triagem/components/RedacaoReviewPanel'), 'RedacaoReviewPanel')
 
@@ -462,6 +465,22 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role={['rh', 'administrador']}>
         <RevisoesRHPage />
+      </RoleGuard>
+    ),
+  },
+  // Fila de pedidos de cópia de dados Art. 18, II (EXPORT-05). MESMO gate das rotas RH
+  // vizinhas, e NÃO um gate admin-only: o recrutador é a persona primária desta tela de
+  // supervisão, e um wrapper administrador-only o excluiria da própria fila que ele
+  // precisa acompanhar. O gate real de DADOS não é este wrapper — é o predicado de
+  // escopo do BD-8 reimplementado dentro do SECURITY DEFINER de `listar_pedidos_dados` e
+  // `contar_pedidos_dados_pendentes` (plano 44-02), que devolve ao recrutador apenas os
+  // pedidos de candidatos das vagas que ele criou, e ao administrador a fila inteira,
+  // inclusive os órfãos. O contador do menu lê o MESMO par de RPCs (invariante BD-8).
+  {
+    path: '/rh/pedidos-dados',
+    element: (
+      <RoleGuard role={['rh', 'administrador']}>
+        <PedidosDadosRHPage />
       </RoleGuard>
     ),
   },
