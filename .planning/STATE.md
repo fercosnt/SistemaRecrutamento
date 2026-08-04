@@ -597,6 +597,21 @@ Last session: 2026-08-04T04:10:01.205Z
 Stopped at: Completed 44-07-PLAN.md — UAT ao vivo do CV (EXPORT-03) PENDENTE (checkpoint)
 Resume file: None
 
+## Decisões travadas para a Phase 45 (operador, 2026-08-04)
+
+As três decisões de negócio que a pesquisa do M8 escalou no kickoff e que a Phase 45 não podia
+começar sem. Respondidas ANTES do discuss, não durante — são entradas do planejamento.
+
+| # | Decisão | Resposta | Consequência de desenho |
+|---|---|---|---|
+| **Janela de arrependimento** | **15 dias** | Espelha o prazo do Art. 19, II que a Phase 44 já usa na fila do RH. **Um só número no sistema**: a mesma constante governa o SLA de acesso e a janela de cancelamento, então há uma fonte a auditar em vez de duas a divergir. A janela é cancelável (ERASE-*) e a execução só dispara ao fim dela. |
+| **BD-9** — justificativa do recrutador em `decisao_final` | **Preservar ANONIMIZADA** | O texto sobrevive como prova de não-discriminação (Art. 7º, VI / RNF-07a); o **vínculo com o titular não**. Implica que o motor da 45 trate esta coluna por tombstone/desvinculação, não por `DELETE` — e que a Phase 44 mantenha a exclusão da coluna no export (a decisão de exportar era outra pergunta e segue `false`). ⚠ A mesma decisão vale para `decisao_final_historico.justificativa`, senão o histórico entrega o que a linha corrente protege. |
+| **PITR** | **NÃO ligar — risco aceito e datado** | ⚠⚠ **A 45 executará mutação irreversível sobre PII viva com backup de 7 dias que EXCLUI STORAGE INTEIRAMENTE.** Um CV apagado por engano é irrecuperável **por qualquer meio** — não há segunda rede. Consequência direta e não-negociável: o **dry-run passa a ser a única proteção que existe**, e por isso o portão de fase destrutiva do M8 (dry-run pela MESMA query do delete real, asserções negativas, code review bloqueante antes do apply) deixa de ser processo e vira o mecanismo de segurança propriamente dito. Nenhum apply destrutivo em PROD sem ele. |
+
+**O que isto NÃO decide:** a ordem `Storage → Postgres → Auth` continua sendo mutação de três
+sistemas **não-atômica, sem transação compartilhada** — o risco estrutural nomeado no ROADMAP
+segue de pé e é problema de engenharia, não de decisão do operador.
+
 ## Operator Next Steps
 
 1. **Revisar o ROADMAP** (`.planning/ROADMAP.md`) — em especial o desvio deliberado em relação à proposta da pesquisa: CONSENT ficou íntegro na Phase 43 em vez de dividido entre 42 e 43, e **TRANSP-01/02 (que a proposta de 6 fases da pesquisa deixou sem fase) foi mapeado à Phase 47**.
