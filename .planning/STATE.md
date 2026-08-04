@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-06-PLAN.md
-last_updated: "2026-08-04T03:27:50.348Z"
+stopped_at: "Completed 44-09-PLAN.md — UAT ao vivo do SC#4 PENDENTE (checkpoint)"
+last_updated: "2026-08-04T03:51:05.935Z"
 last_activity: 2026-08-04
-last_activity_desc: 44-08 (a camada de dados da fila do RH)
+last_activity_desc: 44-09 (a tela do EXPORT-05 — UAT ao vivo pendente)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 27
+  completed_plans: 29
   percent: 33
 ---
 
@@ -79,17 +79,23 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 7 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
+Plan: 8 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: **44-06 COMPLETO** — a cópia deixou de ser um arquivo de máquina. O `.html`
-        que uma pessoa lê (escape em todo valor, carimbo no topo, as duas seções de
-        fronteira, versão da allowlist no rodapé), o estado do cooldown que falha
-        rápido e degrada, e os 5 estados do CTA — verdes e commitados (`277c0cb`,
-        `9554a4f`, `20d93d5`). 68 testes na feature, suíte **1519**, tsc na
-        baseline 97, zero `--no-verify`.
-        Próximos naturais: **44-07** (o sub-bloco de currículo, que é o "botão
-        abaixo" que a copy `sobreCurriculo` nomeia e que por isso ainda não é
-        renderizada) e **44-09** (a tela do RH).
+Status: **44-09 COM CÓDIGO COMPLETO, UAT AO VIVO PENDENTE** — `/rh/pedidos-dados`
+        existe, é alcançável pelo menu com contador e renderiza a fila de 5 colunas:
+        badge de Situação âmbar (a PALAVRA antes da cor), faixa de acompanhamento
+        vermelha do `RevisaoSlaBadge` reusado (eixos distintos), zero ação na linha,
+        e os três sítios da `RHSidebar` no mesmo commit (`29956bf`, `0a0b3b3`,
+        `0f182f1`). 117 testes na feature + sidebar, suíte **1559**, tsc na
+        baseline 97, zero `--no-verify`, zero contato com PROD.
+        ⚠ **O `<human-check>` da Task 3 NÃO rodou** — o UAT ao vivo que mede a
+        igualdade fila ≡ contador nos dois papéis do BD-8 exige login real de
+        recrutador e de administrador, indisponível ao executor. Detalhado no
+        §Checkpoint do `44-09-SUMMARY.md`. Desfecho mais provável: `0 linhas · sem
+        badge` nos dois papéis (`solicitacoes_dados` tinha 0 linhas em PROD), que
+        **é** a igualdade e é resultado válido.
+        Próximo natural: **44-07** (o sub-bloco de currículo, que é o "botão abaixo"
+        que a copy `sobreCurriculo` nomeia e que por isso ainda não é renderizada).
 
         **44-05 SEGUE PARADO NO CHECKPOINT** — código completo, verde e commitado
         (`b0b2f21`, `0a04bed`, `bf2ae4c`); a EF `exportar-meus-dados` está
@@ -97,7 +103,7 @@ Status: **44-06 COMPLETO** — a cópia deixou de ser um arquivo de máquina. O 
         pelo navegador** (download, seção 3 renderizada, cooldown no 2º clique) foi
         adiada pelo operador em 2026-08-04. **O 44-06 não a destrava e não depende
         dela** — ele é código local sobre o que o 44-05 já entregou.
-Last activity: 2026-08-04 — 44-06 (a cópia honesta: o segundo arquivo + os 5 estados)
+Last activity: 2026-08-04 — 44-09 (a tela do EXPORT-05 — UAT ao vivo pendente)
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 3×:** o
 scanner conta ARQUIVOS de SUMMARY e volta a marcar 44-05 como `[x]` a cada
@@ -194,6 +200,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P04 | ~50min | 3 tasks | 7 files |
 | Phase 44 P08 | ~25min | 3 tasks | 8 files |
 | Phase 44 P06 | ~55min | 3 tasks | 6 files |
+| Phase 44 P09 | ~35min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -347,6 +354,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 44-06: o motivo visivel ao lado do botao desabilitado vale para TODO disabled do bloco, nao so o cooldown — um disabled sem motivo e indistinguivel de tela quebrada, e o backstop (z3) e estrutural para pegar um disabled acrescentado depois
 - [Phase ?]: 44-06: os nomes dos dois arquivos saem de nomesArquivosExport sobre o MESMO gerado_em do servidor — duas derivacoes independentes divergiriam na virada de dia em UTC e o titular procuraria um nome que ninguem escreveu
 - [Phase ?]: 44-06: a copy 'Voce recebe dois arquivos' entrou no MESMO commit que o .html (instrucao literal do 44-05) — separa-los reintroduziria por uma janela de commits a mentira que o 44-05 adiou a copy para evitar
+- [Phase ?]: 44-09: o eixo da linha da fila sai de `situacao !== 'atendido'` — um token novo do servidor cai no lado da SUPERVISÃO. Errar para esse lado custa uma linha a mais; errar para o outro esconderia trabalho com 15 dias corridos correndo.
+- [Phase ?]: 44-09: o gate `grep -c 'GlassCard' == 1` é insatisfazível (o próprio análogo pontua 4). Medido pela substância — `grep -cE '<GlassCard'` = 1. QUINTA ocorrência da classe 'gate que não pode passar' nesta fase.
+- [Phase ?]: 44-09: sondas de texto-fonte neste repo NÃO podem usar `import.meta.url` — o `URL` global do happy-dom reescreve a base para a origem do documento e `fileURLToPath` rejeita. Ancorar em `process.cwd()`.
 
 ### Pending Todos
 
@@ -387,6 +397,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
 - 44-01 NAO fecha EXPORT-02 nem EXPORT-06: constroi o MECANISMO (escopo + gerador + fecho), nao o artefato. export-allowlist.json e _shared/exportAllowlist.ts so nascem no 44-03, com o catalogo vivo. Ate la 'node docs/compliance/sql/gen-export-allowlist.cjs' sai 1 — e essa E a saida correta. Dry-run contra a config real acusou 62 pendencias de fecho de coluna (superestimadas pelo proxy de tipos; ~20 sao temporais que o catalogo vivo resolve por R3): e a carga que o 44-03 herda.
 - 44-04: database.types.ts NAO regenerado — auth gate do Supabase CLI (sem SUPABASE_ACCESS_TOKEN e sem supabase login). Desbloqueio: supabase login OU token no ambiente; depois gerar para TEMPORARIO antes do arquivo trackeado. Tambem: supabase db push --linked nao executado (CLI fora do PATH); ledger verificado por SQL direto
+- 44-09: UAT ao vivo do SC#4 NÃO rodou — exige login real de recrutador E de administrador para medir a igualdade fila ≡ contador (BD-8) na tela. 7 passos em §Checkpoint do 44-09-SUMMARY.md. Não é bloqueio de código: a tela está completa e verde.
 
 ## Deferred Verification
 
@@ -492,8 +503,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T03:27:36.372Z
-Stopped at: Completed 44-06-PLAN.md
+Last session: 2026-08-04T03:50:18.892Z
+Stopped at: Completed 44-09-PLAN.md — UAT ao vivo do SC#4 PENDENTE (checkpoint)
 Resume file: None
 
 ## Operator Next Steps

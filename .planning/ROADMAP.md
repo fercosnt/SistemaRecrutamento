@@ -169,7 +169,7 @@ Plans:
 - [x] 44-06-PLAN.md — A cópia honesta: o segundo arquivo feito para uma pessoa ler (escape + fronteira do inventário escrita) e os dois estados que faltavam ao CTA — sucesso persistente e cooldown que nunca é botão morto
 - [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado
 - [x] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
-- [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável
+- [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável · ⚠ **código completo e verde (3 tasks, 3 commits, 117 testes na feature+sidebar, suíte 1559, tsc 97); o `<human-check>` da Task 3 — UAT ao vivo medindo fila ≡ contador nos DOIS papéis do BD-8 — NÃO rodou** (exige login real de recrutador e de administrador). O `[x]` fica reservado para depois da observação: o `<done>` da Task 3 exige, com estas palavras, "um RH real e um administrador real abriram a fila ao vivo"
 
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
 **Security**: **candidata a `/gsd-secure-phase`** — é uma superfície de exfiltração de PII por desenho: allowlist, TTL do signed URL, autorização own-row, e o risco de a EF vazar coluna alheia
@@ -312,7 +312,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
-| 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 8/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
