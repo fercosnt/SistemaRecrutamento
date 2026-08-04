@@ -22,14 +22,27 @@
  * vermelha carrega `AlertTriangle aria-hidden` como 2º canal redundante. Cor nunca é o
  * único canal, e nenhum ramo renderiza célula vazia.
  *
- * ── ESTE VALOR É INTERNO (invariante 1 da 42-UI-SPEC) ─────────────────────────────
+ * ── ESTE VALOR É INTERNO (invariante 1 da 42-UI-SPEC / invariante 8 da 44-UI-SPEC) ─
  * Faixa, cor de faixa, contagem de dias e rótulo de atraso NUNCA aparecem em superfície
- * de candidato — nem em `title`, nem em `aria-label`. Este componente é importado
- * exclusivamente pela fila do RH.
+ * de candidato — nem em `title`, nem em `aria-label`.
+ *
+ * ⚠ SÃO **DOIS** OS CONSUMIDORES DESDE A PHASE 44, e a invariante acima vale
+ * integralmente para os dois:
+ *   · `features/revisao/components/FilaRevisoesTable` — a fila de revisão de decisão
+ *     (Art. 20), com os limiares de `config_sla_revisao`;
+ *   · `features/pedidos-dados/components/FilaPedidosDadosTable` — a fila de pedidos de
+ *     cópia de dados (Art. 18, II), com os limiares de `config_sla_dados`.
+ * Ambas são telas de RH. O contrato público é `(dias, limiares) → badge`, sem acoplamento
+ * a nenhuma das duas — foi por isso que o reuso coube sem uma linha de código nova. Esta
+ * frase substitui a que afirmava consumidor único: ela deixou de ser verdadeira na Phase
+ * 44, e um comentário que mente sobre o componente é como a próxima pessoa conclui que
+ * pode acoplá-lo a revisão — ou pior, a uma superfície de candidato.
  *
  * @module features/revisao/components/RevisaoSlaBadge
  * @see src/features/funil/components/SlaBadge.tsx (o molde de comportamento; paletas âmbar/vermelha)
  * @see src/features/revisao/constants/slaRevisao.ts (classifyRevisaoSla — puro e total)
+ * @see src/features/pedidos-dados/components/FilaPedidosDadosTable.tsx (o 2º consumidor, Phase 44)
+ * @see src/features/pedidos-dados/constants/slaDados.ts (o mesmo classificador, por re-export)
  */
 import { AlertTriangle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
