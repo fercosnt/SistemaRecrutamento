@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: "44-05 Task 3 — CHECKPOINT: deploy da EF exportar-meus-dados + prova ao vivo"
-last_updated: "2026-08-04T02:41:59.962Z"
-last_activity: 2026-08-03
-last_activity_desc: Phase 44 execution started
+stopped_at: Completed 44-08-PLAN.md
+last_updated: "2026-08-04T03:06:36.973Z"
+last_activity: 2026-08-04
+last_activity_desc: 44-08 (a camada de dados da fila do RH)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 25
+  completed_plans: 27
   percent: 33
 ---
 
@@ -79,18 +79,31 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 5 of 9
-Status: **44-05 PARADO NO CHECKPOINT** — Tasks 1-2 completas, verdes e commitadas
-        (`b0b2f21`, `0a04bed`, `bf2ae4c`); a Task 3 (deploy da EF
-        `exportar-meus-dados` + prova ao vivo com candidato de teste) exige os
-        tools MCP do Supabase e é do orquestrador.
-Last activity: 2026-08-04 — 44-05 Tasks 1-2 (o tracer em código)
+Plan: 6 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
+      44-08 é da wave 3; o contador sequencial não descreve a ordem real)
+Status: **44-08 COMPLETO** — a camada de dados de `/rh/pedidos-dados` (constantes,
+        serviço e os três hooks) verde e commitada (`2d757bb`, `32a49ab`,
+        `370e58f`). 32 testes na feature, suíte 1493, tsc na baseline 97.
+        Próximo natural: **44-09** (página, tabela, badge, rota e item de menu) —
+        é ele quem torna EXPORT-05 observável.
 
-⚠ **Nota para quem rodar `roadmap update-plan-progress 44`:** o scanner conta
-ARQUIVOS de SUMMARY e marcou 44-05 como `[x]`; foi revertido à mão, porque a
+        **44-05 SEGUE PARADO NO CHECKPOINT** — Tasks 1-2 completas, verdes e
+        commitadas (`b0b2f21`, `0a04bed`, `bf2ae4c`); a Task 3 (deploy da EF
+        `exportar-meus-dados` + prova ao vivo com candidato de teste) exige os
+        tools MCP do Supabase e é do orquestrador. **Não foi destravado pelo
+        44-08** — são planos independentes (candidato × RH).
+Last activity: 2026-08-04 — 44-08 (a camada de dados da fila do RH)
+
+⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 2×:** o
+scanner conta ARQUIVOS de SUMMARY e volta a marcar 44-05 como `[x]` a cada
+execução; foi revertido à mão nas duas vezes (a 2ª na execução do 44-08), porque a
 própria linha do ROADMAP diz "provada ao vivo" e a prova não aconteceu. Marcar de
 novo só depois do checkpoint. (`44-05-SUMMARY.md` traz `status: checkpoint`, não
 `complete`, exatamente por isso.)
+
+Pelo mesmo motivo a célula de progresso da fase é mantida em **5/9**, não no 6/9
+que o scanner escreve: ele conta o SUMMARY do 44-05 como plano concluído. Os cinco
+concluídos são 44-01, 44-02, 44-03, 44-04 e 44-08.
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -161,6 +174,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P02 | ~35min | 3 tasks | 3 files |
 | Phase 44 P03 | ~2h | 3 tasks | 7 files |
 | Phase 44 P04 | ~50min | 3 tasks | 7 files |
+| Phase 44 P08 | ~25min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -303,6 +317,12 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 44-05: a projeção da EF corre em DUAS passadas (diretas → indiretas) — a ordem alfabética do artefato põe agendamentos_entrevista antes da ponte candidaturas, e depender dela seria depender de um acidente do gerador
 - [Phase ?]: 44-05: a copy 'você recebe dois arquivos' fica para o 44-06, junto com o .html que a torna verdadeira — renderizá-la nesta fatia seria a tela afirmando ao titular que recebeu mais do que recebeu
 - [Phase ?]: 44-05: o pre-commit congela a baseline de 97 erros tsc, então um RED de src/ não pode ser commit próprio; RED provado por execução, sem --no-verify e sem stub (o RED da EF É commit — supabase/functions está fora do projeto tsc)
+- [Phase ?]: [Phase 44 / 44-08]: classifySlaDados É classifyRevisaoSla — reuso por ALIAS provado por identidade de REFERÊNCIA (expect().toBe()), não por igualdade de comportamento: é a asserção que uma cópia-e-cola futura reprova mesmo estando correta no dia em que for feita. A Área 4 separou as duas TABELAS de config (dois prazos legais), não a FUNÇÃO, que é agnóstica ao prazo
+- [Phase ?]: [Phase 44 / 44-08]: a inversão do toggle (filtro da tela 'só não atendidos' × parâmetro do servidor 'incluir atendidos') vive em UM ponto, com args da RPC tipados como Record<string,boolean> — a forma nominal poria o identificador no arquivo 2x e o gate 'inversão existe uma vez só' passaria a medir a declaração junto com o uso
+- [Phase ?]: [Phase 44 / 44-08]: a ponte de tipos converte o OBJETO cliente, não o método rpc como fazem os 5 sítios vivos do repo — extrair o método perde o 'this' e derruba o PostgrestClient em runtime, defeito que os testes NÃO pegam porque mockam o método inteiro (duplicateCheckService.ts:179-183 contorna com .call; redacaoService.ts:165 não contorna e carrega o defeito latente)
+- [Phase ?]: [Phase 44 / 44-08]: a discriminação de 42501 por MENSAGEM do análogo foi deliberadamente NÃO copiada — lá o mesmo SQLSTATE cobre duas recusas distintas, aqui tem causa única (guard de papel); o ramo extra seria dead code, a classe P39/CR-02 que este projeto já embarcou
+- [Phase ?]: [Phase 44 / 44-08]: traduzirCausa DIVERGE de rotularDecisao no fallback (token desconhecido → 'Motivo não registrado.', nunca o token cru) porque a causa nomeia caminho de falha INTERNO — cru na tela seria detalhe de infraestrutura; sem a razão no docblock a próxima leitura 'uniformiza' com o análogo e reintroduz o vazamento
+- [Phase ?]: [Phase 44 / 44-08]: 4ª ocorrência na fase de gate que não podia passar — 'grep -crE ... dir/' imprime caminho:contagem POR ARQUIVO, então a comparação com "1"/"0" nunca é verdadeira; medido por grep -rlE|wc -l (arquivos) e grep -rhoE|wc -l (ocorrências)
 
 ### Pending Todos
 
@@ -403,9 +423,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T02:41:59.949Z
-Stopped at: 44-05 Task 3 — CHECKPOINT: deploy da EF exportar-meus-dados + prova ao vivo
-Resume file: .planning/phases/44-exporta-o-acesso/44-05-PLAN.md
+Last session: 2026-08-04T03:05:57.483Z
+Stopped at: Completed 44-08-PLAN.md
+Resume file: None
 
 ## Operator Next Steps
 

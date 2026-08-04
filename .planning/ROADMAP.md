@@ -168,7 +168,7 @@ Plans:
 - [ ] 44-05-PLAN.md — **TRACER**: a fatia vertical do clique ao `.json` — EF `exportar-meus-dados` (allowlist, corpo não lido, registro antes da montagem, 429/`COOLDOWN`), serviço, hook, bloco e seção 3, provada ao vivo · ⚠ **código completo e verde (Tasks 1-2, 3 commits); a Task 3 — deploy + prova ao vivo — é checkpoint do orquestrador e NÃO rodou.** O `[x]` é reservado para depois da prova: a própria linha diz "provada ao vivo"
 - [ ] 44-06-PLAN.md — A cópia honesta: o segundo arquivo feito para uma pessoa ler (escape + fronteira do inventário escrita) e os dois estados que faltavam ao CTA — sucesso persistente e cooldown que nunca é botão morto
 - [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado
-- [ ] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
+- [x] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
 - [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável
 
 **UI hint**: yes — pedido de cópia no painel do candidato (mobile-first) + visibilidade do prazo no lado RH
@@ -312,7 +312,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
-| 44. Exportação & Acesso | v8.0 | 4/9 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 5/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
