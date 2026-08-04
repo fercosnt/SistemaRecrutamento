@@ -500,14 +500,34 @@ function paresPor(doc, quais) {
   return pares.sort();
 }
 
-/** Nada além dos pares: a saída é para ser COLADA no `VALUES` do smoke SQL. */
+/**
+ * Nada além dos pares: a saída é para ser COLADA no `VALUES` do smoke SQL.
+ *
+ * ⚠ A INDENTAÇÃO DE 4 ESPAÇOS É PARTE DO CONTRATO, NÃO ESTILO.
+ * O extrator da asserção (k) de `exportAllowlist.test.ts` casa
+ * `/^ {4}\('([a-z0-9_]+)','([a-z0-9_]+)'\),?$/`, com o `{4}` literal. Emitir sem
+ * indentação (como esta função fazia até o plano 44-04) faz o extrator ler ZERO
+ * pares e a (k) falhar dizendo "o `VALUES` envelheceu" — mensagem que aponta
+ * para a causa errada, e que custa uma investigação inteira antes de alguém
+ * desconfiar do espaço em branco.
+ *
+ * Enquanto a indentação era responsabilidade de quem colava, "Colar SQL" no
+ * docblock era falso: a saída não era colável sem uma edição manual que nenhum
+ * lugar documentava. Alinhar o gerador ao consumidor é a correção certa — o
+ * inverso (afrouxar o regex para `^\s*\(`) faria a asserção aceitar um bloco
+ * desalinhado e perderia a única checagem barata de que o paste caiu no lugar
+ * certo do arquivo.
+ */
+const INDENT_VALUES = '    ';
 function emitirPares(pares) {
   if (!pares.length) {
     // Um `VALUES` vazio é SQL inválido. Melhor falhar alto aqui do que colar um
     // bloco que só quebra quando alguém rodar a consulta contra PROD.
     morrer('ERRO: conjunto vazio — não há pares para emitir. O smoke SQL não pode receber um `VALUES` vazio.');
   }
-  process.stdout.write(pares.map((p, i) => (i === pares.length - 1 ? p : p + ',')).join('\n') + '\n');
+  process.stdout.write(
+    pares.map((p, i) => INDENT_VALUES + (i === pares.length - 1 ? p : p + ',')).join('\n') + '\n',
+  );
   process.exit(0);
 }
 

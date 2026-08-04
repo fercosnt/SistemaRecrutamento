@@ -340,10 +340,24 @@ describe('gen-export-allowlist.cjs', () => {
     const r = rodar('--sql-values');
     expect(r.status).toBe(0);
 
-    const linhas = r.stdout.trim().split('\n');
+    // ⚠ NAO usar .trim() aqui: ele comeria a indentacao da PRIMEIRA linha e a
+    // isentaria do contrato asserido abaixo — a linha 1 passaria com qualquer
+    // recuo. So o \n final e removido.
+    const linhas = r.stdout.replace(/\n$/, '').split('\n');
     expect(linhas.length).toBeGreaterThan(0);
     for (const l of linhas) {
-      expect(l).toMatch(/^\('[a-z_]+','[a-z_]+'\),?$/);
+      // A INDENTACAO DE 4 ESPACOS FAZ PARTE DO CONTRATO — ver o docblock de
+      // `emitirPares`. O extrator da assercao (k) de exportAllowlist.test.ts casa
+      // `/^ {4}\(...\)/` com o {4} literal, entao uma saida sem recuo faz aquele
+      // gate ler ZERO pares e acusar "o VALUES envelheceu" — apontando para a
+      // causa errada.
+      //
+      // Ate o plano 44-04 este regex pinava a forma SEM recuo, e as duas
+      // assercoes da mesma fase contradiziam uma a outra sobre os mesmos bytes.
+      // O comentario logo abaixo ("colavel sem edicao manual") ja dizia qual das
+      // duas estava certa: a saida so e colavel sem edicao se ela ja vier
+      // indentada. O regex e que discordava da propria intencao do teste.
+      expect(l).toMatch(/^ {4}\('[a-z0-9_]+','[a-z0-9_]+'\),?$/);
     }
     // Ordenado por tabela e coluna — determinismo e o que torna a saida colavel
     // sem edicao manual.
