@@ -85,8 +85,26 @@ export function escapeHtml(valor: unknown): string {
     .replace(/'/g, '&#39;')
 }
 
-/** Aceita `aaaa-mm-dd` e o ISO completo — nada mais é tratado como instante. */
-const PADRAO_ISO = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/
+/**
+ * `aaaa-mm-dd` **sem componente de hora** — uma DATA, não um instante.
+ *
+ * ⚠ Separado do `PADRAO_ISO` de propósito, e a separação é a correção da CR-02.
+ * Enquanto os dois casos compartilhavam um padrão só, toda data pura era
+ * roteada para `formatarDataHoraPtBr` — que faz `new Date(iso)`. Por ECMA-262
+ * uma data pura é parseada como **meia-noite UTC** e formatada em hora
+ * **local**: em todo fuso negativo (isto é, o Brasil inteiro) o arquivo do
+ * titular saía com o DIA ANTERIOR e uma hora que não existe no dado. Medido sob
+ * `TZ=America/Sao_Paulo`: `1990-05-12` → `11/05/1990 às 21:00`, e
+ * `2000-01-01` → `31/12/1999 às 22:00` — ano errado.
+ *
+ * Blast radius medido contra PROD em 2026-08-04: das colunas da allowlist, a
+ * ÚNICA de tipo `date` é `candidatos.data_nascimento`. Todas as demais são
+ * `timestamptz` — instantes de verdade, que continuam pelo caminho de baixo.
+ */
+const PADRAO_DATA_PURA = /^\d{4}-\d{2}-\d{2}$/
+
+/** O ISO COMPLETO — só isto é instante, e só isto sofre conversão de fuso. */
+const PADRAO_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/
 
 /**
  * `dd/mm/aaaa às HH:mm` em pt-BR, 24 h — o formato do carimbo dos arquivos e da
@@ -111,6 +129,24 @@ export function formatarDataHoraPtBr(iso: string | null | undefined): string {
     hour12: false,
   })
   return `${data} às ${hora}`
+}
+
+/**
+ * `aaaa-mm-dd` → `dd/mm/aaaa`, **por fatia de string**.
+ *
+ * ⚠ **Nunca por `new Date`.** Uma data pura não tem relógio, logo não tem fuso a
+ * converter: passá-la por um `Date` inventa uma meia-noite UTC e a re-lê em hora
+ * local. A cópia que a lei exige passaria a afirmar a data de nascimento errada
+ * do titular — silenciosamente, porque o `.json` (que carrega o valor cru)
+ * continuaria certo e ninguém compara os dois arquivos.
+ *
+ * **Total**, no mesmo contrato de `formatarDataHoraPtBr`: entrada ausente ou
+ * fora da forma resolve para travessão, nunca `Invalid Date`.
+ */
+export function formatarDataPtBr(iso: string | null | undefined): string {
+  if (!iso || !PADRAO_DATA_PURA.test(iso)) return TRAVESSAO
+  const [ano, mes, dia] = iso.split('-')
+  return `${dia}/${mes}/${ano}`
 }
 
 /**
@@ -277,6 +313,11 @@ function rotularTabela(tabela: string): string {
  */
 function renderizarValor(valor: unknown): string {
   if (typeof valor === 'boolean') return escapeHtml(valor ? 'Sim' : 'Não')
+  // A DATA PURA vem primeiro e nunca cai no caminho do instante: ela não tem
+  // hora para exibir nem fuso para converter (ver `PADRAO_DATA_PURA`).
+  if (typeof valor === 'string' && PADRAO_DATA_PURA.test(valor)) {
+    return escapeHtml(formatarDataPtBr(valor))
+  }
   if (typeof valor === 'string' && PADRAO_ISO.test(valor)) {
     return escapeHtml(formatarDataHoraPtBr(valor))
   }
@@ -918,6 +959,7 @@ export const exportacaoService = {
   gerarHtmlExport,
   escapeHtml,
   formatarDataHoraPtBr,
+  formatarDataPtBr,
   nomeArquivoExport,
   dispararDownloads,
   lerUltimoPedidoDados,

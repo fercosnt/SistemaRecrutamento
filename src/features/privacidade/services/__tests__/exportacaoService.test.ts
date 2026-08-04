@@ -52,6 +52,7 @@ import {
   gerarJsonExport,
   gerarHtmlExport,
   escapeHtml,
+  formatarDataPtBr,
   dispararDownloads,
   nomeArquivoExport,
   lerUltimoPedidoDados,
@@ -371,6 +372,65 @@ describe('gerarHtmlExport', () => {
     expect(html).toContain(COPY_PEDIR_COPIA.oQueNaoEsta)
     expect(html).toContain(COPY_ARQUIVO.naoFazTitulo)
     expect(html).toContain(COPY_ARQUIVO.naoFazCorpo)
+  })
+
+  it('(n2) DATA PURA sai no DIA CERTO e sem hora inventada — em qualquer fuso', () => {
+    // ⚠ Esta asserção existe porque a (n) acima NÃO pega o defeito: ela casa a
+    // FORMA `\d{2}/\d{2}/\d{4}`, que continua verde num dia errado. A CR-02 foi
+    // medida assim, sob `TZ=America/Sao_Paulo`:
+    //   1990-05-12 → 11/05/1990 às 21:00   (dia anterior + hora inventada)
+    //   2000-01-01 → 31/12/1999 às 22:00   (ANO anterior)
+    // Causa: `new Date('1990-05-12')` é meia-noite UTC, formatada em hora local.
+    //
+    // A prova aqui é DE FUSO-INDEPENDENTE de propósito — asserção que só falha
+    // na máquina de quem a escreveu não é asserção. A ausência de `às` reprova o
+    // código antigo mesmo em UTC, onde o dia por acaso sairia certo.
+    const html = gerarHtmlExport(
+      resposta({
+        payload: {
+          candidatos: [
+            { id: 'cand-1', data_nascimento: '1990-05-12' },
+            // A virada de ANO é o caso que torna o defeito indefensável.
+            { id: 'cand-2', data_nascimento: '2000-01-01' },
+          ],
+        },
+      }),
+    )
+
+    expect(html).toContain('12/05/1990')
+    expect(html).toContain('01/01/2000')
+    // O dia anterior — o que o código antigo entregava — não pode aparecer.
+    expect(html).not.toContain('11/05/1990')
+    expect(html).not.toContain('31/12/1999')
+
+    // E nenhuma HORA foi inventada sobre uma coluna que não tem relógio. O
+    // carimbo do topo (`Cópia gerada em … às …`) é instante de verdade e fica
+    // fora desta contagem, por isso a sonda olha só o bloco do cadastro.
+    const bloco = html.slice(
+      html.indexOf(COPY_ARQUIVO.rotuloTabela.candidatos),
+      html.indexOf(COPY_ARQUIVO.naoEstaTitulo),
+    )
+    expect(bloco).toContain('12/05/1990')
+    expect(bloco).not.toContain(' às ')
+
+    // O INSTANTE de verdade continua com hora — a correção separa os dois casos,
+    // não remove o relógio de quem tem relógio.
+    expect(html).toMatch(/Cópia gerada em \d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}/)
+
+    // META-TEST: a sonda acha o que procura quando ele existe.
+    expect(`x11/05/1990y`).toContain('11/05/1990')
+  })
+
+  it('(n3) `formatarDataPtBr` é pura, total e não passa por `Date`', () => {
+    expect(formatarDataPtBr('1990-05-12')).toBe('12/05/1990')
+    expect(formatarDataPtBr('2000-01-01')).toBe('01/01/2000')
+    // Total: nada produz `Invalid Date` nem `NaN` na cópia do titular.
+    expect(formatarDataPtBr(null)).toBe(TRAVESSAO)
+    expect(formatarDataPtBr(undefined)).toBe(TRAVESSAO)
+    expect(formatarDataPtBr('')).toBe(TRAVESSAO)
+    expect(formatarDataPtBr('não é data')).toBe(TRAVESSAO)
+    // Um INSTANTE não é data pura: ele pertence ao outro formatador.
+    expect(formatarDataPtBr('2026-08-04T13:45:00.000Z')).toBe(TRAVESSAO)
   })
 
   it('(o) o rodapé carrega a versão da allowlist junto à data da geração', () => {
