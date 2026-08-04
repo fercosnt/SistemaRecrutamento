@@ -430,6 +430,57 @@ function construir() {
     }
   }
 
+  // --- fecho INVERSO de VEREDITOS ------------------------------------------
+  // O fecho de coluna acima roda numa direção só: toda coluna VIVA tem de ser
+  // resolvida por alguma fonte. Ninguém checava o contrário — que toda chave de
+  // `decisoes_por_coluna` e toda entrada de `colunas_nunca` ainda correspondam a
+  // uma coluna viva de tabela em escopo.
+  //
+  // E a consequência não é cosmética. `decisoes_por_coluna` é consultado por
+  // `tabela.coluna` literal. Se uma migration RENOMEIA a coluna, a chave antiga
+  // vira letra morta e o nome NOVO cai adiante, nos passos 5-7, onde R3 admite
+  // incondicionalmente qualquer coluna booleana/numérica/temporal/enum. Uma
+  // coluna excluída de propósito (telemetria interna, segredo, PII de terceiro)
+  // RE-ENTRA na cópia do titular sob o nome novo, com proveniência "R3", e o
+  // único sinal seria um inline snapshot mudando dentro de um teste de 700 linhas.
+  //
+  // Uma EXCLUSÃO ÓRFÃ DEIXA DE EXCLUIR EM SILÊNCIO. É a mesma classe que o
+  // `05-export-allowlist-drift.sql` já nomeia como "veredito ÓRFÃO" — mas aquela
+  // consulta é manual e read-only contra PROD; aqui sai de graça, na geração.
+  const emEscopoSet = new Set(emEscopo);
+  for (const chave of Object.keys(esc.decisoes_por_coluna)) {
+    const [tabela, coluna] = String(chave).split('.');
+    // Tabela fora de escopo já é coberta pelo fecho de TABELA — uma decisão de
+    // coluna sobre tabela excluída é inerte, não órfã.
+    if (!emEscopoSet.has(tabela)) continue;
+    if (!vivo.get(tabela).has(coluna)) {
+      erros.push(
+        `VEREDITO ÓRFÃO (decisoes_por_coluna): \`${chave}\` tem decisão em ${REL(ESCOPO)} e NÃO ` +
+          `existe no catálogo vivo. Se a coluna foi renomeada, o nome NOVO cai em R3 e volta para ` +
+          `a cópia com proveniência "R3" — uma exclusão órfã deixa de excluir sem avisar.`,
+      );
+    }
+  }
+  // ⚠ `colunas_nunca` NÃO recebe o mesmo fecho, e a ausência é a decisão.
+  //
+  // Foi tentado, e o próprio gerador desmentiu o desenho: as CINCO entradas do
+  // veto (`smtp_senha_encrypted`, `webhook_secret`, `secret`, `session_token`,
+  // `hash_cpf_email`) reprovaram de uma vez, porque nenhuma existe hoje em tabela
+  // EM ESCOPO — elas moram em `configuracoes_empresa`, `webhooks_config` e afins,
+  // todas fora do escopo do titular.
+  //
+  // E isso é o veto FUNCIONANDO, não apodrecendo. `colunas_nunca` é veto por NOME
+  // e profilático por natureza: ele existe para o dia em que uma dessas tabelas
+  // entrar em escopo, ou em que uma coluna com esse nome nascer numa tabela que
+  // já está. Estar "órfão" é o seu estado NORMAL e desejável.
+  //
+  // Um fecho aqui produziria cinco reprovações permanentes, e um gate que grita
+  // sempre é tão inútil quanto um que nunca grita — a imagem espelhada do
+  // P39/CR-02 que o docblock de `paresPor` já nomeia neste mesmo arquivo. A
+  // diferença com `decisoes_por_coluna` é que aquele é consultado por chave
+  // LITERAL `tabela.coluna` e tem um caminho de re-entrada silenciosa (R3); este
+  // é comparado por nome contra toda coluna de toda tabela em escopo, e não tem.
+
   if (erros.length) {
     console.error(`FECHAMENTO REPROVADO — ${erros.length} pendência(s):\n`);
     for (const e of erros) console.error('  · ' + e);

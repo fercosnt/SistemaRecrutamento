@@ -350,6 +350,39 @@ ponteiros_de_infra:
     expect(r.stderr).toContain('candidatos.coluna_que_nao_existe');
   });
 
+  it('(e4) decisao_por_coluna ORFA falha a geracao — a coluna renomeada nao volta calada por R3', () => {
+    // O fecho de coluna roda numa direcao so: coluna VIVA tem de ter veredito.
+    // Sem o fecho inverso, uma migration que RENOMEIA a coluna deixa a chave
+    // antiga como letra morta e o nome NOVO cai em R3 — que admite qualquer
+    // boolean/numeric/date/enum incondicionalmente. Uma coluna excluida de
+    // proposito RE-ENTRA na copia do titular com proveniencia "R3".
+    montar({
+      escopo: escopo().replace(
+        'autorizacoes.consent_text_version:',
+        'autorizacoes.coluna_renomeada_ha_tres_meses:\n    export: false\n    razao: "telemetria interna"\n  autorizacoes.consent_text_version:',
+      ),
+    });
+
+    const r = rodar();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('VEREDITO ÓRFÃO');
+    expect(r.stderr).toContain('autorizacoes.coluna_renomeada_ha_tres_meses');
+    expect(fs.existsSync(CAMINHO_JSON())).toBe(false);
+  });
+
+  it('(e5) `colunas_nunca` NAO recebe fecho inverso: veto profilatico e orfao por desenho', () => {
+    // A contraparte da (e4), e ela existe para que ninguem "complete" o fecho
+    // depois. `colunas_nunca` e veto por NOME, para o dia em que a coluna nascer
+    // numa tabela em escopo. Estar orfao e o estado NORMAL dele; um fecho aqui
+    // gritaria para sempre, e um gate que grita sempre e tao inutil quanto um que
+    // nunca grita (P39/CR-02).
+    montar({ escopo: escopo().replace('  - session_token', '  - session_token\n  - coluna_que_nao_existe_em_lugar_nenhum') });
+
+    const r = rodar();
+    expect(r.status).toBe(0);
+    expect(r.stderr).not.toContain('coluna_que_nao_existe_em_lugar_nenhum');
+  });
+
   it('(f) --check sai 0 quando o .json bate e 1 quando diverge', () => {
     montar();
     expect(rodar().status).toBe(0);
