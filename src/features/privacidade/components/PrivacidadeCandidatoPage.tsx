@@ -12,13 +12,28 @@
  * `container mx-auto px-4 max-w-2xl` + `GlassPanel variant="white" blur="xl"`. Nenhum
  * token novo, nenhum primitivo novo, nenhuma dependência nova.
  *
- * **A página NÃO tem CTA primário, por desenho** (43-UI-SPEC §Contrato mínimo do
- * template): a revogação é o próprio `switch`, sem botão "Salvar". Um botão de confirmar
- * seria fricção sobre o exercício de um direito (Invariante 4).
+ * ⚠ **EMENDA DA PHASE 44 (44-UI-SPEC §Emenda registrada ao contrato da 43-UI-SPEC).**
+ * Até a Phase 43 este docblock afirmava que a página não tinha CTA primário, por
+ * desenho. **A seção 3 acrescenta um** — e a alteração é declarada, não deriva.
+ *
+ *  - **Por que não viola a Invariante 4 da 43** ("zero fricção para revogar"): aquela
+ *    regra proíbe um controle que se interponha entre a pessoa e uma intenção JÁ
+ *    expressa — o `switch` de marketing já É a revogação, e um "Salvar" ao lado dele
+ *    seria fricção pura. Aqui a relação é inversa: **sem botão não existe forma de
+ *    expressar a intenção.** O botão não é uma confirmação sobre o pedido; ele **é**
+ *    o pedido.
+ *  - **O que continua valendo, verbatim:** nenhum diálogo de confirmação, nenhum
+ *    pedido de motivo, nenhum "tem certeza?", nenhuma contra-oferta, nenhum atraso
+ *    artificial entre o clique e a entrega.
+ *  - **Mitigação obrigatória da hierarquia visual:** a âncora da tela continua sendo
+ *    a lista de autorizações (seção 1). Três restrições a protegem — o bloco é a
+ *    TERCEIRA seção, o CTA é glass-branco e nunca accent, e o molde do container é o
+ *    mesmo dos blocos irmãos. Ver o docblock de `PedirCopiaBloco`.
  *
  * @module features/privacidade/components/PrivacidadeCandidatoPage
  * @see src/features/explicacao/components/ExplicacaoCandidatoPage.tsx (a shell clonada + o skeleton de 3 blocos)
  * @see .planning/phases/43-consentimentos-honestos-pol-tica-de-reten-o/43-UI-SPEC.md (§`/candidato/privacidade`)
+ * @see .planning/phases/44-exporta-o-acesso/44-UI-SPEC.md (§Emenda · §Seção 3)
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -29,6 +44,7 @@ import { usePrivacidade, useGuardaCurriculo } from '../hooks/usePrivacidade'
 import { useRevogarMarketing } from '../hooks/useRevogarMarketing'
 import { AutorizacoesLista } from './AutorizacoesLista'
 import { GuardaCurriculoBloco } from './GuardaCurriculoBloco'
+import { PedirCopiaBloco } from './PedirCopiaBloco'
 
 /** Copy verbatim da 43-UI-SPEC §`/candidato/privacidade` (linhas 462-468 e 343). */
 export const COPY_PRIVACIDADE = {
@@ -37,6 +53,8 @@ export const COPY_PRIVACIDADE = {
     'Aqui você vê o que autorizou, muda o que é opcional e sabe por quanto tempo guardamos seus dados.',
   secao1: 'Suas autorizações',
   secao2: 'O que guardamos e por quê',
+  /** Copy verbatim da 44-UI-SPEC §Seção 3 — a casa que a Phase 44 veio ocupar. */
+  secao3: 'Pedir uma cópia dos seus dados',
   voltar: 'Voltar ao painel',
   erroTitulo: 'Não foi possível carregar suas autorizações.',
   erroCorpo: 'Verifique sua conexão e tente novamente.',
@@ -230,6 +248,17 @@ export function PrivacidadeCandidatoPage() {
               autorizadoEm={autorizacoes?.created_at ?? null}
             />
           )}
+        </section>
+
+        {/* ── Seção 3 — o exercício do direito de acesso (Art. 18, II) ───────
+            Classe COPIADA da seção 2, não inventada: a 44-UI-SPEC §Emenda protege
+            a âncora visual da tela exigindo que este bloco não receba tratamento
+            de destaque maior que o dos vizinhos. */}
+        <section className="space-y-4 border-t border-white/15 pt-6">
+          <h2 className="text-xl font-semibold text-white">
+            {COPY_PRIVACIDADE.secao3}
+          </h2>
+          <PedirCopiaBloco />
         </section>
 
         <div className="pt-2">
