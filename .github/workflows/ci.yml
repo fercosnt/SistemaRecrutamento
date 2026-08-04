@@ -69,6 +69,24 @@ jobs:
           fi
       - run: npm run test:run      # Vitest single run
 
+      # Phase 44 / WR-08 — o gate `--check` da allowlist do export, BLOQUEANTE.
+      #
+      # Quatro docblocks tratavam este comando como autoridade
+      # (`_shared/exportAllowlist.ts:6-9` diz, verbatim, "`--check` reprova qualquer
+      # divergência"), e ele não era invocado em lugar nenhum: nem em `package.json`,
+      # nem no hook de pre-commit, nem aqui. Rodava quando um humano lembrava.
+      #
+      # O QUE JÁ ESTAVA COBERTO e o que NÃO estava. A suíte cobre artefato↔artefato
+      # (`exportAllowlist.test.ts (h)`) e artefato↔`VALUES` do smoke (`(k)`), mais os
+      # inline snapshots que congelam o conteúdo. O que ficava de fora é a direção que
+      # importa: editar `export-scope-rules.yaml`, `pii-inventory.yaml` ou
+      # `catalogo-vivo-44.json` SEM regerar passava a suíte inteira no verde. E virar
+      # um `decisoes_por_coluna.*.export` de `false` para `true` está documentado como
+      # ação de UMA PALAVRA do operador — essas fontes existem para serem editadas.
+      #
+      # Não fala com o banco, não lê credencial, sai 0/1. Custo ~1 s.
+      - run: npm run check:export-allowlist
+
   # Phase 22 / Plan 22-06 (CI-01): the never-CI-run Deno Edge-Function test corpus now runs
   # as a BLOCKING job (type-check ON, no continue-on-error) so the EF layer that produced every
   # live defect stops apodrecendo. Command is the canonical one proven green in Plan 22-01
