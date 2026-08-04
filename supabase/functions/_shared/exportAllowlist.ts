@@ -27,6 +27,7 @@ export const EXPORT_ALLOWLIST = {
     "cognitivo_itens": "configuracao_do_produto",
     "comparativo_solicitado": "pii_de_terceiro",
     "config_retencao_etapa": "configuracao_do_produto",
+    "config_sla_dados": "configuracao_do_produto",
     "config_sla_etapa": "configuracao_do_produto",
     "config_sla_revisao": "configuracao_do_produto",
     "configuracoes_empresa": "segredo",
@@ -62,32 +63,30 @@ export const EXPORT_ALLOWLIST = {
       "Phase 44 — projeção da Edge Function `exportar-meus-dados` (EXPORT-02)",
       "Phase 45 — plano de exclusão/anonimização: o escopo do titular exercitado em produção é o insumo do motor destrutivo (ERASE-02, ERASE-06)"
     ],
-    "escopo_declarado_nao_vivo": [
-      "solicitacoes_dados"
-    ],
+    "escopo_declarado_nao_vivo": [],
     "fase": 44,
     "fecho_de_tabela_sobre_catalogo_completo": true,
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-08-04T01:11:41.427Z",
+    "gerado_em": "2026-08-04T01:37:44.712Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
-    "medido_em": "2026-08-03T19:38:03Z",
+    "medido_em": "2026-08-04T01:34:27Z",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 724,
-      "colunas_com_veredito_em_escopo": 392,
+      "colunas_colhidas": 731,
+      "colunas_com_veredito_em_escopo": 399,
       "colunas_excluidas_em_escopo": 34,
-      "colunas_exportadas": 358,
-      "tabelas_catalogadas": 67,
-      "tabelas_com_colunas_colhidas": 50,
-      "tabelas_em_escopo": 29,
-      "tabelas_excluidas": 38
+      "colunas_exportadas": 365,
+      "tabelas_catalogadas": 69,
+      "tabelas_com_colunas_colhidas": 51,
+      "tabelas_em_escopo": 30,
+      "tabelas_excluidas": 39
     },
     "totais_medidos_em_public": {
-      "colunas_public": 1013,
-      "fks_public": 104,
-      "tabelas_base_public": 67
+      "colunas_public": 1025,
+      "fks_public": 105,
+      "tabelas_base_public": 69
     },
     "versao": "1.1.0"
   },
@@ -1146,6 +1145,30 @@ export const EXPORT_ALLOWLIST = {
         "updated_at": "R1"
       },
       "razao": "Idem, cognitivo."
+    },
+    "solicitacoes_dados": {
+      "chave_titular": "candidato_id",
+      "colunas": [
+        "atendido_em",
+        "candidato_id",
+        "causa",
+        "id",
+        "situacao",
+        "solicitado_em",
+        "tipo"
+      ],
+      "colunas_excluidas": {},
+      "ligacao": "direta",
+      "proveniencia": {
+        "atendido_em": "R1",
+        "candidato_id": "R2:do_titular",
+        "causa": "decisoes_por_coluna",
+        "id": "R1",
+        "situacao": "decisoes_por_coluna",
+        "solicitado_em": "R1",
+        "tipo": "decisoes_por_coluna"
+      },
+      "razao": "Os próprios pedidos de acesso/exclusão do titular — o registro de que ele exerceu o direito. DDL escrito no 44-02, aplicado no 44-04."
     }
   }
 } as const;

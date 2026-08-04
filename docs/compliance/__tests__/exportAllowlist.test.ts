@@ -161,6 +161,7 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "scores_candidato",
         "scores_disc",
         "scores_raven",
+        "solicitacoes_dados",
       ]
     `)
   })
@@ -526,6 +527,13 @@ describe('export-allowlist.json — o contrato congelado da cópia do titular', 
         "scores_raven.tempo_total_segundos",
         "scores_raven.total_acertos",
         "scores_raven.updated_at",
+        "solicitacoes_dados.atendido_em",
+        "solicitacoes_dados.candidato_id",
+        "solicitacoes_dados.causa",
+        "solicitacoes_dados.id",
+        "solicitacoes_dados.situacao",
+        "solicitacoes_dados.solicitado_em",
+        "solicitacoes_dados.tipo",
       ]
     `)
   })

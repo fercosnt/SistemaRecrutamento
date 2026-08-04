@@ -74,13 +74,25 @@
 -- ------------------------------------------------------------------------------
 -- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 358 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 365 pares
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 34  pares
 --
--- Soma: **392 colunas com veredito**, sobre 29 tabelas — e é exatamente o número de
--- colunas vivas dessas tabelas medido em PROD em 2026-08-03T19:58:54Z. O artefato
--- de origem é o `export-allowlist.json` derivado do catálogo medido em
--- **2026-08-03T19:38:03Z** (67 tabelas base / 1013 colunas / 104 FKs em `public`).
+-- Soma: **399 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
+-- (69 tabelas base / 1025 colunas / 105 FKs em `public`).
+--
+-- ⚠ ESTES NÚMEROS MUDARAM NO PLANO 44-04, e a mudança é o caso de uso deste
+-- arquivo, não uma manutenção dele. A geração anterior media 358 + 34 = 392 sobre
+-- 29 tabelas, contra o catálogo de 2026-08-03T19:38:03Z. O apply do 44-04 criou
+-- `solicitacoes_dados` — que estava DECLARADA em escopo desde o 44-01 e não
+-- existia — e as 7 colunas dela entraram TODAS na cópia, com veredito nomeado:
+-- 4 por regra (`id`, `candidato_id`, `solicitado_em`, `atendido_em`) e 3 por
+-- decisão explícita (`tipo`, `situacao`, `causa`, que são `text` no DDL e por isso
+-- escaparam da R3). O conjunto de excluídas NÃO se moveu: segue 34.
+--
+-- A outra tabela nova do 44-04, `config_sla_dados`, é configuração e foi absorvida
+-- pela regra FE1 (`config_*`) sem intervenção nenhuma — por isso as colunas com
+-- veredito subiram 7 e não 12.
 --
 -- ⚠ Toda regeração da allowlist obriga a regerar os DOIS blocos. Essa obrigação
 -- deixou de ser promessa em prosa: a asserção (k) de `exportAllowlist.test.ts`
@@ -98,7 +110,11 @@
 --   · tabela NOVA sem disposição   ⇒ `gen-export-allowlist.cjs` FALHA a geração
 --                                    (fecho de tabela sobre `catalogo-vivo-44.json`.tabelas)
 --   · tabela DECLARADA e não viva  ⇒ `meta.escopo_declarado_nao_vivo` + asserção (i)
---                                    do Vitest (é o caso de `solicitacoes_dados`, 44-04)
+--                                    do Vitest. Foi o caso de `solicitacoes_dados`
+--                                    entre o 44-01 e o 44-04; hoje a lista está
+--                                    VAZIA e a (i) é satisfeita pelo outro lado da
+--                                    disjunção (a tabela está na cópia). O mecanismo
+--                                    continua armado para a próxima declaração.
 --   · coluna nova, sumida ou órfã  ⇒ ESTA CONSULTA
 --
 -- =============================================================================
@@ -462,7 +478,14 @@ WITH allowlist(tabela, coluna) AS (
     ('scores_raven','percentual_acerto'),
     ('scores_raven','tempo_total_segundos'),
     ('scores_raven','total_acertos'),
-    ('scores_raven','updated_at')
+    ('scores_raven','updated_at'),
+    ('solicitacoes_dados','atendido_em'),
+    ('solicitacoes_dados','candidato_id'),
+    ('solicitacoes_dados','causa'),
+    ('solicitacoes_dados','id'),
+    ('solicitacoes_dados','situacao'),
+    ('solicitacoes_dados','solicitado_em'),
+    ('solicitacoes_dados','tipo')
 ),
 excluidas(tabela, coluna) AS (
   -- Colunas VIVAS de tabela em escopo com veredito `export: false`. Elas não entram

@@ -44,47 +44,50 @@ meta:
     - "Phase 44 — projeção da Edge Function `exportar-meus-dados` (EXPORT-02)"
     - "Phase 45 — plano de exclusão/anonimização: o escopo do titular exercitado
        em produção é o insumo do motor destrutivo (ERASE-02, ERASE-06)"
-  cobertura_declarada_em: "2026-08-03"
+  cobertura_declarada_em: "2026-08-04"
   cobertura_declarada:
-    tabelas_vivas_no_momento_da_escrita: 67
-    em_escopo_titular: 29
+    tabelas_vivas_no_momento_da_escrita: 69
+    em_escopo_titular: 30
     fora_do_escopo_explicito: 21
-    fora_do_escopo_por_regra: 17
+    fora_do_escopo_por_regra: 18
     nota: |
-      29 + 21 + 17 = 67. Este total é CONFERÊNCIA DE ESCRITA, não prova: a prova
+      30 + 21 + 18 = 69. Este total é CONFERÊNCIA DE ESCRITA, não prova: a prova
       é o fecho executado pelo gerador contra o catálogo VIVO a cada geração.
       Uma tabela viva que não caia em nenhum dos três baldes falha a geração.
 
-      O bloco `escopo_titular` tem 30 chaves, não 29: a 30ª é
-      `solicitacoes_dados`, DECLARADA e ainda NÃO VIVA (nasce no plano 44-04).
-      Ver `pendentes_por_desenho` abaixo.
+      ⚠ ATUALIZADO PELO PLANO 44-04, e as duas tabelas novas foram para baldes
+      DIFERENTES — é por isso que os três números se moveram de forma desigual:
+        · `solicitacoes_dados` estava DECLARADA em `escopo_titular` desde o
+          44-01 e agora EXISTE, então saiu de `pendentes_por_desenho` e passou a
+          contar: em_escopo_titular 29 → 30.
+        · `config_sla_dados` é tabela de configuração e cai na regra FE1
+          (`config_*`): fora_do_escopo_por_regra 17 → 18. Ela nunca precisou de
+          linha própria, e é exatamente para isso que o bloco de regras existe.
+      O bloco `escopo_titular` continua com 30 chaves — a diferença é que hoje
+      todas as 30 são VIVAS, e o descasamento que a nota anterior explicava
+      deixou de existir.
   # --- Fecho executado (a prova, não a conferência) -------------------------
   fecho_executado:
-    catalogo_medido_em: "2026-08-03T19:38:03Z"
-    totais_do_catalogo: { tabelas: 67, colunas: 1013, fks: 104 }
-    delta_contra_m1: "zero — os três totais são idênticos aos de 2026-08-03 06:09"
+    catalogo_medido_em: "2026-08-04T01:34:27Z"
+    totais_do_catalogo: { tabelas: 69, colunas: 1025, fks: 105 }
+    delta_contra_m1: |
+      +2 tabelas / +12 colunas / +1 FK contra a medição de 2026-08-03 19:38,
+      e o delta é INTEGRALMENTE explicado pelo apply do plano 44-04
+      (`config_sla_dados` 5 colunas, `solicitacoes_dados` 7 colunas + 1 FK).
+      Zero tabela sumida, zero coluna sumida, zero alteração de tipo/nulidade
+      em coluna preexistente — conferido coluna a coluna contra o catálogo
+      anterior antes desta geração.
     resultado: |
-      Fecho de TABELA: zero pendências, como a conferência de escrita previu.
-      Fecho de COLUNA: 30 pendências na primeira execução, todas resolvidas com
-      veredito nomeado em `decisoes_por_coluna` (21 `true` / 9 `false`) — zero
-      afrouxamento do gerador. A lista completa e o critério de cada uma estão
-      no bloco 6, sob o cabeçalho "FECHO DO CATÁLOGO VIVO".
-  # --- O que está declarado e ainda não existe -----------------------------
-  # Registrado aqui para que a ausência não seja lida como esquecimento e para
-  # que ninguém a "resolva" apagando a declaração.
-  pendentes_por_desenho:
-    - tabela: solicitacoes_dados
-      nasce_em: "plano 44-04 (DDL) — o 44-02 escreveu a migration, o 44-04 a aplica"
-      efeito_hoje: |
-        Ausente do catálogo vivo de 2026-08-03T19:38:03Z, logo NENHUMA coluna
-        dela entra na allowlist desta geração. O gerador AVISA no stderr e a
-        registra em `meta.escopo_declarado_nao_vivo` do artefato — ela não some
-        do radar. A allowlist é REGERADA depois do 44-04, e é a geração
-        posterior que dá veredito às colunas dela.
-      por_que_nao_e_erro: |
-        Tabela declarada e ausente não vaza coluna nenhuma. O caminho perigoso é
-        o inverso (tabela viva sem disposição) e esse continua sendo erro fatal.
-        Decisão registrada no 44-01 (desvio 3) e mantida.
+      Fecho de TABELA: zero pendências — `config_sla_dados` resolvida pela regra
+      FE1 sem intervenção, que é a regra funcionando como desenhada.
+      Fecho de COLUNA: 3 pendências (`solicitacoes_dados.tipo`, `.situacao`,
+      `.causa`), todas resolvidas com veredito nomeado em `decisoes_por_coluna` —
+      zero afrouxamento do gerador. As outras 4 colunas da tabela nova se
+      resolveram por R1 e R2:do_titular, e as quatro foram CONFERIDAS uma a uma
+      antes de serem aceitas: resolver-se sozinha não é o mesmo que estar certa,
+      e o 44-03 pagou por essa distinção com quatro achados que tinham veredito.
+      Histórico: a geração do 44-03 reprovou com 30 pendências (21 `true` /
+      9 `false`); o critério de cada uma está no bloco 6.
 
 # ---------------------------------------------------------------------------
 # 1 · ESCOPO DO TITULAR — tabela → como a linha se amarra à pessoa
@@ -223,15 +226,20 @@ escopo_titular:
     ligacao: via:candidaturas
     razao: "Score consolidado por pergunta, com citações literais do que a pessoa disse."
 
-  # --- Nasce na Phase 44 (plano 44-02) — ainda não existe no catálogo vivo --
-  # O gerador AVISA no stderr e registra em `meta.escopo_declarado_nao_vivo` do
-  # artefato quando uma tabela declarada aqui não existe no catálogo; não falha,
-  # porque tabela ausente não pode vazar coluna nenhuma. O caminho inverso —
-  # tabela viva sem disposição — é que é erro de fechamento.
+  # --- VIVA desde o plano 44-04 (aplicada em 2026-08-04) -------------------
+  # Esteve DECLARADA aqui e ausente do catálogo entre o 44-01 e o 44-04, e a
+  # ausência foi registrada em três lugares independentes para que não pudesse
+  # ser lida como esquecimento (`meta.pendentes_por_desenho` deste arquivo,
+  # `meta.escopo_declarado_nao_vivo` do artefato, e a asserção (i) do Vitest).
+  # Os três registros cumpriram a função e o bloco `pendentes_por_desenho` foi
+  # REMOVIDO deste arquivo — mantê-lo descrevendo uma tabela que já existe seria
+  # a documentação falsa que este arquivo existe para não produzir.
+  # A asserção (i) continua no teste, agora satisfeita pelo OUTRO lado da
+  # disjunção: a tabela está na cópia, não na lista de declaradas-não-vivas.
   solicitacoes_dados:
     chave_titular: candidato_id
     ligacao: direta
-    razao: "Os próprios pedidos de acesso/exclusão do titular. DDL nasce no plano 44-02."
+    razao: "Os próprios pedidos de acesso/exclusão do titular — o registro de que ele exerceu o direito. DDL escrito no 44-02, aplicado no 44-04."
 
 # ---------------------------------------------------------------------------
 # 2 · FORA DO ESCOPO — tabela → razão NOMEADA (vocabulário fechado de 5 valores)
@@ -295,7 +303,7 @@ fora_do_escopo_por_regra:
   - id: FE1
     padrao: "config_*"
     razao: configuracao_do_produto
-    nota: "Limiares e janelas alteráveis sem deploy. Inclui `config_sla_dados`, que nasce no plano 44-02."
+    nota: "Limiares e janelas alteráveis sem deploy. Inclui `config_sla_dados`, VIVA desde o plano 44-04 e absorvida por esta regra sem intervenção — que é a razão de o bloco de regras existir: uma tabela de configuração nova não exige que alguém lembre de listá-la."
   - id: FE2
     padrao: "perguntas*"
     razao: configuracao_do_produto
@@ -657,6 +665,64 @@ decisoes_por_coluna:
       O titular não perde o fato: `flags` ENTRA e carrega
       `possivel_plagio_intercandidato` — ele fica sabendo da suspeita levantada
       sobre ele sem receber a identidade de quem mais foi apanhado no mesmo hash.
+
+  # =========================================================================
+  # FECHO PÓS-44-04 — `solicitacoes_dados`, a tabela que nasceu viva
+  # =========================================================================
+  # A tabela foi DECLARADA em `escopo_titular` desde o 44-01 e só passou a
+  # existir no catálogo com o apply do plano 44-04 (migration
+  # 20260804000002, aplicada em 2026-08-04; catálogo re-medido em
+  # 2026-08-04T01:34:27Z). A regeração obrigatória trouxe as 7 colunas dela ao
+  # fecho, e QUATRO se resolveram sozinhas — cada uma conferida, não presumida:
+  #
+  #   · `id`, `solicitado_em`, `atendido_em` → R1 (identificador/carimbo)
+  #   · `candidato_id`                       → R2:do_titular
+  #
+  # As quatro apontam para o próprio titular, então `export: true` é o veredito
+  # certo e nenhuma precisa de linha aqui. As TRÊS abaixo sobraram, e as três
+  # sobraram pela MESMA razão: são `text` no DDL.
+  #
+  # ⚠ ESTE É O CRITÉRIO (ii) DO BLOCO ANTERIOR, PELA SEGUNDA VEZ.
+  # "Estado de processo é R3 em espírito; `text` no DDL é acidente." O 44-03 já
+  # havia resolvido `analise_candidato_vaga.status` exatamente assim: é o mesmo
+  # fato que `scores_candidato.status` (que sai por R3 por ser enum), tipado
+  # `text`. Relaxar a R3 para aceitar `text` continua PROIBIDO — seria abrir a
+  # porta por onde texto livre não classificado sairia calado. O preço é este
+  # bloco, e o preço é o certo.
+
+  solicitacoes_dados.tipo:
+    export: true
+    razao: |
+      Critério (ii) — estado de processo tipado `text` por acidente de DDL. O
+      CHECK `ck_solicitacoes_dados_tipo` fecha o vocabulário em
+      `acesso`/`exclusao`: é enum em tudo menos no tipo declarado, e sairia por
+      R3 se o DDL o tivesse escrito como enum.
+      Mérito, e ele é mais forte que o critério: esta coluna diz QUAL DIREITO A
+      PESSOA EXERCEU. Sonegar ao titular o registro de que ele pediu acesso — ou,
+      da Phase 45 em diante, exclusão — seria omitir da cópia o próprio exercício
+      do direito que produziu a cópia.
+  solicitacoes_dados.situacao:
+    export: true
+    razao: |
+      Critério (ii), idem — `atendido`/`pendente` fechados por
+      `ck_solicitacoes_dados_situacao`. É o estado do pedido DELE, e é o que
+      torna a cópia autoexplicativa: sem ela o titular recebe datas sem saber se
+      o que pediu foi entregue.
+  solicitacoes_dados.causa:
+    export: true
+    razao: |
+      Critério (iii) — "se o RH enxerga sobre a pessoa, entra, inclusive o
+      desconfortável". Esta coluna aparece na fila do RH (44-08/44-09) e é a
+      resposta à única pergunta que um titular tem quando o pedido falha: POR QUE
+      eu não recebi minha cópia. Excluí-la deixaria o titular com `situacao =
+      pendente` e nenhuma explicação — o pior dos dois mundos, porque a cópia
+      registraria a falha sem registrar a razão.
+      ⚠ E ela é SEGURA de exportar por construção, não por sorte: o vocabulário é
+      FECHADO por `ck_solicitacoes_dados_causa` em `falha_geracao` /
+      `curriculo_ausente` / `permissao`, e o COMMENT da coluna proíbe
+      nominalmente guardar mensagem crua do transporte, código HTTP, stack ou
+      caminho de Storage. Não há telemetria a vazar aqui — o que existiria de
+      telemetria foi barrado no DDL, uma fase antes desta decisão.
 
 # ---------------------------------------------------------------------------
 # 7 · REGRA DE FECHO — o contrato que o gerador implementa
