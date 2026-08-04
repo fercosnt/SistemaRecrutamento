@@ -148,7 +148,7 @@ export function formatarDataHoraPtBr(iso: string | null | undefined): string {
  * **Total**, no mesmo contrato de `formatarDataHoraPtBr`: entrada ausente ou
  * fora da forma resolve para travessão, nunca `Invalid Date`.
  */
-export function formatarDataPtBr(iso: string | null | undefined): string {
+export function formatarDataPuraPtBr(iso: string | null | undefined): string {
   if (!iso || !PADRAO_DATA_PURA.test(iso)) return TRAVESSAO
   const [ano, mes, dia] = iso.split('-')
   return `${dia}/${mes}/${ano}`
@@ -364,7 +364,7 @@ function renderizarValor(valor: unknown): string {
   // A DATA PURA vem primeiro e nunca cai no caminho do instante: ela não tem
   // hora para exibir nem fuso para converter (ver `PADRAO_DATA_PURA`).
   if (typeof valor === 'string' && PADRAO_DATA_PURA.test(valor)) {
-    return escapeHtml(formatarDataPtBr(valor))
+    return escapeHtml(formatarDataPuraPtBr(valor))
   }
   if (typeof valor === 'string' && PADRAO_ISO.test(valor)) {
     return escapeHtml(formatarDataHoraPtBr(valor))
@@ -1018,7 +1018,7 @@ export const exportacaoService = {
   gerarHtmlExport,
   escapeHtml,
   formatarDataHoraPtBr,
-  formatarDataPtBr,
+  formatarDataPuraPtBr,
   nomeArquivoExport,
   dispararDownloads,
   lerUltimoPedidoDados,

@@ -52,7 +52,7 @@ import {
   gerarJsonExport,
   gerarHtmlExport,
   escapeHtml,
-  formatarDataPtBr,
+  formatarDataPuraPtBr,
   dispararDownloads,
   nomeArquivoExport,
   lerUltimoPedidoDados,
@@ -425,16 +425,16 @@ describe('gerarHtmlExport', () => {
     expect(`x11/05/1990y`).toContain('11/05/1990')
   })
 
-  it('(n3) `formatarDataPtBr` é pura, total e não passa por `Date`', () => {
-    expect(formatarDataPtBr('1990-05-12')).toBe('12/05/1990')
-    expect(formatarDataPtBr('2000-01-01')).toBe('01/01/2000')
+  it('(n3) `formatarDataPuraPtBr` é pura, total e não passa por `Date`', () => {
+    expect(formatarDataPuraPtBr('1990-05-12')).toBe('12/05/1990')
+    expect(formatarDataPuraPtBr('2000-01-01')).toBe('01/01/2000')
     // Total: nada produz `Invalid Date` nem `NaN` na cópia do titular.
-    expect(formatarDataPtBr(null)).toBe(TRAVESSAO)
-    expect(formatarDataPtBr(undefined)).toBe(TRAVESSAO)
-    expect(formatarDataPtBr('')).toBe(TRAVESSAO)
-    expect(formatarDataPtBr('não é data')).toBe(TRAVESSAO)
+    expect(formatarDataPuraPtBr(null)).toBe(TRAVESSAO)
+    expect(formatarDataPuraPtBr(undefined)).toBe(TRAVESSAO)
+    expect(formatarDataPuraPtBr('')).toBe(TRAVESSAO)
+    expect(formatarDataPuraPtBr('não é data')).toBe(TRAVESSAO)
     // Um INSTANTE não é data pura: ele pertence ao outro formatador.
-    expect(formatarDataPtBr('2026-08-04T13:45:00.000Z')).toBe(TRAVESSAO)
+    expect(formatarDataPuraPtBr('2026-08-04T13:45:00.000Z')).toBe(TRAVESSAO)
   })
 
   it('(o) o rodapé carrega a versão da allowlist junto à data da geração', () => {
