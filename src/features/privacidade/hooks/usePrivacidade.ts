@@ -34,6 +34,15 @@ export const privacidadeKeys = {
    */
   ultimoPedido: (candidatoId: string | undefined) =>
     [...privacidadeKeys.all, 'ultimo-pedido', candidatoId] as const,
+  /**
+   * A LISTA de currículos por candidatura (44-07). ⚠ Deliberadamente **não** reusa
+   * nem encosta em `curriculo` acima: aquela é a leitura booleana da seção 2 ("existe
+   * currículo?"), e compartilhar a chave faria uma invalidação derrubar a outra. O
+   * nome longo é proposital — duas chaves que diferissem por uma letra seriam um erro
+   * de digitação a caminho.
+   */
+  curriculosPorCandidatura: (candidatoId: string | undefined) =>
+    [...privacidadeKeys.all, 'curriculos-por-candidatura', candidatoId] as const,
 }
 
 /** Lê a linha de autorizações MAIS RECENTE do próprio candidato (own-row, allowlist). */
