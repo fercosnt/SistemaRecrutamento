@@ -139,13 +139,23 @@ export function CurriculosBloco({ linhas }: CurriculosBlocoProps) {
 
           return (
             <li key={linha.id} data-linha-curriculo className="space-y-2">
-              <div className="flex items-center justify-between gap-3">
+              {/* ⚠ EMPILHA A 320px, lado a lado a partir de `sm`. Medido, não
+                  estimado: a 320px sobram 256px úteis (descontados o `px-4` da
+                  página e o `p-4` do bloco), e o botão ocupa ~210px — lado a lado
+                  restariam ~34px para o título, quatro caracteres. Truncar até a
+                  ilegibilidade apaga a informação que o par `truncate`+tooltip
+                  existe para preservar, e no celular não há hover que a recupere.
+                  Esta é a superfície do candidato, que é mobile-first (CLAUDE.md). */}
+              <div
+                data-linha-corpo
+                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+              >
                 {/* O par `truncate` + tooltip é obrigatório: truncar sem oferecer
                     como recuperar o valor apaga informação do titular. */}
                 <span
                   data-titulo-vaga
                   title={rotuloVaga}
-                  className="min-w-0 flex-1 truncate text-base leading-relaxed text-white/90"
+                  className="w-full min-w-0 truncate text-base leading-relaxed text-white/90 sm:flex-1"
                 >
                   {rotuloVaga}
                 </span>
@@ -154,7 +164,7 @@ export function CurriculosBloco({ linhas }: CurriculosBlocoProps) {
                   onClick={() => abrir(linha)}
                   disabled={carregando}
                   aria-busy={carregando}
-                  className="inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
+                  className="inline-flex min-h-[44px] shrink-0 items-center gap-2 self-start rounded-xl border border-white/20 bg-white/5 px-5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60 sm:self-auto"
                 >
                   <FileText className="h-4 w-4" aria-hidden="true" />
                   {carregando ? COPY_CURRICULOS.acaoEmVoo : COPY_CURRICULOS.acao}

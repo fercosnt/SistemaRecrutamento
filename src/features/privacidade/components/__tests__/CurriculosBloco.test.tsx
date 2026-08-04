@@ -139,6 +139,25 @@ describe('CurriculosBloco · render', () => {
     expect(corpoTres).toBe(COPY_CURRICULOS.corpo)
   })
 
+  it('(ah2) 320px: a linha EMPILHA e o título recebe a largura inteira, e não 4 caracteres', () => {
+    const { container } = render(<CurriculosBloco linhas={LINHAS} />)
+
+    // ⚠ Asserção ESTRUTURAL, e o jsdom é a razão: ele não calcula layout, então
+    // medir pixels aqui seria medir zero. O fato medido está no docblock do
+    // componente — a 320px sobram 256px úteis e o botão come ~210px; lado a lado o
+    // título ficaria com ~34px, quatro caracteres. O que o teste prende é o remédio.
+    const corpo = container.querySelector<HTMLElement>('[data-linha-corpo]')
+    expect(corpo).not.toBeNull()
+    expect(corpo!.className).toContain('flex-col')
+    expect(corpo!.className).toContain('sm:flex-row')
+
+    const titulo = container.querySelector<HTMLElement>('[data-titulo-vaga]')
+    expect(titulo!.className).toContain('w-full')
+    // E o par continua de pé nas duas larguras.
+    expect(titulo!.className).toContain('truncate')
+    expect(titulo!.getAttribute('title')).toBe(LINHAS[0].vagaTitulo)
+  })
+
   it('(ak2) overflow: sem altura fixa e sem scroll interno — quem tem muitas rola a página', () => {
     const { container } = render(<CurriculosBloco linhas={LINHAS} />)
     const marcacao = container.innerHTML
