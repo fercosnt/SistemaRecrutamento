@@ -21,6 +21,8 @@
  * @see src/features/agendamento/services/agendamentoCandidatoService.ts:205 (o molde do disparo)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }))
 
@@ -32,9 +34,13 @@ import {
   ExportacaoError,
   invocarExportMeusDados,
   gerarJsonExport,
+  gerarHtmlExport,
+  escapeHtml,
   dispararDownloads,
   nomeArquivoExport,
   COPY_PEDIR_COPIA,
+  COPY_ARQUIVO,
+  TRAVESSAO,
   type RespostaExport,
 } from '../exportacaoService'
 
@@ -215,6 +221,265 @@ describe('invocarExportMeusDados', () => {
     const erro = await invocarExportMeusDados().catch((e) => e)
     expect(erro).toBeInstanceOf(ExportacaoError)
     expect(erro.message).toBe(COPY_PEDIR_COPIA.erroTitulo)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Plano 44-06 Task 1 — o SEGUNDO arquivo: o que uma pessoa lê (casos (l)–(t))
+//
+// Todos sobre funções PURAS, sem DOM (exceto (r), que é o disparo). O gerador do
+// `.html` é o ponto onde o payload do titular — texto livre digitado por humanos,
+// inclusive por TERCEIROS (`observacoes_rh`, `motivo_rejeicao`) — vira marcação
+// aberta em `file://`, onde **não há CSP nenhuma**. O escape é o único controle.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('escapeHtml', () => {
+  it('(l) converte as cinco entidades e resolve ausência para travessão', () => {
+    expect(escapeHtml('&')).toBe('&amp;')
+    expect(escapeHtml('"')).toBe('&quot;')
+    expect(escapeHtml("'")).toBe('&#39;')
+    expect(escapeHtml('a & b')).toBe('a &amp; b')
+
+    // A ORDEM importa: com o `&` escapado por último, `<` viraria `&amp;lt;`.
+    // Esta igualdade é o que prova que ele vai primeiro.
+    expect(escapeHtml('<')).toBe('&lt;')
+    expect(escapeHtml('>')).toBe('&gt;')
+    expect(escapeHtml('<b>')).toBe('&lt;b&gt;')
+
+    // Ausência é travessão, NUNCA a string "null" — um `.html` que mostra `null`
+    // ao titular está descrevendo o banco de dados, não a pessoa.
+    expect(escapeHtml(null)).toBe(TRAVESSAO)
+    expect(escapeHtml(undefined)).toBe(TRAVESSAO)
+    expect(escapeHtml(null)).not.toBe('null')
+    expect(escapeHtml('')).toBe(TRAVESSAO)
+  })
+})
+
+describe('gerarHtmlExport', () => {
+  it('(m) payload HOSTIL de campo livre sai escapado, nunca executável', () => {
+    // Literais montados em runtime: um arquivo que proíbe uma forma e a contém
+    // verbatim é sua própria primeira violação (idioma 42-11).
+    const tagScript = `<${['scr', 'ipt'].join('')}>alert(1)</${['scr', 'ipt'].join('')}>`
+    const imgHandler = `<img src=x on${'error'}="alert(1)">`
+
+    const html = gerarHtmlExport(
+      resposta({
+        payload: {
+          candidaturas: [
+            { id: 'cndt-1', observacoes_rh: tagScript, motivo_rejeicao: imgHandler },
+          ],
+        },
+      }),
+    )
+
+    // A forma ESCAPADA está lá (o dado do titular não é descartado)…
+    expect(html).toContain('&lt;')
+    expect(html).toContain('alert(1)')
+    // …e a forma EXECUTÁVEL não.
+    expect(html).not.toContain(tagScript)
+    expect(html).not.toContain(imgHandler)
+    expect(html).not.toContain(`<${'scr'}${'ipt'}>`)
+    expect(html).not.toContain('<img')
+
+    // A prova FORTE: o documento é PARSEADO e o payload hostil não virou NÓ
+    // nenhum. Uma asserção só de substring não distinguiria "escapado" de
+    // "escapado pela metade"; esta pergunta ao parser, que é quem decide.
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    expect(doc.querySelectorAll(['scr', 'ipt'].join('')).length).toBe(0)
+    expect(doc.querySelectorAll('img').length).toBe(0)
+    expect(doc.querySelectorAll(`[on${'error'}]`).length).toBe(0)
+    // …e o dado do titular continua LEGÍVEL como texto, não descartado.
+    expect(doc.body.textContent).toContain(tagScript)
+
+    // META-TEST: uma sonda que não encontra o que procura é no-op.
+    expect(`x${tagScript}y`).toContain(tagScript)
+    expect(`x${imgHandler}y`).toContain(imgHandler)
+  })
+
+  it('(n) carrega título, carimbo no topo e as DUAS seções obrigatórias de fronteira', () => {
+    const html = gerarHtmlExport(resposta())
+
+    expect(html).toContain(COPY_ARQUIVO.titulo)
+    // Carimbo `dd/mm/aaaa HH:mm` — sem ele não há como distinguir uma cópia de
+    // hoje de uma do mês passado, e a diferença é o que o titular precisa saber.
+    expect(html).toMatch(/Cópia gerada em \d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}/)
+    // O carimbo vem ANTES do primeiro bloco de dados.
+    expect(html.indexOf('Cópia gerada em')).toBeLessThan(html.indexOf(COPY_ARQUIVO.rotuloTabela.candidatos))
+
+    // O título da SEÇÃO DO ARQUIVO é "…nesta cópia" (a spec o fixa assim), mas a
+    // razão nomeada é a MESMA string que a tela renderiza — uma fronteira só.
+    expect(html).toContain(COPY_ARQUIVO.naoEstaTitulo)
+    expect(html).toContain(COPY_PEDIR_COPIA.oQueNaoEsta)
+    expect(html).toContain(COPY_ARQUIVO.naoFazTitulo)
+    expect(html).toContain(COPY_ARQUIVO.naoFazCorpo)
+  })
+
+  it('(o) o rodapé carrega a versão da allowlist junto à data da geração', () => {
+    const html = gerarHtmlExport(resposta({ versao_allowlist: '1.1.0' }))
+    const rodape = html.slice(html.indexOf('<footer'))
+    expect(rodape).toContain('1.1.0')
+    expect(rodape).toMatch(/\d{2}\/\d{2}\/\d{4}/)
+  })
+
+  it('(p) NEGATIVA: nenhum link, nenhum caminho de Storage, nenhum base64 do currículo', () => {
+    const marcaToken = ['token', '='].join('')
+    const marcaSign = ['/object', '/sign/'].join('')
+    const marcaBase64 = ['data:application/pdf;', 'base64,'].join('')
+    const caminhoStorage = 'a1b2c3/curriculo-fulana.pdf'
+
+    const html = gerarHtmlExport(
+      resposta({
+        payload: {
+          candidaturas: [
+            {
+              id: 'cndt-1',
+              curriculo_url: caminhoStorage,
+              curriculo_nome_original: 'curriculo-fulana.pdf',
+              data_candidatura: '2026-07-01T10:00:00.000Z',
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(html).not.toContain(marcaToken)
+    expect(html).not.toContain(marcaSign)
+    expect(html).not.toContain(marcaBase64)
+    // O CAMINHO de Storage é identificador interno de infraestrutura: ele não diz
+    // nada ao titular e é a semente do link de 60 s. Fica de fora do arquivo legível.
+    expect(html).not.toContain(caminhoStorage)
+
+    // O que o titular VÊ do currículo: o nome, a data, e a frase fixa ao lado.
+    expect(html).toContain('curriculo-fulana.pdf')
+    expect(html).toContain('01/07/2026')
+    expect(html).toContain(COPY_ARQUIVO.curriculoNota)
+
+    for (const marca of [marcaToken, marcaSign, marcaBase64, caminhoStorage]) {
+      expect(`x${marca}y`).toContain(marca)
+    }
+  })
+
+  it('(q) texto livre atravessa ÍNTEGRO; ausência vira travessão, nunca `null`', () => {
+    const longo = 'a'.repeat(5000)
+    const html = gerarHtmlExport(
+      resposta({
+        payload: {
+          candidaturas: [{ id: 'cndt-1', observacoes_rh: longo, motivo_rejeicao: null }],
+        },
+      }),
+    )
+
+    // Truncar a cópia dos dados de alguém é entregar uma cópia FALSA.
+    expect(html).toContain(longo)
+    expect(html).not.toContain('…')
+    expect(html).toContain(TRAVESSAO)
+    expect(html).not.toContain('>null<')
+  })
+
+  it('(n2) é PURA: mesma resposta → mesma string, e não toca o navegador', () => {
+    const espiao = vi.spyOn(document, 'createElement')
+    const r = resposta()
+    expect(gerarHtmlExport(r)).toBe(gerarHtmlExport(r))
+    expect(espiao).not.toHaveBeenCalled()
+    espiao.mockRestore()
+  })
+})
+
+describe('os DOIS arquivos', () => {
+  it('(r) dispararDownloads recebe os dois e o `.json` é clicado PRIMEIRO', () => {
+    const criar = vi.fn(() => 'blob:fake-url')
+    const revogar = vi.fn()
+    const urlOriginal = { criar: URL.createObjectURL, revogar: URL.revokeObjectURL }
+    URL.createObjectURL = criar as unknown as typeof URL.createObjectURL
+    URL.revokeObjectURL = revogar as unknown as typeof URL.revokeObjectURL
+
+    const cliques: string[] = []
+    const anchorReal = document.createElement('a')
+    const espiaoClick = vi
+      .spyOn(anchorReal, 'click')
+      .mockImplementation(() => cliques.push(anchorReal.download))
+    const espiaoCreate = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation(() => anchorReal as unknown as HTMLElement)
+
+    try {
+      dispararDownloads([
+        { nome: 'beauty-smile-meus-dados-2026-08-04.json', conteudo: '{}', tipo: 'application/json' },
+        { nome: 'beauty-smile-meus-dados-2026-08-04.html', conteudo: '<html></html>', tipo: 'text/html' },
+      ])
+      // A asserção é sobre a ORDEM, não sobre a presença: o artefato do direito
+      // legal vai na frente, para sobreviver caso o navegador barre o segundo.
+      expect(cliques).toEqual([
+        'beauty-smile-meus-dados-2026-08-04.json',
+        'beauty-smile-meus-dados-2026-08-04.html',
+      ])
+      expect(cliques[0].endsWith('.json')).toBe(true)
+      expect(criar).toHaveBeenCalledTimes(2)
+      expect(revogar).toHaveBeenCalledTimes(2)
+    } finally {
+      espiaoCreate.mockRestore()
+      espiaoClick.mockRestore()
+      URL.createObjectURL = urlOriginal.criar
+      URL.revokeObjectURL = urlOriginal.revogar
+    }
+  })
+
+  it('(s) os dois nomes seguem o padrão datado e NENHUM interpola PII', () => {
+    const dia = new Date('2026-08-04T13:45:00.000Z')
+    const nomes = [nomeArquivoExport('json', dia), nomeArquivoExport('html', dia)]
+
+    expect(nomes).toEqual([
+      'beauty-smile-meus-dados-2026-08-04.json',
+      'beauty-smile-meus-dados-2026-08-04.html',
+    ])
+    // O nome aparece na barra de downloads e na pasta compartilhada do aparelho.
+    for (const nome of nomes) {
+      expect(nome).toMatch(/^beauty-smile-meus-dados-\d{4}-\d{2}-\d{2}\.(json|html)$/)
+      expect(nome).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i) // nenhum UUID
+      expect(nome.toLowerCase()).not.toContain('fulana')
+      expect(nome).not.toContain('@')
+    }
+  })
+})
+
+// ── (t) sonda de texto-fonte com ESCOPO DECLARADO ────────────────────────────
+// O escopo é ESTES DOIS ARQUIVOS, nunca `src/features/privacidade/` inteiro: o
+// `GuardaCurriculoBloco`, aprovado na Phase 43 e NÃO editado por esta fase, contém
+// legitimamente "pedir a eliminação do seu currículo". Um grep de feature inteira
+// reprovaria copy aprovada de outra fase — defeito que este projeto já pagou 2×.
+describe('bans da §Copywriting', () => {
+  it('(t) nenhuma string banida no gerador nem no bloco novo', () => {
+    const ler = (relativo: string) =>
+      readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), 'utf8')
+    const escopo = {
+      'exportacaoService.ts': ler('../exportacaoService.ts'),
+      'PedirCopiaBloco.tsx': ler('../../components/PedirCopiaBloco.tsx'),
+    }
+
+    const banidas = [
+      ['todos', 'os', 'seus', 'dados'].join(' '),
+      ['tudo', 'o', 'que', 'temos', 'sobre', 'você'].join(' '),
+      ['todos', 'os', 'seus', 'registros'].join(' '),
+      ['apaga', 'do'].join(''),
+      ['apaga', 'dos'].join(''),
+      ['exclu', 'ído'].join(''),
+      ['exclu', 'ídos'].join(''),
+      ['elimina', 'do'].join(''),
+      ['removido', 'dos', 'nossos', 'sistemas'].join(' '),
+    ]
+
+    for (const [arquivo, conteudo] of Object.entries(escopo)) {
+      for (const proibida of banidas) {
+        expect(
+          conteudo.toLowerCase().includes(proibida.toLowerCase()),
+          `string banida "${proibida}" encontrada em ${arquivo}`,
+        ).toBe(false)
+      }
+    }
+
+    for (const proibida of banidas) {
+      expect(`prefixo ${proibida} sufixo`.toLowerCase()).toContain(proibida.toLowerCase())
+    }
   })
 })
 
