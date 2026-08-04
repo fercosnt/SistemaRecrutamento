@@ -314,6 +314,27 @@ describe('FilaPedidosDadosTable — a coluna Acompanhamento nas quatro situaçõ
     expect(screen.getByText('Atendido em 1 dia')).toBeInTheDocument()
   })
 
+  it('(by4b) atendido com carimbo ILEGÍVEL → travessão, nunca "Atendido no mesmo dia"', () => {
+    // O docblock de `rotularAtendimento` já dizia que "atendido sem timestamp
+    // legível" resolve para o travessão, porque "não há valor" é um fato
+    // diferente de "atendido em algum prazo". Só o `null` chegava lá: o teste era
+    // de TRUTHINESS, então uma string não-vazia e ilegível passava, `diasEmEspera`
+    // grampeava o `NaN` em 0, e a tela afirmava "Atendido no mesmo dia" sobre um
+    // carimbo que ninguém conseguiu ler — afirmação positiva sem lastro numa fila
+    // cujo propósito é medir prazo legal.
+    useFilaMock.mockReturnValue(
+      filaState({
+        data: [linha({ situacao: 'atendido', solicitado_em: diasAtras(3), atendido_em: 'não é uma data' })],
+      }),
+    )
+    render(<FilaPedidosDadosTable soNaoAtendidos={false} />)
+
+    expect(screen.queryByText('Atendido no mesmo dia')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Atendido em /)).not.toBeInTheDocument()
+    // …e a célula não fica vazia: o travessão é o idioma vivo do projeto.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
   it('(by5) atendido em 3 dias → o plural', () => {
     useFilaMock.mockReturnValue(
       filaState({ data: [linha({ solicitado_em: diasAtras(3), atendido_em: diasAtras(0) })] }),

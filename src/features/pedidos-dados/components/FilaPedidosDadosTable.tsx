@@ -245,9 +245,20 @@ export function FilaPedidosDadosTable({ soNaoAtendidos }: FilaPedidosDadosTableP
                 // introduzir. Errar para o lado da supervisão é o único erro barato aqui:
                 // o outro sentido esconderia trabalho com 15 dias correndo.
                 const naoAtendido = linha.situacao !== 'atendido'
+                // ⚠ Testa LEGIBILIDADE, não veracidade. Com o teste de
+                // truthiness, um `atendido_em` não-vazio e ilegível passava:
+                // `diasEmEspera` grampeia o `NaN` em 0 e `rotularAtendimento`
+                // renderizava "Atendido no mesmo dia" — uma afirmação positiva
+                // sobre um carimbo que ninguém conseguiu ler. O docblock de
+                // `rotularAtendimento` já dizia que esse caso é o travessão,
+                // porque "não há valor" é um fato diferente de "atendido em algum
+                // prazo"; só o `null` chegava lá.
+                const carimbo = linha.atendido_em ? new Date(linha.atendido_em) : null
+                const carimboLegivel =
+                  carimbo && !Number.isNaN(carimbo.getTime()) ? carimbo : null
                 const diasAtendimento =
-                  !naoAtendido && linha.atendido_em
-                    ? diasEmEspera(linha.solicitado_em, new Date(linha.atendido_em))
+                  !naoAtendido && carimboLegivel
+                    ? diasEmEspera(linha.solicitado_em, carimboLegivel)
                     : null
 
                 return (
