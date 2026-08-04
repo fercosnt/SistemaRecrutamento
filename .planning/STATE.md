@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-08-PLAN.md
-last_updated: "2026-08-04T03:06:36.973Z"
+stopped_at: Completed 44-06-PLAN.md
+last_updated: "2026-08-04T03:27:50.348Z"
 last_activity: 2026-08-04
 last_activity_desc: 44-08 (a camada de dados da fila do RH)
 progress:
@@ -79,31 +79,49 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 6 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
+Plan: 7 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: **44-08 COMPLETO** — a camada de dados de `/rh/pedidos-dados` (constantes,
-        serviço e os três hooks) verde e commitada (`2d757bb`, `32a49ab`,
-        `370e58f`). 32 testes na feature, suíte 1493, tsc na baseline 97.
-        Próximo natural: **44-09** (página, tabela, badge, rota e item de menu) —
-        é ele quem torna EXPORT-05 observável.
+Status: **44-06 COMPLETO** — a cópia deixou de ser um arquivo de máquina. O `.html`
+        que uma pessoa lê (escape em todo valor, carimbo no topo, as duas seções de
+        fronteira, versão da allowlist no rodapé), o estado do cooldown que falha
+        rápido e degrada, e os 5 estados do CTA — verdes e commitados (`277c0cb`,
+        `9554a4f`, `20d93d5`). 68 testes na feature, suíte **1519**, tsc na
+        baseline 97, zero `--no-verify`.
+        Próximos naturais: **44-07** (o sub-bloco de currículo, que é o "botão
+        abaixo" que a copy `sobreCurriculo` nomeia e que por isso ainda não é
+        renderizada) e **44-09** (a tela do RH).
 
-        **44-05 SEGUE PARADO NO CHECKPOINT** — Tasks 1-2 completas, verdes e
-        commitadas (`b0b2f21`, `0a04bed`, `bf2ae4c`); a Task 3 (deploy da EF
-        `exportar-meus-dados` + prova ao vivo com candidato de teste) exige os
-        tools MCP do Supabase e é do orquestrador. **Não foi destravado pelo
-        44-08** — são planos independentes (candidato × RH).
-Last activity: 2026-08-04 — 44-08 (a camada de dados da fila do RH)
+        **44-05 SEGUE PARADO NO CHECKPOINT** — código completo, verde e commitado
+        (`b0b2f21`, `0a04bed`, `bf2ae4c`); a EF `exportar-meus-dados` está
+        deployada em PROD (v1, ACTIVE, `verify_jwt: true`), mas a **prova ao vivo
+        pelo navegador** (download, seção 3 renderizada, cooldown no 2º clique) foi
+        adiada pelo operador em 2026-08-04. **O 44-06 não a destrava e não depende
+        dela** — ele é código local sobre o que o 44-05 já entregou.
+Last activity: 2026-08-04 — 44-06 (a cópia honesta: o segundo arquivo + os 5 estados)
 
-⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 2×:** o
+⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 3×:** o
 scanner conta ARQUIVOS de SUMMARY e volta a marcar 44-05 como `[x]` a cada
-execução; foi revertido à mão nas duas vezes (a 2ª na execução do 44-08), porque a
+execução; foi revertido à mão nas três vezes (a 3ª na execução do 44-06), porque a
 própria linha do ROADMAP diz "provada ao vivo" e a prova não aconteceu. Marcar de
 novo só depois do checkpoint. (`44-05-SUMMARY.md` traz `status: checkpoint`, não
 `complete`, exatamente por isso.)
 
-Pelo mesmo motivo a célula de progresso da fase é mantida em **5/9**, não no 6/9
-que o scanner escreve: ele conta o SUMMARY do 44-05 como plano concluído. Os cinco
-concluídos são 44-01, 44-02, 44-03, 44-04 e 44-08.
+A célula de progresso da fase fica em **6/9** — número que agora está CERTO, mas
+não pela conta do scanner: ele conta o SUMMARY do 44-05 (checkpoint) e ainda não
+contava o do 44-06. Os seis concluídos de verdade são 44-01, 44-02, 44-03, 44-04,
+44-06 e 44-08. ⚠ Na próxima execução o scanner escreverá **7/9**, contando os dois
+— **reverter para 6/9** até a prova ao vivo do 44-05 acontecer.
+
+## ⏸ Deferred Verification (aberta desde 2026-08-04)
+
+A prova ao vivo do 44-05 pelo navegador. O 44-06 **acrescentou superfície a ela**,
+e a lista do que precisa ser visto cresceu:
+
+1. o download entrega **DOIS** arquivos e o `.json` chega primeiro;
+2. o `.html` abre legível, com carimbo no topo e a versão da allowlist no rodapé;
+3. a seção 3 renderiza a copy completa (inclusive "Você recebe dois arquivos");
+4. o **2º clique dentro de 24 h** mostra o botão desabilitado **com o motivo e a
+   hora de liberação visíveis ao lado** — e a frase é a mesma que o servidor manda.
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -175,6 +193,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P03 | ~2h | 3 tasks | 7 files |
 | Phase 44 P04 | ~50min | 3 tasks | 7 files |
 | Phase 44 P08 | ~25min | 3 tasks | 8 files |
+| Phase 44 P06 | ~55min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -323,6 +342,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 44 / 44-08]: a discriminação de 42501 por MENSAGEM do análogo foi deliberadamente NÃO copiada — lá o mesmo SQLSTATE cobre duas recusas distintas, aqui tem causa única (guard de papel); o ramo extra seria dead code, a classe P39/CR-02 que este projeto já embarcou
 - [Phase ?]: [Phase 44 / 44-08]: traduzirCausa DIVERGE de rotularDecisao no fallback (token desconhecido → 'Motivo não registrado.', nunca o token cru) porque a causa nomeia caminho de falha INTERNO — cru na tela seria detalhe de infraestrutura; sem a razão no docblock a próxima leitura 'uniformiza' com o análogo e reintroduz o vazamento
 - [Phase ?]: [Phase 44 / 44-08]: 4ª ocorrência na fase de gate que não podia passar — 'grep -crE ... dir/' imprime caminho:contagem POR ARQUIVO, então a comparação com "1"/"0" nunca é verdadeira; medido por grep -rlE|wc -l (arquivos) e grep -rhoE|wc -l (ocorrências)
+- [Phase ?]: 44-06: o .html carrega o carimbo de geracao e a versao da allowlist no rodape — sem os dois, uma copia de hoje e indistinguivel de uma do mes passado e nao ha como provar qual escopo estava vigente
+- [Phase ?]: 44-06: curriculo_url (caminho de Storage) fica FORA do arquivo legivel e DENTRO do .json — assimetria deliberada: o .json e lido por maquina, o .html e onde a Invariante 4 vale para o que a pessoa le
+- [Phase ?]: 44-06: o motivo visivel ao lado do botao desabilitado vale para TODO disabled do bloco, nao so o cooldown — um disabled sem motivo e indistinguivel de tela quebrada, e o backstop (z3) e estrutural para pegar um disabled acrescentado depois
+- [Phase ?]: 44-06: os nomes dos dois arquivos saem de nomesArquivosExport sobre o MESMO gerado_em do servidor — duas derivacoes independentes divergiriam na virada de dia em UTC e o titular procuraria um nome que ninguem escreveu
+- [Phase ?]: 44-06: a copy 'Voce recebe dois arquivos' entrou no MESMO commit que o .html (instrucao literal do 44-05) — separa-los reintroduziria por uma janela de commits a mentira que o 44-05 adiou a copy para evitar
 
 ### Pending Todos
 
@@ -380,6 +404,7 @@ não de verificação de fase: a `44-VERIFICATION.md` ainda nem existe.
 
 - EF `exportar-meus-dados` **criada** em PROD — **version 1**, `ACTIVE`, **`verify_jwt: true`**.
   Não existia antes; nenhuma versão foi sobrescrita.
+
 - **Assunção A1 FECHADA positivamente.** O import `../_shared/exportAllowlist.ts` sobreviveu ao
   bundler: `POST` + publishable key devolveu `{"ok":false,"error_code":"UNAUTHORIZED",
   "message":"Sessão inválida."}` — strings do próprio `index.ts`, inalcançáveis se o módulo
@@ -387,8 +412,10 @@ não de verificação de fase: a `44-VERIFICATION.md` ainda nem existe.
   plano estava errada**: sem `Authorization`, com JWT-ON quem responde é o *gateway*
   (`UNAUTHORIZED_NO_AUTH_HEADER`) e a requisição nunca chega à função — a prova é a **diferença
   entre os dois corpos**, não o 401 sozinho.
+
 - **Asserção negativa:** `solicitacoes_dados` seguia em **0 linhas** após as sondas (401 sai no
   passo 1, antes do INSERT do passo 4).
+
 - **Policies vivas (M3)** lidas de `pg_policies`: zero policy de escrita para o candidato; o RH
   não lê por policy, lê pelas RPCs `SECURITY DEFINER` `listar_pedidos_dados` /
   `contar_pedidos_dados_pendentes`.
@@ -397,6 +424,7 @@ não de verificação de fase: a `44-VERIFICATION.md` ainda nem existe.
 
 1. Caminho feliz ponta a ponta — clique → `.json` no aparelho → 1 linha `tipo='acesso'`,
    `situacao='atendido'`, `causa` NULA, `atendido_em` preenchida.
+
 2. Render da seção 3 abaixo das duas vivas, seções 1 e 2 intactas.
 3. Estado de carregamento com o botão desabilitado barrando o segundo clique.
 4. Cooldown por tentativa real (segundo clique → erro, banco sem linha nova).
@@ -464,8 +492,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T03:05:57.483Z
-Stopped at: Completed 44-08-PLAN.md
+Last session: 2026-08-04T03:27:36.372Z
+Stopped at: Completed 44-06-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
