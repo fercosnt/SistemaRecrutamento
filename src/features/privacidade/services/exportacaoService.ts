@@ -621,6 +621,119 @@ export function dispararDownloads(arquivos: readonly ArquivoExport[]): void {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// O ESTADO DO COOLDOWN — leitura own-row que informa a apresentação e nada mais
+// ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * A cadeia PostgREST que este módulo encadeia — e nada além dela.
+ *
+ * ⚠ **PONTE DE TIPOS TEMPORÁRIA**, idioma verbatim de `pedidosDadosService.ts`
+ * (44-08). O arquivo de tipos gerado do Supabase **não foi regenerado** (auth gate
+ * do CLI, bloqueio nomeado no 44-04), então o cliente tipado desconhece
+ * `solicitacoes_dados` e o projeto reprovaria no `tsc` (baseline congelada em 97).
+ *
+ * Esta é a resposta MAIS ESTREITA possível: não é um cliente destipado. O nome da
+ * tabela continua LITERAL no tipo — um erro de digitação nele ainda não compila. E
+ * a conversão é do **objeto** cliente, nunca a extração do método: extrair perde o
+ * `this` e derruba o `PostgrestClient` em runtime, defeito que os testes NÃO pegam
+ * porque mockam o método inteiro (armadilha documentada em `duplicateCheckService`).
+ */
+interface ConsultaUltimoPedido {
+  select(colunas: string): ConsultaUltimoPedido
+  eq(coluna: string, valor: string): ConsultaUltimoPedido
+  order(coluna: string, opcoes: { ascending: boolean }): ConsultaUltimoPedido
+  limit(n: number): ConsultaUltimoPedido
+  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: unknown }>
+}
+
+interface ClienteSolicitacoesDados {
+  from(tabela: 'solicitacoes_dados'): ConsultaUltimoPedido
+}
+
+const clienteSolicitacoes = supabase as unknown as ClienteSolicitacoesDados
+
+/**
+ * As CINCO colunas que o estado do cooldown precisa — allowlist nomeada, nunca
+ * projeção total. `RLS é row-level, não column-level`: uma projeção total aqui
+ * traria colunas que esta tela não usa para dentro do cache do TanStack Query.
+ */
+export const ULTIMO_PEDIDO_COLUNAS = 'id, situacao, causa, solicitado_em, atendido_em'
+
+/** O tipo do pedido cujo cooldown vale para esta tela — o Art. 18, II, não o 45. */
+export const TIPO_PEDIDO_ACESSO = 'acesso'
+
+/** A janela do limite. Constante da Edge Function (24 h), espelhada aqui. */
+export const JANELA_COOLDOWN_MS = 24 * 60 * 60 * 1000
+
+/** O último pedido de acesso do titular, na forma que a apresentação consome. */
+export interface UltimoPedidoDados {
+  id: string
+  situacao: string
+  causa: string | null
+  solicitado_em: string
+  atendido_em: string | null
+}
+
+/**
+ * Lê o ÚLTIMO pedido de acesso do próprio candidato — own-row, por allowlist.
+ *
+ * **Nunca lança.** Erro de transporte, linha ausente ou `candidatoId` vazio
+ * resolvem para `null`, que é resultado VÁLIDO: "não sei" e "nunca pediu" levam à
+ * MESMA apresentação — o CTA renderiza e o servidor decide. Ver a Invariante 3.
+ *
+ * ⚠ O filtro `tipo = 'acesso'` não é decorativo. `solicitacoes_dados` nasce com
+ * `tipo` para a Phase 45 (exclusão); sem o filtro, um futuro pedido de exclusão
+ * consumiria o cooldown do direito de ACESSO em silêncio — dois direitos distintos
+ * compartilhando um limite que nunca foi decidido para os dois.
+ *
+ * A autorização desta leitura é a policy own-row VIVA de `solicitacoes_dados`,
+ * medida no retrato do M3 — o SUMMARY do 44-04, não o arquivo de migration: o
+ * arquivo não é o objeto vivo.
+ *
+ * @see .planning/phases/44-exporta-o-acesso/44-04-SUMMARY.md (§retrato do M3)
+ */
+export async function lerUltimoPedidoDados(
+  candidatoId: string | undefined,
+): Promise<UltimoPedidoDados | null> {
+  if (!candidatoId) return null
+
+  const { data, error } = await clienteSolicitacoes
+    .from('solicitacoes_dados')
+    .select(ULTIMO_PEDIDO_COLUNAS)
+    .eq('candidato_id', candidatoId)
+    .eq('tipo', TIPO_PEDIDO_ACESSO)
+    .order('solicitado_em', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return data as unknown as UltimoPedidoDados
+}
+
+/**
+ * O instante em que o titular volta a poder pedir, ou `null` quando não há limite
+ * em vigor. **Pura e total** — nenhuma entrada produz `NaN` nem `Invalid Date`.
+ *
+ * ⚠ Isto **não** decide se o pedido é permitido: decide o que a tela DIZ. A
+ * autoridade é o servidor, que reavalia o limite no clique com a mesma janela.
+ * Data ilegível resolve para "sem cooldown" de propósito: travar o botão por causa
+ * de um valor que o cliente não conseguiu ler moveria a barreira para o cliente, e
+ * qualquer DevTools a desliga (precedente vivo do 42-10).
+ */
+export function calcularLiberacaoCooldown(
+  solicitadoEm: string | null | undefined,
+  agora: Date = new Date(),
+): string | null {
+  if (!solicitadoEm) return null
+  const pedido = new Date(solicitadoEm)
+  if (Number.isNaN(pedido.getTime())) return null
+
+  const liberacao = pedido.getTime() + JANELA_COOLDOWN_MS
+  if (liberacao <= agora.getTime()) return null
+  return new Date(liberacao).toISOString()
+}
+
 /** Export nomeado do namespace (convenção `camelCaseService`). */
 export const exportacaoService = {
   invocarExportMeusDados,
@@ -630,4 +743,6 @@ export const exportacaoService = {
   formatarDataHoraPtBr,
   nomeArquivoExport,
   dispararDownloads,
+  lerUltimoPedidoDados,
+  calcularLiberacaoCooldown,
 }

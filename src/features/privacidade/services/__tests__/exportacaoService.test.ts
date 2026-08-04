@@ -24,10 +24,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }))
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), from: vi.fn() }))
 
 vi.mock('@/lib/supabase/client', () => ({
-  supabase: { functions: { invoke: mocks.invoke } },
+  supabase: { functions: { invoke: mocks.invoke }, from: mocks.from },
 }))
 
 import {
@@ -38,6 +38,10 @@ import {
   escapeHtml,
   dispararDownloads,
   nomeArquivoExport,
+  lerUltimoPedidoDados,
+  calcularLiberacaoCooldown,
+  ULTIMO_PEDIDO_COLUNAS,
+  JANELA_COOLDOWN_MS,
   COPY_PEDIR_COPIA,
   COPY_ARQUIVO,
   TRAVESSAO,
@@ -64,8 +68,21 @@ function erroComCorpo(corpo: unknown) {
   return { message: 'Edge Function returned a non-2xx status code', context: { json: async () => corpo } }
 }
 
+/** Cadeia PostgREST mínima — só os métodos que o leitor encadeia, nada mais. */
+function cadeia(resultado: { data: unknown; error: unknown }) {
+  const c = {
+    select: vi.fn((_colunas: string) => c),
+    eq: vi.fn((_coluna: string, _valor: string) => c),
+    order: vi.fn((_coluna: string, _opcoes: { ascending: boolean }) => c),
+    limit: vi.fn((_n: number) => c),
+    maybeSingle: vi.fn(async () => resultado),
+  }
+  return c
+}
+
 beforeEach(() => {
   mocks.invoke.mockReset()
+  mocks.from.mockReset()
 })
 
 // ── (a) o gerador é PURO ──────────────────────────────────────────────────────
@@ -439,6 +456,84 @@ describe('os DOIS arquivos', () => {
       expect(nome.toLowerCase()).not.toContain('fulana')
       expect(nome).not.toContain('@')
     }
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Plano 44-06 Task 2 — o estado do cooldown: leitura own-row que NUNCA lança
+// (casos (u)–(y)). A autoridade sobre o limite é o SERVIDOR; este leitor só
+// informa a apresentação, e por isso pode falhar sem derrubar nada.
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('lerUltimoPedidoDados', () => {
+  it('(u) projeta por ALLOWLIST NOMEADA e filtra por candidato E por tipo', async () => {
+    const c = cadeia({ data: { id: 'ped-1', situacao: 'atendido' }, error: null })
+    mocks.from.mockReturnValue(c)
+
+    await lerUltimoPedidoDados('cand-1')
+
+    expect(mocks.from).toHaveBeenCalledWith('solicitacoes_dados')
+    // A string passada ao `select` é comparada por IGUALDADE com a constante —
+    // idioma de `perfilRhService.test.ts`. Coluna acrescentada sem revisão de
+    // privacidade quebra este teste antes de chegar ao cache do TanStack Query.
+    expect(c.select).toHaveBeenCalledTimes(1)
+    expect(c.select.mock.calls[0][0]).toBe(ULTIMO_PEDIDO_COLUNAS)
+
+    const filtros = c.eq.mock.calls
+    expect(filtros).toContainEqual(['candidato_id', 'cand-1'])
+    // Sem o filtro de tipo, os pedidos de EXCLUSÃO da Phase 45 entrariam neste
+    // cooldown em silêncio — dois direitos diferentes num limite só.
+    expect(filtros).toContainEqual(['tipo', 'acesso'])
+    expect(c.order).toHaveBeenCalledWith('solicitado_em', { ascending: false })
+    expect(c.limit).toHaveBeenCalledWith(1)
+    expect(c.maybeSingle).toHaveBeenCalledTimes(1)
+  })
+
+  it('(v) NEGATIVA: a string de select não contém projeção total', () => {
+    const projecaoTotal = ['*'].join('')
+    expect(ULTIMO_PEDIDO_COLUNAS).not.toContain(projecaoTotal)
+    expect(`x${projecaoTotal}y`).toContain(projecaoTotal) // META-TEST
+  })
+
+  it('(w) erro de transporte resolve para null e NÃO lança', async () => {
+    mocks.from.mockReturnValue(
+      cadeia({ data: null, error: { code: 'PGRST301', message: 'JWT expired' } }),
+    )
+    await expect(lerUltimoPedidoDados('cand-1')).resolves.toBeNull()
+  })
+
+  it('(x) ausência de linha é resultado VÁLIDO: "nunca pediu"', async () => {
+    mocks.from.mockReturnValue(cadeia({ data: null, error: null }))
+    await expect(lerUltimoPedidoDados('cand-1')).resolves.toBeNull()
+  })
+
+  it('(x2) sem candidatoId a leitura nem acontece', async () => {
+    await expect(lerUltimoPedidoDados('')).resolves.toBeNull()
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+})
+
+describe('calcularLiberacaoCooldown', () => {
+  const agora = new Date('2026-08-04T12:00:00.000Z')
+
+  it('(y) pedido recente → o instante de liberação é solicitado + 24 h', () => {
+    const solicitado = '2026-08-04T06:00:00.000Z'
+    expect(calcularLiberacaoCooldown(solicitado, agora)).toBe('2026-08-05T06:00:00.000Z')
+    expect(JANELA_COOLDOWN_MS).toBe(24 * 60 * 60 * 1000)
+  })
+
+  it('(y2) pedido antigo → null (sem cooldown), inclusive na borda exata', () => {
+    expect(calcularLiberacaoCooldown('2026-08-01T06:00:00.000Z', agora)).toBeNull()
+    expect(calcularLiberacaoCooldown('2026-08-03T12:00:00.000Z', agora)).toBeNull()
+  })
+
+  it('(y3) é TOTAL: data ilegível ou ausente vira "sem cooldown", nunca NaN', () => {
+    // Um `Invalid Date` na tela do titular lê como sistema quebrado; e travar o
+    // botão por causa de um valor ilegível seria o cliente decidindo o limite.
+    expect(calcularLiberacaoCooldown('nao é data', agora)).toBeNull()
+    expect(calcularLiberacaoCooldown(null, agora)).toBeNull()
+    expect(calcularLiberacaoCooldown(undefined, agora)).toBeNull()
+    expect(String(calcularLiberacaoCooldown('nao é data', agora))).not.toContain('NaN')
   })
 })
 

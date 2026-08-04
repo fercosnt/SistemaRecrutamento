@@ -27,6 +27,13 @@ export const privacidadeKeys = {
     [...privacidadeKeys.all, 'autorizacoes', candidatoId] as const,
   curriculo: (candidatoId: string | undefined) =>
     [...privacidadeKeys.all, 'curriculo', candidatoId] as const,
+  /**
+   * O estado do cooldown do pedido de cópia (44-06). Entra AQUI, na fábrica que já
+   * existe, e não numa fábrica nova: duas fábricas na mesma feature é o começo de
+   * duas convenções de invalidação, e a segunda sempre esquece um consumidor.
+   */
+  ultimoPedido: (candidatoId: string | undefined) =>
+    [...privacidadeKeys.all, 'ultimo-pedido', candidatoId] as const,
 }
 
 /** Lê a linha de autorizações MAIS RECENTE do próprio candidato (own-row, allowlist). */
