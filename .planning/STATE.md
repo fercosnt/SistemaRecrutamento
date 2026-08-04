@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: "Completed 44-09-PLAN.md — UAT ao vivo do SC#4 PENDENTE (checkpoint)"
-last_updated: "2026-08-04T03:51:05.935Z"
+stopped_at: Completed 44-07-PLAN.md — UAT ao vivo do CV (EXPORT-03) PENDENTE (checkpoint)
+last_updated: "2026-08-04T04:12:11.929Z"
 last_activity: 2026-08-04
-last_activity_desc: 44-09 (a tela do EXPORT-05 — UAT ao vivo pendente)
+last_activity_desc: 44-07 (o CV do titular — UAT ao vivo pendente)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 29
+  completed_plans: 27
   percent: 33
 ---
 
@@ -79,55 +79,106 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 8 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
+Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: **44-09 COM CÓDIGO COMPLETO, UAT AO VIVO PENDENTE** — `/rh/pedidos-dados`
-        existe, é alcançável pelo menu com contador e renderiza a fila de 5 colunas:
-        badge de Situação âmbar (a PALAVRA antes da cor), faixa de acompanhamento
-        vermelha do `RevisaoSlaBadge` reusado (eixos distintos), zero ação na linha,
-        e os três sítios da `RHSidebar` no mesmo commit (`29956bf`, `0a0b3b3`,
-        `0f182f1`). 117 testes na feature + sidebar, suíte **1559**, tsc na
-        baseline 97, zero `--no-verify`, zero contato com PROD.
-        ⚠ **O `<human-check>` da Task 3 NÃO rodou** — o UAT ao vivo que mede a
-        igualdade fila ≡ contador nos dois papéis do BD-8 exige login real de
-        recrutador e de administrador, indisponível ao executor. Detalhado no
-        §Checkpoint do `44-09-SUMMARY.md`. Desfecho mais provável: `0 linhas · sem
-        badge` nos dois papéis (`solicitacoes_dados` tinha 0 linhas em PROD), que
-        **é** a igualdade e é resultado válido.
-        Próximo natural: **44-07** (o sub-bloco de currículo, que é o "botão abaixo"
-        que a copy `sobreCurriculo` nomeia e que por isso ainda não é renderizada).
+Status: **44-07 COM CÓDIGO COMPLETO, UAT AO VIVO PENDENTE** — o titular abre o
+        próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
+        (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
+        forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
+        client anon, `service_role` FORA do caminho — BD-7), `CurriculosBloco` com
+        estado POR LINHA, e o mount na seção 3 abaixo do CTA com a copy de erro
+        REUSADA (`ea7fc22`, `68481d9`, `9b0ded8`, `6a244c2`). 93 testes na feature,
+        suíte **1584**, tsc na baseline 97, zero `--no-verify`, zero contato com PROD.
+        ⚠ **O `<human-check>` da Task 3 NÃO rodou** — abrir o CV ao vivo, confirmar
+        a expiração do TTL de 60 s e as três asserções negativas do DevTools exige
+        login real de conta de candidato de teste. E a **precondição da Task 1** (as
+        2 policies de SELECT do bucket `curriculos`, medidas no M4 em 2026-08-03) não
+        foi re-confirmada: exige MCP. Detalhado no §Checkpoint do `44-07-SUMMARY.md`.
+
+        **TODOS OS 9 PLANOS DA FASE 44 TÊM CÓDIGO COMPLETO.** O que resta da fase é
+        exclusivamente prova ao vivo — três checkpoints abertos (44-05, 44-07, 44-09),
+        nenhum deles bloqueado por código.
 
         **44-05 SEGUE PARADO NO CHECKPOINT** — código completo, verde e commitado
         (`b0b2f21`, `0a04bed`, `bf2ae4c`); a EF `exportar-meus-dados` está
         deployada em PROD (v1, ACTIVE, `verify_jwt: true`), mas a **prova ao vivo
         pelo navegador** (download, seção 3 renderizada, cooldown no 2º clique) foi
-        adiada pelo operador em 2026-08-04. **O 44-06 não a destrava e não depende
-        dela** — ele é código local sobre o que o 44-05 já entregou.
-Last activity: 2026-08-04 — 44-09 (a tela do EXPORT-05 — UAT ao vivo pendente)
+        adiada pelo operador em 2026-08-04.
 
-⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 3×:** o
-scanner conta ARQUIVOS de SUMMARY e volta a marcar 44-05 como `[x]` a cada
-execução; foi revertido à mão nas três vezes (a 3ª na execução do 44-06), porque a
-própria linha do ROADMAP diz "provada ao vivo" e a prova não aconteceu. Marcar de
-novo só depois do checkpoint. (`44-05-SUMMARY.md` traz `status: checkpoint`, não
-`complete`, exatamente por isso.)
+        **44-09 SEGUE PARADO NO CHECKPOINT, e por uma razão que MUDOU** —
+        `/rh/pedidos-dados` completa e verde (`29956bf`, `0a0b3b3`, `0f182f1`). Mas
+        a evidência que o orquestrador levantou em PROD (`44-09-EVIDENCIA-BD8.md`,
+        somente leitura) mostra que o UAT planejado seria **inconclusivo por
+        desenho**: **zero vagas em PROD pertencem a um usuário de papel `rh`** (6 com
+        `created_by` NULL, 3 do administrador), então o ramo `rh` do predicado BD-8
+        não pode devolver linha nenhuma hoje, para recrutador nenhum. "0 linhas nos
+        dois papéis" seria o resultado esperado tanto se o BD-8 estivesse certo
+        quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
+        popular `created_by` das 6 vagas órfãs, trocar o predicado para
+        `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
+Last activity: 2026-08-04 — 44-07 (o CV do titular — UAT ao vivo pendente)
 
-A célula de progresso da fase fica em **6/9** — número que agora está CERTO, mas
-não pela conta do scanner: ele conta o SUMMARY do 44-05 (checkpoint) e ainda não
-contava o do 44-06. Os seis concluídos de verdade são 44-01, 44-02, 44-03, 44-04,
-44-06 e 44-08. ⚠ Na próxima execução o scanner escreverá **7/9**, contando os dois
-— **reverter para 6/9** até a prova ao vivo do 44-05 acontecer.
+⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
+scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
+ele marcou **os três** planos de checkpoint como `[x]` de uma vez — 44-05 (**5ª
+vez**), 44-09 (**2ª vez**) e 44-07 (**1ª vez**) — e escreveu a célula como **9/9**.
+Todos revertidos à mão. Os três SUMMARY trazem `status: checkpoint`, não `complete`,
+exatamente por isso, e as três linhas do ROADMAP carregam a nota inline dizendo qual
+prova falta. **Marcar só depois de cada prova ao vivo acontecer.**
+
+A célula de progresso da fase fica em **6/9**. Os seis concluídos de verdade são
+44-01, 44-02, 44-03, 44-04, 44-06 e 44-08. Os três restantes têm **código completo e
+verde** e estão parados só na prova ao vivo: 44-05, 44-07 e 44-09. ⚠ Na próxima
+execução o scanner escreverá **9/9** de novo — **reverter para 6/9**.
+
+⚠ **O mesmo defeito vive no frontmatter deste arquivo.** `state.update-progress`
+e `state.advance-plan` contam ARQUIVOS de SUMMARY e não leem o `status:` deles:
+na execução do 44-07 escreveram `completed_phases: 3`, `completed_plans: 30` e
+`percent: 50`, dando a fase 44 por concluída. Corrigidos à mão para **2 / 27 / 33**
+— os três checkpoints não contam como plano concluído.
 
 ## ⏸ Deferred Verification (aberta desde 2026-08-04)
 
-A prova ao vivo do 44-05 pelo navegador. O 44-06 **acrescentou superfície a ela**,
-e a lista do que precisa ser visto cresceu:
+Três provas ao vivo, todas no navegador, todas sem bloqueio de código.
+
+**A · O pedido de cópia (44-05 + 44-06), em `/candidato/privacidade`:**
 
 1. o download entrega **DOIS** arquivos e o `.json` chega primeiro;
 2. o `.html` abre legível, com carimbo no topo e a versão da allowlist no rodapé;
 3. a seção 3 renderiza a copy completa (inclusive "Você recebe dois arquivos");
 4. o **2º clique dentro de 24 h** mostra o botão desabilitado **com o motivo e a
    hora de liberação visíveis ao lado** — e a frase é a mesma que o servidor manda.
+
+**B · O CV do titular (44-07), na mesma tela, logo abaixo do CTA:**
+
+5. a seção 3 mostra "Seu currículo" com uma linha por candidatura com currículo —
+   **registrar quantas linhas**;
+
+6. **Abrir meu currículo** abre o arquivo numa aba nova;
+7. a URL daquela aba **expira** — copiar, esperar ~90 s, recarregar. É o que torna
+   honesta a frase "válido por poucos segundos" que a tela mostra ao titular;
+
+8. **403/400 ⇒ PARAR e registrar o caminho medido** — é a hipótese que o n=3 do M5
+   não excluía (currículo na outra convenção de pasta). Conserto é da policy ou da
+   convenção de upload, **nunca** do componente;
+
+9. com o DevTools aberto: o console **não** recebe a URL assinada; a URL **não**
+   aparece em atributo nenhum do documento depois do clique; **nenhuma** chamada a
+   `get-curriculo-url` acontece.
+
+**C · A fila do RH (44-09), em `/rh/pedidos-dados` — ⚠ BLOQUEADA POR DECISÃO, NÃO
+POR EXECUÇÃO:**
+
+10. fila ≡ contador do menu, nos dois papéis do BD-8. **Não executar como planejado.**
+    `44-09-EVIDENCIA-BD8.md` §3 mostra que zero vagas em PROD têm um `rh` em
+    `created_by`, o que torna o resultado "0 linhas nos dois papéis" compatível com o
+    BD-8 certo E com o BD-8 errado. Antes do UAT: decidir a propriedade de vaga.
+
+**Além do navegador — uma consulta de catálogo (precondição da Task 1 do 44-07):**
+`SELECT policyname, cmd FROM pg_policies WHERE schemaname='storage' AND tablename='objects'`
+— confirmar que as duas policies de SELECT do bucket `curriculos` seguem vivas. Foram
+medidas no M4 em 2026-08-03 e **não** re-confirmadas; são elas que autorizam a
+cunhagem client-side sem `service_role`.
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -201,6 +252,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P08 | ~25min | 3 tasks | 8 files |
 | Phase 44 P06 | ~55min | 3 tasks | 6 files |
 | Phase 44 P09 | ~35min | 3 tasks | 10 files |
+| Phase 44 P07 | ~35min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -357,6 +409,12 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 44-09: o eixo da linha da fila sai de `situacao !== 'atendido'` — um token novo do servidor cai no lado da SUPERVISÃO. Errar para esse lado custa uma linha a mais; errar para o outro esconderia trabalho com 15 dias corridos correndo.
 - [Phase ?]: 44-09: o gate `grep -c 'GlassCard' == 1` é insatisfazível (o próprio análogo pontua 4). Medido pela substância — `grep -cE '<GlassCard'` = 1. QUINTA ocorrência da classe 'gate que não pode passar' nesta fase.
 - [Phase ?]: 44-09: sondas de texto-fonte neste repo NÃO podem usar `import.meta.url` — o `URL` global do happy-dom reescreve a base para a origem do documento e `fileURLToPath` rejeita. Ancorar em `process.cwd()`.
+- [Phase ?]: [Phase 44 / 44-07]: a leitura do CV do titular NÃO esconde candidatura removida de forma suave, e o teste prende a AUSÊNCIA do predicado — o WR-03 oposto do get-curriculo-url é sobre um RH vendo arquivo alheio; aqui o leitor é o DONO
+- [Phase ?]: [Phase 44 / 44-07]: cunhagem client-side com o JWT do titular (BD-7) — service_role fora do caminho do CV dele; o CvButton é reusado como MECANISMO e recusado como FONTE DE DADOS (a EF devolve 403 a candidato)
+- [Phase ?]: [Phase 44 / 44-07]: estado por LINHA (conjuntos de ids) em lista com ação por item; a asserção sobre as linhas que NÃO falharam foi verificada por MUTAÇÃO (erro escalar reprova, e só ela reprova) antes de ser creditada
+- [Phase ?]: [Phase 44 / 44-07]: new URL(<literal>, import.meta.url) é reescrito pelo Vite para URL de asset e fileURLToPath recusa — sonda de texto-fonte tem de passar o caminho por VARIÁVEL
+- [Phase ?]: [Phase 44 / 44-07]: asserção de esqueleto de carregamento precisa de gancho próprio quando um irmão da mesma seção já pulsa — .animate-pulse na seção passava com o ramo novo inexistente (7º portão morto da fase)
+- [Phase ?]: [Phase 44 / 44-07]: a 320px a linha do currículo EMPILHA — medido, sobram 256px úteis e o botão ocupa ~210px; lado a lado o título da vaga ficaria com 4 caracteres, apagando o que o par truncate+tooltip existe para preservar
 
 ### Pending Todos
 
@@ -398,6 +456,8 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 44-01 NAO fecha EXPORT-02 nem EXPORT-06: constroi o MECANISMO (escopo + gerador + fecho), nao o artefato. export-allowlist.json e _shared/exportAllowlist.ts so nascem no 44-03, com o catalogo vivo. Ate la 'node docs/compliance/sql/gen-export-allowlist.cjs' sai 1 — e essa E a saida correta. Dry-run contra a config real acusou 62 pendencias de fecho de coluna (superestimadas pelo proxy de tipos; ~20 sao temporais que o catalogo vivo resolve por R3): e a carga que o 44-03 herda.
 - 44-04: database.types.ts NAO regenerado — auth gate do Supabase CLI (sem SUPABASE_ACCESS_TOKEN e sem supabase login). Desbloqueio: supabase login OU token no ambiente; depois gerar para TEMPORARIO antes do arquivo trackeado. Tambem: supabase db push --linked nao executado (CLI fora do PATH); ledger verificado por SQL direto
 - 44-09: UAT ao vivo do SC#4 NÃO rodou — exige login real de recrutador E de administrador para medir a igualdade fila ≡ contador (BD-8) na tela. 7 passos em §Checkpoint do 44-09-SUMMARY.md. Não é bloqueio de código: a tela está completa e verde.
+- 44-07: UAT ao vivo do EXPORT-03 pendente — abrir o próprio currículo em /candidato/privacidade, confirmar expiração do TTL de 60s e as 3 asserções negativas do DevTools. Também pendente: re-confirmar via MCP as 2 policies de SELECT do bucket curriculos (precondição da Task 1, medida no M4 em 2026-08-03 e não re-verificada).
+- 44-09 / BD-8: zero vagas em PROD pertencem a usuário de papel 'rh' (6 com created_by NULL, 3 do administrador). O ramo 'rh' do predicado de escopo não devolve linha alguma hoje, e o UAT planejado é inconclusivo por desenho. Decisão do operador: popular created_by das 6 vagas órfãs, trocar o predicado para vagas_associadas_recrutadores, ou aceitar que a fila é de administrador. Fonte: 44-09-EVIDENCIA-BD8.md §3.
 
 ## Deferred Verification
 
@@ -503,8 +563,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T03:50:18.892Z
-Stopped at: Completed 44-09-PLAN.md — UAT ao vivo do SC#4 PENDENTE (checkpoint)
+Last session: 2026-08-04T04:10:01.205Z
+Stopped at: Completed 44-07-PLAN.md — UAT ao vivo do CV (EXPORT-03) PENDENTE (checkpoint)
 Resume file: None
 
 ## Operator Next Steps

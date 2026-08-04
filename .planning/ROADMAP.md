@@ -167,7 +167,7 @@ Plans:
 - [x] 44-04-PLAN.md — **CHECKPOINT do orquestrador**: apply das 2 migrations na ordem, ledger reconciliado, fidelidade por md5, smoke executado e M3 (policies vivas) LIDO antes de qualquer afirmação de RLS
 - [ ] 44-05-PLAN.md — **TRACER**: a fatia vertical do clique ao `.json` — EF `exportar-meus-dados` (allowlist, corpo não lido, registro antes da montagem, 429/`COOLDOWN`), serviço, hook, bloco e seção 3, provada ao vivo · ⚠ **código completo e verde (Tasks 1-2, 3 commits); a Task 3 — deploy + prova ao vivo — é checkpoint do orquestrador e NÃO rodou.** O `[x]` é reservado para depois da prova: a própria linha diz "provada ao vivo"
 - [x] 44-06-PLAN.md — A cópia honesta: o segundo arquivo feito para uma pessoa ler (escape + fronteira do inventário escrita) e os dois estados que faltavam ao CTA — sucesso persistente e cooldown que nunca é botão morto
-- [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado
+- [ ] 44-07-PLAN.md — EXPORT-03: o titular abre o próprio currículo por URL assinada de 60 s cunhada **no cliente**, com `service_role` fora do caminho, e falha por linha em vez de bloco derrubado · ⚠ **código completo e verde (3 tasks, 4 commits, 93 testes na feature, suíte 1584, tsc 97); o `<human-check>` da Task 3 — abrir o próprio CV ao vivo, confirmar a expiração do TTL de 60 s e as três asserções negativas do DevTools — NÃO rodou** (exige login real de candidato de teste). O `[x]` fica reservado para depois da observação: o `<done>` da Task 3 exige "um candidato real de teste abriu o próprio currículo ao vivo"
 - [x] 44-08-PLAN.md — EXPORT-05, camada de dados do RH: o classificador de faixa reusado por alias (identidade de referência asserida), o serviço que lê as duas RPCs do BD-8 por allowlist sem filtro de cliente, e os três hooks com fábrica de chaves única
 - [ ] 44-09-PLAN.md — EXPORT-05, a TELA: `/rh/pedidos-dados` com badge de Situação âmbar, faixa de acompanhamento vermelha (eixos distintos), fila sem ação, e os três sítios do menu com contador — o SC#4 deixa de ser inalcançável · ⚠ **código completo e verde (3 tasks, 3 commits, 117 testes na feature+sidebar, suíte 1559, tsc 97); o `<human-check>` da Task 3 — UAT ao vivo medindo fila ≡ contador nos DOIS papéis do BD-8 — NÃO rodou** (exige login real de recrutador e de administrador). O `[x]` fica reservado para depois da observação: o `<done>` da Task 3 exige, com estas palavras, "um RH real e um administrador real abriram a fila ao vivo"
 
@@ -312,7 +312,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 36–41 (M7) | v7.0 | 25/25 | Complete | 2026-07-28 |
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
-| 44. Exportação & Acesso | v8.0 | 8/9 | In Progress|  |
+| 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
