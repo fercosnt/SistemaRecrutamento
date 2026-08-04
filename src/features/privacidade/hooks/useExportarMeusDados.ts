@@ -8,10 +8,10 @@
  *     não há nada a antecipar. Antecipar um download seria mentir sobre um arquivo
  *     que ainda não existe, e o arquivo é o exercício do direito.
  *
- *  2. **NENHUM `toast`.** O feedback de sucesso desta tela precisa PERSISTIR (a
- *     pessoa vai procurar o arquivo na pasta de downloads), e toast some. O estado
- *     de sucesso persistente é o 44-06; nesta fatia o sucesso é observável pelo
- *     próprio download.
+ *  2. **NENHUM `toast`.** O feedback de sucesso desta tela precisa PERSISTIR — ele
+ *     nomeia DOIS arquivos que a pessoa vai procurar na pasta de downloads, e um
+ *     toast some antes disso. Quem o renderiza é o `PedirCopiaBloco`, a partir do
+ *     mesmo `RespostaExport` que este hook devolve.
  *
  * O disparo do arquivo vive no `onSuccess`, sobre o que o SERVIDOR devolveu — nunca
  * sobre o que foi pedido.
@@ -23,7 +23,8 @@ import { useMutation } from '@tanstack/react-query'
 import {
   invocarExportMeusDados,
   gerarJsonExport,
-  nomeArquivoExport,
+  gerarHtmlExport,
+  nomesArquivosExport,
   dispararDownloads,
   type RespostaExport,
 } from '../services/exportacaoService'
@@ -37,13 +38,21 @@ export function useExportarMeusDados() {
     mutationFn: () => invocarExportMeusDados(),
     // Sem `onMutate`: nada é antecipado. Ver a proibição 1 no docblock.
     onSuccess: (resposta) => {
-      // A LISTA é o contrato de ordem: o `.json` primeiro. O 44-06 acrescenta o
-      // `.html` aqui, atrás dele.
+      // A LISTA é o contrato de ORDEM: o `.json` — o artefato do direito legal —
+      // vai primeiro, para sobreviver caso o navegador barre o segundo download.
+      // Os dois nomes saem do MESMO instante do servidor (`nomesArquivosExport`),
+      // que é o mesmo que a tela usa para dizer o que a pessoa deve procurar.
+      const nomes = nomesArquivosExport(resposta)
       dispararDownloads([
         {
-          nome: nomeArquivoExport('json'),
+          nome: nomes.json,
           conteudo: gerarJsonExport(resposta),
           tipo: 'application/json;charset=utf-8',
+        },
+        {
+          nome: nomes.html,
+          conteudo: gerarHtmlExport(resposta),
+          tipo: 'text/html;charset=utf-8',
         },
       ])
     },

@@ -600,12 +600,33 @@ export function nomeArquivoExport(extensao: 'json' | 'html', quando: Date = new 
 }
 
 /**
+ * Os nomes dos DOIS arquivos de um mesmo pedido, derivados do MESMO instante — o
+ * `gerado_em` do servidor, nunca o relógio do navegador em dois momentos.
+ *
+ * Existe para que "o texto de sucesso nomeia os arquivos que foram baixados" seja
+ * um fato ESTRUTURAL e não uma coincidência: o disparo e a tela chamam esta função,
+ * então não há como um derivar a data de um lugar e o outro de outro. Duas
+ * derivações independentes divergiriam na virada de dia em UTC — e o titular
+ * procuraria na pasta de downloads um nome que ninguém escreveu.
+ */
+export function nomesArquivosExport(resposta: RespostaExport): {
+  json: string
+  html: string
+} {
+  const quando = new Date(resposta.gerado_em)
+  return {
+    json: nomeArquivoExport('json', quando),
+    html: nomeArquivoExport('html', quando),
+  }
+}
+
+/**
  * Dispara o download dos arquivos, na ordem recebida — idioma `Blob` → object URL →
  * anchor → clique → revoke, verbatim de `baixarIcsAgendamento`.
  *
- * A assinatura já aceita uma LISTA nesta fatia de um arquivo só porque **a ordem é
- * contrato**: o 44-06 acrescenta o `.html`, e o `.json` — o artefato do direito
- * legal — vai na frente.
+ * **A ordem é contrato** e a lista a carrega: o `.json` — o artefato do direito
+ * legal — vai na frente do `.html`. Se o navegador barrar o segundo download, o que
+ * sobrevive é o que a lei exige.
  */
 export function dispararDownloads(arquivos: readonly ArquivoExport[]): void {
   for (const arquivo of arquivos) {
