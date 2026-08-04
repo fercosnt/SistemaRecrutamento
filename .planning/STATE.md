@@ -459,13 +459,30 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 44-07: UAT ao vivo do EXPORT-03 pendente — abrir o próprio currículo em /candidato/privacidade, confirmar expiração do TTL de 60s e as 3 asserções negativas do DevTools. Também pendente: re-confirmar via MCP as 2 policies de SELECT do bucket curriculos (precondição da Task 1, medida no M4 em 2026-08-03 e não re-verificada).
 - 44-09 / BD-8: zero vagas em PROD pertencem a usuário de papel 'rh' (6 com created_by NULL, 3 do administrador). O ramo 'rh' do predicado de escopo não devolve linha alguma hoje, e o UAT planejado é inconclusivo por desenho. Decisão do operador: popular created_by das 6 vagas órfãs, trocar o predicado para vagas_associadas_recrutadores, ou aceitar que a fila é de administrador. Fonte: 44-09-EVIDENCIA-BD8.md §3.
 
+- **✅ RESOLVIDO 2026-08-03 — o `42804` da Phase 43, o SEGUNDO incidente de PROD do milestone, e o único encontrado por VERIFICAÇÃO em vez de por acaso.** *(Registrado aqui em 2026-08-04, fechando o achado **W-7** e o item 3 do `human_verification` da `43-VERIFICATION.md` — o `§BLOQUEADOR FECHADO` acima cobre só o primeiro incidente, e este não estava em lugar nenhum do `STATE.md`.)* `listar_matriz_retencao()` declarava `RETURNS TABLE (… text …)` mas `usuarios_rh.nome_completo` é `varchar(255)`: **toda chamada bem-sucedida** levantava `42804 — structure of query does not match function result type` desde o apply, e `/admin/retencao` não carregava para ninguém. Fechado pela migration `20260803000001` (`::text` na linha 102; `DO` de auto-verificação que **executa** o caminho feliz e exige 8 linhas; md5 `7e9b9797…` reproduzido do arquivo na 3ª passagem de verificação; `COMMENT` carrega a lição para dentro do banco).
+  **Duas lições que valem para as fases 45/46/47, e são o motivo de este registro existir:**
+  (1) **O smoke 10/10 não pegou.** Sua única asserção sobre aquela função testava a *recusa sem claim* — o guard levanta na primeira linha e o `RETURN QUERY` nunca executava. Um smoke que só exercita o caminho de recusa não é cobertura do caminho feliz, e conta como verde do mesmo jeito.
+  (2) **O rebaixamento de verificação se pagou na hora.** O `PRESENT_BEHAVIOR_UNVERIFIED` da 2ª passagem sobre o SC#4 foi o que forçou o operador a abrir a tela — e foi assim que o bug apareceu. Comprou o conserto, **não** uma guarda: a asserção `(k)` que impede o `42804` de voltar nasceu dentro de `p43_matriz_retencao_smoke.sql`, que a asserção `(c)` tornou inalcançável no mesmo dia (**W-1**, todo `43-smokes-com-baseline-congelada-viram-red`). A fase corrigiu o defeito e não corrigiu a condição que o produziu. O `::text` já é regra viva no repo — ver `44-02-SUMMARY.md:125`.
+
 ## Deferred Verification
 
 | Phase | State | Resume |
 |-------|-------|--------|
 | 42 | verification_deferred_human | `/gsd-verify-work 42` |
+| **43** | **verification_deferred_human** — 1 item, reduzido de 3 em 2026-08-04 | `/gsd-verify-work 43` · ver abaixo |
 | 44 (plano 44-05) | checkpoint_deferred_human | prova ao vivo no navegador — ver abaixo |
 | **44 (fase)** | **verification_deferred_gaps** | `/gsd-plan-phase 44 --gaps` · mas ler o aviso abaixo |
+
+### Phase 43 — dois dos três itens fechados em 2026-08-04, resta UM
+
+`43-VERIFICATION.md`: **5/5 must-haves verificados**, `overrides_applied: 2`. A fase não tem
+gap de implementação nenhum — o que a mantém em `human_needed` é uma única observação de tela.
+
+| # | Item | Estado |
+|---|---|---|
+| 1 | **Bloco de guarda do currículo no ramo AUTORIZADO**, em `/candidato/privacidade` — a linha «Base da guarda: sua autorização de {data}. Prazo previsto: até {prazo}.» | ⏸ **ABERTO — é só isto.** Barato: exige um cadastro com a caixa `autorizacao_retencao_curriculo` **MARCADA**. O ramo que satisfaz o RETEN-03 renderiza só sob `autorizado === true` (`GuardaCurriculoBloco.tsx:114`), e a conta de teste ao vivo deixou justamente aquela caixa desmarcada — o que foi visto foi o ramo NÃO-autorizado. Combina numa só sessão de navegador com os itens A/B da §Deferred Verification da Phase 44 |
+| 2 | Prévia de retenção no estado POPULADO | ✅ **`overrides:` `accepted_permanently`** (Fernando, 2026-08-04) — conversão recomendada verbatim pelo próprio verificador. Inobservável hoje e por meses: a matriz está em 24 meses (7 estados) e 18 (`rejeitado`), e o sistema é mais novo que qualquer das duas janelas; `previa_retencao()` devolve zero por **aritmética**, não por defeito. Encurtar a janela só para o teste seria fabricar a evidência. ⚠ **A Phase 46 é a primeira consumidora real deste predicado** (o dry-run reusa a MESMA query) — deve tratar a contagem como não-exercitada |
+| 3 | Correções de registro (5 sub-itens) | ✅ **EXECUTADAS** — não aceitas. Fecham **W-2**, **W-6** e **W-7**. Detalhe no `overrides:` do `43-VERIFICATION.md` |
 
 ### ⚠ Phase 44 — `gaps_found` diferido por decisão do operador (2026-08-04)
 

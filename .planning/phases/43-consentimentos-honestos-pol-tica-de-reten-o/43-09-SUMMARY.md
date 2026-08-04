@@ -5,7 +5,11 @@ subsystem: retencao-admin
 status: complete
 tags: [lgpd, retencao, config-sem-deploy, previa-read-only, zero-destrutivo, asserçao-negativa, a11y, admin]
 requires:
-  - public.config_retencao_etapa (43-04, viva em PROD desde o 43-07 — 8 linhas, todas em 24 meses, origem='seed')
+  - public.config_retencao_etapa (43-04, viva em PROD desde o 43-07 — 8 linhas; seed 8/8 em 24
+      meses com origem='seed'. ⚠ CORRIGIDO em 2026-08-04: a partir de 2026-08-03 o estado vivo
+      é 7 linhas em 24 meses + `rejeitado` em 18, origem='admin' — ver §Escrita ao vivo abaixo.
+      A afirmação "todas em 24 meses, origem='seed'" descrevia o momento do apply e ficou falsa
+      no dia seguinte)
   - public.listar_matriz_retencao() / public.salvar_janela_retencao(etapa, meses) (43-04)
   - public.previa_retencao() / public.previa_retencao_total() (43-06)
   - database.types.ts regenerado no 43-07 (as 4 RPCs tipadas)
@@ -171,6 +175,42 @@ meses e o sistema é mais novo que isso, então `previa_retencao()` devolve zero
 esta janela hoje."* **com o carimbo de data do servidor** — porque um zero sem data
 envelhece exatamente como qualquer outro número, e daqui a três meses ninguém saberá se
 aquele zero é de hoje ou de quando a página foi escrita.
+
+## Escrita ao vivo — `rejeitado` 24 → 18 (2026-08-03)
+
+> Registrado em **2026-08-04**, fechando o achado **W-2** e o item 1 do `human_verification`
+> da `43-VERIFICATION.md`. O verificador varreu `.planning/` e `docs/` e não encontrou
+> ocorrência nenhuma de `18 meses` / `janela_meses = 18` / `24 → 18`: **a evidência que fecha
+> o critério de sucesso mais disputado da fase existia apenas na conversa.** Esta seção é o
+> lastro consultável. Não é comportamento novo — é o registro do que aconteceu.
+
+**O que foi feito:** um administrador real abriu `/admin/retencao` e alterou a janela do
+estado `rejeitado` de **24 para 18 meses** pela tela. Um **encurtamento** — mais protetivo,
+dentro do teto consentido de 2 anos (BD-1), portanto sem tocar no `CHECK` da tabela.
+
+**O que a escrita provou, e nenhum teste teria provado:**
+
+| Elo | O que ficou demonstrado |
+|-----|-------------------------|
+| Cliente → RPC | `EditarJanelaDialog` → `useSalvarJanela` → `retencaoService.salvarJanela` → `rpc('salvar_janela_retencao')` percorrido de ponta a ponta por pessoa real (`retencaoService.ts:289`) |
+| `origem` | Foi de `seed` para **`admin`** — o discriminador que a **Phase 46** tem de consultar antes de armar qualquer `DELETE` deixou de ser hipótese |
+| `alterado_por` | Resolvido **através do LEFT JOIN que estava quebrado** — é este caminho que o `42804` derrubava; a escrita exercitou o conserto |
+| Auditoria | **Exatamente uma** linha nova em `logs_auditoria`, na mesma transação, com `dados_antes`/`dados_depois` corretos |
+| Invariante | **7 de 8** estados intactos — a edição atingiu só a linha alvo |
+
+**Consequência de estado (é o que torna o `requires:` do topo deste arquivo desatualizado):**
+`config_retencao_etapa` deixou de ser *"8 linhas, todas em 24 meses, origem='seed'"* no dia
+seguinte ao apply. O estado vivo desde 2026-08-03 é **7 em 24 meses (`seed`) + `rejeitado` em
+18 (`admin`)**. Quem planejar a Phase 46 lê daqui, não do `requires:` original.
+
+⚠ **Prova por evento, sem guarda de regressão** (achado W-3). O elo cliente→RPC segue **sem
+uma linha de teste**: `services/` e `hooks/` de `admin/retencao` não têm cobertura, e a única
+asserção que exercita o caminho corrigido do `42804` — a **(k)** de
+`p43_matriz_retencao_smoke.sql` — nasceu dentro de um arquivo que a asserção **(c)** tornou
+inalcançável (achado W-1, todo `43-smokes-com-baseline-congelada-viram-red`). A (c) dispara
+justamente por causa desta escrita: ela acusa violação do teto ao ver `v_em24 = 7`, quando o
+que houve foi um **aperto**. Dívida rastreada em
+`todos/pending/admin-retencao-services-e-hooks-sem-teste.md`.
 
 ## Verificação executada
 

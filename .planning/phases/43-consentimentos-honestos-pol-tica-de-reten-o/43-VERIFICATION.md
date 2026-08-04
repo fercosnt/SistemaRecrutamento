@@ -4,7 +4,9 @@ verified: 2026-08-03T05:02:00Z
 status: human_needed
 score: 5/5 must-haves verified
 behavior_unverified: 0
-overrides_applied: 0
+overrides_applied: 2
+overrides_applied_at: "2026-08-04"
+human_verification_remaining: 1
 re_verification:
   previous_status: human_needed
   previous_score: 4/5
@@ -59,25 +61,6 @@ human_verification:
       `autorizacao_retencao_curriculo` MARCADA. O ramo que satisfaz o RETEN-03 renderiza só
       sob `autorizado === true` (`GuardaCurriculoBloco.tsx:114`); a conta de teste ao vivo
       deixou justamente aquela caixa desmarcada, então o que foi visto foi o ramo NÃO-autorizado.
-  - test: "Prévia de retenção no estado POPULADO — aceitação permanente, não ação pendente"
-    expected: "As linhas por estado contam CANDIDATURAS e o total conta CANDIDATOS, com o carimbo `calculada_em` do servidor"
-    why_human: >-
-      Impossível hoje e por meses (janela de 24 meses num sistema mais novo que isso), e
-      produzir a condição encurtando a janela seria fabricar a evidência. Isto NÃO é uma
-      pendência acionável — recomendo convertê-lo em `overrides:` no fecho do milestone, com
-      `accepted_by`, para que pare de manter a fase em `human_needed` para sempre.
-  - test: "Correções de registro (decisão do operador, não comportamento de produto)"
-    expected: >-
-      (1) Registrar a escrita ao vivo `rejeitado` 24 → 18 em algum artefato durável — hoje a
-      ÚNICA evidência que fecha o SC#4 não existe no repositório. (2) `REQUIREMENTS.md`
-      tabela de status (linhas 174-184) segue dizendo CONSENT-01/02/03/05 "In Progress" e
-      CONSENT-06 "Pending", contradizendo o checklist logo acima; e o bloco de nota 58-66
-      afirma que 01/02/03 estão deliberadamente sem `[x]`, o que deixou de ser verdade.
-      (3) CONSENT-05 deveria apontar para a Phase 47 do jeito que RETEN-05 aponta para a 46.
-      (4) `STATE.md` § Current Position ainda diz `gaps_found, 2/5` e não menciona o 42804.
-      (5) `43-09-SUMMARY.md` § `requires:` afirma "8 linhas, todas em 24 meses, origem='seed'"
-      — falso desde a alteração ao vivo.
-    why_human: "São decisões de registro do milestone, não comportamento de produto."
 deferred:
   - truth: "`autorizacao_analise_video` continua `NOT NULL DEFAULT false` — cada linha nova ainda afirma resposta a uma pergunta que deixou de ser feita"
     addressed_in: "Phase 47"
@@ -106,6 +89,58 @@ untracked_debt:
   - "`src/features/admin/retencao/services/` e `hooks/` seguem com ZERO arquivo de teste — nenhum todo cobre isso (W-3)"
   - "A lição «contador de asserções mede caminhos exercitados, não existentes» não existe em `.planning/` (W-4)"
   - "A ordenação que torna (d)…(k) inalcançáveis não está em todo nenhum (W-1)"
+overrides:
+  - item: "Prévia de retenção no estado POPULADO — as linhas por estado contam CANDIDATURAS e o total conta CANDIDATOS, com o carimbo `calculada_em` do servidor"
+    was: human_verification
+    decision: accepted_permanently
+    accepted_by: Fernando
+    accepted_at: "2026-08-04"
+    accepted_during: "/gsd-autonomous — roteamento de verificação da Phase 43"
+    rationale: >-
+      Conversão recomendada pelo PRÓPRIO verificador na 3ª passagem, verbatim: *"Isto NÃO é uma
+      pendência acionável — recomendo convertê-lo em `overrides:` no fecho do milestone, com
+      `accepted_by`, para que pare de manter a fase em `human_needed` para sempre."* A condição
+      é inobservável hoje e por meses: a matriz está semeada em 24 meses (7 estados) e 18
+      (`rejeitado`), e o sistema é mais novo que qualquer uma das duas janelas — então
+      `previa_retencao()` devolve zero linhas por ARITMÉTICA, não por defeito. Produzir o estado
+      populado exigiria encurtar a janela só para o teste, o que seria **fabricar a evidência** —
+      exatamente a classe de coisa que este milestone existe para eliminar.
+    what_is_actually_proven: >-
+      O estado ZERO está verificado e é o número certo (medido em PROD no 43-07), COM carimbo
+      `calculada_em` do servidor — a asserção de que um zero sem data envelhece como qualquer
+      outro número é testada, inclusive no estado zero. A distinção CANDIDATURAS-por-estado vs
+      CANDIDATOS-no-total está provada em código e em teste (`previa_retencao()` /
+      `previa_retencao_total()`, 43-06), e o backstop E8 estrutural roda nos dois estados. O que
+      NÃO se pode provar é a renderização com N > 0, e só isso.
+    residual_risk: >-
+      Baixo e auto-revelador. O primeiro candidato a cruzar a janela torna o estado observável
+      sem ação nenhuma, e a tela é read-only por desenho (asserção negativa de verbo destrutivo
+      na página inteira e no diálogo) — um erro de contagem aqui produz número errado numa tela
+      de revisão, nunca exclusão errada. ⚠ A Phase 46 é a primeira consumidora real deste
+      predicado (o dry-run reusa a MESMA query), e é lá que o estado populado passa a importar
+      de verdade: ela deve tratar a contagem como não-exercitada, não como verificada.
+  - item: "Correções de registro do milestone (5 itens: escrita ao vivo 24→18, tabela de status do REQUIREMENTS.md, CONSENT-05 → Phase 47, STATE.md sem o 42804, requires: do 43-09-SUMMARY)"
+    was: human_verification
+    decision: executed
+    accepted_by: Fernando
+    accepted_at: "2026-08-04"
+    accepted_during: "/gsd-autonomous — roteamento de verificação da Phase 43"
+    rationale: >-
+      Eram decisões de registro, não comportamento de produto — o próprio item dizia isso. Foram
+      EXECUTADAS, não aceitas. Duas das cinco já haviam sido fechadas pelo trabalho da Phase 44
+      antes desta passagem.
+    what_changed: >-
+      (1) `43-09-SUMMARY.md` ganhou §«Escrita ao vivo — `rejeitado` 24 → 18 (2026-08-03)» com o
+      que a escrita provou elo a elo, e o `requires:` do topo foi corrigido — fecha **W-2** e o
+      item (5). (2)+(3) A tabela de status do `REQUIREMENTS.md` JÁ estava correta (CONSENT-01..04/06
+      `Complete`, CONSENT-05 `Phase 47 | Deferred`); o que restava stale era o **bloco de nota**,
+      que afirmava o oposto — reescrito, fechando **W-6** pelo lado que sobrou. CONSENT-05 ganhou
+      nota de fronteira de fase simétrica à de RETEN-05 → Phase 46. (4) O `42804` entrou em
+      `STATE.md` §Blockers/Concerns com as duas lições que valem para 45/46/47 (o smoke que só
+      exercita a recusa conta como verde; o rebaixamento comprou o conserto e não a guarda) —
+      fecha **W-7**. ⚠ A cláusula de W-7 sobre §Current Position dizer `gaps_found, 2/5` foi
+      **superada por evento**: aquela seção avançou para a Phase 44, onde `2/5` agora se refere
+      legitimamente à `44-VERIFICATION.md`.
 ---
 
 # Phase 43: Consentimentos Honestos & Política de Retenção — Verification Report (3ª passagem)

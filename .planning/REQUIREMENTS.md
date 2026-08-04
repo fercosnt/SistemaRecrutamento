@@ -53,17 +53,28 @@
 - [x] **CONSENT-02**: Cada consentimento é gravado com versão do texto + hash + timestamp, tornando pré/pós-enforcement distinguíveis por **dado**, não por inferência
 - [x] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
 - [x] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
-- [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida
+- [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida → **diferido à Phase 47** (ver nota abaixo)
 
-> **Estado parcial de CONSENT-01/02/03/05 após o plano 43-01 (2026-08-01) — deliberadamente NÃO marcados como completos.**
-> O **lado SERVIDOR** está fechado em código: `_shared/schemas.ts` sem `.default(true)`,
-> `_shared/autorizacoes-registro.ts` sem coalescência, hash SHA-256 calculado na EF, gravação
-> fail-closed (BD-4), migration `20260801000001` e smoke escritos.
-> **Falta, e sem isso o requirement não é observável:** os 6 sítios de `.default(true)` do
-> CLIENTE (plano **43-03**), o **apply** da migration e o **deploy ORDENADO** da EF
-> (checkpoint **43-07**). Enquanto a migration não for aplicada, a EF grava em colunas que não
-> existem. Marcar `[x]` aqui afirmaria em `.planning/` exatamente a classe de coisa que esta
-> fase existe para eliminar — um consentimento declarado sem código que o execute.
+> **Estado de CONSENT-01/02/03 — FECHADO em 2026-08-03.** *(Este bloco descrevia o estado
+> parcial após o plano 43-01, em 2026-08-01, quando os três estavam deliberadamente sem `[x]`.
+> Reescrito em 2026-08-04 ao fechar o item 3 do `human_verification` da `43-VERIFICATION.md`:
+> o texto antigo contradizia a tabela de status e o próprio checklist — achado **W-6**.)*
+>
+> As três condições que faltavam foram cumpridas: os 6 sítios de `.default(true)` do CLIENTE
+> (plano **43-03**), o **apply** da migration `20260801000001` e o **deploy ORDENADO** da EF
+> (checkpoint **43-07**). O fecho foi provado **ao vivo em 2026-08-03**, não por leitura —
+> um cadastro real com duas caixas deixadas desmarcadas gravou `false` (CONSENT-01), com
+> versão + hash idêntico ao hex pinado + timestamp (CONSENT-02). Detalhe por requirement na
+> tabela de status abaixo.
+>
+> **CONSENT-05 é o único que segue em aberto, e por decisão de escopo, não por falta de
+> código.** A **coleta** parou na Phase 43 (campo fora do formulário, `.strict()` rejeita a
+> chave). O que resta é `autorizacao_analise_video NOT NULL DEFAULT false`, que faz cada linha
+> nova **afirmar** resposta a uma pergunta que não se faz mais — e o `DROP`/`ALTER` que
+> resolve isso é decisão da **Phase 47** sob o portão de fase destrutiva. Espelha o
+> tratamento de **RETEN-05 → Phase 46**: o requirement diz "resolvido", e resolver é escrita
+> destrutiva, que não pertence à fase zero-destrutiva. Ver
+> `todos/pending/43-analise-video-default-false-fabrica-afirmacao.md`.
 
 - [x] **CONSENT-06**: Click tracking desligado no Resend — rastrear cliques em e-mail transacional é coleta não consentida
 
@@ -231,9 +242,10 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | 46 | Purga Automática (dry-run → live) | 8 | PURGA (7) + RETEN-05 |
 | 47 | Transparência & Consolidação | 6 | TRANSP (2) + CONSOL (4) |
 
-**Duas categorias atravessam fronteira de fase — deliberadamente:**
+**Três requirements atravessam fronteira de fase — deliberadamente:**
 
 - **RETEN-05** (retenção de `notificacoes_enviadas`) fica na **Phase 46**, não na 43. A *linha* na matriz de retenção nasce com RETEN-01 na Phase 43, mas o requirement diz "definida **e aplicada**" — e a aplicação é um `DELETE` por cron. Pôr um cron destrutivo na Phase 43 quebraria a propriedade que define aquela fase (*zero ação destrutiva*), que é justamente o que a torna segura de executar cedo.
+- **CONSENT-05** (`autorizacao_analise_video` resolvido) fica na **Phase 47**, não na 43 — *mapeamento registrado em 2026-08-04, fechando o item 3 do `human_verification` da `43-VERIFICATION.md`*. Simetria exata com RETEN-05: a metade não-destrutiva **foi** feita na 43 (a coleta parou — campo fora do formulário, `.strict()` rejeita a chave), e o que sobra é o `DROP`/`ALTER` da coluna `NOT NULL DEFAULT false` que faz cada linha nova **afirmar** resposta a pergunta que não se faz mais. `DROP` de coluna com escritor vivo é exatamente o que o portão de fase destrutiva cobre na **47** (CONSOL-03). A tabela de status registra `Phase 47 | Deferred`; a contagem da Phase 43 permanece 11 porque a coleta, que era o trabalho da fase, está fechada.
 - **TRANSP** fica na **Phase 47**, não na 43. TRANSP-02 ("o que guardamos e por quê") tem de descrever o que o sistema **faz**, não o que promete. Escrita na 43 descreveria intenção — exatamente o teatro de compliance que este milestone existe para remover. Pareada com CONSOL-04 (checklist "toda promessa tem código que a executa"), a página pública e a auditoria se checam mutuamente.
 
 **Restrições de ordenação — verificação de conformidade do mapeamento:**
