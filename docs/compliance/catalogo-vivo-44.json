@@ -1,13 +1,13 @@
 {
   "meta": {
-    "medido_em": "2026-08-03T19:38:03Z",
+    "medido_em": "2026-08-04T01:34:27Z",
     "projeto": "isljnozzlvckrgjjbjwp",
     "fonte": "information_schema via execute_sql do MCP, pelo orquestrador",
     "query_reprodutora": "docs/compliance/sql/01-pii-catalog.sql (consultas (a) e (d))",
     "totais": {
-      "tabelas_base_public": 67,
-      "colunas_public": 1013,
-      "fks_public": 104
+      "tabelas_base_public": 69,
+      "colunas_public": 1025,
+      "fks_public": 105
     }
   },
   "tabelas": [
@@ -28,6 +28,7 @@
     "cognitivo_respostas",
     "comparativo_solicitado",
     "config_retencao_etapa",
+    "config_sla_dados",
     "config_sla_etapa",
     "config_sla_revisao",
     "configuracoes_empresa",
@@ -72,6 +73,7 @@
     "scores_disc",
     "scores_raven",
     "sessoes_ativas",
+    "solicitacoes_dados",
     "templates_email",
     "usuarios_rh",
     "vagas",
@@ -4363,6 +4365,55 @@
       "tipo": "timestamp with time zone",
       "nullable": false,
       "ordem": 17
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 1
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "candidato_id",
+      "tipo": "uuid",
+      "nullable": false,
+      "ordem": 2
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "tipo",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 3
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "situacao",
+      "tipo": "text",
+      "nullable": false,
+      "ordem": 4
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "causa",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 5
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "solicitado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": false,
+      "ordem": 6
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "atendido_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 7
     },
     {
       "tabela": "templates_email",
