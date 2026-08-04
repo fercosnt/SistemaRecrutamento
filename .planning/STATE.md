@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-03-PLAN.md
-last_updated: "2026-08-04T01:21:03.317Z"
+stopped_at: Completed 44-04-PLAN.md
+last_updated: "2026-08-04T01:45:46.191Z"
 last_activity: 2026-08-03
 last_activity_desc: Phase 44 execution started
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 30
-  completed_plans: 24
+  completed_plans: 25
   percent: 33
 ---
 
@@ -79,7 +79,7 @@ seguido de nó de texto com espaço. Não afeta função.
 ## Current Position
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-08-03 — Phase 44 execution started
 
@@ -151,6 +151,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P01 | ~20min | 3 tasks | 6 files |
 | Phase 44 P02 | ~35min | 3 tasks | 3 files |
 | Phase 44 P03 | ~2h | 3 tasks | 7 files |
+| Phase 44 P04 | ~50min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -283,6 +284,13 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 44-03: scores/bandas/percentis ENTRAM nos arquivos entregues ao titular — o ban da UI-SPEC governa TELA (apresentacao), o Art. 18 II governa o DIREITO a copia
 - [Phase ?]: 44-03: o smoke de drift compara o catalogo vivo contra allowlist UNIAO excluidas (392), nunca contra a allowlist sozinha (358) — guarda que grita 34 vezes por desenho e a imagem espelhada do dead code do P39/CR-02
 - [Phase ?]: 44-03: ponteiro de pessoa e conceito SEMANTICO, nao sufixo _id — referencia_match (uuid[] de candidaturas de terceiros) e entrevistador (nome de funcionario, text) evadiriam a regra R2. Insumo direto para a Phase 45
+- [Phase ?]: 44-04: md5 do ledger compara contra md5(arquivo SEM o \n final) — o banco nao guarda o newline final; o esperado do plano reprovaria TODA migration da fase
+- [Phase ?]: 44-04: fidelidade de migration provada tambem por obj_description, nao so por hash — o md5 prova que algo chegou integro, a leitura prova que a coisa certa chegou
+- [Phase ?]: 44-04: as 3 colunas text de solicitacoes_dados (tipo/situacao/causa) receberam veredito explicito true; relaxar a R3 para aceitar text continua PROIBIDO
+- [Phase ?]: 44-04: causa entra na copia e e segura por CONSTRUCAO — vocabulario fechado por CHECK e COMMENT proibindo mensagem crua/HTTP/stack/Storage
+- [Phase ?]: 44-04: indentacao de 4 espacos do --sql-values virou contrato no GERADOR, nao no regex do consumidor — afrouxar a (k) perderia a checagem de que o paste caiu no lugar certo
+- [Phase ?]: 44-04: normalizacao IN -> = ANY (ARRAY[...]) no qual vivo NAO e drift; 44-05/44-08/44-09 nao devem comparar qual do catalogo contra texto do arquivo
+- [Phase ?]: 44-04: npm run db:types grava o ERRO em stdout — o > nao so trunca, PREENCHE database.types.ts com o blob JSON de erro. Provar o gerador contra arquivo temporario e obrigatorio
 
 ### Pending Todos
 
@@ -322,6 +330,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - 42-08 CHECKPOINT PENDENTE: deploy da EF notificar-candidato + apply de 20260730000004 (CHECK 6 valores + trg_notif_revisao_respondida) + smoke 4/4 + round-trip. ⚠ NOTIFICACOES_MODO é 'producao' e é secret de PROJETO: o smoke envia e-mail REAL — ver a tabela de opções A/B/C no 42-08-SUMMARY
 - 42-12 CHECKPOINT PENDENTE (bloqueante, portão de fase destrutiva): INVENT-05 NÃO entregue. Ordem obrigatória — (1) medir ANTES por docs/compliance/sql/04-invent05-blast-radius.sql; (2) dry-run = delta alcance_corrigido−alcance_atual (se >0, volta ao checkpoint de decisão); (3) code review BLOQUEANTE antes do apply; (4) registrar corpo vivo + md5 dos 3 jobs; (5) apply_migration p42_invent05_not_exists + reparar ledger p/ 20260730000005 + assertir md5(statements[1]); (6) medir DEPOIS pela MESMA consulta (total_logs NÃO pode mudar — se mudar é incidente); (7) smoke 4/4 numa ÚNICA chamada + md5 dos vizinhos idênticos ao passo 4; (8) VERIFICATION.md com veredito; (9) preencher ⏳ do cron-inventory.md; (10) commit com hook, zero --no-verify
 - 44-01 NAO fecha EXPORT-02 nem EXPORT-06: constroi o MECANISMO (escopo + gerador + fecho), nao o artefato. export-allowlist.json e _shared/exportAllowlist.ts so nascem no 44-03, com o catalogo vivo. Ate la 'node docs/compliance/sql/gen-export-allowlist.cjs' sai 1 — e essa E a saida correta. Dry-run contra a config real acusou 62 pendencias de fecho de coluna (superestimadas pelo proxy de tipos; ~20 sao temporais que o catalogo vivo resolve por R3): e a carga que o 44-03 herda.
+- 44-04: database.types.ts NAO regenerado — auth gate do Supabase CLI (sem SUPABASE_ACCESS_TOKEN e sem supabase login). Desbloqueio: supabase login OU token no ambiente; depois gerar para TEMPORARIO antes do arquivo trackeado. Tambem: supabase db push --linked nao executado (CLI fora do PATH); ledger verificado por SQL direto
 
 ## Deferred Verification
 
@@ -382,8 +391,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T01:20:42.152Z
-Stopped at: Completed 44-03-PLAN.md
+Last session: 2026-08-04T01:45:29.762Z
+Stopped at: Completed 44-04-PLAN.md
 Resume file: None
 
 ## Operator Next Steps
