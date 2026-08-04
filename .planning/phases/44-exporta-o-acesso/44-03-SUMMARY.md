@@ -399,7 +399,8 @@ implementadas e testadas:
 
 ## Self-Check: PASSED
 
-- Arquivos criados/modificados: **6/6 FOUND** (+ catálogo do orquestrador)
-- Commits: **10/10 FOUND** no histórico
+- Arquivos criados/modificados: **6/6 FOUND** (+ catálogo do orquestrador + este SUMMARY)
+- Commits: **11/11 FOUND** no histórico (10 do plano + `98ad87e`, metadados)
+- `git status` limpo após o commit final
 - `gen-export-allowlist.cjs` exit 0 · `--check` exit 0 · 11/11 · 1442 testes verdes · tsc 97
 - Smoke contra PROD: 0 linhas, com mordida provada nas duas direções
