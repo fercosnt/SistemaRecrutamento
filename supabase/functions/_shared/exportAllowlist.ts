@@ -69,15 +69,17 @@ export const EXPORT_ALLOWLIST = {
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-08-04T01:37:44.712Z",
+    "gerado_em": "2026-08-04T04:33:43.017Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
+    "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
       "colunas_colhidas": 731,
       "colunas_com_veredito_em_escopo": 399,
       "colunas_excluidas_em_escopo": 34,
       "colunas_exportadas": 365,
+      "colunas_fora_do_arquivo_legivel": 4,
       "tabelas_catalogadas": 69,
       "tabelas_com_colunas_colhidas": 51,
       "tabelas_em_escopo": 30,
@@ -112,6 +114,7 @@ export const EXPORT_ALLOWLIST = {
         "entrevistador": "decisoes_por_coluna: pii_de_terceiro — o `pii-inventory.yaml` anota esta coluna com uma palavra só:\n\"Funcionário\". É o NOME de quem conduziu a entrevista, em `text`.\n\nA regra R2 de `ponteiros` não a pega porque ela não é um UUID: é o mesmo modo de\nevasão de `redacoes_candidato.referencia_match`, e a segunda ocorrência dele nesta\nfase. O escopo já exclui `agendado_por` e `avaliador_id` pela mesma razão; excluir\no UUID do funcionário e exportar o nome dele seria a exclusão em forma, não em\nefeito. A migration `20260716000001_agendamentos_entrevista.sql:131` já declara\nesta coluna fora da assinatura de resultado exposta — este veredito apenas mantém\na allowlist coerente com o que o banco já decidiu.\n",
         "updated_by": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -148,6 +151,7 @@ export const EXPORT_ALLOWLIST = {
       "colunas_excluidas": {
         "erro": "decisoes_por_coluna: (i) telemetria_interna — mensagem de FALHA do pipeline. Pode carregar payload de provedor, stack e identificador interno de infraestrutura, e a 44-UI-SPEC §Arquivos proíbe literalmente 'qualquer chave, token ou identificador interno de infraestrutura' nos dois arquivos entregues. O titular não fica sem o fato: `status` ENTRA e diz que a análise falhou — o que se omite é o payload interno, não a informação."
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -186,6 +190,7 @@ export const EXPORT_ALLOWLIST = {
         "user_id"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "autorizacao_analise_video": "inventario:preservar",
@@ -231,6 +236,7 @@ export const EXPORT_ALLOWLIST = {
       "colunas_excluidas": {
         "avaliador_id": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "adequacao_cultural": "R3",
@@ -278,6 +284,7 @@ export const EXPORT_ALLOWLIST = {
         "review_requested_by": "pii_de_terceiro (R2)",
         "reviewer_id": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "ai_composite_score": "inventario:preservar",
@@ -337,6 +344,9 @@ export const EXPORT_ALLOWLIST = {
         "created_by": "pii_de_terceiro (R2)",
         "updated_by": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [
+        "avatar_url"
+      ],
       "ligacao": "direta",
       "proveniencia": {
         "ativo": "inventario:preservar",
@@ -417,6 +427,9 @@ export const EXPORT_ALLOWLIST = {
         "created_by": "pii_de_terceiro (R2)",
         "updated_by": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [
+        "curriculo_url"
+      ],
       "ligacao": "direta",
       "proveniencia": {
         "analise_ia_bigfive": "inventario:preservar_com_ressalva",
@@ -471,6 +484,7 @@ export const EXPORT_ALLOWLIST = {
         "shuffle_seed"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -501,6 +515,7 @@ export const EXPORT_ALLOWLIST = {
         "por_usuario": "pii_de_terceiro (R2)",
         "revisao_por_usuario": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "inventario:preservar",
@@ -528,6 +543,7 @@ export const EXPORT_ALLOWLIST = {
         "justificativa": "decisoes_por_coluna: Mesma coluna, versões arquivadas da mesma decisão. Um veredito que valesse só para a linha corrente deixaria o histórico entregando o que a corrente esconde. Reverte junto com `decisao_final.justificativa` se o operador decidir por `true`.",
         "por_usuario": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "arquivado_em": "inventario:preservar",
@@ -551,6 +567,7 @@ export const EXPORT_ALLOWLIST = {
         "modelo_ia": "decisoes_por_coluna: (i) telemetria_interna — qual modelo gerou a devolutiva. O RESULTADO entregue à pessoa entra; a ficha técnica de como ele foi produzido, não.",
         "prompt_version": "decisoes_por_coluna: (i) telemetria_interna — idem. O CONTEÚDO da devolutiva (`conteudo_jsonb`) entra por R5; é ele que a pessoa recebeu."
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "candidato_id": "R2:do_titular",
@@ -574,6 +591,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "candidato_id": "R2:do_titular",
@@ -606,6 +624,7 @@ export const EXPORT_ALLOWLIST = {
         "prompt_version": "decisoes_por_coluna: (i) telemetria_interna — idem `redacoes_candidato.prompt_version`.",
         "revisada_por": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "bias_flags": "inventario:preservar",
@@ -653,6 +672,10 @@ export const EXPORT_ALLOWLIST = {
         "agendado_por": "pii_de_terceiro (R2)",
         "realizado_por": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [
+        "gravacao_url",
+        "link_videochamada"
+      ],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "analise_ia": "inventario:preservar_com_ressalva",
@@ -709,6 +732,7 @@ export const EXPORT_ALLOWLIST = {
         "agendado_por": "pii_de_terceiro (R2)",
         "realizado_por": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -748,6 +772,7 @@ export const EXPORT_ALLOWLIST = {
       "colunas_excluidas": {
         "ator": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "auto_rejeitado": "inventario:preservar",
@@ -778,6 +803,7 @@ export const EXPORT_ALLOWLIST = {
       "colunas_excluidas": {
         "channel": "decisoes_por_coluna: (i) telemetria_interna — canal de ENTREGA do alerta AO FUNCIONÁRIO ('email' | 'cost_anomaly'), medido no DDL da migration 20260609000001. Descreve como o sistema notificou o RH, não a pessoa; é o mesmo ledger operacional de entrega por que `notificacoes_enviadas` está fora. Contrasta deliberadamente com `candidate_ai_decisions.explanation_channel`, que é entrega AO TITULAR e por isso ENTRA."
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "call_type": "R3",
@@ -830,6 +856,7 @@ export const EXPORT_ALLOWLIST = {
         "referencia_match": "decisoes_por_coluna: pii_de_terceiro — E ESTE É O ACHADO QUE JUSTIFICA O FECHO COLUNA A COLUNA.\nO DDL (20260623100003_redacoes_candidato.sql:70) é literal: `uuid[] NOT NULL\n-- candidatura_ids match no hash`. São os identificadores das candidaturas\nde OUTRAS PESSOAS cuja redação bateu no mesmo hash anti-plágio (RF-R-18).\nExportá-lo entregaria ao titular uma lista de candidaturas alheias — a mesma\n`pii_de_terceiro` por que `comparativo_solicitado` está fora no nível da\ntabela. A regra R2 de `ponteiros` não o pega porque o nome não termina em\n`_id`; foi o ERRO DE FECHAMENTO que o trouxe à mesa. É exatamente o vazamento\nque uma allowlist \"gerada por regra\" teria produzido em silêncio.\nO titular não perde o fato: `flags` ENTRA e carrega\n`possivel_plagio_intercandidato` — ele fica sabendo da suspeita levantada\nsobre ele sem receber a identidade de quem mais foi apanhado no mesmo hash.\n",
         "revisada_por": "pii_de_terceiro (R2)"
       },
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "analise_ia": "inventario:preservar_com_ressalva",
@@ -872,6 +899,7 @@ export const EXPORT_ALLOWLIST = {
         "word_count"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -896,6 +924,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -916,6 +945,7 @@ export const EXPORT_ALLOWLIST = {
         "tempo_resposta_segundos"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -938,6 +968,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -961,6 +992,7 @@ export const EXPORT_ALLOWLIST = {
         "tempo_resposta_segundos"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -985,6 +1017,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -1008,6 +1041,7 @@ export const EXPORT_ALLOWLIST = {
         "tempo_resposta_segundos"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -1033,6 +1067,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "analise_ia": "inventario:preservar_com_ressalva",
@@ -1066,6 +1101,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "candidatura_id": "R1",
@@ -1100,6 +1136,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "analise_ia": "inventario:preservar_com_ressalva",
@@ -1131,6 +1168,7 @@ export const EXPORT_ALLOWLIST = {
         "updated_at"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
       "proveniencia": {
         "acertos_por_serie": "decisoes_por_coluna",
@@ -1158,6 +1196,7 @@ export const EXPORT_ALLOWLIST = {
         "tipo"
       ],
       "colunas_excluidas": {},
+      "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {
         "atendido_em": "R1",

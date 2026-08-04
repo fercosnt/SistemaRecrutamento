@@ -145,6 +145,23 @@ const R3 = (_nome, tipo) => typeof tipo === 'string' && TIPOS_R3.test(tipo);
 const R5_NOMES = new Set(['raw_response', 'conteudo_jsonb', 'metadata', 'dados_antes', 'dados_depois']);
 const R5 = (nome) => /^analise_ia/.test(nome) || R5_NOMES.has(nome);
 
+/**
+ * Nome que ANUNCIA endereço: `*_url`, `url_*`, `*_uri`, `*_link`, `link_*` e os
+ * plurais. É o gatilho do fecho de `ponteiros_de_infra` — não o veredito.
+ *
+ * ⚠ O padrão decide QUEM PRECISA DE VEREDITO, nunca qual é o veredito. A
+ * distinção é o ponto: `agendamentos_entrevista.local_ou_link` e
+ * `candidatos.instagram_url` casam o padrão e ficam VISÍVEIS no arquivo legível,
+ * porque são dado do titular. Se o padrão decidisse sozinho, o gerador estaria
+ * escondendo do titular o que ele mesmo digitou — e ninguém teria assinado isso.
+ *
+ * O padrão viaja para dentro do artefato (`meta.padrao_nome_de_endereco`) porque
+ * o consumidor do arquivo legível precisa do MESMO padrão para fechar o caso de
+ * tabela desconhecida, e duas cópias de uma regex divergem.
+ */
+const NOME_DE_ENDERECO = '(^|_)(url|urls|uri|uris|link|links)($|_)';
+const casaNomeDeEndereco = (nome) => new RegExp(NOME_DE_ENDERECO).test(nome);
+
 /** Glob de nome de TABELA: `config_*`, `*_itens`, `perguntas*`. */
 function casaGlob(padrao, nome) {
   const re = new RegExp(
@@ -168,7 +185,7 @@ function construir() {
 
   const erros = [];
 
-  for (const bloco of ['meta', 'escopo_titular', 'fora_do_escopo', 'fora_do_escopo_por_regra', 'colunas_nunca', 'ponteiros', 'decisoes_por_coluna']) {
+  for (const bloco of ['meta', 'escopo_titular', 'fora_do_escopo', 'fora_do_escopo_por_regra', 'colunas_nunca', 'ponteiros', 'ponteiros_de_infra', 'decisoes_por_coluna']) {
     if (!esc[bloco]) erros.push(`${REL(ESCOPO)}: bloco obrigatório ausente — \`${bloco}\``);
   }
   if (erros.length) morrer(erros.join('\n'));
@@ -362,7 +379,55 @@ function construir() {
       colunas,
       proveniencia,
       colunas_excluidas,
+      // Preenchido pelo fecho de PONTEIROS DE INFRA, logo abaixo. A chave existe
+      // SEMPRE, inclusive vazia: o consumidor distingue "esta tabela não tem
+      // endereço nenhum" de "este artefato é velho e não conhece a chave".
+      fora_do_arquivo_legivel: [],
     };
+  }
+
+  // --- fecho de PONTEIROS DE INFRA ----------------------------------------
+  // O que decide o que a PESSOA lê no `.html`. Duas direções, e as duas mordem:
+  //
+  //  · DIRETA — coluna EXPORTADA com nome de endereço e sem veredito FALHA a
+  //    geração. É o que impede a próxima coluna `*_url` de entrar no arquivo
+  //    legível em silêncio, que é literalmente o defeito que este bloco corrige.
+  //  · INVERSA — veredito que não aponta mais para coluna exportada de tabela em
+  //    escopo é ÓRFÃO, e uma exclusão órfã DEIXA DE EXCLUIR sem avisar: a coluna
+  //    renomeada volta a ser renderizada com o veredito antigo apodrecendo ao
+  //    lado. Mesmo modo de falha que o `05-export-allowlist-drift.sql` já nomeia.
+  const infra = esc.ponteiros_de_infra || {};
+  for (const [chave, v] of Object.entries(infra)) {
+    if (!v || typeof v.fora_do_arquivo_legivel !== 'boolean' || !v.razao) {
+      erros.push(
+        `ponteiros_de_infra.${chave}: \`fora_do_arquivo_legivel\` (booleano) e \`razao\` são ` +
+          `obrigatórios. Um veredito sem razão é a omissão que este bloco existe para impedir.`,
+      );
+      continue;
+    }
+    const [tabela, coluna] = chave.split('.');
+    if (!tabelas[tabela] || !tabelas[tabela].colunas.includes(coluna)) {
+      erros.push(
+        `VEREDITO ÓRFÃO (ponteiros_de_infra): \`${chave}\` tem veredito em ${REL(ESCOPO)} e NÃO é ` +
+          `coluna exportada de tabela em escopo. Um veredito órfão deixa de valer em silêncio — ` +
+          `remova-o ou corrija o nome.`,
+      );
+      continue;
+    }
+    if (v.fora_do_arquivo_legivel) tabelas[tabela].fora_do_arquivo_legivel.push(coluna);
+  }
+  for (const [tabela, t] of Object.entries(tabelas)) {
+    t.fora_do_arquivo_legivel.sort();
+    for (const coluna of t.colunas) {
+      if (!casaNomeDeEndereco(coluna)) continue;
+      if (infra[`${tabela}.${coluna}`] !== undefined) continue;
+      erros.push(
+        `ERRO DE FECHAMENTO (ponteiro de infra): \`${tabela}.${coluna}\` é EXPORTADA e tem nome de ` +
+          `endereço, e nenhum veredito em \`ponteiros_de_infra\` do ${REL(ESCOPO)} diz se ela se LÊ ` +
+          `ou se é ponteiro. Declare \`fora_do_arquivo_legivel\` com razão — as duas respostas são ` +
+          `legítimas, o silêncio não é.`,
+      );
+    }
   }
 
   if (erros.length) {
@@ -383,6 +448,10 @@ function construir() {
   // vivas das tabelas em escopo, e é essa identidade que o smoke SQL verifica.
   const colunasExcluidasEmEscopo = Object.values(tabelas).reduce(
     (a, t) => a + Object.keys(t.colunas_excluidas || {}).length,
+    0,
+  );
+  const colunasForaDoArquivoLegivel = Object.values(tabelas).reduce(
+    (a, t) => a + t.fora_do_arquivo_legivel.length,
     0,
   );
 
@@ -419,7 +488,18 @@ function construir() {
         // que não esteja em nenhum dos dois lados é coluna SEM VEREDITO.
         colunas_com_veredito_em_escopo: colunasExportadas + colunasExcluidasEmEscopo,
         tabelas_excluidas: Object.keys(excluidas).length,
+        // ⚠ NÃO entra na identidade acima de propósito. Estas colunas SÃO
+        // exportadas (o `.json` as carrega); o que elas não fazem é aparecer no
+        // arquivo que a pessoa lê. Somá-las às excluídas confundiria dois fatos
+        // diferentes num número só.
+        colunas_fora_do_arquivo_legivel: colunasForaDoArquivoLegivel,
       },
+      // O padrão que dispara o fecho de `ponteiros_de_infra`. Viaja no artefato
+      // porque o gerador do arquivo legível precisa do MESMO padrão para fechar o
+      // caso da tabela que ele não conhece (artefato do cliente mais novo que a
+      // Edge Function implantada, ou o contrário). Duas cópias de uma regex
+      // divergem; esta é a única.
+      padrao_nome_de_endereco: NOME_DE_ENDERECO,
       // Os totais MEDIDOS contra o banco, copiados do catálogo como `medido_em`
       // — nunca recontados aqui. É o denominador honesto do fecho.
       totais_medidos_em_public: (cat.meta && cat.meta.totais) || null,

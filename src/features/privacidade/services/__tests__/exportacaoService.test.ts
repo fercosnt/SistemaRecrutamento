@@ -69,6 +69,10 @@ import {
   TRAVESSAO,
   type RespostaExport,
 } from '../exportacaoService'
+// A MESMA fonte que o serviço filtra e que a Edge Function projeta. Importar o
+// artefato (em vez de repetir nomes de coluna aqui) é o que impede esta sonda de
+// ficar para trás quando a allowlist crescer por geração.
+import { EXPORT_ALLOWLIST } from '../../../../../supabase/functions/_shared/exportAllowlist'
 
 const ISO = '2026-08-04T13:45:00.000Z'
 
@@ -476,6 +480,76 @@ describe('gerarHtmlExport', () => {
     for (const marca of [marcaToken, marcaSign, marcaBase64, caminhoStorage]) {
       expect(`x${marca}y`).toContain(marca)
     }
+  })
+
+  it('(p2) NENHUM ponteiro de infra da ALLOWLIST GERADA entra no arquivo legível', () => {
+    // ⚠ A (p) acima prova UMA coluna, por fixture. Era esse o buraco: enquanto a
+    // exclusão era um `Set` literal de um item, três irmãs (`avatar_url`,
+    // `gravacao_url`, `link_videochamada`) já estavam na allowlist e passavam
+    // direto — e nenhum teste tinha fixture delas. Esta sonda ENUMERA o artefato
+    // gerado, então ela não pode ficar para trás quando a allowlist crescer.
+    const declarados = Object.entries(EXPORT_ALLOWLIST.tabelas).flatMap(([tabela, def]) =>
+      ((def as { fora_do_arquivo_legivel: readonly string[] }).fora_do_arquivo_legivel ?? []).map(
+        (coluna) => [tabela, coluna] as const,
+      ),
+    )
+
+    // META-TEST: uma sonda que não enumera nada é no-op verde.
+    expect(declarados.length, 'a sonda não achou ponteiro nenhum no artefato — é no-op').toBeGreaterThan(0)
+
+    for (const [tabela, coluna] of declarados) {
+      const marca = `MARCA-${tabela}-${coluna}`
+      const html = gerarHtmlExport(resposta({ payload: { [tabela]: [{ id: 'x', [coluna]: marca }] } }))
+      expect(html, `${tabela}.${coluna} vazou para o arquivo legível`).not.toContain(marca)
+    }
+  })
+
+  it('(p3) o filtro é DIRIGIDO, não uma varredura: endereço do titular continua visível', () => {
+    // O contrapeso da (p2), e ele é o que impede a correção de virar excesso. Uma
+    // regra que escondesse todo nome de endereço tiraria do titular o que ele
+    // mesmo digitou (`instagram_url`) e o ONDE da entrevista (`local_ou_link`) —
+    // e essas duas colunas têm veredito EXPLÍCITO `fora_do_arquivo_legivel: false`
+    // no `export-scope-rules.yaml`. Elas casam o padrão de nome e ficam visíveis.
+    const visiveis = [
+      ['candidatos', 'instagram_url'],
+      ['agendamentos_entrevista', 'local_ou_link'],
+    ] as const
+
+    for (const [tabela, coluna] of visiveis) {
+      const declarados = (
+        EXPORT_ALLOWLIST.tabelas as Record<string, { colunas: readonly string[]; fora_do_arquivo_legivel: readonly string[] }>
+      )[tabela]
+      // Se a coluna sair da allowlist, esta asserção avisa em vez de virar no-op.
+      expect(declarados?.colunas, `${tabela}.${coluna} sumiu da allowlist`).toContain(coluna)
+      expect(declarados.fora_do_arquivo_legivel).not.toContain(coluna)
+
+      const marca = `MARCA-${tabela}-${coluna}`
+      const html = gerarHtmlExport(resposta({ payload: { [tabela]: [{ id: 'x', [coluna]: marca }] } }))
+      expect(html, `${tabela}.${coluna} sumiu do arquivo legível sem veredito que o mande sumir`).toContain(marca)
+    }
+  })
+
+  it('(p4) tabela que o artefato NÃO conhece falha FECHADA: endereço não é impresso', () => {
+    // A Edge Function roda o artefato IMPLANTADO; este bundle roda o artefato
+    // COMPILADO. Na janela entre regenerar e implantar eles divergem, e a EF pode
+    // projetar uma tabela que este código não conhece. "Não sei" tem de esconder
+    // o endereço, nunca imprimi-lo.
+    const tabelaNova = 'tabela_que_nao_existe_no_artefato'
+    expect(Object.keys(EXPORT_ALLOWLIST.tabelas)).not.toContain(tabelaNova)
+
+    const html = gerarHtmlExport(
+      resposta({
+        payload: {
+          [tabelaNova]: [
+            { id: 'x', anexo_url: 'MARCA-ENDERECO', observacao: 'MARCA-LEGIVEL' },
+          ],
+        },
+      }),
+    )
+
+    expect(html, 'endereço de tabela desconhecida foi impresso — o fail-open que a CR-01 nomeia').not.toContain('MARCA-ENDERECO')
+    // …e a seção continua INTEIRA: fechar no endereço nunca vira esconder a tabela.
+    expect(html).toContain('MARCA-LEGIVEL')
   })
 
   it('(q) texto livre atravessa ÍNTEGRO; ausência vira travessão, nunca `null`', () => {

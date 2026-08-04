@@ -48,6 +48,11 @@ import { supabase } from '@/lib/supabase/client'
 // verdades sobre o mesmo canal humano — e é o canal que a copy de erro oferece
 // quando o caminho automático falha.
 import { ENCARREGADO_EMAIL } from '../components/AutorizacoesLista'
+// ⚠ O MESMO artefato gerado que a Edge Function projeta. A importação é o ponto:
+// o que sai do arquivo legível passa a ser dado do artefato, não literal deste
+// módulo — e o gerador reprova a coluna de endereço sem veredito. Ver
+// `FORA_DO_ARQUIVO_LEGIVEL` abaixo.
+import { EXPORT_ALLOWLIST } from '../../../../supabase/functions/_shared/exportAllowlist'
 
 /**
  * O que a ausência de valor renderiza — nunca `null`, nunca `undefined`, nunca
@@ -254,20 +259,63 @@ export const COPY_ARQUIVO = {
 } as const
 
 /**
- * Colunas que ficam **fora do arquivo legível** — e a lista tem UM item.
+ * As colunas que ficam **fora do arquivo legível** — LIDAS DO ARTEFATO GERADO,
+ * nunca escritas aqui.
  *
- * `curriculo_url` é o CAMINHO do arquivo no Storage: um identificador interno de
- * infraestrutura, que não diz nada ao titular e é a semente do link assinado de
- * 60 s. A §"Os dois arquivos" da 44-UI-SPEC manda o currículo aparecer **apenas
- * pelo nome do arquivo e pela data de envio**, com a frase fixa ao lado — e é
- * exatamente o que a nota acima faz.
+ * ── POR QUE ISTO NÃO É MAIS UM `Set` LITERAL ─────────────────────────────────
+ * Era. E o literal tinha um item (`curriculo_url`) sob um docblock afirmando que
+ * um item era a resposta completa. Eram quatro: `candidatos.avatar_url`,
+ * `entrevistas_online.gravacao_url` e `entrevistas_online.link_videochamada` já
+ * estavam na allowlist e atravessavam para o `<dd>` do arquivo que a pessoa
+ * guarda no aparelho. O `escapeHtml` deste mesmo módulo já tinha escrito a razão,
+ * 160 linhas acima: "uma lista de campos seguros é exatamente o tipo de coisa que
+ * envelhece mal — a allowlist do export cresce por geração automática, e a coluna
+ * nova entraria sem ninguém revisitar a lista". O argumento estava certo e não
+ * tinha sido aplicado aqui.
  *
- * ⚠ **Assimetria deliberada com o `.json`.** Lá o caminho permanece: aquele arquivo
- * é lido por máquina e o 44-05 registrou que ele é caminho, não link. Aqui ele
- * seria ruído com aparência de endereço — e a Invariante 4 é sobre o que a pessoa
- * lê. Nenhum dos dois carrega link assinado, que é a proibição de verdade.
+ * Agora o veredito é DADO: mora em `ponteiros_de_infra` do
+ * `export-scope-rules.yaml`, com razão nomeada por coluna, e o gerador **reprova a
+ * geração** quando uma coluna exportada com nome de endereço não tem veredito.
+ * Uma `*_url` nova não entra no arquivo legível em silêncio — ela para a geração.
+ *
+ * ⚠ **Assimetria deliberada com o `.json`.** Lá o caminho permanece: aquele
+ * arquivo é lido por máquina e o 44-05 registrou que ele é caminho, não link.
+ * Aqui seria ruído com aparência de endereço — e a Invariante 4 é sobre o que a
+ * pessoa lê. Nenhum dos dois carrega link assinado, que é a proibição de verdade.
+ *
+ * @see docs/compliance/export-scope-rules.yaml (§6b · PONTEIROS DE INFRAESTRUTURA)
  */
-const COLUNAS_FORA_DO_ARQUIVO_LEGIVEL = new Set(['curriculo_url'])
+const FORA_DO_ARQUIVO_LEGIVEL: ReadonlyMap<string, ReadonlySet<string>> = new Map(
+  Object.entries(EXPORT_ALLOWLIST.tabelas).map(([tabela, def]) => [
+    tabela,
+    new Set((def as { fora_do_arquivo_legivel?: readonly string[] }).fora_do_arquivo_legivel ?? []),
+  ]),
+)
+
+/**
+ * O padrão de NOME DE ENDEREÇO, lido do mesmo artefato — nunca recompilado a
+ * partir de uma segunda cópia da regex.
+ */
+const PADRAO_NOME_DE_ENDERECO = new RegExp(EXPORT_ALLOWLIST.meta.padrao_nome_de_endereco)
+
+/**
+ * O artefato é a autoridade para toda tabela que ele declara. Para uma tabela que
+ * ele **não** declara, a resposta é FECHADA, não aberta.
+ *
+ * O caso é alcançável e não é hipotético: a Edge Function roda uma versão
+ * **implantada** do artefato e o cliente roda a versão **compilada no bundle**.
+ * Elas divergem na janela entre um regenerar e o deploy seguinte. Se a EF projetar
+ * uma tabela que este bundle não conhece, "não sei" tem de resolver para
+ * **esconder o endereço**, nunca para imprimi-lo: o custo de errar para o lado
+ * fechado é um `<dd>` a menos numa seção que continua inteira; o custo de errar
+ * para o lado aberto é um caminho de Storage — talvez uma URL assinada — dentro de
+ * um arquivo que a pessoa pode encaminhar.
+ */
+function foraDoArquivoLegivel(tabela: string, coluna: string): boolean {
+  const declarada = FORA_DO_ARQUIVO_LEGIVEL.get(tabela)
+  if (declarada) return declarada.has(coluna)
+  return PADRAO_NOME_DE_ENDERECO.test(coluna)
+}
 
 /**
  * Ordem de LEITURA das seções — as quatro que respondem "quem sou eu aqui" vêm
@@ -327,13 +375,24 @@ function renderizarValor(valor: unknown): string {
   return escapeHtml(valor)
 }
 
-/** Um registro (uma linha da tabela) como lista de definição. */
-function renderizarRegistro(linha: unknown, indice: number, total: number): string {
+/**
+ * Um registro (uma linha da tabela) como lista de definição.
+ *
+ * ⚠ Recebe `tabela` porque o veredito de ponteiro é por `tabela.coluna`, não por
+ * nome de coluna solto: `local_ou_link` é endereço da entrevista e FICA visível,
+ * enquanto `link_videochamada`, na mesma linha do mesmo pedido, não fica.
+ */
+function renderizarRegistro(
+  tabela: string,
+  linha: unknown,
+  indice: number,
+  total: number,
+): string {
   if (linha === null || typeof linha !== 'object') {
     return `<article><p>${renderizarValor(linha)}</p></article>`
   }
   const campos = Object.entries(linha as Record<string, unknown>)
-    .filter(([coluna]) => !COLUNAS_FORA_DO_ARQUIVO_LEGIVEL.has(coluna))
+    .filter(([coluna]) => !foraDoArquivoLegivel(tabela, coluna))
     .map(
       ([coluna, valor]) =>
         `<dt>${escapeHtml(rotularColuna(coluna))}</dt><dd>${renderizarValor(valor)}</dd>`,
@@ -354,7 +413,7 @@ function renderizarSecao(tabela: string, linhas: unknown): string {
     partes.push(`<p class="vazio">${escapeHtml(COPY_ARQUIVO.semRegistro)}</p>`)
   } else {
     for (const [i, linha] of lista.entries()) {
-      partes.push(renderizarRegistro(linha, i, lista.length))
+      partes.push(renderizarRegistro(tabela, linha, i, lista.length))
     }
   }
   partes.push('</section>')

@@ -150,6 +150,7 @@ ponteiros:
     - candidato_id
   de_terceiro:
     - avaliador_id
+ponteiros_de_infra: {}
 decisoes_por_coluna:
   autorizacoes.consent_text_version:
     export: true
@@ -291,6 +292,62 @@ describe('gen-export-allowlist.cjs', () => {
     // E o veto e VISIVEL: exclusao silenciosa e a mesma classe de defeito que
     // inclusao silenciosa.
     expect(JSON.stringify(j.tabelas.candidatos.colunas_excluidas)).toContain('session_token');
+  });
+
+  it('(e2) coluna EXPORTADA com nome de endereco e sem veredito FALHA a geracao', () => {
+    // O fecho que substitui o `Set(['curriculo_url'])` escrito a mao dentro do
+    // exportacaoService. Enquanto a exclusao era literal, `avatar_url`,
+    // `gravacao_url` e `link_videochamada` entraram na allowlist e atravessaram
+    // para o arquivo legivel sem que ninguem revisitasse a lista. Agora a coluna
+    // nova de endereco PARA a geracao ate ter veredito.
+    const comEndereco = catalogo([...CATALOGO_BASE, { tabela: 'candidatos', coluna: 'anexo_url', tipo: 'text' }]);
+    const invComEndereco = INVENTARIO.replace(
+      'nome_completo: { classificacao: anonimizar, tipo: varchar }',
+      'nome_completo: { classificacao: anonimizar, tipo: varchar }\n      anexo_url: { classificacao: apagar, tipo: text }',
+    );
+    montar({ catalogo: comEndereco, inventario: invComEndereco });
+
+    const r = rodar();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('candidatos.anexo_url');
+    expect(r.stderr).toContain('ponteiro de infra');
+    // Nao produziu artefato: reprovar e nao escrever sao a mesma decisao.
+    expect(fs.existsSync(CAMINHO_JSON())).toBe(false);
+
+    // …e com o veredito escrito, fecha e o artefato CARREGA a decisao.
+    montar({
+      catalogo: comEndereco,
+      inventario: invComEndereco,
+      escopo: escopo(`
+ponteiros_de_infra:
+  candidatos.anexo_url:
+    fora_do_arquivo_legivel: true
+    razao: "caminho de Storage"
+`).replace('ponteiros_de_infra: {}\n', ''),
+    });
+    expect(rodar().status).toBe(0);
+    expect(lerJson().tabelas.candidatos.fora_do_arquivo_legivel).toEqual(['anexo_url']);
+    // A coluna continua EXPORTADA — o veredito e sobre o arquivo LEGIVEL, nao
+    // sobre a copia. A assimetria com o `.json` e registrada e deliberada.
+    expect(lerJson().tabelas.candidatos.colunas).toContain('anexo_url');
+  });
+
+  it('(e3) veredito ORFAO em ponteiros_de_infra falha a geracao', () => {
+    // Uma exclusao orfa DEIXA DE EXCLUIR em silencio: a coluna renomeada volta a
+    // ser renderizada com o veredito antigo apodrecendo ao lado.
+    montar({
+      escopo: escopo(`
+ponteiros_de_infra:
+  candidatos.coluna_que_nao_existe:
+    fora_do_arquivo_legivel: true
+    razao: "ficou para tras depois de um rename"
+`).replace('ponteiros_de_infra: {}\n', ''),
+    });
+
+    const r = rodar();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('VEREDITO ÓRFÃO');
+    expect(r.stderr).toContain('candidatos.coluna_que_nao_existe');
   });
 
   it('(f) --check sai 0 quando o .json bate e 1 quando diverge', () => {

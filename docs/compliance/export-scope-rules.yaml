@@ -725,6 +725,100 @@ decisoes_por_coluna:
       telemetria foi barrado no DDL, uma fase antes desta decisão.
 
 # ---------------------------------------------------------------------------
+# 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL
+# ---------------------------------------------------------------------------
+# ⚠ ESTE BLOCO NÃO DECIDE O QUE É EXPORTADO. Ele decide o que é RENDERIZADO no
+# `.html` que a pessoa lê. As duas perguntas são diferentes e ambas são reais:
+#
+#   `decisoes_por_coluna` → "isto sai na cópia?"        (os DOIS arquivos)
+#   `ponteiros_de_infra`  → "isto se LÊ, ou é endereço?" (só o `.html`)
+#
+# A assimetria com o `.json` é registrada e deliberada (44-05): aquele arquivo é
+# lido por máquina e carrega o CAMINHO cru; este é lido por uma pessoa, e um
+# caminho de Storage ali é ruído com aparência de endereço.
+#
+# POR QUE ESTE BLOCO EXISTE — e a resposta é uma auto-contradição corrigida.
+# Até a CR-02 da revisão da Phase 44, a exclusão do arquivo legível era um
+# `new Set(['curriculo_url'])` escrito à mão dentro do `exportacaoService.ts`, com
+# um docblock afirmando que a lista tinha UM item. Tinha quatro: `avatar_url`,
+# `gravacao_url` e `link_videochamada` já estavam na allowlist e passavam
+# direto — e o `pii-inventory.yaml` marca duas delas, verbatim, como
+# "⚠ Ponteiro de Storage". O próprio módulo já tinha escrito, 160 linhas acima,
+# que "uma lista de campos seguros é exatamente o tipo de coisa que envelhece
+# mal: a allowlist do export cresce por geração automática, e a coluna nova
+# entraria sem ninguém revisitar a lista".
+#
+# O FECHO É O QUE IMPEDE ESTE BLOCO DE SER A MESMA LISTA EM OUTRO ARQUIVO.
+# O gerador reprova a geração quando uma coluna EXPORTADA tem nome de endereço
+# (`*_url`, `*_uri`, `*_link`, `link_*`, e as formas plurais) e NÃO tem veredito
+# aqui. Uma coluna nova de endereço não entra no arquivo legível em silêncio:
+# ela para a geração até alguém escrever o que ela é e por quê. E o fecho INVERSO
+# reprova o veredito ÓRFÃO — chave que não aponta mais para coluna exportada de
+# tabela em escopo — porque uma exclusão órfã DEIXA DE EXCLUIR sem avisar.
+#
+# `fora_do_arquivo_legivel: false` é veredito de primeira classe, não omissão:
+# é como se registra que um endereço É dado do titular e fica visível.
+ponteiros_de_infra:
+  candidaturas.curriculo_url:
+    fora_do_arquivo_legivel: true
+    razao: |
+      CAMINHO do arquivo no Storage — identificador interno de infraestrutura que
+      não diz nada ao titular e é a semente do link assinado de 60 s. A 44-UI-SPEC
+      §"Os dois arquivos" manda o currículo aparecer no arquivo legível APENAS
+      pelo nome do arquivo e pela data de envio, com a frase fixa ao lado.
+      `pii-inventory.yaml`: "⚠ Ponteiro de Storage — ERASE-04".
+
+  candidatos.avatar_url:
+    fora_do_arquivo_legivel: true
+    razao: |
+      Mesma classe de objeto que `curriculo_url`, e o inventário a marca com as
+      mesmas palavras: "⚠ Aponta para Storage — ERASE-04". O que o titular lê no
+      arquivo é a própria foto quando ele abre o perfil, nunca o caminho dela.
+
+  entrevistas_online.gravacao_url:
+    fora_do_arquivo_legivel: true
+    razao: |
+      "⚠ Ponteiro de Storage — ERASE-04" no inventário, palavra por palavra o
+      mesmo que `curriculo_url`. A coluna é `text` sem restrição: nada no schema
+      impede que ela venha a guardar uma URL assinada completa
+      (`/object/sign/...?token=...`), e o arquivo legível é justamente o que a
+      pessoa guarda no aparelho e pode encaminhar.
+
+  entrevistas_online.link_videochamada:
+    fora_do_arquivo_legivel: true
+    razao: |
+      Endereço de sala de reunião, e salas carregam credencial na própria URL
+      (o `?pwd=` do Zoom é o caso conhecido) — a classe que a 44-UI-SPEC proíbe
+      nominalmente nos dois arquivos ("qualquer chave, token ou identificador
+      interno"). Um link de entrevista já ocorrida também é um endereço morto que
+      parece mentira do export. O que a pessoa lê da entrevista continua inteiro:
+      plataforma, data, duração e as notas.
+      ⚠ Se o operador decidir que o titular deve VER o link, este é o lugar de
+      registrar: `fora_do_arquivo_legivel: false` com a razão ao lado.
+
+  agendamentos_entrevista.local_ou_link:
+    fora_do_arquivo_legivel: false
+    razao: |
+      NÃO é ponteiro de infraestrutura: é o ONDE da entrevista, digitado pelo RH e
+      endereçado ao candidato — ora um endereço de rua, ora uma sala online. É
+      dado do titular no sentido do Art. 18, II, e escondê-lo do arquivo legível
+      tiraria da cópia uma informação que a pessoa recebeu por e-mail na época.
+      Aparece aqui porque o nome casa o padrão de endereço e o fecho exige
+      veredito — o que é o mecanismo funcionando, não um falso positivo.
+
+  candidatos.instagram_url:
+    fora_do_arquivo_legivel: false
+    razao: |
+      Perfil social digitado pelo PRÓPRIO titular no cadastro. É dado dele sobre
+      ele; omiti-lo do arquivo que ele lê seria a cópia escondendo o que a pessoa
+      escreveu. Nada de infraestrutura da Beauty Smile atravessa aqui.
+
+  candidatos.linkedin_url:
+    fora_do_arquivo_legivel: false
+    razao: |
+      Idem `instagram_url` — perfil público digitado pelo titular no cadastro.
+
+# ---------------------------------------------------------------------------
 # 7 · REGRA DE FECHO — o contrato que o gerador implementa
 # ---------------------------------------------------------------------------
 regra_de_fecho: |
