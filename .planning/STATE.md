@@ -465,6 +465,36 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 |-------|-------|--------|
 | 42 | verification_deferred_human | `/gsd-verify-work 42` |
 | 44 (plano 44-05) | checkpoint_deferred_human | prova ao vivo no navegador — ver abaixo |
+| **44 (fase)** | **verification_deferred_gaps** | `/gsd-plan-phase 44 --gaps` · mas ler o aviso abaixo |
+
+### ⚠ Phase 44 — `gaps_found` diferido por decisão do operador (2026-08-04)
+
+`44-VERIFICATION.md` (commit `fa600ec`): **2/5** critérios de sucesso plenamente verificados.
+O operador optou por **seguir para a Phase 45** com os gaps em aberto.
+
+**Os gaps NÃO são "falta código".** Todo o código dos 6 requirements EXPORT-* existe, foi
+revisado (2 blockers + 13 warnings, blockers corrigidos) e está verde: 1596 Vitest · 20 Deno ·
+`tsc` 97 (baseline) · build + `assert-chunks` · `check:export-allowlist` exit 0.
+`/gsd-plan-phase 44 --gaps` produziria planos para trabalho que não existe. O que fecha estes
+gaps são TRÊS AÇÕES:
+
+| # | Gap | O que fecha |
+|---|---|---|
+| G1 | EXPORT-01/02/03 nunca exercitados — 0 linhas em `solicitacoes_dados`, nenhum arquivo já gerado, nenhum currículo já aberto | sessão de navegador com conta de teste |
+| G2 | **PROD roda a v1 PRÉ-CORREÇÃO** — os 8 commits de fix estão no `main`, a EF não foi redeployada. A v1 viva tem o cooldown que **falha ABERTO** em timestamp ilegível | `npx supabase login && npx supabase functions deploy exportar-meus-dados` (lê os bytes do disco; o caminho MCP exigiria retranscrever 45 KB de artefato gerado) |
+| G3 | **EXPORT-05 rebaixado de Complete para parcial** — o ramo `rh` do predicado BD-8 não pode retornar linha para recrutador nenhum: 0 de 9 vagas com `created_by` preenchido pertencem a usuário de papel `rh` | **decisão do operador**: popular `created_by` das 6 vagas órfãs · trocar o predicado para `vagas_associadas_recrutadores` · ou aceitar que a fila é de administrador |
+
+⚠ **CONSEQUÊNCIA DIRETA PARA A PHASE 45 — dita pelo próprio ROADMAP.** A cadeia `44 → 45` é
+declarada **estrita** porque *"o inventário do export **é** o plano de exclusão"*. O inventário
+existe e está versionado (SC#5 passou), mas a cláusula do goal — *"exercitado em produção"* — é
+justamente a que falhou. A Phase 45 vai consumir como plano de exclusão **irreversível** um
+inventário que nunca foi exercido de ponta a ponta.
+
+**Isto NÃO bloqueia discutir/planejar a 45** — nada destrutivo roda em discuss/plan. Bloqueia o
+**apply**: o portão de fase destrutiva do M8 vale para a 45 integralmente (VERIFICATION.md com
+veredito · code review bloqueante ANTES do apply em PROD · asserções negativas · zero
+`--no-verify` · dry-run pela MESMA query do delete real). G1 e G2 devem fechar antes desse portão.
+Backup do Supabase é de 7 dias e **exclui Storage inteiramente**: um CV apagado é irrecuperável.
 
 ### 44-05 — prova ao vivo diferida (decisão do operador em 2026-08-04)
 
