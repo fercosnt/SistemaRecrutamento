@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 44
 current_phase_name: Exportação & Acesso
 status: executing
-stopped_at: Completed 44-04-PLAN.md
-last_updated: "2026-08-04T01:45:46.191Z"
+stopped_at: "44-05 Task 3 — CHECKPOINT: deploy da EF exportar-meus-dados + prova ao vivo"
+last_updated: "2026-08-04T02:41:59.962Z"
 last_activity: 2026-08-03
 last_activity_desc: Phase 44 execution started
 progress:
@@ -80,8 +80,17 @@ seguido de nó de texto com espaço. Não afeta função.
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 5 of 9
-Status: Ready to execute
-Last activity: 2026-08-03 — Phase 44 execution started
+Status: **44-05 PARADO NO CHECKPOINT** — Tasks 1-2 completas, verdes e commitadas
+        (`b0b2f21`, `0a04bed`, `bf2ae4c`); a Task 3 (deploy da EF
+        `exportar-meus-dados` + prova ao vivo com candidato de teste) exige os
+        tools MCP do Supabase e é do orquestrador.
+Last activity: 2026-08-04 — 44-05 Tasks 1-2 (o tracer em código)
+
+⚠ **Nota para quem rodar `roadmap update-plan-progress 44`:** o scanner conta
+ARQUIVOS de SUMMARY e marcou 44-05 como `[x]`; foi revertido à mão, porque a
+própria linha do ROADMAP diz "provada ao vivo" e a prova não aconteceu. Marcar de
+novo só depois do checkpoint. (`44-05-SUMMARY.md` traz `status: checkpoint`, não
+`complete`, exatamente por isso.)
 
 ## Roadmap (M8 — Phases 42–47)
 
@@ -291,6 +300,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 44-04: indentacao de 4 espacos do --sql-values virou contrato no GERADOR, nao no regex do consumidor — afrouxar a (k) perderia a checagem de que o paste caiu no lugar certo
 - [Phase ?]: 44-04: normalizacao IN -> = ANY (ARRAY[...]) no qual vivo NAO e drift; 44-05/44-08/44-09 nao devem comparar qual do catalogo contra texto do arquivo
 - [Phase ?]: 44-04: npm run db:types grava o ERRO em stdout — o > nao so trunca, PREENCHE database.types.ts com o blob JSON de erro. Provar o gerador contra arquivo temporario e obrigatorio
+- [Phase ?]: 44-05: a projeção da EF corre em DUAS passadas (diretas → indiretas) — a ordem alfabética do artefato põe agendamentos_entrevista antes da ponte candidaturas, e depender dela seria depender de um acidente do gerador
+- [Phase ?]: 44-05: a copy 'você recebe dois arquivos' fica para o 44-06, junto com o .html que a torna verdadeira — renderizá-la nesta fatia seria a tela afirmando ao titular que recebeu mais do que recebeu
+- [Phase ?]: 44-05: o pre-commit congela a baseline de 97 erros tsc, então um RED de src/ não pode ser commit próprio; RED provado por execução, sem --no-verify e sem stub (o RED da EF É commit — supabase/functions está fora do projeto tsc)
 
 ### Pending Todos
 
@@ -391,9 +403,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T01:45:29.762Z
-Stopped at: Completed 44-04-PLAN.md
-Resume file: None
+Last session: 2026-08-04T02:41:59.949Z
+Stopped at: 44-05 Task 3 — CHECKPOINT: deploy da EF exportar-meus-dados + prova ao vivo
+Resume file: .planning/phases/44-exporta-o-acesso/44-05-PLAN.md
 
 ## Operator Next Steps
 
