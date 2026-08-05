@@ -45,14 +45,54 @@ export interface BandInput {
   selected: number
 }
 
-/** A single computed band row in the snapshot output. */
-export interface BandResult {
+/**
+ * Uma faixa PUBLICADA — a célula tem gente suficiente para ser divulgada.
+ *
+ * ⚠ `razao_4_5` e `flag` são OPCIONAIS no v2: quando a faixa de referência está suprimida,
+ * a razão 4/5 do relatório inteiro cai (não há denominador publicável), e os campos derivados
+ * não viajam. Tipá-los como obrigatórios foi o que produziu o defeito descrito no `motivo`
+ * de `BandSuprimida`.
+ */
+export interface BandPublicada {
   faixa: string
+  /** Ausente nos payloads v1 (pré-k5). Ausência ⇒ publicada. */
+  suprimida?: false
   applicants: number
   selected: number
-  selection_rate: number
-  razao_4_5: number
-  flag: boolean
+  selection_rate: number | null
+  razao_4_5?: number | null
+  flag?: boolean
+}
+
+/**
+ * Uma faixa SUPRIMIDA por k-anonimato — o número some, o FATO de a faixa existir não.
+ *
+ * ⚠ NENHUM campo derivado viaja junto (`applicants`, `selected`, `selection_rate`,
+ * `razao_4_5`, `flag`), e é isso que torna a supressão real: publicar a razão 4/5 de uma
+ * célula suprimida devolveria a contagem por outro caminho.
+ *
+ * ⚠ **POR QUE ESTE TIPO EXISTE SEPARADO, e a razão é de produto, não de tipagem.** Antes
+ * dele, `BandResult` declarava `applicants`/`razao_4_5` como `number` obrigatório, e o
+ * consumidor lia direto: `formatRatio(band.razao_4_5)` chamava `.toFixed` em `undefined` e
+ * **derrubava a página**, e `formatRate` devolvia `"NaN%"`. Numa peça probatória sobre
+ * discriminação, os dois desfechos são inaceitáveis por razões diferentes — mas o pior
+ * seria o terceiro, que a união fechada agora impede: uma faixa escondida **porque tem
+ * menos de 5 pessoas** renderizada como "0 candidatos" afirma exatamente o oposto do que a
+ * supressão significa. O `switch` sobre `suprimida` força o chamador a decidir o que
+ * mostrar, em vez de deixá-lo cair num `undefined` que parece um zero.
+ */
+export interface BandSuprimida {
+  faixa: string
+  suprimida: true
+  motivo_supressao: 'k_anonimato_primaria' | 'complementar'
+}
+
+/** Uma linha de faixa no snapshot — publicada ou suprimida. */
+export type BandResult = BandPublicada | BandSuprimida
+
+/** Discriminador único. Payload v1 (sem a chave) conta como publicada. */
+export function bandaSuprimida(b: BandResult): b is BandSuprimida {
+  return (b as BandSuprimida).suprimida === true
 }
 
 /** Optional accounting passed alongside the bands (Pitfall 4). */
@@ -63,15 +103,37 @@ export interface ComputeOptions {
 
 /** The full adverse-impact snapshot payload (mirrors `bias_audit_log.dados`). */
 export interface AdverseImpactResult {
+  /** `eeoc_4_5_age_band_v2_k5` no v2; valor anterior nos snapshots v1. */
   metodo: string
   limitacao: string
   bands: BandResult[]
-  faixa_referencia: string | null
+  /** ⚠ AUSENTE quando a própria faixa de referência foi suprimida (v2). */
+  faixa_referencia?: string | null
   small_sample_warning: boolean
   /** pt-BR key — matches the SQL `jsonb_build_object('excluidos_sem_data', …)`. */
   excluidos_sem_data: number
-  /** Σ applicants ONLY — matches the SQL `v_n_total` (excluded count NOT added). */
-  n_total: number
+  /**
+   * Σ applicants ONLY — matches the SQL `v_n_total` (excluded count NOT added).
+   *
+   * ⚠ **AUSENTE quando existe supressão primária (v2), e a ausência É o mecanismo.**
+   * O total marginal é a chave da subtração: com ele publicado, quem lê recupera a célula
+   * suprimida somando as outras e subtraindo do total. Por isso o v2 tira `n_total` do
+   * payload E suprime uma segunda célula (a complementar) — duas incógnitas para uma
+   * equação. Suprimir só a célula não suprime nada.
+   */
+  n_total?: number
+
+  // ── Campos do v2 (`eeoc_4_5_age_band_v2_k5`). Ausentes nos snapshots v1. ──
+  /** Limiar de k-anonimato aplicado (5). */
+  k_supressao?: number
+  /** Quantas células saíram do relatório, primárias + complementar. */
+  celulas_suprimidas?: number
+  /** Se a segunda supressão (anti-subtração) foi necessária. */
+  supressao_complementar_aplicada?: boolean
+  /** `true` quando `n_total` foi retirado por existir supressão primária. */
+  n_total_suprimido?: boolean
+  /** `true` quando a faixa de MAIOR taxa caiu abaixo de k — a razão 4/5 do relatório cai junto. */
+  faixa_referencia_suprimida?: boolean
 }
 
 // NOTE (FX-15 — Phase 16): the TypeScript parity-oracle functions `bandFromAge` and

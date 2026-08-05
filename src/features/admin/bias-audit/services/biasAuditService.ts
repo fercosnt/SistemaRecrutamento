@@ -19,6 +19,7 @@
  */
 
 import { supabase } from '@/lib/supabase/client'
+import { bandaSuprimida } from '../biasMath'
 import type { AdverseImpactResult, BandResult } from '../biasMath'
 
 /** Allowlist de colunas — nunca a estrela (LGPD / [[reference_select_star_leaks_pii]]). */
@@ -120,12 +121,25 @@ function csvCell(value: string | number | boolean): string {
 }
 
 /**
- * Exporta o snapshot atual como CSV (faixa / applicants / selected / selection_rate /
- * razao_4_5 / flag) usando o idioma blob-download do AiCostsPage.
+ * Exporta o snapshot atual como CSV (faixa / suprimida / motivo_supressao / applicants /
+ * selected / selection_rate / razao_4_5 / flag) usando o idioma blob-download do AiCostsPage.
+ *
+ * ⚠ **CÉLULA VAZIA, NUNCA ZERO — e o CSV é onde isso mais importa.** A planilha é o artefato
+ * que sai desta tela e vira anexo de processo; nela ninguém vê o banner de limitação nem o
+ * ícone da linha suprimida. Um `0` numa coluna de contagem seria lido como "nenhum candidato
+ * desta faixa foi aprovado" quando o fato é "o número não foi publicado porque a faixa tem
+ * menos de 5 pessoas" — a afirmação oposta, sobre discriminação, num documento probatório.
+ *
+ * Por isso as colunas derivadas saem **vazias** nas faixas suprimidas, e duas colunas novas
+ * (`suprimida`, `motivo_supressao`) dizem por quê **na própria linha**. Antes desta correção o
+ * export sequer chegava a mentir: `b.selection_rate.toFixed(4)` lançava `TypeError` sobre o
+ * payload v2 e o download não acontecia.
  */
 export function exportCsv(dados: AdverseImpactResult, periodo?: string | null): void {
   const header = [
     'faixa_etaria',
+    'suprimida',
+    'motivo_supressao',
     'applicants',
     'selected',
     'selection_rate',
@@ -133,16 +147,54 @@ export function exportCsv(dados: AdverseImpactResult, periodo?: string | null): 
     'flag',
   ]
   const rows = (dados.bands ?? []).map((b: BandResult) =>
-    [
-      csvCell(b.faixa),
-      csvCell(b.applicants),
-      csvCell(b.selected),
-      csvCell(b.selection_rate.toFixed(4)),
-      csvCell(b.razao_4_5.toFixed(4)),
-      csvCell(b.flag),
-    ].join(','),
+    bandaSuprimida(b)
+      ? [csvCell(b.faixa), csvCell(true), csvCell(b.motivo_supressao), '', '', '', '', ''].join(',')
+      : [
+          csvCell(b.faixa),
+          csvCell(false),
+          '',
+          csvCell(b.applicants),
+          csvCell(b.selected),
+          b.selection_rate == null ? '' : csvCell(b.selection_rate.toFixed(4)),
+          b.razao_4_5 == null ? '' : csvCell(b.razao_4_5.toFixed(4)),
+          b.flag == null ? '' : csvCell(b.flag),
+        ].join(','),
   )
-  const csv = [header.join(','), ...rows].join('\n')
+
+  // Rodapé de proveniência: sem ele, a planilha perde a informação de que houve supressão —
+  // e uma tabela com faixas faltando, sem dizer que faltam, é pior que uma tabela incompleta
+  // declarada. `n_total` some por desenho quando há supressão primária (é a chave da subtração).
+  const rodape: string[] = []
+  if (dados.celulas_suprimidas) {
+    rodape.push('')
+    rodape.push(
+      csvCell(
+        `# ${dados.celulas_suprimidas} faixa(s) suprimida(s) por k-anonimato (k=${dados.k_supressao ?? 5}). ` +
+          `Celulas vazias significam NAO PUBLICADO, nunca zero.`,
+      ),
+    )
+    if (dados.supressao_complementar_aplicada) {
+      rodape.push(
+        csvCell(
+          '# Uma faixa adicional foi suprimida para impedir a recuperacao da primeira por subtracao.',
+        ),
+      )
+    }
+    if (dados.n_total_suprimido) {
+      rodape.push(
+        csvCell('# O total geral (n_total) foi omitido pela mesma razao — ele fecharia a conta.'),
+      )
+    }
+    if (dados.faixa_referencia_suprimida) {
+      rodape.push(
+        csvCell(
+          '# A faixa de referencia (maior taxa) esta suprimida — a razao 4/5 do relatorio nao pode ser calculada.',
+        ),
+      )
+    }
+  }
+
+  const csv = [header.join(','), ...rows, ...rodape].join('\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)

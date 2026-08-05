@@ -22,7 +22,7 @@
  */
 
 import { useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, EyeOff } from 'lucide-react'
 import { RHLayout } from '@/components/RHLayout'
 import { GlassCard, GlassButton } from '@/components/ui/glass'
 import { Button } from '@/components/ui/button'
@@ -44,15 +44,23 @@ import {
 import { cn } from '@/lib/utils'
 import { useGerarBiasSnapshot, useLatestBiasSnapshot } from '../hooks/useBiasAudit'
 import { currentPeriod, exportCsv } from '../services/biasAuditService'
+import { bandaSuprimida } from '../biasMath'
 import type { BandResult } from '../biasMath'
 
 /** Formata a selection rate como percentual pt-BR (ex.: 0,35 → "35,0%"). */
-function formatRate(rate: number): string {
+function formatRate(rate: number | null | undefined): string {
+  // ⚠ Travessão, NUNCA "0,0%". Ausência de taxa e taxa zero são fatos diferentes, e nesta
+  // tela confundi-los é afirmar que ninguém daquela faixa foi aprovado quando o que houve
+  // foi o número não ter sido publicado.
+  if (rate == null || Number.isNaN(rate)) return '—'
   return `${(rate * 100).toFixed(1).replace('.', ',')}%`
 }
 
 /** Formata a razão 4/5 com 2 casas pt-BR (ex.: 0.7 → "0,70"). */
-function formatRatio(ratio: number): string {
+function formatRatio(ratio: number | null | undefined): string {
+  // Mesma razão do formatRate: antes esta função recebia `number` e um payload v2 com célula
+  // suprimida a chamava com `undefined` — `.toFixed` de undefined DERRUBAVA a página inteira.
+  if (ratio == null || Number.isNaN(ratio)) return '—'
   return ratio.toFixed(2).replace('.', ',')
 }
 
@@ -166,6 +174,33 @@ export function BiasAuditPage() {
               </TableHeader>
               <TableBody>
                 {bands.map((band: BandResult) => {
+                  // ⚠ FAIXA SUPRIMIDA POR k-ANONIMATO — o ramo que existe para impedir a
+                  // mentira mais perigosa desta tela. Sem ele, os campos derivados chegam
+                  // `undefined`: `formatRatio` chamaria `.toFixed` em undefined e DERRUBARIA a
+                  // página, e `formatRate` devolveria "NaN%". Mas o desfecho pior seria o
+                  // silencioso — uma faixa escondida PORQUE TEM MENOS DE 5 PESSOAS exibida como
+                  // "0 candidatos" afirma o oposto do que a supressão significa, numa peça que
+                  // existe para provar ausência de discriminação.
+                  if (bandaSuprimida(band)) {
+                    return (
+                      <TableRow key={band.faixa} className="text-white/60">
+                        <TableCell className="whitespace-nowrap font-semibold">
+                          {band.faixa}
+                        </TableCell>
+                        <TableCell
+                          colSpan={2}
+                          className="text-sm italic"
+                          data-testid={`banda-suprimida-${band.faixa}`}
+                        >
+                          <EyeOff className="mr-2 inline h-4 w-4" aria-hidden="true" />
+                          {band.motivo_supressao === 'k_anonimato_primaria'
+                            ? `Suprimida: menos de ${snapshot.dados?.k_supressao ?? 5} candidatos nesta faixa. O número não é publicado — não é zero.`
+                            : `Suprimida junto com outra faixa, para que a contagem oculta não possa ser recuperada por subtração. O número não é publicado — não é zero.`}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  }
+
                   const isReference = band.faixa === faixaReferencia
                   return (
                     <TableRow
@@ -189,7 +224,18 @@ export function BiasAuditPage() {
                         </span>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {band.flag ? (
+                        {band.razao_4_5 == null ? (
+                          // Faixa publicada, mas SEM razão 4/5 — acontece quando a faixa de
+                          // REFERÊNCIA foi suprimida: sem denominador publicável, a razão do
+                          // relatório inteiro cai. Um travessão diz isso; um "0,00" mentiria.
+                          <span
+                            className="text-white/50"
+                            data-testid={`sem-razao-${band.faixa}`}
+                            title="Sem faixa de referência publicável — a razão 4/5 não pode ser calculada sem revelar a célula suprimida."
+                          >
+                            —
+                          </span>
+                        ) : band.flag ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
