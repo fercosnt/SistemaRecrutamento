@@ -167,16 +167,21 @@
 --      `decisao_final` — porque o trigger insere a linha nova exatamente ali.
 --      Fazer o scrub antes deixa uma linha identificavel recem-criada atras dele.
 --
--- (M2) `candidate_ai_decisions.candidato_id` e
---      `uuid NOT NULL REFERENCES public.candidatos(id) ON DELETE SET NULL`
---      (20260609000001:236). `NOT NULL` + `SET NULL` e uma contradicao estrutural:
---      a clausula da FK nunca pode ser cumprida, e o tombstone NAO CONSEGUE severar
---      esse ponteiro. Esta espec le `attnotnull` AO VIVO e adapta a exigencia:
---      coluna nulavel ⇒ zero linha apontando ao titular; coluna `NOT NULL` ⇒ a
---      linha pode continuar apontando, mas NAO pode continuar carregando o conteudo
---      identificante do titular. O 45-07 escolhe explicitamente entre afrouxar a
---      coluna e desidentificar o conteudo — o que ele nao pode e deixar as duas
---      coisas de pe.
+-- (M2) `candidate_ai_decisions` declara DUAS FKs inexequiveis, nao uma
+--      (20260609000001:236-237, confirmado no catalogo vivo de PROD):
+--        `candidato_id uuid NOT NULL REFERENCES public.candidatos(id) ON DELETE SET NULL`
+--        `vaga_id      uuid NOT NULL REFERENCES public.vagas(id)      ON DELETE SET NULL`
+--      `NOT NULL` + `SET NULL` e uma contradicao estrutural: apagar a linha
+--      referenciada faz o Postgres tentar gravar NULL numa coluna `NOT NULL` e
+--      levantar `23502`. A clausula nunca pode ser cumprida — a FK e BOMBA LATENTE,
+--      nao protecao, e hoje esta dormente APENAS porque a tabela tem 0 linhas. O
+--      tombstone, pelo mesmo motivo, NAO CONSEGUE severar esses dois ponteiros.
+--      Esta espec le `attnotnull` AO VIVO para AS DUAS COLUNAS e adapta a
+--      exigencia: coluna nulavel ⇒ zero linha apontando ao titular; coluna
+--      `NOT NULL` ⇒ a linha pode continuar apontando, mas NAO pode continuar
+--      carregando o conteudo identificante do titular. O 45-07 escolhe
+--      explicitamente entre afrouxar as colunas e desidentificar o conteudo, e a
+--      escolha vale para O PAR — o que ele nao pode e deixar as duas coisas de pe.
 --
 -- (M3) Os SEIS nomes de CHECK que a `45-RESEARCH.md` previu para `candidatos` NAO
 --      EXISTEM. Os vivos, medidos na SONDA 1b, sao `check_email_format`,
@@ -472,3 +477,689 @@ BEGIN
   RAISE NOTICE 'P45M PASS (A4): candidatos.user_id e SET NULL e nulavel — a D-45-11/S1 esta aplicada';
 END
 $a4$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- BASELINE — identidades vivas resolvidas em LEITURA, e as contagens globais que
+-- a assercao (z) usa para provar que o ROLLBACK aconteceu.
+--
+-- Nao ha escrita aqui e nao ha incremento de contador: este bloco nao e uma
+-- assercao, e a fixture propriamente dita nasce e morre dentro do Bloco B.
+--
+-- ⚠ Se uma identidade necessaria nao existir, levanta ALTO com o nome exato do que
+-- falta. Um SKIP silencioso aqui seria indistinguivel de um motor que funciona: as
+-- assercoes seguintes deixariam de provar qualquer coisa e o gate ficaria verde por
+-- AUSENCIA DE TESTE — o modo de falha que este arquivo inteiro existe para impedir.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $baseline$
+DECLARE
+  v_admin_auth uuid;
+  v_vaga       uuid;
+  v_pv         uuid;
+  v_solic      bigint := -1;
+BEGIN
+  SELECT u.user_id INTO v_admin_auth
+    FROM public.usuarios_rh u
+   WHERE u.role = 'administrador'
+     AND u.ativo
+     AND u.deleted_at IS NULL
+   ORDER BY u.created_at
+   LIMIT 1;
+
+  IF v_admin_auth IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (baseline): nenhum administrador VIVO em usuarios_rh. O caminho FELIZ do tombstone nao pode ser exercitado sem um ator real, e verificar so a recusa foi exatamente o defeito que a 20260803000001 corrigiu — um smoke que so exercita o caminho de recusa nao e cobertura do caminho feliz, e conta como verde do mesmo jeito';
+  END IF;
+
+  SELECT v.id INTO v_vaga
+    FROM public.vagas v
+   ORDER BY v.created_at
+   LIMIT 1;
+
+  IF v_vaga IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (baseline): nenhuma vaga viva — a candidatura sintetica e as linhas de ai_call_logs/candidate_ai_decisions/recruiter_alerts exigem vaga_id, e a assercao de re-identificacao (B9) usa a vaga como quase-identificador';
+  END IF;
+
+  -- Opcional: se nao houver prompt_versions viva, o Bloco B cria uma sintetica.
+  SELECT p.id INTO v_pv FROM public.prompt_versions p ORDER BY p.created_at LIMIT 1;
+
+  IF to_regclass('public.solicitacoes_dados') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM public.solicitacoes_dados' INTO v_solic;
+  END IF;
+
+  PERFORM set_config('smoke45m.admin_auth', v_admin_auth::text,    false);
+  PERFORM set_config('smoke45m.vaga',       v_vaga::text,          false);
+  PERFORM set_config('smoke45m.pv',         coalesce(v_pv::text, ''), false);
+  PERFORM set_config('smoke45m.solic',      v_solic::text,         false);
+
+  PERFORM set_config('smoke45m.candos',   (SELECT count(*) FROM public.candidatos)::text,             false);
+  PERFORM set_config('smoke45m.cands',    (SELECT count(*) FROM public.candidaturas)::text,           false);
+  PERFORM set_config('smoke45m.users',    (SELECT count(*) FROM auth.users)::text,                    false);
+  PERFORM set_config('smoke45m.hist',     (SELECT count(*) FROM public.historico_candidatura)::text,  false);
+  PERFORM set_config('smoke45m.df',       (SELECT count(*) FROM public.decisao_final)::text,          false);
+  PERFORM set_config('smoke45m.dfh',      (SELECT count(*) FROM public.decisao_final_historico)::text,false);
+  PERFORM set_config('smoke45m.logs',     (SELECT count(*) FROM public.logs_acesso)::text,            false);
+  PERFORM set_config('smoke45m.aut',      (SELECT count(*) FROM public.autorizacoes)::text,           false);
+  PERFORM set_config('smoke45m.notif',    (SELECT count(*) FROM public.notificacoes_enviadas)::text,  false);
+  PERFORM set_config('smoke45m.aicall',   (SELECT count(*) FROM public.ai_call_logs)::text,           false);
+  PERFORM set_config('smoke45m.aidec',    (SELECT count(*) FROM public.candidate_ai_decisions)::text, false);
+  PERFORM set_config('smoke45m.alerts',   (SELECT count(*) FROM public.recruiter_alerts)::text,       false);
+
+  RAISE NOTICE 'P45M BASELINE ok: admin e vaga resolvidos; % candidatos / % candidaturas / % auth.users / % historico / % decisao_final / % decisao_final_historico',
+    current_setting('smoke45m.candos'), current_setting('smoke45m.cands'), current_setting('smoke45m.users'),
+    current_setting('smoke45m.hist'), current_setting('smoke45m.df'), current_setting('smoke45m.dfh');
+END
+$baseline$;
+
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- BLOCO B — O CAMINHO FELIZ DO TOMBSTONE, CONTRA FIXTURE SINTETICA REAL.
+--
+-- Um unico bloco, por uma razao mecanica: as onze assercoes B0..B10 precisam medir
+-- o MESMO titular sintetico, e ele nao pode sobreviver entre blocos (a subtransacao
+-- que o cria e a mesma que o desfaz). O desenho e:
+--
+--   1. subtransacao: cria fixture -> mede ANTES -> roda o tombstone -> mede DEPOIS
+--      -> guarda TUDO em variaveis PL/pgSQL (que sobrevivem ao rollback)
+--   2. `RAISE EXCEPTION` com SQLSTATE proprio -> ROLLBACK da subtransacao inteira
+--   3. so ENTAO julga e incrementa, ja fora dela (GUC e transacional — incrementar
+--      la dentro produziria um RESUMO que reprova um run correto)
+--
+-- ⚠ A ORDEM DO JULGAMENTO NAO E A ORDEM DA NUMERACAO, E ISSO E DELIBERADO.
+-- Todas as MEDICOES acontecem antes de qualquer julgamento, entao nenhum julgamento
+-- pode impedir outra medicao. Mas num batch de chamada unica o primeiro `RAISE`
+-- torna os julgamentos seguintes inalcancaveis, entao a ordem e:
+--     B0 (a fixture existe) -> B1 (ela moveu as contagens) -> B2 (o tombstone
+--     COMPLETOU) -> B7 e B8 (as NEGATIVAS do ERASE-08 e do ERASE-10) -> o resto.
+-- B2 vem antes de B7/B8 porque um tombstone que nao rodou torna TODA assercao de
+-- pos-estado sem sentido — B7 passaria por vacuidade, que e pior que reprovar. A
+-- garantia estrutural contra a inalcancabilidade e o Bloco A, que ja rodou.
+-- ═════════════════════════════════════════════════════════════════════════════
+RESET ROLE;
+DO $bloco_b$
+DECLARE
+  -- identidades
+  v_admin_auth  uuid := current_setting('smoke45m.admin_auth')::uuid;
+  v_vaga        uuid := current_setting('smoke45m.vaga')::uuid;
+  v_pv          uuid := nullif(current_setting('smoke45m.pv'), '')::uuid;
+  v_user        uuid := gen_random_uuid();
+  v_cand        uuid;
+  v_candtr      uuid;
+  v_aidec       uuid;
+  v_logid       uuid;
+  v_autid       uuid;
+  v_notifid     uuid;
+  v_email_fix   text;
+
+  -- B0 / B1
+  v_n_aicall    int;
+  v_n_aidec     int;
+  v_n_alerts    int;
+  v_n_notif     int;
+  v_n_logs      int;
+  v_n_aut       int;
+  v_hist_pre    bigint;
+  v_df_pre      bigint;
+  v_dfh_pre     bigint;
+  v_hist_pos    bigint;
+  v_df_pos      bigint;
+  v_dfh_pos     bigint;
+  v_df_tit      int;
+
+  -- ANTES (pos-fixture, pre-tombstone)
+  v_nome_a      text;
+  v_email_a     text;
+  v_cpf_a       text;
+  v_cel_a       text;
+  v_nasc_a      date;
+  v_gen_a       text;
+  v_cid_a       text;
+  v_uf_a        char(2);
+  v_conh_a      text;
+  v_just_a      text;
+  v_justh_a     text;
+  v_ip_log_a    inet;
+  v_ip_aut_a    inet;
+  v_dedupe_a    text;
+  v_dest_a      text;
+  v_desto_a     text;
+  v_airsum_a    text;
+  v_idade_a     int;
+  v_dtcand_a    timestamptz;
+  v_aud_a       bigint;
+  v_aud_mid     bigint;
+
+  -- DEPOIS
+  v_nome_d      text;
+  v_email_d     text;
+  v_cpf_d       text;
+  v_cel_d       text;
+  v_nasc_d      date;
+  v_gen_d       text;
+  v_cid_d       text;
+  v_uf_d        char(2);
+  v_conh_d      text;
+  v_uid_d       uuid;
+  v_just_d      text;
+  v_justh_ident int;
+  v_justh_ator  int;
+  v_ip_log_d    inet;
+  v_ip_aut_d    inet;
+  v_dedupe_d    text;
+  v_dest_d      text;
+  v_desto_d     text;
+  v_airsum_d    text;
+
+  -- severacao (ERASE-09)
+  v_p_aicall    int;
+  v_p_aidec     int;
+  v_p_logs      int;
+  v_p_alerts    int;
+  v_p_aut       int;
+  v_nn_aidec_c  boolean;
+  v_nn_aidec_v  boolean;
+  v_nn_cpf      boolean;
+
+  -- ERASE-10 / re-identificacao / idempotencia
+  v_uid_viva    int;
+  v_ator_tit    int;
+  v_reid        int;
+  v_ret         text;
+  v_ret2        text;
+  v_aud_delta   bigint;
+  v_mudou2      int;
+
+  v_mudadas     int;
+  v_ufs         text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
+                                'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+  v_conhecidos  text[] := ARRAY['linkedin','instagram','indicacao','site','google','facebook','outro'];
+BEGIN
+  -- Guarda de existencia: sem ela, a ausencia das funcoes de 45-07 apareceria como
+  -- um 42883 cru, e nao como o estado RED que este arquivo descreve.
+  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B): public.anonimizar_candidato(uuid, boolean) NAO EXISTE. Este arquivo e a ESPECIFICACAO do tombstone e foi escrito ANTES dele: RED aqui e o estado correto ate a migration 20260805000006 do plano 45-07 ser aplicada';
+  END IF;
+
+  v_email_fix := 'p45smoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+
+  -- ───────────────────────────────────────────────────────────────────────────
+  -- SUBTRANSACAO — tudo daqui ate o RAISE e revertido.
+  -- ───────────────────────────────────────────────────────────────────────────
+  BEGIN
+    -- (fixture 1/13) auth.users — sem ele nao ha titular: candidatos.user_id e
+    -- NOT NULL UNIQUE REFERENCES auth.users(id). Precedente: SONDA 6, §6d.
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            v_email_fix, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+
+    -- (fixture 2/13) candidatos — TODAS as colunas NOT NULL medidas na SONDA 1a,
+    -- com valores escolhidos contra as SETE CHECKs VIVAS da SONDA 1b (M3), nunca
+    -- contra `docs/sql/sql/02-tabela-candidatos.sql`, que e de 2025 e diverge.
+    -- O CPF usa o prefixo 000.000, que nao ocorre em CPF real, e sufixo aleatorio:
+    -- a coluna e UNIQUE e uma colisao abortaria a fixture inteira.
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, cpf, celular, data_nascimento, genero,
+       cidade, estado, como_conheceu, linkedin, instagram, linkedin_url, instagram_url)
+    VALUES
+      (v_user,
+       'SMOKE P45 Titular Sintetico',
+       v_email_fix,
+       '000.000.' || lpad((floor(random() * 1000))::int::text, 3, '0')
+                  || '-' || lpad((floor(random() * 100))::int::text, 2, '0'),
+       '(11) 98888-7777',
+       DATE '1991-03-14',
+       'prefiro_nao_informar',
+       'Campinas',
+       'SP',
+       'site',
+       'smoke-p45', 'smoke-p45',
+       'https://linkedin.example/smoke-p45', 'https://instagram.example/smoke-p45')
+    RETURNING id INTO v_cand;
+
+    -- (fixture 3/13) candidaturas — `status = 'rejeitado'` e o survivor-guard que
+    -- desarma os DOIS triggers AFTER INSERT que fariam net.http_post (ver cabecalho).
+    -- `etapa_atual = 'triagem'` e o que o encerramento a pedido de 45-03 exige.
+    INSERT INTO public.candidaturas
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+    VALUES
+      (v_cand, v_vaga, 'triagem', 'rejeitado', false, now() - interval '31 days')
+    RETURNING id INTO v_candtr;
+
+    -- (fixture 4/13) historico_candidatura com `ator` = o titular. etapa_para =
+    -- 'triagem' cai no ramo `RETURN NEW` do CASE de trg_notif_transicao: zero
+    -- dispatch. A SONDA 6 mediu `ator` = 0 linhas para os 21 titulares puros
+    -- (quem move etapa e o RH), entao esta linha e sintetica de proposito — sem ela
+    -- a metade `ator` do ERASE-10 nao teria o que severar.
+    INSERT INTO public.historico_candidatura
+      (candidatura_id, etapa_de, etapa_para, ator, criado_em)
+    VALUES
+      (v_candtr, 'inscricao', 'triagem', v_user, now() - interval '30 days');
+
+    -- (fixture 5/13) decisao_final — justificativa longa, para que a
+    -- desidentificacao seja visivel e nao confundivel com truncamento.
+    INSERT INTO public.decisao_final
+      (candidatura_id, decisao, justificativa, por_usuario)
+    VALUES
+      (v_candtr, 'em_espera',
+       'SMOKE P45 fixture: justificativa sintetica com mais de cinquenta caracteres para exercitar a preservacao anonimizada exigida pela D-45-02.',
+       v_admin_auth);
+
+    -- (fixture 6/13) decisao_final_historico — a SONDA 4e mediu esta tabela em ZERO
+    -- linhas. Sem esta linha, a assercao de contagem do ERASE-08 sobre ela seria
+    -- satisfeita TRIVIALMENTE e nao provaria nada (D-45-03).
+    INSERT INTO public.decisao_final_historico
+      (candidatura_id, decisao, justificativa, por_usuario, decidido_em)
+    VALUES
+      (v_candtr, 'em_espera',
+       'SMOKE P45 fixture: justificativa arquivada, sintetica, com mais de cinquenta caracteres, exigida pela D-45-03.',
+       v_admin_auth, now() - interval '20 days');
+
+    -- (fixture 7/13) logs_acesso — `ip_address` e `inet NOT NULL`.
+    INSERT INTO public.logs_acesso (user_id, evento, ip_address)
+    VALUES (v_user, 'login_sucesso', '203.0.113.42'::inet)
+    RETURNING id INTO v_logid;
+
+    -- (fixture 8/13) autorizacoes — `ip_aceite` e prova de aceite: a linha fica, o
+    -- endereco nao.
+    INSERT INTO public.autorizacoes (candidato_id, user_id, ip_aceite, user_agent_aceite)
+    VALUES (v_cand, v_user, '198.51.100.77'::inet, 'smoke-p45')
+    RETURNING id INTO v_autid;
+
+    -- (fixture 9/13) recruiter_alerts — SONDA 4e: ZERO linhas em PROD (D10).
+    INSERT INTO public.recruiter_alerts (candidato_id, vaga_id, threshold_violated, message)
+    VALUES (v_cand, v_vaga, 'smoke_p45_fixture', 'fixture sintetica do p45 smoke');
+
+    -- (fixture 10/13) notificacoes_enviadas — `destinatario_email` E
+    -- `destinatario_original`, ambos NOT NULL: o endereco e gravado DUAS vezes por
+    -- linha, e NULL abortaria a transacao de anonimizacao inteira (Pitfall 12).
+    INSERT INTO public.notificacoes_enviadas
+      (candidato_id, candidatura_id, evento, template, dedupe_key,
+       destinatario_email, destinatario_original, status)
+    VALUES
+      (v_cand, v_candtr, 'confirmacao', 'confirmacao_candidatura',
+       'confirmacao:' || v_candtr::text || ':confirmacao',
+       v_email_fix, v_email_fix, 'enviado')
+    RETURNING id INTO v_notifid;
+
+    -- (fixture 11/13) prompt_versions, SE nao houver nenhuma viva — ai_call_logs
+    -- exige `prompt_version_id NOT NULL` com FK.
+    IF v_pv IS NULL THEN
+      INSERT INTO public.prompt_versions
+        (call_type, semver, model_id, max_tokens, content_hash,
+         change_summary, changed_by, system_template, user_template)
+      VALUES
+        ('cv_summary', '0.0.0-p45smoke', 'modelo-sintetico-p45', 256, 'p45smokehash',
+         'fixture sintetica do p45 smoke', v_admin_auth::text, 'sistema', 'usuario')
+      RETURNING id INTO v_pv;
+    END IF;
+
+    -- (fixture 12/13) ai_call_logs — SONDA 4e: ZERO linhas em PROD.
+    INSERT INTO public.ai_call_logs
+      (call_type, provider, model_id, prompt_hash, prompt_version_id,
+       input_token_count, output_token_count, latency_ms, raw_response, retain_until,
+       system_prompt, user_prompt_template, candidato_id, vaga_id)
+    VALUES
+      ('cv_summary', 'anthropic', 'modelo-sintetico-p45', 'p45smokehash', v_pv,
+       1, 1, 1, '{}'::jsonb, now() + interval '30 days',
+       'sistema', 'usuario', v_cand, v_vaga);
+
+    -- (fixture 13/13) candidate_ai_decisions — SONDA 4e: ZERO linhas em PROD. O
+    -- `ai_reasoning_summary` carrega texto sobre a PESSOA: e o conteudo que a
+    -- assercao (B6) exige desidentificado quando a coluna de FK for NOT NULL (M2).
+    INSERT INTO public.candidate_ai_decisions
+      (candidato_id, vaga_id, ai_call_log_ids, ai_composite_score,
+       ai_recommendation, ai_reasoning_summary)
+    VALUES
+      (v_cand, v_vaga, ARRAY[]::uuid[], 50.00,
+       'review', 'SMOKE P45 fixture: sumario de raciocinio sintetico sobre o titular.')
+    RETURNING id INTO v_aidec;
+
+    -- ── B0: a fixture EXISTE, com enfase nas TRES tabelas em zero linhas ────────
+    SELECT count(*) INTO v_n_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_n_aidec  FROM public.candidate_ai_decisions WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_n_alerts FROM public.recruiter_alerts       WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_n_notif  FROM public.notificacoes_enviadas  WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_n_logs   FROM public.logs_acesso            WHERE user_id      = v_user;
+    SELECT count(*) INTO v_n_aut    FROM public.autorizacoes           WHERE user_id      = v_user;
+
+    -- ── B1: contagens da trilha ANTES do tombstone (ja com a fixture dentro) ────
+    SELECT count(*) INTO v_hist_pre FROM public.historico_candidatura;
+    SELECT count(*) INTO v_df_pre   FROM public.decisao_final;
+    SELECT count(*) INTO v_dfh_pre  FROM public.decisao_final_historico;
+    SELECT count(*) INTO v_df_tit   FROM public.decisao_final d
+      JOIN public.candidaturas c ON c.id = d.candidatura_id WHERE c.candidato_id = v_cand;
+
+    -- ── Estado ANTES, coluna a coluna ──────────────────────────────────────────
+    SELECT c.nome_completo, c.email, c.cpf, c.celular, c.data_nascimento, c.genero,
+           c.cidade, c.estado, c.como_conheceu,
+           date_part('year', age(c.data_nascimento))::int
+      INTO v_nome_a, v_email_a, v_cpf_a, v_cel_a, v_nasc_a, v_gen_a,
+           v_cid_a, v_uf_a, v_conh_a, v_idade_a
+      FROM public.candidatos c WHERE c.id = v_cand;
+
+    SELECT cd.data_candidatura INTO v_dtcand_a FROM public.candidaturas cd WHERE cd.id = v_candtr;
+
+    SELECT d.justificativa INTO v_just_a FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
+    SELECT h.justificativa INTO v_justh_a FROM public.decisao_final_historico h WHERE h.candidatura_id = v_candtr LIMIT 1;
+    -- ⚠ As tres linhas abaixo sao lidas POR ID, nunca pelo ponteiro ao titular. O
+    -- tombstone severa exatamente esses ponteiros, entao reler por eles DEPOIS
+    -- devolveria zero linhas e a assercao (B6) reprovaria a implementacao CORRETA.
+    SELECT l.ip_address    INTO v_ip_log_a FROM public.logs_acesso l  WHERE l.id = v_logid;
+    SELECT a.ip_aceite     INTO v_ip_aut_a FROM public.autorizacoes a WHERE a.id = v_autid;
+    SELECT n.dedupe_key, n.destinatario_email, n.destinatario_original
+      INTO v_dedupe_a, v_dest_a, v_desto_a
+      FROM public.notificacoes_enviadas n WHERE n.id = v_notifid;
+    SELECT x.ai_reasoning_summary INTO v_airsum_a FROM public.candidate_ai_decisions x WHERE x.id = v_aidec;
+
+    SELECT count(*) INTO v_aud_a FROM public.logs_auditoria;
+
+    -- nullability MEDIDA AO VIVO — nunca lida de arquivo (Pitfall 9)
+    SELECT a.attnotnull INTO v_nn_cpf FROM pg_attribute a
+     WHERE a.attrelid = 'public.candidatos'::regclass AND a.attname = 'cpf' AND NOT a.attisdropped;
+    SELECT a.attnotnull INTO v_nn_aidec_c FROM pg_attribute a
+     WHERE a.attrelid = 'public.candidate_ai_decisions'::regclass AND a.attname = 'candidato_id' AND NOT a.attisdropped;
+    SELECT a.attnotnull INTO v_nn_aidec_v FROM pg_attribute a
+     WHERE a.attrelid = 'public.candidate_ai_decisions'::regclass AND a.attname = 'vaga_id' AND NOT a.attisdropped;
+
+    -- ── B2: O CAMINHO FELIZ ────────────────────────────────────────────────────
+    -- Impersonacao de `administrador` — papel REAL e nomeado. E deliberado que o
+    -- motor NAO seja chamavel sem claim nenhuma: (C2) assere essa recusa para as
+    -- cinco funcoes, o que torna "passar claims" uma obrigacao declarada da Edge
+    -- Function do 45-10, e nao um detalhe que ela descobre em producao.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_auth::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+
+    SELECT public.anonimizar_candidato(v_cand, false)::text INTO v_ret;
+
+    -- Marco de auditoria APOS a primeira execucao. A assercao (B4) mede o delta da
+    -- SEGUNDA chamada — usar o marco pre-tombstone contaria as linhas legitimas da
+    -- primeira e reprovaria a implementacao correta.
+    SELECT count(*) INTO v_aud_mid FROM public.logs_auditoria;
+
+    -- ── Estado DEPOIS ──────────────────────────────────────────────────────────
+    SELECT c.nome_completo, c.email, c.cpf, c.celular, c.data_nascimento, c.genero,
+           c.cidade, c.estado, c.como_conheceu, c.user_id
+      INTO v_nome_d, v_email_d, v_cpf_d, v_cel_d, v_nasc_d, v_gen_d,
+           v_cid_d, v_uf_d, v_conh_d, v_uid_d
+      FROM public.candidatos c WHERE c.id = v_cand;
+
+    SELECT count(*) INTO v_hist_pos FROM public.historico_candidatura;
+    SELECT count(*) INTO v_df_pos   FROM public.decisao_final;
+    SELECT count(*) INTO v_dfh_pos  FROM public.decisao_final_historico;
+
+    SELECT d.justificativa INTO v_just_d FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
+
+    -- M1: o arquivo pode ter GANHADO linha (o trigger AFTER UPDATE a insere com o
+    -- OLD.justificativa). O que NAO pode e sobrar linha identificavel.
+    SELECT count(*) INTO v_justh_ident
+      FROM public.decisao_final_historico h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE c.candidato_id = v_cand
+       AND (h.justificativa = v_justh_a OR h.justificativa = v_just_a);
+
+    SELECT count(*) INTO v_justh_ator
+      FROM public.decisao_final_historico h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE c.candidato_id = v_cand AND h.por_usuario = v_user;
+
+    SELECT l.ip_address INTO v_ip_log_d FROM public.logs_acesso l  WHERE l.id = v_logid;
+    SELECT a.ip_aceite  INTO v_ip_aut_d FROM public.autorizacoes a WHERE a.id = v_autid;
+    SELECT n.dedupe_key, n.destinatario_email, n.destinatario_original
+      INTO v_dedupe_d, v_dest_d, v_desto_d
+      FROM public.notificacoes_enviadas n WHERE n.id = v_notifid;
+    SELECT x.ai_reasoning_summary INTO v_airsum_d FROM public.candidate_ai_decisions x WHERE x.id = v_aidec;
+
+    -- ── B6: severacao das 5 tabelas SET NULL, medida por POS-ESTADO ────────────
+    SELECT count(*) INTO v_p_aicall FROM public.ai_call_logs           WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_p_aidec  FROM public.candidate_ai_decisions WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_p_logs   FROM public.logs_acesso            WHERE user_id      = v_user;
+    SELECT count(*) INTO v_p_alerts FROM public.recruiter_alerts       WHERE candidato_id = v_cand;
+    SELECT count(*) INTO v_p_aut    FROM public.autorizacoes           WHERE user_id      = v_user;
+
+    -- ── B8: ERASE-10, escopado ao titular ──────────────────────────────────────
+    -- ⚠ Escopado, e nao global: PROD tem 22 candidatos vivos com user_id vivo
+    -- (SONDA 4e). Uma assercao global de "zero candidatos com user_id em
+    -- auth.users" reprovaria o banco inteiro e nao diria nada sobre a exclusao.
+    SELECT count(*) INTO v_uid_viva
+      FROM public.candidatos c
+     WHERE c.id = v_cand AND c.user_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = c.user_id);
+
+    SELECT count(*) INTO v_ator_tit
+      FROM public.historico_candidatura h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE c.candidato_id = v_cand AND h.ator = v_user;
+
+    -- ── B9: RE-IDENTIFICACAO COMO GATE ─────────────────────────────────────────
+    -- Os quase-identificadores que sobrevivem por desenho: a UF (preservada), a
+    -- vaga e o timestamp da candidatura (a trilha nao e tocada). Se a faixa etaria
+    -- tambem sobreviver, os quatro juntos apontam para UMA pessoa.
+    SELECT count(*) INTO v_reid
+      FROM public.candidatos c
+      JOIN public.candidaturas cd ON cd.candidato_id = c.id
+     WHERE cd.vaga_id          = v_vaga
+       AND cd.data_candidatura = v_dtcand_a
+       AND c.estado            = v_uf_a
+       AND date_part('year', age(c.data_nascimento))::int BETWEEN v_idade_a - 2 AND v_idade_a + 2;
+
+    -- ── B4: IDEMPOTENCIA POR ESTADO ────────────────────────────────────────────
+    SELECT public.anonimizar_candidato(v_cand, false)::text INTO v_ret2;
+
+    SELECT count(*) INTO v_mudou2
+      FROM public.candidatos c
+     WHERE c.id = v_cand
+       AND (c.nome_completo   IS DISTINCT FROM v_nome_d
+         OR c.email           IS DISTINCT FROM v_email_d
+         OR c.cpf             IS DISTINCT FROM v_cpf_d
+         OR c.celular         IS DISTINCT FROM v_cel_d
+         OR c.data_nascimento IS DISTINCT FROM v_nasc_d
+         OR c.genero          IS DISTINCT FROM v_gen_d
+         OR c.cidade          IS DISTINCT FROM v_cid_d
+         OR c.estado          IS DISTINCT FROM v_uf_d
+         OR c.user_id         IS DISTINCT FROM v_uid_d);
+
+    SELECT count(*) - v_aud_mid INTO v_aud_delta FROM public.logs_auditoria;
+
+    PERFORM set_config('request.jwt.claims', '', false);
+
+    RAISE EXCEPTION 'rollback_smoke45m_bloco_b' USING ERRCODE = 'P45B0';
+  EXCEPTION
+    WHEN sqlstate 'P45B0' THEN
+      NULL;  -- reversao ESPERADA; as variaveis acima sobreviveram ao rollback
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- JULGAMENTO — fora da subtransacao. Ordem deliberada (ver cabecalho do bloco).
+  -- ═══════════════════════════════════════════════════════════════════════════
+
+  -- (B0) A FIXTURE EXISTE — e a ausencia dela e FALHA DE TESTE, nunca verde.
+  IF v_n_aicall <> 1 OR v_n_aidec <> 1 OR v_n_alerts <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B0): a fixture das TRES tabelas medidas em ZERO linhas em PROD nao foi criada (ai_call_logs=%, candidate_ai_decisions=%, recruiter_alerts=%, esperado 1 em cada). Sem fixture, TODA assercao sobre o tratamento delas passa por VACUIDADE e conta como verde — que e exatamente o modo de falha que a SONDA 4e (D10) mandou fechar. Ausencia de fixture e FALHA DE TESTE', v_n_aicall, v_n_aidec, v_n_alerts;
+  END IF;
+  IF v_n_notif <> 1 OR v_n_logs <> 1 OR v_n_aut <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B0): fixture incompleta em notificacoes_enviadas=%, logs_acesso=%, autorizacoes=% (esperado 1 em cada)', v_n_notif, v_n_logs, v_n_aut;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B0): fixture completa nas 3 tabelas em zero + ledger + logs + autorizacoes';
+
+  -- (B1) A FIXTURE MOVEU AS CONTAGENS — senao (B7) seria verde por vacuidade.
+  IF v_hist_pre <> current_setting('smoke45m.hist')::bigint + 1
+     OR v_df_pre <> current_setting('smoke45m.df')::bigint + 1
+     OR v_dfh_pre <> current_setting('smoke45m.dfh')::bigint + 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B1): a fixture nao moveu a trilha como esperado (historico %->%; decisao_final %->%; decisao_final_historico %->%). A SONDA 4e mediu decisao_final_historico em ZERO: sem linha sintetica ali, a assercao de contagem do ERASE-08 sobre ela e satisfeita TRIVIALMENTE e nao prova nada',
+      current_setting('smoke45m.hist'), v_hist_pre, current_setting('smoke45m.df'), v_df_pre, current_setting('smoke45m.dfh'), v_dfh_pre;
+  END IF;
+  IF v_df_tit <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B1): o titular sintetico tem % linha(s) em decisao_final, esperado 1 — a D-45-02 nao teria o que preservar anonimizado', v_df_tit;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B1): trilha com fixture dentro — historico=%, decisao_final=%, decisao_final_historico=% (esta ultima saiu de zero)', v_hist_pre, v_df_pre, v_dfh_pre;
+
+  -- (B2) CAMINHO FELIZ — a funcao COMPLETOU. Nao "nao lancou".
+  IF v_ret IS NULL OR btrim(v_ret) = '' THEN
+    RAISE EXCEPTION 'P45M FAIL (B2): anonimizar_candidato(id, p_dry_run := false) nao devolveu nada. A assercao e sobre COMPLETUDE, nao sobre ausencia de excecao: uma funcao que retorna vazio nao provou que chegou ao fim do corpo';
+  END IF;
+  IF v_email_d IS NOT DISTINCT FROM v_email_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B2): a funcao retornou (%) mas o e-mail do titular NAO mudou — ela nao executou o tombstone. As SETE CHECKs vivas de candidatos (check_email_format, check_cpf_format, check_celular_format, check_data_nascimento, check_genero, check_estado, check_como_conheceu) e os NOT NULL medidos so sao exercitados por um caminho que PASSA; uma sentinela plausivel-mas-invalida aborta a transacao inteira com check_violation, e e esse desfecho que esta assercao existe para pegar ANTES do primeiro pedido real', v_ret;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B2): o tombstone COMPLETOU contra as 7 CHECKs vivas e devolveu %', v_ret;
+
+  -- (B7) ⊖ NEGATIVA (ERASE-08) — a trilha de decisao sobreviveu.
+  --      Ver (M1) no cabecalho: a forma desta assercao e MEDIDA, nao literal.
+  IF v_hist_pos <> v_hist_pre THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): historico_candidatura saiu de % para % linhas durante o tombstone. A trilha que a RNF-07a existe para proteger acabou de ser tocada, e o ERASE-08 proibe isso: a saida e anonimizar a linha filha e severar o ponteiro, NUNCA apagar a linha nem relaxar a FK', v_hist_pre, v_hist_pos;
+  END IF;
+  IF v_df_pos <> v_df_pre THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): decisao_final saiu de % para % linhas. A D-45-02 manda PRESERVAR ANONIMIZADA — tratar por tombstone/desvinculacao, nunca por DELETE', v_df_pre, v_df_pos;
+  END IF;
+  IF v_dfh_pos < v_dfh_pre THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): decisao_final_historico DECRESCEU de % para % linhas — alguem apagou do arquivo. Zero apagamento e exatamente o que o ERASE-08 garante, e a FK dele segue NO ACTION (A1) justamente para tornar isso dificil', v_dfh_pre, v_dfh_pos;
+  END IF;
+  IF v_dfh_pos > v_dfh_pre + v_df_tit THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): decisao_final_historico cresceu de % para % linhas, mais do que as % linha(s) de decisao_final do titular que o tombstone atualizou. O crescimento esperado vem do trg_decisao_final_snapshot (AFTER UPDATE, sem WHEN), um por UPDATE; qualquer excedente e escrita que ninguem previu', v_dfh_pre, v_dfh_pos, v_df_tit;
+  END IF;
+  IF v_justh_ident <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): % linha(s) de decisao_final_historico do titular ainda carregam justificativa IDENTIFICAVEL. Este e o achado M1 mordendo: trg_decisao_final_snapshot (20260709000011:105-118) e AFTER UPDATE ON decisao_final SEM clausula WHEN, e insere OLD.justificativa no arquivo — ou seja, o proprio UPDATE de anonimizacao RECRIA no historico a PII que acabou de remover da linha corrente. O operador antecipou isto por escrito ao travar a BD-9: "o historico entrega o que a linha corrente protege". CONSERTO NO 45-07: o scrub de decisao_final_historico tem de ser o ULTIMO statement a tocar o par, DEPOIS do UPDATE em decisao_final — faze-lo antes deixa uma linha identificavel recem-criada atras dele', v_justh_ident;
+  END IF;
+  IF v_justh_ator <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B7): % linha(s) de decisao_final_historico do titular ainda tem por_usuario apontando ao titular', v_justh_ator;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B7): trilha intacta (historico %=%, decisao_final %=%), arquivo sem decrescimo (%->%, teto %+%) e ZERO justificativa identificavel do titular',
+    v_hist_pre, v_hist_pos, v_df_pre, v_df_pos, v_dfh_pre, v_dfh_pos, v_dfh_pre, v_df_tit;
+
+  -- (B8) ⊖ NEGATIVA (ERASE-10)
+  IF v_uid_viva <> 0 OR v_uid_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B8): o titular anonimizado ainda tem user_id (%) apontando para linha VIVA de auth.users. O ERASE-10 exige a severacao ANTES do deleteUser: com o ponteiro de pe, apagar o usuario cascateia candidatos -> candidaturas e bate nas 3 FKs NO ACTION com 23503 — e se isso acontecer depois do passo de Storage, o curriculo ja foi apagado e nao ha PITR nem backup de Storage para trazer de volta', v_uid_d;
+  END IF;
+  IF v_ator_tit <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B8): % linha(s) de historico_candidatura ainda tem ator apontando ao titular anonimizado', v_ator_tit;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B8): user_id severado e zero historico_candidatura.ator apontando ao titular';
+
+  -- (B3) POS-ESTADO COLUNA A COLUNA, contra as constraints VIVAS.
+  IF v_email_d !~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/email): a sentinela % nao casa o check_email_format vivo', v_email_d;
+  END IF;
+  IF (SELECT count(*) FROM public.candidatos c WHERE c.email = v_email_d) <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/email): a sentinela de e-mail nao e unica por linha. A coluna e NOT NULL + UNIQUE + CHECK de formato (D5): uma sentinela FIXA colide na SEGUNDA exclusao e aborta a transacao inteira de quem pediu depois';
+  END IF;
+  IF v_cel_d !~ '^\(\d{2}\) \d{5}-\d{4}$' THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/celular): a sentinela % nao casa o check_celular_format vivo — a coluna e NOT NULL e um marcador em prosa ([removido]) aborta a transacao', v_cel_d;
+  END IF;
+  IF v_nasc_d IS NULL OR v_nasc_d >= CURRENT_DATE OR v_nasc_d = v_nasc_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/data_nascimento): valor % — tem de ser NAO-NULO, no passado (check_data_nascimento) e DIFERENTE do original. E a coluna cuja faixa etaria o ERASE-01 materializa ANTES desta escrita', v_nasc_d;
+  END IF;
+  IF v_uf_d IS NULL OR NOT (v_uf_d::text = ANY (v_ufs)) THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/estado): valor % nao esta entre as 27 UFs do check_estado vivo. Nao existe valor "removido" valido para esta coluna: a decisao registrada e PRESERVAR a UF com base legal no COMMENT, nunca inventar sentinela que a CHECK recusa', v_uf_d;
+  END IF;
+  IF v_nn_cpf IS DISTINCT FROM true AND v_cpf_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/cpf): a coluna e NULAVEL no catalogo vivo (SONDA 1a / D4) e o CPF deveria ter ido a NULL, mas ficou %. O mapa de nullability NAO pode ser lido de docs/sql/sql/02-tabela-candidatos.sql, que declara NOT NULL e diverge do catalogo (Pitfall 9)', v_cpf_d;
+  END IF;
+  IF v_nn_cpf IS true AND (v_cpf_d IS NULL OR v_cpf_d = v_cpf_a OR v_cpf_d !~ '^\d{3}\.\d{3}\.\d{3}-\d{2}$') THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/cpf): a coluna e NOT NULL no catalogo vivo, entao a sentinela tem de ser unica e NO FORMATO do check_cpf_format — veio %', coalesce(v_cpf_d, '<nulo>');
+  END IF;
+  IF v_gen_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/genero): valor % — a coluna e NULAVEL (SONDA 1a) e CHECK sobre NULL e NULL, entao NULL passa e e o tratamento correto', v_gen_d;
+  END IF;
+  IF v_conh_d IS NOT NULL AND NOT (v_conh_d = ANY (v_conhecidos)) THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/como_conheceu): valor % nao esta no check_como_conheceu — a SETIMA CHECK, que a pesquisa NAO previu (D2). A coluna e nulavel, entao NULL resolve', v_conh_d;
+  END IF;
+  IF v_nome_d IS NULL OR v_nome_d = v_nome_a OR v_cid_d IS NULL OR v_cid_d = v_cid_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/nome_cidade): nome=% e cidade=% — as duas sao NOT NULL sem CHECK de formato, e as duas tem de mudar', coalesce(v_nome_d, '<nulo>'), coalesce(v_cid_d, '<nulo>');
+  END IF;
+  IF v_just_d IS NULL OR btrim(v_just_d) = '' OR v_just_d = v_just_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/decisao_final.justificativa): valor %. A D-45-02 manda PRESERVAR ANONIMIZADA: o texto sobrevive como prova de nao-discriminacao (Art. 7o, VI / RNF-07a), o vinculo com o titular nao. A coluna e NOT NULL — nunca NULL, nunca DELETE da linha', coalesce(v_just_d, '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B3): pos-estado coerente com as 7 CHECKs vivas e com a nullability MEDIDA (cpf notnull=%)', v_nn_cpf;
+
+  -- (B4) IDEMPOTENCIA POR ESTADO — nunca por try/catch.
+  IF v_mudou2 <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B4): a segunda chamada MUTOU a linha. A idempotencia tem de ser por ESTADO — o predicado reconhece a sentinela e retorna sem tocar em nada. Apagar de novo "porque nao da erro" funciona por acidente e para de funcionar no dia em que a enumeracao devolver algo novo, e nesse dia a evidencia de que ja tinha rodado nao existe';
+  END IF;
+  IF v_aud_delta <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B4): a segunda chamada acrescentou % linha(s) em logs_auditoria — um no-op que audita nao e um no-op, e a trilha passa a registrar exclusoes que nao aconteceram', v_aud_delta;
+  END IF;
+  IF v_ret2 IS NULL OR v_ret2 !~* 'ja_anonimizado' THEN
+    RAISE EXCEPTION 'P45M FAIL (B4): a segunda chamada devolveu %, e o contrato do 45-07 e retornar ja_anonimizado quando a sentinela e reconhecida. Um retorno indistinguivel do primeiro impede o chamador de saber se ele acabou de apagar algo ou nao', coalesce(v_ret2, '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B4): re-execucao e no-op por ESTADO — zero coluna mudada, zero linha nova em logs_auditoria (a 1a execucao auditou %), retorno %', v_aud_mid - v_aud_a, v_ret2;
+
+  -- (B5) ⊖ NEGATIVA — SEM ESTADO INTERMEDIARIO OBSERVAVEL.
+  v_mudadas := 0;
+  IF v_nome_d  IS DISTINCT FROM v_nome_a  THEN v_mudadas := v_mudadas + 1; END IF;
+  IF v_email_d IS DISTINCT FROM v_email_a THEN v_mudadas := v_mudadas + 1; END IF;
+  IF v_cel_d   IS DISTINCT FROM v_cel_a   THEN v_mudadas := v_mudadas + 1; END IF;
+  IF v_nasc_d  IS DISTINCT FROM v_nasc_a  THEN v_mudadas := v_mudadas + 1; END IF;
+  IF v_mudadas <> 4 THEN
+    RAISE EXCEPTION 'P45M FAIL (B5): apenas % de 4 colunas identificantes mudaram — existe estado INTERMEDIARIO observavel (por exemplo nome anonimizado com CPF intacto). A metade Postgres e UMA transacao, e essa e a unica atomicidade que a fase tem: uma interrupcao deixa a linha INTEIRAMENTE nao-anonimizada, nunca meio anonimizada', v_mudadas;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B5): tudo-ou-nada — as 4 colunas identificantes mudaram juntas';
+
+  -- (B6) AS 5 TABELAS `SET NULL`, POR POS-ESTADO E NUNCA POR ORDEM.
+  --      A ordem relativa das severacoes nao e observavel de fora (mesma transacao);
+  --      um teste que dependesse dela estaria medindo implementacao, nao contrato.
+  IF v_p_aicall <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/ai_call_logs): % linha(s) ainda apontam ao titular (candidato_id e nulavel — nao ha desculpa estrutural)', v_p_aicall;
+  END IF;
+  IF v_p_logs <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/logs_acesso): % linha(s) ainda apontam ao titular por user_id', v_p_logs;
+  END IF;
+  IF v_p_alerts <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/recruiter_alerts): % linha(s) ainda apontam ao titular', v_p_alerts;
+  END IF;
+  IF v_p_aut <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/autorizacoes): % linha(s) ainda apontam ao titular por user_id (a FK SET NULL do ERASE-09 e esta; autorizacoes.candidato_id e CASCADE — sao FKs distintas, D8)', v_p_aut;
+  END IF;
+  -- M2: leitura dinamica de attnotnull para o PAR de colunas inexequiveis.
+  IF v_nn_aidec_c IS DISTINCT FROM true THEN
+    IF v_p_aidec <> 0 THEN
+      RAISE EXCEPTION 'P45M FAIL (B6/candidate_ai_decisions): candidato_id e NULAVEL no catalogo vivo e ainda ha % linha(s) apontando ao titular — a severacao e possivel e nao foi feita', v_p_aidec;
+    END IF;
+  ELSE
+    IF v_airsum_d IS NOT DISTINCT FROM v_airsum_a THEN
+      RAISE EXCEPTION 'P45M FAIL (B6/candidate_ai_decisions): candidato_id e NOT NULL (%) e vaga_id e NOT NULL (%) no catalogo vivo, as duas com ON DELETE SET NULL — clausulas INEXEQUIVEIS (apagar a linha referenciada tentaria gravar NULL em coluna NOT NULL e levantaria 23502). O ponteiro nao pode ser severado, entao o CONTEUDO tinha de ser desidentificado, e ai_reasoning_summary continua identico ao original. O 45-07 escolhe explicitamente entre afrouxar AS DUAS colunas e desidentificar o conteudo — o que ele nao pode e deixar as duas coisas de pe (achado M2)', v_nn_aidec_c, v_nn_aidec_v;
+    END IF;
+  END IF;
+  IF v_ip_log_d IS NULL OR v_ip_log_d = v_ip_log_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/logs_acesso.ip_address): valor %. E `inet NOT NULL`: tem de ser TRUNCADO ou MASCARADO, e NUNCA nulo — NULL aborta a transacao de anonimizacao inteira', coalesce(v_ip_log_d::text, '<nulo>');
+  END IF;
+  IF v_ip_aut_d IS NULL OR v_ip_aut_d = v_ip_aut_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B6/autorizacoes.ip_aceite): valor %. E prova de aceite: a linha fica, o endereco nao — mascarado, nunca nulo', coalesce(v_ip_aut_d::text, '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B6): as 5 tabelas SET NULL tratadas por pos-estado; os 2 inet mascarados e nao nulos';
+
+  -- (B9) RE-IDENTIFICACAO COMO GATE — a unica assercao da fase que prova
+  --      IRREVERSIBILIDADE em vez de apagamento.
+  IF v_reid <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B9): ACHEI O TITULAR — % linha(s) devolvidas por (faixa etaria %+-2 + UF % + vaga + timestamp da candidatura). A ANONIMIZACAO FALHOU. A UF, a vaga e o timestamp sobrevivem por desenho (a trilha nao e tocada); e a faixa etaria que tem de deixar de casar, e ela so deixa se data_nascimento receber sentinela DEPOIS de a faixa ter sido materializada em faixa_etaria_materializada (ERASE-01 / SC#5). Apagar dados nao basta: o que resta nao pode reconstituir a pessoa', v_reid, v_idade_a, v_uf_a;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B9): zero linhas ao buscar o titular por (faixa % + UF % + vaga + timestamp)', v_idade_a, v_uf_a;
+
+  -- (B10) O LEDGER DE E-MAIL — sentinela nos dois enderecos + dedupe re-namespaceada.
+  IF v_dest_d IS NULL OR v_desto_d IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B10): destinatario_email=% / destinatario_original=% — os DOIS sao NOT NULL e o endereco e gravado DUAS vezes por linha. NULL aborta a transacao de anonimizacao inteira: a sentinela nao e conveniencia, e requisito', coalesce(v_dest_d, '<nulo>'), coalesce(v_desto_d, '<nulo>');
+  END IF;
+  IF v_dest_d = v_dest_a OR v_desto_d = v_desto_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B10): o endereco do titular sobreviveu no ledger (email igual=%, original igual=%) — o inventario classifica as duas colunas como apagar', (v_dest_d = v_dest_a), (v_desto_d = v_desto_a);
+  END IF;
+  IF v_dedupe_d IS NULL OR v_dedupe_d = v_dedupe_a THEN
+    RAISE EXCEPTION 'P45M FAIL (B10): dedupe_key nao foi re-namespaceada (%). O formato e {evento}:{candidatura_id}:{discriminador} e a coluna e UNIQUE: com a chave preservada, um recadastro futuro COLIDE, o claim INSERT ... ON CONFLICT DO NOTHING RETURNING id volta VAZIO, e o e-mail legitimo NUNCA E ENVIADO — sem erro em lugar nenhum (Pitfall 8, item 2)', coalesce(v_dedupe_d, '<nulo>');
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B10): ledger com sentinela nos dois enderecos e dedupe_key re-namespaceada';
+END
+$bloco_b$;
