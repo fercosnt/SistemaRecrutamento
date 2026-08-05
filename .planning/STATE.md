@@ -133,6 +133,40 @@ Registrado como `D7 / human_judgment: true`.
 
 ---
 
+### ⚠ Isolamento por worktree NÃO funciona neste ambiente — MEDIDO na wave 3 da P45 (2026-08-05)
+
+**A correção da concorrência introduziu um modo de falha pior, e ele foi medido na primeira
+tentativa.** Os três executores da wave 3 foram despachados com `isolation: "worktree"`. **Os três
+worktrees nasceram do MESMO base stale `bf832f3` — 120 commits atrás de `main`, na ponta da Phase
+43.** Phases 44 e 45 não existiam neles: nem os PLANs, nem `45-SONDAS-PROD.md`, nem as migrations
+já aplicadas em PROD, nem `ExcluirDadosBloco.tsx`, nem os tipos regenerados.
+
+**Os três recusaram trabalhar e diagnosticaram** — zero escrita, zero commit, zero perda. A guarda
+de base-drift é fail-closed por contrato: subagente não reescreve base de worktree que não criou.
+
+⚠ **O pior desfecho que a recusa evitou, e ele é específico:** `ExcluirDadosBloco.tsx` não existe
+naquele base. "Editá-lo" significaria **escrevê-lo do zero, sem enxergar a Emenda C** — e a
+resolução provável do conflito add/add restauraria em silêncio o ramo de estado vazio, reinstalando
+exatamente o defeito de Art. 18 que o `5230f01` removeu horas antes.
+
+**Regra revista, e ela substitui a anterior:**
+
+1. **NÃO usar `isolation: "worktree"` neste repositório** enquanto o base de spawn não for
+   verificável. A checagem que pegou o problema roda **depois** de o executor já estar rodando e
+   ter lido o prompt — cara demais para ser a única rede.
+2. Para mais de um executor autônomo na mesma wave: **serializar**. Isso elimina as duas falhas da
+   wave 2 (o `git add` de um agente entrando no `commit` de outro, e a oscilação de `tsc` por
+   arquivos RED-first de outro plano) sem herdar a falha da wave 3.
+3. Se worktree voltar a ser usado, **conferir o HEAD do worktree contra `main` ANTES de despachar**,
+   não depois.
+
+**O que a wave 2 mediu, e continua valendo como razão para serializar:** um `git add` de um agente
+foi varrido para o `git commit` de outro **em silêncio** (SUMMARY do `45-04` dentro de `9fa848d`,
+atribuição errada, corrigida em `cddd4e8`), e a contagem `tsc` oscilou entre 97 e 100 porque o
+`45-03` tinha arquivos RED-first no disco, bloqueando o hook de um plano por defeito de outro.
+
+---
+
 ### ⚠ Executores paralelos compartilham working tree e índice do git — MEDIDO na wave 2 da P45
 
 **Não é hipótese; foram dois efeitos observados**, com três executores escrevendo em `src/` e
