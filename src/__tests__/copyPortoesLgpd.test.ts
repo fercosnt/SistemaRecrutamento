@@ -256,22 +256,77 @@ function coocorrenciasDeExclusaoAutomatica(alvos: string[]): Ocorrencia[] {
 
 /**
  * Os dois artefatos que, juntos, constituem o MOTOR de exclusão — o código que executa a
- * promessa. Nomes fixados pelo plano da Phase 45 (45-10 escreve a EF; 45-07 escreve o RPC).
+ * promessa. `45-07` escreve o RPC de tombstone; `45-10` escreve os três passos destrutivos.
  *
- * ⚠ Precisa dos DOIS. A EF sozinha é o orquestrador dos três sistemas e não anonimiza nada;
- * o RPC sozinho é a metade Postgres sem quem chame Storage e Auth. Uma promessa respaldada
- * por metade do motor continua sendo uma promessa que não se cumpre.
+ * ⚠ Precisa dos DOIS. A EF sozinha orquestra três sistemas e não anonimiza nada; o RPC
+ * sozinho é a metade Postgres sem quem chame Storage e Auth.
+ *
+ * ⚠⚠ **CORRIGIDO em 2026-08-05, na wave 2 — a versão anterior deu FALSO POSITIVO.**
+ * Ela pedia `existsSync(EF)` e uma **substring** `anonimizar_candidato` em qualquer migration.
+ * Ambas passaram a valer sem que o motor existisse:
+ *
+ *   1. o TRACER (45-03) cria `executar-direito-titular/index.ts` como esqueleto NÃO-destrutivo —
+ *      a sonda assumia que esse caminho só nasceria no 45-10;
+ *   2. `20260805000003_p45_bias_k5.sql:119` **menciona** o nome do RPC num comentário `--`.
+ *
+ * Resultado: o portão ficou VERDE com a promessa ainda órfã — parou de dizer a verdade
+ * exatamente na fase que ele existe para vigiar. Quem pegou foi o meta-teste logo abaixo.
+ *
+ * A lição é a da própria fase, um nível acima: **menção não é execução.** A sonda agora exige
+ * OBJETO VIVO, e ignora comentários — porque a justificativa de um ban escrita em docblock não
+ * pode satisfazer o ban (mesma armadilha que o `dc5b911` do 45-03 caiu e consertou).
  */
 const EF_EXCLUSAO = join(RAIZ, 'supabase/functions/executar-direito-titular/index.ts')
-const RPC_TOMBSTONE = ['anonimizar', '_candidato'].join('')
 
-function motorDeExclusaoExiste(): boolean {
-  if (!existsSync(EF_EXCLUSAO)) return false
+/** Tokens montados por concatenação — idioma do arquivo, para nunca virar sua própria violação. */
+const RPC_TOMBSTONE = ['anonimizar', '_candidato'].join('')
+const CHAMADA_AUTH_DELETE = ['delete', 'User'].join('')
+
+/** Remove comentários `--` de SQL. Um nome citado em comentário NÃO conta como definição. */
+function semComentariosSql(sql: string): string {
+  return sql
+    .split('\n')
+    .map((l) => l.replace(/--.*$/, ''))
+    .join('\n')
+}
+
+/** Remove comentários `//` e blocos de bloco de TS/JS, pela mesma razão. */
+function semComentariosTs(ts: string): string {
+  return ts
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((l) => l.replace(/\/\/.*$/, ''))
+    .join('\n')
+}
+
+/** O RPC de tombstone existe como DEFINIÇÃO (45-07), não como nome citado. */
+function rpcTombstoneDefinido(): boolean {
   const migracoes = join(RAIZ, 'supabase/migrations')
   if (!existsSync(migracoes)) return false
+  const definicao = new RegExp(
+    `CREATE\\s+(OR\\s+REPLACE\\s+)?FUNCTION\\s+(public\\.)?${RPC_TOMBSTONE}\\b`,
+    'i',
+  )
   return readdirSync(migracoes)
     .filter((f) => f.endsWith('.sql'))
-    .some((f) => readFileSync(join(migracoes, f), 'utf8').includes(RPC_TOMBSTONE))
+    .some((f) => definicao.test(semComentariosSql(readFileSync(join(migracoes, f), 'utf8'))))
+}
+
+/**
+ * A EF executa de fato os passos destrutivos (45-10) — não apenas anuncia que os terá.
+ * Exige as DUAS chamadas: a remoção no Storage e o hard delete no Auth. O tracer (45-03)
+ * não satisfaz nenhuma das duas, que é exatamente a propriedade desejada.
+ */
+function efExecutaPassosDestrutivos(): boolean {
+  if (!existsSync(EF_EXCLUSAO)) return false
+  const fonte = semComentariosTs(readFileSync(EF_EXCLUSAO, 'utf8'))
+  const apagaNoAuth = new RegExp(`\\b${CHAMADA_AUTH_DELETE}\\s*\\(`).test(fonte)
+  const apagaNoStorage = /\.remove\s*\(/.test(fonte) && /storage/.test(fonte)
+  return apagaNoAuth && apagaNoStorage
+}
+
+function motorDeExclusaoExiste(): boolean {
+  return rpcTombstoneDefinido() && efExecutaPassosDestrutivos()
 }
 
 describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do candidato', () => {
@@ -304,9 +359,13 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
       motorDeExclusaoExiste(),
       `A superfície do candidato PROMETE exclusão em ${ocorrencias.length} ponto(s), e o ` +
         `motor que cumpre a promessa não existe no repositório.\n\n` +
-        `Faltando: ${existsSync(EF_EXCLUSAO) ? '' : `a EF \`${EF_EXCLUSAO}\` (45-10)`}` +
-        `${existsSync(EF_EXCLUSAO) ? '' : ' e '}` +
-        `o RPC de tombstone em \`supabase/migrations/\` (45-07).\n\n` +
+        `Faltando:\n` +
+        `  · RPC de tombstone DEFINIDO em \`supabase/migrations/\` (45-07): ` +
+        `${rpcTombstoneDefinido() ? 'ok' : 'AUSENTE'}\n` +
+        `  · EF com os passos destrutivos de fato — remoção no Storage E hard delete no Auth ` +
+        `(45-10): ${efExecutaPassosDestrutivos() ? 'ok' : 'AUSENTE'}\n\n` +
+        `⚠ Citar o nome numa migration ou criar o arquivo da EF NÃO satisfaz nenhum dos dois. ` +
+        `Menção não é execução — foi assim que este portão deu falso positivo em 2026-08-05.\n\n` +
         `Uma promessa sem motor é órfã — exatamente a classe de coisa que o CONSOL-04 ` +
         `existe para eliminar. As duas saídas honestas são construir o motor ou retirar a ` +
         `promessa; isentar o arquivo NÃO é uma delas.\n${relatar(ocorrencias)}`,
@@ -325,28 +384,55 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
    * esta linha vira vermelha e obriga alguém a olhar para o portão de novo, em vez de deixá-lo
    * silenciosamente permissivo.
    */
-  it('o portão do CONSOL-04 mede o disco de verdade — e hoje é falso pela EF ausente', () => {
+  it('o portão do CONSOL-04 mede o disco de verdade, e MENÇÃO não conta como execução', () => {
+    // 1 · O veredito de hoje: o motor NÃO existe. O tracer do 45-03 criou o arquivo da EF e uma
+    //     migration irmã CITA o nome do RPC — e nenhuma das duas coisas é o motor.
     expect(motorDeExclusaoExiste()).toBe(false)
+
+    // 2 · ⚠ A REGRESSÃO QUE JÁ ACONTECEU UMA VEZ, agora pinada. A versão anterior desta sonda
+    //     pedia `existsSync(EF)` + substring do nome do RPC, e ficou VERDE com a promessa órfã.
+    //     Estas duas linhas provam que o falso positivo de 2026-08-05 não volta: as duas
+    //     condições fracas seguem verdadeiras, e o veredito acima continua `false`.
     expect(
       existsSync(EF_EXCLUSAO),
-      `Se esta asserção falhou, a EF do motor NASCEU (45-10) — vá ao portão do CONSOL-04 ` +
-        `acima e confirme que ele ficou verde sozinho. Se ficou, apague esta linha. Se não ` +
-        `ficou, o RPC de tombstone (45-07) ainda falta.`,
-    ).toBe(false)
-
-    // A outra metade: a função encontra o RPC quando ele existe. Provado contra o próprio
-    // diretório de migrations com um token que SABIDAMENTE está lá — se esta busca não achasse
-    // nada, `motorDeExclusaoExiste` seria `false` por varredura quebrada, não por motor ausente.
+      'O arquivo da EF deveria existir desde o tracer (45-03). Se sumiu, o tracer foi revertido.',
+    ).toBe(true)
     const migracoes = join(RAIZ, 'supabase/migrations')
     const arquivos = readdirSync(migracoes).filter((f) => f.endsWith('.sql'))
+    expect(
+      arquivos.some((f) => readFileSync(join(migracoes, f), 'utf8').includes(RPC_TOMBSTONE)),
+      'Alguma migration deveria CITAR o nome do RPC (o bias k=5 cita, em comentário). Se nenhuma ' +
+        'cita, esta prova anti-regressão perdeu o objeto e precisa de outro.',
+    ).toBe(true)
+
+    // 3 · Cada metade é falsa pela razão CERTA, e não por varredura quebrada.
+    expect(
+      rpcTombstoneDefinido(),
+      'Se virou true, o 45-07 definiu o RPC de tombstone — confira se o portão do CONSOL-04 ' +
+        'ficou verde sozinho e ajuste este meta-teste.',
+    ).toBe(false)
+    expect(
+      efExecutaPassosDestrutivos(),
+      'Se virou true, o 45-10 escreveu os passos destrutivos na EF — mesma conferência.',
+    ).toBe(false)
+
+    // 4 · E a varredura FUNCIONA: ela acha uma definição de função que sabidamente existe.
+    //     Sem isto, `rpcTombstoneDefinido()` poderia ser `false` por regex quebrada em vez de
+    //     por motor ausente — reprovar pelo motivo errado é tão cego quanto passar.
     expect(arquivos.length).toBeGreaterThan(0)
     expect(
       arquivos.some((f) =>
-        readFileSync(join(migracoes, f), 'utf8').includes('CREATE OR REPLACE FUNCTION'),
+        /CREATE\s+(OR\s+REPLACE\s+)?FUNCTION\s+(public\.)?\w+/i.test(
+          semComentariosSql(readFileSync(join(migracoes, f), 'utf8')),
+        ),
       ),
-      'A varredura de migrations não achou nem `CREATE OR REPLACE FUNCTION` — ela está quebrada, ' +
-        'e o portão do CONSOL-04 estaria reprovando por leitura falha em vez de motor ausente.',
+      'A varredura não achou definição de função alguma fora de comentário — ela está quebrada.',
     ).toBe(true)
+
+    // 5 · E o removedor de comentários REMOVE: prova direta, sem depender do estado do repo.
+    expect(semComentariosSql('-- CREATE FUNCTION public.x').trim()).toBe('')
+    expect(semComentariosTs('// const a = 1').trim()).toBe('')
+    expect(semComentariosTs('/* bloco */ const b = 2').trim()).toBe('const b = 2')
   })
 
   it('nenhuma coocorrência de automatismo com exclusão dentro da allowlist', () => {
