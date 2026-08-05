@@ -78,7 +78,47 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-Phase: **45 (Motor de Exclusão & Anonimização) — PLANEJADA, pronta para executar** (2026-08-05)
+Phase: **45 — WAVE 1 EM ANDAMENTO, parada em checkpoint** (2026-08-05)
+
+| Item | Estado |
+|---|---|
+| `45-01` Task 1 — 5 sondas read-only de PROD | ✅ **EXECUTADA** (`3e28642`) — `45-SONDAS-PROD.md`, **10 divergências, 3 bloqueantes** |
+| `45-01` Task 2 — sonda de ESCRITA (hard delete de conta descartável) | ⏸ **CHECKPOINT — decisão do operador** |
+| `45-01` Task 3 — G1/G2 da Phase 44 | ⏸ **CHECKPOINT** — G2 exige `npx supabase login` (interativo) |
+| `45-02` — gerador do recibo | ✅ **COMPLETO** (5 commits, 209/209 colunas, zero `--no-verify`) |
+
+**⚠ SUÍTE VERMELHA — 1608/1609.** `copyPortoesLgpd.test.ts` (guarda escrita na Phase 43) reprova
+`reciboExclusao.generated.ts` por 5 frases em futuro sobre exclusão. **A guarda está literalmente
+certa hoje:** sua premissa declarada é *"nesta fase nada é apagado e a purga só nasce na Phase 46"*,
+e o motor que cumpre a promessa (45-07/45-10) ainda não existe. Decisão pendente — ver §Decisão
+aberta abaixo. **Não enfraquecer a guarda por reflexo:** é a mesma classe de erro que relaxar FK
+para CASCADE diante do primeiro 23503.
+
+### As 3 divergências bloqueantes medidas (detalhe em `45-SONDAS-PROD.md`)
+
+- **D1** — os SEIS nomes de CHECK que a pesquisa previu estão **todos errados**. Vivos:
+  `check_email_format`, `check_cpf_format`, `check_celular_format`, `check_data_nascimento`,
+  `check_genero`, `check_estado`. **D2** — existe uma SÉTIMA não prevista, `check_como_conheceu`.
+- **D3 — `storage.objects` NÃO tem FK para `auth.users`.** A plataforma **não recusa** apagar
+  usuário com objetos no Storage; `REQUIREMENTS.md:25` está factualmente errado. A ordem
+  `Storage → Postgres → Auth` **não é imposta pela plataforma** — é disciplina do motor, e o modo
+  de falha é **silencioso** (órfã o blob sem levantar erro).
+- **São SETE colunas a severar, não duas:** `candidatos.user_id/created_by/updated_by`,
+  `candidaturas.created_by/updated_by`, `historico_candidatura.ator`, `decisao_final.por_usuario`.
+  Qualquer uma esquecida = 23503 **depois** de o CV já ter sido apagado.
+
+### Decisão aberta — as 6 bases legais que a engenharia escreveu
+
+O `45-02` gravou **nove** bases legais no recibo; a UI-SPEC ditara **três** (`Art. 7º, VI`). As
+outras seis (`Art. 8º §1º`, `Art. 20`, `Art. 16 I`, `Art. 7º IX` + dois `Art. 7º VI`) são o melhor
+mapeamento da engenharia, **não veredito jurídico**. O gerador prova que existe base legal
+não-vazia; não prova que é a certa. Isso vira texto num e-mail que afirma cumprimento de direito do
+Art. 18 — **revisão do Encarregado recomendada antes de o 45-10 mandar o primeiro recibo.**
+Registrado como `D7 / human_judgment: true`.
+
+---
+
+### Phase 45 — planejamento (contexto, 2026-08-05)
 
 **11 planos em 5 waves.** `plan-checker` PASSED na 2ª iteração · 10/10 requirements ERASE-* ·
 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas do probe spec-less e 36/36
