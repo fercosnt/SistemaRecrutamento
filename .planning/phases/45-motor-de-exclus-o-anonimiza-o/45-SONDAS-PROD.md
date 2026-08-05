@@ -433,9 +433,76 @@ Consulta de conferência rodada **depois** de todos os blocos:
 
 ### 6e · O que isto acrescenta ao plano
 
+
 | Plano | Mudança |
 |---|---|
 | **45-07** | A S1 está **provada por execução**, com o dry-run que o portão destrutivo exige já feito. A severação NÃO precisa das 7 colunas que a Sonda 4 sugeriu — precisa de `user_id`, e das colunas que a conta específica tiver preenchidas. O motor deve **enumerar dinamicamente** as FKs `NO ACTION` com linha viva daquele titular, não trabalhar com lista fixa |
 | **45-10** | Tratar `23503` como **classe**, não como constraint nomeada: duas contas reais deram dois bloqueadores diferentes. E a metade HTTP (como o GoTrue embrulha) continua não medida — obrigação deste plano |
 | **45-04** | A asserção negativa do ERASE-08 tem forma medida: contagens de `historico_candidatura`/`decisao_final`/`decisao_final_historico` idênticas antes e depois. ⚠ `decisao_final_historico` está em **0** — sem fixture ela não prova nada |
 | **Método** | O bloco `DO` + `RAISE EXCEPTION` como envelope de dry-run é reusável e mais seguro que criar/limpar. **Postgres reverte DDL.** Vale como padrão para o dry-run do 45-11 |
+
+---
+
+## Pré-condições do portão destrutivo (G1/G2)
+
+**Registrado em 2026-08-05**, Task 3 do `45-01`. O `STATE.md` declara com todas as letras que
+**G1 e G2 devem fechar antes do portão destrutivo** da Phase 45: a cadeia `44 → 45` é estrita
+porque *"o inventário do export **é** o plano de exclusão"*, e a cláusula do goal da 44 —
+*"exercitado em produção"* — é exatamente a que falhou.
+
+### G2 — redeploy da EF `exportar-meus-dados` · ✅ **FECHADO**
+
+PROD rodava a **v1 pré-correção**, cujo cooldown **falha ABERTO** em timestamp ilegível, com os
+8 commits de fix parados no `main` desde 2026-08-04.
+
+**Caminho usado, e por que não foi o MCP.** O `STATE.md` supunha que o MCP "exigiria retranscrever
+45 KB de artefato gerado". **Medido e confirmado:** o payload é `index.ts` (19.937 B) +
+`_shared/exportAllowlist.ts` (44.935 B) = **~65 KB**, e o `exportAllowlist.ts` é **gerado**. O
+`deploy_edge_function` recebe conteúdo inline, o que exigiria eu **reproduzir** os bytes; um único
+caractere divergente numa allowlist que governa qual PII sai no export não é risco aceitável. O
+CLI **lê os bytes do disco** — é o caminho correto, e foi o usado.
+
+⚠ **`npx supabase login` NÃO funciona nesta sessão** — `LegacyLoginMissingTokenError: Cannot use
+automatic login flow inside non-TTY environments`. O operador autenticou o CLI **no próprio
+terminal**, e a credencial ficou **persistida no keychain do macOS** (não em variável de
+ambiente): `SUPABASE_ACCESS_TOKEN` segue ausente do ambiente do agente, e ainda assim
+`supabase projects list` responde. **Fica registrado para as próximas fases: o gate de auth do
+44-04 se resolve pelo keychain, não por env var.**
+
+**Antes do deploy** (`deno test` da EF: **20 passed | 0 failed`; árvore de `supabase/functions/`
+limpa; último commit da EF = `81c40cc fix(44): WR-02/03/04 + metade fechada da WR-05`):
+
+| campo | antes | depois | veredito |
+|---|---|---|---|
+| `version` | **1** | **2** | ✅ subiu |
+| `status` | ACTIVE | ACTIVE | ✅ |
+| `verify_jwt` | **true** | **true** | ✅ **preservado** (não há entrada em `config.toml`; o default do CLI manteve) |
+| `updated_at` | `1785811763359` (== `created_at`) | `1785911170058` | ✅ mudou |
+| `ezbr_sha256` | `43a3297d34f0a548147d6748957c6d9cb7198932da93a92c9ff5750685d7a0b5` | `2d05de28d9488e75a6204a8c97ca174800fb404398120b39bdadeda446c357ec` | ✅ **os bytes são outros** |
+
+**A version viva é 2, e ela É a versão pós-correção.**
+
+**Asserções negativas:**
+- **Nenhuma outra Edge Function foi tocada.** As 17 restantes mantêm `version` e `ezbr_sha256`
+  idênticos à listagem de antes do deploy (comparação campo a campo).
+- **`solicitacoes_dados` continua em 0 linhas** — o deploy não criou registro nenhum.
+- O upload listou **exatamente os dois arquivos previstos** (`index.ts` e
+  `_shared/exportAllowlist.ts`), nenhum a mais.
+
+### G1 — exercitar o export ponta a ponta · ⏸ **ABERTO**
+
+**Motivo medido:** exige **sessão de navegador com login real de titular**. Não é executável por
+agente. `solicitacoes_dados` está em **0 linhas** — antes e depois de tudo o que esta sessão fez.
+
+O que falta, e agora é barato porque a v2 já está viva: clicar *"Pedir uma cópia dos meus dados"*
+em `/candidato/privacidade`, confirmar que chegam **DOIS** arquivos, e que `solicitacoes_dados`
+ganha **1 linha** com `tipo='acesso'`, `situacao='atendido'`, `causa` **NULA**.
+
+# ⚠ O portão destrutivo do 45-11 NÃO PODE ABRIR enquanto o G1 estiver aberto.
+
+Isto não é formalidade: o inventário que a Phase 45 vai consumir como **plano de exclusão
+irreversível** nunca foi exercido de ponta a ponta em produção. G2 fechou a metade que era
+bloqueio de credencial; G1 é a metade que exige uma pessoa.
+
+**Isto não bloqueia** planejar, escrever código, nem executar as waves 2 a 4 — todas não-destrutivas
+ou revertíveis. Bloqueia **o apply** do 45-11.
