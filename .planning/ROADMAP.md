@@ -200,7 +200,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 45-03-PLAN.md — **TRACER**: a fatia vertical NÃO-destrutiva "pedir exclusão" — migration → RPC DEFINER → EF → service → hook → seção 4
+- [x] 45-03-PLAN.md — **TRACER**: a fatia vertical NÃO-destrutiva "pedir exclusão" — migration → RPC DEFINER → EF → service → hook → seção 4
 - [x] 45-04-PLAN.md — Smoke SQL RED: a especificação executável do motor, com as negativas do ERASE-08/10 primeiro no arquivo (lição W-1 da P43)
 - [x] 45-05-PLAN.md — ERASE-01: faixa etária materializada + k=5 com supressão **complementar**, e a tensão SC#5 × D-45-04 resolvida por escrito
 
@@ -343,7 +343,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 4/11 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 5/11 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
 
