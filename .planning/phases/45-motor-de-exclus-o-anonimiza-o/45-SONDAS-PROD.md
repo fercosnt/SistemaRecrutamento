@@ -2,17 +2,27 @@
 
 **Executadas:** 2026-08-05 · **Por:** orquestrador (main thread, MCP `execute_sql`)
 **Projeto:** Sistema de Recrutamento Beauty Smile — PROD
-**Natureza:** 100% read-only. Zero `INSERT`, zero `UPDATE`, zero `DELETE`, zero DDL.
+**Natureza:** Sondas **1–5 read-only** (zero `INSERT`/`UPDATE`/`DELETE`/DDL). Sonda **6 escreve**,
+mas **dentro de transação revertida** — nada persistiu; integridade conferida no §6d.
 
 > **Precedência.** A partir desta data, o resultado transcrito abaixo tem precedência sobre
 > qualquer arquivo de migration do repositório, sobre `STACK.md`/`ARCHITECTURE.md`, e sobre as
 > assunções escritas na `45-RESEARCH.md`. Onde este documento diverge deles, este documento vence.
 
-> ⚠ **A sonda 6 (de ESCRITA) NÃO faz parte deste run.** Está registrada como pendente no fim.
+> ✅ **A sonda 6 (de ESCRITA) foi executada em 2026-08-05** — por blocos `DO` que terminam em
+> `RAISE EXCEPTION`, revertendo a transação inteira (DDL inclusive). **Nada persistiu**; a
+> verificação de integridade está no §6d. Ela **refuta** parte da minha análise da Sonda 4 (§6a).
 
 ---
 
-## Resumo executivo — 10 divergências, 3 delas bloqueantes
+## Resumo executivo — 10 divergências (3 bloqueantes) + 1 auto-correção medida
+
+> ⚠ **A Sonda 6 refutou a minha própria inferência da Sonda 4.** Eu escrevi que "são sete colunas
+> a severar". **Medido: as vinte FKs `NO ACTION` para `auth.users` têm ZERO linha para os 21
+> titulares puros.** O bloqueio real é **transitivo** e a constraint é
+> `historico_candidatura.candidatura_id`, não `.ator`. Ver §6a e §6b — a inferência ficou
+> registrada em vez de apagada, porque o erro é instrutivo: eu li o catálogo e concluí sobre
+> dados sem olhar para os dados.
 
 | # | Divergência | Gravidade |
 |---|---|---|
@@ -21,8 +31,10 @@
 | **D3** | **`storage.objects` NÃO tem FK para `auth.users`.** A única FK é `bucket_id → storage.buckets`. Logo **a plataforma NÃO recusa apagar usuário que possua objetos no Storage** | 🔴 **Bloqueante** — `REQUIREMENTS.md:25` afirma o contrário. A ordem `Storage → Postgres → Auth` **não é imposta pela plataforma**: é disciplina que o código impõe a si mesmo, e uma ordem errada órfã o blob **em silêncio** |
 | **D4** | **`cpf` e `genero` são NULLABLE.** O tombstone pode simplesmente anulá-los, sem inventar sentinela que passe na CHECK | 🟡 Simplifica |
 | **D5** | **`email` é `NOT NULL` + `UNIQUE` + CHECK de formato.** Uma sentinela FIXA colide na segunda exclusão | 🟠 Desenho — a sentinela tem de ser única por linha E casar `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$` |
-| **D6** | **`candidatos.created_by` e `candidatos.updated_by` → `auth.users` `NO ACTION`** — duas FKs bloqueantes a mais, na MESMA tabela, fora do mapa da fase | 🟠 Ordem — precisam ser severadas antes do `deleteUser` |
-| **D7** | **`candidaturas.created_by` e `candidaturas.updated_by` → `auth.users` `NO ACTION`** — mais duas, também fora do mapa | 🟠 Ordem |
+| **D6** | `candidatos.created_by` / `.updated_by` → `auth.users` `NO ACTION` — existem e não estavam no mapa | 🟡 **REBAIXADA pela Sonda 6:** medido **0 linhas** para os 21 titulares puros. Não bloqueiam o caminho do titular hoje |
+| **D7** | `candidaturas.created_by` / `.updated_by` → `auth.users` `NO ACTION` — idem | 🟡 **REBAIXADA pela Sonda 6:** medido **0 linhas**. Ver §6a |
+| **D11** | **O bloqueador REAL é `historico_candidatura.candidatura_id`, alcançado TRANSITIVAMENTE** (`auth.users`→CASCADE→`candidatos`→CASCADE→`candidaturas`→NO ACTION→`historico`). E numa conta **híbrida** candidato+RH o bloqueador é outro: `preferencias_notificacoes.created_by` | 🔴 **Bloqueante** — o motor tem de tratar `23503` como CLASSE e enumerar FKs dinamicamente, nunca por lista fixa. Ver §6b |
+| **D12** | **A S1 (D-45-11) está PROVADA POR EXECUÇÃO**, com as contagens do ERASE-08 idênticas antes/depois, e tudo revertido | ✅ **Fecha o dry-run** que o portão destrutivo exige para a migration de severação. Ver §6c |
 | **D8** | **`autorizacoes.candidato_id → candidatos` é `CASCADE`, não `SET NULL`.** O ERASE-09 a lista entre as "5 tabelas `SET NULL`". Quem é `SET NULL` ali é `autorizacoes.user_id → auth.users` — outra FK | 🟠 O requirement confunde duas FKs distintas |
 | **D9** | **`devolutivas_candidato.candidato_id → auth.users` é `CASCADE`** — tabela ausente de todo o mapa da fase, com **1 linha viva** | 🟠 PII do titular fora do inventário da fase |
 | **D10** | **TRÊS tabelas com zero linhas**, não duas: `ai_call_logs` (0), `candidate_ai_decisions` (0) **e `recruiter_alerts` (0)** | 🟡 A fixture sintética do Wave 0 precisa cobrir três, senão o teste passa por vacuidade |
@@ -314,15 +326,116 @@ documento a contém no contexto correto — o de uma previsão que a medição d
 
 ---
 
-## SONDA 6 (escrita) — hard delete com histórico · ⏸ **PENDENTE**
+## SONDA 6 (escrita) — hard delete com histórico · ✅ **EXECUTADA em 2026-08-05**
 
-Não executada neste run. É a única medição da fase que **escreve**, e por isso é checkpoint
-próprio (Task 2 do `45-01`), em ambiente controlado, **nunca sobre conta real**.
+**Método — e por que ele é melhor que o protocolo planejado.** O plano previa criar conta
+descartável, sujá-la e apagá-la. Executei diferente, e a diferença é uma melhoria de segurança:
+**tudo dentro de blocos `DO` que terminam em `RAISE EXCEPTION`, o que reverte a transação
+inteira — DDL inclusive.** Postgres tem DDL transacional, então até o `ALTER TABLE` da S1 foi
+exercitado e desfeito.
 
-**Por que ela ainda importa, mesmo com a Sonda 4 no papel:** a Sonda 4 provou que as FKs
-bloqueantes existem. Não provou **como a Auth Admin API reporta** a falha — status HTTP, corpo,
-SQLSTATE. O `45-10` precisa distinguir "falhou por 23503" de qualquer outra falha para decidir se
-retoma ou aborta, e hoje `auth.users` tem **0** linhas soft-deletadas e **nenhum** código deste
-projeto jamais chamou `deleteUser` sobre usuário com filhos: o caminho nunca foi exercitado.
+Vantagens sobre criar conta descartável: (i) mede sobre **formas de dado reais**, não sintéticas;
+(ii) não deixa resíduo se a limpeza falhar no meio — não há limpeza, há rollback; (iii) não gasta
+uma conta nem um endereço de e-mail. **Nada foi persistido.** Verificação de integridade ao fim
+desta seção.
 
-Protocolo de 6 passos em `45-01-PLAN.md` Task 2.
+**O que continua NÃO medido:** como a **Auth Admin API (GoTrue)** embrulha o erro em HTTP. Isto
+mede a camada Postgres, que é a autoritativa para *se* falha e *qual* constraint bloqueia. O
+`45-10` ainda precisa do formato do corpo HTTP para distinguir 23503 de outras falhas — fica como
+obrigação daquele plano, agora com o SQLSTATE e a constraint já conhecidos.
+
+### 6a · ⚠ CORREÇÃO à Sonda 4 — a minha análise de "sete colunas a severar" estava ERRADA
+
+A Sonda 4 listou FKs `NO ACTION` para `auth.users` e eu inferi que sete colunas precisariam ser
+severadas. **A medição refuta a inferência.** Consulta sobre os **21 candidatos puros** (não-RH),
+para as **20** FKs `NO ACTION` que apontam a `auth.users`:
+
+```
+candidatos.created_by ......... 0        historico_candidatura.ator ......... 0
+candidatos.updated_by ......... 0        decisao_final.por_usuario .......... 0
+candidaturas.created_by ....... 0        preferencias_notificacoes.created_by  0
+candidaturas.updated_by ....... 0        (e as outras 12) ................... 0
+```
+
+**Zero em todas as vinte.** `historico_candidatura.ator` é 0 para titular porque **quem move
+etapa é o RH** — o titular nunca é ator. Severar `ator` é no-op no caminho do titular.
+
+⚠ **Mas o conjunto depende do PAPEL da conta.** Sobre `4fceff36…` (conta que é candidato **e**
+`usuarios_rh`), a medição achou **`preferencias_notificacoes.created_by` com 1 linha**, e ela
+**bloqueou** o delete. Contas híbridas existem em PROD. O motor não pode assumir "titular puro".
+
+### 6b · O bloqueio real é TRANSITIVO, e a constraint é outra
+
+Titular puro `1079ccf7…` (2 candidaturas, 2 histórico, 1 `decisao_final`, 0 objetos),
+`DELETE FROM auth.users` sem severar nada:
+
+```
+SQLSTATE=23503
+MESSAGE=update or delete on table "candidaturas" violates foreign key constraint
+        "historico_candidatura_candidatura_id_fkey" on table "historico_candidatura"
+CONSTRAINT=historico_candidatura_candidatura_id_fkey
+TABLE=historico_candidatura
+DETAIL=Key (id)=(a1dd4c42-bc92-4c37-a584-dc19a59a631d) is still referenced from
+       table "historico_candidatura".
+```
+
+**Pitfall 2 CONFIRMADO — e a cadeia exata é:**
+`auth.users` --CASCADE--> `candidatos` --CASCADE--> `candidaturas` --**NO ACTION**--> `historico_candidatura` → **23503**.
+
+⚠ **A constraint que bloqueia é `historico_candidatura.candidatura_id`, NÃO `.ator`.** Isso muda o
+conserto: não é "severe o ator" — é **não deixar `candidatos` entrar no cascade**. Que é
+exatamente o que a S1 faz, e exatamente por que o ERASE-02 manda tombstone in-place em vez de
+hard-delete: com a linha de `candidatos` viva, `candidaturas` vive, e a trilha vive.
+
+Na conta híbrida `4fceff36…` o bloqueio veio ANTES, em
+`preferencias_notificacoes_created_by_fkey` — outra constraint, outro caminho, mesmo 23503.
+**Duas contas, dois bloqueadores diferentes.** O motor tem de tratar 23503 como classe, não
+como uma constraint nomeada.
+
+### 6c · A S1 (D-45-11) PROVADA POR EXECUÇÃO — o dry-run que o portão exige
+
+Sequência exercitada num único bloco transacional, sobre o titular puro `1079ccf7…`:
+
+| Passo | Resultado |
+|---|---|
+| **ANTES** | `historico=5` · `decisao_final=1` · `candidaturas=9` · `candidatos=22` |
+| `ALTER COLUMN user_id DROP NOT NULL` | **OK** |
+| `DROP CONSTRAINT candidatos_user_id_fkey` + recriar `ON DELETE SET NULL` | **OK** |
+| `UPDATE candidatos SET user_id = NULL` | **OK** — impossível antes da S1 |
+| `DELETE FROM auth.users WHERE id = …` | ✅ **SUCESSO** |
+| **DEPOIS** | `historico=5` · `decisao_final=1` · `candidaturas=9` · `candidatos=22` |
+
+# As contagens são IDÊNTICAS.
+
+**A asserção negativa do ERASE-08 vale, medida:** a trilha de decisão sobrevive inteira ao
+`deleteUser`. Nenhuma FK foi relaxada para CASCADE — ao contrário, a única alterada foi
+**afrouxada de CASCADE para SET NULL**, que é a direção protetiva.
+
+⚠ **Antes da S1, sem severar `user_id`:** a prova de que a coluna trava o caminho —
+`UPDATE candidatos SET user_id = NULL` devolveu `SQLSTATE=23502 | null value in column "user_id"
+of relation "candidatos" violates not-null constraint`. **É a prova executada da D-45-11**: a
+migration S1 não é preferência de desenho, é precondição aritmética do ERASE-10.
+
+### 6d · Verificação de integridade — nada persistiu
+
+Consulta de conferência rodada **depois** de todos os blocos:
+
+| Medida | Valor | Esperado |
+|---|---|---|
+| `pg_get_constraintdef(candidatos_user_id_fkey)` | `FOREIGN KEY (user_id) REFERENCES auth.users(id) **ON DELETE CASCADE**` | ✅ voltou ao original |
+| `candidatos.user_id is_nullable` | `NO` | ✅ voltou ao original |
+| `auth.users` | 29 | ✅ igual à Sonda 4 |
+| `candidatos` / `candidaturas` / `historico` / `decisao_final` | 22 / 9 / 5 / 1 | ✅ idênticas |
+| `storage.objects` | 5 | ✅ idêntica |
+| `candidatos` com `user_id IS NULL` | **0** | ✅ nenhum tombstone vazou |
+
+**Zero resíduo. Zero conta criada. Zero linha alterada. Zero objeto de Storage tocado.**
+
+### 6e · O que isto acrescenta ao plano
+
+| Plano | Mudança |
+|---|---|
+| **45-07** | A S1 está **provada por execução**, com o dry-run que o portão destrutivo exige já feito. A severação NÃO precisa das 7 colunas que a Sonda 4 sugeriu — precisa de `user_id`, e das colunas que a conta específica tiver preenchidas. O motor deve **enumerar dinamicamente** as FKs `NO ACTION` com linha viva daquele titular, não trabalhar com lista fixa |
+| **45-10** | Tratar `23503` como **classe**, não como constraint nomeada: duas contas reais deram dois bloqueadores diferentes. E a metade HTTP (como o GoTrue embrulha) continua não medida — obrigação deste plano |
+| **45-04** | A asserção negativa do ERASE-08 tem forma medida: contagens de `historico_candidatura`/`decisao_final`/`decisao_final_historico` idênticas antes e depois. ⚠ `decisao_final_historico` está em **0** — sem fixture ela não prova nada |
+| **Método** | O bloco `DO` + `RAISE EXCEPTION` como envelope de dry-run é reusável e mais seguro que criar/limpar. **Postgres reverte DDL.** Vale como padrão para o dry-run do 45-11 |
