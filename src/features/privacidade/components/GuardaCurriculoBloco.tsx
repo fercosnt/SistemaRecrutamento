@@ -54,7 +54,22 @@ export const COPY_GUARDA_CURRICULO = {
   semCurriculoTitulo: 'Você ainda não enviou um currículo.',
   semCurriculoCorpo:
     'Quando você enviar um, ele aparece aqui com o prazo de guarda que você autorizou.',
-  notaRevogacao: `Para retirar esta autorização ou pedir a eliminação do seu currículo, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  /**
+   * ⚠ EMENDA B DA 45-UI-SPEC — reescrita em 2026-08-05, e o motivo é factual, não de tom.
+   *
+   * A redação aprovada na Phase 43 mandava escrever para o Encarregado para **pedir a
+   * eliminação do currículo**. A partir da Phase 45 a MESMA página passa a oferecer a
+   * eliminação em autoatendimento, **duas seções abaixo**: mandar a pessoa escrever um
+   * e-mail para fazer o que o botão logo abaixo faz não é só redundante — é a página se
+   * contradizendo dentro de um scroll.
+   *
+   * Duas propriedades preservadas de propósito:
+   *  · o **canal humano continua nomeado** (Art. 8º §5, e é a única saída de quem não
+   *    consegue entrar na conta);
+   *  · a frase **não promete** que a revogação isolada da autorização virará
+   *    autoatendimento — prometer roadmap ao titular é proibido desde a Phase 43.
+   */
+  notaRevogacao: `Para apagar seu currículo junto com o resto dos seus dados, use Apagar meus dados, no fim desta página. Para retirar só esta autorização, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
 } as const
 
 export interface GuardaCurriculoBlocoProps {

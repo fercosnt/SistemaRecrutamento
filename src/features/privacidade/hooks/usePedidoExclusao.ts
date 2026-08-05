@@ -28,7 +28,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   lerPedidoExclusaoAberto,
   lerJanelaExclusao,
-  titularTemCandidatura,
+  lerRecorteDoTitular,
   type PedidoExclusao,
 } from '../services/exclusaoService'
 import { privacidadeKeys } from './usePrivacidade'
@@ -41,20 +41,31 @@ export interface EstadoExclusao {
   pedido: PedidoExclusao | null
   /** A janela em dias; `null` = config ausente (a tela degrada, não some). */
   dias: number | null
-  /** Há o que apagar? Falso ⇒ o CTA não é renderizado. */
+  /**
+   * ⚠ **NÃO governa mais a existência do CTA** (Emenda C da 45-UI-SPEC, 2026-08-05):
+   * não existe titular autenticado sem dado a apagar — 16 dos 20 itens do recibo
+   * gerado são `sempre`. Governa apenas o ponteiro "só quer sair de um processo".
+   */
   temCandidatura: boolean
+  /**
+   * Os dois fatos que decidem QUAIS linhas do recibo se aplicam a este titular. Eles
+   * são MEDIDOS, nunca presumidos: o SC#5 proíbe superestimar nas duas direções, e um
+   * padrão de conveniência prometeria apagar um arquivo que não existe.
+   */
+  temCurriculo: boolean
+  temDecisaoRegistrada: boolean
 }
 
 export function usePedidoExclusao(candidatoId: string | undefined) {
   return useQuery<EstadoExclusao>({
     queryKey: privacidadeKeys.pedidoExclusao(candidatoId),
     queryFn: async () => {
-      const [pedido, dias, temCandidatura] = await Promise.all([
+      const [pedido, dias, recorte] = await Promise.all([
         lerPedidoExclusaoAberto(candidatoId),
         lerJanelaExclusao(),
-        titularTemCandidatura(candidatoId),
+        lerRecorteDoTitular(candidatoId),
       ])
-      return { pedido, dias, temCandidatura }
+      return { pedido, dias, ...recorte }
     },
     enabled: Boolean(candidatoId),
     staleTime: STALE,

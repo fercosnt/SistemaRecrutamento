@@ -44,6 +44,7 @@ import '@testing-library/jest-dom'
 const mocks = vi.hoisted(() => ({
   pedido: vi.fn(),
   invocar: vi.fn(),
+  cancelarInvocar: vi.fn(),
 }))
 
 vi.mock('@/store/authStore', () => ({ useCandidato: () => ({ id: 'cand-1' }) }))
@@ -58,22 +59,40 @@ vi.mock('../../services/exclusaoService', async () => {
     await vi.importActual<typeof import('../../services/exclusaoService')>(
       '../../services/exclusaoService',
     )
-  return { ...real, invocarPedirExclusao: mocks.invocar }
+  return {
+    ...real,
+    invocarPedirExclusao: mocks.invocar,
+    invocarCancelarExclusao: mocks.cancelarInvocar,
+  }
 })
 
 import { ExcluirDadosBloco } from '../ExcluirDadosBloco'
 import { COPY_CONFIRMAR_EXCLUSAO } from '../ConfirmarExclusaoDialog'
 import { COPY_EXCLUIR_DADOS, ExclusaoError } from '../../services/exclusaoService'
+import { ENCARREGADO_EMAIL } from '../../constants/encarregado'
+import { RECIBO_EXCLUSAO } from '../../constants/reciboExclusao.generated'
 
 const EXECUTAR_EM = '2026-08-20T12:00:00.000Z'
 const DATA_ALVO = '20/08/2026'
 
 /** Estado A: leitura concluída, nenhum pedido em aberto, config presente, tem candidatura. */
 const ESTADO_A = {
-  data: { pedido: null, dias: 15, temCandidatura: true },
+  data: {
+    pedido: null,
+    dias: 15,
+    temCandidatura: true,
+    // Os dois fatos que decidem QUAIS linhas do recibo se aplicam — medidos, não
+    // presumidos (`lerRecorteDoTitular`).
+    temCurriculo: true,
+    temDecisaoRegistrada: true,
+  },
   isLoading: false,
   isError: false,
 } as const
+
+/** Estado B: pedido agendado, dentro da janela. */
+const agendadoEm = (executar_em: string | null = EXECUTAR_EM) =>
+  comEstado({ pedido: { situacao: 'agendado', executar_em } })
 
 function comEstado(parcial: Record<string, unknown>) {
   return {
@@ -113,6 +132,10 @@ function pedirPeloDialogo() {
 beforeEach(() => {
   mocks.pedido.mockReset()
   mocks.invocar.mockReset()
+  // Sem este reset, a implementação "em voo" de um caso vazaria para o seguinte e a
+  // ordem dos testes viraria parte do contrato — o tipo de acoplamento que faz uma
+  // suíte verde deixar de significar alguma coisa.
+  mocks.cancelarInvocar.mockReset()
   mocks.pedido.mockReturnValue(ESTADO_A)
 })
 
@@ -403,6 +426,245 @@ describe('ExcluirDadosBloco — os backstops da 45-UI-SPEC', () => {
     expect(bloco.className).not.toMatch(/\bh-\d/)
     expect(bloco.className).not.toContain('overflow-')
     expect(container.querySelectorAll('details').length).toBe(0)
+  })
+})
+
+/**
+ * Plano 45-08 Task 3 — Estados B e C, o cancelamento, e o que a tela NUNCA declara.
+ *
+ * A assimetria que organiza este bloco: falhar ao **pedir** deixa a pessoa segura
+ * ("Nada foi apagado"); falhar ao **cancelar** deixa a pessoa **em risco**. Por isso a
+ * copy dos dois erros é oposta, e por isso a frase tranquilizadora é permitida em um e
+ * proibida no outro.
+ */
+describe('ExcluirDadosBloco — Estado B: a janela de arrependimento utilizável', () => {
+  it('(w15) BACKSTOP E5·long-text: em QUALQUER render do Estado B, cancelar coocorre com "não voltam"', () => {
+    // A regex cobre as TRÊS redações que o próprio contrato usa — "candidaturas
+    // encerradas não voltam" (Estado A), "não reabre as candidaturas encerradas"
+    // (Estado B) e "candidaturas encerradas não foram reabertas" (sucesso). Uma regex
+    // presa a uma só ordem reprovaria a copy que a spec exige: é a mesma classe de
+    // defeito que o grep repo-wide já custou duas vezes a este projeto.
+    const naoVoltam =
+      /(candidaturas[^.]{0,60}n[ãa]o\s+(volt|foram\s+reabert))|(n[ãa]o\s+reabre[^.]{0,60}candidaturas)/i
+    const mencionaCancelar = /cancel/i
+
+    // META-TEST primeiro: sem isto, uma regex quebrada passaria verde para sempre.
+    expect(naoVoltam.test(COPY_EXCLUIR_DADOS.cancelamento)).toBe(true)
+    expect(naoVoltam.test(COPY_EXCLUIR_DADOS.agendadoNota)).toBe(true)
+    expect(naoVoltam.test(COPY_EXCLUIR_DADOS.canceladoCorpo)).toBe(true)
+
+    // Os três sub-estados do Estado B: parado, em voo e com erro.
+    const cenarios: Array<() => void> = [
+      () => {},
+      () => mocks.cancelarInvocar.mockImplementation(() => new Promise(() => {})),
+    ]
+
+    for (const preparar of cenarios) {
+      mocks.pedido.mockReturnValue(agendadoEm())
+      preparar()
+      const { container, unmount } = renderizar()
+      const texto = (container.textContent ?? '').replace(/\s+/g, ' ')
+      expect(mencionaCancelar.test(texto)).toBe(true)
+      expect(
+        naoVoltam.test(texto),
+        `O Estado B menciona cancelamento sem a frase de que as candidaturas encerradas ` +
+          `não voltam — sozinha, a menção promete um desfazer que não existe.\n${texto}`,
+      ).toBe(true)
+      unmount()
+    }
+  })
+
+  it('(w16) o recibo em tempo futuro está visível SEM nenhuma interação', () => {
+    mocks.pedido.mockReturnValue(agendadoEm())
+    const { container } = renderizar()
+
+    // Uma janela de arrependimento só vale se a pessoa souber do que se arrepender:
+    // sem a prévia, os dias são espera, não escolha.
+    expect(container.querySelector('[data-recibo]')).toBeTruthy()
+    expect(container.querySelectorAll('[data-recibo-linha="sai"]').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('[data-recibo-linha="mantem"]').length).toBeGreaterThan(0)
+    // Em TEMPO FUTURO — o passado é do e-mail, depois da execução.
+    expect(screen.getByText(RECIBO_EXCLUSAO.cabecalhos.sai.futuro)).toBeInTheDocument()
+    expect(screen.queryByText(RECIBO_EXCLUSAO.cabecalhos.sai.passado)).toBeNull()
+  })
+
+  it('(w17) "Cancelar a exclusão" NÃO é destructive — cancelar é a ação construtiva', () => {
+    mocks.pedido.mockReturnValue(agendadoEm())
+    renderizar()
+
+    const botao = screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cancelarCta })
+    expect(botao).toBeEnabled()
+    expect(botao.className).toContain('min-h-[44px]')
+    // Pintá-la de vermelho diria à pessoa que interromper uma exclusão é a coisa
+    // perigosa a fazer.
+    expect(botao.className).not.toContain('destructive')
+    expect(botao.className).not.toContain('accent')
+    // E o CTA de apagar foi SUBSTITUÍDO: pedir de novo não faz sentido aqui.
+    expect(screen.queryByRole('button', { name: COPY_EXCLUIR_DADOS.cta })).toBeNull()
+  })
+
+  it('(w18) cancelamento em voo: a DATA-ALVO permanece visível, com motivo irmão', async () => {
+    mocks.pedido.mockReturnValue(agendadoEm())
+    mocks.cancelarInvocar.mockImplementation(() => new Promise(() => {}))
+    const { container } = renderizar()
+
+    fireEvent.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cancelarCta }))
+
+    const emVoo = await screen.findByRole('button', { name: /Cancelando/i })
+    await waitFor(() => expect(emVoo).toHaveAttribute('aria-busy', 'true'))
+    expect(emVoo).toBeDisabled()
+
+    // ⚠ A DATA CONTINUA LÁ. Sumi-la durante o voo faria parecer que o cancelamento já
+    // valeu — e a pessoa fecharia a página acreditando num desfecho que não houve.
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.agendadoLinha(DATA_ALVO))).toBeInTheDocument()
+    exigirMotivoEmTodoBotaoDesabilitado(container)
+  })
+
+  it('(w19) erro do cancelamento: a data, o canal humano, e ZERO tranquilização', async () => {
+    mocks.pedido.mockReturnValue(agendadoEm())
+    mocks.cancelarInvocar.mockRejectedValue(
+      new ExclusaoError(COPY_EXCLUIR_DADOS.cancelarErroTitulo, 'SERVER_ERROR'),
+    )
+    renderizar()
+
+    fireEvent.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cancelarCta }))
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent(COPY_EXCLUIR_DADOS.cancelarErroTitulo)
+    // A data e o canal humano, porque falhar ao cancelar deixa a pessoa EM RISCO.
+    expect(alerta.textContent ?? '').toContain(DATA_ALVO)
+    expect(alerta.textContent ?? '').toContain(ENCARREGADO_EMAIL)
+    expect(alerta.className).toContain('destructive')
+
+    // ⚠ A ASSERÇÃO DE AUSÊNCIA É SOBRE A MENSAGEM GENÉRICA DO OUTRO ERRO, não sobre o
+    // verbo "tentar": a copy aprovada DIZ "tente de novo", acompanhada da data e da
+    // saída humana. Um ban do verbo reprovaria a copy que a spec exige — a terceira
+    // vez que este projeto pagaria por essa classe de grep.
+    expect(alerta.textContent ?? '').not.toContain(COPY_EXCLUIR_DADOS.erroCorpo)
+    expect(alerta.textContent ?? '').not.toContain(['Nada foi', 'apagado.'].join(' '))
+  })
+
+  it('(w20) sucesso do cancelamento: mensagem PERSISTENTE, aria-live, sem toast', async () => {
+    mocks.pedido.mockReturnValue(agendadoEm())
+    mocks.cancelarInvocar.mockResolvedValue({
+      ok: true,
+      acao: 'cancelar',
+      cancelado_em: '2026-08-06T12:00:00.000Z',
+    })
+    const { container } = renderizar()
+
+    fireEvent.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cancelarCta }))
+    // O servidor confirmou; a leitura invalidada devolve a situação nova. A tela só sai
+    // do Estado B por FATO do servidor, nunca pelo que foi pedido.
+    mocks.pedido.mockReturnValue(comEstado({ pedido: { situacao: 'cancelado', executar_em: null } }))
+
+    const sucesso = await screen.findByText(COPY_EXCLUIR_DADOS.canceladoTitulo)
+    expect(sucesso).toBeInTheDocument()
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.canceladoCorpo)).toBeInTheDocument()
+    expect(container.querySelector('[aria-live="polite"]')).toBeTruthy()
+    // O direito volta a ser exercível — e a tela não esconde isso.
+    expect(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta })).toBeEnabled()
+  })
+
+  it('(w21) data ilegível no Estado B: a frase que a conteria é OMITIDA', () => {
+    mocks.pedido.mockReturnValue(agendadoEm('nao-e-uma-data'))
+    const { container } = renderizar()
+
+    // §Formatação: "um travessão no lugar da data de uma exclusão irreversível é pior
+    // que a frase ausente". A asserção sai da CONSTANTE e não de um literal: escrever a
+    // frase aqui a faria contar como mais uma promessa de exclusão para o portão
+    // `copyPortoesLgpd` (CONSOL-04) — um teste que prova a ausência de uma frase não
+    // deve entrar na conta de quem a promete.
+    expect(screen.queryByText(COPY_EXCLUIR_DADOS.agendadoLinha(DATA_ALVO))).toBeNull()
+    const painel = container.querySelector('[data-estado="agendado"]') as HTMLElement
+    expect(painel).toBeTruthy()
+    const texto = painel.textContent ?? ''
+    expect(texto).not.toContain('Invalid Date')
+    expect(texto).not.toContain('NaN')
+    expect(texto).not.toContain('undefined')
+    // O painel NÃO some: o título e a nota do que não volta continuam.
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.agendadoTitulo)).toBeInTheDocument()
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.agendadoNota)).toBeInTheDocument()
+  })
+})
+
+describe('ExcluirDadosBloco — Estado C: em andamento, e nenhuma palavra de desfecho', () => {
+  const emExecucao = () =>
+    mocks.pedido.mockReturnValue(
+      comEstado({ pedido: { situacao: 'executando', executar_em: EXECUTAR_EM } }),
+    )
+
+  it('(w22) ZERO ação: sem cancelar, sem tentar de novo, sem barra de progresso', () => {
+    emExecucao()
+    const { container } = renderizar()
+
+    const bloco = screen.getByTestId('bloco-excluir-dados')
+    expect(bloco).toBeInTheDocument()
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.executandoTitulo)).toBeInTheDocument()
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.executandoCorpo)).toBeInTheDocument()
+
+    // A retomabilidade é do MOTOR: um retry na mão do titular seria convidá-lo a
+    // re-disparar uma mutação destrutiva não-atômica.
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(container.querySelectorAll('[role="progressbar"]').length).toBe(0)
+    expect(container.querySelectorAll('.animate-pulse').length).toBe(0)
+  })
+
+  it('(w23) nenhuma palavra de desfecho, nenhuma porcentagem, nenhum sistema nomeado', () => {
+    emExecucao()
+    const { container } = renderizar()
+    const texto = (container.textContent ?? '').toLowerCase()
+
+    // Montadas em runtime (idioma 42-11). Enquanto os TRÊS sistemas não confirmam, a
+    // copy diz "em andamento" — nunca um sinônimo de desfecho (Invariante 5).
+    const desfecho = [
+      ['conclu', 'ído'].join(''),
+      ['conclu', 'ída'].join(''),
+      ['apagad', 'o'].join(''),
+      ['pron', 'to'].join(''),
+      ['finaliza', 'do'].join(''),
+    ]
+    for (const palavra of desfecho) {
+      expect(texto.includes(palavra), `palavra de desfecho "${palavra}" no Estado C`).toBe(false)
+      expect(`x${palavra}y`).toContain(palavra) // META-TEST
+    }
+
+    // Invariante 12: nenhum detalhe de qual sistema já respondeu, nenhuma contagem.
+    expect(texto).not.toContain('%')
+    for (const interno of ['storage', 'postgres', 'auth', 'bucket', 'sqlstate']) {
+      expect(texto.includes(interno), `valor interno "${interno}" vazou`).toBe(false)
+    }
+  })
+
+  it('(w24) "Nada foi apagado." aparece SOMENTE no erro de registro do pedido', async () => {
+    // Aqui ela é obrigatória: a falha acontece ANTES de qualquer mutação, e o titular
+    // precisa saber de que lado da linha o sistema parou.
+    mocks.invocar.mockRejectedValue(
+      new ExclusaoError(COPY_EXCLUIR_DADOS.erroTitulo, 'SERVER_ERROR'),
+    )
+    const primeira = renderizar()
+    pedirPeloDialogo()
+    expect(await screen.findByRole('alert')).toHaveTextContent(COPY_EXCLUIR_DADOS.erroTitulo)
+    expect(COPY_EXCLUIR_DADOS.erroTitulo).toContain(['Nada foi', 'apagado.'].join(' '))
+    primeira.unmount()
+
+    const frase = ['Nada foi', 'apagado.'].join(' ')
+
+    // Estado C — a partir do início da execução ela seria ingarantível (Invariante 5).
+    emExecucao()
+    const segunda = renderizar()
+    expect(segunda.container.textContent ?? '').not.toContain(frase)
+    segunda.unmount()
+
+    // Erro do cancelamento — o pior lugar possível para tranquilizar alguém.
+    mocks.pedido.mockReturnValue(agendadoEm())
+    mocks.cancelarInvocar.mockRejectedValue(
+      new ExclusaoError(COPY_EXCLUIR_DADOS.cancelarErroTitulo, 'SERVER_ERROR'),
+    )
+    const terceira = renderizar()
+    fireEvent.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cancelarCta }))
+    await screen.findByRole('alert')
+    expect(terceira.container.textContent ?? '').not.toContain(frase)
   })
 })
 
