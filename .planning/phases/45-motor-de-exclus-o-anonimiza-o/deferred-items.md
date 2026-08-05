@@ -127,3 +127,29 @@ outras fases — exatamente o tipo de mudança que o `files_modified` do plano e
 
 **Fecha em:** um plano de UI transversal (ou o `/gsd-ui-review`), tratando os dois pontos de uma vez
 para todos os diálogos: rótulo `sr-only` em pt-BR e `min-h-[44px]` no botão de fechar.
+
+---
+
+### DI-45-08-02 · O recibo do e-mail (45-10) precisa do MESMO recorte que a prévia da tela
+
+**Encontrado em:** 45-08, Task 3 (ao decidir de onde saem `temCurriculo` e `temDecisaoRegistrada`).
+
+**O quê:** `ReciboExclusao` é **um** componente com **dois** tempos verbais justamente para que a
+prévia (tela, futuro) e o relato (e-mail, passado) não divirjam — *"a divergência apareceria
+justamente entre o que foi prometido e o que foi relatado"*. Mas o componente é parametrizado por
+dois booleanos, e **eles são a via pela qual a divergência ainda pode entrar**: se a tela filtrar
+por um recorte e o e-mail por outro, o titular lê promessa e relato diferentes sobre o mesmo fato,
+com o mesmo componente.
+
+**A tela mede assim** (`exclusaoService.lerRecorteDoTitular`): `temCurriculo` = existe
+`candidaturas.curriculo_url` não-nulo nas candidaturas own-row; `temDecisaoRegistrada` = existe
+linha em `decisao_final` para alguma dessas candidaturas (policy `candidato_le_propria_decisao`).
+Falha de leitura resolve para `false` — o recibo **não afirma o que não pôde medir**.
+
+**O que o 45-10 precisa garantir:** o recibo do e-mail deriva os dois do **plano real** do motor
+(`plano_exclusao_titular`), que é a autoridade. As duas fontes medem os mesmos fatos e devem
+concordar; o único descompasso possível é o transitório (a tela leu `false` por falha de rede e o
+motor achou a linha). **Não** reimplementar um terceiro critério: seriam três verdades sobre a
+mesma pessoa.
+
+**Fecha em:** **45-10**, no plano que monta o corpo do e-mail de recibo.

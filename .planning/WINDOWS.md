@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 15
+open_count: 16
 waived_count: 0
 fixed_count: 0
-total_count: 15
-last_updated: 2026-08-05T23:11:21.947Z
+total_count: 16
+last_updated: 2026-08-05T23:44:28.940Z
 ---
 
 # Broken Windows Ledger
@@ -30,6 +30,7 @@ last_updated: 2026-08-05T23:11:21.947Z
 | 13 | 45 | deviation | src/__tests__/copyPortoesLgpd.test.ts |  | O portao do CONSOL-04 ficou VERDE por falso positivo: a sonda casa substring em comentario. Promessa continua orfa; exige decisao do operador | open |  | 2026-08-05T07:23:32.425Z |  |
 | 14 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts | 377 | DI-45-07-01: a EF chama as RPCs com service_role sem repassar o Authorization do titular; auth.uid() e NULL e o guard das RPCs ja aplicadas em PROD recusa com 42501 — nenhum pedido de exclusao seria registrado. Fecha no 45-10. | open |  | 2026-08-05T23:11:21.892Z |  |
 | 15 | 45 | unrun-verify | supabase/migrations/20260805000006_p45_anonimizar_candidato.sql |  | Os DO blocks de auto-verificacao das 3 migrations do 45-07 so EXECUTAM no apply, que e do 45-11 atras do portao destrutivo. Ate la a verificacao e estatica (forma), nao por execucao. | open |  | 2026-08-05T23:11:21.947Z |  |
+| 16 | 45 | deviation | src/features/privacidade/components/ConfirmarExclusaoDialog.tsx |  | 45-08: portao RED do TDD verificado por execucao, nao por commit isolado — o gate tsc (baseline 97) reprova um teste que importa modulo ainda inexistente, e --no-verify e proibido | open |  | 2026-08-05T23:44:28.940Z |  |
 
 ````json
 [
@@ -211,6 +212,18 @@ last_updated: 2026-08-05T23:11:21.947Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-05T23:11:21.947Z",
+    "resolved_at": null
+  },
+  {
+    "id": 16,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "src/features/privacidade/components/ConfirmarExclusaoDialog.tsx",
+    "line": null,
+    "description": "45-08: portao RED do TDD verificado por execucao, nao por commit isolado — o gate tsc (baseline 97) reprova um teste que importa modulo ainda inexistente, e --no-verify e proibido",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T23:44:28.940Z",
     "resolved_at": null
   }
 ]
