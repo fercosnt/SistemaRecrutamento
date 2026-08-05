@@ -48,3 +48,55 @@ como pendente tendo a prova pronta ao lado.
 
 **Fecha em:** o verificador da fase (`/gsd-verify-work 45`) ou o 45-11, atualizando as duas linhas
 do mapa para citar **os dois** arquivos.
+
+---
+
+## Do plano 45-07 (a metade Postgres do motor)
+
+### DI-45-07-01 · ⚠ A EF `executar-direito-titular` chama as RPCs com `service_role` SEM claims — e o guard delas recusa com 42501
+
+**Encontrado em:** 45-07, Task 3 (ao decidir a forma do guard das duas funções novas).
+
+**O quê, medido no arquivo:** `supabase/functions/executar-direito-titular/index.ts:377-379` constrói
+`supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, …)` **sem repassar o header
+`Authorization` do titular** (o repasse existe só no `supabaseUser`, `:373-375`). As duas chamadas
+de RPC — `registrar_pedido_exclusao` (`:218`) e `cancelar_pedido_exclusao` (`:270`) — usam
+`supabaseAdmin`. O JWT que chega ao PostgREST é então a própria service-role key, que **não tem
+claim `sub`**; logo `auth.uid()` devolve **NULL**.
+
+E as duas RPCs, **já aplicadas em PROD hoje** (45-06), abrem com:
+
+```sql
+IF v_uid IS NULL THEN
+  RAISE EXCEPTION 'FORBIDDEN: chamador sem sessao …' USING ERRCODE = '42501';
+```
+
+**Consequência se ninguém fechar:** o titular clica "quero excluir meus dados", a EF responde erro,
+e **nenhum pedido de exclusão jamais é registrado**. Não é um defeito do 45-07: é do par
+EF+RPC autorado no 45-03 e deployado no 45-06.
+
+**Por que ninguém viu ainda:** o **G1 está ABERTO** — o fluxo nunca foi exercitado ponta a ponta em
+produção (`45-SONDAS-PROD.md` §"Pré-condições do portão destrutivo"), e `solicitacoes_dados` segue
+em **0 linhas**. É exatamente a classe de defeito que a cláusula *"exercitado em produção"* existe
+para pegar, e a prova de que ela não é formalidade.
+
+**Por que NÃO foi consertado aqui:** (a) está fora dos três arquivos deste plano; (b) o conserto é
+numa **Edge Function já deployada**, e re-deploy exige o MCP/CLI do Supabase, que subagentes GSD não
+recebem; (c) escolher entre as duas saídas é decisão de desenho, não conserto mecânico.
+
+**As duas saídas, e a recomendação:**
+1. **(recomendada)** a EF passa a repassar as claims do titular às RPCs — cria um terceiro client
+   com `SERVICE_KEY` **e** `global.headers.Authorization = authHeader`, ou usa
+   `set_config('request.jwt.claims', …)` por RPC. Mantém o contrato que a asserção **C2** do smoke
+   exige das **cinco** funções da fase (recusar chamador sem claim), que é o controle que sobrevive
+   a um futuro chamador que não seja esta EF.
+2. **(recusada por este plano)** afrouxar o guard para aceitar `auth.uid() IS NULL` quando o papel
+   do banco for `service_role`. Isso reintroduz precisamente o defeito que a C2 fecha e deixa uma
+   função que apaga PII irreversivelmente sem controle no corpo.
+
+⚠ **As duas funções novas do 45-07 (`plano_exclusao_titular`, `anonimizar_candidato`) herdam o
+mesmo contrato de propósito** — a C2 as inclui. Portanto o 45-10 tem de resolver isto **antes** de
+o motor destrutivo ter qualquer chance de rodar.
+
+**Fecha em:** **45-10** (é obrigação declarada daquele plano), e o **45-11** não deve abrir o portão
+destrutivo sem que o G1 exercite o caminho e prove que a chamada chega à RPC.
