@@ -951,6 +951,7 @@ export type Database = {
           data_formulario_enviado: string | null
           data_raven_enviado: string | null
           deleted_at: string | null
+          encerrada_a_pedido_em: string | null
           etapa_atual: Database["public"]["Enums"]["etapa_processo"]
           etapa_justificativa: string | null
           feedback_rejeicao: string | null
@@ -992,6 +993,7 @@ export type Database = {
           data_formulario_enviado?: string | null
           data_raven_enviado?: string | null
           deleted_at?: string | null
+          encerrada_a_pedido_em?: string | null
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           etapa_justificativa?: string | null
           feedback_rejeicao?: string | null
@@ -1033,6 +1035,7 @@ export type Database = {
           data_formulario_enviado?: string | null
           data_raven_enviado?: string | null
           deleted_at?: string | null
+          encerrada_a_pedido_em?: string | null
           etapa_atual?: Database["public"]["Enums"]["etapa_processo"]
           etapa_justificativa?: string | null
           feedback_rejeicao?: string | null
@@ -1211,6 +1214,27 @@ export type Database = {
         }
         Relationships: []
       }
+      config_janela_exclusao: {
+        Row: {
+          atualizado_em: string
+          chave: string
+          descricao: string | null
+          dias: number
+        }
+        Insert: {
+          atualizado_em?: string
+          chave: string
+          descricao?: string | null
+          dias: number
+        }
+        Update: {
+          atualizado_em?: string
+          chave?: string
+          descricao?: string | null
+          dias?: number
+        }
+        Relationships: []
+      }
       config_retencao_etapa: {
         Row: {
           alterado_por: string | null
@@ -1249,6 +1273,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      config_sla_dados: {
+        Row: {
+          atualizado_em: string
+          chave: string
+          descricao: string | null
+          dias_atencao: number
+          dias_atraso: number
+        }
+        Insert: {
+          atualizado_em?: string
+          chave: string
+          descricao?: string | null
+          dias_atencao: number
+          dias_atraso: number
+        }
+        Update: {
+          atualizado_em?: string
+          chave?: string
+          descricao?: string | null
+          dias_atencao?: number
+          dias_atraso?: number
+        }
+        Relationships: []
       }
       config_sla_etapa: {
         Row: {
@@ -4009,6 +4057,79 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitacoes_dados: {
+        Row: {
+          atendido_em: string | null
+          auth_concluido_em: string | null
+          cancelado_em: string | null
+          candidato_id: string
+          causa: string | null
+          executar_em: string | null
+          id: string
+          plano: Json | null
+          postgres_concluido_em: string | null
+          recibo_enviado_em: string | null
+          situacao: string
+          solicitado_em: string
+          storage_concluido_em: string | null
+          tipo: string
+        }
+        Insert: {
+          atendido_em?: string | null
+          auth_concluido_em?: string | null
+          cancelado_em?: string | null
+          candidato_id: string
+          causa?: string | null
+          executar_em?: string | null
+          id?: string
+          plano?: Json | null
+          postgres_concluido_em?: string | null
+          recibo_enviado_em?: string | null
+          situacao?: string
+          solicitado_em?: string
+          storage_concluido_em?: string | null
+          tipo?: string
+        }
+        Update: {
+          atendido_em?: string | null
+          auth_concluido_em?: string | null
+          cancelado_em?: string | null
+          candidato_id?: string
+          causa?: string | null
+          executar_em?: string | null
+          id?: string
+          plano?: Json | null
+          postgres_concluido_em?: string | null
+          recibo_enviado_em?: string | null
+          situacao?: string
+          solicitado_em?: string
+          storage_concluido_em?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_solicitacoes_dados_candidato"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "candidatos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_solicitacoes_dados_candidato"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_candidatos_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_solicitacoes_dados_candidato"
+            columns: ["candidato_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["candidato_id"]
+          },
+        ]
+      }
       templates_email: {
         Row: {
           assunto: string
@@ -4903,6 +5024,13 @@ export type Database = {
         Args: { candidatura_uuid: string }
         Returns: undefined
       }
+      cancelar_pedido_exclusao: {
+        Args: { p_solicitacao_id: string }
+        Returns: {
+          cancelado_em: string
+          solicitacao_id: string
+        }[]
+      }
       candidaturas_alem_da_janela: {
         Args: never
         Returns: {
@@ -4919,6 +5047,7 @@ export type Database = {
         Args: { p_analise_id: string }
         Returns: Json
       }
+      contar_pedidos_dados_pendentes: { Args: never; Returns: number }
       contar_revisoes_pendentes: { Args: never; Returns: number }
       criar_usuario_rh_com_audit: {
         Args: {
@@ -5082,6 +5211,18 @@ export type Database = {
           origem: string
         }[]
       }
+      listar_pedidos_dados: {
+        Args: { p_incluir_atendidos?: boolean }
+        Returns: {
+          atendido_em: string
+          candidato_id: string
+          candidato_nome: string
+          causa: string
+          id: string
+          situacao: string
+          solicitado_em: string
+        }[]
+      }
       listar_revisoes_decisao: {
         Args: { p_incluir_respondidos?: boolean }
         Returns: {
@@ -5215,6 +5356,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      registrar_pedido_exclusao: {
+        Args: { p_candidato_id: string }
+        Returns: {
+          candidaturas_encerradas: number
+          executar_em: string
+          solicitacao_id: string
+        }[]
       }
       rejeitar_candidatura: {
         Args: {
