@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 10
 waived_count: 0
 fixed_count: 0
-total_count: 8
-last_updated: 2026-08-05T07:10:20.426Z
+total_count: 10
+last_updated: 2026-08-05T07:14:13.496Z
 ---
 
 # Broken Windows Ledger
@@ -23,6 +23,8 @@ last_updated: 2026-08-05T07:10:20.426Z
 | 6 | 45 | deviation | .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-02-SUMMARY.md |  | 45-02: 6 das 9 bases legais do recibo foram escritas pela engenharia, nao ditadas pela UI-SPEC — revisao pelo Encarregado de Dados pendente antes do e-mail de recibo sair em PROD | open |  | 2026-08-05T04:13:18.664Z |  |
 | 7 | 45 | unrun-verify | supabase/tests/p45_bias_k5_smoke.sql |  | p45_bias_k5_smoke.sql e o DO de auto-verificacao da 20260805000003 nunca foram executados contra banco nenhum — o apply e 45-11 | open |  | 2026-08-05T07:10:20.368Z |  |
 | 8 | 45 | deviation | src/features/admin/bias-audit/biasMath.ts |  | A tela de auditoria de vies ainda le o payload v1; o snapshot passa a emitir celulas suprimidas sem applicants/selected e sem n_total | open |  | 2026-08-05T07:10:20.426Z |  |
+| 9 | 45 | unrun-verify | supabase/tests/p45_motor_exclusao_smoke.sql |  | Smoke do motor de exclusao NAO executado — deliberadamente RED (as 5 funcoes nascem em 45-03/45-05/45-07); os pins md5(prosrc) seguem com marcador PENDENTE-45-07 e C3 reprova enquanto assim for. Fecha no 45-11 com 21/21 PASS | open |  | 2026-08-05T07:14:13.436Z |  |
+| 10 | 45 | deviation | supabase/migrations/20260805000006_p45_anonimizar_candidato.sql |  | Obrigacoes que o smoke 45-04 impoe ao 45-07: (M1) trg_decisao_final_snapshot e AFTER UPDATE sem WHEN e reinsere OLD.justificativa — o scrub de decisao_final_historico tem de ser o ULTIMO statement do par; (M2) candidate_ai_decisions.candidato_id E vaga_id sao NOT NULL com ON DELETE SET NULL (clausulas inexequiveis) — decidir entre afrouxar as duas colunas e desidentificar o conteudo | open |  | 2026-08-05T07:14:13.496Z |  |
 
 ````json
 [
@@ -120,6 +122,30 @@ last_updated: 2026-08-05T07:10:20.426Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-05T07:10:20.426Z",
+    "resolved_at": null
+  },
+  {
+    "id": 9,
+    "kind": "unrun-verify",
+    "phase": "45",
+    "file": "supabase/tests/p45_motor_exclusao_smoke.sql",
+    "line": null,
+    "description": "Smoke do motor de exclusao NAO executado — deliberadamente RED (as 5 funcoes nascem em 45-03/45-05/45-07); os pins md5(prosrc) seguem com marcador PENDENTE-45-07 e C3 reprova enquanto assim for. Fecha no 45-11 com 21/21 PASS",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:14:13.436Z",
+    "resolved_at": null
+  },
+  {
+    "id": 10,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "supabase/migrations/20260805000006_p45_anonimizar_candidato.sql",
+    "line": null,
+    "description": "Obrigacoes que o smoke 45-04 impoe ao 45-07: (M1) trg_decisao_final_snapshot e AFTER UPDATE sem WHEN e reinsere OLD.justificativa — o scrub de decisao_final_historico tem de ser o ULTIMO statement do par; (M2) candidate_ai_decisions.candidato_id E vaga_id sao NOT NULL com ON DELETE SET NULL (clausulas inexequiveis) — decidir entre afrouxar as duas colunas e desidentificar o conteudo",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:14:13.496Z",
     "resolved_at": null
   }
 ]

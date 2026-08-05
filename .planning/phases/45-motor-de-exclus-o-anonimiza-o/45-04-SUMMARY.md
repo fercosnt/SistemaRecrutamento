@@ -247,3 +247,27 @@ foi exercitado ponta a ponta em PROD) e o portão destrutivo do 45-11 não pode 
 - Os 3 commits existem no histórico: `61d5f9c`, `3dc96bc`, `9b91c36`
 - Os 3 guards `<automated>` do plano re-executados ao final: **os três verdes**
 - `<verification>` do plano: 6 de 6 itens conferidos
+
+---
+
+## Nota de proveniência dos commits (colisão entre executores paralelos)
+
+Os três commits de produção deste plano são `61d5f9c`, `3dc96bc` e `9b91c36`, todos com o
+`.husky/pre-commit` rodando e passando em `tsc errors: 97 (frozen baseline: 97)`. **Zero
+`--no-verify`.**
+
+Este SUMMARY, porém, **não** tem commit próprio: ele estava staged no índice quando o executor
+paralelo do 45-03 rodou o seu próprio `git commit`, e foi varrido para dentro de
+`9fa848d test(45-03): espec da secao 4`. Conteúdo íntegro (249 linhas, conferido contra o disco);
+só a atribuição ficou errada. Esta nota, e o commit que a carrega, restauram a trilha `docs(45-04)`.
+
+**O que causou:** executores paralelos desta fase compartilham **um único working tree e um único
+índice git**. Durante a redação deste SUMMARY a contagem `tsc` da árvore oscilou entre 97 e 100 por
+causa de arquivos RED-first do 45-03 (`ExcluirDadosBloco.test.tsx` importando módulos ainda
+inexistentes), bloqueando o hook por um defeito que não era deste plano. A conduta adotada foi
+**esperar a convergência**, nunca `--no-verify` — o docblock do próprio hook diz que reprovação é
+sinal, não obstáculo. Assim que o 45-03 pousou a implementação (`870794d`), a árvore voltou a 97.
+
+**Recomendação para o orquestrador:** ou isolar executores concorrentes em worktrees próprios, ou
+serializar os planos que tocam `src/` na mesma wave. Um `git add` de um agente entrando no
+`git commit` de outro é silencioso, e aqui só foi detectado porque o self-check procurou o commit.
