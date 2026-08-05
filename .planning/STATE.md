@@ -4,15 +4,15 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Motor de Exclusão & Anonimização
 status: ready-to-execute
-stopped_at: Completed 45-02-PLAN.md
-last_updated: "2026-08-05T04:13:00.730Z"
+stopped_at: "Completed 45-05-PLAN.md (ERASE-01: faixa materializada + bias k=5; migration NAO aplicada — apply e 45-11)"
+last_updated: "2026-08-05T07:14:00.373Z"
 last_activity: 2026-08-05
 last_activity_desc: 45 planejada (UI-SPEC 6/6 · research · patterns · validation · 11 PLANs)
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 41
-  completed_plans: 31
+  completed_plans: 33
   percent: 50
 current_phase: 45
 ---
@@ -112,10 +112,12 @@ para CASCADE diante do primeiro 23503.
 - **D1** — os SEIS nomes de CHECK que a pesquisa previu estão **todos errados**. Vivos:
   `check_email_format`, `check_cpf_format`, `check_celular_format`, `check_data_nascimento`,
   `check_genero`, `check_estado`. **D2** — existe uma SÉTIMA não prevista, `check_como_conheceu`.
+
 - **D3 — `storage.objects` NÃO tem FK para `auth.users`.** A plataforma **não recusa** apagar
   usuário com objetos no Storage; `REQUIREMENTS.md:25` está factualmente errado. A ordem
   `Storage → Postgres → Auth` **não é imposta pela plataforma** — é disciplina do motor, e o modo
   de falha é **silencioso** (órfã o blob sem levantar erro).
+
 - **São SETE colunas a severar, não duas:** `candidatos.user_id/created_by/updated_by`,
   `candidaturas.created_by/updated_by`, `historico_candidatura.ator`, `decisao_final.por_usuario`.
   Qualquer uma esquecida = 23503 **depois** de o CV já ter sido apagado.
@@ -346,6 +348,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P09 | ~35min | 3 tasks | 10 files |
 | Phase 44 P07 | ~35min | 3 tasks | 8 files |
 | Phase 45 P02 | 41 min | 3 tasks | 6 files |
+| Phase 45 P05 | 41 min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -510,6 +513,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 44 / 44-07]: a 320px a linha do currículo EMPILHA — medido, sobram 256px úteis e o botão ocupa ~210px; lado a lado o título da vaga ficaria com 4 caracteres, apagando o que o par truncate+tooltip existe para preservar
 - [Phase 45]: 45-02: a fonte do recibo de exclusão é pii-inventory.yaml (69 tabelas), NÃO exportAllowlist.ts — A 45-UI-SPEC nomeava exportAllowlist.ts; a 45-RESEARCH C2 mediu 30 de 69 tabelas, omitindo 8 tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09 (Pitfall 5).
 - [Phase 45]: 45-02: vocabulário PASSOS_MOTOR fechado em 7 valores é o contrato que 45-07 e 45-10 assinam — storage_remove, tombstone_candidato, tombstone_decisao_final, severar_user_id, severar_fks_set_null, scrub_ledger_email, auth_delete_user. O gerador reprova quando existe passo sem linha de recibo ou linha sem passo — o backstop E4-error nas duas direções.
+- [Phase 45]: SC#5 x D-45-04 resolvida por escrito no COMMENT ON FUNCTION: as linhas ja gravadas em bias_audit_log nao mudam; a composicao da coorte nao muda (a faixa materializada garante); a apresentacao futura suprime celulas pequenas. p_periodo e rotulo, nao filtro.
+- [Phase 45]: Supressao k=5 primaria + COMPLEMENTAR: existindo primaria, n_total sai do payload E a faixa de menor contagem entre as remanescentes tambem — uma equacao, duas incognitas. Suprimir so a celula nao suprime nada.
 
 ### Pending Todos
 
@@ -705,8 +710,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-05T04:12:36.299Z
-Stopped at: Completed 45-02-PLAN.md
+Last session: 2026-08-05T07:13:46.310Z
+Stopped at: Completed 45-05-PLAN.md (ERASE-01: faixa materializada + bias k=5; migration NAO aplicada — apply e 45-11)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

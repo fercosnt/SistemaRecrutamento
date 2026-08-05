@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 6
+open_count: 8
 waived_count: 0
 fixed_count: 0
-total_count: 6
-last_updated: 2026-08-05T04:13:18.664Z
+total_count: 8
+last_updated: 2026-08-05T07:10:20.426Z
 ---
 
 # Broken Windows Ledger
@@ -21,6 +21,8 @@ last_updated: 2026-08-05T04:13:18.664Z
 | 4 | 43 | unrun-verify | supabase/tests/p43_previa_smoke.sql |  | Smoke da previa de retencao NAO executado — deliberadamente RED contra o banco atual; vai verde no checkpoint 43-07 com 9/9 PASS | open |  | 2026-08-02T16:54:32.146Z |  |
 | 5 | 45 | deviation | docs/compliance/sql/gen-recibo-exclusao.cjs |  | 45-02: o <verify> do plano varria o JSON inteiro procurando 'tombstone', string que o proprio <action> manda existir em PASSOS_MOTOR; varredura de banidos escopada ao texto de titular (meta.campos_de_texto_de_titular) | open |  | 2026-08-05T04:13:18.606Z |  |
 | 6 | 45 | deviation | .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-02-SUMMARY.md |  | 45-02: 6 das 9 bases legais do recibo foram escritas pela engenharia, nao ditadas pela UI-SPEC — revisao pelo Encarregado de Dados pendente antes do e-mail de recibo sair em PROD | open |  | 2026-08-05T04:13:18.664Z |  |
+| 7 | 45 | unrun-verify | supabase/tests/p45_bias_k5_smoke.sql |  | p45_bias_k5_smoke.sql e o DO de auto-verificacao da 20260805000003 nunca foram executados contra banco nenhum — o apply e 45-11 | open |  | 2026-08-05T07:10:20.368Z |  |
+| 8 | 45 | deviation | src/features/admin/bias-audit/biasMath.ts |  | A tela de auditoria de vies ainda le o payload v1; o snapshot passa a emitir celulas suprimidas sem applicants/selected e sem n_total | open |  | 2026-08-05T07:10:20.426Z |  |
 
 ````json
 [
@@ -94,6 +96,30 @@ last_updated: 2026-08-05T04:13:18.664Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-05T04:13:18.664Z",
+    "resolved_at": null
+  },
+  {
+    "id": 7,
+    "kind": "unrun-verify",
+    "phase": "45",
+    "file": "supabase/tests/p45_bias_k5_smoke.sql",
+    "line": null,
+    "description": "p45_bias_k5_smoke.sql e o DO de auto-verificacao da 20260805000003 nunca foram executados contra banco nenhum — o apply e 45-11",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:10:20.368Z",
+    "resolved_at": null
+  },
+  {
+    "id": 8,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "src/features/admin/bias-audit/biasMath.ts",
+    "line": null,
+    "description": "A tela de auditoria de vies ainda le o payload v1; o snapshot passa a emitir celulas suprimidas sem applicants/selected e sem n_total",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:10:20.426Z",
     "resolved_at": null
   }
 ]
