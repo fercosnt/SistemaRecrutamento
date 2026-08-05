@@ -1163,3 +1163,522 @@ BEGIN
   RAISE NOTICE 'P45M PASS (B10): ledger com sentinela nos dois enderecos e dedupe_key re-namespaceada';
 END
 $bloco_b$;
+
+
+-- ═════════════════════════════════════════════════════════════════════════════
+-- BLOCO C — SEGURANCA DAS FUNCOES NOVAS, NAO-DIVERGENCIA DO DRY-RUN, E OS DOIS
+--           NEGATIVOS DO ENCERRAMENTO.
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (C1) ⊖ NEGATIVA — NENHUMA DAS 5 FUNCOES NOVAS E CHAMAVEL POR PAPEL DE CLIENTE.
+--
+--      Perguntado ao CATALOGO (`proacl`), nunca lendo o texto do `REVOKE`: ler o
+--      arquivo provaria que a linha existe, nao que o privilegio sumiu.
+--
+--      E o privilegio NAO some sozinho. O `pg_default_acl` do schema `public`
+--      concede EXECUTE a `anon` E a `authenticated` em todo `CREATE FUNCTION`, como
+--      grants DIRETOS E NOMEADOS — entao `REVOKE ALL ... FROM PUBLIC`, o idioma de
+--      quase toda migration deste repositorio, remove um grant de PUBLIC que nunca
+--      existiu e deixa `anon=X` de pe. Medido: 61 funcoes DEFINER em `public` com
+--      EXECUTE para `anon`, 39 chamaveis via PostgREST
+--      (docs/compliance/anon-execute-definer-audit.md:11-18).
+--
+--      Estas cinco sao `SECURITY DEFINER` e DEFINER bypassa RLS. Duas delas apagam
+--      PII de forma irreversivel. Uma delas nasce hoje com `authenticated` (a
+--      `gerar_bias_snapshot` viva, 20260625100001:433) — por isso esta assercao sai
+--      VERMELHA para ela ate o 45-05 reafirmar o REVOKE nominal.
+--
+--      PUBLIC e `grantee = 0` em `aclexplode` e NAO aparece num JOIN com `pg_roles`;
+--      por isso ele e checado separadamente.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c1$
+DECLARE
+  r          record;
+  v_ofensor  text;
+  v_checadas int := 0;
+  v_faltando text;
+BEGIN
+  SELECT string_agg(t.nome, ', ') INTO v_faltando
+    FROM (VALUES
+      ('registrar_pedido_exclusao'), ('cancelar_pedido_exclusao'),
+      ('plano_exclusao_titular'), ('anonimizar_candidato'), ('gerar_bias_snapshot')
+    ) AS t(nome)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = t.nome);
+
+  IF v_faltando IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C1): as funcoes % NAO existem em public. Este arquivo e a ESPECIFICACAO e foi escrito ANTES delas — RED aqui e o estado correto ate os planos 45-03, 45-05 e 45-07 aplicarem as migrations', v_faltando;
+  END IF;
+
+  FOR r IN
+    SELECT p.proname, p.proacl, p.prosecdef
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('registrar_pedido_exclusao', 'cancelar_pedido_exclusao',
+                         'plano_exclusao_titular', 'anonimizar_candidato',
+                         'gerar_bias_snapshot')
+  LOOP
+    v_checadas := v_checadas + 1;
+
+    IF NOT r.prosecdef THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO e SECURITY DEFINER — sem DEFINER ela nao atravessa a RLS para fazer o que precisa, e o desenho inteiro do motor pressupoe que ela atravessa', r.proname;
+    END IF;
+
+    IF r.proacl IS NULL THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): proacl NULO em public.%() — nenhum REVOKE explicito foi aplicado, logo o pg_default_acl deste schema (que concede EXECUTE a anon E a authenticated como grant DIRETO em todo CREATE FUNCTION) esta em vigor. Uma funcao que apaga PII de forma irreversivel acabou de nascer chamavel via PostgREST', r.proname;
+    END IF;
+
+    SELECT string_agg(coalesce(g.rolname, 'PUBLIC') || ':' || a.privilege_type, ', ')
+      INTO v_ofensor
+      FROM aclexplode(r.proacl) a
+      LEFT JOIN pg_roles g ON g.oid = a.grantee
+     WHERE a.privilege_type = 'EXECUTE'
+       AND (a.grantee = 0 OR g.rolname IN ('anon', 'authenticated'));
+
+    IF v_ofensor IS NOT NULL THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a papel de cliente (%) — o REVOKE precisa NOMEAR anon e authenticated, nao apenas PUBLIC, porque revogar de PUBLIC remove um grant que nunca existiu. proacl = %', r.proname, v_ofensor, r.proacl::text;
+    END IF;
+  END LOOP;
+
+  IF v_checadas <> 5 THEN
+    RAISE EXCEPTION 'P45M FAIL (C1): encontrei % das 5 funcoes esperadas em public', v_checadas;
+  END IF;
+
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C1): as 5 funcoes sao DEFINER e nenhuma concede EXECUTE a anon, authenticated ou PUBLIC';
+END
+$c1$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (C2) ⊖ GUARD, NAS DUAS METADES — 10 recusas com 42501.
+--
+--      A SEGUNDA METADE E A QUE FECHA O DEFEITO SISTEMICO. O idioma difundido no
+--      repositorio — `IF v_role NOT IN ('rh','administrador')` — avalia NULL quando
+--      nao ha JWT, e um `IF` NULL **nao e tomado**: o guard FALHA ABERTO exatamente
+--      para o chamador mais suspeito, que e `anon`. Um guard NULL-cego passa pela
+--      metade "papel errado" em verde e reprova SO aqui.
+--
+--      A impersonacao e por `set_config('request.jwt.claims', ...)` — nunca por
+--      leitura de catalogo. O guard LE a claim, entao e a claim que tem de ser
+--      exercitada; ler `pg_get_functiondef` provaria apenas que o TEXTO do guard
+--      existe, nao que ele RECUSA.
+--
+--      ⚠ Tudo aqui roda dentro de subtransacao revertida, e a diferenca em relacao
+--      ao molde da P43 e material: la as tres funcoes eram STABLE, e uma chamada que
+--      passasse pelo guard nao faria nada. Aqui DUAS das cinco sao VOLATILE e apagam
+--      PII. Se um guard falhar aberto, a chamada de teste EXECUTA — e o unico motivo
+--      de isso nao ser catastrofico e o rollback. O uuid passado tambem e sintetico
+--      e inexistente, para que nem no pior caso exista alvo real.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c2$
+DECLARE
+  r          record;
+  ctx        record;
+  v_fake     uuid := gen_random_uuid();
+  v_ok       int  := 0;
+  v_esperado int  := 10;
+BEGIN
+  BEGIN
+    FOR ctx IN
+      SELECT * FROM (VALUES
+        ('papel candidato', json_build_object('sub', gen_random_uuid()::text,
+           'app_metadata', json_build_object('role', 'candidato'))::text),
+        ('SEM CLAIM NENHUMA', '')
+      ) AS c(rotulo, claims)
+    LOOP
+      PERFORM set_config('request.jwt.claims', ctx.claims, false);
+      PERFORM set_config('request.jwt.claim.sub', '', false);
+
+      FOR r IN
+        SELECT * FROM (VALUES
+          ('registrar_pedido_exclusao', format('SELECT public.registrar_pedido_exclusao(%L::uuid)', v_fake)),
+          ('cancelar_pedido_exclusao',  format('SELECT public.cancelar_pedido_exclusao(%L::uuid)',  v_fake)),
+          ('plano_exclusao_titular',    format('SELECT public.plano_exclusao_titular(%L::uuid)',    v_fake)),
+          ('anonimizar_candidato',      format('SELECT public.anonimizar_candidato(%L::uuid, true)', v_fake)),
+          ('gerar_bias_snapshot',       'SELECT public.gerar_bias_snapshot(''p45-smoke'')')
+        ) AS t(nome, chamada)
+      LOOP
+        BEGIN
+          EXECUTE r.chamada;
+          RAISE EXCEPTION 'P45M FAIL (C2): public.%() ACEITOU chamada com % — em SECURITY DEFINER isso e grave porque DEFINER bypassa RLS e o guard do corpo e o UNICO controle. Trocar IS DISTINCT FROM por NOT IN reintroduz precisamente este defeito', r.nome, ctx.rotulo
+            USING ERRCODE = 'P45C2';
+        EXCEPTION
+          WHEN sqlstate 'P45C2' THEN RAISE;
+          WHEN sqlstate '42501' THEN v_ok := v_ok + 1;
+          WHEN sqlstate 'P45DR' THEN
+            RAISE EXCEPTION 'P45M FAIL (C2): public.%() com % chegou ate o RAISE de dry-run — ou seja, o guard NAO recusou e o corpo EXECUTOU. O guard falhou ABERTO', r.nome, ctx.rotulo;
+        END;
+      END LOOP;
+    END LOOP;
+
+    PERFORM set_config('request.jwt.claims', '', false);
+    RAISE EXCEPTION 'rollback_smoke45m_c2' USING ERRCODE = 'P45C9';
+  EXCEPTION
+    WHEN sqlstate 'P45C9' THEN
+      NULL;  -- reversao esperada
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  IF v_ok <> v_esperado THEN
+    RAISE EXCEPTION 'P45M FAIL (C2): apenas % de % recusas ocorreram com 42501 (5 funcoes x 2 contextos: papel errado + sem claim nenhuma)', v_ok, v_esperado;
+  END IF;
+
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C2): as 5 funcoes recusaram papel candidato E chamador sem claim — as % recusas com 42501 (guard NULL-safe)', v_ok;
+END
+$c2$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (C3) GATE DE NAO-DIVERGENCIA DO DRY-RUN, NAS DUAS METADES.
+--
+--      (i) `md5(prosrc)` das duas funcoes bate os valores PINADOS no cabecalho —
+--          prova que o corpo vivo e byte a byte o da migration.
+--      (ii) `pg_get_functiondef(anonimizar_candidato)` CONTEM a chamada a
+--           `plano_exclusao_titular` — prova que o delete real continua PASSANDO
+--           pela expressao unica.
+--
+--      Uma sozinha nao serve. Com so (i), alguem deixaria `plano_exclusao_titular`
+--      intacta e reescreveria o tombstone com um predicado proprio "mais rapido": o
+--      md5 continuaria verde e o dry-run voltaria a mentir sobre a exclusao. E o
+--      COMMENT vivo de `candidaturas_alem_da_janela()` (20260801000004:226-232) ja
+--      escreveu a regra endereçada a esta fase: CHAME a funcao, nao copie o corpo —
+--      o dry-run e o delete real TEM de sair da mesma expressao, e um dry-run que
+--      diverge do predicado e decoracao. Precedente nomeado: P39 CR-02, uma guarda
+--      que era dead code.
+--
+--      ⚠ E isso importa mais aqui do que importava na P43: com PITR desligado
+--      (D-45-10) e o backup de 7 dias EXCLUINDO Storage, o dry-run nao e processo —
+--      e o unico mecanismo de seguranca que a fase tem.
+--
+--      A busca em (ii) usa FRONTEIRA DE PALAVRA e nunca `strpos` (ver o bloco
+--      correspondente no cabecalho).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c3$
+DECLARE
+  v_pin_plano text := 'PENDENTE-45-07';
+  v_pin_anon  text := 'PENDENTE-45-07';
+  v_src_plano text;
+  v_src_anon  text;
+  v_def_anon  text;
+  v_md5_plano text;
+  v_md5_anon  text;
+BEGIN
+  SELECT p.prosrc INTO v_src_plano
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'plano_exclusao_titular';
+
+  SELECT p.prosrc, pg_get_functiondef(p.oid) INTO v_src_anon, v_def_anon
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'anonimizar_candidato';
+
+  IF v_src_plano IS NULL OR v_src_anon IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C3): plano_exclusao_titular ou anonimizar_candidato nao existe — nao ha expressao unica, e o dry-run que o portao destrutivo exige nao teria o que comparar';
+  END IF;
+
+  v_md5_plano := md5(v_src_plano);
+  v_md5_anon  := md5(v_src_anon);
+
+  -- Metade (ii) PRIMEIRO: ela e a que continua significativa mesmo com o pin
+  -- pendente, e um arquivo que so soubesse reprovar por pin nao provaria nada hoje.
+  IF v_def_anon !~ '\mplano_exclusao_titular\M' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/ii): anonimizar_candidato NAO chama plano_exclusao_titular. O tombstone foi reescrito com um predicado PROPRIO: existem agora DUAS definicoes de exclusao no banco, e a que o dry-run mostra nao e a que o delete real executa. O dry-run voltou a ser decoracao (P39 CR-02), e nesta fase ele e a UNICA rede — PITR esta desligado e o backup de 7 dias exclui Storage inteiramente';
+  END IF;
+
+  IF v_pin_plano = 'PENDENTE-45-07' OR v_pin_anon = 'PENDENTE-45-07' THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/i): os resumos md5(prosrc) ainda estao com o marcador PENDENTE-45-07 no cabecalho. Os valores VIVOS medidos agora sao plano_exclusao_titular=% (% octetos) e anonimizar_candidato=% (% octetos). O 45-11 pina estes valores por EXECUCAO, e so entao esta assercao passa a morder. Um placeholder que ficasse VERDE seria pior que assercao nenhuma — seria um gate que se declara satisfeito sem nunca ter comparado nada',
+      v_md5_plano, octet_length(v_src_plano), v_md5_anon, octet_length(v_src_anon);
+  END IF;
+
+  IF v_md5_plano IS DISTINCT FROM v_pin_plano THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou a expressao unica sem re-pinar, e o dry-run deixou de descrever o que o delete real faz',
+      v_md5_plano, v_pin_plano, octet_length(v_src_plano);
+  END IF;
+
+  IF v_md5_anon IS DISTINCT FROM v_pin_anon THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%',
+      v_md5_anon, v_pin_anon, octet_length(v_src_anon);
+  END IF;
+
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C3): as duas metades — md5 pinado (plano=%, anon=%) e o tombstone CHAMA a expressao unica', v_md5_plano, v_md5_anon;
+END
+$c3$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (C4) (C5) (C6) — DRY-RUN QUE NAO MUTA, FILA DO RH NAO CONTAMINADA, E OS DOIS
+--      NEGATIVOS DO ENCERRAMENTO. Uma fixture minima compartilhada, uma
+--      subtransacao, tres assercoes.
+--
+--      Estao juntas por uma razao de economia HONESTA e nao de conveniencia: as
+--      tres precisam do mesmo cenario — um titular com candidatura em andamento que
+--      acabou de pedir exclusao — e o pedido que (C5) procura na fila do RH e
+--      exatamente o que `registrar_pedido_exclusao` cria em (C6).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c456$
+DECLARE
+  v_admin_auth uuid := current_setting('smoke45m.admin_auth')::uuid;
+  v_vaga       uuid := current_setting('smoke45m.vaga')::uuid;
+  v_user       uuid := gen_random_uuid();
+  v_cand       uuid;
+  v_candtr     uuid;
+  v_email_fix  text;
+  v_solic      uuid;
+
+  -- C6
+  v_encerrada  timestamptz;
+  v_ev_decisao int;
+  v_auto_rej   int;
+
+  -- C5
+  v_ve_fila    boolean := NULL;
+  v_tipo_fila  int     := -1;
+  v_cont_antes int     := -1;
+  v_cont_pos   int     := -2;
+  v_fila_pend  int     := -3;
+
+  -- C4
+  v_snap_antes text;
+  v_snap_pos   text;
+  v_sqlstate   text := NULL;
+  v_levantou   boolean := false;
+BEGIN
+  IF to_regproc('public.registrar_pedido_exclusao(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C4/C5/C6): public.registrar_pedido_exclusao(uuid) NAO EXISTE — RED correto ate a migration do plano 45-03 ser aplicada';
+  END IF;
+
+  v_email_fix := 'p45smokec-' || replace(v_user::text, '-', '') || '@invalido.local';
+
+  BEGIN
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            v_email_fix, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES
+      (v_user, 'SMOKE P45 Titular C', v_email_fix, '(11) 97777-6666',
+       DATE '1988-07-02', 'Sorocaba', 'SP', 'site')
+    RETURNING id INTO v_cand;
+
+    -- `status = 'rejeitado'` desarma os dois triggers de dispatch (ver cabecalho);
+    -- `etapa_atual = 'triagem'` mantem a candidatura EM ANDAMENTO para o predicado
+    -- de `registrar_pedido_exclusao` — as duas colunas sao independentes.
+    INSERT INTO public.candidaturas
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+    VALUES
+      (v_cand, v_vaga, 'triagem', 'rejeitado', false, now() - interval '10 days')
+    RETURNING id INTO v_candtr;
+
+    -- Contador da fila do RH ANTES do pedido de exclusao — a metade de (C5) que
+    -- cobre a SEGUNDA RPC. Se `contar_pedidos_dados_pendentes` perder o filtro de
+    -- tipo, este numero se move quando o pedido de EXCLUSAO nascer.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_auth::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+    v_cont_antes := public.contar_pedidos_dados_pendentes();
+
+    -- ── O ENCERRAMENTO A PEDIDO (D-45-06 / D-45-13) ────────────────────────────
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_user::text,
+                        'app_metadata', json_build_object('role', 'candidato'))::text, false);
+
+    PERFORM public.registrar_pedido_exclusao(v_cand);
+
+    PERFORM set_config('request.jwt.claims', '', false);
+
+    SELECT c.encerrada_a_pedido_em INTO v_encerrada
+      FROM public.candidaturas c WHERE c.id = v_candtr;
+
+    SELECT count(*) INTO v_ev_decisao
+      FROM public.notificacoes_enviadas n
+     WHERE n.candidatura_id = v_candtr AND n.evento = 'decisao';
+
+    SELECT count(*) INTO v_auto_rej
+      FROM public.historico_candidatura h
+     WHERE h.candidatura_id = v_candtr AND h.auto_rejeitado = true;
+
+    -- ── (C5) A FILA DO RH ──────────────────────────────────────────────────────
+    EXECUTE format(
+      'SELECT id FROM public.solicitacoes_dados WHERE candidato_id = %L::uuid AND tipo = %L ORDER BY solicitado_em DESC LIMIT 1',
+      v_cand, 'exclusao') INTO v_solic;
+
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_auth::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+
+    SELECT EXISTS (SELECT 1 FROM public.listar_pedidos_dados(true) p WHERE p.id = v_solic)
+      INTO v_ve_fila;
+
+    SELECT count(*) INTO v_tipo_fila
+      FROM public.listar_pedidos_dados(true) p
+      JOIN public.solicitacoes_dados s ON s.id = p.id
+     WHERE s.tipo <> 'acesso';
+
+    v_cont_pos := public.contar_pedidos_dados_pendentes();
+
+    SELECT count(*) INTO v_fila_pend
+      FROM public.listar_pedidos_dados(true) p
+     WHERE p.situacao = 'pendente';
+
+    -- ── (C4) O DRY-RUN ─────────────────────────────────────────────────────────
+    SELECT c::text INTO v_snap_antes FROM public.candidatos c WHERE c.id = v_cand;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand, p_dry_run := true);
+      v_levantou := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_levantou := true;
+        v_sqlstate := SQLSTATE;
+    END;
+
+    SELECT c::text INTO v_snap_pos FROM public.candidatos c WHERE c.id = v_cand;
+
+    PERFORM set_config('request.jwt.claims', '', false);
+
+    RAISE EXCEPTION 'rollback_smoke45m_c456' USING ERRCODE = 'P45C8';
+  EXCEPTION
+    WHEN sqlstate 'P45C8' THEN
+      NULL;  -- reversao esperada
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  -- ── (C4) ────────────────────────────────────────────────────────────────────
+  -- Tres pernas, e a honestidade sobre o que cada uma prova importa aqui: o
+  -- savepoint do bloco EXCEPTION ja desfaz o que o dry-run tenha mutado, entao a
+  -- comparacao de snapshot e a perna mais fraca. As que discriminam sao (a) ter
+  -- levantado — uma funcao que retorna normalmente sob dry-run ou nao tem ramo de
+  -- dry-run ou muta e segue — e (b) o SQLSTATE ser o COMBINADO. Um erro real
+  -- disfarcado de "sucesso do dry-run" seria o pior falso verde desta fase.
+  IF NOT v_levantou THEN
+    RAISE EXCEPTION 'P45M FAIL (C4): anonimizar_candidato(..., p_dry_run := true) RETORNOU NORMALMENTE. Ou nao existe ramo de dry-run, ou ele muta e segue em frente. O contrato do 45-07 e terminar o MESMO corpo com RAISE EXCEPTION — nunca dois corpos, nunca IF p_dry_run THEN <query A> ELSE <query B>, que e o parente direto do CR-02 da P39';
+  END IF;
+  IF v_sqlstate IS DISTINCT FROM 'P45DR' THEN
+    RAISE EXCEPTION 'P45M FAIL (C4): o dry-run levantou SQLSTATE % e o combinado desta fase e P45DR. A distincao e a que impede um ERRO REAL de ser lido como "dry-run concluido com sucesso" pela Edge Function do 45-10 — e, no sentido inverso, impede que P45DR chegando no caminho real passe por sucesso quando na verdade nada foi apagado', v_sqlstate;
+  END IF;
+  IF v_snap_pos IS DISTINCT FROM v_snap_antes THEN
+    RAISE EXCEPTION 'P45M FAIL (C4): a linha de candidatos MUDOU sob p_dry_run := true. Sob dry-run, zero coluna muda';
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C4): dry-run levantou o SQLSTATE combinado % e nao mutou coluna nenhuma', v_sqlstate;
+
+  -- ── (C5) ────────────────────────────────────────────────────────────────────
+  IF v_solic IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C5): registrar_pedido_exclusao nao criou linha com tipo = exclusao em solicitacoes_dados — sem ela nao ha o que procurar na fila, e as duas assercoes seguintes passariam por vacuidade';
+  END IF;
+  IF v_ve_fila IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'P45M FAIL (C5): o pedido de EXCLUSAO aparece em listar_pedidos_dados. As duas RPCs do RH filtram tipo = acesso NO SERVIDOR, e o corolario esta escrito em 20260804000002:133-139: sem esse filtro as linhas de exclusao entram em silencio na fila de ACESSO, que tem outro prazo, outro dono e outra copy (Invariante 9 da UI-SPEC)';
+  END IF;
+  IF v_tipo_fila <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C5): a fila devolveu % linha(s) com tipo diferente de acesso — o filtro do servidor deixou de recortar por tipo', v_tipo_fila;
+  END IF;
+  IF v_cont_pos <> v_cont_antes THEN
+    RAISE EXCEPTION 'P45M FAIL (C5): contar_pedidos_dados_pendentes saiu de % para % quando o pedido de EXCLUSAO nasceu — a SEGUNDA RPC da fila perdeu o filtro tipo = acesso. Um badge que conta o que a tela nao mostra manda o operador cacar trabalho invisivel, e aqui o numero inflado seria de um prazo que nao e o dele', v_cont_antes, v_cont_pos;
+  END IF;
+  IF v_cont_pos <> v_fila_pend THEN
+    RAISE EXCEPTION 'P45M FAIL (C5): a fila mostra % pendentes e o contador diz % — os dois predicados de escopo DIVERGIRAM, e um deles esta recortando por tipo e o outro nao', v_fila_pend, v_cont_pos;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C5): a fila de acesso do RH nao foi contaminada pelo pedido de exclusao';
+
+  -- ── (C6) ⊖ NEGATIVA (ERASE-05 / D-45-06) ────────────────────────────────────
+  -- A primeira perna e obrigatoria e nao e decorativa: se o encerramento NAO
+  -- aconteceu, as duas negativas sao verdadeiras por vacuidade — nada aconteceu,
+  -- logo nada foi notificado. E a mesma armadilha que a fixture das tabelas em zero
+  -- linhas fecha no Bloco B.
+  IF v_encerrada IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C6): a candidatura em andamento NAO foi encerrada (encerrada_a_pedido_em nula). Pedir exclusao encerra automaticamente as candidaturas em andamento (D-45-06); a alternativa "esperar o funil fechar sozinho" foi recusada explicitamente porque um funil parado deixaria o pedido pendente INDEFINIDAMENTE, e o Art. 18 nao tem clausula de "quando der". Sem o encerramento, as duas negativas abaixo passariam por VACUIDADE';
+  END IF;
+  IF v_ev_decisao <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C6): o encerramento gerou % linha(s) de evento decisao em notificacoes_enviadas. E a modelagem por JWT do titular mordendo: avancar_etapa insere em historico_candidatura, trg_notif_transicao dispara evento decisao para etapa_para IN (aprovado, rejeitado) com auto_rejeitado = false, e o resultado e UM E-MAIL DE REJEICAO PARA A PESSOA QUE ACABOU DE PEDIR PARA SER ESQUECIDA. O encerramento a pedido vive em candidaturas.encerrada_a_pedido_em e nao passa por etapa_atual (D-45-13)', v_ev_decisao;
+  END IF;
+  IF v_auto_rej <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (C6): o encerramento gerou % linha(s) com auto_rejeitado = true. E a modelagem por service_role mordendo: com auth.uid() NULL, avancar_etapa grava auto_rejeitado := true e FABRICA, na tabela cuja funcao e provar que nenhum candidato e rejeitado automaticamente, o registro de uma rejeicao automatica. E a RNF-07a invertida pelo proprio motor de compliance', v_auto_rej;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C6): encerrou a pedido (%) sem evento decisao e sem auto_rejeitado', v_encerrada;
+END
+$c456$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (z) RESUMO — ⊖ NEGATIVA GLOBAL DE RESIDUO + gate de contagem com esperado FIXO.
+--
+--     A metade de RESIDUO e obrigatoria: um smoke que cria dados — inclusive em
+--     `auth.users` — e nao PROVA que os removeu e um smoke que polui PROD. E o que
+--     torna verdadeira a frase do cabecalho de que toda escrita e revertida.
+--
+--     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
+--     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
+--     e na P43). O esperado e FIXO: 21.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $z$
+DECLARE
+  r          record;
+  v_divergs  text := '';
+  v_agora    bigint;
+  v_asserts  int;
+  v_esperado int := 21;
+  v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
+  v_solic_a  bigint;
+BEGIN
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('public.candidatos',              'candos'),
+      ('public.candidaturas',            'cands'),
+      ('auth.users',                     'users'),
+      ('public.historico_candidatura',   'hist'),
+      ('public.decisao_final',           'df'),
+      ('public.decisao_final_historico', 'dfh'),
+      ('public.logs_acesso',             'logs'),
+      ('public.autorizacoes',            'aut'),
+      ('public.notificacoes_enviadas',   'notif'),
+      ('public.ai_call_logs',            'aicall'),
+      ('public.candidate_ai_decisions',  'aidec'),
+      ('public.recruiter_alerts',        'alerts')
+    ) AS t(tabela, chave)
+  LOOP
+    EXECUTE format('SELECT count(*) FROM %s', r.tabela) INTO v_agora;
+    IF v_agora <> current_setting('smoke45m.' || r.chave)::bigint THEN
+      v_divergs := v_divergs || format('%s: %s -> %s; ', r.tabela, current_setting('smoke45m.' || r.chave), v_agora);
+    END IF;
+  END LOOP;
+
+  IF v_solic_b >= 0 THEN
+    EXECUTE 'SELECT count(*) FROM public.solicitacoes_dados' INTO v_solic_a;
+    IF v_solic_a <> v_solic_b THEN
+      v_divergs := v_divergs || format('public.solicitacoes_dados: %s -> %s; ', v_solic_b, v_solic_a);
+    END IF;
+  END IF;
+
+  IF v_divergs <> '' THEN
+    RAISE EXCEPTION 'P45M FAIL (z): RESIDUO EM PROD — as subtransacoes dos Blocos B e C NAO reverteram. Divergencias: %. Um smoke que cria dados e nao prova que os removeu e um smoke que polui producao, e aqui a poluicao inclui linha em auth.users e linha de PII sintetica em candidatos', v_divergs;
+  END IF;
+
+  v_asserts := coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int;
+  IF v_asserts <> v_esperado THEN
+    RAISE EXCEPTION 'P45M FAIL (z): RESUMO % PASS de % esperadas — run parcial, NAO tratar como verde. Confira que o arquivo rodou numa UNICA chamada de execute_sql: set_config(..., false) e escopado a SESSAO, e statements espalhados por chamadas separadas zeram o contador e reprovam um run que na verdade passou', v_asserts, v_esperado;
+  END IF;
+
+  RAISE NOTICE 'P45M RESUMO: % assercoes PASS de % esperadas; zero residuo em 13 tabelas — gate VERDE. Este arquivo e a ESPECIFICACAO do motor, nao um relatorio dele: se a implementacao divergir, corrige-se a implementacao', v_asserts, v_esperado;
+END
+$z$;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', false);
