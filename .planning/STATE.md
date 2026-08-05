@@ -4,15 +4,15 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Motor de Exclusão & Anonimização
 status: ready-to-execute
-stopped_at: "Completed 45-05-PLAN.md (ERASE-01: faixa materializada + bias k=5; migration NAO aplicada — apply e 45-11)"
-last_updated: "2026-08-05T07:14:00.373Z"
+stopped_at: Completed 45-04-PLAN.md (smoke do motor, RED por desenho)
+last_updated: "2026-08-05T07:22:52.985Z"
 last_activity: 2026-08-05
 last_activity_desc: 45 planejada (UI-SPEC 6/6 · research · patterns · validation · 11 PLANs)
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 41
-  completed_plans: 33
+  completed_plans: 34
   percent: 50
 current_phase: 45
 ---
@@ -349,6 +349,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P07 | ~35min | 3 tasks | 8 files |
 | Phase 45 P02 | 41 min | 3 tasks | 6 files |
 | Phase 45 P05 | 41 min | 3 tasks | 2 files |
+| Phase 45 P04 | 1h 10m | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -710,8 +711,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-05T07:13:46.310Z
-Stopped at: Completed 45-05-PLAN.md (ERASE-01: faixa materializada + bias k=5; migration NAO aplicada — apply e 45-11)
+Last session: 2026-08-05T07:22:52.961Z
+Stopped at: Completed 45-04-PLAN.md (smoke do motor, RED por desenho)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
