@@ -35,6 +35,16 @@ export const privacidadeKeys = {
   ultimoPedido: (candidatoId: string | undefined) =>
     [...privacidadeKeys.all, 'ultimo-pedido', candidatoId] as const,
   /**
+   * O estado do pedido de EXCLUSÃO da seção 4 (45-03). ⚠ Deliberadamente separado de
+   * `ultimoPedido` acima, que é o pedido de ACESSO: são dois direitos distintos com
+   * dois prazos legais distintos, e as leituras filtram `tipo` no servidor por isso.
+   * Compartilhar a chave faria uma invalidação de um derrubar o outro — e faria um
+   * pedido de exclusão consumir o cooldown do acesso em silêncio, que é exatamente o
+   * corolário que o docblock de `lerUltimoPedidoDados` já escreveu.
+   */
+  pedidoExclusao: (candidatoId: string | undefined) =>
+    [...privacidadeKeys.all, 'pedido-exclusao', candidatoId] as const,
+  /**
    * A LISTA de currículos por candidatura (44-07). ⚠ Deliberadamente **não** reusa
    * nem encosta em `curriculo` acima: aquela é a leitura booleana da seção 2 ("existe
    * currículo?"), e compartilhar a chave faria uma invalidação derrubar a outra. O

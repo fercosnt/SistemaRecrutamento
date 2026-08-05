@@ -45,6 +45,7 @@ import { useMeusCurriculos } from '../hooks/useMeusCurriculos'
 import { useRevogarMarketing } from '../hooks/useRevogarMarketing'
 import { AutorizacoesLista } from './AutorizacoesLista'
 import { CurriculosBloco } from './CurriculosBloco'
+import { ExcluirDadosBloco } from './ExcluirDadosBloco'
 import { GuardaCurriculoBloco } from './GuardaCurriculoBloco'
 import { PedirCopiaBloco } from './PedirCopiaBloco'
 
@@ -57,6 +58,8 @@ export const COPY_PRIVACIDADE = {
   secao2: 'O que guardamos e por quê',
   /** Copy verbatim da 44-UI-SPEC §Seção 3 — a casa que a Phase 44 veio ocupar. */
   secao3: 'Pedir uma cópia dos seus dados',
+  /** Copy verbatim da 45-UI-SPEC §Seção 4 (Emenda A) — a quarta e última seção. */
+  secao4: 'Apagar meus dados',
   voltar: 'Voltar ao painel',
   erroTitulo: 'Não foi possível carregar suas autorizações.',
   erroCorpo: 'Verifique sua conexão e tente novamente.',
@@ -312,6 +315,18 @@ export function PrivacidadeCandidatoPage() {
           ) : (
             <CurriculosBloco linhas={curriculos.data ?? []} />
           )}
+        </section>
+
+        {/* ── Seção 4 — o exercício do direito de eliminação (Art. 18, VI) ───
+            Classe COPIADA das seções 2 e 3, não inventada: a Emenda A da 45-UI-SPEC
+            protege a âncora visual da tela exigindo que este bloco não receba
+            tratamento de destaque maior que o dos vizinhos — nem padding maior, nem
+            borda mais forte, nem sombra própria. */}
+        <section className="space-y-4 border-t border-white/15 pt-6">
+          <h2 className="text-xl font-semibold text-white">
+            {COPY_PRIVACIDADE.secao4}
+          </h2>
+          <ExcluirDadosBloco />
         </section>
 
         <div className="pt-2">
