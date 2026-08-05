@@ -211,14 +211,50 @@ describe('ExcluirDadosBloco — os oito comportamentos da seção 4', () => {
     expect(texto).not.toMatch(/\b\d+\s+dias\b/)
   })
 
-  it('(w8) titular sem candidatura nenhuma: o CTA NÃO é renderizado e a copy de vazio aparece', () => {
+  /**
+   * ⚠ ESTE TESTE FOI INVERTIDO em 2026-08-05, e a inversão é de compliance, não de UX.
+   *
+   * Ele exigia o oposto: sem candidatura, CTA ausente e copy de vazio presente — seguindo a
+   * 45-UI-SPEC §Empty, cuja premissa era *"a seção 4 quando não há dado nenhum a apagar"*.
+   *
+   * **A premissa é falsa, e o artefato gerado pelo 45-02 a mede.** Dos 20 itens do recibo de
+   * exclusão, **16 têm `aplicavel_quando: "sempre"`** — entre eles `dados_de_cadastro`, que
+   * cobre nome, e-mail, CPF, telefone, data de nascimento, endereço, redes sociais e
+   * disponibilidade. Só três dependem de decisão registrada e um de currículo.
+   *
+   * Logo um titular com cadastro e zero candidaturas tem **dezesseis itens a apagar**, e a
+   * versão anterior desta tela **negava a ele o exercício de um direito do Art. 18** — o
+   * direito que esta fase inteira existe para tornar exercível. "Um botão que apaga nada é um
+   * botão que mente" continua verdadeiro como princípio; o que era falso é que este botão
+   * apagasse nada.
+   *
+   * O que permanece condicionado a `temCandidatura` é o ponteiro para a saída branda, que só
+   * serve a quem tem processo em andamento.
+   */
+  it('(w8) titular SEM candidatura ainda vê o CTA — ele tem cadastro, e cadastro é dado a apagar', () => {
     mocks.pedido.mockReturnValue(comEstado({ temCandidatura: false }))
     renderizar()
 
-    expect(screen.getByText(COPY_EXCLUIR_DADOS.vazioTitulo)).toBeInTheDocument()
-    expect(screen.getByText(COPY_EXCLUIR_DADOS.vazioCorpo)).toBeInTheDocument()
-    // Um botão que apaga nada é um botão que mente.
-    expect(screen.queryByRole('button', { name: COPY_EXCLUIR_DADOS.cta })).toBeNull()
+    // O direito é exercível: o botão existe e está habilitado.
+    const cta = screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta })
+    expect(cta).toBeInTheDocument()
+    expect(cta).toBeEnabled()
+
+    // E a tela NÃO afirma que não há o que apagar.
+    expect(screen.queryByText(COPY_EXCLUIR_DADOS.vazioTitulo)).toBeNull()
+    expect(screen.queryByText(COPY_EXCLUIR_DADOS.vazioCorpo)).toBeNull()
+
+    // O ponteiro para "retirar minha candidatura" some — ele não serve a quem não tem uma.
+    expect(screen.queryByText(COPY_EXCLUIR_DADOS.soQuerSairTitulo)).toBeNull()
+  })
+
+  it('(w8b) titular COM candidatura vê o CTA e também o ponteiro para a saída branda', () => {
+    mocks.pedido.mockReturnValue(comEstado({ temCandidatura: true }))
+    renderizar()
+
+    expect(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta })).toBeEnabled()
+    // A Invariante 2 exige que este bloco NOMEIE a outra ação — sem link.
+    expect(screen.getByText(COPY_EXCLUIR_DADOS.soQuerSairTitulo)).toBeInTheDocument()
   })
 })
 

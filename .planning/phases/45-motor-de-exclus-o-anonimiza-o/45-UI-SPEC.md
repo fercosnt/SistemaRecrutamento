@@ -446,8 +446,8 @@ própria spec (43, "automaticamente"; 44, os verbos de exclusão). Cada ban abai
 | Element | Copy |
 |---------|------|
 | Primary CTA | **Apagar meus dados** *(seção 4 de `/candidato/privacidade`)*. A ação secundária de outra tela é **Retirar minha candidatura** *(card do dashboard)* |
-| Empty state heading | **Você ainda não se candidatou a nenhuma vaga.** *(único vazio da fase: a seção 4 quando não há dado nenhum a apagar — ver E1 · empty na tabela de considerações)* |
-| Empty state body | Quando você se candidatar, esta opção aparece aqui. |
+| Empty state heading | ~~**Você ainda não se candidatou a nenhuma vaga.**~~ ⚠ **RETIRADO em 2026-08-05 — ver Emenda C abaixo.** A seção 4 **não tem estado vazio**: não existe titular sem dado a apagar |
+| Empty state body | ~~Quando você se candidatar, esta opção aparece aqui.~~ **RETIRADO — Emenda C** |
 | Error state | **Não foi possível registrar seu pedido.** Nada foi apagado. Tente novamente em alguns minutos — se continuar, escreva para o nosso Encarregado de Dados: lgpd@beautysmile.com.br. |
 | Destructive confirmation | **Apagar meus dados**: título **"Apagar seus dados da Beauty Smile?"**, corpo com a caixa de consequência, confirmação **"Sim, apagar meus dados"**, recuo **"Voltar"**. Texto completo abaixo |
 
@@ -493,7 +493,7 @@ uma seção que some.
 | Disponível | **Apagar meus dados** *(glass-branco, `min-h-[44px]`)* |
 | Em voo | **Registrando seu pedido…** *(desabilitado, `aria-busy="true"`, `Loader2` ao lado, motivo irmão visível)* |
 | Erro | Alerta inline destructive, `role="alert"`: **Não foi possível registrar seu pedido. Nada foi apagado.** Tente novamente em alguns minutos — se continuar, escreva para o nosso Encarregado de Dados: lgpd@beautysmile.com.br. |
-| Sem dado a apagar | Ver §Empty no contrato mínimo. O CTA **não é renderizado** — um botão que apaga nada é um botão que mente |
+| ~~Sem dado a apagar~~ | ⚠ **ESTADO INEXISTENTE — Emenda C.** O CTA é **sempre** renderizado para titular autenticado com linha em `candidatos`. O princípio *"um botão que apaga nada é um botão que mente"* segue válido; o que era falso é que este botão apagasse nada |
 
 **"Nada foi apagado" é obrigatório na copy de erro** e não é tranquilização: numa mutação
 não-atômica sobre PII viva, o titular que vê "não foi possível" precisa saber **em que lado da
@@ -934,3 +934,57 @@ desfecho desta fase pode desaparecer sozinho).
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending
+
+---
+
+## Emenda C — a seção 4 não tem estado vazio (2026-08-05, wave 2)
+
+**O que a versão aprovada dizia.** §Contrato mínimo previa um *"único vazio da fase: a seção 4
+quando não há dado nenhum a apagar"*, com o cabeçalho **"Você ainda não se candidatou a nenhuma
+vaga."**, e a tabela de estados do CTA mandava **não renderizar o botão** nessa condição, com a
+justificativa *"um botão que apaga nada é um botão que mente"*.
+
+**A contradição interna que passou na aprovação.** O texto do cabeçalho descreve *ausência de
+candidatura*; a parentética que o define descreve *ausência de dado*. São condições diferentes, e
+o contrato tratou as duas como a mesma.
+
+**A medição que decide.** O recibo de exclusão gerado pelo plano 45-02 a partir do
+`pii-inventory.yaml` — o mesmo artefato que a Invariante 4 obriga a tela a espelhar — classifica
+**16 dos seus 20 itens como `aplicavel_quando: "sempre"`**. Entre eles, `dados_de_cadastro`:
+
+> *"Nome, e-mail, telefone, CPF, data de nascimento, endereço, redes sociais e disponibilidade
+> vão ser apagados do seu cadastro."*
+
+Apenas **três** itens dependem de decisão registrada e **um** de currículo. Logo:
+
+# Não existe titular autenticado sem dado a apagar.
+
+Quem tem linha em `candidatos` tem, no mínimo, dezesseis itens de dado pessoal.
+
+**A consequência da versão aprovada, se tivesse embarcado.** Um titular com cadastro e zero
+candidaturas — perfeitamente comum: quem se cadastrou e ainda não se candidatou — abriria
+`/candidato/privacidade` e leria *"Você ainda não se candidatou a nenhuma vaga"* com o botão
+ausente. **Isso é negar o exercício de um direito do Art. 18 a quem tem PII armazenada**, na
+tela que a fase inteira existe para construir. Não é imprecisão de copy: é o produto recusando
+um direito com uma frase verdadeira sobre outro assunto.
+
+**O que muda:**
+
+| | Antes | Depois |
+|---|---|---|
+| CTA **Apagar meus dados** | suprimido sem candidatura | **sempre renderizado** para titular com linha em `candidatos` |
+| Copy de vazio | dois parágrafos | **não existe** |
+| Ponteiro *"Só quer sair de um processo?"* | sempre visível | **condicionado a ter candidatura** — a saída branda não serve a quem não tem processo, e cada frase a mais compete com a leitura da ação irreversível |
+
+⚠ **A Invariante 2 continua satisfeita:** o bloco segue NOMEANDO a retirada de candidatura sem
+linkar para ela. A emenda só deixa de anunciá-la a quem ela não serve.
+
+**Onde isto está provado:** `ExcluirDadosBloco.test.tsx`, casos `(w8)` — titular sem candidatura
+vê o CTA habilitado, não vê copy de vazio, não vê o ponteiro — e `(w8b)` — titular com
+candidatura vê os dois. O `(w8)` original assertava o oposto e foi **invertido**, com a razão
+registrada no próprio teste.
+
+**Quem decidiu:** operador, 2026-08-05, ao mandar fechar os três pontos abertos da wave 2 antes
+de seguir. Levantado pelo executor do plano 45-03, que implementou conforme o contrato e
+**registrou a tensão em vez de resolvê-la por conta própria** — a conduta certa diante de um
+contrato aprovado.

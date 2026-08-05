@@ -66,13 +66,27 @@ export function ExcluirDadosBloco() {
 
   /**
    * ⚠ O VAZIO SÓ É AFIRMADO QUANDO ELE FOI MEDIDO. `estado.data` ausente significa
-   * "não sei", e "não sei" **nunca** pode renderizar "Você ainda não se candidatou a
-   * nenhuma vaga" — isso seria a tela afirmando um fato sobre a vida da pessoa a
+   * "não sei", e "não sei" **nunca** pode renderizar um fato sobre a vida da pessoa a
    * partir de uma leitura que falhou. Defeito real, pego pelos casos (w3)/(w9): sem
    * esta distinção o ramo de erro caía no estado vazio, o CTA sumia sem motivo
    * visível, e a página mentia com cara de informação.
+   *
+   * ⚠⚠ **O QUE `temCandidatura` NÃO PODE MAIS GOVERNAR — corrigido em 2026-08-05.**
+   * Ele governava a existência do CTA, sob a premissa da 45-UI-SPEC §Empty de que sem
+   * candidatura *"não há dado nenhum a apagar"*. **A premissa é factualmente falsa, e o
+   * artefato gerado pelo 45-02 mede isso:** dos 20 itens do recibo de exclusão, **16 são
+   * `aplicavel_quando: "sempre"`** — entre eles `dados_de_cadastro`, que cobre nome,
+   * e-mail, CPF, telefone, data de nascimento, endereço, redes sociais e disponibilidade.
+   *
+   * Um titular com cadastro e zero candidaturas tem **dezesseis itens de dado a apagar**.
+   * Esconder o CTA dele não era uma imprecisão de copy: era **negar o exercício de um
+   * direito do Art. 18 a quem tem PII armazenada** — exatamente o que esta fase existe
+   * para tornar possível. A UI-SPEC foi emendada com a medição.
+   *
+   * O que sobra para `temCandidatura`: condicionar o ponteiro "só quer sair de um
+   * processo", que só faz sentido para quem TEM processo em andamento.
    */
-  const vazioMedido = Boolean(estado.data) && !temCandidatura
+  const semCandidaturaMedida = Boolean(estado.data) && !temCandidatura
 
   // ⚠ Divergência DELIBERADA do `PedirCopiaBloco`: lá a leitura falha e o CTA
   // renderiza (o servidor decide). Aqui ela DESABILITA — um pedido duplicado não é
@@ -106,8 +120,17 @@ export function ExcluirDadosBloco() {
       <p className="text-sm font-semibold text-white">{COPY_EXCLUIR_DADOS.cancelamentoTitulo}</p>
       <p className="text-base leading-relaxed text-white/90">{COPY_EXCLUIR_DADOS.cancelamento}</p>
 
-      <p className="text-sm font-semibold text-white">{COPY_EXCLUIR_DADOS.soQuerSairTitulo}</p>
-      <p className="text-base leading-relaxed text-white/90">{COPY_EXCLUIR_DADOS.soQuerSair}</p>
+      {/* ⚠ O ponteiro para "retirar minha candidatura" só aparece para quem TEM candidatura.
+          Oferecer a saída branda a quem não tem processo nenhum em andamento é ruído numa
+          região onde cada frase a mais compete com a leitura da ação irreversível. E o
+          silêncio aqui é seguro: a Invariante 2 exige que este bloco NOMEIE a outra ação
+          sem linkar, nunca que a anuncie a quem ela não serve. */}
+      {!semCandidaturaMedida && (
+        <>
+          <p className="text-sm font-semibold text-white">{COPY_EXCLUIR_DADOS.soQuerSairTitulo}</p>
+          <p className="text-base leading-relaxed text-white/90">{COPY_EXCLUIR_DADOS.soQuerSair}</p>
+        </>
+      )}
 
       {estado.isLoading ? (
         /* Skeleton de SEÇÃO — o mesmo `Glass` pulsante de uma linha das irmãs,
@@ -139,13 +162,12 @@ export function ExcluirDadosBloco() {
           )}
           <p className="text-sm font-semibold text-white">{COPY_EXCLUIR_DADOS.agendadoNota}</p>
         </div>
-      ) : vazioMedido ? (
-        /* ── §Empty — um botão que apaga nada é um botão que mente. */
-        <div className="mt-3 space-y-1 rounded-lg border border-white/15 bg-white/5 p-4">
-          <p className="text-sm font-semibold text-white">{COPY_EXCLUIR_DADOS.vazioTitulo}</p>
-          <p className="text-base leading-relaxed text-white/90">{COPY_EXCLUIR_DADOS.vazioCorpo}</p>
-        </div>
       ) : (
+        /* ⚠ NÃO EXISTE MAIS UM RAMO §Empty QUE SUPRIMA O CTA. A 45-UI-SPEC previa um, sob
+           a premissa de que sem candidatura não haveria "dado nenhum a apagar" — e o
+           recibo gerado pelo 45-02 mede o contrário: 16 dos 20 itens são `sempre`,
+           inclusive o cadastro inteiro. O botão nunca apaga nada; ele sempre apaga pelo
+           menos o cadastro. Suprimi-lo negava um direito do Art. 18. */
         <div className="space-y-2 pt-2">
           <GlassButton
             variant="white"
