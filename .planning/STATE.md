@@ -2,17 +2,21 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 44
-current_phase_name: Exportação & Acesso
-status: executing
-stopped_at: Completed 44-07-PLAN.md — UAT ao vivo do CV (EXPORT-03) PENDENTE (checkpoint)
-last_updated: "2026-08-04T04:12:11.929Z"
-last_activity: 2026-08-04
-last_activity_desc: 44-07 (o CV do titular — UAT ao vivo pendente)
+current_phase: 45
+current_phase_name: Motor de Exclusão & Anonimização
+status: ready-to-execute
+stopped_at: Phase 45 planejada — 11 planos, 5 waves, plan-checker PASSED na 2ª iteração
+last_updated: "2026-08-05T03:38:50.921Z"
+last_activity: 2026-08-05
+last_activity_desc: 45 planejada (UI-SPEC 6/6 · research · patterns · validation · 11 PLANs)
 progress:
   total_phases: 6
+  # ⚠ CORRIGIDO À MÃO — 7ª reincidência do defeito do scanner (ver §Current Position).
+  # state.planned-phase escreveu 3 / 30 / 50 contando ARQUIVOS de SUMMARY sem ler o `status:`
+  # deles. Os três checkpoints da Phase 44 (44-05, 44-07, 44-09) têm `status: checkpoint`,
+  # não `complete`. total_plans 41 está CERTO (30 das fases 42-44 + 11 da 45).
   completed_phases: 2
-  total_plans: 30
+  total_plans: 41
   completed_plans: 27
   percent: 33
 ---
@@ -77,6 +81,45 @@ seguido de nó de texto com espaço. Não afeta função.
 ---
 
 ## Current Position
+
+Phase: **45 (Motor de Exclusão & Anonimização) — PLANEJADA, pronta para executar** (2026-08-05)
+
+**11 planos em 5 waves.** `plan-checker` PASSED na 2ª iteração · 10/10 requirements ERASE-* ·
+13/13 decisões do CONTEXT com plano implementador · 18/18 arestas do probe spec-less e 36/36
+considerações de UI levantadas · `<threat_model>` nos 11 (ASVS L1).
+
+**O achado que reordenou a fase.** `candidatos.user_id` é `NOT NULL UNIQUE REFERENCES
+auth.users(id) ON DELETE CASCADE`, com o `CASCADE` **confirmado vivo em `pg_constraint`** — o
+repositório de migrations diz `SET NULL` e é **ficção**. O ERASE-10 é **inexecutável hoje**, e a
+falha não é benigna: `deleteUser` cascateia `candidatos` → `candidaturas` → bate nas 3 FKs
+`NO ACTION` → 23503 → rollback → `500`. Acontecendo **depois** do passo 1, o estado final é
+**currículo apagado do Storage (irrecuperável — sem PITR, sem backup de Storage) e 100% da PII
+intacta no banco**. Hoje esse é o desfecho **garantido** de qualquer implementação que chame
+`deleteUser` sem tratar essa FK. **D-45-11 (saída S1)** resolve, e a migration de severação é
+precondição declarada da tarefa de `deleteUser` — o `45-07` só **escreve**, quem **aplica** é o
+`45-11`, então o pior estado ordenável não é alcançável pelo plano.
+
+**O tracer é a fatia NÃO-destrutiva.** `45-03` liga migration → RPC DEFINER → EF → service →
+hook → seção 4 só para "pedir exclusão"; `45-06` prova ao vivo em PROD **antes** de a primeira
+linha irreversível existir. Num ambiente sem segunda rede, um beco arquitetural descoberto ali
+custa um commit; descoberto depois de Storage/tombstone/Auth, custa dado que não volta.
+
+**Blocker corrigido antes de executar:** as Task 1 de `45-01`/`45-06`/`45-11` estavam tipadas
+`type="tracer"`, que o `execute-plan.md:195` despacha **como `type="auto"`** — executor autônomo.
+As três exigem tools MCP que só o orquestrador tem, e um executor sem MCP **não falha alto: ele
+relata a tarefa concluída**. Seriam resultados de sonda inventados, migration dada como aplicada
+sem ter sido, e o portão destrutivo relatando um dry-run que nunca rodou. Retipadas para
+`checkpoint:human-verify`; varredura das 33 tarefas não achou 4ª ocorrência.
+
+⚠ **Wave 1 não fecha sozinha** — `45-01` é 100% checkpoint do orquestrador, e puxa para a
+primeira wave o **G1/G2 da Phase 44** (o portão exige que fechem antes) e a **sonda que escreve**
+(hard delete de conta descartável com histórico de funil). O 23503 é hoje uma **previsão** tirada
+do `pg_constraint`, não fato observado: nenhum código deste projeto jamais chamou `deleteUser`
+sobre usuário com filhos.
+
+---
+
+### Posição anterior — Phase 44 (mantida: os 3 checkpoints seguem abertos)
 
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
@@ -610,9 +653,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T04:10:01.205Z
-Stopped at: Completed 44-07-PLAN.md — UAT ao vivo do CV (EXPORT-03) PENDENTE (checkpoint)
-Resume file: None
+Last session: 2026-08-04T13:29:47.105Z
+Stopped at: Phase 45 UI-SPEC approved (6/6 PASS)
+Resume file: .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-UI-SPEC.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

@@ -807,7 +807,15 @@ Derivado do `ui-consideration-probe` com **`elements` autorados**. A nota metodo
 em inglês (`tables?`, `forms?`, `lists?`) e a prosa deste projeto é pt-BR, então `tabela`,
 `formulário` e `botão` não casam com cue nenhum — classificar pela prosa produziria falso verde.
 
-Cobertura: **36 aplicáveis · 36 resolvidas · 0 não resolvidas** — 28 explícitas, 8 backstop.
+Cobertura: **36 aplicáveis · 36 resolvidas · 0 não resolvidas** — **24 explícitas (✅), 12 backstop (🧪)**.
+
+> ⚠ **Corrigido em 2026-08-05.** Esta linha dizia *"28 explícitas, 8 backstop"* e contradizia a
+> própria tabela abaixo, que traz 24 ✅ e 12 🧪. O total (36) sempre esteve certo; a divisão, não.
+> O planner da fase detectou a divergência e **levantou pelos marcadores POR LINHA**, não pelo
+> resumo — os 12 🧪 viraram truths de escalar plano `{ statement, verification: backstop }`.
+> Foi a escolha correta: errar para o lado de mais backstops **falha fechado** (um backstop que o
+> verificador não confirmar com evidência explícita abstém-se → `human_needed`), enquanto confiar
+> no resumo teria convertido 4 backstops em truths simples e os teria feito passar em silêncio.
 
 Elementos sondados: **E1** `ExcluirDadosBloco` (static-content · interactive-control) · **E2** o
 CTA "Apagar meus dados" e seus estados (interactive-control) · **E3** `ConfirmarExclusaoDialog`

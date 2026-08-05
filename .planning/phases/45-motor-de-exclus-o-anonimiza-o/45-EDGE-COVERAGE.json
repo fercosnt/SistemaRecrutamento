@@ -1,0 +1,87 @@
+{
+  "source": "spec-less probe fallback (no plain SPEC.md for phase 45) — edge-probe.cjs over ERASE-01..10",
+  "coverage": { "applicable": 18, "resolved": 13, "unresolved": 5, "byVerification": { "explicit": 10, "backstop": 3 } },
+  "no_silent_drop_check": "18 surfaced == 13 authored into must_haves + 5 surfaced as flagged assumptions",
+  "items": [
+    {
+      "requirement_id": "ERASE-01", "category": "unclassified", "status": "unresolved", "verification": null,
+      "resolution": null,
+      "reason": "unclassified — planner must treat as assumption. The probe could not classify the bias-snapshot-before-anonymization shape. Judgment needed on the k-anonymity threshold and on the complementary-suppression rule, which the research flags as an OPEN question (k=5 alone is defeated by subtracting from the published totals: `n_total` and `excluidos_sem_data` close the arithmetic today)."
+    },
+    {
+      "requirement_id": "ERASE-02", "category": "idempotency", "status": "covered", "verification": "explicit",
+      "resolution": "Re-executar a RPC de tombstone sobre uma linha JÁ anonimizada é no-op observável: zero colunas mudam e zero linha nova em `logs_auditoria`. A idempotência é por ESTADO (o predicado reconhece a sentinela), nunca por `try/catch`."
+    },
+    {
+      "requirement_id": "ERASE-02", "category": "concurrency", "status": "covered", "verification": "explicit",
+      "resolution": "A metade Postgres é UMA transação: uma interrupção deixa a linha inteiramente NÃO-anonimizada, nunca meio anonimizada. Duas chamadas em paralelo — a segunda encontra a sentinela e vira no-op. Asserção: não existe estado intermediário observável em `candidatos` (nome anonimizado com CPF intacto reprova)."
+    },
+    {
+      "requirement_id": "ERASE-03", "category": "idempotency", "status": "covered", "verification": "explicit",
+      "resolution": "Cada um dos 3 passos é idempotente por ESTADO registrado no plano, não por `try/catch`: re-executar o mesmo pedido não avança passo nenhum duas vezes. Asserção: segunda execução do mesmo `solicitacao_id` não chama a Storage Admin API nem `deleteUser` de novo."
+    },
+    {
+      "requirement_id": "ERASE-03", "category": "concurrency", "status": "backstop", "verification": "backstop",
+      "statement": "Interrompida no meio, a execução `Storage → Postgres → Auth` deixa um estado retomável e nunca o par «CV apagado + PII intacta».",
+      "resolution": "BACKSTOP — mutação de três sistemas SEM transação compartilhada. O que é garantido sob interrupção não é asserível por teste unitário com `deps` mockados: exige a sonda de ambiente controlado (hard delete de conta descartável COM histórico de funil) para medir se o 23503 do Pitfall 2 acontece de fato e como a Admin API o reporta. Sem evidência explícita, o verificador deve abster-se → `human_needed`, nunca passar em silêncio."
+    },
+    {
+      "requirement_id": "ERASE-04", "category": "adjacency", "status": "covered", "verification": "explicit",
+      "resolution": "A união de `storage.list('<authUid>/')` (paginado) com `candidaturas.curriculo_url` deduplica por caminho COMPLETO de objeto: um caminho presente nas duas listas aparece EXATAMENTE UMA vez no plano. Uma divergência entre as listas é ACHADO registrado (blob órfão ou ponteiro morto), nunca fundida em silêncio."
+    },
+    {
+      "requirement_id": "ERASE-04", "category": "empty", "status": "covered", "verification": "explicit",
+      "resolution": "Titular com zero objetos sob o prefixo produz plano com passo de Storage VAZIO que completa com sucesso (não erro), e o recibo afirma zero arquivos. `curriculo_url` NULL não é erro. Asserção negativa: nenhum passo é marcado como falho por ausência de objeto."
+    },
+    {
+      "requirement_id": "ERASE-04", "category": "ordering", "status": "covered", "verification": "explicit",
+      "resolution": "A lista de caminhos capturada é persistida ORDENADA por caminho completo, para que uma retomada reproduza a mesma ordem. A ordem de paginação do `storage.list` NÃO é fonte de verdade — se ela variar entre chamadas, o plano persistido continua determinístico."
+    },
+    {
+      "requirement_id": "ERASE-04", "category": "concurrency", "status": "backstop", "verification": "backstop",
+      "statement": "Um crash entre a captura dos caminhos e a primeira mutação não perde os ponteiros — o plano persistido é suficiente para retomar sem redescobrir.",
+      "resolution": "BACKSTOP — a propriedade que ERASE-04 existe para garantir só é provada por interrupção real. Sem PITR e sem backup de Storage, um ponteiro perdido é um blob permanentemente órfão. Exige a sonda de ambiente controlado; sem evidência explícita o verificador abstém-se → `human_needed`."
+    },
+    {
+      "requirement_id": "ERASE-05", "category": "unclassified", "status": "unresolved", "verification": null,
+      "resolution": null,
+      "reason": "unclassified — planner must treat as assumption. A distinção retirar × apagar é resolvida por SEPARAÇÃO FÍSICA (telas distintas, UI-SPEC Invariantes 1/2), o que o probe de arestas não modela. ⚠ A armadilha medida é de evento, não de aresta: `GlassCard onClick` em `DashboardCandidatoPage.tsx:288` faz o card inteiro navegar, e um teste que invoca o handler DIRETO passa com o defeito presente — a asserção precisa disparar no elemento com bubbling real."
+    },
+    {
+      "requirement_id": "ERASE-06", "category": "unclassified", "status": "unresolved", "verification": null,
+      "resolution": null,
+      "reason": "unclassified — planner must treat as assumption. Judgment aberto medido pelo pattern-mapper: `config_sla_dados` é RH-only por desenho e o próprio arquivo (`:132-134`) PROÍBE copiar a RLS pública de `config_sla_etapa` — mas a janela de 15 dias é lida pelo TITULAR. O plano tem de declarar qual RLS a config da janela herda, senão o `{n}` da UI-SPEC cai no fallback silenciosamente."
+    },
+    {
+      "requirement_id": "ERASE-07", "category": "idempotency", "status": "covered", "verification": "explicit",
+      "resolution": "Segundo envio do recibo é curto-circuitado por `solicitacoes_dados.recibo_enviado_em` NÃO-nulo, mais header `Idempotency-Key` no Resend (D-45-12 / saída R1). Asserção negativa: nenhuma linha nova em `notificacoes_enviadas` para o recibo, em execução nenhuma — é a própria decisão R1."
+    },
+    {
+      "requirement_id": "ERASE-07", "category": "concurrency", "status": "backstop", "verification": "backstop",
+      "statement": "O endereço lido ANTES do tombstone sobrevive a um crash e o recibo ainda é entregue depois do `deleteUser`; se não for, a causa fica registrada em vez de o recibo sumir em silêncio.",
+      "resolution": "BACKSTOP — o endereço é lido antes do tombstone e usado depois do hard delete; entre os dois não existe mais conta de onde relê-lo. Persistir no `plano` e limpar no fecho torna retomável (ao custo de PII de vida curta dentro do próprio pedido), mas provar a sobrevivência a um crash REAL exige interrupção provocada. Sem evidência explícita o verificador abstém-se → `human_needed`."
+    },
+    {
+      "requirement_id": "ERASE-08", "category": "unclassified", "status": "unresolved", "verification": null,
+      "resolution": null,
+      "reason": "unclassified — planner must treat as assumption. É uma invariante de SCHEMA e de contagem, não uma aresta de entrada: as 3 FKs `NO ACTION` seguem `NO ACTION` em `pg_constraint`, e as contagens das 3 tabelas não mudam. ⚠ O modo de falha nomeado no ROADMAP é humano, não algorítmico: relaxar para CASCADE é o reflexo errado diante do primeiro 23503 — e o 23503 é agora um desfecho ESPERADO (Pitfall 2)."
+    },
+    {
+      "requirement_id": "ERASE-09", "category": "adjacency", "status": "covered", "verification": "explicit",
+      "resolution": "Cada uma das 5 tabelas `SET NULL` é severada por statement EXPLÍCITO próprio. Uma linha que referencie o titular por mais de uma das 5 é severada em cada uma delas, e nenhuma fica com FK não-nula pendente. Asserção: zero linhas nas 5 tabelas com a coluna de FK ainda apontando ao titular."
+    },
+    {
+      "requirement_id": "ERASE-09", "category": "empty", "status": "covered", "verification": "explicit",
+      "resolution": "`ai_call_logs` e `candidate_ai_decisions` têm ZERO linhas em PROD hoje — sem fixture sintética o teste passa por VACUIDADE sem exercitar nada. O smoke insere fixture para as duas antes de assertar, e a ausência de fixture é falha de teste, não verde."
+    },
+    {
+      "requirement_id": "ERASE-09", "category": "ordering", "status": "covered", "verification": "explicit",
+      "resolution": "As 5 severações ocorrem DENTRO da mesma transação do tombstone, então a ordem relativa entre elas não é observável de fora. A asserção é sobre o pós-estado das 5 tabelas, nunca sobre a ordem — um teste que dependesse da ordem estaria medindo implementação, não contrato."
+    },
+    {
+      "requirement_id": "ERASE-10", "category": "unclassified", "status": "unresolved", "verification": null,
+      "resolution": null,
+      "reason": "unclassified — planner must treat as assumption. O critério do Art. 12 §1º (irreversibilidade real vs pseudonimização) não é uma aresta de entrada e sim uma propriedade de re-identificação, que se prova por TENTATIVA: após anonimizar candidato sintético, procurá-lo por (faixa etária + UF + vaga + timestamp) — achou 1 linha, a anonimização falhou. ⚠ Bloqueado por D-45-11 (S1): hoje `user_id` é `NOT NULL` com FK `CASCADE` viva, então o ERASE-10 é INEXECUTÁVEL antes daquela migration."
+    }
+  ]
+}

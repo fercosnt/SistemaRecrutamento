@@ -193,17 +193,30 @@ Plans:
 **Plans**: 11 plans (5 waves · 10/10 requirements cobertos · 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas e 36/36 considerações de UI levantadas)
 
 Plans:
+**Wave 1**
 
 - [ ] 45-01-PLAN.md — Sondas de PROD (5 read-only + 1 de escrita controlada) — **nenhuma migration da fase pode ser escrita antes deste plano fechar**
 - [ ] 45-02-PLAN.md — Wave 0: gerador do recibo em duas colunas a partir do `pii-inventory.yaml` (30/69 tabelas do `exportAllowlist.ts` não bastam) + `check:recibo-exclusao`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 45-03-PLAN.md — **TRACER**: a fatia vertical NÃO-destrutiva "pedir exclusão" — migration → RPC DEFINER → EF → service → hook → seção 4
 - [ ] 45-04-PLAN.md — Smoke SQL RED: a especificação executável do motor, com as negativas do ERASE-08/10 primeiro no arquivo (lição W-1 da P43)
 - [ ] 45-05-PLAN.md — ERASE-01: faixa etária materializada + k=5 com supressão **complementar**, e a tensão SC#5 × D-45-04 resolvida por escrito
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 45-06-PLAN.md — **CHECKPOINT**: apply do tracer + deploy da EF + prova ponta a ponta em PROD, antes de qualquer linha destrutiva
 - [ ] 45-07-PLAN.md — Metade Postgres: severação de `candidatos.user_id` (D-45-11, `one-way`) + plano por expressão única + tombstone com `p_dry_run` no MESMO corpo
 - [ ] 45-08-PLAN.md — Confirmação aninhada, recibo em duas colunas (um componente, dois tempos), painel da janela e Emenda B da Phase 43
 - [ ] 45-09-PLAN.md — ERASE-05: retirar candidatura no card, 6º evento do vocabulário fechado, e a candidatura encerrada legível no RH
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 45-10-PLAN.md — EF: os três passos destrutivos (`Storage → Postgres → Auth`) + recibo ao titular fora do ledger (D-45-12/R1)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito
 
 **Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-11)
