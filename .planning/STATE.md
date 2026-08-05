@@ -84,7 +84,20 @@ Phase: **45 — WAVE 1 EM ANDAMENTO, parada em checkpoint** (2026-08-05)
 |---|---|
 | `45-01` Task 1 — 5 sondas read-only de PROD | ✅ **EXECUTADA** (`3e28642`) — `45-SONDAS-PROD.md`, **10 divergências, 3 bloqueantes** |
 | `45-01` Task 2 — sonda de ESCRITA | ✅ **EXECUTADA** (`0d72f1d`) — em transação REVERTIDA (`DO` + `RAISE EXCEPTION`; Postgres reverte DDL). **A S1 está provada por execução**, e a sonda **refutou** a minha inferência de "7 colunas a severar" |
-| `45-01` Task 3 — G1/G2 da Phase 44 | ⏸ **CHECKPOINT** — `npx supabase login` **falha fora de TTY**. Precisa de `SUPABASE_ACCESS_TOKEN` (Personal Access Token do dashboard) |
+| `45-01` Task 3 — **G2** (redeploy da EF) | ✅ **FECHADO** (`9bdd9af`) — `exportar-meus-dados` **v1 → v2** em PROD, `sha256 43a3297d…→2d05de28…`, `verify_jwt: true` preservado, as outras 17 EFs intactas |
+| `45-01` Task 3 — **G1** (export ponta a ponta) | ⏸ **ABERTO** — exige navegador com login de titular. `solicitacoes_dados` = 0 linhas. **O portão do 45-11 NÃO abre até fechar** |
+| `45-01` (plano) | ✅ **COMPLETO** — `45-01-SUMMARY.md` |
+
+**⚠ Auth do Supabase CLI — registrar para as próximas fases:** `npx supabase login` **falha fora
+de TTY** (`LegacyLoginMissingTokenError`). O operador autenticou no **próprio terminal** e a
+credencial ficou no **keychain do macOS** — `SUPABASE_ACCESS_TOKEN` segue **ausente** do ambiente
+do agente e mesmo assim o CLI responde. **O gate de auth do 44-04 se resolve por keychain, não por
+env var.**
+
+**Por que o deploy foi pelo CLI e não pelo MCP** (medido, não suposto): o payload é `index.ts`
+(19.937 B) + `_shared/exportAllowlist.ts` (44.935 B, **gerado**) = ~65 KB. `deploy_edge_function`
+recebe conteúdo inline, o que exigiria **reproduzir** os bytes; um caractere divergente numa
+allowlist que governa qual PII sai no export não é risco aceitável. O CLI lê do disco.
 | `45-02` — gerador do recibo | ✅ **COMPLETO** (5 commits, 209/209 colunas, zero `--no-verify`) |
 
 **⚠ SUÍTE VERMELHA — 1608/1609.** `copyPortoesLgpd.test.ts` (guarda escrita na Phase 43) reprova
