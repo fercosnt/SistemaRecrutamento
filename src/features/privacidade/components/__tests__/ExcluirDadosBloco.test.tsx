@@ -19,9 +19,14 @@
  *
  *  - **(w5)** a sonda de texto-fonte tem **ESCOPO DECLARADO** e remove as linhas de
  *    comentário antes de procurar. Este projeto já pagou DUAS vezes pelo grep
- *    repo-wide que reprova a própria spec (43, "automaticamente"; 44, os verbos de
- *    exclusão). ⚠ E o ban da Phase 44 (`apagado`/`excluído`/`eliminado`) **não é
- *    estendido a esta fase**: ela existe para conjugar esses verbos.
+ *    repo-wide que reprova a própria spec — na Phase 43 com o advérbio de
+ *    automatismo, e na Phase 44 com os verbos deste direito. ⚠ E o ban da Phase 44
+ *    **não é estendido a esta fase**: ela existe para conjugar esses verbos.
+ *
+ *    ⚠ Este próprio parágrafo já foi uma violação: escrito com o advérbio ao lado do
+ *    substantivo, ele disparava o portão de coocorrência do `copyPortoesLgpd` — a
+ *    prosa que explica a armadilha caindo nela. Foi reescrito para nomear os dois
+ *    casos sem justapor os tokens, e não isentando o arquivo.
  *
  * Os literais proibidos são MONTADOS EM RUNTIME (idioma 42-11): um arquivo que proíbe
  * uma string e a contém verbatim é sua própria primeira violação.
