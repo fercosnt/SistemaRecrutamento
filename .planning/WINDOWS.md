@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 10
+open_count: 13
 waived_count: 0
 fixed_count: 0
-total_count: 10
-last_updated: 2026-08-05T07:14:13.496Z
+total_count: 13
+last_updated: 2026-08-05T07:23:32.425Z
 ---
 
 # Broken Windows Ledger
@@ -25,6 +25,9 @@ last_updated: 2026-08-05T07:14:13.496Z
 | 8 | 45 | deviation | src/features/admin/bias-audit/biasMath.ts |  | A tela de auditoria de vies ainda le o payload v1; o snapshot passa a emitir celulas suprimidas sem applicants/selected e sem n_total | open |  | 2026-08-05T07:10:20.426Z |  |
 | 9 | 45 | unrun-verify | supabase/tests/p45_motor_exclusao_smoke.sql |  | Smoke do motor de exclusao NAO executado — deliberadamente RED (as 5 funcoes nascem em 45-03/45-05/45-07); os pins md5(prosrc) seguem com marcador PENDENTE-45-07 e C3 reprova enquanto assim for. Fecha no 45-11 com 21/21 PASS | open |  | 2026-08-05T07:14:13.436Z |  |
 | 10 | 45 | deviation | supabase/migrations/20260805000006_p45_anonimizar_candidato.sql |  | Obrigacoes que o smoke 45-04 impoe ao 45-07: (M1) trg_decisao_final_snapshot e AFTER UPDATE sem WHEN e reinsere OLD.justificativa — o scrub de decisao_final_historico tem de ser o ULTIMO statement do par; (M2) candidate_ai_decisions.candidato_id E vaga_id sao NOT NULL com ON DELETE SET NULL (clausulas inexequiveis) — decidir entre afrouxar as duas colunas e desidentificar o conteudo | open |  | 2026-08-05T07:14:13.496Z |  |
+| 11 | 45 | unrun-verify | supabase/migrations/20260805000001_p45_pedido_exclusao.sql |  | As duas migrations do 45-03 foram escritas mas NAO aplicadas — o DO block de auto-verificacao so executa no apply (45-06) | open |  | 2026-08-05T07:23:32.301Z |  |
+| 12 | 45 | stub | src/features/privacidade/components/ExcluirDadosBloco.tsx |  | Estado B sem botao Cancelar a exclusao — por desenho, entra no 45-08 | open |  | 2026-08-05T07:23:32.364Z |  |
+| 13 | 45 | deviation | src/__tests__/copyPortoesLgpd.test.ts |  | O portao do CONSOL-04 ficou VERDE por falso positivo: a sonda casa substring em comentario. Promessa continua orfa; exige decisao do operador | open |  | 2026-08-05T07:23:32.425Z |  |
 
 ````json
 [
@@ -146,6 +149,42 @@ last_updated: 2026-08-05T07:14:13.496Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-05T07:14:13.496Z",
+    "resolved_at": null
+  },
+  {
+    "id": 11,
+    "kind": "unrun-verify",
+    "phase": "45",
+    "file": "supabase/migrations/20260805000001_p45_pedido_exclusao.sql",
+    "line": null,
+    "description": "As duas migrations do 45-03 foram escritas mas NAO aplicadas — o DO block de auto-verificacao so executa no apply (45-06)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:23:32.301Z",
+    "resolved_at": null
+  },
+  {
+    "id": 12,
+    "kind": "stub",
+    "phase": "45",
+    "file": "src/features/privacidade/components/ExcluirDadosBloco.tsx",
+    "line": null,
+    "description": "Estado B sem botao Cancelar a exclusao — por desenho, entra no 45-08",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:23:32.364Z",
+    "resolved_at": null
+  },
+  {
+    "id": 13,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "src/__tests__/copyPortoesLgpd.test.ts",
+    "line": null,
+    "description": "O portao do CONSOL-04 ficou VERDE por falso positivo: a sonda casa substring em comentario. Promessa continua orfa; exige decisao do operador",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-05T07:23:32.425Z",
     "resolved_at": null
   }
 ]
