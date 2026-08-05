@@ -254,16 +254,99 @@ function coocorrenciasDeExclusaoAutomatica(alvos: string[]): Ocorrencia[] {
   return achados
 }
 
+/**
+ * Os dois artefatos que, juntos, constituem o MOTOR de exclusão — o código que executa a
+ * promessa. Nomes fixados pelo plano da Phase 45 (45-10 escreve a EF; 45-07 escreve o RPC).
+ *
+ * ⚠ Precisa dos DOIS. A EF sozinha é o orquestrador dos três sistemas e não anonimiza nada;
+ * o RPC sozinho é a metade Postgres sem quem chame Storage e Auth. Uma promessa respaldada
+ * por metade do motor continua sendo uma promessa que não se cumpre.
+ */
+const EF_EXCLUSAO = join(RAIZ, 'supabase/functions/executar-direito-titular/index.ts')
+const RPC_TOMBSTONE = ['anonimizar', '_candidato'].join('')
+
+function motorDeExclusaoExiste(): boolean {
+  if (!existsSync(EF_EXCLUSAO)) return false
+  const migracoes = join(RAIZ, 'supabase/migrations')
+  if (!existsSync(migracoes)) return false
+  return readdirSync(migracoes)
+    .filter((f) => f.endsWith('.sql'))
+    .some((f) => readFileSync(join(migracoes, f), 'utf8').includes(RPC_TOMBSTONE))
+}
+
 describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do candidato', () => {
-  it('nenhuma promessa explícita de exclusão futura dentro da allowlist', () => {
+  /**
+   * ⚠ REESCRITO em 2026-08-05, na Wave 1 da Phase 45. A pergunta mudou, o rigor não.
+   *
+   * A versão original afirmava, como premissa fixa, *"nesta fase nada é apagado e a purga só
+   * nasce na Phase 46"*. Isso era verdade quando foi escrito e **deixou de ser** quando a
+   * Phase 45 começou a construir o motor. O recibo do 45-02 traz frases em futuro sobre
+   * exclusão porque a UI-SPEC as EXIGE: o recibo é entregue em dois tempos — futuro na tela
+   * durante a janela de arrependimento de 15 dias, passado por e-mail na execução. Uma janela
+   * de arrependimento só vale se a pessoa souber do que se arrepender.
+   *
+   * O que o CONSOL-04 de fato exige não é "nunca prometa": é **"toda promessa de exclusão tem
+   * código que a executa"**. Então este portão passa a medir isso, e só isso. Promessa com
+   * motor: permitida. Promessa sem motor: órfã, reprova — que é a mesma reprovação de antes,
+   * agora pela razão certa em vez de por uma data hard-coded.
+   *
+   * ⚠ Enquanto 45-07 e 45-10 não pousarem, este teste FICA VERMELHO por desenho, e isso é o
+   * comportamento correto: hoje a promessa é literalmente órfã. Ele fica verde sozinho quando
+   * o motor existir — sem edição neste arquivo. Não isentar o artefato gerado para "voltar ao
+   * verde": seria trocar a única guarda que cobre o arquivo que fala de exclusão ao titular
+   * por uma exceção datada, e exceções datadas sobrevivem à data.
+   */
+  it('nenhuma promessa de exclusão futura sem código que a execute (CONSOL-04)', () => {
     const ocorrencias = procurar(ALLOWLIST_CANDIDATO, FUTURO_DE_EXCLUSAO)
+    if (ocorrencias.length === 0) return // nada prometido — nada a respaldar
+
     expect(
-      ocorrencias.length,
-      `A superfície do candidato não pode PROMETER exclusão: nesta fase nada é apagado ` +
-        `(a Phase 43 é zero-destrutiva por desenho) e a purga só nasce na Phase 46. ` +
-        `Uma frase em futuro sobre exclusão seria uma promessa órfã — exatamente a classe ` +
-        `de coisa que esta fase existe para eliminar.\n${relatar(ocorrencias)}`,
-    ).toBe(0)
+      motorDeExclusaoExiste(),
+      `A superfície do candidato PROMETE exclusão em ${ocorrencias.length} ponto(s), e o ` +
+        `motor que cumpre a promessa não existe no repositório.\n\n` +
+        `Faltando: ${existsSync(EF_EXCLUSAO) ? '' : `a EF \`${EF_EXCLUSAO}\` (45-10)`}` +
+        `${existsSync(EF_EXCLUSAO) ? '' : ' e '}` +
+        `o RPC de tombstone em \`supabase/migrations/\` (45-07).\n\n` +
+        `Uma promessa sem motor é órfã — exatamente a classe de coisa que o CONSOL-04 ` +
+        `existe para eliminar. As duas saídas honestas são construir o motor ou retirar a ` +
+        `promessa; isentar o arquivo NÃO é uma delas.\n${relatar(ocorrencias)}`,
+    ).toBe(true)
+  })
+
+  /**
+   * ⚠ O ramo VERDE do portão acima precisa ser exercitado, senão ele é um `false` constante
+   * disfarçado de guarda — o espelho exato da lição W-1 da Phase 43, onde asserções
+   * inalcançáveis contavam como verdes. Aqui o risco é o inverso e igualmente cego: uma
+   * função que devolve `false` porque nunca olha para lugar nenhum reprova pelo motivo
+   * errado e continuaria reprovando **depois** de o motor existir.
+   *
+   * Este teste prova que `motorDeExclusaoExiste()` DISCRIMINA — que ela é uma medição do
+   * disco, não uma constante. E pina POR QUE ela é falsa hoje: quando o 45-10 criar a EF,
+   * esta linha vira vermelha e obriga alguém a olhar para o portão de novo, em vez de deixá-lo
+   * silenciosamente permissivo.
+   */
+  it('o portão do CONSOL-04 mede o disco de verdade — e hoje é falso pela EF ausente', () => {
+    expect(motorDeExclusaoExiste()).toBe(false)
+    expect(
+      existsSync(EF_EXCLUSAO),
+      `Se esta asserção falhou, a EF do motor NASCEU (45-10) — vá ao portão do CONSOL-04 ` +
+        `acima e confirme que ele ficou verde sozinho. Se ficou, apague esta linha. Se não ` +
+        `ficou, o RPC de tombstone (45-07) ainda falta.`,
+    ).toBe(false)
+
+    // A outra metade: a função encontra o RPC quando ele existe. Provado contra o próprio
+    // diretório de migrations com um token que SABIDAMENTE está lá — se esta busca não achasse
+    // nada, `motorDeExclusaoExiste` seria `false` por varredura quebrada, não por motor ausente.
+    const migracoes = join(RAIZ, 'supabase/migrations')
+    const arquivos = readdirSync(migracoes).filter((f) => f.endsWith('.sql'))
+    expect(arquivos.length).toBeGreaterThan(0)
+    expect(
+      arquivos.some((f) =>
+        readFileSync(join(migracoes, f), 'utf8').includes('CREATE OR REPLACE FUNCTION'),
+      ),
+      'A varredura de migrations não achou nem `CREATE OR REPLACE FUNCTION` — ela está quebrada, ' +
+        'e o portão do CONSOL-04 estaria reprovando por leitura falha em vez de motor ausente.',
+    ).toBe(true)
   })
 
   it('nenhuma coocorrência de automatismo com exclusão dentro da allowlist', () => {
