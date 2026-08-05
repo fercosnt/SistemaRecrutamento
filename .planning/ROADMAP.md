@@ -207,7 +207,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [ ] 45-06-PLAN.md — **CHECKPOINT**: apply do tracer + deploy da EF + prova ponta a ponta em PROD, antes de qualquer linha destrutiva
-- [ ] 45-07-PLAN.md — Metade Postgres: severação de `candidatos.user_id` (D-45-11, `one-way`) + plano por expressão única + tombstone com `p_dry_run` no MESMO corpo
+- [x] 45-07-PLAN.md — Metade Postgres: severação de `candidatos.user_id` (D-45-11, `one-way`) + plano por expressão única + tombstone com `p_dry_run` no MESMO corpo
 - [ ] 45-08-PLAN.md — Confirmação aninhada, recibo em duas colunas (um componente, dois tempos), painel da janela e Emenda B da Phase 43
 - [ ] 45-09-PLAN.md — ERASE-05: retirar candidatura no card, 6º evento do vocabulário fechado, e a candidatura encerrada legível no RH
 
@@ -343,7 +343,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 5/11 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 6/11 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
 
