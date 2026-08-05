@@ -196,7 +196,7 @@ Plans:
 **Wave 1**
 
 - [ ] 45-01-PLAN.md — Sondas de PROD (5 read-only + 1 de escrita controlada) — **nenhuma migration da fase pode ser escrita antes deste plano fechar**
-- [ ] 45-02-PLAN.md — Wave 0: gerador do recibo em duas colunas a partir do `pii-inventory.yaml` (30/69 tabelas do `exportAllowlist.ts` não bastam) + `check:recibo-exclusao`
+- [x] 45-02-PLAN.md — Wave 0: gerador do recibo em duas colunas a partir do `pii-inventory.yaml` (30/69 tabelas do `exportAllowlist.ts` não bastam) + `check:recibo-exclusao`
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -343,7 +343,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 0/? | Not started | - |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 1/11 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
 

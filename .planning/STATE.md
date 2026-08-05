@@ -2,23 +2,19 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: ready-to-execute
-stopped_at: Phase 45 planejada — 11 planos, 5 waves, plan-checker PASSED na 2ª iteração
-last_updated: "2026-08-05T03:38:50.921Z"
+stopped_at: Completed 45-02-PLAN.md
+last_updated: "2026-08-05T04:13:00.730Z"
 last_activity: 2026-08-05
 last_activity_desc: 45 planejada (UI-SPEC 6/6 · research · patterns · validation · 11 PLANs)
 progress:
   total_phases: 6
-  # ⚠ CORRIGIDO À MÃO — 7ª reincidência do defeito do scanner (ver §Current Position).
-  # state.planned-phase escreveu 3 / 30 / 50 contando ARQUIVOS de SUMMARY sem ler o `status:`
-  # deles. Os três checkpoints da Phase 44 (44-05, 44-07, 44-09) têm `status: checkpoint`,
-  # não `complete`. total_plans 41 está CERTO (30 das fases 42-44 + 11 da 45).
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 41
-  completed_plans: 27
-  percent: 33
+  completed_plans: 31
+  percent: 50
+current_phase: 45
 ---
 
 # Project State
@@ -296,6 +292,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 44 P06 | ~55min | 3 tasks | 6 files |
 | Phase 44 P09 | ~35min | 3 tasks | 10 files |
 | Phase 44 P07 | ~35min | 3 tasks | 8 files |
+| Phase 45 P02 | 41 min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -458,6 +455,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: [Phase 44 / 44-07]: new URL(<literal>, import.meta.url) é reescrito pelo Vite para URL de asset e fileURLToPath recusa — sonda de texto-fonte tem de passar o caminho por VARIÁVEL
 - [Phase ?]: [Phase 44 / 44-07]: asserção de esqueleto de carregamento precisa de gancho próprio quando um irmão da mesma seção já pulsa — .animate-pulse na seção passava com o ramo novo inexistente (7º portão morto da fase)
 - [Phase ?]: [Phase 44 / 44-07]: a 320px a linha do currículo EMPILHA — medido, sobram 256px úteis e o botão ocupa ~210px; lado a lado o título da vaga ficaria com 4 caracteres, apagando o que o par truncate+tooltip existe para preservar
+- [Phase 45]: 45-02: a fonte do recibo de exclusão é pii-inventory.yaml (69 tabelas), NÃO exportAllowlist.ts — A 45-UI-SPEC nomeava exportAllowlist.ts; a 45-RESEARCH C2 mediu 30 de 69 tabelas, omitindo 8 tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09 (Pitfall 5).
+- [Phase 45]: 45-02: vocabulário PASSOS_MOTOR fechado em 7 valores é o contrato que 45-07 e 45-10 assinam — storage_remove, tombstone_candidato, tombstone_decisao_final, severar_user_id, severar_fks_set_null, scrub_ledger_email, auth_delete_user. O gerador reprova quando existe passo sem linha de recibo ou linha sem passo — o backstop E4-error nas duas direções.
 
 ### Pending Todos
 
@@ -653,9 +652,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-04T13:29:47.105Z
-Stopped at: Phase 45 UI-SPEC approved (6/6 PASS)
-Resume file: .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-UI-SPEC.md
+Last session: 2026-08-05T04:12:36.299Z
+Stopped at: Completed 45-02-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
