@@ -37,12 +37,18 @@
  * @see src/features/privacidade/components/PedirCopiaBloco.tsx (o molde de composição)
  * @see .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-UI-SPEC.md (§Seção 4)
  */
+import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Glass, GlassButton } from '@/components/ui/glass'
 import { useCandidato } from '@/store/authStore'
 import { usePedidoExclusao } from '../hooks/usePedidoExclusao'
 import { usePedirExclusao } from '../hooks/usePedirExclusao'
-import { COPY_EXCLUIR_DADOS, formatarDataAlvo } from '../services/exclusaoService'
+import {
+  COPY_EXCLUIR_DADOS,
+  formatarDataAlvo,
+  projetarDataAlvo,
+} from '../services/exclusaoService'
+import { ConfirmarExclusaoDialog } from './ConfirmarExclusaoDialog'
 
 /** O `id` que liga o botão desabilitado ao motivo — `aria-describedby`, nunca `title`. */
 const ID_MOTIVO = 'excluir-dados-motivo'
@@ -54,6 +60,14 @@ export function ExcluirDadosBloco() {
   const candidato = useCandidato()
   const estado = usePedidoExclusao(candidato?.id)
   const pedir = usePedirExclusao(candidato?.id)
+
+  /**
+   * ⚠ O CTA NÃO É MAIS O PEDIDO — ele abre a leitura (Invariante 7). O único caminho
+   * até a mutação passa pelo texto de consequência e por um segundo portão. A rede
+   * continua sendo a janela cancelável, não a fricção: nenhum campo a transcrever,
+   * nenhum atraso artificial.
+   */
+  const [dialogoAberto, setDialogoAberto] = useState(false)
 
   const emVoo = pedir.isPending
   const leituraFalhou = estado.isError
@@ -175,7 +189,7 @@ export function ExcluirDadosBloco() {
             disabled={desabilitado}
             aria-busy={emVoo}
             aria-describedby={motivo ? ID_MOTIVO : undefined}
-            onClick={() => pedir.mutate()}
+            onClick={() => setDialogoAberto(true)}
             className="min-h-[44px] text-white"
           >
             {emVoo ? (
@@ -202,6 +216,20 @@ export function ExcluirDadosBloco() {
               {motivo}
             </p>
           )}
+
+          {/* ⚠ WR-09 NO NÍVEL DO BLOCO: o diálogo é montado no MESMO ramo do gatilho.
+              Uma condição mais estrita aqui devolveria um CTA que abre nada — e a
+              pessoa concluiria que o sistema não deixa exercer o direito.
+              A data chega RESOLVIDA: o diálogo não lê nada (E3·loading). */}
+          <ConfirmarExclusaoDialog
+            open={dialogoAberto}
+            onOpenChange={setDialogoAberto}
+            dataAlvo={projetarDataAlvo(dias)}
+            onConfirmar={() => {
+              setDialogoAberto(false)
+              pedir.mutate()
+            }}
+          />
         </div>
       )}
 

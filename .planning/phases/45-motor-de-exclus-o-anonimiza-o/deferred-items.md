@@ -100,3 +100,30 @@ o motor destrutivo ter qualquer chance de rodar.
 
 **Fecha em:** **45-10** (é obrigação declarada daquele plano), e o **45-11** não deve abrir o portão
 destrutivo sem que o G1 exercite o caminho e prove que a chamada chega à RPC.
+
+---
+
+## Do plano 45-08 (a superfície da decisão irreversível)
+
+### DI-45-08-01 · O "X" do `DialogContent` vendorizado: rótulo em inglês e sem alvo tátil de 44px
+
+**Encontrado em:** 45-08, Task 1 (ao escrever a asserção dos quatro rótulos de saída).
+
+**O quê, medido no arquivo:** `src/components/ui/dialog.tsx:72-75` — todo `DialogContent` renderiza
+um `DialogPrimitive.Close` próprio, com `<span className="sr-only">Close</span>` e **sem**
+`min-h-[44px]`. Ele é, portanto, um **quinto** controle de saída no diálogo de confirmação de
+exclusão: o leitor de tela de um titular brasileiro ouve *"Close"* numa superfície inteiramente
+pt-BR, e o alvo tátil fica abaixo do piso que esta fase exige de todo controle acionável.
+
+**Consequência se ninguém fechar:** ruído de idioma e um alvo pequeno no diálogo mais delicado do
+produto. **Não** é a ambiguidade que a Invariante 7 combate — "Close" não colide com nenhum dos
+quatro rótulos autorados, e não é a palavra genérica de recuo que nesta fase significaria três
+coisas. Por isso é diferido, e não corrigido às pressas aqui.
+
+**Por que NÃO foi feito aqui:** `dialog.tsx` é primitivo **compartilhado**, vendorizado desde o M1 e
+consumido por todos os diálogos do app (RH inclusive). Editá-lo a partir de um plano cujo escopo
+declarado são seis arquivos de `src/features/privacidade/` mudaria silenciosamente superfícies de
+outras fases — exatamente o tipo de mudança que o `files_modified` do plano existe para conter.
+
+**Fecha em:** um plano de UI transversal (ou o `/gsd-ui-review`), tratando os dois pontos de uma vez
+para todos os diálogos: rótulo `sr-only` em pt-BR e `min-h-[44px]` no botão de fechar.

@@ -347,3 +347,31 @@ export function formatarDataAlvo(iso: string | null | undefined): string | null 
     year: 'numeric',
   })
 }
+
+/**
+ * A data que o pedido teria **se fosse registrado agora** — hoje + a janela em dias.
+ *
+ * ⚠ **POR QUE ELA EXISTE, E QUAL É O SEU LIMITE.** Antes do registro não há
+ * `executar_em`: ele nasce no servidor, dentro de `registrar_pedido_exclusao`. Mas a
+ * 45-UI-SPEC § "O `AlertDialog` de confirmação" exige a data **por extenso** no corpo
+ * do diálogo — e a exigência é justa: "seus dados são apagados um dia desses" não é
+ * consentimento informado. A projeção usa **exatamente a mesma `dias`** que o predicado
+ * de execução do motor lê (D-45-01, "uma fonte a auditar em vez de duas a divergir"),
+ * então ela não pode divergir da política; o que ela pode é cair num dia vizinho quando
+ * o clique acontece perto da virada. A data **autoritativa** é a do Estado B, que vem
+ * do servidor — e é a que o titular relê durante os dias em que pode se arrepender.
+ *
+ * `dias` ausente (config ilegível) devolve `null`, e a §Formatação manda **omitir a
+ * frase** que conteria a data — nunca um travessão, nunca um número inventado.
+ */
+export function projetarDataAlvo(
+  dias: number | null | undefined,
+  agora: Date = new Date(),
+): string | null {
+  if (dias === null || dias === undefined) return null
+  if (!Number.isFinite(dias) || dias <= 0) return null
+  const alvo = new Date(agora.getTime())
+  if (Number.isNaN(alvo.getTime())) return null
+  alvo.setDate(alvo.getDate() + Math.trunc(dias))
+  return formatarDataAlvo(alvo.toISOString())
+}

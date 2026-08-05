@@ -37,8 +37,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
 
@@ -63,6 +62,7 @@ vi.mock('../../services/exclusaoService', async () => {
 })
 
 import { ExcluirDadosBloco } from '../ExcluirDadosBloco'
+import { COPY_CONFIRMAR_EXCLUSAO } from '../ConfirmarExclusaoDialog'
 import { COPY_EXCLUIR_DADOS, ExclusaoError } from '../../services/exclusaoService'
 
 const EXECUTAR_EM = '2026-08-20T12:00:00.000Z'
@@ -91,6 +91,23 @@ function renderizar() {
       <ExcluirDadosBloco />
     </QueryClientProvider>,
   )
+}
+
+/**
+ * ⚠ O CTA NÃO É MAIS O PEDIDO (45-08 Task 1). Ele abre a leitura, e o pedido só sai
+ * depois do segundo portão — Invariante 7: confirmação ANINHADA, sem digitação-refém.
+ * Estes três cliques são o caminho INTEIRO até a mutação, e é de propósito que o teste
+ * o percorra em vez de chamar o handler: um teste que atalhasse o diálogo continuaria
+ * verde no dia em que alguém removesse a confirmação.
+ *
+ * `fireEvent` (e não `userEvent`) porque o Radix põe `pointer-events: none` no `body`
+ * enquanto um modal está aberto, e o guarda de ponteiro do `userEvent` recusaria o
+ * clique seguinte — idioma já usado em `EditarJanelaDialog.test.tsx`.
+ */
+function pedirPeloDialogo() {
+  fireEvent.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta }))
+  fireEvent.click(screen.getByRole('button', { name: COPY_CONFIRMAR_EXCLUSAO.avancar }))
+  fireEvent.click(screen.getByRole('button', { name: COPY_CONFIRMAR_EXCLUSAO.confirmar }))
 }
 
 beforeEach(() => {
@@ -151,28 +168,26 @@ describe('ExcluirDadosBloco — os oito comportamentos da seção 4', () => {
 
   it('(w4) mutation em voo: "Registrando seu pedido…", aria-busy, Loader2 e motivo irmão', async () => {
     mocks.invocar.mockImplementation(() => new Promise(() => {}))
-    const user = userEvent.setup()
     const { container } = renderizar()
 
-    await user.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta }))
+    pedirPeloDialogo()
 
-    const cta = screen.getByRole('button', { name: /Registrando seu pedido/i })
+    const cta = await screen.findByRole('button', { name: /Registrando seu pedido/i })
     await waitFor(() => expect(cta).toHaveAttribute('aria-busy', 'true'))
     expect(cta).toBeDisabled()
     expect(cta).toHaveTextContent(COPY_EXCLUIR_DADOS.ctaEmVoo)
     expect(container.querySelector('.animate-spin')).toBeTruthy()
 
     // Duplo clique impossível.
-    await user.click(cta)
+    fireEvent.click(cta)
     expect(mocks.invocar).toHaveBeenCalledTimes(1)
   })
 
   it('(w5) mutation com erro: alerta inline destructive com "Nada foi apagado."', async () => {
     mocks.invocar.mockRejectedValue(new ExclusaoError(COPY_EXCLUIR_DADOS.erroTitulo, 'SERVER_ERROR'))
-    const user = userEvent.setup()
     renderizar()
 
-    await user.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta }))
+    pedirPeloDialogo()
 
     const alerta = await screen.findByRole('alert')
     expect(alerta).toHaveTextContent(COPY_EXCLUIR_DADOS.erroTitulo)
@@ -269,9 +284,8 @@ describe('ExcluirDadosBloco — os backstops da 45-UI-SPEC', () => {
     // Cenário 2 — mutation em voo. Mesmo invariante, outra causa.
     mocks.pedido.mockReturnValue(ESTADO_A)
     mocks.invocar.mockImplementation(() => new Promise(() => {}))
-    const user = userEvent.setup()
     const segunda = renderizar()
-    await user.click(screen.getByRole('button', { name: COPY_EXCLUIR_DADOS.cta }))
+    pedirPeloDialogo()
     await waitFor(() =>
       expect(segunda.container.querySelectorAll('button[disabled]').length).toBe(1),
     )
