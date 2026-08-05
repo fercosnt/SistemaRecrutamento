@@ -385,8 +385,16 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
    * silenciosamente permissivo.
    */
   it('o portão do CONSOL-04 mede o disco de verdade, e MENÇÃO não conta como execução', () => {
-    // 1 · O veredito de hoje: o motor NÃO existe. O tracer do 45-03 criou o arquivo da EF e uma
-    //     migration irmã CITA o nome do RPC — e nenhuma das duas coisas é o motor.
+    // 1 · O veredito de hoje: o motor NÃO existe — agora por UMA razão em vez de duas.
+    //     ⚠ RE-PINADO em 2026-08-05 pelo plano 45-07 (ato consciente e revisável, nunca um
+    //     boolean virado em silêncio). A METADE POSTGRES PASSOU A EXISTIR: a migration
+    //     `20260805000006_p45_anonimizar_candidato.sql` DEFINE o RPC de tombstone, e as irmãs
+    //     `…004` (a S1 do D-45-11) e `…005` (a expressão única) completam a metade.
+    //     O portão NÃO ficou verde sozinho, e a conferência que o próprio meta-teste manda
+    //     fazer foi feita: `motorDeExclusaoExiste()` segue `false` porque
+    //     `efExecutaPassosDestrutivos()` segue `false` — a EF do 45-10 ainda não executa
+    //     Storage nem Auth. O portão continua vermelho pela razão CERTA, e essa razão é agora
+    //     mais estreita: falta exatamente uma metade, não duas.
     expect(motorDeExclusaoExiste()).toBe(false)
 
     // 2 · ⚠ A REGRESSÃO QUE JÁ ACONTECEU UMA VEZ, agora pinada. A versão anterior desta sonda
@@ -405,15 +413,21 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
         'cita, esta prova anti-regressão perdeu o objeto e precisa de outro.',
     ).toBe(true)
 
-    // 3 · Cada metade é falsa pela razão CERTA, e não por varredura quebrada.
+    // 3 · Cada metade tem o valor MEDIDO, e o pino de cada uma diz de quem ela é.
+    //     ⚠ A metade do 45-07 virou `true` em 2026-08-05 e foi re-pinada aqui. Ela agora é
+    //     uma asserção de NÃO-REGRESSÃO: se voltar a `false`, alguém apagou ou comentou a
+    //     definição do RPC, e a metade Postgres do motor sumiu sem que o portão acima mudasse
+    //     de cor (ele continuaria `false` pela metade da EF, escondendo a perda).
     expect(
       rpcTombstoneDefinido(),
-      'Se virou true, o 45-07 definiu o RPC de tombstone — confira se o portão do CONSOL-04 ' +
-        'ficou verde sozinho e ajuste este meta-teste.',
-    ).toBe(false)
+      'Se virou false, a definição do RPC de tombstone sumiu das migrations — o 45-07 foi ' +
+        'revertido, ou a definição foi comentada. O portão do CONSOL-04 continuaria vermelho ' +
+        'pela metade da EF e esconderia a perda.',
+    ).toBe(true)
     expect(
       efExecutaPassosDestrutivos(),
-      'Se virou true, o 45-10 escreveu os passos destrutivos na EF — mesma conferência.',
+      'Se virou true, o 45-10 escreveu os passos destrutivos na EF — confira se o portão do ' +
+        'CONSOL-04 ficou verde sozinho e ajuste este meta-teste.',
     ).toBe(false)
 
     // 4 · E a varredura FUNCIONA: ela acha uma definição de função que sabidamente existe.
