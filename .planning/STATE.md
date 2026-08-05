@@ -83,8 +83,8 @@ Phase: **45 — WAVE 1 EM ANDAMENTO, parada em checkpoint** (2026-08-05)
 | Item | Estado |
 |---|---|
 | `45-01` Task 1 — 5 sondas read-only de PROD | ✅ **EXECUTADA** (`3e28642`) — `45-SONDAS-PROD.md`, **10 divergências, 3 bloqueantes** |
-| `45-01` Task 2 — sonda de ESCRITA (hard delete de conta descartável) | ⏸ **CHECKPOINT — decisão do operador** |
-| `45-01` Task 3 — G1/G2 da Phase 44 | ⏸ **CHECKPOINT** — G2 exige `npx supabase login` (interativo) |
+| `45-01` Task 2 — sonda de ESCRITA | ✅ **EXECUTADA** (`0d72f1d`) — em transação REVERTIDA (`DO` + `RAISE EXCEPTION`; Postgres reverte DDL). **A S1 está provada por execução**, e a sonda **refutou** a minha inferência de "7 colunas a severar" |
+| `45-01` Task 3 — G1/G2 da Phase 44 | ⏸ **CHECKPOINT** — `npx supabase login` **falha fora de TTY**. Precisa de `SUPABASE_ACCESS_TOKEN` (Personal Access Token do dashboard) |
 | `45-02` — gerador do recibo | ✅ **COMPLETO** (5 commits, 209/209 colunas, zero `--no-verify`) |
 
 **⚠ SUÍTE VERMELHA — 1608/1609.** `copyPortoesLgpd.test.ts` (guarda escrita na Phase 43) reprova
