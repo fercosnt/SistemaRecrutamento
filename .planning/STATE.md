@@ -133,6 +133,33 @@ Registrado como `D7 / human_judgment: true`.
 
 ---
 
+### ⚠ Executores paralelos compartilham working tree e índice do git — MEDIDO na wave 2 da P45
+
+**Não é hipótese; foram dois efeitos observados**, com três executores escrevendo em `src/` e
+`supabase/` ao mesmo tempo:
+
+1. **Um `git add` de um agente entrou no `git commit` de outro, em silêncio.** O SUMMARY do
+   `45-04` estava staged quando o executor do `45-03` commitou, e foi varrido para dentro de
+   `9fa848d`. Conteúdo íntegro, **atribuição errada** — restaurada à mão em `cddd4e8`. Nada
+   acusa: não há conflito, não há erro, o commit passa.
+2. **O hook de um plano reprovou por defeito de outro.** A contagem `tsc` oscilou entre 97 e 100
+   porque o `45-03` tinha arquivos RED-first no disco. O executor do `45-04` **esperou a
+   convergência em vez de usar `--no-verify`** — a escolha certa, e ela custou tempo de parede.
+
+**Por que não apareceu na wave 1:** os dois planos não colidiam (`45-01` era só documento,
+`45-02` só Node). A colisão precisa de dois agentes tocando árvores compartilhadas.
+
+**Regra para as waves seguintes desta fase e para o M8 inteiro:** ao despachar mais de um
+executor autônomo na mesma wave, **isolar em worktree** (`isolation: "worktree"` no Agent) ou
+**serializar** os planos que tocam `src/`. A wave 3 tem `45-07`, `45-08` e `45-09`, e dois deles
+são de `src/`.
+
+⚠ **O modo de falha é silencioso**, e é isso que o torna caro: um plano pode receber crédito
+pelo commit de outro sem que nenhuma verificação acuse — e a próxima pessoa a ler `git log` para
+entender por que uma linha existe encontra o autor errado.
+
+---
+
 ### Phase 45 — planejamento (contexto, 2026-08-05)
 
 **11 planos em 5 waves.** `plan-checker` PASSED na 2ª iteração · 10/10 requirements ERASE-* ·
