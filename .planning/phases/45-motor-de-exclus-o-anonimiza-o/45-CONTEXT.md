@@ -97,6 +97,84 @@ transparência (Phase 47). Esta fase entrega o MOTOR e o fluxo do titular, não 
   o mecanismo de segurança**: nenhum apply destrutivo em PROD sem dry-run pela **MESMA query** do
   delete real, asserções negativas e code review bloqueante antes do apply.
 
+### Travadas APÓS a pesquisa (operador, 2026-08-04) — as três que a `45-RESEARCH.md` escalou
+
+> Não são refinamentos de discuss: a pesquisa **mediu o catálogo vivo** e encontrou um estado que
+> torna o ERASE-10 inexecutável hoje. As três foram respondidas com a recomendação do researcher.
+
+### `candidatos.user_id` — a FK que hoje garante o pior desfecho
+
+- **D-45-11: saída S1** — `ALTER COLUMN user_id DROP NOT NULL` + FK recriada `ON DELETE SET NULL`.
+
+  **O que a pesquisa mediu:** `user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE
+  CASCADE`, com o `CASCADE` **confirmado vivo em `pg_constraint`** — o repositório de migrations diz
+  `SET NULL` e é **ficção**. Logo `UPDATE candidatos SET user_id = NULL` viola `NOT NULL`, e
+  `gen_random_uuid()` viola a FK (23503). O ERASE-10 não é executável hoje.
+
+  ⚠ **E a falha não é benigna.** Com `CASCADE` vivo, `deleteUser` cascateia `candidatos` →
+  `candidaturas` → bate nas 3 FKs `NO ACTION` → 23503 → rollback → `500 Database error deleting
+  user`. Se isso acontece **depois** do passo 1, o estado final é **currículo apagado do Storage
+  (irrecuperável — sem PITR, sem backup de Storage) e 100% da PII do titular intacta no banco**.
+  É o pior estado alcançável na fase, e hoje é o desfecho **garantido** de qualquer implementação
+  que chame `deleteUser` sem tratar esta FK.
+
+  **Por que S1:** o tombstone seta `NULL` (o índice `UNIQUE` aceita múltiplos NULLs — NULLs são
+  distintos em Postgres), **e a FK vira rede**: um `deleteUser` fora de ordem passa a deixar órfão
+  em vez de cascatear. Reconcilia o drift que o próprio repositório já descrevia.
+
+  **Custos aceitos, a auditar no plano:** `database.types.ts` passa a `user_id: string | null` e os
+  consumidores que assumem non-null precisam de varredura. Efeito colateral **desejado e medido**:
+  a policy own-row de `solicitacoes_dados` (`candidato_id IN (SELECT id FROM candidatos WHERE
+  user_id = auth.uid())`) deixa de casar com qualquer sessão depois do tombstone — dizer isso no
+  plano, não descobrir depois.
+  — **Reversibility:** `one-way` — migration destrutiva de schema sobre tabela viva. **Candidato
+  número 1 a code review bloqueante + dry-run**, pelo portão destrutivo do M8.
+
+### O canal do recibo — a PII que sobreviveria à própria exclusão
+
+- **D-45-12: saída R1** — o recibo **não** entra em `notificacoes_enviadas`. Prova de envio é
+  `solicitacoes_dados.recibo_enviado_em`; idempotência é essa coluna + header `Idempotency-Key`
+  no Resend.
+
+  **O que a pesquisa mediu, e é mais duro que a UI-SPEC descrevia:** `notificacoes_enviadas` tem
+  `destinatario_email` **e** `destinatario_original`, ambos `NOT NULL` — o endereço é gravado
+  **duas vezes por linha** — e exige `candidatura_id NOT NULL` + `candidato_id NOT NULL`. O recibo
+  de exclusão é evento **de conta**; a tabela onde ele "deveria" ser registrado exige uma
+  candidatura.
+
+  **Por que R1:** elimina o problema na origem — nenhum endereço do titular é persistido pelo
+  recibo. **Custo aceito:** perde bounce/reclamado para este e-mail específico. Defensável porque
+  o recibo não tem retry útil: depois do hard delete não há a quem re-tentar.
+
+  ⚠ **Independente da saída, as linhas de ledger PREEXISTENTES do titular ainda precisam de
+  tratamento** (o inventário classifica `destinatario_email`/`destinatario_original` como `apagar`)
+  — **com sentinela, porque `NULL` viola `NOT NULL` e aborta a transação de anonimização inteira**.
+
+  ⚠ **O endereço tem de ser lido ANTES do tombstone e usado DEPOIS do `deleteUser`** (o recibo é em
+  tempo passado e afirma que a conta não existe mais). Persistir no `plano` e limpar no fecho —
+  retomável, coerente com a filosofia do ERASE-04 — em vez de variável local da EF, que não
+  sobrevive a um crash. **Decisão de plano, não de código.**
+
+### O encerramento e a trilha de etapas
+
+- **D-45-13: saída (a)** — o encerramento a pedido vive em `candidaturas` (coluna aditiva
+  `encerrada_a_pedido_em`), **não** em `historico_candidatura`, e o plano documenta por quê.
+
+  **Razão:** o trigger `avancar_etapa()` só dispara em `UPDATE OF etapa_atual` e é o **único
+  escritor** de `historico_candidatura` — invariante estabelecida no M2/Phase 6. Escrever a linha à
+  mão exigiria um RPC DEFINER que fura essa invariante e daria dois escritores àquela tabela, que
+  toda leitura futura da trilha precisaria conhecer. A trilha segue contando **decisões de etapa**,
+  que é o que a RNF-07a existe para proteger.
+
+  ⚠ **As outras duas modelagens foram medidas e recusadas:** `deleted_at` some de **5 serviços de
+  RH** e de `candidaturas_alem_da_janela()` (a candidatura encerrada nunca entraria na retenção da
+  Phase 46); valor novo em `etapa_processo` deixa o encerrado **na fila de trabalho do RH**, faz a
+  candidatura **desaparecer da retenção em silêncio** pelo INNER JOIN em `config_retencao_etapa`, e
+  toca 19 arquivos de `src/`.
+
+  **Dependência declarada, não a descobrir na Phase 46:** a cláusula de `encerrada_a_pedido_em`
+  precisa ser acrescentada explicitamente a `candidaturas_alem_da_janela()`.
+
 ### Claude's Discretion
 
 - Forma do tombstone (quais colunas viram quê), estrutura da fila de exclusão, mecânica de
