@@ -150,10 +150,19 @@ function makeMockSupabaseUser(user: Record<string, unknown> | null) {
 async function loadHandler() {
   // RED até a Task 2 autorar o módulo: este import rejeita com module-not-found.
   const mod = await import("./index.ts");
+  // As `deps` ganharam `fetchImpl` e `modo` no 45-10 (o passo 4 envia o recibo, e
+  // `resolverModo()` lê `Deno.env` — que `deno test` não concede). Os dois são
+  // OPCIONAIS aqui para que as 14 asserções do 45-03 sigam construindo `deps` com
+  // dois campos.
   return mod as {
     handler: (
       req: Request,
-      deps: { supabaseAdmin: unknown; supabaseUser: unknown },
+      deps: {
+        supabaseAdmin: unknown;
+        supabaseUser: unknown;
+        fetchImpl?: typeof fetch;
+        modo?: "producao" | "teste";
+      },
     ) => Promise<Response>;
   };
 }
@@ -1276,4 +1285,262 @@ Deno.test("(hh) nenhuma resposta do motor afirma que nada foi apagado", async ()
     assert(!corpo.includes("nada foi apagado"), `resposta afirmou o ingarantível: ${corpo}`);
     assert(!corpo.includes("nenhum dado foi"), `resposta afirmou o ingarantível: ${corpo}`);
   }
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 45-10 · Task 3 — o recibo em tempo passado, FORA do ledger
+//
+// ⚠ ESTE É O ÚNICO E-MAIL DA FASE CUJO DESTINATÁRIO LEGÍTIMO É O TITULAR, o que
+// torna tentador interpolar o nome "para ficar pessoal". É exatamente por isso que a
+// asserção negativa usa fixture com TODOS os identificadores disponíveis na entrada.
+//
+// ⚠ E ELE NÃO ENTRA EM `notificacoes_enviadas` (D-45-12 / saída R1): aquela tabela
+// tem `destinatario_email` E `destinatario_original`, ambos NOT NULL — o endereço
+// seria gravado DUAS vezes por linha — além de `candidatura_id` e `candidato_id`
+// NOT NULL, e o recibo de exclusão é evento DE CONTA. A prova de envio é
+// `solicitacoes_dados.recibo_enviado_em`.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Fixture com TUDO o que o corpo do e-mail jamais pode conter. */
+const PII_FIXTURE = {
+  nome: "Fulano de Tal da Silva",
+  cpf: "123.456.789-09",
+  telefone: "(11) 98765-4321",
+  candidato_id: CANDIDATO_ID,
+  solicitacao_id: PEDIDO_ID,
+  email: EMAIL_TITULAR,
+  titulo_vaga: "Dentista Clínico Geral",
+  caminho_curriculo: CV_A,
+};
+
+/** Pronto para o passo 4: os três carimbos presentes, recibo ainda não enviado. */
+function pedidoProntoParaRecibo(over: Record<string, unknown> = {}) {
+  return {
+    situacao: "executando",
+    storage_concluido_em: CARIMBO_STORAGE,
+    postgres_concluido_em: CARIMBO_POSTGRES,
+    plano: planoCapturado(),
+    ...over,
+  };
+}
+
+// ── (jj) idempotência do passo 4 ─────────────────────────────────────────────
+Deno.test("(jj) com recibo_enviado_em carimbado, o Resend NÃO é chamado", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    pedido: pedidoProntoParaRecibo({
+      auth_concluido_em: CARIMBO_AUTH,
+      recibo_enviado_em: "2026-08-06T10:00:03.000Z",
+      situacao: "concluido",
+    }),
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(admin.fetchCalls.length, 0, "segundo envio é curto-circuitado por ESTADO");
+});
+
+// ── (kk) ASSERÇÃO NEGATIVA DE LEDGER ─────────────────────────────────────────
+Deno.test("(kk) o recibo NÃO escreve em notificacoes_enviadas, em execução nenhuma", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const cenario of [
+      pedidoProntoParaRecibo(),
+      pedidoProntoParaRecibo({ auth_concluido_em: CARIMBO_AUTH }),
+      { situacao: "agendado", plano: null },
+    ]
+  ) {
+    const { admin, deps } = depsExecutar({ pedido: cenario as Record<string, unknown> });
+    await handler(makeRequest({ acao: "executar" }), deps);
+    // O mock daquela tabela marca `ledgerTocado` — R1 elimina o problema na origem:
+    // NENHUM endereço do titular é persistido pelo recibo.
+    assertEquals(admin.ledgerTocado, false, "o recibo tocou o ledger de notificações");
+  }
+});
+
+// ── (ll) fixture completa: nada de PII no HTML montado ───────────────────────
+Deno.test("(ll) o corpo do recibo não contém nome, CPF, telefone, nem id nenhum", async () => {
+  const h = await import("./helpers.ts");
+  // ⚠ Todos os valores de PII_FIXTURE estão DISPONÍVEIS aqui. A assinatura de
+  // `corpoReciboExclusao` é o controle: ela não aceita nenhum deles.
+  const html = h.corpoReciboExclusao({
+    dataConclusao: CARIMBO_AUTH,
+    temCurriculo: true,
+    temDecisaoRegistrada: true,
+  });
+  for (const [chave, valor] of Object.entries(PII_FIXTURE)) {
+    assert(!html.includes(valor), `o recibo vazou ${chave}: ${valor}`);
+  }
+  // Nem verbo de recuperação, nem anexo, nem link autenticado.
+  for (const proibido of ["reverter", "recuperar", "desfazer", "anexo", "token="]) {
+    assert(!html.toLowerCase().includes(proibido), `o recibo contém "${proibido}"`);
+  }
+  // O que ELE TEM: a data e a afirmação de que a conta não existe mais.
+  assert(html.includes("06/08/2026"), "a data de conclusão em dd/mm/aaaa");
+  assert(html.includes("Sua conta de acesso não existe mais"));
+  // Duas colunas EMPILHADAS, com os DOIS cabeçalhos, na ordem «sai» → «mantém».
+  const iSai = html.indexOf("O que é apagado");
+  const iMantem = html.indexOf("O que a Beauty Smile mantém");
+  assert(iSai >= 0 && iMantem >= 0, "os dois cabeçalhos são obrigatórios");
+  assert(iSai < iMantem, "a ordem é «sai» → «mantém»");
+  // E8·overflow: cliente de e-mail é hostil a grid.
+  assert(!/display\s*:\s*grid/i.test(html), "sem grid");
+  assert(!/<table/i.test(html.split("</head>")[1] ?? html), "sem tabela de layout aninhada no corpo");
+});
+
+Deno.test("(ll2) o assunto é fixo, sem interpolação e sem CR/LF", async () => {
+  const h = await import("./helpers.ts");
+  const assunto = h.assuntoReciboExclusao();
+  assertEquals(assunto, "[Beauty Smile] Seus dados foram apagados");
+  assert(!/[\r\n]/.test(assunto), "CR/LF em assunto é injeção de header de e-mail");
+  for (const valor of Object.values(PII_FIXTURE)) {
+    assert(!assunto.includes(valor), "o assunto não nomeia ninguém");
+  }
+});
+
+// ── (mm) os dois recortes OMITEM a linha inaplicável ─────────────────────────
+Deno.test("(mm) temCurriculo=false e temDecisaoRegistrada=false OMITEM as linhas inaplicáveis", async () => {
+  const h = await import("./helpers.ts");
+  const { RECIBO_EXCLUSAO } = await import("../_shared/reciboExclusao.ts");
+
+  const completo = h.corpoReciboExclusao({
+    dataConclusao: CARIMBO_AUTH,
+    temCurriculo: true,
+    temDecisaoRegistrada: true,
+  });
+  const semCv = h.corpoReciboExclusao({
+    dataConclusao: CARIMBO_AUTH,
+    temCurriculo: false,
+    temDecisaoRegistrada: true,
+  });
+  const semDecisao = h.corpoReciboExclusao({
+    dataConclusao: CARIMBO_AUTH,
+    temCurriculo: true,
+    temDecisaoRegistrada: false,
+  });
+
+  const itens = [...RECIBO_EXCLUSAO.colunas_sai, ...RECIBO_EXCLUSAO.colunas_mantem];
+  const doCv = itens.filter((i) => i.aplicavel_quando === "tem_curriculo");
+  const daDecisao = itens.filter((i) => i.aplicavel_quando === "tem_decisao_registrada");
+  assert(doCv.length > 0 && daDecisao.length > 0, "o recorte tem de ter o que filtrar");
+
+  for (const i of doCv) {
+    assert(completo.includes(i.rotulo), `${i.item_id} tem de aparecer no recibo completo`);
+    assert(!semCv.includes(i.rotulo), `${i.item_id} tem de SUMIR sem currículo`);
+  }
+  for (const i of daDecisao) {
+    assert(completo.includes(i.rotulo), `${i.item_id} tem de aparecer no recibo completo`);
+    assert(!semDecisao.includes(i.rotulo), `${i.item_id} tem de SUMIR sem decisão`);
+  }
+  // O `sempre` nunca some — o recibo não pode encolher por engano.
+  for (const i of itens.filter((x) => x.aplicavel_quando === "sempre")) {
+    for (const html of [completo, semCv, semDecisao]) {
+      assert(html.includes(i.rotulo), `${i.item_id} é 'sempre' e sumiu`);
+    }
+  }
+});
+
+// ── (nn) tempo PASSADO, nunca futuro ─────────────────────────────────────────
+Deno.test("(nn) o corpo usa texto_passado — e nenhum texto_futuro sobrevive nele", async () => {
+  const h = await import("./helpers.ts");
+  const { RECIBO_EXCLUSAO } = await import("../_shared/reciboExclusao.ts");
+  const html = h.corpoReciboExclusao({
+    dataConclusao: CARIMBO_AUTH,
+    temCurriculo: true,
+    temDecisaoRegistrada: true,
+  });
+  const itens = [...RECIBO_EXCLUSAO.colunas_sai, ...RECIBO_EXCLUSAO.colunas_mantem];
+  for (const i of itens) {
+    assert(html.includes(i.texto_passado), `${i.item_id}: falta o texto em tempo passado`);
+    assert(
+      !html.includes(i.texto_futuro),
+      `${i.item_id}: o recibo do e-mail está em tempo FUTURO — ele relata, não promete`,
+    );
+  }
+  // Os cabeçalhos também são os do tempo passado.
+  assert(html.includes(RECIBO_EXCLUSAO.cabecalhos.sai.passado));
+  assert(!html.includes(RECIBO_EXCLUSAO.cabecalhos.sai.futuro));
+  // A base legal aparece ao lado do item, nunca em rodapé nem tooltip.
+  for (const i of RECIBO_EXCLUSAO.colunas_mantem) {
+    assert(html.includes(i.base_legal), `${i.item_id}: falta a base legal ao lado do item`);
+  }
+});
+
+// ── (oo) o `plano` é ESVAZIADO no fecho ──────────────────────────────────────
+Deno.test("(oo) depois de recibo_enviado_em, o plano fica só com as contagens", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: pedidoProntoParaRecibo() });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assert(admin.linha.recibo_enviado_em, "o envio tem de ser carimbado");
+  const plano = admin.linha.plano as Record<string, unknown>;
+  // ⚠ O caminho de Storage embute o `auth.uid()` do titular: é PII sobrevivendo
+  // dentro do PRÓPRIO registro de exclusão. A prova de que a exclusão aconteceu não
+  // precisa dos ponteiros para o que foi apagado.
+  assertEquals(plano.caminhos, undefined, "o caminho de Storage não pode ficar");
+  assertEquals(plano.email, undefined, "o endereço do titular não pode ficar");
+  assertEquals(plano.auth_uid, undefined, "o auth.uid não pode ficar");
+  assertEquals(plano.achados, undefined, "os caminhos dos achados não podem ficar");
+  assert(plano.contagens, "as contagens por passo FICAM — elas são a prova");
+  assert(plano.achados_resumo, "os achados ficam AGREGADOS");
+  const serializado = JSON.stringify(plano);
+  assert(!serializado.includes(AUTH_UID), "nenhum resquício do auth.uid no plano");
+  assert(!serializado.includes(EMAIL_TITULAR), "nenhum resquício do endereço no plano");
+});
+
+// ── (pp) falha de envio: o recibo pode falhar, não pode SUMIR ────────────────
+Deno.test("(pp) envio que falha → causa='falha_recibo' e sem carimbo de recibo", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const variante of [
+      { fetchLanca: true },
+      { respostaResend: { ok: false, status: 422, corpo: { message: "bounce" } } },
+    ]
+  ) {
+    const { admin, deps } = depsExecutar({ pedido: pedidoProntoParaRecibo(), ...variante });
+    const res = await handler(makeRequest({ acao: "executar" }), deps);
+    assertEquals(res.status, 500);
+    assertEquals(admin.linha.causa, "falha_recibo");
+    assertEquals(admin.linha.recibo_enviado_em, null);
+    // O pedido continua RETOMÁVEL: os três carimbos destrutivos permanecem.
+    assert(admin.linha.auth_concluido_em, "o hard delete já aconteceu e não se desfaz");
+    // E o plano NÃO foi esvaziado — o endereço ainda é necessário para retomar.
+    assert((admin.linha.plano as Record<string, unknown>).email, "o endereço fica até o envio");
+  }
+});
+
+// ── (qq) o cinto secundário no Resend ────────────────────────────────────────
+Deno.test("(qq) o envio carrega header Idempotency-Key e vai para o endereço DO PLANO", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: pedidoProntoParaRecibo() });
+  await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(admin.fetchCalls.length, 1);
+  const { url, init } = admin.fetchCalls[0];
+  assertEquals(url, "https://api.resend.com/emails");
+  const headers = (init.headers ?? {}) as Record<string, string>;
+  assert(headers["Idempotency-Key"], "falta o cinto secundário de idempotência no Resend");
+  const corpo = JSON.parse(String(init.body));
+  // ⚠ O endereço vem do PLANO (lido no passo 0), nunca de uma consulta ao banco: a
+  // conta já não existe e `candidatos.email` já é a sentinela do tombstone.
+  assertEquals(corpo.to, EMAIL_TITULAR);
+  assertEquals(corpo.subject, "[Beauty Smile] Seus dados foram apagados");
+  // Nenhuma leitura de `candidatos` acontece DEPOIS do tombstone para achar o e-mail.
+  assertEquals(
+    admin.ordem.filter((x) => x === "le:candidatos").length,
+    1,
+    "o endereço não é relido: a única leitura de candidatos é a da autorização",
+  );
+});
+
+// ── (rr) o guard non-prod não deixa o recibo alcançar pessoa real em teste ───
+Deno.test("(rr) em modo teste o envio é desviado para o sink — nunca ao endereço real", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: pedidoProntoParaRecibo() });
+  const res = await handler(makeRequest({ acao: "executar" }), {
+    ...deps,
+    modo: "teste" as const,
+  });
+  assertEquals(res.status, 200);
+  const corpo = JSON.parse(String(admin.fetchCalls[0].init.body));
+  assert(/@resend\.dev$/.test(String(corpo.to)), `envio de teste foi para ${corpo.to}`);
+  assert(!String(corpo.to).includes(EMAIL_TITULAR));
 });
