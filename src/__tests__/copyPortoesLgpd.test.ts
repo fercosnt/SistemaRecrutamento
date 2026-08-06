@@ -316,10 +316,16 @@ function rpcTombstoneDefinido(): boolean {
  * A EF executa de fato os passos destrutivos (45-10) — não apenas anuncia que os terá.
  * Exige as DUAS chamadas: a remoção no Storage e o hard delete no Auth. O tracer (45-03)
  * não satisfaz nenhuma das duas, que é exatamente a propriedade desejada.
+ *
+ * ⚠ `alvo` é parametrizável desde 2026-08-06 (plano 45-10) por UMA razão: com o motor
+ * escrito, o valor sobre a EF real virou `true`, e um predicado só observado em `true`
+ * é indistinguível de uma constante. O parâmetro permite provar, no próprio meta-teste,
+ * que ele DISCRIMINA — inclusive que o `&&` é real, medindo-o contra uma EF que chama
+ * `deleteUser` e não toca em Storage. O default não mudou.
  */
-function efExecutaPassosDestrutivos(): boolean {
-  if (!existsSync(EF_EXCLUSAO)) return false
-  const fonte = semComentariosTs(readFileSync(EF_EXCLUSAO, 'utf8'))
+function efExecutaPassosDestrutivos(alvo: string = EF_EXCLUSAO): boolean {
+  if (!existsSync(alvo)) return false
+  const fonte = semComentariosTs(readFileSync(alvo, 'utf8'))
   const apagaNoAuth = new RegExp(`\\b${CHAMADA_AUTH_DELETE}\\s*\\(`).test(fonte)
   const apagaNoStorage = /\.remove\s*\(/.test(fonte) && /storage/.test(fonte)
   return apagaNoAuth && apagaNoStorage
@@ -385,22 +391,31 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
    * silenciosamente permissivo.
    */
   it('o portão do CONSOL-04 mede o disco de verdade, e MENÇÃO não conta como execução', () => {
-    // 1 · O veredito de hoje: o motor NÃO existe — agora por UMA razão em vez de duas.
-    //     ⚠ RE-PINADO em 2026-08-05 pelo plano 45-07 (ato consciente e revisável, nunca um
-    //     boolean virado em silêncio). A METADE POSTGRES PASSOU A EXISTIR: a migration
-    //     `20260805000006_p45_anonimizar_candidato.sql` DEFINE o RPC de tombstone, e as irmãs
-    //     `…004` (a S1 do D-45-11) e `…005` (a expressão única) completam a metade.
-    //     O portão NÃO ficou verde sozinho, e a conferência que o próprio meta-teste manda
-    //     fazer foi feita: `motorDeExclusaoExiste()` segue `false` porque
-    //     `efExecutaPassosDestrutivos()` segue `false` — a EF do 45-10 ainda não executa
-    //     Storage nem Auth. O portão continua vermelho pela razão CERTA, e essa razão é agora
-    //     mais estreita: falta exatamente uma metade, não duas.
-    expect(motorDeExclusaoExiste()).toBe(false)
+    // 1 · O veredito de hoje: **o motor EXISTE**, e as duas metades estão no disco.
+    //     ⚠ RE-PINADO em 2026-08-06 pelo plano 45-10 (segundo re-pin consciente desta sonda;
+    //     o primeiro foi do 45-07, e nenhum dos dois virou um boolean em silêncio). A METADE
+    //     DA EF PASSOU A EXISTIR: `executar-direito-titular/index.ts` apaga pela Storage Admin
+    //     API (`.remove()` em lotes, com o retorno CONFERIDO) e faz o hard delete no Auth
+    //     (`deleteUser(uid, false)`, com o erro PROPAGADO).
+    //
+    //     ⚠ A CONFERÊNCIA QUE O PRÓPRIO META-TESTE MANDA FAZER, E ELA FOI FEITA: o portão do
+    //     CONSOL-04 acima **ficou verde sozinho**, sem uma linha editada nele — que é
+    //     exatamente o desfecho projetado quando ele foi reescrito na Wave 1. A promessa de
+    //     exclusão na superfície do candidato deixou de ser órfã.
+    //
+    //     ⚠ O QUE ISTO **NÃO** AFIRMA, e a distinção é a substância: que o motor RODA. Ele
+    //     está escrito e provado por 49 asserções sem rede; as migrations do 45-07 **não
+    //     foram aplicadas** e a EF **não foi redeployada** — os dois são do 45-11, atrás do
+    //     portão destrutivo e do code review bloqueante. Este portão mede o DISCO, e é só
+    //     isso que ele passou a afirmar.
+    expect(motorDeExclusaoExiste()).toBe(true)
 
     // 2 · ⚠ A REGRESSÃO QUE JÁ ACONTECEU UMA VEZ, agora pinada. A versão anterior desta sonda
     //     pedia `existsSync(EF)` + substring do nome do RPC, e ficou VERDE com a promessa órfã.
-    //     Estas duas linhas provam que o falso positivo de 2026-08-05 não volta: as duas
-    //     condições fracas seguem verdadeiras, e o veredito acima continua `false`.
+    //     ⚠ COM O VEREDITO EM `true`, ESTAS DUAS LINHAS DEIXARAM DE DISCRIMINAR — as duas
+    //     condições fracas e o veredito forte agora concordam, então a prova anti-regressão
+    //     migrou para o item 2b, que mede o predicado FORTE contra alvos que sabidamente não
+    //     o satisfazem. Elas ficam como asserções de existência, que é o que sobrou delas.
     expect(
       existsSync(EF_EXCLUSAO),
       'O arquivo da EF deveria existir desde o tracer (45-03). Se sumiu, o tracer foi revertido.',
@@ -412,6 +427,31 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
       'Alguma migration deveria CITAR o nome do RPC (o bias k=5 cita, em comentário). Se nenhuma ' +
         'cita, esta prova anti-regressão perdeu o objeto e precisa de outro.',
     ).toBe(true)
+
+    // 2b · ⚠ A PROVA DE QUE O PREDICADO FORTE DISCRIMINA — o item que substitui a prova
+    //      anti-regressão perdida no item 2. Um predicado só observado em `true` é
+    //      indistinguível de `() => true`, e essa é exatamente a cegueira que derrubou a
+    //      versão de 2026-08-05 deste portão, no sentido inverso.
+    //
+    //      Os dois alvos são escolhidos para medir coisas diferentes:
+    //        · `exportar-meus-dados` não apaga NADA — falha as duas metades;
+    //        · `cadastrar-candidato` CHAMA `deleteUser` (rollback compensatório de cadastro)
+    //          e não toca em Storage — falha só uma. É ele que prova que o `&&` é real:
+    //          citar a chamada de Auth sozinha NÃO satisfaz o portão.
+    expect(
+      efExecutaPassosDestrutivos(join(RAIZ, 'supabase/functions/exportar-meus-dados/index.ts')),
+      'Se virou true, o predicado parou de medir: uma EF que não apaga nada não pode ' +
+        'satisfazer o portão do motor de exclusão.',
+    ).toBe(false)
+    expect(
+      efExecutaPassosDestrutivos(join(RAIZ, 'supabase/functions/cadastrar-candidato/index.ts')),
+      'Se virou true, o `&&` do predicado quebrou: uma EF que chama deleteUser como rollback ' +
+        'de cadastro, sem tocar em Storage, satisfaria metade do motor e passaria por inteiro.',
+    ).toBe(false)
+    expect(
+      efExecutaPassosDestrutivos(join(RAIZ, 'supabase/functions/__nao_existe__/index.ts')),
+      'Arquivo ausente tem de reprovar — o predicado não pode ficar verde por leitura falha.',
+    ).toBe(false)
 
     // 3 · Cada metade tem o valor MEDIDO, e o pino de cada uma diz de quem ela é.
     //     ⚠ A metade do 45-07 virou `true` em 2026-08-05 e foi re-pinada aqui. Ela agora é
@@ -426,9 +466,10 @@ describe('Escopo 2 — futuro-de-máquina sobre exclusão, só na superfície do
     ).toBe(true)
     expect(
       efExecutaPassosDestrutivos(),
-      'Se virou true, o 45-10 escreveu os passos destrutivos na EF — confira se o portão do ' +
-        'CONSOL-04 ficou verde sozinho e ajuste este meta-teste.',
-    ).toBe(false)
+      'Se virou false, os passos destrutivos sumiram da EF — o 45-10 foi revertido, ou a ' +
+        'chamada de Storage/Auth foi comentada. A superfície do candidato continuaria ' +
+        'PROMETENDO exclusão sem motor, e o portão acima passaria a reprovar por isso.',
+    ).toBe(true)
 
     // 4 · E a varredura FUNCIONA: ela acha uma definição de função que sabidamente existe.
     //     Sem isto, `rpcTombstoneDefinido()` poderia ser `false` por regex quebrada em vez de
