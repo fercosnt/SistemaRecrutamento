@@ -78,16 +78,27 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  assuntoReciboExclusao,
   BUCKET_CURRICULOS,
   causaDaFalha,
+  chaveIdempotenciaRecibo,
+  construirCorpoResendRecibo,
+  corpoReciboExclusao,
   dividirEmLotes,
   enumerarObjetosTitular,
+  LABEL_SINK_RECIBO,
   LIMITE_REMOCAO,
   logSeguroExclusao,
   type PassoMotor,
   refCurta,
   unirEDeduplicarCaminhos,
 } from "./helpers.ts";
+import {
+  exigirSinkTeste,
+  type ModoNotificacao,
+  resolverDestinatarioComLabel,
+  resolverModo,
+} from "../_shared/email-config.ts";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados verbatim do molde)
@@ -141,6 +152,13 @@ export interface Deps {
   supabaseAdmin: any;
   // deno-lint-ignore no-explicit-any
   supabaseUser: any;
+  /** `fetch` do envio do recibo — testes injetam um mock → sem `--allow-net`. */
+  fetchImpl?: typeof fetch;
+  /**
+   * Modo de notificação. Injetado nos testes porque `resolverModo()` lê `Deno.env`,
+   * e a suíte desta EF roda sem permissão de env por contrato da fase.
+   */
+  modo?: ModoNotificacao;
 }
 
 /**
@@ -609,6 +627,29 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       await carimbar("auth", { situacao: SITUACAO_CONCLUIDO });
     }
 
+    // ── PASSO 4 · O RECIBO — o único canal que ainda alcança o titular ──────
+    if (!estado.recibo_enviado_em) {
+      await enviarRecibo(deps, {
+        pedidoId,
+        plano,
+        dataConclusao: String(estado.auth_concluido_em ?? agora()),
+      });
+      // ⚠ E O `plano` É ESVAZIADO NO MESMO CARIMBO. O caminho de Storage embute o
+      // `auth.uid()` do titular: é PII sobrevivendo dentro do PRÓPRIO registro de
+      // exclusão. A prova de que a exclusão aconteceu não precisa dos ponteiros para
+      // o que foi apagado — restam as contagens por passo e os achados agregados.
+      // Gravar os dois num único UPDATE evita a janela em que o plano some sem que o
+      // envio tenha sido registrado, que faria a retomada perder o endereço.
+      await carimbar("recibo", {
+        recibo_enviado_em: agora(),
+        plano: {
+          versao: plano.versao,
+          contagens: plano.contagens,
+          achados_resumo: plano.achados_resumo,
+        },
+      });
+    }
+
     return jsonResponse({
       ok: true,
       acao: "executar",
@@ -706,6 +747,85 @@ async function montarPlano(
       ponteiro_morto: achados.filter((a) => a.tipo === "ponteiro_morto").length,
     },
   };
+}
+
+/**
+ * PASSO 4 — o recibo em tempo PASSADO.
+ *
+ * ⚠ O ENDEREÇO VEM DO `plano`, NUNCA DE UMA CONSULTA AO BANCO. Neste ponto o
+ * `deleteUser` já rodou e o tombstone já trocou `candidatos.email` pela sentinela: não
+ * existe mais conta de onde relê-lo. É por isso que o passo 0 o persistiu — persistir
+ * (em vez de guardar numa variável local da EF) é o que torna o recibo retomável a um
+ * crash entre o hard delete e o envio.
+ *
+ * ⚠ E ELE NÃO ENTRA EM LEDGER DE NOTIFICAÇÃO NENHUM (D-45-12 / saída R1). O
+ * claim-before-send de `notificar-rh/index.ts:279-342` NÃO é clonado aqui: é
+ * justamente ele que gravaria o endereço do titular — duas vezes por linha, em duas
+ * colunas `NOT NULL` — dentro do registro que prova a exclusão desse endereço. Só o
+ * header `Idempotency-Key` é herdado.
+ */
+async function enviarRecibo(
+  deps: Deps,
+  args: { pedidoId: string; plano: PlanoExclusao; dataConclusao: string },
+): Promise<void> {
+  const { supabaseAdmin } = deps;
+  const para = args.plano.email;
+  if (typeof para !== "string" || para === "") {
+    throw new ErroDePasso("recibo", "sem_endereco");
+  }
+
+  const modo = deps.modo ?? resolverModo();
+  const dest = resolverDestinatarioComLabel(para, LABEL_SINK_RECIBO, modo);
+  try {
+    // Hard-fail non-prod (DELIV-03): nenhum endereço real recebe um e-mail de um run
+    // de teste — e este e-mail afirma que a conta da pessoa deixou de existir.
+    exigirSinkTeste(dest.para, modo);
+  } catch {
+    throw new ErroDePasso("recibo", "sink_nao_prod");
+  }
+
+  const recorte = args.plano.recorte ?? { tem_curriculo: false, tem_decisao_registrada: false };
+  let html: string;
+  try {
+    html = corpoReciboExclusao({
+      dataConclusao: args.dataConclusao,
+      temCurriculo: recorte.tem_curriculo,
+      temDecisaoRegistrada: recorte.tem_decisao_registrada,
+    });
+  } catch {
+    throw new ErroDePasso("recibo", "corpo");
+  }
+
+  const { data: apiKey } = await supabaseAdmin.rpc("ler_resend_api_key");
+  if (typeof apiKey !== "string" || apiKey === "") {
+    throw new ErroDePasso("recibo", "sem_chave");
+  }
+
+  const enviar = deps.fetchImpl ?? fetch;
+  let resp: Response;
+  try {
+    resp = await enviar("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        // Cinto SECUNDÁRIO: o primeiro é `recibo_enviado_em`. ⚠ Nunca logada.
+        "Idempotency-Key": chaveIdempotenciaRecibo(args.pedidoId),
+      },
+      body: JSON.stringify(
+        construirCorpoResendRecibo({
+          para: dest.para,
+          subject: assuntoReciboExclusao(),
+          html,
+        }),
+      ),
+    });
+  } catch {
+    // O recibo PODE falhar; o que ele não pode é sumir em silêncio. A `causa` fica
+    // gravada e o pedido continua retomável.
+    throw new ErroDePasso("recibo", "fetch");
+  }
+  if (!resp.ok) throw new ErroDePasso("recibo", "resend_nao_2xx");
 }
 
 /** Soma os valores numéricos de um passo do jsonb de `plano_exclusao_titular`. */

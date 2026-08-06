@@ -1382,9 +1382,25 @@ Deno.test("(ll) o corpo do recibo não contém nome, CPF, telefone, nem id nenhu
   const iMantem = html.indexOf("O que a Beauty Smile mantém");
   assert(iSai >= 0 && iMantem >= 0, "os dois cabeçalhos são obrigatórios");
   assert(iSai < iMantem, "a ordem é «sai» → «mantém»");
-  // E8·overflow: cliente de e-mail é hostil a grid.
+  // E8·overflow: cliente de e-mail é hostil a grid, e as duas colunas EMPILHADAS
+  // são contrato. A comparação é contra o `layoutBase` VAZIO: ela prova que o corpo
+  // do recibo não acrescentou UMA tabela de layout sequer nem uma largura fixa — as
+  // que existem são do wrapper compartilhado, que não é deste plano.
+  const { layoutBase } = await import("../_shared/email-templates.ts");
+  const vazio = layoutBase({ preheader: "x", conteudoHtml: "" });
+  const conta = (s: string, re: RegExp) => (s.match(re) ?? []).length;
   assert(!/display\s*:\s*grid/i.test(html), "sem grid");
-  assert(!/<table/i.test(html.split("</head>")[1] ?? html), "sem tabela de layout aninhada no corpo");
+  assert(!/grid-cols/i.test(html), "sem grid");
+  assertEquals(conta(html, /<table/gi), conta(vazio, /<table/gi), "sem tabela aninhada");
+  assertEquals(conta(html, /width\s*=/gi), conta(vazio, /width\s*=/gi), "sem largura fixa");
+  // Nada abaixo de 14px foi autorado por este corpo.
+  const tamanhos = [...html.matchAll(/font-size\s*:\s*(\d+)px/gi)].map((m) => Number(m[1]));
+  const tamanhosBase = [...vazio.matchAll(/font-size\s*:\s*(\d+)px/gi)].map((m) => Number(m[1]));
+  const menorHerdado = Math.min(...tamanhosBase);
+  for (const t of tamanhos) {
+    assert(t >= 14 || tamanhosBase.includes(t), `font-size ${t}px abaixo de 14px foi autorado aqui`);
+  }
+  assert(menorHerdado < 14, "o rodapé herdado é a única fonte abaixo de 14px");
 });
 
 Deno.test("(ll2) o assunto é fixo, sem interpolação e sem CR/LF", async () => {

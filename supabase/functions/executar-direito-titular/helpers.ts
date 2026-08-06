@@ -27,6 +27,10 @@
  * @see supabase/migrations/20260805000001_p45_pedido_exclusao.sql (o CHECK de `causa`)
  */
 
+import { FROM, REPLY_TO } from "../_shared/email-config.ts";
+import { escapeHtml, layoutBase } from "../_shared/email-templates.ts";
+import { RECIBO_EXCLUSAO } from "../_shared/reciboExclusao.ts";
+
 /** Prefixo curto de um id — o ÚNICO formato de id admitido em log desta EF. */
 export function refCurta(id: string): string {
   return id.slice(0, 8);
@@ -216,4 +220,169 @@ export function dividirEmLotes<T>(itens: readonly T[], tamanho: number = LIMITE_
   const lotes: T[][] = [];
   for (let i = 0; i < itens.length; i += passo) lotes.push(itens.slice(i, i + passo));
   return lotes;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 45 / Plano 45-10 — O RECIBO AO TITULAR (passo 4)
+//
+// ⚠ ZERO TEXTO DE RECIBO DIGITADO AQUI. Todo rótulo, todo texto e toda base legal
+// saem de `RECIBO_EXCLUSAO`, o espelho GERADO por `gen-recibo-exclusao.cjs` e
+// protegido por `npm run check:recibo-exclusao`. O recibo é DERIVADO, nunca digitado
+// (Invariante 4 da 45-UI-SPEC): nenhuma linha pode afirmar um apagamento sem um
+// `passo_motor` que o execute.
+//
+// ⚠ E O ESCAPE É O CANÔNICO DE `_shared/email-templates.ts`. Um segundo escape neste
+// repositório seria um segundo escape para auditar — e o dia em que os dois
+// divergirem, a divergência mora justamente num corpo que sai do domínio.
+//
+// ⚠ ESTE CORPO NÃO É REGISTRADO EM LEDGER DE NOTIFICAÇÃO NENHUM (D-45-12 / saída R1).
+// A prova de envio é `solicitacoes_dados.recibo_enviado_em`. Custo aceito e declarado:
+// perde-se bounce/reclamado PARA ESTE E-MAIL — defensável porque, depois do hard
+// delete, não há a quem re-tentar.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Rótulo do sink de teste deste e-mail. Sanitizado para `[a-z_]` por quem consome. */
+export const LABEL_SINK_RECIBO = "recibo_exclusao" as const;
+
+/** O recorte do titular — os DOIS booleanos, e nada mais. */
+export interface RecorteRecibo {
+  temCurriculo: boolean;
+  temDecisaoRegistrada: boolean;
+}
+
+/**
+ * ⚠ FAIL-CLOSED por vocabulário. Um `aplicavel_quando` que o gerador venha a
+ * introduzir e que este helper não conheça faz a linha ser OMITIDA, nunca incluída:
+ * o recibo não afirma o que não pôde medir. Uma linha a menos é um recibo modesto;
+ * uma linha a mais é uma promessa de apagamento que ninguém executou.
+ */
+function aplicavel(quando: string, r: RecorteRecibo): boolean {
+  if (quando === "sempre") return true;
+  if (quando === "tem_curriculo") return r.temCurriculo;
+  if (quando === "tem_decisao_registrada") return r.temDecisaoRegistrada;
+  return false;
+}
+
+/**
+ * `dd/mm/aaaa` no fuso de São Paulo — o titular lê a data dele, não a do servidor.
+ *
+ * Data ilegível LANÇA. O contrato do corpo é *"concluído em {dd/mm/aaaa}"*, e um
+ * recibo com data vazia seria um documento de compliance afirmando um fato sem
+ * dizer quando. O chamador trata como `falha_recibo`, que é retomável.
+ */
+function dataBR(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) throw new Error("data de conclusao ilegivel para o recibo");
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date(t));
+  const p = (tipo: string) => partes.find((x) => x.type === tipo)?.value ?? "";
+  return `${p("day")}/${p("month")}/${p("year")}`;
+}
+
+/**
+ * Assunto FIXO, sem interpolação — logo sem superfície de CR/LF. A neutralização é
+ * feita mesmo assim, por simetria com `assuntoCandidaturaEncerradaAPedido`: o dia em
+ * que alguém interpolar algo aqui, a proteção já está no lugar.
+ */
+export function assuntoReciboExclusao(): string {
+  return "[Beauty Smile] Seus dados foram apagados".replace(/[\r\n]+/g, " ").trim();
+}
+
+/** Preheader do recibo (45-UI-SPEC § E-mail 1). */
+export const PREHEADER_RECIBO = "Seu pedido de exclusão foi concluído." as const;
+
+/** Um item renderizado — `base` só existe na coluna que fica. */
+function itemHtml(rotulo: string, texto: string, base?: string): string {
+  // A base legal fica AO LADO do item, em 14px/600 — nunca em nota de rodapé, nunca
+  // em tooltip (regra 3 do recibo). Uma justificativa legal escondida atrás de hover
+  // é uma justificativa que a maioria nunca lê.
+  const baseHtml = base
+    ? `<div style="margin:4px 0 0;font-size:14px;font-weight:600;color:#00109E;">${
+      escapeHtml(base)
+    }</div>`
+    : "";
+  return `<div style="margin:0 0 14px;">
+<div style="font-size:16px;font-weight:700;">${escapeHtml(rotulo)}</div>
+<div style="margin:2px 0 0;font-size:16px;">${escapeHtml(texto)}</div>
+${baseHtml}</div>`;
+}
+
+/**
+ * O corpo do recibo — as duas colunas EMPILHADAS, em `texto_passado`.
+ *
+ * ⚠ A ASSINATURA É O CONTROLE DE PRIVACIDADE. Ela aceita uma data e dois booleanos, e
+ * NADA MAIS: nome, CPF, telefone, `candidato_id`, `solicitacao_id`, título de vaga e
+ * caminho de Storage simplesmente não têm por onde entrar. Este é o único e-mail da
+ * fase cujo destinatário legítimo é o titular, o que torna tentador interpolar o nome
+ * "para ficar pessoal" — e a assinatura é o que impede que a tentação vire código.
+ *
+ * ⚠ E8·overflow: **duas colunas EMPILHADAS**, com os dois cabeçalhos, na ordem
+ * «sai» → «mantém». Cliente de e-mail é hostil a grid, e a regra de pareamento por
+ * cabeçalho já cobre o caso. Sem largura fixa, sem tabela de layout aninhada, e nada
+ * abaixo de 14px.
+ */
+export function corpoReciboExclusao(args: {
+  dataConclusao: string;
+  temCurriculo: boolean;
+  temDecisaoRegistrada: boolean;
+}): string {
+  const recorte: RecorteRecibo = {
+    temCurriculo: args.temCurriculo,
+    temDecisaoRegistrada: args.temDecisaoRegistrada,
+  };
+  const data = dataBR(args.dataConclusao);
+
+  const sai = RECIBO_EXCLUSAO.colunas_sai
+    .filter((i) => aplicavel(i.aplicavel_quando, recorte))
+    .map((i) => itemHtml(i.rotulo, i.texto_passado))
+    .join("\n");
+
+  const mantem = RECIBO_EXCLUSAO.colunas_mantem
+    .filter((i) => aplicavel(i.aplicavel_quando, recorte))
+    .map((i) => itemHtml(i.rotulo, i.texto_passado, i.base_legal))
+    .join("\n");
+
+  const conteudoHtml = `<p style="margin:0 0 16px;">Olá,</p>
+<p style="margin:0 0 16px;">Seu pedido para apagar seus dados na Beauty Smile foi <strong>concluído em ${data}</strong>. Sua conta de acesso não existe mais.</p>
+<div style="margin:24px 0 8px;font-size:18px;font-weight:700;color:#00109E;">${
+    escapeHtml(RECIBO_EXCLUSAO.cabecalhos.sai.passado)
+  }</div>
+${sai}
+<div style="margin:28px 0 8px;font-size:18px;font-weight:700;color:#00109E;">${
+    escapeHtml(RECIBO_EXCLUSAO.cabecalhos.mantem.passado)
+  }</div>
+${mantem}
+<p style="margin:24px 0 0;">Se quiser se candidatar a uma vaga no futuro, é só fazer um cadastro novo.</p>`;
+
+  return layoutBase({ preheader: PREHEADER_RECIBO, conteudoHtml });
+}
+
+/** Corpo do POST ao Resend. NUNCA carrega a chave da API. */
+export function construirCorpoResendRecibo(args: {
+  para: string;
+  subject: string;
+  html: string;
+}): Record<string, unknown> {
+  return {
+    from: FROM,
+    to: args.para,
+    reply_to: REPLY_TO,
+    subject: args.subject,
+    html: args.html,
+  };
+}
+
+/**
+ * Chave de idempotência do recibo no Resend — cinto SECUNDÁRIO.
+ *
+ * O primeiro cinto é `solicitacoes_dados.recibo_enviado_em`. Este só existe para o
+ * caso de o carimbo não ter chegado ao banco depois de o provedor já ter aceitado.
+ * ⚠ NUNCA logada: ela embute o `solicitacao_id` completo.
+ */
+export function chaveIdempotenciaRecibo(solicitacaoId: string): string {
+  return `${LABEL_SINK_RECIBO}:${solicitacaoId}`;
 }
