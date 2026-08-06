@@ -1,16 +1,32 @@
 /**
  * Edge Function: executar-direito-titular
  *
- * Phase 45 / Plano 45-03 — ERASE-05 + ERASE-06. O caminho pelo qual o titular
- * exerce o direito de eliminação do Art. 18, VI: um clique na seção 4 de
- * `/candidato/privacidade` e uma data no banco.
+ * Phase 45 / Planos 45-03 (o esqueleto) e 45-10 (o motor) — ERASE-03..ERASE-10.
+ * O caminho pelo qual o titular exerce o direito de eliminação do Art. 18, VI: um
+ * clique na seção 4 de `/candidato/privacidade`, uma data no banco, e — quinze dias
+ * depois — três sistemas apagados.
  *
- * ⚠ **NESTA FASE ELA NÃO APAGA NADA.** Duas ações, ambas de estado: `pedir`
- * (registra o pedido e encerra as candidaturas em andamento, numa transação do
- * banco) e `cancelar` (interrompe a exclusão dos dados, e **não** reabre
- * candidatura alguma). Storage, tombstone e `deleteUser` entram **neste mesmo
- * arquivo** no 45-10 — é por isso que o esqueleto é construído agora, sobre um
- * caminho que não destrói, em vez de nascer junto com o efeito irreversível.
+ * ⚠⚠ **ESTA FUNÇÃO APAGA, E O QUE ELA APAGA NÃO VOLTA.** O docblock anterior dizia
+ * "nesta fase ela não apaga nada"; isso foi verdade até o 45-10 e deixou de ser. TRÊS
+ * ações no vocabulário fechado:
+ *   · `pedir`    — registra o pedido e encerra as candidaturas em andamento (estado);
+ *   · `cancelar` — interrompe a exclusão, e **não** reabre candidatura alguma (estado);
+ *   · `executar` — Storage, tombstone e `deleteUser`. **Irreversível**: o backup deste
+ *                  projeto cobre 7 dias e **exclui Storage inteiramente**, e o PITR
+ *                  está desligado (D-45-10). Um CV apagado por engano não volta por
+ *                  nenhum meio.
+ *
+ * O esqueleto nasceu no 45-03 sobre um caminho que não destrói, e foi provado ao vivo
+ * em PROD no 45-06 **antes** de a primeira linha irreversível existir. Num ambiente
+ * sem segunda rede, um beco arquitetural descoberto ali custa um commit; descoberto
+ * depois de Storage/tombstone/Auth, custa dado que não volta.
+ *
+ * ⚠ **O 45-10 escreve; quem aplica e deploya é o 45-11**, atrás do portão destrutivo
+ * e de code review bloqueante. As migrations do 45-07 que o passo 2 chama
+ * (`plano_exclusao_titular`, `anonimizar_candidato`) **não estão aplicadas**, e a
+ * `20260805000004_p45_sever_user_id.sql` é PRÉ-CONDIÇÃO ESTRUTURAL do passo 3: sem
+ * ela, `deleteUser` cascateia e falha com 23503 **depois** de o currículo já ter sido
+ * apagado — o pior estado alcançável nesta fase.
  *
  * Clone ESTRUTURAL de `exportar-meus-dados/index.ts` — que é ele mesmo um clone
  * declarado de `get-curriculo-url` — com QUATRO desvios nomeados, cada um comentado
@@ -68,12 +84,41 @@
  *
  * Deploy: `supabase functions deploy executar-direito-titular` — **JWT-ON**, e a
  * bandeira que desliga a verificação de JWT é PROIBIDA nesta função, que é
- * autenticada por desenho. O deploy é do plano 45-06 (checkpoint do orquestrador);
- * o 45-03 apenas AUTORA este arquivo.
+ * autenticada por desenho. O deploy da v1 foi o 45-06; o redeploy COM o motor é o
+ * 45-11. O 45-10 apenas AUTORA os passos destrutivos.
+ *
+ * ── ⚠ DOIS DEFEITOS CONHECIDOS E **NÃO** CONSERTADOS AQUI ───────────────────
+ * Os dois estão fora dos três arquivos do 45-10 e precisam de plano próprio, com
+ * migration própria e revisão própria. Registrados para que ninguém os descubra de
+ * novo do zero:
+ *
+ *  1. **`DI-45-07-01` — as claims do titular não chegam às RPCs.** O `supabaseAdmin`
+ *     abaixo é construído com a service-role key e **sem** repassar o header
+ *     `Authorization` (o repasse existe só no `supabaseUser`). O JWT que chega ao
+ *     PostgREST é a própria service key, que não tem claim `sub`, então `auth.uid()`
+ *     é **NULL** — e as cinco RPCs desta fase abrem recusando exatamente isso com
+ *     `42501`. Vale para `registrar_pedido_exclusao`, `cancelar_pedido_exclusao`,
+ *     `plano_exclusao_titular` e `anonimizar_candidato`. ⚠ O conserto **não** é só
+ *     acrescentar o header: o PostgREST deriva o *role* do MESMO JWT, então um client
+ *     com service key **e** `Authorization` do titular chega como `authenticated` —
+ *     fechar isso exige **também** conceder `EXECUTE` a `authenticated`, numa
+ *     migration nova. Afrouxar o guard das RPCs é a saída **recusada**: reintroduziria
+ *     o defeito que a asserção C2 do smoke fecha, numa função que apaga PII.
+ *
+ *  2. **`retirar_candidatura` não está no vocabulário desta EF.**
+ *     `src/features/vagas/hooks/useRetirarCandidatura.ts:77-79` invoca ESTA função com
+ *     `{ acao: 'retirar_candidatura', candidatura_id }`, e `ACOES` não conhece o
+ *     valor: a EF responde 400 `VALIDATION` e o hook traduz para `SERVER_ERROR`. A
+ *     retirada do 45-09 está, hoje, morta na chegada. ⚠ E o conserto esbarra no
+ *     DESVIO 1 abaixo — aquela ação precisa de um `candidatura_id`, e aceitar
+ *     identificador do corpo é a superfície T-32-03; ele terá de ser validado contra
+ *     a titularidade no servidor, nunca confiado.
  *
  * @module supabase/functions/executar-direito-titular
  * @see supabase/functions/exportar-meus-dados/index.ts (o esqueleto clonado)
  * @see supabase/migrations/20260805000002_p45_rpc_pedido_exclusao.sql (as duas RPCs)
+ * @see supabase/migrations/20260805000005_p45_plano_e_dry_run.sql (a expressão única)
+ * @see supabase/migrations/20260805000006_p45_anonimizar_candidato.sql (o tombstone)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
