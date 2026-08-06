@@ -217,11 +217,13 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 45-12-PLAN.md — Fecha `DI-45-10-01` e `DI-45-10-02`: terceiro client com as claims do titular + migration de `GRANT EXECUTE ... TO authenticated` nas 5 RPCs + `retirar_candidatura` no vocabulário fechado. **Escreve a migration, não aplica** — sem ele o G1 não roda e o portão não abre
+- [x] 45-12-PLAN.md — Fecha `DI-45-10-01` e `DI-45-10-02`: terceiro client com as claims do titular + migration de `GRANT EXECUTE ... TO authenticated` nas 5 RPCs + `retirar_candidatura` no vocabulário fechado. **Escreve a migration, não aplica** — sem ele o G1 não roda e o portão não abre
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
 - [ ] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito
+  - ⚠ **Herda TRÊS obrigações do `45-12-SUMMARY.md`**: (1) os `md5(prosrc)` de `plano_exclusao_titular` e `anonimizar_candidato` MUDARAM e a referência passa a ser aquele documento, não o `45-07-SUMMARY.md`; (2) `20260805000009` entra na ordem de apply **POR ÚLTIMO** (concede sobre funções que ainda não existem em PROD); (3) o **redeploy** de `executar-direito-titular` continua ABERTO — é a terceira entrega do `DI-45-10-01`
+  - ⚠ **E uma DECISÃO, no code review da Task 1** (`DI-45-12-01`): a asserção C1 do smoke e a migration `20260805000003` afirmam coisas opostas sobre o `EXECUTE` de `gerar_bias_snapshot` para `authenticated`. A C1 foi escrita como especificada e vai reprovar por um privilégio que é deliberado — revogá-lo apagaria a tela de auditoria de viés (RNF-07a)
 
 **Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-12) · 6 → (45-11)
 **⚠ Regra de wave desta fase**: nenhuma wave mistura *escrever* uma migration com *aplicá-la* — subagentes GSD não recebem os tools MCP do Supabase, então todo apply, toda inspeção em PROD e todo deploy de EF são checkpoint do orquestrador (45-01, 45-06 e 45-11 são inteiramente checkpoint)
@@ -347,7 +349,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 9/11 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 10/12 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
 

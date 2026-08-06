@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 45-10-PLAN.md
-last_updated: "2026-08-06T15:22:03.758Z"
+stopped_at: Completed 45-12-PLAN.md
+last_updated: "2026-08-06T17:18:32.577Z"
 last_activity: 2026-08-06
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 41
-  completed_plans: 39
+  total_plans: 42
+  completed_plans: 40
   percent: 50
-last_activity_desc: 45-10 motor destrutivo escrito (4 passos, 49 asserções, zero deploy) — CONSOL-04 FECHOU, suíte 1689/1689
+last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
 ---
 
 # Project State
@@ -87,8 +87,35 @@ Phase: 45 (Motor de Exclusão & Anonimização) — EXECUTING
 | `45-06` T1 — **apply em PROD** | ✅ md5 byte-perfeito nas duas · EF deployada · tipos regenerados |
 | `45-07` metade Postgres · `45-08` front · `45-09` retirada+RH | ✅ **escritos, NÃO aplicados** |
 | `45-10` motor destrutivo (Storage+Postgres+Auth+recibo) | ✅ **escrito, NADA deployado** |
+| `45-12` claims do titular + retirada | ✅ **escrito, NADA aplicado/deployado** — `DI-45-10-01` (2 de 3) e `DI-45-10-02` fechados |
 | `45-06` T2 — prova no navegador | ⏸ **precisa de pessoa** |
 | `45-11` portão destrutivo | ○ |
+
+## ⚠ O 45-12 MUDOU TRÊS COISAS QUE O 45-11 PRECISA LER ANTES DE APLICAR
+
+Detalhe completo em `45-12-SUMMARY.md` § "AS TRÊS OBRIGAÇÕES DE HANDOFF".
+
+1. **Os `md5(prosrc)` das duas funções do motor MUDARAM** — o guard delas foi estendido. A
+   referência que o 45-11 confere passa a ser o **`45-12-SUMMARY.md`**, não o `45-07-SUMMARY.md`:
+   `plano_exclusao_titular` = `702dc0a6ef56b75104d940d94747760f` (9964 octetos) ·
+   `anonimizar_candidato` = `c6136674036d0b99f0c71c37d24e7bf8` (18172 octetos).
+
+2. **A ordem obrigatória de apply ganhou uma posição, no fim:** `20260805000009` (as claims do
+   titular) vai **POR ÚLTIMO**, depois de `000005`, `000006` e `000007` — ela concede `EXECUTE`
+   sobre funções que ainda não existem em PROD, e aplicá-la antes falha com `undefined_function`.
+
+3. **O REDEPLOY de `executar-direito-titular` continua ABERTO.** O `DI-45-10-01` é indivisível em
+   três; o 45-12 fechou as duas de escrita. Sem apply **e** redeploy, nada muda em produção — a
+   versão viva é a do 45-06, sem o terceiro client, e o G1 continua sem poder ser exercitado.
+
+⚠ **E um achado que exige DECISÃO, não conserto** (`DI-45-12-01`): a asserção **C1** do smoke e a
+migration `20260805000003` afirmam coisas **opostas** sobre `gerar_bias_snapshot` — a C1 proíbe
+`EXECUTE` a `authenticated`, e a migration o concede DELIBERADAMENTE porque o chamador vivo é a
+tela de auditoria de viés do administrador (`biasAuditService.ts:98`). O 45-12 escreveu a asserção
+**como especificada** e registrou a contradição em vez de afrouxar um gate por conta própria. A C1
+vai reprovar no 45-11 por um privilégio que é correto. **Decisão do code review bloqueante do
+45-11 (Task 1)** — e o caminho perigoso é o reflexo oposto: "consertar" revogando e apagar a tela
+de auditoria de viés, que é peça probatória de não-discriminação (RNF-07a).
 
 # ✅ SUÍTE 1689/1689 — O PORTÃO CONSOL-04 FECHOU (2026-08-06)
 
@@ -506,6 +533,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P08 | 35 min | 3 tasks | 10 files |
 | Phase 45 P09 | 28 min | 3 tasks | 14 files |
 | Phase 45 P10 | 47min | 3 tasks | 5 files |
+| Phase 45 P12 | 22min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -874,8 +902,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-06T15:22:03.743Z
-Stopped at: Completed 45-10-PLAN.md
+Last session: 2026-08-06T17:18:32.562Z
+Stopped at: Completed 45-12-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
