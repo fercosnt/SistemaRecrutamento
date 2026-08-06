@@ -645,13 +645,57 @@ CREATE TRIGGER trg_candidatura_encerrada_a_pedido
 -- incrementa e a EF, e ela nem chega la), consumindo o `LIMIT 20` que existe para os
 -- retries LEGITIMOS de candidato (T-42-23).
 --
--- ⚠ LEITURA OBRIGATORIA ANTES DO APPLY (mesmo controle que a 42-07 impos a si
--- mesma). O corpo abaixo e a transcricao da versao de `20260730000003:280-346` com
--- UMA alteracao funcional. O plano 45-11 tem de ler
--- `pg_get_functiondef('public.varrer_retry_notificacoes()'::regprocedure)` do
--- CATALOGO VIVO e diffar contra esta transcricao ANTES de aplicar: a unica diferenca
--- admissivel e a clausula de exclusao nova e o comentario adjacente. Qualquer outra
--- divergencia significa que a funcao viva nao e a do arquivo, e o apply deve PARAR.
+-- ⚠ O CONTROLE DE FIDELIDADE E UMA ASSERCAO COM VALOR CONHECIDO, NAO "leia e
+-- compare". O corpo abaixo e a transcricao da versao de `20260730000003:280-346` com
+-- UMA alteracao funcional. A 42-07 impos a si mesma o mesmo controle na forma fraca
+-- (diffar `pg_get_functiondef` a olho antes de aplicar); aqui ele e uma IGUALDADE que
+-- o proprio apply verifica, porque leitura atenta nao e mecanismo.
+--
+-- >>> MEDIDO NO CATALOGO VIVO em 2026-08-05 (operador, MCP `execute_sql`):
+-- >>>   md5(prosrc)    = f6147cebf9db2c72cd8ad0e446da301f
+-- >>>   length(prosrc) = 2763
+-- >>>   as 8 substrings exigidas pelo `p41_recon_retry_smoke` (d): 8 de 8 presentes
+-- >>>   o corpo vivo NAO nomeia o papel privilegiado: ausencia preservada
+-- >>>
+-- >>> ✅ CONFERIDO CONTRA O REPOSITORIO: o corpo entre os cifroes de
+-- >>> `20260730000003` hasheia EXATAMENTE `f6147ceb…` e tem EXATAMENTE 2763
+-- >>> caracteres. Logo a funcao viva E a daquele arquivo — **zero drift** — e a base
+-- >>> desta transcricao esta provada, nao presumida. (Era a duvida real: o achado A1
+-- >>> da pesquisa da 42 e justamente ler um objeto vivo a partir de um unico arquivo
+-- >>> de migration em vez do estado acumulado.)
+-- >>>
+-- >>> DEPOIS do apply deste arquivo, o corpo passa a ser:
+-- >>>   md5(prosrc)    = 06fd990e6706451f46d7bf6625163bdf
+-- >>>   length(prosrc) = 3104
+-- >>> A diferenca e a segunda clausula de exclusao mais o comentario adjacente.
+--
+-- O bloco `DO` abaixo ABORTA o apply se o corpo vivo nao for o esperado — porque um
+-- `CREATE OR REPLACE` sobre um corpo que derivou APAGARIA a divergencia em silencio,
+-- e esta funcao roda a cada 15 minutos em PROD.
+DO $verifica_varrer_retry_pre$
+DECLARE
+  v_md5      text;
+  v_len      int;
+  v_esperado constant text := 'f6147cebf9db2c72cd8ad0e446da301f';
+BEGIN
+  SELECT md5(p.prosrc), length(p.prosrc) INTO v_md5, v_len
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public'
+     AND p.proname = 'varrer_retry_notificacoes'
+     AND p.pronargs = 0;
+
+  IF v_md5 IS NULL THEN
+    RAISE EXCEPTION 'P45-09 BLOCO G: public.varrer_retry_notificacoes() nao existe no catalogo vivo — este arquivo a SUBSTITUI, e substituir algo que nao esta la significa que a premissa da P41/P42-07 mudou. Apply abortado.';
+  END IF;
+
+  IF v_md5 <> v_esperado THEN
+    RAISE EXCEPTION 'P45-09 BLOCO G: o corpo VIVO de varrer_retry_notificacoes tem md5 % (length %), e o esperado e % (length 2763). A funcao viva NAO e a que este arquivo transcreveu, entao o CREATE OR REPLACE abaixo APAGARIA a divergencia em silencio numa funcao que roda a cada 15 minutos em PROD. Apply abortado: diffar pg_get_functiondef, reconciliar a transcricao e so entao reaplicar.', v_md5, v_len;
+  END IF;
+
+  RAISE NOTICE 'P45-09 BLOCO G OK: corpo vivo confere (md5 %, length %) — a substituicao abaixo altera exatamente a clausula de exclusao', v_md5, v_len;
+END
+$verifica_varrer_retry_pre$;
 --
 -- NAO-REGRESSAO: `supabase/tests/p41_recon_retry_smoke.sql:185-220` afere este corpo
 -- por `pg_get_functiondef` e exige 7 substrings (`status IN`, `pendente`, `falhou`,
