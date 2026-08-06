@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 16
+open_count: 19
 waived_count: 0
 fixed_count: 0
-total_count: 16
-last_updated: 2026-08-05T23:44:28.940Z
+total_count: 19
+last_updated: 2026-08-06T05:00:05.540Z
 ---
 
 # Broken Windows Ledger
@@ -31,6 +31,9 @@ last_updated: 2026-08-05T23:44:28.940Z
 | 14 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts | 377 | DI-45-07-01: a EF chama as RPCs com service_role sem repassar o Authorization do titular; auth.uid() e NULL e o guard das RPCs ja aplicadas em PROD recusa com 42501 — nenhum pedido de exclusao seria registrado. Fecha no 45-10. | open |  | 2026-08-05T23:11:21.892Z |  |
 | 15 | 45 | unrun-verify | supabase/migrations/20260805000006_p45_anonimizar_candidato.sql |  | Os DO blocks de auto-verificacao das 3 migrations do 45-07 so EXECUTAM no apply, que e do 45-11 atras do portao destrutivo. Ate la a verificacao e estatica (forma), nao por execucao. | open |  | 2026-08-05T23:11:21.947Z |  |
 | 16 | 45 | deviation | src/features/privacidade/components/ConfirmarExclusaoDialog.tsx |  | 45-08: portao RED do TDD verificado por execucao, nao por commit isolado — o gate tsc (baseline 97) reprova um teste que importa modulo ainda inexistente, e --no-verify e proibido | open |  | 2026-08-05T23:44:28.940Z |  |
+| 17 | 45 | stub | src/features/vagas/hooks/useRetirarCandidatura.ts |  | O hook invoca a EF executar-direito-titular com acao 'retirar_candidatura', mas o vocabulario FECHADO dela e ACOES={pedir,cancelar} (index.ts:137). O caminho do candidato NAO funciona ate o 45-10 acrescentar a acao e repassar as claims do titular (DI-45-07-01). | open |  | 2026-08-06T05:00:05.428Z |  |
+| 18 | 45 | todo | src/features/triagem/services/triagemService.ts |  | Ponte de tipos (Pitfall 10) porque v_triagem_panel em database.types.ts ainda nao expoe encerrada_a_pedido_em. REMOVER apos o apply da migration 20260805000008 pelo 45-11 e npm run db:types. | open |  | 2026-08-06T05:00:05.483Z |  |
+| 19 | 45 | unrun-verify | supabase/migrations/20260805000007_p45_retirada_e_evento.sql |  | As duas migrations do plano foram AUTORADAS e nao aplicadas (por desenho: quem aplica e o 45-11). Os blocos DO de auto-verificacao, o gate de md5 do BLOCO G e o caminho ponta a ponta so sao exercitados no apply. | open |  | 2026-08-06T05:00:05.540Z |  |
 
 ````json
 [
@@ -224,6 +227,42 @@ last_updated: 2026-08-05T23:44:28.940Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-05T23:44:28.940Z",
+    "resolved_at": null
+  },
+  {
+    "id": 17,
+    "kind": "stub",
+    "phase": "45",
+    "file": "src/features/vagas/hooks/useRetirarCandidatura.ts",
+    "line": null,
+    "description": "O hook invoca a EF executar-direito-titular com acao 'retirar_candidatura', mas o vocabulario FECHADO dela e ACOES={pedir,cancelar} (index.ts:137). O caminho do candidato NAO funciona ate o 45-10 acrescentar a acao e repassar as claims do titular (DI-45-07-01).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T05:00:05.428Z",
+    "resolved_at": null
+  },
+  {
+    "id": 18,
+    "kind": "todo",
+    "phase": "45",
+    "file": "src/features/triagem/services/triagemService.ts",
+    "line": null,
+    "description": "Ponte de tipos (Pitfall 10) porque v_triagem_panel em database.types.ts ainda nao expoe encerrada_a_pedido_em. REMOVER apos o apply da migration 20260805000008 pelo 45-11 e npm run db:types.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T05:00:05.483Z",
+    "resolved_at": null
+  },
+  {
+    "id": 19,
+    "kind": "unrun-verify",
+    "phase": "45",
+    "file": "supabase/migrations/20260805000007_p45_retirada_e_evento.sql",
+    "line": null,
+    "description": "As duas migrations do plano foram AUTORADAS e nao aplicadas (por desenho: quem aplica e o 45-11). Os blocos DO de auto-verificacao, o gate de md5 do BLOCO G e o caminho ponta a ponta so sao exercitados no apply.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T05:00:05.540Z",
     "resolved_at": null
   }
 ]
