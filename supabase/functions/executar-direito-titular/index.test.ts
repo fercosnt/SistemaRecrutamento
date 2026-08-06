@@ -50,6 +50,12 @@ const CANDIDATO_ALHEIO = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb";
 const SOLICITACAO_ID = "cccccccc-3333-4333-8333-cccccccccccc";
 const EXECUTAR_EM = "2026-08-20T12:00:00.000Z";
 const CANCELADO_EM = "2026-08-06T09:30:00.000Z";
+/** A candidatura que o titular retira (45-12). */
+const CANDIDATURA_ID = "eeeeeeee-5555-4555-8555-eeeeeeeeeeee";
+/** A candidatura de OUTRA pessoa — o guard da RPC é quem recusa, não a EF. */
+const CANDIDATURA_ALHEIA = "ffffffff-6666-4666-8666-ffffffffffff";
+/** ⚠ `retirar_candidatura` devolve `timestamptz` ESCALAR, não `RETURNS TABLE`. */
+const ENCERRADA_EM = "2026-08-06T11:15:00.000Z";
 
 /** Uma cadeia PostgREST thenable+chainable que resolve sempre no mesmo `result`. */
 // deno-lint-ignore no-explicit-any
@@ -83,15 +89,56 @@ interface AdminOpts {
   rpc?: Record<string, { data: unknown; error: unknown }>;
 }
 
+/**
+ * ⚠ 45-12 — AS CHAMADAS DE RPC SÃO REGISTRADAS **POR CLIENT**, e a separação é a
+ * única evidência que existe do `DI-45-10-01`.
+ *
+ * `rpcCalls` guarda TODAS (é o que as 14 asserções do 45-03 leem, e elas não mudam);
+ * `rpcNoServico` guarda as que saíram do client SEM claims; `rpcNoTitular`, as que
+ * saíram do client COM o `Authorization` do titular. O corpo da resposta é IDÊNTICO
+ * nos dois casos — em PROD a diferença é `auth.uid()` NULL, `42501`, e um motor que
+ * não roda. Um teste de caminho feliz passa com o defeito presente.
+ */
 function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
   const cand = opts.cand === undefined ? { id: CANDIDATO_ID } : opts.cand;
   const pedido = opts.pedidoAberto === undefined
     ? { id: SOLICITACAO_ID, executar_em: EXECUTAR_EM }
     : opts.pedidoAberto;
   const rpcCalls: Array<{ nome: string; args: Record<string, unknown> }> = [];
+  const rpcNoServico: Array<{ nome: string; args: Record<string, unknown> }> = [];
+  const rpcNoTitular: Array<{ nome: string; args: Record<string, unknown> }> = [];
   const reads = { candidatos: 0, solicitacoes: 0 };
+
+  /** O comportamento da RPC, independente do client de onde ela saiu. */
+  const executarRpc = (nome: string) => {
+    const resposta = opts.rpc?.[nome];
+    if (resposta) return Promise.resolve(resposta);
+    if (nome === "registrar_pedido_exclusao") {
+      return Promise.resolve({
+        data: [{
+          solicitacao_id: SOLICITACAO_ID,
+          executar_em: EXECUTAR_EM,
+          candidaturas_encerradas: 2,
+        }],
+        error: null,
+      });
+    }
+    if (nome === "cancelar_pedido_exclusao") {
+      return Promise.resolve({
+        data: [{ solicitacao_id: SOLICITACAO_ID, cancelado_em: CANCELADO_EM }],
+        error: null,
+      });
+    }
+    if (nome === "retirar_candidatura") {
+      return Promise.resolve({ data: ENCERRADA_EM, error: null });
+    }
+    return Promise.resolve({ data: null, error: null });
+  };
+
   return {
     rpcCalls,
+    rpcNoServico,
+    rpcNoTitular,
     reads,
     from(tabela: string) {
       if (tabela === "candidatos") {
@@ -110,27 +157,50 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
       }
       return makeChainable({ data: null, error: null });
     },
-    rpc(nome: string, args: Record<string, unknown>) {
+    rpc(nome: string, args: Record<string, unknown> = {}) {
       rpcCalls.push({ nome, args });
-      const resposta = opts.rpc?.[nome];
-      if (resposta) return Promise.resolve(resposta);
-      if (nome === "registrar_pedido_exclusao") {
-        return Promise.resolve({
-          data: [{
-            solicitacao_id: SOLICITACAO_ID,
-            executar_em: EXECUTAR_EM,
-            candidaturas_encerradas: 2,
-          }],
-          error: null,
-        });
-      }
-      if (nome === "cancelar_pedido_exclusao") {
-        return Promise.resolve({
-          data: [{ solicitacao_id: SOLICITACAO_ID, cancelado_em: CANCELADO_EM }],
-          error: null,
-        });
-      }
-      return Promise.resolve({ data: null, error: null });
+      rpcNoServico.push({ nome, args });
+      return executarRpc(nome);
+    },
+    /** Ponte usada SÓ pelo mock do client do titular — nunca pelo handler. */
+    __rpcTitular(nome: string, args: Record<string, unknown> = {}) {
+      rpcCalls.push({ nome, args });
+      rpcNoTitular.push({ nome, args });
+      return executarRpc(nome);
+    },
+  };
+}
+
+/**
+ * O TERCEIRO CLIENT — service key no `apikey`, `Authorization` do titular, papel
+ * `authenticated` no PostgREST com `auth.uid()` resolvido.
+ *
+ * ⚠ ELE EXPÕE `rpc` E NADA MAIS. Tocar `auth`, `storage` ou qualquer tabela nele
+ * LANÇA, nomeando o caminho tocado — e essa é a metade que importa. O
+ * `Authorization` é o MESMO header para PostgREST, Storage e Auth Admin: mover uma
+ * chamada privilegiada para cá trocaria o papel dela para `authenticated`, e
+ * `deleteUser` (403) e `ler_resend_api_key` (REVOGADA de `authenticated` desde a
+ * P36) falhariam DEPOIS da mutação irreversível.
+ */
+function makeMockTitular(
+  admin: { __rpcTitular: (nome: string, args: Record<string, unknown>) => unknown },
+) {
+  const proibir = (caminho: string): never => {
+    throw new Error(
+      `CLIENT DO TITULAR TOCADO EM "${caminho}": esse caminho exige service_role e ` +
+        `passaria a rodar como authenticated — falharia DEPOIS da mutacao irreversivel`,
+    );
+  };
+  return {
+    rpc: (nome: string, args: Record<string, unknown> = {}) => admin.__rpcTitular(nome, args),
+    get auth(): never {
+      return proibir("auth.admin");
+    },
+    get storage(): never {
+      return proibir("storage");
+    },
+    get from(): never {
+      return proibir("from");
     },
   };
 }
@@ -160,6 +230,8 @@ async function loadHandler() {
       deps: {
         supabaseAdmin: unknown;
         supabaseUser: unknown;
+        // ⚠ 45-12: o TERCEIRO client, obrigatório. As quatro RPCs da fase saem dele.
+        supabaseTitular: unknown;
         fetchImpl?: typeof fetch;
         modo?: "producao" | "teste";
       },
@@ -182,6 +254,7 @@ Deno.test("(a) sessão inválida → 401 UNAUTHORIZED", async () => {
   const res = await handler(makeRequest({ acao: "pedir" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(null),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 401);
   assertEquals((await res.json()).error_code, "UNAUTHORIZED");
@@ -197,6 +270,7 @@ Deno.test("(b) sessão válida cujo uid não resolve candidato → 403 FORBIDDEN
   const res = await handler(makeRequest({ acao: "pedir" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 403);
   assertEquals((await res.json()).error_code, "FORBIDDEN");
@@ -210,6 +284,7 @@ Deno.test("(c) WR-04: erro de query ao resolver o titular → 500 SERVER_ERROR, 
   const res = await handler(makeRequest({ acao: "pedir" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   // A asserção NEGATIVA é a que importa: um erro transitório virando 403 seria uma
   // mentira sobre autorização, e ninguém investiga um 403.
@@ -230,6 +305,7 @@ Deno.test("(d) ação fora de ('pedir','cancelar','executar') → 400 VALIDATION
     const res = await handler(makeRequest({ acao }), {
       supabaseAdmin: admin,
       supabaseUser: makeMockSupabaseUser(TITULAR),
+      supabaseTitular: makeMockTitular(admin),
     });
     assertEquals(res.status, 400, `ação ${JSON.stringify(acao)} deveria ser 400`);
     assertEquals((await res.json()).error_code, "VALIDATION");
@@ -245,6 +321,7 @@ Deno.test("(e) acao='pedir' → 200 { ok, executar_em, candidaturas_encerradas }
   const res = await handler(makeRequest({ acao: "pedir" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 200);
   const json = await res.json();
@@ -275,6 +352,7 @@ Deno.test("(f) acao='pedir' com pedido já agendado → MESMA data e 0 encerrame
   const res = await handler(makeRequest({ acao: "pedir" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 200);
   const json = await res.json();
@@ -293,6 +371,7 @@ Deno.test("(g) acao='cancelar' sobre pedido agendado → 200 { ok, cancelado_em 
   const res = await handler(makeRequest({ acao: "cancelar" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 200);
   const json = await res.json();
@@ -313,6 +392,7 @@ Deno.test("(h) cancelar sem pedido agendado → 400 VALIDATION, nunca 500", asyn
   const res = await handler(makeRequest({ acao: "cancelar" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assert(res.status !== 500, "pedido não cancelável é fato do domínio, não falha de servidor");
   assertEquals(res.status, 400);
@@ -333,6 +413,7 @@ Deno.test("(h2) RPC recusa por 22023 (já executado/cancelado) → 400 VALIDATIO
   const res = await handler(makeRequest({ acao: "cancelar" }), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(TITULAR),
+    supabaseTitular: makeMockTitular(admin),
   });
   assert(res.status !== 500, "22023 é recusa de domínio, não falha de servidor");
   assertEquals(res.status, 400);
@@ -350,7 +431,11 @@ Deno.test("(i) T-32-03: candidato_id alheio no corpo é IGNORADO — opera sobre
   const admin = makeMockSupabaseAdmin({ pedidoAberto: null });
   const res = await handler(
     makeRequest({ acao: "pedir", candidato_id: CANDIDATO_ALHEIO, candidatoId: CANDIDATO_ALHEIO }),
-    { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(TITULAR) },
+    {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(TITULAR),
+      supabaseTitular: makeMockTitular(admin),
+    },
   );
   assertEquals(res.status, 200);
   assertEquals(admin.rpcCalls.length, 1);
@@ -382,7 +467,11 @@ Deno.test("(j) log REDIGIDO: nem id completo, nem e-mail, nem payload saem em co
     });
     const res = await handler(
       makeRequest({ acao: "pedir", email: "titular@exemplo.com", nome: "Fulano de Tal" }),
-      { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(TITULAR) },
+      {
+        supabaseAdmin: admin,
+        supabaseUser: makeMockSupabaseUser(TITULAR),
+        supabaseTitular: makeMockTitular(admin),
+      },
     );
     assertEquals(res.status, 500);
     const tudo = capturado.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ");
@@ -412,6 +501,7 @@ Deno.test("(k) preflight OPTIONS responde com CORS e sem tocar em nada", async (
   const res = await handler(makeRequest(null, "OPTIONS"), {
     supabaseAdmin: admin,
     supabaseUser: makeMockSupabaseUser(null),
+    supabaseTitular: makeMockTitular(admin),
   });
   assertEquals(res.status, 200);
   assert(res.headers.get("Access-Control-Allow-Origin") !== null);
@@ -557,6 +647,10 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
   /** Diário de bordo: toda operação observável, na ordem em que aconteceu. */
   const ordem: string[] = [];
   const rpcCalls: Array<{ nome: string; args: Record<string, unknown> }> = [];
+  /** ⚠ 45-12: as RPCs que saíram do client SEM as claims do titular. */
+  const rpcNoServico: Array<{ nome: string; args: Record<string, unknown> }> = [];
+  /** ⚠ 45-12: as que saíram do client COM o `Authorization` do titular. */
+  const rpcNoTitular: Array<{ nome: string; args: Record<string, unknown> }> = [];
   const listCalls: Array<{ prefixo: string; limit: number; offset: number }> = [];
   const removeCalls: string[][] = [];
   const deleteUserCalls: unknown[][] = [];
@@ -565,9 +659,35 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
   /** ⚠ D-45-12 / saída R1: se isto virar `true`, o recibo tocou o ledger. */
   let ledgerTocado = false;
 
+  /** O comportamento da RPC, independente do client de onde ela saiu. */
+  const executarRpc = (nome: string, args: Record<string, unknown>) => {
+    ordem.push(`rpc:${nome}`);
+    rpcCalls.push({ nome, args });
+    if (nome === "plano_exclusao_titular") {
+      return Promise.resolve(o.planoBanco ?? { data: planoDoBanco(), error: null });
+    }
+    if (nome === "anonimizar_candidato") {
+      return Promise.resolve(
+        o.anonimizar ?? {
+          data: { resultado: "anonimizado", candidato_id: CANDIDATO_ID },
+          error: null,
+        },
+      );
+    }
+    if (nome === "ler_resend_api_key") {
+      return Promise.resolve({
+        data: o.apiKey === undefined ? "re_chave_de_teste" : o.apiKey,
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: null, error: null });
+  };
+
   const admin = {
     ordem,
     rpcCalls,
+    rpcNoServico,
+    rpcNoTitular,
     listCalls,
     removeCalls,
     deleteUserCalls,
@@ -629,26 +749,13 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
       return makeChainable({ data: null, error: null });
     },
     rpc(nome: string, args: Record<string, unknown> = {}) {
-      ordem.push(`rpc:${nome}`);
-      rpcCalls.push({ nome, args });
-      if (nome === "plano_exclusao_titular") {
-        return Promise.resolve(o.planoBanco ?? { data: planoDoBanco(), error: null });
-      }
-      if (nome === "anonimizar_candidato") {
-        return Promise.resolve(
-          o.anonimizar ?? {
-            data: { resultado: "anonimizado", candidato_id: CANDIDATO_ID },
-            error: null,
-          },
-        );
-      }
-      if (nome === "ler_resend_api_key") {
-        return Promise.resolve({
-          data: o.apiKey === undefined ? "re_chave_de_teste" : o.apiKey,
-          error: null,
-        });
-      }
-      return Promise.resolve({ data: null, error: null });
+      rpcNoServico.push({ nome, args });
+      return executarRpc(nome, args);
+    },
+    /** Ponte usada SÓ pelo mock do client do titular — nunca pelo handler. */
+    __rpcTitular(nome: string, args: Record<string, unknown> = {}) {
+      rpcNoTitular.push({ nome, args });
+      return executarRpc(nome, args);
     },
     storage: {
       from(_bucket: string) {
@@ -705,6 +812,7 @@ function depsExecutar(o: ExecOpts = {}) {
     deps: {
       supabaseAdmin: admin,
       supabaseUser: makeMockSupabaseUser(TITULAR),
+      supabaseTitular: makeMockTitular(admin),
       fetchImpl: makeFetchMock(o, admin) as unknown as typeof fetch,
       modo: "producao" as const,
     },
@@ -1559,4 +1667,171 @@ Deno.test("(rr) em modo teste o envio é desviado para o sink — nunca ao ender
   const corpo = JSON.parse(String(admin.fetchCalls[0].init.body));
   assert(/@resend\.dev$/.test(String(corpo.to)), `envio de teste foi para ${corpo.to}`);
   assert(!String(corpo.to).includes(EMAIL_TITULAR));
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 45-12 · Task 1 — O TERCEIRO CLIENT (fecha a metade de ESCRITA do
+// `DI-45-10-01`)
+//
+// ── O DEFEITO QUE NENHUM PORTÃO ANTERIOR PODERIA PEGAR ───────────────────────
+// A Edge Function está certa sozinha. As RPCs estão certas sozinhas. O defeito vive
+// na JUNTA: o `supabaseAdmin` é construído com a service-role key e SEM repassar o
+// `Authorization` do titular, então o JWT que chega ao PostgREST não tem claim `sub`,
+// `auth.uid()` é NULL, e as cinco RPCs desta fase abrem recusando exatamente isso com
+// `42501`. Plan-checker, code review e `md5` byte-perfeito passaram; só o fluxo real
+// reprova.
+//
+// ── POR QUE UM TERCEIRO CLIENT, E NÃO O HEADER NO CLIENT QUE JÁ EXISTE ───────
+// O `Authorization` é o MESMO header para PostgREST, para a Storage API e para a
+// Auth Admin API. Acrescentá-lo ao client de serviço não "melhora as RPCs": troca o
+// papel de TODAS as chamadas dele para `authenticated` de uma vez. `deleteUser`
+// passa a 403, `ler_resend_api_key` está REVOGADA de `authenticated` desde a P36, e
+// os carimbos em `solicitacoes_dados` passam a depender de uma policy own-row que o
+// tombstone QUEBRA POR DESENHO (D-45-11) — os passos 3 e 4 falhariam DEPOIS da
+// mutação irreversível.
+//
+// ⚠ A METADE QUE IMPORTA É A NEGATIVA. Um caminho feliz é verde com o defeito
+// presente nos dois sentidos: com as claims faltando (hoje) e com elas vazando para
+// onde não deviam (o conserto feito errado).
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** As quatro RPCs que exigem `auth.uid()` resolvido dentro do banco. */
+const RPCS_DO_TITULAR = [
+  "registrar_pedido_exclusao",
+  "cancelar_pedido_exclusao",
+  "plano_exclusao_titular",
+  "anonimizar_candidato",
+];
+
+// ── (ss) as quatro RPCs saem do client do TITULAR, e zero do de serviço ──────
+Deno.test("(ss) 'pedir' e 'cancelar': a RPC sai do client do titular, nunca do de serviço", async () => {
+  const { handler } = await loadHandler();
+  for (const acao of ["pedir", "cancelar"]) {
+    const admin = makeMockSupabaseAdmin(acao === "pedir" ? { pedidoAberto: null } : {});
+    const res = await handler(makeRequest({ acao }), {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(TITULAR),
+      supabaseTitular: makeMockTitular(admin),
+    });
+    assertEquals(res.status, 200, `ação ${acao}`);
+    assertEquals(admin.rpcNoTitular.length, 1, `${acao}: a RPC tem de sair COM as claims`);
+    assertEquals(
+      admin.rpcNoServico.length,
+      0,
+      `${acao}: sem as claims auth.uid() e NULL e a RPC recusa com 42501 (DI-45-10-01)`,
+    );
+  }
+});
+
+Deno.test("(ss2) 'executar': plano_exclusao_titular e anonimizar_candidato saem do client do titular", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: CV_A }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  const noTitular = admin.rpcNoTitular.map((c) => c.nome);
+  const noServico = admin.rpcNoServico.map((c) => c.nome);
+  for (const nome of ["plano_exclusao_titular", "anonimizar_candidato"]) {
+    assert(noTitular.includes(nome), `${nome} tem de sair do client do titular`);
+    assert(!noServico.includes(nome), `${nome} sem claims recusa com 42501`);
+  }
+  // ⚠ E `ler_resend_api_key` fica onde estava: ela é REVOGADA de `authenticated`
+  // desde a P36 (`20260722000001:74`). Migrá-la de carona quebraria o passo 4 DEPOIS
+  // do hard delete, quando não existe mais conta a quem responder.
+  assert(noServico.includes("ler_resend_api_key"), "ler_resend_api_key exige service_role");
+  assert(!noTitular.includes("ler_resend_api_key"), "ler_resend_api_key nunca vai ao titular");
+});
+
+// ── (ss3) o caminho completo de `executar` segue verde com o client dividido ──
+Deno.test("(ss3) os quatro passos completam com o client dividido: carimbos, remove() e recibo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: CV_A }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assert(admin.linha.storage_concluido_em, "passo 1 carimbado");
+  assert(admin.linha.postgres_concluido_em, "passo 2 carimbado");
+  assert(admin.linha.auth_concluido_em, "passo 3 carimbado");
+  assert(admin.linha.recibo_enviado_em, "passo 4 carimbado");
+  assertEquals(admin.linha.situacao, "concluido");
+  assertEquals(admin.removeCalls.length, 1);
+  assertEquals(admin.deleteUserCalls.length, 1);
+  assertEquals(admin.fetchCalls.length, 1);
+});
+
+// ── (ss4) deleteUser, Storage e as tabelas NUNCA mudam de client ─────────────
+Deno.test("(ss4) deleteUser, Storage e toda leitura/escrita de tabela seguem no client de serviço", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: CV_A }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  // Se qualquer um desses caminhos tivesse sido movido para o client do titular, o
+  // mock teria LANÇADO e o handler responderia 500 — a asserção negativa mora no
+  // mock, não numa lista que alguém precisa lembrar de atualizar.
+  assertEquals(res.status, 200);
+  assertEquals(admin.deleteUserCalls.length, 1, "deleteUser exige service_role (Auth Admin)");
+  assert(admin.listCalls.length > 0, "a enumeração do bucket exige service_role");
+  assertEquals(admin.removeCalls.length, 1, "storage.remove exige service_role");
+  assert(admin.updates.length > 0, "os carimbos exigem service_role: a policy own-row quebra");
+});
+
+// ── (ss5) META-TESTE: o mock do titular REPROVA de verdade ───────────────────
+Deno.test("(ss5) o mock do client do titular LANÇA se auth, storage ou uma tabela for tocada nele", () => {
+  const admin = makeMockSupabaseAdmin();
+  const titular = makeMockTitular(admin);
+  // ⚠ Sem esta prova, a asserção negativa de (ss4) poderia estar VAZIA: um mock
+  // permissivo deixaria a migração indevida passar em verde. É a mesma lição do
+  // meta-teste irmão do CONSOL-04 — um predicado que não discrimina não é gate.
+  for (const caminho of ["auth", "storage", "from"] as const) {
+    let lancou = false;
+    try {
+      // deno-lint-ignore no-explicit-any
+      void (titular as any)[caminho];
+    } catch (e) {
+      lancou = true;
+      assert(
+        String((e as Error).message).includes(caminho === "auth" ? "auth.admin" : caminho),
+        `a mensagem tem de NOMEAR o caminho tocado, e nomeou: ${(e as Error).message}`,
+      );
+    }
+    assert(lancou, `o mock do titular aceitou ${caminho} — a asserção negativa estaria vazia`);
+  }
+  // E `rpc` continua funcionando: o mock proíbe o excedente, não a razão de existir.
+  assert(typeof titular.rpc === "function");
+});
+
+// ── (ss6) 42501 de qualquer das quatro continua virando 403 ──────────────────
+Deno.test("(ss6) 42501 vindo da RPC do titular → 403 FORBIDDEN, sem SQLSTATE atravessando", async () => {
+  const { handler } = await loadHandler();
+  for (const nome of ["registrar_pedido_exclusao", "cancelar_pedido_exclusao"]) {
+    const admin = makeMockSupabaseAdmin({
+      rpc: {
+        [nome]: {
+          data: null,
+          error: { code: "42501", message: "FORBIDDEN: chamador sem sessao ..." },
+        },
+      },
+    });
+    const res = await handler(
+      makeRequest({ acao: nome === "registrar_pedido_exclusao" ? "pedir" : "cancelar" }),
+      {
+        supabaseAdmin: admin,
+        supabaseUser: makeMockSupabaseUser(TITULAR),
+        supabaseTitular: makeMockTitular(admin),
+      },
+    );
+    assertEquals(res.status, 403, nome);
+    const json = await res.json();
+    assertEquals(json.error_code, "FORBIDDEN");
+    const cru = JSON.stringify(json);
+    assert(!cru.includes("42501"), "SQLSTATE não pode vazar para o titular");
+    assert(!cru.includes("chamador sem sessao"), "mensagem crua do banco não vaza");
+  }
+  assertEquals(RPCS_DO_TITULAR.length, 4, "são QUATRO as RPCs que precisam das claims");
 });
