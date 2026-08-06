@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 21
+open_count: 23
 waived_count: 0
 fixed_count: 0
-total_count: 21
-last_updated: 2026-08-06T15:22:17.081Z
+total_count: 23
+last_updated: 2026-08-06T17:15:24.086Z
 ---
 
 # Broken Windows Ledger
@@ -36,6 +36,8 @@ last_updated: 2026-08-06T15:22:17.081Z
 | 19 | 45 | unrun-verify | supabase/migrations/20260805000007_p45_retirada_e_evento.sql |  | As duas migrations do plano foram AUTORADAS e nao aplicadas (por desenho: quem aplica e o 45-11). Os blocos DO de auto-verificacao, o gate de md5 do BLOCO G e o caminho ponta a ponta so sao exercitados no apply. | open |  | 2026-08-06T05:00:05.540Z |  |
 | 20 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-01: as 4 chamadas de RPC usam supabaseAdmin sem repassar o Authorization do titular; auth.uid() e NULL e as RPCs recusam com 42501 — o motor nao roda ponta a ponta | open |  | 2026-08-06T15:22:17.025Z |  |
 | 21 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-02: ACOES nao conhece 'retirar_candidatura' e o hook do 45-09 invoca a EF com essa acao — 400 VALIDATION traduzido para SERVER_ERROR na tela | open |  | 2026-08-06T15:22:17.081Z |  |
+| 22 | 45 | deviation | supabase/tests/p45_motor_exclusao_smoke.sql |  | C1 exige que gerar_bias_snapshot nao conceda EXECUTE a authenticated, mas 20260805000003 o concede deliberadamente (chamador vivo: biasAuditService.ts:98) — DI-45-12-01, decisao do code review bloqueante do 45-11 | open |  | 2026-08-06T17:15:24.030Z |  |
+| 23 | 45 | deviation | src/features/vagas/components/RetirarCandidaturaAcao.tsx |  | copy generica para a recusa NAO_RETIRAVEL: o hook traduz, o componente nao ramifica — DI-45-12-02 | open |  | 2026-08-06T17:15:24.086Z |  |
 
 ````json
 [
@@ -289,6 +291,30 @@ last_updated: 2026-08-06T15:22:17.081Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-06T15:22:17.081Z",
+    "resolved_at": null
+  },
+  {
+    "id": 22,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "supabase/tests/p45_motor_exclusao_smoke.sql",
+    "line": null,
+    "description": "C1 exige que gerar_bias_snapshot nao conceda EXECUTE a authenticated, mas 20260805000003 o concede deliberadamente (chamador vivo: biasAuditService.ts:98) — DI-45-12-01, decisao do code review bloqueante do 45-11",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T17:15:24.030Z",
+    "resolved_at": null
+  },
+  {
+    "id": 23,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "src/features/vagas/components/RetirarCandidaturaAcao.tsx",
+    "line": null,
+    "description": "copy generica para a recusa NAO_RETIRAVEL: o hook traduz, o componente nao ramifica — DI-45-12-02",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T17:15:24.086Z",
     "resolved_at": null
   }
 ]

@@ -1171,23 +1171,63 @@ $bloco_b$;
 -- ═════════════════════════════════════════════════════════════════════════════
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (C1) ⊖ NEGATIVA — NENHUMA DAS 5 FUNCOES NOVAS E CHAMAVEL POR PAPEL DE CLIENTE.
+-- (C1) ACL DIFERENCIADA POR FUNCAO — `anon`/PUBLIC PROIBIDOS NAS CINCO, e
+--      `authenticated` EXIGIDO nas QUATRO alcancaveis pelo titular.
 --
---      Perguntado ao CATALOGO (`proacl`), nunca lendo o texto do `REVOKE`: ler o
---      arquivo provaria que a linha existe, nao que o privilegio sumiu.
+--      ⚠ REESCRITA PELO PLANO 45-12, E A PREMISSA MUDOU POR ESCRITO. A versao
+--      anterior reprovava QUALQUER `EXECUTE` para papel de cliente nas cinco. Isso
+--      deixou de ser verdade para quatro delas, e a razao e mecanica: a Edge Function
+--      `executar-direito-titular` passou a chamar as RPCs por um client com service
+--      key **e** o `Authorization` do titular, e o PostgREST deriva o PAPEL do MESMO
+--      JWT que carrega as claims — esse client chega como `authenticated`. Sem o
+--      `GRANT` correspondente (migration `20260805000009`), `auth.uid()` continua
+--      NULO dentro das RPCs, elas recusam com `42501`, e o motor nao roda
+--      (`DI-45-10-01`).
 --
---      E o privilegio NAO some sozinho. O `pg_default_acl` do schema `public`
---      concede EXECUTE a `anon` E a `authenticated` em todo `CREATE FUNCTION`, como
---      grants DIRETOS E NOMEADOS — entao `REVOKE ALL ... FROM PUBLIC`, o idioma de
---      quase toda migration deste repositorio, remove um grant de PUBLIC que nunca
---      existiu e deixa `anon=X` de pe. Medido: 61 funcoes DEFINER em `public` com
---      EXECUTE para `anon`, 39 chamaveis via PostgREST
---      (docs/compliance/anon-execute-definer-audit.md:11-18).
+--      **O CONTROLE NAO FOI REMOVIDO: ELE MUDOU DE CAMADA** — de ACL para o guard do
+--      corpo, e a assercao (C2) abaixo prova que ele morde. O precedente e a Phase
+--      44, cujas RPCs sao concedidas a `authenticated` com exatamente essa divisao.
 --
---      Estas cinco sao `SECURITY DEFINER` e DEFINER bypassa RLS. Duas delas apagam
---      PII de forma irreversivel. Uma delas nasce hoje com `authenticated` (a
---      `gerar_bias_snapshot` viva, 20260625100001:433) — por isso esta assercao sai
---      VERMELHA para ela ate o 45-05 reafirmar o REVOKE nominal.
+--      ⚠ A VERIFICACAO QUE AUTORIZA ESTA REESCRITA, e ela e verificavel sem apply
+--      nenhum: as DEZ recusas da (C2) sobrevivem **sem uma linha editada nela**. O
+--      `uuid` que a (C2) usa e sintetico e inexistente, entao o dono resolve NULL,
+--      `NULL IS DISTINCT FROM <uid>` e TRUE, e as cinco continuam recusando tanto o
+--      papel `candidato` quanto o chamador sem claim nenhuma. Se a (C2) precisasse de
+--      edicao, o guard estaria sendo AFROUXADO em vez de estendido — e isso e
+--      condicao de PARADA, nunca de ajuste da assercao.
+--
+--      ── A REESCRITA ENDURECE, E CADA METADE PEGA UM DEFEITO NOMEADO ────────────
+--       · `anon` e PUBLIC seguem PROIBIDOS nas cinco. Inalterado, e e a metade que o
+--         `pg_default_acl` deste schema torna necessaria: ele concede EXECUTE a
+--         `anon` como grant DIRETO E NOMEADO em todo `CREATE FUNCTION`, entao
+--         `REVOKE ALL ... FROM PUBLIC` remove um grant que nunca existiu e deixa
+--         `anon=X` de pe. Medido: 61 funcoes DEFINER em `public` com EXECUTE para
+--         `anon`, 39 chamaveis via PostgREST
+--         (docs/compliance/anon-execute-definer-audit.md:11-18).
+--       · Para as QUATRO alcancaveis pelo titular, `EXECUTE` a `authenticated` passa
+--         a ser **EXIGIDO**. Ausencia REPROVA. E o que impede a migration
+--         `20260805000009` de sumir em silencio — um `GRANT` esquecido voltaria a
+--         produzir `42501` em PROD, e essa e a falha que ninguem investiga porque
+--         PARECE autorizacao funcionando.
+--       · `gerar_bias_snapshot` segue proibida tambem a `authenticated`: ela NAO e
+--         alcancada por esta Edge Function, e afrouxa-la de carona seria exatamente o
+--         reflexo que esta fase existe para nao ter.
+--
+--      ⚠⚠ CONTRADICAO MEDIDA E **NAO RESOLVIDA POR ESTE PLANO** — LER ANTES DE
+--      TRATAR UM VERMELHO EM `gerar_bias_snapshot` COMO DEFEITO DE ACL:
+--      a migration `20260805000003` (plano 45-05) faz, DELIBERADAMENTE,
+--      `REVOKE ALL ... FROM PUBLIC, anon, authenticated` seguido de
+--      `GRANT EXECUTE ... TO authenticated`, e o bloco (6) do cabecalho dela declara
+--      a divergencia com a razao: o chamador VIVO e o cliente do navegador do
+--      administrador (`biasAuditService.ts:98`), que fala com o Postgres como
+--      `authenticated`. Revogar dali nao endureceria nada — apagaria a tela de
+--      auditoria de vies. Ou seja: esta metade da (C1) e o `20260805000003`
+--      afirmam coisas OPOSTAS, e as duas foram escritas por planos diferentes que
+--      nao se viram. **Isto e decisao de desenho, nao conserto mecanico**, e esta
+--      endereçada ao code review bloqueante do 45-11 (Task 1), que precede o primeiro
+--      apply destrutivo. O plano 45-12 escreveu a assercao como especificada e
+--      registrou a contradicao em vez de resolve-la sozinho: afrouxar uma assercao
+--      por conta propria e precisamente o reflexo que esta fase proibe.
 --
 --      PUBLIC e `grantee = 0` em `aclexplode` e NAO aparece num JOIN com `pg_roles`;
 --      por isso ele e checado separadamente.
@@ -1195,10 +1235,16 @@ $bloco_b$;
 RESET ROLE;
 DO $c1$
 DECLARE
-  r          record;
-  v_ofensor  text;
-  v_checadas int := 0;
-  v_faltando text;
+  r            record;
+  v_ofensor    text;
+  v_auth       boolean;
+  v_checadas   int := 0;
+  v_faltando   text;
+  v_exige_auth boolean;
+  -- As QUATRO que o titular alcanca pela Edge Function `executar-direito-titular`.
+  -- `gerar_bias_snapshot` NAO esta aqui: ela nao e chamada por ela.
+  v_do_titular text[] := ARRAY['registrar_pedido_exclusao', 'cancelar_pedido_exclusao',
+                               'plano_exclusao_titular', 'anonimizar_candidato'];
 BEGIN
   SELECT string_agg(t.nome, ', ') INTO v_faltando
     FROM (VALUES
@@ -1221,7 +1267,8 @@ BEGIN
                          'plano_exclusao_titular', 'anonimizar_candidato',
                          'gerar_bias_snapshot')
   LOOP
-    v_checadas := v_checadas + 1;
+    v_checadas   := v_checadas + 1;
+    v_exige_auth := r.proname = ANY (v_do_titular);
 
     IF NOT r.prosecdef THEN
       RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO e SECURITY DEFINER — sem DEFINER ela nao atravessa a RLS para fazer o que precisa, e o desenho inteiro do motor pressupoe que ela atravessa', r.proname;
@@ -1231,15 +1278,32 @@ BEGIN
       RAISE EXCEPTION 'P45M FAIL (C1): proacl NULO em public.%() — nenhum REVOKE explicito foi aplicado, logo o pg_default_acl deste schema (que concede EXECUTE a anon E a authenticated como grant DIRETO em todo CREATE FUNCTION) esta em vigor. Uma funcao que apaga PII de forma irreversivel acabou de nascer chamavel via PostgREST', r.proname;
     END IF;
 
+    -- (i) `anon` e PUBLIC: PROIBIDOS nas cinco, sem excecao.
     SELECT string_agg(coalesce(g.rolname, 'PUBLIC') || ':' || a.privilege_type, ', ')
       INTO v_ofensor
       FROM aclexplode(r.proacl) a
       LEFT JOIN pg_roles g ON g.oid = a.grantee
      WHERE a.privilege_type = 'EXECUTE'
-       AND (a.grantee = 0 OR g.rolname IN ('anon', 'authenticated'));
+       AND (a.grantee = 0 OR g.rolname = 'anon');
 
     IF v_ofensor IS NOT NULL THEN
-      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a papel de cliente (%) — o REVOKE precisa NOMEAR anon e authenticated, nao apenas PUBLIC, porque revogar de PUBLIC remove um grant que nunca existiu. proacl = %', r.proname, v_ofensor, r.proacl::text;
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a anon ou a PUBLIC (%) — o REVOKE precisa NOMEAR anon, nao apenas PUBLIC, porque revogar de PUBLIC remove um grant que nunca existiu. Duas destas funcoes apagam PII de forma irreversivel. proacl = %', r.proname, v_ofensor, r.proacl::text;
+    END IF;
+
+    -- (ii) `authenticated`: EXIGIDO nas quatro do titular, PROIBIDO nas demais.
+    SELECT EXISTS (
+      SELECT 1
+        FROM aclexplode(r.proacl) a
+        LEFT JOIN pg_roles g ON g.oid = a.grantee
+       WHERE a.privilege_type = 'EXECUTE' AND g.rolname = 'authenticated'
+    ) INTO v_auth;
+
+    IF v_exige_auth AND NOT v_auth THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO concede EXECUTE a authenticated, e ela e alcancada pelo titular. A Edge Function chama esta RPC por um client com service key E o Authorization do titular, e o PostgREST deriva o PAPEL do MESMO JWT: esse client chega como authenticated. Sem o GRANT da migration 20260805000009 o auth.uid() segue NULO dentro da funcao, ela recusa com 42501, e o motor NAO RODA (DI-45-10-01). Um GRANT esquecido e a falha que ninguem investiga porque PARECE autorizacao funcionando. proacl = %', r.proname, r.proacl::text;
+    END IF;
+
+    IF NOT v_exige_auth AND v_auth THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a authenticated e NAO e alcancada pela Edge Function desta fase — afrouxar o ACL dela de carona e o reflexo que esta fase existe para nao ter. ⚠ ANTES DE "CONSERTAR" ISTO: leia o comentario de cabecalho desta assercao. A migration 20260805000003 (plano 45-05) concede este privilegio DELIBERADAMENTE, porque o chamador vivo e a tela de auditoria de vies do administrador (biasAuditService.ts:98) — revogar apagaria a tela. As duas afirmacoes sao OPOSTAS e a decisao e do code review bloqueante do 45-11, nunca de um ajuste da assercao. proacl = %', r.proname, r.proacl::text;
     END IF;
   END LOOP;
 
@@ -1248,7 +1312,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C1): as 5 funcoes sao DEFINER e nenhuma concede EXECUTE a anon, authenticated ou PUBLIC';
+  RAISE NOTICE 'P45M PASS (C1): as 5 funcoes sao DEFINER; nenhuma concede EXECUTE a anon ou PUBLIC; as 4 alcancaveis pelo titular concedem a authenticated (o controle mudou de camada, do ACL para o guard do corpo, que a C2 prova que morde) e gerar_bias_snapshot nao concede';
 END
 $c1$;
 

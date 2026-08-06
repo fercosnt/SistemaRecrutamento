@@ -217,6 +217,8 @@ AS $anonimizar_candidato$
 DECLARE
   v_uid        uuid := auth.uid();
   v_role       text := (select auth.jwt() #>> '{app_metadata,role}');
+  -- O dono de `p_candidato_id`, lido ANTES do guard: a metade (b) precisa dele.
+  v_dono       uuid;
   v_plano      jsonb;
   v_user_id    uuid;
   v_email      text;
@@ -245,11 +247,30 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- (b) papel por `IS DISTINCT FROM`, NUNCA por `NOT IN`: com `v_role` NULL o
-  --     `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA ABERTO
-  --     exatamente para `anon` (defeito REAL medido na 42-06).
-  IF v_role IS DISTINCT FROM 'rh' AND v_role IS DISTINCT FROM 'administrador' THEN
-    RAISE EXCEPTION 'FORBIDDEN: apenas rh ou administrador executa a anonimizacao'
+  -- O DONO é lido ANTES da metade (b), porque a metade (b) precisa dele. É uma
+  -- leitura de UMA coluna, escopada ao id recebido, e nada é devolvido antes do guard.
+  SELECT c.user_id INTO v_dono
+    FROM public.candidatos c
+   WHERE c.id = p_candidato_id;
+
+  -- (b) TRÊS comparações, todas por `IS DISTINCT FROM` e NUNCA por `NOT IN`: com um
+  --     dos lados NULL o `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA
+  --     ABERTO exatamente para `anon` (defeito REAL medido na 42-06). Com o candidato
+  --     inexistente ou já severado o dono resolve NULL, `NULL IS DISTINCT FROM <uid>`
+  --     é TRUE, e a função recusa — falha FECHADA por construção, não por lembrança.
+  --
+  -- ⚠ O TITULAR ENTRA AQUI, E A RAZÃO É DATÁVEL. O 45-07 desenhou esta função como
+  --     função de OPERADOR (`rh`/`administrador`, `GRANT` só a `service_role`); o
+  --     45-10 — escrito depois — a cabeou dentro do caminho de execução **do próprio
+  --     titular**, cujo papel de aplicação é `candidato`. As duas metades estavam
+  --     certas isoladamente; a junta não. ⚠ A metade (a) NÃO é tocada: aceitar
+  --     `auth.uid() IS NULL` sob `service_role` é a saída **recusada** pelo
+  --     `DI-45-07-01` e pela decisão do operador de 2026-08-05, e deixaria uma função
+  --     que apaga PII irreversivelmente sem controle nenhum no corpo.
+  IF v_role IS DISTINCT FROM 'rh'
+     AND v_role IS DISTINCT FROM 'administrador'
+     AND v_dono IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'FORBIDDEN: a anonimizacao so pode ser executada por rh, por administrador ou pelo proprio titular daquele candidato'
       USING ERRCODE = '42501';
   END IF;
 
@@ -581,6 +602,11 @@ DECLARE
   v_snap_b   text;
   v_state    text;
   v_levantou boolean := false;
+  -- ⚠ 45-12 — o ramo de titularidade, nas duas direções.
+  v_st_dono  text;
+  v_lev_dono boolean := false;
+  v_st_alheio text;
+  v_lev_alheio boolean := false;
   v_ufs      text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                              'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 BEGIN
@@ -783,6 +809,47 @@ BEGIN
       RAISE EXCEPTION 'P45-TOMBSTONE: a linha de candidatos MUDOU sob p_dry_run := true. Sob dry-run, zero coluna muda';
     END IF;
 
+    -- ── (iv) O RAMO DE TITULARIDADE (45-12), NAS DUAS DIREÇÕES ──────────────
+    -- ⚠ As DUAS são obrigatórias. Sem o caso RECUSADO, o caso ACEITO não prova nada:
+    -- um guard que aceitasse todo mundo passaria no primeiro. E o ACEITO é medido por
+    -- CHEGAR AO `RAISE` DE DRY-RUN (`P45DR`) — que é o sinal de que o corpo EXECUTOU,
+    -- e não apenas de que a chamada não explodiu. Tudo sob `p_dry_run := true`: o
+    -- ramo de titularidade é sobre AUTORIZAÇÃO, e exercitá-lo não precisa (nem deve)
+    -- mutar uma segunda fixture.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_user_b::text,
+                        'app_metadata', json_build_object('role', 'candidato'))::text, true);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, true);
+      v_lev_dono := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev_dono := true;
+        v_st_dono  := SQLSTATE;
+    END;
+
+    IF NOT v_lev_dono OR v_st_dono IS DISTINCT FROM 'P45DR' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE: o PROPRIO TITULAR (papel candidato, dono de p_candidato_id) nao chegou ao RAISE de dry-run (levantou=%, sqlstate=%). Se veio 42501, a metade (b) do guard ainda EXCLUI o titular — e o 45-10 cabeou esta funcao dentro do caminho de execucao dele. O conserto e ESTENDER o guard, nunca afrouxar a metade (a)', v_lev_dono, coalesce(v_st_dono, '<nulo>');
+    END IF;
+
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', gen_random_uuid()::text,
+                        'app_metadata', json_build_object('role', 'candidato'))::text, true);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, true);
+      v_lev_alheio := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev_alheio := true;
+        v_st_alheio  := SQLSTATE;
+    END;
+
+    IF NOT v_lev_alheio OR v_st_alheio IS DISTINCT FROM '42501' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE: um candidato que NAO e o dono alcancou o corpo da anonimizacao de outra pessoa (levantou=%, sqlstate=%). O ramo de titularidade tem de ser por IS DISTINCT FROM e NUNCA por NOT IN: com um dos lados NULL o NOT IN avalia NULL, o IF nao e tomado, e o guard falha ABERTO justamente para o chamador mais suspeito (defeito REAL medido na 42-06). Nesta funcao um guard aberto apaga PII de forma irreversivel', v_lev_alheio, coalesce(v_st_alheio, '<nulo>');
+    END IF;
+
     PERFORM set_config('request.jwt.claims', '', true);
 
     -- Sinaliza sucesso E reverte a subtransacao inteira. Nada persiste.
@@ -793,7 +860,7 @@ BEGIN
       IF SQLERRM <> 'P45-TOMBSTONE-OK' THEN
         RAISE;
       END IF;
-      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma. A subtransacao foi revertida e NADA persistiu';
+      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. A subtransacao foi revertida e NADA persistiu';
   END;
 END
 $verifica_anonimizar_candidato$;
@@ -881,6 +948,21 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   '⚠ OBRIGACAO DO CHAMADOR: o guard le a CLAIM (auth.uid e app_metadata.role), nao o papel do '
   'banco. Um cliente service_role SEM Authorization de usuario tem auth.uid() NULO e recebe 42501 '
   '— passar as claims e obrigacao declarada da Edge Function do 45-10, e a assercao C2 do smoke a '
-  'exige das cinco funcoes da fase. GUARD NULL-SAFE por IS DISTINCT FROM e nunca por NOT IN, que '
-  'avalia NULL, nao toma o IF e falha ABERTO para anon. REVOKE ALL de PUBLIC, anon e authenticated '
-  'NOMINALMENTE, e o UNICO GRANT e para service_role.';
+  'exige das cinco funcoes da fase. '
+  'GUARD NULL-SAFE em duas metades: (a) recusa 42501 o chamador SEM CLAIM NENHUMA; (b) recusa quem '
+  'nao e rh, nao e administrador E nao e o dono de p_candidato_id. As TRES comparacoes da metade '
+  '(b) sao por IS DISTINCT FROM e nunca por NOT IN, que avalia NULL, nao toma o IF e falha ABERTO '
+  'para anon; com o candidato inexistente ou ja severado o dono resolve NULL, '
+  'NULL IS DISTINCT FROM <uid> e TRUE, e a funcao recusa. '
+  '⚠ POR QUE O TITULAR ESTA ENTRE OS CHAMADORES ACEITOS, E A RAZAO E DATAVEL (45-12): o plano '
+  '45-07 desenhou esta funcao como funcao de OPERADOR (rh/administrador, GRANT so a service_role) '
+  'e o plano 45-10 — escrito depois — a cabeou dentro do caminho de execucao DO PROPRIO TITULAR, '
+  'cujo papel de aplicacao e candidato. As duas metades estavam certas isoladamente; a junta nao '
+  'estava. O conserto ESTENDE a metade (b); a metade (a) NAO foi tocada, e aceitar '
+  'auth.uid() IS NULL sob service_role e a saida RECUSADA — deixaria uma funcao que apaga PII '
+  'irreversivelmente sem controle nenhum no corpo. '
+  'ACL: REVOKE ALL de PUBLIC e anon NOMINALMENTE. Alem do GRANT a service_role, a migration '
+  '20260805000009 (plano 45-12) concede EXECUTE a authenticated, porque o PostgREST deriva o PAPEL '
+  'do MESMO JWT que carrega as claims: o client da Edge Function que repassa o Authorization do '
+  'titular chega como authenticated. O precedente e a Phase 44 — o ACL abre a porta ao papel e o '
+  'guard do corpo decide quem passa.';

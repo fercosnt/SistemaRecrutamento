@@ -221,3 +221,74 @@ precisa de revisão — num arquivo cuja outra ação apaga PII irreversivelment
 
 **Fecha em:** o mesmo plano novo do `DI-45-10-01` (as duas mexem no mesmo arquivo e no mesmo
 redeploy) ou um plano de correção do 45-09.
+
+---
+
+## Do plano 45-12 (as claims do titular + a retirada)
+
+### DI-45-12-01 · ⚠ A asserção C1 do smoke e a migration `20260805000003` afirmam coisas OPOSTAS sobre `gerar_bias_snapshot`
+
+**Encontrado em:** 45-12, Task 3c (ao reescrever a C1).
+
+**O quê, medido nos dois arquivos:**
+
+| lado | o que afirma | onde |
+|---|---|---|
+| asserção **C1** do smoke | `gerar_bias_snapshot` **não pode** conceder `EXECUTE` a `authenticated` | `supabase/tests/p45_motor_exclusao_smoke.sql` (bloco `$c1$`) |
+| migration **`20260805000003`** (plano 45-05) | `REVOKE ALL … FROM PUBLIC, anon, authenticated;` seguido de **`GRANT EXECUTE … TO authenticated;`** | `20260805000003_p45_bias_k5.sql:500-501` |
+
+E a migration não é descuido: o **bloco (6)** do cabeçalho dela declara a divergência em
+relação à letra do plano 45-05 com a razão medida — *"o chamador vivo é o cliente do navegador
+em `src/features/admin/bias-audit/services/biasAuditService.ts:98`, que fala com o Postgres como
+`authenticated`. Revogar dali não endureceria nada — apagaria a tela de auditoria de viés do
+administrador."*
+
+O comentário vivo da própria C1 mostra a origem do descompasso: ela dizia sair *"VERMELHA para
+ela até o 45-05 reafirmar o REVOKE nominal"*. O 45-05 **escolheu não reafirmar**, com razão
+escrita, e ninguém reconciliou as duas peças.
+
+**Consequência se ninguém fechar:** a C1 reprova alto no 45-11 por um privilégio que é
+deliberado e necessário — um vermelho que parece defeito de ACL e não é. E o desfecho perigoso
+é o reflexo oposto: alguém "conserta" revogando o `authenticated` de `gerar_bias_snapshot` e
+apaga a tela de auditoria de viés, que é peça probatória de não-discriminação (RNF-07a).
+
+**Por que NÃO foi resolvido aqui:** o `45-12-PLAN.md` traz isto como **prohibition nominal**
+(*"MUST NOT conceder a `authenticated` sobre `gerar_bias_snapshot` — ela não é chamada por esta
+EF e a C1 continua proibindo"*) e como critério de aceitação literal. Reescrever a asserção para
+o contrário seria o executor afrouxando um gate por conta própria, que é precisamente o reflexo
+que esta fase proíbe por escrito. A asserção foi escrita **como especificada**, e a mensagem de
+falha dela **nomeia esta contradição** e manda ler este item antes de mexer no ACL.
+
+⚠ Nada foi afrouxado e nada foi aplicado: `20260805000009` **não concede** `EXECUTE` a
+`gerar_bias_snapshot`, e nenhuma migration foi aplicada por este plano.
+
+**Fecha em:** o **code review bloqueante do 45-11 (Task 1)**, que precede o primeiro apply
+destrutivo — é o controle humano que a decisão do operador de 2026-08-06 (*"Executar; revisar no
+portão"*) nomeia. As duas saídas honestas: (a) a C1 passa a EXIGIR `authenticated` também em
+`gerar_bias_snapshot`, registrando que o controle dela é o guard NULL-safe do corpo (o mesmo
+argumento das outras quatro); ou (b) `gerar_bias_snapshot` sai da lista da C1, porque ela não é
+função do motor de exclusão e nunca foi alcançada por esta Edge Function.
+
+---
+
+### DI-45-12-02 · `RetirarCandidaturaAcao` ainda renderiza copy genérica para a recusa de domínio
+
+**Encontrado em:** 45-12, Task 2 (ao fazer o hook ler o `motivo`).
+
+**O quê, medido no arquivo:** `useRetirarCandidatura.ts` passa a resolver a recusa de domínio
+para o código `NAO_RETIRAVEL` (antes ela virava `SERVER_ERROR`). Mas
+`src/features/vagas/components/RetirarCandidaturaAcao.tsx:229` renderiza
+`COPY_RETIRAR_CANDIDATURA.erro` — **uma única string** — em `retirar.isError`, sem ramificar por
+`error.code`. A distinção nova chega ao componente e para ali.
+
+**Consequência se ninguém fechar:** uma candidatura já decidida diz *"Não foi possível retirar
+sua candidatura. Tente novamente em instantes."* — que convida a repetir uma ação contra um
+estado que não muda mais. É melhor que `SERVER_ERROR` (a tradução chegou), e ainda não é a copy
+certa.
+
+**Por que NÃO foi feito aqui:** `RetirarCandidaturaAcao.tsx` **não está no `files_modified`** do
+45-12, e a copy nova é decisão de UI (a 45-UI-SPEC não a especifica). O plano trata o componente
+como `key_link`, não como arquivo a editar.
+
+**Fecha em:** um plano de UI da Phase 45/46 ou o `/gsd-ui-review`, acrescentando a copy do ramo
+`NAO_RETIRAVEL` ao lado da genérica.

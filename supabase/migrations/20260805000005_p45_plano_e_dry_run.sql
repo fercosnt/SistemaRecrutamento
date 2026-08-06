@@ -129,20 +129,36 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- (b) papel por `IS DISTINCT FROM`, NUNCA por `NOT IN`: com `v_role` NULL o
-  --     `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA ABERTO
-  --     exatamente para o chamador mais suspeito, que é `anon` (defeito REAL
-  --     medido na 42-06). A forma NULL-safe falha FECHADA por construção, não por
-  --     lembrança.
-  IF v_role IS DISTINCT FROM 'rh' AND v_role IS DISTINCT FROM 'administrador' THEN
-    RAISE EXCEPTION 'FORBIDDEN: apenas rh ou administrador le o plano de exclusao'
-      USING ERRCODE = '42501';
-  END IF;
-
+  -- A LEITURA VEM ANTES DA METADE (b) porque a metade (b) precisa do DONO. Ela é a
+  -- mesma leitura de sempre — não há uma segunda consulta — apenas movida para cima.
   SELECT true, c.user_id, (c.email LIKE 'anonimizado+%@invalido.local')
     INTO v_existe, v_user_id, v_anon
     FROM public.candidatos c
    WHERE c.id = p_candidato_id;
+
+  -- (b) TRÊS comparações, todas por `IS DISTINCT FROM` e NUNCA por `NOT IN`: com um
+  --     dos lados NULL o `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA
+  --     ABERTO exatamente para o chamador mais suspeito, que é `anon` (defeito REAL
+  --     medido na 42-06). A forma NULL-safe falha FECHADA por construção, não por
+  --     lembrança — e com `p_candidato_id` inexistente ou já severado o dono resolve
+  --     NULL, `NULL IS DISTINCT FROM <uid>` é TRUE, e a função recusa.
+  --
+  -- ⚠ O TITULAR ENTRA AQUI, E A RAZÃO É DATÁVEL. O plano 45-07 desenhou esta função
+  --     como função de OPERADOR (`rh`/`administrador`, `GRANT` só a `service_role`);
+  --     o 45-10 — escrito depois — a cabeou dentro do caminho de execução **do
+  --     próprio titular**, que é quem clica em "apagar meus dados" e cujo papel de
+  --     aplicação é `candidato`. As duas metades estavam certas isoladamente; a junta
+  --     não estava, e o desfecho era `42501` na metade (b) mesmo com as claims
+  --     chegando. O conserto é ESTENDER o guard para reconhecer o chamador que o
+  --     desenho de fato tem — nunca afrouxar a metade (a), que continua recusando
+  --     quem não tem sessão (`DI-45-07-01`, saída recusada; decisão do operador de
+  --     2026-08-05).
+  IF v_role IS DISTINCT FROM 'rh'
+     AND v_role IS DISTINCT FROM 'administrador'
+     AND v_user_id IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'FORBIDDEN: o plano de exclusao so pode ser lido por rh, por administrador ou pelo proprio titular daquele candidato'
+      USING ERRCODE = '42501';
+  END IF;
 
   -- Titular inexistente NÃO é erro: é um plano legítimo cujas contagens são todas
   -- zero. Levantar aqui obrigaria o chamador a distinguir "não achei" de "falhou",
@@ -289,9 +305,12 @@ DO $verifica_plano_exclusao_titular$
 DECLARE
   v_admin   uuid;
   v_cand    uuid;
+  v_dono    uuid;
   v_plano   jsonb;
   v_passo   text;
   v_faltando text := '';
+  v_lev     boolean := false;
+  v_state   text;
 BEGIN
   SELECT u.user_id INTO v_admin
     FROM public.usuarios_rh u
@@ -303,13 +322,16 @@ BEGIN
     RAISE EXCEPTION 'P45-PLANO: nenhum administrador vivo em usuarios_rh — o caminho FELIZ nao pode ser exercitado sem ator real, e verificar so a recusa foi EXATAMENTE o defeito que a 20260803000001 corrigiu';
   END IF;
 
-  SELECT c.id INTO v_cand
+  -- ⚠ O `user_id` NÃO-NULO é requisito, não conveniência: sem ele o caso do TITULAR
+  -- ACEITO (abaixo) não teria quem impersonar, e o bloco provaria só metade do guard.
+  SELECT c.id, c.user_id INTO v_cand, v_dono
     FROM public.candidatos c
+   WHERE c.user_id IS NOT NULL
    ORDER BY c.created_at
    LIMIT 1;
 
   IF v_cand IS NULL THEN
-    RAISE EXCEPTION 'P45-PLANO: nenhum candidato vivo — o plano nao teria sobre quem ser computado, e um jsonb de zeros passaria por VACUIDADE';
+    RAISE EXCEPTION 'P45-PLANO: nenhum candidato vivo COM user_id — o plano nao teria sobre quem ser computado (um jsonb de zeros passaria por VACUIDADE), e o ramo de titularidade do guard nao teria titular a exercitar';
   END IF;
 
   PERFORM set_config('request.jwt.claims',
@@ -348,7 +370,48 @@ BEGIN
     RAISE EXCEPTION 'P45-PLANO: storage_remove e auth_delete_user precisam vir marcados com fonte = fora_do_banco. A SONDA 2 mediu que storage.objects NAO tem FK para auth.users: nao ha como conta-los por SQL, e um zero seria lido como "nao ha curriculo a apagar"';
   END IF;
 
-  RAISE NOTICE 'P45-PLANO OK: plano_exclusao_titular COMPLETOU e devolveu uma chave para cada um dos 7 passos de PASSOS_MOTOR, com storage_remove e auth_delete_user marcados como fora_do_banco';
+  -- ───────────────────────────────────────────────────────────────────────────
+  -- (ii) O RAMO DE TITULARIDADE, NAS DUAS DIREÇÕES — e as duas são obrigatórias.
+  --      Sem o caso RECUSADO, o caso ACEITO não prova nada: um guard que aceitasse
+  --      todo mundo passaria no primeiro. A impersonação é por claims, no mesmo
+  --      idioma que o caso do `administrador` acima já usa — o guard LÊ a claim,
+  --      então é a claim que tem de ser exercitada.
+  -- ───────────────────────────────────────────────────────────────────────────
+
+  -- (ii.a) O DONO é ACEITO, mesmo com papel de aplicação `candidato`.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_dono::text,
+                      'app_metadata', json_build_object('role', 'candidato'))::text, true);
+
+  v_plano := public.plano_exclusao_titular(v_cand);
+
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  IF v_plano IS NULL THEN
+    RAISE EXCEPTION 'P45-PLANO: o proprio titular (papel candidato, dono do candidato) NAO obteve o plano. A metade (b) do guard precisa aceitar rh, administrador OU o dono de p_candidato_id: o 45-07 desenhou esta funcao como funcao de operador e o 45-10 a cabeou dentro do caminho de execucao do proprio titular';
+  END IF;
+
+  -- (ii.b) Um `candidato` que NAO e o dono continua RECUSADO com 42501.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', gen_random_uuid()::text,
+                      'app_metadata', json_build_object('role', 'candidato'))::text, true);
+
+  BEGIN
+    PERFORM public.plano_exclusao_titular(v_cand);
+    v_lev := false;
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_lev   := true;
+      v_state := SQLSTATE;
+  END;
+
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  IF NOT v_lev OR v_state IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P45-PLANO: um candidato que NAO e o dono leu o plano de outra pessoa (levantou=%, sqlstate=%). O ramo de titularidade tem de ser por IS DISTINCT FROM e NUNCA por NOT IN — com um dos lados NULL o NOT IN avalia NULL, o IF nao e tomado, e o guard falha ABERTO justamente para o chamador mais suspeito (defeito REAL medido na 42-06)', v_lev, coalesce(v_state, '<nulo>');
+  END IF;
+
+  RAISE NOTICE 'P45-PLANO OK: plano_exclusao_titular COMPLETOU e devolveu uma chave para cada um dos 7 passos de PASSOS_MOTOR, com storage_remove e auth_delete_user marcados como fora_do_banco; o proprio titular foi ACEITO e um candidato que nao e o dono foi RECUSADO com 42501';
 END
 $verifica_plano_exclusao_titular$;
 
@@ -385,12 +448,24 @@ COMMENT ON FUNCTION public.plano_exclusao_titular(uuid) IS
   'deleteUser foi DIFERENTE em duas contas reais (historico_candidatura.candidatura_id no titular '
   'puro, alcancado transitivamente; preferencias_notificacoes.created_by na conta hibrida '
   'candidato+RH). O motor trata 23503 como CLASSE, nunca como constraint nomeada. '
-  'GUARD NULL-SAFE em duas metades: recusa 42501 tanto o papel errado quanto o chamador SEM CLAIM '
-  'NENHUMA, por IS DISTINCT FROM e nunca por NOT IN (que avalia NULL, nao toma o IF, e falha '
-  'ABERTO para anon — defeito real medido na 42-06). DEFINER bypassa RLS, entao este guard e o '
-  'unico controle do corpo. REVOKE ALL de PUBLIC, anon e authenticated NOMINALMENTE (pg_default_acl '
-  'concede a anon como grant DIRETO, entao revogar so de PUBLIC nao remove nada), e o UNICO GRANT '
-  'e para service_role. '
+  'GUARD NULL-SAFE em duas metades: (a) recusa 42501 o chamador SEM CLAIM NENHUMA; (b) recusa quem '
+  'nao e rh, nao e administrador E nao e o dono de p_candidato_id. As TRES comparacoes da metade '
+  '(b) sao por IS DISTINCT FROM e nunca por NOT IN (que avalia NULL, nao toma o IF, e falha ABERTO '
+  'para anon — defeito real medido na 42-06); com o candidato inexistente ou ja severado o dono '
+  'resolve NULL, NULL IS DISTINCT FROM <uid> e TRUE, e a funcao recusa. DEFINER bypassa RLS, entao '
+  'este guard e o unico controle do corpo. '
+  '⚠ POR QUE O TITULAR ESTA ENTRE OS CHAMADORES ACEITOS, E A RAZAO E DATAVEL (45-12): o plano '
+  '45-07 desenhou esta funcao como funcao de OPERADOR (rh/administrador, GRANT so a service_role) '
+  'e o plano 45-10 — escrito depois — a cabeou dentro do caminho de execucao DO PROPRIO TITULAR, '
+  'que e quem clica em "apagar meus dados" e cujo papel de aplicacao e candidato. As duas metades '
+  'estavam certas isoladamente; a junta nao estava, e o desfecho era 42501 na metade (b) mesmo com '
+  'as claims chegando. O conserto ESTENDE o guard, nunca afrouxa a metade (a). '
   '⚠ OBRIGACAO DO CHAMADOR: o guard le a CLAIM, nao o papel do banco. Um cliente service_role sem '
   'Authorization de usuario tem auth.uid() NULO e recebe 42501 — passar as claims e obrigacao '
-  'declarada da Edge Function, e a assercao C2 do smoke a exige das cinco funcoes da fase.';
+  'declarada da Edge Function, e a assercao C2 do smoke a exige das cinco funcoes da fase. '
+  'ACL: REVOKE ALL de PUBLIC e anon NOMINALMENTE (pg_default_acl concede a anon como grant DIRETO, '
+  'entao revogar so de PUBLIC nao remove nada). Alem do GRANT a service_role, a migration '
+  '20260805000009 (plano 45-12) concede EXECUTE a authenticated: o PostgREST deriva o PAPEL do '
+  'MESMO JWT que carrega as claims, entao o client da Edge Function que repassa o Authorization do '
+  'titular chega como authenticated e nao como service_role. O precedente e a Phase 44 — ACL abre '
+  'a porta ao papel, o guard do corpo decide quem passa.';
