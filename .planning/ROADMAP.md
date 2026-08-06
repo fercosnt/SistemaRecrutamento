@@ -213,7 +213,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 45-10-PLAN.md — EF: os três passos destrutivos (`Storage → Postgres → Auth`) + recibo ao titular fora do ledger (D-45-12/R1)
+- [x] 45-10-PLAN.md — EF: os três passos destrutivos (`Storage → Postgres → Auth`) + recibo ao titular fora do ledger (D-45-12/R1)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -343,7 +343,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 8/11 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 9/11 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
 

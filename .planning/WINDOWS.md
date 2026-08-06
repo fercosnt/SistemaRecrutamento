@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 19
+open_count: 21
 waived_count: 0
 fixed_count: 0
-total_count: 19
-last_updated: 2026-08-06T05:00:05.540Z
+total_count: 21
+last_updated: 2026-08-06T15:22:17.081Z
 ---
 
 # Broken Windows Ledger
@@ -34,6 +34,8 @@ last_updated: 2026-08-06T05:00:05.540Z
 | 17 | 45 | stub | src/features/vagas/hooks/useRetirarCandidatura.ts |  | O hook invoca a EF executar-direito-titular com acao 'retirar_candidatura', mas o vocabulario FECHADO dela e ACOES={pedir,cancelar} (index.ts:137). O caminho do candidato NAO funciona ate o 45-10 acrescentar a acao e repassar as claims do titular (DI-45-07-01). | open |  | 2026-08-06T05:00:05.428Z |  |
 | 18 | 45 | todo | src/features/triagem/services/triagemService.ts |  | Ponte de tipos (Pitfall 10) porque v_triagem_panel em database.types.ts ainda nao expoe encerrada_a_pedido_em. REMOVER apos o apply da migration 20260805000008 pelo 45-11 e npm run db:types. | open |  | 2026-08-06T05:00:05.483Z |  |
 | 19 | 45 | unrun-verify | supabase/migrations/20260805000007_p45_retirada_e_evento.sql |  | As duas migrations do plano foram AUTORADAS e nao aplicadas (por desenho: quem aplica e o 45-11). Os blocos DO de auto-verificacao, o gate de md5 do BLOCO G e o caminho ponta a ponta so sao exercitados no apply. | open |  | 2026-08-06T05:00:05.540Z |  |
+| 20 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-01: as 4 chamadas de RPC usam supabaseAdmin sem repassar o Authorization do titular; auth.uid() e NULL e as RPCs recusam com 42501 — o motor nao roda ponta a ponta | open |  | 2026-08-06T15:22:17.025Z |  |
+| 21 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-02: ACOES nao conhece 'retirar_candidatura' e o hook do 45-09 invoca a EF com essa acao — 400 VALIDATION traduzido para SERVER_ERROR na tela | open |  | 2026-08-06T15:22:17.081Z |  |
 
 ````json
 [
@@ -263,6 +265,30 @@ last_updated: 2026-08-06T05:00:05.540Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-06T05:00:05.540Z",
+    "resolved_at": null
+  },
+  {
+    "id": 20,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "supabase/functions/executar-direito-titular/index.ts",
+    "line": null,
+    "description": "DI-45-10-01: as 4 chamadas de RPC usam supabaseAdmin sem repassar o Authorization do titular; auth.uid() e NULL e as RPCs recusam com 42501 — o motor nao roda ponta a ponta",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T15:22:17.025Z",
+    "resolved_at": null
+  },
+  {
+    "id": 21,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "supabase/functions/executar-direito-titular/index.ts",
+    "line": null,
+    "description": "DI-45-10-02: ACOES nao conhece 'retirar_candidatura' e o hook do 45-09 invoca a EF com essa acao — 400 VALIDATION traduzido para SERVER_ERROR na tela",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-06T15:22:17.081Z",
     "resolved_at": null
   }
 ]

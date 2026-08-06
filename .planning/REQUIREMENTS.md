@@ -100,14 +100,22 @@
 
 - [ ] **ERASE-01**: Snapshot do agregado de bias com faixa etária materializada no tombstone, executado **antes** de qualquer anonimização
 - [ ] **ERASE-02**: RPC `SECURITY DEFINER` de anonimização in-place (tombstone), uma transação para a metade Postgres — nunca hard-delete, nunca extensão `anon` (indisponível), nunca crypto-shredding
-- [ ] **ERASE-03**: EF `executar-direito-titular` executa na ordem **Storage → Postgres → Auth**, idempotente em cada passo
-- [ ] **ERASE-04**: Caminhos do Storage capturados no plano **antes** de qualquer mutação — uma falha parcial não pode perder os ponteiros permanentemente
+- [x] **ERASE-03**: EF `executar-direito-titular` executa na ordem **Storage → Postgres → Auth**, idempotente em cada passo
+- [x] **ERASE-04**: Caminhos do Storage capturados no plano **antes** de qualquer mutação — uma falha parcial não pode perder os ponteiros permanentemente
 - [ ] **ERASE-05**: "Retirar candidatura" (encerra o funil imediatamente) é distinto de "apagar meus dados" (enfileira e executa após o encerramento)
 - [ ] **ERASE-06**: Pedido de exclusão tem janela de arrependimento cancelável pelo candidato no painel
-- [ ] **ERASE-07**: Recibo honesto em duas colunas — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito
+- [x] **ERASE-07**: Recibo honesto em duas colunas — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito
 - [ ] **ERASE-08**: Trilha de auditoria intacta — as 3 FKs `NO ACTION` (`historico_candidatura`, `decisao_final`, `decisao_final_historico`) **nunca** relaxadas para CASCADE
-- [ ] **ERASE-09**: As 5 tabelas com FK `SET NULL` (`ai_call_logs`, `candidate_ai_decisions`, `logs_acesso`, `recruiter_alerts`, `autorizacoes`) tratadas explicitamente — sobrevivem a qualquer CASCADE deixando linhas órfãs
-- [ ] **ERASE-10**: Anonimização é irreversível de verdade — `user_id` apontando para linha viva do Auth é pseudonimização (Art. 12 §1º) e não desincumbe o titular
+- [x] **ERASE-09**: As 5 tabelas com FK `SET NULL` (`ai_call_logs`, `candidate_ai_decisions`, `logs_acesso`, `recruiter_alerts`, `autorizacoes`) tratadas explicitamente — sobrevivem a qualquer CASCADE deixando linhas órfãs
+- [x] **ERASE-10**: Anonimização é irreversível de verdade — `user_id` apontando para linha viva do Auth é pseudonimização (Art. 12 §1º) e não desincumbe o titular
+
+> ⚠ **Os cinco `[x]` acima (ERASE-03/04/07/09/10) significam CÓDIGO COMPLETO E PROVADO, não
+> "rodando em produção".** Marcados pelo plano **45-10** em 2026-08-06. As migrations do 45-07
+> que o motor chama **não foram aplicadas**, a Edge Function **não foi redeployada**, e o
+> `DI-45-07-01` (as claims do titular que não chegam às RPCs) impede o caminho real hoje. Aplicar,
+> deployar e exercitar ponta a ponta é o **45-11**, atrás do portão destrutivo e do code review
+> bloqueante. Ler estes cinco como "o titular já consegue apagar seus dados" seria exatamente a
+> superestimação que o ERASE-07 proíbe.
 
 ### Purga Automática (PURGA)
 
@@ -202,14 +210,14 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | EXPORT-06 | Phase 44 | Pending |
 | ERASE-01 | Phase 45 | Pending |
 | ERASE-02 | Phase 45 | Pending |
-| ERASE-03 | Phase 45 | Pending |
-| ERASE-04 | Phase 45 | Pending |
+| ERASE-03 | Phase 45 | Complete |
+| ERASE-04 | Phase 45 | Complete |
 | ERASE-05 | Phase 45 | Pending |
 | ERASE-06 | Phase 45 | Pending |
-| ERASE-07 | Phase 45 | Pending |
+| ERASE-07 | Phase 45 | Complete |
 | ERASE-08 | Phase 45 | Pending |
-| ERASE-09 | Phase 45 | Pending |
-| ERASE-10 | Phase 45 | Pending |
+| ERASE-09 | Phase 45 | Complete |
+| ERASE-10 | Phase 45 | Complete |
 | PURGA-01 | Phase 46 | Pending |
 | PURGA-02 | Phase 46 | Pending |
 | PURGA-03 | Phase 46 | Pending |

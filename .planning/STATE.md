@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
+current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
-status: ready-to-execute
-stopped_at: Completed 45-09-PLAN.md
-last_updated: "2026-08-06T05:02:07.568Z"
-last_activity: 2026-08-05
-last_activity_desc: 45 planejada (UI-SPEC 6/6 · research · patterns · validation · 11 PLANs)
+status: executing
+stopped_at: Completed 45-10-PLAN.md
+last_updated: "2026-08-06T15:22:03.758Z"
+last_activity: 2026-08-06
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 41
-  completed_plans: 38
+  completed_plans: 39
   percent: 50
-current_phase: 45
+last_activity_desc: 45-10 motor destrutivo escrito (4 passos, 49 asserções, zero deploy) — CONSOL-04 FECHOU, suíte 1689/1689
 ---
 
 # Project State
@@ -24,7 +24,7 @@ current_phase: 45
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 44 — Exportação & Acesso
+**Current focus:** Phase 45 — Motor de Exclusão & Anonimização
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -78,7 +78,7 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-Phase: **45 — WAVES 1–3 COMPLETAS. Restam 45-10 (motor destrutivo) e 45-11 (portão)** (2026-08-06)
+Phase: 45 (Motor de Exclusão & Anonimização) — EXECUTING
 
 | Plano | Estado |
 |---|---|
@@ -86,13 +86,53 @@ Phase: **45 — WAVES 1–3 COMPLETAS. Restam 45-10 (motor destrutivo) e 45-11 (
 | `45-03` tracer · `45-04` smoke RED · `45-05` bias k=5 | ✅ |
 | `45-06` T1 — **apply em PROD** | ✅ md5 byte-perfeito nas duas · EF deployada · tipos regenerados |
 | `45-07` metade Postgres · `45-08` front · `45-09` retirada+RH | ✅ **escritos, NÃO aplicados** |
+| `45-10` motor destrutivo (Storage+Postgres+Auth+recibo) | ✅ **escrito, NADA deployado** |
 | `45-06` T2 — prova no navegador | ⏸ **precisa de pessoa** |
-| `45-10` motor destrutivo · `45-11` portão | ○ |
+| `45-11` portão destrutivo | ○ |
 
-**Suíte 1688/1689** — a única falha é o portão CONSOL-04, vermelho **por desenho** até o motor
-existir. `tsc` 97 = baseline. Zero `--no-verify` em toda a fase.
+# ✅ SUÍTE 1689/1689 — O PORTÃO CONSOL-04 FECHOU (2026-08-06)
 
-### ⚠ O que o 45-10 tem de resolver ANTES de o motor poder rodar — são DUAS obrigações
+Ele ficou verde **sozinho**, sem uma linha editada nele: a promessa de exclusão na superfície do
+candidato deixou de ser órfã porque o motor passou a existir no disco. O meta-teste irmão
+disparou como desenhado e foi re-pinado com a conferência feita (`c92c047`); ganhou um item novo
+que prova que o predicado **discrimina** — medido contra uma EF que chama `deleteUser` sem tocar
+em Storage, que é o que prova que o `&&` é real. **Zero asserção afrouxada.**
+
+⚠ **O portão mede o DISCO, e é só isso que ele afirma.** Ele NÃO afirma que o motor roda: as
+migrations do 45-07 seguem não aplicadas, a EF não foi redeployada, e o `DI-45-07-01` impede o
+caminho real hoje.
+
+`tsc` 97 = baseline. **Zero `--no-verify` em toda a fase** (9 commits no 45-10).
+
+### ⚠ AS DUAS OBRIGAÇÕES ATRIBUÍDAS AO 45-10 **NÃO** FORAM RESOLVIDAS — e agora estão medidas
+
+**Atribuição errada, e ela é do STATE, não do executor:** o `45-10-PLAN.md` foi escrito **antes**
+de os dois defeitos serem descobertos, e **nenhuma das suas três tarefas os cobre**. Consertá-los
+exige sair do `files_modified` do plano — e um deles exige **migration nova**, que é exatamente o
+que o portão desta fase existe para não deixar entrar por tabela. Registrados em
+`deferred-items.md` como **`DI-45-10-01`** e **`DI-45-10-02`**, agora com as medições que
+faltavam:
+
+- **`DI-45-07-01` continua ABERTO, e a superfície CRESCEU.** O 45-10 acrescentou **duas** chamadas
+  de RPC pelo `supabaseAdmin` sem claims (`plano_exclusao_titular` `:695`, `anonimizar_candidato`
+  `:560`), somando **quatro**. Efeito hoje: `auth.uid()` NULL → `42501` → o passo 0 falha em
+  `rpc_plano` com `causa='falha_postgres'` e **zero mutação** (desfecho seguro, motor parado).
+  ⚠ O conserto é **indivisível em três**: o terceiro client na EF, a migration de
+  `GRANT EXECUTE ... TO authenticated`, e o redeploy.
+
+- **`retirar_candidatura` está MORTO NA CHEGADA, e o caminho foi medido.**
+  `useRetirarCandidatura.ts:46,77-79` invoca esta EF com `acao: 'retirar_candidatura'`; `ACOES` é
+  `{pedir, cancelar, executar}` (`index.ts:170`) → **400 `VALIDATION`** → o `traduzirErro` do hook
+  cai no `default` → o titular vê **`SERVER_ERROR`**. ⚠ O conserto esbarra no DESVIO 1 da EF
+  (*nenhum identificador vindo do corpo é lido*, classe T-32-03): o `candidatura_id` terá de ser
+  resolvido no servidor ou validado contra a titularidade, nunca confiado. É decisão de desenho.
+
+**Fecham em:** um plano novo (45-12 ou equivalente), com EF + migration + redeploy juntos. ⚠ **O
+45-11 não abre o portão sem isso** — o G1 exige exercitar o fluxo ponta a ponta, e ele não roda.
+
+---
+
+### O texto original da atribuição (mantido: as duas medições abaixo seguem válidas)
 
 **`DI-45-07-01` — o caminho ponta a ponta não funciona hoje.** A EF `executar-direito-titular`
 (deployada) chama as RPCs com `service_role` **sem repassar as claims do titular**: `auth.uid()` é
@@ -286,7 +326,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: **44-07 COM CÓDIGO COMPLETO, UAT AO VIVO PENDENTE** — o titular abre o
+Status: Phase complete — ready for verification
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -321,7 +361,7 @@ Status: **44-07 COM CÓDIGO COMPLETO, UAT AO VIVO PENDENTE** — o titular abre 
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-04 — 44-07 (o CV do titular — UAT ao vivo pendente)
+Last activity: 2026-08-06
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -465,6 +505,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P07 | 18 min | 3 tasks | 5 files |
 | Phase 45 P08 | 35 min | 3 tasks | 10 files |
 | Phase 45 P09 | 28 min | 3 tasks | 14 files |
+| Phase 45 P10 | 47min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -633,6 +674,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 45]: Supressao k=5 primaria + COMPLEMENTAR: existindo primaria, n_total sai do payload E a faixa de menor contagem entre as remanescentes tambem — uma equacao, duas incognitas. Suprimir so a celula nao suprime nada.
 - [Phase 45]: 45-08: invocarCancelarExclusao() nao recebe solicitacaoId — o cliente nao envia identificador nenhum no cancelamento — A EF medida recusa qualquer id vindo do corpo (index.ts:190-197): o titular sai de auth.uid() e o pedido sai de consulta escopada por ele. Mandar o id seria inerte e sugeriria que o cliente e a autoridade sobre qual pedido e cancelado (T-45-08-05).
 - [Phase 45]: 45-08: temCurriculo e temDecisaoRegistrada sao MEDIDOS por leitura own-row, nunca presumidos — O SC#5 proibe superestimar nas duas direcoes: presumir true prometeria apagar um curriculo inexistente, presumir false omitiria linha aplicavel. lerRecorteDoTitular mede os dois; falha de leitura resolve para false — o recibo nao afirma o que nao pode medir.
+- [Phase ?]: 45-10: a pré-condição do passo irreversível é relida do BANCO, nunca do espelho local que o próprio código escreveu
+- [Phase ?]: 45-10: o recibo NÃO entra em ledger de notificações (D-45-12/R1) e o plano jsonb é esvaziado no fecho — o caminho de Storage embute o auth.uid do titular
+- [Phase ?]: 45-10: o portão CONSOL-04 fechou (suíte 1689/1689) e mede o DISCO, não execução — nada foi aplicado nem deployado
 
 ### Pending Todos
 
@@ -681,6 +725,8 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
   **Duas lições que valem para as fases 45/46/47, e são o motivo de este registro existir:**
   (1) **O smoke 10/10 não pegou.** Sua única asserção sobre aquela função testava a *recusa sem claim* — o guard levanta na primeira linha e o `RETURN QUERY` nunca executava. Um smoke que só exercita o caminho de recusa não é cobertura do caminho feliz, e conta como verde do mesmo jeito.
   (2) **O rebaixamento de verificação se pagou na hora.** O `PRESENT_BEHAVIOR_UNVERIFIED` da 2ª passagem sobre o SC#4 foi o que forçou o operador a abrir a tela — e foi assim que o bug apareceu. Comprou o conserto, **não** uma guarda: a asserção `(k)` que impede o `42804` de voltar nasceu dentro de `p43_matriz_retencao_smoke.sql`, que a asserção `(c)` tornou inalcançável no mesmo dia (**W-1**, todo `43-smokes-com-baseline-congelada-viram-red`). A fase corrigiu o defeito e não corrigiu a condição que o produziu. O `::text` já é regra viva no repo — ver `44-02-SUMMARY.md:125`.
+
+- DI-45-10-01 e DI-45-10-02: as duas obrigações atribuídas ao 45-10 seguem ABERTAS (claims das RPCs + retirar_candidatura fora do vocabulário da EF). Exigem plano próprio com migration de GRANT e redeploy; o 45-11 não abre o portão sem elas.
 
 ## Deferred Verification
 
@@ -828,8 +874,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-06T05:02:07.553Z
-Stopped at: Completed 45-09-PLAN.md
+Last session: 2026-08-06T15:22:03.743Z
+Stopped at: Completed 45-10-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

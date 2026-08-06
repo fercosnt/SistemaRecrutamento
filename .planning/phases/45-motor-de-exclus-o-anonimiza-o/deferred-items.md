@@ -153,3 +153,71 @@ motor achou a linha). **Não** reimplementar um terceiro critério: seriam três
 mesma pessoa.
 
 **Fecha em:** **45-10**, no plano que monta o corpo do e-mail de recibo.
+
+---
+
+## Do plano 45-10 (o motor destrutivo)
+
+### DI-45-10-01 · ⚠ `DI-45-07-01` NÃO foi fechado pelo 45-10 — e o escopo do conserto é maior do que o registrado
+
+**Encontrado em:** 45-10, ao ler a EF para escrever os passos destrutivos.
+**Status do `DI-45-07-01`:** **CONTINUA ABERTO.** O `deferred-items.md` e o `STATE.md`
+atribuíam o fechamento ao 45-10; o `45-10-PLAN.md` **não tem tarefa que o cubra** — ele foi
+escrito antes de o defeito ser descoberto, e nenhuma das suas três tarefas o menciona.
+
+**O que foi MEDIDO aqui** (`executar-direito-titular/index.ts`, pós-45-10):
+
+| fato | medição |
+|---|---|
+| `supabaseAdmin` construído sem repassar `Authorization` | `index.ts:958` — só `auth: { autoRefreshToken:false, persistSession:false }` |
+| o repasse existe apenas no client anon | `index.ts:954-955` — `global.headers.Authorization` |
+| RPCs afetadas | **quatro**, todas com `supabaseAdmin`: `registrar_pedido_exclusao` (`:318`), `cancelar_pedido_exclusao` (`:378`), `plano_exclusao_titular` (`:695`), `anonimizar_candidato` (`:560`) |
+
+O 45-10 **acrescentou duas** chamadas à lista (`plano_exclusao_titular` e
+`anonimizar_candidato`), o que aumenta a superfície do defeito sem mudar sua natureza.
+Consequência prática, hoje: `auth.uid()` é NULL, as cinco RPCs da fase recusam com `42501`,
+e o passo 0 do motor falha em `rpc_plano` — com `causa='falha_postgres'` e **zero mutação**,
+que é o desfecho seguro, mas é um motor que não roda.
+
+**Por que NÃO foi consertado aqui, e a razão é de escopo declarado:** (a) está fora das três
+tarefas do plano; (b) o conserto correto exige **uma migration nova** — o PostgREST deriva o
+*role* do MESMO JWT, então um client com `SERVICE_KEY` + `Authorization` do titular chega como
+`authenticated`, e as cinco funções precisam de `GRANT EXECUTE ... TO authenticated` (o
+precedente da P44 é exatamente esse: guard no corpo como controle, `authenticated` no ACL); (c)
+migration nova está fora do `files_modified` do 45-10, e o portão desta fase é auditável
+justamente porque cada plano fica dentro dele.
+
+**Fecha em:** um plano novo (45-12 ou equivalente), com **três** entregas indivisíveis — o
+terceiro client na EF, a migration de `GRANT`, e o redeploy. ⚠ **O `45-11` não pode abrir o
+portão destrutivo sem isso:** o G1 exige exercitar o fluxo ponta a ponta, e ele não roda hoje.
+
+---
+
+### DI-45-10-02 · A retirada do 45-09 está morta na chegada: a EF não conhece `retirar_candidatura`
+
+**Encontrado em:** 45-10, ao acrescentar `'executar'` ao vocabulário fechado de `ACOES`.
+
+**O quê, medido nos dois arquivos:** `src/features/vagas/hooks/useRetirarCandidatura.ts:46`
+define `ACAO_RETIRAR = 'retirar_candidatura'` e `:77-79` invoca **esta** Edge Function com
+`{ acao: ACAO_RETIRAR, candidatura_id }`. O `ACOES` da EF é
+`new Set(["pedir", "cancelar", "executar"])` (`index.ts:170`) — `retirar_candidatura` **não
+está lá**. O caminho medido: a EF responde **400 `VALIDATION`** ("Ação não reconhecida"), e o
+`traduzirErro` do hook cai no `default` e mostra ao titular **`SERVER_ERROR`**.
+
+**Consequência se ninguém fechar:** o botão **Retirar minha candidatura** do 45-09 nunca
+funciona, e falha com a copy errada — um erro de servidor genérico onde não há erro de
+servidor nenhum.
+
+**⚠ O conserto tem uma aresta que o achado não pode esconder:** `retirar_candidatura` precisa
+de um `candidatura_id`, e o **DESVIO 1** desta EF é explícito — *"nenhum identificador vindo do
+corpo é lido em lugar nenhum desta função"*, porque aceitar identificador do cliente é a
+superfície **T-32-03** (deixar forjar de quem é o pedido é deixar forjar de quem são os dados).
+As duas saídas honestas: resolver a candidatura no servidor a partir de um critério que não
+seja um id do cliente, ou aceitar o id **e validá-lo contra a titularidade** antes de qualquer
+toque privilegiado — nunca confiá-lo. Não é conserto mecânico; é decisão de desenho.
+
+**Por que NÃO foi feito aqui:** fora das três tarefas do plano, e a decisão de desenho acima
+precisa de revisão — num arquivo cuja outra ação apaga PII irreversivelmente.
+
+**Fecha em:** o mesmo plano novo do `DI-45-10-01` (as duas mexem no mesmo arquivo e no mesmo
+redeploy) ou um plano de correção do 45-09.
