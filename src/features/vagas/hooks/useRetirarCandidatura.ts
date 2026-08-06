@@ -28,11 +28,14 @@
  * aviso de 4 segundos sobre a saída de um processo é a forma errada de dizer isso.
  * O desfecho aparece no próprio card, por escrito.
  *
- * ⚠ ESTADO CONHECIDO DO SERVIDOR (DI-45-07-01, endereçado ao 45-10): a EF chama as
- * RPCs com privilégio de servidor **sem repassar as claims do titular**, então
- * `auth.uid()` é NULL e as RPCs recusam com `42501`. O caminho ponta a ponta não
- * funciona até aquele plano fechar. Este hook é escrito contra o CONTRATO, e
- * nenhum guard foi afrouxado para "fazer funcionar".
+ * ── ESTADO DO SERVIDOR (DI-45-07-01 / DI-45-10-01) ──────────────────────────
+ * A EF chamava as RPCs com privilégio de servidor **sem repassar as claims do
+ * titular** — `auth.uid()` NULL, `42501`, caminho morto. A **Task 1 do plano 45-12**
+ * fecha isso com um terceiro client (service key + `Authorization` do titular) e a
+ * migration `20260805000009` de `GRANT EXECUTE ... TO authenticated`. ⚠ As duas
+ * entregas estão **no disco**; o redeploy da EF e o apply da migration são do 45-11.
+ * Nenhum guard foi afrouxado para "fazer funcionar": o guard continua sendo o
+ * controle, e passou a reconhecer o chamador que o desenho de fato tem.
  *
  * @module features/vagas/hooks/useRetirarCandidatura
  */
@@ -56,21 +59,35 @@ export class RetirarCandidaturaError extends Error {
 }
 
 /**
- * Traduz o vocabulário FECHADO de erro da EF, com fallback TOTAL.
- *
- * Um código desconhecido resolve para `SERVER_ERROR` — nunca vaza a mensagem crua do
- * transporte para o titular (Invariante 12: nada de SQLSTATE, código HTTP ou nome de
- * tabela na tela de quem só quer sair de uma vaga).
+ * O código de DOMÍNIO que a EF devolve quando a candidatura já foi decidida ou já foi
+ * removida. ⚠ Ele viaja no campo `motivo`, e **nunca** no `error_code`.
  */
-function traduzirErro(codigo: unknown): RetirarCandidaturaError {
-  switch (codigo) {
-    case 'FORBIDDEN':
-      return new RetirarCandidaturaError('forbidden', 'FORBIDDEN')
-    case 'CANDIDATURA_NAO_RETIRAVEL':
-      return new RetirarCandidaturaError('nao_retiravel', 'NAO_RETIRAVEL')
-    default:
-      return new RetirarCandidaturaError('server_error', 'SERVER_ERROR')
+export const MOTIVO_NAO_RETIRAVEL = 'CANDIDATURA_NAO_RETIRAVEL'
+
+/**
+ * Traduz a recusa da EF, com fallback TOTAL — e lê os DOIS campos, cada um pelo que
+ * ele de fato carrega.
+ *
+ * ⚠ **POR QUE O `motivo`, E NÃO SÓ O `error_code`** (terceiro defeito medido pelo
+ * 45-12). O `ErrorCode` da EF é vocabulário fechado de **TRANSPORTE**, com cinco
+ * valores: `UNAUTHORIZED`, `FORBIDDEN`, `VALIDATION`, `NOT_FOUND`, `SERVER_ERROR`.
+ * `CANDIDATURA_NAO_RETIRAVEL` não é nenhum deles — é código de **DOMÍNIO**, e domínio
+ * viaja no campo de motivo por Invariante 12. Casar só contra o campo de transporte
+ * fazia toda recusa legítima virar `SERVER_ERROR`: erro de servidor onde não há erro
+ * de servidor nenhum.
+ *
+ * O fallback permanece TOTAL: motivo desconhecido resolve para `SERVER_ERROR`, e nada
+ * de SQLSTATE, código HTTP ou nome de tabela alcança a tela de quem só quer sair de
+ * uma vaga.
+ */
+function traduzirErro(motivo: unknown, codigo?: unknown): RetirarCandidaturaError {
+  if (motivo === MOTIVO_NAO_RETIRAVEL) {
+    return new RetirarCandidaturaError('nao_retiravel', 'NAO_RETIRAVEL')
   }
+  if (codigo === 'FORBIDDEN') {
+    return new RetirarCandidaturaError('forbidden', 'FORBIDDEN')
+  }
+  return new RetirarCandidaturaError('server_error', 'SERVER_ERROR')
 }
 
 export async function invocarRetirarCandidatura(candidaturaId: string): Promise<void> {
@@ -83,8 +100,10 @@ export async function invocarRetirarCandidatura(candidaturaId: string): Promise<
   const contexto = (error as { context?: { json?: () => Promise<unknown> } } | null)?.context
   if (contexto?.json) {
     try {
-      const corpo = (await contexto.json()) as { error_code?: unknown }
-      if (corpo?.error_code) throw traduzirErro(corpo.error_code)
+      const corpo = (await contexto.json()) as { error_code?: unknown; motivo?: unknown }
+      // O `motivo` (domínio) é extraído ANTES do `error_code` (transporte) e tem
+      // precedência: é ele que distingue "candidatura já decidida" de falha real.
+      if (corpo?.error_code) throw traduzirErro(corpo.motivo, corpo.error_code)
     } catch (e) {
       if (e instanceof RetirarCandidaturaError) throw e
       /* corpo não-JSON: degrada para o caminho genérico, nunca lança o erro cru */

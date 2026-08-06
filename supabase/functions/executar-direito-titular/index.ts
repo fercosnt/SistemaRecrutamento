@@ -7,10 +7,15 @@
  * depois — três sistemas apagados.
  *
  * ⚠⚠ **ESTA FUNÇÃO APAGA, E O QUE ELA APAGA NÃO VOLTA.** O docblock anterior dizia
- * "nesta fase ela não apaga nada"; isso foi verdade até o 45-10 e deixou de ser. TRÊS
- * ações no vocabulário fechado:
+ * "nesta fase ela não apaga nada"; isso foi verdade até o 45-10 e deixou de ser.
+ * QUATRO ações no vocabulário fechado, e as quatro são DISTINTAS por desenho:
  *   · `pedir`    — registra o pedido e encerra as candidaturas em andamento (estado);
  *   · `cancelar` — interrompe a exclusão, e **não** reabre candidatura alguma (estado);
+ *   · `retirar_candidatura` — encerra UMA candidatura, agora, e **não apaga dado
+ *                  nenhum** (estado, ERASE-05). A fronteira com `pedir` é o D-45-06:
+ *                  retirar sai de um processo; apagar enfileira a destruição da conta.
+ *                  Uma ação que fizesse as duas coisas é a ambiguidade que nesta
+ *                  superfície vira ação irreversível;
  *   · `executar` — Storage, tombstone e `deleteUser`. **Irreversível**: o backup deste
  *                  projeto cobre 7 dias e **exclui Storage inteiramente**, e o PITR
  *                  está desligado (D-45-10). Um CV apagado por engano não volta por
@@ -34,8 +39,8 @@
  *
  *   | # | No molde                                  | Aqui                                                    |
  *   |---|-------------------------------------------|---------------------------------------------------------|
- *   | 1 | o corpo do request NÃO é lido             | o corpo É lido, mas SÓ para `acao` — todo identificador  |
- *   |   |                                           | que vier nele é IGNORADO (classe T-32-03)               |
+ *   | 1 | o corpo do request NÃO é lido             | o corpo É lido para `acao` e — SÓ na retirada — para um  |
+ *   |   |                                           | `candidatura_id` que SELECIONA e não AUTORIZA (T-32-03)  |
  *   | 2 | N leituras por allowlist + INSERT direto  | ZERO escrita direta: as duas mutações são RPC DEFINER,   |
  *   |   |                                           | onde o guard de titularidade é reafirmado no banco       |
  *   | 3 | `ErrorCode` inclui `COOLDOWN` (429)       | vocabulário de 5, sem cooldown — a proteção contra       |
@@ -222,12 +227,24 @@ export interface Deps {
 }
 
 /**
- * Vocabulário FECHADO de ação — TRÊS desde o 45-10.
+ * Vocabulário FECHADO de ação — QUATRO desde o 45-12.
  *
  * ⚠ `executar` é a única que destrói, e ela atravessa três sistemas SEM transação
- * compartilhada. As outras duas continuam sendo puro estado.
+ * compartilhada. As outras três continuam sendo puro estado.
+ *
+ * ⚠ E AS QUATRO PERMANECEM DISTINTAS, que é o `DI-45-10-02` fechado sem borrar a
+ * fronteira que o D-45-06 desenhou: `retirar_candidatura` encerra UMA candidatura na
+ * hora e **não apaga dado nenhum**; `pedir` enfileira, espera a janela e só então
+ * `executar` destrói. Uma ação que fizesse as duas coisas é exatamente a ambiguidade
+ * que nesta superfície vira ação irreversível.
  */
-const ACOES = new Set(["pedir", "cancelar", "executar"]);
+const ACOES = new Set(["pedir", "cancelar", "executar", "retirar_candidatura"]);
+
+/**
+ * Formato de UUID. É validação de FORMA, não de autorização — quem autoriza é o guard
+ * da RPC, dentro do banco.
+ */
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `situacao` do pedido que ainda pode ser cancelado. */
 const SITUACAO_AGENDADO = "agendado";
@@ -243,6 +260,13 @@ const TIPO_EXCLUSAO = "exclusao";
  * COMMENT de `cancelar_pedido_exclusao`.
  */
 const SQLSTATE_NAO_CANCELAVEL = "22023";
+/**
+ * O MESMO SQLSTATE `22023` que `retirar_candidatura` levanta para "esta candidatura
+ * não é retirável" — já decidida ou já removida (`20260805000007:212-215`). ⚠ São
+ * DOIS fatos de domínio diferentes com o mesmo SQLSTATE, e é por isso que a tradução
+ * é por AÇÃO: uma tradução única faria o titular ler a copy do outro caminho.
+ */
+const SQLSTATE_NAO_RETIRAVEL = "22023";
 /** SQLSTATE do guard das duas RPCs (`RAISE ... USING ERRCODE = '42501'`). */
 const SQLSTATE_FORBIDDEN = "42501";
 /**
@@ -253,6 +277,13 @@ const SQLSTATE_DRY_RUN = "P45DR";
 
 /** O código de domínio devolvido ao cliente quando não há o que cancelar. */
 const MOTIVO_NAO_CANCELAVEL = "PEDIDO_NAO_CANCELAVEL";
+/**
+ * A candidatura já foi decidida (aprovado/rejeitado) ou já foi removida — fato do
+ * DOMÍNIO, jamais falha de servidor. ⚠ Ele viaja no campo `motivo`, e NÃO no
+ * `error_code`: `ErrorCode` é vocabulário fechado de TRANSPORTE, com cinco valores, e
+ * nenhum deles descreve um fato do domínio (Invariante 12).
+ */
+const MOTIVO_NAO_RETIRAVEL = "CANDIDATURA_NAO_RETIRAVEL";
 /** A janela de arrependimento ainda não venceu — fato do DOMÍNIO, nunca falha. */
 const MOTIVO_JANELA_ABERTA = "JANELA_ABERTA";
 /** Não há pedido em estado executável para este titular. */
@@ -365,14 +396,28 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   //      ou um `solicitacao_id` aceitos do cliente seriam a superfície de Tampering
   //      T-32-03 — deixar forjar de quem é o pedido é deixar forjar de quem são os
   //      dados que serão destruídos.
+  //
+  //      ⚠ **A EMENDA DE UM ÚNICO CAMPO (45-12).** `candidatura_id` é lido do corpo, e
+  //      SÓ na ação `retirar_candidatura`. Ele **seleciona** qual das candidaturas do
+  //      titular, e **não autoriza** nada: quem autoriza é o guard da RPC
+  //      (`v_dono IS DISTINCT FROM v_uid` → `42501`), que compara o dono da linha com o
+  //      `auth.uid()` re-derivado do JWT DENTRO do banco. É defensável só porque o
+  //      terceiro client faz as claims chegarem lá — sem elas o guard recusaria todo
+  //      mundo e a autorização não existiria em lugar nenhum. Nenhum outro
+  //      identificador do corpo é lido em lugar nenhum desta função, e dizer isso
+  //      nominalmente é o que obriga a PRÓXIMA emenda a se justificar sozinha.
   let acao: unknown = null;
+  let candidaturaId: unknown = null;
   try {
     const corpo = await req.json();
-    acao = (corpo as { acao?: unknown } | null)?.acao ?? null;
+    const c = corpo as { acao?: unknown; candidatura_id?: unknown } | null;
+    acao = c?.acao ?? null;
+    candidaturaId = c?.candidatura_id ?? null;
   } catch {
     // Corpo ausente ou não-JSON cai no mesmo ramo de validação abaixo. Falha
     // FECHADA: um corpo ilegível nunca escolhe uma ação por omissão.
     acao = null;
+    candidaturaId = null;
   }
   if (typeof acao !== "string" || !ACOES.has(acao)) {
     return errorResponse("VALIDATION", "Ação não reconhecida.", 400);
@@ -416,6 +461,49 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
         authUid: user.id,
         emailTitular,
       });
+    }
+
+    // ── acao === "retirar_candidatura" (ERASE-05) ───────────────────────────
+    //    ⚠ ESTA AÇÃO NÃO APAGA NADA. Ela encerra UMA candidatura no funil, agora, e a
+    //    fronteira com `pedir` é o D-45-06. A EF não escreve NADA por conta própria
+    //    aqui: quem encerra é a RPC, e ela toca uma única coluna aditiva em
+    //    `candidaturas` (D-45-13) — nunca `etapa_atual`, nunca `deleted_at`, nunca
+    //    `historico_candidatura`, que tem um único escritor desde o M2/Phase 6.
+    //    Replicar qualquer parte disso aqui daria dois escritores àquela trilha.
+    if (acao === "retirar_candidatura") {
+      // Formato ANTES de qualquer toque privilegiado. Falha FECHADA: um corpo ilegível
+      // nunca escolhe uma candidatura por omissão.
+      if (typeof candidaturaId !== "string" || !RE_UUID.test(candidaturaId)) {
+        return errorResponse("VALIDATION", "Candidatura não reconhecida.", 400);
+      }
+
+      const { data, error } = await supabaseTitular.rpc("retirar_candidatura", {
+        p_candidatura_id: candidaturaId,
+      });
+      if (error) {
+        return respostaDeErroRpc(error, "retirar_candidatura", candidatoId, undefined, {
+          mensagem: "Esta candidatura não pode mais ser retirada.",
+          motivo: MOTIVO_NAO_RETIRAVEL,
+        });
+      }
+
+      // ⚠ A RPC devolve `timestamptz` **ESCALAR**, não `RETURNS TABLE`: o helper de
+      // primeira linha NÃO se aplica e o valor chega direto em `data`. Um valor que
+      // não seja string não-vazia é falha FECHADA — «não lançou» não é «completou»,
+      // que é a lição do 42804 da Phase 43, sobrevivente a um smoke 10/10 verde.
+      if (typeof data !== "string" || data === "") {
+        logErro("retirar_candidatura", "sem_data", candidatoId);
+        return errorResponse("SERVER_ERROR", "Não foi possível concluir seu pedido.", 500);
+      }
+
+      // A idempotência é da RPC, por ESTADO: um segundo toque devolve A MESMA data sem
+      // mutar nada. A EF não reimplementa idempotência nenhuma — adivinhar aqui moveria
+      // a autoridade do servidor para esta função.
+      return jsonResponse({
+        ok: true,
+        acao: "retirar_candidatura",
+        encerrada_em: data,
+      }, 200);
     }
 
     // ── acao === "cancelar" ─────────────────────────────────────────────────
@@ -952,17 +1040,23 @@ function respostaDeErroRpc(
   acao: string,
   candidatoId: string,
   pedidoId?: string,
+  /**
+   * A tradução de `22023` PARA ESTA AÇÃO. ⚠ O default é o do cancelamento porque foi
+   * o primeiro caminho a existir; `retirar_candidatura` passa o dela. O mesmo SQLSTATE
+   * carrega dois fatos de domínio diferentes, e uma tradução única faria o titular ler
+   * a copy do outro caminho.
+   */
+  dominio22023: { mensagem: string; motivo: string } = {
+    mensagem: "Este pedido não pode mais ser cancelado.",
+    motivo: MOTIVO_NAO_CANCELAVEL,
+  },
 ): Response {
   const sqlstate = (error as { code?: unknown } | null)?.code;
-  if (sqlstate === SQLSTATE_NAO_CANCELAVEL) {
-    // Já executado, já cancelado, ou janela vencida: fato do DOMÍNIO. **Nunca 500** —
-    // um 500 aqui mandaria o titular tentar de novo contra um relógio que já venceu.
-    return errorResponse(
-      "VALIDATION",
-      "Este pedido não pode mais ser cancelado.",
-      400,
-      MOTIVO_NAO_CANCELAVEL,
-    );
+  if (sqlstate === SQLSTATE_NAO_CANCELAVEL || sqlstate === SQLSTATE_NAO_RETIRAVEL) {
+    // Já executado, já cancelado, janela vencida ou candidatura já decidida: fato do
+    // DOMÍNIO. **Nunca 500** — um 500 aqui mandaria o titular tentar de novo contra um
+    // estado que não muda mais.
+    return errorResponse("VALIDATION", dominio22023.mensagem, 400, dominio22023.motivo);
   }
   if (sqlstate === SQLSTATE_FORBIDDEN) {
     // O guard da RPC recusou. Se chegamos aqui com o passo 2 verde, algo está
