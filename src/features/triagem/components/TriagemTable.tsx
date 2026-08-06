@@ -84,6 +84,12 @@ export interface TriagemTableRow {
   status: StatusCandidatura | string
   created_at: string
   analise: TriagemTableAnalise | null
+  /**
+   * Phase 45 / ERASE-05 — Invariante 9. Nao-nula quando o titular encerrou a
+   * candidatura a pedido. A linha NAO some da tabela: `deleted_at` continua NULL,
+   * e o estado e dito pela PALAVRA.
+   */
+  encerrada_a_pedido_em?: string | null
 }
 
 export interface TriagemTableProps {
@@ -301,6 +307,30 @@ export function TriagemTable({
                     <Badge className="border-white/20 bg-white/10 text-xs font-semibold text-white/80">
                       {ETAPA_M2_LABELS[row.etapa_atual as EtapaFunilM2] ?? row.etapa_atual}
                     </Badge>
+                    {/*
+                      Phase 45 / ERASE-05 — Invariante 9: o silencio tambem e
+                      proibido. O estado entra na celula de etapa JA EXISTENTE —
+                      sem contentor novo e sem coluna nova (E10-overflow).
+
+                      Tratamento NEUTRO (`border-white/20 bg-white/5 text-white/80`):
+                      NAO e alarme, porque ninguem errou. Ambar/vermelho aqui
+                      competiriam com os eixos de SLA que as Phases 42 e 44 ja
+                      codificam nesta mesma tela.
+
+                      NENHUMA acao e oferecida — nem reabrir, nem contatar, nem
+                      reverter. E NADA sobre a janela: a data da exclusao, a
+                      contagem regressiva e a existencia do pedido NAO aparecem. O
+                      recrutador precisa saber que o processo acabou; a politica de
+                      dados do titular nao e informacao de funil.
+
+                      A PALAVRA e o canal (Invariante 11): cor e posicao jamais
+                      sozinhas.
+                    */}
+                    {row.encerrada_a_pedido_em ? (
+                      <span className="mt-1 block whitespace-normal rounded-md border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80">
+                        Encerrada a pedido do candidato
+                      </span>
+                    ) : null}
                   </TableCell>
 
                   <TableCell>

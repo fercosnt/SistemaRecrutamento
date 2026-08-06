@@ -268,6 +268,14 @@ export async function listCandidaturas(
     // knockout criterion — only the neutral `feedback_rejeicao` is candidate-
     // facing), observacoes_rh, score_geral, analise_ia_* (RH/AI internals),
     // etapa_justificativa, created_by/updated_by.
+    //
+    // Phase 45 / ERASE-05: `encerrada_a_pedido_em` ENTRA na allowlist, e a inclusao
+    // e obrigatoria e nao cosmetica. A allowlist e FAIL-CLOSED ("new columns are
+    // excluded by default"), entao sem esta linha o card do dashboard nao saberia
+    // que a candidatura foi retirada — continuaria oferecendo a acao de retirar
+    // uma candidatura JA retirada, e o estado "Voce retirou sua candidatura em
+    // {data}" nunca renderizaria. A coluna e do proprio titular e ele acabou de
+    // escreve-la: nao ha nada de RH/IA nela.
     let query = supabase
       .from('candidaturas')
       .select(
@@ -297,6 +305,7 @@ export async function listCandidaturas(
         created_at,
         updated_at,
         deleted_at,
+        encerrada_a_pedido_em,
         vaga:vagas (
           id,
           titulo,

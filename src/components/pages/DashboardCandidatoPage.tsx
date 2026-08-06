@@ -12,6 +12,7 @@ import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '@/features/triagem/services/
 import { AgendamentoCandidatoCard } from '@/features/agendamento/components/AgendamentoCandidatoCard';
 import { useSlaEtapas, rotuloDeEspera } from '@/features/timeline/hooks';
 import { PrazoEstimadoLinha } from '@/features/timeline/components';
+import { RetirarCandidaturaAcao } from '@/features/vagas/components/RetirarCandidaturaAcao';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -387,6 +388,26 @@ export function DashboardCandidatoPage() {
                           </button>
                         </div>
                       )}
+
+                      {/* Phase 45 / ERASE-05 — "Retirar minha candidatura", SUBORDINADA
+                          ao CTA de funil acima. O componente encapsula o
+                          `stopPropagation` (o `onClick` deste GlassCard navega para a
+                          vaga, e sem isso um toque abriria o diálogo E navegaria por
+                          baixo dele). Ele decide sozinho entre a ação, o estado por
+                          escrito e nada — nenhuma responsabilidade nova entra neste
+                          `map`. Retirar NÃO apaga dados: apagar mora em
+                          /candidato/privacidade, outra tela (Invariante 1). */}
+                      <RetirarCandidaturaAcao
+                        candidaturaId={candidatura.id}
+                        tituloVaga={candidatura.vaga?.titulo}
+                        encerradaEm={candidatura.encerrada_a_pedido_em}
+                        emAndamento={
+                          etapa !== 'aprovado' &&
+                          etapa !== 'rejeitado' &&
+                          candidatura.status !== 'rejeitado' &&
+                          candidatura.status !== 'finalizado'
+                        }
+                      />
 
                       {/* Phase 17 / D-11 — in-app LGPD card. Shown only when a
                           final decision exists. CTA opens the LGPD Art. 20

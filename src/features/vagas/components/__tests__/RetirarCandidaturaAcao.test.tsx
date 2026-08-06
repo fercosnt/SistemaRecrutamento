@@ -135,7 +135,21 @@ describe('(c) BACKSTOP §Color — a assimetria é o mecanismo', () => {
     const confirmar = within(screen.getByRole('alertdialog')).getByRole('button', {
       name: COPY_RETIRAR_CANDIDATURA.confirmar,
     })
-    expect(confirmar.className).not.toMatch(/destructive/)
+
+    // ⚠ A ASSERÇÃO É SOBRE FUNDO E BORDA, NÃO SOBRE A SUBSTRING "destructive".
+    // A base de `buttonVariants()` (`src/components/ui/button.tsx:9`) carrega
+    // `aria-invalid:ring-destructive/20`, `dark:aria-invalid:ring-destructive/40` e
+    // `aria-invalid:border-destructive` — fallbacks de anel de foco que TODO botão
+    // do app herda desde o M1 e que só se aplicam sob `aria-invalid`. Um
+    // `/destructive/` cru reprovaria qualquer botão do projeto, inclusive os
+    // glass-brancos, e seria mais um "grep que reprova a própria spec".
+    //
+    // O sinal REAL de tratamento destrutivo é o que o irmão de 45-08 usa:
+    // `bg-destructive` + `border-destructive/40` (ConfirmarExclusaoDialog:256).
+    expect(confirmar.className).not.toMatch(/(^|\s)bg-destructive/)
+    expect(confirmar.className).not.toMatch(/(^|\s)border-destructive/)
+    // E carrega positivamente o glass-branco que a §Color exige.
+    expect(confirmar.className).toMatch(/bg-white\/20/)
   })
 
   it('(c2) os dois rótulos de saída são distintos e nenhum é o verbo genérico', () => {

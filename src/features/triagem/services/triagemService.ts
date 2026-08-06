@@ -81,6 +81,17 @@ export interface TriagemRow {
   curriculo_nome_original: string | null
   candidato: { id: string; nome_completo: string } | null
   analise: TriagemAnalise | null
+  /**
+   * Phase 45 / ERASE-05 — Invariante 9: o silencio tambem e proibido.
+   *
+   * Nao-nula quando o titular encerrou a candidatura a pedido (retirada avulsa ou
+   * encerramento disparado pelo pedido de exclusao — os dois escrevem esta MESMA
+   * coluna). E ADITIVA de proposito: `deleted_at` continua NULL, entao a linha
+   * segue visivel nas cinco leituras de RH que filtram por ele. Uma candidatura que
+   * hoje soma na etapa e amanha nao esta la e um recrutador agendando entrevista
+   * com quem saiu.
+   */
+  encerrada_a_pedido_em: string | null
 }
 
 /**
@@ -96,6 +107,54 @@ export interface TriagemPanelResponse {
     hasMore: boolean
   }
 }
+
+/**
+ * ⚠ PONTE DE TIPOS TEMPORÁRIA — Pitfall 10, o ÚNICO idioma autorizado no projeto.
+ *
+ * POR QUE ELA EXISTE, e por que remover a coluna do `select` seria a saída errada:
+ * `v_triagem_panel` em `database.types.ts` ainda NÃO expõe `encerrada_a_pedido_em`.
+ * A view só ganha a coluna quando a migration `20260805000008` for APLICADA (plano
+ * 45-11) e `npm run db:types` regenerar os tipos — e este plano AUTORA migrations,
+ * não as aplica. Sem a ponte, o `select` não compila contra o tipo VELHO da view.
+ *
+ * As três saídas erradas, e por que cada uma é pior:
+ *   · editar `database.types.ts` à mão → PROIBIDO (CLAUDE.md: arquivo gerado);
+ *   · tirar a coluna do `select` → reintroduz o silêncio que a Invariante 9 proíbe:
+ *     a candidatura encerrada volta a sumir da tela do RH sem uma palavra;
+ *   · `select('*')` → projeção curinga numa view que carrega PII, exatamente o que a
+ *     allowlist existe para impedir.
+ *
+ * A conversão é do OBJETO cliente, NUNCA a extração do método: extrair perde o `this`
+ * e derruba o `PostgrestClient` em runtime — defeito que os testes NÃO pegam, porque
+ * mockam o método inteiro. O nome da view continua LITERAL no tipo, então um erro de
+ * digitação nele ainda não compila, e a allowlist de colunas continua nomeada.
+ *
+ * ⚠ REMOVER ESTA PONTE assim que os tipos forem regenerados após o apply do 45-11.
+ * Ela é dívida com data de validade, não desenho.
+ */
+interface ResultadoTriagem {
+  data: unknown[] | null
+  error: { message: string } | null
+  count: number | null
+}
+
+interface ConsultaTriagem extends PromiseLike<ResultadoTriagem> {
+  select(colunas: string, opcoes?: { count?: 'exact' }): ConsultaTriagem
+  eq(coluna: string, valor: unknown): ConsultaTriagem
+  is(coluna: string, valor: null): ConsultaTriagem
+  ilike(coluna: string, valor: string): ConsultaTriagem
+  order(
+    coluna: string,
+    opcoes?: { ascending?: boolean; nullsFirst?: boolean },
+  ): ConsultaTriagem
+  range(de: number, ate: number): ConsultaTriagem
+}
+
+interface ClienteTriagem {
+  from(view: 'v_triagem_panel'): ConsultaTriagem
+}
+
+const clienteTriagem = supabase as unknown as ClienteTriagem
 
 /**
  * Lista candidaturas de uma vaga para o painel de triagem RH (TRIAGEM-02).
@@ -121,12 +180,13 @@ export async function listTriagemPanel(
   // interno → o sort por score nunca funcionava); com a view, `order('score_match')` ordena de
   // verdade e a paginação `.range()` server-side continua correta. O filtro por nome também vira
   // top-level (`candidato_nome`), dispensando o hack de INNER-embed.
-  let query = supabase
+  let query = clienteTriagem
     .from('v_triagem_panel')
     .select(
       `id, status, etapa_atual, created_at, curriculo_nome_original,
        candidato_id, candidato_nome,
-       score_match, pontos_fortes, gaps, flags, analise_status`,
+       score_match, pontos_fortes, gaps, flags, analise_status,
+       encerrada_a_pedido_em`,
       { count: 'exact' },
     )
     .eq('vaga_id', vagaId)
@@ -182,6 +242,7 @@ export async function listTriagemPanel(
       etapa_atual: r.etapa_atual as EtapaFunilM2,
       created_at: r.created_at as string,
       curriculo_nome_original: (r.curriculo_nome_original as string | null) ?? null,
+      encerrada_a_pedido_em: (r.encerrada_a_pedido_em as string | null) ?? null,
       candidato: r.candidato_id
         ? { id: r.candidato_id as string, nome_completo: (r.candidato_nome as string) ?? '' }
         : null,
