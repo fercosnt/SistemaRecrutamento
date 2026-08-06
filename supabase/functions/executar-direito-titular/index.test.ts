@@ -1835,3 +1835,181 @@ Deno.test("(ss6) 42501 vindo da RPC do titular → 403 FORBIDDEN, sem SQLSTATE a
   }
   assertEquals(RPCS_DO_TITULAR.length, 4, "são QUATRO as RPCs que precisam das claims");
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 45-12 · Task 2 — `retirar_candidatura`, a ação que faltava
+// (`DI-45-10-02`)
+//
+// ── AS QUATRO AÇÕES PERMANECEM DISTINTAS ────────────────────────────────────
+// Retirar UMA candidatura encerra o funil na hora e não apaga dado nenhum; apagar os
+// dados enfileira, espera a janela e executa. Uma ação que fizesse as duas coisas é
+// exatamente a ambiguidade que nesta superfície vira ação irreversível (D-45-06).
+//
+// ── ⚠ O `candidatura_id` SELECIONA, E NÃO AUTORIZA ──────────────────────────
+// É a ÚNICA emenda ao DESVIO 1 desta EF, e ela só é defensável porque a Task 1 fez as
+// claims chegarem: quem autoriza é o guard da RPC (`v_dono IS DISTINCT FROM v_uid` →
+// `42501`), comparando o dono da linha com o `auth.uid()` re-derivado do JWT DENTRO do
+// banco. Sem as claims o guard recusaria todo mundo, e a autorização não existiria em
+// lugar nenhum.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Um corpo de retirada, com o id que o card conhece. */
+function reqRetirar(over: Record<string, unknown> = {}): Request {
+  return makeRequest({
+    acao: "retirar_candidatura",
+    candidatura_id: CANDIDATURA_ID,
+    ...over,
+  });
+}
+
+function depsRetirar(rpc?: AdminOpts["rpc"]) {
+  const admin = makeMockSupabaseAdmin({ rpc });
+  return {
+    admin,
+    deps: {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(TITULAR),
+      supabaseTitular: makeMockTitular(admin),
+    },
+  };
+}
+
+// ── (tt) o vocabulário fechado passa a QUATRO ────────────────────────────────
+Deno.test("(tt) 'retirar_candidatura' é aceita; qualquer outro valor segue em 400 VALIDATION", async () => {
+  const { handler } = await loadHandler();
+  const aceita = depsRetirar();
+  const res = await handler(reqRetirar(), aceita.deps);
+  assertEquals(res.status, 200, "a quarta ação do vocabulário fechado");
+
+  for (const acao of ["retirar", "retirar_candidaturas", "apagar", "RETIRAR_CANDIDATURA"]) {
+    const { admin, deps } = depsRetirar();
+    const r = await handler(makeRequest({ acao, candidatura_id: CANDIDATURA_ID }), deps);
+    assertEquals(r.status, 400, `ação ${acao} deveria ser 400`);
+    assertEquals((await r.json()).error_code, "VALIDATION");
+    assertEquals(admin.rpcCalls.length, 0, "zero RPC antes da validação da ação");
+  }
+});
+
+// ── (uu) o formato do id é validado ANTES de qualquer toque privilegiado ─────
+Deno.test("(uu) candidatura_id ausente, não-string ou fora do formato UUID → 400 e zero RPC", async () => {
+  const { handler } = await loadHandler();
+  // ⚠ FALHA FECHADA: um corpo ilegível NUNCA escolhe uma candidatura por omissão.
+  for (const id of [undefined, null, "", 42, "nao-e-uuid", "aaaaaaaa-1111-4111-8111", {}]) {
+    const { admin, deps } = depsRetirar();
+    const res = await handler(
+      makeRequest({ acao: "retirar_candidatura", candidatura_id: id }),
+      deps,
+    );
+    assertEquals(res.status, 400, `candidatura_id=${JSON.stringify(id)} deveria ser 400`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(admin.rpcCalls.length, 0, "nenhuma RPC pode ser chamada com id ilegível");
+  }
+});
+
+// ── (vv) caminho feliz: a RPC sai do client do titular, com o id recebido ────
+Deno.test("(vv) retirada feliz → 200 com a data de encerramento, pela RPC do titular", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsRetirar();
+  const res = await handler(reqRetirar(), deps);
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.ok, true);
+  assertEquals(json.acao, "retirar_candidatura");
+  assertEquals(json.encerrada_em, ENCERRADA_EM);
+  // ⚠ Sem as claims, o guard da RPC (`v_dono IS DISTINCT FROM v_uid`) recusaria TODO
+  // chamador — e a autorização desta ação não existiria em lugar nenhum.
+  assertEquals(admin.rpcNoTitular.length, 1);
+  assertEquals(admin.rpcNoServico.length, 0);
+  assertEquals(admin.rpcNoTitular[0].nome, "retirar_candidatura");
+  assertEquals(admin.rpcNoTitular[0].args.p_candidatura_id, CANDIDATURA_ID);
+});
+
+// ── (ww) 22023 é fato do DOMÍNIO, e a copy é a da RETIRADA ───────────────────
+Deno.test("(ww) 22023 → 400 VALIDATION com motivo CANDIDATURA_NAO_RETIRAVEL, nunca 500", async () => {
+  const { handler } = await loadHandler();
+  const { deps } = depsRetirar({
+    retirar_candidatura: {
+      data: null,
+      error: {
+        code: "22023",
+        message: "CANDIDATURA_NAO_RETIRAVEL: so uma candidatura em andamento ...",
+      },
+    },
+  });
+  const res = await handler(reqRetirar(), deps);
+  // Candidatura já decidida é fato do domínio: um 500 aqui mandaria o titular tentar
+  // de novo contra um estado que não muda mais.
+  assert(res.status !== 500, "recusa de domínio não é falha de servidor");
+  assertEquals(res.status, 400);
+  const json = await res.json();
+  assertEquals(json.error_code, "VALIDATION");
+  // ⚠ O motivo é o do vocabulário da RETIRADA, não o do cancelamento: dois fatos
+  // diferentes com o mesmo SQLSTATE, e uma tradução única faria o titular ler a copy
+  // do outro caminho.
+  assertEquals(json.motivo, "CANDIDATURA_NAO_RETIRAVEL");
+  const cru = JSON.stringify(json);
+  assert(!cru.includes("22023"), "SQLSTATE não vaza");
+  assert(!cru.includes("so uma candidatura em andamento"), "mensagem crua do banco não vaza");
+});
+
+// ── (xx) 42501 é o id de outra pessoa, recusado NO BANCO ────────────────────
+Deno.test("(xx) 42501 → 403 FORBIDDEN: o id alheio é recusado no banco, não na tela", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsRetirar({
+    retirar_candidatura: {
+      data: null,
+      error: { code: "42501", message: "FORBIDDEN: a candidatura so pode ser retirada ..." },
+    },
+  });
+  const res = await handler(reqRetirar({ candidatura_id: CANDIDATURA_ALHEIA }), deps);
+  assertEquals(res.status, 403);
+  const json = await res.json();
+  assertEquals(json.error_code, "FORBIDDEN");
+  // ⚠ O id do corpo CHEGA à RPC — ele SELECIONA. Quem AUTORIZA é o guard do banco,
+  // comparando o dono da linha com o `auth.uid()` re-derivado do JWT.
+  assertEquals(admin.rpcNoTitular[0].args.p_candidatura_id, CANDIDATURA_ALHEIA);
+  assert(!JSON.stringify(json).includes("42501"), "SQLSTATE não vaza");
+});
+
+// ── (yy) «não lançou» não é «completou» ──────────────────────────────────────
+Deno.test("(yy) retorno que não é timestamp não-vazio → 500, e nada é afirmado como sucesso", async () => {
+  const { handler } = await loadHandler();
+  // ⚠ `retirar_candidatura` devolve `timestamptz` ESCALAR: o helper de primeira linha
+  // não se aplica, e o valor chega direto em `data`. A lição do 42804 da Phase 43,
+  // que sobreviveu a um smoke 10/10 verde.
+  for (const data of [null, "", undefined, 0, {}, []]) {
+    const { deps } = depsRetirar({ retirar_candidatura: { data, error: null } });
+    const res = await handler(reqRetirar(), deps);
+    assertEquals(res.status, 500, `retorno ${JSON.stringify(data)} deveria FECHAR`);
+    const json = await res.json();
+    assertEquals(json.ok, false);
+    assertEquals(json.encerrada_em, undefined, "nada pode ser afirmado como concluído");
+  }
+});
+
+// ── (zz) a idempotência é da RPC, e a EF não a reimplementa ──────────────────
+Deno.test("(zz) segundo toque no mesmo card devolve A MESMA data, com UMA chamada por toque", async () => {
+  const { handler } = await loadHandler();
+  const um = depsRetirar();
+  const primeiro = await (await handler(reqRetirar(), um.deps)).json();
+  const dois = depsRetirar();
+  const segundo = await (await handler(reqRetirar(), dois.deps)).json();
+  assertEquals(primeiro.encerrada_em, segundo.encerrada_em, "a data NÃO é empurrada para frente");
+  // UMA chamada por toque: a idempotência é por ESTADO dentro da RPC. Um ramo aqui
+  // que "adivinhasse" que já foi retirada moveria a autoridade do servidor para a EF.
+  assertEquals(um.admin.rpcNoTitular.length, 1);
+  assertEquals(dois.admin.rpcNoTitular.length, 1);
+});
+
+// ── (ab) a retirada NÃO escreve nada por conta própria ───────────────────────
+Deno.test("(ab) a retirada não toca tabela nenhuma na EF: quem encerra é a RPC", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsRetirar();
+  await handler(reqRetirar(), deps);
+  // ⚠ A RPC toca UMA coluna aditiva em `candidaturas` (D-45-13) — nunca `etapa_atual`,
+  // nunca `deleted_at`, nunca `historico_candidatura`, que tem UM único escritor desde
+  // o M2/Phase 6. Replicar qualquer parte disso aqui daria dois escritores àquela
+  // trilha, que é o que o D-45-13 recusou por escrito.
+  assertEquals(admin.reads.solicitacoes, 0, "a retirada não lê nem escreve solicitacoes_dados");
+  assertEquals(admin.reads.candidatos, 1, "a única leitura é a da autorização (passo 2)");
+});
