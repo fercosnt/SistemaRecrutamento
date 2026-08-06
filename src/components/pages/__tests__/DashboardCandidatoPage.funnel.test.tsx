@@ -62,6 +62,18 @@ vi.mock('@/features/timeline/hooks', () => ({
   rotuloDeEspera: () => null,
 }))
 
+// Phase 45 / ERASE-05 — o card passou a montar `RetirarCandidaturaAcao`, que consome
+// `useMutation`/`useQueryClient`. Mockado pelo MESMO motivo e no MESMO idioma do
+// TIMELINE-02 logo acima: manter este arquivo sem QueryClientProvider.
+//
+// ⚠ O mock é do HOOK, nunca do componente. Mockar `RetirarCandidaturaAcao` faria estes
+// testes pararem de notar se a montagem no card quebrasse — e a montagem é justamente
+// o que a Phase 45 acrescentou a este arquivo. Com o hook mockado, o componente real
+// continua renderizando dentro do card.
+vi.mock('@/features/vagas/hooks/useRetirarCandidatura', () => ({
+  useRetirarCandidatura: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+}))
+
 import { DashboardCandidatoPage } from '../DashboardCandidatoPage'
 
 function renderDashboard() {
