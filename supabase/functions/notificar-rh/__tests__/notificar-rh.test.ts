@@ -24,13 +24,20 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   APP_BASE_URL_PADRAO,
+  assuntoCandidaturaEncerradaAPedido,
   assuntoRevisaoSolicitada,
   construirCorpoResendRh,
+  corpoCandidaturaEncerradaAPedido,
   corpoRevisaoSolicitada,
+  EVENTO_LEDGER_RH_ENCERRAMENTO,
+  LABEL_SINK_RH_ENCERRAMENTO,
   logSeguroRh,
   montarDedupeKeyRh,
+  montarDedupeKeyRhEncerramento,
   montarUrlFila,
+  montarUrlListaVaga,
   refCurta,
+  TEMPLATE_LEDGER_RH_ENCERRAMENTO,
 } from "../helpers.ts";
 import { FROM, REPLY_TO } from "../../_shared/email-config.ts";
 
@@ -624,4 +631,295 @@ Deno.test("REVISAO-01 — candidatura/vaga ausente ⇒ skipped:dados_ausentes se
     assertEquals(supa.upserts.length, 0);
     assertEquals(fetchMock.calls.length, 0);
   }
+});
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 45 / Plan 45-09 — ERASE-05 · D-45-06
+ * O SEGUNDO evento desta EF: a candidatura encerrada a pedido do candidato.
+ *
+ * Nada acima desta linha foi alterado. O vocabulário fechado da EF passa de 1
+ * para 2 valores, e `_shared/email-config.ts` NÃO é tocado — o docblock daquele
+ * arquivo (`:40-51`) proíbe rótulo de RH na união `EventoNotificacao`.
+ *
+ * ⚠ UM SÓ EVENTO COBRE OS DOIS CAMINHOS (retirada avulsa e encerramento em lote
+ * disparado pelo pedido de exclusão), porque os dois escrevem a MESMA coluna
+ * `candidaturas.encerrada_a_pedido_em` e produzem o mesmo efeito no funil.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+const VAGA_ID = "vaga-x";
+const URL_LISTA = `${APP_BASE_URL_PADRAO}/rh/vagas/${VAGA_ID}/candidatos`;
+
+/**
+ * Fixture com TODOS os identificadores do titular DISPONÍVEIS NA ENTRADA.
+ *
+ * ⚠ A disponibilidade é o ponto: uma fixture sem esses valores provaria a
+ * ausência deles POR VACUIDADE. Aqui eles existem, são injetados por caminho
+ * lateral, e a asserção é que mesmo assim nenhum alcança o HTML.
+ */
+const PII = {
+  nome: "Fulano de Tal",
+  email: "candidato.real@gmail.com",
+  cpf: "123.456.789-00",
+  candidatoId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  candidaturaId: "11111111-2222-3333-4444-555555555555",
+  solicitacaoId: "99999999-8888-7777-6666-555555555555",
+} as const;
+
+// ─── 7) assunto do encerramento ─────────────────────────────────────────────
+
+Deno.test("ERASE-05 — assuntoCandidaturaEncerradaAPedido nomeia a VAGA e nenhum identificador de pessoa", () => {
+  const s = assuntoCandidaturaEncerradaAPedido(TITULO);
+  assert(s.length > 0, "assunto não pode ser vazio");
+  assert(s.includes(TITULO), `assunto deve citar a vaga: ${s}`);
+  // ⚠ DIVERGÊNCIA DELIBERADA DE MECANISMO em relação ao teste irmão do assunto
+  // vivo, que assere `!/candidat/i`. Esse mecanismo é IMPOSSÍVEL aqui: a copy
+  // aprovada da 45-UI-SPEC (§E-mail 2) é literalmente "Candidatura encerrada a
+  // pedido do candidato — {vaga}". A PROPRIEDADE preservada é a mesma e é a que
+  // importa — o assunto nomeia um CONCEITO, nunca uma PESSOA:
+  for (const [campo, valor] of Object.entries(PII)) {
+    assert(!s.includes(valor), `REGRESSÃO: assunto carrega '${campo}': ${s}`);
+  }
+});
+
+Deno.test("ERASE-05 — assuntoCandidaturaEncerradaAPedido neutraliza CR/LF (header injection)", () => {
+  // Réplica verbatim do teste vivo do assunto irmão: `tituloVaga` continua sendo
+  // texto digitado por humano no CRUD de vagas.
+  const s = assuntoCandidaturaEncerradaAPedido("Vaga X\r\nBcc: intruso@exemplo.com");
+  assert(!/[\r\n]/.test(s), `assunto com CR/LF permite injeção de header: ${s}`);
+});
+
+// ─── 8) corpo do encerramento: privacidade, motivo, XSS, link ───────────────
+
+Deno.test("Invariante 10 — corpoCandidaturaEncerradaAPedido NÃO carrega nome, e-mail nem identificador algum", () => {
+  const argsInjetados = {
+    tituloVaga: TITULO,
+    urlLista: URL_LISTA,
+    // todos disponíveis na entrada — a asserção NÃO passa por vacuidade
+    nomeCandidato: PII.nome,
+    email: PII.email,
+    cpf: PII.cpf,
+    candidato_id: PII.candidatoId,
+    candidatura_id: PII.candidaturaId,
+    solicitacao_id: PII.solicitacaoId,
+  } as unknown as Parameters<typeof corpoCandidaturaEncerradaAPedido>[0];
+
+  const html = corpoCandidaturaEncerradaAPedido(argsInjetados);
+  for (const [campo, valor] of Object.entries(PII)) {
+    assert(
+      !html.includes(valor),
+      `REGRESSÃO Invariante 10 / T-42-24: '${campo}' no corpo do e-mail ao RH — ` +
+        "em modo `teste` o corpo INTEIRO viaja para resend.dev, domínio de terceiro",
+    );
+  }
+});
+
+Deno.test("Invariante 10 — o corpo NÃO diz o MOTIVO específico do encerramento", () => {
+  const html = corpoCandidaturaEncerradaAPedido({ tituloVaga: TITULO, urlLista: URL_LISTA });
+  // "por que" uma pessoa exerceu um direito é dado SOBRE ela. O corpo diz que a
+  // candidatura foi encerrada a pedido; nunca que houve pedido de exclusão.
+  assert(
+    !/exclus|apagar|excluir|deletar/i.test(html),
+    "REGRESSÃO Invariante 10: o corpo revela o motivo específico do encerramento",
+  );
+});
+
+Deno.test("ERASE-05 — o corpo nomeia a vaga e leva para a lista de candidatos DAQUELA vaga", () => {
+  const html = corpoCandidaturaEncerradaAPedido({ tituloVaga: TITULO, urlLista: URL_LISTA });
+  assert(html.includes(TITULO), "o corpo deve citar o título da vaga");
+  assert(html.includes(URL_LISTA), `o corpo deve levar para ${URL_LISTA}`);
+  assert(html.startsWith("<!doctype html>"), "deve usar layoutBase do projeto");
+  // O aviso existe para que ninguém agende ou avalie uma candidatura encerrada.
+  assert(/nada a responder/i.test(html), "o corpo deve dizer que não há nada a atender");
+});
+
+Deno.test("ERASE-05 — corpoCandidaturaEncerradaAPedido escapa HTML no título da vaga (XSS)", () => {
+  const html = corpoCandidaturaEncerradaAPedido({
+    tituloVaga: '<script>alert("x")</script>',
+    urlLista: URL_LISTA,
+  });
+  assert(html.includes("&lt;script&gt;"), "o título deve sair escapado");
+  assert(!html.includes("<script>"), "REGRESSÃO XSS: tag <script> crua no corpo");
+});
+
+// ─── 9) dedupe_key do encerramento: POR DESTINATÁRIO ────────────────────────
+
+Deno.test("D-45-06 — montarDedupeKeyRhEncerramento: '{candidatura}:{evento}:{user}'", () => {
+  assertEquals(
+    montarDedupeKeyRhEncerramento("cand-1", "user-9"),
+    `cand-1:${EVENTO_LEDGER_RH_ENCERRAMENTO}:user-9`,
+  );
+});
+
+Deno.test("D-45-06 — NÃO-COLISÃO: dois user_id distintos ⇒ chaves distintas para a MESMA candidatura", () => {
+  const a = montarDedupeKeyRhEncerramento("cand-1", "admin-aaa");
+  const b = montarDedupeKeyRhEncerramento("cand-1", "recrutador-bbb");
+  assert(
+    a !== b,
+    "chave por candidatura (e não por destinatário) faria o 1º RH consumir o claim " +
+      "e todos os demais receberem skipped:duplicate em silêncio (medido no 42-07)",
+  );
+  assert(a.endsWith("admin-aaa"), `a chave deve terminar no user_id: ${a}`);
+  assert(b.endsWith("recrutador-bbb"), `a chave deve terminar no user_id: ${b}`);
+});
+
+Deno.test("D-45-08 — a chave do encerramento NUNCA colide com a do evento irmão", () => {
+  assert(
+    montarDedupeKeyRhEncerramento("cand-1", "u-1") !== montarDedupeKeyRh("cand-1", "u-1"),
+    "os dois eventos da EF partilham o ledger: chaves iguais fariam o segundo sumir",
+  );
+});
+
+// ─── 10) URL da lista de candidatos da vaga ─────────────────────────────────
+
+Deno.test("ERASE-05 — montarUrlListaVaga: default canônico e barra final normalizada", () => {
+  assertEquals(montarUrlListaVaga(VAGA_ID), URL_LISTA);
+  assertEquals(
+    montarUrlListaVaga(VAGA_ID, "https://recruta.beautysmile.com.br/"),
+    URL_LISTA,
+  );
+});
+
+Deno.test("ERASE-05 — montarUrlListaVaga rejeita base malformada e cai no default", () => {
+  // Mesma doutrina fail-safe de `montarUrlFila`: uma env malformada não pode
+  // produzir link hostil (`javascript:`) nem quebrado num e-mail interno.
+  for (const ruim of ["", "   ", "javascript:alert(1)", "http://inseguro.example", "nao-e-url"]) {
+    assertEquals(montarUrlListaVaga(VAGA_ID, ruim), URL_LISTA, `base '${ruim}' deveria cair no default`);
+  }
+});
+
+// ─── 11) handler: o vocabulário da EF passa de 1 para 2 ─────────────────────
+
+const CANDIDATURA_ENC = { candidato_id: "cand-x", vaga_id: VAGA_ID };
+
+Deno.test("D-45-08 — o handler ACEITA o evento novo e grava ledger com evento/template do encerramento", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_ENC,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, ADMIN_2, RECRUTADOR],
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rh_enc" });
+  const res = await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: EVENTO_LEDGER_RH_ENCERRAMENTO, candidatura_id: "cand-1" }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), { ok: true, destinatarios: 3, enviados: 3, duplicados: 0, falhas: 0 });
+
+  assertEquals(supa.upserts.length, 3);
+  const chaves = supa.upserts.map((u) => String(u.row.dedupe_key));
+  assertEquals(new Set(chaves).size, 3, "chaves colidiram — 2 RH perderiam o aviso");
+  for (const [i, d] of [ADMIN_1, ADMIN_2, RECRUTADOR].entries()) {
+    assertEquals(chaves[i], `cand-1:${EVENTO_LEDGER_RH_ENCERRAMENTO}:${d.user_id}`);
+    assertEquals(supa.upserts[i].onConflict, "dedupe_key");
+    assertEquals(supa.upserts[i].row.evento, EVENTO_LEDGER_RH_ENCERRAMENTO);
+    assertEquals(supa.upserts[i].row.template, TEMPLATE_LEDGER_RH_ENCERRAMENTO);
+    assertEquals(supa.upserts[i].row.status, "pendente");
+    // sink de teste PRÓPRIO deste evento, e o original preservado (auditoria)
+    assertEquals(
+      supa.upserts[i].row.destinatario_email,
+      `delivered+${LABEL_SINK_RH_ENCERRAMENTO}@resend.dev`,
+    );
+    assertEquals(supa.upserts[i].row.destinatario_original, d.email);
+  }
+  // Idempotency-Key = a própria dedupe_key, como no evento irmão
+  assertEquals(
+    fetchMock.calls.map((c) => (c.init?.headers as Record<string, string>)["Idempotency-Key"]),
+    chaves,
+  );
+});
+
+Deno.test("D-45-08 — o e-mail do evento novo carrega o assunto e o corpo do ENCERRAMENTO", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_ENC,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: EVENTO_LEDGER_RH_ENCERRAMENTO, candidatura_id: "cand-1" }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(fetchMock.calls.length, 1);
+  const enviado = JSON.parse(String(fetchMock.calls[0].init?.body));
+  assertEquals(enviado.subject, assuntoCandidaturaEncerradaAPedido(VAGA_FIX.titulo));
+  assert(
+    enviado.html.includes(`/rh/vagas/${VAGA_ID}/candidatos`),
+    "o corpo deve levar para a lista de candidatos DAQUELA vaga",
+  );
+  assert(
+    !/revisão de decisão|revisao de decisao/i.test(enviado.html),
+    "REGRESSÃO: o corpo do evento irmão vazou para o evento novo",
+  );
+});
+
+Deno.test("D-45-08 — o evento IRMÃO continua intacto (não-regressão do REVISAO-01)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    })
+  );
+  const enviado = JSON.parse(String(fetchMock.calls[0].init?.body));
+  assertEquals(enviado.subject, assuntoRevisaoSolicitada(VAGA_FIX.titulo));
+  assert(enviado.html.includes("/rh/revisoes"), "o evento irmão continua indo para a fila");
+  assertEquals(supa.upserts[0].row.dedupe_key, `cand-1:revisao_solicitada:${ADMIN_1.user_id}`);
+  assertEquals(
+    supa.upserts[0].row.destinatario_email,
+    "delivered+revisao_solicitada_rh@resend.dev",
+  );
+});
+
+Deno.test("D-45-08 — o vocabulário continua FECHADO em 2 valores: qualquer outro → 400", async () => {
+  const { handler } = await loadHandler();
+  // `revisao_respondida` e `divulgacao_vagas` existem no CHECK do ledger mas NÃO
+  // pertencem a esta EF — vocabulário do banco maior que o da EF é o precedente
+  // registrado no COMMENT de `classe_evento_notificacao`.
+  for (const ev of ["confirmacao", "revisao_respondida", "divulgacao_vagas", "candidatura_encerrada", ""]) {
+    const supa = makeMockSupabase({ candidaturaRow: CANDIDATURA_ENC, vagaRow: VAGA_FIX, roster: [ADMIN_1] });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(makeRequest({ evento: ev, candidatura_id: "cand-1" }, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    });
+    assertEquals(res.status, 400, `esperava 400 para evento '${ev}'`);
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("D-45-06 — claim duplicado do evento novo NÃO aborta o laço de destinatários", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_ENC,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, ADMIN_2, RECRUTADOR],
+    claimsDuplicados: [`cand-1:${EVENTO_LEDGER_RH_ENCERRAMENTO}:${ADMIN_1.user_id}`],
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: EVENTO_LEDGER_RH_ENCERRAMENTO, candidatura_id: "cand-1" }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  const json = await res.json();
+  assertEquals(json.duplicados, 1);
+  assertEquals(json.enviados, 2, "o claim vazio do 1º não pode abortar o laço");
 });
