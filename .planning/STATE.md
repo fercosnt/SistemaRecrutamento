@@ -78,6 +78,53 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
+Phase: **45 — WAVES 1–3 COMPLETAS. Restam 45-10 (motor destrutivo) e 45-11 (portão)** (2026-08-06)
+
+| Plano | Estado |
+|---|---|
+| `45-01` sondas · `45-02` recibo | ✅ |
+| `45-03` tracer · `45-04` smoke RED · `45-05` bias k=5 | ✅ |
+| `45-06` T1 — **apply em PROD** | ✅ md5 byte-perfeito nas duas · EF deployada · tipos regenerados |
+| `45-07` metade Postgres · `45-08` front · `45-09` retirada+RH | ✅ **escritos, NÃO aplicados** |
+| `45-06` T2 — prova no navegador | ⏸ **precisa de pessoa** |
+| `45-10` motor destrutivo · `45-11` portão | ○ |
+
+**Suíte 1688/1689** — a única falha é o portão CONSOL-04, vermelho **por desenho** até o motor
+existir. `tsc` 97 = baseline. Zero `--no-verify` em toda a fase.
+
+### ⚠ O que o 45-10 tem de resolver ANTES de o motor poder rodar — são DUAS obrigações
+
+**`DI-45-07-01` — o caminho ponta a ponta não funciona hoje.** A EF `executar-direito-titular`
+(deployada) chama as RPCs com `service_role` **sem repassar as claims do titular**: `auth.uid()` é
+NULL e as RPCs recusam com `42501`. **Medido empiricamente**, não inferido. Decisão do operador
+(2026-08-05): a EF passa a repassar as claims.
+
+⚠ **Detalhe que a decisão não previa, e que muda o escopo:** o PostgREST deriva o *role* do MESMO
+JWT que carrega as claims. Um client com `SERVICE_KEY` + `Authorization` do titular chega como
+`authenticated`, não `service_role` — então fechar isso exige **também** conceder `EXECUTE` a
+`authenticated`, numa migration nova. O guard fecha o T-32-03 sozinho (`v_dono IS DISTINCT FROM
+v_uid` → 42501), e o precedente da P44 é justamente esse: as RPCs de lá são concedidas a
+`authenticated` e o guard é o controle.
+
+**`45-09`** — a EF tem `ACOES={pedir,cancelar}` e **não conhece `retirar_candidatura`**.
+
+### Ordem obrigatória de apply para o 45-11 (`net.http_post` é at-most-once)
+
+deploy da EF `notificar-rh` → `20260805000007` → `20260805000008` (sem ordem entre si) →
+`db:types` + remover a ponte de tipos. E o BLOCO G exige diff de `pg_get_functiondef` do catálogo
+vivo contra a transcrição — o md5 do corpo vivo é **`f6147cebf9db2c72cd8ad0e446da301f`** (2763
+chars), promovido de comentário a **gate que aborta o apply**.
+
+# ⚠ O PORTÃO DO 45-11 NÃO ABRE ENQUANTO O G1 ESTIVER ABERTO
+
+E hoje isso deixou de ser formalidade: o `DI-45-07-01` passou por plan-checker, code review e md5
+byte-perfeito, e **nenhum desses gates poderia pegá-lo** — cada metade está certa sozinha. Só o
+fluxo real reprova. É a cláusula *"exercitado em produção"* se pagando.
+
+---
+
+### Posição anterior — wave 1 (2026-08-05)
+
 Phase: **45 — WAVE 1 EM ANDAMENTO, parada em checkpoint** (2026-08-05)
 
 | Item | Estado |
