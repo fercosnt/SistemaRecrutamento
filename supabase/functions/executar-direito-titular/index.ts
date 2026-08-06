@@ -155,6 +155,8 @@ const ACOES = new Set(["pedir", "cancelar", "executar"]);
 const SITUACAO_AGENDADO = "agendado";
 /** `situacao` de um pedido cuja execução COMEÇOU e pode ser retomada. */
 const SITUACAO_EXECUTANDO = "executando";
+/** `situacao` terminal — só com os TRÊS carimbos presentes. */
+const SITUACAO_CONCLUIDO = "concluido";
 const TIPO_EXCLUSAO = "exclusao";
 
 /**
@@ -165,6 +167,11 @@ const TIPO_EXCLUSAO = "exclusao";
 const SQLSTATE_NAO_CANCELAVEL = "22023";
 /** SQLSTATE do guard das duas RPCs (`RAISE ... USING ERRCODE = '42501'`). */
 const SQLSTATE_FORBIDDEN = "42501";
+/**
+ * SQLSTATE do dry-run de `anonimizar_candidato` (`20260805000006`). Recebê-lo no
+ * caminho REAL é defeito grave, nunca sucesso — ver o passo 2.
+ */
+const SQLSTATE_DRY_RUN = "P45DR";
 
 /** O código de domínio devolvido ao cliente quando não há o que cancelar. */
 const MOTIVO_NAO_CANCELAVEL = "PEDIDO_NAO_CANCELAVEL";
@@ -453,6 +460,13 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     );
   }
 
+  /**
+   * O estado da máquina, em memória, seguindo a linha do banco. Cada passo lê
+   * daqui — mas a pré-condição do passo 3, que é o único irreversível, relê a linha
+   * do BANCO em vez de confiar neste espelho.
+   */
+  const estado: Record<string, unknown> = { ...pedido };
+
   /** Carimba no pedido. Uma falha aqui é falha DO PASSO — nunca engolida. */
   const carimbar = async (passo: PassoMotor, patch: Record<string, unknown>): Promise<void> => {
     const { error } = await supabaseAdmin
@@ -460,6 +474,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       .update(patch)
       .eq("id", pedidoId);
     if (error) throw new ErroDePasso(passo, "carimbo");
+    Object.assign(estado, patch);
   };
 
   /**
@@ -482,7 +497,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
 
   try {
     // ── PASSO 0 · O PLANO — o único produtor de informação ───────────────────
-    let plano = (pedido.plano ?? null) as PlanoExclusao | null;
+    let plano = (estado.plano ?? null) as PlanoExclusao | null;
     if (!plano || !Array.isArray(plano.caminhos)) {
       plano = await montarPlano(supabaseAdmin, ctx);
       await carimbar("storage", { plano, situacao: SITUACAO_EXECUTANDO });
@@ -493,7 +508,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // órfã o blob para sempre. Não existe caminho suportado para apagá-lo depois, e
     // o backup deste projeto exclui Storage inteiramente (D-45-10).
     const caminhos = plano.caminhos ?? [];
-    if (!pedido.storage_concluido_em) {
+    if (!estado.storage_concluido_em) {
       for (const lote of dividirEmLotes(caminhos, LIMITE_REMOCAO)) {
         const { data, error } = await supabaseAdmin.storage
           .from(BUCKET_CURRICULOS)
@@ -519,9 +534,85 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     }
     arquivosApagados = caminhos.length;
 
+    // ── PASSO 2 · POSTGRES ──────────────────────────────────────────────────
+    // A EF CHAMA a metade Postgres e não reimplementa NADA dela: toda a atomicidade
+    // disponível está dentro daquela transação, e duplicar um único statement aqui a
+    // destruiria.
+    if (!estado.postgres_concluido_em) {
+      const { data, error } = await supabaseAdmin.rpc("anonimizar_candidato", {
+        p_candidato_id: candidatoId,
+        p_dry_run: false,
+      });
+      if (error) {
+        // ⚠ O SQLSTATE DE DRY-RUN CHEGANDO NO CAMINHO REAL É DEFEITO GRAVE, JAMAIS
+        // SUCESSO. Ele significa que alguém trocou o default ou o parâmetro, e a
+        // transação foi REVERTIDA: nada foi anonimizado. Ler "dry-run concluído com
+        // sucesso" como sucesso é o pior falso verde possível nesta fase — marcaria
+        // o pedido como concluído com 100% da PII intacta e o currículo já apagado.
+        const sqlstate = (error as { code?: unknown } | null)?.code;
+        throw new ErroDePasso(
+          "postgres",
+          sqlstate === SQLSTATE_DRY_RUN ? "dry_run_no_caminho_real" : "rpc_anonimizar",
+        );
+      }
+      // "Não lançou" NÃO é a mesma coisa que "completou" (a lição do 42804 da Phase
+      // 43, que sobreviveu a um smoke 10/10 verde). O contrato da RPC é devolver um
+      // dos dois resultados nomeados.
+      const resultado = (data as { resultado?: unknown } | null)?.resultado;
+      if (resultado !== "anonimizado" && resultado !== "ja_anonimizado") {
+        throw new ErroDePasso("postgres", "sem_resultado");
+      }
+      await carimbar("postgres", { postgres_concluido_em: agora() });
+    }
+
+    // ── PASSO 3 · AUTH — o único passo sem volta ────────────────────────────
+    if (!estado.auth_concluido_em) {
+      // ⚠ PRÉ-CONDIÇÃO DE CÓDIGO, VERIFICADA CONTRA A AUTORIDADE. A ordem
+      // `Storage -> Postgres -> Auth` é estrutural porque `user_id` tem de estar
+      // severado ANTES: sem isso `deleteUser` cascateia `candidatos` -> `candidaturas`,
+      // bate nas 3 FKs `NO ACTION` com 23503, e falha DEPOIS de o currículo já ter
+      // sido apagado do Storage — o pior estado alcançável nesta fase, e sem PITR e
+      // sem backup de Storage ele é definitivo. Por isso a checagem relê a linha em
+      // vez de confiar na variável local que o próprio código acabou de escrever.
+      const { data: conf, error: confErr } = await supabaseAdmin
+        .from("solicitacoes_dados")
+        .select(COLUNAS_PEDIDO)
+        .eq("id", pedidoId)
+        .maybeSingle();
+      if (confErr || !conf) throw new ErroDePasso("auth", "releitura");
+      if (!conf.postgres_concluido_em) throw new ErroDePasso("auth", "fora_de_ordem");
+
+      // ⚠⚠ O ERRO DE `deleteUser` NÃO É ENGOLIDO. Os dois precedentes vivos do
+      // repositório (`cadastrar-candidato:268,390` e `gerenciar-usuario-rh:366`)
+      // fazem `.catch()` que engole, e ali está CERTO: o objetivo é não deixar
+      // usuário órfão depois de um cadastro que falhou segundos antes, sem linha
+      // filha nenhuma. Aqui seria CATASTRÓFICO — tornaria invisível exatamente o
+      // 23503, depois de o currículo já ter sido apagado. O `try` abaixo NÃO engole:
+      // ele converte a rejeição em falha ATRIBUÍDA ao passo, que é gravada em
+      // `causa='falha_auth'`, respondida como 500 e deixa o pedido retomável.
+      let retornoDelete: { error?: unknown } | null = null;
+      try {
+        retornoDelete = await supabaseAdmin.auth.admin.deleteUser(authUid, false);
+      } catch {
+        throw new ErroDePasso("auth", "delete_user_excecao");
+      }
+      if (retornoDelete?.error) throw new ErroDePasso("auth", "delete_user");
+      await carimbar("auth", { auth_concluido_em: agora() });
+    }
+
+    // ⚠ A `situacao` NUNCA vira `'concluido'` com qualquer dos três carimbos
+    // ausente — é a tradução em dados da Invariante 5 da UI-SPEC.
+    if (
+      estado.storage_concluido_em && estado.postgres_concluido_em && estado.auth_concluido_em &&
+      estado.situacao !== SITUACAO_CONCLUIDO
+    ) {
+      await carimbar("auth", { situacao: SITUACAO_CONCLUIDO });
+    }
+
     return jsonResponse({
       ok: true,
       acao: "executar",
+      concluido_em: estado.auth_concluido_em ?? null,
       arquivos_apagados: arquivosApagados,
     }, 200);
   } catch (e) {
