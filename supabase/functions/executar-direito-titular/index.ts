@@ -77,7 +77,17 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { logSeguroExclusao, refCurta } from "./helpers.ts";
+import {
+  BUCKET_CURRICULOS,
+  causaDaFalha,
+  dividirEmLotes,
+  enumerarObjetosTitular,
+  LIMITE_REMOCAO,
+  logSeguroExclusao,
+  type PassoMotor,
+  refCurta,
+  unirEDeduplicarCaminhos,
+} from "./helpers.ts";
 
 // ---------------------------------------------------------------------------
 // CORS + response helpers (copiados verbatim do molde)
@@ -133,11 +143,18 @@ export interface Deps {
   supabaseUser: any;
 }
 
-/** Vocabulário FECHADO de ação. Nesta fase, duas — e nenhuma delas destrói nada. */
-const ACOES = new Set(["pedir", "cancelar"]);
+/**
+ * Vocabulário FECHADO de ação — TRÊS desde o 45-10.
+ *
+ * ⚠ `executar` é a única que destrói, e ela atravessa três sistemas SEM transação
+ * compartilhada. As outras duas continuam sendo puro estado.
+ */
+const ACOES = new Set(["pedir", "cancelar", "executar"]);
 
 /** `situacao` do pedido que ainda pode ser cancelado. */
 const SITUACAO_AGENDADO = "agendado";
+/** `situacao` de um pedido cuja execução COMEÇOU e pode ser retomada. */
+const SITUACAO_EXECUTANDO = "executando";
 const TIPO_EXCLUSAO = "exclusao";
 
 /**
@@ -151,6 +168,60 @@ const SQLSTATE_FORBIDDEN = "42501";
 
 /** O código de domínio devolvido ao cliente quando não há o que cancelar. */
 const MOTIVO_NAO_CANCELAVEL = "PEDIDO_NAO_CANCELAVEL";
+/** A janela de arrependimento ainda não venceu — fato do DOMÍNIO, nunca falha. */
+const MOTIVO_JANELA_ABERTA = "JANELA_ABERTA";
+/** Não há pedido em estado executável para este titular. */
+const MOTIVO_NADA_A_EXECUTAR = "NADA_A_EXECUTAR";
+/**
+ * A execução parou no meio. ⚠ Este código NÃO afirma o que foi ou não foi feito —
+ * a partir do passo 1 essa afirmação é ingarantível, e a `causa` gravada no banco é
+ * o único lugar onde o SISTEMA em que ela parou fica registrado.
+ */
+const MOTIVO_EXECUCAO_INTERROMPIDA = "EXECUCAO_INTERROMPIDA";
+
+/** Colunas do pedido — allowlist NOMINAL, nunca projeção curinga. */
+const COLUNAS_PEDIDO =
+  "id, executar_em, situacao, plano, storage_concluido_em, postgres_concluido_em, auth_concluido_em, recibo_enviado_em";
+
+/**
+ * O `plano jsonb` — o ÚNICO produtor de informação da execução.
+ *
+ * O passo 0 grava tudo isto ANTES da primeira mutação; os passos 1–3 só CONSOMEM. É
+ * isso que torna a mutação retomável apesar de não-atômica, e é literalmente o
+ * ERASE-04. Nenhum passo redescobre o que o passo 0 capturou.
+ *
+ * ⚠ `caminhos`, `achados`, `auth_uid` e `email` são PII de vida curta dentro do
+ * próprio pedido: o caminho de Storage embute o `auth.uid()` do titular. O passo 4 os
+ * apaga, deixando só `contagens` e `achados_resumo` — a prova de que a exclusão
+ * aconteceu não precisa dos ponteiros para o que foi apagado.
+ */
+interface PlanoExclusao {
+  versao: number;
+  auth_uid?: string;
+  email?: string | null;
+  caminhos?: string[];
+  achados?: Array<{ caminho: string; tipo: string }>;
+  recorte?: { tem_curriculo: boolean; tem_decisao_registrada: boolean };
+  contagens: Record<string, number>;
+  achados_resumo: { blob_orfao: number; ponteiro_morto: number };
+}
+
+/**
+ * Falha ATRIBUÍDA a um passo. O tipo existe porque o `catch` genérico não consegue
+ * saber em qual dos três sistemas a mutação parou — e essa é a única pergunta que
+ * importa às 3 da manhã sobre um arquivo que não tem cópia de reserva.
+ */
+class ErroDePasso extends Error {
+  constructor(readonly passo: PassoMotor, readonly classe: string) {
+    super(classe);
+    this.name = "ErroDePasso";
+  }
+}
+
+/** `now()` do servidor da EF, em ISO — o mesmo instante para todos os carimbos. */
+function agora(): string {
+  return new Date().toISOString();
+}
 
 /**
  * Handler testável: recebe `deps` injetados. O `Deno.serve` (no fim do arquivo) monta
@@ -172,9 +243,12 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   // ── 2 · AUTHORIZE — quem é o titular? A resposta sai de `auth.uid()`. ──────
   //      ⚠ Ver o docblock: este `.eq("user_id", ...)` é o que o tombstone de 45-07
   //      quebra POR DESENHO, e o 403 resultante é o comportamento desejado.
+  //      A allowlist ganhou `email` no 45-10: ele é lido AQUI, ANTES do tombstone, e
+  //      usado DEPOIS do `deleteUser` — entre os dois não existe mais conta de onde
+  //      relê-lo. O passo 0 o persiste no `plano` e o passo 4 o apaga de lá.
   const { data: cand, error: candErr } = await supabaseAdmin
     .from("candidatos")
-    .select("id")
+    .select("id, email")
     .eq("user_id", user.id)
     .maybeSingle();
   // WR-04: NÃO engula o erro de query. Um erro transitório virando 403 é uma
@@ -186,6 +260,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     return errorResponse("FORBIDDEN", "Acesso negado.", 403);
   }
   const candidatoId: string = cand.id;
+  const emailTitular: string | null = typeof cand.email === "string" ? cand.email : null;
 
   // ── 3 · VALIDA a ação ANTES de qualquer toque privilegiado ─────────────────
   //      DESVIO 1 — o molde não lê o corpo do request. Aqui ele é lido, mas SÓ
@@ -240,6 +315,14 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       }, 200);
     }
 
+    if (acao === "executar") {
+      return await executarExclusao(deps, {
+        candidatoId,
+        authUid: user.id,
+        emailTitular,
+      });
+    }
+
     // ── acao === "cancelar" ─────────────────────────────────────────────────
     //      O pedido é resolvido NO SERVIDOR, escopado ao titular do passo 2. O
     //      cliente nunca conheceu o `solicitacao_id` (Invariante 12), então nunca
@@ -288,6 +371,284 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// `acao === "executar"` — OS PASSOS DESTRUTIVOS (Phase 45 / Plano 45-10)
+//
+// ── A ORDEM É ESTRUTURAL, NÃO ESTILÍSTICA ──────────────────────────────────
+//   Storage -> Postgres -> Auth
+//     · o caminho do objeto é `{authUid}/{uuid}`: depois do `deleteUser` o prefixo
+//       é INTRAÇÁVEL, e nada mais consegue enumerar o que sobrou;
+//     · apagar `storage.objects` por SQL órfã o blob PARA SEMPRE — a Storage Admin
+//       API é o único caminho que apaga o arquivo;
+//     · `user_id` tem de estar severado ANTES do `deleteUser` de qualquer modo.
+//
+//   ⚠ E a ordem NÃO É IMPOSTA PELA PLATAFORMA: a SONDA 2 mediu que `storage.objects`
+//   não tem FK para `auth.users`. Apagar o usuário com objetos vivos não levanta erro
+//   nenhum. A ordem é disciplina que este arquivo impõe a si mesmo, e o modo de falha
+//   de violá-la é SILENCIOSO.
+//
+// ── PLANO-PRIMEIRO, EXECUTORES IDEMPOTENTES ────────────────────────────────
+// O passo 0 é o ÚNICO que produz informação; os passos 1–3 só consomem o que ele
+// gravou. A idempotência é por ESTADO REGISTRADO no plano, jamais por `try/catch`:
+// re-executar o mesmo pedido não avança passo nenhum duas vezes.
+//
+// ── ⚠ ONDE A RETOMADA TEM UM LIMITE CONHECIDO ──────────────────────────────
+// Depois do passo 2 o `.eq("user_id", user.id)` da autorização DEIXA DE CASAR — o
+// tombstone severou `user_id`. Esta EF passa a responder 403 a qualquer invocação
+// subsequente daquele titular, e ISSO É O CERTO (D-45-11, efeito colateral desejado e
+// medido): depois da exclusão não há sessão, não há tela e não há a quem responder.
+// A consequência prática é que a retomada por ESTE caminho só existe ATÉ o fim do
+// passo 2. Quem for editar este arquivo não deve "consertar" o 403.
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ContextoExecucao {
+  candidatoId: string;
+  authUid: string;
+  emailTitular: string | null;
+}
+
+async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Response> {
+  const { supabaseAdmin } = deps;
+  const { candidatoId, authUid } = ctx;
+
+  // ── Resolve o pedido NO SERVIDOR, escopado ao titular (Invariante 12) ──────
+  const { data: pedido, error: pedErr } = await supabaseAdmin
+    .from("solicitacoes_dados")
+    .select(COLUNAS_PEDIDO)
+    .eq("candidato_id", candidatoId)
+    .eq("tipo", TIPO_EXCLUSAO)
+    .in("situacao", [SITUACAO_AGENDADO, SITUACAO_EXECUTANDO])
+    .order("solicitado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (pedErr) {
+    logErro("executar", "leitura", candidatoId);
+    return errorResponse("SERVER_ERROR", "Falha ao verificar seu pedido.", 500);
+  }
+  if (!pedido?.id) {
+    return errorResponse(
+      "VALIDATION",
+      "Não há pedido de exclusão a executar.",
+      400,
+      MOTIVO_NADA_A_EXECUTAR,
+    );
+  }
+  const pedidoId: string = pedido.id;
+
+  // ── O GUARD DA JANELA, E ELE FECHA NO ILEGÍVEL ────────────────────────────
+  // Um `executar_em` que não parseia NÃO libera nada. A alternativa — tratar
+  // ilegível como "já venceu" — trocaria um defeito de dado por uma destruição
+  // irreversível, que é a troca que esta fase inteira existe para não fazer.
+  const quando = Date.parse(String(pedido.executar_em ?? ""));
+  if (!Number.isFinite(quando)) {
+    logErro("executar", "executar_em_ilegivel", candidatoId, pedidoId);
+    return errorResponse("SERVER_ERROR", "Não foi possível concluir seu pedido.", 500);
+  }
+  if (quando > Date.now()) {
+    return errorResponse(
+      "VALIDATION",
+      "A janela para desistir ainda não terminou.",
+      400,
+      MOTIVO_JANELA_ABERTA,
+    );
+  }
+
+  /** Carimba no pedido. Uma falha aqui é falha DO PASSO — nunca engolida. */
+  const carimbar = async (passo: PassoMotor, patch: Record<string, unknown>): Promise<void> => {
+    const { error } = await supabaseAdmin
+      .from("solicitacoes_dados")
+      .update(patch)
+      .eq("id", pedidoId);
+    if (error) throw new ErroDePasso(passo, "carimbo");
+  };
+
+  /**
+   * Registra a `causa` do vocabulário FECHADO. Best-effort POR DESENHO: ele roda
+   * dentro do `catch` que trata uma falha, e lançar daqui apagaria a informação de
+   * EM QUAL SISTEMA a mutação não-atômica parou.
+   */
+  const registrarCausa = async (passo: PassoMotor): Promise<void> => {
+    try {
+      await supabaseAdmin
+        .from("solicitacoes_dados")
+        .update({ causa: causaDaFalha(passo) })
+        .eq("id", pedidoId);
+    } catch {
+      // Sem rede para a rede: já estamos no caminho de falha.
+    }
+  };
+
+  let arquivosApagados = 0;
+
+  try {
+    // ── PASSO 0 · O PLANO — o único produtor de informação ───────────────────
+    let plano = (pedido.plano ?? null) as PlanoExclusao | null;
+    if (!plano || !Array.isArray(plano.caminhos)) {
+      plano = await montarPlano(supabaseAdmin, ctx);
+      await carimbar("storage", { plano, situacao: SITUACAO_EXECUTANDO });
+    }
+
+    // ── PASSO 1 · STORAGE ───────────────────────────────────────────────────
+    // ⚠ Nunca `DELETE FROM storage.objects`: apagar por SQL remove só o metadado e
+    // órfã o blob para sempre. Não existe caminho suportado para apagá-lo depois, e
+    // o backup deste projeto exclui Storage inteiramente (D-45-10).
+    const caminhos = plano.caminhos ?? [];
+    if (!pedido.storage_concluido_em) {
+      for (const lote of dividirEmLotes(caminhos, LIMITE_REMOCAO)) {
+        const { data, error } = await supabaseAdmin.storage
+          .from(BUCKET_CURRICULOS)
+          .remove(lote);
+        if (error) throw new ErroDePasso("storage", "remove");
+        // ⚠ A CONFERÊNCIA DO RETORNO. `remove()` devolve os objetos EFETIVAMENTE
+        // apagados, e nada neste repositório confere isso hoje: o único precedente
+        // (`cvUploadService.ts:224`) descarta o array. Aqui a divergência é a
+        // diferença entre um recibo honesto e um recibo que promete o que não houve.
+        const apagados = new Set(
+          ((data ?? []) as Array<{ name?: unknown }>)
+            .map((o) => o?.name)
+            .filter((n): n is string => typeof n === "string"),
+        );
+        for (const c of lote) {
+          if (!apagados.has(c)) throw new ErroDePasso("storage", "remove_divergente");
+        }
+      }
+      // ⚠ Zero objetos é SUCESSO, não erro: o laço acima simplesmente não roda, o
+      // carimbo acontece, e o recibo afirma zero arquivos. `curriculo_url` NULL não
+      // é erro, e nenhum passo é marcado como falho por ausência de objeto.
+      await carimbar("storage", { storage_concluido_em: agora() });
+    }
+    arquivosApagados = caminhos.length;
+
+    return jsonResponse({
+      ok: true,
+      acao: "executar",
+      arquivos_apagados: arquivosApagados,
+    }, 200);
+  } catch (e) {
+    // ⚠ ESTE CATCH NUNCA ESCREVE «NADA FOI APAGADO». A partir do passo 1 essa
+    // afirmação é ingarantível, e uma frase tranquilizadora que envelhece para falsa
+    // é pior que nenhuma. Ele registra a `causa` — o SISTEMA em que parou — e loga
+    // REDIGIDO: só `refCurta()` e chaves da allowlist local.
+    const passo: PassoMotor = e instanceof ErroDePasso ? e.passo : "postgres";
+    const classe = e instanceof ErroDePasso ? e.classe : "excecao";
+    await registrarCausa(passo);
+    logErro("executar", classe, candidatoId, pedidoId, passo);
+    return errorResponse(
+      "SERVER_ERROR",
+      "Não foi possível concluir seu pedido.",
+      500,
+      MOTIVO_EXECUCAO_INTERROMPIDA,
+    );
+  }
+}
+
+/**
+ * PASSO 0 — captura tudo ANTES de qualquer mutação.
+ *
+ * ⚠ Um crash entre a captura e a primeira mutação NÃO perde os ponteiros: o `plano`
+ * persistido é suficiente para retomar sem redescobrir. É por isso que ele é gravado
+ * numa coluna e não vive numa variável local da Edge Function.
+ */
+async function montarPlano(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  ctx: ContextoExecucao,
+): Promise<PlanoExclusao> {
+  const { candidatoId, authUid, emailTitular } = ctx;
+
+  // A expressão ÚNICA da qual o dry-run e o delete real saem (45-07). A EF CHAMA;
+  // não reimplementa nada da metade Postgres — toda a atomicidade disponível está
+  // dentro daquela transação, e duplicar qualquer statement aqui a destruiria.
+  const { data: planoBanco, error: planoErr } = await supabaseAdmin.rpc(
+    "plano_exclusao_titular",
+    { p_candidato_id: candidatoId },
+  );
+  if (planoErr || !planoBanco) throw new ErroDePasso("postgres", "rpc_plano");
+
+  // A enumeração AUTORITATIVA do bucket, paginada.
+  const doList = await enumerarObjetosTitular(supabaseAdmin, `${authUid}/`)
+    .catch(() => {
+      throw new ErroDePasso("storage", "list");
+    });
+
+  // Os ponteiros — allowlist NOMINAL de colunas, nunca projeção curinga.
+  const { data: cands, error: candsErr } = await supabaseAdmin
+    .from("candidaturas")
+    .select("id, curriculo_url")
+    .eq("candidato_id", candidatoId);
+  if (candsErr) throw new ErroDePasso("storage", "leitura_ponteiros");
+  const doBanco = ((cands ?? []) as Array<{ curriculo_url?: unknown }>)
+    .map((c) => c?.curriculo_url)
+    .filter((v): v is string => typeof v === "string" && v !== "");
+
+  const { caminhos, achados } = unirEDeduplicarCaminhos(doList, doBanco);
+
+  // ⚠ FALHA FECHADA ESTRUTURAL, no molde de `exportar-meus-dados:270-286`. Ponteiros
+  // vivos com enumeração VAZIA não é o caso vazio: é a enumeração quebrada (prefixo
+  // errado, permissão, convenção mudada). Seguir daqui apagaria só o que os ponteiros
+  // nomeiam e deixaria os órfãos para trás, com o pedido declarado concluído.
+  if (doBanco.length > 0 && doList.length === 0) {
+    throw new ErroDePasso("storage", "estrutura_vazia");
+  }
+
+  const contagens: Record<string, number> = {
+    storage_remove: caminhos.length,
+    ...somarPassosDoBanco(planoBanco as Record<string, unknown>),
+  };
+
+  return {
+    versao: 1,
+    auth_uid: authUid,
+    email: emailTitular,
+    caminhos,
+    achados,
+    recorte: {
+      // ⚠ DI-45-08-02: os dois booleanos saem do PLANO REAL do motor, que é a
+      // autoridade — a prévia da tela mede os mesmos fatos por outro caminho, e um
+      // TERCEIRO critério aqui seriam três verdades sobre a mesma pessoa.
+      tem_curriculo: caminhos.length > 0,
+      tem_decisao_registrada: contagemDe(planoBanco, "tombstone_decisao_final") > 0,
+    },
+    contagens,
+    achados_resumo: {
+      blob_orfao: achados.filter((a) => a.tipo === "blob_orfao").length,
+      ponteiro_morto: achados.filter((a) => a.tipo === "ponteiro_morto").length,
+    },
+  };
+}
+
+/** Soma os valores numéricos de um passo do jsonb de `plano_exclusao_titular`. */
+function contagemDe(planoBanco: unknown, passo: string): number {
+  const bloco = (planoBanco as Record<string, unknown> | null)?.[passo];
+  if (!bloco || typeof bloco !== "object") return 0;
+  let total = 0;
+  for (const v of Object.values(bloco as Record<string, unknown>)) {
+    if (typeof v === "number" && Number.isFinite(v)) total += v;
+  }
+  return total;
+}
+
+/**
+ * Reduz o jsonb do banco a CONTAGENS por passo — e só a elas.
+ *
+ * O `plano_exclusao_titular` devolve também `candidato_id` e notas em prosa. Nada
+ * disso é persistido: o que fica no `plano` é o mínimo que sustenta o recibo e a
+ * prova da exclusão, porque este mesmo registro sobrevive ao titular.
+ */
+function somarPassosDoBanco(planoBanco: Record<string, unknown>): Record<string, number> {
+  const passos = [
+    "tombstone_candidato",
+    "tombstone_decisao_final",
+    "severar_user_id",
+    "severar_fks_set_null",
+    "scrub_ledger_email",
+  ];
+  const out: Record<string, number> = {};
+  for (const p of passos) out[p] = contagemDe(planoBanco, p);
+  out.auth_delete_user = planoBanco?.user_id_presente === true ? 1 : 0;
+  return out;
+}
+
 /** A primeira linha de um `RETURNS TABLE` (o cliente devolve um array). */
 function primeiraLinha(data: unknown): Record<string, string | number> | null {
   if (Array.isArray(data)) return (data[0] as Record<string, string | number>) ?? null;
@@ -333,7 +694,13 @@ function respostaDeErroRpc(
  * ids entram apenas como prefixo de 8 caracteres. Nunca o payload, nunca o corpo do
  * request, nunca uma URL, nunca a mensagem do banco.
  */
-function logErro(acao: string, classe: string, candidatoId: string, pedidoId?: string): void {
+function logErro(
+  acao: string,
+  classe: string,
+  candidatoId: string,
+  pedidoId?: string,
+  passo?: string,
+): void {
   console.error(
     "[executar-direito-titular] erro",
     logSeguroExclusao({
@@ -341,6 +708,9 @@ function logErro(acao: string, classe: string, candidatoId: string, pedidoId?: s
       erro_classe: classe,
       candidato_ref: refCurta(candidatoId),
       ...(pedidoId ? { pedido_ref: refCurta(pedidoId) } : {}),
+      // `passo` é o SISTEMA em que a mutação não-atômica parou — a única pergunta que
+      // importa depois. Já está na allowlist local desde o 45-03.
+      ...(passo ? { passo } : {}),
     }),
   );
 }

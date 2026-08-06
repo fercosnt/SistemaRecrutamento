@@ -90,3 +90,130 @@ export function causaDaFalha(passo: string): string {
       return "falha_postgres";
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 45 / Plano 45-10 — a ENUMERAÇÃO do Storage
+//
+// ⚠ TRÊS CAPACIDADES SEM ANALOG NO REPOSITÓRIO INTEIRO (45-PATTERNS § No Analog
+// Found), e é por isso que elas moram aqui como funções PURAS e testáveis:
+//   · `storage.list()` tem ZERO ocorrências em todo o projeto;
+//   · `storage.remove()` tem UM precedente (`cvUploadService.ts:224`) — client-side
+//     sob RLS, um caminho por vez, e SEM conferir o array de retorno;
+//   · `auth.admin.deleteUser` só existe como rollback compensatório, sempre com
+//     `.catch()` que engole o erro.
+// Código sem rede é escrito para ser exercitado sem rede.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** O bucket dos currículos. Único bucket com objetos em PROD (SONDA 3: 5 objetos). */
+export const BUCKET_CURRICULOS = "curriculos";
+
+/** Tamanho de página do `list()`. */
+export const LIMITE_LISTAGEM = 100;
+
+/** Teto do `remove()` por chamada — a Storage API apaga no máximo 1000 por vez. */
+export const LIMITE_REMOCAO = 1000;
+
+/**
+ * Teto de páginas do laço de enumeração. Existe para que um `list()` que devolva
+ * sempre a mesma página cheia (mock ruim, API mudada, offset ignorado) FALHE ALTO em
+ * vez de girar para sempre dentro de uma Edge Function com timeout.
+ */
+const MAX_PAGINAS = 1000;
+
+// deno-lint-ignore no-explicit-any
+type ClienteStorage = any;
+
+/**
+ * Enumera TODOS os objetos sob o prefixo do titular, em laço PAGINADO.
+ *
+ * ⚠ A PAGINAÇÃO NÃO É OPCIONAL. Com 1 CV por candidatura o volume é trivial hoje,
+ * mas o upload gera UUID novo a cada chamada e nunca sobrescreve
+ * (`cvUploadService.ts:130-131`): um titular com re-submissões acumula objetos, e um
+ * `list()` sem laço deixa PII para trás **em silêncio** — o pior modo de falha
+ * possível num apagamento que depois se declara concluído.
+ *
+ * ⚠ ERRO DE LISTAGEM LANÇA, JAMAIS VIRA LISTA VAZIA. Uma lista vazia por engano
+ * produziria um passo 1 que "completa com sucesso" sem apagar nada e um recibo
+ * afirmando zero arquivos ao titular que tinha três.
+ *
+ * Linhas de PASTA (o marcador que o Storage devolve com `id: null`) são descartadas:
+ * elas não são objetos, `remove()` nunca as devolve, e mantê-las produziria uma
+ * divergência garantida na conferência do passo 1 — um `falha_storage` falso.
+ *
+ * A mensagem de erro NÃO carrega o prefixo: ele é o `auth.uid()` do titular.
+ */
+export async function enumerarObjetosTitular(
+  admin: ClienteStorage,
+  prefixo: string,
+  limite: number = LIMITE_LISTAGEM,
+): Promise<string[]> {
+  const pasta = prefixo.endsWith("/") ? prefixo.slice(0, -1) : prefixo;
+  const caminhos: string[] = [];
+  for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+    const { data, error } = await admin.storage
+      .from(BUCKET_CURRICULOS)
+      .list(pasta, { limit: limite, offset: pagina * limite });
+    if (error) throw new Error("falha ao enumerar os objetos do titular no Storage");
+    const linhas = (data ?? []) as Array<{ name?: unknown; id?: unknown }>;
+    for (const l of linhas) {
+      if (typeof l?.name !== "string" || l.name === "") continue;
+      if (l.id === null) continue;
+      caminhos.push(`${pasta}/${l.name}`);
+    }
+    if (linhas.length < limite) return caminhos;
+  }
+  throw new Error("enumeracao do Storage excedeu o teto de paginas");
+}
+
+/** Uma divergência entre as duas fontes. Nenhuma delas é descartada. */
+export interface AchadoCaminho {
+  caminho: string;
+  /** `blob_orfao`: existe no bucket e nenhuma linha o aponta.
+   *  `ponteiro_morto`: uma linha o aponta e ele não existe no bucket. */
+  tipo: "blob_orfao" | "ponteiro_morto";
+}
+
+export interface UniaoDeCaminhos {
+  /** A união, deduplicada por caminho COMPLETO e ORDENADA. */
+  caminhos: string[];
+  achados: AchadoCaminho[];
+}
+
+/**
+ * Une a enumeração do Storage com os ponteiros de `candidaturas.curriculo_url`.
+ *
+ * ⚠ ENUMERAR POR `curriculo_url` SOZINHO DEIXA PII PARA TRÁS. O upload gera UUID novo
+ * a cada chamada e a remoção do antigo é responsabilidade explícita de quem chama
+ * (`cvUploadService.ts:102-103`): todo CV substituído sem remoção continua no bucket
+ * **sem linha que o aponte**, e passaria incólume por uma exclusão que "funcionou". A
+ * SONDA 3 mediu 5 objetos para 9 candidaturas — consistente com essa hipótese.
+ *
+ * ⚠ E A DIVERGÊNCIA É ACHADO, NUNCA FUSÃO SILENCIOSA. As duas listas discordarem é um
+ * fato sobre o estado do sistema, e o único registro dele que vai sobreviver à
+ * exclusão é este.
+ *
+ * A ordenação por caminho completo é o que torna uma RETOMADA reproduzível: a ordem
+ * de paginação do `list()` não é fonte de verdade e pode variar entre chamadas.
+ */
+export function unirEDeduplicarCaminhos(
+  doList: readonly string[],
+  doBanco: readonly string[],
+): UniaoDeCaminhos {
+  const noStorage = new Set(doList);
+  const noBanco = new Set(doBanco);
+  const caminhos = [...new Set([...doList, ...doBanco])].sort();
+  const achados: AchadoCaminho[] = [];
+  for (const c of caminhos) {
+    if (!noBanco.has(c)) achados.push({ caminho: c, tipo: "blob_orfao" });
+    else if (!noStorage.has(c)) achados.push({ caminho: c, tipo: "ponteiro_morto" });
+  }
+  return { caminhos, achados };
+}
+
+/** Fatia em lotes de no máximo `tamanho`. Lista vazia → zero lotes (nunca um lote vazio). */
+export function dividirEmLotes<T>(itens: readonly T[], tamanho: number = LIMITE_REMOCAO): T[][] {
+  const passo = Math.max(1, Math.floor(tamanho));
+  const lotes: T[][] = [];
+  for (let i = 0; i < itens.length; i += passo) lotes.push(itens.slice(i, i + passo));
+  return lotes;
+}

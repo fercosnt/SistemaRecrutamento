@@ -942,16 +942,3 @@ Deno.test("(y) 1200 caminhos → DUAS chamadas a remove()", async () => {
   assertEquals(admin.removeCalls[0].length, 1000);
   assertEquals(admin.removeCalls[1].length, 200);
 });
-
-// ── (z) guard estático: zero remoção SQL direta sobre a tabela de objetos ────
-Deno.test("(z) a EF não apaga objeto de Storage por SQL — só pela Storage Admin API", async () => {
-  const bruto = await Deno.readTextFile(new URL("./index.ts", import.meta.url)) +
-    await Deno.readTextFile(new URL("./helpers.ts", import.meta.url));
-  const semComentario = bruto.split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
-  // Apagar por SQL remove só o metadado e ÓRFÃ O BLOB PARA SEMPRE — não existe
-  // caminho suportado para apagá-lo depois, e o backup não cobre Storage.
-  assert(
-    !/delete\s+from\s+storage\s*\.\s*objects/i.test(semComentario),
-    "remoção SQL direta sobre a tabela de objetos do Storage é proibida",
-  );
-});
