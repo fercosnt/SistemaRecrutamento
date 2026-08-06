@@ -51,10 +51,10 @@
  *   4. DELEGA       — a RPC `SECURITY DEFINER`, que reafirma a titularidade.
  *
  * ── AUTHENTICATE ≠ AUTHORIZE (landmine P10/P11) ─────────────────────────────
- * As RPCs são chamadas com `service_role`, que bypassa RLS. O passo 2 é o ÚNICO
+ * As RPCs são `SECURITY DEFINER` e DEFINER bypassa RLS. O passo 2 é o primeiro
  * controle entre um autenticado qualquer e o pedido de outra pessoa — e ele roda
  * ANTES de qualquer chamada privilegiada. O guard do corpo da RPC é o cinto
- * secundário, não o primeiro.
+ * secundário, e desde o 45-12 ele de fato morde: as claims do titular chegam lá.
  *
  * ── ⚠ O 403 QUE VAI APARECER DEPOIS DO TOMBSTONE É O COMPORTAMENTO DESEJADO ──
  * O `.eq("user_id", user.id)` do passo 2 é **exatamente o que a severação do 45-07
@@ -87,32 +87,40 @@
  * autenticada por desenho. O deploy da v1 foi o 45-06; o redeploy COM o motor é o
  * 45-11. O 45-10 apenas AUTORA os passos destrutivos.
  *
- * ── ⚠ DOIS DEFEITOS CONHECIDOS E **NÃO** CONSERTADOS AQUI ───────────────────
- * Os dois estão fora dos três arquivos do 45-10 e precisam de plano próprio, com
- * migration própria e revisão própria. Registrados para que ninguém os descubra de
- * novo do zero:
+ * ── ⚠ O CONTRATO DE CLAIMS, POR CHAMADA (45-12 — fecha o `DI-45-10-01`) ─────
+ * Esta EF opera com **TRÊS** clients, e a divisão não é estilo. O docblock deste
+ * arquivo já afirmou uma vez o oposto do que o arquivo fazia (desvio 3 do 45-10);
+ * num módulo cujo modo de falha é irreversível, uma garantia velha é pior que
+ * nenhuma. Então: quais chamadas levam claims, quais não levam, e por quê.
  *
- *  1. **`DI-45-07-01` — as claims do titular não chegam às RPCs.** O `supabaseAdmin`
- *     abaixo é construído com a service-role key e **sem** repassar o header
- *     `Authorization` (o repasse existe só no `supabaseUser`). O JWT que chega ao
- *     PostgREST é a própria service key, que não tem claim `sub`, então `auth.uid()`
- *     é **NULL** — e as cinco RPCs desta fase abrem recusando exatamente isso com
- *     `42501`. Vale para `registrar_pedido_exclusao`, `cancelar_pedido_exclusao`,
- *     `plano_exclusao_titular` e `anonimizar_candidato`. ⚠ O conserto **não** é só
- *     acrescentar o header: o PostgREST deriva o *role* do MESMO JWT, então um client
- *     com service key **e** `Authorization` do titular chega como `authenticated` —
- *     fechar isso exige **também** conceder `EXECUTE` a `authenticated`, numa
- *     migration nova. Afrouxar o guard das RPCs é a saída **recusada**: reintroduziria
- *     o defeito que a asserção C2 do smoke fecha, numa função que apaga PII.
+ *  · `supabaseUser` — anon key + `Authorization` do titular. UMA chamada:
+ *    `auth.getUser()`, o passo 1 (D-23).
  *
- *  2. **`retirar_candidatura` não está no vocabulário desta EF.**
- *     `src/features/vagas/hooks/useRetirarCandidatura.ts:77-79` invoca ESTA função com
- *     `{ acao: 'retirar_candidatura', candidatura_id }`, e `ACOES` não conhece o
- *     valor: a EF responde 400 `VALIDATION` e o hook traduz para `SERVER_ERROR`. A
- *     retirada do 45-09 está, hoje, morta na chegada. ⚠ E o conserto esbarra no
- *     DESVIO 1 abaixo — aquela ação precisa de um `candidatura_id`, e aceitar
- *     identificador do corpo é a superfície T-32-03; ele terá de ser validado contra
- *     a titularidade no servidor, nunca confiado.
+ *  · `supabaseTitular` — **service key + `Authorization` do titular**. Só as QUATRO
+ *    RPCs da fase saem dele: `registrar_pedido_exclusao`, `cancelar_pedido_exclusao`,
+ *    `plano_exclusao_titular` e `anonimizar_candidato`. ⚠ O PostgREST deriva o
+ *    *role* do MESMO JWT que carrega as claims: este client chega como
+ *    `authenticated`, e é por isso que o conserto exigiu **também** a migration
+ *    `20260805000009` (`GRANT EXECUTE ... TO authenticated` nas cinco). O que ele
+ *    compra é `auth.uid()` resolvido DENTRO do banco — a metade (a) do guard das
+ *    cinco. Sem ele, `auth.uid()` é NULL e as cinco recusam com `42501`.
+ *
+ *  · `supabaseAdmin` — service key **sem** `Authorization`. Tudo o mais:
+ *    `auth.admin.deleteUser`, `storage.list`/`storage.remove`, `ler_resend_api_key`
+ *    e TODA leitura/escrita de tabela. ⚠ Migrar qualquer um deles para o client do
+ *    titular quebraria QUATRO caminhos de uma vez, porque o `Authorization` é o mesmo
+ *    header para PostgREST, Storage e Auth Admin: `deleteUser` exige service_role,
+ *    `ler_resend_api_key` é REVOGADA de `authenticated` desde a P36
+ *    (`20260722000001:74`), e os carimbos em `solicitacoes_dados` passariam a depender
+ *    de uma policy own-row que o tombstone QUEBRA POR DESENHO (D-45-11) — falhando
+ *    nos passos 3 e 4, **depois** da mutação irreversível.
+ *
+ * ⚠ A saída **recusada**, e ela continua recusada: afrouxar o guard das RPCs para
+ * aceitar `auth.uid() IS NULL` sob `service_role`. Reintroduziria o defeito que a
+ * asserção C2 do smoke fecha, numa função que apaga PII irreversivelmente.
+ *
+ * ⚠ **O REDEPLOY É DO 45-11.** Este arquivo está certo no disco; a versão em PROD
+ * ainda é a do 45-06, e ela não tem o terceiro client.
  *
  * @module supabase/functions/executar-direito-titular
  * @see supabase/functions/exportar-meus-dados/index.ts (o esqueleto clonado)
@@ -197,6 +205,13 @@ export interface Deps {
   supabaseAdmin: any;
   // deno-lint-ignore no-explicit-any
   supabaseUser: any;
+  /**
+   * O TERCEIRO client: service key no `apikey`, `Authorization` do titular — logo
+   * papel `authenticated` no PostgREST, com `auth.uid()` resolvido dentro do banco.
+   * SÓ as quatro RPCs da fase saem dele.
+   */
+  // deno-lint-ignore no-explicit-any
+  supabaseTitular: any;
   /** `fetch` do envio do recibo — testes injetam um mock → sem `--allow-net`. */
   fetchImpl?: typeof fetch;
   /**
@@ -301,7 +316,17 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return errorResponse("SERVER_ERROR", "Método não suportado", 405);
 
-  const { supabaseAdmin, supabaseUser } = deps;
+  // ── ⚠ A DIVISÃO DOS CLIENTS, E A RAZÃO MEDIDA (45-12 / `DI-45-10-01`) ──────
+  //    `supabaseTitular` leva as claims; `supabaseAdmin` NÃO. O `Authorization` é o
+  //    MESMO header para PostgREST, para a Storage API e para a Auth Admin API —
+  //    acrescentá-lo ao client de serviço não "melhora as RPCs": troca o papel de
+  //    TODAS as chamadas dele para `authenticated` de uma vez. `deleteUser` passa a
+  //    403, `ler_resend_api_key` está REVOGADA de `authenticated` desde a P36
+  //    (`20260722000001:74`), e os carimbos em `solicitacoes_dados` passam a depender
+  //    de uma policy own-row que o tombstone QUEBRA POR DESENHO (D-45-11). Os dois
+  //    últimos falhariam DEPOIS da mutação irreversível, quando já não há conta a
+  //    quem responder. Cada chamada fica no papel de que ela precisa.
+  const { supabaseAdmin, supabaseUser, supabaseTitular } = deps;
 
   // ── 1 · AUTHENTICATE (two-client D-23 — getUser pelo client anon) ──────────
   const { data: userRes, error: userErr } = await supabaseUser.auth.getUser();
@@ -360,7 +385,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     //      DENTRO do banco. É o que faz o controle sobreviver a um futuro chamador
     //      que não seja esta função.
     if (acao === "pedir") {
-      const { data, error } = await supabaseAdmin.rpc("registrar_pedido_exclusao", {
+      const { data, error } = await supabaseTitular.rpc("registrar_pedido_exclusao", {
         p_candidato_id: candidatoId,
       });
       if (error) return respostaDeErroRpc(error, "pedir", candidatoId);
@@ -420,7 +445,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       );
     }
 
-    const { data, error } = await supabaseAdmin.rpc("cancelar_pedido_exclusao", {
+    const { data, error } = await supabaseTitular.rpc("cancelar_pedido_exclusao", {
       p_solicitacao_id: pedido.id,
     });
     if (error) return respostaDeErroRpc(error, "cancelar", candidatoId, pedido.id);
@@ -478,7 +503,9 @@ interface ContextoExecucao {
 }
 
 async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Response> {
-  const { supabaseAdmin } = deps;
+  // ⚠ A leitura do pedido, os cinco carimbos, o Storage e o `deleteUser` seguem no
+  // client de SERVIÇO; só as duas RPCs do motor saem do client do titular.
+  const { supabaseAdmin, supabaseTitular } = deps;
   const { candidatoId, authUid } = ctx;
 
   // ── Resolve o pedido NO SERVIDOR, escopado ao titular (Invariante 12) ──────
@@ -562,7 +589,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // ── PASSO 0 · O PLANO — o único produtor de informação ───────────────────
     let plano = (estado.plano ?? null) as PlanoExclusao | null;
     if (!plano || !Array.isArray(plano.caminhos)) {
-      plano = await montarPlano(supabaseAdmin, ctx);
+      plano = await montarPlano(deps, ctx);
       await carimbar("storage", { plano, situacao: SITUACAO_EXECUTANDO });
     }
 
@@ -602,7 +629,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // disponível está dentro daquela transação, e duplicar um único statement aqui a
     // destruiria.
     if (!estado.postgres_concluido_em) {
-      const { data, error } = await supabaseAdmin.rpc("anonimizar_candidato", {
+      const { data, error } = await supabaseTitular.rpc("anonimizar_candidato", {
         p_candidato_id: candidatoId,
         p_dry_run: false,
       });
@@ -727,19 +754,21 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
  * numa coluna e não vive numa variável local da Edge Function.
  */
 async function montarPlano(
-  // deno-lint-ignore no-explicit-any
-  supabaseAdmin: any,
+  deps: Deps,
   ctx: ContextoExecucao,
 ): Promise<PlanoExclusao> {
+  // ⚠ Os DOIS clients, e a divisão é a mesma do handler: a RPC leva as claims do
+  // titular; a enumeração do bucket e a leitura de ponteiros exigem `service_role`.
+  const { supabaseAdmin, supabaseTitular } = deps;
   const { candidatoId, authUid, emailTitular } = ctx;
 
   // A expressão ÚNICA da qual o dry-run e o delete real saem (45-07). A EF CHAMA;
   // não reimplementa nada da metade Postgres — toda a atomicidade disponível está
   // dentro daquela transação, e duplicar qualquer statement aqui a destruiria.
-  const { data: planoBanco, error: planoErr } = await supabaseAdmin.rpc(
-    "plano_exclusao_titular",
-    { p_candidato_id: candidatoId },
-  );
+  const rpcPlano = await supabaseTitular.rpc("plano_exclusao_titular", {
+    p_candidato_id: candidatoId,
+  });
+  const { data: planoBanco, error: planoErr } = rpcPlano;
   if (planoErr || !planoBanco) throw new ErroDePasso("postgres", "rpc_plano");
 
   // A enumeração AUTORITATIVA do bucket, paginada.
@@ -999,11 +1028,25 @@ if (import.meta.main) {
     const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    // service_role SÓ para a resolução do titular e as duas RPCs (D-23).
+    // service_role para a resolução do titular, os carimbos, o Storage, o
+    // `deleteUser` e `ler_resend_api_key` (D-23). ⚠ SEM `Authorization`: acrescentá-lo
+    // aqui trocaria o papel de TODAS essas chamadas para `authenticated` de uma vez.
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    // ── O TERCEIRO CLIENT (45-12 / `DI-45-10-01`) ────────────────────────────
+    // Service key no `apikey` E o `Authorization` do titular já validado acima. ⚠ O
+    // PostgREST deriva o PAPEL do MESMO JWT que carrega as claims: este client chega
+    // como `authenticated`, não como `service_role` — e é por isso que fechar o
+    // `DI-45-10-01` exige TAMBÉM o `GRANT EXECUTE ... TO authenticated` da migration
+    // `20260805000009`. O que ele compra é `auth.uid()` resolvido DENTRO do banco,
+    // que é a metade (a) do guard das cinco RPCs desta fase. Sem ele, `auth.uid()` é
+    // NULL, as cinco recusam com 42501, e o motor não roda.
+    const supabaseTitular = createClient(SUPABASE_URL, SERVICE_KEY, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
-    return await handler(req, { supabaseAdmin, supabaseUser });
+    return await handler(req, { supabaseAdmin, supabaseUser, supabaseTitular });
   });
 }
