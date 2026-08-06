@@ -190,7 +190,7 @@ Plans:
   4. `historico_candidatura`, `decisao_final` e `decisao_final_historico` continuam com as mesmas linhas e as **mesmas FKs `NO ACTION`** de antes — a trilha de decisão sobrevive à exclusão do candidato e **nenhuma constraint foi relaxada para CASCADE** (o reflexo errado diante do primeiro 23503).
   5. O candidato recebe um **recibo honesto em duas colunas** — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito; e a série de bias EEOC 4/5 continua produzindo os mesmos números para os períodos anteriores, porque a faixa etária foi **materializada no tombstone antes** de qualquer anonimização rodar.
 
-**Plans**: 11 plans (5 waves · 10/10 requirements cobertos · 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas e 36/36 considerações de UI levantadas)
+**Plans**: 12 plans (6 waves · 10/10 requirements cobertos · 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas e 36/36 considerações de UI levantadas)
 
 Plans:
 **Wave 1**
@@ -217,9 +217,13 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
+- [ ] 45-12-PLAN.md — Fecha `DI-45-10-01` e `DI-45-10-02`: terceiro client com as claims do titular + migration de `GRANT EXECUTE ... TO authenticated` nas 5 RPCs + `retirar_candidatura` no vocabulário fechado. **Escreve a migration, não aplica** — sem ele o G1 não roda e o portão não abre
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito
 
-**Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-11)
+**Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-12) · 6 → (45-11)
 **⚠ Regra de wave desta fase**: nenhuma wave mistura *escrever* uma migration com *aplicá-la* — subagentes GSD não recebem os tools MCP do Supabase, então todo apply, toda inspeção em PROD e todo deploy de EF são checkpoint do orquestrador (45-01, 45-06 e 45-11 são inteiramente checkpoint)
 **UI hint**: yes — fluxo candidate-facing net-new (retirar × apagar, confirmação, janela de arrependimento, recibo). É a superfície onde uma ambiguidade de copy vira ação irreversível: forte candidata a `/gsd-ui-phase`
 **Security**: **`/gsd-secure-phase` obrigatório** — service_role, Storage Admin, Auth Admin, mutação cross-sistema sobre PII viva
