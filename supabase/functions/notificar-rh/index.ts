@@ -44,16 +44,24 @@ import {
   resolverModo,
 } from "../_shared/email-config.ts";
 import {
+  assuntoCandidaturaEncerradaAPedido,
   assuntoRevisaoSolicitada,
   construirCorpoResendRh,
+  corpoCandidaturaEncerradaAPedido,
   corpoRevisaoSolicitada,
-  EVENTO_LEDGER_RH,
+  ehEventoRh,
+  EVENTO_LEDGER_RH_ENCERRAMENTO,
+  type EventoRh,
   LABEL_SINK_RH,
+  LABEL_SINK_RH_ENCERRAMENTO,
   logSeguroRh,
   montarDedupeKeyRh,
+  montarDedupeKeyRhEncerramento,
   montarUrlFila,
+  montarUrlListaVaga,
   refCurta,
   TEMPLATE_LEDGER_RH,
+  TEMPLATE_LEDGER_RH_ENCERRAMENTO,
 } from "./helpers.ts";
 
 const corsHeaders = {
@@ -100,7 +108,7 @@ function errorResponse(code: ErrorCode, message: string, status = 400): Response
 const ROLES_DESTINATARIAS = ["administrador", "recrutador"] as const;
 
 interface CorpoRequisicao {
-  evento: typeof EVENTO_LEDGER_RH;
+  evento: EventoRh;
   candidatura_id: string;
 }
 
@@ -148,24 +156,28 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
     return errorResponse("UNAUTHORIZED", "Não autorizado.", 401);
   }
 
-  // ---- 2) Parse ids-only, vocabulário fechado em UM evento --------------------
+  // ---- 2) Parse ids-only, vocabulário fechado em DOIS eventos -----------------
+  // P45-09: o vocabulário desta EF passou de 1 para 2 valores. Ele continua FECHADO
+  // e continua MENOR que o do banco: `revisao_respondida` e `divulgacao_vagas` estão
+  // no CHECK do ledger e NÃO pertencem a esta EF — vocabulário do banco maior que o
+  // da EF é o precedente registrado no COMMENT de `classe_evento_notificacao`.
   let body: CorpoRequisicao;
   try {
     const raw = await req.json();
     if (
       !raw ||
-      raw.evento !== EVENTO_LEDGER_RH ||
+      !ehEventoRh(raw.evento) ||
       typeof raw.candidatura_id !== "string" ||
       !raw.candidatura_id
     ) {
       return errorResponse("VALIDATION", "Payload inválido (evento/candidatura_id).");
     }
-    body = { evento: EVENTO_LEDGER_RH, candidatura_id: raw.candidatura_id };
+    body = { evento: raw.evento, candidatura_id: raw.candidatura_id };
   } catch {
     return errorResponse("VALIDATION", "JSON malformado.");
   }
 
-  const { candidatura_id } = body;
+  const { candidatura_id, evento } = body;
   const candidaturaRef = refCurta(candidatura_id);
 
   // ---- 3) Dados por ALLOWLIST de colunas (nunca projeção-estrela) -------------
@@ -226,12 +238,35 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   }
 
   // ---- 5) Assunto/corpo montados UMA vez (idênticos para todos) ---------------
+  // P45-09 · A RAMIFICAÇÃO POR EVENTO ACONTECE **AQUI**, e só aqui: o laço de
+  // envio abaixo (claim-before-send) permanece com a lógica INALTERADA — ele passou
+  // a ler variáveis onde lia constantes, e nenhum ramo novo entrou nele. Ramificar
+  // dentro do laço multiplicaria por dois os caminhos de idempotência, que é
+  // exatamente a parte que não se deve duplicar.
   const modo = resolverModo();
-  const subject = assuntoRevisaoSolicitada(vaga.titulo);
-  const html = corpoRevisaoSolicitada({
-    tituloVaga: vaga.titulo,
-    urlFila: montarUrlFila(Deno.env.get("APP_BASE_URL") || undefined),
-  });
+  const ehEncerramento = evento === EVENTO_LEDGER_RH_ENCERRAMENTO;
+  const labelSink = ehEncerramento ? LABEL_SINK_RH_ENCERRAMENTO : LABEL_SINK_RH;
+  const templateLedger = ehEncerramento
+    ? TEMPLATE_LEDGER_RH_ENCERRAMENTO
+    : TEMPLATE_LEDGER_RH;
+  const baseUrl = Deno.env.get("APP_BASE_URL") || undefined;
+
+  const subject = ehEncerramento
+    ? assuntoCandidaturaEncerradaAPedido(vaga.titulo)
+    : assuntoRevisaoSolicitada(vaga.titulo);
+
+  // O destino diverge com o evento: o pedido de revisão vai para a FILA (que tem
+  // ação); o encerramento vai para a LISTA DE CANDIDATOS DA VAGA, porque ele não
+  // tem ação — existe para que ninguém agende ou avalie uma candidatura encerrada.
+  const html = ehEncerramento
+    ? corpoCandidaturaEncerradaAPedido({
+      tituloVaga: vaga.titulo,
+      urlLista: montarUrlListaVaga(candidatura.vaga_id, baseUrl),
+    })
+    : corpoRevisaoSolicitada({
+      tituloVaga: vaga.titulo,
+      urlFila: montarUrlFila(baseUrl),
+    });
 
   // Chave do Vault lida UMA vez, antes do laço. Ausente ⇒ cada destinatário é
   // reivindicado e marcado `falhou` mesmo assim: T-42-26 exige que toda tentativa
@@ -245,7 +280,9 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   let falhas = 0;
 
   for (const d of lista) {
-    const dedupe_key = montarDedupeKeyRh(candidatura_id, d.user_id);
+    const dedupe_key = ehEncerramento
+      ? montarDedupeKeyRhEncerramento(candidatura_id, d.user_id)
+      : montarDedupeKeyRh(candidatura_id, d.user_id);
 
     /**
      * Grava `falhou` na linha reivindicada deste destinatário.
@@ -269,12 +306,12 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
         .eq("dedupe_key", dedupe_key);
       console.warn(
         "[notificar-rh]",
-        logSeguroRh({ evento: EVENTO_LEDGER_RH, candidatura_ref: candidaturaRef, status: "falhou" }),
+        logSeguroRh({ evento, candidatura_ref: candidaturaRef, status: "falhou" }),
       );
     };
 
     try {
-      const dest = resolverDestinatarioComLabel(d.email as string, LABEL_SINK_RH, modo);
+      const dest = resolverDestinatarioComLabel(d.email as string, labelSink, modo);
 
       // ---- 6a) Claim-before-send (ON CONFLICT dedupe_key DO NOTHING) ----------
       // `destinatario_original` preenchido nos DOIS modos: o ledger audita quem
@@ -288,8 +325,8 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
             dedupe_key,
             destinatario_email: dest.para,
             destinatario_original: dest.destinatario_original,
-            evento: EVENTO_LEDGER_RH,
-            template: TEMPLATE_LEDGER_RH,
+            evento,
+            template: templateLedger,
             status: "pendente",
             modo,
           },
@@ -309,7 +346,7 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
         duplicados++;
         console.log(
           "[notificar-rh]",
-          logSeguroRh({ evento: EVENTO_LEDGER_RH, candidatura_ref: candidaturaRef, skipped: "duplicate" }),
+          logSeguroRh({ evento, candidatura_ref: candidaturaRef, skipped: "duplicate" }),
         );
         continue;
       }
@@ -394,7 +431,7 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   console.log(
     "[notificar-rh]",
     logSeguroRh({
-      evento: EVENTO_LEDGER_RH,
+      evento,
       candidatura_ref: candidaturaRef,
       status: "concluido",
       destinatarios: lista.length,
