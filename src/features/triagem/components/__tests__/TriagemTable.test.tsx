@@ -169,3 +169,73 @@ describe('TriagemTable — RNF-07a guardrails + reprocess affordance', () => {
     expect(screen.getByText('Reprocessar análise')).toBeInTheDocument()
   })
 })
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 45 / Plano 45-09 — Invariante 9: o silêncio também é proibido.
+ *
+ * Uma candidatura que hoje soma na etapa e amanhã não está lá é um recrutador
+ * agendando entrevista com quem saiu. Por isso o encerramento a pedido é coluna
+ * ADITIVA (`encerrada_a_pedido_em`) e NUNCA `deleted_at` — as cinco leituras de RH
+ * filtram `.is('deleted_at', null)`, e um soft delete apagaria a linha de todas as
+ * telas sem uma palavra.
+ *
+ * ⚠ BACKSTOP E10·long-text — o risco é o DESAPARECIMENTO SILENCIOSO, e por isso a
+ * asserção exige a PALAVRA no render. Uma asserção de contagem de linhas passaria
+ * com a linha sumida; uma asserção de "a tabela não quebrou" também.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe('Phase 45 — a candidatura encerrada a pedido é LEGÍVEL no RH', () => {
+  const noopFn = () => {}
+
+  function renderComEncerramento(encerrada: string | null) {
+    return renderTable(
+      <TriagemTable
+        rows={[{ ...makeRow({ id: 'enc-1' }), encerrada_a_pedido_em: encerrada } as never]}
+        selectedIds={[]}
+        onToggleSelect={noopFn}
+        onCompare={noopFn}
+        onReprocess={noopFn}
+      />,
+    )
+  }
+
+  it('exige a PALAVRA «Encerrada a pedido do candidato» quando a coluna é não-nula', () => {
+    renderComEncerramento('2026-08-06T12:00:00Z')
+    expect(screen.getByText('Encerrada a pedido do candidato')).toBeInTheDocument()
+  })
+
+  it('a linha CONTINUA na tabela — o candidato não some do funil', () => {
+    renderComEncerramento('2026-08-06T12:00:00Z')
+    expect(screen.getByText('Candidato enc-1')).toBeInTheDocument()
+  })
+
+  it('candidatura em andamento NÃO exibe o estado', () => {
+    renderComEncerramento(null)
+    expect(screen.queryByText('Encerrada a pedido do candidato')).not.toBeInTheDocument()
+  })
+
+  it('tratamento NEUTRO — não é alarme: ninguém errou', () => {
+    renderComEncerramento('2026-08-06T12:00:00Z')
+    const estado = screen.getByText('Encerrada a pedido do candidato')
+    // Âmbar/vermelho aqui competiriam com os eixos de SLA das Phases 42 e 44.
+    expect(estado.className).not.toMatch(/red|amber|yellow|destructive/)
+    expect(estado.className).toMatch(/text-white\/80/)
+  })
+
+  it('NENHUMA ação é oferecida — nem reabrir, nem contatar, nem reverter', () => {
+    renderComEncerramento('2026-08-06T12:00:00Z')
+    for (const btn of screen.queryAllByRole('button')) {
+      expect(btn.textContent ?? '').not.toMatch(/reabrir|reverter|contatar|desfazer/i)
+    }
+  })
+
+  it('a política de dados do titular NÃO é informação de funil', () => {
+    renderComEncerramento('2026-08-06T12:00:00Z')
+    const texto = document.body.textContent ?? ''
+    // Nem data de exclusão, nem contagem regressiva, nem a existência do pedido.
+    expect(texto).not.toMatch(/exclusão|exclusao|será apagad|serão apagad/i)
+    expect(texto).not.toMatch(/\bem \d+ dias?\b/i)
+    expect(texto).not.toMatch(/pedido de exclus/i)
+  })
+})
