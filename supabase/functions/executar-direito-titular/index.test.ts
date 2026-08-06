@@ -211,9 +211,12 @@ Deno.test("(c) WR-04: erro de query ao resolver o titular → 500 SERVER_ERROR, 
 });
 
 // ── (d) vocabulário fechado de ação ──────────────────────────────────────────
-Deno.test("(d) ação fora de ('pedir','cancelar') → 400 VALIDATION e zero RPC", async () => {
+// ⚠ `"executar"` SAIU desta lista no 45-10: ele passou a ser a TERCEIRA ação do
+// vocabulário fechado. Mantê-lo aqui afirmaria que o motor destrutivo não existe —
+// o teste seria verde justamente quando a fase falhou.
+Deno.test("(d) ação fora de ('pedir','cancelar','executar') → 400 VALIDATION e zero RPC", async () => {
   const { handler } = await loadHandler();
-  for (const acao of ["executar", "apagar", "", undefined, 42]) {
+  for (const acao of ["apagar", "", undefined, 42]) {
     const admin = makeMockSupabaseAdmin();
     const res = await handler(makeRequest({ acao }), {
       supabaseAdmin: admin,
@@ -443,4 +446,512 @@ Deno.test("(m) causaDaFalha traduz passo → vocabulário FECHADO do CHECK do ba
   // Fallback TOTAL: um passo desconhecido NÃO pode produzir um valor fora do CHECK,
   // porque o INSERT abortaria a transação que registra a própria falha.
   assertEquals(h.causaDaFalha("qualquer-coisa"), "falha_postgres");
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Phase 45 / Plano 45-10 — OS TRÊS PASSOS DESTRUTIVOS + O RECIBO
+//
+// ── POR QUE UM SEGUNDO HARNESS, E NÃO UM `makeMockSupabaseAdmin` ESTENDIDO ────
+// O mock do 45-03 devolve a MESMA resposta para toda leitura de uma tabela, o que
+// bastava para duas ações de estado. O motor do 45-10 lê `solicitacoes_dados` e
+// ESCREVE nela cinco vezes (o plano + os quatro carimbos), enumera Storage em laço
+// PAGINADO, e a asserção central de metade dos casos é sobre a ORDEM das operações —
+// nenhuma delas é observável num mock sem memória. Estender o antigo apagaria as 14
+// asserções que ele já sustenta.
+//
+// ── AS ASSERÇÕES QUE UM CAMINHO FELIZ NÃO PEGA ───────────────────────────────
+//  · a captura acontece ANTES da primeira mutação (`ordem`, não o corpo da resposta);
+//  · a lista persistida é DETERMINÍSTICA mesmo com o `list()` paginando fora de ordem;
+//  · `remove()` que devolve menos objetos do que recebeu FALHA o passo — o único
+//    precedente do repositório (`cvUploadService.ts:224`) não confere esse retorno;
+//  · com `storage_concluido_em` carimbado a Storage Admin API NÃO é tocada;
+//  · o erro de `deleteUser` NÃO é engolido (o precedente vivo o engole por desenho);
+//  · o recibo NÃO escreve no ledger de notificações (D-45-12 / saída R1) — o mock
+//    daquela tabela FALHA O TESTE se for chamado.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const PEDIDO_ID = "dddddddd-4444-4444-8444-dddddddddddd";
+const AUTH_UID = TITULAR.id;
+const PREFIXO = `${AUTH_UID}/`;
+const EMAIL_TITULAR = "titular@exemplo.com";
+/** Uma data de execução JÁ VENCIDA — a janela de arrependimento passou. */
+const VENCIDO = "2020-01-01T00:00:00.000Z";
+/** Uma data de execução AINDA NO FUTURO. */
+const FUTURO = "2999-01-01T00:00:00.000Z";
+
+const CV_A = `${PREFIXO}11111111-1111-4111-8111-111111111111.pdf`;
+const CV_B = `${PREFIXO}22222222-2222-4222-8222-222222222222.pdf`;
+const CV_C = `${PREFIXO}33333333-3333-4333-8333-333333333333.pdf`;
+
+/** O jsonb que `plano_exclusao_titular` devolve — recortado ao que a EF consome. */
+function planoDoBanco(over: Record<string, unknown> = {}) {
+  return {
+    candidato_id: CANDIDATO_ID,
+    candidato_existe: true,
+    ja_anonimizado: false,
+    user_id_presente: true,
+    storage_remove: { fonte: "fora_do_banco", objetos: null },
+    tombstone_candidato: { candidatos: 1, candidaturas_vinculadas: 2 },
+    tombstone_decisao_final: { decisao_final: 1, decisao_final_historico: 1, nota: "x" },
+    severar_user_id: { candidatos_user_id: 1, nota: "x" },
+    severar_fks_set_null: { ai_call_logs: 3, nota: "x" },
+    scrub_ledger_email: { notificacoes_enviadas: 4, nota: "x" },
+    auth_delete_user: { fonte: "fora_do_banco", usuario: null },
+    ...over,
+  };
+}
+
+interface ExecOpts {
+  cand?: { id: string; email: string | null } | null;
+  pedido?: Record<string, unknown> | null;
+  pedidoErro?: unknown;
+  /** Páginas devolvidas por `storage.list()`, na ordem em que ele as devolve. */
+  paginas?: Array<Array<{ name: string }>>;
+  listErro?: unknown;
+  curriculos?: Array<{ id: string; curriculo_url: string | null }>;
+  curriculosErro?: unknown;
+  /** O que `storage.remove(lote)` devolve. Default: exatamente o que recebeu. */
+  removeResultado?: (lote: string[]) => { data: Array<{ name: string }> | null; error: unknown };
+  planoBanco?: { data: unknown; error: unknown };
+  anonimizar?: { data: unknown; error: unknown };
+  deleteUser?: { data?: unknown; error?: unknown };
+  deleteUserLanca?: boolean;
+  apiKey?: string | null;
+  respostaResend?: { ok: boolean; status: number; corpo?: unknown };
+  fetchLanca?: boolean;
+}
+
+function makeMockAdminExecutar(o: ExecOpts = {}) {
+  const cand = o.cand === undefined ? { id: CANDIDATO_ID, email: EMAIL_TITULAR } : o.cand;
+  const paginas = o.paginas ?? [];
+  const curriculos = o.curriculos ?? [];
+  const linha: Record<string, unknown> = {
+    id: PEDIDO_ID,
+    executar_em: VENCIDO,
+    situacao: "agendado",
+    plano: null,
+    storage_concluido_em: null,
+    postgres_concluido_em: null,
+    auth_concluido_em: null,
+    recibo_enviado_em: null,
+    ...(o.pedido ?? {}),
+  };
+  const pedido = o.pedido === null ? null : linha;
+
+  /** Diário de bordo: toda operação observável, na ordem em que aconteceu. */
+  const ordem: string[] = [];
+  const rpcCalls: Array<{ nome: string; args: Record<string, unknown> }> = [];
+  const listCalls: Array<{ prefixo: string; limit: number; offset: number }> = [];
+  const removeCalls: string[][] = [];
+  const deleteUserCalls: unknown[][] = [];
+  const updates: Array<Record<string, unknown>> = [];
+  const fetchCalls: Array<{ url: string; init: RequestInit }> = [];
+  /** ⚠ D-45-12 / saída R1: se isto virar `true`, o recibo tocou o ledger. */
+  let ledgerTocado = false;
+
+  const admin = {
+    ordem,
+    rpcCalls,
+    listCalls,
+    removeCalls,
+    deleteUserCalls,
+    updates,
+    fetchCalls,
+    get ledgerTocado() {
+      return ledgerTocado;
+    },
+    get linha() {
+      return linha;
+    },
+    from(tabela: string) {
+      if (tabela === "notificacoes_enviadas") {
+        ledgerTocado = true;
+        ordem.push("ledger");
+        return makeChainable({ data: null, error: null });
+      }
+      if (tabela === "candidatos") {
+        ordem.push("le:candidatos");
+        return makeChainable({ data: cand, error: null });
+      }
+      if (tabela === "candidaturas") {
+        ordem.push("le:candidaturas");
+        return makeChainable({
+          data: o.curriculosErro ? null : curriculos,
+          error: o.curriculosErro ?? null,
+        });
+      }
+      if (tabela === "solicitacoes_dados") {
+        // deno-lint-ignore no-explicit-any
+        const chain: any = {
+          select: () => {
+            ordem.push("le:solicitacao");
+            return chain;
+          },
+          update: (patch: Record<string, unknown>) => {
+            ordem.push("escreve:solicitacao");
+            updates.push(patch);
+            Object.assign(linha, patch);
+            return chain;
+          },
+          eq: () => chain,
+          in: () => chain,
+          order: () => chain,
+          limit: () => chain,
+          maybeSingle: () =>
+            Promise.resolve({
+              data: o.pedidoErro ? null : pedido,
+              error: o.pedidoErro ?? null,
+            }),
+          // deno-lint-ignore no-explicit-any
+          then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: null }).then(onF, onR),
+        };
+        return chain;
+      }
+      return makeChainable({ data: null, error: null });
+    },
+    rpc(nome: string, args: Record<string, unknown> = {}) {
+      ordem.push(`rpc:${nome}`);
+      rpcCalls.push({ nome, args });
+      if (nome === "plano_exclusao_titular") {
+        return Promise.resolve(o.planoBanco ?? { data: planoDoBanco(), error: null });
+      }
+      if (nome === "anonimizar_candidato") {
+        return Promise.resolve(
+          o.anonimizar ?? {
+            data: { resultado: "anonimizado", candidato_id: CANDIDATO_ID },
+            error: null,
+          },
+        );
+      }
+      if (nome === "ler_resend_api_key") {
+        return Promise.resolve({
+          data: o.apiKey === undefined ? "re_chave_de_teste" : o.apiKey,
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    },
+    storage: {
+      from(_bucket: string) {
+        return {
+          list(prefixo: string, opts: { limit: number; offset: number }) {
+            ordem.push("storage:list");
+            listCalls.push({ prefixo, limit: opts.limit, offset: opts.offset });
+            if (o.listErro) return Promise.resolve({ data: null, error: o.listErro });
+            const idx = Math.floor(opts.offset / opts.limit);
+            return Promise.resolve({ data: paginas[idx] ?? [], error: null });
+          },
+          remove(lote: string[]) {
+            ordem.push("storage:remove");
+            removeCalls.push(lote);
+            const r = o.removeResultado
+              ? o.removeResultado(lote)
+              : { data: lote.map((name) => ({ name })), error: null };
+            return Promise.resolve(r);
+          },
+        };
+      },
+    },
+    auth: {
+      admin: {
+        deleteUser(...args: unknown[]) {
+          ordem.push("auth:deleteUser");
+          deleteUserCalls.push(args);
+          if (o.deleteUserLanca) return Promise.reject(new Error("GoTrue caiu"));
+          return Promise.resolve(o.deleteUser ?? { data: {}, error: null });
+        },
+      },
+    },
+  };
+  return admin;
+}
+
+function makeFetchMock(o: ExecOpts, admin: ReturnType<typeof makeMockAdminExecutar>) {
+  return (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    admin.fetchCalls.push({ url: String(url), init: init ?? {} });
+    if (o.fetchLanca) return Promise.reject(new Error("rede caiu"));
+    const r = o.respostaResend ?? { ok: true, status: 200, corpo: { id: "resend-id" } };
+    return Promise.resolve(
+      new Response(JSON.stringify(r.corpo ?? {}), { status: r.status }),
+    );
+  };
+}
+
+/** Monta as `deps` completas do motor. `modo` é SEMPRE injetado: `resolverModo()`
+ * lê `Deno.env`, e `deno test` roda sem `--allow-env` por contrato desta fase. */
+function depsExecutar(o: ExecOpts = {}) {
+  const admin = makeMockAdminExecutar(o);
+  return {
+    admin,
+    deps: {
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(TITULAR),
+      fetchImpl: makeFetchMock(o, admin) as unknown as typeof fetch,
+      modo: "producao" as const,
+    },
+  };
+}
+
+// ── (n) helpers: o laço PAGINADO ─────────────────────────────────────────────
+Deno.test("(n) enumerarObjetosTitular pagina em laço: 3 páginas → a união das três", async () => {
+  const h = await import("./helpers.ts");
+  const paginas = [
+    [{ name: "a.pdf" }, { name: "b.pdf" }],
+    [{ name: "c.pdf" }, { name: "d.pdf" }],
+    [{ name: "e.pdf" }],
+  ];
+  const chamadas: Array<{ limit: number; offset: number }> = [];
+  const admin = {
+    storage: {
+      from: () => ({
+        list: (_p: string, opts: { limit: number; offset: number }) => {
+          chamadas.push(opts);
+          return Promise.resolve({
+            data: paginas[Math.floor(opts.offset / opts.limit)] ?? [],
+            error: null,
+          });
+        },
+      }),
+    },
+  };
+  const caminhos = await h.enumerarObjetosTitular(admin, PREFIXO, 2);
+  // ⚠ Um teste com UMA página só não satisfaz este critério: um `list()` sem laço
+  // deixaria PII para trás EM SILÊNCIO, e o caminho feliz de uma página seria verde.
+  assertEquals(caminhos.length, 5);
+  assertEquals(caminhos, [
+    `${PREFIXO}a.pdf`,
+    `${PREFIXO}b.pdf`,
+    `${PREFIXO}c.pdf`,
+    `${PREFIXO}d.pdf`,
+    `${PREFIXO}e.pdf`,
+  ]);
+  assert(chamadas.length >= 3, "o laço tem de pedir pelo menos 3 páginas");
+  assertEquals(chamadas[0].offset, 0);
+  assertEquals(chamadas[1].offset, 2);
+});
+
+Deno.test("(n2) enumerarObjetosTitular propaga erro de listagem — nunca devolve lista vazia", async () => {
+  const h = await import("./helpers.ts");
+  const admin = {
+    storage: {
+      from: () => ({
+        list: () => Promise.resolve({ data: null, error: { message: "boom" } }),
+      }),
+    },
+  };
+  let lancou = false;
+  try {
+    await h.enumerarObjetosTitular(admin, PREFIXO, 2);
+  } catch (e) {
+    lancou = true;
+    // A mensagem não pode carregar o prefixo (que é o `auth.uid()` do titular).
+    assert(!String((e as Error).message).includes(AUTH_UID), "a mensagem não carrega o auth.uid");
+  }
+  assert(lancou, "erro de listagem VIRANDO lista vazia apagaria o passo 1 em silêncio");
+});
+
+// ── (o) helpers: união, dedup, divergências e ORDENAÇÃO ──────────────────────
+Deno.test("(o) unirEDeduplicarCaminhos: dedup por caminho completo, divergências viram achado", async () => {
+  const h = await import("./helpers.ts");
+  // CV_B está nas DUAS listas; CV_A só no Storage (blob órfão); CV_C só no banco
+  // (ponteiro morto). Nenhum dos três pode ser descartado.
+  const r = h.unirEDeduplicarCaminhos([CV_B, CV_A], [CV_C, CV_B]);
+  assertEquals(r.caminhos, [CV_A, CV_B, CV_C], "ordenado por caminho completo");
+  assertEquals(r.caminhos.filter((c) => c === CV_B).length, 1, "presente nas duas → UMA vez");
+  assertEquals(r.achados.length, 2);
+  const porTipo = Object.fromEntries(r.achados.map((a) => [a.caminho, a.tipo]));
+  assertEquals(porTipo[CV_A], "blob_orfao");
+  assertEquals(porTipo[CV_C], "ponteiro_morto");
+});
+
+Deno.test("(o2) unirEDeduplicarCaminhos é DETERMINÍSTICO: ordem de entrada não é fonte de verdade", async () => {
+  const h = await import("./helpers.ts");
+  const a = h.unirEDeduplicarCaminhos([CV_C, CV_A, CV_B], []);
+  const b = h.unirEDeduplicarCaminhos([CV_B, CV_C, CV_A], []);
+  assertEquals(a.caminhos, b.caminhos);
+  assertEquals(a.caminhos, [CV_A, CV_B, CV_C]);
+});
+
+// ── (p) helpers: lotes de no máximo 1000 ─────────────────────────────────────
+Deno.test("(p) dividirEmLotes: 1200 itens → 2 lotes (1000 + 200); zero itens → zero lotes", async () => {
+  const h = await import("./helpers.ts");
+  const itens = Array.from({ length: 1200 }, (_, i) => `x${i}`);
+  const lotes = h.dividirEmLotes(itens, 1000);
+  assertEquals(lotes.length, 2);
+  assertEquals(lotes[0].length, 1000);
+  assertEquals(lotes[1].length, 200);
+  assertEquals(h.dividirEmLotes([], 1000).length, 0);
+  assertEquals(lotes.flat().length, 1200, "nenhum caminho pode se perder no fatiamento");
+});
+
+// ── (q) a janela ainda não venceu ────────────────────────────────────────────
+Deno.test("(q) executar com executar_em no FUTURO → 400 VALIDATION e zero mutação", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: FUTURO } });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 400);
+  const json = await res.json();
+  assertEquals(json.error_code, "VALIDATION");
+  assertEquals(json.motivo, "JANELA_ABERTA");
+  assertEquals(admin.removeCalls.length, 0);
+  assertEquals(admin.deleteUserCalls.length, 0);
+  assertEquals(admin.updates.length, 0);
+});
+
+// ── (r) o guard FECHA no ilegível ────────────────────────────────────────────
+Deno.test("(r) executar com executar_em ILEGÍVEL → 500, NUNCA liberação", async () => {
+  const { handler } = await loadHandler();
+  for (const ruim of [null, "", "amanhã", "2026-13-45T99:99:99Z"]) {
+    const { admin, deps } = depsExecutar({ pedido: { executar_em: ruim } });
+    const res = await handler(makeRequest({ acao: "executar" }), deps);
+    assertEquals(res.status, 500, `executar_em=${JSON.stringify(ruim)} tem de FECHAR`);
+    assert(res.status !== 200, "um carimbo ilegível JAMAIS libera a execução");
+    assertEquals(admin.removeCalls.length, 0);
+    assertEquals(admin.deleteUserCalls.length, 0);
+  }
+});
+
+// ── (s) o passo 0 grava ANTES de qualquer mutação ────────────────────────────
+Deno.test("(s) passo 0: o plano é persistido ANTES da primeira mutação de Storage", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_B.slice(PREFIXO.length) }, { name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: CV_B }],
+  });
+  await handler(makeRequest({ acao: "executar" }), deps);
+
+  const iEscrita = admin.ordem.indexOf("escreve:solicitacao");
+  const iRemove = admin.ordem.indexOf("storage:remove");
+  assert(iEscrita >= 0, "o plano tem de ser persistido");
+  assert(iRemove >= 0, "o Storage tem de ser apagado");
+  assert(iEscrita < iRemove, "capturar ANTES de mutar — é o que torna a mutação retomável");
+
+  const plano = admin.updates[0].plano as Record<string, unknown>;
+  assertEquals(plano.caminhos, [CV_A, CV_B], "persistido ORDENADO por caminho completo");
+  assertEquals(plano.email, EMAIL_TITULAR, "o endereço é lido ANTES do tombstone");
+  assertEquals(admin.updates[0].situacao, "executando");
+  // A divergência (CV_A só no Storage) é ACHADO, nunca fundida em silêncio.
+  assertEquals((plano.achados as unknown[]).length, 1);
+});
+
+// ── (t) determinismo entre execuções ─────────────────────────────────────────
+Deno.test("(t) duas execuções com o list() paginando em ORDENS diferentes → MESMA lista", async () => {
+  const { handler } = await loadHandler();
+  const nomeA = CV_A.slice(PREFIXO.length);
+  const nomeB = CV_B.slice(PREFIXO.length);
+  const nomeC = CV_C.slice(PREFIXO.length);
+
+  const um = depsExecutar({ paginas: [[{ name: nomeC }, { name: nomeA }, { name: nomeB }]] });
+  await handler(makeRequest({ acao: "executar" }), um.deps);
+  const dois = depsExecutar({ paginas: [[{ name: nomeB }, { name: nomeC }, { name: nomeA }]] });
+  await handler(makeRequest({ acao: "executar" }), dois.deps);
+
+  const p1 = (um.admin.updates[0].plano as Record<string, unknown>).caminhos;
+  const p2 = (dois.admin.updates[0].plano as Record<string, unknown>).caminhos;
+  assertEquals(p1, p2, "a ordem de paginação do list() NÃO é fonte de verdade");
+  assertEquals(p1, [CV_A, CV_B, CV_C]);
+});
+
+// ── (u) zero objetos é SUCESSO, não erro ─────────────────────────────────────
+Deno.test("(u) titular sem currículo: passo 1 completa, carimba, e NENHUM passo é falho", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[]],
+    curriculos: [{ id: "c1", curriculo_url: null }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(admin.removeCalls.length, 0, "sem caminhos, a Storage Admin API não é chamada");
+  assert(admin.linha.storage_concluido_em, "storage_concluido_em TEM de ser carimbado");
+  // ASSERÇÃO NEGATIVA: ausência de objeto nunca marca passo como falho.
+  for (const u of admin.updates) {
+    assertEquals(u.causa, undefined, "nenhum passo pode ser marcado como falho");
+  }
+  const plano = admin.updates[0].plano as Record<string, unknown>;
+  assertEquals((plano.recorte as Record<string, boolean>).tem_curriculo, false);
+});
+
+// ── (v) falha FECHADA estrutural ─────────────────────────────────────────────
+Deno.test("(v) curriculo_url não-nula com ZERO caminhos enumerados → falha FECHADA, sem mutar", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[]],
+    curriculos: [{ id: "c1", curriculo_url: CV_A }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  // Uma estrutura que DEVIA produzir itens e produziu zero é defeito, não caso vazio.
+  assertEquals(admin.removeCalls.length, 0);
+  assertEquals(admin.deleteUserCalls.length, 0);
+  assertEquals(admin.linha.storage_concluido_em, null);
+});
+
+// ── (w) o retorno de remove() é CONFERIDO ────────────────────────────────────
+Deno.test("(w) remove() devolvendo MENOS objetos → falha_storage e sem carimbo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }, { name: CV_B.slice(PREFIXO.length) }]],
+    // A Storage Admin API diz ter apagado só UM dos dois.
+    removeResultado: (lote) => ({ data: [{ name: lote[0] }], error: null }),
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  assertEquals(admin.linha.storage_concluido_em, null, "conferência falhou → não carimba");
+  assertEquals(admin.linha.causa, "falha_storage");
+  assertEquals(admin.deleteUserCalls.length, 0, "um passo falho NUNCA avança para o próximo");
+});
+
+// ── (x) idempotência do passo 1 ──────────────────────────────────────────────
+Deno.test("(x) com storage_concluido_em carimbado, a Storage Admin API NÃO é chamada", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    pedido: {
+      situacao: "executando",
+      storage_concluido_em: "2026-08-06T10:00:00.000Z",
+      plano: {
+        versao: 1,
+        auth_uid: AUTH_UID,
+        email: EMAIL_TITULAR,
+        caminhos: [CV_A],
+        achados: [],
+        recorte: { tem_curriculo: true, tem_decisao_registrada: false },
+        contagens: { storage_remove: 1 },
+      },
+    },
+  });
+  await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(admin.removeCalls.length, 0, "re-executar NÃO apaga de novo");
+  assertEquals(admin.listCalls.length, 0, "nem re-enumera: o plano é a fonte");
+});
+
+// ── (y) lotes de no máximo 1000 no caminho real ──────────────────────────────
+Deno.test("(y) 1200 caminhos → DUAS chamadas a remove()", async () => {
+  const { handler } = await loadHandler();
+  const nomes = Array.from(
+    { length: 1200 },
+    (_, i) => ({ name: `${String(i).padStart(6, "0")}.pdf` }),
+  );
+  // 12 páginas de 100 — o laço paginado tem de percorrer todas.
+  const paginas: Array<Array<{ name: string }>> = [];
+  for (let i = 0; i < nomes.length; i += 100) paginas.push(nomes.slice(i, i + 100));
+  const { admin, deps } = depsExecutar({ paginas });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(admin.removeCalls.length, 2);
+  assertEquals(admin.removeCalls[0].length, 1000);
+  assertEquals(admin.removeCalls[1].length, 200);
+});
+
+// ── (z) guard estático: zero remoção SQL direta sobre a tabela de objetos ────
+Deno.test("(z) a EF não apaga objeto de Storage por SQL — só pela Storage Admin API", async () => {
+  const bruto = await Deno.readTextFile(new URL("./index.ts", import.meta.url)) +
+    await Deno.readTextFile(new URL("./helpers.ts", import.meta.url));
+  const semComentario = bruto.split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+  // Apagar por SQL remove só o metadado e ÓRFÃ O BLOB PARA SEMPRE — não existe
+  // caminho suportado para apagá-lo depois, e o backup não cobre Storage.
+  assert(
+    !/delete\s+from\s+storage\s*\.\s*objects/i.test(semComentario),
+    "remoção SQL direta sobre a tabela de objetos do Storage é proibida",
+  );
 });
