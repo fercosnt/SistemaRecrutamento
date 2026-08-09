@@ -156,7 +156,7 @@ export function PromptVersionsPage() {
     }
     return {
       title: 'Reverter prompt ativo?',
-      body: `A versão ativa de ${label} será desativada e a versão ${row.semver} reativada. Esta ação é registrada na trilha de auditoria (data_deletion_log). Confirmar?`,
+      body: `A versão ativa de ${label} será desativada e a versão ${row.semver} reativada. Esta ação é registrada na trilha de auditoria. Confirmar?`,
       confirm: 'Reverter',
     }
   }, [pending])

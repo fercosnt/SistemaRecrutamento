@@ -262,7 +262,15 @@ fora_do_escopo:
   # achado A-05 do próprio inventário: smtp_senha_encrypted, webhook_secret
   configuracoes_empresa: segredo
   webhooks_config: segredo
-  # zumbi confirmado (A-06): sem FK, sem candidato_id — CONSOL-03/Phase 47
+  # ADOTADA na Phase 47 (CONSOL-03, decisão do operador em 2026-08-09), não
+  # removida: trilha de reversão da biblioteca de prompts, com escrita real do
+  # `rollback_to_version` desde 2026-06-09.
+  # ⚠ O MAPEAMENTO ABAIXO NÃO MUDA, e isso é deliberado: a adoção corrigiu o
+  # comentário de catálogo e ampliou a auditoria, não o vínculo com titular. A
+  # tabela continua com 4 colunas, nenhuma FK e nenhum `candidato_id` — logo
+  # continua sendo telemetria interna e continua fora do export do titular.
+  # Trocar a classificação junto com a prosa moveria a tabela de escopo sem
+  # nenhum fato novo que o justificasse.
   data_deletion_log: telemetria_interna
   entrevista_guias: configuracao_do_produto
   historico_acoes: telemetria_interna

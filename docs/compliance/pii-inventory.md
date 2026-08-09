@@ -546,7 +546,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 
 ### `data_deletion_log`
 
-> ⚠ ZUMBI. CONSOL-03 — a tabela existe mas nunca recebeu escrita real. Não tem FK, não tem candidato_id, só deletion_type + timestamps. A recomendação da pesquisa é construir o tombstone novo (Phase 45) e DROPAR este stub na Phase 47.
+> ADOTADA na Phase 47 sob o CONSOL-03 (decisão do operador, 2026-08-09). Trilha append-only de reversão de versão da biblioteca de prompts: `public.rollback_to_version` grava aqui a cada rollback administrativo de prompt de IA, no formato `prompt_rollback:<call_type>:<semver>`. Desde a Phase 47 esse mesmo escritor audita nos DOIS destinos — esta tabela e `public.log_auditoria` — na mesma transação, porque nenhuma tela lê esta tabela e uma trilha que ninguém consegue consultar não é trilha. SEM VÍNCULO COM TITULAR: quatro colunas, nenhuma FK, nenhum `candidato_id`, só `deletion_type` + timestamps. Por isso ela continua FORA do escopo do recibo de exclusão e do export do titular, e a classificação abaixo NÃO muda. O motor real de exclusão de titular deste projeto é a RPC de anonimização da Phase 45 (`public.anonimizar_candidato`), nunca esta tabela. O que tornava esta tabela um problema era o comentário de catálogo prometer uma função de exclusão de titular que a Phase 15 nunca criou — promessa corrigida pela migration `20260809000002`.
 
 | Coluna | Classificação | Tipo | Nota |
 |--------|---------------|------|------|
@@ -614,9 +614,15 @@ webhooks_config.secret. A allowlist do export (EXPORT-02) tem de ser
 construída por inclusão explícita — um select('*') aqui vaza credencial,
 não só PII.
 
-### A-06 — data_deletion_log é zumbi confirmado no catálogo vivo (baixa)
+### A-06 — data_deletion_log — RESOLVIDO na Phase 47 por adoção (CONSOL-03) (baixa)
 
-4 colunas, nenhuma FK, nenhum vínculo com titular. CONSOL-03.
+4 colunas, nenhuma FK, nenhum vínculo com titular — o fato de schema
+continua valendo e é o que mantém a tabela fora do escopo do titular.
+O achado em si está FECHADO: a tabela foi ADOTADA em 2026-08-09, não
+removida. Ela recebe escrita real do rollback da biblioteca de prompts
+desde 2026-06-09, e a migration `20260809000002` corrigiu o comentário de
+catálogo que prometia uma função de exclusão de titular ausente — que era
+o defeito de verdade, e não a existência da tabela.
 
 ## Totais
 
