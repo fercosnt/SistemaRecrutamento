@@ -134,7 +134,7 @@
 
 ### Consolidação (CONSOL)
 
-- [ ] **CONSOL-01**: Cobertura Nyquist das 6 fases sem veredito — 36/38/39/41 em `draft`, 37/40 sem arquivo
+- [x] **CONSOL-01**: Cobertura Nyquist das 6 fases sem veredito — 36/38/39/41 em `draft`, 37/40 sem arquivo
 - [x] **CONSOL-02**: W-1 — Histórico (VISRH-03) mostra o nome do recrutador em vez do UUID do `ator`
 - [ ] **CONSOL-03**: Zumbi `data_deletion_log` removido ou adotado com escritas reais (recomendação da pesquisa: construir tombstone novo e dropar o stub)
 - [ ] **CONSOL-04**: Checklist "zumbi de compliance" — toda promessa de retenção/exclusão em comentário de migration ou doc tem código que a executa
@@ -227,7 +227,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | PURGA-07 | Phase 46 | Pending |
 | TRANSP-01 | Phase 47 | Pending |
 | TRANSP-02 | Phase 47 | Complete |
-| CONSOL-01 | Phase 47 | Pending |
+| CONSOL-01 | Phase 47 | Complete |
 | CONSOL-02 | Phase 47 | Complete |
 | CONSOL-03 | Phase 47 | Pending |
 | CONSOL-04 | Phase 47 | Pending |

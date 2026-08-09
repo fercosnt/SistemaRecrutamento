@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-04-PLAN.md (Task 3 = checkpoint humano NAO satisfeito)
-last_updated: "2026-08-09T22:14:58.317Z"
+stopped_at: Completed 47-05-PLAN.md
+last_updated: "2026-08-09T22:29:37.871Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 6
@@ -537,6 +537,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P01 | 12min | 3 tasks | 8 files |
 | Phase 47 P02 | 10min | 2 tasks | 2 files |
 | Phase 47 P04 | 12min | 2 tasks | 9 files |
+| Phase 47 P05 | 35min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -718,6 +719,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: O servico publico de CEP ENTRA na lista, com a decisao escrita no arquivo
 - [Phase ?]: As bases legais sao copia verbatim do artefato gerado da matriz, amarradas por teste
 - [Phase ?]: TRANSP-01 nao e marcado concluido: a pagina existe e nao pode ser publicada
+- [Phase ?]: Os seis vereditos Nyquist do M7 fecharam PARCIAIS (validated + nyquist_compliant: false) — 18 gaps nomeados, zero verde forcado
 
 ### Pending Todos
 
@@ -916,8 +918,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-09T22:14:50.815Z
-Stopped at: Completed 47-04-PLAN.md (Task 3 = checkpoint humano NAO satisfeito)
+Last session: 2026-08-09T22:29:33.459Z
+Stopped at: Completed 47-05-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
