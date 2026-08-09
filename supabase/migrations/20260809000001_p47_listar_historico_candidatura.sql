@@ -324,7 +324,12 @@ BEGIN
   IF NOT v_secdef THEN
     RAISE EXCEPTION 'P47-02 FAIL (d): a funcao aplicada NAO e SECURITY DEFINER — sem DEFINER o LEFT JOIN roda com os direitos do chamador e usuarios_rh e admin-only desde a SEG-02: o recrutador comum veria NULL em toda linha';
   END IF;
-  IF v_config IS NULL OR NOT ('search_path=' = ANY(v_config)) THEN
+  -- ⚠ O padrao aceita `search_path=` e `search_path=''`: o catalogo grava a forma
+  -- normalizada, e um gate que exigisse UMA das duas grafias reprovaria uma funcao
+  -- CORRETA. Um gate que reprova o trabalho certo treina quem executa a desliga-lo.
+  IF v_config IS NULL OR NOT EXISTS (
+    SELECT 1 FROM unnest(v_config) AS cfg WHERE cfg ~ '^search_path=(''''|"")?$'
+  ) THEN
     RAISE EXCEPTION 'P47-02 FAIL (d): a funcao aplicada NAO fixa search_path vazio (proconfig = %) — um DEFINER com search_path herdado do chamador e sequestravel por objeto homonimo em schema anterior', coalesce(array_to_string(v_config, ','), '<nulo>');
   END IF;
 
