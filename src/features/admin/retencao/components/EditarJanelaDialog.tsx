@@ -100,6 +100,27 @@ export const DIALOGO_JANELA_COPY = {
     recuar: 'Voltar',
     escopo:
       'Nenhum dado de candidato é apagado por esta alteração — e hoje nenhuma rotina deste sistema apaga dados de candidato automaticamente.',
+    /**
+     * ⚠ EMENDA A (47-UI-SPEC §Emendas · Phase 47 / plano 47-06) — a ÚNICA ponte entre esta
+     * edição, que acontece em produção, e a página pública de privacidade, que é escrita no
+     * build.
+     *
+     * O artefato que alimenta os prazos publicados é gerado no repositório; a matriz que ele
+     * espelha é editada AQUI. Salvar uma janela nesta tela desatualiza aquela página, e o
+     * portão do repositório não tem como perceber: ele compara a fonte declarada com o
+     * artefato, e as duas continuam combinando entre si enquanto a matriz VIVA anda sozinha.
+     * Sem esta frase, ninguém no sistema jamais fica sabendo que a página pública ficou falsa.
+     *
+     * Três propriedades são deliberadas:
+     *  · a chave de escopo acima NÃO é editada — é copy aprovada e ainda verdadeira, e ela
+     *    continua dizendo o que a alteração não faz;
+     *  · esta frase NÃO promete regeneração automática, porque não haverá — prometê-la
+     *    criaria a promessa sem dono que esta fase existe para remover;
+     *  · ela diz "peça a regeneração" em vez de um comando técnico, porque quem lê é um
+     *    administrador de RH, não quem roda o build.
+     */
+    publicacao:
+      'A página pública de privacidade não muda sozinha. Ela publica a janela que estava valendo na última geração. Depois de salvar, peça a regeneração da página para que o que está publicado volte a bater com o que o sistema faz.',
   },
 } as const
 
