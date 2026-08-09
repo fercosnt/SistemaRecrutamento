@@ -1,10 +1,15 @@
 ---
 phase: 39
 slug: rewire-dos-triggers-aposentadoria-do-n8n-sec-03
-status: draft
+# status lifecycle: draft (seeded by plan-phase) → validated (set by validate-phase §6)
+# audit-milestone §5.5 distinguishes NOT-VALIDATED (draft) from PARTIAL (validated + nyquist_compliant: false) (#2117)
+status: validated
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-07-26
+validated: 2026-08-09
+source: auditoria documental retroativa (Phase 47 / Plan 47-05, CONSOL-01)
+method: auditoria documental dos artefatos existentes — sem re-execução da fase
 ---
 
 # Phase 39 — Validation Strategy
@@ -14,6 +19,124 @@ created: 2026-07-26
 > dispatch (not app code) — proven by SQL smoke against a disposable Postgres (mirror of P37's
 > `p37_fidelidade_schema_smoke.sql`), plus an execute-time PROD checkpoint (human/orchestrator, not
 > subagent-automatable).
+>
+> ⚠ **Veredito acrescentado retroativamente em 2026-08-09** pela Phase 47 (CONSOL-01). O conteúdo
+> original foi **preservado**; o veredito, o mapa medido, os gaps e os achados são o acréscimo.
+>
+> **A fase não foi re-executada** — nenhuma migration, nenhum apply, nenhum smoke contra banco.
+
+---
+
+## Veredito
+
+**PARTIAL — `status: validated` + `nyquist_compliant: false`. É o veredito mais duro das seis.**
+
+Esta é a fase de maior risco do M7 por desenho: ela dropa quatro triggers do orquestrador externo e
+cria três triggers canônicos **na mesma janela**, para que não exista instante de envio duplicado.
+O `39-VERIFICATION.md` diz, com todas as letras, o que aconteceu (`:33-36`):
+
+> *"A fase foi aplicada em PROD (`39-04`, 2026-07-26) e marcada `executed` **sem que este relatório
+> existisse**. Os 2 defeitos críticos abaixo são consequência direta desse gate pulado."*
+
+Os dois defeitos: **um candidato aprovado recebeu a cópia de rejeição** (CR-01) e **a guarda que
+impedia o candidato eliminado por knockout de receber a confirmação era código morto** (CR-02). Os
+dois chegaram a produção. Os dois foram fechados em `f3b7304` e o fix foi deployado em 2026-07-28.
+
+O que sustenta o veredito PARCIAL hoje não é a existência dos defeitos — eles estão fechados e com
+guard de regressão em portão bloqueante. É que **o comportamento próprio desta fase continua sem
+portão**: os quatro requirements DISPATCH descrevem o que os *triggers de banco* fazem, e nenhum
+teste automatizado do repositório exercita um trigger. O `supabase/tests/p39_rewire_triggers_smoke.sql`
+existe, tem 358 linhas, foi escrito em `39-03` — e **nada o executa**. Os testes que hoje protegem
+CR-01 e CR-02 vivem na Edge Function, que é superfície da Phase 38.
+
+Dito de forma acionável: se alguém alterar o `CASE` do trigger amanhã, a suíte inteira do repositório
+continua verde.
+
+---
+
+## Per-Requirement Verification Map — estado em 2026-08-09
+
+| Req ID | Comportamento | Comando / evidência citada por caminho | Roda em portão? | Cobertura |
+|--------|---------------|-----------------------------------------|-----------------|-----------|
+| DISPATCH-01 | O `CASE` dispara `avanco` só na etapa de avaliação assíncrona e `decisao` só em aprovado/rejeitado com decisão humana | `supabase/tests/p39_rewire_triggers_smoke.sql` (358 linhas, escrito em `39-03`) · evidência ao vivo tabulada em `39-VERIFICATION.md:39-52` | ❌ **não** — nenhum job de `.github/workflows/ci.yml` lê `supabase/tests/` | smoke versionado **sem runner** |
+| DISPATCH-02 | Confirmação suprimida para knockout, enviada para o sobrevivente; convite carrega o agendamento | idem, mais os casos `CR-02` em `supabase/functions/notificar-candidato/__tests__/notificar-candidato.test.ts:470-527` | ⚠ **parcial** — o guard **na EF** roda no CI; o do trigger, não | automatizada só do lado da EF |
+| DISPATCH-03 | Zero triggers e zero funções do orquestrador externo no catálogo; bloco removido da EF de submissão | consulta de catálogo registrada em `39-VERIFICATION.md:41` (0 restantes) · `grep` sobre `supabase/functions/submit-candidatura/index.ts` | ❌ não recorrente | verificação pontual |
+| DISPATCH-04 | Corpo do disparo é só de identificadores, com Bearer no header e zero PII | `p39_rewire_triggers_smoke.sql` · `39-VERIFICATION.md:47` (corpo ids-only conferido ao vivo) | ❌ **não** | smoke versionado **sem runner** |
+| DISPATCH-01 (gap closure) | Desfecho `aprovado` nunca renderiza a rejeição | `supabase/functions/_shared/__tests__/email-templates.test.ts:91-116` · `notificar-candidato.test.ts:530` — commit `f3b7304`, 2026-07-27 | ✅ sim — job `deno-test`, bloqueante | **automatizada** |
+| DISPATCH-02 (gap closure) | Knockout devolve `skipped:knockout`, zero envio e zero claim, **antes** do claim no ledger | `notificar-candidato.test.ts:470-527` (linha 192 da EF, antes do claim na 250) | ✅ sim | **automatizada** |
+
+Medido em 2026-08-09: o corpus Deno que carrega os dois guards de regressão fecha **424/424 verde
+em 6 s**. Nenhuma asserção sobre trigger participa disso.
+
+**Classificação:** 0 de 4 requirements com comando automatizado que exercite o comportamento próprio
+da fase · 2 comportamentos derivados protegidos por regressão na EF · 2 requirements cobertos apenas
+por smoke versionado sem runner.
+
+---
+
+## Gaps Nomeados
+
+### G-39-01 — O smoke que é o portão desta fase nunca foi ligado a portão nenhum
+
+- **Comportamento sem cobertura:** as sete invariantes que a própria seção Wave 0 deste arquivo
+  enumera — exatamente um e-mail por evento, zero superfície de envio duplo, funil avança com a EF
+  indisponível, zero PII no payload, guarda do knockout, mapeamento evento-para-fonte, e decisão
+  apenas humana. São os quatro requirements DISPATCH.
+- **Plano de origem:** `39-03-PLAN.md`, que criou `supabase/tests/p39_rewire_triggers_smoke.sql` no
+  commit `ba3ac58` (2026-07-26) — **no mesmo dia** do apply em PROD do `39-04` (`2a4a3da`).
+- **Razão registrada:** `39-VERIFICATION.md:36-37` — subagentes GSD não recebem os tools MCP do
+  Supabase (bug upstream), então toda inspeção de PROD é feita na thread principal; o CI não
+  provisiona Postgres.
+- **Comando que fecharia o gap:** um job de CI que suba um Postgres de serviço, aplique
+  `supabase/migrations/` e rode
+  `psql -v ON_ERROR_STOP=1 -f supabase/tests/p39_rewire_triggers_smoke.sql`. É a mesma infraestrutura
+  que fecharia o G-37-01 e o G-41-02 — **um único investimento fecha o gap estrutural de três das
+  seis fases do M7**.
+
+### G-39-02 — A fase foi aplicada em PROD sem verificação e sem revisão bloqueante, e essa é a causa registrada dos dois CRITICAL
+
+- **Comportamento sem cobertura:** o próprio portão de fase. Não havia `39-VERIFICATION.md` nem
+  revisão de código bloqueante quando a migration foi aplicada em produção.
+- **Plano de origem:** `39-04-PLAN.md` (Wave 2, o apply).
+- **Razão registrada:** `39-VERIFICATION.md:33-36`, verbatim: a fase foi marcada como executada sem
+  que o relatório existisse, e *"os 2 defeitos críticos são consequência direta desse gate pulado"*.
+  O relatório foi escrito retroativamente em 2026-07-28, dois dias após o apply.
+- **Comando que fecharia o gap:** não é comando, é sequência — e o projeto já a codificou desde
+  então. A Phase 45 tornou explícito o portão de "revisão de código bloqueante **antes** do apply
+  destrutivo" citando **esta fase** como origem da regra
+  (`.planning/phases/45-motor-de-exclus-o-anonimiza-o/45-VALIDATION.md:102`). O gap está fechado como
+  processo e permanece aberto como registro histórico desta fase.
+
+### G-39-03 — O encerramento da superfície externa depende de ação humana num painel de terceiros
+
+- **Comportamento sem cobertura:** que os workflows do orquestrador externo estejam de fato
+  desabilitados. O lado do banco está provado (zero triggers restantes); o lado de fora, não.
+- **Plano de origem:** `39-04-PLAN.md` — o cleanup ficou como checkpoint humano pós-apply, declarado
+  não-bloqueante do rewire.
+- **Razão registrada:** consta na tabela `## Manual-Only Verifications` deste arquivo: ação humana em
+  painel externo ao repositório.
+- **Comando que fecharia o gap:** nenhum comando local o cobre. O equivalente automatizável é a
+  ausência do endereço-base do webhook externo em qualquer configuração viva — uma sonda de
+  texto-fonte no molde de `docs/compliance/__tests__/`, que reprovaria se o endereço reaparecesse.
+
+---
+
+## Achados da auditoria
+
+1. **Nenhuma divergência entre os artefatos e o repositório vivo.** O
+   `supabase/tests/p39_rewire_triggers_smoke.sql` existe com 358 linhas; o commit `f3b7304`
+   (2026-07-27) alterou os quatro arquivos que declara — `_shared/email-templates.ts`,
+   `_shared/__tests__/email-templates.test.ts`, `notificar-candidato/index.ts` e o teste da EF,
+   com 231 inserções.
+2. **Os dois CRITICAL têm guard de regressão versionado e em portão.** Conferido por leitura:
+   `notificar-candidato.test.ts:449-540` documenta, em comentário, **por que** cada defeito escapou —
+   o trigger de confirmação é AFTER INSERT e o knockout é aplicado por um UPDATE posterior, então a
+   guarda no trigger lia o estado pré-knockout. Esse é o tipo de registro que transforma incidente em
+   conhecimento.
+3. **A cronologia é o achado central e está preservada:** smoke escrito e PROD aplicado no mesmo dia
+   (2026-07-26); verificação escrita dois dias depois (2026-07-28); fix dos dois CRITICAL no dia
+   anterior à verificação revisada (2026-07-27). A ordem correta seria a inversa, e a fase que veio
+   depois (a 45) reescreveu a regra citando esta.
 
 ---
 
@@ -76,7 +199,11 @@ created: 2026-07-26
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all MISSING references (`p39_rewire_triggers_smoke.sql`)
 - [ ] No watch-mode flags
-- [ ] Feedback latency < 30s (smoke)
-- [ ] `nyquist_compliant: true` set in frontmatter (after Wave 0 smoke authored)
+- [ ] Feedback latency < 30s (smoke) — **indeterminada**: o smoke existe e nada o executa (G-39-01)
+- [ ] `nyquist_compliant: true` set in frontmatter (after Wave 0 smoke authored) — **NÃO**. O smoke
+      foi escrito; o portão nunca existiu. As três razões estão nomeadas em `## Gaps Nomeados`
 
-**Approval:** pending
+**Approval:** veredito **PARCIAL** emitido em 2026-08-09 por **auditoria documental** dos artefatos
+existentes, **sem re-execução** da fase. Fecha o CONSOL-01 para a Phase 39 registrando, por escrito,
+que a fase de maior risco do M7 foi aplicada em produção sem portão — e que o comportamento próprio
+dos seus triggers continua sem cobertura automatizada.
