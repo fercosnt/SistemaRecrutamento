@@ -87,6 +87,38 @@ jobs:
       # Não fala com o banco, não lê credencial, sai 0/1. Custo ~1 s.
       - run: npm run check:export-allowlist
 
+      # Phase 47 / Plan 47-01 (TRANSP-02 · CONSOL-04) — os OUTROS TRÊS portões de
+      # artefato, pela mesma razão do WR-08 acima, agora medida numa tabela.
+      #
+      # O FATO MEDIDO EM 2026-08-09. Antes deste plano, este workflow invocava UM
+      # `check:` (o da allowlist, logo acima) e o `.husky/pre-commit` invocava
+      # ZERO — ele roda só o gate de não-regressão do tsc. Ou seja:
+      #
+      #   · `check:recibo-exclusao` (45-02) estava em package.json e não era
+      #     invocado em lugar nenhum, enquanto o docblock de `reciboExclusao.ts`
+      #     dizia, verbatim, "`--check` reprova qualquer divergência";
+      #   · `gen-pii-md.cjs` (42-04) já implementava `--check` e nunca teve script
+      #     — o inventário de PII mais lido do repositório podia ficar stale em
+      #     silêncio, e a Phase 47 edita a fonte dele;
+      #   · `check:matriz-retencao` nasce aqui junto com o gerador, e não depois.
+      #
+      # Um script não invocado NÃO é portão: ele roda quando um humano lembra. O
+      # requirement CONSOL-04 chama isso de promessa órfã, e um portão órfão é a
+      # variante pior — ele PARECE um portão em toda leitura de docblock.
+      # `docs/compliance/__tests__/portoesInvocados.test.ts` reprova o próximo.
+      #
+      # ⚠ EXCEÇÃO DECLARADA: `check:resend-dominio` fica DELIBERADAMENTE fora.
+      # A Phase 36 (DELIV-01) o projetou como reporter opt-in e o proibiu em CI
+      # pelo próprio docblock: é o único script do repositório que fala com a rede
+      # e precisa de uma credencial viva do Resend. Ligá-lo aqui forçaria a chave
+      # para dentro do GitHub Secrets — trocaria uma lacuna de documentação por
+      # uma superfície de exposição de credencial (ameaça T-36-03-03). A exceção
+      # está declarada com esta razão em `portoesInvocados.test.ts`, e é isso que
+      # impede alguém de "consertá-la" no futuro.
+      - run: npm run check:recibo-exclusao
+      - run: npm run check:matriz-retencao
+      - run: npm run check:pii-inventory-md
+
   # Phase 22 / Plan 22-06 (CI-01): the never-CI-run Deno Edge-Function test corpus now runs
   # as a BLOCKING job (type-check ON, no continue-on-error) so the EF layer that produced every
   # live defect stops apodrecendo. Command is the canonical one proven green in Plan 22-01

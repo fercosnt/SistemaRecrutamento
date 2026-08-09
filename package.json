@@ -102,6 +102,8 @@
         "check:resend-dominio": "node scripts/check-resend-dominio.mjs",
         "check:export-allowlist": "node docs/compliance/sql/gen-export-allowlist.cjs --check",
         "check:recibo-exclusao": "node docs/compliance/sql/gen-recibo-exclusao.cjs --check",
+        "check:matriz-retencao": "node docs/compliance/sql/gen-matriz-retencao.cjs --check",
+        "check:pii-inventory-md": "node docs/compliance/sql/gen-pii-md.cjs --check",
         "preview": "vite preview",
         "lint": "tsc --noEmit",
         "db:types": "npx supabase gen types typescript --linked > database.types.ts",
