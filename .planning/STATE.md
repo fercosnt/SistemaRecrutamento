@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 45-12-PLAN.md
-last_updated: "2026-08-06T17:18:32.577Z"
+stopped_at: Phase 47 UI-SPEC approved
+last_updated: "2026-08-09T04:03:40.101Z"
 last_activity: 2026-08-06
 progress:
   total_phases: 6
@@ -902,9 +902,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-06T17:18:32.562Z
-Stopped at: Completed 45-12-PLAN.md
-Resume file: None
+Last session: 2026-08-09T04:03:40.078Z
+Stopped at: Phase 47 UI-SPEC approved
+Resume file: .planning/phases/47-transpar-ncia-consolida-o/47-UI-SPEC.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

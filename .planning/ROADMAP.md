@@ -65,7 +65,7 @@ Toda fase que escreva um `DELETE`/`UPDATE` destrutivo, altere um predicado de pu
 4. **Zero `--no-verify`** em commits da fase. O baseline `tsc` de 97 (teto CI 104) é conhecido; se o hook barrar, corrigir o hook — o bypass reflexivo é a origem cultural do que a P39 permitiu.
 5. **Dry-run/rollback exercitado contra dados de forma viva** antes de qualquer execução real, com o relatório do dry-run gerado pela **mesma query** do delete real.
 
-**Fases sujeitas ao portão:** **45** (integral) · **46** (integral) · **42** (só INVENT-05 — edita o predicado de um `DELETE` cron vivo) · **47** (só CONSOL-03 — `DROP` de tabela com escritor vivo).
+**Fases sujeitas ao portão:** **45** (integral) · **46** (integral) · **42** (só INVENT-05 — edita o predicado de um `DELETE` cron vivo) · ~~**47** (só CONSOL-03 — `DROP` de tabela com escritor vivo)~~ → **47 SAIU do portão em 2026-08-09**: o CONSOL-03 foi resolvido pela outra saída que o próprio critério de sucesso nomeia ("adotado com escritas reais"), e CONSENT-05 pela simetria não-destrutiva. A fase não contém `DROP`, `DELETE` nem `UPDATE` retroativo — ver §Phase 47.
 
 ### Restrições de ambiente que atravessam todas as fases
 
@@ -255,7 +255,7 @@ Plans:
 
 **Goal**: O que o sistema faz com o dado está escrito onde o candidato lê — e nenhuma promessa de compliance sobrevive neste repositório sem código que a execute.
 **Depends on**: Phase 43 (TRANSP-02 deriva da matriz de retenção como **dado**). Lê melhor depois da 45, mas **não depende da 46** — laterally parallelizable com a Phase 46
-**Requirements**: TRANSP-01, TRANSP-02, CONSOL-01, CONSOL-02, CONSOL-03, CONSOL-04
+**Requirements**: TRANSP-01, TRANSP-02, CONSOL-01, CONSOL-02, CONSOL-03, CONSOL-04, **CONSENT-05** *(deferido a esta fase por `REQUIREMENTS.md:197,256`; ausente do `47-CONTEXT.md`, trazido ao escopo pelo operador em 2026-08-09)*
 **Success Criteria** (o que tem de ser VERDADE):
 
   1. Qualquer visitante lê, numa página pública, **com quem os dados são compartilhados** (Resend, provedor de LLM, Supabase, Vercel — Art. 18, VII) e **o que é guardado, por quanto tempo e por quê** — esta última **derivada da matriz de retenção como dado**, não redigida à mão (uma página escrita à mão diverge da política na primeira mudança de janela).
@@ -263,10 +263,22 @@ Plans:
   3. Toda promessa de retenção/exclusão em comentário de migration ou documento tem **código vivo que a executa**, provado por um checklist versionado — e o zumbi `data_deletion_log` (existe desde 2026-06-09 prometendo uma `delete_candidate_data()` que a Phase 15 nunca criou, ausente de `pg_proc`, 0 linhas, repropositado pelo rollback da prompt-library) foi resolvido: removido ou adotado com escritas reais.
   4. As 6 fases do M7 sem veredito Nyquist (36/38/39/41 em `draft`, 37/40 sem arquivo) têm arquivo `VALIDATION.md` com veredito real.
 
-**Plans**: TBD
+**Plans**: 9 plans (4 waves)
+
+Plans:
+- [ ] 47-01-PLAN.md — gerador da matriz de retenção + os quatro portões de artefato invocados no CI (TRANSP-02, parte A)
+- [ ] 47-02-PLAN.md — RPC `listar_historico_candidatura` + smoke, com a junção certa e o cast obrigatório (CONSOL-02, parte A)
+- [ ] 47-03-PLAN.md — adoção do `data_deletion_log` + CONSENT-05, duas migrations **aditivas** (CONSOL-03, CONSENT-05)
+- [ ] 47-04-PLAN.md — as seis empresas contratadas + `/subprocessadores`, com `país` bloqueante por construção (TRANSP-01)
+- [ ] 47-05-PLAN.md — os seis vereditos Nyquist do M7, em `.planning/milestones/v7.0-phases/` (CONSOL-01)
+- [ ] 47-06-PLAN.md — `/privacidade` com os cinco blocos derivados + Emenda A no diálogo do admin (TRANSP-02, parte B)
+- [ ] 47-07-PLAN.md — o rótulo do ator no Histórico do RH: serviço + componente + os quatro recortes (CONSOL-02, parte B)
+- [ ] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02)
+- [ ] 47-09-PLAN.md — o checklist versionado de promessas com executor + a varredura de destinos de rede (CONSOL-04)
+
 **UI hint**: yes — 2 páginas públicas net-new + a correção do Histórico no lado RH
-**Security**: baixo risco — páginas informativas e um join. A exceção é CONSOL-03
-**Portão destrutivo**: aplica-se **só a CONSOL-03** — `DROP` de `data_deletion_log` é destrutivo sobre um objeto com **escritor vivo** (o RPC de rollback da prompt-library, `20260609000002:227`). Dropar sem religar esse escritor quebra a prompt-library em silêncio. Recomendação da pesquisa: construir o tombstone novo (`candidatos_anonimizados`) e dropar o stub — mas só depois de provar que o escritor vivo foi realocado
+**Security**: baixo risco — páginas informativas e um join. ⚠ A exceção medida **não** é CONSOL-03: é a RPC do CONSOL-02, que troca o tier de controle de acesso (RLS → corpo de função `SECURITY DEFINER`) e por isso tem de **reimpor no corpo** o escopo por vaga do WR-04 e recusar o papel de candidato, cuja policy própria segue viva
+**Portão destrutivo**: ⚠ **NÃO SE APLICA A ESTA FASE.** O portão existia por CONSOL-03, sob a hipótese de `DROP` de tabela com escritor vivo. Medido: **1 escritor e 11 consumidores derivados**, incluindo dois YAML-fonte, o catálogo vivo, cinco artefatos gerados, `database.types.ts` (hoje não regenerável) e uma string visível ao administrador. O critério de sucesso aceita as duas saídas — "removido **OU** adotado com escritas reais" — e o operador decidiu em 2026-08-09 **adotar**: religar o escritor ao sink canônico de auditoria, manter as escritas reais e corrigir o `COMMENT` que promete a função ausente. CONSENT-05 segue a mesma disciplina (remove o `DEFAULT` e a obrigatoriedade; não dropa a coluna). **A fase é inteiramente aditiva: zero `DROP`, zero `DELETE`, zero apply e zero deploy dentro dos planos** — apply e smokes são checkpoints do orquestrador
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
