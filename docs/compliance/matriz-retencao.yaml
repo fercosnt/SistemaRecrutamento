@@ -1,0 +1,135 @@
+# matriz-retencao.yaml — a FONTE da matriz de retenção publicada em `/privacidade`.
+#
+# Requirement: TRANSP-02 · Phase 47 / Plan 47-01
+# Gerador:     docs/compliance/sql/gen-matriz-retencao.cjs
+# Artefatos:   docs/compliance/matriz-retencao.json
+#              src/features/transparencia/constants/matrizRetencao.generated.ts
+#
+# POR QUE ESTE ARQUIVO É AUTORADO E DATADO, E NÃO DERIVADO DO SEED DA MIGRATION
+# A matriz viva mora em `public.config_retencao_etapa` e é EDITÁVEL EM PRODUÇÃO pela
+# RPC `salvar_janela_retencao` (Phase 43 / RETEN-01). O único artefato deste
+# repositório que carrega `janela_meses` como dado é o bloco `VALUES` do seed da
+# migration `20260801000002_p43_config_retencao.sql` — e ele é `ON CONFLICT DO NOTHING`:
+# é o estado INICIAL, não o vigente. Derivar a página pública dele pareceria "derivado
+# da fonte" e não seria; publicaria 24 meses para uma etapa que um administrador já
+# encurtou.
+#
+# Logo a fonte é este YAML, cujos números são MEDIDOS na matriz viva e cuja data de
+# medição vai carimbada no artefato. O gerador não abre conexão com o banco — a ponte
+# honesta entre um artefato de build-time e uma matriz editável em runtime é a data.
+#
+# `finalidade` e `base_legal` são FATO JURÍDICO AUTORADO: não existem em
+# `config_retencao_etapa` e não há de onde derivá-los. O que o gerador garante é que
+# nenhuma etapa chegue à página pública sem os dois escritos.
+#
+# QUANDO RE-MEDIR
+# Sempre que uma janela for alterada em produção. Re-medir é um ato consciente,
+# versionado e revisável:
+#
+#   SELECT etapa, janela_meses, origem, atualizado_em
+#     FROM public.config_retencao_etapa
+#    ORDER BY etapa;
+#
+# Atualize os `janela_meses` divergentes E o `meta.medido_em`, e regenere:
+#   node docs/compliance/sql/gen-matriz-retencao.cjs
+
+meta:
+  requirement: TRANSP-02
+  fase: 47
+  fonte: >
+    public.config_retencao_etapa — a matriz de retenção por etapa criada pela Phase 43
+    (RETEN-01) e editável em produção pela RPC salvar_janela_retencao.
+  medido_em: '2026-08-09'
+  metodo: >
+    Medição da matriz viva em produção executada pelo orquestrador via execute_sql do
+    MCP do Supabase, sobre public.config_retencao_etapa, em 2026-08-09. O gerador deste
+    artefato não abre conexão, não lê credencial e não usa MCP: a medição entra aqui
+    como fato datado e revisável, e o carimbo público de vigência é a data da medição,
+    nunca a data do build.
+  nota_divergencia: >
+    Na medição de 2026-08-09 a etapa "rejeitado" já não carregava a janela inicial de 24
+    meses: o valor vigente é 18. A página publica o vigente — o valor inicial do seed
+    deixou de ser referência.
+
+# Uma chave por valor do enum `etapa_processo`. Uma etapa presente no mapa de rótulos do
+# funil e ausente daqui REPROVA a geração nomeando a etapa: uma etapa nova não chega à
+# página pública com prazo e sem motivo escrito.
+#
+# `janela_meses` é o inteiro MEDIDO, e o gerador espelha o CHECK vivo da tabela
+# (BETWEEN 1 AND 24). Um prazo indeterminado no Bloco 1 é impossível por construção.
+etapas:
+  inscricao:
+    janela_meses: 24
+    finalidade: >
+      Guardamos a sua inscrição para comprovar que a candidatura foi recebida e tratada,
+      e para conseguir responder a você caso queira saber o que aconteceu com ela.
+    base_legal: >
+      LGPD, Art. 7º, V — tratamento necessário a procedimentos preliminares de contrato,
+      a pedido do titular.
+
+  triagem:
+    janela_meses: 24
+    finalidade: >
+      A triagem registra a comparação entre o seu perfil e os requisitos da vaga. É esse
+      registro que sustenta a resposta à pergunta "por que a minha candidatura parou
+      aqui".
+    base_legal: >
+      LGPD, Art. 7º, IX — legítimo interesse na condução do processo seletivo, com o
+      Art. 20 garantindo a você o pedido de revisão.
+
+  avaliacao_assincrona:
+    janela_meses: 24
+    finalidade: >
+      As respostas que você enviou na avaliação comportamental/cognitiva ficam guardadas
+      para que o resultado continue auditável e para que uma pessoa consiga revisá-lo se
+      você pedir.
+    base_legal: >
+      LGPD, Art. 7º, IX e Art. 20 — legítimo interesse na condução do processo, com
+      direito à revisão da decisão.
+
+  entrevista_online:
+    janela_meses: 24
+    finalidade: >
+      As anotações da entrevista online sustentam a decisão do processo e mostram que os
+      mesmos critérios foram aplicados a quem participou da mesma vaga.
+    base_legal: >
+      LGPD, Art. 7º, VI — exercício regular de direitos em processo judicial,
+      administrativo ou arbitral.
+
+  entrevista_presencial:
+    janela_meses: 24
+    finalidade: >
+      As anotações da entrevista presencial sustentam a decisão do processo e mostram que
+      os mesmos critérios foram aplicados a quem participou da mesma vaga.
+    base_legal: >
+      LGPD, Art. 7º, VI — exercício regular de direitos em processo judicial,
+      administrativo ou arbitral.
+
+  decisao_final:
+    janela_meses: 24
+    finalidade: >
+      O registro da decisão final é a prova de que a escolha se apoiou em critério
+      escrito. Sem ele a Beauty Smile não teria como demonstrar que não houve
+      discriminação.
+    base_legal: >
+      LGPD, Art. 7º, VI — exercício regular de direitos; Art. 6º, VI — transparência
+      sobre os critérios do tratamento.
+
+  aprovado:
+    janela_meses: 24
+    finalidade: >
+      A aprovação fica guardada porque é o começo do vínculo de trabalho e a comprovação
+      de que a contratação seguiu o processo seletivo publicado.
+    base_legal: >
+      LGPD, Art. 7º, V e Art. 16, I — execução do contrato de trabalho e cumprimento de
+      obrigação legal decorrente dele.
+
+  rejeitado:
+    janela_meses: 18
+    finalidade: >
+      Quando a candidatura não segue adiante, o registro fica guardado pela janela em que
+      a decisão ainda pode ser questionada — é o que permite à Beauty Smile demonstrar o
+      critério aplicado se você contestar.
+    base_legal: >
+      LGPD, Art. 7º, VI — exercício regular de direitos: o prazo acompanha a janela em
+      que a decisão ainda pode ser questionada.

@@ -1,0 +1,75 @@
+{
+  "etapas": [
+    {
+      "base_legal": "LGPD, Art. 7º, V — tratamento necessário a procedimentos preliminares de contrato, a pedido do titular.",
+      "etapa": "inscricao",
+      "finalidade": "Guardamos a sua inscrição para comprovar que a candidatura foi recebida e tratada, e para conseguir responder a você caso queira saber o que aconteceu com ela.",
+      "janela_meses": 24,
+      "rotulo": "Inscrição"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, IX — legítimo interesse na condução do processo seletivo, com o Art. 20 garantindo a você o pedido de revisão.",
+      "etapa": "triagem",
+      "finalidade": "A triagem registra a comparação entre o seu perfil e os requisitos da vaga. É esse registro que sustenta a resposta à pergunta \"por que a minha candidatura parou aqui\".",
+      "janela_meses": 24,
+      "rotulo": "Triagem"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, IX e Art. 20 — legítimo interesse na condução do processo, com direito à revisão da decisão.",
+      "etapa": "avaliacao_assincrona",
+      "finalidade": "As respostas que você enviou na avaliação comportamental/cognitiva ficam guardadas para que o resultado continue auditável e para que uma pessoa consiga revisá-lo se você pedir.",
+      "janela_meses": 24,
+      "rotulo": "Avaliação Assíncrona"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, VI — exercício regular de direitos em processo judicial, administrativo ou arbitral.",
+      "etapa": "entrevista_online",
+      "finalidade": "As anotações da entrevista online sustentam a decisão do processo e mostram que os mesmos critérios foram aplicados a quem participou da mesma vaga.",
+      "janela_meses": 24,
+      "rotulo": "Entrevista Online"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, VI — exercício regular de direitos em processo judicial, administrativo ou arbitral.",
+      "etapa": "entrevista_presencial",
+      "finalidade": "As anotações da entrevista presencial sustentam a decisão do processo e mostram que os mesmos critérios foram aplicados a quem participou da mesma vaga.",
+      "janela_meses": 24,
+      "rotulo": "Entrevista Presencial"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, VI — exercício regular de direitos; Art. 6º, VI — transparência sobre os critérios do tratamento.",
+      "etapa": "decisao_final",
+      "finalidade": "O registro da decisão final é a prova de que a escolha se apoiou em critério escrito. Sem ele a Beauty Smile não teria como demonstrar que não houve discriminação.",
+      "janela_meses": 24,
+      "rotulo": "Decisão Final"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, V e Art. 16, I — execução do contrato de trabalho e cumprimento de obrigação legal decorrente dele.",
+      "etapa": "aprovado",
+      "finalidade": "A aprovação fica guardada porque é o começo do vínculo de trabalho e a comprovação de que a contratação seguiu o processo seletivo publicado.",
+      "janela_meses": 24,
+      "rotulo": "Aprovado"
+    },
+    {
+      "base_legal": "LGPD, Art. 7º, VI — exercício regular de direitos: o prazo acompanha a janela em que a decisão ainda pode ser questionada.",
+      "etapa": "rejeitado",
+      "finalidade": "Quando a candidatura não segue adiante, o registro fica guardado pela janela em que a decisão ainda pode ser questionada — é o que permite à Beauty Smile demonstrar o critério aplicado se você contestar.",
+      "janela_meses": 18,
+      "rotulo": "Rejeitado"
+    }
+  ],
+  "meta": {
+    "fase": 47,
+    "fonte": "public.config_retencao_etapa — a matriz de retenção por etapa criada pela Phase 43 (RETEN-01) e editável em produção pela RPC salvar_janela_retencao.",
+    "gerado_em": "2026-08-09T21:29:46.820Z",
+    "gerador": "docs/compliance/sql/gen-matriz-retencao.cjs",
+    "medido_em": "2026-08-09",
+    "metodo": "Medição da matriz viva em produção executada pelo orquestrador via execute_sql do MCP do Supabase, sobre public.config_retencao_etapa, em 2026-08-09. O gerador deste artefato não abre conexão, não lê credencial e não usa MCP: a medição entra aqui como fato datado e revisável, e o carimbo público de vigência é a data da medição, nunca a data do build.",
+    "nota_divergencia": "Na medição de 2026-08-09 a etapa \"rejeitado\" já não carregava a janela inicial de 24 meses: o valor vigente é 18. A página publica o vigente — o valor inicial do seed deixou de ser referência.",
+    "requirement": "TRANSP-02",
+    "totais": {
+      "etapas": 8,
+      "janela_max_meses": 24,
+      "janela_min_meses": 18
+    }
+  }
+}
