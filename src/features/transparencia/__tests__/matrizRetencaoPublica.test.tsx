@@ -155,9 +155,17 @@ describe('bloco 1 — os prazos, derivados do artefato gerado', () => {
   it('(8) as três colunas administrativas não aparecem no DOM nem no arquivo', () => {
     const { container } = render(<MatrizRetencaoPublica />)
     const texto = (container.textContent ?? '').toLowerCase()
-    for (const coluna of ['origem', 'alterado', 'atualizado em', 'seed', 'admin']) {
+    for (const coluna of ['origem', 'alterado', 'atualizado em']) {
       expect(texto.includes(coluna), `coluna administrativa projetada: ${coluna}`).toBe(false)
     }
+    /**
+     * O valor da coluna de quando foi alterado é um carimbo de data e hora; o nome de quem
+     * alterou não tem forma fixa, mas o carimbo tem — e ele é o rastro mais fácil de deixar
+     * escapar. ⚠ "seed" e "admin" NÃO entram nesta lista: `administrativo` é palavra da
+     * citação legal de metade das etapas, e um portão que reprova a base legal correta
+     * treina quem executa a desligá-lo.
+     */
+    expect(texto).not.toMatch(/\d{4}-\d{2}-\d{2}t\d{2}:\d{2}/)
 
     const fonte = readFileSync(
       join(RAIZ, 'src/features/transparencia/components/MatrizRetencaoPublica.tsx'),

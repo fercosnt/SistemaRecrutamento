@@ -52,6 +52,8 @@ import { ENCARREGADO_EMAIL } from '@/features/privacidade/constants/encarregado'
 
 import { COPY_TRANSPARENCIA, formatarDataPtBr } from '../constants/copyTransparencia'
 import { MATRIZ_RETENCAO } from '../constants/matrizRetencao.generated'
+import { MatrizRetencaoPublica } from './MatrizRetencaoPublica'
+import { RetencaoIndeterminadaLista } from './RetencaoIndeterminadaLista'
 
 /** Uma ficha da matriz de retenção, na forma que a página consome do artefato gerado. */
 export interface FichaRetencao {
@@ -127,13 +129,16 @@ export function PrivacidadePublicaPage({
                 informação de peso jurídico. */}
             <p className="text-sm font-semibold text-white/70">{carimbo}</p>
 
-            {/* Os dois blocos DERIVADOS chegam na Task 2 deste mesmo plano: o de prazos vem
-                do artefato gerado, o de o-que-fica vem do recibo que a Phase 45 já gera.
-                Nenhum dos dois é redigido à mão aqui. */}
-            <Bloco titulo={copy.matriz.titulo}>{null}</Bloco>
+            {/* Os dois blocos DERIVADOS: o de prazos vem do artefato gerado da matriz, o
+                de o-que-fica vem do recibo que a Phase 45 já gera. Nenhum dos dois é
+                redigido à mão, e é isso que os mantém honestos quando a política muda. */}
+            <Bloco titulo={copy.matriz.titulo}>
+              <MatrizRetencaoPublica etapas={matriz.etapas} />
+            </Bloco>
 
             <Bloco titulo={copy.fica.titulo}>
               <p className="text-base leading-relaxed text-white/90">{copy.fica.abertura}</p>
+              <RetencaoIndeterminadaLista />
             </Bloco>
 
             <Bloco titulo={copy.compartilhamos.titulo}>
