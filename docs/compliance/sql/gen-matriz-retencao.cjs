@@ -164,7 +164,13 @@ function extrairDoFunil() {
     morrer(`FALHA: o módulo do funil ${REL(FUNIL)} não pôde ser lido — sem ele não há rótulos nem ordem.`);
   }
 
-  const blocoRotulos = src.match(/export const ETAPA_M2_LABELS[^=]*=\s*\{([\s\S]*?)\n\}/);
+  // ⚠ O `\s*:` logo depois do nome é load-bearing: sem ele um `[^=]*` guloso casa
+  // `ETAPA_M2_LABELS_QUALQUER_OUTRA_COISA` e o gerador extrairia rótulos de um
+  // export que não é o do funil — silenciosamente, que é o pior modo de falha
+  // possível para o mapa que dá nome às etapas na página pública. (Medido: os
+  // casos (17) e (18) de `genMatrizRetencao.test.ts` ficaram vermelhos exatamente
+  // aqui.)
+  const blocoRotulos = src.match(/export const ETAPA_M2_LABELS\s*:[^=]*=\s*\{([\s\S]*?)\n\}/);
   if (!blocoRotulos) {
     morrer(
       `FALHA: bloco ETAPA_M2_LABELS não encontrado em ${REL(FUNIL)}.\n` +
@@ -179,7 +185,7 @@ function extrairDoFunil() {
     morrer(`FALHA: ETAPA_M2_LABELS foi encontrado em ${REL(FUNIL)} mas nenhum rótulo pôde ser extraído dele.`);
   }
 
-  const blocoOrdem = src.match(/export const ETAPA_M2_OPTIONS[\s\S]*?\[([\s\S]*?)\]\s*as EtapaFunilM2\[\]/);
+  const blocoOrdem = src.match(/export const ETAPA_M2_OPTIONS\s*:[\s\S]*?\[([\s\S]*?)\]\s*as EtapaFunilM2\[\]/);
   if (!blocoOrdem) {
     morrer(
       `FALHA: bloco ETAPA_M2_OPTIONS não encontrado em ${REL(FUNIL)}.\n` +
