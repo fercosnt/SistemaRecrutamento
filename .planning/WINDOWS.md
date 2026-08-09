@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 25
+open_count: 26
 waived_count: 0
 fixed_count: 0
-total_count: 25
-last_updated: 2026-08-09T22:12:40.305Z
+total_count: 26
+last_updated: 2026-08-09T23:11:20.359Z
 ---
 
 # Broken Windows Ledger
@@ -40,6 +40,7 @@ last_updated: 2026-08-09T22:12:40.305Z
 | 23 | 45 | deviation | src/features/vagas/components/RetirarCandidaturaAcao.tsx |  | copy generica para a recusa NAO_RETIRAVEL: o hook traduz, o componente nao ramifica — DI-45-12-02 | open |  | 2026-08-06T17:15:24.086Z |  |
 | 24 | 47 | unrun-verify | supabase/tests/p47_historico_smoke.sql |  | smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador | open |  | 2026-08-09T21:55:43.981Z |  |
 | 25 | 47 | unmet-truth | src/features/transparencia/constants/subprocessadores.ts |  | As seis entradas carregam a sentinela PAIS_POR_MEDIR: a regiao onde o dado deste projeto e tratado nao e medivel deste ambiente. A pagina /subprocessadores LANCA ao renderizar e nao pode ser publicada ate o operador informar os seis paises medidos (47-04 Task 3, checkpoint bloqueante). | open |  | 2026-08-09T22:12:40.305Z |  |
+| 26 | 47 | unmet-truth | src/features/transparencia/constants/matrizRetencao.generated.ts |  | As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5) | open |  | 2026-08-09T23:11:20.359Z |  |
 
 ````json
 [
@@ -341,6 +342,18 @@ last_updated: 2026-08-09T22:12:40.305Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-09T22:12:40.305Z",
+    "resolved_at": null
+  },
+  {
+    "id": 26,
+    "kind": "unmet-truth",
+    "phase": "47",
+    "file": "src/features/transparencia/constants/matrizRetencao.generated.ts",
+    "line": null,
+    "description": "As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-09T23:11:20.359Z",
     "resolved_at": null
   }
 ]
