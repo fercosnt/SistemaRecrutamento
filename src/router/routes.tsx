@@ -14,7 +14,7 @@ import { VagaDetalhePage } from '../components/pages/VagaDetalhePage'
 import { ManifestoPage } from '../components/pages/ManifestoPage'
 // Transparência (Phase 47 / TRANSP-01) — rota pública, sem sessão. Import ESTÁTICO:
 // a página não lê dado em runtime, então não há chunk assíncrono a economizar.
-import { SubprocessadoresPage } from '../features/transparencia'
+import { PrivacidadePublicaPage, SubprocessadoresPage } from '../features/transparencia'
 
 // Páginas de Autenticação e Cadastro
 import { CadastroPage } from '../components/pages/CadastroPage'
@@ -156,6 +156,15 @@ export const routes: RouteObject[] = [
   {
     path: '/subprocessadores',
     element: <SubprocessadoresPage />,
+  },
+  // Art. 9º e Art. 18 — o que é guardado, por quanto tempo e por quê. Sem guard de
+  // sessão e sem limite de erro próprio: não há leitura de dados nesta página, logo não
+  // há o que falhar por rede. É rota DISTINTA de `/candidato/privacidade`: aquela fala
+  // dos dados de quem está logado, esta fala da política. A alcançabilidade (o rodapé
+  // público) é entrega do plano 47-08.
+  {
+    path: '/privacidade',
+    element: <PrivacidadePublicaPage />,
   },
 
   // ============================

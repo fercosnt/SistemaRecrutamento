@@ -7,6 +7,12 @@
  *
  * @module features/transparencia
  */
+export { PrivacidadePublicaPage } from './components/PrivacidadePublicaPage'
+export type {
+  FichaRetencao,
+  MatrizPublicada,
+  PrivacidadePublicaPageProps,
+} from './components/PrivacidadePublicaPage'
 export { SubprocessadoresPage } from './components/SubprocessadoresPage'
 export type { SubprocessadoresPageProps } from './components/SubprocessadoresPage'
 export { SubprocessadorFicha } from './components/SubprocessadorFicha'
