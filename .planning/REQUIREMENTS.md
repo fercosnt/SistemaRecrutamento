@@ -53,7 +53,7 @@
 - [x] **CONSENT-02**: Cada consentimento é gravado com versão do texto + hash + timestamp, tornando pré/pós-enforcement distinguíveis por **dado**, não por inferência
 - [x] **CONSENT-03**: `autorizacao_comunicacao` separado em transacional (Art. 7º, V — sem opt-out) e marketing "novas oportunidades de vagas" (consentimento próprio)
 - [x] **CONSENT-04**: Candidato pode revogar o consentimento de marketing pelo painel, e a revogação é honrada no envio
-- [ ] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida → **diferido à Phase 47** (ver nota abaixo)
+- [x] **CONSENT-05**: `autorizacao_analise_video` resolvido — hoje é promessa de **não** fazer algo, coletada e nunca lida → **resolvido na Phase 47 / plano 47-03**, de forma NÃO-destrutiva (`DEFAULT` e obrigatoriedade removidos, coluna e valores históricos preservados)
 
 > **Estado de CONSENT-01/02/03 — FECHADO em 2026-08-03.** *(Este bloco descrevia o estado
 > parcial após o plano 43-01, em 2026-08-01, quando os três estavam deliberadamente sem `[x]`.
@@ -136,7 +136,7 @@
 
 - [x] **CONSOL-01**: Cobertura Nyquist das 6 fases sem veredito — 36/38/39/41 em `draft`, 37/40 sem arquivo
 - [x] **CONSOL-02**: W-1 — Histórico (VISRH-03) mostra o nome do recrutador em vez do UUID do `ator`
-- [ ] **CONSOL-03**: Zumbi `data_deletion_log` removido ou adotado com escritas reais (recomendação da pesquisa: construir tombstone novo e dropar o stub)
+- [x] **CONSOL-03**: Zumbi `data_deletion_log` removido ou adotado com escritas reais (recomendação da pesquisa: construir tombstone novo e dropar o stub)
 - [ ] **CONSOL-04**: Checklist "zumbi de compliance" — toda promessa de retenção/exclusão em comentário de migration ou doc tem código que a executa
 
 ---
@@ -194,7 +194,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSENT-02 | Phase 43 | Complete (cadastro real: versão + hash idêntico ao hex pinado + timestamp) |
 | CONSENT-03 | Phase 43 | Complete (transacional como linha informativa; marketing com consentimento próprio) |
 | CONSENT-04 | Phase 43 | Complete |
-| CONSENT-05 | **Phase 47** | Deferred (a COLETA parou na 43 — campo fora do formulário e `.strict()` rejeita a chave. O que resta é `autorizacao_analise_video NOT NULL DEFAULT false`, que faz cada linha nova AFIRMAR resposta a pergunta que não se faz mais; o `DROP`/`ALTER` é decisão da 47 sob portão destrutivo — ver `todos/pending/43-analise-video-default-false-fabrica-afirmacao.md`) |
+| CONSENT-05 | **Phase 47** | Complete (47-03: `20260809000003` remove o `DEFAULT` e a obrigatoriedade — nulo passa a significar "a pergunta não foi feita", distinguível de "respondeu não". ⚠ NÃO houve `DROP COLUMN` nem back-fill: a resolução é NÃO-destrutiva e a Phase 47 não tem portão destrutivo. ⚠ Migration ESCRITA, apply pendente do checkpoint do orquestrador — ver `47-03-SUMMARY.md` §"O QUE O ORQUESTRADOR HERDA") |
 | CONSENT-06 | Phase 43 | Complete (reporter do Resend rodado 2026-08-02: `open_tracking:false` e `click_tracking:false`, confirmação POSITIVA pela API) |
 | RETEN-01 | Phase 43 | Complete (tabela + RPCs em 43-04, aplicadas em PROD no 43-07; `/admin/retencao` em 43-09) |
 | RETEN-02 | Phase 43 | Complete (seed 8/8 no teto consentido em 43-04; alteração PELA TELA, auditada, em 43-09) |
@@ -229,7 +229,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | TRANSP-02 | Phase 47 | Complete |
 | CONSOL-01 | Phase 47 | Complete |
 | CONSOL-02 | Phase 47 | Complete |
-| CONSOL-03 | Phase 47 | Pending |
+| CONSOL-03 | Phase 47 | Complete |
 | CONSOL-04 | Phase 47 | Pending |
 
 **Coverage:**

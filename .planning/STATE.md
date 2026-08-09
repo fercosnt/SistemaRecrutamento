@@ -5,14 +5,14 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-05-PLAN.md
-last_updated: "2026-08-09T22:29:37.871Z"
+stopped_at: Completed 47-03-PLAN.md (2 migrations ESCRITAS, nao aplicadas — apply e checkpoint do orquestrador)
+last_updated: "2026-08-09T22:51:37.544Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 43
+  completed_plans: 45
   percent: 50
 last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
 ---
@@ -538,6 +538,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P02 | 10min | 2 tasks | 2 files |
 | Phase 47 P04 | 12min | 2 tasks | 9 files |
 | Phase 47 P05 | 35min | 3 tasks | 6 files |
+| Phase 47 P03 | 12min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -720,6 +721,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: As bases legais sao copia verbatim do artefato gerado da matriz, amarradas por teste
 - [Phase ?]: TRANSP-01 nao e marcado concluido: a pagina existe e nao pode ser publicada
 - [Phase ?]: Os seis vereditos Nyquist do M7 fecharam PARCIAIS (validated + nyquist_compliant: false) — 18 gaps nomeados, zero verde forcado
+- [Phase ?]: CONSOL-03 resolvido por ADOCAO de data_deletion_log (operador, 2026-08-09): COMMENT corrigido, escritor auditando em dois destinos, zero DROP — a Phase 47 nao tem portao destrutivo
+- [Phase ?]: CONSENT-05 resolvido de forma nao-destrutiva: DEFAULT e obrigatoriedade removidos de autorizacao_analise_video, zero back-fill dos valores historicos
 
 ### Pending Todos
 
@@ -918,8 +921,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-09T22:29:33.459Z
-Stopped at: Completed 47-05-PLAN.md
+Last session: 2026-08-09T22:51:37.528Z
+Stopped at: Completed 47-03-PLAN.md (2 migrations ESCRITAS, nao aplicadas — apply e checkpoint do orquestrador)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
