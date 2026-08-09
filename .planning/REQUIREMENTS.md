@@ -130,7 +130,7 @@
 ### Transparência (TRANSP)
 
 - [ ] **TRANSP-01**: Página informando com quem os dados são compartilhados (**Art. 18, VII**) — Resend, provedor de LLM, Supabase, Vercel
-- [ ] **TRANSP-02**: Página "o que guardamos e por quê", derivada da matriz de retenção como dado
+- [x] **TRANSP-02**: Página "o que guardamos e por quê", derivada da matriz de retenção como dado
 
 ### Consolidação (CONSOL)
 
@@ -226,7 +226,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | PURGA-06 | Phase 46 | Pending |
 | PURGA-07 | Phase 46 | Pending |
 | TRANSP-01 | Phase 47 | Pending |
-| TRANSP-02 | Phase 47 | Pending |
+| TRANSP-02 | Phase 47 | Complete |
 | CONSOL-01 | Phase 47 | Pending |
 | CONSOL-02 | Phase 47 | Pending |
 | CONSOL-03 | Phase 47 | Pending |

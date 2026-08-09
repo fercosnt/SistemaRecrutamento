@@ -266,7 +266,8 @@ Plans:
 **Plans**: 9 plans (4 waves)
 
 Plans:
-- [ ] 47-01-PLAN.md — gerador da matriz de retenção + os quatro portões de artefato invocados no CI (TRANSP-02, parte A)
+
+- [x] 47-01-PLAN.md — gerador da matriz de retenção + os quatro portões de artefato invocados no CI (TRANSP-02, parte A)
 - [ ] 47-02-PLAN.md — RPC `listar_historico_candidatura` + smoke, com a junção certa e o cast obrigatório (CONSOL-02, parte A)
 - [ ] 47-03-PLAN.md — adoção do `data_deletion_log` + CONSENT-05, duas migrations **aditivas** (CONSOL-03, CONSENT-05)
 - [ ] 47-04-PLAN.md — as seis empresas contratadas + `/subprocessadores`, com `país` bloqueante por construção (TRANSP-01)
@@ -366,7 +367,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 10/12 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
-| 47. Transparência & Consolidação | v8.0 | 0/? | Not started | - |
+| 47. Transparência & Consolidação | v8.0 | 1/9 | In Progress|  |
 
 ---
 

@@ -5,14 +5,14 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Phase 47 UI-SPEC approved
-last_updated: "2026-08-09T04:03:40.101Z"
-last_activity: 2026-08-06
+stopped_at: Completed 47-01-PLAN.md
+last_updated: "2026-08-09T21:38:41.513Z"
+last_activity: 2026-08-09
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 42
-  completed_plans: 40
+  total_plans: 51
+  completed_plans: 41
   percent: 50
 last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
 ---
@@ -388,7 +388,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-06
+Last activity: 2026-08-09
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -534,6 +534,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P09 | 28 min | 3 tasks | 14 files |
 | Phase 45 P10 | 47min | 3 tasks | 5 files |
 | Phase 45 P12 | 22min | 3 tasks | 8 files |
+| Phase 47 P01 | 12min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -705,6 +706,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 45-10: a pré-condição do passo irreversível é relida do BANCO, nunca do espelho local que o próprio código escreveu
 - [Phase ?]: 45-10: o recibo NÃO entra em ledger de notificações (D-45-12/R1) e o plano jsonb é esvaziado no fecho — o caminho de Storage embute o auth.uid do titular
 - [Phase ?]: 45-10: o portão CONSOL-04 fechou (suíte 1689/1689) e mede o DISCO, não execução — nada foi aplicado nem deployado
+- [Phase ?]: 47-01: a matriz de retenção publicada usa a janela VIGENTE medida em PROD (rejeitado=18, origem=admin), nunca o valor do seed (24) — o carimbo público de vigência é meta.medido_em, não a data do build
+- [Phase ?]: 47-01: config_retencao_etapa NÃO tem coluna base_legal (medido) — finalidade e base_legal são ambos fato jurídico AUTORADO no YAML; o gate garante presença e vocabulário, não correção jurídica (revisão do Encarregado)
+- [Phase ?]: 47-01: os quatro portões check:* de artefato passam a rodar no job unit do ci.yml; check:resend-dominio fica fora como exceção DECLARADA com razão (T-36-03-03), e portoesInvocados.test.ts reprova o próximo órfão nomeando-o
 
 ### Pending Todos
 
@@ -902,9 +906,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-09T04:03:40.078Z
-Stopped at: Phase 47 UI-SPEC approved
-Resume file: .planning/phases/47-transpar-ncia-consolida-o/47-UI-SPEC.md
+Last session: 2026-08-09T21:38:41.278Z
+Stopped at: Completed 47-01-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

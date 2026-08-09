@@ -354,6 +354,11 @@ Nenhuma. Nenhum serviço externo, nenhuma variável de ambiente, nenhuma depend�
   na fonte e regenerar. O `check:matriz-retencao` no CI é o que garante que ninguém esqueça a
   segunda metade.
 
+## Self-Check: PASSED
+
+Os 6 artefatos declarados existem em disco e os 7 commits existem em `git log`. Verificado por
+execução, não por leitura.
+
 ---
 *Phase: 47-transpar-ncia-consolida-o*
 *Completed: 2026-08-09*
