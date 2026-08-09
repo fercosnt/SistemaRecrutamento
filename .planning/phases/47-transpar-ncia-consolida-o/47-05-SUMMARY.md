@@ -201,6 +201,13 @@ None — nenhuma configuração de serviço externo. Este plano escreveu apenas 
 - **Baselines intactas:** suíte 1781/1781 (179 arquivos, 7,9 s) e `tsc` em 97. Zero `--no-verify`,
   zero dependência nova.
 
+## Self-Check: PASSED
+
+- 6/6 arquivos `VALIDATION.md` existem nos caminhos exatos sob `.planning/milestones/v7.0-phases/`
+- 0 diretórios com prefixo de fase do M7 criados sob `.planning/phases/`
+- 3/3 commits resolvem (`5d58d1d`, `563c0d9`, `81d7658`)
+- Working tree limpa; nenhum arquivo gerado deixado sem rastreio
+
 ---
 *Phase: 47-transpar-ncia-consolida-o · Plan 05*
 *Completed: 2026-08-09*
