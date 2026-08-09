@@ -122,7 +122,19 @@ describe('a página lê-se inteira, sem clique e sem espera', () => {
     expect(container.querySelector('[role="tablist"]')).toBeNull()
     expect(container.querySelector('[role="alert"]')).toBeNull()
     expect(container.querySelector('[role="status"]')).toBeNull()
-    expect(container.querySelector('.animate-pulse')).toBeNull()
+
+    /**
+     * ⚠ O pulso é medido DENTRO do painel de conteúdo, não no documento inteiro — e a
+     * distinção não é frouxidão. A shell clonada (`BackgroundImage`) pinta um gradiente
+     * com pulso enquanto a imagem de fundo não carrega, em TODA página deste projeto
+     * desde o M1. Uma asserção sobre o documento inteiro reprovaria a shell que a
+     * UI-SPEC manda clonar — e um portão que reprova o comportamento correto treina
+     * quem executa a desligá-lo. O que esta fase proíbe é esqueleto de CONTEÚDO: a
+     * página não espera por dado nenhum.
+     */
+    const painel = screen.getByRole('heading', { level: 1 }).parentElement as HTMLElement
+    expect(painel.querySelector('.animate-pulse')).toBeNull()
+    expect(painel.querySelector('[aria-busy="true"]')).toBeNull()
     // Nenhum controle acionável além de links: sem formulário, sem botão.
     expect(container.querySelector('button')).toBeNull()
     expect(container.querySelector('form')).toBeNull()

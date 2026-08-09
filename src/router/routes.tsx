@@ -12,6 +12,9 @@ import { LandingPage } from '../components/pages/LandingPage'
 import { VagasPublicasPage } from '../components/pages/VagasPublicasPage'
 import { VagaDetalhePage } from '../components/pages/VagaDetalhePage'
 import { ManifestoPage } from '../components/pages/ManifestoPage'
+// Transparência (Phase 47 / TRANSP-01) — rota pública, sem sessão. Import ESTÁTICO:
+// a página não lê dado em runtime, então não há chunk assíncrono a economizar.
+import { SubprocessadoresPage } from '../features/transparencia'
 
 // Páginas de Autenticação e Cadastro
 import { CadastroPage } from '../components/pages/CadastroPage'
@@ -146,6 +149,13 @@ export const routes: RouteObject[] = [
   {
     path: '/manifesto',
     element: <ManifestoPage />,
+  },
+  // Art. 18, VII — com quem os dados são compartilhados. Sem guard de sessão e sem
+  // limite de erro próprio: não há leitura de dados nesta página, logo não há o que
+  // falhar por rede. A alcançabilidade (o rodapé público) é entrega do plano 47-08.
+  {
+    path: '/subprocessadores',
+    element: <SubprocessadoresPage />,
   },
 
   // ============================
