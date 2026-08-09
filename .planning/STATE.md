@@ -5,14 +5,14 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-01-PLAN.md
-last_updated: "2026-08-09T21:38:41.513Z"
+stopped_at: Completed 47-02-PLAN.md
+last_updated: "2026-08-09T21:55:43.922Z"
 last_activity: 2026-08-09
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 41
+  completed_plans: 42
   percent: 50
 last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
 ---
@@ -535,6 +535,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P10 | 47min | 3 tasks | 5 files |
 | Phase 45 P12 | 22min | 3 tasks | 8 files |
 | Phase 47 P01 | 12min | 3 tasks | 8 files |
+| Phase 47 P02 | 10min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -709,6 +710,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 47-01: a matriz de retenção publicada usa a janela VIGENTE medida em PROD (rejeitado=18, origem=admin), nunca o valor do seed (24) — o carimbo público de vigência é meta.medido_em, não a data do build
 - [Phase ?]: 47-01: config_retencao_etapa NÃO tem coluna base_legal (medido) — finalidade e base_legal são ambos fato jurídico AUTORADO no YAML; o gate garante presença e vocabulário, não correção jurídica (revisão do Encarregado)
 - [Phase ?]: 47-01: os quatro portões check:* de artefato passam a rodar no job unit do ci.yml; check:resend-dominio fica fora como exceção DECLARADA com razão (T-36-03-03), e portoesInvocados.test.ts reprova o próximo órfão nomeando-o
+- [Phase ?]: 47-02: a juncao do historico e usuarios_rh.user_id = historico_candidatura.ator (ator e FK de auth.users, nao de usuarios_rh) — travada por DO block de catalogo no apply
+- [Phase ?]: 47-02: o escopo por vaga do rh_le_historico e reimposto no corpo da RPC porque SECURITY DEFINER bypassa a RLS (WR-04 nao pode regredir)
+- [Phase ?]: 47-02: o residuo da severacao da Phase 45 (linha do titular le 'Sistema') e ACEITO e escrito no COMMENT — um 5o rotulo vazaria o exercicio do direito de exclusao (D-47-U09)
 
 ### Pending Todos
 
@@ -906,8 +910,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-09T21:38:41.278Z
-Stopped at: Completed 47-01-PLAN.md
+Last session: 2026-08-09T21:55:35.392Z
+Stopped at: Completed 47-02-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 23
+open_count: 24
 waived_count: 0
 fixed_count: 0
-total_count: 23
-last_updated: 2026-08-06T17:15:24.086Z
+total_count: 24
+last_updated: 2026-08-09T21:55:43.981Z
 ---
 
 # Broken Windows Ledger
@@ -38,6 +38,7 @@ last_updated: 2026-08-06T17:15:24.086Z
 | 21 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-02: ACOES nao conhece 'retirar_candidatura' e o hook do 45-09 invoca a EF com essa acao — 400 VALIDATION traduzido para SERVER_ERROR na tela | open |  | 2026-08-06T15:22:17.081Z |  |
 | 22 | 45 | deviation | supabase/tests/p45_motor_exclusao_smoke.sql |  | C1 exige que gerar_bias_snapshot nao conceda EXECUTE a authenticated, mas 20260805000003 o concede deliberadamente (chamador vivo: biasAuditService.ts:98) — DI-45-12-01, decisao do code review bloqueante do 45-11 | open |  | 2026-08-06T17:15:24.030Z |  |
 | 23 | 45 | deviation | src/features/vagas/components/RetirarCandidaturaAcao.tsx |  | copy generica para a recusa NAO_RETIRAVEL: o hook traduz, o componente nao ramifica — DI-45-12-02 | open |  | 2026-08-06T17:15:24.086Z |  |
+| 24 | 47 | unrun-verify | supabase/tests/p47_historico_smoke.sql |  | smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador | open |  | 2026-08-09T21:55:43.981Z |  |
 
 ````json
 [
@@ -315,6 +316,18 @@ last_updated: 2026-08-06T17:15:24.086Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-06T17:15:24.086Z",
+    "resolved_at": null
+  },
+  {
+    "id": 24,
+    "kind": "unrun-verify",
+    "phase": "47",
+    "file": "supabase/tests/p47_historico_smoke.sql",
+    "line": null,
+    "description": "smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-09T21:55:43.981Z",
     "resolved_at": null
   }
 ]
