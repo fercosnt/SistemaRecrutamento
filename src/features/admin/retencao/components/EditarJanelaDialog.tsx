@@ -308,6 +308,17 @@ export function EditarJanelaDialog({ linha, open, onOpenChange }: EditarJanelaDi
                     {DIALOGO_JANELA_COPY.confirmacao.escopo}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                {/*
+                  EMENDA A — fora da descrição, e não por estética: a descrição do Radix é
+                  um parágrafo, e um segundo parágrafo dentro dele seria aninhamento
+                  inválido. O texto fica ao LADO do escopo, no mesmo diálogo e no mesmo
+                  momento: é aqui, no instante da confirmação, que o administrador tem como
+                  saber que a página pública acabou de ficar para trás. Sem esta linha
+                  RENDERIZADA, a chave de copy seria uma promessa sem dono.
+                */}
+                <p className="text-sm font-semibold text-muted-foreground">
+                  {DIALOGO_JANELA_COPY.confirmacao.publicacao}
+                </p>
                 <AlertDialogFooter>
                   {/* Recuo CURTO: um passo atrás, devolve ao formulário preenchido. */}
                   <AlertDialogCancel className="min-h-[44px]">
