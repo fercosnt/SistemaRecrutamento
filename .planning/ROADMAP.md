@@ -276,6 +276,9 @@ Plans:
 - [ ] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02)
 - [ ] 47-09-PLAN.md — o checklist versionado de promessas com executor + a varredura de destinos de rede (CONSOL-04)
 
+**Waves**: 1 → (47-01, 47-02, 47-04, 47-05) · 2 → (47-03, 47-06, 47-07) · 3 → (47-08) · 4 → (47-09)
+*(o `47-03` saiu da wave 1 em 2026-08-09, por veredito do plan-checker: sua `<verify>` invoca `check:matriz-retencao` e `check:pii-inventory-md`, que **só existem depois** da Task 3 do `47-01` — em wave paralela isso é corrida, não dependência satisfeita, e uma corrida que passa em algumas ordenações é pior que uma falha determinística)*
+
 **UI hint**: yes — 2 páginas públicas net-new + a correção do Histórico no lado RH
 **Security**: baixo risco — páginas informativas e um join. ⚠ A exceção medida **não** é CONSOL-03: é a RPC do CONSOL-02, que troca o tier de controle de acesso (RLS → corpo de função `SECURITY DEFINER`) e por isso tem de **reimpor no corpo** o escopo por vaga do WR-04 e recusar o papel de candidato, cuja policy própria segue viva
 **Portão destrutivo**: ⚠ **NÃO SE APLICA A ESTA FASE.** O portão existia por CONSOL-03, sob a hipótese de `DROP` de tabela com escritor vivo. Medido: **1 escritor e 11 consumidores derivados**, incluindo dois YAML-fonte, o catálogo vivo, cinco artefatos gerados, `database.types.ts` (hoje não regenerável) e uma string visível ao administrador. O critério de sucesso aceita as duas saídas — "removido **OU** adotado com escritas reais" — e o operador decidiu em 2026-08-09 **adotar**: religar o escritor ao sink canônico de auditoria, manter as escritas reais e corrigir o `COMMENT` que promete a função ausente. CONSENT-05 segue a mesma disciplina (remove o `DEFAULT` e a obrigatoriedade; não dropa a coluna). **A fase é inteiramente aditiva: zero `DROP`, zero `DELETE`, zero apply e zero deploy dentro dos planos** — apply e smokes são checkpoints do orquestrador
