@@ -94,6 +94,40 @@ prompt-library **em silêncio**. Todo o resto da fase é aditivo.
   É a mesma classe do `src/__tests__/copyPortoesLgpd.test.ts` que já existe e que já provou seu valor
   nesta fase-irmã (ficou vermelho por desenho até o motor existir, e fechou sozinho no 45-10).
 
+### Área 5 — Correções factuais e decisões pós-UI-SPEC (operador, 2026-08-09)
+
+O `47-UI-SPEC.md` divergiu do CONTEXT em quatro pontos. **Os quatro foram verificados contra o
+código vivo pelo orquestrador e estão CORRETOS** — esta seção os promove a decisão travada e
+substitui o que a Área 1 e a Área 2 diziam onde houver conflito.
+
+- **O Histórico é superfície de RH, não de candidato.** `historicoCandidaturaService.ts` declara a
+  RLS `rh_le_historico` e o docblock diz *"candidate DB-denied"*. O ROADMAP sempre concordou ("a
+  correção do Histórico **no lado RH**"); o CONTEXT é que estava errado.
+- **`ator IS NULL` JÁ significa "Sistema" hoje** (mesmo docblock). Logo "Sistema" e "Recrutador
+  removido" **não podem ambos derivar de NULL** — um dos dois seria sempre falso. Valem os **quatro**
+  rótulos da `D-47-U08`, com "Recrutador removido" derivado da **falha de resolução do nome**, nunca
+  de `ator IS NULL`. O resíduo da severação da Phase 45 (`D-47-U09`) é **aceito e escrito**: um 5º
+  rótulo descreveria o fato, mas informaria a um recrutador que aquela pessoa exerceu o direito de
+  exclusão — vazamento proibido pela Invariante 9 da `45-UI-SPEC.md`.
+- **A lista pública tem SEIS entradas, não quatro** (`D-47-U06`): Anthropic, **OpenAI**, **ViaCEP**,
+  Resend, Supabase, Vercel. Medido: OpenAI é fallback vivo em 5+ Edge Functions com
+  `logAiCall({ provider: "openai" })`, e ViaCEP recebe CEP + IP do navegador do candidato. O
+  parêntese do ROADMAP é **piso, não teto** — uma página que diz "estas são as empresas" e omite duas
+  é factualmente falsa.
+  **O campo `país` é BLOQUEANTE de embarque**: é medido no plano, e a entrada **não embarca** se o
+  país não for medível. Hoje `backup-posture.md` registra `region | —` para o próprio Supabase — o
+  país é **desconhecido**, e chutá-lo numa declaração de transferência internacional é pior do que
+  não ter a página.
+- **`/manifesto` é precedente de ROTA, não de alcançabilidade** — só é referenciado pelo
+  `DevNavigationMenu`, gateado por `import.meta.env.DEV`. Daí o `RodapePublico` ser entrega da fase,
+  não detalhe: sem ele as duas páginas nascem inalcançáveis.
+
+**Revisão do Encarregado — gate de PUBLICAÇÃO, não de engenharia.** As duas páginas são declarações
+de compliance dirigidas a qualquer visitante. A fase as **constrói normalmente**; o plano registra um
+item explícito de revisão do Encarregado **antes de as rotas ficarem alcançáveis em produção**. Isso
+espelha o `D7 / human_judgment: true` que a Phase 45 abriu para as nove bases legais do recibo. Não
+bloqueia escrever código; bloqueia publicar.
+
 ### Claude's Discretion
 
 - A copy exata das duas páginas públicas, dentro do registro pt-BR já estabelecido e da linguagem de
