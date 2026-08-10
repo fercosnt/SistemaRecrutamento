@@ -339,8 +339,18 @@ BEGIN
     RAISE EXCEPTION 'P47-CONSOL03 FAIL (e): rollback_to_version deixou de ser SECURITY DEFINER. Ela precisa desse modo para escrever em logs_auditoria sob o REVOKE da P28';
   END IF;
 
-  IF v_config IS NULL OR NOT (v_config @> ARRAY['search_path=']) THEN
-    RAISE EXCEPTION 'P47-CONSOL03 FAIL (e): rollback_to_version perdeu o search_path vazio. Uma funcao SECURITY DEFINER sem search_path fixado e sequestravel por objeto homonimo em schema do chamador';
+  -- ⚠ O padrao aceita `search_path=` E `search_path=""`: o catalogo grava a forma
+  -- NORMALIZADA, e qual das duas ele escolhe nao e escolha desta migration. Medido
+  -- em PROD em 2026-08-10, ANTES do apply: `proconfig` desta funcao e
+  -- `{"search_path=\"\""}` — com aspas. A forma estrita `@> ARRAY['search_path=']`
+  -- devolveria FALSO e abortaria o apply inteiro sobre uma funcao CORRETA.
+  -- Mesma licao ja paga pelo `20260809000001` (47-02, bloco (d)): um gate que
+  -- reprova o trabalho certo treina quem executa a desliga-lo, e ai ele para de
+  -- pegar o caso real.
+  IF v_config IS NULL OR NOT EXISTS (
+    SELECT 1 FROM unnest(v_config) AS cfg WHERE cfg ~ '^search_path=(''''|"")?$'
+  ) THEN
+    RAISE EXCEPTION 'P47-CONSOL03 FAIL (e): rollback_to_version perdeu o search_path vazio (proconfig = %). Uma funcao SECURITY DEFINER sem search_path fixado e sequestravel por objeto homonimo em schema do chamador', coalesce(array_to_string(v_config, ','), '<nulo>');
   END IF;
 
   RAISE NOTICE 'P47-CONSOL03 OK: tabela adotada intacta (indice + policy), comentario de catalogo sem promessa orfa, e o escritor auditando nos dois destinos com a postura de seguranca preservada';
