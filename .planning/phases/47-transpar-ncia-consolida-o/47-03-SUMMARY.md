@@ -380,3 +380,48 @@ Os 3 arquivos criados e os 4 modificados existem em disco; os 3 commits existem 
 ---
 *Phase: 47-transpar-ncia-consolida-o*
 *Completed: 2026-08-09*
+
+---
+
+## Apply em PROD — executado pelo orquestrador em 2026-08-10
+
+As duas migrations deste plano estão **vivas**, com fidelidade byte-perfeita.
+
+| version | md5 (ledger = arquivo) | auto-verificação |
+|---|---|---|
+| `20260809000002` adoção do `data_deletion_log` | `dc8c973de30b514894ce2df622d408e8` | 5/5 asserções |
+| `20260809000003` CONSENT-05 | `8cfbe479b9e8de96db238cd196323034` | 4/4 asserções |
+
+### ⚠ Um defeito de guard corrigido ANTES do apply (`1fa7dc3`)
+
+A asserção (e) da `20260809000002` exigia `proconfig @> ARRAY['search_path=']` — forma
+**estrita**. Medido em PROD antes de aplicar: o catálogo grava `search_path=""`, **com aspas**.
+Aplicar como estava **abortaria a migration inteira** sobre uma função correta.
+
+É a mesma armadilha que a `20260809000001` (47-02) já havia medido e desarmado no seu bloco (d),
+e que este arquivo não herdou. Corrigido com o mesmo padrão de regex que aceita as duas grafias.
+**Um gate que reprova o trabalho certo treina quem executa a desligá-lo** — e aí ele para de pegar
+o caso real.
+
+### Estado medido depois do apply
+
+| medida | antes | depois |
+|---|---|---|
+| `autorizacao_analise_video` nullable | `NO` | **`YES`** |
+| `column_default` | `false` | **`null`** |
+| `autorizacoes` linhas / não-nulos | 18 / 18 | **18 / 18** — zero back-fill |
+| policies de `autorizacoes` | 3 | **3** — a asserção (e) do smoke da P43 segue verde |
+| `rollback_to_version` chama `log_auditoria` | não | **sim** |
+| COMMENT promete a função ausente | sim | **não** |
+
+### Correção de medição no smoke (`cbd49b2`)
+
+`smoke47.esperado_nao_nulos` estava em **17** (medição de 2026-08-02). A contagem viva medida
+imediatamente antes do apply é **18** — a base cresceu uma linha, nascida sob o `DEFAULT false` e
+não-nula legitimamente. Era exatamente o caso que o comentário original anteviu. Deixar 17 faria a
+asserção (g) passar **por folga em vez de por medição**.
+
+### O que resta deste plano
+
+`supabase/tests/p47_consol03_consent05_smoke.sql` (7 PASS) ainda **não foi executado** — é
+checkpoint do orquestrador e roda numa única chamada.
