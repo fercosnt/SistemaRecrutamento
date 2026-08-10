@@ -5,14 +5,14 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-06-PLAN.md
-last_updated: "2026-08-09T23:11:20.302Z"
-last_activity: 2026-08-09
+stopped_at: Completed 47-07-PLAN.md
+last_updated: "2026-08-10T12:55:45.808Z"
+last_activity: 2026-08-10
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 46
+  completed_plans: 47
   percent: 50
 last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
 ---
@@ -388,7 +388,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-09
+Last activity: 2026-08-10
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -540,6 +540,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P05 | 35min | 3 tasks | 6 files |
 | Phase 47 P03 | 12min | 3 tasks | 7 files |
 | Phase 47 P06 | 15min | 3 tasks | 10 files |
+| Phase 47 P07 | 12min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -726,6 +727,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: CONSENT-05 resolvido de forma nao-destrutiva: DEFAULT e obrigatoriedade removidos de autorizacao_analise_video, zero back-fill dos valores historicos
 - [Phase ?]: O carimbo público de vigência publica a data de MEDIÇÃO da matriz viva, nunca a data do build — e um teste assere que os dois são fatos diferentes
 - [Phase ?]: A Emenda A é o terceiro detector do drift de retenção e o único que enxerga a edição feita em produção; ela é provada RENDERIZADA, não só declarada
+- [Phase ?]: O nome literal da tabela de usuarios de RH nao aparece no historicoCandidaturaService nem em comentario — o guard varre o modulo inteiro, e afrouxa-lo deixaria de pegar uma string literal em rota de consulta
+- [Phase ?]: as never pre-regen na chamada da RPC do historico: a funcao esta viva em PROD mas database.types.ts so e regenerado por npm run db:types (Supabase CLI --linked, indisponivel)
 
 ### Pending Todos
 
@@ -924,8 +927,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-09T23:11:12.958Z
-Stopped at: Completed 47-06-PLAN.md
+Last session: 2026-08-10T12:55:38.222Z
+Stopped at: Completed 47-07-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

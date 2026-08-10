@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 26
+open_count: 27
 waived_count: 0
 fixed_count: 0
-total_count: 26
-last_updated: 2026-08-09T23:11:20.359Z
+total_count: 27
+last_updated: 2026-08-10T12:55:37.934Z
 ---
 
 # Broken Windows Ledger
@@ -41,6 +41,7 @@ last_updated: 2026-08-09T23:11:20.359Z
 | 24 | 47 | unrun-verify | supabase/tests/p47_historico_smoke.sql |  | smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador | open |  | 2026-08-09T21:55:43.981Z |  |
 | 25 | 47 | unmet-truth | src/features/transparencia/constants/subprocessadores.ts |  | As seis entradas carregam a sentinela PAIS_POR_MEDIR: a regiao onde o dado deste projeto e tratado nao e medivel deste ambiente. A pagina /subprocessadores LANCA ao renderizar e nao pode ser publicada ate o operador informar os seis paises medidos (47-04 Task 3, checkpoint bloqueante). | open |  | 2026-08-09T22:12:40.305Z |  |
 | 26 | 47 | unmet-truth | src/features/transparencia/constants/matrizRetencao.generated.ts |  | As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5) | open |  | 2026-08-09T23:11:20.359Z |  |
+| 27 | 47 | todo | src/features/hub-candidato/services/historicoCandidaturaService.ts |  | as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types | open |  | 2026-08-10T12:55:37.934Z |  |
 
 ````json
 [
@@ -354,6 +355,18 @@ last_updated: 2026-08-09T23:11:20.359Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-09T23:11:20.359Z",
+    "resolved_at": null
+  },
+  {
+    "id": 27,
+    "kind": "todo",
+    "phase": "47",
+    "file": "src/features/hub-candidato/services/historicoCandidaturaService.ts",
+    "line": null,
+    "description": "as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-10T12:55:37.934Z",
     "resolved_at": null
   }
 ]
