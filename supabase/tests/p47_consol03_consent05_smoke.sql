@@ -93,12 +93,17 @@ SELECT set_config('smoke47.pass', '0', false);
 
 -- ⚠ TRANSCREVER ANTES DE RODAR: total de linhas de `autorizacoes` com
 -- `autorizacao_analise_video` NÃO-NULO, medido ANTES do apply de `20260809000003`.
--- O valor abaixo é a medição de 2026-08-02 (14 false + 3 true = 17). Se a base
--- cresceu entre aquela data e o apply, o número real é MAIOR — atualize-o. A
--- asserção (g) exige `>=`, nunca `=`: linhas novas nascidas antes do apply herdaram
+-- O valor abaixo é a medição de 2026-08-10, feita pelo orquestrador por MCP
+-- imediatamente antes do apply de `20260809000003`: `count(*) = 18` e
+-- `count(*) FILTER (WHERE autorizacao_analise_video IS NOT NULL) = 18`.
+-- ⚠ A medição de 2026-08-02 dizia 17. A base cresceu em UMA linha entre as duas
+-- datas — a linha nova nasceu sob o `DEFAULT false` e é não-nula legitimamente, que
+-- é precisamente o caso que o comentário original anteviu. Deixar o 17 faria a
+-- asserção (g) passar por folga em vez de por medição.
+-- A asserção (g) exige `>=`, nunca `=`: linhas novas nascidas antes do apply herdaram
 -- o `DEFAULT false` e são não-nulas legitimamente. O que (g) barra é a queda, que
 -- só um back-fill para nulo produz.
-SELECT set_config('smoke47.esperado_nao_nulos', '17', false);
+SELECT set_config('smoke47.esperado_nao_nulos', '18', false);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
