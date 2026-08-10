@@ -65,7 +65,7 @@ export function HistoricoBlock({ rows, isLoading, isError }: HistoricoBlockProps
                 <span>{labelEtapa(row.etapa_para)}</span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/60">
-                <span>{row.ator ?? 'Sistema'}</span>
+                <span>{row.ator_rotulo}</span>
                 <span aria-hidden="true">·</span>
                 <time dateTime={row.criado_em}>{formatData(row.criado_em)}</time>
               </div>
