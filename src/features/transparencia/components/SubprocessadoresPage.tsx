@@ -41,6 +41,7 @@ import {
   validarSubprocessadores,
   type Subprocessador,
 } from '../constants/subprocessadores'
+import { RodapePublico } from './RodapePublico'
 import { SubprocessadorFicha } from './SubprocessadorFicha'
 
 export interface SubprocessadoresPageProps {
@@ -92,6 +93,7 @@ export function SubprocessadoresPage({
               </Link>
             </div>
           </GlassPanel>
+          <RodapePublico />
         </div>
       </BackgroundImage>
     </div>

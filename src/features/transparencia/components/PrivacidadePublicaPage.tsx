@@ -54,6 +54,7 @@ import { COPY_TRANSPARENCIA, formatarDataPtBr } from '../constants/copyTranspare
 import { MATRIZ_RETENCAO } from '../constants/matrizRetencao.generated'
 import { MatrizRetencaoPublica } from './MatrizRetencaoPublica'
 import { RetencaoIndeterminadaLista } from './RetencaoIndeterminadaLista'
+import { RodapePublico } from './RodapePublico'
 
 /** Uma ficha da matriz de retenção, na forma que a página consome do artefato gerado. */
 export interface FichaRetencao {
@@ -171,6 +172,7 @@ export function PrivacidadePublicaPage({
               <p className="text-base leading-relaxed text-white/90">{copy.comoEFeita.corpo}</p>
             </Bloco>
           </GlassPanel>
+          <RodapePublico />
         </div>
       </BackgroundImage>
     </div>

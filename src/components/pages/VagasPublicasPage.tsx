@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '../ui/select'
+import { RodapePublico } from '@/features/transparencia'
 import { useVagas } from '@/features/vagas/hooks'
 import { useVagasStore } from '@/features/vagas/store/vagasStore'
 import type {
@@ -531,6 +532,7 @@ export function VagasPublicasPage() {
               </div>
             </Glass>
           )}
+          <RodapePublico />
         </div>
       </BackgroundImage>
     </div>

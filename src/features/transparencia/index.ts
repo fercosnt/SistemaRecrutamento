@@ -5,8 +5,12 @@
  * Consumidores: `src/router/routes.tsx` (as duas rotas públicas) e as superfícies onde o
  * `RodapePublico` for montado — sem ele as páginas existem e ninguém as encontra.
  *
- * ⚠ `RodapePublico` está exportado e **ainda não montado em navegação nenhuma**: a
- * montagem é a Task 3 do plano 47-08, atrás do portão de PUBLICAÇÃO do Encarregado.
+ * `RodapePublico` está montado nas CINCO superfícies públicas — `LandingPage`,
+ * `VagasPublicasPage`, `VagaDetalhePage`, `SubprocessadoresPage` e
+ * `PrivacidadePublicaPage` — desde a liberação do portão de publicação em 2026-08-11.
+ * Ele **não** é montado na rota de manifesto, nas rotas de autenticação nem em nenhuma
+ * rota interna: essas já têm navegação própria, e o conjunto é asserido em
+ * `__tests__/rodapeMontagem.test.tsx` (caso 8), que reprova tanto a falta quanto o excesso.
  *
  * @module features/transparencia
  */

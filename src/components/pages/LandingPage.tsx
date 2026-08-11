@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { BeautySmileLogo } from '../BeautySmileLogo';
 import { GlassPanel, GlassButton, GlassCard } from '../ui/glass';
+import { RodapePublico } from '@/features/transparencia';
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -99,6 +100,7 @@ export function LandingPage() {
               </div>
             </GlassCard>
           </div>
+          <RodapePublico />
         </div>
       </BackgroundImage>
     </div>

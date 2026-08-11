@@ -36,6 +36,7 @@ import {
   ArrowLeft,
   Send,
 } from 'lucide-react'
+import { RodapePublico } from '@/features/transparencia'
 import { useVaga, useHasApplied } from '@/features/vagas/hooks'
 import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
 import { isUuid } from '@/features/vagas/utils/isUuid'
@@ -489,6 +490,7 @@ export function VagaDetalhePage() {
               )}
             </Glass>
           </div>
+          <RodapePublico />
         </div>
       </BackgroundImage>
     </div>
