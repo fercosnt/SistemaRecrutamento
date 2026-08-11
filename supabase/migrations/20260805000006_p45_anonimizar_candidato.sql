@@ -231,6 +231,14 @@
 -- seja, e mantém o dry-run. A assimetria com `plano_exclusao_titular` — que continua
 -- aceitando `rh`, porque é leitura — é deliberada e está registrada aqui.
 --
+-- ⚠⚠ E AS TRÊS METADES DEPENDEM DE UMA COISA SÓ: DE O CORPO SABER SE A CHAMADA É
+-- DESTRUTIVA. `p_dry_run` é um booleano de TRÊS valores; com `NULL` explícito os três
+-- `IF` avaliavam NULL e nenhum era tomado — ramo destrutivo da metade (b), metade (c)
+-- pulada, terminador de dry-run pulado, transação COMMITADA (BL-01 do `45-REVIEW-2.md`).
+-- A intenção passa a ser NORMALIZADA UMA VEZ, no `DECLARE`, para o lado SEGURO
+-- (`v_dry_run := coalesce(p_dry_run, true)`), e o corpo inteiro lê `v_dry_run`. O caso
+-- (vi.d) da auto-verificação exercita `NULL` e exige `P45DR` com a linha intacta.
+--
 -- -----------------------------------------------------------------------------
 -- (9) O QUE O BLOCO DE AUTO-VERIFICAÇÃO ESCREVE EM PROD, E O QUE ISSO DISPARA
 -- -----------------------------------------------------------------------------
@@ -273,6 +281,34 @@ SECURITY DEFINER
 SET search_path = ''
 AS $anonimizar_candidato$
 DECLARE
+  -- ⚠⚠ A INTENÇÃO, NORMALIZADA UMA ÚNICA VEZ E ANTES DE QUALQUER OUTRA COISA (BL-01 do
+  --     `45-REVIEW-2.md`). `p_dry_run` é um `boolean` de TRÊS valores, e o `DEFAULT true`
+  --     NÃO protege contra o terceiro: `NULL` é um argumento EXPLÍCITO perfeitamente
+  --     construível — o PostgREST converte um `null` JSON no argumento nomeado, e no SQL
+  --     Editor basta `anonimizar_candidato('<id>'::uuid, NULL)`.
+  --
+  --     Com o parâmetro cru, os TRÊS `IF` do corpo avaliavam NULL e NENHUM era tomado:
+  --       · `IF p_dry_run`        → caía no ELSE, o ramo DESTRUTIVO da metade (b);
+  --       · `IF NOT p_dry_run`    → a metade (c), o GUARD DE INTENÇÃO, NÃO RODAVA;
+  --       · `IF p_dry_run` (fim)  → o `P45DR` não era levantado, e a transação COMMITAVA.
+  --     Uma chamada destruía a PII do titular sem pedido nenhum, fora da janela do
+  --     ERASE-06, sem recibo e sem trilha — e pior que antes do 45-13, porque sem linha em
+  --     `solicitacoes_dados` o reencontro do CR-03 não acha nada e o currículo fica órfão
+  --     no bucket para sempre. É o MESMO defeito NULL-aberto que este arquivo proíbe em
+  --     três comentários sobre `NOT IN` (`IS DISTINCT FROM` em toda comparação de papel),
+  --     reaparecido como lógica de três valores no PARÂMETRO em vez de na coluna.
+  --
+  --     ⚠ POR QUE `NULL` RESOLVE PARA O LADO SEGURO, e não para uma recusa: destruir PII
+  --     sobre uma intenção NÃO DECLARADA é exatamente o desfecho que o portão inteiro
+  --     desta fase existe para impedir. `true` é o modo que não persiste nada — o mesmo
+  --     que o `DEFAULT` já promete — e o chamador que quisesse apagar recebe o `P45DR`,
+  --     que é ALTO e distinguível, com a instrução de dizer `false` EXPLICITAMENTE.
+  --
+  --     ⚠ UM LUGAR SÓ, E É ESTE. Três `coalesce` espalhados pelos três sítios é como um
+  --     quarto sítio nasce sem ele. A partir daqui o corpo NÃO consulta `p_dry_run` em
+  --     lugar nenhum: as quatro leituras são de `v_dry_run`, e uma leitura nova do
+  --     parâmetro cru é a regressão a procurar em qualquer diff futuro deste arquivo.
+  v_dry_run    boolean := coalesce(p_dry_run, true);
   v_uid        uuid := auth.uid();
   v_role       text := (select auth.jwt() #>> '{app_metadata,role}');
   -- O dono de `p_candidato_id`, lido ANTES do guard: a metade (b) precisa dele.
@@ -347,7 +383,11 @@ BEGIN
   --       o cenário 2 do CR-01 perde o ator. O `administrador` permanece como escotilha
   --       de operador, que é justamente quem o CR-03 precisa quando uma execução trava.
   --     As comparações continuam TODAS por `IS DISTINCT FROM`, nas duas formas.
-  IF p_dry_run THEN
+  --
+  -- ⚠ A CHAVE É `v_dry_run`, NUNCA `p_dry_run`: o parâmetro cru admite NULL, e com NULL
+  --     este `IF` não seria tomado — a chamada cairia no ramo DESTRUTIVO por omissão de
+  --     intenção. Ver a normalização no `DECLARE` (BL-01).
+  IF v_dry_run THEN
     IF v_role IS DISTINCT FROM 'rh'
        AND v_role IS DISTINCT FROM 'administrador'
        AND v_dono IS DISTINCT FROM v_uid THEN
@@ -390,7 +430,10 @@ BEGIN
   --
   --     ⚠ Só no caminho destrutivo: o dry-run do 45-11 tem de poder rodar sobre uma
   --     linha arbitrária, e ler não destrói nada.
-  IF NOT p_dry_run THEN
+  --     ⚠ E A CHAVE É `v_dry_run`: com o parâmetro cru, `NOT NULL` avalia NULL e este
+  --     `IF` NÃO é tomado — o guard de intenção deixaria de existir para quem chamasse
+  --     com `p_dry_run := NULL`, que é o cenário 1 do CR-01 inteiro de volta (BL-01).
+  IF NOT v_dry_run THEN
     IF NOT EXISTS (
       SELECT 1
         FROM public.solicitacoes_dados s
@@ -450,7 +493,9 @@ BEGIN
     RETURN jsonb_build_object(
       'resultado',    'ja_anonimizado',
       'candidato_id', p_candidato_id,
-      'dry_run',      p_dry_run,
+      -- ⚠ O valor NORMALIZADO, nunca o parâmetro cru: quem chamou com NULL tem de ler no
+      -- retorno o modo em que a função de fato operou, e não o que ele digitou (BL-01).
+      'dry_run',      v_dry_run,
       'plano',        v_plano,
       'observacao',   'o tombstone foi reconhecido por IGUALDADE com a sentinela derivada do id desta linha, mais user_id severado e data_nascimento na sentinela de 1900. Nenhuma coluna foi tocada e nenhuma linha de auditoria foi criada'
     );
@@ -721,7 +766,10 @@ BEGIN
   -- real": um erro real disfarçado de sucesso de dry-run seria o pior falso verde
   -- desta fase, e no sentido inverso um P45DR chegando no caminho real passaria por
   -- sucesso quando nada foi apagado.
-  IF p_dry_run THEN
+  -- ⚠ `v_dry_run`, nunca `p_dry_run`: com NULL este `IF` não seria tomado e a transação
+  -- COMMITARIA — o terminador do dry-run é a última coisa entre o corpo executado e a
+  -- persistência, e ele não pode depender de um booleano de três valores (BL-01).
+  IF v_dry_run THEN
     RAISE EXCEPTION 'P45 DRY-RUN concluido: o corpo COMPLETO da anonimizacao executou e esta sendo revertido agora. Nada foi persistido. candidatos=% candidaturas_cv=% decisao_final=% decisao_final_historico=% historico_ator=% ai_call_logs=% candidate_ai_decisions=% logs_acesso=% recruiter_alerts=% autorizacoes=% preferencias_notificacoes=% notificacoes_enviadas=%. Para executar de verdade, chame com p_dry_run := false — o modo seguro e o DEFAULT, e apagar exige dize-lo',
       v_n_cand, v_n_cvurl, v_n_df, v_n_dfh, v_n_hist, v_n_aicall, v_n_aidec, v_n_logs,
       v_n_alerts, v_n_aut, v_n_pref, v_n_notif
@@ -806,7 +854,13 @@ GRANT EXECUTE ON FUNCTION public.anonimizar_candidato(uuid, boolean) TO service_
 -- no-op por ESTADO e que o dry-run levanta `P45DR` sem mutar nada. ⚠ Desde o 45-13 ele
 -- prova também as TRÊS recusas da metade (c) (sem pedido, janela aberta, Storage não
 -- carimbado), que o intruso do namespace de anonimização é anonimizado DE VERDADE
--- (CR-06), e que o papel `rh` lê o dry-run mas não alcança o caminho destrutivo. A cobertura das
+-- (CR-06), e que o papel `rh` lê o dry-run mas não alcança o caminho destrutivo.
+-- ⚠ Desde o 45-14 ele prova mais duas coisas: (vi.d) que `p_dry_run := NULL` resolve para
+-- o lado SEGURO — `P45DR`, zero coluna mutada (BL-01); e (vii) que o probe de
+-- bloqueadores de `plano_exclusao_titular` respeita o ESCOPO da severação nas DUAS
+-- direções — autoria na própria linha do titular não bloqueia, autoria na linha de outro
+-- candidato bloqueia (BL-02). A (vii) prova um contrato da `20260805000005` e mora aqui
+-- porque exige fixture, e aquele arquivo é declaradamente read-only. A cobertura das
 -- demais tabelas do ERASE-09 e a asserção de re-identificação (B9) são do smoke
 -- `supabase/tests/p45_motor_exclusao_smoke.sql`, que roda no 45-11 — dizer isso
 -- aqui é melhor que deixar a lacuna parecer cobertura.
@@ -872,6 +926,11 @@ DECLARE
   v_reident  int;
   v_notnull  text := '';
   r_col      record;
+  -- ⚠ 45-14 · BL-02 — o escopo do probe de bloqueadores, nas duas direções.
+  v_bl_base  int;
+  v_bl_prop  int;
+  v_bl_alh   int;
+  v_bl_cand  int;
   v_ufs      text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                              'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 BEGIN
@@ -1424,6 +1483,98 @@ BEGIN
       RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/storage nao carimbado): a chamada REAL executou com storage_concluido_em NULO (levantou=%, sqlstate=%). E ESTE o caso que prova que a ordem Storage -> Postgres -> Auth virou regra do BANCO: a SONDA 2 mediu que a plataforma nao a impoe (a tabela de objetos do Storage nao tem FK para auth.users) e que violar a ordem nao levanta erro nenhum — apenas orfana o blob para sempre, sem PITR e sem backup de Storage', v_lev, coalesce(v_st, '<nulo>');
     END IF;
 
+    -- (vi.d) ⚠⚠ 45-14 / BL-01 — `p_dry_run := NULL` NÃO É INTENÇÃO DE APAGAR.
+    -- O quarto caso, e ele é de classe diferente dos três acima: os (vi.a-c) medem o
+    -- guard de intenção; este mede se o guard CHEGA A RODAR. Enquanto o corpo lia o
+    -- parâmetro cru, `NULL` fazia os TRÊS `IF` não serem tomados — ramo destrutivo da
+    -- metade (b), metade (c) pulada, terminador de dry-run pulado — e a transação
+    -- COMMITAVA sobre PII real, sem pedido, sem janela, sem recibo. As claims aqui
+    -- continuam as de `administrador`, que as DUAS formas da metade (b) aceitam: assim,
+    -- o que se está medindo é o valor do parâmetro e nada mais.
+    -- ⚠ O desfecho CERTO é `P45DR` — a normalização resolve NULL para o lado SEGURO, o
+    -- mesmo que o `DEFAULT true` promete. Um retorno normal aqui significa que a função
+    -- APAGOU (e só não persistiu porque esta subtransação reverte); `42501` significaria
+    -- que alguém trocou a normalização por uma recusa, o que também fecharia o furo mas
+    -- mudaria o contrato desta função sem passar por aqui.
+    v_snap_a := (SELECT c::text FROM public.candidatos c WHERE c.id = v_cand_b);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, NULL::boolean);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    v_snap_b := (SELECT c::text FROM public.candidatos c WHERE c.id = v_cand_b);
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM 'P45DR' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-01/p_dry_run NULO): a chamada com p_dry_run := NULL nao terminou em P45DR (levantou=%, sqlstate=%). O parametro e um booleano de TRES valores e o DEFAULT true NAO protege contra NULL explicito: com o parametro cru, IF p_dry_run caia no ramo DESTRUTIVO, IF NOT p_dry_run nao rodava o guard de INTENCAO, e IF p_dry_run do terminador nao levantava P45DR — a transacao COMMITAVA e a PII do titular era destruida sem pedido, fora da janela do ERASE-06, sem recibo e sem trilha. A saida e normalizar UMA vez, no DECLARE, para o lado SEGURO (coalesce(p_dry_run, true)) e o corpo inteiro ler v_dry_run', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
+    IF v_snap_b IS DISTINCT FROM v_snap_a THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-01/p_dry_run NULO): a linha de candidatos MUDOU sob p_dry_run := NULL. O SQLSTATE sozinho nao e a prova — a linha e';
+    END IF;
+
+    -- ── (vii) 45-14 · BL-02 — O ESCOPO DO PROBE DE BLOQUEADORES, NAS DUAS DIREÇÕES ─
+    -- ⚠ ESTA ASSERÇÃO PROVA UM CONTRATO DE **OUTRA** MIGRATION, e mora aqui por uma
+    -- razão declarada: ela exige FIXTURE, e a `20260805000005` é declaradamente
+    -- READ-ONLY. Este bloco já tem as fixtures e o envelope de subtransação, e as duas
+    -- migrations sobem no MESMO apply — mover a prova para lá custaria a garantia de que
+    -- aquele arquivo não escreve nada.
+    --
+    -- O que se mede: `plano_exclusao_titular` subtraía da enumeração os quatro pares de
+    -- AUTORIA (`candidatos`/`candidaturas` × `created_by`/`updated_by`) que ESTA função
+    -- severa apenas nas linhas DESTE candidato. Uma linha de OUTRO candidato com autoria
+    -- do titular não era severada e não era enumerada: `bloqueadores_deleteuser` vinha
+    -- `[]`, a Edge Function não recusava, o passo 1 destruía o currículo e o `deleteUser`
+    -- do passo 3 falhava com 23503 — repetidamente, sem saída.
+    --
+    -- ⚠ AS DUAS DIREÇÕES SÃO OBRIGATÓRIAS, e é o par que torna a asserção honesta:
+    --   · autoria na PRÓPRIA linha do titular  → NÃO é bloqueador (o tombstone severa);
+    --   · autoria na linha de OUTRO candidato  → É bloqueador (o tombstone não alcança).
+    -- Sem a primeira, uma enumeração sempre-vermelha passaria; sem a segunda, a
+    -- subtração inteira passaria. A base zero antes das duas é o guard anti-vacuidade.
+    SELECT count(*) INTO v_bl_base
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidatos' AND x ->> 'coluna' = 'updated_by';
+
+    IF v_bl_base <> 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/base): a fixture B JA vem com candidatos.updated_by entre os bloqueadores (%). As duas medicoes seguintes ficariam sem linha de base e a asserção passaria por VACUIDADE', v_bl_base;
+    END IF;
+
+    -- (a) Autoria na PRÓPRIA linha: o tombstone a severa, logo não é bloqueador.
+    UPDATE public.candidatos SET updated_by = v_user_b WHERE id = v_cand_b;
+
+    SELECT count(*) INTO v_bl_prop
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidatos' AND x ->> 'coluna' = 'updated_by';
+
+    IF v_bl_prop <> 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/propria linha): candidatos.updated_by na PROPRIA linha do titular apareceu como bloqueador (%). O tombstone severa essa linha na mesma transacao — enumera-la faz o motor RECUSAR toda execucao legitima antes do passo 1, e isso so apareceria no primeiro pedido real. O probe dos pares de autoria tem de excluir a linha do proprio candidato (t.id IS DISTINCT FROM o candidato do pedido), nunca subtrair o par inteiro', v_bl_prop;
+    END IF;
+
+    -- (b) Autoria na linha de OUTRO candidato: o tombstone NÃO alcança, logo bloqueia.
+    UPDATE public.candidatos   SET updated_by = v_user_b WHERE id = v_cand_c;
+    UPDATE public.candidaturas SET updated_by = v_user_b WHERE id = v_candtr;
+
+    SELECT count(*) INTO v_bl_alh
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidatos' AND x ->> 'coluna' = 'updated_by';
+
+    SELECT count(*) INTO v_bl_cand
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidaturas' AND x ->> 'coluna' = 'updated_by';
+
+    IF v_bl_alh = 0 OR v_bl_cand = 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/linha alheia): uma linha de OUTRO candidato com updated_by = <uid do titular> NAO apareceu em bloqueadores_deleteuser (candidatos=%, candidaturas=%). O tombstone severa essas colunas APENAS nas linhas deste candidato, entao subtrai-las inteiras da enumeracao devolve [] com um bloqueador REAL de pe: a Edge Function nao recusa, o passo 1 DESTROI o curriculo, e o deleteUser do passo 3 falha com 23503 de forma repetivel — curriculo destruido, e-mail do titular vivo em auth.users para sempre, recibo nunca enviado. E a conta hibrida candidato+RH que a SONDA 6 mediu VIVA em PROD', v_bl_alh, v_bl_cand;
+    END IF;
+
     PERFORM set_config('request.jwt.claims', '', true);
 
     -- Sinaliza sucesso E reverte a subtransacao inteira. Nada persiste.
@@ -1434,7 +1585,7 @@ BEGIN
       IF SQLERRM <> 'P45-TOMBSTONE-OK' THEN
         RAISE;
       END IF;
-      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: curriculo_url e curriculo_nome_original severadas com a LINHA de candidaturas de pe e a consulta de re-identificacao por split_part devolvendo ZERO (CR-04); o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). A subtransacao foi revertida e NADA persistiu';
+      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: curriculo_url e curriculo_nome_original severadas com a LINHA de candidaturas de pe e a consulta de re-identificacao por split_part devolvendo ZERO (CR-04); o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). ⚠ 45-14: a chamada com p_dry_run := NULL terminou em P45DR sem mutar coluna alguma — a intencao e normalizada UMA vez, no DECLARE, para o lado SEGURO, e um booleano de tres valores deixou de poder pular o ramo de papel, o guard de intencao e o terminador do dry-run de uma so vez (BL-01); e o probe de bloqueadores da 20260805000005 mediu as DUAS direcoes do escopo de autoria — a propria linha do titular NAO bloqueia (o tombstone a severa) e a linha de OUTRO candidato BLOQUEIA (o tombstone nao a alcanca), que e o falso-negativo do BL-02 fechado. A subtransacao foi revertida e NADA persistiu';
   END;
 END
 $verifica_anonimizar_candidato$;
@@ -1453,6 +1604,25 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'que reverte tudo. Nunca dois corpos, nunca IF p_dry_run THEN <query A> senao <query B> — essa '
   'forma e o parente direto do CR-02 da P39, uma guarda que era dead code. O ERRCODE e proprio '
   'para que o chamador distinga "dry-run concluido" de erro real. '
+  '⚠⚠ E A INTENCAO E NORMALIZADA UMA UNICA VEZ, NO DECLARE, PARA O LADO SEGURO (45-14 / '
+  'BL-01): v_dry_run := coalesce(p_dry_run, true), e o corpo inteiro le v_dry_run — o '
+  'parametro cru NAO e consultado em lugar nenhum. Razao medida: p_dry_run e um booleano '
+  'de TRES valores e o DEFAULT true NAO protege contra NULL EXPLICITO (o PostgREST '
+  'converte um null JSON no argumento nomeado). Com o parametro cru, os tres IF do corpo '
+  'avaliavam NULL e NENHUM era tomado: IF p_dry_run caia no ELSE (o ramo DESTRUTIVO da '
+  'metade (b)), IF NOT p_dry_run nao rodava a metade (c) (o guard de INTENCAO), e o '
+  'IF p_dry_run do terminador nao levantava P45DR — a transacao COMMITAVA. Uma unica '
+  'chamada destruia a PII do titular sem pedido, fora da janela do ERASE-06, sem recibo e '
+  'sem trilha; e pior que antes do 45-13, porque sem linha em solicitacoes_dados o '
+  'reencontro do CR-03 nao acha nada e o curriculo fica orfao no bucket para sempre. E o '
+  'MESMO defeito NULL-aberto que esta funcao proibe em NOT IN, no parametro em vez de na '
+  'coluna. ⚠ POR QUE NULL RESOLVE PARA SEGURO E NAO PARA RECUSA: destruir PII sobre uma '
+  'intencao NAO DECLARADA e o desfecho que o portao inteiro desta fase existe para '
+  'impedir; true nao persiste nada e o chamador recebe P45DR, que e alto e distinguivel. '
+  '⚠ UM LUGAR SO: tres coalesce espalhados pelos tres sitios e como um QUARTO sitio nasce '
+  'sem ele. Uma leitura nova de p_dry_run no corpo e a regressao a procurar em qualquer '
+  'diff futuro, e o bloco de auto-verificacao (vi.d) a pega — chamada com NULL sob claims '
+  'de administrador tem de terminar em P45DR, com a linha inalterada. '
   '⚠ CHAMA public.plano_exclusao_titular(uuid) e NAO copia o corpo dela: o dry-run e o delete real '
   'saem da MESMA expressao. A assercao C3 do smoke exige que pg_get_functiondef desta funcao '
   'CONTENHA a chamada, e pina o md5(prosrc) das duas. Com PITR desligado (D-45-10) e o backup de 7 '

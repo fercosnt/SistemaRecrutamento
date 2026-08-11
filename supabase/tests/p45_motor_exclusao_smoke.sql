@@ -25,12 +25,13 @@
 -- chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44).
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **23** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 23 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **24** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 24 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
 -- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
--- e (B11), o ponteiro reverso de candidaturas (CR-04). Acrescentar bloco sem bumpar
--- este numero transforma uma adicao legitima em reprovacao do RESUMO.
+-- e (B11), o ponteiro reverso de candidaturas (CR-04). Subiu de 23 para 24 no plano
+-- 45-14: (C8), `p_dry_run := NULL` resolvendo para o lado SEGURO (BL-01). Acrescentar
+-- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ ESTE SMOKE ESCREVE — E O ESCOPO NEGATIVO INVERTE EM RELACAO AO MOLDE
@@ -85,7 +86,7 @@
 -- CASE de `trg_notif_transicao` (20260726000001:75-81) deixa passar sem dispatch.
 --
 -- -----------------------------------------------------------------------------
--- AS 23 ASSERCOES — quinze delas NEGATIVAS
+-- AS 24 ASSERCOES — dezesseis delas NEGATIVAS
 -- -----------------------------------------------------------------------------
 -- BLOCO A — ESTRUTURAL, SEM FIXTURE, SEM ESCRITA. E O PRIMEIRO DO ARQUIVO, E A
 -- ORDEM E A DECISAO MAIS IMPORTANTE AQUI. Num batch de chamada unica, tudo depois
@@ -146,7 +147,12 @@
 --   (C7) ⊖ NEGATIVA (CR-01, 45-13) — o guard de INTENCAO: a chamada REAL feita por
 --        `administrador` sobre um candidato SEM pedido em execucao recusa com `42501`
 --        ANTES de tocar coluna alguma. `P0002` ali significa que a metade (c) sumiu.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 23.
+--   (C8) ⊖ NEGATIVA (BL-01, 45-14) — `p_dry_run := NULL` NAO e intencao de apagar: a
+--        chamada com o parametro NULO sobre uma linha REAL termina em `P45DR` com a
+--        linha intacta. Precisa de fixture porque contra uuid inexistente a versao
+--        defeituosa e a corrigida dao o mesmo `P0002`, e a (C7) chama com `false`
+--        literal — foi por isso que o defeito passou pelas duas suites.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 24.
 --
 -- =============================================================================
 -- ⚠ TRES ACHADOS MEDIDOS QUE ESTA ESPEC ENCODA, E QUE O 45-07 TEM DE RESOLVER
@@ -1645,6 +1651,127 @@ $c7$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (C8) ⊖ NEGATIVA (BL-01 do `45-REVIEW-2.md`, plano 45-14) — `p_dry_run := NULL`
+--      NAO E INTENCAO DE APAGAR. A chamada com o parametro NULO, sob claims que a
+--      metade (b) aceita, tem de terminar em `P45DR` com a linha INTACTA.
+--
+--      Por que esta assercao existe SEPARADA da (C7), e por que a (C7) nao a alcanca:
+--      a (C7) chama com `false` LITERAL, e o bloco `DO` da migration fazia o mesmo nos
+--      seus tres casos. Nenhuma das duas suites exercitava NULL — e foi por isso que o
+--      defeito passou pelas duas. `p_dry_run` e um booleano de TRES valores e o
+--      `DEFAULT true` NAO protege contra NULL EXPLICITO: o PostgREST converte um `null`
+--      JSON no argumento nomeado, e no SQL Editor basta escrever `NULL`.
+--
+--      O QUE ACONTECIA COM O PARAMETRO CRU (os tres IF avaliando NULL, nenhum tomado):
+--        · `IF p_dry_run`       -> caia no ELSE, o ramo DESTRUTIVO da metade (b);
+--        · `IF NOT p_dry_run`   -> a metade (c), o GUARD DE INTENCAO, NAO RODAVA;
+--        · `IF p_dry_run` (fim) -> o `P45DR` nao era levantado, e a transacao COMMITAVA.
+--      Desfecho: PII destruida sem pedido em `solicitacoes_dados`, fora da janela do
+--      ERASE-06, sem recibo e sem trilha — e pior que antes do 45-13, porque sem o
+--      pedido o reencontro do CR-03 nao acha nada e o curriculo fica ORFAO no bucket
+--      para sempre (Storage fora de todo backup, PITR desligado por D-45-10).
+--
+--      ⚠ ESTA ASSERCAO PRECISA DE FIXTURE REAL, e a razao e MECANICA: contra um uuid
+--      inexistente — o alvo seguro que a (C7) usa — a versao DEFEITUOSA e a CORRIGIDA
+--      produzem o MESMO desfecho (`P0002`, candidato inexistente, antes de qualquer
+--      mutacao). O uuid sintetico nao discrimina, e uma assercao que nao discrimina e
+--      decoracao. A fixture e sintetica, criada aqui, e a subtransacao a reverte.
+--
+--      ⚠ DISCRIMINACAO POR SQLSTATE, e cada um significa uma coisa:
+--        P45DR = a intencao foi normalizada para o lado SEGURO (PASS);
+--        <retorno normal> = a funcao APAGOU (so nao persistiu porque isto reverte) — e
+--          o BL-01 de pe (FAIL);
+--        42501 = alguem trocou a normalizacao por uma RECUSA. Tambem fecha o furo, mas
+--          muda o contrato desta funcao, e a mudanca tem de passar por aqui (FAIL).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c8$
+DECLARE
+  v_admin  uuid := current_setting('smoke45m.admin_auth')::uuid;
+  v_user   uuid := gen_random_uuid();
+  v_cand   uuid;
+  v_email  text;
+  v_antes  text;
+  v_pos    text;
+  v_lev    boolean := false;
+  v_st     text;
+BEGIN
+  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C8): public.anonimizar_candidato(uuid, boolean) NAO EXISTE — RED correto ate a migration 20260805000006 ser aplicada';
+  END IF;
+
+  v_email := 'p45smoked-' || replace(v_user::text, '-', '') || '@invalido.local';
+
+  BEGIN
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES
+      (v_user, 'SMOKE P45 Titular D', v_email, '(11) 96666-5555',
+       DATE '1990-05-09', 'Santos', 'SP', 'site')
+    RETURNING id INTO v_cand;
+
+    -- ⚠ NENHUMA linha em `solicitacoes_dados` para esta fixture, e a ausencia e o
+    -- desenho: e o estado em que a metade (c) recusaria a chamada destrutiva. Se a
+    -- normalizacao sumir, a chamada com NULL cai no ramo destrutivo COM a metade (c)
+    -- pulada — exatamente o cenario 1 do CR-01 — e retorna normalmente.
+    SELECT c::text INTO v_antes FROM public.candidatos c WHERE c.id = v_cand;
+
+    -- Claims de `administrador`: as DUAS formas da metade (b) o aceitam, entao o que
+    -- esta sob medicao aqui e o VALOR DO PARAMETRO e nada mais.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand, NULL::boolean);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    SELECT c::text INTO v_pos FROM public.candidatos c WHERE c.id = v_cand;
+
+    PERFORM set_config('request.jwt.claims', '', false);
+    RAISE EXCEPTION 'rollback_smoke45m_c8' USING ERRCODE = 'P45CA';
+  EXCEPTION
+    WHEN sqlstate 'P45CA' THEN
+      NULL;  -- reversao esperada
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  IF NOT v_lev THEN
+    RAISE EXCEPTION 'P45M FAIL (C8): anonimizar_candidato(<linha real>, p_dry_run := NULL) RETORNOU NORMALMENTE. Com NULL, os tres IF do corpo avaliam NULL e nenhum e tomado: a chamada recebe o ramo DESTRUTIVO da metade (b), o guard de INTENCAO da metade (c) NAO roda, e o terminador do dry-run NAO levanta P45DR — a transacao COMMITA. Uma chamada de navegador destroi a PII do titular sem pedido, fora da janela do ERASE-06, sem recibo e sem trilha, e o curriculo fica orfao no bucket para sempre. A saida e normalizar a intencao UMA vez, no DECLARE, para o lado SEGURO: v_dry_run := coalesce(p_dry_run, true), com o corpo inteiro lendo v_dry_run';
+  END IF;
+
+  IF v_st = '42501' THEN
+    RAISE EXCEPTION 'P45M FAIL (C8): a chamada com p_dry_run := NULL foi RECUSADA com 42501 em vez de resolver para o dry-run. O furo esta fechado, mas por outro mecanismo: alguem trocou a normalizacao para o lado seguro por uma recusa explicita. Nao e regressao de seguranca — e mudanca de CONTRATO desta funcao, e ela tem de passar por este arquivo, pelo bloco (vi.d) da 20260805000006 e pelo COMMENT das duas, no mesmo commit';
+  END IF;
+
+  IF v_st IS DISTINCT FROM 'P45DR' THEN
+    RAISE EXCEPTION 'P45M FAIL (C8): a chamada com p_dry_run := NULL levantou SQLSTATE % e o esperado e P45DR — o modo SEGURO, o mesmo que o DEFAULT true promete. Destruir PII sobre uma intencao NAO DECLARADA e o desfecho que o portao inteiro desta fase existe para impedir', coalesce(v_st, '<nulo>');
+  END IF;
+
+  IF v_pos IS DISTINCT FROM v_antes THEN
+    RAISE EXCEPTION 'P45M FAIL (C8): a linha de candidatos MUDOU sob p_dry_run := NULL. O SQLSTATE sozinho nao e a prova — a linha e';
+  END IF;
+
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C8): p_dry_run := NULL resolveu para o lado SEGURO — P45DR, zero coluna mutada, e o guard de intencao continua sendo o que decide o caminho destrutivo (BL-01)';
+END
+$c8$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (C4) (C5) (C6) — DRY-RUN QUE NAO MUTA, FILA DO RH NAO CONTAMINADA, E OS DOIS
 --      NEGATIVOS DO ENCERRAMENTO. Uma fixture minima compartilhada, uma
 --      subtransacao, tres assercoes.
@@ -1855,7 +1982,7 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 23.
+--     e na P43). O esperado e FIXO: 24.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -1864,7 +1991,7 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  v_esperado int := 23;
+  v_esperado int := 24;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN
