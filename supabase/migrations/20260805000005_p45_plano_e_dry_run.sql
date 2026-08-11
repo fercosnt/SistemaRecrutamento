@@ -130,16 +130,34 @@ DECLARE
   v_bloq    jsonb := '[]'::jsonb;
   v_tem     boolean;
   r_fk      record;
+  v_chave   text;
+  v_escopo  text;
+  v_sql     text;
   /**
    * ⚠⚠ O CONTRATO ENTRE AS DUAS FUNÇÕES DO MOTOR, E ELE VIVE AQUI, EM UM LUGAR SÓ.
    *
-   * Esta é a lista das `(schema.tabela.coluna)` que `anonimizar_candidato`
-   * COMPROVADAMENTE severa dentro da transação do tombstone. Ela é subtraída da
-   * enumeração abaixo — sem isso, a chave de bloqueadores viria não-vazia para todo
-   * titular e o motor recusaria TODA execução legítima.
+   * Esta é a lista das `(schema.tabela.coluna)` que `anonimizar_candidato` severa
+   * dentro da transação do tombstone **PARA O `user_id` INTEIRO**, sem escopo de
+   * candidato. Ela é subtraída da enumeração abaixo — sem isso, a chave de bloqueadores
+   * viria não-vazia para todo titular e o motor recusaria TODA execução legítima.
+   *
+   * ⚠⚠ E O QUALIFICADOR «PARA O `user_id` INTEIRO» É O DEFEITO QUE O 45-14 FECHOU
+   * (BL-02 do `45-REVIEW-2.md`). Até o 45-13, quatro pares de AUTORIA moravam nesta
+   * lista — `candidatos.created_by/updated_by` e `candidaturas.created_by/updated_by` —
+   * mas o tombstone os severa **APENAS nas linhas DESTE candidato**
+   * (`20260805000006`: `WHERE c.id = p_candidato_id` e `WHERE c.candidato_id =
+   * p_candidato_id`). Uma linha de OUTRO candidato cuja autoria fosse deste `user_id`
+   * não era severada **e não era enumerada**: `bloqueadores_deleteuser` voltava `[]` com
+   * um bloqueador REAL de pé, a Edge Function não recusava, o passo 1 destruía o
+   * currículo, e o `deleteUser` do passo 3 falhava com 23503 — de forma REPETÍVEL, com o
+   * e-mail do titular vivo em `auth.users` para sempre e o recibo nunca enviado. O
+   * gatilho medido é a conta híbrida candidato+RH que a SONDA 6 encontrou em PROD, que é
+   * a razão de existir do CR-05. As quatro passaram a ser enumeradas com o MESMO ESCOPO
+   * da severação — ver `v_esc_candidatos` / `v_esc_candidaturas` e o laço.
    *
    * ⚠ A ASSIMETRIA É O QUE FECHA O RESÍDUO INDEFINIDAMENTE, e é deliberada:
-   *   · quem acrescentar uma severação em `anonimizar_candidato` acrescenta aqui;
+   *   · quem acrescentar uma severação em `anonimizar_candidato` acrescenta aqui — e,
+   *     se ela for ESCOPADA a uma linha, acrescenta no laço e nunca nesta lista;
    *   · quem acrescentar uma FK NOVA ao schema **não precisa fazer nada** — ela aparece
    *     sozinha como bloqueador, e o motor recusa ANTES do passo 1. O custo de esquecer
    *     é uma recusa barata, nunca um currículo destruído com o 23503 no passo 3.
@@ -154,15 +172,31 @@ DECLARE
    */
   v_severadas text[] := ARRAY[
     'public.candidatos.user_id',
-    'public.candidatos.created_by',
-    'public.candidatos.updated_by',
-    'public.candidaturas.created_by',
-    'public.candidaturas.updated_by',
     'public.historico_candidatura.ator',
     'public.logs_acesso.user_id',
     'public.autorizacoes.user_id',
     'public.preferencias_notificacoes.created_by',
     'public.preferencias_notificacoes.updated_by'
+  ];
+  /**
+   * Os pares que o tombstone severa **ESCOPADOS A UMA LINHA**, e por isso eles NÃO são
+   * subtraídos: são enumerados com o MESMO recorte que a severação tem, de forma que o
+   * probe pergunte exatamente o que continua de pé DEPOIS do tombstone. São dois arrays
+   * e não um porque a coluna de recorte é diferente em cada tabela.
+   *
+   * ⚠ A saída alternativa — alargar a severação para o `user_id` inteiro — foi RECUSADA:
+   * ela faria linhas de OUTRAS pessoas perderem o registro de autoria por causa do
+   * pedido de exclusão de um terceiro. Aqui a resposta certa é a RECUSA barata antes do
+   * passo 1, com o nome da tabela e da coluna no plano, exatamente como para
+   * `decisao_final.por_usuario`.
+   */
+  v_esc_candidatos   text[] := ARRAY[
+    'public.candidatos.created_by',
+    'public.candidatos.updated_by'
+  ];
+  v_esc_candidaturas text[] := ARRAY[
+    'public.candidaturas.created_by',
+    'public.candidaturas.updated_by'
   ];
 BEGIN
   -- ── GUARD, DUAS METADES, E A SEGUNDA É A QUE FECHA O DEFEITO SISTÊMICO ─────
@@ -260,10 +294,35 @@ BEGIN
          AND (n.nspname || '.' || cl.relname || '.' || a.attname) <> ALL (v_severadas)
        ORDER BY n.nspname, cl.relname, a.attname
     LOOP
-      EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.%I t WHERE t.%I = $1)',
-                     r_fk.esquema, r_fk.tabela, r_fk.coluna)
-        INTO v_tem
-        USING v_user_id;
+      -- ⚠⚠ O ESCOPO DO PROBE TEM DE SER O ESCOPO DA SEVERAÇÃO (BL-02). Para os quatro
+      -- pares de autoria, o tombstone só severa as linhas DESTE candidato — então a
+      -- pergunta certa é «sobra alguma linha de OUTRO candidato apontando a este
+      -- `user_id`?». Perguntar sem recorte devolveria bloqueador para uma linha que o
+      -- tombstone vai severar (sempre-vermelho); subtrair o par inteiro devolveria `[]`
+      -- com um bloqueador de pé (o falso-negativo que custa o currículo).
+      v_chave  := r_fk.esquema || '.' || r_fk.tabela || '.' || r_fk.coluna;
+      v_escopo := CASE
+                    WHEN v_chave = ANY (v_esc_candidatos)   THEN ' AND t.id IS DISTINCT FROM $2'
+                    WHEN v_chave = ANY (v_esc_candidaturas) THEN ' AND t.candidato_id IS DISTINCT FROM $2'
+                    ELSE ''
+                  END;
+
+      -- ⚠ `IS DISTINCT FROM` e nunca `<>`, pelo motivo de sempre: com `$2` NULO, `<>`
+      -- avaliaria NULL, nenhuma linha entraria e o bloqueador sumiria — falha ABERTA.
+      -- Com `IS DISTINCT FROM`, `$2` nulo faz TODAS as linhas contarem: falha FECHADA.
+      -- ⚠ Pelo mesmo raciocínio, um `v_chave` NULO cai no `ELSE` e o probe vai SEM
+      -- recorte, enumerando de MAIS. Os dois desvios apontam para a recusa.
+      -- ⚠ O `%s` recebe APENAS um dos três literais escritos acima — nunca um valor do
+      -- catálogo, nunca entrada de chamador. Os identificadores continuam por `%I` e o
+      -- valor continua por `USING`; isto é `SECURITY DEFINER`, e aqui isso não é estilo.
+      v_sql := format('SELECT EXISTS (SELECT 1 FROM %I.%I t WHERE t.%I = $1%s)',
+                      r_fk.esquema, r_fk.tabela, r_fk.coluna, v_escopo);
+
+      IF v_escopo = '' THEN
+        EXECUTE v_sql INTO v_tem USING v_user_id;
+      ELSE
+        EXECUTE v_sql INTO v_tem USING v_user_id, p_candidato_id;
+      END IF;
 
       IF v_tem THEN
         v_bloq := v_bloq || jsonb_build_object(
@@ -348,8 +407,12 @@ BEGIN
     -- ── bloqueadores_deleteuser (CR-05) ─────────────────────────────────────
     -- ⚠ ENUMERADO DO CATALOGO, NUNCA AFIRMADO. Lista das FKs para `auth.users` cujo
     -- `ON DELETE` BLOQUEIA (`NO ACTION`/`RESTRICT`) e que TEM linha viva apontando para
-    -- este titular, MENOS as `(tabela, coluna)` que o tombstone comprovadamente severa
-    -- (a lista `v_severadas`, declarada nominalmente no corpo).
+    -- este titular, MENOS as `(tabela, coluna)` que o tombstone severa para o `user_id`
+    -- INTEIRO (a lista `v_severadas`, declarada nominalmente no corpo). Os quatro pares
+    -- de AUTORIA, que o tombstone severa apenas nas linhas DESTE candidato, não são
+    -- subtraídos: são enumerados com o MESMO escopo da severação (BL-02, plano 45-14) —
+    -- subtraí-los inteiros devolvia `[]` com um bloqueador de pé, e o 23503 voltava a
+    -- acontecer DEPOIS do passo 1.
     -- ⚠ VAZIA É O ESTADO ESPERADO de um titular puro. Não-vazia significa que o
     -- `deleteUser` do passo 3 falharia com 23503 — e a Edge Function recusa ANTES do
     -- passo 1, quando isso ainda não custou nada. `decisao_final.por_usuario` aparece
@@ -516,6 +579,14 @@ BEGIN
   -- coluna)` que o tombstone severa é o que a torna utilizável, e é ela que esta
   -- asserção mede.
   --
+  -- ⚠⚠ E O QUE ESTA ASSERÇÃO **NÃO** ALCANÇA, dito aqui para não parecer cobertura: ela
+  -- mede o falso-POSITIVO (lista sempre-vermelha), nunca o falso-NEGATIVO. Uma
+  -- enumeração que subtraísse um par que o tombstone não severa a satisfaria — foi
+  -- exatamente assim que o BL-02 passou por ela. O falso-negativo exige FIXTURE (uma
+  -- linha de OUTRO candidato com autoria do titular), e esta migration é declaradamente
+  -- READ-ONLY: a prova mora no caso (vii) da auto-verificação de `20260805000006`, que
+  -- já tem fixtures e o envelope de subtransação, e roda no MESMO apply.
+  --
   -- ⚠ A FORMA DA ASSERÇÃO É «PELO MENOS UM TITULAR VIVO VEM COM A LISTA VAZIA», e não
   -- «este titular vem vazio», por uma razão medida: a SONDA 6 encontrou em PROD uma
   -- conta HÍBRIDA candidato+RH cuja `decisao_final.por_usuario` é um bloqueador
@@ -546,7 +617,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims', '', true);
 
   IF NOT v_vazio THEN
-    RAISE EXCEPTION 'P45-PLANO: NENHUM dos % titulares vivos examinados veio com bloqueadores_deleteuser VAZIA. Ou a enumeracao esta devolvendo FK que o tombstone de fato severa (a lista v_severadas do corpo esta desatualizada em relacao a anonimizar_candidato), ou o predicado de linha viva esta errado. O efeito e o pior possivel: o motor recusaria TODA execucao legitima antes do passo 1, e isso so apareceria no primeiro pedido real de um titular. ⚠ Antes de "consertar" removendo a chave: ela e o que impede o 23503 de acontecer DEPOIS de o curriculo ter sido apagado', v_checados;
+    RAISE EXCEPTION 'P45-PLANO: NENHUM dos % titulares vivos examinados veio com bloqueadores_deleteuser VAZIA. Ou a enumeracao esta devolvendo FK que o tombstone de fato severa (a lista v_severadas do corpo esta desatualizada em relacao a anonimizar_candidato, ou um par de autoria perdeu o recorte do laco), ou o predicado de linha viva esta errado. O efeito e o pior possivel: o motor recusaria TODA execucao legitima antes do passo 1, e isso so apareceria no primeiro pedido real de um titular. ⚠ Antes de "consertar" removendo a chave: ela e o que impede o 23503 de acontecer DEPOIS de o curriculo ter sido apagado', v_checados;
   END IF;
 
   -- Os dois passos de fora do banco têm de estar MARCADOS como tal. Um zero
@@ -640,9 +711,24 @@ COMMENT ON FUNCTION public.plano_exclusao_titular(uuid) IS
   'vivendo num COMMENT que a proxima pessoa le como fato medido (padrao P39/CR-02). O que existe '
   'agora e mecanismo: a chave lista, do catalogo (pg_constraint por confdeltype em a/r), as FKs '
   'para auth.users que BLOQUEIAM o delete e que tem linha viva apontando ao titular, MENOS as '
-  '(tabela, coluna) que o tombstone comprovadamente severa — lista declarada nominalmente no corpo, '
-  'num lugar so, que e o contrato entre as duas funcoes do motor. A assimetria e deliberada: quem '
-  'acrescenta uma severacao la acrescenta aqui, e quem acrescenta uma FK NOVA ao schema nao precisa '
+  '(tabela, coluna) que o tombstone severa para o USER_ID INTEIRO — lista declarada nominalmente no '
+  'corpo, num lugar so, que e o contrato entre as duas funcoes do motor. '
+  '⚠⚠ E O QUALIFICADOR "PARA O USER_ID INTEIRO" E O DEFEITO QUE O 45-14 FECHOU (BL-02): ate o 45-13 '
+  'a lista subtraia tambem candidatos.created_by/updated_by e candidaturas.created_by/updated_by, '
+  'que o tombstone severa APENAS nas linhas DESTE candidato. Uma linha de OUTRO candidato com '
+  'autoria deste user_id nao era severada e nao era enumerada: a chave voltava VAZIA com um '
+  'bloqueador real de pe, a Edge Function nao recusava, o passo 1 destruia o curriculo e o '
+  'deleteUser do passo 3 falhava com 23503 de forma REPETIVEL — curriculo destruido, e-mail do '
+  'titular vivo em auth.users para sempre, recibo nunca enviado. Os quatro passaram a ser enumerados '
+  'com o MESMO escopo da severacao (t.id / t.candidato_id IS DISTINCT FROM o candidato do pedido). '
+  'A saida alternativa — alargar a severacao para o user_id inteiro — foi RECUSADA: linhas de '
+  'OUTRAS pessoas perderiam o registro de autoria por causa do pedido de um terceiro. '
+  '⚠ A prova esta na auto-verificacao de 20260805000006 (caso (vii)), e nao aqui, porque ela exige '
+  'FIXTURE e esta migration e declaradamente READ-ONLY: uma linha de OUTRO candidato com '
+  'updated_by = <uid do titular> tem de fazer bloqueadores_deleteuser vir NAO-VAZIA. '
+  'A assimetria e deliberada: quem '
+  'acrescenta uma severacao la acrescenta aqui (e no laco, se ela for escopada a uma linha), e quem '
+  'acrescenta uma FK NOVA ao schema nao precisa '
   'fazer nada — ela aparece sozinha como bloqueador e o motor recusa. A Edge Function recusa ANTES '
   'do passo 1 se a lista vier nao-vazia, e e isso que transforma o 23503 de desfecho esperado em '
   'recusa barata: sem PITR e com o Storage fora de todo backup, um 23503 no passo 3 deixa o '
