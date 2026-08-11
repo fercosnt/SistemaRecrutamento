@@ -341,7 +341,12 @@ Descrito acima em "Decisions Made". Não altera mecanismo nenhum — só onde a 
   lendo o valor normalizado.
 - **G10 (erro de `deleteUser` não engolido):** não tocado.
 - **G13:** **restaurado** (BL-03).
-- **`$c2$` do smoke:** **byte a byte idêntico** — 2676 octetos antes e depois, conferido por
+- **`$c2$` do smoke:** **byte a byte idêntico** — 2676 octetos **INCLUINDO os dois delimitadores
+  `$c2$`** (2668 pelo recorte da receita do §PROVENIENCIA, que os exclui; a diferença é exatamente
+  `len("$c2$") × 2 = 8`). ⚠ Nota acrescentada pelo 45-15 (NW-06 do `45-REVIEW-3.md`): este
+  documento usa duas convenções de medição — a dos `md5` acima **exclui** os delimitadores. Sem
+  esta linha, quem reconfere no portão do 45-11 lê 8 octetos de divergência numa afirmação de
+  não-divergência. Conferido por
   extração e comparação de string, não por leitura do diff. E continua não-vacuosa: ela chama com
   `true` **literal**, onde a normalização é identidade — nenhuma das dez recusas mudou de significado.
   Os blocos `$c1$`, `$c3$` e `$c456$` também não foram tocados.

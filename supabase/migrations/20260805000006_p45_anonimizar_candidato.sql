@@ -860,7 +860,14 @@ GRANT EXECUTE ON FUNCTION public.anonimizar_candidato(uuid, boolean) TO service_
 -- bloqueadores de `plano_exclusao_titular` respeita o ESCOPO da severação nas DUAS
 -- direções — autoria na própria linha do titular não bloqueia, autoria na linha de outro
 -- candidato bloqueia (BL-02). A (vii) prova um contrato da `20260805000005` e mora aqui
--- porque exige fixture, e aquele arquivo é declaradamente read-only. A cobertura das
+-- porque exige fixture, e aquele arquivo é declaradamente read-only.
+-- ⚠ Desde o 45-15 a (vii) tem TRÊS medições e uma precondição: a terceira mede a PRÓPRIA
+-- CANDIDATURA do titular, que é o único sítio onde o recorte `t.candidato_id` (diferente
+-- do `t.id` de `candidatos`) fica provado — errá-lo recusaria toda exclusão legítima, e
+-- nenhuma das outras asserções da fase o alcança (NW-01). A precondição confere no
+-- catálogo que os QUATRO pares de autoria ainda são FK `NO ACTION`/`RESTRICT`, para que
+-- uma chave não-enumerável falhe com o seu PRÓPRIO diagnóstico em vez de com a mensagem
+-- de falso-negativo de escopo do BL-02 (NW-02). A cobertura das
 -- demais tabelas do ERASE-09 e a asserção de re-identificação (B9) são do smoke
 -- `supabase/tests/p45_motor_exclusao_smoke.sql`, que roda no 45-11 — dizer isso
 -- aqui é melhor que deixar a lacuna parecer cobertura.
@@ -931,6 +938,14 @@ DECLARE
   v_bl_prop  int;
   v_bl_alh   int;
   v_bl_cand  int;
+  -- ⚠ 45-15 · NW-01 — a terceira medição: a PRÓPRIA candidatura do titular. A coluna
+  -- de recorte de `candidaturas` é `candidato_id`, NÃO `id`, e essa assimetria com
+  -- `candidatos` era o único par que nenhuma asserção da fase alcançava.
+  v_bl_prop_c int;
+  v_bl_base_c int;
+  -- ⚠ 45-15 · NW-02 — a precondição de CATÁLOGO da (vii). Guarda os pares de autoria
+  -- que deixaram de ser enumeráveis, POR NOME, para que a falha diga o que mediu.
+  v_fk_falt  text;
   v_ufs      text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                              'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 BEGIN
@@ -1517,7 +1532,8 @@ BEGIN
       RAISE EXCEPTION 'P45-TOMBSTONE (BL-01/p_dry_run NULO): a linha de candidatos MUDOU sob p_dry_run := NULL. O SQLSTATE sozinho nao e a prova — a linha e';
     END IF;
 
-    -- ── (vii) 45-14 · BL-02 — O ESCOPO DO PROBE DE BLOQUEADORES, NAS DUAS DIREÇÕES ─
+    -- ── (vii) 45-14/45-15 · BL-02 — O ESCOPO DO PROBE DE BLOQUEADORES, NAS DUAS
+    --         DIREÇÕES E NAS DUAS TABELAS (que usam colunas de recorte DIFERENTES) ──
     -- ⚠ ESTA ASSERÇÃO PROVA UM CONTRATO DE **OUTRA** MIGRATION, e mora aqui por uma
     -- razão declarada: ela exige FIXTURE, e a `20260805000005` é declaradamente
     -- READ-ONLY. Este bloco já tem as fixtures e o envelope de subtransação, e as duas
@@ -1531,18 +1547,88 @@ BEGIN
     -- `[]`, a Edge Function não recusava, o passo 1 destruía o currículo e o `deleteUser`
     -- do passo 3 falhava com 23503 — repetidamente, sem saída.
     --
-    -- ⚠ AS DUAS DIREÇÕES SÃO OBRIGATÓRIAS, e é o par que torna a asserção honesta:
-    --   · autoria na PRÓPRIA linha do titular  → NÃO é bloqueador (o tombstone severa);
-    --   · autoria na linha de OUTRO candidato  → É bloqueador (o tombstone não alcança).
-    -- Sem a primeira, uma enumeração sempre-vermelha passaria; sem a segunda, a
-    -- subtração inteira passaria. A base zero antes das duas é o guard anti-vacuidade.
+    -- ⚠ AS TRÊS MEDIÇÕES SÃO OBRIGATÓRIAS, e é o conjunto que torna a asserção honesta:
+    --   (a) autoria na PRÓPRIA linha de `candidatos`     → NÃO bloqueia (o tombstone severa);
+    --   (c) autoria na PRÓPRIA candidatura do titular    → NÃO bloqueia (o tombstone severa);
+    --   (b) autoria em linha ALHEIA das duas tabelas     → BLOQUEIA (o tombstone não alcança).
+    -- Sem (a)/(c), uma enumeração sempre-vermelha passaria; sem (b), a subtração
+    -- inteira passaria. A base zero antes delas é o guard anti-vacuidade.
+    --
+    -- ⚠⚠ 45-15 / NW-01 — POR QUE A (c) EXISTE, E POR QUE ELA VEM ANTES DA (b).
+    -- As duas tabelas usam colunas de recorte DIFERENTES — `t.id` para `candidatos`,
+    -- `t.candidato_id` para `candidaturas` (`20260805000005`, o `CASE` de `v_escopo`).
+    -- Essa assimetria é onde o erro nasce, e até o 45-14 NENHUMA asserção da fase a
+    -- alcançava: a (a) não olhava `candidaturas`, a (b) usava `v_candtr`, que é de
+    -- OUTRO candidato, e a asserção de `20260805000005` («pelo menos um titular vivo
+    -- vem com a lista vazia») passa porque a SONDA 6 §6a mediu ZERO linha nessas
+    -- quatro colunas em PROD. Escrever `t.id IS DISTINCT FROM $2` também para
+    -- `candidaturas` — comparando o id da CANDIDATURA com o id do CANDIDATO, que
+    -- nunca são iguais — passaria pelas três, e o efeito só apareceria no primeiro
+    -- pedido real: quem se candidata por si mesmo escreve a PRÓPRIA autoria na
+    -- PRÓPRIA candidatura, `bloqueadores_deleteuser` viria não-vazia e a Edge
+    -- Function recusaria TODA exclusão legítima, para sempre. É o falso-POSITIVO que
+    -- o comentário de `20260805000005` diz existir para evitar, no único par que ele
+    -- não media.
+    -- ⚠ ORDEM: a (c) TEM de vir antes da (b). A (b) marca `v_candtr` — candidatura de
+    -- OUTRO candidato — com o mesmo `v_user_b`, e o probe é um `EXISTS` sobre a tabela
+    -- inteira: depois dela o bloqueador de `candidaturas` aparece por causa da linha
+    -- alheia, e a (c) mediria ≠ 0 sem que o recorte tivesse defeito nenhum.
+
+    -- ⚠⚠ 45-15 / NW-02 — PRECONDIÇÃO DE CATÁLOGO, com diagnóstico PRÓPRIO.
+    -- As três medições abaixo só medem o ESCOPO se os pares de autoria forem
+    -- ENUMERÁVEIS: o probe de `20260805000005` só percorre FKs para `auth.users` com
+    -- `confdeltype IN ('a','r')` (NO ACTION / RESTRICT). Se um deles estiver como
+    -- SET NULL / CASCADE / SET DEFAULT no catálogo vivo no dia do apply, a chave não
+    -- entra na lista, a (a) e a (c) passariam por VACUIDADE e a (b) falharia com a
+    -- mensagem do BL-02 — culpando um falso-negativo de RECORTE que não aconteceu, e
+    -- parando o apply de uma migration por um defeito que não existe. Uma asserção
+    -- que falha pelo motivo errado é pior que asserção nenhuma: ela treina quem lê a
+    -- desconfiar do bloco inteiro. E o custo aqui é máximo, porque este bloco NUNCA
+    -- foi executado — a primeira vez que alguém o vê rodar é o apply.
+    -- ⚠ A evidência está a favor (`45-SONDAS-PROD.md:205-212` mediu os quatro como
+    -- NO ACTION em 2026-08-05), e é exatamente por isso que ela vira asserção: este
+    -- bloco inteiro existe porque «pressuposto em prosa» não é aceitável nesta fase.
+    -- ⚠ Os QUATRO pares são medidos, e não só os dois que a (vii) consulta: os quatro
+    -- são o que `v_esc_candidatos`/`v_esc_candidaturas` de `20260805000005` recortam,
+    -- e um deles fora do regime de bloqueio muda o contrato daquela lista.
+    SELECT string_agg(p.tab || '.' || p.col, ', ' ORDER BY p.tab, p.col)
+      INTO v_fk_falt
+      FROM (VALUES ('candidatos',   'created_by'),
+                   ('candidatos',   'updated_by'),
+                   ('candidaturas', 'created_by'),
+                   ('candidaturas', 'updated_by')) AS p(tab, col)
+     WHERE NOT EXISTS (
+             SELECT 1
+               FROM pg_constraint c
+               JOIN pg_class cl     ON cl.oid = c.conrelid
+               JOIN pg_namespace n  ON n.oid  = cl.relnamespace
+               -- ⚠ MESMA forma do laço de enumeração de `20260805000005` (unnest de
+               -- `conkey`, e não `conkey[1]`): quem confere a precondição contra o
+               -- probe tem de ver a MESMA consulta, senão a comparação vira exegese.
+               JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON true
+               JOIN pg_attribute a  ON a.attrelid = c.conrelid
+                                   AND a.attnum   = k.attnum
+              WHERE c.contype     = 'f'
+                AND c.confrelid   = 'auth.users'::regclass
+                AND c.confdeltype IN ('a', 'r')
+                AND array_length(c.conkey, 1) = 1
+                AND cl.relkind    IN ('r', 'p')
+                AND NOT a.attisdropped
+                AND n.nspname      = 'public'
+                AND cl.relname::text = p.tab
+                AND a.attname::text  = p.col);
+
+    IF v_fk_falt IS NOT NULL THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/precondicao de catalogo): o que foi medido AQUI e o CATALOGO, nao o recorte do probe — as FKs de autoria para auth.users que deixaram de ser NO ACTION/RESTRICT sao: %. ⚠ ISTO NAO E O DEFEITO DO BL-02: o recorte da enumeracao pode estar perfeito e esta asserção ainda assim parar o apply, porque o probe de plano_exclusao_titular so percorre confdeltype IN (a,r) e uma chave em SET NULL/CASCADE/SET DEFAULT simplesmente NAO E ENUMERADA. Sem ela, a (vii)(a) e a (vii)(c) passariam por VACUIDADE e a (vii)(b) falharia com a mensagem de falso-negativo de escopo, culpando um defeito que nao aconteceu. A SONDA 4c mediu os QUATRO pares como NO ACTION em 2026-08-05 (45-SONDAS-PROD.md:205-212). Se a mudanca foi DELIBERADA, as listas v_severadas / v_esc_candidatos / v_esc_candidaturas de 20260805000005 tem de ser revistas no MESMO commit — uma FK que resolve sozinha nao e bloqueador e nao pode continuar recortada como se fosse', v_fk_falt;
+    END IF;
+
     SELECT count(*) INTO v_bl_base
       FROM jsonb_array_elements(
              public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
      WHERE x ->> 'tabela' = 'public.candidatos' AND x ->> 'coluna' = 'updated_by';
 
     IF v_bl_base <> 0 THEN
-      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/base): a fixture B JA vem com candidatos.updated_by entre os bloqueadores (%). As duas medicoes seguintes ficariam sem linha de base e a asserção passaria por VACUIDADE', v_bl_base;
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/base): a fixture B JA vem com candidatos.updated_by entre os bloqueadores (%). As medicoes seguintes ficariam sem linha de base e a asserção passaria por VACUIDADE', v_bl_base;
     END IF;
 
     -- (a) Autoria na PRÓPRIA linha: o tombstone a severa, logo não é bloqueador.
@@ -1555,6 +1641,40 @@ BEGIN
 
     IF v_bl_prop <> 0 THEN
       RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/propria linha): candidatos.updated_by na PROPRIA linha do titular apareceu como bloqueador (%). O tombstone severa essa linha na mesma transacao — enumera-la faz o motor RECUSAR toda execucao legitima antes do passo 1, e isso so apareceria no primeiro pedido real. O probe dos pares de autoria tem de excluir a linha do proprio candidato (t.id IS DISTINCT FROM o candidato do pedido), nunca subtrair o par inteiro', v_bl_prop;
+    END IF;
+
+    -- (c) 45-15 / NW-01 — Autoria na PRÓPRIA CANDIDATURA do titular: o tombstone a
+    --     severa (`WHERE c.candidato_id = p_candidato_id`), logo NÃO bloqueia.
+    --     ⚠ Esta é a medição do recorte `t.candidato_id`, e ela vem ANTES da (b) pela
+    --     razão escrita acima: a (b) suja `candidaturas` com uma linha ALHEIA.
+    SELECT count(*) INTO v_bl_base_c
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidaturas' AND x ->> 'coluna' = 'updated_by';
+
+    IF v_bl_base_c <> 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/base de candidaturas): candidaturas.updated_by JA vem entre os bloqueadores antes de a fixture escrever autoria alguma (%). A medicao (c) seguinte ficaria sem linha de base e passaria — ou reprovaria — por um estado que a fixture nao criou', v_bl_base_c;
+    END IF;
+
+    -- ⚠ `status = 'rejeitado'` é obrigatório aqui pelo MESMO motivo já escrito na
+    -- fixture de `v_candtr`: é o survivor-guard dos DOIS triggers `AFTER INSERT ON
+    -- public.candidaturas` que disparam `net.http_post`. Com ele, nenhum dos dois
+    -- enfileira coisa alguma — nem sequer uma linha em `net.http_request_queue`.
+    -- Cinto E suspensório: a fila do `pg_net` é transacional e este envelope reverte,
+    -- mas "provavelmente reverte" não é postura aceitável diante de e-mail para
+    -- pessoa real.
+    INSERT INTO public.candidaturas
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura, updated_by)
+    VALUES
+      (v_cand_b, v_vaga, 'triagem', 'rejeitado', false, now() - interval '31 days', v_user_b);
+
+    SELECT count(*) INTO v_bl_prop_c
+      FROM jsonb_array_elements(
+             public.plano_exclusao_titular(v_cand_b) -> 'bloqueadores_deleteuser') x
+     WHERE x ->> 'tabela' = 'public.candidaturas' AND x ->> 'coluna' = 'updated_by';
+
+    IF v_bl_prop_c <> 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (BL-02/propria candidatura): candidaturas.updated_by numa candidatura DO PROPRIO titular apareceu como bloqueador (%). A coluna de recorte de candidaturas e t.candidato_id, NUNCA t.id — as duas tabelas usam colunas DIFERENTES, e escrever t.id aqui compara o id da CANDIDATURA com o id do CANDIDATO, que nunca sao iguais: o probe nunca excluiria nada, bloqueadores_deleteuser viria sempre nao-vazia e a Edge Function RECUSARIA TODA EXCLUSAO LEGITIMA, para sempre, porque quem se candidata por si mesmo escreve a propria autoria na propria candidatura. E o falso-POSITIVO que a (vii)(a) nao alcanca (ela so olha candidatos) e que a (vii)(b) nao alcanca (ela usa a candidatura de OUTRO candidato)', v_bl_prop_c;
     END IF;
 
     -- (b) Autoria na linha de OUTRO candidato: o tombstone NÃO alcança, logo bloqueia.
@@ -1585,7 +1705,7 @@ BEGIN
       IF SQLERRM <> 'P45-TOMBSTONE-OK' THEN
         RAISE;
       END IF;
-      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: curriculo_url e curriculo_nome_original severadas com a LINHA de candidaturas de pe e a consulta de re-identificacao por split_part devolvendo ZERO (CR-04); o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). ⚠ 45-14: a chamada com p_dry_run := NULL terminou em P45DR sem mutar coluna alguma — a intencao e normalizada UMA vez, no DECLARE, para o lado SEGURO, e um booleano de tres valores deixou de poder pular o ramo de papel, o guard de intencao e o terminador do dry-run de uma so vez (BL-01); e o probe de bloqueadores da 20260805000005 mediu as DUAS direcoes do escopo de autoria — a propria linha do titular NAO bloqueia (o tombstone a severa) e a linha de OUTRO candidato BLOQUEIA (o tombstone nao a alcanca), que e o falso-negativo do BL-02 fechado. A subtransacao foi revertida e NADA persistiu';
+      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: curriculo_url e curriculo_nome_original severadas com a LINHA de candidaturas de pe e a consulta de re-identificacao por split_part devolvendo ZERO (CR-04); o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). ⚠ 45-14: a chamada com p_dry_run := NULL terminou em P45DR sem mutar coluna alguma — a intencao e normalizada UMA vez, no DECLARE, para o lado SEGURO, e um booleano de tres valores deixou de poder pular o ramo de papel, o guard de intencao e o terminador do dry-run de uma so vez (BL-01); e o probe de bloqueadores da 20260805000005 mediu as DUAS direcoes do escopo de autoria — a propria linha do titular NAO bloqueia (o tombstone a severa) e a linha de OUTRO candidato BLOQUEIA (o tombstone nao a alcanca), que e o falso-negativo do BL-02 fechado. ⚠ 45-15: a (vii) ganhou a TERCEIRA medicao e a precondicao que faltavam — a PROPRIA CANDIDATURA do titular NAO bloqueia, que e a unica prova do recorte t.candidato_id (a coluna de recorte de candidaturas e DIFERENTE da de candidatos, e erra-la recusaria toda exclusao legitima); e os QUATRO pares de autoria foram conferidos no catalogo como FK NO ACTION/RESTRICT ANTES das tres medicoes, para que uma chave que deixou de ser enumeravel falhe com o seu proprio diagnostico em vez de com a mensagem do BL-02. A subtransacao foi revertida e NADA persistiu';
   END;
 END
 $verifica_anonimizar_candidato$;
