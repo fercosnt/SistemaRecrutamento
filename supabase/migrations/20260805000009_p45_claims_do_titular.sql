@@ -64,19 +64,55 @@
 -- o terceiro client produz `42501` por um motivo diferente.
 --
 -- -----------------------------------------------------------------------------
--- (b) O CONTROLE CONTINUA SENDO O GUARD DO CORPO, E O PRECEDENTE E A P44
+-- (b) O CONTROLE E O GUARD DO CORPO — E O QUE TORNA ESTE `GRANT` DEFENSAVEL SOBRE
+--     `anonimizar_candidato` E O GUARD DE **INTENCAO** (CR-01, plano 45-13)
 -- -----------------------------------------------------------------------------
 -- As cinco sao `SECURITY DEFINER` e DEFINER bypassa RLS: o guard do corpo e o unico
--- controle, e ele e o mesmo antes e depois desta migration. Ele recusa com `42501`
--- (i) o chamador SEM sessao e (ii) o chamador que nao e `rh`, nem `administrador`,
--- nem o proprio titular daquele registro — tudo por `IS DISTINCT FROM`, nunca por
--- `NOT IN`, que avalia NULL, nao toma o `IF` e falha ABERTO para `anon`.
+-- controle. ⚠ **ESTE BLOCO AFIRMAVA QUE O GUARD ERA "O MESMO ANTES E DEPOIS DESTA
+-- MIGRATION". ISSO DEIXOU DE SER VERDADE — E, PIOR, DEIXOU DE SER O ARGUMENTO CERTO.**
+--
+-- O `45-REVIEW.md` (2026-08-11) mediu o **CR-01** contra a linha 144 deste arquivo: o
+-- `GRANT` sobre `anonimizar_candidato` torna o tombstone chamavel direto por PostgREST,
+-- e o guard de entao verificava apenas **identidade** — nunca **intencao**. Ele nao
+-- sabia se existia pedido, se a janela do D-45-01 tinha vencido, nem se o passo 1 do
+-- Storage tinha carimbado. Dois cenarios alcancaveis do console do navegador: o titular
+-- se apagando fora da janela do ERASE-06, sem recibo e deixando o proprio curriculo
+-- orfao no bucket; e o `rh` destruindo a PII de qualquer candidato com uma chamada.
+--
+-- **O que torna este `GRANT` defensavel a partir do 45-13** (migration
+-- `20260805000006`, corpo de `anonimizar_candidato`):
+--   · metade (a) — recusa `42501` o chamador SEM claim nenhuma. **NAO foi tocada.**
+--   · metade (b) — recusa por PAPEL, e agora em DUAS formas: LEITURA (`p_dry_run =
+--     true`) aceita `rh`, `administrador` ou o dono; DESTRUTIVO aceita apenas
+--     `administrador` ou o dono. Um recrutador perde o caminho destrutivo e mantem o
+--     dry-run (opcao B do checkpoint do 45-13, decisao do operador de 2026-08-11).
+--   · metade (c) — **GUARD DE INTENCAO**, so no caminho destrutivo: exige pedido de
+--     exclusao em `situacao = 'executando'`, `executar_em` vencido e
+--     `storage_concluido_em` carimbado. E o que impede que este `GRANT` seja uma porta
+--     direta por PostgREST, e e onde a ordem `Storage -> Postgres -> Auth` passa a ser
+--     imposta pelo BANCO — a SONDA 2 mediu que a plataforma NAO a impoe.
+-- Tudo por `IS DISTINCT FROM`, nunca por `NOT IN`, que avalia NULL, nao toma o `IF` e
+-- falha ABERTO para `anon`.
+--
+-- ⚠ **O QUE ESTE `GRANT` CONTINUA NAO FECHANDO, dito sem eufemismo:** a primitiva
+-- segue CHAMAVEL por `authenticated`; ela apenas passa a RECUSAR quase sempre. Isso e
+-- mais fraco que nao estar exposta. A saida de retirar o `GRANT` foi avaliada e
+-- RECUSADA no checkpoint do 45-13 porque, sob `service_role`, `auth.uid()` nao existe e
+-- a metade (a) teria de aceitar NULL — a saida recusada pelo operador em 2026-08-05.
+--
+-- ⚠ **E A (c) TRANSFERE CONFIANCA PARA `solicitacoes_dados`**: quem escrever `situacao`
+-- e `storage_concluido_em` ali autoriza o tombstone. O pressuposto nao ficou em prosa —
+-- o bloco de auto-verificacao da `20260805000006` pergunta ao CATALOGO se
+-- `authenticated` pode escrever naquela tabela e **aborta o apply** se puder.
 --
 -- O precedente e a **Phase 44**: as RPCs de la sao concedidas a `authenticated` com
 -- exatamente essa divisao de responsabilidade — ACL abre a porta ao papel, o guard do
--- corpo decide quem passa. A asercao **C2** do smoke prova as DEZ recusas, e ela nao
--- foi tocada por este plano: se ela precisasse de edicao, o guard estaria sendo
--- AFROUXADO em vez de estendido, e isso e condicao de PARADA.
+-- corpo decide quem passa. A asercao **C2** do smoke prova as DEZ recusas, e ela
+-- **continua sem uma linha editada**: o `uuid` que ela usa e sintetico e inexistente, e
+-- a chamada dela a `anonimizar_candidato` e de **dry-run**, entao nem a forma
+-- destrutiva da metade (b) nem a metade (c) mudam o desfecho dela. Se a C2 precisasse
+-- de edicao, o guard estaria sendo AFROUXADO em vez de estendido, e isso e condicao de
+-- PARADA.
 --
 -- -----------------------------------------------------------------------------
 -- (c) A SAIDA RECUSADA, E POR QUE ELA E PIOR

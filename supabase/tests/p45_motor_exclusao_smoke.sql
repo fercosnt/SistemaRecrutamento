@@ -25,9 +25,12 @@
 -- chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44).
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **21** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 21 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **22** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 22 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
+-- ⚠ O contador subiu de 21 para 22 no plano 45-13, com a assercao (C7) — o guard de
+-- INTENCAO (CR-01). Acrescentar bloco sem bumpar este numero transforma uma adicao
+-- legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ ESTE SMOKE ESCREVE — E O ESCOPO NEGATIVO INVERTE EM RELACAO AO MOLDE
@@ -82,7 +85,7 @@
 -- CASE de `trg_notif_transicao` (20260726000001:75-81) deixa passar sem dispatch.
 --
 -- -----------------------------------------------------------------------------
--- AS 21 ASSERCOES — treze delas NEGATIVAS
+-- AS 22 ASSERCOES — catorze delas NEGATIVAS
 -- -----------------------------------------------------------------------------
 -- BLOCO A — ESTRUTURAL, SEM FIXTURE, SEM ESCRITA. E O PRIMEIRO DO ARQUIVO, E A
 -- ORDEM E A DECISAO MAIS IMPORTANTE AQUI. Num batch de chamada unica, tudo depois
@@ -136,7 +139,10 @@
 --   (C6) ⊖ NEGATIVA (ERASE-05 / D-45-06) — encerrar a pedido NAO gera evento
 --        `'decisao'` em `notificacoes_enviadas` e NAO gera `auto_rejeitado = true`
 --        em `historico_candidatura`.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 21.
+--   (C7) ⊖ NEGATIVA (CR-01, 45-13) — o guard de INTENCAO: a chamada REAL feita por
+--        `administrador` sobre um candidato SEM pedido em execucao recusa com `42501`
+--        ANTES de tocar coluna alguma. `P0002` ali significa que a metade (c) sumiu.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 22.
 --
 -- =============================================================================
 -- ⚠ TRES ACHADOS MEDIDOS QUE ESTA ESPEC ENCODA, E QUE O 45-07 TEM DE RESOLVER
@@ -863,6 +869,19 @@ BEGIN
     SELECT a.attnotnull INTO v_nn_aidec_v FROM pg_attribute a
      WHERE a.attrelid = 'public.candidate_ai_decisions'::regclass AND a.attname = 'vaga_id' AND NOT a.attisdropped;
 
+    -- (fixture 14, acrescentada pelo 45-13) ⚠ O PEDIDO QUE O GUARD DE INTENCAO EXIGE.
+    -- A metade (c) de `anonimizar_candidato` (CR-01) recusa a chamada REAL que nao
+    -- venha de dentro do motor. Sem esta linha, o caminho feliz (B2) receberia `42501`
+    -- e o smoke reprovaria a implementacao CORRETA. Os tres valores sao exatamente o
+    -- estado que so o motor produz: pedido em execucao, janela do D-45-01 VENCIDA e o
+    -- passo 1 do Storage CARIMBADO — e e por isso que ela nasce aqui e nao antes: ela
+    -- e parte do cenario, nao preparacao de ambiente.
+    INSERT INTO public.solicitacoes_dados
+      (candidato_id, tipo, situacao, solicitado_em, executar_em, storage_concluido_em)
+    VALUES
+      (v_cand, 'exclusao', 'executando', now() - interval '16 days',
+       now() - interval '1 day', now() - interval '1 minute');
+
     -- ── B2: O CAMINHO FELIZ ────────────────────────────────────────────────────
     -- Impersonacao de `administrador` — papel REAL e nomeado. E deliberado que o
     -- motor NAO seja chamavel sem claim nenhuma: (C2) assere essa recusa para as
@@ -1479,6 +1498,96 @@ $c3$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (C7) ⊖ NEGATIVA — O GUARD DE **INTENCAO** RECUSA A CHAMADA REAL FORA DO MOTOR.
+--      (CR-01 do 45-REVIEW.md, fechado pelo plano 45-13, metade (c) do guard.)
+--
+--      O que esta assercao mede, e por que ela precisa existir SEPARADA da (C2): a
+--      (C2) prova que o guard recusa o PAPEL errado e o chamador SEM CLAIM. Nenhuma
+--      das duas metades sabe EM QUE ESTADO O MOTOR ESTA. Com o
+--      `GRANT EXECUTE ... TO authenticated` da `20260805000009`, uma sessao legitima
+--      alcanca esta primitiva direto por PostgREST — e ate o 45-13 ela ACEITAVA,
+--      destruindo PII fora da janela do ERASE-06, sem `storage_concluido_em`, sem
+--      recibo e sem trilha. «Ser chamavel» era suficiente para ser perigosa.
+--
+--      ⚠ O DESENHO DESTA ASSERCAO E O QUE A TORNA SEGURA, e ele nao e detalhe:
+--       · a impersonacao e de **administrador**, que a metade (b) do caminho
+--         destrutivo ACEITA — logo um `42501` aqui so pode ter vindo da metade (c);
+--       · o `p_candidato_id` e um uuid **sintetico e inexistente**. Se a metade (c)
+--         estiver ausente, a funcao passa do guard, chama `plano_exclusao_titular`
+--         (que e STABLE e nao escreve) e levanta **`P0002`** no
+--         `CANDIDATO_INEXISTENTE` — um desfecho DISTINGUIVEL e inofensivo. Nunca se
+--         exercita este caminho contra uma linha real: se o guard estivesse aberto, a
+--         chamada apagaria a PII de uma pessoa de verdade, e o rollback nao devolve
+--         curriculo apagado do Storage.
+--
+--      ⚠ E POR ISSO A DISCRIMINACAO E POR SQLSTATE, e cada um significa uma coisa:
+--        42501 = a metade (c) existe e mordeu (PASS);
+--        P0002 = a metade (c) NAO existe — a funcao chegou a procurar a linha (FAIL);
+--        P45DR = a chamada real virou dry-run, defeito grave por si (FAIL).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $c7$
+DECLARE
+  v_admin uuid := current_setting('smoke45m.admin_auth')::uuid;
+  v_fake  uuid := gen_random_uuid();
+  v_lev   boolean := false;
+  v_st    text;
+BEGIN
+  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C7): public.anonimizar_candidato(uuid, boolean) NAO EXISTE — RED correto ate a migration 20260805000006 ser aplicada';
+  END IF;
+
+  -- Subtransacao por precaucao ESTRUTURAL: nada aqui deveria escrever (o guard recusa
+  -- antes de tudo, e o caminho de fallback levanta P0002 antes da primeira mutacao),
+  -- mas esta e a funcao que apaga PII de forma irreversivel — o envelope existe para
+  -- o dia em que alguem mudar o corpo e nao lembrar deste arquivo.
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_fake, false);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    PERFORM set_config('request.jwt.claims', '', false);
+    RAISE EXCEPTION 'rollback_smoke45m_c7' USING ERRCODE = 'P45C9';
+  EXCEPTION
+    WHEN sqlstate 'P45C9' THEN
+      NULL;  -- reversao esperada
+  END;
+
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+
+  IF NOT v_lev THEN
+    RAISE EXCEPTION 'P45M FAIL (C7): anonimizar_candidato(<uuid inexistente>, p_dry_run := false) RETORNOU NORMALMENTE sob claims de administrador. Nao ha guard de intencao NENHUM, e a funcao ainda declara sucesso sobre um alvo que nao existe';
+  END IF;
+
+  IF v_st = 'P0002' THEN
+    RAISE EXCEPTION 'P45M FAIL (C7): a chamada REAL passou do guard e foi PROCURAR A LINHA (SQLSTATE P0002 = CANDIDATO_INEXISTENTE). A metade (c) do guard — o guard de INTENCAO — NAO EXISTE no corpo vivo. Com o GRANT a authenticated da 20260805000009, isso significa que qualquer sessao alcanca o tombstone por PostgREST e o executa sobre uma linha REAL: PII destruida fora da janela do D-45-01/ERASE-06, sem storage_concluido_em, sem recibo e sem trilha, e com o curriculo ficando orfao no bucket porque candidatos.user_id vira NULL e nenhuma sessao volta a resolver o titular. E o CR-01 do 45-REVIEW.md reaberto';
+  END IF;
+
+  IF v_st = 'P45DR' THEN
+    RAISE EXCEPTION 'P45M FAIL (C7): a chamada com p_dry_run := false terminou em P45DR — o caminho REAL virou dry-run. Alguem trocou o default ou o parametro, e um chamador que leia isso como sucesso marca o pedido como concluido com 100%% da PII intacta';
+  END IF;
+
+  IF v_st IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P45M FAIL (C7): a recusa veio com SQLSTATE % e o combinado do guard e 42501. O vocabulario importa: a Edge Function traduz 42501 para 403 e qualquer outro codigo para 500, e um 500 aqui mandaria o titular tentar de novo contra um estado que nao muda', coalesce(v_st, '<nulo>');
+  END IF;
+
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C7): o guard de INTENCAO recusou com 42501 uma chamada REAL feita por administrador fora do motor — sem pedido em execucao, a primitiva nao executa, e ser chamavel deixou de ser suficiente para ser perigosa';
+END
+$c7$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (C4) (C5) (C6) — DRY-RUN QUE NAO MUTA, FILA DO RH NAO CONTAMINADA, E OS DOIS
 --      NEGATIVOS DO ENCERRAMENTO. Uma fixture minima compartilhada, uma
 --      subtransacao, tres assercoes.
@@ -1689,7 +1798,7 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 21.
+--     e na P43). O esperado e FIXO: 22.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -1698,7 +1807,7 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  v_esperado int := 21;
+  v_esperado int := 22;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN

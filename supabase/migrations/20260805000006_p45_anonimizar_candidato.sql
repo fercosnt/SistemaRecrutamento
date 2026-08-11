@@ -165,14 +165,24 @@
 -- -----------------------------------------------------------------------------
 -- (7) O QUE ESTE CORPO NÃO ESCREVE, E POR QUÊ
 -- -----------------------------------------------------------------------------
--- **Não escreve em `logs_auditoria`.** A tabela usa dois enums (`categoria_log_auditoria`,
--- `severidade_log`) cujos valores vivos este plano NÃO pôde medir (subagentes não
--- recebem os tools MCP do Supabase), e a regra da fase é que nenhuma escrita é
--- escolhida por parecer razoável — cada uma é escolhida contra o catálogo lido. Um
--- valor de enum inventado abortaria a transação de anonimização inteira, no pedido
--- real, depois de o currículo já ter sido apagado do Storage.
--- A trilha desta exclusão é o RECIBO mais as colunas de estado de
--- `solicitacoes_dados`, escritas pela Edge Function do 45-10.
+-- **Não escreve em `logs_auditoria`, e a razão é MEDIDA — não é neutralidade.** A
+-- tabela usa dois enums (`categoria_log_auditoria`, `severidade_log`) cujos valores
+-- vivos nenhum plano desta fase pôde medir (subagentes não recebem os tools MCP do
+-- Supabase), e a regra da fase é que nenhuma escrita é escolhida por parecer razoável
+-- — cada uma é escolhida contra o catálogo lido. Um valor de enum inventado abortaria
+-- a transação de anonimização inteira **no pedido real, depois de o currículo já ter
+-- sido apagado do Storage**: seria trocar um defeito de rastreabilidade por um defeito
+-- irreversível (Pitfall 1 literal).
+-- ⚠ **A TRILHA QUE EXISTE NO LUGAR, e ela não é ausência:** o retorno desta função
+-- carrega um bloco `executor` com o papel lido da claim, o booleano de «foi o próprio
+-- titular» e — **apenas quando o executor NÃO é o titular** — o `uid` dele. A Edge
+-- Function persiste esse bloco no `plano`, que sobrevive ao fecho do pedido. Somam-se
+-- a isso o RECIBO e as colunas de estado de `solicitacoes_dados`. A lacuna que resta
+-- (`logs_auditoria` sem os enums medidos) é o item diferido `DI-45-13-01`, nomeado, e
+-- não silêncio.
+-- ⚠ Por que o `uid` do TITULAR fica de fora: ele é o identificador que esta exclusão
+-- existe para apagar, e gravá-lo no registro que PROVA a exclusão é o mesmo defeito do
+-- CR-04 com outra cara.
 -- ⚠ Efeito colateral favorável: a asserção B4 do smoke exige que a re-execução
 -- acrescente ZERO linha em `logs_auditoria`, e um no-op que audita não é no-op.
 --
@@ -186,6 +196,54 @@
 -- titular (a SONDA 6 mediu ZERO linha de titular nelas). Severá-las é impossível
 -- sem DDL, e desnecessário no caminho medido — registrado como resíduo declarado
 -- para a enumeração dinâmica de `23503` do 45-10.
+--
+-- -----------------------------------------------------------------------------
+-- (8) ⚠⚠ O GUARD DE INTENÇÃO (metade (c)) — CR-01, plano 45-13
+-- -----------------------------------------------------------------------------
+-- Até o 45-12 o guard desta função verificava **identidade** e nunca **intenção**:
+-- ele não sabia se existia pedido, se a janela do D-45-01 tinha vencido, nem se o
+-- passo 1 do Storage já tinha carimbado. Somado ao `GRANT EXECUTE ... TO
+-- authenticated` da `20260805000009`, isso tornava o tombstone uma **RPC de
+-- navegador**: uma chamada pelo console destruía PII fora da janela do ERASE-06, sem
+-- recibo, sem trilha, e — como `candidatos.user_id` acabava de virar NULL — deixava o
+-- currículo órfão no bucket sem nenhum caminho capaz de enumerá-lo.
+--
+-- A metade (c) exige, **só no caminho destrutivo**, o estado que apenas o motor
+-- produz: pedido de exclusão em `situacao = 'executando'`, `executar_em` vencido e
+-- `storage_concluido_em` carimbado. ⚠ **É a ordem `Storage -> Postgres -> Auth` sendo
+-- imposta NO BANCO** — a SONDA 2 mediu que a plataforma NÃO a impõe (`storage.objects`
+-- não tem FK para `auth.users`) e que o modo de falha de violá-la é SILENCIOSO.
+--
+-- ⚠ **DE QUE ELA DEPENDE, dito aqui para que ninguém afrouxe sem perceber:** a
+-- segurança deste guard é a segurança da tabela `public.solicitacoes_dados`. Quem
+-- conseguir escrever `situacao` e `storage_concluido_em` ali autoriza o tombstone. O
+-- pressuposto NÃO fica em prosa: o bloco de auto-verificação abaixo pergunta ao
+-- CATÁLOGO se `authenticated` pode escrever naquela tabela e **aborta o apply** se
+-- puder.
+--
+-- ⚠ O dry-run NÃO é submetido à metade (c), e a exceção é deliberada: ler não destrói
+-- nada, e o dry-run do 45-11 precisa poder rodar sobre uma linha arbitrária.
+--
+-- ⚠ A metade (b) passou a ter DUAS formas (decisão do operador de 2026-08-11, opção B
+-- do checkpoint do 45-13): no caminho de LEITURA (`p_dry_run = true`) ela aceita `rh`,
+-- `administrador` ou o dono; no caminho DESTRUTIVO aceita apenas `administrador` ou o
+-- dono. Um recrutador perde a capacidade de disparar o tombstone de quem quer que
+-- seja, e mantém o dry-run. A assimetria com `plano_exclusao_titular` — que continua
+-- aceitando `rh`, porque é leitura — é deliberada e está registrada aqui.
+--
+-- -----------------------------------------------------------------------------
+-- (9) O QUE O BLOCO DE AUTO-VERIFICAÇÃO ESCREVE EM PROD, E O QUE ISSO DISPARA
+-- -----------------------------------------------------------------------------
+-- Ele insere contas de Auth e linhas de `public.candidatos` **dentro de uma
+-- subtransação revertida** (WR-04). Duas propriedades que precisam estar escritas:
+--   · o CPF das fixtures é DERIVADO do UUID da própria fixture, nunca de `random()`
+--     sobre uma coluna `UNIQUE` — com sorteio, o apply é não-determinístico e uma
+--     colisão faz a migration inteira falhar sem que a próxima pessoa entenda por quê;
+--   · **`public.candidatos` não tem trigger de `INSERT` vivo neste repositório.** O
+--     único que existiu, `trg_n8n_novo_candidato` (`20260712100004:82`), foi removido
+--     pela `20260726000001` da P39 junto com a aposentadoria do n8n. Logo nenhum
+--     `INSERT` daqui dispara `net.http_post` nem escapa da transação. (Medido no
+--     repositório; o catálogo vivo é conferido pelo próprio apply.)
 -- =============================================================================
 
 
@@ -222,9 +280,13 @@ DECLARE
   v_plano      jsonb;
   v_user_id    uuid;
   v_email      text;
+  v_nasc       date;
   v_achou      boolean := false;
   v_sent_email text;
   v_aidec_fixa boolean;
+  -- 45-13: a trilha de executor. `v_eh_titular` é resolvido junto com `v_dono`,
+  -- ANTES de qualquer mutação, porque depois dela o dono já não existe.
+  v_eh_titular boolean := false;
 
   v_n_cand     integer := 0;
   v_n_df       integer := 0;
@@ -237,7 +299,7 @@ DECLARE
   v_n_aut      integer := 0;
   v_n_notif    integer := 0;
 BEGIN
-  -- ── GUARD, DUAS METADES ───────────────────────────────────────────────────
+  -- ── GUARD, TRÊS METADES: (a) sessão · (b) papel · (c) INTENÇÃO ────────────
   -- (a) chamador SEM claim nenhuma é recusado EXPLICITAMENTE. Esta função apaga
   --     PII de forma irreversível e nasceria executável por `anon` sem o REVOKE
   --     abaixo — mas um guard confiado só ao ACL é um controle confiado a uma
@@ -253,6 +315,11 @@ BEGIN
     FROM public.candidatos c
    WHERE c.id = p_candidato_id;
 
+  -- A titularidade do CHAMADOR, resolvida aqui e não depois: o passo seguinte severa
+  -- `user_id`, e a partir dele não existe mais dono a comparar. É o que alimenta a
+  -- trilha de executor no retorno.
+  v_eh_titular := (v_dono IS NOT NULL AND v_dono = v_uid);
+
   -- (b) TRÊS comparações, todas por `IS DISTINCT FROM` e NUNCA por `NOT IN`: com um
   --     dos lados NULL o `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA
   --     ABERTO exatamente para `anon` (defeito REAL medido na 42-06). Com o candidato
@@ -267,11 +334,72 @@ BEGIN
   --     `auth.uid() IS NULL` sob `service_role` é a saída **recusada** pelo
   --     `DI-45-07-01` e pela decisão do operador de 2026-08-05, e deixaria uma função
   --     que apaga PII irreversivelmente sem controle nenhum no corpo.
-  IF v_role IS DISTINCT FROM 'rh'
-     AND v_role IS DISTINCT FROM 'administrador'
-     AND v_dono IS DISTINCT FROM v_uid THEN
-    RAISE EXCEPTION 'FORBIDDEN: a anonimizacao so pode ser executada por rh, por administrador ou pelo proprio titular daquele candidato'
-      USING ERRCODE = '42501';
+  --
+  -- ⚠ A METADE (b) TEM DUAS FORMAS DESDE O 45-13 (opção B do checkpoint, decisão do
+  --     operador de 2026-08-11), e a diferença é o que a chamada FAZ, não quem chama:
+  --     · LEITURA (`p_dry_run = true`): `rh`, `administrador` ou o dono. Ler o que a
+  --       exclusão faria não destrói nada, e o `rh` precisa disso para operar.
+  --     · DESTRUTIVO (`p_dry_run = false`): apenas `administrador` ou o dono. Um
+  --       recrutador deixa de conseguir disparar o tombstone de quem quer que seja —
+  --       o cenário 2 do CR-01 perde o ator. O `administrador` permanece como escotilha
+  --       de operador, que é justamente quem o CR-03 precisa quando uma execução trava.
+  --     As comparações continuam TODAS por `IS DISTINCT FROM`, nas duas formas.
+  IF p_dry_run THEN
+    IF v_role IS DISTINCT FROM 'rh'
+       AND v_role IS DISTINCT FROM 'administrador'
+       AND v_dono IS DISTINCT FROM v_uid THEN
+      RAISE EXCEPTION 'FORBIDDEN: o dry-run da anonimizacao so pode ser lido por rh, por administrador ou pelo proprio titular daquele candidato'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSE
+    IF v_role IS DISTINCT FROM 'administrador'
+       AND v_dono IS DISTINCT FROM v_uid THEN
+      RAISE EXCEPTION 'FORBIDDEN: a anonimizacao REAL so pode ser executada por administrador ou pelo proprio titular daquele candidato. O papel rh alcanca o dry-run (p_dry_run := true) e nao o caminho destrutivo: destruir a PII de outra pessoa nao e capacidade de recrutamento (CR-01, cenario 2)'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  -- (c) ⚠⚠ GUARD DE INTENÇÃO — O QUE IMPEDE QUE «SER CHAMÁVEL» SEJA SUFICIENTE PARA
+  --     SER PERIGOSA (CR-01). As metades (a) e (b) verificam QUEM chama; nenhuma das
+  --     duas sabe EM QUE ESTADO O MOTOR ESTÁ. Esta exige o estado que só o motor
+  --     produz: pedido de exclusão em execução, janela do D-45-01 vencida e o passo 1
+  --     do Storage carimbado. É ela que impede que o `GRANT EXECUTE ... TO
+  --     authenticated` da `20260805000009` vire uma porta direta por PostgREST, fora da
+  --     janela do ERASE-06 e fora do recibo.
+  --
+  --     ⚠ E É AQUI QUE A ORDEM `Storage -> Postgres -> Auth` PASSA A SER IMPOSTA PELO
+  --     BANCO. A SONDA 2 mediu que a plataforma NÃO a impõe — `storage.objects` não tem
+  --     FK para `auth.users` — e que o modo de falha de violá-la é SILENCIOSO: nada
+  --     levanta erro, o blob apenas fica órfão para sempre, sem PITR e sem backup.
+  --
+  --     ⚠ NULL-SAFE POR CONSTRUÇÃO, e é por isso que não há `IS NOT NULL` sobre
+  --     `executar_em`: com a coluna nula o predicado `s.executar_em <= now()` avalia
+  --     NULL, a linha NÃO é selecionada, o `NOT EXISTS` é TRUE e a função RECUSA. Falha
+  --     FECHADA sem cláusula extra — o oposto do `NOT IN`, que avalia NULL e falha
+  --     ABERTO. `storage_concluido_em` é exigido explicitamente porque ali a pergunta é
+  --     de EXISTÊNCIA do carimbo, não de comparação.
+  --
+  --     ⚠ DE QUE ESTE GUARD DEPENDE: da segurança de `public.solicitacoes_dados`. Quem
+  --     escrever `situacao` e `storage_concluido_em` naquela tabela autoriza o
+  --     tombstone. O bloco de auto-verificação abaixo pergunta ao CATÁLOGO se
+  --     `authenticated` pode escrever ali e ABORTA O APPLY se puder — o pressuposto é
+  --     asserção, não confiança.
+  --
+  --     ⚠ Só no caminho destrutivo: o dry-run do 45-11 tem de poder rodar sobre uma
+  --     linha arbitrária, e ler não destrói nada.
+  IF NOT p_dry_run THEN
+    IF NOT EXISTS (
+      SELECT 1
+        FROM public.solicitacoes_dados s
+       WHERE s.candidato_id = p_candidato_id
+         AND s.tipo         = 'exclusao'
+         AND s.situacao     = 'executando'
+         AND s.executar_em <= now()
+         AND s.storage_concluido_em IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'FORBIDDEN: anonimizar_candidato so executa DENTRO do motor. As QUATRO condicoes exigidas sao: (1) existir pedido em solicitacoes_dados para este candidato, (2) com tipo = exclusao, (3) em situacao = executando com executar_em ja vencido (a janela do D-45-01 / ERASE-06), e (4) com storage_concluido_em carimbado (o passo 1 concluido). A ordem Storage -> Postgres -> Auth NAO e imposta pela plataforma — a SONDA 2 mediu que storage.objects nao tem FK para auth.users — e passa a ser imposta AQUI. Sem este guard, o GRANT a authenticated da 20260805000009 seria uma porta direta por PostgREST para destruir PII fora da janela e fora do recibo (CR-01)'
+        USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   -- ── PASSO 0 · A EXPRESSÃO ÚNICA. CHAMAR, NUNCA COPIAR O CORPO ─────────────
@@ -281,8 +409,8 @@ BEGIN
   -- que `pg_get_functiondef` desta função CONTENHA esta chamada.
   v_plano := public.plano_exclusao_titular(p_candidato_id);
 
-  SELECT true, c.user_id, c.email
-    INTO v_achou, v_user_id, v_email
+  SELECT true, c.user_id, c.email, c.data_nascimento
+    INTO v_achou, v_user_id, v_email, v_nasc
     FROM public.candidatos c
    WHERE c.id = p_candidato_id;
 
@@ -298,14 +426,41 @@ BEGIN
   -- por ACIDENTE e para de funcionar no dia em que a enumeração devolver algo novo
   -- — e nesse dia a evidência de que já tinha rodado não existe. Zero coluna muda,
   -- zero linha de auditoria nasce: um no-op que audita não é um no-op.
-  IF v_email LIKE 'anonimizado+%@invalido.local' THEN
+  --
+  -- ⚠⚠ A SENTINELA É IGUALDADE COM O VALOR DERIVADO DO ID DESTA LINHA, NUNCA UM
+  -- PADRÃO SOBRE UMA COLUNA QUE O USUÁRIO ESCREVE (CR-06). `email` é escolhida pela
+  -- pessoa no cadastro, e a `check_email_format` viva aceita QUALQUER endereço do
+  -- namespace de anonimização — nada valida o domínio. Um casamento por prefixo fazia
+  -- qualquer pessoa que se cadastrasse com um endereço desse namespace receber
+  -- `ja_anonimizado` com 100% da PII intacta: a Edge Function leria isso como sucesso,
+  -- carimbaria `postgres_concluido_em`, apagaria a conta do Auth e mandaria o recibo.
+  -- O recibo seria uma declaração de conformidade FALSA.
+  --
+  -- ⚠ CINTO SECUNDÁRIO, porque a igualdade sozinha depende de `p_candidato_id` nunca
+  -- mudar: o resto do tombstone também tem de estar de pé — `user_id` já severado E
+  -- `data_nascimento` já na sentinela de 1900. Uma linha que case o e-mail mas não os
+  -- outros dois NÃO é um tombstone: é uma linha meio anonimizada, e declará-la no-op
+  -- faria a EF carimbar o passo 2 e mandar o recibo sobre PII intacta.
+  IF v_email = v_sent_email
+     AND v_user_id IS NULL
+     AND v_nasc = DATE '1900-01-01' THEN
     RETURN jsonb_build_object(
       'resultado',    'ja_anonimizado',
       'candidato_id', p_candidato_id,
       'dry_run',      p_dry_run,
       'plano',        v_plano,
-      'observacao',   'a sentinela de e-mail foi reconhecida: esta linha ja e um tombstone. Nenhuma coluna foi tocada e nenhuma linha de auditoria foi criada'
+      'observacao',   'o tombstone foi reconhecido por IGUALDADE com a sentinela derivada do id desta linha, mais user_id severado e data_nascimento na sentinela de 1900. Nenhuma coluna foi tocada e nenhuma linha de auditoria foi criada'
     );
+  END IF;
+
+  -- ── WR-06 · `user_id` JÁ NULO SEM QUE A LINHA SEJA UM TOMBSTONE ───────────
+  -- A `20260805000004` (a S1) tornou a FK `ON DELETE SET NULL` — ou seja, ela CRIA o
+  -- estado em que `candidatos.user_id` é NULL sem que o tombstone tenha rodado (um
+  -- `deleteUser` fora de ordem, exatamente o caso que a rede existe para amortecer).
+  -- Nesse estado as severações guardadas por `v_user_id IS NOT NULL` não acontecem, e
+  -- a função ainda declararia sucesso com zero — e zero seria lido como «não havia».
+  IF v_user_id IS NULL THEN
+    RAISE WARNING 'P45: candidatos.user_id ja era NULL ANTES do tombstone (deleteUser fora de ordem, pela rede da FK SET NULL da 20260805000004). As severacoes por user_id NAO acontecem por este caminho: logs_acesso.email_tentativa, logs_acesso.ip_address e autorizacoes.ip_aceite podem permanecer EM CLARO, e historico_candidatura.ator tambem. Os tres re-identificam sozinhos. O retorno carrega severacao_por_user_id = false para que zero deixe de ser lido como "nao havia" — severar por candidato_id onde a coluna existir, e registrar o residuo';
   END IF;
 
   -- ══ passo_motor: tombstone_candidato ══════════════════════════════════════
@@ -519,6 +674,23 @@ BEGIN
     'dry_run',      false,
     'executado_em', now(),
     'plano',        v_plano,
+    -- ⚠ WR-06: `false` aqui significa que as severações guardadas por `user_id` NÃO
+    -- aconteceram. Sem este campo, a contagem zero delas seria lida como «não havia».
+    'severacao_por_user_id', (v_user_id IS NOT NULL),
+    -- ⚠⚠ A TRILHA DE QUEM DESTRUIU PII (45-13). Ela existe aqui porque esta função
+    -- NÃO escreve em `logs_auditoria` — e a razão está no bloco (7) do cabeçalho: os
+    -- dois enums daquela tabela nunca foram medidos, e um valor inventado abortaria a
+    -- anonimização no pedido real, DEPOIS de o currículo já ter sido apagado.
+    -- A Edge Function persiste este bloco no `plano`, que sobrevive ao fecho.
+    -- ⚠ O `uid` entra APENAS quando o executor NÃO é o titular: o uid do titular é o
+    -- identificador que esta exclusão existe para apagar, e gravá-lo no registro que
+    -- PROVA a exclusão seria o mesmo defeito do CR-04 com outra cara. O uid de um
+    -- operador é identidade de equipe, e é exatamente o que uma trilha precisa guardar.
+    'executor', jsonb_build_object(
+      'papel',         coalesce(v_role, '[sem papel na claim]'),
+      'foi_o_titular', v_eh_titular
+    ) || CASE WHEN v_eh_titular THEN '{}'::jsonb
+              ELSE jsonb_build_object('uid', v_uid) END,
     'passos', jsonb_build_object(
       'tombstone_candidato',     jsonb_build_object('candidatos', v_n_cand),
       'tombstone_decisao_final', jsonb_build_object('decisao_final', v_n_df,
@@ -565,7 +737,10 @@ GRANT EXECUTE ON FUNCTION public.anonimizar_candidato(uuid, boolean) TO service_
 -- ⚠ ESCOPO HONESTO DESTE BLOCO: ele prova que o tombstone COMPLETA contra as SETE
 -- CHECKs vivas e os NOT NULL de `candidatos`, que a faixa é materializada ANTES da
 -- sentinela, que os dois `inet` são mascarados de verdade, que a re-execução é
--- no-op por ESTADO e que o dry-run levanta `P45DR` sem mutar nada. A cobertura das
+-- no-op por ESTADO e que o dry-run levanta `P45DR` sem mutar nada. ⚠ Desde o 45-13 ele
+-- prova também as TRÊS recusas da metade (c) (sem pedido, janela aberta, Storage não
+-- carimbado), que o intruso do namespace de anonimização é anonimizado DE VERDADE
+-- (CR-06), e que o papel `rh` lê o dry-run mas não alcança o caminho destrutivo. A cobertura das
 -- demais tabelas do ERASE-09 e a asserção de re-identificação (B9) são do smoke
 -- `supabase/tests/p45_motor_exclusao_smoke.sql`, que roda no 45-11 — dizer isso
 -- aqui é melhor que deixar a lacuna parecer cobertura.
@@ -607,6 +782,18 @@ DECLARE
   v_lev_dono boolean := false;
   v_st_alheio text;
   v_lev_alheio boolean := false;
+  -- ⚠ 45-13 — a metade (c), a fixture de intruso (CR-06) e o papel `rh` (opção B).
+  v_user_c   uuid := gen_random_uuid();
+  v_cand_c   uuid;
+  v_mail_c   text;
+  v_ret_c    jsonb;
+  v_nome_c   text;
+  v_solic    uuid;
+  v_st       text;
+  v_lev      boolean := false;
+  v_priv_upd boolean;
+  v_rls_on   boolean;
+  v_pol_upd  boolean;
   v_ufs      text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                              'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 BEGIN
@@ -628,6 +815,59 @@ BEGIN
     RAISE EXCEPTION 'P45-TOMBSTONE: public.plano_exclusao_titular(uuid) NAO existe — a migration 20260805000005 precisa ser aplicada ANTES desta. Ela e a expressao UNICA da qual o dry-run e o delete real saem, e este corpo a CHAMA';
   END IF;
 
+  -- ⚠ 45-13 · PRECONDIÇÃO DA METADE (c): as colunas de estado do motor. Sem elas o
+  -- guard de intenção referencia coluna inexistente e o erro cru do Postgres não diria
+  -- qual migration falta.
+  IF NOT EXISTS (SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = 'public.solicitacoes_dados'::regclass
+                    AND a.attname  IN ('executar_em', 'storage_concluido_em')
+                    AND NOT a.attisdropped
+                  HAVING count(*) = 2) THEN
+    RAISE EXCEPTION 'P45-TOMBSTONE: solicitacoes_dados nao tem executar_em e/ou storage_concluido_em — a migration 20260805000001 (plano 45-03) precisa ser aplicada ANTES desta. O guard de INTENCAO da metade (c) LE essas duas colunas: sem elas ele nao existe, e o tombstone volta a ser chamavel fora do motor (CR-01)';
+  END IF;
+
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- ⚠⚠ 45-13 · O PRESSUPOSTO DO GUARD DE INTENÇÃO VIRA ASSERÇÃO DE CATÁLOGO
+  --
+  -- A metade (c) transfere confiança para `public.solicitacoes_dados`: quem conseguir
+  -- escrever `situacao` e `storage_concluido_em` ali AUTORIZA o tombstone. Deixar isso
+  -- como pressuposto em prosa seria apoiar um controle numa suposição que ninguém relê.
+  --
+  -- ⚠ A PERGUNTA É AO CATÁLOGO, e a composição importa: o `GRANT` de tabela sozinho
+  -- NÃO é a capacidade de escrever. `solicitacoes_dados` tem RLS LIGADA com uma única
+  -- policy de SELECT own-row e ZERO caminho de escrita para o candidato
+  -- (`20260804000002`), e no Supabase o `authenticated` costuma receber os privilégios
+  -- de tabela por default no schema `public` — abortar só pelo `GRANT` reprovaria uma
+  -- configuração CORRETA, que é a mesma classe de erro do guard estrito de
+  -- `search_path` (um gate que reprova o comportamento certo treina quem executa a
+  -- desligá-lo). Então o apply aborta quando o papel PODE DE FATO ESCREVER: tem o
+  -- privilégio E (a RLS está desligada OU existe policy de UPDATE que o alcance).
+  SELECT has_table_privilege('authenticated', 'public.solicitacoes_dados', 'UPDATE')
+      OR has_column_privilege('authenticated', 'public.solicitacoes_dados', 'situacao', 'UPDATE')
+      OR has_column_privilege('authenticated', 'public.solicitacoes_dados', 'storage_concluido_em', 'UPDATE')
+    INTO v_priv_upd;
+
+  SELECT c.relrowsecurity INTO v_rls_on
+    FROM pg_class c WHERE c.oid = 'public.solicitacoes_dados'::regclass;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_policies p
+     WHERE p.schemaname = 'public'
+       AND p.tablename  = 'solicitacoes_dados'
+       AND p.cmd IN ('UPDATE', 'ALL')
+       AND ('authenticated' = ANY (p.roles) OR 'public' = ANY (p.roles))
+  ) INTO v_pol_upd;
+
+  IF coalesce(v_priv_upd, false)
+     AND (coalesce(v_rls_on, false) = false OR coalesce(v_pol_upd, false)) THEN
+    RAISE EXCEPTION 'P45-TOMBSTONE: o papel authenticated PODE ESCREVER em public.solicitacoes_dados (privilegio=%, rls_ligada=%, policy_de_update=%). O guard de INTENCAO da metade (c) acaba de perder o valor: quem carimba situacao = executando e storage_concluido_em AUTORIZA o tombstone, e a partir dai o GRANT EXECUTE a authenticated da 20260805000009 volta a ser uma porta direta por PostgREST para destruir PII (CR-01). O apply para AQUI, antes de criar essa porta. Saidas honestas: remover a policy/privilegio de escrita daquela tabela, ou retirar o GRANT de anonimizar_candidato e replanejar o caminho de chamada',
+      v_priv_upd, v_rls_on, v_pol_upd;
+  END IF;
+
+  IF coalesce(v_priv_upd, false) THEN
+    RAISE NOTICE 'P45-TOMBSTONE: authenticated tem o GRANT de UPDATE em solicitacoes_dados, mas a RLS esta LIGADA e nao ha policy de UPDATE que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD DE INTENCAO desta funcao: criar uma policy de UPDATE ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez';
+  END IF;
+
   SELECT u.user_id INTO v_admin
     FROM public.usuarios_rh u
    WHERE u.role = 'administrador' AND u.ativo AND u.deleted_at IS NULL
@@ -640,6 +880,11 @@ BEGIN
 
   v_mail_a := 'p45tomba+' || replace(v_user_a::text, '-', '') || '@invalido.local';
   v_mail_b := 'p45tombb+' || replace(v_user_b::text, '-', '') || '@invalido.local';
+  -- ⚠ A FIXTURE DE INTRUSO (CR-06): um endereço DO NAMESPACE de anonimização, escolhido
+  -- por quem se cadastra. A `check_email_format` viva o aceita, e nada valida o
+  -- domínio. Ele existe para provar que uma linha VIVA com esse e-mail é anonimizada de
+  -- verdade — nunca declarada tombstone por parecer com um.
+  v_mail_c := 'anonimizado+intruso' || replace(v_user_c::text, '-', '') || '@invalido.local';
 
   -- ───────────────────────────────────────────────────────────────────────────
   -- SUBTRANSAÇÃO — tudo daqui até o RAISE final é revertido.
@@ -659,8 +904,11 @@ BEGIN
        ativo, email_verificado, bloqueado, created_at, updated_at)
     VALUES
       (v_user_a, 'P45 TOMBSTONE verificacao A', v_mail_a,
-       '000.000.' || lpad((floor(random() * 1000))::int::text, 3, '0')
-                  || '-' || lpad((floor(random() * 100))::int::text, 2, '0'),
+       -- ⚠ WR-04: o CPF é DERIVADO do UUID da fixture, que já é único por construção.
+       -- Com `random()` sobre uma coluna `UNIQUE` o apply seria não-determinístico, e
+       -- uma colisão faria a migration inteira falhar sem que ninguém entendesse por quê.
+       '000.000.' || lpad((('x' || substr(replace(v_user_a::text, '-', ''), 1, 6))::bit(24)::int % 1000)::text, 3, '0')
+                  || '-' || lpad((('x' || substr(replace(v_user_a::text, '-', ''), 7, 4))::bit(16)::int % 100)::text, 2, '0'),
        '(11) 98888-7777', DATE '1991-03-14', 'prefiro_nao_informar',
        'Campinas', 'SP', 'site', 'p45-a', 'p45-a',
        'https://linkedin.example/p45-a', 'https://instagram.example/p45-a',
@@ -699,6 +947,37 @@ BEGIN
        '(11) 97777-6666', DATE '1988-07-02', 'Sorocaba', 'SP', 'site',
        true, false, false, now(), now())
     RETURNING id INTO v_cand_b;
+
+    -- Fixture C — o INTRUSO do CR-06: e-mail do namespace de anonimização, mas
+    -- `user_id` presente e `data_nascimento` real. NÃO é um tombstone, e o predicado
+    -- de idempotência tem de saber a diferença.
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user_c, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            v_mail_c, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, celular, data_nascimento,
+       cidade, estado, como_conheceu, ativo, email_verificado, bloqueado,
+       created_at, updated_at)
+    VALUES
+      (v_user_c, 'P45 TOMBSTONE verificacao C intruso', v_mail_c,
+       '(11) 96666-5555', DATE '1979-11-23', 'Santos', 'SP', 'site',
+       true, false, false, now(), now())
+    RETURNING id INTO v_cand_c;
+
+    -- ⚠⚠ O PEDIDO QUE A METADE (c) PASSA A EXIGIR NO CAMINHO FELIZ. Sem esta linha, a
+    -- chamada real abaixo recusaria com 42501 e ABORTARIA O APPLY — o guard de intenção
+    -- não é opcional para o caminho feliz, ele é o caminho feliz do motor. As colunas
+    -- obrigatórias são `candidato_id` (as demais têm default), e os três valores
+    -- carimbados aqui são exatamente o estado que só o motor produz.
+    INSERT INTO public.solicitacoes_dados
+      (candidato_id, tipo, situacao, solicitado_em, executar_em, storage_concluido_em)
+    VALUES
+      (v_cand_a, 'exclusao', 'executando', now() - interval '16 days',
+       now() - interval '1 day', now() - interval '1 minute')
+    RETURNING id INTO v_solic;
 
     PERFORM set_config('request.jwt.claims',
       json_build_object('sub', v_admin::text,
@@ -783,7 +1062,36 @@ BEGIN
       RAISE EXCEPTION 'P45-TOMBSTONE: a segunda chamada MUTOU a linha. A idempotencia tem de ser por ESTADO — o predicado reconhece a sentinela e retorna sem tocar em nada';
     END IF;
 
+    -- ── (ii.b) 45-13 · CR-06 — O INTRUSO É ANONIMIZADO DE VERDADE ───────────
+    -- A fixture C tem o e-mail do namespace de anonimização e NÃO é um tombstone:
+    -- `user_id` presente e `data_nascimento` real. Com o predicado de idempotência
+    -- casando por padrão, esta chamada devolveria `ja_anonimizado` com 100% da PII
+    -- intacta, a EF carimbaria `postgres_concluido_em`, apagaria a conta do Auth e
+    -- mandaria o recibo — uma declaração de conformidade FALSA. A asserção mede o
+    -- campo `resultado` E confere que a linha de fato mudou.
+    INSERT INTO public.solicitacoes_dados
+      (candidato_id, tipo, situacao, solicitado_em, executar_em, storage_concluido_em)
+    VALUES
+      (v_cand_c, 'exclusao', 'executando', now() - interval '16 days',
+       now() - interval '1 day', now() - interval '1 minute');
+
+    v_ret_c := public.anonimizar_candidato(v_cand_c, false);
+
+    SELECT c.nome_completo INTO v_nome_c FROM public.candidatos c WHERE c.id = v_cand_c;
+
+    IF (v_ret_c ->> 'resultado') IS DISTINCT FROM 'anonimizado' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-06): uma linha VIVA com e-mail do namespace de anonimizacao devolveu % em vez de anonimizado. A sentinela de idempotencia esta casando um PADRAO sobre a coluna email — que e escrita pelo usuario no cadastro, e a check_email_format viva aceita qualquer endereco desse namespace. Quem se cadastrasse assim receberia recibo de conformidade com 100%% da PII intacta. O predicado tem de ser IGUALDADE com o valor derivado do id da linha, mais o cinto secundario (user_id nulo e data_nascimento na sentinela)', coalesce(v_ret_c::text, '<nulo>');
+    END IF;
+
+    IF v_nome_c IS NULL OR v_nome_c = 'P45 TOMBSTONE verificacao C intruso' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-06): a funcao devolveu anonimizado mas o nome do intruso NAO mudou (%). O retorno nao e a prova — a linha e', coalesce(v_nome_c, '<nulo>');
+    END IF;
+
     -- ── (iii) O DRY-RUN, sobre a fixture B ──────────────────────────────────
+    -- ⚠ 45-13: a fixture B NÃO tem pedido de exclusão nenhum, e é isso que torna este
+    -- caso a prova de que o dry-run NÃO é submetido à metade (c). Se ele fosse, o
+    -- dry-run do 45-11 deixaria de poder rodar sobre uma linha arbitrária — e o dry-run
+    -- é a única rede desta fase (D-45-10, PITR desligado).
     v_snap_a := (SELECT c::text FROM public.candidatos c WHERE c.id = v_cand_b);
 
     BEGIN
@@ -850,6 +1158,103 @@ BEGIN
       RAISE EXCEPTION 'P45-TOMBSTONE: um candidato que NAO e o dono alcancou o corpo da anonimizacao de outra pessoa (levantou=%, sqlstate=%). O ramo de titularidade tem de ser por IS DISTINCT FROM e NUNCA por NOT IN: com um dos lados NULL o NOT IN avalia NULL, o IF nao e tomado, e o guard falha ABERTO justamente para o chamador mais suspeito (defeito REAL medido na 42-06). Nesta funcao um guard aberto apaga PII de forma irreversivel', v_lev_alheio, coalesce(v_st_alheio, '<nulo>');
     END IF;
 
+    -- ── (v) 45-13 · O PAPEL `rh`, NAS DUAS FORMAS DA METADE (b) (opção B) ───
+    -- O `rh` LÊ (dry-run) e NÃO DESTRÓI. As duas direções são obrigatórias: sem a
+    -- aceita, a recusa poderia vir de um guard que recusa todo mundo; sem a recusa, a
+    -- restrição do caminho destrutivo não existiria e o cenário 2 do CR-01 continuaria
+    -- de pé com o `rh` como ator.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', gen_random_uuid()::text,
+                        'app_metadata', json_build_object('role', 'rh'))::text, true);
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, true);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM 'P45DR' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE: o papel rh NAO chegou ao RAISE de dry-run (levantou=%, sqlstate=%). A opcao B restringe o caminho DESTRUTIVO, nunca a LEITURA: tirar o rh do dry-run tambem seria afrouxar o oposto — o operador perderia a unica rede desta fase sobre a conta de outra pessoa', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, false);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM '42501' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE: o papel rh alcancou o caminho DESTRUTIVO de outra pessoa (levantou=%, sqlstate=%). A metade (b) do caminho real aceita apenas administrador ou o proprio dono (opcao B do checkpoint do 45-13, decisao do operador de 2026-08-11): destruir a PII de outra pessoa nao e capacidade de recrutamento. E a comparacao continua por IS DISTINCT FROM — com NOT IN, um papel NULL faria o IF nao ser tomado e o guard falharia ABERTO', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
+    -- ── (vi) 45-13 · A METADE (c) — AS TRÊS RECUSAS DE INTENÇÃO (CR-01) ─────
+    -- Sob claims de `administrador`, que a metade (b) do caminho destrutivo ACEITA:
+    -- assim, qualquer 42501 aqui só pode ter vindo da metade (c). Sem estes três
+    -- casos, a metade (c) seria indistinguível de ausente.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, true);
+
+    -- (vi.a) SEM PEDIDO — a fixture B não tem linha em `solicitacoes_dados`.
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, false);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM '42501' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/sem pedido): a chamada REAL sobre um candidato SEM pedido de exclusao em execucao nao recusou com 42501 (levantou=%, sqlstate=%). Ser CHAMAVEL voltou a ser suficiente para ser perigosa: com o GRANT a authenticated da 20260805000009, qualquer sessao alcanca esta primitiva por PostgREST e destroi PII fora da janela do ERASE-06, sem recibo e sem trilha', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
+    -- (vi.b) JANELA AINDA ABERTA — pedido existe, `executar_em` no FUTURO.
+    INSERT INTO public.solicitacoes_dados
+      (candidato_id, tipo, situacao, solicitado_em, executar_em, storage_concluido_em)
+    VALUES
+      (v_cand_b, 'exclusao', 'executando', now(),
+       now() + interval '10 days', now())
+    RETURNING id INTO v_solic;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, false);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM '42501' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/janela aberta): a chamada REAL executou com executar_em no FUTURO (levantou=%, sqlstate=%). O guard mede a JANELA do D-45-01, nao apenas a existencia do pedido — os 15 dias do ERASE-06 sao o direito de mudar de ideia, e um caminho que os pula os revoga', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
+    -- (vi.c) STORAGE NÃO CARIMBADO — janela vencida, passo 1 não concluído.
+    UPDATE public.solicitacoes_dados
+       SET executar_em = now() - interval '1 day',
+           storage_concluido_em = NULL
+     WHERE id = v_solic;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_cand_b, false);
+      v_lev := false;
+    EXCEPTION
+      WHEN OTHERS THEN
+        v_lev := true;
+        v_st  := SQLSTATE;
+    END;
+
+    IF NOT v_lev OR v_st IS DISTINCT FROM '42501' THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/storage nao carimbado): a chamada REAL executou com storage_concluido_em NULO (levantou=%, sqlstate=%). E ESTE o caso que prova que a ordem Storage -> Postgres -> Auth virou regra do BANCO: a SONDA 2 mediu que a plataforma nao a impoe (storage.objects nao tem FK para auth.users) e que violar a ordem nao levanta erro nenhum — apenas orfana o blob para sempre, sem PITR e sem backup de Storage', v_lev, coalesce(v_st, '<nulo>');
+    END IF;
+
     PERFORM set_config('request.jwt.claims', '', true);
 
     -- Sinaliza sucesso E reverte a subtransacao inteira. Nada persiste.
@@ -860,7 +1265,7 @@ BEGIN
       IF SQLERRM <> 'P45-TOMBSTONE-OK' THEN
         RAISE;
       END IF;
-      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. A subtransacao foi revertida e NADA persistiu';
+      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). A subtransacao foi revertida e NADA persistiu';
   END;
 END
 $verifica_anonimizar_candidato$;
@@ -883,10 +1288,25 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'saem da MESMA expressao. A assercao C3 do smoke exige que pg_get_functiondef desta funcao '
   'CONTENHA a chamada, e pina o md5(prosrc) das duas. Com PITR desligado (D-45-10) e o backup de 7 '
   'dias excluindo Storage, o dry-run nao e processo: e a UNICA rede desta fase. '
-  '⚠ IDEMPOTENCIA POR ESTADO, nunca por try/catch: o predicado RECONHECE a sentinela de e-mail e '
-  'devolve ja_anonimizado sem mutar coluna alguma e sem criar linha de auditoria. Apagar de novo '
+  '⚠ O DRY-RUN TEM DUAS TERMINACOES, E ELAS SAO CONTRATO (WR-05): numa linha VIVA ele termina o '
+  'corpo com RAISE EXCEPTION USING ERRCODE = P45DR; numa linha que JA e tombstone ele RETORNA '
+  'normalmente com resultado = ja_anonimizado, porque o ramo de idempotencia devolve ANTES do '
+  'IF p_dry_run. Quem for medir o SQLSTATE do dry-run (Task 1 do 45-11) precisa exercitar uma linha '
+  'com ja_anonimizado = false no plano ANTES da chamada — plano_exclusao_titular ja devolve essa '
+  'chave. Sem essa distincao escrita, o gate mede um retorno normal e registra evidencia AMBIGUA no '
+  'exato item que ele existe para tornar inequivoco. '
+  '⚠ IDEMPOTENCIA POR ESTADO, nunca por try/catch: o predicado RECONHECE o tombstone e devolve '
+  'ja_anonimizado sem mutar coluna alguma e sem criar linha de auditoria. Apagar de novo '
   '"porque nao da erro" funciona por acidente e para de funcionar no dia em que a enumeracao '
   'devolver algo novo — e nesse dia a evidencia de que ja tinha rodado nao existe. '
+  '⚠⚠ E O RECONHECIMENTO E POR IGUALDADE COM O VALOR DERIVADO DO ID DESTA LINHA, NUNCA POR PADRAO '
+  'SOBRE A COLUNA email (CR-06, corrigido pelo 45-13). email e escrita pelo usuario no cadastro e a '
+  'check_email_format viva aceita qualquer endereco do namespace de anonimizacao — nada valida o '
+  'dominio. Com casamento por padrao, quem se cadastrasse assim receberia ja_anonimizado com 100% '
+  'da PII intacta, a Edge Function carimbaria postgres_concluido_em, apagaria a conta do Auth e '
+  'mandaria o recibo: uma declaracao de conformidade FALSA. CINTO SECUNDARIO, porque a igualdade '
+  'sozinha depende de p_candidato_id nunca mudar: o no-op tambem exige user_id JA severado e '
+  'data_nascimento JA na sentinela de 1900 — uma linha meio anonimizada nao e um tombstone. '
   'MAPA passo_motor -> statements (PASSOS_MOTOR de reciboExclusao.ts): '
   'tombstone_candidato = os DOIS updates em candidatos (faixa etaria PRIMEIRO, depois as '
   'sentinelas); tombstone_decisao_final = update em decisao_final e, DEPOIS dele, o scrub de '
@@ -942,18 +1362,54 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'decisao_final_historico.justificativa (as duas sao NOT NULL e sao PRESERVADAS ANONIMIZADAS por '
   'D-45-02/D-45-03 — o texto sobrevive como prova de nao-discriminacao, o vinculo nao); nao toca '
   'deleted_at nem ativo (5 leituras de RH filtram por deleted_at e um soft delete faria a linha '
-  'sumir de todas em silencio); e nao escreve em logs_auditoria, porque os dois enums daquela '
-  'tabela nao puderam ser medidos por este plano e um valor inventado abortaria a anonimizacao no '
-  'pedido real, depois de o curriculo ja ter sido apagado. '
+  'sumir de todas em silencio). '
+  '⚠ NAO ESCREVE EM logs_auditoria, E A RAZAO E MEDIDA — NAO E NEUTRALIDADE: os dois enums daquela '
+  'tabela (categoria_log_auditoria, severidade_log) nunca puderam ser medidos por esta fase, e um '
+  'valor inventado abortaria a anonimizacao INTEIRA no pedido real, DEPOIS de o curriculo ja ter '
+  'sido apagado do Storage — trocar um defeito de rastreabilidade por um defeito irreversivel '
+  '(Pitfall 1). A TRILHA QUE EXISTE NO LUGAR e o bloco executor do retorno (papel lido da claim, '
+  'booleano foi_o_titular, e o uid APENAS quando o executor NAO e o titular), que a Edge Function '
+  'persiste no plano e que sobrevive ao fecho do pedido, mais o recibo e as colunas de estado de '
+  'solicitacoes_dados. O uid do TITULAR fica de fora porque ele e o identificador que esta exclusao '
+  'existe para apagar: grava-lo no registro que PROVA a exclusao seria o CR-04 com outra cara. A '
+  'lacuna restante e o item diferido DI-45-13-01, nomeado, e nao silencio. '
+  '⚠ WR-06: quando candidatos.user_id ja e NULL sem que a linha seja tombstone (estado que a FK '
+  'SET NULL da 20260805000004 CRIA), as severacoes guardadas por user_id nao acontecem. A funcao '
+  'levanta RAISE WARNING nomeando logs_acesso.email_tentativa, logs_acesso.ip_address e '
+  'autorizacoes.ip_aceite, e devolve severacao_por_user_id = false — para que zero deixe de ser '
+  'lido como "nao havia". '
   '⚠ OBRIGACAO DO CHAMADOR: o guard le a CLAIM (auth.uid e app_metadata.role), nao o papel do '
   'banco. Um cliente service_role SEM Authorization de usuario tem auth.uid() NULO e recebe 42501 '
   '— passar as claims e obrigacao declarada da Edge Function do 45-10, e a assercao C2 do smoke a '
   'exige das cinco funcoes da fase. '
-  'GUARD NULL-SAFE em duas metades: (a) recusa 42501 o chamador SEM CLAIM NENHUMA; (b) recusa quem '
-  'nao e rh, nao e administrador E nao e o dono de p_candidato_id. As TRES comparacoes da metade '
-  '(b) sao por IS DISTINCT FROM e nunca por NOT IN, que avalia NULL, nao toma o IF e falha ABERTO '
-  'para anon; com o candidato inexistente ou ja severado o dono resolve NULL, '
-  'NULL IS DISTINCT FROM <uid> e TRUE, e a funcao recusa. '
+  'GUARD NULL-SAFE em TRES metades desde o 45-13. (a) recusa 42501 o chamador SEM CLAIM NENHUMA — '
+  'NAO foi tocada, e aceitar auth.uid() IS NULL sob service_role continua sendo a saida RECUSADA '
+  '(DI-45-07-01 e decisao do operador de 2026-08-05). (b) recusa por PAPEL, e ela tem DUAS FORMAS: '
+  'no caminho de LEITURA (p_dry_run = true) aceita rh, administrador ou o dono; no caminho '
+  'DESTRUTIVO (p_dry_run = false) aceita apenas administrador ou o dono — destruir a PII de outra '
+  'pessoa nao e capacidade de recrutamento (CR-01 cenario 2; opcao B do checkpoint do 45-13, '
+  'decisao do operador de 2026-08-11). Todas as comparacoes das duas formas sao por '
+  'IS DISTINCT FROM e nunca por NOT IN, que avalia NULL, nao toma o IF e falha ABERTO para anon; '
+  'com o candidato inexistente ou ja severado o dono resolve NULL, NULL IS DISTINCT FROM <uid> e '
+  'TRUE, e a funcao recusa. '
+  '⚠⚠ (c) GUARD DE INTENCAO, SO NO CAMINHO DESTRUTIVO — e a metade que fecha o CR-01. As metades '
+  '(a) e (b) verificam QUEM chama; nenhuma sabe EM QUE ESTADO O MOTOR ESTA. A (c) exige as QUATRO '
+  'condicoes que so o motor produz: existir pedido em solicitacoes_dados para este candidato, com '
+  'tipo = exclusao, em situacao = executando com executar_em ja VENCIDO (a janela do D-45-01 / '
+  'ERASE-06), e com storage_concluido_em CARIMBADO (o passo 1 concluido). SEM ELA, ser CHAMAVEL era '
+  'suficiente para ser perigosa: com o GRANT a authenticated da 20260805000009, uma chamada do '
+  'console do navegador destruia PII fora da janela, sem recibo e sem trilha, e deixava o curriculo '
+  'orfao no bucket porque candidatos.user_id acabava de virar NULL. ⚠ E E AQUI QUE A ORDEM '
+  'Storage -> Postgres -> Auth PASSA A SER IMPOSTA PELO BANCO: a SONDA 2 mediu que a plataforma NAO '
+  'a impoe (storage.objects nao tem FK para auth.users) e que o modo de falha e SILENCIOSO. '
+  '⚠ NULL-SAFE POR CONSTRUCAO: com executar_em nulo o predicado avalia NULL, a linha nao e '
+  'selecionada, o NOT EXISTS e TRUE e a funcao RECUSA — falha FECHADA sem clausula extra. '
+  '⚠ DE QUE A (c) DEPENDE: da seguranca de public.solicitacoes_dados. Quem escrever situacao e '
+  'storage_concluido_em ali AUTORIZA o tombstone — por isso o bloco de auto-verificacao desta '
+  'migration pergunta ao CATALOGO se authenticated pode escrever naquela tabela e ABORTA O APPLY se '
+  'puder. Afrouxar o ACL ou criar policy de UPDATE ali e mudanca de SEGURANCA desta funcao. '
+  '⚠ O dry-run NAO e submetido a (c), deliberadamente: ler nao destroi nada, e o dry-run do 45-11 '
+  'precisa poder rodar sobre uma linha arbitraria. '
   '⚠ POR QUE O TITULAR ESTA ENTRE OS CHAMADORES ACEITOS, E A RAZAO E DATAVEL (45-12): o plano '
   '45-07 desenhou esta funcao como funcao de OPERADOR (rh/administrador, GRANT so a service_role) '
   'e o plano 45-10 — escrito depois — a cabeou dentro do caminho de execucao DO PROPRIO TITULAR, '
