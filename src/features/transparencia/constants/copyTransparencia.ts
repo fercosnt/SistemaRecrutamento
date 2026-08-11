@@ -134,6 +134,26 @@ export const COPY_TRANSPARENCIA = {
         'Os prazos acima não são digitados à mão: são gerados a partir da mesma configuração que o sistema usa para decidir por quanto tempo guardar cada candidatura. Quando a configuração muda, esta página é gerada de novo — por isso ela traz a data em que passou a valer.',
     },
   },
+
+  /**
+   * `RodapePublico` — os DOIS rótulos de alcançabilidade, verbatim da 47-UI-SPEC.
+   *
+   * ⚠ ESTE BLOCO NÃO CRESCE. Ele é o inventário de um rodapé de **alcançabilidade**, não
+   * de um rodapé institucional: as duas rotas de transparência nascem registradas e
+   * inalcançáveis, e estes dois rótulos são a única coisa que as torna encontráveis. Cada
+   * rótulo a mais aqui — marca, endereço, telefone, rede social, direitos autorais — dilui
+   * exatamente os dois que o critério de sucesso da fase exige.
+   *
+   * `rotuloNavegacao` **não é um terceiro link**: é o nome acessível do ponto de
+   * referência de navegação. Sem ele, o rodapé e a navegação de topo das páginas onde ele
+   * é montado viram dois pontos de referência indistinguíveis para quem usa leitor de
+   * tela — que é o oposto do que um componente de alcançabilidade existe para fazer.
+   */
+  rodape: {
+    rotuloNavegacao: 'Transparência',
+    privacidade: 'Privacidade',
+    subprocessadores: 'Com quem compartilhamos',
+  },
 } as const
 
 /**
