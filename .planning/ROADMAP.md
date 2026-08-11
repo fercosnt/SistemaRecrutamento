@@ -270,11 +270,11 @@ Plans:
 - [x] 47-01-PLAN.md — gerador da matriz de retenção + os quatro portões de artefato invocados no CI (TRANSP-02, parte A)
 - [x] 47-02-PLAN.md — RPC `listar_historico_candidatura` + smoke, com a junção certa e o cast obrigatório (CONSOL-02, parte A)
 - [x] 47-03-PLAN.md — adoção do `data_deletion_log` + CONSENT-05, duas migrations **aditivas** (CONSOL-03, CONSENT-05)
-- [x] 47-04-PLAN.md — as seis empresas contratadas + `/subprocessadores`, com `país` bloqueante por construção (TRANSP-01)
+- [x] 47-04-PLAN.md — as seis empresas contratadas + `/subprocessadores`, com `país` bloqueante por construção (TRANSP-01) · **checkpoint dos seis países FECHADO em 2026-08-11**: medidos pelo operador nos painéis dos fornecedores, cinco tratam os dados nos EUA. A página deixou de lançar; a sentinela e o validador ficam como rede da próxima entrada
 - [x] 47-05-PLAN.md — os seis vereditos Nyquist do M7, em `.planning/milestones/v7.0-phases/` (CONSOL-01)
 - [x] 47-06-PLAN.md — `/privacidade` com os cinco blocos derivados + Emenda A no diálogo do admin (TRANSP-02, parte B)
 - [x] 47-07-PLAN.md — o rótulo do ator no Histórico do RH: serviço + componente + os quatro recortes (CONSOL-02, parte B)
-- [ ] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02)
+- [ ] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02) · o bloqueio de **fato** do 47-04 caiu em 2026-08-11; o que resta é o portão de **publicação**, que é outro
 - [ ] 47-09-PLAN.md — o checklist versionado de promessas com executor + a varredura de destinos de rede (CONSOL-04)
 
 **Waves**: 1 → (47-01, 47-02, 47-04, 47-05) · 2 → (47-03, 47-06, 47-07) · 3 → (47-08) · 4 → (47-09)

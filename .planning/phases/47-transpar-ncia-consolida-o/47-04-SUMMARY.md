@@ -20,9 +20,9 @@ provides:
 affects: [47-06-privacidade, 47-08-rodape-publico, 47-09-consol-04]
 
 actuals:
-  tokens: 41000
-  tasks: 2
-  commits: 4
+  tokens: 51000
+  tasks: 3
+  commits: 5
 
 tech-stack:
   added: []
@@ -30,6 +30,9 @@ tech-stack:
     - "Sentinela declarada como terceiro caminho entre 'não compila' e 'publica um palpite': o tipo obriga o campo, a sentinela ocupa o valor por medir, e validador + componente a tratam como reprovação dura"
     - "Bloqueio de embarque asserido por lista NOMINAL de pendências (não por 'nenhuma sentinela'): preencher um país fora do checkpoint deixa o teste vermelho nomeando a entrada"
     - "RED de COMPORTAMENTO quando o portão de pre-commit é de contagem de tsc: o esqueleto existe para o tipo fechar, e nenhuma declaração faz o que promete"
+    - "Portão que fica verde NÃO é portão desmontado: ao ser preenchido, o caso de bloqueio se divide em estado (zero pendências) + mordida provada entrada a entrada + proveniência datada exigida no arquivo-fonte. Um teste que só assere 'zero pendências' passa por não haver nada"
+    - "Proveniência por entrada em comentário datado ao lado do campo: seis meses depois, um país correto e um país adivinhado são indistinguíveis sem ela"
+    - "Nuance de medição posicionada por CONSEQUÊNCIA, não por completude: se ela muda a conclusão do leitor, é campo visível; se muda só como sabemos, é comentário de código"
 
 key-files:
   created:
@@ -45,11 +48,16 @@ key-files:
     - src/router/routes.tsx
 
 key-decisions:
-  - "As seis entradas embarcam com a sentinela no campo `país` — nenhum país foi inventado para fechar o arquivo. A página LANÇA hoje, e isso é o comportamento correto"
+  - "FECHADO em 2026-08-11: os seis países foram medidos pelo operador nos painéis e documentos dos fornecedores. Cinco tratam os dados nos Estados Unidos; ViaCEP declara jurisdição brasileira"
+  - "O TimeZone do banco em PROD (America/Sao_Paulo) foi RECUSADO como prova de região antes da medição — e a recusa se provou certa: a região medida é us-east-1, Estados Unidos. O indício apontava para o Brasil e estava errado"
+  - "A sentinela e o validador PERMANECEM depois de preenchidos: são a rede da SÉTIMA entrada, não deste preenchimento"
+  - "A nuance do ViaCEP (hospedagem não divulgada) é VISÍVEL no campo; a da OpenAI (padrão-não-configurado) fica em comentário. O critério é se a nuance muda a conclusão do leitor"
+  - "`LISTA_MEDIDA_EM` passa a 2026-08-11: o carimbo público diz 'Lista completa em', e a lista só ficou completa com os países medidos"
+  - "(histórico, 2026-08-09) As seis entradas embarcaram com a sentinela no campo `país` — nenhum país foi inventado para fechar o arquivo. A página LANÇAVA, e isso era o comportamento correto"
   - "O serviço público de CEP ENTRA na lista, com a decisão escrita no arquivo: a chamada é disparada pela página da Beauty Smile, com dado digitado aqui e o endereço de origem do navegador do próprio candidato"
   - "O modo de teste do provedor de e-mail NÃO vira segunda ficha: a decisão está registrada em comentário, e a ficha descreve o modo de produção"
   - "As duas citações de base legal são cópia verbatim do artefato gerado da matriz, amarradas por teste — uma revisão do Encarregado lá deixa esta lista vermelha até acompanhar"
-  - "TRANSP-01 NÃO é marcado como concluído: a página existe e não pode ser publicada"
+  - "TRANSP-01 continua NÃO marcado como concluído — mas por outro motivo: o bloqueio de fato acabou, e agora o que falta é a alcançabilidade (47-08) e a varredura de destinos (47-09), que também declaram este requirement"
 
 patterns-established:
   - "Portão de copy de escopo de feature nascendo ANTES da segunda página da feature, com diretório ausente tratado como zero ocorrência"
@@ -95,7 +103,7 @@ coverage:
     requirement: TRANSP-01
     verification:
       - kind: unit
-        ref: "src/features/transparencia/__tests__/subprocessadoresPage.test.tsx#(13)..(15)"
+        ref: "src/features/transparencia/__tests__/subprocessadoresPage.test.tsx#(14)..(16)"
         status: pass
     human_judgment: false
   - id: D6
@@ -107,17 +115,23 @@ coverage:
         status: pass
     human_judgment: false
   - id: D7
-    description: "Os seis países — a região onde o dado deste projeto é tratado em cada provedor"
+    description: "Os seis países — a região onde o dado deste projeto é tratado em cada provedor — MEDIDOS, com proveniência datada ao lado de cada entrada"
     requirement: TRANSP-01
     verification:
       - kind: manual
-        ref: "47-04-PLAN.md Task 3 — checkpoint bloqueante do operador"
-        status: blocked
+        ref: "47-04-PLAN.md Task 3 — medição do operador nos painéis e documentos dos fornecedores, 2026-08-11"
+        status: pass
+      - kind: unit
+        ref: "src/features/transparencia/__tests__/subprocessadores.test.ts#(18)..(21)"
+        status: pass
+      - kind: unit
+        ref: "src/features/transparencia/__tests__/subprocessadoresPage.test.tsx#(13)"
+        status: pass
     human_judgment: true
-    rationale: "Não é medível deste ambiente e não é achável por pesquisa: o país que a página declara não é o da sede da empresa, é a região onde o dado deste projeto é tratado, e isso é fato da conta do provedor. Trocar um pelo outro produziria a declaração pública falsa que a página existe para não fazer."
+    rationale: "O fato só existe na conta do provedor: o país que a página declara não é o da sede da empresa, é a região onde o dado deste projeto é tratado. Medido pelo operador em 2026-08-11. Os testes guardam o preenchimento, a mordida do portão e a proveniência datada — nenhum deles pode RE-MEDIR o fato, e é por isso que o julgamento humano continua marcado."
 
-duration: 12min
-completed: 2026-08-09
+duration: 12min (Tasks 1-2, 2026-08-09) + 9min (Task 3, 2026-08-11)
+completed: 2026-08-11
 status: complete
 ---
 
@@ -127,21 +141,32 @@ status: complete
 
 ## O estado em uma frase, antes de qualquer detalhe
 
-**A página existe e NÃO pode ser publicada.** As seis entradas carregam a sentinela `PAIS_POR_MEDIR`;
-`/subprocessadores` lança ao renderizar. Isso não é uma falha do plano — é o plano funcionando. O
-único fato que faltava não é obtenível deste ambiente, e nenhum país foi inventado para fechar o
-arquivo. Ver §Checkpoint bloqueante.
+**A página existe, renderiza e é publicável.** Os seis países foram medidos pelo operador em
+2026-08-11, nos painéis e nos documentos dos fornecedores; nenhuma entrada carrega mais a sentinela,
+e nenhum país foi presumido. **Cinco das seis tratam os dados nos Estados Unidos** — todos os
+candidatos são brasileiros, então a página declara transferência internacional em quase toda a
+cadeia, que é exatamente o fato que o Art. 18, VII existe para tornar público.
+
+⚠ **Publicável não é publicada.** A rota continua fora de toda navegação de produção; montá-la é
+entrega do 47-08, atrás do portão de publicação do Encarregado. O que fechou aqui foi o bloqueio de
+**fato**, não o de **publicação**.
 
 ## Performance
 
-- **Duração:** ~12 min
-- **Iniciado:** 2026-08-09T19:02Z
-- **Concluído:** 2026-08-09T19:14Z
-- **Tarefas:** 2 de 3 (a terceira é o checkpoint do operador, deixado **não satisfeito**)
-- **Arquivos criados/modificados:** 9
+- **Duração:** ~12 min (Tasks 1-2) + ~9 min (Task 3)
+- **Iniciado:** 2026-08-09T19:02Z · **Task 3:** 2026-08-11T00:30Z
+- **Concluído:** 2026-08-11T00:39Z
+- **Tarefas:** 3 de 3 — a terceira é o checkpoint do operador, **satisfeito com medição**
+- **Arquivos criados/modificados:** 9 (4 deles editados de novo pela Task 3)
 
 ## Accomplishments
 
+- **Os seis países medidos (2026-08-11), e a página passou a poder ser publicada.** Cinco tratam os
+  dados nos **Estados Unidos**; o serviço de CEP declara jurisdição brasileira, com a ressalva de que
+  a hospedagem não é divulgada. Cada valor carrega, em comentário datado ao lado, **de onde ele saiu**
+  — painel do projeto, política pública, DPA ou documentação do serviço.
+- **O indício que teria produzido uma página falsa foi recusado a tempo.** O `TimeZone` do banco em
+  produção é `America/Sao_Paulo`; a região medida é `us-east-1`. Ver §O achado.
 - **Seis entradas, não quatro.** Anthropic, OpenAI, ViaCEP, Resend, Supabase e Vercel — as duas que o
   parêntese do ROADMAP omite são o provedor de IA de reserva (caminho vivo, registrado com o nome do
   provedor no log de chamada) e o serviço público de CEP (chamada feita pelo navegador do próprio
@@ -177,6 +202,10 @@ Cada tarefa foi commitada atomicamente, com o hook de pre-commit rodando — **z
 2. **Task 2 (TDD): a ficha, a página, a rota e o portão de copy da feature**
    - `0bd0eac` (test) — RED: 15 falhando
    - `004a99b` (feat) — GREEN: 56/56 na feature
+3. **Task 3 (checkpoint do operador): os seis países medidos**
+   - `eeed0e5` (feat) — os seis valores, a proveniência datada por entrada, o portão
+     redividido em três casos e o carimbo de completude movido para 11/08. 95/95 na
+     feature, 1844/1844 na suíte
 
 ## Files Created/Modified
 
@@ -270,69 +299,124 @@ O contrato de execução manda, em corrida interativa, parar num `checkpoint:hum
 tarefa `tracer`. O `<verify>` do tracer aqui é **inteiramente automatizado** (suíte da feature + guard
 de arquivo) e passou verde; não há nada visual para um humano conferir num arquivo de constante. O
 único portão humano deste plano é a Task 3, que é o que esta execução devolve não satisfeito.
+*(Fechada em 2026-08-11 — ver a seção do checkpoint.)*
+
+### 6. [Task 3 · Rule 2] O caso (18) foi REDIVIDIDO, não trocado por `toEqual([])`
+
+- **Encontrado durante:** Task 3, ao aplicar a instrução literal do plano
+- **Problema:** o plano manda trocar o caso (18) por `expect(pendentes).toEqual([])` +
+  `not.toThrow()`. Sozinho, isso é um caso que **passa por não haver nada**: com os países
+  preenchidos, ele fica verde para sempre e não reprova a regressão que importa — alguém devolver um
+  país para "por medir", ou acrescentar um sétimo fornecedor sem medição. O portão viraria decoração
+  exatamente no dia em que passou a ter algo a proteger.
+- **Correção:** o caso virou três, e o conjunto é mais estrito que a letra do plano:
+  - **(18)** o estado — zero pendências e a lista real é publicável (a letra do plano);
+  - **(20)** a **mordida provada entrada a entrada** — reintroduzir a sentinela em qualquer uma das
+    seis reprova, e a mensagem tem de **nomear** aquela entrada;
+  - **(21)** a **proveniência datada** — cada entrada carrega, no arquivo-fonte, uma data entre o
+    `nome` e o `pais`. Sem ela, daqui a seis meses um país medido e um país adivinhado são
+    indistinguíveis, e o `<verify>` do plano (que só conta datas no arquivo) não amarra a data à
+    entrada.
+  - Na página, o caso (11) deixou de renderizar `<SubprocessadoresPage />` sem props (essa forma
+    passaria a provar o contrário do que promete) e passou a injetar **uma** entrada pendente no meio
+    de cinco válidas — que é como o defeito real aparece. O novo caso (13) prova o contraponto: a
+    lista de produção renderiza. Sem ele, (11) e (12) ficariam verdes numa página que não renderiza
+    em circunstância nenhuma.
+- **Commit:** `eeed0e5`
+
+### 7. [Task 3 · Rule 2] `LISTA_MEDIDA_EM` avançou para 2026-08-11
+
+- **Encontrado durante:** Task 3, ao revisar o que o carimbo público afirma
+- **Problema:** o carimbo diz **"Lista completa em {data}"**. Com a data anterior (09/08 — a varredura
+  do código vivo que elegeu as seis empresas), a página carimbaria completude numa data em que ela
+  **não estava completa**: faltavam os seis países, e a ficha nem renderizava.
+- **Correção:** a constante passou a 2026-08-11 e o docblock passou a declarar as **duas** medições
+  com as suas datas (varredura 09/08, países 11/08), sendo o carimbo a data da última. A asserção de
+  formatação em `copyTransparencia.test.ts` acompanhou, com o motivo escrito ao lado.
+- **Commit:** `eeed0e5`
 
 ---
 
-**Total de desvios:** 3 auto-fixes (1 bloqueio de ferramenta, 2 bugs de guard) + 2 desvios de forma.
-**Impacto no plano:** nenhum scope creep, e nenhum afrouxamento — o desvio 4 endurece o portão.
+**Total de desvios:** 3 auto-fixes na primeira execução (1 bloqueio de ferramenta, 2 bugs de guard),
+2 desvios de forma, e 2 auto-fixes na Task 3.
+**Impacto no plano:** nenhum scope creep, e nenhum afrouxamento — os desvios 4, 6 e 7 **endurecem** o
+portão ou corrigem o que a página afirma.
 
-## Checkpoint bloqueante — Task 3, NÃO satisfeita
+## Checkpoint — Task 3, **FECHADA** com medição (2026-08-11)
 
-**O que falta:** o país de cada uma das seis entradas — e o país que a página declara **não é o da
-sede da empresa**, é **a região onde o dado deste projeto é tratado**. O primeiro é achável na web; o
-segundo só na conta do provedor. Trocar um pelo outro daria verniz de fonte a um palpite.
+O operador mediu os seis no computador dele, nos painéis e nos documentos de cada fornecedor. A
+proveniência é **por entrada** e está registrada em comentário datado ao lado do campo `pais`, além
+da tabela abaixo.
 
-**Por que não foi medido aqui** (47-RESEARCH §C3.2, medido por execução):
+| Empresa | `pais` gravado | Proveniência exata |
+|---|---|---|
+| **Supabase** | Estados Unidos | Painel do projeto → Settings → General → Region = `us-east-1` (Norte da Virgínia). Lido na conta pelo operador |
+| **Vercel** | Estados Unidos | Painel do projeto → Settings → Functions → Function Region = `iad1` (Washington, D.C., East) |
+| **OpenAI** | Estados Unidos | ⚠ Campo de residência de dados **não encontrado** no painel: a conta nunca configurou região, logo vale o **padrão do fornecedor**. É padrão-não-configurado, **não** uma região escolhida |
+| **Anthropic** | Estados Unidos | Política pública (Trust Center / lista de subprocessadores): sede nos EUA, dados transferidos, usados e armazenados lá |
+| **Resend** | Estados Unidos | DPA, citação literal: *"Company's primary processing operations take place in the United States"* |
+| **ViaCEP** | Brasil *(com ressalva visível)* | Webservice brasileiro de CEP, alimentado por IBGE/ANATEL/SIAFI. ⚠ O fornecedor **não publica** a região de hospedagem — o valor reflete a **jurisdição do serviço**, não um centro de dados medido |
 
-| Caminho | Resultado |
-|---|---|
-| `SUPABASE_ACCESS_TOKEN` no ambiente | ausente |
-| CLI do provedor de infraestrutura no PATH | ausente |
-| DNS do domínio do projeto | resolve para rede de distribuição, não revela a origem |
-| `vercel.json` → `regions` | ausente |
-| Pin de região para os outros três | nenhum |
-| `docs/compliance/backup-posture.md` | registra a região da infraestrutura como desconhecida |
+### ⚠ O achado: o indício apontava para o Brasil e estava ERRADO
 
-**Entradas bloqueadas: as seis.** Anthropic, OpenAI, ViaCEP, Resend, Supabase, Vercel.
+Antes da medição havia um indício à mão — o `TimeZone` do banco em produção é `America/Sao_Paulo` — e
+o orquestrador **recusou** tratá-lo como prova de região. A medição no painel provou que a região real
+é `us-east-1`: **Estados Unidos**.
 
-**Consequência hoje, registrada para não ser descoberta depois:** `/subprocessadores` está registrada
-como rota e **lança ao renderizar**. Quem digitar a URL vê a página falhar. É a falha alta escolhida
-sobre a alternativa — publicar uma declaração de transferência internacional com campo em branco ou
-com país presumido. A rota **não está em navegação nenhuma** (o rodapé público é entrega de 47-08), e
-**47-08 não pode tornar a página alcançável antes deste checkpoint ser fechado**.
+Se o fuso tivesse sido aceito, esta página afirmaria que os dados de candidatos brasileiros ficam no
+**Brasil**, o que é **falso** — e seria uma declaração pública falsa sobre transferência internacional,
+produzida por um palpite plausível, no documento que existe justamente para não fazer isso. O erro não
+teria sido descoberto por nenhum teste, porque nenhum teste pode medir a conta do provedor.
 
-**Para fechar:** informar os seis países medidos e o método de cada um. O executor então substitui a
-sentinela, acrescenta ao lado de cada entrada um comentário com **como** e **em que data** aquele país
-foi medido, e troca o caso (18) por `toEqual([])` + `not.toThrow()`. Se algum não for medível, a
-entrada **mantém a sentinela** — e isso continua sendo o comportamento correto.
+É a justificativa **viva** da regra que o tipo desta constante declara (`fato MEDIDO, nunca
+presumido`): a regra não é zelo processual, é a diferença entre esta página e uma mentira. O achado
+está escrito no arquivo, ao lado da entrada da Supabase, e não só aqui — o SUMMARY sai de contexto, o
+comentário fica.
 
-⚠ Para o provedor de hospedagem, "um país" pode não ser a resposta honesta: para conteúdo servido por
-rede de borda global, a formulação alternativa descreve o **fato** (rede de distribuição global, com
-a empresa e a sua jurisdição nomeadas). **Essa formulação muda a forma do campo e é decisão do
-Encarregado**, não do executor.
+### As duas nuances, e por que elas vivem em lugares diferentes
+
+O critério aplicado foi um só: **a página não pode afirmar mais do que foi medido**. Se a nuance muda
+a conclusão do leitor, ela é visível; se muda apenas *como sabemos*, é comentário de código.
+
+- **OpenAI → comentário.** "Estados Unidos" é onde o dado é tratado sob o padrão do fornecedor. Saber
+  que ninguém configurou a região não muda essa conclusão — muda a base dela. Fica na proveniência.
+- **ViaCEP → campo visível.** Um "Brasil" seco seria lido pelo candidato **na mesma escala das outras
+  cinco**, que declaram região medida, e afirmaria hospedagem no Brasil — que ninguém mediu. O campo
+  publicado diz, por extenso, que declara a jurisdição do serviço e não um centro de dados medido.
+
+### A sentinela e o validador **não** foram removidos
+
+Eles são a rede da **sétima** entrada, não deste preenchimento. Um fornecedor novo acrescentado com
+pressa continua tendo de escolher entre "não compila" e a sentinela — nunca entre "não compila" e
+inventar um país. Um portão que some no dia em que fica verde nunca foi um portão.
 
 ## Verificação final
 
-| Gate | Resultado |
-|---|---|
-| `npm run test:run` | **1781 passed / 179 files** (baseline 1725 + 56 novos) |
-| `npm run -s lint \| grep -c "error TS"` | **97** (baseline congelada 97 — sem regressão) |
-| `<verify>` da Task 1 (suíte + guard de arquivo) | OK |
-| `<verify>` da Task 2 (suíte da feature + guard dos 6 arquivos + guard de rota) | OK — 6 arquivos auditados |
-| `<verify>` da Task 3 | **NÃO EXECUTADO** — checkpoint não satisfeito, por desenho |
-| `portoesInvocados.test.ts` | verde — este plano não cria `check:*`, então não há portão órfão a ligar |
-| Dependência npm nova | **0** |
-| `--no-verify` | **0 usos** — o hook rodou e passou nos 4 commits |
-| Migration escrita ou aplicada | **0**. Nada deployado |
+Coluna da esquerda: o resultado registrado na primeira execução (2026-08-09). Coluna da direita: o
+resultado depois da Task 3 (2026-08-11), medido por execução.
+
+| Gate | 2026-08-09 | 2026-08-11 (Task 3) |
+|---|---|---|
+| `npm run test:run` | 1781 / 179 arquivos | **1844 passed / 183 arquivos** (baseline da fase 1841 → +3) |
+| `npm run -s lint \| grep -c "error TS"` | 97 | **97** (baseline congelada — sem regressão) |
+| `<verify>` da Task 1 (suíte + guard de arquivo) | OK | **OK** |
+| `<verify>` da Task 2 (guard dos arquivos da feature + guard de rota) | OK — 6 arquivos | **OK — 9 arquivos auditados** |
+| `<verify>` da Task 3 (suíte + ≥6 datas de medição no arquivo) | não executado | **OK — 13 datas, e a (21) amarra cada data à sua entrada** |
+| Os quatro `check:*` (`resend-dominio`, `export-allowlist`, `recibo-exclusao`, `matriz-retencao`) | — | **exit 0 nos quatro** |
+| `portoesInvocados.test.ts` | verde | **verde — 7/7** |
+| Dependência npm nova | 0 | **0** |
+| `--no-verify` | 0 usos | **0 usos** — o hook rodou e passou nos 5 commits |
+| Migration escrita ou aplicada | 0 | **0**. Nada deployado, nada montado em navegação |
 
 ## Known Stubs
 
-Nenhum stub de implementação. Há **um bloqueio declarado**, que é coisa diferente e está registrado
-em `.planning/WINDOWS.md` (`unmet-truth`):
+**Nenhum.** O bloqueio declarado que existia aqui — o `país` das seis entradas — foi **fechado por
+medição** em 2026-08-11, não por afrouxamento de portão. A entrada `unmet-truth` correspondente em
+`.planning/WINDOWS.md` foi marcada como resolvida.
 
 | Item | Arquivo | Estado |
 |---|---|---|
-| O `país` das seis entradas | `src/features/transparencia/constants/subprocessadores.ts` | sentinela `PAIS_POR_MEDIR`; a página lança; portão nominal verde declarando o bloqueio |
+| O `país` das seis entradas | `src/features/transparencia/constants/subprocessadores.ts` | **medido** em 2026-08-11, com proveniência datada por entrada; a lista é publicável e o portão continua montado |
 
 ## Threat Flags
 
@@ -341,28 +425,43 @@ página não lê dado em runtime, não expõe RPC a visitante anônimo e não no
 nem região técnica (asserido pelo caso (13)). O mitigador de T-47-04-01 (país presumido) está
 implementado em três camadas e provado por fixture sintética.
 
+**Depois da Task 3:** as duas regiões técnicas medidas (`us-east-1`, `iad1`) ficam **apenas em
+comentário de código** — a Invariante 11 continua valendo para o campo visível, e o caso (13) do teste
+de constante varre os valores das fichas, não os comentários. Nome de região em página pública é mapa
+de infraestrutura oferecido de graça e muda sem aviso.
+
 ## User Setup Required
 
-**Sim — e é o que bloqueia a publicação.** Os seis países medidos, com o método de cada um. Ver
-§Checkpoint bloqueante.
+**Cumprido em 2026-08-11.** O operador mediu os seis países nos painéis e documentos dos fornecedores
+e os informou. Ver §Checkpoint — Task 3.
+
+**O que continua sendo decisão humana, e não é deste plano:** a **publicação**. A rota existe e
+renderiza, mas não está em navegação nenhuma; montá-la é entrega do 47-08, atrás do portão de
+publicação do Encarregado.
 
 ## Next Phase Readiness
 
 - **47-06 (`/privacidade`)** herda o portão de copy da feature **já montado** e a constante de copy
   com o molde de bloco por página. O link cruzado desta página já aponta para lá.
-- **47-08 (rodapé público)** está **bloqueado por este checkpoint**: tornar `/subprocessadores`
-  alcançável hoje publicaria uma página que lança.
+- **47-08 (rodapé público)** deixa de estar bloqueado **por este checkpoint**: a página não lança
+  mais e pode ser alcançada sem publicar um erro. O portão que resta é o de **publicação** (decisão
+  do Encarregado), que é outro e continua fechado até ele se manifestar.
 - **47-09 (CONSOL-04)** ganha `SUBPROCESSADORES` como a lista publicada a ser confrontada com a
-  varredura de destinos de rede do repositório.
-- **Manutenção:** um fornecedor novo entra na lista com os cinco campos, ou a varredura de 47-09
-  reprova. Uma revisão do Encarregado nas citações de base legal da matriz deixa esta lista vermelha
-  até acompanhar — de propósito.
+  varredura de destinos de rede do repositório — agora com os países preenchidos, o confronto passa a
+  ser sobre a lista inteira.
+- **Manutenção:** um fornecedor novo entra na lista com os cinco campos **e o país medido na conta do
+  provedor**, ou o caso (20) reprova nomeando a entrada e a varredura de 47-09 reprova a omissão. Uma
+  revisão do Encarregado nas citações de base legal da matriz deixa esta lista vermelha até
+  acompanhar — de propósito.
+- **Revalidação:** o país é fato de conta, e conta muda. A proveniência datada por entrada é o que
+  permite saber **quando** cada um foi medido pela última vez sem reabrir painel nenhum.
 
 ## Self-Check: PASSED
 
-Os 8 arquivos declarados existem em disco e os 4 commits existem em `git log`. Verificado por
-execução, não por leitura.
+Os 8 arquivos declarados existem em disco e os 5 commits existem em `git log`. As seis entradas foram
+lidas do arquivo em disco depois do commit, e a suíte, o `tsc`, os quatro `check:*` e o
+`portoesInvocados` foram executados. Verificado por execução, não por leitura.
 
 ---
 *Phase: 47-transpar-ncia-consolida-o*
-*Completed: 2026-08-09*
+*Completed: 2026-08-11 (Tasks 1-2 em 2026-08-09; Task 3 em 2026-08-11)*

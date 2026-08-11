@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-07-PLAN.md
-last_updated: "2026-08-10T12:55:45.808Z"
-last_activity: 2026-08-10
+stopped_at: Completed 47-04-PLAN.md Task 3 (checkpoint dos seis paises, FECHADO)
+last_updated: "2026-08-11T03:42:20.236Z"
+last_activity: 2026-08-11
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
   completed_plans: 47
   percent: 50
-last_activity_desc: 45-12 fechou as DUAS entregas de ESCRITA do DI-45-10-01 (terceiro client + migration de GRANT) e o DI-45-10-02 (retirada ponta a ponta) — suíte 1696/1696, deno 63/63, tsc 97, zero apply, zero deploy
+last_activity_desc: "47-04 Task 3 FECHADA: os seis países dos subprocessadores foram medidos pelo operador (2026-08-11) — cinco tratam os dados nos EUA, ViaCEP declara jurisdição brasileira com hospedagem não divulgada. O TimeZone do banco em PROD (America/Sao_Paulo) tinha sido recusado como prova de região e a recusa se provou certa: a região real é us-east-1. Sentinela e validador preservados como rede da próxima entrada. Suíte 1844/1844, tsc 97, 4 check:* exit 0, zero --no-verify"
 ---
 
 # Project State
@@ -541,6 +541,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P03 | 12min | 3 tasks | 7 files |
 | Phase 47 P06 | 15min | 3 tasks | 10 files |
 | Phase 47 P07 | 12min | 2 tasks | 4 files |
+| Phase 47 P04 | 9 min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -729,6 +730,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: A Emenda A é o terceiro detector do drift de retenção e o único que enxerga a edição feita em produção; ela é provada RENDERIZADA, não só declarada
 - [Phase ?]: O nome literal da tabela de usuarios de RH nao aparece no historicoCandidaturaService nem em comentario — o guard varre o modulo inteiro, e afrouxa-lo deixaria de pegar uma string literal em rota de consulta
 - [Phase ?]: as never pre-regen na chamada da RPC do historico: a funcao esta viva em PROD mas database.types.ts so e regenerado por npm run db:types (Supabase CLI --linked, indisponivel)
+- [Phase 47]: Os seis paises dos subprocessadores foram MEDIDOS (2026-08-11): cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com hospedagem nao divulgada — O TimeZone do banco em PROD (America/Sao_Paulo) foi recusado como prova de regiao antes da medicao — e a recusa se provou certa: a regiao medida e us-east-1. O indicio apontava para o Brasil e estava errado; aceita-lo teria publicado uma declaracao falsa de transferencia internacional
 
 ### Pending Todos
 
@@ -927,8 +929,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-10T12:55:38.222Z
-Stopped at: Completed 47-07-PLAN.md
+Last session: 2026-08-11T03:42:13.083Z
+Stopped at: Completed 47-04-PLAN.md Task 3 (checkpoint dos seis paises, FECHADO)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
