@@ -60,7 +60,7 @@
  * @see src/features/transparencia/constants/subprocessadores.ts (a lista publicada, 47-04)
  */
 import { describe, it, expect } from 'vitest'
-import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { SUBPROCESSADORES } from '@/features/transparencia/constants/subprocessadores'
@@ -109,12 +109,68 @@ interface Destino {
 }
 
 /**
+ * Remove comentário de bloco e de linha SEM comer URL.
+ *
+ * ⚠ O `[^:]` antes das duas barras é a diferença entre um portão que vê e um portão cego.
+ * Sem ele, `const u = 'https://exemplo'` vira `const u = 'https:` — a URL some, a varredura
+ * não acha nada, e o teste fica VERDE afirmando que não há destino externo nenhum. Foi
+ * MEDIDO acontecendo na primeira sonda deste arquivo: quinze destinos viraram zero, e o
+ * verde resultante afirmava o oposto do fato. Há um caso que prova a correção.
+ */
+function semComentarios(texto: string): string {
+  return texto
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n')
+    .map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1'))
+    .join('\n')
+}
+
+/** Hosts locais: nada sai da máquina, e o valor varia por ambiente. */
+const LOCAIS = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)$/i
+
+/**
  * Os destinos externos declarados sob `alvos`: host de URL absoluta, e especificador de
  * pacote de provedor. Cada achado é normalizado para o HOST ou para o NOME DO PACOTE — a
  * URL completa jamais entra, porque o caminho e a query podem carregar dado.
+ *
+ * ⚠ Um host com marca de interpolação é DESCARTADO. `https://${base}/x` não é um destino:
+ * é um molde cujo destino real está na variável. Registrá-lo poria no relatório um pedaço
+ * de sintaxe no lugar de um nome de empresa — e um relatório que aponta para lugar nenhum
+ * é a forma educada de não apontar.
  */
-function varrerDestinos(_alvos: string[] = [SRC, BORDA]): Destino[] {
-  throw new Error('não implementado')
+function varrerDestinos(alvos: string[] = [SRC, BORDA]): Destino[] {
+  const achados: Destino[] = []
+  const vistos = new Set<string>()
+
+  for (const arquivo of alvos.flatMap(varrer)) {
+    const texto = semComentarios(readFileSync(arquivo, 'utf8'))
+
+    for (const m of texto.matchAll(/https?:\/\/([^\s'"`<>()[\]{},;\\]+)/g)) {
+      const host = m[1].split('/')[0].split('?')[0].split(':')[0].toLowerCase()
+      if (!host || host.includes('$') || host.includes('{') || LOCAIS.test(host)) continue
+      if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/.test(host)) continue
+      const chave = `${arquivo}|${host}`
+      if (vistos.has(chave)) continue
+      vistos.add(chave)
+      achados.push({ destino: host, arquivo })
+    }
+
+    for (const m of texto.matchAll(/\b(npm|jsr):(@[\w.-]+\/[\w.-]+|[\w.-]+)/g)) {
+      const bruto = m[2]
+      // A versão pinada sai do nome: `openai@6.42.0` e `openai` são o mesmo fornecedor, e
+      // manter o pino faria a decisão registrada apodrecer a cada atualização de versão.
+      const pacote = bruto.startsWith('@')
+        ? bruto.split('/').slice(0, 2).join('/').replace(/@[\d.].*$/, '')
+        : bruto.replace(/@[\d.].*$/, '')
+      const destino = `${m[1]}:${pacote}`
+      const chave = `${arquivo}|${destino}`
+      if (vistos.has(chave)) continue
+      vistos.add(chave)
+      achados.push({ destino, arquivo })
+    }
+  }
+
+  return achados
 }
 
 /** A ficha publicada que cobre este destino, ou `null`. Casamento por esqueleto do nome. */
