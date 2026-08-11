@@ -9,12 +9,10 @@
  * que ela ficasse correta, que é justamente o dia em que o portão passa a valer.
  *
  * **Estado real**: a lista tem seis entradas, nenhuma com campo vazio, nenhuma nomeando
- * identificador interno — e o BLOQUEIO DE EMBARQUE declarado: hoje as seis carregam a
- * sentinela de país por medir, e a lista NÃO é publicável. Esse caso nomeia as entradas
- * pendentes uma a uma, de propósito: se alguém preencher um país sem passar pelo
- * checkpoint do operador, a lista de pendências encolhe e este teste fica VERMELHO.
- * É mais estrito que asserir "nenhuma sentinela" — aquilo só acusaria quando as seis
- * fossem preenchidas de uma vez.
+ * identificador interno — e, desde 2026-08-11, nenhuma pendente de país. O operador mediu
+ * os seis nos painéis e nos documentos dos fornecedores, e o Bloco 3 deixou de declarar
+ * um bloqueio para passar a GUARDAR o preenchimento: zero pendências, o portão provado
+ * mordendo entrada a entrada, e a proveniência datada exigida no arquivo-fonte.
  *
  * ⚠ NENHUM LITERAL PROIBIDO É ESCRITO VERBATIM AQUI. Os marcadores de indefinição e o
  * vocabulário banido pela §Invariante 4 da 47-UI-SPEC são montados em tempo de execução
@@ -26,6 +24,8 @@
  * @see .planning/phases/47-transpar-ncia-consolida-o/47-RESEARCH.md (§C3)
  */
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import {
   LISTA_MEDIDA_EM,
@@ -249,32 +249,32 @@ describe('estado real — as seis entradas medidas no código vivo', () => {
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-// BLOCO 3 — O BLOQUEIO DE EMBARQUE (Task 3 · checkpoint do operador)
+// BLOCO 3 — O PORTÃO DE EMBARQUE (Task 3 · checkpoint do operador, FECHADO)
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('bloqueio de embarque — o país não é medível deste ambiente', () => {
+describe('portão de embarque — os seis países foram medidos, e o portão continua montado', () => {
   /**
-   * ⚠ ESTE CASO É O PORTÃO, E ELE MUDA QUANDO A TASK 3 FOR SATISFEITA.
+   * ⚠ ESTE BLOCO MUDOU DE SIGNIFICADO EM 2026-08-11, E NÃO PODIA VIRAR TAUTOLOGIA.
    *
-   * Hoje as seis entradas carregam a sentinela porque nenhuma região é obtenível deste
-   * ambiente (47-RESEARCH §C3.2: sem token da API de gerenciamento, CLI fora do PATH,
-   * domínio atrás de rede de distribuição, `vercel.json` sem `regions`, nenhum pin de
-   * região para os outros três).
+   * Até aqui ele asseria a lista NOMINAL de pendências (as seis, por nome) e o
+   * lançamento do validador sobre a lista real. Com os seis países medidos nos painéis
+   * dos provedores, "zero pendências" sozinho seria uma asserção que passa por não
+   * haver nada — o gênero de teste que fica verde para sempre e não protege nada.
    *
-   * A lista de pendências é DECLARADA nome a nome de propósito. Se alguém preencher um
-   * país sem passar pelo checkpoint do operador, esta asserção fica vermelha e nomeia a
-   * entrada — que é exatamente a proibição desta fase: um país presumido numa declaração
-   * de transferência internacional produz um documento público falso.
-   *
-   * Ao receber os seis países medidos, este caso vira `expect(pendentes).toEqual([])` +
-   * `expect(() => validarSubprocessadores(SUBPROCESSADORES)).not.toThrow()`. O Bloco 1
-   * continua provando a falha alta por fixture sintética — o portão não deixa de existir
-   * quando o dado chega.
+   * Os três casos abaixo dividem o trabalho que aquele caso fazia sozinho:
+   * (18) o ESTADO: zero pendências e a lista é publicável;
+   * (20) o PORTÃO MORDENDO: reintroduzir a sentinela em QUALQUER uma das seis reprova, e
+   *      a mensagem nomeia a entrada — é a asserção que reprova a regressão real, que é
+   *      alguém devolver um país para "por medir" ou acrescentar um sétimo fornecedor
+   *      sem medir;
+   * (21) a PROVENIÊNCIA: cada entrada carrega, no arquivo-fonte, a data em que aquele
+   *      país foi medido. Sem isso, um país correto e um país adivinhado seriam
+   *      indistinguíveis daqui a seis meses.
    */
-  it('(18) as seis entradas estão pendentes de país medido, e a lista NÃO é publicável', () => {
+  it('(18) nenhuma entrada carrega a sentinela — as seis têm país medido e a lista É publicável', () => {
     const pendentes = SUBPROCESSADORES.filter((e) => e.pais === PAIS_POR_MEDIR).map((e) => e.nome)
-    expect(pendentes).toEqual(NOMES_ESPERADOS)
-    expect(() => validarSubprocessadores(SUBPROCESSADORES)).toThrow(/país/i)
+    expect(pendentes).toEqual([])
+    expect(() => validarSubprocessadores(SUBPROCESSADORES)).not.toThrow()
   })
 
   it('(19) a sentinela é um valor que nunca poderia ser lido como um país', () => {
@@ -283,6 +283,41 @@ describe('bloqueio de embarque — o país não é medível deste ambiente', () 
     // uma omissão publicada; a sentinela existe para NÃO chegar à página.
     for (const marcador of MARCADORES) {
       expect(PAIS_POR_MEDIR.toLowerCase()).not.toContain(marcador.toLowerCase())
+    }
+  })
+
+  it('(20) o portão MORDE: devolver QUALQUER uma das seis para "por medir" reprova, nomeando a entrada', () => {
+    // A regressão que este caso existe para pegar não é hipotética: é alguém apagar um
+    // país numa edição futura, ou acrescentar um sétimo fornecedor com a sentinela e
+    // deixar passar. A lista volta a ser impublicável por UMA entrada, nunca por seis.
+    SUBPROCESSADORES.forEach((alvo, indice) => {
+      const regredida = SUBPROCESSADORES.map((entrada, i) =>
+        i === indice ? { ...entrada, pais: PAIS_POR_MEDIR } : entrada,
+      )
+      let mensagem = ''
+      try {
+        validarSubprocessadores(regredida)
+      } catch (erro) {
+        mensagem = (erro as Error).message
+      }
+      expect(mensagem, `«${alvo.nome}» passou carregando a sentinela`).toContain(alvo.nome)
+      expect(mensagem.toLowerCase()).toContain('sentinela')
+    })
+  })
+
+  it('(21) cada entrada carrega a PROVENIÊNCIA DATADA do país ao lado, no arquivo-fonte', () => {
+    const fonte = readFileSync(
+      resolve(__dirname, '../constants/subprocessadores.ts'),
+      'utf8',
+    )
+    for (const nome of NOMES_ESPERADOS) {
+      const inicio = fonte.indexOf(`nome: '${nome}'`)
+      expect(inicio, `entrada «${nome}» não encontrada no arquivo-fonte`).toBeGreaterThan(0)
+      // O comentário de proveniência mora entre o nome e o campo `pais` da mesma entrada.
+      const ateOPais = fonte.slice(inicio, fonte.indexOf('pais:', inicio))
+      expect(ateOPais, `«${nome}» sem data de medição do país ao lado`).toMatch(
+        /\d{4}-\d{2}-\d{2}/,
+      )
     }
   })
 })

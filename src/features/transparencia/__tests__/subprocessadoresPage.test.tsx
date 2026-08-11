@@ -31,6 +31,7 @@ import { SubprocessadorFicha } from '../components/SubprocessadorFicha'
 import { COPY_TRANSPARENCIA, formatarDataPtBr } from '../constants/copyTransparencia'
 import {
   LISTA_MEDIDA_EM,
+  PAIS_POR_MEDIR,
   SUBPROCESSADORES,
   type Subprocessador,
 } from '../constants/subprocessadores'
@@ -39,15 +40,13 @@ const COPY = COPY_TRANSPARENCIA.subprocessadores
 const RAIZ = resolve(__dirname, '../../../..')
 
 /**
- * As seis entradas reais com o único campo pendente preenchido.
+ * As seis entradas REAIS — desde 2026-08-11 elas carregam o país medido, então a lista
+ * de produção é a fixture completa e a substituição do campo pendente saiu daqui.
  *
  * Preso à constante de propósito: uma fixture escrita à mão divergiria do conteúdo real
  * na primeira edição, e este teste passaria a provar coisa nenhuma sobre a página.
  */
-const COMPLETAS: readonly Subprocessador[] = SUBPROCESSADORES.map((entrada) => ({
-  ...entrada,
-  pais: 'País medido na fixture',
-}))
+const COMPLETAS: readonly Subprocessador[] = SUBPROCESSADORES
 
 function renderizar(entradas: readonly Subprocessador[] = COMPLETAS) {
   return render(
@@ -194,12 +193,23 @@ describe('os três modos de falha invisíveis em teste de texto', () => {
     expect(container.querySelector('[title]')).toBeNull()
   })
 
+  /**
+   * ⚠ Até 2026-08-11 este caso renderizava a página SEM props: a lista real carregava a
+   * sentinela nas seis entradas e a página lançava sozinha. Com os países medidos, essa
+   * forma provaria o contrário do que promete — passaria a não lançar. A propriedade é a
+   * mesma; a fixture é que passou a ser explícita, e a entrada pendente entra no MEIO de
+   * cinco válidas, que é como o defeito real aparece: um fornecedor novo acrescentado
+   * sem medição, no meio de uma lista que estava correta.
+   */
   it('(11) uma entrada com país por medir faz a página LANÇAR, nunca renderizar campo em branco', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    const comUmaPendente = COMPLETAS.map((entrada, indice) =>
+      indice === 3 ? { ...entrada, pais: PAIS_POR_MEDIR } : entrada,
+    )
     expect(() =>
       render(
         <MemoryRouter>
-          <SubprocessadoresPage />
+          <SubprocessadoresPage entradas={comUmaPendente} />
         </MemoryRouter>,
       ),
     ).toThrow(/sentinela/i)
@@ -218,12 +228,28 @@ describe('os três modos de falha invisíveis em teste de texto', () => {
       ),
     ).toThrow(/base legal/i)
   })
+
+  it('(13) a lista de PRODUÇÃO renderiza as seis com o país medido — o bloqueio de publicação fechou', () => {
+    // O contraponto de (11) e (12): a falha alta continua existindo E a página real
+    // passa por ela. Sem este caso, os dois anteriores ficariam verdes numa página que
+    // não renderiza em circunstância nenhuma.
+    render(
+      <MemoryRouter>
+        <SubprocessadoresPage />
+      </MemoryRouter>,
+    )
+    expect(fichas()).toHaveLength(6)
+    for (const entrada of SUBPROCESSADORES) {
+      const ficha = fichas().find((no) => within(no).queryByRole('heading', { name: entrada.nome }))
+      expect(within(ficha as HTMLElement).getByText(entrada.pais)).toBeInTheDocument()
+    }
+  })
 })
 
 describe('a rota é 100% pública e nenhuma rota existente foi tocada', () => {
   const rotas = readFileSync(join(RAIZ, 'src/router/routes.tsx'), 'utf8')
 
-  it('(13) a rota está registrada na seção de rotas públicas', () => {
+  it('(14) a rota está registrada na seção de rotas públicas', () => {
     expect(rotas).toContain("path: '/subprocessadores'")
     const indiceManifesto = rotas.indexOf("path: '/manifesto'")
     const indiceNova = rotas.indexOf("path: '/subprocessadores'")
@@ -233,7 +259,7 @@ describe('a rota é 100% pública e nenhuma rota existente foi tocada', () => {
     expect(indiceNova).toBeLessThan(indiceAuth)
   })
 
-  it('(14) a rota não carrega proteção de sessão nem redirecionamento', () => {
+  it('(15) a rota não carrega proteção de sessão nem redirecionamento', () => {
     const bloco = rotas.slice(
       rotas.indexOf("path: '/subprocessadores'"),
       rotas.indexOf("path: '/subprocessadores'") + 220,
@@ -243,7 +269,7 @@ describe('a rota é 100% pública e nenhuma rota existente foi tocada', () => {
     expect(bloco).not.toContain('Navigate')
   })
 
-  it('(15) as rotas públicas que já existiam continuam lá', () => {
+  it('(16) as rotas públicas que já existiam continuam lá', () => {
     for (const caminho of ["path: '/'", "path: '/vagas'", "path: '/vagas/:identifier'", "path: '/manifesto'"]) {
       expect(rotas).toContain(caminho)
     }

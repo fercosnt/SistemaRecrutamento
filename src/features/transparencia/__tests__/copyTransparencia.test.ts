@@ -225,7 +225,11 @@ describe('a asserção positiva — o carimbo de vigência existe e traz data v�
   it('a data da lista formata como dd/mm/aaaa no idioma vivo do projeto', () => {
     const formatada = formatarDataPtBr(LISTA_MEDIDA_EM)
     expect(formatada).toMatch(/^\d{2}\/\d{2}\/\d{4}$/)
-    expect(formatada).toBe('09/08/2026')
+    // 11/08/2026 — a data em que a lista ficou COMPLETA: a varredura do código vivo
+    // elegeu as seis empresas em 09/08 e a medição dos seis países fechou o último campo
+    // pendente em 11/08. O carimbo diz "Lista completa em", e antes dessa data ela não
+    // estava — carimbar 09/08 seria datar a página antes do seu fato mais novo.
+    expect(formatada).toBe('11/08/2026')
   })
 
   it('uma data inválida é falha, nunca um traço renderizado', () => {
