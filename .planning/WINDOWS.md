@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 28
+open_count: 31
 waived_count: 0
 fixed_count: 1
-total_count: 29
-last_updated: 2026-08-11T04:17:17.358Z
+total_count: 32
+last_updated: 2026-08-11T04:28:51.886Z
 ---
 
 # Broken Windows Ledger
@@ -44,6 +44,9 @@ last_updated: 2026-08-11T04:17:17.358Z
 | 27 | 47 | todo | src/features/hub-candidato/services/historicoCandidaturaService.ts |  | as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types | open |  | 2026-08-10T12:55:37.934Z |  |
 | 28 | 47 | unrun-verify | .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md |  | 47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto | open |  | 2026-08-11T03:53:04.434Z |  |
 | 29 | 47 | deviation | src/__tests__/destinosDeRedeComFicha.test.ts |  | api.ipify.org e www.youtube.com: destinos vivos fora da lista publicada de empresas contratadas, registrados como pendente-de-decisao com fato medido e rota — a classificacao e ato do Encarregado, no portao de publicacao aberto do 47-08 | open |  | 2026-08-11T04:17:17.358Z |  |
+| 30 | 47 | unmet-truth | src/features/transparencia/components/PrivacidadePublicaPage.tsx |  | Revisao formal do Encarregado NAO exercida: as duas paginas publicas foram liberadas por decisao do operador em 2026-08-11 | open |  | 2026-08-11T04:28:51.767Z |  |
+| 31 | 47 | unmet-truth | src/services/logAccessService.ts | 110 | api.ipify.org pendente-de-decisao: destino de rede sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.827Z |  |
+| 32 | 47 | unmet-truth | src/components/pages/InstrucoesFormularioPage.tsx | 77 | www.youtube.com pendente-de-decisao: iframe de terceiro sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.886Z |  |
 
 ````json
 [
@@ -393,6 +396,42 @@ last_updated: 2026-08-11T04:17:17.358Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T04:17:17.358Z",
+    "resolved_at": null
+  },
+  {
+    "id": 30,
+    "kind": "unmet-truth",
+    "phase": "47",
+    "file": "src/features/transparencia/components/PrivacidadePublicaPage.tsx",
+    "line": null,
+    "description": "Revisao formal do Encarregado NAO exercida: as duas paginas publicas foram liberadas por decisao do operador em 2026-08-11",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T04:28:51.767Z",
+    "resolved_at": null
+  },
+  {
+    "id": 31,
+    "kind": "unmet-truth",
+    "phase": "47",
+    "file": "src/services/logAccessService.ts",
+    "line": 110,
+    "description": "api.ipify.org pendente-de-decisao: destino de rede sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T04:28:51.827Z",
+    "resolved_at": null
+  },
+  {
+    "id": 32,
+    "kind": "unmet-truth",
+    "phase": "47",
+    "file": "src/components/pages/InstrucoesFormularioPage.tsx",
+    "line": 77,
+    "description": "www.youtube.com pendente-de-decisao: iframe de terceiro sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T04:28:51.886Z",
     "resolved_at": null
   }
 ]

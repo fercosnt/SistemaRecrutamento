@@ -15,12 +15,14 @@ provides:
   - "src/features/transparencia/components/RodapePublico.tsx — o componente de alcançabilidade: dois links, piso de alvo tátil em cada um, lista de proibições no docblock"
   - "COPY_TRANSPARENCIA.rodape — os dois rótulos verbatim da UI-SPEC + o nome acessível do ponto de referência de navegação"
   - "src/features/transparencia/__tests__/rodapePublico.test.tsx — 17 casos: o contrato dos dois links, o piso estrutural por link, a lista de proibições no DOM e na fonte, a forma, o zero-estado e o docblock"
+  - "A ALCANÇABILIDADE: `/privacidade` e `/subprocessadores` passam a ser encontradas a partir da página inicial, da lista de vagas e do detalhe de vaga — o rodapé montado nas cinco superfícies públicas"
+  - "src/features/transparencia/__tests__/rodapeMontagem.test.tsx — 9 casos, incluindo a asserção NEGATIVA que exige que o conjunto de arquivos que montam o rodapé seja exatamente as cinco superfícies (reprova a falta e o excesso)"
 affects: [47-09-consol-04, publicacao-das-duas-rotas-publicas]
 
 actuals:
-  tokens: 4300
-  tasks: 1
-  commits: 3
+  tokens: 8300
+  tasks: 3
+  commits: 6
 
 tech-stack:
   added: []
@@ -33,21 +35,31 @@ key-files:
   created:
     - src/features/transparencia/components/RodapePublico.tsx
     - src/features/transparencia/__tests__/rodapePublico.test.tsx
+    - src/features/transparencia/__tests__/rodapeMontagem.test.tsx
   modified:
     - src/features/transparencia/constants/copyTransparencia.ts
     - src/features/transparencia/index.ts
+    - src/components/pages/LandingPage.tsx
+    - src/components/pages/VagasPublicasPage.tsx
+    - src/components/pages/VagaDetalhePage.tsx
+    - src/features/transparencia/components/SubprocessadoresPage.tsx
+    - src/features/transparencia/components/PrivacidadePublicaPage.tsx
 
 key-decisions:
-  - "A Task 3 (a montagem nas cinco superfícies) NÃO foi executada: ela é o ato de PUBLICAÇÃO, e o portão do Encarregado está aberto. O componente existe, é exportado e não está montado em navegação nenhuma"
-  - "O portão NÃO foi auto-satisfeito nem enfraquecido para a montagem passar — nem parcialmente nas duas páginas novas, porque a proibição do plano é literal: `MUST NOT montar o rodapé antes da aprovação do Encarregado`"
+  - "O portão de publicação foi liberado pelo OPERADOR (Fernando) em 2026-08-11, após revisão das duas páginas públicas. A revisão formal do Encarregado permanece item ABERTO e rastreável — não foi exercida, e este SUMMARY não a declara exercida"
+  - "A Task 3 (a montagem nas cinco superfícies) foi executada DEPOIS da liberação, nunca antes: a ordem das tarefas era o portão e ela foi respeitada"
+  - "A lista pública vai ao ar com DOIS destinos de rede pendentes de classificação (achado do 47-09): `api.ipify.org` e `www.youtube.com`. Eles NÃO foram acrescentados à lista publicada nem tiveram o estado pendente enfraquecido — classificar destino como operador contratado é ato do Encarregado"
+  - "O link cruzado que já existia dentro do painel das duas páginas novas foi MANTIDO ao lado do rodapé: removê-lo editaria linhas de 47-04/47-06 e reprovaria testes existentes, e a redundância é benigna"
   - "O nome acessível do ponto de referência de navegação entra na constante de copy e NÃO é um terceiro link: sem ele, o rodapé e a navegação de topo das páginas de conversão viram dois pontos de referência indistinguíveis para leitor de tela"
   - "O tratamento dos dois links é repetido em vez de extraído para constante — a contagem de fonte é o portão, e ela precisa encontrar uma ocorrência POR LINK"
   - "O registro de que o componente não está montado ficou no barrel da feature, não só neste SUMMARY: o SUMMARY sai de contexto, o comentário fica"
 
 patterns-established:
   - "Componente de alcançabilidade entregue COMPLETO e deliberadamente desmontado: a engenharia atravessa o portão de publicação, a navegação não"
+  - "Asserção de montagem NEGATIVA por varredura de árvore: o conjunto de arquivos que montam o componente é comparado por igualdade com a lista prevista, o que reprova tanto a superfície esquecida quanto a superfície indevida"
+  - "Registro de aprovação com o AUTOR nomeado e o item não exercido mantido aberto ao lado: quem aprovou é fato do registro, e um portão liberado por A não vira portão exercido por B"
 
-requirements-completed: []
+requirements-completed: [TRANSP-01, TRANSP-02]
 
 coverage:
   - id: D1
@@ -99,37 +111,73 @@ coverage:
     verification:
       - kind: manual_procedural
         ref: "47-08-PLAN.md Task 1 — quatro itens de revisão; 47-CONTEXT §Área 5"
-        status: unknown
+        status: pass
     human_judgment: true
-    rationale: "Nenhum teste pode revisar uma declaração pública de transferência internacional. O portão decide se as duas páginas passam a ser ALCANÇÁVEIS, e cinco das seis empresas contratadas tratam os dados nos Estados Unidos enquanto todos os candidatos são brasileiros — a página declara transferência internacional em quase toda a cadeia. É decisão do Encarregado, e o executor não pode satisfazê-la."
+    rationale: "LIBERADO PELO OPERADOR (Fernando) em 2026-08-11, após revisão das duas páginas públicas. ⚠ A revisão formal do ENCARREGADO permanece item ABERTO e rastreável — não foi exercida, e este registro não a declara exercida. A distinção é o próprio objeto desta fase: um portão liberado pelo operador não é um parecer do Encarregado, e registrá-lo como tal seria a classe exata de registro falso que este milestone existe para eliminar. Nenhum teste pode revisar uma declaração pública de transferência internacional; cinco das seis empresas contratadas tratam os dados nos Estados Unidos enquanto todos os candidatos são brasileiros."
   - id: D7
     description: "A montagem do rodapé nas três rotas de conversão e nas duas páginas novas (Task 3)"
     requirement: TRANSP-01
-    verification: []
+    verification:
+      - kind: unit
+        ref: "src/features/transparencia/__tests__/rodapeMontagem.test.tsx#(1)..(9)"
+        status: pass
+      - kind: other
+        ref: "guard automático do 47-08-PLAN.md Task 3 — cinco superfícies montadas, zero linha removida nas três páginas de conversão"
+        status: pass
+    human_judgment: false
+  - id: D8
+    description: "Dois destinos de rede sem ficha publicada nem decisão registrada (`api.ipify.org`, `www.youtube.com`) — achado do 47-09, que vai ao ar JUNTO com a lista, em estado pendente"
+    requirement: TRANSP-01
+    verification:
+      - kind: manual_procedural
+        ref: "47-09-SUMMARY.md — varredura de destinos de rede; src/services/logAccessService.ts:110; src/components/pages/InstrucoesFormularioPage.tsx:77"
+        status: unknown
     human_judgment: true
-    rationale: "NÃO EXECUTADA por desenho: a montagem é o ato de publicação e o portão D6 está aberto. Executá-la agora seria publicar antes da revisão — exatamente o que a ordem das tarefas deste plano existe para impedir."
+    rationale: "ABERTO por desenho. Classificar um destino de rede como operador contratado é ato do Encarregado, não do executor. Os dois seguem `pendente-de-decisao` com fato medido e rota registrados, sem enfraquecimento — e a lista publicada NÃO os inclui. O fato de a publicação acontecer com duas pendências viaja junto com a lista, em vez de ser descoberto depois."
 
-duration: 14min
+duration: 14min + 12min (Task 3)
 completed: 2026-08-11
-status: checkpoint
+status: complete
 ---
 
-# Phase 47 Plano 08: `RodapePublico` — o componente que torna as duas páginas encontráveis, construído e deliberadamente NÃO montado
+# Phase 47 Plano 08: `RodapePublico` — o componente que torna as duas páginas encontráveis, agora montado nas cinco superfícies públicas
 
-**O rodapé de alcançabilidade existe, tem exatamente dois links, cada um com o piso de alvo tátil provado estruturalmente, e não está montado em navegação nenhuma — porque montá-lo é o ato de PUBLICAÇÃO e o portão do Encarregado continua aberto.**
+**O rodapé de alcançabilidade existe, tem exatamente dois links com o piso de alvo tátil provado estruturalmente, e está montado nas cinco superfícies públicas — a partir da liberação do portão de publicação pelo OPERADOR em 2026-08-11. `/privacidade` e `/subprocessadores` deixam de existir e passam a ser ENCONTRADAS.**
 
-## ⚠ O ESTADO EM UMA FRASE, ANTES DE QUALQUER DETALHE
+## ⚠ O REGISTRO DA APROVAÇÃO — E A DISTINÇÃO QUE ELE PRESERVA
 
-**A Task 1 (revisão do Encarregado) está ABERTA e não foi satisfeita. A Task 3 (a montagem) NÃO foi
-executada.** O que este plano entregou foi a Task 2 inteira: o componente, a copy, o barrel e os 17
-casos de teste. As duas páginas continuam existindo em `/privacidade` e `/subprocessadores`,
-visitáveis por URL direta, e **nenhuma navegação de produção leva a elas**.
+> Aprovado pelo **operador (Fernando)** em **2026-08-11**, após revisão das duas páginas públicas.
+> A revisão formal do **Encarregado permanece como item aberto e rastreável** — não foi exercida.
 
-Esse é o estado seguro que o próprio plano descreve: *"Se qualquer um dos quatro não estiver
-aprovado, o plano PARA aqui. As páginas continuam existindo nas rotas e continuam sem navegação
-apontando para elas."*
+**Este SUMMARY não afirma, em lugar nenhum, que as páginas foram aprovadas pelo Encarregado.** O
+operador reviu as duas páginas e escolheu liberar a publicação como **ato dele**, mantendo a revisão
+formal do Encarregado aberta. Registrar essa liberação como parecer do Encarregado seria a classe
+exata de registro que excede o fato — e é precisamente o defeito que este milestone existe para
+eliminar. Um portão liberado por A não vira portão exercido por B porque a publicação aconteceu.
 
-## O que o Encarregado precisa revisar — e o achado que muda o peso da revisão
+O que continua **aberto**, portanto, é a revisão formal dos quatro itens abaixo por parte do
+Encarregado. As páginas estão publicadas; o parecer formal, não.
+
+## ⚠ A LISTA VAI AO AR COM DOIS DESTINOS PENDENTES DE CLASSIFICAÇÃO
+
+O plano 47-09 varreu o repositório atrás de destinos de rede e encontrou **dois** que não têm ficha
+publicada **nem** decisão registrada:
+
+| Destino | Onde | O que o terceiro recebe |
+|---|---|---|
+| `api.ipify.org` | `src/services/logAccessService.ts:110` | o navegador do próprio usuário pede o IP dele; o terceiro recebe o endereço de origem. Caminho vivo via `useSessionTimeout` |
+| `www.youtube.com` | `src/components/pages/InstrucoesFormularioPage.tsx:77` | iframe embutido; o navegador do visitante pede direto ao terceiro, que recebe origem e referenciador |
+
+Eles são **estruturalmente idênticos ao serviço de CEP**, que a lista publicada **incluiu**. O 47-09
+deixou os dois deliberadamente em `pendente-de-decisao`, com fato medido e rota registrados, porque
+classificar um destino como operador contratado é **ato do Encarregado**.
+
+**Este plano não os acrescentou à lista publicada e não removeu nem enfraqueceu o estado pendente
+deles.** O escopo desta tarefa era a montagem. Mas o fato precisa viajar **junto com** a publicação
+em vez de ser descoberto depois: **a lista pública foi ao ar com dois destinos ainda por
+classificar.**
+
+## Os quatro itens da revisão formal — o material que o Encarregado ainda precisa ver
 
 O portão tem **quatro itens**, e o primeiro deles mudou de natureza desde que o plano foi escrito.
 
@@ -179,21 +227,31 @@ que ele **não** é empresa contratada tratando dados em nome da Beauty Smile, a
 - a que explica como a página de privacidade é feita — ela **não** promete regeneração automática;
 - o carimbo de vigência — ele carrega a data de **medição** da matriz viva, não a data do build.
 
-### O que acontece depois da aprovação
+### O que a Task 3 fez depois da liberação
 
-A Task 3 monta `<RodapePublico />` como **último filho do container existente** em cinco superfícies —
-`LandingPage`, `VagasPublicasPage`, `VagaDetalhePage`, `SubprocessadoresPage` e
-`PrivacidadePublicaPage` — com a regra de não-regressão literal: **zero linha removida** nas três
-páginas de conversão, e no máximo o import mais a montagem em cada uma. O guard automático da Task 3
-já está escrito no plano e reprova qualquer remoção.
+`<RodapePublico />` foi montado como **último filho do container existente** nas cinco superfícies,
+com a regra de não-regressão cumprida ao pé da letra: **zero linha removida** nas três páginas de
+conversão e exatamente **2 linhas adicionadas** em cada uma — o import e a montagem, nada mais.
+
+| Superfície | Caminho | Adicionadas | Removidas |
+|---|---|---|---|
+| Página inicial | `src/components/pages/LandingPage.tsx` | 2 | **0** |
+| Lista de vagas | `src/components/pages/VagasPublicasPage.tsx` | 2 | **0** |
+| Detalhe de vaga | `src/components/pages/VagaDetalhePage.tsx` | 2 | **0** |
+| Subprocessadores | `src/features/transparencia/components/SubprocessadoresPage.tsx` | 2 | **0** |
+| Privacidade pública | `src/features/transparencia/components/PrivacidadePublicaPage.tsx` | 2 | **0** |
+
+Medido por `git diff --numstat`, não afirmado — o guard do plano reprova qualquer remoção e qualquer
+adição acima de 3 linhas nas três páginas de conversão, e passou.
 
 ## Performance
 
-- **Duração:** ~14 min
+- **Duração:** ~14 min (Tasks 1-2) + ~12 min (Task 3)
 - **Iniciado:** 2026-08-11T00:44Z
-- **Concluído:** 2026-08-11T00:58Z
-- **Tarefas:** 1 executada de 3 — a Task 1 é o portão aberto, a Task 3 é o que ele bloqueia
-- **Arquivos criados/modificados:** 4
+- **Portão liberado pelo operador:** 2026-08-11
+- **Concluído:** 2026-08-11T01:25Z
+- **Tarefas:** 3 de 3 — o portão foi liberado e a montagem correu **depois** dele, nunca antes
+- **Arquivos criados/modificados:** 10
 - **Dependência npm nova:** 0
 
 ## Accomplishments
@@ -217,18 +275,29 @@ já está escrito no plano e reprova qualquer remoção.
 - **O rodapé não é fixo, grudado nem sobreposto**, asserido nas classes e na fonte. Um rodapé grudado
   comeria dobra numa tela de 320px — numa superfície mobile-first isso é conteúdo perdido.
 - **O portão de publicação foi respeitado sem ser enfraquecido.** Nem auto-satisfeito, nem contornado
-  por uma montagem parcial "que não publica nada".
+  por uma montagem parcial "que não publica nada" — e a montagem só correu **depois** da liberação.
+- **A alcançabilidade está fechada, e a asserção é dos dois lados.** O caso (8) do novo arquivo varre
+  a árvore de fontes e exige que o conjunto de arquivos que montam o rodapé seja **exatamente** as
+  cinco superfícies. Ele reprova a superfície esquecida **e** a superfície indevida — um rodapé que
+  vazasse para uma tela de RH ficaria vermelho na mesma asserção que pega a que faltou.
+- **A não-regressão foi medida, não afirmada.** `git diff --numstat` nas três páginas de conversão:
+  `2 0`, `2 0`, `2 0`.
 
 ## Task Commits
 
 Cada tarefa foi commitada atomicamente, com o hook de pre-commit rodando — **zero `--no-verify`**.
 
-1. **Task 1 (checkpoint: revisão do Encarregado)** — **NÃO SATISFEITA. Sem commit, por desenho.**
+1. **Task 1 (checkpoint: portão de publicação)** — **LIBERADO pelo operador (Fernando) em
+   2026-08-11**, após revisão das duas páginas públicas. Sem commit de código, por natureza: é um
+   ato de decisão, e o registro dele é este SUMMARY. **A revisão formal do Encarregado segue
+   aberta.**
 2. **Task 2 (TDD): o `RodapePublico`, a copy, o barrel e os 17 casos**
    - `3a86db6` (test) — RED: 14 de 17 casos falhando
    - `2c68c49` (feat) — GREEN: 17/17 no arquivo, 112/112 na feature, 1861/1861 na suíte
-3. **Task 3 (a montagem nas cinco superfícies)** — **NÃO EXECUTADA.** É o ato de publicação, e o
-   portão da Task 1 está aberto.
+3. **Task 3 (TDD): a montagem nas cinco superfícies**
+   - `2aaa45c` (test) — RED: 8 de 9 casos falhando. O caso (9), a asserção negativa, já passava —
+     nada montava o rodapé em lugar nenhum, que era exatamente o estado a corrigir.
+   - `f46b2e7` (feat) — GREEN: 9/9 no arquivo, 121/121 na feature, **1892/1892 na suíte**
 
 ## Files Created/Modified
 
@@ -240,8 +309,17 @@ Cada tarefa foi commitada atomicamente, com o hook de pre-commit rodando — **z
 - `src/features/transparencia/constants/copyTransparencia.ts` — **+1 bloco** com os dois rótulos
   verbatim da UI-SPEC e o nome acessível do ponto de referência. O docblock do bloco declara que ele
   **não cresce**.
-- `src/features/transparencia/index.ts` — exporta o componente **e registra que ele ainda não está
-  montado em navegação nenhuma**, com o motivo. O SUMMARY sai de contexto; o comentário fica.
+- `src/features/transparencia/index.ts` — exporta o componente e **registra as cinco superfícies onde
+  ele está montado e onde ele NÃO é montado**, apontando para a asserção que sustenta o conjunto. O
+  SUMMARY sai de contexto; o comentário fica.
+- `src/features/transparencia/__tests__/rodapeMontagem.test.tsx` — **9 casos, arquivo novo.** Separado
+  de `rodapePublico.test.tsx` de propósito: aquele prova que o componente está **correto**, este prova
+  que ele está **no lugar**. São asserções diferentes, e a segunda é a que fecha o critério da fase.
+- `src/components/pages/LandingPage.tsx` · `VagasPublicasPage.tsx` · `VagaDetalhePage.tsx` — **+2
+  linhas cada, 0 removidas.** Import e montagem como último filho do `container mx-auto` existente.
+- `src/features/transparencia/components/SubprocessadoresPage.tsx` ·
+  `PrivacidadePublicaPage.tsx` — **+2 linhas cada, 0 removidas.** Montagem como último filho do
+  container, abaixo do painel de vidro.
 
 ## Decisions Made
 
@@ -277,16 +355,42 @@ Cada tarefa foi commitada atomicamente, com o hook de pre-commit rodando — **z
   caso (6), que mede o DOM link a link, continua sendo a prova forte; o caso (7) é a rede da fonte.
 - **Commit:** `2c68c49`
 
-### 3. Desvio de escopo — a Task 3 não foi executada, e a Task 1 não foi satisfeita
+### 3. Desvio de escopo (RESOLVIDO) — a Task 3 esperou o portão, e correu depois dele
 
-Não é um auto-fix: é o cumprimento literal da ordem das tarefas do plano, que **é** o portão de
-publicação. A proibição do plano não é condicional — *"MUST NOT montar o rodapé antes da aprovação do
-Encarregado"*.
+No fecho de 2026-08-11T00:58Z a Task 3 **não** havia sido executada, em cumprimento literal da ordem
+das tarefas: *"MUST NOT montar o rodapé antes da aprovação"*. Uma montagem **parcial** (só nas duas
+páginas novas, "sem publicar nada") foi considerada e recusada na ocasião.
 
-Uma montagem **parcial** (só nas duas páginas novas, que já são inalcançáveis, e portanto "sem
-publicar nada") foi considerada e **recusada**: a proibição é literal, o guard da Task 3 exige as
-cinco superfícies, e satisfazer um portão pela metade para que ele "passe" é o modo de falha contra o
-qual este plano inteiro foi escrito.
+O portão foi **liberado pelo operador em 2026-08-11**, e só então a Task 3 correu. A ordem foi
+preservada de ponta a ponta: nenhuma navegação de produção apontou para as duas páginas antes da
+liberação.
+
+### 5. [Achado registrado, não refatorado] O link cruzado antigo convive com o rodapé nas duas páginas novas
+
+- **Encontrado durante:** Task 3, ao montar nas duas páginas de transparência.
+- **Situação:** `SubprocessadoresPage` já trazia, dentro do painel de vidro, um link para
+  `/privacidade` (rótulo *"Ver o que guardamos e por quanto tempo"*), e `PrivacidadePublicaPage` já
+  trazia o recíproco. Com o rodapé montado, cada uma passa a ter **dois** caminhos para a página
+  irmã, com rótulos diferentes.
+- **Por que NÃO foi removido:** remover editaria linhas escritas em 47-04/47-06 e reprovaria o caso
+  (9) de `subprocessadoresPage.test.tsx`, que assere o link cruzado pelo rótulo travado. O plano
+  manda **registrar achado, não refatorar a página vizinha** — e a redundância é benigna: os dois
+  caminhos levam ao mesmo lugar, com piso de alvo tátil nos dois.
+- **Consequência:** nenhuma. Fica como item de limpeza opcional para quem revisitar a copy das duas
+  páginas.
+
+### 6. [Achado registrado, não refatorado] No detalhe de vaga o rodapé não alcança os estados de carregamento e de 404
+
+- **Encontrado durante:** Task 3, ao mapear o container de `VagaDetalhePage`.
+- **Situação:** a página tem **três** retornos — esqueleto de carregamento, `VagaNotFoundState` (404
+  anti-enumeração) e o conteúdo. O rodapé foi montado no container do **conteúdo**, que é o único
+  container "existente" no sentido do plano. Quem cair num 404 de vaga não vê o rodapé.
+- **Por que NÃO foi corrigido:** montar nos três retornos custaria mais de 3 linhas adicionadas e o
+  guard de não-regressão reprova — corretamente, porque isso é reestruturar a página, não montar um
+  rodapé. O caminho de aquisição principal (inicial → lista → detalhe) está coberto nos três.
+- **Consequência:** um visitante que chegue direto a uma URL de vaga inexistente fica sem o caminho
+  até as duas páginas **naquela tela**; a lista de vagas, para onde o próprio 404 o convida a voltar,
+  tem o rodapé.
 
 ### 4. Desvio de forma — o RED é de COMPORTAMENTO, não de compilação
 
@@ -298,10 +402,11 @@ copy, sem o qual o teste não tipa. O RED continua real: **14 de 17 casos falhan
 
 ---
 
-**Total de desvios:** 2 auto-fixes (funcionalidade crítica ausente), 1 desvio de escopo (o portão) e
-1 desvio de forma.
+**Total de desvios:** 2 auto-fixes (funcionalidade crítica ausente), 1 desvio de escopo já resolvido
+(o portão), 1 desvio de forma e **2 achados registrados sem refatoração**.
 **Impacto no plano:** nenhum scope creep e nenhum afrouxamento. Os dois auto-fixes **endurecem** as
-asserções que o plano chama de mais frágeis da fase.
+asserções que o plano chama de mais frágeis da fase; os dois achados ficam registrados como o plano
+manda, em vez de virarem licença para editar página vizinha.
 
 ## Issues Encountered
 
@@ -314,28 +419,32 @@ asserções que o plano chama de mais frágeis da fase.
 
 | Gate | Resultado |
 |---|---|
-| `npm run test:run` | **1861 passed / 184 files** (baseline da fase 1844 → **+17**) |
+| `npm run test:run` | **1892 passed / 187 files** (baseline exigida 1883 → **+9**) |
 | `npm run -s lint \| grep -c "error TS"` | **97** (baseline congelada — sem regressão) |
-| `<verify>` da Task 2 (suíte da feature + guard de arquivo) | **OK — 112/112 na feature; 2 links, 2 alvos táteis, zero posicionamento fixo** |
-| `<verify>` da Task 3 | **não executado** — a Task 3 está atrás do portão |
+| `<verify>` da Task 2 (suíte da feature + guard de arquivo) | **OK — 121/121 na feature; 2 links, 2 alvos táteis, zero posicionamento fixo** |
+| `<verify>` da Task 3 (suíte inteira + guard de montagem + numstat) | **OK — rodapé montado em 5 superfícies, 3 delas sem nenhuma remoção** |
+| Regra de não-regressão (`git diff --numstat`) | **`2 0` · `2 0` · `2 0`** nas três páginas de conversão |
 | Os cinco `check:*` (`resend-dominio`, `export-allowlist`, `recibo-exclusao`, `matriz-retencao`, `pii-inventory-md`) | **exit 0 nos cinco** |
 | `portoesInvocados.test.ts` | **verde — 7/7** |
 | Dependência npm nova | **0** |
-| `--no-verify` | **0 usos** — o hook rodou e passou nos commits |
-| Migration escrita ou aplicada | **0**. Nada deployado |
-| Rodapé montado em navegação de produção | **0 superfícies** — por desenho |
+| `--no-verify` | **0 usos** — o hook rodou e passou nos 4 commits |
+| Migration escrita ou aplicada | **0**. **Nada aplicado nem deployado em PROD por este plano** |
+| Rodapé montado em navegação de produção | **5 superfícies**, e em nenhuma outra (asserido por igualdade de conjunto) |
 
 ## Known Stubs
 
 **Nenhum stub.** O componente é completo: não há campo por preencher, nenhuma seção espera por dado e
 nenhum caminho renderiza espaço reservado.
 
-Há **um bloqueio declarado**, que é coisa diferente de um stub:
+Há **itens abertos declarados**, que são coisa diferente de stubs:
 
 | Item | Onde | Estado |
 |---|---|---|
-| Revisão do Encarregado (portão de PUBLICAÇÃO) | 47-08-PLAN.md Task 1 · 47-CONTEXT §Área 5 | **ABERTO** — quatro itens, nenhum satisfeito por este executor |
-| Montagem do rodapé nas cinco superfícies | 47-08-PLAN.md Task 3 | **NÃO EXECUTADA** — bloqueada pelo item acima |
+| Portão de PUBLICAÇÃO das duas páginas | 47-08-PLAN.md Task 1 | **LIBERADO pelo operador (Fernando), 2026-08-11** |
+| **Revisão formal do Encarregado** (os quatro itens) | 47-08-PLAN.md Task 1 · 47-CONTEXT §Área 5 | **ABERTO e rastreável** — não exercida. As páginas estão publicadas; o parecer formal, não |
+| Montagem do rodapé nas cinco superfícies | 47-08-PLAN.md Task 3 | **COMPLETA** — `f46b2e7` |
+| Classificação de `api.ipify.org` | `src/services/logAccessService.ts:110` · 47-09 | **`pendente-de-decisao`** — fora da lista publicada, por desenho |
+| Classificação de `www.youtube.com` | `src/components/pages/InstrucoesFormularioPage.tsx:77` · 47-09 | **`pendente-de-decisao`** — fora da lista publicada, por desenho |
 
 ## Threat Flags
 
@@ -345,44 +454,56 @@ assim:
 
 | Ameaça | Estado |
 |---|---|
-| T-47-08-01 (páginas publicadas sem revisão) | **mitigado pelo não-fazer** — o portão está aberto e nada foi publicado |
-| T-47-08-02 (páginas existentes e inalcançáveis) | **pendente por desenho** — o remédio existe e aguarda o portão |
-| T-47-08-03 (alvo tátil abaixo do piso) | **mitigado** — asserção por link no DOM, com a caixa, mais a contagem na fonte |
-| T-47-08-04 (refatoração das páginas de conversão) | **não aplicável ainda** — nenhuma das três foi tocada; o guard está escrito no plano |
+| T-47-08-01 (páginas publicadas sem revisão) | **mitigado pela ordem** — a montagem correu **depois** da liberação do portão, e o registro nomeia quem liberou sem promover a liberação a parecer do Encarregado |
+| T-47-08-02 (páginas existentes e inalcançáveis) | **mitigado** — cinco superfícies montadas, com asserção de conjunto que reprova falta e excesso |
+| T-47-08-03 (alvo tátil abaixo do piso) | **mitigado** — asserção por link no DOM, com a caixa, mais a contagem na fonte, mais a re-verificação do piso **em cada superfície montada** (caso 7 do novo arquivo) |
+| T-47-08-04 (refatoração das páginas de conversão) | **mitigado e medido** — `2 0`, `2 0`, `2 0`. Dois achados que tentariam justificar refatoração foram registrados como achados, não executados |
 | T-47-08-05 (rodapé institucional) | **mitigado** — proibições no docblock, asseridas no DOM e na fonte |
 | T-47-08-06 (rodapé grudado comendo dobra) | **mitigado** — asserido nas classes e na fonte |
 | T-47-08-SC (instalação npm) | **mitigado** — zero dependência nova |
 
 ## User Setup Required
 
-**Sim, e é o portão desta entrega.** A revisão do Encarregado precisa acontecer antes de qualquer
-navegação de produção apontar para as duas páginas. Os quatro itens estão em
-§"O que o Encarregado precisa revisar", acima.
+**O portão de publicação está liberado; três itens continuam abertos e são de decisão humana:**
 
-Para revisar, subir a aplicação (`npm run dev`, porta 3003) e abrir as duas rotas **em aba anônima**,
-para confirmar que nenhuma sessão é exigida:
+1. **A revisão formal do Encarregado** dos quatro itens em §"Os quatro itens da revisão formal". Ela
+   **não foi exercida**. As páginas foram publicadas por decisão do operador, e essa distinção está
+   registrada de propósito.
+2. **A classificação de `api.ipify.org`** — o navegador do usuário pede o próprio IP a um terceiro,
+   pelo caminho vivo do `useSessionTimeout`. Entra na lista ou sai com decisão registrada.
+3. **A classificação de `www.youtube.com`** — iframe que faz o navegador do visitante pedir direto
+   ao terceiro. Mesma decisão.
+
+Para revisar, subir a aplicação (`npm run dev`, porta 3003) e abrir as duas rotas **em aba anônima**.
+Agora elas também são alcançáveis por navegação, que é o que mudou:
 
 - `http://localhost:3003/privacidade`
 - `http://localhost:3003/subprocessadores`
+- ou, pelo caminho do visitante: `http://localhost:3003/` → rodapé → qualquer uma das duas
 
 ## Next Phase Readiness
 
-- **A Task 3 está pronta para correr no instante em que o portão fechar.** Ela é mecânica: o
-  componente existe e é exportado, o guard automático está escrito no plano, e a regra de
-  não-regressão é executável (zero linha removida nas três páginas de conversão).
-- **47-09 (CONSOL-04)** não depende deste plano e não foi afetado.
-- **Manutenção:** um terceiro link acrescentado ao rodapé fica **vermelho** no caso (1); um link novo
-  sem o piso de alvo tátil fica vermelho nos casos (6) e (7); qualquer item da lista institucional
-  fica vermelho nos casos (8) a (10).
+- **O critério SC#1 do ROADMAP — *"qualquer visitante lê"* — está fechado pelo lado da
+  alcançabilidade.** Um visitante que chegue à página inicial, à lista de vagas ou ao detalhe de uma
+  vaga encontra as duas páginas.
+- **Duas classificações de destino de rede seguem pendentes** e viajam junto com a lista publicada,
+  em vez de serem descobertas depois. Elas são o próximo item de compliance, não de engenharia.
+- **47-09 (CONSOL-04)** não depende deste plano; foi ele quem produziu o achado dos dois destinos.
+- **Manutenção:** um terceiro link no rodapé fica **vermelho** no caso (1) de `rodapePublico`; um
+  link sem piso de alvo tátil fica vermelho nos casos (6)/(7) de `rodapePublico` e no (7) de
+  `rodapeMontagem`; uma superfície que perca o rodapé, ou uma tela interna que ganhe um, fica
+  vermelha no caso (8) de `rodapeMontagem`.
 
 ## Self-Check: PASSED
 
-Os 2 arquivos declarados como criados e os 2 modificados existem em disco; os 2 commits de tarefa
-existem em `git log`. A suíte, o `tsc`, os cinco `check:*`, o `portoesInvocados` e o guard automático
-da Task 2 foram **executados**, não lidos. Confirmado por execução que `RodapePublico` **não** aparece
-em `LandingPage.tsx`, `VagasPublicasPage.tsx`, `VagaDetalhePage.tsx`, `SubprocessadoresPage.tsx`,
-`PrivacidadePublicaPage.tsx` nem em `routes.tsx`.
+Os 3 arquivos declarados como criados e os 7 modificados existem em disco; os 4 commits de tarefa
+(`3a86db6`, `2c68c49`, `2aaa45c`, `f46b2e7`) existem em `git log`. A suíte (**1892/1892**), o `tsc`
+(**97**), os cinco `check:*` (**exit 0**), o `portoesInvocados` (**7/7**) e os guards automáticos das
+Tasks 2 e 3 foram **executados**, não lidos. A regra de não-regressão foi confirmada por
+`git diff --numstat HEAD~1 HEAD`: **zero linhas removidas** nas cinco superfícies. Confirmado por
+execução que `RodapePublico` **não** é montado em `ManifestoPage.tsx`, em rota de autenticação nem
+em qualquer rota interna — o conjunto de arquivos que o montam é exatamente as cinco superfícies.
 
 ---
 *Phase: 47-transpar-ncia-consolida-o*
-*Parado no portão de publicação: 2026-08-11*
+*Portão liberado pelo operador e montagem concluída: 2026-08-11*

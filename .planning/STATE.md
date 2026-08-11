@@ -5,8 +5,8 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-09-PLAN.md
-last_updated: "2026-08-11T04:17:10.917Z"
+stopped_at: Completed 47-08-PLAN.md (Task 3 — montagem do RodapePublico)
+last_updated: "2026-08-11T04:28:44.879Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 6
@@ -544,6 +544,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P04 | 9 min | 1 tasks | 4 files |
 | Phase 47 P08 | 14min | 1 tasks | 4 files |
 | Phase 47 P09 | 15min | 2 tasks | 2 files |
+| Phase 47 P08 | 12min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -735,6 +736,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 47]: Os seis paises dos subprocessadores foram MEDIDOS (2026-08-11): cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com hospedagem nao divulgada — O TimeZone do banco em PROD (America/Sao_Paulo) foi recusado como prova de regiao antes da medicao — e a recusa se provou certa: a regiao medida e us-east-1. O indicio apontava para o Brasil e estava errado; aceita-lo teria publicado uma declaracao falsa de transferencia internacional
 - [Phase ?]: 47-08: o RodapePublico foi CONSTRUIDO e deliberadamente NAO montado — a montagem e o ato de publicacao, e o portao do Encarregado esta aberto. Cinco das seis empresas contratadas tratam os dados nos Estados Unidos e todos os candidatos sao brasileiros: a pagina declara transferencia internacional em quase toda a cadeia, e isso e o nucleo da revisao
 - [Phase ?]: 47-09: os dois destinos de rede sem ficha (servico de IP, quadro de video embutido) sao registrados como pendencia com FATO MEDIDO e ROTA, nunca com veredito — classificar destino como empresa contratada e ato do Encarregado
+- [Phase ?]: Portao de publicacao 47-08 liberado pelo OPERADOR (Fernando) em 2026-08-11 apos revisao das duas paginas publicas; a revisao formal do Encarregado permanece ABERTA e rastreavel — nao foi exercida
+- [Phase ?]: RodapePublico montado nas cinco superficies publicas com zero linha removida nas tres paginas de conversao; /privacidade e /subprocessadores passam a ser alcancaveis por navegacao de producao
 
 ### Pending Todos
 
@@ -787,6 +790,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - DI-45-10-01 e DI-45-10-02: as duas obrigações atribuídas ao 45-10 seguem ABERTAS (claims das RPCs + retirar_candidatura fora do vocabulário da EF). Exigem plano próprio com migration de GRANT e redeploy; o 45-11 não abre o portão sem elas.
 - 47-04: os seis paises dos subprocessadores nao sao mediveis deste ambiente — /subprocessadores lanca ao renderizar e 47-08 nao pode torna-la alcancavel ate o operador informar os seis valores medidos (Task 3, checkpoint bloqueante)
 - PORTAO DE PUBLICACAO ABERTO (47-08 Task 1): a revisao do Encarregado precisa aprovar os quatro itens — os seis paises e a base legal de cada um (cinco sao EUA), a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas — antes de a Task 3 montar o rodape nas cinco superficies. Ate la, /privacidade e /subprocessadores existem e nenhuma navegacao de producao leva a elas
+- A lista publica de subprocessadores foi ao ar com DOIS destinos de rede pendentes de classificacao pelo Encarregado: api.ipify.org (src/services/logAccessService.ts:110) e www.youtube.com (src/components/pages/InstrucoesFormularioPage.tsx:77)
 
 ## Deferred Verification
 
@@ -934,8 +938,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-11T04:17:03.069Z
-Stopped at: Completed 47-09-PLAN.md
+Last session: 2026-08-11T04:28:44.861Z
+Stopped at: Completed 47-08-PLAN.md (Task 3 — montagem do RodapePublico)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
