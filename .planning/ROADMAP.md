@@ -221,7 +221,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 45-13-PLAN.md — **FECHAMENTO DOS 6 BLOCKERS DO CODE REVIEW**. O `/gsd-code-review 45` rodou em 2026-08-11 e o veredito foi **`REPROVADO`** (`45-REVIEW.md`: 6 blockers, 9 warnings). Este plano fecha os seis **no disco**, editando as migrations não aplicadas em lugar — nada de migration corretiva empilhada sobre migration que nunca rodou:
+- [x] 45-13-PLAN.md — **FECHAMENTO DOS 6 BLOCKERS DO CODE REVIEW**. O `/gsd-code-review 45` rodou em 2026-08-11 e o veredito foi **`REPROVADO`** (`45-REVIEW.md`: 6 blockers, 9 warnings). Este plano fecha os seis **no disco**, editando as migrations não aplicadas em lugar — nada de migration corretiva empilhada sobre migration que nunca rodou:
   - **CR-01** — o `GRANT` a `authenticated` (45-12) tornou o tombstone uma RPC de navegador: o guard verifica identidade e nunca **intenção**. Ganha uma metade (c) que exige pedido em `executando`, janela do D-45-01 vencida e `storage_concluido_em` carimbado, só no caminho destrutivo. ⚠ **`checkpoint:decision`** na Task 1 — manter o `GRANT` (recomendado), restringir também o caminho destrutivo a `administrador`/titular, ou retirar o `GRANT` (esta última **colide** com a recusa datada de 2026-08-05 e exigiria replanejar). Mais a trilha de executor, porque `logs_auditoria` continua fora por razão medida
   - **CR-02** — o passo 1 do Storage trava **para sempre** num `ponteiro_morto` que o próprio código coloca no lote: CV apagado + PII intacta, irrecuperável. A conferência passa do retorno de `remove()` para o **pós-estado do bucket**
   - **CR-03** — não há retomada depois do passo 2: o tombstone severa `user_id` e a EF passa a 403 para sempre. O pedido passa a ser reencontrado pelo `auth_uid` persistido no plano
@@ -378,7 +378,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 42. Inventário, Gates & Fila Art. 20 | v8.0 | 12/12 | In Progress|  |
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
-| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 10/12 | In Progress|  |
+| 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 

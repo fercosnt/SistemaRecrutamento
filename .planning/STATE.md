@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-08-PLAN.md (Task 3 — montagem do RodapePublico)
-last_updated: "2026-08-11T04:28:44.879Z"
+stopped_at: Completed 45-13-PLAN.md (os 6 blockers do 45-REVIEW fechados no disco; nada aplicado)
+last_updated: "2026-08-11T13:36:14.979Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 51
-  completed_plans: 49
+  total_plans: 52
+  completed_plans: 50
   percent: 67
-last_activity_desc: "47-08 Task 2 entregue: o RodapePublico existe — dois links, piso de alvo tátil provado em CADA link no próprio elemento acionável (e com a caixa flex, porque min-height numa âncora inline é ignorado pelo CSS), lista de proibições asserida no DOM e na fonte. ⚠ CONSTRUÍDO E NÃO MONTADO: a Task 3 (montagem nas cinco superfícies) NÃO foi executada e a Task 1 (revisão do Encarregado) segue ABERTA — montar é o ato de PUBLICAÇÃO. /privacidade e /subprocessadores continuam existindo sem nenhuma navegação de produção levando a elas. O núcleo da revisão: cinco das seis empresas contratadas tratam os dados nos EUA e todos os candidatos são brasileiros. Suíte 1861/1861, tsc 97, 5 check:* exit 0, portoesInvocados 7/7, zero --no-verify, zero dependência nova"
+last_activity_desc: "45-13 entregue: os SEIS blockers do 45-REVIEW.md fechados NO DISCO. CR-01 — metade (c), o guard de INTENCAO em anonimizar_candidato (pedido em executando, janela do D-45-01 vencida, storage_concluido_em carimbado), so no caminho destrutivo, mais a opcao B do operador (2026-08-11): o caminho real aceita apenas administrador ou o proprio titular; o rh mantem o dry-run. CR-02 — a conferencia do passo 1 passou ao POS-ESTADO do bucket e a retomada converge. CR-03 — reencontro do pedido pelo auth_uid do plano, so na acao executar. CR-04 — curriculo_url e curriculo_nome_original severadas (o auth.uid() em claro deixa de resolver por split_part). CR-05 — plano_exclusao_titular ENUMERA os bloqueadores do catalogo e a EF recusa ANTES do passo 1. CR-06 — sentinela por IGUALDADE com cinto secundario. Mais WR-01/02/03/04/05/06/08. ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD: as sete migrations 20260805000003..000009 seguem NAO aplicadas e quem aplica e o 45-11, atras de code review NOVO. Os md5(prosrc) foram recomputados e o 45-13-SUMMARY.md substitui o 45-12-SUMMARY.md como referencia do portao. deno 76/76 (era 63), suite 1892/1892, tsc 97, check:recibo-exclusao 0, contador do smoke 21->23, blocos $c1$/$c2$/$c3$/$c456$ byte a byte identicos, zero --no-verify, zero dependencia nova"
 ---
 
 # Project State
@@ -545,6 +545,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P08 | 14min | 1 tasks | 4 files |
 | Phase 47 P09 | 15min | 2 tasks | 2 files |
 | Phase 47 P08 | 12min | 3 tasks | 10 files |
+| Phase 45 P13 | ~2h | 4 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -738,6 +739,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 47-09: os dois destinos de rede sem ficha (servico de IP, quadro de video embutido) sao registrados como pendencia com FATO MEDIDO e ROTA, nunca com veredito — classificar destino como empresa contratada e ato do Encarregado
 - [Phase ?]: Portao de publicacao 47-08 liberado pelo OPERADOR (Fernando) em 2026-08-11 apos revisao das duas paginas publicas; a revisao formal do Encarregado permanece ABERTA e rastreavel — nao foi exercida
 - [Phase ?]: RodapePublico montado nas cinco superficies publicas com zero linha removida nas tres paginas de conversao; /privacidade e /subprocessadores passam a ser alcancaveis por navegacao de producao
+- [Phase ?]: 45-13 / opcao B (operador, 2026-08-11): o GRANT a authenticated FICA e anonimizar_candidato passa a verificar INTENCAO (metade (c): pedido em executando, janela do D-45-01 vencida, storage_concluido_em carimbado), com o caminho destrutivo restrito a administrador ou ao proprio titular. A metade (a) nao foi tocada.
+- [Phase ?]: 45-13: os md5(prosrc) do motor foram recomputados e o 45-13-SUMMARY.md passa a ser a referencia que o 45-11 confere, substituindo o 45-12-SUMMARY.md. ERASE-08 continua Pending — a sobrevivencia da trilha e provada pelo smoke que roda no 45-11.
 
 ### Pending Todos
 
@@ -938,8 +941,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-11T04:28:44.861Z
-Stopped at: Completed 47-08-PLAN.md (Task 3 — montagem do RodapePublico)
+Last session: 2026-08-11T13:36:14.963Z
+Stopped at: Completed 45-13-PLAN.md (os 6 blockers do 45-REVIEW fechados no disco; nada aplicado)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
