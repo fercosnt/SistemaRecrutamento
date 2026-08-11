@@ -596,6 +596,35 @@ function planoDoBanco(over: Record<string, unknown> = {}) {
     severar_fks_set_null: { ai_call_logs: 3, nota: "x" },
     scrub_ledger_email: { notificacoes_enviadas: 4, nota: "x" },
     auth_delete_user: { fonte: "fora_do_banco", usuario: null },
+    // ⚠ 45-13 / CR-05: a chave que a EF LÊ para recusar ANTES do passo 1. Vazia é o
+    // estado esperado de um titular puro.
+    bloqueadores_deleteuser: [],
+    ...over,
+  };
+}
+
+/**
+ * O jsonb que `anonimizar_candidato` devolve no caminho REAL (45-13).
+ *
+ * ⚠ As contagens vêm DAQUI, não do `plano_exclusao_titular` (WR-01): estas são
+ * `ROW_COUNT` real, aquelas eram previsão — e um titular com nove candidaturas produzia
+ * uma contagem inflada gravada no registro que sobrevive à exclusão.
+ * ⚠ E o bloco `executor` é a trilha: papel, se era o titular, e o `uid` APENAS quando
+ * NÃO era — o uid do titular é o identificador que a exclusão existe para apagar.
+ */
+function retornoAnonimizar(over: Record<string, unknown> = {}) {
+  return {
+    resultado: "anonimizado",
+    candidato_id: CANDIDATO_ID,
+    severacao_por_user_id: true,
+    executor: { papel: "candidato", foi_o_titular: true },
+    passos: {
+      tombstone_candidato: { candidatos: 1, candidaturas_curriculo: 2 },
+      tombstone_decisao_final: { decisao_final: 1, decisao_final_historico: 1 },
+      severar_user_id: { candidatos: 1, candidaturas_autoria: 0, historico_candidatura_ator: 1 },
+      severar_fks_set_null: { ai_call_logs: 0, preferencias_notificacoes: 0 },
+      scrub_ledger_email: { notificacoes_enviadas: 0 },
+    },
     ...over,
   };
 }
@@ -625,6 +654,15 @@ interface ExecOpts {
    * uma variável local que um defeito poderia ter setado.
    */
   perdeCarimboPostgres?: boolean;
+  /**
+   * ⚠ 45-13 / CR-02 — objetos que CONTINUAM no bucket depois do laço de remoção, por
+   * nome (sem prefixo). É o resíduo: a conferência do passo 1 passou a ser sobre o
+   * PÓS-ESTADO do bucket, e resíduo REPROVA. Sem esta opção não haveria como exercitar
+   * a falha FECHADA depois de a conferência deixar de ser sobre o retorno de `remove()`.
+   */
+  residuoAposRemove?: string[];
+  /** ⚠ 45-13 / WR-08 — o `UPDATE` que grava a `causa` devolve erro. */
+  falhaAoGravarCausa?: boolean;
 }
 
 function makeMockAdminExecutar(o: ExecOpts = {}) {
@@ -633,6 +671,9 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
   const curriculos = o.curriculos ?? [];
   const linha: Record<string, unknown> = {
     id: PEDIDO_ID,
+    // ⚠ 45-13 / CR-03: o reencontro pós-tombstone segue para `executarExclusao` com o
+    // `candidato_id` DO PEDIDO — `candidatos.user_id` já não resolve nada.
+    candidato_id: CANDIDATO_ID,
     executar_em: VENCIDO,
     situacao: "agendado",
     plano: null,
@@ -643,6 +684,16 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
     ...(o.pedido ?? {}),
   };
   const pedido = o.pedido === null ? null : linha;
+
+  /**
+   * ⚠ 45-13 — O BUCKET COMO ESTADO, e não como constante.
+   * `vivos` são os objetos que ainda existem, por NOME (sem prefixo). `remove()` os
+   * retira; o `list()` posterior serve o que sobrou. É o que torna a re-enumeração do
+   * CR-02 uma medição de verdade, em vez de uma leitura de fixture congelada.
+   */
+  const vivos = new Set<string>(paginas.flatMap((p) => p.map((l) => l.name)));
+  /** Um caminho completo (`{authUid}/{uuid}.pdf`) reduzido ao nome do objeto. */
+  const nomeDe = (caminho: string): string => caminho.split("/").slice(1).join("/");
 
   /** Diário de bordo: toda operação observável, na ordem em que aconteceu. */
   const ordem: string[] = [];
@@ -668,10 +719,7 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
     }
     if (nome === "anonimizar_candidato") {
       return Promise.resolve(
-        o.anonimizar ?? {
-          data: { resultado: "anonimizado", candidato_id: CANDIDATO_ID },
-          error: null,
-        },
+        o.anonimizar ?? { data: retornoAnonimizar(), error: null },
       );
     }
     if (nome === "ler_resend_api_key") {
@@ -717,6 +765,8 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
         });
       }
       if (tabela === "solicitacoes_dados") {
+        /** ⚠ WR-08: o último patch escrito, para que a gravação da `causa` possa falhar. */
+        let ultimoPatch: Record<string, unknown> = {};
         // deno-lint-ignore no-explicit-any
         const chain: any = {
           select: () => {
@@ -726,6 +776,8 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
           update: (patch: Record<string, unknown>) => {
             ordem.push("escreve:solicitacao");
             updates.push(patch);
+            ultimoPatch = patch;
+            if (o.falhaAoGravarCausa && patch.causa !== undefined) return chain;
             const aplicado = { ...patch };
             if (o.perdeCarimboPostgres) delete aplicado.postgres_concluido_em;
             Object.assign(linha, aplicado);
@@ -742,7 +794,12 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
             }),
           // deno-lint-ignore no-explicit-any
           then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
-            Promise.resolve({ data: null, error: null }).then(onF, onR),
+            Promise.resolve({
+              data: null,
+              error: (o.falhaAoGravarCausa && ultimoPatch.causa !== undefined)
+                ? { message: "conexao caiu ao gravar a causa" }
+                : null,
+            }).then(onF, onR),
         };
         return chain;
       }
@@ -760,19 +817,46 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
     storage: {
       from(_bucket: string) {
         return {
+          /**
+           * ⚠ 45-13: o `list()` deixou de ser uma constante e passou a servir o ESTADO
+           * do bucket, porque a conferência do passo 1 passou a ser sobre o PÓS-ESTADO
+           * dele (CR-02). Antes do primeiro `remove()` ele serve as páginas literais —
+           * que é o que preserva as asserções de ORDEM de paginação; depois, ele serve
+           * o que sobrou. Um mock que devolvesse as páginas originais na re-enumeração
+           * reprovaria a implementação CORRETA, dizendo que tudo continua lá.
+           */
           list(prefixo: string, opts: { limit: number; offset: number }) {
             ordem.push("storage:list");
             listCalls.push({ prefixo, limit: opts.limit, offset: opts.offset });
             if (o.listErro) return Promise.resolve({ data: null, error: o.listErro });
             const idx = Math.floor(opts.offset / opts.limit);
-            return Promise.resolve({ data: paginas[idx] ?? [], error: null });
+            if (removeCalls.length === 0) {
+              return Promise.resolve({ data: paginas[idx] ?? [], error: null });
+            }
+            const restantes = [...vivos, ...(o.residuoAposRemove ?? [])]
+              .map((name) => ({ name }));
+            return Promise.resolve({
+              data: restantes.slice(opts.offset, opts.offset + opts.limit),
+              error: null,
+            });
           },
           remove(lote: string[]) {
             ordem.push("storage:remove");
             removeCalls.push(lote);
+            // O DEFAULT é o comportamento REAL da Storage Admin API: ela devolve os
+            // objetos que EXISTIAM e foram apagados — um caminho que não existe no
+            // bucket simplesmente não volta. É o `ponteiro_morto` do CR-02.
             const r = o.removeResultado
               ? o.removeResultado(lote)
-              : { data: lote.map((name) => ({ name })), error: null };
+              : {
+                data: lote
+                  .filter((c) => vivos.has(nomeDe(c)))
+                  .map((name) => ({ name })),
+                error: null,
+              };
+            for (const item of (r.data ?? []) as Array<{ name?: unknown }>) {
+              if (typeof item?.name === "string") vivos.delete(nomeDe(item.name));
+            }
             return Promise.resolve(r);
           },
         };
@@ -1013,17 +1097,21 @@ Deno.test("(v) curriculo_url não-nula com ZERO caminhos enumerados → falha FE
   assertEquals(admin.linha.storage_concluido_em, null);
 });
 
-// ── (w) o retorno de remove() é CONFERIDO ────────────────────────────────────
-Deno.test("(w) remove() devolvendo MENOS objetos → falha_storage e sem carimbo", async () => {
+// ── (w) RESÍDUO NO BUCKET REPROVA — a falha continua FECHADA ─────────────────
+// ⚠ 45-13 / CR-02: a conferência mudou de OBJETO, não de rigor. Ela era sobre o
+// RETORNO de `remove()` — e por isso travava para sempre num `ponteiro_morto`, que o
+// próprio código coloca no lote. Agora é sobre o PÓS-ESTADO do bucket: um objeto que
+// continua lá depois do laço reprova o passo, sem carimbo, exatamente como antes.
+Deno.test("(w) objeto que SOBRA no bucket após o laço → falha_storage e sem carimbo", async () => {
   const { handler } = await loadHandler();
   const { admin, deps } = depsExecutar({
     paginas: [[{ name: CV_A.slice(PREFIXO.length) }, { name: CV_B.slice(PREFIXO.length) }]],
-    // A Storage Admin API diz ter apagado só UM dos dois.
+    // A Storage Admin API diz ter apagado só UM dos dois — o outro CONTINUA no bucket.
     removeResultado: (lote) => ({ data: [{ name: lote[0] }], error: null }),
   });
   const res = await handler(makeRequest({ acao: "executar" }), deps);
   assertEquals(res.status, 500);
-  assertEquals(admin.linha.storage_concluido_em, null, "conferência falhou → não carimba");
+  assertEquals(admin.linha.storage_concluido_em, null, "resíduo no bucket → não carimba");
   assertEquals(admin.linha.causa, "falha_storage");
   assertEquals(admin.deleteUserCalls.length, 0, "um passo falho NUNCA avança para o próximo");
 });
@@ -2012,4 +2100,367 @@ Deno.test("(ab) a retirada não toca tabela nenhuma na EF: quem encerra é a RPC
   // trilha, que é o que o D-45-13 recusou por escrito.
   assertEquals(admin.reads.solicitacoes, 0, "a retirada não lê nem escreve solicitacoes_dados");
   assertEquals(admin.reads.candidatos, 1, "a única leitura é a da autorização (passo 2)");
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 45-13 — OS SEIS BLOCKERS DO `45-REVIEW.md`, do lado da Edge Function.
+//
+// ⚠ O QUE ESTAS ASSERÇÕES PROTEGEM, E POR QUE NENHUMA DELAS É DE CAMINHO FELIZ.
+// O review mediu que as três rotas de falha mais prováveis do motor convergiam no
+// MESMO estado terminal — currículo destruído, pessoa não apagada, nada retomável — e
+// que ele é permanente: o PITR está desligado (D-45-10) e o backup de 7 dias exclui
+// Storage inteiramente. Um teste de caminho feliz passa com os três defeitos presentes.
+//
+//  · CR-02 — o passo 1 exigia que TODO caminho do lote voltasse na resposta de
+//    `remove()`. Mas `remove()` devolve os objetos que EXISTIAM, e
+//    `unirEDeduplicarCaminhos` põe deliberadamente no lote caminhos que podem não
+//    existir (`ponteiro_morto`, helpers.ts:177). Resultado medido: os CVs reais
+//    apagados, o carimbo nunca escrito, e toda tentativa futura falhando IDENTICAMENTE
+//    — porque os objetos já não estão lá.
+//  · CR-03 — o passo 2 severa `candidatos.user_id` por desenho (D-45-11), e a partir
+//    dali o handler respondia 403 a toda invocação daquele titular: os passos 3 e 4
+//    ficavam INALCANÇÁVEIS, com a conta do Auth viva e o recibo nunca enviado.
+//  · CR-05 — o 23503 era um desfecho esperado que só aparecia no passo 3, depois de o
+//    currículo ter sido apagado.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const OUTRO_UID = "auth-uid-de-outra-pessoa";
+
+// ── (ac) CR-02: o `ponteiro_morto` COMPLETA o passo 1 ────────────────────────
+Deno.test("(ac) CR-02: caminho que não existe no bucket NÃO falha o passo — ele carimba", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // O bucket tem UM objeto; o banco aponta para DOIS. O segundo é o `ponteiro_morto`:
+    // uma linha o aponta e ele já não existe (re-submissão anterior sem remoção).
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [
+      { id: "c1", curriculo_url: CV_A },
+      { id: "c2", curriculo_url: CV_C },
+    ],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assert(admin.linha.storage_concluido_em, "o passo 1 TEM de carimbar: o bucket ficou vazio");
+  assertEquals(admin.linha.causa, undefined, "ausência no retorno não é falha de passo");
+  assertEquals(admin.removeCalls[0].length, 2, "os dois caminhos vão ao remove()");
+  // A prova de que o passo continuou avançando: o tombstone rodou.
+  assertEquals(admin.rpcCalls.filter((c) => c.nome === "anonimizar_candidato").length, 1);
+});
+
+// ── (ad) CR-02: a RETOMADA converge ─────────────────────────────────────────
+Deno.test("(ad) CR-02: segunda execução com o bucket JÁ vazio carimba, em vez de falhar de novo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // O cenário exato do review: o passo 1 apagou os objetos e morreu antes do carimbo.
+    paginas: [[]],
+    pedido: {
+      situacao: "executando",
+      plano: {
+        versao: 1,
+        auth_uid: AUTH_UID,
+        email: EMAIL_TITULAR,
+        caminhos: [CV_A, CV_B],
+        achados: [],
+        recorte: { tem_curriculo: true, tem_decisao_registrada: false },
+        contagens: {},
+        previsto: { storage_remove: 2 },
+        achados_resumo: { blob_orfao: 0, ponteiro_morto: 0 },
+      },
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200, "a retomada TEM de convergir — antes ela falhava para sempre");
+  assertEquals(admin.removeCalls.length, 1, "o lote é re-enviado; `remove()` devolve vazio");
+  assert(admin.linha.storage_concluido_em, "o pós-estado do bucket é VAZIO: o passo carimba");
+  assert(admin.linha.auth_concluido_em, "e a execução chega ao fim, em vez de travar no passo 1");
+});
+
+// ── (ae) CR-02: os não-devolvidos são CONTAGEM, nunca caminhos ───────────────
+Deno.test("(ae) CR-02: os não-devolvidos entram como CONTAGEM — nunca a lista de caminhos", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [
+      { id: "c1", curriculo_url: CV_A },
+      { id: "c2", curriculo_url: CV_C },
+    ],
+  });
+  await handler(makeRequest({ acao: "executar" }), deps);
+  const plano = admin.linha.plano as Record<string, unknown>;
+  const resumo = plano.achados_resumo as Record<string, number>;
+  assertEquals(resumo.nao_devolvidos, 1, "o achado é registrado, e é um NÚMERO");
+  // ⚠ A asserção NEGATIVA é a que importa: o caminho embute o `auth.uid()` do titular.
+  // Guardar a LISTA reintroduziria no registro que sobrevive à exclusão exatamente a
+  // PII que o passo 4 esvazia o plano para remover.
+  const serializado = JSON.stringify(plano);
+  assert(!serializado.includes(AUTH_UID), "nenhum caminho de Storage sobrevive ao fecho");
+  assert(!serializado.includes(".pdf"), "nem sequer um nome de arquivo");
+});
+
+// ── (af) WR-02: marcador de pasta LANÇA ─────────────────────────────────────
+Deno.test("(af) WR-02: marcador de pasta sob o prefixo faz a enumeração LANÇAR", async () => {
+  const h = await import("./helpers.ts");
+  const admin = {
+    storage: {
+      from: () => ({
+        // `id: null` é o marcador de PASTA que o Storage devolve. Descartá-lo era
+        // correto para o esquema plano de hoje — e vira um buraco no dia em que alguém
+        // gravar em subpasta: a enumeração devolveria zero, o laço não rodaria, o passo
+        // carimbaria, e o recibo afirmaria que o currículo foi apagado. Com a
+        // conferência do CR-02, a re-enumeração vazia passou a ser a PROVA de sucesso —
+        // então um descarte silencioso aqui é um falso verde estrutural.
+        list: () =>
+          Promise.resolve({
+            data: [{ name: "sub", id: null }, { name: "a.pdf", id: "obj-1" }],
+            error: null,
+          }),
+      }),
+    },
+  };
+  let lancou = false;
+  let mensagem = "";
+  try {
+    await h.enumerarObjetosTitular(admin, `${AUTH_UID}/`);
+  } catch (e) {
+    lancou = true;
+    mensagem = String((e as Error).message);
+  }
+  assert(lancou, "a enumeração de UM nível tem de falhar ALTO diante de uma subpasta");
+  assert(!mensagem.includes(AUTH_UID), "⚠ a mensagem NÃO carrega o prefixo: ele é o auth.uid()");
+});
+
+// ── (ag) WR-03: ponteiro fora do prefixo é DESCARTADO ───────────────────────
+Deno.test("(ag) WR-03: curriculo_url fora do prefixo do titular vira achado e nunca chega ao remove()", async () => {
+  const { handler } = await loadHandler();
+  const alheio = `${OUTRO_UID}/99999999-9999-4999-8999-999999999999.pdf`;
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [
+      { id: "c1", curriculo_url: CV_A },
+      { id: "c2", curriculo_url: alheio },
+      { id: "c3", curriculo_url: `${PREFIXO}../fora.pdf` },
+    ],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  const plano = admin.updates[0].plano as Record<string, unknown>;
+  assertEquals(plano.caminhos, [CV_A], "só o que está sob o prefixo do titular entra no plano");
+  const achados = plano.achados as Array<{ caminho: string; tipo: string }>;
+  assertEquals(
+    achados.filter((a) => a.tipo === "fora_do_prefixo").length,
+    2,
+    "o descarte é ACHADO REGISTRADO, nunca remoção silenciosa e nunca parada",
+  );
+  // ⚠ A asserção que importa: `remove()` roda com a service key e ignora RLS. Um
+  // `curriculo_url` legado ou importado apagaria o CV de OUTRA pessoa,
+  // irreversivelmente — sem PITR e com o Storage fora de todo backup.
+  for (const lote of admin.removeCalls) {
+    assert(!lote.includes(alheio), "o caminho de outra pessoa JAMAIS pode ir ao remove()");
+    for (const c of lote) assert(c.startsWith(PREFIXO), `caminho fora do prefixo no lote: ${c}`);
+  }
+});
+
+// ── (ah) CR-03: a retomada pós-tombstone ────────────────────────────────────
+Deno.test("(ah) CR-03: com user_id já severado, 'executar' reencontra o pedido pelo auth_uid do plano", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // O tombstone já commitou: `candidatos.user_id` é NULL e a resolução por titular
+    // devolve VAZIO. Antes disto, o handler respondia 403 e os passos 3 e 4 ficavam
+    // inalcançáveis — conta do Auth viva, recibo nunca enviado, `executando` para sempre.
+    cand: null,
+    pedido: {
+      situacao: "executando",
+      storage_concluido_em: CARIMBO_STORAGE,
+      postgres_concluido_em: CARIMBO_POSTGRES,
+      plano: planoCapturado(),
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200, "a execução TEM de ser retomável depois do passo 2");
+  assertEquals(admin.deleteUserCalls.length, 1, "o passo 3 passa a ser alcançável");
+  assert(admin.linha.recibo_enviado_em, "e o passo 4 também — o recibo é o único canal que resta");
+});
+
+// ── (ai) CR-03: o reencontro NÃO é um atalho de autorização ─────────────────
+Deno.test("(ai) CR-03: pedido cujo auth_uid é de OUTRA pessoa não é reencontrado → 403", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    cand: null,
+    pedido: {
+      situacao: "executando",
+      storage_concluido_em: CARIMBO_STORAGE,
+      postgres_concluido_em: CARIMBO_POSTGRES,
+      // ⚠ O `auth_uid` do plano foi escrito pelo motor a partir do JWT no passo 0. Se
+      // ele não bate o `sub` da sessão, NÃO é a mesma pessoa — e o único identificador
+      // aceito continua vindo do JWT verificado, nunca do corpo do request (T-32-03).
+      plano: planoCapturado({ auth_uid: OUTRO_UID }),
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 403);
+  assertEquals((await res.json()).error_code, "FORBIDDEN");
+  assertEquals(admin.deleteUserCalls.length, 0, "ninguém apaga a conta de outra pessoa");
+  assertEquals(admin.removeCalls.length, 0);
+});
+
+// ── (aj) CR-03: o reencontro existe SÓ para `executar` ──────────────────────
+Deno.test("(aj) CR-03: 'pedir', 'cancelar' e 'retirar_candidatura' NÃO ganharam o reencontro", async () => {
+  const { handler } = await loadHandler();
+  for (const acao of ["pedir", "cancelar", "retirar_candidatura"]) {
+    const { admin, deps } = depsExecutar({ cand: null });
+    const res = await handler(
+      makeRequest({ acao, candidatura_id: CANDIDATURA_ID }),
+      deps,
+    );
+    // As outras três não têm estado pós-tombstone a retomar; abrir o reencontro para
+    // elas seria superfície nova sem benefício.
+    assertEquals(res.status, 403, `${acao} deveria continuar em 403`);
+    assertEquals(admin.rpcCalls.length, 0, `${acao} não pode alcançar RPC nenhuma`);
+  }
+});
+
+// ── (ak) CR-03: pedido inteiramente finalizado é NO-OP ──────────────────────
+Deno.test("(ak) CR-03: pedido com os quatro carimbos → 200 sem Storage, sem RPC e sem deleteUser", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    cand: null,
+    pedido: {
+      situacao: "concluido",
+      storage_concluido_em: CARIMBO_STORAGE,
+      postgres_concluido_em: CARIMBO_POSTGRES,
+      auth_concluido_em: CARIMBO_AUTH,
+      recibo_enviado_em: "2026-08-06T10:00:03.000Z",
+      plano: { versao: 1, contagens: { storage_remove: 1 }, achados_resumo: {} },
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  // ⚠ A situação terminal precisa ser alcançável pela consulta do reencontro, senão um
+  // pedido concluído SEM recibo não seria reencontrado por caminho nenhum. Com os
+  // passos guardados por carimbo, entrar aqui é um no-op — e as três negativas provam.
+  assertEquals(admin.removeCalls.length, 0);
+  assertEquals(admin.deleteUserCalls.length, 0);
+  assertEquals(admin.fetchCalls.length, 0, "nenhum sistema externo é tocado");
+  assertEquals(admin.rpcCalls.filter((c) => c.nome === "anonimizar_candidato").length, 0);
+});
+
+// ── (al) CR-05: a recusa acontece ANTES do passo 1 ──────────────────────────
+Deno.test("(al) CR-05: bloqueadores não-vazios param a execução ANTES de qualquer remoção", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: CV_A }],
+    planoBanco: {
+      data: planoDoBanco({
+        bloqueadores_deleteuser: [{ tabela: "public.decisao_final", coluna: "por_usuario" }],
+      }),
+      error: null,
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  // ⚠ O ganho está inteiro nesta linha: uma verificação antes da PRIMEIRA mutação
+  // transforma o 23503 de «desfecho esperado» em «recusa barata». Sem ela, o mesmo
+  // bloqueador só aparecia no passo 3 — depois de o currículo ter sido apagado, e (CR-03)
+  // sem retomada.
+  assertEquals(admin.removeCalls.length, 0, "zero remoção");
+  assertEquals(admin.deleteUserCalls.length, 0);
+  assertEquals(admin.linha.storage_concluido_em, null, "e zero carimbo");
+  assertEquals(admin.linha.plano, null, "o plano nem chega a ser persistido");
+});
+
+// ── (am) WR-01: as contagens persistidas são as REAIS ───────────────────────
+Deno.test("(am) WR-01: as contagens saem do retorno da RPC; as do plano viram previsão", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [
+      { id: "c1", curriculo_url: CV_A },
+      { id: "c2", curriculo_url: CV_C },
+    ],
+  });
+  await handler(makeRequest({ acao: "executar" }), deps);
+  const plano = admin.linha.plano as Record<string, unknown>;
+  const contagens = plano.contagens as Record<string, number>;
+  const previsto = plano.previsto as Record<string, number>;
+  // `tombstone_candidato` do BANCO somava candidatos + candidaturas_vinculadas +
+  // devolutivas + disponibilidade + solicitacoes = 3 na fixture; o tombstone toca UMA
+  // linha de candidatos e as candidaturas do CV. O número persistido é o ROW_COUNT real.
+  assertEquals(contagens.tombstone_candidato, 3, "1 candidato + 2 candidaturas, do ROW_COUNT");
+  assertEquals(previsto.tombstone_candidato, 3, "a previsão do plano fica em campo SEPARADO");
+  // E o Storage conta o que foi EFETIVAMENTE apagado — não o `ponteiro_morto`, que
+  // nunca existiu no bucket.
+  assertEquals(contagens.storage_remove, 1, "um objeto existia; o outro era ponteiro morto");
+  assertEquals(previsto.storage_remove, 2, "o plano PREVIA dois caminhos");
+});
+
+// ── (an) a trilha do executor sobrevive ao esvaziamento do plano ────────────
+Deno.test("(an) a trilha de quem destruiu PII sobrevive ao fecho — e o uid do titular NÃO", async () => {
+  const { handler } = await loadHandler();
+
+  // (i) executor = o próprio titular: o `uid` NÃO viaja. Ele é o identificador que a
+  //     exclusão existe para apagar, e gravá-lo no registro que PROVA a exclusão seria
+  //     o mesmo defeito do CR-04 com outra cara.
+  const um = depsExecutar({ paginas: [[]] });
+  await handler(makeRequest({ acao: "executar" }), um.deps);
+  const planoTitular = um.admin.linha.plano as Record<string, unknown>;
+  const execTitular = planoTitular.executor as Record<string, unknown>;
+  assert(execTitular, "a trilha TEM de sobreviver: uma trilha apagada no fecho não é trilha");
+  assertEquals(execTitular.foi_o_titular, true);
+  assertEquals(execTitular.uid, undefined, "o uid do titular jamais sobrevive à própria exclusão");
+  assert(!JSON.stringify(planoTitular).includes(AUTH_UID));
+
+  // (ii) executor = um operador: o `uid` DELE é identidade de equipe, e é exatamente o
+  //      que uma trilha precisa guardar. `anonimizar_candidato` não escreve em
+  //      `logs_auditoria` (os dois enums nunca foram medidos, e um valor inventado
+  //      abortaria a anonimização depois de o currículo ter sido apagado) — este bloco
+  //      é a trilha que existe no lugar.
+  const dois = depsExecutar({
+    paginas: [[]],
+    anonimizar: {
+      data: retornoAnonimizar({
+        executor: { papel: "administrador", foi_o_titular: false, uid: OUTRO_UID },
+      }),
+      error: null,
+    },
+  });
+  await handler(makeRequest({ acao: "executar" }), dois.deps);
+  const planoOperador = dois.admin.linha.plano as Record<string, unknown>;
+  const execOperador = planoOperador.executor as Record<string, unknown>;
+  assertEquals(execOperador.papel, "administrador");
+  assertEquals(execOperador.foi_o_titular, false);
+  assertEquals(execOperador.uid, OUTRO_UID, "o uid do OPERADOR fica — é isso que é trilha");
+});
+
+// ── (ao) WR-08: a causa que não foi gravada deixa rastro ────────────────────
+Deno.test("(ao) WR-08: falha ao gravar a causa deixa rastro no log redigido, em vez de sumir", async () => {
+  const { handler } = await loadHandler();
+  const original = console.error;
+  const linhas: unknown[][] = [];
+  console.error = (...args: unknown[]) => {
+    linhas.push(args);
+  };
+  try {
+    const { deps } = depsExecutar({
+      falhaAoGravarCausa: true,
+      deleteUser: { error: { message: "23503" } },
+      pedido: {
+        situacao: "executando",
+        storage_concluido_em: CARIMBO_STORAGE,
+        postgres_concluido_em: CARIMBO_POSTGRES,
+        plano: planoCapturado(),
+      },
+    });
+    const res = await handler(makeRequest({ acao: "executar" }), deps);
+    assertEquals(res.status, 500);
+  } finally {
+    console.error = original;
+  }
+  const texto = JSON.stringify(linhas);
+  // Sem este rastro, o pedido fica em `executando` sem `causa` e sem registro de em
+  // qual sistema parou — indistinguível de uma execução que nunca começou.
+  assert(texto.includes("causa_nao_gravada"), "a falha do UPDATE da causa tem de aparecer");
+  // E o log continua REDIGIDO: nada além da allowlist local atravessa.
+  assert(!texto.includes(EMAIL_TITULAR), "nenhum e-mail no log");
+  assert(!texto.includes(PEDIDO_ID), "nenhum id completo no log");
 });
