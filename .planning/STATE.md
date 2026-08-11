@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 45-13-PLAN.md (os 6 blockers do 45-REVIEW fechados no disco; nada aplicado)
-last_updated: "2026-08-11T13:36:14.979Z"
+stopped_at: Completed 45-14 (os 3 blockers do 45-REVIEW-2 fechados no disco; nada aplicado)
+last_updated: "2026-08-11T14:17:15.588Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 52
-  completed_plans: 50
+  total_plans: 53
+  completed_plans: 51
   percent: 67
-last_activity_desc: "45-13 entregue: os SEIS blockers do 45-REVIEW.md fechados NO DISCO. CR-01 — metade (c), o guard de INTENCAO em anonimizar_candidato (pedido em executando, janela do D-45-01 vencida, storage_concluido_em carimbado), so no caminho destrutivo, mais a opcao B do operador (2026-08-11): o caminho real aceita apenas administrador ou o proprio titular; o rh mantem o dry-run. CR-02 — a conferencia do passo 1 passou ao POS-ESTADO do bucket e a retomada converge. CR-03 — reencontro do pedido pelo auth_uid do plano, so na acao executar. CR-04 — curriculo_url e curriculo_nome_original severadas (o auth.uid() em claro deixa de resolver por split_part). CR-05 — plano_exclusao_titular ENUMERA os bloqueadores do catalogo e a EF recusa ANTES do passo 1. CR-06 — sentinela por IGUALDADE com cinto secundario. Mais WR-01/02/03/04/05/06/08. ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD: as sete migrations 20260805000003..000009 seguem NAO aplicadas e quem aplica e o 45-11, atras de code review NOVO. Os md5(prosrc) foram recomputados e o 45-13-SUMMARY.md substitui o 45-12-SUMMARY.md como referencia do portao. deno 76/76 (era 63), suite 1892/1892, tsc 97, check:recibo-exclusao 0, contador do smoke 21->23, blocos $c1$/$c2$/$c3$/$c456$ byte a byte identicos, zero --no-verify, zero dependencia nova"
+last_activity_desc: "45-14 entregue: os TRES blockers do 45-REVIEW-2.md fechados NO DISCO. BL-01 — p_dry_run e um booleano de TRES valores e o DEFAULT true nao protege contra NULL EXPLICITO: com o parametro cru, IF p_dry_run caia no ramo DESTRUTIVO, IF NOT p_dry_run nao rodava o guard de INTENCAO e o terminador nao levantava P45DR, e a transacao COMMITAVA sobre PII real, sem pedido, fora da janela do ERASE-06, sem recibo. Fechado por NORMALIZACAO UNICA no DECLARE (v_dry_run := coalesce(p_dry_run, true)), com o corpo inteiro lendo v_dry_run e o parametro cru nao consultado em lugar nenhum. BL-02 — v_severadas subtraia quatro pares de AUTORIA que o tombstone severa APENAS nas linhas deste candidato: a lista voltava [] com um bloqueador real de pe e o 23503 batia DEPOIS do passo 1. Fechado ESTREITANDO a enumeracao (probe com o mesmo escopo da severacao, por IS DISTINCT FROM), nunca alargando a severacao. BL-03 — a filtragem de prefixo do WR-03 rodava ANTES do G13 e desarmava exatamente o caso mais suspeito (ponteiros vivos fora do prefixo davam carimbo com zero objeto e recibo mentindo). G13 restaurado sobre os ponteiros CRUS, mais a recusa por descarte integral de ponteiros. Assercoes novas que falham antes do fix: (vi.d) e (vii) na auto-verificacao da 20260805000006, (C8) no smoke (contador FIXO 23->24), e (v2)/(v3) no index.test.ts (RED provado por execucao: 76 passed/2 failed antes, 78/78 depois). ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD: as sete migrations 20260805000003..000009 seguem NAO aplicadas. Os md5(prosrc) mudaram OUTRA VEZ e o 45-14-SUMMARY.md SUBSTITUI o 45-13-SUMMARY.md como referencia do 45-11: plano_exclusao_titular = 97634d07ef13447e06741a8c8372fca6 (21349) e anonimizar_candidato = 8c86e0f040219e7eade47eb587dbf5de (34488). suite 1892/1892, tsc 97, deno 78/78 (era 76), os cinco check:* verdes, $c2$ byte a byte identico (2676 octetos), zero --no-verify, zero dependencia nova. Os 7 WARNINGs do review seguem abertos em deferred-items.md (DI-45-14-02)."
 ---
 
 # Project State
@@ -546,6 +546,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P09 | 15min | 2 tasks | 2 files |
 | Phase 47 P08 | 12min | 3 tasks | 10 files |
 | Phase 45 P13 | ~2h | 4 tasks | 9 files |
+| Phase 45 P14 | 40min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -741,6 +742,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: RodapePublico montado nas cinco superficies publicas com zero linha removida nas tres paginas de conversao; /privacidade e /subprocessadores passam a ser alcancaveis por navegacao de producao
 - [Phase ?]: 45-13 / opcao B (operador, 2026-08-11): o GRANT a authenticated FICA e anonimizar_candidato passa a verificar INTENCAO (metade (c): pedido em executando, janela do D-45-01 vencida, storage_concluido_em carimbado), com o caminho destrutivo restrito a administrador ou ao proprio titular. A metade (a) nao foi tocada.
 - [Phase ?]: 45-13: os md5(prosrc) do motor foram recomputados e o 45-13-SUMMARY.md passa a ser a referencia que o 45-11 confere, substituindo o 45-12-SUMMARY.md. ERASE-08 continua Pending — a sobrevivencia da trilha e provada pelo smoke que roda no 45-11.
+- [Phase ?]: 45-14: BL-01 fechado por NORMALIZACAO UNICA de p_dry_run para o lado SEGURO no DECLARE (coalesce(p_dry_run, true)), nunca por tres coalesce espalhados nem por recusa explicita de NULL — destruir sobre intencao nao declarada e o desfecho que o portao existe para impedir
+- [Phase ?]: 45-14: BL-02 fechado ESTREITANDO a enumeracao (probe com o escopo da severacao) e nao ALARGANDO a severacao para o user_id inteiro — alargar faria linhas de OUTRAS pessoas perderem o registro de autoria por causa do pedido de um terceiro
+- [Phase ?]: 45-14: a prova com fixture do BL-02 mora na auto-verificacao da 20260805000006 (caso vii) e nao na da 20260805000005, que declara escopo negativo READ-ONLY — desvio consciente da letra da condicao de reabertura no 2, com cross-reference escrito nos dois arquivos
 
 ### Pending Todos
 
@@ -941,8 +945,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-11T13:36:14.963Z
-Stopped at: Completed 45-13-PLAN.md (os 6 blockers do 45-REVIEW fechados no disco; nada aplicado)
+Last session: 2026-08-11T14:17:15.569Z
+Stopped at: Completed 45-14 (os 3 blockers do 45-REVIEW-2 fechados no disco; nada aplicado)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

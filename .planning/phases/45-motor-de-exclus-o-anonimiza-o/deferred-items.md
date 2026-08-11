@@ -356,3 +356,55 @@ implementando ideia diferida — e ele é justamente onde a metade (1) também s
 porque um executor com `service_role` retoma sem depender de JWT nenhum.
 
 **Fecha na Phase 46**, junto com o executor agendado.
+
+---
+
+## Do plano 45-14 (os 3 blockers do `45-REVIEW-2.md`)
+
+### DI-45-14-01 · `deno test supabase/functions/` (o diretório INTEIRO) não roda — falta `npm:svix`
+
+**Encontrado em:** 45-14, ao conferir a baseline de Deno depois do fix do BL-03.
+
+**O quê, medido:**
+
+```
+error: Could not find a matching package for 'npm:svix@1.99.1' in the node_modules directory
+    at supabase/functions/resend-webhook/__tests__/resend-webhook.test.ts:22:25
+```
+
+O pacote é dependência da EF `resend-webhook` (verificação de assinatura de webhook do Resend) e
+não está instalado no `node_modules` deste repositório, nem declarado em `deno.json`. **É
+pré-existente e não tem relação com a Phase 45** — o comando de baseline desta fase é
+`deno test supabase/functions/executar-direito-titular/`, que sai **78/78**.
+
+**Consequência se ninguém fechar:** quem rodar o diretório inteiro (o comando mais óbvio) vê um
+vermelho que não é sobre o código que acabou de escrever, e a reação treinada é ignorar a suíte de
+Deno como um todo — inclusive os testes do motor destrutivo, que são a cobertura do passo 1.
+
+**Por que NÃO foi feito aqui:** instalar dependência é ato de escopo próprio, e este plano é um
+fix pass de três blockers com "zero dependência nova" entre as condições. Além disso, a suíte da
+`resend-webhook` não é objeto de nenhuma asserção da Phase 45.
+
+**Fecha:** junto com o próximo trabalho que tocar `resend-webhook`, ou como item de manutenção —
+`deno install` / declaração em `deno.json`, conferindo antes que o pacote `svix` seja o legítimo.
+
+### DI-45-14-02 · Os 7 WARNINGs do `45-REVIEW-2.md` continuam abertos
+
+**Encontrado em:** o próprio review; este plano fechou apenas os 3 BLOCKERS.
+
+WR-A (retomada do passo 1 não convergente quando o bucket ganha objeto depois do passo 0),
+WR-B (a enumeração só vê FKs DIRETAS para `auth.users`; o bloqueador medido era transitivo),
+WR-C (`candidatos.user_id` já NULL faz a enumeração medir vazio por vacuidade),
+WR-D (`bloqueadores_deleteuser` não é reavaliado numa retomada),
+WR-E (o plano persistido é consumido sem forma verificada — `TypeError` DEPOIS do `remove()`),
+WR-F (`plano_exclusao_titular` virou sonda de autoria arbitrária sob o papel `rh`),
+WR-G (`updated_at` idêntico em todas as candidaturas do titular — quase-identificador novo).
+
+**Consequência se ninguém fechar:** o review afirma que os sete **não bloqueiam o apply**, mas que
+**WR-A, WR-C e WR-E** produzem estados terminais **depois do passo 1** — o custo exato que esta
+fase existe para não pagar — e que os três deveriam fechar **antes da execução real da Task 3 do
+45-11**.
+
+**Fecha:** decisão do orquestrador no portão do 45-11 — fechar os três antes da Task 3, ou
+registrar em `45-11-EVIDENCIA-PORTAO.md` a aceitação explícita do risco, com o desfecho de cada um
+escrito.
