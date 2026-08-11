@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 26
+open_count: 27
 waived_count: 0
 fixed_count: 1
-total_count: 27
-last_updated: 2026-08-11T00:39:00.000Z
+total_count: 28
+last_updated: 2026-08-11T03:53:04.434Z
 ---
 
 # Broken Windows Ledger
@@ -42,6 +42,7 @@ last_updated: 2026-08-11T00:39:00.000Z
 | 25 | 47 | unmet-truth | src/features/transparencia/constants/subprocessadores.ts |  | As seis entradas carregam a sentinela PAIS_POR_MEDIR: a regiao onde o dado deste projeto e tratado nao e medivel deste ambiente. A pagina /subprocessadores LANCA ao renderizar e nao pode ser publicada ate o operador informar os seis paises medidos (47-04 Task 3, checkpoint bloqueante). | fixed | FECHADO por MEDICAO em 2026-08-11: o operador mediu os seis paises nos paineis e documentos dos fornecedores (47-04 Task 3). Cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com a ressalva de hospedagem nao divulgada no campo visivel. Sentinela e validador preservados como rede da proxima entrada. Commit eeed0e5. | 2026-08-09T22:12:40.305Z | 2026-08-11T00:39:00.000Z |
 | 26 | 47 | unmet-truth | src/features/transparencia/constants/matrizRetencao.generated.ts |  | As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5) | open |  | 2026-08-09T23:11:20.359Z |  |
 | 27 | 47 | todo | src/features/hub-candidato/services/historicoCandidaturaService.ts |  | as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types | open |  | 2026-08-10T12:55:37.934Z |  |
+| 28 | 47 | unrun-verify | .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md |  | 47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto | open |  | 2026-08-11T03:53:04.434Z |  |
 
 ````json
 [
@@ -367,6 +368,18 @@ last_updated: 2026-08-11T00:39:00.000Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-10T12:55:37.934Z",
+    "resolved_at": null
+  },
+  {
+    "id": 28,
+    "kind": "unrun-verify",
+    "phase": "47",
+    "file": ".planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md",
+    "line": null,
+    "description": "47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T03:53:04.434Z",
     "resolved_at": null
   }
 ]

@@ -5,16 +5,16 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 47-04-PLAN.md Task 3 (checkpoint dos seis paises, FECHADO)
-last_updated: "2026-08-11T03:42:20.236Z"
+stopped_at: 47-08 Task 2 concluida; PARADO no portao de PUBLICACAO do Encarregado (Task 1 ABERTA, Task 3 nao executada)
+last_updated: "2026-08-11T03:53:04.372Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 51
-  completed_plans: 47
+  completed_plans: 48
   percent: 50
-last_activity_desc: "47-04 Task 3 FECHADA: os seis países dos subprocessadores foram medidos pelo operador (2026-08-11) — cinco tratam os dados nos EUA, ViaCEP declara jurisdição brasileira com hospedagem não divulgada. O TimeZone do banco em PROD (America/Sao_Paulo) tinha sido recusado como prova de região e a recusa se provou certa: a região real é us-east-1. Sentinela e validador preservados como rede da próxima entrada. Suíte 1844/1844, tsc 97, 4 check:* exit 0, zero --no-verify"
+last_activity_desc: "47-08 Task 2 entregue: o RodapePublico existe — dois links, piso de alvo tátil provado em CADA link no próprio elemento acionável (e com a caixa flex, porque min-height numa âncora inline é ignorado pelo CSS), lista de proibições asserida no DOM e na fonte. ⚠ CONSTRUÍDO E NÃO MONTADO: a Task 3 (montagem nas cinco superfícies) NÃO foi executada e a Task 1 (revisão do Encarregado) segue ABERTA — montar é o ato de PUBLICAÇÃO. /privacidade e /subprocessadores continuam existindo sem nenhuma navegação de produção levando a elas. O núcleo da revisão: cinco das seis empresas contratadas tratam os dados nos EUA e todos os candidatos são brasileiros. Suíte 1861/1861, tsc 97, 5 check:* exit 0, portoesInvocados 7/7, zero --no-verify, zero dependência nova"
 ---
 
 # Project State
@@ -542,6 +542,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P06 | 15min | 3 tasks | 10 files |
 | Phase 47 P07 | 12min | 2 tasks | 4 files |
 | Phase 47 P04 | 9 min | 1 tasks | 4 files |
+| Phase 47 P08 | 14min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -731,6 +732,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: O nome literal da tabela de usuarios de RH nao aparece no historicoCandidaturaService nem em comentario — o guard varre o modulo inteiro, e afrouxa-lo deixaria de pegar uma string literal em rota de consulta
 - [Phase ?]: as never pre-regen na chamada da RPC do historico: a funcao esta viva em PROD mas database.types.ts so e regenerado por npm run db:types (Supabase CLI --linked, indisponivel)
 - [Phase 47]: Os seis paises dos subprocessadores foram MEDIDOS (2026-08-11): cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com hospedagem nao divulgada — O TimeZone do banco em PROD (America/Sao_Paulo) foi recusado como prova de regiao antes da medicao — e a recusa se provou certa: a regiao medida e us-east-1. O indicio apontava para o Brasil e estava errado; aceita-lo teria publicado uma declaracao falsa de transferencia internacional
+- [Phase ?]: 47-08: o RodapePublico foi CONSTRUIDO e deliberadamente NAO montado — a montagem e o ato de publicacao, e o portao do Encarregado esta aberto. Cinco das seis empresas contratadas tratam os dados nos Estados Unidos e todos os candidatos sao brasileiros: a pagina declara transferencia internacional em quase toda a cadeia, e isso e o nucleo da revisao
 
 ### Pending Todos
 
@@ -782,6 +784,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 
 - DI-45-10-01 e DI-45-10-02: as duas obrigações atribuídas ao 45-10 seguem ABERTAS (claims das RPCs + retirar_candidatura fora do vocabulário da EF). Exigem plano próprio com migration de GRANT e redeploy; o 45-11 não abre o portão sem elas.
 - 47-04: os seis paises dos subprocessadores nao sao mediveis deste ambiente — /subprocessadores lanca ao renderizar e 47-08 nao pode torna-la alcancavel ate o operador informar os seis valores medidos (Task 3, checkpoint bloqueante)
+- PORTAO DE PUBLICACAO ABERTO (47-08 Task 1): a revisao do Encarregado precisa aprovar os quatro itens — os seis paises e a base legal de cada um (cinco sao EUA), a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas — antes de a Task 3 montar o rodape nas cinco superficies. Ate la, /privacidade e /subprocessadores existem e nenhuma navegacao de producao leva a elas
 
 ## Deferred Verification
 
@@ -929,9 +932,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-11T03:42:13.083Z
-Stopped at: Completed 47-04-PLAN.md Task 3 (checkpoint dos seis paises, FECHADO)
-Resume file: None
+Last session: 2026-08-11T03:52:52.335Z
+Stopped at: 47-08 Task 2 concluida; PARADO no portao de PUBLICACAO do Encarregado (Task 1 ABERTA, Task 3 nao executada)
+Resume file: .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

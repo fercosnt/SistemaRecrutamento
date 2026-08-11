@@ -274,7 +274,7 @@ Plans:
 - [x] 47-05-PLAN.md — os seis vereditos Nyquist do M7, em `.planning/milestones/v7.0-phases/` (CONSOL-01)
 - [x] 47-06-PLAN.md — `/privacidade` com os cinco blocos derivados + Emenda A no diálogo do admin (TRANSP-02, parte B)
 - [x] 47-07-PLAN.md — o rótulo do ator no Histórico do RH: serviço + componente + os quatro recortes (CONSOL-02, parte B)
-- [ ] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02) · o bloqueio de **fato** do 47-04 caiu em 2026-08-11; o que resta é o portão de **publicação**, que é outro
+- [x] 47-08-PLAN.md — `RodapePublico` e a alcançabilidade, atrás do portão de publicação do Encarregado (TRANSP-01/02) · o bloqueio de **fato** do 47-04 caiu em 2026-08-11; o que resta é o portão de **publicação**, que é outro
 - [ ] 47-09-PLAN.md — o checklist versionado de promessas com executor + a varredura de destinos de rede (CONSOL-04)
 
 **Waves**: 1 → (47-01, 47-02, 47-04, 47-05) · 2 → (47-03, 47-06, 47-07) · 3 → (47-08) · 4 → (47-09)
@@ -367,7 +367,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 10/12 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
-| 47. Transparência & Consolidação | v8.0 | 7/9 | In Progress|  |
+| 47. Transparência & Consolidação | v8.0 | 8/9 | In Progress|  |
 
 ---
 
