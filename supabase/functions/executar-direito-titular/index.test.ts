@@ -1101,6 +1101,48 @@ Deno.test("(v) curriculo_url não-nula com ZERO caminhos enumerados → falha FE
   assertEquals(admin.linha.storage_concluido_em, null);
 });
 
+// ── (v2)(v3) 45-14 / BL-03: O G13 MEDE OS PONTEIROS **CRUS** ─────────────────
+// ⚠ Os dois casos irmãos do (v), e existem porque a filtragem de prefixo do WR-03 tinha
+// passado a rodar ANTES do guard: com ela primeiro, um titular cujos ponteiros estivessem
+// TODOS fora do prefixo produzia lista filtrada vazia, o guard não disparava, o passo 1
+// carimbava com zero objeto e o recibo declarava o currículo apagado — com os arquivos
+// ainda no bucket e sem nenhuma linha (nem conta) capaz de reencontrá-los.
+Deno.test("(v2) ponteiros vivos TODOS fora do prefixo + list() vazio → o motor PARA, sem carimbo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[]],
+    curriculos: [
+      { id: "c1", curriculo_url: "legado/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa.pdf" },
+      { id: "c2", curriculo_url: "importado/2024/bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb.pdf" },
+    ],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  assertEquals(admin.removeCalls.length, 0);
+  assertEquals(admin.deleteUserCalls.length, 0);
+  assertEquals(
+    admin.linha.storage_concluido_em,
+    null,
+    "zero objeto removido NUNCA carimba o passo 1 — o recibo diria que o currículo sumiu",
+  );
+  assertEquals(admin.linha.causa, "falha_storage");
+});
+
+Deno.test("(v3) descartar TODOS os ponteiros não é achado silencioso: para mesmo com list() cheio", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // A enumeração funciona (o prefixo é o certo para a conta), mas NENHUM ponteiro casa:
+    // a convenção de caminho daquelas linhas não é a que este código conhece.
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    curriculos: [{ id: "c1", curriculo_url: "legado/cccccccc-3333-4333-8333-cccccccccccc.pdf" }],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  assertEquals(admin.removeCalls.length, 0, "parar ANTES de qualquer remoção é o ponto");
+  assertEquals(admin.linha.storage_concluido_em, null);
+  assertEquals(admin.linha.causa, "falha_storage");
+});
+
 // ── (w) RESÍDUO NO BUCKET REPROVA — a falha continua FECHADA ─────────────────
 // ⚠ 45-13 / CR-02: a conferência mudou de OBJETO, não de rigor. Ela era sobre o
 // RETORNO de `remove()` — e por isso travava para sempre num `ponteiro_morto`, que o

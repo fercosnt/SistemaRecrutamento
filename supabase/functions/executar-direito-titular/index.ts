@@ -1094,29 +1094,48 @@ async function montarPlano(
     .map((c) => c?.curriculo_url)
     .filter((v): v is string => typeof v === "string" && v !== "");
 
+  // ⚠⚠ G13 · FALHA FECHADA ESTRUTURAL, no molde de `exportar-meus-dados:270-286`, E ELA
+  // MEDE OS PONTEIROS CRUS — ANTES de qualquer filtragem. Ponteiros vivos com enumeração
+  // VAZIA não é o caso vazio: é a enumeração quebrada (prefixo errado, permissão,
+  // convenção de caminho mudada). Seguir daqui apagaria só o que os ponteiros nomeiam e
+  // deixaria os órfãos para trás, com o pedido declarado concluído.
+  //
+  // ⚠ A ORDEM É O MECANISMO, e inverter os dois blocos DESARMA o guard (BL-03 do
+  // `45-REVIEW-2.md`): com a filtragem de prefixo rodando primeiro, um titular cujos
+  // ponteiros estejam TODOS fora do prefixo produzia uma lista filtrada vazia, o guard
+  // não disparava, o passo 1 carimbava `storage_concluido_em` com zero objeto removido e
+  // o recibo declarava o currículo apagado — enquanto os arquivos continuavam no bucket,
+  // agora sem nenhuma linha que os apontasse (o CR-04 anula `curriculo_url`) e sem conta
+  // do Auth cujo prefixo os enumere. Uma declaração de conformidade sobre arquivos que
+  // existem, e nenhum caminho futuro capaz de encontrá-los.
+  if (ponteiros.length > 0 && doList.length === 0) {
+    throw new ErroDePasso("storage", "estrutura_vazia");
+  }
+
   // ⚠ WR-03 · REVALIDAR O PREFIXO ANTES DE UM `remove()` SOB SERVICE KEY.
   // Estes ponteiros saem de `candidaturas.curriculo_url` — uma coluna de texto — e iam
   // direto para uma remoção que roda com a service key e IGNORA RLS. Um `curriculo_url`
   // legado, importado ou escrito por outro caminho apagaria o CV de OUTRA pessoa,
   // irreversivelmente: sem PITR e com o Storage fora de todo backup. A validação de
   // prefixo existia apenas no caminho de ESCRITA (`submit-candidatura:191`).
-  // ⚠ O descartado vira ACHADO REGISTRADO, nunca remoção silenciosa e nunca parada: uma
-  // linha estranha é um fato sobre o sistema, e parar por causa dela negaria ao titular
-  // o direito que ele exerceu.
+  // ⚠ O descartado vira ACHADO REGISTRADO, nunca remoção silenciosa: uma linha estranha
+  // é um fato sobre o sistema, e parar por causa de UMA delas negaria ao titular o
+  // direito que ele exerceu.
   const prefixo = `${authUid}/`;
   const doBanco = ponteiros.filter((v) => v.startsWith(prefixo) && !v.includes(".."));
   const foraDoPrefixo = ponteiros.filter((v) => !doBanco.includes(v));
 
+  // ⚠ MAS DESCARTAR **TODOS** OS PONTEIROS NÃO PODE SER SILENCIOSO. Um descarte pontual é
+  // achado; o descarte integral é a afirmação de que a convenção de caminho deste titular
+  // não é a que este código conhece — e nesse estado o motor não sabe o que apagar. Parar
+  // aqui custa uma execução adiada; seguir custa um recibo que mente sobre arquivos que
+  // continuam existindo.
+  if (ponteiros.length > 0 && doBanco.length === 0) {
+    throw new ErroDePasso("storage", "todos_os_ponteiros_fora_do_prefixo");
+  }
+
   const { caminhos, achados } = unirEDeduplicarCaminhos(doList, doBanco);
   for (const c of foraDoPrefixo) achados.push({ caminho: c, tipo: "fora_do_prefixo" });
-
-  // ⚠ FALHA FECHADA ESTRUTURAL, no molde de `exportar-meus-dados:270-286`. Ponteiros
-  // vivos com enumeração VAZIA não é o caso vazio: é a enumeração quebrada (prefixo
-  // errado, permissão, convenção mudada). Seguir daqui apagaria só o que os ponteiros
-  // nomeiam e deixaria os órfãos para trás, com o pedido declarado concluído.
-  if (doBanco.length > 0 && doList.length === 0) {
-    throw new ErroDePasso("storage", "estrutura_vazia");
-  }
 
   // ⚠ WR-01 · O QUE O PLANO PREVÊ ≠ O QUE O MOTOR MUTOU, e os dois campos são
   // separados por isso. Estas contagens são do `plano_exclusao_titular`: elas dizem o
