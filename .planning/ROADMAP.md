@@ -190,7 +190,7 @@ Plans:
   4. `historico_candidatura`, `decisao_final` e `decisao_final_historico` continuam com as mesmas linhas e as **mesmas FKs `NO ACTION`** de antes — a trilha de decisão sobrevive à exclusão do candidato e **nenhuma constraint foi relaxada para CASCADE** (o reflexo errado diante do primeiro 23503).
   5. O candidato recebe um **recibo honesto em duas colunas** — o que foi apagado / o que foi mantido, anonimizado, sob qual artigo — sem superestimar o que foi feito; e a série de bias EEOC 4/5 continua produzindo os mesmos números para os períodos anteriores, porque a faixa etária foi **materializada no tombstone antes** de qualquer anonimização rodar.
 
-**Plans**: 12 plans (6 waves · 10/10 requirements cobertos · 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas e 36/36 considerações de UI levantadas)
+**Plans**: 13 plans (7 waves · 10/10 requirements cobertos · 13/13 decisões do CONTEXT com plano implementador · 18/18 arestas e 36/36 considerações de UI levantadas)
 
 Plans:
 **Wave 1**
@@ -221,11 +221,24 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
+- [ ] 45-13-PLAN.md — **FECHAMENTO DOS 6 BLOCKERS DO CODE REVIEW**. O `/gsd-code-review 45` rodou em 2026-08-11 e o veredito foi **`REPROVADO`** (`45-REVIEW.md`: 6 blockers, 9 warnings). Este plano fecha os seis **no disco**, editando as migrations não aplicadas em lugar — nada de migration corretiva empilhada sobre migration que nunca rodou:
+  - **CR-01** — o `GRANT` a `authenticated` (45-12) tornou o tombstone uma RPC de navegador: o guard verifica identidade e nunca **intenção**. Ganha uma metade (c) que exige pedido em `executando`, janela do D-45-01 vencida e `storage_concluido_em` carimbado, só no caminho destrutivo. ⚠ **`checkpoint:decision`** na Task 1 — manter o `GRANT` (recomendado), restringir também o caminho destrutivo a `administrador`/titular, ou retirar o `GRANT` (esta última **colide** com a recusa datada de 2026-08-05 e exigiria replanejar). Mais a trilha de executor, porque `logs_auditoria` continua fora por razão medida
+  - **CR-02** — o passo 1 do Storage trava **para sempre** num `ponteiro_morto` que o próprio código coloca no lote: CV apagado + PII intacta, irrecuperável. A conferência passa do retorno de `remove()` para o **pós-estado do bucket**
+  - **CR-03** — não há retomada depois do passo 2: o tombstone severa `user_id` e a EF passa a 403 para sempre. O pedido passa a ser reencontrado pelo `auth_uid` persistido no plano
+  - **CR-04** — `candidaturas.curriculo_url` embute o `auth.uid()` em claro e `curriculo_nome_original` carrega o nome da pessoa no painel do RH: as duas são severadas
+  - **CR-05** — «o motor trata 23503 como classe» tem **zero** ocorrência em código: o plano passa a ENUMERAR os bloqueadores do catálogo e a EF recusa **antes** do passo 1; o bloqueador medido é severado
+  - **CR-06** — a sentinela de idempotência casava por curinga uma coluna escrita pelo usuário: passa a ser igualdade com o valor derivado do id da linha, com cinto secundário
+  - ⚠ **Escreve e edita; aplica ZERO.** Sete WARNINGs fechados de carona (WR-01…WR-06, WR-08); WR-07 fica (sem defeito ativo, e tocar `20260805000007` invalidaria um md5 promovido a gate) e WR-09 é da Phase 46
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
 - [ ] 45-11-PLAN.md — **PORTÃO DESTRUTIVO**: code review bloqueante → dry-run pela MESMA query → apply na ordem obrigatória → smokes verdes → execução real vigiada → `VERIFICATION.md` com veredito
-  - ⚠ **Herda TRÊS obrigações do `45-12-SUMMARY.md`**: (1) os `md5(prosrc)` de `plano_exclusao_titular` e `anonimizar_candidato` MUDARAM e a referência passa a ser aquele documento, não o `45-07-SUMMARY.md`; (2) `20260805000009` entra na ordem de apply **POR ÚLTIMO** (concede sobre funções que ainda não existem em PROD); (3) o **redeploy** de `executar-direito-titular` continua ABERTO — é a terceira entrega do `DI-45-10-01`
+  - ⚠ **A Task 1 RE-RODA.** O review de 2026-08-11 REPROVOU; um plano de correção declarando-se pronto não substitui um veredito de review. A re-rodada confere os seis blockers contra a § "Condição de reabertura do portão" **e** os 21 itens da § "Guards conferidos e CORRETOS", que a correção não pode ter quebrado em passagem
+  - ⚠ **Herda QUATRO obrigações do `45-13-SUMMARY.md`**: (1) os `md5(prosrc)` de `plano_exclusao_titular` e `anonimizar_candidato` mudaram **de novo** e a referência passa a ser aquele documento — o `45-12-SUMMARY.md` e o `45-07-SUMMARY.md` estão invalidados; (2) `20260805000009` entra na ordem de apply **POR ÚLTIMO** (concede sobre funções que ainda não existem em PROD); (3) o **redeploy** de `executar-direito-titular` continua ABERTO — é a terceira entrega do `DI-45-10-01`; (4) o contador FIXO do cabeçalho do smoke mudou, porque o 45-13 acrescenta blocos de asserção
+  - ⚠ **Lacuna declarada que o portão HERDA**: o export ponta a ponta rodou em PROD em 2026-08-11, **mas a conta não tinha currículo** — logo o **EXPORT-03 (CV por URL assinada) nunca foi exercitado**, e é o caminho de leitura de Storage do qual o passo 1 destrutivo depende
   - ⚠ **E uma DECISÃO, no code review da Task 1** (`DI-45-12-01`): a asserção C1 do smoke e a migration `20260805000003` afirmam coisas opostas sobre o `EXECUTE` de `gerar_bias_snapshot` para `authenticated`. A C1 foi escrita como especificada e vai reprovar por um privilégio que é deliberado — revogá-lo apagaria a tela de auditoria de viés (RNF-07a)
 
-**Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-12) · 6 → (45-11)
+**Waves**: 1 → (45-01, 45-02) · 2 → (45-03, 45-04, 45-05) · 3 → (45-06, 45-07, 45-08, 45-09) · 4 → (45-10) · 5 → (45-12) · 6 → (45-13) · 7 → (45-11)
 **⚠ Regra de wave desta fase**: nenhuma wave mistura *escrever* uma migration com *aplicá-la* — subagentes GSD não recebem os tools MCP do Supabase, então todo apply, toda inspeção em PROD e todo deploy de EF são checkpoint do orquestrador (45-01, 45-06 e 45-11 são inteiramente checkpoint)
 **UI hint**: yes — fluxo candidate-facing net-new (retirar × apagar, confirmação, janela de arrependimento, recibo). É a superfície onde uma ambiguidade de copy vira ação irreversível: forte candidata a `/gsd-ui-phase`
 **Security**: **`/gsd-secure-phase` obrigatório** — service_role, Storage Admin, Auth Admin, mutação cross-sistema sobre PII viva
