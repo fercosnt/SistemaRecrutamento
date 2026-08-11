@@ -20,6 +20,13 @@
 -- por corpo**, e a auto-verificação só a CHAMA. Uma migration que declarasse
 -- `STABLE` e escrevesse seria uma mentira que o planejador de queries acreditaria.
 --
+-- ⚠ E ISSO CONTINUA VERDADE DEPOIS DO 45-13, que acrescentou SQL DINÂMICO ao corpo
+-- (a enumeração de bloqueadores do CR-05): o único comando construído é um
+-- `SELECT EXISTS (...)`, o `user_id` vai por PARÂMETRO e os identificadores por `%I`.
+-- `EXECUTE` de um `SELECT` não escreve nada e não viola `STABLE`. A auto-verificação
+-- também **continua sem fixture**: ela exercita a enumeração contra contas VIVAS, por
+-- leitura — criar fixture aqui é que quebraria a declaração acima.
+--
 -- -----------------------------------------------------------------------------
 -- (1) PROTOCOLO DE APPLY — `supabase db push` É PROIBIDO NESTE PROJETO
 -- -----------------------------------------------------------------------------
@@ -117,6 +124,46 @@ DECLARE
   v_user_id uuid;
   v_existe  boolean;
   v_anon    boolean;
+  v_email   text;
+  v_nasc    date;
+  -- ── CR-05 (plano 45-13): a enumeração dos bloqueadores do hard delete ──────
+  v_bloq    jsonb := '[]'::jsonb;
+  v_tem     boolean;
+  r_fk      record;
+  /**
+   * ⚠⚠ O CONTRATO ENTRE AS DUAS FUNÇÕES DO MOTOR, E ELE VIVE AQUI, EM UM LUGAR SÓ.
+   *
+   * Esta é a lista das `(schema.tabela.coluna)` que `anonimizar_candidato`
+   * COMPROVADAMENTE severa dentro da transação do tombstone. Ela é subtraída da
+   * enumeração abaixo — sem isso, a chave de bloqueadores viria não-vazia para todo
+   * titular e o motor recusaria TODA execução legítima.
+   *
+   * ⚠ A ASSIMETRIA É O QUE FECHA O RESÍDUO INDEFINIDAMENTE, e é deliberada:
+   *   · quem acrescentar uma severação em `anonimizar_candidato` acrescenta aqui;
+   *   · quem acrescentar uma FK NOVA ao schema **não precisa fazer nada** — ela aparece
+   *     sozinha como bloqueador, e o motor recusa ANTES do passo 1. O custo de esquecer
+   *     é uma recusa barata, nunca um currículo destruído com o 23503 no passo 3.
+   *
+   * ⚠ `public.decisao_final.por_usuario` **NÃO ENTRA AQUI, E A OMISSÃO É A DECISÃO.**
+   * Ela é `NOT NULL` e aponta para o RECRUTADOR que decidiu; severá-la destruiria a
+   * prova de que houve avaliação humana (RNF-07a / LGPD Art. 7º, VI). Numa conta
+   * híbrida candidato+RH ela é um bloqueador LEGÍTIMO, e o desfecho certo é a recusa
+   * antes da primeira mutação — com o nome da tabela e da coluna no plano, para que
+   * quem for resolver saiba o que está olhando. Quem vier "consertar" isto severando a
+   * coluna está trocando um pedido que para por uma prova que não volta.
+   */
+  v_severadas text[] := ARRAY[
+    'public.candidatos.user_id',
+    'public.candidatos.created_by',
+    'public.candidatos.updated_by',
+    'public.candidaturas.created_by',
+    'public.candidaturas.updated_by',
+    'public.historico_candidatura.ator',
+    'public.logs_acesso.user_id',
+    'public.autorizacoes.user_id',
+    'public.preferencias_notificacoes.created_by',
+    'public.preferencias_notificacoes.updated_by'
+  ];
 BEGIN
   -- ── GUARD, DUAS METADES, E A SEGUNDA É A QUE FECHA O DEFEITO SISTÊMICO ─────
   -- (a) chamador SEM claim nenhuma é recusado EXPLICITAMENTE. Toda função DEFINER
@@ -131,10 +178,21 @@ BEGIN
 
   -- A LEITURA VEM ANTES DA METADE (b) porque a metade (b) precisa do DONO. Ela é a
   -- mesma leitura de sempre — não há uma segunda consulta — apenas movida para cima.
-  SELECT true, c.user_id, (c.email LIKE 'anonimizado+%@invalido.local')
-    INTO v_existe, v_user_id, v_anon
+  SELECT true, c.user_id, c.email, c.data_nascimento
+    INTO v_existe, v_user_id, v_email, v_nasc
     FROM public.candidatos c
    WHERE c.id = p_candidato_id;
+
+  -- ⚠ CR-06 (plano 45-13), o MESMO predicado do tombstone e pelo mesmo motivo: o
+  -- reconhecimento é IGUALDADE com a sentinela derivada do id desta linha, mais o cinto
+  -- de `user_id` severado e `data_nascimento` na sentinela de 1900 — nunca um padrão
+  -- sobre `email`, que é escrita pelo usuário no cadastro. Aqui a chave é informativa
+  -- (`ja_anonimizado`), mas ela é EXATAMENTE a que o 45-11 lê antes do dry-run para
+  -- saber qual das duas terminações esperar (WR-05): um `true` falso faria o gate medir
+  -- um retorno normal e registrar evidência ambígua.
+  v_anon := (v_email = 'anonimizado+' || p_candidato_id::text || '@invalido.local'
+             AND v_user_id IS NULL
+             AND v_nasc = DATE '1900-01-01');
 
   -- (b) TRÊS comparações, todas por `IS DISTINCT FROM` e NUNCA por `NOT IN`: com um
   --     dos lados NULL o `NOT IN` avalia NULL, o `IF` NÃO é tomado, e o guard FALHA
@@ -165,6 +223,56 @@ BEGIN
   -- e a Edge Function do 45-10 precisa exatamente do oposto — de um plano que ela
   -- possa mostrar ao operador sem ramificar.
   v_existe := coalesce(v_existe, false);
+
+  -- ══ CR-05 · OS BLOQUEADORES DO HARD DELETE, ENUMERADOS DO CATÁLOGO ═════════
+  -- Até o 45-12, este arquivo AFIRMAVA em dois lugares — no jsonb devolvido ao chamador
+  -- e no `COMMENT` que vai para o catálogo vivo — que o motor tratava a violação de FK
+  -- por classe. Uma varredura do repositório inteiro não encontrava leitura de SQLSTATE
+  -- de violação de FK em migration alguma nem na Edge Function: era uma garantia que
+  -- era dead code, vivendo num texto que a próxima pessoa lê como fato medido (o padrão
+  -- P39/CR-02 repetido). Agora o plano ENUMERA em vez de afirmar.
+  --
+  -- ⚠ O QUE ISSO COMPRA, em uma linha: uma verificação ANTES da primeira mutação
+  -- transforma o 23503 de «desfecho esperado» em «recusa barata». É a única forma de
+  -- ele não custar um currículo — sem PITR e com o Storage fora de todo backup, um
+  -- 23503 no passo 3 deixa o CV destruído e a pessoa não apagada, sem retomada.
+  --
+  -- ⚠ SEGURANÇA DO SQL DINÂMICO: o `user_id` vai por PARÂMETRO (`USING`), nunca
+  -- interpolado no texto do comando; os identificadores vão por `%I`, nunca por
+  -- concatenação crua. Esta função é `SECURITY DEFINER` — aqui isso não é estilo.
+  -- ⚠ E ela continua `STABLE`: `EXECUTE` de um `SELECT` não escreve nada.
+  IF v_user_id IS NOT NULL THEN
+    FOR r_fk IN
+      SELECT n.nspname AS esquema, cl.relname AS tabela, a.attname AS coluna
+        FROM pg_constraint c
+        JOIN pg_class cl     ON cl.oid = c.conrelid
+        JOIN pg_namespace n  ON n.oid  = cl.relnamespace
+        JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON true
+        JOIN pg_attribute a  ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+       WHERE c.contype     = 'f'
+         AND c.confrelid   = 'auth.users'::regclass
+         -- 'a' = NO ACTION, 'r' = RESTRICT: as duas BLOQUEIAM o delete. 'c'/'n'/'d'
+         -- (CASCADE / SET NULL / SET DEFAULT) resolvem sozinhas e não são bloqueio.
+         AND c.confdeltype IN ('a', 'r')
+         AND array_length(c.conkey, 1) = 1
+         AND cl.relkind IN ('r', 'p')
+         AND NOT a.attisdropped
+         AND (n.nspname || '.' || cl.relname || '.' || a.attname) <> ALL (v_severadas)
+       ORDER BY n.nspname, cl.relname, a.attname
+    LOOP
+      EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.%I t WHERE t.%I = $1)',
+                     r_fk.esquema, r_fk.tabela, r_fk.coluna)
+        INTO v_tem
+        USING v_user_id;
+
+      IF v_tem THEN
+        v_bloq := v_bloq || jsonb_build_object(
+          'tabela', r_fk.esquema || '.' || r_fk.tabela,
+          'coluna', r_fk.coluna
+        );
+      END IF;
+    END LOOP;
+  END IF;
 
   RETURN jsonb_build_object(
     'candidato_id',      p_candidato_id,
@@ -226,8 +334,28 @@ BEGIN
       'historico_candidatura_ator',
         (SELECT count(*) FROM public.historico_candidatura h
           WHERE v_user_id IS NOT NULL AND h.ator = v_user_id),
-      'nota', 'o motor trata 23503 como CLASSE e nunca como constraint nomeada: duas contas reais deram dois bloqueadores DIFERENTES na SONDA 6 (historico_candidatura.candidatura_id no titular puro, preferencias_notificacoes.created_by na conta hibrida candidato+RH)'
+      'candidaturas_autoria',
+        (SELECT count(*) FROM public.candidaturas c
+          WHERE c.candidato_id = p_candidato_id AND v_user_id IS NOT NULL
+            AND (c.created_by = v_user_id OR c.updated_by = v_user_id)),
+      'preferencias_notificacoes',
+        (SELECT count(*) FROM public.preferencias_notificacoes p
+          WHERE v_user_id IS NOT NULL
+            AND (p.created_by = v_user_id OR p.updated_by = v_user_id)),
+      'nota', 'as contagens sao por CONTA, medidas na hora. Os bloqueadores do deleteUser nao sao afirmados aqui: eles sao ENUMERADOS do catalogo na chave bloqueadores_deleteuser, e quem recusa antes do passo 1 e a Edge Function. As duas contas reais da SONDA 6 deram bloqueadores DIFERENTES (historico_candidatura.candidatura_id no titular puro, alcancado transitivamente; preferencias_notificacoes.created_by na conta hibrida candidato+RH) — e o segundo passou a ser severado na mesma transacao do tombstone'
     ),
+
+    -- ── bloqueadores_deleteuser (CR-05) ─────────────────────────────────────
+    -- ⚠ ENUMERADO DO CATALOGO, NUNCA AFIRMADO. Lista das FKs para `auth.users` cujo
+    -- `ON DELETE` BLOQUEIA (`NO ACTION`/`RESTRICT`) e que TEM linha viva apontando para
+    -- este titular, MENOS as `(tabela, coluna)` que o tombstone comprovadamente severa
+    -- (a lista `v_severadas`, declarada nominalmente no corpo).
+    -- ⚠ VAZIA É O ESTADO ESPERADO de um titular puro. Não-vazia significa que o
+    -- `deleteUser` do passo 3 falharia com 23503 — e a Edge Function recusa ANTES do
+    -- passo 1, quando isso ainda não custou nada. `decisao_final.por_usuario` aparece
+    -- aqui de propósito nas contas híbridas: ela é `NOT NULL`, aponta ao recrutador que
+    -- decidiu, e severá-la destruiria a prova de não-discriminação (RNF-07a).
+    'bloqueadores_deleteuser', v_bloq,
 
     -- ── severar_fks_set_null (ERASE-09) ─────────────────────────────────────
     -- ⚠ D8, medido na SONDA 4b: `autorizacoes` tem DUAS FKs. A que é SET NULL
@@ -311,6 +439,10 @@ DECLARE
   v_faltando text := '';
   v_lev     boolean := false;
   v_state   text;
+  -- ⚠ 45-13 · CR-05 — a enumeração de bloqueadores.
+  r          record;
+  v_vazio    boolean := false;
+  v_checados int := 0;
 BEGIN
   SELECT u.user_id INTO v_admin
     FROM public.usuarios_rh u
@@ -352,7 +484,7 @@ BEGIN
   FOREACH v_passo IN ARRAY ARRAY['storage_remove', 'tombstone_candidato',
                                  'tombstone_decisao_final', 'severar_user_id',
                                  'severar_fks_set_null', 'scrub_ledger_email',
-                                 'auth_delete_user']
+                                 'auth_delete_user', 'bloqueadores_deleteuser']
   LOOP
     IF NOT (v_plano ? v_passo) THEN
       v_faltando := v_faltando || v_passo || ' ';
@@ -360,7 +492,61 @@ BEGIN
   END LOOP;
 
   IF v_faltando <> '' THEN
-    RAISE EXCEPTION 'P45-PLANO: passo(s) do recibo SEM cobertura no plano: %. PASSOS_MOTOR (reciboExclusao.ts:23-31) e o vocabulario que o recibo promete ao titular; um passo sem chave aqui e uma promessa que nenhuma query sustenta', v_faltando;
+    RAISE EXCEPTION 'P45-PLANO: chave(s) obrigatoria(s) ausente(s) no plano: %. As sete primeiras sao PASSOS_MOTOR (reciboExclusao.ts:23-31), o vocabulario que o recibo promete ao titular — um passo sem chave e uma promessa que nenhuma query sustenta. bloqueadores_deleteuser e a oitava (CR-05): sem ela a Edge Function nao tem o que ler antes do passo 1, e o 23503 volta a ser um desfecho que custa um curriculo', v_faltando;
+  END IF;
+
+  -- ── CR-05 · A ENUMERAÇÃO DE BLOQUEADORES TEM DE SER UTILIZÁVEL ─────────────
+  -- A forma primeiro: `bloqueadores_deleteuser` é um ARRAY jsonb, e cada item nomeia
+  -- `tabela` e `coluna`. Um objeto ou uma string ali quebraria a leitura da EF em
+  -- silêncio, no ponto em que ela decide se recusa a execução.
+  IF jsonb_typeof(v_plano -> 'bloqueadores_deleteuser') IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'P45-PLANO: bloqueadores_deleteuser nao e um array jsonb (veio %). A Edge Function LE esta chave para recusar a execucao ANTES do passo 1; um formato inesperado ali vira uma recusa que nao acontece', coalesce(jsonb_typeof(v_plano -> 'bloqueadores_deleteuser'), '<ausente>');
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(v_plano -> 'bloqueadores_deleteuser') x
+     WHERE NOT (x ? 'tabela') OR NOT (x ? 'coluna')
+  ) THEN
+    RAISE EXCEPTION 'P45-PLANO: ha item em bloqueadores_deleteuser sem tabela e/ou coluna. O valor do item e justamente dizer a quem for resolver O QUE esta bloqueando: uma lista nao-vazia sem nome e uma recusa sem diagnostico';
+  END IF;
+
+  -- ⚠ E AGORA A METADE QUE IMPEDE A ENUMERAÇÃO DE SER SEMPRE-VERMELHA. Uma lista que
+  -- viesse não-vazia para todo mundo faria o motor recusar TODA execução legítima, e
+  -- ninguém descobriria antes do primeiro pedido real — a subtração das `(tabela,
+  -- coluna)` que o tombstone severa é o que a torna utilizável, e é ela que esta
+  -- asserção mede.
+  --
+  -- ⚠ A FORMA DA ASSERÇÃO É «PELO MENOS UM TITULAR VIVO VEM COM A LISTA VAZIA», e não
+  -- «este titular vem vazio», por uma razão medida: a SONDA 6 encontrou em PROD uma
+  -- conta HÍBRIDA candidato+RH cuja `decisao_final.por_usuario` é um bloqueador
+  -- LEGÍTIMO — para ela, não-vazio é a resposta CERTA. Exigir vazio de uma linha
+  -- arbitrária reprovaria a implementação correta se o sorteio caísse nela; exigir que
+  -- NENHUM titular puro venha vazio é exatamente o defeito que se quer pegar.
+  -- ⚠ As claims voltam para o `administrador` aqui: o guard da metade (a) recusa
+  -- chamador SEM sessão, e este laço CHAMA a função — sem a impersonação ele receberia
+  -- `42501` e abortaria o apply por um motivo que não é o que se está medindo.
+  PERFORM set_config('request.jwt.claims',
+    json_build_object('sub', v_admin::text,
+                      'app_metadata', json_build_object('role', 'administrador'))::text, true);
+
+  v_vazio := false;
+  FOR r IN
+    SELECT c.id FROM public.candidatos c
+     WHERE c.user_id IS NOT NULL
+     ORDER BY c.created_at
+     LIMIT 10
+  LOOP
+    IF jsonb_array_length(public.plano_exclusao_titular(r.id) -> 'bloqueadores_deleteuser') = 0 THEN
+      v_vazio := true;
+      EXIT;
+    END IF;
+    v_checados := v_checados + 1;
+  END LOOP;
+
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  IF NOT v_vazio THEN
+    RAISE EXCEPTION 'P45-PLANO: NENHUM dos % titulares vivos examinados veio com bloqueadores_deleteuser VAZIA. Ou a enumeracao esta devolvendo FK que o tombstone de fato severa (a lista v_severadas do corpo esta desatualizada em relacao a anonimizar_candidato), ou o predicado de linha viva esta errado. O efeito e o pior possivel: o motor recusaria TODA execucao legitima antes do passo 1, e isso so apareceria no primeiro pedido real de um titular. ⚠ Antes de "consertar" removendo a chave: ela e o que impede o 23503 de acontecer DEPOIS de o curriculo ter sido apagado', v_checados;
   END IF;
 
   -- Os dois passos de fora do banco têm de estar MARCADOS como tal. Um zero
@@ -411,7 +597,7 @@ BEGIN
     RAISE EXCEPTION 'P45-PLANO: um candidato que NAO e o dono leu o plano de outra pessoa (levantou=%, sqlstate=%). O ramo de titularidade tem de ser por IS DISTINCT FROM e NUNCA por NOT IN — com um dos lados NULL o NOT IN avalia NULL, o IF nao e tomado, e o guard falha ABERTO justamente para o chamador mais suspeito (defeito REAL medido na 42-06)', v_lev, coalesce(v_state, '<nulo>');
   END IF;
 
-  RAISE NOTICE 'P45-PLANO OK: plano_exclusao_titular COMPLETOU e devolveu uma chave para cada um dos 7 passos de PASSOS_MOTOR, com storage_remove e auth_delete_user marcados como fora_do_banco; o proprio titular foi ACEITO e um candidato que nao e o dono foi RECUSADO com 42501';
+  RAISE NOTICE 'P45-PLANO OK: plano_exclusao_titular COMPLETOU e devolveu uma chave para cada um dos 7 passos de PASSOS_MOTOR, com storage_remove e auth_delete_user marcados como fora_do_banco; o proprio titular foi ACEITO e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: bloqueadores_deleteuser existe, e um array jsonb, cada item nomeia tabela e coluna, e pelo menos um titular vivo veio com a lista VAZIA — a subtracao das colunas que o tombstone severa esta em dia, e o motor nao recusa execucao legitima (CR-05)';
 END
 $verifica_plano_exclusao_titular$;
 
@@ -447,7 +633,26 @@ COMMENT ON FUNCTION public.plano_exclusao_titular(uuid) IS
   'para os 21 titulares puros, porque quem move etapa e quem decide e o RH. E o bloqueador do '
   'deleteUser foi DIFERENTE em duas contas reais (historico_candidatura.candidatura_id no titular '
   'puro, alcancado transitivamente; preferencias_notificacoes.created_by na conta hibrida '
-  'candidato+RH). O motor trata 23503 como CLASSE, nunca como constraint nomeada. '
+  'candidato+RH). '
+  '⚠⚠ bloqueadores_deleteuser (CR-05, plano 45-13): ESTA FUNCAO ENUMERA OS BLOQUEADORES, EM VEZ DE '
+  'AFIRMAR QUE O MOTOR OS TRATA. Ate o 45-12 esta chave e este COMMENT declaravam um tratamento de '
+  '23503 por classe que NAO EXISTIA EM CODIGO NENHUM da fase — uma garantia que era dead code, '
+  'vivendo num COMMENT que a proxima pessoa le como fato medido (padrao P39/CR-02). O que existe '
+  'agora e mecanismo: a chave lista, do catalogo (pg_constraint por confdeltype em a/r), as FKs '
+  'para auth.users que BLOQUEIAM o delete e que tem linha viva apontando ao titular, MENOS as '
+  '(tabela, coluna) que o tombstone comprovadamente severa — lista declarada nominalmente no corpo, '
+  'num lugar so, que e o contrato entre as duas funcoes do motor. A assimetria e deliberada: quem '
+  'acrescenta uma severacao la acrescenta aqui, e quem acrescenta uma FK NOVA ao schema nao precisa '
+  'fazer nada — ela aparece sozinha como bloqueador e o motor recusa. A Edge Function recusa ANTES '
+  'do passo 1 se a lista vier nao-vazia, e e isso que transforma o 23503 de desfecho esperado em '
+  'recusa barata: sem PITR e com o Storage fora de todo backup, um 23503 no passo 3 deixa o '
+  'curriculo destruido e a pessoa nao apagada. '
+  '⚠ decisao_final.por_usuario NAO esta entre as severadas, e a omissao e a DECISAO: e NOT NULL, '
+  'aponta ao recrutador que decidiu, e severa-la destruiria a prova de avaliacao humana (RNF-07a / '
+  'Art. 7o, VI). Numa conta hibrida candidato+RH ela e um bloqueador LEGITIMO, e o desfecho certo e '
+  'a recusa antes da primeira mutacao — com o nome da tabela e da coluna no plano. '
+  '⚠ O SQL dinamico da enumeracao passa o user_id por PARAMETRO e os identificadores por %I: '
+  'interpolar valor no texto do comando numa funcao SECURITY DEFINER nao e estilo. '
   'GUARD NULL-SAFE em duas metades: (a) recusa 42501 o chamador SEM CLAIM NENHUMA; (b) recusa quem '
   'nao e rh, nao e administrador E nao e o dono de p_candidato_id. As TRES comparacoes da metade '
   '(b) sao por IS DISTINCT FROM e nunca por NOT IN (que avalia NULL, nao toma o IF, e falha ABERTO '

@@ -298,6 +298,9 @@ DECLARE
   v_n_alerts   integer := 0;
   v_n_aut      integer := 0;
   v_n_notif    integer := 0;
+  -- 45-13 · CR-04 (o ponteiro reverso em `candidaturas`) e CR-05 (o bloqueador medido).
+  v_n_cvurl    integer := 0;
+  v_n_pref     integer := 0;
 BEGIN
   -- ── GUARD, TRÊS METADES: (a) sessão · (b) papel · (c) INTENÇÃO ────────────
   -- (a) chamador SEM claim nenhuma é recusado EXPLICITAMENTE. Esta função apaga
@@ -397,7 +400,7 @@ BEGIN
          AND s.executar_em <= now()
          AND s.storage_concluido_em IS NOT NULL
     ) THEN
-      RAISE EXCEPTION 'FORBIDDEN: anonimizar_candidato so executa DENTRO do motor. As QUATRO condicoes exigidas sao: (1) existir pedido em solicitacoes_dados para este candidato, (2) com tipo = exclusao, (3) em situacao = executando com executar_em ja vencido (a janela do D-45-01 / ERASE-06), e (4) com storage_concluido_em carimbado (o passo 1 concluido). A ordem Storage -> Postgres -> Auth NAO e imposta pela plataforma — a SONDA 2 mediu que storage.objects nao tem FK para auth.users — e passa a ser imposta AQUI. Sem este guard, o GRANT a authenticated da 20260805000009 seria uma porta direta por PostgREST para destruir PII fora da janela e fora do recibo (CR-01)'
+      RAISE EXCEPTION 'FORBIDDEN: anonimizar_candidato so executa DENTRO do motor. As QUATRO condicoes exigidas sao: (1) existir pedido em solicitacoes_dados para este candidato, (2) com tipo = exclusao, (3) em situacao = executando com executar_em ja vencido (a janela do D-45-01 / ERASE-06), e (4) com storage_concluido_em carimbado (o passo 1 concluido). A ordem Storage -> Postgres -> Auth NAO e imposta pela plataforma — a SONDA 2 mediu que a tabela de objetos do Storage nao tem FK para auth.users — e passa a ser imposta AQUI. Sem este guard, o GRANT a authenticated da 20260805000009 seria uma porta direta por PostgREST para destruir PII fora da janela e fora do recibo (CR-01)'
         USING ERRCODE = '42501';
     END IF;
   END IF;
@@ -524,6 +527,45 @@ BEGIN
 
   GET DIAGNOSTICS v_n_cand = ROW_COUNT;
 
+  -- ⚠⚠ (2/2b) O PONTEIRO REVERSO EM `candidaturas` — CR-04, plano 45-13.
+  -- As LINHAS de `candidaturas` são PRESERVADAS por desenho (ERASE-08) e nada aqui as
+  -- remove. Mas estas duas colunas NÃO são trilha de decisão — são PII e um ponteiro
+  -- de volta à pessoa:
+  --   · `curriculo_url` embute o `auth.uid()` EM CLARO: o esquema de caminho é
+  --     `{authUid}/{uuid}.pdf` (`cvUploadService.ts:101`), e um `split_part(...,'/',1)`
+  --     mais um join em `auth.users` devolve a identidade COMPLETA do titular
+  --     «anonimizado», por uma linha. Isso é pseudonimização apresentada como
+  --     anonimização — exatamente o que o bloco desta função sobre `ai_call_logs`
+  --     argumenta não aceitar, e com rigor menor;
+  --   · `curriculo_nome_original` costuma carregar o NOME da pessoa dentro do nome do
+  --     arquivo, e é SELECIONADA pela view do painel de triagem
+  --     (`20260623000001_v_triagem_panel_orderable.sql:24`) — legível para o RH numa
+  --     linha cujo candidato já é um tombstone. A busca de re-identificação por
+  --     quase-identificadores (faixa + UF + vaga + timestamp) NÃO cobre esse vetor,
+  --     porque ele não precisa deles: o nome está escrito.
+  -- ⚠ A ORDEM JÁ É SEGURA e não depende de lembrança: o passo 0 da Edge Function LÊ
+  -- `curriculo_url` para montar o plano, e a EF só chama esta função no passo 2.
+  -- ⚠ AS DUAS SÃO NULÁVEIS no catálogo, e isso é CONFERIDO pelo bloco de
+  -- auto-verificação antes do apply — se alguma virasse `NOT NULL`, a saída seria
+  -- sentinela, pelo mesmo raciocínio das sentinelas de `candidatos`, e este `UPDATE`
+  -- abortaria a transação DEPOIS de o currículo já ter sido apagado (Pitfall 1).
+  -- ⚠ `created_by`/`updated_by` são severadas na MESMA forma guardada que
+  -- `candidatos.created_by`/`updated_by` acima: são FKs `NO ACTION` para `auth.users` e,
+  -- de pé, bloqueiam o `deleteUser` com 23503 depois do passo 1 (CR-05).
+  -- ⚠ NADA MAIS de `candidaturas` é tocado: `encerrada_a_pedido_em` é do D-45-13,
+  -- `etapa_atual` tem um único escritor desde o M2/Phase 6, e `deleted_at` faria a linha
+  -- sumir de cinco leituras do RH em silêncio.
+  UPDATE public.candidaturas c
+     SET curriculo_url           = NULL,
+         curriculo_nome_original = NULL,
+         created_by              = CASE WHEN v_user_id IS NOT NULL AND c.created_by = v_user_id
+                                        THEN NULL ELSE c.created_by END,
+         updated_by              = CASE WHEN v_user_id IS NOT NULL AND c.updated_by = v_user_id
+                                        THEN NULL ELSE c.updated_by END
+   WHERE c.candidato_id = p_candidato_id;
+
+  GET DIAGNOSTICS v_n_cvurl = ROW_COUNT;
+
   -- ══ passo_motor: tombstone_decisao_final ══════════════════════════════════
   -- D-45-02 / D-45-03: PRESERVAR ANONIMIZADA. As duas colunas são `NOT NULL` —
   -- nunca NULL, nunca remoção da linha. O texto sobrevive como prova de
@@ -635,6 +677,24 @@ BEGIN
 
   GET DIAGNOSTICS v_n_hist = ROW_COUNT;
 
+  -- ⚠⚠ `preferencias_notificacoes.created_by` / `updated_by` — CR-05, plano 45-13.
+  -- As duas são FKs `NO ACTION` para `auth.users`, e a SONDA 6 mediu `created_by` como
+  -- o bloqueador REAL do `deleteUser` na conta híbrida candidato+RH que existe em PROD.
+  -- A `20260805000005` já NOMEAVA esse bloqueador desde o 45-07 — e nunca o transformou
+  -- em código. Sem esta severação, o 23503 acontece no passo 3, DEPOIS de o currículo
+  -- ter sido apagado do Storage, e (CR-03) esse estado era terminal.
+  -- ⚠ `usuario_rh_id` NÃO é tocada: ela não aponta para `auth.users`.
+  -- ⚠ As duas são NULÁVEIS no catálogo, conferido pelo bloco de auto-verificação antes
+  -- do apply — se fossem `NOT NULL`, este `UPDATE` abortaria a transação inteira depois
+  -- do Storage já ter sido apagado, que é o Pitfall 1.
+  UPDATE public.preferencias_notificacoes p
+     SET created_by = CASE WHEN p.created_by = v_user_id THEN NULL ELSE p.created_by END,
+         updated_by = CASE WHEN p.updated_by = v_user_id THEN NULL ELSE p.updated_by END
+   WHERE v_user_id IS NOT NULL
+     AND (p.created_by = v_user_id OR p.updated_by = v_user_id);
+
+  GET DIAGNOSTICS v_n_pref = ROW_COUNT;
+
   -- ══ passo_motor: scrub_ledger_email ═══════════════════════════════════════
   -- `destinatario_email` E `destinatario_original` são AMBOS `NOT NULL`: o endereço
   -- é gravado DUAS vezes por linha, e NULL abortaria a transação inteira.
@@ -662,9 +722,9 @@ BEGIN
   -- desta fase, e no sentido inverso um P45DR chegando no caminho real passaria por
   -- sucesso quando nada foi apagado.
   IF p_dry_run THEN
-    RAISE EXCEPTION 'P45 DRY-RUN concluido: o corpo COMPLETO da anonimizacao executou e esta sendo revertido agora. Nada foi persistido. candidatos=% decisao_final=% decisao_final_historico=% historico_ator=% ai_call_logs=% candidate_ai_decisions=% logs_acesso=% recruiter_alerts=% autorizacoes=% notificacoes_enviadas=%. Para executar de verdade, chame com p_dry_run := false — o modo seguro e o DEFAULT, e apagar exige dize-lo',
-      v_n_cand, v_n_df, v_n_dfh, v_n_hist, v_n_aicall, v_n_aidec, v_n_logs,
-      v_n_alerts, v_n_aut, v_n_notif
+    RAISE EXCEPTION 'P45 DRY-RUN concluido: o corpo COMPLETO da anonimizacao executou e esta sendo revertido agora. Nada foi persistido. candidatos=% candidaturas_cv=% decisao_final=% decisao_final_historico=% historico_ator=% ai_call_logs=% candidate_ai_decisions=% logs_acesso=% recruiter_alerts=% autorizacoes=% preferencias_notificacoes=% notificacoes_enviadas=%. Para executar de verdade, chame com p_dry_run := false — o modo seguro e o DEFAULT, e apagar exige dize-lo',
+      v_n_cand, v_n_cvurl, v_n_df, v_n_dfh, v_n_hist, v_n_aicall, v_n_aidec, v_n_logs,
+      v_n_alerts, v_n_aut, v_n_pref, v_n_notif
       USING ERRCODE = 'P45DR';
   END IF;
 
@@ -692,16 +752,22 @@ BEGIN
     ) || CASE WHEN v_eh_titular THEN '{}'::jsonb
               ELSE jsonb_build_object('uid', v_uid) END,
     'passos', jsonb_build_object(
-      'tombstone_candidato',     jsonb_build_object('candidatos', v_n_cand),
+      -- ⚠ `candidaturas_curriculo` conta LINHAS ATUALIZADAS, nunca linhas removidas: as
+      -- linhas de `candidaturas` são preservadas por desenho (ERASE-08) e o que morre
+      -- são as duas colunas que resolvem de volta até a pessoa (CR-04).
+      'tombstone_candidato',     jsonb_build_object('candidatos', v_n_cand,
+                                                    'candidaturas_curriculo', v_n_cvurl),
       'tombstone_decisao_final', jsonb_build_object('decisao_final', v_n_df,
                                                     'decisao_final_historico', v_n_dfh),
       'severar_user_id',         jsonb_build_object('candidatos', v_n_cand,
+                                                    'candidaturas_autoria', v_n_cvurl,
                                                     'historico_candidatura_ator', v_n_hist),
       'severar_fks_set_null',    jsonb_build_object('ai_call_logs', v_n_aicall,
                                                     'candidate_ai_decisions', v_n_aidec,
                                                     'logs_acesso', v_n_logs,
                                                     'recruiter_alerts', v_n_alerts,
-                                                    'autorizacoes', v_n_aut),
+                                                    'autorizacoes', v_n_aut,
+                                                    'preferencias_notificacoes', v_n_pref),
       'scrub_ledger_email',      jsonb_build_object('notificacoes_enviadas', v_n_notif)
     )
   );
@@ -794,6 +860,18 @@ DECLARE
   v_priv_upd boolean;
   v_rls_on   boolean;
   v_pol_upd  boolean;
+  -- ⚠ 45-13 · CR-04 — o ponteiro reverso em `candidaturas`.
+  v_vaga     uuid;
+  v_candtr   uuid;
+  v_cv_url   text;
+  v_cv_nome  text;
+  v_cv_url_d text;
+  v_cv_nom_d text;
+  v_cands_a  int;
+  v_cands_d  int;
+  v_reident  int;
+  v_notnull  text := '';
+  r_col      record;
   v_ufs      text[] := ARRAY['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG',
                              'PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 BEGIN
@@ -868,6 +946,35 @@ BEGIN
     RAISE NOTICE 'P45-TOMBSTONE: authenticated tem o GRANT de UPDATE em solicitacoes_dados, mas a RLS esta LIGADA e nao ha policy de UPDATE que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD DE INTENCAO desta funcao: criar uma policy de UPDATE ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez';
   END IF;
 
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- ⚠⚠ 45-13 · NULLABILIDADE MEDIDA ANTES DE ESCREVER NULL (CR-04 e CR-05)
+  --
+  -- As quatro colunas novas que o tombstone anula. Se alguma virasse `NOT NULL`, o
+  -- `UPDATE` abortaria a transacao inteira NO PEDIDO REAL, depois de o curriculo ja ter
+  -- sido apagado do Storage — o Pitfall 1 literal. Medir aqui é o que faz o apply parar
+  -- antes de criar essa bomba, em vez de a pessoa descobrir na primeira exclusão.
+  -- (Se algum dia uma delas for `NOT NULL`, a saída é SENTINELA, pelo mesmo raciocínio
+  -- das sentinelas de `candidatos` — nunca desistir da severação.)
+  FOR r_col IN
+    SELECT * FROM (VALUES
+      ('public.candidaturas',              'curriculo_url'),
+      ('public.candidaturas',              'curriculo_nome_original'),
+      ('public.preferencias_notificacoes', 'created_by'),
+      ('public.preferencias_notificacoes', 'updated_by')
+    ) AS t(tabela, coluna)
+  LOOP
+    IF (SELECT a.attnotnull FROM pg_attribute a
+         WHERE a.attrelid = r_col.tabela::regclass
+           AND a.attname  = r_col.coluna
+           AND NOT a.attisdropped) IS DISTINCT FROM false THEN
+      v_notnull := v_notnull || r_col.tabela || '.' || r_col.coluna || ' ';
+    END IF;
+  END LOOP;
+
+  IF v_notnull <> '' THEN
+    RAISE EXCEPTION 'P45-TOMBSTONE: coluna(s) NOT NULL (ou inexistente(s)) que o tombstone anula: %. Escrever NULL nelas abortaria a transacao de anonimizacao INTEIRA no pedido real, DEPOIS de o curriculo ja ter sido apagado do Storage — e sem PITR e sem backup de Storage esse estado e definitivo (Pitfall 1). A saida certa e SENTINELA para a coluna que virou NOT NULL, nunca desistir da severacao: curriculo_url embute o auth.uid() em claro (CR-04) e preferencias_notificacoes.created_by e o bloqueador do deleteUser medido na SONDA 6 (CR-05)', v_notnull;
+  END IF;
+
   SELECT u.user_id INTO v_admin
     FROM public.usuarios_rh u
    WHERE u.role = 'administrador' AND u.ativo AND u.deleted_at IS NULL
@@ -876,6 +983,15 @@ BEGIN
 
   IF v_admin IS NULL THEN
     RAISE EXCEPTION 'P45-TOMBSTONE: nenhum administrador vivo em usuarios_rh — o caminho FELIZ nao pode ser exercitado sem ator real, e verificar so a recusa foi EXATAMENTE o defeito que a 20260803000001 corrigiu';
+  END IF;
+
+  -- ⚠ 45-13 · a candidatura sintetica do CR-04 exige `vaga_id`. Sem vaga viva, a
+  -- assercao de severacao de `curriculo_url` mediria VAZIO e passaria por vacuidade —
+  -- que e o modo de falha que este bloco inteiro existe para nao ter.
+  SELECT v.id INTO v_vaga FROM public.vagas v ORDER BY v.created_at LIMIT 1;
+
+  IF v_vaga IS NULL THEN
+    RAISE EXCEPTION 'P45-TOMBSTONE: nenhuma vaga viva em public.vagas — a candidatura sintetica do CR-04 nao pode ser criada, e a assercao de que curriculo_url e curriculo_nome_original nao sobrevivem ao tombstone passaria por VACUIDADE';
   END IF;
 
   v_mail_a := 'p45tomba+' || replace(v_user_a::text, '-', '') || '@invalido.local';
@@ -928,6 +1044,31 @@ BEGIN
       (v_cand_a, v_user_a, true, true, true, true, 'p45-verifica',
        '198.51.100.77'::inet, 'p45-verifica', now(), now())
     RETURNING id INTO v_aut_id;
+
+    -- ⚠ 45-13 · CR-04 — A CANDIDATURA COM O PONTEIRO REVERSO.
+    -- `curriculo_url` no esquema REAL (`{authUid}/{uuid}.pdf`, `cvUploadService.ts:101`)
+    -- e `curriculo_nome_original` com um nome dentro, que é o formato que chega ao
+    -- painel de triagem do RH. Sem estes dois valores a asserção mediria NULL contra
+    -- NULL e não provaria nada.
+    -- ⚠ `status = 'rejeitado'` é o survivor-guard dos DOIS triggers `AFTER INSERT ON
+    -- public.candidaturas` que disparam `net.http_post` (`20260726000001:174-177` e
+    -- `20260610000002:68-70`): com ele, nenhum dos dois enfileira coisa alguma — nem
+    -- sequer uma linha em `net.http_request_queue`. Cinto E suspensório, porque a fila
+    -- do `pg_net` é transacional e o rollback a descartaria de qualquer forma; mas
+    -- "provavelmente reverte" não é postura aceitável diante de e-mail para pessoa real.
+    v_cv_url  := v_user_a::text || '/' || gen_random_uuid()::text || '.pdf';
+    v_cv_nome := 'Curriculo_P45_Verificacao_A_2026.pdf';
+
+    INSERT INTO public.candidaturas
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura,
+       curriculo_url, curriculo_nome_original)
+    VALUES
+      (v_cand_a, v_vaga, 'triagem', 'rejeitado', false, now() - interval '31 days',
+       v_cv_url, v_cv_nome)
+    RETURNING id INTO v_candtr;
+
+    SELECT count(*) INTO v_cands_a
+      FROM public.candidaturas c WHERE c.candidato_id = v_cand_a;
 
     -- Fixture B — só para o dry-run. Separada de propósito: o dry-run tem de ser
     -- medido sobre uma linha que NUNCA foi anonimizada, senão o ramo de
@@ -1047,6 +1188,34 @@ BEGIN
 
     IF v_ip_aut IS NULL OR v_ip_aut = '198.51.100.77'::inet OR host(v_ip_aut) <> '198.51.100.0' THEN
       RAISE EXCEPTION 'P45-TOMBSTONE: autorizacoes.ip_aceite = % — esperado 198.51.100.0/24. E prova de aceite: a linha fica, o endereco nao', coalesce(v_ip_aut::text, '<nulo>');
+    END IF;
+
+    -- ── (i.b) 45-13 · CR-04 — O PONTEIRO REVERSO NÃO SOBREVIVE ──────────────
+    -- Três medições, e as três importam: as duas colunas nulas, a LINHA de pé
+    -- (ERASE-08) e — a que fecha o vetor — a consulta de re-identificação do review,
+    -- `split_part(curriculo_url, '/', 1)` mais join em `auth.users`, devolvendo ZERO.
+    SELECT c.curriculo_url, c.curriculo_nome_original
+      INTO v_cv_url_d, v_cv_nom_d
+      FROM public.candidaturas c WHERE c.id = v_candtr;
+
+    SELECT count(*) INTO v_cands_d
+      FROM public.candidaturas c WHERE c.candidato_id = v_cand_a;
+
+    SELECT count(*) INTO v_reident
+      FROM public.candidaturas c
+      JOIN auth.users u ON u.id::text = split_part(c.curriculo_url, '/', 1)
+     WHERE c.candidato_id = v_cand_a;
+
+    IF v_cv_url_d IS NOT NULL OR v_cv_nom_d IS NOT NULL THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-04): candidaturas.curriculo_url = % e curriculo_nome_original = % sobreviveram ao tombstone. A primeira embute o auth.uid() EM CLARO (esquema {authUid}/{uuid}.pdf) e resolve de volta ate auth.users por split_part + join, devolvendo a identidade COMPLETA do titular "anonimizado" por UMA linha; a segunda costuma carregar o NOME da pessoa e e lida pelo painel de triagem do RH (v_triagem_panel). Isso e pseudonimizacao apresentada como anonimizacao, e a busca por quase-identificadores nao pega esse vetor porque ele nao precisa deles: o nome esta escrito', coalesce(v_cv_url_d, '<nulo>'), coalesce(v_cv_nom_d, '<nulo>');
+    END IF;
+
+    IF v_cands_d <> v_cands_a OR v_cands_a <> 1 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-04/ERASE-08): as LINHAS de candidaturas do titular mudaram de % para %. A severacao e de DUAS COLUNAS, nunca de linha: as candidaturas sobrevivem por desenho, e apagar linha ali destruiria a trilha que a RNF-07a existe para proteger', v_cands_a, v_cands_d;
+    END IF;
+
+    IF v_reident <> 0 THEN
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-04): a consulta de re-identificacao do 45-REVIEW.md devolveu % linha(s) — split_part(curriculo_url, /, 1) ainda resolve para uma conta viva de auth.users. O ponteiro reverso continua de pe', v_reident;
     END IF;
 
     -- ── (ii) IDEMPOTÊNCIA POR ESTADO ────────────────────────────────────────
@@ -1252,7 +1421,7 @@ BEGIN
     END;
 
     IF NOT v_lev OR v_st IS DISTINCT FROM '42501' THEN
-      RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/storage nao carimbado): a chamada REAL executou com storage_concluido_em NULO (levantou=%, sqlstate=%). E ESTE o caso que prova que a ordem Storage -> Postgres -> Auth virou regra do BANCO: a SONDA 2 mediu que a plataforma nao a impoe (storage.objects nao tem FK para auth.users) e que violar a ordem nao levanta erro nenhum — apenas orfana o blob para sempre, sem PITR e sem backup de Storage', v_lev, coalesce(v_st, '<nulo>');
+      RAISE EXCEPTION 'P45-TOMBSTONE (CR-01/storage nao carimbado): a chamada REAL executou com storage_concluido_em NULO (levantou=%, sqlstate=%). E ESTE o caso que prova que a ordem Storage -> Postgres -> Auth virou regra do BANCO: a SONDA 2 mediu que a plataforma nao a impoe (a tabela de objetos do Storage nao tem FK para auth.users) e que violar a ordem nao levanta erro nenhum — apenas orfana o blob para sempre, sem PITR e sem backup de Storage', v_lev, coalesce(v_st, '<nulo>');
     END IF;
 
     PERFORM set_config('request.jwt.claims', '', true);
@@ -1265,7 +1434,7 @@ BEGIN
       IF SQLERRM <> 'P45-TOMBSTONE-OK' THEN
         RAISE;
       END IF;
-      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). A subtransacao foi revertida e NADA persistiu';
+      RAISE NOTICE 'P45-TOMBSTONE OK: o tombstone COMPLETOU contra as 7 CHECKs vivas e os NOT NULL medidos; faixa materializada ANTES da sentinela (35-44); user_id severado; os 2 inet truncados de verdade; re-execucao no-op por ESTADO devolvendo ja_anonimizado; dry-run levantou P45DR sem mutar coluna alguma; o PROPRIO TITULAR foi ACEITO (chegou ao P45DR) e um candidato que nao e o dono foi RECUSADO com 42501. ⚠ 45-13: curriculo_url e curriculo_nome_original severadas com a LINHA de candidaturas de pe e a consulta de re-identificacao por split_part devolvendo ZERO (CR-04); o INTRUSO do namespace de anonimizacao foi anonimizado DE VERDADE (CR-06); o papel rh foi ACEITO no dry-run e RECUSADO com 42501 no caminho destrutivo (opcao B); e a metade (c) recusou com 42501 as TRES formas de chamada fora do motor — sem pedido, com a janela do D-45-01 ainda aberta, e com o passo 1 do Storage nao carimbado (CR-01). A subtransacao foi revertida e NADA persistiu';
   END;
 END
 $verifica_anonimizar_candidato$;
@@ -1309,11 +1478,30 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'data_nascimento JA na sentinela de 1900 — uma linha meio anonimizada nao e um tombstone. '
   'MAPA passo_motor -> statements (PASSOS_MOTOR de reciboExclusao.ts): '
   'tombstone_candidato = os DOIS updates em candidatos (faixa etaria PRIMEIRO, depois as '
-  'sentinelas); tombstone_decisao_final = update em decisao_final e, DEPOIS dele, o scrub de '
-  'decisao_final_historico; severar_user_id = user_id/created_by/updated_by em candidatos mais '
-  'historico_candidatura.ator; severar_fks_set_null = os cinco updates das tabelas do ERASE-09; '
+  'sentinelas) MAIS o update em candidaturas que anula curriculo_url e '
+  'curriculo_nome_original; tombstone_decisao_final = update em decisao_final e, DEPOIS dele, o '
+  'scrub de decisao_final_historico; severar_user_id = user_id/created_by/updated_by em candidatos, '
+  'created_by/updated_by em candidaturas, mais historico_candidatura.ator; severar_fks_set_null = '
+  'os cinco updates das tabelas do ERASE-09 mais preferencias_notificacoes; '
   'scrub_ledger_email = update em notificacoes_enviadas. storage_remove e auth_delete_user sao de '
   'FORA do banco (45-10). '
+  '⚠⚠ CR-04 — candidaturas.curriculo_url E curriculo_nome_original SAO SEVERADAS, e as LINHAS '
+  'ficam. As linhas de candidaturas sao preservadas por desenho (ERASE-08) e nada aqui as remove; '
+  'mas essas duas colunas nao sao trilha de decisao. curriculo_url embute o auth.uid() EM CLARO '
+  '(esquema {authUid}/{uuid}.pdf, cvUploadService.ts:101) e resolve de volta ate auth.users por '
+  'split_part + join, devolvendo a identidade COMPLETA do titular "anonimizado" por UMA linha; '
+  'curriculo_nome_original costuma carregar o NOME da pessoa e e selecionada pela view do painel de '
+  'triagem do RH (20260623000001:24). A ordem e segura por construcao: o passo 0 da Edge Function '
+  'LE curriculo_url para montar o plano, e a EF so chama esta funcao no passo 2. NADA MAIS de '
+  'candidaturas e tocado: encerrada_a_pedido_em e do D-45-13, etapa_atual tem um unico escritor '
+  'desde o M2/Phase 6, e deleted_at faria a linha sumir de cinco leituras do RH em silencio. '
+  '⚠⚠ CR-05 — preferencias_notificacoes.created_by/updated_by SAO SEVERADAS na mesma transacao. As '
+  'duas sao FKs NO ACTION para auth.users e a SONDA 6 mediu created_by como o bloqueador REAL do '
+  'deleteUser na conta hibrida candidato+RH que existe em PROD. Sem esta severacao o 23503 acontece '
+  'no passo 3, DEPOIS de o curriculo ter sido apagado. usuario_rh_id NAO e tocada: ela nao aponta '
+  'para auth.users. A nullability das QUATRO colunas novas e MEDIDA pelo bloco de auto-verificacao '
+  'antes do apply — se alguma virasse NOT NULL, a saida seria sentinela, nunca desistir da '
+  'severacao, porque um UPDATE que aborta apos o Storage e o Pitfall 1. '
   '⚠⚠ ORDEM QUE E MECANISMO, EM DOIS PONTOS. (1) faixa_etaria_materializada e escrita ANTES da '
   'sentinela de data_nascimento: gerar_bias_snapshot deriva a idade por JOIN vivo, toda data no '
   'passado tem idade, e materializar depois gravaria a faixa do ano 1900 — a serie EEOC 4/5 '
@@ -1401,7 +1589,7 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'console do navegador destruia PII fora da janela, sem recibo e sem trilha, e deixava o curriculo '
   'orfao no bucket porque candidatos.user_id acabava de virar NULL. ⚠ E E AQUI QUE A ORDEM '
   'Storage -> Postgres -> Auth PASSA A SER IMPOSTA PELO BANCO: a SONDA 2 mediu que a plataforma NAO '
-  'a impoe (storage.objects nao tem FK para auth.users) e que o modo de falha e SILENCIOSO. '
+  'a impoe (a tabela de objetos do Storage nao tem FK para auth.users) e que o modo de falha e SILENCIOSO. '
   '⚠ NULL-SAFE POR CONSTRUCAO: com executar_em nulo o predicado avalia NULL, a linha nao e '
   'selecionada, o NOT EXISTS e TRUE e a funcao RECUSA — falha FECHADA sem clausula extra. '
   '⚠ DE QUE A (c) DEPENDE: da seguranca de public.solicitacoes_dados. Quem escrever situacao e '

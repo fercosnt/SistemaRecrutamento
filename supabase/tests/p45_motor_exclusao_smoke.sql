@@ -25,12 +25,12 @@
 -- chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44).
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **22** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 22 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **23** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 23 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
--- ⚠ O contador subiu de 21 para 22 no plano 45-13, com a assercao (C7) — o guard de
--- INTENCAO (CR-01). Acrescentar bloco sem bumpar este numero transforma uma adicao
--- legitima em reprovacao do RESUMO.
+-- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
+-- e (B11), o ponteiro reverso de candidaturas (CR-04). Acrescentar bloco sem bumpar
+-- este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ ESTE SMOKE ESCREVE — E O ESCOPO NEGATIVO INVERTE EM RELACAO AO MOLDE
@@ -85,7 +85,7 @@
 -- CASE de `trg_notif_transicao` (20260726000001:75-81) deixa passar sem dispatch.
 --
 -- -----------------------------------------------------------------------------
--- AS 22 ASSERCOES — catorze delas NEGATIVAS
+-- AS 23 ASSERCOES — quinze delas NEGATIVAS
 -- -----------------------------------------------------------------------------
 -- BLOCO A — ESTRUTURAL, SEM FIXTURE, SEM ESCRITA. E O PRIMEIRO DO ARQUIVO, E A
 -- ORDEM E A DECISAO MAIS IMPORTANTE AQUI. Num batch de chamada unica, tudo depois
@@ -122,6 +122,10 @@
 --   (B9) ⊖ RE-IDENTIFICACAO COMO GATE — buscar o titular por (faixa etaria + UF +
 --        vaga + timestamp) devolve ZERO linhas. Achou 1 → a anonimizacao falhou.
 --   (B10) `dedupe_key` re-namespaceada — senao o recadastro futuro morre em silencio.
+--   (B11) ⊖ NEGATIVA (CR-04, 45-13) — `candidaturas.curriculo_url` e
+--        `curriculo_nome_original` NAO sobrevivem ao tombstone: o primeiro embute o
+--        `auth.uid()` em claro e resolve de volta a `auth.users` por `split_part`, o
+--        segundo carrega o NOME e e lido pelo painel de triagem. As LINHAS ficam.
 --
 -- BLOCO C — SEGURANCA, NAO-DIVERGENCIA E OS DOIS NEGATIVOS DO ENCERRAMENTO.
 --   (C1) ⊖ NEGATIVA — `proacl` das 5 funcoes novas nao concede EXECUTE a `anon`,
@@ -142,7 +146,7 @@
 --   (C7) ⊖ NEGATIVA (CR-01, 45-13) — o guard de INTENCAO: a chamada REAL feita por
 --        `administrador` sobre um candidato SEM pedido em execucao recusa com `42501`
 --        ANTES de tocar coluna alguma. `P0002` ali significa que a metade (c) sumiu.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 22.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 23.
 --
 -- =============================================================================
 -- ⚠ TRES ACHADOS MEDIDOS QUE ESTA ESPEC ENCODA, E QUE O 45-07 TEM DE RESOLVER
@@ -666,6 +670,15 @@ DECLARE
   v_nn_aidec_v  boolean;
   v_nn_cpf      boolean;
 
+  -- ⚠ 45-13 / CR-04 — o ponteiro reverso em candidaturas
+  v_cv_url_a    text;
+  v_cv_nome_a   text;
+  v_cv_url_d    text;
+  v_cv_nome_d   text;
+  v_cands_a     int;
+  v_cands_d     int;
+  v_reid_cv     int;
+
   -- ERASE-10 / re-identificacao / idempotencia
   v_uid_viva    int;
   v_ator_tit    int;
@@ -727,10 +740,17 @@ BEGIN
     -- (fixture 3/13) candidaturas — `status = 'rejeitado'` e o survivor-guard que
     -- desarma os DOIS triggers AFTER INSERT que fariam net.http_post (ver cabecalho).
     -- `etapa_atual = 'triagem'` e o que o encerramento a pedido de 45-03 exige.
+    -- ⚠ 45-13 / CR-04: `curriculo_url` nasce no esquema REAL (`{authUid}/{uuid}.pdf`,
+    -- cvUploadService.ts:101) e `curriculo_nome_original` com um nome dentro, que e o
+    -- formato que chega ao painel de triagem do RH. Sem estes dois valores a assercao
+    -- (B11) mediria NULL contra NULL e passaria por VACUIDADE.
     INSERT INTO public.candidaturas
-      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura,
+       curriculo_url, curriculo_nome_original)
     VALUES
-      (v_cand, v_vaga, 'triagem', 'rejeitado', false, now() - interval '31 days')
+      (v_cand, v_vaga, 'triagem', 'rejeitado', false, now() - interval '31 days',
+       v_user::text || '/' || gen_random_uuid()::text || '.pdf',
+       'Curriculo_Titular_Sintetico_P45_2026.pdf')
     RETURNING id INTO v_candtr;
 
     -- (fixture 4/13) historico_candidatura com `ator` = o titular. etapa_para =
@@ -845,7 +865,11 @@ BEGIN
            v_cid_a, v_uf_a, v_conh_a, v_idade_a
       FROM public.candidatos c WHERE c.id = v_cand;
 
-    SELECT cd.data_candidatura INTO v_dtcand_a FROM public.candidaturas cd WHERE cd.id = v_candtr;
+    SELECT cd.data_candidatura, cd.curriculo_url, cd.curriculo_nome_original
+      INTO v_dtcand_a, v_cv_url_a, v_cv_nome_a
+      FROM public.candidaturas cd WHERE cd.id = v_candtr;
+
+    SELECT count(*) INTO v_cands_a FROM public.candidaturas cd WHERE cd.candidato_id = v_cand;
 
     SELECT d.justificativa INTO v_just_a FROM public.decisao_final d WHERE d.candidatura_id = v_candtr;
     SELECT h.justificativa INTO v_justh_a FROM public.decisao_final_historico h WHERE h.candidatura_id = v_candtr LIMIT 1;
@@ -963,6 +987,21 @@ BEGIN
        AND cd.data_candidatura = v_dtcand_a
        AND c.estado            = v_uf_a
        AND date_part('year', age(c.data_nascimento))::int BETWEEN v_idade_a - 2 AND v_idade_a + 2;
+
+    -- ── B11: ⊖ CR-04 — O PONTEIRO REVERSO DE `candidaturas` ────────────────────
+    -- A consulta de re-identificacao e a do 45-REVIEW.md, verbatim na forma:
+    -- split_part(curriculo_url, '/', 1) resolve o auth.uid() e o join devolve a
+    -- identidade completa. ZERO e a unica resposta aceitavel; as LINHAS ficam.
+    SELECT cd.curriculo_url, cd.curriculo_nome_original
+      INTO v_cv_url_d, v_cv_nome_d
+      FROM public.candidaturas cd WHERE cd.id = v_candtr;
+
+    SELECT count(*) INTO v_cands_d FROM public.candidaturas cd WHERE cd.candidato_id = v_cand;
+
+    SELECT count(*) INTO v_reid_cv
+      FROM public.candidaturas cd
+      JOIN auth.users u ON u.id::text = split_part(cd.curriculo_url, '/', 1)
+     WHERE cd.candidato_id = v_cand;
 
     -- ── B4: IDEMPOTENCIA POR ESTADO ────────────────────────────────────────────
     SELECT public.anonimizar_candidato(v_cand, false)::text INTO v_ret2;
@@ -1180,6 +1219,24 @@ BEGIN
   END IF;
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (B10): ledger com sentinela nos dois enderecos e dedupe_key re-namespaceada';
+
+  -- (B11) ⊖ NEGATIVA (CR-04, 45-13) — O PONTEIRO REVERSO NAO SOBREVIVE.
+  --       A primeira perna e obrigatoria e nao e decorativa: se a fixture nascesse sem
+  --       curriculo_url, as duas negativas seriam verdadeiras por VACUIDADE.
+  IF v_cv_url_a IS NULL OR v_cv_nome_a IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B11): a fixture nasceu SEM curriculo_url (%) ou SEM curriculo_nome_original (%) — as negativas abaixo passariam por VACUIDADE. Ausencia de fixture e FALHA DE TESTE', coalesce(v_cv_url_a, '<nulo>'), coalesce(v_cv_nome_a, '<nulo>');
+  END IF;
+  IF v_cv_url_d IS NOT NULL OR v_cv_nome_d IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (B11): candidaturas.curriculo_url=% e curriculo_nome_original=% SOBREVIVERAM ao tombstone. A primeira embute o auth.uid() EM CLARO (esquema {authUid}/{uuid}.pdf, cvUploadService.ts:101) e resolve de volta ate auth.users por split_part + join — a identidade COMPLETA do titular "anonimizado", por UMA linha, sem precisar de quase-identificador nenhum. A segunda costuma carregar o NOME da pessoa e e lida pelo painel de triagem do RH (20260623000001:24) numa linha cujo candidato ja e um tombstone. Isso e pseudonimizacao apresentada como anonimizacao, e a assercao (B9) NAO pega este vetor', coalesce(v_cv_url_d, '<nulo>'), coalesce(v_cv_nome_d, '<nulo>');
+  END IF;
+  IF v_reid_cv <> 0 THEN
+    RAISE EXCEPTION 'P45M FAIL (B11): a consulta de re-identificacao por curriculo_url devolveu % linha(s) — split_part(curriculo_url, /, 1) ainda casa uma conta VIVA de auth.users', v_reid_cv;
+  END IF;
+  IF v_cands_d <> v_cands_a OR v_cands_a <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B11/ERASE-08): as LINHAS de candidaturas do titular foram de % para %. A severacao e de DUAS COLUNAS e nunca de linha: as candidaturas sobrevivem por desenho, e apagar linha ali destruiria a trilha que a RNF-07a existe para proteger (e as 3 FKs NO ACTION da A1 existem justamente para tornar isso dificil)', v_cands_a, v_cands_d;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (B11): curriculo_url e curriculo_nome_original severadas, re-identificacao por split_part devolvendo zero, e a LINHA de candidaturas de pe (% antes, % depois)', v_cands_a, v_cands_d;
 END
 $bloco_b$;
 
@@ -1798,7 +1855,7 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 22.
+--     e na P43). O esperado e FIXO: 23.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -1807,7 +1864,7 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  v_esperado int := 22;
+  v_esperado int := 23;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN
