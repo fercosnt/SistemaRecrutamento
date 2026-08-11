@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 27
+open_count: 28
 waived_count: 0
 fixed_count: 1
-total_count: 28
-last_updated: 2026-08-11T03:53:04.434Z
+total_count: 29
+last_updated: 2026-08-11T04:17:17.358Z
 ---
 
 # Broken Windows Ledger
@@ -43,6 +43,7 @@ last_updated: 2026-08-11T03:53:04.434Z
 | 26 | 47 | unmet-truth | src/features/transparencia/constants/matrizRetencao.generated.ts |  | As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5) | open |  | 2026-08-09T23:11:20.359Z |  |
 | 27 | 47 | todo | src/features/hub-candidato/services/historicoCandidaturaService.ts |  | as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types | open |  | 2026-08-10T12:55:37.934Z |  |
 | 28 | 47 | unrun-verify | .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md |  | 47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto | open |  | 2026-08-11T03:53:04.434Z |  |
+| 29 | 47 | deviation | src/__tests__/destinosDeRedeComFicha.test.ts |  | api.ipify.org e www.youtube.com: destinos vivos fora da lista publicada de empresas contratadas, registrados como pendente-de-decisao com fato medido e rota — a classificacao e ato do Encarregado, no portao de publicacao aberto do 47-08 | open |  | 2026-08-11T04:17:17.358Z |  |
 
 ````json
 [
@@ -380,6 +381,18 @@ last_updated: 2026-08-11T03:53:04.434Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T03:53:04.434Z",
+    "resolved_at": null
+  },
+  {
+    "id": 29,
+    "kind": "deviation",
+    "phase": "47",
+    "file": "src/__tests__/destinosDeRedeComFicha.test.ts",
+    "line": null,
+    "description": "api.ipify.org e www.youtube.com: destinos vivos fora da lista publicada de empresas contratadas, registrados como pendente-de-decisao com fato medido e rota — a classificacao e ato do Encarregado, no portao de publicacao aberto do 47-08",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-11T04:17:17.358Z",
     "resolved_at": null
   }
 ]

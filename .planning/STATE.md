@@ -5,15 +5,15 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: 47-08 Task 2 concluida; PARADO no portao de PUBLICACAO do Encarregado (Task 1 ABERTA, Task 3 nao executada)
-last_updated: "2026-08-11T03:53:04.372Z"
+stopped_at: Completed 47-09-PLAN.md
+last_updated: "2026-08-11T04:17:10.917Z"
 last_activity: 2026-08-11
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 51
-  completed_plans: 48
-  percent: 50
+  completed_plans: 49
+  percent: 67
 last_activity_desc: "47-08 Task 2 entregue: o RodapePublico existe — dois links, piso de alvo tátil provado em CADA link no próprio elemento acionável (e com a caixa flex, porque min-height numa âncora inline é ignorado pelo CSS), lista de proibições asserida no DOM e na fonte. ⚠ CONSTRUÍDO E NÃO MONTADO: a Task 3 (montagem nas cinco superfícies) NÃO foi executada e a Task 1 (revisão do Encarregado) segue ABERTA — montar é o ato de PUBLICAÇÃO. /privacidade e /subprocessadores continuam existindo sem nenhuma navegação de produção levando a elas. O núcleo da revisão: cinco das seis empresas contratadas tratam os dados nos EUA e todos os candidatos são brasileiros. Suíte 1861/1861, tsc 97, 5 check:* exit 0, portoesInvocados 7/7, zero --no-verify, zero dependência nova"
 ---
 
@@ -388,7 +388,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-10
+Last activity: 2026-08-11
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -543,6 +543,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P07 | 12min | 2 tasks | 4 files |
 | Phase 47 P04 | 9 min | 1 tasks | 4 files |
 | Phase 47 P08 | 14min | 1 tasks | 4 files |
+| Phase 47 P09 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -733,6 +734,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: as never pre-regen na chamada da RPC do historico: a funcao esta viva em PROD mas database.types.ts so e regenerado por npm run db:types (Supabase CLI --linked, indisponivel)
 - [Phase 47]: Os seis paises dos subprocessadores foram MEDIDOS (2026-08-11): cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com hospedagem nao divulgada — O TimeZone do banco em PROD (America/Sao_Paulo) foi recusado como prova de regiao antes da medicao — e a recusa se provou certa: a regiao medida e us-east-1. O indicio apontava para o Brasil e estava errado; aceita-lo teria publicado uma declaracao falsa de transferencia internacional
 - [Phase ?]: 47-08: o RodapePublico foi CONSTRUIDO e deliberadamente NAO montado — a montagem e o ato de publicacao, e o portao do Encarregado esta aberto. Cinco das seis empresas contratadas tratam os dados nos Estados Unidos e todos os candidatos sao brasileiros: a pagina declara transferencia internacional em quase toda a cadeia, e isso e o nucleo da revisao
+- [Phase ?]: 47-09: os dois destinos de rede sem ficha (servico de IP, quadro de video embutido) sao registrados como pendencia com FATO MEDIDO e ROTA, nunca com veredito — classificar destino como empresa contratada e ato do Encarregado
 
 ### Pending Todos
 
@@ -932,9 +934,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-11T03:52:52.335Z
-Stopped at: 47-08 Task 2 concluida; PARADO no portao de PUBLICACAO do Encarregado (Task 1 ABERTA, Task 3 nao executada)
-Resume file: .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md
+Last session: 2026-08-11T04:17:03.069Z
+Stopped at: Completed 47-09-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
