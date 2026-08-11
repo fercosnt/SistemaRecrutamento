@@ -292,3 +292,67 @@ como `key_link`, não como arquivo a editar.
 
 **Fecha em:** um plano de UI da Phase 45/46 ou o `/gsd-ui-review`, acrescentando a copy do ramo
 `NAO_RETIRAVEL` ao lado da genérica.
+
+---
+
+### DI-45-13-01 · `logs_auditoria` continua sem receber a escrita de anonimização
+
+**Encontrado em:** 45-13, Task 2 (ao acrescentar a trilha de executor ao tombstone).
+
+**O quê, medido:** `anonimizar_candidato` não escreve em `public.logs_auditoria`, e o
+`COMMENT` dela sempre registrou isso — mas registrava como se fosse neutro. A razão é
+medida e continua válida: a tabela usa dois enums (`categoria_log_auditoria`,
+`severidade_log`) cujos valores vivos **nenhum plano desta fase pôde medir** (subagentes
+GSD não recebem os tools MCP do Supabase — bug upstream anthropics/claude-code#13898), e
+a regra da fase é que nenhuma escrita é escolhida por parecer razoável.
+
+**Consequência se ninguém fechar:** a destruição de PII não aparece na trilha de
+auditoria central do produto. Quem for auditar o sistema por `logs_auditoria` não vê as
+anonimizações — vê o resto.
+
+**Por que NÃO foi feito aqui:** um valor de enum inventado abortaria a transação de
+anonimização inteira **no pedido real, depois de o currículo já ter sido apagado do
+Storage** — o Pitfall 1 literal, e sem PITR e com o Storage fora de todo backup esse
+estado é definitivo. Seria trocar um defeito de rastreabilidade por um irreversível.
+
+**A trilha que existe no lugar, e ela é nova neste plano:** o retorno da função carrega
+um bloco `executor` com o papel lido da claim, o booleano de «foi o próprio titular» e —
+**apenas quando o executor NÃO é o titular** — o `uid` dele. A Edge Function persiste
+esse bloco no `plano`, que sobrevive ao fecho do pedido. O `uid` do titular fica de fora
+de propósito: ele é o identificador que a exclusão existe para apagar, e gravá-lo no
+registro que prova a exclusão seria o CR-04 com outra cara.
+
+**Fecha quando:** alguém medir os dois enums por sonda **read-only** (`SELECT
+enumlabel FROM pg_enum`) e a escrita for acrescentada com valores lidos do catálogo —
+nunca escolhidos.
+
+---
+
+### DI-45-13-02 · A janela passo 3 → passo 4 não tem retomada, e o motor não tem gatilho
+
+**Encontrado em:** 45-13, Task 4 (ao fechar o CR-03).
+
+**O quê, medido em duas metades:**
+
+1. **Sem retomada depois do hard delete.** O reencontro do CR-03 resolve o pedido pelo
+   `auth_uid` persistido no `plano`, comparado com o `sub` de um JWT verificado. Depois
+   que o `deleteUser` completa **não existe mais conta**, logo não existe JWT, logo não
+   existe reencontro. Um pedido que morra entre o passo 3 e o passo 4 fica com os três
+   carimbos destrutivos e **sem recibo** — e o recibo é o único canal que ainda alcança
+   a pessoa.
+2. **Sem gatilho (WR-09).** `acao: 'executar'` não tem chamador em `src/`, não há
+   `cron.schedule` apontando para esta Edge Function e não há caminho de operador dentro
+   do produto. A Task 3 do 45-11 a invoca **manualmente**, para a evidência do portão.
+
+**Consequência se ninguém fechar:** um pedido real fica em `agendado` indefinidamente
+depois de vencidos os 15 dias, e o prazo do Art. 18 §6 passa em silêncio. Somado à
+metade (1): mesmo quando alguém dispara, uma falha na última janela deixa a pessoa sem
+comprovante de um apagamento que aconteceu.
+
+**Por que NÃO foi feito aqui:** o executor agendado (`pg_cron` + `net.http_post`, ou uma
+EF de varredura com `service_role`) é da **Phase 46** por decisão de escopo registrada no
+`45-CONTEXT.md` § Deferred Ideas. Um plano da Phase 45 que o construísse estaria
+implementando ideia diferida — e ele é justamente onde a metade (1) também se resolve,
+porque um executor com `service_role` retoma sem depender de JWT nenhum.
+
+**Fecha na Phase 46**, junto com o executor agendado.

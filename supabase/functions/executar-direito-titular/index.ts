@@ -49,10 +49,16 @@
  *
  * ── OS QUATRO PASSOS, E A ORDEM É O REQUISITO ───────────────────────────────
  *   1. AUTHENTICATE — `supabaseUser.auth.getUser()`; sem sessão → 401.
- *   2. AUTHORIZE    — resolve o titular de `auth.uid()`; erro de query → 500,
- *                     ausência → 403.
- *   3. VALIDA       — `acao` contra o vocabulário FECHADO, antes de qualquer
- *                     toque privilegiado.
+ *   2. VALIDA       — `acao` contra o vocabulário FECHADO, antes de qualquer
+ *                     toque privilegiado. ⚠ Este passo subiu de terceiro para segundo
+ *                     no 45-13: o reencontro do CR-03 (abaixo) existe SÓ para
+ *                     `executar`, então a autorização precisa saber qual é a ação para
+ *                     decidir entre o 403 e a retomada. Efeito colateral favorável: uma
+ *                     ação fora do vocabulário deixou de custar uma leitura
+ *                     privilegiada.
+ *   3. AUTHORIZE    — resolve o titular de `auth.uid()`; erro de query → 500,
+ *                     ausência → 403 — **exceto** o reencontro pós-tombstone da ação
+ *                     `executar`, que é autorização pelo MESMO JWT por outro caminho.
  *   4. DELEGA       — a RPC `SECURITY DEFINER`, que reafirma a titularidade.
  *
  * ── AUTHENTICATE ≠ AUTHORIZE (landmine P10/P11) ─────────────────────────────
@@ -61,13 +67,29 @@
  * ANTES de qualquer chamada privilegiada. O guard do corpo da RPC é o cinto
  * secundário, e desde o 45-12 ele de fato morde: as claims do titular chegam lá.
  *
- * ── ⚠ O 403 QUE VAI APARECER DEPOIS DO TOMBSTONE É O COMPORTAMENTO DESEJADO ──
- * O `.eq("user_id", user.id)` do passo 2 é **exatamente o que a severação do 45-07
+ * ── ⚠ O 403 DEPOIS DO TOMBSTONE, E O QUE MUDOU NO 45-13 (CR-03) ─────────────
+ * O `.eq("user_id", user.id)` da autorização é **exatamente o que a severação do 45-07
  * quebra por desenho** (D-45-11): depois do tombstone `candidatos.user_id` deixa de
- * apontar para a linha do Auth, nenhuma sessão resolve o titular, e esta função
- * responde 403. **Isso é o certo, não um defeito a "consertar" na primeira vez que
- * aparecer** — depois da exclusão não há sessão, não há tela e não há a quem
- * responder. Quem for editar este arquivo no 45-10 precisa ler esta linha antes.
+ * apontar para a linha do Auth e nenhuma sessão resolve o titular.
+ *
+ * **Para as três ações não-destrutivas isso continua sendo o certo, e continua não
+ * devendo ser "consertado"**: depois da exclusão não há tela, não há pedido novo a
+ * registrar e não há a quem responder.
+ *
+ * ⚠ **O que mudou é a ação `executar`.** O `45-REVIEW.md` mediu que aquele 403 tornava
+ * os passos 3 e 4 **INALCANÇÁVEIS**: o passo 2 commitava, a EF caía em 403 e o estado
+ * ficava terminal — currículos apagados, tombstone escrito, `situacao='executando'`
+ * para sempre, **a conta do Auth viva com o e-mail real do titular**, e o recibo nunca
+ * enviado. E não existia outro caminho (WR-09: sem chamador em `src/`, sem job agendado,
+ * sem ação de operador). Agora, e SÓ nessa ação, o pedido é reencontrado pelo `auth_uid`
+ * que o passo 0 persistiu no `plano` e comparado com o `sub` do JWT já verificado —
+ * mesma pessoa, provada pelo mesmo JWT, nunca por identificador vindo do corpo.
+ *
+ * ⚠ **A janela que PERMANECE aberta** é a de depois do hard delete: sem conta não há
+ * JWT, logo não há reencontro. É o item diferido `DI-45-13-02`, endereçado à Phase 46
+ * junto com o executor agendado (o cron é escopo da 46 por decisão do `45-CONTEXT.md`).
+ * ⚠ Este arquivo já afirmou uma vez o oposto do que fazia (desvio 3 do 45-10): num
+ * módulo cujo modo de falha é irreversível, uma garantia velha é pior que nenhuma.
  *
  * ── ⚠ O `catch` DESTA EF NÃO PODE ESCREVER "NADA FOI APAGADO" ───────────────
  * O molde afirma isso e está certo lá: o export não muta PII. Aqui, a partir do
@@ -318,8 +340,38 @@ interface PlanoExclusao {
   caminhos?: string[];
   achados?: Array<{ caminho: string; tipo: string }>;
   recorte?: { tem_curriculo: boolean; tem_decisao_registrada: boolean };
+  /**
+   * ⚠ WR-01 — O QUE FOI DE FATO MUTADO, e só isso. Estes números são o `ROW_COUNT` que
+   * `anonimizar_candidato` devolve mais o conjunto que a Storage Admin API confirmou ter
+   * apagado. Eles são gravados no `plano` DEPOIS de ele ser esvaziado: são a prova
+   * permanente da exclusão, e uma prova inflada é uma prova errada.
+   */
   contagens: Record<string, number>;
-  achados_resumo: { blob_orfao: number; ponteiro_morto: number };
+  /**
+   * ⚠ A PREVISÃO do passo 0, em campo SEPARADO. `plano_exclusao_titular` conta o que
+   * EXISTE — para `tombstone_candidato` isso inclui candidaturas vinculadas,
+   * devolutivas, disponibilidade e as próprias solicitações, e o tombstone toca UMA
+   * linha de `candidatos`. Um titular com nove candidaturas produzia uma contagem
+   * inflada onde deveria haver a medida do que aconteceu.
+   */
+  previsto?: Record<string, number>;
+  /**
+   * ⚠ A TRILHA DE QUEM DESTRUIU A PII, devolvida por `anonimizar_candidato` e persistida
+   * aqui porque ela SOBREVIVE ao esvaziamento do plano — uma trilha apagada no fecho não
+   * é trilha. Aquela função não escreve em `logs_auditoria` por razão medida (os dois
+   * enums nunca foram medidos, e um valor inventado abortaria a anonimização depois de o
+   * currículo já ter sido apagado — `DI-45-13-01`). O `uid` só existe aqui quando o
+   * executor NÃO era o titular.
+   */
+  executor?: Record<string, unknown>;
+  achados_resumo: {
+    blob_orfao: number;
+    ponteiro_morto: number;
+    /** WR-03: ponteiros descartados por apontarem para fora do prefixo do titular. */
+    fora_do_prefixo?: number;
+    /** CR-02: caminhos que o `remove()` não devolveu — CONTAGEM, nunca a lista. */
+    nao_devolvidos?: number;
+  };
 }
 
 /**
@@ -366,29 +418,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   }
   const user = userRes.user;
 
-  // ── 2 · AUTHORIZE — quem é o titular? A resposta sai de `auth.uid()`. ──────
-  //      ⚠ Ver o docblock: este `.eq("user_id", ...)` é o que o tombstone de 45-07
-  //      quebra POR DESENHO, e o 403 resultante é o comportamento desejado.
-  //      A allowlist ganhou `email` no 45-10: ele é lido AQUI, ANTES do tombstone, e
-  //      usado DEPOIS do `deleteUser` — entre os dois não existe mais conta de onde
-  //      relê-lo. O passo 0 o persiste no `plano` e o passo 4 o apaga de lá.
-  const { data: cand, error: candErr } = await supabaseAdmin
-    .from("candidatos")
-    .select("id, email")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  // WR-04: NÃO engula o erro de query. Um erro transitório virando 403 é uma
-  // mentira sobre autorização — e é o tipo de mentira que ninguém investiga.
-  if (candErr) {
-    return errorResponse("SERVER_ERROR", "Falha ao verificar o titular.", 500);
-  }
-  if (!cand?.id) {
-    return errorResponse("FORBIDDEN", "Acesso negado.", 403);
-  }
-  const candidatoId: string = cand.id;
-  const emailTitular: string | null = typeof cand.email === "string" ? cand.email : null;
-
-  // ── 3 · VALIDA a ação ANTES de qualquer toque privilegiado ─────────────────
+  // ── 2 · VALIDA a ação ANTES de qualquer toque privilegiado ─────────────────
   //      DESVIO 1 — o molde não lê o corpo do request. Aqui ele é lido, mas SÓ
   //      para `acao`. **Nenhum identificador vindo do corpo é lido em lugar nenhum
   //      desta função**: o titular sai de `auth.uid()` (passo 2) e o pedido a
@@ -421,6 +451,90 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   }
   if (typeof acao !== "string" || !ACOES.has(acao)) {
     return errorResponse("VALIDATION", "Ação não reconhecida.", 400);
+  }
+
+  // ── 3 · AUTHORIZE — quem é o titular? A resposta sai de `auth.uid()`. ──────
+  //      ⚠ Ver o docblock: este `.eq("user_id", ...)` é o que o tombstone de 45-07
+  //      quebra POR DESENHO (D-45-11), e o 403 resultante continua sendo o
+  //      comportamento desejado para as três ações não-destrutivas.
+  //      A allowlist ganhou `email` no 45-10: ele é lido AQUI, ANTES do tombstone, e
+  //      usado DEPOIS do `deleteUser` — entre os dois não existe mais conta de onde
+  //      relê-lo. O passo 0 o persiste no `plano` e o passo 4 o apaga de lá.
+  //      ⚠ A validação da `acao` subiu para ANTES desta leitura no 45-13, e a ordem é
+  //      deliberada: o reencontro do CR-03 existe SÓ para `executar`, então esta função
+  //      precisa saber qual é a ação para decidir entre o 403 e a retomada. Efeito
+  //      colateral favorável: uma ação fora do vocabulário fechado deixou de custar
+  //      sequer uma leitura privilegiada.
+  const { data: cand, error: candErr } = await supabaseAdmin
+    .from("candidatos")
+    .select("id, email")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  // WR-04: NÃO engula o erro de query. Um erro transitório virando 403 é uma
+  // mentira sobre autorização — e é o tipo de mentira que ninguém investiga.
+  if (candErr) {
+    return errorResponse("SERVER_ERROR", "Falha ao verificar o titular.", 500);
+  }
+
+  let candidatoId: string | null = typeof cand?.id === "string" ? cand.id : null;
+  let emailTitular: string | null = typeof cand?.email === "string" ? cand.email : null;
+
+  // ── 3b · ⚠⚠ CR-03 · A RETOMADA QUE NÃO DEPENDE DE `candidatos.user_id` ─────
+  //      O passo 2 severa `user_id` e COMMITA. A partir daí a resolução acima devolve
+  //      vazio, e até o 45-13 esta função respondia 403 a toda invocação daquele
+  //      titular — deixando os passos 3 e 4 INALCANÇÁVEIS. O review mediu o estado
+  //      terminal: currículos apagados, tombstone escrito, `situacao='executando'` para
+  //      sempre, **a conta do Auth viva com o e-mail real da pessoa**, e o recibo nunca
+  //      enviado. E não existia outro caminho: `acao: 'executar'` não tem chamador em
+  //      `src/`, não há job agendado e não há ação de operador (WR-09).
+  //
+  //      ⚠ POR QUE ISSO É AUTORIZAÇÃO E NÃO ATALHO. O `sub` vem do JWT verificado pelo
+  //      client anon no passo 1; o `auth_uid` do `plano` foi escrito pelo PRÓPRIO motor
+  //      a partir da mesma fonte, no passo 0. É a mesma pessoa, provada pelo JWT — não
+  //      um identificador vindo do corpo do request. O DESVIO 1 continua valendo: nenhum
+  //      id do cliente é lido aqui.
+  //      ⚠ POR QUE SÓ EM `executar`: as outras três não têm estado pós-tombstone a
+  //      retomar, e abrir o reencontro para elas seria superfície nova sem benefício.
+  //      ⚠ ONDE O `auth_uid` DEIXA DE EXISTIR: o passo 4 esvazia o plano. Quando isso
+  //      acontece o pedido já tem os quatro carimbos e não há o que retomar — dizer isso
+  //      aqui evita que alguém conclua que o reencontro «parou de funcionar».
+  //      ⚠ O QUE ELE NÃO ALCANÇA: depois de o `deleteUser` completar não existe mais
+  //      conta, logo não existe JWT, logo não existe reencontro. A janela passo 3 →
+  //      passo 4 continua aberta e é o item diferido `DI-45-13-02`.
+  if (!candidatoId && acao === "executar") {
+    const { data: pedidoOrfao, error: orfaoErr } = await supabaseAdmin
+      .from("solicitacoes_dados")
+      .select("id, candidato_id, plano")
+      .eq("tipo", TIPO_EXCLUSAO)
+      // ⚠ A situação TERMINAL entra na consulta: a `situacao` vira `concluido` ANTES do
+      // envio do recibo, e sem ela um pedido concluído sem recibo não seria reencontrado
+      // por caminho nenhum. Com os passos guardados por carimbo, um pedido inteiramente
+      // finalizado que entre aqui é um no-op.
+      .in("situacao", [SITUACAO_EXECUTANDO, SITUACAO_CONCLUIDO])
+      .eq("plano->>auth_uid", user.id)
+      .is("recibo_enviado_em", null)
+      .order("solicitado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (orfaoErr) {
+      logErro("executar", "leitura_reencontro", "");
+      return errorResponse("SERVER_ERROR", "Falha ao verificar seu pedido.", 500);
+    }
+    // ⚠ A COMPARAÇÃO É REFEITA AQUI, em código, e não só no filtro da consulta. Um
+    // filtro é uma otimização de leitura; a autorização de um caminho que apaga a conta
+    // de alguém não pode depender de o PostgREST ter interpretado o operador do jeito
+    // esperado. Falha FECHADA: qualquer divergência mantém o 403.
+    const planoOrfao = (pedidoOrfao?.plano ?? null) as PlanoExclusao | null;
+    if (pedidoOrfao?.candidato_id && planoOrfao?.auth_uid === user.id) {
+      candidatoId = String(pedidoOrfao.candidato_id);
+      // O endereço do recibo continua saindo do `plano` (passo 4), então a ausência da
+      // linha de `candidatos` não priva o titular de nada.
+      emailTitular = null;
+    }
+  }
+
+  if (!candidatoId) {
+    return errorResponse("FORBIDDEN", "Acesso negado.", 403);
   }
 
   try {
@@ -575,13 +689,18 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
 // gravou. A idempotência é por ESTADO REGISTRADO no plano, jamais por `try/catch`:
 // re-executar o mesmo pedido não avança passo nenhum duas vezes.
 //
-// ── ⚠ ONDE A RETOMADA TEM UM LIMITE CONHECIDO ──────────────────────────────
+// ── ⚠ ATÉ ONDE A RETOMADA ALCANÇA (reescrito no 45-13 / CR-03) ─────────────
 // Depois do passo 2 o `.eq("user_id", user.id)` da autorização DEIXA DE CASAR — o
-// tombstone severou `user_id`. Esta EF passa a responder 403 a qualquer invocação
-// subsequente daquele titular, e ISSO É O CERTO (D-45-11, efeito colateral desejado e
-// medido): depois da exclusão não há sessão, não há tela e não há a quem responder.
-// A consequência prática é que a retomada por ESTE caminho só existe ATÉ o fim do
-// passo 2. Quem for editar este arquivo não deve "consertar" o 403.
+// tombstone severou `user_id`, e isso é por DESENHO (D-45-11). Até o 45-12 a
+// consequência era que os passos 3 e 4 ficavam INALCANÇÁVEIS e o pedido travava num
+// estado terminal com a conta do Auth viva. Agora a ação `executar` reencontra o pedido
+// pelo `auth_uid` persistido no `plano`, comparado com o `sub` do JWT verificado.
+//
+// ⚠ O QUE AINDA NÃO É RETOMÁVEL, dito para não ser redescoberto como novidade:
+//   · a janela passo 3 → passo 4 (o `deleteUser` completou e o recibo não). A conta do
+//     Auth já não existe, logo não há JWT, logo não há sessão que retome — `DI-45-13-02`;
+//   · e nada disso roda sozinho: `acao: 'executar'` continua SEM GATILHO (WR-09). O
+//     executor agendado é da Phase 46 por decisão de escopo do `45-CONTEXT.md`.
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface ContextoExecucao {
@@ -602,7 +721,12 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     .select(COLUNAS_PEDIDO)
     .eq("candidato_id", candidatoId)
     .eq("tipo", TIPO_EXCLUSAO)
-    .in("situacao", [SITUACAO_AGENDADO, SITUACAO_EXECUTANDO])
+    // ⚠ 45-13 / CR-03: a situação TERMINAL entra aqui. Ela é escrita ANTES do envio do
+    // recibo, então sem ela um pedido concluído SEM recibo não seria alcançável por
+    // caminho nenhum — e o passo 4 é o único canal que ainda fala com o titular. Todos
+    // os passos abaixo são guardados por carimbo: um pedido inteiramente finalizado que
+    // entre aqui responde 200 sem tocar sistema externo nenhum.
+    .in("situacao", [SITUACAO_AGENDADO, SITUACAO_EXECUTANDO, SITUACAO_CONCLUIDO])
     .order("solicitado_em", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -661,13 +785,20 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
    * EM QUAL SISTEMA a mutação não-atômica parou.
    */
   const registrarCausa = async (passo: PassoMotor): Promise<void> => {
+    // ⚠ WR-08 · NÃO RELANÇA — mas também não some. Se este `UPDATE` falhar, o pedido
+    // fica em `executando` sem `causa` e sem nenhum registro de EM QUAL SISTEMA a
+    // mutação não-atômica parou: indistinguível de uma execução que nunca começou. E a
+    // `causa` é, segundo o docblock dos helpers, «a única pergunta que importa às 3 da
+    // manhã». O log redigido é o único canal que sobra — relançar daqui apagaria a
+    // resposta do passo que de fato falhou.
     try {
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from("solicitacoes_dados")
         .update({ causa: causaDaFalha(passo) })
         .eq("id", pedidoId);
+      if (error) logErro("executar", "causa_nao_gravada", candidatoId, pedidoId, passo);
     } catch {
-      // Sem rede para a rede: já estamos no caminho de falha.
+      logErro("executar", "causa_nao_gravada", candidatoId, pedidoId, passo);
     }
   };
 
@@ -687,30 +818,68 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // o backup deste projeto exclui Storage inteiramente (D-45-10).
     const caminhos = plano.caminhos ?? [];
     if (!estado.storage_concluido_em) {
+      let apagadosDeVerdade = 0;
+      let naoDevolvidos = 0;
       for (const lote of dividirEmLotes(caminhos, LIMITE_REMOCAO)) {
         const { data, error } = await supabaseAdmin.storage
           .from(BUCKET_CURRICULOS)
           .remove(lote);
         if (error) throw new ErroDePasso("storage", "remove");
-        // ⚠ A CONFERÊNCIA DO RETORNO. `remove()` devolve os objetos EFETIVAMENTE
-        // apagados, e nada neste repositório confere isso hoje: o único precedente
-        // (`cvUploadService.ts:224`) descarta o array. Aqui a divergência é a
-        // diferença entre um recibo honesto e um recibo que promete o que não houve.
+        // ⚠⚠ AUSÊNCIA NA RESPOSTA NÃO É FALHA — É «JÁ NÃO EXISTE» (CR-02).
+        // `remove()` devolve os objetos que EXISTIAM e foram apagados, e
+        // `unirEDeduplicarCaminhos` coloca deliberadamente no lote caminhos que podem
+        // não existir: o próprio helper nomeia o caso (`ponteiro_morto`). Exigir que
+        // TODO caminho do lote voltasse fazia o passo falhar depois de ter apagado os
+        // CVs reais — e falhar IDENTICAMENTE em toda tentativa futura, porque os
+        // objetos já não estavam lá. Currículo destruído, PII intacta, para sempre.
         const apagados = new Set(
           ((data ?? []) as Array<{ name?: unknown }>)
             .map((o) => o?.name)
             .filter((n): n is string => typeof n === "string"),
         );
+        apagadosDeVerdade += apagados.size;
         for (const c of lote) {
-          if (!apagados.has(c)) throw new ErroDePasso("storage", "remove_divergente");
+          if (!apagados.has(c)) naoDevolvidos += 1;
         }
       }
+
+      // ⚠⚠ A CONFERÊNCIA MUDOU DE OBJETO, E NÃO DE RIGOR: ela passou a ser sobre o
+      // PÓS-ESTADO DO BUCKET, não sobre o valor de retorno de uma chamada. Três coisas
+      // que isso compra, e as três são o motivo de a troca ser correta em vez de um
+      // afrouxamento:
+      //   1. a falha continua FECHADA — resíduo no bucket REPROVA o passo, sem carimbo;
+      //   2. a retomada passa a ser CONVERGENTE: numa segunda tentativa o bucket já
+      //      está vazio, `remove()` devolve vazio, e o passo carimba;
+      //   3. os objetos do Storage têm o metadado em Postgres, então a listagem logo
+      //      após a remoção é fortemente consistente — a re-enumeração não é uma aposta
+      //      em consistência eventual.
+      // ⚠ E a re-enumeração só é PROVA porque `enumerarObjetosTitular` LANÇA diante de
+      // um marcador de pasta (WR-02): sem isso, uma subpasta futura devolveria vazio e
+      // este bloco leria "vazio" como sucesso.
+      const restantes = await enumerarObjetosTitular(supabaseAdmin, `${authUid}/`)
+        .catch(() => {
+          throw new ErroDePasso("storage", "list_pos_remove");
+        });
+      if (restantes.length > 0) throw new ErroDePasso("storage", "residuo_apos_remove");
+
+      // ⚠ CONTAGEM, NUNCA A LISTA DE CAMINHOS. O review sugere guardar os caminhos não
+      // devolvidos; isso reintroduziria no registro que sobrevive à exclusão exatamente
+      // a PII que o passo 4 esvazia o plano para remover — o caminho embute o
+      // `auth.uid()` do titular.
+      plano.achados_resumo.nao_devolvidos = naoDevolvidos;
+      plano.contagens.storage_remove = apagadosDeVerdade;
+
       // ⚠ Zero objetos é SUCESSO, não erro: o laço acima simplesmente não roda, o
       // carimbo acontece, e o recibo afirma zero arquivos. `curriculo_url` NULL não
       // é erro, e nenhum passo é marcado como falho por ausência de objeto.
-      await carimbar("storage", { storage_concluido_em: agora() });
+      // ⚠ O `plano` vai no MESMO carimbo (WR-01): a contagem real do que foi apagado
+      // precisa ser DURÁVEL, senão uma execução retomada a perderia — e ela é o que
+      // sobra como prova depois de o plano ser esvaziado.
+      await carimbar("storage", { storage_concluido_em: agora(), plano });
+      arquivosApagados = apagadosDeVerdade;
+    } else {
+      arquivosApagados = Number(plano.contagens?.storage_remove ?? 0);
     }
-    arquivosApagados = caminhos.length;
 
     // ── PASSO 2 · POSTGRES ──────────────────────────────────────────────────
     // A EF CHAMA a metade Postgres e não reimplementa NADA dela: toda a atomicidade
@@ -740,7 +909,35 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       if (resultado !== "anonimizado" && resultado !== "ja_anonimizado") {
         throw new ErroDePasso("postgres", "sem_resultado");
       }
-      await carimbar("postgres", { postgres_concluido_em: agora() });
+
+      // ⚠ WR-01 · AS CONTAGENS SAEM DAQUI, e não do `plano_exclusao_titular`. Estes são
+      // os `ROW_COUNT` que a transação de fato produziu; aqueles eram uma PREVISÃO que
+      // somava candidaturas vinculadas, devolutivas, disponibilidade e as próprias
+      // solicitações — um titular com nove candidaturas produzia uma contagem inflada
+      // gravada no registro que sobrevive a ele.
+      const retorno = (data ?? {}) as Record<string, unknown>;
+      const passosDaRpc = retorno.passos;
+      if (passosDaRpc && typeof passosDaRpc === "object") {
+        for (const [passo, bloco] of Object.entries(passosDaRpc as Record<string, unknown>)) {
+          plano.contagens[passo] = contagemDe(passosDaRpc, passo);
+          void bloco;
+        }
+      }
+      // ⚠ A TRILHA DE QUEM DESTRUIU A PII. Ela entra no `plano` porque o `plano`
+      // SOBREVIVE ao fecho do pedido — uma trilha apagada no fecho não é trilha. O
+      // `uid` só vem preenchido quando o executor NÃO era o titular: o uid do titular é
+      // o identificador que esta exclusão existe para apagar (`DI-45-13-01` registra a
+      // lacuna de `logs_auditoria`, que continua fora por razão medida).
+      if (retorno.executor && typeof retorno.executor === "object") {
+        plano.executor = retorno.executor as Record<string, unknown>;
+      }
+      // ⚠ WR-06: `false` significa que as severações guardadas por `user_id` NÃO
+      // aconteceram — zero deixa de poder ser lido como «não havia».
+      if (retorno.severacao_por_user_id === false) {
+        plano.contagens.severacao_por_user_id = 0;
+      }
+
+      await carimbar("postgres", { postgres_concluido_em: agora(), plano });
     }
 
     // ── PASSO 3 · AUTH — o único passo sem volta ────────────────────────────
@@ -800,11 +997,17 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       // o que foi apagado — restam as contagens por passo e os achados agregados.
       // Gravar os dois num único UPDATE evita a janela em que o plano some sem que o
       // envio tenha sido registrado, que faria a retomada perder o endereço.
+      // ⚠ E O QUE FICA É O QUE PROVA A EXCLUSÃO SEM APONTAR PARA A PESSOA: as contagens
+      // REAIS, a previsão do passo 0, os achados agregados e a trilha do executor. O
+      // `executor` sobrevive de propósito — ele é a única trilha que existe de quem
+      // destruiu a PII, e o `uid` só está lá quando NÃO era o titular.
       await carimbar("recibo", {
         recibo_enviado_em: agora(),
         plano: {
           versao: plano.versao,
           contagens: plano.contagens,
+          ...(plano.previsto ? { previsto: plano.previsto } : {}),
+          ...(plano.executor ? { executor: plano.executor } : {}),
           achados_resumo: plano.achados_resumo,
         },
       });
@@ -859,6 +1062,22 @@ async function montarPlano(
   const { data: planoBanco, error: planoErr } = rpcPlano;
   if (planoErr || !planoBanco) throw new ErroDePasso("postgres", "rpc_plano");
 
+  // ⚠⚠ CR-05 · A RECUSA ACONTECE AQUI, ANTES DA PRIMEIRA MUTAÇÃO — e é isso que a
+  // torna barata. `plano_exclusao_titular` ENUMERA do catálogo as FKs para `auth.users`
+  // que BLOQUEIAM o delete e que têm linha viva apontando ao titular, subtraídas as que
+  // o tombstone comprovadamente severa. Uma lista não-vazia significa que o `deleteUser`
+  // do passo 3 falharia com 23503 — e, até o 45-13, isso só aparecia DEPOIS de o
+  // currículo ter sido apagado do Storage, num estado que (CR-03) era terminal. O passo
+  // 0 roda antes de qualquer mutação, então a recusa aqui custa ZERO.
+  // ⚠ Chave ausente NÃO é recusa: uma versão anterior da função em PROD (um rollback da
+  // migration, por exemplo) não devolveria a chave, e transformar isso em falha travaria
+  // o motor inteiro. Quem garante que a função viva é a certa é o pin de `md5(prosrc)`
+  // da asserção C3 do smoke, no portão do 45-11.
+  const bloqueadores = (planoBanco as Record<string, unknown>)?.bloqueadores_deleteuser;
+  if (Array.isArray(bloqueadores) && bloqueadores.length > 0) {
+    throw new ErroDePasso("postgres", "bloqueadores_deleteuser");
+  }
+
   // A enumeração AUTORITATIVA do bucket, paginada.
   const doList = await enumerarObjetosTitular(supabaseAdmin, `${authUid}/`)
     .catch(() => {
@@ -871,11 +1090,25 @@ async function montarPlano(
     .select("id, curriculo_url")
     .eq("candidato_id", candidatoId);
   if (candsErr) throw new ErroDePasso("storage", "leitura_ponteiros");
-  const doBanco = ((cands ?? []) as Array<{ curriculo_url?: unknown }>)
+  const ponteiros = ((cands ?? []) as Array<{ curriculo_url?: unknown }>)
     .map((c) => c?.curriculo_url)
     .filter((v): v is string => typeof v === "string" && v !== "");
 
+  // ⚠ WR-03 · REVALIDAR O PREFIXO ANTES DE UM `remove()` SOB SERVICE KEY.
+  // Estes ponteiros saem de `candidaturas.curriculo_url` — uma coluna de texto — e iam
+  // direto para uma remoção que roda com a service key e IGNORA RLS. Um `curriculo_url`
+  // legado, importado ou escrito por outro caminho apagaria o CV de OUTRA pessoa,
+  // irreversivelmente: sem PITR e com o Storage fora de todo backup. A validação de
+  // prefixo existia apenas no caminho de ESCRITA (`submit-candidatura:191`).
+  // ⚠ O descartado vira ACHADO REGISTRADO, nunca remoção silenciosa e nunca parada: uma
+  // linha estranha é um fato sobre o sistema, e parar por causa dela negaria ao titular
+  // o direito que ele exerceu.
+  const prefixo = `${authUid}/`;
+  const doBanco = ponteiros.filter((v) => v.startsWith(prefixo) && !v.includes(".."));
+  const foraDoPrefixo = ponteiros.filter((v) => !doBanco.includes(v));
+
   const { caminhos, achados } = unirEDeduplicarCaminhos(doList, doBanco);
+  for (const c of foraDoPrefixo) achados.push({ caminho: c, tipo: "fora_do_prefixo" });
 
   // ⚠ FALHA FECHADA ESTRUTURAL, no molde de `exportar-meus-dados:270-286`. Ponteiros
   // vivos com enumeração VAZIA não é o caso vazio: é a enumeração quebrada (prefixo
@@ -885,7 +1118,12 @@ async function montarPlano(
     throw new ErroDePasso("storage", "estrutura_vazia");
   }
 
-  const contagens: Record<string, number> = {
+  // ⚠ WR-01 · O QUE O PLANO PREVÊ ≠ O QUE O MOTOR MUTOU, e os dois campos são
+  // separados por isso. Estas contagens são do `plano_exclusao_titular`: elas dizem o
+  // que EXISTE, o que é a pergunta certa para uma prévia e a errada para uma prova. As
+  // contagens REAIS são preenchidas pelos passos 1 e 2, a partir do conjunto
+  // efetivamente apagado e do `ROW_COUNT` que o tombstone devolve.
+  const previsto: Record<string, number> = {
     storage_remove: caminhos.length,
     ...somarPassosDoBanco(planoBanco as Record<string, unknown>),
   };
@@ -903,10 +1141,13 @@ async function montarPlano(
       tem_curriculo: caminhos.length > 0,
       tem_decisao_registrada: contagemDe(planoBanco, "tombstone_decisao_final") > 0,
     },
-    contagens,
+    contagens: {},
+    previsto,
     achados_resumo: {
       blob_orfao: achados.filter((a) => a.tipo === "blob_orfao").length,
       ponteiro_morto: achados.filter((a) => a.tipo === "ponteiro_morto").length,
+      fora_do_prefixo: foraDoPrefixo.length,
+      nao_devolvidos: 0,
     },
   };
 }

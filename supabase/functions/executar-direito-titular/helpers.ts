@@ -140,9 +140,17 @@ type ClienteStorage = any;
  * produziria um passo 1 que "completa com sucesso" sem apagar nada e um recibo
  * afirmando zero arquivos ao titular que tinha três.
  *
- * Linhas de PASTA (o marcador que o Storage devolve com `id: null`) são descartadas:
- * elas não são objetos, `remove()` nunca as devolve, e mantê-las produziria uma
- * divergência garantida na conferência do passo 1 — um `falha_storage` falso.
+ * ⚠⚠ LINHA DE PASTA (o marcador que o Storage devolve com `id: null`) **LANÇA** desde
+ * o 45-13 (WR-02), e a inversão é a precondição de a re-enumeração do CR-02 ser PROVA.
+ * Descartá-la era correto para o esquema plano de hoje (`{authUid}/{uuid}.pdf`,
+ * `cvUploadService.ts:101`) e vira um buraco no dia em que alguém gravar em subpasta: a
+ * enumeração devolveria ZERO objetos, o laço não rodaria, `storage_concluido_em` seria
+ * carimbado e o recibo afirmaria ao titular que o currículo foi apagado. Com a
+ * conferência do passo 1 medindo o PÓS-ESTADO do bucket, uma re-enumeração vazia passou
+ * a ser o que PROVA o sucesso — e um descarte silencioso ali é um falso verde
+ * estrutural, não uma imprecisão. O guard de falha fechada de `montarPlano`
+ * (`doBanco > 0 && doList === 0`) **não pega** este caso, porque `curriculo_url`
+ * também apontaria para a subpasta e entraria na união.
  *
  * A mensagem de erro NÃO carrega o prefixo: ele é o `auth.uid()` do titular.
  */
@@ -161,7 +169,12 @@ export async function enumerarObjetosTitular(
     const linhas = (data ?? []) as Array<{ name?: unknown; id?: unknown }>;
     for (const l of linhas) {
       if (typeof l?.name !== "string" || l.name === "") continue;
-      if (l.id === null) continue;
+      if (l.id === null) {
+        throw new Error(
+          "o prefixo do titular contem SUBPASTA e a enumeracao deste motor e de UM nivel: " +
+            "seguir daqui deixaria PII para tras e o passo 1 carimbaria assim mesmo",
+        );
+      }
       caminhos.push(`${pasta}/${l.name}`);
     }
     if (linhas.length < limite) return caminhos;
@@ -173,8 +186,10 @@ export async function enumerarObjetosTitular(
 export interface AchadoCaminho {
   caminho: string;
   /** `blob_orfao`: existe no bucket e nenhuma linha o aponta.
-   *  `ponteiro_morto`: uma linha o aponta e ele não existe no bucket. */
-  tipo: "blob_orfao" | "ponteiro_morto";
+   *  `ponteiro_morto`: uma linha o aponta e ele não existe no bucket.
+   *  `fora_do_prefixo` (WR-03): uma linha aponta para fora do prefixo do titular, ou
+   *  com travessia de diretório — ele é DESCARTADO da remoção e registrado aqui. */
+  tipo: "blob_orfao" | "ponteiro_morto" | "fora_do_prefixo";
 }
 
 export interface UniaoDeCaminhos {

@@ -785,6 +785,10 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
           },
           eq: () => chain,
           in: () => chain,
+          // ⚠ 45-13: o construtor real do PostgREST tem `.is()`, e o reencontro do CR-03
+          // filtra `recibo_enviado_em IS NULL` por ele. Um mock sem este método faria o
+          // teste falhar por lacuna do dublê, e não por defeito do código.
+          is: () => chain,
           order: () => chain,
           limit: () => chain,
           maybeSingle: () =>
@@ -2323,7 +2327,11 @@ Deno.test("(aj) CR-03: 'pedir', 'cancelar' e 'retirar_candidatura' NÃO ganharam
 Deno.test("(ak) CR-03: pedido com os quatro carimbos → 200 sem Storage, sem RPC e sem deleteUser", async () => {
   const { handler } = await loadHandler();
   const { admin, deps } = depsExecutar({
-    cand: null,
+    // ⚠ O titular resolve normalmente aqui: o reencontro do CR-03 exige
+    // `recibo_enviado_em` NULO por desenho (um pedido finalizado não tem o que retomar,
+    // e o passo 4 já esvaziou o `auth_uid` do plano). O que esta asserção mede é outra
+    // coisa, e ela vale pelos dois caminhos de entrada: com os passos guardados por
+    // CARIMBO, re-entrar num pedido finalizado é um no-op — nunca uma segunda destruição.
     pedido: {
       situacao: "concluido",
       storage_concluido_em: CARIMBO_STORAGE,
