@@ -146,26 +146,114 @@ function corposDeCatalogo(texto: string): { corpo: string; indice: number }[] {
 // As quatro medições do disco
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Todo objeto (função, procedimento, tabela, view) criado pelas fontes SQL de `dirs`. */
-function objetosCriados(_dirs: string[] = FONTES_DE_CRIACAO): Set<string> {
-  throw new Error('não implementado')
+/** Converte índice de caractere em número de linha (1-based), para o relatório apontar certo. */
+function linhaDoIndice(texto: string, indice: number): number {
+  let linha = 1
+  for (let i = 0; i < indice && i < texto.length; i++) if (texto[i] === '\n') linha++
+  return linha
 }
 
-/** Toda referência `esquema-próprio.nome(` dentro de corpo de comentário de catálogo. */
+/**
+ * Todo objeto (função, procedimento, tabela, view) criado pelas fontes SQL de `dirs`.
+ *
+ * ⚠ COMENTÁRIO `--` FORA, E CORPO DE `COMMENT ON` TAMBÉM. Um `CREATE FUNCTION` citado
+ * dentro de um comentário não cria nada, e um nome citado dentro de um comentário de
+ * catálogo é justamente a PROMESSA — deixá-lo contar como criação faria a promessa
+ * satisfazer a si mesma, que é a forma mais pura do falso positivo que este arquivo
+ * existe para não ter.
+ */
+function objetosCriados(dirs: string[] = FONTES_DE_CRIACAO): Set<string> {
+  const criados = new Set<string>()
+  for (const dir of dirs)
+    for (const caminho of arquivosSql(dir)) {
+      const sql = semComentariosSql(ler(caminho)).replace(/\bCOMMENT\s+ON\b[\s\S]*?;/gi, ' ')
+      for (const m of sql.matchAll(
+        /CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+(?:\w+\.)?(\w+)/gi,
+      ))
+        criados.add(m[1].toLowerCase())
+      for (const m of sql.matchAll(
+        /CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|MATERIALIZED\s+VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:\w+\.)?(\w+)/gi,
+      ))
+        criados.add(m[1].toLowerCase())
+    }
+  return criados
+}
+
+/**
+ * Toda referência `esquema-próprio.nome(` dentro de corpo de comentário de catálogo.
+ *
+ * A forma é QUALIFICADA pelo esquema próprio de propósito. Medido antes de escrever: a
+ * forma não-qualificada devolve mais de sessenta nomes sobre este repositório, quase todos
+ * palavra reservada de SQL, função interna do Postgres ou método de cliente — e um portão
+ * que precisa de uma lista de exceções desse tamanho é um portão que reprova o inocente na
+ * primeira função interna nova. A forma qualificada devolve sete, todas do projeto.
+ *
+ * A linha reportada é a do COMANDO de comentário, não a do caractere exato da referência:
+ * o corpo é uma concatenação de literais, e mapear o deslocamento de volta ao arquivo daria
+ * um número plausível e errado. Apontar o comando é verdadeiro.
+ */
 function referenciasEmCatalogo(
-  _dir: string = MIGRACOES,
+  dir: string = MIGRACOES,
 ): { arquivo: string; funcao: string; linha: number }[] {
-  throw new Error('não implementado')
+  const achados: { arquivo: string; funcao: string; linha: number }[] = []
+  for (const caminho of arquivosSql(dir)) {
+    const texto = ler(caminho)
+    for (const { corpo, indice } of corposDeCatalogo(texto))
+      for (const m of corpo.matchAll(/\bpublic\.(\w+)\s*\(/g))
+        achados.push({ arquivo: caminho, funcao: m[1], linha: linhaDoIndice(texto, indice) })
+  }
+  return achados
 }
 
-/** O corpo da ÚLTIMA definição de `nome` — a que vale hoje, não a primeira que existiu. */
-function ultimaDefinicaoDeFuncao(_nome: string, _dirs: string[] = FONTES_DE_CRIACAO): string | null {
-  throw new Error('não implementado')
+/**
+ * O corpo da ÚLTIMA definição de `nome` — a que vale hoje, não a primeira que existiu.
+ *
+ * ⚠ A ÚLTIMA, e a distinção é a substância desta função. Uma definição antiga que ainda
+ * contém a chamada de auditoria, sobrevivendo num arquivo de migration que ninguém apaga,
+ * manteria a prova verde depois de um `CREATE OR REPLACE` posterior ter retirado a chamada.
+ * A promessa estaria quebrada e o portão estaria verde — pelo arquivo errado.
+ *
+ * ⚠⚠ A ETIQUETA DE ASPAS-CIFRÃO É LIDA, NUNCA ASSUMIDA. A primeira versão desta função
+ * procurava `$$` literal e reprovou a entrada nº 3 do registro: a RPC de reativação usa
+ * uma etiqueta NOMEADA. O executor existia, estava correto, e o portão o declarou ausente
+ * — o falso positivo exato que treina quem executa a desligar o portão, produzido dentro
+ * do arquivo que existe para não produzi-lo. Corrigido lendo a etiqueta de abertura.
+ */
+function ultimaDefinicaoDeFuncao(nome: string, dirs: string[] = FONTES_DE_CRIACAO): string | null {
+  let ultima: string | null = null
+  for (const dir of dirs)
+    for (const caminho of arquivosSql(dir)) {
+      const sql = semComentariosSql(ler(caminho))
+      const definicao = new RegExp(
+        `CREATE\\s+(?:OR\\s+REPLACE\\s+)?FUNCTION\\s+(?:\\w+\\.)?${nome}\\b`,
+        'gi',
+      )
+      for (const m of sql.matchAll(definicao)) {
+        const depois = sql.slice(m.index ?? 0)
+        const etiqueta = /\$[A-Za-z_]\w*\$|\$\$/.exec(depois)
+        if (!etiqueta) continue
+        const abre = (etiqueta.index ?? 0) + etiqueta[0].length
+        const fecha = depois.indexOf(etiqueta[0], abre)
+        ultima = fecha < 0 ? depois.slice(abre) : depois.slice(abre, fecha)
+      }
+    }
+  return ultima
 }
 
-/** A fase dona de um deferimento: ela existe no roadmap, e ela ainda não foi concluída? */
-function faseDona(_fase: string, _roadmap?: string): { existe: boolean; concluida: boolean } {
-  throw new Error('não implementado')
+/**
+ * A fase dona de um deferimento: ela existe no roadmap, e ela ainda não foi concluída?
+ *
+ * O texto do roadmap é PARÂMETRO, com o disco como padrão. Sem isso o ramo "fase já
+ * concluída" seria inalcançável — todas as fases deste milestone estão abertas — e uma
+ * asserção inalcançável contando como verde é a lição W-1 da Phase 43.
+ */
+function faseDona(fase: string, roadmap: string = ler(ROADMAP)): {
+  existe: boolean
+  concluida: boolean
+} {
+  const marca = new RegExp(`^\\s*-\\s*\\[([ xX])\\]\\s*\\*\\*${fase}\\b`, 'm').exec(roadmap)
+  if (!marca) return { existe: false, concluida: false }
+  return { existe: true, concluida: marca[1].toLowerCase() === 'x' }
 }
 
 /**
@@ -381,7 +469,8 @@ const REGISTRO: readonly Promessa[] = [
           semPortao.push(`${gerador}: nenhum script \`check:\` o executa`)
           continue
         }
-        if (!new RegExp(`npm\\s+run\\s+(-s\\s+)?${nome.replace(':', ':')}\\b`).test(ciSemComentario))
+        const escapado = nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        if (!new RegExp(`npm\\s+run\\s+(?:-s\\s+)?${escapado}(?:\\s|$)`, 'm').test(ciSemComentario))
           semPortao.push(
             `${gerador}: o script \`${nome}\` existe mas NÃO é invocado no fluxo de integração contínua`,
           )
