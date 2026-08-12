@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 31
+open_count: 32
 waived_count: 0
 fixed_count: 1
-total_count: 32
-last_updated: 2026-08-11T04:28:51.886Z
+total_count: 33
+last_updated: 2026-08-12T01:30:33.120Z
 ---
 
 # Broken Windows Ledger
@@ -47,6 +47,7 @@ last_updated: 2026-08-11T04:28:51.886Z
 | 30 | 47 | unmet-truth | src/features/transparencia/components/PrivacidadePublicaPage.tsx |  | Revisao formal do Encarregado NAO exercida: as duas paginas publicas foram liberadas por decisao do operador em 2026-08-11 | open |  | 2026-08-11T04:28:51.767Z |  |
 | 31 | 47 | unmet-truth | src/services/logAccessService.ts | 110 | api.ipify.org pendente-de-decisao: destino de rede sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.827Z |  |
 | 32 | 47 | unmet-truth | src/components/pages/InstrucoesFormularioPage.tsx | 77 | www.youtube.com pendente-de-decisao: iframe de terceiro sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.886Z |  |
+| 33 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | NW-03 alargou: causa='falha_storage' cobre 10 classes nomeadas mais carimbo e excecao (DI-45-16-01) | open |  | 2026-08-12T01:30:33.120Z |  |
 
 ````json
 [
@@ -432,6 +433,18 @@ last_updated: 2026-08-11T04:28:51.886Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-11T04:28:51.886Z",
+    "resolved_at": null
+  },
+  {
+    "id": 33,
+    "kind": "deviation",
+    "phase": "45",
+    "file": "supabase/functions/executar-direito-titular/index.ts",
+    "line": null,
+    "description": "NW-03 alargou: causa='falha_storage' cobre 10 classes nomeadas mais carimbo e excecao (DI-45-16-01)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-12T01:30:33.120Z",
     "resolved_at": null
   }
 ]
