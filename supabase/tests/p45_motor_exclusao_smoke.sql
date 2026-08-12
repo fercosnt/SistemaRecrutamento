@@ -701,7 +701,7 @@ DECLARE
 BEGIN
   -- Guarda de existencia: sem ela, a ausencia das funcoes de 45-07 apareceria como
   -- um 42883 cru, e nao como o estado RED que este arquivo descreve.
-  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+  IF to_regprocedure('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
     RAISE EXCEPTION 'P45M FAIL (B): public.anonimizar_candidato(uuid, boolean) NAO EXISTE. Este arquivo e a ESPECIFICACAO do tombstone e foi escrito ANTES dele: RED aqui e o estado correto ate a migration 20260805000006 do plano 45-07 ser aplicada';
   END IF;
 
@@ -1596,7 +1596,7 @@ DECLARE
   v_lev   boolean := false;
   v_st    text;
 BEGIN
-  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+  IF to_regprocedure('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
     RAISE EXCEPTION 'P45M FAIL (C7): public.anonimizar_candidato(uuid, boolean) NAO EXISTE — RED correto ate a migration 20260805000006 ser aplicada';
   END IF;
 
@@ -1696,7 +1696,7 @@ DECLARE
   v_lev    boolean := false;
   v_st     text;
 BEGIN
-  IF to_regproc('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
+  IF to_regprocedure('public.anonimizar_candidato(uuid, boolean)') IS NULL THEN
     RAISE EXCEPTION 'P45M FAIL (C8): public.anonimizar_candidato(uuid, boolean) NAO EXISTE — RED correto ate a migration 20260805000006 ser aplicada';
   END IF;
 
@@ -1810,7 +1810,7 @@ DECLARE
   v_sqlstate   text := NULL;
   v_levantou   boolean := false;
 BEGIN
-  IF to_regproc('public.registrar_pedido_exclusao(uuid)') IS NULL THEN
+  IF to_regprocedure('public.registrar_pedido_exclusao(uuid)') IS NULL THEN
     RAISE EXCEPTION 'P45M FAIL (C4/C5/C6): public.registrar_pedido_exclusao(uuid) NAO EXISTE — RED correto ate a migration do plano 45-03 ser aplicada';
   END IF;
 
