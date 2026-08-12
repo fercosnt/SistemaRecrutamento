@@ -129,8 +129,14 @@
 --        segundo carrega o NOME e e lido pelo painel de triagem. As LINHAS ficam.
 --
 -- BLOCO C — SEGURANCA, NAO-DIVERGENCIA E OS DOIS NEGATIVOS DO ENCERRAMENTO.
---   (C1) ⊖ NEGATIVA — `proacl` das 5 funcoes novas nao concede EXECUTE a `anon`,
---        `authenticated` nem PUBLIC.
+--   (C1) ⊖ NEGATIVA — `proacl` das 5 funcoes novas nao concede EXECUTE a `anon` nem a
+--        PUBLIC (a metade que morde), e cada uma esta CLASSIFICADA explicitamente
+--        quanto a `authenticated`, com a expectativa DECLARADA e nao derivada de
+--        "e chamada pela Edge Function?". Hoje as 5 concedem: as 4 do titular pela
+--        `20260805000009`, e `gerar_bias_snapshot` pela `20260805000003`, por ter
+--        chamador vivo proprio — a tela de auditoria de vies do administrador
+--        (45-REVIEW-4 / CR-02, fechando o `DI-45-12-01`). Funcao nao classificada
+--        REPROVA (fail-closed).
 --   (C2) ⊖ GUARD, NAS DUAS METADES — cada funcao recusa com 42501 o papel errado E
 --        o chamador SEM CLAIM NENHUMA. A segunda metade e a que fecha o defeito
 --        sistemico: o guard `NOT IN` com `v_role` NULL avalia NULL, o `IF` nao e
@@ -666,6 +672,11 @@ DECLARE
   v_desto_d     text;
   v_airsum_d    text;
 
+  -- ⚠ 45-REVIEW-4 / CR-01 — unicidade da sentinela de e-mail, MEDIDA dentro da
+  --   subtransacao. Ver o comentario no ponto da medicao (junto ao SELECT do
+  --   estado DEPOIS) e a assercao (B3/email) no julgamento.
+  v_email_uniq  int;
+
   -- severacao (ERASE-09)
   v_p_aicall    int;
   v_p_aidec     int;
@@ -935,6 +946,16 @@ BEGIN
            v_cid_d, v_uf_d, v_conh_d, v_uid_d
       FROM public.candidatos c WHERE c.id = v_cand;
 
+    -- ⚠ 45-REVIEW-4 / CR-01 — A UNICIDADE E MEDIDA AQUI, DENTRO DA SUBTRANSACAO.
+    --   O julgamento roda DEPOIS do `RAISE ... P45B0` que reverte a fixture inteira: la a
+    --   linha de `candidatos` JA NAO EXISTE, e uma consulta VIVA contra ela devolve 0,
+    --   fazendo `0 <> 1` disparar em TODA execucao, com o motor CORRETO. Era a UNICA
+    --   consulta viva entre as ~40 assercoes do julgamento — todas as outras leem apenas
+    --   variaveis capturadas aqui dentro, que o rollback de subtransacao nao reverte.
+    --   Mesmo padrao da auto-verificacao de 20260805000006:1235, que mede e SO ENTAO julga
+    --   — e aquela migration aplicou em PROD, logo esta propriedade ja esta provada viva.
+    SELECT count(*) INTO v_email_uniq FROM public.candidatos c WHERE c.email = v_email_d;
+
     SELECT count(*) INTO v_hist_pos FROM public.historico_candidatura;
     SELECT count(*) INTO v_df_pos   FROM public.decisao_final;
     SELECT count(*) INTO v_dfh_pos  FROM public.decisao_final_historico;
@@ -1113,8 +1134,8 @@ BEGIN
   IF v_email_d !~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
     RAISE EXCEPTION 'P45M FAIL (B3/email): a sentinela % nao casa o check_email_format vivo', v_email_d;
   END IF;
-  IF (SELECT count(*) FROM public.candidatos c WHERE c.email = v_email_d) <> 1 THEN
-    RAISE EXCEPTION 'P45M FAIL (B3/email): a sentinela de e-mail nao e unica por linha. A coluna e NOT NULL + UNIQUE + CHECK de formato (D5): uma sentinela FIXA colide na SEGUNDA exclusao e aborta a transacao inteira de quem pediu depois';
+  IF v_email_uniq <> 1 THEN
+    RAISE EXCEPTION 'P45M FAIL (B3/email): a sentinela de e-mail nao e unica por linha (% ocorrencias, MEDIDAS DENTRO da subtransacao). A coluna e NOT NULL + UNIQUE + CHECK de formato (D5): uma sentinela FIXA colide na SEGUNDA exclusao e aborta a transacao inteira de quem pediu depois', v_email_uniq;
   END IF;
   IF v_cel_d !~ '^\(\d{2}\) \d{5}-\d{4}$' THEN
     RAISE EXCEPTION 'P45M FAIL (B3/celular): a sentinela % nao casa o check_celular_format vivo — a coluna e NOT NULL e um marcador em prosa ([removido]) aborta a transacao', v_cel_d;
@@ -1291,25 +1312,30 @@ $bloco_b$;
 --         `20260805000009` de sumir em silencio — um `GRANT` esquecido voltaria a
 --         produzir `42501` em PROD, e essa e a falha que ninguem investiga porque
 --         PARECE autorizacao funcionando.
---       · `gerar_bias_snapshot` segue proibida tambem a `authenticated`: ela NAO e
---         alcancada por esta Edge Function, e afrouxa-la de carona seria exatamente o
---         reflexo que esta fase existe para nao ter.
+--       · `gerar_bias_snapshot` TAMBEM concede a `authenticated`, e isto e CORRETO —
+--         ver a resolucao do `DI-45-12-01` logo abaixo. A expectativa de ACL de cada
+--         funcao e DECLARADA em `v_concede_auth`/`v_nega_auth`, nunca derivada de
+--         "e chamada pela Edge Function desta fase?".
 --
---      ⚠⚠ CONTRADICAO MEDIDA E **NAO RESOLVIDA POR ESTE PLANO** — LER ANTES DE
---      TRATAR UM VERMELHO EM `gerar_bias_snapshot` COMO DEFEITO DE ACL:
+--      ✅ CONTRADICAO `DI-45-12-01` — **RESOLVIDA em 2026-08-12** pelo code review
+--      bloqueante nº 4 (`45-REVIEW-4.md` / CR-02), que e exatamente o portao ao qual o
+--      plano 45-12 a enderecou. Registro do que era e de como fechou:
 --      a migration `20260805000003` (plano 45-05) faz, DELIBERADAMENTE,
 --      `REVOKE ALL ... FROM PUBLIC, anon, authenticated` seguido de
 --      `GRANT EXECUTE ... TO authenticated`, e o bloco (6) do cabecalho dela declara
 --      a divergencia com a razao: o chamador VIVO e o cliente do navegador do
 --      administrador (`biasAuditService.ts:98`), que fala com o Postgres como
---      `authenticated`. Revogar dali nao endureceria nada — apagaria a tela de
---      auditoria de vies. Ou seja: esta metade da (C1) e o `20260805000003`
---      afirmam coisas OPOSTAS, e as duas foram escritas por planos diferentes que
---      nao se viram. **Isto e decisao de desenho, nao conserto mecanico**, e esta
---      endereçada ao code review bloqueante do 45-11 (Task 1), que precede o primeiro
---      apply destrutivo. O plano 45-12 escreveu a assercao como especificada e
---      registrou a contradicao em vez de resolve-la sozinho: afrouxar uma assercao
---      por conta propria e precisamente o reflexo que esta fase proibe.
+--      `authenticated`. A versao anterior desta assercao exigia o OPOSTO, e as duas
+--      estavam aplicadas em PROD.
+--      **VEREDITO: o ACL esta CERTO; a premissa da assercao estava errada.** Revogar
+--      nao endureceria nada — apagaria a tela de auditoria de vies, que e peca
+--      PROBATORIA de nao-discriminacao (RNF-07a). Seria o espelho exato do movimento
+--      proibido "relaxar a FK para CASCADE diante de um 23503": tratar o sintoma que o
+--      portao reporta destruindo a coisa que o portao existe para proteger.
+--      ⚠ O plano 45-12 acertou em NAO resolver isto sozinho — escreveu a assercao como
+--      especificada e registrou a contradicao. Afrouxar uma assercao por conta propria
+--      e o reflexo que esta fase proibe; o que mudou aqui nao foi o rigor, foi a
+--      PREMISSA, e ela mudou num portao com veredito datado.
 --
 --      PUBLIC e `grantee = 0` em `aclexplode` e NAO aparece num JOIN com `pg_roles`;
 --      por isso ele e checado separadamente.
@@ -1324,9 +1350,35 @@ DECLARE
   v_faltando   text;
   v_exige_auth boolean;
   -- As QUATRO que o titular alcanca pela Edge Function `executar-direito-titular`.
-  -- `gerar_bias_snapshot` NAO esta aqui: ela nao e chamada por ela.
+  -- `gerar_bias_snapshot` NAO esta aqui: ela nao e chamada por ela. ⚠ Esta lista
+  -- escolhe a MENSAGEM de falha; ela NAO e mais a expectativa de ACL — ver
+  -- `v_concede_auth` abaixo (45-REVIEW-4 / CR-02).
   v_do_titular text[] := ARRAY['registrar_pedido_exclusao', 'cancelar_pedido_exclusao',
                                'plano_exclusao_titular', 'anonimizar_candidato'];
+
+  -- ⚠ 45-REVIEW-4 / CR-02 (2026-08-12) — CLASSIFICACAO EXPLICITA DE ACL, fechando o
+  --   `DI-45-12-01`. A expectativa deixou de ser DERIVADA de "e chamada pela Edge
+  --   Function desta fase?" e passou a ser DECLARADA por funcao, porque as duas coisas
+  --   nunca foram a mesma: `gerar_bias_snapshot` tem chamador vivo PROPRIO — a tela de
+  --   auditoria de vies do ADMINISTRADOR (`biasAuditService.ts:98`), que fala com o
+  --   Postgres como `authenticated`. A `20260805000003:500` concede DELIBERADAMENTE, e
+  --   esta APLICADA em PROD.
+  --   ⚠ REVOGAR NAO ENDURECE NADA — APAGA A TELA, que e peca PROBATORIA de
+  --   nao-discriminacao (RNF-07a), da mesma familia de `decisao_final` e
+  --   `historico_candidatura`, cuja sobrevivencia esta fase protege com tres FKs
+  --   `NO ACTION`. Destruir a evidencia para satisfazer um portao de ACL e o espelho
+  --   exato do movimento proibido "relaxar a FK para CASCADE diante de um 23503".
+  --   O controle de `gerar_bias_snapshot` e o guard do CORPO, nao o ACL.
+  --   O que continua PROIBIDO e INALTERADO para as cinco: `anon` e PUBLIC — a metade
+  --   que morde de verdade, logo abaixo em (i).
+  v_concede_auth text[] := ARRAY['registrar_pedido_exclusao', 'cancelar_pedido_exclusao',
+                                 'plano_exclusao_titular', 'anonimizar_candidato',
+                                 'gerar_bias_snapshot'];
+  -- Hoje VAZIA, e de proposito: nenhuma das cinco deve NEGAR `authenticated`. Ela existe
+  -- para que a checagem de classificacao abaixo continue com DUAS saidas vivas — uma
+  -- assercao cujo ramo negativo e inalcancavel e vacua, e vacuidade que conta como verde
+  -- e o modo de falha que custou o `42804` da Phase 43.
+  v_nega_auth    text[] := ARRAY[]::text[];
 BEGIN
   SELECT string_agg(t.nome, ', ') INTO v_faltando
     FROM (VALUES
@@ -1350,7 +1402,16 @@ BEGIN
                          'gerar_bias_snapshot')
   LOOP
     v_checadas   := v_checadas + 1;
-    v_exige_auth := r.proname = ANY (v_do_titular);
+
+    -- ⚠ 45-REVIEW-4 / CR-02 — FAIL-CLOSED: toda funcao deste laco tem de estar
+    --   classificada em EXATAMENTE uma das duas listas. Sem isto, acrescentar uma sexta
+    --   funcao ao `IN (...)` do laco sem decidir seu ACL a faria cair num ramo por
+    --   omissao — que e como esta contradicao nasceu.
+    IF (r.proname = ANY (v_concede_auth)) = (r.proname = ANY (v_nega_auth)) THEN
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() nao esta classificada em EXATAMENTE uma das listas de expectativa de ACL (v_concede_auth / v_nega_auth). Toda funcao verificada por esta assercao precisa de uma decisao EXPLICITA e datada sobre conceder ou nao EXECUTE a authenticated — derivar a expectativa de "e chamada pela Edge Function?" foi o defeito que produziu o DI-45-12-01, em que a assercao e a migration 20260805000003 afirmavam coisas OPOSTAS e as duas estavam aplicadas', r.proname;
+    END IF;
+
+    v_exige_auth := r.proname = ANY (v_concede_auth);
 
     IF NOT r.prosecdef THEN
       RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO e SECURITY DEFINER — sem DEFINER ela nao atravessa a RLS para fazer o que precisa, e o desenho inteiro do motor pressupoe que ela atravessa', r.proname;
@@ -1372,7 +1433,8 @@ BEGIN
       RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a anon ou a PUBLIC (%) — o REVOKE precisa NOMEAR anon, nao apenas PUBLIC, porque revogar de PUBLIC remove um grant que nunca existiu. Duas destas funcoes apagam PII de forma irreversivel. proacl = %', r.proname, v_ofensor, r.proacl::text;
     END IF;
 
-    -- (ii) `authenticated`: EXIGIDO nas quatro do titular, PROIBIDO nas demais.
+    -- (ii) `authenticated`: EXIGIDO em `v_concede_auth`, PROIBIDO em `v_nega_auth`.
+    --      A expectativa e DECLARADA por funcao, nao derivada (CR-02).
     SELECT EXISTS (
       SELECT 1
         FROM aclexplode(r.proacl) a
@@ -1381,11 +1443,15 @@ BEGIN
     ) INTO v_auth;
 
     IF v_exige_auth AND NOT v_auth THEN
-      RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO concede EXECUTE a authenticated, e ela e alcancada pelo titular. A Edge Function chama esta RPC por um client com service key E o Authorization do titular, e o PostgREST deriva o PAPEL do MESMO JWT: esse client chega como authenticated. Sem o GRANT da migration 20260805000009 o auth.uid() segue NULO dentro da funcao, ela recusa com 42501, e o motor NAO RODA (DI-45-10-01). Um GRANT esquecido e a falha que ninguem investiga porque PARECE autorizacao funcionando. proacl = %', r.proname, r.proacl::text;
+      IF r.proname = ANY (v_do_titular) THEN
+        RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO concede EXECUTE a authenticated, e ela e alcancada pelo titular. A Edge Function chama esta RPC por um client com service key E o Authorization do titular, e o PostgREST deriva o PAPEL do MESMO JWT: esse client chega como authenticated. Sem o GRANT da migration 20260805000009 o auth.uid() segue NULO dentro da funcao, ela recusa com 42501, e o motor NAO RODA (DI-45-10-01). Um GRANT esquecido e a falha que ninguem investiga porque PARECE autorizacao funcionando. proacl = %', r.proname, r.proacl::text;
+      ELSE
+        RAISE EXCEPTION 'P45M FAIL (C1): public.%() NAO concede EXECUTE a authenticated, e ela tem chamador vivo PROPRIO fora da Edge Function desta fase. Para gerar_bias_snapshot esse chamador e a tela de auditoria de vies do ADMINISTRADOR (biasAuditService.ts:98), que fala com o Postgres como authenticated: sem o GRANT da 20260805000003 a tela morre com 42501 — e ela e peca PROBATORIA de nao-discriminacao (RNF-07a). ⚠ Se este vermelho apareceu depois de alguem REVOGAR o privilegio para "consertar" um vermelho anterior da (C1), o conserto foi na direcao errada: ver 45-REVIEW-4 / CR-02. proacl = %', r.proname, r.proacl::text;
+      END IF;
     END IF;
 
     IF NOT v_exige_auth AND v_auth THEN
-      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a authenticated e NAO e alcancada pela Edge Function desta fase — afrouxar o ACL dela de carona e o reflexo que esta fase existe para nao ter. ⚠ ANTES DE "CONSERTAR" ISTO: leia o comentario de cabecalho desta assercao. A migration 20260805000003 (plano 45-05) concede este privilegio DELIBERADAMENTE, porque o chamador vivo e a tela de auditoria de vies do administrador (biasAuditService.ts:98) — revogar apagaria a tela. As duas afirmacoes sao OPOSTAS e a decisao e do code review bloqueante do 45-11, nunca de um ajuste da assercao. proacl = %', r.proname, r.proacl::text;
+      RAISE EXCEPTION 'P45M FAIL (C1): public.%() concede EXECUTE a authenticated mas esta declarada em v_nega_auth — afrouxar o ACL de carona e o reflexo que esta fase existe para nao ter. Ou o GRANT entrou sem decisao, ou a classificacao mudou e ninguem moveu a funcao para v_concede_auth. As duas saidas exigem DECISAO datada, nunca um ajuste silencioso da assercao. proacl = %', r.proname, r.proacl::text;
     END IF;
   END LOOP;
 
@@ -1394,7 +1460,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C1): as 5 funcoes sao DEFINER; nenhuma concede EXECUTE a anon ou PUBLIC; as 4 alcancaveis pelo titular concedem a authenticated (o controle mudou de camada, do ACL para o guard do corpo, que a C2 prova que morde) e gerar_bias_snapshot nao concede';
+  RAISE NOTICE 'P45M PASS (C1): as 5 funcoes sao DEFINER; nenhuma concede EXECUTE a anon ou PUBLIC; as 5 estao classificadas explicitamente e as 5 concedem a authenticated conforme declarado — as 4 do titular pela 20260805000009, e gerar_bias_snapshot pela 20260805000003, por ter chamador vivo proprio (tela de auditoria de vies do administrador). O controle mudou de camada, do ACL para o guard do CORPO, que a C2 prova que morde';
 END
 $c1$;
 
