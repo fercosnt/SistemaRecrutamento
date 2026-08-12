@@ -2514,3 +2514,236 @@ Deno.test("(ao) WR-08: falha ao gravar a causa deixa rastro no log redigido, em 
   assert(!texto.includes(EMAIL_TITULAR), "nenhum e-mail no log");
   assert(!texto.includes(PEDIDO_ID), "nenhum id completo no log");
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 45-16 — WR-A e WR-E do `45-REVIEW-2.md`, mantidos pelo round 3 como as
+// DUAS condições da execução REAL (não-dry-run) da Task 3 do 45-11.
+//
+// ⚠ O QUE ESTES CASOS MEDEM NÃO É «não lança». Os dois achados produzem estados
+// terminais DEPOIS do passo 1 — currículo já destruído, PII intacta, e o motor
+// incapaz de carimbar `storage_concluido_em` em toda tentativa futura. A pergunta que
+// cada asserção abaixo faz é: **a execução ainda CONVERGE a partir daqui?** Um erro
+// mais claro no mesmo estado terminal não fecharia nenhum dos dois.
+//
+// ⚠ E O QUE ELES NÃO PODEM AFROUXAR: resíduo de um caminho QUE ESTAVA NO PLANO
+// continua reprovando sem carimbo (o `(w)` e o `(ap3)` medem isso), e o `plano.caminhos`
+// continua CONGELADO no passo 0 — ERASE-04. É a conferência que passou a tolerar um
+// prefixo que mudou; o plano não deriva.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Um objeto que apareceu no bucket DEPOIS do passo 0 — o CV novo do titular. */
+const CV_NOVO = `${PREFIXO}44444444-4444-4444-8444-444444444444.pdf`;
+
+// ── (ap) WR-A: o objeto que chegou depois do passo 0 não trava o passo 1 ─────
+Deno.test("(ap) WR-A: objeto NOVO sob o prefixo depois do passo 0 → varrido, e o passo CARIMBA", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // O plano foi congelado com CV_A; o bucket, agora, tem só o CV que o titular subiu
+    // entre a tentativa que falhou e esta retomada. Nada nesta fase impede novas
+    // candidaturas durante os 15 dias — este é o gatilho realista do WR-A.
+    paginas: [[{ name: CV_NOVO.slice(PREFIXO.length) }]],
+    pedido: { situacao: "executando", plano: planoCapturado({ caminhos: [CV_A] }) },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200, "antes do fix isto era 500 em TODA tentativa, para sempre");
+  assert(admin.linha.storage_concluido_em, "o passo 1 carimba: o prefixo ficou VAZIO");
+  assertEquals(admin.linha.causa, undefined, "objeto posterior ao plano não é falha de passo");
+  // A prova de que a execução SEGUIU — é isto que distingue convergir de parar melhor.
+  assert(admin.linha.auth_concluido_em, "a exclusão chega ao fim, em vez de travar no passo 1");
+  // ⚠ E o objeto novo foi REMOVIDO, não ignorado: deixá-lo seria um recibo mentindo
+  // sobre um arquivo que continua existindo — e, depois dos passos 2 e 3, sem
+  // `curriculo_url` e sem conta do Auth, nada mais no sistema saberia encontrá-lo.
+  assert(
+    admin.removeCalls.some((lote) => lote.includes(CV_NOVO)),
+    "o CV que chegou depois do passo 0 tem de ir ao remove()",
+  );
+});
+
+// ── (ap2) WR-A: o plano NÃO deriva — ERASE-04 ───────────────────────────────
+Deno.test("(ap2) WR-A: a varredura não recomputa `caminhos`; ela vira CONTAGEM no resumo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_NOVO.slice(PREFIXO.length) }]],
+    pedido: { situacao: "executando", plano: planoCapturado({ caminhos: [CV_A] }) },
+  });
+  await handler(makeRequest({ acao: "executar" }), deps);
+  // ⚠ A captura de ANTES da primeira mutação é o que torna esta mutação não-atômica
+  // retomável (ERASE-04). Redescobrir caminhos numa retomada é o que o desenho proíbe —
+  // quem tolera o prefixo mudado é a CONFERÊNCIA, nunca o plano.
+  const carimboDoPasso1 = admin.updates.find((u) => u.storage_concluido_em !== undefined);
+  assert(carimboDoPasso1, "o passo 1 tem de ter carimbado");
+  const planoCarimbado = carimboDoPasso1.plano as Record<string, unknown>;
+  assertEquals(planoCarimbado.caminhos, [CV_A], "`caminhos` é o do passo 0, sem união nenhuma");
+  const resumo = planoCarimbado.achados_resumo as Record<string, number>;
+  assertEquals(resumo.varridos_pos_plano, 1, "o objeto posterior é registrado como NÚMERO");
+  const contagens = planoCarimbado.contagens as Record<string, number>;
+  assertEquals(contagens.storage_remove, 1, "e ele SOMA no que o passo de fato apagou");
+  // A contagem é prova; o caminho seria o ponteiro que a exclusão existe para apagar.
+  const serializado = JSON.stringify(admin.linha.plano);
+  assert(!serializado.includes(CV_NOVO), "nenhum caminho do varrido sobrevive ao fecho");
+});
+
+// ── (ap3) WR-A: a falha FECHADA do resíduo PLANEJADO continua de pé ─────────
+Deno.test("(ap3) WR-A: resíduo de um caminho DO PLANO reprova mesmo com objeto novo ao lado", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }, { name: CV_NOVO.slice(PREFIXO.length) }]],
+    pedido: { situacao: "executando", plano: planoCapturado({ caminhos: [CV_A] }) },
+    // O `remove()` diz ter apagado — e o CV_A CONTINUA lá. Isso é remoção que falhou,
+    // não objeto que chegou depois: a varredura NÃO pode transformá-lo em sucesso.
+    residuoAposRemove: [CV_A.slice(PREFIXO.length)],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  assertEquals(admin.linha.storage_concluido_em, null, "resíduo do PLANO → não carimba");
+  assertEquals(admin.linha.causa, "falha_storage");
+  assertEquals(admin.deleteUserCalls.length, 0, "um passo falho NUNCA avança para o próximo");
+});
+
+// ── (ap4) WR-A: o objeto novo que RESISTE à varredura também reprova ────────
+Deno.test("(ap4) WR-A: varredura que não limpa o prefixo → falha FECHADA, sem carimbo", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    pedido: { situacao: "executando", plano: planoCapturado({ caminhos: [CV_A] }) },
+    // Um objeto que a re-enumeração devolve SEMPRE — a varredura tenta e ele fica.
+    residuoAposRemove: [CV_NOVO.slice(PREFIXO.length)],
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500, "tolerar o prefixo mudado não é carimbar sobre PII que ficou");
+  assertEquals(admin.linha.storage_concluido_em, null);
+  assertEquals(admin.linha.causa, "falha_storage");
+});
+
+// ── (aq) WR-E: plano persistido SEM `contagens`/`achados_resumo` ────────────
+Deno.test("(aq) WR-E: plano sem `contagens` nem `achados_resumo` COMPLETA o passo 1", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    pedido: {
+      situacao: "executando",
+      // Um plano gravado por outra versão da EF: rollback de deploy, edição manual da
+      // coluna. Antes do fix, o `remove()` acontecia e o `TypeError` estourava DEPOIS —
+      // e, por não ser `ErroDePasso`, gravava `falha_postgres` para uma execução que
+      // parou no Storage, depois de apagar os arquivos.
+      plano: {
+        versao: 1,
+        auth_uid: AUTH_UID,
+        email: EMAIL_TITULAR,
+        caminhos: [CV_A],
+        achados: [],
+        recorte: { tem_curriculo: true, tem_decisao_registrada: false },
+      },
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200, "a forma é verificada ANTES da remoção — o passo não estoura");
+  assert(admin.linha.storage_concluido_em, "e ele carimba, em vez de repetir o TypeError");
+  assertEquals(admin.linha.causa, undefined);
+  const resumo = (admin.linha.plano as Record<string, unknown>).achados_resumo as Record<
+    string,
+    number
+  >;
+  assertEquals(resumo.blob_orfao, 0, "o resumo passa a existir, com os dois contadores");
+  assertEquals(resumo.ponteiro_morto, 0);
+});
+
+// ── (aq2) WR-E: `contagens`/`achados_resumo` com o TIPO errado ──────────────
+Deno.test("(aq2) WR-E: `contagens` escalar e `achados_resumo` array são NORMALIZADOS, não consumidos", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    pedido: {
+      situacao: "executando",
+      // ⚠ `Array.isArray(plano.caminhos)` era a ÚNICA condição para reusar o plano —
+      // ela não diz nada sobre as outras duas chaves. Escrever numa string em módulo
+      // ES (strict) LANÇA; escrever num array «funciona» e grava a prova num lugar que
+      // o passo 4 não lê.
+      plano: {
+        versao: 1,
+        auth_uid: AUTH_UID,
+        email: EMAIL_TITULAR,
+        caminhos: [CV_A],
+        achados: [],
+        recorte: { tem_curriculo: true, tem_decisao_registrada: false },
+        contagens: "3",
+        achados_resumo: [],
+      },
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  const plano = admin.linha.plano as Record<string, unknown>;
+  const contagens = plano.contagens as Record<string, number>;
+  assertEquals(contagens.storage_remove, 1, "a contagem real do passo 1 tem onde ser escrita");
+  const resumo = plano.achados_resumo as Record<string, number>;
+  assertEquals(Array.isArray(resumo), false, "o resumo vira objeto — é assim que o recibo o lê");
+  assertEquals(resumo.ponteiro_morto, 0);
+});
+
+// ── (aq3) WR-E: um `caminho` de OUTRA pessoa no plano persistido ────────────
+Deno.test("(aq3) WR-E: caminho fora do prefixo dentro do plano NUNCA chega ao remove()", async () => {
+  const { handler } = await loadHandler();
+  const alheio = `${OUTRO_UID}/99999999-9999-4999-8999-999999999999.pdf`;
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    pedido: {
+      situacao: "executando",
+      // O WR-03 peneira a lista MONTADA no passo 0. Um plano vindo do banco nunca passou
+      // por aquela peneira — e ele vai direto a um `remove()` sob service key, que ignora
+      // RLS. Sem PITR e com o Storage fora de todo backup, isto é irreversível.
+      plano: planoCapturado({ caminhos: [CV_A, alheio, `${PREFIXO}../fora.pdf`] }),
+    },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200, "descartar não pode travar o passo: o prefixo é limpo assim mesmo");
+  for (const lote of admin.removeCalls) {
+    assert(!lote.includes(alheio), "o caminho de outra pessoa JAMAIS pode ir ao remove()");
+    for (const c of lote) assert(c.startsWith(PREFIXO), `caminho fora do prefixo no lote: ${c}`);
+  }
+  const resumo = (admin.linha.plano as Record<string, unknown>).achados_resumo as Record<
+    string,
+    number
+  >;
+  assertEquals(resumo.fora_do_prefixo, 2, "o descarte é ACHADO REGISTRADO, nunca silêncio");
+});
+
+// ── (ar) WR-E: a `causa` nomeia o sistema em que a execução DE FATO parou ───
+Deno.test("(ar) WR-E: exceção genérica no passo 1 grava falha_storage, nunca falha_postgres", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    paginas: [[{ name: CV_A.slice(PREFIXO.length) }]],
+    pedido: { situacao: "executando", plano: planoCapturado({ caminhos: [CV_A] }) },
+    // A Storage Admin API devolvendo uma forma que este código não conhece: o
+    // `.map()` sobre ela LANÇA `TypeError`, que não é `ErroDePasso`. É a classe inteira
+    // do WR-E — o defeito de forma do plano era só um dos seus membros.
+    removeResultado: () =>
+      ({ data: "nao-e-um-array", error: null }) as unknown as {
+        data: Array<{ name: string }> | null;
+        error: unknown;
+      },
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  // ⚠ `falha_postgres` aqui MENTIRIA: a execução parou no Storage, depois do `remove()`.
+  // A `causa` é a única pergunta que importa às 3 da manhã sobre um arquivo sem backup.
+  assertEquals(admin.linha.causa, "falha_storage");
+  assertEquals(admin.linha.storage_concluido_em, null, "e a falha continua FECHADA");
+});
+
+// ── (ar2) WR-E: antes do passo 1, o default segue `postgres` ────────────────
+Deno.test("(ar2) WR-E: exceção genérica ANTES de qualquer remoção NÃO vira falha_storage", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    // A leitura de ponteiros devolve uma forma que o passo 0 não conhece: o `.map()`
+    // sobre ela LANÇA `TypeError`, ANTES de qualquer remoção.
+    // ⚠ Nada foi tocado no bucket. Afirmar `falha_storage` aqui diria que o currículo pode
+    // ter sido destruído quando ninguém encostou nele — o motivo pelo qual o fallback de
+    // `causaDaFalha()` é o passo do MEIO.
+    curriculos: "nao-e-um-array" as unknown as Array<{ id: string; curriculo_url: string | null }>,
+  });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 500);
+  assertEquals(admin.linha.causa, "falha_postgres", "o passo do meio segue o default seguro");
+  assertEquals(admin.removeCalls.length, 0, "e nada foi removido");
+});

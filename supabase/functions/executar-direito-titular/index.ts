@@ -371,6 +371,13 @@ interface PlanoExclusao {
     fora_do_prefixo?: number;
     /** CR-02: caminhos que o `remove()` não devolveu — CONTAGEM, nunca a lista. */
     nao_devolvidos?: number;
+    /**
+     * WR-A: objetos que apareceram sob o prefixo do titular DEPOIS do passo 0 e que
+     * a varredura do passo 1 removeu. CONTAGEM, nunca a lista — o caminho embute o
+     * `auth.uid()`. Um número maior que zero é a prova de que o bucket mudou entre a
+     * captura e a remoção, que é um fato sobre o sistema e não um erro.
+     */
+    varridos_pos_plano?: number;
   };
 }
 
@@ -804,6 +811,20 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
 
   let arquivosApagados = 0;
 
+  /**
+   * ⚠ WR-E · O PASSO EM QUE A EXECUÇÃO ESTÁ, para que uma exceção que NÃO é
+   * `ErroDePasso` não seja atribuída ao sistema errado. O `catch` de baixo assumia
+   * `"postgres"` por default: uma falha genérica depois do `remove()` gravava
+   * `causa='falha_postgres'` para uma execução que parou no **Storage, depois de apagar
+   * os arquivos** — e a `causa` é, pelo docblock dos helpers, «a única pergunta que
+   * importa às 3 da manhã».
+   * ⚠ O default segue `"postgres"` ATÉ o passo 1 começar, e isso é deliberado: afirmar
+   * `falha_storage` antes de qualquer remoção diria que o currículo pode ter sido
+   * destruído quando nada foi tocado. O fallback de `causaDaFalha()` para um passo
+   * desconhecido continua valendo pelo mesmo motivo.
+   */
+  let passoCorrente: PassoMotor = "postgres";
+
   try {
     // ── PASSO 0 · O PLANO — o único produtor de informação ───────────────────
     let plano = (estado.plano ?? null) as PlanoExclusao | null;
@@ -811,6 +832,11 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       plano = await montarPlano(deps, ctx);
       await carimbar("storage", { plano, situacao: SITUACAO_EXECUTANDO });
     }
+    // ⚠ WR-E · A NORMALIZAÇÃO RODA NOS DOIS RAMOS, e antes de qualquer mutação. Para um
+    // plano recém-montado ela é no-op por construção; para um plano vindo do banco ela é
+    // a única peneira que existe. Rodar nos dois é o que garante que TODO plano que este
+    // motor consome passou pelo mesmo portão — um `if` a menos para alguém errar depois.
+    plano = normalizarPlanoPersistido(plano, `${authUid}/`);
 
     // ── PASSO 1 · STORAGE ───────────────────────────────────────────────────
     // ⚠ Nunca `DELETE FROM storage.objects`: apagar por SQL remove só o metadado e
@@ -818,6 +844,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // o backup deste projeto exclui Storage inteiramente (D-45-10).
     const caminhos = plano.caminhos ?? [];
     if (!estado.storage_concluido_em) {
+      passoCorrente = "storage";
       let apagadosDeVerdade = 0;
       let naoDevolvidos = 0;
       for (const lote of dividirEmLotes(caminhos, LIMITE_REMOCAO)) {
@@ -860,14 +887,73 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
         .catch(() => {
           throw new ErroDePasso("storage", "list_pos_remove");
         });
-      if (restantes.length > 0) throw new ErroDePasso("storage", "residuo_apos_remove");
+
+      // ⚠⚠ WR-A · RESÍDUO PLANEJADO E OBJETO POSTERIOR SÃO FATOS DIFERENTES, E TRATÁ-LOS
+      // IGUAL TRAVAVA O MOTOR PARA SEMPRE.
+      //
+      // O `plano.caminhos` é congelado no passo 0 e NUNCA recomputado numa retomada —
+      // isso é o ERASE-04 e não muda aqui: a captura de antes da primeira mutação é o
+      // que torna esta mutação não-atômica retomável, e redescobrir caminhos depois seria
+      // exatamente o que o desenho proíbe. Mas a conferência mede o PÓS-ESTADO DO PREFIXO
+      // INTEIRO, e o prefixo pode mudar legitimamente entre o passo 0 e o passo 1: o
+      // titular sobe um CV novo entre uma tentativa que falhou (rede, timeout de Deno) e a
+      // retomada — nada nesta fase impede novas candidaturas durante os 15 dias.
+      //
+      // Reprovar por causa desse objeto novo era o CR-02 com outro gatilho: ele nunca
+      // entrava em `caminhos`, nunca era removido, e fazia `restantes.length > 0` em TODA
+      // tentativa futura — com os CVs originais já destruídos e a PII intacta.
+      //
+      // A distinção que corrige, sem mexer no plano:
+      //   · caminho QUE ESTAVA NO PLANO e continua no bucket → o `remove()` FALHOU.
+      //     Falha FECHADA, sem carimbo, como sempre foi. Re-tentar em silêncio esconderia
+      //     uma remoção que não acontece.
+      //   · caminho que NÃO estava no plano → ele entrou depois do passo 0. Ele está sob
+      //     `{authUid}/`, é PII do titular, e é objeto do direito que ele exerceu. Deixá-lo
+      //     seria um recibo mentindo sobre um arquivo que continua existindo — e, depois do
+      //     passo 2 (que anula `curriculo_url`) e do passo 3 (que apaga a conta), nada mais
+      //     no sistema seria capaz de encontrá-lo.
+      const planejados = new Set(caminhos);
+      if (restantes.some((c) => planejados.has(c))) {
+        throw new ErroDePasso("storage", "residuo_apos_remove");
+      }
+
+      const posteriores = restantes.filter((c) => !planejados.has(c));
+      let varridos = 0;
+      if (posteriores.length > 0) {
+        for (const lote of dividirEmLotes(posteriores, LIMITE_REMOCAO)) {
+          const { data, error } = await supabaseAdmin.storage
+            .from(BUCKET_CURRICULOS)
+            .remove(lote);
+          if (error) throw new ErroDePasso("storage", "varredura_pos_plano");
+          varridos += new Set(
+            ((data ?? []) as Array<{ name?: unknown }>)
+              .map((o) => o?.name)
+              .filter((n): n is string => typeof n === "string"),
+          ).size;
+        }
+        // ⚠ A VARREDURA É DE UMA PASSADA SÓ, e o teto é o que a torna convergente em vez
+        // de um laço dentro de uma Edge Function com timeout. Se um upload chegar DURANTE
+        // a varredura, esta tentativa reprova — e a PRÓXIMA passa, porque o laço do plano
+        // já não encontra nada e a varredura pega o retardatário. Reprovar aqui é adiar,
+        // nunca travar: é essa a diferença com o estado que o WR-A descreve.
+        const aindaRestam = await enumerarObjetosTitular(supabaseAdmin, `${authUid}/`)
+          .catch(() => {
+            throw new ErroDePasso("storage", "list_pos_varredura");
+          });
+        if (aindaRestam.length > 0) throw new ErroDePasso("storage", "residuo_apos_varredura");
+      }
 
       // ⚠ CONTAGEM, NUNCA A LISTA DE CAMINHOS. O review sugere guardar os caminhos não
       // devolvidos; isso reintroduziria no registro que sobrevive à exclusão exatamente
       // a PII que o passo 4 esvazia o plano para remover — o caminho embute o
-      // `auth.uid()` do titular.
+      // `auth.uid()` do titular. Vale igual para os varridos: o QUANTO é prova, o QUAL
+      // seria o ponteiro que a exclusão existe para apagar.
       plano.achados_resumo.nao_devolvidos = naoDevolvidos;
-      plano.contagens.storage_remove = apagadosDeVerdade;
+      if (varridos > 0) plano.achados_resumo.varridos_pos_plano = varridos;
+      // ⚠ Os varridos SOMAM: eles foram de fato apagados por este passo, e a contagem é
+      // «o que este motor mutou» (WR-01). Omiti-los faria o recibo declarar menos
+      // arquivos do que o passo destruiu — a prova subestimando o próprio ato.
+      plano.contagens.storage_remove = apagadosDeVerdade + varridos;
 
       // ⚠ Zero objetos é SUCESSO, não erro: o laço acima simplesmente não roda, o
       // carimbo acontece, e o recibo afirma zero arquivos. `curriculo_url` NULL não
@@ -886,6 +972,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // disponível está dentro daquela transação, e duplicar um único statement aqui a
     // destruiria.
     if (!estado.postgres_concluido_em) {
+      passoCorrente = "postgres";
       const { data, error } = await supabaseTitular.rpc("anonimizar_candidato", {
         p_candidato_id: candidatoId,
         p_dry_run: false,
@@ -942,6 +1029,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
 
     // ── PASSO 3 · AUTH — o único passo sem volta ────────────────────────────
     if (!estado.auth_concluido_em) {
+      passoCorrente = "auth";
       // ⚠ PRÉ-CONDIÇÃO DE CÓDIGO, VERIFICADA CONTRA A AUTORIDADE. A ordem
       // `Storage -> Postgres -> Auth` é estrutural porque `user_id` tem de estar
       // severado ANTES: sem isso `deleteUser` cascateia `candidatos` -> `candidaturas`,
@@ -986,6 +1074,7 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
 
     // ── PASSO 4 · O RECIBO — o único canal que ainda alcança o titular ──────
     if (!estado.recibo_enviado_em) {
+      passoCorrente = "recibo";
       await enviarRecibo(deps, {
         pedidoId,
         plano,
@@ -1024,7 +1113,11 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
     // afirmação é ingarantível, e uma frase tranquilizadora que envelhece para falsa
     // é pior que nenhuma. Ele registra a `causa` — o SISTEMA em que parou — e loga
     // REDIGIDO: só `refCurta()` e chaves da allowlist local.
-    const passo: PassoMotor = e instanceof ErroDePasso ? e.passo : "postgres";
+    // ⚠ WR-E · UMA EXCEÇÃO QUE NÃO É `ErroDePasso` HERDA O PASSO EM QUE A EXECUÇÃO
+    // ESTAVA, e não um default fixo. `"postgres"` continua sendo o valor até o passo 1
+    // começar — dizer `falha_storage` antes de qualquer remoção afirmaria que o currículo
+    // pode ter sido destruído quando nada foi tocado.
+    const passo: PassoMotor = e instanceof ErroDePasso ? e.passo : passoCorrente;
     const classe = e instanceof ErroDePasso ? e.classe : "excecao";
     await registrarCausa(passo);
     logErro("executar", classe, candidatoId, pedidoId, passo);
@@ -1035,6 +1128,82 @@ async function executarExclusao(deps: Deps, ctx: ContextoExecucao): Promise<Resp
       MOTIVO_EXECUCAO_INTERROMPIDA,
     );
   }
+}
+
+/** Um objeto JSON simples — nem `null`, nem array, nem escalar. */
+function objetoSimples(v: unknown): Record<string, unknown> {
+  return (v !== null && typeof v === "object" && !Array.isArray(v))
+    ? v as Record<string, unknown>
+    : {};
+}
+
+/** Um número FINITO, ou o default. `NaN` e `Infinity` nunca entram numa contagem. */
+function numeroFinito(v: unknown, padrao = 0): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : padrao;
+}
+
+/**
+ * WR-E · A FORMA DO PLANO É VERIFICADA **ANTES** DA REMOÇÃO, NUNCA DEPOIS.
+ *
+ * ⚠⚠ ESTA FUNÇÃO NÃO EXISTE POR ZELO DE TIPO. O plano persistido era consumido com
+ * uma única condição — `Array.isArray(plano.caminhos)` — enquanto
+ * `plano.achados_resumo.nao_devolvidos = …` e `plano.contagens.storage_remove = …`
+ * rodavam DEPOIS do laço de `remove()`. Um plano gravado por outra versão (rollback de
+ * deploy, edição manual da coluna) sem uma dessas duas chaves fazia a remoção
+ * acontecer e só então lançar `TypeError` — que não é `ErroDePasso`. O desfecho tinha a
+ * forma que esta fase existe para não pagar: currículo destruído, PII intacta, o mesmo
+ * `TypeError` em toda retomada, e a `causa` gravada como `falha_postgres` para uma
+ * execução que parou no **Storage, depois de apagar os arquivos**.
+ *
+ * A normalização torna o defeito INALCANÇÁVEL em vez de diagnosticável: depois daqui o
+ * passo 1 tem onde escrever, carimba, e a execução SEGUE. Não é um erro mais claro — é
+ * a ausência do erro.
+ *
+ * ⚠ E ELA TAMBÉM RE-VALIDA O PREFIXO DOS `caminhos`. Eles vão direto para um `remove()`
+ * que roda com a service key e IGNORA RLS; o WR-03 já validava a lista MONTADA no passo
+ * 0, mas um plano vindo do banco (versão anterior, edição manual) nunca passou por
+ * aquela peneira. Um caminho de outra pessoa dentro do `plano` apagaria o CV dela,
+ * irreversivelmente — sem PITR e com o Storage fora de todo backup.
+ * ⚠ O descarte NÃO para o passo, e a razão é o WR-A: com a varredura do pós-estado no
+ * lugar, os objetos REAIS do titular sob o prefixo são removidos de qualquer forma, e
+ * parar aqui seria um estado terminal com o plano congelado. Descarta-se o que aponta
+ * para fora, registra-se a CONTAGEM, e o prefixo é limpo pela varredura.
+ *
+ * ⚠ Mutação IN PLACE e devolução do mesmo objeto: este `plano` é o que vai no carimbo,
+ * e uma cópia faria a normalização não sobreviver ao `UPDATE`.
+ */
+function normalizarPlanoPersistido(plano: PlanoExclusao, prefixo: string): PlanoExclusao {
+  // As contagens são a PROVA que sobrevive ao titular. Um valor não-numérico ali vira
+  // `NaN` no `arquivos_apagados` da resposta e no recibo — uma prova ilegível.
+  const contagens: Record<string, number> = {};
+  for (const [k, v] of Object.entries(objetoSimples(plano.contagens))) {
+    if (typeof v === "number" && Number.isFinite(v)) contagens[k] = v;
+  }
+  plano.contagens = contagens;
+
+  const resumoCru = objetoSimples(plano.achados_resumo);
+  const resumo: PlanoExclusao["achados_resumo"] = {
+    blob_orfao: numeroFinito(resumoCru.blob_orfao),
+    ponteiro_morto: numeroFinito(resumoCru.ponteiro_morto),
+  };
+  for (const k of ["fora_do_prefixo", "nao_devolvidos", "varridos_pos_plano"] as const) {
+    if (resumoCru[k] !== undefined) resumo[k] = numeroFinito(resumoCru[k]);
+  }
+  plano.achados_resumo = resumo;
+
+  if (Array.isArray(plano.caminhos)) {
+    const admitidos = plano.caminhos.filter(
+      (c): c is string => typeof c === "string" && c.startsWith(prefixo) && !c.includes(".."),
+    );
+    const descartados = plano.caminhos.length - admitidos.length;
+    if (descartados > 0) {
+      plano.achados_resumo.fora_do_prefixo = numeroFinito(plano.achados_resumo.fora_do_prefixo) +
+        descartados;
+    }
+    plano.caminhos = admitidos;
+  }
+
+  return plano;
 }
 
 /**

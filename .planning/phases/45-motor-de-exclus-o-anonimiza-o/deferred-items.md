@@ -408,3 +408,37 @@ fase existe para não pagar — e que os três deveriam fechar **antes da execu�
 **Fecha:** decisão do orquestrador no portão do 45-11 — fechar os três antes da Task 3, ou
 registrar em `45-11-EVIDENCIA-PORTAO.md` a aceitação explícita do risco, com o desfecho de cada um
 escrito.
+
+**⚠ ATUALIZAÇÃO (45-16):** **WR-A e WR-E estão FECHADOS** — ver `45-16-SUMMARY.md`, com prova por
+mutação (6 dos 9 casos Deno novos falham contra o código pré-fix). **WR-C foi REDUZIDO pelo round
+3** com rastreamento de alcançabilidade (`45-REVIEW-3.md:466`) e deixou de ser condição de portão.
+**Continuam abertos: WR-B, WR-C, WR-D, WR-F e WR-G** — nenhum deles é condição de portão segundo o
+round 3, e o **WR-F cresceu** com o fix do BL-02 (a linha no `COMMENT` que o round 2 pediu continua
+não escrita).
+
+### DI-45-16-01 · A NW-03 alargou: `causa='falha_storage'` cobre agora **10** classes nomeadas, mais `carimbo` e `excecao`
+
+**Encontrado em:** o plano 45-16, como consequência declarada dos próprios fixes.
+
+A NW-03 (`45-REVIEW-3.md:332`) registrou que a `causa` nomeia o **sistema** e a `classe` nomeia a
+**condição**, e que a segunda vai só para o log redigido (`index.ts:1030`), nunca para a linha —
+com **sete** classes distintas colapsando em `falha_storage`. O 45-16 acrescentou três
+(`varredura_pos_plano`, `list_pos_varredura`, `residuo_apos_varredura`, todas da varredura do WR-A)
+e mais uma quarta por outra via: com `passoCorrente`, uma exceção genérica no passo 1 passou a
+chegar à linha como `falha_storage` com `classe='excecao'`, em vez de mentir com `falha_postgres`.
+Contado por execução: **10** `ErroDePasso("storage", …)` distintas, mais `carimbo` e `excecao`.
+
+**Consequência se ninguém fechar:** um pedido parado no passo 1 fica em `situacao='executando'` com
+`causa='falha_storage'` e **nada na linha** que diga qual das doze condições parou o motor — e o
+`acao: 'executar'` não tem gatilho agendado nem ação de operador (WR-09). O diagnóstico exige o log
+da invocação, que não é consultável por quem opera o pedido.
+
+**Por que NÃO foi feito aqui:** o escopo do 45-16 é fechar WR-A e WR-E; persistir `ultima_classe` no
+`plano` toca o formato do registro que **sobrevive ao titular** e merece a mesma pergunta de PII que
+todo o resto do plano recebeu (o vocabulário de `classe` é fechado e não embute caminho, mas isso
+precisa ser afirmado com a lista na mão, não presumido).
+
+**Fecha:** com o fix barato que a própria NW-03 propõe —
+`plano: { ...estado.plano, ultima_classe: classe }` no `registrarCausa` — ou, no mínimo, com a linha
+em `45-11-EVIDENCIA-PORTAO.md` dizendo que `falha_storage` cobre doze condições e que o diagnóstico
+é o log da invocação.
