@@ -690,7 +690,7 @@ BEGIN
   END IF;
 
   IF v_md5 <> v_esperado THEN
-    RAISE EXCEPTION 'P45-09 BLOCO G: o corpo VIVO de varrer_retry_notificacoes tem md5 % (length %), e o esperado e % (length 2763). A funcao viva NAO e a que este arquivo transcreveu, entao o CREATE OR REPLACE abaixo APAGARIA a divergencia em silencio numa funcao que roda a cada 15 minutos em PROD. Apply abortado: diffar pg_get_functiondef, reconciliar a transcricao e so entao reaplicar.', v_md5, v_len;
+    RAISE EXCEPTION 'P45-09 BLOCO G: o corpo VIVO de varrer_retry_notificacoes tem md5 % (length %), e o esperado e % (length 2763). A funcao viva NAO e a que este arquivo transcreveu, entao o CREATE OR REPLACE abaixo APAGARIA a divergencia em silencio numa funcao que roda a cada 15 minutos em PROD. Apply abortado: diffar pg_get_functiondef, reconciliar a transcricao e so entao reaplicar.', v_md5, v_len, v_esperado;
   END IF;
 
   RAISE NOTICE 'P45-09 BLOCO G OK: corpo vivo confere (md5 %, length %) — a substituicao abaixo altera exatamente a clausula de exclusao', v_md5, v_len;
