@@ -136,6 +136,30 @@ WR-A e WR-E fechados no `45-16` com desfecho **retomável**, provados por mutaç
 `87|0`). Decisão do operador em 2026-08-11: **opção B** no CR-01 (guard de intenção **e** caminho
 destrutivo só para `administrador`/titular).
 
+### ✅ CR-01 e CR-02 CONSERTADOS NO DISCO em 2026-08-12 (`76976bb`) — falta EXECUTAR
+
+As duas barreiras que impediam o smoke de ficar verde estão fechadas no arquivo. O predicado do
+`(B3/email)` **não mudou** (`count(*) = 1`); mudou o ponto de medição. O `GRANT` de
+`gerar_bias_snapshot` **não foi tocado**; mudou a premissa da asserção. A prosa do cabeçalho
+(`:132`), o bloco de contradição e a mensagem de PASS foram reconciliados **no mesmo commit** —
+deixar para depois é o padrão P39/CR-02 que esta fase combate.
+
+⚠ **Um cuidado que o patch sugerido pelo review não cobria:** com as 5 funções esperando
+`authenticated`, o ramo `NOT v_exige_auth AND v_auth` ficaria **inalcançável** — asserção vacua,
+o modo de falha do `42804` da P43. Entrou `v_nega_auth` (vazia, de propósito) mais uma checagem
+**fail-closed** de classificação: acrescentar uma sexta função sem decidir seu ACL agora reprova.
+
+⚠ **O SMOKE NÃO FOI EXECUTADO.** Verificado por FORMA (aridade de `RAISE` nos 131 statements,
+checador validado por mutação contra `6879f1b~1`; `to_regproc(` = 0; contador 24 = 24), nunca por
+execução — rodar exige escrita em PROD e é **checkpoint do operador**.
+
+### 📋 Roteiro de UAT consolidado — `.planning/UAT-SESSAO-CONSOLIDADA.md`
+
+Os 14 itens de navegador das fases 42–47 numa ordem que funciona. ⚠ Existem **três ordenações
+obrigatórias** (o pedido de exclusão encerra as candidaturas; o primeiro clique do export queima
+o cooldown de 24 h; o item de 43 exige cadastro NOVO com a caixa de retenção MARCADA) — rodar
+fora de ordem invalida trabalho já feito.
+
 ### O que falta — nesta ordem
 
 1. ⏸ **Smoke `p45_motor_exclusao_smoke.sql` para na asserção `(B3/email)`.**
