@@ -78,18 +78,82 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-Phase: 45 (Motor de Exclusão & Anonimização) — EXECUTING
+**Atualizado 2026-08-12.** Phase **47 COMPLETA (9/9)**. Phase 45: **o motor está VIVO em
+produção** — as 7 migrations aplicadas, as 2 EFs deployadas, e **nenhuma linha de dado de
+candidato tocada**. Falta ele RODAR.
+
+### ⛔ LEIA ISTO ANTES DE QUALQUER COISA AUTOMÁTICA
+
+**A execução real da exclusão NÃO pode ser feita por agente.** Ela apaga PII irreversivelmente
+(Storage sem backup, PITR desligado) e exige (a) uma conta descartável e (b) o operador presente.
+Um `/gsd-autonomous` que chegue na Task 3 do `45-11` deve **parar e perguntar**, nunca executar.
+
+**`NOTIFICACOES_MODO` está em `producao`** — medido no ledger em 2026-08-11, não lido de config.
+Qualquer smoke que dispare notificação manda **e-mail real**. O registro antigo que dizia `teste`
+estava desatualizado.
+
+### Apply da Phase 45 — CONCLUÍDO em 2026-08-12
+
+| Item | Estado |
+|---|---|
+| Migrations `20260805000003`…`000009` | ✅ **7/7 aplicadas** · ledger `000001`–`000009` sem buracos |
+| `md5(prosrc)` × pins de 3 rodadas de review | ✅ `plano_exclusao_titular` `97634d07…` · `anonimizar_candidato` `8c86e0f0…` |
+| EF `notificar-rh` | ✅ v2 (antes do trigger da `000007` — `net.http_post` é at-most-once) |
+| EF `executar-direito-titular` | ✅ v2 · `verify_jwt: true` · **`DI-45-10-01` FECHADO** (client + GRANT + redeploy) |
+| `candidatos_user_id_fkey` | ✅ `CASCADE` → **`SET NULL`** — a armadilha do 23503 desarmada |
+| As 3 FKs `NO ACTION` | ✅ `a, a, a` — intocadas em todos os 7 applies |
+| Dados: candidatos/candidaturas/histórico/decisão | **22 / 9 / 5 / 1** — idênticos ao antes |
+| Tombstones | **0** — o motor nunca rodou |
+
+### Reviews do portão — 3 rodadas, 9 blockers, ZERO chegou a produção
+
+`45-REVIEW.md` 6 blockers → `45-13` → `45-REVIEW-2.md` 3 blockers (**1 introduzido pelo conserto**)
+→ `45-14`/`45-15` → `45-REVIEW-3.md` **0 blockers, aprovado com 2 condições**, ambas fechadas.
+WR-A e WR-E fechados no `45-16` com desfecho **retomável**, provados por mutação (`81|6 fail` →
+`87|0`). Decisão do operador em 2026-08-11: **opção B** no CR-01 (guard de intenção **e** caminho
+destrutivo só para `administrador`/titular).
+
+### O que falta — nesta ordem
+
+1. ⏸ **Smoke `p45_motor_exclusao_smoke.sql` para na asserção `(B3/email)`.**
+   **O MOTOR ESTÁ CERTO** — verificado no `prosrc` vivo: `SET email = v_sent_email`, sentinela
+   por linha derivada do id. Como `email` é `UNIQUE`, a contagem só pode ser 0 ou 1 → o `<> 1`
+   significa **zero**, ou seja o `SELECT … INTO v_email_d` (linha ~934) não achou linha para
+   `v_cand`. É **estado de fixture**, não de anonimização.
+   ⚠ **NÃO afrouxar a asserção para ela passar.** O cabeçalho do próprio arquivo proíbe: *"alterar
+   o smoke para caber no que foi aplicado é o movimento que transforma um gate em decoração"*.
+2. ⏸ **Smoke `p45_bias_k5_smoke.sql` — ✅ JÁ PASSOU 9/9** (ERASE-01 provado em PROD).
+3. ⏸ **`45-06` T2** — prova da fatia no navegador. Precisa de pessoa.
+4. ⏸ **Execução real vigiada** (`45-11` Task 3) — conta descartável + operador. Ver ⛔ acima.
+
+### ⚠ Cinco portões que reprovariam trabalho CORRETO — o padrão da fase
+
+1. `search_path=` estrito (o catálogo grava `search_path=""`) · 2. `check:*` órfãos ·
+3. asserção `(vii)` que passaria enquanto o motor recusa tudo ·
+4. **`to_regproc('fn(tipos)')` devolve NULL SEMPRE** — quem aceita assinatura é `to_regprocedure`
+(4 ocorrências no smoke + 1 na `000006`, todas corrigidas) ·
+5. `RAISE` com 3 `%` e 2 argumentos (nem compilava).
+
+**Nenhum era defeito de motor. Todos eram defeitos de VERIFICAÇÃO** — e os dois últimos só
+existem em execução, que é por que três rodadas de review estático passaram por cima deles.
+**Lição operacional:** quando um defeito tem forma reconhecível, varrer o repositório pela
+FORMA, nunca consertar só o sintoma que apareceu.
+
+### Supabase CLI — como não repetir os erros de 2026-08-12
+
+- `functions deploy` exige **`--project-ref isljnozzlvckrgjjbjwp`**. Sem ele o seletor
+  interativo aparece e já ofereceu **o projeto errado** (`qyrkyvoilfaxppbvtkpi`).
+- `migration repair` **não** aceita `--project-ref`; usa `--linked`, e exige `supabase link` antes.
+- O SQL Editor **não grava no ledger** — a reconciliação é `INSERT` direto em
+  `supabase_migrations.schema_migrations`, feito pelo orquestrador **depois** de conferir o catálogo.
+
+### Histórico anterior (pré-apply)
 
 | Plano | Estado |
 |---|---|
-| `45-01` sondas · `45-02` recibo | ✅ |
-| `45-03` tracer · `45-04` smoke RED · `45-05` bias k=5 | ✅ |
-| `45-06` T1 — **apply em PROD** | ✅ md5 byte-perfeito nas duas · EF deployada · tipos regenerados |
-| `45-07` metade Postgres · `45-08` front · `45-09` retirada+RH | ✅ **escritos, NÃO aplicados** |
-| `45-10` motor destrutivo (Storage+Postgres+Auth+recibo) | ✅ **escrito, NADA deployado** |
-| `45-12` claims do titular + retirada | ✅ **escrito, NADA aplicado/deployado** — `DI-45-10-01` (2 de 3) e `DI-45-10-02` fechados |
-| `45-06` T2 — prova no navegador | ⏸ **precisa de pessoa** |
-| `45-11` portão destrutivo | ○ |
+| `45-01` sondas · `45-02` recibo · `45-03` tracer · `45-04` smoke RED · `45-05` bias k=5 | ✅ |
+| `45-06` T1 apply · `45-07`/`45-08`/`45-09` · `45-10` motor · `45-12` claims | ✅ |
+| `45-13` 6 blockers · `45-14` 3 blockers · `45-15` NW-01/02 · `45-16` WR-A/WR-E | ✅ |
 
 ## ⚠ O 45-12 MUDOU TRÊS COISAS QUE O 45-11 PRECISA LER ANTES DE APLICAR
 
