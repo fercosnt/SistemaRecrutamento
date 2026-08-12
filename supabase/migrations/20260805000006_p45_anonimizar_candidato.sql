@@ -963,7 +963,14 @@ BEGIN
     RAISE EXCEPTION 'P45-TOMBSTONE: candidatos.user_id ainda e NOT NULL — a migration 20260805000004 (a S1 do D-45-11) precisa ser aplicada ANTES desta. A SONDA 6 mediu o desfecho exato de tentar sem ela: 23502 null value in column "user_id" violates not-null constraint';
   END IF;
 
-  IF to_regproc('public.plano_exclusao_titular(uuid)') IS NULL THEN
+  -- ⚠ `to_regprocedure`, NUNCA `to_regproc`: o primeiro resolve uma ASSINATURA
+  -- (`nome(tipos)`), o segundo resolve só um NOME. Passar lista de argumentos a
+  -- `to_regproc` devolve NULL SEMPRE — e o guard vira uma parada que nenhum estado
+  -- do banco consegue satisfazer. Medido em PROD em 2026-08-12, no primeiro apply
+  -- real desta migration: a função existia (`md5(prosrc)` batendo o pin do
+  -- 45-15-SUMMARY), e mesmo assim o guard abortou. Três rodadas de code review não
+  -- pegaram, porque todas foram estáticas e este defeito só existe em execução.
+  IF to_regprocedure('public.plano_exclusao_titular(uuid)') IS NULL THEN
     RAISE EXCEPTION 'P45-TOMBSTONE: public.plano_exclusao_titular(uuid) NAO existe — a migration 20260805000005 precisa ser aplicada ANTES desta. Ela e a expressao UNICA da qual o dry-run e o delete real saem, e este corpo a CHAMA';
   END IF;
 
