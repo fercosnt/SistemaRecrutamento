@@ -5,9 +5,9 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase: 45
 current_phase_name: Motor de Exclusão & Anonimização
 status: executing
-stopped_at: Completed 45-16 (WR-A e WR-E fechados no disco; nada aplicado)
-last_updated: "2026-08-12T01:28:29.156Z"
-last_activity: 2026-08-11
+stopped_at: "Autonomous run 2026-08-12: review round 4 da P45 (2 blockers, ambos portoes que reprovam trabalho correto) + 47-VERIFICATION.md (7/8, human_needed). Parado ANTES do portao destrutivo do 45-11 Task 3, por decisao do operador."
+last_updated: "2026-08-12T05:40:00.000Z"
+last_activity: 2026-08-12
 progress:
   total_phases: 6
   completed_phases: 4
@@ -78,9 +78,32 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-**Atualizado 2026-08-12.** Phase **47 COMPLETA (9/9)**. Phase 45: **o motor está VIVO em
-produção** — as 7 migrations aplicadas, as 2 EFs deployadas, e **nenhuma linha de dado de
-candidato tocada**. Falta ele RODAR.
+### Run autônomo de 2026-08-12 — o que ele fechou, e onde parou de propósito
+
+`/gsd-autonomous` com escopo restrito pelo operador a **trabalho sem contato com PROD**.
+Fila descoberta: 45, 46, 47 (42/43/44 caem como `Deferred Verification`). **Parado antes de
+qualquer coisa gateada** — ver o ⛔ abaixo, que é a instrução que o próprio run obedeceu.
+
+| Entregue | Resultado |
+|---|---|
+| **`45-REVIEW-4.md`** — Task 1 do `45-11` re-rodada (deep, 47 arquivos) | **REPROVA o fechamento do smoke**: 2 blockers, e os DOIS são portões que reprovam trabalho CORRETO. **O motor não ganhou defeito** — BL-01/02/03 e CR-01..06 seguem fechados, 45-15/45-16 sem regressão |
+| **`47-VERIFICATION.md`** — a fase tinha 9/9 planos e **zero** verificação | `human_needed`, **7/8** must-haves, 1 `PRESENT_BEHAVIOR_UNVERIFIED` |
+| **`47-EVIDENCIA-APPLY-CONSOL-02.md`** — medição MCP somente-leitura | A `20260809000001` **está aplicada**, corpo **byte-a-byte idêntico** (`md5` bate), ledger sem buraco. Zero escrita em PROD |
+
+**Três registros deste arquivo estavam STALE e foram corrigidos** (detalhe em §Blockers e no
+item 1 de §O que falta): o diagnóstico do `(B3/email)`, os seis países do `47-04`, e a
+alcançabilidade das páginas públicas. ⚠ Os dois últimos faziam a Phase 47 parecer mais travada
+do que está; o primeiro apontava para o **conserto errado**.
+
+**Não tocado:** Phase 46 (declarada estritamente sequencial após um motor **provado**, e o motor
+nunca rodou — 0 tombstones) · `45-11` Task 3 · `45-06` T2 · o smoke da P45 · o
+`p47_historico_smoke.sql`.
+
+---
+
+**Atualizado 2026-08-12.** Phase **47 COMPLETA (9/9)**, agora **com veredito**. Phase 45: **o
+motor está VIVO em produção** — as 7 migrations aplicadas, as 2 EFs deployadas, e **nenhuma
+linha de dado de candidato tocada**. Falta ele RODAR.
 
 ### ⛔ LEIA ISTO ANTES DE QUALQUER COISA AUTOMÁTICA
 
@@ -116,28 +139,66 @@ destrutivo só para `administrador`/titular).
 ### O que falta — nesta ordem
 
 1. ⏸ **Smoke `p45_motor_exclusao_smoke.sql` para na asserção `(B3/email)`.**
-   **O MOTOR ESTÁ CERTO** — verificado no `prosrc` vivo: `SET email = v_sent_email`, sentinela
-   por linha derivada do id. Como `email` é `UNIQUE`, a contagem só pode ser 0 ou 1 → o `<> 1`
-   significa **zero**, ou seja o `SELECT … INTO v_email_d` (linha ~934) não achou linha para
-   `v_cand`. É **estado de fixture**, não de anonimização.
-   ⚠ **NÃO afrouxar a asserção para ela passar.** O cabeçalho do próprio arquivo proíbe: *"alterar
-   o smoke para caber no que foi aplicado é o movimento que transforma um gate em decoração"*.
+   **O MOTOR ESTÁ CERTO** — e continua certo. Mas ⚠ **O DIAGNÓSTICO QUE ESTAVA ESCRITO AQUI
+   ERA FALSO, e apontava para o conserto errado.** Corrigido em 2026-08-12 pelo
+   `45-REVIEW-4.md` (CR-01), que mediu em vez de inferir.
+
+   **O que estava escrito:** *«o `SELECT … INTO v_email_d` (linha ~934) não achou linha para
+   `v_cand`; é estado de fixture»*. **Refutado por três medições independentes:** o INSERT da
+   fixture (`:744`) não tem `ON CONFLICT` — ou `v_cand` é não-nulo ou o bloco aborta; a
+   `20260805000006` não tem **um único** `DELETE` (os dois tokens "DELETE" são a prosa
+   `ON DELETE SET NULL`); e a `(B0)` da `:1045` roda **antes** e teria disparado primeiro se a
+   fixture faltasse — ela passou. Logo `v_email_d` = `anonimizado+<id>@invalido.local`, que é
+   exatamente por que a `:1113` passa.
+
+   **A causa real:** a `:1116` é a **ÚNICA query viva** entre ~40 asserções da seção de
+   julgamento pós-rollback (varredura por parser dos 5 blocos de subtransação:
+   `rollback@1032` → 1 query viva, os outros quatro → 0). A fixture é revertida na `:1032`;
+   na `:1116` a linha **não existe**, `count(*)` = 0, e `0 <> 1` dispara em **TODA execução,
+   independente do motor**. É defeito **do smoke**, e é a instância **nº 6** da classe-assinatura
+   desta fase.
+
+   **O conserto** é mover a MEDIÇÃO para dentro da subtransação — a mesma checagem existe
+   **correta** na `20260805000006:1235`, e aquela migration aplicou em PROD, então a propriedade
+   já está provada verdadeira. O predicado `count(*) = 1` **não muda**.
+   ⚠ **NÃO afrouxar a asserção para ela passar** — mover a medição não é afrouxar; mexer no
+   predicado seria. O cabeçalho do próprio arquivo proíbe: *"alterar o smoke para caber no que
+   foi aplicado é o movimento que transforma um gate em decoração"*.
+
+1b. ⏸ **`(C1)` reprova uma ACL CORRETA — segunda barreira independente** (`45-REVIEW-4.md`
+   CR-02, instância **nº 7**). É o `DI-45-12-01`, roteado a este review pelos próprios planos.
+   A `20260805000003:500` concede `EXECUTE` de `gerar_bias_snapshot` a `authenticated`
+   **deliberadamente** (chamador vivo: a tela de auditoria de viés do administrador); o smoke
+   `:1387` proíbe. **Decisão: a ACL está certa, a premissa da asserção está errada — consertar
+   a asserção, NUNCA revogar.** Revogar apagaria peça probatória de não-discriminação (RNF-07a)
+   para satisfazer um portão — o espelho de relaxar FK para CASCADE diante de um 23503.
+   ⚠ **Mesmo com o CR-01 fechado, o smoke não alcança 24/24 enquanto isto estiver de pé.**
 2. ⏸ **Smoke `p45_bias_k5_smoke.sql` — ✅ JÁ PASSOU 9/9** (ERASE-01 provado em PROD).
 3. ⏸ **`45-06` T2** — prova da fatia no navegador. Precisa de pessoa.
 4. ⏸ **Execução real vigiada** (`45-11` Task 3) — conta descartável + operador. Ver ⛔ acima.
 
-### ⚠ Cinco portões que reprovariam trabalho CORRETO — o padrão da fase
+### ⚠ SETE portões que reprovariam trabalho CORRETO — o padrão da fase
 
 1. `search_path=` estrito (o catálogo grava `search_path=""`) · 2. `check:*` órfãos ·
 3. asserção `(vii)` que passaria enquanto o motor recusa tudo ·
 4. **`to_regproc('fn(tipos)')` devolve NULL SEMPRE** — quem aceita assinatura é `to_regprocedure`
 (4 ocorrências no smoke + 1 na `000006`, todas corrigidas) ·
-5. `RAISE` com 3 `%` e 2 argumentos (nem compilava).
+5. `RAISE` com 3 `%` e 2 argumentos (nem compilava) ·
+6. **asserção `(B3/email)` posicionada DEPOIS do rollback da própria fixture** — mede um estado
+que ela mesma destruiu, e reprova em toda execução (`45-REVIEW-4.md` CR-01) ·
+7. **asserção `(C1)` proibindo uma ACL deliberadamente correta** — `DI-45-12-01`
+(`45-REVIEW-4.md` CR-02).
 
 **Nenhum era defeito de motor. Todos eram defeitos de VERIFICAÇÃO** — e os dois últimos só
 existem em execução, que é por que três rodadas de review estático passaram por cima deles.
 **Lição operacional:** quando um defeito tem forma reconhecível, varrer o repositório pela
 FORMA, nunca consertar só o sintoma que apareceu.
+
+⚠ **E o nº 6 acrescenta uma segunda lição, mais desconfortável:** o diagnóstico ERRADO dele
+ficou escrito neste arquivo como fato, por um dia, apontando para o conserto errado. Sobreviveu
+porque era **plausível** e ninguém o mediu. **Diagnóstico registrado em `STATE.md` não é
+evidência** — quando um portão reprova, medir o portão antes de acreditar na explicação que
+alguém já escreveu para ele.
 
 ### Supabase CLI — como não repetir os erros de 2026-08-12
 
@@ -859,8 +920,9 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
   (2) **O rebaixamento de verificação se pagou na hora.** O `PRESENT_BEHAVIOR_UNVERIFIED` da 2ª passagem sobre o SC#4 foi o que forçou o operador a abrir a tela — e foi assim que o bug apareceu. Comprou o conserto, **não** uma guarda: a asserção `(k)` que impede o `42804` de voltar nasceu dentro de `p43_matriz_retencao_smoke.sql`, que a asserção `(c)` tornou inalcançável no mesmo dia (**W-1**, todo `43-smokes-com-baseline-congelada-viram-red`). A fase corrigiu o defeito e não corrigiu a condição que o produziu. O `::text` já é regra viva no repo — ver `44-02-SUMMARY.md:125`.
 
 - DI-45-10-01 e DI-45-10-02: as duas obrigações atribuídas ao 45-10 seguem ABERTAS (claims das RPCs + retirar_candidatura fora do vocabulário da EF). Exigem plano próprio com migration de GRANT e redeploy; o 45-11 não abre o portão sem elas.
-- 47-04: os seis paises dos subprocessadores nao sao mediveis deste ambiente — /subprocessadores lanca ao renderizar e 47-08 nao pode torna-la alcancavel ate o operador informar os seis valores medidos (Task 3, checkpoint bloqueante)
-- PORTAO DE PUBLICACAO ABERTO (47-08 Task 1): a revisao do Encarregado precisa aprovar os quatro itens — os seis paises e a base legal de cada um (cinco sao EUA), a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas — antes de a Task 3 montar o rodape nas cinco superficies. Ate la, /privacidade e /subprocessadores existem e nenhuma navegacao de producao leva a elas
+- ✅ **RESOLVIDO 2026-08-11 — 47-04 Task 3: os seis paises FORAM medidos** pelo operador nos paineis e documentos dos fornecedores (commit `eeed0e5`; `WINDOWS.md` item 25 = `fixed`). Cinco tratam nos EUA; o ViaCEP declara jurisdicao brasileira com a ressalva de hospedagem nao divulgada. `/subprocessadores` **nao lanca mais**. A sentinela `PAIS_POR_MEDIR` e o validador ficaram como rede da proxima entrada. *(O registro anterior aqui dizia que os paises «nao sao mediveis deste ambiente» — estava **stale**, corrigido em 2026-08-12.)*
+- ✅ **RESOLVIDO — 47-08 Task 3: o `RodapePublico` ESTA montado nas CINCO superficies**, conferido por grep em 2026-08-12: `LandingPage.tsx:103`, `VagasPublicasPage.tsx:535`, `VagaDetalhePage.tsx:493`, `SubprocessadoresPage.tsx:96`, `PrivacidadePublicaPage.tsx:175`. As duas paginas publicas **sao alcancaveis** da navegacao de producao — o SC#1 da Phase 47 se sustenta nesse ponto. *(O registro anterior dizia «nenhuma navegacao de producao leva a elas»; `WINDOWS.md` item 28 carrega a mesma afirmacao **stale**.)*
+- ⏸ **PORTAO DE PUBLICACAO — o que de fato continua ABERTO (47-08 Task 1):** a revisao **FORMAL do Encarregado** dos quatro itens — os seis paises e a base legal de cada um, a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas. ⚠ **As paginas ja estao NO AR**, liberadas em 2026-08-11 por decisao **do operador**, e o proprio `47-08-SUMMARY.md` e explicito em **nao** conflar isso com parecer do Encarregado. `WINDOWS.md` itens 26 e 30. O que mudou desde o registro antigo: a publicacao **nao esta mais represada pelo portao** — ela aconteceu, e o portao segue aberto **atras** dela.
 - A lista publica de subprocessadores foi ao ar com DOIS destinos de rede pendentes de classificacao pelo Encarregado: api.ipify.org (src/services/logAccessService.ts:110) e www.youtube.com (src/components/pages/InstrucoesFormularioPage.tsx:77)
 
 ## Deferred Verification
