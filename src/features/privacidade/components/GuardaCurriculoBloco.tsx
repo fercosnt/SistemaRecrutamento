@@ -26,7 +26,7 @@
  *
  * ── DECISÃO REGISTRADA — POR QUE A GUARDA NÃO GANHA SWITCH NESTA FASE ─────────────
  * A LGPD (Art. 8º, §5) exige que o consentimento seja revogável, e a exigência é
- * atendida por **canal humano nomeado e existente**: o Encarregado. O que não existe é
+ * atendida por **canal humano nomeado e existente**: o canal de privacidade. O que não existe é
  * motor de exclusão — ele é a Phase 45. Um switch aqui desligaria uma flag e **nada mais
  * aconteceria**: a promessa órfã de novo, agora sobre o dado mais sensível da fase. Um
  * caminho mais lento que funciona vale mais que um instantâneo que mente.
@@ -39,7 +39,7 @@
  *      (§Seção 2 · guarda do currículo — copy verbatim, linhas 499-507)
  */
 import { formatarDataMaisMeses, formatarDataPtBr, TETO_GUARDA_MESES } from '../lib/datas'
-import { ENCARREGADO_EMAIL } from './AutorizacoesLista'
+import { CANAL_PRIVACIDADE_EMAIL } from './AutorizacoesLista'
 
 /** Copy verbatim da 43-UI-SPEC (linhas 502-507). */
 export const COPY_GUARDA_CURRICULO = {
@@ -57,7 +57,7 @@ export const COPY_GUARDA_CURRICULO = {
   /**
    * ⚠ EMENDA B DA 45-UI-SPEC — reescrita em 2026-08-05, e o motivo é factual, não de tom.
    *
-   * A redação aprovada na Phase 43 mandava escrever para o Encarregado para **pedir a
+   * A redação aprovada na Phase 43 mandava escrever para o canal de privacidade para **pedir a
    * eliminação do currículo**. A partir da Phase 45 a MESMA página passa a oferecer a
    * eliminação em autoatendimento, **duas seções abaixo**: mandar a pessoa escrever um
    * e-mail para fazer o que o botão logo abaixo faz não é só redundante — é a página se
@@ -69,7 +69,7 @@ export const COPY_GUARDA_CURRICULO = {
    *  · a frase **não promete** que a revogação isolada da autorização virará
    *    autoatendimento — prometer roadmap ao titular é proibido desde a Phase 43.
    */
-  notaRevogacao: `Para apagar seu currículo junto com o resto dos seus dados, use Apagar meus dados, no fim desta página. Para retirar só esta autorização, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  notaRevogacao: `Para apagar seu currículo junto com o resto dos seus dados, use Apagar meus dados, no fim desta página. Para retirar só esta autorização, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
 } as const
 
 export interface GuardaCurriculoBlocoProps {

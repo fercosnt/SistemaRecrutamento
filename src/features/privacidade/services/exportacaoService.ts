@@ -44,7 +44,7 @@
  * @see src/features/agendamento/services/agendamentoCandidatoService.ts (o molde do disparo por Blob/anchor)
  */
 import { supabase } from '@/lib/supabase/client'
-// O endereço do Encarregado tem UMA fonte no projeto. Duplicá-lo aqui criaria duas
+// O endereço do canal de privacidade tem UMA fonte no projeto. Duplicá-lo aqui criaria duas
 // verdades sobre o mesmo canal humano — e é o canal que a copy de erro oferece
 // quando o caminho automático falha.
 //
@@ -53,7 +53,7 @@ import { supabase } from '@/lib/supabase/client'
 // camada e arrastava React e os primitivos glass para dentro do grafo de um
 // serviço que se anuncia PURO e sem DOM — quebrando o próprio corte que torna os
 // geradores testáveis sem simular um clique.
-import { ENCARREGADO_EMAIL } from '../constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '../constants/canalPrivacidade'
 // ⚠ O MESMO artefato gerado que a Edge Function projeta. A importação é o ponto:
 // o que sai do arquivo legível passa a ser dado do artefato, não literal deste
 // módulo — e o gerador reprova a coluna de endereço sem veredito. Ver
@@ -526,7 +526,7 @@ export const COPY_PEDIR_COPIA = {
   sucessoCorpo: (nomeHtml: string, nomeJson: string) =>
     `${nomeHtml}, para leitura, e ${nomeJson}, em formato de dados. Se não encontrar, procure na pasta de downloads do seu aparelho.`,
   erroTitulo: 'Não foi possível preparar sua cópia.',
-  erroCorpo: `Tente novamente em alguns minutos. Se continuar, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  erroCorpo: `Tente novamente em alguns minutos. Se continuar, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
 } as const
 
 /**
@@ -548,7 +548,7 @@ export const COPY_COOLDOWN = {
       quando === TRAVESSAO
         ? 'Você poderá pedir outra assim que esse período passar.'
         : `Você pode pedir outra a partir de ${quando}.`
-    return `${primeira} Esse limite existe para proteger a sua conta. Se precisar de uma cópia antes disso, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`
+    return `${primeira} Esse limite existe para proteger a sua conta. Se precisar de uma cópia antes disso, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`
   },
 } as const
 

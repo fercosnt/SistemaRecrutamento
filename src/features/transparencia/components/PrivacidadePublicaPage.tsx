@@ -48,7 +48,7 @@ import { Link } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { BeautySmileLogo } from '@/components/BeautySmileLogo'
 import { GlassPanel } from '@/components/ui/glass'
-import { ENCARREGADO_EMAIL } from '@/features/privacidade/constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 
 import { COPY_TRANSPARENCIA, formatarDataPtBr } from '../constants/copyTransparencia'
 import { MATRIZ_RETENCAO } from '../constants/matrizRetencao.generated'
@@ -162,8 +162,8 @@ export function PrivacidadePublicaPage({
                 {/* O endereço vem da constante canônica do módulo de constante — nunca um
                     literal novo. Dois endereços divergentes em duas páginas de privacidade
                     é precisamente o defeito que uma constante única impede. */}
-                <span data-canal="encarregado" className="font-semibold text-white">
-                  {ENCARREGADO_EMAIL}
+                <span data-canal="privacidade" className="font-semibold text-white">
+                  {CANAL_PRIVACIDADE_EMAIL}
                 </span>
               </p>
             </Bloco>

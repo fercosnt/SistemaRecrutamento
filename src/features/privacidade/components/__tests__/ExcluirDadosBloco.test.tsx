@@ -69,7 +69,7 @@ vi.mock('../../services/exclusaoService', async () => {
 import { ExcluirDadosBloco } from '../ExcluirDadosBloco'
 import { COPY_CONFIRMAR_EXCLUSAO } from '../ConfirmarExclusaoDialog'
 import { COPY_EXCLUIR_DADOS, ExclusaoError } from '../../services/exclusaoService'
-import { ENCARREGADO_EMAIL } from '../../constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '../../constants/canalPrivacidade'
 import { RECIBO_EXCLUSAO } from '../../constants/reciboExclusao.generated'
 
 const EXECUTAR_EM = '2026-08-20T12:00:00.000Z'
@@ -533,7 +533,7 @@ describe('ExcluirDadosBloco — Estado B: a janela de arrependimento utilizável
     expect(alerta).toHaveTextContent(COPY_EXCLUIR_DADOS.cancelarErroTitulo)
     // A data e o canal humano, porque falhar ao cancelar deixa a pessoa EM RISCO.
     expect(alerta.textContent ?? '').toContain(DATA_ALVO)
-    expect(alerta.textContent ?? '').toContain(ENCARREGADO_EMAIL)
+    expect(alerta.textContent ?? '').toContain(CANAL_PRIVACIDADE_EMAIL)
     expect(alerta.className).toContain('destructive')
 
     // ⚠ A ASSERÇÃO DE AUSÊNCIA É SOBRE A MENSAGEM GENÉRICA DO OUTRO ERRO, não sobre o

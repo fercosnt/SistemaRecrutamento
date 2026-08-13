@@ -25,7 +25,7 @@ import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { MemoryRouter } from 'react-router-dom'
 
-import { ENCARREGADO_EMAIL } from '@/features/privacidade/constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 
 import {
   PrivacidadePublicaPage,
@@ -121,11 +121,11 @@ describe('a página lê-se inteira, sem clique e sem espera', () => {
     const { container } = renderizar()
     expect(screen.getByText(COPY.direitos.corpo)).toBeInTheDocument()
 
-    const canal = container.querySelector('[data-canal="encarregado"]')
+    const canal = container.querySelector('[data-canal="privacidade"]')
     expect(canal, 'o canal humano é a única saída de quem perdeu o acesso à conta').toBeTruthy()
     // A comparação é com a CONSTANTE. Um literal copiado para cá provaria apenas que duas
     // cópias combinam entre si, que é o defeito, não a garantia.
-    expect(canal?.textContent).toBe(ENCARREGADO_EMAIL)
+    expect(canal?.textContent).toBe(CANAL_PRIVACIDADE_EMAIL)
   })
 
   it('(6) o bloco que explica como a página é feita existe e NÃO afirma atualização sozinha', () => {

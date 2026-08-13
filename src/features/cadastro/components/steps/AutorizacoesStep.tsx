@@ -273,7 +273,7 @@ export function AutorizacoesStep() {
         <p className="text-white/70 text-sm pt-2">
           Hoje, revogar as autorizações opcionais você faz sozinho(a), na página{' '}
           <strong>Seus dados e autorizações</strong>. Para os demais direitos,
-          escreva para o nosso Encarregado de Dados:{' '}
+          escreva para o nosso canal de privacidade:{' '}
           <a
             href="mailto:lgpd@beautysmile.com.br"
             className="text-blue-400 hover:text-blue-300 underline"

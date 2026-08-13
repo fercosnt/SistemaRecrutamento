@@ -32,7 +32,7 @@ import {
   COPY_CONSENTIMENTO_MARKETING,
 } from './ConsentimentoSwitchRow'
 import { formatarDataPtBr } from '../lib/datas'
-import { ENCARREGADO_EMAIL } from '../constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '../constants/canalPrivacidade'
 
 /**
  * O canal humano nomeado — RE-EXPORTADO da camada de constantes, não declarado
@@ -40,9 +40,9 @@ import { ENCARREGADO_EMAIL } from '../constants/encarregado'
  * pudesse deixar de importar de um componente; a re-exportação mantém os sítios
  * de chamada existentes intactos.
  *
- * @see src/features/privacidade/constants/encarregado.ts
+ * @see src/features/privacidade/constants/canalPrivacidade.ts
  */
-export { ENCARREGADO_EMAIL }
+export { CANAL_PRIVACIDADE_EMAIL }
 
 /** Copy verbatim da 43-UI-SPEC §`/candidato/privacidade` (linhas 470-476). */
 export const COPY_TRANSACIONAL = {
@@ -84,7 +84,7 @@ export const COPY_SEM_REGISTRO = {
   estado: 'Desativado',
   corpo:
     'Não há registro de autorizações nesta conta, então não há o que desligar aqui: você não recebe avisos sobre novas vagas.',
-  canal: `Para registrar suas escolhas, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  canal: `Para registrar suas escolhas, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
 } as const
 
 /** Molde visual comum das linhas SEM controle (tratamento neutro de leitura). */

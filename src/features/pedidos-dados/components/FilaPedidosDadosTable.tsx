@@ -106,7 +106,7 @@ const FILA_COPY = {
   /** A copy do caminho feliz é DESTA tabela, não de `traduzirCausa` (fronteira do 44-08). */
   entregue: (quando: string) => `Cópia entregue em ${quando}.`,
   /** Segunda linha em TODA linha não atendida — é o que a Invariante 5 dá no lugar de um botão. */
-  proximoPasso: 'Atender pelo Encarregado de Dados e responder ao titular.',
+  proximoPasso: 'Atender pelo canal de privacidade e responder ao titular.',
   atendimento: {
     mesmoDia: 'Atendido no mesmo dia',
     umDia: 'Atendido em 1 dia',

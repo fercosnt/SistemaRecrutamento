@@ -60,7 +60,7 @@
  * ── AS BASES LEGAIS SÃO CARREGADAS, NUNCA AUTORADAS AQUI ────────────────────
  * As duas citações abaixo são cópia verbatim de `matrizRetencao.generated.ts`, o artefato
  * gerado e sob portão desde o plano 47-01. Um teste confronta cada base legal desta lista
- * com as citações daquele artefato: se a revisão do Encarregado reescrever uma delas lá,
+ * com as citações daquele artefato: se uma revisão de privacidade reescrever uma delas lá,
  * este arquivo fica vermelho até acompanhar. Duas declarações públicas sobre a mesma
  * norma divergindo entre si é o defeito que essa amarração existe para impedir.
  *

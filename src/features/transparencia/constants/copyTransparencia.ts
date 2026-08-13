@@ -116,7 +116,7 @@ export const COPY_TRANSPARENCIA = {
        * para pegar.
        */
       canalHumano:
-        'Se você não consegue entrar na conta, ou prefere falar com uma pessoa, escreva para o nosso Encarregado de Dados:',
+        'Se você não consegue entrar na conta, ou prefere falar com uma pessoa, escreva para o nosso canal de privacidade:',
     },
 
     /**

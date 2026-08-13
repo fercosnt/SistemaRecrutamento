@@ -76,7 +76,7 @@ describe('(d) Os três casos do bloco de guarda do currículo', () => {
         COPY_GUARDA_CURRICULO.autorizadoBase(DATA_AUTORIZACAO, PRAZO_PREVISTO),
       ),
     ).toBeInTheDocument()
-    // A revogação existe e é por canal humano nomeado — o Encarregado.
+    // A revogação existe e é por canal humano nomeado — o canal de privacidade.
     expect(screen.getByText(COPY_GUARDA_CURRICULO.notaRevogacao)).toBeInTheDocument()
 
     semPromessaDeMaquina(document.body.textContent ?? '')

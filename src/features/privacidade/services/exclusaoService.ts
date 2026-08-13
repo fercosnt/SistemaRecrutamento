@@ -26,7 +26,7 @@
  * @see .planning/phases/45-motor-de-exclus-o-anonimiza-o/45-UI-SPEC.md (§Seção 4)
  */
 import { supabase } from '@/lib/supabase/client'
-import { ENCARREGADO_EMAIL } from '../constants/encarregado'
+import { CANAL_PRIVACIDADE_EMAIL } from '../constants/canalPrivacidade'
 
 // ══════════════════════════════════════════════════════════════════════════════
 // COPY — constante única, verbatim da 45-UI-SPEC §Seção 4
@@ -89,7 +89,7 @@ export const COPY_EXCLUIR_DADOS = {
    * Storage → Postgres → Auth não é atômica.
    */
   erroTitulo: 'Não foi possível registrar seu pedido. Nada foi apagado.',
-  erroCorpo: `Tente novamente em alguns minutos — se continuar, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  erroCorpo: `Tente novamente em alguns minutos — se continuar, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
 
   /** §Estado A — a prévia do recibo, visível ANTES de confirmar. */
   oQueSaiTitulo: 'O que sai e o que fica',
@@ -142,9 +142,9 @@ export const COPY_EXCLUIR_DADOS = {
    */
   cancelarErroTitulo: 'Não foi possível cancelar agora.',
   cancelarErroCorpo: (data: string) =>
-    `Seu pedido continua agendado para ${data} — tente de novo, e se não conseguir até lá, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+    `Seu pedido continua agendado para ${data} — tente de novo, e se não conseguir até lá, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
   /** §Formatação: sem data legível, a frase que a conteria degrada — nunca um travessão. */
-  cancelarErroCorpoSemData: `Seu pedido continua agendado — tente de novo, e se não conseguir até lá, escreva para o nosso Encarregado de Dados: ${ENCARREGADO_EMAIL}.`,
+  cancelarErroCorpoSemData: `Seu pedido continua agendado — tente de novo, e se não conseguir até lá, escreva para o nosso canal de privacidade: ${CANAL_PRIVACIDADE_EMAIL}.`,
 
   /**
    * §Estado C — execução em andamento. Alcançável em produção: a mutação
