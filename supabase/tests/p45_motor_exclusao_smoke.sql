@@ -226,14 +226,22 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : PENDENTE-45-07   (plano_exclusao_titular — octetos: PENDENTE-45-07)
---   valor  : PENDENTE-45-07   (anonimizar_candidato   — octetos: PENDENTE-45-07)
+--   valor  : 97634d07ef13447e06741a8c8372fca6   (plano_exclusao_titular — octetos: 21349)
+--   valor  : 8c86e0f040219e7eade47eb587dbf5de   (anonimizar_candidato   — octetos: 34488)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
 --            `supabase/migrations/20260805000005_p45_plano_e_dry_run.sql` e
 --            `supabase/migrations/20260805000006_p45_anonimizar_candidato.sql`
---   medido : PENDENTE-45-07 — sera preenchido pelo 45-11, por EXECUCAO, quando as
---            funcoes existirem em PROD. NUNCA digitado a mao, NUNCA inventado.
+--   medido : 2026-08-13, POR EXECUCAO contra PROD (nao transcrito, nao inventado).
+--            ⚠ E a medicao que autoriza o pin nao e "li o valor vivo e copiei" — isso
+--            pinaria o que esta aplicado, seja la o que for, e o gate deixaria de
+--            comparar. A conferencia feita foi a CRUZADA, nos dois lados:
+--              md5(prosrc) VIVO (pg_proc, via MCP somente-leitura)  ==
+--              md5(corpo)  do ARQUIVO commitado (extracao pelo comando abaixo)
+--            Bateu nos DOIS, md5 E octetos, para as DUAS funcoes. Ou seja: o que esta
+--            aplicado em PROD e byte a byte o que foi revisado nas 4 rodadas de review.
+--            Os mesmos valores constam do `45-15-SUMMARY.md` e do `45-REVIEW-4.md`,
+--            recomputados de forma independente — tres medicoes concordantes.
 --   recomputar (se e somente se a migration mudar):
 --     node -e 'const f=require("fs").readFileSync(process.argv[1],"utf8"),
 --       D="$"+process.argv[2]+"$", a=f.indexOf(D), b=f.indexOf(D,a+D.length);
@@ -1576,8 +1584,11 @@ $c2$;
 RESET ROLE;
 DO $c3$
 DECLARE
-  v_pin_plano text := 'PENDENTE-45-07';
-  v_pin_anon  text := 'PENDENTE-45-07';
+  -- ⚠ PINADOS em 2026-08-13 por EXECUCAO, com conferencia CRUZADA vivo × arquivo
+  --   (ver PROVENIENCIA no cabecalho). Re-pinar sem que a migration tenha mudado
+  --   FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e ato consciente e revisavel.
+  v_pin_plano text := '97634d07ef13447e06741a8c8372fca6';
+  v_pin_anon  text := '8c86e0f040219e7eade47eb587dbf5de';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
