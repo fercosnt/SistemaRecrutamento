@@ -24,11 +24,26 @@
 # Re-pinar é um ato consciente, versionado e revisável. Bypass não é.
 #
 # PROVENIÊNCIA DA BASELINE (não apagar — é o que torna um re-pin futuro auditável)
-#   medição:  97 → 97   em 2026-07-29, confere com .planning/M7-HANDOFF.md:86
-#   prova de que o gate MORDE (sonda src/__gate_probe.ts, deliberadamente não commitada):
-#     com um erro de tipo novo  → "tsc errors: 98 (frozen baseline: 97)", exit 1
-#     após remover a sonda      → "tsc errors: 97 (frozen baseline: 97)", exit 0
+#
+#   [1] medição:  97 → 97   em 2026-07-29, confere com .planning/M7-HANDOFF.md:86
+#       prova de que o gate MORDE (sonda src/__gate_probe.ts, não commitada):
+#         com um erro de tipo novo  → "tsc errors: 98 (frozen baseline: 97)", exit 1
+#         após remover a sonda      → "tsc errors: 97 (frozen baseline: 97)", exit 0
+#
+#   [2] RE-PIN 97 → 96 em 2026-08-13. Redução LEGÍTIMA, não limpeza deliberada: a
+#       remoção de `getClientIP()` de `src/services/logAccessService.ts` levou junto
+#       o único erro que ela produzia — o objeto `{ timeout: 3000 }` passado a `fetch`
+#       com `as RequestInit` (`timeout` não existe em `RequestInit`; era um cast que
+#       silenciava um campo que a API nunca leu, então o `fetch` jamais teve timeout
+#       de verdade). A remoção veio da eliminação da transferência a `api.ipify.org`
+#       (decisão do operador, 2026-08-13); a queda na contagem foi consequência.
+#       prova de que o gate MORDE no número novo, refeita nesta data:
+#         com a sonda    → "tsc errors: 97 (frozen baseline: 96)", exit 1
+#         sem a sonda    → "tsc errors: 96 (frozen baseline: 96)", exit 0
+#
 #   Um gate que nunca foi visto falhando não é um gate. Ao re-pinar, refaça esta prova.
+#   ⚠ Re-pinar para BAIXO é obrigatório, não opcional: manter 97 depois de a contagem
+#     real virar 96 daria um erro de tipo novo de graça, sem o hook dizer nada.
 #
 # POR QUE ESTA CONVERSÃO EXISTE
 # O portão de fase destrutiva do milestone M8 (.planning/STATE.md) exige commit COM o
@@ -39,9 +54,9 @@
 # novo. Isso é sinal, não obstáculo — investigue, não contorne.
 
 COUNT=$(npm run -s lint 2>&1 | grep -c "error TS" || true)
-echo "tsc errors: $COUNT (frozen baseline: 97)"
-if [ "$COUNT" -gt 97 ]; then
-  echo "erro: contagem de erros tsc ($COUNT) excede a baseline congelada (97) — erro de tipo novo introduzido"
+echo "tsc errors: $COUNT (frozen baseline: 96)"
+if [ "$COUNT" -gt 96 ]; then
+  echo "erro: contagem de erros tsc ($COUNT) excede a baseline congelada (96) — erro de tipo novo introduzido"
   npm run -s lint 2>&1 | grep "error TS" | head -50
   exit 1
 fi

@@ -36,7 +36,14 @@ export interface LogAcessoData {
   user_id?: string | null
   evento: EventoAcesso
   email_tentativa?: string
-  ip_address: string
+  /**
+   * ⚠ AUSENTE DE PROPÓSITO no que o cliente envia — quem preenche é o SERVIDOR,
+   * pelo trigger `trg_preencher_ip_logs_acesso` (migration `20260813000001`), a
+   * partir do `x-forwarded-for` da própria requisição. Continua opcional aqui
+   * para inserções de servidor que já saibam o endereço; o trigger preenche o
+   * que falta e **nunca sobrescreve** o que veio.
+   */
+  ip_address?: string
   device_info?: string
   device_type?: string
   browser?: string
@@ -92,37 +99,39 @@ function getDeviceInfo(userAgent: string): DeviceInfo {
   }
 }
 
-/**
- * Obtém o endereço IP do cliente
+/*
+ * ── O IP NÃO É MAIS DESCOBERTO PELO NAVEGADOR (2026-08-13) ───────────────────
  *
- * Estratégias:
- * 1. Tenta usar ipify.org API (público e gratuito)
- * 2. Fallback para IP local (127.0.0.1) se falhar
+ * Aqui existia `getClientIP()`, que pedia o próprio endereço a
+ * `https://api.ipify.org` e mandava o resultado no INSERT. Foi removida, e a
+ * remoção conserta DOIS defeitos que tinham a mesma raiz — `ip_address` era
+ * `NOT NULL`, então o cliente PRECISAVA produzir algum valor:
  *
- * Nota: Em produção, considere usar o header X-Forwarded-For do backend
- * ou um serviço de geolocalização mais robusto.
+ *   1. Todo registro de acesso mandava o endereço de quem usa o sistema para um
+ *      terceiro. O destino estava registrado como `pendente-de-decisao` em
+ *      `src/__tests__/destinosDeRedeComFicha.test.ts`; o operador decidiu, em
+ *      2026-08-13, ELIMINAR a transferência em vez de declará-la. O servidor já
+ *      vê o IP — pedir a um terceiro o que se tem em casa é transferir à toa.
  *
- * @returns Promise com endereço IP
+ *   2. Quando o `fetch` falhava, o `catch` gravava `127.0.0.1` — um endereço que
+ *      não é de ninguém — num log de auditoria. Um log que inventa o campo que
+ *      ele existe para provar é pior que um log sem o campo. Os 23 registros
+ *      vivos têm IP real (o fallback nunca chegou a gravar), então isto fecha a
+ *      porta antes de o defeito produzir dado ruim.
+ *
+ * Quem preenche agora é o trigger `trg_preencher_ip_logs_acesso`
+ * (`supabase/migrations/20260813000001_p47_ip_no_servidor.sql`), a partir do
+ * primeiro elemento de `x-forwarded-for`. Sem cabeçalho legível ele grava NULL,
+ * de propósito: `inet_client_addr()` devolveria o IP do POOLER, uma resposta
+ * verdadeira sobre a pergunta errada — o mesmo erro do `127.0.0.1`, mais sutil.
+ *
+ * ⚠⚠ ORDEM DE DEPLOY, E A INVERSÃO É SILENCIOSA: a migration tem de estar
+ * APLICADA antes de este arquivo ir para produção. Sem ela, o INSERT sem
+ * `ip_address` bate `23502` — e o `catch` logo abaixo ENGOLE o erro de
+ * propósito, então o registro de sessão expirada pararia de ser gravado sem
+ * alarme nenhum. A ordem inversa (migration antes, frontend depois) é segura: o
+ * trigger respeita um `ip_address` que venha preenchido.
  */
-async function getClientIP(): Promise<string> {
-  try {
-    // Usar ipify.org para obter IP público
-    const response = await fetch('https://api.ipify.org?format=json', {
-      timeout: 3000,
-    } as RequestInit)
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch IP')
-    }
-
-    const data = await response.json()
-    return data.ip || '127.0.0.1'
-  } catch (error) {
-    console.warn('Não foi possível obter IP do cliente, usando fallback:', error)
-    // Fallback para IP local
-    return '127.0.0.1'
-  }
-}
 
 /**
  * Registra um evento de acesso no banco de dados
@@ -160,15 +169,12 @@ export async function logAccessEvent(
     const userAgent = navigator.userAgent
     const deviceInfo = getDeviceInfo(userAgent)
 
-    // Obter IP do cliente
-    const ipAddress = await getClientIP()
-
-    // Preparar dados do log
+    // Preparar dados do log. `ip_address` é OMITIDO de propósito — quem preenche
+    // é o trigger `trg_preencher_ip_logs_acesso`, no servidor (ver o bloco acima).
     const logData: LogAcessoData = {
       evento,
       user_id: options.user_id || null,
       email_tentativa: options.email_tentativa,
-      ip_address: ipAddress,
       device_info: deviceInfo.device_info,
       device_type: deviceInfo.device_type,
       browser: deviceInfo.browser,

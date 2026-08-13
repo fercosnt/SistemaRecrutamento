@@ -3,8 +3,77 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { BackgroundImage } from '../BackgroundImage';
 import { GlassCard } from '../ui/glass';
 import { BeautySmileLogo } from '../BeautySmileLogo';
-import { CheckCircle, Clock, Target } from 'lucide-react';
+import { CheckCircle, Clock, Play, Target } from 'lucide-react';
 import { toast } from 'sonner';
+
+/** O identificador do vídeo de instruções. Único lugar onde ele aparece. */
+const VIDEO_ID = 'mgMOtiupGCs';
+
+/**
+ * O quadro de vídeo que **não fala com o YouTube até a pessoa mandar**.
+ *
+ * ── POR QUE ISTO EXISTE ───────────────────────────────────────────────────────
+ * Antes, esta página embutia `youtube.com/embed/...` direto. O `<iframe>` carrega
+ * no *render*: bastava ABRIR a página para o Google receber o IP de quem abriu, a
+ * página de referência e os cookies do domínio — sem clique, sem aviso e sem
+ * escolha. `www.youtube.com` estava registrado como `pendente-de-decisao` em
+ * `src/__tests__/destinosDeRedeComFicha.test.ts`, esperando classificação.
+ *
+ * Decisão do operador em 2026-08-13: **eliminar a transferência em vez de
+ * declará-la**. Declarar teria sido honesto; não fazer a transferência é melhor,
+ * e aqui custa um componente.
+ *
+ * ⚠ DUAS ARMADILHAS QUE ESTE COMPONENTE EVITA DE PROPÓSITO:
+ *
+ * 1. **A miniatura.** O facade "clássico" usa `i.ytimg.com/vi/<id>/hqdefault.jpg`
+ *    como poster — e isso é EXATAMENTE a mesma transferência que se queria
+ *    evitar, só que de outro host do mesmo grupo. Por isso o placeholder aqui é
+ *    desenhado em CSS, sem uma única requisição externa.
+ *
+ * 2. **`youtube-nocookie` sozinho não resolve.** Ele adia os cookies, não a
+ *    conexão: o IP continua indo embora no load. Ele é usado no ramo carregado
+ *    — DEPOIS do clique — como redução adicional, nunca como a solução.
+ *
+ * O aviso fica no ponto da decisão, que é onde ele serve para alguma coisa.
+ */
+function VideoSobConsentimento() {
+  const [carregado, setCarregado] = React.useState(false);
+
+  if (carregado) {
+    return (
+      <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/50">
+        <iframe
+          width="100%"
+          height="100%"
+          src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1`}
+          title="Instruções do Formulário - Beauty Smile"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="aspect-video w-full rounded-lg overflow-hidden bg-gradient-to-br from-white/10 to-black/40 flex flex-col items-center justify-center gap-4 p-6">
+      <button
+        type="button"
+        onClick={() => setCarregado(true)}
+        aria-label="Carregar e reproduzir o vídeo de instruções"
+        className="flex items-center gap-3 min-h-[44px] px-6 py-3 rounded-full bg-white/90 text-slate-900 font-semibold hover:bg-white transition-colors"
+      >
+        <Play className="w-5 h-5" aria-hidden="true" />
+        Assistir às instruções
+      </button>
+      <p className="text-xs text-center text-white/70 max-w-md">
+        O vídeo está no YouTube. Ele só é carregado quando você toca em assistir — e, a partir
+        daí, o YouTube recebe o seu endereço de IP.
+      </p>
+    </div>
+  );
+}
 
 export function InstrucoesFormularioPage() {
   const [searchParams] = useSearchParams();
@@ -70,18 +139,7 @@ export function InstrucoesFormularioPage() {
             blur="lg"
             className="p-6 mb-8"
           >
-            <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/50">
-              <iframe
-                width="100%"
-                height="100%"
-                src="https://www.youtube.com/embed/mgMOtiupGCs"
-                title="Instruções do Formulário - Beauty Smile"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            </div>
+            <VideoSobConsentimento />
           </GlassCard>
 
           {/* Seção: Por que este formulário existe? */}

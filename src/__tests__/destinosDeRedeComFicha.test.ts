@@ -198,36 +198,49 @@ interface Decisao {
 }
 
 /**
- * ⚠⚠ SOBRE AS DUAS ENTRADAS `pendente-de-decisao`, E POR QUE ELAS NÃO SÃO UMA BRECHA
+ * ⚠⚠ AS DUAS PENDÊNCIAS FORAM RESOLVIDAS EM 2026-08-13 — E NENHUMA VIROU FICHA
  *
- * Este teste, na primeira execução dele sobre o repositório real, produziu um ACHADO: dois
- * destinos vivos que a lista publicada não cobre. Nenhum dos dois é ruído — os dois são
- * requisição feita pelo navegador de quem visita, com o endereço de origem dessa pessoa
- * indo junto.
+ * O desfecho é o argumento a favor do mecanismo, então fica registrado.
  *
- * E os dois são **estruturalmente idênticos** ao serviço público de consulta de endereço,
- * que a lista publicada DECIDIU incluir, com o critério escrito na própria fonte dela: a
- * chamada é disparada pela página desta empresa, e o endereço de origem do navegador vai
- * junto, ainda que o pacote não passe pelos servidores dela.
+ * Este teste, na primeira execução sobre o repositório real (2026-08-11), produziu um
+ * ACHADO: dois destinos vivos que a lista publicada não cobria — `api.ipify.org` e
+ * `www.youtube.com`. Os dois eram requisição feita pelo navegador de quem visita, com o
+ * endereço de origem dessa pessoa indo junto, e os dois eram estruturalmente idênticos ao
+ * serviço público de consulta de endereço, que a lista publicada DECIDIU incluir.
  *
- * Aplicar esse critério aqui e concluir "logo, faltam duas fichas" seria a conclusão
- * provável. **E ainda assim quem escreve teste não a registra como decisão.** Classificar
- * um destino como empresa contratada é ato do Encarregado, e o portão de publicação desta
- * fase está ABERTO — o rodapé do 47-08 foi entregue e deliberadamente não montado por essa
- * mesma razão. Escrever aqui um veredito que ninguém proferiu seria fabricar exatamente o
- * tipo de afirmação que esta fase inteira existe para eliminar: uma conformidade declarada
- * sem quem a tenha decidido.
+ * A conclusão provável era "logo, faltam duas fichas". Quem escreveu o teste **não a
+ * registrou como decisão**: gravou o FATO MEDIDO e a ROTA e mandou a classificação para
+ * quem podia decidir. Estava certo — e a decisão, quando veio, **não foi a conclusão
+ * provável.**
  *
- * Então a entrada registra o FATO MEDIDO e a ROTA, e não um veredito. E ela é TRAVADA nos
- * dois sentidos por casos deste arquivo, para não virar a etiqueta melhor de uma omissão:
+ * Decisão do operador em 2026-08-13: **eliminar as duas transferências, em vez de declará-las.**
+ *
+ *   · `api.ipify.org` SUMIU do código. O navegador pedia a um terceiro o próprio IP para o
+ *     sistema gravá-lo no log de acesso — sendo que o servidor já o vê. Quem preenche agora
+ *     é o trigger `trg_preencher_ip_logs_acesso` (migration `20260813000001`). De quebra
+ *     morreu um defeito que ninguém tinha ligado ao destino: quando o `fetch` falhava, o
+ *     código gravava `127.0.0.1`, um IP falso, num registro de auditoria.
+ *
+ *   · `www.youtube.com` virou `www.youtube-nocookie.com` sob clique explícito — por isso
+ *     aparece abaixo como decisão registrada e não como ficha: a requisição passou a partir
+ *     de uma escolha da pessoa, que é o mesmo critério que o endereço de compartilhamento
+ *     já usava neste arquivo.
+ *
+ * ⚠ A LIÇÃO vale mais que as duas entradas: uma pendência HONESTA é mais útil que um
+ * veredito apressado. Se o teste tivesse "resolvido" sozinho acrescentando duas fichas, as
+ * duas transferências continuariam acontecendo — declaradas, e por isso mais difíceis de
+ * questionar depois. Foi a recusa a proferir veredito que deixou a decisão real acontecer.
+ *
+ * As travas que sustentaram isso continuam de pé para a próxima pendência:
  *
  *   · uma pendência que GANHOU ficha reprova — ela tem de ser retirada daqui;
- *   · uma pendência cujo destino SUMIU do repositório reprova — ela perdeu o objeto;
+ *   · uma pendência cujo destino SUMIU do repositório reprova — ela perdeu o objeto, e foi
+ *     ESTA que forçou a edição quando o `api.ipify.org` deixou de existir;
  *   · uma pendência sem fato medido ou sem rota reprova;
  *   · e um destino NOVO não entra aqui sozinho: entrar exige editar esta constante
  *     versionada com todos os campos, que é o mesmo custo de acrescentar uma ficha.
  *
- * Medido em 2026-08-11.
+ * Medido em 2026-08-11; resolvido em 2026-08-13.
  */
 const DECISOES: readonly Decisao[] = [
   // ── Registro de módulo e biblioteca executada localmente ────────────────────
@@ -307,27 +320,19 @@ const DECISOES: readonly Decisao[] = [
       'convite; nenhum dado de candidatura é montado nessa URL.',
   },
 
-  // ── ⚠ As duas pendências. Fato medido e rota; jamais veredito. ──────────────
+  // ── O vídeo de instruções, agora sob consentimento ──────────────────────────
   {
-    destino: 'api.ipify.org',
-    disposicao: 'pendente-de-decisao',
+    destino: 'www.youtube-nocookie.com',
+    disposicao: 'nao-trata-dado-de-candidato',
     razao:
-      'FATO MEDIDO (2026-08-11): o navegador de quem usa o sistema requisita este endereço para ' +
-      'descobrir o próprio IP, que o sistema então grava no registro de acesso. O terceiro recebe ' +
-      'o endereço de origem dessa pessoa. É a mesma forma da chamada ao serviço público de ' +
-      'consulta de endereço, que a lista publicada decidiu INCLUIR com critério escrito. ' +
-      'ROTA: a classificação é do Encarregado, no portão de publicação que o 47-08 deixou aberto. ' +
-      'Quem escreve teste registra a medição, não o veredito.',
-  },
-  {
-    destino: 'www.youtube.com',
-    disposicao: 'pendente-de-decisao',
-    razao:
-      'FATO MEDIDO (2026-08-11): a página de instruções embute um quadro de vídeo de terceiro. O ' +
-      'navegador de quem abre a página requisita o conteúdo direto do terceiro, que recebe o ' +
-      'endereço de origem e a página de referência. Não há dado de candidatura na requisição. ' +
-      'ROTA: mesma do registro anterior — a classificação é do Encarregado, no portão aberto do ' +
-      '47-08. Quem escreve teste registra a medição, não o veredito.',
+      'Quadro de vídeo que só é carregado quando a pessoa TOCA em assistir, com o aviso escrito ' +
+      'ao lado do botão de que o terceiro receberá o endereço de origem dela. Antes de 2026-08-13 ' +
+      'a página embutia `www.youtube.com` direto e o carregamento acontecia no render: bastava ' +
+      'ABRIR a página para o terceiro receber tudo, sem clique e sem escolha. É a mesma forma do ' +
+      'endereço de compartilhamento acima — a requisição parte de uma decisão da própria pessoa, ' +
+      'no aparelho dela — e nenhum dado de candidatura vai na requisição. O sufixo `-nocookie` é ' +
+      'redução adicional DEPOIS do clique, nunca a proteção principal: ele adia os cookies, não a ' +
+      'conexão.',
   },
 ]
 
