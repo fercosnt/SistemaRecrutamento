@@ -80,15 +80,49 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ### 2026-08-13 — o smoke rodou, e a decisão do Encarregado teve consequência em código
 
-**O `p45_motor_exclusao_smoke` foi executado em PROD pela primeira vez.** Ele parou no
-`(C3/i)` — e isso é notícia boa duas vezes: o `(C3)` roda **depois** do `(B3)` e do `(C1)`,
-então **os consertos CR-01 e CR-02 estão provados POR EXECUÇÃO**, não mais só por forma. E o
-`(C3/i)` reprovou **certo**: os pins de `md5` seguiam com o marcador `PENDENTE-45-07`.
+## ✅ O `p45_motor_exclusao_smoke` PASSOU EM PROD — 24/24, zero resíduo (2026-08-13)
 
-Pinados em `6aa249a`, com conferência **cruzada** — `md5` do corpo VIVO contra `md5` do corpo
-extraído do ARQUIVO commitado. Bateu md5 **e** octetos nas duas funções. ⚠ O que autoriza um
-pin não é ter lido o valor vivo: copiar o que está aplicado pinaria seja lá o que for, e o
-gate deixaria de comparar para passar a **registrar**.
+**O portão de fase destrutiva do `45-11` fechou nas Tasks 1 e 2.** Sobra a Task 3.
+
+Ele rodou duas vezes. Na primeira parou no `(C3/i)` — notícia boa duas vezes, porque o `(C3)`
+roda **depois** do `(B3)` e do `(C1)`: os consertos **CR-01 e CR-02 ficaram provados POR
+EXECUÇÃO**, não mais só por forma. E o `(C3/i)` reprovou **certo**: os pins de `md5` seguiam
+com o marcador `PENDENTE-45-07`.
+
+Pinados em `6aa249a` com conferência **cruzada** — `md5` do corpo VIVO contra `md5` do corpo
+extraído do ARQUIVO commitado, batendo md5 **e** octetos nas duas funções. ⚠ O que autoriza um
+pin não é ter lido o valor vivo: copiar o que está aplicado pinaria seja lá o que for, e o gate
+deixaria de **comparar** para passar a **registrar**.
+
+Na segunda, verde. **Conferido POR FORA, sem confiar no auto-relato do smoke:**
+
+| Medida | Depois do run | Antes |
+|---|---|---|
+| candidatos / candidaturas / histórico / decisão | **22 / 9 / 5 / 1** | idênticos ✅ |
+| tombstones | **0** | 0 — o motor nunca rodou sobre ninguém ✅ |
+| as 3 FKs `NO ACTION` | `a, a, a` ✅ | intactas |
+| `candidatos_user_id_fkey` | `SET NULL` ✅ | armadilha do 23503 desarmada |
+
+### ✅ E o G1 da Phase 44 estava STALE — o export FOI exercitado
+
+O registro diz *"EXPORT-01/02/03 nunca exercitados — 0 linhas em `solicitacoes_dados`"*. **Há
+uma linha, de 2026-08-11**, e ela tem exatamente a forma que o G1 exigia: `tipo='acesso'`,
+`situacao='atendido'`, `causa` **NULA**, `atendido_em` preenchida **5 segundos** depois, na
+conta `candidato.funil@teste.com`. As quatro colunas de exclusão
+(`storage_`/`postgres_`/`auth_concluido_em`, `recibo_enviado_em`) estão **NULAS** — foi pedido
+de acesso, nada destrutivo.
+
+⚠ **O que isso fecha e o que não fecha:** prova o caminho ponta a ponta **no servidor**. Não
+prova que o `.json` chegou ao aparelho, nem o render, nem o cooldown — esses seguem sendo
+observação de navegador (§B do roteiro).
+
+### `WINDOWS.md` — 11 itens da Phase 45 fechados
+
+6, 7, 9, 11, 14, 15, 17, 19, 20, 21 e 22, cada um com a razão medida. Ledger conferido:
+`20260805000001`–`000009` **todas aplicadas**. `ACOES` já inclui `retirar_candidatura`
+(`index.ts:263`) e o terceiro client `supabaseTitular` existe — os `DI-45-07-01`,
+`DI-45-10-01` e `DI-45-10-02` estavam **resolvidos no código e abertos no ledger**.
+Restam 9, nenhum bloqueante do portão.
 
 **O `p47_historico_smoke` PASSOU 6/6.** O sinal é sutil e quase passou batido: a última
 instrução do arquivo é um `SELECT set_config(...)`, então receber uma coluna `set_config`
@@ -203,41 +237,14 @@ fora de ordem invalida trabalho já feito.
 
 ### O que falta — nesta ordem
 
-1. ⏸ **Smoke `p45_motor_exclusao_smoke.sql` para na asserção `(B3/email)`.**
-   **O MOTOR ESTÁ CERTO** — e continua certo. Mas ⚠ **O DIAGNÓSTICO QUE ESTAVA ESCRITO AQUI
-   ERA FALSO, e apontava para o conserto errado.** Corrigido em 2026-08-12 pelo
-   `45-REVIEW-4.md` (CR-01), que mediu em vez de inferir.
+1. ✅ **Smoke `p45_motor_exclusao_smoke.sql` — VERDE 24/24 em 2026-08-13.** Os dois portões
+   que o travavam eram defeitos de VERIFICAÇÃO, não do motor, e são as instâncias **6 e 7**
+   da classe-assinatura desta fase: o `(B3/email)` media um `count(*)` vivo **depois** do
+   rollback da própria fixture (reprovava em todo run, com o motor certo), e o `(C1)`
+   proibia uma ACL deliberadamente correta. Consertados em `76976bb`, pins em `6aa249a`.
+   ⚠ O predicado não foi afrouxado em nenhum dos dois: mudou o **ponto de medição** num,
+   e a **premissa** no outro.
 
-   **O que estava escrito:** *«o `SELECT … INTO v_email_d` (linha ~934) não achou linha para
-   `v_cand`; é estado de fixture»*. **Refutado por três medições independentes:** o INSERT da
-   fixture (`:744`) não tem `ON CONFLICT` — ou `v_cand` é não-nulo ou o bloco aborta; a
-   `20260805000006` não tem **um único** `DELETE` (os dois tokens "DELETE" são a prosa
-   `ON DELETE SET NULL`); e a `(B0)` da `:1045` roda **antes** e teria disparado primeiro se a
-   fixture faltasse — ela passou. Logo `v_email_d` = `anonimizado+<id>@invalido.local`, que é
-   exatamente por que a `:1113` passa.
-
-   **A causa real:** a `:1116` é a **ÚNICA query viva** entre ~40 asserções da seção de
-   julgamento pós-rollback (varredura por parser dos 5 blocos de subtransação:
-   `rollback@1032` → 1 query viva, os outros quatro → 0). A fixture é revertida na `:1032`;
-   na `:1116` a linha **não existe**, `count(*)` = 0, e `0 <> 1` dispara em **TODA execução,
-   independente do motor**. É defeito **do smoke**, e é a instância **nº 6** da classe-assinatura
-   desta fase.
-
-   **O conserto** é mover a MEDIÇÃO para dentro da subtransação — a mesma checagem existe
-   **correta** na `20260805000006:1235`, e aquela migration aplicou em PROD, então a propriedade
-   já está provada verdadeira. O predicado `count(*) = 1` **não muda**.
-   ⚠ **NÃO afrouxar a asserção para ela passar** — mover a medição não é afrouxar; mexer no
-   predicado seria. O cabeçalho do próprio arquivo proíbe: *"alterar o smoke para caber no que
-   foi aplicado é o movimento que transforma um gate em decoração"*.
-
-1b. ⏸ **`(C1)` reprova uma ACL CORRETA — segunda barreira independente** (`45-REVIEW-4.md`
-   CR-02, instância **nº 7**). É o `DI-45-12-01`, roteado a este review pelos próprios planos.
-   A `20260805000003:500` concede `EXECUTE` de `gerar_bias_snapshot` a `authenticated`
-   **deliberadamente** (chamador vivo: a tela de auditoria de viés do administrador); o smoke
-   `:1387` proíbe. **Decisão: a ACL está certa, a premissa da asserção está errada — consertar
-   a asserção, NUNCA revogar.** Revogar apagaria peça probatória de não-discriminação (RNF-07a)
-   para satisfazer um portão — o espelho de relaxar FK para CASCADE diante de um 23503.
-   ⚠ **Mesmo com o CR-01 fechado, o smoke não alcança 24/24 enquanto isto estiver de pé.**
 2. ⏸ **Smoke `p45_bias_k5_smoke.sql` — ✅ JÁ PASSOU 9/9** (ERASE-01 provado em PROD).
 3. ⏸ **`45-06` T2** — prova da fatia no navegador. Precisa de pessoa.
 4. ⏸ **Execução real vigiada** (`45-11` Task 3) — conta descartável + operador. Ver ⛔ acima.
