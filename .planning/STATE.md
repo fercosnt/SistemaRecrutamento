@@ -78,6 +78,47 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
+### 2026-08-13 — o smoke rodou, e a decisão do Encarregado teve consequência em código
+
+**O `p45_motor_exclusao_smoke` foi executado em PROD pela primeira vez.** Ele parou no
+`(C3/i)` — e isso é notícia boa duas vezes: o `(C3)` roda **depois** do `(B3)` e do `(C1)`,
+então **os consertos CR-01 e CR-02 estão provados POR EXECUÇÃO**, não mais só por forma. E o
+`(C3/i)` reprovou **certo**: os pins de `md5` seguiam com o marcador `PENDENTE-45-07`.
+
+Pinados em `6aa249a`, com conferência **cruzada** — `md5` do corpo VIVO contra `md5` do corpo
+extraído do ARQUIVO commitado. Bateu md5 **e** octetos nas duas funções. ⚠ O que autoriza um
+pin não é ter lido o valor vivo: copiar o que está aplicado pinaria seja lá o que for, e o
+gate deixaria de comparar para passar a **registrar**.
+
+**O `p47_historico_smoke` PASSOU 6/6.** O sinal é sutil e quase passou batido: a última
+instrução do arquivo é um `SELECT set_config(...)`, então receber uma coluna `set_config`
+vazia — em vez de erro — significa que nenhum `RAISE` abortou o batch, inclusive o gate `(z)`
+que exige contador 6. Os `NOTICE` não aparecem no editor do Supabase.
+
+**Decisão do operador: a Beauty Smile NÃO designa Encarregado** — registrada em
+`.planning/DECISAO-ENCARREGADO.md`. ⚠ A consequência não era óbvia e só apareceu ao conferir
+o código: **dez strings, inclusive a página PÚBLICA no ar**, diziam «escreva para o nosso
+Encarregado de Dados». Viraram afirmação falsa no instante da decisão — na página cujo
+propósito é *"nenhuma promessa de compliance sobrevive sem código que a execute"*. Corrigido
+em `f8e76e2` («nosso canal de privacidade»); **o canal não saiu**, só o título.
+
+**Os dois destinos de rede foram ELIMINADOS, não declarados** (`03909dd`): `api.ipify.org`
+sumiu (o IP passa a vir do servidor) e o YouTube virou facade sob clique. De quebra morreram
+o fallback que gravava `127.0.0.1` num log de auditoria e o `NOT NULL` de
+`logs_acesso.ip_address` — que o `pii-inventory.yaml:190` **já registrava como bloqueio do
+ERASE-09**.
+
+⚠ **A migration `20260813000001` NÃO foi aplicada, e a ordem é obrigatória:** migration
+primeiro, frontend depois. A inversão faz o log de sessão expirada parar de gravar **em
+silêncio** (o erro é engolido de propósito).
+
+**Hook re-pinado 97 → 96**, com a prova de discriminação refeita (sonda → 97/exit 1; sem →
+96/exit 0). A queda veio de remover um `as RequestInit` que silenciava um `timeout` que o
+`fetch` nunca leu — aquele `fetch` nunca teve timeout de verdade.
+
+**`WINDOWS.md`: sete itens da Phase 47 fechados** (24, 26, 28, 29, 30, 31, 32). Resta o
+**27** — o `as never` que espera `npm run db:types`.
+
 ### Run autônomo de 2026-08-12 — o que ele fechou, e onde parou de propósito
 
 `/gsd-autonomous` com escopo restrito pelo operador a **trabalho sem contato com PROD**.

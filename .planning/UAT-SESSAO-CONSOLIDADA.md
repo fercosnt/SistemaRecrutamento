@@ -151,14 +151,29 @@ senão a purga da Phase 46 encontra um pedido real de uma conta de teste daqui a
 |---|---|---|---|
 | E1 | D | Abrir o **Histórico** de uma candidatura real | Renderiza um dos **quatro rótulos** — Sistema / O próprio candidato / nome do recrutador / Recrutador removido. **Nunca um UUID, nunca erro de banco** |
 | E2 | C | Abrir a tela de **auditoria de viés** | Carrega. ⚠ Confirma ao vivo a premissa do **CR-02**: ela chama `gerar_bias_snapshot` como `authenticated`. Se esta tela funciona, o `GRANT` está certo e **não deve ser revogado** |
-| E3 | C + D | A fila de pedidos: comparar **fila ≡ contador** (BD-8) | Os dois números batem, nos dois papéis |
+| E3 | C | A fila de pedidos: **fila ≡ contador** (BD-8), no ramo **administrador** | Os dois números batem |
 | E4 | D **e** E | O guard **REVISAO-05** contra JWT de navegador (D6 do `42-10`) | Dois RH **distintos**: cada um só alcança o que lhe cabe |
 
-⚠ **E3 é inconclusivo por desenho, e isso é decisão sua, não bug:** **0 de 9** vagas em PROD
-pertencem a usuário de papel `rh` (6 com `created_by` NULL, 3 do administrador). O ramo `rh` do
-predicado não devolve linha alguma hoje. As três saídas registradas: popular `created_by` das 6
-órfãs · trocar o predicado para `vagas_associadas_recrutadores` · aceitar que a fila é de
-administrador. **Decida antes de E3, ou E3 não mede nada.**
+✅ **BD-8 decidido em 2026-08-13 — a fila é do administrador**, e por isso o E3 mudou de ramo.
+As três opções não estavam empatadas quando medidas:
+
+- **`vagas_associadas_recrutadores` está refutada:** a tabela tem **0 linhas** e não é usada em
+  lugar nenhum do app. Trocaria um predicado vazio por outro vazio.
+- **Popular `created_by` das 6 órfãs foi recusado:** inventaria autoria numa coluna auditável —
+  da mesma família que o tombstone da P45 *severa*. Fabricar provenance para um teste passar é
+  fabricar evidência.
+- **A realidade:** `usuarios_rh` tem **4 administradores e 1 recrutador. Zero papel `rh`.** O
+  ramo `rh` não está sem dado — está morto por construção.
+
+⚠ E o registro anterior também estava errado: as 3 vagas ditas "do administrador" apontam para
+`bbbbbbbb-…-bbbb`, um UUID de seed **sem linha em `usuarios_rh`**. Nenhuma das 9 tem dono RH
+resolvível. **Vale conferir depois se o código ramifica em `'rh'`** — se sim, é valor que o
+sistema nunca atribui, e isso é defeito próprio.
+
+✅ **Conta E não precisa ser criada.** Já existem cinco contas RH; duas distintas servem —
+`recrutador.rh@teste.com` (recrutador) e `e2e.admin@beautysmile.com.br` (administrador). Falta
+**senha**, não conta: `last_sign_in_at` está NULL nas cinco. Resolve com reset no painel.
+⚠ `recruiter@teste.com` tem papel **administrador**, apesar do nome.
 
 ⚠ **E1 é a metade de tela do único `PRESENT_BEHAVIOR_UNVERIFIED` da `47-VERIFICATION.md`.** A
 metade de banco **já está provada**: a `20260809000001` está aplicada, corpo byte-a-byte idêntico
@@ -172,9 +187,9 @@ metade de banco **já está provada**: a `20260809000001` está aplicada, corpo 
 |---|---|
 | `45-11` Task 3 — a execução real | ⛔ Apaga PII irreversivelmente. Conta descartável + operador presente. **Não é trabalho de agente** |
 | `p45_motor_exclusao_smoke.sql` | Escrita em PROD (fixture). Os CR-01/CR-02 estão consertados no disco e **nunca foram executados** |
-| `p47_historico_smoke.sql` | Idem — `INSERT` em `historico_candidatura` sob rollback |
-| Revisão do **Encarregado** (DPO) | Julgamento jurídico. `WINDOWS.md` 26 e 30 |
-| `api.ipify.org` e `www.youtube.com` | Classificação é ato do Encarregado. `WINDOWS.md` 29 e 31 |
+| ~~`p47_historico_smoke.sql`~~ | ✅ **RODOU e passou 6/6** em 2026-08-13 |
+| ~~Revisão do **Encarregado** (DPO)~~ | ✅ **RESOLVIDO** — a empresa decidiu não designar Encarregado (`.planning/DECISAO-ENCARREGADO.md`). Os quatro itens são decisão do operador, já dada |
+| ~~`api.ipify.org` e `www.youtube.com`~~ | ✅ **ELIMINADOS** em vez de declarados (`03909dd`) |
 | Caminho do recrutador ponta a ponta (42) | Bloqueado por endereço indeliverável — ver `42-recrutador-email-indeliveravel` |
 
 ---
