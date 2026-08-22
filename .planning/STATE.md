@@ -4,15 +4,15 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
-stopped_at: "Concluido 46-02-PLAN.md (2 de 7 da Phase 46) — espinha da purga APLICADA em PROD, candidaturas_alem_da_janela() 7 -> 6, dry_run 6/0/dry_run e off 6/0/desligado sem apagar nada. Proximo: 46-03"
-last_updated: "2026-08-22T23:07:43.203Z"
-last_activity: 2026-08-22
+stopped_at: "46-03: migration 20260823000005 + 5 assercoes + 2o re-pin commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente (esperado: candidaturas_alem_da_janela() 6 -> 4)"
+last_updated: "2026-08-23T00:20:00.000Z"
+last_activity: 2026-08-23
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 59
-  completed_plans: 52
-  percent: 67
+  completed_plans: 53
+  percent: 69
 current_phase: 46
 last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRODUCAO em 2026-08-22, sobre conta descartavel, pela Edge Function com o JWT do titular — e o 45-VERIFICATION.md existe com veredito PASSED, 5/5 criterios, portao destrutivo 5/5. Storage 3->0 (incluindo o ORFAO do Pitfall 4, que o motor detectou: achados_resumo.blob_orfao=1), auth.users 30->29 exatamente -1, e a trilha intacta (historico 7=7, decisao_final 2=2). As 7 negativas passam, o CR-04 passa, a re-identificacao por faixa+UF+vaga+timestamp devolve ZERO, e o SC#5 se sustenta (mesma faixa 35-44, excluidos_sem_data=0). O recibo chegou em tempo passado, sem identificador proibido, e COM a linha obrigatoria da justificativa — o conserto do WR-A (f67d664) provado nos 3 recortes. ⚠ DUAS DIVERGENCIAS DE LETRA registradas: decisao_final_historico 1->2 pelo mecanismo M1 documentado (as DUAS linhas desidentificadas), e a data na tela em 06/09/2026 e nao por extenso. ⚠ IDEMPOTENCIA por re-invocacao e ESTRUTURALMENTE impossivel pela EF: depois do deleteUser o JWT e recusado (401). Antes disso, no mesmo dia: CR-01 e CR-02 consertados (76976bb) e o smoke p45_motor_exclusao_smoke passou 24/24 em PROD; os pins md5 gravados com conferencia cruzada (6aa249a); WR-A consertado (f67d664); a copy deixou de prometer um Encarregado que a empresa decidiu nao ter (f8e76e2); api.ipify.org e o iframe do YouTube ELIMINADOS em vez de declarados (03909dd); o vocabulario de logs_acesso.evento consertado — o log estava MORTO desde 2026-04-20 e o defeito so apareceu porque a sonda de uma migration abortou com 23514; e o host recruta.beautysmile.com.br, que NUNCA EXISTIU, corrigido para rh.beautysmile.com.br (eb6f63d). ⚠ LICAO QUE SE REPETIU O DIA INTEIRO: registro desatualizado custa o mesmo que registro ausente — sete pontos do ledger/STATE estavam errados — e MEDIR A COISA ERRADA COM O SQL CERTO e pior ainda, porque o fato falso vem com autoridade de consulta (eu errei duas vezes juntando por usuarios_rh.id em vez de user_id). PROXIMO: Phase 46, que nunca comecou e agora esta DESTRAVADA."
 ---
@@ -964,6 +964,15 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 46-02: o smoke da fase MEDE dentro do envelope e JULGA fora — set_config e transacional, e um contador incrementado dentro do rollback deixaria o RESUMO em 0 num run perfeito (forma do p45:1061-1082)
 - [Phase ?]: 46-02: o cap e avaliado ANTES do kill switch — conjunto grande demais e sinal de predicado quebrado e o operador precisa dele mesmo com a purga desligada; modo_vigente na mesma linha impede mascaramento
 - [Phase ?]: 46-02: re-pin de candidaturas_alem_da_janela ddfa6542 -> 6df35644 (1357 octetos), lado ARQUIVO medido; lado VIVO pendente do checkpoint. A rede estrutural de (e) CRESCEU de 3 para 5 checagens
+- [Phase ?]: 46-03: a excecao de vaga aberta e NOT EXISTS **e** allowlist ao mesmo tempo — o interior e o COMPLEMENTO dos estados fechados, entao um valor NOVO de status_vaga PROTEGE. Fail-closed por construcao, nao por vigilancia
+- [Phase ?]: 46-03: D-46-01 e D-46-02 sao satisfeitas por AUSENCIA de clausula, e as duas ficam NOMEADAS no COMMENT ON FUNCTION — ausencia silenciosa e indistinguivel de esquecimento quando o proximo leitor chega
+- [Phase ?]: 46-03: o INSERT da linha de retencao_hold da fixture vive na MIGRATION e nao num arquivo de teste — um arquivo de teste pode nao rodar, e enquanto a linha faltar a assercao (j.1) passa por VACUIDADE
+- [Phase ?]: 46-03: toda assercao (j) tem DUAS metades — "nao aparece" e "passa a estar" desfeita a condicao. A 2a metade E a nao-vacuidade: ela so ocorre se a fixture ja estava alem da janela
+- [Phase ?]: 46-03: (l) assere a allowlist por IGUALDADE DE CONJUNTO e nunca por contagem — uma contagem de 3 passaria com as TRES etapas erradas marcadas como elegiveis
+- [Phase ?]: 46-03 achado: o UPDATE de (j.3) dispararia trg_notif_revisao_respondida (net.http_post) e REPROVARIA a assercao (c) do mesmo envelope. Gatilhos desligados por criterio medido do catalogo e religados, com residuo zero asserido
+- [Phase ?]: 46-03: 2o re-pin da fase, 6df35644 -> b4fdb3a1 (1958 octetos), lado ARQUIVO medido; lado VIVO pendente do checkpoint. A rede estrutural de (e) CRESCEU de 5 para 7 (retencao_hold + status_vaga)
+- [Phase ?]: 46-03: (f) e (g) do smoke da 43 NAO foram tocadas — as listas literais delas sao ESCOPO deliberado e este plano nao cria funcao nenhuma. Varredura por FORMA feita em todos os smokes: nenhum portao vivo enxerga tabela nova em public
+- [Phase ?]: 46-03 ambiente: o grep desta maquina e ugrep e NAO entende \m / \M — criterios de aceite com esses escapes FALHAM em vez de medir. Usar \b no shell; dentro do plpgsql \m/\M continuam corretos
 
 ### Pending Todos
 
@@ -1166,9 +1175,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-22T23:07:43.182Z
-Stopped at: Concluido 46-02-PLAN.md (2 de 7 da Phase 46) — espinha da purga APLICADA em PROD, candidaturas_alem_da_janela() 7 -> 6, dry_run 6/0/dry_run e off 6/0/desligado sem apagar nada. Proximo: 46-03
-Resume file: None
+Last session: 2026-08-23T00:20:00.000Z
+Stopped at: 46-03: migration 20260823000005 + as 5 assercoes de PURGA-07 + o 2o re-pin de (e) commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente
+Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-03-PLAN.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

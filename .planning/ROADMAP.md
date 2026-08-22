@@ -265,7 +265,7 @@ Plans:
 
 - [x] 46-01-PLAN.md — a fixture de conjunto elegível não-vazio, com teardown escrito antes (sem ela, 18 das 21 asserções passam por vacuidade)
 - [x] 46-02-PLAN.md — TRACER: `config_purga` + ledger + predicado por titular + varredura → dry-run sobre conjunto não-vazio, ⊖ zero mutação — ✅ **APLICADO em PROD 2026-08-23**: `candidaturas_alem_da_janela()` 7 → 6 (saiu `neg-etapa#08`), `dry_run` 6/0/`dry_run` e `off` 6/0/`desligado`, 5 contagens de domínio inalteradas, `modo` final `off`
-- [ ] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07)
+- [x] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07) — ⏸ **artefatos commitados; APPLY EM PROD PENDENTE** (checkpoint bloqueante da Task 3: `20260823000005` pela Management API + re-pin cruzado `b4fdb3a1…` + 5 smokes + a queda de **6 → 4** saindo `neg-hold#05` e `neg-vaga#06`)
 - [ ] 46-04-PLAN.md — ⛔ o 4º ramo autorizado em `anonimizar_candidato` (D-46-18 / Blocker B-01), com review bloqueante antes do apply
 - [ ] 46-05-PLAN.md — Edge Function `purgar-retencao` e o contrato do item: o payload seleciona, o banco autoriza
 - [ ] 46-06-PLAN.md — dispatch + cron idempotente + RETEN-05, e a emenda do smoke herdado da P42 no mesmo commit (D-46-23)
@@ -390,7 +390,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
-| 46. Purga Automática (dry-run → live) | v8.0 | 2/7 | In Progress|  |
+| 46. Purga Automática (dry-run → live) | v8.0 | 3/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 
 ---
