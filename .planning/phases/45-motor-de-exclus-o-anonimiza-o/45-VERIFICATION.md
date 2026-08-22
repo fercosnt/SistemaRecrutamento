@@ -12,12 +12,14 @@ veredito: >-
 overrides_applied: 0
 behavior_unverified: 0
 human_verification:
-  - test: "Confirmar VISUALMENTE, no cliente de e-mail, se os três trechos truncados aparecem cortados na TELA ou só no texto copiado."
-    expected: "O e-mail renderizado mostra as frases completas — «…produziram sobre você foram apagados.», «O histórico das etapas do processo», «…candidatura foi avaliada.» + «A trilha de auditoria do sistema»."
-    why_human: "O gerador foi executado e produz o texto ÍNTEGRO nos três pontos (medido, 8.691 bytes de HTML). A corrupção só existe no texto que chegou colado, então ela é de renderização ou de seleção — não do sistema. Distinguir as duas exige olhar a tela, e só o operador tem a caixa."
-  - test: "Publicar o asset da logo em `public/logos/BS_Horizontal_Branco.png` (opcional, cosmético)."
-    expected: "A logo passa a aparecer nos e-mails. Hoje o `alt` degrada graciosamente para o wordmark, como o docblock previu."
-    why_human: "Decisão de design/asset, não de código. O host já foi corrigido em `eb6f63d`; falta só o arquivo."
+  # ✅ FECHADO em 2026-08-22 — o operador comparou o HTML gerado com o e-mail na tela
+  # e confirmou: "tá igual". Os três trechos aparecem ÍNTEGROS no cliente. A truncagem
+  # existia apenas no texto COLADO — artefato de seleção, não defeito do sistema.
+  # O gerador havia sido executado antes de qualquer acusação (8.691 bytes, os 3 pontos
+  # completos), que foi o que evitou registrar um defeito inexistente.
+  - test: "REDEPLOY das 3 EFs que mandam e-mail, do terminal do operador (o CLI trava fora de TTY)."
+    expected: "executar-direito-titular > v2 (verify_jwt TRUE) · notificar-candidato > v7 e notificar-rh > v2 (ambas verify_jwt FALSE, exigem --no-verify-jwt). Depois disso a logo aparece e os links do e-mail ao RH deixam de apontar para host morto."
+    why_human: "⚠ Tentado DUAS vezes pelo agente e travou sem erro visível nas duas — mesmo bloqueio de TTY que o STATE.md já registrava para `supabase login`, agora atingindo `deploy`. Conferido: executar-direito-titular segue em v2 com o mesmo ezbr_sha256, ou seja NADA foi deployado. O caminho MCP foi descartado de propósito: exigiria retranscrever o bundle inteiro, e um byte divergente em código que apaga PII não é risco aceitável (mesmo precedente do 45-01)."
 ---
 
 # Phase 45 — Verificação
@@ -103,13 +105,18 @@ recortes, inclusive o majoritário (`temDecisaoRegistrada=false`) que era o queb
 ✅ **Asserção 7:** o recibo **não** gerou linha em `notificacoes_enviadas` (D-45-12 / R1), e
 `recibo_enviado_em` está preenchida.
 
-⚠ **Sem logo** — esperado. O asset **nunca foi publicado** (`public/logos/` não existe), e o
-`alt` degrada para o wordmark exatamente como o docblock previu. O host morto foi corrigido em
-`eb6f63d`, mas isso é ortogonal: falta o arquivo.
+✅ **Os três trechos que chegaram truncados eram artefato de COLAGEM, não defeito.** O operador
+comparou o HTML gerado com o e-mail **na tela** e confirmou: «tá igual». As frases aparecem
+íntegras no cliente.
 
-⚠ **Três trechos chegaram truncados no texto COLADO.** O gerador foi executado e produz as
-frases **íntegras** nos três pontos — logo a corrupção é de renderização ou de seleção, não do
-sistema. Confirmação visual fica como `human_verification`.
+⚠ **A ordem importou aqui:** o gerador foi executado **antes** de qualquer acusação (8.691 bytes,
+os 3 pontos completos). Foi isso que evitou registrar um defeito inexistente — e é a mesma
+disciplina que, no sentido inverso, expôs o `(B3/email)` como defeito real.
+
+⚠ **Sem logo — DUAS peças, e uma só não resolve.** O asset foi publicado em `c9e43cd`
+(`public/logos/`, provado por build: chega em `build/logos/`). O host foi corrigido em `eb6f63d`.
+Mas o `LOGO_URL` vive no bundle das **Edge Functions**: sem **redeploy** delas, os e-mails seguem
+apontando para o host morto. ⚠ **O redeploy NÃO foi feito** — ver abaixo.
 
 ## O ledger de e-mail
 
