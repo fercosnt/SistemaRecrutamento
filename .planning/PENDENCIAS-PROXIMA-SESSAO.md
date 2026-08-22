@@ -12,23 +12,34 @@ não há M9 planejado — fechar o M8 é fechar o projeto como ele está escopad
 
 ---
 
-## 🔴 0. A ORDEM QUE NÃO PODE INVERTER — antes de qualquer deploy
+## ✅ 0. RESOLVIDO em 2026-08-22 — a migration foi aplicada antes do deploy
 
-**Aplicar a migration `20260813000001_p47_ip_no_servidor.sql` ANTES de o frontend ir a
-produção.**
+`20260813000001_p47_ip_no_servidor` **aplicada**, ledger reconciliado (`20260822004104` →
+`20260813000001`, em sequência, zero drift novo). Conferido por fora: coluna nullable, trigger
+**BEFORE**, `search_path=""`, `SECURITY INVOKER`, **23 linhas e 0 IPs nulos** — zero resíduo.
+`pii-inventory.yaml` atualizado e `.md` regenerado (o gate mordeu antes, passou depois).
 
-O commit `03909dd` contém a mudança que para de mandar `ip_address` no INSERT. Sem a
-migration aplicada, o insert bate `23502` — e `logAccessEvent` **engole o erro de propósito**
-(`console.error`, sem `throw`). O registro de sessão expirada **para de gravar sem alarme
-nenhum**.
+## 🟠 0b. O defeito que o apply descobriu por acidente — **decisão sua**
 
-⚠ `vercel.json` está ativo: **push na `main` dispara deploy de produção.** Então a ordem é
-`apply → push`, nunca o contrário. A ordem inversa é segura (o trigger respeita um
-`ip_address` que venha preenchido — asserção `(d2)` da auto-verificação).
+**O log de acesso está morto na prática, e não tem relação com o trabalho do IP.**
 
-**Obrigação pós-apply:** `docs/compliance/pii-inventory.yaml:190` ainda diz *"NOT NULL —
-apagar exige tornar nullable ou truncar"*. Depois do apply isso vira falso. Atualizar e rodar
-`npm run check:pii-inventory-md`.
+O primeiro apply **abortou com `23514`** porque minha sonda usou um `evento` inválido. O gate
+pegou o próprio autor — e ao expor o CHECK, expôs isto:
+
+`EventoAcesso` (TS) declara **8** valores; `check_evento` (banco) aceita **8 outros**; a
+interseção é de **3** (`login_sucesso`, `login_falha`, `logout`). Os cinco ilegais são
+`sessao_expirada`, `acesso_negado`, `password_reset_request`, `password_reset_completed`,
+`password_reset_failed` — e **`sessao_expirada` é exatamente o que o único chamador vivo
+manda** (`useSessionTimeout.ts:76`).
+
+Aquele INSERT falha com `23514` **em toda execução**, e `logAccessEvent` engole o erro de
+propósito. **Medido:** a tabela só tem `login_sucesso` (21) e `login_falha` (2), e a última
+linha é de **2026-04-20**. Quatro meses sem registro.
+
+**Duas saídas, e é decisão de domínio:** alargar o CHECK para os valores pt-BR que faltam, ou
+alinhar o TS ao vocabulário do banco. ⚠ Não fiz de carona na migration do IP — mudar
+constraint de domínio dentro de uma migration sobre outra coisa é como o drift entra.
+`WINDOWS.md` item **34**.
 
 ---
 

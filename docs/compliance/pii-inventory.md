@@ -165,7 +165,7 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 
 | Coluna | Classificação | Tipo | Nota |
 |--------|---------------|------|------|
-| `ip_address` | 🗑️ apagar | inet | NOT NULL — apagar exige tornar nullable ou truncar |
+| `ip_address` | 🗑️ apagar | inet | NULLABLE desde 20260813000001 (2026-08-22) — o obstaculo ao ERASE-09 caiu: apagar agora e SET NULL, sem truncar. Preenchido no servidor pelo trigger trg_preencher_ip_logs_acesso a partir de x-forwarded-for; sem cabecalho legivel fica NULL, nunca um valor inventado. |
 | `email_tentativa` | 🗑️ apagar | varchar |  |
 | `device_info` | 🗑️ apagar | text |  |
 | `browser` | 🗑️ apagar | varchar |  |

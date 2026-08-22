@@ -131,6 +131,7 @@ DECLARE
   v_tgtiming  text;
   v_cfg       text[];
   v_id        uuid;
+  v_id2       uuid;
   v_ip        inet;
 BEGIN
   -- (a) a coluna aceita NULL
@@ -176,19 +177,33 @@ BEGIN
   --     smoke que so olha a forma conta como verde sem nunca ter rodado o corpo.
   --     Aqui a insercao ACONTECE, em subtransacao revertida.
   BEGIN
+    -- ⚠ O `evento` da sonda tem de ser um valor LEGAL do CHECK `check_evento`
+    --   (login_sucesso, login_falha, logout, senha_alterada, senha_resetada,
+    --   email_alterado, conta_bloqueada, conta_desbloqueada). A primeira versao
+    --   desta migration usava 'p47_ip_probe' e o apply ABORTOU com 23514 — o gate
+    --   pegando o proprio autor, que e o desfecho correto.
+    --   ⚠⚠ E foi assim que se descobriu um defeito VIVO, sem relacao com esta
+    --   migration: o tipo `EventoAcesso` do TS declara OITO valores e CINCO deles
+    --   NAO existem no CHECK — inclusive `sessao_expirada`, que e exatamente o que
+    --   o unico chamador vivo (useSessionTimeout.ts:76) manda. Aquele log falha com
+    --   23514 em TODA execucao, e o erro e engolido de proposito. A tabela prova:
+    --   so ha login_sucesso e login_falha, e a ultima linha e de 2026-04-20.
+    --   Registrado para conserto proprio — NAO se resolve alargando o CHECK aqui de
+    --   carona, que seria mudar uma constraint de dominio dentro de uma migration
+    --   sobre outra coisa.
     -- (d1) sem cabecalho de requisicao (este DO nao e PostgREST) e sem IP no
     --      INSERT: o resultado honesto e NULL, e antes desta migration seria 23502.
-    INSERT INTO public.logs_acesso (evento) VALUES ('p47_ip_probe')
+    INSERT INTO public.logs_acesso (evento) VALUES ('login_sucesso')
       RETURNING id, ip_address INTO v_id, v_ip;
     IF v_ip IS NOT NULL THEN
       RAISE EXCEPTION 'P47-IP FAIL (d1): sem cabecalho legivel o trigger produziu % em vez de NULL — ele esta ADIVINHANDO, que e exatamente o defeito que esta migration remove', v_ip;
     END IF;
 
     -- (d2) IP explicito e PRESERVADO (o trigger preenche o que falta, nunca sobrescreve)
-    INSERT INTO public.logs_acesso (evento, ip_address) VALUES ('p47_ip_probe', '203.0.113.7'::inet)
-      RETURNING ip_address INTO v_ip;
+    INSERT INTO public.logs_acesso (evento, ip_address) VALUES ('login_sucesso', '203.0.113.7'::inet)
+      RETURNING id, ip_address INTO v_id2, v_ip;
     IF v_ip IS DISTINCT FROM '203.0.113.7'::inet THEN
-      RAISE EXCEPTION 'P47-IP FAIL (d2): o trigger SOBRESCREVEU um ip_address explicito (% em vez de 203.0.113.7) — inserções de servidor que ja sabem o endereco perderiam o valor', v_ip;
+      RAISE EXCEPTION 'P47-IP FAIL (d2): o trigger SOBRESCREVEU um ip_address explicito (% em vez de 203.0.113.7) — insercoes de servidor que ja sabem o endereco perderiam o valor', v_ip;
     END IF;
 
     RAISE EXCEPTION 'rollback_p47_ip' USING ERRCODE = 'P47IP';
@@ -197,9 +212,14 @@ BEGIN
       NULL;  -- reversao ESPERADA: as duas sondas nao deixam linha
   END;
 
-  -- (e) asserção negativa: as sondas foram revertidas de verdade
-  IF EXISTS (SELECT 1 FROM public.logs_acesso WHERE evento = 'p47_ip_probe') THEN
-    RAISE EXCEPTION 'P47-IP FAIL (e): sobrou linha de sonda em logs_acesso — o idioma de rollback nao funcionou como escrito, e esta migration acabou de sujar um log de auditoria';
+  -- (e) asserção negativa: as sondas foram revertidas de verdade.
+  -- ⚠ Discrimina pelos IDs RETORNADOS, nao pelo `evento`: as sondas usam
+  --   'login_sucesso' (o unico jeito de satisfazer o CHECK), que e indistinguivel
+  --   de uma linha legitima. Filtrar por evento aqui daria falso positivo contra as
+  --   21 linhas reais de login_sucesso que a tabela ja tem — uma assercao negativa
+  --   que reprova o estado correto e a classe de defeito que esta fase colecionou.
+  IF EXISTS (SELECT 1 FROM public.logs_acesso WHERE id IN (v_id, v_id2)) THEN
+    RAISE EXCEPTION 'P47-IP FAIL (e): sobrou linha de sonda em logs_acesso (id % ou %) — o idioma de rollback nao funcionou como escrito, e esta migration acabou de sujar um log de auditoria', v_id, v_id2;
   END IF;
 
   RAISE NOTICE 'P47-IP OK: coluna nullable, trigger BEFORE INSERT vivo, search_path estrito, caminho exercitado nos dois ramos e sondas revertidas';

@@ -187,7 +187,7 @@ tabelas:
     natureza: "Telemetria de autenticação. ERASE-09 — SET NULL deixa órfã."
     fk_para_auth_users: "logs_acesso_user_id_fkey → auth.users(id) ON DELETE SET NULL (VIVO)"
     colunas:
-      ip_address:       { classificacao: apagar, tipo: inet, nota: "NOT NULL — apagar exige tornar nullable ou truncar" }
+      ip_address:       { classificacao: apagar, tipo: inet, nota: "NULLABLE desde 20260813000001 (2026-08-22) — o obstaculo ao ERASE-09 caiu: apagar agora e SET NULL, sem truncar. Preenchido no servidor pelo trigger trg_preencher_ip_logs_acesso a partir de x-forwarded-for; sem cabecalho legivel fica NULL, nunca um valor inventado." }
       email_tentativa:  { classificacao: apagar, tipo: varchar }
       device_info:      { classificacao: apagar, tipo: text }
       browser:          { classificacao: apagar, tipo: varchar }
