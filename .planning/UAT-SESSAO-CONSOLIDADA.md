@@ -25,15 +25,15 @@ Os passos abaixo que disparam e-mail estão marcados com 📧.
 
 | Ação | Por que não dá para desfazer |
 |---|---|
-| Pedir exclusão (§D) | Encerra **todas** as candidaturas do titular (`encerrada_a_pedido_em`). Cancelar o pedido **não as reabre** — está na própria copy da tela |
-| Primeiro clique no export (§C1) | Queima a janela de **cooldown de 24 h** daquela conta. O segundo clique é o próprio teste (§C3) — mas um terceiro só em 24 h |
+| Primeiro clique no export (§B2) | Queima a janela de **cooldown de 24 h** daquela conta. O segundo clique é o próprio teste (§B5) — mas um terceiro só em 24 h |
 | Upload de currículo | Storage **não tem backup** e o PITR está desligado |
 
-**3. Ordem entre seções é obrigatória: A → B → C → D.** A §D encerra as candidaturas da conta,
-e §B/§C precisam delas vivas. **Rodar §D antes invalida tudo que vem antes, na mesma conta.**
+**3. Ordem entre seções é obrigatória: A → B → C.** A §A cria a conta, e §B/§C dependem dela e
+das candidaturas vivas. A §E é independente (contas de RH) e pode vir antes ou depois.
 
-**4. Nada aqui executa a exclusão real.** O `45-11` Task 3 **não** faz parte desta sessão.
-§D só agenda (15 dias) e é integralmente reversível pelo botão de cancelar.
+**4. Nada aqui apaga dado nenhum.** O pedido de exclusão **saiu desta sessão** em 2026-08-22 —
+ele e a execução real são as duas metades do mesmo fluxo e foram para
+`.planning/RUNBOOK-45-06-T2-E-45-11-T3.md`, numa **conta descartável**. Ver o §D abaixo.
 
 ---
 
@@ -108,10 +108,24 @@ que o cooldown funciona.
 
 ---
 
-## §D — O tracer da exclusão · fecha o `45-06` Task 2
+## §D — ⚠ MOVIDO em 2026-08-22 — **não faça na conta A**
 
-> ⛔ **ÚLTIMO na conta A.** Encerra todas as candidaturas dela. Detalhe completo em
-> `45-06-PLAN.md` § Task 2 — aqui está o essencial.
+> **Use `.planning/RUNBOOK-45-06-T2-E-45-11-T3.md`.**
+>
+> Descobriu-se, ao montar o runbook, que o `45-06` T2 e o `45-11` T3 são **as duas metades do
+> mesmo fluxo**: o T3 começa literalmente com *"pedir a exclusão pela tela, e então antecipar
+> `executar_em`"*. Fazer o pedido aqui, na conta A, **encerraria as candidaturas dela e agendaria
+> a exclusão dela à toa** — e a conta A ainda serve os itens de 43 e 44.
+>
+> Os dois se fazem numa sessão só, **na conta descartável**, que o runbook manda montar com o
+> cenário completo (duas candidaturas, decisão registrada, **dois** currículos sendo um órfão, e
+> fixture nas seis tabelas satélite).
+>
+> ⚠ Sem esse cenário, metade das asserções do T3 passa por **vacuidade** — que é como um gate
+> conta verde sem ter medido nada.
+
+<details>
+<summary>Texto original do §D (mantido só como registro — não executar aqui)</summary>
 
 **Antes**, por SQL: `solicitacoes_dados` (total e `tipo='exclusao'`), `historico_candidatura`,
 `notificacoes_enviadas` com `evento='decisao'`, e as candidaturas do titular com `etapa_atual`
@@ -142,6 +156,8 @@ e `deleted_at`.
 senão a purga da Phase 46 encontra um pedido real de uma conta de teste daqui a 15 dias.
 
 ---
+
+</details>
 
 ## §E — As telas de RH · fecha **Phase 47 (SC#2)**, o `44-09` e o item de **42**
 
@@ -201,7 +217,7 @@ Cada seção fechada atualiza um alvo diferente:
 ```
 §A            → /gsd-verify-work 43
 §B, §C        → a §Deferred Verification da Phase 44 (G1) e o checkpoint do 44-05
-§D            → 45-06-EVIDENCIA-APPLY.md (a Task 2 tem <resume-signal> proprio)
+§D            → SAIU desta sessao — ver RUNBOOK-45-06-T2-E-45-11-T3.md
 §E1           → /gsd-verify-work 47   (fecha o PRESENT_BEHAVIOR_UNVERIFIED)
 §E3, §E4      → /gsd-verify-work 42
 ```
