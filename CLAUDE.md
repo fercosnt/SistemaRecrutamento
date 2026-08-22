@@ -44,6 +44,60 @@ ERROR: cannot insert multiple commands into a prepared statement (SQLSTATE 42601
 
 Esse padrão deve recorrer em Phase 4+ e Phase 5 (mais migrations PL/pgSQL).
 
+### ✅ Via de apply ATUAL (estabelecida na Phase 46, 2026-08-22) — leia antes das duas seções acima
+
+As duas vias anteriores continuam funcionando, mas **ambas têm um defeito que esta não tem**:
+elas dependem de o SQL ser **transcrito** (colado no SQL Editor, ou passado como string pelo
+tool MCP `apply_migration`). Foi por aí que **duas das cinco migrations do M8 chegaram a PROD
+com os comentários descartados** — e é por isso que o cross-check de `md5(statements[1])` existe.
+
+**Via atual: Management API do Supabase, com o SQL LIDO DO ARQUIVO.**
+
+```
+POST https://api.supabase.com/v1/projects/{ref}/database/query
+Authorization: Bearer <token>          # Keychain: serviço "Supabase CLI", conta "supabase"
+Content-Type: application/json
+{"query": "<conteúdo do arquivo, byte a byte>"}
+```
+
+É o mesmo transporte que o MCP usa por baixo, mas o corpo vem de `fs.readFileSync` em vez de
+uma transcrição. Três propriedades medidas em 2026-08-22:
+
+1. **Atomicidade.** O endpoint roda o corpo INTEIRO da requisição numa única transação — sonda
+   com `CREATE TABLE; SELECT 1/0;` deixou a tabela inexistente. Por isso a migration e a linha
+   de `supabase_migrations.schema_migrations` podem ir na MESMA requisição: um apply que roda
+   mas não se registra é indistinguível de um que não rodou.
+2. **⚠ A `version` nasce CORRETA — não há reparo a fazer.** O `apply_migration` do MCP carimba
+   o instante do apply em vez da versão do nome do arquivo, e por isso as migrations antigas
+   deste repositório mandam rodar um `UPDATE ... SET version` depois.
+   **Essa instrução está OBSOLETA e continua escrita dentro do banco**, nos cabeçalhos das
+   migrations `20260823000001`..`4` (o `statements[1]` guarda o arquivo literal, comentários
+   inclusive). Corrigir aqueles arquivos faria o md5 divergir do ledger e quebraria a própria
+   prova — por isso a correção vive aqui, e não lá.
+3. **O md5 bate por construção, e ainda assim é conferido** por leitura de volta do ledger.
+
+**Não é necessária a senha do banco** — ela não é recuperável no painel do Supabase (mostrada
+uma única vez, na criação) e não é preciso resetá-la.
+
+Aplicador: `p46apply.cjs` (`migrate` / `run` / `sql`). Se ele não estiver mais disponível, o
+contrato acima é suficiente para reescrevê-lo em ~100 linhas.
+
+### Portões: varra pela FORMA, não pelo sintoma
+
+A Phase 46 encontrou **três** asserções de smoke que congelavam um **instantâneo** e se
+apresentavam como **invariante**. Os dois modos de falha são assimétricos e o segundo é pior:
+
+| Forma | Exemplo | Falha |
+|---|---|---|
+| Contagem contra constante | `p42_invent05_cron_smoke` (a): `count(*) <> 3` · `p43_matriz_retencao_smoke` (j): matriz `= seed` | **Reprova trabalho correto, com diagnóstico FALSO.** A (j) acusava "a política de retenção de PROD ficou com valor de teste" quando um admin havia legitimamente editado a janela |
+| Iteração sobre lista literal | `p43_previa_smoke` (f)/(g): `proname IN ('a','b')` | **Não reprova nada.** O objeto novo fica fora da vigilância e o portão segue **verde** |
+
+Antes de acrescentar um objeto que um smoke vigia, **varra pela forma** (`grep -nE "v_[a-z_]* (<>|!=) [0-9]+|= ANY \(ARRAY\['"`), e para cada achado pergunte: *esta lista/contagem codifica um ESCOPO deliberado, ou uma FOTOGRAFIA que vai envelhecer?* As duas coisas parecem iguais no código e são opostas.
+Conserto: comparar com **baseline capturada na própria execução** (impressão digital via
+`to_jsonb` da linha inteira, que não envelhece quando nasce coluna nova), nunca com constante.
+E depois do conserto, **prove por execução que o portão ainda MORDE** — um portão que você
+tornou incapaz de falhar é pior que o quebrado.
+
 ## Architecture
 
 - **Frontend:** SPA React com Vite, alias `@/` → `src/`
