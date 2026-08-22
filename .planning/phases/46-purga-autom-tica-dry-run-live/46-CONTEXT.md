@@ -259,6 +259,40 @@ tomadas pelo operador **depois** dessas medições.
   duplicado"* — ou seja, o 4º job faria um portão verde reprovar trabalho correto **com
   diagnóstico falso**. Emendar o smoke é parte da entrega, não limpeza posterior.
 
+### Área 6 — Resolução da ambiguidade de escopo em D-46-18 (operador, 2026-08-22)
+
+- **D-46-24: o 4º ramo do guard tem ESCOPO DUPLO.** Resolve a contradição que o planejador
+  levantou em `46-04` Task 1 e **pré-resolve aquele `checkpoint:decision`** — o executor lê esta
+  decisão em vez de perguntar de novo.
+
+  **A contradição, dita na letra:** D-46-18 escreveu *"Um `modo` que não seja `live` não autoriza
+  nada."* Lido literalmente, isso recusa **o próprio laço de dry-run** durante os 14 dias inteiros
+  da janela `dry_run`, e torna a asserção (b) da `46-VALIDATION.md` — *"o loop de dry-run termina
+  em `P45DR` e zero coluna mutou"* — **impossível de satisfazer**. Ou seja: a frase, aplicada ao
+  pé da letra, produziria exatamente o **dry-run decorativo** que o SC#1 desta fase existe para
+  proibir, e que o P39/CR-02 já embarcou uma vez neste projeto.
+
+  **A resolução:**
+  - **Caminho de DRY-RUN** (o laço que termina em `RAISE ... USING ERRCODE = 'P45DR'`, revertendo
+    a subtransação inteira): autorizado sob `modo IN ('dry_run', 'live')`.
+  - **Caminho DESTRUTIVO** (a execução real que muta Storage/Postgres/Auth): autorizado
+    **exclusivamente** sob `modo = 'live'`.
+  - `modo = 'off'` **não autoriza nenhum dos dois** — é o kill switch de D-46-06, e continua sendo.
+
+  **Por que isto não afrouxa o guard:** a assimetria não é nova, é a que a **metade (b) do guard
+  já tem hoje** entre o ramo destrutivo e o não-destrutivo
+  (`20260805000006_p45_anonimizar_candidato.sql:397-403` — o `ELSE` que exige `administrador` ou o
+  próprio titular vale só para a anonimização REAL). O escopo duplo **espelha** essa forma em vez
+  de inventar uma. **Nenhuma capacidade destrutiva ganha permissão nova**: o que o ramo passa a
+  autorizar fora de `live` é um caminho cujo efeito o Postgres reverte por construção.
+
+  ⚠ **Obrigação de aceite:** as duas metades do ramo têm de ser **fisicamente distintas** no
+  código — nunca um só predicado com `modo IN (...)` que sirva aos dois caminhos. Um único
+  predicado compartilhado é como, numa edição futura, o caminho destrutivo herda em silêncio a
+  permissão do caminho reversível. O smoke assere as duas separadamente: ⊖ sob `dry_run` o
+  caminho destrutivo **recusa**; sob `dry_run` o caminho de dry-run **passa** e não muta coluna.
+  — **Reversibility:** `costly` — é uma edição em função destrutiva viva.
+
 ### Claude's Discretion
 
 - Nomes exatos de funções, tabelas e colunas, respeitando as convenções do projeto
