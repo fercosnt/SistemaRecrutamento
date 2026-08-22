@@ -241,6 +241,27 @@ porque era **plausível** e ninguém o mediu. **Diagnóstico registrado em `STAT
 evidência** — quando um portão reprova, medir o portão antes de acreditar na explicação que
 alguém já escreveu para ele.
 
+### ⚠ Supabase CLI — a auth QUEBROU em 2026-08-22, e o registro anterior está obsoleto
+
+**O `functions deploy` não roda: trava sem erro visível.** Diagnosticado com `--debug`:
+
+```
+NotFound: FileSystem.readFile (/Users/fernando/.supabase/profile)
+```
+
+**Estado medido:** `~/.supabase/` existe mas contém só `telemetry.json` e `traces/` — **o arquivo
+`profile` NÃO existe**. `SUPABASE_ACCESS_TOKEN` está **ausente** do ambiente. Há credencial no
+keychain, mas o CLI **2.115.0** (que o `npx` baixa sempre na última) procura o `profile`.
+
+⚠ **O registro anterior — «a credencial ficou no keychain e mesmo assim o CLI responde» — DEIXOU
+DE SER VERDADE.** Provavelmente o login original foi feito com uma versão que guardava a
+credencial em outro lugar, e o `npx` passou a puxar uma versão que não a lê.
+
+**Conserto:** `npx supabase login` no terminal do operador (abre o navegador e recria o
+`profile`), ou exportar `SUPABASE_ACCESS_TOKEN`. ⚠ **Sintoma enganoso:** trava em vez de dizer
+«não autenticado», então parece rede ou TTY. **Sempre rodar com `--debug` antes de teorizar** —
+foi o que resolveu em 30 segundos depois de duas tentativas cegas.
+
 ### Supabase CLI — como não repetir os erros de 2026-08-12
 
 - `functions deploy` exige **`--project-ref isljnozzlvckrgjjbjwp`**. Sem ele o seletor
