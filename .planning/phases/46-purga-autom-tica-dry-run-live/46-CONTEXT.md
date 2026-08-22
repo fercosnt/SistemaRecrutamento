@@ -176,6 +176,89 @@ re-carimbado com conferência cruzada, não contornado.
   o comentário antigo vivo é precisamente a promessa-sem-código que o CONSOL-04 audita.
   — **Reversibility:** `one-way` no efeito.
 
+### Área 5 — Emendas pós-pesquisa (operador, 2026-08-22)
+
+A `46-RESEARCH.md` levantou um bloqueador arquitetural que o discuss não previa, e as medições
+read-only contra PROD abaixo o converteram de hipótese em fato. As duas decisões seguintes foram
+tomadas pelo operador **depois** dessas medições.
+
+- **D-46-18: Blocker B-01 resolvido pela SAÍDA B — um quarto ramo autorizado no guard de
+  `public.anonimizar_candidato`.**
+
+  **O problema, medido:** o guard tem três metades
+  (`20260805000006_p45_anonimizar_candidato.sql:340-449`) — (a) sessão (`auth.uid()` não-NULL),
+  (b) papel (`administrador` ou o próprio titular), (c) intenção (linha viva em
+  `solicitacoes_dados` com `tipo='exclusao'`, `situacao='executando'`). Um cron não tem nenhuma
+  das três. **Medição em PROD, 2026-08-22:** como `postgres` sem claims,
+  `auth.uid() → NULL`, `auth.jwt() #>> '{app_metadata,role}' → NULL`,
+  `current_setting('request.jwt.claims', true) → NULL`. As três metades recusam com `42501`.
+  Isto fecha `[ASSUMED A3]` da RESEARCH por execução, não por leitura.
+
+  **A decisão:** o guard ganha um ramo `OR` que aceita o chamador **exclusivamente** quando
+  existe item vivo em `purga_execucao_itens` para aquele `candidato_id`, sob execução com
+  `purga_execucoes.situacao = 'executando'` **e** `modo_vigente = 'live'` **e** item ainda não
+  concluído. Um `modo` que não seja `live` não autoriza nada.
+
+  **As quatro obrigações que a tornam defensável — todas condição de aceite, não conselho:**
+  1. Escrito no mesmo idioma do arquivo: `IS DISTINCT FROM` em comparação de papel, `NOT EXISTS`
+     (jamais `NOT IN`) na verificação de estado, e **falha FECHADA** quando qualquer lado for NULL.
+  2. Exige o estado que **só o motor da purga produz** — mesma tese da metade (c) atual.
+  3. A migration carrega bloco de auto-verificação que **ABORTA o apply** se `authenticated`
+     puder escrever em `purga_execucoes` / `purga_execucao_itens` — espelho verbatim de
+     `20260805000006:1022-1027`, onde a mesma pergunta é feita ao catálogo sobre
+     `solicitacoes_dados`. O pressuposto vira asserção.
+  4. O re-pin do `md5(prosrc)` (hoje `8c86e0f040219e7eade47eb587dbf5de`, pinado em
+     `supabase/tests/p45_motor_exclusao_smoke.sql:1591`) é registrado com **os dois lados
+     medidos** (objeto vivo × arquivo), na disciplina do cabeçalho do próprio smoke (linhas
+     217-263). ⚠ O re-pin **não pode** virar desculpa para afrouxar a asserção (Pitfall 2).
+
+  ⚠ **Consequência para a decomposição:** a fase ganha um plano que **edita uma função destrutiva
+  provada em produção**. Esse plano é candidato obrigatório a code review bloqueante próprio e é
+  onde `/gsd-secure-phase` tem mais a dizer. Saída A (credencial de operador permanente) e Saída C
+  (segundo motor) foram **recusadas** — a primeira por criar credencial standing capaz de destruir
+  a PII de qualquer pessoa e por poluir a fila do RH com pedidos que ninguém fez; a segunda por
+  contradizer D-46-12. — **Reversibility:** `one-way` na prática — reverter exige migration sobre
+  função destrutiva viva.
+
+- **D-46-19: A allowlist de estados elegíveis é `aprovado`, `rejeitado`, `decisao_final`.**
+  Os outros cinco (`inscricao`, `triagem`, `avaliacao_assincrona`, `entrevista_online`,
+  `entrevista_presencial`) nascem `elegivel_purga = false`. Allowlist, jamais denylist —
+  PURGA-07 na letra.
+
+  ⚠ **Isto MUDA O EFEITO de D-46-01, e a mudança é declarada, não silenciosa:** rascunhos ficam
+  em `inscricao`, que não está na allowlist, logo **rascunho nunca é purgado automaticamente**.
+  O mesmo vale para qualquer candidatura parada em funil ativo. Essa retenção indefinida é uma
+  **lacuna nomeada** desta fase — ela tem de aparecer no `COMMENT` da coluna e no ledger de
+  decisões, porque uma lacuna escrita é auditável e uma lacuna silenciosa é o próprio modo de
+  falha que o PURGA-07 descreve ("o sistema acredita ter uma política funcionando e apaga zero").
+  — **Reversibility:** `reversible` — é uma coluna de flag por linha de matriz.
+
+- **D-46-20 (recomendação da pesquisa, aceita): a janela do RETEN-05 é escalar PRÓPRIO** em
+  `config_purga` (`janela_notificacoes_meses`, 24), **não derivada** de `max(janela_meses)` da
+  matriz. Derivar mudaria a retenção de notificações em silêncio no dia em que um admin
+  encurtasse a janela de um estado, e a relação "notificação ↔ etapa" não existe no modelo.
+
+- **D-46-21 (recomendação da pesquisa, aceita): duas fixtures, com propósitos diferentes** —
+  uma **revertida** dentro do smoke, e uma **durável e namespaceada** para o período de dry-run,
+  com **plano de teardown escrito ANTES de criá-la**.
+  ⚠ Modo de falha da própria fixture, nomeado pela pesquisa: `updated_at` é o degrau (3) do
+  `COALESCE` da data-âncora e nasce `now()` — **sem retrodatá-lo explicitamente a fixture rende
+  zero e se autoderrota**.
+
+- **D-46-22: a matriz em seed é item de checkpoint do flip, não detalhe.** Medição em PROD
+  2026-08-22: **7 das 8 linhas seguem `origem='seed'` em 24 meses**; só `rejeitado` foi editado
+  (18 meses, `origem='admin'`). O `COMMENT` da coluna, escrito dentro do banco
+  (`20260801000002:174-177`), declara que a Phase 46 **não pode ligar a purga** enquanto houver
+  linha em seed sem confirmação por estado. Portanto: **confirmar as 3 linhas da allowlist é
+  pré-condição do flip `dry_run → live`**, somada às de D-46-14.
+
+- **D-46-23: o smoke herdado `p42_invent05_cron_smoke.sql` é emendado NO MESMO COMMIT que cria o
+  4º job.** Medição em PROD 2026-08-22: `cron.job` tem exatamente 3 (`ai-cost-aggregation`,
+  `notif-retry-sweep`, `ai-logs-retention-cleanup`). A asserção (a) da linha 98 exige 3 e a
+  mensagem de falha diz *"Um a mais = guard de remoção condicional falhou e o alvo ficou
+  duplicado"* — ou seja, o 4º job faria um portão verde reprovar trabalho correto **com
+  diagnóstico falso**. Emendar o smoke é parte da entrega, não limpeza posterior.
+
 ### Claude's Discretion
 
 - Nomes exatos de funções, tabelas e colunas, respeitando as convenções do projeto
