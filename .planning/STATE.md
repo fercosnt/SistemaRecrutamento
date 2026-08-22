@@ -241,26 +241,33 @@ porque era **plausível** e ninguém o mediu. **Diagnóstico registrado em `STAT
 evidência** — quando um portão reprova, medir o portão antes de acreditar na explicação que
 alguém já escreveu para ele.
 
-### ⚠ Supabase CLI — a auth QUEBROU em 2026-08-22, e o registro anterior está obsoleto
+### ⚠ Supabase CLI — ele FUNCIONA, mas é LENTO e o log engana (2026-08-22)
 
-**O `functions deploy` não roda: trava sem erro visível.** Diagnosticado com `--debug`:
+**O `functions deploy` funciona.** Ele demora **mais de 7 minutos** por função e, no começo,
+imprime uma linha que PARECE fatal e não é:
 
 ```
-NotFound: FileSystem.readFile (/Users/fernando/.supabase/profile)
+NotFound: FileSystem.readFile (/Users/fernando/.supabase/profile)   ← ruído
+Using access token for profile: supabase                            ← achou a credencial
+WARNING: Docker is not running                                       ← ruído
+Uploading asset (...) → {"message":"Deployed Functions."}            ← funcionou
 ```
 
-**Estado medido:** `~/.supabase/` existe mas contém só `telemetry.json` e `traces/` — **o arquivo
-`profile` NÃO existe**. `SUPABASE_ACCESS_TOKEN` está **ausente** do ambiente. Há credencial no
-keychain, mas o CLI **2.115.0** (que o `npx` baixa sempre na última) procura o `profile`.
+⚠ **A lentidão vem do `npx`, que baixa o CLI (2.115.0) a cada invocação, mais o timeout do
+Docker.** Rodar em background e conferir o resultado por MCP (`list_edge_functions` /
+`get_edge_function`), nunca esperar no primeiro plano.
 
-⚠ **O registro anterior — «a credencial ficou no keychain e mesmo assim o CLI responde» — DEIXOU
-DE SER VERDADE.** Provavelmente o login original foi feito com uma versão que guardava a
-credencial em outro lugar, e o `npx` passou a puxar uma versão que não a lê.
+⚠ **DUAS TEORIAS ERRADAS foram registradas antes desta, e as duas custaram tempo:**
 
-**Conserto:** `npx supabase login` no terminal do operador (abre o navegador e recria o
-`profile`), ou exportar `SUPABASE_ACCESS_TOKEN`. ⚠ **Sintoma enganoso:** trava em vez de dizer
-«não autenticado», então parece rede ou TTY. **Sempre rodar com `--debug` antes de teorizar** —
-foi o que resolveu em 30 segundos depois de duas tentativas cegas.
+1. «bloqueio de TTY no contexto do agente» — refutada porque travou **no terminal do operador
+   também**.
+2. «a auth quebrou: falta `~/.supabase/profile`» — refutada pelo log COMPLETO. Eu li a primeira
+   linha do `--debug`, vi um `NotFound`, e construí um diagnóstico em cima dela **antes de ler o
+   resto do arquivo**. O deploy tinha funcionado.
+
+**A lição não é sobre o CLI.** É que uma linha de erro no começo de um log não é o veredito do
+log — e que «trava» e «demora» são indistinguíveis sem medir. **Ler a saída inteira antes de
+teorizar**, e confirmar o efeito no sistema (a `version` mudou?) em vez de inferir do texto.
 
 ### Supabase CLI — como não repetir os erros de 2026-08-12
 
