@@ -149,7 +149,21 @@ Ou `/gsd-autonomous`, que encadeia os três.
 | `20260809000001` provavelmente não aplicada | Aplicada, byte a byte idêntica |
 | `DI-45-07-01`, `DI-45-10-01`, `DI-45-10-02` abertos | **Resolvidos no código**, abertos no ledger |
 | G1: export nunca exercitado, 0 linhas | Exercitado em 2026-08-11, `atendido` em 5 s |
-| 3 vagas "do administrador" | UUID de seed sem linha em `usuarios_rh` |
+| 3 vagas "do administrador" | ⚠ **esta linha estava errada, e o erro era MEU** — ver abaixo |
+
+⚠ **E em 2026-08-22 a lição se aplicou a MIM, duas vezes seguidas, pelo mesmo erro.** Juntei
+por `usuarios_rh.id` quando a chave é `usuarios_rh.user_id` (o `id` é surrogate), e produzi
+duas afirmações falsas com a mesma confiança das medidas certas:
+
+| Eu afirmei | O que é verdade |
+|---|---|
+| As 3 vagas apontam para um UUID de seed **sem linha em `usuarios_rh`** | É o `user_id` do `recruiter@teste.com`, papel `administrador`, `ativo: false` |
+| **Nenhuma** das 5 contas RH tem login (`last_sign_in_at` nulo) | Todas têm conta de auth, e **três já logaram** |
+
+A decisão do BD-8 sobreviveu — o ramo `rh` segue morto porque **o papel não existe**, não por
+falta de dado — mas o argumento de apoio estava errado. **Medir a coisa errada com o SQL certo
+produz um fato falso que parece medido**, e é mais perigoso que não medir: vem com a autoridade
+de uma consulta. Antes de concluir de um `JOIN`, confira que a chave é a chave.
 
 **Antes de planejar trabalho a partir de um registro, meça o que ele afirma.** Foi assim que
 um verificador suspeitou de uma regressão de produção que não existia, e assim que o `STATE`

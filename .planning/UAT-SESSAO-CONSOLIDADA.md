@@ -181,15 +181,24 @@ As três opções não estavam empatadas quando medidas:
 - **A realidade:** `usuarios_rh` tem **4 administradores e 1 recrutador. Zero papel `rh`.** O
   ramo `rh` não está sem dado — está morto por construção.
 
-⚠ E o registro anterior também estava errado: as 3 vagas ditas "do administrador" apontam para
-`bbbbbbbb-…-bbbb`, um UUID de seed **sem linha em `usuarios_rh`**. Nenhuma das 9 tem dono RH
-resolvível. **Vale conferir depois se o código ramifica em `'rh'`** — se sim, é valor que o
-sistema nunca atribui, e isso é defeito próprio.
+⚠ **CORRIGIDO em 2026-08-22 — eu tinha errado o join.** `usuarios_rh` tem coluna `user_id`
+separada; o `id` é surrogate. Juntei por `id` e tirei duas conclusões falsas. As duas caem:
 
-✅ **Conta E não precisa ser criada.** Já existem cinco contas RH; duas distintas servem —
-`recrutador.rh@teste.com` (recrutador) e `e2e.admin@beautysmile.com.br` (administrador). Falta
-**senha**, não conta: `last_sign_in_at` está NULL nas cinco. Resolve com reset no painel.
-⚠ `recruiter@teste.com` tem papel **administrador**, apesar do nome.
+- As 3 vagas ditas "do administrador" **têm dono resolvível**: `bbbbbbbb-…-bbbb` é o `user_id`
+  do `recruiter@teste.com`, papel **`administrador`**, `ativo: false`. Não é UUID órfão.
+- **As cinco contas RH TÊM conta de auth, e três já logaram**: `fernando@beautysmile.com.br`
+  (2026-08-03), `e2e.admin` (07-17), `recrutador.rh` (06-26).
+
+**A decisão do BD-8 NÃO muda** — e é importante que não mude pelo motivo certo: continua não
+existindo papel `rh` em `usuarios_rh` (só `administrador` e `recrutador`), então o ramo segue
+morto **por construção**, não por falta de dado. O que estava errado era o meu argumento de
+apoio, não o veredito.
+
+✅ **Conta E não precisa ser criada, e provavelmente nem de reset.**
+`recrutador.rh@teste.com` (recrutador, `user_id fba9bc0f-…`) e `e2e.admin@beautysmile.com.br`
+(administrador, `user_id 4a1fa998-…`) são duas contas RH distintas e **ativas**, ambas com
+login registrado. ⚠ `recruiter@teste.com` e `admin.rh@teste.com` estão **`ativo: false`** —
+não servem. E `recruiter@teste.com` tem papel **administrador**, apesar do nome.
 
 ⚠ **E1 é a metade de tela do único `PRESENT_BEHAVIOR_UNVERIFIED` da `47-VERIFICATION.md`.** A
 metade de banco **já está provada**: a `20260809000001` está aplicada, corpo byte-a-byte idêntico
