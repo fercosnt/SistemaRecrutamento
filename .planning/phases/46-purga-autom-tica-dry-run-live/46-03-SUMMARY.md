@@ -2,8 +2,8 @@
 phase: 46-purga-autom-tica-dry-run-live
 plan: 03
 subsystem: database
-tags: [postgres, sql, lgpd, retencao, purga, predicado, allowlist, supabase, prod-write-pendente]
-status: checkpoint
+tags: [postgres, sql, lgpd, retencao, purga, predicado, allowlist, supabase, prod-write]
+status: complete
 
 requires:
   - phase: 43-previa-retencao
@@ -19,14 +19,16 @@ provides:
   - "A linha de hold da fixture neg-hold (candidatura 4601c000-0000-4000-8000-000000000005) — a obrigacao herdada do 46-01, FECHADA"
   - "public.candidaturas_alem_da_janela() com as QUATRO excecoes de politica completas: soft-delete, allowlist, Art. 20, hold pontual e vaga ainda aberta"
   - "As DUAS decisoes satisfeitas por AUSENCIA (D-46-01 is_rascunho, D-46-02 autorizacao_retencao_curriculo) NOMEADAS dentro do banco"
-  - "supabase/tests/p46_purga_smoke.sql — (j.1)(j.2)(j.3)(k)(l), cada (j) com as DUAS metades; RESUMO (z) 6 -> 11"
-  - "supabase/tests/p43_previa_smoke.sql (e) — 2o re-pin da fase, lado ARQUIVO medido; rede estrutural de 5 para 7 checagens"
+  - "supabase/tests/p46_purga_smoke.sql — (j.1)(j.2)(j.3)(k)(l), cada (j) com as DUAS metades; RESUMO (z) 6 -> 11, VERDE em PROD"
+  - "supabase/tests/p43_previa_smoke.sql (e) — 2o re-pin da fase FECHADO, os dois lados medidos independentemente; rede estrutural de 5 para 7 checagens"
+  - "A migration APLICADA em PROD em 2026-08-23, md5 conferido dos dois lados, version nascida correta pela Management API"
+  - "candidaturas_alem_da_janela() 6 -> 4 e titulares_alem_da_janela() 4, com as DUAS quedas nomeadas e provadas individualmente"
 affects: [46-04, 46-05, 46-06, 46-07]
 
 actuals:
-  tokens: 61000
-  tasks: 2
-  commits: 3
+  tokens: 63000
+  tasks: 3
+  commits: 4
 
 tech-stack:
   added: []
@@ -52,7 +54,7 @@ key-decisions:
   - "Os gatilhos de net.http_post sao desligados por criterio medido antes de (j.3): sem isso o UPDATE enfileiraria um despacho e REPROVARIA a assercao (c) — um portao correto reprovando trabalho correto"
   - "O cabecalho da migration NAO repete a instrucao de reparo de version: pela Management API ela nasce correta, e propagar a instrucao obsoleta seria escrever um erro dentro do banco"
 
-requirements-completed: []  # ver §Requirements — PURGA-07 e PURGA-02 NAO fecham aqui
+requirements-completed: [PURGA-07]  # PURGA-02 NAO fecha aqui — ver §Requirements
 
 metrics:
   duration: ~70min
@@ -61,14 +63,14 @@ metrics:
 
 # Phase 46 Plan 03: As quatro exceções de política — Summary
 
-⏸ **ARTEFATOS COMMITADOS · APPLY EM PROD PENDENTE.** A Task 3 é um `checkpoint:human-verify`
-bloqueante e o executor **não aplica migration nem roda SQL em PROD**. Tudo abaixo é medição sobre
-arquivo; o que só o orquestrador pode medir está nomeado com o **valor esperado**, no checkpoint.
-
 As quatro exceções de política que a Phase 43 deixou explicitamente abertas estão escritas **em um
-só lugar**, valendo simultaneamente para a prévia e para o delete real. Duas ganharam cláusula
-(hold pontual e vaga aberta); as outras duas são satisfeitas **por ausência**, e a ausência está
-nomeada dentro do banco — porque ausência silenciosa é indistinguível de esquecimento.
+só lugar**, valendo simultaneamente para a prévia e para o delete real — e **aplicadas em PROD em
+2026-08-23**. Duas ganharam cláusula (hold pontual e vaga aberta); as outras duas são satisfeitas
+**por ausência**, e a ausência está nomeada dentro do banco, porque ausência silenciosa é
+indistinguível de esquecimento.
+
+**O contrato de não-vacuidade foi CUMPRIDO: `candidaturas_alem_da_janela()` caiu de 6 para 4** — e
+caiu pelas duas linhas nomeadas, cada uma por sua exceção.
 
 ## Task Commits
 
@@ -76,10 +78,103 @@ nomeada dentro do banco — porque ausência silenciosa é indistinguível de es
 |------|------|--------|
 | 1 | `retencao_hold` + as duas exceções no predicado, **mais o re-pin de (e) no mesmo commit** | `7932e0e` |
 | 2 | As cinco asserções de PURGA-07 em `p46_purga_smoke.sql` | `b9ae519` |
-| — | SUMMARY + STATE + ROADMAP (checkpoint) | `<este commit>` |
+| — | SUMMARY + STATE + ROADMAP + WINDOWS (checkpoint) | `380f609` |
+| 3 | Apply em PROD + `database.types.ts` + escrituração | `<este commit>` |
 
-Zero `--no-verify`: o hook de type-check rodou nos dois commits e reportou **96 erros — o baseline
+Zero `--no-verify`: o hook de type-check rodou nos quatro commits e reportou **96 erros — o baseline
 congelado**, inalterado.
+
+## O apply — md5 dos DOIS lados, medidos independentemente
+
+| Migration | `version` | md5 do ARQUIVO (shell, ANTES do apply) | md5 de `statements[1]` (lido DEPOIS) | bytes |
+|---|---|---|---|---|
+| `p46_retencao_hold_e_excecoes` | `20260823000005` | `1a59cd381e8e2cfe23b0fe9446bd35ca` | **idem** | 35 525 |
+
+Batem. **A `version` nasceu correta e não houve reparo a fazer** — pela Management API o
+`statements[1]` recebe o arquivo literal, e é por isso que o cabeçalho desta migration **não repete**
+a instrução obsoleta de `UPDATE … schema_migrations SET version`. A única ocorrência dessa string no
+arquivo é a nota que explica que ela ficou obsoleta e por que as migrations `…0001`..`4` não foram
+corrigidas (corrigi-las faria o md5 delas divergir do ledger e quebraria a própria prova).
+
+⚠ **Nota de medição, porque um número inexplicado corrói mais que um número feio:** o arquivo tem
+**35 526** bytes em disco e **35 525** entram no md5. A diferença de 1 é a quebra de linha final, que
+`printf '%s' "$(cat …)"` descarta na substituição de comando. É o mesmo comando registrado no
+cabeçalho da migration e o mesmo usado nos quatro applies do 46-02 — a assimetria é do comando, não
+do arquivo.
+
+## O 2º re-pin de (e) — FECHADO, com os dois lados medidos por partes independentes
+
+| Lado | Valor | Octetos | Quem mediu |
+|---|---|---|---|
+| **ARQUIVO** | `b4fdb3a1243f9375cd15a61ef27189f1` | 1 958 | executor, por execução do comando de recomputação, ANTES do apply |
+| **VIVO** (`md5(prosrc)` de `pg_proc`) | `b4fdb3a1243f9375cd15a61ef27189f1` | 1 958 | orquestrador, DEPOIS do apply |
+
+Idênticos. **Segundo re-pin da Phase 46, ambos no mesmo dia, ambos atos conscientes e medidos.**
+Os dois valores anteriores continuam no bloco de PROVENIÊNCIA como histórico —
+`ddfa6542921d241323c0124fc1bd1f99` (775 octetos) e `6df3564414519abc56379d9b8924fad0` (1357) — e é
+isso que torna a sequência auditável: dá para ver que o pin mudou **duas** vezes, cada uma com data
+e com razão, em vez de ter mudado sozinho. **A rede estrutural cresceu de 5 para 7 e não perdeu
+nenhuma.**
+
+## ⭐ O contrato de não-vacuidade — CUMPRIDO, e pelas linhas certas
+
+**`candidaturas_alem_da_janela()`: 6 → 4.** **`titulares_alem_da_janela()`: 4.**
+
+| `slug#sufixo` | Antes do 46-03 | Depois | O que isso prova |
+|---|---|---|---|
+| `pos1#01` | ✓ | ✓ | degrau (1), etapa `aprovado`, vaga arquivada, sem hold |
+| `pos2#02` | ✓ | ✓ | degrau (2), etapa `decisao_final` |
+| `pos3#03` | ✓ | ✓ | degrau (3) — a fixture de (k) |
+| `cap2#04` | ✓ | ✓ | mantém 2+ elegíveis para a prova do cap (D-46-08) |
+| **`neg-hold#05`** | **✓** | **✗** | ⊖ **a cláusula de `retencao_hold` MORDEU** (D-46-04) |
+| **`neg-vaga#06`** | **✓** | **✗** | ⊖ **a cláusula de vaga aberta MORDEU** (D-46-03) |
+| `neg-art20#07` | ✗ | ✗ | a exceção do Art. 20, herdada da Phase 43 |
+| `neg-etapa#08` | ✗ | ✗ | `entrevista_online` fora da allowlist (D-46-19) |
+| `neg-etapa#09` | ✗ | ✗ | dentro da janela — o caso de D-46-11 |
+
+**Exatamente duas linhas caíram, e foram as nomeadas.** Não foi "o número baixou" — foram
+`neg-hold#05` e `neg-vaga#06`, cada uma pela sua exceção, com as outras quatro intactas. Um número
+que caísse por outro motivo teria passado por um critério de contagem e reprovado neste; um `0`
+significaria que uma exceção nova está ampla demais e protege o que deveria purgar.
+
+### ⛔ A obrigação herdada do 46-01 — CUMPRIDA E MEDIDA
+
+`SELECT count(*) FROM public.retencao_hold WHERE candidatura_id =
+'4601c000-0000-4000-8000-000000000005' AND liberado_em IS NULL` = **1 linha**, inserida pela
+Seção A.2 da migration.
+
+**Isto não é detalhe de fixture: é a diferença entre prova e vácuo.** A fixture do plano 46-01 (§5f)
+tentou inserir essa linha em 2026-08-22, não conseguiu porque a tabela não existia, e emitiu apenas
+um `RAISE NOTICE`. Enquanto ela faltasse, `neg-hold` era só mais uma candidatura elegível e a
+asserção (j.1) do smoke passaria **por vacuidade** — exatamente o modo de falha que esta fase
+inteira existe para eliminar. O `INSERT` ficou na **migration** e não num arquivo de teste
+justamente porque um arquivo de teste pode não rodar, e a asserção (j.1) tem essa contagem como
+**primeira** verificação, com uma mensagem de falha que nomeia a obrigação herdada.
+
+## Os cinco smokes — contadores de PASS lidos, não "não levantou exceção"
+
+⚠ **Rodar sem exceção não prova que as asserções rodaram.** O GUC de cada arquivo foi lido na MESMA
+sessão:
+
+| Smoke | Contador | Esperado |
+|---|---|---|
+| `p46_purga_smoke.sql` | **11** | 11 (era 6; +5 do PURGA-07) ✅ |
+| `p43_previa_smoke.sql` | **9** | 9 ✅ — (e) casando `b4fdb3a1…` com as **7** propriedades estruturais |
+| `p45_motor_exclusao_smoke.sql` | **24** | 24 ✅ — o motor destrutivo intacto |
+| `p43_matriz_retencao_smoke.sql` | **11** | 11 ✅ — com a (j) emendada no 46-02 |
+| `p42_invent05_cron_smoke.sql` | **4** | 4 ✅ — ainda 3 jobs; o 4º só nasce no 46-06 |
+
+## ⊖ As negativas — todas paradas
+
+`candidatos` **31** · `candidaturas` **20** · `historico_candidatura` **13** · `decisao_final` **3** ·
+`auth.users` **37** — **idênticas às do fim do 46-02**. `net._http_response` **0**.
+`config_purga.modo` = **`off`**. `purga_execucoes` = **2** linhas — o envelope do smoke reverteu as
+suas, como previsto, e o contador de D-46-14 **não foi inflado por um teste**.
+
+## Tipos
+
+`npm run db:types` regenerado: **+83 linhas**, com `retencao_hold` presente (8 ocorrências).
+`npm run lint` = **96 erros — igual ao baseline congelado**, não subiu.
 
 ## ⛔ A obrigação herdada do 46-01, FECHADA — e por que ela era a diferença entre prova e vácuo
 
@@ -276,24 +371,55 @@ Postgres, e a asserção (e) o usa). O problema é só no `grep` de shell.
 | `criado_por` / `liberado_por` sempre nulos | idem | A única linha viva é a da fixture, sem autor humano | Idem — nulo é legítimo e está escrito no `COMMENT ON COLUMN` |
 | Herdados do 46-02, ainda abertos | — | `varrer_purga_retencao()` não chama o motor · `relato_dry_run` nulo · `notificacoes_expurgadas` = 0 · `janela_notificacoes_meses` sem leitor · vocabulários `despachado`/`segredo_ausente` sem escritor | **46-04**, **46-05**/**46-06**, **46-07** |
 
-**Fechado neste plano:** o stub *"`neg-hold#05` continua elegível — `public.retencao_hold` ainda não
-existe"*, herdado do 46-01 e repetido no 46-02. A tabela existe e a linha é inserida pela migration.
-⏸ A confirmação por execução é do checkpoint.
+**FECHADO neste plano:** o stub *"`neg-hold#05` continua elegível — `public.retencao_hold` ainda não
+existe"*, herdado do 46-01 e repetido no 46-02. A tabela existe, a linha existe (**medida: 1 linha
+com `liberado_em IS NULL`**), e `neg-hold#05` saiu do conjunto elegível.
+
+## Lessons
+
+**Uma ferramenta que parece estar checando e não está é a mesma família de defeito que os portões
+desta fase — e desta vez a vítima foi o próprio `verify`.**
+
+O `<verify><automated>` do plano usa `grep -cE '\mNOT[[:space:]]+IN\M'`. O `grep` desta máquina é
+**ugrep 7.5.0**, que rejeita esses escapes com `invalid escape` — ou seja, **o comando aborta em vez
+de medir**, e um portão que erra por sintaxe é indistinguível de um que olhou e não achou nada. Pior:
+`grep -c` de um comando abortado devolve string vazia, que num `&&`-chain se parece com sucesso.
+
+É exatamente a assimetria que a Phase 46 já catalogou três vezes em asserções de smoke — *"um portão
+que não enxerga o objeto novo é pior que um portão vermelho, porque parece verde"* — só que aqui o
+objeto não visto era **a própria forma banida**. Verificado com `\b` (fronteira portátil):
+**zero ocorrências no arquivo inteiro**, dentro e fora de comentário.
+
+⚠ A assimetria a não uniformizar: `\m` / `\M` **continuam corretos dentro do plpgsql** (é regex do
+Postgres, e a asserção (e) depende deles). O defeito é só no `grep` de shell. Uniformizar os dois
+lados trocaria um problema real por outro.
+
+**A ordem apply-antes-dos-smokes não é higiene, é pré-condição.** `p46_purga_smoke.sql` referencia
+`public.retencao_hold`, que não existia; e (e) do `p43_previa_smoke.sql` reprovaria contra o corpo
+antigo. Rodar os smokes antes teria produzido duas falhas que **descreveriam corretamente o estado**
+e ainda assim seriam lidas como defeito do trabalho.
 
 ## Requirements
 
-**`requirements-completed` fica VAZIO de propósito.** O frontmatter do plano declara
-`[PURGA-07, PURGA-02]`, e **nenhum dos dois fecha aqui** — marcá-los seria a promessa-sem-código que
-o CONSOL-04 audita, e o apply sequer aconteceu:
+O frontmatter do plano declara `[PURGA-07, PURGA-02]`. **Um fecha, o outro não** — e a diferença é
+observável, não estilística:
 
-- **PURGA-07** ("`COALESCE` explícito + allowlist de terminais + as exceções de política") tem agora
-  as quatro exceções escritas e cinco asserções que as provam — mas **nenhuma delas rodou**. Um
-  requirement fecha quando a asserção **executa verde**, não quando ela é escrita. Fecha no
-  checkpoint deste plano, se as cinco vierem verdes e o `count(*)` cair para 4.
-- **PURGA-02** ("o dry-run sai da MESMA expressão do delete real") continua satisfeito **por
-  construção** e agora com a rede de (e) crescida — mas o `DELETE` real ainda não existe. O
-  requirement só é observável quando houver um caminho destrutivo para comparar, e ele nasce no
-  **46-04**.
+- ✅ **PURGA-07 FECHA AQUI** ("predicado não engole linhas por NULL — `COALESCE` explícito e
+  allowlist de estados terminais, nunca denylist"). As **três** linhas do `46-VALIDATION.md` que o
+  representam estão verdes **por execução**, e não por leitura de código:
+  - `(j.1-3)` — as três exceções provadas **individualmente**, cada uma com a metade "passa a estar";
+  - `(k)` — `COALESCE` explícito medido no degrau (3): `pos3` está no conjunto **e** vem com
+    `ancora_origem = 'updated_at'`, no predicado **e** no item de ledger;
+  - `(l)` — allowlist por **igualdade de conjunto**, e a etapa fora dela não entra.
+  Mais a metade estrutural: (e) reprova a forma banida de negação por conjunto e agora exige
+  `retencao_hold` e `status_vaga` presentes. **É a primeira vez nesta fase que um requirement fecha,
+  e ele fecha porque as asserções EXECUTARAM.**
+- ❌ **PURGA-02 NÃO fecha** ("o dry-run sai da MESMA expressão do delete real"). Duas das três linhas
+  do contrato estão verdes — (e) re-pinado e (f) com os três wrappers —, mas a terceira, *"o loop de
+  dry-run termina em `P45DR` e zero coluna mutou"*, é a asserção **(b)**, que **ainda não existe**: o
+  `DELETE` real nasce no **46-04**. Marcar PURGA-02 com dois terços verdes seria precisamente a
+  promessa-sem-código que o CONSOL-04 audita — "a asserção passou" e "o requirement fechou" são
+  coisas diferentes quando a asserção cobre parte do requirement.
 
 ## Verification
 
@@ -325,26 +451,42 @@ o CONSOL-04 audita, e o apply sequer aconteceu:
 | (f) e (g) do smoke da 43 intocadas | ✅ `v_checadas <> 3` e `<> 4` preservados |
 | RESUMO (z) 6 → 11 | ✅ |
 | Cabeçalho **sem** a instrução obsoleta de reparo de `version` | ✅ o arquivo diz explicitamente que ela não existe mais e por quê |
-| `npm run lint` | ✅ **96 erros — baseline congelado inalterado** |
-| Zero `--no-verify` | ✅ hook rodou nos 2 commits |
+| `npm run lint` | ✅ **96 erros — baseline congelado inalterado**, antes E depois do `db:types` |
+| Zero `--no-verify` | ✅ hook rodou nos 4 commits |
 | Zero arquivo apagado | ✅ `git diff --diff-filter=D` vazio |
-| ⏸ Apply em PROD, md5 dos dois lados, re-pin vivo, 5 smokes, `count(*)` = 4 | ⏸ **CHECKPOINT** |
+| Migration aplicada, `version` correta, sem buraco no ledger | ✅ `20260823000005` |
+| Par de md5 do apply (arquivo × `statements[1]`), **os dois lados registrados** | ✅ `1a59cd38…`, 35 525 bytes |
+| Re-pin de (e) com os dois lados medidos por partes independentes | ✅ `b4fdb3a1…`, 1 958 octetos, vivo == arquivo |
+| `database.types.ts` contém `retencao_hold` | ✅ +83 linhas, 8 ocorrências |
+| Os 5 smokes verdes, **contador de PASS lido em cada um** | ✅ 11 / 9 / 24 / 11 / 4 |
+| ⭐ `candidaturas_alem_da_janela()` **6 → 4**, e caem `neg-hold#05` e `neg-vaga#06` | ✅ **cumprido, e pelas linhas certas** |
+| `titulares_alem_da_janela()` = 4 e ≥ 3 | ✅ |
+| ⛔ Linha de `retencao_hold` para `4601c000-…-0005` com `liberado_em` nulo | ✅ **1** — a obrigação herdada do 46-01, fechada |
+| ⊖ As 5 contagens de domínio idênticas às do fim do 46-02 | ✅ 31/20/13/3/37 |
+| ⊖ `net._http_response` sem linha nova | ✅ **0** |
+| ⊖ `purga_execucoes` continua em 2 linhas (o teste não fabricou evidência de D-46-14) | ✅ |
+| `config_purga.modo` continua em `'off'` | ✅ |
 
 ## Self-Check: PASSED
 
 - `supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql` — FOUND
 - `supabase/tests/p46_purga_smoke.sql` — FOUND (modificado)
 - `supabase/tests/p43_previa_smoke.sql` — FOUND (modificado)
+- `database.types.ts` — FOUND (+83 linhas, com `retencao_hold`)
 - `.planning/phases/46-purga-autom-tica-dry-run-live/46-03-SUMMARY.md` — FOUND
 
-Commits `7932e0e` e `b9ae519` — ambos FOUND em `git log`.
+Commits `7932e0e`, `b9ae519` e `380f609` — todos FOUND em `git log`.
 
 ## Consequências medidas para os próximos planos
 
 - **46-04:** ⚠ o pin de `anonimizar_candidato` (`8c86e0f040219e7eade47eb587dbf5de`,
   `p45_motor_exclusao_smoke.sql:1591`) **vai mudar**, e o re-pin é obrigação de D-46-18 (obrigação 4)
-  com conferência cruzada. O pin do **predicado** (`b4fdb3a1…`) **não** deve mudar naquele plano — se
-  mudar, alguém editou o predicado sem plano.
+  com conferência cruzada. O pin do **predicado** (`b4fdb3a1…`, 1 958 octetos) **não** deve mudar
+  naquele plano — se mudar, alguém editou o predicado sem plano. E o smoke daquele motor está em
+  **24 PASS**, medido hoje: é esse o número a preservar.
+- **46-04:** o conjunto elegível agora é **4**, e as três positivas mais `cap2` são as únicas linhas
+  que um `DELETE` real alcançaria. Quem escrever a chamada destrutiva tem esse número como teto
+  medido, não presumido.
 - **46-04:** o bloco de auto-verificação daquele plano tem de **abortar o apply** se `authenticated`
   puder escrever em `purga_execucoes` / `purga_execucao_itens`. Vale acrescentar `retencao_hold` à
   mesma pergunta: a partir de agora, **liberar um hold** é o passo que falta entre "registro sob

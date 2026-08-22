@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 36
+open_count: 34
 waived_count: 0
-fixed_count: 1
+fixed_count: 3
 total_count: 37
-last_updated: 2026-08-22T23:35:17.092Z
+last_updated: 2026-08-22T23:41:17.237Z
 ---
 
 # Broken Windows Ledger
@@ -50,8 +50,8 @@ last_updated: 2026-08-22T23:35:17.092Z
 | 33 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | NW-03 alargou: causa='falha_storage' cobre 10 classes nomeadas mais carimbo e excecao (DI-45-16-01) | open |  | 2026-08-12T01:30:33.120Z |  |
 | 34 | 46 | stub | supabase/migrations/20260823000004_p46_sweep_tracer.sql |  | varrer_purga_retencao nao chama anonimizar_candidato: laco e subtransacao no formato final, chamada ausente ate o 46-04 (D-46-18/D-46-24) | open |  | 2026-08-22T23:07:37.543Z |  |
 | 35 | 46 | stub | supabase/tests/p42_invent05_cron_smoke.sql |  | assercao (a) fixa cron.job em 3 com mensagem de diagnostico falso para o 4o job legitimo — emenda de D-46-23 pendente no 46-06 | open |  | 2026-08-22T23:07:37.606Z |  |
-| 36 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | 46-03: as 5 assercoes (j.1)(j.2)(j.3)(k)(l) foram escritas mas NAO executadas — apply e execucao dependem do checkpoint bloqueante da Task 3 | open |  | 2026-08-22T23:35:12.424Z |  |
-| 37 | 46 | unrun-verify | supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql |  | 46-03: migration commitada mas NAO aplicada em PROD — retencao_hold, a linha de hold da fixture e as duas excecoes do predicado nao existem no banco ate o checkpoint da Task 3 | open |  | 2026-08-22T23:35:17.092Z |  |
+| 36 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | 46-03: as 5 assercoes (j.1)(j.2)(j.3)(k)(l) foram escritas mas NAO executadas — apply e execucao dependem do checkpoint bloqueante da Task 3 | fixed |  | 2026-08-22T23:35:12.424Z | 2026-08-22T23:41:17.172Z |
+| 37 | 46 | unrun-verify | supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql |  | 46-03: migration commitada mas NAO aplicada em PROD — retencao_hold, a linha de hold da fixture e as duas excecoes do predicado nao existem no banco ate o checkpoint da Task 3 | fixed |  | 2026-08-22T23:35:17.092Z | 2026-08-22T23:41:17.237Z |
 
 ````json
 [
@@ -482,10 +482,10 @@ last_updated: 2026-08-22T23:35:17.092Z
     "file": "supabase/tests/p46_purga_smoke.sql",
     "line": null,
     "description": "46-03: as 5 assercoes (j.1)(j.2)(j.3)(k)(l) foram escritas mas NAO executadas — apply e execucao dependem do checkpoint bloqueante da Task 3",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-08-22T23:35:12.424Z",
-    "resolved_at": null
+    "resolved_at": "2026-08-22T23:41:17.172Z"
   },
   {
     "id": 37,
@@ -494,10 +494,10 @@ last_updated: 2026-08-22T23:35:17.092Z
     "file": "supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql",
     "line": null,
     "description": "46-03: migration commitada mas NAO aplicada em PROD — retencao_hold, a linha de hold da fixture e as duas excecoes do predicado nao existem no banco ate o checkpoint da Task 3",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-08-22T23:35:17.092Z",
-    "resolved_at": null
+    "resolved_at": "2026-08-22T23:41:17.237Z"
   }
 ]
 ````

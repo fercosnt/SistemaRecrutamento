@@ -4,8 +4,8 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
-stopped_at: "46-03: migration 20260823000005 + 5 assercoes + 2o re-pin commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente (esperado: candidaturas_alem_da_janela() 6 -> 4)"
-last_updated: "2026-08-23T00:20:00.000Z"
+stopped_at: "Concluido 46-03-PLAN.md (3 de 7 da Phase 46) — as 4 excecoes de politica APLICADAS em PROD, candidaturas_alem_da_janela() 6 -> 4 (saem neg-hold#05 e neg-vaga#06), 5 smokes verdes com contadores lidos (11/9/24/11/4), PURGA-07 FECHADO. Proximo: 46-04"
+last_updated: "2026-08-23T00:45:00.000Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 6
@@ -970,7 +970,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 46-03: toda assercao (j) tem DUAS metades — "nao aparece" e "passa a estar" desfeita a condicao. A 2a metade E a nao-vacuidade: ela so ocorre se a fixture ja estava alem da janela
 - [Phase ?]: 46-03: (l) assere a allowlist por IGUALDADE DE CONJUNTO e nunca por contagem — uma contagem de 3 passaria com as TRES etapas erradas marcadas como elegiveis
 - [Phase ?]: 46-03 achado: o UPDATE de (j.3) dispararia trg_notif_revisao_respondida (net.http_post) e REPROVARIA a assercao (c) do mesmo envelope. Gatilhos desligados por criterio medido do catalogo e religados, com residuo zero asserido
-- [Phase ?]: 46-03: 2o re-pin da fase, 6df35644 -> b4fdb3a1 (1958 octetos), lado ARQUIVO medido; lado VIVO pendente do checkpoint. A rede estrutural de (e) CRESCEU de 5 para 7 (retencao_hold + status_vaga)
+- [Phase ?]: 46-03: 2o re-pin da fase FECHADO, 6df35644 -> b4fdb3a1 (1958 octetos), os DOIS lados medidos por partes independentes. A rede estrutural de (e) CRESCEU de 5 para 7 (retencao_hold + status_vaga)
+- [Phase ?]: 46-03 medido: candidaturas_alem_da_janela() 6 -> 4 e titulares 4 — saem neg-hold#05 e neg-vaga#06, cada um pela SUA excecao; sobram as 4 positivas. Esperado 4 dai em diante ate o 46-04 mexer
+- [Phase ?]: 46-03 medido: retencao_hold para 4601c000-...-0005 com liberado_em nulo = 1 linha. A obrigacao herdada do 46-01 esta CUMPRIDA — sem ela a (j.1) passaria por vacuidade
+- [Phase ?]: 46-03 medido: contadores de PASS lidos do GUC em cada smoke — p46_purga 11, p43_previa 9, p45_motor 24, p43_matriz 11, p42_cron 4. Rodar sem excecao nao prova que as assercoes rodaram
+- [Phase ?]: 46-03: PURGA-07 FECHADO — as 3 linhas do 46-VALIDATION verdes por EXECUCAO. PURGA-02 NAO fecha: a assercao (b) do dry-run nao existe ate o 46-04
 - [Phase ?]: 46-03: (f) e (g) do smoke da 43 NAO foram tocadas — as listas literais delas sao ESCOPO deliberado e este plano nao cria funcao nenhuma. Varredura por FORMA feita em todos os smokes: nenhum portao vivo enxerga tabela nova em public
 - [Phase ?]: 46-03 ambiente: o grep desta maquina e ugrep e NAO entende \m / \M — criterios de aceite com esses escapes FALHAM em vez de medir. Usar \b no shell; dentro do plpgsql \m/\M continuam corretos
 
@@ -1175,9 +1179,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-23T00:20:00.000Z
-Stopped at: 46-03: migration 20260823000005 + as 5 assercoes de PURGA-07 + o 2o re-pin de (e) commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-03-PLAN.md
+Last session: 2026-08-23T00:45:00.000Z
+Stopped at: Concluido 46-03-PLAN.md — as 4 excecoes de politica aplicadas em PROD, 6 -> 4 elegiveis, PURGA-07 fechado. Proximo: 46-04
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

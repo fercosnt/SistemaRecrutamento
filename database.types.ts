@@ -3884,6 +3884,89 @@ export type Database = {
           },
         ]
       }
+      retencao_hold: {
+        Row: {
+          candidatura_id: string
+          criado_em: string
+          criado_por: string | null
+          detalhe: string | null
+          id: string
+          liberado_em: string | null
+          liberado_por: string | null
+          motivo: string
+        }
+        Insert: {
+          candidatura_id: string
+          criado_em?: string
+          criado_por?: string | null
+          detalhe?: string | null
+          id?: string
+          liberado_em?: string | null
+          liberado_por?: string | null
+          motivo: string
+        }
+        Update: {
+          candidatura_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          detalhe?: string | null
+          id?: string
+          liberado_em?: string | null
+          liberado_por?: string | null
+          motivo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_retencao_hold_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "candidaturas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_retencao_hold_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_fila_trabalho"
+            referencedColumns: ["candidatura_id"]
+          },
+          {
+            foreignKeyName: "fk_retencao_hold_candidatura"
+            columns: ["candidatura_id"]
+            isOneToOne: false
+            referencedRelation: "v_triagem_panel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retencao_hold_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_rh"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retencao_hold_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retencao_hold_liberado_por_fkey"
+            columns: ["liberado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_rh"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retencao_hold_liberado_por_fkey"
+            columns: ["liberado_por"]
+            isOneToOne: false
+            referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scores_bigfive: {
         Row: {
           analise_ia: Json | null

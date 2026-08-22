@@ -125,7 +125,7 @@
 - [ ] **PURGA-04**: O flip dry-run→live é checkpoint separado e evidenciado, espelhando a disciplina `NOTIFICACOES_MODO=teste→producao` do M7
 - [ ] **PURGA-05**: Cap de blast-radius por execução + kill switch
 - [ ] **PURGA-06**: Ledger de execuções de purga — o que foi apagado, quando, sob qual política
-- [ ] **PURGA-07**: Predicado de retenção não engole linhas por NULL — `COALESCE` explícito e allowlist de estados terminais, nunca denylist de estados ativos
+- [x] **PURGA-07**: Predicado de retenção não engole linhas por NULL — `COALESCE` explícito e allowlist de estados terminais, nunca denylist de estados ativos
 
 ### Transparência (TRANSP)
 
@@ -224,7 +224,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | PURGA-04 | Phase 46 | Pending |
 | PURGA-05 | Phase 46 | Pending |
 | PURGA-06 | Phase 46 | Pending |
-| PURGA-07 | Phase 46 | Pending |
+| PURGA-07 | Phase 46 | Complete |
 | TRANSP-01 | Phase 47 | Complete |
 | TRANSP-02 | Phase 47 | Complete |
 | CONSOL-01 | Phase 47 | Complete |
