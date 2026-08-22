@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 45
-current_phase_name: Motor de Exclusão & Anonimização
-status: executing
-stopped_at: "Autonomous run 2026-08-12: review round 4 da P45 (2 blockers, ambos portoes que reprovam trabalho correto) + 47-VERIFICATION.md (7/8, human_needed). Parado ANTES do portao destrutivo do 45-11 Task 3, por decisao do operador."
-last_updated: "2026-08-12T05:40:00.000Z"
-last_activity: 2026-08-12
+current_phase: 46
+current_phase_name: Purga Automática (dry-run → live)
+status: planning
+stopped_at: "Phase 45 COMPLETA — motor executado em PROD 2026-08-22, VERIFICATION passed 5/5, portao destrutivo 5/5. Proximo: Phase 46, que nunca comecou e agora esta destravada."
+last_updated: "2026-08-22T05:35:00.000Z"
+last_activity: 2026-08-22
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 52
   completed_plans: 50
   percent: 67
-last_activity_desc: "45-16 entregue: WR-A e WR-E — as DUAS condicoes que o 45-REVIEW-3.md poe ANTES da execucao REAL (nao-dry-run) da Task 3 do 45-11 — fechadas NO DISCO, na Edge Function. O criterio nao foi «para de lancar»: os dois produzem estados DEPOIS do passo 1 (curriculo ja destruido, PII intacta), entao a pergunta e se a execucao ainda CONVERGE. WR-A — plano.caminhos e congelado no passo 0 (ERASE-04) mas a conferencia mede o POS-ESTADO do prefixo inteiro: um CV que o titular suba entre uma tentativa que morreu e a retomada nunca entra em caminhos, nunca e removido, e reprova o passo em TODA tentativa futura, para sempre. Fechado SEM deixar o plano derivar (recusei a sugestao literal do review de unir restantes a caminhos): a CONFERENCIA passou a separar residuo PLANEJADO (o remove() falhou -> falha FECHADA, sem carimbo, igual a antes) de objeto POSTERIOR ao passo 0 (esta sob {authUid}/, e PII do titular, e objeto do direito exercido -> varredura de UMA passada + re-enumeracao; prefixo vazio carimba). Uma passada so, e nao laco: um upload durante a varredura reprova ESTA tentativa e a seguinte fecha — adiar, nunca travar. Varridos SOMAM em contagens.storage_remove e entram como CONTAGEM em achados_resumo.varridos_pos_plano, nunca a lista (o caminho embute o auth.uid()). WR-E — a unica condicao para reusar o plano persistido era Array.isArray(caminhos), e achados_resumo/contagens eram escritos DEPOIS do laco de remocao: um plano de outra versao (rollback, edicao manual) fazia o remove() acontecer e so entao lancar TypeError, que nao e ErroDePasso e virava causa='falha_postgres' para uma execucao parada NO STORAGE DEPOIS DE APAGAR. Fechado com normalizacao ANTES da remocao, nos dois ramos — e o erro deixa de existir, nao fica mais legivel. A normalizacao tambem RE-VALIDA O PREFIXO dos caminhos persistidos (Rule 2): o WR-03 so peneira a lista montada no passo 0, e o teste (aq3) prova que o defeito era ATIVO — o caminho de outra pessoa CHEGAVA ao remove() sob service key, que ignora RLS. Mais: o catch deixou de assumir 'postgres' por default e herda o passo corrente (default segue 'postgres' ate o passo 1 comecar, porque afirmar falha_storage antes de qualquer remocao diria que o curriculo pode ter sido destruido quando nada foi tocado). ⚠ PROVA POR MUTACAO EXECUTADA (o precedente da (C7) do round 2 nao alcancava o defeito): index.ts de HEAD numa arvore isolada com o arquivo de teste ATUAL -> 81 passed | 6 failed, e as 6 sao exatamente (ap), (ap2), (aq), (aq2), (aq3) e (ar); pos-fix 87/87. Os outros 3 casos novos NAO discriminam e isso esta escrito: (ap3)/(ap4) medem que a falha FECHADA continua fechada e (ar2) pina o default que nao pode mudar. Zero teste antigo editado — o (w) segue verde sem uma linha alterada, e foi essa restricao que produziu a distincao residuo planejado x objeto posterior. G13 conferido BYTE A BYTE: montarPlano identico ao HEAD. G7, G10, G12, G11, G14 e G20 intactos. ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD — as sete migrations seguem NAO aplicadas e git diff de supabase/migrations/ e VAZIO. md5(prosrc) recomputados por execucao e INALTERADOS: plano_exclusao_titular = 97634d07ef13447e06741a8c8372fca6 (21349), anonimizar_candidato = 8c86e0f040219e7eade47eb587dbf5de (34488) — a referencia do portao continua sendo o 45-15-SUMMARY.md. Smoke NAO tocado, contador FIXO segue 24. ⚠ A suite Deno subiu de 78 para 87 (handoff no 3). suite 1892/1892, tsc 97, deno check limpo, os cinco check:* verdes, zero --no-verify, zero dependencia nova. Abertos: WR-B, WR-C (reduzido pelo round 3), WR-D, WR-F (cresceu com o BL-02) e WR-G, mais o DI-45-16-01 novo — a NW-03 alargou: falha_storage cobre agora 10 classes nomeadas mais carimbo e excecao. --- 45-15 entregue: as DUAS condicoes que o 45-REVIEW-3.md poe ANTES do apply das sete migrations fechadas NO DISCO — as duas em assercoes que NUNCA foram executadas. NW-01 — a (vii) provava o recorte da propria linha so para candidatos (t.id) e nunca para candidaturas (t.candidato_id). As duas tabelas usam colunas de recorte DIFERENTES, e escrever t.id tambem para candidaturas compara o id da CANDIDATURA com o id do CANDIDATO, que nunca sao iguais: o probe nunca excluiria nada, bloqueadores_deleteuser viria sempre nao-vazia e o motor RECUSARIA TODA exclusao legitima, porque quem se candidata por si mesmo escreve a propria autoria na propria candidatura. As TRES assercoes da fase passariam com esse recorte errado. Fechado com a medicao (c) — candidatura DO PROPRIO titular NAO bloqueia — com base zero propria e posicionada ANTES da (b), porque a (b) suja candidaturas com uma linha alheia e o probe e um EXISTS sobre a tabela inteira. NW-02 — a (vii)(b) exigia que os quatro pares de autoria fossem FK NO ACTION mas nunca checava: um par em SET NULL/CASCADE nao e enumerado, a (a) e a (c) passariam por VACUIDADE e a (b) abortaria o apply com a mensagem do BL-02, culpando um defeito de escopo que nao aconteceu. Fechado com precondicao de CATALOGO sobre os QUATRO pares, nomeando por string_agg quais sairam do regime, e com a mensagem abrindo por dizer que o que foi medido e o CATALOGO e que ISTO NAO E O DEFEITO DO BL-02. ⚠ Os md5(prosrc) foram RECOMPUTADOS por execucao e estao INALTERADOS — isto CORRIGE a condicao no 3 do review: os dois fixes moram no bloco anonimo $verifica_anonimizar_candidato$ (linha >= 863) e nao no corpo da funcao, que fecha na linha 823, e prosrc e so o corpo. plano_exclusao_titular = 97634d07ef13447e06741a8c8372fca6 (21349), anonimizar_candidato = 8c86e0f040219e7eade47eb587dbf5de (34488). O 45-15-SUMMARY.md e a referencia do 45-11. Smoke NAO tocado, contador FIXO segue 24. Nota do NW-06 acrescentada ao 45-14-SUMMARY.md: $c2$ = 2676 octetos COM delimitadores, 2668 pela receita que os exclui. ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD. suite 1892/1892, tsc 97, deno 78/78, os cinco check:* verdes, zero --no-verify, zero dependencia nova. Os 7 WARNINGs do round 2 seguem abertos (DI-45-14-02), com WR-A e WR-E de pe como condicao da execucao REAL da Task 3. --- 45-14: os TRES blockers do 45-REVIEW-2.md fechados NO DISCO. BL-01 — p_dry_run e um booleano de TRES valores e o DEFAULT true nao protege contra NULL EXPLICITO: com o parametro cru, IF p_dry_run caia no ramo DESTRUTIVO, IF NOT p_dry_run nao rodava o guard de INTENCAO e o terminador nao levantava P45DR, e a transacao COMMITAVA sobre PII real, sem pedido, fora da janela do ERASE-06, sem recibo. Fechado por NORMALIZACAO UNICA no DECLARE (v_dry_run := coalesce(p_dry_run, true)), com o corpo inteiro lendo v_dry_run e o parametro cru nao consultado em lugar nenhum. BL-02 — v_severadas subtraia quatro pares de AUTORIA que o tombstone severa APENAS nas linhas deste candidato: a lista voltava [] com um bloqueador real de pe e o 23503 batia DEPOIS do passo 1. Fechado ESTREITANDO a enumeracao (probe com o mesmo escopo da severacao, por IS DISTINCT FROM), nunca alargando a severacao. BL-03 — a filtragem de prefixo do WR-03 rodava ANTES do G13 e desarmava exatamente o caso mais suspeito (ponteiros vivos fora do prefixo davam carimbo com zero objeto e recibo mentindo). G13 restaurado sobre os ponteiros CRUS, mais a recusa por descarte integral de ponteiros. Assercoes novas que falham antes do fix: (vi.d) e (vii) na auto-verificacao da 20260805000006, (C8) no smoke (contador FIXO 23->24), e (v2)/(v3) no index.test.ts (RED provado por execucao: 76 passed/2 failed antes, 78/78 depois). ⚠ ZERO apply, ZERO deploy, ZERO contato com PROD: as sete migrations 20260805000003..000009 seguem NAO aplicadas. Os md5(prosrc) mudaram OUTRA VEZ e o 45-14-SUMMARY.md SUBSTITUI o 45-13-SUMMARY.md como referencia do 45-11: plano_exclusao_titular = 97634d07ef13447e06741a8c8372fca6 (21349) e anonimizar_candidato = 8c86e0f040219e7eade47eb587dbf5de (34488). suite 1892/1892, tsc 97, deno 78/78 (era 76), os cinco check:* verdes, $c2$ byte a byte identico (2676 octetos), zero --no-verify, zero dependencia nova. Os 7 WARNINGs do review seguem abertos em deferred-items.md (DI-45-14-02)."
+last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRODUCAO em 2026-08-22, sobre conta descartavel, pela Edge Function com o JWT do titular — e o 45-VERIFICATION.md existe com veredito PASSED, 5/5 criterios, portao destrutivo 5/5. Storage 3->0 (incluindo o ORFAO do Pitfall 4, que o motor detectou: achados_resumo.blob_orfao=1), auth.users 30->29 exatamente -1, e a trilha intacta (historico 7=7, decisao_final 2=2). As 7 negativas passam, o CR-04 passa, a re-identificacao por faixa+UF+vaga+timestamp devolve ZERO, e o SC#5 se sustenta (mesma faixa 35-44, excluidos_sem_data=0). O recibo chegou em tempo passado, sem identificador proibido, e COM a linha obrigatoria da justificativa — o conserto do WR-A (f67d664) provado nos 3 recortes. ⚠ DUAS DIVERGENCIAS DE LETRA registradas: decisao_final_historico 1->2 pelo mecanismo M1 documentado (as DUAS linhas desidentificadas), e a data na tela em 06/09/2026 e nao por extenso. ⚠ IDEMPOTENCIA por re-invocacao e ESTRUTURALMENTE impossivel pela EF: depois do deleteUser o JWT e recusado (401). Antes disso, no mesmo dia: CR-01 e CR-02 consertados (76976bb) e o smoke p45_motor_exclusao_smoke passou 24/24 em PROD; os pins md5 gravados com conferencia cruzada (6aa249a); WR-A consertado (f67d664); a copy deixou de prometer um Encarregado que a empresa decidiu nao ter (f8e76e2); api.ipify.org e o iframe do YouTube ELIMINADOS em vez de declarados (03909dd); o vocabulario de logs_acesso.evento consertado — o log estava MORTO desde 2026-04-20 e o defeito so apareceu porque a sonda de uma migration abortou com 23514; e o host recruta.beautysmile.com.br, que NUNCA EXISTIU, corrigido para rh.beautysmile.com.br (eb6f63d). ⚠ LICAO QUE SE REPETIU O DIA INTEIRO: registro desatualizado custa o mesmo que registro ausente — sete pontos do ledger/STATE estavam errados — e MEDIR A COISA ERRADA COM O SQL CERTO e pior ainda, porque o fato falso vem com autoridade de consulta (eu errei duas vezes juntando por usuarios_rh.id em vez de user_id). PROXIMO: Phase 46, que nunca comecou e agora esta DESTRAVADA."
 ---
 
 # Project State
@@ -78,113 +78,82 @@ seguido de nó de texto com espaço. Não afeta função.
 
 ## Current Position
 
-### 2026-08-13 — o smoke rodou, e a decisão do Encarregado teve consequência em código
+## ✅ PHASE 45 COMPLETA — o motor RODOU em produção (2026-08-22)
 
-## ✅ O `p45_motor_exclusao_smoke` PASSOU EM PROD — 24/24, zero resíduo (2026-08-13)
+**`45-VERIFICATION.md` existe com veredito `passed`, 5/5 critérios, e o portão de fase
+destrutiva do M8 fechou 5/5.** A fase está `complete: true`.
 
-**O portão de fase destrutiva do `45-11` fechou nas Tasks 1 e 2.** Sobra a Task 3.
+O motor foi exercitado ponta a ponta pela **Edge Function com o JWT do titular** — não pela RPC
+isolada — sobre uma **conta descartável criada para isso**. Os três sistemas mutaram na ordem
+imposta:
 
-Ele rodou duas vezes. Na primeira parou no `(C3/i)` — notícia boa duas vezes, porque o `(C3)`
-roda **depois** do `(B3)` e do `(C1)`: os consertos **CR-01 e CR-02 ficaram provados POR
-EXECUÇÃO**, não mais só por forma. E o `(C3/i)` reprovou **certo**: os pins de `md5` seguiam
-com o marcador `PENDENTE-45-07`.
-
-Pinados em `6aa249a` com conferência **cruzada** — `md5` do corpo VIVO contra `md5` do corpo
-extraído do ARQUIVO commitado, batendo md5 **e** octetos nas duas funções. ⚠ O que autoriza um
-pin não é ter lido o valor vivo: copiar o que está aplicado pinaria seja lá o que for, e o gate
-deixaria de **comparar** para passar a **registrar**.
-
-Na segunda, verde. **Conferido POR FORA, sem confiar no auto-relato do smoke:**
-
-| Medida | Depois do run | Antes |
+| Sistema | Antes | Depois |
 |---|---|---|
-| candidatos / candidaturas / histórico / decisão | **22 / 9 / 5 / 1** | idênticos ✅ |
-| tombstones | **0** | 0 — o motor nunca rodou sobre ninguém ✅ |
-| as 3 FKs `NO ACTION` | `a, a, a` ✅ | intactas |
-| `candidatos_user_id_fkey` | `SET NULL` ✅ | armadilha do 23503 desarmada |
+| Storage sob o prefixo | **3** (2 com ponteiro + **1 órfão**) | **0** |
+| Auth | usuário existe · 30 | **não existe** · **29** (−1 exato) |
+| `historico` / `decisao_final` | 7 / 2 | **7 / 2** — a trilha sobreviveu |
 
-### ✅ E o G1 da Phase 44 estava STALE — o export FOI exercitado
+⚠ **O órfão do Pitfall 4 foi DETECTADO e removido** (`achados_resumo.blob_orfao: 1`,
+`storage_remove: 3 de 3`). Era o caso difícil, e só foi testável porque a FASE 0 o montou de
+propósito — a aplicação **não tem caminho normal de re-upload que orfane**.
 
-O registro diz *"EXPORT-01/02/03 nunca exercitados — 0 linhas em `solicitacoes_dados`"*. **Há
-uma linha, de 2026-08-11**, e ela tem exatamente a forma que o G1 exigia: `tipo='acesso'`,
-`situacao='atendido'`, `causa` **NULA**, `atendido_em` preenchida **5 segundos** depois, na
-conta `candidato.funil@teste.com`. As quatro colunas de exclusão
-(`storage_`/`postgres_`/`auth_concluido_em`, `recibo_enviado_em`) estão **NULAS** — foi pedido
-de acesso, nada destrutivo.
+⚠ **As 3 tabelas de IA/alertas estavam VAZIAS em PROD.** Sem as fixtures, as asserções sobre as
+5 tabelas `SET NULL` teriam passado por **vacuidade**.
 
-⚠ **O que isso fecha e o que não fecha:** prova o caminho ponta a ponta **no servidor**. Não
-prova que o `.json` chegou ao aparelho, nem o render, nem o cooldown — esses seguem sendo
-observação de navegador (§B do roteiro).
+As **7 negativas** passam, o **CR-04** passa, a **re-identificação devolve zero**, e o **SC#5**
+se sustenta (mesma faixa `35-44`, `excluidos_sem_data: 0`).
 
-### `WINDOWS.md` — 11 itens da Phase 45 fechados
+### Duas divergências de LETRA registradas, não silenciadas
 
-6, 7, 9, 11, 14, 15, 17, 19, 20, 21 e 22, cada um com a razão medida. Ledger conferido:
-`20260805000001`–`000009` **todas aplicadas**. `ACOES` já inclui `retirar_candidatura`
-(`index.ts:263`) e o terceiro client `supabaseTitular` existe — os `DI-45-07-01`,
-`DI-45-10-01` e `DI-45-10-02` estavam **resolvidos no código e abertos no ledger**.
-Restam 9, nenhum bloqueante do portão.
+1. `decisao_final_historico` foi de **1 → 2**. Mecanismo M1 documentado
+   (`trg_decisao_final_snapshot` é `AFTER UPDATE` sem `WHEN` e reinsere `OLD.justificativa`) —
+   e o scrub do arquivo foi o **último** statement: **as duas linhas estão desidentificadas**.
+2. A tela mostra `06/09/2026`; o critério do `45-06` pede a data **por extenso**.
 
-**O `p47_historico_smoke` PASSOU 6/6.** O sinal é sutil e quase passou batido: a última
-instrução do arquivo é um `SELECT set_config(...)`, então receber uma coluna `set_config`
-vazia — em vez de erro — significa que nenhum `RAISE` abortou o batch, inclusive o gate `(z)`
-que exige contador 6. Os `NOTICE` não aparecem no editor do Supabase.
+### O que ficou como verificação humana
 
-**Decisão do operador: a Beauty Smile NÃO designa Encarregado** — registrada em
-`.planning/DECISAO-ENCARREGADO.md`. ⚠ A consequência não era óbvia e só apareceu ao conferir
-o código: **dez strings, inclusive a página PÚBLICA no ar**, diziam «escreva para o nosso
-Encarregado de Dados». Viraram afirmação falsa no instante da decisão — na página cujo
-propósito é *"nenhuma promessa de compliance sobrevive sem código que a execute"*. Corrigido
-em `f8e76e2` («nosso canal de privacidade»); **o canal não saiu**, só o título.
+- **Confirmar visualmente** se os 3 trechos truncados do recibo aparecem cortados **na tela** —
+  o gerador foi executado e produz o texto **íntegro** (8.691 bytes), então a corrupção é de
+  renderização ou de seleção, não do sistema.
+- Publicar `public/logos/BS_Horizontal_Branco.png` (cosmético). O host morto foi corrigido em
+  `eb6f63d`; **falta o arquivo** — o `alt` degrada para o wordmark, como o docblock previu.
 
-**Os dois destinos de rede foram ELIMINADOS, não declarados** (`03909dd`): `api.ipify.org`
-sumiu (o IP passa a vir do servidor) e o YouTube virou facade sob clique. De quebra morreram
-o fallback que gravava `127.0.0.1` num log de auditoria e o `NOT NULL` de
-`logs_acesso.ip_address` — que o `pii-inventory.yaml:190` **já registrava como bloqueio do
-ERASE-09**.
+## ▶ O QUE VEM AGORA — Phase 46, e ela está DESTRAVADA
 
-⚠ **A migration `20260813000001` NÃO foi aplicada, e a ordem é obrigatória:** migration
-primeiro, frontend depois. A inversão faz o log de sessão expirada parar de gravar **em
-silêncio** (o erro é engolido de propósito).
+**A 46 nunca começou** (`0/?` planos) e é a maior peça restante do projeto. Ela era estritamente
+sequencial após um motor **provado** — e o motor agora está provado, por execução.
 
-**Hook re-pinado 97 → 96**, com a prova de discriminação refeita (sonda → 97/exit 1; sem →
-96/exit 0). A queda veio de remover um `as RequestInit` que silenciava um `timeout` que o
-`fetch` nunca leu — aquele `fetch` nunca teve timeout de verdade.
+⚠ **Três coisas que o planejamento da 46 tem de carregar:**
 
-**`WINDOWS.md`: sete itens da Phase 47 fechados** (24, 26, 28, 29, 30, 31, 32). Resta o
-**27** — o `as never` que espera `npm run db:types`.
+1. `previa_retencao()` devolve zero por **aritmética**, não por defeito (matriz em 24 meses, o
+   sistema é mais novo que a janela). **A 46 é a primeira consumidora real desse predicado** e
+   deve tratar a contagem como **não-exercitada**.
+2. A purga é destrutiva por natureza: o ROADMAP manda que a primeira coisa que ela faça em
+   produção seja **não apagar nada** (dry-run). Ver o ⛔ acima.
+3. O motor da 45 é a peça que ela cabeia — e ele agora tem evidência de execução real para
+   consumir, não um palpite.
 
-### Run autônomo de 2026-08-12 — o que ele fechou, e onde parou de propósito
-
-`/gsd-autonomous` com escopo restrito pelo operador a **trabalho sem contato com PROD**.
-Fila descoberta: 45, 46, 47 (42/43/44 caem como `Deferred Verification`). **Parado antes de
-qualquer coisa gateada** — ver o ⛔ abaixo, que é a instrução que o próprio run obedeceu.
-
-| Entregue | Resultado |
-|---|---|
-| **`45-REVIEW-4.md`** — Task 1 do `45-11` re-rodada (deep, 47 arquivos) | **REPROVA o fechamento do smoke**: 2 blockers, e os DOIS são portões que reprovam trabalho CORRETO. **O motor não ganhou defeito** — BL-01/02/03 e CR-01..06 seguem fechados, 45-15/45-16 sem regressão |
-| **`47-VERIFICATION.md`** — a fase tinha 9/9 planos e **zero** verificação | `human_needed`, **7/8** must-haves, 1 `PRESENT_BEHAVIOR_UNVERIFIED` |
-| **`47-EVIDENCIA-APPLY-CONSOL-02.md`** — medição MCP somente-leitura | A `20260809000001` **está aplicada**, corpo **byte-a-byte idêntico** (`md5` bate), ledger sem buraco. Zero escrita em PROD |
-
-**Três registros deste arquivo estavam STALE e foram corrigidos** (detalhe em §Blockers e no
-item 1 de §O que falta): o diagnóstico do `(B3/email)`, os seis países do `47-04`, e a
-alcançabilidade das páginas públicas. ⚠ Os dois últimos faziam a Phase 47 parecer mais travada
-do que está; o primeiro apontava para o **conserto errado**.
-
-**Não tocado:** Phase 46 (declarada estritamente sequencial após um motor **provado**, e o motor
-nunca rodou — 0 tombstones) · `45-11` Task 3 · `45-06` T2 · o smoke da P45 · o
-`p47_historico_smoke.sql`.
-
----
-
-**Atualizado 2026-08-12.** Phase **47 COMPLETA (9/9)**, agora **com veredito**. Phase 45: **o
-motor está VIVO em produção** — as 7 migrations aplicadas, as 2 EFs deployadas, e **nenhuma
-linha de dado de candidato tocada**. Falta ele RODAR.
+Depois dela: os itens de navegador de 42/44/47, e então `audit → complete → cleanup`.
 
 ### ⛔ LEIA ISTO ANTES DE QUALQUER COISA AUTOMÁTICA
 
-**A execução real da exclusão NÃO pode ser feita por agente.** Ela apaga PII irreversivelmente
-(Storage sem backup, PITR desligado) e exige (a) uma conta descartável e (b) o operador presente.
-Um `/gsd-autonomous` que chegue na Task 3 do `45-11` deve **parar e perguntar**, nunca executar.
+**A regra continua valendo, e agora tem precedente de como aplicá-la.**
+
+Passo que apaga dado de forma irreversível **não é executado por agente por conta própria**. O
+agente **para e pergunta**; quem autoriza é o operador, explicitamente, na sessão.
+
+✅ **A execução da Phase 45 (`45-11` Task 3) FOI FEITA em 2026-08-22, e foi assim que funcionou:**
+o agente parou, apresentou o estado medido, o operador autorizou explicitamente, e só então a
+execução rodou — sobre uma **conta descartável criada para isso**, nunca sobre pessoa real.
+O portão foi **satisfeito**, não contornado. Evidência: `45-11-EVIDENCIA-PORTAO.md`.
+
+⚠ **E a regra se aplica inteira à Phase 46**, que é uma **purga automática**: um cron que apaga
+sozinho. O ROADMAP já diz que a primeira coisa que ela faz em produção é **não apagar nada**
+(dry-run). Um `/gsd-autonomous` pode **discutir, planejar e escrever** a 46 à vontade — mas o
+momento de armar o cron sobre dado real é checkpoint do operador, pela mesma razão.
+
+**`NOTIFICACOES_MODO` está em `producao`** — qualquer smoke que dispare notificação manda
+**e-mail real**.
 
 **`NOTIFICACOES_MODO` está em `producao`** — medido no ledger em 2026-08-11, não lido de config.
 Qualquer smoke que dispare notificação manda **e-mail real**. O registro antigo que dizia `teste`
