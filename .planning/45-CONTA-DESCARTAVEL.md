@@ -145,6 +145,88 @@ Ele foi criado pela **mesma API de Storage que o app usa, autenticado como o pr�
 FASE 2 sobre as 5 tabelas `SET NULL` passariam por **vacuidade** — contariam verde sem ter
 medido nada. É o modo de falha que o runbook existe para evitar.
 
+---
+
+# ✅ FASE 1 — o pedido AGENDA · `45-06` Task 2 · 2026-08-22
+
+**Nada foi apagado.** O pedido é cancelável até 06/09/2026 pelo botão da própria página.
+
+## 1a. Sonda de fronteira — passa, e pelo critério certo
+
+| Requisição | Status | Corpo |
+|---|---|---|
+| **sem** `Authorization` | 401 | `{"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing authorization header"}` — **gateway** |
+| **com** publishable key | 401 | `{"ok":false,"error_code":"UNAUTHORIZED","message":"Sessão inválida."}` — **handler** |
+
+⚠ **Os dois são 401 — e é por isso que o discriminador é a DIFERENÇA entre os corpos, nunca o
+401 sozinho.** A segunda resposta é string do próprio `index.ts`, inalcançável se o módulo
+tivesse morrido no boot: o import de `_shared/` sobreviveu ao bundler.
+
+## 1b. A tela — 8 checagens
+
+| # | Item | Resultado |
+|---|---|---|
+| 1 | Seção 4 abaixo da 3, seções 1–3 intactas | ✅ |
+| 2 | CTA glass-branco, ≥44px, não full-bleed | ✅ **medido**: altura **50px**, largura 194 de 540 (não full-bleed), `rgba(255,255,255,0.15)` |
+| 3 | Prosa da consequência inteira, «o que o cancelamento NÃO desfaz» em parágrafo próprio | ✅ |
+| 4 | Ponteiro para «Retirar minha candidatura» em texto, sem link/botão | ✅ |
+| 5 | Confirmação em **duas etapas** | ✅ diálogo + «Confirmar a exclusão dos seus dados?» |
+| 6 | Estado B «Exclusão agendada» | ✅ com a data e a nota de que cancelar não reabre |
+| 7 | **Persiste após recarregar** | ✅ — não é estado local |
+| 8 | 320px sem rolagem horizontal | ⚠ **NÃO EXECUTADA** — ver abaixo |
+
+⚠ **A checagem de 320px não foi feita, e não vou marcá-la como passou.** O `resize_window` para
+320×800 **não alterou o viewport** (`clientWidth` seguiu em 1425), então o teste não aconteceu.
+No viewport real medido não há overflow (`scrollWidth == clientWidth`, zero elementos
+estourando), mas isso não é a mesma afirmação. **Fica como item de navegador em aberto.**
+
+⚠ **DIVERGÊNCIA MEDIDA — a data não está por extenso.** O critério de aceitação do `45-06` pede
+«**Exclusão agendada**» com a **data por extenso**. A tela renderiza **`06/09/2026`**, formato
+numérico. É o único item do `45-06` que diverge do escrito. Não afeta função; é decisão de copy,
+e está registrado aqui em vez de silenciado.
+
+## 1c. As asserções — todas verdes
+
+| Asserção | Esperado | Medido |
+|---|---|---|
+| Linha nova em `solicitacoes_dados` | 1, `tipo='exclusao'`, `situacao='agendado'` | ✅ `ccd44bb0-…` |
+| `executar_em - solicitado_em` | **15 dias** | ✅ **15** |
+| `cancelado_em` / `atendido_em` / `causa` | NULOS | ✅ os três |
+| Candidaturas `encerrada_a_pedido_em` | preenchida | ✅ **2** |
+| Candidaturas `deleted_at` | **NULL** (RH continua vendo) | ✅ **0** |
+| `historico_candidatura` total | inalterado (7) | ✅ **7** |
+| ⊖ `auto_rejeitado = true` | **0** | ✅ **0** |
+| ⊖ `notificacoes_enviadas` com `evento='decisao'` | **0** | ✅ **0** |
+| ⊖ pedido de exclusão na fila de acesso do RH | **0** | ✅ **0** |
+| ⊖ `contar_pedidos_dados_pendentes()` | não conta | ✅ **0** |
+| ⊖ Storage sob o prefixo | **intacto (3)** | ✅ **3** |
+| ⊖ `auth.users` | **intacto (30)** | ✅ **30** |
+| **Idempotência** | mesma data, sem linha nova | ✅ 200, **mesma** `executar_em`, `candidaturas_encerradas: 0`, total segue **1** |
+
+⚠ **O guard da fila de RH mordeu de verdade:** `listar_pedidos_dados()` recusou com **`42501`**
+quando chamado sem claims. A asserção só pôde ser medida impersonando `app_metadata.role =
+administrador` — que é o guard funcionando, não um obstáculo.
+
+⚠ **E ao ler o guard, um achado que corrobora o BD-8 por outro ângulo:** ele aceita
+`'administrador'` **ou `'rh'`** — e `'rh'` é um papel que `usuarios_rh` **nunca atribui** (só
+existem `administrador` e `recrutador`). O código ramifica num valor que o sistema não produz.
+
+## 1d. Os e-mails que a FASE 1 disparou 📧
+
+`notificacoes_enviadas` foi de 2 para **8**. As seis novas são **todas ao RH**, nenhuma ao
+candidato: `candidatura_encerrada_a_pedido` × 3 destinatários × 2 candidaturas.
+
+| Destinatário | Entregues |
+|---|---|
+| `fernando@beautysmile.com.br` | 2 · `entregue` |
+| `recrutador.rh@teste.com` | 2 · `entregue` |
+| `e2e.admin@beautysmile.com.br` | 2 · `enviado` |
+
+É o comportamento correto — o RH é avisado de que uma candidatura foi encerrada a pedido do
+titular — e nenhuma delas é `evento='decisao'`, que é o que a asserção negativa exige.
+
+---
+
 ### Achados incidentais da FASE 0
 
 1. **O pipeline COMM do M7 funciona ao vivo.** As duas candidaturas dispararam confirmação e as
