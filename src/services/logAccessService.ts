@@ -17,17 +17,42 @@ import { supabase } from '@/lib/supabase/client'
 import { UAParser } from 'ua-parser-js'
 
 /**
- * Tipos de eventos de acesso suportados
+ * O vocabulário de eventos, em **runtime** e não só em tipo.
+ *
+ * ⚠ ELE TEM DE BATER, VALOR A VALOR, com o CHECK `check_evento` de
+ * `supabase/migrations/20260822000001_p47_check_evento_vocabulario.sql`.
+ * `logAccessVocabulario.test.ts` lê aquele arquivo e compara com esta lista —
+ * editar um sem o outro reprova.
+ *
+ * ── POR QUE ISTO EXISTE COMO ARRAY ───────────────────────────────────────────
+ * Até 2026-08-22 isto era só um `type` union, e por isso **nada podia
+ * compará-lo com o banco**. O resultado: o tipo declarava 8 valores, o CHECK
+ * aceitava 8 OUTROS, e a interseção era de TRÊS. Cinco valores do tipo eram
+ * ilegais no banco — inclusive `sessao_expirada`, que é o que o único chamador
+ * vivo manda (`useSessionTimeout.ts:76`).
+ *
+ * Aquele INSERT falhava com `23514` em toda execução, e o `catch` de
+ * `logAccessEvent` engole o erro de propósito. **O log de acesso ficou sem
+ * gravar de 2026-04-20 a 2026-08-22 — quatro meses — sem ninguém notar.**
+ * Um tipo que não pode ser confrontado com o banco é uma promessa sem gate.
  */
-export type EventoAcesso =
-  | 'login_sucesso'
-  | 'login_falha'
-  | 'logout'
-  | 'sessao_expirada'
-  | 'acesso_negado'
-  | 'password_reset_request'
-  | 'password_reset_completed'
-  | 'password_reset_failed'
+export const EVENTOS_ACESSO = [
+  'login_sucesso',
+  'login_falha',
+  'logout',
+  'sessao_expirada',
+  'acesso_negado',
+  'senha_alterada',
+  'senha_resetada',
+  'senha_reset_solicitada',
+  'senha_reset_falhou',
+  'email_alterado',
+  'conta_bloqueada',
+  'conta_desbloqueada',
+] as const
+
+/** Tipos de eventos de acesso suportados — derivado do array, nunca duplicado. */
+export type EventoAcesso = (typeof EVENTOS_ACESSO)[number]
 
 /**
  * Interface para dados de log de acesso
@@ -257,7 +282,7 @@ export async function logAccessDenied(email: string, reason: string): Promise<vo
  * @param email - Email para o qual foi solicitada recuperação
  */
 export async function logPasswordResetRequest(email: string): Promise<void> {
-  await logAccessEvent('password_reset_request', {
+  await logAccessEvent('senha_reset_solicitada', {
     email_tentativa: email,
   })
 }
@@ -269,7 +294,7 @@ export async function logPasswordResetRequest(email: string): Promise<void> {
  * @param email - Email do usuário
  */
 export async function logPasswordResetCompleted(user_id: string, email?: string): Promise<void> {
-  await logAccessEvent('password_reset_completed', {
+  await logAccessEvent('senha_resetada', {
     user_id,
     email_tentativa: email,
   })
@@ -282,7 +307,7 @@ export async function logPasswordResetCompleted(user_id: string, email?: string)
  * @param errorMessage - Mensagem de erro
  */
 export async function logPasswordResetFailed(email: string, errorMessage: string): Promise<void> {
-  await logAccessEvent('password_reset_failed', {
+  await logAccessEvent('senha_reset_falhou', {
     email_tentativa: email,
     erro_mensagem: errorMessage,
   })
