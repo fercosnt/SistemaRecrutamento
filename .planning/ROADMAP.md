@@ -264,7 +264,7 @@ Plans:
 Plans:
 
 - [x] 46-01-PLAN.md — a fixture de conjunto elegível não-vazio, com teardown escrito antes (sem ela, 18 das 21 asserções passam por vacuidade)
-- [x] 46-02-PLAN.md — TRACER: `config_purga` + ledger + predicado por titular + varredura → dry-run sobre conjunto não-vazio, ⊖ zero mutação — ⏸ **artefatos commitados; APPLY EM PROD PENDENTE** (checkpoint bloqueante da Task 3: 4 migrations por MCP + re-pin cruzado + 5 smokes + a queda de 7 → 6)
+- [x] 46-02-PLAN.md — TRACER: `config_purga` + ledger + predicado por titular + varredura → dry-run sobre conjunto não-vazio, ⊖ zero mutação — ✅ **APLICADO em PROD 2026-08-23**: `candidaturas_alem_da_janela()` 7 → 6 (saiu `neg-etapa#08`), `dry_run` 6/0/`dry_run` e `off` 6/0/`desligado`, 5 contagens de domínio inalteradas, `modo` final `off`
 - [ ] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07)
 - [ ] 46-04-PLAN.md — ⛔ o 4º ramo autorizado em `anonimizar_candidato` (D-46-18 / Blocker B-01), com review bloqueante antes do apply
 - [ ] 46-05-PLAN.md — Edge Function `purgar-retencao` e o contrato do item: o payload seleciona, o banco autoriza

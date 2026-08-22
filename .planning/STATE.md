@@ -4,8 +4,8 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
-stopped_at: "46-02: 4 migrations + 2 smokes commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente"
-last_updated: "2026-08-22T22:41:57.109Z"
+stopped_at: "Concluido 46-02-PLAN.md (2 de 7 da Phase 46) — espinha da purga APLICADA em PROD, candidaturas_alem_da_janela() 7 -> 6, dry_run 6/0/dry_run e off 6/0/desligado sem apagar nada. Proximo: 46-03"
+last_updated: "2026-08-22T23:07:43.203Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 6
@@ -753,6 +753,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P13 | ~2h | 4 tasks | 9 files |
 | Phase 45 P14 | 40min | 3 tasks | 5 files |
 | Phase 46 P01 | 75min | 3 tasks | 4 files |
+| Phase 46 P02 | ~95min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -1165,9 +1166,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-22T22:41:49.343Z
-Stopped at: 46-02: 4 migrations + 2 smokes commitados; CHECKPOINT bloqueante — apply pelo orquestrador pendente
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-02-PLAN.md
+Last session: 2026-08-22T23:07:43.182Z
+Stopped at: Concluido 46-02-PLAN.md (2 de 7 da Phase 46) — espinha da purga APLICADA em PROD, candidaturas_alem_da_janela() 7 -> 6, dry_run 6/0/dry_run e off 6/0/desligado sem apagar nada. Proximo: 46-03
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
