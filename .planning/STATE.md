@@ -4,8 +4,8 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
-stopped_at: Plano 46-01 PAUSADO no checkpoint da Task 3 — os 3 scripts SQL estao commitados; falta o apply em PROD (MCP execute_sql, orquestrador)
-last_updated: "2026-08-22T21:44:16.553Z"
+stopped_at: Concluido 46-01-PLAN.md (1 de 7 da Phase 46) — fixture viva em PROD, candidaturas_alem_da_janela() 0 -> 7. Proximo: 46-02
+last_updated: "2026-08-22T22:08:07.090Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 6
@@ -752,6 +752,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 47 P08 | 12min | 3 tasks | 10 files |
 | Phase 45 P13 | ~2h | 4 tasks | 9 files |
 | Phase 45 P14 | 40min | 3 tasks | 5 files |
+| Phase 46 P01 | 75min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -955,6 +956,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 46-01: updated_at retrodatado no proprio INSERT (o gatilho de carimbo e BEFORE UPDATE) alem do UPDATE explicito — duas defesas para D-46-21
 - [Phase ?]: 46-01: pos1 e pos2 com updated_at a -1 mes, para que so sejam elegiveis se o degrau da data-ancora que testam funcionar
 - [Phase ?]: 46-01: a fixture se recusa a persistir se render menos de 3 elegiveis — nao-vacuidade como condicao de COMMIT
+- [Phase ?]: 46-01 medido: o gatilho update_candidaturas_updated_at ESTA VIVO — a armadilha de D-46-21 estava armada e a defesa por INSERT era necessaria
+- [Phase ?]: 46-01 medido: candidaturas tem TRES gatilhos de net.http_post, nao dois; trg_n8n_nova_candidatura nao existe mais e trg_notif_confirmacao teria enviado 9 e-mails se a selecao fosse por lista fixa
+- [Phase ?]: 46-01 medido: candidaturas_alem_da_janela() 0 -> 7 em PROD. Esperado 6 apos 46-02 e 4 apos 46-03 — um numero que nao cair e a excecao daquele plano falhando em silencio
+- [Phase ?]: 46-01 medido: [ASSUMED A3] fechado por execucao (auth.uid/jwt role/claims todos null sob postgres) — D-46-18 Saida B segue de pe sobre medicao
 
 ### Pending Todos
 
@@ -1009,7 +1014,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ✅ **RESOLVIDO — 47-08 Task 3: o `RodapePublico` ESTA montado nas CINCO superficies**, conferido por grep em 2026-08-12: `LandingPage.tsx:103`, `VagasPublicasPage.tsx:535`, `VagaDetalhePage.tsx:493`, `SubprocessadoresPage.tsx:96`, `PrivacidadePublicaPage.tsx:175`. As duas paginas publicas **sao alcancaveis** da navegacao de producao — o SC#1 da Phase 47 se sustenta nesse ponto. *(O registro anterior dizia «nenhuma navegacao de producao leva a elas»; `WINDOWS.md` item 28 carrega a mesma afirmacao **stale**.)*
 - ⏸ **PORTAO DE PUBLICACAO — o que de fato continua ABERTO (47-08 Task 1):** a revisao **FORMAL do Encarregado** dos quatro itens — os seis paises e a base legal de cada um, a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas. ⚠ **As paginas ja estao NO AR**, liberadas em 2026-08-11 por decisao **do operador**, e o proprio `47-08-SUMMARY.md` e explicito em **nao** conflar isso com parecer do Encarregado. `WINDOWS.md` itens 26 e 30. O que mudou desde o registro antigo: a publicacao **nao esta mais represada pelo portao** — ela aconteceu, e o portao segue aberto **atras** dela.
 - A lista publica de subprocessadores foi ao ar com DOIS destinos de rede pendentes de classificacao pelo Encarregado: api.ipify.org (src/services/logAccessService.ts:110) e www.youtube.com (src/components/pages/InstrucoesFormularioPage.tsx:77)
-- 46-01 Task 3: fixture NAO aplicada em PROD. Sequencia no 46-01-SUMMARY.md §'O que o orquestrador tem de rodar'. Ate la, candidaturas_alem_da_janela() segue em 0 e toda asserção da Phase 46 passa por vacuidade.
+- ~~46-01 Task 3: fixture NAO aplicada em PROD~~ **RESOLVIDO 2026-08-22**: aplicada, `candidaturas_alem_da_janela()` 0 → 7, cinco asserções de contaminação em zero. ⚠ Fica UM item herdado: o **46-03 tem de inserir a linha de `retencao_hold`** para a candidatura `4601c000-0000-4000-8000-000000000005` (a tabela não existia no apply, e o bloco guardado por `to_regclass` só emitiu `NOTICE`). Sem ela, `neg-hold#05` continua elegível e a asserção (j.1) do smoke passa por vacuidade.
 
 ## Deferred Verification
 
@@ -1157,9 +1162,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-22T21:44:07.889Z
-Stopped at: Plano 46-01 PAUSADO no checkpoint da Task 3 — os 3 scripts SQL estao commitados; falta o apply em PROD (MCP execute_sql, orquestrador)
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-01-SUMMARY.md
+Last session: 2026-08-22T22:08:07.069Z
+Stopped at: Concluido 46-01-PLAN.md — fixture viva em PROD, 7 elegiveis
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

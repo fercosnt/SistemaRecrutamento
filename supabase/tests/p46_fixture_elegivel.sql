@@ -64,15 +64,29 @@
 -- -----------------------------------------------------------------------------
 -- (4) O OUTRO EFEITO COLATERAL, MEDIDO NO REPOSITORIO E CONFIRMADO POR M1
 -- -----------------------------------------------------------------------------
---   `public.candidaturas` tem DOIS gatilhos AFTER INSERT que fazem
---   `net.http_post` para FORA do banco:
---     · `trg_candidaturas_analise`   (`20260610000002:68-70`) -> EF de analise de IA
---     · `trg_n8n_nova_candidatura`  (`20260706110005:90-93`)  -> webhook n8n
---   Nove linhas sinteticas produziriam nove analises de IA REAIS: custo,
---   escrita nas tabelas de IA, `score_geral` carimbado de volta e contaminacao
---   do snapshot de vies k=5. Sao as ameacas T-46-01-02 e T-46-01-03 do registro
---   STRIDE deste plano, e nenhuma delas seria visivel numa leitura de
---   `candidaturas`.
+--   `public.candidaturas` tem TRES gatilhos que fazem `net.http_post` para FORA
+--   do banco. ⚠ ESTA LISTA E O VALOR MEDIDO EM 2026-08-22 (M1a de
+--   `46-01-MEDICOES.md`), e NAO o que o repositorio sugeria:
+--     · `trg_candidaturas_analise`         -> `trg_candidatura_analise` (EF de analise de IA)
+--     · `trg_notif_confirmacao`            -> `trg_notif_confirmacao`
+--     · `trg_candidatura_encerrada_a_pedido` -> `trg_notif_candidatura_encerrada`
+--
+--   ⚠⚠ A LICAO, E ELA E O MOTIVO DE A SECAO 3 USAR CRITERIO E NAO LISTA:
+--   a versao anterior deste comentario nomeava DOIS gatilhos, lidos dos
+--   arquivos (`20260610000002:68-70` e `20260706110005:90-93`). A medicao
+--   mostrou que sao TRES, e que `trg_n8n_nova_candidatura` — um dos dois que o
+--   repositorio anunciava — NAO EXISTE MAIS no objeto vivo, coerentemente com
+--   `n8n_webhook_base` estar ausente do Vault (M1c). Uma lista fixa de nomes
+--   teria deixado `trg_notif_confirmacao` ATIVO durante os nove INSERTs, e com
+--   `NOTIFICACOES_MODO=producao` isso teria escrito nove linhas em
+--   `public.notificacoes_enviadas` e disparado o envio — exatamente a ameaca
+--   T-46-01-03. O criterio dinamico da secao 3 pegou os tres.
+--
+--   Nove linhas sinteticas produziriam nove analises de IA REAIS mais nove
+--   notificacoes: custo, escrita nas tabelas de IA, `score_geral` carimbado de
+--   volta e contaminacao do snapshot de vies k=5. Sao as ameacas T-46-01-02 e
+--   T-46-01-03 do registro STRIDE deste plano, e nenhuma delas seria visivel
+--   numa leitura de `candidaturas`.
 --
 --   A secao 3 desliga, POR MEDICAO DO CATALOGO (`dispara_http`), exatamente os
 --   gatilhos que fazem `net.http_post` nas cinco tabelas da fixture, e a secao 7
@@ -499,6 +513,10 @@ BEGIN
     -- `revisao_solicitada_em` preenchida e `revisao_respondida_em` NULA e
     -- exatamente o par que a excecao JA VIVA do predicado
     -- (`20260801000004:185-191`) procura. INSERT, e nao UPDATE, de proposito:
+    -- ⚠ M1c mediu `n8n_webhook_base` AUSENTE do Vault e M1a nao encontrou
+    -- nenhum gatilho `trg_n8n_*` vivo em `candidaturas`, entao a familia n8n
+    -- provavelmente ja foi desmontada — mas o argumento abaixo NAO depende
+    -- disso, e por isso ele fica: mesmo que o gatilho exista,
     -- `trg_n8n_revisao_decisao` (`20260706110005:203-207`) dispara AFTER UPDATE
     -- OF revisao_solicitada_em, e um INSERT nao o aciona.
     IF (v ->> 'art20')::boolean THEN
