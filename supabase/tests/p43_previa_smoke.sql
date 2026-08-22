@@ -15,6 +15,28 @@
 -- nunca sobre o rigor da asserção.
 --
 -- -----------------------------------------------------------------------------
+-- ⚠ EMENDADO EM 2026-08-23 PELA PHASE 46 / PLANO 46-02 — TRÊS ALTERAÇÕES
+-- -----------------------------------------------------------------------------
+-- A migration `20260823000003_p46_predicado_titular.sql` ESTENDEU o predicado
+-- (assinatura de 3 para 6 colunas, escada da data-âncora num `LATERAL` calculado
+-- uma vez, cláusula `elegivel_purga` de D-46-19) e criou um TERCEIRO wrapper,
+-- `titulares_alem_da_janela()`. As três emendas entraram no MESMO commit que a
+-- migration que as obriga, porque uma delas não é opcional:
+--
+--   (e) RE-PIN do `md5(prosrc)`. Valor anterior `ddfa6542…` (775 octetos, medido
+--       2026-08-01), valor vigente `6df35644…` (1357 octetos, medido 2026-08-23),
+--       com conferência CRUZADA vivo × arquivo — ver PROVENIÊNCIA. A rede
+--       estrutural embaixo do md5 GANHOU duas checagens e não perdeu nenhuma.
+--   (f) DE DOIS PARA TRÊS wrappers na lista literal de `proname`.
+--   (g) DE TRÊS PARA QUATRO funções na negativa de verbo de escrita.
+--
+-- ⚠ POR QUE (f) E (g) NÃO SÃO COSMÉTICA: as duas iteram sobre listas LITERAIS de
+-- nomes e exigem uma contagem exata. Um objeto NOVO não as faz reprovar — ele
+-- simplesmente fica FORA delas, e o portão continua verde enquanto o único
+-- wrapper que a purga realmente consome fica sem vigilância. **Um portão que não
+-- enxerga o objeto novo é pior que um portão vermelho: ele parece verde.**
+--
+-- -----------------------------------------------------------------------------
 -- COMO RODAR
 -- -----------------------------------------------------------------------------
 -- Via Supabase MCP `execute_sql`, PELO ORQUESTRADOR e numa **ÚNICA chamada** —
@@ -32,8 +54,9 @@
 -- ⚠ ESTE SMOKE NÃO ESCREVE NADA. NEM DENTRO DE SUBTRANSAÇÃO.
 -- -----------------------------------------------------------------------------
 -- Diferente do `p43_matriz_retencao_smoke.sql`, aqui não há um só `INSERT`,
--- `UPDATE` ou `DELETE` — nem revertido. Todas as três funções sob teste são
--- STABLE e read-only, e a asserção (i) transforma essa afirmação em MEDIÇÃO.
+-- `UPDATE` ou `DELETE` — nem revertido. As QUATRO funções sob teste (três desde a
+-- Phase 43, mais `titulares_alem_da_janela` desde a Phase 46) são STABLE e
+-- read-only, e a asserção (i) transforma essa afirmação em MEDIÇÃO.
 --
 -- -----------------------------------------------------------------------------
 -- AS 9 ASSERÇÕES — cinco delas NEGATIVAS
@@ -54,12 +77,13 @@
 --       verde e falha ABERTO exatamente para o chamador mais suspeito.
 --   (e) GATE DE NÃO-DIVERGÊNCIA, PARTE 1 — `md5(prosrc)` de
 --       `candidaturas_alem_da_janela` bate o valor PINADO abaixo.
---   (f) GATE DE NÃO-DIVERGÊNCIA, PARTE 2 — `pg_get_functiondef` dos dois
---       wrappers CONTÉM a chamada a `candidaturas_alem_da_janela`. Se alguém
---       reescrever a prévia com um predicado próprio, esta asserção reprova — que
---       é o ponto inteiro de a definição ser única.
---   (g) ⊖ NEGATIVA DE ESCRITA — o `prosrc` das TRÊS funções não contém verbo de
---       escrita. A fase é zero-destrutiva e a afirmação vira medição.
+--   (f) GATE DE NÃO-DIVERGÊNCIA, PARTE 2 — `pg_get_functiondef` dos TRÊS
+--       wrappers CONTÉM a chamada a `candidaturas_alem_da_janela`, e nenhum deles
+--       referencia `config_retencao_etapa` por conta própria. Se alguém reescrever
+--       a prévia (ou a varredura) com um predicado próprio, esta asserção reprova
+--       — que é o ponto inteiro de a definição ser única.
+--   (g) ⊖ NEGATIVA DE ESCRITA — o `prosrc` das QUATRO funções não contém verbo de
+--       escrita. As quatro são read-only por contrato, e a afirmação vira medição.
 --   (h) COERÊNCIA — a prévia executa; a soma de `candidaturas_afetadas` por
 --       estado é IGUAL ao número de linhas do predicado; o total é MENOR OU IGUAL
 --       à soma dos `candidatos_afetados` por estado; e `calculada_em` é um
@@ -81,20 +105,67 @@
 --      carrega a mesma informação sem carregar a cópia.
 --
 -- PROVENIÊNCIA DO RESUMO ESPERADO (não apagar — é o que torna um re-pin auditável)
---   valor  : ddfa6542921d241323c0124fc1bd1f99   (775 octetos)
---   origem : corpo entre os dois delimitadores de cifrão do
---            `CREATE OR REPLACE FUNCTION public.candidaturas_alem_da_janela()`
---            em `supabase/migrations/20260801000004_p43_previa_retencao.sql`
---   medido : 2026-08-01, por execução — nunca digitado à mão
+--
+--   valor VIGENTE  : 6df3564414519abc56379d9b8924fad0   (1357 octetos)
+--   origem         : corpo entre os dois delimitadores NOMEADOS de cifrão do
+--                    `CREATE FUNCTION public.candidaturas_alem_da_janela()` em
+--                    `supabase/migrations/20260823000003_p46_predicado_titular.sql`
+--   re-pinado em   : 2026-08-23, pelo plano 46-02 da Phase 46
+--   POR QUE MUDOU  : a Phase 46 ESTENDEU o predicado, e a mudança era ESPERADA e
+--                    está declarada no `46-CONTEXT.md` §Área 1. São três
+--                    alterações no corpo: a assinatura passou de TRÊS para SEIS
+--                    colunas (`janela_meses_aplicada`, `ancora_origem`,
+--                    `ancora_em`, que o ledger de PURGA-06 exige); a escada da
+--                    data-âncora foi para um `CROSS JOIN LATERAL` que a calcula
+--                    UMA vez, de modo que o `WHERE` filtre pelo MESMO instante que
+--                    a saída relata; e entrou a cláusula `m.elegivel_purga`, a
+--                    allowlist de D-46-19. O `DROP`+`CREATE` (necessário porque
+--                    `RETURNS TABLE` não é substituível em lugar) está declarado
+--                    no escopo negativo daquela migration.
+--   CONFERENCIA    : CRUZADA, nos DOIS lados — e é a conferência que autoriza o
+--                    pin, não "li o valor vivo e copiei". Copiar o valor vivo
+--                    pinaria o que está aplicado, seja lá o que for, e o gate
+--                    deixaria de comparar.
+--                      md5(prosrc) VIVO (pg_proc, via MCP somente-leitura)  ==
+--                      md5(corpo)  do ARQUIVO commitado (comando abaixo)
+--                    lado ARQUIVO : 6df3564414519abc56379d9b8924fad0, 1357
+--                                   octetos, medido em 2026-08-23 POR EXECUÇÃO do
+--                                   comando de recomputação — nunca digitado.
+--                    lado VIVO    : medido pelo ORQUESTRADOR no checkpoint do
+--                                   plano 46-02, imediatamente APÓS o apply da
+--                                   `20260823000003`. Os dois valores ficam
+--                                   registrados lado a lado no `46-02-SUMMARY.md`.
+--
+--   valor ANTERIOR : ddfa6542921d241323c0124fc1bd1f99   (775 octetos)
+--                    origem: `20260801000004_p43_previa_retencao.sql`, medido em
+--                    2026-08-01 e confirmado ainda válido em 2026-08-22
+--                    (`46-01-MEDICOES.md` §M4b). Vigorou até 2026-08-23.
+--                    ⚠ FICA AQUI COMO HISTÓRICO, e apagá-lo destruiria a única
+--                    coisa que torna o re-pin auditável: sem ele não há como ver
+--                    que o pin mudou UMA vez, com data e com razão, em vez de ter
+--                    mudado sozinho.
+--
 --   recomputar (se e somente se a migration mudar):
 --     node -e 'const f=require("fs").readFileSync(process.argv[1],"utf8"),
---       D="$candidaturas_alem_da_janela"+"$", a=f.indexOf(D),
+--       D="$"+process.argv[2]+"$", a=f.indexOf(D),
 --       b=f.indexOf(D,a+D.length);
 --       console.log(require("crypto").createHash("md5")
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
---       supabase/migrations/20260801000004_p43_previa_retencao.sql
+--       supabase/migrations/20260823000003_p46_predicado_titular.sql \
+--       candidaturas_alem_da_janela
+--   ⚠ O nome do delimitador entra por ARGUMENTO e nunca literal no comando: um
+--     arquivo que MENCIONE `$` + `candidaturas_alem_da_janela` + `$` num
+--     comentário faria o `indexOf` casar o comentário e extrair o corpo errado.
+--     Foi o defeito encontrado e corrigido durante o próprio re-pin de 2026-08-23.
 --   ⚠ Se este resumo for re-pinado sem que a migration tenha mudado, a asserção
---     (e) deixa de provar qualquer coisa. Re-pinar é ato consciente e revisável.
+--     (e) deixa de provar qualquer coisa. Re-pinar é ATO CONSCIENTE E REVISÁVEL.
+--   ⚠⚠ UM RE-PIN NUNCA É DESCULPA PARA AFROUXAR A ASSERÇÃO (Pitfall 2). A rede
+--     estrutural embaixo do md5 GANHOU duas checagens nesta fase — `elegivel_purga`
+--     presente (a allowlist é DADO, não lista no código) e `ancora_origem` presente
+--     (a política viaja do predicado até o ledger, calculada uma vez só) — e não
+--     perdeu nenhuma. Ela só cresce. Um portão que reprova trabalho correto treina
+--     quem executa a desligá-lo; um portão afrouxado para caber no trabalho não
+--     reprova mais nada.
 --
 -- ⚠ A ÚNICA DIVERGÊNCIA AUTORIZADA, E O SEU TESTE DE DISCRIMINAÇÃO
 -- Se no checkpoint o pin de (e) NÃO bater **E** o `md5(statements[1])` do apply
@@ -391,16 +462,28 @@ END $$;
 --     A rede de diagnóstico estrutural embaixo do md5 existe para o caso de um
 --     re-pin indevido: se o resumo casar mas a forma estiver errada, é porque
 --     alguém re-pinou sem a migration ter mudado.
+--
+--     ⚠ A REDE CRESCEU NA PHASE 46, E ELA SÓ CRESCE. Às três checagens originais
+--     (`data_candidatura`, `NOT EXISTS`, forma banida de negação por conjunto)
+--     somam-se duas do plano 46-02: `elegivel_purga` presente — a allowlist de
+--     D-46-19 é DADO na matriz e não lista no código, e um predicado que voltasse
+--     a enumerar estados no corpo passaria pelo md5 re-pinado — e `ancora_origem`
+--     presente, porque é a coluna pela qual a política viaja do predicado até o
+--     ledger, calculada UMA vez só no `LATERAL`. Um re-pin que tivesse vindo
+--     acompanhado de afrouxamento seria indistinguível de um re-pin honesto; por
+--     isso a única direção autorizada é acrescentar.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_src        text;
-  v_md5        text;
-  v_esperado   text := 'ddfa6542921d241323c0124fc1bd1f99';
-  v_tem_ancora boolean;
-  v_tem_notex  boolean;
-  v_tem_notin  boolean;
+  v_src          text;
+  v_md5          text;
+  v_esperado     text := '6df3564414519abc56379d9b8924fad0';
+  v_tem_ancora   boolean;
+  v_tem_notex    boolean;
+  v_tem_notin    boolean;
+  v_tem_elegivel boolean;
+  v_tem_origem   boolean;
 BEGIN
   SELECT p.prosrc INTO v_src
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -410,22 +493,25 @@ BEGIN
     RAISE EXCEPTION 'P43P FAIL (e): public.candidaturas_alem_da_janela NAO existe — nao ha predicado unico, e o DELETE da Phase 46 nao teria o que chamar';
   END IF;
 
-  v_md5        := md5(v_src);
-  v_tem_ancora := strpos(v_src, 'data_candidatura') > 0;
-  v_tem_notex  := strpos(v_src, 'NOT EXISTS') > 0;
-  v_tem_notin  := v_src ~ '\mNOT\s+IN\M';
+  v_md5          := md5(v_src);
+  v_tem_ancora   := strpos(v_src, 'data_candidatura') > 0;
+  v_tem_notex    := strpos(v_src, 'NOT EXISTS') > 0;
+  v_tem_notin    := v_src ~ '\mNOT\s+IN\M';
+  v_tem_elegivel := strpos(v_src, 'elegivel_purga') > 0;
+  v_tem_origem   := strpos(v_src, 'ancora_origem') > 0 OR strpos(v_src, 'AS origem') > 0;
 
   IF v_md5 IS DISTINCT FROM v_esperado THEN
-    RAISE EXCEPTION 'P43P FAIL (e): o corpo VIVO do predicado NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%, data-ancora presente=%, NOT EXISTS presente=%, NOT IN (forma banida) presente=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou o predicado sem re-pinar, e a previa deixou de provar o que o DELETE da Phase 46 fara',
-      v_md5, v_esperado, octet_length(v_src), v_tem_ancora, v_tem_notex, v_tem_notin;
+    RAISE EXCEPTION 'P43P FAIL (e): o corpo VIVO do predicado NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%, data-ancora presente=%, NOT EXISTS presente=%, forma banida de negacao por conjunto presente=%, elegivel_purga presente=%, ancora_origem presente=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou o predicado sem re-pinar, e a previa deixou de provar o que o DELETE da Phase 46 fara',
+      v_md5, v_esperado, octet_length(v_src), v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem;
   END IF;
 
-  IF v_tem_notin OR NOT v_tem_notex OR NOT v_tem_ancora THEN
-    RAISE EXCEPTION 'P43P FAIL (e): o md5 casou mas a FORMA esta errada (data-ancora=%, NOT EXISTS=%, NOT IN=%) — o resumo esperado foi re-pinado sem a migration ter mudado', v_tem_ancora, v_tem_notex, v_tem_notin;
+  IF v_tem_notin OR NOT v_tem_notex OR NOT v_tem_ancora OR NOT v_tem_elegivel OR NOT v_tem_origem THEN
+    RAISE EXCEPTION 'P43P FAIL (e): o md5 casou mas a FORMA esta errada (data-ancora=%, NOT EXISTS=%, forma banida=%, elegivel_purga=%, ancora_origem=%) — o resumo esperado foi re-pinado sem a migration ter mudado, ou foi re-pinado para caber num predicado que perdeu uma propriedade estrutural. As cinco checagens sao CUMULATIVAS: a rede so cresce (Pitfall 2)',
+      v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem;
   END IF;
 
   PERFORM set_config('smoke43p.pass', (coalesce(nullif(current_setting('smoke43p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P43P PASS (e): o corpo vivo do predicado casa byte a byte com a migration (md5 %, % octetos)', v_md5, octet_length(v_src);
+  RAISE NOTICE 'P43P PASS (e): o corpo vivo do predicado casa byte a byte com a migration (md5 %, % octetos) e mantem as 5 propriedades estruturais', v_md5, octet_length(v_src);
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -436,6 +522,16 @@ END $$;
 --     `candidaturas_alem_da_janela` intacta e reescrever a prévia com um
 --     predicado próprio "mais rápido" — o md5 continuaria verde e o dry-run
 --     voltaria a mentir sobre a purga. É o ponto inteiro de a definição ser única.
+--
+--     ⚠ EMENDA DA PHASE 46 / PLANO 46-02 — DE DOIS PARA TRÊS WRAPPERS.
+--     A lista era LITERAL e exigia `v_checadas = 2`. `titulares_alem_da_janela()`
+--     (D-46-11), criada pela `20260823000003`, é o wrapper que a Phase 46
+--     REALMENTE usa: é dele que a varredura tira o alvo. Sem esta emenda ele
+--     nasceria FORA da regra que proíbe reler `config_retencao_etapa` por conta
+--     própria, e a asserção continuaria VERDE enquanto o único wrapper que
+--     importa ficava sem vigilância. **Um portão que não enxerga o objeto novo é
+--     pior que um portão vermelho: ele parece verde.** Por isso a emenda entrou
+--     no MESMO commit que criou a função, e não como limpeza posterior.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
@@ -447,7 +543,7 @@ BEGIN
     SELECT p.proname, pg_get_functiondef(p.oid) AS def
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public'
-       AND p.proname IN ('previa_retencao', 'previa_retencao_total')
+       AND p.proname IN ('previa_retencao', 'previa_retencao_total', 'titulares_alem_da_janela')
   LOOP
     v_checadas := v_checadas + 1;
 
@@ -462,12 +558,12 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF v_checadas <> 2 THEN
-    RAISE EXCEPTION 'P43P FAIL (f): encontrei % dos 2 wrappers esperados em public', v_checadas;
+  IF v_checadas <> 3 THEN
+    RAISE EXCEPTION 'P43P FAIL (f): encontrei % dos 3 wrappers esperados em public (previa_retencao, previa_retencao_total, titulares_alem_da_janela). O terceiro nasceu na Phase 46 / migration 20260823000003 e e o wrapper que a VARREDURA consome — se ele nao existe, a purga nao tem alvo; se ele existe e nao foi contado, esta asserção deixou de vigia-lo', v_checadas;
   END IF;
 
   PERFORM set_config('smoke43p.pass', (coalesce(nullif(current_setting('smoke43p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P43P PASS (f): os 2 wrappers CHAMAM candidaturas_alem_da_janela e nao releem a matriz por conta propria — uma definicao so';
+  RAISE NOTICE 'P43P PASS (f): os 3 wrappers CHAMAM candidaturas_alem_da_janela e nao releem a matriz por conta propria — uma definicao so';
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -480,6 +576,15 @@ END $$;
 --
 --     A fase é ZERO-DESTRUTIVA por desenho, e "por desenho" só vale alguma coisa
 --     se for MEDIDO. Esta é a metade estática da medição; (i) é a dinâmica.
+--
+--     ⚠ EMENDA DA PHASE 46 / PLANO 46-02 — DE TRÊS PARA QUATRO FUNÇÕES.
+--     `titulares_alem_da_janela()` entra na lista. Ela é `STABLE` e read-only por
+--     contrato, e a Phase 46 é a fase em que existe, ao lado dela, um motor que
+--     APAGA — o que torna esta negativa mais necessária aqui do que era na 43,
+--     não menos. A fronteira de palavra é MANTIDA: `updated_at` e `deleted_at`
+--     contêm `update` e `delete` como substring, e um casamento nu reprovaria a
+--     implementação CORRETA. Um teste que reprova o comportamento correto é pior
+--     que teste nenhum — ele treina quem executa a desligá-lo.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
@@ -495,7 +600,7 @@ BEGIN
     SELECT p.proname, p.prosrc
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public'
-       AND p.proname IN ('candidaturas_alem_da_janela', 'previa_retencao', 'previa_retencao_total')
+       AND p.proname IN ('candidaturas_alem_da_janela', 'titulares_alem_da_janela', 'previa_retencao', 'previa_retencao_total')
   LOOP
     v_checadas := v_checadas + 1;
 
@@ -512,16 +617,16 @@ BEGIN
       SELECT 1 FROM pg_proc p2 JOIN pg_namespace n2 ON n2.oid = p2.pronamespace
        WHERE n2.nspname = 'public' AND p2.proname = r.proname AND p2.provolatile = 's'
     ) THEN
-      RAISE EXCEPTION 'P43P FAIL (g): public.%() nao e STABLE — as tres funcoes desta migration sao read-only por contrato', r.proname;
+      RAISE EXCEPTION 'P43P FAIL (g): public.%() nao e STABLE — as quatro funcoes desta familia sao read-only por contrato', r.proname;
     END IF;
   END LOOP;
 
-  IF v_checadas <> 3 THEN
-    RAISE EXCEPTION 'P43P FAIL (g): encontrei % das 3 funcoes esperadas em public', v_checadas;
+  IF v_checadas <> 4 THEN
+    RAISE EXCEPTION 'P43P FAIL (g): encontrei % das 4 funcoes esperadas em public (candidaturas_alem_da_janela, previa_retencao, previa_retencao_total, titulares_alem_da_janela). A quarta nasceu na Phase 46 / migration 20260823000003; se ela existe e nao foi contada, a negativa de escrita deixou de alcancar o wrapper que a purga consome', v_checadas;
   END IF;
 
   PERFORM set_config('smoke43p.pass', (coalesce(nullif(current_setting('smoke43p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P43P PASS (g): as 3 funcoes sao STABLE e nenhuma contem verbo de escrita (fronteira de palavra: updated_at/deleted_at NAO sao falsos positivos)';
+  RAISE NOTICE 'P43P PASS (g): as 4 funcoes sao STABLE e nenhuma contem verbo de escrita (fronteira de palavra: updated_at/deleted_at NAO sao falsos positivos)';
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
