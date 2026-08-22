@@ -1038,9 +1038,20 @@ na mensagem. Para a Phase 46 as tabelas são `purga_execucoes` e `purga_execucao
 | A6 | `plano_exclusao_titular(uuid)` é chamável por um client `service_role` sem JWT de usuário (o `GRANT` é a `service_role`, e ela é `STABLE`/leitura) | Architecture | ⚠ Médio-alto — se ela também tiver guard de sessão, a EF de purga não consegue nem enumerar o Storage. **Medir junto com A3** |
 | A7 | `cron.job_run_details` na instância do projeto tem `pg_cron ≥ 1.6.4` (com auto-revive) | Pitfall 5 | Médio — sem auto-revive, o modo de falha "cron parou em silêncio" é mais provável e o heartbeat é mais necessário |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **OQ-1 — Como o cron autoriza o motor destrutivo? (⛔ bloqueia a decomposição)**
+> **As cinco foram resolvidas em 2026-08-22**, depois de quatro medições read-only contra PROD.
+> As resoluções vivem em `46-CONTEXT.md` §Área 5 e são o que os 7 planos implementam.
+>
+> | OQ | Resolvida por | Resolução |
+> |----|---------------|-----------|
+> | OQ-1 | **D-46-18** | Saída B — quarto ramo autorizado no guard, com as 4 obrigações. Medido: `auth.uid()` é NULL como `postgres` sem claims, então o bloqueio era real, não hipótese |
+> | OQ-2 | **D-46-19** | Allowlist = `aprovado`, `rejeitado`, `decisao_final`. Consequência declarada: rascunho e funil ativo nunca purgam automaticamente |
+> | OQ-3 | **D-46-20** | Escalar próprio `janela_notificacoes_meses` em `config_purga`, não derivado da matriz |
+> | OQ-4 | **D-46-21** | As duas fixtures — revertida no smoke, durável e namespaceada no dry-run, teardown escrito antes |
+> | OQ-5 | **D-46-22** | Medido: 7 das 8 linhas ainda em `origem='seed'`. Confirmar os 3 estados da allowlist virou **pré-condição do flip** |
+
+1. **OQ-1 — Como o cron autoriza o motor destrutivo? (⛔ bloqueava a decomposição) — RESOLVED: ver D-46-18**
    - What we know: as três metades do guard de `anonimizar_candidato` recusam um chamador sem
      sessão, sem papel e sem pedido em `solicitacoes_dados` — medido, verbatim, em §Blocker B-01.
    - What's unclear: qual das três saídas o operador aceita. É decisão de **segurança**, não de
@@ -1049,7 +1060,7 @@ na mensagem. Para a Phase 46 as tabelas são `purga_execucoes` e `purga_execucao
      Saída B, com as quatro obrigações listadas. Antes do checkpoint, **medir** A3 e A6 por
      execução (uma chamada `SELECT auth.uid()` sob o corpo do cron resolve as duas em segundos).
 
-2. **OQ-2 — `inscricao` entra na allowlist de estados elegíveis?**
+2. **OQ-2 — `inscricao` entra na allowlist de estados elegíveis?** — RESOLVED: ver D-46-19
    - What we know: PURGA-07 pede "allowlist de estados **terminais**". D-46-01 diz que rascunhos
      seguem a matriz "pelo estado em que estão (`inscricao`, 24 meses)" — e `inscricao` não é
      terminal.
@@ -1059,7 +1070,7 @@ na mensagem. Para a Phase 46 as tabelas são `purga_execucoes` e `purga_execucao
    - Recommendation: perguntar ao operador nomeando os 8 estados um a um, com `elegivel_purga`
      default `false`. A resposta é uma linha de seed — barata de escrever, cara de assumir errado.
 
-3. **OQ-3 — De onde vem a janela do RETEN-05?**
+3. **OQ-3 — De onde vem a janela do RETEN-05?** — RESOLVED: ver D-46-20
    - What we know: D-46-17 diz "24 meses, alinhado à matriz". Mas `config_retencao_etapa` é chaveada
      por `etapa_processo` e `notificacoes_enviadas` não tem etapa.
    - What's unclear: escalar próprio em `config_purga`, ou derivado de `max(janela_meses)`.
@@ -1067,7 +1078,7 @@ na mensagem. Para a Phase 46 as tabelas são `purga_execucoes` e `purga_execucao
      mudaria em silêncio no dia em que um admin encurtar a janela de um estado, e a relação
      "notificação ↔ etapa" não existe no modelo.
 
-4. **OQ-4 — A fixture do dry-run é durável ou por transação?**
+4. **OQ-4 — A fixture do dry-run é durável ou por transação?** — RESOLVED: ver D-46-21
    - What we know: o smoke precisa de fixture revertida (idioma `20260805000006` §3); o dry-run de
      14 dias precisa de fixture que **sobreviva** entre dias.
    - What's unclear: se o operador aceita fixture durável em PROD por 14 dias, e como ela é isolada
@@ -1075,7 +1086,7 @@ na mensagem. Para a Phase 46 as tabelas são `purga_execucoes` e `purga_execucao
    - Recommendation: as duas, com propósitos diferentes — revertida no smoke, durável e
      namespaceada para o período de dry-run, com plano de teardown escrito **antes** de criá-la.
 
-5. **OQ-5 — A matriz ainda está no seed genérico?**
+5. **OQ-5 — A matriz ainda está no seed genérico?** — RESOLVED: ver D-46-22 (medido: 7/8 em seed)
    - What we know: o `COMMENT` da coluna, escrito dentro do banco, declara que a Phase 46 **não pode
      ligar a purga** enquanto a matriz estiver no seed sem confirmação por estado
      [VERIFIED: 20260801000002:174-177]. Pelo menos `rejeitado` já foi editado para 18 meses.
