@@ -24,9 +24,10 @@
 -- migration que as obriga, porque uma delas não é opcional:
 --
 --   (e) RE-PIN do `md5(prosrc)`. Valor anterior `ddfa6542…` (775 octetos, medido
---       2026-08-01), valor vigente `6df35644…` (1357 octetos, medido 2026-08-23),
---       com conferência CRUZADA vivo × arquivo — ver PROVENIÊNCIA. A rede
---       estrutural embaixo do md5 GANHOU duas checagens e não perdeu nenhuma.
+--       2026-08-01), valor então vigente `6df35644…` (1357 octetos, medido
+--       2026-08-23), com conferência CRUZADA vivo × arquivo — ver PROVENIÊNCIA.
+--       A rede estrutural embaixo do md5 GANHOU duas checagens e não perdeu
+--       nenhuma.
 --   (f) DE DOIS PARA TRÊS wrappers na lista literal de `proname`.
 --   (g) DE TRÊS PARA QUATRO funções na negativa de verbo de escrita.
 --
@@ -35,6 +36,30 @@
 -- simplesmente fica FORA delas, e o portão continua verde enquanto o único
 -- wrapper que a purga realmente consome fica sem vigilância. **Um portão que não
 -- enxerga o objeto novo é pior que um portão vermelho: ele parece verde.**
+--
+-- -----------------------------------------------------------------------------
+-- ⚠ EMENDADO DE NOVO EM 2026-08-23 PELA PHASE 46 / PLANO 46-03 — UMA ALTERAÇÃO
+-- -----------------------------------------------------------------------------
+-- A migration `20260823000005_p46_retencao_hold_e_excecoes.sql` fechou as DUAS
+-- exceções de política que faltavam (`retencao_hold` de D-46-04 e VAGA AINDA
+-- ABERTA de D-46-03), ambas por inexistência de linha correspondente. O corpo do
+-- predicado mudou **de novo**, e isso era esperado e está declarado no
+-- `46-CONTEXT.md` §Área 1.
+--
+--   (e) **SEGUNDO RE-PIN da Phase 46.** Valor vigente `b4fdb3a1…` (1958 octetos),
+--       medido em 2026-08-23. Dois atos conscientes, ambos medidos, ambos com os
+--       dois lados registrados — nunca digitados. E a rede estrutural embaixo do
+--       md5 passou de CINCO para SETE checagens: entraram `retencao_hold`
+--       presente e `status_vaga` presente. **Ela só cresce.**
+--
+-- ⚠ (f) E (g) NÃO FORAM TOCADAS, E A DECISÃO É DELIBERADA. As duas iteram sobre
+-- listas literais de `proname`, mas o plano 46-03 **não cria função nenhuma** —
+-- ele substitui em lugar uma função que as duas listas JÁ vigiam, e cria uma
+-- TABELA, que nenhuma das duas assere. Uma lista literal que codifica ESCOPO
+-- deliberado (as funções da família da prévia) não é o mesmo defeito que uma
+-- lista literal que congela uma FOTOGRAFIA — as duas parecem iguais no código e
+-- são opostas, e a distinção está escrita no CLAUDE.md §"Portões: varra pela
+-- FORMA". Emendar (f)/(g) aqui seria mexer num portão que continua mordendo.
 --
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
@@ -106,44 +131,57 @@
 --
 -- PROVENIÊNCIA DO RESUMO ESPERADO (não apagar — é o que torna um re-pin auditável)
 --
---   valor VIGENTE  : 6df3564414519abc56379d9b8924fad0   (1357 octetos)
+--   valor VIGENTE  : b4fdb3a1243f9375cd15a61ef27189f1   (1958 octetos)
 --   origem         : corpo entre os dois delimitadores NOMEADOS de cifrão do
---                    `CREATE FUNCTION public.candidaturas_alem_da_janela()` em
---                    `supabase/migrations/20260823000003_p46_predicado_titular.sql`
---   re-pinado em   : 2026-08-23, pelo plano 46-02 da Phase 46
---   POR QUE MUDOU  : a Phase 46 ESTENDEU o predicado, e a mudança era ESPERADA e
---                    está declarada no `46-CONTEXT.md` §Área 1. São três
---                    alterações no corpo: a assinatura passou de TRÊS para SEIS
---                    colunas (`janela_meses_aplicada`, `ancora_origem`,
---                    `ancora_em`, que o ledger de PURGA-06 exige); a escada da
---                    data-âncora foi para um `CROSS JOIN LATERAL` que a calcula
---                    UMA vez, de modo que o `WHERE` filtre pelo MESMO instante que
---                    a saída relata; e entrou a cláusula `m.elegivel_purga`, a
---                    allowlist de D-46-19. O `DROP`+`CREATE` (necessário porque
---                    `RETURNS TABLE` não é substituível em lugar) está declarado
---                    no escopo negativo daquela migration.
+--                    `CREATE OR REPLACE FUNCTION
+--                     public.candidaturas_alem_da_janela()` em
+--                    `supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql`
+--   re-pinado em   : 2026-08-23, pelo plano 46-03 da Phase 46
+--   ⚠ ESTE É O **SEGUNDO** RE-PIN DA PHASE 46. O primeiro foi no plano 46-02, no
+--                    mesmo dia. Dois atos conscientes, ambos MEDIDOS por execução
+--                    e ambos com os dois lados registrados — e a sequência inteira
+--                    fica escrita aqui, porque é ela que permite ver que o pin
+--                    mudou DUAS vezes, cada uma com data e com razão, em vez de
+--                    ter mudado sozinho.
+--   POR QUE MUDOU  : o plano 46-03 fechou as DUAS exceções de política que a
+--                    Phase 43 deixara explicitamente abertas, e a mudança era
+--                    ESPERADA e está declarada no `46-CONTEXT.md` §Área 1. São
+--                    duas cláusulas novas no `WHERE`, ambas por inexistência de
+--                    linha correspondente: HOLD PONTUAL (D-46-04, linha viva em
+--                    `public.retencao_hold` com `liberado_em` nulo) e VAGA AINDA
+--                    ABERTA (D-46-03, cujo interior é o COMPLEMENTO da allowlist
+--                    de estados fechados, de modo que um valor novo em
+--                    `public.status_vaga` PROTEGE em vez de expor). A assinatura
+--                    NÃO mudou, então a migration usa `CREATE OR REPLACE` e não
+--                    há `DROP` nem o problema de ACL que um `DROP` cria.
 --   CONFERENCIA    : CRUZADA, nos DOIS lados — e é a conferência que autoriza o
 --                    pin, não "li o valor vivo e copiei". Copiar o valor vivo
 --                    pinaria o que está aplicado, seja lá o que for, e o gate
 --                    deixaria de comparar.
 --                      md5(prosrc) VIVO (pg_proc, via MCP somente-leitura)  ==
 --                      md5(corpo)  do ARQUIVO commitado (comando abaixo)
---                    lado ARQUIVO : 6df3564414519abc56379d9b8924fad0, 1357
+--                    lado ARQUIVO : b4fdb3a1243f9375cd15a61ef27189f1, 1958
 --                                   octetos, medido em 2026-08-23 POR EXECUÇÃO do
 --                                   comando de recomputação — nunca digitado.
 --                    lado VIVO    : medido pelo ORQUESTRADOR no checkpoint do
---                                   plano 46-02, imediatamente APÓS o apply da
---                                   `20260823000003`. Os dois valores ficam
---                                   registrados lado a lado no `46-02-SUMMARY.md`.
+--                                   plano 46-03, imediatamente APÓS o apply da
+--                                   `20260823000005`. Os dois valores ficam
+--                                   registrados lado a lado no `46-03-SUMMARY.md`.
+--
+--   valor ANTERIOR : 6df3564414519abc56379d9b8924fad0   (1357 octetos)
+--                    origem: `20260823000003_p46_predicado_titular.sql`, medido em
+--                    2026-08-23 pelo plano 46-02, com os dois lados registrados no
+--                    `46-02-SUMMARY.md`. Vigorou por algumas horas, entre o apply
+--                    daquele plano e o deste.
 --
 --   valor ANTERIOR : ddfa6542921d241323c0124fc1bd1f99   (775 octetos)
 --                    origem: `20260801000004_p43_previa_retencao.sql`, medido em
 --                    2026-08-01 e confirmado ainda válido em 2026-08-22
 --                    (`46-01-MEDICOES.md` §M4b). Vigorou até 2026-08-23.
---                    ⚠ FICA AQUI COMO HISTÓRICO, e apagá-lo destruiria a única
---                    coisa que torna o re-pin auditável: sem ele não há como ver
---                    que o pin mudou UMA vez, com data e com razão, em vez de ter
---                    mudado sozinho.
+--                    ⚠ OS DOIS ANTERIORES FICAM AQUI COMO HISTÓRICO, e apagá-los
+--                    destruiria a única coisa que torna um re-pin auditável: sem
+--                    eles não há como ver que o pin mudou DUAS vezes, cada uma com
+--                    data e com razão, em vez de ter mudado sozinho.
 --
 --   recomputar (se e somente se a migration mudar):
 --     node -e 'const f=require("fs").readFileSync(process.argv[1],"utf8"),
@@ -151,7 +189,7 @@
 --       b=f.indexOf(D,a+D.length);
 --       console.log(require("crypto").createHash("md5")
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
---       supabase/migrations/20260823000003_p46_predicado_titular.sql \
+--       supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql \
 --       candidaturas_alem_da_janela
 --   ⚠ O nome do delimitador entra por ARGUMENTO e nunca literal no comando: um
 --     arquivo que MENCIONE `$` + `candidaturas_alem_da_janela` + `$` num
@@ -160,12 +198,21 @@
 --   ⚠ Se este resumo for re-pinado sem que a migration tenha mudado, a asserção
 --     (e) deixa de provar qualquer coisa. Re-pinar é ATO CONSCIENTE E REVISÁVEL.
 --   ⚠⚠ UM RE-PIN NUNCA É DESCULPA PARA AFROUXAR A ASSERÇÃO (Pitfall 2). A rede
---     estrutural embaixo do md5 GANHOU duas checagens nesta fase — `elegivel_purga`
---     presente (a allowlist é DADO, não lista no código) e `ancora_origem` presente
---     (a política viaja do predicado até o ledger, calculada uma vez só) — e não
---     perdeu nenhuma. Ela só cresce. Um portão que reprova trabalho correto treina
---     quem executa a desligá-lo; um portão afrouxado para caber no trabalho não
---     reprova mais nada.
+--     estrutural embaixo do md5 GANHOU QUATRO checagens nesta fase, em dois atos, e
+--     não perdeu nenhuma:
+--       · plano 46-02 → `elegivel_purga` presente (a allowlist é DADO, não lista
+--         no código) e `ancora_origem` presente (a política viaja do predicado até
+--         o ledger, calculada uma vez só);
+--       · plano 46-03 → `retencao_hold` presente (a exceção de hold pontual de
+--         D-46-04 vive DENTRO do predicado, e um corpo que a perdesse voltaria a
+--         só poder proteger uma candidatura desligando a purga inteira) e
+--         `status_vaga` presente (a exceção de vaga aberta de D-46-03, cujo
+--         interior é o COMPLEMENTO da allowlist de estados fechados — um corpo que
+--         trocasse essa forma pela negação por conjunto de valores deixaria de ser
+--         fail-closed, e o md5 re-pinado não contaria essa história).
+--     Ela só cresce, de TRÊS para CINCO para SETE. Um portão que reprova trabalho
+--     correto treina quem executa a desligá-lo; um portão afrouxado para caber no
+--     trabalho não reprova mais nada.
 --
 -- ⚠ A ÚNICA DIVERGÊNCIA AUTORIZADA, E O SEU TESTE DE DISCRIMINAÇÃO
 -- Se no checkpoint o pin de (e) NÃO bater **E** o `md5(statements[1])` do apply
@@ -463,27 +510,41 @@ END $$;
 --     re-pin indevido: se o resumo casar mas a forma estiver errada, é porque
 --     alguém re-pinou sem a migration ter mudado.
 --
---     ⚠ A REDE CRESCEU NA PHASE 46, E ELA SÓ CRESCE. Às três checagens originais
---     (`data_candidatura`, `NOT EXISTS`, forma banida de negação por conjunto)
---     somam-se duas do plano 46-02: `elegivel_purga` presente — a allowlist de
---     D-46-19 é DADO na matriz e não lista no código, e um predicado que voltasse
---     a enumerar estados no corpo passaria pelo md5 re-pinado — e `ancora_origem`
---     presente, porque é a coluna pela qual a política viaja do predicado até o
---     ledger, calculada UMA vez só no `LATERAL`. Um re-pin que tivesse vindo
---     acompanhado de afrouxamento seria indistinguível de um re-pin honesto; por
---     isso a única direção autorizada é acrescentar.
+--     ⚠ A REDE CRESCEU NA PHASE 46, EM DOIS ATOS, E ELA SÓ CRESCE. Às três
+--     checagens originais (`data_candidatura`, `NOT EXISTS`, forma banida de
+--     negação por conjunto) somam-se duas do plano 46-02 e duas do 46-03:
+--       · `elegivel_purga` presente — a allowlist de D-46-19 é DADO na matriz e
+--         não lista no código, e um predicado que voltasse a enumerar estados no
+--         corpo passaria pelo md5 re-pinado;
+--       · `ancora_origem` presente — é a coluna pela qual a política viaja do
+--         predicado até o ledger, calculada UMA vez só no `LATERAL`;
+--       · `retencao_hold` presente — a exceção de hold pontual (D-46-04) vive
+--         DENTRO do predicado. Um corpo que a perdesse voltaria a só poder
+--         proteger uma candidatura específica DESLIGANDO A PURGA INTEIRA, e o
+--         md5 sozinho não contaria essa história;
+--       · `status_vaga` presente — a exceção de vaga ainda aberta (D-46-03). O
+--         interior dela é o COMPLEMENTO da allowlist de estados fechados, e é
+--         isso que torna um status DESCONHECIDO protetor. Um corpo que trocasse
+--         essa forma pela negação por pertencimento a conjunto de valores
+--         deixaria de ser fail-closed exatamente onde a Phase 42 já pagou por
+--         esse erro (INVENT-05).
+--     Um re-pin que tivesse vindo acompanhado de afrouxamento seria
+--     indistinguível de um re-pin honesto; por isso a única direção autorizada é
+--     acrescentar. TRÊS → CINCO → SETE.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
   v_src          text;
   v_md5          text;
-  v_esperado     text := '6df3564414519abc56379d9b8924fad0';
+  v_esperado     text := 'b4fdb3a1243f9375cd15a61ef27189f1';
   v_tem_ancora   boolean;
   v_tem_notex    boolean;
   v_tem_notin    boolean;
   v_tem_elegivel boolean;
   v_tem_origem   boolean;
+  v_tem_hold     boolean;
+  v_tem_vaga     boolean;
 BEGIN
   SELECT p.prosrc INTO v_src
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -499,19 +560,22 @@ BEGIN
   v_tem_notin    := v_src ~ '\mNOT\s+IN\M';
   v_tem_elegivel := strpos(v_src, 'elegivel_purga') > 0;
   v_tem_origem   := strpos(v_src, 'ancora_origem') > 0 OR strpos(v_src, 'AS origem') > 0;
+  v_tem_hold     := strpos(v_src, 'retencao_hold') > 0;
+  v_tem_vaga     := strpos(v_src, 'status_vaga') > 0;
 
   IF v_md5 IS DISTINCT FROM v_esperado THEN
-    RAISE EXCEPTION 'P43P FAIL (e): o corpo VIVO do predicado NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%, data-ancora presente=%, NOT EXISTS presente=%, forma banida de negacao por conjunto presente=%, elegivel_purga presente=%, ancora_origem presente=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou o predicado sem re-pinar, e a previa deixou de provar o que o DELETE da Phase 46 fara',
-      v_md5, v_esperado, octet_length(v_src), v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem;
+    RAISE EXCEPTION 'P43P FAIL (e): o corpo VIVO do predicado NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%, data-ancora presente=%, NOT EXISTS presente=%, forma banida de negacao por conjunto presente=%, elegivel_purga presente=%, ancora_origem presente=%, retencao_hold presente=%, status_vaga presente=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou o predicado sem re-pinar, e a previa deixou de provar o que o DELETE da Phase 46 fara',
+      v_md5, v_esperado, octet_length(v_src), v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem, v_tem_hold, v_tem_vaga;
   END IF;
 
-  IF v_tem_notin OR NOT v_tem_notex OR NOT v_tem_ancora OR NOT v_tem_elegivel OR NOT v_tem_origem THEN
-    RAISE EXCEPTION 'P43P FAIL (e): o md5 casou mas a FORMA esta errada (data-ancora=%, NOT EXISTS=%, forma banida=%, elegivel_purga=%, ancora_origem=%) — o resumo esperado foi re-pinado sem a migration ter mudado, ou foi re-pinado para caber num predicado que perdeu uma propriedade estrutural. As cinco checagens sao CUMULATIVAS: a rede so cresce (Pitfall 2)',
-      v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem;
+  IF v_tem_notin OR NOT v_tem_notex OR NOT v_tem_ancora OR NOT v_tem_elegivel OR NOT v_tem_origem
+     OR NOT v_tem_hold OR NOT v_tem_vaga THEN
+    RAISE EXCEPTION 'P43P FAIL (e): o md5 casou mas a FORMA esta errada (data-ancora=%, NOT EXISTS=%, forma banida=%, elegivel_purga=%, ancora_origem=%, retencao_hold=%, status_vaga=%) — o resumo esperado foi re-pinado sem a migration ter mudado, ou foi re-pinado para caber num predicado que perdeu uma propriedade estrutural. As SETE checagens sao CUMULATIVAS: a rede so cresce, nunca encolhe (Pitfall 2). retencao_hold ausente significa que a excecao de hold pontual (D-46-04) sumiu do predicado, e proteger uma candidatura voltou a exigir desligar a purga inteira; status_vaga ausente significa que a excecao de vaga aberta (D-46-03) sumiu, e um processo VIVO voltou a ser purgavel',
+      v_tem_ancora, v_tem_notex, v_tem_notin, v_tem_elegivel, v_tem_origem, v_tem_hold, v_tem_vaga;
   END IF;
 
   PERFORM set_config('smoke43p.pass', (coalesce(nullif(current_setting('smoke43p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P43P PASS (e): o corpo vivo do predicado casa byte a byte com a migration (md5 %, % octetos) e mantem as 5 propriedades estruturais', v_md5, octet_length(v_src);
+  RAISE NOTICE 'P43P PASS (e): o corpo vivo do predicado casa byte a byte com a migration (md5 %, % octetos) e mantem as 7 propriedades estruturais', v_md5, octet_length(v_src);
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
