@@ -367,7 +367,7 @@ export type Database = {
       }
       autorizacoes: {
         Row: {
-          autorizacao_analise_video: boolean
+          autorizacao_analise_video: boolean | null
           autorizacao_comunicacao: boolean
           autorizacao_marketing_vagas: boolean | null
           autorizacao_retencao_curriculo: boolean
@@ -385,7 +385,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          autorizacao_analise_video?: boolean
+          autorizacao_analise_video?: boolean | null
           autorizacao_comunicacao?: boolean
           autorizacao_marketing_vagas?: boolean | null
           autorizacao_retencao_curriculo?: boolean
@@ -403,7 +403,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          autorizacao_analise_video?: boolean
+          autorizacao_analise_video?: boolean | null
           autorizacao_comunicacao?: boolean
           autorizacao_marketing_vagas?: boolean | null
           autorizacao_retencao_curriculo?: boolean
@@ -843,6 +843,7 @@ export type Database = {
           email: string
           email_verificado: boolean
           estado: string
+          faixa_etaria_materializada: string | null
           genero: string | null
           id: string
           instagram: string | null
@@ -854,7 +855,7 @@ export type Database = {
           numero: string | null
           updated_at: string
           updated_by: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           ativo?: boolean
@@ -877,6 +878,7 @@ export type Database = {
           email: string
           email_verificado?: boolean
           estado: string
+          faixa_etaria_materializada?: string | null
           genero?: string | null
           id?: string
           instagram?: string | null
@@ -888,7 +890,7 @@ export type Database = {
           numero?: string | null
           updated_at?: string
           updated_by?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           ativo?: boolean
@@ -911,6 +913,7 @@ export type Database = {
           email?: string
           email_verificado?: boolean
           estado?: string
+          faixa_etaria_materializada?: string | null
           genero?: string | null
           id?: string
           instagram?: string | null
@@ -922,7 +925,7 @@ export type Database = {
           numero?: string | null
           updated_at?: string
           updated_by?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1235,10 +1238,53 @@ export type Database = {
         }
         Relationships: []
       }
+      config_purga: {
+        Row: {
+          alterado_por: string | null
+          atualizado_em: string
+          cap_titulares: number
+          id: boolean
+          janela_notificacoes_meses: number
+          modo: string
+        }
+        Insert: {
+          alterado_por?: string | null
+          atualizado_em?: string
+          cap_titulares?: number
+          id?: boolean
+          janela_notificacoes_meses?: number
+          modo?: string
+        }
+        Update: {
+          alterado_por?: string | null
+          atualizado_em?: string
+          cap_titulares?: number
+          id?: boolean
+          janela_notificacoes_meses?: number
+          modo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_purga_alterado_por_fkey"
+            columns: ["alterado_por"]
+            isOneToOne: false
+            referencedRelation: "usuarios_rh"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "config_purga_alterado_por_fkey"
+            columns: ["alterado_por"]
+            isOneToOne: false
+            referencedRelation: "v_usuarios_rh_ativos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       config_retencao_etapa: {
         Row: {
           alterado_por: string | null
           atualizado_em: string
+          elegivel_purga: boolean
           etapa: Database["public"]["Enums"]["etapa_processo"]
           janela_meses: number
           origem: string
@@ -1246,6 +1292,7 @@ export type Database = {
         Insert: {
           alterado_por?: string | null
           atualizado_em?: string
+          elegivel_purga?: boolean
           etapa: Database["public"]["Enums"]["etapa_processo"]
           janela_meses: number
           origem?: string
@@ -1253,6 +1300,7 @@ export type Database = {
         Update: {
           alterado_por?: string | null
           atualizado_em?: string
+          elegivel_purga?: boolean
           etapa?: Database["public"]["Enums"]["etapa_processo"]
           janela_meses?: number
           origem?: string
@@ -2269,7 +2317,7 @@ export type Database = {
           erro_mensagem?: string | null
           evento: string
           id?: string
-          ip_address: unknown
+          ip_address?: unknown
           operating_system?: string | null
           user_id?: string | null
         }
@@ -2964,6 +3012,101 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      purga_execucao_itens: {
+        Row: {
+          ancora_em: string
+          ancora_origem: string
+          candidato_id: string
+          concluido_em: string | null
+          criado_em: string
+          desfecho_auth: string
+          desfecho_postgres: string
+          desfecho_storage: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          execucao_id: string
+          id: string
+          janela_meses_aplicada: number
+          relato_dry_run: string | null
+        }
+        Insert: {
+          ancora_em: string
+          ancora_origem: string
+          candidato_id: string
+          concluido_em?: string | null
+          criado_em?: string
+          desfecho_auth?: string
+          desfecho_postgres?: string
+          desfecho_storage?: string
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          execucao_id: string
+          id?: string
+          janela_meses_aplicada: number
+          relato_dry_run?: string | null
+        }
+        Update: {
+          ancora_em?: string
+          ancora_origem?: string
+          candidato_id?: string
+          concluido_em?: string | null
+          criado_em?: string
+          desfecho_auth?: string
+          desfecho_postgres?: string
+          desfecho_storage?: string
+          etapa?: Database["public"]["Enums"]["etapa_processo"]
+          execucao_id?: string
+          id?: string
+          janela_meses_aplicada?: number
+          relato_dry_run?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purga_execucao_itens_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "purga_execucoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purga_execucoes: {
+        Row: {
+          cap_vigente: number
+          concluida_em: string | null
+          elegiveis: number
+          id: string
+          iniciada_em: string
+          modo_vigente: string
+          notificacoes_expurgadas: number
+          processados: number
+          situacao: string
+          veredito: string
+        }
+        Insert: {
+          cap_vigente: number
+          concluida_em?: string | null
+          elegiveis: number
+          id?: string
+          iniciada_em?: string
+          modo_vigente: string
+          notificacoes_expurgadas?: number
+          processados?: number
+          situacao?: string
+          veredito: string
+        }
+        Update: {
+          cap_vigente?: number
+          concluida_em?: string | null
+          elegiveis?: number
+          id?: string
+          iniciada_em?: string
+          modo_vigente?: string
+          notificacoes_expurgadas?: number
+          processados?: number
+          situacao?: string
+          veredito?: string
+        }
+        Relationships: []
       }
       questoes_bigfive: {
         Row: {
@@ -4878,6 +5021,7 @@ export type Database = {
           created_at: string | null
           curriculo_nome_original: string | null
           deleted_at: string | null
+          encerrada_a_pedido_em: string | null
           etapa_atual: Database["public"]["Enums"]["etapa_processo"] | null
           flags: string[] | null
           gaps: string[] | null
@@ -5004,6 +5148,10 @@ export type Database = {
       }
     }
     Functions: {
+      anonimizar_candidato: {
+        Args: { p_candidato_id: string; p_dry_run?: boolean }
+        Returns: Json
+      }
       atualizar_meu_perfil_rh: {
         Args: { p_avatar_url?: string; p_nome: string }
         Returns: undefined
@@ -5034,9 +5182,12 @@ export type Database = {
       candidaturas_alem_da_janela: {
         Args: never
         Returns: {
+          ancora_em: string
+          ancora_origem: string
           candidato_id: string
           candidatura_id: string
           etapa: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses_aplicada: number
         }[]
       }
       check_candidato_duplicate: {
@@ -5201,6 +5352,16 @@ export type Database = {
       ler_resend_webhook_secret: { Args: never; Returns: string }
       limpar_logs_antigos: { Args: never; Returns: number }
       limpar_sessoes_expiradas: { Args: never; Returns: undefined }
+      listar_historico_candidatura: {
+        Args: { p_candidatura_id: string }
+        Returns: {
+          ator_rotulo: string
+          criado_em: string
+          criterio_texto: string
+          etapa_de: Database["public"]["Enums"]["etapa_processo"]
+          etapa_para: Database["public"]["Enums"]["etapa_processo"]
+        }[]
+      }
       listar_matriz_retencao: {
         Args: never
         Returns: {
@@ -5270,6 +5431,10 @@ export type Database = {
           realizado_por: string
           status: Database["public"]["Enums"]["status_entrevista"]
         }[]
+      }
+      plano_exclusao_titular: {
+        Args: { p_candidato_id: string }
+        Returns: Json
       }
       pode_receber_marketing: {
         Args: { p_candidato_id: string }
@@ -5404,6 +5569,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      retirar_candidatura: {
+        Args: { p_candidatura_id: string }
+        Returns: string
+      }
       rollback_to_version: {
         Args: {
           p_call_type: Database["public"]["Enums"]["llm_call_type"]
@@ -5498,6 +5667,17 @@ export type Database = {
         Returns: Json
       }
       testar_webhook: { Args: { webhook_config_id: string }; Returns: Json }
+      titulares_alem_da_janela: {
+        Args: never
+        Returns: {
+          ancora_em: string
+          ancora_origem: string
+          candidato_id: string
+          candidaturas_alem: number
+          etapa: Database["public"]["Enums"]["etapa_processo"]
+          janela_meses_aplicada: number
+        }[]
+      }
       unaccent: { Args: { "": string }; Returns: string }
       upsert_pergunta_opcoes_metadata: {
         Args: { p_opcoes: Json; p_pergunta_id: string }
@@ -5510,6 +5690,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      varrer_purga_retencao: { Args: never; Returns: undefined }
       varrer_retry_notificacoes: { Args: never; Returns: undefined }
     }
     Enums: {
