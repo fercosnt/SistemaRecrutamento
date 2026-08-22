@@ -17,9 +17,11 @@ human_verification:
   # existia apenas no texto COLADO — artefato de seleção, não defeito do sistema.
   # O gerador havia sido executado antes de qualquer acusação (8.691 bytes, os 3 pontos
   # completos), que foi o que evitou registrar um defeito inexistente.
-  - test: "REDEPLOY das 3 EFs que mandam e-mail, do terminal do operador (o CLI trava fora de TTY)."
-    expected: "executar-direito-titular > v2 (verify_jwt TRUE) · notificar-candidato > v7 e notificar-rh > v2 (ambas verify_jwt FALSE, exigem --no-verify-jwt). Depois disso a logo aparece e os links do e-mail ao RH deixam de apontar para host morto."
-    why_human: "⚠ Tentado DUAS vezes pelo agente e travou sem erro visível nas duas — mesmo bloqueio de TTY que o STATE.md já registrava para `supabase login`, agora atingindo `deploy`. Conferido: executar-direito-titular segue em v2 com o mesmo ezbr_sha256, ou seja NADA foi deployado. O caminho MCP foi descartado de propósito: exigiria retranscrever o bundle inteiro, e um byte divergente em código que apaga PII não é risco aceitável (mesmo precedente do 45-01)."
+  # ✅ FECHADO em 2026-08-22 — as TRES EFs redeployadas e conferidas POR EFEITO (MCP),
+  # nao pelo texto do log: executar-direito-titular v2→v3 (verify_jwt TRUE preservado),
+  # notificar-candidato v7→v8 e notificar-rh v2→v3 (ambas verify_jwt FALSE preservado).
+  # Com isso o conserto do WR-A vigora, a logo aparece e os links ao RH deixam de
+  # apontar para host morto. Nao havia defeito de auth no CLI — ele so e MUITO lento.
 ---
 
 # Phase 45 — Verificação
