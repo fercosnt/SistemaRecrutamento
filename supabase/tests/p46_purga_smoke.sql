@@ -13,10 +13,11 @@
 -- smoke para caber no que foi aplicado é ESCALAR o problema — é o movimento que
 -- transforma um gate em decoração.
 --
--- ⚠ ESTE ARQUIVO NASCE COM AS LETRAS DO PLANO 46-02. As demais — (a), (b), (d),
--- (e), (g), (j.1-3), (k), (l), (m), (n), (o) — chegam nos planos 46-03 a 46-07,
--- NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto. Um arquivo por fase, e não um
--- por plano: as asserções desta fase leem umas o estado das outras.
+-- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02, e o plano 46-03
+-- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l). As demais — (a), (b), (d), (e),
+-- (g), (m), (n), (o) — chegam nos planos 46-04 a 46-07, NESTE MESMO ARQUIVO, e o
+-- RESUMO (z) sobe junto (era 6, agora é 11). Um arquivo por fase, e não um por
+-- plano: as asserções desta fase leem umas o estado das outras.
 --
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
@@ -28,8 +29,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **6** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 6 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **11** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 11 e o RESUMO reprova ALTO.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ A FIXTURE JÁ ESTÁ VIVA — ESTE ARQUIVO NÃO A CRIA, E DEPENDE DELA
@@ -47,14 +48,24 @@
 -- vazio não prova nada; um dry-run que não apagou nada porque não havia nada é a
 -- definição de decoração (SC#1, e a mesma classe do P39/CR-02).
 --
--- Números esperados sobre a fixture viva, DEPOIS do apply do plano 46-02:
---   `candidaturas_alem_da_janela()` = **6** (era 7; `neg-etapa#08` saiu porque
---   `entrevista_online` não está na allowlist de D-46-19)
---   `titulares_alem_da_janela()`    = **6** (pos1, pos2, pos3, cap2, neg-hold,
---   neg-vaga — `neg-art20` sai pelo Art. 20, e o titular de `neg-etapa` tem uma
---   segunda candidatura DENTRO da janela, que é o caso de D-46-11)
--- Os `>=` das asserções são deliberados: o arquivo tem de continuar válido depois
--- que o 46-03 derrubar `neg-hold` e `neg-vaga` (6 → 4).
+-- Números esperados sobre a fixture viva, DEPOIS do apply do plano 46-03:
+--   `candidaturas_alem_da_janela()` = **4** · `titulares_alem_da_janela()` = **4**
+--   (`pos1#01`, `pos2#02`, `pos3#03`, `cap2#04`)
+--
+-- A trajetória inteira, e cada queda com nome — porque "o número baixou" nunca
+-- foi o critério; **qual** linha caiu é que é:
+--   7  fixture do 46-01 aplicada (o conjunto era 0 antes dela, por aritmética)
+--   6  46-02: sai `neg-etapa#08`, pela allowlist de D-46-19 (`entrevista_online`)
+--   4  46-03: saem `neg-hold#05` (linha viva em `retencao_hold`, D-46-04) e
+--      `neg-vaga#06` (vaga em `ativa`, D-46-03)
+--   `neg-art20#07` nunca esteve: a exceção do Art. 20 já valia desde a Phase 43.
+--   `neg-etapa#09` nunca esteve: está DENTRO da janela, e é por ela que o titular
+--   de `neg-etapa` não aparece em `titulares_alem_da_janela()` (D-46-11).
+--
+-- ⚠ Os `>=` das asserções de execução são deliberados e continuam: o arquivo tem
+-- de seguir válido quando os planos 46-04 a 46-07 mexerem no conjunto. O que NÃO
+-- é `>=` são as asserções (j.1-3), (k) e (l), que nomeiam a fixture EXATA — é
+-- delas que sai a prova de que cada exceção morde por si.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ O ENVELOPE, E POR QUE AS ASSERÇÕES SÃO JULGADAS FORA DELE
@@ -92,7 +103,7 @@
 -- Um portão que reprova trabalho correto treina quem executa a desligá-lo.
 --
 -- -----------------------------------------------------------------------------
--- AS ASSERÇÕES DESTE PLANO — quatro delas NEGATIVAS
+-- AS ASSERÇÕES — do plano 46-02 (6) e do plano 46-03 (5). Oito são NEGATIVAS.
 -- -----------------------------------------------------------------------------
 --   (h)     ⊖ O ledger não tem coluna de PII, aferido sobre o CATÁLOGO.
 --   (f)     ⊖ Kill switch provado por execução REAL com `modo = 'off'`.
@@ -100,7 +111,55 @@
 --   (i)     O item registra a POLÍTICA, e não só a contagem.
 --   (idem)  A idempotência do dry-run é OBSERVADA, não presumida.
 --   (claim) ⊖ Titular com item ABERTO não é re-selecionado (Pitfall 6).
---   (z)     RESUMO — exige o total exato de 6 PASS.
+--   (j.1)   ⊖ `retencao_hold` protege — e o hold LIBERADO deixa de proteger.
+--   (j.2)   ⊖ Vaga ainda aberta protege — e a vaga arquivada deixa de proteger.
+--   (j.3)   ⊖ Revisão do Art. 20 em aberto protege — respondida, deixa de proteger.
+--   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
+--   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
+--           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
+--   (z)     RESUMO — exige o total exato de 11 PASS.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
+-- -----------------------------------------------------------------------------
+-- A metade óbvia é "a fixture negativa NÃO aparece no conjunto elegível". Ela,
+-- sozinha, **não prova nada**: a fixture poderia estar fora por qualquer outro
+-- motivo — porque a data ainda não venceu, porque a etapa saiu da allowlist,
+-- porque alguém a apagou. Uma asserção que passa por um motivo que ela não mediu
+-- é exatamente o falso verde que esta fase inteira existe para eliminar.
+--
+-- A segunda metade — **"passa a estar"** — é a que fecha o argumento: desfeita a
+-- condição da exceção (hold liberado, vaga arquivada, revisão respondida), a
+-- candidatura **volta** ao conjunto. Isso só é possível se ela já estava ALÉM DA
+-- JANELA o tempo todo, e portanto a ausência anterior era causada pela EXCEÇÃO e
+-- por nada mais. **A não-vacuidade não é uma observação no fim do log: ela é a
+-- segunda metade da própria asserção.**
+--
+-- As três fixtures negativas foram construídas no plano 46-01 com `updated_at` a
+-- -30 meses justamente para isso — se estivessem DENTRO da janela, a asserção
+-- passaria porque a DATA protegeu, e não porque a exceção funcionou.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠ POR QUE ESTE ARQUIVO DESLIGA GATILHOS, E POR QUE POR CRITÉRIO MEDIDO
+-- -----------------------------------------------------------------------------
+-- A metade "passa a estar" de (j.3) carimba `revisao_respondida_em` em
+-- `public.decisao_final` — e existe um gatilho vivo (`trg_notif_revisao_respondida`,
+-- `20260730000004`) que dispara nessa transição e chama `net.http_post`. Duas
+-- consequências, e as duas importam:
+--   1. A asserção (c) mede `net.http_request_queue` ANTES e DEPOIS de tudo o que
+--      este envelope faz. Um enfileiramento aqui **reprovaria (c)** — um portão
+--      correto reprovando trabalho correto.
+--   2. Mesmo revertido pelo rollback (o `INSERT` do `pg_net` é transacional, e um
+--      registro nunca commitado nunca fica visível ao worker), despachar é um
+--      risco que não precisa ser corrido.
+-- Por isso os gatilhos são desligados — e **por CRITÉRIO MEDIDO DO CATÁLOGO**
+-- (`pg_get_functiondef` contendo `net.http_post`), nunca por lista fixa de nomes.
+-- ⚠ A lição é do plano 46-01 e foi paga com medição: a lista estática que o
+-- repositório anunciava tinha DOIS gatilhos, o catálogo vivo tinha TRÊS, e um dos
+-- anunciados não existia mais. Uma lista de nomes envelhece em silêncio; um
+-- critério não. A lista de TABELAS varridas (`decisao_final`, `vagas`,
+-- `retencao_hold`) é ESCOPO deliberado — são exatamente as três que este bloco
+-- muta —, e não uma fotografia do catálogo.
 --
 -- -----------------------------------------------------------------------------
 -- POR QUE (h) USA FRONTEIRA E NUNCA CASAMENTO NU DE SUBSTRING
@@ -275,9 +334,25 @@ END $h$;
 RESET ROLE;
 DO $envelope$
 DECLARE
+  -- TITULARES (public.candidatos.id) — o alvo do ledger.
   v_pos1 constant uuid := '4601b000-0000-4000-8000-000000000001'::uuid;
   v_pos2 constant uuid := '4601b000-0000-4000-8000-000000000002'::uuid;
   v_pos3 constant uuid := '4601b000-0000-4000-8000-000000000003'::uuid;
+
+  -- CANDIDATURAS (public.candidaturas.id) — o alvo do predicado. Os dois espacos
+  -- de id sao DIFERENTES de proposito na fixture do 46-01 (`…b000…` titular,
+  -- `…c000…` candidatura), e trocar um pelo outro produziria uma asserção que
+  -- passa por vacuidade contando zero linhas de um id que nao existe.
+  v_cdt_pos3     constant uuid := '4601c000-0000-4000-8000-000000000003'::uuid;
+  v_cdt_hold     constant uuid := '4601c000-0000-4000-8000-000000000005'::uuid;
+  v_cdt_vaga     constant uuid := '4601c000-0000-4000-8000-000000000006'::uuid;
+  v_cdt_art20    constant uuid := '4601c000-0000-4000-8000-000000000007'::uuid;
+  v_cdt_etapa    constant uuid := '4601c000-0000-4000-8000-000000000008'::uuid;
+  -- Ator sintetico da resposta a revisao do Art. 20: o PROPRIO titular sintetico
+  -- (`auth.users.id` da variante neg-art20). Mesma escolha da fixture do 46-01
+  -- para `por_usuario` — nenhum id de recrutador REAL entra neste arquivo.
+  v_auth_art20   constant uuid := '4601a000-0000-4000-8000-000000000007'::uuid;
+  v_etapa_fora   constant public.etapa_processo := 'entrevista_online';
 
   v_modo_antes text;
   v_vistos     uuid[];
@@ -311,6 +386,30 @@ DECLARE
   -- (claim) dry-run #3, com item ABERTO plantado para pos1
   v_k_id uuid; v_k_eleg int; v_k_novas int; v_k_plantados int;
   v_k_itens bigint; v_k_pos1 bigint;
+
+  -- ── PLANO 46-03 ────────────────────────────────────────────────────────────
+  -- Gatilhos de despacho desligados por CRITERIO MEDIDO, e a lista do que foi
+  -- desligado, para religar e para asserir que nada ficou desligado.
+  r_trg      record;
+  v_trg_off  int   := 0;
+  v_trg_back int   := 0;
+  v_trg_rest int;
+  v_trg_lista jsonb := '[]'::jsonb;
+  v_trg_item jsonb;
+
+  -- (j.1) hold pontual
+  v_j1_ativos bigint; v_j1_antes bigint; v_j1_depois bigint; v_j1_liberados int;
+  -- (j.2) vaga ainda aberta
+  v_j2_vaga uuid; v_j2_status text; v_j2_antes bigint; v_j2_depois bigint;
+  -- (j.3) revisao do Art. 20 em aberto
+  v_j3_abertas bigint; v_j3_antes bigint; v_j3_depois bigint; v_j3_respondidas int;
+  -- (k) degrau (3) quando nao ha decisao registrada
+  v_k4_hist bigint; v_k4_dec bigint; v_k4_pred bigint;
+  v_k4_origem text; v_k4_itens bigint; v_k4_item_origem text;
+  -- (l) allowlist por igualdade de CONJUNTO
+  v_l_antes bigint; v_l_depois bigint; v_l_flip int;
+  v_l_allow text[];
+  v_l_esperada constant text[] := ARRAY['aprovado','decisao_final','rejeitado'];
 BEGIN
   BEGIN
     -- ═══ MEDIÇÃO — tudo aqui dentro; nada disso persiste ═══════════════════════
@@ -476,6 +575,183 @@ BEGIN
     SELECT count(*) INTO v_k_pos1
       FROM public.purga_execucao_itens i
      WHERE i.execucao_id = v_k_id AND i.candidato_id = v_pos1;
+
+    -- ══ PLANO 46-03 — (j.1)(j.2)(j.3)(k)(l) ═══════════════════════════════════
+    -- Tudo daqui em diante e MEDIDO aqui dentro e JULGADO depois do rollback.
+    -- As tres mutacoes de (j) sao DESFEITAS logo apos a medicao da 2ª metade —
+    -- redundante com o rollback, e a redundancia e o ponto: enquanto o envelope
+    -- ainda roda, as asserções seguintes tem de enxergar o mesmo estado que as
+    -- anteriores enxergaram.
+
+    -- Gatilhos de despacho DESLIGADOS POR CRITERIO MEDIDO DO CATALOGO — nunca por
+    -- lista fixa de nomes (licao paga por medicao no plano 46-01: o repositorio
+    -- anunciava 2 gatilhos, o catalogo vivo tinha 3, e um dos anunciados nao
+    -- existia mais). A lista de TABELAS e escopo deliberado: sao exatamente as
+    -- tres que este bloco muta.
+    FOR r_trg IN
+      SELECT c.relname AS tabela, t.tgname AS gatilho
+        FROM pg_trigger t
+        JOIN pg_class c     ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_proc p      ON p.oid = t.tgfoid
+       WHERE NOT t.tgisinternal
+         AND n.nspname = 'public'
+         AND c.relname IN ('decisao_final', 'vagas', 'retencao_hold')
+         AND t.tgenabled <> 'D'
+         AND pg_get_functiondef(p.oid) LIKE '%net.http_post%'
+    LOOP
+      EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER %I', r_trg.tabela, r_trg.gatilho);
+      v_trg_off   := v_trg_off + 1;
+      v_trg_lista := v_trg_lista || jsonb_build_object('t', r_trg.tabela, 'g', r_trg.gatilho);
+    END LOOP;
+
+    -- ── (j.1) ⊖ `retencao_hold` PROTEGE, e o hold LIBERADO deixa de proteger ──
+    SELECT count(*) INTO v_j1_ativos
+      FROM public.retencao_hold h
+     WHERE h.candidatura_id = v_cdt_hold AND h.liberado_em IS NULL;
+
+    SELECT count(*) INTO v_j1_antes
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_hold;
+
+    UPDATE public.retencao_hold
+       SET liberado_em = pg_catalog.now()
+     WHERE candidatura_id = v_cdt_hold AND liberado_em IS NULL;
+    GET DIAGNOSTICS v_j1_liberados = ROW_COUNT;
+
+    SELECT count(*) INTO v_j1_depois
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_hold;
+
+    UPDATE public.retencao_hold SET liberado_em = NULL WHERE candidatura_id = v_cdt_hold;
+
+    -- ── (j.2) ⊖ VAGA AINDA ABERTA protege; arquivada, deixa de proteger ───────
+    SELECT c.vaga_id INTO v_j2_vaga FROM public.candidaturas c WHERE c.id = v_cdt_vaga;
+    SELECT v.status::text INTO v_j2_status FROM public.vagas v WHERE v.id = v_j2_vaga;
+
+    SELECT count(*) INTO v_j2_antes
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_vaga;
+
+    UPDATE public.vagas SET status = 'arquivada'::public.status_vaga WHERE id = v_j2_vaga;
+
+    SELECT count(*) INTO v_j2_depois
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_vaga;
+
+    UPDATE public.vagas SET status = v_j2_status::public.status_vaga WHERE id = v_j2_vaga;
+
+    -- ── (j.3) ⊖ REVISAO DO ART. 20 EM ABERTO protege; respondida, nao ─────────
+    -- ⚠ A resposta grava as QUATRO colunas juntas porque
+    -- decisao_final_revisao_resposta_completa_check e tudo-ou-nada, e
+    -- decisao_final_revisao_justificativa_min_check exige >= 50 caracteres. Este
+    -- UPDATE contorna o RPC responder_revisao_decisao de proposito — o objeto sob
+    -- teste aqui e o PREDICADO, nao o guard daquele RPC (que tem smoke proprio em
+    -- p42_revisao_art20_smoke.sql). Nenhum id de pessoa REAL e usado.
+    SELECT count(*) INTO v_j3_abertas
+      FROM public.decisao_final d
+     WHERE d.candidatura_id = v_cdt_art20
+       AND d.revisao_solicitada_em IS NOT NULL
+       AND d.revisao_respondida_em IS NULL;
+
+    SELECT count(*) INTO v_j3_antes
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_art20;
+
+    UPDATE public.decisao_final
+       SET revisao_veredito       = 'mantida',
+           revisao_por_usuario    = v_auth_art20,
+           revisao_respondida_em  = pg_catalog.now(),
+           revisao_resultado      = 'SMOKE P46 (j.3) — resposta sintetica a uma revisao sintetica sobre candidatura sintetica; existe apenas para provar que a excecao do Art. 20 deixa de proteger quando a revisao e respondida. Revertida pelo envelope.'
+     WHERE candidatura_id = v_cdt_art20 AND revisao_respondida_em IS NULL;
+    GET DIAGNOSTICS v_j3_respondidas = ROW_COUNT;
+
+    SELECT count(*) INTO v_j3_depois
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_art20;
+
+    UPDATE public.decisao_final
+       SET revisao_veredito      = NULL,
+           revisao_por_usuario   = NULL,
+           revisao_respondida_em = NULL,
+           revisao_resultado     = NULL
+     WHERE candidatura_id = v_cdt_art20;
+
+    -- ── Gatilhos RELIGADOS, e o resto medido ─────────────────────────────────
+    FOR v_trg_item IN SELECT jsonb_array_elements(v_trg_lista) LOOP
+      EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER %I',
+                     v_trg_item ->> 't', v_trg_item ->> 'g');
+      v_trg_back := v_trg_back + 1;
+    END LOOP;
+
+    SELECT count(*) INTO v_trg_rest
+      FROM pg_trigger t
+      JOIN pg_class c     ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p      ON p.oid = t.tgfoid
+     WHERE NOT t.tgisinternal
+       AND n.nspname = 'public'
+       AND c.relname IN ('decisao_final', 'vagas', 'retencao_hold')
+       AND t.tgenabled = 'D'
+       AND pg_get_functiondef(p.oid) LIKE '%net.http_post%';
+
+    -- ── (k) DEGRAU CORRETO QUANDO NAO HA DECISAO REGISTRADA (PURGA-07 / SC#4) ──
+    -- As duas medicoes de PRE-CONDICAO existem para que a asserção reprove com o
+    -- diagnostico CERTO: se a fixture tiver ganhado historico ou data_decisao_final,
+    -- o degrau esperado deixa de ser (3) e o erro e da FIXTURE, nao do predicado.
+    SELECT count(*) INTO v_k4_hist
+      FROM public.historico_candidatura h
+      JOIN public.candidaturas c ON c.id = h.candidatura_id
+     WHERE h.candidatura_id = v_cdt_pos3 AND h.etapa_para = c.etapa_atual;
+
+    SELECT count(*) INTO v_k4_dec
+      FROM public.candidaturas c
+     WHERE c.id = v_cdt_pos3 AND c.data_decisao_final IS NOT NULL;
+
+    SELECT count(*), max(f.ancora_origem)
+      INTO v_k4_pred, v_k4_origem
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_pos3;
+
+    SELECT count(*), max(i.ancora_origem)
+      INTO v_k4_itens, v_k4_item_origem
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_c_id AND i.candidato_id = v_pos3;
+
+    -- ── (l) ⊖ ETAPA FORA DA ALLOWLIST NAO ENTRA (D-46-19) ─────────────────────
+    SELECT count(*) INTO v_l_antes
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_etapa;
+
+    -- ⚠ IGUALDADE DE CONJUNTO, e nunca contagem nua: uma contagem de 3 passaria
+    -- com as TRES ETAPAS ERRADAS marcadas como elegiveis, que e precisamente o
+    -- estado mais perigoso que esta asserção pode deixar passar. O ORDER BY e por
+    -- TEXTO e nao pelo enum: `etapa_processo` tem ordem de funil (decisao_final
+    -- vem ANTES de aprovado), e comparar contra um literal alfabetico ordenado
+    -- pelo enum reprovaria por acidente de ordenacao.
+    SELECT array_agg(etapa ORDER BY etapa)
+      INTO v_l_allow
+      FROM (
+        SELECT m.etapa::text AS etapa
+          FROM public.config_retencao_etapa m
+         WHERE m.elegivel_purga
+      ) s;
+
+    -- 2ª metade: marcar a etapa de `neg-etapa` como elegivel TEM de faze-la
+    -- aparecer. Sem isto, "ela nao aparece" poderia ser verdade por qualquer
+    -- outro motivo — inclusive por ela ter deixado de existir.
+    UPDATE public.config_retencao_etapa
+       SET elegivel_purga = true
+     WHERE etapa = v_etapa_fora;
+    GET DIAGNOSTICS v_l_flip = ROW_COUNT;
+
+    SELECT count(*) INTO v_l_depois
+      FROM public.candidaturas_alem_da_janela() f
+     WHERE f.candidatura_id = v_cdt_etapa;
+
+    UPDATE public.config_retencao_etapa
+       SET elegivel_purga = false
+     WHERE etapa = v_etapa_fora;
 
     -- ── Estado final do dominio e do pg_net ────────────────────────────────────
     SELECT format('candidatos=%s candidaturas=%s historico=%s decisao_final=%s users=%s',
@@ -660,6 +936,117 @@ BEGIN
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (claim): com item ABERTO plantado para pos1, a passada seguinte caiu de % para % elegiveis e NAO reselecionou pos1 — o NOT EXISTS anti-sobreposicao deixou de ser dead code', v_c_eleg, v_k_eleg;
 
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- PLANO 46-03 — (j.1)(j.2)(j.3)(k)(l)
+  -- Cada (j) julga as DUAS metades. A primeira ("nao aparece") sozinha nao prova
+  -- nada; a segunda ("passa a estar") e a que demonstra que a ausencia era
+  -- causada pela EXCECAO e nao pela data, pela etapa ou por a fixture ter sumido.
+  -- ═══════════════════════════════════════════════════════════════════════════
+
+-- (j.1) ⊖ `retencao_hold` PROTEGE — e o hold LIBERADO deixa de proteger (D-46-04)
+  IF v_j1_ativos <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.1): ⊖ NAO-VACUIDADE — a candidatura % tem % linha(s) de retencao_hold ATIVA (liberado_em nulo; esperado exatamente 1). A migration 20260823000005 TEM de inserir essa linha: e obrigacao HERDADA do plano 46-01, cuja fixture (§5f) tentou inseri-la em 2026-08-22, nao conseguiu porque a tabela nao existia, e emitiu apenas um aviso. ENQUANTO ELA FALTAR, neg-hold e so mais uma candidatura elegivel e ESTA ASSERCAO PASSARIA POR VACUIDADE — o modo de falha exato que a Phase 46 existe para eliminar', v_cdt_hold, v_j1_ativos;
+  END IF;
+
+  IF v_j1_antes <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.1): a candidatura % APARECE em candidaturas_alem_da_janela() mesmo com hold ATIVO (% linha(s) no resultado, esperado 0). A clausula de D-46-04 nao mordeu: um registro sob obrigacao legal concorrente esta na fila da purga, e a purga nao tem como saber disso de outro jeito — sem essa clausula, o unico controle disponivel seria DESLIGAR A PURGA INTEIRA', v_cdt_hold, v_j1_antes;
+  END IF;
+
+  IF v_j1_liberados <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.1): a liberacao do hold afetou % linha(s) (esperado 1) — a 2ª metade da asserção nao pode ser medida', v_j1_liberados;
+  END IF;
+
+  IF v_j1_depois <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.1): ⊖ NAO-VACUIDADE, 2ª METADE — liberado o hold, a candidatura % NAO passa a estar em candidaturas_alem_da_janela() (% linha(s), esperado 1). Isso significa que a ausencia da 1ª metade NAO era causada pelo hold: ou a fixture nao esta mais ALEM DA JANELA, ou outra excecao a esta segurando, ou ela deixou de existir. Uma asserção que passa por um motivo que ela nao mediu e um FALSO VERDE', v_cdt_hold, v_j1_depois;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (j.1): com hold ATIVO a candidatura % esta FORA do conjunto elegivel; liberado o hold, ela passa a estar DENTRO — a excecao de D-46-04 morde, e a fixture estava ALEM DA JANELA o tempo todo', v_cdt_hold;
+
+-- (j.2) ⊖ VAGA AINDA ABERTA protege — arquivada, deixa de proteger (D-46-03)
+  IF v_j2_status IS DISTINCT FROM 'ativa' THEN
+    RAISE EXCEPTION 'P46P FAIL (j.2): ⊖ NAO-VACUIDADE — a vaga % da candidatura % esta em status [%] (esperado ativa). A fixture neg-vaga do plano 46-01 existe justamente para que esta asserção tenha uma vaga ABERTA contra a qual medir; com a vaga ja fechada, "a candidatura nao aparece" seria verdade pelo motivo errado', coalesce(v_j2_vaga::text,'NULL'), v_cdt_vaga, coalesce(v_j2_status,'NULL');
+  END IF;
+
+  IF v_j2_antes <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.2): a candidatura % APARECE em candidaturas_alem_da_janela() com a vaga ainda ATIVA (% linha(s), esperado 0). Processo VIVO nao se apaga, mesmo com a data-ancora estourada — e a forma da clausula e o que torna isso fail-closed: o interior dela e o COMPLEMENTO da allowlist de estados fechados, entao ate um valor NOVO de status_vaga deveria PROTEGER', v_cdt_vaga, v_j2_antes;
+  END IF;
+
+  IF v_j2_depois <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.2): ⊖ NAO-VACUIDADE, 2ª METADE — arquivada a vaga, a candidatura % NAO passa a estar em candidaturas_alem_da_janela() (% linha(s), esperado 1). A ausencia da 1ª metade NAO era causada pela vaga aberta: ou a fixture nao esta mais alem da janela, ou outra excecao a segura', v_cdt_vaga, v_j2_depois;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (j.2): com a vaga em ativa a candidatura % esta FORA; arquivada a vaga, ela passa a estar DENTRO — a excecao de D-46-03 morde', v_cdt_vaga;
+
+-- (j.3) ⊖ REVISAO DO ART. 20 EM ABERTO protege — respondida, deixa de proteger
+  IF v_trg_back <> v_trg_off OR v_trg_rest <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.3): higiene de gatilhos — % desligados, % religados, % ainda DESLIGADOS com corpo que chama net.http_post em decisao_final/vagas/retencao_hold (esperado religar todos e restar 0). Deixar um despachante desligado em PROD e pior que o problema que o desligamento evitava: nenhuma notificacao sairia e ninguem saberia', v_trg_off, v_trg_back, v_trg_rest;
+  END IF;
+
+  IF v_j3_abertas <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.3): ⊖ NAO-VACUIDADE — a candidatura % tem % decisao(oes) com revisao do Art. 20 EM ABERTO (solicitada nao-nula e respondida nula; esperado exatamente 1). Sem a revisao aberta, "a candidatura nao aparece" seria verdade por outro motivo qualquer', v_cdt_art20, v_j3_abertas;
+  END IF;
+
+  IF v_j3_antes <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.3): a candidatura % APARECE em candidaturas_alem_da_janela() com revisao do Art. 20 EM ABERTO (% linha(s), esperado 0). Apagar a evidencia de um direito EM EXERCICIO e exatamente o defeito que o Art. 20 existe para impedir', v_cdt_art20, v_j3_antes;
+  END IF;
+
+  IF v_j3_respondidas <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.3): a resposta a revisao afetou % linha(s) (esperado 1) — a 2ª metade da asserção nao pode ser medida', v_j3_respondidas;
+  END IF;
+
+  IF v_j3_depois <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (j.3): ⊖ NAO-VACUIDADE, 2ª METADE — respondida a revisao, a candidatura % NAO passa a estar em candidaturas_alem_da_janela() (% linha(s), esperado 1). A ausencia da 1ª metade NAO era causada pela revisao aberta, e a excecao do Art. 20 pode estar passando por acidente', v_cdt_art20, v_j3_depois;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (j.3): com revisao ABERTA a candidatura % esta FORA; respondida a revisao, ela passa a estar DENTRO. % gatilho(s) de despacho desligados por criterio medido e religados', v_cdt_art20, v_trg_off;
+
+-- (k) DEGRAU CORRETO QUANDO NAO HA DECISAO REGISTRADA (PURGA-07 / SC#4)
+  IF v_k4_hist <> 0 OR v_k4_dec <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (k): ⊖ NAO-VACUIDADE — a fixture pos3 (%) DERIVOU: ela tem % linha(s) de historico_candidatura na etapa atual e % data_decisao_final preenchida (esperado 0 e 0). Ela existe para exercitar o degrau (3) da escada da data-ancora, e com historico ou data_decisao_final o degrau CORRETO passa a ser outro. ESTE ERRO E DA FIXTURE, NAO DO PREDICADO — a asserção abaixo mediria a coisa errada e daria diagnostico falso', v_cdt_pos3, v_k4_hist, v_k4_dec;
+  END IF;
+
+  IF v_k4_pred <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (k): MODO DE ERRO 1 — a candidatura % NAO esta em candidaturas_alem_da_janela() (% linha(s), esperado 1). Ela tem data_decisao_final NULA e nenhum historico, e o degrau (3) do COALESCE (updated_at) deveria classifica-la. Uma candidatura assim OMITIDA EM SILENCIO e o modo de falha que PURGA-07 nomeia: o sistema acredita ter politica de retencao funcionando enquanto classifica errado sem sinal nenhum. E a metade do SC#4 que uma contagem sozinha NAO responde', v_cdt_pos3, v_k4_pred;
+  END IF;
+
+  IF v_k4_origem IS DISTINCT FROM 'updated_at' THEN
+    RAISE EXCEPTION 'P46P FAIL (k): MODO DE ERRO 2 — a candidatura % esta no conjunto mas veio classificada por ancora_origem = [%] (esperado updated_at). Ela nao tem historico nem data_decisao_final, entao qualquer outro degrau significa que a escada do COALESCE colapsou ou que o LATERAL passou a relatar um instante diferente do que o WHERE filtrou — e e assim que o ledger passa a MENTIR sobre por que a linha foi escolhida', v_cdt_pos3, coalesce(v_k4_origem, 'NULL');
+  END IF;
+
+  IF v_k4_itens <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (k): o titular de pos3 (%) tem % item(ns) no ledger do dry-run (esperado 1) — o predicado a classificou mas o ledger nao a registrou, e PURGA-06 exige que o registro exista', v_pos3, v_k4_itens;
+  END IF;
+
+  IF v_k4_item_origem IS DISTINCT FROM 'updated_at' THEN
+    RAISE EXCEPTION 'P46P FAIL (k): o item de ledger do titular % gravou ancora_origem = [%] enquanto o predicado relatou [%]. Os dois TEM de sair da mesma expressao; divergir aqui e a prova de que a politica esta sendo recalculada em algum lugar', v_pos3, coalesce(v_k4_item_origem,'NULL'), coalesce(v_k4_origem,'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (k): pos3 (sem historico, sem data_decisao_final) ESTA no conjunto e foi classificada pelo degrau (3) — ancora_origem = updated_at no predicado E no item de ledger';
+
+-- (l) ⊖ ETAPA FORA DA ALLOWLIST NAO ENTRA (D-46-19 / PURGA-07)
+  IF v_l_antes <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (l): a candidatura % (etapa %) APARECE em candidaturas_alem_da_janela() (% linha(s), esperado 0). A allowlist de D-46-19 tem TRES estados terminais e este nao e um deles — uma candidatura em funil ATIVO entrou na fila da purga', v_cdt_etapa, v_etapa_fora, v_l_antes;
+  END IF;
+
+  IF v_l_allow IS DISTINCT FROM v_l_esperada THEN
+    RAISE EXCEPTION 'P46P FAIL (l): a allowlist viva de config_retencao_etapa e [%] e o esperado e [%]. ⚠ A COMPARACAO E POR IGUALDADE DE CONJUNTO, E NAO POR CONTAGEM, DE PROPOSITO: uma contagem de 3 passaria em verde com AS TRES ETAPAS ERRADAS marcadas como elegiveis — que e o estado mais perigoso que esta asserção poderia deixar passar, porque o sistema apagaria gente em funil ativo acreditando ter uma politica funcionando', array_to_string(coalesce(v_l_allow, ARRAY[]::text[]), ', '), array_to_string(v_l_esperada, ', ');
+  END IF;
+
+  IF v_l_flip <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (l): marcar a etapa % como elegivel afetou % linha(s) da matriz (esperado 1) — a 2ª metade da asserção nao pode ser medida', v_etapa_fora, v_l_flip;
+  END IF;
+
+  IF v_l_depois <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (l): ⊖ NAO-VACUIDADE, 2ª METADE — marcada a etapa % como elegivel, a candidatura % NAO passa a estar em candidaturas_alem_da_janela() (% linha(s), esperado 1). A ausencia da 1ª metade NAO era causada pela allowlist: ou a fixture nao esta mais alem da janela, ou outra excecao a segura, ou a clausula m.elegivel_purga deixou de ser lida da MATRIZ e virou lista no codigo', v_etapa_fora, v_cdt_etapa, v_l_depois;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (l): a allowlist viva e EXATAMENTE [%]; a candidatura % em % esta FORA, e passa a estar DENTRO quando a etapa e marcada elegivel — a allowlist e DADO na matriz, nao lista no codigo', array_to_string(v_l_allow, ', '), v_cdt_etapa, v_etapa_fora;
+
   RAISE NOTICE 'P46P TEARDOWN ok: envelope revertido — config_purga.modo voltou a [%], e as % linhas de purga_execucoes gravadas por este smoke NAO existem (elas inflariam o criterio de >= 14 execucoes de D-46-14)', coalesce(v_modo_antes, 'NULL'), v_f_novas + v_c_novas + v_d_novas + v_k_novas;
 END $envelope$;
 
@@ -669,7 +1056,7 @@ END $envelope$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 6;
+DECLARE v_n int; v_esperado int := 11;  -- 6 do plano 46-02 + 5 do plano 46-03
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
