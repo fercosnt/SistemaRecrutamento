@@ -110,6 +110,7 @@ DECLARE
   v_admin_auth uuid;
   v_cands      bigint;
   v_candos     bigint;
+  v_matriz_fp  text;
 BEGIN
   SELECT u.id, u.user_id INTO v_admin_rh, v_admin_auth
     FROM public.usuarios_rh u
@@ -126,12 +127,39 @@ BEGIN
   SELECT count(*) INTO v_cands  FROM public.candidaturas;
   SELECT count(*) INTO v_candos FROM public.candidatos;
 
+  -- ⚠ EMENDA 2026-08-22 (Phase 46) — BASELINE DA MATRIZ, e nao os valores de seed.
+  --
+  -- A asseracao (j) media a matriz contra os valores de SEED literais
+  -- (`origem='seed' AND janela_meses=24 AND alterado_por IS NULL`). Isso e um
+  -- INSTANTANEO travestido de INVARIANTE, e ele reprovou trabalho CORRETO com um
+  -- diagnostico FALSO: a linha `rejeitado` esta em 18 meses / `origem='admin'` /
+  -- com ator porque um ADMINISTRADOR DE VERDADE editou a janela pela tela — que e
+  -- exatamente o RETEN-02 funcionando. O smoke chamava isso de "a politica de
+  -- retencao de PROD ficou com valor de teste".
+  --
+  -- Medido: a linha ja estava assim as 18:45 de 2026-08-22 (`46-01-MEDICOES.md`
+  -- §M5), ANTES de qualquer apply da Phase 46. O portao ficou vermelho no instante
+  -- em que o primeiro admin usou a funcionalidade, e assim seguiria para sempre.
+  --
+  -- A pergunta certa nao e "a matriz e igual ao seed?" — e "o SMOKE mudou a
+  -- matriz?". `to_jsonb` da linha inteira responde isso e NAO ENVELHECE: colunas
+  -- novas (como `elegivel_purga`, nascida na Phase 46) entram sozinhas na
+  -- impressao digital, sem uma segunda edicao deste arquivo.
+  --
+  -- Terceira ocorrencia desta forma de defeito nesta fase, junto com a (a) do
+  -- `p42_invent05_cron_smoke.sql` (`count(*) <> 3`) e a (f) do
+  -- `p43_previa_smoke.sql` (lista literal de 2 nomes).
+  SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+    INTO v_matriz_fp
+    FROM (SELECT to_jsonb(c)::text AS linha FROM public.config_retencao_etapa c) t;
+
   PERFORM set_config('smoke43m.admin_rh',   v_admin_rh::text,   false);
   PERFORM set_config('smoke43m.admin_auth', v_admin_auth::text, false);
   PERFORM set_config('smoke43m.cands',      v_cands::text,      false);
   PERFORM set_config('smoke43m.candos',     v_candos::text,     false);
+  PERFORM set_config('smoke43m.matriz_fp',  v_matriz_fp,        false);
 
-  RAISE NOTICE 'FIXTURE ok: administrador vivo resolvido; baseline zero-destrutiva = % candidaturas / % candidatos', v_cands, v_candos;
+  RAISE NOTICE 'FIXTURE ok: administrador vivo resolvido; baseline zero-destrutiva = % candidaturas / % candidatos; impressao digital da matriz = %', v_cands, v_candos, v_matriz_fp;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -623,7 +651,8 @@ DECLARE
   v_candos_antes bigint := current_setting('smoke43m.candos')::bigint;
   v_cands_agora  bigint;
   v_candos_agora bigint;
-  v_matriz       int;
+  v_matriz_antes text   := current_setting('smoke43m.matriz_fp');
+  v_matriz_agora text;
 BEGIN
   SELECT count(*) INTO v_cands_agora  FROM public.candidaturas;
   SELECT count(*) INTO v_candos_agora FROM public.candidatos;
@@ -637,12 +666,17 @@ BEGIN
 
   -- Teardown asserido da própria matriz: as subtransações de (d), (e) e (g) já
   -- reverteram tudo; "deveria ter revertido" e "reverteu" são afirmações diferentes.
-  SELECT count(*) INTO v_matriz
-    FROM public.config_retencao_etapa c
-   WHERE c.origem <> 'seed' OR c.janela_meses <> 24 OR c.alterado_por IS NOT NULL;
+  --
+  -- ⚠ EMENDA 2026-08-22 (Phase 46) — compara com a BASELINE capturada na FIXTURE,
+  -- não com os valores de seed literais. Ver a justificativa completa na fixture.
+  -- Este é o mesmo idioma que as duas comparações de contagem acima já usam; a
+  -- matriz era a única que media contra uma constante em vez de contra o "antes".
+  SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+    INTO v_matriz_agora
+    FROM (SELECT to_jsonb(c)::text AS linha FROM public.config_retencao_etapa c) t;
 
-  IF v_matriz <> 0 THEN
-    RAISE EXCEPTION 'P43M FAIL (j): % linha(s) da matriz sobreviveram alteradas as subtransacoes do smoke — o idioma de rollback nao esta funcionando como escrito, e a politica de retencao de PROD ficou com valor de teste', v_matriz;
+  IF v_matriz_agora IS DISTINCT FROM v_matriz_antes THEN
+    RAISE EXCEPTION 'P43M FAIL (j): a matriz MUDOU durante o smoke (impressao digital % -> %) — o idioma de rollback nao esta funcionando como escrito, e a politica de retencao de PROD ficou com valor de teste. ⚠ Isto compara com a baseline capturada na FIXTURE, entao uma alteracao LEGITIMA feita por administrador ANTES do smoke nao reprova: se esta asseracao falhou, a mudanca aconteceu DENTRO desta execucao', v_matriz_antes, v_matriz_agora;
   END IF;
 
   PERFORM set_config('smoke43m.pass', (coalesce(nullif(current_setting('smoke43m.pass', true), ''), '0')::int + 1)::text, false);
