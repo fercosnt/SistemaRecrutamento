@@ -1685,14 +1685,94 @@ Deno.test("(mm) temCurriculo=false e temDecisaoRegistrada=false OMITEM as linhas
     assert(completo.includes(i.rotulo), `${i.item_id} tem de aparecer no recibo completo`);
     assert(!semCv.includes(i.rotulo), `${i.item_id} tem de SUMIR sem currículo`);
   }
+  // ⚠ A ASSIMETRIA É O PONTO, e achatá-la foi o defeito. Até 2026-08-22 este laço exigia
+  //   que TODOS os itens `tem_decisao_registrada` sumissem, sem olhar `obrigatorio` — e com
+  //   isso PINAVA o lado errado: quem consertasse o helper quebrava o teste, e o sinal mais
+  //   provável seria reverter o conserto. `45-REVIEW-4.md` / WR-A.
+  //
+  //   A regra correta, idêntica à da tela (`ReciboExclusao.tsx:113`): na coluna «mantém»,
+  //   `obrigatorio` VENCE a aplicabilidade. Uma retenção que a lei impõe é declarada em
+  //   todo recorte; omiti-la faria a exclusão parecer maior do que foi.
+  // ⚠ `obrigatorio` é propriedade da coluna «mantém» e de mais nenhuma — o próprio tipo
+  //   recusa lê-lo em `colunas_sai`, e está certo: reter por obrigação legal só faz sentido
+  //   para o que FICA. Por isso a pertinência é resolvida por conjunto, não por campo.
+  const obrigatoriosQueFicam = new Set<string>(
+    RECIBO_EXCLUSAO.colunas_mantem.filter((x) => x.obrigatorio === true).map((x) => x.rotulo),
+  );
+
   for (const i of daDecisao) {
     assert(completo.includes(i.rotulo), `${i.item_id} tem de aparecer no recibo completo`);
-    assert(!semDecisao.includes(i.rotulo), `${i.item_id} tem de SUMIR sem decisão`);
+    if (obrigatoriosQueFicam.has(i.rotulo)) {
+      assert(
+        semDecisao.includes(i.rotulo),
+        `${i.item_id} é 'obrigatorio: true' e tem de PERMANECER mesmo sem decisão registrada — ` +
+          `omitir uma retenção imposta por lei faz a exclusão parecer maior do que foi (SC#5)`,
+      );
+    } else {
+      assert(!semDecisao.includes(i.rotulo), `${i.item_id} tem de SUMIR sem decisão`);
+    }
   }
   // O `sempre` nunca some — o recibo não pode encolher por engano.
   for (const i of itens.filter((x) => x.aplicavel_quando === "sempre")) {
     for (const html of [completo, semCv, semDecisao]) {
       assert(html.includes(i.rotulo), `${i.item_id} é 'sempre' e sumiu`);
+    }
+  }
+});
+
+// ── (mm2) a REGRA da coluna «mantém», executável nos 4 recortes ──────────────
+//
+// O `ReciboExclusao.tsx` afirma no docblock: «Um componente, dois tempos — NUNCA DOIS
+// COMPONENTES. Dois componentes divergiriam na primeira edição, e a divergência apareceria
+// justamente entre o que foi PROMETIDO e o que foi RELATADO — o pior lugar possível.»
+//
+// ⚠ Mas o e-mail JÁ É um segundo componente, em outra linguagem e outro runtime — e ele JÁ
+// TINHA divergido. A invariante estava AFIRMADA e não era imposta por mecanismo nenhum, e foi
+// exatamente por isso que a divergência sobreviveu até um review encontrá-la (WR-A).
+//
+// Este caso não consegue importar o componente React (outro runtime), então impõe o que dá
+// para impor deste lado: a REGRA DECLARADA, calculada de forma independente a partir do dado
+// versionado, comparada com o que o helper realmente emite — nos QUATRO recortes possíveis,
+// não só no que alguém lembrou de testar.
+//
+// ⚠ LIMITE HONESTO: isto pina o lado do E-MAIL contra a regra. NÃO compara os dois runtimes.
+// Uma guarda de verdade exigiria a regra num artefato único consumido pelos dois — hoje ela
+// existe duplicada em `ReciboExclusao.tsx:113` e em `helpers.ts`. Enquanto for assim, editar
+// uma sem a outra continua possível, e o único aviso é este comentário.
+Deno.test("(mm2) coluna «mantém»: `obrigatorio` vence a aplicabilidade nos 4 recortes", async () => {
+  const h = await import("./helpers.ts");
+  const { RECIBO_EXCLUSAO } = await import("../_shared/reciboExclusao.ts");
+
+  const recortes = [
+    { temCurriculo: true, temDecisaoRegistrada: true },
+    { temCurriculo: true, temDecisaoRegistrada: false },
+    { temCurriculo: false, temDecisaoRegistrada: true },
+    { temCurriculo: false, temDecisaoRegistrada: false },
+  ];
+
+  // A regra, escrita aqui de forma INDEPENDENTE do helper — se as duas coincidirem por
+  // acaso, o caso não prova nada; por isso ela é derivada do dado, não copiada do código.
+  const seAplica = (quando: string, r: { temCurriculo: boolean; temDecisaoRegistrada: boolean }) =>
+    quando === "sempre" ||
+    (quando === "tem_curriculo" && r.temCurriculo) ||
+    (quando === "tem_decisao_registrada" && r.temDecisaoRegistrada);
+
+  for (const r of recortes) {
+    const html = h.corpoReciboExclusao({ dataConclusao: CARIMBO_AUTH, ...r });
+
+    for (const i of RECIBO_EXCLUSAO.colunas_mantem) {
+      const deveAparecer = i.obrigatorio === true || seAplica(i.aplicavel_quando, r);
+      const apareceu = html.includes(i.rotulo);
+      assertEquals(
+        apareceu,
+        deveAparecer,
+        `recorte cv=${r.temCurriculo}/decisao=${r.temDecisaoRegistrada}: «${i.rotulo}» ` +
+          `(obrigatorio=${i.obrigatorio}, aplicavel_quando=${i.aplicavel_quando}) ` +
+          `deveria ${deveAparecer ? "APARECER" : "SUMIR"} e ${apareceu ? "apareceu" : "sumiu"}. ` +
+          `Na coluna «mantém» a regra é: obrigatorio === true OU aplicável — idêntica a ` +
+          `ReciboExclusao.tsx:113. Divergir dela faz o recibo enviado DEPOIS do apagamento ` +
+          `irreversível contradizer o que a pessoa viu na tela.`,
+      );
     }
   }
 });

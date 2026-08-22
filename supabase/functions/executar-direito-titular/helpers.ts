@@ -356,8 +356,23 @@ export function corpoReciboExclusao(args: {
     .map((i) => itemHtml(i.rotulo, i.texto_passado))
     .join("\n");
 
+  // ⚠ `obrigatorio` VENCE o filtro nesta coluna — IDÊNTICO a ReciboExclusao.tsx:113.
+  //   As linhas `obrigatorio: true` são as que o motor NÃO PODE apagar (o histórico das
+  //   etapas, os agregados de não-discriminação e a justificativa do recrutador); elas
+  //   aparecem em TODOS os recortes, mesmo quando a aplicabilidade não bate. Omitir uma
+  //   retenção obrigatória faz a exclusão parecer MAIOR do que foi — a superestimação que
+  //   o SC#5 proíbe — e ESTE é o recibo que sai DEPOIS do apagamento irreversível.
+  //
+  //   ⚠ Até 2026-08-22 esta linha filtrava só por `aplicavel(...)`, e a divergência era
+  //   ALCANÇÁVEL no recorte MAJORITÁRIO (quem se candidatou e ainda não foi decidido):
+  //   tela 8 itens, e-mail 7, faltando `justificativa_do_recrutador` — o único item que é
+  //   `obrigatorio: true` E condicional. `45-REVIEW-4.md` / WR-A.
+  //
+  //   O `colunas_sai` NÃO leva esta regra, e não é esquecimento: nenhum item daquela
+  //   coluna tem `obrigatorio` (o campo só faz sentido para retenção), e o filtro de lá
+  //   já é byte-a-byte o mesmo da tela.
   const mantem = RECIBO_EXCLUSAO.colunas_mantem
-    .filter((i) => aplicavel(i.aplicavel_quando, recorte))
+    .filter((i) => i.obrigatorio === true || aplicavel(i.aplicavel_quando, recorte))
     .map((i) => itemHtml(i.rotulo, i.texto_passado, i.base_legal))
     .join("\n");
 
