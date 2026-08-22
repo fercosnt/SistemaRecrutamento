@@ -14,15 +14,27 @@ import { FROM, REPLY_TO } from "../_shared/email-config.ts";
 import { escapeHtml, layoutBase } from "../_shared/email-templates.ts";
 
 /**
- * Host do app do RH. `recruta.beautysmile.com.br` é o host vivo e verificado — é o
- * mesmo do `LOGO_URL` dos templates em produção (`email-templates.ts:30`) e o domínio
- * de envio verificado no Resend desde a P36.
+ * Host do app do RH.
+ *
+ * ⚠ CORRIGIDO em 2026-08-22. Este default era `https://recruta.beautysmile.com.br`,
+ * e o comentário afirmava que aquele era «o host vivo e verificado». **Ele nunca
+ * existiu.** Medido: `dig recruta.beautysmile.com.br` não devolve NADA; o domínio
+ * raiz resolve, o subdomínio não. O host real do app — confirmado no projeto Vercel
+ * `sistema-recrutamento`, que o serve como domínio de produção — é
+ * `rh.beautysmile.com.br`, o MESMO já verificado no Resend desde a P36.
+ *
+ * ⚠ E o defeito NÃO era teórico: `notificacoes_enviadas` registra **2 e-mails
+ * `revisao_solicitada` já enviados** (último em 2026-07-31), cada um carregando um
+ * link para `/rh/revisoes` montado sobre este default. Se a env `APP_BASE_URL` não
+ * estivesse posta, aqueles avisos internos chegaram com link MORTO — e o modo de
+ * falha é silencioso, porque o e-mail é entregue normalmente e só o clique falha.
  *
  * Override por env `APP_BASE_URL` para ambiente de preview; a validação em
  * `montarUrlFila` garante que uma env malformada cai neste default em vez de produzir
- * um link quebrado — ou hostil — num e-mail interno.
+ * um link quebrado — ou hostil — num e-mail interno. ⚠ Com o default errado, esse
+ * fail-safe estava caindo de um link quebrado em OUTRO link quebrado.
  */
-export const APP_BASE_URL_PADRAO = "https://recruta.beautysmile.com.br" as const;
+export const APP_BASE_URL_PADRAO = "https://rh.beautysmile.com.br" as const;
 
 /** Rótulo do sink de teste desta EF. NÃO pertence à união `EventoNotificacao`. */
 export const LABEL_SINK_RH = "revisao_solicitada_rh" as const;

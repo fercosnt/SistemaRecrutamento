@@ -42,7 +42,7 @@ import {
 import { FROM, REPLY_TO } from "../../_shared/email-config.ts";
 
 const TITULO = "Dentista Sênior";
-const URL_FILA = "https://recruta.beautysmile.com.br/rh/revisoes";
+const URL_FILA = "https://rh.beautysmile.com.br/rh/revisoes";
 
 // ─── 1) dedupe_key por destinatário ─────────────────────────────────────────
 
@@ -185,8 +185,8 @@ Deno.test("T-42-24 — refCurta trunca o id (nunca o uuid completo em log)", () 
 Deno.test("REVISAO-01 — montarUrlFila: default canônico, barra final normalizada", () => {
   assertEquals(montarUrlFila(), `${APP_BASE_URL_PADRAO}/rh/revisoes`);
   assertEquals(
-    montarUrlFila("https://recruta.beautysmile.com.br/"),
-    "https://recruta.beautysmile.com.br/rh/revisoes",
+    montarUrlFila("https://rh.beautysmile.com.br/"),
+    "https://rh.beautysmile.com.br/rh/revisoes",
   );
 });
 
@@ -776,7 +776,7 @@ Deno.test("D-45-08 — a chave do encerramento NUNCA colide com a do evento irm�
 Deno.test("ERASE-05 — montarUrlListaVaga: default canônico e barra final normalizada", () => {
   assertEquals(montarUrlListaVaga(VAGA_ID), URL_LISTA);
   assertEquals(
-    montarUrlListaVaga(VAGA_ID, "https://recruta.beautysmile.com.br/"),
+    montarUrlListaVaga(VAGA_ID, "https://rh.beautysmile.com.br/"),
     URL_LISTA,
   );
 });

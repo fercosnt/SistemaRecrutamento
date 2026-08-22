@@ -562,7 +562,7 @@ export function CriarEditarVagaPage() {
                   />
                   {dados.slug && (
                     <p className="text-white/60 drop-shadow-sm text-sm">
-                      Preview: recruta.beautysmile.com.br/vagas/{dados.slug}
+                      Preview: rh.beautysmile.com.br/vagas/{dados.slug}
                     </p>
                   )}
                 </div>

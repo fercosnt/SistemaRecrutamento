@@ -27,7 +27,26 @@ const BRANCO = "#FFFFFF";
  * "Beauty Smile Recrutamento" aparece sobre a faixa deep-blue. Trocar a URL quando o
  * asset PNG horizontal branco estiver publicado no domínio público.
  */
-const LOGO_URL = "https://recruta.beautysmile.com.br/logos/BS_Horizontal_Branco.png";
+/**
+ * ⚠ 2026-08-22 — o host foi corrigido de `recruta.beautysmile.com.br` (que **nunca
+ * existiu**: `dig` não devolve nada) para `rh.beautysmile.com.br`, que é o domínio
+ * de produção real do app no Vercel.
+ *
+ * ⚠⚠ MAS ISSO **NÃO** FAZ A LOGO APARECER, e é importante não confundir as duas
+ * coisas: **o asset nunca foi publicado**. Não existe `public/logos/` no
+ * repositório, e `GET https://rh.beautysmile.com.br/logos/BS_Horizontal_Branco.png`
+ * devolve **HTTP 200 com `content-type: text/html`** — é o SPA fallback do
+ * `vercel.json` respondendo por um caminho que não tem arquivo.
+ *
+ * Confirmado ao vivo pelo operador em 2026-08-22: os e-mails de confirmação chegam
+ * **sem logo**. Isso é a degradação graciosa que o comentário abaixo previu
+ * funcionando — o wordmark no `alt` sobre a faixa deep-blue — e não uma regressão.
+ *
+ * **Para a logo aparecer, basta publicar o arquivo** em `public/logos/`: o Vercel
+ * serve estático antes de aplicar rewrite, então o caminho passa a resolver sozinho,
+ * sem mais nenhuma mudança de código.
+ */
+const LOGO_URL = "https://rh.beautysmile.com.br/logos/BS_Horizontal_Branco.png";
 
 /**
  * Cópia de rejeição CONGELADA (D-15 / RNF-07a). NUNCA editar para incluir qualquer dado de

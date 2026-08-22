@@ -275,17 +275,21 @@ const DECISOES: readonly Decisao[] = [
 
   // ── O domínio da própria aplicação ──────────────────────────────────────────
   {
-    destino: 'recruta.beautysmile.com.br',
-    disposicao: 'nao-trata-dado-de-candidato',
-    razao:
-      'Domínio da própria aplicação, usado para montar os links dos avisos. Compartilhar dado ' +
-      'consigo mesmo não é compartilhar com terceiro.',
-  },
-  {
     destino: 'rh.beautysmile.com.br',
     disposicao: 'nao-trata-dado-de-candidato',
     razao:
-      'Domínio da própria aplicação, na superfície interna. Mesma razão da entrada anterior.',
+      'Domínio da própria aplicação, usado para montar os links dos avisos. Compartilhar dado ' +
+      'consigo mesmo não é compartilhar com terceiro. ' +
+      '⚠ Até 2026-08-22 esta entrada dizia `recruta.beautysmile.com.br`, um host que NUNCA ' +
+      'EXISTIU (dig não devolve nada) e que o código usava para montar links de e-mail interno ' +
+      'e a URL de preview da vaga. Este é o host de produção real, confirmado no projeto Vercel ' +
+      'e o mesmo já verificado no Resend desde a P36. ' +
+      '⚠⚠ E É ASSIM QUE O HOST ERRADO SOBREVIVEU TANTO TEMPO: havia DUAS entradas aqui, uma ' +
+      'para cada host, e as duas classificadas como «domínio da própria aplicação». O host ' +
+      'inexistente estava DECLARADO COMO LEGÍTIMO, então esta varredura — que existe para achar ' +
+      'destino sem ficha — passava por ele sem reclamar. Uma decisão registrada silencia o ' +
+      'alarme; se ela estiver errada, silencia para sempre. As duas entradas foram fundidas ' +
+      'nesta, e a lição é que declarar um destino não é o mesmo que verificá-lo.',
   },
 
   // ── Endereço que nunca é requisitado ────────────────────────────────────────
