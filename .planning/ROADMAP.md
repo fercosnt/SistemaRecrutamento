@@ -259,7 +259,18 @@ Plans:
   4. Uma candidatura **sem decisão registrada** (`data_decisao` NULL) é classificada corretamente pelo predicado: não é engolida em silêncio nem purgada por engano. O predicado usa `COALESCE` explícito e **allowlist de estados terminais**, nunca denylist de estados ativos — o modo de falha em que o sistema acredita ter uma política funcionando e apaga zero.
   5. Cada execução deixa linha no ledger dizendo **o que foi apagado, quando e sob qual política** — inclusive a retenção de `notificacoes_enviadas`, cujo comentário em produção diz literalmente "Retention INDEFINITE, deferred to LGPD-OPS (M8+)".
 
-**Plans**: TBD
+**Plans**: 7 plans (7 waves — cadeia estritamente sequencial: cada plano termina num apply em PROD de que o plano seguinte depende, e todos co-editam `supabase/tests/p46_purga_smoke.sql`)
+
+Plans:
+
+- [ ] 46-01-PLAN.md — a fixture de conjunto elegível não-vazio, com teardown escrito antes (sem ela, 18 das 21 asserções passam por vacuidade)
+- [ ] 46-02-PLAN.md — TRACER: `config_purga` + ledger + predicado por titular + varredura → dry-run sobre conjunto não-vazio, ⊖ zero mutação
+- [ ] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07)
+- [ ] 46-04-PLAN.md — ⛔ o 4º ramo autorizado em `anonimizar_candidato` (D-46-18 / Blocker B-01), com review bloqueante antes do apply
+- [ ] 46-05-PLAN.md — Edge Function `purgar-retencao` e o contrato do item: o payload seleciona, o banco autoriza
+- [ ] 46-06-PLAN.md — dispatch + cron idempotente + RETEN-05, e a emenda do smoke herdado da P42 no mesmo commit (D-46-23)
+- [ ] 46-07-PLAN.md — `salvar_config_purga`: o flip `dry_run → live` recusável no servidor, e o dry-run ligado em PROD (PURGA-04)
+
 **UI hint**: não — trabalho de cron/ops/DB. Se surgir uma leitura RH do ledger de purga, é derivada, não a entrega
 **Security**: **candidata a `/gsd-secure-phase`** — automação destrutiva não-supervisionada com cap e kill switch como controles de segurança, não de conveniência
 **Portão destrutivo**: **integral.** Os 5 itens do portão são condição de fechamento
