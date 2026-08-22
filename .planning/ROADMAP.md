@@ -263,7 +263,7 @@ Plans:
 
 Plans:
 
-- [ ] 46-01-PLAN.md — a fixture de conjunto elegível não-vazio, com teardown escrito antes (sem ela, 18 das 21 asserções passam por vacuidade)
+- [x] 46-01-PLAN.md — a fixture de conjunto elegível não-vazio, com teardown escrito antes (sem ela, 18 das 21 asserções passam por vacuidade)
 - [ ] 46-02-PLAN.md — TRACER: `config_purga` + ledger + predicado por titular + varredura → dry-run sobre conjunto não-vazio, ⊖ zero mutação
 - [ ] 46-03-PLAN.md — `retencao_hold` e as quatro exceções de política dentro do predicado único (PURGA-07)
 - [ ] 46-04-PLAN.md — ⛔ o 4º ramo autorizado em `anonimizar_candidato` (D-46-18 / Blocker B-01), com review bloqueante antes do apply
@@ -390,7 +390,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 43. Consentimentos Honestos & Política de Retenção | v8.0 | 9/9 | In Progress|  |
 | 44. Exportação & Acesso | v8.0 | 6/9 | In Progress|  |
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
-| 46. Purga Automática (dry-run → live) | v8.0 | 0/? | Not started | - |
+| 46. Purga Automática (dry-run → live) | v8.0 | 1/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 
 ---

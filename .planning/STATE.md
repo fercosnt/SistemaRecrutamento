@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-current_phase: 46
 current_phase_name: Purga Automática (dry-run → live)
-status: planning
-stopped_at: "Phase 45 COMPLETA — motor executado em PROD 2026-08-22, VERIFICATION passed 5/5, portao destrutivo 5/5. Proximo: Phase 46, que nunca comecou e agora esta destravada."
-last_updated: "2026-08-22T05:35:00.000Z"
+status: executing
+stopped_at: Plano 46-01 PAUSADO no checkpoint da Task 3 — os 3 scripts SQL estao commitados; falta o apply em PROD (MCP execute_sql, orquestrador)
+last_updated: "2026-08-22T21:44:16.553Z"
 last_activity: 2026-08-22
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 52
-  completed_plans: 50
+  completed_phases: 4
+  total_plans: 59
+  completed_plans: 51
   percent: 67
+current_phase: 46
 last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRODUCAO em 2026-08-22, sobre conta descartavel, pela Edge Function com o JWT do titular — e o 45-VERIFICATION.md existe com veredito PASSED, 5/5 criterios, portao destrutivo 5/5. Storage 3->0 (incluindo o ORFAO do Pitfall 4, que o motor detectou: achados_resumo.blob_orfao=1), auth.users 30->29 exatamente -1, e a trilha intacta (historico 7=7, decisao_final 2=2). As 7 negativas passam, o CR-04 passa, a re-identificacao por faixa+UF+vaga+timestamp devolve ZERO, e o SC#5 se sustenta (mesma faixa 35-44, excluidos_sem_data=0). O recibo chegou em tempo passado, sem identificador proibido, e COM a linha obrigatoria da justificativa — o conserto do WR-A (f67d664) provado nos 3 recortes. ⚠ DUAS DIVERGENCIAS DE LETRA registradas: decisao_final_historico 1->2 pelo mecanismo M1 documentado (as DUAS linhas desidentificadas), e a data na tela em 06/09/2026 e nao por extenso. ⚠ IDEMPOTENCIA por re-invocacao e ESTRUTURALMENTE impossivel pela EF: depois do deleteUser o JWT e recusado (401). Antes disso, no mesmo dia: CR-01 e CR-02 consertados (76976bb) e o smoke p45_motor_exclusao_smoke passou 24/24 em PROD; os pins md5 gravados com conferencia cruzada (6aa249a); WR-A consertado (f67d664); a copy deixou de prometer um Encarregado que a empresa decidiu nao ter (f8e76e2); api.ipify.org e o iframe do YouTube ELIMINADOS em vez de declarados (03909dd); o vocabulario de logs_acesso.evento consertado — o log estava MORTO desde 2026-04-20 e o defeito so apareceu porque a sonda de uma migration abortou com 23514; e o host recruta.beautysmile.com.br, que NUNCA EXISTIU, corrigido para rh.beautysmile.com.br (eb6f63d). ⚠ LICAO QUE SE REPETIU O DIA INTEIRO: registro desatualizado custa o mesmo que registro ausente — sete pontos do ledger/STATE estavam errados — e MEDIR A COISA ERRADA COM O SQL CERTO e pior ainda, porque o fato falso vem com autoridade de consulta (eu errei duas vezes juntando por usuarios_rh.id em vez de user_id). PROXIMO: Phase 46, que nunca comecou e agora esta DESTRAVADA."
 ---
 
@@ -24,7 +24,7 @@ last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRO
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 45 — Motor de Exclusão & Anonimização
+**Current focus:** Phase 46 — Purga Automática (dry-run → live)
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -108,6 +108,7 @@ se sustenta (mesma faixa `35-44`, `excluidos_sem_data: 0`).
 1. `decisao_final_historico` foi de **1 → 2**. Mecanismo M1 documentado
    (`trg_decisao_final_snapshot` é `AFTER UPDATE` sem `WHEN` e reinsere `OLD.justificativa`) —
    e o scrub do arquivo foi o **último** statement: **as duas linhas estão desidentificadas**.
+
 2. A tela mostra `06/09/2026`; o critério do `45-06` pede a data **por extenso**.
 
 ### O que ficou como verificação humana
@@ -115,6 +116,7 @@ se sustenta (mesma faixa `35-44`, `excluidos_sem_data: 0`).
 - **Confirmar visualmente** se os 3 trechos truncados do recibo aparecem cortados **na tela** —
   o gerador foi executado e produz o texto **íntegro** (8.691 bytes), então a corrupção é de
   renderização ou de seleção, não do sistema.
+
 - Publicar `public/logos/BS_Horizontal_Branco.png` (cosmético). O host morto foi corrigido em
   `eb6f63d`; **falta o arquivo** — o `alt` degrada para o wordmark, como o docblock previu.
 
@@ -128,8 +130,10 @@ sequencial após um motor **provado** — e o motor agora está provado, por exe
 1. `previa_retencao()` devolve zero por **aritmética**, não por defeito (matriz em 24 meses, o
    sistema é mais novo que a janela). **A 46 é a primeira consumidora real desse predicado** e
    deve tratar a contagem como **não-exercitada**.
+
 2. A purga é destrutiva por natureza: o ROADMAP manda que a primeira coisa que ela faça em
    produção seja **não apagar nada** (dry-run). Ver o ⛔ acima.
+
 3. O motor da 45 é a peça que ela cabeia — e ele agora tem evidência de execução real para
    consumir, não um palpite.
 
@@ -223,11 +227,16 @@ fora de ordem invalida trabalho já feito.
 1. `search_path=` estrito (o catálogo grava `search_path=""`) · 2. `check:*` órfãos ·
 3. asserção `(vii)` que passaria enquanto o motor recusa tudo ·
 4. **`to_regproc('fn(tipos)')` devolve NULL SEMPRE** — quem aceita assinatura é `to_regprocedure`
+
 (4 ocorrências no smoke + 1 na `000006`, todas corrigidas) ·
+
 5. `RAISE` com 3 `%` e 2 argumentos (nem compilava) ·
 6. **asserção `(B3/email)` posicionada DEPOIS do rollback da própria fixture** — mede um estado
+
 que ela mesma destruiu, e reprova em toda execução (`45-REVIEW-4.md` CR-01) ·
+
 7. **asserção `(C1)` proibindo uma ACL deliberadamente correta** — `DI-45-12-01`
+
 (`45-REVIEW-4.md` CR-02).
 
 **Nenhum era defeito de motor. Todos eram defeitos de VERIFICAÇÃO** — e os dois últimos só
@@ -261,6 +270,7 @@ Docker.** Rodar em background e conferir o resultado por MCP (`list_edge_functio
 
 1. «bloqueio de TTY no contexto do agente» — refutada porque travou **no terminal do operador
    também**.
+
 2. «a auth quebrou: falta `~/.supabase/profile`» — refutada pelo log COMPLETO. Eu li a primeira
    linha do `--debug`, vi um `NotFound`, e construí um diagnóstico em cima dela **antes de ler o
    resto do arquivo**. O deploy tinha funcionado.
@@ -273,6 +283,7 @@ teorizar**, e confirmar o efeito no sistema (a `version` mudou?) em vez de infer
 
 - `functions deploy` exige **`--project-ref isljnozzlvckrgjjbjwp`**. Sem ele o seletor
   interativo aparece e já ofereceu **o projeto errado** (`qyrkyvoilfaxppbvtkpi`).
+
 - `migration repair` **não** aceita `--project-ref`; usa `--linked`, e exige `supabase link` antes.
 - O SQL Editor **não grava no ledger** — a reconciliação é `INSERT` direto em
   `supabase_migrations.schema_migrations`, feito pelo orquestrador **depois** de conferir o catálogo.
@@ -547,7 +558,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Phase complete — ready for verification
+Status: Executing Phase 46
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -582,7 +593,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-11
+Last activity: 2026-08-22
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -939,6 +950,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 45-14: BL-01 fechado por NORMALIZACAO UNICA de p_dry_run para o lado SEGURO no DECLARE (coalesce(p_dry_run, true)), nunca por tres coalesce espalhados nem por recusa explicita de NULL — destruir sobre intencao nao declarada e o desfecho que o portao existe para impedir
 - [Phase ?]: 45-14: BL-02 fechado ESTREITANDO a enumeracao (probe com o escopo da severacao) e nao ALARGANDO a severacao para o user_id inteiro — alargar faria linhas de OUTRAS pessoas perderem o registro de autoria por causa do pedido de um terceiro
 - [Phase ?]: 45-14: a prova com fixture do BL-02 mora na auto-verificacao da 20260805000006 (caso vii) e nao na da 20260805000005, que declara escopo negativo READ-ONLY — desvio consciente da letra da condicao de reabertura no 2, com cross-reference escrito nos dois arquivos
+- [Phase ?]: 46-01: M5 le config_retencao_etapa direto — listar_matriz_retencao() recusa com 42501 quem nao e administrador e abortaria as 7 medicoes
+- [Phase ?]: 46-01: a fixture desliga os gatilhos de net.http_post por criterio medido do catalogo e ABORTA se nao conseguir — um despacho que ja saiu nao volta com ROLLBACK
+- [Phase ?]: 46-01: updated_at retrodatado no proprio INSERT (o gatilho de carimbo e BEFORE UPDATE) alem do UPDATE explicito — duas defesas para D-46-21
+- [Phase ?]: 46-01: pos1 e pos2 com updated_at a -1 mes, para que so sejam elegiveis se o degrau da data-ancora que testam funcionar
+- [Phase ?]: 46-01: a fixture se recusa a persistir se render menos de 3 elegiveis — nao-vacuidade como condicao de COMMIT
 
 ### Pending Todos
 
@@ -993,6 +1009,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ✅ **RESOLVIDO — 47-08 Task 3: o `RodapePublico` ESTA montado nas CINCO superficies**, conferido por grep em 2026-08-12: `LandingPage.tsx:103`, `VagasPublicasPage.tsx:535`, `VagaDetalhePage.tsx:493`, `SubprocessadoresPage.tsx:96`, `PrivacidadePublicaPage.tsx:175`. As duas paginas publicas **sao alcancaveis** da navegacao de producao — o SC#1 da Phase 47 se sustenta nesse ponto. *(O registro anterior dizia «nenhuma navegacao de producao leva a elas»; `WINDOWS.md` item 28 carrega a mesma afirmacao **stale**.)*
 - ⏸ **PORTAO DE PUBLICACAO — o que de fato continua ABERTO (47-08 Task 1):** a revisao **FORMAL do Encarregado** dos quatro itens — os seis paises e a base legal de cada um, a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas. ⚠ **As paginas ja estao NO AR**, liberadas em 2026-08-11 por decisao **do operador**, e o proprio `47-08-SUMMARY.md` e explicito em **nao** conflar isso com parecer do Encarregado. `WINDOWS.md` itens 26 e 30. O que mudou desde o registro antigo: a publicacao **nao esta mais represada pelo portao** — ela aconteceu, e o portao segue aberto **atras** dela.
 - A lista publica de subprocessadores foi ao ar com DOIS destinos de rede pendentes de classificacao pelo Encarregado: api.ipify.org (src/services/logAccessService.ts:110) e www.youtube.com (src/components/pages/InstrucoesFormularioPage.tsx:77)
+- 46-01 Task 3: fixture NAO aplicada em PROD. Sequencia no 46-01-SUMMARY.md §'O que o orquestrador tem de rodar'. Ate la, candidaturas_alem_da_janela() segue em 0 e toda asserção da Phase 46 passa por vacuidade.
 
 ## Deferred Verification
 
@@ -1140,9 +1157,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-12T01:28:29.126Z
-Stopped at: Completed 45-16 (WR-A e WR-E fechados no disco; nada aplicado)
-Resume file: None
+Last session: 2026-08-22T21:44:07.889Z
+Stopped at: Plano 46-01 PAUSADO no checkpoint da Task 3 — os 3 scripts SQL estao commitados; falta o apply em PROD (MCP execute_sql, orquestrador)
+Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-01-SUMMARY.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
