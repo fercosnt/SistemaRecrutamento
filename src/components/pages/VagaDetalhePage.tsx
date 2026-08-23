@@ -38,6 +38,76 @@ import {
 } from 'lucide-react'
 import { RodapePublico } from '@/features/transparencia'
 import { useVaga, useHasApplied } from '@/features/vagas/hooks'
+
+/**
+ * Superfície de LEITURA — sólida e clara, deliberadamente diferente do vidro.
+ *
+ * O vidro sobre gradiente funciona para cabeçalho e cartões curtos, e falha para
+ * corpo de texto: onde o gradiente clareia, texto branco sobre ele cai para ~2:1 de
+ * contraste, contra os 4.5:1 que a WCAG AA pede. Medido na própria página em
+ * 2026-08-23, com o descritivo real de SDR no ar.
+ *
+ * A identidade não se perde: o vidro segue no cabeçalho, no CTA e nos cartões de
+ * metadados. O que muda é só onde a pessoa efetivamente LÊ.
+ */
+function SuperficieLeitura({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-white/95 px-6 py-6 text-slate-800 shadow-lg ring-1 ring-black/5 sm:px-8">
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Corpo de texto de vaga.
+ *
+ * Duas coisas que o `whitespace-pre-line` num `<p>` único não fazia:
+ *
+ * 1. **Parágrafos de verdade.** O texto vinha do banco com linhas em branco
+ *    separando blocos, mas tudo dentro de UM `<p>` — visualmente um paredão. Aqui
+ *    cada bloco vira seu próprio `<p>`, com espaço entre eles.
+ * 2. **Largura de linha legível.** Sem limite, a linha ia a ~95 caracteres; o
+ *    confortável para leitura contínua é 60–75. `max-w-[68ch]` segura isso sem
+ *    depender da largura da janela.
+ *
+ * ⚠ Rótulos em negrito (o «Captação e primeiro contato.» do PDF) NÃO são tratados
+ * aqui: exigiriam interpretar markdown, que é dependência nova e decisão do operador.
+ * Enquanto isso eles aparecem como início de parágrafo — legível, só não destacado.
+ *
+ * ⚠ **Aceita `string` E `string[]`, e isso não é defensividade decorativa.** O schema
+ * do banco declara `text` nos quatro campos, mas os mocks do repositório passam
+ * ARRAY em `responsabilidades`, `diferenciais` e `beneficios` e STRING em
+ * `sobre_cargo` — divergência real, anterior a esta tela, que o `rodapeMontagem`
+ * pegou em 2026-08-23. O código antigo sobrevivia por acidente: `whitespace-pre-line`
+ * sobre um array renderiza os itens grudados sem separador. Tratar só um dos dois
+ * formatos quebraria em produção ou nos testes, dependendo de qual eu escolhesse.
+ */
+function TextoVaga({
+  texto,
+  className = '',
+}: {
+  texto: string | string[] | null | undefined
+  className?: string
+}) {
+  const bruto = Array.isArray(texto) ? texto.filter(Boolean).join('\n\n') : (texto ?? '')
+
+  const paragrafos = bruto
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  if (paragrafos.length === 0) return null
+
+  return (
+    <div className={`max-w-[68ch] space-y-4 ${className}`}>
+      {paragrafos.map((p, i) => (
+        <p key={i} className="whitespace-pre-line leading-relaxed text-slate-700">
+          {p}
+        </p>
+      ))}
+    </div>
+  )
+}
 import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
 import { isUuid } from '@/features/vagas/utils/isUuid'
 import { useAuthStore } from '@/store/authStore'
@@ -239,8 +309,9 @@ export function VagaDetalhePage() {
           </div>
 
           {/* Main Content */}
+          {/* `pb-28` reserva a altura do CTA fixo — ver o comentário dele abaixo. */}
           <GlassCard variant="white" blur="xl" className="text-white">
-            <div className="space-y-8">
+            <div className="space-y-8 pb-28">
               {/* Título e Ações */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -327,23 +398,27 @@ export function VagaDetalhePage() {
               {(vaga.descricao_curta || vaga.sobre_cargo) && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Sobre a vaga</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-4">
+                  <SuperficieLeitura>
                     {vaga.descricao_curta && (
-                      <p className="text-white/90 text-lg leading-relaxed whitespace-pre-line">
+                      <p className="max-w-[68ch] text-lg font-medium leading-relaxed text-slate-900">
                         {vaga.descricao_curta}
                       </p>
                     )}
                     {vaga.sobre_cargo && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">
+                      <div
+                        className={
+                          vaga.descricao_curta
+                            ? 'mt-6 border-t border-slate-200 pt-6'
+                            : ''
+                        }
+                      >
+                        <h3 className="mb-3 text-lg font-bold text-slate-900">
                           Sobre o cargo
                         </h3>
-                        <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                          {vaga.sobre_cargo}
-                        </p>
+                        <TextoVaga texto={vaga.sobre_cargo} />
                       </div>
                     )}
-                  </Glass>
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -351,11 +426,9 @@ export function VagaDetalhePage() {
               {vaga.responsabilidades && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Responsabilidades</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.responsabilidades}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoVaga texto={vaga.responsabilidades} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -366,40 +439,53 @@ export function VagaDetalhePage() {
                 vaga.requisitos_tecnicos) && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Requisitos</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-3">
+                  <SuperficieLeitura>
+                    {/* Cada requisito é um bloco com rótulo próprio, e não um
+                        parágrafo que começa com negrito: separa o QUE se pede do
+                        rótulo da categoria, que é como o PDF lê. */}
+                    <dl className="max-w-[68ch] divide-y divide-slate-200">
                     {vaga.requisitos_formacao && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Formação:</strong>{' '}
-                        <span className="whitespace-pre-line">
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Formação
+                        </dt>
+                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
                           {vaga.requisitos_formacao}
-                        </span>
-                      </p>
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_experiencia && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Experiência:</strong>{' '}
-                        <span className="whitespace-pre-line">
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Experiência
+                        </dt>
+                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
                           {vaga.requisitos_experiencia}
-                        </span>
-                      </p>
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_habilidades && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Habilidades:</strong>{' '}
-                        <span className="whitespace-pre-line">
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Habilidades
+                        </dt>
+                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
                           {vaga.requisitos_habilidades}
-                        </span>
-                      </p>
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_tecnicos && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Técnicos:</strong>{' '}
-                        <span className="whitespace-pre-line">
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Técnicos
+                        </dt>
+                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
                           {vaga.requisitos_tecnicos}
-                        </span>
-                      </p>
+                        </dd>
+                      </div>
                     )}
-                  </Glass>
+                    </dl>
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -407,11 +493,9 @@ export function VagaDetalhePage() {
               {vaga.diferenciais && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Diferenciais</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.diferenciais}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoVaga texto={vaga.diferenciais} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -419,11 +503,9 @@ export function VagaDetalhePage() {
               {vaga.beneficios && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Benefícios</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.beneficios}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoVaga texto={vaga.beneficios} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -465,9 +547,21 @@ export function VagaDetalhePage() {
             </div>
           </GlassCard>
 
-          {/* Sticky CTA Button (D-05 — direct navigation; no confirmation modal) */}
+          {/* Sticky CTA Button (D-05 — direct navigation; no confirmation modal)
+           *
+           * ⚠ O `blur="xl"` translúcido deixava o TEXTO DA VAGA aparecer por baixo do
+           * botão, e o botão cobria uma linha inteira em cada rolagem — medido em
+           * 2026-08-23 na vaga de SDR ao vivo: cortou «medo, um sorriso que incomoda»
+           * e depois «Agendamento e comparecimento». Não era estética: era conteúdo
+           * que o candidato não lia.
+           *
+           * Dois consertos, e os dois são necessários. O fundo passa a ser OPACO (nada
+           * atravessa), e o cartão de leitura acima ganha `pb-28` para que a última
+           * linha nunca termine embaixo do botão. Só opacificar esconderia o texto do
+           * mesmo jeito — apenas sem deixar isso visível.
+           */}
           <div className="sticky bottom-6 z-20">
-            <Glass variant="white" blur="xl" className="p-4 rounded-xl">
+            <div className="rounded-xl bg-[#0b1f6b] p-4 shadow-2xl ring-1 ring-white/10">
               {hasApplied ? (
                 <GlassButton
                   variant="white"
@@ -488,7 +582,7 @@ export function VagaDetalhePage() {
                   Candidatar-se a esta vaga
                 </GlassButton>
               )}
-            </Glass>
+            </div>
           </div>
           <RodapePublico />
         </div>
