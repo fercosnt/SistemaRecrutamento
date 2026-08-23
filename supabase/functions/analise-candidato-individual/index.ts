@@ -188,14 +188,36 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       .eq("candidatura_id", candidatura_id);
     const respostas: Array<Record<string, unknown>> = respostasRes?.data ?? [];
 
+    const flags: string[] = [];
+
     // 3c. Rubrica da vaga (allowlist) — alimenta o vagaRubricBlock do prompt.
-    const { data: vaga } = await supabaseAdmin
+    //
+    // ⚠ ATÉ 2026-08-23 ESTA CONSULTA PEDIA `descricao` E `requisitos`, QUE NÃO
+    //   EXISTEM EM `public.vagas`. O PostgREST devolve 400 para coluna inexistente,
+    //   e o `error` era DESCARTADO (`const { data: vaga }` sem `error`), então
+    //   `vaga` vinha `null`, o ternário do `vagaRubricBlock` caía no ramo vazio, e
+    //   a IA analisava candidato SEM NENHUM contexto da vaga — sem título, sem
+    //   descrição, sem requisitos. Silenciosamente. Sete análises rodaram assim.
+    //
+    //   O schema já teve `descricao`/`requisitos` sem sufixo; a Phase 4 corrigiu a
+    //   página (Pitfall 1) e esqueceu esta função. Varredura mecânica de TODOS os
+    //   `.from().select()` das Edge Functions contra `information_schema` em
+    //   2026-08-23 encontrou exatamente estas duas ocorrências e mais nenhuma.
+    //
+    //   Duas mudanças, e a segunda importa tanto quanto a primeira:
+    //   (1) pedir as colunas que EXISTEM;
+    //   (2) NÃO descartar o `error` — uma rubrica ausente passa a ser um flag
+    //       visível na saída, e não um silêncio. Um defeito que não deixa rastro é
+    //       indistinguível de sistema funcionando.
+    const { data: vaga, error: vagaErr } = await supabaseAdmin
       .from("vagas")
-      .select("id, titulo, descricao, requisitos")
+      .select(
+        "id, titulo, rubrica_ia, descricao_curta, sobre_cargo, requisitos_formacao, requisitos_experiencia, requisitos_tecnicos, requisitos_habilidades",
+      )
       .eq("id", vaga_id)
       .maybeSingle();
 
-    const flags: string[] = [];
+    if (vagaErr || !vaga) flags.push("vaga_sem_rubrica");
 
     // 4. Download + extração do CV (service_role) — falha → respostas-only.
     let cvText = "";
@@ -241,9 +263,33 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       throw e;
     }
 
-    const vagaRubricBlock = vaga
-      ? `Vaga: ${vaga.titulo ?? ""}\n${vaga.descricao ?? ""}\nRequisitos: ${vaga.requisitos ?? ""}`
+    // A rubrica DELIBERADA tem precedência sobre a cópia de divulgação.
+    //
+    // `rubrica_ia` é escrita para AVALIAR; `descricao_curta`/`sobre_cargo` são
+    // escritas para ATRAIR. Os dois textos têm propósitos opostos, e usar o de
+    // marketing como critério enfia na avaliação sinais que ninguém decidiu que
+    // pesariam ("operação enxuta", "ambição saudável") — que é por onde viés entra
+    // sem passar por decisão. Quando a vaga tem rubrica escrita e aprovada, é ela
+    // que vale; o fallback existe só para as vagas anteriores a 2026-08-23.
+    const rubricaDeliberada = (vaga?.rubrica_ia ?? "").trim();
+    if (vaga && !rubricaDeliberada) flags.push("vaga_sem_rubrica_deliberada");
+
+    const requisitosBlock = vaga
+      ? [
+          vaga.requisitos_formacao && `Formação: ${vaga.requisitos_formacao}`,
+          vaga.requisitos_experiencia && `Experiência: ${vaga.requisitos_experiencia}`,
+          vaga.requisitos_tecnicos && `Técnicos: ${vaga.requisitos_tecnicos}`,
+          vaga.requisitos_habilidades && `Habilidades: ${vaga.requisitos_habilidades}`,
+        ]
+          .filter(Boolean)
+          .join("\n")
       : "";
+
+    const vagaRubricBlock = !vaga
+      ? ""
+      : rubricaDeliberada
+        ? `Vaga: ${vaga.titulo ?? ""}\n\n## Rubrica de avaliação\n${rubricaDeliberada}`
+        : `Vaga: ${vaga.titulo ?? ""}\n${vaga.descricao_curta ?? ""}\n${vaga.sobre_cargo ?? ""}\n\nRequisitos:\n${requisitosBlock}`;
     const respostasBlock = buildRespostasBlock(respostas);
     // Input UNTRUSTED (CV + respostas do candidato) — callAi mascara + detecta
     // injeção por dentro; NUNCA contornamos isso.
