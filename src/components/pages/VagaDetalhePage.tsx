@@ -561,11 +561,11 @@ export function VagaDetalhePage() {
            * mesmo jeito — apenas sem deixar isso visível.
            */}
           <div className="sticky bottom-6 z-20">
-            <div className="rounded-xl bg-[#0b1f6b] p-4 shadow-2xl ring-1 ring-white/10">
+            <div className="rounded-xl bg-[#0b1f6b] p-2.5 shadow-2xl ring-1 ring-white/10">
               {hasApplied ? (
                 <GlassButton
                   variant="white"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-3 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
                   disabled
                 >
                   <CheckCircle2 className="w-5 h-5" />
@@ -575,7 +575,7 @@ export function VagaDetalhePage() {
                 <GlassButton
                   variant="white"
                   hover
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-3 text-white text-lg font-semibold"
                   onClick={handleCandidatar}
                 >
                   <Send className="w-5 h-5" />
