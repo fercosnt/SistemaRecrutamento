@@ -601,3 +601,66 @@ Deno.test("(i2) titular sem user_id: Storage e Auth ficam nao_aplicavel e o moto
   const d = desfechosConcluidos(reg);
   assertEquals(d, { storage: "nao_aplicavel", postgres: "ok", auth: "nao_aplicavel" });
 });
+
+// ---------------------------------------------------------------------------
+// (j) HI-03 — falha ANTES do Storage não pode carimbar `desfecho_storage`
+// ---------------------------------------------------------------------------
+// ⚠⚠ ESTES DOIS CASOS EXISTEM PORQUE O LEDGER É PROVA, E NÃO LOG.
+//   `purga_execucao_itens` é registro de cumprimento de obrigação legal com
+//   retenção INDEFINIDA (D-46-16), num sistema sem PITR para desmentir. Gravar
+//   `desfecho_storage = 'falha'` num passo que **nunca foi tentado** manda o
+//   operador do dia seguinte investigar o bucket por um defeito que está numa
+//   RPC do Postgres — é a mesma classe do RD2-01 desta fase, *a mentira
+//   simétrica custa o mesmo que a otimista*, e ela já tinha sido consertada do
+//   lado da reconciliação (`20260823000011:332-357`) antes de reaparecer aqui.
+//
+// ⚠ E o vocabulário já tinha a palavra certa: `concluir_item_purga` aceita
+//   `nao_aplicavel` com o significado literal *"nem chegou a ser tentado"*
+//   (`20260823000010:422-432`). A asserção é sobre o objeto GRAVADO, e não
+//   sobre o status HTTP — os dois caminhos devolvem 500 de qualquer jeito, e é
+//   por isso que um teste de status não pegaria isto.
+
+Deno.test("(j) falha na RPC do plano fecha o item com postgres=falha e Storage em nao_aplicavel", async () => {
+  const handler = await loadHandler();
+  const reg = novoRegistro();
+  const cen = cenarioFeliz({
+    rpc: { plano_exclusao_titular: { error: { code: "57014", message: "cancelado" } } },
+  });
+  const res = await handler(req({ item_id: ITEM, candidato_id: CORPO_CANDIDATO }), {
+    supabaseAdmin: makeAdmin(cen, reg),
+    segredoEsperado: SEGREDO,
+  });
+
+  assertEquals(res.status, 500);
+  // ⊖ NÃO-VACUIDADE: o passo de Storage não chegou a ser aberto. Sem esta
+  //   contagem, um `desfecho_storage = 'nao_aplicavel'` gravado DEPOIS de uma
+  //   remoção real passaria por correto.
+  assertEquals(reg.storageList.length, 0, "o Storage foi enumerado antes do plano falhar");
+  assertEquals(reg.storageRemove.length, 0);
+  assertEquals(reg.deleteUser.length, 0);
+  assertEquals(desfechosConcluidos(reg), {
+    storage: "nao_aplicavel",
+    postgres: "falha",
+    auth: "nao_aplicavel",
+  });
+});
+
+Deno.test("(j2) falha ao ler candidatos.user_id fecha o item com postgres=falha, jamais storage=falha", async () => {
+  const handler = await loadHandler();
+  const reg = novoRegistro();
+  const cen = cenarioFeliz({ selectErro: { message: "permission denied for table candidatos" } });
+  const res = await handler(req({ item_id: ITEM, candidato_id: CORPO_CANDIDATO }), {
+    supabaseAdmin: makeAdmin(cen, reg),
+    segredoEsperado: SEGREDO,
+  });
+
+  assertEquals(res.status, 500);
+  assertEquals(reg.storageList.length, 0, "o Storage foi enumerado antes de ler o user_id");
+  assertEquals(reg.storageRemove.length, 0);
+  assertEquals(reg.deleteUser.length, 0);
+  assertEquals(desfechosConcluidos(reg), {
+    storage: "nao_aplicavel",
+    postgres: "falha",
+    auth: "nao_aplicavel",
+  });
+});

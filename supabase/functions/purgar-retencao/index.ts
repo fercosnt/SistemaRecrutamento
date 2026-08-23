@@ -326,12 +326,34 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     // Nunca escrever uma consulta nova para ENUMERAR o que apagar: a RPC já enumera
     // do catálogo as chaves estrangeiras para `auth.users`, incluindo o que uma
     // consulta à mão esquece.
+    //
+    // ⚠⚠ A FALHA DESTE PASSO É ATRIBUÍDA AO **POSTGRES**, E NÃO AO STORAGE
+    //   (HI-03 do `46-REVIEW-2.md`). Este código roda ANTES do `enumerarObjetos`
+    //   de baixo: nos três `throw` desta seção **nenhuma chamada a Storage
+    //   aconteceu**. Gravar `desfecho_storage = 'falha'` num passo que não foi
+    //   tentado é a mesma classe do RD2-01 desta fase — *a mentira simétrica
+    //   custa o mesmo que a otimista* —, e ela custa caro aqui: o ledger é
+    //   registro de cumprimento de obrigação legal com retenção INDEFINIDA
+    //   (D-46-16) e sem PITR para desmentir, e o operador que o lesse no dia
+    //   seguinte iria investigar o bucket quando o defeito estava numa RPC do
+    //   Postgres. `postgres = 'falha'` é verdade LITERAL nos três: o motor
+    //   daquele titular não rodou. E `desfecho_storage` fica em
+    //   `nao_aplicavel`, que é o fato.
+    //
+    // ⚠ CONSEQUÊNCIA ACEITA E DECLARADA: `concluir_item_purga` incrementa
+    //   `processados` quando o desfecho de Postgres é `ok` **ou** `falha`
+    //   (`20260823000010`, PASSO 5), então estes três caminhos passam a contar
+    //   como titular processado sem que o motor tenha rodado. É o mesmo preço
+    //   que o caminho de falha de despacho de `(g.5)` já paga pela mesma razão,
+    //   e é menor que o da alternativa: o vocabulário de desfechos tem três
+    //   colunas — uma quarta, para "o plano falhou", exigiria coluna nova numa
+    //   tabela cujo ledger está pinado por md5.
     const plano = await supabaseAdmin.rpc("plano_exclusao_titular", {
       p_candidato_id: alvo,
     });
-    if (plano?.error) throw new ErroDePasso("storage", "rpc_plano");
+    if (plano?.error) throw new ErroDePasso("postgres", "rpc_plano");
     const p = (plano?.data ?? null) as Record<string, unknown> | null;
-    if (!p || typeof p !== "object") throw new ErroDePasso("storage", "plano_vazio");
+    if (!p || typeof p !== "object") throw new ErroDePasso("postgres", "plano_vazio");
 
     // ⚠ DESVIO 5 — O `authUid` VEM DO BANCO, E TEM DE SER LIDO ANTES DO TOMBSTONE.
     // No molde ele vinha do `sub` do JWT; aqui não há JWT. `plano_exclusao_titular`
@@ -343,7 +365,11 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       .select("user_id")
       .eq("id", alvo)
       .maybeSingle();
-    if (candErr) throw new ErroDePasso("storage", "leitura_do_user_id");
+    // ⚠ HI-03: atribuída ao **Postgres** pela mesma razão do bloco acima — esta
+    //   leitura é uma consulta ao Postgres e acontece antes de qualquer chamada
+    //   de Storage. `desfecho_storage = 'falha'` aqui mandaria o operador
+    //   investigar o bucket por um defeito que está numa tabela.
+    if (candErr) throw new ErroDePasso("postgres", "leitura_do_user_id");
     const authUid = typeof cand?.user_id === "string" ? cand.user_id : null;
 
     if (!authUid) {
