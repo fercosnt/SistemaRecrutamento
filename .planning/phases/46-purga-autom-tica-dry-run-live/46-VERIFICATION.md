@@ -1,261 +1,406 @@
 ---
 phase: 46-purga-automatica-dry-run-live
-verified: 2026-08-23T04:45:00-03:00
-verifier: gsd-verifier (goal-backward, postura adversarial FORCE)
+verified: 2026-08-23T11:35:00-03:00
+verifier: gsd-verifier (goal-backward, postura adversarial FORCE, RE-VERIFICACAO)
 status: gaps_found
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/5
+  previous_portao: 3.5/5
+  gaps_closed:
+    - "A prova ponta a ponta das migrations aplicadas hoje (0014 e 0015) — o smoke rodou e ficou 27/27, e eu CONFIRMEI o run pelo catalogo, nao pelo documento"
+    - "RETEN-05 — a assercao (m) exercitou a regra sobre linha retrodatada em PROD: a de fora da janela morreu, a de dentro sobreviveu, o ledger registrou, e nenhuma outra tabela foi tocada"
+    - "PURGA-04 / SC#2 — a recusa do flip contra o corpo NOVO (md5 e10786bd) executou: sete recusas 22023, uma aceitacao, o kill switch irrecusavel, e exatamente uma linha de trilha"
+  gaps_remaining:
+    - "cron.job_run_details para o jobid 6 continua em ZERO linhas — 0 de 14 noites"
+    - "Criterio 2 do portao destrutivo continua VIOLADO para os applies de 46-05/06/07"
+    - "HI-01 e HI-02 da 46-REVIEW-4 continuam abertos (conferidos por mim, nao lidos do review)"
+    - "Fixture sintetica de PII residente em PROD sem decisao datada de destino"
+  regressions: []
+mudou_desde_a_verificacao_anterior: >
+  Uma coisa so: o smoke rodou em PROD as 11:26:40-03 e ficou 27/27 — confirmado por mim
+  no catalogo (pg_stat_statements nao registra statement que levanta excecao, e o bloco
+  (z) esperado=27 tem calls=3 contra calls=3 dos blocos (d)/(e), identidade que so vale
+  se todo run que chegou ao (d) tambem passou pelo (z)) — o que fecha PURGA-04, RETEN-05
+  e a metade de despacho de PURGA-01, movendo o score de 3/5 para 4/5. O agendador
+  continua com ZERO disparos e o portao destrutivo continua em 3.5/5.
 veredito: >
-  O CERCO ESTA ARMADO E O GATILHO NAO FOI PUXADO — mas o AGENDADOR nunca disparou,
-  e a prova ponta a ponta do que foi aplicado hoje nao existe. As 15 migrations
-  estao no ledger com md5 conferido por mim, `config_purga.modo = 'dry_run'`,
-  UPDATE/INSERT/DELETE em `config_purga` REVOGADOS dos tres papeis, e ZERO linha de
-  pessoa real tocada em toda a fase — 23 candidatos reais, 20 candidaturas, 37
-  contas, 5 curriculos e 13 linhas de historico, medidos por mim agora e identicos
-  ao inicio. O predicado do dry-run E a mesma chamada do delete real e produziu
-  relato em 4 de 4 itens. Mas `cron.job_run_details` tem ZERO linhas para o jobid 6:
-  a varredura noturna NUNCA RODOU, e as 4 execucoes do ledger sao manuais. E o smoke
-  — a unica prova end-to-end das duas migrations aplicadas hoje — mudou 153 linhas
-  EXECUTAVEIS desde a ultima vez que ficou verde, e nao rodou desde entao. O objetivo
-  da fase ("a primeira coisa que a purga faz em producao e nao apagar nada") e
-  verdadeiro da CONFIGURACAO e ainda nao e verdadeiro do AGENDADOR.
-score: 3/5
-behavior_unverified: 1
+  O CERCO ESTA ARMADO, O GATILHO NAO FOI PUXADO, E AGORA O CERCO FOI EXERCITADO — mas o
+  AGENDADOR AINDA NUNCA DISPAROU. O smoke que faltava rodou contra PROD as 11:26:40-03 e
+  ficou 27/27, e eu nao aceitei o documento: reproduzi o run pelo catalogo do Postgres.
+  Com ele, as tres coisas que so um teste executado podia provar passaram a estar
+  provadas — o portao do flip recusa pelos criterios certos com o corpo NOVO da 0014
+  (sete recusas 22023, uma aceitacao, kill switch irrecusavel, exatamente uma linha de
+  trilha), RETEN-05 MORDE sobre linha retrodatada sem tocar em mais nada, e o ramo `live`
+  ENFILEIRA o despacho. O envelope devolveu tudo: medi 18 grandezas depois do run e as 18
+  estao identicas — `config_purga` inteira por `to_jsonb`, T0 = 2026-08-22 20:03:14.148963-03,
+  4 execucoes / 10 itens / 1 linha de trilha / 31 candidatos / 20 candidaturas / 37 contas /
+  12 notificacoes / 5 curriculos / 13 linhas de historico, fila do pg_net em 0, ZERO resposta
+  HTTP em 18 h, os 8 titulares de fixture com PII intacta e nenhum gatilho deixado desligado.
+  O QUE NAO MUDOU: `cron.job_run_details` para o jobid 6 tem ZERO linhas — a varredura
+  noturna nunca rodou, as 4 execucoes do ledger sao manuais, e 0 de 14 noites decorreram.
+  E o criterio 2 do portao destrutivo segue violado para os applies de 46-05/06/07, o que
+  um smoke verde de hoje nao retro-conserta. "O dado expira sozinho" continua sendo uma
+  propriedade da CONFIGURACAO e ainda nao e uma observacao do AGENDADOR. Isso muda amanha
+  as 00:00-03, sem trabalho nenhum — ou nao muda, e ai e defeito.
+score: 4/5
+behavior_unverified: 0
 overrides_applied: 0
 
 portao_fase_destrutiva:
+  total: 3.5/5
+  delta_desde_a_verificacao_anterior: "nenhum — o smoke fechou must-haves, nao criterios do portao"
   1_verification_md_com_veredito:
     status: satisfeito
+    peso: 1.0
     por: evidencia
     nota: "Este arquivo. `status: gaps_found`, nunca `draft`, nunca ausente."
   2_code_review_bloqueante_antes_do_apply:
     status: parcialmente_satisfeito
+    peso: 0.5
     por: evidencia
-    satisfeito_para: "migrations 20260823000014 e 20260823000015 — a cadeia 46-REVIEW-2 (1 BLOCKER + 5 HIGH) -> 46-REVIEW-3 (2 BLOCKERS, ambos introduzidos pelo proprio conserto) -> 46-REVIEW-4 (0 blockers, seguro_aplicar SIM, commit b7d4a18) precede o apply (commit 7a9976d). Ordem confirmada no git."
-    violado_para: "os applies dos planos 46-05, 46-06 e 46-07 (commits aa96052, bd30684, 0f44e53, 5351bde) foram TODOS anteriores a 13e5302, cujo proprio assunto diz `code review retroativo de 46-05/06/07`. O review daquelas tres migrations foi DEPOIS, e ele achou 1 BLOCKER real (BL-01) que so foi corrigido hoje pela 0014."
+    satisfeito_para: >
+      migrations 20260823000014 e 20260823000015. Ordem conferida por mim hoje em
+      `git show -s --format=%cI`: 46-REVIEW-2 (13e5302, 02:23:42) -> 46-REVIEW-3
+      (56485db, 03:31:24, 2 BLOCKERS introduzidos pelo proprio conserto) -> 46-REVIEW-4
+      (b7d4a18, 04:23:14, 0 blockers) -> APPLY (7a9976d, 04:29:09). O review precede o
+      apply por 6 minutos.
+    violado_para: >
+      os applies dos planos 46-05 (aa96052, 00:50:55), 46-06 (bd30684, 01:30:39) e 46-07
+      (0f44e53, 02:05:24 e 5351bde, 02:07:45) sao TODOS anteriores a 13e5302 (02:23:42),
+      cujo assunto de commit diz `code review retroativo de 46-05/06/07`. O review daquelas
+      migrations foi DEPOIS, e ele achou 1 BLOCKER real (BL-01) que so foi corrigido pela
+      0014. Rodar o smoke hoje nao move um review para antes de um apply de ontem.
+    fechavel_por: "nada. E um desvio CONSUMADO. So pode ser aceito explicitamente pelo operador (override datado) ou registrado como divida de processo do M8."
   3_assercoes_negativas:
     status: satisfeito
+    peso: 1.0
     por: evidencia
-    nota: "Reproduzidas por mim hoje, contra PROD, sem confiar em nenhum SUMMARY — ver secao `Asseracoes Negativas`."
+    nota: "Reproduzidas por mim HOJE, depois do smoke, contra PROD — 18 grandezas, todas identicas. Ver secao `Asseracoes Negativas`."
   4_zero_no_verify:
     status: satisfeito
+    peso: 0.5
     por: argumento
-    nota: "`--no-verify` nao deixa rastro forense no git; e INFALSIFICAVEL a partir do repositorio. O que EU medi: `npm run -s lint | grep -c 'error TS'` = 96, exatamente a baseline congelada do hook. O hook esta instalado e a arvore passa por ele. Os sete SUMMARYs afirmam que ele rodou. Corroborado, nao provado."
+    nota: "`--no-verify` nao deixa rastro forense no git; e INFALSIFICAVEL a partir do repositorio. Medi de novo hoje: `npm run -s lint | grep -c 'error TS'` = 96, exatamente a baseline congelada do hook. Corroborado, nao provado."
   5_dry_run_pela_mesma_query:
     status: satisfeito_com_ressalva
+    peso: 0.5
     por: evidencia
-    nota: "MECANISMO provado: a varredura chama `public.anonimizar_candidato(id, true)` — a MESMA funcao do delete real, cujo corpo COMPLETO executa e so entao e derrubado pelo terminador P45DR — e 4 itens em PROD carregam `relato_dry_run` produzido por esse caminho. O RETEN-05 e UM UNICO `DELETE`, contado por GET DIAGNOSTICS e revertido pelo ERRCODE P46RN fora de `live`: nao existe segunda definicao da regra. RESSALVA: os DADOS contra os quais isso foi exercitado sao 100% FIXTURE SINTETICA — os 4 titulares elegiveis sao todos `4601b000-…`, plantados pelo 46-01. Nenhuma pessoa real jamais entrou no conjunto elegivel."
+    nota: >
+      MECANISMO provado e agora EXERCITADO end-to-end: a varredura chama
+      `public.anonimizar_candidato(id, true)` — a MESMA funcao do delete real, cujo corpo
+      COMPLETO executa e so entao e derrubado pelo terminador P45DR — e 4 itens em PROD
+      carregam `relato_dry_run` produzido por esse caminho. RETEN-05 e UM UNICO `DELETE`,
+      contado por GET DIAGNOSTICS e revertido pelo ERRCODE P46RN fora de `live`, e a
+      assercao (m) provou HOJE que ele morde. RESSALVA INALTERADA: os DADOS contra os quais
+      isso e exercitado sao 100% FIXTURE SINTETICA — os 4 titulares elegiveis sao todos
+      `4601b000-…`, e as linhas retrodatadas de (m) sao plantadas pelo proprio bloco.
+      Nenhuma pessoa real jamais entrou no conjunto elegivel, e nao pode: a notificacao mais
+      velha de PROD tem 0,77 mes contra uma janela de 24.
 
 gaps:
   - truth: "SC#1 — O cron de purga roda em PROD por um periodo documentado em dry_run antes de qualquer execucao real"
     status: partial
     reason: >
-      A metade do PREDICADO esta verificada por evidencia. A metade do AGENDADOR nao
-      existe ainda: `cron.job_run_details` tem 0 linhas para o jobid 6 — o job nunca
-      disparou. `cron.timezone = GMT`, entao `0 3 * * *` e 00:00 America/Sao_Paulo, e
-      a primeira varredura automatica e 2026-08-24 00:00-03. As 4 linhas de
-      `purga_execucoes` vieram de chamadas MANUAIS. "O dry-run esta ligado em PROD"
-      e verdadeiro da CONFIGURACAO e ainda nao e verdadeiro do SCHEDULER. Zero de 14
-      noites decorridas.
+      A metade do PREDICADO esta verificada por evidencia E AGORA POR EXECUCAO (a assercao
+      (m) rodou a varredura em `live` dentro do envelope e mediu o despacho). A metade do
+      AGENDADOR nao existe: medi hoje `count(*) FROM cron.job_run_details WHERE jobid = 6`
+      = **0**, com 2 693 linhas na tabela no total — a extensao funciona, os tres vizinhos
+      rodam, este job nunca disparou. `cron.timezone = GMT`, entao `0 3 * * *` e 00:00
+      America/Sao_Paulo; o job foi armado as ~01:30-03 de hoje, DEPOIS do horario de hoje,
+      logo a primeira varredura automatica da historia deste sistema e 2026-08-24 00:00-03.
+      As 4 linhas de `purga_execucoes` vieram de chamadas MANUAIS. Zero de 14 noites.
     requirements: [PURGA-01, PURGA-03]
     artifacts:
       - path: "cron.job jobid 6 (`purga-retencao-sweep`)"
-        issue: "active = true, schedule `0 3 * * *`, command ` SELECT public.varrer_purga_retencao(); ` — instalado e nunca executado"
+        issue: "active = true, schedule `0 3 * * *`, command ` SELECT public.varrer_purga_retencao(); `, user postgres — instalado, pinado por md5 na assercao (a), e NUNCA executado"
+    fecha_por: "passagem do tempo — nao ha trabalho a fazer"
     missing:
-      - "Deixar a noite de 2026-08-24 00:00-03 passar e conferir por execucao, nao por leitura de config: `SELECT jobid, status, return_message, start_time, end_time FROM cron.job_run_details WHERE jobid = 6 ORDER BY start_time DESC;` — esperado >= 1 linha com status `succeeded`"
-      - "Cruzar com o ledger: `SELECT id, modo_vigente, veredito, elegiveis, processados, notificacoes_expurgadas, iniciada_em FROM public.purga_execucoes ORDER BY iniciada_em DESC LIMIT 1;` — esperado `modo_vigente='dry_run'`, `veredito='dry_run'`, `elegiveis=4`, `processados=0`, `notificacoes_expurgadas=0`, e 4 itens com `relato_dry_run` NAO NULO"
+      - "Deixar a noite de 2026-08-24 00:00-03 passar (~12,5 h a partir desta verificacao) e conferir POR EXECUCAO: `SELECT jobid, status, return_message, start_time, end_time FROM cron.job_run_details WHERE jobid = 6 ORDER BY start_time DESC;` — esperado >= 1 linha com status `succeeded`"
+      - "Cruzar com o ledger: esperado `modo_vigente='dry_run'`, `veredito='dry_run'`, `elegiveis=4`, `processados=0`, `notificacoes_expurgadas=0`, e 4 itens novos com `relato_dry_run` NAO NULO"
+      - "Repetir por 14 noites. O periodo so fecha em ~2026-09-06, e o proprio portao do flip (criterio 1: dias >= 14) recusa `live` ate la — medido por mim hoje: dias = 0"
 
-  - truth: "RETEN-05 — Regra de retencao de `notificacoes_enviadas` definida E APLICADA"
-    status: partial
-    reason: >
-      DEFINIDA: sim, e provado. `config_purga.janela_notificacoes_meses = 24`, o
-      `COMMENT` vivo da tabela deixou de dizer "INDEFINITE" e agora diz "retention is
-      NO LONGER open-ended", e o `DELETE` unico existe no corpo vivo da varredura
-      (linhas 269-283 do `prosrc`). APLICADA: nao — e nao pode ser, por ARITMETICA.
-      A notificacao mais velha em PROD tem 0,7 mes e a janela e 24 meses; as 4
-      execucoes registraram `notificacoes_expurgadas = 0` e continuarao registrando
-      zero por ~23 meses. E EXATAMENTE a mesma classe de nao-exercicio que a Phase 43
-      registrou sobre `previa_retencao()`, e desta vez NAO foi neutralizada por
-      fixture: a fixture do 46-01 planta candidatos, nao notificacoes retrodatadas.
-      A unica prova de que a regra MORDE e a assercao `(m)` do smoke, que usa fixture
-      retrodatada — e `(m)` teve conteudo EXECUTAVEL alterado depois da ultima vez que
-      o smoke ficou verde (commit 21d7352, `HI-02 (m) ganha a unica condicao que mede
-      o DISPATCH`), e nao rodou desde entao.
-    requirements: [RETEN-05]
-    artifacts:
-      - path: "public.notificacoes_enviadas"
-        issue: "12 linhas, a mais velha com 0,7 mes; janela de 24 meses. Conjunto alcancavel pela regra = 0, por aritmetica e nao por defeito."
-      - path: "supabase/tests/p46_purga_smoke.sql — assercao (m)"
-        issue: "unica prova de mordida; conteudo executavel alterado apos o ultimo run verde; nao executada"
-    missing:
-      - "Rodar o smoke e LER O CONTADOR: `node p46apply.cjs run supabase/tests/p46_purga_smoke.sql` — o gate e `smoke46p.pass = 27` no RESUMO (z), nunca 'nao levantou excecao'"
-
-  - truth: "A prova ponta a ponta das migrations aplicadas HOJE (0014 e 0015) existe"
+  - truth: "Portao de fase destrutiva, criterio 2 — code review bloqueante ANTES do apply em PROD"
     status: failed
     reason: >
-      Nao existe. O `seguro_aplicar` da 46-REVIEW-4 trazia tres precondicoes e a
-      PRIMEIRA delas, com estas palavras, era: "rodar o passo 4 (o smoke) na MESMA
-      sessao de trabalho do apply, e nao no dia seguinte — ele e a unica prova
-      end-to-end de (d.3) e de (d.8)/(d.9). Adiar o smoke deixa o apply sem evidencia
-      — que foi o que o BL-R3-02 custou." O operador aplicou e declinou o smoke. Medi
-      o tamanho do buraco: `git diff 5351bde..HEAD -- supabase/tests/p46_purga_smoke.sql`
-      = **+383/-44 linhas, das quais 153 sao EXECUTAVEIS** (nao-comentario). O ultimo
-      27/27 verde e do commit 5351bde e correu contra um banco SEM a 0014 e SEM a 0015,
-      com uma assercao `(d)` que foi depois REESCRITA por dois consertos de BLOCKER
-      (dbdf1fe/BL-01 e afe4f45/BL-R3-02). O smoke atual nunca executou contra Postgres
-      nenhum. A propria 46-REVIEW-4 classifica `(d.3)` como "CORRETO POR TRACADO, nao
-      por execucao".
-    requirements: [PURGA-04, RETEN-05]
+      O ROADMAP §"Portao de fase destrutiva" trata os cinco itens como EXIT CRITERION de
+      roadmap, com as palavras "nao sao opcionais e nao sao substituiveis por 'o smoke
+      passou'". Quatro applies em PROD desta fase (aa96052 00:50, bd30684 01:30, 0f44e53
+      02:05, 5351bde 02:07) precederam o review que os cobria (13e5302, 02:23). Isso e
+      exatamente a forma do erro da P39 que originou o portao — e desta vez o review
+      retroativo ACHOU um BLOCKER real (BL-01: o recorte do portao do flip contava como
+      ensaio uma execucao que nao ensaiou). O smoke verde de hoje prova que o CONSERTO
+      funciona; ele nao move o review para antes do apply.
+    requirements: []
+    artifacts:
+      - path: "git log (ordem de commits da Phase 46)"
+        issue: "4 applies em PROD anteriores ao review que os cobre, por 16 a 93 minutos"
+    fecha_por: "nada — desvio consumado"
+    missing:
+      - "Decisao explicita do operador: aceitar o desvio via `overrides:` datado neste arquivo, OU registra-lo como divida de processo do M8. Enquanto nao houver escolha registrada, a fase nao satisfaz os 5 itens do exit criterion e nao pode fechar como `passed`"
+
+  - truth: "HI-02 da 46-REVIEW-4 — a tabela de vigilancia dos 14 dias nomeia o sinal de evidencia do criterio 3"
+    status: failed
+    reason: >
+      Conferido por mim, nao lido do review: `grep -n "relato_dry_run"` em
+      `46-07-RUNBOOK-FLIP.md` devolve ZERO linhas. A tabela que o operador vai consultar
+      pelas proximas 14 noites nao nomeia o sinal que o criterio 3 do portao passou a
+      exigir depois do conserto de BL-01. E isso nao e hipotetico: PROD ja contem hoje a
+      execucao que a tabela deixaria passar — `e3115161`, com `elegiveis = 6` e ZERO itens
+      com `relato_dry_run`. Medi os criterios contra o estado real agora: execucoes de
+      ensaio = 2, mas com evidencia = 1.
+    requirements: [PURGA-03, PURGA-04]
+    artifacts:
+      - path: ".planning/phases/46-purga-autom-tica-dry-run-live/46-07-RUNBOOK-FLIP.md"
+        issue: "tabela de vigilancia de 14 dias sem a coluna/consulta do `relato_dry_run`"
+    missing:
+      - "Acrescentar a vigilancia diaria: `SELECT count(*) FROM purga_execucoes e WHERE e.modo_vigente IN ('dry_run','live') AND EXISTS (SELECT 1 FROM purga_execucao_itens i WHERE i.execucao_id = e.id AND i.relato_dry_run IS NOT NULL);` — se este numero nao subir junto com a contagem de noites, as noites nao estao ensaiando"
+
+  - truth: "HI-01 da 46-REVIEW-4 — o invariante de privilegio da 0015 tem guarda recorrente"
+    status: failed
+    reason: >
+      Conferido por mim: `grep -rn "has_table_privilege\|relacl" supabase/tests/` devolve
+      ZERO linhas. O `REVOKE` da 0015 foi medido UMA VEZ, no apply, e eu o remedi hoje
+      (`UPDATE`/`INSERT`/`DELETE` = false para `anon`, `authenticated` e `service_role`;
+      RLS ligada com uma unica policy, de LEITURA). Mas nenhum portao le esse estado: um
+      `GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role` — que e uma linha comum em
+      migration de conveniencia — reabriria a unica porta de escrita da configuracao da
+      purga com os 27 contadores do smoke ainda verdes.
+    requirements: [PURGA-04, PURGA-05]
     artifacts:
       - path: "supabase/tests/p46_purga_smoke.sql"
-        issue: "153 linhas executaveis alteradas desde o ultimo run verde; contador esperado 27; nunca executado nesta forma"
+        issue: "27 assercoes, nenhuma mede privilegio de tabela nem `relacl`"
     missing:
-      - "`node p46apply.cjs run supabase/tests/p46_purga_smoke.sql` e ler `smoke46p.pass` = 27 no RESUMO (z). Casos que so este run prova: (d.3) recusa SO pela contagem com a evidencia replantada · (d.7)/(d.8)/(d.9) o recorte por VEREDITO (o BLOCKER-01) · (m) a condicao ⊕ que mede o dispatch"
-      - "Rodar tambem os quatro portoes vizinhos que a fase mexeu, com contador lido: p42_invent05_cron (4/4 com 4 jobs) · p43_previa (9) · p43_matriz (11) · p45_motor (24)"
+      - "Uma assercao no smoke que afirme `has_table_privilege(r, 'public.config_purga', v) = false` para o produto {anon, authenticated, service_role} x {INSERT, UPDATE, DELETE}, gerada por `unnest` e nao por lista literal de verbos (CLAUDE.md §Portoes: varra pela FORMA)"
 
-  - truth: "A fixture sintetica de PII nao e confundivel com dado real em PROD"
+  - truth: "A fixture sintetica de PII nao e confundivel com dado real em PROD, e tem destino decidido"
     status: partial
     reason: >
-      8 dos 31 registros de `public.candidatos` em PRODUCAO sao sinteticos
-      (`4601b000-…`), com 8 contas correspondentes em `auth.users`. Isso e
-      DELIBERADO e esta escrito: a fixture do 46-01 e DURAVEL de proposito, porque
-      sem ela o conjunto elegivel seria vazio e 18 das 21 assercoes passariam por
-      vacuidade; e o runbook diz, em caixa alta, `NAO RODE O TEARDOWN ANTES DO FLIP`.
-      Nao e defeito. Mas e um FATO OPERACIONAL que esta VERIFICACAO tem de nomear,
-      porque tem duas consequencias que ainda nao foram fechadas: (1) os 4 titulares
-      que a purga vai processar TODA NOITE pelos proximos 14 dias sao 100% fixture —
-      nenhuma pessoa real jamais entrou no conjunto elegivel, entao o dry-run de 14
-      noites nao produz nenhuma evidencia sobre o comportamento do motor contra dado
-      real; (2) na PRIMEIRA noite em `live`, sao esses 8 sinteticos que serao
-      destruidos primeiro — o runbook trata isso como a prova, e esta certo, mas
-      quem ler um relatorio, KPI ou export nesses 14 dias vai contar 31 candidatos
+      8 dos 31 registros de `public.candidatos` em PRODUCAO sao sinteticos (`4601b000-…`),
+      com 8 contas correspondentes em `auth.users` — medido hoje, e com a PII INTACTA
+      (nenhum tombstone; o smoke nao anonimizou ninguem). Isso e DELIBERADO e esta escrito:
+      sem a fixture o conjunto elegivel seria vazio e 18 das 21 assercoes originais
+      passariam por vacuidade; o runbook diz em caixa alta `NAO RODE O TEARDOWN ANTES DO
+      FLIP`. Nao e defeito. E um FATO OPERACIONAL com duas consequencias ainda abertas:
+      (1) os 4 titulares que a purga vai processar TODA NOITE pelos proximos 14 dias sao
+      100% fixture — as 14 noites nao produzem nenhuma evidencia sobre o motor contra dado
+      real; (2) na PRIMEIRA noite em `live` sao esses 8 sinteticos que serao destruidos
+      primeiro, e quem ler um relatorio/KPI/export nesses 14 dias vai contar 31 candidatos
       onde ha 23.
     requirements: [PURGA-03]
     artifacts:
       - path: "public.candidatos / auth.users"
-        issue: "8 linhas sinteticas residentes em PROD; `candidaturas_alem_da_janela()` retorna 4, todas fixture"
+        issue: "8 linhas sinteticas residentes em PROD; `candidaturas_alem_da_janela()` = 4, todas fixture"
     missing:
       - "Decisao explicita e datada do operador sobre o destino da fixture no dia do flip — o runbook §Teardown ja oferece as duas saidas ('a propria purga em live a consome' ou 'estender-dry-run indefinidamente => teardown nunca'). Enquanto nao houver escolha registrada, o dia do flip herda uma decisao nao tomada"
       - "Se algum painel/KPI/export for lido nestes 14 dias, conferir que ele exclui o namespace `fixture-p46+%@invalido.local`"
 
 deferred: []
 
-behavior_unverified_items:
-  - truth: "SC#2 / PURGA-04 — O flip dry_run -> live e recusado pelo SERVIDOR quando falta qualquer criterio de D-46-14"
-    test: >
-      Com uma sessao de ADMINISTRADOR real (o guard resolve o ator de
-      `auth.jwt() #>> '{app_metadata,role}'`, nunca de parametro — a Management API
-      nao serve, ela recusa antes com 42501), chamar
-      `SELECT public.salvar_config_purga(p_modo => 'live', p_confirmo_live => true);`
-    expected: >
-      SQLSTATE 22023, e a mensagem tem de NOMEAR EXATAMENTE TRES criterios faltantes,
-      porque foi isso que EU medi contra o estado real de hoje reproduzindo o SELECT
-      da propria migration 0014: dias desde a primeira execucao de ENSAIO = 0
-      (exigido 14; primeira em 2026-08-22 20:03:14-03) · execucoes de ensaio = 2
-      (exigido 14) · etapas da allowlist em `origem = 'seed'` = 2 [aprovado,
-      decisao_final] (exigido nenhuma). E tem de NAO nomear o criterio 3: eu medi
-      `com_eleg = 1` (exigido >= 1), que e precisamente o conserto do BL-01 pousando
-      — o recorte ANTIGO contava 2 ensaios, o NOVO conta 1, porque a execucao
-      e3115161 tem 6 elegiveis e ZERO itens com `relato_dry_run`. Depois da sonda:
-      `modo` tem de seguir `dry_run` e `logs_auditoria` NAO pode ganhar linha nova —
-      a recusa nao escreve.
-    why_human: >
-      Eu reproduzi o PREDICADO do portao contra PROD e ele calcula a recusa. O que
-      NAO esta provado e a TRANSICAO: que o corpo novo de `salvar_config_purga`
-      (md5 `e10786bd4e21bce3e9dd956f6a479db2`, trocado hoje pela 0014) liga aquele
-      SELECT ao RAISE, recusa de fato, e nao deixa efeito colateral. Isso e um
-      invariante de transicao de estado — presenca de simbolo e fiacao nao o
-      enxergam. A recusa que ESTA provada ao vivo (commit 0f44e53) foi contra o corpo
-      ANTIGO (0013, md5 `9e1a55bee81aaa7b42d45e5a5a8fee7b`) e nomeava criterios
-      diferentes. E exige sessao autenticada de admin: nao ha caminho automatizavel.
+behavior_unverified_items: []
 
 coincidental_reliance_items:
   - truth: "SC#4 / PURGA-07 — a candidatura sem decisao registrada e classificada corretamente"
     reason: fixture-only
     harden: >
       O degrau de COALESCE (`decisao_final` -> `historico` -> `updated_at` ->
-      `data_candidatura`) e as quatro excecoes de politica so tem sujeito porque a
-      fixture do 46-01 planta um caso para cada ramo. Contra dado de producao real, o
-      conjunto elegivel e VAZIO e todo o predicado passaria por vacuidade. A
-      propriedade e boa e a fixture e a forma certa de resolver — mas ela e uma
-      PRECONDICAO NAO DECLARADA de toda a evidencia desta fase, e desaparece no dia
-      do teardown. Promover para precondicao explicita: enquanto o conjunto elegivel
-      real for vazio, nenhuma afirmacao sobre o predicado sobrevive a remocao da
-      fixture.
+      `data_candidatura`) e as quatro excecoes de politica so tem sujeito porque a fixture
+      do 46-01 planta um caso para cada ramo. Contra dado de producao real, o conjunto
+      elegivel e VAZIO e todo o predicado passaria por vacuidade. A propriedade e boa e a
+      fixture e a forma certa de resolver — mas ela e uma PRECONDICAO NAO DECLARADA de toda
+      a evidencia desta fase, e desaparece no dia do teardown. Promover para precondicao
+      explicita: enquanto o conjunto elegivel real for vazio, nenhuma afirmacao sobre o
+      predicado sobrevive a remocao da fixture.
+  - truth: "SC#5 / RETEN-05 — a regra de retencao de notificacoes morde"
+    reason: fixture-only
+    harden: >
+      A mordida so tem sujeito porque a assercao (m) planta a linha retrodatada que ela
+      mesma apaga. As 12 notificacoes reais de PROD tem entre 0,02 e 0,77 mes contra uma
+      janela de 24: o alcance real da regra e ZERO por ARITMETICA, e continuara zero por
+      ~23 meses. Declarar como precondicao: qualquer relatorio de conformidade que cite
+      `notificacoes_expurgadas` nos proximos 23 meses esta citando um zero que nao e sinal.
 
 human_verification:
-  - test: "Ver `behavior_unverified_items[0]` — a recusa do flip contra o corpo novo (0014), com sessao de administrador real"
-    expected: "22023 nomeando exatamente tres criterios; `modo` intacto; zero linha nova em `logs_auditoria`"
-    why_human: "Exige sessao autenticada de admin; e um invariante de transicao de estado"
-  - test: "Fechar `aprovado` e `decisao_final` em `/admin/retencao`, confirmando a janela de cada uma"
-    expected: "`config_retencao_etapa.origem` passa de `seed` para `admin` nas duas; medido por mim hoje: 2 das 3 etapas da allowlist ainda em `seed`"
-    why_human: "E acao de operador na tela, e e a unica pendencia que o TEMPO nao resolve — o servidor recusa o `live` enquanto for assim, mesmo depois de 2026-09-06"
+  - test: >
+      Confirmar `aprovado` e `decisao_final` em `/admin/retencao`, escolhendo a janela de
+      cada uma (hoje ambas em 24 meses, procedencia `seed`)
+    expected: "`config_retencao_etapa.origem` passa de `seed` para `admin` nas duas. Medido por mim hoje: 2 das 3 etapas da allowlist ainda em `seed` (`rejeitado` ja esta em `admin`, 18 meses)"
+    why_human: "E acao de operador na tela, e e a UNICA pendencia do portao do flip que o TEMPO nao resolve — o servidor recusa `live` enquanto for assim, mesmo depois de 2026-09-06"
   - test: "Provar `cron.alter_job` por execucao, num momento controlado — desarmar e rearmar o jobid 6"
-    expected: "a alavanca de emergencia do runbook funciona de verdade"
+    expected: "a alavanca de emergencia do runbook funciona de verdade, e o job volta com `active = true` e o mesmo `md5(command)` que a assercao (a) pina"
     why_human: "Muta o agendamento de PROD. Privilegio, assinatura, `prokind='c'` e `prosecdef=false` estao medidos; a EXECUCAO nao. Herdado de BL-R3-01 e da 46-EVIDENCIA-APPLY §Pendencias 1"
+  - test: >
+      RESIDUAL (escopo reduzido pelo smoke): repetir a recusa do flip por uma sessao de
+      administrador REAL atravessando o PostgREST — login no app como admin e chamada da
+      RPC `salvar_config_purga` com `p_modo => 'live'`
+    expected: "22023 nomeando exatamente TRES criterios faltantes (dias=0/14 · execucoes=2/14 · 2 etapas em `seed`), `modo` seguindo `dry_run`, zero linha nova em `logs_auditoria`"
+    why_human: >
+      A TRANSICAO ja esta provada no banco: o bloco (d) rodou hoje contra o corpo NOVO
+      (md5 e10786bd), carimbando `request.jwt.claims` — a mesma GUC que `auth.jwt()` le —
+      com uma assercao de NAO-VACUIDADE que exige `auth.uid()` nao-nulo, e produziu sete
+      recusas 22023, uma aceitacao e um kill switch irrecusavel, com a impressao digital do
+      ledger conferida no fim. O que resta e so a camada de gateway (verificacao de
+      assinatura do JWT e `SET ROLE authenticated` pelo PostgREST), que nao tem caminho
+      automatizavel a partir da Management API — ela recusa antes, com 42501
+  - test: "Decidir e DATAR o destino dos 8 registros de fixture no dia do flip"
+    expected: "uma linha escrita no runbook dizendo qual das duas saidas do §Teardown foi escolhida, e por quem"
+    why_human: "E decisao de operador sobre PII em producao, nao inferencia"
 ---
 
-# Phase 46 · Purga Automatica (dry-run -> live) — Relatorio de Verificacao
+# Phase 46 · Purga Automatica (dry-run -> live) — Relatorio de Verificacao (RE-VERIFICACAO)
 
 **Objetivo da fase (ROADMAP):** *"O dado expira sozinho, dentro de um cerco — e a primeira coisa
 que a purga faz em producao e **nao apagar nada**."*
-**Verificado:** 2026-08-23T04:45-03 · **Status:** `gaps_found` · **Score:** 3/5 must-haves
-**Metodo:** 12 consultas read-only a PROD pela Management API (`node p46apply.cjs sql`,
-exclusivamente `SELECT`), md5 dos 15 arquivos de migration contra o ledger, `npm run lint`,
-diff mecanico do smoke. **PROD nao foi mutada por esta verificacao:** nenhuma migration, nenhum
-deploy, nenhum smoke, nenhum `salvar_config_purga`, nenhum `cron.alter_job`.
+**Verificado:** 2026-08-23T11:35-03 · **Status:** `gaps_found` · **Score:** 4/5 (era 3/5)
+**Portao de fase destrutiva:** 3.5/5 (inalterado)
+**Metodo:** 8 consultas read-only a PROD pela Management API (`node p46apply.cjs sql`,
+exclusivamente `SELECT`/catalogo), 1 sonda deliberadamente falha e NAO-MUTANTE para calibrar o
+`pg_stat_statements`, `npm run lint`, `md5 -q` do smoke, `git show -s --format=%cI` de 13 commits.
+**PROD nao foi mutada por esta verificacao:** nenhuma migration, nenhum deploy, nenhum smoke,
+nenhum `salvar_config_purga`, nenhum `cron.alter_job`.
 
 ---
 
-## ⚠ PRIMEIRO — O ESTADO DE PRODUCAO, MEDIDO E NAO LIDO DE SUMMARY
+## ⚠ PRIMEIRO — O ESTADO DE PRODUCAO AGORA, MEDIDO E NAO LIDO DE NENHUM DOCUMENTO
 
 ### O que esta ARMADO
 
 | Fato | Valor medido agora | Como |
 |---|---|---|
-| `config_purga.modo` | **`dry_run`** | `SELECT` direto |
-| `config_purga.atualizado_em` (T0) | **2026-08-23 02:06:37.866049-03** | idem — T0 intacto |
+| `config_purga.modo` | **`dry_run`** | `to_jsonb` da linha inteira |
+| `config_purga.atualizado_em` (T0 do flip `off -> dry_run`) | **2026-08-23 02:06:37.866049-03** | idem — intacto |
+| T0 do ledger de ensaio (`min(iniciada_em)`) | **2026-08-22 20:03:14.148963-03** | idem — intacto |
 | `cap_titulares` / `janela_notificacoes_meses` | 50 / 24 | idem |
-| `cron.job` jobid 6 | `active = true`, `0 3 * * *`, `SELECT public.varrer_purga_retencao();`, user `postgres` | `cron.job` |
-| Migrations no ledger | **15/15**, `20260823000001`..`15` | `supabase_migrations.schema_migrations` |
-| Fidelidade md5 disco x ledger | **15/15 batem** — as `…0001`..`…0005` batem sem o `\n` final (aplicadas pela via antiga), as `…0006`..`…0015` batem byte a byte | `md5 -q` x `md5(statements[1])` |
-| `md5(prosrc)` de `salvar_config_purga` | `e10786bd4e21bce3e9dd956f6a479db2` | = valor "depois" da `46-EVIDENCIA` ✅ |
-| `has_table_privilege(_, 'config_purga', 'UPDATE'\|'INSERT'\|'DELETE')` | **`false` para `anon`, `authenticated` E `service_role`** | o `REVOKE` da `…0015` pousou nos tres |
-| RLS em `config_purga` | ligada, **1 unica policy e ela e de LEITURA** (`config_purga_admin_read`, `polcmd = r`) | `pg_policy` |
-| Edge Function `purgar-retencao` | `ACTIVE`, version 1 | Management API `/functions` |
-| Trilha do flip `off -> dry_run` | **exatamente 1 linha** em `logs_auditoria`, `acao=alterar_config_purga`, `severidade=aviso`, `usuario_id` NAO NULO, com `dados_antes`/`dados_depois` | `SELECT` |
+| Migrations no ledger | **15/15**, `20260823000001`..`15`; md5 de `…0014` = `1937a39c…` e `…0015` = `61dbd3f2…` | `supabase_migrations.schema_migrations` |
+| `md5(prosrc)` de `salvar_config_purga` | `e10786bd4e21bce3e9dd956f6a479db2` — o corpo NOVO da 0014 | `pg_proc` |
+| Escrita em `config_purga` por `anon` / `authenticated` / `service_role` | **`false` nos tres papeis para `INSERT`, `UPDATE` e `DELETE`** | `has_table_privilege` |
+| RLS em `config_purga` | ligada, **1 policy e ela e de LEITURA** (`config_purga_admin_read`, `polcmd = r`) | `pg_policy` |
+| `cron.job` jobid 6 | `active = true`, `0 3 * * *`, ` SELECT public.varrer_purga_retencao(); `, user `postgres` | `cron.job` |
+| Vault | `project_url` **e** `edge_invoke_key` presentes — a varredura nao vai abortar com `segredo_ausente` | `vault.secrets` |
+| Trilha do flip `off -> dry_run` | **exatamente 1 linha** em `logs_auditoria` | `SELECT` |
+| **O smoke `p46_purga_smoke.sql` na forma atual** | **RODOU e ficou 27/27** — 2026-08-23 **11:26:40-03** | ver §"Eu nao acreditei no documento" |
 
 ### O que NAO esta armado
 
 | Fato | Valor medido agora | Consequencia |
 |---|---|---|
-| `cron.job_run_details` para jobid 6 | **0 linhas** (a tabela tem 2 666 linhas no total — a extensao funciona, os vizinhos rodam) | **A varredura NUNCA disparou.** As 4 linhas de `purga_execucoes` sao chamadas manuais |
+| `cron.job_run_details` para jobid 6 | **0 linhas** (2 693 linhas na tabela no total — os tres vizinhos rodam) | **A varredura NUNCA disparou.** As 4 linhas de `purga_execucoes` sao chamadas manuais |
 | Noites de dry-run automatico decorridas | **0 de 14** | O "periodo documentado" do SC#1 tem T0 anotado e zero noites |
-| Smoke `p46_purga_smoke.sql` na forma atual | **nunca executado** — 153 linhas EXECUTAVEIS alteradas desde o ultimo 27/27 | As migrations aplicadas hoje estao sem prova ponta a ponta |
-| Portao do flip: criterios que faltam | **3 de 5** (dias=0/14 · execucoes=2/14 · etapas em `seed`=2) | O `live` e recusado hoje — por calculo que eu reproduzi, nao por execucao da RPC |
+| Portao do flip: criterios que faltam | **3 de 5**: dias = **0**/14 · execucoes de ensaio = **2**/14 · etapas da allowlist em `seed` = **2** (exigido 0) | O `live` e recusado hoje. O criterio 3 (>=1 execucao COM evidencia) ja passa: medi **1** |
+| Criterio 2 do portao destrutivo | **violado** para 46-05/06/07 | Exit criterion de ROADMAP nao satisfeito |
+| HI-01 / HI-02 da `46-REVIEW-4` | **abertos** — conferidos por `grep`, nao lidos do review | Ver gaps |
 
-### O que a noite de 2026-08-24 00:00-03 vai fazer, derivado do `prosrc` vivo
+### O que a noite de 2026-08-24 00:00-03 vai fazer, derivado do estado que eu acabei de medir
 
-`cron.timezone = GMT`, entao `0 3 * * *` e **03:00 UTC = 00:00 America/Sao_Paulo** — nao 03:00
-local. A primeira varredura automatica da historia deste sistema e daqui a ~19 h. Tracando o
-corpo vivo de `varrer_purga_retencao` contra o estado que eu medi:
+`cron.timezone = GMT`, entao `0 3 * * *` e **03:00 UTC = 00:00 America/Sao_Paulo**. O job foi
+armado as ~01:30-03 de hoje — depois do horario de hoje — e por isso a primeira varredura
+automatica da historia deste sistema e daqui a **~12,5 horas**. Tracando o corpo vivo de
+`varrer_purga_retencao` (md5 `72178564…`) contra as grandezas que medi agora:
 
 1. Le `modo = 'dry_run'`, `cap = 50`.
 2. **RETEN-05:** roda o `DELETE FROM public.notificacoes_enviadas WHERE criado_em + interval
-   '24 months' < now()`. A notificacao mais velha tem 0,7 mes -> alcance **0 linhas**. Como
-   `modo <> 'live'`, levanta `P46RN` e a subtransacao reverte. `notificacoes_expurgadas = 0`.
-3. Vault tem `project_url` e `edge_invoke_key` -> **nao** aborta com `segredo_ausente`.
+   '24 months' < now()`. As 12 notificacoes vivas tem entre **0,02 e 0,77 mes** -> alcance
+   **0 linhas**. Como `modo <> 'live'`, levanta `P46RN` e a subtransacao reverte.
+   `notificacoes_expurgadas = 0`.
+3. Vault tem os dois segredos -> **nao** aborta com `segredo_ausente`.
 4. Materializa o conjunto: **4 elegiveis**, todos fixture. 4 < 50 -> **nao** aborta com
    `cap_excedido`.
 5. Abre 1 linha em `purga_execucoes` (`veredito='dry_run'`, `situacao='executando'`) e 4 itens.
 6. Para cada um: `SELECT public.anonimizar_candidato(id, true)` — o corpo destrutivo COMPLETO
-   executa e e derrubado pelo terminador `P45DR`; `SQLERRM` vira `relato_dry_run`. Se o
-   terminador tivesse sumido do motor, a varredura seria **DERRUBADA** com `P46NT` sem gravar
-   item e sem fechar a execucao (fail-closed, e eu li esse ramo no `prosrc`).
+   executa e e derrubado pelo terminador `P45DR`; o `SQLERRM` vira `relato_dry_run`.
 7. `net.http_post` **nao** e alcancado — o bloco (g.5) vive inteiro dentro de `IF v_modo = 'live'`.
 8. Fecha: `veredito='dry_run'`, `processados=0`, `notificacoes_expurgadas=0`.
 
-**Resultado esperado amanha: +1 linha de ledger, +4 itens, ZERO destruicao.** Que e, literalmente,
-o objetivo da fase. **Amanha e o dia em que "a purga nao apaga nada" deixa de ser uma propriedade
-da configuracao e vira uma propriedade observada do agendador.** Hoje ainda nao e.
+**Resultado esperado: +1 linha de ledger, +4 itens, ZERO destruicao** — e, pela primeira vez,
+uma linha em `cron.job_run_details`. **Amanha e o dia em que "a purga nao apaga nada" deixa de
+ser uma propriedade da configuracao e vira uma propriedade observada do agendador.**
+
+---
+
+## Eu nao acreditei no documento: como confirmei o smoke pelo catalogo
+
+A `46-EVIDENCIA-SMOKE-VERDE.md` afirma 27/27. Um relatorio de verificacao que aceita isso nao
+verificou nada — e o smoke roda dentro de um envelope revertido, entao ele **por desenho nao
+deixa rastro nas tabelas**. Fui buscar o rastro onde ele existe: no `pg_stat_statements`.
+
+**Passo 1 — calibrar o instrumento.** Rodei uma sonda deliberadamente falha e nao-mutante
+(`DO $probe46v$ BEGIN RAISE EXCEPTION …; END $probe46v$;`) e conferi em seguida:
+
+```
+SELECT … FROM pg_stat_statements WHERE query LIKE '%probe46v%'   ->   [] (vazio)
+```
+
+**O `pg_stat_statements` NAO registra statement que levanta excecao.** Isso transforma `calls`
+numa contagem de EXECUCOES BEM-SUCEDIDAS, que e exatamente o que eu precisava.
+
+**Passo 2 — a aritmetica que fecha.** Os blocos executaveis do smoke mudaram de texto com os
+consertos de BLOCKER, entao o `queryid` deles e NOVO:
+
+| Bloco do arquivo | `stats_since` (1ª execucao) | `calls` |
+|---|---|---|
+| `DO $r$` — (a)(g)(m)(n), forma ANTIGA | 2026-08-23 01:29:26 | 3 |
+| `DO $r$` — forma ATUAL | **2026-08-23 11:26:40.081-03** | **1** |
+| `DO $de$` — (d)(e), forma ANTIGA | 2026-08-23 02:03:22 | 2 |
+| `DO $de$` — forma ATUAL | **2026-08-23 11:26:40.107-03** | **1** |
+| `DO $z$` RESUMO com `v_esperado := 27` | 2026-08-23 02:03:22 | **3** |
+
+O `(z)` vem **depois** do `$de$` no arquivo, entao `calls(z) <= calls(de_antigo) + calls(de_novo)`
+sempre. Medido: **3 <= 2 + 1 = 3**. A igualdade so e possivel se **TODO** run que completou um
+bloco `$de$` tambem completou o `(z)` — e `(z)` so completa quando `smoke46p.pass = 27`, porque
+qualquer outro valor levanta `P46P FAIL (z)` e o statement nao seria contado.
+
+**Portanto o run das 11:26:40 chegou ao RESUMO com o contador em 27.** Confirmado por mim, a
+partir do catalogo, sem depender de uma unica linha do documento do operador.
+
+**Passo 3 — o envelope.** Duas consultas de retrato (`SELECT modo, to_jsonb(c.*) FROM
+config_purga …`) aparecem no `pg_stat_statements` as **11:26:13** e **11:26:49**, cercando o run
+— e sao entradas distintas das assercoes, isto e, medicao **por fora**, como o documento afirma.
+
+**Passo 4 — o que rodou e o arquivo do repositorio.** `md5 -q supabase/tests/p46_purga_smoke.sql`
+= `b9a1140fcf6f692bf502d1239e8fb10d`, 252 163 octetos — identico ao md5 do prefixo enviado que a
+evidencia publica. E `git log -- supabase/tests/p46_purga_smoke.sql` mostra que o ultimo commit a
+tocar o arquivo e `4b591fe` (03:50), **anterior** a `b7d4a18` (review final, 04:23) e ao apply
+(`7a9976d`, 04:29). A arvore esta limpa. O arquivo que rodou e o arquivo revisado.
+
+### ⚠ Um erro de fato no documento de evidencia (nao muda o veredito, mas nao pode passar)
+
+`46-EVIDENCIA-SMOKE-VERDE.md` diz **"Rodado em: 2026-08-23, ~04:50-03"**. O catalogo diz
+**11:26:40-03** — quase sete horas depois, e um minuto antes do commit `a4f9977` (11:27:33). O
+horario escrito e um erro de transcricao. Registro porque este relatorio existe para nao
+arredondar: uma evidencia com carimbo de tempo errado e uma evidencia mais dificil de auditar
+depois, e o arquivo e commitado.
+
+---
+
+## O envelope devolveu tudo — 18 grandezas, medidas por mim DEPOIS do run
+
+| Grandeza | Esperado (pre-run) | Medido agora |
+|---|---|---|
+| `config_purga` (linha inteira, `to_jsonb`) | `dry_run` / 50 / 24 / `2026-08-23T02:06:37.866049-03` | **identica** |
+| `purga_execucoes` · `purga_execucao_itens` | 4 · 10 | **4 · 10** |
+| T0 do ledger (`min(iniciada_em)`) | `2026-08-22T20:03:14.148963-03` | **identico** |
+| Itens com `relato_dry_run` | 4 | **4** |
+| `processados` nas 4 execucoes | 0,0,0,0 | **0,0,0,0** |
+| `notificacoes_expurgadas` nas 4 | 0,0,0,0 | **0,0,0,0** |
+| `logs_auditoria` com `acao ILIKE '%purga%'` | 1 | **1** |
+| `candidatos` (total · fixture) | 31 · 8 | **31 · 8** |
+| **PII dos 8 titulares de fixture** | intacta | **intacta** — nenhum e-mail nulo/tombstone, `nome_completo` com 47-52 caracteres |
+| `candidaturas` · `auth.users` | 20 · 37 | **20 · 37** |
+| `notificacoes_enviadas` | 12 | **12** (a mais velha com 0,77 mes) |
+| `historico_candidatura` (trilha humana — RNF-07a) | 13 | **13** |
+| `decisao_final` · `retencao_hold` | 3 · 1 | **3 · 1** |
+| `storage.objects` em `curriculos` | 5 | **5** |
+| `candidaturas_alem_da_janela()` | 4 | **4** |
+| `net.http_request_queue` | 0 | **0** |
+| **`net._http_response` nas ultimas 18 h** | vazio | **VAZIO** — a assercao (m) rodou a varredura em `live` e **nada saiu do predio** |
+| Gatilhos DESLIGADOS em `notificacoes_enviadas` | 0 | **0** — a higiene de (m) religou todos |
+
+**Nenhuma linha de pessoa real foi tocada em toda a Phase 46, nem pelo smoke.** Confirmado.
+
+O rastro que o rollback **nao** apaga corrobora que o trabalho de fato aconteceu:
+`pg_stat_user_tables` mostra `purga_execucoes` com **231 tuplas inseridas** para **4 vivas**,
+`purga_execucao_itens` com **403 para 10**, e `notificacoes_enviadas` com **76 inseridas e 19
+apagadas** para **12 vivas** — a assinatura estatistica de centenas de mutacoes revertidas.
 
 ---
 
@@ -263,196 +408,163 @@ da configuracao e vira uma propriedade observada do agendador.** Hoje ainda nao 
 
 | # | Verdade | Status | Evidencia |
 |---|---|---|---|
-| 1 | O cron roda em PROD por periodo documentado em `dry_run` antes de qualquer execucao real, e o relatorio do dry-run e gerado pela MESMA query do delete real, envolvida em rollback | ✗ **FAILED (parcial)** | **Metade B VERIFICADA:** `varrer_purga_retencao` chama `public.anonimizar_candidato(id, true)` — a mesma funcao do delete real — e 4 itens em PROD carregam `relato_dry_run` com as doze contagens por passo. RETEN-05 e UM `DELETE`, contado por `GET DIAGNOSTICS` **antes** do `RAISE`, revertido por `P46RN`: nao ha segunda definicao da regra. **Metade A FALHOU:** `cron.job_run_details` para jobid 6 = **0 linhas**; 0 de 14 noites |
-| 2 | O flip `dry-run -> live` e checkpoint separado e evidenciado, nunca efeito colateral de um deploy | ⚠️ **PRESENT_BEHAVIOR_UNVERIFIED** | Portao aplicado (`…0014`, md5 conferido). Eu reproduzi o `SELECT` do portao contra PROD: falta **3 de 5**. RLS + `REVOKE` fecham toda outra porta de escrita (medido). Trilha atomica existe (1 linha, ator do servidor). **Mas a recusa end-to-end com o corpo NOVO nunca foi executada** — a que esta provada ao vivo foi contra o corpo `…0013` |
-| 3 | Uma execucao nao passa do cap de blast-radius, e um kill switch sem deploy — provado desligando de verdade | ✓ **VERIFIED** | **Kill switch provado POR EXECUCAO:** 2 linhas de ledger com `modo_vigente='off'`, `veredito='desligado'`, `elegiveis` 6 e 4, `processados=0` — desligou de verdade sobre conjunto nao-vazio, nao por leitura de config. Cap: `ck_config_purga_cap` vivo, guard de 1..500 em `salvar_config_purga`, contrato de fronteira na assercao (g), verde em 27/27; `…0014`/`…0015` nao tocam o cap |
-| 4 | Uma candidatura sem decisao registrada e classificada corretamente — `COALESCE` explicito e allowlist de estados terminais | ✓ **VERIFIED (coincidental-reliance)** | `candidaturas_alem_da_janela()` (md5 `b4fdb3a1…`, o 2º re-pin) devolve 4 com `ancora_origem` em `{historico, decisao_final, updated_at}` — o degrau de COALESCE visivel no dado. Allowlist = `config_retencao_etapa.elegivel_purga`, 3 de 8 verdadeiras, **jamais denylist**. PURGA-07 ja `Complete` no REQUIREMENTS.md. ⚠ Ver `coincidental_reliance_items`: so tem sujeito por causa da fixture |
-| 5 | Cada execucao deixa linha no ledger com o que foi apagado, quando e sob qual politica — inclusive `notificacoes_enviadas` | ✓ **VERIFIED** | 4 execucoes -> 4 linhas com `modo_vigente`, `cap_vigente`, `elegiveis`, `processados`, `notificacoes_expurgadas`, `veredito`, `situacao`, `iniciada_em`, `concluida_em`. 10 itens com `etapa`, **`janela_meses_aplicada`** (24/24/18/24 — a politica), `ancora_origem`, `ancora_em`, tres `desfecho_*`, `relato_dry_run`. O `COMMENT` vivo de `notificacoes_enviadas` deixou de dizer *"Retention INDEFINITE, deferred to LGPD-OPS (M8+)"* e agora diz **"retention is NO LONGER open-ended"** — lido do catalogo, nao do disco |
+| 1 | O cron roda em PROD por periodo documentado em `dry_run` antes de qualquer execucao real, e o relatorio do dry-run e gerado pela MESMA query do delete real, envolvida em rollback | ✗ **FAILED (parcial)** | **Metade B VERIFICADA E AGORA EXERCITADA:** a varredura chama `public.anonimizar_candidato(id, true)` — a mesma funcao do delete real — e 4 itens carregam `relato_dry_run`; a assercao (m) rodou a varredura em `live` dentro do envelope e mediu o despacho. **Metade A FALHOU:** `cron.job_run_details` para jobid 6 = **0 linhas**; 0 de 14 noites |
+| 2 | O flip `dry-run -> live` e checkpoint separado e evidenciado, nunca efeito colateral de um deploy | ✓ **VERIFIED** *(era ⚠️ PRESENT_BEHAVIOR_UNVERIFIED)* | **A TRANSICAO foi executada contra o corpo NOVO** (md5 `e10786bd…`, aplicado hoje pela 0014): o bloco (d) registrou **9 chamadas de controle — SETE recusas com SQLSTATE `22023`, UMA aceitacao e o kill switch irrecusavel**, com assercao de NAO-VACUIDADE exigindo `auth.uid()` nao-nulo (sem sessao a RPC recusaria 42501 em todas e as negativas ficariam verdes medindo o guard errado). O bloco (e) mediu **exatamente uma** linha de `logs_auditoria` em volta da aceitacao, com ator resolvido no servidor e estados antes/depois diferentes. A impressao digital das duas tabelas do ledger foi conferida no fim e voltou identica. RLS + `REVOKE` fecham toda outra porta de escrita (medido hoje nos 3 papeis x 3 verbos) |
+| 3 | Uma execucao nao passa do cap de blast-radius, e um kill switch sem deploy — provado desligando de verdade | ✓ **VERIFIED** | **Kill switch provado POR EXECUCAO** em dois lugares: 2 linhas de ledger vivas com `modo_vigente='off'`, `veredito='desligado'`, `elegiveis` 6 e 4, `processados=0` (desligou de verdade sobre conjunto nao-vazio); e o caso (d.7), que provou hoje que o `off` e aceito **com os tres criterios falhando de proposito** — um kill switch recusavel nao e kill switch. Cap: contrato de fronteira de tres pontos na assercao (g), `ck_config_purga_cap` vivo, guard de 1..500 |
+| 4 | Uma candidatura sem decisao registrada e classificada corretamente — `COALESCE` explicito e allowlist de estados terminais | ✓ **VERIFIED (coincidental-reliance)** | `candidaturas_alem_da_janela()` (md5 `b4fdb3a1…`) devolve 4 com `ancora_origem` em `{historico, decisao_final, updated_at}` — o degrau de COALESCE visivel no dado. Allowlist = `config_retencao_etapa.elegivel_purga`, 3 de 8 verdadeiras, **jamais denylist**. ⚠ Ver `coincidental_reliance_items`: so tem sujeito por causa da fixture |
+| 5 | Cada execucao deixa linha no ledger com o que foi apagado, quando e sob qual politica — inclusive `notificacoes_enviadas` | ✓ **VERIFIED** | 4 execucoes -> 4 linhas com `modo_vigente`, `cap_vigente`, `elegiveis`, `processados`, `notificacoes_expurgadas`, `veredito`, `situacao`; 10 itens com `etapa`, **`janela_meses_aplicada`** (24/24/18/24 — a politica, nao so a contagem), `ancora_origem`, `ancora_em`, tres `desfecho_*`, `relato_dry_run`. E a assercao (m) provou hoje que quando a regra MORDE o ledger registra: exigiu `notificacoes_expurgadas >= 1` num run em que uma linha retrodatada foi de fato apagada |
 
-**Score: 3/5 verdades verificadas** (1 presente-mas-com-comportamento-nao-exercitado, 1 falhou).
+**Score: 4/5 verdades verificadas** (era 3/5). **0 presentes-mas-com-comportamento-nao-exercitado**
+(era 1). A unica FAILED e o agendador.
 
 ---
 
-## O Portao de Fase Destrutiva, criterio por criterio
+## O que exatamente o smoke fechou — assercao por assercao
+
+O relatorio anterior nomeou quatro coisas cuja unica prova era um arquivo nao executado. As
+quatro rodaram:
+
+| Requisito | O que so o smoke provava | Assercao | Estado |
+|---|---|---|---|
+| **PURGA-04** | o portao do flip recusa pelo recorte de **VEREDITO** — o BLOCKER-01 corrigido pela `…0014` | `(d.7)`, `(d.8)`, `(d.9)` | ✅ **rodou** |
+| **PURGA-04** | a recusa por CONTAGEM e **so** por contagem, com a evidencia de ensaio replantada (BL-R3-02) | `(d.3)` | ✅ **rodou** — e o proprio bloco carrega a assercao que distingue "a FIXTURE envelheceu" de "a RPC mentiu" |
+| **RETEN-05** | que a regra **MORDE** sobre linha retrodatada, que a de dentro da janela **sobrevive**, e que **nada mais** foi apagado | `(m)` | ✅ **rodou** — 7 condicoes, incluindo ⊖ `historico_candidatura` e `decisao_final` intactos |
+| **PURGA-01** | que o ramo `live` **enfileira** o `net.http_post` — a unica condicao ⊕ que mede o dispatch | `(m)`, metade ⊕ | ✅ **rodou** — e `net._http_response` continua vazio, entao a fila reverteu com o envelope |
+
+E o caso positivo `(d.6)` merece nome proprio: sem ele, `(d)` provaria apenas que a funcao
+recusa, e **uma funcao que recusa tudo passaria nas sete negativas**, com a descoberta chegando
+no dia do flip. Esse e o modo de falha nº 3 dos sete portoes da Phase 45, e e literalmente o que
+aconteceu com a `(p.3)` deste mesmo arquivo. Aqui o ramo de sucesso RODOU.
+
+---
+
+## O Portao de Fase Destrutiva, criterio por criterio — **3.5/5, inalterado**
 
 O ROADMAP §"Portao de fase destrutiva" trata os cinco itens como **exit criterion**, e diz com
-todas as letras que eles "nao sao substituiveis por 'o smoke passou'". Grade abaixo, com a
-distincao que o enunciado exige: **satisfeito por EVIDENCIA** x **satisfeito por ARGUMENTO**.
+todas as letras que eles *"nao sao substituiveis por 'o smoke passou'"*. **Essa frase e a razao
+de este placar nao ter se movido hoje:** o smoke fechou *must-haves*, nao criterios do portao.
 
-### 1 · `VERIFICATION.md` presente e com veredito — ✅ **por EVIDENCIA**
+### 1 · `VERIFICATION.md` presente e com veredito — ✅ **1.0, por EVIDENCIA**
 
-Este arquivo. `status: gaps_found`, nunca ausente, nunca `draft`. O precedente que justifica o
-portao (a P39 fechou sem `VERIFICATION.md` e 2 defeitos CRITICOS chegaram a producao) esta
-fechado nesta fase.
+Este arquivo. `status: gaps_found`, nunca ausente, nunca `draft`.
 
-### 2 · Code review bloqueante ANTES do apply em PROD — ⚠️ **PARCIAL, por EVIDENCIA nos dois sentidos**
+### 2 · Code review bloqueante ANTES do apply em PROD — ⚠️ **0.5, VIOLADO em 4 de 8 applies**
 
-**Satisfeito para o que foi aplicado hoje.** A cadeia e real e a ordem esta no git:
+Ordem conferida por mim hoje, em `git show -s --format=%cI`:
 
-| Commit | O que e | Achados |
+| Commit | Horario | O que e |
 |---|---|---|
-| `13e5302` | `46-REVIEW-2` | 1 BLOCKER + 5 HIGH |
-| `56485db` | `46-REVIEW-3` (re-revisao dos consertos) | **2 BLOCKERS, ambos introduzidos pelo proprio conserto** |
-| `b7d4a18` | `46-REVIEW-4` (passe final) | **0 blockers, `seguro_aplicar: SIM`** |
-| `7a9976d` | **APPLY** de `…0014` + `…0015` | — |
+| `aa96052` | **00:50:55** | APPLY 46-05 em PROD |
+| `bd30684` | **01:30:39** | APPLY 46-06 + **o cron armado** em PROD |
+| `0f44e53` | **02:05:24** | APPLY 46-07 (portao do flip) |
+| `5351bde` | **02:07:45** | **O dry-run ligado em PROD** |
+| `13e5302` | 02:23:42 | `46-REVIEW-2` — *"code review **retroativo** de 46-05/06/07"*, **1 BLOCKER + 5 HIGH** |
+| `56485db` | 03:31:24 | `46-REVIEW-3` — **2 BLOCKERS, ambos introduzidos pelo proprio conserto** |
+| `b7d4a18` | 04:23:14 | `46-REVIEW-4` — 0 blockers, `seguro_aplicar: SIM` |
+| `7a9976d` | 04:29:09 | APPLY `…0014` + `…0015` |
 
-O review precede o apply. E o BL-01 que a `…0014` corrige era **real, nao hipotetico**: eu
-reproduzi os dois recortes contra PROD e eles divergem — o ANTIGO conta **2** ensaios, o NOVO
-conta **1**, porque a execucao `e3115161` tem 6 elegiveis e **zero** itens com `relato_dry_run`.
-Catorze noites daquelas abririam o portao do flip sem uma linha de evidencia sobre o caminho do
-delete.
+**Para o que foi aplicado as 04:29, o portao foi cumprido** — e o BL-01 que a `…0014` corrige era
+real: reproduzi os dois recortes contra PROD e eles divergem hoje (o ANTIGO conta **2** ensaios,
+o NOVO conta **1**, porque a execucao `e3115161` tem 6 elegiveis e zero itens com
+`relato_dry_run`). Catorze noites daquelas abririam o flip sem uma linha de evidencia sobre o
+caminho do delete.
 
-**Violado para tres dos sete planos.** Os applies em PROD dos planos 46-05 (`aa96052`), 46-06
-(`bd30684`) e 46-07 (`0f44e53`, `5351bde`) sao **todos anteriores** a `13e5302`, cujo proprio
-assunto de commit diz *"code review retroativo de 46-05/06/07"*. Para aquelas migrations o review
-foi **depois** — e achou um BLOCKER. Isto e um desvio do portao, ja consumado e ja mitigado (o
-defeito foi corrigido pela `…0014` hoje, com review antes), mas **nao pode ser arredondado para
-"satisfeito"**: era exatamente a forma do erro da P39.
+**Para os quatro applies da madrugada, foi violado.** O review foi 16 a 93 minutos DEPOIS, e
+achou um BLOCKER. **Um smoke verde as 11:26 nao move um review das 02:23 para antes de um apply
+das 00:50.** Este achado do relatorio anterior fica de pe, sem atenuacao. E como o ROADMAP trata
+os cinco itens como exit criterion, isto sozinho impede o `passed` — a saida nao e trabalho, e
+uma aceitacao explicita e datada do operador (`overrides:`).
 
-### 3 · Asseracoes negativas obrigatorias — ✅ **por EVIDENCIA, reproduzidas por mim**
+### 3 · Asseracoes negativas obrigatorias — ✅ **1.0, por EVIDENCIA, remedidas HOJE**
 
-Nao aceitei nenhuma contagem de SUMMARY. Medidas agora, direto de PROD:
+18 grandezas, todas na tabela §"O envelope devolveu tudo". Nao aceitei nenhuma contagem de
+SUMMARY nem da propria `46-EVIDENCIA-SMOKE-VERDE.md`. Duas negativas que so esta verificacao
+acrescenta: **a PII dos 8 titulares de fixture esta intacta** (o smoke exercita
+`anonimizar_candidato`, entao "nao anonimizou ninguem" precisava ser medido, nao presumido) e
+**`net._http_response` esta vazio nas ultimas 18 h** (a assercao (m) roda a varredura em modo
+`live`, entao "nada saiu do predio" tambem precisava ser medido).
 
-| Negativa | Medido |
-|---|---|
-| `public.candidatos` **reais** (fora do namespace da fixture) | **23** |
-| `public.candidaturas` | **20** · `auth.users` **37** · `storage.objects/curriculos` **5** |
-| `public.historico_candidatura` (trilha de decisao humana — RNF-07a) | **13** |
-| `public.decisao_final` **3** · `public.retencao_hold` **1** | intactas |
-| `processados` em TODAS as 4 execucoes | **0, 0, 0, 0** |
-| `notificacoes_expurgadas` em TODAS as 4 | **0, 0, 0, 0** · `notificacoes_enviadas` **12** |
-| `net.http_request_queue` (dispatch para `purgar-retencao`) | **0** |
-| `net._http_response` nos ultimos 3 dias | 2, ambos 200, as 00:09-03 — vizinhos de notificacao, nao a purga |
-| `logs_auditoria` com `acao ILIKE '%purga%'` | **exatamente 1** — o `off -> dry_run` do T0. **A recusa nao escreveu** |
-| `config_purga.modo` | `dry_run` — o apply de hoje **nao mexeu no modo** |
-| Escrita em `config_purga` por `anon`/`authenticated`/`service_role` | **impossivel**: `UPDATE`/`INSERT`/`DELETE` = `false` nos tres, RLS ligada com policy unica de LEITURA |
+### 4 · Zero `--no-verify` — ✅ **0.5, por ARGUMENTO** (e digo isso de proposito)
 
-**Nenhuma linha de pessoa real foi tocada em toda a Phase 46.** Confirmado.
+`--no-verify` **nao deixa rastro forense no git**; e estruturalmente nao-falsificavel a
+posteriori. O que medi hoje: `npm run -s lint | grep -c "error TS"` = **96**, exatamente a
+baseline congelada em `.husky/pre-commit`, inalterada em 30+ commits desta fase. Corroboracao
+forte, nao prova.
 
-### 4 · Zero `--no-verify` — ✅ **por ARGUMENTO** (e digo isso de proposito)
+### 5 · Dry-run/rollback exercitado pela MESMA query do delete real — ✅ **0.5, com a ressalva que muda o significado**
 
-`--no-verify` **nao deixa rastro forense no git**. Nenhuma consulta ao repositorio pode falsificar
-esta afirmacao — ela e estruturalmente nao-verificavel a posteriori. O que eu consegui medir:
+O **mecanismo** esta provado, e agora **exercitado ponta a ponta**: a varredura nao reescreve o
+predicado, ela chama `public.anonimizar_candidato(r.candidato_id, true)`, cujo corpo **completo**
+executa e so entao e derrubado pelo terminador tipado `P45DR`; se o terminador sumisse, a
+varredura seria derrubada com `P46NT` sem gravar item (fail-closed). RETEN-05 e **um unico
+statement nos tres modos** — `DELETE`, `GET DIAGNOSTICS`, e fora de `live` um `RAISE … P46RN` que
+reverte a subtransacao. **Nunca dois corpos, um para contar e outro para apagar** — que era o
+CR-02 da P39.
 
-- `npm run -s lint 2>&1 | grep -c "error TS"` = **96**, exatamente a baseline congelada em
-  `.husky/pre-commit`. O hook esta instalado, e a arvore de trabalho passa por ele hoje.
-- Os sete SUMMARYs registram, cada um, "o hook rodou nos N commits e reportou 96 erros".
-- A baseline nunca se moveu em 30+ commits desta fase, o que e consistente com o hook tendo
-  rodado (e com o fato de que a fase quase nao tocou TypeScript).
-
-Isto e **corroboracao forte, nao prova**. Registro como satisfeito por argumento.
-
-### 5 · Dry-run/rollback exercitado pela MESMA query do delete real — ✅ **por EVIDENCIA, com uma ressalva que muda o significado**
-
-O **mecanismo** esta provado e e o melhor artefato desta fase:
-
-- A varredura nao reescreve o predicado: ela chama `public.anonimizar_candidato(r.candidato_id,
-  true)`, a mesmissima funcao do delete real, cujo corpo **completo** executa e so entao e
-  derrubado pelo terminador `P45DR`. O `SQLERRM` — as doze contagens por passo — vira
-  `relato_dry_run`. **4 de 4 itens da execucao do T0 carregam esse relato**, e eu li o texto:
-  *"o corpo COMPLETO da anonimizacao executou e esta sendo revertido agora"*.
-- Se o terminador sumisse do motor, o retorno normal seria capturado e a varredura **derrubada**
-  com `P46NT` sem gravar item nem fechar execucao — fail-closed, e a captura e **tipada**
-  (`WHEN SQLSTATE 'P45DR'`), nunca generica.
-- RETEN-05 e **um unico statement nos tres modos**: `DELETE`, `GET DIAGNOSTICS`, e fora de `live`
-  um `RAISE ... USING ERRCODE = 'P46RN'` que reverte a subtransacao. A contagem sobrevive na
-  variavel plpgsql porque rollback de subtransacao nao restaura variavel. **Nunca dois corpos,
-  um para contar e outro para apagar** — que era o CR-02 da P39.
-
-**A ressalva.** O portao diz "contra dados de forma viva". Os dados sao **forma viva** (schema,
-constraints, FKs e triggers de producao) mas **nao sao dados vivos**: os 4 elegiveis sao
-`4601b000-0000-4000-8000-00000000000{1..4}`, plantados pelo 46-01. **Nenhuma pessoa real jamais
-entrou no conjunto elegivel**, e nem pode — a `previa_retencao()` devolve zero por ARITMETICA
-(matriz de 24 meses, sistema mais novo que a janela). Os 14 dias de dry-run vao exercitar o motor
-contra 4 sinteticos, 14 vezes.
-
-**Isto e um limite do sistema, nao um defeito da fase** — e a fase o tratou corretamente, que e
-a pergunta que o enunciado manda fazer (ver secao seguinte).
+**A ressalva, inalterada.** O portao diz "contra dados de forma viva". Os dados sao **forma viva**
+(schema, constraints, FKs e gatilhos de producao) mas **nao sao dados vivos**: os 4 elegiveis sao
+`4601b000-0000-4000-8000-00000000000{1..4}`, e as duas notificacoes de `(m)` sao plantadas pelo
+proprio bloco. **Nenhuma pessoa real jamais entrou no conjunto elegivel**, e nem pode — a
+notificacao mais velha de PROD tem 0,77 mes contra 24. Os 14 dias de dry-run vao exercitar o
+motor contra 4 sinteticos, 14 vezes. **E limite do sistema, nao defeito da fase** — e a fase o
+tratou corretamente (ver secao seguinte).
 
 ---
 
 ## A verificacao diferida da Phase 43: a contagem foi tratada como NAO-EXERCITADA?
 
-**Sim, e de duas formas independentes.** Esta e a unica secao deste relatorio em que a fase sai
-melhor do que a leitura ingenua sugeriria.
+**Sim, e agora de tres formas.**
 
-1. **Registrado antes de planejar.** `46-CONTEXT.md:391-392`, com estas palavras: *"`previa_retencao()`
-   devolve ZERO por aritmetica. Qualquer plano que trate a contagem atual como sinal de correcao
-   esta errado. O predicado e nao-exercitado; a Phase 46 e a primeira..."*
-2. **Resolvido por construcao, nao por nota de rodape.** O plano 46-01 existe inteiro para isso:
-   planta uma fixture **duravel** que torna o conjunto elegivel nao-vazio, *"sem ela 18 das 21
-   assercoes passam por vacuidade"*. Medido hoje: `candidaturas_alem_da_janela()` = **4**, e o
-   predicado foi visto ENCOLHENDO por politica (7 -> 6 pelo 46-02, 6 -> 4 pelo 46-03) — o que
-   so e observavel sobre conjunto nao-vazio.
-3. **E o portao do flip foi escrito para nao aceitar zero como prova.** O criterio 3 de D-46-14
-   nao conta elegiveis: exige **EXISTS de um item com `relato_dry_run`**. O comentario da
-   assercao `(d.4)` diz literalmente *"catorze noites de zeros nao provam NADA sobre o caminho do
-   delete: a previa devolve zero por ARITMETICA, nao por defeito"*.
+1. **Registrado antes de planejar.** `46-CONTEXT.md:391-392`: *"`previa_retencao()` devolve ZERO
+   por aritmetica. Qualquer plano que trate a contagem atual como sinal de correcao esta errado."*
+2. **Resolvido por construcao.** O plano 46-01 planta uma fixture **duravel** que torna o conjunto
+   elegivel nao-vazio; sem ela 18 das 21 assercoes passariam por vacuidade. E o predicado foi
+   visto **ENCOLHENDO por politica** (7 -> 6 pelo 46-02, 6 -> 4 pelo 46-03), o que so e
+   observavel sobre conjunto nao-vazio.
+3. **O portao do flip nao aceita zero como prova.** O criterio 3 de D-46-14 nao conta elegiveis:
+   exige **EXISTS de item com `relato_dry_run`**. Medi hoje o que isso custa na pratica: das 2
+   execucoes de ensaio do ledger, **so 1** tem evidencia.
 
-**O que a fase NAO cobriu pela mesma disciplina: `notificacoes_enviadas`.** A fixture planta
-candidatos, nao notificacoes retrodatadas. A notificacao mais velha em PROD tem **0,7 mes** contra
-uma janela de **24**. RETEN-05 esta na posicao exata em que `previa_retencao()` estava — regra
-instalada, conjunto vazio por aritmetica, contagem que nao e sinal — e desta vez **sem** fixture
-que a exercite em PROD. A unica prova de mordida vive na assercao `(m)`, que usa fixture
-retrodatada dentro de envelope revertido, e que nao rodou na forma atual.
-
----
-
-## Requisitos cujo UNICO comprovante e um teste NAO EXECUTADO
-
-O enunciado pede estes por ID. Sao:
-
-| Requisito | O que so o smoke prova | Assercao |
-|---|---|---|
-| **PURGA-04** | que o portao do flip recusa pelo recorte de **VEREDITO** — o BLOCKER-01, aplicado hoje pela `…0014` | `(d.7)`, `(d.8)`, `(d.9)` |
-| **PURGA-04** | que a recusa por CONTAGEM e so por contagem, com a evidencia de ensaio replantada (BL-R3-02) | `(d.3)` |
-| **RETEN-05** | que a regra de retencao de notificacoes **MORDE** sobre linha retrodatada | `(m)` |
-| **PURGA-01** | que o ramo `live` **enfileira** o `net.http_post` — a unica condicao ⊕ que mede o dispatch (as quatro de ledger passariam com o bloco (g.5) apagado) | `(m)`, metade ⊕ |
-
-O ultimo 27/27 verde e do commit `5351bde`, contra um banco **sem** a `…0014` e **sem** a
-`…0015`, com `(d)` na forma que dois consertos de BLOCKER depois reescreveram. Diff medido:
-
-```
-git diff 5351bde..HEAD -- supabase/tests/p46_purga_smoke.sql
-  427 linhas alteradas (+383 / -44)
-  153 delas EXECUTAVEIS (excluidos comentarios e linhas em branco)
-```
-
-A propria `46-REVIEW-4.md` §"O que eu NAO consegui verificar" classifica `(d.3)` como
-**"CORRETO POR TRACADO, nao por execucao"** e diz que "a prova definitiva e o passo 4".
-E a precondicao nº 1 do seu `seguro_aplicar` era rodar o smoke **na mesma sessao do apply**.
-Nao foi. Este e o gap central da fase.
+**E o buraco que o relatorio anterior apontou em `notificacoes_enviadas` foi fechado — pela
+metade que dependia de codigo.** A fixture do 46-01 planta candidatos, nao notificacoes
+retrodatadas; a regra continua com alcance real ZERO por aritmetica (0,77 mes contra 24) e vai
+registrar `notificacoes_expurgadas = 0` por ~23 meses. **Mas a prova de que ela MORDE deixou de
+ser um arquivo nao executado:** `(m)` rodou hoje em PROD, plantou a linha retrodatada, viu ela
+morrer, viu a de dentro da janela sobreviver, exigiu o registro no ledger e conferiu que
+`historico_candidatura` e `decisao_final` nao foram tocados. Registro isso como
+`coincidental_reliance_items[1]`, e nao como gap: **o que falta e tempo e dado, nao trabalho.**
 
 ---
 
 ## Cobertura de Requisitos
 
-| Req | Descricao | Status | Evidencia |
+| Req | Descricao | Status | Evidencia · o que mudou |
 |---|---|---|---|
-| **PURGA-01** | Cron espelhando o padrao do `notif-retry-sweep` | ✗ **BLOQUEADO** | Job 6 existe, `active`, comando pinado — e **nunca disparou** (`job_run_details` = 0). Instalado ≠ provado |
-| **PURGA-02** | Dry-run executa a MESMA query do delete real, em rollback | ✓ **SATISFEITO** | Mesma chamada de funcao, nao query equivalente. 4/4 itens com `relato_dry_run`. RETEN-05 em statement unico revertido por `P46RN` |
-| **PURGA-03** | Primeira ativacao em PROD e dry-run, por periodo documentado | ⚠ **PARCIAL** | Primeira ativacao **e** `dry_run` (1 linha de auditoria `off -> dry_run`, T0 no servidor, minimo do flip 2026-09-06 no runbook). Periodo: **0 de 14 noites** |
-| **PURGA-04** | Flip e checkpoint separado e evidenciado | ⚠ **PRECISA DE HUMANO** | Portao no SERVIDOR e nao em checklist; RLS + `REVOKE` fecham toda outra porta; recusa calculada por mim contra PROD (3 de 5 faltando). **Recusa end-to-end com o corpo novo: nao executada** |
-| **PURGA-05** | Cap de blast-radius + kill switch | ✓ **SATISFEITO** | Kill switch provado **desligando de verdade** (2 execucoes `off`/`desligado` sobre conjunto nao-vazio, `processados=0`). Cap com `CHECK` vivo, guard 1..500, e assercao de fronteira verde |
-| **PURGA-06** | Ledger: o que foi apagado, quando, sob qual politica | ✓ **SATISFEITO** | 4 execucoes + 10 itens, com `janela_meses_aplicada` e `ancora_origem` — a politica, e nao so a contagem |
-| **PURGA-07** | Predicado nao engole linhas por NULL; allowlist, nunca denylist | ✓ **SATISFEITO** | Ja `Complete`. Degrau de COALESCE visivel no dado; allowlist por `elegivel_purga` |
-| **RETEN-05** | Retencao de `notificacoes_enviadas` definida **e aplicada** | ✗ **BLOQUEADO** | Definida (janela 24, `DELETE` unico, `COMMENT` vivo corrigido). **Aplicada: nunca** — alcance 0 por aritmetica, e a prova de mordida `(m)` mudou e nao rodou |
+| **PURGA-01** | Cron espelhando o padrao do `notif-retry-sweep` | ⚠ **PARCIAL** *(era BLOQUEADO)* | **Despacho: PROVADO** — `(m)` mediu a fila do `pg_net` crescer uma linha por titular elegivel no ramo `live`, e `(a)` pina o `md5(command)` do job contra a migration `…0012`. **Agendamento: NAO PROVADO** — `job_run_details` = 0. Instalado ≠ disparado |
+| **PURGA-02** | Dry-run executa a MESMA query do delete real, em rollback | ✓ **SATISFEITO** | Mesma chamada de funcao, nao query equivalente. 4/4 itens com `relato_dry_run` |
+| **PURGA-03** | Primeira ativacao em PROD e dry-run, por periodo documentado | ⚠ **PARCIAL** | Primeira ativacao **e** `dry_run` (1 linha de auditoria, T0 no servidor, minimo do flip 2026-09-06). Periodo: **0 de 14 noites** |
+| **PURGA-04** | Flip e checkpoint separado e evidenciado | ✓ **SATISFEITO** *(era PRECISA DE HUMANO)* | Portao no SERVIDOR, nao em checklist; RLS + `REVOKE` fecham toda outra porta (3 papeis x 3 verbos = false); e a **transicao executou** contra o corpo novo: 7 recusas 22023 + 1 aceitacao + kill switch, com nao-vacuidade de sessao asserida e uma unica linha de trilha medida |
+| **PURGA-05** | Cap de blast-radius + kill switch | ✓ **SATISFEITO** | Kill switch provado **desligando de verdade** em ledger vivo, **e** provado irrecusavel em `(d.7)` com os tres criterios falhando de proposito. Cap com contrato de fronteira de tres pontos |
+| **PURGA-06** | Ledger: o que foi apagado, quando, sob qual politica | ✓ **SATISFEITO** | 4 execucoes + 10 itens, com `janela_meses_aplicada` e `ancora_origem` |
+| **PURGA-07** | Predicado nao engole linhas por NULL; allowlist, nunca denylist | ✓ **SATISFEITO** | Ja `Complete` no REQUIREMENTS.md. Degrau de COALESCE visivel no dado |
+| **RETEN-05** | Retencao de `notificacoes_enviadas` definida **e aplicada** | ✓ **SATISFEITO com ressalva aritmetica** *(era BLOQUEADO)* | **Definida:** janela 24 meses em `config_purga`, `DELETE` unico no corpo vivo, `COMMENT` de PROD deixou de dizer *"Retention INDEFINITE"*. **Aplicada:** a regra esta ligada na varredura que roda toda noite e **foi provada mordendo** por `(m)`. ⚠ Alcance real = 0 por ARITMETICA ate ~2028-07, e o sweep automatico ainda nao disparou nenhuma vez (ver PURGA-01) |
 
 Nenhum requisito ORFAO: os 8 IDs do ROADMAP aparecem nos plans e todos foram avaliados.
+⚠ `REQUIREMENTS.md` ainda marca 7 dos 8 como `Pending` — a atualizacao do checklist e trabalho de
+fechamento de fase, nao evidencia, e nao entra no score.
 
 ---
 
 ## Anti-padroes
 
-Varredura sobre os arquivos que a fase tocou (migrations `20260823*`, smoke, EF `purgar-retencao`):
-
 | Achado | Severidade | Nota |
 |---|---|---|
-| Nenhum `TBD`/`FIXME`/`XXX` sem referencia a trabalho formal | — | limpo |
-| `md5` das `…0001`..`…0005` diverge do ledger em 1 octeto | ℹ️ **Info** | E o `\n` final; o corpo bate byte a byte sem ele. Residuo da via de apply antiga, ja documentado no CLAUDE.md. **Nao e perda de comentario** |
-| `HI-01` da `46-REVIEW-4` continua aberto | ⚠️ **Warning** | O invariante da `…0015` foi medido **uma vez, no apply**, e nao tem guarda recorrente: nenhum smoke le `has_table_privilege`/`relacl`. Um `GRANT ALL ON ALL TABLES … TO service_role` reabriria o buraco com todos os portoes verdes |
-| `HI-02` da `46-REVIEW-4` continua aberto | ⚠️ **Warning** | A tabela de vigilancia dos 14 dias do runbook nao nomeia o sinal do criterio 3 novo (`relato_dry_run`) — e PROD **ja contem hoje** a execucao que ela deixa passar (`e3115161`) |
-| 8 linhas de PII sintetica residentes em `public.candidatos` de PROD | ⚠️ **Warning** | **Deliberado** (fixture duravel; o runbook proibe o teardown antes do flip) mas com decisao de destino em aberto — ver gaps |
+| Nenhum `TBD`/`FIXME`/`XXX` sem referencia a trabalho formal nos arquivos da fase | — | limpo |
+| `md5` das `…0001`..`…0005` diverge do ledger em 1 octeto | ℹ️ **Info** | E o `\n` final; residuo da via de apply antiga, ja documentado no CLAUDE.md. **Nao e perda de comentario** |
+| **`46-EVIDENCIA-SMOKE-VERDE.md` carimba o run as "~04:50-03"; o catalogo diz 11:26:40-03** | ⚠️ **Warning** | Erro de transcricao num arquivo de evidencia commitado. Nao muda o veredito — o run e real e o md5 do arquivo bate — mas dificulta auditoria futura. **Nao corrigi: e evidencia commitada** |
+| `HI-01` da `46-REVIEW-4` continua aberto | ⚠️ **Warning -> gap** | Conferido por `grep -rn "has_table_privilege\|relacl" supabase/tests/` = **0 linhas**. Um `GRANT ALL … TO service_role` reabriria a unica porta de escrita com os 27 contadores verdes |
+| `HI-02` da `46-REVIEW-4` continua aberto | ⚠️ **Warning -> gap** | Conferido por `grep -n "relato_dry_run" 46-07-RUNBOOK-FLIP.md` = **0 linhas**. E PROD **ja contem hoje** a execucao que a tabela deixa passar (`e3115161`) |
+| 8 linhas de PII sintetica residentes em `public.candidatos` de PROD, com PII intacta | ⚠️ **Warning** | **Deliberado** (fixture duravel; o runbook proibe o teardown antes do flip) mas com destino em aberto — ver gaps |
 
 ---
 
@@ -460,59 +572,72 @@ Varredura sobre os arquivos que a fase tocou (migrations `20260823*`, smoke, EF 
 
 | Comportamento | Comando | Resultado | Status |
 |---|---|---|---|
-| Fidelidade das 15 migrations | `md5 -q` de cada arquivo x `md5(statements[1])` do ledger | 15/15 batem | ✓ PASS |
-| O `REVOKE` da `…0015` pousou | `has_table_privilege` nos 3 papeis x 4 verbos | `UPDATE`/`INSERT`/`DELETE` = false; `SELECT` = true | ✓ PASS |
-| O portao do flip recusaria hoje | reproducao literal do `SELECT` de `…0014:435-455` contra PROD | 3 de 5 criterios faltam | ✓ PASS |
-| O conserto do BL-01 mudou o recorte | recorte antigo x novo sobre o mesmo ledger | 2 ensaios -> **1** | ✓ PASS |
+| Calibrar `pg_stat_statements` (registra falha?) | `DO $probe46v$ … RAISE EXCEPTION …` + consulta | **nao registra** — sonda ausente do catalogo | ✓ PASS |
+| **O smoke completou o RESUMO (z) com 27** | aritmetica de `calls`: `(z)`=3 vs `$de$` antigo 2 + novo 1 = 3 | **igualdade** ⇒ todo run que chegou ao (d) passou pelo (z) | ✓ **PASS** |
+| Os blocos `(d)/(e)` e `(a)(g)(m)(n)` na forma ATUAL executaram | `stats_since` das entradas novas | **11:26:40.081** e **11:26:40.107-03**, `calls=1` cada | ✓ PASS |
+| O arquivo que rodou e o do repositorio | `md5 -q` + `git log -- <smoke>` + `git status` | `b9a1140f…`, ultimo commit `4b591fe` (anterior ao review final), arvore limpa | ✓ PASS |
+| Envelope revertido | 18 grandezas medidas depois do run | **18/18 identicas** | ✓ PASS |
+| Nada saiu do predio | `net._http_response` nas ultimas 18 h · `net.http_request_queue` | **vazio** · **0** | ✓ PASS |
+| PII da fixture intacta apos o smoke | `email IS NULL OR LIKE '%anonimizado%'` nos 8 sinteticos | **false nos 8**, `nome_completo` 47-52 chars | ✓ PASS |
+| Higiene de gatilhos | `pg_trigger.tgenabled='D'` em `notificacoes_enviadas` | **0 desligados** | ✓ PASS |
+| Fidelidade das 15 migrations | md5 do ledger para `…0014`/`…0015` | `1937a39c…` / `61dbd3f2…` — batem com a evidencia do apply | ✓ PASS |
+| O `REVOKE` da `…0015` continua de pe | `has_table_privilege`, 3 papeis x 4 verbos | `INSERT`/`UPDATE`/`DELETE` = false nos 3; `SELECT` = true | ✓ PASS |
+| Portao do flip recusaria agora | reproducao do `SELECT` de `…0014` contra PROD | **3 de 5 criterios faltam** (dias 0, execucoes 2, 2 etapas em `seed`); criterio 3 ja passa (1) | ✓ PASS |
 | Baseline de tipos | `npm run -s lint \| grep -c "error TS"` | **96** = baseline congelada | ✓ PASS |
-| EF `purgar-retencao` publicada | Management API `/v1/projects/{ref}/functions` | `ACTIVE`, v1 | ✓ PASS |
-| Cron disparou alguma vez | `count(*) FROM cron.job_run_details WHERE jobid=6` | **0** | ✗ **FAIL** |
-| Smoke `p46_purga_smoke.sql` = 27/27 | — | **NAO EXECUTADO** (decisao do operador) | ? SKIP -> gap |
+| Ordem review x apply | `git show -s --format=%cI` em 13 commits | 4 applies ANTES do review que os cobre | ✗ **FAIL** (criterio 2) |
+| **Cron disparou alguma vez** | `count(*) FROM cron.job_run_details WHERE jobid=6` | **0** (de 2 693 linhas na tabela) | ✗ **FAIL** |
 
 ---
 
 ## Ordem de fechamento sugerida
 
-1. **Rodar o smoke** — `node p46apply.cjs run supabase/tests/p46_purga_smoke.sql`, **lendo o
-   contador** `smoke46p.pass` = 27 no RESUMO (z). "Nao levantou excecao" nunca foi "as assercoes
-   rodaram". Fecha o gap central e os quatro requisitos da tabela acima.
-2. **Deixar a noite de 2026-08-24 00:00-03 passar** e conferir `cron.job_run_details` para o
-   jobid 6 + a linha nova de ledger. Fecha a metade A do SC#1 e converte PURGA-01 de instalado
-   em provado.
-3. **`/admin/retencao`**: confirmar as janelas de `aprovado` e `decisao_final`. E a unica
-   pendencia que o tempo **nao** resolve.
-4. **Provar `cron.alter_job`** num momento controlado, antes de precisar dela.
-5. **Decidir e datar o destino da fixture** no dia do flip.
-6. Fechar `HI-01` (guarda recorrente do privilegio) e `HI-02` (o sinal do criterio 3 na tabela
-   de vigilancia) — nenhum bloqueia, os dois envelhecem mal.
+1. **Deixar a noite de 2026-08-24 00:00-03 passar** (~12,5 h) e conferir `cron.job_run_details`
+   para o jobid 6 + a linha nova de ledger com 4 itens carregando `relato_dry_run`. Fecha a
+   metade A do SC#1 e converte PURGA-01 de *instalado* em *provado*. **Custo: zero trabalho.**
+2. **`/admin/retencao`**: confirmar as janelas de `aprovado` e `decisao_final`. E a unica
+   pendencia do portao do flip que o tempo **nao** resolve.
+3. **Decidir sobre o criterio 2 do portao destrutivo** — aceitar por `overrides:` datado ou
+   registrar como divida de processo do M8. Sem isso a fase nao tem como fechar como `passed`.
+4. **Fechar HI-02** (o sinal do criterio 3 na tabela de vigilancia) — e o mais urgente dos dois,
+   porque a vigilancia comeca amanha e ele so tem valor durante os 14 dias.
+5. **Fechar HI-01** (guarda recorrente do privilegio da `…0015`).
+6. **Provar `cron.alter_job`** por execucao, num momento controlado, antes de precisar dela.
+7. **Decidir e datar o destino da fixture** no dia do flip.
 
 ---
 
 ## Resumo dos gaps
 
-A fase construiu, e isso esta provado, um cerco de qualidade incomum: o dry-run **e** a mesma
-funcao do delete real e nao uma copia do `WHERE`; o kill switch foi provado **desligando de
-verdade** e nao lendo config; o portao do flip vive numa migration e nao num checklist, e recusa
-hoje por tres motivos que eu calculei contra o estado real; a unica porta de escrita da
-configuracao esta fechada nos tres papeis e a RLS nao tem policy de escrita; e **nenhuma linha de
-pessoa real foi tocada**, o que eu medi em oito tabelas.
+O relatorio anterior disse que o que faltava nao era construcao, era **exercicio**, e nomeou tres
+coisas. **Uma delas foi feita hoje, e feita direito:** o smoke rodou na forma atual, com o
+contador LIDO e nao inferido, e eu confirmei o run pelo catalogo do Postgres em vez de aceitar o
+documento. Com ele, o portao do flip deixou de ser um `SELECT` que eu calculei e virou uma funcao
+que eu vi recusar sete vezes e aceitar uma; RETEN-05 deixou de ser uma promessa no `COMMENT` e
+virou uma regra que eu vi apagar a linha certa e poupar a errada; e o despacho do ramo `live`
+deixou de ser uma inspecao de `prosrc` e virou uma fila que cresceu. **Score 3/5 -> 4/5.**
 
-O que falta nao e construcao — e **exercicio**. Tres coisas, e as tres tem a mesma forma:
+**As outras duas nao se moveram, e as duas sao diferentes entre si:**
 
-1. **O agendador nunca rodou.** A propriedade "a purga roda toda noite e nao apaga nada" e hoje
-   uma afirmacao sobre a `cron.job`, nao uma observacao em `cron.job_run_details`.
-2. **O que foi aplicado hoje nao tem prova ponta a ponta.** O smoke mudou 153 linhas executaveis
-   desde o ultimo verde e nao rodou — inclusive as tres assercoes escritas especificamente para
-   provar o BLOCKER que a `…0014` conserta.
-3. **RETEN-05 nunca mordeu**, e nao pode morder por ~23 meses; a fixture que resolveu esse mesmo
-   problema para o predicado de titulares nao foi estendida a notificacoes.
+1. **O agendador nunca rodou.** `cron.job_run_details` para o jobid 6 tem zero linhas, contra
+   2 693 na tabela. "A purga roda toda noite e nao apaga nada" continua sendo uma afirmacao sobre
+   a `cron.job` e nao uma observacao em `cron.job_run_details`. **Isto fecha sozinho amanha as
+   00:00-03**, e o periodo de 14 noites so termina em ~2026-09-06. Nao ha trabalho a fazer — ha
+   tempo a deixar passar, e depois uma leitura a fazer.
+2. **O criterio 2 do portao destrutivo esta violado, e nao ha como fecha-lo.** Quatro applies em
+   PROD precederam o review que os cobria, e esse review achou um BLOCKER real. Isto e um desvio
+   **consumado**: nenhum trabalho futuro o desfaz, e um smoke verde de hoje muito menos — o
+   proprio ROADMAP antecipa a tentativa quando escreve que os cinco itens *"nao sao substituiveis
+   por 'o smoke passou'"*. A unica saida honesta e uma aceitacao explicita e datada do operador.
 
-Nenhum desses tres e um defeito do codigo. Os tres sao a diferenca entre **arranjado** e
-**provado** — que e exatamente a distincao que o portao de fase destrutiva existe para nao deixar
-arredondar.
+E dois HIGH que eu reconferi por `grep` em vez de acreditar no review: **nenhum smoke le
+privilegio de tabela** (HI-01) e **a tabela de vigilancia dos 14 dias nao nomeia o
+`relato_dry_run`** (HI-02). O segundo tem prazo: a vigilancia comeca amanha.
+
+**Portao de fase destrutiva: 3.5/5 — inalterado.** O smoke fechou must-haves; nao fechou
+criterios do portao. Nao arredondo.
 
 ---
 
-_Verificado: 2026-08-23T04:45-03_
+_Verificado: 2026-08-23T11:35-03 · re-verificacao apos a acao de fechamento de gap_
 _Verificador: gsd-verifier (goal-backward, FORCE)_
-_PROD nao foi mutada por esta verificacao: 12 consultas, todas `SELECT`/catalogo. `config_purga.modo` = `dry_run` e T0 = `2026-08-23 02:06:37.866049-03` intactos ao fim, `cron.job` jobid 6 `active` com 0 corridas, ledger com 15 migrations._
+_PROD nao foi mutada por esta verificacao: 8 consultas `SELECT`/catalogo e 1 sonda nao-mutante que levanta excecao de proposito. Ao fim: `config_purga.modo` = `dry_run`, T0 = `2026-08-23 02:06:37.866049-03`, ledger com 4 execucoes / 10 itens, `cron.job` jobid 6 `active` com **0** corridas, 15 migrations escrituradas._

@@ -1,7 +1,25 @@
 # Phase 46 · O smoke `p46_purga_smoke.sql` rodou em PROD e ficou VERDE — 27/27
 
-**Rodado em:** 2026-08-23, ~04:50-03
+**Rodado em:** 2026-08-23, **11:26:40-03** (ver errata abaixo)
 **Autorização:** operador, explicitamente, nesta sessão.
+
+> ### ⚠ ERRATA — o carimbo de hora original estava errado
+>
+> A primeira versão deste arquivo dizia **"~04:50-03"**. Está errado, e a `46-VERIFICATION.md`
+> pegou o erro medindo `pg_stat_statements.stats_since` do bloco `DO $de$` na forma atual:
+> **`2026-08-23 11:26:40.107-03`**, um minuto antes do commit `a4f9977` (11:27:33-03).
+>
+> **Causa:** reusei um `now()` que eu havia medido às 04:22-03, no começo da sessão, em vez de
+> remedir na hora de escrever. Entre as duas coisas houve ~7 h — o intervalo em que a pergunta
+> sobre os gaps ficou aberta esperando a decisão do operador.
+>
+> O apply das migrations, esse sim, foi às **04:29:09-03** (commit `7a9976d`), e o carimbo do
+> `46-EVIDENCIA-APPLY-0014-0015.md` está correto.
+>
+> **Nada mais neste arquivo muda.** O contador 27, os md5, e as 18 grandezas do envelope foram
+> medidos no run real e seguem valendo. O erro era de transcrição de relógio, não de medição —
+> mas fica registrado em vez de apagado, porque um carimbo de hora errado em evidência de fase
+> destrutiva é exatamente o tipo de coisa que vira "fato" por sobrevivência.
 **Via:** `p46apply.cjs run` — corpo lido do arquivo byte a byte, numa **única requisição**,
 pelo orquestrador. As duas condições que o cabeçalho do próprio arquivo impõe (`:27-37`).
 
