@@ -5277,6 +5277,10 @@ export type Database = {
         Args: { p_cpf: string; p_email: string }
         Returns: Json
       }
+      concluir_item_purga: {
+        Args: { p_desfechos: Json; p_item_id: string }
+        Returns: undefined
+      }
       confirmar_revisao_entrevista: {
         Args: { p_analise_id: string }
         Returns: Json
@@ -5612,6 +5616,10 @@ export type Database = {
           executar_em: string
           solicitacao_id: string
         }[]
+      }
+      reivindicar_item_purga: {
+        Args: { p_candidato_id: string; p_item_id: string }
+        Returns: string
       }
       rejeitar_candidatura: {
         Args: {
