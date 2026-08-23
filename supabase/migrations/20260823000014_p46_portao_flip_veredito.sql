@@ -121,9 +121,15 @@
 -- confere os rotulos de enum **no instante do APPLY** — nao no instante da
 -- CHAMADA, que e quando importa.
 --
---   CONSERTO · A atomicidade e MANTIDA para toda transicao EXCETO `-> off`, e
---   so nesse caso a falha da trilha e degradada para `WARNING`. O desligamento
---   vale; a trilha e o que falta, e o `WARNING` diz isso com essas palavras.
+--   CONSERTO · A atomicidade e MANTIDA para toda chamada EXCETO a TRANSICAO
+--   `<algo diferente de off> -> off`, e so nesse caso a falha da trilha e
+--   degradada para `WARNING`. O desligamento vale; a trilha e o que falta, e o
+--   `WARNING` diz isso com essas palavras.
+--
+--   ⚠ HI-R3-02 · A guarda e a TRANSICAO e nao o ESTADO RESULTANTE: uma mudanca
+--   de cap ou de janela com a purga JA em `off` termina em `off` e NAO ganha a
+--   excecao — ela e alteracao de politica de retencao, nao kill switch, e a
+--   trilha dela continua atomica.
 --
 --   ⚠ E ESTA ASSIMETRIA E O PONTO INTEIRO, entao ela e dita duas vezes: para
 --   `-> live` a trilha continua ATOMICA e uma falha dela continua REVERTENDO o
@@ -255,7 +261,8 @@ END $verifica_pressupostos_portao_flip$;
 -- ---------------------------------------------------------------------------
 -- ⚠ O corpo abaixo e o da `20260823000013` com DUAS mudancas, e nenhuma outra:
 --   · o `SELECT` do passo (6.b) ganha a allowlist de veredito e a evidencia;
---   · o passo (8) ganha o ramo degradado para `-> off`.
+--   · o passo (8) ganha o ramo degradado para a TRANSICAO `-> off`, numa copia
+--     UNICA do `PERFORM` guardada por um handler (HI-R3-02 + ME-R3-05).
 -- Todo o resto — os guards (1) e (2), a validacao (3), o bloqueio (4), a
 -- nao-op (5), a confirmacao (6.a), a pre-condicao (6.c) e a mutacao (7) —
 -- permanece byte a byte o que foi revisado e aplicado, de proposito: uma
@@ -519,14 +526,15 @@ BEGIN
                 ELSE 'aviso'::public.severidade_log
            END;
 
-  -- ⚠⚠ HI-01 · A ATOMICIDADE DA TRILHA E MANTIDA PARA TODA TRANSICAO **EXCETO**
-  --   `-> off`, E A ASSIMETRIA E O PONTO INTEIRO.
+  -- ⚠⚠ HI-01 · A ATOMICIDADE DA TRILHA E MANTIDA PARA TODA CHAMADA **EXCETO** A
+  --   TRANSICAO `<algo diferente de off> -> off`, E A ASSIMETRIA E O PONTO
+  --   INTEIRO.
   --
   --   Para `-> live`: atomica, como sempre foi. Uma falha da trilha REVERTE o
   --   flip, e isso e correto — ligar destruicao irreversivel de PII sem registro
   --   e pior que nao ligar.
   --
-  --   Para `-> off`: a falha da trilha e degradada para `WARNING`. Qualquer
+  --   Para a TRANSICAO para `off`: a falha da trilha e degradada para `WARNING`. Qualquer
   --   estado a partir do qual o kill switch e RECUSAVEL contradiz o `COMMENT`
   --   desta funcao, que promete "DE ESTADO NENHUM" — e a trilha era um deles: um
   --   rotulo de enum removido depois do apply, uma constraint nova em
@@ -545,29 +553,39 @@ BEGIN
   --     falta. Um `WARNING` do Postgres chega ao `return_message` do cron e ao
   --     log do servidor; o que ele nao faz e transformar uma falha de
   --     escrituracao numa purga que continua apagando gente.
-  IF v_modo_novo = 'off' THEN
-    BEGIN
-      PERFORM public.log_auditoria(
-        p_usuario_id   := v_actor,
-        p_usuario_tipo := 'admin',
-        p_acao         := 'alterar_config_purga',
-        p_categoria    := 'configuracao',
-        p_descricao    := format('Cerco da purga alterado: modo %s -> %s, cap %s -> %s, janela de notificacoes %s -> %s meses',
-                                 v_modo_antes, v_modo_novo,
-                                 v_cap_antes, v_cap_novo,
-                                 v_janela_antes, v_janela_nova),
-        p_severidade   := v_sev,
-        p_recurso_tipo := 'config_purga',
-        p_recurso_id   := NULL::uuid,
-        p_dados_antes  := v_antes,
-        p_dados_depois := v_depois,
-        p_sucesso      := true
-      );
-    EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'salvar_config_purga: ⚠ A PURGA FOI DESLIGADA E A TRILHA NAO PODE SER GRAVADA (%: %). O DESLIGAMENTO VALE — modo % -> off, gravado e commitado com esta transacao; o que falta e a linha de logs_auditoria. Registrar a mudanca a mao, com este horario e o ator %. ⚠ Esta degradacao vale EXCLUSIVAMENTE para a transicao para off: um kill switch que pode ser recusado nao e um kill switch, e a trilha era um estado a partir do qual ele era recusavel. Para live a trilha continua ATOMICA e uma falha dela REVERTE o flip.',
-        SQLSTATE, SQLERRM, v_modo_antes, v_actor;
-    END;
-  ELSE
+  --   ⚠⚠ HI-R3-02 · A GUARDA E A **TRANSICAO**, E NAO O ESTADO RESULTANTE.
+  --     `v_modo_novo = 'off'` sozinho tambem casaria com uma chamada que NAO
+  --     desliga nada: o passo (5) so recusa a nao-op COMPLETA, entao
+  --     `modo_antes = 'off'` + `p_modo = NULL` + `p_cap_titulares = 25` chega
+  --     aqui com `v_modo_novo = 'off'`. Duas consequencias, as duas ruins:
+  --     uma mudanca de CAP ou de JANELA com a purga ja desligada commitaria SEM
+  --     TRILHA — alteracao de politica de retencao num registro de conformidade,
+  --     que nao e o kill switch e nao merece a excecao —, e o `WARNING`
+  --     imprimiria `modo off -> off`, afirmando um desligamento que nao houve.
+  --     Ler isso as tres da manha e concluir que a purga foi desligada seria o
+  --     pior desfecho possivel desta mensagem. Com `v_modo_antes IS DISTINCT
+  --     FROM 'off'` a excecao fica do tamanho exato do achado, e o texto do
+  --     `WARNING` volta a ser verdadeiro por construcao.
+  --
+  --   ⚠⚠ ME-R3-05 · E A CHAMADA DA TRILHA E UMA COPIA SO. A forma anterior
+  --     carregava DUAS copias verbatim do `PERFORM`, com onze argumentos
+  --     nomeados cada e um `format()` de seis substituicoes. Uma edicao futura
+  --     em um dos ramos — um campo a mais, uma `p_acao` diferente — produziria
+  --     trilhas DIFERENTES para `off` e para `live`, num artefato de
+  --     conformidade com retencao indefinida, e nada mediria a divergencia. Com
+  --     uma copia, a assimetria vive num lugar so: no handler.
+  --
+  --   ⚠ O `RAISE;` NU RE-LEVANTA A EXCECAO ORIGINAL, com `SQLSTATE` e mensagem
+  --     intactos — a atomicidade de `-> live` fica IDENTICA a de antes deste
+  --     conserto. O `BEGIN … EXCEPTION` abre uma subtransacao tambem no caminho
+  --     atomico, e o custo e irrelevante: esta funcao e chamada por um humano,
+  --     algumas vezes na vida do sistema.
+  --
+  --   ⚠ E O ESCOPO DO HANDLER CONTINUA SENDO **SO** O `PERFORM`. O `UPDATE` do
+  --     passo (7) e o `SELECT to_jsonb` do passo (7.5) estao FORA do bloco: uma
+  --     falha da MUTACAO propaga e derruba a chamada, e o handler nao tem como
+  --     engoli-la. O kill switch nao pode silenciosamente nao funcionar.
+  BEGIN
     PERFORM public.log_auditoria(
       p_usuario_id   := v_actor,
       p_usuario_tipo := 'admin',
@@ -584,7 +602,14 @@ BEGIN
       p_dados_depois := v_depois,
       p_sucesso      := true
     );
-  END IF;
+  EXCEPTION WHEN OTHERS THEN
+    IF v_modo_novo = 'off' AND v_modo_antes IS DISTINCT FROM 'off' THEN
+      RAISE WARNING 'salvar_config_purga: ⚠ A PURGA FOI DESLIGADA E A TRILHA NAO PODE SER GRAVADA (%: %). O DESLIGAMENTO VALE — modo % -> off, gravado e commitado com esta transacao; o que falta e a linha de logs_auditoria. Registrar a mudanca a mao, com este horario e o ator %. ⚠ Esta degradacao vale EXCLUSIVAMENTE para a TRANSICAO para off, e nao para toda chamada que TERMINE em off: um kill switch que pode ser recusado nao e um kill switch, e a trilha era um estado a partir do qual ele era recusavel. Mudanca de cap ou de janela com a purga ja desligada NAO cai aqui — ela e alteracao de politica de retencao, e a trilha dela continua atomica. Para live a trilha continua ATOMICA e uma falha dela REVERTE o flip.',
+        SQLSTATE, SQLERRM, v_modo_antes, v_actor;
+    ELSE
+      RAISE;   -- ⚠ re-levanta o erro ORIGINAL, com SQLSTATE e mensagem intactos
+    END IF;
+  END;
 END;
 $salvar_config_purga$;
 
@@ -641,13 +666,15 @@ COMMENT ON FUNCTION public.salvar_config_purga(text, integer, integer, boolean) 
   '⚠⚠ A TRANSICAO PARA off NAO PASSA PELO PORTAO, DE ESTADO NENHUM: nao exige confirmacao, nao '
   'consulta o ledger e nao consulta a matriz. UM KILL SWITCH QUE PODE SER RECUSADO NAO E UM KILL '
   'SWITCH. '
-  '⚠⚠ HI-01 · E ISSO INCLUI A TRILHA. Para a transicao para off, uma falha de log_auditoria e '
-  'degradada para WARNING e o desligamento COMMITA assim mesmo: a trilha era um estado a partir do '
-  'qual o kill switch era recusavel (rotulo de enum removido depois do apply, constraint nova em '
-  'logs_auditoria, trigger, disco cheio), e o bloco de auto-verificacao da 20260823000013 confere '
-  'os rotulos no instante do APPLY, nao no da CHAMADA. Para toda outra transicao — live inclusive — '
-  'a trilha continua ATOMICA e uma falha dela REVERTE a mudanca: ligar destruicao irreversivel de '
-  'PII sem registro e pior que nao ligar, e desligar sem registro e melhor que nao desligar. '
+  '⚠⚠ HI-01 · E ISSO INCLUI A TRILHA. Para a TRANSICAO para off — modo anterior DIFERENTE de off —, '
+  'uma falha de log_auditoria e degradada para WARNING e o desligamento COMMITA assim mesmo: a '
+  'trilha era um estado a partir do qual o kill switch era recusavel (rotulo de enum removido depois '
+  'do apply, constraint nova em logs_auditoria, trigger, disco cheio), e o bloco de auto-verificacao '
+  'da 20260823000013 confere os rotulos no instante do APPLY, nao no da CHAMADA. Para toda outra '
+  'chamada — live inclusive, e inclusive uma mudanca de cap ou janela com a purga JA desligada, que '
+  'e alteracao de politica de retencao e nao kill switch — a trilha continua ATOMICA e uma falha '
+  'dela REVERTE a mudanca: ligar destruicao irreversivel de PII sem registro e pior que nao ligar, e '
+  'desligar sem registro e melhor que nao desligar. '
   'A unica coisa que continua valendo para off sem excecao e a autorizacao dos passos (1) e (2). '
   'ACL: revogada nominalmente de PUBLIC, anon e authenticated, e so entao concedida ao papel '
   'autenticado — a funcao e chamada pela tela do administrador com o JWT da pessoa.';
