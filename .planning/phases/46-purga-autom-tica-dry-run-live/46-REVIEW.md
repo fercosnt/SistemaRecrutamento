@@ -4,9 +4,9 @@ plan: 04
 reviewed: 2026-08-22
 depth: deep
 reviewer: gsd-code-reviewer (adversarial, portão de fase destrutiva do M8, item 2)
-rodadas: 3
+rodadas: 4
 status: findings
-veredito: APROVACAO CONDICIONADA — 006/008/009 LIBERADAS; 007 e p45_motor_exclusao_smoke.sql BLOQUEADAS (RD3-01, RD3-02); (C3/janela) NAO conta como portao
+veredito: BLOQUEADO POR DOCUMENTO — as QUATRO migrations e os DOIS smokes estao LIBERADOS (SQL limpo, md5 recalculados, (C3/janela) provado por mutacao); o apply so depende de RD4-02 (46-04-PLAN.md:343 declara ordem 006->007, sem 008 nem 009) e RD4-04 (46-04-SUMMARY.md:796 ficou falso). Ordem: 006 -> 008 -> 009 -> 007
 files_reviewed: 7
 files_reviewed_list:
   - supabase/migrations/20260823000006_p46_guard_purga.sql
@@ -81,19 +81,48 @@ rodada_3:
     low: 2
     total: 8
 
+rodada_4:
+  reviewed: 2026-08-22
+  commit_revisado: e223e23 (+ c27abe7)
+  escopo: diff-check dirigido 381e16a..e223e23 — RD3-01, RD3-02, RD3-05 e os 4 consertos novos
+  veredito: BLOQUEADO POR DOCUMENTO (SQL liberado)
+  fechados:
+    - RD3-01 (o portao mede CODIGO; provado por 2 mutacoes que o antigo deixava verde)
+    - RD3-02 (guardada por v_modo <> 'off', antes de (b); cap_excedido nao desliga mais)
+    - RD3-03 (fechou SOZINHO — a frase de ...006:346-349 voltou a ser verdadeira, sem 4o re-pin)
+    - RD3-04 (o COMMENT ON FUNCTION documenta (a.3))
+    - RD3-05 (negacao por complemento, mensagem nomeia o valor, nenhum caminho vivo muda)
+    - RD3-07 (o WARNING declara a assimetria Storage x Auth)
+    - RD3-08 (o COMMENT da ...009 declara os dois limites da inferencia)
+  parcialmente_fechados:
+    - RD3-06 (1 das 4 linhas do SUMMARY — RD4-03)
+  verificacoes:
+    - "...006 e ...008 INTOCADOS no intervalo (git log vazio)"
+    - "md5 recalculados do arquivo: anon 5209239f... / 47549 e plano 42f916d8... / 27392 — batem"
+    - "(C3/janela) medido: 2 / 1 / 2 ocorrencias, todas '1 hour', distintas = 1"
+    - "ACL de ...007:612-614 e byte-a-byte igual a de ...004:368-370 (ja em PROD) — sem classe BL-01"
+    - "CHECK da ...009 nao pode falhar por dado (modo_vigente fechado a montante por ck_config_purga_modo)"
+  findings:
+    blocker: 0
+    high: 0
+    medium: 4
+    low: 4
+    total: 8
+
 findings:
   critical: 0
   blocker: 0
-  high: 2
+  high: 0
   warning: 4
-  info: 2
+  info: 4
   total: 8
 ---
 
-> ⚠ **Este arquivo tem TRÊS rodadas, e nenhuma deve ser apagada.** A Rodada 1 é o registro de
+> ⚠ **Este arquivo tem QUATRO rodadas, e nenhuma deve ser apagada.** A Rodada 1 é o registro de
 > por que o portão existe. A Rodada 2 começa em `# Rodada 2 — code review do conserto (commit
 > 6029f94)`. A Rodada 3 começa em `# Rodada 3 — code review dirigido do conserto (commit
-> 381e16a)`, no fim do arquivo, e é a que **governa o apply**.
+> 381e16a)`. A **Rodada 4** começa em `# Rodada 4 — diff-check dirigido (commits c27abe7 +
+> e223e23)`, no fim do arquivo, e é a que **governa o apply**.
 
 # Rodada 1
 
@@ -1692,3 +1721,553 @@ corpo destrutivo vivo volta a ser editado, e isso exige revisão do diff antes d
 _Reviewed: 2026-08-22 (rodada 3)_
 _Reviewer: Claude (gsd-code-reviewer) — modo adversarial_
 _Depth: deep, dirigido ao diff de `381e16a` — md5 dos dois corpos RECALCULADOS (batem hash e octeto); regex de `(C3/janela)` EXECUTADA sobre os três `prosrc` (mede comentário nos três); guard de `anonimizar_candidato` simulado nas 3 direções para o par `(o.6)`/`(o.7)`; DDL do ledger conferida para o buraco de NULL; escritores de `desfecho_*` varridos em `supabase/` e `src/`_
+
+---
+
+# Rodada 4 — diff-check dirigido (commits `c27abe7` + `e223e23`)
+
+**Veredito: BLOQUEADO — e o bloqueio é de DOCUMENTO, não de SQL.**
+
+As **quatro migrations** e os **dois smokes** estão limpos e **liberados**: recalculei os dois
+`md5(prosrc)`, executei a lógica de `(C3/janela)` sobre os três corpos reais, mutei o corpo do
+sweep em quatro direções para provar que o portão **morde**, e confirmei que `…006` e `…008`
+estão **intocados** neste intervalo. Nenhum achado desta rodada está dentro de um arquivo `.sql`
+que vá para PROD.
+
+O que bloqueia são **dois documentos** que o orquestrador lê **no instante do apply** e que
+declaram coisas falsas sobre este mesmo apply. Um deles (`46-04-PLAN.md:343`) manda aplicar
+`000006 → 000007` — **sem a `008` e sem a `009`** — e ainda manda rodar o reparo de `version`
+que o `CLAUDE.md` declara **obsoleto**. É literalmente a classe do **BL-01** e do **RD3-06**,
+pela terceira vez nesta fase, agora no artefato da própria Task 4. Custam duas linhas.
+
+---
+
+## Confirmação de escopo — `…006` e `…008` INTOCADOS
+
+```
+$ git log --oneline 381e16a..e223e23 -- \
+    supabase/migrations/20260823000006_p46_guard_purga.sql \
+    supabase/migrations/20260823000008_p46_guard_plano.sql
+(vazio — 0 linhas)
+```
+
+E os dois pins, **recalculados do arquivo** (corpo entre os delimitadores nomeados), não lidos
+do relato do commit:
+
+| corpo | md5 medido | octetos | pin em `p45:1701-1702` | |
+|---|---|---|---|---|
+| `anonimizar_candidato` | `5209239f191aa15b1725b726b00eb4cd` | 47 549 | idem | ✅ |
+| `plano_exclusao_titular` | `42f916d81cd274b28044a410ae57a237` | 27 392 | idem | ✅ |
+
+A saída recomendada pela rodada 3 **foi adotada**: o bloco voltou para antes de `(b)`, `…006`
+não foi tocado, **não há 4º re-pin a pagar**. E, de graça, **RD3-03 fechou sozinho** — a frase
+de `…006:346-349` ("a varredura RECONCILIA execucoes vencidas **antes de materializar o
+conjunto**") voltou a ser verdadeira: a reconciliação está em `…007:235-343` e `(b)` em `:346`.
+
+Varri também os consumidores de `prosrc` do sweep: existe **um só** (`p45:1898-1900`, o próprio
+`(C3/janela)`), e os **dois únicos** `v_pin` do repositório são plano e anon. Confirmado: nenhuma
+edição de `e223e23` ao corpo de `varrer_purga_retencao` pode quebrar um pin, porque não existe pin
+sobre ele.
+
+---
+
+## Ponto 1 · RD3-01 — **FECHADO**, e provado por MUTAÇÃO, não por leitura
+
+As três partes prescritas estão lá: (i) `WHERE l !~ '^[[:space:]]*--'` remove comentário antes de
+casar (`:1908-1910`); (ii) `regexp_matches(..., 'g')` lê **todas** as ocorrências (`:1917-1919`);
+(iii) a contagem por corpo é exigida (`:1921-1924`).
+
+Repliquei a lógica exata do portão em Python e rodei contra os três corpos do arquivo, e depois
+contra corpos **mutados**. A coluna "antigo" é o que o `substring()` da rodada 3 teria devolvido:
+
+| corpo | ocorrências no CÓDIGO | esperado | distintas | valor |
+|---|---|---|---|---|
+| `anonimizar_candidato` | **2** | 2 | 1 | `1 hour` |
+| `plano_exclusao_titular` | **1** | 1 | 1 | `1 hour` |
+| `varrer_purga_retencao` | **2** | 2 | 1 | `1 hour` |
+
+| mutação no corpo do sweep | portão NOVO | portão ANTIGO |
+|---|---|---|
+| 1ª janela de código → `30 days` | ⛔ **REPROVA** (distintas=2) | ✅ verde (`substring` devolvia a prosa) |
+| 2ª janela **apagada** | ⛔ **REPROVA** (n=1, esperado 2) | ✅ verde |
+
+Ou seja: as duas mutações que o RD3-01 nomeou — inclusive **a da metade destrutiva** — passavam
+verdes antes e reprovam agora. O portão **morde**. `(C3/janela)` passa a contar como portão.
+
+**As contagens 2 / 1 / 2 são ESCOPO, não fotografia.** Elas codificam um fato de desenho (quantos
+predicados de autorização cada função tem), a mensagem diz isso, e ela é acionável nas **duas**
+direções: "se CAIU, um predicado perdeu a janela; se SUBIU, nasceu um que ninguém justificou
+aqui". Não é a forma que a `(j)` da `p43_matriz_retencao_smoke` tinha (constante contra um valor
+que um humano pode legitimamente editar) — aqui não existe segunda fonte de onde capturar
+baseline, e a falha é sempre **fechada e com diagnóstico verdadeiro**. Aceito.
+
+⚠ **Mas a regra de strip tem um buraco, e ele é explorável — ver RD4-01.**
+
+---
+
+## Ponto 2 · RD3-02 — **FECHADO no CAP**, com um resíduo no fail-closed
+
+O bloco está em `…007:202-343`, **antes de `(b)`** (`:346`), e guardado por `IF v_modo <> 'off'`
+(`:235`), não por posição. Ordem medida no arquivo:
+
+| linha | |
+|---|---|
+| `:184-187` | lê `config_purga` sob `FOR UPDATE` |
+| `:193-199` | fail-closed config ausente → `RETURN` |
+| **`:235`** | **`IF v_modo <> 'off' THEN`** → reconciliação (`:289-342`) |
+| `:346` | `(b)` materializa `tmp_purga_alvos` |
+| `:404-410` | `(d)` CAP → `RETURN` |
+| `:426-431` | `(f)` kill switch `off` → `RETURN` |
+
+| cenário | reconciliação roda? | correto? |
+|---|---|---|
+| `cap_excedido` | **SIM** — o `RETURN` do cap está 60 linhas abaixo | ✅ era o defeito RD3-02 |
+| `modo = 'off'` | **NÃO** — `'off' <> 'off'` é falso | ✅ RD2-05 preservado |
+| config ausente (`v_modo IS NULL`) | **NÃO** — retorna em `:198`, antes | ⚠ ver RD4-05 |
+| `dry_run` / `live` | SIM | ✅ |
+
+E o efeito colateral desejado se confirma: o titular reconciliado volta ao conjunto **na mesma
+passada**, porque `(b)` lê `purga_execucao_itens` depois do fecho.
+
+Confirmo também que a posição **relativa ao heartbeat não mudou**: os dois `UPDATE` continuam
+antes do `INSERT` de `:433`, então a segunda metade (`UPDATE … SET situacao='abortada'`, `:328`)
+não pode alcançar a linha da própria execução.
+
+---
+
+## Ponto 3 · RD3-05 — **FECHADO**, e a forma sobrevive ao próximo alargamento
+
+`p46_purga_smoke.sql:597-603` nega o **complemento**:
+
+```sql
+      CROSS JOIN LATERAL (VALUES (i.desfecho_storage), (i.desfecho_postgres), (i.desfecho_auth)) AS x(v)
+     WHERE i.execucao_id = v_c_id
+       AND x.v IS DISTINCT FROM 'pendente'
+       AND x.v IS DISTINCT FROM 'nao_aplicavel';
+```
+
+Três coisas conferidas, e as três passam:
+
+1. **É complemento, não enumeração.** Um valor novo no vocabulário é contado automaticamente.
+2. **A mensagem nomeia o valor** (`v_c_valores`, via `string_agg(DISTINCT …)`, com
+   `coalesce(…, '<nenhum>')`), nos **dois** pontos de uso (`:1284` e `:1339`).
+3. **Não reprova trabalho correto.** Varri os escritores de `desfecho_*` em `…007`: o caminho
+   feliz do laço escreve `'nao_aplicavel'` nas três colunas (`:528-530`) — excluído; o caminho
+   de falha escreve `desfecho_postgres='falha'` (`:573`) — contado, exatamente como a versão
+   antiga `IN ('ok','falha')` fazia. **Nenhuma mudança de comportamento nos caminhos vivos**, só
+   alargamento da rede.
+
+Nota positiva: com `x.v` NULL o predicado conta como violação — falha **fechada**, e o comentário
+`:593-596` explica por que a forma `IS DISTINCT FROM` foi escolhida num arquivo cujo tema é "a
+forma banida falha ABERTO". Correto.
+
+Efeito colateral verificado: a semântica de `v_c_carimbados` mudou de "itens" para "desfechos"
+(até 3× por item), e **as duas** mensagens foram atualizadas para "desfecho(s)". Não sobrou
+consumidor com a semântica antiga.
+
+---
+
+## Ponto 4 · Os quatro consertos NOVOS de `e223e23` — nenhum quebra portão
+
+| conserto | dentro do `prosrc`? | acrescenta `now() - interval`? | veredito |
+|---|---|---|---|
+| (a) `COMMENT ON FUNCTION` ganha `(a.3)` (`:616-695`) | **NÃO** — `COMMENT` é DDL separada | não | ✅ |
+| (b) `RAISE WARNING` ganha a ressalva do Storage (`:341`) | **SIM** | não | ✅ |
+| (c) `46-04-SUMMARY.md:386` corrige a ordem | n/a | n/a | ✅ (parcial — RD4-03) |
+| (d) comentário órfão em `…007:243-248` reescrito | SIM (comentário) | não | ✅ |
+
+Medições que sustentam a linha "não quebra portão":
+
+- **Ocorrências de `now() - interval` no código do sweep: 2, ambas `1 hour`, distintas = 1** —
+  idêntico ao esperado. Nenhuma das quatro edições acrescenta o literal.
+- **Aspas simples no corpo `$sweep_purga$`: 136 — paridade PAR.** A linha do `RAISE WARNING`
+  (`:341`) tem exatamente **2** aspas (abre e fecha); o texto novo não contém apóstrofo.
+- **`$sweep_purga$` produz 3 segmentos** (abre/fecha, um par só). Delimitador nomeado íntegro.
+- **`COMMENT ON FUNCTION`**: começa em `:616`, termina em `:695`, e **zero** linha com número
+  ímpar de aspas — a concatenação de literais está balanceada. O texto novo escreve `modo <> off`
+  **sem aspas** justamente para não aninhar; deliberado e correto.
+- Nenhum pin cobre `varrer_purga_retencao` — verificado por varredura de `v_pin` no repositório.
+
+---
+
+## Ponto 5 · Varredura por FORMA — o que o diff introduziu
+
+```
+$ grep -nE "v_[a-z_]* (<>|!=) [0-9]+|= ANY \(ARRAY\['" \
+    supabase/tests/p46_purga_smoke.sql supabase/tests/p45_motor_exclusao_smoke.sql
+```
+
+O grep devolve 42 linhas, e **nenhuma delas é nova neste diff**. As duas que o diff tocou
+(`p46:1283` e `p46:1338`, `v_c_carimbados <> 0`) comparam contra **zero**, que é invariante e não
+fotografia.
+
+⚠ **O que o grep NÃO viu é o achado**: as três constantes que este diff **acrescentou** foram
+escritas como `IS DISTINCT FROM <const>` (`p45:1921`, `:1926`, `:1933`) e o regex prescrito no
+`CLAUDE.md` não casa essa forma. Julguei as três à mão:
+
+| nova asserção | forma | escopo ou fotografia? |
+|---|---|---|
+| `v_jan_n IS DISTINCT FROM r_jan.esperado` (2/1/2) | contagem contra constante | **ESCOPO** — fato de desenho, diagnóstico verdadeiro nas duas direções, e sem segunda fonte de baseline. Aceito |
+| `v_jan_d IS DISTINCT FROM 1` | invariante ("uma janela só por corpo") | escopo |
+| `array_length(v_jans,1) IS DISTINCT FROM 3` | não-vacuidade estrutural | escopo |
+
+Nenhuma reprova trabalho correto com diagnóstico falso, e nenhuma deixa de morder. Mas o detector
+que o projeto se obrigou a rodar ficou **cego às constantes mais novas do próprio projeto** —
+RD4-07.
+
+---
+
+## Ponto 6 · A ordem de apply — quatro cabeçalhos concordam, **um documento não**
+
+```
+$ grep -rn "006 -> 00\|006 → 00" supabase/ .planning/phases/46-purga-autom-tica-dry-run-live/
+```
+
+| arquivo:linha | declara |
+|---|---|
+| `20260823000006:149` | `006 -> 008 -> 009 -> 007` ✅ |
+| `20260823000007:119` | `006 -> 008 -> 009 -> 007` ✅ |
+| `20260823000008:176` | `006 -> 008 -> 009 -> 007` ✅ |
+| `20260823000009:69` | `006 -> 008 -> 009 -> 007` ✅ |
+| `46-04-SUMMARY.md:386` | `006 → 008 → 009 → 007` ✅ (corrigida por `e223e23`) |
+| `46-04-SUMMARY.md:802` | `006 → 008 → 009 → 007` ✅ |
+| **`46-04-PLAN.md:343`** | ⛔ **`000006 → 000007`** — sem `008`, sem `009` |
+
+**Sobra, sim: `46-04-PLAN.md:343`.** E é o pior lugar possível — é a Task 4, o passo do apply.
+Ver **RD4-02**.
+
+---
+
+## Ponto 7 · O apply é seguro? — **sim, nos três eixos**
+
+**(a) Apaga dado de pessoa real?** Não. Com `config_purga.modo = 'off'`, `varrer_purga_retencao`
+entra em `:235` com `'off' <> 'off'` = falso (reconciliação **não** roda), passa por `(b)`/`(c)`,
+e retorna em `:430` depois de gravar uma linha de heartbeat com `veredito='desligado'`,
+`processados=0`. Zero `DELETE`, zero chamada ao motor. As `006`/`008` só acrescentam **ramos de
+recusa** a guards; nenhuma delas executa DML.
+
+**(b) Revoga grant vivo — a classe do BL-01?** Não. A única ACL reemitida nas duas migrations
+deste intervalo é a de `…007:612-614`:
+
+```sql
+REVOKE ALL ON FUNCTION public.varrer_purga_retencao() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.varrer_purga_retencao() TO service_role;
+```
+
+que é **byte-a-byte a mesma** de `20260823000004:368-370`, já aplicada em PROD. Reemissão é
+no-op. A `…009` não emite ACL nenhuma. (As de `006`/`008` foram simuladas e fechadas na rodada 2
+e os arquivos estão intocados.)
+
+**(c) Deixa objeto num estado em que função viva passe a falhar?** Não, e o `CHECK` da `…009`
+foi o ponto que mais olhei:
+
+- `ck_purga_execucoes_modo` (`:88-90`) **NÃO é `NOT VALID`** — valida as linhas existentes. Ele
+  aceita `('off','dry_run','live','ausente')`. Varri **todos** os escritores de `modo_vigente` no
+  repositório: os dois `INSERT` de `…007`/`…004` gravam `v_modo`, que vem de `config_purga.modo`,
+  e essa coluna já tem `ck_config_purga_modo CHECK (modo IN ('off','dry_run','live'))`
+  (`20260823000001:214-215`); o único outro valor possível é o literal `'ausente'` do fail-closed.
+  Os três `UPDATE` restantes vivem no smoke e escrevem `'dry_run'`/`'live'`. **Não existe caminho
+  que produza valor fora do vocabulário** — o `ADD CONSTRAINT` não pode falhar por dado. (A
+  medição do cabeçalho, 2 linhas ambas `'off'`, é consistente; e mesmo que o cron insira linhas
+  entre a medição e o apply, elas nascem `'off'`.)
+- Os três `DROP CONSTRAINT … , ADD CONSTRAINT …` de `purga_execucao_itens` (`:117-130`) nomeiam
+  `ck_purga_itens_desfecho_{storage,postgres,auth}` — os nomes **existem**, criados em
+  `20260823000002:289-296`. E o conjunto novo é superconjunto estrito do antigo: alargar não pode
+  falhar por dado.
+
+**Ordem confirmada, e a razão é dependência real:** `009` antes de `007` porque a reconciliação de
+`007` escreve `'desconhecido'` e o `CHECK` antigo o rejeitaria com `23514`; `008` antes de `007`
+porque `007` chama o motor, que chama `plano_exclusao_titular` no PASSO 0. Estados intermediários
+seguros: `006` e `008` sem `007` não têm chamador dentro de execução de purga; `009` sozinha é
+puramente aditiva.
+
+---
+
+## Achados NOVOS da rodada 4
+
+### RD4-01 — MEDIUM — A regra de strip de `(C3/janela)` só derruba comentário de LINHA INTEIRA, e a mensagem do portão afirma que derruba comentário
+
+**Arquivo:** `supabase/tests/p45_motor_exclusao_smoke.sql:1908-1910` (o strip) × `:1922` (a frase).
+
+```sql
+             WHERE l !~ '^[[:space:]]*--'
+```
+
+Isso remove `-- comentário` em linha própria. **Não** remove comentário de **fim de linha**
+(`… ; -- now() - interval '1 hour'`) nem bloco `/* … */`. A mensagem do portão diz, textualmente:
+
+> "Esta contagem le CODIGO: as linhas de comentario sao removidas antes de casar"
+
+**O buraco é real e está aberto no corpo PINADO.** Medi: `plano_exclusao_titular` tem **dois**
+blocos `/** … */` dentro do delimitador (`corpo:17` e `corpo:62`). Hoje nenhum contém o padrão, e
+por isso a contagem sai 1 = esperado. Mas o portão está lendo aquele texto como se fosse código.
+
+**Demonstrado por mutação** — não é hipótese:
+
+| mutação | contagem | portão |
+|---|---|---|
+| janela do 2º `UPDATE` apagada **e** `/* now() - interval '1 hour' */` acrescentado | n=2, distintas=1 | ✅ **VERDE** ⛔ |
+| janela do 2º `UPDATE` apagada **e** `-- antes: now() - interval '1 hour'` no fim da linha de código | n=2, distintas=1 | ✅ **VERDE** ⛔ |
+
+Nos dois casos a autorização volta a ser *standing* (HI-03) e o portão não fala. É a **sétima**
+ocorrência da família nesta fase, agora em versão estreita — e, o que é pior, a frase do próprio
+portão garante uma propriedade que ele não tem, que é a forma literal do BL-01/RD3-01.
+
+**Fix (arquivo de teste, não pinado, custo zero):** remover blocos antes de dividir, e ajustar a
+frase para dizer exatamente o que a regra faz.
+
+```sql
+    SELECT t.nome, t.esperado,
+           (SELECT string_agg(l, E'\n')
+              FROM regexp_split_to_table(
+                     regexp_replace(t.corpo, '/\*.*?\*/', '', 'gs'), E'\n') AS l
+             WHERE l !~ '^[[:space:]]*--') AS codigo
+```
+
+e em `:1922`, trocar "as linhas de comentario sao removidas" por "os blocos `/* */` e as linhas
+que COMEÇAM com `--` sao removidos antes de casar; comentario de FIM DE LINHA nao e removido —
+nao ponha o literal num deles".
+
+⚠ **Não bloqueia o apply das migrations.** Bloqueia o aceite de `(C3/janela)` como portão
+*suficiente* para o flip `dry_run → live` do 46-06: enquanto a frase prometer mais do que a regra
+entrega, o próximo leitor vai confiar nela.
+
+---
+
+### RD4-02 — MEDIUM — `46-04-PLAN.md:343` manda aplicar `000006 → 000007` (sem `008`, sem `009`) e ainda manda rodar o reparo de `version` que o `CLAUDE.md` declara OBSOLETO
+
+**Arquivo:** `.planning/phases/46-purga-autom-tica-dry-run-live/46-04-PLAN.md:343-347`
+
+```
+    **2. Apply, na ordem 000006 → 000007**, por MCP `apply_migration`, **pelo orquestrador**:
+    …
+    · Reparo da `version` para cada uma:
+      `UPDATE supabase_migrations.schema_migrations SET version = '<version do arquivo>' …`
+```
+
+Três coisas erradas numa vez, e todas no bloco que **é** a Task 4 do apply:
+
+1. **A ordem omite `008` e `009`.** Seguir isso literalmente aplica `006` e `007` e para. Com
+   `008` ausente, o guard antigo de `plano_exclusao_titular` recusa o cron e **todo titular vira
+   `desfecho_postgres='falha'` com diagnóstico apontando para a `006`** — o cenário FALSO que o
+   próprio `…007:131-137` descreve. Com `009` ausente, a primeira reconciliação aborta com
+   `23514`. É o **HI-01 ressuscitado**, e desta vez no artefato que descreve o passo.
+2. **A via de apply está obsoleta.** `CLAUDE.md` estabeleceu na Phase 46 que o apply vai pela
+   Management API **lendo o SQL do arquivo**, precisamente porque `apply_migration` do MCP
+   *transcreve* — e foi por aí que duas migrations do M8 chegaram a PROD com os comentários
+   descartados.
+3. **O reparo de `version` está declarado obsoleto** no mesmo `CLAUDE.md` ("a `version` nasce
+   CORRETA — não há reparo a fazer"). Rodar aquele `UPDATE` hoje é ruído sobre o ledger que serve
+   de prova.
+
+A rodada 3 elevou a instância **mais fraca** disto (`SUMMARY:386`) a achado nomeado e exigiu
+conserto. Esta é a instância forte, e ninguém a viu porque o `grep` da rodada 3 não alcançou o
+`PLAN`.
+
+**Fix:** substituir o bloco por: `**2. Apply, na ordem 006 → 008 → 009 → 007**`, com ponteiro
+para a seção `(4)` de qualquer um dos quatro cabeçalhos, e trocar "por MCP `apply_migration` +
+reparo de `version`" por "pela via corrente do `CLAUDE.md` (`p46apply.cjs` / Management API, SQL
+**lido do arquivo**); **não** há reparo de `version` a fazer". Manter a conferência cruzada de
+`md5(statements[1])`, que continua válida.
+
+---
+
+### RD4-03 — MEDIUM — RD3-06 foi fechado em 1 das 4 linhas; as outras três continuam lá, e uma quarta nasceu
+
+**Arquivo:** `.planning/phases/46-purga-autom-tica-dry-run-live/46-04-SUMMARY.md`
+
+`e223e23` corrigiu `:386` (a ordem de apply — a mais cara, e foi a certa a priorizar) e deixou as
+outras três que a rodada 3 nomeou explicitamente:
+
+| linha | diz | verdade |
+|---|---|---|
+| `:24` (frontmatter) | `RESUMO (z) 11 -> **15**` | **16** (`:793` e `p46:1637 v_esperado := 16`) |
+| `:611` | "a rede é **2 → 4** e o RESUMO (z) vai a **15**" | **16** |
+| `:772` | "⊖ (C3) NÃO afrouxada · rede de **2 → 3** metades" | **2 → 4** (`:791`) |
+| `:774` | "RESUMO (z) 11 → **13** · ✅ **13** incrementos, `v_esperado = 13`" | **16** (`:793`) |
+
+Medido no arquivo autoritativo: `supabase/tests/p46_purga_smoke.sql:1637` →
+`v_esperado int := 16`.
+
+Note que `:611` é a linha que **anuncia o conserto do LO-02** e ela mesma carrega o número errado.
+Terceira reincidência do mesmo item. A recomendação da rodada 3 continua de pé e agora é a única
+saída: **o SUMMARY não deve repetir número que vive em outro artefato — deve apontar para ele.**
+
+**Fix:** corrigir as quatro para 16 / `2 → 4`, ou trocar por "ver `p46_purga_smoke.sql:1637`".
+
+---
+
+### RD4-04 — MEDIUM — `46-04-SUMMARY.md:796` ficou FALSO pelo próprio conserto: "Reconciliação roda **depois** do kill switch"
+
+**Arquivo:** `.planning/phases/46-purga-autom-tica-dry-run-live/46-04-SUMMARY.md:796`
+
+```
+| Reconciliação roda **depois** do kill switch | ✅ RD2-05 — `off` só escreve heartbeat |
+```
+
+Desde `c27abe7` ela roda **antes** — em `…007:235`, guardada por `v_modo <> 'off'`, com o ramo
+`off` de `(f)` em `:426`. A segunda metade da célula (`off` só escreve heartbeat) continua
+verdadeira; a primeira virou falsa **no mesmo commit que a tornou falsa**.
+
+**É exatamente o defeito que `e223e23` consertou em `…007:243-248`** — o comentário órfão «o ramo
+`off` acima retorna ANTES daqui» — só que no documento em vez de no código. O executor viu a
+forma no arquivo que estava editando e não a procurou no artefato que descreve o mesmo fato.
+Sétima vez que "comentário que contradiz o código ao lado" aparece nesta fase; a primeira em que
+o conserto de uma instância deixou a gêmea de pé.
+
+**Fix:** `| Reconciliação guardada por `modo <> off`, **antes de (b)** | ✅ RD2-05 + RD3-02 — `off`
+só escreve heartbeat; `cap_excedido` não desliga a limpeza de órfãos |`
+
+---
+
+### RD4-05 — LOW — RD3-02 nomeava DOIS `RETURN` injustificados; o conserto justificou um e silenciou o outro
+
+**Arquivo:** `supabase/migrations/20260823000007_p46_sweep_dry_run.sql:193-199` × `:235` ×
+`:626-635` (o `COMMENT`)
+
+O fail-closed de config ausente (`:198`) **continua precedendo** a reconciliação, e com
+`v_modo IS NULL` o guard `v_modo <> 'off'` seria NULL de qualquer forma — mover o bloco sem mexer
+no guard não mudaria nada. Ou seja: a decisão é legítima, e eu **não peço** que ela mude.
+
+O problema é que ela virou implícita. O comentário `:215-222` reconhece que "desses só o `off`
+tinha sido justificado" e depois justifica só o cap; e o `COMMENT ON FUNCTION` (`:632-635`)
+descreve o RD3-02 como se ele fosse **apenas** o cap. Quem auditar o banco vai ler uma versão
+encolhida do achado.
+
+**Por que é LOW e não MEDIUM:** o dano é limitado. Com `config_purga` vazia, **nenhuma** varredura
+faz trabalho de purga, então o claim anti-sobreposição não está privando ninguém de nada que
+estivesse acontecendo; e cada noite grava um heartbeat `ausente/abortada` + `WARNING`, que é
+visível. Diferente do `cap_excedido`, onde a varredura seguia rodando e o silêncio era total.
+
+**Fix (uma frase, dentro do `IF` ou logo acima dele):**
+
+```sql
+  -- ⚠ E POR QUE O FAIL-CLOSED DE CONFIG AUSENTE (`:198`) CONTINUA NA FRENTE: com o
+  --   singleton sumido ninguem sabe sob que regime esta execucao roda, e a resposta
+  --   segura e nao escrever no ledger. O dano e limitado porque, sem config, NENHUMA
+  --   varredura faz trabalho de purga — o titular preso nao esta perdendo passada
+  --   nenhuma — e o heartbeat `ausente/abortada` mais o WARNING tornam o estado
+  --   visivel. Diferente do cap, que rodava e calava (RD3-02).
+```
+
+---
+
+### RD4-06 — LOW — Os rótulos `motor / plano / varredura` na mensagem de divergência dependem da ordem de varredura de um `VALUES` sem `ORDER BY`
+
+**Arquivo:** `supabase/tests/p45_motor_exclusao_smoke.sql:1906-1915` × `:1937-1938` × `:1942`
+
+`v_jans` é preenchido na ordem em que o `FOR … IN SELECT … FROM (VALUES …)` devolver as linhas, e
+não há `ORDER BY`. A **comparação** (`v_jans[1]` contra `[2]` e `[3]`) é insensível a ordem, então
+o portão não deixa de morder. Mas a **mensagem** rotula `motor=[%], plano=[%], varredura=[%]` por
+posição, e o `NOTICE` final imprime `v_jans[1]` como "o valor". Se a ordem do Values Scan mudar,
+o diagnóstico nomeia a função errada — a categoria que esta fase inteira cataloga.
+
+**Fix (uma linha):** carregar o nome junto do valor.
+
+```sql
+    v_jans := v_jans || (r_jan.nome || '=' || v_jan_val);
+```
+
+e comparar por `split_part(v_jans[i], '=', 2)`; ou, mais simples, acrescentar uma coluna ordinal
+ao `VALUES` e um `ORDER BY` sobre ela.
+
+---
+
+### RD4-07 — LOW — A varredura por FORMA prescrita no `CLAUDE.md` está cega às constantes que este próprio diff introduziu
+
+**Arquivo:** `CLAUDE.md`, seção "Portões: varra pela FORMA, não pelo sintoma"
+
+O regex prescrito é `v_[a-z_]* (<>|!=) [0-9]+|= ANY \(ARRAY\['`. As três constantes novas de
+`(C3/janela)` foram escritas — corretamente, por causa da regra NULL-safe deste projeto — como
+`IS DISTINCT FROM <const>` (`p45:1921`, `:1926`, `:1933`), e **nenhuma** aparece no grep. A regra
+manda varrer pela forma; a ferramenta que implementa a regra não vê a forma preferida do projeto.
+
+**Fix:** estender o regex no `CLAUDE.md`:
+
+```
+grep -nE "v_[a-z_]* (<>|!=) [0-9]+|v_[a-z_]* IS DISTINCT FROM [0-9]+|IS DISTINCT FROM (r_[a-z_]+\.)?esperado|= ANY \(ARRAY\['"
+```
+
+---
+
+### RD4-08 — LOW — `…007:236-242` repete verbatim o parágrafo de `:209-214`
+
+**Arquivo:** `supabase/migrations/20260823000007_p46_sweep_dry_run.sql:209-214` × `:236-242`
+
+O histórico da rodada 1 ("Na rodada 1 ela estava em (a.2), antes do cap e antes do `off` …") está
+escrito duas vezes, uma no cabeçalho da seção `(a.3)` e outra dentro do `IF`, com redação quase
+idêntica. Foi o resíduo de mover o bloco: o texto antigo veio junto e o texto novo foi escrito por
+cima. Não é defeito de comportamento; é ~7 linhas de duplicação num corpo que já tem 140 linhas de
+comentário para 55 de código, e a próxima pessoa vai editar uma das duas cópias.
+
+⚠ E uma imprecisão dentro dele: `:246` diz "O ramo `off` de (f) esta **LOGO ABAIXO** deste bloco".
+Ele está ~180 linhas abaixo, depois de `(b)`, `(c)` e `(d)`. A afirmação substantiva (está
+**abaixo**, não acima) é verdadeira; "logo" não é.
+
+**Fix:** apagar `:236-242` (o cabeçalho `:205-234` já conta a história inteira e melhor), e trocar
+"LOGO ABAIXO" por "abaixo, em `(f)`".
+
+---
+
+## Procura pelo próximo defeito — o que **NÃO** encontrei
+
+| hipótese | resultado |
+|---|---|
+| `…006` ou `…008` tocados no intervalo | **limpo** — `git log` vazio; e os dois md5 recalculados batem hash **e** octeto |
+| Edição que muda `md5(prosrc)` de corpo pinado | **impossível** — nenhum pin cobre `varrer_purga_retencao`, e os dois que existem batem |
+| Aspas simples desbalanceadas no corpo `$sweep_purga$` | **limpo** — 136 aspas, paridade PAR; o `RAISE WARNING` novo tem exatamente 2 |
+| `COMMENT ON FUNCTION` com literal quebrado | **limpo** — `:616`–`:695`, zero linha com aspas ímpares |
+| Delimitador nomeado / `BEGIN`–`END` quebrados | **limpo** — `$sweep_purga$` fecha em 1 par; a função termina em `END; $sweep_purga$;` (`:597-598`) |
+| Literal `now() - interval` novo que faria `(C3/janela)` contar errado | **limpo** — 2 / 1 / 2, todas `1 hour` |
+| RD3-05 reprovando trabalho correto pelo alargamento | **limpo** — o caminho feliz escreve `nao_aplicavel` (`:528-530`), excluído por construção |
+| `v_c_carimbados` com semântica trocada e consumidor esquecido | **limpo** — os dois usos (`:1284`, `:1339`) foram atualizados; não há terceiro |
+| `CHECK` da `…009` abortando o apply por dado existente | **limpo** — `modo_vigente` é fechado a montante por `ck_config_purga_modo`; nomes de constraint conferem com `…002:289-296` |
+| ACL reemitida que revogue grant vivo (classe BL-01) | **limpo** — `…007:612-614` é byte-a-byte igual a `…004:368-370`, já em PROD; `…009` não emite ACL |
+| Asserção nova que congela instantâneo | **limpo nas três** — mas o detector do `CLAUDE.md` não as vê (RD4-07) |
+| Comentário que contradiz o código ao lado | ⛔ **ENCONTRADO — uma vez, e no documento:** RD4-04. No código, `e223e23` fechou o único que havia |
+| Ordem de apply divergente em algum documento | ⛔ **ENCONTRADO:** `46-04-PLAN.md:343` (RD4-02) |
+| Portão que a rodada 3 declarou consertado e não está | ⛔ **PARCIAL:** `(C3/janela)` fechou o caso que RD3-01 nomeou, e abriu um mais estreito (RD4-01) |
+
+---
+
+## Condições de liberação da rodada 4
+
+**⛔ A LINHA CLARA:**
+
+> **LIBERA o SQL: `20260823000006`, `20260823000008`, `20260823000009`, `20260823000007` —
+> as quatro, nesta ordem, sem nova revisão de diff.**
+> **BLOQUEIA o APPLY até que `46-04-PLAN.md:343` e `46-04-SUMMARY.md:796` sejam corrigidos.**
+
+**Obrigatório antes do apply — 2 itens, ambos documento, zero SQL:**
+
+1. **RD4-02** — `46-04-PLAN.md:343-347`: ordem `006 → 008 → 009 → 007`, via de apply corrente do
+   `CLAUDE.md`, sem o reparo de `version`.
+2. **RD4-04** — `46-04-SUMMARY.md:796`: a reconciliação roda **antes de `(b)`**, guardada por
+   `modo <> off`.
+
+**Vai junto no mesmo commit (grátis, nenhum toca SQL de PROD):**
+
+3. **RD4-01** — `p45_motor_exclusao_smoke.sql:1908-1910` + `:1922`. ⚠ Se ficar para depois, então
+   `(C3/janela)` verde **não autoriza o flip `dry_run → live`** do 46-06.
+4. **RD4-03** — `46-04-SUMMARY.md:24`, `:611`, `:772`, `:774`.
+
+**Dívida registrada, não bloqueia:** RD4-05 (uma frase em `…007` — ⚠ **só quando houver outra
+razão para tocar naquele arquivo**, para não gastar um apply em comentário), RD4-06, RD4-07,
+RD4-08.
+
+**Peço quinta rodada?** **Não.** Os quatro consertos acima são: dois arquivos Markdown, um regex e
+uma frase num arquivo de teste não pinado. Nenhum toca migration, nenhum toca `prosrc`, nenhum
+reemite ACL, nenhum muda md5. Um `git diff --stat` que mostre **apenas**
+`46-04-PLAN.md`, `46-04-SUMMARY.md` e `p45_motor_exclusao_smoke.sql` é prova suficiente. ⚠ **Se
+qualquer arquivo `supabase/migrations/*.sql` aparecer nesse diff, o apply para** e o diff daquele
+arquivo volta para revisão.
+
+**Ordem de apply confirmada:** `20260823000006` → `20260823000008` → `20260823000009` →
+`20260823000007`, pela via do `CLAUDE.md` (Management API, SQL **lido do arquivo**), com
+`md5(statements[1])` conferido de volta do ledger para cada uma.
+
+---
+
+_Reviewed: 2026-08-22 (rodada 4)_
+_Reviewer: Claude (gsd-code-reviewer) — modo adversarial_
+_Depth: deep, dirigido ao diff `381e16a..e223e23` — `…006`/`…008` provados intocados por `git log`; os DOIS md5 recalculados do arquivo (batem hash e octeto); lógica de `(C3/janela)` REPLICADA e executada sobre os três corpos reais e sobre QUATRO mutações, duas das quais passam verdes (RD4-01); paridade de aspas do corpo `$sweep_purga$` e do `COMMENT ON FUNCTION` contada; escritores de `desfecho_*` e de `modo_vigente` varridos em `supabase/` e `src/` contra o `CHECK` da `…009`; ACL de `…007` comparada byte-a-byte com a de `…004` já aplicada_

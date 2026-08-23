@@ -21,7 +21,7 @@ provides:
   - "supabase/migrations/20260823000009_p46_ck_modo_vigente.sql — CHECK de dominio na coluna que o guard destrutivo le (ME-01)"
   - "supabase/migrations/20260823000008_p46_guard_plano.sql — o 3o ramo de plano_exclusao_titular (Blocker B-02 / Saida A), nas DUAS metades"
   - "supabase/tests/p45_motor_exclusao_smoke.sql (C3) — re-pin cruzado dos DOIS md5, com a rede estrutural crescendo de 2 para 4 metades"
-  - "supabase/tests/p46_purga_smoke.sql — assercoes (b), (o), (o.6) e (p); RESUMO (z) 11 -> 15"
+  - "supabase/tests/p46_purga_smoke.sql — assercoes (b), (o), (o.6), (o.7) e (p); RESUMO (z) 11 -> 16"
   - "⛔ BLOCKER B-02 DESCOBERTO E FECHADO no mesmo plano (Saida A, operador 2026-08-22) — e a varredura que prova que NAO HA B-03"
 affects: [46-05, 46-06, 46-07]
 
@@ -609,7 +609,9 @@ auditável: dá para ver que o pin mudou, quando, e por quê.
 
 ⚠ **LO-02 do review:** duas linhas desta seção ficaram desatualizadas entre o commit do checkpoint
 e o fechamento de B-02 (diziam "2 → 3" e "11 → 13"). Corrigidas: a rede é **2 → 4** e o RESUMO (z)
-vai a **15**.
+vai a **16** (`v_esperado := 16` em `p46_purga_smoke.sql:1637` — 6 do 46-02 + 5 do 46-03 + 5 do
+46-04). ⚠ **RD4-03:** esta mesma linha saiu com **15** na primeira correção, e um documento que
+erra o número no parágrafo em que anuncia ter corrigido o número é pior que o erro original.
 
 (C3) tinha (i) md5 e (ii) "o tombstone CHAMA a expressão única". Ganhou **(iii)** sobre o motor e
 **(iv)** sobre o plano, as duas medidas sobre o corpo VIVO com fronteira de palavra:
@@ -769,9 +771,9 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | (o) tem 4 recusas + 2 aceitações | ✅ **4** `42501` · **1** `P0002` · **1** `P45DR` |
 | ⊖ (o) não pode destruir | ✅ alvo das negativas é um uuid **inexistente**, e a inexistência é asserida |
 | Pin de (C3) mudou, 32 hex, antigos preservados | ✅ `5209239f191aa15b1725b726b00eb4cd`, 47 549 octetos |
-| ⊖ (C3) NÃO afrouxada | ✅ rede de **2 → 3** metades, `IS DISTINCT FROM` preservado, nenhuma checagem removida |
+| ⊖ (C3) NÃO afrouxada | ✅ rede de **2 → 4** metades (RD4-03: dizia 3), `IS DISTINCT FROM` preservado, nenhuma checagem removida |
 | Contador do `p45_motor_exclusao_smoke` | ✅ **24** — inalterado (as checagens entraram no bloco existente) |
-| RESUMO (z) do `p46_purga_smoke` 11 → 13 | ✅ **13** incrementos, `v_esperado = 13` |
+| RESUMO (z) do `p46_purga_smoke` 11 → 16 | ✅ **16** incrementos, `v_esperado = 16` (RD4-03: dizia 13) |
 | Extração do md5 sem contaminação de comentário | ✅ head `\nDECLARE\n` · tail `END;\n` |
 | Cabeçalhos **sem** a instrução obsoleta de reparo de `version` | ✅ os dois dizem explicitamente que ela não existe mais e por quê |
 | Zero objeto novo de catálogo · zero portão a emendar | ✅ só 2 `CREATE OR REPLACE FUNCTION` |
@@ -793,7 +795,7 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | RESUMO (z) do `p46_purga_smoke` 11 → **16** | ✅ **16** incrementos, `v_esperado = 16` |
 | ⭐ (o.7) — a metade DESTRUTIVA provada capaz de AUTORIZAR | ✅ o par de (o.6); sem ele `v_purga_live = TRUE` não era provado em lugar nenhum |
 | Reconciliação preserva desfecho carimbado · infere Postgres · `desconhecido` em Storage/Auth | ✅ RD2-01 |
-| Reconciliação roda **depois** do kill switch | ✅ RD2-05 — `off` só escreve heartbeat |
+| Reconciliação guardada por `modo <> off`, **antes de (b)** | ✅ RD2-05 + **RD3-02** — `off` só escreve heartbeat, e o kill switch é respeitado por guard EXPLÍCITO, nunca por posição. ⚠ **RD4-04:** esta célula dizia "roda **depois** do kill switch", verdade até `c27abe7` e falsa desde então — a gêmea exata do comentário órfão que `e223e23` consertou em `…007:243`, deixada de pé no documento |
 | As TRÊS janelas medidas pelo VALOR | ✅ **`1 hour`** nos três corpos, aferido por (C3/janela) |
 | `iniciada_em` na lista de colunas do bloco que aborta | ✅ RD2-04 |
 | RD2-03 registrado onde o 46-06 vai ler | ✅ topo do `46-06-PLAN.md`, com critério mensurável |

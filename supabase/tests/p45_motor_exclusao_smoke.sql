@@ -1885,6 +1885,20 @@ BEGIN
   -- ⚠ O CONSERTO TEM TRES PARTES, e as tres sao necessarias:
   --   1. **Comentarios sao removidos ANTES de casar.** Sem isso o portao mede
   --      prosa, que e exatamente o que ele existe para nao fazer.
+  --      ⚠⚠ RD4-01 · E "COMENTARIO" SAO AS TRES FORMAS, nao uma. A rodada 4
+  --      demonstrou POR MUTACAO que a versao anterior — que so descartava a linha
+  --      inteira comecada por `--` — deixava DOIS buracos por onde a janela podia
+  --      ser trocada com o portao VERDE: um bloco `/* ... */` e um comentario de
+  --      FIM DE LINHA. Nao e hipotetico: `plano_exclusao_titular`, um dos dois
+  --      corpos PINADOS, tem blocos `/** ... */` dentro do proprio delimitador.
+  --      Apagar a 2a janela e reescrever o padrao dentro de um deles devolvia
+  --      `n=2, distintas=1` — verde — enquanto o codigo real rodava com outra
+  --      janela. SETIMA ocorrencia da familia "portao que parece medir e nao mede"
+  --      nesta fase, e a segunda DENTRO DESTE MESMO PORTAO.
+  --      ⚠ A ordem importa: o bloco `/* */` e removido PRIMEIRO (ele atravessa
+  --      linhas, entao tem de cair antes do split), e so entao o `--` ate o fim da
+  --      linha. Trocar a ordem faria um `--` dentro de um bloco truncar o resto da
+  --      linha e deixar o `*/` orfao.
   --   2. **TODAS as ocorrencias sao lidas**, e nao a primeira: `regexp_matches`
   --      com a flag global. Uma unica leitura nunca poderia ver as duas metades
   --      de `anonimizar_candidato`, e e a segunda (a DESTRUTIVA) que importa mais.
@@ -1906,8 +1920,15 @@ BEGIN
   FOR r_jan IN
     SELECT t.nome, t.esperado,
            (SELECT string_agg(l, E'\n')
-              FROM regexp_split_to_table(t.corpo, E'\n') AS l
-             WHERE l !~ '^[[:space:]]*--') AS codigo
+              FROM regexp_split_to_table(
+                     -- (1) blocos `/* ... */`, inclusive multi-linha (`s` faz o
+                     --     ponto casar quebra de linha; `?` impede que um bloco
+                     --     engula tudo ate o ultimo `*/` do corpo)
+                     regexp_replace(t.corpo, '/\*.*?\*/', '', 'gs'),
+                     E'\n') AS l0
+              -- (2) o `--` ate o fim da linha — o que cobre TANTO a linha inteira
+              --     de comentario quanto o comentario de fim de linha de codigo
+              CROSS JOIN LATERAL (SELECT regexp_replace(l0, '--.*$', '')) AS c(l)) AS codigo
       FROM (VALUES
         ('anonimizar_candidato',   v_src_anon,  2),
         ('plano_exclusao_titular', v_src_plano, 1),
@@ -1919,7 +1940,7 @@ BEGIN
       FROM regexp_matches(r_jan.codigo, 'now\(\) - interval ''([^'']+)''', 'g') AS m;
 
     IF v_jan_n IS DISTINCT FROM r_jan.esperado THEN
-      RAISE EXCEPTION 'P45M FAIL (C3/janela): public.%() tem % janela(s) de expiracao NO CODIGO (esperado %). ⚠ A contagem e escopo DELIBERADO: o numero de predicados de autorizacao de cada funcao e fato de desenho — dois no motor (dry-run e destrutivo), um no plano (que nao tem caminho destrutivo), dois na varredura (itens e execucoes). Se o numero CAIU, um predicado perdeu a janela e a autorizacao dele voltou a ser standing (HI-03); se SUBIU, nasceu um predicado que ninguem justificou aqui. ⚠ Esta contagem le CODIGO: as linhas de comentario sao removidas antes de casar, porque a versao anterior deste portao lia a primeira ocorrencia de prosrc — que nos tres corpos era PROSA — e ficava verde com o codigo real em qualquer valor (RD3-01)',
+      RAISE EXCEPTION 'P45M FAIL (C3/janela): public.%() tem % janela(s) de expiracao NO CODIGO (esperado %). ⚠ A contagem e escopo DELIBERADO: o numero de predicados de autorizacao de cada funcao e fato de desenho — dois no motor (dry-run e destrutivo), um no plano (que nao tem caminho destrutivo), dois na varredura (itens e execucoes). Se o numero CAIU, um predicado perdeu a janela e a autorizacao dele voltou a ser standing (HI-03); se SUBIU, nasceu um predicado que ninguem justificou aqui. ⚠ Esta contagem le CODIGO: as TRES formas de comentario sao removidas antes de casar — bloco /* */ (inclusive multi-linha), linha inteira iniciada por -- e comentario de FIM DE LINHA. A 1a versao deste portao lia a primeira ocorrencia de prosrc, que nos tres corpos era PROSA, e ficava verde com o codigo real em qualquer valor (RD3-01); a 2a descartava so a linha inteira, e plano_exclusao_titular tem blocos /** */ dentro do corpo pinado, entao a janela ainda podia ser trocada com o portao verde (RD4-01, demonstrado por mutacao)',
         r_jan.nome, v_jan_n, r_jan.esperado;
     END IF;
 
