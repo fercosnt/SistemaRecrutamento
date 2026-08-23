@@ -38,6 +38,12 @@ import {
 } from 'lucide-react'
 import { RodapePublico } from '@/features/transparencia'
 import { useVaga, useHasApplied } from '@/features/vagas/hooks'
+import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
+import { isUuid } from '@/features/vagas/utils/isUuid'
+import { useAuthStore } from '@/store/authStore'
+import { toast } from 'sonner'
+import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes'
+import { TextoRico } from '@/features/vagas/components/TextoRico'
 
 /**
  * Superfície de LEITURA — sólida e clara, deliberadamente diferente do vidro.
@@ -57,62 +63,6 @@ function SuperficieLeitura({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-
-/**
- * Corpo de texto de vaga.
- *
- * Duas coisas que o `whitespace-pre-line` num `<p>` único não fazia:
- *
- * 1. **Parágrafos de verdade.** O texto vinha do banco com linhas em branco
- *    separando blocos, mas tudo dentro de UM `<p>` — visualmente um paredão. Aqui
- *    cada bloco vira seu próprio `<p>`, com espaço entre eles.
- * 2. **Largura de linha legível.** Sem limite, a linha ia a ~95 caracteres; o
- *    confortável para leitura contínua é 60–75. `max-w-[68ch]` segura isso sem
- *    depender da largura da janela.
- *
- * ⚠ Rótulos em negrito (o «Captação e primeiro contato.» do PDF) NÃO são tratados
- * aqui: exigiriam interpretar markdown, que é dependência nova e decisão do operador.
- * Enquanto isso eles aparecem como início de parágrafo — legível, só não destacado.
- *
- * ⚠ **Aceita `string` E `string[]`, e isso não é defensividade decorativa.** O schema
- * do banco declara `text` nos quatro campos, mas os mocks do repositório passam
- * ARRAY em `responsabilidades`, `diferenciais` e `beneficios` e STRING em
- * `sobre_cargo` — divergência real, anterior a esta tela, que o `rodapeMontagem`
- * pegou em 2026-08-23. O código antigo sobrevivia por acidente: `whitespace-pre-line`
- * sobre um array renderiza os itens grudados sem separador. Tratar só um dos dois
- * formatos quebraria em produção ou nos testes, dependendo de qual eu escolhesse.
- */
-function TextoVaga({
-  texto,
-  className = '',
-}: {
-  texto: string | string[] | null | undefined
-  className?: string
-}) {
-  const bruto = Array.isArray(texto) ? texto.filter(Boolean).join('\n\n') : (texto ?? '')
-
-  const paragrafos = bruto
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-
-  if (paragrafos.length === 0) return null
-
-  return (
-    <div className={`max-w-[68ch] space-y-4 ${className}`}>
-      {paragrafos.map((p, i) => (
-        <p key={i} className="whitespace-pre-line leading-relaxed text-slate-700">
-          {p}
-        </p>
-      ))}
-    </div>
-  )
-}
-import { useVagaBySlug } from '@/features/vagas/hooks/useVagas'
-import { isUuid } from '@/features/vagas/utils/isUuid'
-import { useAuthStore } from '@/store/authStore'
-import { toast } from 'sonner'
-import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes'
 
 /**
  * Phase 4 / D-03 — 404 state component (inline).
@@ -415,7 +365,7 @@ export function VagaDetalhePage() {
                         <h3 className="mb-3 text-lg font-bold text-slate-900">
                           Sobre o cargo
                         </h3>
-                        <TextoVaga texto={vaga.sobre_cargo} />
+                        <TextoRico texto={vaga.sobre_cargo} />
                       </div>
                     )}
                   </SuperficieLeitura>
@@ -427,7 +377,7 @@ export function VagaDetalhePage() {
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Responsabilidades</h2>
                   <SuperficieLeitura>
-                    <TextoVaga texto={vaga.responsabilidades} />
+                    <TextoRico texto={vaga.responsabilidades} />
                   </SuperficieLeitura>
                 </div>
               )}
@@ -494,7 +444,7 @@ export function VagaDetalhePage() {
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Diferenciais</h2>
                   <SuperficieLeitura>
-                    <TextoVaga texto={vaga.diferenciais} />
+                    <TextoRico texto={vaga.diferenciais} />
                   </SuperficieLeitura>
                 </div>
               )}
@@ -504,7 +454,7 @@ export function VagaDetalhePage() {
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Benefícios</h2>
                   <SuperficieLeitura>
-                    <TextoVaga texto={vaga.beneficios} />
+                    <TextoRico texto={vaga.beneficios} />
                   </SuperficieLeitura>
                 </div>
               )}
