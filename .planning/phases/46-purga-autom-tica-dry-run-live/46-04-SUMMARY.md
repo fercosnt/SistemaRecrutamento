@@ -26,9 +26,9 @@ provides:
 affects: [46-05, 46-06, 46-07]
 
 actuals:
-  tokens: 84000
+  tokens: 112000
   tasks: 4
-  commits: 7
+  commits: 9
 
 tech-stack:
   added: []
@@ -83,11 +83,20 @@ separadamente, sobre estado idêntico, mudando só a intenção.
 ⚠ **NADA FOI APLICADO.** **Quatro** arquivos de migration escritos e commitados, dois smokes
 emendados. O apply é da Task 4 e pertence ao orquestrador.
 
-⛔ **O code review bloqueante REPROVOU a primeira rodada** — 2 BLOCKER, 4 HIGH, 4 MEDIUM, 2 LOW — e
-encontrou **dois defeitos que teriam ido a produção**: um que derrubaria o direito de exclusão do
-titular no instante do apply, e outro que abria uma janela em que qualquer usuário logado destruiria
-um titular fora da ordem Storage → Postgres → Auth. Os doze estão tratados; a §"Code review
-bloqueante" é a leitura obrigatória, e **uma nova rodada de review precede o apply**.
+⛔ **DUAS rodadas de code review bloqueante.** A rodada 1 reprovou com **2 BLOCKER, 4 HIGH, 4 MEDIUM,
+2 LOW** e encontrou dois defeitos que teriam ido a produção: um que derrubaria o direito de exclusão
+do titular no instante do apply, e outro que abria uma janela em que qualquer usuário logado
+destruiria um titular fora da ordem Storage → Postgres → Auth. A rodada 2 fechou os dois BLOCKERs
+**por verificação mecânica** (ACL final simulado, md5 recalculados) e achou **três HIGH novos, dois
+deles introduzidos pelo próprio conserto** — inclusive uma reconciliação que **mentiria sobre um ato
+irreversível** e uma asserção de segurança que só provava recusa. **21 achados no total, todos
+tratados.**
+
+⭐ **A lição estrutural das duas rodadas:** os dois BLOCKERs da rodada 1 passaram porque eu tinha
+escrito, no próprio arquivo, um argumento que os justificava — *"ordem de aplicação do repositório"*
+e *"se e somente se"*. **Prosa que afirma uma propriedade não é a propriedade.** E a rodada 2 mostrou
+o corolário: dois dos três HIGH novos nasceram do conserto, ou seja **um conserto de segurança é
+código novo e merece o mesmo ceticismo que o defeito que ele corrige**.
 
 ⛔ **E este plano descobriu — e fechou — um segundo blocker que D-46-18 não previu.** O motor delega
 a `plano_exclusao_titular`, que tinha guard próprio recusando chamador sem sessão: o 4º ramo
@@ -105,10 +114,12 @@ B-03**) é o que torna a correção suficiente em vez de "o próximo nível a de
 | — | SUMMARY + STATE + ROADMAP + WINDOWS (checkpoint B-02) | `7c3b4f4` |
 | 3b | **B-02 / Saída A** — o 3º ramo do plano + (p) + 2º re-pin | `0a8e22b` |
 | — | Escrituração do fechamento de B-02 | `fa9e7ea` |
-| **4a** | ⛔ **Consertos do code review** — 2 BLOCKER, 4 HIGH, 3 MEDIUM, 2 LOW | `6029f94` |
-| — | Escrituração do review | `<este commit>` |
+| **4a** | ⛔ **Consertos da rodada 1** — 2 BLOCKER, 4 HIGH, 3 MEDIUM, 2 LOW | `6029f94` |
+| — | Escrituração da rodada 1 + `46-REVIEW.md` | `16e00e9`, `0137f25` |
+| **4b** | ⛔ **Consertos da rodada 2** — 3 HIGH, 3 MEDIUM, 3 LOW | `381e16a` |
+| — | Escrituração da rodada 2 | `<este commit>` |
 
-Zero `--no-verify`: o hook de type-check rodou nos sete commits e reportou **96 erros — o baseline
+Zero `--no-verify`: o hook de type-check rodou nos nove commits e reportou **96 erros — o baseline
 congelado**, inalterado.
 
 ## Task 1 — a decisão, e por que ela não foi perguntada de novo
@@ -388,6 +399,101 @@ asserções seguintes passarem por PAPEL em vez de pelo ramo da purga.
 | **LO-01** | **Feito** — referência `46-04` → `46-06` corrigida |
 | **LO-02** | **Feito** — as duas linhas superadas deste SUMMARY corrigidas |
 
+## ⛔ Rodada 2 — os dois BLOCKERs fecharam, e o conserto trouxe três HIGH novos
+
+A rodada 2 verificou **mecanicamente**, não por leitura de cabeçalho: simulou o ACL final das quatro
+migrations (`{postgres, service_role, authenticated}` nas duas funções — idêntico ao vivo), recalculou
+os dois md5 byte a byte, e **inventariou as sete chamadas** que exercitavam o 4º ramo. Foi o
+inventário que produziu o achado mais grave.
+
+### RD2-02 — a metade destrutiva nunca foi provada capaz de AUTORIZAR *(o mais grave)*
+
+Das sete chamadas, **nenhuma tinha `v_purga_live = TRUE`.** Eu provei que o ramo **recusa** — quatro
+vezes, com diagnósticos precisos — e nunca que ele **autoriza**.
+
+Duas consequências, e a segunda é pior que a primeira:
+
+1. Se alguém quebrasse `v_purga_live` amanhã (`= 'live '` com espaço, `e.modo_vigente` trocado por
+   `cp.modo`, um `AND` a mais), **todo o portão continuaria verde** e a descoberta chegaria no dia do
+   flip `dry_run → live`, com o cron devolvendo `42501` em 100% dos titulares.
+2. `(o.6)` — a asserção que eu tinha acabado de escrever para tornar o BL-02 observável — concluía
+   *"o guard recusou **porque o chamador tem sessão**"*, mas media apenas *"o guard recusou"*. Se o
+   estado montado deixasse de valer, ela ficaria **verde com o BL-02 de volta**.
+
+⭐ **É a lição de vacuidade desta fase aplicada ao próprio conserto de segurança**, e é o *modo de
+falha nº 3 dos sete portões da Phase 45* — o mesmo que este arquivo já invocava para justificar
+`(o.2b)`. **Corrigido** com `(o.7)`: mesmo estado, sessão NULA, intenção destrutiva → tem de
+**autorizar** (`P0002` sobre o alvo sintético). O par converte "recusou" em "recusou por este motivo".
+
+### RD2-01 — a reconciliação mentiria sobre um ato irreversível
+
+Ela carimbava `desfecho_postgres = 'falha'` **incondicionalmente**. Se a EF concluísse o Postgres e
+morresse antes de fechar o item, o ledger passaria a **afirmar que a anonimização falhou** — sobre um
+ato que aconteceu e não tem volta. E `purga_execucao_itens` é, por D-46-16, **registro de cumprimento
+de obrigação legal com retenção indefinida**; com PITR desligado, não existe segunda fonte para
+desmentir.
+
+Este arquivo já tinha escrito que *"dizer `ok` aqui seria a mentira mais cara possível"*. **A mentira
+simétrica custa o mesmo.**
+
+**Corrigido com três regras diferentes, e a diferença é epistêmica:**
+
+| Coluna | Regra | Por quê |
+|---|---|---|
+| qualquer, **já carimbada** | **PRESERVADA** | descreve um ato que alguém observou; reescrevê-la é falsificar |
+| `desfecho_postgres` pendente | **INFERIDO** da sentinela do CR-06 | o tombstone é **uma** transação: ou a sentinela está na linha de `candidatos` (aconteceu → `ok`) ou não está (não aconteceu → `falha`). **Inferir do próprio banco em vez de presumir** |
+| `desfecho_storage` / `_auth` pendentes | **`desconhecido`** | a SONDA 2 mediu que `storage.objects` não tem FK para `auth.users`, e o Auth vive fora do banco. `falha` afirmaria que não aconteceu; `nao_aplicavel`, que não havia o que fazer — **as duas são asserções sobre um fato que ninguém observou** |
+
+⚠ `desconhecido` **não existia no vocabulário**. `20260823000009` alarga os três `CHECK` — alargar
+nunca falha por dado. **Um campo que diz "eu não sei" é estritamente mais honesto que um que afirma
+errado**, e a migration existe só para tornar essa frase exprimível.
+
+### RD2-03 — a janela de 1 h criou uma obrigação nova sobre o 46-06 *(registrada, não consertada aqui)*
+
+A janela é **folgada** — 24× o teto de parede de 150 s da EF, com um post por titular. O risco não é
+a duração: é a **latência de entrega**. As tabelas do `pg_net` são `UNLOGGED` com **TTL de ~6 h**, e a
+EF **começa pelo Storage, que não tem guard nenhum**.
+
+```
+post entregue 70 min depois → EF apaga o CV no Storage
+                            → chama o motor → 42501 (janela venceu)
+                            → Storage apagado, Postgres intacto
+```
+
+Currículo órfão e irrecuperável. ⚠ **Antes do 46-04 esse cenário não existia** — a autorização não
+expirava. A janela continua sendo a troca certa (a alternativa era autorização destrutiva *standing*,
+recusada por D-46-18), mas ela **desloca** o risco para um ponto que o 46-06 não sabia que tinha de
+cobrir.
+
+**Registrado como obrigação de aceite no topo do `46-06-PLAN.md`**, com a ordem de operações da EF
+nomeada e o critério mensurável: no teste, um caso em que a sonda devolve `42501` prova que **zero**
+chamada de Storage aconteceu — não "que a EF retornou erro". *A diferença entre as duas é um
+currículo.*
+
+### Os demais
+
+| ID | Decisão |
+|---|---|
+| **RD2-04** | `iniciada_em` entrou na lista de colunas do bloco que aborta — **quem escreve essa coluna RENOVA a janela**, desfazendo HI-03 sem nenhum portão falar. O bloco diz de si mesmo que declarar leitura nova é obrigação de quem a escreve; eu tinha violado a regra escrita no próprio bloco |
+| **RD2-05** | Reconciliação movida para **depois** do kill switch. Cenário quebrado: um operador aciona `off` **para congelar** uma execução travada e investigá-la, e a varredura seguinte a abortava — apagando o cenário. `off` voltou a significar *"esta execução só escreve o heartbeat"* |
+| **RD2-06** | **(C3/janela)** mede o **VALOR** das três janelas, não a existência. O código reconhecia o problema e escolhia conviver numa frase de comentário — **uma frase não é um mecanismo**, e é a mesma aposta que produziu BL-01 |
+| **RD2-07** | Escopo honesto escrito **dentro do corpo**, no `COMMENT` e no cabeçalho. ⚠ Ver a nota sobre o 3º re-pin |
+| **RD2-08 / 09 / 10** | Papel ofensor nomeado na mensagem; comentário órfão removido; não-vacuidade re-medida para a 2ª perna de `(o.6)` |
+
+### ⚠ Por que aceitei um TERCEIRO re-pin quando o revisor oferecia evitá-lo
+
+O revisor foi explícito: escrever RD2-07 **fora** do corpo (só no `COMMENT` e no cabeçalho) manteria
+`md5(prosrc)` estável e pouparia o re-pin. **Escrevi dentro do corpo assim mesmo.**
+
+A razão é o próprio defeito: RD2-07 existe porque *"quem ler `…006:310-312` daqui a seis meses vai
+entender que apenas o cron passa, e essa é a premissa falsa a partir da qual o próximo BL-01 é
+escrito"*. **A frase errada está a três linhas do predicado** — é ali que o leitor lê. Corrigi-la em
+dois outros lugares e deixá-la intacta no lugar que importa é literalmente a forma do BL-01: prose
+num lugar contradizendo a verdade no outro.
+
+O re-pin é um custo mecânico que eu pago com precisão e que o histórico torna auditável. Uma frase
+errada dentro de um guard destrutivo não tem esse preço.
+
 ## Deviations from Plan
 
 ### [Rule 1 - Bug] O plano mandava inserir o item DEPOIS da chamada — e isso faria TODA chamada receber 42501
@@ -478,10 +584,15 @@ com essas palavras — a coluna que importa num histórico de pins não é "quai
 estiveram aplicados"**. Um pin que aparece e some sem explicação é indistinguível de um pin trocado
 às escondidas.
 
-| Função | Lado ARQUIVO (vigente) | Octetos | Intermediário (nunca aplicado) | Anterior (vigorou em PROD) | VIVO |
+| Função | Lado ARQUIVO (vigente) | Octetos | Intermediários (nunca aplicados) | Anterior (vigorou em PROD) | VIVO |
 |---|---|---|---|---|---|
-| `anonimizar_candidato` (`…006`) | **`4765cc68f83efb48494f0a78002dce06`** | **46 245** | `35d1df5d…` (43 532) | `8c86e0f0…` (34 488) | ⏸ orquestrador |
-| `plano_exclusao_titular` (`…008`) | **`12621ce84ec31c566b691fea280d3df2`** | **26 908** | `3f6007b8…` (26 108) | `97634d07…` (21 349) | ⏸ orquestrador |
+| `anonimizar_candidato` (`…006`) | **`5209239f191aa15b1725b726b00eb4cd`** | **47 549** | `35d1df5d…` (r1) · `4765cc68…` (r2) | `8c86e0f0…` (34 488) | ⏸ orquestrador |
+| `plano_exclusao_titular` (`…008`) | **`42f916d81cd274b28044a410ae57a237`** | **27 392** | `3f6007b8…` (r1) · `12621ce8…` (r2) | `97634d07…` (21 349) | ⏸ orquestrador |
+
+**Três re-pins no mesmo dia, e nenhum foi silencioso:** o plano escreveu os corpos e duas rodadas de
+review os corrigiram **antes de qualquer apply**. Os quatro valores intermediários estão no bloco de
+PROVENIÊNCIA marcados **"NUNCA VIGOROU EM PROD"** — a coluna que importa num histórico de pins não é
+"quais existiram", é **"quais estiveram aplicados"**.
 
 Os lados ARQUIVO foram medidos **por execução** do comando registrado no bloco de PROVENIÊNCIA —
 nunca digitados.
@@ -657,7 +768,7 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | (b) prova as três coisas juntas | ✅ relato não nulo · marca do terminador · contagens por passo · ⊖ domínio · ⊖ desfechos |
 | (o) tem 4 recusas + 2 aceitações | ✅ **4** `42501` · **1** `P0002` · **1** `P45DR` |
 | ⊖ (o) não pode destruir | ✅ alvo das negativas é um uuid **inexistente**, e a inexistência é asserida |
-| Pin de (C3) mudou, 32 hex, antigo preservado | ✅ `4765cc68f83efb48494f0a78002dce06`, 46 245 octetos |
+| Pin de (C3) mudou, 32 hex, antigos preservados | ✅ `5209239f191aa15b1725b726b00eb4cd`, 47 549 octetos |
 | ⊖ (C3) NÃO afrouxada | ✅ rede de **2 → 3** metades, `IS DISTINCT FROM` preservado, nenhuma checagem removida |
 | Contador do `p45_motor_exclusao_smoke` | ✅ **24** — inalterado (as checagens entraram no bloco existente) |
 | RESUMO (z) do `p46_purga_smoke` 11 → 13 | ✅ **13** incrementos, `v_esperado = 13` |
@@ -676,12 +787,19 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | ⊖ Zero `modo IN (...)` compartilhado nas **três** migrations | ✅ **0 / 0 / 0** |
 | ⊖ Zero negação por conjunto em SQL puro nas **três** | ✅ **0 / 0 / 0** |
 | ⊖ Zero `vault` e zero `net.http_post` em SQL puro nas **três** | ✅ **0 / 0** |
-| Pin do plano mudou, 32 hex, antigo preservado | ✅ `12621ce84ec31c566b691fea280d3df2`, 26 908 octetos |
+| Pin do plano mudou, 32 hex, antigos preservados | ✅ `42f916d81cd274b28044a410ae57a237`, 27 392 octetos |
 | (C3) de 2 → **4** metades, nenhuma removida | ✅ (iii) motor + (iv) plano, mais as checagens de LIGACAO do ME-04 |
 | (p) com 3 casos + ⊖ zero PII no jsonb | ✅ |
-| RESUMO (z) do `p46_purga_smoke` 11 → **15** | ✅ **15** incrementos, `v_esperado = 15` |
+| RESUMO (z) do `p46_purga_smoke` 11 → **16** | ✅ **16** incrementos, `v_esperado = 16` |
+| ⭐ (o.7) — a metade DESTRUTIVA provada capaz de AUTORIZAR | ✅ o par de (o.6); sem ele `v_purga_live = TRUE` não era provado em lugar nenhum |
+| Reconciliação preserva desfecho carimbado · infere Postgres · `desconhecido` em Storage/Auth | ✅ RD2-01 |
+| Reconciliação roda **depois** do kill switch | ✅ RD2-05 — `off` só escreve heartbeat |
+| As TRÊS janelas medidas pelo VALOR | ✅ **`1 hour`** nos três corpos, aferido por (C3/janela) |
+| `iniciada_em` na lista de colunas do bloco que aborta | ✅ RD2-04 |
+| RD2-03 registrado onde o 46-06 vai ler | ✅ topo do `46-06-PLAN.md`, com critério mensurável |
 | ⭐ (C2) conferida contra os dois ramos novos | ✅ usa `gen_random_uuid()` sem item de ledger — **continua mordendo em 10**, sem emenda |
 | ⛔ **Nada aplicado em PROD** | ✅ **por desenho** — o apply é do orquestrador, Task 4 |
+| Ordem de apply | ✅ **`006 → 008 → 009 → 007`** nos quatro cabeçalhos (a `009` precede a `007` porque a reconciliação escreve `desconhecido`) |
 | ⛔ **B-02: levantado como Rule 4, aprovado, e FECHADO** | ✅ Saída A + varredura que prova que não há B-03 |
 
 ## Self-Check: PASSED

@@ -559,7 +559,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 46 — plano 04 com 4 migrations escritas; code review REPROVOU a 1a rodada (2 BLOCKER incl. DI-45-10-01 reintroduzido e CR-01 cen.2 reaberto) e os 12 achados estao consertados. Aguardando NOVA rodada de review + apply na ordem 006->008->007->009. Planos 05, 06 e 07 pendentes
+Status: Executing Phase 46 — plano 04 com 4 migrations escritas; DUAS rodadas de code review (r1: 2 BLOCKER + 10; r2: os BLOCKERs fecharam e vieram 9 novos, 2 deles causados pelo proprio conserto). 21 achados tratados. Aguardando diff-check dirigido + apply na ordem 006->008->009->007. Planos 05, 06 e 07 pendentes
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
