@@ -226,8 +226,8 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 12621ce84ec31c566b691fea280d3df2   (plano_exclusao_titular — octetos: 26908)
---   valor  : 4765cc68f83efb48494f0a78002dce06   (anonimizar_candidato   — octetos: 46245)
+--   valor  : 42f916d81cd274b28044a410ae57a237   (plano_exclusao_titular — octetos: 27392)
+--   valor  : 5209239f191aa15b1725b726b00eb4cd   (anonimizar_candidato   — octetos: 47549)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
 --            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04 —
@@ -265,6 +265,18 @@
 --    A migration `20260823000008` (Saida A, decisao do operador de 2026-08-22)
 --    acrescenta o TERCEIRO ramo, nas DUAS metades — porque para um titular REAL a
 --    metade (b) tambem recusaria (`<uuid> IS DISTINCT FROM NULL` e TRUE).
+--
+-- ⚠⚠ POR QUE OS DOIS PINS FORAM RE-CARIMBADOS **TRES** VEZES NO MESMO DIA, e a
+--    explicacao importa mais que os numeros: o plano 46-04 escreveu os corpos, e
+--    DUAS rodadas de code review bloqueante os corrigiram ANTES de qualquer apply.
+--    A rodada 1 achou dois BLOCKERs (um revogava de `authenticated` o EXECUTE vivo
+--    e derrubaria o direito de exclusao do titular; o outro deixava o 4o ramo sem
+--    correlacao com o CHAMADOR). A rodada 2 pediu, entre outros, o ESCOPO HONESTO
+--    do ramo escrito DENTRO do corpo — e foi essa escolha que mudou o md5 pela
+--    terceira vez. **Escrever a correcao fora do corpo teria poupado o re-pin e
+--    deixado a frase errada exatamente onde o proximo leitor a le**, que e a forma
+--    do defeito que o BL-01 ja custou uma vez. O re-pin foi o preco, e ele e
+--    barato perto disso.
 --    ⚠ O CORPO ANTIGO FOI CONFERIDO ANTES DA EDICAO: extraido do arquivo
 --    `20260805000005`, deu exatamente `97634d07ef13447e06741a8c8372fca6` / 21 349
 --    octetos — o pin que vigorava e o `md5(prosrc)` vivo.
@@ -282,15 +294,23 @@
 --       2026-08-23. **VIGOROU EM PROD**, inclusive durante a execucao do motor de
 --       2026-08-22. E o valor contra o qual o corpo copiado foi conferido.
 --     · 35d1df5d8a3739854e97dd7cbd0d600e (43 532 octetos) — 2026-08-23, algumas
---       horas. **NUNCA VIGOROU EM PROD**: foi escrito pelo plano 46-04 e
---       SUPERADO ANTES DE QUALQUER APPLY pelos consertos do `46-REVIEW.md`
---       (BL-01, BL-02, HI-02, HI-03). Registrado porque um pin que aparece e
---       some sem explicacao e indistinguivel de um pin trocado as escondidas.
+--       horas. **NUNCA VIGOROU EM PROD**: escrito pelo plano 46-04 e SUPERADO
+--       ANTES DE QUALQUER APPLY pela rodada 1 do `46-REVIEW.md` (BL-01, BL-02,
+--       HI-02, HI-03).
+--     · 4765cc68f83efb48494f0a78002dce06 (46 245 octetos) — 2026-08-23, algumas
+--       horas. **NUNCA VIGOROU EM PROD**: superado pela rodada 2 (RD2-07, o
+--       escopo honesto do ramo escrito DENTRO do corpo).
+--       ⚠ Registrar os dois e deliberado: um pin que aparece e some sem
+--       explicacao e indistinguivel de um pin trocado as escondidas, e o valor
+--       deste historico esta justamente em distinguir "existiu no repositorio"
+--       de "esteve APLICADO no banco".
 --     `plano_exclusao_titular`:
 --     · 97634d07ef13447e06741a8c8372fca6 (21 349 octetos) — 2026-08-13 a
 --       2026-08-23. **VIGOROU EM PROD**, na mesma execucao.
 --     · 3f6007b85f61d9d58548f560794e50b0 (26 108 octetos) — 2026-08-23, algumas
---       horas. **NUNCA VIGOROU EM PROD**, pela mesma razao.
+--       horas. **NUNCA VIGOROU EM PROD**, superado pela rodada 1.
+--     · 12621ce84ec31c566b691fea280d3df2 (26 908 octetos) — 2026-08-23, algumas
+--       horas. **NUNCA VIGOROU EM PROD**, superado pela rodada 2 (RD2-07).
 --
 --   medido : os DOIS re-pinados em 2026-08-23, POR EXECUCAO (nao transcrito, nao
 --            inventado), com conferencia CRUZADA vivo x arquivo.
@@ -1678,8 +1698,8 @@ DECLARE
   --   migration 20260823000006 acrescentou o quarto ramo do guard. Re-pinar sem
   --   que a migration tenha mudado FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e
   --   ato consciente e revisavel.
-  v_pin_plano text := '12621ce84ec31c566b691fea280d3df2';
-  v_pin_anon  text := '4765cc68f83efb48494f0a78002dce06';
+  v_pin_plano text := '42f916d81cd274b28044a410ae57a237';
+  v_pin_anon  text := '5209239f191aa15b1725b726b00eb4cd';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -1704,6 +1724,11 @@ DECLARE
   v_tem_semsess boolean;
   -- HI-03 · a autorizacao EXPIRA
   v_tem_janela  boolean;
+  -- RD2-06 · e as TRES janelas TEM de ser o MESMO intervalo, medido pelo VALOR
+  v_jan_anon    text;
+  v_jan_plano   text;
+  v_jan_sweep   text;
+  v_src_sweep   text;
   -- ── 46-04 / B-02 · a mesma rede sobre a SEGUNDA funcao ────────────────────
   -- Sem estas, o re-pin de `plano_exclusao_titular` seria um numero novo sem
   -- nenhuma exigencia de forma atras dele — e foi justamente o guard DELA que
@@ -1842,8 +1867,41 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/iv): o corpo vivo de plano_exclusao_titular usa negacao por PERTENCIMENTO A CONJUNTO DE VALORES. Com um dos lados NULL essa forma avalia NULL, o IF nao e tomado e o guard FALHA ABERTO — defeito REAL medido na 42-06. Toda verificacao de estado tem de ser EXISTS correlacionado, e toda comparacao de papel IS DISTINCT FROM';
   END IF;
 
+  -- ── (C3/janela) RD2-06 · AS TRES JANELAS TEM DE SER O MESMO INTERVALO ────
+  -- ⚠⚠ AS CHECAGENS DE HI-03 ACIMA MEDEM A **EXISTENCIA** DA JANELA, NUNCA O
+  --   **VALOR**: a regex `now() - interval` casa com '1 hour', '10 minutes' e
+  --   '30 days' sem distinguir. E o literal esta repetido em CINCO lugares, em
+  --   TRES arquivos. O proprio codigo reconhecia o problema e escolhia conviver
+  --   com ele numa frase de comentario — "o par tem de ser alterado junto, e esta
+  --   frase existe para que a proxima pessoa saiba disso". **Uma frase num
+  --   comentario nao e um mecanismo**; e a mesma aposta que produziu o BL-01,
+  --   onde o argumento escrito estava errado e ninguem conferiu.
+  -- ⚠ E a consequencia da divergencia esta escrita na propria frase: um intervalo
+  --   em que o item AINDA autoriza a destruicao e a varredura JA o considera
+  --   orfao — ou o contrario, um item que a varredura fecha enquanto o guard
+  --   ainda o aceita. Este bloco troca a frase por um portao.
+  SELECT p.prosrc INTO v_src_sweep
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'varrer_purga_retencao';
+
+  IF v_src_sweep IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/janela): public.varrer_purga_retencao() nao existe — a janela da reconciliacao nao tem onde ser medida, e a metade do conserto de HI-03 que fecha os itens orfaos nao esta aplicada';
+  END IF;
+
+  v_jan_anon  := substring(v_src_anon  from 'now\(\) - interval ''([^'']+)''');
+  v_jan_plano := substring(v_src_plano from 'now\(\) - interval ''([^'']+)''');
+  v_jan_sweep := substring(v_src_sweep from 'now\(\) - interval ''([^'']+)''');
+
+  IF v_jan_anon IS NULL OR v_jan_plano IS NULL OR v_jan_sweep IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/janela): ⊖ NAO-VACUIDADE — nao foi possivel extrair a janela de um dos tres corpos (guard=[%], plano=[%], varredura=[%]). Uma comparacao entre valores que nao foram extraidos passaria por NULL e o portao ficaria verde sem ter comparado nada', coalesce(v_jan_anon,'<nulo>'), coalesce(v_jan_plano,'<nulo>'), coalesce(v_jan_sweep,'<nulo>');
+  END IF;
+
+  IF v_jan_anon IS DISTINCT FROM v_jan_plano OR v_jan_anon IS DISTINCT FROM v_jan_sweep THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/janela): as TRES janelas DIVERGIRAM (guard=[%], plano=[%], varredura=[%]). Existe agora um intervalo em que o item AINDA autoriza a destruicao e a varredura JA o considera orfao, ou o contrario — e nenhum dos dois lados sabe disso. O literal vive em cinco lugares e em tres arquivos: alterar um sem os outros e exatamente o que este portao existe para tornar impossivel (RD2-06)', v_jan_anon, v_jan_plano, v_jan_sweep;
+  END IF;
+
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto)', v_md5_plano, v_md5_anon;
+  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); e as TRES janelas de expiracao batem em [%]', v_md5_plano, v_md5_anon, v_jan_anon;
 END
 $c3$;
 

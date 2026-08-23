@@ -173,13 +173,17 @@
 -- -----------------------------------------------------------------------------
 -- (4) ORDEM DE ENTREGA + QUAL SMOKE E O CONTRATO
 -- -----------------------------------------------------------------------------
--- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 007`** (HI-01 do
--- `46-REVIEW.md`; a ordem declarada antes estava ERRADA):
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 009 -> 007`**:
 --   1o  20260823000001..5  (config, ledger, predicado, varredura, hold+excecoes)
 --   2o  20260823000006     (o 4o ramo do MOTOR + o bloco que ABORTA o apply)
 --   3o  20260823000008     (o 3o ramo do PLANO — Blocker B-02)
---   4o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
---   5o  20260823000009     (o CHECK de dominio em purga_execucoes.modo_vigente)
+--   4o  20260823000009     (os dominios: modo_vigente, e `desconhecido` nos desfechos)
+--   5o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--
+-- ⚠ POR QUE `009` VEM ANTES DE `007`, e a razao mudou na rodada 2 do review: a
+-- reconciliacao de `007` ESCREVE `desfecho_* = 'desconhecido'` (RD2-01), e esse
+-- valor so passa a ser aceito pelos `CHECK` depois de `009`. Aplicar `007` antes
+-- faria a primeira reconciliacao abortar com 23514.
 --
 -- ⚠ POR QUE `008` VEM ANTES DE `007`, e a razao e a cadeia de chamadas: `007`
 -- chama o MOTOR, e o motor chama `plano_exclusao_titular` no PASSO 0. Sem `008`
@@ -345,8 +349,14 @@ BEGIN
   --   era propriedade apenas do alvo e do cerco, e nao mencionava o chamador:
   --   qualquer usuario logado que alcancasse a funcao pelo `GRANT` a
   --   `authenticated` leria as contagens de PII de um titular so por ele estar
-  --   sendo processado pela purga. O ramo existe para autorizar O CRON, e o cron
-  --   se caracteriza por nao ter sessao.
+  --   sendo processado pela purga.
+  -- ⚠⚠ ESCOPO HONESTO (RD2-07): `v_uid IS NULL` nao seleciona "o cron" — seleciona
+  --   TODO chamador sem sessao de usuario, o que na pratica e `service_role` (o
+  --   cron, a EF `purgar-retencao`, um script, o MCP). Isso NAO e escalacao:
+  --   `service_role` bypassa RLS, ja tem DML irrestrito sobre tudo o que o motor
+  --   toca, e pode ate FABRICAR o item que autoriza. O ramo nao lhe da capacidade
+  --   nova; muda so a porta. O que ele NAO faz e autorizar papel de CLIENTE sem
+  --   sessao — `authenticated` sempre traz `sub`, e `anon` esta revogado.
   -- ⚠⚠ `e.iniciada_em > now() - interval '1 hour'` — CONSERTO DO HI-03: a
   --   autorizacao EXPIRA. Uma Edge Function que morre deixaria item aberto e
   --   execucao `executando` indefinidamente, e sem este limite a leitura ficaria
@@ -791,6 +801,11 @@ COMMENT ON FUNCTION public.plano_exclusao_titular(uuid) IS
   'razao de a funcao autorizar — codigo morto dentro de um guard, que e o P39/CR-02 literal. A '
   'obrigacao de metades fisicamente distintas de D-46-24 vale onde HA duas metades, e la ela esta '
   'cumprida: 20260823000006, secao (p.2), no caminho que de fato destroi. '
+  '⚠⚠ ESCOPO HONESTO DO RAMO (RD2-07): v_uid IS NULL nao seleciona "o cron" e sim TODO chamador sem '
+  'sessao de usuario — na pratica service_role (o cron, a EF purgar-retencao, um script, o MCP). NAO '
+  'e escalacao: service_role bypassa RLS, ja tem DML irrestrito sobre tudo o que esta funcao conta, e '
+  'pode FABRICAR o item que autoriza. O ramo nao lhe da capacidade nova; muda so a porta. O que ele '
+  'NAO faz e autorizar papel de CLIENTE sem sessao. '
   '⚠ NAO HA B-03: a cadeia de chamadas com guard de sessao foi varrida inteira e '
   'anonimizar_candidato -> plano_exclusao_titular e o UNICO par; esta funcao nao chama mais nenhuma '
   'funcao guardada. E isso que torna a Saida A suficiente em vez de o proximo nivel a descobrir. '

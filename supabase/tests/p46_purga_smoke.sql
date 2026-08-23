@@ -15,9 +15,9 @@
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
 -- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); e o plano 46-04 acrescentou (b) e
--- (o), (o.6) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos
+-- (o), (o.6), (o.7) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos
 -- 46-05 a 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11,
--- agora é 15). Um arquivo por fase, e não um por plano: as asserções desta fase
+-- agora é 16). Um arquivo por fase, e não um por plano: as asserções desta fase
 -- leem umas o estado das outras.
 --
 -- -----------------------------------------------------------------------------
@@ -30,8 +30,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **15** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 15 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **16** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 16 e o RESUMO reprova ALTO.
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -118,7 +118,7 @@
 -- Um portão que reprova trabalho correto treina quem executa a desligá-lo.
 --
 -- -----------------------------------------------------------------------------
--- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (4). Doze são NEGATIVAS.
+-- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (5). Doze são NEGATIVAS e duas são ⊕ POSITIVAS.
 -- -----------------------------------------------------------------------------
 --   (h)     ⊖ O ledger não tem coluna de PII, aferido sobre o CATÁLOGO.
 --   (f)     ⊖ Kill switch provado por execução REAL com `modo = 'off'`.
@@ -132,6 +132,9 @@
 --   (o.6)   ⊖ **BL-02** — chamador COM SESSÃO (`rh` e `candidato`) NÃO entra pelo
 --           ramo da purga, mesmo com item aberto sob `live`. É o único bloco do
 --           arquivo que carimba claims, e ele as limpa em seguida.
+--   (o.7)   ⊕ **O PAR de (o.6)** — mesmo estado, sessão NULA: a metade DESTRUTIVA
+--           do 4º ramo **AUTORIZA**. Sem ela, (o.6) prova só que algo recusou, e
+--           `v_purga_live = TRUE` não seria provado em lugar nenhum.
 --   (p)     ⊖ O 3º ramo de `plano_exclusao_titular` (Blocker B-02) recusa sob
 --           `off` e SEM ALVO, aceita com item aberto, e o plano devolvido não
 --           carrega PII — medido na função que o motor CHAMA no PASSO 0.
@@ -144,7 +147,7 @@
 --   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
 --   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
 --           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
---   (z)     RESUMO — exige o total exato de 15 PASS.
+--   (z)     RESUMO — exige o total exato de 16 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -474,6 +477,9 @@ DECLARE
   v_o6_rh      text;
   v_o6_cand    text;
   v_o6_uid     bigint;
+  v_o6_uid2    bigint;   -- RD2-10: a 2a perna precisa da PROPRIA nao-vacuidade
+  -- (o.7) RD2-02 · o CONTROLE POSITIVO do par de (o.6)
+  v_o7_semsess text;
 
   -- (p) 46-04 / B-02 · o 3o ramo de `plano_exclusao_titular`, medido DIRETAMENTE.
   -- ⚠ Ela e medida em separado de (o) de proposito: (o) mede o guard do MOTOR, e o
@@ -1000,8 +1006,6 @@ BEGIN
       v_o_pos_st := SQLSTATE;
     END;
 
-    -- Fecha os dois itens de (o) para nao deixar vestigio para as leituras
-    -- seguintes deste envelope (redundante com o rollback; a redundancia e o ponto).
     -- ══ (o.6) BL-02 · ⊖ CHAMADOR **COM SESSAO** NAO ENTRA PELO RAMO DA PURGA ══
     -- ⚠⚠ E ESTE O CASO QUE O CODE REVIEW ENCONTROU E QUE NENHUMA ASSERCAO VIA.
     --   O 4o ramo era propriedade apenas do ALVO e do CERCO: nao mencionava o
@@ -1050,6 +1054,10 @@ BEGIN
       json_build_object('sub', gen_random_uuid()::text,
                         'app_metadata', json_build_object('role', 'candidato'))::text, false);
     PERFORM set_config('request.jwt.claim.sub', '', false);
+    -- ⚠ RD2-10: a nao-vacuidade e RE-MEDIDA para a segunda perna. Se a troca de
+    --   claims falhasse aqui, esta chamada rodaria com auth.uid() NULO — ou seja,
+    --   repetiria (o.2a) e passaria por VERDE medindo o caso errado.
+    SELECT count(*) INTO v_o6_uid2 FROM (SELECT auth.uid() AS u) s WHERE s.u IS NOT NULL;
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, false);
       v_o6_cand := 'SEM-EXCECAO';
@@ -1064,6 +1072,34 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', false);
     PERFORM set_config('request.jwt.claim.sub', '', false);
 
+    -- ══ (o.7) ⊕ CONTROLE POSITIVO DO PAR DE (o.6) — RD2-02 ═══════════════════
+    -- ⚠⚠ SEM ESTA CHAMADA, `v_purga_live = TRUE` NAO E PROVADO EM LUGAR NENHUM
+    --   DESTE ARQUIVO. O inventario das sete chamadas anteriores mostrou que a
+    --   metade DESTRUTIVA do 4o ramo — a que o 46-06 inteiro vai depender — so
+    --   aparecia em casos que RECUSAM. Provar so recusa e o **modo de falha no 3
+    --   dos sete portoes da Phase 45**, e e o mesmo argumento que este arquivo ja
+    --   usa para justificar (o.2b) na metade de dry-run.
+    --
+    -- ⚠ E O EFEITO SOBRE (o.6) E IMEDIATO: sem o par, (o.6) conclui "o guard
+    --   recusou", nunca "o guard recusou PORQUE o chamador tem sessao". Se o
+    --   estado montado acima deixasse de valer — o item nao reabrir, a execucao
+    --   sair de `executando`, alguem encostar na fixture —, (o.6) ficaria VERDE
+    --   com o BL-02 de volta. **O par positivo e o que converte "recusou" em
+    --   "recusou por este motivo".**
+    --
+    -- ESTADO: identico ao de (o.6) — cerco `live`, execucao `executando`/`live`,
+    -- item ABERTO para o alvo sintetico. Muda UMA coisa: a sessao acabou de ser
+    -- limpa. E tao seguro quanto (o.2b): o alvo nao existe em `candidatos`, entao
+    -- se o guard autoriza (o correto) o motor para em `P0002` sem mutar coluna.
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o7_semsess := 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o7_semsess := SQLSTATE;
+    END;
+
+    -- Teardown de (o): fecha o item sintetico e devolve o cerco a `dry_run`.
+    -- ⚠ `v_o_item_pos` (o de `pos1`) fica ABERTO DE PROPOSITO — (p.3) depende dele.
     UPDATE public.config_purga SET modo = 'dry_run';
     UPDATE public.purga_execucoes SET modo_vigente = 'dry_run' WHERE id = v_o_exec;
     UPDATE public.purga_execucao_itens SET concluido_em = pg_catalog.now() WHERE id = v_o_item;
@@ -1523,8 +1559,20 @@ BEGIN
     RAISE EXCEPTION 'P46P FAIL (o.6/candidato): ⛔ BL-02 DE VOLTA, pela porta do titular ALHEIO. Um chamador com papel candidato — que alcanca a funcao pelo GRANT a authenticated da 20260805000009 — obteve [%] em vez de 42501 sobre um candidato que NAO e ele. A metade (b) so nao recusou porque o ramo da purga a desligou', coalesce(v_o6_cand, 'NULL');
   END IF;
 
+  IF coalesce(v_o6_uid2, 0) <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (o.6/candidato): ⊖ NAO-VACUIDADE DA SEGUNDA PERNA — a troca de claims para o papel candidato NAO tomou efeito e auth.uid() estava NULO naquela chamada. Ela teria repetido (o.2a) e passado por VERDE medindo o caso errado (RD2-10)';
+  END IF;
+
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P46P PASS (o.6): ⊖ com item ABERTO sob live, um chamador COM SESSAO NAO entra pelo ramo da purga — rh -> %, candidato -> %. O ramo vale so para quem nao tem sessao, que e o unico chamador que o cron pode ser', v_o6_rh, v_o6_cand;
+  RAISE NOTICE 'P46P PASS (o.6): ⊖ com item ABERTO sob live, um chamador COM SESSAO NAO entra pelo ramo da purga — rh -> %, candidato -> %. O ramo vale so para quem nao tem sessao de usuario (na pratica service_role), e nao para papel de cliente', v_o6_rh, v_o6_cand;
+
+  -- ── (o.7) ⊕ CONTROLE POSITIVO: a metade DESTRUTIVA CONSEGUE autorizar ─────
+  IF v_o7_semsess IS DISTINCT FROM 'P0002' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.7): ⊕ CONTROLE POSITIVO DA METADE DESTRUTIVA. Com cerco em live, execucao em executando/live, item ABERTO para o alvo, intencao DESTRUTIVA e sessao NULA — ou seja, TODAS as condicoes do 4o ramo satisfeitas —, a chamada devolveu [%] em vez de P0002. ⚠ [42501] significa que a metade DESTRUTIVA do 4o ramo RECUSA DENTRO DAS PROPRIAS CONDICOES: o flip dry_run -> live do 46-06 falharia em 100%% dos titulares, e a descoberta chegaria no dia do flip. ⚠ E enquanto esta assercao nao existir, (o.6) prova apenas que ALGUMA COISA recusou, nunca que ela recusou POR O CHAMADOR TER SESSAO — o par e o que torna a negativa significativa (RD2-02). ⚠ [SEM-EXCECAO] significa que o guard autorizou E o motor completou sobre um candidato que nao existe, o que seria um defeito do proprio motor', coalesce(v_o7_semsess, 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (o.7): ⊕ a metade DESTRUTIVA do 4o ramo AUTORIZA sob as proprias condicoes (P0002 = passou o guard e parou por nao haver candidato). O par (o.6)/(o.7) e o que prova que a recusa de (o.6) e causada pela SESSAO, e nao por o guard recusar tudo';
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (o): as DUAS metades do 4o ramo asseridas SEPARADAMENTE. Recusas 42501 em: modo off com item aberto (%); DESTRUTIVO sob dry_run (%); live sem item aberto (%); item aberto sob execucao concluida (%). Aceitacoes: dry-run sob dry_run no MESMO estado da recusa destrutiva -> % (o guard autorizou e o motor parou por nao haver candidato); e o titular REAL pos1 em dry-run -> % (o corpo COMPLETO executou e foi revertido)', v_o_st[1], v_o_st[2], v_o_st[4], v_o_st[5], v_o_st[3], v_o_pos_st;
@@ -1566,7 +1614,7 @@ END $envelope$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 15;  -- 6 (46-02) + 5 (46-03) + 4 (46-04: b, o, o.6, p)
+DECLARE v_n int; v_esperado int := 16;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN

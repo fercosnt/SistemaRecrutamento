@@ -146,13 +146,17 @@
 -- -----------------------------------------------------------------------------
 -- (4) ORDEM DE ENTREGA + QUAL SMOKE E O CONTRATO
 -- -----------------------------------------------------------------------------
--- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 007`** (HI-01 do
--- `46-REVIEW.md`; a ordem declarada antes estava ERRADA):
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 009 -> 007`**:
 --   1o  20260823000001..5  (config, ledger, predicado, varredura, hold+excecoes)
 --   2o  20260823000006     (o 4o ramo do MOTOR + o bloco que ABORTA o apply)
 --   3o  20260823000008     (o 3o ramo do PLANO — Blocker B-02)
---   4o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
---   5o  20260823000009     (o CHECK de dominio em purga_execucoes.modo_vigente)
+--   4o  20260823000009     (os dominios: modo_vigente, e `desconhecido` nos desfechos)
+--   5o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--
+-- ⚠ POR QUE `009` VEM ANTES DE `007`, e a razao mudou na rodada 2 do review: a
+-- reconciliacao de `007` ESCREVE `desfecho_* = 'desconhecido'` (RD2-01), e esse
+-- valor so passa a ser aceito pelos `CHECK` depois de `009`. Aplicar `007` antes
+-- faria a primeira reconciliacao abortar com 23514.
 --
 -- ⚠ POR QUE `008` VEM ANTES DE `007`, e a razao e a cadeia de chamadas: `007`
 -- chama o MOTOR, e o motor chama `plano_exclusao_titular` no PASSO 0. Sem `008`
@@ -307,9 +311,27 @@ BEGIN
   --   irrecuperavel — sem PITR (D-45-10) e com o Storage fora de todo backup. Era
   --   o CR-01 cenario 2 reaberto pela duracao da janela de dispatch.
   --   O cabecalho ja prometia "SE E SOMENTE SE" em PROSA; esta linha e onde a
-  --   promessa passa a ser imposta pelo CODIGO. **O ramo existe para autorizar O
-  --   CRON, e o cron se caracteriza por nao ter sessao** — um chamador COM claim
-  --   volta a ser julgado por (b) e por (c), como sempre foi.
+  --   promessa passa a ser imposta pelo CODIGO. Um chamador COM claim volta a ser
+  --   julgado por (b) e por (c), como sempre foi.
+  --
+  -- ⚠⚠ ESCOPO HONESTO DO RAMO, E ELE NAO E "O CRON" (RD2-07 do `46-REVIEW.md`).
+  --   `v_uid IS NULL` nao seleciona o cron: seleciona **TODO chamador sem sessao
+  --   de usuario**, o que na pratica e `service_role` — o cron, a Edge Function
+  --   `purgar-retencao`, um script, o MCP. Dizer "o cron" onde se le "quem nao tem
+  --   sessao" e a MESMA classe de imprecisao que produziu o BL-01: um comentario
+  --   que descreve a intencao como se fosse o conjunto, e a partir do qual a
+  --   proxima pessoa raciocina errado.
+  --   ⚠ E ISSO **NAO** E ESCALACAO, e a razao e dura: `service_role` bypassa RLS e
+  --   ja tem DML irrestrito sobre `public.candidatos`, `public.candidaturas` e
+  --   todas as demais que este motor toca; o Storage responde a service key pela
+  --   API e o `auth.users` pela Admin API. Ele tambem pode simplesmente FABRICAR o
+  --   item que autoriza, porque as quatro tabelas do ledger nao tem policy de
+  --   escrita nenhuma. O guard nunca foi — e nao poderia ser — defesa contra a
+  --   service key; o 4o ramo nao lhe da capacidade alguma que ele ja nao tivesse,
+  --   muda apenas POR QUAL PORTA o mesmo ator faz o mesmo estrago.
+  --   ⚠ O que o ramo NAO faz, e e por isso que a metade (a) continua de pe, e
+  --   autorizar um papel de CLIENTE sem sessao: `authenticated` sempre traz `sub`,
+  --   e `anon` esta revogado nos dois arquivos.
   --
   -- ⚠⚠ `e.iniciada_em > now() - interval '1 hour'` E O CONSERTO DO HI-03: A
   --   AUTORIZACAO EXPIRA. Sem ele, nada limitava no TEMPO o estado autorizante. No
@@ -1018,6 +1040,10 @@ DECLARE
   v_col    text;
   v_falta  text;
   v_papel  text;
+  -- RD2-08 · QUAL papel dispara o aborto. `v_priv` e um booleano acumulado sobre
+  -- os dois papeis, entao sem esta variavel a mensagem diria "authenticated ou
+  -- anon" e mandaria quem le as tres da manha procurar em dois lugares.
+  v_ofensor text;
   -- ⚠⚠ HI-02 do `46-REVIEW.md`: A PERGUNTA E FEITA PARA `anon` TAMBEM, E NAO SO
   --    PARA `authenticated`. O `REVOKE` das funcoes deste plano NOMEIA `anon`
   --    porque o `pg_default_acl` deste schema concede a ele como grant DIRETO
@@ -1055,8 +1081,8 @@ BEGIN
       FROM (VALUES
         ('purga_execucoes',
          ARRAY['INSERT','UPDATE'],
-         ARRAY['situacao','modo_vigente'],
-         'quem carimba situacao = executando e modo_vigente = live AUTORIZA o caminho destrutivo desta funcao'),
+         ARRAY['situacao','modo_vigente','iniciada_em'],
+         'quem carimba situacao = executando e modo_vigente = live AUTORIZA o caminho destrutivo desta funcao; e quem escreve iniciada_em RENOVA a janela de 1 hora, que e justamente o que impede a autorizacao de virar standing (RD2-04)'),
         ('purga_execucao_itens',
          ARRAY['INSERT','UPDATE'],
          ARRAY['candidato_id','concluido_em'],
@@ -1071,12 +1097,14 @@ BEGIN
          'CAMINHO INDIRETO: liberar um hold devolve a candidatura ao conjunto elegivel, e o cron faz o resto — e o passo que falta entre registro sob litigio e registro apagado irreversivelmente')
       ) AS t(tabela, verbos, colunas, razao)
   LOOP
-    v_priv := false;
+    v_priv    := false;
+    v_ofensor := NULL;
 
     FOREACH v_papel IN ARRAY v_papeis LOOP
       FOREACH v_verbo IN ARRAY r_alvo.verbos LOOP
         IF has_table_privilege(v_papel, 'public.' || r_alvo.tabela, v_verbo) THEN
-          v_priv := true;
+          v_priv    := true;
+          v_ofensor := coalesce(v_ofensor || '+', '') || v_papel || '(' || v_verbo || ')';
         END IF;
       END LOOP;
 
@@ -1086,7 +1114,8 @@ BEGIN
       -- coluna e sempre de UPDATE, que e o verbo com que se carimba um estado.
       FOREACH v_col IN ARRAY r_alvo.colunas LOOP
         IF has_column_privilege(v_papel, 'public.' || r_alvo.tabela, v_col, 'UPDATE') THEN
-          v_priv := true;
+          v_priv    := true;
+          v_ofensor := coalesce(v_ofensor || '+', '') || v_papel || '(UPDATE ' || v_col || ')';
         END IF;
       END LOOP;
     END LOOP;
@@ -1111,13 +1140,13 @@ BEGIN
 
     IF coalesce(v_priv, false)
        AND (coalesce(v_rls_on, false) = false OR coalesce(v_pol, false)) THEN
-      RAISE EXCEPTION 'P46-GUARD: um papel de CLIENTE (authenticated ou anon) PODE ESCREVER em public.% (privilegio=%, rls_ligada=%, policy_que_alcanca=%). O 4o ramo do guard de anonimizar_candidato acaba de perder o valor: %. A partir dai o GRANT EXECUTE a authenticated da 20260805000009 volta a ser uma porta por PostgREST para destruir PII fora do motor (CR-01), agora pela via da purga. O apply para AQUI, ANTES de criar essa porta. Saidas honestas: remover a policy/privilegio de escrita daquela tabela, ou retirar o 4o ramo e replanejar o caminho de chamada do cron. ⚠ A saida que NAO existe e apagar este bloco',
-        r_alvo.tabela, v_priv, v_rls_on, v_pol, r_alvo.razao;
+      RAISE EXCEPTION 'P46-GUARD: o papel de CLIENTE [%] PODE ESCREVER em public.% (privilegio=%, rls_ligada=%, policy_que_alcanca=%). O 4o ramo do guard de anonimizar_candidato acaba de perder o valor: %. A partir dai o GRANT EXECUTE a authenticated da 20260805000009 volta a ser uma porta por PostgREST para destruir PII fora do motor (CR-01), agora pela via da purga. O apply para AQUI, ANTES de criar essa porta. Saidas honestas: remover a policy/privilegio de escrita daquela tabela, ou retirar o 4o ramo e replanejar o caminho de chamada do cron. ⚠ A saida que NAO existe e apagar este bloco',
+        coalesce(v_ofensor, '<policy sem grant nominal>'), r_alvo.tabela, v_priv, v_rls_on, v_pol, r_alvo.razao;
     END IF;
 
     IF coalesce(v_priv, false) THEN
-      RAISE NOTICE 'P46-GUARD: um papel de cliente (authenticated e/ou anon) tem GRANT de escrita em public.%, mas a RLS esta LIGADA e nao ha policy que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD desta funcao: criar uma policy de escrita ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez. Razao pela qual a tabela esta na lista: %',
-        r_alvo.tabela, r_alvo.razao;
+      RAISE NOTICE 'P46-GUARD: o papel de cliente [%] tem GRANT de escrita em public.%, mas a RLS esta LIGADA e nao ha policy que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD desta funcao: criar uma policy de escrita ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez. Razao pela qual a tabela esta na lista: %',
+        coalesce(v_ofensor, '<nenhum>'), r_alvo.tabela, r_alvo.razao;
     END IF;
   END LOOP;
 
@@ -1344,7 +1373,16 @@ COMMENT ON FUNCTION public.anonimizar_candidato(uuid, boolean) IS
   'pedidos que ninguem fez; (C) um segundo motor destrutivo ao lado deste — contradiz D-46-12 e '
   'refaz o CR-02 da P39. '
   'A SAIDA ADOTADA (B): o chamador e aceito EXCLUSIVAMENTE pelo ESTADO que so o motor da purga '
-  'produz, nunca por uma credencial que uma pessoa possa portar. E POR ISSO QUE A PURGA NUNCA E '
+  'produz, nunca por uma credencial que uma pessoa possa portar. '
+  '⚠⚠ ESCOPO HONESTO DO RAMO, e ele NAO e "o cron" (RD2-07): o predicado exige v_uid IS NULL, que '
+  'nao seleciona o cron e sim TODO chamador sem sessao de usuario — na pratica service_role (o cron, '
+  'a EF purgar-retencao, um script, o MCP). Isso NAO e escalacao: service_role bypassa RLS, ja tem '
+  'DML irrestrito sobre todas as tabelas que este motor toca, o Storage responde a service key pela '
+  'API e o auth.users pela Admin API, e ele pode ate FABRICAR o item que autoriza, porque as quatro '
+  'tabelas do ledger nao tem policy de escrita. O guard nunca foi defesa contra a service key; o 4o '
+  'ramo nao lhe da capacidade nova, muda so POR QUAL PORTA o mesmo ator faz o mesmo estrago. O que o '
+  'ramo NAO faz — e por isso a metade (a) continua de pe — e autorizar papel de CLIENTE sem sessao: '
+  'authenticated sempre traz sub, e anon esta revogado. E POR ISSO QUE A PURGA NUNCA E '
   'INSTRUMENTO DE EXCLUSAO DIRIGIDA: nao ha nada aqui que alguem possa TER; ha um estado que o motor '
   'cria e destroi. '
   '⚠⚠ O RAMO TEM DUAS METADES FISICAMENTE DISTINTAS — DOIS predicados separados, jamais um so com '
