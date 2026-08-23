@@ -28,9 +28,16 @@
 -- bem num banco onde a correção funcionou e num banco onde ela funcionou E levou
 -- junto outra coisa. As quatro abaixo fecham as saídas laterais:
 --
---   (a) NENHUM agendamento foi criado nem removido — continuam exatamente 3.
---       Fecha o modo de falha em que o guard de remoção condicional falha e o
---       agendamento é duplicado, passando a rodar duas vezes por noite.
+--   (a) O INVENTÁRIO de `cron.job` bate o que o repositório declara: os três
+--       agendamentos herdados existem, cada um UMA vez e aferido por igualdade
+--       exata de `jobname`; o agendamento da purga existe UMA vez; e não há mais
+--       nenhum outro. Fecha o modo de falha em que o guard de remoção condicional
+--       falha e um agendamento é duplicado, passando a rodar duas vezes por
+--       noite, e o modo de falha em que aparece um agendamento que ninguém
+--       declarou.
+--       ⚠ CONVERTIDA DE INSTANTÂNEO EM INVARIANTE EM 2026-08-23 pela Phase 46
+--       (plano 46-06, D-46-23), no MESMO commit que criou o 4º agendamento. Ver
+--       o bloco de razão logo acima da asserção.
 --   (b) O corpo vivo do agendamento alvo casa **byte a byte** com o corpo
 --       declarado na migration. Fecha o modo de falha em que o transporte
 --       (`apply_migration`) altera o texto no caminho, ou em que o apply pegou
@@ -72,6 +79,48 @@
 --   `jobname`, sem `LIKE` — não há curinga `_` a escapar nem risco de casar
 --   vizinho por acidente.
 --
+-- =============================================================================
+-- EMENDA DE 2026-08-23 — a asserção (a) era um INSTANTÂNEO (Phase 46 / D-46-23)
+-- =============================================================================
+-- Até esta data a asserção (a) comparava `count(*) FROM cron.job` contra a
+-- **constante 3**. Ela nasceu correta e envelheceu: no dia em que a Phase 46
+-- criasse o 4º agendamento — trabalho planejado, revisado e correto — este portão
+-- ficaria VERMELHO, e a mensagem dele culparia *"guard de remoção condicional
+-- falhou e o alvo ficou duplicado"*, uma causa que não teria acontecido. O
+-- `CLAUDE.md` registra esta exata asserção como o exemplo canônico da família
+-- "contagem contra constante reprova trabalho correto com diagnóstico FALSO", e
+-- um portão que reprova trabalho correto treina quem executa a desligá-lo.
+--
+-- O conserto NÃO é afrouxar a contagem para 4 — isso seria trocar uma fotografia
+-- por outra, e a próxima fase pagaria de novo. O conserto é medir a PROPRIEDADE
+-- que o teste sempre quis medir: *o inventário vivo é exatamente o que o
+-- repositório declara*. Três verificações, no idioma que o
+-- `p43_matriz_retencao_smoke.sql:220-252` já usou em 2026-08-03 para a mesma
+-- classe de defeito:
+--
+--   (a.i)   os três `jobname` herdados existem, cada um por igualdade exata;
+--   (a.ii)  existe exatamente UM `purga-retencao-sweep`;
+--   (a.iii) não existe nenhum outro `jobname` além desses quatro — é esta que
+--           continua pegando o agendamento duplicado e o intruso, que era o valor
+--           real do teste original.
+--
+-- ⚠ A LISTA DE QUATRO NOMES É UM ESCOPO DELIBERADO, E NÃO UMA FOTOGRAFIA — e a
+-- diferença é o que o `CLAUDE.md` manda perguntar antes de escrever uma lista
+-- literal num portão. Este arquivo é o gate do INVENT-03, cujo requisito É que
+-- todo agendamento vivo seja rastreável ao repositório. Quando uma fase futura
+-- criar um 5º job, (a.iii) reprova dizendo **o nome dele** — um diagnóstico
+-- VERDADEIRO ("existe um agendamento que este inventário não conhece"), que
+-- aponta para `docs/compliance/cron-inventory.md` e para esta lista. Acrescentar
+-- o nome aqui passa a ser parte de criar um job, exatamente como a Phase 46 fez.
+-- Uma contagem nua não teria como dizer o nome, e é por isso que ela mentia.
+--
+-- ⚠ E (a.iii) É CORRELACIONADA POR `NOT EXISTS`, JAMAIS POR NEGAÇÃO DE
+-- PERTENCIMENTO A CONJUNTO. `cron.job.jobname` é anulável (a forma de dois
+-- argumentos de `cron.schedule` agenda sem nome), e `jobname <> ALL (lista)` com
+-- `jobname` NULO avalia DESCONHECIDO — o intruso sem nome ESCAPARIA. Escrever a
+-- forma que falha ABERTO dentro do arquivo que existe para corrigir exatamente
+-- essa forma seria a ironia mais cara possível.
+--
 -- HIGIENE: `RESET ROLE` nas trocas; os NOTICEs carregam contagens, horários e
 --   resumos md5 — nunca segredo, nunca PII.
 -- =============================================================================
@@ -81,25 +130,88 @@ RESET ROLE;
 SELECT set_config('smoke42i.pass', '0', false);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (a) ESCOPO — continuam existindo EXATAMENTE 3 agendamentos. Nenhum foi criado,
---     nenhum foi removido. Um 4º significa guard de remoção condicional falho
---     (agendamento duplicado ⇒ a purga rodaria duas vezes por noite); um 2º
---     significa que algo além do alvo desapareceu.
+-- (a) INVENTÁRIO — o conjunto vivo de `cron.job` é EXATAMENTE o que o repositório
+--     declara. Três verificações, nenhuma delas uma contagem nua contra uma
+--     constante. Ver a §"EMENDA DE 2026-08-23" no cabeçalho: esta asserção era um
+--     instantâneo de 3 agendamentos e teria reprovado, com diagnóstico FALSO, o
+--     trabalho correto que criou o 4º.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_n int; v_nomes text;
+DECLARE
+  -- ⚠ ESCOPO DELIBERADO, NÃO FOTOGRAFIA — a justificativa por extenso está no
+  --   cabeçalho. Um job novo entra AQUI conscientemente, no mesmo commit que o
+  --   cria; até lá, (a.iii) morde e diz o nome dele.
+  c_herdados constant text[] := ARRAY['ai-cost-aggregation',
+                                      'ai-logs-retention-cleanup',
+                                      'notif-retry-sweep'];
+  c_purga    constant text   := 'purga-retencao-sweep';
+  v_nomes    text;
+  v_faltando text;
+  v_intrusos text;
+  v_dup      text;
+  v_n_purga  int;
 BEGIN
-  SELECT count(*), string_agg(jobname, ', ' ORDER BY jobname)
-    INTO v_n, v_nomes
-    FROM cron.job;
+  SELECT string_agg(coalesce(j.jobname, '<sem nome>'), ', ' ORDER BY coalesce(j.jobname, '<sem nome>'))
+    INTO v_nomes
+    FROM cron.job j;
 
-  IF v_n <> 3 THEN
-    RAISE EXCEPTION 'P42-INVENT05 FAIL (a): cron.job tem % agendamento(s) (esperado 3) — [%]. Um a mais = guard de remoção condicional falhou e o alvo ficou duplicado; um a menos = algo além do alvo sumiu', v_n, v_nomes;
+  -- (a.i) os TRÊS herdados existem, cada um por IGUALDADE EXATA de `jobname`.
+  SELECT string_agg(x.nome, ', ' ORDER BY x.nome)
+    INTO v_faltando
+    FROM unnest(c_herdados) AS x(nome)
+   WHERE NOT EXISTS (SELECT 1 FROM cron.job j WHERE j.jobname = x.nome);
+
+  IF v_faltando IS NOT NULL THEN
+    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.i): agendamento(s) herdado(s) AUSENTE(S) de cron.job: [%]. Vivos agora: [%]. Uma migration removeu um agendamento fora do seu escopo declarado — cada um dos três tem dono no repositório (ai-cost-aggregation e ai-logs-retention-cleanup em 20260609000003, notif-retry-sweep em 20260727000001), e nenhuma migration desta fase os menciona',
+      v_faltando, coalesce(v_nomes, '<nenhum>');
+  END IF;
+
+  -- (a.ii) existe exatamente UM agendamento de purga.
+  -- ⚠ ESTA COMPARAÇÃO CONTRA `1` É UMA CARDINALIDADE POR NOME, e não uma
+  --   contagem de inventário contra um instantâneo: ela não muda quando o sistema
+  --   ganha agendamentos, só quando ESTE agendamento é duplicado ou some. É a
+  --   mesma forma que (c) já usa para o alvo do INVENT-05, e ela é invariante.
+  SELECT count(*) INTO v_n_purga FROM cron.job j WHERE j.jobname = c_purga;
+
+  IF v_n_purga <> 1 THEN
+    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.ii): há % agendamento(s) chamados % (esperado exatamente 1). ZERO significa que a migration 20260823000012 não está aplicada neste banco — e então não existe purga automática, só uma função que ninguém chama. MAIS DE UM significa que o guard de remoção condicional daquela migration não mordeu, e a purga passaria a rodar duas vezes por noite: em live, duas varreduras concorrentes disputando os mesmos titulares',
+      v_n_purga, c_purga;
+  END IF;
+
+  -- (a.iii) NENHUM outro `jobname` além desses quatro — e nenhum deles duplicado.
+  -- ⚠ Correlacionado por NOT EXISTS, jamais por negação de pertencimento a
+  --   conjunto: `jobname` é anulável (cron.schedule de dois argumentos agenda sem
+  --   nome) e a forma banida devolveria DESCONHECIDO para o intruso sem nome,
+  --   deixando-o ESCAPAR. É o INVENT-05 literal, dentro do gate do INVENT-05.
+  SELECT string_agg(coalesce(j.jobname, '<sem nome, jobid ' || j.jobid || '>'), ', ')
+    INTO v_intrusos
+    FROM cron.job j
+   WHERE NOT EXISTS (
+           SELECT 1 FROM unnest(c_herdados || ARRAY[c_purga]) AS a(nome)
+            WHERE a.nome = j.jobname
+         );
+
+  IF v_intrusos IS NOT NULL THEN
+    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.iii): existe(m) agendamento(s) vivo(s) que este inventário NÃO conhece: [%]. Vivos agora: [%]. ⚠ Este portão NÃO decide a causa, e não vai inventar uma: ou a fase que criou o agendamento não atualizou esta lista e o docs/compliance/cron-inventory.md — e o conserto é acrescentar o nome nos dois, no mesmo commit que o cria —, ou ele foi criado FORA do repositório, que é a hipótese processo-origem-do-drift-desconhecida que este projeto mantém em aberto. O nome acima é o que discrimina as duas',
+      v_intrusos, coalesce(v_nomes, '<nenhum>');
+  END IF;
+
+  SELECT string_agg(t.jobname || ' x' || t.n, ', ' ORDER BY t.jobname)
+    INTO v_dup
+    FROM (SELECT j.jobname, count(*) AS n
+            FROM cron.job j
+           WHERE j.jobname IS NOT NULL
+           GROUP BY j.jobname
+          HAVING count(*) > 1) t;
+
+  IF v_dup IS NOT NULL THEN
+    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.iii): agendamento(s) DUPLICADO(S) em cron.job: [%]. Cada nome tem de aparecer uma vez só — um duplicado roda o mesmo corpo duas vezes por período, e o par desagendar-antes-de-agendar existe em toda migration de cron deste repositório justamente para que reaplicar não duplique',
+      v_dup;
   END IF;
 
   PERFORM set_config('smoke42i.pass', (coalesce(nullif(current_setting('smoke42i.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (a): exatamente 3 agendamentos em cron.job — nenhum criado, nenhum removido [%]', v_nomes;
+  RAISE NOTICE 'PASS (a): inventário de cron.job bate o repositório — os três herdados presentes por igualdade exata de nome, exatamente um %, nenhum intruso e nenhum duplicado [%]', c_purga, v_nomes;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -172,8 +284,15 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (d) ESCOPO NEGATIVO — os OUTROS dois agendamentos estão intocados em relação ao
---     que `docs/compliance/cron-inventory.md` registrou em 2026-07-29: existem uma
+-- (d) ESCOPO NEGATIVO — os outros dois agendamentos HERDADOS estão intocados em
+--     relação ao que `docs/compliance/cron-inventory.md` registrou em 2026-07-29.
+--     ⚠ "Dois" continua exato depois da Phase 46: este bloco cobre os vizinhos do
+--     alvo do INVENT-05 entre os TRÊS herdados. O 4º agendamento
+--     (`purga-retencao-sweep`, criado em 2026-08-23) não pertence a este
+--     antes/depois — ele não existia em 2026-07-29, não há estado anterior dele a
+--     preservar, e quem o afere é a asserção (a) aqui e a asserção (a) do
+--     `p46_purga_smoke.sql`, que pina o `md5(command)` dele.
+--     Os dois vizinhos: existem uma
 --     vez cada, com o mesmo horário, ativos, e com a assinatura de corpo que
 --     aquele artefato descreve. É a asserção de que a correção não tocou o que
 --     não devia.

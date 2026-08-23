@@ -1,0 +1,115 @@
+-- =============================================================================
+-- Phase 46 / Plano 46-06 — PURGA-01
+-- O GATILHO: o 4o agendamento de `pg_cron` deste sistema, `purga-retencao-sweep`,
+-- diariamente as 03:00 UTC, chamando a varredura de `20260823000011`.
+-- =============================================================================
+--
+-- Este arquivo e curto de proposito. **Toda a logica vive na funcao**, e o corpo
+-- do agendamento e uma unica chamada — ver a secao (3).
+--
+-- -----------------------------------------------------------------------------
+-- (1) PROTOCOLO DE APPLY — `supabase db push` E PROIBIDO NESTE PROJETO
+-- -----------------------------------------------------------------------------
+-- Apply EXCLUSIVAMENTE pelo ORQUESTRADOR (subagentes GSD nao recebem os tools MCP
+-- do Supabase — bug upstream anthropics/claude-code#13898), pela VIA ATUAL:
+--
+--     node p46apply.cjs migrate supabase/migrations/20260823000012_p46_cron.sql
+--
+-- Ela le os OCTETOS DO ARQUIVO e grava a migration e a linha de
+-- `supabase_migrations.schema_migrations` na MESMA requisicao (CLAUDE.md §"Via de
+-- apply ATUAL"). ⚠ **NAO HA REPARO DE `version` A FAZER** (RD4-02): por esta via
+-- a linha nasce com a version do nome do arquivo, e o `UPDATE ... SET version`
+-- dos cabecalhos das migrations `20260823000001`..`4` esta OBSOLETO e hoje
+-- CORROMPERIA o ledger.
+--
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA: **`20260823000011` PRIMEIRO, ESTE DEPOIS.**
+-- Agendar um job que chama uma funcao que ainda nao tem o corpo novo criaria uma
+-- janela — de minutos ou de uma noite inteira — em que o cron dispara a versao
+-- anterior, que nao tem RETEN-05 nem despacho. A janela seria SILENCIOSA: o
+-- ledger registraria execucoes com veredito `dry_run` e ninguem saberia que a
+-- politica de notificacoes nao rodou naquelas noites.
+--
+-- Sem par de transacao explicita no topo (CLAUDE.md §Migrations). Delimitador de
+-- cifrao NOMEADO, como no precedente `20260727000001:226` — cifrao anonimo e
+-- aferido em zero pelo portao estatico desta fase.
+--
+-- Conferencia obrigatoria logo apos o apply, **os dois lados registrados**:
+--   SELECT md5(statements[1]) FROM supabase_migrations.schema_migrations
+--    WHERE version = '20260823000012';
+--   -- comparar com:  printf '%s' "$(cat supabase/migrations/20260823000012_*.sql)" | md5
+--
+-- -----------------------------------------------------------------------------
+-- (2) ESCOPO NEGATIVO — o que esta migration deliberadamente NAO faz
+-- -----------------------------------------------------------------------------
+--
+--   · Nao cria nem remove nenhum agendamento alem do alvo nomeado abaixo. Os
+--     outros tres agendamentos vivos do sistema **nao sao sequer mencionados
+--     neste arquivo** — a ausencia dos nomes deles aqui e asserida por grep, e o
+--     estado intocado deles e asserido pela assercao (a) do
+--     `supabase/tests/p42_invent05_cron_smoke.sql`, que este mesmo commit
+--     converteu de instantaneo em invariante (D-46-23).
+--   · Nao cria, nao substitui e nao altera funcao alguma. O corpo da varredura e
+--     `20260823000011`, e este arquivo apenas o AGENDA.
+--   · Nao toca em `public.config_purga`. **A purga continua em `off` depois deste
+--     apply**, e a unica coisa que o cron passa a fazer toda noite e gravar o
+--     heartbeat. Ligar o dry-run e ato do plano 46-07, pela RPC auditada.
+--   · Nao executa a purga. Criar um agendamento nao o dispara; a primeira
+--     execucao acontece as 03:00 UTC seguintes.
+--
+-- REAPLICACAO
+-- -----------
+-- O guard de remocao condicional abaixo (idioma de `20260727000001:220-221`)
+-- torna a migration idempotente: reaplica-la NAO duplica o agendamento. ⚠ E isso
+-- e exigido por D-46-10 e **provado por EXECUCAO no checkpoint**, com um segundo
+-- apply e uma contagem — nunca por leitura deste comentario. Um agendamento
+-- duplicado faria a purga rodar DUAS VEZES por noite, e em `live` isso significa
+-- duas varreduras concorrentes disputando os mesmos titulares.
+--
+-- -----------------------------------------------------------------------------
+-- (3) AS TRES DECISOES QUE ESTE ARQUIVO CARIMBA
+-- -----------------------------------------------------------------------------
+-- **A · O CORPO DO JOB E SO A CHAMADA DA FUNCAO.** Nao ha uma linha de SQL solto
+-- ali dentro, e a razao e de vigilancia: `md5(prosrc)` pina o corpo da funcao, e
+-- `md5(command)` pina o corpo do job. SQL escrito direto no agendamento e logica
+-- que vive FORA do repositorio e FORA de todo pin — alteravel sem commit, sem
+-- revisao e sem deixar rastro. Este projeto mantem em aberto uma hipotese de
+-- `processo-origem-do-drift-desconhecida`; enquanto ela estiver aberta, o corpo
+-- mais curto possivel e a superficie mais estreita possivel.
+--
+-- **B · `0 3 * * *` E UTC, NAO HORARIO LOCAL (D-46-10).** `pg_cron` interpreta o
+-- schedule no fuso do servidor, que neste projeto e GMT. 03:00 UTC = 00:00 BRT,
+-- off-peak. ⚠ `[ASSUMED A1]`: o Brasil nao observa horario de verao desde 2019,
+-- entao a equivalencia vale o ano inteiro; se voltar a observar, o efeito e a
+-- purga rodar as 01:00 BRT — nunca uma diferenca de CORRECAO.
+--
+-- **C · DIARIO, e nao a cada 15 minutos como o analog de retry.** Retencao e
+-- medida em MESES; diario e folgado por tres ordens de grandeza e ainda da
+-- granularidade de observacao diaria durante os 14 dias de dry-run que D-46-14
+-- exige. O intervalo curto do analog existe porque retry de notificacao tem
+-- urgencia de minutos — purga de retencao nao tem, e um intervalo curto aqui so
+-- multiplicaria a chance de duas varreduras se encontrarem.
+--
+-- -----------------------------------------------------------------------------
+-- (4) VERIFICACAO POS-APPLY
+-- -----------------------------------------------------------------------------
+-- Dois smokes, cada um numa UNICA chamada `execute_sql` (o gate por GUC e
+-- escopado a sessao):
+--   · `supabase/tests/p42_invent05_cron_smoke.sql` — esperado 4/4. ⚠ **E ELE O
+--     TESTE DA EMENDA DE D-46-23**: ele tem de estar VERDE com QUATRO jobs vivos.
+--     Antes deste commit a assercao (a) daquele arquivo comparava a contagem de
+--     agendamentos contra a constante 3 e teria reprovado este trabalho CORRETO,
+--     com uma mensagem que culpava um guard de remocao que nao falhou.
+--   · `supabase/tests/p46_purga_smoke.sql` — esperado 25/25. A assercao (a) dele
+--     compara `md5(command)` do job vivo com o valor pinado a partir DESTE
+--     arquivo: igualdade byte a byte, e nao inspecao visual.
+-- =============================================================================
+
+
+SELECT cron.unschedule('purga-retencao-sweep')
+  WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'purga-retencao-sweep');
+
+SELECT cron.schedule(
+  'purga-retencao-sweep',
+  '0 3 * * *',
+  $sweep$ SELECT public.varrer_purga_retencao(); $sweep$
+);

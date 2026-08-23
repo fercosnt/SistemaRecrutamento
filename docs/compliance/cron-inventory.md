@@ -1,5 +1,13 @@
 # Inventário dos `cron.job` vivos × repositório
 
+> ⚠ **2026-08-23 — este documento passou a ter TRÊS camadas, e elas não têm o mesmo
+> estatuto.** A seção abaixo é a coleta de **2026-07-29** (3 jobs). A seção
+> [Depois da correção](#depois-da-correção-invent-05--d-p42-21) é de 2026-07-31, aplicada em
+> 2026-08-01. E a seção [Re-coleta da Phase 46](#re-coleta-da-phase-46--o-4º-agendamento) é de
+> **2026-08-23** e declara um **4º** agendamento — cujas células medidas seguem **⏳ pendentes do
+> apply**, exatamente como as desta seção estiveram entre 31/07 e 01/08. Uma célula ⏳ é um campo a
+> preencher, **nunca** um valor medido.
+
 | Campo | Valor |
 |-------|-------|
 | **Requirement coberto** | **INVENT-03** |
@@ -227,6 +235,129 @@ de retenção manda apagar. Até lá, o que mudou é a definição do agendament
 
 ---
 
+## Re-coleta da Phase 46 — o 4º agendamento
+
+| Campo | Valor |
+|-------|-------|
+| **Requirement coberto** | **PURGA-01** (INVENT-03 continua sendo o requisito deste documento) |
+| **Plano** | `46-06` |
+| **Migration** | [`20260823000012_p46_cron.sql`](../../supabase/migrations/20260823000012_p46_cron.sql) |
+| **Escrita em** | **2026-08-23** |
+| **Estado em PROD** | ⏳ **NÃO APLICADA** — o apply é do checkpoint do orquestrador |
+| **Re-coleta viva** | ⏳ pendente do apply |
+
+> ⚠ **O próprio documento manda re-coletar antes de qualquer fase que toque cron** (§Limites, item
+> 1), e esta seção é essa re-coleta — **do lado do repositório**. O lado VIVO ainda não foi medido:
+> o autor deste plano não tem acesso ao banco, e transcrever aqui um número que ninguém mediu seria
+> o defeito que esta pasta inteira existe para impedir. As células ⏳ são preenchidas no checkpoint,
+> por execução da consulta abaixo.
+
+### O agendamento novo, como o repositório o declara
+
+| jobid | jobname | schedule | active | Origem no repositório | Veredito |
+|------:|---------|----------|:------:|----------------------|----------|
+| ⏳ | `purga-retencao-sweep` | `0 3 * * *` (**UTC**) | ⏳ | `20260823000012_p46_cron.sql` | ⏳ pendente do apply |
+
+**Papel:** é o gatilho da purga automática de retenção (LGPD). Chama a varredura
+`public.varrer_purga_retencao()`, criada em `20260823000004` e em sua terceira versão desde
+`20260823000011`. **Não é destrutivo hoje**: `public.config_purga.modo` está em `off`, e nesse
+regime a varredura conta os elegíveis, grava uma linha de heartbeat em `public.purga_execucoes` e
+retorna sem tocar em nada. Ligar o dry-run é ato do plano 46-07.
+
+**Corpo do job (transcrito da migration):**
+
+```sql
+ SELECT public.varrer_purga_retencao();
+```
+
+| Propriedade do corpo | Valor |
+|---|---|
+| `md5` do texto entre os delimitadores `$sweep$` | `381a0edbc8a59b47b23b50dd1eba9a86` |
+| Tamanho | **40 octetos** (inclui o espaço inicial e o final, que fazem parte do corpo) |
+| Origem do resumo | computado **por execução** sobre o arquivo de migration em 2026-08-23 — nunca digitado à mão |
+
+Esse `md5` é o que a asserção **(a)** do
+[`p46_purga_smoke.sql`](../../supabase/tests/p46_purga_smoke.sql) compara contra
+`cron.job.command`. **O corpo é só a chamada da função de propósito:** SQL solto dentro de um
+agendamento é lógica que vive fora do repositório e fora de todo pin — alterável sem commit, sem
+revisão e sem rastro. Com o corpo mínimo, `md5(command)` pina o agendamento e `md5(prosrc)` pina a
+lógica.
+
+### `0 3 * * *` é UTC (D-46-10)
+
+`pg_cron` interpreta o schedule no fuso do servidor, que neste projeto é GMT. 03:00 UTC = 00:00 BRT,
+off-peak. Diário, e não a cada 15 minutos como o `notif-retry-sweep`: retenção é medida em **meses**,
+então diário é folgado por três ordens de grandeza e ainda dá granularidade de observação diária
+durante os 14 dias de dry-run que D-46-14 exige.
+
+⚠ `[ASSUMED A1]`: o Brasil não observa horário de verão desde 2019, logo a equivalência com 00:00 BRT
+vale o ano inteiro. Se voltar a observar, o efeito é a purga rodar às 01:00 BRT — **nunca** uma
+diferença de correção.
+
+### A emenda do portão, no MESMO commit que criou o job (D-46-23)
+
+`supabase/tests/p42_invent05_cron_smoke.sql`, asserção **(a)**, foi **convertida de instantâneo em
+invariante em 2026-08-23**, no mesmo commit da migration acima.
+
+| | Antes | Depois |
+|---|---|---|
+| O que media | `count(*) FROM cron.job` contra a **constante 3** | (i) os três `jobname` herdados existem por igualdade exata · (ii) existe exatamente um `purga-retencao-sweep` · (iii) não há nenhum outro `jobname`, correlacionado por `NOT EXISTS` · e nenhum duplicado |
+| O que faria em 2026-08-23 | ficaria **VERMELHO** diante de trabalho correto, acusando *"guard de remoção condicional falhou e o alvo ficou duplicado"* — uma causa que não aconteceu | fica **VERDE** com quatro jobs, e continua mordendo em duplicata, remoção e intruso |
+| O que dirá quando surgir um 5º job | nada de útil: "tem 5, esperado 3" | **o nome dele**, apontando para esta seção e para a lista do smoke — o nome entra nos dois, no commit que cria o job |
+
+Por que isso não é afrouxar o portão: a lista de quatro nomes é o **escopo declarado** do INVENT-03,
+não uma fotografia. Um agendamento novo passa a exigir uma edição consciente em dois artefatos —
+que é precisamente o que INVENT-03 pede — em vez de um número trocado em silêncio.
+
+⚠ E a asserção (a.iii) é correlacionada por `NOT EXISTS`, jamais por negação de pertencimento a
+conjunto: `cron.job.jobname` é **anulável** (a forma de dois argumentos de `cron.schedule` agenda sem
+nome), e a forma banida avaliaria DESCONHECIDO para o intruso sem nome, deixando-o escapar. Seria o
+INVENT-05 renascendo dentro do próprio gate do INVENT-05.
+
+### Consulta de re-coleta (a preencher no checkpoint)
+
+```sql
+SELECT jobid, jobname, schedule, active, md5(command) AS md5_corpo, octet_length(command) AS octetos
+  FROM cron.job
+ ORDER BY jobname;
+```
+
+Esperado: **quatro** linhas. Os três herdados com `schedule` idêntico ao registrado nas seções
+anteriores (`30 1 * * *`, `0 2 * * *`, `*/15 * * * *`) e com os `md5` de corpo idênticos aos de
+2026-08-01 (`fdd283dc3e266884761a3649c31acd6c` e `04bf2150e09f1f7b15abcf074f74ad95` para os dois
+vizinhos; `b64ca58d089f3ed580205e95a40c4e5f` para o alvo do INVENT-05). O novo com `0 3 * * *`,
+`active = true` e `md5` igual a `381a0edbc8a59b47b23b50dd1eba9a86`.
+
+| Job | schedule esperado | md5 esperado | Medido no apply |
+|---|---|---|---|
+| `ai-cost-aggregation` | `30 1 * * *` | `fdd283dc3e266884761a3649c31acd6c` | ⏳ |
+| `ai-logs-retention-cleanup` | `0 2 * * *` | `b64ca58d089f3ed580205e95a40c4e5f` | ⏳ |
+| `notif-retry-sweep` | `*/15 * * * *` | `04bf2150e09f1f7b15abcf074f74ad95` | ⏳ |
+| `purga-retencao-sweep` | `0 3 * * *` | `381a0edbc8a59b47b23b50dd1eba9a86` | ⏳ |
+
+### Idempotência do agendamento — provada por execução, não por leitura
+
+A migration usa o par desagendar-guardado-por-existência antes de agendar (idioma de
+`20260727000001:220-221`). **D-46-10 exige que isso seja provado aplicando a migration uma SEGUNDA
+vez** e conferindo que `count(*) FROM cron.job WHERE jobname = 'purga-retencao-sweep'` continua `1`.
+Ler o código não prova: um agendamento duplicado faria a purga rodar duas vezes por noite, e em
+`live` isso são duas varreduras concorrentes disputando os mesmos titulares.
+
+| Verificação | Resultado |
+|---|---|
+| `count(*)` após o **primeiro** apply | ⏳ |
+| `count(*)` após o **segundo** apply | ⏳ (esperado `1`) |
+
+### Quando o efeito real acontece
+
+O apply **não** executa a purga. A primeira execução acontece às **03:00 UTC seguintes**, e — porque
+`config_purga.modo` está em `off` — a única coisa que ela faz é gravar uma linha de heartbeat em
+`public.purga_execucoes` com `veredito = 'desligado'` e `processados = 0`. Nenhum dado é apagado, e
+nenhuma requisição HTTP é enfileirada: o hop para a Edge Function existe **apenas** dentro do ramo
+`live` da função.
+
+---
+
 ## Como reproduzir
 
 Consultas (a), (b) e (c) de [`sql/02-cron-live.sql`](./sql/02-cron-live.sql), via `execute_sql` do
@@ -236,9 +367,13 @@ MCP do Supabase, pelo orquestrador.
 
 ## Limites deste artefato
 
-1. **Fotografia de 2026-07-29** — exceto a seção "Depois da correção", escrita em 2026-07-31 e
-   cujos números medidos seguem **pendentes do apply**. Um job criado depois de 29/07 não aparece
-   na fotografia. A re-execução é barata e deve preceder qualquer fase que toque cron (Phase 46).
+1. **Fotografia de 2026-07-29** — exceto a seção "Depois da correção" (escrita em 2026-07-31,
+   medida e aplicada em 2026-08-01) e a seção "Re-coleta da Phase 46" (escrita em 2026-08-23, com o
+   lado vivo ⏳ **pendente do apply**). Um job criado depois de 29/07 não aparece na fotografia. A
+   re-execução é barata e deve preceder qualquer fase que toque cron.
+   ⚠ **E, desde 2026-08-23, ela deixou de depender de alguém lembrar:** a asserção (a) do
+   `p42_invent05_cron_smoke.sql` reprova nomeando qualquer `jobname` vivo que não esteja na lista
+   deste documento. Um job criado sem passar por aqui fica vermelho no primeiro smoke.
 2. **Rastreabilidade por nome e corpo**, não por hash assinado. Um job cujo corpo tenha sido
    alterado fora do repositório *e depois revertido* seria indistinguível.
 3. **Não cobre `pg_net`/webhooks** disparados por trigger — só `cron.job`. Os triggers vivos são
