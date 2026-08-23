@@ -154,22 +154,44 @@ BEGIN
     JOIN public.candidaturas cv ON cv.id = h.candidatura_id
     JOIN public.candidatos   ca ON ca.id = cv.candidato_id
     JOIN public.usuarios_rh  u  ON u.user_id = h.ator AND u.deleted_at IS NULL
-   WHERE h.ator IS DISTINCT FROM ca.user_id
+   -- ⚠ `ca.user_id IS NOT NULL` vem ANTES do `IS DISTINCT FROM`, e nao e redundante:
+   -- com `ca.user_id` nulo o `IS DISTINCT FROM` devolve TRUE para qualquer ator, e
+   -- esta candidatura seria eleita "caminho feliz" so para ser recusada 20 linhas
+   -- abaixo, onde `v_titular` e exigido nao-nulo. Mesma classe do fallback (:180).
+   WHERE ca.user_id IS NOT NULL
+     AND h.ator IS DISTINCT FROM ca.user_id
    ORDER BY h.criado_em DESC
    LIMIT 1;
 
   v_feliz := (v_cand IS NOT NULL);
 
-  -- Sem o caso vivo: qualquer candidatura serve de suporte para a fixture revertida.
+  -- Sem o caso vivo: uma candidatura de suporte para a fixture revertida.
+  --
+  -- ⚠ NAO e "qualquer candidatura". Ela tem de ter titular com `user_id` NAO-NULO,
+  -- que e exatamente o que o statement seguinte exige para exercitar o rotulo 2
+  -- ("O proprio candidato"). Selecionar sem esse filtro e depois reprovar por falta
+  -- dele e um portao que culpa o DADO por uma propriedade que ele proprio deixou de
+  -- pedir — e o diagnostico que ele imprime aponta para o lugar errado.
+  --
+  -- Isto NAO e hipotetico: em 2026-08-23 este smoke reprovou em PROD exatamente
+  -- assim. O motor de exclusao da Phase 45 rodou de verdade em 2026-08-22 sobre uma
+  -- conta descartavel, e `candidatos_user_id_fkey` e `SET NULL` DE PROPOSITO — o
+  -- candidato sobrevive a remocao da conta com `user_id` nulo. Aquele titular ficou
+  -- dono das DUAS candidaturas mais novas, entao um `ORDER BY created_at DESC` sem
+  -- filtro passou a escolher justamente o caso impossivel. O `IS DISTINCT FROM` do
+  -- seletor do caminho feliz (:154) tem a mesma cegueira: com `ca.user_id` nulo ele
+  -- devolve TRUE, que e a classe de defeito NULL-cego que a 42-06 ja pagou uma vez.
   IF v_cand IS NULL THEN
     SELECT cv.id INTO v_cand
       FROM public.candidaturas cv
+      JOIN public.candidatos ca ON ca.id = cv.candidato_id
+     WHERE ca.user_id IS NOT NULL
      ORDER BY cv.created_at DESC
      LIMIT 1;
   END IF;
 
   IF v_cand IS NULL THEN
-    RAISE EXCEPTION 'P47H FAIL (fixture): nenhuma candidatura em public.candidaturas — nao ha sobre o que ler historico, e montar candidato+vaga+candidatura inteiros aqui excederia o que um smoke de LEITURA deve escrever';
+    RAISE EXCEPTION 'P47H FAIL (fixture): nenhuma candidatura em public.candidaturas cujo titular tenha user_id NAO-NULO — nao ha sobre o que ler historico exercitando o rotulo 2, e montar candidato+vaga+candidatura inteiros aqui excederia o que um smoke de LEITURA deve escrever. ⚠ Se `candidaturas` NAO esta vazia, o que faltou foi titular com conta: confira `SELECT count(*) FROM candidatos WHERE user_id IS NULL` antes de suspeitar da funcao';
   END IF;
 
   SELECT ca.user_id INTO v_titular
