@@ -2712,13 +2712,31 @@ BEGIN
       c_cdt_pos1, coalesce(v_m_hist_a, -1), coalesce(v_m_hist_z, -1), coalesce(v_m_dec_a, -1), coalesce(v_m_dec_z, -1);
   END IF;
 
-  -- ⊕ A PROVA DURÁVEL DE QUE O DISPATCH RODOU, e ela não depende do `pg_net`.
-  --   Em `live` o laço NÃO fecha o item (`reivindicar_item_purga` exige
-  --   `concluido_em IS NULL`), e um post que falhasse fecharia AQUELE item com
-  --   `desfecho_postgres = 'falha'`. Logo: todos os itens abertos + zero falha +
-  --   `veredito = 'despachado'` só é possível se o laço de dispatch percorreu
-  --   todos e nenhum enfileiramento levantou. É verificável no ledger, que é
-  --   durável — ao contrário das tabelas do `pg_net`, que são UNLOGGED com TTL.
+  -- ⊕ O QUE AS QUATRO CONDIÇÕES ABAIXO DE FATO PROVAM — e não é o dispatch.
+  --   Elas provam que **o laço `(g)` abriu um item por titular elegível e o
+  --   fechamento `(h)` não os fechou**: itens = elegíveis, todos abertos, nenhum
+  --   com `desfecho_postgres = 'falha'`, execução em `executando`. Isso é
+  --   necessário para o hop funcionar (`reivindicar_item_purga` exige
+  --   `concluido_em IS NULL` e execução em `executando`), e é verificável no
+  --   ledger, que é DURÁVEL — ao contrário das tabelas do `pg_net`, que são
+  --   `UNLOGGED` com TTL.
+  --
+  --   ⚠⚠ HI-R3-03 · O QUE ESTE COMENTÁRIO DIZIA ATÉ AQUI ERA FALSO, e a frase
+  --     falsa era exatamente a que dava confiança: *"todos os itens abertos +
+  --     zero falha + veredito despachado só é possível se o laço de dispatch
+  --     percorreu todos"*. Não é. As quatro condições são produzidas por `(g)` e
+  --     `(h)`, e o laço `(g.5)` só escreve no ledger no caminho de FALHA — no
+  --     caminho feliz ele não grava nada. **Apague `(g.5)` inteiro da migration
+  --     e as quatro continuam verdadeiras**, com zero post enfileirado. É o
+  --     achado HI-02 do `46-REVIEW-2.md`, e a frase sobreviveu ao próprio
+  --     conserto: o `46-06-SUMMARY.md` foi corrigido e este comentário — que é o
+  --     que o próximo leitor abre — ficou intacto, seis linhas acima da condição
+  --     que o refuta. Comentário que contradiz o código ao lado é a forma de
+  --     defeito que esta fase nomeia (BL-01 do 46-04, RD3-01).
+  --
+  --   ⚠ QUEM MEDE O DISPATCH É A QUINTA CONDIÇÃO, logo abaixo (`v_fila_m =
+  --     v_fila_g + v_m_eleg`). Ela é a única. Estas quatro são pré-condição
+  --     dele, não evidência dele.
   IF v_m_itens IS DISTINCT FROM v_m_eleg::bigint OR v_m_abertos IS DISTINCT FROM v_m_itens
      OR v_m_falhas IS DISTINCT FROM 0 OR v_m_sit IS DISTINCT FROM 'executando' THEN
     RAISE EXCEPTION 'P46P FAIL (m): ⊕ O DISPATCH DO RAMO live NAO SE COMPORTOU. itens = % (esperado % = elegiveis), abertos = % (esperado igual a itens), com desfecho_postgres = falha: % (esperado 0), situacao = [%] (esperado executando). ⚠ ITEM FECHADO AQUI E O DEFEITO MAIS CARO DESTE RAMO: reivindicar_item_purga exige concluido_em nulo, entao a Edge Function receberia P46FB e o despacho inteiro viraria 403 — a purga rodaria todas as noites despachando e sendo recusada, com o ledger dizendo despachado. E situacao concluida fecharia o cabecalho antes de a Edge Function reivindicar, o que tambem recusa (o guard exige executando)',
