@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "PHASE 46 — 7/7 planos executados e o dry-run LIGADO em PROD (T0=2026-08-23 02:06:37-03). ⛔ NAO FECHADA: o code review retroativo de 46-05/06/07 (46-REVIEW-2.md) achou 1 BLOCKER + 5 HIGH, e falta o 46-VERIFICATION.md. NADA a desarmar — a execucao das 03:00 nao destroi linha real, conferido ramo a ramo"
+stopped_at: "RODADA /gsd-autonomous de 2026-08-23 ENCERRADA. PHASE 46: cadeia de review convergiu (REVIEW-2 1 BLOCKER+5 HIGH -> REVIEW-3 2 BLOCKERS os dois INTRODUZIDOS pelo conserto -> REVIEW-4 0 blockers); migrations 0014/0015 APLICADAS em PROD com md5 conferido; smoke 27/27 VERDE; 46-VERIFICATION.md existe, gaps_found 4/5, portao destrutivo 3,5/5. PHASE 47: 8/8 must-haves, behavior_unverified 0, human_needed. AMBAS em Deferred Verification. ⚠ O CRON NUNCA DISPAROU (0 linhas em job_run_details p/ jobid 6; cron.timezone=GMT logo 0 3 * * * = 00:00-03). Modo segue dry_run, flip para live e 2026-09-06 e e checkpoint do operador"
 last_updated: "2026-08-23T05:01:39.125Z"
 last_activity: 2026-08-23
 state_head: 053debfb3ea0f2483197784212a3f28758df849a
@@ -1077,6 +1077,44 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 | 44 (plano 44-05) | checkpoint_deferred_human | prova ao vivo no navegador — ver abaixo |
 | **44 (fase)** | **verification_deferred_gaps** | `/gsd-plan-phase 44 --gaps` · mas ler o aviso abaixo |
 | **46** | **verification_deferred_gaps** — 4/5, portão destrutivo 3,5/5 (2026-08-23) | ver abaixo — **NÃO** é `--gaps` |
+| **47** | **verification_deferred_human** — **8/8** must-haves, `behavior_unverified: 0` (2026-08-23) | 2 itens, os dois de pessoa — ver abaixo |
+
+### Phase 47 — 7/8 → **8/8** em 2026-08-23, e o que resta é julgamento humano
+
+O item que parecia mais duro era **defeito de escrituração, não de banco**: a migration
+`20260809000001_p47_listar_historico_candidatura` estava aplicada o tempo todo, com
+`md5(statements[1] || E'\n')` igual ao md5 do arquivo (a assinatura da via de apply antiga, que
+descartava o `\n` final). O verificador de 2026-08-12 recusou a alegação por falta de artefato —
+e fez certo: subagente não recebe os tools MCP do Supabase. Agora tem artefato,
+`47-EVIDENCIA-CONSOL-02-MEDIDA.md`.
+
+**SC#2 fechou por EXECUÇÃO**, não por leitura: a RPC foi chamada ao vivo com três chamadores —
+administrador devolve 2 linhas com rótulo `Sistema` e **zero** com forma de uuid; `candidato`
+levanta `42501`; **sem claim nenhuma** também levanta `42501` (o guard não é cego a NULL).
+Smoke `p47_historico_smoke.sql` **VERDE 6/6** em PROD, estado do banco idêntico antes e depois.
+
+| # | Item aberto | Por que só pessoa fecha |
+|---|---|---|
+| 1 | **Parecer formal do Encarregado (DPO)** sobre os quatro itens de publicação: os seis países + base legal de cada, a formulação do provedor de hospedagem, a qualificação do serviço público de CEP, e a copy das duas páginas públicas | Julgamento jurídico/regulatório. `WINDOWS.md` 26 e 30 seguem `open`. A publicação atual foi liberada **apenas pelo operador** em 2026-08-11, e o `47-08-SUMMARY.md` é explícito em não tratar isso como equivalente a parecer |
+| 2 | **Abrir o Histórico do RH no navegador**, numa candidatura real | `p47_historico_smoke.sql:100` diz que **NÃO COBRE** `HistoricoBlock` nem o serviço. A metade de banco está provada por execução; a de renderização só tem prova com mocks |
+
+⚠ **Achado que nenhum documento registrava:** as **13** linhas vivas de `historico_candidatura`
+têm `ator IS NULL`. A tela real hoje mostra **só "Sistema"** — o rótulo com nome de recrutador
+(que é o requirement inteiro, W-1) nunca foi exercitado por dado real, apenas por fixture
+revertida. Vale saber antes de abrir a tela e concluir que está tudo certo.
+
+✅ **Fechado hoje, e o registro anterior estava velho:** `api.ipify.org` e `www.youtube.com` **não
+são mais** `pendente-de-decisao` — restam **zero** entradas. O ipify foi **eliminado** (a coleta
+virou trigger no banco, `trg_preencher_ip_logs_acesso`, migration `20260813000001` aplicada) e o
+youtube virou `youtube-nocookie` sob clique explícito.
+
+✅ **CONSOL-03 não está sob o portão de fase destrutiva:** medido — zero `DROP`/`DELETE`/`UPDATE`
+nas migrations da fase. A tabela `data_deletion_log` está **viva**, com o `COMMENT` corrigido e
+dual-write. Nenhum drop aconteceu, então não há os cinco critérios a pontuar.
+
+⚠ **`WINDOWS.md` está desatualizado em 5 entradas da Phase 47** (24, 28, 29, 31, 32). A de nº 24
+é a constatação anterior invertida: **um run sem artefato escrito é indistinguível de um run que
+nunca aconteceu**.
 
 ### ⚠ Phase 46 — os dois gaps NÃO se fecham por código (2026-08-23)
 
