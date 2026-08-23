@@ -17,18 +17,18 @@ requires:
 provides:
   - "supabase/migrations/20260823000006_p46_guard_purga.sql — o 4o ramo do guard de anonimizar_candidato, em DUAS METADES FISICAMENTE DISTINTAS (D-46-18 / D-46-24)"
   - "Bloco de auto-verificacao que ABORTA o apply sobre QUATRO tabelas: purga_execucoes, purga_execucao_itens, config_purga e retencao_hold"
-  - "supabase/migrations/20260823000007_p46_sweep_dry_run.sql — o laco de dry-run passa a CHAMAR o motor, com captura tipada e o ERRCODE proprio P46NT"
-  - "supabase/tests/p46_purga_smoke.sql — assercoes (b) e (o); RESUMO (z) 11 -> 13"
+  - "supabase/migrations/20260823000007_p46_sweep_dry_run.sql — o laco de dry-run passa a CHAMAR o motor, com captura tipada, o ERRCODE proprio P46NT e a RECONCILIACAO de execucoes vencidas (HI-03)"
+  - "supabase/migrations/20260823000009_p46_ck_modo_vigente.sql — CHECK de dominio na coluna que o guard destrutivo le (ME-01)"
   - "supabase/migrations/20260823000008_p46_guard_plano.sql — o 3o ramo de plano_exclusao_titular (Blocker B-02 / Saida A), nas DUAS metades"
   - "supabase/tests/p45_motor_exclusao_smoke.sql (C3) — re-pin cruzado dos DOIS md5, com a rede estrutural crescendo de 2 para 4 metades"
-  - "supabase/tests/p46_purga_smoke.sql — assercoes (b), (o) e (p); RESUMO (z) 11 -> 14"
+  - "supabase/tests/p46_purga_smoke.sql — assercoes (b), (o), (o.6) e (p); RESUMO (z) 11 -> 15"
   - "⛔ BLOCKER B-02 DESCOBERTO E FECHADO no mesmo plano (Saida A, operador 2026-08-22) — e a varredura que prova que NAO HA B-03"
 affects: [46-05, 46-06, 46-07]
 
 actuals:
-  tokens: 62000
+  tokens: 84000
   tasks: 4
-  commits: 5
+  commits: 7
 
 tech-stack:
   added: []
@@ -38,12 +38,17 @@ tech-stack:
     - "Bloco de auto-verificacao que aborta o apply cobre tambem a superficie INDIRETA (retencao_hold): liberar um hold nao chama a funcao destrutiva, mas e o passo que falta ate ela"
     - "Assercao negativa sobre guard destrutivo apontada para um id INEXISTENTE: 42501 = guard recusou, P0002 = guard autorizou — totalmente discriminante e incapaz de destruir"
     - "Re-pin de md5 SEMPRE acompanhado de crescimento da rede estrutural embaixo dele: no dia do re-pin o md5 casa com qualquer corpo, e e so a rede que continua exigindo a forma revisada"
+  - "Guard novo tem de ser correlacionado com o CHAMADOR, e nao so com o alvo e o estado global: um OR sobre estado global desliga as guardas existentes para TODO MUNDO enquanto o estado durar (BL-02)"
+  - "Estado que autoriza destruicao tem de EXPIRAR: sem limite de idade, um executor que morre deixa autorizacao destrutiva standing e o alvo sumindo das varreduras seguintes (HI-03)"
+  - "Historico de pins distingue 'existiu no repositorio' de 'esteve APLICADO': um pin que aparece e some sem explicacao e indistinguivel de um pin trocado as escondidas"
+  - "'Ordem de repositorio' nunca e 'ordem de apply' — num apply incremental contra banco vivo, um REVOKE reemitido remove grants que migrations POSTERIORES no repositorio concederam ANTES no tempo (BL-01)"
 
 key-files:
   created:
     - supabase/migrations/20260823000006_p46_guard_purga.sql
     - supabase/migrations/20260823000007_p46_sweep_dry_run.sql
     - supabase/migrations/20260823000008_p46_guard_plano.sql
+    - supabase/migrations/20260823000009_p46_ck_modo_vigente.sql
   modified:
     - supabase/tests/p46_purga_smoke.sql
     - supabase/tests/p45_motor_exclusao_smoke.sql
@@ -75,8 +80,14 @@ O motor destrutivo provado em produção ganhou um caminho de entrada para o cro
 ramo — a reversível e a destrutiva — são dois predicados fisicamente separados, e o smoke as afere
 separadamente, sobre estado idêntico, mudando só a intenção.
 
-⚠ **NADA FOI APLICADO.** **Três** arquivos de migration escritos e commitados, dois smokes emendados.
-O code review bloqueante e o apply são da Task 4, e pertencem ao orquestrador.
+⚠ **NADA FOI APLICADO.** **Quatro** arquivos de migration escritos e commitados, dois smokes
+emendados. O apply é da Task 4 e pertence ao orquestrador.
+
+⛔ **O code review bloqueante REPROVOU a primeira rodada** — 2 BLOCKER, 4 HIGH, 4 MEDIUM, 2 LOW — e
+encontrou **dois defeitos que teriam ido a produção**: um que derrubaria o direito de exclusão do
+titular no instante do apply, e outro que abria uma janela em que qualquer usuário logado destruiria
+um titular fora da ordem Storage → Postgres → Auth. Os doze estão tratados; a §"Code review
+bloqueante" é a leitura obrigatória, e **uma nova rodada de review precede o apply**.
 
 ⛔ **E este plano descobriu — e fechou — um segundo blocker que D-46-18 não previu.** O motor delega
 a `plano_exclusao_titular`, que tinha guard próprio recusando chamador sem sessão: o 4º ramo
@@ -93,9 +104,11 @@ B-03**) é o que torna a correção suficiente em vez de "o próximo nível a de
 | 3 | O laço chama o motor + (b) + (o) + re-pin de (C3) | `9a7744a` |
 | — | SUMMARY + STATE + ROADMAP + WINDOWS (checkpoint B-02) | `7c3b4f4` |
 | 3b | **B-02 / Saída A** — o 3º ramo do plano + (p) + 2º re-pin | `0a8e22b` |
-| — | Escrituração do fechamento de B-02 | `<este commit>` |
+| — | Escrituração do fechamento de B-02 | `fa9e7ea` |
+| **4a** | ⛔ **Consertos do code review** — 2 BLOCKER, 4 HIGH, 3 MEDIUM, 2 LOW | `6029f94` |
+| — | Escrituração do review | `<este commit>` |
 
-Zero `--no-verify`: o hook de type-check rodou nos cinco commits e reportou **96 erros — o baseline
+Zero `--no-verify`: o hook de type-check rodou nos sete commits e reportou **96 erros — o baseline
 congelado**, inalterado.
 
 ## Task 1 — a decisão, e por que ela não foi perguntada de novo
@@ -308,6 +321,73 @@ Corpo idêntico ao do 46-02 exceto o interior do bloco por titular. A chamada é
 derivada do modo, porque isso seria um caminho destrutivo com um `IF` na frente, a única coisa que o
 escopo negativo do arquivo promete não criar. O ramo `live` nasce no 46-06.
 
+## ⛔ Code review bloqueante — REPROVADO na 1ª rodada, e o que ele encontrou
+
+`46-REVIEW.md`, 2026-08-22, modo adversarial: **2 BLOCKER · 4 HIGH · 4 MEDIUM · 2 LOW**. O portão
+funcionou exatamente como a Phase 45 previa — lá foram 9 blockers em 3 rodadas, e **zero** chegou a
+produção. Aqui, dois defeitos que teriam ido a PROD:
+
+### BL-01 — as migrations derrubavam o direito de exclusão do titular
+
+`20260805000009` está aplicada **desde 2026-08-05** e concede `EXECUTE` a `authenticated` nas duas
+funções — é como a EF `executar-direito-titular` chama o motor com o JWT do titular. `CREATE OR
+REPLACE` preserva o ACL; meu `REVOKE` rodaria **depois** e o removeria, sem re-`GRANT`. Um titular
+exercendo o Art. 18 receberia `42501`. **`DI-45-10-01` reintroduzido em produção** por uma migration
+cujo escopo negativo promete não tocar em nada.
+
+⚠ **E o que fez o defeito passar foi um argumento que eu escrevi no arquivo:** *"a `20260805000009`
+concede EXECUTE a `authenticated` DEPOIS desta linha **na ordem de aplicação do repositório**"*.
+**Ordem de repositório não é ordem de apply.** Numa reconstrução do zero seria verdade; num apply
+incremental contra o banco vivo — o único que vai acontecer — é falso. O `COMMENT` do próprio
+arquivo descrevia o grant que a linha seguinte destruía, e o portão (C1) do
+`p45_motor_exclusao_smoke.sql` já exigia esse grant e ficaria vermelho.
+
+**Corrigido** re-emitindo `GRANT … TO authenticated` nas duas migrations, com a proveniência de cada
+grantee escrita, e **reescrevendo o comentário errado** — ele não podia ser preservado, porque era a
+razão documentada pela qual o defeito não foi visto.
+
+### BL-02 — o 4º ramo não era correlacionado com o CHAMADOR
+
+O predicado interno estava certo; **a ligação estava errada**. `v_purga_live` era propriedade
+apenas de `p_candidato_id` e do cerco — **não mencionava quem chama**. Consequência: enquanto
+houvesse item aberto sob execução em `live` (que no desenho do 46-06 é exatamente a janela do
+dispatch assíncrono), as metades (b) e (c) — as duas únicas que restringem a destruição — ficavam
+**desligadas para todo mundo**. Qualquer usuário logado com `EXECUTE` — um `rh`, ou o próprio
+candidato via PostgREST — destruiria aquele titular **fora da ordem Storage → Postgres → Auth**,
+orfanando o CV no bucket de forma irrecuperável. **CR-01 cenário 2 reaberto.**
+
+⚠ Meu cabeçalho prometia *"se e somente se"* — **em prosa**. O código não impunha.
+
+**Corrigido** com `(v_uid IS NULL) AND EXISTS (…)` nos três predicados: o ramo existe para autorizar
+**o cron**, e o cron se caracteriza por não ter sessão. Um chamador com claim volta a ser julgado
+por (b) e (c), como sempre foi.
+
+⚠ **E o caso era INOBSERVÁVEL** — o smoke nunca carimba claims, higiene que está certa e que foi o
+que revelou B-02, mas que tornava invisível o único caso que importava aqui. **Asserção (o.6)**
+carimba claims de `rh` e de `candidato` sob item aberto em `live` e exige `42501`; é o único bloco
+do arquivo que usa claims, e ele **as limpa imediatamente**, antes de (p) — um vazamento faria as
+asserções seguintes passarem por PAPEL em vez de pelo ramo da purga.
+
+### Os quatro HIGH
+
+| ID | O que era | Conserto |
+|---|---|---|
+| **HI-01** | Ordem de apply **errada**, e as três migrations declaravam ordens **diferentes entre si** — a única explícita era a errada. `007` chama o motor, que chama `plano_exclusao_titular` no PASSO 0 | **`006 → 008 → 007 → 009`**, com a mesma frase nas três |
+| **HI-02** | O bloco que aborta perguntava só por `authenticated` e ignorava `anon` — a lição que o `REVOKE` do mesmo arquivo aplica e o bloco de catálogo não. Uma policy `FOR INSERT TO anon` não casaria em nenhuma das três perguntas | Laço sobre `['authenticated','anon']` e `p.roles && ARRAY[…]` (cobre também policy sem cláusula `TO`) |
+| **HI-03** | **Nada limitava no TEMPO o estado autorizante.** EF que morre deixa item aberto **para sempre** = autorização destrutiva *standing* — a categoria que D-46-18 recusou ao rejeitar a Saída A. E o titular sumiria de todas as varreduras seguintes pelo claim anti-sobreposição | `e.iniciada_em > now() - interval '1 hour'` nos três predicados **e** a **reconciliação** no `…007`, que fecha itens órfãos e aborta execuções vencidas antes de materializar |
+| **HI-04** | `(o.5)` tratava `ja_anonimizado` — a 2ª terminação que o `…007` implementa **de propósito** — como *"o terminador sumiu e a transação teria COMMITADO"*. **5ª ocorrência da forma "portão que reprova trabalho correto com diagnóstico falso" nesta fase** | O estado de `pos1` é **MEDIDO antes**, pelo mesmo predicado de reconhecimento do motor (CR-06), e a asserção exige a terminação **exata** que aquele estado obriga — não afrouxa, e nunca fica vermelha sozinha |
+
+### MEDIUM / LOW — o que foi feito e o que foi deferido
+
+| ID | Decisão |
+|---|---|
+| **ME-01** | **Feito** — `20260823000009` acrescenta CHECK de domínio em `modo_vigente`. Não há escalação conhecida (igualdade literal + par cumulativo); o que fecha é uma **superfície sem contrato** numa coluna que decide destruição irreversível. `'ausente'` entra no vocabulário porque o ramo fail-closed o grava — omiti-lo faria o **comportamento seguro** abortar com 23514 |
+| **ME-02** | **DEFERIDO ao 46-06**, com razão: o `FOR UPDATE` serializa mas não é exclusão mútua no tempo, e em `dry_run` a reentrância é inócua. O guard de "uma execução por dia" pertence ao plano que cria o cron, junto com o dispatch que ela protege |
+| **ME-03** | **Feito** — o `NOTICE` final declara o **escopo honesto**: o bloco cobre papéis de cliente; `service_role` e `postgres` bypassam RLS por desenho e continuam podendo liberar um hold. A RPC auditada de `retencao_hold` é declarada **pré-condição do flip**, não melhoria posterior |
+| **ME-04** | **Feito** — (C3/iii) media que `modo_vigente = 'live'` existia *em algum lugar*; a regressão real (a metade destrutiva passar a ler `v_purga_dry`) deixaria o portão **verde**. Agora mede a **LIGAÇÃO**: as duas variáveis existem **e** as guardas leem a certa. Mais BL-02 e HI-03 vigiados por forma, nas duas funções |
+| **LO-01** | **Feito** — referência `46-04` → `46-06` corrigida |
+| **LO-02** | **Feito** — as duas linhas superadas deste SUMMARY corrigidas |
+
 ## Deviations from Plan
 
 ### [Rule 1 - Bug] O plano mandava inserir o item DEPOIS da chamada — e isso faria TODA chamada receber 42501
@@ -392,14 +472,19 @@ Ver §Blocker B-02. Nenhuma linha foi escrita sobre `plano_exclusao_titular`.
 em que a migration existe e o pin ainda aponta para o corpo antigo é um estado em que o portão está
 mecanicamente vermelho por construção do repositório (CLAUDE.md §"Portões").
 
-| Função | Lado ARQUIVO | Octetos | Valor anterior | VIVO |
-|---|---|---|---|---|
-| `anonimizar_candidato` (`…006`) | `35d1df5d8a3739854e97dd7cbd0d600e` | **43 532** | `8c86e0f0…` (34 488) | ⏸ orquestrador |
-| `plano_exclusao_titular` (`…008`) | `3f6007b85f61d9d58548f560794e50b0` | **26 108** | `97634d07…` (21 349) | ⏸ orquestrador |
+⚠ **E eles foram REFEITOS depois do code review**, porque BL-01, BL-02, HI-02 e HI-03 mudaram os dois
+corpos. Os valores intermediários **nunca vigoraram em PROD**, e o bloco de PROVENIÊNCIA diz isso
+com essas palavras — a coluna que importa num histórico de pins não é "quais existiram", é **"quais
+estiveram aplicados"**. Um pin que aparece e some sem explicação é indistinguível de um pin trocado
+às escondidas.
 
-Os dois lados ARQUIVO foram medidos **por execução** do comando registrado no bloco de PROVENIÊNCIA
-— nunca digitados. Os dois valores antigos permanecem no histórico, com a observação de que ambos
-vigoraram durante a execução do motor em produção de 2026-08-22.
+| Função | Lado ARQUIVO (vigente) | Octetos | Intermediário (nunca aplicado) | Anterior (vigorou em PROD) | VIVO |
+|---|---|---|---|---|---|
+| `anonimizar_candidato` (`…006`) | **`4765cc68f83efb48494f0a78002dce06`** | **46 245** | `35d1df5d…` (43 532) | `8c86e0f0…` (34 488) | ⏸ orquestrador |
+| `plano_exclusao_titular` (`…008`) | **`12621ce84ec31c566b691fea280d3df2`** | **26 908** | `3f6007b8…` (26 108) | `97634d07…` (21 349) | ⏸ orquestrador |
+
+Os lados ARQUIVO foram medidos **por execução** do comando registrado no bloco de PROVENIÊNCIA —
+nunca digitados.
 
 Extração conferida quanto a contaminação de comentário — a armadilha encontrada no 46-02: o trecho
 começa em `\nDECLARE\n` e termina em `END;\n`. A migration **não menciona o delimitador nomeado em
@@ -410,6 +495,10 @@ que ele vigorou durante a execução do motor em produção de 2026-08-22. É is
 auditável: dá para ver que o pin mudou, quando, e por quê.
 
 ### ⚠ Os re-pins NÃO afrouxaram nada — a rede estrutural cresceu de DUAS metades para QUATRO
+
+⚠ **LO-02 do review:** duas linhas desta seção ficaram desatualizadas entre o commit do checkpoint
+e o fechamento de B-02 (diziam "2 → 3" e "11 → 13"). Corrigidas: a rede é **2 → 4** e o RESUMO (z)
+vai a **15**.
 
 (C3) tinha (i) md5 e (ii) "o tombstone CHAMA a expressão única". Ganhou **(iii)** sobre o motor e
 **(iv)** sobre o plano, as duas medidas sobre o corpo VIVO com fronteira de palavra:
@@ -568,7 +657,7 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | (b) prova as três coisas juntas | ✅ relato não nulo · marca do terminador · contagens por passo · ⊖ domínio · ⊖ desfechos |
 | (o) tem 4 recusas + 2 aceitações | ✅ **4** `42501` · **1** `P0002` · **1** `P45DR` |
 | ⊖ (o) não pode destruir | ✅ alvo das negativas é um uuid **inexistente**, e a inexistência é asserida |
-| Pin de (C3) mudou, 32 hex, antigo preservado | ✅ `35d1df5d8a3739854e97dd7cbd0d600e`, 43 532 octetos |
+| Pin de (C3) mudou, 32 hex, antigo preservado | ✅ `4765cc68f83efb48494f0a78002dce06`, 46 245 octetos |
 | ⊖ (C3) NÃO afrouxada | ✅ rede de **2 → 3** metades, `IS DISTINCT FROM` preservado, nenhuma checagem removida |
 | Contador do `p45_motor_exclusao_smoke` | ✅ **24** — inalterado (as checagens entraram no bloco existente) |
 | RESUMO (z) do `p46_purga_smoke` 11 → 13 | ✅ **13** incrementos, `v_esperado = 13` |
@@ -587,10 +676,10 @@ Resolvido pela Saída A (`20260823000008`), com a varredura que prova que **não
 | ⊖ Zero `modo IN (...)` compartilhado nas **três** migrations | ✅ **0 / 0 / 0** |
 | ⊖ Zero negação por conjunto em SQL puro nas **três** | ✅ **0 / 0 / 0** |
 | ⊖ Zero `vault` e zero `net.http_post` em SQL puro nas **três** | ✅ **0 / 0** |
-| Pin do plano mudou, 32 hex, antigo preservado | ✅ `3f6007b85f61d9d58548f560794e50b0`, 26 108 octetos |
-| (C3) de 2 → **4** metades, nenhuma removida | ✅ (iii) motor + (iv) plano |
+| Pin do plano mudou, 32 hex, antigo preservado | ✅ `12621ce84ec31c566b691fea280d3df2`, 26 908 octetos |
+| (C3) de 2 → **4** metades, nenhuma removida | ✅ (iii) motor + (iv) plano, mais as checagens de LIGACAO do ME-04 |
 | (p) com 3 casos + ⊖ zero PII no jsonb | ✅ |
-| RESUMO (z) do `p46_purga_smoke` 11 → **14** | ✅ **14** incrementos, `v_esperado = 14` |
+| RESUMO (z) do `p46_purga_smoke` 11 → **15** | ✅ **15** incrementos, `v_esperado = 15` |
 | ⭐ (C2) conferida contra os dois ramos novos | ✅ usa `gen_random_uuid()` sem item de ledger — **continua mordendo em 10**, sem emenda |
 | ⛔ **Nada aplicado em PROD** | ✅ **por desenho** — o apply é do orquestrador, Task 4 |
 | ⛔ **B-02: levantado como Rule 4, aprovado, e FECHADO** | ✅ Saída A + varredura que prova que não há B-03 |

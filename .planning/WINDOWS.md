@@ -1,15 +1,15 @@
 ---
 schema_version: 1
-open_count: 36
+open_count: 37
 waived_count: 0
 fixed_count: 3
-total_count: 39
-last_updated: 2026-08-23T00:13:52.699Z
+total_count: 40
+last_updated: 2026-08-23T01:05:41.126Z
 ---
 
 # Broken Windows Ledger
 
-> Cross-phase defect register. `/gsd-ship` blocks while `open_count > 0`.
+> Cross-phase defect register. With `workflow.windows_enforce` enabled, `/gsd-ship` blocks while `open_count > 0`.
 > Waive with `gsd-tools windows waive <id> "<reason>"` (reason required).
 > Mark fixed with `gsd-tools windows fixed <id>`.
 
@@ -54,6 +54,7 @@ last_updated: 2026-08-23T00:13:52.699Z
 | 37 | 46 | unrun-verify | supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql |  | 46-03: migration commitada mas NAO aplicada em PROD — retencao_hold, a linha de hold da fixture e as duas excecoes do predicado nao existem no banco ate o checkpoint da Task 3 | fixed |  | 2026-08-22T23:35:17.092Z | 2026-08-22T23:41:17.237Z |
 | 38 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | Assercoes (b) e (o) escritas e commitadas mas NAO EXECUTADAS: nada foi aplicado em PROD e o Blocker B-02 (guard proprio de plano_exclusao_titular) as faria reprovar | open |  | 2026-08-23T00:13:52.635Z |  |
 | 39 | 46 | deviation | supabase/migrations/20260805000005_p45_plano_e_dry_run.sql | 208 | B-02: guard de plano_exclusao_titular recusa chamador sem sessao; D-46-18 e incompleto e PURGA-02 nao fecha ate a decisao do operador | open |  | 2026-08-23T00:13:52.699Z |  |
+| 40 | 46 | deviation | supabase/migrations/20260823000006_p46_guard_purga.sql |  | BL-01/BL-02 do code review: dois defeitos que teriam ido a PROD (revogacao do EXECUTE do titular; ramo nao correlacionado com o chamador). Consertados, mas exigem NOVA rodada de review antes do apply | open |  | 2026-08-23T01:05:41.126Z |  |
 
 ````json
 [
@@ -523,6 +524,18 @@ last_updated: 2026-08-23T00:13:52.699Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-23T00:13:52.699Z",
+    "resolved_at": null
+  },
+  {
+    "id": 40,
+    "kind": "deviation",
+    "phase": "46",
+    "file": "supabase/migrations/20260823000006_p46_guard_purga.sql",
+    "line": null,
+    "description": "BL-01/BL-02 do code review: dois defeitos que teriam ido a PROD (revogacao do EXECUTE do titular; ramo nao correlacionado com o chamador). Consertados, mas exigem NOVA rodada de review antes do apply",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T01:05:41.126Z",
     "resolved_at": null
   }
 ]
