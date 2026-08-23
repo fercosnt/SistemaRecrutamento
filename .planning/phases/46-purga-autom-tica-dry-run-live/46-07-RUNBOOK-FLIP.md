@@ -333,18 +333,62 @@ Se a RPC não estiver alcançável de jeito nenhum — erro de conexão, funçã
 gatilho em vez do cerco**:
 
 ```sql
--- Desarma o AGENDAMENTO sem desagendar. Reversivel com um UPDATE simetrico.
-UPDATE cron.job SET active = false WHERE jobname = 'purga-retencao-sweep';
+-- Desarma o AGENDAMENTO sem destruir a linha. Reversivel com o simetrico.
+SELECT cron.alter_job(job_id := 6, active := false);   -- jobid MEDIDO: 6
 
 -- Conferir — "nao levantou" nunca foi "gravou":
 SELECT jobid, jobname, schedule, active FROM cron.job WHERE jobname = 'purga-retencao-sweep';
+
+-- Reverter:
+SELECT cron.alter_job(job_id := 6, active := true);
 ```
 
-⚠ **Prefira isto a `cron.unschedule`.** As duas param a varredura; a diferença está no caminho de
-volta. `active = false` é desfeito por `UPDATE ... SET active = true` — um statement, sem migration,
-sem tocar no inventário. `cron.unschedule` **destrói a linha**, e reagendar exige reaplicar
-`20260823000012_p46_cron.sql`, com o `jobid` mudando e o inventário do INVENT-03 divergindo no
-meio-tempo. Às três da manhã, a operação reversível por um statement é a que se escolhe.
+> ⛔ **NÃO use `UPDATE cron.job SET active = false`** — foi o que este runbook mandou fazer entre
+> `b4c5aa4` e o conserto de `BL-R3-01`, e **o statement não executa**. Medido em PROD, read-only, em
+> 2026-08-23, pela mesma via de apply (`current_user = session_user = postgres`):
+>
+> ```
+> pg_class('cron.job').relowner                                 = supabase_admin
+> has_table_privilege ('postgres','cron.job','UPDATE')           = false
+> has_column_privilege('postgres','cron.job','active','UPDATE')  = false
+> ```
+>
+> `postgres` carrega **`r*` sobre `cron.job` — `SELECT` com grant option, e mais nada**. O `UPDATE`
+> levanta **`42501 permission denied for table job`** *antes* de a policy `cron_job_policy
+> (username = CURRENT_USER)` ser sequer consultada. Descobrir isso às três da manhã, com a alavanca
+> na mão, é o pior desfecho possível deste documento.
+
+⚠ **Por que `cron.alter_job` funciona e o `UPDATE` não.** `cron.alter_job` e `cron.unschedule` são
+funções **C** da extensão `pg_cron` 1.6.4; elas trocam internamente para o dono da extensão e por
+isso não dependem do privilégio de tabela de quem chama. Medido na mesma sessão:
+
+```
+has_function_privilege('postgres','cron.alter_job(bigint,text,text,text,text,boolean)','EXECUTE') = true
+has_function_privilege('postgres','cron.unschedule(text)','EXECUTE')                              = true
+has_function_privilege('postgres','cron.unschedule(bigint)','EXECUTE')                            = true
+```
+
+É a mesma razão de `cron.schedule` ter funcionado como `postgres` na `20260823000012` — o `jobid 6`
+existe por causa disso. ⚠ A assinatura tem **seis** argumentos (`job_id, schedule, command,
+database, username, active`), não sete; os omitidos ficam `NULL` e `NULL` significa *"não mude"*.
+Chame **sempre por argumento nomeado**: posicional aqui é como se troca o `command` de um job por
+engano.
+
+⚠ **`jobid` é argumento, e ele é `6` hoje — confira antes.** `cron.alter_job` não aceita o
+*jobname*. Se o job tiver sido reagendado desde este documento, leia o `jobid` primeiro:
+`SELECT jobid, active FROM cron.job WHERE jobname = 'purga-retencao-sweep';`
+
+**Segunda opção, se `alter_job` não responder:** `SELECT cron.unschedule('purga-retencao-sweep');`
+— ela **executa** (privilégio medido acima) e para a varredura do mesmo jeito. O preço é o caminho
+de volta: ela **destrói a linha**, e reagendar exige reaplicar `20260823000012_p46_cron.sql` com
+`jobid` novo, deixando o inventário do INVENT-03 divergente no meio-tempo (e o
+`p42_invent05_cron_smoke.sql` reprovando **corretamente**). Entre as duas, `alter_job` é a
+reversível; `unschedule` é a que sempre funcionou e continua sendo o degrau seguinte.
+
+⚠ **A alavanca ainda NÃO foi acionada em PROD** — o privilégio foi medido, a execução não. Provar
+`alter_job` (desarmar e rearmar num momento controlado, conferindo `active` nas duas pontas) é o
+passo que fecha `BL-R3-01` de vez: uma alavanca de emergência que nunca foi acionada é uma promessa
+sem código.
 
 ⚠ E **isto não substitui o kill switch, complementa-o.** `active = false` impede a varredura de
 **começar**; ele não muda `config_purga.modo`, então uma execução que já esteja rodando termina, e
@@ -368,8 +412,9 @@ SELECT created_at, usuario_id, severidade,
 **Se o desligamento não bastar** — se a suspeita for de que a varredura está apagando o que não
 devia, e o modo já está em `off`:
 
-1. Desarmar o job: `UPDATE cron.job SET active = false WHERE jobname = 'purga-retencao-sweep';`
-   (ver *"Último recurso"* acima — reversível por um `UPDATE` simétrico).
+1. Desarmar o job: `SELECT cron.alter_job(job_id := 6, active := false);`
+   (ver *"Último recurso"* acima — reversível pelo simétrico, e ⛔ **não** por `UPDATE cron.job`,
+   que levanta `42501`).
    Só se for preciso remover a linha de fato: `SELECT cron.unschedule('purga-retencao-sweep');`
    ⚠ Isso deixa o inventário do INVENT-03 divergente do repositório e o
    `p42_invent05_cron_smoke.sql` passa a reprovar **corretamente**. Reagendar é aplicar de novo
