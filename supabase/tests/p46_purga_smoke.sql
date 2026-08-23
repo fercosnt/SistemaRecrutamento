@@ -2978,6 +2978,7 @@ DECLARE
   v_e_sev        text;
   v_e_cat        text;
   v_e_acao_z     bigint := -1;
+  v_acl_livre    text;
 
   v_msg          text;
 BEGIN
@@ -2990,6 +2991,37 @@ BEGIN
 
   IF v_fn IS NULL THEN
     RAISE EXCEPTION 'P46P FAIL (d): public.salvar_config_purga(text,integer,integer,boolean) resolveu para NULL — a migration 20260823000013 nao esta aplicada neste banco. Sem ela config_purga NAO TEM caminho de escrita de aplicacao nenhum (a tabela tem RLS ligada e zero policy de escrita), e portanto nem o flip nem o kill switch existem';
+  END IF;
+
+  -- ══ ⊖ A ESCRITA DE APLICACAO EM config_purga CONTINUA FECHADA (…0015 / HI-01) ══
+  --    A `20260823000015` mediu isto UMA VEZ, no proprio apply, e gravou um
+  --    `COMMENT ON TABLE` que afirma a propriedade no PRESENTE e SEM PRAZO. Uma
+  --    medicao de instante apresentada como propriedade permanente e um portao que
+  --    nao existe: `GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role` e
+  --    idioma corriqueiro no Supabase, e foi LITERALMENTE assim que esta tabela
+  --    nasceu com escrita para os tres papeis. Sem esta condicao, reabri-la deixaria
+  --    todos os portoes verdes e o catalogo afirmando o contrario.
+  --
+  --    ⚠ Condicao dentro de um bloco EXISTENTE, e nao asserção letrada nova: uma
+  --    letra a mais mudaria o contador de (z) de 27 para 28 e invalidaria a
+  --    evidencia 27/27 ja produzida em PROD.
+  --
+  --    ⚠ Allowlist de verbos TOLERADOS, jamais lista de proibidos — mesma direcao do
+  --    conserto de HI-R3-05 na propria `…0015`. O verbo que nascer amanha cai do lado
+  --    que REPROVA, que e a direcao segura. O dono e excluido porque privilegio de
+  --    dono nao e revogavel; `grantee = 0` e PUBLIC e precisa entrar.
+  --    Baseline nao se aplica: o esperado e o conjunto VAZIO.
+  SELECT coalesce(string_agg(t.par, ', ' ORDER BY t.par), '')
+    INTO v_acl_livre
+    FROM (SELECT DISTINCT CASE WHEN a.grantee = 0 THEN 'PUBLIC'
+                               ELSE a.grantee::regrole::text END || ':' || a.privilege_type AS par
+            FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(c.relacl) a
+           WHERE c.oid = pg_catalog.to_regclass('public.config_purga')
+             AND a.privilege_type <> ALL (ARRAY['SELECT','REFERENCES','MAINTAIN'])
+             AND (a.grantee = 0 OR a.grantee <> c.relowner)) t;
+
+  IF v_acl_livre <> '' THEN
+    RAISE EXCEPTION 'P46P FAIL (d): a escrita de aplicacao em config_purga REABRIU — [%]. A 20260823000015 revogou INSERT/UPDATE/DELETE/TRUNCATE/TRIGGER de PUBLIC, anon, authenticated e service_role, e o COMMENT ON TABLE afirma isso no catalogo AGORA. Se este par apareceu, alguem concedeu privilegio de tabela depois do apply (um GRANT ALL ON ALL TABLES e o suspeito de sempre) e o unico caminho de escrita deixou de ser salvar_config_purga — o que significa que o flip e o kill switch podem ser contornados sem trilha', v_acl_livre;
   END IF;
 
   -- ══ IMPRESSÃO DIGITAL DAS DUAS TABELAS DO LEDGER, ANTES DE QUALQUER COISA ══

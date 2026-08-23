@@ -232,6 +232,40 @@ SELECT id, iniciada_em, concluida_em, modo_vigente, cap_vigente,
 | `veredito = 'cap_excedido'` | ⛔ o conjunto passou do cap; a execução ABORTOU inteira, e isso é o cerco funcionando |
 | `situacao = 'executando'` por mais de 1 h | ⚠ a reconciliação vai abortá-la; investigar antes de o motivo sumir |
 | qualquer item com desfecho carimbado fora de `nao_aplicavel` | ⛔ algo tocou os três sistemas fora de `live` |
+| **`elegiveis > 0` mas NENHUM item com `relato_dry_run`** | ⛔ **o motor não foi chamado nesta noite.** Ela conta para os critérios 1 e 2 e **NÃO** para o 3 (desde a `…0014`). Investigar o ramo `WHEN OTHERS` do laço `(g)` |
+| **`veredito` fora de `dry_run`/`despachado`** | ⛔ a noite **não conta** para o critério 3 — a `…0014` recorta por allowlist de veredito. Vale para `segredo_ausente` e `cap_excedido`, que já têm linha própria acima |
+
+> ### ⚠ A tabela acima, sozinha, deixa passar o pior caso — e ele está em PROD hoje
+>
+> As três linhas ✅ são satisfeitas por uma execução que **abriu itens e não ensaiou nada**.
+> Medido em 2026-08-23, antes de o cron disparar pela primeira vez:
+>
+> | execução | quando | veredito | `elegiveis` | itens | **com `relato_dry_run`** |
+> |---|---|---|---|---|---|
+> | `e3115161…` | 22/08 20:03 | `dry_run` | 6 | 6 | **0** ⛔ |
+> | `3f27a94c…` | 23/08 02:06 | `dry_run` | 4 | 4 | 4 ✅ |
+>
+> A primeira tem `veredito='dry_run'`, `processados=0` e `elegiveis` estável — **as três linhas
+> verdes** — e os seis itens com os três desfechos em `nao_aplicavel`, então a linha ⛔ de
+> desfecho carimbado também não a pega. Ela é anterior à versão do sweep que captura a pré-imagem.
+>
+> **Catorze noites assim = operador confiante e recusa no dia do flip.** Por isso a consulta
+> abaixo, e não a de cima, é a que responde "quantas noites de fato ensaiaram".
+
+```sql
+-- ⭐ A CONSULTA QUE MEDE O CRITÉRIO 3 — as noites que de fato ENSAIARAM.
+-- É esta que conta para o portão desde a `…0014`, e não o `elegiveis` da tabela acima.
+SELECT e.iniciada_em, e.veredito, e.elegiveis,
+       count(i.*) FILTER (WHERE i.relato_dry_run IS NOT NULL) AS com_evidencia
+  FROM public.purga_execucoes e
+  LEFT JOIN public.purga_execucao_itens i ON i.execucao_id = e.id
+ WHERE e.modo_vigente IN ('dry_run','live')
+   AND e.veredito     IN ('dry_run','despachado')
+ GROUP BY e.id, e.iniciada_em, e.veredito, e.elegiveis
+ ORDER BY e.iniciada_em;
+-- Uma noite só conta quando `com_evidencia > 0`. Se a contagem de linhas com
+-- `com_evidencia > 0` não chegar a 14, o flip será RECUSADO — e é assim que tem de ser.
+```
 
 ```sql
 -- Nenhum item pode ter desfecho carimbado durante o dry-run.
