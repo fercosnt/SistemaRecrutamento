@@ -91,6 +91,19 @@
         // inofensivo; uma entrada que chega DEPOIS do teste deixa
         // `npm run test:run` vermelho no intervalo entre dois commits.
         'supabase/functions/exportar-meus-dados/**/*.test.ts',
+        // Phase 46 (purga automática): a EF `purgar-retencao` é o executor
+        // destrutivo disparado por cron; seu teste importa `https://deno.land/std`
+        // assert e usa globais `Deno.*` → roda sob `deno test`, NÃO sob Vitest.
+        // Caminho LITERAL, nunca glob de diretório — `_shared/__tests__/strict-schema.test.ts`
+        // mora numa pasta vizinha e é sonda Vitest que precisa continuar rodando.
+        // ⚠ A linha nasce ANTES do teste de propósito (plano 46-05, Task 1):
+        // uma entrada de `exclude` apontando para caminho inexistente é no-op
+        // inofensivo; uma que chega DEPOIS deixa `npm run test:run` vermelho no
+        // intervalo entre dois commits — e a falha seria de CARGA do módulo,
+        // não de asserção (o precedente negativo da Phase 42, acima).
+        // ⚠ O teste desta EF mora em `index.test.ts` na RAIZ da pasta (layout de
+        // `executar-direito-titular`), não em `__tests__/`; `**/*.test.ts` cobre os dois.
+        'supabase/functions/purgar-retencao/**/*.test.ts',
       ],
       coverage: {
         provider: 'v8',

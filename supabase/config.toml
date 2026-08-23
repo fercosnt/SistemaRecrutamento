@@ -37,6 +37,12 @@ verify_jwt = false
 [functions.resend-webhook]
 verify_jwt = false
 
+# EF server-interna self-auth (Bearer via Vault) — executor destrutivo da purga de retenção,
+# invocado por `net.http_post` a partir do cron (Phase 46). `false` porque ela se autentica
+# sozinha; virar para `true` quebraria a invocação por cron (SEC-04 load-bearing, ver cabeçalho).
+[functions.purgar-retencao]
+verify_jwt = false
+
 # ── JWT-ON (auth.getUser) — +import_map for the shared-zod EFs ─────────────────────
 
 [functions.avaliar-redacao]
