@@ -141,6 +141,17 @@ de pé; o que mudou é que ela agora tem o que provar em vez de o que construir.
 >    (`PRAZO_MS = 120_000`, ancorado na reivindicação, conferido antes de abrir o Storage, entre
 >    lotes de `remove` e antes do motor), com relógio injetável e três testes que provam que ele
 >    morde nas duas direções.
+>    >
+>    > ⚠⚠ **CORREÇÃO — HI-R3-04 do `46-REVIEW-3.md` (iteração 2 do conserto).** "Consertado" acima
+>    > é forte demais, e a frase é da mesma família que ela própria denuncia. O orçamento é **por
+>    > CHECKPOINT, não um relógio**: os quatro pontos são `if (semOrcamento()) throw …`, e continua
+>    > **não havendo** `AbortController`, `AbortSignal.timeout` nem timeout por chamada em operação
+>    > nenhuma. O que ele garante é *"a função não COMEÇA um passo novo depois do prazo"* — **uma
+>    > única chamada que trave atravessa `T_c + 150 s` com o cheque já feito, e o RD2-03 reabre
+>    > exatamente como escrito**. O pressuposto ficou **menos** decisivo, não sem dono. O texto
+>    > correto e completo vive no cabeçalho de `PRAZO_MS` (`index.ts:92-150`), inclusive a razão de
+>    > um `Promise.race` por chamada **não** ser o conserto (ele não cancela nada e gravaria
+>    > `postgres = 'falha'` para uma anonimização que aconteceu).
 > 2. **Resta um resíduo que a margem não fecha nem no melhor caso.** Se o worker morrer por wall
 >    clock **entre** o `remove` e a chamada ao motor, o desfecho é o mesmo — Storage apagado,
 >    Postgres intacto — não porque o motor recuse, mas porque ninguém o chama. O sistema

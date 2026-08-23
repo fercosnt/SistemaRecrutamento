@@ -106,9 +106,41 @@ const MAX_PAGINAS = 50;
  * que o **literal** `interval '150 seconds'` está no corpo vivo da RPC. **Um
  * literal presente não é um relógio.**
  *
- * Com este orçamento a garantia deixa de depender do runtime: a função desiste
- * SOZINHA antes dos 150 s, o item fecha com desfechos honestos, e o titular volta
+ * ⚠⚠ O QUE ESTE ORÇAMENTO GARANTE, DITO SEM UMA PALAVRA A MAIS — HI-R3-04 do
+ * `46-REVIEW-3.md`. Ele garante **"a função não COMEÇA um passo novo depois do
+ * prazo"**. Só isso. Este cabeçalho afirmava *"a função desiste SOZINHA antes dos
+ * 150 s"* e *"a garantia deixa de depender do runtime"*, e as duas frases eram
+ * maiores que o mecanismo: **ele é um orçamento por CHECKPOINT, e não um
+ * relógio.** Os quatro cheques são `if (semOrcamento()) throw …` em pontos
+ * escolhidos; nenhuma operação tem `AbortController`, `AbortSignal.timeout` nem
+ * timeout próprio — nem `plano_exclusao_titular`, nem o `select` de `candidatos`,
+ * nem as até 50 páginas de `list`, nem cada `remove`, nem
+ * `anonimizar_candidato`, nem `auth.admin.deleteUser`, nem `concluir_item_purga`.
+ * **Uma única chamada que trave cinco minutos atravessa `T_c + 150 s` com o
+ * cheque já feito**, e o RD2-03 reabre exatamente como escrito: Storage apagado,
+ * guard recusando o motor com `42501`. O cheque 3 também não cobre o intervalo
+ * entre ele e o retorno do motor, que é o único ponto em que a janela de 1 h pode
+ * vencer com o Storage já destruído.
+ *
+ * O que ele efetivamente ENTREGA, e não é pouco: nos quatro pontos em que a
+ * função ia começar algo caro ou irreversível, ela desiste com desfechos
+ * HONESTOS em vez de ser morta pelo runtime sem carimbo nenhum, e o titular volta
  * na varredura seguinte. 120 s dá 30 s de folga para o `finally` concluir o item.
+ * A margem de 150 s continua sendo uma medição da plataforma; o orçamento a torna
+ * MENOS decisiva, não irrelevante.
+ *
+ * ⚠ POR QUE NÃO UM `Promise.race` POR CHAMADA — divergência declarada do conserto
+ * sugerido em HI-R3-04. `Promise.race` **não cancela** a operação perdedora: o
+ * `rpc("anonimizar_candidato")` continuaria rodando e commitando no servidor
+ * enquanto esta função já teria gravado `desfecho_postgres = 'falha'` e fechado o
+ * item. Isso é uma AFIRMAÇÃO FALSA num registro de conformidade com retenção
+ * indefinida e sem PITR para desmentir — a mesma mentira simétrica que a
+ * divergência do cheque 3 (logo abaixo, `:473-486`) existe para evitar, só que
+ * pior, porque aqui ela diria que a anonimização falhou quando ela aconteceu. O
+ * conserto correto é CANCELAMENTO de verdade (`AbortSignal` propagado até o
+ * transporte), não corrida; enquanto ele não existir, este cabeçalho descreve o
+ * mecanismo que existe. Prosa que afirma mais que a medição é o achado HI-05
+ * original, e escrevê-la de novo do lado do conserto seria pagá-lo duas vezes.
  *
  * ⚠ O QUE ELE **NÃO** FECHA, e a prosa do `20260823000010:114-121` e do
  * `46-05-SUMMARY.md:118` descrevia como se fechasse: se o worker morrer por wall
