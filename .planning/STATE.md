@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "46-06 COMPLETO — O CRON purga-retencao-sweep ESTA VIVO em PROD (0 3 * * *, active) e ja rodou uma vez ao vivo: veredito=desligado, zero request, zero linha apagada. config_purga.modo=off. Proximo: 46-07 — a RPC salvar_config_purga (o portao do flip) + runbook; migration 20260823000013"
-last_updated: "2026-08-23T03:46:23.033Z"
+stopped_at: "46-07 ESCRITO, NADA APLICADO — a RPC salvar_config_purga (20260823000013), as assercoes (d)/(e) do smoke (RESUMO 25->27) e o 46-07-RUNBOOK-FLIP.md estao no disco. config_purga.modo continua em 'off'. CHECKPOINT BLOQUEANTE: apply + 5 smokes com o contador do GUC + a prova ao vivo de que a RPC RECUSA 'live' + o flip off->dry_run (o T0 dos 14 dias). ⭐ Achado do plano: os criterios de D-46-14 passaram a contar SO execucoes em dry_run|live — sem o recorte, 14 noites com a purga DESLIGADA abririam o portao, e as 3 linhas vivas do ledger estao todas em off (uma com elegiveis=4)."
+last_updated: "2026-08-23T05:01:39.125Z"
 last_activity: 2026-08-23
-state_head: 9d6aea0fbf8e076df140cfbb09ee276dfdab2098
+state_head: 053debfb3ea0f2483197784212a3f28758df849a
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 59
-  completed_plans: 55
+  completed_plans: 57
   percent: 17
 current_phase: 46
 current_phase_name: Purga Automática (dry-run → live)
@@ -1200,9 +1200,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-23T03:46:22.555Z
-Stopped at: 46-05 tasks 1-3 COMPLETAS no disco (4 commits, deno 14/14, vitest 1895, tsc 96=baseline). Task 4 e CHECKPOINT BLOQUEANTE do orquestrador: apply da 20260823000010, deploy da EF purgar-retencao, e os smokes (p46 vai a 21)
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-05-SUMMARY.md
+Last session: 2026-08-23T05:01:38.663Z
+Stopped at: 46-07 ESCRITO, NADA APLICADO — a RPC salvar_config_purga (20260823000013), as assercoes (d)/(e) do smoke (RESUMO 25->27) e o 46-07-RUNBOOK-FLIP.md estao no disco. config_purga.modo continua em 'off'. CHECKPOINT BLOQUEANTE: apply + 5 smokes com o contador do GUC + a prova ao vivo de que a RPC RECUSA 'live' + o flip off->dry_run (o T0 dos 14 dias). ⭐ Achado do plano: os criterios de D-46-14 passaram a contar SO execucoes em dry_run|live — sem o recorte, 14 noites com a purga DESLIGADA abririam o portao, e as 3 linhas vivas do ledger estao todas em off (uma com elegiveis=4).
+Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-07-PLAN.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
