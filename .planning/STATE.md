@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: 46-04 COMPLETO — as 4 migrations APLICADAS em PROD (006->008->009->007), rodada 4 do review fechada, 5 smokes verdes. Proximo: 46-05 (renumerar migration + deploy da EF purgar-retencao)
-last_updated: "2026-08-23T01:05:41.011Z"
+stopped_at: "46-05 tasks 1-3 COMPLETAS no disco (4 commits, deno 14/14, vitest 1895, tsc 96=baseline). Task 4 e CHECKPOINT BLOQUEANTE do orquestrador: apply da 20260823000010, deploy da EF purgar-retencao, e os smokes (p46 vai a 21)"
+last_updated: "2026-08-23T03:46:23.033Z"
 last_activity: 2026-08-23
-state_head: 6029f94785b4c5c257d43913841318859bd0845f
+state_head: 9d6aea0fbf8e076df140cfbb09ee276dfdab2098
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 59
-  completed_plans: 54
+  completed_plans: 55
   percent: 17
 current_phase: 46
 current_phase_name: Purga Automática (dry-run → live)
@@ -1190,9 +1190,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-23T00:13:52.545Z
-Stopped at: 46-04 PARADO em checkpoint bloqueante — Task 4 (code review + apply) nao iniciada, e Blocker B-02 exige decisao do operador antes do apply
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-04-SUMMARY.md
+Last session: 2026-08-23T03:46:22.555Z
+Stopped at: 46-05 tasks 1-3 COMPLETAS no disco (4 commits, deno 14/14, vitest 1895, tsc 96=baseline). Task 4 e CHECKPOINT BLOQUEANTE do orquestrador: apply da 20260823000010, deploy da EF purgar-retencao, e os smokes (p46 vai a 21)
+Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-05-SUMMARY.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

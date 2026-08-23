@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 37
+open_count: 40
 waived_count: 0
 fixed_count: 3
-total_count: 40
-last_updated: 2026-08-23T01:05:41.126Z
+total_count: 43
+last_updated: 2026-08-23T03:46:13.935Z
 ---
 
 # Broken Windows Ledger
@@ -55,6 +55,9 @@ last_updated: 2026-08-23T01:05:41.126Z
 | 38 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | Assercoes (b) e (o) escritas e commitadas mas NAO EXECUTADAS: nada foi aplicado em PROD e o Blocker B-02 (guard proprio de plano_exclusao_titular) as faria reprovar | open |  | 2026-08-23T00:13:52.635Z |  |
 | 39 | 46 | deviation | supabase/migrations/20260805000005_p45_plano_e_dry_run.sql | 208 | B-02: guard de plano_exclusao_titular recusa chamador sem sessao; D-46-18 e incompleto e PURGA-02 nao fecha ate a decisao do operador | open |  | 2026-08-23T00:13:52.699Z |  |
 | 40 | 46 | deviation | supabase/migrations/20260823000006_p46_guard_purga.sql |  | BL-01/BL-02 do code review: dois defeitos que teriam ido a PROD (revogacao do EXECUTE do titular; ramo nao correlacionado com o chamador). Consertados, mas exigem NOVA rodada de review antes do apply | open |  | 2026-08-23T01:05:41.126Z |  |
+| 41 | 46 | deviation | supabase/functions/purgar-retencao/index.ts |  | Titular sem candidatos.user_id: Storage e Auth ficam nao_aplicavel e objetos sob o antigo prefixo, se existirem, permanecem — nao ha caminho relacional do candidato ate os objetos dele (SONDA 2). Propriedade pre-existente do sistema, declarada por escrito no docblock | open |  | 2026-08-23T03:46:13.782Z |  |
+| 42 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | As cinco assercoes (q.1)-(q.5) do 46-05 nunca foram executadas contra Postgres: esta maquina nao tem instancia local. Rodar no checkpoint da Task 4; se reprovarem, medir o portao antes de acreditar na explicacao | open |  | 2026-08-23T03:46:13.859Z |  |
+| 43 | 46 | deviation | CLAUDE.md |  | A varredura por FORMA da secao Portoes nao cobre 'IS DISTINCT FROM <n>', que e o idioma dominante do p46_purga_smoke.sql — um padrao de varredura que nao enxerga o idioma do arquivo que ele vigia tem ponto cego | open |  | 2026-08-23T03:46:13.935Z |  |
 
 ````json
 [
@@ -536,6 +539,42 @@ last_updated: 2026-08-23T01:05:41.126Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-08-23T01:05:41.126Z",
+    "resolved_at": null
+  },
+  {
+    "id": 41,
+    "kind": "deviation",
+    "phase": "46",
+    "file": "supabase/functions/purgar-retencao/index.ts",
+    "line": null,
+    "description": "Titular sem candidatos.user_id: Storage e Auth ficam nao_aplicavel e objetos sob o antigo prefixo, se existirem, permanecem — nao ha caminho relacional do candidato ate os objetos dele (SONDA 2). Propriedade pre-existente do sistema, declarada por escrito no docblock",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T03:46:13.782Z",
+    "resolved_at": null
+  },
+  {
+    "id": 42,
+    "kind": "unrun-verify",
+    "phase": "46",
+    "file": "supabase/tests/p46_purga_smoke.sql",
+    "line": null,
+    "description": "As cinco assercoes (q.1)-(q.5) do 46-05 nunca foram executadas contra Postgres: esta maquina nao tem instancia local. Rodar no checkpoint da Task 4; se reprovarem, medir o portao antes de acreditar na explicacao",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T03:46:13.859Z",
+    "resolved_at": null
+  },
+  {
+    "id": 43,
+    "kind": "deviation",
+    "phase": "46",
+    "file": "CLAUDE.md",
+    "line": null,
+    "description": "A varredura por FORMA da secao Portoes nao cobre 'IS DISTINCT FROM <n>', que e o idioma dominante do p46_purga_smoke.sql — um padrao de varredura que nao enxerga o idioma do arquivo que ele vigia tem ponto cego",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T03:46:13.935Z",
     "resolved_at": null
   }
 ]
