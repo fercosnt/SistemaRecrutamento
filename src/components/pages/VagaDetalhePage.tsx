@@ -399,8 +399,8 @@ export function VagaDetalhePage() {
                         <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
                           Formação
                         </dt>
-                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
-                          {vaga.requisitos_formacao}
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_formacao} />
                         </dd>
                       </div>
                     )}
@@ -409,8 +409,8 @@ export function VagaDetalhePage() {
                         <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
                           Experiência
                         </dt>
-                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
-                          {vaga.requisitos_experiencia}
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_experiencia} />
                         </dd>
                       </div>
                     )}
@@ -419,8 +419,8 @@ export function VagaDetalhePage() {
                         <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
                           Habilidades
                         </dt>
-                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
-                          {vaga.requisitos_habilidades}
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_habilidades} />
                         </dd>
                       </div>
                     )}
@@ -429,8 +429,8 @@ export function VagaDetalhePage() {
                         <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
                           Técnicos
                         </dt>
-                        <dd className="whitespace-pre-line leading-relaxed text-slate-700">
-                          {vaga.requisitos_tecnicos}
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_tecnicos} />
                         </dd>
                       </div>
                     )}

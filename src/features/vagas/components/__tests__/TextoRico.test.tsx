@@ -45,6 +45,22 @@ describe('TextoRico — o subconjunto que ele entende', () => {
     render(<TextoRico texto={'### Rotina\n\nTexto.'} />)
     expect(screen.getByText('Rotina').tagName).toBe('H4')
   })
+
+  it('(e2) `*texto*` vira <em>', () => {
+    render(<TextoRico texto={'A etapa *(foco atual)* abre a próxima.'} />)
+    const it_ = screen.getByText('(foco atual)')
+    expect(it_.tagName).toBe('EM')
+    expect(it_.textContent).not.toContain('*')
+  })
+
+  it('(e3) ⊖ negrito NÃO é lido como itálico — a ordem da alternância segura isto', () => {
+    const { container } = render(<TextoRico texto={'**Contam pontos:** GoHighLevel'} />)
+    const forte = container.querySelector('strong')
+    expect(forte?.textContent).toBe('Contam pontos:')
+    // se a ordem invertesse, sobraria <em> e/ou asterisco solto na tela
+    expect(container.querySelector('em')).toBeNull()
+    expect(container.textContent).not.toContain('*')
+  })
 })
 
 describe('TextoRico — o que ele RECUSA', () => {

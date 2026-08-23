@@ -37,19 +37,38 @@
 
 import { Fragment, type ReactNode } from 'react'
 
-/** Parte o texto em `**negrito**` sem nunca gerar HTML. Um `**` órfão fica literal. */
-function comNegrito(linha: string): ReactNode {
-  const partes = linha.split(/(\*\*[^*]+\*\*)/g)
+/**
+ * Parte o texto em `**negrito**` e `*itálico*` sem nunca gerar HTML.
+ *
+ * ⚠ A ORDEM da alternância importa e não é estilo: `\*\*[^*]+\*\*` vem ANTES de
+ * `\*[^*]+\*` porque a regex alterna da esquerda para a direita e a primeira que
+ * casar vence. Invertido, `**negrito**` seria lido como itálico vazio seguido de
+ * lixo. Marca órfã (`**` ou `*` sem par) cai fora das duas e fica LITERAL, que é o
+ * comportamento seguro: o leitor vê o asterisco em vez de perder o resto do texto
+ * dentro de um negrito que nunca fecha.
+ */
+function comEnfase(linha: string): ReactNode {
+  const partes = linha.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g)
   if (partes.length === 1) return linha
 
   return partes.map((parte, i) => {
-    const m = parte.match(/^\*\*([^*]+)\*\*$/)
-    if (!m) return <Fragment key={i}>{parte}</Fragment>
-    return (
-      <strong key={i} className="font-semibold text-slate-900">
-        {m[1]}
-      </strong>
-    )
+    const forte = parte.match(/^\*\*([^*]+)\*\*$/)
+    if (forte) {
+      return (
+        <strong key={i} className="font-semibold text-slate-900">
+          {forte[1]}
+        </strong>
+      )
+    }
+    const enfase = parte.match(/^\*([^*]+)\*$/)
+    if (enfase) {
+      return (
+        <em key={i} className="italic text-slate-600">
+          {enfase[1]}
+        </em>
+      )
+    }
+    return <Fragment key={i}>{parte}</Fragment>
   })
 }
 
@@ -142,7 +161,7 @@ export function TextoRico({
               key={i}
               className="pt-2 text-base font-bold text-slate-900 first:pt-0"
             >
-              {comNegrito(bloco.texto)}
+              {comEnfase(bloco.texto)}
             </h4>
           )
         }
@@ -152,7 +171,7 @@ export function TextoRico({
             <ul key={i} className="list-disc space-y-2 pl-5 marker:text-slate-400">
               {bloco.itens.map((item, j) => (
                 <li key={j} className="leading-relaxed text-slate-700">
-                  {comNegrito(item)}
+                  {comEnfase(item)}
                 </li>
               ))}
             </ul>
@@ -168,7 +187,7 @@ export function TextoRico({
             >
               {bloco.itens.map((item, j) => (
                 <li key={j} className="leading-relaxed text-slate-700">
-                  {comNegrito(item)}
+                  {comEnfase(item)}
                 </li>
               ))}
             </ol>
@@ -177,7 +196,7 @@ export function TextoRico({
 
         return (
           <p key={i} className="leading-relaxed text-slate-700">
-            {comNegrito(bloco.texto)}
+            {comEnfase(bloco.texto)}
           </p>
         )
       })}
