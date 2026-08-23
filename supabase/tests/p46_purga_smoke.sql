@@ -2789,9 +2789,23 @@ END $r$;
 -- 46-07 · O PORTÃO DO FLIP E A TRILHA — (d) e (e)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- (d) ⊖⊕ `public.salvar_config_purga` RECUSA a transição `dry_run → live` quando
---     falta QUALQUER critério — cinco casos, **um critério de cada vez** —,
---     ACEITA quando os cinco estão satisfeitos, e **NUNCA** recusa a transição
---     para `off` (PURGA-04 · PURGA-05 · D-46-14 · D-46-22).
+--     falta QUALQUER critério — **sete** casos —, ACEITA quando os cinco
+--     critérios estão satisfeitos, e **NUNCA** recusa a transição para `off`
+--     (PURGA-04 · PURGA-05 · D-46-14 · D-46-22).
+--
+-- ⚠⚠ OS CASOS `(d.8)` E `(d.9)` NASCERAM DO BLOCKER-01 DO `46-REVIEW-2.md`, e
+--   a razão de eles não existirem antes é a lição: **os cinco casos originais
+--   provavam que o portão recusa quando um critério FALTA, e nenhum deles
+--   perguntava se o portão estava contando a coisa certa.** O recorte era só
+--   por `modo_vigente`, e deixava passar `cap_excedido` e `segredo_ausente` —
+--   dois vereditos alcançáveis EM `dry_run` nos quais a varredura retorna antes
+--   de abrir um único item. Catorze noites com o Vault vazio satisfaziam os três
+--   critérios com ZERO evidência sobre o caminho do delete.
+--   `(d.4)` não pegava isso: ele monta *"14+ execuções e NENHUMA sobre conjunto
+--   não-vazio"* zerando `elegiveis`, e nunca constrói o caso oposto — *"14
+--   execuções com `elegiveis > 0` que não ensaiaram"*.
+--   `(d.8)` constrói o primeiro (veredito fora da allowlist) e `(d.9)` o segundo
+--   (nenhum item com `relato_dry_run`).
 -- (e) Uma mudança de modo bem-sucedida grava EXATAMENTE UMA linha em
 --     `logs_auditoria`, na MESMA transação, com ator resolvido no servidor e os
 --     dois estados registrados e DIFERENTES (PURGA-04).
@@ -2824,12 +2838,31 @@ END $r$;
 --   O caso "menos de 14 execuções" é o único que **não pode** ser montado por
 --   acréscimo: a contagem só desce removendo linhas. Três cercas em volta dele:
 --   (1) a remoção é **escopada aos modos que o critério conta** (`dry_run` e
---   `live`) — as linhas de heartbeat em `off`, que hoje são TODAS as reais, nunca
---   são tocadas; (2) ela vive numa subtransação PRÓPRIA, aninhada, revertida
+--   `live`) — as linhas de heartbeat em `off` nunca são tocadas; (2) ela vive
+--   numa subtransação PRÓPRIA, aninhada, revertida
 --   IMEDIATAMENTE e não apenas no fim do envelope, numa janela de quatro
 --   statements; (3) porque prosa que afirma uma propriedade não é a propriedade,
 --   a restauração é **MEDIDA**: a impressão digital das duas tabelas do ledger é
 --   capturada antes do envelope e reconferida depois dele.
+--
+-- ⚠⚠ **CORREÇÃO (2026-08-23, ME-02 do `46-REVIEW-2.md`) — A CERCA (1) DEIXOU DE
+--   SER O QUE ERA, E A FRASE ANTIGA VIROU FALSA NO DIA DO FLIP PARA `dry_run`.**
+--   Ela dizia que as linhas em `dry_run`/`live` *"nunca são as reais"*, porque
+--   em 2026-08-22 todas as linhas reais estavam em `off`. Desde
+--   T0 = 2026-08-23 02:06:37-03 **as linhas reais de PROD estão em `dry_run`**, e
+--   o `DELETE` de `(d.3)` — assim como os `UPDATE` de `(d.4)`, `(d.8)` e `(d.9)`
+--   — alcança exatamente elas. O raio de explosão deste bloco cresceu **em
+--   silêncio**, de "zero linhas reais" para "todas as linhas de ensaio", na
+--   mesma noite em que o dry-run foi ligado. É a mesma classe do BL-01 do 46-04:
+--   prosa que descreve um estado que deixou de valer.
+--   **O que continua verdade, e é o que sustenta o bloco:** as cercas (2) e (3).
+--   Toda mutação vive em subtransação própria revertida em seguida, e a
+--   restauração é MEDIDA por impressão digital — não presumida. É a cerca (3),
+--   e não a (1), que responde por este bloco hoje.
+--   ⚠ E o escopo por modo continua tendo função, só que outra: ele mantém os
+--   casos INDEPENDENTES DO CALENDÁRIO. Escopá-los ao que este bloco planta
+--   deixaria as linhas reais satisfazendo os critérios por conta própria, e os
+--   casos negativos ficariam verdes sem medir nada.
 --
 -- ⚠ ESTA É A ÚNICA MEDIÇÃO LEGÍTIMA DEPOIS DO ROLLBACK deste arquivo, e a
 --   distinção importa. A regra do cabeçalho existe por causa da lição nº 6 dos
@@ -2872,13 +2905,35 @@ DECLARE
   v_real_eleg    bigint;
   v_modo0        text;
 
-  -- (d) as sete chamadas de controle
+  -- (d) as NOVE chamadas de controle
   v_d_st         text[] := ARRAY[]::text[];
   v_d_msg        text[] := ARRAY[]::text[];
   v_marc         text[] := ARRAY[]::text[];
   v_d_modo_pos   text;
   v_d_modo_off   text;
   v_d_conta13    bigint := -1;
+
+  -- ⚠ BL-01 · A EVIDÊNCIA DE ENSAIO, PLANTADA E RASTREÁVEL POR ID.
+  --   Desde a `20260823000014` o critério nº 3 exige, além de `elegiveis > 0`,
+  --   que algum ITEM da execução carregue `relato_dry_run` — a pré-imagem que a
+  --   chamada a `anonimizar_candidato(id, true)` produz. Sem esta linha o caso
+  --   positivo `(d.6)` passaria a REPROVAR, e reprovaria com razão: o ledger
+  --   sintético de hoje tem catorze cabeçalhos e **nenhum item**, ou seja
+  --   descreve catorze noites que não ensaiaram nada. É exatamente o buraco de
+  --   BL-01, e ele estava dentro da própria fixture que provava o portão.
+  --
+  --   ⚠ O `candidato_id` é sintético e do namespace do plano (`4607f000…`), e
+  --     `purga_execucao_itens.candidato_id` NÃO TEM FK (`20260823000002:264`) —
+  --     de propósito, para que a linha sobreviva ao desaparecimento do titular.
+  --     Nenhum id real entra aqui.
+  --   ⚠ O item nasce FECHADO (`concluido_em` carimbado) e sob execução
+  --     `concluida`. As duas coisas são de SEGURANÇA e não higiene: o 4º ramo do
+  --     guard de `anonimizar_candidato` autoriza destruição a partir de item
+  --     ABERTO sob execução em `executando`. Um item sintético aberto seria uma
+  --     autorização destrutiva plantada por um teste.
+  c_d_cand       constant uuid := '4607f000-0000-4000-8000-0000000000d1'::uuid;
+  v_d_exec1      uuid;
+  v_d_item1      uuid;
 
   -- (e) a trilha
   v_e_ids        uuid[];
@@ -2970,15 +3025,49 @@ BEGIN
     -- `20260823000002:136-153`, não de memória): modo_vigente, cap_vigente,
     -- elegiveis, veredito. `processados`, `notificacoes_expurgadas`, `situacao`,
     -- `iniciada_em` e `id` têm default; `concluida_em` é anulável.
+    --
+    -- ⚠ A INSERÇÃO É PARTIDA EM DUAS — a execução de FRONTEIRA primeiro, com
+    --   `RETURNING`, porque é ela que precisa carregar a EVIDÊNCIA de ensaio e
+    --   portanto precisa ter o `id` conhecido. Antes de BL-01 as catorze linhas
+    --   nasciam de um `generate_series` só; hoje a primeira é distinta por
+    --   construção e as outras treze completam a contagem.
     INSERT INTO public.purga_execucoes
            (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
             iniciada_em, concluida_em)
-    SELECT 'dry_run', 50,
-           CASE WHEN g = 1 THEN 3 ELSE 0 END,
-           0, 'dry_run', 'concluida',
-           pg_catalog.now() - make_interval(days => 15 - g),
-           pg_catalog.now() - make_interval(days => 15 - g)
-      FROM generate_series(1, 14) g;
+    VALUES ('dry_run', 50, 3, 0, 'dry_run', 'concluida',
+            pg_catalog.now() - interval '14 days',
+            pg_catalog.now() - interval '14 days')
+    RETURNING id INTO v_d_exec1;
+
+    INSERT INTO public.purga_execucoes
+           (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
+            iniciada_em, concluida_em)
+    SELECT 'dry_run', 50, 0, 0, 'dry_run', 'concluida',
+           pg_catalog.now() - make_interval(days => 14 - g),
+           pg_catalog.now() - make_interval(days => 14 - g)
+      FROM generate_series(1, 13) g;
+
+    -- ⚠⚠ BL-01 · A EVIDÊNCIA DE QUE AQUELA NOITE ENSAIOU O CAMINHO DO DELETE.
+    --   O critério nº 3 deixou de ser `elegiveis > 0` e passou a ser
+    --   `elegiveis > 0 AND EXISTS (item com relato_dry_run)`. A distinção é o
+    --   BLOCKER inteiro: `elegiveis` diz que o PREDICADO selecionou alguém, e
+    --   `relato_dry_run` diz que o MOTOR foi chamado — são coisas diferentes, e
+    --   catorze noites em que a varredura abortou antes do laço (por
+    --   `segredo_ausente`, por `cap_excedido`) satisfazem a primeira tendo
+    --   ensaiado nada.
+    --   ⚠ Item FECHADO sob execução `concluida`: ver a nota do `DECLARE`. Um
+    --     item sintético ABERTO seria autorização destrutiva plantada por teste.
+    INSERT INTO public.purga_execucao_itens
+           (execucao_id, candidato_id, etapa, janela_meses_aplicada,
+            ancora_origem, ancora_em,
+            desfecho_storage, desfecho_postgres, desfecho_auth,
+            relato_dry_run, concluido_em)
+    VALUES (v_d_exec1, c_d_cand, 'aprovado'::public.etapa_processo, 24,
+            'data_candidatura', pg_catalog.now() - interval '30 months',
+            'nao_aplicavel', 'nao_aplicavel', 'nao_aplicavel',
+            'P46P (d) FIXTURE SINTETICA — relato de ensaio plantado por p46_purga_smoke.sql para satisfazer o criterio 3 de D-46-14 na forma medida pela 20260823000014 (evidencia, e nao so contagem de elegiveis). Esta linha vive DENTRO do envelope e e revertida com ele; a impressao digital do ledger, conferida no fim do bloco, mede que ela sumiu.',
+            pg_catalog.now() - interval '14 days')
+    RETURNING id INTO v_d_item1;
 
     -- As três etapas da allowlist deixam de estar em procedência de seed.
     -- ⚠ Só as da allowlist: D-46-22 é sobre as etapas que a purga ALCANÇA, e
@@ -3134,6 +3223,95 @@ BEGIN
         NULL;
     END;
 
+    -- ── (d.8) ⊖ 14+ EXECUÇÕES EM `dry_run` QUE NÃO ENSAIARAM NADA ────────────
+    -- ⚠⚠ O CASO DO BLOCKER-01, E O QUE A ASSERÇÃO `(d)` ORIGINAL NÃO CONSTRUÍA.
+    --   `(d.4)` monta *"14+ execuções e NENHUMA sobre conjunto não-vazio"*
+    --   zerando `elegiveis`. O que ele nunca monta é o cenário oposto e muito
+    --   mais provável: **14 execuções com `elegiveis > 0` que não ensaiaram**.
+    --
+    --   Catorze noites com o Vault sem `edge_invoke_key` produzem catorze linhas
+    --   em `modo_vigente = 'dry_run'` com `elegiveis = 4` e
+    --   `veredito = 'segredo_ausente'` — a varredura CONTOU os elegíveis e
+    --   retornou em `(f.5)`, antes de abrir um único item, exatamente como o
+    --   kill switch faz em `off`. Com o recorte só por modo, os três critérios
+    --   de D-46-14 ficavam satisfeitos com ZERO evidência sobre o caminho do
+    --   delete: o "dry-run decorativo" que o SC#1 proíbe. O
+    --   `46-07-RUNBOOK-FLIP.md:231` já marcava esse veredito com ⛔ na tabela de
+    --   vigilância — **o runbook sabia que era estado ruim e o servidor o
+    --   aceitava como prova.**
+    --
+    --   ⚠ A recusa esperada nomeia TRÊS critérios, e isso é o correto e não um
+    --     defeito do diagnóstico: com a allowlist de veredito o conjunto contado
+    --     fica VAZIO, então dias, execuções e evidência falham juntos. Exigir
+    --     marcador único aqui seria exigir que a mensagem mentisse.
+    BEGIN
+      UPDATE public.purga_execucoes
+         SET veredito = 'segredo_ausente'
+       WHERE modo_vigente IN ('dry_run', 'live');
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_veredito' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;  -- os vereditos voltam ao plantado; as variaveis sobreviveram
+    END;
+
+    -- ── (d.9) ⊖ 14+ EXECUÇÕES DE ENSAIO, MAS SEM EVIDÊNCIA DE ENSAIO ─────────
+    -- ⚠⚠ A OUTRA METADE DE BL-01, e a que `(d.8)` não alcança. Aqui os
+    --   vereditos são os certos (`dry_run`), os dias são os certos, a contagem é
+    --   a certa e `elegiveis > 0` — **e mesmo assim nenhum titular chegou ao
+    --   motor.** É o estado de uma noite em que todos os titulares falharam no
+    --   ramo `WHEN OTHERS` do laço `(g)`, que grava `desfecho_postgres = 'falha'`
+    --   e deixa `relato_dry_run` NULO.
+    --
+    --   ⚠ E é EXATAMENTE o estado em que a fixture deste bloco vivia antes de
+    --     BL-01: catorze cabeçalhos e nenhum item. O caso positivo `(d.6)`
+    --     passava sobre ele, ou seja o portão aprovava o flip a partir de um
+    --     ledger que não continha um único ensaio. Anular `relato_dry_run` é,
+    --     literalmente, devolver a fixture ao que ela era.
+    --
+    --   ⚠ A ANULAÇÃO É ESCOPADA POR CORRELAÇÃO aos modos que o critério conta, e
+    --     não a `v_d_item1` sozinho: as linhas REAIS de PROD passaram a ter
+    --     itens com `relato_dry_run` desde T0 = 2026-08-23, e escopar ao item
+    --     sintético deixaria o caso satisfeito pelas reais — um caso construído
+    --     virando um caso dependente do calendário, que é a forma de defeito que
+    --     o cabeçalho deste bloco existe para evitar. Vive em subtransação
+    --     própria, revertida três statements depois, e a impressão digital do
+    --     ledger mede a restauração.
+    BEGIN
+      UPDATE public.purga_execucao_itens i
+         SET relato_dry_run = NULL
+       WHERE EXISTS (SELECT 1 FROM public.purga_execucoes e
+                      WHERE e.id = i.execucao_id
+                        AND e.modo_vigente IN ('dry_run', 'live'));
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_evidencia' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;  -- o relato volta; a medicao sobreviveu em memoria
+    END;
+
     -- ── (d.6) ⊕ O CASO POSITIVO — E (e) MEDIDA EM VOLTA DELE ─────────────────
     -- Os cinco critérios satisfeitos: 14 dias EXATOS desde a primeira execução,
     -- 14+ execuções, uma delas sobre conjunto não-vazio, a allowlist fora do
@@ -3244,8 +3422,8 @@ BEGIN
     RAISE EXCEPTION 'P46P FAIL (d): ⊖ NAO-VACUIDADE DA IMPERSONACAO — auth.uid() resolveu para NULO depois de carimbar as claims (medido %). Sem sessao, a RPC recusa com 42501 em TODAS as chamadas: as cinco negativas ficariam verdes medindo o guard de papel, e o caso positivo reprovaria por um motivo que nada tem a ver com o portao do flip', v_uid_ok;
   END IF;
 
-  IF array_length(v_d_st, 1) IS DISTINCT FROM 7 THEN
-    RAISE EXCEPTION 'P46P FAIL (d): foram registradas % chamadas de controle (esperado 7 — cinco recusas, uma aceitacao e o kill switch). Um bloco que nao executou as sete nao provou nada sobre o portao do flip', coalesce(array_length(v_d_st, 1), 0);
+  IF array_length(v_d_st, 1) IS DISTINCT FROM 9 THEN
+    RAISE EXCEPTION 'P46P FAIL (d): foram registradas % chamadas de controle (esperado 9 — SETE recusas, uma aceitacao e o kill switch). As duas ultimas recusas nasceram com o conserto de BL-01 (20260823000014): (d.8) prova que vereditos que retornam ANTES de abrir item nao contam como ensaio, e (d.9) prova que contar elegiveis nao e o mesmo que ter evidencia de que o motor foi chamado. Um bloco que nao executou as nove nao provou nada sobre o portao do flip', coalesce(array_length(v_d_st, 1), 0);
   END IF;
 
   -- As CINCO recusas, uma por critério.
@@ -3294,8 +3472,15 @@ BEGIN
   --   critério novo sem marcador novo faz o caso correspondente inexistir, e não
   --   passar em silêncio: cada caso compara o conjunto de marcadores por
   --   IGUALDADE EXATA, então um critério a mais na mensagem reprova pelo nome.
+  --
+  -- ⚠ BL-01 · A VARREDURA VAI ATÉ O CASO 7 e não mais até o 5, porque `(d.8)` e
+  --   `(d.9)` são recusas como as outras quatro e um diagnóstico errado nelas
+  --   custa o mesmo. `(d.8)` é o único caso do arquivo cujo marcador esperado é
+  --   COMPOSTO — e ele é composto por medição, não por tolerância: com a
+  --   allowlist de veredito o conjunto contado fica vazio, então dias, execuções
+  --   e evidência faltam de fato, todos os três.
   v_marc := ARRAY[]::text[];
-  FOR v_k IN 2..5 LOOP
+  FOR v_k IN 2..7 LOOP
     v_msg  := coalesce(v_d_msg[v_k], '');
     v_marc := v_marc || coalesce(concat_ws('+'::text,
       CASE WHEN position('dias corridos'       in v_msg) > 0 THEN 'dias'::text      END,
@@ -3308,15 +3493,29 @@ BEGIN
   IF v_marc[1] IS DISTINCT FROM 'dias'
      OR v_marc[2] IS DISTINCT FROM 'execucoes'
      OR v_marc[3] IS DISTINCT FROM 'elegiveis'
-     OR v_marc[4] IS DISTINCT FROM 'seed' THEN
-    RAISE EXCEPTION 'P46P FAIL (d): o DIAGNOSTICO de cada recusa nao nomeia o criterio certo e so ele. Medido, na ordem (13 dias / 13 execucoes / zero elegiveis / matriz em seed): [%], [%], [%], [%] — esperado dias, execucoes, elegiveis, seed. ⚠ Um diagnostico que nomeia criterios que NAO faltaram manda o operador consertar o que ja estava certo; um que nomeia menos do que faltou o manda tentar de novo as cegas. O passo 4 do checkpoint desta fase copia a mensagem inteira para o SUMMARY: ela E a evidencia de que o portao existe',
-      coalesce(v_marc[1], 'NULL'), coalesce(v_marc[2], 'NULL'), coalesce(v_marc[3], 'NULL'), coalesce(v_marc[4], 'NULL');
+     OR v_marc[4] IS DISTINCT FROM 'seed'
+     OR v_marc[5] IS DISTINCT FROM 'dias+execucoes+elegiveis'
+     OR v_marc[6] IS DISTINCT FROM 'elegiveis' THEN
+    RAISE EXCEPTION 'P46P FAIL (d): o DIAGNOSTICO de cada recusa nao nomeia o criterio certo e so ele. Medido, na ordem (13 dias / 13 execucoes / zero elegiveis / matriz em seed / veredito segredo_ausente / sem evidencia de ensaio): [%], [%], [%], [%], [%], [%] — esperado dias, execucoes, elegiveis, seed, dias+execucoes+elegiveis, elegiveis. ⚠ Um diagnostico que nomeia criterios que NAO faltaram manda o operador consertar o que ja estava certo; um que nomeia menos do que faltou o manda tentar de novo as cegas. O passo 4 do checkpoint desta fase copia a mensagem inteira para o SUMMARY: ela E a evidencia de que o portao existe. ⚠ O 5o e COMPOSTO por MEDICAO e nao por tolerancia: com o veredito fora da allowlist o conjunto contado fica VAZIO, entao dias, execucoes e evidencia faltam de fato, os tres. O 6o e simples: dias e execucoes continuam satisfeitos e so a EVIDENCIA falta — e a diferenca entre os dois e o BLOCKER-01 inteiro',
+      coalesce(v_marc[1], 'NULL'), coalesce(v_marc[2], 'NULL'), coalesce(v_marc[3], 'NULL'),
+      coalesce(v_marc[4], 'NULL'), coalesce(v_marc[5], 'NULL'), coalesce(v_marc[6], 'NULL');
+  END IF;
+
+  -- ⊖ AS DUAS RECUSAS NOVAS, cada uma com o SQLSTATE do portão (BL-01).
+  IF v_d_st[6] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.8): ⛔ O CASO DO BLOCKER-01. Com 14 execucoes em modo dry_run, 14+ dias, elegiveis > 0 e veredito segredo_ausente — ou seja catorze noites em que a varredura CONTOU os elegiveis e retornou em (f.5) antes de abrir um unico item —, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. O recorte do portao tem de ser por MODO **e** por VEREDITO: desligado, cap_excedido e segredo_ausente retornam antes de qualquer item e nao contem evidencia nenhuma sobre o caminho do delete, exatamente como o kill switch em off. O 46-07-RUNBOOK-FLIP.md ja marcava esses vereditos com ⛔ na tabela de vigilancia dos 14 dias — se este caso passa, o servidor esta aceitando como prova um estado que o runbook manda investigar',
+      coalesce(v_d_st[6], 'NULL'), coalesce(v_d_msg[6], 'NULL');
+  END IF;
+
+  IF v_d_st[7] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.9): ⛔ CONTAR ELEGIVEIS NAO E TER ENSAIADO. Com 14 execucoes de ensaio, 14+ dias, veredito dry_run e elegiveis > 0, mas com NENHUM item carregando relato_dry_run — o estado de uma noite em que todos os titulares falharam antes da chamada ao motor —, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. elegiveis diz que o PREDICADO selecionou alguem; relato_dry_run diz que o MOTOR foi chamado com a MESMA expressao do delete real. Sao coisas diferentes, e o criterio 3 mede a segunda',
+      coalesce(v_d_st[7], 'NULL'), coalesce(v_d_msg[7], 'NULL');
   END IF;
 
   -- ⊕ A ACEITAÇÃO.
-  IF v_d_st[6] IS DISTINCT FROM 'OK' THEN
-    RAISE EXCEPTION 'P46P FAIL (d.6): ⊕ O CONTROLE POSITIVO. Com os CINCO criterios satisfeitos — 14 dias exatos desde a primeira execucao, 14+ execucoes com ledger, uma delas sobre conjunto nao-vazio, allowlist fora do seed e confirmacao explicita —, a RPC devolveu [%] em vez de aceitar. Mensagem: [%]. ⚠ PROVAR SO RECUSA NAO PROVA NADA: uma funcao que recusa TUDO passaria nas cinco negativas acima, e a descoberta chegaria no dia do flip, com o operador incapaz de ligar a purga e sem saber por que. E o modo de falha no 3 dos sete portoes da Phase 45, e e o que aconteceu com a (p.3) deste mesmo arquivo por tres rodadas de review',
-      coalesce(v_d_st[6], 'NULL'), coalesce(v_d_msg[6], 'NULL');
+  IF v_d_st[8] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.6): ⊕ O CONTROLE POSITIVO. Com os CINCO criterios satisfeitos — 14 dias exatos desde a primeira execucao de ENSAIO, 14+ execucoes com ledger e veredito de ensaio, uma delas sobre conjunto nao-vazio E com relato_dry_run gravado, allowlist fora do seed e confirmacao explicita —, a RPC devolveu [%] em vez de aceitar. Mensagem: [%]. ⚠ PROVAR SO RECUSA NAO PROVA NADA: uma funcao que recusa TUDO passaria nas SETE negativas acima, e a descoberta chegaria no dia do flip, com o operador incapaz de ligar a purga e sem saber por que. E o modo de falha no 3 dos sete portoes da Phase 45, e e o que aconteceu com a (p.3) deste mesmo arquivo por tres rodadas de review. ⚠ Se a recusa citar EVIDENCIA, o defeito esta na FIXTURE e nao no portao: o item sintetico com relato_dry_run plantado logo apos o ledger sintetico e o que satisfaz o criterio 3 desde a 20260823000014',
+      coalesce(v_d_st[8], 'NULL'), coalesce(v_d_msg[8], 'NULL');
   END IF;
 
   IF v_d_modo_pos IS DISTINCT FROM 'live' THEN
@@ -3324,9 +3523,9 @@ BEGIN
   END IF;
 
   -- ⊖⊕ O KILL SWITCH.
-  IF v_d_st[7] IS DISTINCT FROM 'OK' THEN
+  IF v_d_st[9] IS DISTINCT FROM 'OK' THEN
     RAISE EXCEPTION 'P46P FAIL (d.7): ⛔ O KILL SWITCH FOI RECUSADO. A partir de live, com as TRES condicoes que reprovariam a ENTRADA em live falhando de proposito (sem confirmacao, ledger insuficiente e matriz em seed), a chamada para off devolveu [%] em vez de passar. Mensagem: [%]. UM KILL SWITCH QUE PODE SER RECUSADO NAO E UM KILL SWITCH, e o momento em que ele mais importa e exatamente aquele em que algum criterio esta falhando — as tres da manha, com a purga apagando o que nao devia',
-      coalesce(v_d_st[7], 'NULL'), coalesce(v_d_msg[7], 'NULL');
+      coalesce(v_d_st[9], 'NULL'), coalesce(v_d_msg[9], 'NULL');
   END IF;
 
   IF v_d_modo_off IS DISTINCT FROM 'off' THEN
@@ -3334,8 +3533,9 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P46P PASS (d): o portao do flip RECUSA com 22023 nos cinco criterios, um de cada vez — sem confirmacao (%), 13 dias (%), 13 execucoes (%), zero elegiveis (%), matriz em seed (%) —, cada recusa nomeando SO o criterio que faltou; ⊕ ACEITA com os cinco satisfeitos e config_purga.modo vai a [%]; e ⊖⊕ a transicao para off passa mesmo com os tres criterios falhando, indo a [%]. Estado REAL de PROD no instante do run (nao usado por nenhuma decisao deste bloco): % execucoes, primeira em [%], % sobre conjunto nao-vazio',
-    v_d_st[1], v_d_st[2], v_d_st[3], v_d_st[4], v_d_st[5], v_d_modo_pos, v_d_modo_off,
+  RAISE NOTICE 'P46P PASS (d): o portao do flip RECUSA com 22023 nos SETE casos — sem confirmacao (%), 13 dias (%), 13 execucoes (%), zero elegiveis (%), matriz em seed (%), veredito segredo_ausente (%), sem evidencia de ensaio (%) —, cada recusa nomeando SO o criterio que faltou; ⊕ ACEITA com os cinco criterios satisfeitos e config_purga.modo vai a [%]; e ⊖⊕ a transicao para off passa mesmo com os tres criterios falhando, indo a [%]. Estado REAL de PROD no instante do run (nao usado por nenhuma decisao deste bloco): % execucoes, primeira em [%], % sobre conjunto nao-vazio',
+    v_d_st[1], v_d_st[2], v_d_st[3], v_d_st[4], v_d_st[5], v_d_st[6], v_d_st[7],
+    v_d_modo_pos, v_d_modo_off,
     v_real_n, coalesce(v_real_min::text, 'NENHUMA'), v_real_eleg;
 
   -- ══ (e) A TRILHA, NA MESMA TRANSAÇÃO ═══════════════════════════════════════
