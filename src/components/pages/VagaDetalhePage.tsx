@@ -43,6 +43,26 @@ import { isUuid } from '@/features/vagas/utils/isUuid'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { formatarLocalizacaoVaga } from '@/features/vagas/types/vagasTypes'
+import { TextoRico } from '@/features/vagas/components/TextoRico'
+
+/**
+ * Superfície de LEITURA — sólida e clara, deliberadamente diferente do vidro.
+ *
+ * O vidro sobre gradiente funciona para cabeçalho e cartões curtos, e falha para
+ * corpo de texto: onde o gradiente clareia, texto branco sobre ele cai para ~2:1 de
+ * contraste, contra os 4.5:1 que a WCAG AA pede. Medido na própria página em
+ * 2026-08-23, com o descritivo real de SDR no ar.
+ *
+ * A identidade não se perde: o vidro segue no cabeçalho, no CTA e nos cartões de
+ * metadados. O que muda é só onde a pessoa efetivamente LÊ.
+ */
+function SuperficieLeitura({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl bg-white/95 px-6 py-6 text-slate-800 shadow-lg ring-1 ring-black/5 sm:px-8">
+      {children}
+    </div>
+  )
+}
 
 /**
  * Phase 4 / D-03 — 404 state component (inline).
@@ -239,8 +259,9 @@ export function VagaDetalhePage() {
           </div>
 
           {/* Main Content */}
+          {/* `pb-28` reserva a altura do CTA fixo — ver o comentário dele abaixo. */}
           <GlassCard variant="white" blur="xl" className="text-white">
-            <div className="space-y-8">
+            <div className="space-y-8 pb-28">
               {/* Título e Ações */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
@@ -327,23 +348,27 @@ export function VagaDetalhePage() {
               {(vaga.descricao_curta || vaga.sobre_cargo) && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Sobre a vaga</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-4">
+                  <SuperficieLeitura>
                     {vaga.descricao_curta && (
-                      <p className="text-white/90 text-lg leading-relaxed whitespace-pre-line">
+                      <p className="max-w-[68ch] text-lg font-medium leading-relaxed text-slate-900">
                         {vaga.descricao_curta}
                       </p>
                     )}
                     {vaga.sobre_cargo && (
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">
+                      <div
+                        className={
+                          vaga.descricao_curta
+                            ? 'mt-6 border-t border-slate-200 pt-6'
+                            : ''
+                        }
+                      >
+                        <h3 className="mb-3 text-lg font-bold text-slate-900">
                           Sobre o cargo
                         </h3>
-                        <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                          {vaga.sobre_cargo}
-                        </p>
+                        <TextoRico texto={vaga.sobre_cargo} />
                       </div>
                     )}
-                  </Glass>
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -351,11 +376,9 @@ export function VagaDetalhePage() {
               {vaga.responsabilidades && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Responsabilidades</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.responsabilidades}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoRico texto={vaga.responsabilidades} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -366,40 +389,53 @@ export function VagaDetalhePage() {
                 vaga.requisitos_tecnicos) && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Requisitos</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg space-y-3">
+                  <SuperficieLeitura>
+                    {/* Cada requisito é um bloco com rótulo próprio, e não um
+                        parágrafo que começa com negrito: separa o QUE se pede do
+                        rótulo da categoria, que é como o PDF lê. */}
+                    <dl className="max-w-[68ch] divide-y divide-slate-200">
                     {vaga.requisitos_formacao && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Formação:</strong>{' '}
-                        <span className="whitespace-pre-line">
-                          {vaga.requisitos_formacao}
-                        </span>
-                      </p>
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Formação
+                        </dt>
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_formacao} />
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_experiencia && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Experiência:</strong>{' '}
-                        <span className="whitespace-pre-line">
-                          {vaga.requisitos_experiencia}
-                        </span>
-                      </p>
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Experiência
+                        </dt>
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_experiencia} />
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_habilidades && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Habilidades:</strong>{' '}
-                        <span className="whitespace-pre-line">
-                          {vaga.requisitos_habilidades}
-                        </span>
-                      </p>
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Habilidades
+                        </dt>
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_habilidades} />
+                        </dd>
+                      </div>
                     )}
                     {vaga.requisitos_tecnicos && (
-                      <p className="text-white/90 leading-relaxed">
-                        <strong>Técnicos:</strong>{' '}
-                        <span className="whitespace-pre-line">
-                          {vaga.requisitos_tecnicos}
-                        </span>
-                      </p>
+                      <div className="py-3 first:pt-0 last:pb-0">
+                        <dt className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500">
+                          Técnicos
+                        </dt>
+                        <dd className="leading-relaxed text-slate-700">
+                          <TextoRico texto={vaga.requisitos_tecnicos} />
+                        </dd>
+                      </div>
                     )}
-                  </Glass>
+                    </dl>
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -407,11 +443,9 @@ export function VagaDetalhePage() {
               {vaga.diferenciais && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Diferenciais</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.diferenciais}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoRico texto={vaga.diferenciais} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -419,11 +453,9 @@ export function VagaDetalhePage() {
               {vaga.beneficios && (
                 <div>
                   <h2 className="text-2xl font-bold mb-4">Benefícios</h2>
-                  <Glass variant="white" blur="md" className="p-6 rounded-lg">
-                    <p className="text-white/90 leading-relaxed whitespace-pre-line">
-                      {vaga.beneficios}
-                    </p>
-                  </Glass>
+                  <SuperficieLeitura>
+                    <TextoRico texto={vaga.beneficios} />
+                  </SuperficieLeitura>
                 </div>
               )}
 
@@ -465,13 +497,25 @@ export function VagaDetalhePage() {
             </div>
           </GlassCard>
 
-          {/* Sticky CTA Button (D-05 — direct navigation; no confirmation modal) */}
+          {/* Sticky CTA Button (D-05 — direct navigation; no confirmation modal)
+           *
+           * ⚠ O `blur="xl"` translúcido deixava o TEXTO DA VAGA aparecer por baixo do
+           * botão, e o botão cobria uma linha inteira em cada rolagem — medido em
+           * 2026-08-23 na vaga de SDR ao vivo: cortou «medo, um sorriso que incomoda»
+           * e depois «Agendamento e comparecimento». Não era estética: era conteúdo
+           * que o candidato não lia.
+           *
+           * Dois consertos, e os dois são necessários. O fundo passa a ser OPACO (nada
+           * atravessa), e o cartão de leitura acima ganha `pb-28` para que a última
+           * linha nunca termine embaixo do botão. Só opacificar esconderia o texto do
+           * mesmo jeito — apenas sem deixar isso visível.
+           */}
           <div className="sticky bottom-6 z-20">
-            <Glass variant="white" blur="xl" className="p-4 rounded-xl">
+            <div className="rounded-xl bg-[#0b1f6b] p-2.5 shadow-2xl ring-1 ring-white/10">
               {hasApplied ? (
                 <GlassButton
                   variant="white"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-3 text-white opacity-60 cursor-not-allowed text-lg font-semibold"
                   disabled
                 >
                   <CheckCircle2 className="w-5 h-5" />
@@ -481,14 +525,14 @@ export function VagaDetalhePage() {
                 <GlassButton
                   variant="white"
                   hover
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white text-lg font-semibold"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-3 text-white text-lg font-semibold"
                   onClick={handleCandidatar}
                 >
                   <Send className="w-5 h-5" />
                   Candidatar-se a esta vaga
                 </GlassButton>
               )}
-            </Glass>
+            </div>
           </div>
           <RodapePublico />
         </div>
