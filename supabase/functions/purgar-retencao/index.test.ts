@@ -168,9 +168,22 @@ function makeAdmin(cenario: Cenario, reg: Registro) {
   };
 }
 
-/** O cenário do caminho feliz — cada teste sobrescreve só o que quer quebrar. */
+/**
+ * O cenário do caminho feliz — cada teste sobrescreve só o que quer quebrar.
+ *
+ * ⚠ `extra.rpc` é MESCLADO, nunca substituído, e a distinção não é estilo: a primeira
+ * versão deste helper espalhava `...extra` DEPOIS de montar o mapa de RPCs, e o
+ * `extra.rpc` parcial apagava as outras três. O efeito era silencioso e perverso — a
+ * `reivindicar_item_purga` sumia do mapa, devolvia `null`, e a EF respondia 500 no
+ * passo 0. Os testes (e), (f) e (f2) continuavam VERDES porque eles esperam recusa no
+ * passo 0 de qualquer jeito: **eles passavam pelo motivo errado**. Só (h2) e (h3),
+ * que precisam CHEGAR ao motor, expuseram o defeito. É a mesma classe de falso verde
+ * que esta fase cataloga, agora dentro do próprio harness.
+ */
 function cenarioFeliz(extra: Partial<Cenario> = {}): Cenario {
+  const { rpc: rpcExtra, listagens, ...resto } = extra;
   return {
+    ...resto,
     rpc: {
       reivindicar_item_purga: { data: ITEM_CANDIDATO },
       plano_exclusao_titular: {
@@ -184,10 +197,9 @@ function cenarioFeliz(extra: Partial<Cenario> = {}): Cenario {
       },
       anonimizar_candidato: { data: { resultado: "anonimizado" } },
       concluir_item_purga: { data: null },
-      ...(extra.rpc ?? {}),
+      ...(rpcExtra ?? {}),
     },
-    listagens: extra.listagens ?? [[{ name: "cv.pdf", id: "obj-1" }], []],
-    ...extra,
+    listagens: listagens ?? [[{ name: "cv.pdf", id: "obj-1" }], []],
   };
 }
 
