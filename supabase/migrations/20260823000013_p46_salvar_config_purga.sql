@@ -420,12 +420,33 @@ BEGIN
     --   num FALSE explicito. As contagens nao precisam dele (contagem de tabela
     --   vazia e 0, nunca NULL) e por isso nao o levam: um `coalesce` decorativo
     --   ensinaria a proxima pessoa que ele e ritual em vez de mecanismo.
+    --
+    -- ⚠⚠ O RECORTE POR MODO NAO E DETALHE — SEM ELE O PORTAO SE ABRE SOZINHO.
+    --   D-46-14 exige 14 dias de DRY-RUN, e uma execucao em `off` nao contem
+    --   evidencia nenhuma sobre o caminho do delete: o kill switch retorna logo
+    --   depois de contar os elegiveis, antes de qualquer item. Se os heartbeats de
+    --   `off` contassem, catorze noites com a purga DESLIGADA satisfariam os tres
+    --   criterios e autorizariam `live` com ZERO evidencia de ensaio — que e
+    --   exatamente o "dry-run decorativo" que D-46-14 existe para impedir, na
+    --   forma que o criterio escrito por extenso nao pega.
+    --   ⚠ E nao e hipotese: medido em 2026-08-23, as TRES linhas vivas de
+    --   `purga_execucoes` estao em `off`, e UMA delas tem `elegiveis = 4`. Sem
+    --   este recorte, o relogio dos 14 dias ja estaria correndo sobre execucoes
+    --   que nao ensaiaram nada, e o criterio do conjunto nao-vazio ja estaria
+    --   satisfeito por uma contagem que nenhuma varredura chegou a percorrer.
+    --   ⚠ ALLOWLIST DE MODOS, JAMAIS `<> 'off'`: o `CHECK` de
+    --   `20260823000009:89-90` admite tambem `'ausente'`, o valor fail-closed que
+    --   a reconciliacao grava quando nao conseguiu ler o cerco. Uma negacao
+    --   deixaria esse valor CONTAR, e um modo novo no futuro contaria por omissao.
+    --   A allowlist deixa o desconhecido de FORA, que e a direcao segura num
+    --   portao que autoriza destruicao irreversivel.
     SELECT min(iniciada_em),
            count(*),
            count(*) >= 14,
            count(*) FILTER (WHERE elegiveis > 0)
       INTO v_primeira, v_total, v_tem_14_exec, v_com_eleg
-      FROM public.purga_execucoes;
+      FROM public.purga_execucoes
+     WHERE modo_vigente IN ('dry_run', 'live');
 
     v_tem_14_dias := coalesce(v_primeira <= pg_catalog.now() - interval '14 days', false);
 
@@ -457,18 +478,18 @@ BEGIN
     --   EXIGIDO, para que o operador saiba o que fazer em vez de so saber que nao.
     v_faltas := concat_ws('; '::text,
       CASE WHEN v_tem_14_dias THEN NULL ELSE
-        format('dias corridos desde a primeira execucao do ledger = %s (exigido 14; primeira execucao registrada em %s)',
+        format('dias corridos desde a primeira execucao em dry_run ou live = %s (exigido 14; primeira registrada em %s — execucoes em off NAO contam, porque o kill switch retorna antes de qualquer item e nao ensaia nada)',
                CASE WHEN v_primeira IS NULL
-                      THEN 'INDEFINIDO, o ledger nao tem nenhuma execucao'
+                      THEN 'INDEFINIDO, o ledger nao tem nenhuma execucao em dry_run nem em live'
                     ELSE floor(extract(epoch FROM (pg_catalog.now() - v_primeira)) / 86400)::text
                END,
                coalesce(v_primeira::text, 'NENHUMA'))
       END,
       CASE WHEN v_tem_14_exec THEN NULL ELSE
-        format('execucoes com linha no ledger = %s (exigido 14)', v_total)
+        format('execucoes com linha no ledger em dry_run ou live = %s (exigido 14)', v_total)
       END,
       CASE WHEN v_com_eleg >= 1 THEN NULL ELSE
-        format('execucoes sobre conjunto elegivel NAO-VAZIO = %s (exigido ao menos 1; catorze dias de zeros nao provam nada sobre o caminho do delete)', v_com_eleg)
+        format('execucoes de ensaio sobre conjunto elegivel NAO-VAZIO = %s (exigido ao menos 1; catorze dias de zeros nao provam nada sobre o caminho do delete)', v_com_eleg)
       END,
       CASE WHEN v_allow_n >= 1 THEN NULL ELSE
         format('etapas com elegivel_purga verdadeiro = %s (exigido ao menos 1; com a allowlist vazia a purga nao alcanca estado nenhum e a pre-condicao de procedencia seria satisfeita por vacuidade)', v_allow_n)
@@ -579,7 +600,15 @@ COMMENT ON FUNCTION public.salvar_config_purga(text, integer, integer, boolean) 
   '22023 sem o argumento explicito de confirmacao; 22023 se faltar qualquer criterio de D-46-14 '
   '(>= 14 dias corridos desde a primeira execucao do ledger, >= 14 execucoes com linha, >= 1 execucao '
   'sobre conjunto elegivel NAO-VAZIO — ledger vazio recusa por AUSENCIA, jamais por comparacao com '
-  'NULL); 22023 se qualquer etapa da allowlist ainda estiver em procedencia de seed (D-46-22), ou se '
+  'NULL). '
+  '⚠ OS TRES CRITERIOS SAO MEDIDOS APENAS SOBRE EXECUCOES EM dry_run OU live, por allowlist de modo '
+  'e jamais por negacao de off: uma execucao em off retorna logo depois de contar os elegiveis, antes '
+  'de qualquer item, e portanto NAO contem evidencia nenhuma sobre o caminho do delete. Se os '
+  'heartbeats de off contassem, catorze noites com a purga DESLIGADA satisfariam o portao e '
+  'autorizariam live com zero ensaio — o dry-run decorativo que D-46-14 existe para impedir. A '
+  'allowlist tambem deixa de fora o valor ausente do CHECK de 20260823000009, que a reconciliacao '
+  'grava quando nao conseguiu ler o cerco. '
+  'Ainda no passo (6): 22023 se qualquer etapa da allowlist ainda estiver em procedencia de seed (D-46-22), ou se '
   'a allowlist estiver VAZIA, caso em que a pre-condicao seria satisfeita por vacuidade. Cada recusa '
   'nomeia o valor MEDIDO e o exigido; '
   '(7) a mutacao, com alterado_por resolvido no servidor e atualizado_em carimbado pelo trigger; '

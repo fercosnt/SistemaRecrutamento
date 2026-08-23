@@ -2759,9 +2759,11 @@ END $r$;
 --
 -- ⚠⚠ ESTE BLOCO PLANTA O PRÓPRIO LEDGER SINTÉTICO, E ISSO É OBRIGATÓRIO.
 --   Medido em 2026-08-23, o estado real de PROD **não satisfaz** nenhum critério
---   de D-46-14 — e não pode: `min(iniciada_em)` de `purga_execucoes` é de
---   2026-08-22 (UM dia contra os catorze exigidos) e há TRÊS execuções contra as
---   catorze. Isso é o desenho funcionando, não um defeito a contornar.
+--   de D-46-14 — e não pode: há TRÊS execuções em `purga_execucoes`, todas em
+--   `modo_vigente = 'off'`, e a RPC só conta execuções em `dry_run` ou `live`
+--   (uma execução em `off` retorna antes de qualquer item e não ensaia nada).
+--   Contadas as que valem, o ledger de ensaio está VAZIO. Isso é o desenho
+--   funcionando, não um defeito a contornar.
 --
 --   Mas a razão de plantar não é "hoje não dá" — é que **uma asserção que
 --   dependesse do estado real deixaria de asserir sozinha**. Daqui a duas semanas
@@ -2781,10 +2783,12 @@ END $r$;
 --
 -- ⚠ A JANELA DE `DELETE` SOBRE O LEDGER, DITA POR EXTENSO PORQUE ELA ASSUSTA.
 --   O caso "menos de 14 execuções" é o único que **não pode** ser montado por
---   acréscimo: a contagem só desce removendo linhas. Ele é montado dentro de uma
---   subtransação PRÓPRIA, aninhada, que é revertida IMEDIATAMENTE — e não apenas
---   no fim do envelope. A janela em que o ledger fica alterado tem três
---   statements. E, porque prosa que afirma uma propriedade não é a propriedade,
+--   acréscimo: a contagem só desce removendo linhas. Três cercas em volta dele:
+--   (1) a remoção é **escopada aos modos que o critério conta** (`dry_run` e
+--   `live`) — as linhas de heartbeat em `off`, que hoje são TODAS as reais, nunca
+--   são tocadas; (2) ela vive numa subtransação PRÓPRIA, aninhada, revertida
+--   IMEDIATAMENTE e não apenas no fim do envelope, numa janela de quatro
+--   statements; (3) porque prosa que afirma uma propriedade não é a propriedade,
 --   a restauração é **MEDIDA**: a impressão digital das duas tabelas do ledger é
 --   capturada antes do envelope e reconferida depois dele.
 --
@@ -2964,7 +2968,8 @@ BEGIN
     BEGIN
       UPDATE public.purga_execucoes
          SET iniciada_em = pg_catalog.now() - interval '13 days'
-       WHERE iniciada_em < pg_catalog.now() - interval '13 days';
+         WHERE modo_vigente IN ('dry_run', 'live')
+           AND iniciada_em < pg_catalog.now() - interval '13 days';
 
       BEGIN
         PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
@@ -2992,8 +2997,17 @@ BEGIN
     -- -20 dias e uma sobre conjunto não-vazio: assim o único critério que falha é
     -- a contagem, e o diagnóstico tem de nomear ELA e mais nenhuma.
     BEGIN
-      DELETE FROM public.purga_execucao_itens;
-      DELETE FROM public.purga_execucoes;
+      -- ⚠ A REMOÇÃO É ESCOPADA AOS MODOS QUE O CRITÉRIO CONTA, e isso encolhe a
+      --   janela de risco de propósito: as linhas de heartbeat em `off` — que hoje
+      --   são TODAS as linhas reais de PROD — nunca são tocadas. Correlação por
+      --   `EXISTS`, jamais negação de pertencimento, que é o idioma do
+      --   `p46_teardown_fixture.sql` §3 e do INVENT-05.
+      DELETE FROM public.purga_execucao_itens i
+       WHERE EXISTS (SELECT 1 FROM public.purga_execucoes e
+                      WHERE e.id = i.execucao_id
+                        AND e.modo_vigente IN ('dry_run', 'live'));
+      DELETE FROM public.purga_execucoes
+       WHERE modo_vigente IN ('dry_run', 'live');
 
       INSERT INTO public.purga_execucoes
              (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
@@ -3005,7 +3019,8 @@ BEGIN
              pg_catalog.now() - make_interval(days => 21 - g)
         FROM generate_series(1, 13) g;
 
-      SELECT count(*) INTO v_d_conta13 FROM public.purga_execucoes;
+      SELECT count(*) INTO v_d_conta13
+        FROM public.purga_execucoes WHERE modo_vigente IN ('dry_run', 'live');
 
       BEGIN
         PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
@@ -3033,7 +3048,8 @@ BEGIN
     --   guarda que era dead code. Um critério que conta dias e execuções mas não
     --   conta ELEGÍVEIS deixaria o portão aprovar exatamente esse cenário.
     BEGIN
-      UPDATE public.purga_execucoes SET elegiveis = 0;
+      UPDATE public.purga_execucoes SET elegiveis = 0
+       WHERE modo_vigente IN ('dry_run', 'live');
 
       BEGIN
         PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
@@ -3084,6 +3100,20 @@ BEGIN
     -- 14+ execuções, uma delas sobre conjunto não-vazio, a allowlist fora do
     -- seed, e a confirmação explícita. A chamada TEM de passar e o modo TEM de
     -- ficar `live` — dentro do envelope, que reverte tudo.
+    -- ⚠ A FRONTEIRA É PINADA EM 14 DIAS EXATOS, e não deixada ao acaso do
+    --   histórico: depois do checkpoint desta fase haverá execuções REAIS em
+    --   `dry_run` em PROD, e daqui a alguns meses a mais antiga delas teria trinta,
+    --   sessenta, noventa dias. O caso positivo continuaria passando — mas deixaria
+    --   de exercitar a FRONTEIRA e passaria a exercitar uma folga confortável, que
+    --   é como um contrato de borda deixa de ser um contrato de borda sem ninguém
+    --   perceber. Com o pino, `min(iniciada_em)` é exatamente `now() - 14 dias`
+    --   toda vez, e o par com o caso (d.2) — 13 dias, que RECUSA — é o contrato
+    --   inteiro, medido nos dois lados por uma distância de um único dia.
+    UPDATE public.purga_execucoes
+       SET iniciada_em = pg_catalog.now() - interval '14 days'
+     WHERE modo_vigente IN ('dry_run', 'live')
+       AND iniciada_em < pg_catalog.now() - interval '14 days';
+
     -- ⚠ A BASELINE É O CONJUNTO DE `id` JÁ EXISTENTES, e não uma contagem: depois
     --   do checkpoint desta fase haverá linhas reais de `alterar_config_purga` em
     --   PROD, e a linha NOVA precisa ser identificável sem depender de ordenação
@@ -3122,7 +3152,8 @@ BEGIN
     -- assim mesmo, SEM argumento de confirmação. Um kill switch que pode ser
     -- recusado não é um kill switch, e o momento em que ele mais importa é
     -- exatamente aquele em que algum critério estaria falhando.
-    UPDATE public.purga_execucoes SET elegiveis = 0, iniciada_em = pg_catalog.now();
+    UPDATE public.purga_execucoes SET elegiveis = 0, iniciada_em = pg_catalog.now()
+     WHERE modo_vigente IN ('dry_run', 'live');
     UPDATE public.config_retencao_etapa SET origem = 'seed' WHERE elegivel_purga;
 
     BEGIN
