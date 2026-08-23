@@ -15,9 +15,10 @@
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
 -- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); o plano 46-04 acrescentou (b) e
--- (o), (o.6), (o.7) e (p); e o plano 46-05 acrescentou (q.1) a (q.5). As demais —
--- (a), (d), (e), (g), (m), (n) — chegam nos planos 46-06 e 46-07, NESTE MESMO
--- ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, depois 16, agora é 21).
+-- (o), (o.6), (o.7) e (p); o plano 46-05 acrescentou (q.1) a (q.5); e o plano
+-- 46-06 acrescentou (a), (g), (m) e (n). As demais — (d) e (e) — chegam no plano
+-- 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, depois
+-- 16, depois 21, agora é 25).
 -- Um arquivo por fase, e não um por plano: as asserções desta fase leem umas o
 -- estado das outras.
 --
@@ -31,8 +32,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **21** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 21 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **25** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 25 e o RESUMO reprova ALTO.
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -148,7 +149,23 @@
 --   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
 --   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
 --           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
---   (z)     RESUMO — exige o total exato de 16 PASS.
+--   (q.1-5) 46-05 · o ciclo de vida do item — cinco recusas, e DUAS aceitações.
+--   (a)     46-06 · PURGA-01 — o agendamento `purga-retencao-sweep` existe UMA
+--           vez, às 03:00 UTC, ativo, com `md5(command)` PINADO contra a
+--           migration; e os três agendamentos herdados continuam existindo, por
+--           igualdade exata de `jobname`.
+--   (g)     46-06 · ⊖ PURGA-05 / D-46-08 — o CONTRATO DE FRONTEIRA do cap, com os
+--           três pontos: `elegiveis = cap` RODA · `elegiveis = cap - 1` RODA ·
+--           `elegiveis = cap + 1` ABORTA. E o aborto é integral: zero item, zero
+--           requisição enfileirada.
+--   (m)     46-06 · RETEN-05 sobre fixture RETRODATADA — a notificação além da
+--           janela é apagada, a de dentro sobrevive, e ⊖ nenhuma candidatura,
+--           nenhum candidato, nenhuma linha de `historico_candidatura` e nenhuma
+--           de `decisao_final` foi apagada na mesma execução. Mais ⊕ a prova
+--           DURÁVEL de que o dispatch do ramo `live` rodou.
+--   (n)     46-06 · ⊖ O `COMMENT` VIVO de `notificacoes_enviadas` deixou de
+--           declarar retenção sem prazo E passou a nomear a janela e a âncora.
+--   (z)     RESUMO — exige o total exato de 25 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -2132,11 +2149,590 @@ END $q$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 46-06 · O GATILHO, A FRONTEIRA DO CAP, RETEN-05 E O COMENTÁRIO VIVO
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (a) PURGA-01 · o agendamento `purga-retencao-sweep` existe UMA vez, às 03:00
+--     UTC, ativo, com `md5(command)` pinado byte a byte contra a migration
+--     `20260823000012` — e os três agendamentos herdados continuam presentes,
+--     aferidos por igualdade exata de `jobname`.
+-- (g) ⊖ PURGA-05 / D-46-08 · o CONTRATO DE FRONTEIRA do cap, com os três pontos:
+--     `elegiveis = cap` RODA · `elegiveis = cap - 1` RODA · `elegiveis = cap + 1`
+--     ABORTA. Mais o aborto integral com `cap = 1`: zero item e zero requisição.
+-- (m) RETEN-05 sobre fixture RETRODATADA — a notificação além da janela é
+--     apagada, a de dentro sobrevive, e ⊖ nada mais foi apagado. Mais ⊕ a prova
+--     durável de que o dispatch do ramo `live` rodou.
+-- (n) ⊖ o `COMMENT` VIVO de `notificacoes_enviadas` deixou de declarar retenção
+--     sem prazo E passou a nomear a janela, a âncora e a função.
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ⚠ (a) e (n) são medições de CATÁLOGO e ficam FORA do envelope, de propósito: se
+-- as migrations `20260823000011`/`20260823000012` não estiverem aplicadas, o bloco
+-- reprova ali, com o diagnóstico certo, antes de montar fixture nenhuma.
+--
+-- ⚠⚠ (m) RODA A VARREDURA EM `live`, e é a primeira vez que este arquivo faz
+-- isso. Três propriedades tornam a coisa segura, e as três são estruturais:
+--   1. **Nada é destruído pela varredura.** Em `live` o laço continua chamando o
+--      motor com o literal `true` (ensaio revertido); quem destrói é a Edge
+--      Function, invocada por um post que só sai **no COMMIT** — e este bloco
+--      termina em `RAISE … 'P46B0'`, então o COMMIT não acontece.
+--   2. **O kill switch é a segunda camada.** O envelope devolve
+--      `config_purga.modo` ao valor anterior ANTES do rollback; mesmo no cenário
+--      impossível em que tudo commitasse, `reivindicar_item_purga` exige
+--      `cp.modo = 'live'` e recusaria toda invocação com `P46FB`, antes do
+--      primeiro ato irreversível.
+--   3. **O que (m) de fato apaga é UMA linha de notificação sintética que este
+--      bloco mesmo criou**, e o rollback a devolve.
+--
+-- ⚠ (m) É SOBRE FIXTURE RETRODATADA, E ISSO NÃO É CONVENIÊNCIA: medido em
+-- 2026-08-23, a linha mais antiga de `notificacoes_enviadas` em PROD é de
+-- 2026-07-31 e a janela é de 24 meses. **O alcance real de RETEN-05 hoje é ZERO,
+-- e continuará zero por ~23 meses.** Uma asserção sobre as linhas vivas passaria
+-- por VACUIDADE — e passaria igual com o `DELETE` removido do corpo da função.
+-- Por isso (m) planta a própria linha vencida, e por isso ela exige que a linha
+-- plantada tenha SUMIDO, e não que "nada quebrou".
+--
+-- ⚠ (m) TEM UMA METADE NEGATIVA QUE É O REQUISITO INTEIRO DE "INDEPENDENTE": as
+-- FKs `ON DELETE CASCADE` de `notificacoes_enviadas` levariam as notificações
+-- junto se a candidatura ou o candidato fossem apagados. Se a asserção medisse só
+-- "a notificação sumiu", uma cascata acidental passaria por cumprimento da regra.
+-- Por isso ela mede também que **nenhuma** candidatura e **nenhum** candidato
+-- foram apagados — e, separadamente, que `historico_candidatura` e `decisao_final`
+-- mantiveram a contagem, que é a trilha de decisão humana que prova
+-- não-discriminação (Art. 7º, VI) e que a purga NUNCA pode destruir.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $r$
+DECLARE
+  -- ══ (a) O AGENDAMENTO ═══════════════════════════════════════════════════════
+  c_job      constant text   := 'purga-retencao-sweep';
+  c_sched    constant text   := '0 3 * * *';
+  -- PROVENIÊNCIA DO RESUMO ESPERADO (não apagar — é o que torna um re-pin auditável)
+  --   valor  : 381a0edbc8a59b47b23b50dd1eba9a86   (40 octetos)
+  --   origem : corpo entre os dois delimitadores `$sweep$` de
+  --            `supabase/migrations/20260823000012_p46_cron.sql`
+  --   medido : 2026-08-23, POR EXECUÇÃO — nunca digitado à mão
+  --   recomputar (se e somente se a migration mudar):
+  --     node -e 'const f=require("fs").readFileSync(process.argv[1],"utf8"),
+  --       a=f.indexOf("$sweep$"),b=f.indexOf("$sweep$",a+7);
+  --       console.log(require("crypto").createHash("md5")
+  --         .update(f.slice(a+7,b),"utf8").digest("hex"))' \
+  --       supabase/migrations/20260823000012_p46_cron.sql
+  --   ⚠ Os DOIS espaços — o que abre e o que fecha o corpo — fazem parte dos 40
+  --     octetos. Reformatar a migration muda o resumo, e é para isso que ele serve.
+  --   ⚠ Se este resumo for re-pinado sem que a migration tenha mudado, a asserção
+  --     deixa de provar qualquer coisa. Re-pinar é ato consciente e revisável.
+  --   comparado contra: md5(command) da linha viva de `cron.job` — igualdade de
+  --     resumo sobre o texto inteiro É comparação byte a byte, e é estritamente
+  --     mais forte que `strpos` ou inspeção visual. Mesmo idioma da asserção (b)
+  --     do `p42_invent05_cron_smoke.sql`.
+  c_md5      constant text   := '381a0edbc8a59b47b23b50dd1eba9a86';
+  -- ⚠ ESCOPO DELIBERADO, NÃO FOTOGRAFIA — a mesma lista, com a mesma razão, vive
+  --   em `p42_invent05_cron_smoke.sql` (a). Ela está repetida aqui de propósito:
+  --   os dois arquivos passam a dizer a MESMA coisa sobre o inventário, e uma
+  --   divergência entre eles é detectável em vez de silenciosa.
+  c_herdados constant text[] := ARRAY['ai-cost-aggregation',
+                                      'ai-logs-retention-cleanup',
+                                      'notif-retry-sweep'];
+  v_a_n      int;
+  v_a_sched  text;
+  v_a_active boolean;
+  v_a_cmd    text;
+  v_a_md5    text;
+  v_a_oct    int;
+  v_a_falta  text;
+
+  -- ══ (n) O COMENTÁRIO VIVO ═══════════════════════════════════════════════════
+  v_n_txt    text;
+  v_n_diag   text;
+
+  -- ══ ENVELOPE ════════════════════════════════════════════════════════════════
+  v_modo0    text;
+  v_cap0     int;
+
+  -- (g) fronteira do cap
+  v_vistos   uuid[];
+  v_g_n      int;
+  v_g0_ver   text;  v_g0_eleg int;
+  v_g1_id    uuid;  v_g1_ver text;  v_g1_eleg int;  v_g1_novas int;
+  v_g2_id    uuid;  v_g2_ver text;  v_g2_eleg int;
+  v_g3_id    uuid;  v_g3_ver text;  v_g3_eleg int;  v_g3_proc int;  v_g3_itens bigint;
+  v_g4_id    uuid;  v_g4_ver text;  v_g4_eleg int;  v_g4_proc int;  v_g4_itens bigint;
+
+  -- fila do pg_net, medida com tolerância DECLARADA (nunca com silêncio)
+  v_fila_ok   boolean := true;
+  v_fila_nota text    := 'medida';
+  v_fila_a    bigint;   -- antes do run de cap = 1
+  v_fila_g    bigint;   -- depois do run de cap = 1
+  v_fila_m    bigint;   -- depois do run em live
+
+  -- (m) RETEN-05
+  c_cdt_pos1   constant uuid := '4601c000-0000-4000-8000-000000000001'::uuid;
+  c_nt_fora    constant uuid := '4606f000-0000-4000-8000-0000000000f1'::uuid;
+  c_nt_dentro  constant uuid := '4606f000-0000-4000-8000-0000000000f2'::uuid;
+  v_m_cand     uuid;
+  v_m_janela   int;
+  v_m_ins      int := 0;
+  v_m_fora_a   bigint; v_m_dentro_a bigint;
+  v_m_fora_z   bigint; v_m_dentro_z bigint;
+  v_m_dom_a    text;   v_m_dom_z    text;
+  v_m_hist_a   bigint; v_m_hist_z   bigint;
+  v_m_dec_a    bigint; v_m_dec_z    bigint;
+  v_m_id       uuid;   v_m_ver text; v_m_sit text;
+  v_m_eleg     int;    v_m_proc int; v_m_exp int;
+  v_m_itens    bigint; v_m_abertos bigint; v_m_falhas bigint;
+
+  -- higiene de gatilhos de despacho sobre a tabela que (m) muta
+  r_t        record;
+  v_t_off    int := 0;
+  v_t_back   int := 0;
+  v_t_rest   int;
+BEGIN
+  -- ══ (a) O AGENDAMENTO (PURGA-01) ════════════════════════════════════════════
+  SELECT count(*), max(j.schedule), bool_and(j.active), max(j.command)
+    INTO v_a_n, v_a_sched, v_a_active, v_a_cmd
+    FROM cron.job j
+   WHERE j.jobname = c_job;
+
+  IF v_a_n <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (a): ha % agendamento(s) chamados % em cron.job (esperado exatamente 1). ZERO significa que a migration 20260823000012 nao esta aplicada neste banco — e entao a purga automatica NAO EXISTE: ha uma funcao completa que ninguem chama, e o heartbeat de D-46-14 nunca sera gravado. MAIS DE UM significa que o par desagendar-antes-de-agendar daquela migration nao mordeu, e a varredura rodaria duas vezes por noite — em live, duas passadas concorrentes disputando os mesmos titulares',
+      v_a_n, c_job;
+  END IF;
+
+  IF v_a_sched IS DISTINCT FROM c_sched THEN
+    RAISE EXCEPTION 'P46P FAIL (a): o schedule de % e [%] (esperado [%], UTC — D-46-10). pg_cron interpreta o schedule no fuso do servidor, que neste projeto e GMT; 03:00 UTC = 00:00 BRT, off-peak. Um horario diferente do declarado na migration significa que o agendamento vivo nao veio deste repositorio',
+      c_job, coalesce(v_a_sched, 'NULL'), c_sched;
+  END IF;
+
+  IF v_a_active IS NOT TRUE THEN
+    RAISE EXCEPTION 'P46P FAIL (a): o agendamento % existe mas NAO esta ativo. Um agendamento correto porem inativo e uma politica de retencao que continua nao rodando — o mesmo desfecho de nao ter agendamento nenhum, por outra via, e sem nenhum sinal alem desta coluna',
+      c_job;
+  END IF;
+
+  v_a_md5 := md5(v_a_cmd);
+  v_a_oct := octet_length(v_a_cmd);
+
+  IF v_a_md5 IS DISTINCT FROM c_md5 THEN
+    RAISE EXCEPTION 'P46P FAIL (a): o corpo VIVO de % NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=% (esperado 40). ⚠ E ESTA A ASSERCAO QUE TORNA DETECTAVEL UM CORPO ALTERADO FORA DO REPOSITORIO: cron.job.command e estado vivo que nenhum commit vigia, e este projeto mantem em aberto a hipotese processo-origem-do-drift-desconhecida. O corpo esperado e SO a chamada da funcao, entre os delimitadores nomeados de 20260823000012 — se ele ganhou SQL solto, a logica passou a viver fora de todo pin. Ver o bloco de PROVENIENCIA acima antes de considerar re-pinar',
+      c_job, v_a_md5, c_md5, v_a_oct;
+  END IF;
+
+  -- Os TRÊS herdados, por igualdade exata de `jobname`. Correlacionado por
+  -- `NOT EXISTS`, e não por pertencimento a conjunto: `jobname` é anulável.
+  SELECT string_agg(x.nome, ', ' ORDER BY x.nome)
+    INTO v_a_falta
+    FROM unnest(c_herdados) AS x(nome)
+   WHERE NOT EXISTS (SELECT 1 FROM cron.job j WHERE j.jobname = x.nome);
+
+  IF v_a_falta IS NOT NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (a): agendamento(s) herdado(s) AUSENTE(S) depois da chegada do 4o job: [%]. A migration 20260823000012 declara, no escopo negativo, que nao menciona nenhum dos tres — se um deles sumiu, alguma coisa fora do escopo declarado foi executada. ⚠ Esta metade existe para que ESTE smoke e a assercao (a) do p42_invent05_cron_smoke.sql digam a MESMA coisa sobre o inventario: uma divergencia entre os dois seria silenciosa se so um deles olhasse',
+      v_a_falta;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (a): o agendamento % existe UMA vez, schedule % (UTC), ativo, com o corpo pinado byte a byte (md5 %, % octetos) — e os tres agendamentos herdados continuam presentes por igualdade exata de jobname', c_job, v_a_sched, v_a_md5, v_a_oct;
+
+  -- ══ (n) O COMENTÁRIO VIVO DE `notificacoes_enviadas` ════════════════════════
+  -- ⚠ DUAS METADES, E AS DUAS IMPORTAM. Só a negativa passaria com o comentário
+  --   APAGADO — e um objeto sem comentário não documenta política nenhuma. Só a
+  --   positiva passaria com o texto antigo ainda anexado ao lado do novo. Juntas,
+  --   elas dizem: a promessa-sem-código sumiu, e no lugar dela ficou a descrição
+  --   da regra que existe.
+  v_n_txt := obj_description('public.notificacoes_enviadas'::regclass, 'pg_class');
+
+  v_n_diag := concat_ws(', '::text,
+    CASE WHEN v_n_txt IS NULL OR btrim(v_n_txt) = ''
+         THEN 'o COMMENT da tabela esta VAZIO'::text ELSE NULL END,
+    CASE WHEN position('INDEFINITE' in coalesce(v_n_txt, '')) > 0
+         THEN 'o texto AINDA declara retencao sem prazo (INDEFINITE)'::text ELSE NULL END,
+    CASE WHEN position('criado_em' in coalesce(v_n_txt, '')) > 0
+         THEN NULL ELSE 'o texto nao nomeia a coluna-ancora criado_em'::text END,
+    CASE WHEN position('janela_notificacoes_meses' in coalesce(v_n_txt, '')) > 0
+         THEN NULL ELSE 'o texto nao nomeia de onde a janela e lida (config_purga.janela_notificacoes_meses)'::text END,
+    CASE WHEN position('varrer_purga_retencao' in coalesce(v_n_txt, '')) > 0
+         THEN NULL ELSE 'o texto nao nomeia a funcao que executa a regra'::text END
+  );
+
+  IF v_n_diag IS NOT NULL AND v_n_diag <> '' THEN
+    RAISE EXCEPTION 'P46P FAIL (n): medido [%]. Desde 2026-07-21 o COMMENT vivo desta tabela declarava "Retention INDEFINITE in v1 (LGPD-OPS purge deferred to M8)" — a promessa-sem-codigo que RETEN-05 existe para fechar, e a classe de achado que o CONSOL-04 audita. A migration 20260823000011 reescreve a ultima frase preservando todo o resto (trilha de auditoria, escopo do RH, negacao ao candidato, escrita so por service_role, idempotencia duravel). ⚠ Se a migration nao estiver aplicada, este e o achado esperado — e ele e o mesmo diagnostico, porque o objeto vivo e a unica prova que conta. Texto medido: [%]',
+      v_n_diag, left(coalesce(v_n_txt, '<NULO>'), 400);
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (n): o COMMENT vivo de notificacoes_enviadas nao declara mais retencao sem prazo, E nomeia a coluna-ancora (criado_em), o escalar da janela (janela_notificacoes_meses) e a funcao que executa a regra';
+
+  -- ══ ENVELOPE — a partir daqui tudo é revertido ══════════════════════════════
+  -- ⚠ HIGIENE DE CLAIMS, e ela NÃO é redundante: `set_config(..., false)` é
+  --   escopado à SESSÃO, e (o.6) é o único bloco deste arquivo que carimba
+  --   claims. Ele as limpa, e (q) limpa de novo — este bloco limpa uma terceira
+  --   vez porque tudo aqui roda com `auth.uid()` NULO, como o cron. Uma claim
+  --   vazada faria a metade destrutiva do 4º ramo recusar (BL-02) e o diagnóstico
+  --   apontaria para o dispatch, que não teria falhado.
+  PERFORM set_config('request.jwt.claims', '', false);
+  PERFORM set_config('request.jwt.claim.sub', '', false);
+
+  BEGIN
+    SELECT cp.modo, cp.cap_titulares, cp.janela_notificacoes_meses
+      INTO v_modo0, v_cap0, v_m_janela
+      FROM public.config_purga cp;
+
+    -- Gatilhos de despacho sobre a tabela que (m) muta, desligados POR CRITÉRIO
+    -- MEDIDO DO CATÁLOGO e nunca por lista fixa de nomes (lição do 46-01: o
+    -- repositório anunciava 2, o catálogo vivo tinha 3). Se o critério não casar
+    -- nada, o contador fica em 0 — e isso é "medi e não havia", não "não olhei".
+    FOR r_t IN
+      SELECT c.relname AS tabela, t.tgname AS gatilho
+        FROM pg_trigger t
+        JOIN pg_class c     ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_proc p      ON p.oid = t.tgfoid
+       WHERE NOT t.tgisinternal
+         AND n.nspname = 'public'
+         AND c.relname = 'notificacoes_enviadas'
+         AND t.tgenabled <> 'D'
+         AND pg_get_functiondef(p.oid) LIKE '%net.http_post%'
+    LOOP
+      EXECUTE format('ALTER TABLE public.%I DISABLE TRIGGER %I', r_t.tabela, r_t.gatilho);
+      v_t_off := v_t_off + 1;
+    END LOOP;
+
+    -- ── (g) O CONTRATO DE FRONTEIRA DO CAP ────────────────────────────────────
+    -- ⚠ O NÚMERO DE ELEGÍVEIS NÃO É UMA CONSTANTE ESCRITA AQUI, e não é uma
+    --   segunda cópia do predicado: ele é DESCOBERTO pela própria função, com o
+    --   cap no teto do domínio (500), e lido do ledger. Uma constante envelheceria
+    --   com a fixture; uma reimplementação do predicado seria a segunda definição
+    --   que o P39/CR-02 nomeia.
+    UPDATE public.config_purga SET modo = 'dry_run', cap_titulares = 500;
+
+    SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+    PERFORM public.varrer_purga_retencao();
+    SELECT e.veredito, e.elegiveis INTO v_g0_ver, v_g0_eleg
+      FROM public.purga_execucoes e
+     WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+    v_g_n := v_g0_eleg;
+
+    -- ⊕ PONTO 1 DA FRONTEIRA: `elegiveis = cap` — TEM de RODAR.
+    IF v_g_n BETWEEN 2 AND 498 THEN
+      UPDATE public.config_purga SET cap_titulares = v_g_n;
+      SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+      PERFORM public.varrer_purga_retencao();
+      SELECT count(*) INTO v_g1_novas
+        FROM public.purga_execucoes e
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+      SELECT e.id, e.veredito, e.elegiveis INTO v_g1_id, v_g1_ver, v_g1_eleg
+        FROM public.purga_execucoes e
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+
+      -- ⊕ PONTO 2: `elegiveis = cap - 1` — TEM de RODAR.
+      UPDATE public.config_purga SET cap_titulares = v_g_n + 1;
+      SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+      PERFORM public.varrer_purga_retencao();
+      SELECT e.id, e.veredito, e.elegiveis INTO v_g2_id, v_g2_ver, v_g2_eleg
+        FROM public.purga_execucoes e
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+
+      -- ⊖ PONTO 3: `elegiveis = cap + 1` — TEM de ABORTAR.
+      UPDATE public.config_purga SET cap_titulares = v_g_n - 1;
+      SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+      PERFORM public.varrer_purga_retencao();
+      SELECT e.id, e.veredito, e.elegiveis, e.processados INTO v_g3_id, v_g3_ver, v_g3_eleg, v_g3_proc
+        FROM public.purga_execucoes e
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+      SELECT count(*) INTO v_g3_itens
+        FROM public.purga_execucao_itens i WHERE i.execucao_id = v_g3_id;
+
+      -- ⊖ D-46-08 NA FORMA QUE O PLANO PEDE: cap = 1 com 2+ elegíveis, e a prova
+      --   de que o aborto é INTEGRAL — zero item e zero requisição enfileirada.
+      BEGIN
+        IF to_regclass('net.http_request_queue') IS NULL THEN
+          v_fila_ok   := false;
+          v_fila_nota := 'net.http_request_queue nao existe neste banco';
+        ELSE
+          EXECUTE $fila$SELECT count(*) FROM net.http_request_queue q
+                         WHERE q.url LIKE '%/functions/v1/purgar-retencao'$fila$ INTO v_fila_a;
+        END IF;
+      EXCEPTION WHEN OTHERS THEN
+        v_fila_ok   := false;
+        v_fila_nota := format('leitura de pg_net recusada (%s: %s)', SQLSTATE, SQLERRM);
+      END;
+
+      UPDATE public.config_purga SET cap_titulares = 1;
+      SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+      PERFORM public.varrer_purga_retencao();
+      SELECT e.id, e.veredito, e.elegiveis, e.processados INTO v_g4_id, v_g4_ver, v_g4_eleg, v_g4_proc
+        FROM public.purga_execucoes e
+       WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+      SELECT count(*) INTO v_g4_itens
+        FROM public.purga_execucao_itens i WHERE i.execucao_id = v_g4_id;
+
+      IF v_fila_ok THEN
+        BEGIN
+          EXECUTE $fila$SELECT count(*) FROM net.http_request_queue q
+                         WHERE q.url LIKE '%/functions/v1/purgar-retencao'$fila$ INTO v_fila_g;
+        EXCEPTION WHEN OTHERS THEN
+          v_fila_ok   := false;
+          v_fila_nota := format('leitura de pg_net recusada apos o run (%s: %s)', SQLSTATE, SQLERRM);
+        END;
+      END IF;
+    END IF;
+
+    -- ── (m) RETEN-05, COM FIXTURE RETRODATADA ─────────────────────────────────
+    SELECT c.candidato_id INTO v_m_cand
+      FROM public.candidaturas c WHERE c.id = c_cdt_pos1;
+
+    SELECT format('candidatos=%s candidaturas=%s users=%s',
+                  (SELECT count(*) FROM public.candidatos),
+                  (SELECT count(*) FROM public.candidaturas),
+                  (SELECT count(*) FROM auth.users))
+      INTO v_m_dom_a;
+
+    SELECT count(*) INTO v_m_hist_a
+      FROM public.historico_candidatura h WHERE h.candidatura_id = c_cdt_pos1;
+    SELECT count(*) INTO v_m_dec_a
+      FROM public.decisao_final d WHERE d.candidatura_id = c_cdt_pos1;
+
+    IF v_m_cand IS NOT NULL THEN
+      -- ⚠ `status = 'entregue'` NÃO é decoração: é um estado TERMINAL, e uma linha
+      --   terminal não é selecionada por `varrer_retry_notificacoes` (o cron
+      --   `notif-retry-sweep`, a cada 15 min). Mesmo no cenário impossível em que
+      --   este envelope commitasse, nenhuma dessas duas linhas geraria despacho de
+      --   e-mail. `pendente` — o default da coluna — geraria.
+      INSERT INTO public.notificacoes_enviadas
+             (id, evento, candidatura_id, candidato_id, template, destinatario_email,
+              status, dedupe_key, criado_em)
+      VALUES (c_nt_fora, 'decisao', c_cdt_pos1, v_m_cand, 'p46-reten05-fixture',
+              'fixture-p46+reten05@invalido.local', 'entregue',
+              'p46-reten05:fora-da-janela:' || c_nt_fora::text,
+              pg_catalog.now() - make_interval(months => v_m_janela + 2)),
+             (c_nt_dentro, 'decisao', c_cdt_pos1, v_m_cand, 'p46-reten05-fixture',
+              'fixture-p46+reten05@invalido.local', 'entregue',
+              'p46-reten05:dentro-da-janela:' || c_nt_dentro::text,
+              pg_catalog.now() - interval '1 day');
+      GET DIAGNOSTICS v_m_ins = ROW_COUNT;
+    END IF;
+
+    SELECT count(*) INTO v_m_fora_a
+      FROM public.notificacoes_enviadas n WHERE n.id = c_nt_fora;
+    SELECT count(*) INTO v_m_dentro_a
+      FROM public.notificacoes_enviadas n WHERE n.id = c_nt_dentro;
+
+    -- ⚠ `live` COM O CAP NO TETO: o que (m) mede é RETEN-05 e o dispatch, não a
+    --   fronteira do cap — essa é (g), e misturar as duas faria um defeito de uma
+    --   aparecer como falha da outra.
+    UPDATE public.config_purga SET modo = 'live', cap_titulares = 500;
+
+    SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
+    PERFORM public.varrer_purga_retencao();
+
+    SELECT e.id, e.veredito, e.situacao, e.elegiveis, e.processados, e.notificacoes_expurgadas
+      INTO v_m_id, v_m_ver, v_m_sit, v_m_eleg, v_m_proc, v_m_exp
+      FROM public.purga_execucoes e
+     WHERE NOT EXISTS (SELECT 1 FROM unnest(v_vistos) AS s(id) WHERE s.id = e.id);
+
+    SELECT count(*) INTO v_m_itens
+      FROM public.purga_execucao_itens i WHERE i.execucao_id = v_m_id;
+    SELECT count(*) INTO v_m_abertos
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_m_id AND i.concluido_em IS NULL;
+    SELECT count(*) INTO v_m_falhas
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_m_id AND i.desfecho_postgres = 'falha';
+
+    SELECT count(*) INTO v_m_fora_z
+      FROM public.notificacoes_enviadas n WHERE n.id = c_nt_fora;
+    SELECT count(*) INTO v_m_dentro_z
+      FROM public.notificacoes_enviadas n WHERE n.id = c_nt_dentro;
+
+    SELECT format('candidatos=%s candidaturas=%s users=%s',
+                  (SELECT count(*) FROM public.candidatos),
+                  (SELECT count(*) FROM public.candidaturas),
+                  (SELECT count(*) FROM auth.users))
+      INTO v_m_dom_z;
+
+    SELECT count(*) INTO v_m_hist_z
+      FROM public.historico_candidatura h WHERE h.candidatura_id = c_cdt_pos1;
+    SELECT count(*) INTO v_m_dec_z
+      FROM public.decisao_final d WHERE d.candidatura_id = c_cdt_pos1;
+
+    IF v_fila_ok THEN
+      BEGIN
+        EXECUTE $fila$SELECT count(*) FROM net.http_request_queue q
+                       WHERE q.url LIKE '%/functions/v1/purgar-retencao'$fila$ INTO v_fila_m;
+      EXCEPTION WHEN OTHERS THEN
+        v_fila_ok   := false;
+        v_fila_nota := format('leitura de pg_net recusada apos o run em live (%s: %s)', SQLSTATE, SQLERRM);
+      END;
+    END IF;
+
+    -- Religa os gatilhos DENTRO do envelope — redundante com o rollback, e a
+    -- redundância é o ponto: deixar um despachante desligado é pior que o
+    -- problema que o desligamento evitava.
+    FOR r_t IN
+      SELECT c.relname AS tabela, t.tgname AS gatilho
+        FROM pg_trigger t
+        JOIN pg_class c     ON c.oid = t.tgrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        JOIN pg_proc p      ON p.oid = t.tgfoid
+       WHERE NOT t.tgisinternal
+         AND n.nspname = 'public'
+         AND c.relname = 'notificacoes_enviadas'
+         AND t.tgenabled = 'D'
+         AND pg_get_functiondef(p.oid) LIKE '%net.http_post%'
+    LOOP
+      EXECUTE format('ALTER TABLE public.%I ENABLE TRIGGER %I', r_t.tabela, r_t.gatilho);
+      v_t_back := v_t_back + 1;
+    END LOOP;
+
+    SELECT count(*) INTO v_t_rest
+      FROM pg_trigger t
+      JOIN pg_class c     ON c.oid = t.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p      ON p.oid = t.tgfoid
+     WHERE NOT t.tgisinternal
+       AND n.nspname = 'public'
+       AND c.relname = 'notificacoes_enviadas'
+       AND t.tgenabled = 'D'
+       AND pg_get_functiondef(p.oid) LIKE '%net.http_post%';
+
+    UPDATE public.config_purga SET modo = v_modo0, cap_titulares = v_cap0;
+
+    RAISE EXCEPTION 'rollback_smoke46r_envelope' USING ERRCODE = 'P46B0';
+  EXCEPTION
+    WHEN sqlstate 'P46B0' THEN
+      NULL;  -- reversao ESPERADA; as variaveis acima sobreviveram ao rollback
+  END;
+
+  RESET ROLE;
+
+  -- ══ JULGAMENTO — sobre variáveis, sem uma única consulta viva ═══════════════
+
+  -- ── (g) ───────────────────────────────────────────────────────────────────
+  IF v_g0_ver IS DISTINCT FROM 'dry_run' THEN
+    RAISE EXCEPTION 'P46P FAIL (g): a execucao de DESCOBERTA, com o cap no teto do dominio (500), terminou em veredito [%] (esperado dry_run). Sem ela nao ha numero de elegiveis vindo da PROPRIA funcao, e os tres pontos da fronteira teriam de ser escritos contra uma constante — que e a forma que envelhece. ⚠ Se o veredito veio segredo_ausente, os segredos project_url e edge_invoke_key nao estao no cofre e a migration 20260823000011 aborta o dry_run de proposito (ver a DIVERGENCIA 2 do cabecalho dela)',
+      coalesce(v_g0_ver, 'NULL');
+  END IF;
+
+  IF v_g_n IS NULL OR v_g_n < 2 OR v_g_n > 498 THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊖ NAO-VACUIDADE — o conjunto elegivel medido e % (exigido entre 2 e 498). Com menos de 2 elegiveis a fronteira do cap NAO PODE ser exercitada: nao existe cap inteiro que aborte com 1 elegivel e ainda deixe um ponto que rode. Uma assercao de cap sobre conjunto de 1 passaria por vacuidade, exatamente como o kill switch provado sobre conjunto vazio. Reaplicar a fixture do 46-01 (pos1, pos2, pos3, cap2 = 4 titulares)',
+      coalesce(v_g_n, -1);
+  END IF;
+
+  IF v_g1_novas IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (g): a passada de cap = elegiveis gravou % linha(s) nova(s) de purga_execucoes (esperado exatamente 1). O heartbeat e gravado em TODA execucao; zero linha significa que a funcao retornou antes dele, e mais de uma que este bloco esta lendo execucao alheia',
+      coalesce(v_g1_novas, -1);
+  END IF;
+
+  IF v_g1_ver IS DISTINCT FROM 'dry_run' OR v_g1_eleg IS DISTINCT FROM v_g_n THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊕ PONTO 1 DA FRONTEIRA — com cap = elegiveis = %, a execucao terminou em veredito [%] com elegiveis = % (esperado dry_run e %). A comparacao do aborto e > ESTRITO: elegiveis IGUAL ao cap TEM de rodar. Se ela abortou aqui, o cap virou >= e a purga passa a recusar exatamente o lote que o operador dimensionou',
+      v_g_n, coalesce(v_g1_ver, 'NULL'), coalesce(v_g1_eleg, -1), v_g_n;
+  END IF;
+
+  IF v_g2_ver IS DISTINCT FROM 'dry_run' OR v_g2_eleg IS DISTINCT FROM v_g_n THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊕ PONTO 2 DA FRONTEIRA — com cap = % (um acima dos % elegiveis), a execucao terminou em veredito [%] com elegiveis = % (esperado dry_run e %). Sem os dois pontos que RODAM, esta assercao provaria apenas que a funcao recusa — e uma funcao que recusa tudo passa em qualquer bateria so de negativas (modo de falha no 3 dos sete portoes da Phase 45)',
+      v_g_n + 1, v_g_n, coalesce(v_g2_ver, 'NULL'), coalesce(v_g2_eleg, -1), v_g_n;
+  END IF;
+
+  IF v_g3_ver IS DISTINCT FROM 'cap_excedido' OR v_g3_eleg IS DISTINCT FROM v_g_n
+     OR v_g3_proc IS DISTINCT FROM 0 OR v_g3_itens IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊖ PONTO 3 DA FRONTEIRA — com cap = % (um ABAIXO dos % elegiveis), a execucao terminou em veredito [%], elegiveis = %, processados = %, itens = % (esperado cap_excedido, %, 0 e 0). Um unico item gravado aqui significaria que a funcao RECORTOU o trabalho pelo cap em vez de abortar, e D-46-08 recusa isso por escrito: um conjunto acima do cap e sinal de PREDICADO QUEBRADO, e processar ate o cap apagaria gente em silencio — com PITR desligado e o Storage fora do backup, irrecuperavelmente',
+      v_g_n - 1, v_g_n, coalesce(v_g3_ver, 'NULL'), coalesce(v_g3_eleg, -1), coalesce(v_g3_proc, -1), coalesce(v_g3_itens, -1), v_g_n;
+  END IF;
+
+  IF v_g4_ver IS DISTINCT FROM 'cap_excedido' OR v_g4_eleg IS DISTINCT FROM v_g_n
+     OR v_g4_proc IS DISTINCT FROM 0 OR v_g4_itens IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊖ D-46-08 COM cap = 1 E % ELEGIVEIS — veredito [%], elegiveis = %, processados = %, itens = % (esperado cap_excedido, %, 0 e 0). Este e o caso extremo do aborto integral, e ele e medido em separado do ponto 3 de proposito: um cap recem-reduzido a 1 por um operador assustado tem de abortar TUDO, e nao processar o primeiro da fila',
+      v_g_n, coalesce(v_g4_ver, 'NULL'), coalesce(v_g4_eleg, -1), coalesce(v_g4_proc, -1), coalesce(v_g4_itens, -1), v_g_n;
+  END IF;
+
+  IF v_fila_ok AND v_fila_g IS DISTINCT FROM v_fila_a THEN
+    RAISE EXCEPTION 'P46P FAIL (g): ⊖ o aborto por cap ENFILEIROU requisicao — a fila do pg_net para /functions/v1/purgar-retencao tinha % linha(s) antes e % depois. O despacho do pg_net so ocorre no COMMIT, entao retornar antes garante zero request por ESTRUTURA; uma linha a mais significa que o ramo de dispatch passou a ser alcancavel de um caminho que retorna',
+      coalesce(v_fila_a, -1), coalesce(v_fila_g, -1);
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (g): fronteira do cap com % elegiveis — cap = % RODA (%), cap = % RODA (%), cap = % ABORTA (%, 0 itens) e cap = 1 ABORTA (%, 0 itens). Fila do pg_net: %',
+    v_g_n, v_g_n, v_g1_ver, v_g_n + 1, v_g2_ver, v_g_n - 1, v_g3_ver, v_g4_ver,
+    CASE WHEN v_fila_ok THEN format('%s antes, %s depois — inalterada', v_fila_a, v_fila_g) ELSE v_fila_nota END;
+
+  -- ── (m) ───────────────────────────────────────────────────────────────────
+  IF v_m_cand IS NULL OR v_m_ins <> 2 OR v_m_fora_a <> 1 OR v_m_dentro_a <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊖ NAO-VACUIDADE DA FIXTURE — a candidatura pos1 (%) resolveu para o titular [%], % notificacao(oes) sintetica(s) foi(ram) inserida(s) (esperado 2), e antes da varredura a de FORA da janela existia % vez(es) e a de DENTRO % vez(es) (esperado 1 e 1). Sem a linha retrodatada, RETEN-05 nao teria o que apagar: medido em 2026-08-23, a linha mais antiga viva de notificacoes_enviadas e de 2026-07-31 e a janela e de % meses, entao o alcance real da regra hoje e ZERO e uma assercao sobre as linhas vivas passaria com o DELETE removido do corpo da funcao',
+      c_cdt_pos1, coalesce(v_m_cand::text, 'NULL'), v_m_ins, coalesce(v_m_fora_a, -1), coalesce(v_m_dentro_a, -1), coalesce(v_m_janela, -1);
+  END IF;
+
+  IF v_m_ver IS DISTINCT FROM 'despachado' THEN
+    RAISE EXCEPTION 'P46P FAIL (m): a varredura em live terminou em veredito [%] (esperado despachado). ⚠ Se veio segredo_ausente, os segredos project_url e edge_invoke_key nao estao no cofre — a migration 20260823000011 grava esse veredito e RETORNA de proposito, porque um retorno mudo seria indistinguivel de "nada elegivel". Se veio cap_excedido, o cap ficou abaixo dos elegiveis e este bloco esta medindo (g) por engano. Se veio dry_run, o ramo live nao foi tomado e nenhum despacho existe',
+      coalesce(v_m_ver, 'NULL');
+  END IF;
+
+  IF v_m_eleg IS NULL OR v_m_eleg < 2 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊖ NAO-VACUIDADE DO CONJUNTO — a varredura em live viu % elegivel(is) (exigido >= 2). Com conjunto vazio nao ha item, nao ha despacho, e as metades ⊕ desta assercao passariam sem medir nada',
+      coalesce(v_m_eleg, -1);
+  END IF;
+
+  IF v_m_fora_z <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): a notificacao RETRODATADA para % meses atras (janela vigente: % meses) CONTINUA existindo depois da varredura em live. RETEN-05 nao apagou o que tinha de apagar — e a promessa que o COMMENT da tabela passou a fazer virou de novo uma promessa sem codigo. Conferir a secao (a.4) de 20260823000011: a ancora e criado_em (a unica coluna temporal NOT NULL da tabela) e a janela vem de config_purga.janela_notificacoes_meses',
+      coalesce(v_m_janela, 0) + 2, coalesce(v_m_janela, -1);
+  END IF;
+
+  IF v_m_dentro_z <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊖ A NOTIFICACAO DE DENTRO DA JANELA (criada ha 1 dia) sobreviveu % vez(es), esperado 1. Se ela SUMIU, isto e pior que a regra nao rodar: significa que o predicado nao discrimina pela data e que RETEN-05 esta apagando trilha de auditoria viva. Com PITR desligado (D-45-10) nao ha de onde recuperar',
+      coalesce(v_m_dentro_z, -1);
+  END IF;
+
+  IF v_m_exp IS NULL OR v_m_exp < 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): a linha de ledger da execucao em live registrou notificacoes_expurgadas = % (esperado >= 1, porque uma linha retrodatada foi apagada). O expurgo aconteceu mas o registro nao — e um ato irreversivel sem registro e, para efeito de prova de cumprimento, indistinguivel de um ato que nao aconteceu',
+      coalesce(v_m_exp, -1);
+  END IF;
+
+  IF v_m_dom_z IS DISTINCT FROM v_m_dom_a THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊖ A INDEPENDENCIA DA REGRA NAO FOI PROVADA — as contagens de dominio MUDARAM na mesma execucao. Antes: [%]. Depois: [%]. RETEN-05 tem de apagar notificacao SEM que nenhuma candidatura ou candidato tenha sido apagado: as FKs ON DELETE CASCADE de notificacoes_enviadas levariam as notificacoes junto se a candidatura sumisse, e entao a linha teria sumido pela CASCATA e nao pela regra. Sem esta metade, um expurgo por cascata passaria por cumprimento da regra independente',
+      v_m_dom_a, v_m_dom_z;
+  END IF;
+
+  IF v_m_hist_z IS DISTINCT FROM v_m_hist_a OR v_m_dec_z IS DISTINCT FROM v_m_dec_a THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊖ A TRILHA DE DECISAO HUMANA FOI TOCADA. historico_candidatura da candidatura % foi de % para %, e decisao_final de % para %. A purga NUNCA destroi a trilha que prova nao-discriminacao (Art. 7o, VI): RETEN-05 apaga NOTIFICACAO, jamais historico_candidatura ou decisao_final, e o escopo do unico verbo de exclusao daquele corpo e uma tabela so',
+      c_cdt_pos1, coalesce(v_m_hist_a, -1), coalesce(v_m_hist_z, -1), coalesce(v_m_dec_a, -1), coalesce(v_m_dec_z, -1);
+  END IF;
+
+  -- ⊕ A PROVA DURÁVEL DE QUE O DISPATCH RODOU, e ela não depende do `pg_net`.
+  --   Em `live` o laço NÃO fecha o item (`reivindicar_item_purga` exige
+  --   `concluido_em IS NULL`), e um post que falhasse fecharia AQUELE item com
+  --   `desfecho_postgres = 'falha'`. Logo: todos os itens abertos + zero falha +
+  --   `veredito = 'despachado'` só é possível se o laço de dispatch percorreu
+  --   todos e nenhum enfileiramento levantou. É verificável no ledger, que é
+  --   durável — ao contrário das tabelas do `pg_net`, que são UNLOGGED com TTL.
+  IF v_m_itens IS DISTINCT FROM v_m_eleg::bigint OR v_m_abertos IS DISTINCT FROM v_m_itens
+     OR v_m_falhas IS DISTINCT FROM 0 OR v_m_sit IS DISTINCT FROM 'executando' THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊕ O DISPATCH DO RAMO live NAO SE COMPORTOU. itens = % (esperado % = elegiveis), abertos = % (esperado igual a itens), com desfecho_postgres = falha: % (esperado 0), situacao = [%] (esperado executando). ⚠ ITEM FECHADO AQUI E O DEFEITO MAIS CARO DESTE RAMO: reivindicar_item_purga exige concluido_em nulo, entao a Edge Function receberia P46FB e o despacho inteiro viraria 403 — a purga rodaria todas as noites despachando e sendo recusada, com o ledger dizendo despachado. E situacao concluida fecharia o cabecalho antes de a Edge Function reivindicar, o que tambem recusa (o guard exige executando)',
+      coalesce(v_m_itens, -1), coalesce(v_m_eleg, -1), coalesce(v_m_abertos, -1), coalesce(v_m_falhas, -1), coalesce(v_m_sit, 'NULL');
+  END IF;
+
+  IF v_m_proc IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): no fim da varredura em live, processados vale % (esperado 0). No instante do despacho NENHUM titular teve o motor destrutivo executado — o COMMENT da coluna diz exatamente isso —, e quem a incrementa e concluir_item_purga, uma vez por item cujo motor rodou. Somar os posts aqui daria contagem DUPLA, terminando em 2N',
+      v_m_proc;
+  END IF;
+
+  IF v_t_back <> v_t_off OR v_t_rest <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (m): higiene de gatilhos — % desligado(s), % religado(s), % ainda DESLIGADO(S) sobre notificacoes_enviadas (esperado religar todos e restar 0). Deixar um despachante desligado em PROD e pior que o problema que o desligamento evitava',
+      v_t_off, v_t_back, v_t_rest;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (m): RETEN-05 apagou a notificacao retrodatada (% meses) e PRESERVOU a de dentro da janela; notificacoes_expurgadas = %; ⊖ contagens de dominio identicas [%], historico_candidatura % -> % e decisao_final % -> %; ⊕ o dispatch abriu % item(ns), nenhum com falha, execucao em [%] com veredito [%]. Fila do pg_net: %. Gatilhos: % desligados, % religados',
+    coalesce(v_m_janela, 0) + 2, v_m_exp, v_m_dom_z, v_m_hist_a, v_m_hist_z, v_m_dec_a, v_m_dec_z,
+    v_m_abertos, v_m_sit, v_m_ver,
+    CASE WHEN v_fila_ok THEN format('%s linha(s) para a Edge Function depois do run em live (era %s)', v_fila_m, v_fila_g) ELSE v_fila_nota END,
+    v_t_off, v_t_back;
+
+  RAISE NOTICE 'P46P TEARDOWN ok (a/g/m/n): envelope revertido — config_purga volta a modo [%] e cap [%], e as duas notificacoes sinteticas NAO existem', coalesce(v_modo0, 'NULL'), coalesce(v_cap0, -1);
+END $r$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 21;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p) + 5 (46-05: q.1..q.5)
+DECLARE v_n int; v_esperado int := 25;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p) + 5 (46-05: q.1..q.5) + 4 (46-06: a, g, m, n)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
