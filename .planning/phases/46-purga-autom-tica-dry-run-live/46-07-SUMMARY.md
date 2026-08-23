@@ -175,6 +175,39 @@ E um **bloco de auto-verificação de apply** que ABORTA quando:
   verdade enquanto esta função for o único caminho de escrita. Instalar o portão do flip por cima de
   uma porta aberta seria criar a **aparência** do cerco.
 
+> ⚠⚠ **CORREÇÃO (2026-08-23, HI-04 do `46-REVIEW-2.md`) — o bloco verificava uma condição MAIS
+> FRACA que a afirmada, e o parágrafo acima apresentava a mais fraca como prova da mais forte.**
+>
+> A pergunta era certa e estava sendo feita **do lado errado da porta**. Policy não é a única porta,
+> e para um dos papéis ela não é porta nenhuma:
+>
+> - `20260823000001_p46_config.sql` cria a tabela e **não contém um único `REVOKE`**. Os privilégios
+>   ficaram os default do schema `public`, que este projeto concede **direto e nominalmente** a
+>   `anon` e `authenticated`.
+> - No Supabase, **`service_role` carrega `BYPASSRLS`**. Para esse papel, "RLS ligada e zero policy
+>   de escrita" **não bloqueia nada** — só o privilégio de TABELA bloquearia, e ele não era medido.
+> - **Medido em PROD em 2026-08-23** (read-only, e não presumido):
+>   `relacl = {postgres=arwdDxtm/…, anon=arwdDxtm/…, authenticated=arwdDxtm/…, service_role=arwdDxtm/…}`,
+>   `has_table_privilege('service_role','public.config_purga','UPDATE') = true`, idem para
+>   `authenticated` e `anon`, e `rolbypassrls` do `service_role` = `true`.
+> - **A prova empírica já estava no mesmo commit:** `p46_purga_smoke.sql` escreve a coluna direto
+>   sete vezes com `UPDATE public.config_purga SET modo = …`, e funciona.
+>
+> Não era furo de privilégio novo — quem tem `service_role` já possui o banco. Era um **portão que
+> parecia medir o invariante e media um vizinho dele**, e um portão assim é pior que nenhum: produz
+> confiança sem produzir a propriedade.
+>
+> Consertado pela `20260823000015_p46_config_purga_privilegio.sql`: `REVOKE INSERT, UPDATE, DELETE,
+> TRUNCATE, TRIGGER` nominal dos três papéis + `PUBLIC`, e a auto-verificação passou a **medir o
+> privilégio** (varrendo papel × verbo) além da RLS e das policies. O `REVOKE` vem **antes** do
+> bloco de medição de propósito: o endpoint roda o corpo inteiro numa transação, então a migration
+> **prova o próprio efeito** em vez de afirmá-lo.
+>
+> ⚠ Conferido antes de escrever a migration, porque o review avisou que era a pergunta que podia
+> derrubar `(q)`, `(g)`, `(m)` e `(d)`: **o smoke roda como `postgres`, dono da tabela** — medido,
+> `current_user = session_user = postgres` e `relowner = postgres`. O dono não é alcançado por
+> `REVOKE`, então as sete escritas diretas do smoke continuam funcionando.
+
 ### As duas asserções
 
 **`(d)` — sete chamadas de controle, e as sete rodam.**
