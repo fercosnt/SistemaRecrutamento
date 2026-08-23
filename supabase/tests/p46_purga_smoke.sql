@@ -14,11 +14,12 @@
 -- transforma um gate em decoração.
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
--- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); e o plano 46-04 acrescentou (b) e
--- (o), (o.6), (o.7) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos
--- 46-05 a 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11,
--- agora é 16). Um arquivo por fase, e não um por plano: as asserções desta fase
--- leem umas o estado das outras.
+-- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); o plano 46-04 acrescentou (b) e
+-- (o), (o.6), (o.7) e (p); e o plano 46-05 acrescentou (q.1) a (q.5). As demais —
+-- (a), (d), (e), (g), (m), (n) — chegam nos planos 46-06 e 46-07, NESTE MESMO
+-- ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, depois 16, agora é 21).
+-- Um arquivo por fase, e não um por plano: as asserções desta fase leem umas o
+-- estado das outras.
 --
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
@@ -30,8 +31,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **16** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 16 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **21** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 21 e o RESUMO reprova ALTO.
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -1690,11 +1691,452 @@ END $envelope$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- (q) 46-05 · O CICLO DE VIDA DO ITEM — a reivindicação e a conclusão
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ⚠⚠ ESTE BLOCO EXERCITA O CAMINHO DE SUCESSO, E NÃO SÓ O DE RECUSA. Um guard
+-- que recusa TUDO passaria por qualquer bateria só de negativas — é o modo de
+-- falha nº 3 dos sete portões da Phase 45, e é o RD2-02 do `46-REVIEW.md`. Pior
+-- ainda: uma asserção cujo ramo de sucesso NUNCA ROLA não é asserção, é promessa.
+-- A `(p.3)` deste mesmo arquivo passou por três rodadas de review sendo
+-- estruturalmente incapaz de passar, porque o guard sempre recusava e o ramo de
+-- sucesso nunca era executado. Aqui, (q.4) e o passo (e) de (q.5) são caminhos de
+-- sucesso EXECUTADOS.
+--
+-- ⚠ E ELE É INCAPAZ DE DESTRUIR ALGUÉM. Os alvos são uuids SINTÉTICOS que não
+-- existem em `public.candidatos` — por isso a chamada positiva a
+-- `anonimizar_candidato` termina em `P0002` (candidato inexistente), que é
+-- exatamente a prova de que o guard AUTORIZOU. Tudo dentro do envelope, que o
+-- Postgres reverte inteiro.
+--
+-- ⚠ (q.1) e (q.2) são medições de CATÁLOGO e de FORMA e ficam FORA do envelope,
+-- de propósito: se a migration `20260823000010` não estiver aplicada, o bloco
+-- reprova ali, com o diagnóstico certo, antes de montar fixture nenhuma.
+RESET ROLE;
+DO $q$
+DECLARE
+  -- Três uuids SINTÉTICOS. Nenhum existe em public.candidatos, e (q.4) prova isso
+  -- antes de usá-los.
+  c_sint   constant uuid := '4605f000-0000-4000-8000-00000000000f'::uuid;
+  c_sint2  constant uuid := '4605f000-0000-4000-8000-0000000000a2'::uuid;
+  c_forja  constant uuid := '4605f000-0000-4000-8000-0000000000ff'::uuid;
+
+  -- (q.1) catálogo e ACL
+  v_reiv       oid;
+  v_conc       oid;
+  v_sd_r       boolean;
+  v_sd_c       boolean;
+  v_sp_r       text;
+  v_sp_c       text;
+  v_anon_r     boolean;
+  v_auth_r     boolean;
+  v_svc_r      boolean;
+  v_anon_c     boolean;
+  v_auth_c     boolean;
+  v_svc_c      boolean;
+  v_q1_diag    text;
+
+  -- (q.2) acoplamento por forma, sobre os corpos VIVOS
+  v_src_r      text;
+  v_src_g      text;
+  v_q2_diag    text;
+
+  -- fixture do envelope
+  v_modo_antes text;
+  v_exec       uuid;
+  v_item       uuid;
+  v_item2      uuid;
+  v_alvo_ex    int;
+
+  -- (q.3) recusas · (q.4) controle positivo
+  v_q3_st      text[] := ARRAY[]::text[];
+  v_q4_dev     uuid;
+  v_q4_st      text;
+  v_q4_guard   text;
+
+  -- (q.5) conclusão
+  v_q5_st      text[] := ARRAY[]::text[];
+  v_q5_proc_na int;
+  v_q5_sit_na  text;
+  v_q5_conc    timestamptz;
+  v_q5_ds      text;
+  v_q5_dp      text;
+  v_q5_da      text;
+  v_q5_proc    int;
+  v_q5_sit     text;
+BEGIN
+  -- ══ (q.1) CATÁLOGO E ACL — as duas funções existem, e não são alcançáveis por
+  --    papel de cliente. ⚠ `to_regprocedure`, jamais `to_regproc`: este último
+  --    devolve NULL SEMPRE que recebe uma assinatura com tipos, e foi assim que
+  --    cinco portões da Phase 45 passaram medindo nada.
+  v_reiv := to_regprocedure('public.reivindicar_item_purga(uuid,uuid)')::oid;
+  v_conc := to_regprocedure('public.concluir_item_purga(uuid,jsonb)')::oid;
+
+  IF v_reiv IS NULL OR v_conc IS NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (q.1): reivindicar_item_purga(uuid,uuid) resolveu para [%] e concluir_item_purga(uuid,jsonb) para [%] — NULL significa que a migration 20260823000010 nao esta aplicada neste banco. Sem as duas funcoes a Edge Function purgar-retencao nao tem porta de entrada, e o resto deste bloco mediria a ausencia delas em vez do comportamento delas',
+      coalesce(v_reiv::text, 'NULL'), coalesce(v_conc::text, 'NULL');
+  END IF;
+
+  SELECT p.prosecdef,
+         (SELECT x FROM unnest(coalesce(p.proconfig, ARRAY[]::text[])) x WHERE x LIKE 'search_path=%' LIMIT 1)
+    INTO v_sd_r, v_sp_r
+    FROM pg_proc p WHERE p.oid = v_reiv;
+
+  SELECT p.prosecdef,
+         (SELECT x FROM unnest(coalesce(p.proconfig, ARRAY[]::text[])) x WHERE x LIKE 'search_path=%' LIMIT 1)
+    INTO v_sd_c, v_sp_c
+    FROM pg_proc p WHERE p.oid = v_conc;
+
+  v_anon_r := has_function_privilege('anon',          v_reiv, 'EXECUTE');
+  v_auth_r := has_function_privilege('authenticated', v_reiv, 'EXECUTE');
+  v_svc_r  := has_function_privilege('service_role',  v_reiv, 'EXECUTE');
+  v_anon_c := has_function_privilege('anon',          v_conc, 'EXECUTE');
+  v_auth_c := has_function_privilege('authenticated', v_conc, 'EXECUTE');
+  v_svc_c  := has_function_privilege('service_role',  v_conc, 'EXECUTE');
+
+  -- ⚠ A mensagem IMPRIME O QUE MEDIU, condição por condição. Um diagnóstico que
+  -- narra uma causa presumida custa mais caro que um "falhou" — esta fase perdeu
+  -- um dia atrás de uma mensagem que afirmava, com texto fixo, que uma migration
+  -- nao fora aplicada enquanto ela estava aplicada e conferida por md5.
+  v_q1_diag := concat_ws(', '::text,
+    CASE WHEN coalesce(v_sd_r,   false) THEN NULL ELSE 'reivindicar nao e SECURITY DEFINER'::text                 END,
+    CASE WHEN coalesce(v_sd_c,   false) THEN NULL ELSE 'concluir nao e SECURITY DEFINER'::text                    END,
+    CASE WHEN v_sp_r IS NOT NULL        THEN NULL ELSE 'reivindicar nao fixa search_path'::text                   END,
+    CASE WHEN v_sp_c IS NOT NULL        THEN NULL ELSE 'concluir nao fixa search_path'::text                      END,
+    CASE WHEN coalesce(v_anon_r, false) THEN 'reivindicar alcancavel por anon'::text          ELSE NULL           END,
+    CASE WHEN coalesce(v_auth_r, false) THEN 'reivindicar alcancavel por authenticated'::text ELSE NULL           END,
+    CASE WHEN coalesce(v_anon_c, false) THEN 'concluir alcancavel por anon'::text             ELSE NULL           END,
+    CASE WHEN coalesce(v_auth_c, false) THEN 'concluir alcancavel por authenticated'::text    ELSE NULL           END,
+    CASE WHEN coalesce(v_svc_r,  false) THEN NULL ELSE 'reivindicar NAO alcancavel por service_role'::text        END,
+    CASE WHEN coalesce(v_svc_c,  false) THEN NULL ELSE 'concluir NAO alcancavel por service_role'::text           END
+  );
+
+  IF v_q1_diag IS NOT NULL AND v_q1_diag <> '' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.1): medido [%]. ⚠ A revogacao de authenticated e LOAD-BEARING aqui, e nao higiene copiada: anonimizar_candidato e plano_exclusao_titular TEM EXECUTE para authenticated (a EF do direito do titular chama as duas com o JWT da pessoa, 20260805000009). Se reivindicar_item_purga tambem tivesse, qualquer usuario logado poderia chamar a porta que o 4o ramo do guard reconhece, ate acertar um item aberto. search_path fixo lido: reivindicar=[%] concluir=[%]',
+      v_q1_diag, coalesce(v_sp_r, 'AUSENTE'), coalesce(v_sp_c, 'AUSENTE');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (q.1): as duas funcoes do ciclo de vida existem, sao SECURITY DEFINER com search_path fixo (reivindicar=[%], concluir=[%]), sao INALCANCAVEIS por anon e por authenticated, e alcancaveis pelo papel de servico', v_sp_r, v_sp_c;
+
+  -- ══ (q.2) ACOPLAMENTO POR FORMA — a reivindicação repete as condições do guard
+  --    ⚠ O QUE ESTA ASSERÇÃO PROVA, E O QUE ELA NÃO PROVA, dito por extenso para
+  --    que ninguém a leia como mais do que é: ela mede PRESENÇA das condições no
+  --    corpo vivo, e o corpo tem cada condição escrita em DOIS lugares (a decisão
+  --    e o diagnóstico). Portanto ela detecta a REMOÇÃO da condição do arquivo, e
+  --    NÃO a remoção dela apenas do predicado de decisão. Quem prova que a decisão
+  --    MORDE é (q.3), que executa cada recusa, e (q.4), que executa a aceitação.
+  --    O que só a forma alcança é o acoplamento com a janela do guard: não dá para
+  --    fazer o relógio andar dentro de um smoke.
+  SELECT regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')
+    INTO v_src_r FROM pg_proc p WHERE p.oid = v_reiv;
+
+  SELECT regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')
+    INTO v_src_g FROM pg_proc p
+   WHERE p.oid = to_regprocedure('public.anonimizar_candidato(uuid,boolean)')::oid;
+
+  v_q2_diag := concat_ws(', '::text,
+    CASE WHEN position('i.concluido_em IS NULL' in coalesce(v_src_r, ''))       > 0 THEN NULL ELSE 'falta i.concluido_em IS NULL'::text        END,
+    CASE WHEN position('e.situacao = ''executando''' in coalesce(v_src_r, ''))  > 0 THEN NULL ELSE 'falta e.situacao = executando'::text       END,
+    CASE WHEN position('e.modo_vigente = ''live''' in coalesce(v_src_r, ''))    > 0 THEN NULL ELSE 'falta e.modo_vigente = live'::text         END,
+    CASE WHEN position('cp.modo = ''live''' in coalesce(v_src_r, ''))           > 0 THEN NULL ELSE 'falta cp.modo = live (kill switch)'::text  END,
+    CASE WHEN position('i.candidato_id = p_candidato_id' in coalesce(v_src_r, '')) > 0 THEN NULL ELSE 'falta a igualdade do alvo'::text        END,
+    CASE WHEN position('e.iniciada_em >' in coalesce(v_src_r, ''))              > 0 THEN NULL ELSE 'falta a leitura de e.iniciada_em'::text    END,
+    CASE WHEN position('interval ''150 seconds''' in coalesce(v_src_r, ''))     > 0 THEN NULL ELSE 'falta a margem de 150 s do teto de parede da EF'::text END,
+    CASE WHEN position('interval ''1 hour''' in coalesce(v_src_r, ''))          > 0 THEN NULL ELSE 'a reivindicacao deixou de nomear a janela de 1 hora'::text END,
+    CASE WHEN position('interval ''1 hour''' in coalesce(v_src_g, ''))          > 0 THEN NULL ELSE 'o GUARD deixou de usar interval 1 hour'::text END
+  );
+
+  IF v_q2_diag IS NOT NULL AND v_q2_diag <> '' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.2): medido [%]. O predicado de reivindicar_item_purga TEM de ser ESTRITAMENTE MAIS EXIGENTE que a metade (p.2) do 4o ramo do guard (20260823000006): ele repete as seis condicoes daquele predicado e acrescenta a identidade do item e uma margem de 150 s dentro da janela de 1 hora de HI-03. Se as duas divergirem, a Edge Function volta a poder APAGAR O CURRICULO NO STORAGE para uma chamada que o motor recusara tres passos depois — o cenario RD2-03, cujo desfecho e um curriculo orfao e IRRECUPERAVEL num sistema em que o Storage esta fora de todo caminho de backup. ⚠ Se o achado for "o GUARD deixou de usar interval 1 hour", a margem de 150 s foi calibrada contra uma janela que nao existe mais e as duas precisam ser reconciliadas JUNTAS',
+      v_q2_diag;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (q.2): o corpo vivo da reivindicacao carrega as seis condicoes do 4o ramo destrutivo mais a margem de 150 s, e o guard continua com a janela de 1 hora contra a qual essa margem foi calibrada';
+
+  -- ══ ENVELOPE — a partir daqui tudo é revertido ═════════════════════════════
+  PERFORM set_config('request.jwt.claims', '', false);
+  PERFORM set_config('request.jwt.claim.sub', '', false);
+
+  BEGIN
+    SELECT cp.modo INTO v_modo_antes FROM public.config_purga cp;
+
+    INSERT INTO public.purga_execucoes
+           (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao)
+    VALUES ('live', 50, 2, 0, 'despachado', 'executando')
+    RETURNING id INTO v_exec;
+
+    INSERT INTO public.purga_execucao_itens
+           (execucao_id, candidato_id, etapa, janela_meses_aplicada, ancora_origem, ancora_em)
+    VALUES (v_exec, c_sint, 'aprovado'::public.etapa_processo, 24, 'data_candidatura', pg_catalog.now())
+    RETURNING id INTO v_item;
+
+    INSERT INTO public.purga_execucao_itens
+           (execucao_id, candidato_id, etapa, janela_meses_aplicada, ancora_origem, ancora_em)
+    VALUES (v_exec, c_sint2, 'aprovado'::public.etapa_processo, 24, 'data_candidatura', pg_catalog.now())
+    RETURNING id INTO v_item2;
+
+    -- ⊖ NÃO-VACUIDADE DO ALVO: os dois sintéticos têm de NÃO existir. Com um
+    -- candidato real ali, o P0002 de (q.4) deixaria de ser possível e a aceitação
+    -- passaria a destruir PII de verdade em vez de parar no motor.
+    SELECT count(*) INTO v_alvo_ex
+      FROM public.candidatos c WHERE c.id = c_sint OR c.id = c_sint2;
+
+    UPDATE public.config_purga SET modo = 'live';
+
+    -- ── (q.3) AS CINCO RECUSAS, uma condição de cada vez ───────────────────────
+    -- 1 · item FORJADO: um uuid que não é item nenhum
+    BEGIN
+      PERFORM public.reivindicar_item_purga(c_forja, c_sint);
+      v_q3_st := v_q3_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q3_st := v_q3_st || SQLSTATE;
+    END;
+
+    -- 2 · item real, TITULAR ALHEIO no corpo — o caso do Pitfall 11
+    BEGIN
+      PERFORM public.reivindicar_item_purga(v_item, c_sint2);
+      v_q3_st := v_q3_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q3_st := v_q3_st || SQLSTATE;
+    END;
+
+    -- 3 · item JÁ CONCLUÍDO — a idempotência é por ESTADO no ledger
+    UPDATE public.purga_execucao_itens SET concluido_em = pg_catalog.now() WHERE id = v_item;
+    BEGIN
+      PERFORM public.reivindicar_item_purga(v_item, c_sint);
+      v_q3_st := v_q3_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q3_st := v_q3_st || SQLSTATE;
+    END;
+    UPDATE public.purga_execucao_itens SET concluido_em = NULL WHERE id = v_item;
+
+    -- 4 · KILL SWITCH: cerco em `off` com o item aberto e a execução em live
+    UPDATE public.config_purga SET modo = 'off';
+    BEGIN
+      PERFORM public.reivindicar_item_purga(v_item, c_sint);
+      v_q3_st := v_q3_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q3_st := v_q3_st || SQLSTATE;
+    END;
+    UPDATE public.config_purga SET modo = 'live';
+
+    -- 5 · A MARGEM DO TETO DE PAREDE, EXECUTADA. A execução foi aberta há 59
+    --     minutos: ela AINDA está dentro da hora que o guard exige, mas não tem
+    --     150 s de janela restante. A reivindicação TEM de recusar — se ela
+    --     aceitasse, a EF apagaria o Storage e o motor recusaria depois.
+    UPDATE public.purga_execucoes SET iniciada_em = pg_catalog.now() - interval '59 minutes' WHERE id = v_exec;
+    BEGIN
+      PERFORM public.reivindicar_item_purga(v_item, c_sint);
+      v_q3_st := v_q3_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q3_st := v_q3_st || SQLSTATE;
+    END;
+    UPDATE public.purga_execucoes SET iniciada_em = pg_catalog.now() WHERE id = v_exec;
+
+    -- ── (q.4) ⊕ O CONTROLE POSITIVO, E O PAR QUE PROVA O ACOPLAMENTO ──────────
+    -- Mesmo estado das cinco recusas, com todas as condições satisfeitas. Duas
+    -- medições, e é o PAR que importa: a reivindicação devolve o titular DO ITEM,
+    -- e o guard destrutivo autoriza NAQUELE MESMO INSTANTE. Uma reivindicação
+    -- concedida que o guard recusasse em seguida é o cenário RD2-03 vivo.
+    BEGIN
+      SELECT public.reivindicar_item_purga(v_item, c_sint) INTO v_q4_dev;
+      v_q4_st := 'OK'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q4_st := SQLSTATE;
+    END;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(c_sint, false);
+      v_q4_guard := 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q4_guard := SQLSTATE;
+    END;
+
+    -- ── (q.5) A CONCLUSÃO ─────────────────────────────────────────────────────
+    -- a · `nao_aplicavel` no Postgres NÃO incrementa `processados`
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item2,
+        '{"storage":"falha","postgres":"nao_aplicavel","auth":"nao_aplicavel"}'::jsonb);
+      v_q5_st := v_q5_st || 'OK'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    SELECT e.processados, e.situacao INTO v_q5_proc_na, v_q5_sit_na
+      FROM public.purga_execucoes e WHERE e.id = v_exec;
+
+    -- b · valor FORA do vocabulário fechado
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item,
+        '{"storage":"ok","postgres":"desconhecido","auth":"ok"}'::jsonb);
+      v_q5_st := v_q5_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    -- c · `pendente` não é desfecho de conclusão
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item,
+        '{"storage":"ok","postgres":"pendente","auth":"ok"}'::jsonb);
+      v_q5_st := v_q5_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    -- d · chave AUSENTE — jamais gravação silenciosa
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item, '{"storage":"ok","auth":"ok"}'::jsonb);
+      v_q5_st := v_q5_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    -- e · ⊕ O CAMINHO FELIZ, EXECUTADO
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item,
+        '{"storage":"ok","postgres":"ok","auth":"ok"}'::jsonb);
+      v_q5_st := v_q5_st || 'OK'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    SELECT i.concluido_em, i.desfecho_storage, i.desfecho_postgres, i.desfecho_auth
+      INTO v_q5_conc, v_q5_ds, v_q5_dp, v_q5_da
+      FROM public.purga_execucao_itens i WHERE i.id = v_item;
+
+    SELECT e.processados, e.situacao INTO v_q5_proc, v_q5_sit
+      FROM public.purga_execucoes e WHERE e.id = v_exec;
+
+    -- f · reescrever item JÁ CONCLUÍDO é falsificar uma observação
+    BEGIN
+      PERFORM public.concluir_item_purga(v_item,
+        '{"storage":"falha","postgres":"falha","auth":"falha"}'::jsonb);
+      v_q5_st := v_q5_st || 'SEM-EXCECAO'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_q5_st := v_q5_st || SQLSTATE;
+    END;
+
+    UPDATE public.config_purga SET modo = v_modo_antes;
+
+    RAISE EXCEPTION 'rollback_smoke46q_envelope' USING ERRCODE = 'P46B0';
+  EXCEPTION
+    WHEN sqlstate 'P46B0' THEN
+      NULL;  -- reversao ESPERADA; as variaveis acima sobreviveram ao rollback
+  END;
+
+  RESET ROLE;
+
+  -- ══ JULGAMENTO — sobre variáveis, sem uma única consulta viva ══════════════
+
+  IF v_alvo_ex <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (q): ⊖ NAO-VACUIDADE DO ALVO — existe(m) % linha(s) em candidatos com os uuids sinteticos deste bloco. Eles foram escolhidos por NAO existir: e isso que faz P0002 significar "o guard AUTORIZOU e o motor parou por nao haver titular". Com um candidato real ali, a aceitacao de (q.4) destruiria PII de verdade em vez de parar no motor', v_alvo_ex;
+  END IF;
+
+  IF array_length(v_q3_st, 1) IS DISTINCT FROM 5 THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3): foram registradas % chamadas de controle (esperado 5). Um bloco que nao executou as cinco nao provou nada sobre a reivindicacao', coalesce(array_length(v_q3_st, 1), 0);
+  END IF;
+
+  IF v_q3_st[1] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3.1): um item_id FORJADO devolveu [%] em vez de P46FB. O corpo da requisicao SELECIONA e nao autoriza — se um identificador inventado atravessa a porta, quem conseguisse forjar um POST com o Bearer certo escolheria quem e destruido (Pitfall 11 / classe T-32-03). ⚠ [SEM-EXCECAO] aqui e o pior desfecho possivel: a reivindicacao teria devolvido um titular para um item que nao existe', coalesce(v_q3_st[1], 'NULL');
+  END IF;
+
+  IF v_q3_st[2] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3.2): ⛔ O CASO QUE VALE A DEFESA INTEIRA. Um item REAL e ABERTO, com o titular ALHEIO no corpo, devolveu [%] em vez de P46FB. Isso significa que a funcao deixou de exigir i.candidato_id = p_candidato_id — e entao basta conhecer UM item aberto para mandar destruir QUALQUER pessoa, porque o identificador do corpo passaria a viajar para o Storage, para o motor e para a Admin API do Auth', coalesce(v_q3_st[2], 'NULL');
+  END IF;
+
+  IF v_q3_st[3] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3.3): um item JA CONCLUIDO devolveu [%] em vez de P46FB. A idempotencia desta fase e por ESTADO no ledger, nunca por "tentar de novo e nao dar erro": uma segunda invocacao sobre um item fechado tem de ser RECUSADA, e nao repetida em silencio sobre tres sistemas irreversiveis', coalesce(v_q3_st[3], 'NULL');
+  END IF;
+
+  IF v_q3_st[4] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3.4): com config_purga.modo = off e o item ainda ABERTO sob execucao em live, a reivindicacao devolveu [%] em vez de P46FB. O KILL SWITCH DE D-46-06 TEM DE MORDER ANTES DO PRIMEIRO ATO IRREVERSIVEL: a reivindicacao e a unica porta que a Edge Function atravessa antes de tocar no Storage, e o guard do motor so seria consultado DEPOIS de o curriculo ja ter sido apagado', coalesce(v_q3_st[4], 'NULL');
+  END IF;
+
+  IF v_q3_st[5] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.3.5): ⛔ A MARGEM DO TETO DE PAREDE NAO MORDEU. Com a execucao aberta ha 59 minutos — ainda DENTRO da hora que o 4o ramo do guard exige, mas com menos de 150 s de janela restante —, a reivindicacao devolveu [%] em vez de P46FB. Este e o cenario RD2-03 do 46-REVIEW: a EF reivindicaria, apagaria o CURRICULO NO STORAGE, chamaria o motor e receberia 42501 porque a janela de HI-03 venceu no meio. Storage apagado, Postgres intacto, curriculo orfao e IRRECUPERAVEL — o Storage esta fora de todo caminho de backup e nao ha PITR (D-45-10). A diferenca entre "a EF retornou erro" e "nenhuma chamada de Storage aconteceu" e um curriculo', coalesce(v_q3_st[5], 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (q.3): a reivindicacao RECUSA com P46FB nas cinco condicoes, uma de cada vez — item forjado (%), titular alheio (%), item ja concluido (%), kill switch em off (%), e execucao sem 150 s de janela restante (%)', v_q3_st[1], v_q3_st[2], v_q3_st[3], v_q3_st[4], v_q3_st[5];
+
+  IF v_q4_st IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.4): ⊕ CONTROLE POSITIVO. Com TODAS as condicoes satisfeitas — cerco em live, execucao em executando/live aberta agora, item ABERTO e o titular do corpo batendo o do item —, a reivindicacao devolveu [%] em vez de aceitar. ⚠ PROVAR SO RECUSA NAO PROVA NADA: um guard que recusa tudo passaria nas cinco negativas de (q.3), e a descoberta chegaria no dia do flip dry_run -> live, com a EF devolvendo 403 em 100%% dos titulares. E o RD2-02 desta fase, e o modo de falha no 3 dos sete portoes da Phase 45', coalesce(v_q4_st, 'NULL');
+  END IF;
+
+  IF v_q4_dev IS DISTINCT FROM c_sint THEN
+    RAISE EXCEPTION 'P46P FAIL (q.4): a reivindicacao aceitou mas devolveu [%] em vez do titular DO ITEM. E este valor, e nenhum outro, que a Edge Function usa para o Storage, para o motor e para a Admin API do Auth — se ele deixar de vir do item, o identificador do corpo voltou a mandar em quem e destruido', coalesce(v_q4_dev::text, 'NULL');
+  END IF;
+
+  IF v_q4_guard IS DISTINCT FROM 'P0002' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.4): ⛔ O ACOPLAMENTO QUEBROU, E ELE E O PONTO INTEIRO DESTA ASSERCAO. No MESMO instante em que a reivindicacao foi CONCEDIDA, o guard destrutivo de anonimizar_candidato devolveu [%] em vez de P0002. P0002 significa "o guard autorizou e o motor parou por nao haver titular sintetico". ⚠ [42501] significa que a reivindicacao concede autorizacao que o guard NAO honra — e a Edge Function apaga o Storage ENTRE as duas chamadas. O predicado da reivindicacao tem de ser ESTRITAMENTE MAIS EXIGENTE que a metade (p.2) do 4o ramo, e neste instante ele nao e', coalesce(v_q4_guard, 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (q.4): ⊕ satisfeitas as condicoes, a reivindicacao ACEITA e devolve o titular DO ITEM (%), e o guard destrutivo autoriza no MESMO instante (%) — reivindicacao concedida implica guard honrando, que e o acoplamento que fecha o RD2-03', v_q4_dev, v_q4_guard;
+
+  IF array_length(v_q5_st, 1) IS DISTINCT FROM 6 THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5): foram registradas % chamadas de controle (esperado 6)', coalesce(array_length(v_q5_st, 1), 0);
+  END IF;
+
+  IF v_q5_st[1] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.a): concluir um item com desfecho de Postgres nao_aplicavel devolveu [%] em vez de completar. Este e o caminho em que o Storage falhou e o motor nunca chegou a rodar, e ele TEM de conseguir fechar o item: um item que fica aberto mantem viva a autorizacao do 4o ramo do guard ate a hora de HI-03 vencer', coalesce(v_q5_st[1], 'NULL');
+  END IF;
+
+  IF v_q5_proc_na IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.a): depois de concluir um item cujo motor NUNCA RODOU, processados vale % (esperado 0). A coluna diz de si mesma, no COMMENT de 20260823000002, que conta "quantos titulares tiveram o motor destrutivo efetivamente executado". Incrementar em toda conclusao a faria significar "itens fechados" e mentir sobre o unico numero que ela existe para responder — a mesma classe do RD2-01, em que a mentira simetrica custa o mesmo que a otimista', v_q5_proc_na;
+  END IF;
+
+  IF v_q5_sit_na IS DISTINCT FROM 'executando' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.a): com UM item ainda ABERTO, a execucao ja esta em situacao [%] (esperado executando). Fechar a execucao antes do ultimo item apagaria o sinal de que ela ainda esta processando alguem', coalesce(v_q5_sit_na, 'NULL');
+  END IF;
+
+  IF v_q5_st[2] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.b): um desfecho FORA do vocabulario (desconhecido) devolveu [%] em vez de 22023. ⚠ desconhecido EXISTE no CHECK da coluna desde a 20260823000009 e pertence a RECONCILIACAO de execucoes vencidas, que nao observou nada; quem chama esta funcao OBSERVOU os tres passos, e um observador nao declara ignorancia. Aceitar o valor aqui seria deixar a Edge Function gravar "eu nao sei" sobre um ato que ela mesma executou', coalesce(v_q5_st[2], 'NULL');
+  END IF;
+
+  IF v_q5_st[3] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.c): pendente na conclusao devolveu [%] em vez de 22023. pendente e o unico valor do vocabulario que descreve uma INTENCAO ("ainda vou tentar"), e um item fechado nao tem intencoes — grava-lo seria uma afirmacao falsa num registro de cumprimento de obrigacao legal com retencao indefinida', coalesce(v_q5_st[3], 'NULL');
+  END IF;
+
+  IF v_q5_st[4] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.d): um objeto SEM a chave postgres devolveu [%] em vez de 22023. Chave ausente tem de ser RECUSA e jamais gravacao silenciosa: o item fecharia com o desfecho daquele sistema em pendente, e um item fechado que diz "ainda vou tentar" e exatamente o registro que ninguem consegue interpretar depois', coalesce(v_q5_st[4], 'NULL');
+  END IF;
+
+  IF v_q5_st[5] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.e): ⊕ O CAMINHO FELIZ. A conclusao com os tres desfechos validos devolveu [%] em vez de completar. Sem este caso, (q.5) provaria apenas que a funcao recusa — e uma funcao que recusa tudo deixaria a Edge Function INCAPAZ DE FECHAR O ITEM, mantendo viva a autorizacao destrutiva do 4o ramo por uma hora inteira depois de a purga daquele titular ja ter terminado', coalesce(v_q5_st[5], 'NULL');
+  END IF;
+
+  IF v_q5_conc IS NULL OR v_q5_ds IS DISTINCT FROM 'ok' OR v_q5_dp IS DISTINCT FROM 'ok' OR v_q5_da IS DISTINCT FROM 'ok' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.e): o item nao ficou como a chamada pediu — concluido_em=[%], storage=[%], postgres=[%], auth=[%] (esperado carimbo nao-nulo e ok nos tres). ⚠ concluido_em e a coluna LOAD-BEARING: e ela que RETIRA a autorizacao do 4o ramo do guard, e "nao lancou" nunca foi o mesmo que "gravou"',
+      coalesce(v_q5_conc::text, 'NULL'), coalesce(v_q5_ds, 'NULL'), coalesce(v_q5_dp, 'NULL'), coalesce(v_q5_da, 'NULL');
+  END IF;
+
+  IF v_q5_proc IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.e): depois de concluir o item cujo motor RODOU, processados vale % (esperado exatamente 1 — o outro item foi fechado com o motor nao executado). Um contador que nao sobe quando o motor roda deixa PURGA-06 sem resposta para "quantos"', v_q5_proc;
+  END IF;
+
+  IF v_q5_sit IS DISTINCT FROM 'concluida' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.e): fechado o ULTIMO item aberto, a execucao ficou em situacao [%] (esperado concluida). No desenho assincrono do 46-06 quem fecha o cabecalho e a conclusao do ultimo item: se ela nao fechar, a execucao fica em executando para sempre e a reconciliacao de 20260823000007 acaba ABORTANDO uma execucao que na verdade terminou bem', coalesce(v_q5_sit, 'NULL');
+  END IF;
+
+  IF v_q5_st[6] IS DISTINCT FROM 'P46FB' THEN
+    RAISE EXCEPTION 'P46P FAIL (q.5.f): reescrever o desfecho de um item JA CONCLUIDO devolveu [%] em vez de P46FB. Isso e falsificar uma observacao dentro de um registro de cumprimento de obrigacao legal com retencao INDEFINIDA (D-46-16), sem PITR para desmentir — e a segunda escrita apagaria o desfecho que alguem de fato observou', coalesce(v_q5_st[6], 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (q.5): a conclusao RECUSA vocabulario invalido (%), pendente (%), chave ausente (%) e reescrita de item fechado (%); e ACEITA o caminho feliz (%), carimbando os tres desfechos, incrementando processados para % apenas quando o motor rodou, e fechando a execucao em [%]', v_q5_st[2], v_q5_st[3], v_q5_st[4], v_q5_st[6], v_q5_st[5], v_q5_proc, v_q5_sit;
+
+  RAISE NOTICE 'P46P TEARDOWN ok (q): envelope revertido — config_purga.modo volta a [%], e a execucao e os dois itens deste bloco NAO existem', coalesce(v_modo_antes, 'NULL');
+END $q$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 16;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p)
+DECLARE v_n int; v_esperado int := 21;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p) + 5 (46-05: q.1..q.5)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
