@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 34
+open_count: 36
 waived_count: 0
 fixed_count: 3
-total_count: 37
-last_updated: 2026-08-22T23:41:17.237Z
+total_count: 39
+last_updated: 2026-08-23T00:13:52.699Z
 ---
 
 # Broken Windows Ledger
@@ -52,6 +52,8 @@ last_updated: 2026-08-22T23:41:17.237Z
 | 35 | 46 | stub | supabase/tests/p42_invent05_cron_smoke.sql |  | assercao (a) fixa cron.job em 3 com mensagem de diagnostico falso para o 4o job legitimo — emenda de D-46-23 pendente no 46-06 | open |  | 2026-08-22T23:07:37.606Z |  |
 | 36 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | 46-03: as 5 assercoes (j.1)(j.2)(j.3)(k)(l) foram escritas mas NAO executadas — apply e execucao dependem do checkpoint bloqueante da Task 3 | fixed |  | 2026-08-22T23:35:12.424Z | 2026-08-22T23:41:17.172Z |
 | 37 | 46 | unrun-verify | supabase/migrations/20260823000005_p46_retencao_hold_e_excecoes.sql |  | 46-03: migration commitada mas NAO aplicada em PROD — retencao_hold, a linha de hold da fixture e as duas excecoes do predicado nao existem no banco ate o checkpoint da Task 3 | fixed |  | 2026-08-22T23:35:17.092Z | 2026-08-22T23:41:17.237Z |
+| 38 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | Assercoes (b) e (o) escritas e commitadas mas NAO EXECUTADAS: nada foi aplicado em PROD e o Blocker B-02 (guard proprio de plano_exclusao_titular) as faria reprovar | open |  | 2026-08-23T00:13:52.635Z |  |
+| 39 | 46 | deviation | supabase/migrations/20260805000005_p45_plano_e_dry_run.sql | 208 | B-02: guard de plano_exclusao_titular recusa chamador sem sessao; D-46-18 e incompleto e PURGA-02 nao fecha ate a decisao do operador | open |  | 2026-08-23T00:13:52.699Z |  |
 
 ````json
 [
@@ -498,6 +500,30 @@ last_updated: 2026-08-22T23:41:17.237Z
     "reason": "",
     "recorded_at": "2026-08-22T23:35:17.092Z",
     "resolved_at": "2026-08-22T23:41:17.237Z"
+  },
+  {
+    "id": 38,
+    "kind": "unrun-verify",
+    "phase": "46",
+    "file": "supabase/tests/p46_purga_smoke.sql",
+    "line": null,
+    "description": "Assercoes (b) e (o) escritas e commitadas mas NAO EXECUTADAS: nada foi aplicado em PROD e o Blocker B-02 (guard proprio de plano_exclusao_titular) as faria reprovar",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T00:13:52.635Z",
+    "resolved_at": null
+  },
+  {
+    "id": 39,
+    "kind": "deviation",
+    "phase": "46",
+    "file": "supabase/migrations/20260805000005_p45_plano_e_dry_run.sql",
+    "line": 208,
+    "description": "B-02: guard de plano_exclusao_titular recusa chamador sem sessao; D-46-18 e incompleto e PURGA-02 nao fecha ate a decisao do operador",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-08-23T00:13:52.699Z",
+    "resolved_at": null
   }
 ]
 ````

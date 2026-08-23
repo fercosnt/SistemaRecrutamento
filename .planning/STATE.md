@@ -4,15 +4,15 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
-stopped_at: "Concluido 46-03-PLAN.md (3 de 7 da Phase 46) — as 4 excecoes de politica APLICADAS em PROD, candidaturas_alem_da_janela() 6 -> 4 (saem neg-hold#05 e neg-vaga#06), 5 smokes verdes com contadores lidos (11/9/24/11/4), PURGA-07 FECHADO. Proximo: 46-04"
-last_updated: "2026-08-23T00:45:00.000Z"
+stopped_at: 46-04 PARADO em checkpoint bloqueante — Task 4 (code review + apply) nao iniciada, e Blocker B-02 exige decisao do operador antes do apply
+last_updated: "2026-08-23T00:13:52.566Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 59
-  completed_plans: 53
-  percent: 69
+  completed_plans: 54
+  percent: 67
 current_phase: 46
 last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRODUCAO em 2026-08-22, sobre conta descartavel, pela Edge Function com o JWT do titular — e o 45-VERIFICATION.md existe com veredito PASSED, 5/5 criterios, portao destrutivo 5/5. Storage 3->0 (incluindo o ORFAO do Pitfall 4, que o motor detectou: achados_resumo.blob_orfao=1), auth.users 30->29 exatamente -1, e a trilha intacta (historico 7=7, decisao_final 2=2). As 7 negativas passam, o CR-04 passa, a re-identificacao por faixa+UF+vaga+timestamp devolve ZERO, e o SC#5 se sustenta (mesma faixa 35-44, excluidos_sem_data=0). O recibo chegou em tempo passado, sem identificador proibido, e COM a linha obrigatoria da justificativa — o conserto do WR-A (f67d664) provado nos 3 recortes. ⚠ DUAS DIVERGENCIAS DE LETRA registradas: decisao_final_historico 1->2 pelo mecanismo M1 documentado (as DUAS linhas desidentificadas), e a data na tela em 06/09/2026 e nao por extenso. ⚠ IDEMPOTENCIA por re-invocacao e ESTRUTURALMENTE impossivel pela EF: depois do deleteUser o JWT e recusado (401). Antes disso, no mesmo dia: CR-01 e CR-02 consertados (76976bb) e o smoke p45_motor_exclusao_smoke passou 24/24 em PROD; os pins md5 gravados com conferencia cruzada (6aa249a); WR-A consertado (f67d664); a copy deixou de prometer um Encarregado que a empresa decidiu nao ter (f8e76e2); api.ipify.org e o iframe do YouTube ELIMINADOS em vez de declarados (03909dd); o vocabulario de logs_acesso.evento consertado — o log estava MORTO desde 2026-04-20 e o defeito so apareceu porque a sonda de uma migration abortou com 23514; e o host recruta.beautysmile.com.br, que NUNCA EXISTIU, corrigido para rh.beautysmile.com.br (eb6f63d). ⚠ LICAO QUE SE REPETIU O DIA INTEIRO: registro desatualizado custa o mesmo que registro ausente — sete pontos do ledger/STATE estavam errados — e MEDIR A COISA ERRADA COM O SQL CERTO e pior ainda, porque o fato falso vem com autoridade de consulta (eu errei duas vezes juntando por usuarios_rh.id em vez de user_id). PROXIMO: Phase 46, que nunca comecou e agora esta DESTRAVADA."
 ---
@@ -558,7 +558,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 46
+Status: Executing Phase 46 — plano 04 PARADO em checkpoint bloqueante (Blocker B-02); planos 05, 06 e 07 pendentes
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -754,6 +754,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 45 P14 | 40min | 3 tasks | 5 files |
 | Phase 46 P01 | 75min | 3 tasks | 4 files |
 | Phase 46 P02 | ~95min | 3 tasks | 8 files |
+| Phase 46 P04 | ~95min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -1032,6 +1033,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ⏸ **PORTAO DE PUBLICACAO — o que de fato continua ABERTO (47-08 Task 1):** a revisao **FORMAL do Encarregado** dos quatro itens — os seis paises e a base legal de cada um, a formulacao do provedor de hospedagem, a qualificacao do servico publico de CEP e a copy das duas paginas. ⚠ **As paginas ja estao NO AR**, liberadas em 2026-08-11 por decisao **do operador**, e o proprio `47-08-SUMMARY.md` e explicito em **nao** conflar isso com parecer do Encarregado. `WINDOWS.md` itens 26 e 30. O que mudou desde o registro antigo: a publicacao **nao esta mais represada pelo portao** — ela aconteceu, e o portao segue aberto **atras** dela.
 - A lista publica de subprocessadores foi ao ar com DOIS destinos de rede pendentes de classificacao pelo Encarregado: api.ipify.org (src/services/logAccessService.ts:110) e www.youtube.com (src/components/pages/InstrucoesFormularioPage.tsx:77)
 - ~~46-01 Task 3: fixture NAO aplicada em PROD~~ **RESOLVIDO 2026-08-22**: aplicada, `candidaturas_alem_da_janela()` 0 → 7, cinco asserções de contaminação em zero. ⚠ Fica UM item herdado: o **46-03 tem de inserir a linha de `retencao_hold`** para a candidatura `4601c000-0000-4000-8000-000000000005` (a tabela não existia no apply, e o bloco guardado por `to_regclass` só emitiu `NOTICE`). Sem ela, `neg-hold#05` continua elegível e a asserção (j.1) do smoke passa por vacuidade.
+- ⛔ B-02 (46-04, 2026-08-23): public.plano_exclusao_titular(uuid) tem guard PROPRIO de duas metades (20260805000005:201-253) que recusa chamador sem sessao com 42501. anonimizar_candidato a CHAMA no PASSO 0, entao o 4o ramo de D-46-18 NAO basta — o dry-run da purga morre 3 linhas depois de ser autorizado. SECURITY DEFINER nao troca auth.uid(). Exige decisao do operador (Rule 4): Saida A = espelhar o 4o ramo nas DUAS metades daquela funcao, o que implica migration nova e um SEGUNDO re-pin de md5 em (C3) (v_pin_plano).
 
 ## Deferred Verification
 
@@ -1179,9 +1181,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-23T00:45:00.000Z
-Stopped at: Concluido 46-03-PLAN.md — as 4 excecoes de politica aplicadas em PROD, 6 -> 4 elegiveis, PURGA-07 fechado. Proximo: 46-04
-Resume file: None
+Last session: 2026-08-23T00:13:52.545Z
+Stopped at: 46-04 PARADO em checkpoint bloqueante — Task 4 (code review + apply) nao iniciada, e Blocker B-02 exige decisao do operador antes do apply
+Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-04-SUMMARY.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
