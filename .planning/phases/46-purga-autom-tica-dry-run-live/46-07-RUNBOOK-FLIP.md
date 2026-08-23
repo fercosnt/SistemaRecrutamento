@@ -26,8 +26,10 @@ contornado.
 
 | | |
 |---|---|
-| `T0` (`now()` do servidor no instante do flip) | `__________________________` ⬅ **A PREENCHER pelo operador no passo 6 da Task 3** |
-| Data mínima do flip (`T0 + 14 dias`) | `__________________________` |
+| `T0` (`now()` do servidor no instante do flip) | **`2026-08-23 02:06:37.866049-03`** ⬅ medido no servidor, no ato |
+| Data mínima do flip (`T0 + 14 dias`) | **`2026-09-06 02:06:37-03`** |
+| Execuções em `dry_run`/`live` no ledger em `T0` | **2** (a manual do flip + a de 2026-08-22 20:03) — faltam **12** |
+| Etapas da allowlist ainda em procedência `seed` | **2** — `aprovado` e `decisao_final`. ⚠ **Ação do operador em `/admin/retencao`**, e ela não passa pelo tempo: confirmar a janela de cada uma marca a procedência como escolhida por um administrador. Sem isso o servidor recusa o `live` mesmo depois dos 14 dias |
 
 ⚠ **NÃO CONFIE NA LINHA ACIMA — ELA É CONVENIÊNCIA, NÃO FONTE.** A lição do 42-12 é que um marco
 temporal que depende de alguém lembrar de anotá-lo não existe. `T0` é **recuperável do banco**, e é
