@@ -227,12 +227,41 @@
 --      no repositorio, e a segunda envelheceria em silencio.
 --
 --   valor  : 97634d07ef13447e06741a8c8372fca6   (plano_exclusao_titular — octetos: 21349)
---   valor  : 8c86e0f040219e7eade47eb587dbf5de   (anonimizar_candidato   — octetos: 34488)
+--   valor  : 35d1df5d8a3739854e97dd7cbd0d600e   (anonimizar_candidato   — octetos: 43532)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
 --            `supabase/migrations/20260805000005_p45_plano_e_dry_run.sql` e
---            `supabase/migrations/20260805000006_p45_anonimizar_candidato.sql`
---   medido : 2026-08-13, POR EXECUCAO contra PROD (nao transcrito, nao inventado).
+--            — ⚠ MUDOU NO 46-04 —
+--            `supabase/migrations/20260823000006_p46_guard_purga.sql`
+--
+-- ⚠⚠ RE-PIN DE `anonimizar_candidato` EM 2026-08-23 (Phase 46 / plano 46-04),
+--    E ELE E ATO CONSCIENTE, MEDIDO E REVISAVEL — nao um numero atualizado para
+--    fazer o gate passar.
+--    O QUE MUDOU NO CORPO: a migration `20260823000006` acrescentou o QUARTO ramo
+--    autorizado do guard (D-46-18 / D-46-24 / Blocker B-01), em duas metades
+--    FISICAMENTE DISTINTAS — dry-run sob cerco em `dry_run` ou `live`, destrutivo
+--    EXCLUSIVAMENTE sob `live`. Sem ele o cron nao consegue nem fazer o dry-run:
+--    medido em PROD em 2026-08-22, como `postgres` e sem claims, `auth.uid()`,
+--    `app_metadata.role` e `request.jwt.claims` sao os TRES nulos, e as tres
+--    metades antigas recusavam com 42501.
+--    ⚠ O CORPO ANTIGO FOI CONFERIDO ANTES DA EDICAO: o executor extraiu o corpo do
+--    arquivo `20260805000006` e obteve exatamente `8c86e0f040219e7eade47eb587dbf5de`
+--    / 34 488 octetos, o pin que vigorava e o `md5(prosrc)` vivo — ou seja, a copia
+--    que ele editou era byte a byte o que estava aplicado em PROD.
+--    ⚠ A EXTRACAO DO VALOR NOVO FOI CONFERIDA quanto a contaminacao de comentario
+--    (a armadilha encontrada no plano 46-02, onde o `indexOf` casou uma mencao do
+--    delimitador num comentario de cabecalho): o trecho comeca em `\nDECLARE\n` e
+--    termina em `END;\n`. A migration `20260823000006` NAO menciona o delimitador
+--    nomeado em prosa, de proposito.
+--
+--   HISTORICO DOS PINS DE `anonimizar_candidato` — nao apagar, porque e o que
+--   torna a sequencia auditavel: da para ver que o pin mudou, quando, e por que,
+--   em vez de ter mudado sozinho.
+--     · 8c86e0f040219e7eade47eb587dbf5de (34 488 octetos) — 2026-08-13 a
+--       2026-08-23. Vigorou durante a execucao do motor em PRODUCAO de 2026-08-22.
+--
+--   medido : plano_exclusao_titular em 2026-08-13; anonimizar_candidato re-pinado
+--            em 2026-08-23. AMBOS POR EXECUCAO (nao transcrito, nao inventado).
 --            ⚠ E a medicao que autoriza o pin nao e "li o valor vivo e copiei" — isso
 --            pinaria o que esta aplicado, seja la o que for, e o gate deixaria de
 --            comparar. A conferencia feita foi a CRUZADA, nos dois lados:
@@ -247,8 +276,11 @@
 --       D="$"+process.argv[2]+"$", a=f.indexOf(D), b=f.indexOf(D,a+D.length);
 --       console.log(require("crypto").createHash("md5")
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
---       supabase/migrations/20260805000006_p45_anonimizar_candidato.sql \
+--       supabase/migrations/20260823000006_p46_guard_purga.sql \
 --       anonimizar_candidato
+--     ⚠ O ARQUIVO MUDOU NO 46-04. Recomputar contra a `20260805000006` devolveria
+--       o corpo ANTERIOR ao quarto ramo e reprovaria com diagnostico falso — o
+--       `CREATE OR REPLACE` mais recente e o que define o objeto vivo.
 --   ⚠ Enquanto o valor for `PENDENTE-45-07`, a assercao (C3) REPROVA ALTO com essa
 --     mensagem. Um placeholder que passasse verde seria pior que assercao nenhuma.
 --   ⚠ Se um resumo for re-pinado sem que a migration tenha mudado, (C3) deixa de
@@ -1557,13 +1589,26 @@ $c2$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (C3) GATE DE NAO-DIVERGENCIA DO DRY-RUN, NAS DUAS METADES.
+-- (C3) GATE DE NAO-DIVERGENCIA DO DRY-RUN, NAS TRES METADES (eram DUAS ate o 46-04).
 --
 --      (i) `md5(prosrc)` das duas funcoes bate os valores PINADOS no cabecalho —
 --          prova que o corpo vivo e byte a byte o da migration.
 --      (ii) `pg_get_functiondef(anonimizar_candidato)` CONTEM a chamada a
 --           `plano_exclusao_titular` — prova que o delete real continua PASSANDO
 --           pela expressao unica.
+--      (iii) 46-04 · A REDE ESTRUTURAL: o corpo vivo LE `purga_execucao_itens`,
+--            exige o item AINDA ABERTO, exige `modo_vigente` igual a `live` por
+--            extenso na metade destrutiva, e NAO contem negacao por pertencimento
+--            a conjunto de valores.
+--
+--      ⚠⚠ POR QUE (iii) EXISTE, E POR QUE ELA NASCEU JUNTO COM UM RE-PIN: o md5
+--      responde "o corpo vivo e o do arquivo?"; ele NAO responde "o arquivo tem a
+--      forma certa?". Enquanto o pin nunca muda, a diferenca e teorica. No dia do
+--      re-pin ela deixa de ser: um md5 recem-carimbado casa com QUALQUER corpo,
+--      inclusive um em que o quarto ramo tenha sido apagado ou em que as duas
+--      metades tenham passado a compartilhar um predicado. E por isso que a regra
+--      de D-46-18 (obrigacao 4) e que **a rede embaixo do md5 so cresce**: um
+--      re-pin nunca pode ser desculpa para afrouxar a assercao (Pitfall 2).
 --
 --      Uma sozinha nao serve. Com so (i), alguem deixaria `plano_exclusao_titular`
 --      intacta e reescreveria o tombstone com um predicado proprio "mais rapido": o
@@ -1584,16 +1629,30 @@ $c2$;
 RESET ROLE;
 DO $c3$
 DECLARE
-  -- ⚠ PINADOS em 2026-08-13 por EXECUCAO, com conferencia CRUZADA vivo × arquivo
-  --   (ver PROVENIENCIA no cabecalho). Re-pinar sem que a migration tenha mudado
-  --   FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e ato consciente e revisavel.
+  -- ⚠ PINADOS por EXECUCAO, com conferencia CRUZADA vivo × arquivo (ver
+  --   PROVENIENCIA no cabecalho). `plano_exclusao_titular` em 2026-08-13;
+  --   `anonimizar_candidato` RE-PINADO em 2026-08-23 pelo plano 46-04, quando a
+  --   migration 20260823000006 acrescentou o quarto ramo do guard. Re-pinar sem
+  --   que a migration tenha mudado FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e
+  --   ato consciente e revisavel.
   v_pin_plano text := '97634d07ef13447e06741a8c8372fca6';
-  v_pin_anon  text := '8c86e0f040219e7eade47eb587dbf5de';
+  v_pin_anon  text := '35d1df5d8a3739854e97dd7cbd0d600e';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
   v_md5_plano text;
   v_md5_anon  text;
+  -- ── 46-04 · A REDE ESTRUTURAL EMBAIXO DO md5, E ELA SO CRESCE ──────────────
+  -- ⚠ UM RE-PIN NUNCA E DESCULPA PARA AFROUXAR A ASSERCAO (Pitfall 2 / D-46-18,
+  --   obrigacao 4). O md5 sozinho responde "o corpo vivo e o do arquivo?"; ele NAO
+  --   responde "o arquivo tem a forma certa?". Estas checagens respondem a segunda
+  --   pergunta, e a diferenca importa exatamente no dia do re-pin: um md5 que casa
+  --   com a FORMA ERRADA significa que alguem re-pinou um corpo que nao devia
+  --   existir. As tres abaixo entraram no 46-04 e nenhuma pode sair.
+  v_tem_itens   boolean;   -- o ramo novo LE o ledger de itens
+  v_tem_aberto  boolean;   -- e exige o item AINDA ABERTO
+  v_tem_notin   boolean;   -- e NUNCA nega por pertencimento a conjunto de valores
+  v_tem_live    boolean;   -- e a metade destrutiva exige o modo live por extenso
 BEGIN
   SELECT p.prosrc INTO v_src_plano
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -1627,12 +1686,38 @@ BEGIN
   END IF;
 
   IF v_md5_anon IS DISTINCT FROM v_pin_anon THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (quarto ramo do guard, migration 20260823000006); o valor anterior era 8c86e0f040219e7eade47eb587dbf5de com 34 488 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000006 nao foi aplicada. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_anon, v_pin_anon, octet_length(v_src_anon);
   END IF;
 
+  -- ── (C3/iii) 46-04 · A REDE ESTRUTURAL, QUE SO CRESCE ─────────────────────
+  -- Medida sobre o CORPO VIVO, com fronteira de palavra e nunca `strpos` (ver o
+  -- bloco correspondente no cabecalho). Ela existe para o dia do RE-PIN: quando o
+  -- md5 muda por decisao humana, e ela que continua exigindo que o corpo novo
+  -- tenha a forma que foi revisada, e nao apenas "alguma forma".
+  v_tem_itens  := (v_src_anon ~ '\mpurga_execucao_itens\M');
+  v_tem_aberto := (v_src_anon ~ 'concluido_em[[:space:]]+IS[[:space:]]+NULL');
+  v_tem_notin  := (v_src_anon ~* '\mNOT[[:space:]]+IN[[:space:]]*\(');
+  v_tem_live   := (v_src_anon ~ 'modo_vigente[[:space:]]*=[[:space:]]*''live''');
+
+  IF NOT v_tem_itens THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii): o corpo vivo de anonimizar_candidato NAO menciona purga_execucao_itens. O quarto ramo do guard (D-46-18) sumiu, e com ele a UNICA autorizacao que o motor da purga tem para chamar esta funcao. Um md5 que casasse com esta forma significaria que alguem re-pinou um corpo que nao devia existir';
+  END IF;
+
+  IF NOT v_tem_aberto THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii): o corpo vivo NAO exige item AINDA ABERTO (concluido_em IS NULL). Sem essa condicao, um item FECHADO de uma execucao antiga autorizaria a destruicao para sempre — o ramo deixaria de exigir o estado que SO o motor produz AGORA e passaria a aceitar um vestigio dele';
+  END IF;
+
+  IF v_tem_notin THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii): o corpo vivo usa negacao por PERTENCIMENTO A CONJUNTO DE VALORES. Com um dos lados NULL essa forma avalia NULL, o IF nao e tomado e o guard FALHA ABERTO — defeito REAL medido na 42-06 e o mesmo bug do outro lado do predicado no INVENT-05. Toda verificacao de estado desta funcao tem de ser EXISTS correlacionado, e toda comparacao de papel tem de ser IS DISTINCT FROM';
+  END IF;
+
+  IF NOT v_tem_live THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii): a metade DESTRUTIVA do quarto ramo NAO exige modo_vigente = live escrito por extenso. D-46-24 escopa o modo permissivo ao caminho de DRY-RUN, que o Postgres reverte por construcao; o caminho destrutivo e autorizado EXCLUSIVAMENTE sob live. Se as duas metades passaram a compartilhar um predicado, o caminho destrutivo acabou de herdar EM SILENCIO a permissao do reversivel — que e exatamente a obrigacao de aceite que D-46-24 escreveu';
+  END IF;
+
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as duas metades — md5 pinado (plano=%, anon=%) e o tombstone CHAMA a expressao unica', v_md5_plano, v_md5_anon;
+  RAISE NOTICE 'P45M PASS (C3): as TRES metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, e a rede estrutural do 46-04 (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto)', v_md5_plano, v_md5_anon;
 END
 $c3$;
 

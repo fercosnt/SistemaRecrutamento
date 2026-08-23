@@ -13,11 +13,12 @@
 -- smoke para caber no que foi aplicado é ESCALAR o problema — é o movimento que
 -- transforma um gate em decoração.
 --
--- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02, e o plano 46-03
--- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l). As demais — (a), (b), (d), (e),
--- (g), (m), (n), (o) — chegam nos planos 46-04 a 46-07, NESTE MESMO ARQUIVO, e o
--- RESUMO (z) sobe junto (era 6, agora é 11). Um arquivo por fase, e não um por
--- plano: as asserções desta fase leem umas o estado das outras.
+-- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
+-- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); e o plano 46-04 acrescentou (b) e
+-- (o). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos 46-05 a
+-- 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, agora
+-- é 13). Um arquivo por fase, e não um por plano: as asserções desta fase leem
+-- umas o estado das outras.
 --
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
@@ -29,8 +30,22 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **11** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 11 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **13** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 13 e o RESUMO reprova ALTO.
+--
+-- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
+-- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
+-- apaga PII de forma irreversível. Três propriedades, e as três são deliberadas:
+--   1. **Toda chamada é de DRY-RUN** (`p_dry_run := true`) ou é uma chamada que o
+--      guard tem de RECUSAR. Nenhuma chamada deste arquivo pede destruição real
+--      esperando que ela aconteça.
+--   2. **As quatro chamadas negativas apontam para um `candidato_id` que NÃO
+--      EXISTE.** Se o guard recusar (o correto), o desfecho é `42501`; se um guard
+--      defeituoso autorizasse, o motor pararia em `P0002` sem ter mutado uma única
+--      coluna de pessoa real. A asserção continua totalmente discriminante e passa
+--      a ser incapaz de destruir.
+--   3. **Tudo roda dentro do envelope**, que o Postgres reverte inteiro — o mesmo
+--      método que a própria migration do motor usa no apply (`20260805000006:839-849`).
 --
 -- -----------------------------------------------------------------------------
 -- ⚠ A FIXTURE JÁ ESTÁ VIVA — ESTE ARQUIVO NÃO A CRIA, E DEPENDE DELA
@@ -103,11 +118,17 @@
 -- Um portão que reprova trabalho correto treina quem executa a desligá-lo.
 --
 -- -----------------------------------------------------------------------------
--- AS ASSERÇÕES — do plano 46-02 (6) e do plano 46-03 (5). Oito são NEGATIVAS.
+-- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (2). Dez são NEGATIVAS.
 -- -----------------------------------------------------------------------------
 --   (h)     ⊖ O ledger não tem coluna de PII, aferido sobre o CATÁLOGO.
 --   (f)     ⊖ Kill switch provado por execução REAL com `modo = 'off'`.
 --   (c)     ⊖ Dry-run sobre conjunto NÃO-VAZIO não apagou nada e não despachou.
+--   (b)     O laço de dry-run CHAMOU o motor e terminou no terminador DELE —
+--           `relato_dry_run` não nulo em todos os itens, com as contagens por
+--           passo, e ⊖ as cinco contagens de domínio idênticas (PURGA-02).
+--   (o)     ⊖ O 4º ramo do guard RECUSA fora das condições (quatro casos) e
+--           ACEITA dentro delas (dois) — as duas metades de D-46-24 aferidas
+--           SEPARADAMENTE, sobre estado idêntico.
 --   (i)     O item registra a POLÍTICA, e não só a contagem.
 --   (idem)  A idempotência do dry-run é OBSERVADA, não presumida.
 --   (claim) ⊖ Titular com item ABERTO não é re-selecionado (Pitfall 6).
@@ -117,7 +138,7 @@
 --   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
 --   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
 --           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
---   (z)     RESUMO — exige o total exato de 11 PASS.
+--   (z)     RESUMO — exige o total exato de 13 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -410,6 +431,29 @@ DECLARE
   v_l_antes bigint; v_l_depois bigint; v_l_flip int;
   v_l_allow text[];
   v_l_esperada constant text[] := ARRAY['aprovado','decisao_final','rejeitado'];
+
+  -- ── PLANO 46-04 ────────────────────────────────────────────────────────────
+  -- (b) o laco de dry-run chamou o MOTOR e terminou no terminador dele
+  v_b_itens       bigint; v_b_sem_relato bigint;
+  v_b_com_marca   bigint; v_b_corpo_cheio bigint;
+
+  -- (o) ⊖ o 4o ramo do guard recusa fora das condicoes, e ACEITA dentro delas.
+  -- ⚠⚠ O ALVO DAS QUATRO NEGATIVAS E UM `candidato_id` QUE NAO EXISTE, e a
+  --    escolha e de SEGURANCA, nao de conveniencia. `purga_execucao_itens`
+  --    NAO tem FK para `candidatos` (deliberado, 20260823000002:264) — entao da
+  --    para fabricar o estado autorizante para um titular inexistente. O efeito e
+  --    que a assercao vira TOTALMENTE DISCRIMINANTE e ZERO DESTRUTIVA ao mesmo
+  --    tempo: se o guard RECUSA (o correto) vem `42501`; se o guard AUTORIZASSE
+  --    por defeito, o motor iria adiante e pararia em `P0002`
+  --    (CANDIDATO_INEXISTENTE) sem ter mutado uma unica coluna de pessoa real.
+  --    Os dois desfechos sao distinguiveis por SQLSTATE, e nenhum dos dois apaga
+  --    nada. Um teste de guard destrutivo NAO precisa apontar para gente de
+  --    verdade para provar que o guard morde.
+  v_o_sint    constant uuid := '4604f000-0000-4000-8000-00000000000f'::uuid;
+  v_o_exec     uuid; v_o_item uuid; v_o_item_pos uuid;
+  v_o_st       text[] := ARRAY[]::text[];
+  v_o_pos_st   text;
+  v_o_alvo_ex  bigint;
 BEGIN
   BEGIN
     -- ═══ MEDIÇÃO — tudo aqui dentro; nada disso persiste ═══════════════════════
@@ -526,6 +570,37 @@ BEGIN
       FROM public.purga_execucao_itens i
      WHERE i.execucao_id = v_c_id
        AND i.candidato_id IN (v_pos1, v_pos2, v_pos3);
+
+    -- ── (b) 46-04 · O LACO CHAMOU O MOTOR, E TERMINOU NO TERMINADOR DELE ──────
+    -- ⚠ E ESTA A ASSERCAO QUE FECHA PURGA-02, e ela mede sobre a MESMA execucao
+    --   que (c) julga. (c) prova que NADA mudou; sozinha, ela passaria identica
+    --   num laco que nao chamasse funcao nenhuma — que foi exatamente o estado do
+    --   46-02, e por isso PURGA-02 nao fechou la. (b) prova o outro lado: o corpo
+    --   COMPLETO do motor executou e foi revertido.
+    SELECT count(*) INTO v_b_itens
+      FROM public.purga_execucao_itens i WHERE i.execucao_id = v_c_id;
+
+    SELECT count(*) INTO v_b_sem_relato
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_c_id AND i.relato_dry_run IS NULL;
+
+    -- O identificador do terminador do MOTOR, e nao uma frase escrita por este
+    -- laco: `SQLERRM` do `P45DR` comeca por `P45 DRY-RUN`. A 2a terminacao
+    -- contratada (WR-05, linha que JA e tombstone) carrega o mesmo prefixo de
+    -- proposito, para que a assercao valha para as DUAS sem deixar de morder.
+    SELECT count(*) INTO v_b_com_marca
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_c_id AND i.relato_dry_run LIKE 'P45 DRY-RUN%';
+
+    -- ⚠ A METADE QUE NENHUMA OUTRA ASSERCAO COBRE: o relato traz as CONTAGENS POR
+    --   PASSO que o motor produziu antes de derrubar a transacao. Um relato com o
+    --   prefixo mas sem `candidatos=` seria compativel com um motor que recusou
+    --   cedo; um relato COM as contagens so pode ter sido produzido depois de as
+    --   doze mutacoes terem efetivamente rodado. E dai que sai a frase "o corpo
+    --   COMPLETO executou e foi revertido" — por medicao, e nao por confianca.
+    SELECT count(*) INTO v_b_corpo_cheio
+      FROM public.purga_execucao_itens i
+     WHERE i.execucao_id = v_c_id AND i.relato_dry_run LIKE '%candidatos=%';
 
     -- ── (idem) DRY-RUN #2, sem tocar em mais nada ──────────────────────────────
     SELECT coalesce(array_agg(e.id), ARRAY[]::uuid[]) INTO v_vistos FROM public.purga_execucoes e;
@@ -753,6 +828,129 @@ BEGIN
        SET elegivel_purga = false
      WHERE etapa = v_etapa_fora;
 
+    -- ══ (o) 46-04 · ⊖ O 4o RAMO RECUSA FORA DAS CONDICOES, E ACEITA DENTRO ════
+    -- ⚠⚠ AS DUAS METADES SAO ASSERIDAS SEPARADAMENTE, e essa separacao E a
+    --   obrigacao de aceite de D-46-24. Nao basta "a funcao recusa": um guard que
+    --   recusa TUDO tambem passaria — e provar so recusa e o modo de falha no 3
+    --   dos sete portoes da Phase 45. Por isso ha SEIS chamadas: quatro que TEM de
+    --   recusar com 42501, e DUAS que tem de ser ACEITAS pelo guard.
+    --
+    -- ⚠ COMO O RESULTADO E LIDO, e por que ele e inequivoco sobre um alvo que nao
+    --   existe:  42501 = o GUARD recusou (o correto nas quatro negativas).
+    --            P0002 = o guard ACEITOU e o motor parou por nao haver candidato
+    --                    (o correto na aceitacao de controle, e prova positiva de
+    --                    que o ramo autoriza).
+    --            P45DR = o guard aceitou e o corpo COMPLETO rodou e foi revertido
+    --                    (o correto na aceitacao sobre titular REAL).
+    --   Tres SQLSTATEs, tres significados, zero ambiguidade — e nenhum deles apaga
+    --   coluna alguma de pessoa real.
+    INSERT INTO public.purga_execucoes
+           (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao)
+    VALUES ('live', 50, 1, 0, 'dry_run', 'executando')
+    RETURNING id INTO v_o_exec;
+
+    INSERT INTO public.purga_execucao_itens
+           (execucao_id, candidato_id, etapa, janela_meses_aplicada, ancora_origem, ancora_em)
+    VALUES (v_o_exec, v_o_sint, 'aprovado'::public.etapa_processo, 24,
+            'data_candidatura', pg_catalog.now())
+    RETURNING id INTO v_o_item;
+
+    -- ⊖ NAO-VACUIDADE DO PROPRIO ALVO: o titular sintetico tem de NAO existir. Se
+    -- alguem criar um candidato com este uuid, o P0002 deixa de ser possivel e as
+    -- negativas passariam a ser lidas errado.
+    SELECT count(*) INTO v_o_alvo_ex
+      FROM public.candidatos c WHERE c.id = v_o_sint;
+
+    -- ── CASO 1 · cerco em `off` com item ABERTO -> RECUSA (D-46-06) ────────────
+    -- O kill switch nao autoriza NENHUM dos dois caminhos, nem o reversivel.
+    UPDATE public.config_purga SET modo = 'off';
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, true);
+      v_o_st := v_o_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_st := v_o_st || SQLSTATE;
+    END;
+
+    -- ── CASO 2 · O PAR QUE PROVA O ESCOPO DUPLO, SOBRE ESTADO IDENTICO ────────
+    -- ⚠ E ESTE PAR QUE VALE A DECISAO INTEIRA. Mesma execucao, mesmo item, mesmo
+    --   cerco: muda SO a intencao. Se as duas metades tivessem passado a
+    --   compartilhar um predicado, as duas chamadas dariam o MESMO desfecho — e e
+    --   exatamente essa a regressao que D-46-24 mandou tornar impossivel.
+    UPDATE public.config_purga SET modo = 'dry_run';
+    UPDATE public.purga_execucoes SET modo_vigente = 'dry_run' WHERE id = v_o_exec;
+
+    -- 2a · DESTRUTIVO sob `dry_run` -> RECUSA (a metade destrutiva exige `live`)
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o_st := v_o_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_st := v_o_st || SQLSTATE;
+    END;
+
+    -- 2b · DRY-RUN sob `dry_run`, MESMO ESTADO -> ACEITO (chega ao motor: P0002)
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, true);
+      v_o_st := v_o_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_st := v_o_st || SQLSTATE;
+    END;
+
+    -- ── CASO 3 · cerco em `live`, mas SEM item aberto -> RECUSA ───────────────
+    UPDATE public.config_purga SET modo = 'live';
+    UPDATE public.purga_execucoes SET modo_vigente = 'live' WHERE id = v_o_exec;
+    UPDATE public.purga_execucao_itens SET concluido_em = pg_catalog.now() WHERE id = v_o_item;
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o_st := v_o_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_st := v_o_st || SQLSTATE;
+    END;
+
+    -- ── CASO 4 · item reaberto, mas execucao `concluida` -> RECUSA ────────────
+    -- Um item aberto pendurado numa execucao ja fechada e um VESTIGIO, e vestigio
+    -- nao autoriza: o ramo exige o estado que o motor produz AGORA.
+    UPDATE public.purga_execucao_itens SET concluido_em = NULL WHERE id = v_o_item;
+    UPDATE public.purga_execucoes SET situacao = 'concluida' WHERE id = v_o_exec;
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o_st := v_o_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_st := v_o_st || SQLSTATE;
+    END;
+
+    -- ── CASO 5 · POSITIVO SOBRE TITULAR REAL: as condicoes satisfeitas ────────
+    -- ⚠ SEM ESTA CHAMADA, (o) provaria apenas que a funcao recusa tudo. Ela roda
+    --   sobre `pos1`, com `p_dry_run := true`, e TEM de terminar em `P45DR`: o
+    --   corpo COMPLETO executa e a subtransacao o reverte.
+    UPDATE public.purga_execucoes
+       SET situacao = 'executando', modo_vigente = 'dry_run' WHERE id = v_o_exec;
+    UPDATE public.config_purga SET modo = 'dry_run';
+
+    INSERT INTO public.purga_execucao_itens
+           (execucao_id, candidato_id, etapa, janela_meses_aplicada, ancora_origem, ancora_em)
+    VALUES (v_o_exec, v_pos1, 'aprovado'::public.etapa_processo, 24,
+            'data_candidatura', pg_catalog.now())
+    RETURNING id INTO v_o_item_pos;
+
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_pos1, true);
+      v_o_pos_st := 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o_pos_st := SQLSTATE;
+    END;
+
+    -- Fecha os dois itens de (o) para nao deixar vestigio para as leituras
+    -- seguintes deste envelope (redundante com o rollback; a redundancia e o ponto).
+    UPDATE public.purga_execucao_itens i
+       SET concluido_em = pg_catalog.now()
+     WHERE i.id IN (v_o_item, v_o_item_pos) AND i.concluido_em IS NULL;
+
+    UPDATE public.purga_execucoes e
+       SET situacao = 'concluida', concluida_em = pg_catalog.now()
+     WHERE e.id = v_o_exec;
+
+    UPDATE public.config_purga SET modo = 'dry_run';
+
     -- ── Estado final do dominio e do pg_net ────────────────────────────────────
     SELECT format('candidatos=%s candidaturas=%s historico=%s decisao_final=%s users=%s',
                   (SELECT count(*) FROM public.candidatos),
@@ -867,6 +1065,44 @@ BEGIN
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (c): dry-run sobre % elegiveis (NAO-VAZIO), % itens, 0 processados, 0 desfechos carimbados, 0 itens abertos, dominio inalterado [%]; metade perecivel de pg_net: %', v_c_eleg, v_c_itens, v_dom_z, v_net_nota;
+
+  -- ── (b) 46-04 · O LAÇO CHAMOU O MOTOR E TERMINOU NO TERMINADOR (PURGA-02) ──
+  -- ⊖ NAO-VACUIDADE PRIMEIRO, porque as tres metades desta asserção sao
+  -- trivialmente verdadeiras sobre conjunto vazio.
+  IF coalesce(v_c_eleg, -1) < 3 THEN
+    RAISE EXCEPTION 'P46P FAIL (b): ⊖ NAO-VACUIDADE — o dry-run reportou elegiveis = % (esperado >= 3 sobre a fixture viva do 46-01). UM LACO QUE NAO PERCORREU NINGUEM NAO PROVA QUE ELE CHAMA O MOTOR: as tres metades de (b) passariam por vacuidade, e PURGA-02 ficaria marcado como fechado sem uma unica chamada ter acontecido', v_c_eleg;
+  END IF;
+
+  IF coalesce(v_b_itens, 0) = 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (b): ⊖ NAO-VACUIDADE — zero itens gravados pela execucao em dry_run. Nao ha o que inspecionar, e uma asserção sobre o conteudo de itens inexistentes passa TRIVIALMENTE';
+  END IF;
+
+  IF v_b_sem_relato <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (b): % de % item(ns) da execucao em dry_run tem relato_dry_run NULO. O laco NAO chamou public.anonimizar_candidato para aquele(s) titular(es) — ou chamou e a chamada nao terminou em nenhuma das DUAS terminacoes contratadas. Enquanto o relato for nulo, o dry-run e exatamente o que o SC#1 chama de decoracao: um laco que nao apaga nada porque nao FAZ nada. ⚠ Se o desfecho_postgres desses itens estiver em falha, a causa esta no WARNING da varredura — a hipotese numero 1 e a migration 20260823000006 (o 4o ramo do guard) nao ter sido aplicada, e nesse caso o SQLSTATE de cada titular foi 42501', v_b_sem_relato, v_b_itens;
+  END IF;
+
+  IF v_b_com_marca IS DISTINCT FROM v_b_itens THEN
+    RAISE EXCEPTION 'P46P FAIL (b): apenas % de % itens carregam o identificador do terminador do MOTOR (o relato tem de comecar por "P45 DRY-RUN"). Um relato com outro texto significa que quem escreveu aquela linha NAO foi o motor — o laco fabricou uma mensagem propria, e o dry-run voltou a ser uma segunda definicao de exclusao (P39 / CR-02)', v_b_com_marca, v_b_itens;
+  END IF;
+
+  IF coalesce(v_b_corpo_cheio, 0) < 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (b): NENHUM item traz as contagens por passo do motor (o relato deveria conter "candidatos="). O prefixo sozinho e compativel com uma recusa precoce; sao as CONTAGENS que provam que as doze mutacoes rodaram de verdade antes de a subtransacao ser revertida. Sem esta metade, "o corpo COMPLETO executou" seria confianca, e nao medicao — e com PITR desligado (D-45-10) e o Storage fora do backup, o dry-run e a UNICA rede desta fase';
+  END IF;
+
+  -- As duas negativas duraveis de (b) sao as MESMAS variaveis que (c) julga, e
+  -- isso e deliberado: as duas asserções descrevem a mesma execucao por dois
+  -- lados. (c) diz que nada mudou; (b) diz que o motor rodou inteiro. Uma sem a
+  -- outra e metade da prova de PURGA-02.
+  IF v_dom_z IS DISTINCT FROM v_dom_a THEN
+    RAISE EXCEPTION 'P46P FAIL (b): ⊖ as contagens de dominio MUDARAM. antes=[%] depois=[%]. O motor rodou o corpo COMPLETO e a reversao NAO aconteceu — este e o unico modo de falha desta fase que e IRREVERSIVEL', v_dom_a, v_dom_z;
+  END IF;
+
+  IF v_c_carimbados <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (b): % item(ns) com desfecho de Storage/Postgres/Auth carimbado em ok ou falha depois de uma varredura em dry_run. Nada foi tentado fora do Postgres, e o Postgres foi revertido', v_c_carimbados;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (b): PURGA-02 — o laco chamou o MOTOR em % titulares; % de % itens com relato do terminador, % com as contagens por passo (o corpo COMPLETO executou e foi revertido); zero desfecho carimbado e as 5 contagens de dominio inalteradas [%]', v_c_eleg, v_b_com_marca, v_b_itens, v_b_corpo_cheio, v_dom_z;
 
   -- ── (i) O ITEM REGISTRA A POLÍTICA ─────────────────────────────────────────
   IF coalesce(v_c_itens, 0) = 0 THEN
@@ -1047,7 +1283,47 @@ BEGIN
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (l): a allowlist viva e EXATAMENTE [%]; a candidatura % em % esta FORA, e passa a estar DENTRO quando a etapa e marcada elegivel — a allowlist e DADO na matriz, nao lista no codigo', array_to_string(v_l_allow, ', '), v_cdt_etapa, v_etapa_fora;
 
-  RAISE NOTICE 'P46P TEARDOWN ok: envelope revertido — config_purga.modo voltou a [%], e as % linhas de purga_execucoes gravadas por este smoke NAO existem (elas inflariam o criterio de >= 14 execucoes de D-46-14)', coalesce(v_modo_antes, 'NULL'), v_f_novas + v_c_novas + v_d_novas + v_k_novas;
+-- (o) 46-04 · ⊖ O 4o RAMO DO GUARD RECUSA FORA DAS CONDICOES, E ACEITA DENTRO
+  -- ⊖ NAO-VACUIDADE DO ALVO, ANTES DE TUDO: as quatro negativas so sao lidas
+  -- corretamente porque o titular sintetico NAO existe.
+  IF coalesce(v_o_alvo_ex, -1) <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (o): ⊖ NAO-VACUIDADE DO ALVO — existe(m) % linha(s) em candidatos com o uuid sintetico das negativas. Ele foi escolhido justamente por NAO existir: e isso que torna P0002 (candidato inexistente) o desfecho de um guard que AUTORIZOU, e 42501 o de um guard que RECUSOU. Com um candidato real ali, um guard defeituoso destruiria PII de verdade em vez de parar em P0002', v_o_alvo_ex;
+  END IF;
+
+  IF array_length(v_o_st, 1) IS DISTINCT FROM 5 THEN
+    RAISE EXCEPTION 'P46P FAIL (o): foram registradas % chamadas de controle (esperado 5). Um bloco que nao executou as cinco nao provou nada sobre o ramo novo', coalesce(array_length(v_o_st, 1), 0);
+  END IF;
+
+  -- ── As QUATRO recusas ─────────────────────────────────────────────────────
+  IF v_o_st[1] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.1): com config_purga.modo = off e item ABERTO sob execucao em executando, a chamada de dry-run devolveu [%] em vez de 42501. O KILL SWITCH DE D-46-06 NAO AUTORIZA NENHUM DOS DOIS CAMINHOS, nem o reversivel — se ele autoriza o dry-run, "desligado" deixou de significar desligado. ⚠ [P0002] aqui significa que o guard AUTORIZOU e o motor seguiu adiante', coalesce(v_o_st[1], 'NULL');
+  END IF;
+
+  IF v_o_st[2] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.2a): ⛔ A ASSERCAO QUE VALE A DECISAO INTEIRA. Com config_purga.modo = dry_run, execucao em executando e item ABERTO, a chamada DESTRUTIVA (p_dry_run := false) devolveu [%] em vez de 42501. Um modo que nao seja live NAO AUTORIZA DESTRUICAO (D-46-18), e o escopo DUPLO de D-46-24 vale SO para o caminho reversivel. Este desfecho significa que as duas metades do 4o ramo deixaram de ser predicados separados e que a metade destrutiva HERDOU a permissividade da metade de leitura — que e literalmente a regressao que a obrigacao de aceite de D-46-24 existe para tornar impossivel', coalesce(v_o_st[2], 'NULL');
+  END IF;
+
+  IF v_o_st[4] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.3): com config_purga.modo = live e execucao em executando, mas SEM item aberto para aquele candidato_id, a chamada destrutiva devolveu [%] em vez de 42501. O ramo estaria autorizando por MODO em vez de por ALVO — e ai a purga vira instrumento de exclusao dirigida: bastaria estar em live para destruir a PII de qualquer pessoa', coalesce(v_o_st[4], 'NULL');
+  END IF;
+
+  IF v_o_st[5] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.4): com item ABERTO mas execucao em situacao = concluida, a chamada destrutiva devolveu [%] em vez de 42501. Um item aberto pendurado numa execucao ja fechada e um VESTIGIO, e vestigio nao autoriza — o ramo tem de exigir o estado que o motor produz AGORA, nao a marca de que ele existiu um dia', coalesce(v_o_st[5], 'NULL');
+  END IF;
+
+  -- ── As DUAS aceitacoes — sem elas, (o) provaria so que a funcao recusa tudo ─
+  IF v_o_st[3] IS DISTINCT FROM 'P0002' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.2b): ⊖ O OUTRO LADO DO PAR. Sob EXATAMENTE o mesmo estado da chamada (o.2a) — mesmo cerco, mesma execucao, mesmo item —, mudando SO a intencao para dry-run, a chamada devolveu [%] em vez de P0002. P0002 (CANDIDATO_INEXISTENTE) e a prova de que o guard AUTORIZOU e o motor seguiu ate nao achar o titular sintetico. [42501] aqui significa que o caminho de DRY-RUN esta sendo recusado sob modo dry_run, e entao o laco da varredura nao consegue rodar: os 14 dias de dry_run provariam ZERO sobre o caminho do delete, que e o dry-run decorativo do SC#1 e a mesma classe do P39/CR-02. ⚠ PROVAR SO RECUSA E O MODO DE FALHA No 3 DOS SETE PORTOES DA PHASE 45', coalesce(v_o_st[3], 'NULL');
+  END IF;
+
+  IF v_o_pos_st IS DISTINCT FROM 'P45DR' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.5): a chamada POSITIVA sobre o titular REAL pos1, com as quatro condicoes satisfeitas e p_dry_run := true, devolveu [%] em vez de P45DR. [42501] significa que o ramo recusa mesmo dentro das condicoes que ele proprio define, e a purga nunca vai conseguir fazer o dry-run; [SEM-EXCECAO] significa que o terminador do motor sumiu e a transacao teria COMMITADO o corpo destrutivo', coalesce(v_o_pos_st, 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (o): as DUAS metades do 4o ramo asseridas SEPARADAMENTE. Recusas 42501 em: modo off com item aberto (%); DESTRUTIVO sob dry_run (%); live sem item aberto (%); item aberto sob execucao concluida (%). Aceitacoes: dry-run sob dry_run no MESMO estado da recusa destrutiva -> % (o guard autorizou e o motor parou por nao haver candidato); e o titular REAL pos1 em dry-run -> % (o corpo COMPLETO executou e foi revertido)', v_o_st[1], v_o_st[2], v_o_st[4], v_o_st[5], v_o_st[3], v_o_pos_st;
+
+  RAISE NOTICE 'P46P TEARDOWN ok: envelope revertido — config_purga.modo voltou a [%], e as % linhas de purga_execucoes gravadas por este smoke NAO existem (elas inflariam o criterio de >= 14 execucoes de D-46-14)', coalesce(v_modo_antes, 'NULL'), v_f_novas + v_c_novas + v_d_novas + v_k_novas + 1;
 END $envelope$;
 
 
@@ -1056,7 +1332,7 @@ END $envelope$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 11;  -- 6 do plano 46-02 + 5 do plano 46-03
+DECLARE v_n int; v_esperado int := 13;  -- 6 (46-02) + 5 (46-03) + 2 (46-04: b, o)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
