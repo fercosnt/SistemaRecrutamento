@@ -15,9 +15,9 @@
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
 -- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); e o plano 46-04 acrescentou (b) e
--- (o). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos 46-05 a
+-- (o) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos 46-05 a
 -- 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, agora
--- é 13). Um arquivo por fase, e não um por plano: as asserções desta fase leem
+-- é 14). Um arquivo por fase, e não um por plano: as asserções desta fase leem
 -- umas o estado das outras.
 --
 -- -----------------------------------------------------------------------------
@@ -30,8 +30,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **13** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 13 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **14** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 14 e o RESUMO reprova ALTO.
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -118,7 +118,7 @@
 -- Um portão que reprova trabalho correto treina quem executa a desligá-lo.
 --
 -- -----------------------------------------------------------------------------
--- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (2). Dez são NEGATIVAS.
+-- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (3). Onze são NEGATIVAS.
 -- -----------------------------------------------------------------------------
 --   (h)     ⊖ O ledger não tem coluna de PII, aferido sobre o CATÁLOGO.
 --   (f)     ⊖ Kill switch provado por execução REAL com `modo = 'off'`.
@@ -129,6 +129,9 @@
 --   (o)     ⊖ O 4º ramo do guard RECUSA fora das condições (quatro casos) e
 --           ACEITA dentro delas (dois) — as duas metades de D-46-24 aferidas
 --           SEPARADAMENTE, sobre estado idêntico.
+--   (p)     ⊖ O 3º ramo de `plano_exclusao_titular` (Blocker B-02) recusa sob
+--           `off` e SEM ALVO, aceita com item aberto, e o plano devolvido não
+--           carrega PII — medido na função que o motor CHAMA no PASSO 0.
 --   (i)     O item registra a POLÍTICA, e não só a contagem.
 --   (idem)  A idempotência do dry-run é OBSERVADA, não presumida.
 --   (claim) ⊖ Titular com item ABERTO não é re-selecionado (Pitfall 6).
@@ -138,7 +141,7 @@
 --   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
 --   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
 --           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
---   (z)     RESUMO — exige o total exato de 13 PASS.
+--   (z)     RESUMO — exige o total exato de 14 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -454,6 +457,17 @@ DECLARE
   v_o_st       text[] := ARRAY[]::text[];
   v_o_pos_st   text;
   v_o_alvo_ex  bigint;
+
+  -- (p) 46-04 / B-02 · o 3o ramo de `plano_exclusao_titular`, medido DIRETAMENTE.
+  -- ⚠ Ela e medida em separado de (o) de proposito: (o) mede o guard do MOTOR, e o
+  --   motor so alcanca esta funcao DEPOIS de passar por aquele guard. Se as duas
+  --   fossem uma so assercao, um defeito aqui apareceria como "o motor recusou" e
+  --   mandaria a proxima pessoa depurar o arquivo errado — que foi literalmente o
+  --   que quase aconteceu com o Blocker B-02.
+  v_p_st       text[] := ARRAY[]::text[];
+  v_p_plano    jsonb;
+  v_p_pii      int := 0;
+  v_p_chave    text;
 BEGIN
   BEGIN
     -- ═══ MEDIÇÃO — tudo aqui dentro; nada disso persiste ═══════════════════════
@@ -941,6 +955,61 @@ BEGIN
 
     -- Fecha os dois itens de (o) para nao deixar vestigio para as leituras
     -- seguintes deste envelope (redundante com o rollback; a redundancia e o ponto).
+    -- ══ (p) 46-04 / B-02 · O 3o RAMO DE `plano_exclusao_titular`, DIRETO ══════
+    -- ⚠ POR QUE ESTA ASSERCAO EXISTE SEPARADA DE (o): o motor CHAMA esta funcao no
+    --   PASSO 0, e ela tem guard PROPRIO. Enquanto ele nao tinha o 3o ramo, o cron
+    --   era autorizado pelo guard do motor e recusado com 42501 TRES LINHAS
+    --   DEPOIS, aqui dentro — e o sintoma que chegava ao ledger dizia apenas "o
+    --   titular falhou". Medir esta funcao DIRETAMENTE e o que faz o diagnostico
+    --   apontar para o arquivo certo.
+    -- ⚠ O estado ainda e o do CASO 5: execucao `executando` em `dry_run`, item
+    --   ABERTO para pos1, cerco em `dry_run`. E deliberado — e exatamente o estado
+    --   em que o laco de dry-run de 14 dias vai rodar.
+
+    -- (p.1) ⊖ cerco em `off` -> RECUSA. O kill switch tambem fecha a LEITURA.
+    UPDATE public.config_purga SET modo = 'off';
+    BEGIN
+      PERFORM public.plano_exclusao_titular(v_pos1);
+      v_p_st := v_p_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_p_st := v_p_st || SQLSTATE;
+    END;
+
+    -- (p.2) ⊖ cerco em `dry_run`, mas titular SEM item aberto -> RECUSA.
+    -- ⚠ E ESTA A METADE QUE PROVA QUE O RAMO EXIGE O **ALVO**, e nao so o modo.
+    --   Sem ela, "estar numa purga" autorizaria ler o plano de qualquer pessoa — e
+    --   esta funcao devolve CONTAGENS DE PII POR TITULAR.
+    UPDATE public.config_purga SET modo = 'dry_run';
+    BEGIN
+      PERFORM public.plano_exclusao_titular(v_pos2);
+      v_p_st := v_p_st || 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_p_st := v_p_st || SQLSTATE;
+    END;
+
+    -- (p.3) ACEITA o titular COM item aberto, sob o mesmo cerco -> plano devolvido.
+    BEGIN
+      v_p_plano := public.plano_exclusao_titular(v_pos1);
+      v_p_st    := v_p_st || 'OK';
+    EXCEPTION WHEN OTHERS THEN
+      v_p_st    := v_p_st || SQLSTATE;
+      v_p_plano := NULL;
+    END;
+
+    -- ⊖ E O PLANO DEVOLVIDO NAO PODE CARREGAR PII. O que a Saida A ampliou foi
+    -- quem LE contagens; se o jsonb trouxesse nome, e-mail, CPF, telefone,
+    -- endereco ou data de nascimento, a ampliacao teria outro tamanho e a decisao
+    -- do operador teria sido tomada sobre uma premissa falsa. Aferido sobre as
+    -- CHAVES do jsonb, por fronteira, no idioma de (h).
+    IF v_p_plano IS NOT NULL THEN
+      FOR v_p_chave IN SELECT jsonb_object_keys(v_p_plano) LOOP
+        IF v_p_chave ~ '(^|_)(nome|email|cpf|telefone|celular|endereco|nascimento)(_|$)' THEN
+          v_p_pii := v_p_pii + 1;
+        END IF;
+      END LOOP;
+    END IF;
+
+    -- Teardown de (o) e (p)
     UPDATE public.purga_execucao_itens i
        SET concluido_em = pg_catalog.now()
      WHERE i.id IN (v_o_item, v_o_item_pos) AND i.concluido_em IS NULL;
@@ -1323,6 +1392,34 @@ BEGIN
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (o): as DUAS metades do 4o ramo asseridas SEPARADAMENTE. Recusas 42501 em: modo off com item aberto (%); DESTRUTIVO sob dry_run (%); live sem item aberto (%); item aberto sob execucao concluida (%). Aceitacoes: dry-run sob dry_run no MESMO estado da recusa destrutiva -> % (o guard autorizou e o motor parou por nao haver candidato); e o titular REAL pos1 em dry-run -> % (o corpo COMPLETO executou e foi revertido)', v_o_st[1], v_o_st[2], v_o_st[4], v_o_st[5], v_o_st[3], v_o_pos_st;
 
+-- (p) 46-04 / B-02 · ⊖ O 3o RAMO DE `plano_exclusao_titular`
+  IF array_length(v_p_st, 1) IS DISTINCT FROM 3 THEN
+    RAISE EXCEPTION 'P46P FAIL (p): foram registradas % chamadas de controle (esperado 3)', coalesce(array_length(v_p_st, 1), 0);
+  END IF;
+
+  IF v_p_st[1] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (p.1): com config_purga.modo = off, a leitura do plano de um titular COM item aberto devolveu [%] em vez de 42501. O kill switch de D-46-06 tem de fechar tambem a LEITURA: com a purga desligada, nenhuma execucao deveria estar processando ninguem, e um ramo que continua autorizando sob off e um ramo que sobrevive ao proprio desligamento', coalesce(v_p_st[1], 'NULL');
+  END IF;
+
+  IF v_p_st[2] IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (p.2): ⛔ O RAMO ESTA AUTORIZANDO POR MODO EM VEZ DE POR ALVO. Sob cerco em dry_run, a leitura do plano de um titular SEM item aberto devolveu [%] em vez de 42501. plano_exclusao_titular devolve CONTAGENS DE PII POR TITULAR, e o REVOKE nominal dela existe porque contagens enumeraveis sao superficie de exfiltracao (20260805000005:470-474). Um ramo sem a condicao i.candidato_id = p_candidato_id transforma "estar numa purga" em licenca para ler o plano de qualquer pessoa', coalesce(v_p_st[2], 'NULL');
+  END IF;
+
+  IF v_p_st[3] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (p.3): ⊖ O OUTRO LADO. Com item ABERTO para o titular, execucao em executando e cerco em dry_run, a leitura do plano devolveu [%] em vez de completar. ⚠ [42501] AQUI E O BLOCKER B-02 DE PE: a migration 20260823000008 nao foi aplicada, e sem ela o 4o ramo da 20260823000006 NAO PRODUZ EFEITO UTIL — o cron passa no guard do motor e morre no PASSO 0, tres linhas depois. O laco de dry-run nao consegue produzir relato_dry_run nenhum, e (b) reprova junto. ⚠ Provar so recusa e o modo de falha no 3 dos sete portoes da Phase 45', coalesce(v_p_st[3], 'NULL');
+  END IF;
+
+  IF v_p_plano IS NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (p): ⊖ NAO-VACUIDADE — a chamada aceita nao devolveu plano nenhum. "Nao lancou" nunca foi o mesmo que "completou", e sem o jsonb a checagem de PII abaixo passaria trivialmente';
+  END IF;
+
+  IF v_p_pii <> 0 THEN
+    RAISE EXCEPTION 'P46P FAIL (p): ⊖ o plano devolvido tem % chave(s) de PII no primeiro nivel do jsonb. A Saida A do Blocker B-02 foi decidida pelo operador sobre a premissa MEDIDA de que esta funcao devolve contagens, booleanos e nomes de tabela/coluna — e NAO nome, e-mail, CPF, telefone, endereco ou data de nascimento. Se a premissa deixou de valer, o que o 3o ramo ampliou tem outro tamanho e a decisao precisa ser retomada, nao remendada', v_p_pii;
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (p): o 3o ramo de plano_exclusao_titular RECUSA sob off (%) e RECUSA sem alvo (%), e ACEITA o titular COM item aberto sob dry_run (%) — devolvendo um plano com ZERO chave de PII. B-02 fechado por execucao', v_p_st[1], v_p_st[2], v_p_st[3];
+
   RAISE NOTICE 'P46P TEARDOWN ok: envelope revertido — config_purga.modo voltou a [%], e as % linhas de purga_execucoes gravadas por este smoke NAO existem (elas inflariam o criterio de >= 14 execucoes de D-46-14)', coalesce(v_modo_antes, 'NULL'), v_f_novas + v_c_novas + v_d_novas + v_k_novas + 1;
 END $envelope$;
 
@@ -1332,7 +1429,7 @@ END $envelope$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 13;  -- 6 (46-02) + 5 (46-03) + 2 (46-04: b, o)
+DECLARE v_n int; v_esperado int := 14;  -- 6 (46-02) + 5 (46-03) + 3 (46-04: b, o, p)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN

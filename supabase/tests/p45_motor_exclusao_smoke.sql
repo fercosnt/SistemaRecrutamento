@@ -226,12 +226,12 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 97634d07ef13447e06741a8c8372fca6   (plano_exclusao_titular — octetos: 21349)
+--   valor  : 3f6007b85f61d9d58548f560794e50b0   (plano_exclusao_titular — octetos: 26108)
 --   valor  : 35d1df5d8a3739854e97dd7cbd0d600e   (anonimizar_candidato   — octetos: 43532)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
---            `supabase/migrations/20260805000005_p45_plano_e_dry_run.sql` e
---            — ⚠ MUDOU NO 46-04 —
+--            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04 —
+--            `supabase/migrations/20260823000008_p46_guard_plano.sql` e
 --            `supabase/migrations/20260823000006_p46_guard_purga.sql`
 --
 -- ⚠⚠ RE-PIN DE `anonimizar_candidato` EM 2026-08-23 (Phase 46 / plano 46-04),
@@ -254,14 +254,35 @@
 --    termina em `END;\n`. A migration `20260823000006` NAO menciona o delimitador
 --    nomeado em prosa, de proposito.
 --
---   HISTORICO DOS PINS DE `anonimizar_candidato` — nao apagar, porque e o que
---   torna a sequencia auditavel: da para ver que o pin mudou, quando, e por que,
---   em vez de ter mudado sozinho.
+-- ⚠⚠ RE-PIN DE `plano_exclusao_titular` EM 2026-08-23 (mesmo plano 46-04, MESMO
+--    COMMIT), pelo **Blocker B-02** — e ele e o achado que quase escapou.
+--    O QUE MUDOU: D-46-18 resolveu o guard de `anonimizar_candidato` e **so ele**.
+--    Mas aquele corpo CHAMA esta funcao no PASSO 0 (`20260805000006:456`), e ela
+--    tinha guard PROPRIO de duas metades que recusa chamador sem sessao — ou seja,
+--    a chamada do cron era autorizada la e morria com 42501 AQUI, tres linhas
+--    depois. `SECURITY DEFINER` nao ajuda: ele troca o papel do BANCO, e os dois
+--    guards decidem sobre a CLAIM do JWT.
+--    A migration `20260823000008` (Saida A, decisao do operador de 2026-08-22)
+--    acrescenta o TERCEIRO ramo, nas DUAS metades — porque para um titular REAL a
+--    metade (b) tambem recusaria (`<uuid> IS DISTINCT FROM NULL` e TRUE).
+--    ⚠ O CORPO ANTIGO FOI CONFERIDO ANTES DA EDICAO: extraido do arquivo
+--    `20260805000005`, deu exatamente `97634d07ef13447e06741a8c8372fca6` / 21 349
+--    octetos — o pin que vigorava e o `md5(prosrc)` vivo.
+--    ⚠ NAO HA B-03, E ISSO FOI MEDIDO: a cadeia de chamadas com guard de sessao foi
+--    varrida inteira; `anonimizar_candidato -> plano_exclusao_titular` e o UNICO
+--    par, e esta funcao nao chama mais nenhuma funcao guardada.
+--
+--   HISTORICO DOS PINS — nao apagar, porque e o que torna a sequencia auditavel:
+--   da para ver que cada pin mudou, quando, e por que, em vez de ter mudado sozinho.
+--     `anonimizar_candidato`:
 --     · 8c86e0f040219e7eade47eb587dbf5de (34 488 octetos) — 2026-08-13 a
 --       2026-08-23. Vigorou durante a execucao do motor em PRODUCAO de 2026-08-22.
+--     `plano_exclusao_titular`:
+--     · 97634d07ef13447e06741a8c8372fca6 (21 349 octetos) — 2026-08-13 a
+--       2026-08-23. Vigorou durante a mesma execucao em PRODUCAO.
 --
---   medido : plano_exclusao_titular em 2026-08-13; anonimizar_candidato re-pinado
---            em 2026-08-23. AMBOS POR EXECUCAO (nao transcrito, nao inventado).
+--   medido : os DOIS re-pinados em 2026-08-23, POR EXECUCAO (nao transcrito, nao
+--            inventado), com conferencia CRUZADA vivo x arquivo.
 --            ⚠ E a medicao que autoriza o pin nao e "li o valor vivo e copiei" — isso
 --            pinaria o que esta aplicado, seja la o que for, e o gate deixaria de
 --            comparar. A conferencia feita foi a CRUZADA, nos dois lados:
@@ -278,9 +299,13 @@
 --         .update(f.slice(a+D.length,b),"utf8").digest("hex"))' \
 --       supabase/migrations/20260823000006_p46_guard_purga.sql \
 --       anonimizar_candidato
---     ⚠ O ARQUIVO MUDOU NO 46-04. Recomputar contra a `20260805000006` devolveria
---       o corpo ANTERIOR ao quarto ramo e reprovaria com diagnostico falso — o
---       `CREATE OR REPLACE` mais recente e o que define o objeto vivo.
+--     -- e, para a outra funcao:
+--     --   … supabase/migrations/20260823000008_p46_guard_plano.sql \
+--     --     plano_exclusao_titular
+--     ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04. Recomputar contra a `20260805000006` ou
+--       a `20260805000005` devolveria os corpos ANTERIORES aos ramos novos e
+--       reprovaria com diagnostico falso — o `CREATE OR REPLACE` mais recente e o
+--       que define o objeto vivo.
 --   ⚠ Enquanto o valor for `PENDENTE-45-07`, a assercao (C3) REPROVA ALTO com essa
 --     mensagem. Um placeholder que passasse verde seria pior que assercao nenhuma.
 --   ⚠ Se um resumo for re-pinado sem que a migration tenha mudado, (C3) deixa de
@@ -1589,17 +1614,24 @@ $c2$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (C3) GATE DE NAO-DIVERGENCIA DO DRY-RUN, NAS TRES METADES (eram DUAS ate o 46-04).
+-- (C3) GATE DE NAO-DIVERGENCIA DO DRY-RUN, NAS QUATRO METADES (eram DUAS ate o 46-04).
 --
 --      (i) `md5(prosrc)` das duas funcoes bate os valores PINADOS no cabecalho —
 --          prova que o corpo vivo e byte a byte o da migration.
 --      (ii) `pg_get_functiondef(anonimizar_candidato)` CONTEM a chamada a
 --           `plano_exclusao_titular` — prova que o delete real continua PASSANDO
 --           pela expressao unica.
---      (iii) 46-04 · A REDE ESTRUTURAL: o corpo vivo LE `purga_execucao_itens`,
---            exige o item AINDA ABERTO, exige `modo_vigente` igual a `live` por
---            extenso na metade destrutiva, e NAO contem negacao por pertencimento
---            a conjunto de valores.
+--      (iii) 46-04 · A REDE ESTRUTURAL SOBRE O MOTOR: o corpo vivo LE
+--            `purga_execucao_itens`, exige o item AINDA ABERTO, exige
+--            `modo_vigente` igual a `live` por extenso na metade destrutiva, e NAO
+--            contem negacao por pertencimento a conjunto de valores.
+--      (iv) 46-04 / B-02 · A MESMA REDE SOBRE `plano_exclusao_titular`, que o
+--            motor CHAMA no PASSO 0: ela LE o ledger de itens, exige o ALVO
+--            (`i.candidato_id = p_candidato_id`) e nao so o modo, e nao contem a
+--            forma banida. ⚠ Sem o ramo dela, o 4o ramo do motor NAO PRODUZ EFEITO
+--            UTIL — o cron passa la e e recusado tres linhas depois. Foi o
+--            Blocker B-02, descoberto no 46-04, e (iv) e o que impede que ele
+--            volte em silencio numa edicao futura.
 --
 --      ⚠⚠ POR QUE (iii) EXISTE, E POR QUE ELA NASCEU JUNTO COM UM RE-PIN: o md5
 --      responde "o corpo vivo e o do arquivo?"; ele NAO responde "o arquivo tem a
@@ -1635,7 +1667,7 @@ DECLARE
   --   migration 20260823000006 acrescentou o quarto ramo do guard. Re-pinar sem
   --   que a migration tenha mudado FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e
   --   ato consciente e revisavel.
-  v_pin_plano text := '97634d07ef13447e06741a8c8372fca6';
+  v_pin_plano text := '3f6007b85f61d9d58548f560794e50b0';
   v_pin_anon  text := '35d1df5d8a3739854e97dd7cbd0d600e';
   v_src_plano text;
   v_src_anon  text;
@@ -1653,6 +1685,13 @@ DECLARE
   v_tem_aberto  boolean;   -- e exige o item AINDA ABERTO
   v_tem_notin   boolean;   -- e NUNCA nega por pertencimento a conjunto de valores
   v_tem_live    boolean;   -- e a metade destrutiva exige o modo live por extenso
+  -- ── 46-04 / B-02 · a mesma rede sobre a SEGUNDA funcao ────────────────────
+  -- Sem estas, o re-pin de `plano_exclusao_titular` seria um numero novo sem
+  -- nenhuma exigencia de forma atras dele — e foi justamente o guard DELA que
+  -- quase deixou a fase inteira passar por um caminho que nao funciona.
+  v_pl_itens    boolean;   -- o 3o ramo LE o ledger de itens
+  v_pl_alvo     boolean;   -- e exige o ALVO, nao so o modo
+  v_pl_notin    boolean;   -- e nunca nega por pertencimento a conjunto
 BEGIN
   SELECT p.prosrc INTO v_src_plano
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -1681,7 +1720,7 @@ BEGIN
   END IF;
 
   IF v_md5_plano IS DISTINCT FROM v_pin_plano THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. Se o md5(statements[1]) do apply TIVER batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho. Caso contrario alguem editou a expressao unica sem re-pinar, e o dry-run deixou de descrever o que o delete real faz',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (Blocker B-02 / Saida A, migration 20260823000008); o valor anterior era 97634d07ef13447e06741a8c8372fca6 com 21 349 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000008 nao foi aplicada — e sem ela o 4o ramo da 20260823000006 nao produz efeito util, porque o cron e autorizado no motor e recusado tres linhas depois AQUI. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_plano, v_pin_plano, octet_length(v_src_plano);
   END IF;
 
@@ -1716,8 +1755,30 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/iii): a metade DESTRUTIVA do quarto ramo NAO exige modo_vigente = live escrito por extenso. D-46-24 escopa o modo permissivo ao caminho de DRY-RUN, que o Postgres reverte por construcao; o caminho destrutivo e autorizado EXCLUSIVAMENTE sob live. Se as duas metades passaram a compartilhar um predicado, o caminho destrutivo acabou de herdar EM SILENCIO a permissao do reversivel — que e exatamente a obrigacao de aceite que D-46-24 escreveu';
   END IF;
 
+  -- ── (C3/iv) 46-04 / B-02 · A MESMA REDE SOBRE `plano_exclusao_titular` ────
+  -- ⚠ ESTA METADE EXISTE POR CAUSA DO PROPRIO ACHADO QUE ELA VIGIA. O motor CHAMA
+  --   esta funcao no PASSO 0, e o guard DELA quase deixou a fase inteira embarcar
+  --   um caminho que nao funciona: o cron era autorizado no motor e recusado tres
+  --   linhas depois, aqui. Um re-pin sem exigencia de forma atras dele deixaria o
+  --   mesmo defeito voltar em silencio na proxima edicao.
+  v_pl_itens := (v_src_plano ~ '\mpurga_execucao_itens\M');
+  v_pl_alvo  := (v_src_plano ~ 'i\.candidato_id[[:space:]]*=[[:space:]]*p_candidato_id');
+  v_pl_notin := (v_src_plano ~* '\mNOT[[:space:]]+IN[[:space:]]*\(');
+
+  IF NOT v_pl_itens THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iv): o corpo vivo de plano_exclusao_titular NAO menciona purga_execucao_itens. O terceiro ramo do guard dela (Blocker B-02 / Saida A) sumiu — e sem ele o 4o ramo de anonimizar_candidato NAO PRODUZ EFEITO UTIL: o cron passa no guard do motor e e recusado com 42501 no PASSO 0, tres linhas adiante. Este e o defeito exato que o plano 46-04 descobriu, e um md5 que casasse com esta forma significaria que alguem re-pinou um corpo que nao devia existir';
+  END IF;
+
+  IF NOT v_pl_alvo THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iv): o terceiro ramo de plano_exclusao_titular NAO exige o ALVO (i.candidato_id = p_candidato_id). Sem essa condicao, estar dentro de QUALQUER execucao de purga autorizaria LER O PLANO DE QUALQUER PESSOA — e esta funcao devolve CONTAGENS DE PII POR TITULAR, que e exatamente a superficie de exfiltracao que o REVOKE nominal dela existe para fechar. O ramo tem de autorizar a leitura do plano de quem a purga esta processando, e de mais ninguem';
+  END IF;
+
+  IF v_pl_notin THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iv): o corpo vivo de plano_exclusao_titular usa negacao por PERTENCIMENTO A CONJUNTO DE VALORES. Com um dos lados NULL essa forma avalia NULL, o IF nao e tomado e o guard FALHA ABERTO — defeito REAL medido na 42-06. Toda verificacao de estado tem de ser EXISTS correlacionado, e toda comparacao de papel IS DISTINCT FROM';
+  END IF;
+
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as TRES metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, e a rede estrutural do 46-04 (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto)', v_md5_plano, v_md5_anon;
+  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto)', v_md5_plano, v_md5_anon;
 END
 $c3$;
 
