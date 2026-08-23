@@ -146,15 +146,23 @@
 -- -----------------------------------------------------------------------------
 -- (4) ORDEM DE ENTREGA + QUAL SMOKE E O CONTRATO
 -- -----------------------------------------------------------------------------
--- ORDEM OBRIGATORIA:
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 007`** (HI-01 do
+-- `46-REVIEW.md`; a ordem declarada antes estava ERRADA):
 --   1o  20260823000001..5  (config, ledger, predicado, varredura, hold+excecoes)
---   2o  20260823000006     (ESTA — o 4o ramo do guard)
---   3o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--   2o  20260823000006     (o 4o ramo do MOTOR + o bloco que ABORTA o apply)
+--   3o  20260823000008     (o 3o ramo do PLANO — Blocker B-02)
+--   4o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--   5o  20260823000009     (o CHECK de dominio em purga_execucoes.modo_vigente)
 --
--- Aplicar a `…7` antes desta faz o laco chamar uma funcao cujo guard ainda recusa,
--- e a varredura inteira vira uma lista de itens com `desfecho_postgres = 'falha'`.
--- Aplicar ESTA sozinha e seguro por construcao: o ramo novo so autoriza quem
--- estiver dentro de uma execucao de purga, e ate a `…7` existir ninguem esta.
+-- ⚠ POR QUE `008` VEM ANTES DE `007`, e a razao e a cadeia de chamadas: `007`
+-- chama o MOTOR, e o motor chama `plano_exclusao_titular` no PASSO 0. Sem `008`
+-- aplicada, o guard ANTIGO daquela funcao (`20260805000005:201-253`, metade (a):
+-- chamador sem sessao -> 42501) recusa o cron — e TODO titular vira
+-- `desfecho_postgres = 'falha'` com `relato_dry_run` nulo. Pior: a mensagem de
+-- falha da assercao (b) aponta a hipotese no 1 para a `006`, ou seja o
+-- diagnostico sairia FALSO, que e o modo de falha que esta fase inteira cataloga.
+-- Aplicar `006` e `008` sem `007` e seguro: os ramos novos so autorizam quem
+-- estiver dentro de uma execucao de purga, e ate `007` existir ninguem esta.
 --
 -- ⚠ ESTA MIGRATION MUDA O `md5(prosrc)` DE `anonimizar_candidato`. O pin
 -- `8c86e0f040219e7eade47eb587dbf5de` de `p45_motor_exclusao_smoke.sql` (assercao
@@ -287,6 +295,37 @@ BEGIN
   --   DO GUARD — a mesma disciplina da leitura de `v_dono` logo abaixo da metade
   --   (a). O que sai daqui sao dois booleanos.
   --
+  -- ⚠⚠ `v_uid IS NULL` E A PRIMEIRA CONJUNCAO DOS DOIS PREDICADOS, E ELA E O
+  --   CONSERTO DO BL-02 DO `46-REVIEW.md`. Sem ela, `v_purga_*` era propriedade
+  --   APENAS do `p_candidato_id` e do cerco — nao mencionava o chamador em lugar
+  --   nenhum. Consequencia medida por leitura: enquanto houvesse item aberto sob
+  --   execucao em `live`, as metades (b) e (c) — as duas UNICAS que restringem a
+  --   destruicao — ficavam desligadas PARA TODO MUNDO. Qualquer usuario logado que
+  --   alcancasse a funcao pelo `GRANT` a `authenticated` (um `rh`, ou o proprio
+  --   candidato, via PostgREST) destruiria aquele titular FORA da ordem
+  --   Storage -> Postgres -> Auth, orfanando o curriculo no bucket de forma
+  --   irrecuperavel — sem PITR (D-45-10) e com o Storage fora de todo backup. Era
+  --   o CR-01 cenario 2 reaberto pela duracao da janela de dispatch.
+  --   O cabecalho ja prometia "SE E SOMENTE SE" em PROSA; esta linha e onde a
+  --   promessa passa a ser imposta pelo CODIGO. **O ramo existe para autorizar O
+  --   CRON, e o cron se caracteriza por nao ter sessao** — um chamador COM claim
+  --   volta a ser julgado por (b) e por (c), como sempre foi.
+  --
+  -- ⚠⚠ `e.iniciada_em > now() - interval '1 hour'` E O CONSERTO DO HI-03: A
+  --   AUTORIZACAO EXPIRA. Sem ele, nada limitava no TEMPO o estado autorizante. No
+  --   desenho do 46-06 o item e aberto pelo Postgres e fechado ASSINCRONAMENTE
+  --   pela Edge Function; se ela morre (deploy, timeout, o `at-most-once` do
+  --   `pg_net`), o item fica aberto e a execucao fica `executando`
+  --   INDEFINIDAMENTE — e `v_purga_live` seria TRUE para aquele candidato PARA
+  --   SEMPRE. Isso e uma autorizacao destrutiva *standing*, que e exatamente a
+  --   categoria que D-46-18 recusou ao rejeitar a Saida A. `concluido_em IS NULL`
+  --   impede que um vestigio FECHADO autorize; ele nao impede o item NUNCA
+  --   FECHADO, que e o caso real.
+  --   ⚠ A outra metade deste conserto vive em `20260823000007`: a varredura
+  --   RECONCILIA execucoes vencidas antes de materializar o conjunto, fechando os
+  --   itens orfaos — sem isso o titular sumiria de todas as varreduras seguintes
+  --   pelo claim anti-sobreposicao, e ninguem seria avisado.
+  --
   -- ⚠ FALHA FECHADA POR CONSTRUCAO, e e por isso que nao ha clausula `IS NOT NULL`
   --   extra em lugar nenhum destes dois predicados: com qualquer lado nulo a
   --   comparacao avalia NULL, a linha NAO e selecionada, o `EXISTS` e FALSE e a
@@ -300,7 +339,7 @@ BEGIN
   -- fora de `live` NAO da permissao destrutiva nova a ninguem — e o que torna
   -- possivel a assercao que o contrato desta fase exige, e sem a qual os 14 dias
   -- de `dry_run` provariam ZERO sobre o caminho do delete (SC#1, P39/CR-02).
-  SELECT EXISTS (
+  SELECT (v_uid IS NULL) AND EXISTS (
     SELECT 1
       FROM public.purga_execucao_itens i
       JOIN public.purga_execucoes e ON e.id = i.execucao_id
@@ -308,6 +347,7 @@ BEGIN
      WHERE i.candidato_id  = p_candidato_id
        AND i.concluido_em IS NULL
        AND e.situacao      = 'executando'
+       AND e.iniciada_em   > pg_catalog.now() - interval '1 hour'
        AND (e.modo_vigente = 'dry_run' OR e.modo_vigente = 'live')
        AND (cp.modo        = 'dry_run' OR cp.modo        = 'live')
   ) INTO v_purga_dry;
@@ -321,7 +361,7 @@ BEGIN
   -- qual aquela execucao FOI ABERTA, e `cp.modo` e o cerco AGORA. Exigir os dois
   -- e o que faz o kill switch de D-46-06 morder no meio de uma execucao ja em
   -- curso: por em `off` retira a autorizacao do item que ja estava aberto.
-  SELECT EXISTS (
+  SELECT (v_uid IS NULL) AND EXISTS (
     SELECT 1
       FROM public.purga_execucao_itens i
       JOIN public.purga_execucoes e ON e.id = i.execucao_id
@@ -329,6 +369,7 @@ BEGIN
      WHERE i.candidato_id  = p_candidato_id
        AND i.concluido_em IS NULL
        AND e.situacao      = 'executando'
+       AND e.iniciada_em   > pg_catalog.now() - interval '1 hour'
        AND e.modo_vigente  = 'live'
        AND cp.modo         = 'live'
   ) INTO v_purga_live;
@@ -359,8 +400,12 @@ BEGIN
   --         Continua recusada e nao aparece em lugar nenhum deste arquivo.
   --       · o que esta escrito aqui: sessao nula e aceitavel SE E SOMENTE SE
   --         existir, AGORA, item vivo de purga para ESTE `p_candidato_id`, sob
-  --         execucao em `executando`, com o cerco no modo que autoriza AQUELE
-  --         caminho. E um ESTADO, e um estado ninguem carrega no bolso.
+  --         execucao em `executando` INICIADA HA MENOS DE UMA HORA, com o cerco no
+  --         modo que autoriza AQUELE caminho. E um ESTADO, e um estado ninguem
+  --         carrega no bolso.
+  --         ⚠ E desde o BL-02 o "se e somente se" esta no CODIGO e nao so nesta
+  --         frase: os dois predicados exigem `v_uid IS NULL` como PRIMEIRA
+  --         conjuncao, entao a alternativa nao existe para chamador COM sessao.
   --     `v_ramo_purga` e o unico ponto do corpo em que as duas metades sao
   --     consultadas por uma variavel comum, e ele existe porque esta metade e
   --     ANTERIOR a bifurcacao por intencao. A escolha entre as duas ja aconteceu
@@ -876,16 +921,44 @@ $anonimizar_candidato$;
 -- `anon`, 39 delas chamaveis via PostgREST). `REVOKE ... FROM PUBLIC` sozinho
 -- removeria um grant que nunca existiu e deixaria `anon=X` de pe.
 --
--- ⚠ ESCOPO HONESTO: a migration `20260805000009` (plano 45-12) concede EXECUTE a
--- `authenticated` DEPOIS desta linha na ordem de aplicacao do repositorio, porque
--- o PostgREST deriva o PAPEL do MESMO JWT que carrega as claims e o client da Edge
--- Function que repassa o Authorization do titular chega como `authenticated`.
--- Este arquivo **nao altera aquele grant** e nao o revoga na pratica — ele apenas
--- reafirma a linha de base. Quem passa continua sendo decidido pelo guard do
--- corpo, e nao pelo ACL: o ACL abre a porta ao papel, o guard decide quem entra.
+-- ⚠⚠ ORDEM DE REPOSITORIO **NAO** E ORDEM DE APPLY, E ESSA CONFUSAO JA CUSTOU UM
+-- BLOCKER NESTE ARQUIVO (BL-01 do `46-REVIEW.md`). A versao anterior desta secao
+-- afirmava que a `20260805000009` concede EXECUTE a `authenticated` "depois desta
+-- linha na ordem de aplicacao do repositorio" e que portanto o `REVOKE` abaixo
+-- "nao revoga na pratica". **Isso e falso, e o argumento e que fez o defeito
+-- passar.** Numa reconstrucao do zero seria verdade; num apply INCREMENTAL contra
+-- o banco vivo — que e o unico apply que vai acontecer — a `20260805000009` esta
+-- aplicada desde 2026-08-05, o `REVOKE` abaixo roda DEPOIS dela, e sem o `GRANT`
+-- da linha seguinte o titular que exerce o Art. 18 recebe 42501 e o motor NAO
+-- RODA. Seria o `DI-45-10-01` reintroduzido em producao por uma migration cujo
+-- escopo negativo promete nao tocar em nada.
+--
+-- ⚠ A LINHA DE BASE REAL, RECOMPOSTA POR INTEIRO E COM A PROVENIENCIA DE CADA
+-- GRANTEE — e o `REVOKE` continua NOMEANDO `anon`, que e a metade que morde:
+--   · `anon` e `PUBLIC` — REVOGADOS. O `pg_default_acl` do schema `public` deste
+--     projeto concede EXECUTE a `anon` como grant DIRETO E NOMEADO em todo
+--     `CREATE FUNCTION` (medicao de 2026-07-30: 61 funcoes DEFINER com EXECUTE
+--     para `anon`, 39 chamaveis via PostgREST). `REVOKE ... FROM PUBLIC` sozinho
+--     removeria um grant que nunca existiu e deixaria `anon=X` de pe.
+--   · `service_role` — `20260805000006:836`. O caminho do cron e das EFs de
+--     servico.
+--   · `authenticated` — **`20260805000009:179-180`** (plano 45-12 / `DI-45-10-01`).
+--     A EF `executar-direito-titular` chama o motor com o `Authorization` do
+--     titular, e o PostgREST deriva o PAPEL do MESMO JWT que carrega as claims:
+--     a chamada chega como `authenticated`, nao como `service_role`. Sem este
+--     grant o direito de exclusao do titular para de funcionar.
+--     ⚠ O portao `p45_motor_exclusao_smoke.sql` (C1) EXIGE este grant e ficaria
+--     vermelho sem ele — e o proprio smoke avisa que revogar "para consertar um
+--     vermelho anterior" e o conserto na direcao errada (45-REVIEW-4 / CR-02).
+--
+-- Quem passa continua sendo decidido pelo guard do CORPO, e nao pelo ACL: o ACL
+-- abre a porta ao papel, o guard decide quem entra. E desde o BL-02 o 4o ramo so
+-- vale para chamador SEM sessao, entao alcancar a funcao como `authenticated` nao
+-- da acesso nenhum ao caminho da purga.
 REVOKE ALL ON FUNCTION public.anonimizar_candidato(uuid, boolean)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.anonimizar_candidato(uuid, boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION public.anonimizar_candidato(uuid, boolean) TO authenticated;
 
 
 -- ---------------------------------------------------------------------------
@@ -944,6 +1017,16 @@ DECLARE
   v_verbo  text;
   v_col    text;
   v_falta  text;
+  v_papel  text;
+  -- ⚠⚠ HI-02 do `46-REVIEW.md`: A PERGUNTA E FEITA PARA `anon` TAMBEM, E NAO SO
+  --    PARA `authenticated`. O `REVOKE` das funcoes deste plano NOMEIA `anon`
+  --    porque o `pg_default_acl` deste schema concede a ele como grant DIRETO
+  --    (P42-06). O bloco de catalogo — que e o mecanismo que transforma o
+  --    pressuposto em assercao — nao aplicava a mesma licao: uma policy
+  --    `FOR INSERT TO anon` em `purga_execucao_itens` nao casaria em nenhuma das
+  --    tres perguntas, o apply NAO abortaria, e o ramo que decide QUEM sera
+  --    destruido ficaria aberto a `anon` sem nenhum portao falar.
+  v_papeis constant text[] := ARRAY['authenticated', 'anon'];
 BEGIN
   -- ── PRECONDICAO: as quatro tabelas existem ────────────────────────────────
   -- Sem elas o corpo acima referencia relacao inexistente e o erro cru do
@@ -990,20 +1073,22 @@ BEGIN
   LOOP
     v_priv := false;
 
-    FOREACH v_verbo IN ARRAY r_alvo.verbos LOOP
-      IF has_table_privilege('authenticated', 'public.' || r_alvo.tabela, v_verbo) THEN
-        v_priv := true;
-      END IF;
-    END LOOP;
+    FOREACH v_papel IN ARRAY v_papeis LOOP
+      FOREACH v_verbo IN ARRAY r_alvo.verbos LOOP
+        IF has_table_privilege(v_papel, 'public.' || r_alvo.tabela, v_verbo) THEN
+          v_priv := true;
+        END IF;
+      END LOOP;
 
-    -- Privilegio de COLUNA e caminho proprio: um GRANT por coluna nao aparece em
-    -- `has_table_privilege`, e as colunas listadas sao exatamente as que
-    -- autorizam. `has_column_privilege` nao existe para DELETE — a pergunta por
-    -- coluna e sempre de UPDATE, que e o verbo com que se carimba um estado.
-    FOREACH v_col IN ARRAY r_alvo.colunas LOOP
-      IF has_column_privilege('authenticated', 'public.' || r_alvo.tabela, v_col, 'UPDATE') THEN
-        v_priv := true;
-      END IF;
+      -- Privilegio de COLUNA e caminho proprio: um GRANT por coluna nao aparece
+      -- em `has_table_privilege`, e as colunas listadas sao exatamente as que
+      -- autorizam. `has_column_privilege` nao existe para DELETE — a pergunta por
+      -- coluna e sempre de UPDATE, que e o verbo com que se carimba um estado.
+      FOREACH v_col IN ARRAY r_alvo.colunas LOOP
+        IF has_column_privilege(v_papel, 'public.' || r_alvo.tabela, v_col, 'UPDATE') THEN
+          v_priv := true;
+        END IF;
+      END LOOP;
     END LOOP;
 
     SELECT c.relrowsecurity INTO v_rls_on
@@ -1011,28 +1096,42 @@ BEGIN
       JOIN pg_namespace n ON n.oid = c.relnamespace
      WHERE n.nspname = 'public' AND c.relname = r_alvo.tabela;
 
+    -- ⚠ HI-02: `p.roles && ARRAY[...]` — sobreposicao de conjuntos, e nao
+    -- igualdade com UM papel. Cobre `authenticated`, `anon` e o `public` que uma
+    -- policy sem clausula `TO` produz. `p.roles` e `name[]`, entao o literal e
+    -- convertido explicitamente.
     SELECT EXISTS (
       SELECT 1
         FROM pg_policies p
        WHERE p.schemaname = 'public'
          AND p.tablename  = r_alvo.tabela
          AND (p.cmd = ANY (r_alvo.verbos) OR p.cmd = 'ALL')
-         AND ('authenticated' = ANY (p.roles) OR 'public' = ANY (p.roles))
+         AND p.roles && ARRAY['authenticated', 'anon', 'public']::name[]
     ) INTO v_pol;
 
     IF coalesce(v_priv, false)
        AND (coalesce(v_rls_on, false) = false OR coalesce(v_pol, false)) THEN
-      RAISE EXCEPTION 'P46-GUARD: o papel authenticated PODE ESCREVER em public.% (privilegio=%, rls_ligada=%, policy_que_alcanca=%). O 4o ramo do guard de anonimizar_candidato acaba de perder o valor: %. A partir dai o GRANT EXECUTE a authenticated da 20260805000009 volta a ser uma porta por PostgREST para destruir PII fora do motor (CR-01), agora pela via da purga. O apply para AQUI, ANTES de criar essa porta. Saidas honestas: remover a policy/privilegio de escrita daquela tabela, ou retirar o 4o ramo e replanejar o caminho de chamada do cron. ⚠ A saida que NAO existe e apagar este bloco',
+      RAISE EXCEPTION 'P46-GUARD: um papel de CLIENTE (authenticated ou anon) PODE ESCREVER em public.% (privilegio=%, rls_ligada=%, policy_que_alcanca=%). O 4o ramo do guard de anonimizar_candidato acaba de perder o valor: %. A partir dai o GRANT EXECUTE a authenticated da 20260805000009 volta a ser uma porta por PostgREST para destruir PII fora do motor (CR-01), agora pela via da purga. O apply para AQUI, ANTES de criar essa porta. Saidas honestas: remover a policy/privilegio de escrita daquela tabela, ou retirar o 4o ramo e replanejar o caminho de chamada do cron. ⚠ A saida que NAO existe e apagar este bloco',
         r_alvo.tabela, v_priv, v_rls_on, v_pol, r_alvo.razao;
     END IF;
 
     IF coalesce(v_priv, false) THEN
-      RAISE NOTICE 'P46-GUARD: authenticated tem GRANT de escrita em public.%, mas a RLS esta LIGADA e nao ha policy que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD desta funcao: criar uma policy de escrita ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez. Razao pela qual a tabela esta na lista: %',
+      RAISE NOTICE 'P46-GUARD: um papel de cliente (authenticated e/ou anon) tem GRANT de escrita em public.%, mas a RLS esta LIGADA e nao ha policy que o alcance — a escrita e barrada pela RLS. ⚠ ISSO TORNA A RLS DAQUELA TABELA PARTE DO GUARD desta funcao: criar uma policy de escrita ali passa a ser uma mudanca de SEGURANCA do tombstone, e este apply abortaria da proxima vez. Razao pela qual a tabela esta na lista: %',
         r_alvo.tabela, r_alvo.razao;
     END IF;
   END LOOP;
 
-  RAISE NOTICE 'P46-GUARD: auto-verificacao EXECUTADA sobre as quatro tabelas (purga_execucoes, purga_execucao_itens, config_purga, retencao_hold). Um apply que NAO tenha emitido este NOTICE nao exercitou o bloco, e um bloco nao exercitado e indistinguivel de um bloco ausente';
+  -- ⚠⚠ ME-03 do `46-REVIEW.md` — O ESCOPO HONESTO DESTE BLOCO, DITO EM VOZ ALTA.
+  -- Ele pergunta pelos papeis de CLIENTE. Ele NAO fecha, e nao pode fechar, a via
+  -- do `service_role` e do `postgres`: os dois bypassam RLS por desenho e sao hoje
+  -- os UNICOS papeis que conseguem carimbar `liberado_em` em `retencao_hold` ou
+  -- fabricar um item em `purga_execucao_itens`. Ou seja: a ameaca nomeada no
+  -- cabecalho deste arquivo — "liberar um hold e o passo que falta entre registro
+  -- sob litigio e registro apagado irreversivelmente" — **continua aberta pela via
+  -- do service key**, sem RPC auditada e sem trilha. Dizer "assercao, nao
+  -- confianca" sobre a superficie que NAO carrega o risco seria a pior forma de
+  -- falso conforto, entao o NOTICE declara as duas coisas.
+  RAISE NOTICE 'P46-GUARD: auto-verificacao EXECUTADA sobre as quatro tabelas (purga_execucoes, purga_execucao_itens, config_purga, retencao_hold), perguntando por authenticated E anon. Um apply que NAO tenha emitido este NOTICE nao exercitou o bloco, e um bloco nao exercitado e indistinguivel de um bloco ausente. ⚠ ESCOPO HONESTO: este bloco cobre os papeis de CLIENTE. service_role e postgres bypassam RLS por desenho e continuam podendo escrever nas quatro — e por isso a RPC AUDITADA de escrita em retencao_hold e PRE-CONDICAO do flip dry_run -> live, e nao melhoria posterior: hoje um comprometimento de service key libera um hold sem deixar trilha, e o cron faz o resto';
 END
 $verifica_guard_purga$;
 

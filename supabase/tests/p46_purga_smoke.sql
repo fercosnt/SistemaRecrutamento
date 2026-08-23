@@ -15,10 +15,10 @@
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
 -- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); e o plano 46-04 acrescentou (b) e
--- (o) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos 46-05 a
--- 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, agora
--- é 14). Um arquivo por fase, e não um por plano: as asserções desta fase leem
--- umas o estado das outras.
+-- (o), (o.6) e (p). As demais — (a), (d), (e), (g), (m), (n) — chegam nos planos
+-- 46-05 a 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11,
+-- agora é 15). Um arquivo por fase, e não um por plano: as asserções desta fase
+-- leem umas o estado das outras.
 --
 -- -----------------------------------------------------------------------------
 -- COMO RODAR
@@ -30,8 +30,8 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **14** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 14 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **15** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 15 e o RESUMO reprova ALTO.
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -118,7 +118,7 @@
 -- Um portão que reprova trabalho correto treina quem executa a desligá-lo.
 --
 -- -----------------------------------------------------------------------------
--- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (3). Onze são NEGATIVAS.
+-- AS ASSERÇÕES — 46-02 (6), 46-03 (5), 46-04 (4). Doze são NEGATIVAS.
 -- -----------------------------------------------------------------------------
 --   (h)     ⊖ O ledger não tem coluna de PII, aferido sobre o CATÁLOGO.
 --   (f)     ⊖ Kill switch provado por execução REAL com `modo = 'off'`.
@@ -129,6 +129,9 @@
 --   (o)     ⊖ O 4º ramo do guard RECUSA fora das condições (quatro casos) e
 --           ACEITA dentro delas (dois) — as duas metades de D-46-24 aferidas
 --           SEPARADAMENTE, sobre estado idêntico.
+--   (o.6)   ⊖ **BL-02** — chamador COM SESSÃO (`rh` e `candidato`) NÃO entra pelo
+--           ramo da purga, mesmo com item aberto sob `live`. É o único bloco do
+--           arquivo que carimba claims, e ele as limpa em seguida.
 --   (p)     ⊖ O 3º ramo de `plano_exclusao_titular` (Blocker B-02) recusa sob
 --           `off` e SEM ALVO, aceita com item aberto, e o plano devolvido não
 --           carrega PII — medido na função que o motor CHAMA no PASSO 0.
@@ -141,7 +144,7 @@
 --   (k)     Degrau correto quando não há decisão registrada (PURGA-07 / SC#4).
 --   (l)     ⊖ Etapa fora da allowlist não entra (D-46-19) — e a allowlist é
 --           aferida por IGUALDADE DE CONJUNTO, jamais por contagem nua.
---   (z)     RESUMO — exige o total exato de 14 PASS.
+--   (z)     RESUMO — exige o total exato de 15 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -199,6 +202,14 @@
 -- ⚠ `candidato_id` NÃO é banido, e a distinção é o ponto de D-46-15: o ledger
 -- grava o IDENTIFICADOR QUE DEIXA DE EXISTIR — é isso que ele é. O que ele não
 -- pode ter é nome, e-mail, CPF, telefone, endereço ou data de nascimento.
+--
+-- ⚠⚠ HIGIENE DE CLAIMS, E ELA GANHOU UMA EXCEÇÃO NOMEADA NO 46-04. Este arquivo
+-- roda com `auth.uid()` NULO — como o cron —, e foi essa disciplina que revelou o
+-- Blocker B-02. **O único bloco que carimba `request.jwt.claims` é (o.6)**, porque
+-- o caso que ele mede ("chamador COM sessão sob item aberto em `live`") é
+-- inobservável sem elas; e ele **limpa as claims imediatamente depois**, antes de
+-- (p). Um vazamento de claim para as asserções seguintes as faria passar por PAPEL
+-- em vez de pelo ramo da purga — o falso verde que (o.6) existe para eliminar.
 --
 -- HIGIENE: `RESET ROLE` em toda troca de contexto e ao final. Os NOTICEs carregam
 -- contagens, SQLSTATEs e nomes de objeto — NUNCA PII e nunca o valor de um
@@ -456,7 +467,13 @@ DECLARE
   v_o_exec     uuid; v_o_item uuid; v_o_item_pos uuid;
   v_o_st       text[] := ARRAY[]::text[];
   v_o_pos_st   text;
+  v_o_pos_ret  jsonb;
+  v_o_pos_tomb boolean;
   v_o_alvo_ex  bigint;
+  -- (o.6) BL-02 · o unico caso que precisa de CLAIMS para existir
+  v_o6_rh      text;
+  v_o6_cand    text;
+  v_o6_uid     bigint;
 
   -- (p) 46-04 / B-02 · o 3o ramo de `plano_exclusao_titular`, medido DIRETAMENTE.
   -- ⚠ Ela e medida em separado de (o) de proposito: (o) mede o guard do MOTOR, e o
@@ -946,15 +963,111 @@ BEGIN
             'data_candidatura', pg_catalog.now())
     RETURNING id INTO v_o_item_pos;
 
+    -- ⚠⚠ HI-04 do `46-REVIEW.md` — A VERSAO ANTERIOR DESTE BLOCO USAVA `PERFORM` E
+    --   TRATAVA O RETORNO NORMAL COMO O PIOR DEFEITO POSSIVEL. Mas o dry-run tem
+    --   DUAS terminacoes contratadas (WR-05), e a `20260823000007` — escrita pelo
+    --   MESMO plano, no mesmo dia — implementa a discriminacao de proposito:
+    --   `P45DR` numa linha VIVA, e retorno normal com `resultado='ja_anonimizado'`
+    --   numa linha que JA e tombstone. Depois do primeiro `live`, `pos1` volta a
+    --   ser selecionado (ERASE-08 preserva as linhas) e o portao ficaria VERMELHO
+    --   dizendo "o terminador sumiu e a transacao teria COMMITADO" — falso, e o
+    --   padrao que o CLAUDE.md §"Portoes" nomeia: reprova trabalho correto com
+    --   diagnostico FALSO. Seria a 5a ocorrencia desta forma na fase.
+    --
+    -- ⚠ E O CONSERTO NAO E "ACEITAR AS DUAS E PRONTO" — isso afrouxaria o portao.
+    --   O estado de `pos1` e MEDIDO ANTES, pelo mesmo predicado de reconhecimento
+    --   que o motor usa (CR-06: igualdade com a sentinela derivada do id, mais o
+    --   cinto de `user_id` severado e `data_nascimento` em 1900 — nunca padrao
+    --   sobre `email`, que o usuario escreve). Com o estado medido, a assercao
+    --   exige a terminacao EXATA que aquele estado obriga: se `pos1` esta viva,
+    --   so `P45DR` passa; se ja e tombstone, so o retorno `ja_anonimizado` passa.
+    --   O portao continua mordendo nos dois sentidos e deixa de ter um dia em que
+    --   ele fica vermelho sozinho.
+    SELECT (c.email = 'anonimizado+' || c.id::text || '@invalido.local'
+            AND c.user_id IS NULL
+            AND c.data_nascimento = DATE '1900-01-01')
+      INTO v_o_pos_tomb
+      FROM public.candidatos c WHERE c.id = v_pos1;
+
     BEGIN
-      PERFORM public.anonimizar_candidato(v_pos1, true);
-      v_o_pos_st := 'SEM-EXCECAO';
+      SELECT public.anonimizar_candidato(v_pos1, true) INTO v_o_pos_ret;
+      v_o_pos_st := CASE
+                      WHEN (v_o_pos_ret ->> 'resultado') = 'ja_anonimizado'
+                        THEN 'RETORNO-ja_anonimizado'
+                      ELSE 'SEM-EXCECAO'
+                    END;
     EXCEPTION WHEN OTHERS THEN
       v_o_pos_st := SQLSTATE;
     END;
 
     -- Fecha os dois itens de (o) para nao deixar vestigio para as leituras
     -- seguintes deste envelope (redundante com o rollback; a redundancia e o ponto).
+    -- ══ (o.6) BL-02 · ⊖ CHAMADOR **COM SESSAO** NAO ENTRA PELO RAMO DA PURGA ══
+    -- ⚠⚠ E ESTE O CASO QUE O CODE REVIEW ENCONTROU E QUE NENHUMA ASSERCAO VIA.
+    --   O 4o ramo era propriedade apenas do ALVO e do CERCO: nao mencionava o
+    --   chamador. Enquanto houvesse item aberto sob execucao em `live`, as metades
+    --   (b) e (c) — as duas UNICAS que restringem a destruicao — ficavam
+    --   desligadas PARA TODO MUNDO, e qualquer usuario logado que alcancasse a
+    --   funcao pelo GRANT a `authenticated` destruiria aquele titular FORA da
+    --   ordem Storage -> Postgres -> Auth, orfanando o curriculo de forma
+    --   irrecuperavel (CR-01, cenario 2).
+    --
+    -- ⚠ POR QUE ELE ERA INOBSERVAVEL, E A LICAO E DESCONFORTAVEL: este arquivo
+    --   NUNCA carimba `request.jwt.claims`, e essa higiene esta CERTA — e ela que
+    --   faz o smoke rodar com `auth.uid()` NULO, como o cron, e foi ela que
+    --   revelou o Blocker B-02. Mas ela tem um efeito colateral: torna invisivel
+    --   exatamente o caso "chamador COM sessao". A resposta nao e abandonar a
+    --   higiene; e carimbar claims **num bloco proprio, escopado, que as limpa em
+    --   seguida** — e so para o caso que precisa delas.
+    --
+    -- ⚠ ZERO RISCO DE DESTRUICAO, e por construcao: o alvo continua sendo o uuid
+    --   SINTETICO. Se o guard recusar (o correto) vem 42501; se um guard
+    --   defeituoso autorizasse, o motor pararia em P0002 sem mutar coluna alguma.
+    --   Os dois papeis testados sao os dois que o CR-01 nomeia: `rh` (cenario 2) e
+    --   `candidato` (o titular alheio).
+    UPDATE public.config_purga SET modo = 'live';
+    UPDATE public.purga_execucoes SET situacao = 'executando', modo_vigente = 'live'
+     WHERE id = v_o_exec;
+    UPDATE public.purga_execucao_itens SET concluido_em = NULL WHERE id = v_o_item;
+
+    -- ⚠ O IDIOMA E O DE (C2) DO `p45_motor_exclusao_smoke.sql:1571-1573`, VERBATIM,
+    --   inclusive a limpeza de `request.jwt.claim.sub`: aquele portao carimba
+    --   claims em PROD e funciona, e copiar a forma que ja e exercitada e melhor
+    --   que inventar uma segunda.
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', gen_random_uuid()::text,
+                        'app_metadata', json_build_object('role', 'rh'))::text, false);
+    PERFORM set_config('request.jwt.claim.sub', '', false);
+    SELECT count(*) INTO v_o6_uid FROM (SELECT auth.uid() AS u) s WHERE s.u IS NOT NULL;
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o6_rh := 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o6_rh := SQLSTATE;
+    END;
+
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', gen_random_uuid()::text,
+                        'app_metadata', json_build_object('role', 'candidato'))::text, false);
+    PERFORM set_config('request.jwt.claim.sub', '', false);
+    BEGIN
+      PERFORM public.anonimizar_candidato(v_o_sint, false);
+      v_o6_cand := 'SEM-EXCECAO';
+    EXCEPTION WHEN OTHERS THEN
+      v_o6_cand := SQLSTATE;
+    END;
+
+    -- ⚠ AS CLAIMS SAO LIMPAS AQUI, e nao no fim: tudo o que vem depois — inclusive
+    -- (p) — depende de `auth.uid()` voltar a ser NULO. Um vazamento de claim para
+    -- as asserções seguintes as faria passar por PAPEL e nao pelo ramo da purga,
+    -- que e precisamente o falso verde que este bloco existe para eliminar.
+    PERFORM set_config('request.jwt.claims', '', false);
+    PERFORM set_config('request.jwt.claim.sub', '', false);
+
+    UPDATE public.config_purga SET modo = 'dry_run';
+    UPDATE public.purga_execucoes SET modo_vigente = 'dry_run' WHERE id = v_o_exec;
+    UPDATE public.purga_execucao_itens SET concluido_em = pg_catalog.now() WHERE id = v_o_item;
+
     -- ══ (p) 46-04 / B-02 · O 3o RAMO DE `plano_exclusao_titular`, DIRETO ══════
     -- ⚠ POR QUE ESTA ASSERCAO EXISTE SEPARADA DE (o): o motor CHAMA esta funcao no
     --   PASSO 0, e ela tem guard PROPRIO. Enquanto ele nao tinha o 3o ramo, o cron
@@ -1385,9 +1498,33 @@ BEGIN
     RAISE EXCEPTION 'P46P FAIL (o.2b): ⊖ O OUTRO LADO DO PAR. Sob EXATAMENTE o mesmo estado da chamada (o.2a) — mesmo cerco, mesma execucao, mesmo item —, mudando SO a intencao para dry-run, a chamada devolveu [%] em vez de P0002. P0002 (CANDIDATO_INEXISTENTE) e a prova de que o guard AUTORIZOU e o motor seguiu ate nao achar o titular sintetico. [42501] aqui significa que o caminho de DRY-RUN esta sendo recusado sob modo dry_run, e entao o laco da varredura nao consegue rodar: os 14 dias de dry_run provariam ZERO sobre o caminho do delete, que e o dry-run decorativo do SC#1 e a mesma classe do P39/CR-02. ⚠ PROVAR SO RECUSA E O MODO DE FALHA No 3 DOS SETE PORTOES DA PHASE 45', coalesce(v_o_st[3], 'NULL');
   END IF;
 
-  IF v_o_pos_st IS DISTINCT FROM 'P45DR' THEN
-    RAISE EXCEPTION 'P46P FAIL (o.5): a chamada POSITIVA sobre o titular REAL pos1, com as quatro condicoes satisfeitas e p_dry_run := true, devolveu [%] em vez de P45DR. [42501] significa que o ramo recusa mesmo dentro das condicoes que ele proprio define, e a purga nunca vai conseguir fazer o dry-run; [SEM-EXCECAO] significa que o terminador do motor sumiu e a transacao teria COMMITADO o corpo destrutivo', coalesce(v_o_pos_st, 'NULL');
+  -- ⚠ A terminacao EXIGIDA e a que o estado MEDIDO de pos1 obriga (HI-04).
+  IF v_o_pos_st IS DISTINCT FROM (CASE WHEN coalesce(v_o_pos_tomb, false)
+                                       THEN 'RETORNO-ja_anonimizado'
+                                       ELSE 'P45DR' END) THEN
+    RAISE EXCEPTION 'P46P FAIL (o.5): a chamada POSITIVA sobre o titular REAL pos1, com as quatro condicoes satisfeitas e p_dry_run := true, devolveu [%]. pos1 esta tombstone? [%] — e com esse estado a UNICA terminacao contratada aceitavel era [%]. Leitura dos desfechos: [42501] = o ramo recusa DENTRO das condicoes que ele proprio define, e a purga nunca vai conseguir fazer o dry-run; [SEM-EXCECAO] = o terminador do motor sumiu e a transacao teria COMMITADO o corpo destrutivo; [RETORNO-ja_anonimizado] sobre uma linha VIVA = o reconhecimento da sentinela ficou amplo demais e o motor esta declarando anonimizado quem nao esta (CR-06); [P45DR] sobre uma linha que JA e tombstone = o ramo de idempotencia por ESTADO parou de devolver antes do terminador, e o motor voltou a mutar quem ja estava anonimizado',
+      coalesce(v_o_pos_st, 'NULL'),
+      coalesce(v_o_pos_tomb::text, 'NULL'),
+      CASE WHEN coalesce(v_o_pos_tomb, false) THEN 'RETORNO-ja_anonimizado' ELSE 'P45DR' END;
   END IF;
+
+  -- ── (o.6) BL-02 · ⊖ CHAMADOR COM SESSAO NAO ENTRA PELO RAMO DA PURGA ──────
+  -- ⊖ NAO-VACUIDADE PRIMEIRO: se as claims nao tivessem tomado efeito, `auth.uid()`
+  -- continuaria NULO e o teste mediria o caso errado — o mesmo caso de (o.2a).
+  IF coalesce(v_o6_uid, 0) <> 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (o.6): ⊖ NAO-VACUIDADE — as claims carimbadas NAO tomaram efeito e auth.uid() continua NULO. Este bloco existe justamente para medir o chamador COM sessao; sem as claims ele repete (o.2a) e o caso do BL-02 volta a ser INOBSERVAVEL';
+  END IF;
+
+  IF v_o6_rh IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.6/rh): ⛔ BL-02 DE VOLTA. Com item ABERTO sob execucao em live e o cerco em live, um chamador COM SESSAO e papel rh chamou o caminho DESTRUTIVO e obteve [%] em vez de 42501. O 4o ramo voltou a ser propriedade apenas do ALVO e do CERCO, sem mencionar o chamador — e enquanto a janela durar, as metades (b) e (c) ficam desligadas PARA TODO MUNDO. Um rh acabou de poder destruir a PII de um titular FORA da ordem Storage -> Postgres -> Auth: o curriculo fica orfao no bucket para sempre, sem PITR (D-45-10) e com o Storage fora de todo backup. E o CR-01 cenario 2 reaberto. O predicado tem de comecar por (v_uid IS NULL)', coalesce(v_o6_rh, 'NULL');
+  END IF;
+
+  IF v_o6_cand IS DISTINCT FROM '42501' THEN
+    RAISE EXCEPTION 'P46P FAIL (o.6/candidato): ⛔ BL-02 DE VOLTA, pela porta do titular ALHEIO. Um chamador com papel candidato — que alcanca a funcao pelo GRANT a authenticated da 20260805000009 — obteve [%] em vez de 42501 sobre um candidato que NAO e ele. A metade (b) so nao recusou porque o ramo da purga a desligou', coalesce(v_o6_cand, 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (o.6): ⊖ com item ABERTO sob live, um chamador COM SESSAO NAO entra pelo ramo da purga — rh -> %, candidato -> %. O ramo vale so para quem nao tem sessao, que e o unico chamador que o cron pode ser', v_o6_rh, v_o6_cand;
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P46P PASS (o): as DUAS metades do 4o ramo asseridas SEPARADAMENTE. Recusas 42501 em: modo off com item aberto (%); DESTRUTIVO sob dry_run (%); live sem item aberto (%); item aberto sob execucao concluida (%). Aceitacoes: dry-run sob dry_run no MESMO estado da recusa destrutiva -> % (o guard autorizou e o motor parou por nao haver candidato); e o titular REAL pos1 em dry-run -> % (o corpo COMPLETO executou e foi revertido)', v_o_st[1], v_o_st[2], v_o_st[4], v_o_st[5], v_o_st[3], v_o_pos_st;
@@ -1429,7 +1566,7 @@ END $envelope$;
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 14;  -- 6 (46-02) + 5 (46-03) + 3 (46-04: b, o, p)
+DECLARE v_n int; v_esperado int := 15;  -- 6 (46-02) + 5 (46-03) + 4 (46-04: b, o, o.6, p)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN

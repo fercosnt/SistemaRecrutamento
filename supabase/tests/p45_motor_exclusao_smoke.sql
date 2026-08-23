@@ -226,8 +226,8 @@
 --      que este gate existe para fechar: passaria a haver DUAS copias do predicado
 --      no repositorio, e a segunda envelheceria em silencio.
 --
---   valor  : 3f6007b85f61d9d58548f560794e50b0   (plano_exclusao_titular — octetos: 26108)
---   valor  : 35d1df5d8a3739854e97dd7cbd0d600e   (anonimizar_candidato   — octetos: 43532)
+--   valor  : 12621ce84ec31c566b691fea280d3df2   (plano_exclusao_titular — octetos: 26908)
+--   valor  : 4765cc68f83efb48494f0a78002dce06   (anonimizar_candidato   — octetos: 46245)
 --   origem : corpo entre os dois delimitadores NOMEADOS de cifrao
 --            (`$plano_exclusao_titular$` e `$anonimizar_candidato$`) em
 --            — ⚠ OS DOIS ARQUIVOS MUDARAM NO 46-04 —
@@ -274,12 +274,23 @@
 --
 --   HISTORICO DOS PINS — nao apagar, porque e o que torna a sequencia auditavel:
 --   da para ver que cada pin mudou, quando, e por que, em vez de ter mudado sozinho.
+--   ⚠ A COLUNA "vigorou em PROD" E A QUE IMPORTA, e ela distingue duas coisas que
+--   um historico ingenuo confundiria: um pin que esteve APLICADO no banco, e um
+--   pin que existiu apenas no repositorio entre dois commits do mesmo dia.
 --     `anonimizar_candidato`:
 --     · 8c86e0f040219e7eade47eb587dbf5de (34 488 octetos) — 2026-08-13 a
---       2026-08-23. Vigorou durante a execucao do motor em PRODUCAO de 2026-08-22.
+--       2026-08-23. **VIGOROU EM PROD**, inclusive durante a execucao do motor de
+--       2026-08-22. E o valor contra o qual o corpo copiado foi conferido.
+--     · 35d1df5d8a3739854e97dd7cbd0d600e (43 532 octetos) — 2026-08-23, algumas
+--       horas. **NUNCA VIGOROU EM PROD**: foi escrito pelo plano 46-04 e
+--       SUPERADO ANTES DE QUALQUER APPLY pelos consertos do `46-REVIEW.md`
+--       (BL-01, BL-02, HI-02, HI-03). Registrado porque um pin que aparece e
+--       some sem explicacao e indistinguivel de um pin trocado as escondidas.
 --     `plano_exclusao_titular`:
 --     · 97634d07ef13447e06741a8c8372fca6 (21 349 octetos) — 2026-08-13 a
---       2026-08-23. Vigorou durante a mesma execucao em PRODUCAO.
+--       2026-08-23. **VIGOROU EM PROD**, na mesma execucao.
+--     · 3f6007b85f61d9d58548f560794e50b0 (26 108 octetos) — 2026-08-23, algumas
+--       horas. **NUNCA VIGOROU EM PROD**, pela mesma razao.
 --
 --   medido : os DOIS re-pinados em 2026-08-23, POR EXECUCAO (nao transcrito, nao
 --            inventado), com conferencia CRUZADA vivo x arquivo.
@@ -1667,8 +1678,8 @@ DECLARE
   --   migration 20260823000006 acrescentou o quarto ramo do guard. Re-pinar sem
   --   que a migration tenha mudado FAZ (C3/i) DEIXAR DE PROVAR QUALQUER COISA — e
   --   ato consciente e revisavel.
-  v_pin_plano text := '3f6007b85f61d9d58548f560794e50b0';
-  v_pin_anon  text := '35d1df5d8a3739854e97dd7cbd0d600e';
+  v_pin_plano text := '12621ce84ec31c566b691fea280d3df2';
+  v_pin_anon  text := '4765cc68f83efb48494f0a78002dce06';
   v_src_plano text;
   v_src_anon  text;
   v_def_anon  text;
@@ -1685,6 +1696,14 @@ DECLARE
   v_tem_aberto  boolean;   -- e exige o item AINDA ABERTO
   v_tem_notin   boolean;   -- e NUNCA nega por pertencimento a conjunto de valores
   v_tem_live    boolean;   -- e a metade destrutiva exige o modo live por extenso
+  -- ME-04 · a regressao que D-46-24 nomeia, vigiada por FORMA e nao por presenca
+  v_tem_2var    boolean;   -- as DUAS variaveis existem
+  v_le_live     boolean;   -- e (b)/(c) leem a `live` no caminho destrutivo
+  v_le_dry      boolean;   -- e a de leitura le a `dry`
+  -- BL-02 · o ramo so vale para chamador SEM sessao
+  v_tem_semsess boolean;
+  -- HI-03 · a autorizacao EXPIRA
+  v_tem_janela  boolean;
   -- ── 46-04 / B-02 · a mesma rede sobre a SEGUNDA funcao ────────────────────
   -- Sem estas, o re-pin de `plano_exclusao_titular` seria um numero novo sem
   -- nenhuma exigencia de forma atras dele — e foi justamente o guard DELA que
@@ -1720,12 +1739,12 @@ BEGIN
   END IF;
 
   IF v_md5_plano IS DISTINCT FROM v_pin_plano THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (Blocker B-02 / Saida A, migration 20260823000008); o valor anterior era 97634d07ef13447e06741a8c8372fca6 com 21 349 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000008 nao foi aplicada — e sem ela o 4o ramo da 20260823000006 nao produz efeito util, porque o cron e autorizado no motor e recusado tres linhas depois AQUI. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de plano_exclusao_titular NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (Blocker B-02 / Saida A, migration 20260823000008); o valor anterior APLICADO era 97634d07ef13447e06741a8c8372fca6 com 21 349 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000008 nao foi aplicada — e sem ela o 4o ramo da 20260823000006 nao produz efeito util, porque o cron e autorizado no motor e recusado tres linhas depois AQUI. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_plano, v_pin_plano, octet_length(v_src_plano);
   END IF;
 
   IF v_md5_anon IS DISTINCT FROM v_pin_anon THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (quarto ramo do guard, migration 20260823000006); o valor anterior era 8c86e0f040219e7eade47eb587dbf5de com 34 488 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000006 nao foi aplicada. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
+    RAISE EXCEPTION 'P45M FAIL (C3/i): o corpo VIVO de anonimizar_candidato NAO casa byte a byte com a migration. md5 vivo=% (esperado %), octetos=%. ⚠ O pin vigente foi re-carimbado em 2026-08-23 pelo plano 46-04 (quarto ramo do guard, migration 20260823000006); o valor anterior APLICADO era 8c86e0f040219e7eade47eb587dbf5de com 34 488 octetos. Se o md5 vivo for o ANTIGO, a migration 20260823000006 nao foi aplicada. Se for um TERCEIRO valor e o md5(statements[1]) do apply tiver batido o md5 do arquivo, a divergencia e de EXTRACAO e nao do objeto — ver PROVENIENCIA no cabecalho',
       v_md5_anon, v_pin_anon, octet_length(v_src_anon);
   END IF;
 
@@ -1755,6 +1774,44 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/iii): a metade DESTRUTIVA do quarto ramo NAO exige modo_vigente = live escrito por extenso. D-46-24 escopa o modo permissivo ao caminho de DRY-RUN, que o Postgres reverte por construcao; o caminho destrutivo e autorizado EXCLUSIVAMENTE sob live. Se as duas metades passaram a compartilhar um predicado, o caminho destrutivo acabou de herdar EM SILENCIO a permissao do reversivel — que e exatamente a obrigacao de aceite que D-46-24 escreveu';
   END IF;
 
+  -- ── ME-04 · A REGRESSAO CONCRETA, E NAO SO A PRESENCA DA STRING ───────────
+  -- ⚠ `v_tem_live` acima mede que `modo_vigente = 'live'` existe EM ALGUM LUGAR do
+  --   corpo. A regressao que D-46-24 mandou tornar impossivel e mais fina: a
+  --   metade destrutiva de (b) passar a ler `v_purga_dry` em vez de `v_purga_live`.
+  --   Com essa troca, `v_tem_live` continuaria VERDE — a string segue no corpo, no
+  --   predicado (p.2), que so teria virado dead code. Estas tres checagens medem a
+  --   LIGACAO, que e onde o defeito moraria.
+  v_tem_2var := (v_src_anon ~ '\mv_purga_live\M') AND (v_src_anon ~ '\mv_purga_dry\M');
+  v_le_live  := (v_src_anon ~ 'AND[[:space:]]+NOT[[:space:]]+v_purga_live');
+  v_le_dry   := (v_src_anon ~ 'AND[[:space:]]+NOT[[:space:]]+v_purga_dry');
+
+  IF NOT v_tem_2var THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii-ME04): o corpo vivo nao tem as DUAS variaveis do quarto ramo (v_purga_dry e v_purga_live). As metades deixaram de ser fisicamente distintas, e a obrigacao de aceite de D-46-24 existe para que isso seja impossivel: um predicado compartilhado e como, numa edicao futura, o caminho destrutivo herda EM SILENCIO a permissao do reversivel';
+  END IF;
+
+  IF NOT v_le_live OR NOT v_le_dry THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii-ME04): as duas variaveis existem mas o corpo NAO consulta as duas nas guardas (le_live=%, le_dry=%). Se a metade DESTRUTIVA passou a ler v_purga_dry, o predicado (p.2) virou dead code e a string modo_vigente = live continuaria no corpo deixando (C3/iii) VERDE — este e exatamente o falso verde que ME-04 do 46-REVIEW encontrou', v_le_live, v_le_dry;
+  END IF;
+
+  -- ── BL-02 · O RAMO SO VALE PARA CHAMADOR SEM SESSAO ──────────────────────
+  -- Sem esta conjuncao o ramo e propriedade apenas do alvo e do cerco: enquanto
+  -- houver item aberto sob live, as metades (b) e (c) ficam desligadas para TODO
+  -- MUNDO, e qualquer usuario logado com EXECUTE destroi aquele titular fora da
+  -- ordem Storage -> Postgres -> Auth. Medido em execucao por (o.6) do
+  -- `p46_purga_smoke.sql`; aqui a forma e vigiada mesmo que o smoke nao rode.
+  v_tem_semsess := (v_src_anon ~ '\(v_uid IS NULL\)[[:space:]]*AND[[:space:]]+EXISTS');
+
+  IF NOT v_tem_semsess THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii-BL02): o quarto ramo NAO exige (v_uid IS NULL) como primeira conjuncao. Ele voltou a autorizar por ALVO e CERCO sem mencionar o CHAMADOR — e o ramo existe para autorizar o CRON, que se caracteriza por nao ter sessao. Um chamador COM claim tem de continuar sendo julgado pelas metades (b) e (c), como sempre foi (BL-02 do 46-REVIEW)';
+  END IF;
+
+  -- ── HI-03 · A AUTORIZACAO EXPIRA ─────────────────────────────────────────
+  v_tem_janela := (v_src_anon ~ 'iniciada_em[[:space:]]*>[[:space:]]*pg_catalog\.now\(\)[[:space:]]*-[[:space:]]*interval');
+
+  IF NOT v_tem_janela THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iii-HI03): o quarto ramo NAO limita no TEMPO o estado autorizante. Uma Edge Function que morre entre abrir o item e muta-lo deixa o item aberto e a execucao em executando INDEFINIDAMENTE — e o ramo autorizaria a destruicao daquele titular PARA SEMPRE. Isso e uma autorizacao destrutiva standing, exatamente a categoria que D-46-18 recusou ao rejeitar a Saida A. concluido_em IS NULL impede o vestigio FECHADO; nao impede o item NUNCA FECHADO, que e o caso real (HI-03 do 46-REVIEW)';
+  END IF;
+
   -- ── (C3/iv) 46-04 / B-02 · A MESMA REDE SOBRE `plano_exclusao_titular` ────
   -- ⚠ ESTA METADE EXISTE POR CAUSA DO PROPRIO ACHADO QUE ELA VIGIA. O motor CHAMA
   --   esta funcao no PASSO 0, e o guard DELA quase deixou a fase inteira embarcar
@@ -1771,6 +1828,14 @@ BEGIN
 
   IF NOT v_pl_alvo THEN
     RAISE EXCEPTION 'P45M FAIL (C3/iv): o terceiro ramo de plano_exclusao_titular NAO exige o ALVO (i.candidato_id = p_candidato_id). Sem essa condicao, estar dentro de QUALQUER execucao de purga autorizaria LER O PLANO DE QUALQUER PESSOA — e esta funcao devolve CONTAGENS DE PII POR TITULAR, que e exatamente a superficie de exfiltracao que o REVOKE nominal dela existe para fechar. O ramo tem de autorizar a leitura do plano de quem a purga esta processando, e de mais ninguem';
+  END IF;
+
+  IF NOT (v_src_plano ~ '\(v_uid IS NULL\)[[:space:]]*AND[[:space:]]+EXISTS') THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iv-BL02): o terceiro ramo de plano_exclusao_titular NAO exige (v_uid IS NULL) como primeira conjuncao. Sem isso, qualquer usuario logado que alcance a funcao pelo GRANT a authenticated LE as contagens de PII de um titular so por ele estar sendo processado pela purga — e o REVOKE nominal desta funcao existe porque contagens enumeraveis sao superficie de exfiltracao';
+  END IF;
+
+  IF NOT (v_src_plano ~ 'iniciada_em[[:space:]]*>[[:space:]]*pg_catalog\.now\(\)[[:space:]]*-[[:space:]]*interval') THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/iv-HI03): o terceiro ramo de plano_exclusao_titular NAO limita no TEMPO o estado autorizante. Um item aberto por uma Edge Function que morreu autorizaria a leitura daquele plano para sempre';
   END IF;
 
   IF v_pl_notin THEN

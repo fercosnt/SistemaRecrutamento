@@ -19,11 +19,16 @@
 -- mesmos. A migration substitui a funcao inteira porque `CREATE OR REPLACE`
 -- exige o corpo completo, mas o diff util cabe em uma tela.
 --
--- ⚠ PRECONDICAO DURA: `20260823000006` (o 4o ramo do guard) TEM de estar aplicada
--- ANTES desta. Sem ela, a chamada abaixo recebe 42501 em TODO titular, cada um
--- vira item com `desfecho_postgres = 'falha'`, e a varredura inteira se torna uma
--- lista de recusas — um estado que descreve corretamente o banco e ainda assim
--- seria lido como defeito deste plano.
+-- ⚠⚠ PRECONDICAO DURA, E SAO **DUAS** MIGRATIONS (HI-01 do `46-REVIEW.md`): tanto
+-- `20260823000006` (o 4o ramo do MOTOR) quanto `20260823000008` (o 3o ramo do
+-- PLANO) TEM de estar aplicadas ANTES desta. A segunda e facil de esquecer e a
+-- versao anterior deste cabecalho a esquecia: o motor chama
+-- `plano_exclusao_titular` no PASSO 0, e o guard ANTIGO daquela funcao recusa
+-- chamador sem sessao. Faltando QUALQUER uma das duas, a chamada abaixo recebe
+-- 42501 em TODO titular, cada um vira item com `desfecho_postgres = 'falha'` com
+-- `relato_dry_run` nulo, e a varredura inteira vira uma lista de recusas — um
+-- estado que descreve corretamente o banco e ainda assim seria lido como defeito
+-- deste plano.
 --
 -- -----------------------------------------------------------------------------
 -- (1) PROTOCOLO DE APPLY — `supabase db push` E PROIBIDO NESTE PROJETO
@@ -111,7 +116,23 @@
 -- -----------------------------------------------------------------------------
 -- (4) ORDEM DE ENTREGA + QUAL SMOKE E O CONTRATO
 -- -----------------------------------------------------------------------------
--- ORDEM OBRIGATORIA:  20260823000006 (o guard)  →  20260823000007 (ESTA).
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 007`** (HI-01 do
+-- `46-REVIEW.md`; a ordem declarada antes estava ERRADA):
+--   1o  20260823000001..5  (config, ledger, predicado, varredura, hold+excecoes)
+--   2o  20260823000006     (o 4o ramo do MOTOR + o bloco que ABORTA o apply)
+--   3o  20260823000008     (o 3o ramo do PLANO — Blocker B-02)
+--   4o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--   5o  20260823000009     (o CHECK de dominio em purga_execucoes.modo_vigente)
+--
+-- ⚠ POR QUE `008` VEM ANTES DE `007`, e a razao e a cadeia de chamadas: `007`
+-- chama o MOTOR, e o motor chama `plano_exclusao_titular` no PASSO 0. Sem `008`
+-- aplicada, o guard ANTIGO daquela funcao (`20260805000005:201-253`, metade (a):
+-- chamador sem sessao -> 42501) recusa o cron — e TODO titular vira
+-- `desfecho_postgres = 'falha'` com `relato_dry_run` nulo. Pior: a mensagem de
+-- falha da assercao (b) aponta a hipotese no 1 para a `006`, ou seja o
+-- diagnostico sairia FALSO, que e o modo de falha que esta fase inteira cataloga.
+-- Aplicar `006` e `008` sem `007` e seguro: os ramos novos so autorizam quem
+-- estiver dentro de uma execucao de purga, e ate `007` existir ninguem esta.
 --
 -- A espec executavel e `supabase/tests/p46_purga_smoke.sql`, assercoes **(b)** —
 -- o laco termina em `P45DR` e zero coluna mutou — e **(o)** — o 4o ramo recusa
@@ -143,6 +164,9 @@ DECLARE
   --   aqui sobrevive ao rollback e e o unico artefato do dry-run.
   v_relato   text;
   v_ret      jsonb;
+  -- HI-03 · a reconciliacao de execucoes vencidas, medida para o WARNING
+  v_reconc      integer := 0;
+  v_reconc_exec integer := 0;
 BEGIN
   -- ═══════════════════════════════════════════════════════════════════════════
   -- (a) LER O CERCO, SOB BLOQUEIO DE LINHA
@@ -168,6 +192,62 @@ BEGIN
     VALUES ('ausente', 0, 0, 0, 'desligado', 'abortada', pg_catalog.now());
     RAISE WARNING 'varrer_purga_retencao: public.config_purga esta VAZIA — execucao abortada sem tocar em nada. Reaplicar o seed de 20260823000001.';
     RETURN;
+  END IF;
+
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- (a.2) 46-04 · RECONCILIACAO — FECHAR EXECUCOES VENCIDAS ANTES DE QUALQUER
+  --       OUTRA COISA (HI-03 do `46-REVIEW.md`)
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- ⚠⚠ E A OUTRA METADE DO CONSERTO CUJA PRIMEIRA METADE ESTA NO GUARD. O 4o ramo
+  -- de `20260823000006` exige `e.iniciada_em > now() - interval '1 hour'`, entao a
+  -- AUTORIZACAO ja expira sozinha. Mas expirar a autorizacao nao fecha o item — e
+  -- e o ITEM ABERTO que o claim anti-sobreposicao de (b) enxerga. Sem esta secao,
+  -- um titular cuja Edge Function morreu (deploy, timeout, `at-most-once` do
+  -- `pg_net`) ficaria com item aberto para sempre e **sumiria de todas as
+  -- varreduras seguintes, sem ninguem ser avisado** — um registro que deveria ser
+  -- purgado e nunca mais e, que e o modo de falha silencioso que PURGA-07 nomeia.
+  --
+  -- ⚠ A JANELA E A MESMA DO GUARD, E ISSO E OBRIGACAO: se as duas divergissem,
+  -- existiria um intervalo em que o item ainda autoriza a destruicao e a varredura
+  -- ja o considera orfao, ou o contrario. Uma constante em dois lugares e como as
+  -- duas se separam; ate haver um so lugar para escreve-la, o par tem de ser
+  -- alterado junto, e esta frase existe para que a proxima pessoa saiba disso.
+  --
+  -- ⚠ `situacao = 'abortada'` e NAO `'concluida'`: aquela execucao nao chegou ao
+  -- fim, e dizer que chegou seria a mesma mentira que carimbar `desfecho = ok` sem
+  -- ter tentado. O vocabulario ja existe no CHECK de `20260823000002:151-152`.
+  UPDATE public.purga_execucao_itens i
+     SET desfecho_postgres = 'falha',
+         concluido_em      = pg_catalog.now(),
+         relato_dry_run    = coalesce(i.relato_dry_run, '')
+           || '[RECONCILIADO] item ABERTO em execucao que nao terminou dentro da janela de 1 hora. '
+           || 'A autorizacao do 4o ramo do guard ja havia EXPIRADO; este fechamento devolve o titular '
+           || 'as varreduras seguintes, porque um item aberto para sempre o excluiria para sempre.'
+   WHERE i.concluido_em IS NULL
+     AND EXISTS (
+           SELECT 1
+             FROM public.purga_execucoes e
+            WHERE e.id = i.execucao_id
+              AND e.situacao    = 'executando'
+              AND e.iniciada_em <= pg_catalog.now() - interval '1 hour'
+         );
+
+  GET DIAGNOSTICS v_reconc = ROW_COUNT;
+
+  UPDATE public.purga_execucoes e
+     SET situacao     = 'abortada',
+         concluida_em = pg_catalog.now()
+   WHERE e.situacao    = 'executando'
+     AND e.iniciada_em <= pg_catalog.now() - interval '1 hour';
+
+  GET DIAGNOSTICS v_reconc_exec = ROW_COUNT;
+
+  IF v_reconc > 0 OR v_reconc_exec > 0 THEN
+    -- ⚠ `WARNING` E O PISO, NAO O TETO: os itens reconciliados ficam gravados com
+    -- `desfecho_postgres = 'falha'` e o relato dizendo o que houve, porque uma
+    -- falha reportada so por WARNING e uma falha que ninguem ve (a divergencia 1
+    -- que este arquivo herdou do 46-02).
+    RAISE WARNING 'varrer_purga_retencao: RECONCILIACAO fechou % item(ns) orfao(s) em % execucao(oes) vencida(s) (mais de 1 hora em executando). Investigar a Edge Function purgar-retencao: item aberto para sempre e autorizacao destrutiva permanente pelo guard, e titular excluido para sempre das varreduras pelo claim anti-sobreposicao.', v_reconc, v_reconc_exec;
   END IF;
 
   -- ═══════════════════════════════════════════════════════════════════════════
@@ -412,7 +492,10 @@ BEGIN
   -- processado, e o número tem de dizer isso. Um `processados` maior que zero com
   -- `modo_vigente` diferente de `live` é a assinatura de que o escopo duplo de
   -- D-46-24 foi violado — deixá-lo em zero aqui é o que torna essa assinatura
-  -- legível quando o 46-04 chegar.
+  -- legível quando o **46-06** chegar. (LO-01 do `46-REVIEW.md`: esta seta
+  -- apontava para o 46-04, que é o plano que escreveu ESTE arquivo — num arquivo
+  -- cujo valor está na prosa, uma referência ao plano que já terminou manda a
+  -- próxima pessoa para o lugar errado.)
   UPDATE public.purga_execucoes e
      SET processados  = 0,
          veredito     = 'dry_run',

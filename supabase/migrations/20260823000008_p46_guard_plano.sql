@@ -173,17 +173,28 @@
 -- -----------------------------------------------------------------------------
 -- (4) ORDEM DE ENTREGA + QUAL SMOKE E O CONTRATO
 -- -----------------------------------------------------------------------------
--- ORDEM OBRIGATORIA:
---   1o  20260823000006  (o 4o ramo do motor + o bloco que ABORTA o apply)
---   2o  20260823000007  (o laco de dry-run passa a chamar o motor)
---   3o  20260823000008  (ESTA — o 3o ramo do plano)
+-- ⚠⚠ ORDEM DE APPLY OBRIGATORIA, E ELA E **`006 -> 008 -> 007`** (HI-01 do
+-- `46-REVIEW.md`; a ordem declarada antes estava ERRADA):
+--   1o  20260823000001..5  (config, ledger, predicado, varredura, hold+excecoes)
+--   2o  20260823000006     (o 4o ramo do MOTOR + o bloco que ABORTA o apply)
+--   3o  20260823000008     (o 3o ramo do PLANO — Blocker B-02)
+--   4o  20260823000007     (o laco de dry-run passa a CHAMAR o motor)
+--   5o  20260823000009     (o CHECK de dominio em purga_execucoes.modo_vigente)
+--
+-- ⚠ POR QUE `008` VEM ANTES DE `007`, e a razao e a cadeia de chamadas: `007`
+-- chama o MOTOR, e o motor chama `plano_exclusao_titular` no PASSO 0. Sem `008`
+-- aplicada, o guard ANTIGO daquela funcao (`20260805000005:201-253`, metade (a):
+-- chamador sem sessao -> 42501) recusa o cron — e TODO titular vira
+-- `desfecho_postgres = 'falha'` com `relato_dry_run` nulo. Pior: a mensagem de
+-- falha da assercao (b) aponta a hipotese no 1 para a `006`, ou seja o
+-- diagnostico sairia FALSO, que e o modo de falha que esta fase inteira cataloga.
+-- Aplicar `006` e `008` sem `007` e seguro: os ramos novos so autorizam quem
+-- estiver dentro de uma execucao de purga, e ate `007` existir ninguem esta.
 --
 -- ⚠ ESTA MIGRATION DEPENDE do bloco de auto-verificacao da `20260823000006`, que
--- pergunta ao catalogo se `authenticated` pode escrever em `purga_execucoes`,
+-- pergunta ao catalogo se um papel de CLIENTE pode escrever em `purga_execucoes`,
 -- `purga_execucao_itens`, `config_purga` e `retencao_hold`, e ABORTA o apply se
--- puder. O ramo escrito AQUI se apoia nas mesmas tres primeiras leituras: se aquele
--- bloco nao tiver rodado, esta migration esta apoiada num pressuposto nao aferido.
--- Aplicar fora de ordem e a unica forma de isso acontecer.
+-- puder. O ramo escrito AQUI se apoia nas mesmas tres primeiras leituras.
 --
 -- ⚠ ESTA MIGRATION MUDA O `md5(prosrc)` DE `plano_exclusao_titular`. O pin
 -- `97634d07ef13447e06741a8c8372fca6` de `p45_motor_exclusao_smoke.sql` (assercao
@@ -330,7 +341,17 @@ BEGIN
   --   selecionada, o `EXISTS` e FALSE e a funcao RECUSA. `EXISTS` correlacionado,
   --   jamais negacao por pertencimento a conjunto de valores — aquela forma avalia
   --   NULL e falha ABERTO (INVENT-05 / `20260730000005`).
-  SELECT EXISTS (
+  -- ⚠⚠ `v_uid IS NULL` E A PRIMEIRA CONJUNCAO — CONSERTO DO BL-02. Sem ela o ramo
+  --   era propriedade apenas do alvo e do cerco, e nao mencionava o chamador:
+  --   qualquer usuario logado que alcancasse a funcao pelo `GRANT` a
+  --   `authenticated` leria as contagens de PII de um titular so por ele estar
+  --   sendo processado pela purga. O ramo existe para autorizar O CRON, e o cron
+  --   se caracteriza por nao ter sessao.
+  -- ⚠⚠ `e.iniciada_em > now() - interval '1 hour'` — CONSERTO DO HI-03: a
+  --   autorizacao EXPIRA. Uma Edge Function que morre deixaria item aberto e
+  --   execucao `executando` indefinidamente, e sem este limite a leitura ficaria
+  --   autorizada para sempre.
+  SELECT (v_uid IS NULL) AND EXISTS (
     SELECT 1
       FROM public.purga_execucao_itens i
       JOIN public.purga_execucoes e ON e.id = i.execucao_id
@@ -338,6 +359,7 @@ BEGIN
      WHERE i.candidato_id  = p_candidato_id
        AND i.concluido_em IS NULL
        AND e.situacao      = 'executando'
+       AND e.iniciada_em   > pg_catalog.now() - interval '1 hour'
        AND (e.modo_vigente = 'dry_run' OR e.modo_vigente = 'live')
        AND (cp.modo        = 'dry_run' OR cp.modo        = 'live')
   ) INTO v_por_purga;
@@ -628,9 +650,28 @@ $plano_exclusao_titular$;
 -- Esta função devolve CONTAGENS de PII por pessoa. Uma tela capaz de enumerá-las é
 -- superfície de exfiltração construída sem necessidade — então a proibição vive
 -- AQUI, no ACL, e não na camada de apresentação.
+--
+-- ⚠⚠ BL-01 do `46-REVIEW.md`. A versao anterior desta secao dizia que o ACL era
+-- "reemitido identico ao vivo". **Nao era**: o ACL vivo NAO e o do arquivo
+-- `20260805000005`, porque a `20260805000009:174-175` (plano 45-12 / `DI-45-10-01`)
+-- o emendou em 2026-08-05 acrescentando `authenticated`. Num apply incremental
+-- contra o banco vivo, o `REVOKE` abaixo roda DEPOIS daquela migration e, sem o
+-- `GRANT` da ultima linha, remove o grant de que o caminho do titular depende — a
+-- EF `executar-direito-titular` chama esta funcao com o `Authorization` do
+-- titular e o PostgREST deriva o PAPEL do MESMO JWT, entao a chamada chega como
+-- `authenticated`. O motor pararia no PASSO 0 com 42501.
+--
+-- A LINHA DE BASE REAL, recomposta por inteiro, com a proveniencia de cada grantee:
+--   · `anon` e `PUBLIC` — REVOGADOS (a metade que morde; ver acima).
+--   · `service_role`    — `20260805000005:477`.
+--   · `authenticated`   — **`20260805000009:174-175`**, e o portao (C1) do
+--     `p45_motor_exclusao_smoke.sql` EXIGE este grant.
+-- ⚠ Alcancar a funcao como `authenticated` nao da acesso ao caminho da purga:
+-- desde o BL-02 o 3o ramo so vale para chamador SEM sessao.
 REVOKE ALL ON FUNCTION public.plano_exclusao_titular(uuid)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.plano_exclusao_titular(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.plano_exclusao_titular(uuid) TO authenticated;
 
 
 COMMENT ON FUNCTION public.plano_exclusao_titular(uuid) IS
