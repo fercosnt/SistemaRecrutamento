@@ -165,7 +165,30 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER ON public.config_purga
 DO $verifica_privilegio_config_purga$
 DECLARE
   v_papeis     text[] := ARRAY['anon', 'authenticated', 'service_role'];
-  v_verbos     text[] := ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'];
+  -- ⚠⚠ HI-R3-05 · ESTA LISTA E A LISTA DO `REVOKE` DE `:123-124`, VERBO POR
+  --   VERBO, E AS DUAS TEM DE MUDAR JUNTAS. Ela nasceu com QUATRO verbos e o
+  --   `REVOKE` com CINCO: `TRIGGER` era revogado e nao era conferido por nada,
+  --   enquanto o `COMMENT ON TABLE` desta mesma migration afirmava, como fato,
+  --   que ele estava revogado. Se `TRIGGER` voltasse, as duas familias seguiriam
+  --   VERDES e o catalogo continuaria afirmando o contrario — a forma "iteracao
+  --   sobre lista literal" do `CLAUDE.md`, cometida dentro do bloco que se
+  --   apresentava como o antidoto dela.
+  v_verbos     text[] := ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'TRIGGER'];
+  -- ⚠⚠ E ESTA E A LISTA QUE TORNA A FAMILIA (i.a) DE FATO EXAUSTIVA: os verbos
+  --   que PODEM sobreviver ao `REVOKE` porque nao alteram CONTEUDO. A pergunta
+  --   de (i.a) passa a ser feita por ALLOWLIST — "que verbo esta aqui e nao e um
+  --   destes?" — e nao por lista de verbos proibidos. A diferenca e a direcao em
+  --   que a lista envelhece: uma lista de PROIBIDOS deixa passar o verbo que
+  --   ainda nao existia quando ela foi escrita (foi assim que `TRIGGER` escapou,
+  --   e `MAINTAIN` nasceu no PG17 sem que ninguem a revisasse); uma lista de
+  --   TOLERADOS deixa o desconhecido de FORA, que e a direcao segura num portao
+  --   que responde por "nao existe caminho de escrita alem de
+  --   salvar_config_purga". Medido em PROD em 2026-08-23: os tres papeis carregam
+  --   SELECT, REFERENCES e MAINTAIN alem dos cinco verbos revogados, e nenhum
+  --   dos tres altera conteudo — SELECT e deliberadamente MANTIDO (a policy de
+  --   leitura admin-only precisa dele), REFERENCES so permite apontar FK para
+  --   esta tabela, e MAINTAIN so permite VACUUM/ANALYZE/REINDEX/CLUSTER.
+  v_verbos_ok  text[] := ARRAY['SELECT', 'REFERENCES', 'MAINTAIN'];
   v_papel      text;
   v_verbo      text;
   v_achados    text := '';
@@ -183,9 +206,19 @@ BEGIN
   -- (um papel de aplicacao novo nao seria visto).
   --
   -- Esta primeira familia nao tem esse buraco: ela pergunta a ACL DA TABELA
-  -- quem, alem do DONO, carrega qualquer verbo de escrita — sem lista de papeis,
-  -- sem lista de verbos conhecidos por nome, e alcancando `PUBLIC` (grantee 0).
-  -- Um papel que nascer amanha com `UPDATE` nesta tabela cai aqui.
+  -- quem, alem do DONO, carrega qualquer verbo que NAO esteja na allowlist de
+  -- verbos tolerados — sem lista de papeis, sem lista de verbos PROIBIDOS, e
+  -- alcancando `PUBLIC` (grantee 0). Um papel que nascer amanha com `UPDATE`
+  -- nesta tabela cai aqui, e um VERBO que nascer amanha tambem.
+  --
+  -- ⚠⚠ HI-R3-05 · ERA AQUI QUE ELA MENTIA. Ate este conserto o comentario dizia
+  --   "sem lista de papeis, sem lista de verbos conhecidos por nome" e a linha
+  --   tres abaixo era `a.privilege_type IN ('INSERT','UPDATE','DELETE',
+  --   'TRUNCATE')` — uma lista literal de verbos, que OMITIA justamente o
+  --   `TRIGGER` que o `REVOKE` de `:123` executa e que o cabecalho de `:81-86`
+  --   justifica por extenso como "a segunda porta da mesma classe". A pergunta
+  --   passou a ser por ALLOWLIST (`v_verbos_ok`): a lista que sobra e a dos
+  --   verbos que PODEM ficar, e nao a dos que devem sair.
   --
   -- ⚠ E ela NAO ALARGA DEMAIS, que e o outro modo de falha: o escopo e a ACL de
   --   UMA tabela, e o dono e excluido por COMPARACAO COM `relowner` — nao por
@@ -201,12 +234,12 @@ BEGIN
         FROM pg_catalog.pg_class c,
              LATERAL pg_catalog.aclexplode(c.relacl) a
        WHERE c.oid = pg_catalog.to_regclass('public.config_purga')
-         AND a.privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+         AND a.privilege_type <> ALL (v_verbos_ok)
          AND (a.grantee = 0 OR a.grantee <> c.relowner)
     ) t;
 
   IF v_acl_livre <> '' THEN
-    RAISE EXCEPTION 'P46-CFG: a ACL de public.config_purga concede verbo de ESCRITA a alguem que NAO e o dono da tabela [%]. Esta pergunta e EXAUSTIVA — ela le a ACL e nao uma lista de papeis conhecidos —, entao ela alcanca tambem o papel que nasceu depois desta migration. T-46-07-01 afirma que nenhum caminho de deploy altera o modo, e isso so e verdade enquanto salvar_config_purga (SECURITY DEFINER, owner postgres) for o unico caminho de escrita. Quem tiver o privilegio acima escreve o modo SEM deixar trilha e SEM poder RECUSAR',
+    RAISE EXCEPTION 'P46-CFG: a ACL de public.config_purga concede a alguem que NAO e o dono da tabela um verbo que nao esta na allowlist de tolerados (SELECT, REFERENCES, MAINTAIN — os que nao alteram CONTEUDO) [%]. Esta pergunta e EXAUSTIVA nos DOIS eixos: ela le a ACL e nao uma lista de papeis conhecidos, e ela reprova por ALLOWLIST de verbos e nao por lista de verbos proibidos — entao alcanca tanto o papel quanto o VERBO que nascerem depois desta migration. Foi por lista de proibidos que TRIGGER escapou desta familia (HI-R3-05): o REVOKE o executava, o COMMENT afirmava que ele estava revogado, e nada media. T-46-07-01 afirma que nenhum caminho de deploy altera o modo, e isso so e verdade enquanto salvar_config_purga (SECURITY DEFINER, owner postgres) for o unico caminho de escrita. Quem tiver o privilegio acima escreve o modo SEM deixar trilha e SEM poder RECUSAR',
       v_acl_livre;
   END IF;
 
@@ -218,9 +251,15 @@ BEGIN
   --   linha e que `DELETE` seguido de `INSERT` e um `UPDATE` com passos extras.
   --   ⚠ As duas listas sao ESCOPO DELIBERADO e nao fotografia: elas nao enumeram
   --   "os papeis que existem", enumeram **os papeis que o PostgREST expoe** e
-  --   **os verbos que alteram conteudo**. Um papel de aplicacao novo teria de ser
-  --   acrescentado aqui — e ate la ele nao seria vigiado, que e a razao de a
-  --   familia (ii)+(iii) continuar no arquivo: elas nao dependem desta lista.
+  --   **os verbos que o `REVOKE` de `:123-124` executa** — `v_verbos` e a lista
+  --   daquele `REVOKE`, verbo por verbo, e as duas mudam juntas. Um papel de
+  --   aplicacao novo teria de ser acrescentado aqui — e ate la ele nao seria
+  --   vigiado, que e a razao de a familia (i.a) existir: ela nao depende desta
+  --   lista nem no eixo dos papeis nem no eixo dos verbos.
+  --   ⚠ HI-R3-05 · `TRIGGER` faltava aqui e no `IN (…)` de (i.a), enquanto o
+  --   `REVOKE` o executava e o `COMMENT ON TABLE` afirmava que ele estava
+  --   revogado. Um `REVOKE` que nenhuma familia confere e uma linha de SQL com
+  --   um `COMMENT` de garantia em cima.
   FOREACH v_papel IN ARRAY v_papeis LOOP
     IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname = v_papel) THEN
       FOREACH v_verbo IN ARRAY v_verbos LOOP
@@ -236,7 +275,7 @@ BEGIN
     SELECT coalesce(c.relacl::text, '<default, sem ACL explicita>') INTO v_acl
       FROM pg_catalog.pg_class c WHERE c.oid = pg_catalog.to_regclass('public.config_purga');
 
-    RAISE EXCEPTION 'P46-CFG: algum papel de aplicacao AINDA tem privilegio de TABELA de escrita em public.config_purga [%]. ACL medida: %. ⚠ RLS NAO ALCANCA service_role, que carrega BYPASSRLS no Supabase: para esse papel, "RLS ligada e zero policy de escrita" nao bloqueia coisa alguma, e so o privilegio de tabela bloquearia. Enquanto isto valer, T-46-07-01 ("nenhum caminho de deploy altera o modo") e uma afirmacao mais forte que a verificacao que a sustenta, e salvar_config_purga NAO e o unico caminho de escrita — ha um que nao deixa trilha e nao pode RECUSAR, as duas coisas que PURGA-04 exige na mesma respiracao',
+    RAISE EXCEPTION 'P46-CFG: algum papel de aplicacao AINDA tem, em public.config_purga, um dos verbos que o REVOKE desta migration executa — INSERT, UPDATE, DELETE, TRUNCATE ou TRIGGER [%]. ACL medida: %. ⚠ RLS NAO ALCANCA service_role, que carrega BYPASSRLS no Supabase: para esse papel, "RLS ligada e zero policy de escrita" nao bloqueia coisa alguma, e so o privilegio de tabela bloquearia. Enquanto isto valer, T-46-07-01 ("nenhum caminho de deploy altera o modo") e uma afirmacao mais forte que a verificacao que a sustenta, e salvar_config_purga NAO e o unico caminho de escrita — ha um que nao deixa trilha e nao pode RECUSAR, as duas coisas que PURGA-04 exige na mesma respiracao',
       v_achados, v_acl;
   END IF;
 
@@ -263,7 +302,7 @@ BEGIN
       v_escrita_n, v_escrita;
   END IF;
 
-  RAISE NOTICE 'P46-CFG: config_purga conferida do lado CERTO da porta — zero privilegio de tabela de escrita para anon, authenticated e service_role; RLS ligada; zero policy de escrita. salvar_config_purga (SECURITY DEFINER, owner postgres) segue sendo o unico caminho de escrita de aplicacao';
+  RAISE NOTICE 'P46-CFG: config_purga conferida do lado CERTO da porta — nenhum grantee que nao seja o dono carrega verbo fora da allowlist de tolerados (SELECT, REFERENCES, MAINTAIN), o que inclui INSERT, UPDATE, DELETE, TRUNCATE e TRIGGER zerados para anon, authenticated e service_role; RLS ligada; zero policy de escrita. salvar_config_purga (SECURITY DEFINER, owner postgres) segue sendo o unico caminho de escrita de aplicacao';
 END $verifica_privilegio_config_purga$;
 
 
@@ -294,8 +333,16 @@ COMMENT ON TABLE public.config_purga IS
   '⚠⚠ ESCRITA FECHADA EM TRES CAMADAS DESDE A 20260823000015 (HI-04 do 46-REVIEW-2), e as tres sao '
   'necessarias porque cada uma deixa passar o que a outra pega: '
   '(1) PRIVILEGIO DE TABELA — INSERT, UPDATE, DELETE, TRUNCATE e TRIGGER revogados nominalmente de '
-  'PUBLIC, anon, authenticated e service_role. Esta e a UNICA camada que alcanca service_role, que '
-  'carrega BYPASSRLS no Supabase e para quem RLS e policies nao bloqueiam nada; '
+  'PUBLIC, anon, authenticated e service_role, e os CINCO conferidos por medicao no mesmo apply. '
+  'Esta e a UNICA camada que alcanca service_role, que carrega BYPASSRLS no Supabase e para quem RLS '
+  'e policies nao bloqueiam nada. '
+  '⚠ O QUE SOBREVIVE AO REVOKE, dito aqui para que o catalogo nao prometa mais do que executa: os '
+  'tres papeis mantem SELECT (deliberado — authenticated precisa dele para a policy de leitura '
+  'admin-only), REFERENCES (so permite apontar FK para esta tabela) e MAINTAIN (PG17; so permite '
+  'VACUUM/ANALYZE/REINDEX/CLUSTER). Nenhum dos tres altera CONTEUDO, e sao exatamente eles a '
+  'allowlist contra a qual a familia (i.a) do apply reprova: ela cobra qualquer verbo FORA dessa '
+  'lista, e nao os quatro que alguem lembrou de escrever — foi por lista de proibidos que TRIGGER '
+  'ficou revogado sem ser conferido ate o HI-R3-05 do 46-REVIEW-3; '
   '(2) RLS LIGADA; '
   '(3) ZERO POLICY DE ESCRITA, aferida pela FORMA (cmd <> SELECT) e nao por lista de nomes. '
   '⚠ O UNICO caminho de escrita de aplicacao e public.salvar_config_purga(text,integer,integer,'
