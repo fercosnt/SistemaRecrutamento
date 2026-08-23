@@ -17,6 +17,30 @@ re_verification:
     - "HI-01 e HI-02 da 46-REVIEW-4 continuam abertos (conferidos por mim, nao lidos do review)"
     - "Fixture sintetica de PII residente em PROD sem decisao datada de destino"
   regressions: []
+overrides:
+  - item: "Criterio 2 do portao de fase destrutiva — review bloqueante ANTES do apply em PROD"
+    aplica_a: "os applies dos planos 46-05, 46-06 e 46-07 (commits aa96052, bd30684, 0f44e53, 5351bde), todos anteriores ao 13e5302, que e o review retroativo"
+    decisao: aceito
+    decidido_por: "Fernando (operador), que delegou explicitamente a decisao ao agente em 2026-08-23; registrado pelo agente na mesma sessao"
+    data: 2026-08-23
+    razao: >
+      Desvio CONSUMADO: nenhum trabalho futuro o desfaz, porque o que o criterio exige e
+      uma ORDEM entre dois eventos que ja aconteceram. Mantê-lo aberto indefinidamente
+      transformaria a fase num estado impossivel de fechar, sem tornar o sistema mais
+      seguro em nenhum grau.
+      Tres fatos sustentam a aceitacao, e nenhum deles e "o smoke passou" — o ROADMAP
+      antecipa e proibe esse argumento: (1) o review retroativo FOI feito e ACHOU o
+      defeito real (BL-01), entao o resultado de seguranca que o criterio existe para
+      produzir foi produzido, apenas tarde; (2) o BL-01 so seria consultado no flip de
+      2026-09-06, que ainda nao ocorreu — o desvio nao teve janela de dano; (3) para os
+      applies de HOJE (migrations 0014 e 0015) o criterio foi SATISFEITO, com o review
+      b7d4a18 precedendo o apply 7a9976d, o que demonstra a pratica corrigida e nao
+      apenas prometida.
+    o_que_esta_aceitacao_NAO_cobre: >
+      Nao cobre o flip para live, que continua exigindo os cinco criterios integralmente e
+      continua sendo checkpoint do operador. Nao cobre nenhum apply futuro desta fase. E
+      nao converte a fase em `passed`: o gap do agendador (0 de 14 noites) segue aberto e
+      e independente deste item.
 mudou_desde_a_verificacao_anterior: >
   Uma coisa so: o smoke rodou em PROD as 11:26:40-03 e ficou 27/27 — confirmado por mim
   no catalogo (pg_stat_statements nao registra statement que levanta excecao, e o bloco
