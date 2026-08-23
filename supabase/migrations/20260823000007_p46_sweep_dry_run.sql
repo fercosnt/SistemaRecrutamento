@@ -233,13 +233,19 @@ BEGIN
   --   de (b), ele so voltaria na passada seguinte, e o proprio `elegiveis` gravado
   --   no ledger descreveria um conjunto que a funcao ja sabia estar desatualizado.
   IF v_modo <> 'off' THEN
-      -- Na rodada 1 ela estava em (a.2), antes do cap e antes do `off` — e com o cerco
+    -- Na rodada 1 ela estava em (a.2), antes do cap e antes do `off` — e com o cerco
     -- desligado a varredura executava dois `UPDATE` no ledger antes de gravar o
     -- heartbeat. O cenario que isso quebra e concreto: um operador aciona o kill
     -- switch EXATAMENTE para congelar uma execucao `live` que travou e investiga-la,
     -- e a varredura seguinte a abortava, fechava os itens e devolvia os titulares —
     -- apagando o cenario que ele queria olhar. **`off` significa "esta execucao so
-    -- escreve o heartbeat"**, e o ramo `off` acima retorna ANTES daqui.
+    -- escreve o heartbeat"**.
+    -- ⚠ E O KILL SWITCH E RESPEITADO PELO `IF` ACIMA, NAO POR POSICAO. A frase
+    -- anterior aqui dizia «o ramo `off` acima retorna ANTES daqui» — verdadeira
+    -- enquanto o bloco vinha depois de (f), e FALSA desde que RD3-02 o devolveu
+    -- para antes de (b). O ramo `off` de (f) esta LOGO ABAIXO deste bloco. Deixar
+    -- a frase seria a forma exata que BL-01 e RD3-01 nomeiam: comentario que
+    -- contradiz o codigo ao lado, e que o proximo leitor acredita.
     --
     -- ⚠ E A OUTRA METADE DO CONSERTO CUJA PRIMEIRA METADE ESTA NO GUARD. O 4o ramo
     -- de `20260823000006` exige `e.iniciada_em > now() - interval '1 hour'`, entao a
@@ -332,7 +338,7 @@ BEGIN
       -- relato dizendo exatamente o que foi preservado, o que foi inferido e o que
       -- ficou desconhecido. Uma falha reportada so por WARNING e uma falha que
       -- ninguem ve (a divergencia 1 que este arquivo herdou do 46-02).
-      RAISE WARNING 'varrer_purga_retencao: RECONCILIACAO fechou % item(ns) orfao(s) em % execucao(oes) vencida(s) (mais de 1 hora em executando). Desfechos ja carimbados foram PRESERVADOS; o de Postgres foi INFERIDO da sentinela; Storage e Auth ficaram desconhecido. Investigar a Edge Function purgar-retencao: item aberto para sempre e autorizacao destrutiva permanente pelo guard, e titular excluido para sempre das varreduras pelo claim anti-sobreposicao.', v_reconc, v_reconc_exec;
+      RAISE WARNING 'varrer_purga_retencao: RECONCILIACAO fechou % item(ns) orfao(s) em % execucao(oes) vencida(s) (mais de 1 hora em executando). Desfechos ja carimbados foram PRESERVADOS; o de Postgres foi INFERIDO da sentinela; Storage e Auth ficaram desconhecido. ⚠ E OS DOIS desconhecido NAO TEM O MESMO PESO (RD3-07): para o Auth e DEFINITIVO, porque auth.users vive fora do alcance desta consulta. Para o Storage e uma ESCOLHA desta varredura, e ela so e a unica resposta possivel em METADE dos casos — quando o Postgres ficou em ok o tombstone ja anulou candidaturas.curriculo_url e o caminho do objeto se perdeu; quando ficou em falha a linha esta viva, curriculo_url CONTINUA la, e storage.objects e uma tabela deste mesmo banco: aquele objeto E determinavel, e cabe a Edge Function purgar-retencao reconcilia-lo, nao a esta varredura. Investigar a Edge Function purgar-retencao: item aberto para sempre e autorizacao destrutiva permanente pelo guard, e titular excluido para sempre das varreduras pelo claim anti-sobreposicao.', v_reconc, v_reconc_exec;
     END IF;
   END IF;
 
@@ -615,6 +621,20 @@ COMMENT ON FUNCTION public.varrer_purga_retencao() IS
   '(a) le public.config_purga sob FOR UPDATE — serializa contra um flip concorrente de modo; ler a '
   'config numa transacao e despachar noutra E a corrida. Config ausente e FAIL-CLOSED: grava '
   'cabecalho com modo_vigente = ausente / situacao = abortada e retorna. '
+  '(a.3) RECONCILIACAO DE EXECUCOES VENCIDAS (HI-03 / RD2-01 / RD2-05 / RD3-02): fecha os itens '
+  'ABERTOS de execucoes em executando ha mais de 1 hora — a MESMA janela que o 4o ramo do guard de '
+  '20260823000006 usa para expirar a autorizacao, e (C3/janela) do p45_motor_exclusao_smoke.sql '
+  'mede o LITERAL nos tres corpos. Expirar a autorizacao nao fecha o item, e e o ITEM ABERTO que o '
+  'claim anti-sobreposicao de (b) enxerga: sem esta secao um titular cuja Edge Function morreu '
+  'sumiria de TODAS as varreduras seguintes, em silencio. '
+  '⚠ ELA E GUARDADA POR modo <> off, E NUNCA POR POSICAO — e por isso vem ANTES de (b) e nao '
+  'depois de (f). Guardar por posicao foi o defeito RD3-02: no caminho ela passou tambem para '
+  'depois do CAP, e sob cap_excedido — que dura ATE INTERVENCAO HUMANA — os orfaos ficavam abertos '
+  'e aqueles titulares saiam de toda varredura seguinte, reintroduzindo o modo de falha do '
+  'PURGA-07 pela peca que existe para impedi-lo. Vem antes de (b) porque um orfao fechado AQUI '
+  'devolve o titular ao conjunto elegivel na MESMA passada. '
+  '⚠ O que ela escreve NAO e categorico (RD2-01): desfecho ja carimbado e PRESERVADO, o de '
+  'Postgres e INFERIDO da sentinela de tombstone, e Storage/Auth ficam desconhecido. '
   '(b) materializa o conjunto UMA vez numa temporaria ON COMMIT DROP, a partir de '
   'public.titulares_alem_da_janela(), EXCLUINDO por NOT EXISTS todo candidato_id com item ABERTO '
   '(concluido_em nulo) de execucao anterior — o claim anti-sobreposicao do Pitfall 6: efeitos podem '
