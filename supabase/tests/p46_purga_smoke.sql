@@ -2725,6 +2725,45 @@ BEGIN
       coalesce(v_m_itens, -1), coalesce(v_m_eleg, -1), coalesce(v_m_abertos, -1), coalesce(v_m_falhas, -1), coalesce(v_m_sit, 'NULL');
   END IF;
 
+  -- ⚠⚠ E ESTA É A ÚNICA CONDIÇÃO DE (m) QUE MEDE O DISPATCH — HI-02 do
+  --   `46-REVIEW-2.md`, e a QUARTA forma do defeito que o `CLAUDE.md` cataloga:
+  --   **a asserção cujo objeto vigiado não produz efeito observável no caminho
+  --   de sucesso, de modo que apagar o objeto deixa o portão VERDE.**
+  --
+  --   As quatro condições logo acima são TODAS produzidas pelo laço `(g)` e pelo
+  --   fechamento `(h)`. O laço de dispatch `(g.5)` (`20260823000011:863-906`) só
+  --   escreve no ledger no caminho de FALHA — no caminho feliz ele não grava
+  --   nada. Logo: **apague o bloco `(g.5)` inteiro da migration e as quatro
+  --   continuam verdadeiras**, com ZERO post enfileirado e sem uma linha de
+  --   código de despacho. O `46-06-SUMMARY.md` afirmava o contrário com todas as
+  --   letras, e essa frase foi corrigida no mesmo commit desta condição.
+  --
+  -- ⚠ O NÚMERO QUE FECHA O BURACO JÁ ESTAVA CALCULADO E JOGADO FORA: `v_fila_m`
+  --   (`:2576-2577`) lia `net.http_request_queue` depois do run em `live`, com a
+  --   tolerância declarada corretamente montada — e era usado APENAS no
+  --   `RAISE NOTICE`. Nenhum `IF` o comparava com nada.
+  --
+  -- ⚠ A BASELINE É `v_fila_g`, CAPTURADA NA PRÓPRIA EXECUÇÃO — jamais uma
+  --   constante. É a forma que o `CLAUDE.md` manda usar, e aqui ela é também o
+  --   que torna a asserção válida em PROD: as linhas de `pg_net` são
+  --   `UNLOGGED` com TTL de ~6 h, e uma contagem absoluta seria a fotografia que
+  --   envelhece. Medir `depois − antes` mede o que ESTA execução enfileirou.
+  --
+  -- ⚠ AS DUAS MEDIÇÕES VIVEM DENTRO DO ENVELOPE, e é isso que torna a igualdade
+  --   EXATA legítima: `net.http_post` insere na fila dentro da transação, e o
+  --   worker do `pg_net` só enxerga a linha depois do COMMIT — que aqui nunca
+  --   acontece. Nada é consumido entre as duas leituras por causa deste run.
+  --
+  -- ⚠ O ÚNICO MODO CONHECIDO DE ESTA CONDIÇÃO ACUSAR ERRADO está escrito na
+  --   própria mensagem: o worker do `pg_net` apagando, entre as duas leituras,
+  --   linhas COMMITADAS por um run anterior. Hoje isso é vacuidade (PROD nunca
+  --   despachou: está em `dry_run` desde T0), e dizer isso na mensagem é o que
+  --   impede o diagnóstico FALSO que esta fase já pagou três vezes.
+  IF v_fila_ok AND v_fila_m IS DISTINCT FROM v_fila_g + v_m_eleg THEN
+    RAISE EXCEPTION 'P46P FAIL (m): ⊕ O DISPATCH NAO ENFILEIROU. A fila do pg_net para /functions/v1/purgar-retencao tinha % linha(s) antes do run em live e % depois (esperado % = a baseline mais uma por titular elegivel). ⚠ AS QUATRO CONDICOES DE LEDGER ACIMA SAO TODAS PRODUZIDAS PELO LACO (g) E PELO FECHAMENTO (h): elas continuariam VERDADEIRAS com o bloco (g.5) APAGADO da migration, porque no caminho feliz o despacho nao escreve nada no ledger. ESTA e a unica condicao que prova que o hop existe. ⚠ Antes de procurar defeito no despacho, descartar o unico modo conhecido de esta mensagem estar errada: o worker do pg_net apagando, entre as duas leituras, linhas COMMITADAS por um run anterior (as tabelas sao UNLOGGED com TTL de ~6 h). Os posts DESTE run nao podem ter sumido — eles vivem na transacao deste envelope, que nunca commita, e o worker nao os enxerga',
+      coalesce(v_fila_g, -1), coalesce(v_fila_m, -1), coalesce(v_fila_g, -1) + coalesce(v_m_eleg, 0);
+  END IF;
+
   IF v_m_proc IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'P46P FAIL (m): no fim da varredura em live, processados vale % (esperado 0). No instante do despacho NENHUM titular teve o motor destrutivo executado — o COMMENT da coluna diz exatamente isso —, e quem a incrementa e concluir_item_purga, uma vez por item cujo motor rodou. Somar os posts aqui daria contagem DUPLA, terminando em 2N',
       v_m_proc;
@@ -2739,7 +2778,7 @@ BEGIN
   RAISE NOTICE 'P46P PASS (m): RETEN-05 apagou a notificacao retrodatada (% meses) e PRESERVOU a de dentro da janela; notificacoes_expurgadas = %; ⊖ contagens de dominio identicas [%], historico_candidatura % -> % e decisao_final % -> %; ⊕ o dispatch abriu % item(ns), nenhum com falha, execucao em [%] com veredito [%]. Fila do pg_net: %. Gatilhos: % desligados, % religados',
     coalesce(v_m_janela, 0) + 2, v_m_exp, v_m_dom_z, v_m_hist_a, v_m_hist_z, v_m_dec_a, v_m_dec_z,
     v_m_abertos, v_m_sit, v_m_ver,
-    CASE WHEN v_fila_ok THEN format('%s linha(s) para a Edge Function depois do run em live (era %s)', v_fila_m, v_fila_g) ELSE v_fila_nota END,
+    CASE WHEN v_fila_ok THEN format('AFERIDA — %s linha(s) para a Edge Function depois do run em live, era %s, delta %s = um post por titular elegivel', v_fila_m, v_fila_g, v_fila_m - v_fila_g) ELSE v_fila_nota || ' — ⚠ a metade ⊕ do dispatch ficou SEM a unica condicao que a mede (HI-02): as quatro de ledger passariam com o bloco (g.5) apagado' END,
     v_t_off, v_t_back;
 
   RAISE NOTICE 'P46P TEARDOWN ok (a/g/m/n): envelope revertido — config_purga volta a modo [%] e cap [%], e as duas notificacoes sinteticas NAO existem', coalesce(v_modo0, 'NULL'), coalesce(v_cap0, -1);

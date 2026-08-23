@@ -260,10 +260,33 @@ não-discriminação (Art. 7º, VI) nunca é tocada.
 ⚠ **A prova ⊕ do dispatch é DURÁVEL, e essa escolha é deliberada.** As tabelas do `pg_net` são
 `UNLOGGED` com TTL de ~6 h — uma asserção sobre elas é perecível. O que `(m)` afere é o **ledger**:
 todos os itens ABERTOS, zero com `desfecho_postgres = 'falha'`, execução em `executando` e
-`veredito = 'despachado'`. Isso só é possível se o laço de despacho percorreu todos e nenhum
-enfileiramento levantou — porque um post que falhasse **fecharia aquele item com `falha`**. A leitura
+`veredito = 'despachado'`. ~~Isso só é possível se o laço de despacho percorreu todos e nenhum
+enfileiramento levantou — porque um post que falhasse **fecharia aquele item com `falha`**.~~ A leitura
 da fila do `pg_net` continua no arquivo, com **tolerância declarada**: quando não puder ser medida, o
 `NOTICE` diz isso, em vez de fingir ter olhado.
+
+> ⚠⚠ **CORREÇÃO (2026-08-23, HI-02 do `46-REVIEW-2.md`) — a frase riscada acima é FALSA, e é a
+> forma exata que o `CLAUDE.md` §"varra pela FORMA" cataloga, numa quarta variante:** a asserção
+> cujo objeto vigiado **não produz efeito observável no caminho de sucesso**, de modo que apagar o
+> objeto deixa o portão verde.
+>
+> As quatro condições que `(m)` afere — `itens = elegiveis`, `abertos = itens`, `falhas = 0`,
+> `situacao = 'executando'` — são **todas produzidas pelo laço `(g)` e pelo fechamento `(h)`**. O
+> laço de dispatch `(g.5)` só escreve no ledger no caminho de **falha**; no caminho feliz ele não
+> grava nada. Portanto: **apague o bloco `(g.5)` inteiro da migration e as quatro continuam
+> verdadeiras** — a asserção passa verde com ZERO post enfileirado e sem uma linha de código de
+> despacho. O que a inferência acima confunde é *"nenhum post falhou"* com *"algum post existiu"*:
+> a vacuidade satisfaz a primeira.
+>
+> Agravante registrado no review: **o valor que fechava o buraco já estava calculado.** `v_fila_m`
+> lia `net.http_request_queue` depois do run em `live`, com a tolerância corretamente montada — e
+> era usado **apenas no `RAISE NOTICE`**. Nenhum `IF` o comparava com nada.
+>
+> Consertado no commit de HI-02: `(m)` ganhou uma quinta condição,
+> `v_fila_m = v_fila_g + v_m_eleg` — baseline capturada na própria execução, jamais constante —, e
+> ela é a **única** de `(m)` que prova que o hop do `pg_net` existe. A igualdade pode ser EXATA
+> porque `net.http_post` insere dentro da transação e o worker só enxerga a linha depois do
+> `COMMIT`, que neste envelope nunca acontece.
 
 ## Varredura por FORMA — feita, e o ponto cego do próprio padrão continua aberto
 
