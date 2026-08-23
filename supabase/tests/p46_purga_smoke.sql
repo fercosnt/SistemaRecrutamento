@@ -2496,13 +2496,20 @@ BEGIN
       --   este envelope commitasse, nenhuma dessas duas linhas geraria despacho de
       --   e-mail. `pendente` — o default da coluna — geraria.
       INSERT INTO public.notificacoes_enviadas
+             -- ⚠ `destinatario_original` e NOT NULL e nao tem default (M7/DELIV): e o
+             --   endereco ANTES do redirecionamento do modo de teste, e e a segunda
+             --   coluna que o passo `scrub_ledger_email` do plano de exclusao limpa.
+             --   Omiti-la aqui derrubava a fixture inteira com 23502 — medido em PROD
+             --   em 2026-08-23, e invisivel a quem escreve o smoke sem banco a mao.
              (id, evento, candidatura_id, candidato_id, template, destinatario_email,
-              status, dedupe_key, criado_em)
+              destinatario_original, status, dedupe_key, criado_em)
       VALUES (c_nt_fora, 'decisao', c_cdt_pos1, v_m_cand, 'p46-reten05-fixture',
+              'fixture-p46+reten05@invalido.local',
               'fixture-p46+reten05@invalido.local', 'entregue',
               'p46-reten05:fora-da-janela:' || c_nt_fora::text,
               pg_catalog.now() - make_interval(months => v_m_janela + 2)),
              (c_nt_dentro, 'decisao', c_cdt_pos1, v_m_cand, 'p46-reten05-fixture',
+              'fixture-p46+reten05@invalido.local',
               'fixture-p46+reten05@invalido.local', 'entregue',
               'p46-reten05:dentro-da-janela:' || c_nt_dentro::text,
               pg_catalog.now() - interval '1 day');
