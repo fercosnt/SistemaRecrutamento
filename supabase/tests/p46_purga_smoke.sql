@@ -373,6 +373,9 @@ RESET ROLE;
 DO $envelope$
 DECLARE
   -- TITULARES (public.candidatos.id) — o alvo do ledger.
+  v_p_pii_como text; -- RD4-10: COMO a PII foi encontrada — o portao tem de nomear o achado
+  v_p_err  text;   -- RD4-09: a MENSAGEM do erro de (p.3), nao so o SQLSTATE
+  v_p_ctx  text;   -- RD4-09: e o CONTEXTO, que diz em que linha ele nasceu
   v_pos1 constant uuid := '4601b000-0000-4000-8000-000000000001'::uuid;
   v_pos2 constant uuid := '4601b000-0000-4000-8000-000000000002'::uuid;
   v_pos3 constant uuid := '4601b000-0000-4000-8000-000000000003'::uuid;
@@ -923,7 +926,7 @@ BEGIN
     UPDATE public.config_purga SET modo = 'off';
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, true);
-      v_o_st := v_o_st || 'SEM-EXCECAO';
+      v_o_st := v_o_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_o_st := v_o_st || SQLSTATE;
     END;
@@ -939,7 +942,7 @@ BEGIN
     -- 2a · DESTRUTIVO sob `dry_run` -> RECUSA (a metade destrutiva exige `live`)
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, false);
-      v_o_st := v_o_st || 'SEM-EXCECAO';
+      v_o_st := v_o_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_o_st := v_o_st || SQLSTATE;
     END;
@@ -947,7 +950,7 @@ BEGIN
     -- 2b · DRY-RUN sob `dry_run`, MESMO ESTADO -> ACEITO (chega ao motor: P0002)
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, true);
-      v_o_st := v_o_st || 'SEM-EXCECAO';
+      v_o_st := v_o_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_o_st := v_o_st || SQLSTATE;
     END;
@@ -958,7 +961,7 @@ BEGIN
     UPDATE public.purga_execucao_itens SET concluido_em = pg_catalog.now() WHERE id = v_o_item;
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, false);
-      v_o_st := v_o_st || 'SEM-EXCECAO';
+      v_o_st := v_o_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_o_st := v_o_st || SQLSTATE;
     END;
@@ -970,7 +973,7 @@ BEGIN
     UPDATE public.purga_execucoes SET situacao = 'concluida' WHERE id = v_o_exec;
     BEGIN
       PERFORM public.anonimizar_candidato(v_o_sint, false);
-      v_o_st := v_o_st || 'SEM-EXCECAO';
+      v_o_st := v_o_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_o_st := v_o_st || SQLSTATE;
     END;
@@ -1139,7 +1142,7 @@ BEGIN
     UPDATE public.config_purga SET modo = 'off';
     BEGIN
       PERFORM public.plano_exclusao_titular(v_pos1);
-      v_p_st := v_p_st || 'SEM-EXCECAO';
+      v_p_st := v_p_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_p_st := v_p_st || SQLSTATE;
     END;
@@ -1151,7 +1154,7 @@ BEGIN
     UPDATE public.config_purga SET modo = 'dry_run';
     BEGIN
       PERFORM public.plano_exclusao_titular(v_pos2);
-      v_p_st := v_p_st || 'SEM-EXCECAO';
+      v_p_st := v_p_st || 'SEM-EXCECAO'::text;
     EXCEPTION WHEN OTHERS THEN
       v_p_st := v_p_st || SQLSTATE;
     END;
@@ -1159,8 +1162,17 @@ BEGIN
     -- (p.3) ACEITA o titular COM item aberto, sob o mesmo cerco -> plano devolvido.
     BEGIN
       v_p_plano := public.plano_exclusao_titular(v_pos1);
-      v_p_st    := v_p_st || 'OK';
+      v_p_st    := v_p_st || 'OK'::text;
     EXCEPTION WHEN OTHERS THEN
+      -- ⚠⚠ RD4-09 · CAPTURAR A MENSAGEM, E NAO SO O SQLSTATE. A versao anterior
+      --   guardava apenas `SQLSTATE` e a asserção abaixo narrava, por texto FIXO,
+      --   que um erro aqui significa "B-02 de pe / a 20260823000008 nao foi
+      --   aplicada". Quando a `008` ESTAVA aplicada e o erro real foi `22P02`, o
+      --   portao acusou a causa errada com total confianca — a mesma familia de
+      --   HI-04, RD3-01 e RD4-01, agora no DIAGNOSTICO em vez de na medicao.
+      --   Um portao que erra a causa custa mais caro que um que so diz "falhou":
+      --   ele manda o proximo leitor investigar o arquivo errado.
+      GET STACKED DIAGNOSTICS v_p_err = MESSAGE_TEXT, v_p_ctx = PG_EXCEPTION_CONTEXT;
       v_p_st    := v_p_st || SQLSTATE;
       v_p_plano := NULL;
     END;
@@ -1168,12 +1180,60 @@ BEGIN
     -- ⊖ E O PLANO DEVOLVIDO NAO PODE CARREGAR PII. O que a Saida A ampliou foi
     -- quem LE contagens; se o jsonb trouxesse nome, e-mail, CPF, telefone,
     -- endereco ou data de nascimento, a ampliacao teria outro tamanho e a decisao
-    -- do operador teria sido tomada sobre uma premissa falsa. Aferido sobre as
-    -- CHAVES do jsonb, por fronteira, no idioma de (h).
+    -- do operador teria sido tomada sobre uma premissa falsa.
+    --
+    -- ⚠⚠ RD4-10 · A VERSAO ANTERIOR MEDIA SO O **NOME DA CHAVE**, e por isso fazia
+    --   as DUAS coisas erradas ao mesmo tempo:
+    --   · REPROVAVA trabalho correto com o diagnostico mais caro deste arquivo.
+    --     `scrub_ledger_email` termina em `_email` e casava o padrao — mas e o NOME
+    --     DE UM PASSO ("limpar a coluna de e-mail do ledger"), e o valor dela e um
+    --     objeto descritor. Medido em 2026-08-23: o `nome_completo`, o `email`, o
+    --     `cpf` e o `celular` REAIS do titular NAO aparecem no documento, e nao ha
+    --     padrao de e-mail, CPF nem telefone em lugar nenhum dele. O portao mandava
+    --     o operador **retomar a decisao do B-02** por causa de um nome de passo.
+    --     OITAVA ocorrencia da familia "portao que reprova trabalho correto com
+    --     diagnostico falso" nesta fase.
+    --   · E NAO MEDIA O QUE DIZ MEDIR. Um valor de PII sob uma chave de nome inocente
+    --     — `{"amostra": "fulano@x.com"}` — passava VERDE. O nome da chave sempre foi
+    --     um PROXY, e o proxy nao cobria o caso que interessa.
+    --
+    -- ⚠ AS DUAS METADES DO CONSERTO, e as duas sao necessarias:
+    --   (1) chave cujo NOME casa PII so conta se o VALOR dela for ESCALAR. Isso e
+    --       ESCOPO, e nao fotografia: a estrutura do plano e "uma chave por passo,
+    --       valor objeto"; uma chave de nome `email` com valor STRING seria um
+    --       e-mail, com valor OBJETO e um passo. Se o formato do plano mudar para
+    --       escalares, o portao volta a morder sozinho.
+    --   (2) o DOCUMENTO INTEIRO e varrido por PADRAO de valor — e-mail, CPF de 11
+    --       digitos, telefone de 10-11 — e tambem pelos valores LITERAIS do proprio
+    --       titular lidos de `candidatos`. Esta metade nao existia.
     IF v_p_plano IS NOT NULL THEN
       FOR v_p_chave IN SELECT jsonb_object_keys(v_p_plano) LOOP
-        IF v_p_chave ~ '(^|_)(nome|email|cpf|telefone|celular|endereco|nascimento)(_|$)' THEN
+        IF v_p_chave ~ '(^|_)(nome|email|cpf|telefone|celular|endereco|nascimento)(_|$)'
+           AND jsonb_typeof(v_p_plano -> v_p_chave) IN ('string', 'number') THEN
           v_p_pii := v_p_pii + 1;
+          v_p_pii_como := coalesce(v_p_pii_como || ', ', '') || 'chave escalar ' || v_p_chave;
+        END IF;
+      END LOOP;
+
+      -- (2) o documento inteiro, por PADRAO de valor
+      IF v_p_plano::text ~ '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' THEN
+        v_p_pii := v_p_pii + 1;
+        v_p_pii_como := coalesce(v_p_pii_como || ', ', '') || 'endereco de e-mail no documento';
+      END IF;
+      IF v_p_plano::text ~ '[^0-9][0-9]{11}[^0-9]' THEN
+        v_p_pii := v_p_pii + 1;
+        v_p_pii_como := coalesce(v_p_pii_como || ', ', '') || 'sequencia de 11 digitos (CPF)';
+      END IF;
+
+      -- (2b) e os valores LITERAIS do proprio titular — o teste mais direto que existe
+      FOR v_p_chave IN
+        SELECT x.v FROM public.candidatos c
+        CROSS JOIN LATERAL (VALUES (c.nome_completo), (c.email), (c.cpf), (c.celular)) AS x(v)
+        WHERE c.id = v_pos1 AND x.v IS NOT NULL AND length(x.v) >= 5
+      LOOP
+        IF position(v_p_chave in v_p_plano::text) > 0 THEN
+          v_p_pii := v_p_pii + 1;
+          v_p_pii_como := coalesce(v_p_pii_como || ', ', '') || 'valor literal do titular';
         END IF;
       END LOOP;
     END IF;
@@ -1611,7 +1671,7 @@ BEGIN
   END IF;
 
   IF v_p_st[3] IS DISTINCT FROM 'OK' THEN
-    RAISE EXCEPTION 'P46P FAIL (p.3): ⊖ O OUTRO LADO. Com item ABERTO para o titular, execucao em executando e cerco em dry_run, a leitura do plano devolveu [%] em vez de completar. ⚠ [42501] AQUI E O BLOCKER B-02 DE PE: a migration 20260823000008 nao foi aplicada, e sem ela o 4o ramo da 20260823000006 NAO PRODUZ EFEITO UTIL — o cron passa no guard do motor e morre no PASSO 0, tres linhas depois. O laco de dry-run nao consegue produzir relato_dry_run nenhum, e (b) reprova junto. ⚠ Provar so recusa e o modo de falha no 3 dos sete portoes da Phase 45', coalesce(v_p_st[3], 'NULL');
+    RAISE EXCEPTION 'P46P FAIL (p.3): ⊖ O OUTRO LADO. Com item ABERTO para o titular, execucao em executando e cerco em dry_run, a leitura do plano devolveu [%] em vez de completar. MENSAGEM: %. CONTEXTO: %. ⚠ SO SE O CODIGO FOR 42501 isto e o Blocker B-02 de pe (a 20260823000008 nao aplicada, e sem ela o 4o ramo da 20260823000006 nao produz efeito util: o cron passa no guard do motor e morre no PASSO 0, tres linhas depois). QUALQUER OUTRO CODIGO E OUTRA COISA, e a mensagem acima e que diz o que — nao presuma B-02. ⚠ Provar so recusa e o modo de falha no 3 dos sete portoes da Phase 45', coalesce(v_p_st[3], 'NULL'), coalesce(v_p_err, '<sem mensagem>'), left(coalesce(v_p_ctx, '<sem contexto>'), 600);
   END IF;
 
   IF v_p_plano IS NULL THEN
@@ -1619,7 +1679,7 @@ BEGIN
   END IF;
 
   IF v_p_pii <> 0 THEN
-    RAISE EXCEPTION 'P46P FAIL (p): ⊖ o plano devolvido tem % chave(s) de PII no primeiro nivel do jsonb. A Saida A do Blocker B-02 foi decidida pelo operador sobre a premissa MEDIDA de que esta funcao devolve contagens, booleanos e nomes de tabela/coluna — e NAO nome, e-mail, CPF, telefone, endereco ou data de nascimento. Se a premissa deixou de valer, o que o 3o ramo ampliou tem outro tamanho e a decisao precisa ser retomada, nao remendada', v_p_pii;
+    RAISE EXCEPTION 'P46P FAIL (p): ⊖ o plano devolvido carrega % indicio(s) de PII. ACHADO: %. A Saida A do Blocker B-02 foi decidida pelo operador sobre a premissa MEDIDA de que esta funcao devolve contagens, booleanos e nomes de tabela/coluna — e NAO nome, e-mail, CPF, telefone, endereco ou data de nascimento. Se a premissa deixou de valer, o que o 3o ramo ampliou tem outro tamanho e a decisao precisa ser retomada, nao remendada. ⚠ Um nome de CHAVE que contem "email" com valor OBJETO e o nome de um PASSO e NAO conta — foi assim que este portao reprovou trabalho correto em 2026-08-23 (RD4-10); o que conta e valor ESCALAR sob chave de PII, ou padrao de PII em qualquer lugar do documento', v_p_pii, coalesce(v_p_pii_como, '<o portao nao soube dizer — isto e um defeito do portao>');
   END IF;
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
