@@ -5,7 +5,7 @@ milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 current_phase_name: Purga Automática (dry-run → live)
 status: executing
 stopped_at: 46-04 PARADO em checkpoint bloqueante — Task 4 (code review + apply) nao iniciada, e Blocker B-02 exige decisao do operador antes do apply
-last_updated: "2026-08-23T00:13:52.566Z"
+last_updated: "2026-08-23T00:40:09.597Z"
 last_activity: 2026-08-23
 progress:
   total_phases: 6
@@ -558,7 +558,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 46 — plano 04 PARADO em checkpoint bloqueante (Blocker B-02); planos 05, 06 e 07 pendentes
+Status: Executing Phase 46 — plano 04 escrito e commitado (3 migrations, B-02 FECHADO pela Saida A); aguardando code review bloqueante + apply pelo orquestrador. Planos 05, 06 e 07 pendentes
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -978,6 +978,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase ?]: 46-03: PURGA-07 FECHADO — as 3 linhas do 46-VALIDATION verdes por EXECUCAO. PURGA-02 NAO fecha: a assercao (b) do dry-run nao existe ate o 46-04
 - [Phase ?]: 46-03: (f) e (g) do smoke da 43 NAO foram tocadas — as listas literais delas sao ESCOPO deliberado e este plano nao cria funcao nenhuma. Varredura por FORMA feita em todos os smokes: nenhum portao vivo enxerga tabela nova em public
 - [Phase ?]: 46-03 ambiente: o grep desta maquina e ugrep e NAO entende \m / \M — criterios de aceite com esses escapes FALHAM em vez de medir. Usar \b no shell; dentro do plpgsql \m/\M continuam corretos
+- [Phase ?]: B-02 / Saida A (operador 2026-08-22): plano_exclusao_titular ganha 3o ramo nas DUAS metades. Escopo DUPLO e UM predicado so — a funcao e STABLE e um 2o ramo restrito a live seria subconjunto estrito, ou seja codigo morto num guard (P39/CR-02). Varredura da cadeia: NAO HA B-03.
 
 ### Pending Todos
 
