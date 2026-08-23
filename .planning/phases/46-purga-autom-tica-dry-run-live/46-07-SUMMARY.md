@@ -210,17 +210,26 @@ E um **bloco de auto-verificação de apply** que ABORTA quando:
 
 ### As duas asserções
 
-**`(d)` — sete chamadas de controle, e as sete rodam.**
+**`(d)` — nove chamadas de controle, e as nove rodam: sete recusas, uma aceitação e o kill switch.**
+
+⚠ Eram sete quando este SUMMARY foi escrito. O conserto de **BL-01** (`20260823000014`) acrescentou
+`(d.8)` e `(d.9)`, e o smoke passou a exigir **nove** (`p46_purga_smoke.sql:3518`). A linha antiga
+sobreviveu ao commit `f9cb62b`, que editou este mesmo arquivo — ME-R3-03 do `46-REVIEW-3.md`.
 
 | Caso | Estado montado | Esperado |
 |---|---|---|
 | 1 | tudo satisfeito, **sem** confirmação | `22023` |
 | 2 | primeira execução de ensaio a **13 dias** | `22023` |
-| 3 | exatamente **13** execuções de ensaio | `22023` |
+| 3 | exatamente **13** execuções de ensaio (com a evidência de ensaio **replantada**, para que a recusa seja **só** pela contagem — BL-R3-02) | `22023` |
 | 4 | 14+ execuções, **nenhuma** com `elegiveis > 0` | `22023` |
 | 5 | allowlist de volta a `origem = 'seed'` | `22023` |
-| 6 | ⊕ os cinco satisfeitos, **14 dias EXATOS** | **aceita**, e `modo` vira `live` |
+| 6 | ⊕ os cinco satisfeitos, **14 dias EXATOS**, e um item com `relato_dry_run` | **aceita**, e `modo` vira `live` |
 | 7 | ⊖⊕ de `live` para `off`, com os **três** critérios falhando e **sem** confirmação | **passa**, e `modo` vira `off` |
+| 8 | 14 execuções em `dry_run` com `elegiveis > 0` e `veredito = 'segredo_ausente'` — contaram elegíveis e retornaram antes de abrir item | `22023` |
+| 9 | 14 execuções de ensaio com `elegiveis > 0` e **nenhum** item com `relato_dry_run` | `22023` |
+
+⚠ A ordem de execução no arquivo é `(d.1) … (d.5)`, `(d.8)`, `(d.9)`, `(d.6)`, `(d.7)` — os índices
+de `v_d_st` seguem a execução, e não a numeração dos casos.
 
 **`(e)`** — exatamente uma linha nova em `logs_auditoria`, ator batendo o `usuarios_rh.id` resolvido
 no servidor, `categoria = 'configuracao'`, `severidade = 'critico'`, `dados_antes` e `dados_depois`
@@ -289,8 +298,15 @@ outro.
 ### [Rule 1] `p_confirmo_live` não aparecia no smoke, e o critério de aceite pedia ≥ 2
 
 As chamadas por posição (`salvar_config_purga('live', NULL, NULL, true)`) nunca nomeiam o parâmetro.
-Trocadas para **notação nomeada** nas sete chamadas — o que é melhor de qualquer forma: o argumento
-de confirmação fica visível no ponto de chamada, que é a única razão de ele existir.
+Trocadas para **notação nomeada** nas sete chamadas de então — o que é melhor de qualquer forma: o
+argumento de confirmação fica visível no ponto de chamada, que é a única razão de ele existir.
+
+⚠ **Medido em 2026-08-23, iteração 2 do conserto:** hoje são **nove** chamadas, e **oito** usam
+notação nomeada. A nona — `p46_purga_smoke.sql:3436`, que é justamente o **controle positivo
+`(d.6)`**, o único ponto do arquivo em que `p_confirmo_live := true` de fato autoriza o flip —
+continua **posicional**. Não é defeito de comportamento (a semântica é idêntica), mas é a única
+chamada do arquivo que contradiz a regra que esta seção estabelece, e no ponto em que a regra mais
+importa. Registrado aqui em vez de consertado em silêncio: não é achado do `46-REVIEW-3.md`.
 
 ### [Rule 1] A fronteira de 14 dias virava folga confortável com o tempo
 
