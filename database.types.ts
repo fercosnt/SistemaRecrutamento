@@ -5679,6 +5679,15 @@ export type Database = {
         }
         Returns: Json
       }
+      salvar_config_purga: {
+        Args: {
+          p_cap_titulares: number
+          p_confirmo_live: boolean
+          p_janela_notificacoes_meses: number
+          p_modo: string
+        }
+        Returns: undefined
+      }
       salvar_janela_retencao: {
         Args: {
           p_etapa: Database["public"]["Enums"]["etapa_processo"]
