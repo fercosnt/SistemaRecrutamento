@@ -316,6 +316,41 @@ por "o modo novo é `live`": a transição para `off` não passa por ele.
    FALHA DO KILL SWITCH: o estado que voce queria ja e o estado vigente"*. Ler isso às três da manhã
    e concluir que o desligamento falhou seria o pior desfecho possível deste documento.
 
+⚠ **A TRILHA DEIXOU DE SER UMA TERCEIRA COISA (HI-01 do `46-REVIEW-2.md`, migration
+`20260823000014`).** Até aquele conserto, o passo (8) — a gravação em `logs_auditoria` — rodava na
+**mesma transação** da mutação, também para `off`. Qualquer falha dele (um rótulo de enum removido
+depois do apply, uma constraint nova, um trigger, disco cheio) **revertia o desligamento junto**, e
+quem digitou o kill switch às três da manhã recebia um erro com a purga continuando ligada. Hoje,
+**e apenas para a transição para `off`**, a falha da trilha é degradada para `WARNING`: o
+desligamento vale, e o `WARNING` diz com essas palavras que a trilha é o que falta. Se você vir esse
+aviso, **o kill switch funcionou** — o que resta é registrar a mudança à mão. Para `→ live` a trilha
+continua atômica: ligar destruição irreversível sem registro é pior que não ligar.
+
+### Último recurso: se **qualquer** chamada de RPC falhar
+
+Se a RPC não estiver alcançável de jeito nenhum — erro de conexão, função sumiu, papel sem
+`EXECUTE`, `logs_auditoria` quebrada de um jeito que a degradação acima não cobre — **desarme o
+gatilho em vez do cerco**:
+
+```sql
+-- Desarma o AGENDAMENTO sem desagendar. Reversivel com um UPDATE simetrico.
+UPDATE cron.job SET active = false WHERE jobname = 'purga-retencao-sweep';
+
+-- Conferir — "nao levantou" nunca foi "gravou":
+SELECT jobid, jobname, schedule, active FROM cron.job WHERE jobname = 'purga-retencao-sweep';
+```
+
+⚠ **Prefira isto a `cron.unschedule`.** As duas param a varredura; a diferença está no caminho de
+volta. `active = false` é desfeito por `UPDATE ... SET active = true` — um statement, sem migration,
+sem tocar no inventário. `cron.unschedule` **destrói a linha**, e reagendar exige reaplicar
+`20260823000012_p46_cron.sql`, com o `jobid` mudando e o inventário do INVENT-03 divergindo no
+meio-tempo. Às três da manhã, a operação reversível por um statement é a que se escolhe.
+
+⚠ E **isto não substitui o kill switch, complementa-o.** `active = false` impede a varredura de
+**começar**; ele não muda `config_purga.modo`, então uma execução que já esteja rodando termina, e
+qualquer reativação do job volta ao modo vigente. A ordem correta é: tentar o kill switch primeiro
+(ele é o cerco), e só recorrer a isto se a RPC não responder.
+
 **Confirmar que desligou** — porque "não levantou" nunca foi "gravou":
 
 ```sql
@@ -333,10 +368,12 @@ SELECT created_at, usuario_id, severidade,
 **Se o desligamento não bastar** — se a suspeita for de que a varredura está apagando o que não
 devia, e o modo já está em `off`:
 
-1. Desagendar o job: `SELECT cron.unschedule('purga-retencao-sweep');`
+1. Desarmar o job: `UPDATE cron.job SET active = false WHERE jobname = 'purga-retencao-sweep';`
+   (ver *"Último recurso"* acima — reversível por um `UPDATE` simétrico).
+   Só se for preciso remover a linha de fato: `SELECT cron.unschedule('purga-retencao-sweep');`
    ⚠ Isso deixa o inventário do INVENT-03 divergente do repositório e o
    `p42_invent05_cron_smoke.sql` passa a reprovar **corretamente**. Reagendar é aplicar de novo
-   `20260823000012_p46_cron.sql`.
+   `20260823000012_p46_cron.sql`, com `jobid` novo.
 2. Levantar o estrago pelo ledger — ele é a única fonte que sobrevive ao desaparecimento do titular:
    ```sql
    SELECT e.iniciada_em, e.modo_vigente, e.veredito, e.processados,
