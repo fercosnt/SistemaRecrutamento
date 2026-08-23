@@ -134,12 +134,23 @@ COMMENT ON CONSTRAINT ck_purga_itens_desfecho_postgres ON public.purga_execucao_
   'desconhecido. Os quatro valores originais sao AFIRMACOES; desconhecido e a AUSENCIA de '
   'afirmacao, e ele existe porque a reconciliacao de execucoes vencidas precisa registrar o estado '
   'de Storage e Auth de um titular cuja Edge Function morreu no meio — e o Postgres NAO TEM COMO '
-  'SABER se aqueles dois passos aconteceram (a SONDA 2 mediu que storage.objects nao tem FK para '
-  'auth.users, e o Auth vive fora do banco). ⚠ O de POSTGRES e diferente e por isso e INFERIDO, '
-  'nunca marcado desconhecido: o tombstone e UMA transacao, entao ou a sentinela do CR-06 esta na '
-  'linha de candidatos (aconteceu -> ok) ou nao esta (nao aconteceu -> falha). Inferir do proprio '
-  'banco e melhor que presumir, e presumir num registro de cumprimento de obrigacao legal com '
-  'retencao indefinida (D-46-16), sem PITR para desmentir, e o pior dos dois erros.';
+  'SABER se aqueles dois passos aconteceram (o Auth vive fora do banco; e para o Storage esta '
+  'varredura nao fala com a Storage API — ver o relato que ela grava, que diz o limite em vez de o '
+  'deixar implicito). ⚠ O de POSTGRES e diferente e por isso e INFERIDO, nunca marcado desconhecido: '
+  'o tombstone e UMA transacao, entao ou a sentinela do CR-06 esta na linha de candidatos '
+  '(aconteceu -> ok) ou nao esta (nao aconteceu -> falha). Inferir do proprio banco e melhor que '
+  'presumir, e presumir num registro de cumprimento de obrigacao legal com retencao indefinida '
+  '(D-46-16), sem PITR para desmentir, e o pior dos dois erros. '
+  '⚠⚠ E A INFERENCIA TEM DOIS LIMITES DECLARADOS (RD3-08), porque vende-la como categorica seria a '
+  'mesma desonestidade que ela veio corrigir. A sentinela responde "esta linha E um tombstone"; a '
+  'coluna promete "o passo de Postgres DESTA purga foi executado". Sao proposicoes diferentes '
+  'quando (1) a linha JA era tombstone antes do item ser aberto — exercicio de direito do titular na '
+  'vespera, e ERASE-08 mantem a linha — e (2) no tombstone PARCIAL do WR-06: se user_id ja era NULL '
+  'antes (pela FK ON DELETE SET NULL de 20260805000004), o motor PULA as severacoes guardadas por '
+  'user_id e logs_acesso.email_tentativa, logs_acesso.ip_address, autorizacoes.ip_aceite e '
+  'historico_candidatura.ator ficam EM CLARO — e a linha ainda casa a sentinela. Nos dois casos a '
+  'inferencia e exatamente TAO BOA QUANTO O RETORNO DO PROPRIO MOTOR, que tem o mesmo '
+  'comportamento; ela nao e pior que a alternativa, e so nao e categorica.';
 
 
 COMMENT ON CONSTRAINT ck_purga_execucoes_modo ON public.purga_execucoes IS

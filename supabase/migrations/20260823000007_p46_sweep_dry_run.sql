@@ -199,6 +199,144 @@ BEGIN
   END IF;
 
   -- ═══════════════════════════════════════════════════════════════════════════
+  -- (a.3) 46-04 · RECONCILIACAO DE EXECUCOES VENCIDAS
+  --       (HI-03 + RD2-01 + RD2-05 + RD3-02)
+  -- ═══════════════════════════════════════════════════════════════════════════
+  -- ⚠⚠ A POSICAO DESTE BLOCO JA MUDOU DUAS VEZES, E AS DUAS POR MOTIVO MEDIDO —
+  --   por isso ela esta justificada aqui com o mesmo peso que a secao (3) do
+  --   cabecalho usa para justificar por que o CAP vem antes do kill switch.
+  --
+  --   · Na rodada 1 ela vinha em (a.2), ANTES de tudo. RD2-05 mostrou o defeito:
+  --     com `modo = 'off'` a varredura executava dois `UPDATE` no ledger antes de
+  --     gravar o heartbeat. O cenario concreto e um operador que aciona o kill
+  --     switch EXATAMENTE para congelar uma execucao `live` travada e investiga-la
+  --     — e a varredura seguinte a abortava, fechava os itens e devolvia os
+  --     titulares, apagando o cenario que ele queria olhar.
+  --   · Na rodada 2 ela foi para depois do kill switch. RD3-02 mostrou o defeito
+  --     NOVO, e ele e pior: no caminho, ela passou tambem para depois do **CAP** e
+  --     do fail-closed de config ausente — e desses so o `off` tinha sido
+  --     justificado. Sob `cap_excedido`, que dura ATE INTERVENCAO HUMANA, os itens
+  --     orfaos ficavam abertos e o claim anti-sobreposicao excluia aqueles
+  --     titulares de **toda** varredura seguinte. E o modo de falha do PURGA-07 —
+  --     "o sistema acredita ter politica funcionando e apaga zero" — reintroduzido
+  --     pela peca que existe para impedi-lo.
+  --
+  -- ⚠ A FORMA QUE SATISFAZ OS DOIS: o bloco volta para ANTES de (b), e o kill
+  --   switch e respeitado por um guard EXPLICITO em vez de por posicao. `off`
+  --   continua significando "esta execucao so escreve o heartbeat"; e o cap, que
+  --   e uma anomalia a investigar e nao um desligamento deliberado, deixa de
+  --   bloquear a limpeza dos orfaos.
+  --
+  -- ⚠ E POR QUE NAO DEPOIS DE (d), ENTRE O CAP E O KILL SWITCH: porque o conjunto
+  --   de (b) ja depende do resultado desta reconciliacao. Um item orfao fechado
+  --   AQUI devolve o titular ao conjunto elegivel na MESMA passada; fechado depois
+  --   de (b), ele so voltaria na passada seguinte, e o proprio `elegiveis` gravado
+  --   no ledger descreveria um conjunto que a funcao ja sabia estar desatualizado.
+  IF v_modo <> 'off' THEN
+      -- Na rodada 1 ela estava em (a.2), antes do cap e antes do `off` — e com o cerco
+    -- desligado a varredura executava dois `UPDATE` no ledger antes de gravar o
+    -- heartbeat. O cenario que isso quebra e concreto: um operador aciona o kill
+    -- switch EXATAMENTE para congelar uma execucao `live` que travou e investiga-la,
+    -- e a varredura seguinte a abortava, fechava os itens e devolvia os titulares —
+    -- apagando o cenario que ele queria olhar. **`off` significa "esta execucao so
+    -- escreve o heartbeat"**, e o ramo `off` acima retorna ANTES daqui.
+    --
+    -- ⚠ E A OUTRA METADE DO CONSERTO CUJA PRIMEIRA METADE ESTA NO GUARD. O 4o ramo
+    -- de `20260823000006` exige `e.iniciada_em > now() - interval '1 hour'`, entao a
+    -- AUTORIZACAO ja expira sozinha. Mas expirar a autorizacao nao fecha o item — e e
+    -- o ITEM ABERTO que o claim anti-sobreposicao de (b) enxerga. Sem esta secao, um
+    -- titular cuja Edge Function morreu ficaria com item aberto para sempre e
+    -- **sumiria de todas as varreduras seguintes, sem ninguem ser avisado**.
+    --
+    -- ⚠ A JANELA E A MESMA DO GUARD, E O PORTAO MEDE O VALOR, nao so a existencia:
+    -- (C3/janela) do `p45_motor_exclusao_smoke.sql` extrai o literal dos TRES corpos
+    -- e exige igualdade. Se as tres divergirem, existe um intervalo em que o item
+    -- ainda autoriza a destruicao e a varredura ja o considera orfao — e agora isso
+    -- reprova alto em vez de depender de alguem lembrar (RD2-06).
+    --
+    -- ⚠⚠ O QUE ELA ESCREVE — E ESTE E O CONSERTO DO RD2-01, O MAIS IMPORTANTE DOS
+    -- TRES. A versao da rodada 1 carimbava `desfecho_postgres = 'falha'`
+    -- INCONDICIONALMENTE. Se a Edge Function tivesse concluido o Postgres e morrido
+    -- antes de fechar o item, o ledger passaria a AFIRMAR que a anonimizacao daquele
+    -- titular falhou — sobre um ato que aconteceu e **nao tem volta**. E
+    -- `purga_execucao_itens` e, por D-46-16, registro de cumprimento de obrigacao
+    -- legal com retencao INDEFINIDA, e com o PITR desligado nao existe segunda fonte
+    -- para desmentir. Este arquivo ja escreveu que "dizer ok aqui seria a mentira
+    -- mais cara possivel"; **a mentira simetrica custa o mesmo**.
+    --
+    -- As tres colunas seguem tres regras diferentes, e a diferenca e epistemica:
+    --   · JA CARIMBADO -> PRESERVADO, sempre. Um desfecho gravado descreve um ato
+    --     que alguem observou; reescreve-lo e falsificar o registro.
+    --   · POSTGRES pendente -> **INFERIDO DO PROPRIO BANCO**, nunca presumido. O
+    --     tombstone e UMA transacao (a atomicidade e o requisito declarado em
+    --     `20260805000006:266-272`), entao ou a sentinela do CR-06 esta na linha de
+    --     `candidatos` — e o passo aconteceu — ou nao esta, e nao aconteceu. O
+    --     predicado e o MESMO do motor: igualdade com o valor derivado do id, mais o
+    --     cinto de `user_id` severado e `data_nascimento` na sentinela de 1900 —
+    --     jamais um padrao sobre `email`, que o usuario escreve (CR-06).
+    --   · STORAGE e AUTH pendentes -> **`desconhecido`**. O Postgres NAO TEM COMO
+    --     SABER: a SONDA 2 mediu que `storage.objects` nao tem FK para `auth.users`,
+    --     e o Auth vive fora do banco. `falha` afirmaria que nao aconteceu e
+    --     `nao_aplicavel` que nao havia o que fazer — as duas sao asserções sobre um
+    --     fato que ninguem observou. O vocabulario ganhou a palavra em
+    --     `20260823000009` exatamente para que o ledger possa dizer "eu nao sei".
+    UPDATE public.purga_execucao_itens i
+       SET desfecho_postgres = CASE
+             WHEN i.desfecho_postgres <> 'pendente' THEN i.desfecho_postgres
+             WHEN EXISTS (
+                    SELECT 1 FROM public.candidatos c
+                     WHERE c.id = i.candidato_id
+                       AND c.email = 'anonimizado+' || c.id::text || '@invalido.local'
+                       AND c.user_id IS NULL
+                       AND c.data_nascimento = DATE '1900-01-01'
+                  ) THEN 'ok'
+             WHEN EXISTS (SELECT 1 FROM public.candidatos c WHERE c.id = i.candidato_id)
+                  THEN 'falha'
+             ELSE 'desconhecido'
+           END,
+           desfecho_storage = CASE WHEN i.desfecho_storage = 'pendente'
+                                   THEN 'desconhecido' ELSE i.desfecho_storage END,
+           desfecho_auth    = CASE WHEN i.desfecho_auth    = 'pendente'
+                                   THEN 'desconhecido' ELSE i.desfecho_auth    END,
+           concluido_em     = pg_catalog.now(),
+           relato_dry_run   = coalesce(i.relato_dry_run, '')
+             || '[RECONCILIADO] item ABERTO em execucao que nao terminou dentro da janela de 1 hora. '
+             || 'Os desfechos JA carimbados foram PRESERVADOS: eles descrevem atos que alguem observou, '
+             || 'e reescreve-los faria o registro de cumprimento de obrigacao legal (D-46-16) mentir '
+             || 'sobre um ato irreversivel. O de Postgres foi INFERIDO da sentinela do CR-06 na linha '
+             || 'de candidatos, porque o tombstone e UMA transacao e o banco sabe a resposta. Os de '
+             || 'Storage e Auth ficaram desconhecido: o Postgres nao tem como saber se aconteceram, e '
+             || 'afirmar qualquer coisa ali seria inventar. Este fechamento devolve o titular as '
+             || 'varreduras seguintes, porque um item aberto para sempre o excluiria para sempre.'
+     WHERE i.concluido_em IS NULL
+       AND EXISTS (
+             SELECT 1
+               FROM public.purga_execucoes e
+              WHERE e.id = i.execucao_id
+                AND e.situacao    = 'executando'
+                AND e.iniciada_em <= pg_catalog.now() - interval '1 hour'
+           );
+
+    GET DIAGNOSTICS v_reconc = ROW_COUNT;
+
+    UPDATE public.purga_execucoes e
+       SET situacao     = 'abortada',
+           concluida_em = pg_catalog.now()
+     WHERE e.situacao    = 'executando'
+       AND e.iniciada_em <= pg_catalog.now() - interval '1 hour';
+
+    GET DIAGNOSTICS v_reconc_exec = ROW_COUNT;
+
+    IF v_reconc > 0 OR v_reconc_exec > 0 THEN
+      -- ⚠ `WARNING` E O PISO, NAO O TETO: o que sobrevive e a LINHA DE LEDGER, com o
+      -- relato dizendo exatamente o que foi preservado, o que foi inferido e o que
+      -- ficou desconhecido. Uma falha reportada so por WARNING e uma falha que
+      -- ninguem ve (a divergencia 1 que este arquivo herdou do 46-02).
+      RAISE WARNING 'varrer_purga_retencao: RECONCILIACAO fechou % item(ns) orfao(s) em % execucao(oes) vencida(s) (mais de 1 hora em executando). Desfechos ja carimbados foram PRESERVADOS; o de Postgres foi INFERIDO da sentinela; Storage e Auth ficaram desconhecido. Investigar a Edge Function purgar-retencao: item aberto para sempre e autorizacao destrutiva permanente pelo guard, e titular excluido para sempre das varreduras pelo claim anti-sobreposicao.', v_reconc, v_reconc_exec;
+    END IF;
+  END IF;
+
+  -- ═══════════════════════════════════════════════════════════════════════════
   -- (b) MATERIALIZAR O CONJUNTO **UMA VEZ**
   -- ═══════════════════════════════════════════════════════════════════════════
   -- Contar de uma consulta e percorrer de outra é a corrida. A temporária dá a
@@ -284,112 +422,6 @@ BEGIN
            (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao, concluida_em)
     VALUES (v_modo, v_cap, v_n, 0, 'desligado', 'concluida', pg_catalog.now());
     RETURN;
-  END IF;
-
-  -- ═══════════════════════════════════════════════════════════════════════════
-  -- (f.2) 46-04 · RECONCILIACAO DE EXECUCOES VENCIDAS (HI-03 + RD2-01 + RD2-05)
-  -- ═══════════════════════════════════════════════════════════════════════════
-  -- ⚠⚠ ELA VEM **DEPOIS** DO KILL SWITCH, E A POSICAO E O CONSERTO DO RD2-05.
-  -- Na rodada 1 ela estava em (a.2), antes do cap e antes do `off` — e com o cerco
-  -- desligado a varredura executava dois `UPDATE` no ledger antes de gravar o
-  -- heartbeat. O cenario que isso quebra e concreto: um operador aciona o kill
-  -- switch EXATAMENTE para congelar uma execucao `live` que travou e investiga-la,
-  -- e a varredura seguinte a abortava, fechava os itens e devolvia os titulares —
-  -- apagando o cenario que ele queria olhar. **`off` significa "esta execucao so
-  -- escreve o heartbeat"**, e o ramo `off` acima retorna ANTES daqui.
-  --
-  -- ⚠ E A OUTRA METADE DO CONSERTO CUJA PRIMEIRA METADE ESTA NO GUARD. O 4o ramo
-  -- de `20260823000006` exige `e.iniciada_em > now() - interval '1 hour'`, entao a
-  -- AUTORIZACAO ja expira sozinha. Mas expirar a autorizacao nao fecha o item — e e
-  -- o ITEM ABERTO que o claim anti-sobreposicao de (b) enxerga. Sem esta secao, um
-  -- titular cuja Edge Function morreu ficaria com item aberto para sempre e
-  -- **sumiria de todas as varreduras seguintes, sem ninguem ser avisado**.
-  --
-  -- ⚠ A JANELA E A MESMA DO GUARD, E O PORTAO MEDE O VALOR, nao so a existencia:
-  -- (C3/janela) do `p45_motor_exclusao_smoke.sql` extrai o literal dos TRES corpos
-  -- e exige igualdade. Se as tres divergirem, existe um intervalo em que o item
-  -- ainda autoriza a destruicao e a varredura ja o considera orfao — e agora isso
-  -- reprova alto em vez de depender de alguem lembrar (RD2-06).
-  --
-  -- ⚠⚠ O QUE ELA ESCREVE — E ESTE E O CONSERTO DO RD2-01, O MAIS IMPORTANTE DOS
-  -- TRES. A versao da rodada 1 carimbava `desfecho_postgres = 'falha'`
-  -- INCONDICIONALMENTE. Se a Edge Function tivesse concluido o Postgres e morrido
-  -- antes de fechar o item, o ledger passaria a AFIRMAR que a anonimizacao daquele
-  -- titular falhou — sobre um ato que aconteceu e **nao tem volta**. E
-  -- `purga_execucao_itens` e, por D-46-16, registro de cumprimento de obrigacao
-  -- legal com retencao INDEFINIDA, e com o PITR desligado nao existe segunda fonte
-  -- para desmentir. Este arquivo ja escreveu que "dizer ok aqui seria a mentira
-  -- mais cara possivel"; **a mentira simetrica custa o mesmo**.
-  --
-  -- As tres colunas seguem tres regras diferentes, e a diferenca e epistemica:
-  --   · JA CARIMBADO -> PRESERVADO, sempre. Um desfecho gravado descreve um ato
-  --     que alguem observou; reescreve-lo e falsificar o registro.
-  --   · POSTGRES pendente -> **INFERIDO DO PROPRIO BANCO**, nunca presumido. O
-  --     tombstone e UMA transacao (a atomicidade e o requisito declarado em
-  --     `20260805000006:266-272`), entao ou a sentinela do CR-06 esta na linha de
-  --     `candidatos` — e o passo aconteceu — ou nao esta, e nao aconteceu. O
-  --     predicado e o MESMO do motor: igualdade com o valor derivado do id, mais o
-  --     cinto de `user_id` severado e `data_nascimento` na sentinela de 1900 —
-  --     jamais um padrao sobre `email`, que o usuario escreve (CR-06).
-  --   · STORAGE e AUTH pendentes -> **`desconhecido`**. O Postgres NAO TEM COMO
-  --     SABER: a SONDA 2 mediu que `storage.objects` nao tem FK para `auth.users`,
-  --     e o Auth vive fora do banco. `falha` afirmaria que nao aconteceu e
-  --     `nao_aplicavel` que nao havia o que fazer — as duas sao asserções sobre um
-  --     fato que ninguem observou. O vocabulario ganhou a palavra em
-  --     `20260823000009` exatamente para que o ledger possa dizer "eu nao sei".
-  UPDATE public.purga_execucao_itens i
-     SET desfecho_postgres = CASE
-           WHEN i.desfecho_postgres <> 'pendente' THEN i.desfecho_postgres
-           WHEN EXISTS (
-                  SELECT 1 FROM public.candidatos c
-                   WHERE c.id = i.candidato_id
-                     AND c.email = 'anonimizado+' || c.id::text || '@invalido.local'
-                     AND c.user_id IS NULL
-                     AND c.data_nascimento = DATE '1900-01-01'
-                ) THEN 'ok'
-           WHEN EXISTS (SELECT 1 FROM public.candidatos c WHERE c.id = i.candidato_id)
-                THEN 'falha'
-           ELSE 'desconhecido'
-         END,
-         desfecho_storage = CASE WHEN i.desfecho_storage = 'pendente'
-                                 THEN 'desconhecido' ELSE i.desfecho_storage END,
-         desfecho_auth    = CASE WHEN i.desfecho_auth    = 'pendente'
-                                 THEN 'desconhecido' ELSE i.desfecho_auth    END,
-         concluido_em     = pg_catalog.now(),
-         relato_dry_run   = coalesce(i.relato_dry_run, '')
-           || '[RECONCILIADO] item ABERTO em execucao que nao terminou dentro da janela de 1 hora. '
-           || 'Os desfechos JA carimbados foram PRESERVADOS: eles descrevem atos que alguem observou, '
-           || 'e reescreve-los faria o registro de cumprimento de obrigacao legal (D-46-16) mentir '
-           || 'sobre um ato irreversivel. O de Postgres foi INFERIDO da sentinela do CR-06 na linha '
-           || 'de candidatos, porque o tombstone e UMA transacao e o banco sabe a resposta. Os de '
-           || 'Storage e Auth ficaram desconhecido: o Postgres nao tem como saber se aconteceram, e '
-           || 'afirmar qualquer coisa ali seria inventar. Este fechamento devolve o titular as '
-           || 'varreduras seguintes, porque um item aberto para sempre o excluiria para sempre.'
-   WHERE i.concluido_em IS NULL
-     AND EXISTS (
-           SELECT 1
-             FROM public.purga_execucoes e
-            WHERE e.id = i.execucao_id
-              AND e.situacao    = 'executando'
-              AND e.iniciada_em <= pg_catalog.now() - interval '1 hour'
-         );
-
-  GET DIAGNOSTICS v_reconc = ROW_COUNT;
-
-  UPDATE public.purga_execucoes e
-     SET situacao     = 'abortada',
-         concluida_em = pg_catalog.now()
-   WHERE e.situacao    = 'executando'
-     AND e.iniciada_em <= pg_catalog.now() - interval '1 hour';
-
-  GET DIAGNOSTICS v_reconc_exec = ROW_COUNT;
-
-  IF v_reconc > 0 OR v_reconc_exec > 0 THEN
-    -- ⚠ `WARNING` E O PISO, NAO O TETO: o que sobrevive e a LINHA DE LEDGER, com o
-    -- relato dizendo exatamente o que foi preservado, o que foi inferido e o que
-    -- ficou desconhecido. Uma falha reportada so por WARNING e uma falha que
-    -- ninguem ve (a divergencia 1 que este arquivo herdou do 46-02).
-    RAISE WARNING 'varrer_purga_retencao: RECONCILIACAO fechou % item(ns) orfao(s) em % execucao(oes) vencida(s) (mais de 1 hora em executando). Desfechos ja carimbados foram PRESERVADOS; o de Postgres foi INFERIDO da sentinela; Storage e Auth ficaram desconhecido. Investigar a Edge Function purgar-retencao: item aberto para sempre e autorizacao destrutiva permanente pelo guard, e titular excluido para sempre das varreduras pelo claim anti-sobreposicao.', v_reconc, v_reconc_exec;
   END IF;
 
   INSERT INTO public.purga_execucoes

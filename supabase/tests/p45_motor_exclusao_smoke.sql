@@ -1725,10 +1725,13 @@ DECLARE
   -- HI-03 · a autorizacao EXPIRA
   v_tem_janela  boolean;
   -- RD2-06 · e as TRES janelas TEM de ser o MESMO intervalo, medido pelo VALOR
-  v_jan_anon    text;
-  v_jan_plano   text;
-  v_jan_sweep   text;
+  -- RD3-01 · e medido no CODIGO, jamais na prosa (ver o bloco (C3/janela))
   v_src_sweep   text;
+  r_jan         record;
+  v_jan_n       int;
+  v_jan_d       int;
+  v_jan_val     text;
+  v_jans        text[] := ARRAY[]::text[];
   -- ── 46-04 / B-02 · a mesma rede sobre a SEGUNDA funcao ────────────────────
   -- Sem estas, o re-pin de `plano_exclusao_titular` seria um numero novo sem
   -- nenhuma exigencia de forma atras dele — e foi justamente o guard DELA que
@@ -1867,19 +1870,31 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/iv): o corpo vivo de plano_exclusao_titular usa negacao por PERTENCIMENTO A CONJUNTO DE VALORES. Com um dos lados NULL essa forma avalia NULL, o IF nao e tomado e o guard FALHA ABERTO — defeito REAL medido na 42-06. Toda verificacao de estado tem de ser EXISTS correlacionado, e toda comparacao de papel IS DISTINCT FROM';
   END IF;
 
-  -- ── (C3/janela) RD2-06 · AS TRES JANELAS TEM DE SER O MESMO INTERVALO ────
-  -- ⚠⚠ AS CHECAGENS DE HI-03 ACIMA MEDEM A **EXISTENCIA** DA JANELA, NUNCA O
-  --   **VALOR**: a regex `now() - interval` casa com '1 hour', '10 minutes' e
-  --   '30 days' sem distinguir. E o literal esta repetido em CINCO lugares, em
-  --   TRES arquivos. O proprio codigo reconhecia o problema e escolhia conviver
-  --   com ele numa frase de comentario — "o par tem de ser alterado junto, e esta
-  --   frase existe para que a proxima pessoa saiba disso". **Uma frase num
-  --   comentario nao e um mecanismo**; e a mesma aposta que produziu o BL-01,
-  --   onde o argumento escrito estava errado e ninguem conferiu.
-  -- ⚠ E a consequencia da divergencia esta escrita na propria frase: um intervalo
-  --   em que o item AINDA autoriza a destruicao e a varredura JA o considera
-  --   orfao — ou o contrario, um item que a varredura fecha enquanto o guard
-  --   ainda o aceita. Este bloco troca a frase por um portao.
+  -- ── (C3/janela) RD2-06 + RD3-01 · AS TRES JANELAS, MEDIDAS NO CODIGO ─────
+  -- ⚠⚠ A PRIMEIRA VERSAO DESTE PORTAO LIA COMENTARIO, NAO CODIGO — e essa e a
+  --   SEXTA ocorrencia da familia "portao que parece medir e nao mede" nesta fase.
+  --   Ela usava `substring()`, que devolve a PRIMEIRA ocorrencia, sobre `prosrc`,
+  --   que INCLUI os comentarios do corpo. Medido: nos TRES corpos a primeira
+  --   ocorrencia e prosa (um comentario que cita a janela para explica-la), e as
+  --   CINCO ocorrencias reais ficavam de fora — **inclusive a da metade
+  --   DESTRUTIVA**. Trocar o codigo real para `interval '30 days'` deixaria este
+  --   portao VERDE, enquanto a mensagem dele afirma que isso e "o que este portao
+  --   existe para tornar impossivel". E a forma do BL-01 outra vez: uma frase
+  --   confiante sobre uma propriedade que ninguem verificou.
+  --
+  -- ⚠ O CONSERTO TEM TRES PARTES, e as tres sao necessarias:
+  --   1. **Comentarios sao removidos ANTES de casar.** Sem isso o portao mede
+  --      prosa, que e exatamente o que ele existe para nao fazer.
+  --   2. **TODAS as ocorrencias sao lidas**, e nao a primeira: `regexp_matches`
+  --      com a flag global. Uma unica leitura nunca poderia ver as duas metades
+  --      de `anonimizar_candidato`, e e a segunda (a DESTRUTIVA) que importa mais.
+  --   3. **A CONTAGEM por corpo e exigida.** Ela e ESCOPO DELIBERADO, e nao
+  --      fotografia: o numero de predicados de autorizacao de cada funcao e um
+  --      fato de desenho — dois no motor (dry-run e destrutivo), um no plano (que
+  --      nao tem caminho destrutivo), dois na varredura (itens e execucoes). Se um
+  --      deles sumir, o portao TEM de falar; e se nascer um terceiro, alguem tem
+  --      de vir aqui justifica-lo. Sem a contagem, apagar a janela da metade
+  --      destrutiva passaria despercebido enquanto a outra continuasse igual.
   SELECT p.prosrc INTO v_src_sweep
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
    WHERE n.nspname = 'public' AND p.proname = 'varrer_purga_retencao';
@@ -1888,20 +1903,43 @@ BEGIN
     RAISE EXCEPTION 'P45M FAIL (C3/janela): public.varrer_purga_retencao() nao existe — a janela da reconciliacao nao tem onde ser medida, e a metade do conserto de HI-03 que fecha os itens orfaos nao esta aplicada';
   END IF;
 
-  v_jan_anon  := substring(v_src_anon  from 'now\(\) - interval ''([^'']+)''');
-  v_jan_plano := substring(v_src_plano from 'now\(\) - interval ''([^'']+)''');
-  v_jan_sweep := substring(v_src_sweep from 'now\(\) - interval ''([^'']+)''');
+  FOR r_jan IN
+    SELECT t.nome, t.esperado,
+           (SELECT string_agg(l, E'\n')
+              FROM regexp_split_to_table(t.corpo, E'\n') AS l
+             WHERE l !~ '^[[:space:]]*--') AS codigo
+      FROM (VALUES
+        ('anonimizar_candidato',   v_src_anon,  2),
+        ('plano_exclusao_titular', v_src_plano, 1),
+        ('varrer_purga_retencao',  v_src_sweep, 2)
+      ) AS t(nome, corpo, esperado)
+  LOOP
+    SELECT count(*), count(DISTINCT m[1]), max(m[1])
+      INTO v_jan_n, v_jan_d, v_jan_val
+      FROM regexp_matches(r_jan.codigo, 'now\(\) - interval ''([^'']+)''', 'g') AS m;
 
-  IF v_jan_anon IS NULL OR v_jan_plano IS NULL OR v_jan_sweep IS NULL THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/janela): ⊖ NAO-VACUIDADE — nao foi possivel extrair a janela de um dos tres corpos (guard=[%], plano=[%], varredura=[%]). Uma comparacao entre valores que nao foram extraidos passaria por NULL e o portao ficaria verde sem ter comparado nada', coalesce(v_jan_anon,'<nulo>'), coalesce(v_jan_plano,'<nulo>'), coalesce(v_jan_sweep,'<nulo>');
+    IF v_jan_n IS DISTINCT FROM r_jan.esperado THEN
+      RAISE EXCEPTION 'P45M FAIL (C3/janela): public.%() tem % janela(s) de expiracao NO CODIGO (esperado %). ⚠ A contagem e escopo DELIBERADO: o numero de predicados de autorizacao de cada funcao e fato de desenho — dois no motor (dry-run e destrutivo), um no plano (que nao tem caminho destrutivo), dois na varredura (itens e execucoes). Se o numero CAIU, um predicado perdeu a janela e a autorizacao dele voltou a ser standing (HI-03); se SUBIU, nasceu um predicado que ninguem justificou aqui. ⚠ Esta contagem le CODIGO: as linhas de comentario sao removidas antes de casar, porque a versao anterior deste portao lia a primeira ocorrencia de prosrc — que nos tres corpos era PROSA — e ficava verde com o codigo real em qualquer valor (RD3-01)',
+        r_jan.nome, v_jan_n, r_jan.esperado;
+    END IF;
+
+    IF v_jan_d IS DISTINCT FROM 1 THEN
+      RAISE EXCEPTION 'P45M FAIL (C3/janela): public.%() declara % janelas DIFERENTES dentro do proprio corpo. As duas metades do mesmo guard passariam a expirar em momentos diferentes, e existiria um intervalo em que uma autoriza e a outra nao', r_jan.nome, v_jan_d;
+    END IF;
+
+    v_jans := v_jans || v_jan_val;
+  END LOOP;
+
+  IF array_length(v_jans, 1) IS DISTINCT FROM 3 THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/janela): ⊖ NAO-VACUIDADE — foram medidos % corpos (esperado 3). Um laco que nao percorreu os tres nao comparou nada, e uma comparacao que nao aconteceu passaria por verde', coalesce(array_length(v_jans, 1), 0);
   END IF;
 
-  IF v_jan_anon IS DISTINCT FROM v_jan_plano OR v_jan_anon IS DISTINCT FROM v_jan_sweep THEN
-    RAISE EXCEPTION 'P45M FAIL (C3/janela): as TRES janelas DIVERGIRAM (guard=[%], plano=[%], varredura=[%]). Existe agora um intervalo em que o item AINDA autoriza a destruicao e a varredura JA o considera orfao, ou o contrario — e nenhum dos dois lados sabe disso. O literal vive em cinco lugares e em tres arquivos: alterar um sem os outros e exatamente o que este portao existe para tornar impossivel (RD2-06)', v_jan_anon, v_jan_plano, v_jan_sweep;
+  IF v_jans[1] IS DISTINCT FROM v_jans[2] OR v_jans[1] IS DISTINCT FROM v_jans[3] THEN
+    RAISE EXCEPTION 'P45M FAIL (C3/janela): as TRES janelas DIVERGIRAM (motor=[%], plano=[%], varredura=[%]). Existe agora um intervalo em que o item AINDA autoriza a destruicao e a varredura JA o considera orfao, ou o contrario — e nenhum dos dois lados sabe disso. O literal vive em cinco lugares e em tres arquivos: alterar um sem os outros e exatamente o que este portao existe para tornar impossivel (RD2-06)', v_jans[1], v_jans[2], v_jans[3];
   END IF;
 
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); e as TRES janelas de expiracao batem em [%]', v_md5_plano, v_md5_anon, v_jan_anon;
+  RAISE NOTICE 'P45M PASS (C3): as QUATRO metades — md5 pinado (plano=%, anon=%), o tombstone CHAMA a expressao unica, a rede do 46-04 sobre o MOTOR (le purga_execucao_itens, exige item aberto, exige modo_vigente = live na metade destrutiva, zero negacao por conjunto) e a rede sobre o PLANO (le o ledger, exige o ALVO, zero negacao por conjunto); e as TRES janelas de expiracao, medidas NO CODIGO (2+1+2 ocorrencias), batem em [%]', v_md5_plano, v_md5_anon, v_jans[1];
 END
 $c3$;
 

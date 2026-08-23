@@ -413,6 +413,7 @@ DECLARE
   v_c_id uuid; v_c_modo text; v_c_ver text; v_c_sit text;
   v_c_eleg int; v_c_proc int; v_c_novas int;
   v_c_itens bigint; v_c_carimbados bigint; v_c_abertos bigint;
+  v_c_valores text;   -- RD3-05: QUAL valor foi encontrado, e nao so quantos
 
   -- (i)
   v_i_divergentes bigint; v_i_pos bigint; v_i_origens bigint; v_i_nulos bigint;
@@ -574,13 +575,32 @@ BEGIN
       FROM public.purga_execucao_itens i WHERE i.execucao_id = v_c_id;
 
     -- ⊖ Metade DURAVEL da negativa de despacho: nada foi tentado, entao nenhum
-    -- passo pode estar carimbado como ok nem como falha.
-    SELECT count(*) INTO v_c_carimbados
+    -- passo pode estar carimbado com desfecho algum.
+    -- ⚠⚠ RD3-05 · A NEGATIVA E POR COMPLEMENTO, E NAO POR ENUMERACAO. A versao
+    --   anterior perguntava `IN ('ok','falha')` — uma LISTA DE INCLUSAO sobre um
+    --   vocabulario que a migration `20260823000009` acabou de alargar de quatro
+    --   para cinco valores. Um item que aparecesse com `desfecho_* =
+    --   'desconhecido'` — que e, por definicao, uma asserção sobre um passo que
+    --   NAO e `pendente` — nao seria contado, e esta negativa passaria por VERDE
+    --   afirmando "nada foi tentado". O defeito era latente (nenhum caminho de
+    --   dry-run produz esse valor hoje), mas a FORMA e a que este projeto reprova
+    --   por escrito: enumerar um vocabulario ABERTO num portao.
+    -- ⚠ As DUAS ausencias-de-tentativa legitimas sao `pendente` (ainda vou
+    --   tentar) e `nao_aplicavel` (nada havia a fazer — o valor que o proprio laco
+    --   de dry-run escreve). Qualquer OUTRA coisa e uma afirmacao sobre um passo,
+    --   e em dry_run nenhum passo foi dado. Escrito assim, o portao sobrevive ao
+    --   proximo alargamento do vocabulario sem que ninguem precise lembrar dele.
+    -- ⚠ E a negacao e por `IS DISTINCT FROM`, e nao por pertencimento a conjunto:
+    --   as tres colunas sao `NOT NULL DEFAULT 'pendente'` hoje, mas escrever a
+    --   forma NULL-cega num arquivo cujo tema e "a forma banida falha ABERTO"
+    --   seria pedir para alguem copia-la para um lugar onde ela morde.
+    SELECT count(*), coalesce(string_agg(DISTINCT x.v, ', '), '<nenhum>')
+      INTO v_c_carimbados, v_c_valores
       FROM public.purga_execucao_itens i
+      CROSS JOIN LATERAL (VALUES (i.desfecho_storage), (i.desfecho_postgres), (i.desfecho_auth)) AS x(v)
      WHERE i.execucao_id = v_c_id
-       AND (i.desfecho_storage  IN ('ok', 'falha')
-         OR i.desfecho_postgres IN ('ok', 'falha')
-         OR i.desfecho_auth     IN ('ok', 'falha'));
+       AND x.v IS DISTINCT FROM 'pendente'
+       AND x.v IS DISTINCT FROM 'nao_aplicavel';
 
     -- O laco de dry-run TEM de fechar todos os itens: um item aberto deixado para
     -- tras faria a passada seguinte excluir aquele titular para sempre.
@@ -1261,7 +1281,7 @@ BEGIN
   END IF;
 
   IF v_c_carimbados <> 0 THEN
-    RAISE EXCEPTION 'P46P FAIL (c): ⊖ % item(ns) do dry-run tem desfecho de Storage/Postgres/Auth carimbado em ok ou falha. Em dry_run NADA foi tentado, e dizer ok e a mentira mais cara possivel neste sistema: ela faria o ledger afirmar uma destruicao que nao houve, ou esconder uma que houve', v_c_carimbados;
+    RAISE EXCEPTION 'P46P FAIL (c): ⊖ % desfecho(s) do dry-run estao carimbados com valor que NAO e ausencia-de-tentativa — encontrados: [%]. Em dry_run NADA foi tentado, e dizer ok e a mentira mais cara possivel neste sistema: ela faria o ledger afirmar uma destruicao que nao houve, ou esconder uma que houve. ⚠ A pergunta e por COMPLEMENTO (tudo que nao e pendente nem nao_aplicavel), entao ela pega tambem valores que o vocabulario ganhar depois (RD3-05)', v_c_carimbados, v_c_valores;
   END IF;
 
   IF v_c_abertos <> 0 THEN
@@ -1316,7 +1336,7 @@ BEGIN
   END IF;
 
   IF v_c_carimbados <> 0 THEN
-    RAISE EXCEPTION 'P46P FAIL (b): % item(ns) com desfecho de Storage/Postgres/Auth carimbado em ok ou falha depois de uma varredura em dry_run. Nada foi tentado fora do Postgres, e o Postgres foi revertido', v_c_carimbados;
+    RAISE EXCEPTION 'P46P FAIL (b): % desfecho(s) carimbados com valor que NAO e ausencia-de-tentativa depois de uma varredura em dry_run — encontrados: [%]. Nada foi tentado fora do Postgres, e o Postgres foi revertido', v_c_carimbados, v_c_valores;
   END IF;
 
   PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
