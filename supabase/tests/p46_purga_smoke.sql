@@ -2912,6 +2912,7 @@ DECLARE
   v_d_modo_pos   text;
   v_d_modo_off   text;
   v_d_conta13    bigint := -1;
+  v_d_evid13     bigint := -1;
 
   -- ⚠ BL-01 · A EVIDÊNCIA DE ENSAIO, PLANTADA E RASTREÁVEL POR ID.
   --   Desde a `20260823000014` o critério nº 3 exige, além de `elegiveis > 0`,
@@ -2931,9 +2932,23 @@ DECLARE
   --     guard de `anonimizar_candidato` autoriza destruição a partir de item
   --     ABERTO sob execução em `executando`. Um item sintético aberto seria uma
   --     autorização destrutiva plantada por um teste.
+  --
+  --   ⚠⚠ BL-R3-02 · E A EVIDÊNCIA TEM DE SER REPLANTADA EM `(d.3)`, porque
+  --     aquele caso é o ÚNICO do bloco que **destrói e reconstrói** o recorte em
+  --     vez de montá-lo por acréscimo: o `DELETE` de itens leva `v_d_item1`
+  --     junto, e a reconstrução por `generate_series` não insere item nenhum.
+  --     Sem replantar, o critério 3 falha **junto com** a contagem, o marcador
+  --     de `(d.3)` vira `execucoes+elegiveis`, e a asserção de diagnóstico
+  --     acusa a MENSAGEM DA RPC de nomear critérios a mais — quando a RPC está
+  --     certa e quem envelheceu é a FIXTURE. É o modo de falha que o
+  --     `CLAUDE.md` §"varra pela FORMA" cataloga como o pior dos dois
+  --     ("reprova trabalho correto, com diagnóstico FALSO"), e esta fase já o
+  --     pagou três vezes. `v_d_exec3` existe só para dar `id` conhecido à
+  --     execução de `elegiveis > 0` daquela reconstrução.
   c_d_cand       constant uuid := '4607f000-0000-4000-8000-0000000000d1'::uuid;
   v_d_exec1      uuid;
   v_d_item1      uuid;
+  v_d_exec3      uuid;
 
   -- (e) a trilha
   v_e_ids        uuid[];
@@ -3119,11 +3134,20 @@ BEGIN
     -- ── (d.3) ⊖ MENOS DE 14 EXECUÇÕES COM LEDGER ─────────────────────────────
     -- ⚠ O ÚNICO CASO QUE NÃO PODE SER MONTADO POR ACRÉSCIMO: a contagem só desce
     --   removendo linhas. A remoção vive nesta subtransação aninhada e é desfeita
-    --   três statements depois — e a impressão digital conferida no fim do bloco
-    --   transforma "foi desfeita" de suposição em medição.
+    --   ao fim dela — e a impressão digital conferida no fim do bloco transforma
+    --   "foi desfeita" de suposição em medição.
     -- Reconstrói-se um ledger de EXATAMENTE 13 linhas, ainda com a mais antiga a
-    -- -20 dias e uma sobre conjunto não-vazio: assim o único critério que falha é
-    -- a contagem, e o diagnóstico tem de nomear ELA e mais nenhuma.
+    -- -20 dias, uma sobre conjunto não-vazio E COM A EVIDÊNCIA DE ENSAIO
+    -- REPLANTADA: assim o único critério que falha é a contagem, e o diagnóstico
+    -- tem de nomear ELA e mais nenhuma.
+    -- ⚠⚠ BL-R3-02 · A EVIDÊNCIA É PARTE DA MONTAGEM, NÃO ENFEITE. Desde a
+    --   `20260823000014` o critério 3 é `elegiveis > 0` **AND** `EXISTS` item com
+    --   `relato_dry_run`. O `DELETE` de itens abaixo leva embora o item plantado
+    --   em `(d)`, e uma reconstrução só de cabeçalhos faria DOIS critérios
+    --   faltarem — o marcador viraria `execucoes+elegiveis` e a asserção de
+    --   `:3499` reprovaria acusando a MENSAGEM DA RPC de nomear critério a mais,
+    --   com a RPC certa e a fixture errada. Diagnóstico falso é o modo de falha
+    --   mais caro desta fase.
     BEGIN
       -- ⚠ A REMOÇÃO É ESCOPADA AOS MODOS QUE O CRITÉRIO CONTA, e isso encolhe a
       --   janela de risco de propósito: as linhas de heartbeat em `off` — que hoje
@@ -3137,18 +3161,68 @@ BEGIN
       DELETE FROM public.purga_execucoes
        WHERE modo_vigente IN ('dry_run', 'live');
 
+      -- ⚠ A INSERÇÃO É PARTIDA EM DUAS, pelo mesmo motivo da montagem principal
+      --   (:3029-3033): é a execução sobre conjunto NÃO-VAZIO que precisa
+      --   carregar a evidência de ensaio, e plantá-la exige conhecer o `id`.
+      --   Ela é a mais antiga do recorte (-20 dias), que é o que mantém o
+      --   critério 1 satisfeito com folga de seis dias.
       INSERT INTO public.purga_execucoes
              (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
               iniciada_em, concluida_em)
-      SELECT 'dry_run', 50,
-             CASE WHEN g = 1 THEN 3 ELSE 0 END,
-             0, 'dry_run', 'concluida',
+      VALUES ('dry_run', 50, 3, 0, 'dry_run', 'concluida',
+              pg_catalog.now() - interval '20 days',
+              pg_catalog.now() - interval '20 days')
+      RETURNING id INTO v_d_exec3;
+
+      INSERT INTO public.purga_execucoes
+             (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
+              iniciada_em, concluida_em)
+      SELECT 'dry_run', 50, 0, 0, 'dry_run', 'concluida',
              pg_catalog.now() - make_interval(days => 21 - g),
              pg_catalog.now() - make_interval(days => 21 - g)
-        FROM generate_series(1, 13) g;
+        FROM generate_series(2, 13) g;
 
-      SELECT count(*) INTO v_d_conta13
-        FROM public.purga_execucoes WHERE modo_vigente IN ('dry_run', 'live');
+      -- ⚠⚠ BL-R3-02 · A EVIDÊNCIA DE ENSAIO, REPLANTADA. O `DELETE` de itens
+      --   logo acima levou `v_d_item1` junto — ele pertencia a uma execução em
+      --   `dry_run` —, e sem esta linha o critério 3 (`elegiveis > 0` **AND**
+      --   `EXISTS` item com `relato_dry_run`, desde a `20260823000014`) falharia
+      --   junto com a contagem. Este caso existe para reprovar **SÓ** pela
+      --   contagem: dois critérios faltando fariam o marcador virar
+      --   `execucoes+elegiveis`, e o julgamento de `:3499` acusaria a RPC de
+      --   nomear critério a mais quando a RPC estaria certa.
+      -- ⚠ MEDIDO, e não deduzido: a FK `purga_execucao_itens_execucao_id_fkey`
+      --   NÃO tem `ON DELETE CASCADE`, então o `DELETE` explícito de itens acima
+      --   é necessário e faz exatamente o que diz — inclusive levar a evidência.
+      -- ⚠ Item FECHADO sob execução `concluida`, pela mesma razão de segurança
+      --   do item plantado em `(d)`: um item sintético ABERTO sob execução em
+      --   `executando` seria autorização destrutiva plantada por um teste.
+      INSERT INTO public.purga_execucao_itens
+             (execucao_id, candidato_id, etapa, janela_meses_aplicada,
+              ancora_origem, ancora_em,
+              desfecho_storage, desfecho_postgres, desfecho_auth,
+              relato_dry_run, concluido_em)
+      VALUES (v_d_exec3, c_d_cand, 'aprovado'::public.etapa_processo, 24,
+              'data_candidatura', pg_catalog.now() - interval '30 months',
+              'nao_aplicavel', 'nao_aplicavel', 'nao_aplicavel',
+              'P46P (d.3) FIXTURE SINTETICA — relato de ensaio replantado depois da reconstrucao do ledger, para que este caso reprove SO pela CONTAGEM. Sem ele o criterio 3 falha junto, o marcador vira execucoes+elegiveis e a assercao de diagnostico acusa a RPC de mentir quando quem envelheceu e a fixture (BL-R3-02). Esta linha vive DENTRO da subtransacao de (d.3) e some com ela; a impressao digital do ledger, conferida no fim do bloco, mede que sumiu.',
+              pg_catalog.now() - interval '20 days');
+
+      -- ⚠ AS DUAS PROPRIEDADES DA MONTAGEM SÃO MEDIDAS, e não presumidas: a
+      --   contagem (13, que é o que o caso existe para reprovar) E a evidência
+      --   (1, que é o que o caso NÃO pode deixar faltar junto). Medir só a
+      --   primeira foi exatamente o buraco de BL-R3-02 — a segunda apodreceu em
+      --   silêncio e o sintoma apareceu, seis asserções adiante, como uma
+      --   acusação FALSA contra a mensagem da RPC.
+      SELECT count(*),
+             count(*) FILTER (
+               WHERE pe.elegiveis > 0
+                 AND EXISTS (SELECT 1 FROM public.purga_execucao_itens i
+                              WHERE i.execucao_id = pe.id
+                                AND i.relato_dry_run IS NOT NULL)
+             )
+        INTO v_d_conta13, v_d_evid13
+        FROM public.purga_execucoes pe
+       WHERE pe.modo_vigente IN ('dry_run', 'live');
 
       BEGIN
         PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
@@ -3439,6 +3513,14 @@ BEGIN
 
   IF v_d_conta13 IS DISTINCT FROM 13 THEN
     RAISE EXCEPTION 'P46P FAIL (d.3): a montagem do caso deixou % execucao(oes) no ledger (esperado exatamente 13). Com um numero diferente o caso pode ter falhado por OUTRO criterio, e a recusa observada nao seria prova da contagem', coalesce(v_d_conta13, -1);
+  END IF;
+
+  -- ⚠⚠ BL-R3-02 · A FIXTURE DE (d.3) E CONFERIDA, E ESTA E A ASSERCAO QUE TORNA
+  --   O DIAGNOSTICO VERDADEIRO. Se ela reprova, o defeito esta AQUI e nao na
+  --   RPC — o oposto do que a assercao de marcadores diria seis condicoes
+  --   adiante, e a razao inteira de BL-R3-02 ter sido um BLOCKER.
+  IF v_d_evid13 IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (d.3): ⛔ A FIXTURE, E NAO A RPC. A reconstrucao do ledger deixou % execucao(oes) com elegiveis > 0 E item carregando relato_dry_run (esperado exatamente 1). O DELETE que monta este caso leva embora o item plantado em (d), e uma reconstrucao so de cabecalhos faz o criterio 3 faltar JUNTO com a contagem: o marcador de (d.3) vira execucoes+elegiveis e a assercao de diagnostico passa a acusar a MENSAGEM DA RPC de nomear criterio a mais, com a RPC CERTA. Este caso existe para reprovar SO pela contagem — replante a evidencia, nao afrouxe o marcador', coalesce(v_d_evid13, -1);
   END IF;
 
   IF v_d_st[3] IS DISTINCT FROM '22023' THEN
