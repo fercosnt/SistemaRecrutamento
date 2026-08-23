@@ -145,7 +145,35 @@
 -- Conferencia obrigatoria, os DOIS lados registrados:
 --   SELECT md5(statements[1]) FROM supabase_migrations.schema_migrations
 --    WHERE version = '20260823000014';
---   -- comparar com:  printf '%s' "$(cat supabase/migrations/20260823000014_*.sql)" | md5
+--   -- comparar com o md5 dos BYTES CRUS do arquivo:
+--   --   md5 -q supabase/migrations/20260823000014_p46_portao_flip_veredito.sql   (macOS)
+--   --   md5sum  supabase/migrations/20260823000014_p46_portao_flip_veredito.sql  (Linux)
+--
+-- ⛔ NAO usar `printf '%s' "$(cat <arquivo>)" | md5`, que e a forma herdada dos
+--    cabecalhos anteriores deste repositorio: `$( … )` REMOVE as quebras de
+--    linha finais, e o ledger guarda os bytes crus (`p46apply.cjs` faz
+--    `fs.readFileSync` e registra o MESMO buffer em `statements[1]`). A forma
+--    herdada reporta DIVERGENCIA num apply CORRETO — HI-R3-01 do
+--    `46-REVIEW-3.md`. Medido em 2026-08-23 contra a `20260823000013`, que ja
+--    esta aplicada e pinada:
+--
+--      md5 do ledger                          = 63feeec5f3d55ea4371fa6fb5954d10a
+--      md5 -q do arquivo (bytes crus)         = 63feeec5f3d55ea4371fa6fb5954d10a  ✅
+--      printf '%s' "$(cat arquivo)" | md5     = c410a6723d0f8557bc3c7b13e7ddc7b0  ⛔
+--
+--    ⚠ Num projeto cuja via de apply existe *porque* duas das cinco migrations
+--    do M8 chegaram a PROD com os comentarios descartados (CLAUDE.md), uma
+--    conferencia de md5 que da FALSO NEGATIVO e um convite a reverter o que
+--    estava certo. Os cabecalhos das migrations JA APLICADAS carregam a forma
+--    errada e nao podem ser corrigidos — editar o arquivo faria o md5 divergir
+--    do ledger e quebraria a propria prova. A correcao vive aqui e nos
+--    cabecalhos futuros, como o `CLAUDE.md` ja faz com a instrucao obsoleta de
+--    reparo de `version`.
+--
+-- ⚠ A via automatica JA FAZ o cross-check CERTO por conta propria: `p46apply.cjs`
+--   calcula `crypto.createHash('md5')` sobre o buffer do arquivo e o compara com
+--   `md5(statements[1])` lido de volta do ledger, abortando se divergir. A
+--   conferencia manual acima existe para quem aplicar por outra via.
 --
 -- ⚠ A espec executavel deste conserto sao os casos `(d.8)` e `(d.9)` de
 -- `supabase/tests/p46_purga_smoke.sql`. Sem eles o conserto nao fica vigiado —
