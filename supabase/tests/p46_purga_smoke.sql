@@ -15,10 +15,10 @@
 --
 -- ⚠ ESTE ARQUIVO NASCEU COM AS LETRAS DO PLANO 46-02; o plano 46-03
 -- ACRESCENTOU (j.1), (j.2), (j.3), (k) e (l); o plano 46-04 acrescentou (b) e
--- (o), (o.6), (o.7) e (p); o plano 46-05 acrescentou (q.1) a (q.5); e o plano
--- 46-06 acrescentou (a), (g), (m) e (n). As demais — (d) e (e) — chegam no plano
--- 46-07, NESTE MESMO ARQUIVO, e o RESUMO (z) sobe junto (era 6, depois 11, depois
--- 16, depois 21, agora é 25).
+-- (o), (o.6), (o.7) e (p); o plano 46-05 acrescentou (q.1) a (q.5); o plano
+-- 46-06 acrescentou (a), (g), (m) e (n); e o plano 46-07 FECHOU o arquivo com as
+-- duas ultimas letras, (d) e (e). O RESUMO (z) subiu junto a cada plano (era 6,
+-- depois 11, depois 16, depois 21, depois 25, agora é 27 — o total final).
 -- Um arquivo por fase, e não um por plano: as asserções desta fase leem umas o
 -- estado das outras.
 --
@@ -32,8 +32,10 @@
 -- espalhados por chamadas separadas zerariam o contador `smoke46p.pass` e o
 -- RESUMO (z) reprovaria um run que na verdade passou (lição da P41-05).
 --
--- GATE VERDE = o contador `smoke46p.pass` bate **25** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial acumularia < 25 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke46p.pass` bate **27** no RESUMO (z). O gate NÃO é
+-- "não levantou exceção": um run parcial acumularia < 27 e o RESUMO reprova ALTO.
+-- ⚠ LER O CONTADOR É OBRIGAÇÃO DE QUEM RODA: "não levantou" nunca foi "as
+-- asserções rodaram".
 --
 -- ⚠⚠ A PARTIR DO PLANO 46-04 ESTE ARQUIVO EXERCITA UMA FUNÇÃO DESTRUTIVA VIVA.
 -- As asserções (b) e (o) chamam `public.anonimizar_candidato`, que é o motor que
@@ -165,7 +167,17 @@
 --           DURÁVEL de que o dispatch do ramo `live` rodou.
 --   (n)     46-06 · ⊖ O `COMMENT` VIVO de `notificacoes_enviadas` deixou de
 --           declarar retenção sem prazo E passou a nomear a janela e a âncora.
---   (z)     RESUMO — exige o total exato de 25 PASS.
+--   (d)     46-07 · ⊖⊕ O PORTÃO DO FLIP — `salvar_config_purga` RECUSA
+--           `dry_run → live` em CINCO casos, um critério de cada vez (sem
+--           confirmação · 13 dias · 13 execuções · zero elegíveis · matriz em
+--           seed), cada recusa nomeando SÓ o critério que faltou; ⊕ ACEITA com os
+--           cinco satisfeitos, na fronteira de 14 dias EXATOS; e ⊖⊕ a transição
+--           para `off` passa mesmo com os três critérios falhando.
+--   (e)     46-07 · A mudança de modo grava EXATAMENTE UMA linha em
+--           `logs_auditoria` na MESMA transação, com ator resolvido no servidor,
+--           severidade no topo do vocabulário e os dois estados diferentes — e a
+--           linha DESAPARECE com o rollback, que é a prova estrutural.
+--   (z)     RESUMO — exige o total exato de 27 PASS.
 --
 -- -----------------------------------------------------------------------------
 -- ⚠⚠ POR QUE (j.1), (j.2) E (j.3) TÊM **DUAS METADES** CADA UMA
@@ -2735,11 +2747,577 @@ END $r$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 46-07 · O PORTÃO DO FLIP E A TRILHA — (d) e (e)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (d) ⊖⊕ `public.salvar_config_purga` RECUSA a transição `dry_run → live` quando
+--     falta QUALQUER critério — cinco casos, **um critério de cada vez** —,
+--     ACEITA quando os cinco estão satisfeitos, e **NUNCA** recusa a transição
+--     para `off` (PURGA-04 · PURGA-05 · D-46-14 · D-46-22).
+-- (e) Uma mudança de modo bem-sucedida grava EXATAMENTE UMA linha em
+--     `logs_auditoria`, na MESMA transação, com ator resolvido no servidor e os
+--     dois estados registrados e DIFERENTES (PURGA-04).
+--
+-- ⚠⚠ ESTE BLOCO PLANTA O PRÓPRIO LEDGER SINTÉTICO, E ISSO É OBRIGATÓRIO.
+--   Medido em 2026-08-23, o estado real de PROD **não satisfaz** nenhum critério
+--   de D-46-14 — e não pode: `min(iniciada_em)` de `purga_execucoes` é de
+--   2026-08-22 (UM dia contra os catorze exigidos) e há TRÊS execuções contra as
+--   catorze. Isso é o desenho funcionando, não um defeito a contornar.
+--
+--   Mas a razão de plantar não é "hoje não dá" — é que **uma asserção que
+--   dependesse do estado real deixaria de asserir sozinha**. Daqui a duas semanas
+--   os critérios de dias e de execuções passariam a valer em PROD por si, e os
+--   dois casos negativos correspondentes ficariam VERDES sem medir coisa alguma:
+--   um instantâneo travestido de invariante, a mesma forma de defeito que o
+--   `CLAUDE.md` cataloga e que esta fase já pagou três vezes. O ledger sintético
+--   torna cada caso construído por este bloco e **independente do calendário**.
+--
+-- ⚠⚠ E O CASO POSITIVO É O QUE FAZ (d) SER ASSERÇÃO EM VEZ DE PROMESSA.
+--   Sem ele, (d) provaria apenas que a função recusa — e uma função que recusa
+--   TUDO passaria nas cinco negativas, com a descoberta chegando no dia do flip.
+--   É o modo de falha nº 3 dos sete portões da Phase 45, e é literalmente o que
+--   aconteceu com a `(p.3)` deste mesmo arquivo, que atravessou três rodadas de
+--   review sendo estruturalmente incapaz de passar porque o guard sempre recusava
+--   e o ramo de sucesso nunca era executado. **Aqui o ramo de sucesso RODA.**
+--
+-- ⚠ A JANELA DE `DELETE` SOBRE O LEDGER, DITA POR EXTENSO PORQUE ELA ASSUSTA.
+--   O caso "menos de 14 execuções" é o único que **não pode** ser montado por
+--   acréscimo: a contagem só desce removendo linhas. Ele é montado dentro de uma
+--   subtransação PRÓPRIA, aninhada, que é revertida IMEDIATAMENTE — e não apenas
+--   no fim do envelope. A janela em que o ledger fica alterado tem três
+--   statements. E, porque prosa que afirma uma propriedade não é a propriedade,
+--   a restauração é **MEDIDA**: a impressão digital das duas tabelas do ledger é
+--   capturada antes do envelope e reconferida depois dele.
+--
+-- ⚠ ESTA É A ÚNICA MEDIÇÃO LEGÍTIMA DEPOIS DO ROLLBACK deste arquivo, e a
+--   distinção importa. A regra do cabeçalho existe por causa da lição nº 6 dos
+--   sete portões da Phase 45: uma asserção que media um estado que ela mesma
+--   tinha destruído reprovava em TODA execução correta. Aqui é o oposto — o que
+--   se afere é que o estado **voltou**, o que é verdade exatamente quando o run
+--   está correto, e falso exatamente quando algo grave aconteceu.
+--
+-- ⚠ ⊖ E O KILL SWITCH É PROVADO COM OS TRÊS CRITÉRIOS FALHANDO DE PROPÓSITO.
+--   A partir do `live` montado pelo caso positivo, uma chamada para `off` passa
+--   SEM confirmação, SEM ledger suficiente e COM a matriz em procedência de seed.
+--   Um kill switch que pode ser recusado não é um kill switch, e o momento em que
+--   ele mais importa é exatamente aquele em que algum critério estaria falhando.
+--
+-- ⚠ CLAIMS: este é o segundo bloco do arquivo que carimba `request.jwt.claims`
+--   (o primeiro é (o.6)) — a função exige papel de administrador E conta viva de
+--   RH, e sem sessão ela recusaria com 42501 em TODOS os casos, inclusive no
+--   positivo, que passaria a provar nada. As claims são limpas logo depois do
+--   envelope, antes do RESUMO (z).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $de$
+DECLARE
+  v_fn           oid;
+
+  -- impressão digital do ledger, para provar a restauração
+  v_led_n_a      bigint;
+  v_led_fp_a     text;
+  v_led_n_z      bigint;
+  v_led_fp_z     text;
+
+  -- o ator
+  v_admin_rh     uuid;
+  v_admin_auth   uuid;
+  v_uid_ok       int := -1;
+
+  -- estado real medido, só para o NOTICE
+  v_real_n       bigint;
+  v_real_min     timestamptz;
+  v_real_eleg    bigint;
+  v_modo0        text;
+
+  -- (d) as sete chamadas de controle
+  v_d_st         text[] := ARRAY[]::text[];
+  v_d_msg        text[] := ARRAY[]::text[];
+  v_marc         text[] := ARRAY[]::text[];
+  v_d_modo_pos   text;
+  v_d_modo_off   text;
+  v_d_conta13    bigint := -1;
+
+  -- (e) a trilha
+  v_e_ids        uuid[];
+  v_e_base       bigint;
+  v_e_delta      bigint := -1;
+  v_e_usuario    uuid;
+  v_e_antes      jsonb;
+  v_e_depois     jsonb;
+  v_e_sev        text;
+  v_e_cat        text;
+  v_e_acao_z     bigint := -1;
+
+  v_msg          text;
+BEGIN
+  -- ══ CATÁLOGO — a função existe. FORA do envelope, de propósito: sem ela o
+  --    resto do bloco mediria a ausência dela em vez do comportamento dela.
+  --    ⚠ `to_regprocedure`, jamais `to_regproc`: o segundo devolve NULL SEMPRE
+  --    que recebe assinatura com tipos, e foi assim que cinco portões da Phase 45
+  --    passaram medindo nada.
+  v_fn := to_regprocedure('public.salvar_config_purga(text,integer,integer,boolean)')::oid;
+
+  IF v_fn IS NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (d): public.salvar_config_purga(text,integer,integer,boolean) resolveu para NULL — a migration 20260823000013 nao esta aplicada neste banco. Sem ela config_purga NAO TEM caminho de escrita de aplicacao nenhum (a tabela tem RLS ligada e zero policy de escrita), e portanto nem o flip nem o kill switch existem';
+  END IF;
+
+  -- ══ IMPRESSÃO DIGITAL DAS DUAS TABELAS DO LEDGER, ANTES DE QUALQUER COISA ══
+  --    `to_jsonb` da linha inteira NÃO ENVELHECE: uma coluna nova entra sozinha
+  --    na impressão, sem uma segunda edição deste arquivo. Uma lista de colunas
+  --    aqui seria a fotografia que o `CLAUDE.md` manda evitar.
+  SELECT count(*), md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+    INTO v_led_n_a, v_led_fp_a
+    FROM (SELECT to_jsonb(e)::text AS linha FROM public.purga_execucoes e
+          UNION ALL
+          SELECT to_jsonb(i)::text        FROM public.purga_execucao_itens i) t;
+
+  -- ══ O ATOR — um administrador VIVO, resolvido como a RPC o resolve ═════════
+  --    ⚠ Sem administrador vivo NÃO há skip silencioso: um skip aqui seria
+  --    indistinguível de uma RPC que aceita qualquer um, e o gate ficaria verde
+  --    por AUSÊNCIA DE TESTE.
+  SELECT u.id, u.user_id INTO v_admin_rh, v_admin_auth
+    FROM public.usuarios_rh u
+   WHERE u.role = 'administrador'
+     AND u.ativo
+     AND u.deleted_at IS NULL
+   ORDER BY u.created_at
+   LIMIT 1;
+
+  IF v_admin_rh IS NULL OR v_admin_auth IS NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (d): nenhum administrador VIVO em public.usuarios_rh (id=[%], user_id=[%]) — a RPC resolve o ator no SERVIDOR contra essa tabela e recusaria com 42501 em TODOS os casos, inclusive no positivo. Um skip silencioso aqui deixaria o portao do flip sem asseracao nenhuma',
+      coalesce(v_admin_rh::text, 'NULL'), coalesce(v_admin_auth::text, 'NULL');
+  END IF;
+
+  -- Estado real, só para o relatório — nenhuma decisão deste bloco depende dele.
+  SELECT count(*), min(e.iniciada_em), count(*) FILTER (WHERE e.elegiveis > 0)
+    INTO v_real_n, v_real_min, v_real_eleg
+    FROM public.purga_execucoes e;
+
+  -- ══ ENVELOPE — a partir daqui tudo é revertido ═════════════════════════════
+  BEGIN
+    SELECT cp.modo INTO v_modo0 FROM public.config_purga cp;
+
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_admin_auth::text,
+                        'app_metadata', json_build_object('role', 'administrador'))::text, false);
+    PERFORM set_config('request.jwt.claim.sub', '', false);
+
+    -- ⚠ NÃO-VACUIDADE DA IMPERSONAÇÃO, medida e não presumida: se a troca de
+    --   claims falhasse, TODAS as chamadas abaixo rodariam com `auth.uid()` nulo,
+    --   a RPC recusaria com 42501 em todas, e as cinco negativas ficariam VERDES
+    --   medindo o guard de papel em vez do portão do flip.
+    SELECT count(*) INTO v_uid_ok FROM (SELECT auth.uid() AS u) s WHERE s.u IS NOT NULL;
+
+    -- A transição sob teste é `dry_run → live`, e não `off → live`: é a que o
+    -- runbook descreve e a única que o operador executará daqui a duas semanas.
+    UPDATE public.config_purga SET modo = 'dry_run';
+
+    -- ══ O LEDGER SINTÉTICO SATISFATÓRIO ═════════════════════════════════════
+    -- 14 execuções, a mais antiga a EXATAMENTE -14 dias (a fronteira de D-46-14)
+    -- e uma delas sobre conjunto NÃO-VAZIO. Somadas às reais, os três critérios
+    -- passam a valer — por construção deste bloco, não por calendário.
+    --
+    -- ⚠ FRONTEIRA, e ela é robusta nos dois sentidos: a comparação da RPC é
+    --   `min(iniciada_em) <= now() - interval '14 days'`. Plantada em T0 - 14d e
+    --   avaliada em T1 > T0, ela é VERDADEIRA (o caso positivo aceita); plantada
+    --   em T0 - 13d, é FALSA por uma margem de um dia inteiro (o caso negativo
+    --   recusa). Nenhum dos dois depende de o relógio parar.
+    --
+    -- Colunas NOT NULL sem default de `purga_execucoes` (lidas de
+    -- `20260823000002:136-153`, não de memória): modo_vigente, cap_vigente,
+    -- elegiveis, veredito. `processados`, `notificacoes_expurgadas`, `situacao`,
+    -- `iniciada_em` e `id` têm default; `concluida_em` é anulável.
+    INSERT INTO public.purga_execucoes
+           (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
+            iniciada_em, concluida_em)
+    SELECT 'dry_run', 50,
+           CASE WHEN g = 1 THEN 3 ELSE 0 END,
+           0, 'dry_run', 'concluida',
+           pg_catalog.now() - make_interval(days => 15 - g),
+           pg_catalog.now() - make_interval(days => 15 - g)
+      FROM generate_series(1, 14) g;
+
+    -- As três etapas da allowlist deixam de estar em procedência de seed.
+    -- ⚠ Só as da allowlist: D-46-22 é sobre as etapas que a purga ALCANÇA, e
+    --   marcar a matriz inteira mediria uma condição mais larga que a real.
+    UPDATE public.config_retencao_etapa
+       SET origem = 'admin'
+     WHERE elegivel_purga
+       AND origem = 'seed';
+
+    -- ── (d.1) ⊖ SEM O ARGUMENTO DE CONFIRMAÇÃO ───────────────────────────────
+    -- Todos os outros critérios satisfeitos. O modo seguro é o padrão, e ligar a
+    -- destruição exige AFIRMAR a intenção — um flip que fosse efeito colateral de
+    -- uma chamada que pretendia mudar o cap é exatamente o que PURGA-04 proíbe.
+    BEGIN
+      PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                         p_janela_notificacoes_meses := NULL,
+                                         p_confirmo_live := false);
+      v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+      v_d_msg := v_d_msg || '<sem excecao>'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_d_st  := v_d_st  || SQLSTATE;
+      v_d_msg := v_d_msg || SQLERRM;
+    END;
+
+    -- ── (d.2) ⊖ MENOS DE 14 DIAS CORRIDOS ────────────────────────────────────
+    BEGIN
+      UPDATE public.purga_execucoes
+         SET iniciada_em = pg_catalog.now() - interval '13 days'
+       WHERE iniciada_em < pg_catalog.now() - interval '13 days';
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_dias' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;  -- a data volta ao plantado; as variaveis acima sobreviveram
+    END;
+
+    -- ── (d.3) ⊖ MENOS DE 14 EXECUÇÕES COM LEDGER ─────────────────────────────
+    -- ⚠ O ÚNICO CASO QUE NÃO PODE SER MONTADO POR ACRÉSCIMO: a contagem só desce
+    --   removendo linhas. A remoção vive nesta subtransação aninhada e é desfeita
+    --   três statements depois — e a impressão digital conferida no fim do bloco
+    --   transforma "foi desfeita" de suposição em medição.
+    -- Reconstrói-se um ledger de EXATAMENTE 13 linhas, ainda com a mais antiga a
+    -- -20 dias e uma sobre conjunto não-vazio: assim o único critério que falha é
+    -- a contagem, e o diagnóstico tem de nomear ELA e mais nenhuma.
+    BEGIN
+      DELETE FROM public.purga_execucao_itens;
+      DELETE FROM public.purga_execucoes;
+
+      INSERT INTO public.purga_execucoes
+             (modo_vigente, cap_vigente, elegiveis, processados, veredito, situacao,
+              iniciada_em, concluida_em)
+      SELECT 'dry_run', 50,
+             CASE WHEN g = 1 THEN 3 ELSE 0 END,
+             0, 'dry_run', 'concluida',
+             pg_catalog.now() - make_interval(days => 21 - g),
+             pg_catalog.now() - make_interval(days => 21 - g)
+        FROM generate_series(1, 13) g;
+
+      SELECT count(*) INTO v_d_conta13 FROM public.purga_execucoes;
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_contagem' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;  -- o ledger inteiro volta; a contagem medida sobreviveu em memoria
+    END;
+
+    -- ── (d.4) ⊖ 14+ EXECUÇÕES E NENHUMA SOBRE CONJUNTO NÃO-VAZIO ─────────────
+    -- ⚠⚠ É POR ESTE CASO QUE A FASE INTEIRA EXISTE. A prévia devolve zero por
+    --   ARITMÉTICA — a matriz está em 24 meses e o sistema é mais novo que a
+    --   janela —, então catorze dias de zeros são o desfecho ESPERADO em produção
+    --   sem a fixture do 46-01. Eles não provam nada sobre o caminho do delete: é
+    --   o dry-run decorativo que o SC#1 nomeia, e a mesma classe de falha de uma
+    --   guarda que era dead code. Um critério que conta dias e execuções mas não
+    --   conta ELEGÍVEIS deixaria o portão aprovar exatamente esse cenário.
+    BEGIN
+      UPDATE public.purga_execucoes SET elegiveis = 0;
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_elegiveis' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;
+    END;
+
+    -- ── (d.5) ⊖ ETAPA DA ALLOWLIST AINDA EM PROCEDÊNCIA DE SEED (D-46-22) ────
+    -- Um valor em seed significa que ninguém CONTESTOU aquele número, não que
+    -- alguém o DECIDIU — e o `COMMENT` da coluna declara essa pré-condição dentro
+    -- do banco desde a Phase 43. Medido em PROD em 2026-08-22: 7 das 8 linhas
+    -- seguem em seed.
+    BEGIN
+      UPDATE public.config_retencao_etapa
+         SET origem = 'seed'
+       WHERE elegivel_purga;
+
+      BEGIN
+        PERFORM public.salvar_config_purga(p_modo := 'live', p_cap_titulares := NULL,
+                                           p_janela_notificacoes_meses := NULL,
+                                           p_confirmo_live := true);
+        v_d_st  := v_d_st  || 'SEM-EXCECAO'::text;
+        v_d_msg := v_d_msg || '<sem excecao>'::text;
+      EXCEPTION WHEN OTHERS THEN
+        v_d_st  := v_d_st  || SQLSTATE;
+        v_d_msg := v_d_msg || SQLERRM;
+      END;
+
+      RAISE EXCEPTION 'reverte_caso_seed' USING ERRCODE = 'P46B1';
+    EXCEPTION
+      WHEN sqlstate 'P46B1' THEN
+        NULL;
+    END;
+
+    -- ── (d.6) ⊕ O CASO POSITIVO — E (e) MEDIDA EM VOLTA DELE ─────────────────
+    -- Os cinco critérios satisfeitos: 14 dias EXATOS desde a primeira execução,
+    -- 14+ execuções, uma delas sobre conjunto não-vazio, a allowlist fora do
+    -- seed, e a confirmação explícita. A chamada TEM de passar e o modo TEM de
+    -- ficar `live` — dentro do envelope, que reverte tudo.
+    -- ⚠ A BASELINE É O CONJUNTO DE `id` JÁ EXISTENTES, e não uma contagem: depois
+    --   do checkpoint desta fase haverá linhas reais de `alterar_config_purga` em
+    --   PROD, e a linha NOVA precisa ser identificável sem depender de ordenação
+    --   por um carimbo que o catálogo declara ANULÁVEL. É baseline capturada na
+    --   própria execução, jamais lista literal.
+    SELECT array_agg(l.id) INTO v_e_ids
+      FROM public.logs_auditoria l WHERE l.acao = 'alterar_config_purga';
+    v_e_base := coalesce(array_length(v_e_ids, 1), 0)::bigint;
+
+    BEGIN
+      PERFORM public.salvar_config_purga('live', NULL, NULL, true);
+      v_d_st  := v_d_st  || 'OK'::text;
+      v_d_msg := v_d_msg || '<aceitou>'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_d_st  := v_d_st  || SQLSTATE;
+      v_d_msg := v_d_msg || SQLERRM;
+    END;
+
+    SELECT cp.modo INTO v_d_modo_pos FROM public.config_purga cp;
+
+    SELECT count(*) - v_e_base INTO v_e_delta
+      FROM public.logs_auditoria l WHERE l.acao = 'alterar_config_purga';
+
+    SELECT l.usuario_id, l.dados_antes, l.dados_depois,
+           l.severidade::text, l.categoria::text
+      INTO v_e_usuario, v_e_antes, v_e_depois, v_e_sev, v_e_cat
+      FROM public.logs_auditoria l
+     WHERE l.acao = 'alterar_config_purga'
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest(coalesce(v_e_ids, ARRAY[]::uuid[])) x WHERE x = l.id
+       );
+
+    -- ── (d.7) ⊖⊕ O KILL SWITCH É IRRECUSÁVEL ─────────────────────────────────
+    -- A partir do `live` recém-montado, as TRÊS condições que reprovariam a
+    -- entrada em `live` são quebradas de propósito — e a chamada para `off` passa
+    -- assim mesmo, SEM argumento de confirmação. Um kill switch que pode ser
+    -- recusado não é um kill switch, e o momento em que ele mais importa é
+    -- exatamente aquele em que algum critério estaria falhando.
+    UPDATE public.purga_execucoes SET elegiveis = 0, iniciada_em = pg_catalog.now();
+    UPDATE public.config_retencao_etapa SET origem = 'seed' WHERE elegivel_purga;
+
+    BEGIN
+      PERFORM public.salvar_config_purga(p_modo := 'off', p_cap_titulares := NULL,
+                                         p_janela_notificacoes_meses := NULL,
+                                         p_confirmo_live := NULL);
+      v_d_st  := v_d_st  || 'OK'::text;
+      v_d_msg := v_d_msg || '<desligou>'::text;
+    EXCEPTION WHEN OTHERS THEN
+      v_d_st  := v_d_st  || SQLSTATE;
+      v_d_msg := v_d_msg || SQLERRM;
+    END;
+
+    SELECT cp.modo INTO v_d_modo_off FROM public.config_purga cp;
+
+    UPDATE public.config_purga SET modo = v_modo0;
+
+    RAISE EXCEPTION 'rollback_smoke46de_envelope' USING ERRCODE = 'P46B0';
+  EXCEPTION
+    WHEN sqlstate 'P46B0' THEN
+      NULL;  -- reversao ESPERADA; as variaveis acima sobreviveram ao rollback
+  END;
+
+  -- ⚠ As claims são limpas AQUI. Um vazamento para o RESUMO (z) não o quebraria,
+  -- mas a higiene deste arquivo é que ele roda com `auth.uid()` NULO — como o
+  -- cron —, e foi essa disciplina que revelou o Blocker B-02 no 46-04.
+  PERFORM set_config('request.jwt.claims', '', false);
+  PERFORM set_config('request.jwt.claim.sub', '', false);
+  RESET ROLE;
+
+  -- ══ MEDIÇÃO DE RESTAURAÇÃO — a exceção legítima à regra do cabeçalho ═══════
+  SELECT count(*), md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+    INTO v_led_n_z, v_led_fp_z
+    FROM (SELECT to_jsonb(e)::text AS linha FROM public.purga_execucoes e
+          UNION ALL
+          SELECT to_jsonb(i)::text        FROM public.purga_execucao_itens i) t;
+
+  SELECT count(*) INTO v_e_acao_z
+    FROM public.logs_auditoria l WHERE l.acao = 'alterar_config_purga';
+
+  -- ══ JULGAMENTO — sobre variáveis ═══════════════════════════════════════════
+
+  IF v_led_n_z IS DISTINCT FROM v_led_n_a OR v_led_fp_z IS DISTINCT FROM v_led_fp_a THEN
+    RAISE EXCEPTION 'P46P FAIL (d): ⛔ O LEDGER NAO VOLTOU AO ESTADO ANTERIOR. Antes: % linha(s), impressao digital [%]. Depois: % linha(s), impressao digital [%]. Este bloco REMOVE e RECRIA linhas de purga_execucoes dentro de subtransacoes que TEM de ser revertidas — se elas nao foram, um registro de cumprimento de obrigacao legal com retencao INDEFINIDA (D-46-16) acabou de ser alterado por um TESTE, num sistema sem PITR. Nao rodar este arquivo de novo antes de entender o que aconteceu',
+      v_led_n_a, v_led_fp_a, v_led_n_z, v_led_fp_z;
+  END IF;
+
+  IF v_uid_ok IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (d): ⊖ NAO-VACUIDADE DA IMPERSONACAO — auth.uid() resolveu para NULO depois de carimbar as claims (medido %). Sem sessao, a RPC recusa com 42501 em TODAS as chamadas: as cinco negativas ficariam verdes medindo o guard de papel, e o caso positivo reprovaria por um motivo que nada tem a ver com o portao do flip', v_uid_ok;
+  END IF;
+
+  IF array_length(v_d_st, 1) IS DISTINCT FROM 7 THEN
+    RAISE EXCEPTION 'P46P FAIL (d): foram registradas % chamadas de controle (esperado 7 — cinco recusas, uma aceitacao e o kill switch). Um bloco que nao executou as sete nao provou nada sobre o portao do flip', coalesce(array_length(v_d_st, 1), 0);
+  END IF;
+
+  -- As CINCO recusas, uma por critério.
+  IF v_d_st[1] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.1): com TODOS os criterios satisfeitos e SEM o argumento de confirmacao, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. ⚠ [SEM-EXCECAO] aqui significa que ligar a destruicao irreversivel de PII virou efeito colateral de uma chamada que nao a pediu — que e literalmente o que PURGA-04 proibe',
+      coalesce(v_d_st[1], 'NULL'), coalesce(v_d_msg[1], 'NULL');
+  END IF;
+
+  IF v_d_st[2] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.2): com a primeira execucao do ledger a 13 dias — um dia INTEIRO aquem da fronteira de D-46-14 —, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. A fronteira e o contrato: 13 dias recusa, 14 dias aceita, e o caso (d.6) prova a outra metade',
+      coalesce(v_d_st[2], 'NULL'), coalesce(v_d_msg[2], 'NULL');
+  END IF;
+
+  IF v_d_conta13 IS DISTINCT FROM 13 THEN
+    RAISE EXCEPTION 'P46P FAIL (d.3): a montagem do caso deixou % execucao(oes) no ledger (esperado exatamente 13). Com um numero diferente o caso pode ter falhado por OUTRO criterio, e a recusa observada nao seria prova da contagem', coalesce(v_d_conta13, -1);
+  END IF;
+
+  IF v_d_st[3] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.3): com 13 execucoes no ledger — uma aquem das 14 exigidas, e com os outros criterios satisfeitos —, a RPC devolveu [%] em vez de 22023. Mensagem: [%]',
+      coalesce(v_d_st[3], 'NULL'), coalesce(v_d_msg[3], 'NULL');
+  END IF;
+
+  IF v_d_st[4] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.4): ⛔ O CASO QUE A FASE INTEIRA EXISTE PARA NAO DEIXAR PASSAR. Com 14+ execucoes, 14+ dias e NENHUMA execucao sobre conjunto elegivel nao-vazio, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. Catorze noites de zeros nao provam NADA sobre o caminho do delete: a previa devolve zero por ARITMETICA, nao por defeito, e um portao que conta dias e execucoes mas nao conta ELEGIVEIS autoriza exatamente o dry-run decorativo que o SC#1 proibe',
+      coalesce(v_d_st[4], 'NULL'), coalesce(v_d_msg[4], 'NULL');
+  END IF;
+
+  IF v_d_st[5] IS DISTINCT FROM '22023' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.5): com as etapas da allowlist de volta a procedencia de seed, a RPC devolveu [%] em vez de 22023. Mensagem: [%]. D-46-22 nao e detalhe: um valor em seed significa que ninguem CONTESTOU aquele numero, nao que alguem o DECIDIU — e ligar a purga sobre uma matriz que ninguem escolheu apaga pessoas por um prazo que nenhum humano confirmou',
+      coalesce(v_d_st[5], 'NULL'), coalesce(v_d_msg[5], 'NULL');
+  END IF;
+
+  -- ⊖ O DIAGNÓSTICO NOMEIA O CRITÉRIO CERTO — E SÓ ELE.
+  -- ⚠ Isto não é preciosismo de texto: a lição mais cara desta fase é que um
+  --   diagnóstico ERRADO custa mais que um "falhou". Uma mensagem que nomeasse
+  --   quatro critérios quando só um faltou mandaria o operador confirmar a matriz
+  --   inteira quando o que faltava eram dias — e o checkpoint desta fase depende
+  --   de a mensagem de recusa dizer o que fazer.
+  --
+  -- ⚠ VARREDURA POR FORMA (CLAUDE.md), respondida aqui e não deixada implícita:
+  --   os quatro marcadores abaixo são uma lista literal, e a pergunta obrigatória
+  --   é se ela codifica um ESCOPO deliberado ou uma FOTOGRAFIA que vai envelhecer.
+  --   São ESCOPO: os quatro são exatamente os quatro critérios de D-46-14 mais
+  --   D-46-22, e a lista só muda no dia em que os CRITÉRIOS mudarem — que é
+  --   precisamente o dia em que esta asserção tem de ser reescrita junto. Um
+  --   critério novo sem marcador novo faz o caso correspondente inexistir, e não
+  --   passar em silêncio: cada caso compara o conjunto de marcadores por
+  --   IGUALDADE EXATA, então um critério a mais na mensagem reprova pelo nome.
+  v_marc := ARRAY[]::text[];
+  FOR v_k IN 2..5 LOOP
+    v_msg  := coalesce(v_d_msg[v_k], '');
+    v_marc := v_marc || coalesce(concat_ws('+'::text,
+      CASE WHEN position('dias corridos'       in v_msg) > 0 THEN 'dias'::text      END,
+      CASE WHEN position('execucoes com linha' in v_msg) > 0 THEN 'execucoes'::text END,
+      CASE WHEN position('NAO-VAZIO'           in v_msg) > 0 THEN 'elegiveis'::text END,
+      CASE WHEN position('procedencia de seed' in v_msg) > 0 THEN 'seed'::text      END
+    ), '<nenhum>'::text);
+  END LOOP;
+
+  IF v_marc[1] IS DISTINCT FROM 'dias'
+     OR v_marc[2] IS DISTINCT FROM 'execucoes'
+     OR v_marc[3] IS DISTINCT FROM 'elegiveis'
+     OR v_marc[4] IS DISTINCT FROM 'seed' THEN
+    RAISE EXCEPTION 'P46P FAIL (d): o DIAGNOSTICO de cada recusa nao nomeia o criterio certo e so ele. Medido, na ordem (13 dias / 13 execucoes / zero elegiveis / matriz em seed): [%], [%], [%], [%] — esperado dias, execucoes, elegiveis, seed. ⚠ Um diagnostico que nomeia criterios que NAO faltaram manda o operador consertar o que ja estava certo; um que nomeia menos do que faltou o manda tentar de novo as cegas. O passo 4 do checkpoint desta fase copia a mensagem inteira para o SUMMARY: ela E a evidencia de que o portao existe',
+      coalesce(v_marc[1], 'NULL'), coalesce(v_marc[2], 'NULL'), coalesce(v_marc[3], 'NULL'), coalesce(v_marc[4], 'NULL');
+  END IF;
+
+  -- ⊕ A ACEITAÇÃO.
+  IF v_d_st[6] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.6): ⊕ O CONTROLE POSITIVO. Com os CINCO criterios satisfeitos — 14 dias exatos desde a primeira execucao, 14+ execucoes com ledger, uma delas sobre conjunto nao-vazio, allowlist fora do seed e confirmacao explicita —, a RPC devolveu [%] em vez de aceitar. Mensagem: [%]. ⚠ PROVAR SO RECUSA NAO PROVA NADA: uma funcao que recusa TUDO passaria nas cinco negativas acima, e a descoberta chegaria no dia do flip, com o operador incapaz de ligar a purga e sem saber por que. E o modo de falha no 3 dos sete portoes da Phase 45, e e o que aconteceu com a (p.3) deste mesmo arquivo por tres rodadas de review',
+      coalesce(v_d_st[6], 'NULL'), coalesce(v_d_msg[6], 'NULL');
+  END IF;
+
+  IF v_d_modo_pos IS DISTINCT FROM 'live' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.6): a RPC aceitou mas config_purga.modo ficou em [%] (esperado live). "Nao levantou" nunca foi o mesmo que "gravou" — uma funcao que retorna sem escrever deixaria o operador convencido de que ligou a purga', coalesce(v_d_modo_pos, 'NULL');
+  END IF;
+
+  -- ⊖⊕ O KILL SWITCH.
+  IF v_d_st[7] IS DISTINCT FROM 'OK' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.7): ⛔ O KILL SWITCH FOI RECUSADO. A partir de live, com as TRES condicoes que reprovariam a ENTRADA em live falhando de proposito (sem confirmacao, ledger insuficiente e matriz em seed), a chamada para off devolveu [%] em vez de passar. Mensagem: [%]. UM KILL SWITCH QUE PODE SER RECUSADO NAO E UM KILL SWITCH, e o momento em que ele mais importa e exatamente aquele em que algum criterio esta falhando — as tres da manha, com a purga apagando o que nao devia',
+      coalesce(v_d_st[7], 'NULL'), coalesce(v_d_msg[7], 'NULL');
+  END IF;
+
+  IF v_d_modo_off IS DISTINCT FROM 'off' THEN
+    RAISE EXCEPTION 'P46P FAIL (d.7): a chamada de desligamento nao levantou, mas config_purga.modo ficou em [%] (esperado off). Um kill switch que retorna sem desligar e pior que um que recusa: o operador vai embora achando que desligou', coalesce(v_d_modo_off, 'NULL');
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (d): o portao do flip RECUSA com 22023 nos cinco criterios, um de cada vez — sem confirmacao (%), 13 dias (%), 13 execucoes (%), zero elegiveis (%), matriz em seed (%) —, cada recusa nomeando SO o criterio que faltou; ⊕ ACEITA com os cinco satisfeitos e config_purga.modo vai a [%]; e ⊖⊕ a transicao para off passa mesmo com os tres criterios falhando, indo a [%]. Estado REAL de PROD no instante do run (nao usado por nenhuma decisao deste bloco): % execucoes, primeira em [%], % sobre conjunto nao-vazio',
+    v_d_st[1], v_d_st[2], v_d_st[3], v_d_st[4], v_d_st[5], v_d_modo_pos, v_d_modo_off,
+    v_real_n, coalesce(v_real_min::text, 'NENHUMA'), v_real_eleg;
+
+  -- ══ (e) A TRILHA, NA MESMA TRANSAÇÃO ═══════════════════════════════════════
+  -- ⚠ A prova de "mesma transação" é ESTRUTURAL, e não uma inspeção de código: a
+  --   linha foi contada DENTRO do envelope e some quando ele reverte. Se a trilha
+  --   fosse escrita por fora do corpo — trigger assíncrono, job posterior —, o
+  --   delta aqui daria 0; e se fosse escrita fora da transação, ela SOBREVIVERIA
+  --   ao rollback e a segunda medição pegaria isso.
+  IF v_e_delta IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'P46P FAIL (e): a mudanca de modo bem-sucedida produziu % linha(s) nova(s) em logs_auditoria com acao = alterar_config_purga (esperado exatamente 1). ⚠ Se for 0, a chamada da trilha NAO roda no mesmo corpo e o flip deixa de ser EVIDENCIADO — existiria um estado em que o modo mudou e a trilha nao registrou, que e precisamente o que PURGA-04 exige que nao exista. Se for mais de 1, ha um segundo escritor e a trilha passa a contar a mesma mudanca duas vezes', coalesce(v_e_delta, -1);
+  END IF;
+
+  IF v_e_usuario IS DISTINCT FROM v_admin_rh THEN
+    RAISE EXCEPTION 'P46P FAIL (e): a linha de trilha aponta para o ator [%] e nao para o administrador resolvido no SERVIDOR [%]. O ator NUNCA e recebido por parametro — a assinatura da RPC nao tem parametro de ator —, e uma autoria escolhida por quem esta sendo auditado nao e trilha',
+      coalesce(v_e_usuario::text, 'NULL'), v_admin_rh::text;
+  END IF;
+
+  IF v_e_antes IS NULL OR v_e_depois IS NULL THEN
+    RAISE EXCEPTION 'P46P FAIL (e): a linha de trilha tem dados_antes = [%] e dados_depois = [%] — os dois precisam carregar a linha inteira de config_purga em jsonb. Sem o estado ANTERIOR nao ha como saber de onde a purga foi ligada, e um registro que so diz o depois nao responde a pergunta que a auditoria faz',
+      coalesce(v_e_antes::text, 'NULL'), coalesce(v_e_depois::text, 'NULL');
+  END IF;
+
+  IF (v_e_antes ->> 'modo') IS NOT DISTINCT FROM (v_e_depois ->> 'modo') THEN
+    RAISE EXCEPTION 'P46P FAIL (e): dados_antes e dados_depois registram o MESMO modo [%] — a linha afirma uma alteracao que nao teria acontecido. Poluir a trilha probatoria com nao-mudancas e o oposto do que PURGA-04 pede dela',
+      coalesce(v_e_antes ->> 'modo', 'NULL');
+  END IF;
+
+  IF v_e_cat IS DISTINCT FROM 'configuracao' OR v_e_sev IS DISTINCT FROM 'critico' THEN
+    RAISE EXCEPTION 'P46P FAIL (e): a linha ficou com categoria [%] e severidade [%] — esperado configuracao e critico. ⚠ A severidade sobe ao TOPO do vocabulario quando o destino e live, e isso nao e enfase: a partir de live a varredura noturna destroi PII de pessoas reais em tres sistemas, de forma irreversivel, num projeto sem PITR e com o Storage fora de todo caminho de backup. Ligar isso nao e um aviso, e quem varrer a trilha por severidade tem de encontrar este evento',
+      coalesce(v_e_cat, 'NULL'), coalesce(v_e_sev, 'NULL');
+  END IF;
+
+  IF v_e_acao_z IS DISTINCT FROM v_e_base THEN
+    RAISE EXCEPTION 'P46P FAIL (e): depois do rollback restaram % linha(s) com acao = alterar_config_purga, e antes da chamada havia % — a linha de trilha SOBREVIVEU ao envelope. Isso significa que ela NAO foi escrita na mesma transacao da mudanca, e portanto existe um estado em que uma delas acontece sem a outra. E tambem significa que este smoke acabou de poluir a trilha probatoria de PROD',
+      coalesce(v_e_acao_z, -1), coalesce(v_e_base, -1);
+  END IF;
+
+  PERFORM set_config('smoke46p.pass', (coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P46P PASS (e): a mudanca de modo gravou EXATAMENTE 1 linha em logs_auditoria dentro do envelope, com ator [%] resolvido no servidor, categoria [%], severidade [%], e os dois estados registrados e diferentes ([%] -> [%]); e a linha DESAPARECEU com o rollback, que e a prova estrutural de que ela vive na mesma transacao da mutacao',
+    v_e_usuario, v_e_cat, v_e_sev, v_e_antes ->> 'modo', v_e_depois ->> 'modo';
+
+  RAISE NOTICE 'P46P TEARDOWN ok (d/e): envelope revertido — config_purga.modo voltou a [%], o ledger voltou a % linha(s) com a impressao digital [%] identica a de antes, e a trilha voltou a % linha(s) de alterar_config_purga',
+    coalesce(v_modo0, 'NULL'), v_led_n_z, v_led_fp_z, v_e_acao_z;
+END $de$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
-DECLARE v_n int; v_esperado int := 25;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p) + 5 (46-05: q.1..q.5) + 4 (46-06: a, g, m, n)
+DECLARE v_n int; v_esperado int := 27;  -- 6 (46-02) + 5 (46-03) + 5 (46-04: b, o, o.6, o.7, p) + 5 (46-05: q.1..q.5) + 4 (46-06: a, g, m, n) + 2 (46-07: d, e)
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke46p.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
