@@ -225,7 +225,10 @@ async function loadHandler() {
   const mod = await import("./index.ts");
   return mod.handler as (
     r: Request,
-    deps: { supabaseAdmin: unknown; segredoEsperado: string },
+    // ⚠ `agora` é o relógio injetável do orçamento de parede (HI-05). Opcional
+    //   aqui pelo mesmo motivo que é opcional em `Deps`: em produção o bootstrap
+    //   não passa nada e o default é `Date.now`.
+    deps: { supabaseAdmin: unknown; segredoEsperado: string; agora?: () => number },
   ) => Promise<Response>;
 }
 
@@ -663,4 +666,99 @@ Deno.test("(j2) falha ao ler candidatos.user_id fecha o item com postgres=falha,
     postgres: "falha",
     auth: "nao_aplicavel",
   });
+});
+
+// ---------------------------------------------------------------------------
+// (k) HI-05 — o orçamento de parede é DA FUNÇÃO, e ele MORDE
+// ---------------------------------------------------------------------------
+// ⚠⚠ ESTES TRÊS CASOS EXISTEM PORQUE A MARGEM DE 150 S NÃO TINHA DONO.
+//   `reivindicar_item_purga` concede a reivindicação apenas quando a execução
+//   tem 150 s de janela restante, e infere daí que *"se a reivindicação passou,
+//   o guard de 1 h ainda autoriza em todo passo posterior"* — o que fecha o
+//   cenário RD2-03 (Storage apagado, motor recusa com 42501, currículo órfão e
+//   irrecuperável, num bucket fora de todo backup). A aritmética está certa; o
+//   PRESSUPOSTO — *"a EF morre aos 150 s"* — era uma medição da plataforma, do
+//   tipo que muda com plano, região ou versão do runtime, sem diff e sem aviso.
+//   `(q.2)` do smoke prova que o LITERAL `interval '150 seconds'` está no corpo
+//   vivo da RPC, e **um literal presente não é um relógio**.
+//
+// ⚠ O RELÓGIO É INJETADO, e é isso que transforma o orçamento de promessa em
+//   mecanismo aferível: um teto que nenhum teste consegue estourar é o mesmo
+//   defeito que ele veio consertar.
+
+/** Relógio falso: devolve, em ordem, os instantes que o teste roteirizou. */
+function relogio(instantes: readonly number[]): () => number {
+  let i = 0;
+  return () => instantes[Math.min(i++, instantes.length - 1)];
+}
+
+Deno.test("(k) orcamento estourado ANTES do Storage: nada e tocado e o Postgres leva a falha", async () => {
+  const handler = await loadHandler();
+  const reg = novoRegistro();
+  // 1ª leitura ancora o prazo em 0 + 120_000; a 2ª (antes do Storage) já passou.
+  const res = await handler(req({ item_id: ITEM, candidato_id: CORPO_CANDIDATO }), {
+    supabaseAdmin: makeAdmin(cenarioFeliz(), reg),
+    segredoEsperado: SEGREDO,
+    agora: relogio([0, 200_000]),
+  });
+
+  assertEquals(res.status, 500);
+  // ⊖ O PONTO: o `remove` é o primeiro ato irreversível, e ele não aconteceu.
+  assertEquals(reg.storageList.length, 0, "o bucket foi enumerado com o orcamento estourado");
+  assertEquals(reg.storageRemove.length, 0, "houve REMOCAO com o orcamento estourado");
+  assertEquals(reg.deleteUser.length, 0);
+  // ⚠ `storage: nao_aplicavel` e não `falha`: nenhuma chamada aconteceu, e
+  //   afirmar o contrário seria a mentira simétrica do RD2-01 (HI-03).
+  assertEquals(desfechosConcluidos(reg), {
+    storage: "nao_aplicavel",
+    postgres: "falha",
+    auth: "nao_aplicavel",
+  });
+});
+
+Deno.test("(k2) orcamento estourado ANTES do motor: storage fica ok, e o Auth NAO e apagado", async () => {
+  const handler = await loadHandler();
+  const reg = novoRegistro();
+  // Passa no cheque pré-Storage e no de lote, e estoura no cheque pré-motor.
+  const res = await handler(req({ item_id: ITEM, candidato_id: CORPO_CANDIDATO }), {
+    supabaseAdmin: makeAdmin(cenarioFeliz(), reg),
+    segredoEsperado: SEGREDO,
+    agora: relogio([0, 1_000, 2_000, 200_000]),
+  });
+
+  assertEquals(res.status, 500);
+  assertEquals(reg.storageRemove.length, 1, "o Storage nao chegou a ser removido");
+  assertEquals(
+    reg.rpc.filter((c) => c.nome === "anonimizar_candidato").length,
+    0,
+    "o motor rodou com o orcamento estourado",
+  );
+  // ⚠⚠ ESTA É A ASSERÇÃO QUE JUSTIFICA A DIVERGÊNCIA DO TEXTO DE HI-05, que
+  //   sugeria atribuir `storage` também aqui: o passo de Storage COMPLETOU, e
+  //   sobrescrevê-lo para `falha` afirmaria que uma remoção bem-sucedida
+  //   falhou — num registro com retenção INDEFINIDA e sem PITR para desmentir.
+  assertEquals(desfechosConcluidos(reg), {
+    storage: "ok",
+    postgres: "falha",
+    auth: "nao_aplicavel",
+  });
+  assertEquals(reg.deleteUser.length, 0);
+});
+
+Deno.test("(k3) com orcamento de sobra o caminho feliz continua inteiro — o cheque nao e um freio permanente", async () => {
+  const handler = await loadHandler();
+  const reg = novoRegistro();
+  // ⊕ CONTROLE POSITIVO. Sem ele, um `semOrcamento()` que devolvesse SEMPRE
+  //   true passaria nos dois casos acima — é o modo de falha nº 3 dos sete
+  //   portões da Phase 45, e o que aconteceu com a `(p.3)` do smoke por três
+  //   rodadas de review.
+  const res = await handler(req({ item_id: ITEM, candidato_id: CORPO_CANDIDATO }), {
+    supabaseAdmin: makeAdmin(cenarioFeliz(), reg),
+    segredoEsperado: SEGREDO,
+    agora: relogio([0, 10, 20, 30, 40]),
+  });
+
+  assertEquals(res.status, 200);
+  assertEquals(reg.deleteUser.length, 1);
+  assertEquals(desfechosConcluidos(reg), { storage: "ok", postgres: "ok", auth: "ok" });
 });

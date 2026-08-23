@@ -89,6 +89,37 @@ const LIMITE_REMOCAO = 1000;
 const LIMITE_LISTAGEM = 100;
 const MAX_PAGINAS = 50;
 
+/**
+ * ⚠⚠ O ORÇAMENTO DE PAREDE **DA PRÓPRIA FUNÇÃO** — HI-05 do `46-REVIEW-2.md`.
+ *
+ * `reivindicar_item_purga` (`20260823000010:186`) conta com uma margem de 150 s:
+ * ela concede a reivindicação apenas quando a execução tem, no mínimo, esse tanto
+ * de janela restante, e daí infere que **se a reivindicação passou, o guard de 1 h
+ * ainda autoriza em todo passo posterior** — fechando o cenário RD2-03 (Storage
+ * apagado, motor recusa com 42501, currículo órfão e irrecuperável).
+ *
+ * A aritmética está certa. O PRESSUPOSTO é que estava sem dono: os 150 s são uma
+ * **medição da plataforma** (a RESEARCH desta fase), do tipo que muda com plano,
+ * região ou versão do runtime — sem diff e sem aviso. Nada neste repositório os
+ * pinava nem os fazia cumprir: não havia `AbortController`, não havia `deadline`,
+ * `config.toml` só declara `verify_jwt = false`, e `(q.2)` do smoke prova apenas
+ * que o **literal** `interval '150 seconds'` está no corpo vivo da RPC. **Um
+ * literal presente não é um relógio.**
+ *
+ * Com este orçamento a garantia deixa de depender do runtime: a função desiste
+ * SOZINHA antes dos 150 s, o item fecha com desfechos honestos, e o titular volta
+ * na varredura seguinte. 120 s dá 30 s de folga para o `finally` concluir o item.
+ *
+ * ⚠ O QUE ELE **NÃO** FECHA, e a prosa do `20260823000010:114-121` e do
+ * `46-05-SUMMARY.md:118` descrevia como se fechasse: se o worker morrer por wall
+ * clock **entre** o `remove` e a chamada ao motor, o desfecho é o mesmo (Storage
+ * apagado, Postgres intacto) — não porque o motor recuse, mas porque ninguém o
+ * chama. O sistema CONVERGE (a reconciliação fecha o item, a varredura seguinte
+ * recolhe o titular, e o Storage já está vazio), e é isso — e só isso — que a
+ * margem garante nessa metade.
+ */
+const PRAZO_MS = 120_000;
+
 /** O SQLSTATE que `reivindicar_item_purga` levanta quando o encontro não confere. */
 const SQLSTATE_RECUSA_REIVINDICACAO = "P46FB";
 /** O terminador do dry-run do motor. Chegando no caminho REAL, é defeito grave. */
@@ -147,6 +178,14 @@ export interface Deps {
   supabaseAdmin: any;
   /** O segredo esperado no Bearer. Lido do ambiente pelo bootstrap; injetado nos testes. */
   segredoEsperado: string;
+  /**
+   * ⚠ O RELÓGIO É INJETÁVEL **PARA QUE O ORÇAMENTO SEJA TESTÁVEL**, e não por
+   * gosto por abstração. Um orçamento de parede que nenhum teste consegue
+   * estourar é a mesma promessa sem código que HI-05 encontrou nos 150 s: um
+   * mecanismo que ninguém provou que morde. Em produção o bootstrap não passa
+   * nada e o default é `Date.now`.
+   */
+  agora?: () => number;
 }
 
 /** Falha ATRIBUÍDA a um passo. */
@@ -231,6 +270,7 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   if (req.method !== "POST") return errorResponse("SERVER_ERROR", "Método não suportado", 405);
 
   const { supabaseAdmin, segredoEsperado } = deps;
+  const agora = deps.agora ?? Date.now;
 
   // ── 1 · AUTO-AUTENTICAÇÃO (T-46-05-01) ────────────────────────────────────
   // `verify_jwt = false`: o gateway NÃO autentica ninguém, e é a função que tem de
@@ -311,6 +351,14 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
   // O item está reivindicado. Um item que fica aberto mantém viva a autorização do
   // 4º ramo do guard destrutivo até a janela de 1 h de HI-03 vencer — por isso tudo
   // o que vem abaixo roda dentro de um `try` cujo `finally` conclui o item.
+  //
+  // ── O ORÇAMENTO DE PAREDE COMEÇA A CORRER NA REIVINDICAÇÃO (HI-05) ────────
+  // Aqui, e não no topo do handler: é a reivindicação que ancora a margem de
+  // 150 s do `20260823000010:186`, e é a partir dela que a inferência "o guard
+  // ainda autoriza em todo passo posterior" precisa valer.
+  const prazo = agora() + PRAZO_MS;
+  const semOrcamento = () => agora() > prazo;
+
   const desfechos: Record<Passo, Desfecho> = {
     storage: "nao_aplicavel",
     postgres: "nao_aplicavel",
@@ -387,8 +435,21 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       // ── PASSO 2 · STORAGE (T-46-05-07) ────────────────────────────────────
       // ⚠ EXCLUSIVAMENTE pela Storage Admin API. Apagar por SQL removeria só o
       // metadado e orfanaria o blob PARA SEMPRE.
+      //
+      // ⚠⚠ ORÇAMENTO 1/3 — ANTES DE ABRIR O PASSO, porque o `remove` de baixo é
+      //   O PRIMEIRO ATO IRREVERSÍVEL desta função. Atribuído ao **Postgres**:
+      //   nada de Storage foi tocado ainda, e dizer `storage = 'falha'` aqui
+      //   afirmaria que o currículo pode ter sido destruído quando nenhuma
+      //   chamada aconteceu. Storage fica em `nao_aplicavel`, que é o fato.
+      if (semOrcamento()) throw new ErroDePasso("postgres", "sem_orcamento_de_parede");
+
       const caminhos = await enumerarObjetos(supabaseAdmin, `${authUid}/`);
       for (const lote of dividirEmLotes(caminhos, LIMITE_REMOCAO)) {
+        // ⚠⚠ ORÇAMENTO 2/3 — ENTRE LOTES. Aqui a atribuição a `storage` é
+        //   verdade literal em ambas as direções: se algum lote já foi removido,
+        //   o passo mutou e não completou; se nenhum foi, o passo estava aberto
+        //   e não completou. `falha` descreve os dois.
+        if (semOrcamento()) throw new ErroDePasso("storage", "orcamento_esgotado_no_remove");
         const { data, error } = await supabaseAdmin.storage
           .from(BUCKET_CURRICULOS)
           .remove(lote);
@@ -408,6 +469,22 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
       // ── PASSO 3 · POSTGRES ────────────────────────────────────────────────
       // A EF CHAMA a metade Postgres e não reimplementa NADA dela: toda a
       // atomicidade disponível está dentro daquela transação.
+      //
+      // ⚠⚠ ORÇAMENTO 3/3 — ANTES DO MOTOR, e ATRIBUÍDO AO POSTGRES, divergindo
+      //   do texto de HI-05, que sugeria `storage` também aqui. A divergência é
+      //   obrigatória e não estilo: nesta linha `desfechos.storage` JÁ VALE
+      //   `'ok'` — o passo completou e a re-conferência do bucket passou —, e um
+      //   `ErroDePasso("storage", …)` o SOBRESCREVERIA para `'falha'`,
+      //   afirmando que uma remoção bem-sucedida falhou. Seria exatamente a
+      //   mentira simétrica do RD2-01, do lado pessimista, gravada num registro
+      //   com retenção indefinida. `postgres = 'falha'` é o fato: o motor não
+      //   rodou. E é este o resíduo que HI-05 nomeia — Storage apagado, Postgres
+      //   intacto —, agora ALCANÇADO DE PROPÓSITO e com desfecho honesto, em vez
+      //   de sofrido por um `SIGKILL` do runtime que não deixa carimbo nenhum.
+      if (semOrcamento()) {
+        throw new ErroDePasso("postgres", "orcamento_esgotado_antes_do_motor");
+      }
+
       const motor = await supabaseAdmin.rpc("anonimizar_candidato", {
         p_candidato_id: alvo,
         p_dry_run: false,
@@ -442,6 +519,13 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
 
     if (semUserId) {
       // O caminho sem conta de Auth: só o Postgres é alcançável, e ele roda.
+      // ⚠ O orçamento vale aqui também. Sem esta linha, o único ramo em que
+      //   NENHUM ato irreversível precede o motor ficaria de fora da vigilância
+      //   — a forma "iteração sobre lista literal" do `CLAUDE.md`, na variante
+      //   "o caminho novo não entrou no cerco".
+      if (semOrcamento()) {
+        throw new ErroDePasso("postgres", "orcamento_esgotado_antes_do_motor");
+      }
       const motor = await supabaseAdmin.rpc("anonimizar_candidato", {
         p_candidato_id: alvo,
         p_dry_run: false,

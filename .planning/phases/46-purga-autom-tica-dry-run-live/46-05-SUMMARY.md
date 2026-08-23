@@ -126,6 +126,30 @@ Concedida a reivindicação, **a invocação inteira não consegue sobreviver à
 reivindicação passou, o guard ainda autoriza em todo passo posterior. A obrigação do 46-06 continua
 de pé; o que mudou é que ela agora tem o que provar em vez de o que construir.
 
+> ⚠⚠ **CORREÇÃO (2026-08-23, HI-05 do `46-REVIEW-2.md`) — o parágrafo acima descrevia a margem
+> como se ela fechasse o cenário INTEIRO, e ela fecha só uma metade dele.** Duas ressalvas, e as
+> duas são materiais:
+>
+> 1. **O pressuposto não tinha dono.** Toda a propriedade se sustenta sobre *"a EF morre aos
+>    150 s"*, e nada neste repositório fazia isso valer: `index.ts` não tinha `AbortController`,
+>    `AbortSignal.timeout` nem `deadline`; `config.toml` só declara `verify_jwt = false`; e
+>    `(q.2)` do smoke prova apenas que o **literal** `interval '150 seconds'` está no corpo vivo da
+>    RPC — um literal presente não é um relógio. O número veio da RESEARCH da fase, ou seja é uma
+>    medição da plataforma, do tipo que muda com plano, região ou versão do runtime, sem diff e sem
+>    aviso. Se o teto real fosse maior que 150 s, **o RD2-03 reabria exatamente como escrito
+>    acima**. Consertado no commit de HI-05: o orçamento de parede passou a ser **da função**
+>    (`PRAZO_MS = 120_000`, ancorado na reivindicação, conferido antes de abrir o Storage, entre
+>    lotes de `remove` e antes do motor), com relógio injetável e três testes que provam que ele
+>    morde nas duas direções.
+> 2. **Resta um resíduo que a margem não fecha nem no melhor caso.** Se o worker morrer por wall
+>    clock **entre** o `remove` e a chamada ao motor, o desfecho é o mesmo — Storage apagado,
+>    Postgres intacto — não porque o motor recuse, mas porque ninguém o chama. O sistema
+>    **converge** (a reconciliação de 1 h fecha o item, a varredura seguinte recolhe o titular, e o
+>    Storage já está vazio), e é isso — e só isso — que a margem garante nessa metade. Com o
+>    orçamento da função, esse resíduo passa a ser alcançado **de propósito**, com desfecho honesto
+>    gravado no ledger (`storage = ok`, `postgres = falha`), em vez de sofrido por um `SIGKILL` do
+>    runtime que não deixa carimbo nenhum.
+
 ⚠ **E isso é assertado por EXECUÇÃO, não por prosa.** A asserção `(q.3.5)` do smoke abre a execução
 há **59 minutos** — ainda dentro da hora que o guard exige, mas com menos de 150 s de margem — e
 exige `P46FB`. A `(q.4)` faz o par: com a execução aberta agora, a reivindicação **aceita** e o
