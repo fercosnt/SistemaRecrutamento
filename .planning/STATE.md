@@ -1076,6 +1076,44 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 | **43** | **verification_deferred_human** — 1 item, reduzido de 3 em 2026-08-04 | `/gsd-verify-work 43` · ver abaixo |
 | 44 (plano 44-05) | checkpoint_deferred_human | prova ao vivo no navegador — ver abaixo |
 | **44 (fase)** | **verification_deferred_gaps** | `/gsd-plan-phase 44 --gaps` · mas ler o aviso abaixo |
+| **46** | **verification_deferred_gaps** — 4/5, portão destrutivo 3,5/5 (2026-08-23) | ver abaixo — **NÃO** é `--gaps` |
+
+### ⚠ Phase 46 — os dois gaps NÃO se fecham por código (2026-08-23)
+
+`46-VERIFICATION.md`: **4/5** must-haves, `behavior_unverified: 0`. Todo o código dos 8
+requirements existe, passou por **quatro** rodadas de review e está verde: lint 96 (baseline
+congelada) · 1895 Vitest · 19 Deno · smoke `p46_purga_smoke.sql` **27/27 em PROD**.
+`/gsd-plan-phase 46 --gaps` produziria planos para trabalho que não existe — mesmo formato da 44.
+
+| # | Gap | O que fecha |
+|---|---|---|
+| G1 | **PURGA-01 / PURGA-03** — o cron **nunca disparou**. `cron.job_run_details` para o jobid 6 = **0 linhas**, contra 2.693 na tabela (os vizinhos rodam; este não). **0 de 14 noites decorridas.** ⚠ `cron.timezone = GMT`, então `0 3 * * *` é **00:00 America/Sao_Paulo**, não 03:00 | **passagem de tempo.** Depois de **2026-08-24 00:00-03**: `SELECT * FROM cron.job_run_details WHERE jobid = 6` |
+| G2 | **Critério 2 do portão de fase destrutiva VIOLADO** — o review foi retroativo nos applies de 46-05/06/07. Timestamps: `aa96052` 00:50 · `bd30684` 01:30 · `0f44e53` 02:05 · `5351bde` 02:07, todos **antes** de `13e5302` (02:23). Desvio **consumado**; nenhum trabalho o desfaz — e foi esse review retroativo que achou o BL-01 real | **decisão do operador**: `overrides:` datado no `46-VERIFICATION.md`. Sem isso a fase não fecha como `passed` — o ROADMAP trata os 5 itens como exit criterion e escreve que **não são substituíveis por "o smoke passou"** |
+
+**O que foi feito em 2026-08-23, e está provado por artefato:**
+
+- Cadeia de review convergiu: `46-REVIEW-2` (1 BLOCKER + 5 HIGH) → consertos → `46-REVIEW-3`
+  (**2 BLOCKERS, os dois introduzidos pelo próprio conserto**) → consertos → `46-REVIEW-4`
+  (**0 blockers**, `seguro_aplicar: SIM`).
+- **Apply das migrations `…0014` e `…0015` em PROD**, autorizado pelo operador, com md5
+  conferido de volta no ledger nas duas. `46-EVIDENCIA-APPLY-0014-0015.md`.
+- **BL-01 era real, não hipotético:** o portão do flip contava **2** ensaios e passou a contar
+  **1**. A execução de 22/08 20:03 abriu 6 itens sem guardar `relato_dry_run` de nenhum.
+- **Smoke 27/27 em PROD**, envelope revertido — 18 grandezas remedidas idênticas, T0 intacto,
+  `net.http_request_queue = 0`, PII dos 8 titulares de fixture intacta.
+  `46-EVIDENCIA-SMOKE-VERDE.md` (⚠ com errata de carimbo de hora, registrada e não apagada).
+
+**Pendências herdadas, nenhuma bloqueante:** provar `cron.alter_job` por execução · HI-01 da
+`46-REVIEW-4` (o invariante da `…0015` não tem guarda recorrente — nenhum smoke mede
+`has_table_privilege`/`relacl`) · HI-02 (a tabela de vigilância dos 14 dias não nomeia o sinal
+de evidência do critério 3, e PROD já contém a execução que ela deixa passar) · destino dos 8
+registros sintéticos de fixture residentes em `candidatos`.
+
+⚠ **O flip para `live` continua sendo 2026-09-06 e continua sendo checkpoint do operador**, com
+o `46-07-RUNBOOK-FLIP.md` próprio. A alavanca de emergência do runbook foi corrigida hoje: era
+`UPDATE cron.job SET active = false`, que levanta **`42501`** (`postgres` não tem UPDATE em
+`cron.job`); agora é `cron.alter_job(job_id := 6, active := false)`, com `cron.unschedule` como
+segunda opção.
 
 ### Phase 43 — dois dos três itens fechados em 2026-08-04, resta UM
 
