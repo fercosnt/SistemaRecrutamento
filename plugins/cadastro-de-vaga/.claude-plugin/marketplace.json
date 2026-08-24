@@ -1,0 +1,8 @@
+{
+  "name": "beauty-smile-dev",
+  "description": "Plugins internos do ATS da Beauty Smile.",
+  "owner": { "name": "Beauty Smile" },
+  "plugins": [
+    { "name": "cadastro-de-vaga", "source": "./" }
+  ]
+}
