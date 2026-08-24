@@ -6,6 +6,48 @@
 
 ---
 
+## ✅ CONSTRUÍDO — 2026-08-23, terceira sessão. Este handoff virou histórico.
+
+O plugin existe em `plugins/cadastro-de-vaga/` (skill + comando + validador + teste do portão).
+Análise de qualidade em `.planning/Analise_Qualidade_cadastro-de-vaga.md` — **8.63, Profissional**.
+
+**A bifurcação da §6 foi decidida pelo operador: migration versionada**, com `created_by`
+resolvido por e-mail e `RAISE EXCEPTION` se não achar — não `INSERT` ad-hoc, não tela nova.
+A tela de criação continua não existindo e virou item de roadmap próprio.
+
+**O que a construção descobriu, e que este documento não sabia:**
+
+| Achado | Onde muda o jogo |
+|---|---|
+| ⛔ **Com `rubrica_ia`, a IA não vê mais nada da vaga** — só `titulo` + rubrica (`index.ts:288-292`). `sobre_cargo` e `requisitos_*` só entram no *fallback* | a rubrica tem de ser **autossuficiente**; não pode dizer "conforme os requisitos da vaga" |
+| ⛔ **`publish_vaga` só aceita 1 pergunta ABERTA** e no máximo 10 no total (e não filtra `deleted_at`) | contradiz a §3b deste handoff, que mandava preferir `texto_curto`. A síntese: 1 aberta + `*_choice` com **opções autoexplicativas** |
+| ⛔ `publish_vaga` também exige pesos somando 100 e ≥1 teste obrigatório | as duas vagas publicadas têm pesos **zerados** — foram publicadas fora da RPC |
+| ⛔ `perfil_ideal`, `sobre_empresa`, `subtitulo`, `jornada_trabalho`, `tipo_contrato`, `endereco_completo` **não são renderizados em tela nenhuma** | ~1,9 mil caracteres de cópia revisada invisíveis; e **o endereço e o horário das duas vagas presenciais não chegam ao candidato** |
+| ⛔ `updateVagaBase` **não escreve** `slug`, `tipo_contrato`, `modelo_trabalho` nem `descricao_curta` | editar esses 4 pela tela mostra toast de sucesso e não persiste |
+| `cidade`/`estado` aparecem **só na listagem**, não na página da vaga | quem chega por link direto não vê a cidade |
+| `qualificacao_etapa1` não é "jsonb que ninguém lê": é **snapshot derivado** escrito pelo `publish_vaga` | não preencher à mão — seria sobrescrito |
+| Existe mecanismo de **knockout** (`pergunta_opcao_metadata.tag`) que rejeita candidatura na inscrição | o plugin não marca por conta própria; é decisão do operador |
+
+**O que ficou de fora, deliberadamente:** o plugin não publica vaga, não marca knockout, e o
+passo 8 (conferência visual) ainda não rodou de ponta a ponta — aplicar a migration de teste
+criaria vaga duplicada em produção. Fazer no primeiro cadastro real.
+
+### Decisões do operador já tomadas, para não relitigar
+
+- **A pergunta do portfólio na Social Media é `obrigatoria: true`** — é o que o anúncio já
+  promete. Quem não tiver portfólio formal escreve o perfil ou "não tenho", e essa resposta
+  vira sinal legítimo.
+- **Consequência que vem junto:** a rubrica da Social Media diz hoje *"a AUSÊNCIA de portfólio
+  NÃO é gap e NÃO reduz o score — o candidato não teve onde informá-lo"*. Essa cláusula existia
+  para proteger o candidato de uma falha do sistema. **Assim que a pergunta existir, a falha
+  deixa de existir e a cláusula sai** — senão a rubrica perdoa uma ausência que passou a ser
+  escolha. Trocar a migration das perguntas e a da rubrica na mesma leva.
+- **O plugin está instalado** como `cadastro-de-vaga@beauty-smile-dev` v0.2.0 (escopo user), a
+  partir de `plugins/cadastro-de-vaga/`. Install é **cópia** para
+  `~/.claude/plugins/cache/…/<versao>/` — mexer na fonte exige subir a versão e reinstalar.
+
+---
+
 ## ✅ Os bloqueadores deste plugin caíram — leia antes das seções 4 e 5
 
 A sessão da noite de 2026-08-23 executou o que este documento listava como pendência:
