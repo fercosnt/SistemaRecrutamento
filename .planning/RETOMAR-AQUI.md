@@ -83,17 +83,48 @@ consertos estão no ar ao mesmo tempo.
 
 ## A fila, na ordem combinada
 
-### 1 · Escrever a `rubrica_ia` das duas vagas
-O deploy e os prompts já saíram (acima). Falta só a rubrica.
+### 1 · ✅ FEITO — `rubrica_ia` das duas vagas
+Gravadas pela migration `…0019` (md5 no ledger, portão provado por execução antes do apply).
+~2,7 mil caracteres cada. Estrutura das duas: requisitos eliminatórios → 5 competências
+críticas com âncoras BARS 1-5 → seção **"o que NÃO pode pesar"**.
 
-⚠ **Agora ela pesa mais do que pesava.** O prompt real de `cv_job_match` manda pontuar
-"cada competência crítica **fornecida pela vaga**" em BARS 1-5. Sem `rubrica_ia`, a EF cai no
-fallback — `descricao_curta` + `sobre_cargo` + `requisitos_*`, que é **cópia de divulgação**.
-É por aí que entram na avaliação sinais que ninguém decidiu que pesariam: a vaga de pré-vendas
-diz "operação enxuta" e "ambição saudável", e nada disso deveria discriminar candidato.
-O flag `vaga_sem_rubrica_deliberada` marca exatamente esse estado, e hoje ele acende nas duas.
+Três decisões embutidas, que valem para as próximas rubricas:
 
-Vale escrever com cuidado e discutir antes.
+- **O corte não rejeita.** Eliminatório manda registrar gap `critical` e segurar o score
+  abaixo de 40 — nunca "rejeite". Mantém a RNF-07a: score baixo é sinal para o RH, não
+  decisão da máquina.
+- **Silêncio ≠ ausência.** Currículo não declara "tenho disponibilidade integral". Tratar
+  silêncio como falta daria gap crítico injusto a todo mundo, então vira
+  `insufficient_evidence` e fica para a entrevista.
+- **Falha do sistema não penaliza candidato.** O anúncio da Social Media diz que o portfólio
+  é "obrigatório na inscrição" e **não existe campo que o colete**. A rubrica proíbe descontar
+  por isso.
+
+E as duas proíbem explicitamente que os adjetivos do próprio anúncio ("operação enxuta",
+"ambição saudável") virem critério — descrevem a EMPRESA, não o candidato.
+
+⚠ **Limite de tamanho:** 5 competências por rubrica, não mais. Cada uma gera um bloco BARS
+completo e o `cv_job_match` tem `max_tokens: 2048` — passar disso arrisca truncar o JSON.
+
+### 1b · ⛔ Dois achados que apareceram ao escrever a rubrica
+
+**As duas vagas publicadas têm ZERO perguntas de Etapa 1.** A funcionalidade existe (duas
+vagas de teste arquivadas têm 3 cada), mas as reais não têm nenhuma. Candidato que se
+inscrever hoje é analisado **só pelo currículo**, e o bloco "Respostas Etapa 1" chega vazio.
+Pior: o anúncio da Social Media diz que o portfólio é **"OBRIGATÓRIO na inscrição"** e não
+existe campo que o colete. A rubrica já blinda o candidato disso, mas o buraco é operacional
+e está no ar.
+
+**Bônus da mesma família:** `buildRespostasBlock` (linha ~114 da EF) monta só o TEXTO da
+resposta — a pergunta nunca entra no prompt. O `pergunta_id` é selecionado e nunca usado.
+Quando houver perguntas, o modelo vai ver `- Sim` / `- 3 anos` sem saber o que foi perguntado.
+
+**Boa parte da saída da IA é computada e jogada fora.** O modelo produz `competency_scores`
+(o BARS inteiro), `recommendation`, `confidence`, `bias_check` e as **citações literais** de
+cada ponto forte — e a EF persiste apenas `match_score`, o *nome* dos pontos fortes, o *nome*
+dos gaps e o reasoning. Some a severidade dos gaps, some a evidência citada, e some o
+autorrelato de viés (`bias_check.used_only_merit_evidence`), que é justamente o que se
+gostaria de auditar. Consome tokens do teto de 2048 para nada.
 
 ### 2 · Renderizar `secoes_extras` na página da vaga
 Usar o `TextoRico` que já existe. As sete seções dos PDFs que não couberam em campo nenhum
