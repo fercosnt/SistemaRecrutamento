@@ -131,10 +131,18 @@ Usar o `TextoRico` que já existe. As sete seções dos PDFs que não couberam e
 (indicadores, rotina, plano de carreira, remuneração, ferramentas, «o que a vaga NÃO é»,
 processo seletivo) migram para lá.
 
-### 3 · O plugin de cadastro de vaga
-**Outra conversa, com handoff próprio:** `.planning/HANDOFF-plugin-cadastro-de-vaga.md`.
+### 3 · ▶ O plugin de cadastro de vaga — É O PRÓXIMO
+**Outra conversa, com handoff próprio:** `.planning/HANDOFF-plugin-cadastro-de-vaga.md`
+(revisado em 2026-08-23 à noite — os bloqueadores dele caíram e o furo de escopo foi tapado).
 ⚠ Ele manda invocar **`skill-creator`** e **`plugin-builder`**, e rodar **`skill-analyzer`**
 depois. Não improvisar.
+
+**Decidido com o operador:** o plugin vem **antes** de criar as perguntas da Etapa 1 (item 1b).
+Motivo: criar as perguntas à mão seria `INSERT` direto — o mesmo caminho que deixou 9 de 12
+vagas com `created_by` nulo e quebrou o escopo do recrutador. As perguntas nascem pelo plugin.
+
+⚠ Antes de codar, decidir a bifurcação da §6 do handoff: **o plugin gera SQL, ou o projeto
+ganha a tela de criação de vaga e o plugin preenche o formulário?** A segunda resolve a causa.
 
 ### 4 · Dados de teste para avaliar as análises de IA
 A EF e os prompts já estão sãos, então **agora isto mede o sistema, não o modelo** — mas o
