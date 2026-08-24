@@ -1,4 +1,4 @@
-# Retomar aqui — estado em 2026-08-23, fim da sessão
+# Retomar aqui — estado em 2026-08-23, segunda sessão
 
 **Como abrir a próxima conversa:**
 
@@ -6,23 +6,56 @@
 
 ---
 
-## ⛔ A PRIMEIRA COISA — a IA em PROD ainda analisa candidato sem contexto da vaga
+## ✅ A IA voltou a avaliar com contexto E com critério — os dois consertos estão no ar
 
-O conserto está **no disco e commitado**; a Edge Function **não foi deployada**. Enquanto não
-for, toda análise nova continua rodando com rubrica vazia.
+A sessão de 2026-08-23 (noite) fechou o item que abria este arquivo, e encontrou **o gêmeo dele**.
 
-```bash
-npx supabase functions deploy analise-candidato-individual \
-  --project-ref isljnozzlvckrgjjbjwp --no-verify-jwt
-```
+**1 · EF `analise-candidato-individual` deployada.** `version` 16 → 17. O deploy levou ~40s,
+não os 7 minutos previstos. Provado por execução, não por leitura: reprocessei uma candidatura
+e o flag saiu de `[]` para `vaga_sem_rubrica_deliberada`. Os dois flags são mutuamente
+exclusivos no código — `vaga_sem_rubrica` só aparece se a consulta FALHA, e
+`vaga_sem_rubrica_deliberada` só aparece se a vaga CARREGOU. O primeiro sumiu.
 
-⚠ Leva **mais de 7 minutos** e imprime linhas que parecem fatais e não são
-(`NotFound: .../profile`, `WARNING: Docker is not running`). Rodar em segundo plano e
-conferir o resultado por MCP (`list_edge_functions` — a `version` tem de subir), nunca
-esperar no primeiro plano. Detalhe em `CLAUDE.md`.
+**2 · ⛔ O gêmeo: os prompts ativos eram `[SEED PLACEHOLDER]`.** O seed da Phase 9 escreveu 8
+linhas com corpo placeholder; 4 foram hidratadas depois **por SQL ad-hoc, sem migration e sem
+entrada no ledger** (não há artefato). Três nunca foram, e estavam `is_active=true`:
+`cv_job_match`, `comparative_ranking`, `work_sample_sjt`.
 
-**Como saber que funcionou** (não basta a `version` subir): rodar uma análise e conferir que
-`analise_candidato_vaga` não traz o flag `vaga_sem_rubrica`.
+Como o `ai-client` manda `system_template` DIRETO como system prompt, a IA avaliava candidato
+com a instrução literal `"[SEED PLACEHOLDER] system_template — hydrated from…"` (124 caracteres).
+Saída válida porque o schema Zod é enforced; critério nenhum porque o prompt estava vazio.
+As sete análises cegas eram **duplamente** cegas: sem vaga *e* sem instrução.
+
+Consertado pela migration `…0018`, aplicada via `p46apply.cjs` (md5 do ledger conferido). Hoje:
+**zero placeholders ativos**.
+
+**O antes/depois, na mesma candidatura de teste** — estudante de Publicidade avaliada para
+Auxiliar de Saúde Bucal:
+
+| | prompt placeholder | prompt real |
+|---|---|---|
+| score | **75** | **2** |
+| gaps | `[]` | 5 requisitos concretos (CRO, instrumentação, biossegurança…) |
+| reasoning | ausente | CoT estruturado, cruzando os `requisitos_*` da vaga |
+
+O 75 era ficção. O reasoning citando os requisitos da vaga é a prova cruzada de que **os dois**
+consertos estão no ar ao mesmo tempo.
+
+### Resíduos conhecidos (nenhum bloqueia o funil)
+
+- `cv_summary` continua placeholder — `is_active=false`, sem EF consumidora. Deliberado.
+- **`culture_fit_essay` não pôde ter o `content_hash` corrigido**: tem `deployed_at`
+  preenchido e o trigger `prevent_published_prompt_edit` torna o conteúdo imutável POR DESIGN.
+  Corrigir exige versão nova, não `UPDATE`. Não contornei o guard.
+- **`scripts/sync-prompts.ts` é código morto** e nunca rodou com sucesso: (a) 5 linhas ainda
+  têm o `content_hash` sentinela, então o guard RF-PL-11 lança para sempre; (b) o
+  `buildUpsertRow` escreve `fallback_model_id`, **coluna que não existe** na tabela → 400.
+  O cabeçalho do script (linhas 15-20) e o guard (260-270) se contradizem.
+- As 3 linhas hidratadas ficaram com `deployed_at` NULL de propósito — travá-las no mesmo
+  movimento tiraria a chance de corrigir um erro descoberto minutos depois. **Decisão pendente:**
+  carimbar `deployed_at` para o guard de imutabilidade passar a valer.
+
+⚠ **A migration `…0018` está no disco e NÃO commitada** — `git status` vai mostrá-la.
 
 ---
 
@@ -35,22 +68,32 @@ esperar no primeiro plano. Detalhe em `CLAUDE.md`.
 | Contas de RH de teste | desativadas — **você é o único RH ativo** |
 | Legibilidade da página da vaga | ✅ no ar, aprovada |
 | `TextoRico` (markdown restrito) | ✅ no ar — `###`, `-`, `1.`, `**negrito**`, `*itálico*` |
-| Migrations `…0016` e `…0017` | ✅ aplicadas em PROD, md5 conferido |
+| Migrations `…0016`, `…0017` e `…0018` | ✅ aplicadas em PROD, md5 conferido |
+| EF `analise-candidato-individual` | ✅ v17 no ar — enxerga a vaga |
+| Prompts ativos de IA | ✅ reais — zero placeholders ativos |
 | Purga | `dry_run`, cron ativo |
 
 ## O que está no disco e NÃO no ar
 
-- **O conserto da EF de IA** (acima).
 - **`secoes_extras` e `rubrica_ia`**: as colunas existem em PROD e estão **vazias** nas duas
   vagas. Falta renderizar as seções na página e escrever as duas rubricas.
+- **A migration `…0018`** ainda não commitada.
 
 ---
 
 ## A fila, na ordem combinada
 
-### 1 · Deploy da EF + preencher as rubricas
-Depois do deploy, escrever a `rubrica_ia` das duas vagas. É a primeira vez que a IA vai
-receber critério deliberado — vale escrever com cuidado e discutir antes.
+### 1 · Escrever a `rubrica_ia` das duas vagas
+O deploy e os prompts já saíram (acima). Falta só a rubrica.
+
+⚠ **Agora ela pesa mais do que pesava.** O prompt real de `cv_job_match` manda pontuar
+"cada competência crítica **fornecida pela vaga**" em BARS 1-5. Sem `rubrica_ia`, a EF cai no
+fallback — `descricao_curta` + `sobre_cargo` + `requisitos_*`, que é **cópia de divulgação**.
+É por aí que entram na avaliação sinais que ninguém decidiu que pesariam: a vaga de pré-vendas
+diz "operação enxuta" e "ambição saudável", e nada disso deveria discriminar candidato.
+O flag `vaga_sem_rubrica_deliberada` marca exatamente esse estado, e hoje ele acende nas duas.
+
+Vale escrever com cuidado e discutir antes.
 
 ### 2 · Renderizar `secoes_extras` na página da vaga
 Usar o `TextoRico` que já existe. As sete seções dos PDFs que não couberam em campo nenhum
@@ -63,9 +106,14 @@ processo seletivo) migram para lá.
 depois. Não improvisar.
 
 ### 4 · Dados de teste para avaliar as análises de IA
-⚠ **Só depois do item 1.** Testar qualidade com a EF quebrada mede o modelo, não o sistema.
+A EF e os prompts já estão sãos, então **agora isto mede o sistema, não o modelo** — mas o
+ideal continua sendo esperar a `rubrica_ia` do item 1, senão você mede o fallback.
 Fazer numa **terceira vaga não publicada**, para o funil real nascer limpo — candidato
 sintético misturado com real polui métricas, comparativo e o snapshot de viés.
+
+ℹ **As análises antigas em `analise_candidato_vaga` não valem nada** e não devem servir de
+baseline: todas rodaram sem vaga e sem prompt. As duas de teste reprocessadas nesta sessão
+(`a111296a…` e `4dc31256…`) são as únicas com o sistema íntegro.
 
 ### 5 · A sessão de navegador que só você pode fazer
 `.planning/RUNBOOK-GO-LIVE-2026-08-23.md`, Passo 3 — 21 itens numerados.
@@ -108,3 +156,17 @@ enquanto não fecharem.
 3. **Olhar a tela com conteúdo real.** Os dois defeitos de markdown (`**Contam pontos:**` e
    `*(foco atual)*` aparecendo literais) não seriam pegos por teste unitário — um estava em
    campos que esqueci de ligar, o outro era marca que o renderizador não conhecia.
+
+## Duas lições da sessão da noite
+
+4. **Saída válida não é evidência de critério.** A análise gravava `status='sucesso'` e
+   `score_match=75` com o system prompt vazio. O schema Zod é enforced, então a FORMA da saída
+   estava perfeita — e a forma perfeita foi justamente o que escondeu o conteúdo ausente por
+   meses. Todo painel verde que só olha "rodou / não rodou" tem esse ponto cego. O 75 virou 2
+   quando o critério chegou.
+5. **Defeito silencioso de configuração tem irmãos — varra a família, não o caso.** O bug da
+   sessão anterior (EF pedindo coluna inexistente, erro descartado) e este (prompt placeholder
+   servido como instrução) são o MESMO padrão: um valor de placeholder/erro que o código aceita
+   sem reclamar. Achado o primeiro, a pergunta certa não é "está consertado?" e sim *"onde mais
+   existe um valor-sentinela que ninguém verifica?"*. Uma consulta de uma linha
+   (`system_template LIKE '[SEED PLACEHOLDER]%'`) achou 3 em produção.
