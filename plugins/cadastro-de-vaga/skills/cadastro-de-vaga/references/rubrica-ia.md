@@ -40,6 +40,31 @@ Foram escritas e revisadas com o operador. Um exemplo completo está no fim dest
 
 E uma linha final exigindo citação literal.
 
+## ⚠ Se a vaga tem perguntas na Etapa 1, a rubrica PRECISA de mais um bloco
+
+Medido em 2026-08-24: a consulta que monta as respostas (`index.ts:186`) **não tem `.order()`**,
+e `buildRespostasBlock` descarta o `pergunta_id`. O modelo recebe uma lista solta, sem
+enunciados e **em ordem arbitrária**.
+
+Um modelo diante de uma lista assim tenta inferir por posição — e acerta em muitos casos, o que
+é justamente o perigo: a saída sai bem formada e o erro não levanta bandeira. A instrução tem de
+ser explícita, e vale a pena gastar as linhas. Este é o texto que está em produção na vaga de
+Social Media:
+
+```
+⚠ COMO LER AS RESPOSTAS DA ETAPA 1: elas chegam a você como uma lista solta, SEM o
+enunciado de cada pergunta e em ordem arbitrária. Não conte com a posição. Identifique
+cada uma pelo próprio conteúdo: links e @ de perfil são o portfólio; frases sobre
+segunda a sexta são disponibilidade; faixas de anos são tempo de experiência.
+```
+
+O padrão é: **negar a heurística errada** ("não conte com a posição") e em seguida **dar a
+heurística certa**, ancorada em marcas concretas do conteúdo que aquela vaga coleta. Genérico
+("use o bom senso") não resolve; a lista de âncoras é o que faz o modelo acertar.
+
+Se a vaga não tem perguntas, este bloco não entra — a rubrica não deve descrever um bloco de
+entrada que o modelo nunca vai receber.
+
 ### Bloco 1 — Requisitos eliminatórios
 
 O corte **nunca rejeita**. A instrução é sempre desta forma:

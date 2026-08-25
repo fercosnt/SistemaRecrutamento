@@ -15,7 +15,13 @@ Entrada: $ARGUMENTS
 |---|---|---|
 | um descritivo de cargo (PDF, `.docx` ou texto colado) | `vaga-nova` | cria a vaga inteira: campos, anúncio, seções extras, rubrica, pesos, testes e perguntas |
 | o slug ou o nome de uma vaga que **já existe** | `perguntas` | só acrescenta as perguntas da Etapa 1, continuando a numeração |
-| nada | — | pergunte qual dos dois, e peça o descritivo ou o slug |
+| um slug **e** o operador disse que prefere colar na tela | `texto` | imprime os blocos prontos no chat, sem tocar no banco |
+| nada | — | pergunte qual dos três, e peça o descritivo ou o slug |
+
+No modo `perguntas`, **ofereça o modo `texto`** antes de emitir SQL: desde 2026-08-24 a tela de
+configuração lê e grava perguntas e rubrica com `created_by`, então colar é caminho legítimo.
+A migration continua preferível quando a **rubrica** muda — ela decide sobre gente e o rastro
+versionado vale a cerimônia. Para vaga nova não há escolha: a tela não cria vaga.
 
 Na dúvida, confirme antes de trabalhar — vaga já existente com rubrica escrita à mão não deve
 ser reescrita por engano:

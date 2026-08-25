@@ -115,6 +115,18 @@ const MUTACOES_PERGUNTAS = [
   ['[perguntas] choice sem opcoes',  (p) => ((p.perguntas[0].tipo_resposta = 'single_choice'), delete p.perguntas[0].opcoes_resposta)],
   ['[perguntas] 11 perguntas',       (p) => (p.perguntas = Array.from({ length: 11 }, (_, i) => ({ bloco: 'valores', ordem: i + 1, texto_pergunta: `P${i}`, tipo_resposta: 'single_choice', obrigatoria: true, opcoes_resposta: ['Uma opcao bem descritiva', 'Outra opcao bem descritiva'] })))],
   ['[perguntas] 2 abertas',          (p) => p.perguntas.push({ bloco: 'valores', ordem: 2, texto_pergunta: 'Por que aqui?', tipo_resposta: 'texto_longo', obrigatoria: true })],
+  // A tela separa opcoes por ';'. No modo `texto` (colar), uma opcao que contenha
+  // ';' se parte em duas ao salvar — e o defeito e SILENCIOSO. Na migration nao
+  // acontece, entao a regra so morde no modo que vai para a tela.
+  ['[texto] opcao contendo ponto-e-virgula', (p) => {
+    p.modo = 'texto'
+    p.perguntas[0] = {
+      bloco: 'jornada', ordem: 1,
+      texto_pergunta: 'Qual a sua disponibilidade para esta vaga?',
+      tipo_resposta: 'single_choice', obrigatoria: true,
+      opcoes_resposta: ['Integral e presencial; de segunda a sexta', 'Apenas trabalho remoto'],
+    }
+  }],
 ]
 
 console.log('── metade 1: o portao NAO reprova trabalho correto ──')

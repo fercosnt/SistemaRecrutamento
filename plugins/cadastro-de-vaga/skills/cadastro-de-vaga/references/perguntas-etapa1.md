@@ -35,8 +35,33 @@ node p46apply.cjs sql "select count(*) from public.perguntas_formulario where va
 - 3 anos
 ```
 
-…sem saber o que foi perguntado. Combinado com o teto de **1 pergunta aberta**, isso dita o
-desenho:
+…sem saber o que foi perguntado.
+
+### ⚠ E nem sequer NA ORDEM — medido em 2026-08-24
+
+A consulta que alimenta esse bloco (`index.ts:186`) **não tem `.order()`**:
+
+```ts
+.from("respostas_formulario")
+.select("pergunta_id, resposta_texto, resposta_numerica, resposta_opcoes")
+.eq("candidatura_id", candidatura_id)
+```
+
+Sem `ORDER BY`, o Postgres não promete ordem nenhuma. Então o modelo recebe uma lista **solta e
+embaralhada**, sem enunciados. A consequência é mais dura que a anterior: não basta a opção ser
+autoexplicativa — ela precisa ser **autoidentificável fora de contexto**. "3 anos" pode ser
+tempo de experiência, tempo de casa ou prazo de disponibilidade, e o modelo não tem como saber
+qual.
+
+Duas obrigações vêm daí, e a segunda é a que se esquece:
+
+1. cada opção carrega o próprio assunto ("Entre 1 e 2 anos **produzindo conteúdo para Instagram
+   e/ou TikTok**", não "1 a 2 anos");
+2. a **rubrica** manda o modelo identificar cada resposta pelo CONTEÚDO, nunca pela posição —
+   ver [rubrica-ia.md](rubrica-ia.md). Sem esse bloco, o modelo tenta ler por ordem e erra em
+   silêncio, com saída perfeitamente bem formada.
+
+Combinado com o teto de **1 pergunta aberta**, isso dita o desenho:
 
 - **A única pergunta aberta é a mais valiosa** — normalmente a que coleta algo que o currículo
   não traz (link de portfólio, por exemplo).
@@ -103,8 +128,32 @@ Uma opção pode ser marcada com `tag = 'knockout'` em `pergunta_opcao_metadata`
 Isso não viola a RNF-07a (que proíbe rejeição automática **por score**) — é critério objetivo
 e auditável. Mas é rejeição automática de gente, e a skill **não deve criar knockout por
 iniciativa própria**. Proponha ao operador, explique o efeito, e só marque com aprovação
-explícita. A migration desta skill não escreve em `pergunta_opcao_metadata`; a marcação de tags
-tem RPC própria (`upsert_pergunta_opcoes_metadata`).
+explícita.
+
+### ⚠ A RPC oficial não serve no caminho desta skill — medido em 2026-08-24
+
+`upsert_pergunta_opcoes_metadata` é a via oficial, e ela **recusa duas vezes** o que esta skill
+faz:
+
+1. `IF v_status <> 'rascunho' THEN RAISE EXCEPTION` — ela só edita opções de vaga em rascunho, e
+   o alvo típico deste modo é uma vaga **ativa**;
+2. ela lê `auth.jwt()` para exigir role `rh`/`administrador` — e a via de apply (Management API)
+   não carrega JWT nenhum, então o papel resolve para NULL e sai `forbidden`.
+
+Despublicar a vaga para contornar é **porta de mão única**: `publish_vaga` só a devolve ao ar se
+os pesos somarem 100 e houver teste obrigatório.
+
+A saída, quando o operador aprova o knockout: a migration escreve **direto** em
+`pergunta_opcao_metadata`, com `gen_random_uuid()` no `opcao_id`. Funciona porque o sweep de
+`submit_candidatura_atomic` casa por **TEXTO**, não por id:
+
+```sql
+AND r.resposta_opcoes @> to_jsonb(m.opcao_texto)
+```
+
+E é justamente por isso que a migration **tem de** terminar com uma guarda que conte quantas
+opções casam e aborte se faltar alguma. Um único caractere de diferença entre `opcoes_resposta`
+e `opcao_texto` deixa o knockout verde, silencioso e inerte — que é pior que não tê-lo.
 
 ## Quantas perguntas
 
@@ -112,8 +161,14 @@ As duas vagas de teste arquivadas têm 3 cada. Três a cinco é uma boa faixa: c
 atrito na inscrição, e o teto útil é 10 com 1 aberta.
 
 Sempre confira: **tudo que o anúncio pede tem um campo que colete?** A vaga de Social Media
-promete que o portfólio é "OBRIGATÓRIO na inscrição" e não existe campo que o colete — foi
-preciso blindar o candidato na rubrica. Criar a pergunta é a correção de verdade.
+prometia que o portfólio era "OBRIGATÓRIO na inscrição" sem que existisse campo nenhum para
+informá-lo, e a rubrica precisou blindar o candidato contra essa falha do sistema. Em
+2026-08-24 a pergunta foi criada e a blindagem, invertida.
+
+⚠ **A lição que fica é a do PAR.** Criar o campo sem revisar a rubrica deixaria a IA instruída a
+perdoar a ausência de algo que passou a ser obrigatório — ela continuaria absolvendo uma falha
+que deixou de existir. Sempre que uma pergunta nova passar a coletar algo que a rubrica
+desculpava, **as duas mudam juntas, no mesmo arquivo**.
 
 ## Gabarito
 

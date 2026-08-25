@@ -74,9 +74,12 @@ Um JSON com quatro partes. O validador (`scripts/validar-payload.mjs`) confere e
 ## `pesos_avaliacao` e `testes_aplicaveis` — não invente, reaproveite
 
 Sem os dois, a vaga **nunca poderá ser publicada** pela RPC: `publish_vaga` exige que os pesos
-somem exatamente 100 e que exista pelo menos um teste `obrigatorio`. As duas vagas hoje em
-produção estão com pesos zerados justamente porque foram publicadas fora da RPC — não copie
-esse caminho.
+somem exatamente 100 e que exista pelo menos um teste `obrigatorio`.
+
+As duas vagas de produção nasceram com pesos zerados por terem sido publicadas fora da RPC.
+Em 2026-08-25 a de Social Media foi corrigida pela tela (`25/35/15/25`, 3 testes obrigatórios);
+a de `consultor-relacionamento-pre-vendas` **segue zerada**. Uma vaga assim está numa porta de
+mão única: se alguém a despublicar, `publish_vaga` recusa devolvê-la ao ar.
 
 O repositório já tem 8 conjuntos de defaults por cargo em
 `src/features/config-vaga/templates/cargoTemplates.ts`. Escolha o mais próximo e ajuste, em vez
@@ -237,9 +240,14 @@ $vaga$;
 
 ## Modo 2 — acrescentar perguntas a uma vaga que já existe
 
-Nem toda tarefa é vaga nova. As duas vagas publicadas hoje têm **zero perguntas**, e criá-las
-por `INSERT` ad-hoc reproduziria o defeito do `created_by` nulo que já existe nas 6 perguntas
-antigas. Este modo é o caminho certo para isso.
+Nem toda tarefa é vaga nova. Criar perguntas por `INSERT` ad-hoc reproduz o defeito do
+`created_by` nulo que ainda existe em 6 das 12 perguntas do banco.
+
+⚠ **Desde 2026-08-25 este modo tem concorrente, e às vezes ele é melhor.** A tela de
+configuração (`CriarEditarVagaPage`, abas Triagem/Cultura/IA) passou a LER e GRAVAR perguntas e
+rubrica, com `created_by` preenchido — antes eram três TODOs fixos em vazio. Use migration
+quando quiser **artefato versionado** (decisão sobre gente, com md5 no ledger); use a tela para
+ajuste pontual. Os dois caminhos são seguros agora; só um deixa rastro.
 
 Ele resolve **duas** coisas e aborta em qualquer uma que falhe: o autor e a vaga. E continua a
 numeração de `ordem` de onde parou, em vez de assumir que começa em 1.

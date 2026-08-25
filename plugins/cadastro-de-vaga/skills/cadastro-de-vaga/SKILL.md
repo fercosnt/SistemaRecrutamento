@@ -12,6 +12,13 @@ intent: |
   os DOIS textos que uma vaga precisa e que nao sao o mesmo texto — o anuncio, que ATRAI, e a
   rubrica, que AVALIA. Misturar os dois enfia na avaliacao sinais que ninguem decidiu que
   pesariam, e e por ai que vies entra sem passar por decisao.
+
+  ⚠ ATUALIZACAO 2026-08-25 — o que MUDOU e o que NAO mudou. A tela de configuracao passou a
+  LER e GRAVAR perguntas e rubrica com `created_by` (antes: tres TODOs fixos em vazio, e o
+  campo da IA descartava em silencio o que fosse digitado). Logo, para vaga que JA EXISTE, o
+  INSERT ad-hoc deixou de ser o unico caminho — ha o modo `texto`, e a tela e segura.
+  Continua valendo, e e a razao de esta skill existir: NAO HA MUTATION DE CRIACAO DE VAGA.
+  Vaga nova so nasce por migration.
 ---
 
 # Cadastro de vaga — Beauty Smile
@@ -79,17 +86,54 @@ Consequências que mudam como você escreve:
 O mapa foi medido, não suposto. Se o app mudar, remeça — o método está em
 [references/mapa-de-visibilidade.md](references/mapa-de-visibilidade.md).
 
-## Dois modos
+## Três modos
 
 | Modo | Quando | O que emite |
 |---|---|---|
 | `vaga-nova` (padrão) | há um descritivo de cargo e a vaga não existe | migration que cria a vaga inteira + perguntas |
 | `perguntas` | a vaga **já existe** e precisa de perguntas da Etapa 1 | migration que só acrescenta perguntas, continuando a numeração |
+| `texto` | a vaga **já existe** e o operador prefere colar na tela | os textos prontos no chat, sem tocar no banco |
 
-O segundo modo não é um extra: as duas vagas publicadas hoje têm **zero perguntas**, e
-criá-las por `INSERT` ad-hoc reproduziria o `created_by` nulo que já existe nas 6 perguntas
-antigas. O fluxo abaixo é o mesmo nos dois; no modo `perguntas`, pule os passos que tratam de
-campos da vaga e da rubrica — elas já existem e não se reescrevem aqui.
+### O modo `texto` — e por que ele passou a existir
+
+Até 2026-08-24 este modo era impossível: as abas Triagem, Cultura e IA da tela de configuração
+eram três TODOs fixos em vazio, e o campo de instruções da IA **aceitava digitação sem nunca
+salvar** — o operador escrevia a rubrica e a perdia ao sair da tela. Colar não funcionava.
+
+Hoje a tela lê e grava as quatro coisas, com `created_by` preenchido. Então há escolha:
+
+| | migration (`vaga-nova` / `perguntas`) | tela (`texto`) |
+|---|---|---|
+| artefato versionado, md5 no ledger | ✅ | ❌ |
+| exige acesso ao banco | ✅ | ❌ |
+| o operador revê antes de gravar | no diff | na própria tela |
+| serve para vaga que **não existe** | ✅ | ❌ **a tela não cria vaga** |
+
+⛔ **`vaga-nova` não tem alternativa.** `/rh/vagas/nova` é rota sem mutation de criação: sem
+`vagaId`, todo handler cai em «Salve a vaga primeiro». Vaga nova continua nascendo por
+migration. O modo `texto` só vale para vaga que já existe.
+
+Sendo a rubrica o artefato que decide sobre gente, prefira migration quando ela mudar — o
+rastro importa. Para ajuste de redação de uma pergunta, a tela basta.
+
+**O que o modo `texto` imprime**, em blocos separados e prontos para colar, cada um dizendo em
+que aba vai:
+
+- as perguntas de Triagem, uma por bloco, com as opções já unidas por `; `
+- as de Cultura (bloco `valores`) idem
+- a rubrica inteira, para a aba IA
+- os pesos e os testes, para a aba Avaliação
+
+⚠ **A tela separa opções por `;`.** Uma opção que **contenha** ponto-e-vírgula se parte em duas
+ao salvar. No modo `texto`, verifique isso antes de imprimir e troque por vírgula.
+
+O fluxo abaixo é o mesmo nos dois; no modo `perguntas`, pule os passos que tratam de campos
+da vaga e da rubrica — elas já existem e não se reescrevem aqui.
+
+⚠ **Medido em 2026-08-25:** `social-media-producao-captacao-conteudo` tem **6 perguntas, todas
+com autor**, e `consultor-relacionamento-pre-vendas` ainda tem **zero**. Das 12 perguntas vivas
+do banco, 6 seguem com `created_by` nulo — são as antigas, de vagas de teste. Confira o estado
+real antes de decidir o modo, em vez de confiar neste parágrafo: ele envelhece.
 
 ## O fluxo
 

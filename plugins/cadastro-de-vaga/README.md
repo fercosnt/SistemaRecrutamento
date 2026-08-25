@@ -14,10 +14,24 @@ handlers de salvar caem em «Salve a vaga primeiro». Não há mutation de cria�
 Consequência medida: vaga nasce por `INSERT` direto, e **9 de 12 vagas ficaram com `created_by`
 nulo**. Isso quebra o escopo de trabalho do recrutador inteiro, porque
 `vagas.created_by = auth.uid()` gateia revisão de redação, avaliação de entrevista, leitura de
-decisão final e reprocessamento. As 6 perguntas existentes têm o mesmo defeito.
+decisão final e reprocessamento.
 
 Este plugin substitui o `INSERT` ad-hoc por um artefato: uma migration versionada, com o autor
 resolvido e **provado** — o bloco aborta em vez de gravar `NULL` calado.
+
+### O que mudou em 2026-08-25 — leia antes de assumir o escopo antigo
+
+A tela de configuração passou a **ler e gravar** perguntas (Triagem/Cultura) e rubrica (aba IA),
+com `created_by` preenchido. Antes eram três TODOs fixos em vazio, e o campo da IA aceitava
+digitação **sem nunca salvar**: o operador escrevia a rubrica e a perdia ao sair da tela.
+
+Consequências para este plugin:
+
+- **para vaga que já existe**, o `INSERT` ad-hoc deixou de ser o único caminho seguro. Nasceu o
+  modo `texto`, que imprime os blocos prontos para o operador colar;
+- **para vaga nova, nada mudou** — segue sem mutation de criação, e migration é o único caminho;
+- das 12 perguntas vivas do banco, **6 ainda têm `created_by` nulo** (as antigas, de vagas de
+  teste); as 6 novas têm autor.
 
 ## O que ele entrega
 

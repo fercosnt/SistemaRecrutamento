@@ -61,16 +61,20 @@ try {
 }
 
 // ── 0. modo ─────────────────────────────────────────────────────────────────
-// `vaga-nova`  — cria a vaga inteira (o caso comum).
+// `vaga-nova`  — cria a vaga inteira. Unico caminho possivel: nao ha mutation de
+//                criacao de vaga na tela (/rh/vagas/nova e rota sem criacao).
 // `perguntas`  — so acrescenta perguntas da Etapa 1 a uma vaga que JA existe.
-//                As duas vagas publicadas hoje tem zero perguntas, e cria-las por
-//                INSERT ad-hoc repetiria o defeito do created_by nulo.
+// `texto`      — mesma coisa, mas para o operador COLAR na tela de configuracao,
+//                que desde 2026-08-24 le e grava perguntas e rubrica com autor.
+//                Valida igual a `perguntas` e mais uma regra propria (ver secao 8).
 const modo = p.modo ?? 'vaga-nova'
-if (!['vaga-nova', 'perguntas'].includes(modo)) {
-  console.error(`modo "${modo}" desconhecido — use "vaga-nova" ou "perguntas"`)
+if (!['vaga-nova', 'perguntas', 'texto'].includes(modo)) {
+  console.error(`modo "${modo}" desconhecido — use "vaga-nova", "perguntas" ou "texto"`)
   process.exit(2)
 }
 const vagaNova = modo === 'vaga-nova'
+/** Modo cujo destino e a TELA, onde as opcoes viajam numa string separada por ';'. */
+const paraColar = modo === 'texto'
 
 // ── 1. autor ────────────────────────────────────────────────────────────────
 // A razao de esta skill existir: 9 de 12 vagas nasceram com created_by nulo, e
@@ -296,10 +300,26 @@ else {
           err(`${id}.opcoes_resposta precisa ser array de strings nao-vazias`)
         }
         // A pergunta NAO chega ao prompt da IA — so a resposta. Uma opcao "Sim"
-        // chega como "- Sim", sem contexto nenhum.
+        // chega como "- Sim", sem contexto nenhum. E a consulta que monta esse
+        // bloco (index.ts:186) nao tem .order(), entao a lista chega EMBARALHADA:
+        // a opcao precisa se identificar sozinha, fora de qualquer ordem.
         const curtas = q.opcoes_resposta.filter((o) => typeof o === 'string' && o.trim().split(/\s+/).length <= 2)
         if (curtas.length) {
-          warn(`${id}: opcoes curtas (${curtas.map((o) => `"${o}"`).join(', ')}) — a pergunta NAO chega ao prompt da IA, so a resposta. Escreva a opcao de forma autoexplicativa`)
+          warn(`${id}: opcoes curtas (${curtas.map((o) => `"${o}"`).join(', ')}) — a pergunta NAO chega ao prompt da IA, so a resposta, e sem ordem garantida. Escreva a opcao de forma autoexplicativa`)
+        }
+
+        // A tela de configuracao guarda as opcoes numa string separada por ';'
+        // (CriarEditarVagaPage -> perguntaMapper). Uma opcao que CONTENHA ';' se
+        // parte em duas ao salvar, silenciosamente. Na migration isso nao acontece
+        // — o array vai como jsonb —, entao so o modo `texto` reprova.
+        const comPontoEVirgula = q.opcoes_resposta.filter((o) => typeof o === 'string' && o.includes(';'))
+        if (comPontoEVirgula.length) {
+          const lista = comPontoEVirgula.map((o) => `"${o}"`).join(', ')
+          if (paraColar) {
+            err(`${id}: opcao contendo ';' (${lista}) — no modo "texto" ela se parte em duas ao ser colada na tela, que usa ';' como separador. Troque por virgula`)
+          } else {
+            warn(`${id}: opcao contendo ';' (${lista}) — funciona por migration, mas se alguem editar esta pergunta pela tela a opcao se parte em duas. Prefira virgula`)
+          }
         }
       }
     } else if (q.opcoes_resposta) {
