@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       agendamentos_entrevista: {
@@ -4528,6 +4503,8 @@ export type Database = {
           requisitos_habilidades: string | null
           requisitos_tecnicos: string | null
           responsabilidades: string | null
+          rubrica_ia: string | null
+          secoes_extras: Json
           slug: string
           sobre_cargo: string | null
           sobre_empresa: string | null
@@ -4571,6 +4548,8 @@ export type Database = {
           requisitos_habilidades?: string | null
           requisitos_tecnicos?: string | null
           responsabilidades?: string | null
+          rubrica_ia?: string | null
+          secoes_extras?: Json
           slug: string
           sobre_cargo?: string | null
           sobre_empresa?: string | null
@@ -4614,6 +4593,8 @@ export type Database = {
           requisitos_habilidades?: string | null
           requisitos_tecnicos?: string | null
           responsabilidades?: string | null
+          rubrica_ia?: string | null
+          secoes_extras?: Json
           slug?: string
           sobre_cargo?: string | null
           sobre_empresa?: string | null
@@ -6072,9 +6053,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       candidate_status: [
