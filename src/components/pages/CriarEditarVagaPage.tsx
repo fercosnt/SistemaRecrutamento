@@ -26,7 +26,18 @@ import {
   useUpdateVagaConfig,
   usePublishVaga,
 } from '@/features/config-vaga/hooks/useConfigVaga';
-import { updateVagaBase } from '@/features/config-vaga/services/configVagaService';
+import {
+  updateVagaBase,
+  getPerguntasVaga,
+  savePerguntasVaga,
+} from '@/features/config-vaga/services/configVagaService';
+import {
+  perguntaDbParaUi,
+  montarPerguntasParaSalvar,
+  BLOCO_CULTURA,
+  type PerguntaUi,
+  type TipoPerguntaUi,
+} from '@/features/config-vaga/perguntaMapper';
 import { publishGate } from '@/features/config-vaga/publishGate';
 import type {
   PesosAvaliacao,
@@ -43,15 +54,12 @@ const DEFAULT_PESOS: PesosAvaliacao = {
   redacao_cultural: 0,
   entrevista: 0,
 };
-type TipoPergunta = 'unica-escolha' | 'multipla-escolha' | 'texto-curto' | 'texto-longo' | 'numerico';
-
-interface Pergunta {
-  id: string;
-  pergunta: string;
-  ajuda: string;
-  tipo: TipoPergunta;
-  opcoes?: string; // Para única/múltipla escolha (separadas por ;)
-}
+// O modelo da pergunta na tela e a conversão para o banco vivem em
+// `features/config-vaga/perguntaMapper` — testados lá, porque as divergências
+// entre os dois modelos (tipo, opções, bloco, ordem) são silenciosas quando
+// erradas: gravam o registro errado sem levantar erro.
+type TipoPergunta = TipoPerguntaUi;
+type Pergunta = PerguntaUi;
 
 interface DadosVaga {
   // Informações Básicas
@@ -93,8 +101,16 @@ export function CriarEditarVagaPage() {
   const [activeTab, setActiveTab] = useState('informacoes');
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingBase, setIsSavingBase] = useState(false);
+  /**
+   * Só depois de LER é seguro ESCREVER. As duas listas nascem vazias, então
+   * salvar sem ter carregado apagaria as perguntas da vaga; e um save da rubrica
+   * sem load a sobrescreveria com string vazia — apagando o único critério de
+   * avaliação. Numa vaga nova não há o que carregar, logo já nascem `true`.
+   */
+  const [perguntasCarregadas, setPerguntasCarregadas] = useState(!vagaId);
+  const [rubricaCarregada, setRubricaCarregada] = useState(!vagaId);
   const isEdicao = !!vagaId;
-  
+
   const [dados, setDados] = useState<DadosVaga>({
     titulo: '',
     slug: '',
@@ -182,10 +198,14 @@ export function CriarEditarVagaPage() {
             habilidadesEssenciais: data.requisitos_habilidades || '',
             pessoaCerta: data.perfil_ideal || '',
             diferenciais: data.diferenciais || '',
-            perguntasTriagem: [], // TODO: carregar perguntas da tabela relacionada
-            perguntasCultura: [], // TODO: carregar perguntas da tabela relacionada
-            instrucoesIA: '', // TODO: carregar instruções se houver
+            // Preenchidas logo abaixo, por getPerguntasVaga. Até a Phase atual
+            // estas três linhas eram TODOs fixos em vazio — e por isso 5
+            // perguntas e uma rubrica que EXISTIAM no banco não apareciam aqui.
+            perguntasTriagem: [],
+            perguntasCultura: [],
+            instrucoesIA: data.rubrica_ia ?? '',
           });
+          setRubricaCarregada(true);
 
           // ── M2 config hydration (Phase 7) ──────────────────────────────
           setDbStatus((data.status as DbStatusVaga) || 'rascunho');
@@ -195,6 +215,31 @@ export function CriarEditarVagaPage() {
           if (data.testes_aplicaveis) {
             setTestesAplicaveis(
               data.testes_aplicaveis as unknown as TestesAplicaveis
+            );
+          }
+
+          // ── Perguntas da Etapa 1 ────────────────────────────────────────
+          // `valores` é a aba Cultura; jornada/tecnologia/curriculo são Triagem.
+          // Se esta leitura falhar, `perguntasCarregadas` fica false e o save
+          // RECUSA gravar perguntas — em vez de interpretar as listas vazias da
+          // tela como "o operador apagou todas".
+          try {
+            const perguntas = await getPerguntasVaga(vagaId);
+            setDados((d) => ({
+              ...d,
+              perguntasTriagem: perguntas
+                .filter((p) => p.bloco !== BLOCO_CULTURA)
+                .map(perguntaDbParaUi),
+              perguntasCultura: perguntas
+                .filter((p) => p.bloco === BLOCO_CULTURA)
+                .map(perguntaDbParaUi),
+            }));
+            setPerguntasCarregadas(true);
+          } catch (e) {
+            toast.error(
+              e instanceof Error
+                ? `As perguntas não puderam ser carregadas: ${e.message}`
+                : 'As perguntas não puderam ser carregadas.'
             );
           }
         }
@@ -359,12 +404,26 @@ export function CriarEditarVagaPage() {
         perfilIdeal: dados.pessoaCerta || null,
         diferenciais: dados.diferenciais || null,
         status: dados.status,
+        // Só entra no UPDATE se a rubrica foi carregada — ver VagaBaseInput.
+        ...(rubricaCarregada
+          ? { rubricaIa: dados.instrucoesIA.trim() || null }
+          : {}),
       });
       // Persist the config slice too (unchanged controls).
       await updateVagaConfigMut.mutateAsync({
         testes_aplicaveis: testesAplicaveis,
         pesos_avaliacao: pesos,
       });
+
+      // Perguntas da Etapa 1. A ordem é a POSIÇÃO na tela: triagem primeiro,
+      // cultura depois, contando de 1 — é a ordem em que o candidato responde.
+      const paraSalvar = montarPerguntasParaSalvar(
+        dados.perguntasTriagem,
+        dados.perguntasCultura
+      );
+
+      await savePerguntasVaga(vagaId, paraSalvar, perguntasCarregadas);
+
       setDbStatus(dados.status as DbStatusVaga);
       toast.success('Alterações salvas.');
     } catch (e) {

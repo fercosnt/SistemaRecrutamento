@@ -41,6 +41,34 @@ export interface VagaBaseInput {
   perfilIdeal: string | null
   diferenciais: string | null
   status: Database['public']['Enums']['status_vaga']
+  /**
+   * A rubrica que a IA usa para AVALIAR (aba IA). Distinta da cópia que ATRAI:
+   * quando a vaga tem rubrica, `analise-candidato-individual` manda ao modelo
+   * APENAS `Vaga: <titulo>` + a rubrica, e mais nada da vaga.
+   *
+   * `undefined` significa "não mexer" — e não "apagar". A tela só envia um valor
+   * depois de ter CARREGADO a rubrica atual; sem essa distinção, um load que
+   * falha viraria um UPDATE para string vazia no save seguinte, apagando em
+   * silêncio o único critério de avaliação da vaga.
+   */
+  rubricaIa?: string | null
+}
+
+/** Um dos quatro blocos do CHECK de `perguntas_formulario.bloco`. */
+export type BlocoPergunta = 'jornada' | 'tecnologia' | 'valores' | 'curriculo'
+
+/** Uma pergunta da Etapa 1, como a tela de configuração a manipula. */
+export interface PerguntaVaga {
+  /** `null` numa pergunta ainda não persistida. */
+  id: string | null
+  bloco: BlocoPergunta
+  ordem: number
+  texto_pergunta: string
+  texto_ajuda: string | null
+  tipo_resposta: Database['public']['Enums']['tipo_resposta_pergunta']
+  opcoes_resposta: string[] | null
+  obrigatoria: boolean
+  limite_caracteres: number | null
 }
 
 /**
@@ -120,26 +148,30 @@ export async function updateVagaBase(
   vagaId: string,
   base: VagaBaseInput
 ): Promise<void> {
-  const { error } = await supabase
-    .from('vagas')
-    .update({
-      titulo: base.titulo,
-      departamento: base.departamento,
-      cidade: base.cidade,
-      estado: base.estado,
-      faixa_salarial_min: base.faixaSalarialMin,
-      faixa_salarial_max: base.faixaSalarialMax,
-      jornada_trabalho: base.jornada,
-      responsabilidades: base.responsabilidades,
-      requisitos_formacao: base.formacao,
-      requisitos_experiencia: base.experiencia,
-      requisitos_tecnicos: base.tecnicos,
-      requisitos_habilidades: base.habilidades,
-      perfil_ideal: base.perfilIdeal,
-      diferenciais: base.diferenciais,
-      status: base.status,
-    })
-    .eq('id', vagaId)
+  const payload: Database['public']['Tables']['vagas']['Update'] = {
+    titulo: base.titulo,
+    departamento: base.departamento,
+    cidade: base.cidade,
+    estado: base.estado,
+    faixa_salarial_min: base.faixaSalarialMin,
+    faixa_salarial_max: base.faixaSalarialMax,
+    jornada_trabalho: base.jornada,
+    responsabilidades: base.responsabilidades,
+    requisitos_formacao: base.formacao,
+    requisitos_experiencia: base.experiencia,
+    requisitos_tecnicos: base.tecnicos,
+    requisitos_habilidades: base.habilidades,
+    perfil_ideal: base.perfilIdeal,
+    diferenciais: base.diferenciais,
+    status: base.status,
+  }
+  // A chave só existe no UPDATE quando houve load — ver VagaBaseInput.rubricaIa.
+  // Atribuir `undefined` não serve: o cliente do Supabase recusa a propriedade.
+  if (base.rubricaIa !== undefined) {
+    payload.rubrica_ia = base.rubricaIa
+  }
+
+  const { error } = await supabase.from('vagas').update(payload).eq('id', vagaId)
 
   if (error) {
     if (isForbidden(error)) {
@@ -155,6 +187,163 @@ export async function updateVagaBase(
       error
     )
   }
+}
+
+/**
+ * Lê as perguntas da Etapa 1 de uma vaga, na ordem em que o candidato as vê.
+ *
+ * Espelha `useVagaPerguntas` (o hook que monta o formulário do candidato): mesma
+ * tabela, mesmo filtro de soft-delete, mesma ordenação. As duas telas TÊM de ler
+ * a mesma coisa — foi por a de configuração não ler nada que 5 perguntas reais e
+ * uma rubrica de 3.9 mil caracteres ficaram invisíveis para o RH enquanto o
+ * candidato as via normalmente.
+ *
+ * `opcoes_resposta` chega em dois formatos nesta base: `string[]` (o histórico) e
+ * `[{id, texto}]` (o que `upsert_pergunta_opcoes_metadata` grava de volta). Os
+ * dois são normalizados para `string[]`.
+ */
+export async function getPerguntasVaga(vagaId: string): Promise<PerguntaVaga[]> {
+  const { data, error } = await supabase
+    .from('perguntas_formulario')
+    .select(
+      'id, bloco, ordem, texto_pergunta, texto_ajuda, tipo_resposta, opcoes_resposta, obrigatoria, limite_caracteres'
+    )
+    .eq('vaga_id', vagaId)
+    .is('deleted_at', null)
+    .order('ordem', { ascending: true })
+
+  if (error) {
+    throw new ConfigVagaServiceError(
+      `Erro ao carregar as perguntas da vaga: ${error.message}`,
+      'DATABASE_ERROR',
+      error
+    )
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    bloco: row.bloco as BlocoPergunta,
+    ordem: row.ordem,
+    texto_pergunta: row.texto_pergunta,
+    texto_ajuda: row.texto_ajuda,
+    tipo_resposta: row.tipo_resposta,
+    opcoes_resposta: normalizeOpcoes(row.opcoes_resposta),
+    obrigatoria: row.obrigatoria,
+    limite_caracteres: row.limite_caracteres,
+  }))
+}
+
+/** `string[]` | `[{id, texto}]` | null → `string[]` | null. */
+function normalizeOpcoes(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null
+  return raw
+    .map((o) => {
+      if (typeof o === 'string') return o
+      if (o && typeof o === 'object' && 'texto' in o) return String((o as { texto: unknown }).texto)
+      return ''
+    })
+    .filter((s) => s.trim().length > 0)
+}
+
+/**
+ * Grava as perguntas da Etapa 1: insere as novas, atualiza as que mudaram e
+ * SOFT-deleta as que o operador removeu. Nunca faz DELETE físico — resposta de
+ * candidato aponta para `pergunta_id`.
+ *
+ * ⚠ `perguntasCarregadas` NÃO é cerimônia. A tela de configuração inicializa as
+ * listas vazias; se o load falhar (ou se alguém chamar isto antes dele), salvar
+ * apagaria todas as perguntas da vaga sem que ninguém tivesse pedido. O portão
+ * abaixo torna esse caminho impossível em vez de improvável.
+ *
+ * ⚠ O teto de 10 perguntas do `publish_vaga` conta SEM filtrar `deleted_at`:
+ * soft-deletar não devolve espaço no teto. Quem publica recebe o erro do
+ * servidor, que é a autoridade.
+ */
+export async function savePerguntasVaga(
+  vagaId: string,
+  perguntas: PerguntaVaga[],
+  perguntasCarregadas: boolean
+): Promise<void> {
+  if (!perguntasCarregadas) {
+    throw new ConfigVagaServiceError(
+      'As perguntas não chegaram a ser carregadas — salvar agora as apagaria. Recarregue a página.',
+      'INVALID_INPUT'
+    )
+  }
+
+  const existentes = await getPerguntasVaga(vagaId)
+  const mantidos = new Set(perguntas.map((p) => p.id).filter((id): id is string => !!id))
+  const removidas = existentes.filter((e) => e.id && !mantidos.has(e.id))
+
+  const autorId = (await supabase.auth.getUser()).data.user?.id ?? null
+
+  // Soft-delete do que saiu da tela.
+  if (removidas.length > 0) {
+    const { error } = await supabase
+      .from('perguntas_formulario')
+      .update({ deleted_at: new Date().toISOString(), updated_by: autorId })
+      .in(
+        'id',
+        removidas.map((r) => r.id as string)
+      )
+    if (error) throw mapPerguntaError(error)
+  }
+
+  // Insere as novas. `created_by` explícito: 6 perguntas desta base nasceram com
+  // ele nulo por INSERT ad-hoc, e é isso que gateia o escopo do recrutador.
+  const novas = perguntas.filter((p) => !p.id)
+  if (novas.length > 0) {
+    const { error } = await supabase.from('perguntas_formulario').insert(
+      novas.map((p) => ({
+        vaga_id: vagaId,
+        bloco: p.bloco,
+        ordem: p.ordem,
+        texto_pergunta: p.texto_pergunta,
+        texto_ajuda: p.texto_ajuda,
+        tipo_resposta: p.tipo_resposta,
+        opcoes_resposta: p.opcoes_resposta as unknown as Json,
+        obrigatoria: p.obrigatoria,
+        limite_caracteres: p.limite_caracteres,
+        created_by: autorId,
+        updated_by: autorId,
+      }))
+    )
+    if (error) throw mapPerguntaError(error)
+  }
+
+  // Atualiza as que já existiam.
+  for (const p of perguntas.filter((q) => !!q.id)) {
+    const { error } = await supabase
+      .from('perguntas_formulario')
+      .update({
+        bloco: p.bloco,
+        ordem: p.ordem,
+        texto_pergunta: p.texto_pergunta,
+        texto_ajuda: p.texto_ajuda,
+        tipo_resposta: p.tipo_resposta,
+        opcoes_resposta: p.opcoes_resposta as unknown as Json,
+        obrigatoria: p.obrigatoria,
+        limite_caracteres: p.limite_caracteres,
+        updated_by: autorId,
+      })
+      .eq('id', p.id as string)
+    if (error) throw mapPerguntaError(error)
+  }
+}
+
+function mapPerguntaError(error: { code?: string; message?: string }): ConfigVagaServiceError {
+  if (isForbidden(error)) {
+    return new ConfigVagaServiceError(
+      'Sem permissão para editar as perguntas desta vaga.',
+      'FORBIDDEN',
+      error
+    )
+  }
+  return new ConfigVagaServiceError(
+    `Erro ao salvar as perguntas: ${error.message}`,
+    'DATABASE_ERROR',
+    error
+  )
 }
 
 /**
