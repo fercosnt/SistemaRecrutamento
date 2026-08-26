@@ -173,6 +173,41 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
 
   // ── 3-6. Toda a análise envolta em try/catch (never-absent invariant) ─────
   try {
+    // ── 3-0. MARCA `pendente` ANTES de qualquer trabalho caro ────────────────
+    //
+    // ⚠ POR QUE ISTO EXISTE. O try/catch abaixo garante uma linha `falhou` em
+    // qualquer THROW — mas não cobre a função ser MORTA: timeout do runtime,
+    // OOM, ou o processo derrubado no meio da chamada ao modelo. Nesses casos
+    // nenhuma linha era criada, e a ausência ficava indistinguível de "ainda
+    // processando".
+    //
+    // Isso importa porque o dispatch NÃO ajuda a distinguir: o trigger usa
+    // `net.http_post` com o default de 5s e a análise leva ~93s (medido em
+    // 2026-08-25), então `net._http_response` registra timeout em TODA execução,
+    // inclusive nas bem-sucedidas. Sucesso e morte súbita eram idênticos vistos
+    // de fora.
+    //
+    // Com esta marca, o estado sempre existe: `pendente` significa "começou e não
+    // terminou", e uma varredura pode acusar as presas (ver a view
+    // `v_analises_presas`). O status já estava no CHECK da tabela desde o início
+    // e nunca havia sido usado.
+    //
+    // `onConflict` em candidatura_id: reprocessar volta a linha para `pendente`,
+    // que é a verdade enquanto a nova execução não termina. Um erro AQUI não
+    // interrompe a análise — perder observabilidade é ruim, perder a análise
+    // inteira é pior.
+    try {
+      await supabaseAdmin.from("analise_candidato_vaga").upsert(
+        { candidatura_id, vaga_id, status: "pendente", erro: null },
+        { onConflict: "candidatura_id" },
+      );
+    } catch (marcaErr) {
+      console.error("[analise] nao consegui marcar 'pendente' — seguindo mesmo assim", {
+        candidatura_id,
+        error: marcaErr instanceof Error ? marcaErr.message : String(marcaErr),
+      });
+    }
+
     // 3a. Candidatura — allowlist explícita de colunas (NÃO select('*'),
     //     [[reference_select_star_leaks_pii]]).
     const { data: cand } = await supabaseAdmin
