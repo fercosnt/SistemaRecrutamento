@@ -29,28 +29,58 @@ function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      // Contar vagas ativas
-      const { count: vagasAtivas } = await supabase
+      // Contar vagas ativas.
+      //
+      // ⚠ ATÉ 2026-08-26 ESTA QUERY FILTRAVA POR `.eq('ativa', true)` — e a coluna
+      // `ativa` NÃO EXISTE em `public.vagas`. O status mora em `status`
+      // (status_vaga: rascunho | ativa | inativa | arquivada).
+      //
+      // O PostgREST devolve erro para coluna inexistente, o `error` era DESCARTADO
+      // (`const { count }` sem `error`), `count` vinha null, e o `|| 0` do render
+      // pintava um ZERO PLAUSÍVEL. O card dizia "0 Vagas Ativas" com três vagas
+      // ativas listadas logo abaixo na mesma tela.
+      //
+      // É o mesmo modo de falha que já mordeu esta base em
+      // `analise-candidato-individual` (colunas `descricao`/`requisitos`
+      // inexistentes, `error` descartado, IA analisando sem contexto da vaga por
+      // sete análises). Ali e aqui: **descartar o `error` transforma consulta
+      // quebrada em resposta vazia plausível**, que é pior que um erro na tela.
+      // Por isso este bloco lê o `error` e o registra.
+      const { count: vagasAtivas, error: erroVagas } = await supabase
         .from('vagas')
         .select('*', { count: 'exact', head: true })
-        .eq('ativa', true);
+        .eq('status', 'ativa')
+        .is('deleted_at', null);
 
-      // Contar total de candidaturas
-      const { count: totalCandidaturas } = await supabase
+      if (erroVagas) {
+        console.error('[dashboard-rh] contagem de vagas ativas falhou', erroVagas);
+      }
+
+      // As tres contagens abaixo estao CORRETAS hoje (conferidas contra o banco em
+      // 2026-08-26: 21 / 0 / 2). Ainda assim leem o `error`: o defeito de cima nao
+      // foi errar o nome da coluna, foi o erro ter ficado MUDO. Uma consulta que
+      // falha e vira zero plausivel e indistinguivel de um zero verdadeiro.
+      const { count: totalCandidaturas, error: erroTotal } = await supabase
         .from('candidaturas')
         .select('*', { count: 'exact', head: true });
 
-      // Contar candidaturas aprovadas
-      const { count: aprovados } = await supabase
+      const { count: aprovados, error: erroAprovados } = await supabase
         .from('candidaturas')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'aprovado_proxima');
 
-      // Contar candidaturas em análise
-      const { count: emAnalise } = await supabase
+      const { count: emAnalise, error: erroAnalise } = await supabase
         .from('candidaturas')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'em_analise');
+
+      for (const [rotulo, err] of [
+        ['total de candidaturas', erroTotal],
+        ['aprovados', erroAprovados],
+        ['em analise', erroAnalise],
+      ] as const) {
+        if (err) console.error(`[dashboard-rh] contagem de ${rotulo} falhou`, err);
+      }
 
       return {
         vagasAtivas: vagasAtivas || 0,

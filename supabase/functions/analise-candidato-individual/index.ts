@@ -385,16 +385,60 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
     // 6. Mapeia chaves INGLESAS → colunas pt-BR.
     const parsed = (result.parsed ?? {}) as {
       match_score?: number;
-      strengths?: Array<{ competency?: string }>;
-      gaps?: Array<{ requirement?: string }>;
+      strengths?: Array<{ competency?: string; evidence?: unknown; impact?: string }>;
+      gaps?: Array<{ requirement?: string; severity?: string; note?: string }>;
       reasoning?: string;
     };
+
+    // ⚠ ATÉ 2026-08-26 ESTE MAPEAMENTO DESCARTAVA A METADE QUE EXPLICA.
+    //
+    // `strengths` guardava só `competency` e `gaps` só `requirement` — jogando
+    // fora a `evidence` do ponto forte e a `severity`/`note` do gap. O efeito na
+    // tela do RH era pior do que perder detalhe:
+    //
+    //  · o gap aparecia como o NOME DO REQUISITO ("Portfólio com conteúdo
+    //    relevante"), e quem lê entende "isto falta" — mesmo quando o `note` dizia
+    //    que era atendimento PARCIAL. Numa análise real de 2026-08-26 o próprio
+    //    `reasoning` afirmava que o candidato "apresenta um portfólio" enquanto o
+    //    gap listava portfólio. A contradição não era do modelo: ele preencheu
+    //    `requirement` com o requisito, que é o que o nome do campo pede, e a
+    //    explicação foi descartada no caminho;
+    //  · o ponto forte aparecia sem a evidência — e o prompt EXIGE citação, a
+    //    rubrica desta base manda citar trecho literal do currículo. Pedir a
+    //    citação e joga-la fora é gastar token para nada.
+    //
+    // As colunas são `text[]`, então a informação volta como texto composto em vez
+    // de exigir migração de tipo. Formato: "requisito — nota [severidade]".
+    const textoDaEvidencia = (ev: unknown): string => {
+      if (typeof ev === "string") return ev;
+      if (ev && typeof ev === "object") {
+        const o = ev as Record<string, unknown>;
+        for (const k of ["quote", "trecho", "text", "texto", "evidence"]) {
+          if (typeof o[k] === "string") return o[k] as string;
+        }
+      }
+      return "";
+    };
+
     const pontosFortes = (parsed.strengths ?? [])
-      .map((s) => s.competency)
-      .filter((c): c is string => typeof c === "string");
+      .map((s) => {
+        if (typeof s?.competency !== "string") return null;
+        const cit = textoDaEvidencia(s.evidence).trim();
+        return cit ? `${s.competency} — ${cit}` : s.competency;
+      })
+      .filter((c): c is string => typeof c === "string" && c.length > 0);
+
     const gapsList = (parsed.gaps ?? [])
-      .map((g) => g.requirement)
-      .filter((r): r is string => typeof r === "string");
+      .map((g) => {
+        if (typeof g?.requirement !== "string") return null;
+        const nota = typeof g.note === "string" ? g.note.trim() : "";
+        const sev = typeof g.severity === "string" ? g.severity : "";
+        let out = g.requirement;
+        if (nota) out += ` — ${nota}`;
+        if (sev) out += ` [${sev}]`;
+        return out;
+      })
+      .filter((r): r is string => typeof r === "string" && r.length > 0);
 
     await supabaseAdmin.from("analise_candidato_vaga").upsert(
       {

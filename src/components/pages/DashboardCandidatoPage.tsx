@@ -371,21 +371,32 @@ export function DashboardCandidatoPage() {
                           <span className="text-xs uppercase tracking-wide text-white/60">
                             Próximo passo
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (stepCTA.destino) navigate(stepCTA.destino);
-                            }}
-                            className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-all duration-200 active:scale-95 ${
-                              stepCTA.destino
-                                ? 'bg-[#35BFAD] hover:bg-[#35BFAD]/90 shadow-lg'
-                                : 'bg-white/10 hover:bg-white/20 border border-white/20'
-                            }`}
-                          >
-                            {stepCTA.label}
-                            <ArrowRight className="h-4 w-4" />
-                          </button>
+                          {/* ⚠ Sem rota, NÃO é botão. Até 2026-08-26 as duas
+                              situações renderizavam o mesmo botão com seta "→",
+                              e em `triagem` (que não tem tela para o candidato)
+                              ele simplesmente não fazia nada: a pessoa clicava,
+                              nada acontecia, e não havia como saber se era falha
+                              do sistema ou do próprio clique. Uma seta é uma
+                              promessa de navegação; quando não há para onde ir, o
+                              honesto é dizer o estado, não oferecer um botão
+                              morto. */}
+                          {stepCTA.destino ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(stepCTA.destino as string);
+                              }}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#35BFAD] px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:bg-[#35BFAD]/90 active:scale-95"
+                            >
+                              {stepCTA.label}
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/80">
+                              {stepCTA.label}
+                            </span>
+                          )}
                         </div>
                       )}
 

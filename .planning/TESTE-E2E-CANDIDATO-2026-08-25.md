@@ -124,3 +124,81 @@ Function → refletida no julgamento. Só faltava o disparo automático chegar a
 - O **caminho do knockout** (responder "apenas trabalho remoto") — exigiria uma segunda conta.
 - A **visão do RH** sobre esta candidatura: painel de triagem, score na tela, botão reprocessar.
 - Avaliações (SJT, Big Five, cognitivo) e as etapas seguintes do funil.
+
+---
+
+## Rodada 2 — 2026-08-26 (RH, funil e observabilidade)
+
+### ⛔ 5. O dashboard do RH dizia "0 Vagas Ativas" com 3 vagas ativas na mesma tela
+
+`DashboardRHPage.tsx:36` filtrava por `.eq('ativa', true)` — e a coluna `ativa`
+**não existe** em `public.vagas` (o campo é `status`). O PostgREST erra, o `error`
+era descartado, `count` vinha `null`, e o `|| 0` do render pintava um **zero
+plausível**.
+
+⚠ **O compilador já sabia.** `tsc` apontava
+`Argument of type '"ativa"' is not assignable` na linha exata — e o erro estava
+dentro do baseline congelado de 96, ignorado a cada build. Consertar derrubou o
+total para 95. Um baseline de erros aceitos esconde defeitos reais de produção:
+este ficou visível o tempo todo, sem ninguém ler.
+
+É o mesmo modo de falha do `analise-candidato-individual` (colunas inexistentes,
+`error` descartado, sete análises sem contexto da vaga). Descartar o `error`
+transforma consulta quebrada em **resposta vazia plausível**, que é pior que erro
+na tela. As outras três contagens do dashboard estavam corretas e mesmo assim
+passaram a ler o `error`.
+
+### ⛔ 6. A análise descartava a metade que EXPLICA
+
+O mapeamento guardava só `competency` dos pontos fortes e `requirement` dos gaps,
+jogando fora a `evidence`, a `severity` e a `note`.
+
+Efeito medido: o gap aparecia como o NOME DO REQUISITO ("Portfólio com conteúdo
+relevante") e o RH lia "isto falta" — enquanto o `reasoning` da MESMA análise dizia
+que o candidato "apresenta um portfólio". A contradição não era do modelo: ele
+preenche `requirement` com o requisito, que é o que o campo pede, e a explicação
+ia em `note`, descartada no caminho.
+
+Nos pontos fortes o prejuízo era outro: o prompt EXIGE citação e a rubrica desta
+base manda citar trecho literal do currículo — e a citação era jogada fora. Pedir e
+descartar é gastar token para nada.
+
+Antes / depois, medido no mesmo candidato:
+
+```
+antes  Escrita
+depois Escrita — Textos de legenda, roteiro curto e artigos para o blog da clinica
+
+antes  Produção de conteúdo para Instagram e/ou TikTok por pelo menos 1 ano
+depois Produção de conteúdo ... por mais de 1 ano — Embora o candidato declare ter
+       de 2 a 4 anos de experiência, ele não detalha como esse tempo se distribui
+       entre Instagram e TikTok. [critical]
+```
+
+O gap virou **defensável**. Antes era indistinguível de "não tem experiência".
+
+### 🟡 7. O modelo lista gaps que contradizem a evidência que recebeu
+
+Mesmo depois do conserto acima, uma rodada acusou gap `critical` de
+disponibilidade com a justificativa "ausência de informação suficiente" — quando a
+resposta da Etapa 1 diz literalmente "Tenho disponibilidade integral e presencial,
+de segunda a sexta" E o CV tem seção de disponibilidade.
+
+**Medido, não suposto:** o bloco `## Respostas Etapa 1` do `rawInput` foi
+reconstruído a partir das linhas reais e contém a frase. A informação CHEGA.
+
+A rubrica manda o oposto — "Silêncio do currículo sobre disponibilidade =
+`insufficient_evidence`, não ausência" — e o modelo a desobedeceu. Três rodadas do
+mesmo candidato deram 89, 75 e 80, com gaps diferentes a cada vez.
+
+Isso é qualidade de prompt, não defeito de sistema. Encaminhamento: reforçar na
+rubrica que resposta da Etapa 1 é evidência de mesmo peso que o CV, e que gap exige
+citar o que foi procurado e não encontrado. ⚠ Não mexer sem medir de novo: a
+variabilidade entre rodadas é alta e uma amostra não distingue melhora de sorte.
+
+### 🟢 8. Botão "Acompanhar candidatura" era inerte em `triagem`
+
+O dashboard do candidato renderiza um CTA com seta "→" que, em etapas sem tela para
+o candidato, não navega para lugar nenhum. Era deliberado no código (`destino:
+null`), mas a seta é promessa de navegação. Agora, sem rota, vira texto de estado
+em vez de botão morto.
