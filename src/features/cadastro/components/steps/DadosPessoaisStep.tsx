@@ -317,7 +317,7 @@ export function DadosPessoaisStep() {
                     Solides
                   </SelectItem>
                   <SelectItem
-                    value="outros"
+                    value="outro"
                     className="text-sm cursor-pointer focus:bg-white/20 data-[highlighted]:bg-white/20 text-white"
                   >
                     Outros
@@ -335,7 +335,7 @@ export function DadosPessoaisStep() {
       </div>
 
       {/* Campo de detalhes - Aparece apenas se "Outros" for selecionado */}
-      {watch('dadosPessoais.como_conheceu') === 'outros' && (
+      {watch('dadosPessoais.como_conheceu') === 'outro' && (
         <Controller
           name="dadosPessoais.como_conheceu_detalhes"
           control={control}

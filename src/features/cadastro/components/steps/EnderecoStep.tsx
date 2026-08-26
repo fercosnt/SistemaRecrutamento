@@ -95,16 +95,27 @@ export function EnderecoStep() {
         setValue('endereco.estado', formData.estado)
 
         // F-04.1-B: só dispara o toast quando o CEP resolvido mudou de fato.
+        //
+        // ⚠ O `focus()` ficava FORA desta guarda, e essa era a segunda metade do
+        // defeito de 2026-08-26: enquanto o toast só piscava uma vez, o foco
+        // voltava para o campo Número a cada re-disparo do onSuccess. Quem desse
+        // Tab para o Complemento via o texto entrar no Número.
+        //
+        // A raiz (identidade instável dos callbacks re-disparando a busca) foi
+        // corrigida em `useViaCEP`. Esta guarda é a segunda camada: mesmo que o
+        // onSuccess volte a repetir um dia, o foco só se move quando o CEP
+        // RESOLVIDO muda — que é a única situação em que mover o foco ajuda
+        // alguém. Roubar o foco de quem já está digitando nunca ajuda.
         const resolvedCep = (data.cep || cep || '').replace(/\D/g, '')
         if (lastToastedCepRef.current !== resolvedCep) {
           lastToastedCepRef.current = resolvedCep
           toast.messages.cepFound()
-        }
 
-        // Focar no campo número após preencher
-        setTimeout(() => {
-          document.getElementById('numero')?.focus()
-        }, 100)
+          // Focar no campo número após preencher — só no CEP novo.
+          setTimeout(() => {
+            document.getElementById('numero')?.focus()
+          }, 100)
+        }
       },
       onError: (error) => {
         // Mostrar toast de erro baseado no tipo

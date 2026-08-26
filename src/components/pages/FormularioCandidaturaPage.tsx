@@ -66,6 +66,30 @@ import {
 
 const DEFAULT_BLOCO = 'Geral'
 
+/**
+ * Rótulo humano para cada `bloco`.
+ *
+ * ⚠ Os valores de `perguntas_formulario.bloco` são um CHECK fechado — quatro
+ * strings feitas para o BANCO: `curriculo`, `jornada`, `tecnologia`, `valores`.
+ * Até 2026-08-26 elas apareciam CRUAS como título de seção no formulário, em
+ * minúsculo e sem acento, para o candidato ler. Visto em produção durante o teste
+ * E2E.
+ *
+ * Um valor sem rótulo aqui cai no próprio nome do bloco — degrada para o
+ * comportamento antigo em vez de sumir com a seção, que seria pior: o candidato
+ * perderia a separação entre grupos de perguntas.
+ */
+const ROTULO_BLOCO: Record<string, string> = {
+  curriculo: 'Sobre sua experiência',
+  jornada: 'Disponibilidade',
+  tecnologia: 'Ferramentas e rotina',
+  valores: 'Motivação',
+}
+
+function rotuloDoBloco(bloco: string): string {
+  return ROTULO_BLOCO[bloco] ?? bloco
+}
+
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
@@ -639,7 +663,7 @@ export function FormularioCandidaturaPage() {
               {Array.from(grouped.entries()).map(([bloco, blocoPerguntas]) => (
                 <div key={bloco} className="space-y-4">
                   <h3 className="text-md font-semibold text-gray-800 border-b border-gray-200 pb-1">
-                    {bloco}
+                    {rotuloDoBloco(bloco)}
                   </h3>
                   {blocoPerguntas.map((p) => (
                     <PerguntaInput key={p.id} pergunta={p} form={form} />

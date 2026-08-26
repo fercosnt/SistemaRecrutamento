@@ -106,6 +106,34 @@ export function useViaCEP(
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   /**
+   * ⚠ OS CALLBACKS VIVEM EM REF, E ISSO NÃO É ESTILO — É CORREÇÃO DE DEFEITO.
+   *
+   * `onSuccess`/`onError` chegam como arrow inline do componente, então ganham
+   * identidade NOVA a cada render. Enquanto estiveram nas deps de `buscar`
+   * (useCallback), a cadeia era:
+   *
+   *   render → novo onSuccess → novo buscar → o useEffect de busca (que tem
+   *   `buscar` nas deps) roda → reagenda o debounce → nova busca → onSuccess →
+   *   o setValue lá dentro provoca render → recomeça.
+   *
+   * O sintoma que chegou ao operador em 2026-08-26: no passo de Endereço, o foco
+   * voltava sozinho para o campo Número a cada ~600 ms, e quem desse Tab para o
+   * Complemento via o texto entrar no Número. Antes disso o mesmo loop já tinha
+   * aparecido como toast piscando — e na época foi contornado com uma guarda no
+   * toast (`lastToastedCepRef`), deixando a raiz viva. Ela voltou com outra roupa.
+   *
+   * Guardar em ref mantém os callbacks SEMPRE atuais na chamada sem os colocar nas
+   * dependências — o efeito passa a rodar por mudança de `cep`, que é o que ele
+   * deveria observar desde o início.
+   */
+  const onSuccessRef = useRef(onSuccess)
+  const onErrorRef = useRef(onError)
+  useEffect(() => {
+    onSuccessRef.current = onSuccess
+    onErrorRef.current = onError
+  })
+
+  /**
    * Função para buscar CEP
    */
   const buscar = useCallback(
@@ -140,8 +168,8 @@ export function useViaCEP(
           setError(null)
 
           // Chamar callback de sucesso
-          if (onSuccess) {
-            onSuccess(resultado)
+          if (onSuccessRef.current) {
+            onSuccessRef.current(resultado)
           }
         }
       } catch (err) {
@@ -156,8 +184,8 @@ export function useViaCEP(
           setData(null)
 
           // Chamar callback de erro
-          if (onError) {
-            onError(viaCepError)
+          if (onErrorRef.current) {
+            onErrorRef.current(viaCepError)
           }
         }
       } finally {
@@ -167,7 +195,8 @@ export function useViaCEP(
         }
       }
     },
-    [onSuccess, onError]
+    // Sem `onSuccess`/`onError` aqui de proposito — ver a nota dos refs acima.
+    []
   )
 
   /**

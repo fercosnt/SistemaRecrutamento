@@ -138,7 +138,15 @@ const senhaSchema = passwordSchema;
  * Se "Outros", campo de detalhes é obrigatório
  */
 const comoConheceuSchema = z.enum(
-  ['instagram', 'facebook', 'linkedin', 'indicacao', 'google', 'catho', 'vagas_com', 'solides', 'outros'],
+  // ⚠ ESTA LISTA TEM DE BATER COM `check_como_conheceu` NO BANCO.
+  // Divergiram por meses: o front oferecia catho/vagas_com/solides/`outros` e o
+  // CHECK aceitava `outro` no SINGULAR e desconhecia os portais — quatro das nove
+  // opcoes IMPEDIAM o cadastro. E o defeito era mudo: o Zod valida contra esta
+  // lista e aprova, a Edge Function aceita z.string() e repassa, e so o INSERT
+  // quebra — o candidato le "algo deu errado do nosso lado".
+  // `comoConheceuSchema.test.ts` compara as duas listas; se voce mexer aqui, o
+  // banco precisa acompanhar (migration 20260826000001).
+  ['instagram', 'facebook', 'linkedin', 'indicacao', 'google', 'catho', 'vagas_com', 'solides', 'outro'],
   {
     errorMap: () => ({ message: 'Selecione como conheceu a vaga' }),
   }
@@ -178,8 +186,8 @@ export const dadosPessoaisSchema = z.object({
   })
   .refine(
     (data) => {
-      // Se "como_conheceu" for "outros", detalhes é obrigatório
-      if (data.como_conheceu === 'outros') {
+      // Se "como_conheceu" for "outro", detalhes é obrigatório
+      if (data.como_conheceu === 'outro') {
         return !!data.como_conheceu_detalhes && data.como_conheceu_detalhes.trim().length > 0;
       }
       return true;

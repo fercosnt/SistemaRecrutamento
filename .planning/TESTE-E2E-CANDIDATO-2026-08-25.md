@@ -9,38 +9,52 @@ Cadastro → login → candidatura → análise de IA, percorrido em **produçã
 
 ---
 
-## ⛔ 1. A ANÁLISE DE IA NUNCA RODA — o defeito mais grave, e era invisível
+## 🟡 1. A análise de IA FUNCIONA — mas leva ~93s e o disparo sempre parece falhar
 
-O trigger `trg_candidaturas_analise` dispara na inscrição, mas a chamada **morre por
-timeout** antes de a análise terminar:
+⚠ **ESTA SEÇÃO CORRIGE UMA CONCLUSÃO FALSA MINHA, e a correção é a parte útil.**
+
+Primeiro afirmei que "a análise de IA nunca roda". Era **falso**, e as duas evidências que usei
+tinham outra explicação:
+
+| O que medi | O que concluí | O que era |
+|---|---|---|
+| `net._http_response`: `Timeout of 5000 ms` | "a chamada morre, a análise não roda" | o `pg_net` desiste de ESPERAR; a Edge Function segue rodando e grava |
+| `analise_candidato_vaga`: 0 linhas para a candidatura | "não rodou" | **olhei cedo demais** — gravou 93 s depois |
+| as 7 análises são todas de 2026-08-22 | "parou de funcionar naquele dia" | **não houve candidatura nenhuma** entre 22/08 e 25/08 |
+
+Linha do tempo medida:
 
 ```
-net._http_response id=116
-  status_code : null
-  error_msg   : Timeout of 5000 ms reached. Total time: 5002.476 ms
-                (DNS 139ms · TCP/SSL 112ms · HTTP Request/Response 4750ms)
+23:36:15  inscrição — trigger dispara (net id 116)
+23:36:20  pg_net desiste (timeout default de 5 s)
+23:37:48  a Edge Function GRAVA a análise  ← 93 s após o disparo, sem intervenção
+23:38:21  meu disparo manual (redundante)
+23:39:52  segunda gravação (updated_at)
 ```
 
-`net.http_post` tem default de **5 segundos** e nem o trigger
-(`20260610000002_analise_trigger.sql:51`) nem o `reprocessar_analise`
-(`20260610000003_reprocessar_rpc.sql:72`) passam `timeout_milliseconds`. A Edge Function
-chama a API de IA e leva **muito mais que isso**.
+O erro é o mesmo que o `PENDENCIAS-PROXIMA-SESSAO.md` já documenta: **concluir a partir de um
+fragmento produz um fato falso que parece medido** — vem com autoridade de consulta. O
+`error_msg` era real; a inferência sobre ele, não.
 
-**Provado por execução:** o mesmo dispatch, com `timeout_milliseconds := 60000`, completou —
-`status = sucesso`, `score_match = 89`, resumo do CV extraído, as 5 competências da rubrica
-identificadas como pontos fortes. Só o timeout separava o funcionando do quebrado.
+### O que É defeito, e continua valendo
 
-⚠ **Como isso passou despercebido:** as 7 análises que existem no banco são **todas de
-2026-08-22** e nenhuma nasceu depois. A inscrição continua funcionando e o candidato é
-encaminhado para `triagem` normalmente — o funil parece sadio. O que falta é o score, e a
-ausência dele não levanta erro em lugar nenhum. Um dado que **nunca chega** é mais silencioso
-que um dado errado.
+**Não existe como distinguir sucesso de falha pelo dispatch.** O `pg_net` registra timeout em
+TODA análise, porque ela sempre leva mais que 5 s. Então:
 
-**Conserto:** passar `timeout_milliseconds` nos dois dispatches. Valor precisa vir de medição —
-a execução observada levou dezenas de segundos. Alternativa mais robusta: a EF responder
-imediatamente (202) e processar em segundo plano, tornando o timeout irrelevante.
+- se a EF falhar de verdade, o registro fica **idêntico** ao de uma execução bem-sucedida;
+- ninguém é avisado. O RH veria a candidatura sem score e não teria como saber por quê.
 
----
+`analise_candidato_vaga` tem colunas `status` e `erro` que só são preenchidas se a EF chegar a
+gravar. Uma EF que morre antes disso não deixa rastro em lugar nenhum.
+
+**Conserto proposto (não aplicado — é mudança de arquitetura, precisa de decisão):** passar
+`timeout_milliseconds` coerente com os ~93 s medidos serve para o log parar de mentir, mas a
+correção de verdade é a EF responder 202 imediatamente e processar em segundo plano, com o
+`status` da linha sendo a fonte da verdade — e uma varredura que acuse análises presas em
+`processando` há muito tempo.
+
+⚠ **Antes de mexer, meça de novo.** 93 s foi UMA execução, com um CV de 4 KB. Um currículo
+grande pode levar mais.
 
 ## ⛔ 2. Quatro das nove opções de "Como conheceu a vaga?" IMPEDEM o cadastro
 
