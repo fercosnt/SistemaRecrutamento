@@ -129,3 +129,27 @@ describe('HubCandidatoRH — as ações não podem depender de haver workspace',
     expect(screen.queryByRole('button', { name: funilNavMap.triagem.ctaRH })).toBeNull()
   })
 })
+
+describe('HubCandidatoRH — Retroceder só quando existe etapa anterior', () => {
+  beforeEach(() => {
+    useEntrevistaContextoMock.mockReset()
+    navigateSpy.mockReset()
+  })
+
+  it('(h) em `aprovado` NÃO se oferece Retroceder — o diálogo abriria com select vazio', () => {
+    // FUNNEL_ORDER (do diálogo) não contém as terminais: indexOf → -1 → destinos [].
+    // Medido em 2026-08-26: o botão aparecia, o select vinha vazio, e o RH travava.
+    montarEmEtapa('aprovado')
+    expect(screen.queryByRole('button', { name: /Retroceder/i })).toBeNull()
+  })
+
+  it('(i) em `inscricao` também não — é a primeira etapa, não há anterior', () => {
+    montarEmEtapa('inscricao')
+    expect(screen.queryByRole('button', { name: /Retroceder/i })).toBeNull()
+  })
+
+  it('(j) em `triagem` Retroceder CONTINUA disponível (há `inscricao` atrás)', () => {
+    montarEmEtapa('triagem')
+    expect(screen.getByRole('button', { name: /Retroceder/i })).toBeInTheDocument()
+  })
+})

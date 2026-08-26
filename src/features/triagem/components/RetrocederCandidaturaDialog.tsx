@@ -51,7 +51,7 @@ import {
  * Ordem do funil M2 — SOMENTE as etapas não-terminais (terminais `aprovado`/`rejeitado`
  * ficam de fora). O índice nesta lista define o ordinal usado no filtro de "etapa anterior".
  */
-const FUNNEL_ORDER: EtapaFunilM2[] = [
+export const FUNNEL_ORDER: EtapaFunilM2[] = [
   'inscricao',
   'triagem',
   'avaliacao_assincrona',
@@ -90,8 +90,16 @@ export function RetrocederCandidaturaDialog({
   const { mutate, isPending } = useUpdateCandidaturaEtapa()
 
   // Somente etapas ESTRITAMENTE anteriores à atual (ordinal menor). Se `etapaAtual` for
-  // terminal/desconhecida, indexOf → -1 e slice(0, 0) devolve lista vazia (o host oculta
-  // a ação de retroceder para terminais de qualquer forma).
+  // terminal/desconhecida, indexOf → -1 e slice(0, 0) devolve lista vazia.
+  //
+  // ⚠ O comentário aqui dizia "o host oculta a ação de retroceder para terminais de
+  // qualquer forma" — e o host NÃO ocultava. Medido em 2026-08-26 com uma candidatura
+  // em `aprovado`: o botão Retroceder aparecia, o diálogo abria, e o select ficava
+  // VAZIO. O RH não conseguia retroceder nem entender por quê.
+  //
+  // Um componente confiando numa filtragem que o outro não faz. Agora `FUNNEL_ORDER`
+  // é exportada e o host decide com ela (`podeRetroceder`), em vez de duas listas
+  // implícitas discordando em silêncio.
   const currentIndex = FUNNEL_ORDER.indexOf(etapaAtual)
   const destinos = FUNNEL_ORDER.slice(0, Math.max(currentIndex, 0))
 

@@ -42,7 +42,10 @@ import { useRedacaoRevisao } from '@/features/triagem/hooks/useRedacaoRevisao'
 import { useConsolidacao } from '@/features/decisao/hooks/useConsolidacao'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
 import { RejeitarCandidaturaDialog } from '@/features/triagem/components/RejeitarCandidaturaDialog'
-import { RetrocederCandidaturaDialog } from '@/features/triagem/components/RetrocederCandidaturaDialog'
+import {
+  RetrocederCandidaturaDialog,
+  FUNNEL_ORDER,
+} from '@/features/triagem/components/RetrocederCandidaturaDialog'
 import { HubSection, type HubSectionEstado } from './HubSection'
 import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
@@ -133,6 +136,12 @@ export function HubCandidatoRH() {
   const idxTrabalho = etapaAtual ? WORKING_STAGES.indexOf(etapaAtual) : -1
   const proximaEtapa = idxTrabalho >= 0 ? WORKING_STAGES[idxTrabalho + 1] : undefined
 
+  // Retroceder só existe se houver etapa ANTERIOR de fato. Usa a MESMA `FUNNEL_ORDER`
+  // do diálogo: em `aprovado`/`rejeitado` ela não contém a etapa (indexOf → -1), o
+  // diálogo montaria um select vazio, e o operador ficaria tentando uma ação
+  // impossível sem descobrir o motivo (medido em 2026-08-26).
+  const podeRetroceder = etapaAtual ? FUNNEL_ORDER.indexOf(etapaAtual) > 0 : false
+
   // UX-03: explicit in-shell not-found for an unresolvable candidaturaId. The route is a
   // valid RH-only mount (RoleGuard), but the `:id` resolves to no row — render an explicit
   // not-found INSIDE the RH shell (NOT the global NotFoundPage, the catch-all for unknown
@@ -203,8 +212,14 @@ export function HubCandidatoRH() {
 
             A rota é pré-requisito só do CTA de navegação. As ações dependem de haver
             `etapaAtual`, não de existir workspace. A condição passa a ser `entradaAtual`,
-            e o CTA dominante é que fica condicionado à rota — o bloco segue oculto nas
-            etapas terminais (aprovado/rejeitado não têm entrada, T-31-04). */}
+            e o CTA dominante é que fica condicionado à rota.
+
+            ⚠ O comentário anterior afirmava que o bloco ficava "naturalmente oculto em
+            aprovado/rejeitado (T-31-04)" — e isso NUNCA foi verdade. As duas têm
+            `rotaWorkspaceRH` apontando para `/decisao` (funilNavMap:117 e :124), então o
+            bloco já aparecia nelas antes desta mudança. O que some nas terminais é o
+            botão Avançar, porque `proximaEtapa` é nula ali — não o bloco. Verificado por
+            execução em 2026-08-26; a afirmação antiga não foi. */}
         {entradaAtual ? (
           <Glass variant="dark" blur="lg" className="rounded-xl p-6">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">Próximo passo</p>
@@ -227,7 +242,14 @@ export function HubCandidatoRH() {
                       </button>
                     ) : null}
 
-                    {/* Retroceder — dialog compartilhado, gatilho neutro dark-glass. */}
+                    {/* Retroceder — dialog compartilhado, gatilho neutro dark-glass.
+                        ⚠ Só oferecido quando EXISTE etapa anterior. Em `aprovado`/
+                        `rejeitado` o `FUNNEL_ORDER` não contém a etapa (indexOf → -1) e o
+                        diálogo abriria com o select VAZIO — foi o que aconteceu em
+                        2026-08-26. Oferecer uma ação que não pode ser concluída é pior
+                        que não oferecer: o operador tenta, não consegue, e não descobre
+                        o motivo. */}
+                    {podeRetroceder ? (
                     <RetrocederCandidaturaDialog
                       candidaturaId={candidaturaId}
                       nome={nomeCandidato}
@@ -242,6 +264,7 @@ export function HubCandidatoRH() {
                         </button>
                       }
                     />
+                    ) : null}
 
                     {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo. */}
                     <RejeitarCandidaturaDialog
