@@ -32,10 +32,10 @@ Uma coluna de `vagas` pode ser lida por até três públicos, e a maioria não �
 | `cidade` · `estado` | ⚠ **só na listagem** | ❌ | ❌ | ✅ |
 | `jornada_trabalho` | ❌ **nada renderiza** | — | ❌ | ✅ |
 | `tipo_contrato` | ❌ **nada renderiza** | — | ❌ | ⚠ campo existe, **não persiste** |
-| `subtitulo` | ❌ | — | ❌ | ❌ |
-| `sobre_empresa` | ❌ | — | ❌ | ❌ |
+| `subtitulo` | ✅ 2026-08-25 | ❌ texto puro | ❌ | ❌ |
+| `sobre_empresa` | ✅ 2026-08-25 | ✅ | ❌ | ❌ |
 | `perfil_ideal` | ❌ | — | ❌ | ✅ |
-| `secoes_extras` | ❌ ainda | (vai aceitar) | ❌ | ❌ |
+| `secoes_extras` | ✅ 2026-08-25 | ✅ | ❌ | ❌ |
 | `faixa_salarial_min` / `max` | ❌ | — | ❌ | ✅ |
 | `exibir_salario` | ❌ nada consulta | — | ❌ | ❌ |
 | `endereco_completo` · `data_abertura` · `data_fechamento` · `total_vagas` | ❌ | — | ❌ | ❌ |
@@ -127,3 +127,15 @@ done
 Isto é a mesma lição que esta base já aprendeu duas vezes: **varra pela forma, não pelo
 sintoma.** Achar um campo write-only não responde "está consertado?" — responde "onde mais
 existe um campo que ninguém lê?".
+
+## ⚠ Remedido em 2026-08-25
+
+`subtitulo`, `sobre_empresa` e `secoes_extras` **passaram a ser renderizados** em
+`VagaDetalhePage`: o subtítulo abaixo do título (texto puro), a seção "Sobre a Beauty Smile" e
+os blocos livres no fim da página, os dois últimos pelo TextoRico.
+
+`perfil_ideal` **continua sem tela** — é o único dos quatro que ficou de fora.
+
+A lição do método, que vale mais que a tabela: esta tabela é uma **fotografia**, e fotografia
+envelhece. Ela esteve certa por meses e ficou errada num dia de trabalho de frontend. Antes de
+decidir em que campo um conteúdo vai, remeça com o método acima em vez de confiar na linha.

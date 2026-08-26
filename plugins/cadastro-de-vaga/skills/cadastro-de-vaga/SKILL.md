@@ -17,8 +17,10 @@ intent: |
   LER e GRAVAR perguntas e rubrica com `created_by` (antes: tres TODOs fixos em vazio, e o
   campo da IA descartava em silencio o que fosse digitado). Logo, para vaga que JA EXISTE, o
   INSERT ad-hoc deixou de ser o unico caminho — ha o modo `texto`, e a tela e segura.
-  Continua valendo, e e a razao de esta skill existir: NAO HA MUTATION DE CRIACAO DE VAGA.
-  Vaga nova so nasce por migration.
+  Continua valendo, e e a razao de esta skill existir: nao ha criacao de vaga DO ZERO. A
+  unica mutation que cria vaga e a de DUPLICAR (VagasRHPage.duplicarMutation), e ela copia
+  somente a linha de `vagas` — as perguntas ficam na original, e a copia nasce `inativa`.
+  Vaga nova, com perguntas, so nasce por migration.
 ---
 
 # Cadastro de vaga — Beauty Smile
@@ -57,9 +59,11 @@ ninguém.** Escrever ali é trabalho que evapora.
 | `diferenciais` · `beneficios` | ✅ | ✅ | ❌ |
 | `departamento` · `modelo_trabalho` | ✅ | ❌ | ❌ |
 | `cidade` · `estado` | ⚠ só na **listagem**, não na página da vaga | ❌ | ❌ |
-| `subtitulo` · `sobre_empresa` · `perfil_ideal` | ❌ **nada renderiza** | — | ❌ |
+| `subtitulo` | ✅ desde 2026-08-25 (abaixo do título) | ❌ texto puro | ❌ |
+| `sobre_empresa` | ✅ desde 2026-08-25 (seção própria, no fim) | ✅ | ❌ |
+| `secoes_extras` | ✅ desde 2026-08-25 (blocos livres, no fim) | ✅ | ❌ |
+| `perfil_ideal` | ❌ **nada renderiza** | — | ❌ |
 | `tipo_contrato` · `jornada_trabalho` · `endereco_completo` | ❌ **nada renderiza** | — | ❌ |
-| `secoes_extras` | ❌ **ainda não renderizado** | (vai aceitar) | ❌ |
 | `faixa_salarial_min`/`max` | ❌ **não exibida ao candidato** | — | ❌ |
 | `qualificacao_etapa1` | ❌ *snapshot* do `publish_vaga` — não use | — | ❌ |
 
@@ -70,18 +74,20 @@ Consequências que mudam como você escreve:
   campos só entram no caminho de fallback, que existe para as vagas antigas sem rubrica.
   Logo: nunca escreva "conforme os requisitos da vaga" na rubrica. O modelo não os vê. Todo
   requisito que precisa pesar tem de estar **escrito dentro da própria rubrica**.
-- **Não coloque nada que importe em `perfil_ideal`, `sobre_empresa` ou `subtitulo`.** Hoje há
-  ~1,9 mil caracteres de cópia revisada nesses três campos, nas duas vagas publicadas, que
-  nenhum candidato jamais viu.
+- **`perfil_ideal` continua sem tela.** `subtitulo`, `sobre_empresa` e `secoes_extras` foram
+  ligados em 2026-08-25 (`VagaDetalhePage`); `perfil_ideal` não. Na vaga de Social Media ele
+  guardava o **teste prático do processo seletivo** e os indicadores de desempenho — conteúdo
+  que decide se a pessoa se inscreve — e por isso foi movido para `sobre_cargo`. Se o descritivo
+  trouxer algo assim, mova em vez de escrever ali.
 - **Endereço, jornada e tipo de contrato não têm onde aparecer.** `jornada_trabalho`,
   `tipo_contrato` e `endereco_completo` não são renderizados em página nenhuma. Se a vaga é
   presencial com horário fixo, essa informação precisa entrar no corpo de `sobre_cargo` — ou o
   candidato se inscreve sem saber onde e em que horário vai trabalhar. Avise o operador.
 - **`descricao_curta` é renderizada como texto puro.** Um `**negrito**` ali aparece com os
   asteriscos na tela.
-- **`secoes_extras` você preenche mesmo assim** — a coluna e o CHECK existem, a renderização é
-  o próximo item da fila. Mas avise o operador que aquele conteúdo fica invisível até lá, para
-  ele decidir se algo precisa migrar para um campo visível agora.
+- **`secoes_extras` agora aparece de verdade** — cada `{titulo, conteudo}` vira uma seção no fim
+  da página, com o conteúdo passando pelo TextoRico. Emita sempre as DUAS chaves: o CHECK exige,
+  e o renderizador pula o bloco que não tiver as duas.
 
 O mapa foi medido, não suposto. Se o app mudar, remeça — o método está em
 [references/mapa-de-visibilidade.md](references/mapa-de-visibilidade.md).
@@ -109,9 +115,15 @@ Hoje a tela lê e grava as quatro coisas, com `created_by` preenchido. Então h�
 | o operador revê antes de gravar | no diff | na própria tela |
 | serve para vaga que **não existe** | ✅ | ❌ **a tela não cria vaga** |
 
-⛔ **`vaga-nova` não tem alternativa.** `/rh/vagas/nova` é rota sem mutation de criação: sem
-`vagaId`, todo handler cai em «Salve a vaga primeiro». Vaga nova continua nascendo por
-migration. O modo `texto` só vale para vaga que já existe.
+⛔ **`vaga-nova` não tem alternativa.** `/rh/vagas/nova` é rota sem criação: sem `vagaId`, todo
+handler cai em «Salve a vaga primeiro». O modo `texto` só vale para vaga que já existe.
+
+⚠ **Existe UM caminho de criação, e ele engana:** o botão *Duplicar* da lista de vagas
+(`VagasRHPage.duplicarMutation`). Ele faz `insert` em `vagas` copiando a linha inteira — mas
+**não copia as perguntas**, que ficam só na original, e a cópia nasce `inativa` (o formulário
+público só enxerga vaga `ativa`). Duplicar e esperar uma vaga funcional é o erro fácil aqui.
+Para copiar vaga **com** perguntas, migration — o padrão está em
+[references/schema-e-migration.md](references/schema-e-migration.md).
 
 Sendo a rubrica o artefato que decide sobre gente, prefira migration quando ela mudar — o
 rastro importa. Para ajuste de redação de uma pergunta, a tela basta.

@@ -265,9 +265,17 @@ export function VagaDetalhePage() {
               {/* Título e Ações */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h1 className="text-4xl font-bold mb-4 drop-shadow-lg">
+                  <h1 className="text-4xl font-bold mb-2 drop-shadow-lg">
                     {vaga.titulo}
                   </h1>
+                  {/* `subtitulo` existia no schema e NENHUMA tela o renderizava —
+                      a linha de posicionamento da vaga era escrita, salva e nunca
+                      vista. Texto puro: o campo não passa pelo TextoRico. */}
+                  {vaga.subtitulo && (
+                    <p className="mb-4 max-w-[70ch] text-lg text-white/85 drop-shadow">
+                      {vaga.subtitulo}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-4 text-white/80 text-lg">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-5 h-5" />
@@ -458,6 +466,37 @@ export function VagaDetalhePage() {
                   </SuperficieLeitura>
                 </div>
               )}
+
+              {/* Sobre a empresa — `sobre_empresa` também nunca foi renderizado.
+                  Vem DEPOIS do conteúdo da vaga de propósito: quem chega aqui já
+                  decidiu se a vaga interessa; a história da clínica é o que
+                  convence, não o que abre. */}
+              {vaga.sobre_empresa && (
+                <div>
+                  <h2 className="text-2xl font-bold mb-4">Sobre a Beauty Smile</h2>
+                  <SuperficieLeitura>
+                    <TextoRico texto={vaga.sobre_empresa} />
+                  </SuperficieLeitura>
+                </div>
+              )}
+
+              {/* Seções extras — blocos livres {titulo, conteudo}. O CHECK do banco
+                  garante que as duas chaves existem e são não-vazias, mas o dado
+                  vem do banco: se alguém inserir fora da RPC, `secoes_extras` pode
+                  não ser array. Por isso o Array.isArray antes do map. */}
+              {Array.isArray(vaga.secoes_extras) &&
+                vaga.secoes_extras.map((secao, i) => {
+                  const s = secao as { titulo?: string; conteudo?: string }
+                  if (!s?.titulo || !s?.conteudo) return null
+                  return (
+                    <div key={`${s.titulo}-${i}`}>
+                      <h2 className="text-2xl font-bold mb-4">{s.titulo}</h2>
+                      <SuperficieLeitura>
+                        <TextoRico texto={s.conteudo} />
+                      </SuperficieLeitura>
+                    </div>
+                  )
+                })}
 
               {/* Informações Adicionais */}
               {(typeof vaga.diasDesdePublicacao === 'number' ||

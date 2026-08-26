@@ -4,10 +4,17 @@
 
 ATS (Applicant Tracking System) para a Beauty Smile. React 18 + Vite + TypeScript strict + Supabase (Auth, DB, Storage, Edge Functions). Duas personas: Candidato (publico, mobile-first) e RH/Admin (interno, desktop-first).
 
-**Milestone atual:** M1 — MVP Candidato (Fases 1-5)
-**Branch base:** `backup/local-state-2026-04`
+**Milestone atual:** M8 — Dados do Candidato & Direitos do Titular (LGPD-OPS) · Phase 46
+**M1–M7:** SHIPPED, 201 requirements validados. Não há M9 planejado — fechar o M8 fecha o
+projeto como está escopado hoje.
+**Branch base:** `main`
 **Planning:** `.planning/` (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md)
 **PRD-Master:** `docs/prds/PRD-MASTER-sistema-recrutamento.md`
+
+> ⚠ Até 2026-08-25 estas linhas diziam «M1 — MVP Candidato (Fases 1-5)» e apontavam uma branch
+> base que não é mais a de trabalho. Era a **primeira coisa** que qualquer sessão lia, e estava
+> sete milestones atrás. Registro desatualizado custa o mesmo que registro ausente — e este
+> custava mais, porque vinha com autoridade de documento oficial do repositório.
 
 ## Commands
 

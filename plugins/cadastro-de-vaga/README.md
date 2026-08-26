@@ -29,7 +29,8 @@ Consequências para este plugin:
 
 - **para vaga que já existe**, o `INSERT` ad-hoc deixou de ser o único caminho seguro. Nasceu o
   modo `texto`, que imprime os blocos prontos para o operador colar;
-- **para vaga nova, nada mudou** — segue sem mutation de criação, e migration é o único caminho;
+- **para vaga nova, nada mudou** — migration segue sendo o único caminho. O botão *Duplicar*
+  cria vaga, mas copia só a linha de `vagas`: sem as perguntas, e `inativa`;
 - das 12 perguntas vivas do banco, **6 ainda têm `created_by` nulo** (as antigas, de vagas de
   teste); as 6 novas têm autor.
 
@@ -113,5 +114,6 @@ mutação é uma regra que ninguém sabe se funciona.
 - **Não publica a vaga.** Ela nasce `rascunho`; publicar é ato humano separado.
 - **Não marca opção como `knockout`.** Isso rejeita candidatura na inscrição e é decisão do
   operador, não da máquina.
-- **`secoes_extras` ainda não é renderizado** na página da vaga. O plugin preenche a coluna e
-  avisa que o conteúdo fica invisível até a renderização entrar.
+- **`perfil_ideal` não é renderizado** por tela nenhuma. `subtitulo`, `sobre_empresa` e
+  `secoes_extras` passaram a aparecer em 2026-08-25; `perfil_ideal` ficou de fora. Não escreva
+  ali nada que o candidato precise ler.
