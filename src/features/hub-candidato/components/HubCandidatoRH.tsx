@@ -188,11 +188,24 @@ export function HubCandidatoRH() {
           </div>
         )}
 
-        {/* Próximo passo — the single dominant turquoise CTA for etapa_atual (D-06), plus the
-            OPER-01/02/03 action row (avançar/retroceder/rejeitar) BESIDE it. The block only
-            renders for non-terminal etapas (rotaWorkspaceAtual && entradaAtual), so the action
-            group is naturally hidden on aprovado/rejeitado (T-31-04). */}
-        {rotaWorkspaceAtual && entradaAtual ? (
+        {/* Próximo passo — o CTA dominante da etapa_atual (D-06) MAIS a linha de ações
+            OPER-01/02/03 (avançar/retroceder/rejeitar) ao lado dele.
+
+            ⚠ ATÉ 2026-08-26 A CONDIÇÃO ERA `rotaWorkspaceAtual && entradaAtual`, e isso
+            escondia o bloco INTEIRO — inclusive Avançar, Retroceder e Rejeitar — em
+            qualquer etapa cujo `rotaWorkspaceRH` seja `null`.
+
+            `triagem` é exatamente esse caso, e por desenho: o próprio hub É o destino
+            dela, então a rota aponta para `null` (funilNavMap:82). O efeito medido em
+            produção foi que na etapa em que TODO candidato entra — e onde a triagem
+            acontece — o RH não tinha nenhuma das três ações. O funil não avançava pela
+            tela.
+
+            A rota é pré-requisito só do CTA de navegação. As ações dependem de haver
+            `etapaAtual`, não de existir workspace. A condição passa a ser `entradaAtual`,
+            e o CTA dominante é que fica condicionado à rota — o bloco segue oculto nas
+            etapas terminais (aprovado/rejeitado não têm entrada, T-31-04). */}
+        {entradaAtual ? (
           <Glass variant="dark" blur="lg" className="rounded-xl p-6">
             <p className="text-sm font-semibold uppercase tracking-wide text-[#35BFAD]">Próximo passo</p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
@@ -247,14 +260,19 @@ export function HubCandidatoRH() {
                   </>
                 ) : null}
 
-                {/* O CTA dominante permanece — não é deslocado (turquesa sólido). */}
-                <button
-                  type="button"
-                  onClick={() => navigate(rotaWorkspaceAtual)}
-                  className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
-                >
-                  {entradaAtual.ctaRH}
-                </button>
+                {/* O CTA dominante permanece — não é deslocado (turquesa sólido).
+                    Só existe quando a etapa TEM workspace próprio: em `triagem` o
+                    destino é este mesmo hub, e um botão que navega para a página em
+                    que já se está não ajuda ninguém. */}
+                {rotaWorkspaceAtual ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(rotaWorkspaceAtual)}
+                    className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-base font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90"
+                  >
+                    {entradaAtual.ctaRH}
+                  </button>
+                ) : null}
               </div>
             </div>
           </Glass>
