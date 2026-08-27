@@ -41,6 +41,14 @@ function dataCurta(iso: string | null): string {
   }
 }
 
+/** Segundos → "12min 04s". Nulo vira travessão: tempo não medido não é tempo zero. */
+function duracao(segundos: number | null): string {
+  if (segundos === null || segundos === undefined) return '—'
+  const m = Math.floor(segundos / 60)
+  const s = segundos % 60
+  return m > 0 ? `${m}min ${String(s).padStart(2, '0')}s` : `${s}s`
+}
+
 export function LiberacaoCognitivoBlock({ candidaturaId }: LiberacaoCognitivoBlockProps) {
   const { data, isLoading } = useLiberacaoCognitivo(candidaturaId)
   const liberar = useLiberarCognitivo(candidaturaId)
@@ -70,10 +78,51 @@ export function LiberacaoCognitivoBlock({ candidaturaId }: LiberacaoCognitivoBlo
             {/* O estado é dito por extenso: "liberado" e "concluído" levam a ações
                 diferentes, e um selo só não distinguiria os dois. */}
             {concluido ? (
-              <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#35BFAD]">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Concluída pelo candidato
-              </p>
+              <>
+                <p className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#35BFAD]">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  Concluída pelo candidato
+                </p>
+
+                {/* ⚠ O percentil é o número que se lê, e vem ANTES do bruto: 8 de 60
+                    não significa nada sem a referência normativa, e mostrar o bruto
+                    primeiro convida a lê-lo como nota. A classificação vem por
+                    extenso porque "percentil 5" e "Inferior" não são sinônimos para
+                    quem não trabalha com o instrumento. */}
+                {data?.resultado && (
+                  <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-white/50">Percentil</dt>
+                      <dd className="text-lg font-bold text-white">
+                        {data.resultado.percentil ?? '—'}
+                        {data.resultado.classificacao ? (
+                          <span className="ml-2 text-sm font-medium text-white/70">
+                            {data.resultado.classificacao}
+                          </span>
+                        ) : null}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-white/50">Acertos</dt>
+                      <dd className="text-lg font-bold text-white">
+                        {data.resultado.total_acertos ?? '—'}
+                        <span className="text-sm font-medium text-white/70"> de 60</span>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-white/50">Tempo</dt>
+                      <dd className="text-lg font-bold text-white">
+                        {duracao(data.resultado.tempo_total_segundos)}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+
+                <p className="mt-3 max-w-[62ch] text-xs text-white/50">
+                  Resultado de um instrumento aplicado a alguns candidatos. Não compõe
+                  o score da vaga e não substitui a leitura das demais etapas.
+                </p>
+              </>
             ) : liberado ? (
               <p className="mt-3 text-sm text-white/80">
                 Liberada em {dataCurta(data?.liberado_em ?? null)} — aguardando o candidato.

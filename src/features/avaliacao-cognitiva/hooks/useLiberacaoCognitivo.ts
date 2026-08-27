@@ -18,6 +18,18 @@ export interface LiberacaoCognitivoRH {
   liberado_em: string | null
   revogado_em: string | null
   concluido: boolean
+  /**
+   * O resultado, quando já existe. Sem isto o hub dizia apenas "concluída" e o RH
+   * precisava sair para outra tela para saber COMO foi — na tela onde ele mesmo
+   * liberou a prova. Um instrumento aplicado presencialmente a poucos finalistas é
+   * lido logo depois de aplicado; o resultado pertence a este bloco.
+   */
+  resultado: {
+    percentil: number | null
+    classificacao: string | null
+    total_acertos: number | null
+    tempo_total_segundos: number | null
+  } | null
 }
 
 export function useLiberacaoCognitivo(candidaturaId: string) {
@@ -33,7 +45,7 @@ export function useLiberacaoCognitivo(candidaturaId: string) {
           .maybeSingle(),
         supabase
           .from('scores_raven')
-          .select('candidatura_id')
+          .select('percentil, classificacao, total_acertos, tempo_total_segundos')
           .eq('candidatura_id', candidaturaId)
           .maybeSingle(),
       ])
@@ -41,13 +53,22 @@ export function useLiberacaoCognitivo(candidaturaId: string) {
       if (lib.error) throw new Error(lib.error.message)
 
       const revogadoEm = (lib.data?.revogado_em as string | null) ?? null
+      const s = score.data as Record<string, unknown> | null
       return {
         // Uma linha REVOGADA continua existindo (o rastro sobrevive à revogação),
         // então "liberado" é ter linha E não estar revogada.
         liberado: !!lib.data && !revogadoEm,
         liberado_em: (lib.data?.liberado_em as string | null) ?? null,
         revogado_em: revogadoEm,
-        concluido: !!score.data,
+        concluido: !!s,
+        resultado: s
+          ? {
+              percentil: (s.percentil as number | null) ?? null,
+              classificacao: (s.classificacao as string | null) ?? null,
+              total_acertos: (s.total_acertos as number | null) ?? null,
+              tempo_total_segundos: (s.tempo_total_segundos as number | null) ?? null,
+            }
+          : null,
       }
     },
   })

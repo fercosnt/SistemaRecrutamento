@@ -80,6 +80,10 @@ export function AvaliacaoRavenScreen() {
 
   const [index, setIndex] = useState(0)
   const [respostas, setRespostas] = useState<Record<string, number>>({})
+  // Tempo gasto em CADA item, não só o total. O total é a soma, e o servidor não tem
+  // como derivá-lo dos `created_at`: as 60 linhas entram na mesma transação.
+  const [tempos, setTempos] = useState<Record<string, number>>({})
+  const [marcoItem, setMarcoItem] = useState(0)
   const [escolha, setEscolha] = useState<number | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [concluida, setConcluida] = useState(false)
@@ -102,7 +106,12 @@ export function AvaliacaoRavenScreen() {
       return
     }
     const respostasAtualizadas = { ...respostas, [questao.id]: escolha }
+    // `seconds` é acumulado desde o início; o tempo DESTE item é o que passou desde
+    // o marco do anterior. Nunca negativo, mesmo se o cronômetro for reiniciado.
+    const temposAtualizados = { ...tempos, [questao.id]: Math.max(0, seconds - marcoItem) }
     setRespostas(respostasAtualizadas)
+    setTempos(temposAtualizados)
+    setMarcoItem(seconds)
     setEscolha(null)
 
     if (index + 1 < questoes.length) {
@@ -114,7 +123,7 @@ export function AvaliacaoRavenScreen() {
     // parcial deixaria linhas sem nunca disparar o cálculo do score.
     setEnviando(true)
     try {
-      await submeterRaven(candidaturaId as string, respostasAtualizadas, seconds)
+      await submeterRaven(candidaturaId as string, respostasAtualizadas, temposAtualizados)
       setConcluida(true)
     } catch (e) {
       const msg = e instanceof Error ? e.message : COPY.erroEnvio

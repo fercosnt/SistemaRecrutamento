@@ -121,17 +121,29 @@ export async function consultarLiberacao(candidaturaId: string): Promise<Liberac
  * `respostas_raven` sem nunca disparar o cálculo — o candidato apareceria como "fez
  * a prova" sem score, e refazer esbarraria nas respostas já gravadas. Ou entra tudo,
  * ou não entra nada.
+ *
+ * ⚠ O TEMPO PRECISA VIR DAQUI, item a item. `calcular_scores_raven` derivava o total
+ * de `MAX(created_at) - MIN(created_at)`: no app original cada resposta era inserida
+ * no instante em que o candidato a dava, e o intervalo entre a primeira e a última
+ * ERA a duração da prova. Aqui as 60 entram na mesma transação — todas com o mesmo
+ * `created_at` — e esse intervalo é sempre ZERO. A primeira execução real gravou
+ * `tempo_total_segundos = 0` com o cronômetro marcando 2min53 na tela (2026-08-26).
+ *
+ * Por isso cada linha carrega o tempo do SEU item, e a função passou a somar quando
+ * a coluna vem preenchida (migration 20260827000001), caindo no intervalo antigo
+ * quando vem nula.
  */
 export async function submeterRaven(
   candidaturaId: string,
   respostas: Record<string, number>,
-  tempoTotalSegundos: number,
+  temposPorQuestao: Record<string, number>,
 ): Promise<void> {
   const linhas = Object.entries(respostas).map(([questao_id, resposta]) => ({
     candidatura_id: candidaturaId,
     questao_id,
     resposta,
-    tempo_resposta_segundos: null as number | null,
+    // `?? null` e não `?? 0`: um item sem tempo medido é desconhecido, não instantâneo.
+    tempo_resposta_segundos: temposPorQuestao[questao_id] ?? null,
   }))
 
   if (linhas.length !== 60) {
@@ -141,10 +153,7 @@ export async function submeterRaven(
     )
   }
 
-  // O tempo total vai junto na primeira linha; `calcular_scores_raven` o consolida.
-  const { error } = await supabase.from('respostas_raven').insert(
-    linhas.map((l, i) => (i === 0 ? { ...l, tempo_resposta_segundos: tempoTotalSegundos } : l)),
-  )
+  const { error } = await supabase.from('respostas_raven').insert(linhas)
 
   if (error) {
     // 42501 = a policy de INSERT recusou: sem liberação ativa ou não é o dono.
