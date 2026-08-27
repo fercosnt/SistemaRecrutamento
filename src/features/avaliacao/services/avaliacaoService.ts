@@ -148,10 +148,25 @@ export async function getAvaliacaoContext(
   // element's explicit `itens_ids`; fall back to its `cargo` when the battery is not
   // itemized. This is UX only — the server-side battery-membership check in
   // `pontuar_sjt` (26-01) is the security teeth; a client filter is bypassable.
+  // ⚠ DUAS CONVENÇÕES CONVIVEM EM `testes_aplicaveis`, e reconhecer só uma era o
+  // defeito. Medido em 2026-08-26:
+  //
+  //   antiga (vagas de teste do M2)  { tipo: 'sjt',                cargo, itens_ids }
+  //   atual  (cargoTemplates.ts)     { teste: 'work_sample_sjt',   obrigatorio, ... }
+  //
+  // O `find` procurava apenas `e.tipo === 'sjt'`. Para toda vaga criada pelo seletor
+  // de template — que é o caminho de hoje — ele devolvia `undefined`, e aí NENHUM
+  // filtro era aplicado: o candidato via as perguntas de TODOS os cargos, o oposto
+  // do que o comentário acima promete. E ao enviar tomava erro, porque a RPC
+  // `pontuar_sjt` monta a bateria pelo mesmo campo e a encontrava vazia
+  // («bateria SJT nao configurada»).
+  //
+  // Aceitar as duas formas não quebra a vaga antiga nem exige reescrever dado.
+  const ehElementoSjt = (e: Record<string, unknown>): boolean =>
+    e.tipo === 'sjt' || e.teste === 'sjt' || e.teste === 'work_sample_sjt'
+
   const sjtElem = Array.isArray(testesAplicaveis)
-    ? (testesAplicaveis as Array<Record<string, unknown>>).find(
-        (e) => e.tipo === 'sjt',
-      )
+    ? (testesAplicaveis as Array<Record<string, unknown>>).find(ehElementoSjt)
     : undefined
   const itensIds = Array.isArray(sjtElem?.itens_ids)
     ? (sjtElem!.itens_ids as string[])
@@ -169,12 +184,26 @@ export async function getAvaliacaoContext(
     // partial index, the RLS policy `USING (status = 'active')` and `get_opcoes_sjt`.
     // The previous 'ativo' (pt) never matched any row → the candidate saw zero SJT items.
     .eq('status', 'active')
+  // ⚠ SEM BATERIA DECLARADA, A LISTA É VAZIA — e isso é deliberado.
+  //
+  // Até 2026-08-26, quando a vaga não trazia `itens_ids` nem `cargo`, nenhum dos
+  // dois ramos aplicava filtro e a query devolvia o banco INTEIRO: o candidato de
+  // Social Media veria perguntas de dentista, recepcionista e ASB.
+  //
+  // Mostrar tudo é a pior das três saídas possíveis, porque `pontuar_sjt` monta a
+  // bateria pelo mesmo campo, a encontra vazia e RECUSA a submissão
+  // («bateria SJT nao configurada»). O candidato responderia 10 questões de outros
+  // cargos para tomar erro no fim. Melhor não apresentar questão nenhuma — a tela
+  // trata lista vazia como etapa não disponível, e o RH vê que falta configurar.
+  const semBateria = itensIds.length === 0 && !cargo
   if (itensIds.length > 0) {
     perguntasQuery = perguntasQuery.in('id', itensIds)
   } else if (cargo) {
     perguntasQuery = perguntasQuery.eq('cargo', cargo)
   }
-  const { data: perguntas, error: pErr } = await perguntasQuery
+  const { data: perguntas, error: pErr } = semBateria
+    ? { data: [] as Array<Record<string, unknown>>, error: null }
+    : await perguntasQuery
 
   if (pErr) {
     throw new AvaliacaoServiceError(
