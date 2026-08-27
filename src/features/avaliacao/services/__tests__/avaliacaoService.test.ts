@@ -36,7 +36,13 @@ const CAND_ROW = {
   status: 'em_avaliacao',
   etapa_atual: 'work_sample_sjt',
   vaga_id: '22222222-2222-4222-8222-222222222222',
-  vaga: { testes_aplicaveis: { work_sample_sjt: true } },
+  // ⚠ A BATERIA PRECISA ESTAR DECLARADA. Este fixture trazia
+  // `{ work_sample_sjt: true }` — um OBJETO, quando o campo real e um ARRAY de
+  // elementos. Sem bateria resolvivel o servico passou a devolver lista VAZIA
+  // (2026-08-26): mostrar o banco inteiro vazava questoes de outros cargos, e a RPC
+  // `pontuar_sjt` recusaria a submissao de qualquer forma. O proposito DESTE caso e
+  // o sentinela 'active' x 'ativo', e ele so exercita isso com a bateria declarada.
+  vaga: { testes_aplicaveis: [{ teste: 'work_sample_sjt', cargo: 'dentista' }] as Array<Record<string, unknown>> },
 }
 
 // The active SJT perguntas the `perguntas` read must return for status='active'.
@@ -65,19 +71,33 @@ vi.mock('@/lib/supabase/client', () => {
     return q
   }
 
+  // ⚠ ENCADEAVEL E THENABLE, nao terminal no primeiro `.eq`.
+  //
+  // O mock antigo assumia que `.eq('status', <sentinel>)` era o FIM da cadeia e
+  // devolvia a Promise ali mesmo. Isso o acoplava a um detalhe de implementacao: no
+  // instante em que o servico passou a filtrar tambem a bateria (`.eq('cargo', …)`
+  // ou `.in('id', …)`, 2026-08-26), o segundo elo estourou com
+  // "perguntasQuery.eq is not a function" — falha do MOCK, nao do codigo.
+  //
+  // Agora o objeto acumula os filtros e resolve no await: `.eq`/`.in` devolvem `q`,
+  // e `q.then` entrega as linhas. O sentinela continua sendo o que decide se ha
+  // resultado — que e o proposito deste arquivo.
   const perguntasQuery = () => {
     const q: Record<string, unknown> = {}
+    let sentinelaOk = false
+
     q.select = vi.fn(() => q)
-    // The terminal of the perguntas read is `.eq('status', <sentinel>)` (no further
-    // chain). It must be awaitable. Rows come back ONLY for the canonical 'active'.
-    perguntasEq.mockImplementation((col: string, val: string) =>
-      Promise.resolve(
-        col === 'status' && val === 'active'
-          ? { data: ACTIVE_PERGUNTAS, error: null }
-          : { data: [], error: null },
-      ),
-    )
+    perguntasEq.mockImplementation((col: string, val: string) => {
+      if (col === 'status') sentinelaOk = val === 'active'
+      return q
+    })
     q.eq = perguntasEq
+    q.in = vi.fn(() => q)
+    q.then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve(
+        sentinelaOk ? { data: ACTIVE_PERGUNTAS, error: null } : { data: [], error: null },
+      ).then(resolve)
+
     return q
   }
 
@@ -126,5 +146,32 @@ describe('avaliacaoService — getAvaliacaoContext (FIX-02: perguntas status sen
 
     expect(active.data.length).toBeGreaterThan(0)
     expect(legacy.data).toHaveLength(0)
+  })
+})
+
+describe('avaliacaoService — SJT sem bateria declarada (2026-08-26)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sem `cargo` nem `itens_ids` NÃO devolve questão nenhuma — mostrar o banco inteiro vazava outros cargos', async () => {
+    // Era o estado real de toda vaga criada pelo seletor de template: o elemento do
+    // SJT vinha `{ teste: 'work_sample_sjt', obrigatorio: true }`, sem dizer QUAL
+    // bateria aplicar. Nenhum ramo de filtro se aplicava e a query devolvia todas as
+    // questões ativas — de dentista, recepcionista, ASB. E `pontuar_sjt` recusaria a
+    // submissão de qualquer forma, então o candidato responderia para tomar erro.
+    const { getAvaliacaoContext } = await import('@/features/avaliacao/services/avaliacaoService')
+    CAND_ROW.vaga = { testes_aplicaveis: [{ teste: 'work_sample_sjt', obrigatorio: true }] }
+
+    const ctx = await getAvaliacaoContext('cand-1')
+    expect(ctx.perguntas).toHaveLength(0)
+  })
+
+  it('com `cargo` declarado volta a devolver as questões da bateria', async () => {
+    const { getAvaliacaoContext } = await import('@/features/avaliacao/services/avaliacaoService')
+    CAND_ROW.vaga = { testes_aplicaveis: [{ teste: 'work_sample_sjt', cargo: 'dentista' }] }
+
+    const ctx = await getAvaliacaoContext('cand-1')
+    expect(ctx.perguntas.length).toBeGreaterThan(0)
   })
 })

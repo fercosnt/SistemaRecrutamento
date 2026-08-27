@@ -80,6 +80,7 @@ const EntrevistaWorkspace = lazyNamed(() => import('../features/entrevista/compo
 // Prova cognitiva (Phase 14 / ENTREV-05 — candidato, opt-in via vaga.aplica_cognitivo).
 // EAGER — candidate-facing route, stays in the first-paint graph.
 import { ProvaCognitivaScreen } from '../features/avaliacao-cognitiva/components/ProvaCognitivaScreen'
+import { AvaliacaoRavenScreen } from '../features/avaliacao-cognitiva/components/AvaliacaoRavenScreen'
 
 // Páginas Admin (compliance / AI infra — read-only, role administrador only) — LAZY
 const AiLogsPage = lazyNamed(() => import('../features/admin/ai-logs/components/AiLogsPage'), 'AiLogsPage')
@@ -314,6 +315,19 @@ export const routes: RouteObject[] = [
     element: (
       <RoleGuard role="candidato">
         <ProvaCognitivaScreen />
+      </RoleGuard>
+    ),
+  },
+  {
+    // Avaliacao de raciocinio (Matrizes de Raven). Rota SEPARADA da prova cognitiva
+    // textual acima: instrumentos diferentes, tabelas diferentes e gates diferentes
+    // — aquela e liberada pela vaga (`aplica_cognitivo`), esta por liberacao NOMINAL
+    // em `cognitivo_liberacao`. A propria tela trata o caso de nao estar liberada,
+    // entao a rota nao precisa de guarda extra alem do papel.
+    path: '/candidato/avaliacao-raciocinio/:candidaturaId',
+    element: (
+      <RoleGuard role="candidato">
+        <AvaliacaoRavenScreen />
       </RoleGuard>
     ),
   },

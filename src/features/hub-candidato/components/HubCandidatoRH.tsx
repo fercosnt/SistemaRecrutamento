@@ -51,6 +51,7 @@ import { CvButton } from './CvButton'
 import { AnaliseIABlock } from './AnaliseIABlock'
 import { HistoricoBlock } from './HistoricoBlock'
 import { AgendamentoBlock } from '@/features/agendamento/components/AgendamentoBlock'
+import { LiberacaoCognitivoBlock } from '@/features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock'
 import { useAnaliseCandidato } from '../hooks/useAnaliseCandidato'
 import { useHistoricoCandidatura } from '../hooks/useHistoricoCandidatura'
 
@@ -378,6 +379,13 @@ export function HubCandidatoRH() {
             Banda cognitiva contextual registrada — disponível no workspace de entrevista.
           </p>
         </HubSection>
+
+        {/* Avaliação de raciocínio (Raven) — FORA do HubSection de propósito.
+            As seções acima seguem a linha do funil (`estadoDaSecao`), e esta não
+            pertence a etapa nenhuma: é liberada nominalmente, quando o operador
+            decide, e a aplicação é presencial. Amarrá-la a uma etapa daria a
+            impressão de que "chega a vez dela" sozinha — o oposto do desenho. */}
+        <LiberacaoCognitivoBlock candidaturaId={candidaturaId} />
 
         {/* Redação — review-queue presence scoped to THIS candidatura (WR-01: RedacaoReviewRow
             carries candidatura_id, so the section no longer flips to com_dados just because ANY

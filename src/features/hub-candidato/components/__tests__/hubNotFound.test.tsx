@@ -70,6 +70,17 @@ vi.mock('@/features/hub-candidato/hooks/useAnaliseCandidato', () => ({
 vi.mock('@/features/hub-candidato/hooks/useHistoricoCandidatura', () => ({
   useHistoricoCandidatura: () => ({ data: [], isLoading: false, isError: false }),
 }))
+// 2026-08-26: o hub passou a montar o bloco de liberacao da avaliacao de raciocinio,
+// que consulta `cognitivo_liberacao`/`scores_raven` por useQuery. Stub para esta
+// suite nao precisar de QueryClientProvider nem de rede.
+vi.mock('@/features/avaliacao-cognitiva/hooks/useLiberacaoCognitivo', () => ({
+  useLiberacaoCognitivo: () => ({
+    data: { liberado: false, liberado_em: null, revogado_em: null, concluido: false },
+    isLoading: false,
+  }),
+  useLiberarCognitivo: () => ({ mutate: vi.fn(), isPending: false }),
+  useRevogarCognitivo: () => ({ mutate: vi.fn(), isPending: false }),
+}))
 
 import { HubCandidatoRH } from '../HubCandidatoRH'
 
