@@ -15,7 +15,7 @@
  *
  * @module features/avaliacao-cognitiva/components/LiberacaoCognitivoBlock
  */
-import { Glass, GlassButton } from '@/components/ui/glass'
+import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Brain, CheckCircle2, Undo2 } from 'lucide-react'
 import {
@@ -103,12 +103,20 @@ export function LiberacaoCognitivoBlock({ candidaturaId }: LiberacaoCognitivoBlo
                 Revogar liberação
               </button>
             ) : (
-              <GlassButton
+              // ⚠ NÃO usar GlassButton aqui. Ele não declara cor de texto — herda do
+              // contexto — e este bloco vive dentro de um `Glass variant="dark"`. O
+              // resultado era texto cinza-escuro sobre fundo escuro: o botão existia,
+              // era clicável, e o rótulo estava ilegível. Passou por type-check,
+              // testes e build; só apareceu na tela. Cor explícita, como as demais
+              // ações do hub já fazem.
+              <button
+                type="button"
                 onClick={() => liberar.mutate(undefined)}
                 disabled={liberar.isPending}
+                className="inline-flex min-h-[44px] items-center rounded-xl bg-[#35BFAD] px-6 text-sm font-semibold text-white shadow-lg shadow-[#35BFAD]/30 transition-colors hover:bg-[#35BFAD]/90 disabled:opacity-60"
               >
                 Liberar avaliação
-              </GlassButton>
+              </button>
             )}
           </div>
         )}
