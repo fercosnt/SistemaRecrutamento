@@ -106,12 +106,36 @@ export interface NeutralAck {
 }
 
 /**
- * Reads the active essay prompts for the editor (AVAL-05). The prompt TEXT is
- * candidate-visible (it is what the candidate is asked to answer — NOT an answer
- * key), so an explicit-allowlist `.eq('ativa', true)` read mirrors
- * `getAvaliacaoContext`'s `perguntas` read. NEVER `select('*')` — the
- * valor_primario hint and the bank's scoring columns stay narrowed to what the
- * screen renders.
+ * Reads the essay prompts THIS VAGA applies (AVAL-05). O texto do enunciado é
+ * visível ao candidato — é o que ele responde, não gabarito —, então a leitura usa
+ * allowlist explícita e nunca `select('*')`: a dica de `valor_primario` e as
+ * colunas de pontuação do banco ficam fora.
+ *
+ * ⚠ ATÉ 2026-08-30 ESTA FUNÇÃO SERVIA O BANCO INTEIRO. Ela lia todas as
+ * `perguntas_redacao` com `ativa = true`, sem olhar a vaga. Eram ONZE, e a tela
+ * itera a lista mostrando "Pergunta n de total": o candidato de uma vaga comercial
+ * escreveria onze redações, entre elas "defenda uma abordagem clínica não-óbvia"
+ * (feita para dentista) e "dê um feedback duro a um subordinado" (para
+ * coordenação). A coluna `template_cargo` existia na tabela e nada a usava.
+ *
+ * É a MESMA FORMA do defeito do SJT, consertado quatro dias antes
+ * (`avaliacaoService.getAvaliacaoContext`): instrumento sem escopo declarado
+ * servindo o banco todo. Não apareceu antes porque a etapa de avaliação assíncrona
+ * nunca havia rodado de ponta a ponta — o teste E2E passou por ela avançando o
+ * funil na mão.
+ *
+ * O escopo agora vem da vaga, em `testes_aplicaveis`, no elemento de
+ * `redacao_cultural`:
+ *
+ *     { teste: 'redacao_cultural', obrigatorio: true, codigos: ['PADRAO_BS'] }
+ *
+ * ⚠ SEM `codigos` DECLARADOS, CAI NA PERGUNTA PADRÃO — e não em lista vazia, ao
+ * contrário do SJT. A diferença é deliberada e tem motivo: no SJT a lista vazia
+ * evita trabalho perdido, porque `pontuar_sjt` recusaria a submissão de qualquer
+ * jeito. Aqui não há recusa no servidor, a etapa pode ser obrigatória, e existe uma
+ * pergunta marcada `is_padrao` justamente para ser o default. Servir uma pergunta
+ * pensada para todo mundo é melhor que travar o candidato numa etapa vazia — e
+ * muito melhor que servir onze.
  */
 export async function getRedacaoContext(
   candidaturaId: string,
@@ -120,23 +144,62 @@ export async function getRedacaoContext(
     throw new RedacaoServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
+  // A vaga da candidatura decide o escopo. Own-row RLS cobre esta leitura.
+  const { data: candRow, error: candErr } = await supabase
+    .from('candidaturas')
+    .select('id, vaga:vagas!inner(testes_aplicaveis)')
+    .eq('id', candidaturaId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (candErr) {
+    throw new RedacaoServiceError(
+      `Não foi possível carregar a redação: ${candErr.message}`,
+      'DATABASE_ERROR',
+      candErr,
+    )
+  }
+  if (!candRow) {
+    throw new RedacaoServiceError('Candidatura não encontrada', 'NOT_FOUND')
+  }
+
+  const testes = (candRow as unknown as { vaga: { testes_aplicaveis: unknown } | null })
+    .vaga?.testes_aplicaveis
+  const elem = Array.isArray(testes)
+    ? (testes as Array<Record<string, unknown>>).find(
+        (e) => e.teste === 'redacao_cultural' || e.tipo === 'redacao_cultural',
+      )
+    : undefined
+  const codigos = Array.isArray(elem?.codigos)
+    ? (elem!.codigos as unknown[]).filter((c): c is string => typeof c === 'string')
+    : []
+
   // NARROW confined cast (13-04 regen drops it): `perguntas_redacao` is not yet in
-  // the generated types. Only the table name is widened — the EXPLICIT allowlist
-  // (never `'*'`) keeps the projection auditable.
-  const { data, error } = await (supabase.from as unknown as (
-    table: string,
-  ) => {
-    select: (cols: string) => {
-      eq: (col: string, val: boolean) => {
-        order: (
-          col: string,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>
-      }
-    }
-  })('perguntas_redacao')
+  // the generated types. Only the table name is widened — a EXPLICIT allowlist
+  // (nunca `'*'`) mantém a projeção auditável.
+  type Encadeavel = {
+    select: (cols: string) => Encadeavel
+    eq: (col: string, val: unknown) => Encadeavel
+    in: (col: string, vals: unknown[]) => Encadeavel
+    order: (col: string) => Encadeavel
+    then: (
+      r: (v: { data: unknown; error: { message: string } | null }) => unknown,
+    ) => Promise<unknown>
+  }
+
+  let query = (supabase.from as unknown as (t: string) => Encadeavel)('perguntas_redacao')
     .select('id, codigo, texto, valor_primario, is_padrao')
     .eq('ativa', true)
-    .order('is_padrao')
+
+  query = codigos.length > 0 ? query.in('codigo', codigos) : query.eq('is_padrao', true)
+
+  // `codigo` como desempate: sem ele a ordem entre pares de mesmo `is_padrao` fica
+  // por conta do plano do Postgres, e a numeração "Pergunta n de N" mudaria entre
+  // recarregamentos da mesma prova.
+  const { data, error } = (await query.order('is_padrao').order('codigo')) as {
+    data: unknown
+    error: { message: string } | null
+  }
 
   if (error) {
     throw new RedacaoServiceError(
