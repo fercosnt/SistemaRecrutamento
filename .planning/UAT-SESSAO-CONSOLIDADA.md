@@ -194,7 +194,15 @@ existindo papel `rh` em `usuarios_rh` (só `administrador` e `recrutador`), ent�
 morto **por construção**, não por falta de dado. O que estava errado era o meu argumento de
 apoio, não o veredito.
 
-✅ **Conta E não precisa ser criada, e provavelmente nem de reset.**
+⚠ **CORRIGIDO em 2026-09-05 — o parágrafo abaixo ficou FALSO.** Medido em `usuarios_rh`: as
+quatro contas RH de teste (`recrutador.rh@teste.com`, `e2e.admin@…`, `recruiter@teste.com`,
+`admin.rh@teste.com`) estão **`ativo = false`** desde a limpeza de 23/08; o único RH ativo é
+`fernando@beautysmile.com.br`. Para o E4 e para responder a revisão do Art. 20 é preciso **criar
+um segundo RH** (papel `recrutador`) em `/rh/configuracoes` — item A1 do
+`GUIA-VALIDACAO-FINAL.md`. Não reative `recrutador.rh@teste.com`: o endereço é indeliverável
+(bounce medido em `notificacoes_enviadas`).
+
+~~✅ **Conta E não precisa ser criada, e provavelmente nem de reset.**~~
 `recrutador.rh@teste.com` (recrutador, `user_id fba9bc0f-…`) e `e2e.admin@beautysmile.com.br`
 (administrador, `user_id 4a1fa998-…`) são duas contas RH distintas e **ativas**, ambas com
 login registrado. ⚠ `recruiter@teste.com` e `admin.rh@teste.com` estão **`ativo: false`** —

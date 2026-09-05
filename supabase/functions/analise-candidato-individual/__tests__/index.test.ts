@@ -220,15 +220,26 @@ Deno.test("TRIAGEM-01 — success maps CvJobMatch English keys → pt-BR columns
   };
   await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), deps);
 
-  const analiseUpsert = supabaseAdmin.upserts.find((u) => u.table === "analise_candidato_vaga");
-  assertExists(analiseUpsert, "must UPSERT analise_candidato_vaga");
+  // 2026-09-05: desde 8a111f5 a EF grava um UPSERT `status='pendente'` ANTES de
+  // chamar a IA (a analise presa deixou de ser invisivel). O primeiro upsert da
+  // tabela passou a ser esse marcador, sem score — e este teste, que pegava "o
+  // primeiro", ficou vermelho por 10 dias sem que ninguem o rodasse. Pegar o de
+  // sucesso e o que a asserção sempre quis dizer.
+  const analiseUpsert = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "sucesso",
+  );
+  assertExists(analiseUpsert, "must UPSERT analise_candidato_vaga with status='sucesso'");
   const row = analiseUpsert!.row;
   // score_match = match_score
   assertEquals(row.score_match, 78);
-  // pontos_fortes = strengths.map(competency) → text[]
-  assertEquals(row.pontos_fortes, ["Atendimento ao cliente", "Comunicação"]);
-  // gaps = gaps.map(requirement) → text[]
-  assertEquals(row.gaps, ["Inglês avançado"]);
+  // pontos_fortes = `${competency} — ${evidence.quote}` (666be50: a citação que o
+  // prompt EXIGE deixou de ser jogada fora)
+  assertEquals(row.pontos_fortes, [
+    "Atendimento ao cliente — 5 anos",
+    "Comunicação — líder de equipe",
+  ]);
+  // gaps = `${requirement} — ${note} [${severity}]` — o gap virou defensável
+  assertEquals(row.gaps, ["Inglês avançado — Não evidenciado [important]"]);
   // never-absent: success row carries status='sucesso'
   assertEquals(row.status, "sucesso");
   // idempotent: ON CONFLICT on candidatura_id (exactly one row per candidatura)
@@ -296,4 +307,32 @@ Deno.test("TRIAGEM-01 — on thrown error a status='falhou' row is still upserte
   );
   assertExists(falhouUpsert, "a status='falhou' row must be upserted on any failure");
   assertExists(falhouUpsert!.row.erro, "falhou row must carry an 'erro' message");
+});
+
+// ── 2026-09-05: a pergunta entra no prompt ─────────────────────────────────
+// Até aqui o bloco levava só o texto da resposta e o modelo lia `- Sim` sem saber
+// o que fora perguntado. Este teste pina o formato novo E a degradação: linha sem
+// embed de pergunta volta ao formato antigo, nunca a silêncio.
+Deno.test("buildRespostasBlock — Pergunta/Resposta na ordem da pergunta; sem embed degrada para o texto cru", async () => {
+  const mod = await import("../index.ts");
+  const bloco = mod.buildRespostasBlock([
+    {
+      pergunta_id: "p2",
+      resposta_opcoes: ["Edição de vídeo", "Escrita de legenda"],
+      pergunta: { texto_pergunta: "Quais etapas são rotina?", ordem: 2 },
+    },
+    {
+      pergunta_id: "p1",
+      resposta_opcoes: ["Entre 2 e 5 anos"],
+      pergunta: { texto_pergunta: "Há quanto tempo você atua?", ordem: 1 },
+    },
+    { pergunta_id: "p9", resposta_texto: "instagram.com/exemplo", pergunta: null },
+  ]);
+  const linhas = bloco.split("\n");
+  assertEquals(linhas[0], "- Pergunta: Há quanto tempo você atua?");
+  assertEquals(linhas[1], "  Resposta: Entre 2 e 5 anos");
+  assertEquals(linhas[2], "- Pergunta: Quais etapas são rotina?");
+  assertEquals(linhas[3], "  Resposta: Edição de vídeo | Escrita de legenda");
+  // sem embed → formato antigo, no fim (ordem desconhecida vai por último)
+  assertEquals(linhas[4], "- instagram.com/exemplo");
 });

@@ -111,11 +111,44 @@ async function extractCvText(pdfBytes: Uint8Array): Promise<string | null> {
 }
 
 /** Achata as respostas da Etapa 1 num bloco de texto compacto, truncado. */
-function buildRespostasBlock(respostas: Array<Record<string, unknown>>): string {
-  const lines = respostas.map((r) => {
-    const texto = r.resposta_texto ?? r.resposta_numerica ?? r.resposta_opcoes ?? "";
-    return `- ${String(texto)}`;
-  });
+/**
+ * Monta o bloco "Respostas Etapa 1" do prompt.
+ *
+ * ⚠ ATÉ 2026-09-05 ESTE BLOCO LEVAVA SÓ O TEXTO DA RESPOSTA. A consulta selecionava
+ *   `pergunta_id` e nunca o usava, então o modelo lia `- Sim` / `- Entre 2 e 5 anos`
+ *   sem saber o que fora perguntado — e as duas rubricas vivas carregavam um
+ *   parágrafo inteiro ensinando o modelo a ADIVINHAR a pergunta pelo formato da
+ *   resposta. Enquanto as vagas reais tinham zero perguntas, o defeito não custava
+ *   nada; com 5 e 6 perguntas por vaga, passou a custar critério.
+ *
+ *   Agora a consulta embute `perguntas_formulario(texto_pergunta, ordem)` pela FK
+ *   `respostas_formulario_pergunta_id_fkey`, e cada item sai como
+ *   `Pergunta: …` / `Resposta: …`, na ordem em que o candidato respondeu. Linha sem
+ *   pergunta (embed falhou, pergunta apagada) degrada para o formato antigo — nunca
+ *   para silêncio.
+ */
+export function buildRespostasBlock(respostas: Array<Record<string, unknown>>): string {
+  const ordemDe = (r: Record<string, unknown>): number => {
+    const o = (r.pergunta as { ordem?: unknown } | null | undefined)?.ordem;
+    return typeof o === "number" ? o : Number.MAX_SAFE_INTEGER;
+  };
+  const textoDe = (r: Record<string, unknown>): string => {
+    if (r.resposta_texto != null && r.resposta_texto !== "") return String(r.resposta_texto);
+    if (r.resposta_numerica != null) return String(r.resposta_numerica);
+    if (Array.isArray(r.resposta_opcoes)) return r.resposta_opcoes.map(String).join(" | ");
+    if (r.resposta_opcoes != null) return String(r.resposta_opcoes);
+    return "(sem resposta)";
+  };
+  const lines = [...respostas]
+    .sort((a, b) => ordemDe(a) - ordemDe(b))
+    .map((r) => {
+      const pergunta = (r.pergunta as { texto_pergunta?: unknown } | null | undefined)
+        ?.texto_pergunta;
+      const resposta = textoDe(r);
+      return pergunta
+        ? `- Pergunta: ${String(pergunta)}\n  Resposta: ${resposta}`
+        : `- ${resposta}`;
+    });
   return lines.join("\n").slice(0, RESPOSTAS_CHAR_BUDGET);
 }
 
@@ -216,10 +249,14 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       .eq("id", candidatura_id)
       .maybeSingle();
 
-    // 3b. Respostas da Etapa 1.
+    // 3b. Respostas da Etapa 1 — COM o enunciado da pergunta (ver buildRespostasBlock).
+    //     `pergunta:perguntas_formulario(...)` é o embed PostgREST pela FK
+    //     `respostas_formulario_pergunta_id_fkey`; volta como objeto, não array.
     const respostasRes = await supabaseAdmin
       .from("respostas_formulario")
-      .select("pergunta_id, resposta_texto, resposta_numerica, resposta_opcoes")
+      .select(
+        "pergunta_id, resposta_texto, resposta_numerica, resposta_opcoes, pergunta:perguntas_formulario(texto_pergunta, ordem)",
+      )
       .eq("candidatura_id", candidatura_id);
     const respostas: Array<Record<string, unknown>> = respostasRes?.data ?? [];
 

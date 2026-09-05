@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 40
+open_count: 35
 waived_count: 0
-fixed_count: 3
+fixed_count: 8
 total_count: 43
-last_updated: 2026-08-23T03:46:13.935Z
+last_updated: 2026-09-05T23:30:00.000Z
 ---
 
 # Broken Windows Ledger
@@ -38,15 +38,15 @@ last_updated: 2026-08-23T03:46:13.935Z
 | 21 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | DI-45-10-02: ACOES nao conhece 'retirar_candidatura' e o hook do 45-09 invoca a EF com essa acao — 400 VALIDATION traduzido para SERVER_ERROR na tela | open |  | 2026-08-06T15:22:17.081Z |  |
 | 22 | 45 | deviation | supabase/tests/p45_motor_exclusao_smoke.sql |  | C1 exige que gerar_bias_snapshot nao conceda EXECUTE a authenticated, mas 20260805000003 o concede deliberadamente (chamador vivo: biasAuditService.ts:98) — DI-45-12-01, decisao do code review bloqueante do 45-11 | open |  | 2026-08-06T17:15:24.030Z |  |
 | 23 | 45 | deviation | src/features/vagas/components/RetirarCandidaturaAcao.tsx |  | copy generica para a recusa NAO_RETIRAVEL: o hook traduz, o componente nao ramifica — DI-45-12-02 | open |  | 2026-08-06T17:15:24.086Z |  |
-| 24 | 47 | unrun-verify | supabase/tests/p47_historico_smoke.sql |  | smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador | open |  | 2026-08-09T21:55:43.981Z |  |
+| 24 | 47 | unrun-verify | supabase/tests/p47_historico_smoke.sql |  | smoke do CONSOL-02 escrito e NAO executado: exige o apply da migration 20260809000001, que e checkpoint do orquestrador | fixed | smoke rodou 6/6 em PROD em 2026-08-13 e de novo em 2026-08-23 (47-VERIFICATION, confirmado pelo catalogo) | 2026-08-09T21:55:43.981Z | 2026-09-05T23:30:00.000Z |
 | 25 | 47 | unmet-truth | src/features/transparencia/constants/subprocessadores.ts |  | As seis entradas carregam a sentinela PAIS_POR_MEDIR: a regiao onde o dado deste projeto e tratado nao e medivel deste ambiente. A pagina /subprocessadores LANCA ao renderizar e nao pode ser publicada ate o operador informar os seis paises medidos (47-04 Task 3, checkpoint bloqueante). | fixed | FECHADO por MEDICAO em 2026-08-11: o operador mediu os seis paises nos paineis e documentos dos fornecedores (47-04 Task 3). Cinco tratam os dados nos Estados Unidos, o ViaCEP declara jurisdicao brasileira com a ressalva de hospedagem nao divulgada no campo visivel. Sentinela e validador preservados como rede da proxima entrada. Commit eeed0e5. | 2026-08-09T22:12:40.305Z | 2026-08-11T00:39:00.000Z |
 | 26 | 47 | unmet-truth | src/features/transparencia/constants/matrizRetencao.generated.ts |  | As oito citações de base legal publicadas em /privacidade seguem pendentes da revisão do Encarregado — gate de PUBLICAÇÃO herdado de 47-01 (D5) | open |  | 2026-08-09T23:11:20.359Z |  |
 | 27 | 47 | todo | src/features/hub-candidato/services/historicoCandidaturaService.ts |  | as never pre-regen na chamada de listar_historico_candidatura — remover apos npm run db:types | open |  | 2026-08-10T12:55:37.934Z |  |
-| 28 | 47 | unrun-verify | .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md |  | 47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto | open |  | 2026-08-11T03:53:04.434Z |  |
-| 29 | 47 | deviation | src/__tests__/destinosDeRedeComFicha.test.ts |  | api.ipify.org e www.youtube.com: destinos vivos fora da lista publicada de empresas contratadas, registrados como pendente-de-decisao com fato medido e rota — a classificacao e ato do Encarregado, no portao de publicacao aberto do 47-08 | open |  | 2026-08-11T04:17:17.358Z |  |
+| 28 | 47 | unrun-verify | .planning/phases/47-transpar-ncia-consolida-o/47-08-PLAN.md |  | 47-08 Task 3 (montagem do RodapePublico nas cinco superficies) nao executada: bloqueada pelo portao de PUBLICACAO do Encarregado, que segue aberto | fixed | RodapePublico montado nas 5 superficies (codigo) e o portao do Encarregado fechou por DECISAO-ENCARREGADO.md (2026-08-13) | 2026-08-11T03:53:04.434Z | 2026-09-05T23:30:00.000Z |
+| 29 | 47 | deviation | src/__tests__/destinosDeRedeComFicha.test.ts |  | api.ipify.org e www.youtube.com: destinos vivos fora da lista publicada de empresas contratadas, registrados como pendente-de-decisao com fato medido e rota — a classificacao e ato do Encarregado, no portao de publicacao aberto do 47-08 | fixed | api.ipify.org e youtube ELIMINADOS em vez de declarados (03909dd, 2026-08-13); zero pendente-de-decisao restam | 2026-08-11T04:17:17.358Z | 2026-09-05T23:30:00.000Z |
 | 30 | 47 | unmet-truth | src/features/transparencia/components/PrivacidadePublicaPage.tsx |  | Revisao formal do Encarregado NAO exercida: as duas paginas publicas foram liberadas por decisao do operador em 2026-08-11 | open |  | 2026-08-11T04:28:51.767Z |  |
-| 31 | 47 | unmet-truth | src/services/logAccessService.ts | 110 | api.ipify.org pendente-de-decisao: destino de rede sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.827Z |  |
-| 32 | 47 | unmet-truth | src/components/pages/InstrucoesFormularioPage.tsx | 77 | www.youtube.com pendente-de-decisao: iframe de terceiro sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | open |  | 2026-08-11T04:28:51.886Z |  |
+| 31 | 47 | unmet-truth | src/services/logAccessService.ts | 110 | api.ipify.org pendente-de-decisao: destino de rede sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | fixed | api.ipify.org eliminado; IP passa a ser preenchido pelo trigger trg_preencher_ip_logs_acesso (migration 20260813000001 aplicada) | 2026-08-11T04:28:51.827Z | 2026-09-05T23:30:00.000Z |
+| 32 | 47 | unmet-truth | src/components/pages/InstrucoesFormularioPage.tsx | 77 | www.youtube.com pendente-de-decisao: iframe de terceiro sem ficha publicada nem classificacao do Encarregado, com a lista ja publicada | fixed | iframe do YouTube eliminado da InstrucoesFormularioPage (03909dd) | 2026-08-11T04:28:51.886Z | 2026-09-05T23:30:00.000Z |
 | 33 | 45 | deviation | supabase/functions/executar-direito-titular/index.ts |  | NW-03 alargou: causa='falha_storage' cobre 10 classes nomeadas mais carimbo e excecao (DI-45-16-01) | open |  | 2026-08-12T01:30:33.120Z |  |
 | 34 | 46 | stub | supabase/migrations/20260823000004_p46_sweep_tracer.sql |  | varrer_purga_retencao nao chama anonimizar_candidato: laco e subtransacao no formato final, chamada ausente ate o 46-04 (D-46-18/D-46-24) | open |  | 2026-08-22T23:07:37.543Z |  |
 | 35 | 46 | stub | supabase/tests/p42_invent05_cron_smoke.sql |  | assercao (a) fixa cron.job em 3 com mensagem de diagnostico falso para o 4o job legitimo — emenda de D-46-23 pendente no 46-06 | open |  | 2026-08-22T23:07:37.606Z |  |

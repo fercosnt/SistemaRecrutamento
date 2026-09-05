@@ -42,6 +42,19 @@ export interface VagaBaseInput {
   diferenciais: string | null
   status: Database['public']['Enums']['status_vaga']
   /**
+   * Os quatro campos que a tela de edição SEMPRE coletou e NUNCA gravou (medido em
+   * 2026-09-05: o formulário tem slug, tipo de contrato, modalidade e «o que você
+   * faz», o toast dizia «salvo», e o banco ficava como estava). Opcionais para não
+   * forçar quem só edita a base; `undefined` = não mexer.
+   *
+   * `slug` só vai ao UPDATE quando não-vazio: o CHECK `slug_format_check` recusa
+   * string vazia e a coluna é UNIQUE — mandar '' derrubaria o save inteiro.
+   */
+  slug?: string
+  tipoContrato?: string | null
+  modeloTrabalho?: string | null
+  descricaoCurta?: string | null
+  /**
    * A rubrica que a IA usa para AVALIAR (aba IA). Distinta da cópia que ATRAI:
    * quando a vaga tem rubrica, `analise-candidato-individual` manda ao modelo
    * APENAS `Vaga: <titulo>` + a rubrica, e mais nada da vaga.
@@ -170,6 +183,12 @@ export async function updateVagaBase(
   if (base.rubricaIa !== undefined) {
     payload.rubrica_ia = base.rubricaIa
   }
+  if (base.slug !== undefined && base.slug.trim() !== '') {
+    payload.slug = base.slug.trim()
+  }
+  if (base.tipoContrato !== undefined) payload.tipo_contrato = base.tipoContrato
+  if (base.modeloTrabalho !== undefined) payload.modelo_trabalho = base.modeloTrabalho
+  if (base.descricaoCurta !== undefined) payload.descricao_curta = base.descricaoCurta
 
   const { error } = await supabase.from('vagas').update(payload).eq('id', vagaId)
 

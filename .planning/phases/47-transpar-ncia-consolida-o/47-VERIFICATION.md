@@ -20,9 +20,9 @@ human_verification:
   - test: "Abrir o Histórico do RH, no navegador logado como recrutador/administrador, numa candidatura real (ex.: `a1dd4c42-bc92-4c37-a584-dc19a59a631d`, que tem 2 linhas) e conferir que o bloco renderiza o rótulo de texto na linha de metadado."
     expected: "A tela mostra um dos quatro rótulos — hoje, com o dado vivo, será «Sistema» nas 13 linhas — e nunca um uuid, nunca um espaço em branco, nunca um erro de banco."
     why_human: "O smoke é explícito em NÃO cobrir isto: «NÃO COBRE: o componente `HistoricoBlock` nem o serviço (plano 47-07)» (`p47_historico_smoke.sql:100`). O lado de banco está provado por execução; o lado de render está provado só por Vitest com mocks. Ninguém abriu a tela — e foi exatamente esse buraco que, na P39 deste projeto, deixou um `42804` viver em PROD."
-  - test: "Revisão FORMAL do Encarregado (DPO) dos quatro itens de publicação: os seis países + a base legal de cada um, a formulação do provedor de hospedagem, a qualificação do serviço público de CEP, e a copy das duas páginas públicas."
-    expected: "Parecer escrito do Encarregado, aprovando ou pedindo mudança de copy."
-    why_human: "Julgamento jurídico/regulatório — não verificável por código, e nada mudou desde 2026-08-12. `WINDOWS.md` itens 26 e 30 seguem `open`; a publicação atual foi liberada apenas pelo operador em 2026-08-11, e `47-08-SUMMARY.md` recusa deliberadamente equiparar as duas coisas."
+  - test: "~~Revisão FORMAL do Encarregado (DPO) dos quatro itens de publicação~~ — RESOLVIDO POR DECISÃO em 2026-08-13 (`.planning/DECISAO-ENCARREGADO.md`): a empresa NÃO designa Encarregado; a aprovação do operador de 2026-08-11 é a decisão final. Registrado aqui em 2026-09-05 — esta verificação (23/08) dizia «nada mudou desde 12/08» sem ter lido a decisão de 13/08."
+    expected: "Nenhum parecer a esperar. Sobra só o item de tela (Histórico do RH)."
+    why_human: "Não se aplica mais — decisão do operador, datada e registrada."
 higiene_de_registro:
   - "`WINDOWS.md` item 24 (`unrun-verify`, p47_historico_smoke) segue `open` — o smoke rodou 6/6 hoje. É a MESMA classe do achado crítico anterior, com o sinal trocado: um run sem artefato de escrituração é indistinguível de um run que não aconteceu."
   - "`WINDOWS.md` item 28 (montagem do `RodapePublico`) segue `open` — contradito pelo código nas cinco superfícies."

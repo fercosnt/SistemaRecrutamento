@@ -3,7 +3,7 @@ tipo: handoff
 gerado: 2026-08-13
 atualizado: 2026-08-22
 milestone: v8.0 — M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-estado: 5 de 6 fases implementadas e verificadas; 1 fase (46) nunca começou
+estado: 6 de 6 fases implementadas; 5 em verificação diferida (ver GUIA-VALIDACAO-FINAL.md, 2026-09-05)
 ---
 
 # Pendências — o que falta, em ordem de dependência
@@ -48,7 +48,8 @@ Comando: `/gsd-plan-phase 46` (discuss antes, se `skip_discuss=false`).
 | §B, §C | O G1 e o checkpoint do `44-05`, e o `44-07` | ⏸ aberto |
 | §E | O `PRESENT_BEHAVIOR_UNVERIFIED` da **47** e dois itens da **42** | ⏸ aberto |
 
-✅ Já resolvidos: a Conta E **não precisa ser criada nem de reset** (`recrutador.rh@teste.com` e
+⚠ **Corrigido em 2026-09-05:** as contas RH de teste estão `ativo=false` — a Conta E **precisa
+ser criada** (A1 do `GUIA-VALIDACAO-FINAL.md`). O texto original dizia: ~~Já resolvidos: a Conta E **não precisa ser criada nem de reset**~~ (`recrutador.rh@teste.com` e
 `e2e.admin` são duas contas RH distintas e **ativas**, ambas com login registrado); o BD-8 está
 decidido (a fila é do administrador); o `p47_historico_smoke` passou 6/6.
 

@@ -1,0 +1,310 @@
+# Guia de validação final — o que fazer e testar para fechar o projeto
+
+**Escrito em:** 2026-09-05, a partir de medições em PROD feitas na mesma sessão (não de leitura
+de registro — o registro estava errado em pontos que importam, ver §0.3).
+**Para quem:** o operador (Fernando) e o agente, em sessões alternadas.
+**Como usar:** cada item tem um ID (`B3`, `E5`…). Responda por ID com ✅ / ⚠ / ⛔ e o que mediu.
+O agente atualiza este arquivo, os `VERIFICATION.md` e o `WINDOWS.md` a partir das respostas.
+
+---
+
+## 0. Onde estamos — medido hoje
+
+### 0.1 Saúde do código
+
+| Medida | Valor |
+|---|---|
+| Vitest | **1945/1945** verdes, 194 arquivos · Deno (EF de análise) **6/6** |
+| `tsc --noEmit` | **95** erros no baseline (teto CI 104) |
+| Site | `https://rh.beautysmile.com.br/vagas` → **200** |
+| HEAD | `c477fbc` (2026-08-31) · árvore limpa |
+
+### 0.2 Dados vivos em PROD
+
+| Objeto | Estado |
+|---|---|
+| Vagas **ativas** | 2 — `consultor-relacionamento-pre-vendas` (5 perguntas, rubrica, **3 candidaturas fictícias em `triagem`**) · `social-media-producao-captacao-conteudo` (6 perguntas, rubrica, **0 candidaturas**) |
+| Testes das vagas | Consultor: triagem\*, SJT\*, redação\*, entrevista\* (Big Five e cognitivo opcionais) · Social Media: triagem\*, SJT\*, entrevista\* (redação opcional). `aplica_cognitivo=false` nas duas |
+| Candidatos fictícios (`f0000001..3`) | Rafael **67** · Camila **68** · Beatriz **20** — análise `sucesso` nos 3 |
+| Candidatura E2E (`teste-e2e-social-media`, vaga inativa) | em `entrevista_online`; cognitivo feito (1 liberação, 1 score Raven); **SJT 0 · redação 0 · Big Five 0 · agendamento 0** |
+| `candidatos` | 35 no total — **11 sintéticos** (8 fixture-p46 + 3 fictícios) |
+| RH ativo | **só** `fernando@beautysmile.com.br` (administrador). As 4 contas de teste estão `ativo=false` |
+| Purga | `dry_run` · cron **disparando** (15 execuções de ensaio, última hoje 00:00) · **13 dias** corridos · `aprovado` e `decisao_final` ainda em `seed` |
+| Titulares elegíveis à purga | 5 — **todos fixture**, zero pessoa real |
+| `solicitacoes_dados` | 2 |
+| Notificações | 8 eventos vivos com `entregue`; 1 `bounce` em `revisao_solicitada` (o endereço indeliverável do RH de teste) |
+| `WINDOWS.md` | **40 abertas** (45 → 20 · 46 → 8 · 47 → 8 · 42 → 2 · 43 → 2) — bloqueia `/gsd-ship` |
+
+### 0.3 Registro que está ERRADO e precisa de conserto (o agente faz — item A3)
+
+- `STATE.md` diz «O CRON NUNCA DISPAROU». Disparou 15 vezes.
+- `RETOMAR-AQUI.md` diz «14 noites de ensaio e hoje há 0». Há 15.
+- `UAT-SESSAO-CONSOLIDADA.md` e `PENDENCIAS` dizem que `recrutador.rh@teste.com` e `e2e.admin`
+  estão **ativas** e servem como segundo RH. **Estão inativas** — o item E4 do §E depende disso.
+- `47-VERIFICATION.md` mantém «parecer do Encarregado» como pendência humana; a
+  `DECISAO-ENCARREGADO.md` (13/08) a fechou.
+- `WINDOWS.md` itens 24, 28, 29, 31, 32 estão `open` e o próprio verificador da 47 os dá por
+  resolvidos.
+
+### 0.4 O que os 3 candidatos fictícios já provaram — e o que não provaram
+
+- ✅ **A regra eliminatória MORDE**: Beatriz (4 meses de experiência, perfil bom) ficou em **20**
+  — a rubrica manda «abaixo de 40 quando falta eliminatório, por melhor que seja o resto».
+- ⚠ **Camila (calibrada como piso) = 68 ≥ Rafael (calibrado como meio) = 67.** Um ponto de
+  diferença está dentro da variância já medida (89/75/80 no mesmo candidato). **Não conclua nada
+  de n=1** — item C6 mede com n≥3.
+- ❌ Os fictícios **não exercitam nada além da triagem**: não têm login, não fazem SJT, redação,
+  Big Five, entrevista. O funil inteiro só se prova com **conta que você opera** (§B–§E).
+
+---
+
+## 1. Regras da sessão — valem para todos os blocos
+
+1. **`NOTIFICACOES_MODO = producao`.** Todo evento manda e-mail **real**. Use endereços com `+`
+   (`fernandinho.costa.neto+t1@gmail.com`) para filtrar depois. Receber o e-mail **é parte do
+   teste** — anote quanto tempo levou.
+2. **Medir antes e depois.** «Passou» não é medição. Para cada bloco o agente entrega as
+   contagens de referência **antes**; você anota o que viu; o agente mede **depois**. Foi uma
+   asserção negativa que pegou o `42804` da Phase 43 que um smoke 10/10 deixou passar.
+3. **Três coisas de sentido único:** o 1º clique no pedido de cópia queima o cooldown de 24 h
+   daquela conta; upload de currículo **não tem backup** (PITR desligado, Storage fora de todo
+   caminho); o pedido de exclusão encerra as candidaturas.
+4. **Sintético não se mistura com real.** Os 3 fictícios e as 8 fixtures **saem antes da
+   divulgação** das vagas (item I3 / H3). Toda conta de teste sua leva `+t` no e-mail.
+5. **Anote tudo o que estranhar, mesmo o que parecer bobagem.** Dois dos quatro defeitos do
+   teste de 25/08 eram «bobagem» que impedia cadastro.
+6. **Passo irreversível sobre dado real não é executado por agente.** O agente para e pergunta.
+
+---
+
+## 2. Contas de teste — crie uma vez, use nos blocos
+
+| Conta | Papel | Para quê | Quem cria |
+|---|---|---|---|
+| **T1** `…+t1@gmail.com` | candidato | O caminho feliz inteiro: cadastro → Social Media → SJT → redação → Big Five → cognitivo → entrevistas → **aprovado** | você, pelo navegador (é o teste B1) |
+| **T2** `…+t2@gmail.com` | candidato | O **knockout**: responde «apenas remoto» → rejeitado na inscrição → pede **revisão (Art. 20)** → RH2 responde | você |
+| **T3** `…+t3@gmail.com` | candidato | Direitos do titular: cópia dos dados (queima cooldown), currículo por URL assinada, revogação de marketing, **exclusão agendada e cancelada** | você |
+| **RH2** | recrutador | O segundo RH que o REVISAO-05 exige (quem decidiu não pode responder a revisão) e o E4 | **você**, em `/rh/configuracoes` — e isso testa a EF `gerenciar-usuario-rh` do M5 (item A1) |
+
+⚠ T1 tem de **marcar** a caixa de retenção de currículo na Etapa 4 (o ramo autorizado da guarda
+já foi visto em 22/08, mas a conta nova precisa dela para o bloco de guarda aparecer). T3 pode
+deixar desmarcada — assim os dois ramos ficam cobertos.
+
+---
+
+## 3. Divisão de trabalho
+
+| O agente faz sozinho | Só você faz |
+|---|---|
+| Medições SQL antes/depois de cada bloco | Tudo que é **navegador com login real** e recebimento de e-mail |
+| Reativar/preparar dados, semear fictícios, rodar smokes | **Decisões**: janelas de retenção, destino das fixtures, flip da purga, o que entra no backlog |
+| Consertar defeitos que você achar, com review antes do apply | Olhar a **tela com conteúdo real** — a lição nº 3 de 23/08: dois defeitos de markdown não seriam pegos por teste nenhum |
+| Atualizar `VERIFICATION.md`, `WINDOWS.md`, `STATE.md` | Teste no **celular** — o candidato é mobile-first e ninguém nunca passou pelo cadastro num telefone |
+| Reprocessar análises, rodar comparativo, medir variância da IA | O flip `dry_run → live` |
+
+---
+
+## 4. Roteiro por blocos — nesta ordem
+
+Tempo estimado total do seu lado: **~5 h de navegador**, em 3–4 sessões. Do lado do agente,
+~4 h de preparação, medição e conserto entre as sessões.
+
+### Bloco A · Preparação — estado em 2026-09-05, fim da sessão do agente
+
+| ID | Quem | O quê | Estado |
+|---|---|---|---|
+| **A0** | **você** | **Deploy da EF `analise-candidato-individual`** — `node efdeploy.cjs analise-candidato-individual` (lê os 9 arquivos do disco, mesma convenção do `p46apply.cjs`; `verify_jwt` fica `false`, como está hoje). Depois me avise: eu aplico `…0905000001` (rubricas) e `…0905000002` (fictícios) **nessa ordem** | ⛔ **bloqueado para o agente** — o classificador de permissões recusou as três vias (CLI, CLI `--use-api`, script). Código pronto e testado (Deno 6/6) |
+| A1 | **você** | Criar **RH2** (papel `recrutador`) em `/rh/configuracoes`, com e-mail que você abra | ⏸ pendente |
+| A2 | agente | 3 fictícios da Social Media: **CVs gerados e no bucket** (`f0000004..6`, 5,7–7,3 KB); migration `20260905000002` escrita com portões (18 respostas, opções literais) | ✅ pronto · **aplicar só depois de A0** |
+| A3 | agente | Registro corrigido: `STATE.md` (cron dispara, 15 execuções), `RETOMAR-AQUI.md`, `UAT` e `PENDENCIAS` (RH de teste inativos), `47-VERIFICATION` (Encarregado resolvido), `WINDOWS` 24/28/29/31/32 → `fixed` (40 → 35 abertas) | ✅ |
+| A4 | agente | As **2 policies de SELECT** do bucket `curriculos` estão vivas (`curriculos_select_own_or_rh` por `auth.uid()`, `Candidato lê próprios currículos` por `candidatos.id`) | ✅ |
+| A5 | agente | Vercel: deploy de produção mais recente `READY`, commit `c477fbc` = HEAD desta manhã. O commit desta sessão vai gerar deploy novo — conferir `READY` antes do Bloco B | ✅ |
+| A6 | agente | Contagens de referência (o «antes»): candidatos **35** · candidaturas **24** · `historico_candidatura` **23** · `solicitacoes_dados` **2** · `notificacoes_enviadas` **18** · `auth.users` **38** · CVs no bucket **9** (6 sintéticos) · análises **11** · `decisao_final` **4** · `logs_auditoria` **6** · RH ativos **1** | ✅ |
+
+**O que mudou no código nesta sessão (commit desta data):**
+
+- **A pergunta da Etapa 1 entra no prompt** — a EF embute `perguntas_formulario(texto_pergunta, ordem)` e escreve `Pergunta: … / Resposta: …` na ordem do formulário; sem embed, degrada para o formato antigo, nunca para silêncio. Teste novo pina o formato.
+- **`updateVagaBase` grava `slug`, `tipo_contrato`, `modelo_trabalho` e `descricao_curta`** — a tela coletava os quatro e o toast dizia «salvo» sem gravar. `slug` só vai se não-vazio (CHECK + UNIQUE). Dois testes novos.
+- **`TRIAGEM-01` estava vermelho desde 26/08** e ninguém rodava a suíte Deno: pegava o primeiro upsert (que virou o marcador `pendente` em `8a111f5`) e esperava o formato antigo de pontos fortes/gaps (mudado em `666be50`). Corrigido para o que a asserção sempre quis dizer.
+- **Migration `…0905000001`**: as duas rubricas trocam o parágrafo «chegam como lista solta, SEM o enunciado» — que vira instrução falsa depois do deploy — por «cada item chega como Pergunta/Resposta; julgue à luz da pergunta; resposta da Etapa 1 tem o mesmo peso que o CV». Portões: o texto antigo tem de existir antes e não pode sobrar depois.
+- **`efdeploy.cjs`**: deploy de EF pela Management API com arquivos lidos do disco — irmão do `p46apply.cjs`, pela mesma razão (transcrever 93 KB de TypeScript pelo modelo é o defeito que o M8 já pagou duas vezes em SQL).
+
+### Bloco B · O candidato, ponta a ponta (você · T1 · **no celular primeiro**, depois no desktop)
+
+Abra `https://rh.beautysmile.com.br/vagas` numa aba anônima. ⚠ No celular de verdade, não no
+DevTools — a Etapa 2 (CEP → foco no Número) foi onde o bug de foco apareceu e é onde teclado
+virtual muda o comportamento.
+
+| ID | Onde | O que tem de acontecer | Se falhar |
+|---|---|---|---|
+| B1 | `/vagas` e `/vagas/:slug` | As 2 vagas aparecem; a página mostra **cidade, endereço e horário** (consertado em `0fcac52`), `secoes_extras` renderizadas, markdown sem `**` literal | anote qual campo falta |
+| B2 | Cadastro · Etapa 1 | Idade mínima 16 dispara com data recente; «Como conheceu» com **«Outros» e «Catho» aceitos** (era o defeito que impedia cadastro) | mensagem exata |
+| B3 | Etapa 2 | CEP preenche cidade/UF; **Tab para Complemento não volta para Número** (`BUG-foco-preso`, consertado em `05e8304`) | digite `APTO12` no Complemento e veja onde caiu |
+| B4 | **Etapa 4 — Autorizações** | **TODAS as caixas nascem DESMARCADAS**. Marque a de retenção de currículo | ⛔ **caixa pré-marcada = violação de LGPD, pare e me chame** |
+| B5 | Etapa 4 | Texto de cada autorização legível; o ponto final de «…Seus dados e autorizações.» não cai sozinho na linha de baixo (cosmético conhecido) | anote se persiste |
+| B6 | Após enviar | E-mail de confirmação chega (`evento=confirmacao`) — anote o tempo; login leva ao destino certo (a vaga), não à home | tempo esperado |
+| B7 | Formulário da Social Media | Upload de PDF funciona (anote o **tamanho máximo** aceito); as 6 perguntas aparecem com **cabeçalhos de bloco legíveis** («Sobre sua experiência», não `curriculo`) | qual rótulo cru |
+| B8 | Formulário | Sair e voltar **preserva** o progresso | |
+| B9 | Ao enviar | E-mail de inscrição; candidatura em `/candidato/dashboard` em `triagem`; o CTA é **texto de estado**, não seta morta (`8a111f5`/rodada 2 item 8); o prazo da etapa aparece | |
+| B10 | ~2 min depois | A análise de IA gravou (`analise_candidato_vaga`) — **o agente mede**; `status` passa de `pendente` para `sucesso` | se ficar `pendente` > 5 min, é o defeito de dispatch (backlog P1) |
+| B11 | `/candidato/perfil` | Editar telefone/endereço persiste; a navbar tem «Área do candidato» | |
+| B12 | `/candidato/privacidade` | **Bloco de guarda do currículo**: «Base da guarda: sua autorização de {data}. Prazo previsto: até {prazo}.» com data e prazo **preenchidos** | placeholder ⇒ ⛔ |
+| B13 | idem | Switch de marketing: ligar e desligar. O agente confere que **só uma coluna** mudou (`autorizacao_marketing_vagas`), hash/versão/timestamp intactos | |
+| B14 | idem · «Seu currículo» | «Abrir meu currículo» abre em aba nova; copie a URL, espere **>90 s**, recarregue → **expira**. ⚠ 403/400 ⇒ PARE e anote — é a hipótese da convenção de pasta | |
+| B15 | idem · DevTools aberto | A URL assinada **não** aparece no console nem em atributo do documento; **nenhuma** chamada a `get-curriculo-url` | |
+| B16 | 320 px (DevTools) | Nenhuma tela do candidato estoura horizontalmente | qual tela |
+
+⚠ **Não clique em «pedido de cópia» nem em «excluir» com a T1.** Isso é da T3 (Bloco F).
+
+**Fecha:** Phase 43 (ramo autorizado, de novo), itens 5–9 da Deferred Verification da 44
+(o CV), os 3 defeitos de 25/08 ao vivo.
+
+### Bloco C · O RH vê e tria (você como admin + agente) — no desktop
+
+| ID | Onde | O que tem de acontecer |
+|---|---|---|
+| C1 | `/rh/dashboard` | «Vagas ativas» = **2** (era «0» com 3 ativas — `666be50`); os 4 contadores batem com o SQL que o agente entrega |
+| C2 | `/rh/vagas` | As 2 reais `ativa`, as de teste `inativa`/`arquivada`; **editar** uma vaga e alterar `descricao_curta` ou `modelo_trabalho` → recarregar → **persistiu?** (o handoff do plugin acusou que `updateVagaBase` não escreve 4 campos) |
+| C3 | `/rh/vagas/:id/candidatos` (Social Media) | A T1 e os 3 fictícios de A2 aparecem; o **score**, os pontos fortes **com citação** e os gaps **com evidência e severidade** (`666be50`) — leia um gap e confira se ele é **defensável** contra o CV |
+| C4 | idem | «Reprocessar» roda e o `updated_at` muda; o novo score é próximo do anterior (a variância é o item C6) |
+| C5 | `/rh/vagas/:id/comparativo` | O comparativo (`comparativo-candidatos`) ordena coerente com os scores; Beatriz (Consultor) fica no fundo por gap `critical`, não por «perfil fraco» |
+| C6 | agente | **Variância da IA**: reprocessar cada fictício **3×** e registrar média/desvio. É isso que decide se «Camila ≥ Rafael» é sinal ou ruído, e se a rubrica precisa de reforço sobre «resposta da Etapa 1 é evidência de mesmo peso que o CV» (rodada 2, item 7) |
+| C7 | `/rh/candidato/:id` (T1) | **Histórico** mostra rótulos de texto (Sistema / O próprio candidato / nome do recrutador / Recrutador removido) — **nunca UUID, nunca erro de banco**. É o único item humano vivo da **Phase 47** |
+| C8 | idem | **Avançar** a T1 para `avaliacao_assincrona`. E-mail `avanco` chega à T1; o dashboard dela vira «Continuar para Avaliação» com rota viva |
+| C9 | idem | Tente **avançar um fictício** direto para `entrevista_online` com SJT/redação obrigatórios **não feitos** — o sistema **avisa, bloqueia ou deixa passar em silêncio?** A candidatura E2E de 25/08 está em `entrevista_online` com 0 SJT e 0 redação, então hoje ele deixa. Decida se isso é aceitável (o PRD §9.2 diz que os obrigatórios precedem) |
+| C10 | `/rh/candidatos` | Busca e filtro encontram a T1 por nome e por vaga |
+
+**Fecha:** Phase 47 (C7), o dashboard da rodada 2, e produz a medição que o backlog de IA precisa.
+
+### Bloco D · As avaliações assíncronas (você como T1, no celular; RH no desktop)
+
+| ID | Onde | O que tem de acontecer |
+|---|---|---|
+| D1 | `/candidato/avaliacao/:id` | O hub lista **só** os testes da vaga (SJT obrigatório; redação e Big Five opcionais na Social Media; **sem** cognitivo — `aplica_cognitivo=false`) |
+| D2 | `/…/mc` | SJT múltipla escolha: instruções, progresso, envio; o RH vê o score (`respostas_avaliacao` + `scores_candidato`) |
+| D3 | `/…/caso` | Caso aberto: texto salvo; a IA (`work_sample_sjt`) avalia e o RH vê |
+| D4 | `/candidato/redacao/:id` | Redação: **cronômetro** e **contador** funcionam; sair no meio e voltar recupera de `redacoes_candidato_em_progresso`; enviar dispara `avaliar-redacao-cultural`; **a redação é a da vaga certa** (o defeito das ONZE redações, `e9a0227`) |
+| D5 | RH · `/rh/candidato/:id/redacao` | `RedacaoReviewPanel` mostra a nota da IA, a cor, e o **override** do RH grava com justificativa e aparece no histórico |
+| D6 | `/…/bigfive` → `/bigfive/devolutiva` | Questionário completo; a **devolutiva** ao candidato (`gerar-devolutiva-bigfive`) chega em linguagem de «avaliação comportamental» — **nunca** «teste psicológico» (regra de produto) |
+| D7 | RH · `LiberacaoCognitivoBlock` | Liberar a avaliação de raciocínio **nominalmente** para a T1 (botão legível — `011593f`); a T1 vê `/candidato/avaliacao-raciocinio/:id` só depois disso |
+| D8 | T1 · Raven | Faz a prova; `scores_raven` grava com **tempo total ≠ 0** (`9c588a5`); o gabarito **não** é alcançável pelo candidato nem por anon (`017f652`) |
+| D9 | RH · tela do candidato | Os scores consolidados aparecem com os **pesos da vaga** (`pesos_avaliacao`); a soma faz sentido |
+
+**Fecha:** nada do M8 — mas é o M2/M3/M6 sendo exercitado **pela primeira vez com rubrica e
+prompts reais** (as análises anteriores a 23/08 rodaram sem vaga e sem instrução).
+
+### Bloco E · Entrevistas, decisão e o Art. 20 (você como admin + RH2 + T1/T2)
+
+| ID | Onde | O que tem de acontecer |
+|---|---|---|
+| E1 | RH · avançar T1 para `entrevista_online` | **Agendar** (`agendamentos_entrevista`): a T1 vê data/hora como «Próximo passo» no dashboard (AGEND-04); e-mail chega |
+| E2 | `/rh/candidato/:id/entrevista` | **Guia de entrevista** gerado (`gerar-guia-entrevista`) cita a vaga e os gaps da análise; o scorecard inline grava |
+| E3 | idem | Colar uma transcrição fictícia → `avaliar-transcricao-entrevista` devolve análise; nada quebra com texto longo |
+| E4 | RH · `entrevista_presencial` | Avançar, agendar, registrar ata; o candidato vê o passo |
+| E5 | `/rh/candidato/:id/decisao` | **Registrar decisão** → `consolidar-decisao-final` → `aprovado`. A T1 **vê a própria aprovação** no dashboard (`9708bcb`, `data_decisao_final` gravada) e recebe e-mail `decisao` |
+| E6 | **T2** · inscrição na Consultor | Responder a pergunta de disponibilidade com a opção de knockout → rejeição automática na inscrição; `/candidato/explicacao/:id` explica em linguagem honesta; e-mail. ⚠ Confirme que o motivo é a **regra da pergunta**, nunca score (RNF-07a) |
+| E7 | T2 · pedir **revisão** | O botão de revisão existe na explicação; ao pedir, o **RH recebe e-mail** (`notificar-rh`) com link para `/rh/revisoes` que **abre** (não 404) |
+| E8 | admin · `/rh/revisoes` | A fila lista a T2 por antiguidade com badge de **SLA interno**; a `RHSidebar` mostra o contador |
+| E9 | **você (quem decidiu)** tenta responder | O **servidor barra** (REVISAO-05) — a mensagem é a de recusa, não erro genérico. ⚠ Se a rejeição foi automática (sistema), o guard pode não se aplicar — anote o que aconteceu |
+| E10 | **RH2** responde | Escreve o resultado com confirmação aninhada; a T2 recebe e-mail `revisao_respondida` e vê o resultado no painel |
+| E11 | admin · `/admin/bias-audit` | Carrega e chama `gerar_bias_snapshot` como `authenticated` — se funciona, o `GRANT` do CR-02 está certo e **não deve ser revogado** |
+| E12 | admin · `/rh/pedidos-dados` | **fila ≡ contador do menu** (BD-8, ramo administrador) — anote os dois números |
+
+**Fecha:** Phase 42 (E7–E10), o `44-09` (E12), o E2 do UAT (E11); e o funil do M6/M7 fica
+provado com e-mail em cada transição.
+
+### Bloco F · Direitos do titular (você como T3 — conta que você não vai precisar depois)
+
+| ID | Onde | O que tem de acontecer |
+|---|---|---|
+| F1 | cadastro + inscrição rápida | T3 se cadastra **sem** marcar retenção (o ramo não-autorizado da guarda) e se inscreve numa vaga |
+| F2 | `/candidato/privacidade` · **pedido de cópia** | Botão desabilita durante; baixa **DOIS** arquivos, o `.json` primeiro; o `.html` abre legível com carimbo no topo e versão da allowlist no rodapé; a seção 3 mostra a copy completa |
+| F3 | agente mede | `solicitacoes_dados` **+1**, `tipo='acesso'`, `situacao='atendido'`, `causa` NULA |
+| F4 | 2º clique | Botão desabilitado **com o motivo e a hora de liberação ao lado** (não em tooltip); **nenhuma linha nova** no banco |
+| F5 | `/rh/pedidos-dados` | O pedido de F2 aparece na fila com o prazo do Art. 19 (15 dias) visível |
+| F6 | **Pedido de exclusão** | Estado A → clicar → «Exclusão agendada», **data por extenso** (hoje sai `dd/mm/aaaa` — divergência conhecida, anote), nota de que cancelar não reabre; recarregar **persiste** |
+| F7 | agente mede | `solicitacoes_dados` +1 `tipo='exclusao'` `situacao='agendado'`, `executar_em − solicitado_em = 15 days`; candidaturas com `encerrada_a_pedido_em` **e** `deleted_at` NULL; `historico_candidatura` **inalterado**; **zero** `evento='decisao'` novo |
+| F8 | T3 e-mail | Chega `candidatura_encerrada_a_pedido` — em tempo passado, sem identificador proibido, **com** a linha da justificativa (WR-A) |
+| F9 | **Cancelar** o agendamento | `situacao` volta; as candidaturas continuam encerradas (é o que a tela promete) |
+| F10 | *(opcional)* executar a exclusão de verdade | Já foi provado em 22/08 sobre conta descartável (`45-VERIFICATION` 5/5). Só repita se quiser ver o recibo na sua caixa. **Checkpoint do operador**, pelo `RUNBOOK-45-06-T2-E-45-11-T3.md` |
+
+**Fecha:** os itens 1–4 e 10 da Deferred Verification da Phase 44, e re-prova a 45 por
+observação.
+
+### Bloco G · Admin e operação (você como admin)
+
+| ID | Onde | O que tem de acontecer |
+|---|---|---|
+| G1 | `/admin/retencao` | **Confirmar** as janelas de `aprovado` e `decisao_final` (hoje `seed`, 24 meses). Reconfirmar 24 é legítimo; o que o servidor exige é que **alguém tenha olhado**. Sem isso o flip (Bloco H) é recusado |
+| G2 | idem | A prévia de retenção mostra os **5 fixtures** como elegíveis e nenhuma pessoa real |
+| G3 | `/admin/ai-costs`, `/admin/ai-logs` | Carregam; o custo do dia reflete as análises dos blocos C–E; `cost-alerter` não disparou alerta falso |
+| G4 | `/admin/prompt-versions` | Lista os 8 prompts; **zero** `[SEED PLACEHOLDER]` ativo; **7 sem `deployed_at`** — decidir (backlog P2) se carimba agora |
+| G5 | `/rh/relatorios` | KPIs batem com o funil que você acabou de percorrer (1 aprovada, 1 rejeitada, N em andamento) |
+| G6 | `/rh/perfil`, `/rh/suporte`, `/rh/configuracoes` | Carregam; desativar e reativar RH2 funciona e fica em `logs_auditoria` |
+| G7 | `/privacidade`, `/subprocessadores`, `/manifesto` | As páginas públicas abrem sem login; o rodapé aparece nas 5 superfícies; nenhuma menção a «Encarregado» |
+
+### Bloco H · O flip da purga `dry_run → live` — só depois de B–G
+
+**Runbook próprio e obrigatório:**
+`.planning/phases/46-purga-autom-tica-dry-run-live/46-07-RUNBOOK-FLIP.md`.
+
+| ID | O quê | Estado medido hoje |
+|---|---|---|
+| H1 | ≥14 dias desde a 1ª execução de ensaio | 13 — fecha em **06/09 02:06** |
+| H2 | ≥14 execuções no ledger | **15** ✅ |
+| H3 | ≥1 execução sobre conjunto não-vazio | **15** ✅ |
+| H4 | Nenhuma etapa da allowlist em `seed` | ❌ → **G1** |
+| H5 | Titular a titular: nenhum real no conjunto elegível | ✅ hoje (5 fixtures). **Re-medir no instante do flip** |
+| H6 | Decisão: destino das **8 fixtures p46** | Recomendação: **deixar a primeira noite em `live` destruí-las** — é a prova esperada («é a destruição da fixture que é a prova»). Alternativa: `p46_teardown_fixture.sql` antes |
+| H7 | Decisão: destino dos **3 (+3) fictícios** | **Remover antes da divulgação** das vagas, como aprovado em 30/08 — eles não são elegíveis à purga (são novos) e poluiriam o comparativo e o snapshot de viés |
+| H8 | O flip em si | Você, na sessão, com `p_confirmo_live := true`. O agente mede antes e na manhã seguinte: `purga_execucoes` com `veredito='live'`, `processados` = nº de fixtures, `auth.users` −N exato, trilha intacta |
+
+⚠ **Não há pressa em fazer o flip no dia 06.** O portão continua satisfeito depois; o que
+importa é fazê-lo **depois** de ter gente real no sistema **e** com o conjunto elegível
+conferido titular a titular naquele instante.
+
+### Bloco I · Fechamento do M8 e limpeza (agente, com os seus vereditos)
+
+| ID | O quê |
+|---|---|
+| I1 | Atualizar `42/43/44/46/47-VERIFICATION.md` com os IDs deste guia como evidência; `/gsd-verify-work` por fase |
+| I2 | Triagem das **40 janelas** do `WINDOWS.md`: `fixed` com commit, ou `waive` com razão datada. Nenhuma fecha «porque sim» |
+| I3 | Remover os fictícios (`f0000*`/`c0000*` e os de A2) por script versionado, com contagens antes/depois; arquivar `teste-e2e-social-media` |
+| I4 | `/gsd-audit-milestone` → `/gsd-complete-milestone 8.0` → `/gsd-cleanup` |
+| I5 | `CLAUDE.md`, `STATE.md`, `RETOMAR-AQUI.md`: estado final, sem fase «atual» |
+
+---
+
+## 5. Backlog do que já se sabe que precisa mudar — decidir o que entra antes do fecho
+
+| Pri | Item | Evidência | Onde |
+|---|---|---|---|
+| **P1** | **O dispatch da análise não distingue sucesso de falha.** `pg_net` estoura 5 s em toda análise (~93 s medidos); a EF que morre antes de gravar não deixa rastro. `8a111f5` deu visibilidade (`status=pendente` + view); falta a EF responder 202 e processar em segundo plano | `TESTE-E2E…` §1 | `analise-candidato-individual`, trigger |
+| **P1** | **A pergunta da Etapa 1 nunca entra no prompt** — só o texto da resposta. O modelo lê `- Sim` sem saber o que foi perguntado. Agora as vagas reais **têm** perguntas | `index.ts:222` | EF `analise-candidato-individual` |
+| **P1** | **Calibração/variância da IA**: 89/75/80 no mesmo candidato; gap `critical` contradizendo resposta da Etapa 1 | rodada 2 item 7; §0.4 | rubricas + prompt `cv_job_match` — **medir em C6 antes de mexer** |
+| **P1** | **Avançar etapa com testes obrigatórios incompletos** passa em silêncio (C9) | candidatura E2E | RPC de avanço / UI |
+| P2 | 7 de 8 prompts com `deployed_at` NULL → guard de imutabilidade inerte; `culture_fit_essay` com `content_hash` errado só corrigível por versão nova | §0.2 | `prompt_versions` |
+| P2 | `scripts/sync-prompts.ts` é código morto (escreve `fallback_model_id`, coluna inexistente) | RETOMAR | apagar ou consertar |
+| P2 | `updateVagaBase` não persiste `slug`, `tipo_contrato`, `modelo_trabalho`, `descricao_curta` (toast de sucesso falso) | handoff do plugin | **confirmar em C2** |
+| P2 | Não existe tela de criar vaga; o plugin `cadastro-de-vaga` gera migration | handoff | roadmap próprio, se quiser autonomia |
+| P2 | Registro desatualizado (§0.3) | esta sessão | A3 |
+| P3 | Data da exclusão agendada não está «por extenso» | P45 divergência | `F6` |
+| P3 | Ponto final solto no bloco LGPD do cadastro | cosmético | `B5` |
+| P3 | `npm run db:types` destrava `WINDOWS` 18 e 27 (`as never` no `historicoCandidaturaService`) | PENDENCIAS 3.1 | |
+| P3 | `m7-cleanup-n8n-cloud` — a superfície externa do n8n segue ativa | PENDENCIAS 3.5 | |
+
+---
+
+## 6. Como registrar o resultado
+
+Para cada ID, uma linha:
+
+```
+B4  ✅  todas desmarcadas; marquei retenção
+B14 ⚠   abriu; a URL NÃO expirou em 90 s (recarreguei 3x até 2 min)
+E9  ⛔  o sistema deixou EU responder a revisão da T2 — a rejeição foi automática
+```
+
+Print de tela vale mais que descrição — mande junto quando algo estranhar. O agente responde
+com a medição do «depois», o diagnóstico **medido** (não plausível), e o conserto com review
+antes de qualquer apply.

@@ -404,6 +404,11 @@ export function CriarEditarVagaPage() {
         perfilIdeal: dados.pessoaCerta || null,
         diferenciais: dados.diferenciais || null,
         status: dados.status,
+        // Os 4 campos que a tela coletava e não gravava (2026-09-05).
+        slug: dados.slug,
+        tipoContrato: dados.tipoContrato || null,
+        modeloTrabalho: dados.modalidade || null,
+        descricaoCurta: dados.oQueVoceFaz || null,
         // Só entra no UPDATE se a rubrica foi carregada — ver VagaBaseInput.
         ...(rubricaCarregada
           ? { rubricaIa: dados.instrucoesIA.trim() || null }

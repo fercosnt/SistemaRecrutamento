@@ -4,8 +4,8 @@ milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
 stopped_at: "RODADA /gsd-autonomous de 2026-08-23 ENCERRADA. PHASE 46: cadeia de review convergiu (REVIEW-2 1 BLOCKER+5 HIGH -> REVIEW-3 2 BLOCKERS os dois INTRODUZIDOS pelo conserto -> REVIEW-4 0 blockers); migrations 0014/0015 APLICADAS em PROD com md5 conferido; smoke 27/27 VERDE; 46-VERIFICATION.md existe, gaps_found 4/5, portao destrutivo 3,5/5. PHASE 47: 8/8 must-haves, behavior_unverified 0, human_needed. AMBAS em Deferred Verification. ⚠ O CRON NUNCA DISPAROU (0 linhas em job_run_details p/ jobid 6; cron.timezone=GMT logo 0 3 * * * = 00:00-03). Modo segue dry_run, flip para live e 2026-09-06 e e checkpoint do operador"
-last_updated: "2026-08-23T05:01:39.125Z"
-last_activity: 2026-08-23
+last_updated: "2026-09-05T23:30:00.000Z"
+last_activity: 2026-09-05
 state_head: 053debfb3ea0f2483197784212a3f28758df849a
 progress:
   total_phases: 6
@@ -19,6 +19,25 @@ last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRO
 ---
 
 # Project State
+
+## ⚠ Correção de registro — 2026-09-05 (medido em PROD, não lido daqui)
+
+O `stopped_at` acima e várias seções abaixo dizem que **«o cron nunca disparou»**. Era verdade
+em 2026-08-23 e deixou de ser na noite seguinte. Medido hoje em `purga_execucoes`:
+**15 execuções de ensaio** (`dry_run`), a primeira em 2026-08-22 20:03, a última em
+2026-09-05 00:00 — o cron `purga-retencao-sweep` dispara toda noite. Os critérios 2 e 3 do
+flip (≥14 execuções, ≥1 sobre conjunto não-vazio) estão **satisfeitos**; o critério 1 fecha
+em 2026-09-06 02:06; o critério 4 (`aprovado` e `decisao_final` em `seed`) **depende do
+operador** em `/admin/retencao`.
+
+Outros três pontos deste arquivo e dos handoffs estavam desatualizados e foram corrigidos
+nos respectivos arquivos hoje: as contas RH de teste (`recrutador.rh@teste.com`,
+`e2e.admin@…`) estão **`ativo=false`** — não servem de segundo revisor; o parecer do
+Encarregado **não é mais pendência** (`DECISAO-ENCARREGADO.md`, 13/08); e `WINDOWS.md`
+24/28/29/31/32 estavam `open` com o fato já resolvido.
+
+Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
+
 
 ## Project Reference
 

@@ -93,6 +93,38 @@ describe('updateVagaBase (Plan 25-03 — FUNIL-04)', () => {
     }
   })
 
+  it('persists slug, tipo_contrato, modelo_trabalho and descricao_curta when given (2026-09-05)', async () => {
+    const chain = mockUpdateChain({ data: null, error: null })
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockReturnValue(chain)
+
+    await updateVagaBase('vaga-uuid', {
+      ...sampleBase,
+      slug: ' dentista-sede ',
+      tipoContrato: 'CLT',
+      modeloTrabalho: 'Presencial',
+      descricaoCurta: 'Atende pacientes na sede.',
+    })
+
+    const payload = chain.update.mock.calls[0][0] as Record<string, unknown>
+    expect(payload).toHaveProperty('slug', 'dentista-sede')
+    expect(payload).toHaveProperty('tipo_contrato', 'CLT')
+    expect(payload).toHaveProperty('modelo_trabalho', 'Presencial')
+    expect(payload).toHaveProperty('descricao_curta', 'Atende pacientes na sede.')
+  })
+
+  it('omits the 4 optional columns when undefined, and never sends an empty slug', async () => {
+    const chain = mockUpdateChain({ data: null, error: null })
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockReturnValue(chain)
+
+    await updateVagaBase('vaga-uuid', { ...sampleBase, slug: '   ' })
+
+    const keys = Object.keys(chain.update.mock.calls[0][0] as Record<string, unknown>)
+    expect(keys).not.toContain('slug')
+    expect(keys).not.toContain('tipo_contrato')
+    expect(keys).not.toContain('modelo_trabalho')
+    expect(keys).not.toContain('descricao_curta')
+  })
+
   it('maps a Supabase 42501 error to ConfigVagaServiceError FORBIDDEN', async () => {
     const chain = mockUpdateChain({
       data: null,

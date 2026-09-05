@@ -178,9 +178,11 @@ Fases 42, 43, 44, 46 e 47 estão em `Deferred Verification` no `STATE.md`, cada 
 fechador nomeado. A 45 é a única `passed`. O lifecycle (`audit → complete → cleanup`) não roda
 enquanto não fecharem.
 
-⚠ **Flip da purga `dry_run → live`: 2026-09-06**, checkpoint do operador, runbook próprio em
-`.planning/phases/46-*/46-07-RUNBOOK-FLIP.md`. Precisa de **14 noites de ensaio** e hoje há
-**0** — o cron nunca disparou até esta data.
+⚠ **Flip da purga `dry_run → live`: a partir de 2026-09-06**, checkpoint do operador, runbook
+próprio em `.planning/phases/46-*/46-07-RUNBOOK-FLIP.md`. ~~Precisa de 14 noites de ensaio e
+hoje há 0~~ → **corrigido em 2026-09-05: há 15 execuções de ensaio; o cron dispara toda noite
+desde 24/08.** O que falta é o operador confirmar as janelas de `aprovado` e `decisao_final`
+em `/admin/retencao` (critério 4). Roteiro completo: `.planning/GUIA-VALIDACAO-FINAL.md`.
 
 ---
 
