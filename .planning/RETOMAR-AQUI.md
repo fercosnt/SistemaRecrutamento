@@ -1,50 +1,75 @@
-# Retomar aqui — estado em 2026-09-06, fim da sessão dos vereditos
+# Retomar aqui — estado em 2026-09-06, fim da sessão da conferência
 
 **Como abrir a próxima conversa:**
 
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.26 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.27 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
-**Duas sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
-19 defeitos) e a dos **vereditos** (2026-09-06, 6 commits, as 3 decisões de produto).
+**Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
+19 defeitos), a dos **vereditos** (2026-09-06, 6 commits, as 3 decisões de produto) e a da
+**conferência** (2026-09-06, §7.27 — que achou os vereditos parados no disco local).
 
 ---
 
 ## Em uma frase
 
 O funil inteiro do candidato foi percorrido de ponta a ponta em PROD com contas reais;
-19 defeitos foram encontrados e consertados; **as 3 decisões de produto foram tomadas,
-implementadas e a migration está aplicada**. O que resta é **1 conferência de tela** (30 min,
-sua), **1 teste bloqueado** por falta de uma segunda conta de RH, os blocos **G e H** (que são
-seus por natureza) e a **limpeza** dos dados de teste antes de divulgar as vagas.
+19 defeitos foram encontrados e consertados; as 3 decisões de produto foram tomadas,
+implementadas, **publicadas em produção e conferidas na tela** (§7.27). O que resta é
+**1 teste bloqueado** por falta de uma segunda conta de RH, os blocos **G e H** (que são seus
+por natureza) e a **limpeza** dos dados de teste antes de divulgar as vagas.
 
-O M8 é o último milestone planejado. Fechando esses quatro itens, o projeto está fechado como
+⚠ **A conferência achou que os três vereditos nunca tinham sido publicados** — commitados e
+não enviados, enquanto a migration, aplicada por fora do git, já estava em PROD. Push feito
+(`e4a1cfbd..1330f40c`), deploy `READY`, e a decisão B verificada de ponta a ponta.
+
+O M8 é o último milestone planejado. Fechando esses três itens, o projeto está fechado como
 está escopado hoje.
 
 ---
 
 ## 0 · O que fazer primeiro, nesta ordem
 
-### 0.1 ⏳ Conferir a decisão B na tela (30 min · precisa dos seus olhos)
+### 0.1 ✅ A decisão B — publicada e conferida na tela (§7.27)
 
-É a única coisa da sessão dos vereditos que **não pôde ser verificada por mim** — exige uma
-sessão de candidato no navegador. O código está no ar e a migration aplicada; falta ver.
+Feito. Mas leia o **como**, porque a lição não é sobre a decisão B:
 
-1. Entrar como **T2** ou **T3** (as duas levaram knockout na Consultor; senha `Teste123!`).
-2. No painel, o cartão **«Entenda a decisão sobre sua candidatura»** deve aparecer no cartão da
-   Consultor. Ele **nunca apareceu** nesse caso — era o defeito.
-3. Abrir a explicação. Ela deve dizer que a candidatura foi encerrada **automaticamente, sem
-   avaliação de uma pessoa**, e **não** deve oferecer pedido de revisão. No lugar do botão,
-   o bloco «Se você quiser falar sobre esta decisão» com `lgpd@beautysmile.com.br`.
-4. ⚠ **O portão que mais importa:** uma rejeição **humana de triagem** deve continuar **sem**
-   página de explicação. Dar o texto «foi automático» a uma decisão que uma pessoa escreveu
-   seria pior que a falta de página. Há teste guardando, mas confirme na tela.
+⛔ **Os três vereditos não estavam em produção.** Estavam commitados e **não enviados** (7
+commits em `origin/main..HEAD`), enquanto a migration, aplicada por `p46apply.cjs` — que fala
+direto com o Supabase e **não passa pelo git** —, já estava em PROD há horas. O banco andou, o
+front ficou, e a versão anterior deste arquivo afirmava «está no ar» sobre as duas metades
+porque tinha visto uma.
 
-Duas candidaturas de knockout existem em PROD hoje: `0f7b217c…` e `92522073…`, as duas com
-`etapa_atual='inscricao'`, `opcao_knockout_id` preenchido e **zero** linhas em `decisao_final`.
+**Se o roteiro tivesse sido executado como escrito**, o cartão ausente teria sido lido como «o
+conserto `12ec4e42` não funcionou» — diagnóstico falso sobre um commit correto que nunca rodou.
+
+> ⭐ **Antes de investigar um conserto que «não funcionou», prove que ele está servido.**
+> `git log origin/main..HEAD` e uma busca do marcador no bundle. Vale sempre que o apply do
+> banco e o deploy do código saem por **canais diferentes** — que é o caso deste projeto.
+
+Push feito (`e4a1cfbd..1330f40c`, com `vitest` 1980/1980 e build verde antes), deploy `READY`,
+e os três marcadores conferidos **no chunk em que cada um mora** (A e C ficam em chunks lazy
+de `/rh/*`; procurá-los no índice eager dá falso negativo).
+
+**A conferência, na T3:** cartão aparece no knockout ✅ · texto diz «automaticamente, sem
+avaliação de uma pessoa» e não vaza o critério ✅ · sem CTA de revisão, com
+`lgpd@beautysmile.com.br` no lugar ✅ · e a rejeição de **decisão final** da mesma conta segue
+com o texto humano e o CTA de revisão ✅.
+
+**O passo 4 saiu mais forte que a tela.** Não existe rejeição humana de triagem em PROD, e a
+expectativa escrita estava imprecisa: `rejeitar_candidatura` não grava `feedback_rejeicao` nem
+`data_decisao_final`, então **o cartão nem aparece** (não é «leva a uma página vazia»). O
+predicado foi exercitado no servidor, com a sessão real da T3: knockout próprio `true`;
+rejeitada sem knockout **`false`**; knockout de outra pessoa `false`; id inexistente `false`.
+Duas camadas independentes seguram, e os 6 valores do enum `motivo_rejeicao_rh` não colidem com
+a string `'knockout_automatico'`. Detalhe em §7.27.
+
+⚠ **A T2 não serve para este teste** (tem `encerrada_a_pedido_em` do §7.23 e o painel mostra
+«Você retirou sua candidatura»); use a **T3**. E a rota de login é **`/auth/login`** — `/login`
+é 404.
 
 ### 0.2 ⏳ Criar a conta RH3 e fechar o E10 (10 min · fecha o bloco E inteiro)
 
@@ -86,13 +111,13 @@ foi reexecutado** na dos vereditos, porque nenhuma Edge Function foi tocada — 
 em `npm:svix@1.99.1` no teste do `resend-webhook`. Não há `deno.json` nem script npm para ele.
 
 **Commits:** 47 na sessão de validação (`a7fc5973`..`ecaa98e7`) + 6 na dos vereditos
-(`7a245d6a`..`c9bf7457`).
+(`7a245d6a`..`c9bf7457`). Todos **enviados** — `origin/main` está em dia desde 06/09 (§7.27).
 
 ---
 
 ## 2 · Os defeitos que valem lembrar (o padrão importa mais que a lista)
 
-Quatro famílias explicam quase tudo o que foi encontrado nas duas sessões. Elas vão se repetir.
+Cinco famílias explicam quase tudo o que foi encontrado nas três sessões. Elas vão se repetir.
 
 **a) O score que ninguém escrevia.** Dos três pesos da decisão final, **dois nunca chegavam ao
 consolidador**: a redação e a entrevista gravavam só nas suas tabelas próprias, e o consolidador
@@ -122,9 +147,22 @@ existe para contar. **A allowlist restritiva, que é uma decisão de privacidade
 de graça uma armadilha epistêmica no cliente.** Conserto: uma RPC `SECURITY DEFINER` que **lê**
 a coluna sensível sem **devolvê-la** (retorna booleano).
 
+**e) ⭐ O conserto correto que nunca foi servido.** *(nova, §7.27)* Os três vereditos estavam
+commitados e não enviados, enquanto a migration deles — aplicada por `p46apply.cjs`, que fala
+direto com o Supabase — já estava em PROD. **O apply do banco e o deploy do código saem por
+canais diferentes neste projeto**, então «apliquei» e «publiquei» são fatos independentes que a
+memória junta num só. O sintoma na tela (o cartão ausente) é **idêntico** ao de um conserto que
+não funciona, e acusaria um commit correto. Antes de investigar, prove que está servido:
+`git log origin/main..HEAD` e o marcador buscado no bundle — **no chunk certo**, porque rota
+`/rh/*` vira chunk lazy e procurar no índice eager dá falso negativo.
+
 > **A lição que atravessa as quatro:** quase todo defeito aqui era **silencioso**. Nenhum
 > derrubava a tela; todos entregavam um resultado plausível. O que os revelou foi sempre
 > comparar a tela com o banco, e nunca aceitar «a tela mostrou» como prova.
+>
+> E a (e) acrescenta o outro lado: o mesmo silêncio vale para a **procedência** do que você está
+> olhando. «A tela mostrou o antigo» é indistinguível de «o conserto falhou» até você conferir
+> qual build está no ar.
 
 ---
 
@@ -135,7 +173,7 @@ a coluna sensível sem **devolvê-la** (retorna booleano).
 | | Veredito | Commit | Estado |
 |---|---|---|---|
 | **A** · a cópia entrega o que o recrutador escreve (§7.22) | manter a allowlist, **avisar os dois lados** | `5123ef04` | ✅ completo |
-| **B** · explicação e revisão no knockout (§7.18) | **explicação sim, revisão não** (caminho 2) | `12ec4e42` + `cf4df6fc` | ✅ aplicado em PROD · ⏳ falta a conferência de tela (§0.1) |
+| **B** · explicação e revisão no knockout (§7.18) | **explicação sim, revisão não** (caminho 2) | `12ec4e42` + `cf4df6fc` | ✅ em PROD e **conferido na tela** (§7.27) |
 | **C** · a geração do guia leva 60–130 s (§7.25) | **travar o botão e mostrar o tempo** | `7a245d6a` | ✅ completo |
 
 **O que cada uma virou, em concreto:**
@@ -334,10 +372,11 @@ novo quebrava o `npm run test:run` até alguém lembrar de acrescentar a linha.
 
 ## 6 · Se eu fosse continuar agora
 
-1. **Conferir a decisão B na tela** (§0.1) — 30 min, e é a única verificação pendente de tudo
-   o que foi implementado.
-2. **Criar a conta RH3** (§0.2) — 10 min, fecha o bloco E inteiro.
-3. **Rodar G e H** (§0.3) — são seus, e o H é irreversível.
-4. **Limpeza do bloco I** (§3.4) e então divulgar as vagas.
+1. **Criar a conta RH3** (§0.2) — 10 min, fecha o bloco E inteiro.
+2. **Rodar G e H** (§0.3) — são seus, e o H é irreversível.
+3. **Limpeza do bloco I** (§3.4) e então divulgar as vagas.
+
+O **I2** (triagem das 40 janelas do `WINDOWS.md`) não depende de G/H e pode correr em paralelo
+com qualquer um deles.
 
 Nada disso depende de código novo. O que sobra do M8 é operação, decisão e limpeza.

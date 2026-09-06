@@ -721,6 +721,99 @@ estava simplesmente atrasado em relação a PROD:
 candidato. Roteiro de 4 passos no `RETOMAR-AQUI` §0.1 — inclusive o passo que mais importa,
 que é confirmar que a rejeição **humana** de triagem continua **sem** página.
 
+### 7.27 · A conferência da decisão B — e o que ela achou antes de chegar à tela — 2026-09-06, sessão seguinte
+
+O §0.1 mandava conferir na tela o que a sessão dos vereditos implementou. **O primeiro passo
+reprovou, e a causa não era o conserto.**
+
+**⛔ Os três vereditos não estavam em produção.** O `RETOMAR-AQUI` §0.1 dizia «o código está no
+ar e a migration aplicada». A metade do banco estava certa; a do código não. Entrei como T2, o
+cartão «Entenda a decisão sobre sua candidatura» **não apareceu** — e, em vez de concluir dali,
+a causa foi atrás por quatro vias independentes:
+
+| Via | O que disse |
+|---|---|
+| Bundle servido | `index-a8QT88iA.js` **sem** `explicacao_rejeicao_automatica`. Controle: o texto antigo do cartão LGPD **estava** lá — o método enxerga |
+| `git` | `origin/main..HEAD` = **7 commits**, com os três vereditos entre eles; nenhuma branch remota continha `12ec4e42` |
+| Vercel | Último deploy de produção = `e4a1cfbd`, o commit de handoff da sessão **de validação**. Todo deploy do projeto nasce de um push no `main` |
+| Build local | Gerou `index-UKiyiNOf.js` — nome diferente do servido, porque o conteúdo é diferente |
+
+**A forma do defeito:** a migration foi aplicada por `p46apply.cjs`, que fala direto com o
+Supabase e **não passa pelo git**. O código foi commitado e não enviado. O banco andou, o front
+ficou — e o registro afirmou «no ar» sobre as duas metades porque tinha visto uma. É a família
+«apply sem artefato» invertida: aqui o artefato existia, parado no disco local.
+
+⚠ **Se o §0.1 tivesse sido executado como escrito**, o cartão ausente teria sido lido como
+«o conserto `12ec4e42` não funcionou» — um diagnóstico falso sobre um commit correto que nunca
+chegou a rodar. **Antes de investigar um conserto que «não funcionou», prove que ele está
+servido.** Custa uma linha (`git log origin/main..HEAD`) e uma busca no bundle.
+
+**Push autorizado e feito:** `e4a1cfbd..1330f40c`, com `vitest` 1980/1980 e `npm run build`
+verde (47 chunks, `assert-chunks` passou) **antes** do push. Deploy `1330f40c` ficou `READY`.
+
+**Uma correção de método, no caminho.** A primeira sonda buscou os três marcadores só no índice
+eager e deu A e C ausentes **também depois** do deploy. Não era regressão: A e C vivem em rotas
+`/rh/*`, que o build separa em chunks lazy. Conferidos onde de fato moram:
+
+| Veredito | Marcador | Chunk servido |
+|---|---|---|
+| A · aviso da justificativa | «a justificativa entra na cópia de dados» | `RejeitarCandidaturaDialog-BH2d9l2-.js` ✅ |
+| B · RPC do knockout | `explicacao_rejeicao_automatica` | `index-UKiyiNOf.js` (eager) ✅ |
+| C · aviso de tempo | «Isso costuma levar de 1 a 2 minutos» | `EntrevistaWorkspace-DTIyvXZc.js` ✅ |
+
+Uma ausência num bundle só é evidência se você souber em qual bundle a coisa deveria estar.
+
+#### O resultado da conferência (T3, viewport 390×844, PROD)
+
+| Passo | Resultado |
+|---|---|
+| Cartão no painel | ✅ Aparece no knockout da Consultor — **nunca aparecia antes**. E aparece também na Social Media (decisão final humana), como deve |
+| Texto da explicação automática | ✅ «encerrada automaticamente na inscrição, **sem avaliação de uma pessoa**»; «nenhuma nota, análise ou perfil foi usado». O critério não vaza — não diz qual pergunta nem qual resposta (D-15) |
+| Revisão | ✅ **Sem CTA.** No lugar, «Se você quiser falar sobre esta decisão» + `lgpd@beautysmile.com.br` |
+| Caminho humano intacto | ✅ A MESMA conta, na Social Media: texto diferente («Após avaliarmos seu processo…») e o CTA de revisão presente (desabilitado — a T3 já pediu, §7.21). As duas origens, lado a lado, na mesma sessão |
+
+#### O passo 4 — provado melhor do que a tela provaria
+
+O roteiro mandava confirmar que a **rejeição humana de triagem** continua sem página. Duas
+descobertas:
+
+1. **Não existe nenhuma em PROD.** As três candidaturas rejeitadas são os dois knockouts e a
+   rejeição de **decisão final** da T3. As quatro candidaturas de teste estão em etapa terminal.
+2. **A expectativa escrita estava imprecisa, e o sistema é mais estrito do que ela supunha.**
+   `rejeitar_candidatura` grava `etapa_atual`, `status`, `motivo_rejeicao` e
+   `etapa_justificativa` — e **não** grava `feedback_rejeicao` nem `data_decisao_final`. Como o
+   portão do painel exige uma das duas, o resultado não é «o cartão leva a uma página vazia»:
+   é **o cartão não aparecer**.
+
+Como o predicado é do servidor, ele foi exercitado **no servidor**, com a sessão real da T3
+(REST `/rpc/explicacao_rejeicao_automatica`, chave publicável + token da sessão):
+
+| Caso | Resposta |
+|---|---|
+| Knockout **da própria** T3 | `true` ✅ |
+| Rejeitada **sem** knockout, da própria T3 | **`false`** ✅ — é o predicado do passo 4 |
+| Knockout **de outra pessoa** (T2) | `false` ✅ — a trava de titularidade morde, e sem oráculo de existência |
+| `id` inexistente | `false` ✅ |
+
+A trava está fechada em **duas camadas independentes**: o portão do painel (não mostra o cartão)
+e a RPC (responde `false` mesmo por URL direta). E a RPC casa contra a string literal
+`'knockout_automatico'` na mesma coluna onde o caminho humano grava um **enum**: os 6 valores de
+`motivo_rejeicao_rh` (`perfil_desalinhado`, `reprovado_avaliacao`, `reprovado_entrevista`,
+`nao_compareceu`, `desistencia`, `outro`) **não colidem**, e `opcao_knockout_id IS NOT NULL` é
+uma segunda condição independente que seguraria mesmo se um dia colidissem.
+
+**Não foi criada candidatura nova para ver a ausência na tela.** Ela sujaria os dados que o
+bloco I terá de limpar, para exibir uma ausência já provada na origem, guardada por teste
+(`explicacaoService.test.ts:430`) e agora medida em PROD pelos quatro casos acima — inclusive a
+trava de titularidade, que a conferência de tela nunca teria tocado.
+
+**Dois achados menores do mesmo passeio:**
+
+- **A T2 não serve para este teste.** A candidatura dela tem `encerrada_a_pedido_em` (resíduo do
+  §7.23) e o painel mostra «Você retirou sua candidatura». Não suprime o cartão — os dois blocos
+  são irmãos no JSX — mas confunde a leitura. Use a **T3**.
+- **`/login` é 404**; a rota é **`/auth/login`**.
+
 ---
 
 ## §8 · Fechamento da sessão de validação — 2026-09-06

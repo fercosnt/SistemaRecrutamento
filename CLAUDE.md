@@ -89,6 +89,25 @@ uma única vez, na criação) e não é preciso resetá-la.
 Aplicador: `p46apply.cjs` (`migrate` / `run` / `sql`). Se ele não estiver mais disponível, o
 contrato acima é suficiente para reescrevê-lo em ~100 linhas.
 
+#### ⚠ Esta via NÃO passa pelo git — e o código do front SAI POR OUTRO CANAL
+
+`p46apply.cjs` fala direto com o Supabase. O front-end é publicado pela **Vercel, a partir de um
+push no `main`**. São dois canais independentes, e foi por aí que, em 2026-09-06, a migration
+`20260906000007` ficou horas em PROD com o código que a chama **parado no disco local** — três
+commits feitos e não enviados (§7.27 do `GUIA-VALIDACAO-FINAL`).
+
+O que isso produz é pior que um deploy faltando: **o sintoma na tela é idêntico ao de um conserto
+que não funciona**, e leva a acusar um commit correto. Depois de todo apply cujo efeito é visível
+na interface:
+
+```bash
+git log --oneline origin/main..HEAD    # tem de sair VAZIO
+```
+
+E, para conferir que um marcador chegou mesmo ao ar, procure-o **no chunk certo**: rotas `/rh/*`
+e `/admin/*` viram chunks lazy, então buscar no índice eager dá **falso negativo**.
+`grep -rl "<marcador>" build/assets/` diz em qual arquivo ele mora.
+
 ### Portões: varra pela FORMA, não pelo sintoma
 
 A Phase 46 encontrou **três** asserções de smoke que congelavam um **instantâneo** e se
