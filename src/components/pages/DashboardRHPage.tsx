@@ -64,10 +64,16 @@ function useDashboardStats() {
         .from('candidaturas')
         .select('*', { count: 'exact', head: true });
 
+      // 2026-09-06: contava `status = 'aprovado_proxima'`, valor do enum que o funil
+      // do M2 em diante NUNCA grava (os status vivos sao aguardando_resposta,
+      // em_analise, finalizado). A tile dizia "0 Aprovados" com 5 candidaturas em
+      // etapa `aprovado` — mesma familia do "0 vagas ativas" de 26/08: filtro sobre
+      // um valor que nao existe vira zero plausivel. Aprovado e a ETAPA terminal.
       const { count: aprovados, error: erroAprovados } = await supabase
         .from('candidaturas')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'aprovado_proxima');
+        .eq('etapa_atual', 'aprovado')
+        .is('deleted_at', null);
 
       const { count: emAnalise, error: erroAnalise } = await supabase
         .from('candidaturas')
