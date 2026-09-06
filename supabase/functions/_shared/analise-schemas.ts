@@ -70,8 +70,8 @@ export const BarsDimension = z.object({
   name: z.string().describe("Nome da competência/dimensão"),
   score: Score1to5,
   level: z.union([BarsLevel, z.literal("insufficient_evidence")]),
-  // 2026-09-05: 500 → 1200. Ver o comentário em CvJobMatchSchema.reasoning.
-  reasoning: z.string().min(20).max(1200).describe("Análise ANTES do score (CoT)"),
+  // 2026-09-05: 500 → 1200 → 3000. Ver o comentário em CvJobMatchSchema.reasoning.
+  reasoning: z.string().min(20).max(3000).describe("Análise ANTES do score (CoT). Seja objetivo: até ~600 caracteres."),
   citations: z.array(Citation).max(3).describe("Evidências literais extraídas do input"),
 });
 
@@ -87,7 +87,14 @@ export const CvJobMatchSchema = z.object({
   //   caracteres não cabem cinco competências. A recusa virava
   //   `anthropic_retries_exhausted` e caía no gpt-4o-mini, que passa porque escreve
   //   pouco. O teto existe contra saída degenerada, não contra saída completa.
-  reasoning: z.string().min(50).max(4000).describe("Análise step-by-step ANTES do score (CoT)"),
+  //   SEGUNDA RODADA (C6, 00:00–00:06 de 06/09): com 4000, 3 de 17 análises do Sonnet
+  //   AINDA estouraram (`too_big, maximum: 4000`). O máximo do Zod não é honrado pela
+  //   geração estruturada da Anthropic — só recusa depois. Então: teto alto (12000)
+  //   como guarda contra saída degenerada, e o pedido de objetividade vai no
+  //   `describe`, que o modelo LÊ. Reasoning menor também é latência menor.
+  reasoning: z.string().min(50).max(12000).describe(
+    "Análise step-by-step ANTES do score (CoT). Seja objetivo: até ~2500 caracteres — cite a evidência e conclua, sem repetir o currículo.",
+  ),
 
   strengths: z
     .array(

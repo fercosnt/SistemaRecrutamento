@@ -421,7 +421,10 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         //   a saída era TRUNCADA em max_tokens=2048. A …0905000004 sobe para 4096; a
         //   ~60 tok/s isso pode passar de 55 s. 90 s → o ai-client limita a
         //   floor(140000/90000) = 1 tentativa (90 s + fallback ≈ 100 s < 150 s).
-        timeoutMs: 90_000,
+        //   C6 (06/09 00:06): 1 de 18 rodadas estourou 90 s («Request timed out», 96 s).
+        //   110 s + fallback OpenAI (~15 s) ainda cabe nos ~150 s; o pedido de
+        //   objetividade no schema (analise-schemas.ts) reduz a saída, e a latência.
+        timeoutMs: 110_000,
       },
       // zodOutputFormat/zodResponseFormat REAIS injetados — sem eles o callAi cai no
       // default no-op `(s)=>s` e manda o schema cru, quebrando AMBOS os provedores
