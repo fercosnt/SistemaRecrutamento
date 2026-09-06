@@ -69,7 +69,7 @@ import {
 import {
   verifyRecoveryOtp,
   setNewPassword,
-  tryAutoLogin,,
+  tryAutoLogin,
   destinoPosRedefinicao,
 } from '@/features/auth/services'
 import { isAuthError } from '@/features/auth/types'
