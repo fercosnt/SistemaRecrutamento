@@ -20,9 +20,14 @@
  * Uso:
  *   node efdeploy.cjs <slug> [--verify-jwt] [--dry-run]
  *
- * `verify_jwt` é FALSE por padrão porque as EFs deste projeto que recebem
- * `net.http_post` do banco autenticam o Bearer elas mesmas (service_role). Passe
- * --verify-jwt só para EF chamada pelo cliente com JWT de usuário.
+ * `verify_jwt`: decidido POR EF pela tabela VERIFY_JWT abaixo, e não por flag global.
+ *   ⚠ 2026-09-06: a primeira versão subia TUDO com false. As 5 EFs de IA que o
+ *   navegador invoca (functions.invoke com o JWT do usuário) estavam em true —
+ *   `exportar-meus-dados`, intocada, confirma o padrão — e o rebaixamento expôs um
+ *   preflight CORS que o gateway mascarava (OPTIONS sem Authorization → 401 do
+ *   wrapper). As EFs que recebem `net.http_post` do banco ou Bearer de segredo
+ *   autenticam sozinhas e ficam em false. `--verify-jwt` / `--no-verify-jwt`
+ *   sobrescrevem a tabela para um deploy específico.
  *
  * Token: Keychain do macOS, serviço "Supabase CLI", conta "supabase", ou a env
  * SUPABASE_ACCESS_TOKEN.
@@ -34,6 +39,33 @@ const { execFileSync } = require('child_process');
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || 'isljnozzlvckrgjjbjwp';
 const ROOT = path.join(__dirname, 'supabase');
+
+/* Quem chama cada EF decide o verify_jwt. Fonte: `functions.invoke('…')` em src/
+ * (cliente → true) versus triggers pg_net / Bearer de segredo (→ false). */
+const VERIFY_JWT = {
+  // invocadas pelo navegador com o JWT do usuário
+  'avaliar-redacao': true,
+  'avaliar-redacao-cultural': true,
+  'avaliar-transcricao-entrevista': true,
+  'comparativo-candidatos': true,
+  'consolidar-decisao-final': true,
+  'executar-direito-titular': true,
+  'exportar-meus-dados': true,
+  'gerar-guia-entrevista': true,
+  'gerenciar-usuario-rh': true,
+  'get-curriculo-url': true,
+  'submit-bigfive-final': true,
+  'submit-candidatura': true,
+  // servidor → servidor (pg_net com Vault Bearer, ou segredo próprio)
+  'analise-candidato-individual': false,
+  'gerar-devolutiva-bigfive': false,
+  'notificar-candidato': false,
+  'notificar-rh': false,
+  'purgar-retencao': false,
+  'cost-alerter': false,
+  'resend-webhook': false,
+  'cadastrar-candidato': false,
+};
 
 function die(msg) {
   console.error(`efdeploy: ${msg}`);
@@ -76,9 +108,16 @@ function closure(entry) {
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
-  const verifyJwt = args.includes('--verify-jwt');
   const slug = args.find((a) => !a.startsWith('--'));
-  if (!slug) die('uso: node efdeploy.cjs <slug> [--verify-jwt] [--dry-run]');
+  if (!slug) die('uso: node efdeploy.cjs <slug> [--verify-jwt|--no-verify-jwt] [--dry-run]');
+  if (!(slug in VERIFY_JWT) && !args.includes('--verify-jwt') && !args.includes('--no-verify-jwt')) {
+    die(`${slug} não está na tabela VERIFY_JWT — decida quem a chama e passe --verify-jwt ou --no-verify-jwt`);
+  }
+  const verifyJwt = args.includes('--verify-jwt')
+    ? true
+    : args.includes('--no-verify-jwt')
+      ? false
+      : VERIFY_JWT[slug];
 
   const entryAbs = path.join(ROOT, 'functions', slug, 'index.ts');
   const files = closure(entryAbs);
