@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { AVISO_JUSTIFICATIVA_VISIVEL } from '../constants/avisoJustificativa'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
 import {
   ETAPA_M2_LABELS,
@@ -180,7 +181,13 @@ export function RetrocederCandidaturaDialog({
               onChange={(e) => setJustificativa(e.target.value)}
               placeholder="Explique por que o candidato está voltando para esta etapa."
               rows={4}
+              aria-describedby="justificativa-retrocesso-visivel"
             />
+            {/* §7.22: o retrocesso grava `etapa_justificativa` pelo mesmo caminho da
+                rejeição — e esse campo entra na cópia de dados do Art. 18. */}
+            <p id="justificativa-retrocesso-visivel" className="text-sm text-muted-foreground">
+              {AVISO_JUSTIFICATIVA_VISIVEL}
+            </p>
           </div>
         </div>
 

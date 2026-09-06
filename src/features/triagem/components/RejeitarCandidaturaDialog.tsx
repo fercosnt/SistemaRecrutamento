@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/components/ui/utils'
+import { AVISO_JUSTIFICATIVA_VISIVEL } from '../constants/avisoJustificativa'
 import { useRejeitarCandidatura } from '../hooks/useRejeitarCandidatura'
 import type { MotivoRejeicaoRh } from '../services/triagemService'
 
@@ -179,12 +180,23 @@ export function RejeitarCandidaturaDialog({
               id="justificativa-rejeicao"
               value={justificativa}
               onChange={(e) => setJustificativa(e.target.value)}
-              placeholder="Descreva a base da rejeição. Esta justificativa fica registrada na trilha de auditoria."
+              placeholder="Descreva a base da rejeição. Fica na trilha de auditoria e o candidato pode baixá-la."
               rows={4}
               aria-describedby={
-                motivo !== null && tooShort ? 'justificativa-rejeicao-help' : undefined
+                motivo !== null && tooShort
+                  ? 'justificativa-rejeicao-help justificativa-rejeicao-visivel'
+                  : 'justificativa-rejeicao-visivel'
               }
             />
+            {/* §7.22: a justificativa vai para `etapa_justificativa`, que ENTRA na cópia
+                de dados do Art. 18. Quem escreve precisa saber quem lê — o aviso fica ao
+                lado do campo, no momento da escrita, e não num diálogo posterior. */}
+            <p
+              id="justificativa-rejeicao-visivel"
+              className="text-sm text-muted-foreground"
+            >
+              {AVISO_JUSTIFICATIVA_VISIVEL}
+            </p>
             {motivo !== null && tooShort ? (
               <p
                 id="justificativa-rejeicao-help"

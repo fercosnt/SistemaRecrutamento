@@ -501,8 +501,18 @@ export const COPY_PEDIR_COPIA = {
   comoChega:
     'Você recebe dois arquivos: um feito para você ler e outro em formato de dados, caso queira levar suas informações para outro lugar. Seu navegador pode pedir permissão para baixar mais de um arquivo — é normal, e os dois vêm do mesmo pedido.',
   oQueEstaTitulo: 'O que está na cópia',
+  /**
+   * ⚠ A segunda frase existe por decisão sobre §7.22 do GUIA-VALIDACAO-FINAL. A cópia
+   * SEMPRE incluiu `candidaturas.etapa_justificativa` (o texto integral escrito pelo
+   * recrutador) e o `score_match` da análise — a allowlist os marca
+   * `inventario:preservar_com_ressalva`, de propósito: acesso (Art. 18, II) é mais
+   * amplo que explicação (Art. 20). O defeito não era o conteúdo, era a descrição:
+   * dizer só «o resultado e a explicação das avaliações» deixava o titular abrir o
+   * arquivo e encontrar mais do que a tela prometeu. Uma cópia mais generosa que a
+   * promessa ainda é uma promessa errada.
+   */
   oQueEsta:
-    'Seu cadastro, suas candidaturas, o que você autorizou, suas entrevistas agendadas, o histórico de cada candidatura, e o resultado e a explicação das avaliações que você fez.',
+    'Seu cadastro, suas candidaturas, o que você autorizou, suas entrevistas agendadas, o histórico de cada candidatura, e o resultado e a explicação das avaliações que você fez. Entram também as anotações que a equipe de recrutamento escreveu ao mover ou encerrar a sua candidatura e as notas que o sistema calculou sobre ela — são dados a seu respeito, e por isso a lei garante que você os receba.',
   oQueNaoEstaTitulo: 'O que não está na cópia',
   oQueNaoEsta:
     'Não entram os registros internos de funcionamento do sistema — por exemplo, o tempo e o custo de processamento das nossas ferramentas de tecnologia. Eles descrevem o sistema, não você.',
