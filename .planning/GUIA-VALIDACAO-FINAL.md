@@ -409,3 +409,16 @@ Leituras: **o eliminatório morde no Sonnet** — Beatriz 32/32/32, Juliana 18 (
 quase nula onde ele responde (Larissa 93/93/95, Beatriz 32×3, Camila 47/48/45). Rafael 68/72 e Thiago 52
 ficam no meio, como calibrado. A ordem calibrada (teto > meio > piso) se mantém em todas as rodadas.
 O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60/55, Juliana 30).
+
+### 7.6 · Bloco C, primeira entrada como RH2 (recrutador) — 06/09 01:00
+
+| Achado | Estado |
+|---|---|
+| **Login de RH numa aba com sessão de candidato ativa falha com 406** — a consulta a `usuarios_rh` sai com o token antigo (`auth.uid()` ≠ RH2), `.single()` volta vazio, a tela não navega e não explica. Com a sessão limpa, entra. | aberto — o `signIn` do RH deveria fazer `signOut` da sessão anterior antes, ou o erro deveria ser dito na tela |
+| **Recrutador não vê candidato nenhum.** Hook mapeia `recrutador → rh`; `rh_le_candidaturas` exige `vagas.created_by = auth.uid()`; não há tela de criar vaga → o papel não alcança nada (dashboard «0 Candidatos» com 7 candidaturas). O BD-8 já registrava «ramo rh morto por construção»; hoje ficou visível. | **decisão de produto**: (a) recrutador vira administrador; (b) policy passa a honrar `vagas_associadas_recrutadores` (tabela existe, 0 linhas, nenhuma policy a lê); (c) tela de criar vaga |
+| `/rh/pedidos-dados` abre para o recrutador e diz «Nenhum pedido» — há 2; a fila é do administrador e a tela não avisa | copy/guard |
+| `/rh/configuracoes` redireciona o recrutador (guard ✅), mas «Configurações» segue no menu dele | menu por papel |
+| `/rh/revisoes` abre vazio para o recrutador (sem pendências ou escopo) | conferir com pedido real (T2) |
+| Saudação «Olá, fernandinho.costa.neto+rh2» usa o local-part do e-mail, não o nome («RH2») | copy |
+| Config do Auth em PROD: `site_url` era `localhost:5173`, allow-list só localhost, e-mail de código sem dizer onde digitar | ✅ corrigido pelo operador com `authconfig.cjs` (backup gravado) |
+| Pós-redefinição de senha mandava RH para `/candidato/perfil` | ✅ `96c2d12` |
