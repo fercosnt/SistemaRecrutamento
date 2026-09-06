@@ -354,3 +354,28 @@ exclusão (ficam para a conta T3 sua ou para uma `+claude2` minha).
 | Migration `…0905000001` (rubricas): literais `E''` em linhas separadas não concatenam em PL/pgSQL | 42601 no primeiro apply | reescrita com `\|\|`, **aplicada** (md5 `26ba7c0f…`); rubricas conferidas |
 | Migration `…0905000002` (fictícios Social Media) | **aplicada**; Larissa **100** · Thiago **56** · Juliana **30** — ordem calibrada, eliminatório mordeu | ✅ (via gpt-4o-mini — reavaliar depois do timeout) |
 | Minha candidatura `0b1c887b`: reprocessada pela EF v20 | `sucesso`, score 80, 5 pontos fortes com citação, 3 gaps com evidência — o NUL sanitizado passou. ⚠ gap `[critical]` «há pelo menos 1 ano… confirmado na pergunta 7» contradiz CV (3 anos) e Etapa 1 («entre 2 e 4») — é o gpt-4o-mini | ✅ B10 fecha; qualidade fica para o Sonnet |
+
+### 7.2 · Terceira camada da IA — 23:41
+
+Com o teto de 55 s a Anthropic **respondeu** (~40 s) e o parse falhou: «Unterminated string in JSON
+at position 6445» — a saída do Sonnet era **truncada em `max_tokens: 2048`** (5 BARS + citações +
+gaps + reasoning + competency_scores não cabem). Parse falho → `anthropic_retries_exhausted` →
+`gpt-4o-mini`, cuja saída terse cabe. Cada camada escondia a seguinte: log morto → timeout de 25 s →
+truncamento. O `RETOMAR-AQUI` de 23/08 previa exatamente este risco.
+
+Conserto: migration `…0905000004` (`max_tokens` 2048 → 4096, **aplicada**) + `timeoutMs: 90 s`
+na EF (1 tentativa; 90 s + fallback < 150 s). EF v22 no ar às 23:48. Medição pendente: `provider=anthropic`,
+`success=true`, `output_token_count` < 4096.
+
+Também consertado no front (`82c60c6`): a lista mostrava «1 candidato» ao **candidato** logado
+(`includeCounts = !!user` do Plan 25-09 vazava para quem não é RH); e `hasUserApplied` não entrava
+na chave de cache — recém-inscrito, o card ainda dizia «Candidatar-se».
+
+### 7.3 · Quarta camada — 23:47
+
+Com `max_tokens` 4096 e 90 s (EF v22) o Sonnet devolveu o **JSON inteiro** (54 s) — e o **Zod recusou**:
+`too_big, maximum: 1500` em `CvJobMatchSchema.reasoning` (BARS `reasoning` max 500). A rubrica manda
+raciocinar competência a competência antes de pontuar; 1500 caracteres não cabem cinco. A recusa vira
+`anthropic_retries_exhausted` → `gpt-4o-mini`, que passa porque escreve pouco. Tetos → 4000 / 1200
+(`analise-schemas.ts`, Deno 160/160). **Exige redeploy** de `analise-candidato-individual` (e
+`comparativo-candidatos`, que embarca o mesmo arquivo). Medição pendente: `provider=anthropic`.

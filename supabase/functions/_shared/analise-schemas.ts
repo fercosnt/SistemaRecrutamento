@@ -70,7 +70,8 @@ export const BarsDimension = z.object({
   name: z.string().describe("Nome da competência/dimensão"),
   score: Score1to5,
   level: z.union([BarsLevel, z.literal("insufficient_evidence")]),
-  reasoning: z.string().min(20).max(500).describe("Análise ANTES do score (CoT)"),
+  // 2026-09-05: 500 → 1200. Ver o comentário em CvJobMatchSchema.reasoning.
+  reasoning: z.string().min(20).max(1200).describe("Análise ANTES do score (CoT)"),
   citations: z.array(Citation).max(3).describe("Evidências literais extraídas do input"),
 });
 
@@ -80,7 +81,13 @@ export const BarsDimension = z.object({
 // ============================================================================
 
 export const CvJobMatchSchema = z.object({
-  reasoning: z.string().min(50).max(1500).describe("Análise step-by-step ANTES do score (CoT)"),
+  // ⚠ 2026-09-05: 1500 → 4000. Com max_tokens=4096 e teto de 90 s, o Sonnet finalmente
+  //   devolveu o JSON INTEIRO — e o Zod recusou: `too_big, maximum: 1500` neste campo.
+  //   A rubrica manda raciocinar competência a competência ANTES de pontuar; 1500
+  //   caracteres não cabem cinco competências. A recusa virava
+  //   `anthropic_retries_exhausted` e caía no gpt-4o-mini, que passa porque escreve
+  //   pouco. O teto existe contra saída degenerada, não contra saída completa.
+  reasoning: z.string().min(50).max(4000).describe("Análise step-by-step ANTES do score (CoT)"),
 
   strengths: z
     .array(
