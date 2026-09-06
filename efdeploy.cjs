@@ -89,13 +89,30 @@ async function main() {
   for (const f of files) console.log(`  ${rel(f)}  (${fs.statSync(f).size} bytes)`);
   if (dryRun) return console.log('efdeploy: --dry-run, nada enviado.');
 
+  // Import map: `supabase/functions/deno.json` resolve os especificadores puros
+  // ("zod" → npm:zod@3.25.76). Sem ele o bundler recusa qualquer EF cujo _shared
+  // importe "zod" sem prefixo — medido em 2026-09-05 em 3 das 7 EFs de IA
+  // (avaliar-transcricao-entrevista, avaliar-redacao-cultural, gerar-guia-entrevista).
+  // O CLI sempre o enviava; este script passou a enviar também.
+  const denoJson = path.join(ROOT, 'functions', 'deno.json');
+  const importMap = fs.existsSync(denoJson) ? rel(denoJson) : undefined;
+  if (importMap) console.log(`  ${importMap}  (import map)`);
+
   const form = new FormData();
   form.append(
     'metadata',
-    JSON.stringify({ entrypoint_path: entrypoint, name: slug, verify_jwt: verifyJwt })
+    JSON.stringify({
+      entrypoint_path: entrypoint,
+      name: slug,
+      verify_jwt: verifyJwt,
+      ...(importMap ? { import_map_path: importMap } : {}),
+    })
   );
   for (const f of files) {
     form.append('file', new Blob([fs.readFileSync(f)], { type: 'text/typescript' }), rel(f));
+  }
+  if (importMap) {
+    form.append('file', new Blob([fs.readFileSync(denoJson)], { type: 'application/json' }), importMap);
   }
 
   const res = await fetch(
