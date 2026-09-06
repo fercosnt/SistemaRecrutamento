@@ -391,3 +391,21 @@ Qualidade: pontos fortes citando CV **e** Etapa 1 («disponibilidade confirmada 
 ⚠ **Toda análise gravada antes de 23:53 de 2026-09-05 é do `gpt-4o-mini`** — incluindo os 67/68/20
 da Consultor e os 100/56/30 da Social Media. Não servem de baseline. O C6 (3× por fictício, Sonnet)
 está rodando; resultado em `scratchpad/c6.tsv` e na tabela abaixo quando fechar.
+
+### 7.5 · C6 — variância do Sonnet (18 rodadas, 06/09 00:00–00:08)
+
+S = Sonnet · g = caiu no gpt-4o-mini (3× `reasoning` > 4000 chars, 1× timeout 96 s → consertados em `81a431f`, pendente redeploy).
+
+| Fictício | Vaga | Rodadas (provider) | Sonnet: scores | gpt-4o-mini: scores | Δ Sonnet |
+|---|---|---|---|---|---|
+| Rafael | Consultor | S g S | 68/72 | 64 | 4 |
+| Camila | Consultor | S S S | 47/48/45 | — | 3 |
+| Beatriz | Consultor | S S S | 32/32/32 | — | 0 |
+| Larissa | Social Media | S S S | 93/93/95 | — | 2 |
+| Thiago | Social Media | g g S | 52 | 60/55 | — |
+| Juliana | Social Media | S g S | 18/18 | 30 | 0 |
+
+Leituras: **o eliminatório morde no Sonnet** — Beatriz 32/32/32, Juliana 18 (5 gaps) — e com variância
+quase nula onde ele responde (Larissa 93/93/95, Beatriz 32×3, Camila 47/48/45). Rafael 68/72 e Thiago 52
+ficam no meio, como calibrado. A ordem calibrada (teto > meio > piso) se mantém em todas as rodadas.
+O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60/55, Juliana 30).
