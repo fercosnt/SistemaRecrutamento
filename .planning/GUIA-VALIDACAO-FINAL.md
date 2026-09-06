@@ -486,3 +486,11 @@ verde só aparece ligando o filtro; a copy poderia dizer «1 verde oculta». C1 
 | E1 | ✅ / ⚠→✅ | Avançar (agora com SJT e redação feitos) → Entrevista Online; «Agendar entrevista»: data (calendário), horário, modalidade, link, entrevistador, observações. Gravou `agendamentos_entrevista` (10/09 14:00, online, link, `agendado_por` RH2), e-mail **`convite` entregue**. Tela: «Agendada · 10 de set 2026 às 14:00», comparecimento (Compareceu/Não/Pendente), Reagendar/Cancelar. ⚠ **`observacoes_rh` foi ao banco como NULL** apesar de preenchido: o `Textarea` (padrão shadcn React 19) não tinha `forwardRef`; no React 18 o `ref` do `register()` era descartado. Consertado na base (`14937ed`) com teste; era o único `Textarea` registrado por `register()` |
 | — | ℹ | Badge «Revisões 2» no menu do admin: os 2 pedidos pendentes são **dados de teste** (fixture p46 de 2024 e «Candidato Funil Teste» de junho), não pessoas — entram na limpeza I3 |
 | D9 | ⚠ | Não há bloco de scores consolidados com os pesos da vaga no perfil; «Avaliação Assíncrona» diz só «1 registro de avaliação comportamental» (é o SJT); «Redação» segue dizendo «na fila de revisão» após revisada |
+
+### 7.13 · E2 — 06/09 02:30–04:31
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| E2 | ✅ / ⚠ | «Gerar guia (entrevista online)» → 5 perguntas STAR/PEI com âncoras BARS 1–5, uma por competência; `entrevista_guias` gravado (8,6 KB); «Editar guia» habilita. ⚠ Tags de competência mostram **chaves internas** (`work_sample_sjt`, `redacao_cultural`, `triagem`). ⚠ **Sem log de IA**: `23503` — a EF passava `candidatura_id` como `candidato_id` (FK para `candidatos`); e caiu no `gpt-4o-mini` (60 s × 2 = 137 s). Consertados em `163709fa` — **redeploy pendente** de `gerar-guia-entrevista` e `avaliar-transcricao-entrevista` |
+| — | ⛔→✅ | Workspace de entrevista dizia «Sem horário definido» com agendamento gravado: lia `vagas.entrevista_agendada_em` (campo por vaga, nunca escrito). Passa a ler `agendamentos_entrevista` (`d643a89`); ao vivo: «Faltam 5 dias · 10/09/2026 às 14:00». ⚠ sobrou o sufixo «(manual no V1)» na copy |
+| — | ℹ | A sessão do RH expirou no intervalo de ~2 h entre a geração e o «continuar» (`sessao_expirada`) — comportamento esperado |
