@@ -449,3 +449,10 @@ O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60
 | — | ⚠ | Dedupe de notificação `candidatura:avanco` → **um único e-mail de avanço por candidatura, para sempre**; o retrocesso não notifica. Decisão de produto (incluir a etapa na chave?) |
 | — | ⚠ | Console: Select/RadioGroup «uncontrolled → controlled» no diálogo de retroceder e no SJT (higiene React) |
 | — | ⚠ | Preventivo (`a109109`): `timeoutMs` 110 s em avaliar-redacao, avaliar-redacao-cultural, gerar-devolutiva-bigfive; tetos de texto dos schemas — **redeploy das 7 EFs pendente** |
+
+### 7.9 · D4, o envio — 06/09 01:51
+
+| Achado | Estado |
+|---|---|
+| **Enviar redação morreu em CORS**: o preflight `OPTIONS` do `avaliar-redacao-cultural` voltava **401 da própria função** — o wrapper `Deno.serve` exigia `Authorization` antes de delegar ao `handler` (que trata `OPTIONS`). Com `verify_jwt=true` o gateway respondia o preflight sozinho e escondia a ordem errada; o redeploy do `efdeploy.cjs` (que sobe com `false`) expôs. Mesmo defeito em `avaliar-redacao`; as outras 5 EFs de IA tratam `OPTIONS` primeiro. | consertado (`ab5a586`) — **redeploy pendente**; redação da T1 fica no rascunho até lá |
+| Rascunho da redação restaurado ao vivo (258 palavras) após o deploy `299b90e` | ✅ (o cronômetro recomeça — tempo decorrido não é persistido) |
