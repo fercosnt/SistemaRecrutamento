@@ -456,3 +456,16 @@ O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60
 |---|---|
 | **Enviar redação morreu em CORS**: o preflight `OPTIONS` do `avaliar-redacao-cultural` voltava **401 da própria função** — o wrapper `Deno.serve` exigia `Authorization` antes de delegar ao `handler` (que trata `OPTIONS`). Com `verify_jwt=true` o gateway respondia o preflight sozinho e escondia a ordem errada; o redeploy do `efdeploy.cjs` (que sobe com `false`) expôs. Mesmo defeito em `avaliar-redacao`; as outras 5 EFs de IA tratam `OPTIONS` primeiro. | consertado (`ab5a586`) — **redeploy pendente**; redação da T1 fica no rascunho até lá |
 | Rascunho da redação restaurado ao vivo (258 palavras) após o deploy `299b90e` | ✅ (o cronômetro recomeça — tempo decorrido não é persistido) |
+
+### 7.10 · D4 fechado — 06/09 02:18
+
+Após o redeploy (wrappers com `OPTIONS` antes da auth; `verify_jwt` por EF): preflight **200**, envio
+passou, «Redações concluídas.» ✅. `redacoes_candidato`: score ponderado **100**, cor **verde**, D1–D4 = 5,
+`status_analise = pendente_humano` (revisão do RH), `tempo_gasto_segundos = 142`, `model_version =
+claude-sonnet-4-6`. `ai_call_logs`: `provider=anthropic`, **26,7 s** — com o teto antigo de 25 s teria caído no
+fallback por 1,7 segundo.
+
+⚠ Bug meu na restauração do rascunho (`299b90e`): o texto voltava à caixa, mas o buffer do autosave ficava
+vazio; o `flushNow()` do Enviar gravou `{}` por cima e a tentativa que morreu em CORS **apagou a redação**.
+Corrigido em `f7937a5` (a restauração semeia o buffer). Lição: restaurar estado visível sem restaurar o
+estado que o próximo passo consome é pior que não restaurar.
