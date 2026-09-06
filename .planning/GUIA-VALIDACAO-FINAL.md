@@ -570,3 +570,17 @@ verde só aparece ligando o filtro; a copy poderia dizer «1 verde oculta». C1 
 | — | ✅ | «Registrar decisão» exige justificativa de 50 caracteres e confirma em diálogo («Esta decisão finaliza o funil… fica registrada na trilha de auditoria»). Gravou `decisao_final` (aprovado, RH2, justificativa), `candidaturas.etapa_atual=aprovado`, `status=finalizado`, `data_decisao_final` |
 | — | ✅ | E-mail **entregue** com a copy de **aprovação**: «Boa notícia sobre sua candidatura — Social Media…», prévia «Boa notícia sobre a sua candidatura.» Conferido na caixa real. O `dedupe_key` é `{candidatura}:decisao` |
 | — | ℹ | A recomendação da IA no painel é advisory e diz isso na própria tela («Sugestão da IA — decisão é sempre humana»), sem número de score fora do breakdown |
+
+### 7.21 · E7, E8 e E9 — revisão do Art. 20 — 06/09 12:21–12:30
+
+Como o knockout não abre explicação nem revisão (§7.18), criei a **T3** («Claude Teste Revisao», `+claude3@`) com currículo propositalmente fraco, inscrevi na Social Media, avancei o funil como RH e **rejeitei na decisão final** — que é onde o Art. 20 existe hoje.
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| — | ✅ | Com as avaliações puladas, a recomendação diz a verdade em vez de inventar: «Nenhuma etapa avaliável concluída — sem agregado disponível. Etapas não avaliadas: work_sample_sjt, redacao_cultural, entrevista (não ponderadas)» |
+| — | ✅ | O diálogo de rejeição é **diferente** do de aprovação e avisa o RH: «Esta decisão finaliza o funil e o candidato poderá pedir que uma pessoa revise esta decisão (LGPD, Art. 20)» |
+| — | ✅ | No painel da candidata, o cartão rejeitado traz «Entenda a decisão sobre sua candidatura» com o botão de explicação — e, com o conserto de `8aadddb2`, **sem** estimativa de prazo e **sem** «Próximo passo» |
+| E7 | ✅ | `/candidato/explicacao/:id`: resultado em linguagem honesta, «Por que esta decisão» com texto **templated** (nunca a justificativa interna do RH), e o direito de revisão explícito. Pedir revisão gravou `revisao_solicitada_em` **e** `explicacao_solicitada_em` (o carimbo de visita), disparou `revisao_solicitada` ao RH (**entregue**), e o botão virou «Você já solicitou a revisão desta decisão» — idempotente |
+| E8 | ✅ | `/rh/revisoes`: fila ordenada do pedido mais antigo para o mais recente (898d, 72d, 0d), coluna «Quem decidiu», selo de acompanhamento («Atrasado · 898d», «Em dia · 0d») e a copy dizendo que **o prazo é interno da equipe e nunca é exibido ao candidato** — o Art. 20 não fixa prazo. Contador do menu «Revisões 3» ≡ 3 linhas |
+| E9 | ✅ **no servidor** | A UI já desabilita o botão para quem decidiu, com a razão escrita. Chamei a RPC `responder_revisao_decisao` **direto**, com o JWT do próprio RH2: **HTTP 403, código 42501, «quem registrou a decisao nao pode responder a revisao dela (decisor)»**. Mensagem específica, não erro genérico. `decisao_final` ficou intacta (sem veredito, não respondida) |
+| E10 | ⏳ **bloqueado** | Precisa de uma **segunda conta de RH** para responder. Preenchi «Novo usuário» (RH3 Revisor, `+rh3@`, papel Administrador) em `/rh/configuracoes`, mas a criação de conta é uma ação que o meu ambiente bloqueia. **Fica para você**: criar o usuário na tela, ou me dizer para pular |
