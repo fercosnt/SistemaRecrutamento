@@ -422,3 +422,17 @@ O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60
 | Saudação «Olá, fernandinho.costa.neto+rh2» usa o local-part do e-mail, não o nome («RH2») | copy |
 | Config do Auth em PROD: `site_url` era `localhost:5173`, allow-list só localhost, e-mail de código sem dizer onde digitar | ✅ corrigido pelo operador com `authconfig.cjs` (backup gravado) |
 | Pós-redefinição de senha mandava RH para `/candidato/perfil` | ✅ `96c2d12` |
+
+### 7.7 · Bloco C como administrador (RH2 promovido) — 06/09 01:17–01:33
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| C1 | ⚠→✅ | 2 vagas ✅ · «28 Candidatos» = 28 candidaturas (rótulo) · 9 em análise ✅ · **«0 Aprovados» com 5 em etapa `aprovado`** — a tile filtrava `status='aprovado_proxima'`, valor que o funil nunca grava. Corrigido (`1c1f093`) |
+| C3 | ✅ | Triagem da Social Media: 95 / 93 / 52 / 18, pontos fortes com citação, gaps com evidência e severidade — Thiago com `critical` citando «Não faço a captação…» do CV; Juliana com os dois eliminatórios citados da Etapa 1 e do CV |
+| C5 | ✅ / ⚠ | Comparativo 4 candidatos: ranking coerente (1–4), pontos fortes/gaps relativos, justificativa. ⚠ Levou ~90 s, `provider=openai` (sem `timeoutMs`) e **o log de IA falhava (22P02: `candidato_id="comparativo"` não é uuid)** — nenhum comparativo jamais foi auditado. ⚠ Copy: «C1/C2/C3/C4» (rótulos do prompt) na tela; «permitindo uma clara desclassificação»; «~30 segundos». Tudo consertado em `57e46b7` — **redeploy pendente** |
+| C7 | ✅ | Histórico: «Sistema · 5 de set, 21:43» e, após o avanço, «**RH2** · 6 de set, 01:21». ⚠ A lista não recarrega após a ação (cache) — só no reload |
+| C8 | ✅ | Avançar → `avaliacao_assincrona`; e-mail `avanco` **entregue em <1 s**; `historico_candidatura` +1 com `ator` = RH2 |
+| **C9** | **⛔** | Avançar de Avaliação Assíncrona para **Entrevista Online passou sem aviso nem confirmação**, com o SJT obrigatório não feito. Avançar não tem diálogo; Retroceder tem (destino + justificativa obrigatória, trilha) — a assimetria é o defeito |
+| C10 | — | não feito ainda |
+| — | ⚠ | Recrutador (antes da promoção): ver §7.6 |
+| — | ⚠ | Fictícios `@exemplo.com` — domínio **com MX**; 6 e-mails de teste entregues a terceiros. Migration `…0906000001` aplicada: `@invalido.local` |
