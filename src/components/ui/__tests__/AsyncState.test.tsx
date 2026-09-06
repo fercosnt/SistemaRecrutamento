@@ -60,7 +60,7 @@ describe('<AsyncState> — 18-UI-SPEC States Contract (RESIL-03)', () => {
 
     expect(screen.getByText('Estamos processando com IA…')).toBeInTheDocument()
     expect(
-      screen.getByText('Isso pode levar até ~30 segundos. Não feche esta tela.'),
+      screen.getByText('Isso pode levar até ~2 minutos. Não feche esta tela.'),
     ).toBeInTheDocument()
   })
 

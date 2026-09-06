@@ -56,7 +56,8 @@ export type AsyncStateCopyOverride = {
 const COPY: AsyncStateCopy = {
   slow: {
     heading: 'Estamos processando com IA…',
-    body: 'Isso pode levar até ~30 segundos. Não feche esta tela.',
+    // 2026-09-06: com o Sonnet (saída íntegra, ~50–90 s) o «~30 segundos» virou promessa falsa.
+    body: 'Isso pode levar até ~2 minutos. Não feche esta tela.',
   },
   error: {
     heading: 'Não foi possível concluir agora.',

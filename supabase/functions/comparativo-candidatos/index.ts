@@ -258,9 +258,15 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
         prompt: resolved,
         rawInput: compactInput,
         vagaRubricBlock: `Vaga: ${body.vaga_id}`,
-        candidato_id: "comparativo",
+        // 2026-09-06: era o literal "comparativo" → ai_call_logs.candidato_id é uuid →
+        //   INSERT falhava com 22P02 e NENHUM comparativo era auditado nem custeado.
+        candidato_id: null,
         vaga_id: body.vaga_id,
         schema: ComparativeRankingSchema,
+        // 2026-09-06: sem override, o teto default de 25 s × 3 tentativas dava 91 s de
+        //   `anthropic_retries_exhausted` e o ranking saía do gpt-4o-mini (medido).
+        //   Mesmo conserto da analise-candidato-individual: 110 s, 1 tentativa.
+        timeoutMs: 110_000,
         // idempotency_key DELIBERADAMENTE ausente — o comparativo SEMPRE roda fresh
         // no V1 (CONTEXT: sem reuso de cache); cada solicitação gera nova auditoria.
       },

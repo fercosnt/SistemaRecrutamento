@@ -201,7 +201,8 @@ interface CallAiArgs {
   prompt: ResolvedPrompt;
   rawInput: string;
   vagaRubricBlock: string;
-  candidato_id: string;
+  /** null para chamadas sem titular único (comparativo) — a coluna de ai_call_logs é nullable; um literal como "comparativo" quebrava o INSERT com 22P02 (uuid). */
+  candidato_id: string | null;
   vaga_id: string;
   /** Zod schema para structured output; opcional nos testes mockados. */
   schema?: unknown;
@@ -600,7 +601,7 @@ interface FallbackArgs {
   prompt: ResolvedPrompt;
   maskedInput: string;
   vagaRubricBlock: string;
-  candidato_id: string;
+  candidato_id: string | null;
   vaga_id: string;
   schema?: unknown;
   idempotency_key?: string;

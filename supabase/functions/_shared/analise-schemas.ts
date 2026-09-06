@@ -137,7 +137,9 @@ export type CvJobMatch = z.infer<typeof CvJobMatchSchema>;
 // ============================================================================
 
 export const ComparativeRankingSchema = z.object({
-  reasoning: z.string().min(100).max(2000).describe("Análise comparativa ANTES do ranking"),
+  // 2026-09-06: 2000 → 12000 (guarda contra saída degenerada; o pedido de objetividade
+  //   vai no describe, que o modelo lê). Ver CvJobMatchSchema.reasoning.
+  reasoning: z.string().min(100).max(12000).describe("Análise comparativa ANTES do ranking. Seja objetivo: até ~3000 caracteres."),
 
   ranked_candidates: z
     .array(
@@ -147,7 +149,7 @@ export const ComparativeRankingSchema = z.object({
         composite_score: z.number().int().min(0).max(100),
         relative_strengths: z.array(z.string()).max(3).describe("Pontos fortes vs OUTROS candidatos"),
         relative_weaknesses: z.array(z.string()).max(3),
-        rationale: z.string().min(30).max(500).describe("Por que está nesta posição vs vizinhos"),
+        rationale: z.string().min(30).max(2000).describe("Por que está nesta posição vs vizinhos. Objetivo, até ~400 caracteres. A decisão é sempre humana: não use 'desclassificado' nem 'eliminado'."),
       }),
     )
     .min(2)
