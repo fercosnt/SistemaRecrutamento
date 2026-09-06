@@ -187,6 +187,7 @@ export function EntrevistaWorkspace() {
                 guia={guia ?? null}
                 loading={loadingGuia}
                 generating={gerarGuia.isPending}
+                generateError={!!gerarGuia.error}
                 onGerar={(tipo) => gerarGuia.mutate(tipo)}
                 onSaveEdits={(vars) => saveEdits.mutate(vars)}
                 saving={saveEdits.isPending}

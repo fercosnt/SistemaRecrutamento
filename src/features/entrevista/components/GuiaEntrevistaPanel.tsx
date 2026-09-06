@@ -90,7 +90,26 @@ const COPY = {
   errHeading: 'Não foi possível salvar agora.',
   errGeneric: 'Verifique a conexão e tente novamente.',
   errPermission: 'Você não tem permissão para editar este guia.',
+  // Generation in-flight / failure — §7.25 do GUIA-VALIDACAO-FINAL. A geração leva
+  // 60-130 s e a tela precisa DIZER isso: sem o aviso, quem usa clica de novo, duas
+  // execuções correm juntas e a última a terminar grava por cima (pode ser a pior).
+  gerando: 'Gerando…',
+  gerandoHeading: 'Gerando o guia com a IA…',
+  gerandoBody:
+    'Isso costuma levar de 1 a 2 minutos. Não feche nem recarregue a página, e não clique de novo — duas gerações ao mesmo tempo se sobrescrevem.',
+  gerarErrHeading: 'Não foi possível confirmar a geração.',
+  gerarErrBody:
+    'A geração pode ter continuado no servidor mesmo sem resposta aqui. Espere o contador antes de tentar de novo — recarregue a página primeiro para ver se o guia chegou.',
+  gerarErrEspera: (s: number) => `Aguarde ${s}s para tentar de novo`,
 } as const
+
+/**
+ * Cooldown after a FAILED generation, in seconds. A rejected fetch does NOT mean the
+ * server stopped: §7.25 mediu POSTs voltando «Failed to fetch» em ~1 s enquanto a
+ * execução anterior ainda rodava por ~2 min. Reabilitar o botão na hora convida
+ * exatamente a segunda execução concorrente que sobrescreve o guia.
+ */
+const GERAR_COOLDOWN_S = 60
 
 /** Reads the perguntas array off the EF `guia` JSON (defensive). */
 function perguntasOf(guia: EntrevistaGuiaRow | null): GuiaPergunta[] {
@@ -381,6 +400,8 @@ export interface GuiaEntrevistaPanelProps {
   saveError?: boolean
   /** The save error code (FORBIDDEN/insufficient_privilege → permission copy). */
   saveErrorCode?: string
+  /** The last generate attempt rejected → cooldown + "may still be running" copy. */
+  generateError?: boolean
   className?: string
 }
 
@@ -398,6 +419,7 @@ export function GuiaEntrevistaPanel({
   saving = false,
   saveError = false,
   saveErrorCode,
+  generateError = false,
   className,
 }: GuiaEntrevistaPanelProps) {
   const perguntas = useMemo(() => perguntasOf(guia), [guia])
@@ -408,6 +430,28 @@ export function GuiaEntrevistaPanel({
   const [draft, setDraft] = useState<GuiaPergunta[]>(perguntas)
   // Dirty when the draft diverges from the last-saved guide.
   const [dirty, setDirty] = useState(false)
+
+  // §7.25: seconds left on the post-failure cooldown. Ticks down once a second while
+  // positive; armed by a generateError edge, disarmed when a new generation starts.
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (generating) {
+      setCooldown(0)
+      return
+    }
+    if (generateError) setCooldown(GERAR_COOLDOWN_S)
+  }, [generating, generateError])
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  // The generate CTAs are blocked while a generation is in flight AND during the
+  // cooldown that follows a failure.
+  const gerarBloqueado = generating || cooldown > 0
 
   // Reset the draft whenever the saved guide changes (e.g. after a successful save
   // invalidates the query) — and exit edit mode so the saved guide shows in view.
@@ -504,22 +548,47 @@ export function GuiaEntrevistaPanel({
             <button
               type="button"
               onClick={() => onGerar?.('online')}
-              disabled={generating}
+              disabled={gerarBloqueado}
               className="min-h-[44px] rounded-lg border border-white/20 bg-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/30 disabled:opacity-50"
             >
               <Sparkles className="mr-1 inline h-4 w-4 text-[#35BFAD]" aria-hidden="true" />
-              Gerar guia (entrevista online)
+              {generating
+                ? COPY.gerando
+                : cooldown > 0
+                  ? COPY.gerarErrEspera(cooldown)
+                  : 'Gerar guia (entrevista online)'}
             </button>
             <button
               type="button"
               onClick={() => onGerar?.('presencial')}
-              disabled={generating}
+              disabled={gerarBloqueado}
               className="min-h-[44px] rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20 disabled:opacity-50"
             >
               <Sparkles className="mr-1 inline h-4 w-4 text-[#35BFAD]" aria-hidden="true" />
-              Gerar guia (entrevista presencial)
+              {generating
+                ? COPY.gerando
+                : cooldown > 0
+                  ? COPY.gerarErrEspera(cooldown)
+                  : 'Gerar guia (entrevista presencial)'}
             </button>
           </div>
+          {/* §7.25: o tempo esperado, dito na tela. Sem isto o RH assume que travou. */}
+          {generating ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-white/20 bg-white/10 p-3"
+            >
+              <p className="text-sm font-semibold text-white">{COPY.gerandoHeading}</p>
+              <p className="mt-1 text-sm text-white/75">{COPY.gerandoBody}</p>
+            </div>
+          ) : null}
+          {!generating && generateError ? (
+            <div role="alert" className="rounded-lg border border-white/20 bg-white/10 p-3">
+              <p className="text-sm font-semibold text-white">{COPY.gerarErrHeading}</p>
+              <p className="mt-1 text-sm text-white/75">{COPY.gerarErrBody}</p>
+            </div>
+          ) : null}
           {guia?.tipo === 'presencial' ? (
             <p className="text-sm font-semibold text-white/75">
               Foco nos gaps da entrevista online (dimensões com score &lt; 4).

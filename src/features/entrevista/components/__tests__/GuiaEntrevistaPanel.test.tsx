@@ -206,3 +206,61 @@ describe('GuiaEntrevistaPanel — edit mode (ENTREV-06/07/08)', () => {
     expect(screen.getAllByText('Âncoras BARS 1–5').length).toBeGreaterThan(0)
   })
 })
+
+/**
+ * §7.25 do GUIA-VALIDACAO-FINAL — a geração leva 60-130 s e a tela não dizia isso, então
+ * o RH clicava de novo; duas execuções corriam juntas e a ÚLTIMA a terminar gravava por
+ * cima (na medição, o guia salvo foi o do fallback com 5 perguntas, não o do Sonnet com 7).
+ *
+ * O buraco não era o duplo clique com a mutation pendente — esse já estava fechado. Era o
+ * caminho do ERRO: um POST rejeitado em ~1 s («Failed to fetch», limite de concorrência do
+ * Edge Function) reabilitava o botão enquanto a execução anterior seguia rodando por ~2 min
+ * no servidor. Daí o cooldown.
+ */
+describe('GuiaEntrevistaPanel — geração: tempo esperado e cooldown (§7.25)', () => {
+  const CTA = 'Gerar guia (entrevista online)'
+
+  it('em repouso, a CTA está habilitada e não promete tempo nenhum', () => {
+    render(<GuiaEntrevistaPanel guia={null} onGerar={vi.fn()} />)
+    expect(screen.getByRole('button', { name: CTA })).toBeEnabled()
+    expect(screen.queryByText(/1 a 2 minutos/)).not.toBeInTheDocument()
+  })
+
+  it('gerando: as DUAS CTAs travam e a tela diz quanto tempo isso leva', () => {
+    render(<GuiaEntrevistaPanel guia={null} generating onGerar={vi.fn()} />)
+    const botoes = screen.getAllByRole('button', { name: /Gerando…/ })
+    expect(botoes.length).toBe(2)
+    botoes.forEach((b) => expect(b).toBeDisabled())
+    expect(screen.getByRole('status')).toHaveTextContent(/1 a 2 minutos/)
+  })
+
+  it('a mutation pendente não deixa clicar de novo (nenhum onGerar dispara)', () => {
+    const onGerar = vi.fn()
+    render(<GuiaEntrevistaPanel guia={null} generating onGerar={onGerar} />)
+    screen.getAllByRole('button', { name: /Gerando…/ }).forEach((b) => fireEvent.click(b))
+    expect(onGerar).not.toHaveBeenCalled()
+  })
+
+  it('erro: a CTA NÃO volta na hora — cooldown com contador e o aviso de execução em voo', () => {
+    const onGerar = vi.fn()
+    render(<GuiaEntrevistaPanel guia={null} generateError onGerar={onGerar} />)
+    // As DUAS CTAs entram em espera — o servidor é o mesmo, o limite também.
+    const botoes = screen.getAllByRole('button', { name: /Aguarde 60s para tentar de novo/ })
+    expect(botoes.length).toBe(2)
+    botoes.forEach((b) => {
+      expect(b).toBeDisabled()
+      fireEvent.click(b)
+    })
+    expect(onGerar).not.toHaveBeenCalled()
+    // E o texto diz a verdade: o fetch falhou, a execução pode não ter falhado.
+    expect(screen.getByRole('alert')).toHaveTextContent(/pode ter continuado no servidor/)
+  })
+
+  it('o cooldown zera quando uma nova geração começa (não empilha)', () => {
+    const { rerender } = render(<GuiaEntrevistaPanel guia={null} generateError />)
+    expect(screen.getAllByRole('button', { name: /Aguarde 60s/ }).length).toBe(2)
+    rerender(<GuiaEntrevistaPanel guia={null} generating />)
+    expect(screen.queryByText(/Aguarde/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Gerando…/ }).length).toBe(2)
+  })
+})
