@@ -85,7 +85,9 @@ const WORD_MAX = 200;
 // interpretativo desta dimensão. Os bounds de `palavras` casam com WORD_MIN/WORD_MAX
 // (antes 100-250, divergente do gate inRange 150-200 → schema aceitava saídas que o
 // gate depois rejeitava, forçando retry/degrade desnecessário e desperdício de IA).
-const PaginaSchema = z.object({
+// Exportado para o portão _shared/__tests__/structured-output-compat.test.ts (o guard
+// `import.meta.main` abaixo torna o import deste módulo inerte).
+export const PaginaSchema = z.object({
   texto_interpretativo: z.string().min(50),
   palavras: z.number().int().min(WORD_MIN).max(WORD_MAX),
 });

@@ -57,7 +57,12 @@ export const Score1to5 = z.union([
 // Citação (evidência textual extraída — "Cite Before You Speak").
 export const Citation = z.object({
   text: z.string().describe("Trecho LITERAL extraído do input — máximo 200 caracteres"),
-  location: z.string().optional().describe(
+  // `.nullable()` é OBRIGATÓRIO junto de `.optional()`: o strict mode da OpenAI proíbe
+  // optional puro e o SDK LANÇA ao montar o schema — dentro do fallback do ai-client.
+  // Até 2026-09-06 faltava aqui e em `preprocessing.notes`: o fallback da análise de
+  // transcrição nunca funcionou (500 toda vez que a Anthropic falhava). Portão:
+  // _shared/__tests__/structured-output-compat.test.ts. Espelha analise-schemas.ts.
+  location: z.string().nullable().optional().describe(
     "Onde foi encontrado (ex: 'CV - Experiência 2'; 'Transcrição - 03:45')",
   ),
 });
@@ -121,7 +126,7 @@ export const TranscriptAnalysisSchema = z.object({
     disfluencies_normalized: z.boolean(),
     accent_corrections_applied: z.boolean(),
     correction_count: z.number().int().min(0),
-    notes: z.string().optional(),
+    notes: z.string().nullable().optional(), // ver Citation.location
   }),
 
   competency_evaluations: z

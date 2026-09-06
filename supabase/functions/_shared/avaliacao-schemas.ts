@@ -57,7 +57,7 @@ export const Citation = z.object({
   text: z.string().describe("Trecho LITERAL extraído do input — máximo 200 caracteres"),
   location: z
     .string()
-    .optional()
+    .nullable().optional()
     .describe("Onde foi encontrado (ex: 'Resposta - parágrafo 2')"),
 });
 
@@ -69,7 +69,7 @@ export const WorkSampleScoringSchema = z.object({
   scenario_understanding: z.object({
     candidate_understood_scenario: z.boolean(),
     scenario_id: z.string(),
-    notes: z.string().optional(),
+    notes: z.string().nullable().optional(), // .nullable() obrigatorio: strict mode OpenAI (ver structured-output-compat.test.ts, 2026-09-06)
   }),
 
   dimension_scores: z.array(z.object({

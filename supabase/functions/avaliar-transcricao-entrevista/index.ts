@@ -58,6 +58,7 @@ import {
   deriveLanguageAccentFlag,
   type TranscriptAnalysisSlice,
 } from "./_local/derive-flags.ts";
+import { buildBarsRubricBlock } from "./_local/bars-rubric.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")`
 // escondia o pacote da lista de deps do deploy → ERR_MODULE_NOT_FOUND. NÃO copiar.
 import Anthropic from "npm:@anthropic-ai/sdk@0.102.0";
@@ -182,16 +183,36 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
     if (!candRow) {
       return errorResponse("FORBIDDEN", "Acesso negado.", 403);
     }
+    const { data: vagaRow } = await supabaseAdmin
+      .from("vagas")
+      .select("titulo, created_by")
+      .eq("id", candRow.vaga_id)
+      .maybeSingle();
     if (role === "rh") {
-      const { data: vagaRow } = await supabaseAdmin
-        .from("vagas")
-        .select("created_by")
-        .eq("id", candRow.vaga_id)
-        .maybeSingle();
       if (!vagaRow || vagaRow.created_by !== user.id) {
         return errorResponse("FORBIDDEN", "Acesso negado.", 403);
       }
     }
+
+    // ── 4b. Rubrica BARS = âncoras do(s) guia(s) de entrevista desta candidatura.
+    //   ⚠ Até 2026-09-06 o bloco era `Vaga: <uuid>` — ver _local/bars-rubric.ts.
+    //   O guia é insumo, não pré-requisito: falha de leitura → bloco "sem âncoras".
+    let guias: unknown[] = [];
+    try {
+      const { data: guiaRows } = await supabaseAdmin
+        .from("entrevista_guias")
+        .select("guia")
+        .eq("candidatura_id", body.candidatura_id)
+        .order("created_at", { ascending: true });
+      guias = Array.isArray(guiaRows) ? guiaRows.map((g: { guia?: unknown }) => g?.guia ?? null) : [];
+    } catch {
+      guias = [];
+    }
+    const barsRubricBlock = buildBarsRubricBlock({
+      vagaTitulo: (vagaRow as { titulo?: string | null } | null)?.titulo ?? null,
+      vagaId: candRow.vaga_id,
+      guias,
+    });
 
     // ── 5. Resolve o prompt transcript_analysis + callAi (transcrição UNTRUSTED) ─
     let resolved: ResolvedPrompt;
@@ -213,7 +234,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
         prompt: resolved,
         // Transcrição UNTRUSTED — callAi mascara PII + detecta injeção por dentro.
         rawInput: body.transcricao,
-        vagaRubricBlock: `Vaga: ${candRow.vaga_id}`,
+        vagaRubricBlock: barsRubricBlock,
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: TranscriptAnalysisSchema,

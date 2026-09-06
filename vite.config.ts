@@ -19,91 +19,15 @@
       exclude: [
         ...configDefaults.exclude,
         'scripts/**',
-        'supabase/functions/**/ai-client.test.ts',
-        'supabase/functions/**/ai-cost.test.ts',
-        'supabase/functions/**/circuit-breaker.test.ts',
-        'supabase/functions/**/injection-detector.test.ts',
-        'supabase/functions/**/pii-masker.test.ts',
-        // Phase 10 EF integration tests (Deno, https:// specifiers — run under `deno test`,
-        // not Vitest; their RED scaffolds landed in 10-01 and were left out of this list).
-        'supabase/functions/analise-candidato-individual/**/*.test.ts',
-        'supabase/functions/comparativo-candidatos/**/*.test.ts',
-        // Phase 11 EF integration test (Deno, https:// specifiers — run under `deno test`,
-        // not Vitest; RED scaffold landed in 11-01, impl in the Phase-11 EF wave).
-        'supabase/functions/avaliar-redacao/**/*.test.ts',
-        // Phase 18 / Plan 18-02 (RESIL-02): the bigfive devolutiva Deno test moved
-        // into __tests__/ (matching the _shared/__tests__/ convention). It uses
-        // https://deno.land + npm: specifiers → run under `deno test`, not Vitest.
-        'supabase/functions/gerar-devolutiva-bigfive/**/*.test.ts',
-        // Phase 18 post-merge gate: two Deno `__tests__/` tests using https://deno.land
-        // specifiers were never added to this list (essay-schemas from Phase 13;
-        // consolidar-decisao-final golden test from Phase 15, extended by 18-03 FIX-01).
-        // They run under `deno test`, not Vitest → exclude to keep `npm run test:run` green.
-        'supabase/functions/_shared/__tests__/essay-schemas.test.ts',
-        'supabase/functions/consolidar-decisao-final/**/*.test.ts',
-        // Phase 23 (AI stack revival): three new Deno-only `_shared/__tests__/` tests using
-        // npm:/https:// specifiers → run under `deno test`, not Vitest. NOT a broad
-        // `_shared/__tests__/**` glob because strict-schema.test.ts in the same dir is a
-        // Vitest-only Node probe that must keep running under Vitest.
-        'supabase/functions/_shared/__tests__/prompt-loader.test.ts',
-        'supabase/functions/_shared/__tests__/prompt-catch.test.ts',
-        'supabase/functions/_shared/__tests__/cost-alerter-messages.test.ts',
-        // Phase 28 (gestão de usuários RH): the gerenciar-usuario-rh EF handler
-        // test uses https:// specifiers (Deno) → run under `deno test`, not Vitest.
-        'supabase/functions/gerenciar-usuario-rh/**/*.test.ts',
-        // Phase 36 / DELIV-03 (sender identity + fail-safe de modo): the email-config
-        // suite imports `https://deno.land/std` assert → runs under `deno test`, not
-        // Vitest. Literal path on purpose — never a directory-wide glob, since
-        // strict-schema.test.ts in the same dir is a Vitest-only Node probe.
-        'supabase/functions/_shared/__tests__/email-config.test.ts',
-        // Phase 38 (EF notificar-candidato): the .ics port, email-templates, and EF
-        // handler Deno tests import `https://deno.land/std` assert + use Deno.* globals →
-        // run under `deno test`, not Vitest. Literal paths on purpose — never a
-        // `_shared/__tests__/**` glob (strict-schema.test.ts must keep running under Vitest).
-        'supabase/functions/_shared/__tests__/ics.test.ts',
-        'supabase/functions/_shared/__tests__/email-templates.test.ts',
-        'supabase/functions/notificar-candidato/**/*.test.ts',
-        // Phase 41 (reconciliação de entrega): the resend-webhook EF test imports
-        // `https://deno.land/std` assert AND `npm:svix@1.99.1` → runs under `deno test`,
-        // not Vitest. Same literal-path convention as above.
-        'supabase/functions/resend-webhook/**/*.test.ts',
-        // Phase 42 (notificação ao RH da revisão Art. 20): notificar-rh importa
-        // `https://deno.land/std` assert → roda sob `deno test`, não Vitest. Mesma
-        // convenção de caminho literal das entradas acima. A ausência desta linha
-        // deixou `npm run test:run` não-zero em todo o repositório desde o 42-07:
-        // a falha é de CARGA do módulo ESM ("Only URLs with a scheme in: file and
-        // data are supported"), não de asserção — nenhum teste passou a reprovar.
-        'supabase/functions/notificar-rh/**/*.test.ts',
-        // Phase 43 (consentimentos honestos): o teste do hash do texto de
-        // consentimento importa `https://deno.land/std` assert → roda sob
-        // `deno test`, não Vitest. Caminho LITERAL, nunca glob de diretório —
-        // `strict-schema.test.ts` mora na mesma pasta e é sonda Vitest que
-        // precisa continuar rodando.
-        'supabase/functions/_shared/__tests__/consent-hash.test.ts',
-        'supabase/functions/_shared/__tests__/autorizacoes-registro.test.ts',
-        // Phase 44 (exportação & acesso): a EF `exportar-meus-dados` importa
-        // `createClient` de `https://esm.sh` e seu teste importa
-        // `https://deno.land/std` assert → roda sob `deno test`, não Vitest.
-        // O teste dela mora em `__tests__/`, que é EXATAMENTE o que o `include`
-        // acima coleta. Caminho LITERAL, nunca glob de diretório.
-        // ⚠ A linha nasce ANTES do teste de propósito (plano 44-01, Task 1):
-        // uma entrada de `exclude` apontando para caminho inexistente é no-op
-        // inofensivo; uma entrada que chega DEPOIS do teste deixa
-        // `npm run test:run` vermelho no intervalo entre dois commits.
-        'supabase/functions/exportar-meus-dados/**/*.test.ts',
-        // Phase 46 (purga automática): a EF `purgar-retencao` é o executor
-        // destrutivo disparado por cron; seu teste importa `https://deno.land/std`
-        // assert e usa globais `Deno.*` → roda sob `deno test`, NÃO sob Vitest.
-        // Caminho LITERAL, nunca glob de diretório — `_shared/__tests__/strict-schema.test.ts`
-        // mora numa pasta vizinha e é sonda Vitest que precisa continuar rodando.
-        // ⚠ A linha nasce ANTES do teste de propósito (plano 46-05, Task 1):
-        // uma entrada de `exclude` apontando para caminho inexistente é no-op
-        // inofensivo; uma que chega DEPOIS deixa `npm run test:run` vermelho no
-        // intervalo entre dois commits — e a falha seria de CARGA do módulo,
-        // não de asserção (o precedente negativo da Phase 42, acima).
-        // ⚠ O teste desta EF mora em `index.test.ts` na RAIZ da pasta (layout de
-        // `executar-direito-titular`), não em `__tests__/`; `**/*.test.ts` cobre os dois.
-        'supabase/functions/purgar-retencao/**/*.test.ts',
+        // Testes das Edge Functions rodam sob `deno test` (CI: `deno test … supabase/functions`),
+        // nunca sob Vitest — importam `https://deno.land`, `npm:` e usam `Deno.*`. Até
+        // 2026-09-06 esta lista era LITERAL, um arquivo por linha, e cresceu em oito fases
+        // (10, 11, 13, 15, 18, 23, 28, 36, 38, 41…): cada teste Deno novo quebrava o
+        // `npm run test:run` até alguém acrescentar a linha dele aqui. Um portão que
+        // itera sobre lista literal não vigia o objeto novo. Agora exclui pela FORMA —
+        // todo *.test.ts sob supabase/functions/ — com UMA exceção nomeada:
+        // strict-schema.test.ts, que é uma sonda Node/Vitest de texto-fonte (Phase 8).
+        'supabase/functions/**/!(strict-schema).test.ts',
       ],
       coverage: {
         provider: 'v8',

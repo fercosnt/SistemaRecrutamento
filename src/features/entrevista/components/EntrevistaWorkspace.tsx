@@ -97,6 +97,26 @@ export function EntrevistaWorkspace() {
     if (saveEdits.isSuccess) toast.success('Edições do guia salvas.')
   }, [saveEdits.isSuccess])
 
+  // 2026-09-06 (E3 do guia de validação): a análise da transcrição falhava com 500 e a
+  // tela não dizia NADA — o botão só voltava a "Analisar transcrição", como se nada
+  // tivesse acontecido. O serviço já produz a mensagem em pt-BR; faltava mostrá-la.
+  function handleAnalisar(transcricao: string) {
+    analisar.mutate(transcricao, {
+      onError: (e) =>
+        toast.error(
+          e instanceof Error ? e.message : 'Não foi possível analisar a transcrição. Tente novamente.',
+        ),
+    })
+  }
+  function handleConfirmarRevisao(analiseId: string) {
+    confirmarRevisao.mutate(analiseId, {
+      onError: (e) =>
+        toast.error(
+          e instanceof Error ? e.message : 'Não foi possível confirmar a revisão. Tente novamente.',
+        ),
+    })
+  }
+
   function handleSalvarAvaliacao(payload: { scoresHumanos: Record<string, number>; notas: string }) {
     salvarAvaliacao.mutate(payload, {
       onSuccess: () => SCORECARD_TOAST.success(),
@@ -186,8 +206,8 @@ export function EntrevistaWorkspace() {
                 loading={loadingAnalise}
                 analyzing={analisar.isPending}
                 confirming={confirmarRevisao.isPending}
-                onAnalisar={(t) => analisar.mutate(t)}
-                onConfirmarRevisao={(analiseId) => confirmarRevisao.mutate(analiseId)}
+                onAnalisar={handleAnalisar}
+                onConfirmarRevisao={handleConfirmarRevisao}
               />
             </Glass>
           </TabsContent>
