@@ -110,9 +110,23 @@ export function LoginRHPage() {
       // On a cold DB connection that round-trip can exceed 100ms, so the prior
       // 5×20ms bound raced ahead of role population and false-rejected a valid
       // admin (signOut → "sem acesso" → bounced to /vagas). We poll up to
-      // 60×50ms = 3s, exiting AS SOON AS role is populated (warm logins stay
-      // ~instant). setTimeout(0) is REJECTED here (research §Pitfall 1).
-      for (let i = 0; i < 60 && !useAuthStore.getState().role; i++) {
+      // 60×50ms = 3s, exiting AS SOON AS the store reflects THIS user (warm
+      // logins stay ~instant). setTimeout(0) is REJECTED here (research §Pitfall 1).
+      //
+      // ⚠ 2026-09-06: a condição de parada era só `!role`. Com uma sessão de
+      //   CANDIDATO ainda no armazenamento (o mesmo navegador que acabou de testar o
+      //   fluxo público, ou alguém que é candidato e também RH), `role` JÁ estava
+      //   preenchido — com 'candidato', do usuário anterior. O laço saía na primeira
+      //   volta, o gate lia o papel velho e um administrador legítimo era deslogado
+      //   com «Esta conta não tem acesso ao painel RH» (e um 406 no console, do
+      //   fetchProfile do candidato batendo em usuarios_rh). Esperar «existe papel»
+      //   não é esperar «existe papel DESTE usuário»: a condição tem de ser a
+      //   IDENTIDADE, e a sessão recém-criada é quem a define.
+      const { data: sessionData } = await supabase.auth.getSession()
+      const novoUserId = sessionData.session?.user?.id ?? null
+      for (let i = 0; i < 60; i++) {
+        const estado = useAuthStore.getState()
+        if (estado.role && (!novoUserId || estado.user?.id === novoUserId)) break
         await new Promise((r) => setTimeout(r, 50))
       }
       const role = useAuthStore.getState().role
