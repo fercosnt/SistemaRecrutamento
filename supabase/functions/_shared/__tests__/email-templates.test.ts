@@ -209,6 +209,15 @@ Deno.test("T-42-V1 — par (subject, preheader) de convite_entrevista", () => {
   assertEquals(extrairPreheader(html), "Você foi convidado(a) para uma entrevista.");
 });
 
+Deno.test("2026-09-06 — convite_entrevista REAGENDADO: assunto, prévia e abertura mudam; anexo .ics continua", () => {
+  const { subject, html } = renderarEmail("convite_entrevista", { ...DADOS, reagendada: true });
+  assertEquals(subject, "Entrevista reagendada — Dentista Clínico Geral");
+  assertEquals(extrairPreheader(html), "Sua entrevista foi reagendada — confira a nova data.");
+  assert(html.includes("foi <strong>reagendada</strong>"), "abertura deve dizer que foi reagendada");
+  assert(!html.includes("Você está convidado(a)"), "não pode parecer um convite novo");
+  assert(html.includes(".ics"), "o .ics atualiza o evento no calendário (mesmo UID)");
+});
+
 Deno.test("T-42-V1 — par (subject, preheader) de decisao_final · desfecho aprovado", () => {
   const { subject, html } = renderarEmail("decisao_final", { ...DADOS, desfecho: "aprovado" });
   assertEquals(subject, "Boa notícia sobre sua candidatura — Dentista Clínico Geral");

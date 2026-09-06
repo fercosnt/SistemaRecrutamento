@@ -68,6 +68,11 @@ interface CorpoRequisicao {
   candidatura_id: string;
   agendamento_id?: string;
   /**
+   * 2026-09-06: `true` quando o trigger disparou por UPDATE de data_hora/tipo/local
+   * (reagendamento). Muda a chave de dedupe (por data_hora) e a copy do e-mail.
+   */
+  reagendamento?: boolean;
+  /**
    * P41 / RECON-03: presente APENAS quando a varredura `pg_cron`
    * (`varrer_retry_notificacoes`) reenvia. Sinaliza o BRANCH RETRY — a EF re-tenta
    * a linha EXISTENTE por id em vez de reivindicar uma nova (claim-before-send).
@@ -131,17 +136,21 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     if (raw.retry_id !== undefined && typeof raw.retry_id !== "string") {
       return errorResponse("VALIDATION", "retry_id inválido.");
     }
+    if (raw.reagendamento !== undefined && typeof raw.reagendamento !== "boolean") {
+      return errorResponse("VALIDATION", "reagendamento inválido.");
+    }
     body = {
       evento: raw.evento as EventoLedger,
       candidatura_id: raw.candidatura_id,
       agendamento_id: raw.agendamento_id ?? undefined,
+      reagendamento: raw.reagendamento === true,
       retry_id: typeof raw.retry_id === "string" && raw.retry_id ? raw.retry_id : undefined,
     };
   } catch {
     return errorResponse("VALIDATION", "JSON malformado.");
   }
 
-  const { evento, candidatura_id, agendamento_id, retry_id } = body;
+  const { evento, candidatura_id, agendamento_id, retry_id, reagendamento } = body;
 
   // No caminho normal a 1ª falha grava tentativas=1; no branch retry incrementamos
   // a partir da linha existente (row.tentativas + 1). Fixado logo abaixo (2b).
@@ -259,7 +268,13 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   const eventoNotif = mapearEvento(evento);
   const modo = resolverModo();
   const dest = resolverDestinatario(candidato.email, eventoNotif, modo);
-  const dedupe_key = montarDedupeKey(evento, candidatura_id, agendamento_id);
+  const dedupe_key = montarDedupeKey(
+    evento,
+    candidatura_id,
+    agendamento_id,
+    // reagendamento: a data nova versiona a chave (ver montarDedupeKey).
+    reagendamento && agendamento ? agendamento.data_hora : undefined,
+  );
 
   // ---- 5) Claim-before-send (ON CONFLICT dedupe_key DO NOTHING) --------------
   // SÓ no caminho normal. No branch retry a linha já existe (carregada em 2b) e
@@ -347,6 +362,7 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     dataHoraFmt,
     localOuLink: agendamento?.local_ou_link ?? null,
     tipoEntrevista: agendamento?.tipo ?? undefined,
+    reagendada: evento === "convite" && reagendamento === true,
     // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado
     // com corpo ids-only (sem discriminador). O desfecho vem de `etapa_atual`, que a EF já
     // resolve acima. Sem isto, TODO aprovado recebia a COPY_REJEICAO.

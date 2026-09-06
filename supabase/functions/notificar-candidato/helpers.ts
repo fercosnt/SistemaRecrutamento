@@ -78,12 +78,17 @@ export function montarDedupeKey(
   e: EventoLedger,
   candidaturaId: string,
   agendamentoId?: string,
+  versao?: string,
 ): string {
   if (e === "convite") {
     if (!agendamentoId) {
       throw new Error("convite exige agendamento_id para o dedupe_key");
     }
-    return `${agendamentoId}:convite`;
+    // 2026-09-06 (E4 do guia): um REAGENDAMENTO reenvia o convite do MESMO agendamento com
+    // outra data. A chave sem versão já foi consumida pelo convite original e engoliria o
+    // reenvio em silêncio (a candidata ficaria com a data antiga na agenda). A `data_hora`
+    // nova discrimina — reagendar duas vezes para a MESMA data continua dedupado.
+    return versao ? `${agendamentoId}:convite:${versao}` : `${agendamentoId}:convite`;
   }
   return `${candidaturaId}:${e}`;
 }

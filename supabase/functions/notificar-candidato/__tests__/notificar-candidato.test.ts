@@ -28,6 +28,12 @@ import {
 
 Deno.test("COMM-01 — dedupe_key: convite usa agendamento_id; demais usam candidatura_id", () => {
   assertEquals(montarDedupeKey("convite", "cand-1", "agd-9"), "agd-9:convite");
+  // 2026-09-06: reagendamento versiona pela data nova; a chave original fica intacta.
+  assertEquals(
+    montarDedupeKey("convite", "cand-1", "agd-9", "2026-09-10T13:00:00+00:00"),
+    "agd-9:convite:2026-09-10T13:00:00+00:00",
+  );
+  assertEquals(montarDedupeKey("avanco", "cand-1", undefined, "ignorado"), "cand-1:avanco");
   assertEquals(montarDedupeKey("avanco", "cand-1"), "cand-1:avanco");
   assertEquals(montarDedupeKey("confirmacao", "cand-1"), "cand-1:confirmacao");
   assertEquals(montarDedupeKey("decisao", "cand-1"), "cand-1:decisao");

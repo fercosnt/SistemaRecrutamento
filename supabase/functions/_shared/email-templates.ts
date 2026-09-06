@@ -87,6 +87,8 @@ export interface DadosEmail {
   dataHoraFmt?: string; // já formatado em America/Sao_Paulo pela EF
   localOuLink?: string | null;
   tipoEntrevista?: string;
+  /** Convite reenviado por REAGENDAMENTO (2026-09-06): muda assunto, prévia e abertura. */
+  reagendada?: boolean;
   /**
    * Desfecho da decisão (só o evento `decisao_final` usa). A EF deriva de
    * `candidaturas.etapa_atual`, que ela já busca na allowlist. Ausente/qualquer outro valor
@@ -161,10 +163,15 @@ function corpoAvanco(d: DadosEmail): string {
 function corpoConvite(d: DadosEmail): string {
   const quando = d.dataHoraFmt ? escapeHtml(d.dataHoraFmt) : "";
   const onde = d.localOuLink ? escapeHtml(d.localOuLink) : "";
+  const abertura = d.reagendada
+    ? `Sua entrevista referente à vaga <strong>${
+      escapeHtml(d.tituloVaga)
+    }</strong> foi <strong>reagendada</strong>. Confira os novos dados:`
+    : `Você está convidado(a) para uma entrevista referente à vaga <strong>${
+      escapeHtml(d.tituloVaga)
+    }</strong>.`;
   return `${saudacao(d)}
-<p style="margin:0 0 16px;">Você está convidado(a) para uma entrevista referente à vaga <strong>${
-    escapeHtml(d.tituloVaga)
-  }</strong>.</p>
+<p style="margin:0 0 16px;">${abertura}</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
 ${quando ? `<tr><td style="padding:4px 0;"><strong>Quando:</strong> ${quando}</td></tr>` : ""}
 ${onde ? `<tr><td style="padding:4px 0;"><strong>Onde:</strong> ${onde}</td></tr>` : ""}
@@ -233,7 +240,10 @@ ${veredito ? `<p style="margin:0 0 16px;">${escapeHtml(veredito)}</p>` : ""}
 export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   candidatura_recebida: (d) => `Recebemos sua candidatura — ${d.tituloVaga}`,
   avaliacao_liberada: (d) => `Sua candidatura avançou — ${d.tituloVaga}`,
-  convite_entrevista: (d) => `Convite de entrevista — ${d.tituloVaga}`,
+  convite_entrevista: (d) =>
+    d.reagendada
+      ? `Entrevista reagendada — ${d.tituloVaga}`
+      : `Convite de entrevista — ${d.tituloVaga}`,
   decisao_final: (d) =>
     d.desfecho === "aprovado"
       ? `Boa notícia sobre sua candidatura — ${d.tituloVaga}`
@@ -265,7 +275,10 @@ const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
 const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   candidatura_recebida: () => "Recebemos a sua candidatura na Beauty Smile.",
   avaliacao_liberada: () => "Sua candidatura avançou — nova etapa liberada.",
-  convite_entrevista: () => "Você foi convidado(a) para uma entrevista.",
+  convite_entrevista: (d) =>
+    d.reagendada
+      ? "Sua entrevista foi reagendada — confira a nova data."
+      : "Você foi convidado(a) para uma entrevista.",
   decisao_final: (d) =>
     d.desfecho === "aprovado"
       ? "Boa notícia sobre a sua candidatura."
