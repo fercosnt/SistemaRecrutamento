@@ -25,6 +25,7 @@
  * @see supabase/migrations (salvar_avaliacao_entrevista RPC + avancar_etapa flag guard, 14-03/14-04)
  */
 import { supabase } from '@/lib/supabase/client'
+import type { StatusAgendamento } from '@/features/agendamento/services/agendamentoService'
 import { extractEfErrorCode } from '@/lib/efErrors'
 import type { Json } from '@/../database.types'
 
@@ -188,6 +189,34 @@ export interface EntrevistaContextoRow {
 // ── Reads (allowlist projections) ────────────────────────────────────────────
 
 /**
+ * Os status em que um agendamento ainda VALE — o que o painel deve exibir como horário.
+ *
+ * ⚠ 2026-09-06, no mesmo dia: o conserto da manhã filtrava `.eq('status', 'agendada')`.
+ *   Bastou REAGENDAR (status → 'reagendada', o único caminho que a UI oferece para mudar
+ *   a data) para o painel voltar a dizer «Sem horário definido» com a entrevista marcada
+ *   para dali a 4 dias — a MESMA mensagem do defeito que aquele conserto resolvia. Uma
+ *   lista literal de um item é uma fotografia do caminho feliz.
+ *
+ *   O critério é o complemento: valem os status que NÃO encerraram o agendamento.
+ *   `cancelada` e `nao_compareceu` encerram; `em_andamento` e `concluida` não apagam a
+ *   data (a entrevista aconteceu naquele horário). Espelha o `WHEN` do trigger
+ *   `trg_notif_convite_reagendamento` (migration 20260906000004), que usa o mesmo conjunto
+ *   ativo para decidir se reenvia o convite. O `satisfies` abaixo faz o compilador reprovar
+ *   um valor novo do enum que não seja classificado aqui.
+ */
+const AGENDAMENTO_ENCERRADO = ['cancelada', 'nao_compareceu'] as const
+
+export const AGENDAMENTO_ATIVO = [
+  'agendada',
+  'reagendada',
+  'em_andamento',
+  'concluida',
+] as const satisfies readonly Exclude<
+  StatusAgendamento,
+  (typeof AGENDAMENTO_ENCERRADO)[number]
+>[]
+
+/**
  * Resolves the candidate context for the dashboard: the candidatura's vaga,
  * current etapa, candidate name, the manually-scheduled interview datetime, and
  * the cognitive opt-in. Allowlist projection — never a star projection. The `:id`
@@ -233,7 +262,7 @@ export async function getEntrevistaContexto(
     .from('agendamentos_entrevista')
     .select('data_hora')
     .eq('candidatura_id', candidaturaId)
-    .eq('status', 'agendada')
+    .in('status', AGENDAMENTO_ATIVO)
     .is('deleted_at', null)
     .order('data_hora', { ascending: false })
     .limit(1)
