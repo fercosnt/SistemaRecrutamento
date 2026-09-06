@@ -601,3 +601,12 @@ Como o knockout não abre explicação nem revisão (§7.18), criei a **T3** («
 | — | ✅ | Confirmado: `solicitacoes_dados` (exclusao) **agendado** para 21/09 — janela de 15 dias — e a candidatura foi **encerrada na hora** (`encerrada_a_pedido_em`). A tela passou a mostrar «Exclusão agendada» com o prazo e o botão de cancelar |
 | — | ✅ | **Arrependimento**: «Cancelar a exclusão» → `situacao=cancelado` com `cancelado_em` gravado, dentro da janela. A candidatura encerrada não volta, exatamente como a copy prometia |
 | — | ℹ | A copy «Desativado em 06/09/2026» aparece para «Avisos sobre novas vagas» numa conta que **nunca ativou** essa autorização — a data é a do cadastro. Já estava no backlog de copy |
+
+### 7.24 · E6 fechado, E11 fechado, e o replay que sobreviveu ao conserto — 06/09 12:45–12:55
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| E6 | ✅ | Com a migration `20260906000006` no ar, a T3 se inscreveu na Consultor marcando a opção eliminatória: rejeição síncrona **e e-mail entregue na mesma transação** — «Atualização sobre sua candidatura — Consultor(a)…», com a copy neutra congelada («Sua candidatura não seguirá para as próximas etapas…»). `dedupe_key = {candidatura}:decisao` |
+| — | ✅ | E o «Recebemos sua candidatura» **não** é enviado junto: o gatilho de confirmação tem guard explícito (`status='rejeitado' OR opcao_knockout_id IS NOT NULL`). Quem é eliminado recebe só o desfecho, não uma boas-vindas seguida de uma recusa |
+| E11 | ✅ | `/admin/bias-audit` → «Gerar snapshot» agora funciona: «Snapshot registrado em bias_audit_log», **período `2026-09`** (o mês corrente, não mais o rótulo `p45-pos-execucao`). Isso também **prova o `GRANT` do CR-02** — a RPC rodou como `authenticated`, então o grant não deve ser revogado. A supressão de faixas com menos de 5 pessoas continua ativa |
+| E2 | ⛔→✅ (base) | Regerei o guia presencial depois do deploy dos `describe` apertados: a tela devolveu um guia **em menos de um segundo e sem nenhuma linha nova em `ai_call_logs`**. Era replay outra vez — a chave efetiva estava idêntica (`…:presencial:0a4b1756ab6d210a`) porque **o schema não entrava na impressão digital**, e o schema era justamente o que eu havia mudado. Um cache que ignora o contrato de saída serve resposta escrita sob um contrato que não existe mais. Consertado em `7bc7ef2b` (o JSON Schema gerado entra na chave), com teste provado. **Falta o deploy** para reexecutar |
