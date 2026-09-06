@@ -22,17 +22,42 @@ teste bloqueado** por falta de uma segunda conta de RH, os blocos **G e H** (que
 
 ## 0 · O que fazer primeiro, hoje
 
-```bash
-node p46apply.cjs migrate supabase/migrations/20260906000007_explicacao_knockout.sql
-npm run db:types    # remove o cast `as never` pré-regen do explicacaoService
-```
+✅ **Feito em 2026-09-06:** a migration `20260906000007` está **aplicada** (md5 conferido no
+ledger, `version` correta) e os tipos foram regenerados. A RPC
+`explicacao_rejeicao_automatica` existe em PROD, `boolean`, `SECURITY DEFINER`, `STABLE`.
 
-**Até esse apply, a página de explicação do knockout não funciona em PROD** — a RPC
-`explicacao_rejeicao_automatica` só existe no arquivo. O código do cliente já está no ar do
-lado do repositório e degrada em silêncio (a RPC falha → página «indisponível», que é
-exatamente o comportamento de antes). As outras duas decisões não dependem de banco.
+**Falta conferir na tela** — é a única verificação pendente da decisão B, e ela precisa dos
+seus olhos porque é uma conta de candidato:
+
+1. Entrar como **T2** ou **T3** (as duas levaram knockout na Consultor; senha `Teste123!`).
+2. No painel, o cartão **«Entenda a decisão sobre sua candidatura»** deve aparecer no cartão
+   da Consultor — ele **nunca apareceu** nesse caso antes de hoje.
+3. Abrir a explicação. Ela deve dizer que a candidatura foi encerrada **automaticamente, sem
+   avaliação de uma pessoa**, e **não** deve oferecer pedido de revisão — no lugar dele, o
+   bloco «Se você quiser falar sobre esta decisão» com o `lgpd@beautysmile.com.br`.
+4. Confira também uma rejeição **humana** de triagem, se houver: ela deve continuar **sem**
+   página de explicação. É o portão que mais importa — o texto «foi automático» numa decisão
+   que uma pessoa escreveu seria pior que a falta de página.
+
+Duas candidaturas de knockout existem em PROD hoje (`0f7b217c…` e `92522073…`), as duas com
+`etapa_atual='inscricao'`, `opcao_knockout_id` preenchido e zero linhas em `decisao_final`.
 
 Depois: criar a conta **RH3** (§3.2) e o E10 fecha o bloco E inteiro.
+
+### ⚠ `npm run db:types` PENDURA neste ambiente — e trunca o arquivo ao falhar
+
+O CLI abre um prompt (senha do banco / login) que, sem tty, nunca aparece: o processo fica
+vivo e ocioso para sempre. E o `>` do script **trunca `database.types.ts` antes** de rodar o
+comando, então a falha deixa o arquivo com **zero octeto** (recuperável com
+`git checkout -- database.types.ts`). O que funciona:
+
+```bash
+SUPABASE_ACCESS_TOKEN=$(security find-generic-password -s "Supabase CLI" -a supabase -w) \
+  npx supabase gen types typescript --project-id isljnozzlvckrgjjbjwp < /dev/null \
+  > database.types.ts
+```
+
+O `< /dev/null` é a parte que resolve — sem ele o prompt ressuscita.
 
 ---
 
@@ -94,7 +119,7 @@ resolvia. O gate de auditoria de viés pedia o período do snapshot exibido. O l
 | | Veredito | Commit | Estado |
 |---|---|---|---|
 | **A** · a cópia entrega o que o recrutador escreve (§7.22) | manter a allowlist, **avisar os dois lados** | `5123ef04` | ✅ no código |
-| **B** · explicação e revisão no knockout (§7.18) | **explicação sim, revisão não** (caminho 2) | `12ec4e42` | ⏳ **precisa do apply** da `20260906000007` |
+| **B** · explicação e revisão no knockout (§7.18) | **explicação sim, revisão não** (caminho 2) | `12ec4e42` | ✅ aplicada em PROD · ⏳ falta conferir na tela (§0) |
 | **C** · a geração do guia leva 60–130 s (§7.25) | **travar o botão e mostrar o tempo** | `7a245d6a` | ✅ no código |
 
 **Duas coisas que a implementação descobriu, e que o registro anterior não sabia:**
