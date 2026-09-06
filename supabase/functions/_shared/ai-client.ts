@@ -93,6 +93,28 @@ const MAX_ATTEMPTS = parseIntEnv("MAX_ATTEMPTS", 3);
  */
 const AI_CALL_TIMEOUT_MS = parseIntEnv("AI_CALL_TIMEOUT_MS", 25000);
 
+/**
+ * Orçamento TOTAL de uma chamada `callAi`, do primeiro byte à resposta — tentativas
+ * Anthropic, backoff entre elas E a chamada de fallback OpenAI, tudo somado.
+ *
+ * ⚠ MEDIDO EM 2026-09-06: gerar o guia presencial registrou `provider=openai`,
+ *   **121 546 ms** e `error_message: "Request timed out."` (o erro da Anthropic). O teto
+ *   por-chamada era 110 s para o primário E para o fallback: 110 + 110 = 220 s, contra os
+ *   ~150 s que o Edge Function tem para responder. A EF só não morreu porque o fallback
+ *   respondeu em ~11 s; com um fallback lento, o gateway cortaria e NADA seria gravado —
+ *   o modo de falha mais caro, porque some sem deixar log.
+ *
+ *   `effectiveMaxAttempts` já limitava as tentativas do primário por um orçamento de
+ *   140 s, mas o cálculo IGNORAVA o fallback, que é sempre uma chamada a mais. Agora o
+ *   fallback recebe o tempo que SOBROU do orçamento, nunca o teto cheio de novo.
+ */
+const AI_TOTAL_BUDGET_MS = parseIntEnv("AI_TOTAL_BUDGET_MS", 140000);
+
+/** Tempo restante do orçamento total, com piso de 5 s (uma chamada de 0 s não é útil). */
+function orcamentoRestanteMs(start: number, budgetMs: number): number {
+  return Math.max(5000, budgetMs - (Date.now() - start));
+}
+
 /** Versao de prompt ja resolvida (formato que prompt-loader retornaria). */
 export interface ResolvedPrompt {
   call_type: string;
@@ -232,6 +254,13 @@ interface CallAiDeps {
   zodOutputFormat?: (schema: unknown, name: string) => unknown;
   /** Builder do response_format da OpenAI (injetado nos testes; default no-op). */
   zodResponseFormat?: (schema: unknown, name: string) => unknown;
+  /**
+   * Orçamento TOTAL da chamada em ms (default `AI_TOTAL_BUDGET_MS`). INJETÁVEL para os
+   * testes poderem exercitar o corte do fallback em segundos — a env é lida uma única
+   * vez, na avaliação do módulo, e mexer nela num arquivo de teste vazaria para todos os
+   * outros do mesmo processo (aconteceu: quebrou o AI-04 ao mudar o teto de tentativas).
+   */
+  totalBudgetMs?: number;
 }
 
 interface CallAiResult {
@@ -446,8 +475,11 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // exp (2^n s) estouram o teto ~150s idle do EF (23-RESEARCH Open Q2). Limita o nº de
   // tentativas a floor(140000 / teto) para o total caber sob ~150s. Chamadas curtas
   // (≤25s) mantêm MAX_ATTEMPTS integral. Nunca abaixo de 1 (sempre ao menos 1 tentativa).
+  const totalBudgetMs = deps.totalBudgetMs && deps.totalBudgetMs > 0
+    ? deps.totalBudgetMs
+    : AI_TOTAL_BUDGET_MS;
   const effectiveMaxAttempts = effectiveTimeoutMs > 25000
-    ? Math.max(1, Math.min(MAX_ATTEMPTS, Math.floor(140000 / effectiveTimeoutMs)))
+    ? Math.max(1, Math.min(MAX_ATTEMPTS, Math.floor(totalBudgetMs / effectiveTimeoutMs)))
     : MAX_ATTEMPTS;
   // AI-02: default = sharedBreaker (singleton por-isolate) para as falhas ACUMULAREM
   // entre chamadas e o disjuntor realmente abrir. Antes `new CircuitBreaker()` por
@@ -559,7 +591,8 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   if (!breaker.canRequest()) {
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-      idempotency_key: idempotencyKeyEfetiva, timeoutMs, openai, supabase, zodResponseFormat, start,
+      idempotency_key: idempotencyKeyEfetiva, timeoutMs, totalBudgetMs,
+      openai, supabase, zodResponseFormat, start,
       circuitWasOpen: true,
     });
   }
@@ -644,7 +677,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
     idempotency_key: idempotencyKeyEfetiva,
-    timeoutMs, openai, supabase, zodResponseFormat, start,
+    timeoutMs, totalBudgetMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
     circuitWasOpen: false,
   });
@@ -660,6 +693,8 @@ interface FallbackArgs {
   idempotency_key?: string;
   /** Teto por-chamada herdado do callAi (override de AI_CALL_TIMEOUT_MS). */
   timeoutMs?: number;
+  /** Orçamento total herdado do callAi — limita o teto DESTE fallback ao que sobrou. */
+  totalBudgetMs?: number;
   openai: OpenAILike;
   supabase: SupabaseLike;
   zodResponseFormat: (schema: unknown, name: string) => unknown;
@@ -689,10 +724,13 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
       ],
       response_format: a.zodResponseFormat(a.schema, a.prompt.call_type),
     }, {
-      // RESIL-01: mesmo teto por-chamada + maxRetries:0 no fallback OpenAI. Sem retry
-      // hand-rolled aqui (1 unica chamada de fallback), mas o teto evita que o fallback
-      // tambem fique pendurado alem do teto de 150s idle do EF.
-      timeout: a.timeoutMs && a.timeoutMs > 0 ? a.timeoutMs : AI_CALL_TIMEOUT_MS,
+      // RESIL-01 + orçamento total (2026-09-06): o fallback recebe o que SOBROU de
+      // AI_TOTAL_BUDGET_MS, nunca o teto cheio de novo. Com 110s no primário e 110s aqui
+      // o total batia 220s contra os ~150s do EF — ver AI_TOTAL_BUDGET_MS.
+      timeout: Math.min(
+        a.timeoutMs && a.timeoutMs > 0 ? a.timeoutMs : AI_CALL_TIMEOUT_MS,
+        orcamentoRestanteMs(a.start, a.totalBudgetMs ?? AI_TOTAL_BUDGET_MS),
+      ),
       maxRetries: 0,
     });
   } catch (openaiErr) {

@@ -843,3 +843,4 @@ Deno.test("idempotencia — mesmo input, RUBRICA diferente → chamada NOVA", as
 
   assertEquals(anthropic.calls.length, 2, "rubrica nova tem de invalidar o replay");
 });
+

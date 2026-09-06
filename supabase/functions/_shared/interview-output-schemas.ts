@@ -71,18 +71,46 @@ export const Citation = z.object({
 // USE CASE 4 — INTERVIEW GUIDE GENERATION (ENTREV-01/04 — verbatim)
 // ============================================================================
 
+/**
+ * ⚠ Os limites de tamanho abaixo vivem no `describe`, não no `.max()`.
+ *
+ *   O `.max()` do Zod NÃO chega ao modelo na geração estruturada — ele só REJEITA
+ *   depois, o que transforma um texto longo demais numa falha dura. O que orienta a
+ *   escrita é a descrição do campo, e é lá que o tamanho precisa estar dito.
+ *
+ *   Por que passou a importar (medido em 2026-09-06): com `max_tokens` em 3000 o guia
+ *   presencial saía TRUNCADO («Unterminated string in JSON at position 10326») e caía no
+ *   gpt-4o-mini. Subir o teto para 8000 trocou o truncamento por ESTOURO DE TEMPO — o
+ *   Sonnet passou de 110 s e o log registrou `provider=openai` com «Request timed out.».
+ *   Sete perguntas × cinco âncoras de até 1200 caracteres é um documento de ~12 KB; não
+ *   existe teto de tokens que faça isso caber nos ~150 s do Edge Function.
+ *
+ *   A saída pedida agora é a que um entrevistador realmente usa: âncora BARS é UMA frase
+ *   de comportamento observável, não um parágrafo. Os `.max()` continuam FOLGADOS de
+ *   propósito — eles são a rede de segurança do parse, não o pedido.
+ */
 export const InterviewQuestionSchema = z.object({
   type: z.enum(["star", "pei", "situational", "technical_probe", "follow_up"]),
   competency: z.string().describe("Competência crítica que esta pergunta avalia"),
-  question: z.string().min(20).max(1200).describe("Pergunta principal"),
-  rationale: z.string().min(20).max(900).describe("Por que esta pergunta para este candidato"),
+  question: z.string().min(20).max(1200).describe("Pergunta principal — até ~250 caracteres"),
+  rationale: z
+    .string()
+    .min(20)
+    .max(900)
+    .describe("Por que esta pergunta para este candidato — 1 a 2 frases, até ~300 caracteres"),
 
   bars_anchors: z
     .array(
       z.object({
         level: BarsLevel,
         score: z.number().int().min(1).max(5),
-        description: z.string().min(40).max(1200).describe("Comportamento observável neste nível"),
+        description: z
+          .string()
+          .min(40)
+          .max(1200)
+          .describe(
+            "Comportamento observável neste nível — UMA frase objetiva, até ~220 caracteres",
+          ),
       }),
     )
     .length(5)
@@ -100,7 +128,7 @@ export const InterviewGuideSchema = z.object({
   duration_minutes: z.number().int().min(15).max(90),
   format: z.enum(["online", "presencial", "hibrido"]),
 
-  introduction: z.string().min(50).max(1500).describe("Script de abertura"),
+  introduction: z.string().min(50).max(1500).describe("Script de abertura — até ~600 caracteres"),
 
   questions: z.array(InterviewQuestionSchema).min(5).max(7),
 
@@ -108,11 +136,13 @@ export const InterviewGuideSchema = z.object({
     .string()
     .min(50)
     .max(1500)
-    .describe("Script de encerramento + espaço para perguntas do candidato"),
+    .describe("Script de encerramento + espaço para perguntas do candidato — até ~600 caracteres"),
 
   scoring_instructions: z
     .string()
-    .describe("Como o entrevistador deve registrar scores BARS após a entrevista"),
+    .describe(
+      "Como o entrevistador deve registrar scores BARS após a entrevista — até ~500 caracteres",
+    ),
 });
 
 export type InterviewGuide = z.infer<typeof InterviewGuideSchema>;
