@@ -160,6 +160,69 @@ describe('DashboardCandidatoPage LGPD card (D-11)', () => {
     expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/explicacao/cand-rej')
   })
 
+  /**
+   * §7.18 — O KNOCKOUT PASSAVA POR FORA DO PORTÃO. `hasDecisaoFinal` exigia
+   * `etapa_atual ∈ {decisao_final, aprovado, rejeitado}`, e a rejeição automática
+   * preserva `etapa_atual='inscricao'` POR DESENHO (ela encerra antes de qualquer etapa
+   * avaliável). O cartão nunca aparecia justamente para quem foi reprovado sem nenhum
+   * humano olhar — o inverso do que o Art. 20 protege.
+   *
+   * Repare no formato do defeito: a condição codificava uma FOTOGRAFIA das etapas em que
+   * um desfecho costumava acontecer, e se apresentava como a definição de «houve
+   * desfecho». O comentário do código chegava a dizer «knockout/rejected path» sobre uma
+   * linha que excluía o knockout.
+   */
+  it('mostra o cartão no KNOCKOUT, que fica em etapa_atual=inscricao (§7.18)', () => {
+    mocks.candidaturasData = {
+      data: [
+        {
+          id: 'cand-ko',
+          vaga_id: 'vaga-1',
+          vaga: { titulo: 'Vaga' },
+          // O knockout NÃO avança a etapa — encerra na inscrição.
+          etapa_atual: 'inscricao',
+          status: 'rejeitado',
+          created_at: '2026-06-01T00:00:00Z',
+          // A copy neutra gravada pelo próprio knockout (20260608000001:197).
+          feedback_rejeicao:
+            'Após análise dos requisitos da vaga, não seguiremos com sua candidatura neste momento.',
+          data_decisao_final: null,
+        },
+      ],
+    }
+    renderDashboard()
+
+    expect(
+      screen.getByText(/Entenda a decisão sobre sua candidatura/i),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByText(/Ver explicação/i))
+    expect(mocks.navigateMock).toHaveBeenCalledWith('/candidato/explicacao/cand-ko')
+  })
+
+  it('mas status=rejeitado SEM desfecho persistido continua sem cartão', () => {
+    // A segunda condição do portão não foi afrouxada: sem `data_decisao_final` e sem
+    // `feedback_rejeicao` não há desfecho a explicar, e o cartão anunciaria uma
+    // explicação que a página não teria como dar.
+    mocks.candidaturasData = {
+      data: [
+        {
+          id: 'cand-vazio',
+          vaga_id: 'vaga-1',
+          vaga: { titulo: 'Vaga' },
+          etapa_atual: 'inscricao',
+          status: 'rejeitado',
+          created_at: '2026-06-01T00:00:00Z',
+          feedback_rejeicao: null,
+          data_decisao_final: null,
+        },
+      ],
+    }
+    renderDashboard()
+    expect(
+      screen.queryByText(/Entenda a decisão sobre sua candidatura/i),
+    ).not.toBeInTheDocument()
+  })
+
   it('does NOT show the LGPD card when there is no final decision', () => {
     mocks.candidaturasData = {
       data: [

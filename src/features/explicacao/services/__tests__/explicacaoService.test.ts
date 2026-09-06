@@ -253,8 +253,12 @@ describe('explicacaoService — normalizarVeredito (puro e total)', () => {
 })
 
 describe('explicacaoService — reachability gate (Pitfall 6 / T-15-14)', () => {
-  it('returns null when no decision row exists (not-available)', async () => {
+  it('returns null when no decision row exists AND it was not a knockout', async () => {
+    // §7.18: a ausência de `decisao_final` deixou de ser conclusiva — pode ser o
+    // knockout. O serviço PERGUNTA ao servidor; um `false` mantém a página indisponível.
+    // Este é o caso (b) do §7.18: rejeição HUMANA na triagem, que não tem página.
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: false, error: null })
     await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
   })
 
@@ -365,4 +369,99 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
       expect(fetchMock).not.toHaveBeenCalled()
     },
   )
+})
+
+/**
+ * §7.18 do GUIA-VALIDACAO-FINAL, caminho (2) — veredito do responsável: quem é eliminado
+ * pelo knockout automático passa a ter página de explicação, e NÃO passa a ter revisão.
+ *
+ * A medição que motivou tudo: quem é reprovado POR UM HUMANO tinha e-mail, explicação e
+ * revisão; quem é reprovado SEM NENHUM HUMANO OLHAR não tinha nenhum dos três — o inverso
+ * do que o Art. 20 protege.
+ *
+ * O portão mais importante deste bloco não é o que faz a página aparecer: é o que a
+ * mantém FECHADA para a rejeição humana da triagem. As duas são indistinguíveis nas
+ * colunas que o candidato pode ler (as duas têm status='rejeitado', as duas ficam sem
+ * `decisao_final`, e a allowlist do cliente exclui `motivo_rejeicao` de propósito).
+ * Inferir knockout da ausência de decisão daria a uma rejeição escrita por uma pessoa o
+ * texto da automática — plausível, silencioso e falso, a família de defeito desta sessão.
+ */
+describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', () => {
+  it('sem `decisao_final` e COM knockout: devolve explicação de origem automática', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: true, error: null })
+
+    const r = await getExplicacao(VALID_CAND)
+    expect(r).not.toBeNull()
+    expect(r?.origem).toBe('automatica')
+    expect(r?.decisao).toBe('rejeitado')
+    // Pergunta feita ao SERVIDOR, com o id da própria candidatura.
+    expect(rpcMock).toHaveBeenCalledWith('explicacao_rejeicao_automatica', {
+      p_candidatura_id: VALID_CAND,
+    })
+  })
+
+  it('o texto nomeia o MECANISMO e cala o CRITÉRIO (Art. 20 sim, D-15 preservado)', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: true, error: null })
+
+    const r = await getExplicacao(VALID_CAND)
+    // Diz que foi automático e o que o motivou — é o direito do Art. 20.
+    expect(r?.reason).toMatch(/requisitos objetivos|elegibilidade/i)
+    expect(r?.reason).toMatch(/formul[áa]rio/i)
+    // E não entrega nota, banda, percentil nem análise — RNF-07a / LGPD-04.
+    expect(r?.reason).not.toMatch(/score|nota \d|banda|percentil|\d+\s*%/i)
+    // A frase que existe para desarmar a leitura de julgamento pessoal.
+    expect(r?.reason).toMatch(/n[ãa]o impede que voc[êe] se candidate a outras/i)
+  })
+
+  it('o ciclo de revisão vem TODO nulo — não há revisão a oferecer', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: true, error: null })
+
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.revisao_solicitada_em).toBeNull()
+    expect(r?.revisao_resultado).toBeNull()
+    expect(r?.revisao_veredito).toBeNull()
+    expect(r?.revisao_respondida_em).toBeNull()
+    expect(r?.explicacao_solicitada_em).toBeNull()
+  })
+
+  it('⚠ a rejeição HUMANA da triagem continua sem página (o portão que mais importa)', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: false, error: null })
+    await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+  })
+
+  it('só `true` abre a página: nem truthy, nem shape inesperado de um build futuro', async () => {
+    for (const data of [1, 'true', {}, [], null, undefined]) {
+      maybeSingleMock.mockResolvedValue({ data: null, error: null })
+      rpcMock.mockResolvedValue({ data, error: null })
+      await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+    }
+  })
+
+  it('erro na RPC resolve para indisponível, e não derruba a tela de transparência', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: null, error: { code: '42501' } })
+    await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+  })
+
+  it('havendo decisão HUMANA rejeitada, a origem é humana e a RPC nem é consultada', async () => {
+    rpcMock.mockClear()
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(rpcMock).not.toHaveBeenCalled()
+  })
+
+  it('aprovado/em_espera não caem no fallback — knockout e decisão final se excluem', async () => {
+    for (const decisao of ['aprovado', 'em_espera'] as const) {
+      rpcMock.mockClear()
+      maybeSingleMock.mockResolvedValue({ data: linhaRejeitada({ decisao }), error: null })
+      await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+      expect(rpcMock).not.toHaveBeenCalled()
+    }
+  })
 })

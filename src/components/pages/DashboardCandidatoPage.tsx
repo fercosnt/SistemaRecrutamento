@@ -131,6 +131,19 @@ export function DashboardCandidatoPage() {
    * persisted `feedback_rejeicao`). The card CTA routes to the LGPD Art. 20
    * explanation screen (`/candidato/explicacao/:candidaturaId`), the only in-app
    * path that exists today (no notification/e-mail infra).
+   *
+   * ⚠ §7.18 (2026-09-06) — O KNOCKOUT PASSAVA POR FORA DESTE PORTÃO, e o comentário
+   * acima já dizia «knockout/rejected path» como se não passasse. A rejeição
+   * automática preserva `etapa_atual='inscricao'` POR DESENHO (ela encerra antes de
+   * qualquer etapa avaliável), então a primeira condição a excluía sempre — o cartão
+   * nunca aparecia justamente para quem foi reprovado sem nenhum humano olhar. A
+   * segunda condição já estava satisfeita: o knockout grava o `feedback_rejeicao`
+   * neutro (`20260608000001:197`).
+   *
+   * O conserto acrescenta o eixo que o desenho do knockout realmente move: `status`.
+   * Uma candidatura com `status='rejeitado'` teve um desfecho, esteja em que etapa
+   * estiver — e é isso que o cartão anuncia. Continua exigindo a evidência de
+   * decisão, então nada aparece antes de existir desfecho persistido.
    */
   const hasDecisaoFinal = (candidatura: Candidatura): boolean => {
     const etapasDecisao: ReadonlyArray<EtapaFunilM2> = [
@@ -139,7 +152,9 @@ export function DashboardCandidatoPage() {
       'rejeitado',
     ];
     const etapa = candidatura.etapa_atual as EtapaFunilM2;
-    if (!etapasDecisao.includes(etapa)) return false;
+    const houveDesfecho =
+      etapasDecisao.includes(etapa) || candidatura.status === 'rejeitado';
+    if (!houveDesfecho) return false;
     return Boolean(candidatura.data_decisao_final || candidatura.feedback_rejeicao);
   };
 

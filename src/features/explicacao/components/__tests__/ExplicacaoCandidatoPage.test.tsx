@@ -67,6 +67,10 @@ const JUSTIFICATIVA =
 /** Uma explicação alcançável (decisão rejeitada), com o ciclo da revisão sobrescrevível. */
 function explicacao(over: Record<string, unknown> = {}) {
   return {
+    // §7.18: o discriminador de origem. Explícito no helper de propósito — deixá-lo
+    // `undefined` faria toda esta suíte testar o caminho humano por acidente e não por
+    // escolha, e um dia alguém trocaria o default sem que nada aqui reclamasse.
+    origem: 'humana',
     decisao: 'rejeitado',
     reason: 'Avaliamos seu processo de forma global e decidimos não seguir adiante.',
     revisao_solicitada_em: '2026-07-20T10:00:00Z',
@@ -363,5 +367,68 @@ describe('ExplicacaoCandidatoPage — o acompanhamento interno do RH nunca chega
     ]) {
       expect(bloco?.textContent ?? '').not.toMatch(promessa)
     }
+  })
+})
+
+/**
+ * §7.18, caminho (2) — a página passa a servir a rejeição AUTOMÁTICA, com texto próprio
+ * e SEM pedido de revisão (veredito do responsável: explicação sim, revisão não).
+ *
+ * A ausência do CTA não é preferência de layout: `solicitar_revisao_decisao` exige a
+ * linha em `decisao_final` que o knockout nunca cria, então um botão ali seria um pedido
+ * que o servidor recusa sempre. Um direito oferecido e negado é pior que um direito que
+ * a tela nunca prometeu — daí o bloco que diz, com todas as letras, que não há revisão a
+ * pedir por aqui, e nomeia o canal humano no lugar.
+ */
+describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => {
+  function carregadaAutomatica() {
+    explicacaoMock.mockReturnValue({
+      data: explicacao({
+        origem: 'automatica',
+        reason: 'Esta vaga define alguns requisitos objetivos de elegibilidade…',
+        revisao_solicitada_em: null,
+        explicacao_solicitada_em: null,
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+  }
+
+  it('a primeira linha diz que foi automático e que nenhuma pessoa avaliou', () => {
+    carregadaAutomatica()
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.getByText(/encerrada automaticamente na inscrição/i)).toBeInTheDocument()
+    expect(screen.getByText(/sem avaliação de uma pessoa/i)).toBeInTheDocument()
+    // E a linha do caminho humano NÃO aparece — ela afirmaria uma avaliação inexistente.
+    expect(screen.queryByText(/Após avaliarmos seu processo/i)).not.toBeInTheDocument()
+  })
+
+  it('NÃO oferece pedido de revisão — nem o CTA, nem a frase do direito', () => {
+    carregadaAutomatica()
+    render(<ExplicacaoCandidatoPage />)
+    expect(
+      screen.queryByRole('button', { name: /revis(ã|a)o/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('mas não silencia o assunto: diz por que não há revisão e dá o canal humano', () => {
+    carregadaAutomatica()
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.getByText(/não há uma revisão a pedir por aqui/i)).toBeInTheDocument()
+    const canal = screen.getByRole('link', { name: /lgpd@beautysmile\.com\.br/i })
+    expect(canal).toHaveAttribute('href', 'mailto:lgpd@beautysmile.com.br')
+  })
+
+  it('o caminho HUMANO não perdeu o CTA de revisão (não-regressão)', () => {
+    carregada()
+    render(<ExplicacaoCandidatoPage />)
+    expect(
+      screen.getByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
   })
 })

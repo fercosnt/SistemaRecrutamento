@@ -62,7 +62,12 @@ export function useExplicacao(candidaturaId: string | undefined) {
       const explicacao = await getExplicacao(candidaturaId as string)
       // Stamp the visit ONCE, only when the page is actually reachable (a rejection
       // exists — `explicacao` is non-null). Best-effort: never throw on a stamp failure.
-      if (explicacao && !stampedRef.current) {
+      //
+      // NÃO no caminho automático (§7.18): `stamp_explicacao_acessada` carimba uma
+      // coluna de `decisao_final`, e o knockout não cria essa linha. Chamar ali seria
+      // uma requisição que só pode falhar — e um `catch` silencioso em cima dela daria
+      // a impressão de um carimbo que nunca existiu.
+      if (explicacao && explicacao.origem === 'humana' && !stampedRef.current) {
         stampedRef.current = true
         try {
           await stampExplicacao(candidaturaId as string)

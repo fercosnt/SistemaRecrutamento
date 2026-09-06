@@ -134,6 +134,16 @@ export function normalizarVeredito(valor: unknown): RevisaoVeredito | null {
  * of this shape: only the templated `reason` derived from it crosses to the candidate.
  */
 export interface ExplicacaoCandidato {
+  /**
+   * De onde veio a rejeição — o discriminador que a página usa para decidir se existe
+   * direito de revisão a oferecer (§7.18). `'humana'` é a decisão final registrada por
+   * uma pessoa em `decisao_final`; `'automatica'` é o knockout da inscrição, que não
+   * cria aquela linha e por isso não tem revisão a pedir.
+   *
+   * Não é cosmético: `solicitar_revisao_decisao` exige a linha em `decisao_final`, então
+   * oferecer o CTA no caminho automático seria um botão que o servidor sempre recusa.
+   */
+  origem: 'humana' | 'automatica'
   /** Always `'rejeitado'` here — the reachability gate returns null otherwise. */
   decisao: DecisaoResultado
   /** A respectful, deterministic templated reason (Open Q5) — non-clinical, high-level. */
@@ -201,6 +211,27 @@ function reasonForDecisao(decisao: DecisaoResultado): string {
 }
 
 /**
+ * A razão templated da rejeição AUTOMÁTICA (§7.18, caminho (2) — decisão do responsável).
+ *
+ * Ela nomeia o MECANISMO e cala o CRITÉRIO, e essa fronteira é a única coisa
+ * load-bearing aqui. O Art. 20 dá ao titular o direito de saber que a decisão foi
+ * automatizada e em que ela se baseou; D-15 mantém fora da superfície do candidato QUAL
+ * resposta o eliminou (o `opcao_knockout_id` sequer atravessa a rede — a RPC devolve um
+ * booleano). Dizer «uma das respostas do formulário» é verdade suficiente para o Art. 20
+ * sem virar o feedback de critério que a política do produto recusa.
+ *
+ * E ela NÃO promete revisão. Esse é o veredito: explicação sim, revisão não. Uma tela que
+ * oferecesse o pedido sem que o `solicitar_revisao_decisao` o aceitasse (ele exige linha
+ * em `decisao_final`, que o knockout não cria) seria pior que o silêncio de antes.
+ */
+const REASON_KNOCKOUT =
+  'Esta vaga define alguns requisitos objetivos de elegibilidade, e uma das respostas ' +
+  'que você deu no formulário de inscrição não atende a um deles. Por isso a sua ' +
+  'candidatura foi encerrada logo na inscrição, sem passar pelas etapas de avaliação. ' +
+  'Nenhuma nota, análise ou perfil foi usado nesta decisão. Ela vale para esta vaga ' +
+  'nesta seleção e não impede que você se candidate a outras.'
+
+/**
  * Reads the candidate's OWN decision (DECISAO-04) via the own-row allowlist, scoped to
  * `candidaturaId`. The LIVE `candidato_le_propria_decisao` RLS policy enforces own-row
  * (`candidatos.user_id = auth.uid()`); the allowlist enforces own-COLUMN (no score
@@ -231,8 +262,9 @@ export async function getExplicacao(
       error,
     )
   }
-  // No row (RLS hid it / no decision yet) → not-available.
-  if (!data) return null
+  // Sem linha em `decisao_final` (a RLS escondeu, ou nunca houve decisão humana):
+  // ANTES de desistir, pergunte ao servidor se foi o knockout automático. §7.18.
+  if (!data) return getExplicacaoAutomatica(candidaturaId)
 
   const raw = data as unknown as {
     decisao: DecisaoResultado
@@ -245,9 +277,14 @@ export async function getExplicacao(
 
   // Reachability gate: the page exists ONLY after a rejection. aprovado / em_espera →
   // not-available (the candidate is still in-process or approved — no explanation page).
+  //
+  // O fallback NÃO é consultado aqui: existe decisão humana registrada, e ela é
+  // aprovada ou em espera. Uma candidatura não é knockout E decisão final ao mesmo
+  // tempo — o knockout encerra na inscrição, antes de qualquer etapa avaliável.
   if (raw.decisao !== 'rejeitado') return null
 
   return {
+    origem: 'humana',
     decisao: raw.decisao,
     // Derived templated non-clinical reason — the internal justificativa is NEVER
     // surfaced verbatim; no score/band/percentile ever crosses (Open Q5 / RNF-07a).
@@ -258,6 +295,54 @@ export async function getExplicacao(
     // Defensive: an unexpected verdict resolves to null instead of reaching the UI.
     revisao_veredito: normalizarVeredito(raw.revisao_veredito),
     revisao_respondida_em: raw.revisao_respondida_em ?? null,
+  }
+}
+
+/**
+ * O caminho AUTOMÁTICO da explicação (§7.18, caminho (2)) — consultado apenas quando não
+ * existe linha em `decisao_final`.
+ *
+ * Pergunta à RPC `explicacao_rejeicao_automatica` se ESTA candidatura do próprio titular
+ * foi encerrada pelo knockout. A RPC devolve um booleano e nada mais: o critério
+ * (`opcao_knockout_id`, o texto da opção, a pergunta) não atravessa a rede — D-15.
+ *
+ * ⚠ A PERGUNTA PRECISA SER FEITA AO SERVIDOR. Do lado do cliente, a rejeição humana na
+ * triagem e o knockout automático são a MESMA linha: as duas têm `status='rejeitado'`,
+ * as duas ficam sem `decisao_final`, e a allowlist do candidato exclui `motivo_rejeicao`
+ * de propósito. Inferir knockout da ausência de decisão daria a uma rejeição escrita por
+ * uma pessoa o texto da automática — plausível, silencioso e falso.
+ *
+ * Um erro aqui resolve para `null` (página indisponível), não para uma exceção: este é o
+ * caminho de fallback de uma tela de transparência, e derrubá-la por causa dele seria
+ * trocar «não há explicação automática» por «a página quebrou».
+ */
+async function getExplicacaoAutomatica(
+  candidaturaId: string,
+): Promise<ExplicacaoCandidato | null> {
+  // ⚠ CAST PRÉ-REGEN: `explicacao_rejeicao_automatica` vem na migration
+  // `20260906000007`; `database.types.ts` só é regenerado por `npm run db:types`
+  // (Supabase CLI `--linked`), então o nome ainda não é chave válida de
+  // `supabase.rpc()`. Idioma vivo do repositório para a janela pré-regen
+  // (`historicoCandidaturaService.ts:160`). O próximo `db:types` remove os casts.
+  const { data, error } = await supabase.rpc('explicacao_rejeicao_automatica' as never, {
+    p_candidatura_id: candidaturaId,
+  } as never)
+
+  // `=== true` e não truthy: a RPC devolve boolean, e qualquer outra coisa que chegue
+  // aqui (um shape inesperado de um build futuro) não deve virar uma explicação.
+  if (error || (data as unknown) !== true) return null
+
+  return {
+    origem: 'automatica',
+    decisao: 'rejeitado',
+    reason: REASON_KNOCKOUT,
+    // O knockout não cria linha em `decisao_final`, então NENHUM estado do ciclo de
+    // revisão existe — e não existir é o ponto, não uma lacuna a preencher.
+    revisao_solicitada_em: null,
+    revisao_resultado: null,
+    explicacao_solicitada_em: null,
+    revisao_veredito: null,
+    revisao_respondida_em: null,
   }
 }
 

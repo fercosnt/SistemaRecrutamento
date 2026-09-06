@@ -32,6 +32,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 import { useExplicacao, type RevisaoVeredito } from '../hooks/useExplicacao'
 import { SolicitarRevisaoCTA } from './SolicitarRevisaoCTA'
 
@@ -40,7 +41,25 @@ const COPY = {
   heading: 'Sobre a sua candidatura',
   resultLine:
     'Após avaliarmos seu processo, decidimos não seguir com a sua candidatura nesta vaga.',
+  /**
+   * §7.18 — a linha de resultado do caminho AUTOMÁTICO. «Avaliamos seu processo» seria
+   * falso aqui: não houve processo nem avaliação, e é justamente isso que o Art. 20 dá
+   * ao titular o direito de saber. A frase diz que a decisão foi automática antes de
+   * dizer qualquer outra coisa.
+   */
+  resultLineAutomatica:
+    'Sua candidatura foi encerrada automaticamente na inscrição, sem avaliação de uma pessoa e sem passar pelas etapas do processo.',
   reasonEyebrow: 'Por que esta decisão',
+  /**
+   * O bloco que substitui o direito de revisão no caminho automático. Ele NÃO oferece
+   * pedido de revisão (veredito do responsável: explicação sim, revisão não) — mas
+   * também não finge que a porta não existe: nomeia o canal por onde o titular fala com
+   * a empresa. Uma tela que apenas omitisse o assunto deixaria o candidato sem saber se
+   * há alguém para procurar.
+   */
+  semRevisaoEyebrow: 'Se você quiser falar sobre esta decisão',
+  semRevisaoBody:
+    'Como esta decisão não envolveu avaliação de uma pessoa da nossa equipe, não há uma revisão a pedir por aqui. Se você acredita que respondeu ao formulário por engano, ou quer falar sobre esta decisão, entre em contato pelo canal abaixo.',
   gratitude: 'Agradecemos seu interesse e o tempo dedicado ao processo.',
   /**
    * 43-UI-SPEC (BD-3) — reescrita em linguagem que o titular decodifica, COM a citação
@@ -155,6 +174,12 @@ export function ExplicacaoCandidatoPage() {
 
   // ── Content — high-level result + non-clinical reason + revision right ─────────
   // NEVER a numeric result / quantile / psychometric verdict here (RNF-07a / LGPD-04).
+  //
+  // O discriminador vem do SERVIDOR (§7.18): do lado do cliente, a rejeição humana na
+  // triagem e o knockout automático são a mesma linha, e derivar isto aqui daria a uma
+  // decisão escrita por uma pessoa o texto da automática.
+  const automatica = explicacao.origem === 'automatica'
+
   return (
     <ScreenShell>
       <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
@@ -162,8 +187,11 @@ export function ExplicacaoCandidatoPage() {
           {COPY.heading}
         </h1>
 
-        {/* High-level, non-clinical result line. */}
-        <p className="text-base leading-relaxed text-white">{COPY.resultLine}</p>
+        {/* High-level, non-clinical result line — a do caminho automático diz, na
+            primeira frase, que não houve pessoa nem avaliação (§7.18). */}
+        <p className="text-base leading-relaxed text-white">
+          {automatica ? COPY.resultLineAutomatica : COPY.resultLine}
+        </p>
 
         {/* Respectful templated reason (derived server-side; never the raw justificativa). */}
         <div className="space-y-2">
@@ -200,15 +228,38 @@ export function ExplicacaoCandidatoPage() {
           )
         )}
 
-        {/* LGPD Art. 20 revision-right block + the CTA. */}
-        <div className="space-y-3 border-t border-white/15 pt-6">
-          <p className="text-base leading-relaxed text-white/90">{COPY.revisionIntro}</p>
-          <SolicitarRevisaoCTA
-            candidaturaId={id as string}
-            revisaoSolicitadaEm={explicacao.revisao_solicitada_em}
-            revisaoRespondidaEm={explicacao.revisao_respondida_em}
-          />
-        </div>
+        {/* LGPD Art. 20 revision-right block + the CTA — SOMENTE no caminho humano.
+            §7.18, veredito do responsável: o knockout ganha explicação, não revisão.
+            E a exclusão é estrutural, não só de produto: `solicitar_revisao_decisao`
+            exige a linha em `decisao_final` que o knockout nunca cria, então o CTA
+            aqui seria um botão que o servidor sempre recusa. */}
+        {automatica ? (
+          <div className="space-y-2 border-t border-white/15 pt-6">
+            <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
+              {COPY.semRevisaoEyebrow}
+            </p>
+            <p className="text-base leading-relaxed text-white/90">
+              {COPY.semRevisaoBody}
+            </p>
+            <a
+              href={`mailto:${CANAL_PRIVACIDADE_EMAIL}`}
+              className="inline-block text-base font-semibold text-white underline underline-offset-4"
+            >
+              {CANAL_PRIVACIDADE_EMAIL}
+            </a>
+          </div>
+        ) : (
+          <div className="space-y-3 border-t border-white/15 pt-6">
+            <p className="text-base leading-relaxed text-white/90">
+              {COPY.revisionIntro}
+            </p>
+            <SolicitarRevisaoCTA
+              candidaturaId={id as string}
+              revisaoSolicitadaEm={explicacao.revisao_solicitada_em}
+              revisaoRespondidaEm={explicacao.revisao_respondida_em}
+            />
+          </div>
+        )}
 
         {/* Back nav. */}
         <div className="pt-2">
