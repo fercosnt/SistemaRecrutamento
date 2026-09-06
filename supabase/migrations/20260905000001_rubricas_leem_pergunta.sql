@@ -23,25 +23,25 @@
 DO $rub$
 DECLARE
   v_novo constant text :=
-    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: cada item chega como «Pergunta: …» seguido de\n'
-    E'«Resposta: …», na ordem do formulário. Julgue cada resposta À LUZ DA PERGUNTA que a\n'
-    E'gerou, e trate-a como evidência de MESMO PESO que o currículo — uma disponibilidade\n'
-    E'declarada na Etapa 1 conta tanto quanto se estivesse no CV. Se algum item vier sem a\n'
+    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: cada item chega como «Pergunta: …» seguido de\n' ||
+    E'«Resposta: …», na ordem do formulário. Julgue cada resposta À LUZ DA PERGUNTA que a\n' ||
+    E'gerou, e trate-a como evidência de MESMO PESO que o currículo — uma disponibilidade\n' ||
+    E'declarada na Etapa 1 conta tanto quanto se estivesse no CV. Se algum item vier sem a\n' ||
     E'linha «Pergunta:», identifique-o pelo próprio conteúdo.\n\n';
   v_old_sm constant text :=
-    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: elas chegam a você como uma lista solta, SEM o\n'
-    E'enunciado de cada pergunta e em ordem arbitrária. Não conte com a posição. Identifique\n'
-    E'cada uma pelo próprio conteúdo: links e @ de perfil são o portfólio; frases sobre\n'
+    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: elas chegam a você como uma lista solta, SEM o\n' ||
+    E'enunciado de cada pergunta e em ordem arbitrária. Não conte com a posição. Identifique\n' ||
+    E'cada uma pelo próprio conteúdo: links e @ de perfil são o portfólio; frases sobre\n' ||
     E'segunda a sexta são disponibilidade; faixas de anos são tempo de experiência.\n\n';
   v_old_cons constant text :=
-    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: elas chegam a você como uma lista solta, SEM o\n'
-    E'enunciado de cada pergunta e em ordem arbitrária. Não conte com a posição — identifique\n'
-    E'cada resposta pelo próprio conteúdo:\n'
-    E'- frases sobre segunda a sexta, horário comercial ou trabalho remoto → disponibilidade;\n'
-    E'- faixas de anos "em atendimento, vendas, recepção ou relacionamento" → tempo de experiência;\n'
-    E'- a lista de atividades de rotina (WhatsApp, cadência de follow-up, CRM, agenda,\n'
-    E'  Direct do Instagram, indicadores) → ferramentas e processo;\n'
-    E'- frases sobre atender quem decide valor alto e sente insegurança → contexto de decisão;\n'
+    E'⚠ COMO LER AS RESPOSTAS DA ETAPA 1: elas chegam a você como uma lista solta, SEM o\n' ||
+    E'enunciado de cada pergunta e em ordem arbitrária. Não conte com a posição — identifique\n' ||
+    E'cada resposta pelo próprio conteúdo:\n' ||
+    E'- frases sobre segunda a sexta, horário comercial ou trabalho remoto → disponibilidade;\n' ||
+    E'- faixas de anos "em atendimento, vendas, recepção ou relacionamento" → tempo de experiência;\n' ||
+    E'- a lista de atividades de rotina (WhatsApp, cadência de follow-up, CRM, agenda,\n' ||
+    E'  Direct do Instagram, indicadores) → ferramentas e processo;\n' ||
+    E'- frases sobre atender quem decide valor alto e sente insegurança → contexto de decisão;\n' ||
     E'- a frase sobre o que atrai na vaga → motivação.\n\n';
   v_n int;
 BEGIN
