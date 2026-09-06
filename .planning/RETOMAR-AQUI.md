@@ -5,7 +5,7 @@
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.27 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.28 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
 **Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
@@ -18,15 +18,15 @@ Este arquivo é o resumo executivo e a lista do que falta. O guia
 
 O funil inteiro do candidato foi percorrido de ponta a ponta em PROD com contas reais;
 19 defeitos foram encontrados e consertados; as 3 decisões de produto foram tomadas,
-implementadas, **publicadas em produção e conferidas na tela** (§7.27). O que resta é
-**1 teste bloqueado** por falta de uma segunda conta de RH, os blocos **G e H** (que são seus
-por natureza) e a **limpeza** dos dados de teste antes de divulgar as vagas.
+implementadas, **publicadas em produção e conferidas na tela** (§7.27); e o **bloco E fechou
+inteiro** com o E10 (§7.28). O que resta são os blocos **G e H** (que são seus por natureza) e a
+**limpeza** dos dados de teste antes de divulgar as vagas.
 
 ⚠ **A conferência achou que os três vereditos nunca tinham sido publicados** — commitados e
 não enviados, enquanto a migration, aplicada por fora do git, já estava em PROD. Push feito
 (`e4a1cfbd..1330f40c`), deploy `READY`, e a decisão B verificada de ponta a ponta.
 
-O M8 é o último milestone planejado. Fechando esses três itens, o projeto está fechado como
+O M8 é o último milestone planejado. Fechando esses dois itens, o projeto está fechado como
 está escopado hoje.
 
 ---
@@ -71,12 +71,18 @@ a string `'knockout_automatico'`. Detalhe em §7.27.
 «Você retirou sua candidatura»); use a **T3**. E a rota de login é **`/auth/login`** — `/login`
 é 404.
 
-### 0.2 ⏳ Criar a conta RH3 e fechar o E10 (10 min · fecha o bloco E inteiro)
+### 0.2 ✅ E10 fechado — o bloco E inteiro está fechado (§7.28)
 
-`/rh/configuracoes` → «Novo usuário»: **RH3 Revisor**,
-`fernandinho.costa.neto+rh3@gmail.com`, papel **Administrador**, senha `Teste123!`.
-Criar contas é bloqueado no meu ambiente — some dos meus comandos, não é erro do sistema.
-Detalhes em §3.2.
+Conta **RH3** criada por você; a resposta à revisão da T3 foi dada **pela tela**, como RH3,
+sobre uma decisão de **RH2**. Medido nas sete pontas: fila, diálogo (com o aviso de que o
+texto vai literal ao candidato), confirmação, gravação com as duas autorias distintas, trilha,
+notificação **entregue** e a tela da candidata mostrando «a decisão foi mantida».
+
+⛔ **A trilha rendeu um defeito novo:** `stamp_explicacao_acessada` é idempotente no **valor**
+(`COALESCE`) e não na **escrita** — o `UPDATE` roda a cada visita e o trigger `AFTER UPDATE`
+acrescenta uma linha ao histórico do Art. 20. Hoje: **7 linhas, 2 estados distintos**. Cresce
+por ação do titular, e dilui justamente a trilha que o Art. 20 exige. Não consertado (é
+migration em PROD); está no backlog do guia como **P2**, com o conserto e o portão escritos.
 
 ### 0.3 ⏳ Rodar os blocos G e H — são seus
 
@@ -98,7 +104,8 @@ na tela.
 | Agendamento, convite com `.ics`, reagendamento com aviso | ✅ §7.12, §7.17 |
 | Guia de entrevista, análise de transcrição | ✅ §7.14, §7.25 |
 | Decisão final com os 3 pesos, e-mail de aprovação | ✅ §7.20 |
-| Knockout com e-mail, explicação e revisão do Art. 20 | ✅ §7.18, §7.21, §7.24, §7.26 |
+| Knockout com e-mail, explicação e revisão do Art. 20 | ✅ §7.18, §7.21, §7.24, §7.26, §7.27 |
+| Revisão do Art. 20 respondida por outra pessoa (E10) | ✅ §7.28 — bloco E fechado |
 | Cópia de dados, exclusão com arrependimento | ✅ §7.22, §7.23 |
 | Auditoria de viés, fila de pedidos de dados | ✅ §7.17, §7.24 |
 
@@ -198,14 +205,14 @@ sabiam** (estão em §7.26 do guia, com o raciocínio completo):
 3. **O portão do painel passava por fora**, e o comentário ao lado dizia o contrário: ele já
    falava em «knockout/rejected path» sobre uma linha que **excluía** o knockout.
 
-### 3.2 ⏳ E10 — bloqueado por uma conta
+### 3.2 ✅ E10 — fechado (§7.28)
 
-Falta responder a um pedido de revisão **como outra pessoa**. Quem decidiu está corretamente
-barrado — provado no servidor: HTTP 403, código 42501, «quem registrou a decisao nao pode
-responder a revisao dela (decisor)» (§7.21). Falta o caminho feliz, que precisa de um segundo
-revisor. Criar a conta em §0.2, ou decidir pular (o guard já está provado).
+Respondido pela tela como **RH3** sobre uma decisão de **RH2**, veredito `mantida`. O guard do
+decisor já estava provado no servidor (403 / 42501, §7.21); o caminho feliz está medido em
+§7.28, com a notificação **entregue** e a tela da candidata conferida.
 
-Há **3 pedidos de revisão pendentes** na fila (2 são dados de teste antigos, 1 é a T3).
+Restam **2 pedidos pendentes** na fila, os dois dados de teste antigos (a fixture `p46+neg-art20`
+e o `[TESTE] Dentista — Funil E2E`). Somem no bloco I.
 
 ### 3.3 ⏳ Blocos do guia que ainda não rodaram
 
@@ -219,7 +226,7 @@ Há **3 pedidos de revisão pendentes** na fila (2 são dados de teste antigos, 
 
 - **15 candidatos fictícios** com e-mail `@invalido.local` (os 6 da comparação + fixtures da
   Phase 46 + 2 anonimizados). Precisam sair antes de qualquer divulgação.
-- **3 contas de teste** (`+claude1/2/3`) e o usuário **RH2**.
+- **3 contas de teste** (`+claude1/2/3`) e os usuários **RH2** e **RH3**.
 - A vaga `[TESTE E2E] Social Media` (inativa) e as demais `[TESTE]`.
 - O snapshot de viés com período `p45-pos-execucao` (rótulo de fase, não um mês).
 - `.planning/WINDOWS.md` — triagem pendente desde antes destas sessões.
@@ -372,9 +379,8 @@ novo quebrava o `npm run test:run` até alguém lembrar de acrescentar a linha.
 
 ## 6 · Se eu fosse continuar agora
 
-1. **Criar a conta RH3** (§0.2) — 10 min, fecha o bloco E inteiro.
-2. **Rodar G e H** (§0.3) — são seus, e o H é irreversível.
-3. **Limpeza do bloco I** (§3.4) e então divulgar as vagas.
+1. **Rodar G e H** (§0.3) — são seus, e o H é irreversível.
+2. **Limpeza do bloco I** (§3.4) e então divulgar as vagas.
 
 O **I2** (triagem das 40 janelas do `WINDOWS.md`) não depende de G/H e pode correr em paralelo
 com qualquer um deles.

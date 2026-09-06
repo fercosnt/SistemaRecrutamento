@@ -285,6 +285,7 @@ conferido titular a titular naquele instante.
 | **P1** | **Avançar etapa com testes obrigatórios incompletos** passa em silêncio (C9) | candidatura E2E | RPC de avanço / UI |
 | P2 | 7 de 8 prompts com `deployed_at` NULL → guard de imutabilidade inerte; `culture_fit_essay` com `content_hash` errado só corrigível por versão nova | §0.2 | `prompt_versions` |
 | P2 | `scripts/sync-prompts.ts` é código morto (escreve `fallback_model_id`, coluna inexistente) | RETOMAR | apagar ou consertar |
+| **P2** | **`stamp_explicacao_acessada` é idempotente no valor e não na escrita** — o `UPDATE` roda a cada visita e o trigger `AFTER UPDATE` acrescenta uma linha ao histórico do Art. 20. 7 linhas / 2 estados distintos hoje; cresce por ação do titular | §7.28 | `WHERE ... AND explicacao_solicitada_em IS NULL` |
 | P2 | `updateVagaBase` não persiste `slug`, `tipo_contrato`, `modelo_trabalho`, `descricao_curta` (toast de sucesso falso) | handoff do plugin | **confirmar em C2** |
 | P2 | Não existe tela de criar vaga; o plugin `cadastro-de-vaga` gera migration | handoff | roadmap próprio, se quiser autonomia |
 | P2 | Registro desatualizado (§0.3) | esta sessão | A3 |
@@ -813,6 +814,82 @@ trava de titularidade, que a conferência de tela nunca teria tocado.
   §7.23) e o painel mostra «Você retirou sua candidatura». Não suprime o cartão — os dois blocos
   são irmãos no JSX — mas confunde a leitura. Use a **T3**.
 - **`/login` é 404**; a rota é **`/auth/login`**.
+
+### 7.28 · E10 — o bloco E fecha, e a trilha rende um defeito novo — 2026-09-06
+
+Conta **RH3** criada pelo responsável (`fernandinho.costa.neto+rh3@gmail.com`, administrador,
+`user_id 023abcd6…`), que era o único bloqueio do E10. Conferida no banco antes de usar:
+`usuarios_rh` com `role='administrador'`, `ativo=true`, `created_by` = Fernando.
+
+**A resposta foi dada pela TELA, não pela RPC** — o E10 testa o caminho real, e um `curl` na
+função teria pulado justamente as camadas que ainda não tinham sido exercitadas.
+
+| O que | Resultado |
+|---|---|
+| Fila `/rh/revisoes` | ✅ Carrega as 3 pendentes, com a coluna **«Quem decidiu»** — a T3 mostra `RH2`, que é o contraste de que o teste depende |
+| Diálogo | ✅ Repete «Quem decidiu: RH2», avisa que **«este texto será exibido ao candidato exatamente como escrito»**, contador `0 / 50 mín.` e botão `disabled` até o mínimo |
+| Confirmação | ✅ Há um segundo passo («Registrar resposta?») antes de gravar — correto para ação irreversível |
+| Gravação | ✅ `revisao_veredito='mantida'`, `revisao_por_usuario`=**RH3**, `por_usuario`=**RH2**, os dois distintos |
+| Trilha | ✅ `decisao_final_historico` ganhou linha em `20:46:56.533202` — o instante exato |
+| Notificação | ✅ `notificacoes_enviadas`: evento `revisao_respondida`, template homônimo, para `+claude3@`, status **`entregue`**, 1 s depois |
+| Tela do candidato | ✅ Bloco «Resultado da revisão» com «Após a revisão, a decisão foi mantida», a data, o texto **literal** que o RH escreveu, e o CTA `disabled` com «Sua solicitação de revisão foi respondida» |
+
+Veredito escolhido: **mantida** — é o desfecho realista (a T3 foi rejeitada na decisão final) e
+não cria uma candidatura ressuscitada que o bloco I teria de desfazer. A RPC não altera o
+status da candidatura em nenhum dos dois vereditos; ela só grava os campos `revisao_*`.
+
+⚠ **A RPC é one-shot:** `revisao_respondida_em IS NOT NULL` levanta «revisao ja respondida».
+Não há segunda tentativa, e o texto vai literal para o candidato — por isso ele foi escrito
+sem nota, banda nem critério (RNF-07a / D-15).
+
+**Com isso o bloco E fecha inteiro** (E1–E12). O guard do decisor já estava provado no
+servidor em §7.21 (403 / 42501); faltava o caminho feliz, e ele está medido nas sete linhas
+acima — cada uma no banco ou na caixa de entrada, nenhuma só na tela.
+
+#### ⛔ Defeito novo: idempotente no VALOR, não na ESCRITA
+
+A trilha de `decisao_final_historico` tinha **4 linhas** para esta candidatura antes da
+resposta — e duas delas não registravam mudança nenhuma. A causa:
+
+```sql
+-- stamp_explicacao_acessada
+UPDATE public.decisao_final
+   SET explicacao_solicitada_em = COALESCE(explicacao_solicitada_em, now())
+ WHERE candidatura_id = p_candidatura_id;   -- sem AND ... IS NULL
+```
+
+O `COALESCE` garante que o **valor** não muda depois do primeiro acesso — a intenção
+«first-access-only» está correta. Mas o `UPDATE` **executa sempre**, e
+`trg_decisao_final_snapshot` é `AFTER UPDATE`: **toda visita à página de transparência
+acrescenta uma linha ao histórico**, idêntica à anterior exceto por `arquivado_em`.
+
+Medido em PROD agora: **7 linhas na tabela inteira, 2 estados distintos** — 5 de 7 não
+registram mudança alguma. Um candidato que recarregar a página vinte vezes gera vinte linhas.
+
+**Por que importa mais do que parece:**
+
+1. **Dilui a trilha.** Uma tabela de auditoria em que a maioria das linhas diz «nada mudou»
+   torna a linha que importa mais difícil de achar — e é justamente a trilha do Art. 20.
+2. **Cresce sem teto, por ação do titular.** O volume não depende da equipe; depende de quantas
+   vezes o candidato exerce o direito de ler a explicação. É a única tabela do sistema com essa
+   propriedade, e ela interage com os blocos **G/H** (retenção e purga).
+
+**Conserto** (não aplicado — é migration em PROD, e a fila do responsável é G/H/I):
+acrescentar `AND explicacao_solicitada_em IS NULL` ao `WHERE`, tratando o `RETURNING` vazio do
+segundo acesso com um `SELECT` de leitura. Portão sugerido: chamar a RPC **duas vezes** e
+assertar que `decisao_final_historico` cresceu **uma** vez — a asserção que a versão atual
+reprova.
+
+> **A forma, para a próxima:** «idempotente» tem dois sentidos que parecem um só. `COALESCE`
+> torna o **valor** idempotente; só o `WHERE` torna a **escrita** idempotente. Onde houver
+> trigger `AFTER UPDATE`, os dois precisam valer — e o sintoma do que falta não aparece na tela
+> nenhuma, só no volume de uma tabela que ninguém abre.
+
+**Uma observação menor, não bloqueante:** a fila mostra «Quem decidiu: **Não identificado**»
+para a fixture `p46+neg-art20`, cujo `por_usuario` é um uuid sintético fora de `usuarios_rh`.
+O guard da RPC só barra quando `por_usuario IS NULL`, então essa linha é respondível por
+qualquer administrador. É fixture, some no bloco I — mas fica o registro de que «não
+identificado na tela» e «sem autoria para o guard» são condições **diferentes**.
 
 ---
 
