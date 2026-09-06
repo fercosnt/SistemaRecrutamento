@@ -407,6 +407,12 @@ if (import.meta.main) {
       return errorResponse("SERVER_ERROR", "Servidor mal configurado", 500);
     }
 
+    // 2026-09-06: o preflight CORS (OPTIONS) NAO traz Authorization. Ate hoje este
+    //   wrapper exigia o header ANTES de delegar ao handler (que trata OPTIONS), entao
+    //   o navegador recebia 401 no preflight e o envio morria em "blocked by CORS" —
+    //   medido em PROD ao enviar uma redacao. Com verify_jwt=true o gateway respondia
+    //   o OPTIONS sozinho e escondia a ordem errada; com false, ela apareceu.
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return errorResponse("UNAUTHORIZED", "Sessão inválida.", 401);
