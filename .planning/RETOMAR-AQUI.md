@@ -1,11 +1,11 @@
-# Retomar aqui — estado em 2026-09-06, fim da sessão de validação final
+# Retomar aqui — estado em 2026-09-06, depois da sessão dos vereditos
 
 **Como abrir a próxima conversa:**
 
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 O guia de validação (`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste,
-§7.1–§7.25 é o **diário do que foi medido**, com o resultado de cada item e o commit de cada
+§7.1–§7.26 é o **diário do que foi medido**, com o resultado de cada item e o commit de cada
 conserto. Este arquivo aqui é o resumo executivo e a lista do que falta.
 
 ---
@@ -13,9 +13,26 @@ conserto. Este arquivo aqui é o resumo executivo e a lista do que falta.
 ## Em uma frase
 
 Dois dias de teste manual em produção encontraram **19 defeitos**, todos consertados e no ar;
-o funil inteiro do candidato foi percorrido de ponta a ponta com contas reais; o que resta são
-**3 decisões suas**, **1 teste bloqueado** por falta de uma segunda conta de RH, e a **limpeza**
-dos dados de teste antes de divulgar as vagas.
+o funil inteiro do candidato foi percorrido de ponta a ponta com contas reais; **as 3 decisões
+foram tomadas e implementadas** (§7.26); o que resta são **1 apply de migration seu**, **1
+teste bloqueado** por falta de uma segunda conta de RH, os blocos **G e H** (que são seus), e a
+**limpeza** dos dados de teste antes de divulgar as vagas.
+
+---
+
+## 0 · O que fazer primeiro, hoje
+
+```bash
+node p46apply.cjs migrate supabase/migrations/20260906000007_explicacao_knockout.sql
+npm run db:types    # remove o cast `as never` pré-regen do explicacaoService
+```
+
+**Até esse apply, a página de explicação do knockout não funciona em PROD** — a RPC
+`explicacao_rejeicao_automatica` só existe no arquivo. O código do cliente já está no ar do
+lado do repositório e degrada em silêncio (a RPC falha → página «indisponível», que é
+exatamente o comportamento de antes). As outras duas decisões não dependem de banco.
+
+Depois: criar a conta **RH3** (§3.2) e o E10 fecha o bloco E inteiro.
 
 ---
 
@@ -35,10 +52,11 @@ apenas na tela.
 | Cópia de dados, exclusão com arrependimento | ✅ §7.22, §7.23 |
 | Auditoria de viés, fila de pedidos de dados | ✅ §7.17, §7.24 |
 
-**Suítes:** `deno test` 484/484 · `vitest` 1956/1956 (199 arquivos) · `tsc` 90 erros (baseline
-congelada 96 — não subiu).
+**Suítes:** `deno test` 484/484 · `vitest` **1980/1980** (200 arquivos) · `tsc` 90 erros
+(baseline congelada 96 — não subiu).
 
-**47 commits hoje**, do `a7fc5973` ao `ecaa98e7`.
+**47 commits na sessão de validação**, do `a7fc5973` ao `ecaa98e7`; mais **3** na sessão dos
+vereditos, até `12ec4e42`.
 
 ---
 
@@ -71,31 +89,30 @@ resolvia. O gate de auditoria de viés pedia o período do snapshot exibido. O l
 
 ## 3 · O que falta — em ordem de importância
 
-### 3.1 ⏳ Três decisões suas (nada bloqueia o sistema; todas mudam produto ou postura)
+### 3.1 ✅ As três decisões — tomadas e implementadas (§7.26)
 
-**A · A cópia de dados entrega o que o recrutador escreve.** *(§7.22)*
-O arquivo que o candidato baixa inclui `candidaturas.etapa_justificativa` — o texto integral da
-justificativa — e o `score_match`. É **deliberado** (a allowlist marca `preservar_com_ressalva`,
-e acesso pelo Art. 18 é mais amplo que explicação pelo Art. 20). O problema é que **ninguém avisa
-os dois lados**: a tela de privacidade descreve a cópia como «o resultado e a explicação das
-avaliações», e a tela de decisão diz ao recrutador que aquilo vai «para a trilha de auditoria»,
-o que soa interno. Ele pode escrever com franqueza sem saber que o candidato baixa aquilo.
-**Recomendo:** ajustar a copy nas duas pontas e manter a regra. Tirar da cópia é uma linha na
-allowlist, se preferir o contrário.
+| | Veredito | Commit | Estado |
+|---|---|---|---|
+| **A** · a cópia entrega o que o recrutador escreve (§7.22) | manter a allowlist, **avisar os dois lados** | `5123ef04` | ✅ no código |
+| **B** · explicação e revisão no knockout (§7.18) | **explicação sim, revisão não** (caminho 2) | `12ec4e42` | ⏳ **precisa do apply** da `20260906000007` |
+| **C** · a geração do guia leva 60–130 s (§7.25) | **travar o botão e mostrar o tempo** | `7a245d6a` | ✅ no código |
 
-**B · Explicação e revisão para quem cai no knockout.** *(§7.18)*
-Você já decidiu o e-mail, e ele está no ar. Falta decidir se quem é eliminado por resposta
-eliminatória também tem direito à página de explicação e ao pedido de revisão — hoje só quem é
-rejeitado na decisão final tem. É a decisão em que **nenhum humano olhou**, o que inverte o que
-o Art. 20 protege. Os quatro caminhos estão escritos em §7.18; o (3), abrir revisão para o
-knockout, é o que mais muda o volume de trabalho do RH.
+**Duas coisas que a implementação descobriu, e que o registro anterior não sabia:**
 
-**C · A geração do guia leva de 60 a 130 segundos e a tela não avisa.** *(§7.25)*
-Quem usa tende a clicar de novo, e aí duas execuções correm juntas e **a última a terminar grava
-por cima** — pode ser a pior das duas. Foi o que aconteceu comigo: o guia salvo acabou sendo o do
-fallback com 5 perguntas, não o do Sonnet com 7. **Recomendo:** tornar a geração assíncrona
-(dispara, avisa «estamos gerando», a tela atualiza sozinha) ou, no mínimo, travar o botão e
-mostrar o tempo esperado.
+**O aviso do A não podia ir para a tela de decisão final.** Este arquivo dizia «a tela de
+decisão diz ao recrutador…». Mas o campo que o candidato baixa é
+`candidaturas.etapa_justificativa`, e `registrar_decisao` **não escreve nele** — grava em
+`decisao_final`, cuja justificativa a cópia exclui (o §7.22 mediu isso). O aviso foi para a
+**rejeição na triagem** e o **retrocesso de etapa**, que são as telas que escrevem o campo
+exposto. Há teste guardando os dois sentidos.
+
+**O B precisou de uma RPC, pela lição da sessão outra vez.** Do lado do cliente, a rejeição
+**humana** da triagem e o knockout **automático** são a mesma linha (as duas com
+`status='rejeitado'`, as duas sem `decisao_final`, e a allowlist do candidato exclui
+`motivo_rejeicao` de propósito). Inferir knockout da ausência de decisão teria dado a uma
+rejeição **escrita por uma pessoa** o texto da automática — plausível, silencioso e errado
+sobre o fato mais importante daquela página. E o cartão do painel **passava por fora do
+portão** desde sempre: ele exigia a etapa, e o knockout preserva `inscricao` por desenho.
 
 ### 3.2 ⏳ E10 — bloqueado por uma conta
 
@@ -199,11 +216,16 @@ novo quebrava o `npm run test:run` até alguém lembrar de acrescentar a linha.
 
 ## 6 · O que eu faria primeiro, se fosse continuar agora
 
-1. **Decidir A e C** (§3.1) — são as duas que afetam alguém de fora: um candidato lendo o que o
-   recrutador escreveu, e um recrutador esperando 2 minutos sem saber disso.
+1. **Aplicar a `20260906000007`** e rodar `npm run db:types` — sem isso a decisão B está no
+   repositório e não em produção (§0).
 2. **Criar a conta de RH3** e fechar o E10 — 10 minutos, e fecha o bloco E inteiro.
 3. **Rodar G e H** (retenção e o flip da purga) — são seus, e o H é irreversível.
 4. **Limpeza do bloco I** e então divulgar as vagas.
+
+Depois de aplicar a migration, vale **conferir o B na tela**: entrar como a T3 (que levou
+knockout na Consultor), ver o cartão «Entenda a decisão» aparecer no painel — ele nunca
+apareceu nesse caso — e abrir a explicação, que deve dizer que foi automático e **não** oferecer
+pedido de revisão.
 
 O M8 é o último milestone planejado. Fechando esses quatro itens, o projeto está fechado como
 está escopado hoje.

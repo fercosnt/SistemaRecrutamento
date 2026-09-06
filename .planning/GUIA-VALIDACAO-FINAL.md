@@ -622,6 +622,66 @@ Como o knockout não abre explicação nem revisão (§7.18), criei a **T3** («
 
 ---
 
+### 7.26 · Os três vereditos, implementados — 2026-09-06 (sessão seguinte)
+
+As três decisões que §7.18, §7.22 e §7.25 devolveram ao responsável foram tomadas e
+implementadas. Nenhuma exigiu medição nova; todas exigiram escolher.
+
+| Decisão | Veredito | O que foi feito |
+|---|---|---|
+| **A** (§7.22) — a cópia entrega o que o recrutador escreve | **Manter a allowlist, avisar os dois lados** | `COPY_PEDIR_COPIA.oQueEsta` passa a nomear as anotações da equipe e as notas calculadas; as telas que escrevem o campo ganham um aviso ao lado do campo. `5123ef04` |
+| **B** (§7.18) — explicação e revisão no knockout | **Explicação sim, revisão não** (caminho 2) | RPC `explicacao_rejeicao_automatica` + branch automática na página + o portão do painel. `12ec4e42` |
+| **C** (§7.25) — a geração leva 60–130 s sem aviso | **Travar o botão e mostrar o tempo** | Aviso de 1–2 min enquanto gera, cooldown de 60 s após erro. `7a245d6a` |
+
+**Três coisas que a implementação descobriu e que o registro anterior não sabia:**
+
+**a) O aviso do item A não podia ir para a tela de decisão final.** §7.22 e o
+`RETOMAR-AQUI` diziam «a tela de decisão diz ao recrutador…». Mas o campo que o candidato
+baixa é `candidaturas.etapa_justificativa`, e `registrar_decisao` **não escreve nele** —
+grava em `decisao_final`, cuja justificativa a cópia exclui (o próprio §7.22 mediu isso).
+As telas que escrevem o campo exposto são a **rejeição na triagem** e o **retrocesso de
+etapa**. Pôr o aviso na decisão final seria a tela afirmando uma exposição inexistente — o
+erro simétrico ao que ele conserta. Há teste guardando os dois sentidos.
+
+**b) O item B precisava de uma RPC, e o motivo é a lição da sessão outra vez.** Do lado do
+cliente, a rejeição **humana** da triagem e o knockout **automático** são a mesma linha:
+as duas com `status='rejeitado'`, as duas sem `decisao_final`, e a allowlist do candidato
+exclui `motivo_rejeicao` de propósito (D-15). Inferir «sem decisão e rejeitado ⇒ knockout»
+teria dado a uma rejeição **escrita por uma pessoa** o texto da automática. Ninguém veria:
+a tela renderiza, o texto é plausível, e está errado sobre o fato mais importante da
+página. A RPC é o único lugar onde `motivo_rejeicao` pode ser **lido sem ser devolvido**;
+ela responde um booleano e nada mais.
+
+**c) O portão do painel passava por fora, e o comentário ao lado dizia o contrário.**
+`hasDecisaoFinal` exigia `etapa_atual ∈ {decisao_final, aprovado, rejeitado}`, e o knockout
+preserva `inscricao` **por desenho**. O cartão LGPD nunca apareceu para quem foi reprovado
+sem humano nenhum — enquanto o comentário da função já falava em «knockout/rejected path».
+É a forma do §«Portões: varra pela FORMA» do CLAUDE.md numa terceira roupa: uma
+**fotografia** das etapas onde um desfecho costuma acontecer, apresentada como a definição
+de «houve desfecho».
+
+**Portões novos, todos provados por execução** (revertido o conserto, o teste cai):
+
+| Arquivo | Sondas |
+|---|---|
+| `entrevista/…/GuiaEntrevistaPanel.test.tsx` (§7.25) | 2 — o cooldown e o aviso de tempo |
+| `privacidade/__tests__/aviso-justificativa-dois-lados.test.ts` (§7.22) | 2 — a frase e a presença nas telas |
+| `explicacao/services/…` + `components/…` + `DashboardCandidatoPage.funnel` (§7.18) | 3 — a inferência, o CTA e o portão do painel |
+
+O portão do §7.22 existe por um motivo específico: os testes de render comparavam a tela
+com a **própria constante**, então passariam com a frase inteira apagada. Ele assere o
+**conteúdo** da promessa, que é o que envelhece.
+
+**Suítes:** `vitest` 1980/1980 (200 arquivos, +24) · `tsc` 90 (baseline congelada 96).
+
+⏳ **Pendente de você:** aplicar a migration `20260906000007` —
+`node p46apply.cjs migrate supabase/migrations/20260906000007_explicacao_knockout.sql` —
+e depois `npm run db:types`, que remove o cast `as never` pré-regen. **Até o apply, a
+página de explicação do knockout não funciona em PROD** (a RPC não existe lá); as outras
+duas decisões já estão inteiras no código, sem depender de banco.
+
+---
+
 ## §8 · Fechamento da sessão de validação — 2026-09-06
 
 **Resumo executivo, os pendentes e o passo a passo para retomar estão em
