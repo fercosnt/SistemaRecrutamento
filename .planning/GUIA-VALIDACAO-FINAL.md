@@ -308,3 +308,49 @@ E9  ⛔  o sistema deixou EU responder a revisão da T2 — a rejeição foi aut
 Print de tela vale mais que descrição — mande junto quando algo estranhar. O agente responde
 com a medição do «depois», o diagnóstico **medido** (não plausível), e o conserto com review
 antes de qualquer apply.
+
+---
+
+## 7. Sessão de teste do agente — 2026-09-05, ~21:30–22:00 (Bloco B, pelo navegador, em PROD)
+
+Conta **`…+claude1@gmail.com`** («Claude Teste Candidata», candidato `1c1575d8…`, candidatura
+`0b1c887b…` na Social Media). Viewport 390×844 (celular) a partir do cadastro. Nada irreversível
+foi tocado; a conta é descartável.
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| B1 | ✅ / ⚠ | Listagem e página da vaga com cidade, endereço, horário, seções extras e markdown corretos. ⚠ **Clicar no título ou no corpo do card não navega** (só o botão), apesar do `cursor: pointer`. ⚠ O botão da lista leva a `/vagas/<uuid>`, não ao slug. ⚠ «Benefícios» aparece duas vezes (h2 + h4) |
+| B2 | ✅ | «Idade deve estar entre 16 e 100 anos» com DOB 2012; «Outros» aceito **e abre campo «Especifique»** com validação própria; gravou `como_conheceu='outro'` + `como_conheceu_detalhes` |
+| B3 | ✅ | CEP 04004-030 → ViaCEP preencheu; foco foi para Número; **Tab levou ao Complemento** e `APTO12` caiu lá — Número ficou `53` |
+| B4 | ✅ | **As 3 caixas nascem desmarcadas.** Marquei obrigatória + retenção. `autorizacoes`: marketing `false`, retenção `true`, `v2-2026-08`, hash, `consent_registrado_em` — ⚠ `user_agent_aceite` NULL |
+| B5 | ⚠ | Copy desatualizada: «Para os demais direitos [acesso, eliminação…], escreva para lgpd@» — o sistema já faz cópia e exclusão sozinho em `/candidato/privacidade` (Phases 44/45). Ponto final solto não visível no celular |
+| B6 | ✅ / ⚠ | Redirect sobreviveu login → cadastro → formulário. ⚠ **Nenhum e-mail no cadastro** (só na inscrição); `email_confirmed_at` já vem preenchido |
+| B7 | ✅ | PDF aceito (limite 5 MB explícito); cabeçalhos legíveis («Sobre sua experiência», «Ferramentas e rotina»…) |
+| **B8** | **⛔** | **Sair e voltar perde TUDO** — 6 respostas, portfólio e CV. Não há rascunho da inscrição (a redação tem `em_progresso`; a candidatura, não). No celular, uma interrupção zera o trabalho |
+| B9 | ✅ | E-mail `confirmacao` **entregue em <1 s**; dashboard 1/1 em Triagem, «Em triagem — retorno em até 48 horas», CTA como texto de estado |
+| **B10** | **⛔** | **Análise ficou `pendente` para sempre.** EF rodou 92,8 s, `[analise] ok`… e o upsert final voltou **400**: o `unpdf` extraiu **90 NUL** do PDF; Postgres recusa (22P05); a EF não conferia o `error`. **Consertado em `f62ef6f`** (sanitize + erro lança → `falhou`). Também: **`ai_call_logs` INSERT falha com PGRST204** (`input_hash` e `output` não existem) desde 22/08 — custo de IA invisível; consertado no mesmo commit + migration `…0905000003`. E a análise caiu no **fallback openai** (motivo não logado — o log de IA estava morto) |
+| B12 | ✅ | «Base da guarda: sua autorização de 05/09/2026. Prazo previsto: até 05/09/2028.» ⚠ Switch de marketing diz «Desativado em 05/09/2026» para algo nunca ligado. ⚠ Página sem a navbar compartilhada (só «Voltar ao painel») |
+| B13 | ✅ | Liguei/desliguei: **só** `autorizacao_marketing_vagas` mudou; hash/versão/timestamp intactos |
+| B14 | ✅ | Assinada com TTL 60 s (`iat`/`exp` no token); recarregada depois → **400** |
+| B15 | ✅ | Zero chamadas a `get-curriculo-url`; URL assinada ausente do console e do DOM. ⚠ A página faz `candidatos?select=*` (convenção pede allowlist) |
+| B16 | ⚠ | **Card da candidatura no dashboard quebra o título uma palavra por linha** a 390 px (coluna de ~100 px); título «Histórico de Candidaturas» colide com o botão «Ver Vagas» |
+| — | ⚠ | Console: `Select is changing from uncontrolled to controlled` no «Como conheceu» (higiene React); `[CADASTRO]`/`[CV]`/`[CANDIDATURA]` logam ids em produção |
+
+**Não fiz (dependem de você):** A0 (deploy), A1 (RH2), qualquer coisa do lado RH, cópia dos dados e
+exclusão (ficam para a conta T3 sua ou para uma `+claude2` minha).
+
+**Depois do deploy:** reprocessar a análise da `0b1c887b` (hoje `pendente`) e conferir que vira
+`sucesso` com o CV sanitizado; aplicar `…0905000001` (rubricas), `…0905000002` (fictícios) e
+`…0905000003` (input_hash) — a última ANTES do redeploy das 7 EFs que embarcam o audit-logger.
+
+### 7.1 · Depois do seu deploy (22:05–22:25) — o que mais apareceu
+
+| Achado | Evidência | Estado |
+|---|---|---|
+| **A Anthropic nunca respondia a tempo.** `AI_CALL_TIMEOUT_MS` = 25 s × 3 tentativas + backoff ≈ 87 s → `anthropic_retries_exhausted` → **todas** as análises pelo `gpt-4o-mini`. O «93 s» do E2E de 25/08 era isso; a «variância 89/75/80» e os gaps que contradizem a evidência são do modelo barato | `ai_call_logs` das 3 análises dos fictícios: `provider=openai`, `error_message='Request timed out.'`, `latency_ms≈87200` | `timeoutMs: 55_000` na EF (`commit` deste horário) — **precisa de redeploy** e de reprocesso para provar que o Sonnet responde |
+| Replay por `idempotency_key` nunca funcionou — `select` pedia a coluna fantasma `output` | `ai-client.ts` `tryIdempotencyReplay` | corrigido (lê `raw_response`) — redeploy das 7 EFs de IA |
+| `reprocessar_analise` retorna em silêncio quando o Vault não devolve os secrets ao papel chamador | chamada como `postgres` via Management API: `void`, nada no `pg_net` | anotar — pelo RH (JWT) funciona; a RPC devia levantar erro em vez de `RETURN` |
+| `efdeploy.cjs` não enviava o `deno.json` (import map) → 3 EFs que importam `"zod"` puro não bundlavam | seu terminal, 22:05 | corrigido (`02c9eac`) — **rodar de novo para as 3**: `avaliar-transcricao-entrevista`, `avaliar-redacao-cultural`, `gerar-guia-entrevista` |
+| Migration `…0905000001` (rubricas): literais `E''` em linhas separadas não concatenam em PL/pgSQL | 42601 no primeiro apply | reescrita com `\|\|`, **aplicada** (md5 `26ba7c0f…`); rubricas conferidas |
+| Migration `…0905000002` (fictícios Social Media) | **aplicada**; Larissa **100** · Thiago **56** · Juliana **30** — ordem calibrada, eliminatório mordeu | ✅ (via gpt-4o-mini — reavaliar depois do timeout) |
+| Minha candidatura `0b1c887b`: reprocessada pela EF v20 | `sucesso`, score 80, 5 pontos fortes com citação, 3 gaps com evidência — o NUL sanitizado passou. ⚠ gap `[critical]` «há pelo menos 1 ano… confirmado na pergunta 7» contradiz CV (3 anos) e Etapa 1 («entre 2 e 4») — é o gpt-4o-mini | ✅ B10 fecha; qualidade fica para o Sonnet |
