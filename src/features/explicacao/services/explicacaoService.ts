@@ -319,18 +319,15 @@ export async function getExplicacao(
 async function getExplicacaoAutomatica(
   candidaturaId: string,
 ): Promise<ExplicacaoCandidato | null> {
-  // ⚠ CAST PRÉ-REGEN: `explicacao_rejeicao_automatica` vem na migration
-  // `20260906000007`; `database.types.ts` só é regenerado por `npm run db:types`
-  // (Supabase CLI `--linked`), então o nome ainda não é chave válida de
-  // `supabase.rpc()`. Idioma vivo do repositório para a janela pré-regen
-  // (`historicoCandidaturaService.ts:160`). O próximo `db:types` remove os casts.
-  const { data, error } = await supabase.rpc('explicacao_rejeicao_automatica' as never, {
+  // Aplicada em PROD (`20260906000007`, ledger com md5 conferido) e presente em
+  // `database.types.ts` — chamada totalmente tipada, sem cast `as never`.
+  const { data, error } = await supabase.rpc('explicacao_rejeicao_automatica', {
     p_candidatura_id: candidaturaId,
-  } as never)
+  })
 
   // `=== true` e não truthy: a RPC devolve boolean, e qualquer outra coisa que chegue
   // aqui (um shape inesperado de um build futuro) não deve virar uma explicação.
-  if (error || (data as unknown) !== true) return null
+  if (error || data !== true) return null
 
   return {
     origem: 'automatica',
