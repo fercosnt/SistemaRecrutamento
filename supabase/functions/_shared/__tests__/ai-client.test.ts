@@ -710,3 +710,136 @@ Deno.test("AI-06 — FAIL-OPEN: a cost-lookup error does NOT block the call", as
     Deno.env.delete("AI_DAILY_COST_CAP_USD");
   }
 });
+
+// ── 2026-09-06 — a chave de idempotencia tem de cobrir o INPUT ───────────────
+// Ate hoje o replay casava so pela chave do chamador (`{candidatura_id}:transcript`,
+// `{candidatura_id}:{tipo}`), que nao muda quando o input muda. Medido em PROD: o RH
+// clicou «Gerar guia» e recebeu o guia ANTERIOR sem nenhuma chamada nova ao modelo.
+// O mesmo caminho serviria a analise de uma transcricao NOVA com as citacoes da antiga.
+//
+// Mock com CHAVE: ao contrario de makeMockSupabaseWithReplay (que devolve a linha para
+// qualquer `eq`), este guarda um mapa chave→linha, entao so replaya quem realmente casa.
+function makeMockSupabaseKeyed() {
+  const rows = new Map<string, Record<string, unknown>>();
+  const chaves: string[] = [];
+  const gravar = (r: Record<string, unknown>) => {
+    const k = r.idempotency_key;
+    if (typeof k === "string") {
+      chaves.push(k);
+      if (r.success === true) {
+        rows.set(k, {
+          provider: r.provider,
+          success: true,
+          raw_response: r.raw_response,
+          cost_usd: r.cost_usd,
+          error_code: null,
+        });
+      }
+    }
+    return Promise.resolve({ data: null, error: null });
+  };
+  return {
+    chaves,
+    from(_table: string) {
+      return {
+        insert: gravar,
+        upsert: (r: Record<string, unknown>, _o?: { onConflict?: string }) => gravar(r),
+        select: (_c: string) => ({
+          eq: (_col: string, valor: unknown) => ({
+            maybeSingle: () =>
+              Promise.resolve({ data: rows.get(String(valor)) ?? null, error: null }),
+          }),
+        }),
+      };
+    },
+  };
+}
+
+Deno.test("idempotencia — MESMO input + mesma chave → replay (o provedor NAO e chamado de novo)", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseKeyed();
+  const args = { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:transcript" };
+
+  await callAi(args, { anthropic, openai: makeMockOpenAI(), supabase });
+  const segunda = await callAi(args, { anthropic, openai: makeMockOpenAI(), supabase });
+
+  assertEquals(anthropic.calls.length, 1, "a repeticao identica tem de replayar, nao re-cobrar");
+  assertEquals(segunda.cache_hit, true);
+  assertEquals(segunda.cost_usd, 0);
+  assertEquals(
+    (segunda as { prompt_version?: string }).prompt_version,
+    SONNET_PROMPT.prompt_version,
+    "o replay devolve a versao do prompt em uso",
+  );
+});
+
+Deno.test("idempotencia — input DIFERENTE com a mesma chave do chamador → chamada NOVA", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseKeyed();
+
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:transcript" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  await callAi(
+    {
+      prompt: SONNET_PROMPT,
+      ...baseArgs,
+      rawInput: "Uma transcricao COMPLETAMENTE diferente da primeira.",
+      idempotency_key: "cand:transcript",
+    },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+
+  assertEquals(
+    anthropic.calls.length,
+    2,
+    "input novo NAO pode devolver a saida do input velho — era o defeito de 06/09",
+  );
+  assertEquals(new Set(supabase.chaves).size, 2, "as duas chamadas gravam chaves efetivas distintas");
+});
+
+Deno.test("idempotencia — mesmo input, PROMPT diferente (max_tokens) → chamada NOVA", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseKeyed();
+
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:guia" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  // Espelha a migration 20260906000003: o teto subiu porque a saida vinha truncada —
+  // reservir a saida truncada seria o pior resultado possivel.
+  await callAi(
+    { prompt: { ...SONNET_PROMPT, max_tokens: 8000 }, ...baseArgs, idempotency_key: "cand:guia" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+
+  assertEquals(anthropic.calls.length, 2, "mudar max_tokens tem de invalidar o replay");
+});
+
+Deno.test("idempotencia — mesmo input, RUBRICA diferente → chamada NOVA", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseKeyed();
+
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:transcript" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  // A analise de transcricao passou a receber as ancoras BARS do guia (bars-rubric.ts):
+  // regerar o guia MUDA a rubrica, e a analise tem de ser refeita contra a nova.
+  await callAi(
+    {
+      prompt: SONNET_PROMPT,
+      ...baseArgs,
+      vagaRubricBlock: "Rubric: ancoras BARS vindas do guia regerado.",
+      idempotency_key: "cand:transcript",
+    },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+
+  assertEquals(anthropic.calls.length, 2, "rubrica nova tem de invalidar o replay");
+});

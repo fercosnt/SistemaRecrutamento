@@ -50,7 +50,7 @@ import { maskPII } from "./pii-masker.ts";
 import { detectPromptInjection } from "./injection-detector.ts";
 import { CircuitBreaker, sharedBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
-import { logAiCall } from "./audit-logger.ts";
+import { computeInputHash, logAiCall } from "./audit-logger.ts";
 import { loadPrompt } from "./prompt-loader.ts";
 import type { LoadedPrompt } from "./prompt-loader.ts";
 
@@ -283,10 +283,49 @@ function isRetryable(err: unknown): boolean {
  * fluxo normal). Nunca lanca: uma falha no lookup degrada para uma chamada
  * normal, nao quebra a feature.
  */
+/**
+ * Impressao digital da REQUISICAO — tudo que determina a saida do modelo.
+ *
+ * ⚠ MEDIDO EM 2026-09-06 (E4 do guia de validacao): o RH clicou «Gerar guia
+ *   (entrevista presencial)» depois de o guia anterior ter caido no fallback ruim.
+ *   A tela mostrou um guia, `entrevista_guias.updated_at` avancou — e `ai_call_logs`
+ *   NAO registrou chamada nenhuma. O replay devolveu o guia VELHO, porque a chave era
+ *   `{candidatura_id}:{tipo}`: estavel, independente do input.
+ *
+ *   Isso e pior do que "regerar nao regenera". Em `avaliar-transcricao-entrevista` a
+ *   chave e `{candidatura_id}:transcript` — colar uma transcricao DIFERENTE (corrigida,
+ *   de uma segunda entrevista) devolveria a analise da PRIMEIRA, com as citacoes da
+ *   outra conversa, sem nenhum sinal de que nada foi reprocessado. `avaliar-redacao-cultural`
+ *   ja fazia certo (o inputHash entra na chave dela); as demais nao.
+ *
+ *   O defeito so ficou observavel em 05/09: ate entao o replay NUNCA funcionava (pedia
+ *   uma coluna `output` inexistente → 400 → null), entao toda chamada era nova.
+ *   Consertar o replay ligou o cache — e a chave errada virou dado errado na tela.
+ *
+ * Cobre: versao/modelo/tetos do prompt, o system template, o bloco de rubrica e o input
+ * mascarado. Mudar o max_tokens (como a migration 20260906000003 fez) invalida os
+ * replays anteriores — que e o correto: a saida truncada nao deve ser reservida.
+ */
+async function requestFingerprint(
+  prompt: ResolvedPrompt,
+  vagaRubricBlock: string,
+  maskedInput: string,
+): Promise<string> {
+  const canonico = [
+    prompt.prompt_version,
+    prompt.model_id,
+    String(prompt.max_tokens),
+    String(prompt.temperature),
+    prompt.system_template,
+    vagaRubricBlock,
+    maskedInput,
+  ].join("\u0000");
+  return (await computeInputHash(canonico)).slice(0, 16);
+}
+
 async function tryIdempotencyReplay(
   supabase: SupabaseLike,
   idempotency_key: string | undefined,
-  prompt_version: string,
 ): Promise<CallAiResult | null> {
   if (!idempotency_key) return null;
   const table = supabase.from("ai_call_logs");
@@ -314,7 +353,10 @@ async function tryIdempotencyReplay(
       cost_usd: 0,
       latency_ms: 0,
       cache_hit: true,
-      prompt_version,
+      // Placeholder: `callAi` sobrescreve com `prompt.prompt_version` no retorno. A linha
+      // replayada e necessariamente do MESMO prompt — a versao entra na impressao digital
+      // da chave efetiva (ver requestFingerprint), entao nao ha divergencia possivel.
+      prompt_version: "",
       error_code: existing.error_code != null ? String(existing.error_code) : undefined,
     };
   } catch {
@@ -415,11 +457,21 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   const zodResponseFormat = deps.zodResponseFormat ?? ((s: unknown, _n: string) => s);
 
   // ── 0. Replay de idempotencia ANTES de qualquer chamada de API (CR-03) ────
-  // Se a mesma idempotency_key ja foi registrada, devolve o resultado anterior
-  // sem fazer nova chamada ao provedor nem gravar nova linha em ai_call_logs
-  // (evita custo duplicado + inflacao de ai_cost_daily em retries pg_net).
-  const replay = await tryIdempotencyReplay(supabase, idempotency_key, prompt.prompt_version);
-  if (replay) return replay;
+  // Se a mesma requisicao ja foi registrada, devolve o resultado anterior sem chamar o
+  // provedor nem gravar nova linha (evita custo duplicado + inflacao de ai_cost_daily
+  // em retries pg_net).
+  //
+  // ⚠ A chave EFETIVA = chave do chamador + impressao digital da requisicao. Ver
+  //   `requestFingerprint`: sem ela, `{candidatura_id}:transcript` devolvia a analise da
+  //   transcricao ANTERIOR para uma transcricao nova. maskPII roda aqui em cima (nunca
+  //   depois) porque o hash e sobre o texto MASCARADO — o mesmo que vai ao provedor e a
+  //   `ai_call_logs.input_hash` (Pitfall 6 / IA-02).
+  const { masked: maskedInput } = maskPII(rawInput);
+  const idempotencyKeyEfetiva = idempotency_key
+    ? `${idempotency_key}:${await requestFingerprint(prompt, vagaRubricBlock, maskedInput)}`
+    : undefined;
+  const replay = await tryIdempotencyReplay(supabase, idempotencyKeyEfetiva);
+  if (replay) return { ...replay, prompt_version: prompt.prompt_version };
 
   // ── 0.5. Kill-switch de custo PRÉ-chamada (AI-06) — corte de gasto em RUNTIME
   // Soma o custo do dia por vaga e RECUSA a chamada acima do teto HARD, ANTES de
@@ -447,7 +499,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       cost_usd: 0,
       success: false,
       error_code: "cost_cap_exceeded",
-      idempotency_key,
+      idempotency_key: idempotencyKeyEfetiva,
       recommendation: "hold",
     });
     return {
@@ -485,7 +537,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       cost_usd: 0,
       success: false,
       error_code: "prompt_injection_detected",
-      idempotency_key,
+      idempotency_key: idempotencyKeyEfetiva,
       recommendation: "hold",
     });
     return {
@@ -500,14 +552,14 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     };
   }
 
-  // ── 2. Mascara o input dinamico ANTES de mandar ao provedor (Pitfall 6) ───
-  const { masked: maskedInput } = maskPII(rawInput);
+  // (o mascaramento do input — Pitfall 6 — subiu para o passo 0, junto da impressao
+  //  digital da chave de idempotencia; `maskedInput` ja esta pronto aqui.)
 
   // ── 3. Disjuntor: OPEN -> fallback OpenAI gpt-4o-mini ─────────────────────
   if (!breaker.canRequest()) {
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-      idempotency_key, timeoutMs, openai, supabase, zodResponseFormat, start,
+      idempotency_key: idempotencyKeyEfetiva, timeoutMs, openai, supabase, zodResponseFormat, start,
       circuitWasOpen: true,
     });
   }
@@ -566,7 +618,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         attempt_number: attempt,
         cost_usd,
         success: true,
-        idempotency_key,
+        idempotency_key: idempotencyKeyEfetiva,
       });
 
       return {
@@ -591,7 +643,8 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // ── 5. Anthropic esgotou os retries -> fallback OpenAI ────────────────────
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
-    idempotency_key, timeoutMs, openai, supabase, zodResponseFormat, start,
+    idempotency_key: idempotencyKeyEfetiva,
+    timeoutMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
     circuitWasOpen: false,
   });
