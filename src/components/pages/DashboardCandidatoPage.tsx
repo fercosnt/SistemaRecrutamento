@@ -48,6 +48,24 @@ export function DashboardCandidatoPage() {
   /**
    * Helper para obter ícone e cor do status
    */
+  /**
+   * Status em que a candidatura ACABOU — não há espera nem próximo passo.
+   *
+   * ⚠ 2026-09-06 (E6 do guia de validação): a candidata reprovada no knockout da
+   *   inscrição via, no mesmo cartão que dizia «Rejeitado», a linha «Inscrição
+   *   recebida — retorno da triagem em até 48 horas» e um rodapé «Próximo passo».
+   *   As duas coisas derivam de `etapa_atual`, que no knockout PERMANECE 'inscricao'
+   *   por desenho (a migration 20260709000014 documenta: a etapa não muda, para o
+   *   trigger de avanço não disparar). Quem lê recebe uma promessa de retorno que
+   *   nunca virá — pior que silêncio, porque a pessoa fica esperando.
+   *
+   *   O critério é o STATUS, não a etapa. `finalizado` também encerra (processo
+   *   concluído); `aprovado_proxima` NÃO — ali há de fato um próximo passo.
+   */
+  const STATUS_TERMINAIS: ReadonlySet<string> = new Set(['rejeitado', 'finalizado']);
+  const candidaturaEncerrada = (status: string | null | undefined): boolean =>
+    !!status && STATUS_TERMINAIS.has(status);
+
   const getStatusInfo = (status: string | null | undefined) => {
     switch (status) {
       case 'aguardando_resposta':
@@ -328,11 +346,18 @@ export function DashboardCandidatoPage() {
                               verbatim de config_sla_etapa; rotuloDeEspera devolve null p/
                               etapa terminal/stale/sem-prazo → o componente não renderiza. */}
                           <PrazoEstimadoLinha
-                            rotulo={rotuloDeEspera(
-                              candidatura.etapa_atual
-                                ? slaLookup.get(candidatura.etapa_atual)
-                                : undefined,
-                            )}
+                            rotulo={
+                              // Candidatura encerrada não tem prazo de espera — ver
+                              // STATUS_TERMINAIS. Antes prometia «retorno em 48 horas»
+                              // no mesmo cartão que dizia «Rejeitado».
+                              candidaturaEncerrada(candidatura.status)
+                                ? null
+                                : rotuloDeEspera(
+                                    candidatura.etapa_atual
+                                      ? slaLookup.get(candidatura.etapa_atual)
+                                      : undefined,
+                                  )
+                            }
                           />
 
                           {/* Phase 8 / D-16 — persisted neutral rejection message
@@ -368,7 +393,7 @@ export function DashboardCandidatoPage() {
                           (#35BFAD) when there is a route, neutral glass otherwise.
                           stopPropagation so the funnel CTA wins over the card's
                           vaga-navigation onClick. */}
-                      {ehEntrevista ? (
+                      {candidaturaEncerrada(candidatura.status) ? null : ehEntrevista ? (
                         <AgendamentoCandidatoCard candidaturaId={candidatura.id} />
                       ) : (
                         <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
