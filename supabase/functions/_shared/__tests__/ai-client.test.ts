@@ -208,12 +208,19 @@ async function loadClient() {
         timeoutMs?: number;
         // idempotency_key drives tryIdempotencyReplay (AI-05 tests below).
         idempotency_key?: string;
+        /** Schema de saída — entra na impressão digital da chave (2026-09-06). */
+        schema?: unknown;
       },
       deps: {
         anthropic: unknown;
         openai: unknown;
         supabase: unknown;
         breaker?: { canRequest(): boolean; recordSuccess(): void; recordFailure(): void };
+        /** Builders de structured output — o da Anthropic entra na impressão digital. */
+        zodOutputFormat?: (schema: unknown, name: string) => unknown;
+        zodResponseFormat?: (schema: unknown, name: string) => unknown;
+        /** Orçamento total injetável (ver ai-client-budget.test.ts). */
+        totalBudgetMs?: number;
       },
     ) => Promise<
       {
@@ -844,3 +851,25 @@ Deno.test("idempotencia — mesmo input, RUBRICA diferente → chamada NOVA", as
   assertEquals(anthropic.calls.length, 2, "rubrica nova tem de invalidar o replay");
 });
 
+
+Deno.test("idempotencia — mesmo input, SCHEMA diferente → chamada NOVA", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseKeyed();
+  // O schema é o que mais determina o formato da resposta. Medido em 2026-09-06:
+  // apertar os `describe` do guia e redeployar devolveu, em <1 s e sem linha em
+  // ai_call_logs, a saída do gpt-4o-mini de 40 minutos antes — a chave era idêntica.
+  const format = (s: unknown, _n: string) => s;
+
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:guia", schema: { campo: "descricao antiga" } },
+    { anthropic, openai: makeMockOpenAI(), supabase, zodOutputFormat: format },
+  );
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:guia", schema: { campo: "descricao NOVA, mais curta" } },
+    { anthropic, openai: makeMockOpenAI(), supabase, zodOutputFormat: format },
+  );
+
+  assertEquals(anthropic.calls.length, 2, "schema novo tem de invalidar o replay");
+  assertEquals(new Set(supabase.chaves).size, 2, "as chaves efetivas têm de diferir");
+});

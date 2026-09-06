@@ -331,15 +331,35 @@ function isRetryable(err: unknown): boolean {
  *   uma coluna `output` inexistente → 400 → null), entao toda chamada era nova.
  *   Consertar o replay ligou o cache — e a chave errada virou dado errado na tela.
  *
- * Cobre: versao/modelo/tetos do prompt, o system template, o bloco de rubrica e o input
- * mascarado. Mudar o max_tokens (como a migration 20260906000003 fez) invalida os
- * replays anteriores — que e o correto: a saida truncada nao deve ser reservida.
+ * Cobre: versao/modelo/tetos do prompt, o system template, o bloco de rubrica, o input
+ * mascarado E O SCHEMA DE SAIDA. Mudar o max_tokens (migration 20260906000003) ou o
+ * schema invalida os replays anteriores — que e o correto: uma saida truncada, ou escrita
+ * sob outro contrato, nao deve ser reservida.
+ *
+ * ⚠ O SCHEMA entrou depois, e por medicao: em 2026-09-06 apertei os `describe` do
+ *   InterviewGuideSchema para o modelo escrever ancoras BARS curtas, redeployei, cliquei
+ *   em «Gerar guia» — e a tela devolveu, em menos de um segundo e SEM linha em
+ *   ai_call_logs, a saida do gpt-4o-mini de 40 minutos antes. A chave efetiva era
+ *   identica (`…:presencial:0a4b1756ab6d210a`) porque nada do que estava na impressao
+ *   digital havia mudado. O schema e o que mais determina o formato da resposta;
+ *   deixa-lo de fora e cachear sob um contrato que nao existe mais.
  */
 async function requestFingerprint(
   prompt: ResolvedPrompt,
   vagaRubricBlock: string,
   maskedInput: string,
+  schema: unknown,
+  zodOutputFormat: (schema: unknown, name: string) => unknown,
 ): Promise<string> {
+  // O JSON Schema gerado e a forma canonica do contrato (inclui os `describe`, que sao
+  // parte do pedido). Se a serializacao falhar (mock de teste, ciclo), degrada para
+  // string vazia — nunca derruba a chamada por causa da chave.
+  let schemaCanonico = "";
+  try {
+    schemaCanonico = JSON.stringify(zodOutputFormat(schema, prompt.call_type)) ?? "";
+  } catch {
+    schemaCanonico = "";
+  }
   const canonico = [
     prompt.prompt_version,
     prompt.model_id,
@@ -348,6 +368,7 @@ async function requestFingerprint(
     prompt.system_template,
     vagaRubricBlock,
     maskedInput,
+    schemaCanonico,
   ].join("\u0000");
   return (await computeInputHash(canonico)).slice(0, 16);
 }
@@ -500,7 +521,9 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   //   `ai_call_logs.input_hash` (Pitfall 6 / IA-02).
   const { masked: maskedInput } = maskPII(rawInput);
   const idempotencyKeyEfetiva = idempotency_key
-    ? `${idempotency_key}:${await requestFingerprint(prompt, vagaRubricBlock, maskedInput)}`
+    ? `${idempotency_key}:${
+      await requestFingerprint(prompt, vagaRubricBlock, maskedInput, schema, zodOutputFormat)
+    }`
     : undefined;
   const replay = await tryIdempotencyReplay(supabase, idempotencyKeyEfetiva);
   if (replay) return { ...replay, prompt_version: prompt.prompt_version };
