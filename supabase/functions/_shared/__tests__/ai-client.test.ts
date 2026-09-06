@@ -340,9 +340,13 @@ Deno.test("IA-02/03/04 — callAi INSERTs an ai_call_logs row with the audit col
   });
   const logRow = supabase.inserts.find((i) => i.table === "ai_call_logs");
   assert(logRow, "an ai_call_logs row must be inserted");
-  for (const col of ["prompt_version", "model_id", "input_hash", "output", "cost_usd"]) {
+  // 2026-09-05: a lista trazia "output" — coluna que NUNCA existiu em ai_call_logs. O
+  // teste pinava a coluna fantasma que fazia TODO INSERT falhar com PGRST204 em PROD
+  // (a tabela ficou com 1 linha desde 22/08). O output bruto vive em `raw_response`.
+  for (const col of ["prompt_version", "model_id", "input_hash", "raw_response", "cost_usd"]) {
     assert(col in logRow!.row, `ai_call_logs row must carry "${col}"`);
   }
+  assert(!("output" in logRow!.row), 'ai_call_logs row must NOT carry "output" — coluna inexistente (PGRST204)');
 });
 
 // ── RESIL-01 — per-call timeout + maxRetries:0 reach the provider ────────────

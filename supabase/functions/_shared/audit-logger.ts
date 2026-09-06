@@ -146,7 +146,11 @@ export async function logAiCall(supabaseAdmin: SupabaseUpsertLike, row: AiCallLo
     input_hash, // sha256 do texto mascarado (reprodutibilidade IA-02)
     input_token_count: row.input_token_count,
     raw_response: row.raw_response,
-    output: row.raw_response, // alias de auditoria do output bruto (IA-02)
+    // ⚠ Até 2026-09-05 havia aqui `output: row.raw_response` — coluna que NUNCA
+    //   existiu em ai_call_logs. O PostgREST devolvia PGRST204, o INSERT inteiro
+    //   falhava, o erro era só logado, e `ai_call_logs` ficou com 1 linha desde
+    //   22/08: custo de IA invisível, cost-alerter cego, /admin/ai-costs vazio.
+    //   `input_hash` ganhou coluna própria na …0905000003 (IA-02 exige o hash).
     parsed_score: row.parsed_score ?? null,
     parsed_reasoning: row.parsed_reasoning ?? null,
     output_token_count: row.output_token_count,

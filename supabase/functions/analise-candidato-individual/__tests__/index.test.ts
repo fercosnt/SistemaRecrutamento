@@ -336,3 +336,55 @@ Deno.test("buildRespostasBlock — Pergunta/Resposta na ordem da pergunta; sem e
   // sem embed → formato antigo, no fim (ordem desconhecida vai por último)
   assertEquals(linhas[4], "- instagram.com/exemplo");
 });
+
+// ── 2026-09-05: NUL no texto extraído do PDF ───────────────────────────────
+Deno.test("sanitizeTextoExtraido — remove NUL e controles C0, preserva quebra de linha e acentos", async () => {
+  const mod = await import("../index.ts");
+  const NUL = String.fromCharCode(0);
+  const SOH = String.fromCharCode(1);
+  const DEL = String.fromCharCode(127);
+  const sujo = "CLAUDE " + NUL + NUL + " TESTE " + SOH + "\nSão Paulo\t· Conteúdo ok" + DEL;
+  assertEquals(mod.sanitizeTextoExtraido(sujo), "CLAUDE  TESTE \nSão Paulo\t· Conteúdo ok");
+});
+
+Deno.test("upsert final com erro → status='falhou' (não 'sucesso' fantasma) — never-absent", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  // O upsert do marcador `pendente` passa; o final (status sucesso) devolve 400.
+  const origFrom = supabaseAdmin.from.bind(supabaseAdmin);
+  supabaseAdmin.from = (table: string) => {
+    const t = origFrom(table);
+    if (table !== "analise_candidato_vaga") return t;
+    return {
+      ...t,
+      upsert: (row: Record<string, unknown>, options?: { onConflict?: string }) => {
+        if (row.status === "sucesso") {
+          supabaseAdmin.upserts.push({ table, row, onConflict: options?.onConflict });
+          return Promise.resolve({
+            data: null,
+            error: { code: "22P05", message: "unsupported Unicode escape sequence" },
+          }) as unknown as ReturnType<typeof t.upsert>;
+        }
+        return t.upsert(row, options);
+      },
+    };
+  };
+  const deps = {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  };
+  const res = await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), deps);
+  // Contrato never-absent: a EF responde 200 mesmo em falha (o pg_net não reenfileira),
+  // mas o CORPO diz `falhou` — e a linha também.
+  const body = await res.json();
+  assertEquals(body.status, "falhou", "o corpo da resposta tem de dizer 'falhou', nunca 'sucesso'");
+  const falhou = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "falhou",
+  );
+  assertExists(falhou, "a linha tem de virar 'falhou' quando o upsert de sucesso é rejeitado");
+  assert(String(falhou!.row.erro).includes("22P05"), "o motivo do 400 tem de ficar gravado em `erro`");
+});

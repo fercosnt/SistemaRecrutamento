@@ -95,6 +95,31 @@ const RESPOSTAS_CHAR_BUDGET = 8_000;
  * Retorna null em QUALQUER falha (PDF corrompido/imagem/parser indisponível) — o
  * chamador então segue só com respostas + flag 'cv_nao_extraido'.
  */
+/**
+ * Remove caracteres de controle (C0 + DEL) do texto extraído do PDF, preservando
+ * quebra de linha e tabulação.
+ *
+ * ⚠ MEDIDO EM 2026-09-05, na primeira inscrição real pelo navegador: o `unpdf`
+ *   devolveu 90 caracteres NUL (U+0000) de um PDF gerado pelo jsPDF. O Postgres
+ *   recusa NUL em `text` (22P05) → o upsert final de `analise_candidato_vaga` voltava
+ *   400 → a EF registrava `[analise] ok` SEM conferir o erro → a linha ficava
+ *   `pendente` para sempre, e o RH veria uma candidatura sem score sem saber por quê.
+ *   PDFs de Word, Canva e impressoras virtuais produzem o mesmo. O NUL também ia
+ *   dentro do prompt, e o modelo aceitou em silêncio — saída válida, defeito invisível.
+ *
+ *   Implementado por filtro de code point, sem regex com escapes, para o defeito
+ *   não voltar por um escape que algum editor converta em byte.
+ */
+export function sanitizeTextoExtraido(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const k = ch.charCodeAt(0);
+    const controle = (k < 32 && ch !== "\n" && ch !== "\t") || k === 127;
+    if (!controle) out += ch;
+  }
+  return out;
+}
+
 async function extractCvText(pdfBytes: Uint8Array): Promise<string | null> {
   try {
     // unpdf via import estático do topo (resolvível no deploy; o dynamic `.join("")`
@@ -102,7 +127,7 @@ async function extractCvText(pdfBytes: Uint8Array): Promise<string | null> {
     const pdf = await getDocumentProxy(pdfBytes);
     const { text } = await extractText(pdf, { mergePages: true });
     const joined = Array.isArray(text) ? text.join("\n") : String(text ?? "");
-    const trimmed = joined.trim();
+    const trimmed = sanitizeTextoExtraido(joined).trim();
     if (!trimmed) return null;
     return trimmed.slice(0, CV_CHAR_BUDGET);
   } catch {
@@ -477,7 +502,11 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       })
       .filter((r): r is string => typeof r === "string" && r.length > 0);
 
-    await supabaseAdmin.from("analise_candidato_vaga").upsert(
+    // ⚠ O `error` deste upsert ERA DESCARTADO até 2026-09-05: um 400 (NUL no
+    //   resumo_cv) virava `[analise] ok` no log e `pendente` eterno na tabela.
+    //   Agora ele lança → cai no catch → a linha vira `falhou` com o motivo, que é o
+    //   invariante never-absent que este arquivo sempre prometeu.
+    const { error: upsertErr } = await supabaseAdmin.from("analise_candidato_vaga").upsert(
       {
         candidatura_id,
         vaga_id,
@@ -493,6 +522,11 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       },
       { onConflict: "candidatura_id" },
     );
+    if (upsertErr) {
+      throw new Error(
+        `upsert final de analise_candidato_vaga falhou: ${upsertErr.code ?? ""} ${upsertErr.message ?? ""}`.trim(),
+      );
+    }
 
     // Log redigido (Pitfall 7) — só ids/counts/flags-shape; NUNCA texto/score/nome.
     console.log("[analise] ok", {
