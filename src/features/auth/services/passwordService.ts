@@ -197,6 +197,21 @@ export async function verifyRecoveryOtp(
  * @throws {AuthError} SERVER_ERROR (weak_password / same_password / session_expired)
  *   / RATE_LIMITED / NETWORK_ERROR / UNKNOWN_ERROR
  */
+/**
+ * Para onde mandar a pessoa depois de redefinir a senha.
+ *
+ * 2026-09-06: a página mandava TODO MUNDO para `/candidato/perfil`. Um RH criado
+ * pelo administrador recebe o mesmo e-mail de código, redefine a senha na mesma
+ * tela e caía no guard de candidato. O papel vem do JWT da sessão que o
+ * `verifyOtp` acabou de estabelecer (`app_metadata.role`, injetado pelo Custom
+ * Access Token Hook) — não do `?tipo=rh` da URL, que o e-mail não carrega.
+ */
+export async function destinoPosRedefinicao(): Promise<'/rh/dashboard' | '/candidato/perfil'> {
+  const { data } = await supabase.auth.getSession()
+  const role = (data.session?.user?.app_metadata as { role?: string } | undefined)?.role
+  return role && role !== 'candidato' ? '/rh/dashboard' : '/candidato/perfil'
+}
+
 export async function setNewPassword(novaSenha: string): Promise<void> {
   // Pitfall 7: log apenas a flag — NUNCA `novaSenha`.
   console.log('[AUTH] setNewPassword invoked', {

@@ -69,7 +69,8 @@ import {
 import {
   verifyRecoveryOtp,
   setNewPassword,
-  tryAutoLogin,
+  tryAutoLogin,,
+  destinoPosRedefinicao,
 } from '@/features/auth/services'
 import { isAuthError } from '@/features/auth/types'
 import { useAuthFlowVariant } from '@/features/auth/hooks'
@@ -118,11 +119,14 @@ export function RedefinirSenhaPage() {
       // Sessão estabelecida → define a nova senha (updateUser).
       await setNewPassword(data.nova_senha)
 
+      // 2026-09-06: o destino depende do PAPEL da sessão recém-criada — um RH
+      // redefinindo a senha caía em /candidato/perfil e no guard.
+      const destino = await destinoPosRedefinicao()
       // Phase 4.1: aguarda hidratação antes de navegar para evitar
-      // /candidato/perfil renderizar com candidato=null.
-      await waitForCandidatoHydrated({ timeoutMs: 3000 })
+      // /candidato/perfil renderizar com candidato=null (só faz sentido p/ candidato).
+      if (destino === '/candidato/perfil') await waitForCandidatoHydrated({ timeoutMs: 3000 })
       toast.success('Senha alterada com sucesso.', { duration: 4000 })
-      navigate('/candidato/perfil', { replace: true })
+      navigate(destino, { replace: true })
     } catch (err) {
       if (isAuthError(err)) {
         // F-04.1-E: 422 transiente no setNewPassword (recupera no retry).
@@ -157,9 +161,10 @@ export function RedefinirSenhaPage() {
         if (recoveryAutoLoginCandidate(err) && targetEmail) {
           const ok = await tryAutoLogin(targetEmail, data.nova_senha)
           if (ok) {
-            await waitForCandidatoHydrated({ timeoutMs: 3000 })
+            const destino = await destinoPosRedefinicao()
+            if (destino === '/candidato/perfil') await waitForCandidatoHydrated({ timeoutMs: 3000 })
             toast.success('Senha alterada com sucesso.', { duration: 4000 })
-            navigate('/candidato/perfil', { replace: true })
+            navigate(destino, { replace: true })
             return
           }
           toast.success('Senha alterada. Faça login para continuar.', {
