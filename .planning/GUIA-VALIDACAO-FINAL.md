@@ -478,3 +478,11 @@ confirmação «Aprovar redação?». Gravou: `decisao_revisor = aprovado`, `rev
 `notas_revisor`, `scores_humanos` D1–D4. ✅ ⚠ A lista lateral «Revisão de redações» filtra vermelhas e
 amarelas por padrão e dizia «Nenhuma redação pendente» enquanto uma verde `pendente_humano` existia — a
 verde só aparece ligando o filtro; a copy poderia dizer «1 verde oculta». C1 «Aprovados: 5» ✅ ao vivo.
+
+### 7.12 · E1 — 06/09 02:25
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| E1 | ✅ / ⚠→✅ | Avançar (agora com SJT e redação feitos) → Entrevista Online; «Agendar entrevista»: data (calendário), horário, modalidade, link, entrevistador, observações. Gravou `agendamentos_entrevista` (10/09 14:00, online, link, `agendado_por` RH2), e-mail **`convite` entregue**. Tela: «Agendada · 10 de set 2026 às 14:00», comparecimento (Compareceu/Não/Pendente), Reagendar/Cancelar. ⚠ **`observacoes_rh` foi ao banco como NULL** apesar de preenchido: o `Textarea` (padrão shadcn React 19) não tinha `forwardRef`; no React 18 o `ref` do `register()` era descartado. Consertado na base (`14937ed`) com teste; era o único `Textarea` registrado por `register()` |
+| — | ℹ | Badge «Revisões 2» no menu do admin: os 2 pedidos pendentes são **dados de teste** (fixture p46 de 2024 e «Candidato Funil Teste» de junho), não pessoas — entram na limpeza I3 |
+| D9 | ⚠ | Não há bloco de scores consolidados com os pesos da vaga no perfil; «Avaliação Assíncrona» diz só «1 registro de avaliação comportamental» (é o SJT); «Redação» segue dizendo «na fila de revisão» após revisada |
