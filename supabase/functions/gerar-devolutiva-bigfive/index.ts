@@ -744,6 +744,10 @@ if (import.meta.main) {
           idempotency_key:
             `bigfive_devolutiva:${dimArgs.candidato_id ?? ""}:${dimArgs.dim_label}:${dimArgs.banda}`,
           schema: PaginaSchema,
+          // 2026-09-06: sem override, o teto default de 25 s x 3 tentativas derrubava TODA
+          //   chamada Anthropic para o gpt-4o-mini (medido na analise e no comparativo).
+          //   110 s, 1 tentativa (AI-04), como nas outras EFs de IA.
+          timeoutMs: 110_000,
         },
         // WR-02: injeta os builders dos helpers de structured-output. Sem eles, o
         // callAi usa o default no-op → a Anthropic recebe o Zod cru (sem o wrapper

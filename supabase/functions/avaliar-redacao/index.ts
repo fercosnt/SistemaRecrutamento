@@ -257,6 +257,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: WorkSampleScoringSchema,
+        // 2026-09-06: sem override, o teto default de 25 s x 3 tentativas derrubava TODA
+        //   chamada Anthropic para o gpt-4o-mini (medido na analise e no comparativo).
+        //   110 s, 1 tentativa (AI-04), como nas outras EFs de IA.
+        timeoutMs: 110_000,
       },
       // Encaminha os builders injetados (prod) — sem eles o schema cru quebra ambos provedores.
       // Testes omitem → callAi usa no-op (inalterado).

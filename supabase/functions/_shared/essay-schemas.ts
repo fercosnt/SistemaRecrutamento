@@ -69,7 +69,7 @@ export const EssayScoringV1Schema = z.object({
   }),
   dimension_scores: z.array(DimensionScoreSchema).length(4),
   overall_score: z.number().min(0).max(100), // calculado pela IA, server recalcula
-  qualitative_summary: z.string().min(50).max(500),
+  qualitative_summary: z.string().min(50).max(2000).describe("Resumo qualitativo. Seja objetivo: até ~400 caracteres."), // 2026-09-06: 500 → 2000 (o max do Zod só recusa depois; o Sonnet estourava)
   recommendation: z.enum(["strong_fit", "good_fit", "neutral", "weak_fit", "misfit"]),
   red_flag_etico: z.boolean(), // explícito no output, não derivado — load-bearing para o cap
   bias_audit: z.object({

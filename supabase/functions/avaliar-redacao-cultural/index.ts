@@ -255,6 +255,10 @@ export async function handler(req: Request, deps: AvaliarRedacaoCulturalDeps): P
         candidato_id: candRow.candidato_id,
         vaga_id: candRow.vaga_id,
         schema: EssayScoringV1Schema,
+        // 2026-09-06: sem override, o teto default de 25 s x 3 tentativas derrubava TODA
+        //   chamada Anthropic para o gpt-4o-mini (medido na analise e no comparativo).
+        //   110 s, 1 tentativa (AI-04), como nas outras EFs de IA.
+        timeoutMs: 110_000,
         // CR-01 — chave content-addressed: o fluxo permite re-submissão até a etapa
         // fechar (UPSERT em candidatura_id,pergunta_id). Sem o inputHash a chave era
         // estável → o 2º envio de um texto EDITADO acertava tryIdempotencyReplay e

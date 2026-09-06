@@ -79,7 +79,7 @@ export const WorkSampleScoringSchema = z.object({
     exclusion_criteria_violated: z.array(z.string()).describe("Critérios violados"),
 
     cited_evidence: z.array(Citation).min(0).max(3),
-    reasoning: z.string().min(50).max(800),
+    reasoning: z.string().min(50).max(3000).describe("Raciocínio. Seja objetivo: até ~600 caracteres."), // 2026-09-06: 800 → 3000 (ver CvJobMatchSchema.reasoning)
 
     score: Score1to5,
     level: z.union([BarsLevel, z.literal("insufficient_evidence")]),

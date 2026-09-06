@@ -19,7 +19,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Clock } from 'lucide-react'
 import { BackgroundImage } from '@/components/BackgroundImage'
@@ -137,6 +137,7 @@ export function SjtMultiplaEscolhaScreen() {
     return () => clearInterval(id)
   }, [])
 
+  const queryClient = useQueryClient()
   const backToPanel = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
 
   const handleSubmit = async () => {
@@ -146,6 +147,9 @@ export function SjtMultiplaEscolhaScreen() {
     setSubmitting(true)
     try {
       await pontuarSjt(candidaturaId as string, items)
+      // 2026-09-06: sem isto o hub voltava a mostrar «Pendente · Começar avaliação» para
+      // um SJT já enviado (a query ['avaliacao','status'] ficava em cache até o reload).
+      await queryClient.invalidateQueries({ queryKey: ['avaliacao', 'status', candidaturaId] })
       toast.success('Avaliação enviada com sucesso')
       backToPanel()
     } catch (err) {
