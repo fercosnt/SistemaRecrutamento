@@ -674,11 +674,52 @@ com a **própria constante**, então passariam com a frase inteira apagada. Ele 
 
 **Suítes:** `vitest` 1980/1980 (200 arquivos, +24) · `tsc` 90 (baseline congelada 96).
 
-⏳ **Pendente de você:** aplicar a migration `20260906000007` —
-`node p46apply.cjs migrate supabase/migrations/20260906000007_explicacao_knockout.sql` —
-e depois `npm run db:types`, que remove o cast `as never` pré-regen. **Até o apply, a
-página de explicação do knockout não funciona em PROD** (a RPC não existe lá); as outras
-duas decisões já estão inteiras no código, sem depender de banco.
+### 7.26.1 · O apply, e o que ele custou — 2026-09-06, fim da sessão
+
+✅ **Aplicada.** `node p46apply.cjs migrate …20260906000007…` → md5 do ledger batendo, 4964
+octetos. Conferido em PROD por consulta, não por leitura: a função existe, retorna `boolean`,
+é `SECURITY DEFINER` e `STABLE`, e a `version` do ledger nasceu **correta** (a via da Phase 46).
+
+⚠ **`npm run db:types` pendura, e trunca o arquivo ao falhar.** Dois problemas somados, e o
+segundo é o perigoso:
+
+1. O CLI abre um prompt (senha do banco / login) que, **sem tty, nunca aparece** — o processo
+   fica vivo e ocioso indefinidamente, consumindo 0% de CPU. É indistinguível de «está
+   demorando».
+2. O `>` do script **trunca `database.types.ts` ANTES** de rodar o comando. A falha deixou o
+   arquivo com **zero octeto**. Recuperado com `git checkout`.
+
+O que funciona é `--project-id` com o token do Keychain **e `< /dev/null`** — essa última parte
+é a load-bearing; sem ela o prompt ressuscita. Comando completo no `RETOMAR-AQUI` §4.
+
+**Uma segunda via foi tentada e descartada:** o endpoint `/v1/projects/{ref}/types/typescript`
+da Management API responde 200 e gera tipos válidos, mas **omite o schema `graphql_public`** que
+o CLI inclui. Só apareceu porque as duas saídas foram **diferenciadas uma contra a outra** em
+vez de a primeira que funcionou ter sido aceita. O gerador canônico é o CLI.
+
+**Três achados da regeneração, nenhum introduzido por este trabalho** — o arquivo de tipos
+estava simplesmente atrasado em relação a PROD:
+
+| Achado | O que era |
+|---|---|
+| `PostgrestVersion` `14.17` → `14.5` | conferido por **duas vias independentes** (CLI e Management API): as duas dizem `14.5` hoje. O `14.17` do arquivo commitado é que estava velho |
+| `ai_call_logs.input_hash` | do conserto da chave de cache (`a01321a8`), já em PROD e ausente dos tipos |
+| `redacao_score_0_100`, `sincronizar_score_redacao` | da migration `…0005`, idem |
+
+**Duas observações abertas, nenhuma bloqueante** (detalhe em `RETOMAR-AQUI` §3.5):
+
+- **O `anon` executa a RPC nova** — e isso é o padrão deste projeto (`ALTER DEFAULT PRIVILEGES`
+  concede EXECUTE em funções ao `anon`; o `REVOKE FROM PUBLIC` da migration não o alcança).
+  **Sem vazamento:** sem sessão, `auth.uid()` é NULL e a função devolve `false` sempre. Três
+  irmãs têm o mesmo grant; as duas mais novas o revogam. Não foi alterado de propósito — o
+  CLAUDE.md registra que os grants aqui foram raciocinados caso a caso.
+- **O endpoint `/v1/projects/{ref}/postgrest` devolve o `jwt_secret`** junto com a config.
+  Foi consultado para descobrir a versão do PostgREST e o segredo veio junto, ficando no log
+  daquela sessão. Não use aquele endpoint para consultar versão.
+
+⏳ **O que resta da decisão B:** a **conferência de tela**, que precisa de uma conta de
+candidato. Roteiro de 4 passos no `RETOMAR-AQUI` §0.1 — inclusive o passo que mais importa,
+que é confirmar que a rejeição **humana** de triagem continua **sem** página.
 
 ---
 
@@ -696,6 +737,11 @@ aplicadas com md5 conferido · 7 Edge Functions redeployadas · `deno test` 484/
 **Blocos percorridos:** A (correções prévias), B, C, D, E (E1–E9, E11, E12), F. **Faltam:**
 E10 (bloqueado — precisa de uma segunda conta de RH), G (retenção), H (flip da purga),
 I (limpeza dos dados de teste).
+
+> **Adendo de 2026-09-06, fim do dia (§7.26 e §7.26.1):** as três decisões deixaram de ser
+> pendências — foram tomadas, implementadas e a migration está aplicada. Restam a conferência
+> de tela da decisão B, o E10 e os blocos G/H/I. Os números acima são os da sessão de
+> validação; depois dela, `vitest` passou a 1980/1980 em 200 arquivos.
 
 **Três decisões suas, todas registradas com a evidência:** a copy da cópia de dados (§7.22),
 explicação e revisão para o knockout (§7.18), e a geração assíncrona do guia (§7.25).
