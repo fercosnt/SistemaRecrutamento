@@ -81,7 +81,18 @@ export function BiasAuditPage() {
   const periodo = snapshot?.periodo ?? null
 
   function handleGerar() {
-    gerar.mutate(periodo ?? currentPeriod())
+    // ⚠ 2026-09-06 (E11 do guia de validação): era `periodo ?? currentPeriod()` — o período
+    //   do snapshot EXIBIDO, caindo no mês atual só quando não havia nenhum. Duas
+    //   consequências, e a segunda derrubou o botão em PROD:
+    //     1. Gerar sempre refazia o MÊS ANTIGO. Um admin que abre a tela em setembro e
+    //        clica em «Gerar snapshot» quer a foto de setembro, não uma segunda cópia de
+    //        agosto — a tela nunca avançaria de período sozinha.
+    //     2. O último snapshot de PROD tem `periodo = 'p45-pos-execucao'` (rótulo de uma
+    //        execução de fase, não um mês). O serviço exige `YYYY-MM`, então o botão
+    //        respondia «Período inválido» sempre, culpando um período que o usuário nunca
+    //        escolheu.
+    //   Gerar é sempre sobre o mês corrente; o snapshot anterior é só o que se exibe.
+    gerar.mutate(currentPeriod())
   }
 
   function handleExport() {
