@@ -436,3 +436,16 @@ O `gpt-4o-mini` continua sendo o que introduz a dispersão (Rafael 64, Thiago 60
 | C10 | — | não feito ainda |
 | — | ⚠ | Recrutador (antes da promoção): ver §7.6 |
 | — | ⚠ | Fictícios `@exemplo.com` — domínio **com MX**; 6 e-mails de teste entregues a terceiros. Migration `…0906000001` aplicada: `@invalido.local` |
+
+### 7.8 · Bloco D como candidata T1 — 06/09 01:35–01:50
+
+| ID | Resultado | O que medi |
+|---|---|---|
+| C8 (lado candidata) | ✅ | Dashboard: «Etapa atual: Avaliação Assíncrona · Avaliação liberada — conclua em até 7 dias corridos» + CTA «Continuar para Avaliação Assíncrona» |
+| D1 | ✅ / ⚠ | Hub lista SJT (situações + caso prático), redação cultural, comportamental; sem cognitivo (correto). ⚠ Não distingue **obrigatório** (SJT) de **opcional** (redação, Big Five nesta vaga) — tudo «Pendente · ~10 min» |
+| D2 | ✅ / ⚠ | SJT: confirmação «Enviar avaliação?» ✅; resposta gravada em `scores_candidato` ✅. ⚠ **«Situação 1 de 1» e cenário de pré-vendas** (lead no Instagram, CRM): o banco tem 1 item `mc` por cargo e **nenhum de Social Media** — a vaga usa `sdr-social-seller`. ⚠ «Tempo sugerido: 00:11» é o cronômetro decorrido, rótulo errado. ⚠ Após enviar, o hub seguia «Pendente · Começar avaliação» até o reload — consertado (`a109109`, invalidação) |
+| **D3** | **⛔** | «Caso prático» abre em **«Nenhuma avaliação pendente»**: só o cargo `dentista` tem item `caso_aberto`. O card existe no hub e leva a um beco sem saída |
+| **D4** | **⛔→✅** | Redação: 1 pergunta cultural, cronômetro, contador 200–500 ✅. **Sair e voltar zerava a redação** — o autosave gravava em `respostas_avaliacao` e nenhuma tela lia de volta. Consertado (`299b90e`); a conferir ao vivo após o deploy |
+| — | ⚠ | Dedupe de notificação `candidatura:avanco` → **um único e-mail de avanço por candidatura, para sempre**; o retrocesso não notifica. Decisão de produto (incluir a etapa na chave?) |
+| — | ⚠ | Console: Select/RadioGroup «uncontrolled → controlled» no diálogo de retroceder e no SJT (higiene React) |
+| — | ⚠ | Preventivo (`a109109`): `timeoutMs` 110 s em avaliar-redacao, avaliar-redacao-cultural, gerar-devolutiva-bigfive; tetos de texto dos schemas — **redeploy das 7 EFs pendente** |
