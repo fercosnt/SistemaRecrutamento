@@ -270,10 +270,16 @@ export function AutorizacoesStep() {
           <li>Revogar as autorizações opcionais</li>
           <li>Solicitar a portabilidade dos seus dados</li>
         </ul>
+        {/*
+          2026-09-05: a frase anterior («Para os demais direitos, escreva para…») era da
+          Phase 43 e ficou FALSA depois das Phases 44/45: cópia dos dados e eliminação são
+          autoatendimento na mesma página. Prometer menos do que o sistema faz manda o
+          titular ao e-mail para o que ele resolveria em dois cliques.
+        */}
         <p className="text-white/70 text-sm pt-2">
-          Hoje, revogar as autorizações opcionais você faz sozinho(a), na página{' '}
-          <strong>Seus dados e autorizações</strong>. Para os demais direitos,
-          escreva para o nosso canal de privacidade:{' '}
+          Na página <strong>Seus dados e autorizações</strong> você mesmo(a) revoga as
+          autorizações opcionais, baixa uma cópia dos seus dados e pede a eliminação deles.
+          Para correção e portabilidade, escreva para o nosso canal de privacidade:{' '}
           <a
             href="mailto:lgpd@beautysmile.com.br"
             className="text-blue-400 hover:text-blue-300 underline"

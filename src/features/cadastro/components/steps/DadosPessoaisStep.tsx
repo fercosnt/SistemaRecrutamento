@@ -260,7 +260,10 @@ export function DadosPessoaisStep() {
               <Label htmlFor="como_conheceu" className="text-white">
                 Como conheceu a vaga? *
               </Label>
-              <Select onValueChange={field.onChange} value={field.value}>
+              {/* `?? ''`: sem isso o Select nasce uncontrolled (value undefined) e vira
+                  controlled na primeira escolha — o React avisa no console em PROD
+                  (medido em 2026-09-05). */}
+              <Select onValueChange={field.onChange} value={field.value ?? ''}>
                 <SelectTrigger
                   id="como_conheceu"
                   className="bg-white/10 border-white/20 text-white hover:bg-white/15 backdrop-blur-md data-[placeholder]:text-white/50"

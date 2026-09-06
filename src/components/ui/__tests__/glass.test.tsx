@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { GlassButton } from '../glass'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { GlassButton, GlassCard } from '../glass'
 
 /**
  * Regressão do achado D-42-11-01.
@@ -79,5 +79,22 @@ describe('GlassButton — repasse de props ao <button>', () => {
     const desabilitado = screen.getByTestId('b')
     expect(desabilitado).toBeDisabled()
     expect(desabilitado).toHaveAttribute('type', 'submit')
+  })
+})
+
+
+describe('Glass — repassa atributos HTML ao DOM (2026-09-05)', () => {
+  it('um GlassCard com onClick dispara o handler ao clicar no conteúdo', () => {
+    const onClick = vi.fn()
+    render(
+      <GlassCard onClick={onClick} data-testid="card-clicavel">
+        <h2>Título do card</h2>
+      </GlassCard>
+    )
+    // Antes do conserto o onClick era descartado pelo Glass base: o card tinha
+    // cursor-pointer e nada acontecia — medido na lista pública de vagas.
+    fireEvent.click(screen.getByText('Título do card'))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('card-clicavel')).toBeInTheDocument()
   })
 })

@@ -139,12 +139,14 @@ export function VagasPublicasPage() {
     resetFilters()
   }
 
-  const handleVerDetalhes = (vagaId: string) => {
-    navigate(`/vagas/${vagaId}`)
+  // A rota aceita slug OU uuid; o slug é a URL pública que aparece no anúncio e que a
+  // pessoa reconhece na barra. Até 2026-09-05 o botão da lista levava ao uuid.
+  const handleVerDetalhes = (vaga: { id: string; slug?: string | null }) => {
+    navigate(`/vagas/${vaga.slug || vaga.id}`)
   }
 
-  const handleCandidatar = (vagaId: string) => {
-    navigate(`/vagas/${vagaId}`) // Navigate to detail page for application
+  const handleCandidatar = (vaga: { id: string; slug?: string | null }) => {
+    navigate(`/vagas/${vaga.slug || vaga.id}`) // Navigate to detail page for application
   }
 
   const handlePageChange = (newPage: number) => {
@@ -385,7 +387,7 @@ export function VagasPublicasPage() {
                     blur="xl"
                     hover
                     className="text-white transition-all duration-300 cursor-pointer"
-                    onClick={() => handleVerDetalhes(vaga.id)}
+                    onClick={() => handleVerDetalhes(vaga)}
                   >
                     <div className="space-y-6">
                       {/* Header da vaga */}
@@ -458,7 +460,7 @@ export function VagasPublicasPage() {
                             className="inline-flex items-center justify-center gap-2 whitespace-nowrap w-full py-4 text-white drop-shadow-sm transition-all duration-200"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleCandidatar(vaga.id)
+                              handleCandidatar(vaga)
                             }}
                           >
                             Candidatar-se a esta vaga →

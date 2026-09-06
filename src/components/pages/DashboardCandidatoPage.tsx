@@ -190,7 +190,8 @@ export function DashboardCandidatoPage() {
 
           {/* Histórico de Candidaturas */}
           <GlassPanel variant="white" blur="xl" className="text-white">
-            <div className="flex items-center justify-between mb-6">
+            {/* Empilha no celular: a 390 px o título e o botão colidiam (2026-09-05). */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
               <h2 className="text-3xl drop-shadow-md">Histórico de Candidaturas</h2>
               <GlassButton
                 variant="white"
@@ -289,8 +290,11 @@ export function DashboardCandidatoPage() {
                       className="text-white cursor-pointer"
                       onClick={() => handleVerVaga(candidatura.vaga_id)}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
+                      {/* Badge de status ABAIXO do título no celular. Lado a lado, a coluna do
+                          título ficava com ~100 px e «Social Media — Produção e Captação de
+                          Conteúdo» quebrava uma palavra por linha (medido a 390 px, 2026-09-05). */}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div className="flex-1 min-w-0">
                           <h3 className="text-2xl font-semibold mb-2 drop-shadow-md">
                             {candidatura.vaga?.titulo || 'Vaga não encontrada'}
                           </h3>
@@ -348,7 +352,7 @@ export function DashboardCandidatoPage() {
                             )}
                         </div>
 
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${statusInfo.bg} border border-white/20`}>
+                        <div className={`flex items-center gap-2 self-start px-4 py-2 rounded-lg ${statusInfo.bg} border border-white/20`}>
                           <StatusIcon className={`w-5 h-5 ${statusInfo.color}`} />
                           <span className={`font-medium ${statusInfo.color}`}>
                             {statusInfo.label}

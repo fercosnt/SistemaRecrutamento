@@ -1,7 +1,18 @@
 import React from 'react';
 import { cn } from './utils';
 
-interface GlassProps {
+/**
+ * ⚠ ATÉ 2026-09-05 esta interface NÃO estendia os atributos HTML e o `Glass` não
+ *   repassava nada além das props conhecidas. Consequência: `onClick`, `role`,
+ *   `aria-*`, `data-testid` passados a um `GlassCard` eram DESCARTADOS em silêncio —
+ *   o card da lista pública de vagas e o card da candidatura no dashboard tinham
+ *   `cursor-pointer` e `onClick`, e clicar não fazia nada (medido no navegador).
+ *   O `tsc` acusava «Property 'onClick' does not exist», mas o erro morava dentro do
+ *   baseline congelado, ignorado a cada build — o mesmo modo de falha do
+ *   «0 vagas ativas» de 26/08. O `GlassButton` já tinha recebido este conserto
+ *   (ver o comentário sobre `...rest` lá embaixo); o `Glass` base, não.
+ */
+interface GlassProps extends Omit<React.HTMLAttributes<HTMLElement>, 'children'> {
   children: React.ReactNode;
   className?: string;
   /** Intensidade do blur (px) */
@@ -51,11 +62,14 @@ export function Glass({
   border = true,
   hover = false,
   as: Component = 'div',
+  style,
+  ...rest
 }: GlassProps) {
   const customOpacity = opacity ? { backgroundColor: `rgba(255, 255, 255, ${opacity / 100})` } : {};
   
   return (
     <Component
+      {...rest}
       className={cn(
         // Base glass effect
         blurVariants[blur],
@@ -78,7 +92,7 @@ export function Glass({
         
         className
       )}
-      style={opacity ? customOpacity : undefined}
+      style={opacity ? { ...style, ...customOpacity } : style}
     >
       {children}
     </Component>
