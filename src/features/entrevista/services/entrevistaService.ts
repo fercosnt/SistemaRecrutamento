@@ -179,7 +179,7 @@ export interface EntrevistaContextoRow {
   vaga_id: string
   etapa_atual: string
   candidato_nome: string | null
-  /** Manually-scheduled interview datetime (vagas-level, V1 — in-app only). */
+  /** Horário da entrevista: agendamento ativo da candidatura (agendamentos_entrevista); fallback ao campo V1 da vaga. */
   entrevista_agendada_em: string | null
   /** Opt-in cognitive gate (default false). */
   aplica_cognitivo: boolean
@@ -223,12 +223,30 @@ export async function getEntrevistaContexto(
     candidatos?: { nome_completo?: string } | null
     vagas?: { entrevista_agendada_em?: string | null; aplica_cognitivo?: boolean } | null
   }
+  // 2026-09-06: o horário vinha SÓ de `vagas.entrevista_agendada_em` — um campo por
+  // VAGA (V1) que nada no app escreve. O painel dizia «Sem horário definido» com um
+  // agendamento de 10/09 gravado em `agendamentos_entrevista` (Phase 35, por
+  // candidatura). A fonte de verdade é o agendamento ativo mais recente da
+  // candidatura; o campo da vaga fica só como fallback histórico.
+  let agendadaEm: string | null = raw.vagas?.entrevista_agendada_em ?? null
+  const { data: agendamento } = await supabase
+    .from('agendamentos_entrevista')
+    .select('data_hora')
+    .eq('candidatura_id', candidaturaId)
+    .eq('status', 'agendada')
+    .is('deleted_at', null)
+    .order('data_hora', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const dataHora = (agendamento as { data_hora?: string | null } | null)?.data_hora
+  if (typeof dataHora === 'string' && dataHora) agendadaEm = dataHora
+
   return {
     candidatura_id: raw.id,
     vaga_id: raw.vaga_id,
     etapa_atual: raw.etapa_atual,
     candidato_nome: raw.candidatos?.nome_completo ?? null,
-    entrevista_agendada_em: raw.vagas?.entrevista_agendada_em ?? null,
+    entrevista_agendada_em: agendadaEm,
     aplica_cognitivo: raw.vagas?.aplica_cognitivo ?? false,
   }
 }
