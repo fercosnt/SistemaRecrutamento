@@ -205,7 +205,7 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
     // Cross-check: a candidatura pertence à vaga informada (IDOR).
     const { data: candRow } = await supabaseAdmin
       .from("candidaturas")
-      .select("id, vaga_id")
+      .select("id, vaga_id, candidato_id")
       .eq("id", body.candidatura_id)
       .maybeSingle();
     if (!candRow || candRow.vaga_id !== body.vaga_id) {
@@ -265,7 +265,10 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
           prompt: resolved,
           rawInput: guideInput + (extraInstruction ? `\n\n${extraInstruction}` : ""),
           vagaRubricBlock: barsRubricBlock,
-          candidato_id: body.candidatura_id,
+          // 2026-09-06: era `body.candidatura_id` — id de CANDIDATURA numa FK para
+          //   `candidatos` → ai_call_logs INSERT falhava com 23503 e NENHUM guia de
+          //   entrevista jamais foi auditado/custeado. Vem da candidatura carregada.
+          candidato_id: (candRow as { candidato_id?: string | null } | null)?.candidato_id ?? null,
           vaga_id: body.vaga_id,
           schema: InterviewGuideSchema,
           idempotency_key: `${body.candidatura_id}:${body.tipo}${extraInstruction ? ":reprompt" : ""}`,
@@ -273,7 +276,9 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
           // ~4000 tokens) excede legitimamente o teto global de 25s (RESIL-01) e estava
           // estourando timeout → 500 em TODA geração de guia em PROD. Teto por-chamada de
           // 60s dá folga p/ 1 passada completar; não afrouxa o fast-fail das outras EFs.
-          timeoutMs: 60_000,
+          // 2026-09-06: 60 s x 2 tentativas estourava (137 s medidos) → gpt-4o-mini.
+          //   110 s, 1 tentativa, como as demais EFs de IA.
+          timeoutMs: 110_000,
         },
         {
           anthropic,

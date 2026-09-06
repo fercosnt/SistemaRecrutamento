@@ -223,7 +223,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
         // gerar-guia estourar o teto global de 25s (RESIL-01). Teto por-chamada
         // de 60s (env-overridable) dá folga; o cap de retry-budget de 23-01
         // mantém o total sob ~150s do EF. Espelha gerar-guia-entrevista:274.
-        timeoutMs: parseIntEnv("TRANSCRICAO_TIMEOUT_MS", 60000),
+        timeoutMs: parseIntEnv("TRANSCRICAO_TIMEOUT_MS", 110000), // 2026-09-06: 60 s nao bastava ao Sonnet (ver gerar-guia)
       },
       {
         anthropic,

@@ -1,3 +1,5 @@
+// 2026-09-06: tetos de texto x3 — o max do Zod nao e honrado pela geracao estruturada, so recusa
+// depois (medido em cv_job_match e comparative_ranking); passam a guarda contra saida degenerada.
 /**
  * `_shared/interview-output-schemas.ts` — Zod OUTPUT schemas das duas Edge Functions
  * de entrevista (`gerar-guia-entrevista` → InterviewGuideSchema · `avaliar-transcricao-
@@ -67,15 +69,15 @@ export const Citation = z.object({
 export const InterviewQuestionSchema = z.object({
   type: z.enum(["star", "pei", "situational", "technical_probe", "follow_up"]),
   competency: z.string().describe("Competência crítica que esta pergunta avalia"),
-  question: z.string().min(20).max(400).describe("Pergunta principal"),
-  rationale: z.string().min(20).max(300).describe("Por que esta pergunta para este candidato"),
+  question: z.string().min(20).max(1200).describe("Pergunta principal"),
+  rationale: z.string().min(20).max(900).describe("Por que esta pergunta para este candidato"),
 
   bars_anchors: z
     .array(
       z.object({
         level: BarsLevel,
         score: z.number().int().min(1).max(5),
-        description: z.string().min(40).max(400).describe("Comportamento observável neste nível"),
+        description: z.string().min(40).max(1200).describe("Comportamento observável neste nível"),
       }),
     )
     .length(5)
@@ -93,14 +95,14 @@ export const InterviewGuideSchema = z.object({
   duration_minutes: z.number().int().min(15).max(90),
   format: z.enum(["online", "presencial", "hibrido"]),
 
-  introduction: z.string().min(50).max(500).describe("Script de abertura"),
+  introduction: z.string().min(50).max(1500).describe("Script de abertura"),
 
   questions: z.array(InterviewQuestionSchema).min(5).max(7),
 
   closing: z
     .string()
     .min(50)
-    .max(500)
+    .max(1500)
     .describe("Script de encerramento + espaço para perguntas do candidato"),
 
   scoring_instructions: z
@@ -137,7 +139,7 @@ export const TranscriptAnalysisSchema = z.object({
         reasoning: z
           .string()
           .min(50)
-          .max(800)
+          .max(2400)
           .describe("Análise step-by-step DEPOIS de extrair evidência"),
 
         score: Score1to5,
@@ -153,7 +155,7 @@ export const TranscriptAnalysisSchema = z.object({
     .min(1)
     .max(8),
 
-  overall_summary: z.string().min(50).max(800),
+  overall_summary: z.string().min(50).max(2400),
   recommendation: RecommendationEnum,
   confidence: ConfidenceEnum,
 
