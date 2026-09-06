@@ -25,7 +25,7 @@
  * @see .planning/phases/13-reda-o-cultural-revis-o-humana/13-UI-SPEC.md §Copywriting Contract
  * @module features/avaliacao/components/RedacaoEditorScreen
  */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -53,7 +53,7 @@ import {
   RedacaoServiceError,
   type PerguntaRedacao,
 } from '@/features/avaliacao/services/redacaoService'
-import { upsertResposta } from '@/features/avaliacao/services/avaliacaoService'
+import { loadResposta, upsertResposta } from '@/features/avaliacao/services/avaliacaoService'
 import {
   useAutosaveAvaliacao,
   type AutosaveStatus,
@@ -159,6 +159,27 @@ export function RedacaoEditorScreen() {
     teste: TESTE,
     upsert,
   })
+
+  // 2026-09-06: o autosave (30 s, `respostas_avaliacao`) GRAVAVA, mas ninguém lia o
+  // buffer de volta — sair e voltar zerava uma redação de 15–25 min (medido em PROD:
+  // a linha estava no banco e a caixa voltou vazia). Restaura o rascunho da pergunta
+  // atual uma vez, e nunca por cima de texto que a pessoa já digitou nesta sessão.
+  const restauradoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!candidaturaId || !pergunta || restauradoRef.current === pergunta.id) return
+    restauradoRef.current = pergunta.id
+    void loadResposta(candidaturaId, TESTE)
+      .then((row) => {
+        const r = row?.respostas as { pergunta_id?: string; texto?: string } | null | undefined
+        if (r && r.pergunta_id === pergunta.id && typeof r.texto === 'string' && r.texto) {
+          const salvo = r.texto
+          setTexto((atual) => (atual ? atual : salvo))
+        }
+      })
+      .catch(() => {
+        // O rascunho é conveniência; sem ele a tela segue vazia, como antes.
+      })
+  }, [candidaturaId, pergunta])
 
   const backToPanel = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
 
