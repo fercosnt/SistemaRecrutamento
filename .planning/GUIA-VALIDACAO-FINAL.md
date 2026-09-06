@@ -469,3 +469,12 @@ fallback por 1,7 segundo.
 vazio; o `flushNow()` do Enviar gravou `{}` por cima e a tentativa que morreu em CORS **apagou a redação**.
 Corrigido em `f7937a5` (a restauração semeia o buffer). Lição: restaurar estado visível sem restaurar o
 estado que o próximo passo consome é pior que não restaurar.
+
+### 7.11 · D5 — 06/09 02:22
+
+`/rh/candidato/:id/redacao`: painel carrega a redação da T1 com as 4 dimensões da IA (5/5), composto 100,
+cor Verde, sliders de ajuste, justificativa obrigatória (≥ 50 chars), decisão em 3 opções e diálogo de
+confirmação «Aprovar redação?». Gravou: `decisao_revisor = aprovado`, `revisada_por = RH2`, `revisada_em`,
+`notas_revisor`, `scores_humanos` D1–D4. ✅ ⚠ A lista lateral «Revisão de redações» filtra vermelhas e
+amarelas por padrão e dizia «Nenhuma redação pendente» enquanto uma verde `pendente_humano` existia — a
+verde só aparece ligando o filtro; a copy poderia dizer «1 verde oculta». C1 «Aprovados: 5» ✅ ao vivo.
