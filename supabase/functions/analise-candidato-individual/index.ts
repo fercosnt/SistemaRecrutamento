@@ -406,6 +406,16 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         candidato_id: (cand?.candidato_id as string) ?? "",
         vaga_id,
         schema: CvJobMatchSchema,
+        // ⚠ MEDIDO EM 2026-09-05 (ai_call_logs, depois que ele voltou a gravar): as
+        //   3 tentativas Anthropic estouravam o teto default de 25 s (AI_CALL_TIMEOUT_MS)
+        //   → 25+2+25+4+25 ≈ 87 s → `anthropic_retries_exhausted` → fallback gpt-4o-mini.
+        //   Sonnet gerando até 2048 tokens de saída estruturada sobre rubrica de ~4 mil
+        //   caracteres + CV leva mais de 25 s. Ou seja: NENHUMA análise de currículo em
+        //   produção era feita pelo modelo primário, e o log morto (PGRST204) escondia.
+        //   O E2E de 25/08 mediu "93 s" — era exatamente isso. 55 s por tentativa; o
+        //   ai-client (AI-04) limita a floor(140000/55000) = 2 tentativas para caber
+        //   nos ~150 s do EF. Mesmo padrão do avaliar-transcricao (60 s).
+        timeoutMs: 55_000,
       },
       // zodOutputFormat/zodResponseFormat REAIS injetados — sem eles o callAi cai no
       // default no-op `(s)=>s` e manda o schema cru, quebrando AMBOS os provedores

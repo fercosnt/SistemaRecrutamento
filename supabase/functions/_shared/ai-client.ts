@@ -291,8 +291,12 @@ async function tryIdempotencyReplay(
   const table = supabase.from("ai_call_logs");
   if (typeof table.select !== "function") return null;
   try {
+    // 2026-09-05: pedia `output`, coluna que NUNCA existiu em ai_call_logs → PostgREST
+    // 400 → `error` → return null. O replay por idempotency_key NUNCA funcionou; toda
+    // chamada "cacheada" era uma chamada nova (custo dobrado no reprocesso do RH). O
+    // resultado bruto vive em `raw_response`.
     const { data: existing, error } = await table
-      .select("provider, cost_usd, latency_ms, success, output, error_code")
+      .select("provider, cost_usd, latency_ms, success, raw_response, error_code")
       .eq("idempotency_key", idempotency_key)
       .maybeSingle();
     if (error || !existing) return null;
@@ -305,7 +309,7 @@ async function tryIdempotencyReplay(
     if (existing.success !== true) return null;
     return {
       provider: String(existing.provider ?? "unknown"),
-      parsed: existing.output ?? null,
+      parsed: existing.raw_response ?? null,
       cost_usd: 0,
       latency_ms: 0,
       cache_hit: true,
