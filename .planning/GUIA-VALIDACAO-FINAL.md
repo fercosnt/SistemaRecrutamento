@@ -619,3 +619,27 @@ Como o knockout não abre explicação nem revisão (§7.18), criei a **T3** («
 | E2 | ✅ / ⚠ | O log da Edge Function registrou `[gerar-guia-entrevista] ok · tipo: presencial · questions_count: **7** · provider: **anthropic**` (id `5e66c5d3`). É a primeira vez que o guia sai do Sonnet. As âncoras BARS ficaram em **108 caracteres** de média (os `describe` pegaram — antes o schema permitia 1200 e o modelo usava). ⚠ Mas em outra execução o Sonnet **estourou os 110 s** («Request timed out.»), o fallback entregou 5 perguntas em 129 s, e **foi essa que ficou gravada**: o guia salvo é o da última execução a terminar |
 | — | ⚠ | **Cliques repetidos derrubam a função.** Enquanto havia execuções de ~2 min em voo, novos POSTs voltavam `Failed to fetch` em ~1 s (OPTIONS continuava 200 — o isolate subia, mas não havia folga para executar). Passados 3 minutos sem carga, a mesma chamada respondeu **200 em 3,6 s**. Não é defeito do código; é o limite de concorrência do Edge Function encontrando um botão que não se protege de duplo clique |
 | — | ⚠ **em aberto** | Duas consequências que valem decisão: (a) a geração leva **60–130 s** e a tela não avisa disso, então o RH tende a clicar de novo — o que piora tudo; (b) quando duas execuções correm juntas, **a última a terminar sobrescreve o guia**, e pode ser a pior das duas. O caminho limpo é tornar a geração assíncrona (dispara, avisa «estamos gerando», e a tela atualiza sozinha) ou, no mínimo, bloquear o botão até a resposta e mostrar o tempo esperado |
+
+---
+
+## §8 · Fechamento da sessão de validação — 2026-09-06
+
+**Resumo executivo, os pendentes e o passo a passo para retomar estão em
+[`.planning/RETOMAR-AQUI.md`](RETOMAR-AQUI.md).** Abra a próxima conversa com:
+
+> *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
+
+**Números da sessão:** 19 defeitos encontrados e consertados · 47 commits · 6 migrations
+aplicadas com md5 conferido · 7 Edge Functions redeployadas · `deno test` 484/484 ·
+`vitest` 1956/1956 · `tsc` 90 (baseline congelada 96).
+
+**Blocos percorridos:** A (correções prévias), B, C, D, E (E1–E9, E11, E12), F. **Faltam:**
+E10 (bloqueado — precisa de uma segunda conta de RH), G (retenção), H (flip da purga),
+I (limpeza dos dados de teste).
+
+**Três decisões suas, todas registradas com a evidência:** a copy da cópia de dados (§7.22),
+explicação e revisão para o knockout (§7.18), e a geração assíncrona do guia (§7.25).
+
+**O que estas 25 seções ensinam, se for para levar uma frase:** quase todos os defeitos aqui
+eram **silenciosos** — nenhum derrubava a tela, todos entregavam um resultado plausível. O que
+os revelou foi sempre comparar a tela com o banco, e nunca aceitar «a tela mostrou» como prova.

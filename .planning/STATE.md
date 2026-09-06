@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "RODADA /gsd-autonomous de 2026-08-23 ENCERRADA. PHASE 46: cadeia de review convergiu (REVIEW-2 1 BLOCKER+5 HIGH -> REVIEW-3 2 BLOCKERS os dois INTRODUZIDOS pelo conserto -> REVIEW-4 0 blockers); migrations 0014/0015 APLICADAS em PROD com md5 conferido; smoke 27/27 VERDE; 46-VERIFICATION.md existe, gaps_found 4/5, portao destrutivo 3,5/5. PHASE 47: 8/8 must-haves, behavior_unverified 0, human_needed. AMBAS em Deferred Verification. ⚠ O CRON NUNCA DISPAROU (0 linhas em job_run_details p/ jobid 6; cron.timezone=GMT logo 0 3 * * * = 00:00-03). Modo segue dry_run, flip para live e 2026-09-06 e e checkpoint do operador"
-last_updated: "2026-09-05T23:30:00.000Z"
-last_activity: 2026-09-05
+stopped_at: "SESSAO DE VALIDACAO FINAL 2026-09-05/06 (teste manual em PROD, funil completo com 3 contas reais). 19 defeitos encontrados e consertados, 47 commits, todos no ar. Os 3 pesos da decisao final finalmente chegam ao consolidador (redacao e entrevista NUNCA chegavam — migrations 0002 e 0005). A chave de idempotencia nao cobria input nem schema: o replay servia a saida anterior (a01321a8, 7bc7ef2b). E-mail de knockout implementado por decisao do responsavel (0006). Suites: deno 484/484, vitest 1956/1956, tsc 90 (baseline 96). PENDENTE: 3 decisoes de produto (copy da copia de dados; explicacao/revisao no knockout; geracao do guia assincrona), E10 bloqueado por falta de 2a conta RH, blocos G/H/I (retencao, flip da purga, limpeza dos ficticios). LEIA .planning/RETOMAR-AQUI.md"
+last_updated: "2026-09-06T21:00:00.000Z"
+last_activity: 2026-09-06
 state_head: 053debfb3ea0f2483197784212a3f28758df849a
 progress:
   total_phases: 6

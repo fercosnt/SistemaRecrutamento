@@ -1,213 +1,209 @@
-# Retomar aqui — estado em 2026-08-23, segunda sessão
+# Retomar aqui — estado em 2026-09-06, fim da sessão de validação final
 
 **Como abrir a próxima conversa:**
 
-> *"Leia `.planning/RETOMAR-AQUI.md` e vamos continuar"*
+> *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
+
+O guia de validação (`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste,
+§7.1–§7.25 é o **diário do que foi medido**, com o resultado de cada item e o commit de cada
+conserto. Este arquivo aqui é o resumo executivo e a lista do que falta.
 
 ---
 
-## ✅ A IA voltou a avaliar com contexto E com critério — os dois consertos estão no ar
+## Em uma frase
 
-A sessão de 2026-08-23 (noite) fechou o item que abria este arquivo, e encontrou **o gêmeo dele**.
-
-**1 · EF `analise-candidato-individual` deployada.** `version` 16 → 17. O deploy levou ~40s,
-não os 7 minutos previstos. Provado por execução, não por leitura: reprocessei uma candidatura
-e o flag saiu de `[]` para `vaga_sem_rubrica_deliberada`. Os dois flags são mutuamente
-exclusivos no código — `vaga_sem_rubrica` só aparece se a consulta FALHA, e
-`vaga_sem_rubrica_deliberada` só aparece se a vaga CARREGOU. O primeiro sumiu.
-
-**2 · ⛔ O gêmeo: os prompts ativos eram `[SEED PLACEHOLDER]`.** O seed da Phase 9 escreveu 8
-linhas com corpo placeholder; 4 foram hidratadas depois **por SQL ad-hoc, sem migration e sem
-entrada no ledger** (não há artefato). Três nunca foram, e estavam `is_active=true`:
-`cv_job_match`, `comparative_ranking`, `work_sample_sjt`.
-
-Como o `ai-client` manda `system_template` DIRETO como system prompt, a IA avaliava candidato
-com a instrução literal `"[SEED PLACEHOLDER] system_template — hydrated from…"` (124 caracteres).
-Saída válida porque o schema Zod é enforced; critério nenhum porque o prompt estava vazio.
-As sete análises cegas eram **duplamente** cegas: sem vaga *e* sem instrução.
-
-Consertado pela migration `…0018`, aplicada via `p46apply.cjs` (md5 do ledger conferido). Hoje:
-**zero placeholders ativos**.
-
-**O antes/depois, na mesma candidatura de teste** — estudante de Publicidade avaliada para
-Auxiliar de Saúde Bucal:
-
-| | prompt placeholder | prompt real |
-|---|---|---|
-| score | **75** | **2** |
-| gaps | `[]` | 5 requisitos concretos (CRO, instrumentação, biossegurança…) |
-| reasoning | ausente | CoT estruturado, cruzando os `requisitos_*` da vaga |
-
-O 75 era ficção. O reasoning citando os requisitos da vaga é a prova cruzada de que **os dois**
-consertos estão no ar ao mesmo tempo.
-
-### Resíduos conhecidos (nenhum bloqueia o funil)
-
-- `cv_summary` continua placeholder — `is_active=false`, sem EF consumidora. Deliberado.
-- **`culture_fit_essay` não pôde ter o `content_hash` corrigido**: tem `deployed_at`
-  preenchido e o trigger `prevent_published_prompt_edit` torna o conteúdo imutável POR DESIGN.
-  Corrigir exige versão nova, não `UPDATE`. Não contornei o guard.
-- **`scripts/sync-prompts.ts` é código morto** e nunca rodou com sucesso: (a) 5 linhas ainda
-  têm o `content_hash` sentinela, então o guard RF-PL-11 lança para sempre; (b) o
-  `buildUpsertRow` escreve `fallback_model_id`, **coluna que não existe** na tabela → 400.
-  O cabeçalho do script (linhas 15-20) e o guard (260-270) se contradizem.
-- As 3 linhas hidratadas ficaram com `deployed_at` NULL de propósito — travá-las no mesmo
-  movimento tiraria a chance de corrigir um erro descoberto minutos depois. **Decisão pendente:**
-  carimbar `deployed_at` para o guard de imutabilidade passar a valer.
-
-⚠ **A migration `…0018` está no disco e NÃO commitada** — `git status` vai mostrá-la.
+Dois dias de teste manual em produção encontraram **19 defeitos**, todos consertados e no ar;
+o funil inteiro do candidato foi percorrido de ponta a ponta com contas reais; o que resta são
+**3 decisões suas**, **1 teste bloqueado** por falta de uma segunda conta de RH, e a **limpeza**
+dos dados de teste antes de divulgar as vagas.
 
 ---
 
-## O que está feito e no ar
+## 1 · O que está funcionando, medido e não lido
 
-| | |
+Percorri o funil completo com três contas de teste (`+claude1`, `+claude2`, `+claude3` no seu
+Gmail), conferindo **cada resultado no banco e cada e-mail na caixa de entrada real** — nunca
+apenas na tela.
+
+| Bloco | Estado |
 |---|---|
-| Duas vagas reais publicadas | `consultor-relacionamento-pre-vendas` · `social-media-producao-captacao-conteudo` |
-| Seis vagas de teste | arquivadas |
-| Contas de RH de teste | desativadas — **você é o único RH ativo** |
-| Legibilidade da página da vaga | ✅ no ar, aprovada |
-| `TextoRico` (markdown restrito) | ✅ no ar — `###`, `-`, `1.`, `**negrito**`, `*itálico*` |
-| Migrations `…0016`, `…0017` e `…0018` | ✅ aplicadas em PROD, md5 conferido |
-| EF `analise-candidato-individual` | ✅ v17 no ar — enxerga a vaga |
-| Prompts ativos de IA | ✅ reais — zero placeholders ativos |
-| Purga | `dry_run`, cron ativo |
+| Inscrição, triagem com IA, SJT, redação cultural | ✅ §7.8–7.11 |
+| Agendamento, convite com `.ics`, reagendamento com aviso | ✅ §7.12, §7.17 |
+| Guia de entrevista, análise de transcrição | ✅ §7.14, §7.25 |
+| Decisão final com os 3 pesos, e-mail de aprovação | ✅ §7.20 |
+| Knockout com e-mail, explicação e revisão do Art. 20 | ✅ §7.18, §7.21, §7.24 |
+| Cópia de dados, exclusão com arrependimento | ✅ §7.22, §7.23 |
+| Auditoria de viés, fila de pedidos de dados | ✅ §7.17, §7.24 |
 
-## O que está no disco e NÃO no ar
+**Suítes:** `deno test` 484/484 · `vitest` 1956/1956 (199 arquivos) · `tsc` 90 erros (baseline
+congelada 96 — não subiu).
 
-- **`secoes_extras` e `rubrica_ia`**: as colunas existem em PROD e estão **vazias** nas duas
-  vagas. Falta renderizar as seções na página e escrever as duas rubricas.
-- **A migration `…0018`** ainda não commitada.
+**47 commits hoje**, do `a7fc5973` ao `ecaa98e7`.
 
 ---
 
-## A fila, na ordem combinada
+## 2 · Os defeitos que valem lembrar (o padrão importa mais que a lista)
 
-### 1 · ✅ FEITO — `rubrica_ia` das duas vagas
-Gravadas pela migration `…0019` (md5 no ledger, portão provado por execução antes do apply).
-~2,7 mil caracteres cada. Estrutura das duas: requisitos eliminatórios → 5 competências
-críticas com âncoras BARS 1-5 → seção **"o que NÃO pode pesar"**.
+Três famílias explicam quase tudo o que foi encontrado. Elas vão se repetir.
 
-Três decisões embutidas, que valem para as próximas rubricas:
+**a) O score que ninguém escrevia.** Dos três pesos da decisão final, **dois nunca chegavam ao
+consolidador**: a redação e a entrevista gravavam só nas suas tabelas próprias, e o consolidador
+lê `scores_candidato`. Toda vaga calculava o agregado sobre um terço do que deveria — sem erro,
+sem alarme. Achei porque varri os **três** pesos em vez de só o que falhou. Migrations
+`…0002` (entrevista) e `…0005` (redação, com backfill). §7.16, §7.20.
 
-- **O corte não rejeita.** Eliminatório manda registrar gap `critical` e segurar o score
-  abaixo de 40 — nunca "rejeite". Mantém a RNF-07a: score baixo é sinal para o RH, não
-  decisão da máquina.
-- **Silêncio ≠ ausência.** Currículo não declara "tenho disponibilidade integral". Tratar
-  silêncio como falta daria gap crítico injusto a todo mundo, então vira
-  `insufficient_evidence` e fica para a entrevista.
-- **Falha do sistema não penaliza candidato.** O anúncio da Social Media diz que o portfólio
-  é "obrigatório na inscrição" e **não existe campo que o colete**. A rubrica proíbe descontar
-  por isso.
+**b) O cache que servia a resposta errada.** A chave de idempotência não cobria o input, depois
+não cobria o schema. Consequência medida: clicar «Gerar guia» devolvia, em menos de um segundo e
+sem chamada nova, a saída de 40 minutos antes — e, no vizinho, uma transcrição **nova** teria
+recebido a análise da **anterior**, com as citações de outra conversa. Só ficou observável
+quando o replay passou a funcionar: **consertar o cache ligou o defeito**. `a01321a8`, `7bc7ef2b`.
 
-E as duas proíbem explicitamente que os adjetivos do próprio anúncio ("operação enxuta",
-"ambição saudável") virem critério — descrevem a EMPRESA, não o candidato.
+**c) A lista literal que envelhece.** O filtro `.eq('status','agendada')` — meu próprio conserto
+da manhã — quebrou no primeiro reagendamento da tarde, com a mesma mensagem do defeito que
+resolvia. O gate de auditoria de viés pedia o período do snapshot exibido. O login do RH esperava
+«existe papel» em vez de «existe papel deste usuário». `6f26a25c`, `05530472`, `61f07508`.
 
-⚠ **Limite de tamanho:** 5 competências por rubrica, não mais. Cada uma gera um bloco BARS
-completo e o `cv_job_match` tem `max_tokens: 2048` — passar disso arrisca truncar o JSON.
-
-### 1b · ⛔ Dois achados que apareceram ao escrever a rubrica
-
-**As duas vagas publicadas têm ZERO perguntas de Etapa 1.** A funcionalidade existe (duas
-vagas de teste arquivadas têm 3 cada), mas as reais não têm nenhuma. Candidato que se
-inscrever hoje é analisado **só pelo currículo**, e o bloco "Respostas Etapa 1" chega vazio.
-Pior: o anúncio da Social Media diz que o portfólio é **"OBRIGATÓRIO na inscrição"** e não
-existe campo que o colete. A rubrica já blinda o candidato disso, mas o buraco é operacional
-e está no ar.
-
-**Bônus da mesma família:** `buildRespostasBlock` (linha ~114 da EF) monta só o TEXTO da
-resposta — a pergunta nunca entra no prompt. O `pergunta_id` é selecionado e nunca usado.
-Quando houver perguntas, o modelo vai ver `- Sim` / `- 3 anos` sem saber o que foi perguntado.
-
-**Boa parte da saída da IA é computada e jogada fora.** O modelo produz `competency_scores`
-(o BARS inteiro), `recommendation`, `confidence`, `bias_check` e as **citações literais** de
-cada ponto forte — e a EF persiste apenas `match_score`, o *nome* dos pontos fortes, o *nome*
-dos gaps e o reasoning. Some a severidade dos gaps, some a evidência citada, e some o
-autorrelato de viés (`bias_check.used_only_merit_evidence`), que é justamente o que se
-gostaria de auditar. Consome tokens do teto de 2048 para nada.
-
-### 2 · Renderizar `secoes_extras` na página da vaga
-Usar o `TextoRico` que já existe. As sete seções dos PDFs que não couberam em campo nenhum
-(indicadores, rotina, plano de carreira, remuneração, ferramentas, «o que a vaga NÃO é»,
-processo seletivo) migram para lá.
-
-### 3 · ▶ O plugin de cadastro de vaga — É O PRÓXIMO
-**Outra conversa, com handoff próprio:** `.planning/HANDOFF-plugin-cadastro-de-vaga.md`
-(revisado em 2026-08-23 à noite — os bloqueadores dele caíram e o furo de escopo foi tapado).
-⚠ Ele manda invocar **`skill-creator`** e **`plugin-builder`**, e rodar **`skill-analyzer`**
-depois. Não improvisar.
-
-**Decidido com o operador:** o plugin vem **antes** de criar as perguntas da Etapa 1 (item 1b).
-Motivo: criar as perguntas à mão seria `INSERT` direto — o mesmo caminho que deixou 9 de 12
-vagas com `created_by` nulo e quebrou o escopo do recrutador. As perguntas nascem pelo plugin.
-
-⚠ Antes de codar, decidir a bifurcação da §6 do handoff: **o plugin gera SQL, ou o projeto
-ganha a tela de criação de vaga e o plugin preenche o formulário?** A segunda resolve a causa.
-
-### 4 · Dados de teste para avaliar as análises de IA
-A EF e os prompts já estão sãos, então **agora isto mede o sistema, não o modelo** — mas o
-ideal continua sendo esperar a `rubrica_ia` do item 1, senão você mede o fallback.
-Fazer numa **terceira vaga não publicada**, para o funil real nascer limpo — candidato
-sintético misturado com real polui métricas, comparativo e o snapshot de viés.
-
-ℹ **As análises antigas em `analise_candidato_vaga` não valem nada** e não devem servir de
-baseline: todas rodaram sem vaga e sem prompt. As duas de teste reprocessadas nesta sessão
-(`a111296a…` e `4dc31256…`) são as únicas com o sistema íntegro.
-
-### 5 · A sessão de navegador que só você pode fazer
-`.planning/RUNBOOK-GO-LIVE-2026-08-23.md`, Passo 3 — 21 itens numerados.
-⚠ **O item mais importante é o 3:** as caixas de autorização do cadastro têm de nascer
-**desmarcadas**. Se vierem marcadas, pare — é violação de LGPD e a promessa que a Phase 43
-existe para cumprir. E marque a caixa de retenção de currículo, que fecha o item aberto da 43.
+> **Lição da sessão, e vale escrever:** quase todo defeito de hoje era **silencioso**. Nenhum
+> derrubava a tela; todos entregavam um resultado plausível. O que os revelou foi sempre
+> comparar a tela com o banco, e nunca aceitar «a tela mostrou» como prova.
 
 ---
 
-## Correndo em paralelo, sem depender de nós
+## 3 · O que falta — em ordem de importância
 
-- **A noite de 2026-08-24 00:00-03**: o cron de purga dispara pela **primeira vez**. De manhã,
-  duas consultas fecham o maior gap da Phase 46 sem trabalho nenhum — estão no Passo 4 do
-  runbook. Esperado: `veredito='dry_run'`, `processados=0`, zero destruição.
-- **O parecer do Encarregado (DPO)**: único item com latência externa, e agora há gente real
-  entrando no sistema. Vale cobrar.
+### 3.1 ⏳ Três decisões suas (nada bloqueia o sistema; todas mudam produto ou postura)
+
+**A · A cópia de dados entrega o que o recrutador escreve.** *(§7.22)*
+O arquivo que o candidato baixa inclui `candidaturas.etapa_justificativa` — o texto integral da
+justificativa — e o `score_match`. É **deliberado** (a allowlist marca `preservar_com_ressalva`,
+e acesso pelo Art. 18 é mais amplo que explicação pelo Art. 20). O problema é que **ninguém avisa
+os dois lados**: a tela de privacidade descreve a cópia como «o resultado e a explicação das
+avaliações», e a tela de decisão diz ao recrutador que aquilo vai «para a trilha de auditoria»,
+o que soa interno. Ele pode escrever com franqueza sem saber que o candidato baixa aquilo.
+**Recomendo:** ajustar a copy nas duas pontas e manter a regra. Tirar da cópia é uma linha na
+allowlist, se preferir o contrário.
+
+**B · Explicação e revisão para quem cai no knockout.** *(§7.18)*
+Você já decidiu o e-mail, e ele está no ar. Falta decidir se quem é eliminado por resposta
+eliminatória também tem direito à página de explicação e ao pedido de revisão — hoje só quem é
+rejeitado na decisão final tem. É a decisão em que **nenhum humano olhou**, o que inverte o que
+o Art. 20 protege. Os quatro caminhos estão escritos em §7.18; o (3), abrir revisão para o
+knockout, é o que mais muda o volume de trabalho do RH.
+
+**C · A geração do guia leva de 60 a 130 segundos e a tela não avisa.** *(§7.25)*
+Quem usa tende a clicar de novo, e aí duas execuções correm juntas e **a última a terminar grava
+por cima** — pode ser a pior das duas. Foi o que aconteceu comigo: o guia salvo acabou sendo o do
+fallback com 5 perguntas, não o do Sonnet com 7. **Recomendo:** tornar a geração assíncrona
+(dispara, avisa «estamos gerando», a tela atualiza sozinha) ou, no mínimo, travar o botão e
+mostrar o tempo esperado.
+
+### 3.2 ⏳ E10 — bloqueado por uma conta
+
+Falta responder a um pedido de revisão **como outra pessoa** — quem decidiu está corretamente
+barrado (provado no servidor: HTTP 403 com a mensagem do guard, §7.21). Precisa de uma segunda
+conta de RH. Preenchi o formulário em `/rh/configuracoes` → «Novo usuário» (RH3 Revisor,
+`fernandinho.costa.neto+rh3@gmail.com`, papel **Administrador**), mas **criar contas é bloqueado
+no meu ambiente** — some dos meus comandos, não é erro do sistema. Crie você e me avise, ou
+decida pular.
+
+Há **3 pedidos de revisão pendentes** na fila hoje (2 são dados de teste antigos, 1 é a T3).
+
+### 3.3 ⏳ Blocos do guia que ainda não rodaram
+
+| Bloco | O que é | Por que não rodou |
+|---|---|---|
+| **G** | `/admin/retencao` — janelas de retenção, `deployed_at` dos prompts | É seu (mexe em política de dados) |
+| **H** | O *flip* da purga de `dry_run` para `live` | Checkpoint de operador — irreversível |
+| **I** | Limpeza final | Depende de tudo acima |
+
+### 3.4 ⏳ Limpeza antes de divulgar as vagas (bloco I)
+
+- **15 candidatos fictícios** com e-mail `@invalido.local` (os 6 da comparação + fixtures da
+  Phase 46 + 2 anonimizados). Precisam sair antes de qualquer divulgação.
+- **3 contas de teste minhas** (`+claude1/2/3`) e o usuário **RH2**.
+- A vaga `[TESTE E2E] Social Media` (inativa) e as demais `[TESTE]`.
+- O snapshot de viés com período `p45-pos-execucao` (rótulo de fase, não um mês).
+- `.planning/WINDOWS.md` — triagem pendente desde antes desta sessão.
 
 ---
 
-## Estado do milestone M8
+## 4 · Como retomar na prática
 
-Fases 42, 43, 44, 46 e 47 estão em `Deferred Verification` no `STATE.md`, cada uma com o
-fechador nomeado. A 45 é a única `passed`. O lifecycle (`audit → complete → cleanup`) não roda
-enquanto não fecharem.
+### Contas de teste (senha de todas: `Teste123!`)
 
-⚠ **Flip da purga `dry_run → live`: a partir de 2026-09-06**, checkpoint do operador, runbook
-próprio em `.planning/phases/46-*/46-07-RUNBOOK-FLIP.md`. ~~Precisa de 14 noites de ensaio e
-hoje há 0~~ → **corrigido em 2026-09-05: há 15 execuções de ensaio; o cron dispara toda noite
-desde 24/08.** O que falta é o operador confirmar as janelas de `aprovado` e `decisao_final`
-em `/admin/retencao` (critério 4). Roteiro completo: `.planning/GUIA-VALIDACAO-FINAL.md`.
+| Conta | E-mail | Estado |
+|---|---|---|
+| RH2 (administrador) | `fernandinho.costa.neto+rh2@gmail.com` | ativo |
+| T1 candidata | `+claude1@` | **aprovada**, funil completo |
+| T2 candidata | `+claude2@` | knockout; exclusão pedida **e cancelada** |
+| T3 candidata | `+claude3@` | rejeitada na decisão final, **revisão pedida**; e knockout na Consultor |
+
+⚠ **Sempre limpe o `localStorage` ao trocar de papel** no mesmo navegador. O conserto
+`61f07508` fez o login do RH esperar a identidade certa, mas o caminho limpo continua sendo
+entrar sem sessão residual.
+
+### Comandos que só você pode rodar (o classificador me bloqueia)
+
+```bash
+node p46apply.cjs migrate supabase/migrations/<arquivo>.sql   # aplica migration + ledger com md5
+node efdeploy.cjs <slug>                                      # deploy de Edge Function
+node authconfig.cjs                                           # config do Auth (tem --dry-run e --restore)
+```
+
+**Tudo o que precisava de deploy já está no ar.** Migrations `20260906000001` a `…0006`
+aplicadas com md5 conferido; as 7 EFs de IA na versão com o `ai-client` mais recente.
+
+### Uma armadilha que me custou tempo, para você não repetir
+
+Cliquei várias vezes em «Gerar guia» enquanto execuções de 2 minutos estavam em voo. Resultado:
+**todas as EFs de IA passaram a responder `Failed to fetch`** e eu quase reverti um commit
+correto. Fui ao log da função e vi que ela **estava completando normalmente** — o que derrubava
+era o limite de concorrência, esgotado pelas minhas próprias chamadas. Três minutos parado
+depois, a mesma chamada respondeu em 3,6 s. **Antes de reverter, leia o log da função.**
 
 ---
 
-## Três lições desta sessão que valem para a próxima
+## 5 · Estado técnico de referência
 
-1. **Provar o portão por execução, não por leitura.** O `CHECK` da `…0016` aceitava
-   `[{"titulo":"X"}]`. O predicado *parecia* completo; só a execução mostrou que jsonpath lax
-   não vê chave ausente. Foi pego 30 segundos depois de aplicar, e uma revisão por leitura
-   teria aprovado.
-2. **Re-revisar o conserto antes de aplicar.** A cadeia da Phase 46: o primeiro conserto
-   introduziu **2 blockers novos**, pegos só pela re-revisão. Duas vezes seguidas nesta base.
-3. **Olhar a tela com conteúdo real.** Os dois defeitos de markdown (`**Contam pontos:**` e
-   `*(foco atual)*` aparecendo literais) não seriam pegos por teste unitário — um estava em
-   campos que esqueci de ligar, o outro era marca que o renderizador não conhecia.
+**Migrations aplicadas nesta sessão** (todas com md5 conferido no ledger):
 
-## Duas lições da sessão da noite
+| Versão | O que faz |
+|---|---|
+| `20260906000001` | fictícios saem de `@exemplo.com` (domínio com MX que recebeu e-mails de teste) |
+| `20260906000002` | avaliação da entrevista grava `scores_candidato` |
+| `20260906000003` | `interview_guide` 8000 e `transcript_analysis` 6000 tokens |
+| `20260906000004` | reagendar avisa a candidata e zera o comparecimento |
+| `20260906000005` | revisão da redação grava `scores_candidato` + backfill |
+| `20260906000006` | rejeição automática (knockout) avisa por e-mail |
 
-4. **Saída válida não é evidência de critério.** A análise gravava `status='sucesso'` e
-   `score_match=75` com o system prompt vazio. O schema Zod é enforced, então a FORMA da saída
-   estava perfeita — e a forma perfeita foi justamente o que escondeu o conteúdo ausente por
-   meses. Todo painel verde que só olha "rodou / não rodou" tem esse ponto cego. O 75 virou 2
-   quando o critério chegou.
-5. **Defeito silencioso de configuração tem irmãos — varra a família, não o caso.** O bug da
-   sessão anterior (EF pedindo coluna inexistente, erro descartado) e este (prompt placeholder
-   servido como instrução) são o MESMO padrão: um valor de placeholder/erro que o código aceita
-   sem reclamar. Achado o primeiro, a pergunta certa não é "está consertado?" e sim *"onde mais
-   existe um valor-sentinela que ninguém verifica?"*. Uma consulta de uma linha
-   (`system_template LIKE '[SEED PLACEHOLDER]%'`) achou 3 em produção.
+**Prompts ativos:** `cv_job_match` 4096 · `comparative_ranking` 3000 · `interview_guide` 8000 ·
+`transcript_analysis` 6000 · `culture_fit_essay` 2500 · `work_sample_sjt` 3000 ·
+`bigfive_devolutiva` 1200. Todos `claude-sonnet-4-6`.
+
+**Portões novos que passam a vigiar** (todos provados por execução — reverti o conserto e vi
+falhar):
+- `_shared/__tests__/structured-output-compat.test.ts` — todo schema passado ao `callAi` tem de
+  ser aceito pelos dois provedores. **Mordeu no primeiro giro** e achou o defeito gêmeo na
+  redação técnica.
+- `_shared/__tests__/ai-client-budget.test.ts` — o fallback não pode dobrar o teto de tempo.
+- `entrevista/services/__tests__/agendamentoAtivo.test.ts` — partição total do enum de status.
+- `components/pages/__tests__/DashboardCandidatoPage.encerrada.test.tsx` — candidatura encerrada
+  não promete espera.
+- `admin/bias-audit/__tests__/gerarSnapshotPeriodo.test.tsx` — snapshot é do mês corrente.
+
+**`vite.config.ts`:** a exclusão dos testes Deno era uma lista literal de 25 linhas, crescida em
+8 fases; virou um extglob (`supabase/functions/**/!(strict-schema).test.ts`). Cada teste Deno
+novo quebrava o `npm run test:run` até alguém lembrar de acrescentar a linha.
+
+---
+
+## 6 · O que eu faria primeiro, se fosse continuar agora
+
+1. **Decidir A e C** (§3.1) — são as duas que afetam alguém de fora: um candidato lendo o que o
+   recrutador escreveu, e um recrutador esperando 2 minutos sem saber disso.
+2. **Criar a conta de RH3** e fechar o E10 — 10 minutos, e fecha o bloco E inteiro.
+3. **Rodar G e H** (retenção e o flip da purga) — são seus, e o H é irreversível.
+4. **Limpeza do bloco I** e então divulgar as vagas.
+
+O M8 é o último milestone planejado. Fechando esses quatro itens, o projeto está fechado como
+está escopado hoje.
