@@ -174,12 +174,17 @@ export function RedacaoEditorScreen() {
         if (r && r.pergunta_id === pergunta.id && typeof r.texto === 'string' && r.texto) {
           const salvo = r.texto
           setTexto((atual) => (atual ? atual : salvo))
+          // ⚠ Semear o buffer do autosave com o texto restaurado. Sem isto (medido em
+          //   PROD, 06/09 01:51) o buffer ficava `{}` e o `flushNow()` do Enviar gravava
+          //   `{}` por cima do rascunho — um envio que falhasse depois (CORS, rede)
+          //   apagava a redação inteira.
+          update({ pergunta_id: pergunta.id, texto: salvo })
         }
       })
       .catch(() => {
         // O rascunho é conveniência; sem ele a tela segue vazia, como antes.
       })
-  }, [candidaturaId, pergunta])
+  }, [candidaturaId, pergunta, update])
 
   const backToPanel = () => navigate(`/candidato/avaliacao/${candidaturaId}`)
 
