@@ -379,3 +379,15 @@ raciocinar competência a competência antes de pontuar; 1500 caracteres não ca
 `anthropic_retries_exhausted` → `gpt-4o-mini`, que passa porque escreve pouco. Tetos → 4000 / 1200
 (`analise-schemas.ts`, Deno 160/160). **Exige redeploy** de `analise-candidato-individual` (e
 `comparativo-candidatos`, que embarca o mesmo arquivo). Medição pendente: `provider=anthropic`.
+
+### 7.4 · A cadeia fechou — 23:53
+
+EF v23: as duas candidaturas reprocessadas saíram **`provider=anthropic` (`claude-sonnet-4-6`),
+`success=true`**, 47–54 s, 3.1–3.3 mil tokens de saída, **US$ 0,05 por análise** (o `gpt-4o-mini`
+custava US$ 0,001 — o teto diário de US$ 50/vaga segue folgado; o cost-alerter agora tem dado).
+Qualidade: pontos fortes citando CV **e** Etapa 1 («disponibilidade confirmada em duas fontes»), um
+único gap `nice_to_have` coerente, nenhum gap crítico inventado. Claude Teste **93**, Larissa **92**.
+
+⚠ **Toda análise gravada antes de 23:53 de 2026-09-05 é do `gpt-4o-mini`** — incluindo os 67/68/20
+da Consultor e os 100/56/30 da Social Media. Não servem de baseline. O C6 (3× por fictício, Sonnet)
+está rodando; resultado em `scratchpad/c6.tsv` e na tabela abaixo quando fechar.
