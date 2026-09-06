@@ -97,10 +97,18 @@ export function useVagas(
   // e `null` para visitante anônimo → preserva o skip anon WR-10 e liga as
   // contagens reais para o RH.
   const user = useAuthStore((state) => state.user)
-  const includeCounts = !!user
+  const role = useAuthStore((state) => state.role)
+  // 2026-09-05: `!!user` ligava as contagens para QUALQUER sessão autenticada — um
+  // candidato logado via «1 candidato» no card da vaga (quantos concorrentes tem).
+  // A contagem é informação do RH; o candidato só precisa do `hasUserApplied`.
+  const includeCounts = !!user && role !== 'candidato'
 
   return useQuery({
-    queryKey: vagasKeys.list(filters, orderBy, pagination),
+    // O `candidato.id` entra na chave: o store carrega o candidato DEPOIS do primeiro
+    // render, e sem ele na chave a lista ficava em cache com `hasUserApplied=false`
+    // (medido em 2026-09-05: recém-inscrito na vaga, o card ainda dizia
+    // «Candidatar-se»). Sufixo no fim preserva a invalidação por prefixo.
+    queryKey: [...vagasKeys.list(filters, orderBy, pagination), candidato?.id ?? 'anon'],
     queryFn: () =>
       listVagas(
         {

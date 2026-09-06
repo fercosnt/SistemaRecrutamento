@@ -415,7 +415,13 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         //   O E2E de 25/08 mediu "93 s" — era exatamente isso. 55 s por tentativa; o
         //   ai-client (AI-04) limita a floor(140000/55000) = 2 tentativas para caber
         //   nos ~150 s do EF. Mesmo padrão do avaliar-transcricao (60 s).
-        timeoutMs: 55_000,
+        //
+        //   ⚠ SEGUNDA MEDIÇÃO, 23:41 do mesmo dia, já com 55 s: a Anthropic RESPONDEU
+        //   em ~40 s e o parse falhou — "Unterminated string in JSON at position 6445":
+        //   a saída era TRUNCADA em max_tokens=2048. A …0905000004 sobe para 4096; a
+        //   ~60 tok/s isso pode passar de 55 s. 90 s → o ai-client limita a
+        //   floor(140000/90000) = 1 tentativa (90 s + fallback ≈ 100 s < 150 s).
+        timeoutMs: 90_000,
       },
       // zodOutputFormat/zodResponseFormat REAIS injetados — sem eles o callAi cai no
       // default no-op `(s)=>s` e manda o schema cru, quebrando AMBOS os provedores
