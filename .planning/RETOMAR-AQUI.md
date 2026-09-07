@@ -229,7 +229,9 @@ e o `[TESTE] Dentista — Funil E2E`). Somem no bloco I.
 - **3 contas de teste** (`+claude1/2/3`) e os usuários **RH2** e **RH3**.
 - A vaga `[TESTE E2E] Social Media` (inativa) e as demais `[TESTE]`.
 - O snapshot de viés com período `p45-pos-execucao` (rótulo de fase, não um mês).
-- `.planning/WINDOWS.md` — triagem pendente desde antes destas sessões.
+- ~~`.planning/WINDOWS.md`~~ — **I2 feito em 2026-09-06** (§7.29): 43 janelas triadas, 33 `fixed`,
+  7 `waived`, **3 abertas** — as três precisam rodar smoke contra PROD e são checkpoint seu
+  (#4 `p43_previa_smoke`, #38 e #42 `p46_purga_smoke`). Nenhuma fechou sem razão escrita.
 
 ### 3.5 ℹ Duas observações abertas, nenhuma bloqueante
 

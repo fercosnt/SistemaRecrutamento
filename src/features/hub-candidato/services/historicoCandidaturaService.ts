@@ -152,14 +152,12 @@ export async function listHistorico(candidaturaId: string): Promise<HistoricoRow
     throw new HistoricoCandidaturaServiceError('candidaturaId é obrigatório', 'INVALID_INPUT')
   }
 
-  // ⚠ CAST PRÉ-REGEN: `listar_historico_candidatura` está APLICADA em produção
-  // (`20260809000001`, ledger reconciliado, smoke 6/6), mas `database.types.ts` só é
-  // regenerado por `npm run db:types` (Supabase CLI `--linked`), que não roda nesta wave —
-  // então o nome ainda não é chave válida de `supabase.rpc()`. Idioma vivo do repositório
-  // para a janela pré-regen (`triagemService.ts:486`). O próximo `db:types` remove os casts.
-  const { data, error } = await supabase.rpc('listar_historico_candidatura' as never, {
+  // Chamada TOTALMENTE TIPADA. O cast `as never` que vivia aqui era a janela pré-regen:
+  // a RPC estava aplicada em PROD (`20260809000001`) e `database.types.ts` ainda não a
+  // conhecia. O regen chegou, o nome é chave válida, e o cast saiu (WINDOWS 27).
+  const { data, error } = await supabase.rpc('listar_historico_candidatura', {
     p_candidatura_id: candidaturaId,
-  } as never)
+  })
 
   if (error) {
     throw classificarErro(error as { code?: string; message?: string })

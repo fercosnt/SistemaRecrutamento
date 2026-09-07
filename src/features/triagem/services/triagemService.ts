@@ -460,7 +460,7 @@ export async function updateCandidaturaEtapa(
 
   const { error } = await supabase
     .from('candidaturas')
-    .update(update as never)
+    .update(update)
     .eq('id', candidaturaId)
 
   if (error) {
@@ -483,10 +483,9 @@ export async function updateCandidaturaEtapa(
  * Nunca decide por score (RNF-07a). Este serviço é um pass-through tipado; ele NÃO
  * reimplementa o ≥50 — apenas mapeia o erro da RPC para `TriagemServiceError` (toast).
  *
- * NOTA (Warning #2 — cast pré-regen): a migration/types só são regenerados em 31-06,
- * então `rejeitar_candidatura` ainda NÃO é uma chave válida de `supabase.rpc()`. A
- * chamada usa `as never` (o mesmo padrão pré-regen do `decisaoService` intermediário da
- * Phase 15). 31-06 remove os `as never` após `npm run db:types`.
+ * NOTA: a janela pré-regen fechou. `rejeitar_candidatura` e a coluna
+ * `encerrada_a_pedido_em` de `v_triagem_panel` estão em `database.types.ts`, e os
+ * `as never` que existiam por causa dela foram removidos (WINDOWS 18).
  */
 export async function rejeitarCandidatura(
   candidaturaId: string,

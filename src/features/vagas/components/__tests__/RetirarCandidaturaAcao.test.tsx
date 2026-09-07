@@ -41,7 +41,11 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const mutate = vi.fn()
-let estadoMutacao = { isPending: false, isError: false }
+let estadoMutacao: {
+  isPending: boolean
+  isError: boolean
+  error?: { code: string } | null
+} = { isPending: false, isError: false, error: null }
 
 vi.mock('../../hooks/useRetirarCandidatura', () => ({
   useRetirarCandidatura: () => ({ mutate, ...estadoMutacao }),
@@ -53,7 +57,7 @@ const onNavegarCard = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  estadoMutacao = { isPending: false, isError: false }
+  estadoMutacao = { isPending: false, isError: false, error: null }
 })
 
 /**
@@ -240,7 +244,7 @@ describe('(f) E6·loading e E6·error — estado POR CARD', () => {
   })
 
   it('(f3) erro: alerta inline destructive com role="alert", por card', () => {
-    estadoMutacao = { isPending: false, isError: true }
+    estadoMutacao = { isPending: false, isError: true, error: { code: 'SERVER_ERROR' } }
     renderNoCard()
     const alerta = screen.getByRole('alert')
     expect(alerta).toHaveTextContent(COPY_RETIRAR_CANDIDATURA.erro)
@@ -274,5 +278,41 @@ describe('(g) a copy é constante `as const`, nunca literal no JSX', () => {
     // O parágrafo 2 é o ÚNICO que pode conter "apagar", e em forma NEGATIVA.
     expect(todas).not.toMatch(/apagar|excluir|eliminad/i)
     expect(COPY_RETIRAR_CANDIDATURA.paragrafo2).toMatch(/não é o mesmo que apagar seus dados/i)
+  })
+})
+
+
+/**
+ * WINDOWS 23 (DI-45-12-02) — a recusa de DOMÍNIO tinha a copy da falha de TRANSPORTE.
+ *
+ * O hook já traduzia `CANDIDATURA_NAO_RETIRAVEL` para o código `NAO_RETIRAVEL`
+ * (DI-45-12-01); era a TELA que jogava tudo na mesma frase. E a frase genérica manda
+ * «tente novamente em instantes» — uma instrução que o titular NUNCA conseguirá
+ * satisfazer quando a candidatura já teve desfecho. Mesma forma do WR-05.
+ *
+ * ⚠ As duas sondas são necessárias juntas: sozinha, a primeira passaria se a tela
+ * mostrasse SEMPRE o texto novo — o que quebraria o erro de rede. A partição é o teste.
+ */
+describe('(h) a recusa NAO_RETIRAVEL não pode pedir que se tente de novo', () => {
+  it('(h1) NAO_RETIRAVEL: texto próprio, e NENHUMA promessa de nova tentativa', () => {
+    estadoMutacao = { isPending: false, isError: true, error: { code: 'NAO_RETIRAVEL' } }
+    renderNoCard()
+    const alerta = screen.getByRole('alert')
+    expect(alerta).toHaveTextContent(COPY_RETIRAR_CANDIDATURA.erroNaoRetiravel)
+    // O que o defeito fazia: oferecer a repetição de uma ação que não pode dar certo.
+    expect(alerta).not.toHaveTextContent(COPY_RETIRAR_CANDIDATURA.erro)
+    expect(alerta.textContent ?? '').not.toMatch(/tente novamente em instantes/i)
+  })
+
+  it('(h2) ⊖ a falha de TRANSPORTE continua retryable — a partição não pode colapsar', () => {
+    estadoMutacao = { isPending: false, isError: true, error: { code: 'SERVER_ERROR' } }
+    renderNoCard()
+    const alerta = screen.getByRole('alert')
+    expect(alerta).toHaveTextContent(COPY_RETIRAR_CANDIDATURA.erro)
+    expect(alerta).not.toHaveTextContent(COPY_RETIRAR_CANDIDATURA.erroNaoRetiravel)
+  })
+
+  it('(h3) a copy nova não promete apagar dados (ERASE-05 segue valendo)', () => {
+    expect(COPY_RETIRAR_CANDIDATURA.erroNaoRetiravel).not.toMatch(/apagar|excluir|eliminad/i)
   })
 })

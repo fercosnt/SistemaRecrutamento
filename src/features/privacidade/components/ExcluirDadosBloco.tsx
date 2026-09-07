@@ -15,11 +15,15 @@
  *      (`rounded-lg border border-white/15 bg-white/5 p-4`). Padding maior, borda mais
  *      forte ou sombra própria são as formas silenciosas de roubar a âncora.
  *
- * ── O QUE ESTE BLOCO ENTREGA NESTA FASE, E O QUE FICA PARA 45-08 ────────────
- * Estado A (sem pedido) e Estado B (pedido agendado). O `AlertDialog` de confirmação
- * e o botão "Cancelar a exclusão" entram no 45-08 — por isso **nada aqui promete um
- * controle que não existe**: o Estado B afirma que o cancelamento é possível até a
- * data (o que é verdade no servidor), sem oferecer nem anunciar um botão.
+ * ── O QUE ESTE BLOCO ENTREGA ────────────────────────────────────────────────
+ * Estado A (sem pedido) e Estado B (pedido agendado), com o `AlertDialog` de
+ * confirmação e o cancelamento — este via `useCancelarExclusao`.
+ *
+ * ⚠ Até 2026-09-06 este parágrafo dizia que a confirmação e o botão «Cancelar a
+ * exclusão» «entram no 45-08», três linhas acima do `useCancelarExclusao` que já os
+ * implementa. O 45-08 pousou; o comentário não soube. O caminho foi exercitado ponta
+ * a ponta em PROD com a conta T2 (§7.23 do GUIA-VALIDACAO-FINAL: exclusão pedida e
+ * cancelada dentro da janela). WINDOWS 12.
  *
  * ── A DISTINÇÃO QUE DEFINE A FASE É RESOLVIDA POR SEPARAÇÃO FÍSICA ──────────
  * "retirar minha candidatura" (uma vaga, no Painel) ≠ "apagar meus dados" (a conta,

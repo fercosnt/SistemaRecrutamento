@@ -118,7 +118,22 @@ apresentavam como **invariante**. Os dois modos de falha são assimétricos e o 
 | Contagem contra constante | `p42_invent05_cron_smoke` (a): `count(*) <> 3` · `p43_matriz_retencao_smoke` (j): matriz `= seed` | **Reprova trabalho correto, com diagnóstico FALSO.** A (j) acusava "a política de retenção de PROD ficou com valor de teste" quando um admin havia legitimamente editado a janela |
 | Iteração sobre lista literal | `p43_previa_smoke` (f)/(g): `proname IN ('a','b')` | **Não reprova nada.** O objeto novo fica fora da vigilância e o portão segue **verde** |
 
-Antes de acrescentar um objeto que um smoke vigia, **varra pela forma** (`grep -nE "v_[a-z_]* (<>|!=) [0-9]+|= ANY \(ARRAY\['"`), e para cada achado pergunte: *esta lista/contagem codifica um ESCOPO deliberado, ou uma FOTOGRAFIA que vai envelhecer?* As duas coisas parecem iguais no código e são opostas.
+Antes de acrescentar um objeto que um smoke vigia, **varra pela forma**:
+
+```bash
+grep -rnE '(<>|!=|IS DISTINCT FROM) *[0-9]+|= ANY \(ARRAY\[.|\b(proname|jobname|relname|tgname|conname|typname) +IN +\(.' supabase/tests/*.sql
+```
+
+E para cada achado pergunte: *esta lista/contagem codifica um ESCOPO deliberado, ou uma FOTOGRAFIA que vai envelhecer?* As duas coisas parecem iguais no código e são opostas.
+
+> ⚠ **O padrão anterior tinha ponto cego, e o ponto cego era o idioma dominante.** Ele exigia
+> o prefixo `v_` e só conhecia `<>`/`!=` — não via `IS DISTINCT FROM <n>` (21 ocorrências, a
+> forma preferida do `p46_purga_smoke.sql`, que o usa 102 vezes), nem as listas literais
+> `proname IN ('a','b')` (10), nem um `count(*) <> n` sem variável. Medido em 2026-09-06: o
+> padrão antigo achava **164** linhas, o novo acha **244** — e não perde nenhuma das 164.
+> **Um padrão de varredura que não enxerga o idioma do arquivo que ele vigia é um portão
+> sobre portões que também está quebrado** — a mesma classe de defeito, um nível acima
+> (WINDOWS 43).
 Conserto: comparar com **baseline capturada na própria execução** (impressão digital via
 `to_jsonb` da linha inteira, que não envelhece quando nasce coluna nova), nunca com constante.
 E depois do conserto, **prove por execução que o portão ainda MORDE** — um portão que você

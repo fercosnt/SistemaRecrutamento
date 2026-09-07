@@ -51,7 +51,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 
-import { useRetirarCandidatura } from '../hooks/useRetirarCandidatura'
+import {
+  useRetirarCandidatura,
+  type RetirarCandidaturaError,
+} from '../hooks/useRetirarCandidatura'
 
 /**
  * Copy verbatim da 45-UI-SPEC (§`/candidato/dashboard` · Retirar minha candidatura
@@ -75,6 +78,18 @@ export const COPY_RETIRAR_CANDIDATURA = {
   recuar: 'Voltar',
   estadoApos: (data: string) => `Você retirou sua candidatura em ${data}.`,
   erro: 'Não foi possível retirar sua candidatura. Tente novamente em instantes.',
+  /**
+   * A recusa de DOMÍNIO (`NAO_RETIRAVEL`), que a genérica acima descrevia errado.
+   *
+   * ⚠ A diferença que importa não é de tom, é de VERDADE: «tente novamente em
+   * instantes» é uma instrução que o titular **nunca** conseguirá satisfazer quando a
+   * candidatura já teve desfecho. É a mesma forma do WR-05 (a recusa de alcance da
+   * revisão que virava «tente novamente» retryable) — e a saída honesta é a mesma:
+   * dizer que não há o que tentar. Não usa o verbo «apagar»: a distinção do ERASE-05
+   * mora em `paragrafo2` e em nenhum outro lugar desta constante.
+   */
+  erroNaoRetiravel:
+    'Esta candidatura não pode mais ser retirada — ela já foi encerrada ou já teve um desfecho. Tentar de novo não muda isso.',
 } as const
 
 export interface RetirarCandidaturaAcaoProps {
@@ -220,13 +235,18 @@ export function RetirarCandidaturaAcao({
         </p>
       ) : null}
 
-      {/* Erro POR CARD — retirar numa candidatura não bloqueia nem suja as demais. */}
+      {/* Erro POR CARD — retirar numa candidatura não bloqueia nem suja as demais.
+          A recusa de DOMÍNIO ganha texto próprio: o hook já a traduz para o código
+          `NAO_RETIRAVEL` (DI-45-12-01), e era só a tela que jogava tudo na mesma
+          frase retryable (WINDOWS 23). */}
       {retirar.isError ? (
         <p
           role="alert"
           className="mt-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold text-white"
         >
-          {COPY_RETIRAR_CANDIDATURA.erro}
+          {(retirar.error as RetirarCandidaturaError | null)?.code === 'NAO_RETIRAVEL'
+            ? COPY_RETIRAR_CANDIDATURA.erroNaoRetiravel
+            : COPY_RETIRAR_CANDIDATURA.erro}
         </p>
       ) : null}
     </div>
