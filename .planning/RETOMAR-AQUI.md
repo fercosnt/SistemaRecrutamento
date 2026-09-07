@@ -5,7 +5,7 @@
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.28 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.29 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
 **Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,

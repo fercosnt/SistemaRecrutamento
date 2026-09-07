@@ -891,6 +891,75 @@ O guard da RPC só barra quando `por_usuario IS NULL`, então essa linha é resp
 qualquer administrador. É fixture, some no bloco I — mas fica o registro de que «não
 identificado na tela» e «sem autoria para o guard» são condições **diferentes**.
 
+### 7.29 · I2 — a triagem das 43 janelas, e o ledger que mentia — 2026-09-06
+
+**Veredito: 33 `fixed` · 7 `waived` · 3 abertas.** Nenhuma fechou «porque sim».
+
+#### O ledger recusou a primeira escrita, e estava certo
+
+`gsd-tools windows fixed 18` respondeu:
+
+```
+Error: Ledger counts disagree with entries:
+frontmatter open/waived/fixed/total=35/0/8/43 but entries yield 40/0/3/43.
+```
+
+Cinco janelas (**24, 28, 29, 31, 32**) tinham sido fechadas **só na tabela markdown**, com
+razão e commit escritos — o trabalho foi feito —, enquanto o **bloco JSON**, que é o que a
+ferramenta lê, seguia com elas abertas. E o frontmatter fora ajustado à mão para casar com a
+metade errada. **Quarta vez nesta jornada em que o registro e o artefato divergem**, depois do
+deploy que não saiu (§7.27), do comentário do painel que dizia o contrário do código (§7.26c) e
+do `RETOMAR` que afirmava «está no ar» sobre duas metades tendo visto uma.
+
+Reconciliado a partir da tabela (que tinha as razões), e — o ponto que importa — **a tabela
+passa a ser gerada das entradas**. A divergência nasceu de alguém editar a metade legível à
+mão; agora não há metade a editar.
+
+#### Três janelas consertadas de verdade
+
+| # | O que era | O conserto |
+|---|---|---|
+| **18 / 27** | `as never` pré-regen em duas chamadas | O `db:types` confirmou que `listar_historico_candidatura` e `v_triagem_panel.encerrada_a_pedido_em` **já estavam** nos tipos. Casts removidos — e agora o compilador **checa** as duas chamadas em vez de calar sobre elas. `tsc` 90, inalterado |
+| **23** | A recusa de **domínio** `NAO_RETIRAVEL` mostrava «tente novamente em instantes» | Instrução que o titular **nunca** conseguiria satisfazer — a mesma forma do WR-05. O hook já traduzia o código desde DI-45-12-01; era **só a tela**. Portão (h), 3 sondas, provado que morde |
+| **43** | O padrão de varredura do `CLAUDE.md` não via o idioma do arquivo que vigia | Exigia prefixo `v_` e só conhecia `<>`/`!=`. Não via `IS DISTINCT FROM <n>` (21 ocorrências; o `p46_purga_smoke` usa a forma **102 vezes**) nem `proname IN ('a','b')` (10). Estendido e medido: **244 achados contra 164**, sem perder nenhuma das 164 |
+
+⭐ A **43** é a mais instrutiva: um **portão sobre portões** que também estava quebrado. A seção
+do `CLAUDE.md` existe para impedir que uma lista literal envelheça, e o comando que ela ensina
+não enxergava a forma dominante. O ponto cego de uma ferramenta de auditoria não aparece como
+falha — aparece como silêncio.
+
+⚠ **O `db:types` foi gerado no scratchpad primeiro**, e só depois comparado. A armadilha do
+truncamento (§7.26.1) fica evitada **por construção**, não por lembrança: o `>` nunca apontou
+para o arquivo do repositório. A saída bateu byte a byte com o commitado.
+
+Também caiu o comentário obsoleto da **#12**, que dizia «o botão *Cancelar a exclusão* entra no
+45-08» três linhas acima do `useCancelarExclusao` que já o implementa.
+
+#### Os 7 waives, cada um com a decisão que o autoriza
+
+| # | Autorizado por |
+|---|---|
+| 6, 26, 30 | `DECISAO-ENCARREGADO.md` (2026-08-13) — a Beauty Smile não designa Encarregado; o parecer não vem, e quem decide é o operador, que decidiu. O documento **nomeia** 26 e 30 no próprio frontmatter |
+| 22 | O `GRANT` de EXECUTE a `authenticated` em `gerar_bias_snapshot` é deliberado (chamador vivo em `biasAuditService.ts:98`). Medido em PROD: `authenticated=X`. Quem está desalinhado é a asserção C1 do smoke, não o banco |
+| 33, 41 | Propriedades **declaradas por escrito** no docblock da EF — conhecidas e aceitas, não pendências |
+| 40 | O que a janela pedia **já passou**: a nova rodada de review antes do apply não ocorreu, e isso está contabilizado com honestidade no `46-VERIFICATION` como critério 2 = 0,5, «VIOLADO em 4 de 8 applies». Fica como registro do custo, não como pendência |
+
+E as duas janelas que **já estavam `fixed` com razão VAZIA** desde agosto (**36**, **37**)
+foram preenchidas por evidência. Um `fixed` sem razão é a mesma coisa que um `waive` sem
+razão — só parece melhor.
+
+#### ⏳ As 3 que continuam abertas — e por quê
+
+| # | O que falta |
+|---|---|
+| **4** | `p43_previa_smoke` nunca executado |
+| **38** | `p46_purga_smoke`, asserções (b) e (o) |
+| **42** | `p46_purga_smoke`, asserções (q.1)–(q.5) |
+
+As três se fecham **rodando o smoke**, e não argumentando. Duas são do smoke da **purga**:
+executá-las contra produção é checkpoint do operador, da mesma família do Bloco H. Ficam
+abertas de propósito — fechá-las por leitura seria exatamente o que o §7.27 acabou de custar.
+
 ---
 
 ## §8 · Fechamento da sessão de validação — 2026-09-06
