@@ -5559,6 +5559,10 @@ export type Database = {
         Args: { p_desfechos: Json; p_item_id: string }
         Returns: undefined
       }
+      confirmar_janela_retencao: {
+        Args: { p_etapa: Database["public"]["Enums"]["etapa_processo"] }
+        Returns: undefined
+      }
       confirmar_revisao_entrevista: {
         Args: { p_analise_id: string }
         Returns: Json

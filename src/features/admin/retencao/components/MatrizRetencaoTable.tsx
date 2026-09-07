@@ -78,6 +78,18 @@ export const MATRIZ_COPY = {
   semValor: '—',
   acao: 'Editar janela',
   /**
+   * AUTORADO. A 43-UI-SPEC é anterior à migration `20260907000001` e não conhece esta
+   * ação — ela nasce do defeito medido em §7.32: `salvar_janela_retencao` recusa no-op,
+   * e o portão do flip exige `origem='admin'` para etapas que já estão no TETO de 24
+   * meses. Sem esta ação, confirmar 24 exigiria primeiro mudar para outro valor — e foi
+   * exatamente esse contorno que alterou `rejeitado` sem que ninguém quisesse.
+   */
+  acaoConfirmar: 'Confirmar 24 meses',
+  /** O rótulo acima é interpolado com a janela real da linha. */
+  acaoConfirmarCom: (meses: number) => `Confirmar ${meses} meses`,
+  acaoConfirmarTitulo:
+    'Registra que você revisou esta janela e a manteve. O número não muda; a origem deixa de ser «Seed».',
+  /**
    * AUTORADO. A spec não cobre o caso "estado no enum, fora da matriz" do lado da AÇÃO —
    * só do lado da leitura. `salvar_janela_retencao` recusa com `22023` uma etapa ausente
    * da matriz, então oferecer o botão aqui seria oferecer uma ação que o servidor já
@@ -170,9 +182,14 @@ export interface MatrizRetencaoTableProps {
    * `FilaRevisoesTable` no 42-09.
    */
   onEditar?: (linha: LinhaMatriz) => void
+  /**
+   * Confirma a janela SEM alterá-la. Mesma disciplina do `onEditar`: ausente, a ação
+   * nem aparece — nunca uma afordância que não faz nada.
+   */
+  onConfirmar?: (linha: LinhaMatriz) => void
 }
 
-export function MatrizRetencaoTable({ onEditar }: MatrizRetencaoTableProps = {}) {
+export function MatrizRetencaoTable({ onEditar, onConfirmar }: MatrizRetencaoTableProps = {}) {
   const { data, isLoading, isError, refetch, isRefetching } = useMatrizRetencao()
 
   const doServidor = data ?? []
@@ -251,6 +268,29 @@ export function MatrizRetencaoTable({ onEditar }: MatrizRetencaoTableProps = {})
                     >
                       {MATRIZ_COPY.acao}
                     </button>
+                    {/*
+                      CONFIRMAR — só onde ela MUDA alguma coisa: linhas em `seed`, que
+                      são as que o portão do flip barra. Numa linha já em `admin` o
+                      efeito seria invisível na tabela (só `atualizado_em` se move), e um
+                      botão cujo efeito não se vê ensina a desconfiar dos que se veem. A
+                      RPC aceita re-confirmação para uma revisão periódica futura; é a
+                      TELA que se cala hoje.
+
+                      O sumiço do botão depois do clique É o retorno: a linha passa a
+                      dizer «Alterado por …» e a ação deixa de ser oferecida.
+                    */}
+                    {linha.definida && linha.origem === 'seed' && onConfirmar ? (
+                      <button
+                        type="button"
+                        title={MATRIZ_COPY.acaoConfirmarTitulo}
+                        onClick={() => onConfirmar(linha)}
+                        className="text-accent ml-1 inline-flex min-h-[44px] items-center gap-1 rounded-md px-3 text-sm font-semibold transition-colors hover:bg-white/10"
+                      >
+                        {linha.janelaMeses === null
+                          ? MATRIZ_COPY.acaoConfirmar
+                          : MATRIZ_COPY.acaoConfirmarCom(linha.janelaMeses)}
+                      </button>
+                    ) : null}
                     {!linha.definida ? (
                       <span className="sr-only">{MATRIZ_COPY.acaoIndisponivel}</span>
                     ) : null}

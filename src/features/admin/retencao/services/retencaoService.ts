@@ -293,10 +293,46 @@ export async function salvarJanela(vars: SalvarJanelaVars): Promise<void> {
   if (error) throw classificarErroRetencao(error)
 }
 
+/**
+ * Confirma a janela de um estado **sem alterá-la**, pela RPC
+ * `confirmar_janela_retencao` (migration `20260907000001`).
+ *
+ * ── POR QUE ESTA FUNÇÃO EXISTE, E POR QUE NÃO É UM `salvarJanela` COM O MESMO VALOR
+ *
+ * `salvar_janela_retencao` **recusa no-op** de propósito: a linha de auditoria dela diz
+ * «alterada de X para Y», e escrevê-la sem mudança seria a trilha probatória afirmando
+ * um fato que não houve. Está certo.
+ *
+ * Só que o portão do flip da purga (D-46-22) exige `origem = 'admin'` em toda etapa da
+ * allowlist, e `origem` só deixava de ser `'seed'` dentro daquela RPC — depois do guard
+ * de no-op. Como `decisao_final` e `aprovado` estão em 24 meses, que é também o **teto**,
+ * confirmar 24 exigiria primeiro mudar para outro valor.
+ *
+ * ⚠ Isso não é hipótese: em 2026-09-06 o operador tentou confirmar pelo caminho
+ * documentado, a tela recusou, e a saída encontrada foi mexer no número — `rejeitado`
+ * foi de 18 para 24 meses, desfazendo uma decisão deliberada e alongando a guarda de
+ * dados de reprovados. **Um portão impossível de satisfazer é satisfeito por um
+ * contorno, e o contorno é que faz o estrago.** (§7.32 do GUIA-VALIDACAO-FINAL.)
+ *
+ * A RPC nova marca `origem = 'admin'`, **não toca em `janela_meses`** (asserção (e) do
+ * apply prova por execução) e audita como `confirmar_janela_retencao`, com descrição que
+ * diz «CONFIRMADA em N meses, sem alteração» — um ato que de fato aconteceu.
+ *
+ * Como a irmã, esta função **não decide autorização**: chama mesmo quando o servidor vai
+ * recusar, e é por isso que a recusa é confiável.
+ */
+export async function confirmarJanela(etapa: EtapaFunilM2): Promise<void> {
+  const { error } = await supabase.rpc('confirmar_janela_retencao', {
+    p_etapa: etapa,
+  })
+  if (error) throw classificarErroRetencao(error)
+}
+
 /** Export namespaced (convenção `camelCaseService`). */
 export const retencaoService = {
   classificarErroRetencao,
   listarMatriz,
   lerPrevia,
   salvarJanela,
+  confirmarJanela,
 }

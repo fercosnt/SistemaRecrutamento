@@ -38,6 +38,7 @@ import { RHLayout } from '@/components/RHLayout'
 import { GlassCard } from '@/components/ui/glass'
 import { MatrizRetencaoTable, type LinhaMatriz } from './MatrizRetencaoTable'
 import { EditarJanelaDialog } from './EditarJanelaDialog'
+import { useConfirmarJanela } from '../hooks/useConfirmarJanela'
 import { PreviaRetencaoBloco } from './PreviaRetencaoBloco'
 
 /** Copy verbatim da 43-UI-SPEC (§`/admin/retencao`, linhas 523-541). */
@@ -66,6 +67,11 @@ export function RetencaoPage() {
   // `undefined` no mesmo commit em que o diálogo passa a existir. Nunca houve um botão
   // acionável sem destino.
   const [linhaEmFoco, setLinhaEmFoco] = useState<LinhaMatriz | null>(null)
+  // Confirmar NÃO abre diálogo: não há nada a preencher nem a decidir dentro dele. O
+  // diálogo de `Editar` existe porque há um valor a escolher e uma consequência a ler;
+  // um diálogo que só diz «tem certeza?» sobre uma ação sem efeito destrutivo é atrito
+  // sem informação. A confirmação em si É o ato, e o toast diz o que aconteceu.
+  const confirmar = useConfirmarJanela()
 
   return (
     <RHLayout>
@@ -113,7 +119,10 @@ export function RetencaoPage() {
           <h2 className="text-xl font-semibold text-white">
             {RETENCAO_PAGINA_COPY.tituloTabela}
           </h2>
-          <MatrizRetencaoTable onEditar={setLinhaEmFoco} />
+          <MatrizRetencaoTable
+            onEditar={setLinhaEmFoco}
+            onConfirmar={(linha) => confirmar.mutate(linha.etapa)}
+          />
         </GlassCard>
 
         {/* A prévia fica ABAIXO da tabela — ela é consequência do que a tabela diz, e

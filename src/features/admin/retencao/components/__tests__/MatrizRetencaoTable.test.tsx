@@ -28,7 +28,7 @@
  *      (§`/admin/retencao` — copy verbatim; §UI Considerations E6)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 const useMatrizMock = vi.fn()
@@ -264,5 +264,64 @@ describe('MatrizRetencaoTable — vazio e erro têm copy PRÓPRIA', () => {
       screen.queryByText('A matriz de retenção ainda não foi semeada.'),
     ).not.toBeInTheDocument()
     expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull()
+  })
+})
+
+/**
+ * §7.32 — A AÇÃO «CONFIRMAR», e por que ela precisa de portão próprio.
+ *
+ * `salvar_janela_retencao` recusa no-op por design correto (a linha de auditoria dela
+ * afirma «alterada de X para Y»), e o portão do flip da purga exige `origem='admin'`
+ * para etapas que já estão no TETO de 24 meses. Sem uma ação de CONFIRMAR, satisfazer o
+ * portão exigiria primeiro mudar o número — e foi exatamente esse contorno que, em
+ * 2026-09-06, alterou `rejeitado` de 18 para 24 sem que ninguém quisesse.
+ *
+ * ⚠ As três sondas se sustentam JUNTAS. A (a) sozinha passaria se o botão aparecesse em
+ * toda linha; a (b) é o ⊖ que impede isso. E a (c) guarda a copy, porque «Confirmar» que
+ * dispara com a etapa ERRADA é pior que botão nenhum — silencioso e plausível.
+ */
+describe('MatrizRetencaoTable — confirmar sem alterar (§7.32)', () => {
+  it('(a) linha em `seed` oferece «Confirmar», com a janela real no rótulo', () => {
+    render(<MatrizRetencaoTable onConfirmar={vi.fn()} />)
+    // 8 linhas semeadas ⇒ 8 botões de confirmar, cada um nomeando os 24 meses.
+    const botoes = screen.getAllByRole('button', { name: 'Confirmar 24 meses' })
+    expect(botoes).toHaveLength(ETAPAS.length)
+  })
+
+  it('(b) ⊖ linha já em `admin` NÃO oferece confirmar — o botão sem efeito visível não existe', () => {
+    const comUmAdmin = matrizSemeada().map((l) =>
+      l.etapa === 'rejeitado'
+        ? { ...l, origem: 'admin', janela_meses: 18, alterado_por_nome: 'Fernando' }
+        : l,
+    )
+    useMatrizMock.mockReturnValue(estado({ data: comUmAdmin }))
+    render(<MatrizRetencaoTable onConfirmar={vi.fn()} />)
+    // Sete continuam em seed; a de `rejeitado` saiu da oferta.
+    expect(screen.getAllByRole('button', { name: 'Confirmar 24 meses' })).toHaveLength(
+      ETAPAS.length - 1,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Confirmar 18 meses' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('(c) o clique manda a ETAPA daquela linha — nunca a de outra', () => {
+    const onConfirmar = vi.fn()
+    render(<MatrizRetencaoTable onConfirmar={onConfirmar} />)
+    const linhaAprovado = screen.getByText('Aprovado').closest('tr')
+    expect(linhaAprovado).not.toBeNull()
+    const botao = within(linhaAprovado as HTMLElement).getByRole('button', {
+      name: 'Confirmar 24 meses',
+    })
+    fireEvent.click(botao)
+    expect(onConfirmar).toHaveBeenCalledTimes(1)
+    expect(onConfirmar.mock.calls[0]?.[0]).toMatchObject({ etapa: 'aprovado' })
+  })
+
+  it('(d) sem `onConfirmar`, a ação não é oferecida — nada de afordância morta', () => {
+    render(<MatrizRetencaoTable />)
+    expect(
+      screen.queryByRole('button', { name: /^Confirmar/ }),
+    ).not.toBeInTheDocument()
   })
 })
