@@ -286,6 +286,7 @@ conferido titular a titular naquele instante.
 | P2 | 7 de 8 prompts com `deployed_at` NULL → guard de imutabilidade inerte; `culture_fit_essay` com `content_hash` errado só corrigível por versão nova | §0.2 | `prompt_versions` |
 | P2 | `scripts/sync-prompts.ts` é código morto (escreve `fallback_model_id`, coluna inexistente) | RETOMAR | apagar ou consertar |
 | **P2** | **`stamp_explicacao_acessada` é idempotente no valor e não na escrita** — o `UPDATE` roda a cada visita e o trigger `AFTER UPDATE` acrescenta uma linha ao histórico do Art. 20. 7 linhas / 2 estados distintos hoje; cresce por ação do titular | §7.28 | `WHERE ... AND explicacao_solicitada_em IS NULL` |
+| **P2** | **A tela de usuários diz «Nunca acessou» para quem já entrou** — `data_ultimo_login` nunca é escrito e `primeiro_acesso` só na criação. É a coluna que se usa para desativar conta parada, e ela erra fazendo conta ativa parecer abandonada | §7.31 | `listar_usuarios_rh` devolver `last_sign_in_at`; `primeiro_acesso` derivado |
 | P2 | `updateVagaBase` não persiste `slug`, `tipo_contrato`, `modelo_trabalho`, `descricao_curta` (toast de sucesso falso) | handoff do plugin | **confirmar em C2** |
 | P2 | Não existe tela de criar vaga; o plugin `cadastro-de-vaga` gera migration | handoff | roadmap próprio, se quiser autonomia |
 | P2 | Registro desatualizado (§0.3) | esta sessão | A3 |
@@ -1020,6 +1021,60 @@ constante; o operador tinha o direito de mudar.
   pergunta para o operador: `/manifesto` deve ser a sexta, ou deve deixar de ser pública?
 - **`/admin/prompt-versions` conta versões, não ativações.** `cv_summary` aparece com «(1)»
   como os outros sete, e está **inativo**. Dois estados diferentes com a mesma aparência.
+
+### 7.31 · G6 fechado, e a tela de usuários mente sobre quem já entrou — 2026-09-06
+
+**G6 completo.** O ciclo `desativar` → `ativar` do RH2 foi exercitado pela tela, como RH3, e
+medido no banco:
+
+| | Medido |
+|---|---|
+| Desativar | `usuarios_rh.ativo=false`, `updated_by=RH3`, e `logs_auditoria` com `acao='desativar'`, `recurso_tipo='usuarios_rh'`, `sucesso=true` |
+| Ativar | `ativo=true` de volta — **estado restaurado** —, e a segunda linha de trilha, `acao='ativar'`, mesma autoria |
+| Diálogo | Confirmação antes de desativar, com a frase honesta: «RH2 perderá o acesso ao painel imediatamente. Você pode reativar depois.» |
+
+*(Detalhe de rótulo: o item de menu de reativação chama-se **«Ativar»**, não «Reativar».)*
+
+#### ⛔ Defeito novo: «Nunca acessou» para quem acabou de entrar
+
+A tabela de usuários mostra, para **RH2 e RH3**, o status «Ativo · **Aguardando 1º acesso**» e a
+coluna Último acesso com «**Nunca acessou**». As duas contas entraram no painel — a RH2 percorreu
+o funil inteiro na sessão de validação, e a RH3 estava logada **naquele exato momento**, escrevendo
+aquela mesma tela.
+
+A verdade existe **a um join de distância**:
+
+| Conta | `usuarios_rh.data_ultimo_login` | `auth.users.last_sign_in_at` |
+|---|---|---|
+| Fernando | `2026-04-20` (parado) | **`2026-09-06 20:37`** |
+| RH2 | `NULL` | **`2026-09-06 17:43`** |
+| RH3 | `NULL` | **`2026-09-06 21:24`** |
+
+**A causa, por varredura:** `primeiro_acesso` só é escrito **na criação** (`true`, no INSERT da
+`20260713000003`), e `data_ultimo_login` **nunca é escrito por nada** — em todo o repositório ele
+só aparece sendo **lido** (`UsuariosRhTable.tsx:93` e a allowlist do service). Não há caminho de
+login que atualize qualquer um dos dois.
+
+**Por que não é cosmético:**
+
+1. **«Último acesso» é a coluna que se usa para decidir desativar uma conta parada** — e ela erra
+   na direção que faz uma conta **ativa parecer abandonada**. Um administrador zelando pelo
+   mínimo privilégio desativaria exatamente quem está trabalhando.
+2. **«Aguardando 1º acesso» é uma afirmação de segurança**: lê-se como «o convite nunca foi
+   usado». Para uma conta cujo convite **foi** usado, ela esconde o fato que importa.
+3. A linha do Fernando é a mais enganosa das três, porque **tem uma data** — 20/04/2026 — e uma
+   data errada é mais convincente que um «—».
+
+> ⭐ É a forma «**tela vazia não é dado ausente**» na terceira roupa desta jornada. O dado existe,
+> está correto, e mora numa tabela que a tela não lê. Não é medição impossível: é **TODO de
+> leitura** — e a pergunta que o teria achado antes é *quem mais lê a mesma verdade?*
+
+**Conserto** (não aplicado — não é bloqueante para o M8 e a fila é G1/H/I): `auth.users` não é
+legível pelo cliente, então a saída limpa é a `listar_usuarios_rh` passar a devolver
+`last_sign_in_at` pelo `SECURITY DEFINER` que ela já é, e `primeiro_acesso` virar **derivado**
+(`last_sign_in_at IS NULL`) em vez de coluna escrita uma vez e nunca mais. Portão sugerido: uma
+sonda que faça login e assere que a coluna deixa de dizer «Nunca acessou» — a asserção que a
+versão atual reprova para sempre.
 
 ---
 

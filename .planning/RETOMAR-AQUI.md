@@ -5,7 +5,7 @@
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.30 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.31 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
 **Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
@@ -92,8 +92,10 @@ migration em PROD); está no backlog do guia como **P2**, com o conserto e o por
   têm `origem='seed'`** (`decisao_final`, `aprovado`); só `rejeitado` tem confirmação humana.
   **É isto que barra o H4.** Reconfirmar 24 meses é legítimo — o servidor exige que *alguém
   tenha olhado*, não que o número mude.
-- **G6, a parte de escrita** — desativar e reativar o RH2, para ver cair em `logs_auditoria`.
 - **H** — o flip de `dry_run` para `live`, **irreversível**, com runbook próprio.
+
+*(O G6 fechou: o ciclo desativar/reativar do RH2 foi exercitado e as duas linhas estão em
+`logs_auditoria` com autoria RH3 — §7.31. O estado do RH2 foi restaurado.)*
 
 ⚠ **Uma medição do H mudou desde o `46-VERIFICATION`:** o cron `purga-retencao-sweep` tem hoje
 **14 execuções** (última 06/09 00:00). Aquele relatório registrou o critério como FAILED, «0 de
