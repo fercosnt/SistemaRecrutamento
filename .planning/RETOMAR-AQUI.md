@@ -62,6 +62,12 @@ executado**.
 ⚠ **Limpe o `localStorage` ao trocar de papel** no mesmo navegador. E a rota do painel
 interno é **`/auth/login-rh`**; `/login` é 404.
 
+### 📋 A lista curta: [`CHECKLIST-VALIDACAO-MANUAL.md`](CHECKLIST-VALIDACAO-MANUAL.md)
+
+O `GUIA-VALIDACAO-FINAL.md` tem **83 itens**, e **49 já têm resultado registrado** no §7 —
+que é um diário cronológico, não uma lista de conferência. O checklist é o complemento:
+**12 itens de tela + 4 julgamentos** que só o operador pode fazer. Uma tarde.
+
 ### O que eu NÃO consegui verificar — vale seu olho
 
 Estes ficaram fora do meu alcance e são os candidatos naturais da sua validação:
