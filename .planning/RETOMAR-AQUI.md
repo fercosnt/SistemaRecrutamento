@@ -1,4 +1,4 @@
-# Retomar aqui — estado em 2026-09-06, fim da sessão da conferência
+# Retomar aqui — estado em 2026-09-07, antes da validação manual do operador
 
 **Como abrir a próxima conversa:**
 
@@ -31,7 +31,63 @@ está escopado hoje.
 
 ---
 
-## 0 · O que fazer primeiro, nesta ordem
+## 0 · ⏸ ONDE ESTAMOS AGORA — o operador está validando à mão
+
+**2026-09-07.** O responsável interrompeu a automação para **percorrer o sistema
+manualmente**. Nada está pela metade: a árvore está limpa, `origin/main` em dia, e o
+último trabalho (o teardown dos dados de teste) está **escrito e deliberadamente NÃO
+executado**.
+
+> ### ⛔ NÃO RODE O TEARDOWN ENQUANTO A VALIDAÇÃO MANUAL NÃO TERMINAR
+>
+> `supabase/tests/p47_teardown_dados_de_teste.sql` apaga **as contas que a validação
+> manual usa** — T1, T2, T3 e os candidatos das vagas `[TESTE]`. Rodá-lo agora tira o
+> chão de quem está testando.
+>
+> Ele já está pronto, medido e com trava própria (recusa se o banco não for o que ele
+> mediu). O comando, para quando for a hora:
+> `node p46apply.cjs run supabase/tests/p47_teardown_dados_de_teste.sql`
+
+**Contas para a validação** (senha de todas: `Teste123!`):
+
+| Conta | E-mail | Estado |
+|---|---|---|
+| Você (admin) | `fernando@beautysmile.com.br` | administrador |
+| RH2 | `…+rh2@gmail.com` | administrador · ativo |
+| RH3 | `…+rh3@gmail.com` | administrador · ativo |
+| T1 | `…+claude1@gmail.com` | **aprovada**, funil completo |
+| T2 | `…+claude2@gmail.com` | knockout; exclusão pedida e cancelada |
+| T3 | `…+claude3@gmail.com` | rejeitada na decisão final, **revisão respondida**; e knockout na Consultor |
+
+⚠ **Limpe o `localStorage` ao trocar de papel** no mesmo navegador. E a rota do painel
+interno é **`/auth/login-rh`**; `/login` é 404.
+
+### O que eu NÃO consegui verificar — vale seu olho
+
+Estes ficaram fora do meu alcance e são os candidatos naturais da sua validação:
+
+1. **Como as telas se comportam de verdade no celular.** Medi em viewport 390×844, que
+   não é o mesmo que um telefone na mão.
+2. **Se a copy faz sentido para quem não construiu o sistema.** Li tudo de dentro; a
+   pergunta «isso está claro?» não é respondível por quem escreveu.
+3. **Os e-mails na caixa de entrada real** — formatação, remetente, se caem em spam.
+4. **O tempo percebido.** A geração do guia leva 1–2 min com aviso na tela (§7.25); saber
+   se a espera é tolerável é julgamento seu.
+
+### Defeitos conhecidos e NÃO consertados (para você não caçar de novo)
+
+| O quê | Onde |
+|---|---|
+| «Nunca acessou» / «Aguardando 1º acesso» para contas que já entraram | §7.31 · backlog P2 |
+| Cada visita à página de explicação cria linha no histórico do Art. 20 | §7.28 · backlog P2 |
+| Rota `/admin/*` expirada manda para o login de **candidato** | §7.32 |
+| `/manifesto` é pública, órfã (nada a linka) e sem rodapé | §7.30 |
+| `/admin/prompt-versions` conta versões, não ativações | §7.30 |
+| `/admin/ai-costs` vazio hoje — **correto**, agrega D-1 (previsão: US$ 0,899 em 07/09) | §7.30 |
+
+---
+
+## 0-B · A fila, para quando a validação manual terminar
 
 ### 0.1 ✅ A decisão B — publicada e conferida na tela (§7.27)
 
