@@ -5,7 +5,7 @@
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.31 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.32 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
 **Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
@@ -84,25 +84,43 @@ acrescenta uma linha ao histórico do Art. 20. Hoje: **7 linhas, 2 estados disti
 por ação do titular, e dilui justamente a trilha que o Art. 20 exige. Não consertado (é
 migration em PROD); está no backlog do guia como **P2**, com o conserto e o portão escritos.
 
-### 0.3 ⏳ G1 e o bloco H — o que sobrou é seu (§7.30)
+### 0.3 ⏳ Só falta o flip do H — as cinco pré-condições estão VERDES (§7.32)
 
-**G2–G7 estão medidos e verdes** (§7.30). Sobrou do G exatamente o que muda estado:
+**G está fechado inteiro.** As 8 etapas da matriz foram confirmadas em 2026-09-06 (7 pela
+RPC nova `confirmar_janela_retencao`, sem alterar número nenhum: **7 seed→admin, 0
+alteraram o valor**).
 
-- **G1 — confirmar as janelas de retenção.** Das 3 etapas com `elegivel_purga`, **duas ainda
-  têm `origem='seed'`** (`decisao_final`, `aprovado`); só `rejeitado` tem confirmação humana.
-  **É isto que barra o H4.** Reconfirmar 24 meses é legítimo — o servidor exige que *alguém
-  tenha olhado*, não que o número mude.
-- **H** — o flip de `dry_run` para `live`, **irreversível**, com runbook próprio.
+| # | Pré-condição do flip | Medido em 06/09 23:38 |
+|---|---|---|
+| 1 | ≥14 dias desde o 1º ensaio | ✅ 15 |
+| 2 | ≥14 execuções no ledger | ✅ 16 |
+| 3 | ≥1 sobre conjunto não-vazio | ✅ 16 de 16 |
+| 4 | Nenhuma etapa da allowlist em `seed` | ✅ **0 de 3** |
+| 6 | Allowlist não-vazia | ✅ 3 etapas |
+| **H5** | Nenhum titular real no conjunto elegível | ✅ 5 elegíveis, **os 5 fixtures**, um a um |
 
-*(O G6 fechou: o ciclo desativar/reativar do RH2 foi exercitado e as duas linhas estão em
-`logs_auditoria` com autoria RH3 — §7.31. O estado do RH2 foi restaurado.)*
+> ### ⛔ ANTES DE ABRIR O RUNBOOK, LEIA ISTO
+>
+> O `46-07-RUNBOOK-FLIP` oferece uma chamada a `salvar_config_purga(… p_confirmo_live :=
+> true)` como **«a prova de que o portão está fechado»**, porque enquanto faltasse
+> critério ela recusaria. **Faltou até 06/09 23:38. Não falta mais.**
+>
+> **Aquele bloco agora EXECUTA O FLIP.** Um aviso foi inserido acima dele no runbook, mas
+> se você tiver o SQL na memória ou num histórico de terminal, é isto que precisa saber.
+>
+> Para conferir o portão sem executá-lo, use as consultas de **leitura** (`purga_execucoes`
+> e `config_retencao_etapa`) — nenhuma chama a RPC.
 
-⚠ **Uma medição do H mudou desde o `46-VERIFICATION`:** o cron `purga-retencao-sweep` tem hoje
-**14 execuções** (última 06/09 00:00). Aquele relatório registrou o critério como FAILED, «0 de
-14 noites» — o agendador passou a funcionar. **H5 estava verde hoje** (os 5 elegíveis são todos
-fixtures, conferidos um a um), mas **re-meça no instante do flip**.
+**O flip é seu, é irreversível, e não tem pressa.** O portão continua satisfeito amanhã.
+O runbook recomenda fazê-lo depois de haver gente real no sistema, e **re-medir o H5 no
+instante** — a lista de elegíveis muda com o tempo.
 
-Depois disso, a limpeza do bloco I (§3.4) e as vagas podem ser divulgadas.
+A primeira noite em `live` destrói as **5 fixtures**, e é isso que se quer: a destruição
+delas é a prova (H6). Os 15 fictícios `@invalido.local` **não** são elegíveis e sobrevivem
+— saem depois, por script (I3).
+
+Reversão documentada: `p_confirmo_live := NULL`; em último caso,
+`cron.alter_job(6, active := false)`.
 
 ---
 

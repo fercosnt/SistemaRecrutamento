@@ -143,9 +143,30 @@ exata.
 **A prova de que o portão está fechado agora**, sem efeito colateral nenhum (a RPC recusa antes de
 tocar em qualquer coisa):
 
+> # ⛔ PARE — ESTA CONSULTA DEIXOU DE SER SEGURA EM 2026-09-06
+>
+> O comentário abaixo diz «enquanto QUALQUER critério faltar, esta chamada RECUSA», e era
+> verdade quando foi escrito. **Não é mais.** Em 2026-09-06 23:38 a última pré-condição
+> foi satisfeita (as 3 etapas da allowlist saíram de `seed`), e **as cinco estão verdes**.
+>
+> **Rodar o bloco abaixo agora NÃO prova nada: ele EXECUTA O FLIP.** A purga passa a
+> `live` e a próxima noite apaga de verdade.
+>
+> Esta é a forma de armadilha que vale generalizar: **uma instrução cuja segurança
+> depende de um estado, num documento que não sabe quando o estado muda.** A recusa era a
+> evidência — e a evidência some exatamente no instante em que ela deixaria de ser
+> inofensiva. Para conferir o portão sem executá-lo, use as consultas de leitura das
+> seções acima (`purga_execucoes` e `config_retencao_etapa`), que não chamam a RPC.
+>
+> Se você está aqui **para fazer o flip**, então este bloco é o flip — e o lugar de o
+> executar é a §"As três verificações humanas", depois de cumpri-las.
+
 ```sql
+-- ⛔ ISTO EXECUTA O FLIP. Ver o aviso acima.
 -- Como administrador. Enquanto QUALQUER criterio faltar, esta chamada RECUSA com
--- 22023 e a mensagem nomeia o que falta. A recusa E a evidencia.
+-- 22023 e a mensagem nomeia o que falta. A recusa E a evidencia — mas SO enquanto
+-- algum criterio falta. Com todos satisfeitos (estado desde 2026-09-06 23:38), ela
+-- NAO recusa: ela liga a purga.
 SELECT public.salvar_config_purga(
   p_modo                      := 'live',
   p_cap_titulares             := NULL,

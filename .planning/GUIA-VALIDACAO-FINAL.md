@@ -1076,6 +1076,114 @@ legível pelo cliente, então a saída limpa é a `listar_usuarios_rh` passar a 
 sonda que faça login e assere que a coluna deixa de dizer «Nunca acessou» — a asserção que a
 versão atual reprova para sempre.
 
+### 7.32 · Dois princípios corretos em colisão — e o contorno que fez o estrago — 2026-09-06
+
+O §0.1 mandava confirmar as janelas de retenção para destravar o portão do flip. A
+instrução que dei foi «**não mude o número, só salve**». **O servidor recusa exatamente
+isso**, e a recusa é deliberada — passo (5) de `salvar_janela_retencao`:
+
+```sql
+IF v_antes = p_meses THEN
+  RAISE EXCEPTION 'VALIDATION: a janela de % ja e de % meses — nada a alterar';
+```
+
+Eu li a semântica no runbook («reconfirmar 24 é uma escolha legítima») e **não conferi se
+o sistema permitia — com o diálogo aberto na tela**. Era uma tentativa de distância.
+
+#### O que a colisão custou, medido
+
+O operador tentou pelo caminho documentado, a tela recusou, e a saída encontrada foi
+**mexer no número**: `rejeitado` foi de **18 para 24 meses**.
+
+| Consequência | Fato |
+|---|---|
+| Política desfeita | os 18 meses eram decisão deliberada de 03/08, com `origem='admin'` |
+| Guarda alongada | +6 meses de retenção de dados de candidatos **reprovados** |
+| Divergência pública | por **4 minutos** a página `/privacidade` publicou **18** enquanto o sistema praticava **24** — publicar retenção MENOR que a praticada é problema de conformidade, não de estética |
+| E era **inútil** | `rejeitado` já estava em `admin`; nunca barrou o portão. As duas que barravam continuaram barrando |
+
+> ⭐ **A lição, e ela é maior que o bug:** um portão impossível de satisfazer **não fica
+> sem ser satisfeito**. Ele é satisfeito por um contorno — e o contorno é que faz o
+> estrago. A regra correta («não minta na trilha») empurrou uma alteração real em dados
+> de produção para produzir uma atestação.
+
+#### A colisão, nomeada
+
+| Regra | Diz | Está certa? |
+|---|---|---|
+| **RETEN-02** | `salvar_janela_retencao` recusa no-op: «salvar sem mudança escreveria uma linha de auditoria que afirma uma alteração que não houve» | **Sim** |
+| **D-46-22** | o portão do flip exige `origem='admin'` em toda etapa da allowlist: «`seed` significa que ninguém CONTESTOU aquele número — não que alguém o DECIDIU» | **Sim** |
+
+E `origem` só virava `'admin'` **dentro** daquela RPC, depois do guard. Como
+`decisao_final` e `aprovado` estavam em 24, que é **também o teto**, não havia valor novo
+a salvar. **Confirmar 24 era impossível pelo produto.**
+
+Faltava um **terceiro estado**. `origem` tinha dois valores e três situações:
+
+```
+'seed'    → ninguém olhou
+'admin'   → alguém MUDOU
+(ausente) → alguém OLHOU E MANTEVE
+```
+
+#### O conserto — `confirmar_janela_retencao` (`20260907000001`)
+
+Marca `origem='admin'`, **não toca em `janela_meses`**, e audita como
+`confirmar_janela_retencao` com a descrição «CONFIRMADA em N meses, sem alteração». O
+guard da irmã continua correto: a descrição **dela** afirma uma mudança; a desta afirma
+uma **conferência**, que é um ato que de fato aconteceu.
+
+**Dois defeitos meus, pegos antes do apply, ambos medidos contra PROD:**
+
+1. A asserção (d) comparava `proconfig` com `'search_path='`; o valor real é
+   `'search_path=""'`. **Teria reprovado um apply correto.**
+2. A asserção (e) — «o corpo não pode escrever em `janela_meses`» — casava a string no
+   `prosrc`, **que inclui os comentários**. E o comentário do passo (4) da própria função
+   cita a forma proibida para explicar por que é proibida: **a asserção reprovaria a si
+   mesma.** É a WINDOWS 13 («a sonda casa substring em comentário») com o sinal trocado.
+   Conserto: `regexp_replace` remove os comentários antes de casar — e provei os dois
+   lados por execução (casa em `salvar_janela_retencao`, que escreve de verdade; não casa
+   numa menção só-em-comentário).
+
+#### A prova, na primeira execução real
+
+O operador clicou «Confirmar 24 meses». A trilha **prova sozinha** o que aconteceu:
+
+| | |
+|---|---|
+| `origem` | `seed` → `admin` |
+| `janela_meses` | **24 → 24** |
+| `dados_antes.janela_meses` vs `dados_depois.janela_meses` | **iguais**, no snapshot da própria linha de auditoria |
+
+⭐ Não é preciso acreditar na descrição: ela é **verificável contra o próprio registro**.
+Sete confirmações depois: **7 seed→admin, 0 alteraram o número.**
+
+#### O portão do flip, agora — as cinco verdes
+
+| # | Pré-condição | Medido em 2026-09-06 23:38 |
+|---|---|---|
+| 1 | ≥14 dias desde o 1º ensaio | ✅ 15 (primeiro em 22/08) |
+| 2 | ≥14 execuções no ledger | ✅ **16** |
+| 3 | ≥1 sobre conjunto não-vazio | ✅ **16 de 16** |
+| 4 | Nenhuma etapa da allowlist em `seed` | ✅ **0 de 3** |
+| 6 | Allowlist não-vazia (guarda contra vacuidade) | ✅ 3 etapas |
+| **H5** | Nenhum titular REAL no conjunto elegível | ✅ **5 elegíveis, os 5 fixtures**, conferidos um a um |
+
+#### ⛔ E a armadilha que isso criou no próprio runbook
+
+O `46-07-RUNBOOK-FLIP` oferece, como «a prova de que o portão está fechado», uma chamada
+a `salvar_config_purga(... p_confirmo_live := true)`, com o comentário «enquanto QUALQUER
+critério faltar, esta chamada RECUSA — a recusa É a evidência».
+
+**Era verdade. Deixou de ser às 23:38 de hoje.** Com as cinco satisfeitas, aquele bloco
+não prova nada: **ele executa o flip.**
+
+> ⭐ **A forma:** uma instrução cuja segurança depende de um estado, num documento que não
+> sabe quando o estado muda. Pior: a evidência que ela produzia **some exatamente no
+> instante em que ela deixaria de ser inofensiva** — o documento fica mais perigoso
+> justamente quando o trabalho fica mais adiantado. Um aviso em bloco foi inserido acima
+> daquele SQL no runbook, nomeando a data da virada.
+
 ---
 
 ## §8 · Fechamento da sessão de validação — 2026-09-06
