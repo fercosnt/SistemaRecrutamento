@@ -960,6 +960,67 @@ As três se fecham **rodando o smoke**, e não argumentando. Duas são do smoke 
 executá-las contra produção é checkpoint do operador, da mesma família do Bloco H. Ficam
 abertas de propósito — fechá-las por leitura seria exatamente o que o §7.27 acabou de custar.
 
+### 7.30 · Bloco G — a metade observável, medida — 2026-09-06
+
+O bloco G é do operador porque **G1 muda política de dados**. Mas G2–G7 são observação, e
+observação não precisa esperar. Medidos como RH3, e sempre cruzando a tela com o banco.
+
+| ID | Resultado |
+|---|---|
+| **G2** | ✅ A prévia mostra **5 elegíveis** (Decisão Final 1, Aprovado 3, Rejeitado 1). Conferido **titular a titular**, e não pela contagem: os 5 são `fixture-p46+{pos1,pos2,pos3,cap2,neg-vaga}@invalido.local`. **Zero pessoa real** — é também a medição do **H5**, válida neste instante |
+| **G3** | ✅ `/admin/ai-logs` com 38 linhas (custo, latência, provider, modelo por chamada). `/admin/ai-costs` diz «sem dados» — e está **certo**, ver abaixo |
+| **G4** | ✅ 8 prompts, **7 ativos**, zero `[SEED PLACEHOLDER]`, todos `claude-sonnet-4-6`, e **7 dos 8 sem `deployed_at`** (só `culture_fit_essay` tem) |
+| **G5** | ✅ KPIs carregam, e a **taxa de knockout de 6,5% da tela é exatamente 2/31 no banco** |
+| **G6** | ✅ `/rh/perfil`, `/rh/suporte` e `/rh/configuracoes` carregam; a gestão de usuários lista os 7, RH3 incluído. ⏳ O *desativar/reativar RH2* é escrita e fica com o operador |
+| **G7** | ✅ As 5 superfícies públicas abrem **sem sessão**, todas com o rodapé, e **nenhuma menciona «Encarregado»** — a consequência de código da `DECISAO-ENCARREGADO.md` está no ar. `/subprocessadores` lista os 6 países, sem a sentinela `PAIS_POR_MEDIR` |
+
+#### ⚠ Quase reportei um defeito que não existe
+
+`/admin/ai-costs` diz «Sem dados de custo no período» e setembro teve 37 chamadas de IA
+custando US$ 0,899. A leitura óbvia — «a agregação está quebrada» — está **errada**, e três
+medições a desmontam:
+
+1. O cron `ai-cost-aggregation` rodou **90 vezes, todas `succeeded`**.
+2. Ele processa `DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'`, e **as 37 chamadas caem
+   todas em `dia_utc = 2026-09-06`** — hoje, em UTC. Ainda não houve a noite que as agrega.
+3. As execuções recentes retornam `INSERT 0 0` porque os dias anteriores **não tiveram chamada
+   nenhuma**.
+
+A tela está vazia **e honesta** — ela até explica que a agregação roda 01:30 UTC.
+
+> ⚠ **E um erro de método meu, que quase virou o diagnóstico:** consultei
+> `max(return_message)` para ver «a última mensagem». `max()` sobre texto é o máximo
+> **lexicográfico**, e `'INSERT 0 1' > 'INSERT 0 0'` — a agregação parecia estar inserindo uma
+> linha quando estava inserindo zero. Uma função de agregação não responde «o último» só
+> porque a coluna parece ordenável.
+
+**Previsão conferível** (o jeito honesto de fechar um item que depende de tempo): depois de
+**2026-09-07 01:30 UTC**, `ai_cost_daily` deve ganhar linhas com `date = 2026-09-06` somando
+≈ **US$ 0,899**. Se não ganhar, aí sim há defeito — e o teste está escrito antes do resultado.
+
+#### O que isto mede do Bloco H, de graça
+
+| | Estado medido em 2026-09-06 |
+|---|---|
+| **H1/H2** ⚠ **mudou** | `cron.job_run_details` do jobid 6 (`purga-retencao-sweep`) tem **14 execuções**, a última em 06/09 00:00. O `46-VERIFICATION` registrou este critério como **FAILED** («0 de 14 noites») — **o agendador passou a funcionar desde então**, e o critério 1 do ROADMAP pode ser remedido |
+| **H4** ⛔ segue barrado | Das 3 etapas com `elegivel_purga = true`, **duas ainda têm `origem='seed'`** (`decisao_final`, `aprovado`). Só `rejeitado` tem confirmação humana (18 meses, por Fernando, 22/08). **É exatamente o que o G1 destrava** |
+| **H5** ✅ hoje | Os 5 elegíveis são fixtures, um a um. **Re-medir no instante do flip** — a lista muda com o tempo |
+
+⭐ E a matriz explica, na tela, o defeito que o `CLAUDE.md` cataloga: «Rejeitado · 18 meses ·
+Alterado por Fernando Costa Neto · 22/08/2026». Foi essa edição legítima que a asserção (j) do
+`p43_matriz_retencao_smoke` acusou de ser «valor de teste em PROD». O portão comparava com uma
+constante; o operador tinha o direito de mudar.
+
+#### Duas observações menores, nenhuma bloqueante
+
+- **`/manifesto` é uma superfície pública órfã.** É rota pública, **nada no código a linka**
+  (só se chega digitando a URL) e ela **não tem o rodapé** — quem cair ali de um link externo
+  não tem caminho até `/privacidade`. A exclusão é deliberada: o portão (8) de
+  `rodapeMontagem.test.tsx` afirma que o conjunto é *exatamente* as cinco superfícies. Fica a
+  pergunta para o operador: `/manifesto` deve ser a sexta, ou deve deixar de ser pública?
+- **`/admin/prompt-versions` conta versões, não ativações.** `cv_summary` aparece com «(1)»
+  como os outros sete, e está **inativo**. Dois estados diferentes com a mesma aparência.
+
 ---
 
 ## §8 · Fechamento da sessão de validação — 2026-09-06

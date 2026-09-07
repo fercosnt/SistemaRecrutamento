@@ -5,7 +5,7 @@
 > *"Leia `.planning/RETOMAR-AQUI.md` e `.planning/GUIA-VALIDACAO-FINAL.md` §7, e vamos continuar"*
 
 Este arquivo é o resumo executivo e a lista do que falta. O guia
-(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.29 é o
+(`GUIA-VALIDACAO-FINAL.md`) é o documento longo: §0–§6 é o plano de teste, §7.1–§7.30 é o
 **diário do que foi medido**, com o resultado de cada item e o commit de cada conserto.
 
 **Três sessões estão registradas aqui:** a de **validação** (2026-09-05/06, 47 commits,
@@ -84,11 +84,23 @@ acrescenta uma linha ao histórico do Art. 20. Hoje: **7 linhas, 2 estados disti
 por ação do titular, e dilui justamente a trilha que o Art. 20 exige. Não consertado (é
 migration em PROD); está no backlog do guia como **P2**, com o conserto e o portão escritos.
 
-### 0.3 ⏳ Rodar os blocos G e H — são seus
+### 0.3 ⏳ G1 e o bloco H — o que sobrou é seu (§7.30)
 
-**G** (`/admin/retencao`) mexe em política de dados. **H** (o flip da purga de `dry_run` para
-`live`) é **irreversível** e é checkpoint de operador. Depois deles, a limpeza do bloco I
-(§3.4) e as vagas podem ser divulgadas.
+**G2–G7 estão medidos e verdes** (§7.30). Sobrou do G exatamente o que muda estado:
+
+- **G1 — confirmar as janelas de retenção.** Das 3 etapas com `elegivel_purga`, **duas ainda
+  têm `origem='seed'`** (`decisao_final`, `aprovado`); só `rejeitado` tem confirmação humana.
+  **É isto que barra o H4.** Reconfirmar 24 meses é legítimo — o servidor exige que *alguém
+  tenha olhado*, não que o número mude.
+- **G6, a parte de escrita** — desativar e reativar o RH2, para ver cair em `logs_auditoria`.
+- **H** — o flip de `dry_run` para `live`, **irreversível**, com runbook próprio.
+
+⚠ **Uma medição do H mudou desde o `46-VERIFICATION`:** o cron `purga-retencao-sweep` tem hoje
+**14 execuções** (última 06/09 00:00). Aquele relatório registrou o critério como FAILED, «0 de
+14 noites» — o agendador passou a funcionar. **H5 estava verde hoje** (os 5 elegíveis são todos
+fixtures, conferidos um a um), mas **re-meça no instante do flip**.
+
+Depois disso, a limpeza do bloco I (§3.4) e as vagas podem ser divulgadas.
 
 ---
 
