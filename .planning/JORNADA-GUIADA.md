@@ -82,14 +82,11 @@ causaram recusa de login legítimo (§7.19).
 ⛔ **NÃO marque «Tenho disponibilidade apenas para trabalho remoto»** — essa é a opção de
 knockout, e ela encerra a candidatura na hora. Vamos usá-la de propósito na Etapa 9.
 
-1. Anexe um PDF qualquer como currículo.
+5. Anexe um PDF qualquer como currículo.
 
 ### 👀 O que observar
 
-- [ ] **Defeito 1 (B8):** antes de enviar, **saia e volte** no formulário. O progresso
-  ```
-  **se perde** — é defeito conhecido, confirme que ainda acontece.
-  ```
+- [ ] **Defeito 1 (B8):** antes de enviar, **saia e volte** no formulário. O progresso **se perde** — é defeito conhecido, confirme que ainda acontece.
 - [ ] As 3 caixas de autorização nascem **desmarcadas**.
 - [ ] O e-mail de confirmação chega. **Anote o tempo.**
 
@@ -133,10 +130,7 @@ Fazer o que aparecer no painel (SJT / redação cultural / Big Five).
 
 ### 👀 O que observar
 
-- [ ] **Defeito 2:** a devolutiva do Big Five fala em «avaliação comportamental» e
-  ```
-  **nunca** «teste psicológico»
-  ```
+- [ ] **Defeito 2:** a devolutiva do Big Five fala em «avaliação comportamental» e **nunca** «teste psicológico»
 - [ ] O e-mail de liberação chega
 
 📝 **O que aconteceu:**
@@ -156,10 +150,7 @@ Agendar entrevista online para Marina.
 ### 👀 O que observar
 
 - [ ] O convite chega com `.ics` — abra no seu calendário
-- [ ] **Reagende** para outro dia: a candidata é avisada, e o painel dela mostra o
-  ```
-  horário **novo** (não «sem horário definido»)
-  ```
+- [ ] **Reagende** para outro dia: a candidata é avisada, e o painel dela mostra o horário **novo** (não «sem horário definido»)
 
 📝 **O que aconteceu:**
 
@@ -179,10 +170,7 @@ No perfil de Marina → **«Gerar guia»**.
 
 - [ ] O botão **trava** e a tela avisa que leva **1–2 minutos**
 - [ ] **Julgamento seu:** a espera é tolerável?
-- [ ] ⚠ **Não clique de novo.** Cliques repetidos esgotaram o limite de concorrência e
-  ```
-  fizeram *todas* as funções de IA responderem «Failed to fetch» (§4 do RETOMAR)
-  ```
+- [ ] ⚠ **Não clique de novo.** Cliques repetidos esgotaram o limite de concorrência e fizeram *todas* as funções de IA responderem «Failed to fetch» (§4 do RETOMAR)
 
 📝 **O que aconteceu:**
 
@@ -202,10 +190,7 @@ Agendar a presencial → marcar comparecimento → colar uma transcrição qualq
 ### 👀 O que observar
 
 - [ ] A análise cita trechos **daquela** transcrição
-- [ ] Cole uma transcrição **diferente** e gere de novo: a análise **muda**
-  ```
-  *(foi defeito grave — o cache servia a análise anterior — e está consertado)*
-  ```
+- [ ] Cole uma transcrição **diferente** e gere de novo: a análise **muda** *(foi defeito grave — o cache servia a análise anterior — e está consertado)*
 
 📝 **O que aconteceu:**
 
@@ -247,14 +232,8 @@ Refazer a decisão, agora **Rejeitando**.
 ### 👀 O que observar (aqui moram 2 defeitos)
 
 - [ ] Marina recebe e-mail, vê a explicação e **pode pedir revisão** (Art. 20)
-- [ ] **Defeito 3:** **recarregue a página de explicação 3×**. Cada visita cria uma linha
-  ```
-  no histórico do Art. 20. Eu conto no banco depois e te mostro
-  ```
-- [ ] Peça a revisão como Marina → responda como RH. ⚠ **Quem decidiu não pode responder**
-  ```
-  — se você decidiu com a sua conta, precisa responder com **RH2** ou **RH3**
-  ```
+- [ ] **Defeito 3:** **recarregue a página de explicação 3×**. Cada visita cria uma linha no histórico do Art. 20. Eu conto no banco depois e te mostro
+- [ ] Peça a revisão como Marina → responda como RH. ⚠ **Quem decidiu não pode responder** — se você decidiu com a sua conta, precisa responder com **RH2** ou **RH3**
 
 📝 **O que aconteceu:**
 
@@ -274,14 +253,8 @@ Rejeitar direto na triagem, com justificativa ≥50 caracteres.
 
 ### 👀 O que observar — **o portão que mais importa**
 
-- [ ] **NÃO** aparece cartão de explicação no painel de Marina. É diferente da Etapa 8 de
-  ```
-  propósito: aquela foi decisão avaliada; esta é triagem
-  ```
-- [ ] ⚠ O texto que você escrever **entra na cópia de dados** que ela pode baixar — a tela
-  ```
-  avisa isso ao lado do campo. Confira que o aviso está lá
-  ```
+- [ ] **NÃO** aparece cartão de explicação no painel de Marina. É diferente da Etapa 8 de propósito: aquela foi decisão avaliada; esta é triagem
+- [ ] ⚠ O texto que você escrever **entra na cópia de dados** que ela pode baixar — a tela avisa isso ao lado do campo. Confira que o aviso está lá
 
 📝 **O que aconteceu:**
 
@@ -302,10 +275,7 @@ Marina se candidata à **Social Media** e, na disponibilidade, marca
 
 - [ ] Encerra **na hora**, sem avaliação humana
 - [ ] E-mail chega
-- [ ] A explicação diz **«automaticamente, sem avaliação de uma pessoa»** e **não** oferece
-  ```
-  revisão — no lugar, `lgpd@beautysmile.com.br`
-  ```
+- [ ] A explicação diz **«automaticamente, sem avaliação de uma pessoa»** e **não** oferece revisão — no lugar, `lgpd@beautysmile.com.br`
 - [ ] ⚠ **O critério nunca é revelado** — ela não pode descobrir qual resposta a eliminou
 
 📝 **O que aconteceu:**
@@ -325,10 +295,7 @@ Marina se candidata à **Social Media** e, na disponibilidade, marca
 ### 👀 O que observar
 
 - [ ] Os 6 fictícios aparecem ranqueados
-- [ ] **Julgamento seu:** a ordem faz sentido? \*(a variância da IA é backlog P1 — 89/75/80
-  ```
-  no mesmo candidato em rodadas diferentes)*
-  ```
+- [ ] **Julgamento seu:** a ordem faz sentido? \*(a variância da IA é backlog P1 — 89/75/80 no mesmo candidato em rodadas diferentes)*
 
 📝 **O que aconteceu:**
 
@@ -346,10 +313,7 @@ Marina se candidata à **Social Media** e, na disponibilidade, marca
 
 - [ ] Pedir cópia dos dados → chega
 - [ ] Pedir **2ª vez** → botão desabilitado **com o motivo e a hora ao lado**
-- [ ] Pedir exclusão → **Defeito 4:** a data sai `dd/mm/aaaa`, e a especificação pede
-  ```
-  **por extenso**
-  ```
+- [ ] Pedir exclusão → **Defeito 4:** a data sai `dd/mm/aaaa`, e a especificação pede **por extenso**
 - [ ] Cancelar → volta ao normal
 
 📝 **O que aconteceu:**
@@ -362,27 +326,11 @@ Marina se candidata à **Social Media** e, na disponibilidade, marca
 
 ## Etapa 13 · Telas de admin (os 4 defeitos restantes)
 
-- [ ] **Defeito 5:** `/rh/configuracoes` → RH2 e RH3 dizem «**Nunca acessou**» e «Aguardando
-  ```
-  1º acesso», e as duas já entraram no sistema
-  ```
-- [ ] **Defeito 6:** `/admin/prompt-versions` → `Resumo de currículo` aparece com «(1)» como
-  ```
-  os outros, mas está **inativo** — a tela conta versões, não ativações
-  ```
-- [ ] **Defeito 7:** `/admin/ai-costs` → «sem dados». **Está correto** (agrega o dia
-  ```
-  anterior); anote se a mensagem deixa isso claro
-  ```
-- [ ] **Defeito 8:** deixe a aba do admin parada, espere a sessão expirar, recarregue → cai
-  ```
-  no login que diz «**Acesse sua conta de candidato**»
-  ```
-- [ ] **Suspeita C2:** `/rh/vagas` → editar uma vaga, mudar **descrição curta** ou \*\*modelo
-  ```
-  de trabalho**, salvar, **recarregar**. Persistiu? *(há indício de que não, com toast
-  de sucesso falso)*
-  ```
+- [ ] **Defeito 5:** `/rh/configuracoes` → RH2 e RH3 dizem «**Nunca acessou**» e «Aguardando 1º acesso», e as duas já entraram no sistema
+- [ ] **Defeito 6:** `/admin/prompt-versions` → `Resumo de currículo` aparece com «(1)» como os outros, mas está **inativo** — a tela conta versões, não ativações
+- [ ] **Defeito 7:** `/admin/ai-costs` → «sem dados». **Está correto** (agrega o dia anterior); anote se a mensagem deixa isso claro
+- [ ] **Defeito 8:** deixe a aba do admin parada, espere a sessão expirar, recarregue → cai no login que diz «**Acesse sua conta de candidato**»
+- [ ] **Suspeita C2:** `/rh/vagas` → editar uma vaga, mudar **descrição curta** ou \*\*modelo de trabalho**, salvar, **recarregar**. Persistiu? *(há indício de que não, com toast de sucesso falso)*
 
 📝 **O que aconteceu:**
 
