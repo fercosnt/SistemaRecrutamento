@@ -28,6 +28,79 @@ fizer sentido. Eu leio o arquivo inteiro.
 
 ---
 
+## 🤖 Para a sessão que assumir daqui
+
+> Este bloco existe para uma conversa NOVA não precisar redescobrir nada. Os valores
+> abaixo foram **medidos no banco em 2026-09-19**, não presumidos.
+
+### Estado neste instante
+
+| | |
+|---|---|
+| Etapas concluídas | **nenhuma** — a jornada não começou |
+| `candidatos` em PROD | **41**, e Marina (`+claude4`) **ainda não existe** |
+| Árvore git | limpa, `origin/main` em dia |
+
+### Regras de operação desta jornada
+
+1. **Confira no banco, nunca só na tela.** Foi assim que 19 defeitos apareceram — todos
+   renderizavam bem e entregavam resultado plausível.
+2. **Não rode** `p47_teardown_dados_de_teste.sql` — ele apaga as contas da jornada. E a
+   trava de contagem dele (41) vai **recusar** assim que Marina existir; isso é o guard
+   funcionando, não defeito. Atualizar as constantes só no fim de tudo.
+3. **Não rode** o bloco de `salvar_config_purga(... p_confirmo_live := true)` do
+   `46-07-RUNBOOK-FLIP`: o portão está verde desde 06/09, então aquele SQL **executa o
+   flip** em vez de provar que está fechado.
+4. **Os resets das etapas 8 e 9 são escrita destrutiva em PROD.** Medir antes e depois,
+   escopar ao `candidatura_id` da Marina, e confirmar com o operador.
+
+### IDs fixados (medidos, não presumidos)
+
+| O quê | Valor |
+|---|---|
+| Vaga **Consultor** | `fdbe1a4a-0c15-4659-a589-e9d8f2f9ff98` · slug `consultor-relacionamento-pre-vendas` |
+| Vaga **Social Media** | `e897f709-d4e7-4f6c-a25b-a433d2eda525` · slug `social-media-producao-captacao-conteudo` |
+| Pergunta de disponibilidade (Consultor) | `04b2b9da-a3c7-4704-b0cc-4f73d84ba1b0` |
+| **Opção que elimina** (Consultor) | `1d8f94e0-0301-490b-b0df-b3955a22f80c` |
+| **Opção que elimina** (Social Media) | `0f59f62b-d86b-416d-89cd-be7865e2965c` |
+
+O texto da opção de knockout é o mesmo nas duas: **«Tenho disponibilidade apenas para
+trabalho remoto»**, e é a **única** com `tag='knockout'` em cada vaga.
+
+### Consultas de conferência
+
+```sql
+-- Depois de cada etapa: onde a Marina está
+select cd.id, cd.etapa_atual::text, cd.status::text, cd.opcao_knockout_id is not null as knockout,
+       exists(select 1 from decisao_final d where d.candidatura_id=cd.id) as tem_decisao
+  from candidaturas cd join candidatos c on c.id=cd.candidato_id
+ where c.email ilike '%claude4%';
+
+-- E-mails que o sistema disparou para ela
+select evento, template, status::text, criado_em
+  from notificacoes_enviadas n join candidatos c on c.id=n.candidato_id
+ where c.email ilike '%claude4%' order by criado_em desc;
+```
+
+### A forma do reset (etapas 8 e 9)
+
+O grafo de FKs já foi medido — as que **bloqueiam** (`NO ACTION`) e precisam de `DELETE`
+explícito, nesta ordem: `retencao_hold` → `decisao_final_historico` → `decisao_final` →
+`historico_candidatura`. Depois, `UPDATE candidaturas SET etapa_atual=…, status=…`.
+
+⚠ `decisao_final_historico` vem **antes** de `decisao_final`, e o `trg_decisao_final_snapshot`
+acrescenta linha a **cada** UPDATE — inclusive o carimbo de visita à página de explicação.
+
+### Onde está o resto
+
+| Documento | O que tem |
+|---|---|
+| `RETOMAR-AQUI.md` | o estado geral e a fila do que falta no M8 |
+| `CHECKLIST-VALIDACAO-MANUAL.md` | os 12 itens soltos que não entram nesta jornada |
+| `GUIA-VALIDACAO-FINAL.md` §7 | o diário das 32 medições anteriores |
+
+---
+
 ## A identidade de teste
 
 Use **esta** em tudo. É um alias do seu Gmail, então os e-mails chegam na sua caixa.
