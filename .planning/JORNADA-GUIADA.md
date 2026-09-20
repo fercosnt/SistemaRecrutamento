@@ -1078,6 +1078,55 @@ próprio `OPTIONS` (portanto duas ações distintas, não um retry interno). Uma
 acumula uma linha por clique, sem `updated_at`, sem marca de superada e **sem a
 transcrição**, não permite dizer qual análise corresponde a qual entrevista.
 
+### >>! Defeito 13 (NOVO · GRAVE) — o card da lista mostra **0** para avaliação concluída
+
+No card da Marina em `/rh/candidatos`: **Big Five 0** · DISC N/A · Intel N/A · **Cultura 0**.
+
+A Marina tem Big Five **completo** (30 facetas, 5 dimensões, em `scores_candidato`) e
+redação **95/100**. O card diz **zero** nas duas.
+
+**Causa: o card lê exatamente as fontes mortas** (`CandidatosRHPage.tsx:345-348`):
+
+| Prop | Fonte lida | Estado real |
+|---|---|---|
+| `bigFive` | `calculateBigFiveAverage(candidatura.scores_bigfive)` | **`scores_bigfive` tem 0 linhas em TODO o banco** |
+| `cultura` | `getCultureScore(candidatura.analise_ia_cultura)` | **coluna morta** de `candidaturas` |
+| `disc` | `candidatura.scores_disc` | nunca aplicado |
+| `inteligencia` | `candidatura.scores_raven?.percentil` | nunca aplicado |
+
+O componente até trata ausência: `{bigFive ?? 'N/A'}` (`ScoreCard.tsx:90`). Mas o que
+chega não é `null` — é **`0`**, produzido pelos helpers ao receber lista vazia. O `??`
+não tem o que defender.
+
+**Por que é grave e não cosmético.** Zero não é «sem dado» — é **a pior nota possível**.
+Esta é a tela de **lista**, onde o RH bate o olho em dezenas de candidatos para decidir
+quem abrir. Uma candidata com 95/100 em cultura aparece com **0** ao lado de quem não fez
+nada. O dado certo existe, em `scores_candidato` e `redacoes_candidato`; o card olha para
+o lugar errado e ainda traduz vazio como zero.
+
+>> É o fecho do inventário de tabelas mortas: elas não são só inertes — **há uma tela de
+>> produção consumindo quatro delas**, e transformando ausência em nota mínima.
+
+### ❓ Vale testar a entrevista PRESENCIAL? — medido, e a resposta é «ainda não»
+
+O caminho presencial **não é cópia do online**: `gerar-guia-entrevista` com
+`tipo='presencial'` lê `scores_candidato` onde `tipo='entrevista'` e usa
+`weakThreshold = 4` para «focar nos GAPS da entrevista online»
+(`index.ts:218-229`).
+
+**A fiação está correta** — conferido: a linha `tipo='entrevista'` existe e o
+`metadata.competencias` traz as 6 notas, que é de onde `weakDimsFromScores` lê
+(`index.ts:121-135`). O `upsert` mantém a linha alinhada com a análise mais recente.
+
+**Mas o recurso distintivo não tem o que exercitar agora.** Com as notas fortes
+(4,5,5,5,4,4) e limiar 4, **nenhuma** competência fica abaixo — `weakDims` sai vazio e o
+guia presencial nasce genérico, igual ao online. Para testar o que o presencial tem de
+diferente é preciso uma análise **fraca** — que existia com a transcrição B e foi
+substituída.
+
+**Decisão:** pular o presencial agora e exercitá-lo quando houver cenário fraco (etapas
+de rejeição). Fica na lista de caminhos não exercitados.
+
 >> **P1 (tokens da sessão de validação):** 27.339 → **34.688**.
 
 ---
@@ -1249,6 +1298,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
+| **13** | 6 | 🔴 **O card da lista do RH mostra `0`** para Big Five e Cultura de uma candidata com Big Five completo e redação 95/100. Zero é a pior nota, não «sem dado», e isto é a tela de triagem visual | `CandidatosRHPage.tsx:345-348` lê `scores_bigfive` (0 linhas na história) e `analise_ia_cultura` (coluna morta); os helpers devolvem `0` e o `?? 'N/A'` nunca dispara |
 | **12** | 6 | **A transcrição não é guardada** (nem texto nem hash) e as análises se acumulam sem `updated_at` nem marca de superada. A fonte da nota não existe no banco | `entrevista_analises` tem 13 colunas, nenhuma de texto; `entrevistas_online`/`_presenciais` vazias; 2 linhas coexistindo |
 | **11** | 5 | **O guia de entrevista ignora o candidato.** Zero marcadores dela em 15.745 chars. CV, redação, respostas e análise **não são enviados** ao prompt; só vaga + notas. Uma das 6 perguntas pede algo que ela já documentou | Busca literal no `entrevista_guias.guia` + leitura de `gerar-guia-entrevista/index.ts:205-260` |
 | **10** | 4 | **O reagendamento apaga o horário anterior.** A linha é atualizada no lugar; o slot original (23/09) não existe mais no banco, só no e-mail já enviado | `agendamentos_entrevista`: mesmo `id`, `created_at 00:54:24` / `updated_at 00:56:17`, `data_hora` já é a nova |
@@ -1311,3 +1361,5 @@ agendamento em **`agendamentos_entrevista`**.
 
 - `gaps` e `flags` da IA vieram `[]` — precisam de um candidato fraco para serem testados
 - o comparativo lendo CV duplamente truncado (Etapa 11)
+- **o guia de entrevista PRESENCIAL com dimensões fracas** — a fiação está certa, mas com
+  notas 4+ o `weakDims` sai vazio e o guia nasce genérico. Exercitar em cenário fraco
