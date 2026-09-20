@@ -1710,6 +1710,39 @@ candidato eliminado vê no momento da eliminação.
 | # | Questão | O que a medição informa |
 |---|---|---|
 | **PP-15** | **Revelar o critério do knockout?** | Hoje não revela, por desenho (D-15). O sistema **sabe** qual foi (`opcao_knockout_id` gravado) e escolhe não dizer |
+
+### >>!! Defeito 24 (NOVO) — a IA analisa quem o knockout já eliminou
+
+Descoberto ao preparar a Etapa 11. A candidatura da Marina na Social Media foi encerrada
+por knockout — e **0,6 segundo depois** a análise de IA começou assim mesmo:
+
+| Evento | Hora |
+|---|---|
+| Inscrição + knockout | `13:58:37.506` |
+| **Análise de IA criada** | `13:58:38.063` — **0,6 s depois** |
+| Análise concluída | `13:59:24.702` — 47 s processando |
+| Resultado | `score_match = 22`, `status='sucesso'` |
+| **Custo** | **US$ 0,0445** · 1.270 tokens de entrada, 2.715 de saída |
+
+**Duas consequências, e a segunda é a séria:**
+
+**1. Dinheiro.** Cada candidato eliminado por knockout custa ~**US$ 0,045** em análise que
+ninguém vai ler. Num funil que usa knockout para filtrar volume, é exatamente o volume
+filtrado que se paga duas vezes.
+
+**2. LGPD — minimização (Art. 6º, III).** O sistema envia currículo e respostas a um
+modelo para avaliar aderência a uma vaga **cuja candidatura já está encerrada**. É
+tratamento de dado pessoal sem finalidade: ninguém pode usar essa análise para nada.
+
+**E há uma contradição com o que o sistema diz à candidata.** A explicação afirma,
+textualmente: «**Nenhuma nota, análise ou perfil foi usado nesta decisão**». Isso é
+verdade sobre a **decisão** — mas uma análise **existe**, com score 22, e ela não sabe.
+Se ela exercer o Art. 18 e pedir cópia dos dados, vai receber uma análise de IA sobre si
+mesma que o sistema acabou de dizer que não existiu no processo.
+
+>> **Verificar na Etapa 12**: a cópia de dados do Art. 18 inclui `analise_candidato_vaga`?
+>> Se incluir, a candidata recebe a prova da contradição. Se não incluir, o sistema guarda
+>> sobre ela uma análise que não entrega quando ela pede seus dados — que é pior.
 | **PP-16** | **Trocar `lgpd@` por `rh@`** | ✅ **DECIDIDO pelo operador em 2026-09-20: usar `rh@beautysmile.com.br`** |
 
 ### ✅ PP-15 e PP-16 — decididas
@@ -1835,6 +1868,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **24** | 10 | 🔴 **A IA analisa quem o knockout já eliminou.** Análise criada 0,6 s após a eliminação, 47 s de processamento, **US$ 0,045** por candidato. Tratamento sem finalidade (LGPD Art. 6º III) e contradiz a explicação, que diz «nenhuma análise foi usada» | `analise_candidato_vaga.created_at` 0,6 s após `candidaturas.created_at`; `ai_call_logs` com o custo |
 | **23** | 10 | **Contraste ilegível na tela de encerramento** — «Agradecemos seu interesse» sai escuro sobre fundo claro. É a única tela que o eliminado vê | tela |
 | **22** | 9 | 🔴🔴 **O Art. 20 é inalcançável para quem é rejeitado na triagem.** O cartão «Ver explicação» some: a condição exige `data_decisao_final OR feedback_rejeicao`, e a rejeição humana grava `motivo_rejeicao`/`etapa_justificativa` — nenhum dos dois | `DashboardCandidatoPage.tsx:159`; medido: os dois campos null. Backend cobre os 3 casos (Phase 46), o front gateia pelo critério da Phase 17 |
 | **20** | 9 | 🔴 **Rejeitar na triagem não avisa o candidato.** A RPC `rejeitar_candidatura` não dispara notificação nenhuma — sem `net.http`, sem evento. A rejeição mais comum de todas é silenciosa por construção | `notificacoes_enviadas` sem linha nova; a RPC (`20260714100001`) não tem caminho de despacho |
