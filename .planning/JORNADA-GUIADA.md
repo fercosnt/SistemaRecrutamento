@@ -845,6 +845,23 @@ reagendamento (que, como o Defeito 10 mostra, nem fica registrado).
    empresa nunca sabe que perdeu um bom candidato.
 4. **Geração de link de reunião** — hoje inexistente (ver acima).
 
+**Fluxo de confirmação definido pelo operador (2026-09-20):**
+
+1. O candidato escolhe o horário entre os slots abertos.
+2. **O recrutador recebe e-mail** e entra na plataforma para **aceitar** a reunião.
+3. **Para aceitar, ele é obrigado a informar o link.** Só então o sistema cria o
+   compromisso naquele dia/horário e envia ao candidato.
+
+>> Esse desenho resolve o `dddd` **por construção**: não existe reunião confirmada sem
+>> link, sem precisar de validação extra na escrita.
+
+⚠ **Dois pontos a resolver no desenho, que este fluxo cria:**
+- **O slot fica pendurado** entre a escolha do candidato e o aceite do recrutador. Precisa
+  de um estado `pendente_de_confirmacao` e de **expiração**, senão dois candidatos escolhem
+  o mesmo horário e o segundo descobre tarde.
+- **E se o recrutador não aceitar?** Precisa de prazo e de aviso — para o candidato não
+  ficar esperando confirmação que não vem, que é a versão silenciosa do mesmo problema.
+
 ⚠ **Sobre integrar Outlook/Google:** o próprio operador identificou o risco — «o
 preenchimento no sistema do dia e horário seria manual». **Dado que entra por dois canais
 diverge**, e esta jornada já achou três casos dessa família. Se integrar, a agenda externa
@@ -950,11 +967,68 @@ Agendar a presencial → marcar comparecimento → colar uma transcrição qualq
 - [ ] A análise cita trechos **daquela** transcrição
 - [ ] Cole uma transcrição **diferente** e gere de novo: a análise **muda** _(foi defeito grave — o cache servia a análise anterior — e está consertado)_
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20, **conferido no banco**
 
-```
-(preencha)
-```
+**O melhor resultado da jornada. Três coisas provadas de uma vez.**
+
+Método: duas transcrições da **mesma candidata**, escritas de propósito com marcadores
+**sem nenhuma sobreposição** — A forte (Camila · Nayara · R$ 12.700 · 84 leads) e
+B fraca (Rogério · Odontosys · «três meses parado»).
+
+| | Análise A | Análise B |
+|---|---|---|
+| `id` | `99208dea-…` | `d5a6f75f-…` |
+| Gerada | `01:37:30` | `01:42:03` |
+| Velocidade/1º contato | 4 | **1** |
+| Follow-up estruturado | 5 | **1** |
+| Registro e disciplina em CRM | 5 | **1** |
+| Conversação sobre valor | 5 | **`insufficient_evidence`** |
+| Impacto pessoal / resultado | 4 | **2** |
+| Reativação de base | 4 | **1** |
+| Média | **4,5** | **1,2** |
+
+### ✅ 1. O cache está consertado — provado, não presumido
+
+As citações da B são **todas** da B, e **nenhuma** da A. Nem «Camila», nem «Nayara», nem
+«R$ 12.700», nem «84 leads». O defeito grave de cache (a análise anterior sendo servida)
+**não voltou**.
+
+### ✅ 2. A análise discrimina de verdade
+
+Queda de **4,5 para 1,2** na mesma candidata, nas mesmas 6 competências. E as citações
+mostram *por quê*: «Nunca teve muito critério, para ser sincera», «Assim, de cabeça não»,
+«Para mim no dia a dia não fazia muita diferença», «O Rogério falava que eu era uma das
+melhores». O modelo pegou exatamente os pontos que o texto foi escrito para conter.
+
+### ✅ 3. `insufficient_evidence` — o caminho que estava sem teste desde a Etapa 2
+
+«Conversação natural sobre estética, saúde e investimento financeiro» veio **`—`** na
+tela, e no banco é literalmente `"score": "insufficient_evidence"`. A transcrição B não
+tinha nada sobre conduzir conversa de valor, e o modelo **se recusou a dar nota** em vez
+de inventar um número. É o oposto exato do modo de falha «saída válida sem evidência de
+critério» — aqui a ausência de evidência **apareceu**, não foi preenchida.
+
+>> **Contraste que reduz o escopo do Defeito 7:** aqui as competências são as **6 reais
+>> da vaga**, as mesmas do guia de entrevista. A rubrica fantasma é um problema
+>> **específico da redação**, não uma doença do sistema de IA inteiro.
+
+### >>! Defeito 12 (NOVO) — a transcrição não é guardada, e as análises se acumulam sem dono
+
+`entrevista_analises` tem 13 colunas e **nenhuma guarda a transcrição** — nem o texto,
+nem um hash. `entrevistas_online` e `entrevistas_presenciais` estão **vazias**. A fonte
+que produziu a nota **não existe no banco**.
+
+E agora há **duas linhas** para a mesma candidatura, sem `updated_at`, sem marca de
+superada. A leitura pega a mais nova (`created_at desc, limit 1` —
+`entrevistaService.ts:401`), o que está certo para exibir, mas:
+
+- O RH vê notas e citações e **não pode conferir contra o original**. Se uma citação for
+  inventada, não há como detectar.
+- Para defender uma contratação — ou responder um pedido LGPD — a fonte sumiu.
+- Um texto colado por engano **rebaixa a análise da entrevista real** e a antiga fica na
+  tabela, indistinguível, para sempre.
+
+>> **P1 (custo):** o uso acumulado da validação foi a **27.339 tokens**.
 
 ---
 
@@ -1125,6 +1199,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
+| **12** | 6 | **A transcrição não é guardada** (nem texto nem hash) e as análises se acumulam sem `updated_at` nem marca de superada. A fonte da nota não existe no banco | `entrevista_analises` tem 13 colunas, nenhuma de texto; `entrevistas_online`/`_presenciais` vazias; 2 linhas coexistindo |
 | **11** | 5 | **O guia de entrevista ignora o candidato.** Zero marcadores dela em 15.745 chars. CV, redação, respostas e análise **não são enviados** ao prompt; só vaga + notas. Uma das 6 perguntas pede algo que ela já documentou | Busca literal no `entrevista_guias.guia` + leitura de `gerar-guia-entrevista/index.ts:205-260` |
 | **10** | 4 | **O reagendamento apaga o horário anterior.** A linha é atualizada no lugar; o slot original (23/09) não existe mais no banco, só no e-mail já enviado | `agendamentos_entrevista`: mesmo `id`, `created_at 00:54:24` / `updated_at 00:56:17`, `data_hora` já é a nova |
 | **3** | 3 | **«Tempo estimado: ~10 min» é constante de fallback**, igual nos 4 cards. O real existe em `perguntas.tempo_est_min` (7 min nesta vaga, 30 em outra) e nunca é lido. A tela da redação diz 15-25 min e contradiz o próprio card | `AvaliacaoContainer.tsx:240` + `vagas.testes_aplicaveis` sem o campo + valores reais medidos na tabela `perguntas` |
