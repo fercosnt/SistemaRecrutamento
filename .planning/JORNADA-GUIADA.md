@@ -1305,11 +1305,55 @@ Refazer a decisão, agora **Rejeitando**.
 - [ ] **Defeito 3:** **recarregue a página de explicação 3×**. Cada visita cria uma linha no histórico do Art. 20. Eu conto no banco depois e te mostro
 - [ ] Peça a revisão como Marina → responda como RH. ⚠ **Quem decidiu não pode responder** — se você decidiu com a sua conta, precisa responder com **RH2** ou **RH3**
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 12:11, reset executado · decisão ainda NÃO refeita
 
-```
-(preencha)
-```
+### O reset (autorizado pelo operador, escopado à Marina)
+
+Backup restaurável gravado **antes** em `~/Desktop/RESTAURAR-decisao-marina.sql` —
+reconstrói a linha byte a byte (mesmo `id`, mesma justificativa, mesmo timestamp).
+
+| | Antes | Depois |
+|---|---|---|
+| `decisao_final` (Marina) | 1 | **0** |
+| `decisao_final` (total) | 7 | **6** |
+| `candidatos` / `candidaturas` | 42 / 32 | **42 / 32** — intactos ✅ |
+| `etapa_atual` | `aprovado` | **`decisao_final`** |
+| `status` | `finalizado` | **`aguardando_resposta`** |
+
+**Duas linhas tocadas, ambas da Marina. Nenhum colateral.**
+
+`retencao_hold` e `decisao_final_historico` estavam com **0** linhas — o roteiro mandava
+apagá-las, e não havia o que apagar. O `historico_candidatura` foi **preservado de
+propósito**: apagar a trilha destruiria a auditoria, e «aprovada 02:11 → rejeitada 12:xx»
+é um caso real de RH que muda de ideia.
+
+### >>! Defeito 17 (NOVO) — a justificativa gruda e contamina transições futuras
+
+O `UPDATE` do reset disparou o gatilho de histórico, que gravou
+`aprovado → decisao_final` às `12:11:47` — **correto**, a trilha pegou até a minha
+intervenção por SQL (com `ator = null`, honesto).
+
+**Mas veio com o `criterio_texto` da APROVAÇÃO:** «Aprovada. Forte aderência nas etapas
+avaliadas…» carimbado numa transição que **desfez** a aprovação.
+
+Causa, no código: `criterio_texto` é copiado de `NEW.etapa_justificativa`
+(`historico_candidatura.sql:42` · `avancar_etapa_trigger.sql:15`), e
+`candidaturas.etapa_justificativa` é uma coluna **persistente que ninguém limpa depois de
+consumir**. Medido agora: ela ainda contém o texto da aprovação.
+
+**Consequência em uso normal, sem SQL nenhum:** depois de qualquer decisão registrada,
+o **próximo clique em «Avançar»** copia a justificativa da decisão anterior para uma
+transição que não tem nada a ver com ela. A trilha de auditoria passa a atribuir um
+motivo a um movimento que nunca o teve.
+
+>> **Isto refina o conserto do `criterio_texto` nulo (Defeito 15b).** Não basta fazer o
+>> «Avançar» escrever: se ele só escrever, herda-se o texto velho quando o campo não for
+>> preenchido. O conserto tem **duas** partes — coletar a justificativa no avanço **e**
+>> limpar `etapa_justificativa` depois de consumida. Fazer só a primeira troca um defeito
+>> por outro, pior, porque o texto errado *parece* certo.
+
+>> Os 4 avanços com `criterio_texto` nulo agora se explicam: `etapa_justificativa` estava
+>> nula naquele momento. O campo nunca foi «não gravado» — ele é um **carimbo herdado**.
 
 ---
 
@@ -1438,6 +1482,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **17** | 8 | **A justificativa gruda.** `criterio_texto` copia `candidaturas.etapa_justificativa`, que ninguém limpa após consumir. Depois de uma decisão, o próximo «Avançar» carimba a justificativa da decisão numa transição que não é dela | O reset gravou `aprovado → decisao_final` com o texto «Aprovada. Forte aderência…»; `etapa_justificativa` segue com o texto da aprovação |
 | **16** | — | **A prova cognitiva por opt-in (`aplica_cognitivo`) serve ZERO questões**: lê `cognitivo_itens`, que está vazia. Dormente hoje (14/14 vagas com `false`), mas arma ao ser ligada | contagem real: `cognitivo_itens`=0 · `questoes_raven`=60 (outro caminho, esse funciona) |
 | **15** | 7 | **O sistema promete avisar «a cada etapa» e avisa em 1 de 4.** A candidata foi movida três vezes em silêncio | Texto do e-mail de confirmação × `notificacoes_enviadas` |
 | **13** | 6 | 🔴 **O card da lista do RH mostra `0`** para Big Five e Cultura de uma candidata com Big Five completo e redação 95/100. Zero é a pior nota, não «sem dado», e isto é a tela de triagem visual | `CandidatosRHPage.tsx:345-348` lê `scores_bigfive` (0 linhas na história) e `analise_ia_cultura` (coluna morta); os helpers devolvem `0` e o `?? 'N/A'` nunca dispara |
