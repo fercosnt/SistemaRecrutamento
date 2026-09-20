@@ -1228,6 +1228,41 @@ espera.
 | **PP-12** | A decisão final deveria mostrar os **textos completos das análises da IA**, não só os números |
 | **PP-13** | Mostrar **perfil comportamental e cognitivo** na decisão, mesmo marcados como não ponderantes — o gestor quer ver, ainda que não contem no cálculo |
 
+### ✅ A decisão foi registrada — e esta etapa passou limpa
+
+`decisao_final.id = f21bc5f3-…` · `decisao = aprovado` · `em 02:11:34.459` ·
+`por_usuario` preenchido.
+
+| Conferência | Resultado |
+|---|---|
+| `justificativa` | **gravada inteira**, texto completo, sem truncar |
+| `candidaturas.etapa_atual` | `decisao_final` → **`aprovado`** (avançou sozinho) ✅ |
+| `candidaturas.status` | **`finalizado`** ✅ |
+| `candidaturas.data_decisao_final` | **preenchida** — esta coluna **NÃO** é morta |
+| `decisao_final_historico` | **0 snapshots** — o trigger só dispara em UPDATE, e este foi INSERT |
+
+**E-mail:** criado `02:11:34.958` → enviado `.13` → **entregue `02:11:39.366`**.
+**4,4 s**, `evento='decisao'`, template `decisao_final`, confirmado pelo provedor.
+
+### 🟢 O contraste que vale registrar
+
+A **justificativa da decisão ficou gravada por inteiro**, enquanto `criterio_texto` nasceu
+**null em 4 de 4** avanços. Mesmo sistema, mesma trilha de auditoria, duas telas: uma
+**exige** 50 caracteres e persiste; a outra não pede nada e grava vazio. O conserto do
+Defeito 15b (justificativa nos avanços) já tem um modelo pronto dentro do próprio
+repositório.
+
+### 🎨 PP-14 — o e-mail de aprovação merece tratamento próprio
+
+Observação do operador: o e-mail de aprovação usa **o mesmo layout neutro** de todos os
+outros («Temos uma ótima notícia... Nossa equipe entrará em contato em breve»). É a
+melhor notícia que o sistema envia na vida de alguém, e chega com a mesma cara de um
+aviso de etapa. Vale diferenciar.
+
+>> ⚠ **Estado para a Etapa 8 (reset destrutivo):** hoje há **1** linha em `decisao_final`,
+>> **0** em `decisao_final_historico`, `etapa_atual='aprovado'`, `status='finalizado'`.
+>> Medir de novo depois — cada UPDATE em `decisao_final` cria snapshot.
+
 ---
 
 ## Etapa 8 · RESET → **REJEITAR** na decisão final
