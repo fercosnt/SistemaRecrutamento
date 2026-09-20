@@ -1259,6 +1259,28 @@ outros («Temos uma ótima notícia... Nossa equipe entrará em contato em breve
 melhor notícia que o sistema envia na vida de alguém, e chega com a mesma cara de um
 aviso de etapa. Vale diferenciar.
 
+### ✅ O comparativo vazio NÃO é defeito — medido
+
+Suspeita levantada: «tinham outros inscritos nessa vaga e o comparativo apareceu vazio».
+Contagem em `candidaturas` desta vaga (6 no total):
+
+| `etapa_atual` | `status` | qtd |
+|---|---|---|
+| aprovado | finalizado | **1** (Marina) |
+| triagem | em_analise | 3 |
+| inscricao | rejeitado | 2 |
+
+**Nenhuma outra em `decisao_final`.** A mensagem da tela é precisa: «O comparativo aparece
+quando houver outros candidatos **em decisão final** para esta vaga». Ela estava certa.
+
+>>? **Mas há uma decisão de produto embutida:** o comparativo só confronta **finalistas**.
+>>? Se a intenção é comparar quem disputa a vaga, o recorte é estreito — os 3 em triagem
+>>? nunca serão comparados entre si. Decidir se é isso mesmo.
+
+>> **Lista de candidatos não separa finalizados.** A Marina, já `aprovado`/`finalizado`,
+>> continua na listagem junto com quem está em triagem. Não é erro — é ausência de filtro
+>> padrão. Com o tempo, candidatos encerrados poluem a tela de trabalho diário do RH.
+
 >> ⚠ **Estado para a Etapa 8 (reset destrutivo):** hoje há **1** linha em `decisao_final`,
 >> **0** em `decisao_final_historico`, `etapa_atual='aprovado'`, `status='finalizado'`.
 >> Medir de novo depois — cada UPDATE em `decisao_final` cria snapshot.
