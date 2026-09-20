@@ -618,6 +618,104 @@ e `detected_writing_style: informal` com `style_neutralized_in_scoring: true`.
 >> texto, na mesma linha, com 21 palavras de diferença. Verificar qual alimenta a regra
 >> do mínimo de 200.
 
+### >>! Defeito 7 (NOVO · GRAVE) — rubrica fantasma: o RH lê rótulos que a IA nunca avaliou
+
+O painel do RH mostra, para a redação da Marina:
+
+| Rótulo na tela | Nota |
+|---|---|
+| Experiência UAU | 5/5 |
+| Inovação | 5/5 |
+| Atitude de Dono | 5/5 |
+| Sede de Crescimento | 4/5 |
+
+**A IA não avaliou nada disso.** O que ela devolveu, em `redacoes_candidato.analise_ia`:
+
+| Chave | `dimension_name` que a IA gerou |
+|---|---|
+| D1 | «Cuidado e Empatia com o Outro» |
+| D2 | «Ownership e Protagonismo Individual» |
+| D3 | «Aprendizado e Melhoria Contínua» |
+| D4 | «Consideração de Trade-offs e Perspectivas Divergentes» |
+
+O front rotula por posição (`RedacaoReviewPanel.tsx:48-51` e `RedacaoOverrideForm.tsx:46-49`
+mapeiam `D1 → 'Experiência UAU'` etc.). **O número é real; o rótulo é falso.** O RH lê
+«Experiência UAU 5/5» sobre um raciocínio que falava de cuidado e empatia. E «Sede de
+Crescimento 4/5» sobre um raciocínio de *trade-offs comerciais*.
+
+**Causa raiz medida no banco.** O prompt ativo `culture_fit_essay` v1.0.0 diz:
+
+> «atribuir scores 1-5 por **dimensão cultural definida**»
+
+…e **nunca define dimensão nenhuma**. Conferido por busca no template inteiro:
+
+| Termo procurado no prompt ativo | Presente? |
+|---|---|
+| UAU | **não** |
+| Inovação | **não** |
+| Atitude de Dono | **não** |
+| Sede de Crescimento | **não** |
+
+Mandado pontuar «as dimensões definidas» sem receber definição, o modelo **inventa as
+próprias** — e acerta o tom, porque a pergunta é sobre cuidado. Por isso passa
+despercebido.
+
+E o contrato de schema afirma o contrário do que acontece
+(`_shared/essay-schemas.ts:19-20`):
+
+> «As 4 dimensões D1-D4 mapeiam os 4 valores Beauty Smile (Experiência UAU, Inovação,
+> Atitude de Dono, Sede de Crescimento)»
+
+**Nada falha.** A saída valida contra o schema — são 4 dimensões com notas 1-5. Só o
+significado está trocado. É saída válida sem evidência de critério.
+
+>> **Isso explica a pergunta do operador** («nessa redação realmente conseguimos avaliar
+>> os 4 valores?»). A resposta medida é **não**. Não é limitação do texto dele nem do
+>> tamanho da redação: é que ninguém nunca pediu esses 4 valores à IA.
+
+**Conserto:** escrever as 4 dimensões BARS no prompt, com âncoras comportamentais por
+nota, e **travar por teste** que os `dimension_name` devolvidos batem com os 4 valores —
+senão o defeito volta em silêncio na próxima versão de prompt.
+
+### >>! Defeito 8 (NOVO) — a revisão salva, a tela não mostra
+
+O operador preencheu justificativa, marcou **Aprovado** e salvou. Voltou à página do
+candidato: **tudo igual**, como se nada tivesse acontecido. Clicou de novo e caiu na
+mesma tela de revisão.
+
+**No banco a gravação foi perfeita:**
+
+| Campo | Valor |
+|---|---|
+| `status_analise` | **`concluida`** (era `pendente_humano`) |
+| `decisao_revisor` | **`aprovado`** |
+| `notas_revisor` | o texto dele |
+| `revisada_em` / `revisada_por` | `00:42:04` · usuário RH |
+| `scores_humanos` | `{D1:5, D2:5, D3:5, D4:4}` |
+
+Não é perda de dado — é **cache não invalidada** na volta. O sintoma («salvei e não
+salvou») é indistinguível de perda real para quem opera, e leva a salvar de novo.
+
+### >>! Defeito 9 (NOVO · menor) — a fila de revisão esconde as verdes sem dizer
+
+O painel diz «Mostrando vermelhas e amarelas» e, logo abaixo, «**Nenhuma redação pendente
+de revisão**» — enquanto a redação da Marina está aberta ao lado. Ela é **verde**, e verde
+está fora do filtro padrão. As duas frases juntas afirmam que não há nada, quando há.
+
+### 🎨 Propostas de produto do operador (não são defeitos — são decisões)
+
+| # | Proposta |
+|---|---|
+| **PP-1** | **Página do candidato em abas**: principal (análise da IA + currículo + resumo dos demais), e uma aba por etapa — perfil, triagem, perguntas, caso, big five, cognitiva, redação, entrevista, decisão final, histórico. Hoje o RH não vê dado nenhum das avaliações na página (liga ao Defeito 2) |
+| **PP-2** | **O workspace de redação deveria ser uma aba** da página do candidato, não uma página separada. Sair da ficha para revisar e ter de voltar e reabrir é o atrito que gerou o Defeito 8 |
+| **PP-3** | **O «ajuste por dimensão» deveria ser definido na criação da vaga**, não na revisão. Cada vaga decide o que pesa |
+| **PP-4** | **A redação deveria avaliar também**: gramática, capacidade de raciocinar e sustentar uma linha, qualidade da escrita — e **detecção de texto gerado por IA**. Hoje avalia só conteúdo cultural (e nem isso, ver Defeito 7) |
+| **PP-5** | **A justificativa obrigatória deveria valer para a fase inteira**, não só para a redação |
+| **PP-6** | **«Dúvidas (gestor)» não faz sentido** como está |
+| **PP-7** | **A análise da IA deveria ser reprocessada** depois da avaliação assíncrona. Hoje ela congela no que foi gerado na triagem (score 96, só CV + formulário) e ignora SJT, Big Five e redação |
+
+>> **P1 (custo):** o uso subiu para **11.970 tokens** nesta sessão de validação.
+
 ### >>! Defeito 6 (NOVO) — a devolutiva do Big Five não é gerada desde 2026-07-07
 
 A tela diz «Sua devolutiva ainda está sendo preparada». Não está: `devolutivas_candidato`
@@ -887,6 +985,9 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **4** | 3 | **Bateria SJT com 1 questão só**, valendo 15% do score, e o card «Caso prático» oferecido sem bateria configurada | `perguntas` tem 1 linha ativa para `sdr-social-seller`, nenhuma `caso_aberto`; a tela abriu «nenhuma avaliação pendente» |
 | **5** | 3 | 🔴 **BLOCKER — Big Five não pode ser enviado.** O gate de `Authorization` roda antes da checagem de `OPTIONS` no `Deno.serve`, e preflight CORS não manda `Authorization` → 401 | `curl -X OPTIONS`: bigfive **401**, `submit-candidatura` 200, `exportar-meus-dados` 200. `respostas_bigfive` tem 0 linhas em TODO o banco |
 | **6** | 3 | 🔴 **Devolutiva do Big Five nunca é gerada desde 2026-07-07.** A guarda Bearer SEC-04 401-a o único chamador legítimo, e o `try/catch` best-effort do submit esconde a falha | Logs: `401 gerar-devolutiva-bigfive` 3 ms antes do `200` do submit. Guarda criada em 07/07; única devolutiva do banco é de 30/06; **0** nos últimos 30 dias |
+| **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
+| **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
+| **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **3** | 3 | **«Tempo estimado: ~10 min» é constante de fallback**, igual nos 4 cards. O real existe em `perguntas.tempo_est_min` (7 min nesta vaga, 30 em outra) e nunca é lido. A tela da redação diz 15-25 min e contradiz o próprio card | `AvaliacaoContainer.tsx:240` + `vagas.testes_aplicaveis` sem o campo + valores reais medidos na tabela `perguntas` |
 
 ### Incomoda, mas não é defeito
