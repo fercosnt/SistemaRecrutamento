@@ -1355,6 +1355,61 @@ motivo a um movimento que nunca o teve.
 >> Os 4 avanços com `criterio_texto` nulo agora se explicam: `etapa_justificativa` estava
 >> nula naquele momento. O campo nunca foi «não gravado» — ele é um **carimbo herdado**.
 
+### A rejeição foi registrada
+
+`decisao_final.id = 1e38b95a-…` · `rejeitado` · `12:26:39` · justificativa inteira.
+Depois: `explicacao_solicitada_em 12:29:27` · `revisao_solicitada_em 12:30:31`.
+
+>> **Erro de credencial ao clicar em «Rejeitar».** O operador viu um erro como se a
+>> sessão tivesse expirado; ao recarregar, a decisão já constava. Gravou certo, mas a
+>> tela mentiu sobre o resultado. Não reproduzido — anotar e vigiar.
+
+### ✅ Defeito 3 do roteiro CONFIRMADO — e quantificado
+
+`decisao_final_historico` tem **5** linhas. As cinco com a **mesma** `decisao='rejeitado'`
+e o **mesmo** `decidido_em` (12:26:39). Só o `arquivado_em` muda:
+
+| # | `arquivado_em` | O que foi |
+|---|---|---|
+| 1 | `12:29:27.152` | 1ª visita à página de explicação |
+| 2 | `12:30:00.131` | reload |
+| 3 | `12:30:01.724` | reload |
+| 4 | `12:30:02.979` | reload |
+| 5 | `12:30:31.882` | pedido de revisão |
+
+**Quatro das cinco linhas são LEITURAS.** A decisão mudou **uma** vez; a tabela diz cinco.
+O trigger `trg_decisao_final_snapshot` dispara a cada `UPDATE` de `decisao_final`, e
+carimbar `explicacao_solicitada_em` é um UPDATE — então **ler a explicação versiona a
+decisão**. Um candidato ansioso que recarrega 50 vezes gera 50 snapshots idênticos, e a
+trilha que deveria mostrar «quantas vezes esta decisão mudou» fica ilegível.
+
+### >>! Defeito 18 (NOVO) — a candidata foi rejeitada e NÃO foi avisada
+
+`notificacoes_enviadas` após a rejeição: **três** e-mails, todos para o RH
+(`revisao_solicitada` → rh2, rh3 e fernando@). **Zero para a candidata.**
+
+Ela descobriu que foi rejeitada porque **entrou no painel**. Se não tivesse entrado, não
+saberia.
+
+**Causa medida:** o `dedupe_key` do evento é `<candidatura_id>:decisao` — não inclui
+**qual** decisão nem quando. A aprovação das `02:11` ocupou a chave; a rejeição das
+`12:26` colidiu e foi **descartada em silêncio**. `status` da linha antiga segue
+`entregue`; não há linha nova nem erro. Nada no banco denuncia o aviso que não saiu.
+
+✅ **O Art. 20 NÃO está exposto** — conferido antes de concluir: a resposta da revisão usa
+evento próprio (`revisao_respondida`, chave `<candidatura>:revisao_respondida`). Se a
+decisão for revertida, a candidata **é** avisada por esse caminho. O buraco é específico
+de **redecidir**.
+
+>> Hoje redecidir só é alcançável por reset manual (há `UNIQUE (candidatura_id)` em
+>> `decisao_final` e a UI não oferece «refazer decisão»). Mas a chave é frágil **por
+>> construção**: ela promete «um aviso de decisão por candidatura, para sempre».
+
+>> **Quem decidiu recebe o pedido de revisão da própria decisão.** `fernando@` está entre
+>> os 3 destinatários, e foi ele quem rejeitou. Não é defeito em si — mas significa que o
+>> portão «quem decidiu não pode responder» **tem de estar no ato de responder**, não na
+>> notificação. É o que a próxima medição vai verificar.
+
 ---
 
 ## Etapa 9 · RESET → **rejeitar na triagem** (rejeição humana, cedo)
@@ -1482,6 +1537,8 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **18** | 8 | 🔴 **A candidata foi rejeitada e não foi avisada.** O `dedupe_key` é `<candidatura>:decisao`, sem a decisão nem o instante: a aprovação ocupou a chave e a rejeição foi descartada em silêncio | 3 e-mails saíram (todos p/ RH), 0 para ela. A linha antiga segue `entregue`; nada no banco denuncia |
+| **3b** | 8 | **Ler a explicação versiona a decisão.** 5 snapshots para 1 decisão: 4 são visitas à página, 1 é o pedido de revisão | `decisao_final_historico`: mesmo `decidido_em` nas 5, só `arquivado_em` muda |
 | **17** | 8 | **A justificativa gruda.** `criterio_texto` copia `candidaturas.etapa_justificativa`, que ninguém limpa após consumir. Depois de uma decisão, o próximo «Avançar» carimba a justificativa da decisão numa transição que não é dela | O reset gravou `aprovado → decisao_final` com o texto «Aprovada. Forte aderência…»; `etapa_justificativa` segue com o texto da aprovação |
 | **16** | — | **A prova cognitiva por opt-in (`aplica_cognitivo`) serve ZERO questões**: lê `cognitivo_itens`, que está vazia. Dormente hoje (14/14 vagas com `false`), mas arma ao ser ligada | contagem real: `cognitivo_itens`=0 · `questoes_raven`=60 (outro caminho, esse funciona) |
 | **15** | 7 | **O sistema promete avisar «a cada etapa» e avisa em 1 de 4.** A candidata foi movida três vezes em silêncio | Texto do e-mail de confirmação × `notificacoes_enviadas` |
