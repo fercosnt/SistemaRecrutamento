@@ -1028,7 +1028,57 @@ superada. A leitura pega a mais nova (`created_at desc, limit 1` —
 - Um texto colado por engano **rebaixa a análise da entrevista real** e a antiga fica na
   tabela, indistinguível, para sempre.
 
->> **P1 (custo):** o uso acumulado da validação foi a **27.339 tokens**.
+### ✅ O cache é POR CONTEÚDO e funciona — provado pelo log de custo
+
+A transcrição A foi reanalisada duas vezes depois da B. As quatro execuções, medidas em
+`ai_call_logs` e nos logs da plataforma:
+
+| # | Transcrição | Latência | Chamada de IA? | Custo |
+|---|---|---|---|---|
+| 1 | A | **60,3 s** | **sim** — hash `9adae98a` | US$ 0,0494 |
+| 2 | B | **42,5 s** | **sim** — hash `b4234b6d` | US$ 0,0358 |
+| 3 | A de novo | **2,4 s** | **não** | **US$ 0** |
+| 4 | A de novo | **3,2 s** | **não** | **US$ 0** |
+
+`ai_call_logs` tem **duas** linhas, não quatro. As execuções 3 e 4 foram **cache hit**:
+saída byte-idêntica à da execução 1 (`md5(citacoes) = f31de35914f5` nas três), em 2-3
+segundos, sem custo. Conteúdo diferente → hash diferente → chamada real. **É exatamente
+o comportamento correto**, e explica por que a B mudou tudo: ela é outro hash.
+
+### 💰 P1 respondida — o custo real de processar um candidato
+
+| Chamada | Tok. entrada | Tok. saída | Custo | Latência |
+|---|---|---|---|---|
+| `transcript_analysis` (×2) | 1.772 | 5.401 | US$ 0,0852 | 51,4 s |
+| `interview_guide` | **66** | 4.436 | US$ 0,0667 | 98,4 s |
+| `cv_job_match` (triagem) | 1.232 | 2.625 | US$ 0,0431 | 45,6 s |
+| `culture_fit_essay` | 457 | 1.253 | US$ 0,0202 | 26,6 s |
+
+**Um candidato completo custa ~US$ 0,17** (≈ R$ 0,95), descontando a análise extra do
+teste. Modelo `claude-sonnet-4-6` em todas.
+
+>> **Correção do que registrei na Etapa 3.** Eu anotei que «não há como medir o gasto por
+>> avaliação» porque `redacoes_candidato.cost_tokens_*` está nulo. **Meia verdade.**
+>> `ai_call_logs` registra `input_token_count`, `output_token_count`, `cost_usd`,
+>> `latency_ms` e `input_hash` de toda chamada. O que falta é a **desnormalização** para
+>> a tabela da redação — o dado existe, só não está onde aquela tela olha.
+
+### 📏 O Defeito 11 em números
+
+`interview_guide` recebeu **66 tokens de entrada**. Sessenta e seis — contra 1.232 da
+triagem, que lê currículo e respostas. Não há espaço em 66 tokens para currículo, redação
+ou análise: é o título da vaga, o formato e pouco mais. **A medição de custo confirma,
+independentemente, o que a leitura do código já dizia.**
+
+### O Defeito 12 fica pior: cache hit TAMBÉM grava linha
+
+Quatro execuções, **quatro linhas** em `entrevista_analises` — inclusive as duas que não
+chamaram a IA. Duas delas nasceram com **17 segundos de diferença**, cada uma com seu
+próprio `OPTIONS` (portanto duas ações distintas, não um retry interno). Uma tabela que
+acumula uma linha por clique, sem `updated_at`, sem marca de superada e **sem a
+transcrição**, não permite dizer qual análise corresponde a qual entrevista.
+
+>> **P1 (tokens da sessão de validação):** 27.339 → **34.688**.
 
 ---
 
