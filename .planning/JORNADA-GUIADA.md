@@ -533,7 +533,17 @@ em todo o banco**. Ninguém nunca concluiu um Big Five em produção por esta vi
 tratar `OPTIONS` **antes** do gate de `Authorization` no `Deno.serve` — ou trocar o
 early-return por `Authorization: authHeader ?? ''` e deixar o `handler` decidir.
 
-✅ O SJT **foi** gravado: `respostas_avaliacao` = 1 linha.
+✅ O SJT **foi** gravado — mas **não onde eu disse**. Corrijo: a linha única que vi em
+`respostas_avaliacao` às 23:30 era o **rascunho do Big Five** (gravado 23:21, antes do
+envio das 23:46). O SJT vive em `scores_candidato` (`tipo='sjt'`, `score 4/4`,
+`23:19:28`), e as respostas dele ficam dentro de `metadata.respostas`.
+
+>> **E corrijo também o que escrevi sobre o autosave do Big Five.** Eu disse que era
+>> só `sessionStorage` e que «fechou a aba, as 116 respostas somem». **Errado, e do lado
+>> perigoso** — eu teria feito você refazer 116 afirmações à toa. O `sessionStorage` é
+>> um buffer imediato, mas há **flush periódico para o banco**: a linha
+>> `respostas_avaliacao teste='big_five'` foi gravada às **23:21**, 25 minutos antes do
+>> envio. As respostas estavam a salvo o tempo todo.
 
 ### ✅ Defeito 5 CORRIGIDO e verificado em PROD (2026-09-19 23:40)
 
@@ -553,6 +563,60 @@ E o envio funcionou de verdade: `scores_candidato` ganhou a linha `tipo='big_fiv
 >> **Eu conferi a tabela errada e quase reportei falha onde não havia.** `respostas_bigfive`
 >> e `scores_bigfive` existem no banco e têm **0 linhas em toda a história** — a EF nunca
 >> escreve nelas. O que ela grava é `scores_candidato`. Duas tabelas mortas a mais.
+
+### Redação cultural — texto salvo íntegro, avaliação NÃO saiu
+
+Enviada `2026-09-20 00:17:37`. O texto chegou **perfeito** em
+`respostas_avaliacao teste='redacao'`: acentuação, quebras de parágrafo e aspas
+preservadas, 257 palavras, com o `pergunta_id`. Tela: «Redações concluídas.»
+
+✅ **Defeito 3 confirmado visualmente:** a tela da redação diz **«Tempo estimado:
+15-25 min»** enquanto o card do painel prometia **`~10 min`**. O app se contradiz para
+o candidato, como o código já indicava. A tela também exige **mínimo de 200 palavras**
+e mostra um cronômetro «Tempo nesta redação».
+
+✅ **A avaliação da IA SAIU, e é boa.** `POST | 200 | avaliar-redacao-cultural` às
+`00:21:16`. Eu havia suspeitado de falha silenciosa — **suspeita errada, e pela terceira
+vez pelo mesmo motivo: olhei a tabela errada.** A redação vive em
+**`redacoes_candidato`**, não em `scores_candidato`.
+
+>> ⚠ **O log da plataforma ATRASA.** Às 00:23 consultei a janela 03:10–03:45 UTC e o
+>> `POST` das 03:21 **não estava lá**; apareceu minutos depois. Ausência no log não é
+>> prova de que não aconteceu — esperar e remedir antes de concluir.
+
+**O resultado:**
+
+| | |
+|---|---|
+| `score_ponderado_0_100` | **95,00** · `classificacao_cor = verde` · `strong_fit` |
+| D1 Cuidado e Empatia | **5** exemplary |
+| D2 Ownership e Protagonismo | **5** exemplary |
+| D3 Aprendizado e Melhoria | **5** exemplary |
+| D4 Trade-offs e Perspectivas | **4** proficient |
+| `status_analise` | **`pendente_humano`** ✅ RNF-07a |
+| `bloqueio_avanco` | `false` |
+
+**Leu o texto — provado por citação literal.** Cada dimensão traz `cited_evidence` com
+trechos exatos e a localização («Parágrafo 3»). Não é elogio genérico.
+
+**E discriminou.** O texto foi escrito com uma tensão deliberada: a candidata decide
+*não* empurrar o fechamento, contra a própria meta. **D4 foi a única nota 4** — e o
+raciocínio é justamente sobre isso: «tomou o risco consciente de deixar a paciente ir
+sem fechar». A IA não deu 5 em tudo.
+
+**Auditoria de viés embutida:** `formality_did_not_affect_score`,
+`regional_markers_treated_as_neutral`, `grammar_errors_did_not_affect_content_score`,
+e `detected_writing_style: informal` com `style_neutralized_in_scoring: true`.
+
+>> **Dado para a pendência P1 (custo/modelo):** `model_version = claude-sonnet-4-6`,
+>> `prompt_version = 1.0.0`. E **`cost_tokens_input` / `cost_tokens_output` estão NULOS**
+>> — as colunas de custo existem e não são preenchidas. Sem elas não há como medir o
+>> gasto por avaliação, que é exatamente o que a P1 quer decidir.
+
+>> **Divergência menor, mesma linha:** `word_count = 257` no topo e
+>> `preprocessing_check.word_count = 278` dentro da análise. Duas contagens do mesmo
+>> texto, na mesma linha, com 21 palavras de diferença. Verificar qual alimenta a regra
+>> do mínimo de 200.
 
 ### >>! Defeito 6 (NOVO) — a devolutiva do Big Five não é gerada desde 2026-07-07
 
