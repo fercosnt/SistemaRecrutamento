@@ -37,16 +37,27 @@ fizer sentido. Eu leio o arquivo inteiro.
 
 | | |
 |---|---|
-| Etapas concluídas | **1 a 7** — atualizado 2026-09-20 02:40 |
-| Faltam | **8** reset→rejeitar · **9** reset→rejeitar na triagem · **10** knockout · **11** comparativo · **12** direitos do titular (LGPD) · **13** admin |
-| Achados | **16 defeitos** · **14 propostas de produto (PP-1..14)** · 1 pendência (P1) |
-| `candidatos` em PROD | **42** — Marina: `747fa40c-49d3-4e10-b234-1e321241f86b` |
-| `candidaturas` em PROD | **32** — a da Marina: `bf26ee3c-0ae3-4e92-a99b-6e05efc2a662` |
-| **Estado da Marina** | `etapa_atual='aprovado'` · `status='finalizado'` — **APROVADA em 02:11:34** |
-| `decisao_final` | **1** linha (`f21bc5f3-…`, aprovado, justificativa gravada) · `decisao_final_historico` **0** |
-| Conserto JÁ aplicado em PROD | `submit-bigfive-final` **v11** — preflight CORS (Defeito 5). Único write de código da jornada |
-| Artefatos de teste | `~/Desktop/` → `curriculo-marina-alves-tavares.pdf` · `transcricao-A-forte.txt` · `transcricao-B-fraca.txt` |
+| Etapas concluídas | **1 a 9** — atualizado 2026-09-20 13:10 |
+| Faltam | **10** knockout · **11** comparativo · **12** direitos do titular (LGPD) · **13** admin |
+| Achados | **22 defeitos** · **14 propostas (PP-1..14)** · 1 pendência (P1) |
+| **Estado da Marina** | `etapa_atual='rejeitado'` · `status='rejeitado'` · `motivo_rejeicao='reprovado_avaliacao'` — rejeitada na TRIAGEM |
+| `decisao_final` / snapshots dela | **0 / 0** — removidos no reset da Etapa 9 |
+| `candidatos` / `candidaturas` | **42 / 32** |
+| Backups restauráveis | `~/Desktop/RESTAURAR-decisao-marina.sql` (aprovação) · `~/Desktop/BACKUP-art20-marina.sql` (trilha Art. 20 completa, verificada) |
+| Conserto JÁ em PROD | `submit-bigfive-final` **v11** — preflight CORS (Defeito 5) |
+| Artefatos de teste | `~/Desktop/` → currículo PDF · `transcricao-A-forte.txt` · `transcricao-B-fraca.txt` |
 | Árvore git | limpa · **commits locais, `origin/main` ainda SEM push** |
+
+### ⏭ Decisão tomada em 2026-09-20: PARAR e CONSERTAR antes de seguir
+
+Motivo: os Defeitos **22** e **20** ferem candidato **hoje, em produção**, no caminho mais
+comum do funil. Deixaram de ser «documentar e ver depois».
+
+**Previsão em aberto, que decide o tamanho do conserto do Defeito 22:** na Etapa 10, o
+cartão «Ver explicação» **deve** aparecer para o knockout (ele grava `feedback_rejeicao`).
+Se aparecer, o conserto é de uma linha. Se não aparecer, a condição está mais quebrada do
+que o diagnóstico indica. **Vale rodar a Etapa 10 antes de consertar** — custa pouco e
+evita consertar às cegas.
 
 ⚠ A trava de contagem do `p47_teardown_dados_de_teste.sql` (41) **já recusa** — guard
 funcionando, como previa a regra 2 abaixo.
