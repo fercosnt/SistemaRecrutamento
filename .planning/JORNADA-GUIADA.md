@@ -1410,6 +1410,53 @@ de **redecidir**.
 >> portão «quem decidiu não pode responder» **tem de estar no ato de responder**, não na
 >> notificação. É o que a próxima medição vai verificar.
 
+### ✅ O portão do Art. 20 FUNCIONA — e funciona no servidor
+
+Com a conta que decidiu, o «Responder» foi **recusado**, com mensagem clara:
+
+> «Quem registrou a decisão não pode responder à revisão dela. Encaminhe este pedido a
+> outra pessoa do RH ou a um administrador.»
+
+E não é aviso de tela: o write-path é **RPC `SECURITY DEFINER`**, e `decisao_final` **não
+tem policy de UPDATE** — «INSERT é WITH CHECK (false) e não há UPDATE»
+(`20260730000001_p42_revisao_art20.sql`, D-P42-02). O guard não é contornável por
+PostgREST. Confirmado no dado: `revisao_por_usuario` (`66412f96…`) **≠** `por_usuario`
+(`4fceff36…`).
+
+Respondido por RH2 às `12:38:03`, veredito **`revertida`**.
+
+### ✅ E a candidata FOI avisada — minha conclusão anterior se sustenta
+
+E-mail «Resposta à sua solicitação de revisão» entregue **12:38**, pelo evento
+`revisao_respondida`, que tem chave própria. O Defeito 18 realmente **não** alcança o
+Art. 20 — verificado por execução, não por leitura.
+
+### >>! Defeito 19 (NOVO) — «revertida» não reverte nada, e o e-mail promete que sim
+
+Depois do veredito `revertida`:
+
+| Campo | Valor |
+|---|---|
+| `decisao_final.revisao_veredito` | **`revertida`** |
+| `decisao_final.decisao` | ainda **`rejeitado`** |
+| `candidaturas.etapa_atual` | **`rejeitado`** |
+| `candidaturas.status` | **`rejeitado`** |
+
+**Não é bug de implementação** — o desenho é explícito: REVISAO-03 diz «resultado da
+revisão registrado por UM write-path auditável», e a RPC só grava o veredito. **É uma
+lacuna de fluxo**, e ela tem duas pontas:
+
+1. **A candidata recebe sinais contraditórios.** O e-mail diz «**a decisão anterior foi
+   revista**»; o painel dela diz **Rejeitado**. Quem lê «revista» entende que mudou. O
+   sistema não diz qual é o novo estado — porque não há novo estado.
+2. **O veredito não tem caminho de execução.** «Revertida» é registrado e nada acontece.
+   Para reintegrar a candidata seria preciso um reset manual no banco — exatamente o que
+   fizemos à mão na Etapa 8. Não existe botão, RPC ou fluxo que execute a reversão que o
+   próprio sistema acabou de registrar.
+
+É uma decisão documentada cuja **próxima etapa não tem plano**: o direito do Art. 20 é
+garantido até o veredito, e para de funcionar um passo antes do efeito.
+
 ---
 
 ## Etapa 9 · RESET → **rejeitar na triagem** (rejeição humana, cedo)
@@ -1537,6 +1584,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **19** | 8 | **«Revertida» não reverte.** O veredito é gravado e `decisao`, `etapa_atual` e `status` seguem `rejeitado`. O e-mail diz à candidata que «a decisão foi revista» e o painel dela diz Rejeitado. Não há caminho para executar a reversão | `revisao_veredito='revertida'` × `decisao='rejeitado'`; a RPC só grava o veredito (REVISAO-03) |
 | **18** | 8 | 🔴 **A candidata foi rejeitada e não foi avisada.** O `dedupe_key` é `<candidatura>:decisao`, sem a decisão nem o instante: a aprovação ocupou a chave e a rejeição foi descartada em silêncio | 3 e-mails saíram (todos p/ RH), 0 para ela. A linha antiga segue `entregue`; nada no banco denuncia |
 | **3b** | 8 | **Ler a explicação versiona a decisão.** 5 snapshots para 1 decisão: 4 são visitas à página, 1 é o pedido de revisão | `decisao_final_historico`: mesmo `decidido_em` nas 5, só `arquivado_em` muda |
 | **17** | 8 | **A justificativa gruda.** `criterio_texto` copia `candidaturas.etapa_justificativa`, que ninguém limpa após consumir. Depois de uma decisão, o próximo «Avançar» carimba a justificativa da decisão numa transição que não é dela | O reset gravou `aprovado → decisao_final` com o texto «Aprovada. Forte aderência…»; `etapa_justificativa` segue com o texto da aprovação |
