@@ -1435,6 +1435,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **16** | — | **A prova cognitiva por opt-in (`aplica_cognitivo`) serve ZERO questões**: lê `cognitivo_itens`, que está vazia. Dormente hoje (14/14 vagas com `false`), mas arma ao ser ligada | contagem real: `cognitivo_itens`=0 · `questoes_raven`=60 (outro caminho, esse funciona) |
 | **15** | 7 | **O sistema promete avisar «a cada etapa» e avisa em 1 de 4.** A candidata foi movida três vezes em silêncio | Texto do e-mail de confirmação × `notificacoes_enviadas` |
 | **13** | 6 | 🔴 **O card da lista do RH mostra `0`** para Big Five e Cultura de uma candidata com Big Five completo e redação 95/100. Zero é a pior nota, não «sem dado», e isto é a tela de triagem visual | `CandidatosRHPage.tsx:345-348` lê `scores_bigfive` (0 linhas na história) e `analise_ia_cultura` (coluna morta); os helpers devolvem `0` e o `?? 'N/A'` nunca dispara |
 | **12** | 6 | **A transcrição não é guardada** (nem texto nem hash) e as análises se acumulam sem `updated_at` nem marca de superada. A fonte da nota não existe no banco | `entrevista_analises` tem 13 colunas, nenhuma de texto; `entrevistas_online`/`_presenciais` vazias; 2 linhas coexistindo |
@@ -1469,6 +1470,64 @@ Relatados pelo operador durante a jornada. Não são bugs — são custo de uso.
 | # | O quê |
 |---|---|
 | **P1** | **Avaliar troca de modelo.** Uma chamada consumiu 8.164 tokens de Sonnet 4.6, sem custo observado. Decidir se atualiza o modelo das funções de IA — pendência aberta em 2026-09-19 |
+
+## 🌙 Varredura noturna (2026-09-20, 02h30 — operador dormindo, só leitura)
+
+Nenhuma escrita em PROD, nenhum deploy, nenhum reset. Só medição.
+
+### >>! Defeito 16 (NOVO) — a prova cognitiva por opt-in serve ZERO questões
+
+Há **dois** instrumentos cognitivos, separados de propósito
+(`AvaliacaoRavenScreen.tsx:1-18`):
+
+| Tela | Fonte | Linhas | Como é liberada |
+|---|---|---|---|
+| `AvaliacaoRavenScreen` | `questoes_raven` | **60** ✅ | nominalmente, por candidatura (o botão «Liberar avaliação» do RH) |
+| `ProvaCognitivaScreen` | **`cognitivo_itens`** | **0** ❌ | pela vaga, via `aplica_cognitivo = true` |
+
+**O botão que o RH vê é o seguro** — cai no Raven, que tem as 60 matrizes. Isso responde
+o `>>?` que ficou aberto na Etapa 3: liberar nominalmente **funciona**.
+
+**A mina é o outro caminho.** Hoje as **14 vagas** têm `aplica_cognitivo = false`. O
+primeiro RH que ligar esse interruptor entrega ao candidato uma prova com **zero
+questões** — e, como a tabela está vazia e não há tratamento de lista vazia na tela, é
+o mesmo modo de falha do «Caso prático» (Defeito 4), só que pior: alguém **escolheu**
+aplicar.
+
+### Inventário real de tabelas vazias — 15, não 25
+
+| Vazia e **lida por tela de produção** | Consequência |
+|---|---|
+| `cognitivo_itens` | Defeito 16 (acima) |
+| `cognitivo_respostas` | sem respostas porque não há itens |
+| `scores_bigfive` · `scores_disc` | **Defeito 13** — o card mostra `0` |
+
+As outras 11 (`biblioteca_perguntas`, `data_deletion_log`, `perguntas_cultura`,
+`perguntas_vaga_origem`, `redacoes_candidato_em_progresso`, `respostas_bigfive`,
+`respostas_cultura`, `respostas_disc`, `sessoes_ativas`,
+`vagas_associadas_recrutadores`, `webhooks_logs`) **não são lidas** por nenhuma tela —
+são inertes de verdade.
+
+### ⚠ Três coisas que eu QUASE registrei como defeito, e não são
+
+Vale mais que os achados, porque descreve o erro que esta jornada existe para evitar.
+
+| Quase-defeito | Por que era falso |
+|---|---|
+| «25 tabelas vazias» | `pg_stat_user_tables.n_live_tup` é **estimativa do autovacuum**, não contagem. Dizia 0 para `questoes_raven` (**60** linhas), `questoes_bigfive` (**100**) e `templates_email` (**3**). A contagem real dá **15**. **Nunca usar `n_live_tup` como fato** |
+| «comparativo vazio com outros inscritos» | Havia 6 candidaturas na vaga, mas **nenhuma** em `decisao_final`. A mensagem da tela era precisa |
+| «`faixa_etaria_materializada` nula em 41/42» | É **por desenho**: `gerar_bias_snapshot()` usa `COALESCE(faixa_etaria_materializada, <derivada de data_nascimento>)`. A coluna só é preenchida para quem teve a data anonimizada |
+
+### Estado dos portões
+
+O padrão de varredura do `CLAUDE.md` acha **246** linhas (eram 244 em 06/09 — cresceu 2,
+coerente). Nenhum portão novo com forma suspeita introduzido pela jornada.
+
+⚠ `p47_teardown_dados_de_teste.sql:101` tem `v_esperado_candidatos := 41` e agora há
+**42**. **Vai recusar — é o guard funcionando**, como a regra 2 previa. Atualizar a
+constante só no fim de tudo.
+
+---
 
 ### 🔧 Fila de consertos — para o plano de correção
 
