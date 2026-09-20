@@ -1519,6 +1519,63 @@ banco**: os 7 ids (1 decisão + 6 snapshots) estão no arquivo, um de cada, com
 Nenhum colateral: os outros 6 registros de `decisao_final` e os 7 snapshots de outros
 candidatos seguem intactos.
 
+### ✅ O reset se provou na tela dela
+
+O painel da Marina voltou a **Triagem · Aguardando Resposta**, «Em triagem — retorno em
+até 48 horas», sem rejeição e sem página de explicação. Nenhum resíduo de tela.
+
+### A rejeição na triagem, registrada
+
+| Campo | Valor |
+|---|---|
+| `etapa_atual` / `status` | `rejeitado` / `rejeitado` |
+| `motivo_rejeicao` | **`reprovado_avaliacao`** (enum, não texto livre) |
+| `etapa_justificativa` | «Nao tem fit com a vaga e falta experiencia no que queremos» |
+| `data_decisao_final` | **null** — correto, não é decisão final |
+| `decisao_final` | **0 linhas** — a rejeição precoce não cria registro lá |
+
+✅ **O diálogo é o melhor texto de UI do sistema.** Exige motivo (lista fechada) **e**
+justificativa de 50+ caracteres, e explica por quê: «O candidato pode baixar este texto:
+a justificativa entra na cópia de dados que ele pede pela LGPD (Art. 18, II). Escreva com
+fatos, do jeito que você assinaria.» Avisa também que a ação é reversível manualmente.
+
+### >>! Defeito 20 (NOVO) — rejeitar na triagem não avisa o candidato
+
+**Nenhuma notificação** após a rejeição. A última linha de `notificacoes_enviadas` segue
+sendo a `revisao_respondida` das 12:38.
+
+E aqui a causa **não é** o dedupe do Defeito 18: não houve sequer tentativa. A RPC
+`rejeitar_candidatura` (`20260714100001`) **não dispara notificação nenhuma** — não há
+`net.http`, não há despacho, não há evento. O candidato é rejeitado e o sistema não tem
+caminho para contar.
+
+Somado ao Defeito 15 («Avisaremos por e-mail a cada etapa»), o resultado é: **a rejeição
+mais comum de todas — a precoce, na triagem — é silenciosa por construção.**
+
+### ✅ O que eu quase reportei errado (o 4º da jornada)
+
+Ia registrar «rejeição precoce não tem direito à explicação do Art. 20», já que não há
+linha em `decisao_final` e é lá que a página lê. **Falso.** A migration
+`20260906000007_explicacao_knockout.sql` trata **os três** casos explicitamente:
+
+> (a) decisão final humana → JÁ tem `decisao_final`, e a página já funciona;
+> (b) **rejeição humana na triagem** (`rejeitar_candidatura`) → `status='rejeitado'`, SEM
+> linha em `decisao_final`;
+> (c) knockout automático → `status='rejeitado'`, SEM linha em `decisao_final`.
+
+A cobertura existe. **Falta confirmar na tela** que ela renderiza.
+
+### >>! Defeito 21 (NOVO · UI) — o select do motivo é ilegível
+
+No diálogo de rejeição, o `<select>` do motivo abre **branco sobre branco**. O operador
+não conseguiu ler as opções — só apareceram ao passar o cursor. E há uma **opção em
+branco** na lista, entre «Perfil desalinhado com a vaga» e «Reprovado na entrevista»:
+é «Reprovado na avaliação», que existe (foi a escolhida, e gravou `reprovado_avaliacao`)
+mas **não renderiza o rótulo**.
+
+>> **«Acompanhar candidatura» não é clicável** no painel da candidata. Botão morto na
+>> única tela que ela tem para saber onde está.
+
 ---
 
 ## Etapa 10 · Knockout automático
@@ -1625,6 +1682,8 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **20** | 9 | 🔴 **Rejeitar na triagem não avisa o candidato.** A RPC `rejeitar_candidatura` não dispara notificação nenhuma — sem `net.http`, sem evento. A rejeição mais comum de todas é silenciosa por construção | `notificacoes_enviadas` sem linha nova; a RPC (`20260714100001`) não tem caminho de despacho |
+| **21** | 9 | **O select do motivo de rejeição é ilegível** (branco sobre branco) e uma das opções renderiza **sem rótulo** — «Reprovado na avaliação», que grava `reprovado_avaliacao` corretamente | tela |
 | **19** | 8 | **«Revertida» não reverte.** O veredito é gravado e `decisao`, `etapa_atual` e `status` seguem `rejeitado`. O e-mail diz à candidata que «a decisão foi revista» e o painel dela diz Rejeitado. Não há caminho para executar a reversão | `revisao_veredito='revertida'` × `decisao='rejeitado'`; a RPC só grava o veredito (REVISAO-03) |
 | **18** | 8 | 🔴 **A candidata foi rejeitada e não foi avisada.** O `dedupe_key` é `<candidatura>:decisao`, sem a decisão nem o instante: a aprovação ocupou a chave e a rejeição foi descartada em silêncio | 3 e-mails saíram (todos p/ RH), 0 para ela. A linha antiga segue `entregue`; nada no banco denuncia |
 | **3b** | 8 | **Ler a explicação versiona a decisão.** 5 snapshots para 1 decisão: 4 são visitas à página, 1 é o pedido de revisão | `decisao_final_historico`: mesmo `decidido_em` nas 5, só `arquivado_em` muda |
