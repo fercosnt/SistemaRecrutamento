@@ -1797,11 +1797,52 @@ em duas linhas. Se mudar só um, o candidato vê `rh@` na explicação e `lgpd@`
 - [ ] Os 6 fictícios aparecem ranqueados
 - [ ] **Julgamento seu:** a ordem faz sentido? (a variância da IA é backlog P1 — 89/75/80 no mesmo candidato em rodadas diferentes)\*
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 15:24 · na vaga **Social Media**, não na Consultor
 
-```
-(preencha)
-```
+>> **O roteiro está desatualizado neste ponto.** Ele manda comparar «os 6 fictícios» na
+>> Consultor, e **não há nenhum finalista lá** — os 6 candidatos dela estão em triagem e
+>> inscrição. A Social Media tem 6 com análise e foi usada no lugar.
+
+>> **E a URL do roteiro não funciona sozinha.** `/rh/vagas/:id/comparativo` recebe os ids
+>> por **router state** (`VagaCandidatosRHPage.tsx:121`); acessada direto mostra «Selecione
+>> ao menos 2 candidatos». O caminho é `/rh/vagas/:id/candidatos` → selecionar → Comparar.
+
+### ✅ O comparativo funciona, e funciona bem
+
+Ranking 1-6 coerente com os scores (95 · 93 · 52 · 28 · 22 · 18), com **justificativas
+cruzadas de verdade** — não são resumos individuais colados lado a lado:
+
+> «C1 se destaca pela alta produtividade e resultados mensuráveis em alcance, além de um
+> portfólio mais extenso e diversificado **do que C2**.»
+> «C2 tem experiência robusta mas é ligeiramente **superado por C1** em produção e impacto.»
+
+✅ **Anonimização no prompt.** A IA raciocina sobre **C1…C6**, nunca sobre nomes — a tela
+resolve os rótulos de volta depois. É uma defesa de viés real, e barata.
+
+✅ **Custo irrisório:** `comparative_ranking`, 4.445 tokens de entrada, 978 de saída,
+**US$ 0,00125** para comparar 6 candidatos. Setenta segundos de latência.
+
+✅ `Sugestão da IA — decisão é sempre humana` no topo, e **Exportar PDF** disponível.
+
+### >>! Defeito 25 (NOVO) — o comparativo inclui, ranqueia e oferece «Avançar» para quem já foi rejeitado
+
+Dois dos seis comparados **já estão fora do processo**:
+
+| Candidata | Etapa | Status | No comparativo |
+|---|---|---|---|
+| **Claude Teste Revisao** | Rejeitado | **Rejeitado** | 4º lugar · botão **«Avançar»** |
+| **Marina Alves Tavares** | Inscrição | **Rejeitado** (knockout) | 5º lugar · botão **«Avançar»** |
+
+A tela de seleção mostra o status de cada um, mas **não impede** selecioná-los, e o
+comparativo **não marca** que estão encerrados. Pior: oferece **«Avançar»** — a ação que
+levaria adiante alguém eliminado por regra objetiva da vaga.
+
+No caso da Marina é contraditório de ponta a ponta: ela foi eliminada **por não atender à
+disponibilidade presencial**, e o comparativo lista como «gap» dela exatamente
+«Disponibilidade não atende ao requisito presencial fixo» — e ainda assim oferece avançar.
+
+>> É o **Defeito 24 chegando à tela**: a análise que não deveria ter rodado agora ranqueia
+>> a candidata num comparativo, com botão de ação. O desperdício virou risco de decisão.
 
 ---
 
@@ -1868,6 +1909,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **25** | 11 | 🔴 **O comparativo ranqueia e oferece «Avançar» para quem já foi rejeitado.** Marina (knockout) em 5º e Claude Teste Revisao (rejeitado) em 4º, ambos com botão de avançar | tela + `candidaturas.status='rejeitado'` nos dois |
 | **24** | 10 | 🔴 **A IA analisa quem o knockout já eliminou.** Análise criada 0,6 s após a eliminação, 47 s de processamento, **US$ 0,045** por candidato. Tratamento sem finalidade (LGPD Art. 6º III) e contradiz a explicação, que diz «nenhuma análise foi usada» | `analise_candidato_vaga.created_at` 0,6 s após `candidaturas.created_at`; `ai_call_logs` com o custo |
 | **23** | 10 | **Contraste ilegível na tela de encerramento** — «Agradecemos seu interesse» sai escuro sobre fundo claro. É a única tela que o eliminado vê | tela |
 | **22** | 9 | 🔴🔴 **O Art. 20 é inalcançável para quem é rejeitado na triagem.** O cartão «Ver explicação» some: a condição exige `data_decisao_final OR feedback_rejeicao`, e a rejeição humana grava `motivo_rejeicao`/`etapa_justificativa` — nenhum dos dois | `DashboardCandidatoPage.tsx:159`; medido: os dois campos null. Backend cobre os 3 casos (Phase 46), o front gateia pelo critério da Phase 17 |
