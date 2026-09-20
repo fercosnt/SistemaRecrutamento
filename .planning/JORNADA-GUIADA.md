@@ -1143,11 +1143,90 @@ de rejeição). Fica na lista de caminhos não exercitados.
 - [ ] E-mail de aprovação chega para Marina
 - [ ] No painel dela: cartão **«Entenda a decisão sobre sua candidatura»**
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20, **conferido no banco** · decisão ainda NÃO registrada
 
-```
-(preencha)
-```
+### >>! Defeito 14 (NOVO) — nada trava o avanço, e a presencial durou 30 segundos
+
+`historico_candidatura`:
+
+| De → Para | Hora |
+|---|---|
+| entrevista_online → **entrevista_presencial** | `02:06:01` |
+| entrevista_presencial → **decisao_final** | `02:06:31` |
+
+**Trinta segundos.** Nenhuma entrevista presencial foi marcada, realizada, transcrita ou
+avaliada — e o sistema não pediu nada. O histórico agora afirma que a candidata **passou
+pela entrevista presencial**, e não passou. Quem auditar o processo daqui a seis meses
+vai ler uma etapa que não aconteceu.
+
+### >>! Defeito 15 (NOVO) — o sistema promete avisar «a cada etapa» e avisa em 1 de 4
+
+O e-mail de confirmação da inscrição diz, textualmente:
+
+> «A partir de agora, você poderá acompanhar o andamento pelo painel do candidato.
+> **Avisaremos por e-mail a cada etapa.**»
+
+`notificacoes_enviadas` para os **quatro** avanços humanos:
+
+| Avanço | E-mail? |
+|---|---|
+| triagem → avaliação assíncrona | ✅ `avaliacao_liberada` |
+| avaliação assíncrona → entrevista online | **nenhum** |
+| entrevista online → entrevista presencial | **nenhum** |
+| entrevista presencial → decisão final | **nenhum** |
+
+A candidata foi movida três vezes **em silêncio**. Do ponto de vista dela, a candidatura
+parou na avaliação. Não é o aviso que falta por acaso — **é uma promessa escrita que o
+sistema não cumpre**.
+
+### >> `criterio_texto` nulo em 4 de 4 avanços humanos
+
+Confirma e agrava a observação da Etapa 3: **nenhum** avanço feito por pessoa gravou
+justificativa. Só a transição automática (`inscricao → triagem`) tem texto. A trilha de
+auditoria registra *que* mudou e *quem* mudou, nunca *por quê*.
+
+### O consolidado: 96,88 sobre 40% dos pesos
+
+| Linha | Valor | Peso |
+|---|---|---|
+| Triagem | 96/100 | **Contextual · não pondera** |
+| Work sample (SJT) | 100/100 | 15% |
+| Redação cultural | 95/100 | 25% |
+| **Entrevista** | **N/A** | — (peso 35% na vaga) |
+| Perfil comportamental / Cognitivo | — | Contextual |
+
+Aritmética confere: `(100×15 + 95×25) / 40 = 96,875` → **96,88**. Ou seja, o número
+grande no topo é calculado sobre **40 dos 100 pontos de peso** da vaga.
+
+✅ **A triagem ser contextual é deliberado e documentado** (`ConsolidacaoDashboard.tsx:83-84`,
+UX-09: pré-triagem de CV é contexto visível, nunca agrega). Não é defeito.
+
+✅ **A entrevista ficar fora também tem lógica**: a análise existe (média 4,5), mas
+`scores_candidato.score` para `tipo='entrevista'` é **null** com `status='pendente_humano'`
+— ela só pondera depois da revisão humana. Coerente com RNF-07a, e a Recomendação
+**avisa**: «Revisão humana pendente em entrevista».
+
+>>! **O que incomoda é a apresentação:** «SCORE CONSOLIDADO 96.88» em destaque, sem dizer
+>>! que 60% do peso está de fora. E a entrevista aparece como **«N/A»** — que lê como
+>>! «não se aplica» — quando o correto seria «aguardando revisão humana».
+
+>> **Mais um peso morto:** `vagas.pesos_avaliacao` define `triagem: 25`, e o código
+>> **nunca usa** esse peso (a triagem é contextual por desenho). Peso configurável que
+>> não pondera nada — mesmo padrão das colunas mortas.
+
+✅ **Comparativo:** «Nenhum finalista para comparar ainda» — correto, a Marina é a única
+em decisão final nesta vaga.
+
+✅ **A tela de decisão exige justificativa** de no mínimo 50 caracteres, com o aviso de
+que «fica registrada na trilha de auditoria». Três opções: Aprovar · Rejeitar · Manter em
+espera.
+
+### 🎨 Propostas do operador nesta tela
+
+| # | Proposta |
+|---|---|
+| **PP-12** | A decisão final deveria mostrar os **textos completos das análises da IA**, não só os números |
+| **PP-13** | Mostrar **perfil comportamental e cognitivo** na decisão, mesmo marcados como não ponderantes — o gestor quer ver, ainda que não contem no cálculo |
 
 ---
 
@@ -1298,6 +1377,8 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
+| **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **15** | 7 | **O sistema promete avisar «a cada etapa» e avisa em 1 de 4.** A candidata foi movida três vezes em silêncio | Texto do e-mail de confirmação × `notificacoes_enviadas` |
 | **13** | 6 | 🔴 **O card da lista do RH mostra `0`** para Big Five e Cultura de uma candidata com Big Five completo e redação 95/100. Zero é a pior nota, não «sem dado», e isto é a tela de triagem visual | `CandidatosRHPage.tsx:345-348` lê `scores_bigfive` (0 linhas na história) e `analise_ia_cultura` (coluna morta); os helpers devolvem `0` e o `?? 'N/A'` nunca dispara |
 | **12** | 6 | **A transcrição não é guardada** (nem texto nem hash) e as análises se acumulam sem `updated_at` nem marca de superada. A fonte da nota não existe no banco | `entrevista_analises` tem 13 colunas, nenhuma de texto; `entrevistas_online`/`_presenciais` vazias; 2 linhas coexistindo |
 | **11** | 5 | **O guia de entrevista ignora o candidato.** Zero marcadores dela em 15.745 chars. CV, redação, respostas e análise **não são enviados** ao prompt; só vaga + notas. Uma das 6 perguntas pede algo que ela já documentou | Busca literal no `entrevista_guias.guia` + leitura de `gerar-guia-entrevista/index.ts:205-260` |
