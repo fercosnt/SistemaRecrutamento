@@ -1710,7 +1710,46 @@ candidato eliminado vê no momento da eliminação.
 | # | Questão | O que a medição informa |
 |---|---|---|
 | **PP-15** | **Revelar o critério do knockout?** | Hoje não revela, por desenho (D-15). O sistema **sabe** qual foi (`opcao_knockout_id` gravado) e escolhe não dizer |
-| **PP-16** | **Trocar `lgpd@` por `rh@`?** | Ver a análise abaixo — não é troca cosmética |
+| **PP-16** | **Trocar `lgpd@` por `rh@`** | ✅ **DECIDIDO pelo operador em 2026-09-20: usar `rh@beautysmile.com.br`** |
+
+### ✅ PP-15 e PP-16 — decididas
+
+**PP-15 — os requisitos eliminatórios vão para a PÁGINA DA VAGA.** O critério continua
+**não** sendo revelado na explicação (quem quer o mapa não ganha; quem errou o clique tem
+a porta do «respondeu por engano»). O conserto é anterior: a candidata não pode descobrir
+que a vaga é presencial **depois** de preencher o formulário inteiro.
+
+**PP-16 — o canal passa a ser `rh@beautysmile.com.br`.**
+
+>> **Correção de um argumento meu.** Eu levantei que trocar `lgpd@` por `rh@` poderia
+>> desviar contestações do Art. 20 para longe do Encarregado. **O argumento não se aplica
+>> aqui**, e o repositório já dizia por quê: a Beauty Smile **decidiu não designar
+>> Encarregado** em 2026-08-13 (`.planning/DECISAO-ENCARREGADO.md`, Art. 41). O que a lei
+>> exige de agente de pequeno porte é **um canal de comunicação ao titular** — não um
+>> endereço com nome específico. O comentário de `canalPrivacidade.ts:19-23` é explícito:
+>> «saiu apenas o título que não corresponde a ninguém; o canal em si não pode mudar».
+>>
+>> E o segundo argumento — «quem decidiu não deveria receber a contestação» — **também
+>> não vale para o knockout**, que é o único lugar onde este e-mail aparece numa
+>> explicação: **não há humano que tenha decidido**. A decisão do operador está melhor
+>> fundamentada do que a minha objeção sugeria.
+
+**⚠ Escopo do conserto, medido — não é um lugar só:**
+
+| Onde | Arquivo |
+|---|---|
+| **Fonte única** | `features/privacidade/constants/canalPrivacidade.ts:42` |
+| Explicação do Art. 20 / knockout | `ExplicacaoCandidatoPage.tsx:245,248` (importa a constante) |
+| **Cadastro — tela de autorizações** | `AutorizacoesStep.tsx:284,287` — **hardcoded**, não usa a constante |
+| Teste que vai falhar (e deve) | `ExplicacaoCandidatoPage.test.tsx:422-423` verifica o literal |
+
+Trocar só a constante **não resolve**: o `AutorizacoesStep` tem o endereço escrito à mão
+em duas linhas. Se mudar só um, o candidato vê `rh@` na explicação e `lgpd@` no cadastro.
+
+>> **A decisão tem uma dependência prática:** `rh@beautysmile.com.br` precisa **existir e
+>> ser lido**. Um canal legal impresso na tela que cai no vazio é pior que o endereço
+>> errado — e é o tipo de promessa sem código que o próprio módulo de privacidade diz
+>> existir para impedir.
 
 ---
 
