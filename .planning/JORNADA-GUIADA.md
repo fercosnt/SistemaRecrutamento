@@ -1472,11 +1472,52 @@ Rejeitar direto na triagem, com justificativa ≥50 caracteres.
 - [ ] **NÃO** aparece cartão de explicação no painel de Marina. É diferente da Etapa 8 de propósito: aquela foi decisão avaliada; esta é triagem
 - [ ] ⚠ O texto que você escrever **entra na cópia de dados** que ela pode baixar — a tela avisa isso ao lado do campo. Confira que o aviso está lá
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 · reset executado · rejeição ainda NÃO feita
+
+### 🟢 Um portão MORDEU — e é o melhor achado da etapa
+
+Ao tentar regredir `rejeitado → triagem` limpando `etapa_justificativa` no mesmo
+`UPDATE`, o banco **recusou**:
 
 ```
-(preencha)
+P0001: Regressão de etapa exige justificativa preenchida
+CONTEXT: PL/pgSQL function public.avancar_etapa() line 14
 ```
+
+Não é aviso de UI — é trigger no banco. Uma regressão de etapa **não passa sem motivo
+registrado**. Refiz o `UPDATE` fornecendo a justificativa que ele exige, em vez de
+contorná-la; o texto gravado diz que é reset de validação e aponta o backup.
+
+### ⛓ E isso conecta com o Defeito 17 de um jeito que muda a gravidade dele
+
+**O reset da Etapa 8 passou por este mesmo portão — e não devia.** Lá eu regredi
+`aprovado → decisao_final` e **nada reclamou**, porque `etapa_justificativa` ainda
+carregava o texto **da aprovação**. O portão viu campo preenchido e liberou.
+
+Ou seja: a justificativa herdada (Defeito 17) **desarma um portão de integridade**. Uma
+regressão que deveria exigir motivo novo passa carregando o motivo de outra coisa — e o
+histórico registra a regressão com uma justificativa que fala de aprovar.
+
+>> Isso promove o Defeito 17 de «sujeira na auditoria» para «enfraquece um controle».
+>> E confirma a forma do conserto: limpar `etapa_justificativa` depois de consumida **não
+>> é opcional** — sem isso o portão fica cego.
+
+### O reset (autorizado, escopado, com backup verificado)
+
+`~/Desktop/BACKUP-art20-marina.sql` — trilha completa do Art. 20. **Verificado contra o
+banco**: os 7 ids (1 decisão + 6 snapshots) estão no arquivo, um de cada, com
+`revisao_veredito`, `revisao_resultado` e `revisao_por_usuario`.
+
+| | Antes | Depois |
+|---|---|---|
+| `decisao_final` (Marina / total) | 1 / 7 | **0 / 6** |
+| `decisao_final_historico` (Marina / total) | 6 / 13 | **0 / 7** |
+| `candidatos` / `candidaturas` | 42 / 32 | **42 / 32** — intactos ✅ |
+| `etapa_atual` | `rejeitado` | **`triagem`** |
+| `historico_candidatura` | 8 | **9** — regressão registrada, nada apagado |
+
+Nenhum colateral: os outros 6 registros de `decisao_final` e os 7 snapshots de outros
+candidatos seguem intactos.
 
 ---
 
