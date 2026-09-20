@@ -866,11 +866,75 @@ No perfil de Marina → **«Gerar guia»**.
 - [ ] **Julgamento seu:** a espera é tolerável?
 - [ ] ⚠ **Não clique de novo.** Cliques repetidos esgotaram o limite de concorrência e fizeram _todas_ as funções de IA responderem «Failed to fetch» (§4 do RETOMAR)
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20, **conferido no banco**
+
+**O guia foi gerado. E não tem uma linha sobre a candidata.**
+
+| | |
+|---|---|
+| `entrevista_guias.id` | `9c903ca2-…` · `tipo='online'` · `prompt_version 1.0.0` |
+| Gerado em | `01:17:43` |
+| Tamanho | 15.745 caracteres, 6 perguntas STAR/PEI com âncoras BARS 1-5 |
+| Modelo | `claude-sonnet-4-6`, `temperature 0.10`, `max_tokens 8000` |
+
+>> O botão **não se chama «Gerar guia»** e não está no perfil, como o roteiro dizia.
+>> Fica em **«Abrir Entrevista Online»** → aba **«Guia de entrevista»**, com dois botões
+>> («entrevista online» e «entrevista presencial»). O roteiro estava desatualizado.
+
+### >>! Defeito 11 (NOVO) — o guia de entrevista ignora o candidato por completo
+
+Busca literal no conteúdo gravado (15.745 caracteres):
+
+| Marcador | No guia? |
+|---|---|
+| «Marina» (o nome dela) | **não** |
+| «Neusa» (a redação inteira) | **não** |
+| «no-show» / 31%→12% (a métrica do CV) | **não** |
+| «Studio Lumen» / «Vértice» (empregadores) | **não** |
+| «GoHighLevel» (o CRM que ela nomeou) | **não** |
+| R$ 38.400 / R$ 45.000 | **não** |
+
+**Não é falha do modelo — o dado nunca é enviado.** Lendo
+`gerar-guia-entrevista/index.ts:205-260`, o que vai ao prompt é:
 
 ```
-(preencha)
+Vaga: <título> · Formato: <online|presencial>
+Competências críticas (pesos): <chaves de pesos_avaliacao>
+Perfil ideal: <primeiros 800 chars da VAGA>
+Dimensões fracas (score<3): <derivadas só de scores_candidato>
 ```
+
+A `candidaturas` é consultada **só** com `select("id, vaga_id, candidato_id")` — para o
+cross-check de IDOR. **Currículo, redação, respostas da triagem, Big Five e a análise da
+IA não entram.** O único sinal derivado da candidata é `weakDims`, e ele vem de
+**notas**, não de conteúdo — para uma candidata forte ele vem **vazio**, e aí o guia é
+100% da vaga.
+
+**A consequência é concreta e cara.** A pergunta 2 do guia é *«Pense em um lead que não
+respondeu após o primeiro contato. Como você conduziu o acompanhamento? Quantas
+tentativas, em quais canais?»* — ela **já respondeu isso por escrito**, no currículo:
+cadência de 7 toques em 21 dias (D+1, D+3, D+7, D+14, D+21). O entrevistador gasta uma
+das 6 perguntas para ouvir o que já está documentado, e **não pergunta nada** sobre a
+história da dona Neusa, que é onde há material real para aprofundar.
+
+É um **roteiro do CARGO**, não um guia DAQUELE candidato — e a tela o apresenta dentro
+da ficha dela, o que faz parecer personalizado.
+
+>> Detalhe sem impacto hoje: o código traz `"gpt-4o-mini"` como modelo de fallback
+>> (`index.ts:227`). Não é usado — a linha de `prompt_versions` existe e manda
+>> `claude-sonnet-4-6`. Mas é um fallback para **outro provedor** num sistema Claude;
+>> se a linha sumir, o fallback não falha alto, ele troca de modelo em silêncio.
+
+>> A tela admite o estado do agendamento por escrito: «Entrevista agendada: 24/09/2026
+>> às 09:00 **(manual no V1)**». Honesto, e reforça a PP-8.
+
+### 🎨 Mais propostas do operador
+
+| # | Proposta |
+|---|---|
+| **PP-9** | **Entrevista como abas dentro da ficha do candidato** — uma aba «online» e uma «presencial», cada uma com o botão de gerar guia e o campo de colar transcrição. Hoje é página separada, mesmo problema da PP-2 (workspace de redação) |
+| **PP-10** | **Avaliação da entrevista: nota 0-10 do gestor + campo de notas**, em vez de avaliar competência por competência. Ao salvar, dispara a análise da IA |
+| **PP-11** | **Uma análise da IA que EVOLUI por etapa**, em vez de congelar na triagem. A cada etapa concluída ela se atualiza e fala das etapas. (Alternativa discutida: uma análise separada por etapa — decisão em aberto) |
 
 ---
 
@@ -1061,6 +1125,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
+| **11** | 5 | **O guia de entrevista ignora o candidato.** Zero marcadores dela em 15.745 chars. CV, redação, respostas e análise **não são enviados** ao prompt; só vaga + notas. Uma das 6 perguntas pede algo que ela já documentou | Busca literal no `entrevista_guias.guia` + leitura de `gerar-guia-entrevista/index.ts:205-260` |
 | **10** | 4 | **O reagendamento apaga o horário anterior.** A linha é atualizada no lugar; o slot original (23/09) não existe mais no banco, só no e-mail já enviado | `agendamentos_entrevista`: mesmo `id`, `created_at 00:54:24` / `updated_at 00:56:17`, `data_hora` já é a nova |
 | **3** | 3 | **«Tempo estimado: ~10 min» é constante de fallback**, igual nos 4 cards. O real existe em `perguntas.tempo_est_min` (7 min nesta vaga, 30 em outra) e nunca é lido. A tela da redação diz 15-25 min e contradiz o próprio card | `AvaliacaoContainer.tsx:240` + `vagas.testes_aplicaveis` sem o campo + valores reais medidos na tabela `perguntas` |
 
