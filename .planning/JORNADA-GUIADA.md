@@ -1915,6 +1915,75 @@ entre as duas telas fica documentada no próprio arquivo que ela baixa.
 >> escrevi como teste de cache. Num caso real, o titular receberia a análise real da
 >> entrevista dele — o que é o comportamento certo.
 
+### ✅ A 2ª solicitação é barrada NO BANCO, não só na tela
+
+Pedida de novo, o botão desabilitou — e `solicitacoes_dados` continuou com **1 linha**.
+A trava é real.
+
+### 🔴 Defeito 4 do roteiro — CONFIRMADO, e a data aparece 4 vezes
+
+`05/10/2026` nas duas telas (aviso e confirmação), duas vezes em cada. A especificação
+pede **por extenso**. Numa tela irreversível, `05/10` é ambíguo para quem lê rápido — e
+para quem está acostumado a `MM/DD`. A data **bate com o banco**
+(`executar_em = 2026-10-05 20:38:25`, exatos 15 dias); errado é só o formato.
+
+### 🟢 O melhor texto do sistema inteiro
+
+> «**Isto não tem volta.** … não podem ser recuperados — **nem por você, nem pela Beauty
+> Smile, nem pelo nosso suporte. Não existe cópia de reserva do seu currículo.**»
+> «Cancelar depois interrompe a exclusão, **mas as candidaturas encerradas não voltam**.»
+> «Se quiser guardar uma cópia dos seus dados antes, feche esta janela e use Pedir uma cópia.»
+
+Diz o que se perde, o que **não** volta mesmo cancelando, e oferece a saída sem empurrar.
+O botão de escape se chama «**Fechar sem apagar nada**» — não «Cancelar», que seria
+ambíguo numa tela sobre cancelamento.
+
+### ✅ O pedido agenda, não executa — e o acesso continua, corretamente
+
+`situacao='agendado'`, `executar_em 2026-10-05`, conta **viva**. Manter o acesso é o
+comportamento **certo**: a tela promete «até lá você pode cancelar por esta página», e
+bloquear a conta anularia a própria promessa.
+
+### ✅ E o cancelamento funciona de verdade
+
+`situacao='cancelado'`, `cancelado_em 20:40:11`. E confirmei o que importa: **zero**
+pedidos de exclusão na rota de purga (`situacao='agendado' AND cancelado_em IS NULL`).
+Saiu da fila, não só da tela.
+
+### >>! Defeito 26 (NOVO) — o pedido de exclusão marcou como «encerrada a pedido» uma candidatura que o KNOCKOUT eliminou
+
+| Candidatura | `etapa_atual` | `status` | `encerrada_a_pedido_em` |
+|---|---|---|---|
+| Consultor (rejeitada pelo RH) | `rejeitado` | `rejeitado` | **null** ✅ intocada |
+| **Social Media (knockout)** | **`inscricao`** | `rejeitado` | **`20:38:25`** ❌ |
+
+A Social Media foi **eliminada automaticamente em 20/09**, e agora consta também como
+**encerrada a pedido da titular**. A história ficou errada: parece que ela desistiu,
+quando foi eliminada por não atender a um requisito.
+
+**E os 3 RH receberam e-mail** (`candidatura_encerrada_a_pedido_rh`) avisando de um
+encerramento que a candidata não fez.
+
+>> **⛓ É o MESMO eixo do Defeito 22 — e isso faz um padrão.** Lá, o cartão do Art. 20
+>> sumia porque a condição testava campos que a rejeição humana não preenche. Aqui, a
+>> candidatura foi tratada como «em andamento» porque o filtro olha **`etapa_atual`**
+>> (`inscricao`) e ignora **`status`** (`rejeitado`). **Duas telas diferentes, o mesmo
+>> erro: confiar em `etapa_atual` para saber se a candidatura acabou.** O conserto de
+>> ambas deve varrer por essa FORMA, não caso a caso — senão o terceiro aparece depois.
+
+### >>! Defeito 27 (NOVO) — a titular não é avisada de nada sobre os próprios dados
+
+Nem do pedido de exclusão, nem do cancelamento. Os **únicos** três e-mails foram para
+**rh2, rh3 e fernando@**. A candidata recebeu **zero**.
+
+Pedir exclusão é ação **irreversível** sobre dados pessoais. Sem confirmação ao titular:
+quem invadir a conta dela pede a exclusão e **ela não fica sabendo** — e o prazo de 15
+dias corre em silêncio até a anonimização. A confirmação por e-mail não é cortesia aqui,
+é o controle que detecta a conta comprometida.
+
+>> `recibo_enviado_em` está **null** na linha da exclusão — a coluna do recibo existe e
+>> não é escrita.
+
 ---
 
 ## Etapa 13 · Telas de admin (os 4 defeitos restantes)
@@ -1961,6 +2030,8 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **27** | 12 | 🔴 **A titular não é avisada de nada sobre os próprios dados.** Pedido de exclusão e cancelamento geraram 3 e-mails, todos para o RH, zero para ela. Sem isso, conta invadida → exclusão pedida → ela não sabe | `notificacoes_enviadas` 20:38:26: rh2, rh3, fernando@. `recibo_enviado_em` null |
+| **26** | 12 | **O pedido de exclusão marcou «encerrada a pedido» uma candidatura eliminada por knockout** — o filtro de «em andamento» olha `etapa_atual` e ignora `status`. **Mesmo eixo do Defeito 22** | `encerrada_a_pedido_em` preenchida na Social Media (`etapa_atual='inscricao'`) e null na Consultor (`etapa_atual='rejeitado'`) |
 | **25** | 11 | 🔴 **O comparativo ranqueia e oferece «Avançar» para quem já foi rejeitado.** Marina (knockout) em 5º e Claude Teste Revisao (rejeitado) em 4º, ambos com botão de avançar | tela + `candidaturas.status='rejeitado'` nos dois |
 | **24** | 10 | 🔴 **A IA analisa quem o knockout já eliminou.** Análise criada 0,6 s após a eliminação, 47 s de processamento, **US$ 0,045** por candidato. Tratamento sem finalidade (LGPD Art. 6º III) e contradiz a explicação, que diz «nenhuma análise foi usada» | `analise_candidato_vaga.created_at` 0,6 s após `candidaturas.created_at`; `ai_call_logs` com o custo |
 | **23** | 10 | **Contraste ilegível na tela de encerramento** — «Agradecemos seu interesse» sai escuro sobre fundo claro. É a única tela que o eliminado vê | tela |
