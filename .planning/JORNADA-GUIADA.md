@@ -1857,11 +1857,63 @@ disponibilidade presencial**, e o comparativo lista como «gap» dela exatamente
 - [ ] Pedir exclusão → **Defeito 4:** a data sai `dd/mm/aaaa`, e a especificação pede **por extenso**
 - [ ] Cancelar → volta ao normal
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 20:30 · cópia de dados pedida e recebida
 
-```
-(preencha)
-```
+### ✅ A cópia (Art. 18) funciona, e é rápida
+
+| | |
+|---|---|
+| `solicitacoes_dados.tipo` | `acesso` |
+| `situacao` | **`atendido`** |
+| Solicitado → atendido | `20:30:51.373` → `20:30:56.027` = **4,65 s** |
+| Arquivo | `beauty-smile-meus-dados-2026-09-20.json`, **82.715 bytes** |
+| `versao_allowlist` | **1.1.0** — a cópia declara a versão da regra que a gerou |
+
+Download **síncrono**, sem fila e sem e-mail intermediário.
+
+**O arquivo traz 30 coleções**, as vazias inclusive — o que é a escolha certa: dizer «esta
+tabela existe e não tem nada seu» é diferente de omitir a tabela.
+
+✅ **E abre com uma seção `o_que_nao_esta_nesta_copia`**, em português de gente:
+
+> «Não entram os registros internos de funcionamento do sistema — por exemplo, o tempo e o
+> custo de processamento das nossas ferramentas de tecnologia. Eles descrevem o sistema,
+> não você.»
+
+Isso é raro e é correto: a cópia declara a própria fronteira em vez de deixar o titular
+supor que recebeu tudo.
+
+### 🔴 A pergunta do Defeito 24, respondida — e a contradição está no arquivo
+
+`analise_candidato_vaga` vem com **2 linhas**:
+
+| `score_match` | Vaga | |
+|---|---|---|
+| **96** | Consultor | a da triagem, legítima |
+| **22** | **Social Media** | **a que rodou 0,6 s DEPOIS do knockout** |
+
+**A Marina recebe, por escrito, a análise de IA que a tela de explicação disse que não
+existia.** Aquela tela afirma «Nenhuma nota, análise ou perfil foi usado nesta decisão» —
+verdade sobre a decisão, mas o arquivo entrega um score 22 sobre ela, com `resumo_cv` de
+2.000 caracteres do currículo dela.
+
+Das duas saídas possíveis que eu havia mapeado, **esta é a menos ruim**: o sistema entrega
+o que guarda. Se omitisse, guardaria em segredo uma análise sobre ela. Mas a contradição
+entre as duas telas fica documentada no próprio arquivo que ela baixa.
+
+>> **Consequência para o conserto do Defeito 24:** não basta parar de analisar depois do
+>> knockout daqui para frente. As análises **já geradas** sobre candidatos eliminados
+>> continuam na cópia de dados de cada um. O conserto tem uma segunda parte: decidir o que
+>> fazer com o passivo.
+
+>> ⚠ **Consequência do MEU reset, não do sistema:** `decisao_final` e
+>> `decisao_final_historico` vêm **vazias** na cópia dela, porque eu apaguei nas Etapas 8 e
+>> 9. A trilha do Art. 20 que ela realmente exerceu (pedido, revisão, veredito) não está no
+>> arquivo. Num uso real estaria. Registro para ninguém ler isto como defeito.
+
+>> As 4 linhas de `entrevista_analises` incluem a análise da transcrição **fraca**, que eu
+>> escrevi como teste de cache. Num caso real, o titular receberia a análise real da
+>> entrevista dele — o que é o comportamento certo.
 
 ---
 
