@@ -1649,11 +1649,68 @@ Marina se candidata à **Social Media** e, na disponibilidade, marca
 - [ ] A explicação diz **«automaticamente, sem avaliação de uma pessoa»** e **não** oferece revisão — no lugar, `lgpd@beautysmile.com.br`
 - [ ] ⚠ **O critério nunca é revelado** — ela não pode descobrir qual resposta a eliminou
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 13:58 · **a melhor etapa do sistema até aqui**
 
-```
-(preencha)
-```
+### ✅ O knockout funciona, e funciona direito
+
+Nova candidatura `25a4231c-…` na vaga Social Media, criada `13:58:37`:
+
+| Campo | Valor | |
+|---|---|---|
+| `etapa_atual` | **`inscricao`** | nem chegou à triagem ✅ |
+| `status` | `rejeitado` | encerrou na hora ✅ |
+| `opcao_knockout_id` | **`0f59f62b-…`** | registra QUAL opção eliminou — internamente |
+| `motivo_rejeicao` | `knockout_automatico` | |
+| `feedback_rejeicao` | preenchido (texto neutro) | |
+
+**E-mail entregue em 4,1 s** (`13:58:37.920` → `13:58:42.065`), chave
+`25a4231c…:decisao` — outra candidatura, outra chave, o Defeito 18 não alcança.
+
+### ✅ Os três critérios do roteiro, cumpridos
+
+1. **«encerrada automaticamente na inscrição, sem avaliação de uma pessoa e sem passar
+   pelas etapas do processo»** — está lá, textual.
+2. **Não oferece revisão** e explica por quê: «Como esta decisão não envolveu avaliação de
+   uma pessoa da nossa equipe, não há uma revisão a pedir por aqui». Oferece
+   `lgpd@beautysmile.com.br`.
+3. **O critério NÃO é revelado.** Diz «uma das respostas que você deu no formulário não
+   atende a um deles» — sem dizer qual resposta, nem qual requisito. E acrescenta a porta
+   para o erro honesto: «Se você acredita que respondeu ao formulário por engano».
+
+E vai além do pedido: «**Nenhuma nota, análise ou perfil foi usado nesta decisão**» e
+«não impede que você se candidate a outras».
+
+### 🎯 A previsão do Defeito 22 se confirmou — o conserto é de UMA linha
+
+Era a razão de rodar esta etapa antes de consertar. A comparação agora é experimental,
+não teórica:
+
+| | Knockout (cartão **aparece**) | Rejeição na triagem (cartão **some**) |
+|---|---|---|
+| `data_decisao_final` | null | null |
+| **`feedback_rejeicao`** | **preenchido** ✅ | **null** ❌ |
+| `motivo_rejeicao` | `knockout_automatico` | `reprovado_avaliacao` |
+
+A segunda condição de `hasDecisaoFinal` é `data_decisao_final OR feedback_rejeicao`. O
+knockout passa por `feedback_rejeicao`; a rejeição humana não preenche nenhum dos dois.
+
+**Conserto confirmado, e escolhido:** fazer `rejeitar_candidatura` gravar
+`feedback_rejeicao` — é o que o knockout já faz, o front não muda, e o texto neutro passa
+a existir também para a rejeição humana (que hoje não tem nenhum). A alternativa (mexer na
+condição do front) deixaria o candidato com cartão mas sem texto de feedback.
+
+### >>! Defeito 23 (NOVO · UI) — a tela de encerramento tem contraste ilegível
+
+Na tela «Inscrição recebida», a linha «Agradecemos seu interesse na Beauty Smile» sai
+**escura sobre fundo claro-esverdeado**, quase invisível. É a primeira e única tela que o
+candidato eliminado vê no momento da eliminação.
+
+### 🎨 Duas decisões de produto levantadas pelo operador
+
+| # | Questão | O que a medição informa |
+|---|---|---|
+| **PP-15** | **Revelar o critério do knockout?** | Hoje não revela, por desenho (D-15). O sistema **sabe** qual foi (`opcao_knockout_id` gravado) e escolhe não dizer |
+| **PP-16** | **Trocar `lgpd@` por `rh@`?** | Ver a análise abaixo — não é troca cosmética |
 
 ---
 
@@ -1739,6 +1796,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **23** | 10 | **Contraste ilegível na tela de encerramento** — «Agradecemos seu interesse» sai escuro sobre fundo claro. É a única tela que o eliminado vê | tela |
 | **22** | 9 | 🔴🔴 **O Art. 20 é inalcançável para quem é rejeitado na triagem.** O cartão «Ver explicação» some: a condição exige `data_decisao_final OR feedback_rejeicao`, e a rejeição humana grava `motivo_rejeicao`/`etapa_justificativa` — nenhum dos dois | `DashboardCandidatoPage.tsx:159`; medido: os dois campos null. Backend cobre os 3 casos (Phase 46), o front gateia pelo critério da Phase 17 |
 | **20** | 9 | 🔴 **Rejeitar na triagem não avisa o candidato.** A RPC `rejeitar_candidatura` não dispara notificação nenhuma — sem `net.http`, sem evento. A rejeição mais comum de todas é silenciosa por construção | `notificacoes_enviadas` sem linha nova; a RPC (`20260714100001`) não tem caminho de despacho |
 | **21** | 9 | **O select do motivo de rejeição é ilegível** (branco sobre branco) e uma das opções renderiza **sem rótulo** — «Reprovado na avaliação», que grava `reprovado_avaliacao` corretamente | tela |
