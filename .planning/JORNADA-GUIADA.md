@@ -37,13 +37,16 @@ fizer sentido. Eu leio o arquivo inteiro.
 
 | | |
 |---|---|
-| Etapas concluídas | **1 e 2** (inscrição · triagem/IA) — atualizado 2026-09-19 22:55 |
+| Etapas concluídas | **1 a 7** — atualizado 2026-09-20 02:40 |
+| Faltam | **8** reset→rejeitar · **9** reset→rejeitar na triagem · **10** knockout · **11** comparativo · **12** direitos do titular (LGPD) · **13** admin |
+| Achados | **16 defeitos** · **14 propostas de produto (PP-1..14)** · 1 pendência (P1) |
 | `candidatos` em PROD | **42** — Marina: `747fa40c-49d3-4e10-b234-1e321241f86b` |
 | `candidaturas` em PROD | **32** — a da Marina: `bf26ee3c-0ae3-4e92-a99b-6e05efc2a662` |
-| Estado da Marina | `etapa_atual=triagem` · `status=aguardando_resposta` · `opcao_knockout_id=null` |
-| Análise da IA | pronta em 46,3 s · `analise_candidato_vaga.id=ba372107-…` · score 96 · `status=sucesso` |
-| Currículo de teste | `~/Desktop/curriculo-marina-alves-tavares.pdf` · 88.668 bytes · marcadores plantados (ver Etapa 2) |
-| Árvore git | limpa, `origin/main` em dia |
+| **Estado da Marina** | `etapa_atual='aprovado'` · `status='finalizado'` — **APROVADA em 02:11:34** |
+| `decisao_final` | **1** linha (`f21bc5f3-…`, aprovado, justificativa gravada) · `decisao_final_historico` **0** |
+| Conserto JÁ aplicado em PROD | `submit-bigfive-final` **v11** — preflight CORS (Defeito 5). Único write de código da jornada |
+| Artefatos de teste | `~/Desktop/` → `curriculo-marina-alves-tavares.pdf` · `transcricao-A-forte.txt` · `transcricao-B-fraca.txt` |
+| Árvore git | limpa · **commits locais, `origin/main` ainda SEM push** |
 
 ⚠ A trava de contagem do `p47_teardown_dados_de_teste.sql` (41) **já recusa** — guard
 funcionando, como previa a regra 2 abaixo.
