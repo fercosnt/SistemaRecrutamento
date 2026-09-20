@@ -773,11 +773,84 @@ Agendar entrevista online para Marina.
 - [ ] O convite chega com `.ics` — abra no seu calendário
 - [ ] **Reagende** para outro dia: a candidata é avisada, e o painel dela mostra o horário **novo** (não «sem horário definido»)
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20, **conferido no banco**
 
-```
-(preencha)
-```
+**Resultado: o fluxo funciona. O desenho dele é que precisa mudar (ver PP-8).**
+
+| | |
+|---|---|
+| Agendamento criado | `00:54:24` · `agendamentos_entrevista.id=ba6ab416-…` |
+| Reagendado | `00:56:17` · mesma linha, `status='reagendada'` |
+| `data_hora` final | **`2026-09-24 09:00`** — o horário NOVO ✅ |
+| Entrevistador / link / observações | `Fernando` · `dddd` · `dfasgfsdghsdggv` |
+
+✅ **Os dois e-mails saíram, e o reagendamento NÃO sobrescreveu em silêncio:**
+
+| Evento | Criado | Entregue | Δ |
+|---|---|---|---|
+| `convite` (agendamento) | `00:54:24.879` | `00:54:30.367` | **5,5 s** |
+| `convite` (reagendamento) | `00:56:17.919` | `00:56:21.683` | **3,8 s** |
+
+Ambos `status='entregue'`, confirmados pelo provedor. O segundo e-mail traz o texto
+**«foi reagendada»** e a data nova. O painel da candidata mostrou o horário novo —
+nada de «sem horário definido».
+
+✅ **O `.ics` funcionou.** Anexo `entrevista-beautysmile.ics` nos dois e-mails. O operador
+digitou `dddd` no campo de link; como não é URL, foi para **LOCATION** no `.ics` e para
+«Onde: dddd» no corpo. Comportamento correto.
+
+✅ **Defesa que passou no teste sem ninguém pedir:** `AgendamentoCandidatoCard.tsx:210`
+só transforma `local_ou_link` em `<a href>` quando `isSafeHttpUrl` aprova (http/https).
+O `dddd` renderizou como **texto**, não como link quebrado.
+
+### >>! Defeito 10 (NOVO) — o reagendamento apaga o horário anterior
+
+A linha é **atualizada no lugar**: mesmo `id`, `created_at 00:54:24`, `updated_at 00:56:17`.
+O horário original (**23/09 09:00**) **não existe mais em lugar nenhum do banco** — só no
+corpo do e-mail que já foi enviado.
+
+Consequências práticas: não dá para responder «com quantas horas de antecedência a
+candidata foi avisada?», nem «quantas vezes esta entrevista foi remarcada?», nem defender
+a empresa se o candidato reclamar de remarcação em cima da hora. Para um sistema que
+grava `historico_candidatura` de cada transição de etapa, perder a trilha do
+**reagendamento** é incoerente.
+
+### >>! `candidaturas.data_entrevista_online` está NULL com a entrevista agendada
+
+**Quinta coluna morta.** O agendamento mora em `agendamentos_entrevista`; a coluna em
+`candidaturas` existe, tem nome óbvio e **ninguém escreve nela**. Qualquer relatório ou
+consulta que confie nesse nome vai dizer que a entrevista não foi marcada.
+
+### ❓ «O sistema consegue gerar o link da reunião?» — **não**
+
+Medido: não há geração de link em lugar nenhum (`src/features/agendamento`,
+`supabase/functions`). `local_ou_link` é **texto livre**, e o único vestígio de intenção é
+o placeholder do campo: `ex.: https://meet.google.com/...`
+(`AgendamentoBlock.tsx:298`). O recrutador cria a reunião fora e cola o link à mão.
+
+### 🎨 PP-8 — repensar o agendamento (acordado com o operador)
+
+O fluxo atual **impõe** horário ao candidato. Errado por três motivos: desrespeita quem
+tem emprego atual, queima a vaga com quem não pode naquele dia, e gera retrabalho de
+reagendamento (que, como o Defeito 10 mostra, nem fica registrado).
+
+**Desenho proposto:**
+
+1. **O recrutador publica JANELAS, não horários** — «terças e quintas, 14h-18h, blocos de
+   45 min». O sistema gera os slots.
+2. **O candidato escolhe** um slot pelo painel. O `.ics` sai na hora, para os dois lados.
+3. **Saída para quem não pode em nenhum** — botão «Nenhum destes horários funciona para
+   mim» + campo curto («quando você consegue?»). Isso vira **pendência na fila do
+   recrutador**, não um e-mail perdido. Sem isso, quem trabalha das 9h às 18h some, e a
+   empresa nunca sabe que perdeu um bom candidato.
+4. **Geração de link de reunião** — hoje inexistente (ver acima).
+
+⚠ **Sobre integrar Outlook/Google:** o próprio operador identificou o risco — «o
+preenchimento no sistema do dia e horário seria manual». **Dado que entra por dois canais
+diverge**, e esta jornada já achou três casos dessa família. Se integrar, a agenda externa
+tem de ser **espelho** (o sistema cria o evento via API e guarda o id), nunca fonte
+paralela. Meio-termo sem integração: o sistema gera os slots e o `.ics` já coloca o
+compromisso no Outlook de quem aceitar — 90% do valor, sem o risco de divergência.
 
 ---
 
@@ -988,6 +1061,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **7** | 3 | 🔴 **Rubrica fantasma.** O RH lê «Experiência UAU 5/5» sobre um raciocínio que avaliou «Cuidado e Empatia». O prompt manda pontuar «as dimensões definidas» e nunca as define; a IA inventa as suas; o front rotula por posição | Prompt ativo `culture_fit_essay` v1.0.0 não contém UAU/Inovação/Atitude de Dono/Sede de Crescimento. `analise_ia.dimension_name` traz 4 nomes totalmente outros |
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
+| **10** | 4 | **O reagendamento apaga o horário anterior.** A linha é atualizada no lugar; o slot original (23/09) não existe mais no banco, só no e-mail já enviado | `agendamentos_entrevista`: mesmo `id`, `created_at 00:54:24` / `updated_at 00:56:17`, `data_hora` já é a nova |
 | **3** | 3 | **«Tempo estimado: ~10 min» é constante de fallback**, igual nos 4 cards. O real existe em `perguntas.tempo_est_min` (7 min nesta vaga, 30 em outra) e nunca é lido. A tela da redação diz 15-25 min e contradiz o próprio card | `AvaliacaoContainer.tsx:240` + `vagas.testes_aplicaveis` sem o campo + valores reais medidos na tabela `perguntas` |
 
 ### Incomoda, mas não é defeito
@@ -1038,8 +1112,10 @@ Cada linha já traz o que a correção exige, para o plano não precisar rediagn
 ⚠ **Duas tabelas e duas colunas MORTAS achadas até aqui** — não quebram nada, mas quem
 for consertar precisa saber para não procurar dado onde não há:
 `respostas_bigfive` (0 linhas na história) · `scores_bigfive` (0) ·
-`candidaturas.tempo_preenchimento_segundos` (0/32) · `candidaturas.origem_candidatura` (1/32).
-O Big Five grava em **`scores_candidato`**.
+`candidaturas.tempo_preenchimento_segundos` (0/32) · `candidaturas.origem_candidatura` (1/32) ·
+`candidaturas.data_entrevista_online` (NULL com entrevista agendada).
+O Big Five grava em **`scores_candidato`**, a redação em **`redacoes_candidato`** e o
+agendamento em **`agendamentos_entrevista`**.
 
 ### Caminhos ainda NÃO exercitados
 
