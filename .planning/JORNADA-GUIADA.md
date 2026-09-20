@@ -457,6 +457,147 @@ estado do **status da candidatura**, não de haver conteúdo.
 confirmar, o defeito não é a tela vazia — é o **hub oferecer ação para algo sem conteúdo**,
 sem saber distinguir «pendente» de «não configurado».
 
+### ✅ Previsão CONFIRMADA — «Caso prático» abre vazio
+
+Resultado na tela: **«nenhuma avaliação pendente»** e um botão «Voltar ao painel».
+O card não deveria ter sido oferecido. `deriveCardState` decide «Pendente» pelo status
+da candidatura e **nunca pergunta se existe pergunta configurada** para o cargo.
+
+### >>! Defeito 4 (NOVO) — bateria SJT com UMA questão só
+
+«Avaliação de situações» tinha **1 de 1**. Bate com o banco: para `sdr-social-seller`
+existe **uma única** `pergunta` ativa. O peso da vaga dá **15%** do score comparativo
+a um instrumento de **uma questão** — e ainda com «Tempo sugerido: 00:48».
+Não é bug de código: é **vaga mal configurada**, e o sistema não avisa ninguém.
+
+>> Observação do operador: «precisamos trabalhar melhor as vagas». O sistema hoje
+>> aceita publicar vaga com bateria de 1 questão e com card apontando para bateria
+>> inexistente, sem nenhum aviso ao RH.
+
+### >>! Defeito 5 (NOVO · **BLOCKER**) — o Big Five NÃO PODE ser enviado em produção
+
+Ao clicar «Concluir», o navegador bloqueia a chamada:
+
+```
+Access to fetch at '.../functions/v1/submit-bigfive-final' from origin
+'https://rh.beautysmile.com.br' has been blocked by CORS policy: Response to
+preflight request doesn't pass access control check: It does not have HTTP ok status.
+```
+
+**Medido, não deduzido** — preflight `OPTIONS` real contra as três EFs:
+
+| Função | `verify_jwt` | preflight |
+|---|---|---|
+| `submit-bigfive-final` | true | **HTTP 401** ❌ |
+| `submit-candidatura` | true | HTTP 200 ✅ |
+| `exportar-meus-dados` | true | HTTP 200 ✅ |
+
+Não é `verify_jwt`, não é deploy velho (v10 ACTIVE, de 2026-07-09, posterior ao último
+commit do arquivo em 2026-07-07). **É a ordem dentro do `Deno.serve`:**
+
+```js
+// submit-bigfive-final/index.ts:297-300  ← o gate vem ANTES do handler
+const authHeader = req.headers.get("Authorization");
+if (!authHeader) return errorResponse("UNAUTHORIZED", "Sessão inválida.", 401);
+...
+return await handler(req, { supabaseAdmin, supabaseUser });  // ← OPTIONS só é tratado AQUI (:125)
+```
+
+**Um preflight CORS nunca manda `Authorization`** — por especificação. O gate responde
+401 antes de a checagem de `OPTIONS` (que existe e está correta, na linha 125) ser
+alcançada. O navegador exige status 2xx no preflight, então nem tenta o POST.
+
+**A função irmã que funciona faz o oposto, e o comentário dela diz por quê:**
+
+```js
+// submit-candidatura/index.ts:346-348 — sem early return
+const authHeader = req.headers.get('Authorization')
+const supabaseUser = createClient(URL, ANON, {
+  global: { headers: { Authorization: authHeader ?? '' } },
+})
+// "A missing header yields no user inside the handler → 401 (same response as before)."
+```
+
+**Por que os testes não pegaram:** eles chamam `handler(req, deps)` direto, injetando
+as dependências. O defeito vive **só no wiring de produção**, que teste nenhum exercita.
+
+**Consequência medida:** `respostas_bigfive` tem **0 linhas para a Marina — e 0 linhas
+em todo o banco**. Ninguém nunca concluiu um Big Five em produção por esta via.
+
+>> E o autosave não salva no banco: é **`sessionStorage`**
+>> (`useAvaliacaoDraft.ts:5`, deliberado por LGPD — «morre com a aba»). A tela promete
+>> «pausar e voltar quando quiser — tudo é salvo automaticamente», o que é verdade
+>> **dentro da aba** e mentira fora dela. Fechou a aba, as 116 respostas somem.
+
+**Correção proposta** (uma linha de ordem, espelhando a irmã que funciona):
+tratar `OPTIONS` **antes** do gate de `Authorization` no `Deno.serve` — ou trocar o
+early-return por `Authorization: authHeader ?? ''` e deixar o `handler` decidir.
+
+✅ O SJT **foi** gravado: `respostas_avaliacao` = 1 linha.
+
+### ✅ Defeito 5 CORRIGIDO e verificado em PROD (2026-09-19 23:40)
+
+Correção: removido o early-return de `Authorization` no `Deno.serve`, espelhando
+`submit-candidatura:346` (`authHeader ?? ""`, deixa o `handler` decidir). 10 testes Deno
+passam. Deploy pelo CLI (v11).
+
+| Asserção | Antes | Depois |
+|---|---|---|
+| preflight `OPTIONS` | 401 | **200** ✅ |
+| `submit-candidatura` (controle) | 200 | 200 ✅ |
+| POST **sem** `Authorization` | 401 | **401** ✅ — o portão NÃO enfraqueceu |
+
+E o envio funcionou de verdade: `scores_candidato` ganhou a linha `tipo='big_five'`,
+`status='sucesso'`, com as 30 facetas e as 5 dimensões, às `23:46:53`.
+
+>> **Eu conferi a tabela errada e quase reportei falha onde não havia.** `respostas_bigfive`
+>> e `scores_bigfive` existem no banco e têm **0 linhas em toda a história** — a EF nunca
+>> escreve nelas. O que ela grava é `scores_candidato`. Duas tabelas mortas a mais.
+
+### >>! Defeito 6 (NOVO) — a devolutiva do Big Five não é gerada desde 2026-07-07
+
+A tela diz «Sua devolutiva ainda está sendo preparada». Não está: `devolutivas_candidato`
+não tem linha para a Marina. Os logs da plataforma mostram os dois eventos no mesmo
+milissegundo:
+
+```
+02:46:54.725  POST | 401 | .../gerar-devolutiva-bigfive     ← morre aqui
+02:46:54.728  POST | 200 | .../submit-bigfive-final          ← e o submit devolve 200 assim mesmo
+```
+
+`submit-bigfive-final` invoca a devolutiva **inline**, com `supabaseAdmin.functions.invoke`,
+e engole qualquer falha num `try/catch` best-effort (linhas 241-258). O candidato recebe
+`{ ok: true }` e uma tela que promete algo que não vem.
+
+Do outro lado, `gerar-devolutiva-bigfive` exige um Bearer igual ao `SUPABASE_SERVICE_ROLE_KEY`
+(`guardDevolutivaBearer`, SEC-04, fecha um IDOR). O que o chamador manda **não bate**.
+
+**A datação é conclusiva:**
+
+| Evento | Data |
+|---|---|
+| Guarda SEC-04 introduzida (`595727da`) | **2026-07-07** |
+| **Única** devolutiva existente no banco | **2026-06-30** |
+| Devolutivas nos últimos 30 dias | **0** |
+
+Ou seja: **a guarda que fechou o IDOR quebrou o único chamador legítimo**, e o
+`try/catch` best-effort escondeu isso por **2 meses e meio**.
+
+E o comentário da própria função descreve esse modo de falha — aplicado a OUTRA chave:
+
+> «a separate `DEVOLUTIVA_INVOKE_SECRET` override was removed — it was a footgun (the
+> caller never sent it, so setting the env var would **silently 401 every devolutiva,
+> swallowed by submit-bigfive-final's best-effort try/catch**)»
+
+Identificaram o modo de falha, removeram uma das causas e embarcaram a mesma falha
+com o `service_role` no lugar.
+
+>>? **O QUÊ está provado; o PORQUÊ não.** Falta medir qual Bearer o
+>>? `supabaseAdmin.functions.invoke` realmente envia numa chamada função-a-função.
+>>? Sem isso, qualquer conserto é chute. O passo seguinte é instrumentar (log do
+>>? PREFIXO do Bearer recebido, nunca o valor) ou trocar a invocação por `fetch`
+>>? explícito com `Authorization: Bearer ${SERVICE_KEY}`.
+
 ---
 
 ## Etapa 4 · Entrevista online — agendar e reagendar
@@ -679,6 +820,9 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 |---|---|---|---|
 | **1** | 1 | **B8 — o formulário não guarda progresso.** Perde por sair-e-voltar **e** por recarregar. Não existe autosave | `is_rascunho=false` e zero linhas de rascunho no banco |
 | **2** | 2 | **O RH não consegue ler o que a candidata respondeu** — nem as respostas da triagem, nem o perfil do cadastro | Nenhuma tela em `src/` lê `respostas_formulario`; `HubCandidatoRH` (459 linhas) não renderiza dado pessoal algum |
+| **4** | 3 | **Bateria SJT com 1 questão só**, valendo 15% do score, e o card «Caso prático» oferecido sem bateria configurada | `perguntas` tem 1 linha ativa para `sdr-social-seller`, nenhuma `caso_aberto`; a tela abriu «nenhuma avaliação pendente» |
+| **5** | 3 | 🔴 **BLOCKER — Big Five não pode ser enviado.** O gate de `Authorization` roda antes da checagem de `OPTIONS` no `Deno.serve`, e preflight CORS não manda `Authorization` → 401 | `curl -X OPTIONS`: bigfive **401**, `submit-candidatura` 200, `exportar-meus-dados` 200. `respostas_bigfive` tem 0 linhas em TODO o banco |
+| **6** | 3 | 🔴 **Devolutiva do Big Five nunca é gerada desde 2026-07-07.** A guarda Bearer SEC-04 401-a o único chamador legítimo, e o `try/catch` best-effort do submit esconde a falha | Logs: `401 gerar-devolutiva-bigfive` 3 ms antes do `200` do submit. Guarda criada em 07/07; única devolutiva do banco é de 30/06; **0** nos últimos 30 dias |
 | **3** | 3 | **«Tempo estimado: ~10 min» é constante de fallback**, igual nos 4 cards. O real existe em `perguntas.tempo_est_min` (7 min nesta vaga, 30 em outra) e nunca é lido. A tela da redação diz 15-25 min e contradiz o próprio card | `AvaliacaoContainer.tsx:240` + `vagas.testes_aplicaveis` sem o campo + valores reais medidos na tabela `perguntas` |
 
 ### Incomoda, mas não é defeito
@@ -708,6 +852,29 @@ Relatados pelo operador durante a jornada. Não são bugs — são custo de uso.
 | # | O quê |
 |---|---|
 | **P1** | **Avaliar troca de modelo.** Uma chamada consumiu 8.164 tokens de Sonnet 4.6, sem custo observado. Decidir se atualiza o modelo das funções de IA — pendência aberta em 2026-09-19 |
+
+### 🔧 Fila de consertos — para o plano de correção
+
+Decisão do operador em 2026-09-20: **documentar tudo primeiro, consertar em bloco depois.**
+Cada linha já traz o que a correção exige, para o plano não precisar rediagnosticar.
+
+| # | O que consertar | Onde | O que a correção exige | Risco |
+|---|---|---|---|---|
+| **6** 🔴 | Devolutiva do Big Five 401 desde 07/07 | `submit-bigfive-final:243` + `gerar-devolutiva-bigfive:661` | **O porquê NÃO está provado.** Ou (A) instrumentar o prefixo do Bearer recebido e medir, ou (B) trocar `functions.invoke` por `fetch` explícito com `Authorization: Bearer ${SERVICE_KEY}`. Recomendação: B, depois A se falhar | Deploy de EF. Não mexer na guarda SEC-04 — ela fecha um IDOR real |
+| **6b** | O best-effort que escondeu o 6 por 74 dias | `submit-bigfive-final:241-258` | O `try/catch` pode continuar não derrubando o submit, mas **a falha tem de ficar visível** — gravar o erro, ou não prometer devolutiva na tela quando `devolutiva_id` vier `null` | Baixo |
+| **1** | B8 — formulário sem autosave | `FormularioCandidaturaPage` | Rascunho por etapa. Decidir onde: `sessionStorage` (como o Big Five) ou banco. **Se for banco, é decisão de LGPD** — dado de candidato antes do consentimento final | Médio |
+| **2** | RH não lê respostas nem perfil | `HubCandidatoRH` | Tela nova lendo `respostas_formulario` + dados do candidato. Allowlist explícita de colunas, **nunca `select *`** (o comentário do `analiseCandidatoService` explica por quê) | Baixo |
+| **2b** | `resumo_respostas` escondido do RH | `ANALISE_HUB_ALLOWLIST` | **Decisão de produto antes de código:** o RH deve ver o raciocínio (a)–(d) da IA? Hoje vê 5 bullets e uma nota, sem o cruzamento | — |
+| **3** | «~10 min» é placeholder | `AvaliacaoContainer:240` | Propagar `perguntas.tempo_est_min` até o card. Hoje `deriveCards` lê de `vagas.testes_aplicaveis`, onde o campo não existe. E alinhar com o «15-25 min» da tela de redação | Baixo |
+| **4** | Vaga com bateria de 1 questão e card sem conteúdo | config de vaga + `deriveCardState` | Duas coisas: (i) o card não deve ser oferecido quando não há pergunta configurada; (ii) o RH precisa de **aviso ao publicar** vaga com bateria magra (1 questão valendo 15%) | Médio |
+| **U1–U4** | Atrito de interface | vários | Ver a seção «Atrito de interface» acima | Baixo |
+| **P1** | Modelo/custo das funções de IA | — | Avaliar troca de modelo | — |
+
+⚠ **Duas tabelas e duas colunas MORTAS achadas até aqui** — não quebram nada, mas quem
+for consertar precisa saber para não procurar dado onde não há:
+`respostas_bigfive` (0 linhas na história) · `scores_bigfive` (0) ·
+`candidaturas.tempo_preenchimento_segundos` (0/32) · `candidaturas.origem_candidatura` (1/32).
+O Big Five grava em **`scores_candidato`**.
 
 ### Caminhos ainda NÃO exercitados
 

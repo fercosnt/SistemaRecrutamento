@@ -293,14 +293,28 @@ if (import.meta.main) {
       return errorResponse("SERVER_ERROR", "Servidor mal configurado", 500);
     }
 
+    // ⚠ SEM early-return em `Authorization` ausente — e a ausência do gate É a correção.
+    //
+    // Até 2026-09-19 havia aqui um `if (!authHeader) return 401`, ANTES da delegação ao
+    // `handler`. Um preflight CORS `OPTIONS` **nunca** manda `Authorization` (é da
+    // especificação), então o gate respondia 401 e a checagem de `OPTIONS` do `handler`
+    // (a primeira linha dele) nunca era alcançada. O navegador exige 2xx no preflight,
+    // recusava, e o POST nem saía: NINGUÉM conseguia concluir o Big Five em produção —
+    // `respostas_bigfive` tinha ZERO linhas em todo o banco. Medido com `curl -X OPTIONS`:
+    // esta EF devolvia 401 enquanto `submit-candidatura` e `exportar-meus-dados`, com o
+    // mesmo `verify_jwt = true`, devolviam 200.
+    //
+    // Os testes não pegavam porque chamam `handler(req, deps)` direto, com dependências
+    // injetadas: o defeito existia SÓ neste wiring de produção, que teste nenhum exercita.
+    //
+    // A forma abaixo é a da EF irmã comprovadamente sadia (`submit-candidatura:346`):
+    // encaminha `?? ''` e deixa o `handler` decidir. O POST sem header continua caindo em
+    // `auth.getUser()` → 401 "Sessão inválida." — mesma resposta de antes, mesmo status.
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return errorResponse("UNAUTHORIZED", "Sessão inválida.", 401);
-    }
 
     // anon client COM Authorization → auth.getUser() verifica o JWT do candidato.
     const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: authHeader ?? "" } },
     });
     // service_role SÓ para leituras/escritas privilegiadas (D-23).
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
