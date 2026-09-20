@@ -1563,7 +1563,53 @@ linha em `decisao_final` e é lá que a página lê. **Falso.** A migration
 > linha em `decisao_final`;
 > (c) knockout automático → `status='rejeitado'`, SEM linha em `decisao_final`.
 
-A cobertura existe. **Falta confirmar na tela** que ela renderiza.
+A cobertura existe **no banco**. **E não renderiza na tela** — ver o Defeito 22, abaixo.
+
+### >>!! Defeito 22 (NOVO · o mais grave de LGPD da jornada)
+
+**A Marina foi rejeitada e NÃO tem como pedir a explicação do Art. 20.** O cartão
+«Entenda a decisão sobre sua candidatura» **não aparece** no painel dela. Apareceu na
+rejeição pela decisão final (12:26) e sumiu na rejeição pela triagem — mesmo desfecho
+para a candidata, direitos diferentes.
+
+**A condição, medida linha a linha** (`DashboardCandidatoPage.tsx:148-159`):
+
+```js
+const houveDesfecho = etapasDecisao.includes(etapa) || status === 'rejeitado';
+if (!houveDesfecho) return false;
+return Boolean(candidatura.data_decisao_final || candidatura.feedback_rejeicao);
+```
+
+| Condição | Marina | |
+|---|---|---|
+| `houveDesfecho` | `etapa='rejeitado'` | ✅ **passa** |
+| `data_decisao_final OR feedback_rejeicao` | **null** e **null** | ❌ **falha** |
+
+A rejeição humana na triagem preenche `motivo_rejeicao` (`reprovado_avaliacao`) e
+`etapa_justificativa` — e **nenhum** dos dois campos que a condição testa.
+
+**O conserto anterior corrigiu metade, e o comentário do código prova que sabia disso.**
+Ele descreve o caso do knockout e diz: «o knockout grava o `feedback_rejeicao` neutro
+(`20260608000001:197`)» — por isso o knockout passa na segunda condição. O conserto
+acrescentou o eixo `status` para o knockout e **manteve** a segunda condição intacta. A
+rejeição humana na triagem, que não grava nenhum dos dois, ficou de fora.
+
+E a migration da Phase 46 (`20260906000007_explicacao_knockout.sql`) lista os **três**
+casos de propósito, incluindo «(b) rejeição humana na triagem». **O backend foi corrigido
+para os três; o front continua gateando pelo critério da Phase 17.** É exatamente a
+família do §7.27 do `CLAUDE.md`: a correção chegou por um canal e o front ficou parado.
+
+**Por que é o mais grave:** a rejeição na triagem é o caminho **mais comum** de todos —
+a maioria dos candidatos nunca chega à decisão final. Somado ao Defeito 20 (a rejeição
+na triagem também não manda e-mail), o resultado é: **o candidato mais típico é rejeitado
+em silêncio e sem caminho para exercer o Art. 20.**
+
+**O conserto é preciso e pequeno:** incluir `motivo_rejeicao` na segunda condição, ou
+fazer `rejeitar_candidatura` gravar `feedback_rejeicao`. Um dos dois, não os dois.
+
+>>? **Previsão para a Etapa 10 (knockout):** o cartão **deve** aparecer, porque o
+>>? knockout grava `feedback_rejeicao`. Se não aparecer, a condição está mais quebrada do
+>>? que esta análise indica.
 
 ### >>! Defeito 21 (NOVO · UI) — o select do motivo é ilegível
 
@@ -1682,6 +1728,7 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **22** | 9 | 🔴🔴 **O Art. 20 é inalcançável para quem é rejeitado na triagem.** O cartão «Ver explicação» some: a condição exige `data_decisao_final OR feedback_rejeicao`, e a rejeição humana grava `motivo_rejeicao`/`etapa_justificativa` — nenhum dos dois | `DashboardCandidatoPage.tsx:159`; medido: os dois campos null. Backend cobre os 3 casos (Phase 46), o front gateia pelo critério da Phase 17 |
 | **20** | 9 | 🔴 **Rejeitar na triagem não avisa o candidato.** A RPC `rejeitar_candidatura` não dispara notificação nenhuma — sem `net.http`, sem evento. A rejeição mais comum de todas é silenciosa por construção | `notificacoes_enviadas` sem linha nova; a RPC (`20260714100001`) não tem caminho de despacho |
 | **21** | 9 | **O select do motivo de rejeição é ilegível** (branco sobre branco) e uma das opções renderiza **sem rótulo** — «Reprovado na avaliação», que grava `reprovado_avaliacao` corretamente | tela |
 | **19** | 8 | **«Revertida» não reverte.** O veredito é gravado e `decisao`, `etapa_atual` e `status` seguem `rejeitado`. O e-mail diz à candidata que «a decisão foi revista» e o painel dela diz Rejeitado. Não há caminho para executar a reversão | `revisao_veredito='revertida'` × `decisao='rejeitado'`; a RPC só grava o veredito (REVISAO-03) |
