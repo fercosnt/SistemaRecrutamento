@@ -1,5 +1,10 @@
 # Inventário dos `cron.job` vivos × repositório
 
+> ⚠ **2026-09-21 — uma QUARTA camada:** a seção
+> [Re-coleta da Phase 48](#re-coleta-da-phase-48--o-5º-agendamento) declara e **mede** o 5º
+> agendamento (`prazo-reabertura-sweep`, JORN-19). Ao contrário da camada da Phase 46 quando foi
+> escrita, esta nasce com o lado vivo medido — o apply veio antes do texto.
+>
 > ⚠ **2026-08-23 — este documento passou a ter TRÊS camadas, e elas não têm o mesmo
 > estatuto.** A seção abaixo é a coleta de **2026-07-29** (3 jobs). A seção
 > [Depois da correção](#depois-da-correção-invent-05--d-p42-21) é de 2026-07-31, aplicada em
@@ -358,6 +363,74 @@ nenhuma requisição HTTP é enfileirada: o hop para a Edge Function existe **ap
 
 ---
 
+## Re-coleta da Phase 48 — o 5º agendamento
+
+| Campo | Valor |
+|-------|-------|
+| **Requirement coberto** | **JORN-19** (D-10) — INVENT-03 continua sendo o requisito deste documento |
+| **Plano** | `48-13` |
+| **Migration** | [`20260921000015_p48_prazo_reabertura_alerta.sql`](../../supabase/migrations/20260921000015_p48_prazo_reabertura_alerta.sql) |
+| **Dono** | Phase 48 — alerta ao RH do prazo de nova decisão de candidatura reaberta |
+| **Estado em PROD** | ✅ **APLICADA em 2026-09-21 15:19:01 UTC** (`p46apply.cjs migrate`, md5 do ledger `964d046c…` BATE) |
+| **Re-coleta viva** | ✅ medida em 2026-09-21, depois do apply (tabela abaixo) |
+
+### O agendamento novo
+
+| jobid | jobname | schedule | active | Origem no repositório | Veredito |
+|------:|---------|----------|:------:|----------------------|----------|
+| 9 | `prazo-reabertura-sweep` | `0 11 * * *` (**UTC** = 08:00 em SP) | ✅ | `20260921000015_p48_prazo_reabertura_alerta.sql` | ✅ rastreável |
+
+**Corpo do job:**
+
+```sql
+ SELECT public.varrer_prazos_reabertura();
+```
+
+| Propriedade do corpo | Valor |
+|---|---|
+| `md5` do texto entre os delimitadores `$sweep$` da migration | `1ebd8e45d5a5d5af3eda0d2b4a48f2c2` |
+| `md5(command)` vivo | `1ebd8e45d5a5d5af3eda0d2b4a48f2c2` ✅ idêntico |
+| Tamanho | **43 octetos** (inclui os espaços inicial e final) |
+
+**Finalidade: só alerta — D-10.** A varredura seleciona as linhas de `decisao_final` reabertas
+após revisão do Art. 20 (`reaberta_em IS NOT NULL`) cujo `prazo_nova_decisao_em` (10 dias
+corridos) venceu sem alerta (`alerta_prazo_enviado_em IS NULL`), de candidatura não excluída e
+não encerrada; posta ids-only para a EF `notificar-rh` com o evento `prazo_reabertura_vencido` e
+grava `alerta_prazo_enviado_em` (um alerta por ciclo). **Não escreve em `candidaturas`, não
+aprova, não rejeita** — o sistema nunca decide o que nenhum humano decidiu (D-01, RNF-07a). O
+pós-portão da migration e o smoke `p48_prazo_reabertura_smoke.sql` (a) conferem isso.
+
+**Não destrutivo.** Único UPDATE: a coluna de controle `alerta_prazo_enviado_em`. Nenhum
+`DELETE`. Com 0 reaberturas em PROD na data do apply, o predicado devolvia **0 linhas** — criar o
+job não alertou ninguém.
+
+### Re-coleta viva (2026-09-21, depois do apply)
+
+| Job | schedule | md5 do corpo | octetos | ativo |
+|---|---|---|---:|:-:|
+| `ai-cost-aggregation` | `30 1 * * *` | `fdd283dc3e266884761a3649c31acd6c` ✅ igual a 2026-08-01 | 839 | ✅ |
+| `ai-logs-retention-cleanup` | `0 2 * * *` | `b64ca58d089f3ed580205e95a40c4e5f` ✅ | 299 | ✅ |
+| `notif-retry-sweep` | `*/15 * * * *` | `04bf2150e09f1f7b15abcf074f74ad95` ✅ | 44 | ✅ |
+| `purga-retencao-sweep` | `0 3 * * *` | `381a0edbc8a59b47b23b50dd1eba9a86` ✅ | 40 | ✅ |
+| `prazo-reabertura-sweep` | `0 11 * * *` | `1ebd8e45d5a5d5af3eda0d2b4a48f2c2` | 43 | ✅ |
+
+Os quatro anteriores continuam byte a byte como registrados. ⚠ O corpo do `notif-retry-sweep`
+não mudou, mas a **função** que ele chama mudou na mesma migration: `varrer_retry_notificacoes()`
+ganhou a 3ª cláusula de exclusão (`AND evento <> 'prazo_reabertura_vencido'`) — sem ela, uma
+falha do alerta novo seria re-postada à EF do candidato a cada 15 min para sempre (T-42-23).
+`md5(prosrc)` passou de `06fd990e…` (3104) a `14d8d5cb…` (3500); o pós-portão prova que a
+mudança é só esse fragmento.
+
+### O portão, no MESMO commit
+
+`supabase/tests/p42_invent05_cron_smoke.sql` (a.iii) recebeu o nome em `c_herdados` no commit
+desta seção. Antes da edição, rodado contra PROD com o job já no ar, ele reprovou dizendo
+**`[prazo-reabertura-sweep]`** — o diagnóstico verdadeiro que a emenda de 2026-08-23 previu. Depois
+da edição: 4/4; e um job intruso agendado dentro de uma requisição que aborta continua reprovado
+pelo nome (`sonda-intrusa-48-13`, não persistiu).
+
+---
+
 ## Como reproduzir
 
 Consultas (a), (b) e (c) de [`sql/02-cron-live.sql`](./sql/02-cron-live.sql), via `execute_sql` do
@@ -368,8 +441,9 @@ MCP do Supabase, pelo orquestrador.
 ## Limites deste artefato
 
 1. **Fotografia de 2026-07-29** — exceto a seção "Depois da correção" (escrita em 2026-07-31,
-   medida e aplicada em 2026-08-01) e a seção "Re-coleta da Phase 46" (escrita em 2026-08-23, com o
-   lado vivo ⏳ **pendente do apply**). Um job criado depois de 29/07 não aparece na fotografia. A
+   medida e aplicada em 2026-08-01), a seção "Re-coleta da Phase 46" (escrita em 2026-08-23, com o
+   lado vivo ⏳ **pendente do apply**) e a seção "Re-coleta da Phase 48" (escrita e medida em
+   2026-09-21, depois do apply). Um job criado depois de 29/07 não aparece na fotografia. A
    re-execução é barata e deve preceder qualquer fase que toque cron.
    ⚠ **E, desde 2026-08-23, ela deixou de depender de alguém lembrar:** a asserção (a) do
    `p42_invent05_cron_smoke.sql` reprova nomeando qualquer `jobname` vivo que não esteja na lista

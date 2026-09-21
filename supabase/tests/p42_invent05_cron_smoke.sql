@@ -121,6 +121,18 @@
 -- forma que falha ABERTO dentro do arquivo que existe para corrigir exatamente
 -- essa forma seria a ironia mais cara possível.
 --
+-- =============================================================================
+-- EMENDA DE 2026-09-21 — o 5º agendamento (Phase 48 / plano 48-13, JORN-19)
+-- =============================================================================
+-- `prazo-reabertura-sweep` (`0 11 * * *`, migration `20260921000015`) entra em `c_herdados`
+-- NESTE commit, junto com a entrada em `docs/compliance/cron-inventory.md` — exatamente o que o
+-- texto acima prevê para «uma fase futura que criar um 5º job». Antes desta edição, o arquivo
+-- rodado contra PROD com o job já no ar reprovou em (a.iii) dizendo o NOME dele (medido em
+-- 2026-09-21): a mordida foi vista, com diagnóstico verdadeiro, e só então o nome entrou.
+-- `c_herdados` continua sendo o ESCOPO declarado do INVENT-03 (todo job vivo rastreável ao
+-- repositório), não uma fotografia; o nome da variável ficou por não valer a pena renomear um
+-- portão estável — «herdados» aqui quer dizer «os que já têm dono no repositório».
+--
 -- HIGIENE: `RESET ROLE` nas trocas; os NOTICEs carregam contagens, horários e
 --   resumos md5 — nunca segredo, nunca PII.
 -- =============================================================================
@@ -142,9 +154,13 @@ DECLARE
   -- ⚠ ESCOPO DELIBERADO, NÃO FOTOGRAFIA — a justificativa por extenso está no
   --   cabeçalho. Um job novo entra AQUI conscientemente, no mesmo commit que o
   --   cria; até lá, (a.iii) morde e diz o nome dele.
+  --   2026-09-21: `prazo-reabertura-sweep` (20260921000015, JORN-19 — só ALERTA o RH quando o
+  --   prazo de 10 dias de uma candidatura reaberta vence; D-10) entrou aqui no commit que
+  --   acompanha a migration, junto com docs/compliance/cron-inventory.md.
   c_herdados constant text[] := ARRAY['ai-cost-aggregation',
                                       'ai-logs-retention-cleanup',
-                                      'notif-retry-sweep'];
+                                      'notif-retry-sweep',
+                                      'prazo-reabertura-sweep'];
   c_purga    constant text   := 'purga-retencao-sweep';
   v_nomes    text;
   v_faltando text;
@@ -156,14 +172,14 @@ BEGIN
     INTO v_nomes
     FROM cron.job j;
 
-  -- (a.i) os TRÊS herdados existem, cada um por IGUALDADE EXATA de `jobname`.
+  -- (a.i) os herdados (hoje quatro, desde 2026-09-21) existem, cada um por IGUALDADE EXATA de `jobname`.
   SELECT string_agg(x.nome, ', ' ORDER BY x.nome)
     INTO v_faltando
     FROM unnest(c_herdados) AS x(nome)
    WHERE NOT EXISTS (SELECT 1 FROM cron.job j WHERE j.jobname = x.nome);
 
   IF v_faltando IS NOT NULL THEN
-    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.i): agendamento(s) herdado(s) AUSENTE(S) de cron.job: [%]. Vivos agora: [%]. Uma migration removeu um agendamento fora do seu escopo declarado — cada um dos três tem dono no repositório (ai-cost-aggregation e ai-logs-retention-cleanup em 20260609000003, notif-retry-sweep em 20260727000001), e nenhuma migration desta fase os menciona',
+    RAISE EXCEPTION 'P42-INVENT05 FAIL (a.i): agendamento(s) herdado(s) AUSENTE(S) de cron.job: [%]. Vivos agora: [%]. Uma migration removeu um agendamento fora do seu escopo declarado — cada um tem dono no repositório (ai-cost-aggregation e ai-logs-retention-cleanup em 20260609000003, notif-retry-sweep em 20260727000001, prazo-reabertura-sweep em 20260921000015)',
       v_faltando, coalesce(v_nomes, '<nenhum>');
   END IF;
 
@@ -179,7 +195,7 @@ BEGIN
       v_n_purga, c_purga;
   END IF;
 
-  -- (a.iii) NENHUM outro `jobname` além desses quatro — e nenhum deles duplicado.
+  -- (a.iii) NENHUM outro `jobname` além dos declarados (c_herdados + c_purga) — e nenhum duplicado.
   -- ⚠ Correlacionado por NOT EXISTS, jamais por negação de pertencimento a
   --   conjunto: `jobname` é anulável (cron.schedule de dois argumentos agenda sem
   --   nome) e a forma banida devolveria DESCONHECIDO para o intruso sem nome,
@@ -211,7 +227,7 @@ BEGIN
   END IF;
 
   PERFORM set_config('smoke42i.pass', (coalesce(nullif(current_setting('smoke42i.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (a): inventário de cron.job bate o repositório — os três herdados presentes por igualdade exata de nome, exatamente um %, nenhum intruso e nenhum duplicado [%]', c_purga, v_nomes;
+  RAISE NOTICE 'PASS (a): inventário de cron.job bate o repositório — os % herdados presentes por igualdade exata de nome, exatamente um %, nenhum intruso e nenhum duplicado [%]', cardinality(c_herdados), c_purga, v_nomes;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
