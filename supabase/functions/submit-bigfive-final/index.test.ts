@@ -245,6 +245,80 @@ Deno.test("AVAL-04 — response body is the neutral { ok:true }, never a score (
     `the candidate response must carry no score data — got ${serialized}`);
 });
 
+// ── JORN-06 (Plan 48-05): falha da devolutiva é OBSERVÁVEL e continua best-effort ──
+// Captura os console.log do handler para provar que a falha sai POR CÓDIGO e que
+// o candidato continua recebendo { ok:true }.
+async function runCapturingLogs(fn: () => Promise<Response>) {
+  const logs: unknown[][] = [];
+  const orig = console.log;
+  console.log = (...args: unknown[]) => { logs.push(args); };
+  try {
+    const res = await fn();
+    return { res, logs };
+  } finally {
+    console.log = orig;
+  }
+}
+
+function okLog(logs: unknown[][]): Record<string, unknown> {
+  const line = logs.find((l) => l[0] === "[submit-bigfive-final] ok");
+  assert(line, "a linha de log redigida do submit deve existir");
+  return line![1] as Record<string, unknown>;
+}
+
+Deno.test("JORN-06 — invoke devolve FunctionsHttpError 401 → ok:true e log com devolutiva_status 401", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
+  // deno-lint-ignore no-explicit-any
+  (admin as any).functions = {
+    invoke: () =>
+      Promise.resolve({ data: null, error: { name: "FunctionsHttpError", context: { status: 401 } } }),
+  };
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
+  const { res, logs } = await runCapturingLogs(() => handler(makeRequest(VALID_BODY), deps));
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.ok, true, "o candidato continua recebendo ok:true (best-effort)");
+  assertEquals(json.devolutiva_id, null);
+  const log = okLog(logs);
+  assertEquals(log.devolutiva_status, 401);
+  assertEquals(log.devolutiva_erro, "FunctionsHttpError");
+});
+
+Deno.test("JORN-06 — invoke que LANÇA → ok:true e log com o código do erro", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
+  // deno-lint-ignore no-explicit-any
+  (admin as any).functions = {
+    invoke: () => Promise.reject(Object.assign(new TypeError("rede caiu"), { name: "FunctionsFetchError" })),
+  };
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
+  const { res, logs } = await runCapturingLogs(() => handler(makeRequest(VALID_BODY), deps));
+  assertEquals(res.status, 200);
+  const json = await res.json();
+  assertEquals(json.ok, true);
+  const log = okLog(logs);
+  assertEquals(log.devolutiva_erro, "FunctionsFetchError");
+  assertEquals(log.devolutiva_status, null);
+  assert(!JSON.stringify(log).includes("rede caiu"), "a mensagem do erro não vai para o log");
+});
+
+Deno.test("JORN-06 — invoke com sucesso → devolutiva_id devolvido e log sem erro", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
+  // deno-lint-ignore no-explicit-any
+  (admin as any).functions = {
+    invoke: () => Promise.resolve({ data: { devolutiva_id: "dev-1" }, error: null }),
+  };
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER) };
+  const { res, logs } = await runCapturingLogs(() => handler(makeRequest(VALID_BODY), deps));
+  const json = await res.json();
+  assertEquals(json.devolutiva_id, "dev-1");
+  const log = okLog(logs);
+  assertEquals(log.devolutiva_erro, null);
+  assertEquals(log.devolutiva_status, null);
+});
+
 // ── Anti-tamper: a body carrying a `score` field is rejected (.strict) ─────────
 Deno.test("AVAL-04 — a body with an extra `score` field is rejected 400 (.strict, Pitfall 3)", async () => {
   const { handler } = await loadHandler();

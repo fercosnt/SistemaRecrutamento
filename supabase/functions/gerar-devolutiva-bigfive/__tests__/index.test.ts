@@ -379,6 +379,63 @@ Deno.test("SEC-04 — a raw token without the 'Bearer ' scheme prefix → 401", 
   assertEquals(res!.status, 401, "no scheme → 401");
 });
 
+// ── JORN-06 (Plan 48-05): classe de formato da credencial — nunca o valor ──────
+async function loadDiag() {
+  const mod = await import("../index.ts");
+  return mod as unknown as {
+    classificarFormatoCredencial: (v: string) => string;
+    montarDiagAuth: (req: Request, expected: string) => Record<string, unknown>;
+  };
+}
+
+Deno.test("JORN-06 — classificarFormatoCredencial cobre as 5 classes", async () => {
+  const { classificarFormatoCredencial } = await loadDiag();
+  assertEquals(classificarFormatoCredencial(""), "vazio");
+  assertEquals(classificarFormatoCredencial("sb_secret_abcDEF123"), "sb_secret");
+  assertEquals(classificarFormatoCredencial("sb_publishable_abcDEF123"), "sb_publishable");
+  assertEquals(classificarFormatoCredencial("eyJhbGciOi.eyJzdWIiOi.c2lnbmF0dXJl"), "jwt");
+  assertEquals(classificarFormatoCredencial("eyJsemPontos"), "outro");
+  assertEquals(classificarFormatoCredencial("qualquer-coisa"), "outro");
+});
+
+Deno.test("JORN-06 — diag-auth nunca contém o valor do Bearer, do apikey ou da chave esperada", async () => {
+  const { montarDiagAuth } = await loadDiag();
+  const bearer = "sb_secret_VALORSECRETO_DO_BEARER_123";
+  const apikey = "sb_secret_VALORSECRETO_DO_APIKEY_456";
+  const esperado = "sb_secret_VALORSECRETO_ESPERADO_789";
+  const req = new Request("http://localhost/functions/v1/gerar-devolutiva-bigfive", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${bearer}`, apikey },
+    body: "{}",
+  });
+  const diag = montarDiagAuth(req, esperado);
+  const serial = JSON.stringify(diag);
+  for (const segredo of [bearer, apikey, esperado, "VALORSECRETO"]) {
+    assert(!serial.includes(segredo), `o log de diagnóstico vazou um valor: ${segredo}`);
+  }
+  assertEquals(diag.auth_presente, true);
+  assertEquals(diag.esquema, "Bearer");
+  assertEquals(diag.recebido_formato, "sb_secret");
+  assertEquals(diag.recebido_len, bearer.length);
+  assertEquals(diag.esperado_env, "SUPABASE_SERVICE_ROLE_KEY");
+  assertEquals(diag.esperado_formato, "sb_secret");
+  assertEquals(diag.apikey_formato, "sb_secret");
+});
+
+Deno.test("JORN-06 — diag-auth sem Authorization: auth_presente false, esquema ausente (previsão de H1)", async () => {
+  const { montarDiagAuth } = await loadDiag();
+  const req = new Request("http://localhost/functions/v1/gerar-devolutiva-bigfive", {
+    method: "POST",
+    headers: { apikey: "sb_secret_x" },
+    body: "{}",
+  });
+  const diag = montarDiagAuth(req, "sb_secret_y");
+  assertEquals(diag.auth_presente, false);
+  assertEquals(diag.esquema, "ausente");
+  assertEquals(diag.recebido_formato, "vazio");
+  assertEquals(diag.recebido_len, 0);
+});
+
 // ── UX-07: o prompt do LLM é banda-only — o percentil cru NUNCA é injetado ────
 Deno.test("UX-07 — buildDevolutivaUserBlock emite banda qualitativa, nunca o percentil cru", async () => {
   const mod = await import("../index.ts");

@@ -238,23 +238,57 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
     // ── 7. Invoca gerar-devolutiva-bigfive inline (gated na nova linha de score).
     //      Best-effort (RFB-11/24): falha/timeout NÃO derruba o submit; a devolutiva
     //      é gerada de forma assíncrona/retry pelo n8n nesse caso.
+    //
+    //      JORN-06 (Plan 48-05): a falha deixou de ser muda. Até aqui o `error` do
+    //      invoke era descartado e o `catch` engolia tudo — um 401 da devolutiva
+    //      ficou invisível por semanas. Agora a falha sai no log redigido abaixo POR
+    //      CÓDIGO (`devolutiva_erro` = nome do erro, `devolutiva_status` = status HTTP
+    //      ou 'timeout'), sem corpo, sem header, sem segredo. O contrato com o
+    //      candidato NÃO muda: continua `{ ok: true }`.
     let devolutivaId: string | null = null;
+    let devolutivaErro: string | null = null;
+    let devolutivaStatus: number | "timeout" | null = null;
     try {
       if (typeof supabaseAdmin.functions?.invoke === "function") {
         const invokePromise = supabaseAdmin.functions.invoke("gerar-devolutiva-bigfive", {
           body: { candidatura_id: candidaturaId, score_id: scoreId },
         });
-        const timeout = new Promise<{ data: null; error: Error }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error("timeout") }), 10_000)
-        );
-        const { data: devRes } = (await Promise.race([invokePromise, timeout])) as {
-          data: { devolutiva_id?: string } | null;
-        };
-        devolutivaId = devRes?.devolutiva_id ?? null;
+        const TIMEOUT = Symbol("timeout");
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<typeof TIMEOUT>((resolve) => {
+          timer = setTimeout(() => resolve(TIMEOUT), 10_000);
+        });
+        let raced: unknown;
+        try {
+          raced = await Promise.race([invokePromise, timeout]);
+        } finally {
+          clearTimeout(timer);
+        }
+        if (raced === TIMEOUT) {
+          devolutivaErro = "timeout";
+          devolutivaStatus = "timeout";
+        } else {
+          const { data: devRes, error: devErr } = raced as {
+            data: { devolutiva_id?: string } | null;
+            // deno-lint-ignore no-explicit-any
+            error: any;
+          };
+          devolutivaId = devRes?.devolutiva_id ?? null;
+          if (devErr) {
+            devolutivaErro = typeof devErr?.name === "string" ? devErr.name : "desconhecido";
+            const st = devErr?.context?.status;
+            devolutivaStatus = typeof st === "number" ? st : null;
+          }
+        }
       }
-    } catch {
+    } catch (e) {
       // best-effort — a devolutiva pode ser (re)gerada pelo pipeline assíncrono.
       devolutivaId = null;
+      // deno-lint-ignore no-explicit-any
+      const ex = e as any;
+      devolutivaErro = typeof ex?.name === "string" ? ex.name : "desconhecido";
+      const st = ex?.context?.status;
+      devolutivaStatus = typeof st === "number" ? st : null;
     }
 
     // Log redigido (Pitfall 7) — só ids/counts/status; NUNCA respostas/score brutos.
@@ -265,6 +299,8 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
       norm_faixa: normGroup.faixa,
       status: "sucesso",
       devolutiva_id: devolutivaId,
+      devolutiva_erro: devolutivaErro,
+      devolutiva_status: devolutivaStatus,
     });
 
     // Payload NEUTRO — o candidato nunca recebe score/percentil/banda (RNF-07a).
