@@ -97,7 +97,8 @@ export type ModoNotificacao = 'producao' | 'teste'
  * chave dos três `Record<EventoNotificacao, …>` de template em `email-templates.ts`.
  *
  * Os 4 primeiros são do M7. `revisao_respondida` é o 5º (Phase 42 / Plan 42-08 · REVISAO-04):
- * o aviso de que a solicitação de revisão do Art. 20 foi respondida.
+ * o aviso de que a solicitação de revisão do Art. 20 foi respondida. `avaliacao_cognitiva_liberada`
+ * é o 6º (Phase 48 / Plan 48-10 · D-22): o aviso de que o RH liberou a avaliação cognitiva.
  *
  * ⚠ NÃO adicionar aqui rótulo que não seja evento de CANDIDATO. O sink de teste do RH usa
  * `resolverDestinatarioComLabel` justamente para não inflar esta união (ver o docblock
@@ -110,6 +111,7 @@ export type EventoNotificacao =
   | 'convite_entrevista'
   | 'decisao_final'
   | 'revisao_respondida'
+  | 'avaliacao_cognitiva_liberada'
 
 /**
  * Resolve o modo a partir de `NOTIFICACOES_MODO`.

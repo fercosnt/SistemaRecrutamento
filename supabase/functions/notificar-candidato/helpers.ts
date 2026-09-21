@@ -17,16 +17,24 @@ import { FROM, REPLY_TO, type EventoNotificacao } from "../_shared/email-config.
  * ⚠ ESTE TIPO E O CHECK `notificacoes_enviadas_evento_check` SÃO A MESMA VERDADE ESCRITA
  * DUAS VEZES, e têm de andar na MESMA entrega (D-P42-14): o valor aqui sem o CHECK produz
  * `23514` no claim; o CHECK sem o valor aqui produz `400 VALIDATION` sobre um `net.http_post`
- * que é at-most-once — e aí o e-mail some sem rastro. O CHECK vivo carrega hoje SEIS valores:
- * os 4 do M7, `revisao_solicitada` (evento de RH, consumido pela EF `notificar-rh` — NÃO
- * pertence a este tipo) e `revisao_respondida`.
+ * que é at-most-once — e aí o e-mail some sem rastro.
+ *
+ * O 6º — `cognitivo_liberado` — é da Phase 48 / Plan 48-10 (D-22): o aviso ao candidato de
+ * que o RH liberou a avaliação cognitiva, disparado por `trg_notif_cognitivo_liberado`
+ * (migration 20260921000010). É evento de CANDIDATO e continua elegível à varredura de retry.
+ *
+ * O CHECK vivo carrega, depois da 20260921000010, NOVE valores: os 6 deste tipo e três que
+ * NÃO pertencem a ele — `revisao_solicitada` e `candidatura_encerrada_a_pedido` (eventos de
+ * RH, consumidos pela EF `notificar-rh`) e `divulgacao_vagas` (marketing, reservado, sem
+ * emissor).
  */
 export type EventoLedger =
   | "confirmacao"
   | "avanco"
   | "convite"
   | "decisao"
-  | "revisao_respondida";
+  | "revisao_respondida"
+  | "cognitivo_liberado";
 
 /** Mapa explícito ledger → email-config (ambas as direções auditáveis num literal). */
 export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
@@ -38,6 +46,9 @@ export const EVENTO_MAP: Record<EventoLedger, EventoNotificacao> = {
   // COINCIDEM — os 4 do M7 divergem por herança (o ledger nomeia o gatilho, o template nomeia
   // a mensagem). Manter a identidade aqui é deliberado: não há gatilho distinto do conteúdo.
   revisao_respondida: "revisao_respondida",
+  // 6º evento (48-10 / D-22). O ledger nomeia o gatilho (a liberação), o template nomeia a
+  // mensagem (a avaliação cognitiva liberada) — a mesma convenção dos 4 do M7.
+  cognitivo_liberado: "avaliacao_cognitiva_liberada",
 };
 
 /**
@@ -71,6 +82,11 @@ export function mapearEvento(e: EventoLedger): EventoNotificacao {
  *                            `historico_candidatura` e `NEW.id` é a transição
  *   - `revisao_respondida` → `{candidatura}:revisao_respondida:{ciclo}` (48-08) — uma chave
  *                            por CICLO de revisão; `ciclo` = epoch do `revisao_solicitada_em`
+ *   - `cognitivo_liberado` → `{candidatura}:cognitivo_liberado:{ciclo}` (48-10) — uma chave
+ *                            por LIBERAÇÃO; `ciclo` = epoch do `liberado_em`. Re-liberar
+ *                            depois de revogar recarimba `liberado_em` (`liberar_cognitivo`,
+ *                            20260826000008) e é aviso novo; a mesma liberação entregue duas
+ *                            vezes colapsa
  *   - demais / sem versão  → `{candidatura}:{evento}` (a chave LEGADA)
  *
  * ⚠ A premissa antiga — «no máximo UMA decisão e UMA revisão por candidatura, logo a chave
@@ -116,7 +132,22 @@ const EVENTOS_VERSIONADOS: ReadonlySet<EventoLedger> = new Set<EventoLedger>([
   "decisao",
   "avanco",
   "revisao_respondida",
+  "cognitivo_liberado",
 ]);
+
+/**
+ * Eventos cujo discriminador é o `ciclo` do corpo (epoch em texto, `RE_CICLO`): a resposta à
+ * revisão (48-08) e a liberação cognitiva (48-10). O `ciclo` é ignorado nos demais eventos.
+ */
+const EVENTOS_POR_CICLO: ReadonlySet<EventoLedger> = new Set<EventoLedger>([
+  "revisao_respondida",
+  "cognitivo_liberado",
+]);
+
+/** `true` quando o evento usa o `ciclo` do corpo como discriminador da chave. */
+export function eventoPorCiclo(evento: EventoLedger): boolean {
+  return EVENTOS_POR_CICLO.has(evento);
+}
 
 /** Eventos cujo discriminador é o id de uma linha de `historico_candidatura`. */
 const EVENTOS_POR_HISTORICO: ReadonlySet<EventoLedger> = new Set<EventoLedger>([

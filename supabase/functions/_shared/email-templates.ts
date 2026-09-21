@@ -1,5 +1,6 @@
 /**
- * `_shared/email-templates.ts` — os 4 templates de e-mail Beauty Smile (COMM-02/03/05/06).
+ * `_shared/email-templates.ts` — os templates de e-mail Beauty Smile ao candidato (COMM-02/03/05/06;
+ * 5º evento 42-08; 6º evento 48-10 · D-22, a liberação da avaliação cognitiva).
  *
  * HAND-ROLLED, inline CSS, table-based — sem bibliotecas React de e-mail (elas quebram no
  * runtime Deno das Edge Functions). Um wrapper compartilhado (`layoutBase`) carrega header (logo) +
@@ -236,6 +237,24 @@ ${veredito ? `<p style="margin:0 0 16px;">${escapeHtml(veredito)}</p>` : ""}
 <p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
 }
 
+/**
+ * Corpo do 6º evento — a liberação da avaliação cognitiva (Phase 48 / Plan 48-10 · D-22).
+ *
+ * É um AVISO de que há algo a fazer, não uma comunicação sobre a avaliação. Por isso:
+ *   · diz «avaliação cognitiva» — linguagem de produto do CLAUDE.md, NUNCA «teste psicológico»;
+ *   · NÃO nomeia o instrumento (dado interno do RH), nem nota, critério, prazo ou motivo;
+ *   · manda a pessoa ao painel, onde estão as instruções. O BOTÃO de acesso ao painel é
+ *     acrescentado a todos os corpos de candidato pelo plano 48-16 — não duplicar aqui.
+ */
+function corpoCognitivoLiberado(d: DadosEmail): string {
+  return `${saudacao(d)}
+<p style="margin:0 0 16px;">A equipe da Beauty Smile liberou uma avaliação cognitiva para a sua candidatura à vaga <strong>${
+    escapeHtml(d.tituloVaga)
+  }</strong>.</p>
+<p style="margin:0 0 16px;">Acesse o seu painel para ver as instruções.</p>
+<p style="margin:0;">Atenciosamente,<br>Equipe Beauty Smile</p>`;
+}
+
 /** Subjects pt-BR por evento. */
 export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   candidatura_recebida: (d) => `Recebemos sua candidatura — ${d.tituloVaga}`,
@@ -252,6 +271,8 @@ export const SUBJECTS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   // o assunto é lido na LISTA de e-mails, antes de a mensagem ser aberta. Ele nomeia o que
   // chegou (a resposta à solicitação), não o que ela diz. Pinado por T-42-V2b.
   revisao_respondida: (d) => `Resposta à sua solicitação de revisão — ${d.tituloVaga}`,
+  // 48-10 / D-22: texto do plano, literal. A vaga vai no corpo.
+  avaliacao_cognitiva_liberada: () => "Uma avaliação cognitiva foi liberada para você",
 };
 
 const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
@@ -260,6 +281,7 @@ const CORPOS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   convite_entrevista: corpoConvite,
   decisao_final: corpoDecisao,
   revisao_respondida: corpoRevisaoRespondida,
+  avaliacao_cognitiva_liberada: corpoCognitivoLiberado,
 };
 
 /**
@@ -300,6 +322,7 @@ const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   // LITERAL entre os dois vereditos. Um futuro que queira ramificar terá de alterar aquele
   // teste de propósito, e a mudança aparece no diff em vez de escorregar.
   revisao_respondida: () => "Sua solicitação de revisão foi respondida.",
+  avaliacao_cognitiva_liberada: () => "Uma avaliação cognitiva está disponível no seu painel.",
 };
 
 /** Ponto único que a EF chama: evento → { subject, html }. */

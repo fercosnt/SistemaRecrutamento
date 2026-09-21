@@ -37,6 +37,7 @@ import {
   computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
+  eventoPorCiclo,
   eventoPorHistorico,
   EVENTOS_VALIDOS,
   extrairVersaoDaChave,
@@ -91,7 +92,9 @@ interface CorpoRequisicao {
    * `trg_notif_revisao_respondida`. Versiona a chave de `revisao_respondida`: com a
    * reabertura (D-01) um 2º ciclo de revisão tem uma 2ª resposta, e a chave por candidatura
    * a engoliria. É genérico de propósito — o plano 48-10 o reusa para a liberação
-   * cognitiva. Só dígitos, até 12 (`RE_CICLO`); inválido ⇒ 400. Opcional por tolerância.
+   * cognitiva (`cognitivo_liberado`, `ciclo = extract(epoch from liberado_em)::bigint`,
+   * passado por `trg_notif_cognitivo_liberado`). Só dígitos, até 12 (`RE_CICLO`);
+   * inválido ⇒ 400. Opcional por tolerância. Ignorado fora de `eventoPorCiclo`.
    */
   ciclo?: string;
   /**
@@ -353,9 +356,10 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     // reagendamento: a data nova versiona a chave (ver montarDedupeKey).
     // 48-08: decisao/avanco são versionados pela transição (uma chave por decisão) e
     // revisao_respondida pelo ciclo de revisão (uma chave por ciclo).
+    // 48-10: cognitivo_liberado também, pelo ciclo da liberação (uma chave por liberação).
     evento === "convite"
       ? (reagendamento && agendamento ? agendamento.data_hora : undefined)
-      : evento === "revisao_respondida"
+      : eventoPorCiclo(evento)
       ? body.ciclo
       : historico_id,
   );
