@@ -73,6 +73,8 @@ function linhaRejeitada(over: Record<string, unknown> = {}) {
     explicacao_solicitada_em: null,
     revisao_veredito: null,
     revisao_respondida_em: null,
+    reaberta_em: null,
+    prazo_nova_decisao_em: null,
     ...over,
   }
 }
@@ -88,7 +90,7 @@ afterEach(() => {
 })
 
 describe('explicacaoService — allowlist (T-15-12 / LGPD-04, no score leak)', () => {
-  it('the allowlist names EXACTLY the 6 own-row columns and NO score/band/percentile', () => {
+  it('the allowlist names EXACTLY the 8 own-row columns and NO score/band/percentile', () => {
     const cols = DECISAO_EXPLICACAO_ALLOWLIST.split(',').map((c) => c.trim())
     expect(cols).toEqual([
       'decisao',
@@ -97,7 +99,12 @@ describe('explicacaoService — allowlist (T-15-12 / LGPD-04, no score leak)', (
       'explicacao_solicitada_em',
       'revisao_veredito',
       'revisao_respondida_em',
+      // 48-14 (JORN-19 · D-01/D-10): o ESTADO da reabertura — dois instantes, nenhum
+      // conteúdo. `alerta_prazo_enviado_em` é controle interno do RH e fica de fora.
+      'reaberta_em',
+      'prazo_nova_decisao_em',
     ])
+    expect(cols).not.toContain('alerta_prazo_enviado_em')
   })
 
   it('the allowlist EXCLUDES the internal RH justificativa (Phase-24 CR-01 — network leak)', () => {
@@ -515,6 +522,8 @@ describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)'
       explicacao_solicitada_em: null,
       revisao_veredito: null,
       revisao_respondida_em: null,
+      reaberta_em: null,
+      prazo_nova_decisao_em: null,
     })
     expect(rpcMock).toHaveBeenCalledWith('explicacao_rejeicao_origem', {
       p_candidatura_id: VALID_CAND,
@@ -558,5 +567,44 @@ describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)'
     const r = await getExplicacao(VALID_CAND)
     expect(r?.origem).toBe('humana')
     expect(rpcMock).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * 48-14 (JORN-19 · D-01/D-10) — a leitura do ESTADO da reabertura. O veredito `revertida`
+ * reabre a candidatura (48-11) e `decisao` continua `rejeitado` até a nova decisão; é
+ * `reaberta_em` que diz à página que a rejeição deixou de valer, e `prazo_nova_decisao_em`
+ * que dá a data — a mesma do e-mail (48-13).
+ */
+describe('explicacaoService — o estado da reabertura (JORN-19)', () => {
+  it('linha reaberta → o objeto devolvido expõe reaberta_em e prazo_nova_decisao_em', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: linhaRejeitada({
+        revisao_veredito: 'revertida',
+        revisao_respondida_em: '2026-09-23T14:30:00Z',
+        reaberta_em: '2026-09-23T14:30:00Z',
+        prazo_nova_decisao_em: '2026-10-04T03:00:00Z',
+      }),
+      error: null,
+    })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(r?.reaberta_em).toBe('2026-09-23T14:30:00Z')
+    expect(r?.prazo_nova_decisao_em).toBe('2026-10-04T03:00:00Z')
+  })
+
+  it('linha sem reabertura → os dois campos vêm nulos', async () => {
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.reaberta_em).toBeNull()
+    expect(r?.prazo_nova_decisao_em).toBeNull()
+  })
+
+  it('o caminho automático também devolve os dois campos nulos', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.reaberta_em).toBeNull()
+    expect(r?.prazo_nova_decisao_em).toBeNull()
   })
 })

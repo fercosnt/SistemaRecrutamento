@@ -58,7 +58,14 @@ import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalP
 const COPY_SPEC = {
   eyebrow: 'Resultado da revisão',
   mantida: 'Após a revisão, a decisão foi mantida.',
-  revertida: 'Após a revisão, a decisão anterior foi revista.',
+  /**
+   * 48-14 (JORN-19 · D-01): a MESMA frase do e-mail do 48-13
+   * (`supabase/functions/_shared/email-templates.ts`, COPY_REVISAO_REVERTIDA), letra por
+   * letra — sem data quando o prazo não é legível, com a data-limite em SP quando é.
+   */
+  revertida: 'Após a revisão, sua candidatura foi reaberta e será decidida novamente.',
+  revertidaComData: (data: string) =>
+    `Após a revisão, sua candidatura foi reaberta e será decidida novamente até ${data}.`,
   data: 'Respondida em 28/07/2026',
 } as const
 
@@ -79,6 +86,8 @@ function explicacao(over: Record<string, unknown> = {}) {
     explicacao_solicitada_em: '2026-07-19T09:00:00Z',
     revisao_veredito: null,
     revisao_respondida_em: null,
+    reaberta_em: null,
+    prazo_nova_decisao_em: null,
     ...over,
   }
 }
@@ -163,7 +172,7 @@ describe('ExplicacaoCandidatoPage — o bloco de resultado, byte a byte com a UI
     expect(screen.getByText(JUSTIFICATIVA)).toBeInTheDocument()
   })
 
-  it('veredito `revertida` → a linha informa que a decisão anterior foi revista', () => {
+  it('veredito `revertida` → a linha informa que a candidatura foi reaberta (D-01)', () => {
     carregada({
       revisao_veredito: 'revertida',
       revisao_respondida_em: '2026-07-28T14:30:00Z',
@@ -347,8 +356,9 @@ describe('ExplicacaoCandidatoPage — o acompanhamento interno do RH nunca chega
   })
 
   it('o sistema não escreve promessa própria de próximos passos (regra de honestidade)', () => {
-    // A RPC desta fase grava um veredito e uma justificativa; ela NÃO reabre o funil.
-    // Qualquer encaminhamento é o que a pessoa que revisou escreveu.
+    // Desde o 48-11 o veredito `revertida` REABRE a candidatura, e a única frase do sistema
+    // sobre o que vem depois é a de D-01 — que o código executa (a candidatura volta à
+    // decisão final e o RH é alertado se o prazo vencer, 48-13). Nenhuma outra promessa.
     carregada({
       revisao_veredito: 'revertida',
       revisao_respondida_em: '2026-07-28T14:30:00Z',
@@ -357,6 +367,7 @@ describe('ExplicacaoCandidatoPage — o acompanhamento interno do RH nunca chega
     render(<ExplicacaoCandidatoPage />)
     const bloco = screen.getByText(COPY_SPEC.eyebrow).parentElement
     expect(bloco).not.toBeNull()
+    const semD01 = (bloco?.textContent ?? '').replace(COPY_SPEC.revertida, '')
     for (const promessa of [
       /entraremos em contato/i,
       /entrará em contato/i,
@@ -365,8 +376,9 @@ describe('ExplicacaoCandidatoPage — o acompanhamento interno do RH nunca chega
       /em breve/i,
       /aguarde/i,
       /reabert/i,
+      /aprovad/i,
     ]) {
-      expect(bloco?.textContent ?? '').not.toMatch(promessa)
+      expect(semD01).not.toMatch(promessa)
     }
   })
 })
@@ -527,5 +539,93 @@ describe('ExplicacaoCandidatoPage — a rejeição humana na triagem (JORN-22 / 
     const r2 = render(<ExplicacaoCandidatoPage />)
     expect(r2.container.querySelector('[data-testid="explicacao-humana-triagem"]')).toBeNull()
     expect(screen.getByText(/sem avaliação de uma pessoa/i)).toBeInTheDocument()
+  })
+})
+
+/**
+ * 48-14 (JORN-19 · D-01) — a candidatura REABERTA. O veredito `revertida` reabre a
+ * candidatura (48-11) e `decisao` continua `rejeitado` até a nova decisão; a página não
+ * pode apresentar essa rejeição como vigente. E-mail e página dizem a mesma coisa
+ * (regra da 42-UI-SPEC): a frase de D-01, com a mesma data-limite em SP.
+ */
+describe('ExplicacaoCandidatoPage — a candidatura reaberta (JORN-19 / D-01)', () => {
+  const REABERTA = {
+    revisao_veredito: 'revertida',
+    revisao_respondida_em: '2026-09-23T14:30:00Z',
+    revisao_resultado: JUSTIFICATIVA,
+    reaberta_em: '2026-09-23T14:30:00Z',
+    // 00:00 de SP do dia SEGUINTE à data-limite (48-11) → a data dita é 03/10/2026.
+    prazo_nova_decisao_em: '2026-10-04T03:00:00Z',
+  }
+
+  it('diz que foi reaberta e até quando — a mesma frase e a mesma data do e-mail', () => {
+    carregada(REABERTA)
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(linhaVeredito(container, COPY_SPEC.revertidaComData('03/10/2026'))).not.toBeNull()
+    expect(container.textContent).toContain(
+      'Após a revisão, sua candidatura foi reaberta e será decidida novamente até 03/10/2026.',
+    )
+  })
+
+  it('NÃO apresenta a rejeição revertida como vigente — nem a linha, nem a razão', () => {
+    carregada(REABERTA)
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(container.textContent).not.toMatch(/decidimos não seguir/i)
+    expect(screen.queryByText('Por que esta decisão')).not.toBeInTheDocument()
+    // O cabeçalho continua o mesmo.
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Sobre a sua candidatura' }),
+    ).toBeInTheDocument()
+  })
+
+  it('NÃO oferece o pedido de revisão (não há decisão vigente a revisar)', () => {
+    carregada(REABERTA)
+    render(<ExplicacaoCandidatoPage />)
+    expect(
+      screen.queryByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /revis(ã|a)o/i })).not.toBeInTheDocument()
+  })
+
+  it('mantém a data da resposta e a justificativa de quem revisou', () => {
+    carregada(REABERTA)
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.getByText(COPY_SPEC.eyebrow)).toBeInTheDocument()
+    expect(screen.getByText('Respondida em 23/09/2026')).toBeInTheDocument()
+    expect(screen.getByText(JUSTIFICATIVA)).toBeInTheDocument()
+  })
+
+  it.each([
+    ['nulo', null],
+    ['ilegível', 'não-é-data'],
+  ])('prazo %s → a frase sai SEM data (nunca uma data inventada)', (_n, prazo) => {
+    carregada({ ...REABERTA, prazo_nova_decisao_em: prazo })
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(linhaVeredito(container, COPY_SPEC.revertida)).not.toBeNull()
+    expect(container.textContent).not.toMatch(/novamente até/)
+  })
+
+  it('veredito `mantida` segue inalterado: a rejeição vigente e o bloco de resultado', () => {
+    carregada({
+      revisao_veredito: 'mantida',
+      revisao_respondida_em: '2026-07-28T14:30:00Z',
+      revisao_resultado: JUSTIFICATIVA,
+    })
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(linhaVeredito(container, COPY_SPEC.mantida)).not.toBeNull()
+    expect(
+      screen.getByText(
+        'Após avaliarmos seu processo, decidimos não seguir com a sua candidatura nesta vaga.',
+      ),
+    ).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/reaberta/i)
+  })
+
+  it('nenhum vocabulário do acompanhamento interno do RH entra com a data', () => {
+    carregada(REABERTA)
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    for (const padrao of [/dias em espera/i, /atrasad/i, /faixa/i, /\bsla\b/i, /prazo/i, /\d+\s*dias?\b/i]) {
+      expect(container.innerHTML).not.toMatch(padrao)
+    }
   })
 })
