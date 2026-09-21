@@ -92,3 +92,7 @@
 - Veredito de export/inventário PII das 12 colunas novas do 48-11 (`decisao_final`: 3; `decisao_final_historico`: 9) (achado no 48-11)
   status: open (informativo)
   **What:** a cópia LGPD exporta por allowlist, então as colunas NÃO entram na cópia (fail-safe), mas `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD vai acusá-las como sem veredito. O veredito de export e o `pii-inventory.yaml` são do 48-17 (compliance da fase), como no item do 48-07.
+
+## 48-14 — achado fora de escopo (2026-09-21)
+
+- **anon lê `candidaturas`?** `GET /rest/v1/candidaturas?select=id&limit=1` com a chave pública (anon, tirada do bundle) devolveu **HTTP 200 com um id**. Não investigado (anterior ao 48-14; nenhum arquivo deste plano toca a RLS de `candidaturas`). Triar: qual policy/GRANT expõe a linha ao anon, e quais colunas ela alcança.
