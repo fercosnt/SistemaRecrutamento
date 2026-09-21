@@ -11,6 +11,7 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 
 const useAgendamentoMock = vi.fn()
@@ -52,6 +53,22 @@ describe('AgendamentoBlock — etapa-gated interview scheduling (AGEND-02/03)', 
     expect(
       screen.getByRole('button', { name: /Agendar entrevista/i }),
     ).toBeInTheDocument()
+  })
+
+  // Phase 48 / 48-03 (JORN-D5): o formulário recusa link inválido no online e DIZ o que falta.
+  it('online com link inválido ("dddd") → mensagem no campo e nenhuma mutação', async () => {
+    const agendar = { mutate: vi.fn(), isPending: false }
+    useAgendamentoMock.mockReturnValue(hookState({ data: null, agendar }))
+    const user = userEvent.setup()
+    render(<AgendamentoBlock candidaturaId="cand-1" etapaAtual="entrevista_online" />)
+    await user.click(screen.getByRole('button', { name: /Agendar entrevista/i }))
+    await user.type(screen.getByLabelText('Link da videochamada'), 'dddd')
+    await user.click(screen.getByRole('button', { name: /Salvar agendamento/i }))
+    expect(
+      await screen.findByText('Informe um link válido, começando com http:// ou https://.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Link da videochamada')).toHaveAttribute('aria-invalid', 'true')
+    expect(agendar.mutate).not.toHaveBeenCalled()
   })
 
   it('etapaAtual=null → bloco travado (defensivo)', () => {
