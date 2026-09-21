@@ -121,3 +121,7 @@
 - `decisao_final.revisao_veredito` / `revisao_por_usuario` / `revisao_respondida_em` (P42) sem entrada explícita no `pii-inventory.yaml` (achado no 48-17)
   status: open (informativo)
   **What:** as homônimas em `decisao_final_historico`, criadas pelo 48-11, agora TÊM entrada (48-17); as da tabela corrente nunca tiveram. O export não depende disso (vereditos por `decisoes_por_coluna`/R1/R2), mas o recibo e o inventário ficam assimétricos. Conserto: acrescentar as 3 entradas e dar a elas linha/razão no `gen-recibo-exclusao.cjs` (o mesmo destino das do histórico).
+
+- `candidaturas.data_bigfive_enviado` nunca é carimbado (achado no 48-05, 2026-09-21)
+  status: open
+  **What:** medido em PROD: 3 de 3 candidaturas com score `big_five` têm `data_bigfive_enviado` nulo, inclusive a da submissão de prova `2ce20fbf…` (status `sucesso` no log do `submit-bigfive-final` v12). Anterior à fase; não é o JORN-06. Conferir quem lê a coluna (tela do RH / painel) antes de consertar — [[tela-vazia-nao-e-dado-ausente]].
