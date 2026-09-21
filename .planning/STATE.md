@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-12-PLAN.md
-last_updated: "2026-09-21T16:05:44.170Z"
+stopped_at: Completed 48-14-PLAN.md
+last_updated: "2026-09-21T16:16:21.844Z"
 last_activity: 2026-09-21
-state_head: 4444c2b98ab2918b9645cb65032f2db30f3d1446
+state_head: 50891a5dbc57643039b93cd673d12d42e06e113c
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 69
-  percent: 90
+  completed_plans: 70
+  percent: 91
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -785,6 +785,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P11 | 12 min | 3 tasks | 5 files |
 | Phase 48 P13 | 16min | 3 tasks | 11 files |
 | Phase 48 P12 | 60min | 3 tasks | 3 files |
+| Phase 48 P14 | 12min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1056,6 +1057,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-11: em_espera durante a reabertura NAO e nova decisao (A5) — so aprovado/rejeitado zeram o ciclo; registrar_decisao fail-closed antes de ler a candidatura
 - [Phase 48]: 48-13: varrer_prazos_reabertura so ALERTA (D-10): erro de enfileiramento nao marca alerta_prazo_enviado_em; ciclo obrigatorio no evento de prazo; data do e-mail validada DD/MM/AAAA, fora da forma sai sem data
 - [Phase 48]: 48-12: operador escolheu «ambos» — marcas de encerrada_a_pedido_em em knockout desfeitas (000013) e feedback neutro gravado na rejeição de triagem anterior ao conserto (000014), com portão por id e fila pg_net inalterada
+- [Phase 48]: 48-14: página de explicação trata como reaberta reaberta_em OU veredito revertida (caminho humano) e esconde linha, razão e agradecimento da rejeição; painel troca o SLA pela linha prazo-reabertura (sem data se prazo ilegível, nunca o SLA de volta)
 
 ### Pending Todos
 
@@ -1113,6 +1115,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ~~46-01 Task 3: fixture NAO aplicada em PROD~~ **RESOLVIDO 2026-08-22**: aplicada, `candidaturas_alem_da_janela()` 0 → 7, cinco asserções de contaminação em zero. ⚠ Fica UM item herdado: o **46-03 tem de inserir a linha de `retencao_hold`** para a candidatura `4601c000-0000-4000-8000-000000000005` (a tabela não existia no apply, e o bloco guardado por `to_regclass` só emitiu `NOTICE`). Sem ela, `neg-hold#05` continua elegível e a asserção (j.1) do smoke passa por vacuidade.
 - ✅ **RESOLVIDO 2026-08-23 — B-02 FECHADO E PROVADO EM PROD.** A Saida A (3o ramo nas DUAS metades) esta aplicada via `20260823000008` e a asserção (p.3) do smoke — que ate hoje SO CONSEGUIA FALHAR, por um bug proprio — passa: com item aberto, execucao em `executando` e cerco em `dry_run`, `plano_exclusao_titular` DEVOLVE o plano. ⊖ E a premissa sobre a qual o operador decidiu a Saida A esta MEDIDA e se sustenta: o nome/email/cpf/celular reais do titular nao aparecem no jsonb de 13 chaves, e nao ha padrao de PII nenhum nele. Registro historico: - ⛔ B-02 (46-04, 2026-08-23): public.plano_exclusao_titular(uuid) tem guard PROPRIO de duas metades (20260805000005:201-253) que recusa chamador sem sessao com 42501. anonimizar_candidato a CHAMA no PASSO 0, entao o 4o ramo de D-46-18 NAO basta — o dry-run da purga morre 3 linhas depois de ser autorizado. SECURITY DEFINER nao troca auth.uid(). Exige decisao do operador (Rule 4): Saida A = espelhar o 4o ramo nas DUAS metades daquela funcao, o que implica migration nova e um SEGUNDO re-pin de md5 em (C3) (v_pin_plano).
 - ✅ **RESOLVIDO 2026-08-23 — 46-04 FECHADO, APLICADO EM PROD, PORTAO CUMPRIDO.** QUATRO rodadas de code review bloqueante (r1: 2 BLOCKER+10 · r2: 3 HIGH+6, dois causados pelo proprio conserto · r3: 2 HIGH+6 · r4 dirigida: bloqueio so de DOCUMENTO, zero SQL). As 4 migrations aplicadas na ordem `006 -> 008 -> 009 -> 007` pela via do CLAUDE.md, md5 do ledger conferido por leitura de volta nas quatro. ⊖ Zero linha de pessoa tocada (candidatos 31=31, candidaturas 20=20, auth.users 37=37, CVs 5=5, historico 13=13); ACL identico antes/depois (classe BL-01 fechada por medicao); `modo` segue `off`; nenhum cron de purga existe ainda. Portao: p46_purga 16/16, p45_motor 24/24, p43_previa 9, p43_matriz 11, p42_cron 4 — todos lidos do GUC. Registro historico: - 46-04 (2026-08-22): code review bloqueante REPROVOU a 1a rodada — 2 BLOCKER (BL-01 as migrations revogavam de authenticated o EXECUTE vivo e reintroduziriam DI-45-10-01 em PROD; BL-02 o 4o ramo nao era correlacionado com o chamador e abria CR-01 cen.2 para qualquer authenticated enquanto houvesse item aberto em live), 4 HIGH, 4 MEDIUM, 2 LOW. TODOS tratados no commit 6029f94. ⚠ NOVA rodada de review e pre-condicao do apply — o portao e condicao de fechamento da fase.
+- 48-14 achado (não corrigido, portão destrutivo): policy «Allow anonymous duplicate check» em public.candidaturas FOR SELECT TO anon USING (true) + SELECT nas 40 colunas — a chave pública lê todas as candidaturas. Ver 48 deferred-items.md
 
 ## Deferred Verification
 
@@ -1336,8 +1339,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T16:05:43.944Z
-Stopped at: Completed 48-12-PLAN.md
+Last session: 2026-09-21T16:16:21.598Z
+Stopped at: Completed 48-14-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
