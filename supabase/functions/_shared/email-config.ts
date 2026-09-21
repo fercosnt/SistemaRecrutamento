@@ -35,6 +35,60 @@ export const FROM = `${REMETENTE_NOME} <${REMETENTE_EMAIL}>` as const
  */
 export const REPLY_TO = 'rh@beautysmile.com.br' as const
 
+/**
+ * Base canônica do app publicado — a mesma que `notificar-rh` usa para o link da fila
+ * (`notificar-rh/helpers.ts`, `APP_BASE_URL_PADRAO`). Phase 48 / 48-07 (JORN-U2): ela
+ * mora aqui para que os e-mails AO CANDIDATO tenham link para o login sem cada EF
+ * repetir a validação. A consolidação de `notificar-rh` sobre este módulo é do 48-16;
+ * até lá as duas constantes têm o mesmo valor.
+ */
+export const APP_BASE_URL_PADRAO = 'https://rh.beautysmile.com.br' as const
+
+/**
+ * Normaliza a base do app (normalmente `Deno.env.get('APP_BASE_URL')`) para uma ORIGEM.
+ *
+ * FAIL-SAFE idêntico ao de `montarUrlFila` (`notificar-rh/helpers.ts`): base ausente,
+ * vazia, não-URL, ou com esquema diferente de `https:` cai no default canônico. NUNCA
+ * lança — num e-mail, o link vale menos que o e-mail; e um link com esquema
+ * `javascript:` é superfície de ataque, não link.
+ */
+export function normalizarBaseApp(baseBruta?: string): string {
+  let base: string = APP_BASE_URL_PADRAO
+  try {
+    if (typeof baseBruta === 'string' && baseBruta.trim() !== '') {
+      const u = new URL(baseBruta.trim())
+      if (u.protocol === 'https:') base = u.origin
+    }
+  } catch {
+    // base malformada — mantém o default
+  }
+  return base.replace(/\/+$/, '')
+}
+
+/**
+ * URL absoluta do login do CANDIDATO (`/auth/login`), com retorno opcional.
+ *
+ * O login consome `?redirect=` com `resolveRedirect` (`src/features/auth/utils/
+ * resolveRedirect.ts`, anti-open-redirect). Esta função é o PRIMEIRO cinto, não o único:
+ * `redirect` só entra se for caminho INTERNO — começa com `/`, e não com `//` nem `/\`
+ * (protocol-relative), e sem caractere de controle. Qualquer outra coisa é descartada e
+ * o link cai no login puro, que leva ao painel. É o link do JORN-U2.
+ */
+export function montarUrlLogin(baseBruta?: string, redirect?: string): string {
+  const url = `${normalizarBaseApp(baseBruta)}/auth/login`
+  if (
+    typeof redirect !== 'string' ||
+    !redirect.startsWith('/') ||
+    redirect[1] === '/' ||
+    redirect[1] === '\\' ||
+    /\s/.test(redirect) ||
+    [...redirect].some((ch) => ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f)
+  ) {
+    return url
+  }
+  return `${url}?redirect=${encodeURIComponent(redirect)}`
+}
+
 /** Modo de operação do envio. Só `producao` alcança pessoas reais. */
 export type ModoNotificacao = 'producao' | 'teste'
 

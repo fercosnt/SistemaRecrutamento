@@ -416,3 +416,73 @@ export function construirCorpoResendRecibo(args: {
 export function chaveIdempotenciaRecibo(solicitacaoId: string): string {
   return `${LABEL_SINK_RECIBO}:${solicitacaoId}`;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 48 / Plano 48-07 — O AVISO AO TITULAR (JORN-27 · JORN-U2)
+//
+// ⚠ É CONTROLE DE CONTA INVADIDA, NÃO CORTESIA. Até 2026-09-21 o pedido e o
+// cancelamento geravam três e-mails, todos para o RH, e zero para a titular: com a
+// conta invadida, a exclusão era pedida e a dona dos dados não sabia.
+//
+// ⚠ O CARIMBO É PRÓPRIO (`aviso_pedido_enviado_em` / `aviso_cancelamento_enviado_em`)
+// e NUNCA `recibo_enviado_em` — aquela coluna é o cinto do recibo POS-exclusão, e
+// escrevê-la aqui faria o motor pular o único e-mail que prova a exclusão.
+//
+// ⚠ AS ASSINATURAS SÃO O CONTROLE DE PRIVACIDADE, como no recibo: uma data e uma URL, e
+// nada mais. `solicitacao_id` (Invariante 12), nome e `candidato_id` não têm por onde
+// entrar. E o canal de privacidade NÃO é citado por literal (D-07 — o PP-16 precisa
+// continuar sendo troca em lugares contados): o rodapé de `layoutBase` já diz «responda a
+// este e-mail», e o `REPLY_TO` é a caixa do RH.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Rótulos do sink de teste dos dois avisos. Só `[a-z_]` — viajam para domínio de terceiro. */
+export const LABEL_SINK_AVISO_PEDIDO = "aviso_exclusao_pedido" as const;
+export const LABEL_SINK_AVISO_CANCELAMENTO = "aviso_exclusao_cancelado" as const;
+
+/** Botão + fallback em texto do link da área de privacidade. Sempre escapado. */
+function botaoPrivacidade(urlPrivacidade: string): string {
+  const url = escapeHtml(urlPrivacidade);
+  return `<p style="margin:0 0 24px;"><a href="${url}" style="display:inline-block;padding:12px 24px;background:#00A9A5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Acessar minha área de privacidade</a></p>
+<p style="margin:0 0 16px;font-size:14px;color:#6b7280;">Se o botão não funcionar, acesse: ${url}</p>`;
+}
+
+/** Assunto FIXO do aviso de pedido — sem interpolação, logo sem superfície de CR/LF. */
+export function assuntoAvisoPedidoExclusao(): string {
+  return "Recebemos seu pedido de exclusão de dados".replace(/[\r\n]+/g, " ").trim();
+}
+
+/**
+ * Corpo do aviso de PEDIDO: que o pedido foi recebido, QUANDO será executado, como
+ * cancelar até lá, e o que fazer se não foi a pessoa quem pediu.
+ *
+ * Data ilegível LANÇA (`dataBR`) — o chamador registra `aviso_corpo` e não envia: um aviso
+ * sem a data é justamente o aviso que não permite à pessoa agir a tempo.
+ */
+export function corpoAvisoPedidoExclusao(args: {
+  dataExecucao: string;
+  urlPrivacidade: string;
+}): string {
+  const data = dataBR(args.dataExecucao);
+  const conteudoHtml = `<p style="margin:0 0 16px;">Olá,</p>
+<p style="margin:0 0 16px;">Recebemos um pedido para <strong>excluir os seus dados</strong> da Beauty Smile.</p>
+<p style="margin:0 0 16px;">A exclusão será feita em <strong>${data}</strong>. Até lá, você pode cancelar o pedido na sua área de privacidade.</p>
+${botaoPrivacidade(args.urlPrivacidade)}
+<p style="margin:0;"><strong>Se não foi você quem pediu, entre na sua conta e cancele o pedido — e responda a este e-mail.</strong></p>`;
+  return layoutBase({
+    preheader: `Seus dados serão excluídos em ${data}, se o pedido não for cancelado.`,
+    conteudoHtml,
+  });
+}
+
+/**
+ * Chave de idempotência do aviso no Resend — cinto SECUNDÁRIO (o primeiro é a coluna de
+ * carimbo). Uma por (tipo, pedido): o aviso de pedido e o de cancelamento do MESMO pedido
+ * nunca colidem. ⚠ NUNCA logada: embute o `solicitacao_id` completo.
+ */
+export function chaveIdempotenciaAviso(
+  tipo: "pedido" | "cancelamento",
+  solicitacaoId: string,
+): string {
+  const label = tipo === "pedido" ? LABEL_SINK_AVISO_PEDIDO : LABEL_SINK_AVISO_CANCELAMENTO;
+  return `${label}:${solicitacaoId}`;
+}

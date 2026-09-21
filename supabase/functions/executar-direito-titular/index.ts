@@ -158,14 +158,18 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  assuntoAvisoPedidoExclusao,
   assuntoReciboExclusao,
   BUCKET_CURRICULOS,
   causaDaFalha,
+  chaveIdempotenciaAviso,
   chaveIdempotenciaRecibo,
+  corpoAvisoPedidoExclusao,
   construirCorpoResendRecibo,
   corpoReciboExclusao,
   dividirEmLotes,
   enumerarObjetosTitular,
+  LABEL_SINK_AVISO_PEDIDO,
   LABEL_SINK_RECIBO,
   LIMITE_REMOCAO,
   logSeguroExclusao,
@@ -176,6 +180,7 @@ import {
 import {
   exigirSinkTeste,
   type ModoNotificacao,
+  montarUrlLogin,
   resolverDestinatarioComLabel,
   resolverModo,
 } from "../_shared/email-config.ts";
@@ -246,6 +251,12 @@ export interface Deps {
    * e a suíte desta EF roda sem permissão de env por contrato da fase.
    */
   modo?: ModoNotificacao;
+  /**
+   * 48-07 (JORN-U2): a base do link de login nos avisos ao titular. No wiring vem de
+   * `APP_BASE_URL` (ausente hoje ⇒ default canônico); injetada nos testes pela mesma
+   * razão de `modo` — o handler não lê `Deno.env`.
+   */
+  appBaseUrl?: string;
 }
 
 /**
@@ -564,6 +575,17 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
         logErro("pedir", "sem_linha", candidatoId);
         return errorResponse("SERVER_ERROR", "Não foi possível registrar seu pedido.", 500);
       }
+
+      // ── 48-07 · O AVISO À TITULAR (JORN-27) ──────────────────────────────
+      //    DEPOIS do fail-closed «sem linha»: só se avisa de um pedido que existe.
+      //    ⚠ A resposta ao titular NÃO muda em caso nenhum — o pedido já está
+      //    registrado, e uma falha do aviso não pode desfazê-lo nem virar erro na tela.
+      //    Mas ela também não some: coluna NULA + log por código (`aviso_<causa>`).
+      await avisarPedidoTitular(deps, {
+        candidatoId,
+        emailTitular,
+        executarEm: String(linha.executar_em),
+      });
 
       // ⚠ Invariante 12: `solicitacao_id` NÃO entra na resposta. O titular vê datas
       // e consequências; o motor vê identificadores. É também o que dispensa o
@@ -1419,6 +1441,150 @@ async function enviarRecibo(
   if (!resp.ok) throw new ErroDePasso("recibo", "resend_nao_2xx");
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 48 / Plano 48-07 — O AVISO AO TITULAR (JORN-27 · JORN-U2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Resultado do envio de um aviso. `causa` é vocabulário de LOG (vira `aviso_<causa>`). */
+type ResultadoAviso = { ok: true } | { ok: false; causa: string };
+
+/**
+ * O NÚCLEO de `enviarRecibo` — modo, sink, `exigirSinkTeste`, `ler_resend_api_key`,
+ * `Idempotency-Key` — que DEVOLVE o desfecho em vez de lançar.
+ *
+ * ⚠ POR QUE NÃO LANÇA. No recibo, uma falha é um passo do motor que tem de ser retomado
+ * (`ErroDePasso` → `causa` gravada). Aqui o pedido JÁ foi registrado quando o aviso é
+ * tentado: uma exceção subiria até o `catch` do handler e o titular leria «não foi
+ * possível concluir seu pedido» sobre um pedido que foi concluído. Nenhum caminho desta
+ * função lança — inclusive `resolverModo()`, que lê `Deno.env`.
+ *
+ * ⚠ E NÃO PASSA POR `notificacoes_enviadas` (o ledger exige `candidatura_id`; 16 de 42
+ * titulares não têm candidatura). A prova de envio é a coluna de carimbo do chamador.
+ */
+async function enviarAvisoTitular(
+  deps: Deps,
+  args: {
+    tipo: "pedido" | "cancelamento";
+    pedidoId: string;
+    para: string | null;
+    assunto: string;
+    html: string;
+    label: string;
+  },
+): Promise<ResultadoAviso> {
+  try {
+    if (typeof args.para !== "string" || args.para === "") {
+      return { ok: false, causa: "sem_endereco" };
+    }
+    const modo = deps.modo ?? resolverModo();
+    const dest = resolverDestinatarioComLabel(args.para, args.label, modo);
+    try {
+      // Hard-fail non-prod (DELIV-03): nenhum endereço real recebe e-mail de um run de teste.
+      exigirSinkTeste(dest.para, modo);
+    } catch {
+      return { ok: false, causa: "sink_nao_prod" };
+    }
+
+    const { data: apiKey } = await deps.supabaseAdmin.rpc("ler_resend_api_key");
+    if (typeof apiKey !== "string" || apiKey === "") {
+      return { ok: false, causa: "sem_chave" };
+    }
+
+    const enviar = deps.fetchImpl ?? fetch;
+    let resp: Response;
+    try {
+      resp = await enviar("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          // Cinto SECUNDÁRIO: o primeiro é a coluna de carimbo. ⚠ Nunca logada.
+          "Idempotency-Key": chaveIdempotenciaAviso(args.tipo, args.pedidoId),
+        },
+        body: JSON.stringify(
+          construirCorpoResendRecibo({ para: dest.para, subject: args.assunto, html: args.html }),
+        ),
+      });
+    } catch {
+      return { ok: false, causa: "fetch" };
+    }
+    if (!resp.ok) return { ok: false, causa: "resend_nao_2xx" };
+    return { ok: true };
+  } catch {
+    return { ok: false, causa: "excecao" };
+  }
+}
+
+/**
+ * O aviso do PEDIDO (JORN-27). Localiza o pedido agendado com a MESMA consulta do ramo
+ * `cancelar` (escopo `candidato_id` + tipo + situação — nunca um id vindo do corpo),
+ * envia se o carimbo está vazio, carimba depois do 2xx. Nunca lança; toda falha vira
+ * `logErro("pedir", "aviso_<causa>", …)` e a coluna fica NULA.
+ */
+async function avisarPedidoTitular(
+  deps: Deps,
+  args: { candidatoId: string; emailTitular: string | null; executarEm: string },
+): Promise<void> {
+  let pedidoId: string | undefined;
+  try {
+    const { data: pedido, error } = await deps.supabaseAdmin
+      .from("solicitacoes_dados")
+      .select("id, aviso_pedido_enviado_em")
+      .eq("candidato_id", args.candidatoId)
+      .eq("tipo", TIPO_EXCLUSAO)
+      .eq("situacao", SITUACAO_AGENDADO)
+      .order("solicitado_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      logErro("pedir", "aviso_leitura", args.candidatoId);
+      return;
+    }
+    if (!pedido?.id) {
+      logErro("pedir", "aviso_sem_pedido", args.candidatoId);
+      return;
+    }
+    pedidoId = String(pedido.id);
+    // Idempotência por ESTADO: um segundo `pedir` com o pedido já agendado não reavisa.
+    if (pedido.aviso_pedido_enviado_em) return;
+
+    let html: string;
+    try {
+      html = corpoAvisoPedidoExclusao({
+        dataExecucao: args.executarEm,
+        urlPrivacidade: montarUrlLogin(deps.appBaseUrl, "/candidato/privacidade"),
+      });
+    } catch {
+      logErro("pedir", "aviso_corpo", args.candidatoId, pedidoId);
+      return;
+    }
+
+    const r = await enviarAvisoTitular(deps, {
+      tipo: "pedido",
+      pedidoId,
+      para: args.emailTitular,
+      assunto: assuntoAvisoPedidoExclusao(),
+      html,
+      label: LABEL_SINK_AVISO_PEDIDO,
+    });
+    if (!r.ok) {
+      logErro("pedir", `aviso_${r.causa}`, args.candidatoId, pedidoId);
+      return;
+    }
+
+    // ⚠ O carimbo é o PRÓPRIO — nunca `recibo_enviado_em`, que é o cinto do recibo
+    // pós-exclusão e, escrito aqui, faria o motor pular o recibo final.
+    const { error: carimboErr } = await deps.supabaseAdmin
+      .from("solicitacoes_dados")
+      .update({ aviso_pedido_enviado_em: agora() })
+      .eq("id", pedidoId)
+      .is("aviso_pedido_enviado_em", null);
+    if (carimboErr) logErro("pedir", "aviso_carimbo", args.candidatoId, pedidoId);
+  } catch {
+    logErro("pedir", "aviso_excecao", args.candidatoId, pedidoId);
+  }
+}
+
 /** Soma os valores numéricos de um passo do jsonb de `plano_exclusao_titular`. */
 function contagemDe(planoBanco: unknown, passo: string): number {
   const bloco = (planoBanco as Record<string, unknown> | null)?.[passo];
@@ -1570,6 +1736,12 @@ if (import.meta.main) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    return await handler(req, { supabaseAdmin, supabaseUser, supabaseTitular });
+    return await handler(req, {
+      supabaseAdmin,
+      supabaseUser,
+      supabaseTitular,
+      // 48-07 (JORN-U2): ausente ⇒ `montarUrlLogin` cai no default canônico.
+      appBaseUrl: Deno.env.get("APP_BASE_URL") || undefined,
+    });
   });
 }
