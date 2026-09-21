@@ -38,6 +38,9 @@ import {
 } from '../services/agendamentoCandidatoService'
 import type { StatusAgendamento } from '../services/agendamentoService'
 import { formatDataHoraSP } from '@/lib/datetime/formatDataHoraSP'
+// Defense-in-depth (WR-01): only linkify an RH-written URL whose scheme is http(s); a
+// `javascript:`/`data:` value renders as inert text. Shared with the RH form (JORN-D5).
+import { isSafeHttpUrl } from '@/lib/url/isSafeHttpUrl'
 
 export interface AgendamentoCandidatoCardProps {
   candidaturaId: string
@@ -58,21 +61,6 @@ const STATUS_CONFIG: Record<
   reagendada: { icon: RefreshCw, color: 'text-yellow-300', bg: 'bg-yellow-500/20', label: 'Reagendada' },
   cancelada: { icon: AlertCircle, color: 'text-red-300', bg: 'bg-red-500/20', label: 'Cancelada' },
   nao_compareceu: { icon: AlertCircle, color: 'text-gray-300', bg: 'bg-gray-500/20', label: 'Não compareceu' },
-}
-
-/**
- * Defense-in-depth (WR-01): only linkify an RH-written online meeting URL when it parses
- * AND its scheme is `http:`/`https:`. `local_ou_link` comes from the RH write layer, so a
- * `javascript:`/`data:` URL is reachable via bad/compromised data; such a value is
- * rendered as inert plain text instead of a candidate-clickable anchor.
- */
-function isSafeHttpUrl(u: string): boolean {
-  try {
-    const { protocol } = new URL(u.trim())
-    return protocol === 'http:' || protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 /** Long-form pt-BR date for the screen-reader aria-label (SP-pinned). */

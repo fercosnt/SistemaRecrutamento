@@ -297,8 +297,21 @@ function AgendamentoForm({
               ? 'ex.: Clínica Beauty Smile — Sala 2'
               : 'ex.: https://meet.google.com/...'
           }
+          aria-invalid={errors.local_ou_link ? true : undefined}
+          aria-describedby={errors.local_ou_link ? 'agendamento-local-erro' : undefined}
           className="border-white/20 bg-white/5 text-white placeholder:text-white/50"
         />
+        {/* JORN-D5 (48-03): obrigatório nas duas modalidades; link http(s) no online. */}
+        {errors.local_ou_link && (
+          <p
+            id="agendamento-local-erro"
+            role="alert"
+            aria-live="assertive"
+            className="text-sm text-red-300"
+          >
+            {errors.local_ou_link.message}
+          </p>
+        )}
       </div>
 
       {/* Entrevistador (opcional) */}

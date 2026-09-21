@@ -170,11 +170,17 @@ describe('agendamentoService — direct agendamentos_entrevista writes (AGEND-02
 describe('agendamentoSchema (zod) — future data_hora + tipo enum', () => {
   it('rejects a past data_hora', () => {
     const past = new Date(Date.now() - 3600 * 1000).toISOString()
-    expect(agendamentoSchema.safeParse({ tipo: 'online', data_hora: past }).success).toBe(false)
+    // 48-03 (JORN-D5): link válido, para que a recusa seja SÓ a da data passada.
+    expect(
+      agendamentoSchema.safeParse({ tipo: 'online', data_hora: past, local_ou_link: 'https://meet.google.com/x' }).success,
+    ).toBe(false)
   })
 
   it('accepts a future data_hora with a valid tipo', () => {
-    expect(agendamentoSchema.safeParse({ tipo: 'online', data_hora: FUTURE }).success).toBe(true)
+    // 48-03 (JORN-D5): online passou a exigir link http(s) (agendamentoSchema.test.ts cobre a regra).
+    expect(
+      agendamentoSchema.safeParse({ tipo: 'online', data_hora: FUTURE, local_ou_link: 'https://meet.google.com/x' }).success,
+    ).toBe(true)
   })
 
   it('rejects an invalid tipo', () => {
