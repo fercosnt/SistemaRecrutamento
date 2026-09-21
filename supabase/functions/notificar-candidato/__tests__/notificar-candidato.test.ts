@@ -896,3 +896,81 @@ Deno.test("48-08 — avanco com historico_id: chave versionada, histórico confe
   assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:avanco:${H2}`);
   assertEquals(fetchMock.calls.length, 1);
 });
+
+// ─── 48-08 Task 2 — o CICLO de revisão também tem chave própria ─────────────────────────
+//
+// A premissa «no máximo UMA revisão por candidatura» (docblock antigo de montarDedupeKey)
+// cai com D-01: reabrir devolve a candidatura a decisao_final, e um 2º pedido de revisão
+// terá uma 2ª resposta. Sem discriminador, a resposta do 2º ciclo seria engolida pela chave
+// `{candidatura}:revisao_respondida` do 1º. O ciclo é o instante do pedido
+// (`extract(epoch from revisao_solicitada_em)::bigint`), passado pelo trigger como texto.
+
+const CICLO = "1758400000";
+
+Deno.test("48-08 T2 — montarDedupeKey: revisao_respondida versionada pelo ciclo; sem ciclo, chave legada", () => {
+  assertEquals(
+    montarDedupeKey("revisao_respondida", "C", undefined, CICLO),
+    `C:revisao_respondida:${CICLO}`,
+  );
+  assertEquals(montarDedupeKey("revisao_respondida", "C"), "C:revisao_respondida");
+  assert(
+    montarDedupeKey("revisao_respondida", "C", undefined, CICLO) !==
+      montarDedupeKey("revisao_respondida", "C", undefined, "1758500000"),
+    "dois ciclos de revisão colapsaram na mesma chave",
+  );
+});
+
+Deno.test("48-08 T2 — ciclo inválido → 400 VALIDATION, nenhum claim", async () => {
+  const { handler } = await loadHandler();
+  for (const ciclo of ["abc", 1758400000, "", "12345678901234", "-1", "17.5", " 1"]) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+      decisaoFinalRow: { revisao_veredito: "mantida" },
+    });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(
+      makeRequest({ evento: "revisao_respondida", candidatura_id: "cand-rev", ciclo }, RETRY_BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    assertEquals(res.status, 400, `ciclo=${JSON.stringify(ciclo)}`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("48-08 T2 — revisao_respondida com ciclo válido: a chave do claim carrega o ciclo", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    decisaoFinalRow: { revisao_veredito: "mantida" },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_ciclo" });
+  const res = await handler(
+    makeRequest({ evento: "revisao_respondida", candidatura_id: "cand-rev", ciclo: CICLO }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(supa.upserts.length, 1);
+  assertEquals(supa.upserts[0].row.dedupe_key, `cand-rev:revisao_respondida:${CICLO}`);
+  assertEquals(fetchMock.calls.length, 1);
+});
+
+Deno.test("48-08 T2 — o ciclo NÃO versiona outros eventos (decisao segue pelo historico_id)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_dec_ciclo" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: CAND_H, ciclo: CICLO }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:decisao`);
+});

@@ -923,3 +923,109 @@ Deno.test("D-45-06 — claim duplicado do evento novo NÃO aborta o laço de des
   assertEquals(json.duplicados, 1);
   assertEquals(json.enviados, 2, "o claim vazio do 1º não pode abortar o laço");
 });
+
+// ─── 48-08 Task 2 — o CICLO de revisão na chave do nudge ao RH ──────────────────────────
+//
+// `{candidatura}:revisao_solicitada:{user_id}` era uma chave por candidatura E destinatário:
+// com a reabertura (D-01) um 2º pedido de revisão sobre a mesma candidatura colidiria com o
+// 1º e nenhum RH seria avisado. O ciclo (`extract(epoch from revisao_solicitada_em)::bigint`)
+// entra NO MEIO — o `user_id` continua no FIM (o gate ao vivo do 42-07 confere isso).
+
+const CICLO_RH = "1758400000";
+
+Deno.test("48-08 T2 — montarDedupeKeyRh: com ciclo '{c}:revisao_solicitada:{ciclo}:{user}'; sem ciclo, legado", () => {
+  assertEquals(
+    montarDedupeKeyRh("C", "U", CICLO_RH),
+    `C:revisao_solicitada:${CICLO_RH}:U`,
+  );
+  assertEquals(montarDedupeKeyRh("C", "U"), "C:revisao_solicitada:U");
+  assert(montarDedupeKeyRh("C", "U", CICLO_RH).endsWith(":U"), "o user_id tem de seguir no FIM da chave");
+  assert(
+    montarDedupeKeyRh("C", "U", CICLO_RH) !== montarDedupeKeyRh("C", "U", "1758500000"),
+    "dois ciclos de revisão colapsaram na mesma chave",
+  );
+});
+
+Deno.test("48-08 T2 — ciclo inválido → 400 VALIDATION, zero claim, zero envio", async () => {
+  const { handler } = await loadHandler();
+  for (const ciclo of ["abc", 1758400000, "", "12345678901234", "-1", "17.5"]) {
+    const supa = makeMockSupabase({
+      candidaturaRow: CANDIDATURA_FIX,
+      vagaRow: VAGA_FIX,
+      roster: [ADMIN_1],
+    });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(
+      makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1", ciclo }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    );
+    assertEquals(res.status, 400, `ciclo=${JSON.stringify(ciclo)}`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("48-08 T2 — revisao_solicitada com ciclo: uma chave por destinatário E por ciclo", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, RECRUTADOR],
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1", ciclo: CICLO_RH }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(res.status, 200);
+  assertEquals(
+    supa.upserts.map((u) => u.row.dedupe_key),
+    [
+      `cand-1:revisao_solicitada:${CICLO_RH}:${ADMIN_1.user_id}`,
+      `cand-1:revisao_solicitada:${CICLO_RH}:${RECRUTADOR.user_id}`,
+    ],
+  );
+});
+
+Deno.test("48-08 T2 — sem ciclo, a chave legada por destinatário (tolerância pré-migration)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1" }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(supa.upserts[0].row.dedupe_key, `cand-1:revisao_solicitada:${ADMIN_1.user_id}`);
+});
+
+Deno.test("48-08 T2 — candidatura_encerrada_a_pedido NÃO muda: ciclo presente é ignorado na chave", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(200);
+  await comModoTeste(() =>
+    handler(
+      makeRequest(
+        { evento: EVENTO_LEDGER_RH_ENCERRAMENTO, candidatura_id: "cand-1", ciclo: CICLO_RH },
+        BEARER,
+      ),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(
+    supa.upserts[0].row.dedupe_key,
+    montarDedupeKeyRhEncerramento("cand-1", ADMIN_1.user_id),
+  );
+});
