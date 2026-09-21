@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-06-PLAN.md
-last_updated: "2026-09-21T13:25:45.872Z"
+stopped_at: Completed 48-07-PLAN.md
+last_updated: "2026-09-21T13:37:07.121Z"
 last_activity: 2026-09-21
-state_head: ed99d547a7b067834bbb2138b834855c443b9332
+state_head: a1f4a0095b032220f3d3490fc498ad09d3a2882b
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 61
-  percent: 79
+  completed_plans: 62
+  percent: 81
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -777,6 +777,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P03 | 9 min | 3 tasks | 13 files |
 | Phase 48 P04 | 5min | 2 tasks | 3 files |
 | Phase 48 P06 | 9 min | 2 tasks | 5 files |
+| Phase 48 P07 | 40min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -1036,6 +1037,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-04 / D-02: analise_candidato_vaga ganhou descartada_em + descartada_motivo (CHECK knockout_automatico + coerencia); as 3 analises pos-knockout (contas +claude) marcadas em PROD, total 20 -> 20, nenhuma apagada; veredito de export e do 48-17
 - [Phase 48]: 48-06: portão convertido = baseline da própria execução + sonda por GUC que perturba em subtransação, roda a MESMA comparação e sempre termina em exceção (SONDA OK/FALHOU); valor de sonda desconhecido reprova alto
 - [Phase 48]: 48-06: p42 (b) continua provando o CHECK (classifica o evento inventado na mesma subtransação) em vez de aceitar P0003 do guard; p37 v_pos_aditiva=true e (f) por pertinência — fotografias vermelhas não citadas no plano, tratadas com a mesma regra
+- [Phase 48]: 48-07: aviso a titular (JORN-27) com colunas proprias aviso_pedido/cancelamento_enviado_em, fora de notificacoes_enviadas; nunca recibo_enviado_em (suprimiria o recibo final)
+- [Phase 48]: 48-07: base do link de login (JORN-U2) por Deps.appBaseUrl lida no wiring (APP_BASE_URL), default https://rh.beautysmile.com.br; montarUrlLogin so aceita redirect interno
 
 ### Pending Todos
 
@@ -1316,8 +1319,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T13:25:39.769Z
-Stopped at: Completed 48-06-PLAN.md
+Last session: 2026-09-21T13:37:06.909Z
+Stopped at: Completed 48-07-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

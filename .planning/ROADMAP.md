@@ -338,7 +338,7 @@ Plans:
 - [x] 48-04-PLAN.md — Knockout não dispara IA (guarda na EF) + marcação, não exclusão, das 3 análises pós-knockout (JORN-24)
 - [ ] 48-05-PLAN.md — Devolutiva do Big Five: instrumentação → submissão de prova (checkpoint) → conserto derivado da causa medida → geração retroativa do backlog de teste pelo operador no painel, recusável (checkpoint) (JORN-06)
 - [x] 48-06-PLAN.md — Portões de vocabulário convertidos para baseline da execução, com sondas de mordida (D-17)
-- [ ] 48-07-PLAN.md — Aviso ao titular no pedido e no cancelamento de exclusão, com colunas próprias; link de login no `email-config` (JORN-27, JORN-U2)
+- [x] 48-07-PLAN.md — Aviso ao titular no pedido e no cancelamento de exclusão, com colunas próprias; link de login no `email-config` (JORN-27, JORN-U2)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 4/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 5/18 | In Progress|  |
 
 ---
 
