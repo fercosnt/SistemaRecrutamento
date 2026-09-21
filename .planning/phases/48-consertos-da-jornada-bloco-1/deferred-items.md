@@ -35,3 +35,12 @@
 - Divergência deliberada JS × SQL na regra de URL (48-03)
   status: open (informativo)
   **What:** `new URL('http:host')` é aceito pelo `isSafeHttpUrl` (o parser completa as barras), o trigger exige `^https?://host`. O formulário deixaria passar e o banco recusaria com 23514 — falha fechada, mensagem genérica de erro. Nenhum RH digita isso na prática; registrar se aparecer.
+
+- O padrão de varredura de portões do `CLAUDE.md` não vê lista literal DECLARADA nem contagem escrita como `<> (CASE …)` (achado no 48-06)
+  status: open
+  **What:** as duas listas literais que o 48-06 converteu (`p42_notif_revisao_smoke.sql` (a), `p43_guard_marketing_smoke.sql` (c)) eram `v_eventos text[] := ARRAY[...]` + `FOREACH`. O padrão só as achou por acaso, pelo `v_aceitos <> 6` da linha ao lado. As contagens do `p37` em `v_n <> (CASE WHEN … THEN 18 ELSE 16 END)` também ficaram invisíveis. Medido em 2026-09-21: `grep -rnE 'text\[\] *:= *ARRAY\[' supabase/tests/*.sql` → 36; `grep -rnE '(<>|!=|IS DISTINCT FROM) *\(CASE' supabase/tests/*.sql` → 3. Não foram classificados um a um.
+  **Sugestão:** acrescentar as duas alternativas ao padrão do `CLAUDE.md` §«Portões» e classificar os 39 achados. Editar o `CLAUDE.md` e classificar 36 listas fica fora do escopo do 48-06. Ver `48-VARREDURA-PORTOES.md` §1.
+
+- `p42_notif_revisao_smoke.sql` (y) compara o ledger INTEIRO nos dois sentidos (`v_agora <> v_antes`) (achado no 48-06)
+  status: open
+  **What:** a baseline é da própria execução, então não é fotografia. Mas um envio transacional legítimo que chegue ao ledger durante o run faria o smoke reprovar trabalho correto. O `p43` (y1) já corrigiu isso pelo WR-05 (só a PERDA reprova). O 48-06 não tocou (y).

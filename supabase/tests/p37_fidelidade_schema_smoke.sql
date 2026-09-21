@@ -55,14 +55,15 @@
 -- -----------------------------------------------------------------------------
 -- AS 12 ASSERÇÕES
 -- -----------------------------------------------------------------------------
---   (a) notificacoes_enviadas — contagem de colunas (16 / 18) + presença nominal
---       das 2 colunas da aditiva quando o modo é pós-aditiva.
+--   (a) notificacoes_enviadas — as 16 colunas do P37 (+ as 2 da aditiva no modo
+--       pós-aditiva) EXISTEM, por nome. (Emenda 48-06: era contagem exata.)
 --   (b) notificacoes_enviadas — as 16 colunas baseline, comparadas por TUPLA
 --       (column_name, udt_name, is_nullable, coalesce(column_default,'')) na
 --       ordem de ordinal_position, contra os literais do arquivo reconstruído.
---   (c) notificacoes_enviadas — contagem de constraints (5 / 6) e, para cada uma
---       das 5 baseline, `pg_get_constraintdef(oid)` IDÊNTICO ao esperado
---       (nomeando `uq_notif_dedupe` e `notificacoes_enviadas_evento_check`).
+--   (c) notificacoes_enviadas — contagem de constraints (5 / 6) e, para 4 das 5
+--       baseline, `pg_get_constraintdef(oid)` IDÊNTICO ao esperado (nomeando
+--       `uq_notif_dedupe`); `notificacoes_enviadas_evento_check` existe e CONTÉM
+--       os 4 eventos do P37. (Emenda 48-06: era o texto exato com 4 valores.)
 --   (d) notificacoes_enviadas — 5 índices nos DOIS modos, cada `indexdef`
 --       idêntico ao literal transcrito da § C do dump.
 --   (e) notificacoes_enviadas — RLS ligada; EXATAMENTE 1 policy; nome
@@ -79,7 +80,8 @@
 --       não mais fraca. Reforçada por uma checagem do literal `administrador`.
 --       ⚠ Se (e) falhar, leia a mensagem: predicado diferente = LEDGER-03 não é
 --         o que o repo declara → ESCALAR, não "consertar o smoke".
---   (f) notificacoes_enviadas — triggers não-internos (0 / 1).
+--   (f) notificacoes_enviadas — o trigger do P37-03 existe, por nome, no modo
+--       pós-aditiva. (Emenda 48-06: era contagem exata 0 / 1.)
 --   (g1) config_sla_etapa — 5 colunas, comparadas por tupla.
 --   (g2) config_sla_etapa — 4 constraints com `pg_get_constraintdef` idêntico
 --        (nomeando `ck_sla_prazo_consistente`) + 1 índice.
@@ -102,6 +104,57 @@
 -- ⚠ `pg_constraint` é filtrado por `contype IN ('p','u','f','c')`. A partir do
 --   PG 17 as restrições NOT NULL também aparecem em pg_constraint (contype 'n');
 --   o filtro mantém as contagens 5/4 estáveis entre versões do servidor.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠ EMENDA 2026-09-21 (Phase 48 / plano 48-06, D-17) — DE «FIDELIDADE AO
+--   INSTANTÂNEO DO P37» PARA «O P37 CONTINUA GARANTIDO»
+-- -----------------------------------------------------------------------------
+-- Este smoke nasceu para provar que dois arquivos RECONSTRUÍDOS descreviam o banco
+-- de julho de 2026. Essa pergunta foi respondida (verde em 2026-07-22) e não volta
+-- a ser feita. O que continua valendo — e é por isso que o arquivo segue sendo
+-- rodado — é a pergunta seguinte: o que o P37 entregou AINDA ESTÁ LÁ?
+--
+-- Rodado contra PROD em 2026-09-21 ele estava VERMELHO, e não por regressão: as
+-- fases seguintes ACRESCENTARAM ao ledger (P42: eventos de revisão; P43: guard de
+-- marketing e seu trigger; P45: `candidatura_encerrada_a_pedido`; colunas
+-- `bounce_em`/`reclamado_em`). Três asserções mediam o instantâneo e reprovavam
+-- esse acréscimo — trabalho correto — e a Phase 48 acrescenta mais dois eventos:
+--
+--   (a) contagem EXATA de colunas (16/18; PROD tem 20) → PERTINÊNCIA POR NOME: as 16
+--       colunas do P37 (e as 2 da aditiva) têm de EXISTIR; colunas novas não
+--       reprovam. A forma tipada das 16 continua exigida, por tupla, em (b).
+--   (c) texto do CHECK de `evento` transcrito com EXATAMENTE 4 valores → o CHECK
+--       vivo tem de existir e CONTER `confirmacao`, `avanco`, `convite` e `decisao`
+--       (extraídos por `regexp_matches` do `pg_get_constraintdef`, o idioma de
+--       `p43_guard_marketing_smoke.sql` (e)). As OUTRAS 4 constraints (2 FKs, PK,
+--       `uq_notif_dedupe`) continuam comparadas byte a byte — ainda batem com PROD.
+--   (f) contagem EXATA de triggers (0/1; PROD tem 2 desde a P43) → PERTINÊNCIA POR
+--       NOME: `trg_notificacoes_atualizado_em` (P37-03) tem de existir. O limite de
+--       triggers da tabela é escopo deliberado de OUTRO smoke
+--       (`p43_guard_marketing_smoke.sql` (h)), que sabe quantos devem existir.
+--
+-- E o toggle `v_pos_aditiva` passou a `true`: a aditiva `20260722000002` está
+-- aplicada em PROD desde a P37-03 — o modo `false` descreve um banco que não
+-- existe mais, e é por isso que ele reprovava. Não é constante nova: é o modo que
+-- o próprio arquivo previu para depois do apply.
+--
+-- Nada disso troca uma constante envelhecida por outra: pertinência por nome não
+-- envelhece quando nasce coluna, evento ou trigger.
+--
+-- Como rodar hoje: `node p46apply.cjs run supabase/tests/p37_fidelidade_schema_smoke.sql`
+-- (continua 100% somente-leitura).
+--
+-- SONDAS DE MORDIDA — `smoke37f.sonda` (prova por execução de que cada asserção
+-- convertida ainda falha). São em memória: acrescentam um nome inexistente ao
+-- conjunto exigido e rodam a MESMA checagem — nenhuma escrita, nenhuma DDL.
+--   'colunas'  → exige `coluna_sonda_inexistente` em (a)
+--   'check'    → exige `evento_sonda_inexistente` no CHECK de (c)
+--   'triggers' → exige `trg_sonda_inexistente` em (f)
+-- Todo caminho da sonda termina em exceção: `SONDA OK: <x> mordeu` quando o portão
+-- reprovou, `SONDA FALHOU: <x> não mordeu` quando não. Valor desconhecido reprova
+-- ALTO. Para rodar, uma CÓPIA temporária fora do repositório:
+--   { echo "SELECT set_config('smoke37f.sonda', 'check', false);"; cat <este arquivo>; } > /tmp/x.sql
+--   node p46apply.cjs run /tmp/x.sql      # tem de sair com erro contendo «SONDA OK: check mordeu»
 -- =============================================================================
 
 RESET ROLE;
@@ -109,7 +162,17 @@ RESET ROLE;
 DO $$
 DECLARE
   -- ==== TOGGLE DE BASELINE — altere aqui (ver cabeçalho) ====================
-  v_pos_aditiva  constant boolean := false;
+  -- Emenda 48-06: `true` — a aditiva 20260722000002 está aplicada em PROD desde a
+  -- P37-03; o modo `false` descreve um banco que não existe mais.
+  v_pos_aditiva  constant boolean := true;
+
+  -- Gancho de sonda (emenda 48-06) — ver o cabeçalho.
+  v_sonda        constant text := coalesce(current_setting('smoke37f.sonda', true), '');
+  v_exig         text[];
+
+  -- Os 4 eventos que o P37 entregou no vocabulário do ledger. Exigidos por
+  -- PERTINÊNCIA no CHECK vivo (emenda 48-06): o CHECK pode — e deve — conter mais.
+  v_eventos_p37  constant text[] := ARRAY['confirmacao', 'avanco', 'convite', 'decisao'];
 
   -- Constante de montagem. A definição de uma FOREIGN KEY contém a palavra
   -- "ON <remoção> CASCADE". Escrevê-la por extenso faria o guarda de
@@ -149,10 +212,13 @@ DECLARE
   ];
 
   -- Ordenados por conname COLLATE "C" (ordenação estável, independente de locale).
+  -- Emenda 48-06: `notificacoes_enviadas_evento_check` saiu desta lista de
+  -- comparação byte a byte — o texto transcrito tinha EXATAMENTE os 4 valores de
+  -- julho, e o CHECK vivo cresce a cada evento novo. Ele é conferido em (c) por
+  -- existência + pertinência de `v_eventos_p37`.
   v_cons_notif   constant text[] := ARRAY[
     $q$notificacoes_enviadas_candidato_id_fkey|FOREIGN KEY (candidato_id) REFERENCES candidatos(id) $q$ || v_fk_casc,
     $q$notificacoes_enviadas_candidatura_id_fkey|FOREIGN KEY (candidatura_id) REFERENCES candidaturas(id) $q$ || v_fk_casc,
-    $q$notificacoes_enviadas_evento_check|CHECK ((evento = ANY (ARRAY['confirmacao'::text, 'avanco'::text, 'convite'::text, 'decisao'::text])))$q$,
     $q$notificacoes_enviadas_pkey|PRIMARY KEY (id)$q$,
     $q$uq_notif_dedupe|UNIQUE (dedupe_key)$q$
   ];
@@ -209,25 +275,54 @@ DECLARE
   ];
 BEGIN
 
--- ---------------------------------------------------------------------------
--- (a) notificacoes_enviadas — contagem de colunas
--- ---------------------------------------------------------------------------
-SELECT count(*) INTO v_n FROM information_schema.columns
- WHERE table_schema = 'public' AND table_name = 'notificacoes_enviadas';
-IF v_n <> (CASE WHEN v_pos_aditiva THEN 18 ELSE 16 END) THEN
-  RAISE EXCEPTION 'P37-FID FAIL (a): notificacoes_enviadas tem % colunas — esperado % (modo v_pos_aditiva=%)',
-    v_n, (CASE WHEN v_pos_aditiva THEN 18 ELSE 16 END), v_pos_aditiva;
+-- Gancho de sonda: só três valores têm sentido. Um valor desconhecido reprova ALTO
+-- — uma sonda com erro de digitação rodaria o smoke VERDE e seria lida como «o
+-- portão não morde».
+IF v_sonda NOT IN ('', 'colunas', 'check', 'triggers') THEN
+  RAISE EXCEPTION 'P37-FID FAIL (sonda): smoke37f.sonda = ''%'' é desconhecida — valores válidos: colunas, check, triggers (ou vazio para o run normal)', v_sonda;
 END IF;
+
+-- ---------------------------------------------------------------------------
+-- (a) notificacoes_enviadas — as colunas do P37 EXISTEM, por nome
+--
+--     Emenda 48-06 (D-17): era `count(*)` contra 16/18 — PROD tem 20 desde que
+--     nasceram `bounce_em`/`reclamado_em`, e o smoke reprovava esse acréscimo. O
+--     P37 garante que AS SUAS colunas estão lá; colunas novas não são regressão.
+--     Os nomes vêm de `v_cols_notif` (a mesma transcrição que (b) compara por
+--     tupla), não de uma segunda lista.
+-- ---------------------------------------------------------------------------
+v_exig := ARRAY(SELECT split_part(x, '|', 1) FROM unnest(v_cols_notif) x);
 IF v_pos_aditiva THEN
-  SELECT count(*) INTO v_n FROM information_schema.columns
-   WHERE table_schema = 'public' AND table_name = 'notificacoes_enviadas'
-     AND column_name IN ('destinatario_original', 'modo');
-  IF v_n <> 2 THEN
-    RAISE EXCEPTION 'P37-FID FAIL (a): modo pós-aditiva, mas só % das 2 colunas de auditoria do modo teste existem', v_n;
-  END IF;
+  v_exig := v_exig || ARRAY['destinatario_original', 'modo'];
 END IF;
+BEGIN
+  IF v_sonda = 'colunas' THEN
+    v_exig := v_exig || 'coluna_sonda_inexistente'::text;
+  END IF;
+
+  SELECT coalesce(array_agg(x ORDER BY x), '{}') INTO v_atual
+    FROM unnest(v_exig) x
+   WHERE NOT EXISTS (
+     SELECT 1 FROM information_schema.columns c
+      WHERE c.table_schema = 'public' AND c.table_name = 'notificacoes_enviadas'
+        AND c.column_name = x
+   );
+  IF array_length(v_atual, 1) IS NOT NULL THEN
+    RAISE EXCEPTION 'P37-FID FAIL (a): coluna(s) do P37 AUSENTE(S) de notificacoes_enviadas: % (modo v_pos_aditiva=%)',
+      array_to_string(v_atual, ', '), v_pos_aditiva;
+  END IF;
+
+  IF v_sonda = 'colunas' THEN
+    RAISE EXCEPTION 'SONDA FALHOU: colunas não mordeu — uma coluna inexistente foi exigida e (a) NÃO reprovou';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  IF v_sonda = 'colunas' AND SQLERRM LIKE 'P37-FID FAIL (a)%' THEN
+    RAISE EXCEPTION 'SONDA OK: colunas mordeu — %', SQLERRM;
+  END IF;
+  RAISE;
+END;
 v_pass := v_pass + 1;
-RAISE NOTICE 'PASS (a): notificacoes_enviadas tem a contagem de colunas esperada para o modo v_pos_aditiva=%', v_pos_aditiva;
+RAISE NOTICE 'PASS (a): as % colunas do P37 existem em notificacoes_enviadas (modo v_pos_aditiva=%)', array_length(v_exig, 1), v_pos_aditiva;
 
 -- ---------------------------------------------------------------------------
 -- (b) notificacoes_enviadas — as 16 colunas baseline, por TUPLA
@@ -266,8 +361,46 @@ FOR v_i IN 1 .. array_length(v_cons_notif, 1) LOOP
       v_txt2, v_cons_notif[v_i], coalesce(v_txt, '<ausente>');
   END IF;
 END LOOP;
+
+-- Emenda 48-06 (D-17): o CHECK de `evento` — existe, é CHECK, e CONTÉM os 4 eventos
+-- do P37. O vocabulário é EXTRAÍDO da definição viva (idioma de
+-- `p43_guard_marketing_smoke.sql` (e)); o CHECK pode conter mais, e contém.
+SELECT pg_get_constraintdef(c.oid) INTO v_txt
+  FROM pg_constraint c
+ WHERE c.conrelid = 'public.notificacoes_enviadas'::regclass
+   AND c.conname = 'notificacoes_enviadas_evento_check'
+   AND c.contype = 'c';
+IF v_txt IS NULL THEN
+  RAISE EXCEPTION 'P37-FID FAIL (c): o CHECK notificacoes_enviadas_evento_check NÃO existe — o vocabulário do ledger deixou de ser fechado';
+END IF;
+v_exig := v_eventos_p37;
+BEGIN
+  IF v_sonda = 'check' THEN
+    v_exig := v_exig || 'evento_sonda_inexistente'::text;
+  END IF;
+
+  SELECT coalesce(array_agg(x ORDER BY x), '{}') INTO v_atual
+    FROM unnest(v_exig) x
+   WHERE NOT EXISTS (
+     SELECT 1 FROM (SELECT unnest(regexp_matches(v_txt, '''([a-z_]+)''::text', 'g')) AS v) vivo
+      WHERE vivo.v = x
+   );
+  IF array_length(v_atual, 1) IS NOT NULL THEN
+    RAISE EXCEPTION 'P37-FID FAIL (c): o CHECK vivo de evento NÃO contém o(s) evento(s) do P37: % — definição viva: %',
+      array_to_string(v_atual, ', '), v_txt;
+  END IF;
+
+  IF v_sonda = 'check' THEN
+    RAISE EXCEPTION 'SONDA FALHOU: check não mordeu — um evento inexistente foi exigido e (c) NÃO reprovou';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  IF v_sonda = 'check' AND SQLERRM LIKE 'P37-FID FAIL (c)%' THEN
+    RAISE EXCEPTION 'SONDA OK: check mordeu — %', SQLERRM;
+  END IF;
+  RAISE;
+END;
 v_pass := v_pass + 1;
-RAISE NOTICE 'PASS (c): as 5 constraints baseline batem nominalmente e por definição (uq_notif_dedupe + notificacoes_enviadas_evento_check inclusos)';
+RAISE NOTICE 'PASS (c): as 4 constraints transcritas batem por definição (uq_notif_dedupe incluso) e o CHECK de evento vivo contém os 4 eventos do P37';
 
 -- ---------------------------------------------------------------------------
 -- (d) notificacoes_enviadas — 5 índices nos DOIS modos, indexdef idêntico
@@ -333,16 +466,43 @@ v_pass := v_pass + 1;
 RAISE NOTICE 'PASS (e): rh_le_notificacoes é a policy única (SELECT/{authenticated}) e seu predicado é byte-idêntico ao join-through vaga-scoped WR-04; candidato-DENY vale por default-deny';
 
 -- ---------------------------------------------------------------------------
--- (f) notificacoes_enviadas — triggers não-internos
+-- (f) notificacoes_enviadas — o trigger do P37-03 existe, por nome
+--
+--     Emenda 48-06 (D-17): era contagem exata 0/1 — PROD tem 2 desde a P43
+--     (`trg_guard_marketing_consentimento`). O P37 garante o SEU trigger; o
+--     limite de triggers da tabela é escopo deliberado do
+--     `p43_guard_marketing_smoke.sql` (h), que sabe quantos devem existir.
 -- ---------------------------------------------------------------------------
-SELECT count(*) INTO v_n FROM pg_trigger
- WHERE tgrelid = 'public.notificacoes_enviadas'::regclass AND NOT tgisinternal;
-IF v_n <> (CASE WHEN v_pos_aditiva THEN 1 ELSE 0 END) THEN
-  RAISE EXCEPTION 'P37-FID FAIL (f): notificacoes_enviadas tem % triggers não-internos — esperado % (modo v_pos_aditiva=%)',
-    v_n, (CASE WHEN v_pos_aditiva THEN 1 ELSE 0 END), v_pos_aditiva;
-END IF;
+v_exig := CASE WHEN v_pos_aditiva THEN ARRAY['trg_notificacoes_atualizado_em'] ELSE '{}'::text[] END;
+BEGIN
+  IF v_sonda = 'triggers' THEN
+    v_exig := v_exig || 'trg_sonda_inexistente'::text;
+  END IF;
+
+  SELECT coalesce(array_agg(x ORDER BY x), '{}') INTO v_atual
+    FROM unnest(v_exig) x
+   WHERE NOT EXISTS (
+     SELECT 1 FROM pg_trigger t
+      WHERE t.tgrelid = 'public.notificacoes_enviadas'::regclass
+        AND NOT t.tgisinternal
+        AND t.tgname = x
+   );
+  IF array_length(v_atual, 1) IS NOT NULL THEN
+    RAISE EXCEPTION 'P37-FID FAIL (f): trigger(s) do P37 AUSENTE(S) de notificacoes_enviadas: % (modo v_pos_aditiva=%) — sem trg_notificacoes_atualizado_em a coluna atualizado_em volta a congelar em silêncio',
+      array_to_string(v_atual, ', '), v_pos_aditiva;
+  END IF;
+
+  IF v_sonda = 'triggers' THEN
+    RAISE EXCEPTION 'SONDA FALHOU: triggers não mordeu — um trigger inexistente foi exigido e (f) NÃO reprovou';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  IF v_sonda = 'triggers' AND SQLERRM LIKE 'P37-FID FAIL (f)%' THEN
+    RAISE EXCEPTION 'SONDA OK: triggers mordeu — %', SQLERRM;
+  END IF;
+  RAISE;
+END;
 v_pass := v_pass + 1;
-RAISE NOTICE 'PASS (f): notificacoes_enviadas tem % trigger(s) não-interno(s), como esperado no modo v_pos_aditiva=%', v_n, v_pos_aditiva;
+RAISE NOTICE 'PASS (f): o(s) trigger(s) do P37 existe(m) em notificacoes_enviadas (modo v_pos_aditiva=%)', v_pos_aditiva;
 
 -- ---------------------------------------------------------------------------
 -- (g1) config_sla_etapa — 5 colunas, por TUPLA
@@ -493,3 +653,6 @@ END IF;
 RAISE NOTICE 'P37-FID VERDE: os arquivos 20260721000001 e 20260721000002 descrevem FIELMENTE o catálogo vivo (modo v_pos_aditiva=%)', v_pos_aditiva;
 
 END $$;
+
+-- Cinto (emenda 48-06): um run normal nunca deixa gancho de sonda armado na sessão.
+SELECT set_config('smoke37f.sonda', '', false);

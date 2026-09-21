@@ -41,11 +41,12 @@
 -- -----------------------------------------------------------------------------
 -- AS 4 ASSERÇÕES
 -- -----------------------------------------------------------------------------
---   (a) O CHECK vivo `notificacoes_enviadas_evento_check` aceita os **6** eventos
---       (`confirmacao`, `avanco`, `convite`, `decisao`, `revisao_solicitada`,
---       `revisao_respondida`) — provado por INSERÇÃO e rollback de uma linha por
---       evento. Inclui `revisao_solicitada`, entregue pela 42-07 e VIVO em PROD:
---       um DROP/ADD que o omitisse quebraria o REVISAO-01 já provado.
+--   (a) O CHECK vivo `notificacoes_enviadas_evento_check` CONTÉM os 6 eventos
+--       históricos (`confirmacao`, `avanco`, `convite`, `decisao`,
+--       `revisao_solicitada`, `revisao_respondida`) e o banco ACEITA todo evento
+--       não-marketing do vocabulário vivo — provado por INSERÇÃO e rollback de uma
+--       linha por evento (emenda 48-06). Inclui `revisao_solicitada`, entregue pela
+--       42-07 e VIVO em PROD: um DROP/ADD que o omitisse quebraria o REVISAO-01.
 --   (b) O mesmo CHECK **REJEITA** um 7º evento inventado, com `23514`. Asserção
 --       NEGATIVA de verdade: um INSERT que SUCEDA aqui levanta falha do smoke. Sem
 --       ela, um CHECK dropado e nunca readicionado passaria por (a) em verde.
@@ -75,6 +76,39 @@
 -- HIGIENE: `RESET ROLE` em toda troca de papel e ao final; NOTICEs carregam apenas
 -- contagens, SQLSTATEs e nomes de objeto — NUNCA PII (nome, e-mail, justificativa) e
 -- nunca o valor de um segredo.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠ EMENDA 2026-09-21 (Phase 48 / plano 48-06, D-17) — DE FOTOGRAFIA PARA INVARIANTE
+-- -----------------------------------------------------------------------------
+-- (a) iterava uma LISTA LITERAL de 6 eventos e comparava os aceitos com a constante
+--     6. Não reprovava nada — ESSA é a forma perigosa: o evento
+--     `candidatura_encerrada_a_pedido` (P45) já estava fora da vigilância, e os
+--     eventos novos da Phase 48 (`cognitivo_liberado`, `prazo_reabertura_vencido`)
+--     também ficariam, com o portão VERDE. Agora itera o vocabulário EXTRAÍDO do
+--     `pg_get_constraintdef` vivo (idioma de `p43_guard_marketing_smoke.sql` (e)),
+--     menos os eventos de classe `marketing` (o guard da P43 os recusa sem
+--     consentimento — isso é o `p43`, não este smoke), exige aceite de TODOS e
+--     compara com o total extraído NESTA execução. O contrato que a lista protegia —
+--     os 6 eventos históricos não somem do vocabulário (o REVISAO-01 e o REVISAO-04
+--     dependem deles) — continua exigido, como PERTINÊNCIA.
+--
+-- (b) estava vermelha em PROD desde a P43 por um motivo alheio a ela: o guard
+--     `trg_guard_marketing_consentimento` é BEFORE INSERT e recusa o evento
+--     inventado com `P0003` (classe desconhecida) ANTES de o CHECK opinar, e (b) só
+--     aceitava `23514`. Para (b) continuar provando o CHECK — e não o guard — o
+--     evento inventado agora é CLASSIFICADO dentro da MESMA subtransação revertida:
+--     o guard deixa passar, e o CHECK tem de recusar com `23514`. A falha do smoke
+--     (INSERT aceito) é idêntica à de antes.
+--
+-- Como rodar hoje: `node p46apply.cjs run supabase/tests/p42_notif_revisao_smoke.sql`.
+--
+-- SONDA DE MORDIDA — `smoke42n.sonda = 'a'`: acrescenta `evento_sonda_inexistente`
+-- ao conjunto de históricos exigidos e roda a MESMA checagem de pertinência de (a).
+-- Todo caminho da sonda termina em exceção — `SONDA OK: a mordeu` quando o portão
+-- reprovou, `SONDA FALHOU: a não mordeu` quando não —, então a requisição inteira é
+-- revertida. Para rodar, uma CÓPIA temporária fora do repositório:
+--   { echo "SELECT set_config('smoke42n.sonda', 'a', false);"; cat <este arquivo>; } > /tmp/x.sql
+--   node p46apply.cjs run /tmp/x.sql      # tem de sair com erro contendo «SONDA OK: a mordeu»
 -- =============================================================================
 
 RESET ROLE;
@@ -139,19 +173,86 @@ END $$;
 --     42-07 entregou e que está VIVO em PROD (há linhas reais no ledger). Se a
 --     migration deste plano reconstruísse o CHECK sem ele, o REVISAO-01 quebraria —
 --     esta asserção é o que impede a regressão de passar despercebida.
+--
+--     ⚠ EMENDA 48-06: o conjunto iterado é o vocabulário VIVO (menos marketing), e
+--     os 6 históricos são exigidos por PERTINÊNCIA — ver o cabeçalho.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_cand     uuid := current_setting('smoke42n.cand')::uuid;
-  v_cando    uuid := current_setting('smoke42n.cando')::uuid;
-  v_eventos  text[] := ARRAY[
+  v_cand       uuid := current_setting('smoke42n.cand')::uuid;
+  v_cando      uuid := current_setting('smoke42n.cando')::uuid;
+  v_sonda      text := coalesce(current_setting('smoke42n.sonda', true), '');
+  v_def        text;
+  v_vocab      text[];   -- vocabulário INTEIRO do CHECK vivo
+  v_eventos    text[];   -- vocabulário vivo menos os de classe marketing
+  v_historicos text[] := ARRAY[
     'confirmacao', 'avanco', 'convite', 'decisao',
     'revisao_solicitada', 'revisao_respondida'
   ];
-  v_ev       text;
-  v_aceitos  int := 0;
+  v_faltam     text[];
+  v_total      int;
+  v_ev         text;
+  v_aceitos    int := 0;
 BEGIN
+  -- Gancho de sonda: só um valor tem sentido. Valor desconhecido reprova ALTO — uma
+  -- sonda com erro de digitação rodaria VERDE e seria lida como «não morde».
+  IF v_sonda NOT IN ('', 'a') THEN
+    RAISE EXCEPTION 'P42N FAIL (a): smoke42n.sonda = ''%'' é desconhecida — valor válido: a (ou vazio para o run normal)', v_sonda;
+  END IF;
+
+  SELECT pg_get_constraintdef(c.oid) INTO v_def
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+   WHERE n.nspname = 'public'
+     AND t.relname = 'notificacoes_enviadas'
+     AND c.conname = 'notificacoes_enviadas_evento_check';
+
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'P42N FAIL (a): a constraint notificacoes_enviadas_evento_check NÃO existe — o vocabulário do ledger não está fechado';
+  END IF;
+
+  SELECT coalesce(array_agg(DISTINCT x.v ORDER BY x.v), '{}') INTO v_vocab
+    FROM (SELECT unnest(regexp_matches(v_def, '''([a-z_]+)''::text', 'g')) AS v) x;
+
+  SELECT coalesce(array_agg(e ORDER BY e), '{}') INTO v_eventos
+    FROM unnest(v_vocab) e
+   WHERE NOT EXISTS (
+     SELECT 1 FROM public.classe_evento_notificacao ce
+      WHERE ce.evento = e AND ce.classe = 'marketing'
+   );
+  v_total := coalesce(array_length(v_eventos, 1), 0);
+
+  IF v_total = 0 THEN
+    RAISE EXCEPTION 'P42N FAIL (a): nenhum evento não-marketing extraído do CHECK vivo — o regexp não casou com a definição: %', v_def;
+  END IF;
+
+  -- PERTINÊNCIA DOS HISTÓRICOS, com o gancho da sonda. Todo caminho da sonda
+  -- termina em exceção; o caminho normal re-levanta o FAIL real ou segue.
+  BEGIN
+    IF v_sonda = 'a' THEN
+      v_historicos := v_historicos || 'evento_sonda_inexistente'::text;
+    END IF;
+
+    SELECT coalesce(array_agg(h ORDER BY h), '{}') INTO v_faltam
+      FROM unnest(v_historicos) h
+     WHERE NOT (h = ANY (v_vocab));
+
+    IF array_length(v_faltam, 1) IS NOT NULL THEN
+      RAISE EXCEPTION 'P42N FAIL (a): evento(s) histórico(s) AUSENTE(S) do CHECK vivo: % — se for revisao_solicitada/revisao_respondida, o REVISAO-01/REVISAO-04 quebrou', array_to_string(v_faltam, ', ');
+    END IF;
+
+    IF v_sonda = 'a' THEN
+      RAISE EXCEPTION 'SONDA FALHOU: a não mordeu — um evento inexistente foi exigido e a pertinência de (a) NÃO reprovou';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    IF v_sonda = 'a' AND SQLERRM LIKE 'P42N FAIL (a)%' THEN
+      RAISE EXCEPTION 'SONDA OK: a mordeu — %', SQLERRM;
+    END IF;
+    RAISE;
+  END;
+
   FOREACH v_ev IN ARRAY v_eventos LOOP
     BEGIN
       INSERT INTO public.notificacoes_enviadas
@@ -175,15 +276,20 @@ BEGIN
         NULL;  -- reversão esperada; segue para o próximo evento
       WHEN check_violation THEN
         RAISE EXCEPTION 'P42N FAIL (a): o CHECK vivo de evento REJEITOU ''%'' com 23514 — o vocabulário do ledger está incompleto. Se o evento for revisao_solicitada, a migration 20260730000004 reconstruiu o CHECK SEM ele e QUEBROU o REVISAO-01 já entregue em PROD', v_ev;
+      WHEN sqlstate 'P0003' THEN
+        -- Emenda 48-06: com o vocabulário vivo iterado, um evento novo que entrou no
+        -- CHECK sem linha em classe_evento_notificacao é recusado pelo guard da P43.
+        RAISE EXCEPTION 'P42N FAIL (a): o guard da P43 RECUSOU o evento não-marketing ''%'' (P0003) — ele está no CHECK mas sem classe em classe_evento_notificacao, e o e-mail correspondente não pode ser registrado', v_ev;
     END;
   END LOOP;
 
-  IF v_aceitos <> 6 THEN
-    RAISE EXCEPTION 'P42N FAIL (a): apenas % de 6 eventos foram aceitos pelo CHECK vivo', v_aceitos;
+  -- Baseline DESTA execução: o total extraído do CHECK vivo, não uma constante.
+  IF v_aceitos IS DISTINCT FROM v_total THEN
+    RAISE EXCEPTION 'P42N FAIL (a): apenas % de % eventos não-marketing do CHECK vivo foram aceitos', v_aceitos, v_total;
   END IF;
 
   PERFORM set_config('smoke42n.pass', (coalesce(nullif(current_setting('smoke42n.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (a): o CHECK vivo aceitou os 6 eventos por inserção real (todas revertidas)';
+  RAISE NOTICE 'PASS (a): o banco aceitou os % eventos não-marketing do CHECK vivo por inserção real (todas revertidas), e os 6 históricos seguem no vocabulário: %', v_total, array_to_string(v_eventos, ', ');
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -191,6 +297,14 @@ END $$;
 --     Sem esta metade, um CHECK DROPado e nunca readicionado passaria por (a) em
 --     verde: um `evento text NOT NULL` sem CHECK aceita as 6 strings e todas as
 --     outras. É esta asserção que distingue "aceita os 6" de "aceita qualquer coisa".
+--
+--     ⚠ EMENDA 48-06: desde a P43, o guard BEFORE INSERT
+--     `trg_guard_marketing_consentimento` recusa um evento SEM classe com `P0003`
+--     antes de o CHECK opinar — e esta asserção, que só aceitava `23514`, ficou
+--     vermelha por um motivo que não é o CHECK. Para continuar provando o CHECK (e
+--     não o guard), o evento inventado é CLASSIFICADO como `transacional` DENTRO da
+--     mesma subtransação: o guard deixa passar, o CHECK tem de recusar. O `23514`
+--     reverte a subtransação inteira — a linha de classe inclusive.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
@@ -199,6 +313,10 @@ DECLARE
   v_cando uuid := current_setting('smoke42n.cando')::uuid;
 BEGIN
   BEGIN
+    INSERT INTO public.classe_evento_notificacao (evento, classe, descricao)
+    VALUES ('evento_inventado_smoke42n', 'transacional',
+            'smoke42n (b): classe efêmera, revertida na mesma subtransação');
+
     INSERT INTO public.notificacoes_enviadas
       (evento, candidatura_id, candidato_id, template,
        destinatario_email, destinatario_original, dedupe_key, status, modo)
@@ -315,6 +433,14 @@ BEGIN
     RAISE EXCEPTION 'P42N FAIL (y): % linha(s) do smoke sobreviveram às subtransações (removidas agora) — o idioma de rollback não está funcionando como escrito', v_resto;
   END IF;
 
+  -- Emenda 48-06: a classe efêmera de (b) também tem de ter sumido.
+  SELECT count(*) INTO v_resto
+    FROM public.classe_evento_notificacao
+   WHERE evento = 'evento_inventado_smoke42n';
+  IF v_resto <> 0 THEN
+    RAISE EXCEPTION 'P42N FAIL (y): a classe efêmera evento_inventado_smoke42n de (b) sobreviveu à subtransação — o idioma de rollback não está funcionando como escrito';
+  END IF;
+
   SELECT count(*) INTO v_agora FROM public.notificacoes_enviadas;
   IF v_antes >= 0 AND v_agora <> v_antes THEN
     RAISE EXCEPTION 'P42N FAIL (y): o ledger saiu de % para % linhas — o smoke deixou efeito colateral', v_antes, v_agora;
@@ -336,5 +462,8 @@ BEGIN
   END IF;
   RAISE NOTICE 'RESUMO: % asserções PASS de % esperadas — gate VERDE', v_n, v_esperado;
 END $$;
+
+-- Cinto (emenda 48-06): um run normal nunca deixa gancho de sonda armado na sessão.
+SELECT set_config('smoke42n.sonda', '', false);
 
 RESET ROLE;
