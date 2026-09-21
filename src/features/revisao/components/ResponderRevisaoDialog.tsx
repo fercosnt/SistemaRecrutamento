@@ -138,12 +138,16 @@ const CONFIRMACAO_COPY: Record<
       'A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail.',
     confirmar: 'Registrar resposta',
   },
+  // 48-15 (JORN-19 · D-01/D-10/D-23): o efeito real de `revertida` desde o 48-11 — reabre
+  // com prazo de 10 dias corridos, e o decisor original fica impedido pelo servidor. O
+  // e-mail ao candidato leva a data-limite (48-13). Ninguém é aprovado pelo sistema.
   revertida: {
-    titulo: 'Reverter a decisão?',
-    forte: 'A decisão original deixará de valer.',
+    titulo: 'Reabrir a candidatura?',
+    forte:
+      'A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos.',
     corpo:
-      'A resposta fica registrada na trilha de auditoria e o candidato é notificado por e-mail.',
-    confirmar: 'Registrar reversão',
+      'Quem registrou a decisão original não poderá registrar a nova. A resposta fica registrada na trilha de auditoria e o candidato é avisado por e-mail, com a data limite da nova decisão.',
+    confirmar: 'Registrar e reabrir',
   },
 }
 

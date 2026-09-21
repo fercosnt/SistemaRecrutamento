@@ -66,8 +66,12 @@ export const VEREDITO_OPTIONS: {
     ajuda: 'A decisão original permanece como está.',
   },
   {
+    // 48-15 (JORN-19 · D-01/D-10/D-23, efeito instalado no 48-11): reverter REABRE a
+    // candidatura para uma nova decisão humana, com prazo e por outra pessoa. Nunca aprova,
+    // e a decisão antiga continua no registro — o texto não pode prometer outra coisa.
     value: 'revertida',
-    label: 'Reverter a decisão',
-    ajuda: 'A decisão original deixa de valer.',
+    label: 'Reverter a decisão (reabrir a candidatura)',
+    ajuda:
+      'A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos, registrada por outra pessoa do RH.',
   },
 ]
