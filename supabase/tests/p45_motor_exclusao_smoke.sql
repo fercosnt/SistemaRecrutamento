@@ -25,12 +25,14 @@
 -- chamadas separadas zerariam o contador `smoke45m.pass` e o RESUMO (z) reprovaria
 -- um run que na verdade passou (licao da P41-05, repetida na P43 e na P44).
 --
--- GATE VERDE = o contador `smoke45m.pass` bate **24** no RESUMO (z). O gate NAO e
--- "nao levantou excecao": um run parcial acumula < 24 e o RESUMO reprova ALTO.
+-- GATE VERDE = o contador `smoke45m.pass` bate **25** no RESUMO (z). O gate NAO e
+-- "nao levantou excecao": um run parcial acumula < 25 e o RESUMO reprova ALTO.
 -- Esperado FIXO — nao ha metade adaptativa, nao ha "pelo menos N".
 -- ⚠ O contador subiu de 21 para 23 no plano 45-13: (C7), o guard de INTENCAO (CR-01),
 -- e (B11), o ponteiro reverso de candidaturas (CR-04). Subiu de 23 para 24 no plano
--- 45-14: (C8), `p_dry_run := NULL` resolvendo para o lado SEGURO (BL-01). Acrescentar
+-- 45-14: (C8), `p_dry_run := NULL` resolvendo para o lado SEGURO (BL-01). Subiu de 24
+-- para 25 no plano 48-01: (C6-neg), o pedido de exclusao NAO marca candidatura de
+-- knockout (Defeito 26 / JORN-26). Acrescentar
 -- bloco sem bumpar este numero transforma uma adicao legitima em reprovacao do RESUMO.
 --
 -- -----------------------------------------------------------------------------
@@ -86,7 +88,7 @@
 -- CASE de `trg_notif_transicao` (20260726000001:75-81) deixa passar sem dispatch.
 --
 -- -----------------------------------------------------------------------------
--- AS 24 ASSERCOES — dezesseis delas NEGATIVAS
+-- AS 25 ASSERCOES — dezessete delas NEGATIVAS
 -- -----------------------------------------------------------------------------
 -- BLOCO A — ESTRUTURAL, SEM FIXTURE, SEM ESCRITA. E O PRIMEIRO DO ARQUIVO, E A
 -- ORDEM E A DECISAO MAIS IMPORTANTE AQUI. Num batch de chamada unica, tudo depois
@@ -150,6 +152,9 @@
 --   (C6) ⊖ NEGATIVA (ERASE-05 / D-45-06) — encerrar a pedido NAO gera evento
 --        `'decisao'` em `notificacoes_enviadas` e NAO gera `auto_rejeitado = true`
 --        em `historico_candidatura`.
+--   (C6-neg) ⊖ NEGATIVA (Phase 48 / 48-01, JORN-26 — Defeito 26) — o MESMO pedido
+--        de exclusao NAO marca `encerrada_a_pedido_em` numa candidatura do titular
+--        com a forma do knockout (`inscricao`, `rejeitado`): ela ja estava encerrada.
 --   (C7) ⊖ NEGATIVA (CR-01, 45-13) — o guard de INTENCAO: a chamada REAL feita por
 --        `administrador` sobre um candidato SEM pedido em execucao recusa com `42501`
 --        ANTES de tocar coluna alguma. `P0002` ali significa que a metade (c) sumiu.
@@ -158,7 +163,7 @@
 --        linha intacta. Precisa de fixture porque contra uuid inexistente a versao
 --        defeituosa e a corrigida dao o mesmo `P0002`, e a (C7) chama com `false`
 --        literal — foi por isso que o defeito passou pelas duas suites.
---   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 24.
+--   (z)  RESUMO — ⊖ negativa global de residuo + gate de contagem FIXO em 25.
 --
 -- =============================================================================
 -- ⚠ TRES ACHADOS MEDIDOS QUE ESTA ESPEC ENCODA, E QUE O 45-07 TEM DE RESOLVER
@@ -865,6 +870,14 @@ BEGIN
        v_user::text || '/' || gen_random_uuid()::text || '.pdf',
        'Curriculo_Titular_Sintetico_P45_2026.pdf')
     RETURNING id INTO v_candtr;
+
+    -- ⚠ Phase 48 / 48-01 (JORN-26): o `rejeitado` acima SÓ desarma o dispatch do
+    -- AFTER INSERT. Deixá-lo na linha fazia a fixture ter a forma de uma candidatura
+    -- ENCERRADA (status terminal) fingindo estar em andamento — era o Defeito 26
+    -- codificado no smoke. `em_analise` agora: nenhum trigger de dispatch dispara em
+    -- UPDATE de status, e `guard_rejeicao_auditada` só olha a ENTRADA em `rejeitado`.
+    -- Este bloco (B) não depende do status; a troca é por coerência com (C6).
+    UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_candtr;
 
     -- (fixture 4/13) historico_candidatura com `ator` = o titular. etapa_para =
     -- 'triagem' cai no ramo `RETURN NEW` do CASE de trg_notif_transicao: zero
@@ -2202,6 +2215,13 @@ DECLARE
   v_ev_decisao int;
   v_auto_rej   int;
 
+  -- C6-neg (Phase 48 / 48-01): candidatura com forma de knockout, em OUTRA vaga
+  -- (UNIQUE (candidato_id, vaga_id) WHERE deleted_at IS NULL).
+  v_vaga_ko      uuid;
+  v_candko       uuid;
+  v_encerrada_ko timestamptz := NULL;
+  v_ko_existe    boolean := false;
+
   -- C5
   v_ve_fila    boolean := NULL;
   v_tipo_fila  int     := -1;
@@ -2221,6 +2241,15 @@ BEGIN
 
   v_email_fix := 'p45smokec-' || replace(v_user::text, '-', '') || '@invalido.local';
 
+  SELECT v.id INTO v_vaga_ko
+    FROM public.vagas v
+   WHERE v.id <> v_vaga
+   ORDER BY v.created_at
+   LIMIT 1;
+  IF v_vaga_ko IS NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C6-neg): nenhuma SEGUNDA vaga viva — a candidatura com forma de knockout precisa de outra vaga (UNIQUE (candidato_id, vaga_id)), e sem ela (C6-neg) passaria por VACUIDADE';
+  END IF;
+
   BEGIN
     INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
                             created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
@@ -2235,14 +2264,35 @@ BEGIN
        DATE '1988-07-02', 'Sorocaba', 'SP', 'site')
     RETURNING id INTO v_cand;
 
-    -- `status = 'rejeitado'` desarma os dois triggers de dispatch (ver cabecalho);
-    -- `etapa_atual = 'triagem'` mantem a candidatura EM ANDAMENTO para o predicado
-    -- de `registrar_pedido_exclusao` — as duas colunas sao independentes.
+    -- `status = 'rejeitado'` NO INSERT desarma os dois triggers de dispatch (ver
+    -- cabecalho). ⚠ Phase 48 / 48-01 (JORN-26): ATE AQUI a linha ficava assim, e o
+    -- comentario dizia que `etapa_atual = 'triagem'` a mantinha EM ANDAMENTO porque
+    -- "as duas colunas sao independentes". Essa frase ERA o Defeito 26 escrito como
+    -- premissa: `status = 'rejeitado'` e terminal, e o predicado so-por-etapa que a
+    -- fixture exercitava era exatamente o que marcava `encerrada_a_pedido_em` numa
+    -- candidatura que o knockout ja tinha encerrado. Com o predicado canonico
+    -- (`public.candidatura_encerrada(etapa, status)`), a fixture antiga reprovaria
+    -- (C6) — com o conserto CORRETO. Agora ela fica em andamento DE VERDADE: o UPDATE
+    -- para `em_analise` nao dispara dispatch nenhum (nenhum trigger de notificacao
+    -- olha UPDATE de status; `guard_rejeicao_auditada` so olha a ENTRADA em
+    -- `rejeitado`).
     INSERT INTO public.candidaturas
       (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
     VALUES
       (v_cand, v_vaga, 'triagem', 'rejeitado', false, now() - interval '10 days')
     RETURNING id INTO v_candtr;
+    UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_candtr;
+
+    -- (C6-neg) Uma segunda candidatura do MESMO titular, com a forma exata do
+    -- knockout: `etapa_atual = 'inscricao'`, `status = 'rejeitado'` (e o INSERT com
+    -- `rejeitado` e tambem o que desarma o dispatch). O pedido de exclusao NAO pode
+    -- marca-la — ela ja estava encerrada, e marca-la avisaria os RH do exercicio de um
+    -- direito sobre um caso que ja tinha acabado.
+    INSERT INTO public.candidaturas
+      (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+    VALUES
+      (v_cand, v_vaga_ko, 'inscricao', 'rejeitado', false, now() - interval '9 days')
+    RETURNING id INTO v_candko;
 
     -- Contador da fila do RH ANTES do pedido de exclusao — a metade de (C5) que
     -- cobre a SEGUNDA RPC. Se `contar_pedidos_dados_pendentes` perder o filtro de
@@ -2263,6 +2313,9 @@ BEGIN
 
     SELECT c.encerrada_a_pedido_em INTO v_encerrada
       FROM public.candidaturas c WHERE c.id = v_candtr;
+
+    SELECT true, c.encerrada_a_pedido_em INTO v_ko_existe, v_encerrada_ko
+      FROM public.candidaturas c WHERE c.id = v_candko;
 
     SELECT count(*) INTO v_ev_decisao
       FROM public.notificacoes_enviadas n
@@ -2374,6 +2427,20 @@ BEGIN
   END IF;
   PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
   RAISE NOTICE 'P45M PASS (C6): encerrou a pedido (%) sem evento decisao e sem auto_rejeitado', v_encerrada;
+
+  -- ── (C6-neg) ⊖ NEGATIVA (Phase 48 / JORN-26 — Defeito 26) ───────────────────
+  -- A candidatura com a forma do knockout (`inscricao`, `rejeitado`) JA estava
+  -- encerrada. O pedido de exclusao nao a marca. A primeira perna prova que a
+  -- fixture existiu (sem ela, "nao marcada" seria verdade por vacuidade); a perna
+  -- positiva e (C6) logo acima, sobre o MESMO titular e a MESMA chamada.
+  IF v_ko_existe IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'P45M FAIL (C6-neg): a fixture com forma de knockout NAO existia dentro da subtransacao — a negativa passaria por VACUIDADE';
+  END IF;
+  IF v_encerrada_ko IS NOT NULL THEN
+    RAISE EXCEPTION 'P45M FAIL (C6-neg): registrar_pedido_exclusao marcou encerrada_a_pedido_em (%) numa candidatura de KNOCKOUT (etapa inscricao, status rejeitado). E o Defeito 26: o predicado de "em andamento" voltou a olhar so etapa_atual, e o trigger trg_candidatura_encerrada_a_pedido avisaria os RH do exercicio de um direito do titular sobre um caso que ja tinha acabado', v_encerrada_ko;
+  END IF;
+  PERFORM set_config('smoke45m.pass', (coalesce(nullif(current_setting('smoke45m.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'P45M PASS (C6-neg): a candidatura de knockout NAO foi marcada pelo pedido de exclusao';
 END
 $c456$;
 
@@ -2387,7 +2454,7 @@ $c456$;
 --
 --     A metade de CONTAGEM existe porque delegar a leitura dos NOTICEs a quem roda
 --     produz run parcial que termina em silencio (licao da 37-03, repetida na P41-05
---     e na P43). O esperado e FIXO: 24.
+--     e na P43). O esperado e FIXO: 25.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $z$
@@ -2396,7 +2463,7 @@ DECLARE
   v_divergs  text := '';
   v_agora    bigint;
   v_asserts  int;
-  v_esperado int := 24;
+  v_esperado int := 25;
   v_solic_b  bigint := current_setting('smoke45m.solic')::bigint;
   v_solic_a  bigint;
 BEGIN
