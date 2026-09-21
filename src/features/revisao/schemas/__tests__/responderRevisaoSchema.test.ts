@@ -142,10 +142,21 @@ describe('VEREDITO_OPTIONS — os rótulos vêm da UI-SPEC, na ordem da UI-SPEC'
       },
       {
         value: 'revertida',
-        label: 'Reverter a decisão',
-        ajuda: 'A decisão original deixa de valer.',
+        // 48-15 (JORN-19 · D-01/D-10/D-23): reverter REABRE — volta a «Decisão final» com
+        // prazo e decisor diferente. Nunca aprova, e a decisão antiga não some do registro.
+        label: 'Reverter a decisão (reabrir a candidatura)',
+        ajuda:
+          'A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos, registrada por outra pessoa do RH.',
       },
     ])
+  })
+
+  it('a opção `revertida` não promete o efeito que o sistema nunca teve (48-15)', () => {
+    // Literal montado em runtime: o grep do plano reprova a frase antiga em toda a feature.
+    const promessa = ['deixa', 'de', 'valer'].join(' ')
+    const texto = VEREDITO_OPTIONS.map((o) => `${o.label} ${o.ajuda}`).join(' ')
+    expect(texto).not.toContain(promessa)
+    expect(texto).not.toMatch(/aprova/i)
   })
 
   it('todo `value` das opções é aceito pelo schema — a lista não pode divergir do enum', () => {

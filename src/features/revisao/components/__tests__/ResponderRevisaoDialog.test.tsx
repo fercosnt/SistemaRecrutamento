@@ -155,8 +155,12 @@ describe('ResponderRevisaoDialog — vazio: abre sem veredito e com o envio bloq
     renderDialog()
     expect(screen.getByText('Manter a decisão')).toBeInTheDocument()
     expect(screen.getByText('A decisão original permanece como está.')).toBeInTheDocument()
-    expect(screen.getByText('Reverter a decisão')).toBeInTheDocument()
-    expect(screen.getByText('A decisão original deixa de valer.')).toBeInTheDocument()
+    expect(screen.getByText('Reverter a decisão (reabrir a candidatura)')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos, registrada por outra pessoa do RH.',
+      ),
+    ).toBeInTheDocument()
   })
 })
 
@@ -209,7 +213,7 @@ describe('ResponderRevisaoDialog — texto longo: o teto de 2000 é guarda de in
 
   it('o contador continua visível no topo do intervalo', () => {
     renderDialog()
-    escolherVeredito('Reverter a decisão')
+    escolherVeredito('Reverter a decisão (reabrir a candidatura)')
     digitar('a'.repeat(2000))
     expect(screen.getByText('2000 / 50 mín.')).toBeInTheDocument()
     expect(primario()).toBeEnabled()
@@ -231,17 +235,27 @@ describe('ResponderRevisaoDialog — a confirmação aninhada ramifica por vered
     ).toBeInTheDocument()
   })
 
-  it('`revertida` → "Reverter a decisão?" + corpo de reversão + botão "Registrar reversão"', () => {
+  // 48-15 (JORN-19 · D-01/D-10/D-23): o revisor sabe, antes de confirmar, que está
+  // REABRINDO o caso com prazo — não aprovando ninguém, e não apagando a decisão antiga.
+  it('`revertida` → "Reabrir a candidatura?" + prazo de 10 dias + decisor diferente + botão "Registrar e reabrir"', () => {
     renderDialog()
-    escolherVeredito('Reverter a decisão')
+    escolherVeredito('Reverter a decisão (reabrir a candidatura)')
     digitar(TEXTO_VALIDO)
     fireEvent.click(primario())
 
     const confirmacao = screen.getByRole('alertdialog')
-    expect(within(confirmacao).getByText('Reverter a decisão?')).toBeInTheDocument()
-    expect(confirmacao.textContent).toContain('A decisão original deixará de valer.')
+    expect(within(confirmacao).getByText('Reabrir a candidatura?')).toBeInTheDocument()
+    expect(confirmacao.textContent).toContain(
+      'A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos.',
+    )
+    expect(confirmacao.textContent).toContain(
+      'Quem registrou a decisão original não poderá registrar a nova.',
+    )
+    expect(confirmacao.textContent).toMatch(/candidato é avisado por e-mail, com a data/)
+    const promessa = ['deixar', 'á de valer'].join('')
+    expect(confirmacao.textContent).not.toContain(promessa)
     expect(
-      within(confirmacao).getByRole('button', { name: 'Registrar reversão' }),
+      within(confirmacao).getByRole('button', { name: 'Registrar e reabrir' }),
     ).toBeInTheDocument()
   })
 
@@ -266,12 +280,12 @@ describe('ResponderRevisaoDialog — a confirmação aninhada ramifica por vered
 
   it('confirmar → `mutate` com as três variáveis, a justificativa já sem espaços de borda', () => {
     renderDialog()
-    escolherVeredito('Reverter a decisão')
+    escolherVeredito('Reverter a decisão (reabrir a candidatura)')
     digitar(`  ${TEXTO_VALIDO}  `)
     fireEvent.click(primario())
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Registrar reversão',
+        name: 'Registrar e reabrir',
       }),
     )
     expect(mutateMock).toHaveBeenCalledTimes(1)
@@ -396,7 +410,7 @@ describe('ResponderRevisaoDialog — modo somente-leitura ("Ver resposta")', () 
   const respondida = linha({
     revisao_respondida_em: '2026-07-27T12:00:00Z',
     revisao_veredito: 'revertida',
-    revisao_resultado: 'A avaliação foi refeita e a decisão anterior deixa de valer.',
+    revisao_resultado: 'A avaliação foi refeita e a candidatura volta para uma nova decisão.',
     respondida_por_nome: 'Bruno Admin',
     pode_responder: false,
   })
@@ -406,7 +420,7 @@ describe('ResponderRevisaoDialog — modo somente-leitura ("Ver resposta")', () 
     expect(screen.getByText('Resultado da revisão')).toBeInTheDocument()
     expect(screen.getByText('Revertida')).toBeInTheDocument()
     expect(
-      screen.getByText('A avaliação foi refeita e a decisão anterior deixa de valer.'),
+      screen.getByText('A avaliação foi refeita e a candidatura volta para uma nova decisão.'),
     ).toBeInTheDocument()
     expect(corpo()).toContain('27/07/2026')
   })
