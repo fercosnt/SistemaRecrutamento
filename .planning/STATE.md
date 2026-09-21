@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-03-PLAN.md
-last_updated: "2026-09-21T13:05:14.086Z"
+stopped_at: Completed 48-04-PLAN.md
+last_updated: "2026-09-21T13:13:33.792Z"
 last_activity: 2026-09-21
-state_head: 1207aca29b126316ec2d4880a57df3f680c4efa7
+state_head: e1f8e19db5b258d83916d7a6b4608a32abe8b26b
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 59
-  percent: 77
+  completed_plans: 60
+  percent: 78
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -775,6 +775,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 46 P02 | ~95min | 3 tasks | 8 files |
 | Phase 46 P04 | ~95min | 3 tasks | 4 files |
 | Phase 48 P03 | 9 min | 3 tasks | 13 files |
+| Phase 48 P04 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1030,6 +1031,8 @@ Log completo em PROJECT.md Key Decisions.
 - ✅ [Phase 46] **A pergunta que vem antes de todas, RESPONDIDA pelo review:** nao ha caminho pelo qual a execucao das 03:00 destrua linha real ou enfileire `net.http_post`. O terminador do RETEN-05 e `IF v_modo <> 'live'` (`...011:472`) — negacao contra o UNICO valor seguro, nao lista de modos inseguros, entao rotulo novo no CHECK cai no lado que reverte. O motor e chamado com `true` literal em TODOS os modos (`:706`). O dispatch inteiro vive dentro de `IF v_modo = 'live'` (`:863-906`). Nao existe trigger em `notificacoes_enviadas`. **Nada a desarmar.**
 - [Phase 46] ⚠ **A FASE NAO ESTA FECHADA.** Falta: (1) consertar BL-01 e HI-01 (migration `20260823000014`); (2) os demais HIGH/MEDIUM/LOW do `46-REVIEW-2.md`; (3) **`46-VERIFICATION.md` com veredito** — o portao de fase destrutiva o exige e ele NAO existe. Retomar com `/gsd-execute-phase 46`.
 - [Phase 48]: 48-03 JORN-D5: local_ou_link validado por trigger BEFORE (UPDATE OF local_ou_link,tipo WHEN tupla IS DISTINCT FROM), nao CHECK NOT VALID — provado que o CHECK travaria cancelar a linha legada dddd
+- [Phase 48]: 48-04: guarda do knockout mora na EF analise-candidato-individual (v29), antes da marca pendente e de qualquer callAi — o trigger AFTER INSERT nunca ve o knockout; erro de leitura da candidatura falha fechado
+- [Phase 48]: 48-04 / D-02: analise_candidato_vaga ganhou descartada_em + descartada_motivo (CHECK knockout_automatico + coerencia); as 3 analises pos-knockout (contas +claude) marcadas em PROD, total 20 -> 20, nenhuma apagada; veredito de export e do 48-17
 
 ### Pending Todos
 
@@ -1310,8 +1313,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T13:05:13.869Z
-Stopped at: Completed 48-03-PLAN.md
+Last session: 2026-09-21T13:13:33.584Z
+Stopped at: Completed 48-04-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
