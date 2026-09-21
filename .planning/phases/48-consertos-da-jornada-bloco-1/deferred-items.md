@@ -51,7 +51,8 @@
   **Conserto sugerido:** mover o arquivo para a suíte vitest (`src/`) ou excluí-lo do glob do Deno (`deno.json` `test.exclude`).
 
 - Colunas `solicitacoes_dados.aviso_pedido_enviado_em` / `aviso_cancelamento_enviado_em` sem veredito de export (achado no 48-07)
-  status: open (informativo)
+  status: resolved
+  **Resolvido no 48-17 (`bab3c0f8`):** `export: false` com razão (telemetria de envio) em `export-scope-rules.yaml`, classificadas `preservar` no `pii-inventory.yaml`; o `05-export-allowlist-drift.sql` contra PROD deixou de acusá-las. `recibo_enviado_em` e as outras seis colunas de estado do P45 seguem sem veredito (drift pré-existente, fora da fase).
   **What:** a cópia LGPD exporta por allowlist, então as duas colunas NÃO entram na cópia (fail-safe) — o mesmo estado das sete colunas de estado do P45 (`executar_em` … `recibo_enviado_em`). `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD passa a acusá-las como sem veredito. O veredito de export é do 48-17 (compliance da fase).
 
 - `explicacao_rejeicao_automatica(uuid)` virou código morto — e segue com EXECUTE para `anon` (achado no 48-09)
@@ -91,7 +92,8 @@
   **What:** o passo `tombstone_decisao_final` do motor da P45 troca `justificativa` em `decisao_final` e em `decisao_final_historico`, mas não toca `decisao_final.revisao_resultado`, que é a justificativa do REVISOR sobre o titular. Isso é PRÉ-EXISTENTE. O 48-11 acrescentou `decisao_final_historico.revisao_resultado`, que o snapshot copia de OLD (inclusive no UPDATE do próprio motor, que roda antes do scrub do arquivo). A categoria de dado não é nova, mas agora há uma segunda cópia fora do alcance do motor. Hoje: 1 linha `mantida` e 0 `revertida` em PROD. Conserto: incluir `revisao_resultado` nos dois UPDATEs do `tombstone_decisao_final`, no `plano_exclusao_titular` e no `recibo-exclusao.json`. É mecanismo destrutivo (motor da P45), por isso fica fora do 48-11.
 
 - Veredito de export/inventário PII das 12 colunas novas do 48-11 (`decisao_final`: 3; `decisao_final_historico`: 9) (achado no 48-11)
-  status: open (informativo)
+  status: resolved
+  **Resolvido no 48-17 (`bab3c0f8`):** vereditos escritos (`reaberta_em`/`prazo_nova_decisao_em` entram; `alerta_prazo_enviado_em` fica fora; o histórico herda a homônima), classificação no inventário e linha/razão no recibo. Allowlist 1.2.0 em PROD (`exportar-meus-dados` v3).
   **What:** a cópia LGPD exporta por allowlist, então as colunas NÃO entram na cópia (fail-safe), mas `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD vai acusá-las como sem veredito. O veredito de export e o `pii-inventory.yaml` são do 48-17 (compliance da fase), como no item do 48-07.
 
 ## 48-14 — achado fora de escopo (2026-09-21)
@@ -105,3 +107,17 @@
   - `candidatos` tem a policy gêmea (`anon USING (true)`), mas `anon` NÃO tem privilégio na tabela — inerte. Varredura: nenhuma tabela de `public` com RLS desligado é legível por `anon`/`authenticated`.
   - **Acesso de terceiros (logs da API, só leitura):** a retenção alcança ≈ 48 h. Nesse intervalo, toda leitura sem JWT de `candidaturas` foi das nossas Edge Functions (`service_role` via chave `sb_secret_`, sem `Authorization`) ou a sonda `curl` do 48-14 (1 `id`); as sete views não receberam NENHUMA requisição. Antes de 48 h não há log — a exposição existia desde a criação da policy/views, fora do versionamento. **Avaliação de incidente (LGPD Art. 48) é do Encarregado.**
   - Pendência que fica: a origem da policy e das views (apply fora do repositório — mesmo padrão do drift de 2026-07 no STATE); e uma varredura de funções `SECURITY DEFINER` executáveis por `anon` que devolvam PII (não feita).
+
+## 48-17 — contatos não consertados (2026-09-21)
+
+- Drift de export pré-existente: 9 colunas vivas sem veredito, confirmadas pelo `05-export-allowlist-drift.sql` contra PROD em 2026-09-21 (depois do 48-17)
+  status: open
+  **What:** `candidatos.faixa_etaria_materializada`, `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados` (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`). Fora do catálogo versionado de propósito (não são da Phase 48), por isso a cópia as omite (fail-safe da allowlist). Nenhuma coluna da Phase 48 aparece na lista. O conserto é medir e acrescentar ao `catalogo-vivo-44.json` e dar veredito a cada uma (`plano` é jsonb do motor P45: provável `false`).
+
+- `pii-inventory.yaml`: denominador de cobertura datado — o `.md` passou a dizer «Cobertura de tabelas: 65 / 64» (48-17)
+  status: open (informativo)
+  **What:** `meta.escopo.tabelas_base_public` = 64 é a coleta de 2026-07-29; `public` tem 69+ tabelas hoje. O 48-17 acrescentou `solicitacoes_dados` (entrada PARCIAL, declarada na `natureza`: só as 2 colunas da fase) e o numerador passou do denominador. Não é número falso, é denominador velho. Conserto: re-coletar `meta.escopo` pela `01-pii-catalog.sql` (d) e decidir a cobertura das tabelas posteriores (`solicitacoes_dados` inteira, `config_sla_dados`, etc.).
+
+- `decisao_final.revisao_veredito` / `revisao_por_usuario` / `revisao_respondida_em` (P42) sem entrada explícita no `pii-inventory.yaml` (achado no 48-17)
+  status: open (informativo)
+  **What:** as homônimas em `decisao_final_historico`, criadas pelo 48-11, agora TÊM entrada (48-17); as da tabela corrente nunca tiveram. O export não depende disso (vereditos por `decisoes_por_coluna`/R1/R2), mas o recibo e o inventário ficam assimétricos. Conserto: acrescentar as 3 entradas e dar a elas linha/razão no `gen-recibo-exclusao.cjs` (o mesmo destino das do histórico).
