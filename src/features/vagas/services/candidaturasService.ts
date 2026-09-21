@@ -276,6 +276,13 @@ export async function listCandidaturas(
     // uma candidatura JA retirada, e o estado "Voce retirou sua candidatura em
     // {data}" nunca renderizaria. A coluna e do proprio titular e ele acabou de
     // escreve-la: nao ha nada de RH/IA nela.
+    //
+    // Phase 48 / 48-14 (JORN-19 · D-01/D-10): o embed `decisao_final ( reaberta_em,
+    // prazo_nova_decisao_em )` traz SO o estado da reabertura — dois instantes, pela FK
+    // candidatura_id (UNIQUE ⇒ objeto ou null), sob a RLS de SELECT do proprio candidato
+    // (`candidato_le_propria_decisao`). Nenhuma coluna de revisao, justificativa, decisor
+    // ou do alerta interno ao RH (`alerta_prazo_enviado_em`). E o que deixa o painel trocar
+    // o SLA da etapa («3 dias uteis») pelo prazo verdadeiro que o e-mail diz.
     let query = supabase
       .from('candidaturas')
       .select(
@@ -306,6 +313,7 @@ export async function listCandidaturas(
         updated_at,
         deleted_at,
         encerrada_a_pedido_em,
+        decisao_final ( reaberta_em, prazo_nova_decisao_em ),
         vaga:vagas (
           id,
           titulo,

@@ -14,6 +14,31 @@ import { useSlaEtapas, rotuloDeEspera } from '@/features/timeline/hooks';
 import { PrazoEstimadoLinha } from '@/features/timeline/components';
 import { RetirarCandidaturaAcao } from '@/features/vagas/components/RetirarCandidaturaAcao';
 import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada';
+import { formatDataLimiteReabertura } from '@/lib/datetime/formatDataHoraSP';
+
+/**
+ * 48-14 (JORN-19 · D-01/D-10) — a linha de prazo de uma candidatura REABERTA, ou null.
+ *
+ * O veredito `revertida` reabre a candidatura (48-11) com prazo de 10 dias corridos, e o
+ * e-mail (48-13) diz a data. O SLA da etapa («Em decisão final — resposta em até 3 dias
+ * úteis») contradiria esse prazo, então, numa candidatura reaberta e NÃO encerrada, esta
+ * linha o substitui (RESEARCH §E.3 passo 8). A data é a do e-mail: prazo − 1 s, em SP; se o
+ * prazo não for legível, a linha sai sem data — nunca uma data inventada, e nunca o SLA de
+ * volta. Reabrir não é aprovar: a linha só diz que haverá nova decisão (RNF-07a).
+ *
+ * O embed vem do select do candidato (`candidaturasService.listCandidaturas`); objeto pela
+ * UNIQUE de `candidatura_id`, mas um array é lido pelo primeiro elemento, defensivamente.
+ */
+function rotuloReabertura(candidatura: Candidatura): string | null {
+  if (candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)) return null;
+  const embed = candidatura.decisao_final;
+  const estado = Array.isArray(embed) ? embed[0] : embed;
+  if (!estado?.reaberta_em) return null;
+  const data = formatDataLimiteReabertura(estado.prazo_nova_decisao_em);
+  return data
+    ? `Candidatura reaberta — nova decisão até ${data}.`
+    : 'Candidatura reaberta — aguardando nova decisão.';
+}
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -364,21 +389,30 @@ export function DashboardCandidatoPage() {
 
                           {/* TIMELINE-02 — estimativa de prazo (estado de espera). Texto
                               verbatim de config_sla_etapa; rotuloDeEspera devolve null p/
-                              etapa terminal/stale/sem-prazo → o componente não renderiza. */}
-                          <PrazoEstimadoLinha
-                            rotulo={
-                              // Candidatura encerrada não tem prazo de espera — ver
-                              // candidaturaEncerrada. Antes prometia «retorno em 48 horas»
-                              // no mesmo cartão que dizia «Rejeitado».
-                              candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)
-                                ? null
-                                : rotuloDeEspera(
-                                    candidatura.etapa_atual
-                                      ? slaLookup.get(candidatura.etapa_atual)
-                                      : undefined,
-                                  )
-                            }
-                          />
+                              etapa terminal/stale/sem-prazo → o componente não renderiza.
+                              48-14 (JORN-19): numa candidatura REABERTA o SLA da etapa
+                              contradiria o prazo do e-mail — a linha da reabertura o
+                              substitui (rotuloReabertura). */}
+                          {rotuloReabertura(candidatura) ? (
+                            <div data-testid="prazo-reabertura">
+                              <PrazoEstimadoLinha rotulo={rotuloReabertura(candidatura)} />
+                            </div>
+                          ) : (
+                            <PrazoEstimadoLinha
+                              rotulo={
+                                // Candidatura encerrada não tem prazo de espera — ver
+                                // candidaturaEncerrada. Antes prometia «retorno em 48 horas»
+                                // no mesmo cartão que dizia «Rejeitado».
+                                candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)
+                                  ? null
+                                  : rotuloDeEspera(
+                                      candidatura.etapa_atual
+                                        ? slaLookup.get(candidatura.etapa_atual)
+                                        : undefined,
+                                    )
+                              }
+                            />
+                          )}
 
                           {/* Phase 8 / D-16 — persisted neutral rejection message
                               below the status for rejeitado candidaturas. The

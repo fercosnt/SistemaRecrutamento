@@ -205,6 +205,12 @@ export type StatusCandidatura =
  */
 export type EtapaProcesso = Database['public']['Enums']['etapa_processo']
 
+/** 48-14 (JORN-19) — as duas colunas de `decisao_final` que o candidato lê. */
+export interface EstadoReabertura {
+  reaberta_em: string | null
+  prazo_nova_decisao_em: string | null
+}
+
 /**
  * Candidatura com informações completas
  * Extends CandidaturaRow com joins
@@ -214,6 +220,12 @@ export interface Candidatura extends CandidaturaRow {
   vaga?: Partial<VagaRow>
   // Join com candidatos
   candidato?: Partial<CandidatoRow>
+  /**
+   * 48-14 (JORN-19) — embed do select do candidato: SÓ o estado da reabertura. O PostgREST
+   * devolve objeto (relação um-para-um pela UNIQUE de `candidatura_id`) ou `null`; o array é
+   * tratado defensivamente por quem lê (`estadoReabertura`).
+   */
+  decisao_final?: EstadoReabertura | EstadoReabertura[] | null
   // Campos computados
   diasDesdeAplicacao?: number
   progressoPercentual?: number
