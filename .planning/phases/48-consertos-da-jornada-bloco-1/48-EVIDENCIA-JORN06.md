@@ -130,3 +130,12 @@ Conferido depois pelo orquestrador, só leitura (MCP `list_edge_functions` + `ge
 O log de diagnóstico, que registrava formato e comprimento da credencial em toda requisição, saiu
 do ar com a v24. A prova de que o conserto funciona continua sendo a submissão NOVA pelo navegador
 no 48-18 (sessão 1, passo f).
+
+## Retroativo
+
+RETROATIVO: RECUSADO
+
+Decisão do operador em 2026-09-21, depois do deploy do conserto. O backlog são as 2 candidaturas
+de conta de teste listadas em §Backlog; elas ficam registradas e sem devolutiva. Nenhuma chamada
+foi feita a `gerar-devolutiva-bigfive` por esta task, e a credencial de serviço não saiu do
+servidor. A prova do JORN-06 segue sendo a submissão nova pelo navegador no 48-18 (sessão 1, passo f).

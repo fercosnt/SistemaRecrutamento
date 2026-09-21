@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-17-PLAN.md
-last_updated: "2026-09-21T17:43:57.335Z"
+stopped_at: Completed 48-05-PLAN.md
+last_updated: "2026-09-21T22:41:17.949Z"
 last_activity: 2026-09-21
-state_head: 61607ac935925f189015dbc5bea7bc81251a373f
+state_head: b26c6e7d781bad1c9d85462c9fe44ff8207b430e
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 73
-  percent: 95
+  completed_plans: 74
+  percent: 96
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
-last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
+last_activity_desc: "2026-09-21 — 48-05 fechado: causa do 401 da devolutiva medida (sb_secret sem Authorization), conserto no ar em submit-bigfive-final v13 / gerar-devolutiva-bigfive v24 (bundles conferidos), retroativo do backlog de teste RECUSADO pelo operador. Falta só o 48-18 (prova em PROD com o operador)."
 ---
 
 # Project State
@@ -1345,8 +1345,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21 (retomada)
-Stopped at: 48-05 Task 3 concluída — conserto no ar (submit-bigfive-final v13, gerar-devolutiva-bigfive v24, bundles conferidos); aguardando o operador na Task 4 (retroativo do backlog: gerar pelo painel ou recusar)
+Last session: 2026-09-21T22:41:17.691Z
+Stopped at: Completed 48-05-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
