@@ -585,3 +585,32 @@ Deno.test("T-48-16f — o bloco não quebra os grep-guards: sem token de avalia�
     assert(!RE_ENDERECO_DOMINIO.test(html), `${evento}: endereço @beautysmile.com.br no corpo (D-07)`);
   }
 });
+
+// ── T-48-16 (Task 2) — JORN-15 · D-09: a promessa do e-mail de confirmação ───────────────
+//
+// O e-mail prometia avisar em cada etapa; o sistema avisava em 1 de 4. O operador escolheu
+// mudar a PROMESSA (D-09), não passar a avisar em cada avanço: acompanhe pelo painel, e o
+// e-mail vem quando houver algo para fazer ou uma decisão. A frase antiga é montada por
+// concatenação para que este arquivo não a contenha literal.
+
+const PROMESSA_D09 =
+  "Acompanhe o andamento pelo seu painel a qualquer momento. Avisaremos por e-mail quando " +
+  "houver algo para você fazer ou uma decisão sobre a sua candidatura.";
+const PROMESSA_ANTIGA = "a cada " + "etapa";
+
+Deno.test("T-48-16g — a confirmação diz a promessa de D-09, literal", () => {
+  const { html } = renderarEmail("candidatura_recebida", DADOS);
+  assert(html.includes(PROMESSA_D09), "a confirmação não traz a cópia de D-09");
+  assert(html.includes("Acompanhe o andamento pelo seu painel"), "sem a frase canônica do front");
+});
+
+Deno.test("T-48-16h — NENHUM corpo de candidato promete aviso em cada etapa", () => {
+  for (const evento of EVENTOS_DO_CODIGO) {
+    for (const extra of VARIANTES_U2) {
+      const dados = { ...DADOS, ...extra, urlLogin: URL_LOGIN };
+      const { html, subject } = renderarEmail(evento, dados as typeof DADOS);
+      assert(!html.includes(PROMESSA_ANTIGA), `${evento}: promete aviso em cada etapa`);
+      assert(!subject.includes(PROMESSA_ANTIGA), `${evento}: assunto promete aviso em cada etapa`);
+    }
+  }
+});

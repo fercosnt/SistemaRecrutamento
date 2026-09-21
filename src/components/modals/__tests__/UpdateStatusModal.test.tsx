@@ -159,3 +159,49 @@ describe('UpdateStatusModal — reject routes through registrar_decisao with ≥
     expect(mutateReject).not.toHaveBeenCalled()
   })
 })
+
+// ── 48-16 (JORN-15 · D-09) — o modal não promete e-mail que nenhum código envia ─────────
+//
+// A opção «Notificar candidato por email» não tinha efeito: nenhum código a honra desde a
+// aposentadoria do n8n (P39). O modal passa a dizer a verdade — mudar o status ali não envia
+// e-mail; o candidato é avisado quando uma decisão é registrada ou quando há algo para ele
+// fazer — e o payload deixa de carregar `notificar_candidato`.
+describe('UpdateStatusModal — sem promessa de e-mail sem código (48-16 / JORN-15)', () => {
+  beforeEach(() => {
+    mutateStatus.mockReset()
+    mutateReject.mockReset()
+  })
+
+  it('não oferece a opção de notificar nem promete e-mail pela mudança de status', () => {
+    renderModal()
+    expect(screen.queryByText(/notificar candidato por email/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/receberá um email informando sobre a mudança de status/i),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('diz a verdade: mudar o status não envia e-mail; decisão e ação pedida avisam', () => {
+    renderModal()
+    expect(
+      screen.getByText(
+        'Mudar o status aqui não envia e-mail ao candidato. Ele é avisado por e-mail quando uma decisão é registrada ou quando há algo para ele fazer, e acompanha o resto pelo painel.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('o payload de status não carrega mais notificar_candidato', () => {
+    renderModal()
+    selectStatus('aprovado_proxima')
+    fireEvent.click(salvarButton())
+    expect(mutateStatus).toHaveBeenCalledTimes(1)
+    expect(mutateStatus.mock.calls[0][0]).not.toHaveProperty('notificar_candidato')
+  })
+
+  it('a ajuda da rejeição não diz que o motivo vai ao candidato (a cópia enviada é neutra)', () => {
+    renderModal()
+    selectStatus('rejeitado')
+    expect(screen.queryByText(/será enviado ao candidato/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/não é enviado ao candidato/i)).toBeInTheDocument()
+  })
+})
