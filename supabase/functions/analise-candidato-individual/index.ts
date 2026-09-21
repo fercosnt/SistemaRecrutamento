@@ -12,8 +12,10 @@
  * Fluxo (try/catch envolve TODA a análise — invariante never-absent):
  *   1. Self-auth do Vault Bearer (Bearer ausente/divergente → 401 UNAUTHORIZED).
  *   2. Parse + valida o body { candidatura_id, vaga_id }.
- *   3. Lê a candidatura (allowlist explícita — NÃO select('*')) + respostas Etapa 1
- *      + rubrica da vaga.
+ *   3. Lê a candidatura (allowlist explícita — NÃO select('*')) ANTES de qualquer
+ *      escrita; se o knockout já a eliminou (`rejeitado` + `opcao_knockout_id`),
+ *      devolve 200 {ok:true, skipped:"knockout"} sem linha e sem IA (JORN-24,
+ *      Phase 48). Senão marca `pendente` e lê respostas Etapa 1 + rubrica da vaga.
  *   4. Baixa o PDF do CV do bucket privado `curriculos` (service_role) e extrai o
  *      texto via `unpdf` (npm:, dinâmico) — truncado a um teto de tokens (DoS/custo).
  *      Falha de extração (PDF corrompido/imagem) → segue só com respostas + flag
@@ -231,6 +233,47 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
 
   // ── 3-6. Toda a análise envolta em try/catch (never-absent invariant) ─────
   try {
+    // ── 3-A. Candidatura PRIMEIRO — antes da marca e de qualquer IA (48-04) ──
+    //
+    // Allowlist explícita de colunas (NÃO select('*'),
+    // [[reference_select_star_leaks_pii]]). `opcao_knockout_id` entra para a
+    // guarda abaixo.
+    //
+    // O `error` NÃO é descartado: sem saber o estado da candidatura não dá para
+    // saber se o knockout já a eliminou, e na dúvida nada vai para o provedor de
+    // IA. O throw cai no catch e vira linha `falhou` (never-absent).
+    const { data: cand, error: candErr } = await supabaseAdmin
+      .from("candidaturas")
+      .select(
+        "id, vaga_id, candidato_id, curriculo_url, curriculo_nome_original, status, opcao_knockout_id",
+      )
+      .eq("id", candidatura_id)
+      .maybeSingle();
+    if (candErr) {
+      throw new Error(
+        `leitura da candidatura falhou: ${candErr.code ?? ""} ${candErr.message ?? ""}`.trim(),
+      );
+    }
+
+    // ── 3-B. GUARDA DE KNOCKOUT (JORN-24, Phase 48) ──────────────────────────
+    //
+    // Quem o knockout já eliminou NÃO é analisado: seria tratamento sem
+    // finalidade (LGPD art. 6º III), US$ ~0,045 por candidato, e contradiz a
+    // explicação que diz que nenhuma análise foi usada.
+    //
+    // Por que a guarda mora AQUI e não no trigger: `trg_candidaturas_analise` é
+    // AFTER INSERT, e a candidatura nasce `aguardando_resposta` — o knockout é
+    // um UPDATE posterior da MESMA transação (`submit_candidatura_atomic`), e o
+    // `pg_net` só entrega depois do COMMIT. Só a EF vê o estado final. É o mesmo
+    // motivo do survivor-guard de `notificar-candidato`.
+    //
+    // As DUAS condições: rejeição humana posterior ao INSERT (`rejeitado` sem
+    // `opcao_knockout_id`) segue analisada como sempre foi.
+    if (cand?.status === "rejeitado" && cand?.opcao_knockout_id != null) {
+      console.log("[analise]", { candidatura_id, skipped: "knockout" });
+      return jsonResponse({ ok: true, skipped: "knockout" }, 200);
+    }
+
     // ── 3-0. MARCA `pendente` ANTES de qualquer trabalho caro ────────────────
     //
     // ⚠ POR QUE ISTO EXISTE. O try/catch abaixo garante uma linha `falhou` em
@@ -266,13 +309,7 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       });
     }
 
-    // 3a. Candidatura — allowlist explícita de colunas (NÃO select('*'),
-    //     [[reference_select_star_leaks_pii]]).
-    const { data: cand } = await supabaseAdmin
-      .from("candidaturas")
-      .select("id, vaga_id, candidato_id, curriculo_url, curriculo_nome_original, status")
-      .eq("id", candidatura_id)
-      .maybeSingle();
+    // 3a. A candidatura já foi lida em 3-A (uma leitura só).
 
     // 3b. Respostas da Etapa 1 — COM o enunciado da pergunta (ver buildRespostasBlock).
     //     `pergunta:perguntas_formulario(...)` é o embed PostgREST pela FK
