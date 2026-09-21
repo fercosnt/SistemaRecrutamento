@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-13-PLAN.md
-last_updated: "2026-09-21T15:29:55.450Z"
+stopped_at: Completed 48-12-PLAN.md
+last_updated: "2026-09-21T16:05:44.170Z"
 last_activity: 2026-09-21
-state_head: 1a4f165a26d308b71fa860a15adfefd07c783b97
+state_head: 4444c2b98ab2918b9645cb65032f2db30f3d1446
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 68
-  percent: 88
+  completed_plans: 69
+  percent: 90
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -784,6 +784,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P10 | 12 min | 2 tasks | 10 files |
 | Phase 48 P11 | 12 min | 3 tasks | 5 files |
 | Phase 48 P13 | 16min | 3 tasks | 11 files |
+| Phase 48 P12 | 60min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1054,6 +1055,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-11: D-23 identifica a decisao revertida por revisao_veredito=revertida E decisao=rejeitado, na vigente e no arquivo — sem o filtro, o em_espera de C travaria C (provado por mutacao)
 - [Phase 48]: 48-11: em_espera durante a reabertura NAO e nova decisao (A5) — so aprovado/rejeitado zeram o ciclo; registrar_decisao fail-closed antes de ler a candidatura
 - [Phase 48]: 48-13: varrer_prazos_reabertura so ALERTA (D-10): erro de enfileiramento nao marca alerta_prazo_enviado_em; ciclo obrigatorio no evento de prazo; data do e-mail validada DD/MM/AAAA, fora da forma sai sem data
+- [Phase 48]: 48-12: operador escolheu «ambos» — marcas de encerrada_a_pedido_em em knockout desfeitas (000013) e feedback neutro gravado na rejeição de triagem anterior ao conserto (000014), com portão por id e fila pg_net inalterada
 
 ### Pending Todos
 
@@ -1334,8 +1336,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T15:29:55.231Z
-Stopped at: Completed 48-13-PLAN.md
+Last session: 2026-09-21T16:05:43.944Z
+Stopped at: Completed 48-12-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

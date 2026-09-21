@@ -143,7 +143,7 @@
 
 Acrescentados em 2026-09-21. Origem: `.planning/JORNADA-GUIADA.md` (validação manual de 13 etapas em PROD, medida no banco). O número de cada ID é o do defeito na tabela «Defeitos — acumulado» daquele arquivo, onde está a prova de cada um.
 
-- [ ] **JORN-22**: Rejeição humana na triagem torna o Art. 20 alcançável — `rejeitar_candidatura` grava `feedback_rejeicao` neutro (o que o knockout já faz), o cartão «Entenda a decisão» aparece no painel **e a página de explicação serve o caso** com razão neutra própria e canal de contato, sem pedido de revisão (D-20)
+- [x] **JORN-22**: Rejeição humana na triagem torna o Art. 20 alcançável — `rejeitar_candidatura` grava `feedback_rejeicao` neutro (o que o knockout já faz), o cartão «Entenda a decisão» aparece no painel **e a página de explicação serve o caso** com razão neutra própria e canal de contato, sem pedido de revisão (D-20)
 - [x] **JORN-26**: Nenhum código decide «candidatura encerrada / em andamento» só por `etapa_atual`, ignorando `status` — varredura pela forma registrada (`48-VARREDURA-ETAPA-ATUAL.md`), um predicado canônico aplicado em todas as instâncias não-destrutivas (pedido de exclusão, `retirar_candidatura`, trava de `rejeitar_candidatura`, `v_fila_trabalho`, hub do RH, KPI do funil); a purga fica registrada, não consertada (D-21)
 - [ ] **JORN-20**: Rejeição na triagem avisa o candidato por e-mail
 - [ ] **JORN-27**: Pedido e cancelamento de exclusão avisam o titular, com registro próprio de envio — **não** em `recibo_enviado_em`, que é o cinto do recibo pós-exclusão e, escrito no pedido, suprimiria o recibo final (correção de fato da pesquisa, 2026-09-21)
@@ -247,7 +247,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSOL-02 | Phase 47 | Complete |
 | CONSOL-03 | Phase 47 | Complete |
 | CONSOL-04 | Phase 47 | Complete |
-| JORN-22 | Phase 48 | Pending |
+| JORN-22 | Phase 48 | Complete |
 | JORN-26 | Phase 48 | Complete |
 | JORN-20 | Phase 48 | Pending |
 | JORN-27 | Phase 48 | Pending |
