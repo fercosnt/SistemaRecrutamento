@@ -139,6 +139,22 @@
 - [x] **CONSOL-03**: Zumbi `data_deletion_log` removido ou adotado com escritas reais (recomendação da pesquisa: construir tombstone novo e dropar o stub)
 - [x] **CONSOL-04**: Checklist "zumbi de compliance" — toda promessa de retenção/exclusão em comentário de migration ou doc tem código que a executa
 
+### Consertos da Jornada Guiada — Bloco 1 (JORN) · Phase 48
+
+Acrescentados em 2026-09-21. Origem: `.planning/JORNADA-GUIADA.md` (validação manual de 13 etapas em PROD, medida no banco). O número de cada ID é o do defeito na tabela «Defeitos — acumulado» daquele arquivo, onde está a prova de cada um.
+
+- [ ] **JORN-22**: Rejeição humana na triagem torna o Art. 20 alcançável — `rejeitar_candidatura` grava `feedback_rejeicao` neutro (o que o knockout já faz) e o cartão «Entenda a decisão» aparece no painel
+- [ ] **JORN-26**: Nenhum código decide «candidatura encerrada / em andamento» só por `etapa_atual`, ignorando `status` — varredura pela forma registrada, cada ocorrência classificada; o pedido de exclusão deixa de marcar «encerrada a pedido» uma candidatura já rejeitada
+- [ ] **JORN-20**: Rejeição na triagem avisa o candidato por e-mail
+- [ ] **JORN-27**: Pedido e cancelamento de exclusão avisam o titular; `recibo_enviado_em` passa a ser escrito
+- [ ] **JORN-18**: Uma segunda decisão sobre a mesma candidatura gera aviso — a chave de dedupe do evento de decisão distingue decisões
+- [ ] **JORN-15**: O e-mail de confirmação deixa de prometer «a cada etapa» e aponta para o painel (D9)
+- [ ] **JORN-U2**: Todo e-mail transacional ao candidato traz link para o login do candidato (subiu do Bloco 4 por D9)
+- [ ] **JORN-24**: Knockout não dispara análise de IA; análises já geradas após knockout são marcadas, não apagadas (D2)
+- [ ] **JORN-06**: A devolutiva do Big Five volta a ser gerada, com a causa do 401 provada por medição antes do conserto
+- [ ] **JORN-19**: Veredito `revertida` reabre a candidatura em `decisao_final`, com prazo de 10 dias corridos, e-mail corrigido e alerta ao RH no vencimento (D1, D10)
+- [ ] **JORN-D5**: `local_ou_link` obrigatório e validado na escrita — link inválido não entra (D5)
+
 ---
 
 ## Requirements Futuros (M9+)
@@ -231,6 +247,17 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSOL-02 | Phase 47 | Complete |
 | CONSOL-03 | Phase 47 | Complete |
 | CONSOL-04 | Phase 47 | Complete |
+| JORN-22 | Phase 48 | Pending |
+| JORN-26 | Phase 48 | Pending |
+| JORN-20 | Phase 48 | Pending |
+| JORN-27 | Phase 48 | Pending |
+| JORN-18 | Phase 48 | Pending |
+| JORN-15 | Phase 48 | Pending |
+| JORN-U2 | Phase 48 | Pending |
+| JORN-24 | Phase 48 | Pending |
+| JORN-06 | Phase 48 | Pending |
+| JORN-19 | Phase 48 | Pending |
+| JORN-D5 | Phase 48 | Pending |
 
 **Coverage:**
 
@@ -238,6 +265,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 - Mapeados a fases: **52** ✓
 - Não mapeados: **0** ✓
 - Duplicados (requirement em mais de uma fase): **0** ✓
+- **Phase 48 (acrescentada 2026-09-21):** +11 JORN, todos mapeados à Phase 48 — fora da contagem original de 52, que descreve o escopo do kickoff do M8
 
 **Por fase:**
 
@@ -249,6 +277,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | 45 | Motor de Exclusão & Anonimização ⚠️ | 10 | ERASE (10) |
 | 46 | Purga Automática (dry-run → live) | 8 | PURGA (7) + RETEN-05 |
 | 47 | Transparência & Consolidação | 6 | TRANSP (2) + CONSOL (4) |
+| 48 | Consertos da Jornada — Bloco 1 | 11 | JORN (11) |
 
 **Três requirements atravessam fronteira de fase — deliberadamente:**
 
@@ -267,4 +296,4 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 
 ---
 *Requirements definidos: 2026-07-29*
-*Última atualização: 2026-07-29 — traceability preenchida pelo roadmapper (52/52 mapeados, 0 órfãos)*
+*Última atualização: 2026-09-21 — +11 JORN (Phase 48, Bloco 1 da jornada guiada)*

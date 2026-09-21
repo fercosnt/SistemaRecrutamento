@@ -29,6 +29,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
 - [ ] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute
+- [ ] **Phase 48: Consertos da Jornada — Bloco 1** - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 
 ### Ordem de execução, dependências e paralelização
 
@@ -308,6 +309,31 @@ Plans:
 **Security**: baixo risco — páginas informativas e um join. ⚠ A exceção medida **não** é CONSOL-03: é a RPC do CONSOL-02, que troca o tier de controle de acesso (RLS → corpo de função `SECURITY DEFINER`) e por isso tem de **reimpor no corpo** o escopo por vaga do WR-04 e recusar o papel de candidato, cuja policy própria segue viva
 **Portão destrutivo**: ⚠ **NÃO SE APLICA A ESTA FASE.** O portão existia por CONSOL-03, sob a hipótese de `DROP` de tabela com escritor vivo. Medido: **1 escritor e 11 consumidores derivados**, incluindo dois YAML-fonte, o catálogo vivo, cinco artefatos gerados, `database.types.ts` (hoje não regenerável) e uma string visível ao administrador. O critério de sucesso aceita as duas saídas — "removido **OU** adotado com escritas reais" — e o operador decidiu em 2026-08-09 **adotar**: religar o escritor ao sink canônico de auditoria, manter as escritas reais e corrigir o `COMMENT` que promete a função ausente. CONSENT-05 segue a mesma disciplina (remove o `DEFAULT` e a obrigatoriedade; não dropa a coluna). **A fase é inteiramente aditiva: zero `DROP`, zero `DELETE`, zero apply e zero deploy dentro dos planos** — apply e smokes são checkpoints do orquestrador
 
+
+### Phase 48: Consertos da Jornada — Bloco 1
+
+**Goal**: O candidato rejeitado — na triagem, por knockout ou na decisão final — é avisado, alcança o Art. 20 e não tem a história da própria candidatura reescrita; o titular é avisado do que acontece com os próprios dados; e nenhuma promessa escrita ao candidato fica sem código que a cumpra.
+**Origem**: `.planning/JORNADA-GUIADA.md` — validação manual de 13 etapas em PROD (2026-09-19..21), medida no banco e não na tela. Bloco 1 da fila de consertos (§«FILA DE CONSERTOS»), decisões D1–D8 do operador (§«DECISÕES TOMADAS») e D9–D10 tomadas no kickoff desta fase (`48-CONTEXT.md`)
+**Depends on**: Nada de código das fases 42–47 em aberto. Parte do estado de PROD medido em 2026-09-21 (42 candidatos / 32 candidaturas reais; `submit-bigfive-final` v11 é o único write de código da validação)
+**Requirements**: JORN-22, JORN-26, JORN-20, JORN-27, JORN-18, JORN-15, JORN-U2, JORN-24, JORN-06, JORN-19, JORN-D5
+**Success Criteria** (o que tem de ser VERDADE):
+
+  1. Uma candidatura rejeitada **na triagem** gera e-mail ao candidato e mostra o cartão «Entenda a decisão sobre sua candidatura» no painel dele — `rejeitar_candidatura` passa a gravar `feedback_rejeicao` neutro, como o knockout já faz (conserto confirmado por experimento na Etapa 10).
+  2. Nenhum código decide «a candidatura acabou / está em andamento» olhando só `etapa_atual`: a varredura **pela forma** está registrada como artefato, cada ocorrência classificada (escopo deliberado × defeito), e os defeitos consertados — o do pedido de exclusão (Defeito 26) entre eles, não isolado.
+  3. Redecidir gera aviso ao candidato (a chave de dedupe do evento de decisão distingue decisões); o knockout não dispara análise de IA, e a análise já gerada após knockout está **marcada**, não apagada (D2).
+  4. Pedido **e** cancelamento de exclusão chegam ao e-mail do titular, com `recibo_enviado_em` preenchido.
+  5. A devolutiva do Big Five volta a ser gerada em PROD — e a causa do 401 foi **provada por medição antes** do conserto, não presumida.
+  6. O veredito `revertida` devolve a candidatura a `decisao_final`, com prazo de **10 dias corridos** dito no e-mail («sua candidatura foi reaberta e será decidida novamente»); vencido o prazo, o RH é alertado — nenhuma decisão automática (D1, D10).
+  7. O e-mail de confirmação aponta para o painel em vez de prometer «a cada etapa» (D9), todo e-mail transacional ao candidato leva ao login dele (U2), e `local_ou_link` não aceita link inválido na escrita (D5).
+
+**Guardrails**: `tsc` não passa de **90** (baseline congelada em 96); vitest e deno verdes; migrations aplicadas pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger); depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**.
+**Fora de escopo**: Blocos 2, 3 e 4 da fila. As decisões D1–D10 não são reabertas.
+**Portão destrutivo**: não se aplica à fase como um todo — ela é aditiva, com **uma** exceção declarada: a marcação do D2 é `UPDATE` retroativo sobre análise existente (hoje 1 candidatura), reversível por construção (marca, não apaga), e entra como checkpoint com contagem antes/depois.
+**Plans**: 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 48 to break down)
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
 
@@ -392,6 +418,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 0/0 | Not started |  |
 
 ---
 
