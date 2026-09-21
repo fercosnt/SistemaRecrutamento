@@ -130,7 +130,7 @@ async function loadHandler() {
   return mod as {
     handler: (
       req: Request,
-      deps: { supabaseAdmin: unknown; supabaseUser: unknown },
+      deps: { supabaseAdmin: unknown; supabaseUser: unknown; serviceKey?: string },
     ) => Promise<Response>;
   };
 }
@@ -317,6 +317,46 @@ Deno.test("JORN-06 — invoke com sucesso → devolutiva_id devolvido e log sem 
   const log = okLog(logs);
   assertEquals(log.devolutiva_erro, null);
   assertEquals(log.devolutiva_status, null);
+});
+
+Deno.test("JORN-06 — o invoke manda Authorization: Bearer <serviceKey> EXPLÍCITO, e nenhum log contém a chave", async () => {
+  // Causa MEDIDA (48-EVIDENCIA-JORN06.md): com chave sb_secret_ e sem sessão, o
+  // supabase-js não põe Authorization — a guarda SEC-04 da devolutiva respondia 401.
+  const { handler } = await loadHandler();
+  const serviceKey = "sb_secret_CHAVE_DE_SERVICO_DE_TESTE_987";
+  const admin = makeMockSupabaseAdmin({ candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" });
+  const chamadas: Array<{ nome: string; options: Record<string, unknown> }> = [];
+  // deno-lint-ignore no-explicit-any
+  (admin as any).functions = {
+    invoke: (nome: string, options: Record<string, unknown>) => {
+      chamadas.push({ nome, options });
+      return Promise.resolve({ data: { devolutiva_id: "dev-2" }, error: null });
+    },
+  };
+  const deps = { supabaseAdmin: admin, supabaseUser: makeMockSupabaseUser(OWNER), serviceKey };
+  const logs: unknown[][] = [];
+  const orig = { log: console.log, warn: console.warn, error: console.error };
+  console.log = (...a: unknown[]) => { logs.push(a); };
+  console.warn = (...a: unknown[]) => { logs.push(a); };
+  console.error = (...a: unknown[]) => { logs.push(a); };
+  let res: Response;
+  try {
+    res = await handler(makeRequest(VALID_BODY), deps);
+  } finally {
+    console.log = orig.log;
+    console.warn = orig.warn;
+    console.error = orig.error;
+  }
+  assertEquals(res.status, 200);
+  assertEquals(chamadas.length, 1, "a devolutiva é invocada exatamente uma vez");
+  assertEquals(chamadas[0].nome, "gerar-devolutiva-bigfive");
+  const headers = chamadas[0].options.headers as Record<string, string> | undefined;
+  assert(headers, "o invoke tem de levar headers");
+  assertEquals(headers!.Authorization, "Bearer " + serviceKey);
+  for (const linha of logs) {
+    assert(!JSON.stringify(linha).includes(serviceKey), "um log vazou a chave de serviço");
+    assert(!JSON.stringify(linha).includes("CHAVE_DE_SERVICO"), "um log vazou parte da chave de serviço");
+  }
 });
 
 // ── Anti-tamper: a body carrying a `score` field is rejected (.strict) ─────────
