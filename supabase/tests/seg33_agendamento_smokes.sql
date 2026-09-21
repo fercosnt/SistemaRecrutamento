@@ -114,10 +114,11 @@ BEGIN
   IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (b)'; RETURN; END IF;
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.recruiterB'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
   INSERT INTO public.agendamentos_entrevista
-    (id, candidatura_id, vaga_id, tipo, data_hora, observacoes_rh, entrevistador, agendado_por)
+    (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link, observacoes_rh, entrevistador, agendado_por)
   VALUES ('33010033-0000-4000-8000-000000000e01', current_setting('smoke.cand')::uuid,
      '33010033-0000-4000-8000-000000000b01', 'online'::public.tipo_entrevista_avaliacao,
-     now() + interval '2 days', '[SMOKE 33] internal RH note — must never reach candidate',
+     now() + interval '2 days', 'https://meet.example.com/smoke33',  -- 20260921000003 (JORN-D5): online exige link http(s)
+     '[SMOKE 33] internal RH note — must never reach candidate',
      'Dra. Smoke', current_setting('smoke.recruiterB')::uuid);
   SELECT count(*) INTO v_count FROM public.agendamentos_entrevista WHERE id = '33010033-0000-4000-8000-000000000e01';
   IF v_count <> 1 THEN RAISE EXCEPTION 'SEG-33 FAIL (b): owner read % agendamento row(s) back (expected 1)', v_count; END IF;
@@ -144,10 +145,14 @@ BEGIN
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.recruiterA'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'rh'))::text, false);
   BEGIN
     INSERT INTO public.agendamentos_entrevista
-      (id, candidatura_id, vaga_id, tipo, data_hora, agendado_por)
+      (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link, agendado_por)
     VALUES ('33010033-0000-4000-8000-000000000e02', current_setting('smoke.cand')::uuid,
        '33010033-0000-4000-8000-000000000a01', 'online'::public.tipo_entrevista_avaliacao,
-       now() + interval '1 day', current_setting('smoke.recruiterA')::uuid);
+       now() + interval '1 day',
+       -- 20260921000003 (JORN-D5): sem link, o BEFORE trigger recusaria com 23514 ANTES do
+       -- WITH CHECK da RLS, e a (c) deixaria de provar o 42501 que ela existe para provar.
+       'https://meet.example.com/smoke33',
+       current_setting('smoke.recruiterA')::uuid);
     RAISE EXCEPTION 'SEG-33 FAIL (c): recruiter A inserted a cross-vaga agendamento (spoofed vaga_id) — WITH CHECK leak';
   EXCEPTION WHEN insufficient_privilege THEN
     RAISE NOTICE 'PASS (c): recruiter A spoofed-vaga_id INSERT denied (42501 WITH CHECK)';
@@ -211,9 +216,10 @@ BEGIN
   IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (h)'; RETURN; END IF;
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.candUser'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'candidato'))::text, false);
   BEGIN
-    INSERT INTO public.agendamentos_entrevista (candidatura_id, vaga_id, tipo, data_hora)
+    INSERT INTO public.agendamentos_entrevista (candidatura_id, vaga_id, tipo, data_hora, local_ou_link)
     VALUES (current_setting('smoke.cand')::uuid, '33010033-0000-4000-8000-000000000b01',
-       'online'::public.tipo_entrevista_avaliacao, now());
+       'online'::public.tipo_entrevista_avaliacao, now(),
+       'https://meet.example.com/smoke33');  -- 20260921000003: link válido, para que a recusa seja a da RLS (42501)
     RAISE EXCEPTION 'SEG-33 FAIL (h): candidate INSERTed an agendamento (no candidate write policy should exist)';
   EXCEPTION WHEN insufficient_privilege THEN NULL;  -- expected
   END;
@@ -235,10 +241,11 @@ DECLARE v_vaga uuid; v_author uuid;
 BEGIN
   IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN RAISE NOTICE 'SEG-33 SKIP (i)'; RETURN; END IF;
   PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', current_setting('smoke.admin'), 'role', 'authenticated', 'app_metadata', jsonb_build_object('role', 'administrador'))::text, false);
-  INSERT INTO public.agendamentos_entrevista (id, candidatura_id, vaga_id, tipo, data_hora, agendado_por)
+  INSERT INTO public.agendamentos_entrevista (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link, agendado_por)
   VALUES ('33010033-0000-4000-8000-000000000e03', current_setting('smoke.cand')::uuid,
      '33010033-0000-4000-8000-000000000a01',  -- WRONG vaga (vagaA); trigger must normalize to vagaB
      'presencial'::public.tipo_entrevista_avaliacao, now() + interval '3 days',
+     'Rua do Smoke, 33 - sala 1',  -- 20260921000003 (JORN-D5): presencial exige o local (endereço)
      '00000000-0000-4000-8000-000000000bad'::uuid);  -- bogus author; trigger must overwrite with auth.uid()
   SELECT vaga_id, agendado_por INTO v_vaga, v_author FROM public.agendamentos_entrevista WHERE id = '33010033-0000-4000-8000-000000000e03';
   IF v_vaga <> '33010033-0000-4000-8000-000000000b01' THEN RAISE EXCEPTION 'SEG-33 FAIL (i): vaga_id not normalized (got %, expected vagaB)', v_vaga; END IF;
@@ -255,4 +262,18 @@ DELETE FROM public.agendamentos_entrevista WHERE id IN (
 DELETE FROM public.candidaturas WHERE id = '33010033-0000-4000-8000-000000000d01';
 DELETE FROM public.vagas WHERE id IN (
   '33010033-0000-4000-8000-000000000a01', '33010033-0000-4000-8000-000000000b01');
+
+-- GATE FINAL (Phase 48 / 48-03). Quando a fixture não monta, cada asserção acima só emite
+-- um NOTICE de SKIP — e NOTICE não volta pela Management API (p46apply.cjs). Sem este
+-- bloco, um run inteiro pulado sai «verde». O valor de smoke.ready é preservado em
+-- smoke.seg33_ready ANTES do reset abaixo, para o SELECT final devolvê-lo.
+DO $$
+BEGIN
+  PERFORM set_config('smoke.seg33_ready', coalesce(current_setting('smoke.ready', true), ''), false);
+  IF current_setting('smoke.ready', true) IS DISTINCT FROM 'y' THEN
+    RAISE EXCEPTION 'SEG-33 FAIL: a fixture não montou — as asserções foram PULADAS (smoke.ready=%)',
+      coalesce(current_setting('smoke.ready', true), '<unset>');
+  END IF;
+END $$;
 SELECT set_config('smoke.ready', '', false);
+SELECT jsonb_build_object('smoke', 'seg33', 'ready', current_setting('smoke.seg33_ready', true)) AS resultado;

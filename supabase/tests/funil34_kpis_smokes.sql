@@ -84,9 +84,12 @@ BEGIN
     ('34010034-0000-4000-8000-000000000d04', NULL, 'inscricao'::public.etapa_processo, NULL, now() - interval '4 days'),
     ('34010034-0000-4000-8000-000000000d04', 'inscricao'::public.etapa_processo, 'triagem'::public.etapa_processo, NULL, now() - interval '3 days'),
     ('34010034-0000-4000-8000-000000000d04', 'avaliacao_assincrona'::public.etapa_processo, 'entrevista_online'::public.etapa_processo, NULL, now() - interval '1 day');
-  INSERT INTO public.agendamentos_entrevista (id, candidatura_id, vaga_id, tipo, data_hora, compareceu) VALUES
-    ('34010034-0000-4000-8000-000000000e01','34010034-0000-4000-8000-000000000d04','34010034-0000-4000-8000-000000000b04','online'::public.tipo_entrevista_avaliacao, now() - interval '2 days', false),
-    ('34010034-0000-4000-8000-000000000e02','34010034-0000-4000-8000-000000000d04','34010034-0000-4000-8000-000000000b04','presencial'::public.tipo_entrevista_avaliacao, now() + interval '2 days', NULL);
+  -- 20260921000003 (Phase 48 / JORN-D5): local_ou_link passou a ser obrigatório na escrita
+  -- (link http(s) no online, endereço no presencial) — sem ele o BEFORE trigger recusa e a
+  -- fixture cairia no SKIP silencioso do EXCEPTION WHEN OTHERS abaixo.
+  INSERT INTO public.agendamentos_entrevista (id, candidatura_id, vaga_id, tipo, data_hora, compareceu, local_ou_link) VALUES
+    ('34010034-0000-4000-8000-000000000e01','34010034-0000-4000-8000-000000000d04','34010034-0000-4000-8000-000000000b04','online'::public.tipo_entrevista_avaliacao, now() - interval '2 days', false, 'https://meet.example.com/smoke34'),
+    ('34010034-0000-4000-8000-000000000e02','34010034-0000-4000-8000-000000000d04','34010034-0000-4000-8000-000000000b04','presencial'::public.tipo_entrevista_avaliacao, now() + interval '2 days', NULL, 'Rua do Smoke, 34 - sala 1');
 
   PERFORM set_config('smoke.recruiterA', v_recA::text, false);
   PERFORM set_config('smoke.recruiterB', v_recB::text, false);

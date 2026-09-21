@@ -312,10 +312,12 @@ BEGIN
   VALUES ('39010039-0000-4000-8000-0000000000e1', '39010039-0000-4000-8000-0000000000d1',
      'triagem'::public.etapa_processo, 'avaliacao_assincrona'::public.etapa_processo, false);
 
+  -- 20260921000003 (Phase 48 / JORN-D5): online exige local_ou_link http(s) na escrita.
   INSERT INTO public.agendamentos_entrevista
-    (id, candidatura_id, vaga_id, tipo, data_hora)
+    (id, candidatura_id, vaga_id, tipo, data_hora, local_ou_link)
   VALUES ('39010039-0000-4000-8000-0000000000f1', '39010039-0000-4000-8000-0000000000d1',
-     '39010039-0000-4000-8000-0000000000a1', 'online', now() + interval '1 day');
+     '39010039-0000-4000-8000-0000000000a1', 'online', now() + interval '1 day',
+     'https://meet.example.com/smoke39');
 
   SELECT count(*) INTO n FROM public.historico_candidatura WHERE id = '39010039-0000-4000-8000-0000000000e1';
   IF n <> 1 THEN RAISE EXCEPTION 'P39 FAIL (i): historico não commitou — trg_notif_transicao bloqueou o funil'; END IF;
