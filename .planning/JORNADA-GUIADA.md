@@ -1994,11 +1994,97 @@ dias corre em silêncio até a anonimização. A confirmação por e-mail não �
 - [ ] **Defeito 8:** deixe a aba do admin parada, espere a sessão expirar, recarregue → cai no login que diz «**Acesse sua conta de candidato**»
 - [ ] **Suspeita C2:** `/rh/vagas` → editar uma vaga, mudar **descrição curta** ou modelo de trabalho**, salvar, **recarregar\*_. Persistiu? _(há indício de que não, com toast de sucesso falso)\*
 
-📝 **O que aconteceu:**
+📝 **O que aconteceu:** — 2026-09-20 · os 4 defeitos do roteiro, e **dois novos**
+
+### 🔴 Defeito 5 — CONFIRMADO, e maior do que estava escrito
+
+| Usuário | Tela | Banco | Realidade |
+|---|---|---|---|
+| RH2 | «Nunca acessou» · Aguardando 1º acesso | `data_ultimo_login=null`, `primeiro_acesso=true` | entrou **hoje 12:38** e respondeu a revisão |
+| RH3 | idem | idem | já entrou |
+| **Fernando** | **20/04/2026** | `data_ultimo_login=2026-04-20` | logado **agora**, usou o sistema a noite toda |
+
+O roteiro dizia «RH2 e RH3 dizem Nunca acessou». **É pior:** `data_ultimo_login` **não é
+escrito para ninguém**. A tela não mente — ela lê uma coluna morta. **Sexta** do
+inventário.
+
+### 🔴 Defeito 6 — CONFIRMADO
+
+`Resumo de currículo` (`cv_summary`) é a **única** inativa entre 8, e o cabeçalho mostra
+**(1)** igual às ativas. A tela dá pistas (sem o selo `ativa`, com «Promover para ativa»
+habilitado), mas **o contador conta versões, não ativações**.
+
+### ⚠️ Defeito 7 — NÃO se reproduz mais, e o roteiro ficou para trás
+
+A tela **mostra dados**: 05/09, 06/09 e **19/09 (US$ 0,0431)** — exatamente o que o banco
+tem. **Não** mostra 20/09, o que está **correto**: ela agrega o dia anterior.
+Item resolvido por decurso, não por conserto.
+
+### ✅ Suspeita C2 — NÃO se reproduz
+
+Vaga editada («Social Media **junior**»), salva, recarregada, saiu e voltou: **persistiu**.
+Nenhum toast de sucesso falso. A suspeita fica **descartada**.
+
+### >>!! Defeito 28 (NOVO · GRAVE) — o sistema troca de modelo em silêncio, e a tela de admin não sabe
+
+O comparativo que você rodou às **15:24 de hoje** — o que ranqueou 6 candidatos reais e
+ofereceu «Avançar» — **não rodou no modelo configurado**:
+
+| | Configurado (`prompt_versions`) | O que de fato rodou |
+|---|---|---|
+| Provedor | anthropic | **openai** |
+| Modelo | `claude-sonnet-4-6` | **`gpt-4o-mini`** |
+| Custo | ~US$ 0,04 | US$ 0,0013 |
+
+**E a linha de log diz `success = true`** — com `error_code` preenchido ao lado.
+
+**Causa raiz, medida em `ai_call_logs`:**
 
 ```
-(preencha)
+error_code:    anthropic_retries_exhausted
+error_message: Failed to parse structured output as JSON:
+               Unterminated string in JSON at position 9290
 ```
+
+**Não foi timeout — foi TRUNCAMENTO.** O `comparative_ranking` tem `max_tokens = 3000`,
+e a resposta para 6 candidatos passa disso: o JSON chega cortado no meio de uma string,
+o parse quebra, e o `callAi` cai no fallback `gpt-4o-mini`.
+
+**E o conserto de 06/09 atacou outra causa.** O comentário do código registra:
+
+> «sem override, o teto default de 25 s × 3 tentativas dava 91 s de
+> `anthropic_retries_exhausted` e o ranking saía do gpt-4o-mini (medido). Mesmo conserto
+> da analise-candidato-individual: 110 s, 1 tentativa.»
+
+Subiram o **timeout**. Hoje a latência foi **70 s**, dentro dos 110 s — o timeout não
+estourou. A causa virou `max_tokens`, e o mesmo `error_code` genérico
+(`anthropic_retries_exhausted`) encobre as duas. **O conserto anterior não sustentou
+porque o código não distingue «demorou» de «não coube».**
+
+**Não é isolado:** `interview_guide` (3 chamadas) e `cv_job_match` (13) também já saíram
+em `gpt-4o-mini`.
+
+**Por que é grave:** para defender uma decisão sobre uma pessoa, «qual modelo avaliou este
+candidato» é pergunta de auditoria. Hoje a tela de admin responde `claude-sonnet-4-6` e o
+log responde `gpt-4o-mini` — e só o log está certo.
+
+### >>! Defeito 29 (NOVO · UI) — o Admin não tem navegação, e o que tem é ilegível
+
+| Problema |
+|---|
+| **Não há caminho** para `/admin/prompt-versions` nem `/admin/ai-costs` — só por URL digitada |
+| Clicar em **Admin** cai direto em **Logs de IA**, sem página de índice |
+| **Logs de IA**: texto cinza sobre fundo escuro, difícil de ler |
+| **Custos de IA**: letra escura ilegível e **gráficos pretos** — as três caixas não mostram nada |
+| **Custos de IA não traz a coluna de modelo** — justamente a que revelaria o Defeito 28 |
+
+>> O último item é o mais irônico da jornada: a tela feita para vigiar o custo da IA **não
+>> mostra qual modelo gerou o custo** — e é por isso que a troca silenciosa de modelo
+>> passou despercebida até hoje.
+
+### ⏭ Defeito 8 do roteiro — NÃO exercitado
+
+Exige esperar a sessão expirar. Fica para uma próxima.
 
 ---
 
@@ -2030,6 +2116,8 @@ Sempre com contagem antes e depois, e **nunca** tocando em outro candidato.
 | **8** | 3 | **A revisão salva e a tela não mostra.** Operador salvou «Aprovado», voltou e estava tudo igual | `status_analise='concluida'`, `decisao_revisor='aprovado'`, `revisada_em 00:42:04` — gravado certo, cache não invalidada |
 | **9** | 3 | Fila de revisão diz «nenhuma pendente» porque filtra só vermelhas/amarelas, com a verde aberta ao lado | tela |
 | **14** | 7 | **Nada trava o avanço.** A candidata atravessou `entrevista_presencial` em **30 segundos**, sem entrevista marcada, transcrita ou avaliada. O histórico afirma que ela passou por uma etapa que não aconteceu | `historico_candidatura`: 02:06:01 → 02:06:31 |
+| **28** | 13 | 🔴🔴 **Troca silenciosa de modelo.** O comparativo de hoje rodou em `gpt-4o-mini` com a config dizendo `claude-sonnet-4-6`, e a linha de log marca `success=true`. Causa: `max_tokens=3000` trunca o JSON para 6 candidatos → parse falha → fallback. O conserto de 06/09 subiu o timeout, que não é a causa de hoje | `ai_call_logs`: provider=openai, `error_code=anthropic_retries_exhausted`, «Unterminated string at position 9290» |
+| **29** | 13 | **Admin sem navegação e ilegível.** Sem caminho para prompt-versions e ai-costs, cai direto em Logs de IA, texto cinza, gráficos pretos — e **a tela de custos não mostra o modelo**, que é o que revelaria o Defeito 28 | tela |
 | **27** | 12 | 🔴 **A titular não é avisada de nada sobre os próprios dados.** Pedido de exclusão e cancelamento geraram 3 e-mails, todos para o RH, zero para ela. Sem isso, conta invadida → exclusão pedida → ela não sabe | `notificacoes_enviadas` 20:38:26: rh2, rh3, fernando@. `recibo_enviado_em` null |
 | **26** | 12 | **O pedido de exclusão marcou «encerrada a pedido» uma candidatura eliminada por knockout** — o filtro de «em andamento» olha `etapa_atual` e ignora `status`. **Mesmo eixo do Defeito 22** | `encerrada_a_pedido_em` preenchida na Social Media (`etapa_atual='inscricao'`) e null na Consultor (`etapa_atual='rejeitado'`) |
 | **25** | 11 | 🔴 **O comparativo ranqueia e oferece «Avançar» para quem já foi rejeitado.** Marina (knockout) em 5º e Claude Teste Revisao (rejeitado) em 4º, ambos com botão de avançar | tela + `candidaturas.status='rejeitado'` nos dois |
