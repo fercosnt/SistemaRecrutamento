@@ -71,3 +71,11 @@
   **What:** (1) a fixture exige `e2e.admin@beautysmile.com.br` e o recrutador `fba9bc0f-…` ATIVOS; os dois estão `ativo=false` desde 2026-09-05 (STATE.md §Correção de registro) — o smoke para em `P42 FAIL (fixture)` antes de qualquer asserção, contra o vivo de antes E de depois do 48-08. (2) Se a fixture resolvesse, o arquivo roda no nível de topo: INSERT em `decisao_final` sobre uma candidatura real de `candidato.funil@teste.com` + `responder_revisao_decisao` real ⇒ `trg_notif_revisao_respondida` enfileira `revisao_respondida` e o `p46apply run` puro COMMITA (NOTIFICACOES_MODO='producao'). Mesma classe do item do oper31/funil34/seg32/seg33.
   **Como o 48-08 rodou:** em envelope que aborta, com uma CÓPIA de rascunho (não commitada) que troca os dois RH fixos por dois administradores ativos lidos na execução — 9/9 antes e depois da migration `20260921000007`. O arquivo do repositório não foi editado.
   **Conserto sugerido:** resolver os RH por papel/ativo na execução (idioma do `p48_dedupe_smoke.sql`) e mover as escritas para subtransação revertida.
+
+- `p39_rewire_triggers_smoke.sql:189` (f) `trg_notif_*` `<> 3` passou de 6 para 7 com o `trg_notif_cognitivo_liberado` (48-10)
+  status: open (informativo)
+  **What:** medido depois do apply da `20260921000010`: `count(*) FROM pg_trigger WHERE tgname LIKE 'trg\_notif\_%'` = 7. Fotografia vermelha já registrada no CONTEXT §Deferred e na `48-VARREDURA-PORTOES.md` §2; o 48-10 **não** tocou o arquivo (instrução do operador). Conserto sugerido quando alguém o assumir: trocar a contagem por pertinência por nome dos três triggers da P39 (idioma do `p37` (f) convertido no 48-06).
+
+- O `<verify>` do 48-10 roda `deno test --allow-all supabase/functions/notificar-candidato/ supabase/functions/_shared/` e herda a falha pré-existente do `strict-schema.test.ts` (item do 48-07 acima)
+  status: open (informativo)
+  **What:** o 48-10 rodou o mesmo conjunto de arquivos SEM esse único arquivo vitest (script de rascunho que lista os `*.test.ts` dos dois diretórios e exclui `strict-schema.test.ts`): 222/222 com type-check. O conserto do arquivo continua sendo o sugerido no item do 48-07.
