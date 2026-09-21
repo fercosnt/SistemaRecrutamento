@@ -22,3 +22,15 @@
 - COMMENT de `retirar_candidatura` diz «o ÚNICO GRANT é para o papel de servidor» (achado no 48-01)
   status: open
   **What:** desatualizado desde `20260805000009:170-171`, que concedeu `authenticated`. O 48-01 reafirmou o ACL vivo e não reescreveu o COMMENT.
+
+- `seg33_agendamento_smokes.sql` também COMMITA fixture ligada a candidato REAL (achado no 48-03)
+  status: open
+  **What:** mesma forma do item do oper31/funil34/seg32: insere `candidaturas` (`status='aguardando_resposta'`) para `candidatos ORDER BY id LIMIT 1` e agendamentos que disparam `trg_notif_convite` — rodado com `p46apply run` puro, COMMITA os `net.http_post`. O 48-03 o rodou em envelope que aborta (resultado `ready=y` lido do texto do erro). O gate final novo (reprova SKIP silencioso) é do 48-03; a conversão para subtransação revertida não é.
+
+- `p39_rewire_triggers_smoke.sql` (i) e `funil34_kpis_smokes.sql`: fixtures de agendamento ganharam `local_ou_link` (48-03)
+  status: resolved
+  **What:** o trigger `validar_local_ou_link_agendamento` (20260921000003) recusaria os INSERTs sem link/local. `funil34` medido 8/8 PASS em envelope depois do apply. `p39` segue vermelho pela fotografia `:189` (não tocada, instrução do operador) — só a fixture da (i) mudou.
+
+- Divergência deliberada JS × SQL na regra de URL (48-03)
+  status: open (informativo)
+  **What:** `new URL('http:host')` é aceito pelo `isSafeHttpUrl` (o parser completa as barras), o trigger exige `^https?://host`. O formulário deixaria passar e o banco recusaria com 23514 — falha fechada, mensagem genérica de erro. Nenhum RH digita isso na prática; registrar se aparecer.
