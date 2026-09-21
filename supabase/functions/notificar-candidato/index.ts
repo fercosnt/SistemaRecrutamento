@@ -28,6 +28,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   exigirSinkTeste,
+  montarUrlLogin,
   resolverDestinatario,
   resolverModo,
 } from "../_shared/email-config.ts";
@@ -116,6 +117,13 @@ export interface NotificarDeps {
   fetchImpl: typeof fetch;
   /** Segredo esperado no Bearer (== NOTIFICAR_SECRET / service_role em produção). */
   serviceKey: string;
+  /**
+   * 48-16 (JORN-U2): a base do app para o link de login do candidato — o wiring passa
+   * `Deno.env.get("APP_BASE_URL")`. Ausente, vazia ou malformada ⇒ o default canônico
+   * (`montarUrlLogin`/`normalizarBaseApp`, só `https:`). Entra por deps, e não por `Deno.env`
+   * dentro do handler, porque a suíte roda sem `--allow-env` (mesmo desenho do 48-07).
+   */
+  appBaseUrl?: string;
 }
 
 /**
@@ -496,6 +504,9 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     vereditoRevisao,
     // 48-13: só `revisao_respondida` + `revertida` com prazo legível; senão a frase sai sem data.
     prazoNovaDecisaoFmt,
+    // 48-16 (JORN-U2 · D-09): TODO e-mail ao candidato leva ao login dele. Sem `redirect`: o
+    // login leva ao painel (`/candidato/dashboard`, default do `resolveRedirect`).
+    urlLogin: montarUrlLogin(deps.appBaseUrl),
   });
 
   let icsBase64: string | undefined;
@@ -603,6 +614,8 @@ if (import.meta.main) {
       supabaseAdmin,
       fetchImpl: fetch,
       serviceKey: expectedSecret,
+      // 48-16: `|| undefined` — string vazia vale como ausente (o default canônico).
+      appBaseUrl: Deno.env.get("APP_BASE_URL") || undefined,
     });
   });
 }

@@ -120,6 +120,25 @@ export interface DadosEmail {
    * data que não gravou; uma frase sem data é incompleta, uma data inventada é falsa.
    */
   prazoNovaDecisaoFmt?: string;
+  /**
+   * 48-16 (JORN-U2 · D-09): a URL ABSOLUTA do login do candidato
+   * (`https://rh.beautysmile.com.br/auth/login`), montada pela EF com `montarUrlLogin`
+   * (`email-config.ts`) a partir de `APP_BASE_URL`, com fail-safe para o default.
+   *
+   * É a condição do operador em D-09: o e-mail de confirmação passa a dizer «acompanhe pelo
+   * seu painel», e uma promessa que aponta para um lugar inalcançável não é promessa. Com ela,
+   * TODO corpo de candidato termina no bloco «Acessar meu painel» (`blocoAcessoPainel`).
+   *
+   * OPCIONAL, com caminho honesto para a ausência: sem URL (ou string vazia), o corpo sai SEM
+   * o bloco — nunca um botão com `href` vazio ou quebrado.
+   *
+   * ⚠ POR QUE PARÂMETRO E NÃO RODAPÉ DE `layoutBase`: o mesmo layout monta os e-mails do RH
+   * (`notificar-rh/helpers.ts`) e o RECIBO pós-exclusão (`executar-direito-titular`), que é
+   * enviado DEPOIS de a conta deixar de existir. Um link de login no rodapé comum vazaria para
+   * os dois — levaria o RH ao login do candidato e o titular apagado a uma conta que não há.
+   * O recibo é a EXCEÇÃO registrada ao JORN-U2 (pinada em `executar-direito-titular/index.test.ts`).
+   */
+  urlLogin?: string;
 }
 
 /** Wrapper table-based inline-CSS: header (logo) + conteúdo + footer LGPD transacional. */
@@ -154,6 +173,27 @@ Você o recebeu porque se candidatou a uma vaga. Em caso de dúvidas, responda a
 
 const saudacao = (d: DadosEmail): string =>
   `<p style="margin:0 0 16px;">Olá, ${escapeHtml(d.nomeCandidato)},</p>`;
+
+/**
+ * 48-16 (JORN-U2) — o acesso ao painel do candidato: um botão «Acessar meu painel» e o mesmo
+ * link por extenso, para cliente de e-mail que não renderiza botão. HTML do botão copiado dos
+ * e-mails do RH (`notificar-rh/helpers.ts`, `corpoRevisaoSolicitada`), nas cores do e-mail do
+ * candidato.
+ *
+ * Sem URL ⇒ string vazia: o e-mail sai sem o bloco, nunca com link quebrado. A URL passa por
+ * `escapeHtml` nos DOIS lugares em que aparece (atributo `href` e texto).
+ *
+ * Chamado por `renderarEmail` ao fim de TODO corpo de `CORPOS` — um só ponto, para que um
+ * evento novo de candidato não possa nascer sem o acesso. NUNCA por `layoutBase` (ver
+ * `DadosEmail.urlLogin`).
+ */
+export function blocoAcessoPainel(url?: string): string {
+  if (typeof url !== "string" || url.trim() === "") return "";
+  const u = escapeHtml(url.trim());
+  return `
+<p style="margin:24px 0 16px;"><a href="${u}" style="display:inline-block;padding:12px 24px;background:${DEEP_BLUE};color:${BRANCO};text-decoration:none;border-radius:8px;font-weight:bold;">Acessar meu painel</a></p>
+<p style="margin:0;font-size:14px;color:${CINZA};">Se o botão não funcionar, acesse: ${u}</p>`;
+}
 
 function corpoConfirmacao(d: DadosEmail): string {
   return `${saudacao(d)}
@@ -354,13 +394,19 @@ const PREHEADERS: Record<EventoNotificacao, (d: DadosEmail) => string> = {
   avaliacao_cognitiva_liberada: () => "Uma avaliação cognitiva está disponível no seu painel.",
 };
 
-/** Ponto único que a EF chama: evento → { subject, html }. */
+/**
+ * Ponto único que a EF chama: evento → { subject, html }.
+ *
+ * 48-16 (JORN-U2): todo corpo de candidato termina no acesso ao painel quando `d.urlLogin`
+ * vem. Acrescentado AQUI, ao conteúdo do corpo, e não em `layoutBase` — que é compartilhado
+ * com os e-mails do RH e com o recibo pós-exclusão.
+ */
 export function renderarEmail(
   evento: EventoNotificacao,
   d: DadosEmail,
 ): { subject: string; html: string } {
   const subject = SUBJECTS[evento](d);
-  const conteudoHtml = CORPOS[evento](d);
+  const conteudoHtml = CORPOS[evento](d) + blocoAcessoPainel(d.urlLogin);
   const html = layoutBase({ preheader: PREHEADERS[evento](d), conteudoHtml });
   return { subject, html };
 }
