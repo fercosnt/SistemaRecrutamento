@@ -655,8 +655,9 @@ Deno.test("42-08 — revisao_respondida: o veredito VIVO chega ao corpo entregue
   const { handler } = await loadHandler();
   for (
     const [veredito, esperada, proibida] of [
-      ["mantida", "a decisão foi mantida", "decisão anterior foi revista"],
-      ["revertida", "decisão anterior foi revista", "a decisão foi mantida"],
+      ["mantida", "a decisão foi mantida", "reaberta e será decidida novamente"],
+      // 48-13: a reabertura (D-01). Sem `prazo_nova_decisao_em` na linha, a frase sai sem data.
+      ["revertida", "sua candidatura foi reaberta e será decidida novamente.", "a decisão foi mantida"],
     ] as const
   ) {
     const supa = makeRetryMockSupabase({
@@ -710,7 +711,7 @@ Deno.test("42-08 — revisao_respondida SEM linha de decisao_final: neutro, nunc
   assertEquals(fetchMock.calls.length, 1, "sem veredito o e-mail deveria sair mesmo assim");
   const { html } = corpoEnviado(fetchMock.calls[0]);
   assert(
-    !/decis[ãa]o foi mantida|decis[ãa]o anterior foi revista/.test(html),
+    !/decis[ãa]o foi mantida|anterior foi revista|reaberta e ser[áa] decidida/.test(html),
     "sem veredito o corpo AFIRMOU um desfecho — o servidor não sabia qual",
   );
   assert(html.includes("foi respondida"), "o corpo neutro ainda tem de informar a resposta");
@@ -1125,4 +1126,74 @@ Deno.test("48-10 — evento de CANDIDATO: o retry da varredura (sem ciclo no cor
   const enviado = supa.updates.find((u) => u.patch.status === "enviado");
   assertEquals(enviado?.eqCol, "id");
   assertEquals(enviado?.eqVal, "n-cog");
+});
+
+// ─── 48-13 / JORN-19 · D-01 — o e-mail da reabertura diz a DATA EXATA ───────────────────
+//
+// O 48-11 grava `decisao_final.prazo_nova_decisao_em` = 00:00 de São Paulo do dia SEGUINTE à
+// data-limite (fim do 10º dia corrido). A data dita ao candidato é a data-limite: o instante
+// do prazo MENOS 1 segundo, em America/Sao_Paulo. Leitura guardada por `revisao_respondida`,
+// allowlist de DUAS colunas (`revisao_resultado`, a justificativa do revisor, segue fora).
+
+const FRASE_D01 = "Após a revisão, sua candidatura foi reaberta e será decidida novamente";
+
+async function enviarRevisao(decisaoFinalRow: Record<string, unknown> | null) {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    decisaoFinalRow,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rev_48_13" });
+  const res = await handler(
+    makeRequest({ evento: "revisao_respondida", candidatura_id: "cand-rev" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1, "o e-mail da revisão não foi enviado");
+  return { supa, html: corpoEnviado(fetchMock.calls[0]).html };
+}
+
+Deno.test("48-13 — revertida com prazo 2026-10-04T03:00:00Z ⇒ «… até 03/10/2026.» (SP, prazo − 1 s)", async () => {
+  const { html } = await enviarRevisao({
+    revisao_veredito: "revertida",
+    prazo_nova_decisao_em: "2026-10-04T03:00:00Z",
+  });
+  assert(html.includes(`${FRASE_D01} até 03/10/2026.`), "o corpo não diz a data-limite em SP");
+  assert(!html.includes("04/10/2026"), "a data saiu com um dia a mais (instante do prazo sem o −1 s)");
+});
+
+Deno.test("48-13 — a data é a de São Paulo, não a de UTC (prazo 2026-10-10T03:00:00Z ⇒ 09/10/2026)", async () => {
+  const { html } = await enviarRevisao({
+    revisao_veredito: "revertida",
+    prazo_nova_decisao_em: "2026-10-10T03:00:00Z",
+  });
+  assert(html.includes(`${FRASE_D01} até 09/10/2026.`), "a data não foi calculada em America/Sao_Paulo");
+});
+
+Deno.test("48-13 — revertida com prazo ilegível ⇒ frase SEM data (nunca data inventada)", async () => {
+  for (const prazo of [null, "não-é-data", 12345]) {
+    const { html } = await enviarRevisao({ revisao_veredito: "revertida", prazo_nova_decisao_em: prazo });
+    assert(html.includes(`${FRASE_D01}.`), `prazo ${JSON.stringify(prazo)}: esperada a frase sem data`);
+    assert(!/novamente até/.test(html), `prazo ${JSON.stringify(prazo)}: saiu uma data`);
+  }
+});
+
+Deno.test("48-13 — mantida com prazo na linha NÃO fala de data nem de reabertura", async () => {
+  const { html } = await enviarRevisao({
+    revisao_veredito: "mantida",
+    prazo_nova_decisao_em: "2026-10-04T03:00:00Z",
+  });
+  assert(html.includes("a decisão foi mantida"));
+  assert(!/03\/10\/2026|reaberta/.test(html), "mantida recebeu a data ou a reabertura");
+});
+
+Deno.test("48-13 — leitura de decisao_final por allowlist de DUAS colunas, só em revisao_respondida", async () => {
+  const { supa } = await enviarRevisao({ revisao_veredito: "revertida", prazo_nova_decisao_em: null });
+  const leituras = supa.selects.filter((s) => s.table === "decisao_final");
+  assertEquals(leituras.length, 1, "decisao_final lida mais de uma vez (ou nenhuma)");
+  const cols = String(leituras[0].cols).split(",").map((c) => c.trim()).sort();
+  assertEquals(cols, ["prazo_nova_decisao_em", "revisao_veredito"]);
+  assertEquals(leituras[0].eqs, [["candidatura_id", "cand-rev"]]);
 });

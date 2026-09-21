@@ -328,7 +328,7 @@ Deno.test("T-42-V2d — vereditoRevisao AUSENTE não lança e ainda rende assunt
   assert(html.length > 0, "html vazio sem o veredito");
   // O caminho neutro não pode AFIRMAR um desfecho que não conhece.
   assert(
-    !/decis[ãa]o foi mantida|decis[ãa]o anterior foi revista/i.test(html),
+    !/decis[ãa]o foi mantida|anterior foi revista|reaberta e ser[áa] decidida/i.test(html),
     "o caminho SEM veredito afirmou um desfecho — fail-safe tem de ser neutro",
   );
 });
@@ -429,4 +429,73 @@ Deno.test("COMM-06 — a fonte do módulo não IMPORTA react-email nem react", a
     /^\s*import\b/.test(l) && /(@react-email|["']react["'])/.test(l)
   );
   assertEquals(importaReact, false);
+});
+
+// ── T-48-13 — A CÓPIA DA REABERTURA (JORN-19 · D-01 · D-10) ─────────────────────────────
+//
+// Desde o plano 48-11 o veredito `revertida` REABRE a candidatura (decisão final, aguardando
+// nova decisão, prazo de 10 dias corridos). O e-mail diz isso com a DATA EXATA — a data-limite
+// em São Paulo, formatada pela EF a partir de `decisao_final.prazo_nova_decisao_em`. Sem data
+// legível, a frase sai SEM data: o sistema nunca diz ao candidato uma data que não gravou.
+// A frase é a de D-01, pinada letra por letra aqui e na página do candidato (plano 48-14).
+
+const FRASE_REABERTA = "Após a revisão, sua candidatura foi reaberta e será decidida novamente";
+
+Deno.test("T-48-13a — revertida COM prazo: a frase de D-01 com a data exata", () => {
+  const { html } = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "revertida",
+    prazoNovaDecisaoFmt: "03/10/2026",
+  } as never);
+  assert(
+    html.includes(`${FRASE_REABERTA} até 03/10/2026.`),
+    "o corpo da reabertura não diz a frase de D-01 com a data",
+  );
+});
+
+Deno.test("T-48-13b — revertida SEM prazo: a frase de D-01 SEM data (nunca data inventada)", () => {
+  const { html } = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "revertida",
+  });
+  assert(html.includes(`${FRASE_REABERTA}.`), "sem prazo, a frase de D-01 tem de sair sem data");
+  assert(!/\bat[ée] \d/.test(html), "sem prazo, o corpo não pode trazer data nenhuma");
+});
+
+Deno.test("T-48-13c — prazo malformado é tratado como AUSENTE: frase sem data", () => {
+  for (const ruim of ["amanhã", "2026-10-03", "3/10/2026", "<b>03/10/2026</b>", ""]) {
+    const { html } = renderarEmail("revisao_respondida", {
+      ...DADOS_REV,
+      vereditoRevisao: "revertida",
+      prazoNovaDecisaoFmt: ruim,
+    } as never);
+    assert(html.includes(`${FRASE_REABERTA}.`), `prazo '${ruim}' deveria virar frase sem data`);
+    assert(!/novamente até/.test(html), `prazo '${ruim}' virou data no e-mail`);
+  }
+});
+
+Deno.test("T-48-13d — mantida ignora o prazo; nenhum corpo carrega a cópia antiga", () => {
+  const mantida = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "mantida",
+    prazoNovaDecisaoFmt: "03/10/2026",
+  } as never).html;
+  assert(mantida.includes("Após a revisão, a decisão foi mantida."), "a cópia de mantida mudou");
+  assert(!mantida.includes("03/10/2026") && !/reaberta/.test(mantida), "mantida recebeu a data/reabertura");
+  for (const veredito of ["mantida", "revertida", undefined] as const) {
+    const { html } = renderarEmail("revisao_respondida", { ...DADOS_REV, vereditoRevisao: veredito });
+    assert(!/anterior foi revista/.test(html), `a cópia antiga sobreviveu (${veredito})`);
+  }
+});
+
+Deno.test("T-48-13e — assunto e prévia continuam SEM ramificar (T-42-V2c), com ou sem prazo", () => {
+  const com = renderarEmail("revisao_respondida", {
+    ...DADOS_REV,
+    vereditoRevisao: "revertida",
+    prazoNovaDecisaoFmt: "03/10/2026",
+  } as never);
+  const mantida = renderarEmail("revisao_respondida", { ...DADOS_REV, vereditoRevisao: "mantida" });
+  assertEquals(com.subject, mantida.subject);
+  assertEquals(extrairPreheader(com.html), extrairPreheader(mantida.html));
+  assert(!com.subject.includes("03/10/2026"), "a data vazou para o assunto");
 });
