@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from '../ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
+import { candidaturaEncerrada, ETAPAS_TERMINAIS } from '@/lib/candidatura/candidaturaEncerrada'
 import { ScoreCard } from '../ScoreCard'
 import { KanbanBoard } from '../KanbanBoard'
 import { FilaTrabalhoTab } from '@/features/funil/components/FilaTrabalhoTab'
@@ -254,9 +255,15 @@ export function CandidatosRHPage() {
       ETAPA_M2_OPTIONS.map((o) => [o.value, 0]),
     ) as Record<EtapaFunilM2, number>
 
+    // JORN-26 (C2 · D6): uma etapa de TRABALHO não conta candidatura encerrada — o
+    // knockout fica em `inscricao` por desenho e aparecia como inscrição pendente; o
+    // `finalizado` legado em `triagem` aparecia como triagem a fazer. Os baldes
+    // `aprovado`/`rejeitado` seguem contando tudo. Mesma regra da CTE `volume` de
+    // `funil_kpis` (48-01), pelo predicado canônico. O «Total» abaixo continua sendo todos.
     vagaCandidaturas.forEach((c) => {
       const e = c.etapa_atual as EtapaFunilM2 | undefined
-      if (e && e in etapas) etapas[e]++
+      if (!e || !(e in etapas)) return
+      if (ETAPAS_TERMINAIS.has(e) || !candidaturaEncerrada(c.etapa_atual, c.status)) etapas[e]++
     })
 
     return etapas

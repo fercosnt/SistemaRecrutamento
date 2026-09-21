@@ -13,6 +13,7 @@ import { AgendamentoCandidatoCard } from '@/features/agendamento/components/Agen
 import { useSlaEtapas, rotuloDeEspera } from '@/features/timeline/hooks';
 import { PrazoEstimadoLinha } from '@/features/timeline/components';
 import { RetirarCandidaturaAcao } from '@/features/vagas/components/RetirarCandidaturaAcao';
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada';
 
 export function DashboardCandidatoPage() {
   const navigate = useNavigate();
@@ -61,10 +62,14 @@ export function DashboardCandidatoPage() {
    *
    *   O critério é o STATUS, não a etapa. `finalizado` também encerra (processo
    *   concluído); `aprovado_proxima` NÃO — ali há de fato um próximo passo.
+   *
+   * Phase 48 / JORN-26: a regra que nasceu aqui virou o predicado canônico
+   * `candidaturaEncerrada(etapa, status)` em `@/lib/candidatura/candidaturaEncerrada`
+   * (espelho de `public.candidatura_encerrada`). Este painel passa a importá-lo em vez de
+   * manter um `STATUS_TERMINAIS` local. Acrescentar a etapa terminal não muda nenhum ramo:
+   * em todas as linhas reais `etapa ∈ {aprovado, rejeitado}` implica status terminal
+   * (varredura 48 §2). `hasDecisaoFinal` abaixo NÃO usa o helper e não muda (D-12).
    */
-  const STATUS_TERMINAIS: ReadonlySet<string> = new Set(['rejeitado', 'finalizado']);
-  const candidaturaEncerrada = (status: string | null | undefined): boolean =>
-    !!status && STATUS_TERMINAIS.has(status);
 
   const getStatusInfo = (status: string | null | undefined) => {
     switch (status) {
@@ -363,9 +368,9 @@ export function DashboardCandidatoPage() {
                           <PrazoEstimadoLinha
                             rotulo={
                               // Candidatura encerrada não tem prazo de espera — ver
-                              // STATUS_TERMINAIS. Antes prometia «retorno em 48 horas»
+                              // candidaturaEncerrada. Antes prometia «retorno em 48 horas»
                               // no mesmo cartão que dizia «Rejeitado».
-                              candidaturaEncerrada(candidatura.status)
+                              candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)
                                 ? null
                                 : rotuloDeEspera(
                                     candidatura.etapa_atual
@@ -408,7 +413,7 @@ export function DashboardCandidatoPage() {
                           (#35BFAD) when there is a route, neutral glass otherwise.
                           stopPropagation so the funnel CTA wins over the card's
                           vaga-navigation onClick. */}
-                      {candidaturaEncerrada(candidatura.status) ? null : ehEntrevista ? (
+                      {candidaturaEncerrada(candidatura.etapa_atual, candidatura.status) ? null : ehEntrevista ? (
                         <AgendamentoCandidatoCard candidaturaId={candidatura.id} />
                       ) : (
                         <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -457,10 +462,7 @@ export function DashboardCandidatoPage() {
                         tituloVaga={candidatura.vaga?.titulo}
                         encerradaEm={candidatura.encerrada_a_pedido_em}
                         emAndamento={
-                          etapa !== 'aprovado' &&
-                          etapa !== 'rejeitado' &&
-                          candidatura.status !== 'rejeitado' &&
-                          candidatura.status !== 'finalizado'
+                          !candidaturaEncerrada(etapa, candidatura.status)
                         }
                       />
 
