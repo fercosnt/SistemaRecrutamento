@@ -2281,20 +2281,20 @@ Reescrita do zero: a versão anterior foi feita com 15 defeitos; são **29**. Or
 
 ---
 
-### ⚠ DECISÕES QUE TRAVAM O PLANO — só você responde
+### ✅ DECISÕES TOMADAS — 2026-09-21, pelo operador
 
-Um plano automático vai **escolher** por você se estas não vierem antes:
+O Bloco 1 está **destravado**. Nenhuma destas é escolha do executor.
 
-| # | Pergunta |
-|---|---|
-| **D1** | **Defeito 19** — «revertida» deve reverter de fato, ou virar «reaberta para nova decisão»? |
-| **D2** | **Defeito 24** — o que fazer com as análises já geradas sobre eliminados? Apagar, marcar, ou deixar? |
-| **D3** | **B8** — o rascunho do formulário vai para o banco? É decisão LGPD (dado antes do consentimento final) |
-| **D4** | **PP-11** — uma análise que evolui por etapa, ou uma análise separada por etapa? |
-| **D5** | **PP-8** — o agendamento novo (janelas + escolha do candidato) entra agora ou depois? |
-| **D6** | **2b** — o RH deve ver o raciocínio (a)–(d) da IA, ou só os bullets? |
-| **D7** | **PP-16** — `rh@beautysmile.com.br` **existe e é lido**? |
-| **D8** | **Defeito 14** — avançar etapa deve exigir evidência de que a etapa aconteceu? |
+| # | Decisão | O que ela determina no código |
+|---|---|---|
+| **D1** | **Reabrir, não reverter** | Veredito `revertida` devolve a candidatura a `decisao_final`, **aguardando nova decisão** — não a `aprovado`. «Reverter» significa que a rejeição não se sustenta, **não** que o candidato foi aprovado; aprovar automaticamente seria o sistema decidindo o que nenhum humano decidiu. **Exige prazo** (reabrir sem prazo é pior que rejeitar — o candidato passa a esperar) e **exige corrigir o e-mail**, que hoje diz «a decisão anterior foi revista» e deve dizer «sua candidatura foi reaberta e será decidida novamente» |
+| **D2** | **Marcar, não apagar** | Escopo: **só as análises geradas após knockout automático** (Defeito 24) — não os que pediram exclusão nem os não-contratados. Hoje é 1 candidatura. Marcar (ex.: `finalidade='descartada_por_knockout'`) em vez de apagar, porque apagar é irreversível, porque o titular já recebeu essa análise numa cópia LGPD, e porque a marca deixa auditável que houve tratamento sem finalidade e que foi corrigido. O conserto principal segue sendo **parar de analisar após o knockout** |
+| **D3** | **`sessionStorage`, não banco** | O rascunho do formulário **não** vai para o banco. Guardar dado de candidato antes da conclusão da inscrição e do consentimento final é decisão LGPD que não compensa aqui. O Big Five já usa `sessionStorage` com flush e funciona |
+| **D4** | **Append por etapa; exibe a mais recente** | Uma linha de análise **por etapa**, acumulando. A tela mostra a mais recente como principal, com as anteriores acessíveis. O RH vê uma análise que evolui; o sistema não perde o histórico. **Sobrescrever é o modo de falha que esta jornada encontrou três vezes** (Defeitos 10, 12, e a própria existência de `decisao_final_historico`). E poder mostrar que a IA achava X na triagem e Y após a entrevista é a diferença entre defender uma decisão e apenas afirmá-la |
+| **D5** | **Fase própria, depois do Bloco 2 — com uma parte antecipada** | O redesenho do agendamento (janelas + escolha do candidato + confirmação com link, PP-8) é **produto**, não conserto, e entra como fase própria. **Vai junto no Bloco 1 apenas:** tornar o campo de link **obrigatório e validado**. O `isSafeHttpUrl` já existe e já funcionou (impediu o `dddd` de virar link clicável); só não é exigido na escrita. Custa minutos e tira link inválido de produção sem depender do redesenho |
+| **D6** | **Mostrar o raciocínio, não o CV cru** | O `ANALISE_HUB_ALLOWLIST` hoje esconde três coisas juntas. **Passa a mostrar `resumo_respostas`** — é o raciocínio sobre dados que o RH já pode ver, e sem ele quem decide não consegue explicar a decisão, que é exigência do Art. 20. **Continua escondendo `resumo_cv`** — cópia crua do currículo, que o RH já abre por outro caminho; duplicar só amplia superfície de PII. A redação **já** mostra o raciocínio (`cited_evidence`) e o padrão funciona |
+| **D7** | **`rh@beautysmile.com.br` existe e é lido** | Confirmado pelo operador. A PP-16 é troca de endereço, não criação de canal. **Escopo medido:** `canalPrivacidade.ts:42` (constante) + `ExplicacaoCandidatoPage.tsx:245,248` (importa) + **`AutorizacoesStep.tsx:284,287` (hardcoded)** + o teste `ExplicacaoCandidatoPage.test.tsx:422` que verifica o literal e **deve** falhar. Trocar só a constante deixaria `rh@` na explicação e `lgpd@` no cadastro |
+| **D8** | **Avançar NÃO exige evidência** | O Defeito 14 (presencial atravessada em 30 s) **não** vira portão. O funil segue permitindo avançar sem registro da etapa. ⚠ Consequência aceita: o histórico continua podendo afirmar que uma etapa aconteceu quando não aconteceu |
 
 ---
 
