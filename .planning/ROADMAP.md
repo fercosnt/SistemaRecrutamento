@@ -348,7 +348,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 48-10-PLAN.md — Liberação da avaliação cognitiva passa a avisar o candidato (D-22 · JORN-15)
+- [x] 48-10-PLAN.md — Liberação da avaliação cognitiva passa a avisar o candidato (D-22 · JORN-15)
 - [ ] 48-11-PLAN.md — Reabrir, não reverter: `responder_revisao_decisao` reabre com prazo de 10 dias; `registrar_decisao` com D-23, fail-closed e zeragem do ciclo (JORN-19)
 - [ ] 48-12-PLAN.md — Escritas retroativas por decisão do operador: ensaio revertido → checkpoint → migrations com portão (JORN-26, JORN-22)
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 8/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 9/18 | In Progress|  |
 
 ---
 
