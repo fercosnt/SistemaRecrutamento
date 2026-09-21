@@ -309,7 +309,6 @@ Plans:
 **Security**: baixo risco — páginas informativas e um join. ⚠ A exceção medida **não** é CONSOL-03: é a RPC do CONSOL-02, que troca o tier de controle de acesso (RLS → corpo de função `SECURITY DEFINER`) e por isso tem de **reimpor no corpo** o escopo por vaga do WR-04 e recusar o papel de candidato, cuja policy própria segue viva
 **Portão destrutivo**: ⚠ **NÃO SE APLICA A ESTA FASE.** O portão existia por CONSOL-03, sob a hipótese de `DROP` de tabela com escritor vivo. Medido: **1 escritor e 11 consumidores derivados**, incluindo dois YAML-fonte, o catálogo vivo, cinco artefatos gerados, `database.types.ts` (hoje não regenerável) e uma string visível ao administrador. O critério de sucesso aceita as duas saídas — "removido **OU** adotado com escritas reais" — e o operador decidiu em 2026-08-09 **adotar**: religar o escritor ao sink canônico de auditoria, manter as escritas reais e corrigir o `COMMENT` que promete a função ausente. CONSENT-05 segue a mesma disciplina (remove o `DEFAULT` e a obrigatoriedade; não dropa a coluna). **A fase é inteiramente aditiva: zero `DROP`, zero `DELETE`, zero apply e zero deploy dentro dos planos** — apply e smokes são checkpoints do orquestrador
 
-
 ### Phase 48: Consertos da Jornada — Bloco 1
 
 **Goal**: O candidato rejeitado — na triagem, por knockout ou na decisão final — é avisado, alcança o Art. 20 e não tem a história da própria candidatura reescrita; o titular é avisado do que acontece com os próprios dados; e nenhuma promessa escrita ao candidato fica sem código que a cumpra.
@@ -329,11 +328,48 @@ Plans:
 **Guardrails**: `tsc` não passa de **90** (baseline congelada em 96); vitest e deno verdes; migrations aplicadas pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger); depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**.
 **Fora de escopo**: Blocos 2, 3 e 4 da fila. As decisões D1–D10 não são reabertas.
 **Portão destrutivo**: não se aplica à fase como um todo — ela é aditiva, e a purga (destrutiva) ficou **fora** por D-21. Escritas retroativas declaradas, todas sobre contas de teste e todas como checkpoint com contagem antes/depois: a marcação do D-02 (**3** análises — autorizada pelo operador), e, só se o operador aprovar na execução, desfazer as 2 marcas erradas de «encerrada a pedido» e o backfill de `feedback_rejeicao` da rejeição de triagem já feita (1). Nenhuma apaga linha.
-**Plans**: 0 plans
+**Plans**: 18 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 48 to break down)
+- [ ] 48-01-PLAN.md — Predicado canônico `candidatura_encerrada` + D1–D4, D6 no banco (pedido de exclusão, retirada, trava de re-rejeição, fila, KPI); fixture do p45 refeita (JORN-26)
+- [ ] 48-03-PLAN.md — `local_ou_link` obrigatório e validado: trigger no banco + Zod + `isSafeHttpUrl` compartilhado (JORN-D5)
+- [ ] 48-04-PLAN.md — Knockout não dispara IA (guarda na EF) + marcação, não exclusão, das 3 análises pós-knockout (JORN-24)
+- [ ] 48-05-PLAN.md — Devolutiva do Big Five: instrumentação → submissão de prova (checkpoint) → conserto derivado da causa medida → geração retroativa do backlog de teste pelo operador no painel, recusável (checkpoint) (JORN-06)
+- [ ] 48-06-PLAN.md — Portões de vocabulário convertidos para baseline da execução, com sondas de mordida (D-17)
+- [ ] 48-07-PLAN.md — Aviso ao titular no pedido e no cancelamento de exclusão, com colunas próprias; link de login no `email-config` (JORN-27, JORN-U2)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 48-02-PLAN.md — Espelho TS do predicado; hub do RH sem Avançar/Rejeitar para encerrada; funil por vaga; painel no helper (JORN-26)
+- [ ] 48-08-PLAN.md — Chave de dedupe por transição (`historico_id`) e por ciclo de revisão (`ciclo`) (JORN-18, JORN-20)
+- [ ] 48-09-PLAN.md — Explicação da rejeição na triagem (RPC tri-estado + página) e `feedback_rejeicao` neutro na rejeição humana (JORN-22)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 48-10-PLAN.md — Liberação da avaliação cognitiva passa a avisar o candidato (D-22 · JORN-15)
+- [ ] 48-11-PLAN.md — Reabrir, não reverter: `responder_revisao_decisao` reabre com prazo de 10 dias; `registrar_decisao` com D-23, fail-closed e zeragem do ciclo (JORN-19)
+- [ ] 48-12-PLAN.md — Escritas retroativas por decisão do operador: ensaio revertido → checkpoint → migrations com portão (JORN-26, JORN-22)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 48-13-PLAN.md — Avisos da reabertura: alerta ao RH no vencimento (cron, só alerta) + e-mail com a data exata (JORN-19)
+- [ ] 48-14-PLAN.md — Reabertura na tela do candidato: página de explicação e prazo no painel (JORN-19)
+- [ ] 48-15-PLAN.md — Reabertura na tela do RH: cópia de «reverter» e recusa D-23 clara no formulário (JORN-19)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 48-16-PLAN.md — Link de login em todo e-mail ao candidato + cópia D-09 publicada por último, depois de provada a promessa (JORN-U2, JORN-15)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 48-17-PLAN.md — Fechamento de inventário das colunas novas: vereditos de export, catálogo medido, artefatos regenerados, cópia LGPD redeployada
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 48-18-PLAN.md — Prova em PROD pela consulta, com as contas da jornada: prontidão → sessão 1 (candidato/RH) → sessão 2 (revisão, reabertura, D-23, titular)
+
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
 
@@ -418,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 0/0 | Not started |  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 0/18 | Planned |  |
 
 ---
 

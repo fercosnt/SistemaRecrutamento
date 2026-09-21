@@ -728,15 +728,24 @@ PERFORM net.http_post(
 | A7 | As 4 linhas `finalizado` em etapa de trabalho são legado/semente (sem histórico) | A | baixo — o predicado as trata como encerradas de qualquer forma |
 | A8 | Texto neutro sugerido para a rejeição humana | B | baixo — discrição do Claude, revisável |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Todas fechadas em 2026-09-21 — pelas decisões pós-pesquisa do operador (`48-CONTEXT.md` D-20..D-23) ou por checkpoint de plano. A resolução de cada uma está na linha `RESOLVED` logo abaixo dela.
 
 1. **JORN-22 — o que a página de explicação diz para a rejeição na triagem, e se oferece revisão** (BLOQUEANTE, operador). O que sabemos: sem mudança, o cartão leva a «Esta página não está disponível». Recomendação: `checkpoint:decision` no primeiro plano de JORN-22; opção mínima = explicação humana neutra + canal, sem revisão.
+   - **RESOLVED** por **D-20**: explicação + canal, sem pedido de revisão. Implementado em `48-09`.
 2. **JORN-27 — onde registrar o aviso ao titular** (BLOQUEANTE, operador, D-14). A letra do requisito manda escrever `recibo_enviado_em`, o que suprimiria o recibo final. Recomendação: colunas próprias (`aviso_pedido_enviado_em`, `aviso_cancelamento_enviado_em`) e ajustar o texto do requisito.
+   - **RESOLVED**: colunas próprias `aviso_*`, fora de `recibo_enviado_em` (correção de fato registrada na CONTEXT; requisito JORN-27 reescrito). Implementado em `48-07`.
 3. **D5 da varredura — a purga nunca alcança o knockout.** Consertar nesta fase ou registrar como retenção declarada? Recomendação: registrar (mecanismo destrutivo, `p46_purga_smoke` pesado, flip `dry_run→live` pendente).
+   - **RESOLVED** por **D-21**: a purga fica registrada em Deferred, não consertada; `48-01` falha se `candidaturas_alem_da_janela` for redefinida.
 4. **D-09 × `liberar_cognitivo` e `em_espera` sem aviso.** Acrescentar avisos, ou calibrar o texto? Recomendação: perguntar ao operador antes de publicar a cópia de D-09 (que é a última task por dependência).
+   - **RESOLVED** por **D-22**: a liberação cognitiva passa a avisar (`48-10`); `em_espera` não é decisão comunicada e segue sem aviso.
 5. **Decisor original pode redecidir após reabertura?** Hoje nada impede.
+   - **RESOLVED** por **D-23**: quem teve a decisão revertida **não** registra a nova decisão daquele caso — bloqueio duro server-side em `registrar_decisao` (`48-11`); qualquer outro RH/admin decide.
 6. **Correção retroativa** das 2 marcas de encerramento e do `feedback_rejeicao` da Marina — ambos contas de teste; checkpoint com contagem (2 e 1).
+   - **RESOLVED**: `checkpoint:decision` do operador na execução, com contagem (2 e 1) — `48-12`.
 7. **Smokes já vermelhos (p37, p39, p43 y2)** — converter para baseline nesta fase ou só registrar?
+   - **RESOLVED** por **D-17**: os que esta fase toca viram baseline com prova de que ainda mordem (`48-06`); os não tocados (ex.: `p39`) ficam registrados em Deferred.
 
 ## Environment Availability
 

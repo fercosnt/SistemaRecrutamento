@@ -1,22 +1,21 @@
 ---
-gsd_state_version: 1.0
+gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: executing
-stopped_at: "SESSAO DOS VEREDITOS 2026-09-06, FECHADA. As 3 decisoes de produto foram TOMADAS pelo responsavel, IMPLEMENTADAS e a migration APLICADA — §7.26 do GUIA-VALIDACAO-FINAL. (A) copia de dados: manter a allowlist e avisar os DOIS lados (5123ef04). (B) knockout: explicacao SIM, revisao NAO — caminho 2 do §7.18 (12ec4e42), migration 20260906000007 aplicada com md5 conferido e tipos regenerados (cf4df6fc); conferido em PROD: funcao presente, retorno boolean, SECURITY DEFINER, STABLE, version do ledger correta. (C) guia de entrevista: travar o botao e mostrar o tempo (7a245d6a). TRES CORRECOES DE FATO que a implementacao produziu: (1) o aviso do A NAO cabia na tela de decisao final — o campo que o candidato baixa e candidaturas.etapa_justificativa e registrar_decisao nao escreve nele; foi para a rejeicao na triagem e o retrocesso de etapa. (2) o B precisou de RPC porque a rejeicao HUMANA da triagem e o knockout AUTOMATICO sao indistinguiveis nas colunas que o cliente pode ler — a allowlist restritiva, que e decisao de privacidade CORRETA, produz de graca uma armadilha epistemica no cliente; conserto e uma RPC que LE a coluna sensivel sem DEVOLVE-LA. (3) o cartao LGPD do painel PASSAVA POR FORA do portao desde sempre (exigia etapa; o knockout preserva inscricao por desenho) e o comentario ao lado ja dizia «knockout/rejected path». Suites: vitest 1980/1980 (200 arquivos, +24 testes), deno 484/484, tsc 90 (baseline 96). 7 asserções de portao novas, TODAS provadas por execucao com sonda de reversao. ARMADILHA REGISTRADA: npm run db:types PENDURA (prompt sem tty) e o `>` trunca database.types.ts ANTES de rodar — a falha deixa o arquivo com ZERO octeto; a via que funciona esta no RETOMAR §4. ABERTO NAO-BLOQUEANTE: anon executa a RPC nova (padrao do projeto via ALTER DEFAULT PRIVILEGES; sem vazamento, auth.uid() NULL devolve false); e o endpoint /v1/projects/{ref}/postgrest devolve o jwt_secret — nao usar para consultar versao. PENDENTE: conferencia de tela da decisao B (precisa de conta de candidato), E10 (falta conta RH3), blocos G/H/I. LEIA .planning/RETOMAR-AQUI.md"
-
-last_updated: "2026-09-06T23:45:00.000Z"
-last_activity: 2026-09-06
-state_head: 053debfb3ea0f2483197784212a3f28758df849a
+stopped_at: "PHASE 48 PLANEJADA em 2026-09-21 — Bloco 1 da fila de consertos da validação manual (.planning/JORNADA-GUIADA.md). 18 planos em 7 waves, plan-checker PASSED na 3a rodada (0 blocker, 0 warning). Decisões do operador D-01..D-23 em 48-CONTEXT.md (D-09/D-10 no kickoff; D-20..D-23 depois da pesquisa, que corrigiu 4 premissas da fila por medição em PROD só leitura). Nada executado: zero apply, zero deploy. Próximo: /gsd-execute-phase 48. A Phase 46 segue com o flip dry_run→live pendente (5/7)."
+last_updated: "2026-09-21T06:00:28.376Z"
+last_activity: 2026-09-21
+state_head: b0bc2965425f6d379ad3b163fd88133397cb5daa
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 1
-  total_plans: 59
+  total_plans: 77
   completed_plans: 57
-  percent: 17
-current_phase: 46
-current_phase_name: Purga Automática (dry-run → live)
-last_activity_desc: "PHASE 45 COMPLETA. O motor de exclusao foi EXECUTADO EM PRODUCAO em 2026-08-22, sobre conta descartavel, pela Edge Function com o JWT do titular — e o 45-VERIFICATION.md existe com veredito PASSED, 5/5 criterios, portao destrutivo 5/5. Storage 3->0 (incluindo o ORFAO do Pitfall 4, que o motor detectou: achados_resumo.blob_orfao=1), auth.users 30->29 exatamente -1, e a trilha intacta (historico 7=7, decisao_final 2=2). As 7 negativas passam, o CR-04 passa, a re-identificacao por faixa+UF+vaga+timestamp devolve ZERO, e o SC#5 se sustenta (mesma faixa 35-44, excluidos_sem_data=0). O recibo chegou em tempo passado, sem identificador proibido, e COM a linha obrigatoria da justificativa — o conserto do WR-A (f67d664) provado nos 3 recortes. ⚠ DUAS DIVERGENCIAS DE LETRA registradas: decisao_final_historico 1->2 pelo mecanismo M1 documentado (as DUAS linhas desidentificadas), e a data na tela em 06/09/2026 e nao por extenso. ⚠ IDEMPOTENCIA por re-invocacao e ESTRUTURALMENTE impossivel pela EF: depois do deleteUser o JWT e recusado (401). Antes disso, no mesmo dia: CR-01 e CR-02 consertados (76976bb) e o smoke p45_motor_exclusao_smoke passou 24/24 em PROD; os pins md5 gravados com conferencia cruzada (6aa249a); WR-A consertado (f67d664); a copy deixou de prometer um Encarregado que a empresa decidiu nao ter (f8e76e2); api.ipify.org e o iframe do YouTube ELIMINADOS em vez de declarados (03909dd); o vocabulario de logs_acesso.evento consertado — o log estava MORTO desde 2026-04-20 e o defeito so apareceu porque a sonda de uma migration abortou com 23514; e o host recruta.beautysmile.com.br, que NUNCA EXISTIU, corrigido para rh.beautysmile.com.br (eb6f63d). ⚠ LICAO QUE SE REPETIU O DIA INTEIRO: registro desatualizado custa o mesmo que registro ausente — sete pontos do ledger/STATE estavam errados — e MEDIR A COISA ERRADA COM O SQL CERTO e pior ainda, porque o fato falso vem com autoridade de consulta (eu errei duas vezes juntando por usuarios_rh.id em vez de user_id). PROXIMO: Phase 46, que nunca comecou e agora esta DESTRAVADA."
+  percent: 74
+current_phase_name: Consertos da Jornada — Bloco 1
+current_phase: 48
+last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
 ---
 
 # Project State
@@ -38,7 +37,6 @@ Encarregado **não é mais pendência** (`DECISAO-ENCARREGADO.md`, 13/08); e `WI
 24/28/29/31/32 estavam `open` com o fato já resolvido.
 
 Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
-
 
 ## Project Reference
 
@@ -614,7 +612,7 @@ Status: Executing Phase 46 — plano 04 com 4 migrations escritas; DUAS rodadas 
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-08-22
+Last activity: 2026-09-21
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
