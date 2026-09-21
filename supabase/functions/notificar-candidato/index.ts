@@ -43,6 +43,7 @@ import {
   logSeguro,
   mapearEvento,
   montarDedupeKey,
+  RE_CICLO,
   RE_UUID,
 } from "./helpers.ts";
 
@@ -84,6 +85,15 @@ interface CorpoRequisicao {
    * migration que passa o campo. Presente, tem de ter forma de uuid — senão 400.
    */
   historico_id?: string;
+  /**
+   * 48-08 (pré-requisito do JORN-19): a identidade do CICLO — hoje, o instante do pedido de
+   * revisão (`extract(epoch from revisao_solicitada_em)::bigint`, em texto), passado por
+   * `trg_notif_revisao_respondida`. Versiona a chave de `revisao_respondida`: com a
+   * reabertura (D-01) um 2º ciclo de revisão tem uma 2ª resposta, e a chave por candidatura
+   * a engoliria. É genérico de propósito — o plano 48-10 o reusa para a liberação
+   * cognitiva. Só dígitos, até 12 (`RE_CICLO`); inválido ⇒ 400. Opcional por tolerância.
+   */
+  ciclo?: string;
   /**
    * P41 / RECON-03: presente APENAS quando a varredura `pg_cron`
    * (`varrer_retry_notificacoes`) reenvia. Sinaliza o BRANCH RETRY — a EF re-tenta
@@ -159,12 +169,19 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     ) {
       return errorResponse("VALIDATION", "historico_id inválido.");
     }
+    if (
+      raw.ciclo !== undefined &&
+      (typeof raw.ciclo !== "string" || !RE_CICLO.test(raw.ciclo))
+    ) {
+      return errorResponse("VALIDATION", "ciclo inválido.");
+    }
     body = {
       evento: raw.evento as EventoLedger,
       candidatura_id: raw.candidatura_id,
       agendamento_id: raw.agendamento_id ?? undefined,
       reagendamento: raw.reagendamento === true,
       historico_id: typeof raw.historico_id === "string" ? raw.historico_id : undefined,
+      ciclo: typeof raw.ciclo === "string" ? raw.ciclo : undefined,
       retry_id: typeof raw.retry_id === "string" && raw.retry_id ? raw.retry_id : undefined,
     };
   } catch {
@@ -331,9 +348,12 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     candidatura_id,
     agendamento_id,
     // reagendamento: a data nova versiona a chave (ver montarDedupeKey).
-    // 48-08: decisao/avanco são versionados pela transição (uma chave por decisão).
+    // 48-08: decisao/avanco são versionados pela transição (uma chave por decisão) e
+    // revisao_respondida pelo ciclo de revisão (uma chave por ciclo).
     evento === "convite"
       ? (reagendamento && agendamento ? agendamento.data_hora : undefined)
+      : evento === "revisao_respondida"
+      ? body.ciclo
       : historico_id,
   );
 

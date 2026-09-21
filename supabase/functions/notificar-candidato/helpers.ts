@@ -69,6 +69,8 @@ export function mapearEvento(e: EventoLedger): EventoNotificacao {
  *   - `decisao` / `avanco` → `{candidatura}:{evento}:{historico_id}` (48-08) — uma chave por
  *                            TRANSIÇÃO, porque `trg_notif_transicao` é AFTER INSERT em
  *                            `historico_candidatura` e `NEW.id` é a transição
+ *   - `revisao_respondida` → `{candidatura}:revisao_respondida:{ciclo}` (48-08) — uma chave
+ *                            por CICLO de revisão; `ciclo` = epoch do `revisao_solicitada_em`
  *   - demais / sem versão  → `{candidatura}:{evento}` (a chave LEGADA)
  *
  * ⚠ A premissa antiga — «no máximo UMA decisão e UMA revisão por candidatura, logo a chave
@@ -113,6 +115,7 @@ export function montarDedupeKey(
 const EVENTOS_VERSIONADOS: ReadonlySet<EventoLedger> = new Set<EventoLedger>([
   "decisao",
   "avanco",
+  "revisao_respondida",
 ]);
 
 /** Eventos cujo discriminador é o id de uma linha de `historico_candidatura`. */
@@ -142,6 +145,14 @@ export function extrairVersaoDaChave(
   if (partes.length !== 3 || partes[1] !== evento) return undefined;
   return RE_UUID.test(partes[2]) ? partes[2] : undefined;
 }
+
+/**
+ * Forma do `ciclo` (48-08): só dígitos, até 12 — o epoch em segundos que o trigger manda
+ * (`extract(epoch from revisao_solicitada_em)::bigint::text`). 12 dígitos cobrem o epoch até
+ * o ano 33658; nada além disso é um instante plausível, e nada fora de `\d` pode entrar numa
+ * chave de dedupe. Espelhado em `notificar-rh/helpers.ts` (`RE_CICLO`).
+ */
+export const RE_CICLO = /^\d{1,12}$/;
 
 /** `true` quando o evento usa `historico_id` como discriminador (decisao/avanco). */
 export function eventoPorHistorico(evento: EventoLedger): boolean {
@@ -201,6 +212,8 @@ const CHAVES_LOG_OK = new Set([
   "agendamento_id",
   // 48-08: o id da transição (linha de historico_candidatura) — id, não PII.
   "historico_id",
+  // 48-08: o instante (epoch) do pedido de revisão — identidade do ciclo, não PII.
+  "ciclo",
   "dedupe_key",
   "skipped",
   "provider_message_id",

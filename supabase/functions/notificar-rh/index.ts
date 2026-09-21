@@ -59,6 +59,7 @@ import {
   montarDedupeKeyRhEncerramento,
   montarUrlFila,
   montarUrlListaVaga,
+  RE_CICLO,
   refCurta,
   TEMPLATE_LEDGER_RH,
   TEMPLATE_LEDGER_RH_ENCERRAMENTO,
@@ -110,6 +111,13 @@ const ROLES_DESTINATARIAS = ["administrador", "recrutador"] as const;
 interface CorpoRequisicao {
   evento: EventoRh;
   candidatura_id: string;
+  /**
+   * 48-08: identidade do CICLO de revisão — o epoch do `revisao_solicitada_em`, em texto,
+   * passado por `trg_notif_revisao_solicitada`. Versiona a chave do nudge
+   * (`montarDedupeKeyRh`); ignorado pelo evento de encerramento. Opcional (tolerância: a EF
+   * vai ao ar antes da migration); presente, só dígitos até 12 — senão 400.
+   */
+  ciclo?: string;
 }
 
 interface DestinatarioRh {
@@ -172,12 +180,24 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
     ) {
       return errorResponse("VALIDATION", "Payload inválido (evento/candidatura_id).");
     }
-    body = { evento: raw.evento, candidatura_id: raw.candidatura_id };
+    // 48-08: antes, campos extras eram ignorados — o que tornava o `ciclo` inofensivo
+    // ANTES deste deploy. Agora ele é lido, então a forma é validada.
+    if (
+      raw.ciclo !== undefined &&
+      (typeof raw.ciclo !== "string" || !RE_CICLO.test(raw.ciclo))
+    ) {
+      return errorResponse("VALIDATION", "ciclo inválido.");
+    }
+    body = {
+      evento: raw.evento,
+      candidatura_id: raw.candidatura_id,
+      ciclo: typeof raw.ciclo === "string" ? raw.ciclo : undefined,
+    };
   } catch {
     return errorResponse("VALIDATION", "JSON malformado.");
   }
 
-  const { candidatura_id, evento } = body;
+  const { candidatura_id, evento, ciclo } = body;
   const candidaturaRef = refCurta(candidatura_id);
 
   // ---- 3) Dados por ALLOWLIST de colunas (nunca projeção-estrela) -------------
@@ -282,7 +302,7 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   for (const d of lista) {
     const dedupe_key = ehEncerramento
       ? montarDedupeKeyRhEncerramento(candidatura_id, d.user_id)
-      : montarDedupeKeyRh(candidatura_id, d.user_id);
+      : montarDedupeKeyRh(candidatura_id, d.user_id, ciclo);
 
     /**
      * Grava `falhou` na linha reivindicada deste destinatário.

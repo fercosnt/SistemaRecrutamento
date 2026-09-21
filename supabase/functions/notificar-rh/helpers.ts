@@ -46,7 +46,16 @@ export const EVENTO_LEDGER_RH = "revisao_solicitada" as const;
 export const TEMPLATE_LEDGER_RH = "revisao_solicitada_rh" as const;
 
 /**
- * `dedupe_key` do nudge ao RH — `{candidatura_id}:revisao_solicitada:{user_id}`.
+ * `dedupe_key` do nudge ao RH — `{candidatura_id}:revisao_solicitada[:{ciclo}]:{user_id}`.
+ *
+ * ⚠ 48-08 — O CICLO. A chave antiga assumia UM pedido de revisão por candidatura
+ * (`decisao_final.candidatura_id` é UNIQUE e a resposta era única). A reabertura (D-01,
+ * plano 48-11) derruba isso: uma decisão revertida volta a `decisao_final`, recebe nova
+ * decisão, e essa pode ter um 2º pedido de revisão — que colidiria com a chave do 1º e não
+ * avisaria RH nenhum, em silêncio (`skipped:duplicate`). O `ciclo` é o instante do pedido
+ * (`extract(epoch from revisao_solicitada_em)::bigint`, em texto), passado pelo trigger
+ * `trg_notif_revisao_solicitada`. Sem ele (corpo legado — a EF vai ao ar antes da
+ * migration), a chave LEGADA, idêntica à de antes.
  *
  * ⚠ A chave é **POR DESTINATÁRIO**, e isso é load-bearing: `notificacoes_enviadas`
  * tem `UNIQUE (dedupe_key)` e a EF reivindica antes de enviar (claim-before-send). Uma
@@ -57,9 +66,23 @@ export const TEMPLATE_LEDGER_RH = "revisao_solicitada_rh" as const;
  * O `user_id` fica no FIM da chave de propósito: o gate ao vivo do checkpoint verifica
  * que cada linha do ledger termina no `user_id` do seu destinatário.
  */
-export function montarDedupeKeyRh(candidaturaId: string, userId: string): string {
-  return `${candidaturaId}:${EVENTO_LEDGER_RH}:${userId}`;
+export function montarDedupeKeyRh(
+  candidaturaId: string,
+  userId: string,
+  ciclo?: string,
+): string {
+  return ciclo
+    ? `${candidaturaId}:${EVENTO_LEDGER_RH}:${ciclo}:${userId}`
+    : `${candidaturaId}:${EVENTO_LEDGER_RH}:${userId}`;
 }
+
+/**
+ * Forma do `ciclo` (48-08): só dígitos, até 12 — o epoch em segundos. Espelho de
+ * `notificar-candidato/helpers.ts` (`RE_CICLO`); cópia e não import cruzado entre EFs, pela
+ * mesma razão registrada em `CHAVES_LOG_OK_RH` (uma mudança lá não pode mudar esta EF em
+ * silêncio). Fora da forma ⇒ 400 — nada que não seja `\d` entra numa chave de dedupe.
+ */
+export const RE_CICLO = /^\d{1,12}$/;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Phase 45 / Plan 45-09 — ERASE-05 · D-45-06
