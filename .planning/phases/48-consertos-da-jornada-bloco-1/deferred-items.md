@@ -59,7 +59,8 @@
   **What:** o front publicado pelo 48-09 chama `explicacao_rejeicao_origem` (tri-estado); a booleana ficou no banco sem DROP de propósito (o front anterior a chamava — sem janela de quebra). ACL vivo `anon=X/postgres` (a migration `20260906000007` só fez `REVOKE … FROM PUBLIC`). Sem JWT o corpo devolve `false`, então não vaza; mas é superfície morta. DROP num plano futuro, quando nenhum bundle antigo em cache a chamar mais.
 
 - Texto de ajuda do `UpdateStatusModal` afirma que o motivo da rejeição «será enviado ao candidato» (achado no 48-09)
-  status: open
+  status: resolved
+  **Resolvido no 48-16 (`6511ef88`, em PROD 2026-09-21 17:28Z):** a ajuda passou a dizer que o motivo fica no registro interno e não é enviado ao candidato, que recebe uma mensagem neutra; o checkbox «Notificar candidato por email» (sem efeito desde a P39) saiu, junto com `notificar_candidato` do payload. Pinado em `UpdateStatusModal.test.tsx`.
   **What:** `src/components/modals/UpdateStatusModal.tsx:250-253` — «este motivo será enviado ao candidato se a notificação estiver ativada». É falso: a rejeição vai por `registrar_decisao`, e o e-mail `decisao` usa a cópia neutra congelada (`COPY_REJEICAO`); a justificativa nunca chega ao candidato. O 48-09 removeu o último caminho que copiava texto livre do RH para `feedback_rejeicao` (`candidaturasService.updateCandidaturaStatus`). O texto do modal é voltado ao RH e induz a escrever para o candidato — corrigir a copy num plano de UI.
 
 - `rejeitar_candidatura` com motivo `desistencia` grava o mesmo texto «não seguiremos com ela» (observação do 48-09, para a revisão da premissa A8 no 48-18)
