@@ -342,7 +342,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 48-02-PLAN.md — Espelho TS do predicado; hub do RH sem Avançar/Rejeitar para encerrada; funil por vaga; painel no helper (JORN-26)
+- [x] 48-02-PLAN.md — Espelho TS do predicado; hub do RH sem Avançar/Rejeitar para encerrada; funil por vaga; painel no helper (JORN-26)
 - [ ] 48-08-PLAN.md — Chave de dedupe por transição (`historico_id`) e por ciclo de revisão (`ciclo`) (JORN-18, JORN-20)
 - [ ] 48-09-PLAN.md — Explicação da rejeição na triagem (RPC tri-estado + página) e `feedback_rejeicao` neutro na rejeição humana (JORN-22)
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 5/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 6/18 | In Progress|  |
 
 ---
 
