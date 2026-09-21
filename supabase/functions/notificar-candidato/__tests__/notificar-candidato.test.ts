@@ -224,6 +224,8 @@ async function loadHandler() {
         supabaseAdmin: any;
         fetchImpl: typeof fetch;
         serviceKey: string;
+        /** 48-16 (JORN-U2): a base do app — o wiring lê `APP_BASE_URL`; ausente ⇒ default. */
+        appBaseUrl?: string;
       },
     ) => Promise<Response>;
   };
@@ -1196,4 +1198,73 @@ Deno.test("48-13 — leitura de decisao_final por allowlist de DUAS colunas, só
   const cols = String(leituras[0].cols).split(",").map((c) => c.trim()).sort();
   assertEquals(cols, ["prazo_nova_decisao_em", "revisao_veredito"]);
   assertEquals(leituras[0].eqs, [["candidatura_id", "cand-rev"]]);
+});
+
+// ─── 48-16 / JORN-U2 · D-09 — o e-mail que a EF ENTREGA leva ao login do candidato ───────
+//
+// Os testes de template provam o BLOCO; estes provam a LIGAÇÃO: que o handler monta o
+// `urlLogin` e o passa ao `renderarEmail` — senão o bloco passaria nos testes e nenhum
+// e-mail real o carregaria (a assimetria testado × entregue que produziu o W-01).
+// A base entra por `deps.appBaseUrl` (o wiring lê `APP_BASE_URL`), não por `Deno.env` dentro
+// do handler — a suíte roda sem `--allow-env` por contrato (decisão do 48-07).
+
+const LOGIN_PADRAO = "https://rh.beautysmile.com.br/auth/login";
+
+async function enviarComBase(
+  corpo: Record<string, unknown>,
+  appBaseUrl: string | undefined,
+  candidaturaRow: Record<string, unknown> = {
+    ...CANDIDATURA_FIX,
+    status: "aguardando_resposta",
+    opcao_knockout_id: null,
+  },
+) {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow,
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_u2" });
+  const deps = { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER, appBaseUrl };
+  const res = await handler(makeRequest(corpo, RETRY_BEARER), deps);
+  assertEquals(res.status, 200);
+  assertEquals(fetchMock.calls.length, 1, "o e-mail não foi enviado");
+  return corpoEnviado(fetchMock.calls[0]).html;
+}
+
+Deno.test("48-16 — APP_BASE_URL ausente ⇒ o e-mail entregue tem o botão e o link do login padrão", async () => {
+  const html = await enviarComBase({ evento: "confirmacao", candidatura_id: "cand-u2" }, undefined);
+  assert(html.includes("Acessar meu painel"), "o e-mail entregue não tem o botão de acesso");
+  assert(html.includes(`href="${LOGIN_PADRAO}"`), "o botão não aponta para o login padrão");
+  assert(html.includes(`acesse: ${LOGIN_PADRAO}`), "falta o link por extenso");
+});
+
+Deno.test("48-16 — APP_BASE_URL malformada ('lixo', 'javascript:', http:) ⇒ o login padrão", async () => {
+  for (const base of ["lixo", "javascript:alert(1)", "http://rh.beautysmile.com.br", ""]) {
+    const html = await enviarComBase({ evento: "confirmacao", candidatura_id: "cand-u2" }, base);
+    assert(html.includes(`href="${LOGIN_PADRAO}"`), `base ${JSON.stringify(base)}: não caiu no default`);
+    assert(!/javascript:/i.test(html), `base ${JSON.stringify(base)}: esquema hostil no e-mail`);
+  }
+});
+
+Deno.test("48-16 — APP_BASE_URL https válida ⇒ o login daquela origem (preview)", async () => {
+  const html = await enviarComBase(
+    { evento: "confirmacao", candidatura_id: "cand-u2" },
+    "https://preview.example.com/qualquer/caminho",
+  );
+  assert(html.includes('href="https://preview.example.com/auth/login"'), "a base válida não foi usada");
+});
+
+Deno.test("48-16 — a DECISÃO também leva ao login: aprovado, rejeitado e knockout", async () => {
+  const casos: Array<Record<string, unknown>> = [
+    { ...CANDIDATURA_FIX, etapa_atual: "aprovado", status: "aguardando_resposta", opcao_knockout_id: null },
+    { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado", opcao_knockout_id: null },
+    // knockout: etapa 'inscricao' preservada por desenho, status rejeitado, opção marcada
+    { ...CANDIDATURA_FIX, etapa_atual: "inscricao", status: "rejeitado", opcao_knockout_id: "opt-ko" },
+  ];
+  for (const row of casos) {
+    const html = await enviarComBase({ evento: "decisao", candidatura_id: "cand-dec" }, undefined, row);
+    assert(html.includes(`href="${LOGIN_PADRAO}"`), `decisao ${String(row.etapa_atual)}: sem o link`);
+  }
 });

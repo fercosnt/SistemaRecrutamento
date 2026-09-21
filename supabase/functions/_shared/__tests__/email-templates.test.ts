@@ -11,7 +11,9 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 import {
   COPY_APROVACAO,
   COPY_REJEICAO,
+  layoutBase,
   renderarEmail,
+  SUBJECTS,
 } from "../email-templates.ts";
 import type { EventoNotificacao } from "../email-config.ts";
 
@@ -498,4 +500,88 @@ Deno.test("T-48-13e — assunto e prévia continuam SEM ramificar (T-42-V2c), co
   assertEquals(com.subject, mantida.subject);
   assertEquals(extrairPreheader(com.html), extrairPreheader(mantida.html));
   assert(!com.subject.includes("03/10/2026"), "a data vazou para o assunto");
+});
+
+// ── T-48-16 — JORN-U2 · D-09: todo e-mail ao CANDIDATO leva ao login dele ────────────────
+//
+// A promessa nova do e-mail de confirmação («acompanhe pelo seu painel») aponta para um lugar
+// que o candidato precisa alcançar com um clique — a condição do operador em D-09. O link vai
+// por PARÂMETRO (`DadosEmail.urlLogin`) nos corpos de candidato, NUNCA no rodapé de
+// `layoutBase`: o mesmo layout monta os e-mails do RH e o recibo pós-exclusão, que sai depois
+// de a conta deixar de existir.
+//
+// A lista de eventos é a do PRÓPRIO código (`Object.keys(SUBJECTS)`, o Record fechado por
+// `EventoNotificacao`), não uma lista literal: um 7º evento entra na vigilância sem edição.
+
+const URL_LOGIN = "https://rh.beautysmile.com.br/auth/login";
+
+/** Todas as ramificações de corpo que existem hoje (desfecho, veredito, reagendamento). */
+const VARIANTES_U2: Array<Record<string, unknown>> = [
+  {},
+  { desfecho: "aprovado" },
+  { desfecho: "rejeitado" },
+  { vereditoRevisao: "mantida" },
+  { vereditoRevisao: "revertida", prazoNovaDecisaoFmt: "03/10/2026" },
+  { reagendada: true },
+];
+
+const EVENTOS_DO_CODIGO = Object.keys(SUBJECTS) as EventoNotificacao[];
+
+Deno.test("T-48-16a — a vigilância cobre os eventos do código (inclusive o 6º, do 48-10)", () => {
+  assert(EVENTOS_DO_CODIGO.length >= 6, `só ${EVENTOS_DO_CODIGO.length} eventos em SUBJECTS`);
+  assert(EVENTOS_DO_CODIGO.includes("avaliacao_cognitiva_liberada"));
+});
+
+Deno.test("T-48-16b — com urlLogin, TODO corpo de candidato tem o botão «Acessar meu painel» e o link por extenso", () => {
+  for (const evento of EVENTOS_DO_CODIGO) {
+    for (const extra of VARIANTES_U2) {
+      const dados = { ...DADOS, ...extra, urlLogin: URL_LOGIN };
+      const { html } = renderarEmail(evento, dados as typeof DADOS);
+      assert(html.includes("Acessar meu painel"), `${evento} ${JSON.stringify(extra)}: sem o botão`);
+      assert(html.includes(`href="${URL_LOGIN}"`), `${evento} ${JSON.stringify(extra)}: o botão não aponta para o login`);
+      assert(
+        html.includes(`Se o botão não funcionar, acesse: ${URL_LOGIN}`),
+        `${evento} ${JSON.stringify(extra)}: falta o link por extenso`,
+      );
+    }
+  }
+});
+
+Deno.test("T-48-16c — SEM urlLogin, nenhum corpo sai com o bloco (nunca link quebrado)", () => {
+  for (const evento of EVENTOS_DO_CODIGO) {
+    for (const extra of VARIANTES_U2) {
+      const { html } = renderarEmail(evento, { ...DADOS, ...extra } as typeof DADOS);
+      assert(!html.includes("Acessar meu painel"), `${evento}: botão sem destino`);
+      assert(!html.includes("/auth/login"), `${evento}: link de login sem urlLogin`);
+      assert(!html.includes('href=""'), `${evento}: href vazio`);
+    }
+  }
+  // string vazia vale como ausente
+  const vazio = { ...DADOS, urlLogin: "" };
+  assert(!renderarEmail("candidatura_recebida", vazio as typeof DADOS).html.includes("Acessar meu painel"));
+});
+
+Deno.test("T-48-16d — layoutBase sozinho (como o chamam notificar-rh e o recibo) NÃO tem link de login", () => {
+  const html = layoutBase({ preheader: "p", conteudoHtml: "<p>c</p>" });
+  assert(!html.includes("/auth/login"), "o layout comum carrega link de login — vazaria ao RH e ao recibo");
+  assert(!html.includes("Acessar meu painel"));
+});
+
+Deno.test("T-48-16e — o link é ESCAPADO no href e no texto", () => {
+  const hostil = 'https://rh.beautysmile.com.br/auth/login?x="><script>alert(1)</script>';
+  const dados = { ...DADOS, urlLogin: hostil };
+  const { html } = renderarEmail("candidatura_recebida", dados as typeof DADOS);
+  assert(!html.includes("<script>"), "tag <script> CRUA vinda do link");
+  assert(html.includes("&quot;&gt;&lt;script&gt;"), "o link deveria sair escapado");
+});
+
+Deno.test("T-48-16f — o bloco não quebra os grep-guards: sem token de avaliação nem endereço do domínio", () => {
+  const proibido = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio|teste psicol/i;
+  for (const evento of EVENTOS_DO_CODIGO) {
+    const dados = { ...DADOS, urlLogin: URL_LOGIN };
+    const { html } = renderarEmail(evento, dados as typeof DADOS);
+    const bloco = html.slice(html.indexOf("Acessar meu painel") - 300);
+    assert(!proibido.test(bloco), `${evento}: token vetado no bloco de acesso`);
+    assert(!RE_ENDERECO_DOMINIO.test(html), `${evento}: endereço @beautysmile.com.br no corpo (D-07)`);
+  }
 });
