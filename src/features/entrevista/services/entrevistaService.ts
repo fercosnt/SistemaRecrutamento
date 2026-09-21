@@ -179,6 +179,12 @@ export interface EntrevistaContextoRow {
   candidatura_id: string
   vaga_id: string
   etapa_atual: string
+  /**
+   * `candidaturas.status` — JORN-26: sem ele o hub não sabe que o knockout (etapa
+   * `inscricao`, status `rejeitado`) ou o legado `finalizado` já acabaram, e oferece
+   * «Avançar»/«Rejeitar». Ver `@/lib/candidatura/candidaturaEncerrada`.
+   */
+  status: string | null
   candidato_nome: string | null
   /** Horário da entrevista: agendamento ativo da candidatura (agendamentos_entrevista); fallback ao campo V1 da vaga. */
   entrevista_agendada_em: string | null
@@ -231,7 +237,7 @@ export async function getEntrevistaContexto(
   const { data, error } = await supabase
     .from('candidaturas')
     .select(
-      'id, vaga_id, etapa_atual, candidatos ( nome_completo ), vagas ( entrevista_agendada_em, aplica_cognitivo )',
+      'id, vaga_id, etapa_atual, status, candidatos ( nome_completo ), vagas ( entrevista_agendada_em, aplica_cognitivo )',
     )
     .eq('id', candidaturaId)
     .maybeSingle()
@@ -249,6 +255,7 @@ export async function getEntrevistaContexto(
     id: string
     vaga_id: string
     etapa_atual: string
+    status?: string | null
     candidatos?: { nome_completo?: string } | null
     vagas?: { entrevista_agendada_em?: string | null; aplica_cognitivo?: boolean } | null
   }
@@ -274,6 +281,7 @@ export async function getEntrevistaContexto(
     candidatura_id: raw.id,
     vaga_id: raw.vaga_id,
     etapa_atual: raw.etapa_atual,
+    status: raw.status ?? null,
     candidato_nome: raw.candidatos?.nome_completo ?? null,
     entrevista_agendada_em: agendadaEm,
     aplica_cognitivo: raw.vagas?.aplica_cognitivo ?? false,

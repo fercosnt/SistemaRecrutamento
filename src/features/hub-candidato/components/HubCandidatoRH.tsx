@@ -32,6 +32,7 @@ import { RHLayout } from '@/components/RHLayout'
 import { Glass, GlassCard, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { funilNavMap } from '@/lib/navegacao/funilNavMap'
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
 import {
   ETAPA_M2_LABELS,
   type EtapaFunilM2,
@@ -143,6 +144,16 @@ export function HubCandidatoRH() {
   // impossível sem descobrir o motivo (medido em 2026-08-26).
   const podeRetroceder = etapaAtual ? FUNNEL_ORDER.indexOf(etapaAtual) > 0 : false
 
+  // JORN-26 (C1/C1b da varredura 48): Avançar e Rejeitar decidiam só por `etapa_atual`.
+  // O knockout PRESERVA `etapa_atual='inscricao'` por desenho (status vira `rejeitado`), então
+  // o hub oferecia «Avançar → triagem» e a candidata eliminada voltava ao funil com
+  // status `rejeitado`; e oferecia «Rejeitar» sobre knockout e sobre `finalizado` legado,
+  // reescrevendo o motivo. O critério de «acabou» é o predicado canônico (etapa OU status).
+  // O servidor também recusa desde o plano 48-01 (`rejeitar_candidatura`, trava D3) — aqui a
+  // tela só deixa de OFERECER a ação, e diz por quê. Retroceder e o CTA de workspace ficam
+  // como estão: são posicionais (varredura §4 ii), não «acabou?».
+  const encerrada = candidaturaEncerrada(etapaAtual, contexto?.status)
+
   // UX-03: explicit in-shell not-found for an unresolvable candidaturaId. The route is a
   // valid RH-only mount (RoleGuard), but the `:id` resolves to no row — render an explicit
   // not-found INSIDE the RH shell (NOT the global NotFoundPage, the catch-all for unknown
@@ -232,7 +243,7 @@ export function HubCandidatoRH() {
                 {etapaAtual ? (
                   <>
                     {/* Avançar — 1-clique pelo write-path auditável (accent, subordinado ao CTA). */}
-                    {proximaEtapa ? (
+                    {proximaEtapa && !encerrada ? (
                       <button
                         type="button"
                         onClick={() => avancarEtapa({ candidaturaId, novaEtapa: proximaEtapa })}
@@ -267,7 +278,18 @@ export function HubCandidatoRH() {
                     />
                     ) : null}
 
-                    {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo. */}
+                    {/* Rejeitar — dialog compartilhado (única via de rejeição), gatilho destrutivo.
+                        Não oferecido para candidatura encerrada (JORN-26 C1b). Em vez de
+                        sumir calado, a linha abaixo diz por quê — botão que desaparece sem
+                        explicação faz o operador procurar um defeito que não existe. */}
+                    {encerrada ? (
+                      <p
+                        data-testid="hub-acoes-encerrada"
+                        className="text-sm text-white/70"
+                      >
+                        Candidatura encerrada — não há ação de funil a tomar.
+                      </p>
+                    ) : (
                     <RejeitarCandidaturaDialog
                       candidaturaId={candidaturaId}
                       nome={nomeCandidato}
@@ -281,6 +303,7 @@ export function HubCandidatoRH() {
                         </button>
                       }
                     />
+                    )}
                   </>
                 ) : null}
 
