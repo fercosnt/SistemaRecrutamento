@@ -44,3 +44,12 @@
 - `p42_notif_revisao_smoke.sql` (y) compara o ledger INTEIRO nos dois sentidos (`v_agora <> v_antes`) (achado no 48-06)
   status: open
   **What:** a baseline é da própria execução, então não é fotografia. Mas um envio transacional legítimo que chegue ao ledger durante o run faria o smoke reprovar trabalho correto. O `p43` (y1) já corrigiu isso pelo WR-05 (só a PERDA reprova). O 48-06 não tocou (y).
+
+- `deno test supabase/functions/_shared/` reprova por um arquivo VITEST dentro do diretório Deno (achado no 48-07)
+  status: open
+  **What:** `supabase/functions/_shared/__tests__/strict-schema.test.ts` usa `expect(...)` (vitest). Sob `deno test` o type-check falha (TS7053, linha 88) e, com `--no-check`, o arquivo lança «Uncaught error» — 167 passam, 1 falha. Pré-existente ao 48-07. Os `<verify>` do 48-07 que rodam `deno test ... supabase/functions/_shared/` herdam essa falha; o 48-07 rodou os arquivos que toca (`email-config.test.ts`, `email-templates.test.ts`: 46/46) e o diretório inteiro com `--no-check` (a única falha é esse arquivo).
+  **Conserto sugerido:** mover o arquivo para a suíte vitest (`src/`) ou excluí-lo do glob do Deno (`deno.json` `test.exclude`).
+
+- Colunas `solicitacoes_dados.aviso_pedido_enviado_em` / `aviso_cancelamento_enviado_em` sem veredito de export (achado no 48-07)
+  status: open (informativo)
+  **What:** a cópia LGPD exporta por allowlist, então as duas colunas NÃO entram na cópia (fail-safe) — o mesmo estado das sete colunas de estado do P45 (`executar_em` … `recibo_enviado_em`). `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD passa a acusá-las como sem veredito. O veredito de export é do 48-17 (compliance da fase).

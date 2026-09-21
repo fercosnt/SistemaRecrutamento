@@ -2876,6 +2876,13 @@ Deno.test("(ar2) WR-E: exceção genérica ANTES de qualquer remoção NÃO vira
 //    privacidade por literal (D-07).
 // ═════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Qualquer endereço de e-mail do domínio da empresa (inclusive com espaço antes do `@`).
+ * ⚠ Escrito como padrão, e não como o endereço do canal, de propósito: este arquivo não
+ * pode ser uma 5ª ocorrência literal do canal de privacidade (D-07).
+ */
+const RE_ENDERECO_DOMINIO = /[a-z0-9._%+-]+\s*@\s*beautysmile\.com\.br/i;
+
 const URL_LOGIN_PRIVACIDADE =
   "https://rh.beautysmile.com.br/auth/login?redirect=%2Fcandidato%2Fprivacidade";
 
@@ -2999,7 +3006,9 @@ Deno.test("(p48-e) corpo do aviso: data de execução, link de login com redirec
   assert(html.includes("Se não foi você"), "falta a instrução para quem não pediu");
   assert(!html.includes(PEDIDO_ID), "Invariante 12: o id do pedido vazou no e-mail");
   assert(!html.includes(CANDIDATO_ID), "o id do titular vazou no e-mail");
-  assert(!html.includes("lgpd@"), "D-07: o canal de privacidade não pode ser citado por literal");
+  // D-07: nenhum endereço do domínio no corpo — nem o do canal de privacidade (o PP-16 é
+  // troca em lugares CONTADOS), nem outro. O rodapé diz «responda a este e-mail».
+  assert(!RE_ENDERECO_DOMINIO.test(html), "D-07: o corpo cita um endereço de e-mail por literal");
 });
 
 // ── (p48-f) BORDA: titular SEM candidatura ───────────────────────────────────
@@ -3152,7 +3161,9 @@ Deno.test("(p48-m) corpo do cancelamento: data, retenção, «Se não foi você�
   assert(html.includes(URL_LOGIN_PRIVACIDADE), "falta o link do login com retorno à privacidade");
   assert(!html.includes(PEDIDO_ID), "Invariante 12: o id do pedido vazou no e-mail");
   assert(!html.includes(CANDIDATO_ID));
-  assert(!html.includes("lgpd@"), "D-07: o canal de privacidade não pode ser citado por literal");
+  // D-07: nenhum endereço do domínio no corpo — nem o do canal de privacidade (o PP-16 é
+  // troca em lugares CONTADOS), nem outro. O rodapé diz «responda a este e-mail».
+  assert(!RE_ENDERECO_DOMINIO.test(html), "D-07: o corpo cita um endereço de e-mail por literal");
 });
 
 // ── (p48-n) as duas chaves de idempotência não colidem ───────────────────────

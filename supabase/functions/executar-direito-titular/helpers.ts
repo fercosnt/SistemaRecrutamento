@@ -474,6 +474,33 @@ ${botaoPrivacidade(args.urlPrivacidade)}
   });
 }
 
+/** Assunto FIXO do aviso de cancelamento — sem interpolação, logo sem superfície de CR/LF. */
+export function assuntoAvisoCancelamentoExclusao(): string {
+  return "Seu pedido de exclusão de dados foi cancelado".replace(/[\r\n]+/g, " ").trim();
+}
+
+/**
+ * Corpo do aviso de CANCELAMENTO: quando foi cancelado, o que isso significa (os dados
+ * continuam guardados conforme a política de retenção — nada foi apagado por este
+ * pedido), e o que fazer se não foi a pessoa quem cancelou. Mesmo molde do aviso de
+ * pedido; data ilegível LANÇA e o chamador registra `aviso_corpo`.
+ */
+export function corpoAvisoCancelamentoExclusao(args: {
+  dataCancelamento: string;
+  urlPrivacidade: string;
+}): string {
+  const data = dataBR(args.dataCancelamento);
+  const conteudoHtml = `<p style="margin:0 0 16px;">Olá,</p>
+<p style="margin:0 0 16px;">O pedido para excluir os seus dados da Beauty Smile foi <strong>cancelado em ${data}</strong>.</p>
+<p style="margin:0 0 16px;">Com isso, seus dados continuam guardados conforme a política de retenção. Você pode fazer um novo pedido de exclusão a qualquer momento na sua área de privacidade.</p>
+${botaoPrivacidade(args.urlPrivacidade)}
+<p style="margin:0;"><strong>Se não foi você quem cancelou, entre na sua conta — e responda a este e-mail.</strong></p>`;
+  return layoutBase({
+    preheader: `Seu pedido de exclusão foi cancelado em ${data}.`,
+    conteudoHtml,
+  });
+}
+
 /**
  * Chave de idempotência do aviso no Resend — cinto SECUNDÁRIO (o primeiro é a coluna de
  * carimbo). Uma por (tipo, pedido): o aviso de pedido e o de cancelamento do MESMO pedido

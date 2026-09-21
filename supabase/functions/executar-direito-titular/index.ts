@@ -158,17 +158,20 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
+  assuntoAvisoCancelamentoExclusao,
   assuntoAvisoPedidoExclusao,
   assuntoReciboExclusao,
   BUCKET_CURRICULOS,
   causaDaFalha,
   chaveIdempotenciaAviso,
   chaveIdempotenciaRecibo,
+  corpoAvisoCancelamentoExclusao,
   corpoAvisoPedidoExclusao,
   construirCorpoResendRecibo,
   corpoReciboExclusao,
   dividirEmLotes,
   enumerarObjetosTitular,
+  LABEL_SINK_AVISO_CANCELAMENTO,
   LABEL_SINK_AVISO_PEDIDO,
   LABEL_SINK_RECIBO,
   LIMITE_REMOCAO,
@@ -655,7 +658,9 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     //      pode mandá-lo — e a superfície de forja simplesmente não existe.
     const { data: pedido, error: pedErr } = await supabaseAdmin
       .from("solicitacoes_dados")
-      .select("id")
+      // 48-07: `aviso_cancelamento_enviado_em` é lido AQUI, na mesma consulta que
+      // escopa o pedido ao titular — a idempotência do aviso é por ESTADO.
+      .select("id, aviso_cancelamento_enviado_em")
       .eq("candidato_id", candidatoId)
       .eq("tipo", TIPO_EXCLUSAO)
       .eq("situacao", SITUACAO_AGENDADO)
@@ -685,6 +690,18 @@ export async function handler(req: Request, deps: Deps): Promise<Response> {
     if (!linha?.cancelado_em) {
       logErro("cancelar", "sem_linha", candidatoId, pedido.id);
       return errorResponse("SERVER_ERROR", "Não foi possível cancelar agora.", 500);
+    }
+
+    // ── 48-07 · O AVISO DO CANCELAMENTO À TITULAR (JORN-27) ─────────────────
+    //    Depois do fail-closed «sem linha» e com `cancelado_em` válido. A resposta
+    //    NÃO muda em caso nenhum; falha vira log `aviso_<causa>` e coluna NULA.
+    if (!pedido.aviso_cancelamento_enviado_em) {
+      await avisarCancelamentoTitular(deps, {
+        candidatoId,
+        pedidoId: String(pedido.id),
+        emailTitular,
+        canceladoEm: String(linha.cancelado_em),
+      });
     }
 
     return jsonResponse({ ok: true, acao: "cancelar", cancelado_em: linha.cancelado_em }, 200);
@@ -1582,6 +1599,53 @@ async function avisarPedidoTitular(
     if (carimboErr) logErro("pedir", "aviso_carimbo", args.candidatoId, pedidoId);
   } catch {
     logErro("pedir", "aviso_excecao", args.candidatoId, pedidoId);
+  }
+}
+
+/**
+ * O aviso do CANCELAMENTO (JORN-27). O pedido já foi resolvido pelo ramo `cancelar`
+ * (escopado ao titular, nunca vindo do corpo) e o carimbo já foi conferido lá, na
+ * mesma leitura. Envia, carimba `aviso_cancelamento_enviado_em` depois do 2xx. Nunca
+ * lança; toda falha vira `logErro("cancelar", "aviso_<causa>", …)` e a coluna fica NULA.
+ */
+async function avisarCancelamentoTitular(
+  deps: Deps,
+  args: { candidatoId: string; pedidoId: string; emailTitular: string | null; canceladoEm: string },
+): Promise<void> {
+  try {
+    let html: string;
+    try {
+      html = corpoAvisoCancelamentoExclusao({
+        dataCancelamento: args.canceladoEm,
+        urlPrivacidade: montarUrlLogin(deps.appBaseUrl, "/candidato/privacidade"),
+      });
+    } catch {
+      logErro("cancelar", "aviso_corpo", args.candidatoId, args.pedidoId);
+      return;
+    }
+
+    const r = await enviarAvisoTitular(deps, {
+      tipo: "cancelamento",
+      pedidoId: args.pedidoId,
+      para: args.emailTitular,
+      assunto: assuntoAvisoCancelamentoExclusao(),
+      html,
+      label: LABEL_SINK_AVISO_CANCELAMENTO,
+    });
+    if (!r.ok) {
+      logErro("cancelar", `aviso_${r.causa}`, args.candidatoId, args.pedidoId);
+      return;
+    }
+
+    // ⚠ Carimbo PRÓPRIO — nunca `recibo_enviado_em` (o cinto do recibo pós-exclusão).
+    const { error: carimboErr } = await deps.supabaseAdmin
+      .from("solicitacoes_dados")
+      .update({ aviso_cancelamento_enviado_em: agora() })
+      .eq("id", args.pedidoId)
+      .is("aviso_cancelamento_enviado_em", null);
+    if (carimboErr) logErro("cancelar", "aviso_carimbo", args.candidatoId, args.pedidoId);
+  } catch {
+    logErro("cancelar", "aviso_excecao", args.candidatoId, args.pedidoId);
   }
 }
 
