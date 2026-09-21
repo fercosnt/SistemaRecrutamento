@@ -29,6 +29,10 @@
 --       decisão `rejeitado` com a candidatura FORA de `rejeitado/rejeitado`.
 --   (d) A (o decisor) tenta responder a revisão da própria decisão ⇒ 42501 «decisor» (invariante
 --       REVISAO-05 preservada pela redefinição).
+-- PARTE 2 (20260921000012) — descrita no bloco dela: (e) D-23 pela linha vigente, (f) em_espera
+--   de C aceito sem zerar o ciclo (A5), (g) D-23 pelo ARQUIVO, (h) nova decisão de C zera o ciclo e
+--   o arquivo guarda a decisão revertida de A, (i) A não sobrescreve a decisão de C, (j) fail-closed
+--   sem JWT (id existente e inexistente), (k) redecisão fora de reabertura não zera nada.
 -- NEGATIVA:
 --   (l) nada das fixtures sobrevive (candidaturas, decisão, arquivo, histórico, fila) e as
 --       contagens globais de `decisao_final`, `decisao_final_historico`, `historico_candidatura`,
@@ -413,6 +417,275 @@ $p1$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- PARTE 2 (20260921000012) — (e)..(k), numa subtransação que reverte.
+--   G1: A rejeita → titular pede revisão → B `revertida` (G1 REABERTA, como em (a)). Então:
+--   (e) A (o decisor revertido) `registrar_decisao` ⇒ 42501 D-23 (trava pela linha VIGENTE).
+--   (f) C `registrar_decisao('em_espera')` ⇒ aceito; `reaberta_em`, `prazo_nova_decisao_em` e
+--       `revisao_veredito` seguem preenchidos (A5: em_espera NÃO é nova decisão); candidatura
+--       segue `decisao_final/em_analise`.
+--   (g) A de novo ⇒ 42501 D-23 — agora a trava vem do ARQUIVO: a linha vigente é o em_espera
+--       de C (por_usuario = C) e a linha revertida de A foi arquivada pelo snapshot.
+--   (h) C `registrar_decisao('aprovado')` ⇒ aceito; candidatura `aprovado/finalizado`; as 9
+--       colunas do ciclo NULL na linha vigente; existe no arquivo a linha `revertida` de A.
+--   (i) A `registrar_decisao('rejeitado')` ⇒ 42501 (não sobrescreve a decisão de C).
+--   (j) sem claims ⇒ 42501 (fail-closed) — também com um id INEXISTENTE (sem oráculo P0002).
+--   G2: A rejeita → titular pede revisão (pendente, NÃO reaberta). Então:
+--   (k) C redecide `rejeitado` FORA de reabertura ⇒ `revisao_solicitada_em` intacto (hoje).
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $p2$
+DECLARE
+  v_a      uuid := current_setting('smoke48r.a')::uuid;
+  v_b      uuid := current_setting('smoke48r.b')::uuid;
+  v_c      uuid := current_setting('smoke48r.c')::uuid;
+  v_b_role text := current_setting('smoke48r.b_role');
+  v_vaga   uuid := current_setting('smoke48r.vaga')::uuid;
+  v_ids    text := '';
+  v_ran    boolean := false;
+  v_err    text;
+  v_user   uuid;
+  v_email  text;
+  v_cand   uuid;
+  v_g1     uuid;  v_ug1 uuid;
+  v_g2     uuid;  v_ug2 uuid;
+  v_i      int;
+  v_claims_a text;
+  v_claims_c text;
+  -- medições
+  e_state text;  f_state text;  g_state text;  h_state text;  i_state text;
+  j_state text;  j2_state text;  k_state text;
+  f_reab timestamptz;  f_prazo timestamptz;  f_ver text;  f_dec text;  f_por uuid;
+  f_etapa text;  f_status text;
+  g_vig_dec text;  g_vig_por uuid;  g_arq_a int;
+  h_etapa text;  h_status text;  h_ddf timestamptz;  h_dec text;  h_por uuid;  h_ciclo_nn int;  h_arq_a int;
+  k_sol_antes timestamptz;  k_sol_depois timestamptz;  k_reab timestamptz;  k_dec text;
+BEGIN
+  BEGIN
+    -- ── fixtures ────────────────────────────────────────────────────────────────
+    FOR v_i IN 1..2 LOOP
+      v_user  := gen_random_uuid();
+      v_email := 'p48rsmoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+      INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+      VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+              v_email, '', now(), now(),
+              '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+      INSERT INTO public.candidatos
+        (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+      VALUES
+        (v_user, 'SMOKE P48R Titular G' || v_i, v_email, '(11) 96666-56' || lpad(v_i::text, 2, '0'),
+         DATE '1990-01-15', 'Santos', 'SP', 'site')
+      RETURNING id INTO v_cand;
+      INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      VALUES (v_cand, v_vaga, 'decisao_final', 'rejeitado', false, now() - interval '20 days')
+      RETURNING id INTO v_cand;
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cand;
+      v_ids := v_ids || v_cand::text || ',';
+      IF v_i = 1 THEN v_g1 := v_cand; v_ug1 := v_user; ELSE v_g2 := v_cand; v_ug2 := v_user; END IF;
+    END LOOP;
+
+    v_claims_a := json_build_object('sub', v_a::text, 'app_metadata', json_build_object('role', 'administrador'))::text;
+    v_claims_c := json_build_object('sub', v_c::text, 'app_metadata', json_build_object('role', 'administrador'))::text;
+
+    -- ── G1 e G2: A rejeita; os titulares pedem revisão; B reverte G1 ─────────────
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    PERFORM public.registrar_decisao(v_g1, 'rejeitado',
+      'Decisao final sintetica do smoke P48R (G1), rejeitado pelo administrador A, mais de 50 caracteres.');
+    PERFORM public.registrar_decisao(v_g2, 'rejeitado',
+      'Decisao final sintetica do smoke P48R (G2), rejeitado pelo administrador A, mais de 50 caracteres.');
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_ug1::text, 'app_metadata', json_build_object('role', 'candidato'))::text, false);
+    PERFORM public.solicitar_revisao_decisao(v_g1);
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_ug2::text, 'app_metadata', json_build_object('role', 'candidato'))::text, false);
+    PERFORM public.solicitar_revisao_decisao(v_g2);
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_b::text, 'app_metadata', json_build_object('role', v_b_role))::text, false);
+    PERFORM public.responder_revisao_decisao(v_g1, 'revertida',
+      'Revisao sintetica do smoke P48R (G1) pelo revisor B: a rejeicao nao se sustenta, reabrir o caso.');
+
+    -- ── (e) A, o decisor revertido, tenta a nova decisão ─────────────────────────
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'aprovado',
+        'Tentativa do decisor revertido de registrar a nova decisao (smoke P48R e), mais de 50 caracteres.');
+      e_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN e_state := SQLSTATE || ':' || SQLERRM;
+    END;
+
+    -- ── (f) C registra em_espera ─────────────────────────────────────────────────
+    PERFORM set_config('request.jwt.claims', v_claims_c, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'em_espera',
+        'Em espera registrado pelo administrador C durante a reabertura (smoke P48R f), 50+ caracteres.');
+      f_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN f_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT d.reaberta_em, d.prazo_nova_decisao_em, d.revisao_veredito, d.decisao::text, d.por_usuario
+      INTO f_reab, f_prazo, f_ver, f_dec, f_por
+      FROM public.decisao_final d WHERE d.candidatura_id = v_g1;
+    SELECT c.etapa_atual::text, c.status::text INTO f_etapa, f_status
+      FROM public.candidaturas c WHERE c.id = v_g1;
+
+    -- ── (g) A de novo — a trava tem de vir do ARQUIVO ────────────────────────────
+    SELECT d.decisao::text, d.por_usuario INTO g_vig_dec, g_vig_por
+      FROM public.decisao_final d WHERE d.candidatura_id = v_g1;
+    SELECT count(*) INTO g_arq_a FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_g1 AND h.revisao_veredito = 'revertida'
+       AND h.decisao = 'rejeitado' AND h.por_usuario = v_a;
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'em_espera',
+        'Segunda tentativa do decisor revertido, agora com a linha vigente de C (smoke P48R g), 50+.');
+      g_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN g_state := SQLSTATE || ':' || SQLERRM;
+    END;
+
+    -- ── (h) C registra a nova decisão: aprovado ──────────────────────────────────
+    PERFORM set_config('request.jwt.claims', v_claims_c, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'aprovado',
+        'Nova decisao registrada pelo administrador C depois da reabertura (smoke P48R h), 50+ caracteres.');
+      h_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT c.etapa_atual::text, c.status::text, c.data_decisao_final INTO h_etapa, h_status, h_ddf
+      FROM public.candidaturas c WHERE c.id = v_g1;
+    SELECT d.decisao::text, d.por_usuario,
+           num_nonnulls(d.explicacao_solicitada_em, d.revisao_solicitada_em, d.revisao_veredito,
+                        d.revisao_resultado, d.revisao_por_usuario, d.revisao_respondida_em,
+                        d.reaberta_em, d.prazo_nova_decisao_em, d.alerta_prazo_enviado_em)
+      INTO h_dec, h_por, h_ciclo_nn
+      FROM public.decisao_final d WHERE d.candidatura_id = v_g1;
+    SELECT count(*) INTO h_arq_a FROM public.decisao_final_historico h
+     WHERE h.candidatura_id = v_g1 AND h.revisao_veredito = 'revertida'
+       AND h.decisao = 'rejeitado' AND h.por_usuario = v_a
+       AND h.reaberta_em IS NOT NULL AND h.prazo_nova_decisao_em IS NOT NULL;
+
+    -- ── (i) A tenta sobrescrever a decisão de C ──────────────────────────────────
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'rejeitado',
+        'Tentativa do decisor revertido de sobrescrever a decisao de C (smoke P48R i), mais de 50 caracteres.');
+      i_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN i_state := SQLSTATE || ':' || SQLERRM;
+    END;
+
+    -- ── (j) sem claims — fail-closed; id existente e id inexistente ──────────────
+    PERFORM set_config('request.jwt.claims', '', false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g1, 'rejeitado',
+        'Chamada sem JWT nenhum ao write-path da decisao final (smoke P48R j), mais de 50 caracteres.');
+      j_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN j_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    BEGIN
+      PERFORM public.registrar_decisao(gen_random_uuid(), 'rejeitado',
+        'Chamada sem JWT com id inexistente — nao pode virar oraculo (smoke P48R j), mais de 50 caracteres.');
+      j2_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN j2_state := SQLSTATE || ':' || SQLERRM;
+    END;
+
+    -- ── (k) G2: redecisão FORA de reabertura, com revisão pendente ───────────────
+    SELECT d.revisao_solicitada_em INTO k_sol_antes FROM public.decisao_final d WHERE d.candidatura_id = v_g2;
+    PERFORM set_config('request.jwt.claims', v_claims_c, false);
+    BEGIN
+      PERFORM public.registrar_decisao(v_g2, 'rejeitado',
+        'Redecisao do administrador C fora de reabertura, revisao pendente (smoke P48R k), 50+ caracteres.');
+      k_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN k_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT d.revisao_solicitada_em, d.reaberta_em, d.decisao::text INTO k_sol_depois, k_reab, k_dec
+      FROM public.decisao_final d WHERE d.candidatura_id = v_g2;
+    PERFORM set_config('request.jwt.claims', '', false);
+
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P48R2';
+  EXCEPTION
+    WHEN SQLSTATE 'P48R2' THEN NULL;  -- ROLLBACK: fixtures, decisões, ciclo, histórico e fila somem
+    WHEN OTHERS THEN
+      v_err := SQLSTATE || ': ' || SQLERRM;
+  END;
+  PERFORM set_config('request.jwt.claims', '', false);
+  PERFORM set_config('smoke48r.fixtures', current_setting('smoke48r.fixtures') || v_ids, false);
+
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P48R FAIL (parte 2): a fixture/o ciclo não rodou até o fim — %', coalesce(v_err, 'sem erro, mas sem marca de execução');
+  END IF;
+
+  -- ── (e) ───────────────────────────────────────────────────────────────────────
+  IF e_state NOT LIKE '42501:%D-23%' THEN
+    RAISE EXCEPTION 'P48R FAIL (e): o decisor revertido registrando a nova decisão devolveu «%» (esperado 42501 D-23)', e_state;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (f) ───────────────────────────────────────────────────────────────────────
+  IF f_state IS DISTINCT FROM 'ACEITO' THEN
+    RAISE EXCEPTION 'P48R FAIL (f): C registrando em_espera na reabertura devolveu «%» (esperado aceito — D-23 não pode travar outra pessoa)', f_state;
+  END IF;
+  IF f_dec IS DISTINCT FROM 'em_espera' OR f_por IS DISTINCT FROM v_c THEN
+    RAISE EXCEPTION 'P48R FAIL (f): a linha vigente ficou decisao=% por=% (esperado em_espera por C)', f_dec, f_por;
+  END IF;
+  IF f_reab IS NULL OR f_prazo IS NULL OR f_ver IS DISTINCT FROM 'revertida' THEN
+    RAISE EXCEPTION 'P48R FAIL (f): em_espera ZEROU o ciclo (reaberta_em=% prazo=% veredito=%) — A5: em_espera não é nova decisão', f_reab, f_prazo, f_ver;
+  END IF;
+  IF f_etapa IS DISTINCT FROM 'decisao_final' OR f_status IS DISTINCT FROM 'em_analise' THEN
+    RAISE EXCEPTION 'P48R FAIL (f): em_espera moveu a candidatura para %/%', f_etapa, f_status;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (g) ───────────────────────────────────────────────────────────────────────
+  IF g_vig_dec IS DISTINCT FROM 'em_espera' OR g_vig_por IS DISTINCT FROM v_c OR g_arq_a < 1 THEN
+    RAISE EXCEPTION 'P48R FAIL (g): pré-condição — vigente decisao=% por=%, linhas revertidas de A no arquivo=% (esperado em_espera por C e >= 1)', g_vig_dec, g_vig_por, g_arq_a;
+  END IF;
+  IF g_state NOT LIKE '42501:%D-23%' THEN
+    RAISE EXCEPTION 'P48R FAIL (g): com a linha revertida só no ARQUIVO, o decisor revertido devolveu «%» (esperado 42501 D-23)', g_state;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (h) ───────────────────────────────────────────────────────────────────────
+  IF h_state IS DISTINCT FROM 'ACEITO' THEN
+    RAISE EXCEPTION 'P48R FAIL (h): C registrando a nova decisão devolveu «%» (esperado aceito)', h_state;
+  END IF;
+  IF h_etapa IS DISTINCT FROM 'aprovado' OR h_status IS DISTINCT FROM 'finalizado' OR h_ddf IS NULL THEN
+    RAISE EXCEPTION 'P48R FAIL (h): a nova decisão deixou a candidatura %/% data_decisao_final=% (esperado aprovado/finalizado com data)', h_etapa, h_status, h_ddf;
+  END IF;
+  IF h_dec IS DISTINCT FROM 'aprovado' OR h_por IS DISTINCT FROM v_c THEN
+    RAISE EXCEPTION 'P48R FAIL (h): a linha vigente ficou decisao=% por=% (esperado aprovado por C)', h_dec, h_por;
+  END IF;
+  IF h_ciclo_nn IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'P48R FAIL (h): % coluna(s) do ciclo seguem preenchidas na nova decisão — ela apareceria como «revertida» e o Art. 20 ficaria inalcançável', h_ciclo_nn;
+  END IF;
+  IF h_arq_a < 1 THEN
+    RAISE EXCEPTION 'P48R FAIL (h): o arquivo não guarda a decisão revertida de A com o ciclo (reaberta_em/prazo) — a zeragem PERDEU a trilha';
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (i) ───────────────────────────────────────────────────────────────────────
+  IF i_state NOT LIKE '42501:%D-23%' THEN
+    RAISE EXCEPTION 'P48R FAIL (i): o decisor revertido sobrescrevendo a decisão de C devolveu «%» (esperado 42501 D-23)', i_state;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (j) ───────────────────────────────────────────────────────────────────────
+  IF j_state NOT LIKE '42501:%' OR j2_state NOT LIKE '42501:%' THEN
+    RAISE EXCEPTION 'P48R FAIL (j): sem JWT registrar_decisao devolveu «%» (id existente) e «%» (id inexistente) — esperado 42501 nos dois (fail-closed, sem oráculo)', j_state, j2_state;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (k) ───────────────────────────────────────────────────────────────────────
+  IF k_state IS DISTINCT FROM 'ACEITO' OR k_dec IS DISTINCT FROM 'rejeitado' THEN
+    RAISE EXCEPTION 'P48R FAIL (k): redecisão fora de reabertura devolveu «%» decisao=%', k_state, k_dec;
+  END IF;
+  IF k_sol_antes IS NULL OR k_sol_depois IS DISTINCT FROM k_sol_antes OR k_reab IS NOT NULL THEN
+    RAISE EXCEPTION 'P48R FAIL (k): redecisão FORA de reabertura mexeu no ciclo (revisao_solicitada_em % -> %, reaberta_em=%) — comportamento de hoje não preservado', k_sol_antes, k_sol_depois, k_reab;
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+END
+$p2$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- (l) NEGATIVA — nada das fixtures sobreviveu; contagens globais iguais às de antes.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
@@ -462,8 +735,8 @@ $l$;
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $gate$
 BEGIN
-  IF current_setting('smoke48r.pass')::int <> 5 THEN
-    RAISE EXCEPTION 'P48R FAIL (gate): pass = % de 5 — alguma asserção não incrementou o contador', current_setting('smoke48r.pass');
+  IF current_setting('smoke48r.pass')::int <> 12 THEN
+    RAISE EXCEPTION 'P48R FAIL (gate): pass = % de 12 — alguma asserção não incrementou o contador', current_setting('smoke48r.pass');
   END IF;
 END
 $gate$;
@@ -473,7 +746,7 @@ SELECT set_config('request.jwt.claims', '', false);
 SELECT json_build_object(
   'smoke',    'p48_reabertura',
   'pass',     current_setting('smoke48r.pass')::int,
-  'esperado', 5,
+  'esperado', 12,
   'n_df',     current_setting('smoke48r.n_df')::int,
   'n_dfh',    current_setting('smoke48r.n_dfh')::int,
   'n_hist',   current_setting('smoke48r.n_hist')::int,
