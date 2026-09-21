@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-09-PLAN.md
-last_updated: "2026-09-21T14:15:16.485Z"
+stopped_at: Completed 48-08-PLAN.md
+last_updated: "2026-09-21T14:34:36.957Z"
 last_activity: 2026-09-21
-state_head: 0d00154dd6c442fd69fe4bc80bfb16d912b475f3
+state_head: 6a1a3552cd6b8e351478e10b5c42c061ff2a893c
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 64
-  percent: 83
+  completed_plans: 65
+  percent: 84
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -780,6 +780,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P07 | 40min | 2 tasks | 7 files |
 | Phase 48 P02 | 35min | 3 tasks | 7 files |
 | Phase 48 P09 | 14min | 2 tasks | 11 files |
+| Phase 48 P08 | 16 min | 3 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -1044,6 +1045,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-02: Retroceder e CTA de workspace nao sao gated por candidatura encerrada (posicionais, varredura §4 ii); so Avancar/Rejeitar (D-21)
 - [Phase 48]: 48-09: explicacao_rejeicao_origem (tri-estado) é função NOVA; a booleana fica sem DROP até nenhum bundle a chamar
 - [Phase 48]: 48-09: REASON_HUMANA_TRIAGEM não afirma etapa (rejeição do RH alcançável em qualquer etapa não terminal)
+- [Phase 48]: 48-08: chave de dedupe por transicao ({c}:decisao:{historico_id}) e por ciclo de revisao ({c}:revisao_respondida:{ciclo}, {c}:revisao_solicitada:{ciclo}:{user}); desfecho do e-mail vem da linha de historico da chave (L1); ciclo/historico_id null = ausente (chave legada) para nao perder e-mail at-most-once
 
 ### Pending Todos
 
@@ -1324,8 +1326,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T14:15:16.266Z
-Stopped at: Completed 48-09-PLAN.md
+Last session: 2026-09-21T14:34:36.745Z
+Stopped at: Completed 48-08-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
