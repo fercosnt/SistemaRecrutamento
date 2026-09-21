@@ -16,6 +16,7 @@ import {
   computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
+  extrairVersaoDaChave,
   logSeguro,
   mapearEvento,
   montarDedupeKey,
@@ -33,10 +34,56 @@ Deno.test("COMM-01 — dedupe_key: convite usa agendamento_id; demais usam candi
     montarDedupeKey("convite", "cand-1", "agd-9", "2026-09-10T13:00:00+00:00"),
     "agd-9:convite:2026-09-10T13:00:00+00:00",
   );
-  assertEquals(montarDedupeKey("avanco", "cand-1", undefined, "ignorado"), "cand-1:avanco");
+  // 48-08: `avanco` e `decisao` passaram a ser versionados pelo `historico_id` (4º parâmetro).
+  // Sem ele, a chave LEGADA — é o que a EF produz enquanto o trigger não manda o campo.
   assertEquals(montarDedupeKey("avanco", "cand-1"), "cand-1:avanco");
   assertEquals(montarDedupeKey("confirmacao", "cand-1"), "cand-1:confirmacao");
+  // `confirmacao` NÃO é versionado: uma candidatura tem uma confirmação.
+  assertEquals(montarDedupeKey("confirmacao", "cand-1", undefined, H1), "cand-1:confirmacao");
   assertEquals(montarDedupeKey("decisao", "cand-1"), "cand-1:decisao");
+});
+
+// ─── 48-08 / JORN-18 — a chave distingue DECISÕES (uma por linha de histórico) ─────────
+//
+// O Defeito 18, provado no log da EF (2026-09-20 16:03:25 UTC): a rejeição na triagem foi
+// DESPACHADA e descartada como `skipped:"duplicate"` porque a chave `{candidatura}:decisao`
+// já estava ocupada pela aprovação anterior. O discriminador é o id da linha de
+// `historico_candidatura` que o trigger AFTER INSERT recebe como NEW.id.
+
+const H1 = "11111111-1111-4111-8111-111111111111";
+const H2 = "22222222-2222-4222-8222-222222222222";
+
+Deno.test("48-08 — montarDedupeKey: decisao/avanco versionados pelo historico_id; convite inalterado", () => {
+  assertEquals(montarDedupeKey("decisao", "C", undefined, H1), `C:decisao:${H1}`);
+  assertEquals(montarDedupeKey("decisao", "C"), "C:decisao"); // legado (tolerância)
+  assertEquals(montarDedupeKey("avanco", "C", undefined, H1), `C:avanco:${H1}`);
+  assertEquals(montarDedupeKey("convite", "C", "A", "D"), "A:convite:D");
+  assertEquals(montarDedupeKey("convite", "C", "A"), "A:convite");
+});
+
+Deno.test("48-08 — BORDA adjacency: duas decisões ⇒ duas chaves; a MESMA decisão ⇒ a mesma chave", () => {
+  const k1 = montarDedupeKey("decisao", "C", undefined, H1);
+  const k2 = montarDedupeKey("decisao", "C", undefined, H2);
+  assert(k1 !== k2, "duas linhas de histórico colapsaram na mesma chave — é o Defeito 18");
+  assertEquals(montarDedupeKey("decisao", "C", undefined, H1), k1);
+  // e nenhuma das versionadas colide com a legada (linhas antigas do ledger ficam intactas)
+  assert(k1 !== montarDedupeKey("decisao", "C"));
+});
+
+Deno.test("48-08 — extrairVersaoDaChave: devolve o historico_id só de decisao/avanco com forma de uuid", () => {
+  assertEquals(extrairVersaoDaChave(`C:decisao:${H1}`, "decisao"), H1);
+  assertEquals(extrairVersaoDaChave(`C:avanco:${H2}`, "avanco"), H2);
+  assertEquals(extrairVersaoDaChave("C:decisao", "decisao"), undefined); // legado
+  assertEquals(extrairVersaoDaChave("C:decisao:nao-uuid", "decisao"), undefined);
+  assertEquals(extrairVersaoDaChave(`A:convite:${H1}`, "convite"), undefined);
+  assertEquals(extrairVersaoDaChave(`C:confirmacao:${H1}`, "confirmacao"), undefined);
+});
+
+Deno.test("48-08 — logSeguro deixa passar historico_id (é id, não PII)", () => {
+  assertEquals(
+    logSeguro({ evento: "decisao", historico_id: H1, email: "x@y.z" }),
+    { evento: "decisao", historico_id: H1 },
+  );
 });
 
 Deno.test("COMM-01 / 42-08 — mapa de evento cobre os 5 (ledger → email-config)", () => {
@@ -267,10 +314,14 @@ function makeRetryMockSupabase(opts: {
   agendamentoRow?: Record<string, unknown> | null;
   /** 42-08: linha de `decisao_final` lida SÓ pelo 5º evento (veredito da revisão). */
   decisaoFinalRow?: Record<string, unknown> | null;
+  /** 48-08: linha de `historico_candidatura` lida quando o corpo traz `historico_id`. */
+  historicoRow?: Record<string, unknown> | null;
   apiKey?: string | null;
 } = {}) {
   const updates: UpdateCapt[] = [];
   const upserts: UpsertCapt[] = [];
+  /** 48-08: toda leitura, com as colunas pedidas e os filtros — prova de allowlist. */
+  const selects: Array<{ table: string; cols?: string; eqs: Array<[string, unknown]> }> = [];
   const rowFor = (table: string): Record<string, unknown> | null => {
     switch (table) {
       case "notificacoes_enviadas":
@@ -285,6 +336,8 @@ function makeRetryMockSupabase(opts: {
         return opts.agendamentoRow ?? null;
       case "decisao_final":
         return opts.decisaoFinalRow ?? null;
+      case "historico_candidatura":
+        return opts.historicoRow ?? null;
       default:
         return null;
     }
@@ -292,11 +345,17 @@ function makeRetryMockSupabase(opts: {
   return {
     updates,
     upserts,
+    selects,
     from(table: string) {
       return {
-        select: (_cols?: string) => {
+        select: (cols?: string) => {
+          const reg = { table, cols, eqs: [] as Array<[string, unknown]> };
+          selects.push(reg);
           const chain = {
-            eq: () => chain,
+            eq: (c: string, v: unknown) => {
+              reg.eqs.push([c, v]);
+              return chain;
+            },
             maybeSingle: () => Promise.resolve({ data: rowFor(table), error: null }),
             single: () => Promise.resolve({ data: rowFor(table), error: null }),
           };
@@ -653,4 +712,187 @@ Deno.test("42-08 — revisao_respondida SEM linha de decisao_final: neutro, nunc
     "sem veredito o corpo AFIRMOU um desfecho — o servidor não sabia qual",
   );
   assert(html.includes("foi respondida"), "o corpo neutro ainda tem de informar a resposta");
+});
+
+// ─── 48-08 / JORN-18 · JORN-20 — o handler com `historico_id` ───────────────────────────
+//
+// O corpo do trigger passa a carregar o id da transição. A EF (1) valida a FORMA (uuid) —
+// senão 400 sem claim; (2) confere que a linha pertence à candidatura do corpo — senão
+// `historico_inconsistente` sem claim e sem envio (nunca mandar a cópia de outra decisão);
+// (3) deriva o DESFECHO de `historico.etapa_para`, não de `candidaturas.etapa_atual` na hora
+// do envio (L1 da varredura: o retry de uma rejeição antiga feito depois de uma nova
+// aprovação sairia com a cópia de APROVAÇÃO); (4) versiona a chave pelo historico_id.
+
+const CAND_H = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+Deno.test("48-08 — BORDA empty: historico_id que não é uuid → 400 VALIDATION, nenhum claim, nenhum envio", async () => {
+  const { handler } = await loadHandler();
+  for (const historico_id of ["nao-uuid", 42, "", `${H1}x`]) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado" },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+    });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(
+      makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id }, RETRY_BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    assertEquals(res.status, 400, `historico_id=${JSON.stringify(historico_id)}`);
+    assertEquals((await res.json()).error_code, "VALIDATION");
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("48-08 — historico_id de OUTRA candidatura (ou ausente) → 200 historico_inconsistente, sem claim e sem envio", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const historicoRow of [
+      { etapa_para: "rejeitado", candidatura_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" },
+      null,
+    ]
+  ) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado" },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+      historicoRow,
+    });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(
+      makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id: H1 }, RETRY_BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+    );
+    assertEquals(res.status, 200);
+    const json = await res.json();
+    assertEquals(json.ok, true);
+    assertEquals(json.skipped, "historico_inconsistente");
+    assertEquals(supa.upserts.length, 0, "não pode reivindicar a chave de uma decisão inconsistente");
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("48-08 — a chave do claim é {candidatura}:decisao:{historico_id} e a leitura do histórico é por allowlist", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "rejeitado", candidatura_id: CAND_H },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_h1" });
+  const res = await handler(
+    makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id: H1 }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(supa.upserts.length, 1);
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:decisao:${H1}`);
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], `${CAND_H}:decisao:${H1}`);
+  const leitura = supa.selects.find((s) => s.table === "historico_candidatura");
+  assert(leitura, "o histórico não foi lido");
+  assertEquals(leitura!.cols, "etapa_para, candidatura_id");
+  assertEquals(leitura!.eqs, [["id", H1]]);
+});
+
+Deno.test("48-08 — BORDA ordering (L1): histórico diz rejeitado, candidatura HOJE aprovada → cópia de REJEIÇÃO", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "aprovado", status: "aguardando_resposta" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "rejeitado", candidatura_id: CAND_H },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_l1" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id: H1 }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(fetchMock.calls.length, 1);
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_REJEICAO), "o e-mail da decisão ANTIGA tem de anunciar a rejeição");
+  assert(!html.includes(COPY_APROVACAO), "L1: a cópia veio do estado ATUAL, não da decisão da chave");
+});
+
+Deno.test("48-08 — e o inverso: histórico aprovado, candidatura hoje rejeitada → cópia de APROVAÇÃO", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "rejeitado", status: "rejeitado" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "aprovado", candidatura_id: CAND_H },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_l1b" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: CAND_H, historico_id: H2 }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_APROVACAO));
+  assert(!html.includes(COPY_REJEICAO));
+});
+
+Deno.test("48-08 — branch retry: o historico_id é DERIVADO da dedupe_key da linha e o desfecho vem do histórico", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    notifRow: { id: "n-h", status: "falhou", tentativas: 1, dedupe_key: `${CAND_H}:decisao:${H1}` },
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "aprovado", status: "aguardando_resposta" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "rejeitado", candidatura_id: CAND_H },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_retry_h" });
+  // A varredura NÃO manda historico_id (20260805000007:768-777) — só retry_id/evento/candidatura.
+  const res = await handler(
+    makeRequest({ retry_id: "n-h", evento: "decisao", candidatura_id: CAND_H }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  const leitura = supa.selects.find((s) => s.table === "historico_candidatura");
+  assert(leitura, "o retry não leu o histórico da chave");
+  assertEquals(leitura!.eqs, [["id", H1]]);
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_REJEICAO), "retry de rejeição antiga saiu com a cópia do estado atual");
+  // O retry continua deduplicado pela linha existente: sem claim, Idempotency-Key = retry_id.
+  assertEquals(supa.upserts.length, 0);
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], "n-h");
+});
+
+Deno.test("48-08 — corpo SEM historico_id: chave legada e desfecho por etapa_atual (tolerância pré-migration)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "aprovado", status: "aguardando_resposta" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "rejeitado", candidatura_id: CAND_H }, // não pode ser lido
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_legado" });
+  await handler(
+    makeRequest({ evento: "decisao", candidatura_id: CAND_H }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:decisao`);
+  assertEquals(supa.selects.filter((s) => s.table === "historico_candidatura").length, 0);
+  const { html } = corpoEnviado(fetchMock.calls[0]);
+  assert(html.includes(COPY_APROVACAO), "sem histórico, o desfecho segue vindo de etapa_atual");
+});
+
+Deno.test("48-08 — avanco com historico_id: chave versionada, histórico conferido", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, etapa_atual: "avaliacao_assincrona", status: "aguardando_resposta" },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    historicoRow: { etapa_para: "avaliacao_assincrona", candidatura_id: CAND_H },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_av" });
+  await handler(
+    makeRequest({ evento: "avanco", candidatura_id: CAND_H, historico_id: H2 }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:avanco:${H2}`);
+  assertEquals(fetchMock.calls.length, 1);
 });
