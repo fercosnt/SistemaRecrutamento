@@ -309,6 +309,8 @@ export type Database = {
         Row: {
           candidatura_id: string
           created_at: string
+          descartada_em: string | null
+          descartada_motivo: string | null
           erro: string | null
           flags: string[]
           gaps: string[]
@@ -324,6 +326,8 @@ export type Database = {
         Insert: {
           candidatura_id: string
           created_at?: string
+          descartada_em?: string | null
+          descartada_motivo?: string | null
           erro?: string | null
           flags?: string[]
           gaps?: string[]
@@ -339,6 +343,8 @@ export type Database = {
         Update: {
           candidatura_id?: string
           created_at?: string
+          descartada_em?: string | null
+          descartada_motivo?: string | null
           erro?: string | null
           flags?: string[]
           gaps?: string[]
@@ -4538,6 +4544,8 @@ export type Database = {
         Row: {
           atendido_em: string | null
           auth_concluido_em: string | null
+          aviso_cancelamento_enviado_em: string | null
+          aviso_pedido_enviado_em: string | null
           cancelado_em: string | null
           candidato_id: string
           causa: string | null
@@ -4554,6 +4562,8 @@ export type Database = {
         Insert: {
           atendido_em?: string | null
           auth_concluido_em?: string | null
+          aviso_cancelamento_enviado_em?: string | null
+          aviso_pedido_enviado_em?: string | null
           cancelado_em?: string | null
           candidato_id: string
           causa?: string | null
@@ -4570,6 +4580,8 @@ export type Database = {
         Update: {
           atendido_em?: string | null
           auth_concluido_em?: string | null
+          aviso_cancelamento_enviado_em?: string | null
+          aviso_pedido_enviado_em?: string | null
           cancelado_em?: string | null
           candidato_id?: string
           causa?: string | null
@@ -5540,6 +5552,13 @@ export type Database = {
           solicitacao_id: string
         }[]
       }
+      candidatura_encerrada: {
+        Args: {
+          p_etapa: Database["public"]["Enums"]["etapa_processo"]
+          p_status: Database["public"]["Enums"]["status_candidatura"]
+        }
+        Returns: boolean
+      }
       candidaturas_alem_da_janela: {
         Args: never
         Returns: {
@@ -5584,6 +5603,10 @@ export type Database = {
       explicacao_rejeicao_automatica: {
         Args: { p_candidatura_id: string }
         Returns: boolean
+      }
+      explicacao_rejeicao_origem: {
+        Args: { p_candidatura_id: string }
+        Returns: string
       }
       funil_kpis: { Args: { p_vaga_id?: string }; Returns: Json }
       generate_unique_vaga_slug: {

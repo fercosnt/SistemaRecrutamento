@@ -49,6 +49,14 @@ const COPY = {
    */
   resultLineAutomatica:
     'Sua candidatura foi encerrada automaticamente na inscrição, sem avaliação de uma pessoa e sem passar pelas etapas do processo.',
+  /**
+   * JORN-22 / D-20 — a linha de resultado da rejeição HUMANA fora da decisão final. Nem a
+   * do caminho automático (afirma «sem avaliação de uma pessoa», e aqui uma pessoa
+   * decidiu) nem a da decisão final («Após avaliarmos seu processo» — sugere um processo
+   * avaliado por inteiro). Diz quem decidiu, e não diz por quê.
+   */
+  resultLineHumanaTriagem:
+    'Após a análise da sua candidatura por uma pessoa da nossa equipe, decidimos não seguir com ela nesta vaga.',
   reasonEyebrow: 'Por que esta decisão',
   /**
    * O bloco que substitui o direito de revisão no caminho automático. Ele NÃO oferece
@@ -60,6 +68,14 @@ const COPY = {
   semRevisaoEyebrow: 'Se você quiser falar sobre esta decisão',
   semRevisaoBody:
     'Como esta decisão não envolveu avaliação de uma pessoa da nossa equipe, não há uma revisão a pedir por aqui. Se você acredita que respondeu ao formulário por engano, ou quer falar sobre esta decisão, entre em contato pelo canal abaixo.',
+  /**
+   * JORN-22 / D-20 — o bloco sem-revisão da rejeição humana fora da decisão final. Sem
+   * pedido de revisão (o servidor não o aceita: `solicitar_revisao_decisao` exige linha
+   * em `decisao_final`), mas com o canal humano — espelhando o knockout. NÃO reusa
+   * `semRevisaoBody`, que afirma que a decisão «não envolveu avaliação de uma pessoa».
+   */
+  semRevisaoBodyHumanaTriagem:
+    'Esta decisão foi tomada por uma pessoa da nossa equipe. Se quiser falar sobre ela, entre em contato pelo canal abaixo.',
   gratitude: 'Agradecemos seu interesse e o tempo dedicado ao processo.',
   /**
    * 43-UI-SPEC (BD-3) — reescrita em linguagem que o titular decodifica, COM a citação
@@ -178,20 +194,40 @@ export function ExplicacaoCandidatoPage() {
   // O discriminador vem do SERVIDOR (§7.18): do lado do cliente, a rejeição humana na
   // triagem e o knockout automático são a mesma linha, e derivar isto aqui daria a uma
   // decisão escrita por uma pessoa o texto da automática.
-  const automatica = explicacao.origem === 'automatica'
+  //
+  // Três origens (JORN-22 / D-20): `humana` (decisão final, com revisão), `automatica`
+  // (knockout) e `humana_triagem` (uma pessoa rejeitou antes da decisão final). As duas
+  // últimas não têm revisão a pedir; cada uma tem texto PRÓPRIO sobre quem decidiu.
+  const { origem } = explicacao
+  const resultLine =
+    origem === 'automatica'
+      ? COPY.resultLineAutomatica
+      : origem === 'humana_triagem'
+        ? COPY.resultLineHumanaTriagem
+        : COPY.resultLine
+  const semRevisaoBody =
+    origem === 'automatica'
+      ? COPY.semRevisaoBody
+      : origem === 'humana_triagem'
+        ? COPY.semRevisaoBodyHumanaTriagem
+        : null
 
   return (
     <ScreenShell>
-      <GlassPanel variant="white" blur="xl" className="text-white space-y-6">
+      <GlassPanel
+        variant="white"
+        blur="xl"
+        className="text-white space-y-6"
+        data-testid={origem === 'humana_triagem' ? 'explicacao-humana-triagem' : undefined}
+      >
         <h1 className="text-3xl md:text-4xl font-semibold drop-shadow-md">
           {COPY.heading}
         </h1>
 
         {/* High-level, non-clinical result line — a do caminho automático diz, na
-            primeira frase, que não houve pessoa nem avaliação (§7.18). */}
-        <p className="text-base leading-relaxed text-white">
-          {automatica ? COPY.resultLineAutomatica : COPY.resultLine}
-        </p>
+            primeira frase, que não houve pessoa nem avaliação (§7.18); a da rejeição
+            humana na triagem diz que uma pessoa decidiu (JORN-22). */}
+        <p className="text-base leading-relaxed text-white">{resultLine}</p>
 
         {/* Respectful templated reason (derived server-side; never the raw justificativa). */}
         <div className="space-y-2">
@@ -228,19 +264,18 @@ export function ExplicacaoCandidatoPage() {
           )
         )}
 
-        {/* LGPD Art. 20 revision-right block + the CTA — SOMENTE no caminho humano.
-            §7.18, veredito do responsável: o knockout ganha explicação, não revisão.
-            E a exclusão é estrutural, não só de produto: `solicitar_revisao_decisao`
-            exige a linha em `decisao_final` que o knockout nunca cria, então o CTA
-            aqui seria um botão que o servidor sempre recusa. */}
-        {automatica ? (
+        {/* LGPD Art. 20 revision-right block + the CTA — SOMENTE no caminho da decisão
+            final. §7.18 e D-20: o knockout e a rejeição humana na triagem ganham
+            explicação e canal, não revisão. E a exclusão é estrutural, não só de
+            produto: `solicitar_revisao_decisao` exige a linha em `decisao_final` que
+            nenhum dos dois cria, então o CTA ali seria um botão que o servidor sempre
+            recusa. */}
+        {semRevisaoBody ? (
           <div className="space-y-2 border-t border-white/15 pt-6">
             <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
               {COPY.semRevisaoEyebrow}
             </p>
-            <p className="text-base leading-relaxed text-white/90">
-              {COPY.semRevisaoBody}
-            </p>
+            <p className="text-base leading-relaxed text-white/90">{semRevisaoBody}</p>
             <a
               href={`mailto:${CANAL_PRIVACIDADE_EMAIL}`}
               className="inline-block text-base font-semibold text-white underline underline-offset-4"
