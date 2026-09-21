@@ -364,7 +364,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 48-17-PLAN.md — Fechamento de inventário das colunas novas: vereditos de export, catálogo medido, artefatos regenerados, cópia LGPD redeployada
+- [x] 48-17-PLAN.md — Fechamento de inventário das colunas novas: vereditos de export, catálogo medido, artefatos regenerados, cópia LGPD redeployada
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 15/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 16/18 | In Progress|  |
 
 ---
 
