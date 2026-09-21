@@ -182,8 +182,10 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
     }
     // 48-08: antes, campos extras eram ignorados — o que tornava o `ciclo` inofensivo
     // ANTES deste deploy. Agora ele é lido, então a forma é validada.
+    // `null` vale como AUSENTE: jsonb_build_object manda `"ciclo": null` quando
+    // `revisao_solicitada_em` é nulo — recusar perderia o nudge em silêncio (at-most-once).
     if (
-      raw.ciclo !== undefined &&
+      raw.ciclo !== undefined && raw.ciclo !== null &&
       (typeof raw.ciclo !== "string" || !RE_CICLO.test(raw.ciclo))
     ) {
       return errorResponse("VALIDATION", "ciclo inválido.");

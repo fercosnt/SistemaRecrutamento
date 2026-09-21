@@ -163,14 +163,17 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     }
     // 48-08: forma validada ANTES de qualquer leitura/claim (T-48-08-02). Um id que não é uuid
     // nunca é um NEW.id de trigger — é corpo forjado ou quebrado, e não pode virar chave.
+    // `null` vale como AUSENTE: o trigger monta o corpo com jsonb_build_object, que manda
+    // `"campo": null` (não omite a chave) quando a coluna de origem é nula. Recusar com 400
+    // perderia o e-mail em silêncio — `net.http_post` é at-most-once. Nulo = legado.
     if (
-      raw.historico_id !== undefined &&
+      raw.historico_id !== undefined && raw.historico_id !== null &&
       (typeof raw.historico_id !== "string" || !RE_UUID.test(raw.historico_id))
     ) {
       return errorResponse("VALIDATION", "historico_id inválido.");
     }
     if (
-      raw.ciclo !== undefined &&
+      raw.ciclo !== undefined && raw.ciclo !== null &&
       (typeof raw.ciclo !== "string" || !RE_CICLO.test(raw.ciclo))
     ) {
       return errorResponse("VALIDATION", "ciclo inválido.");
