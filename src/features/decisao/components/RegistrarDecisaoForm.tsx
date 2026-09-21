@@ -54,6 +54,8 @@ export interface RegistrarDecisaoFormProps {
   submitting?: boolean
   /** A decisão atual (se existir) — dispara a nota append-only. */
   decisaoAtual?: DecisaoAtual | null
+  /** Erro da última tentativa de registro (a mutação) — traduzido em aviso na tela. */
+  erro?: unknown
 }
 
 /**

@@ -152,6 +152,51 @@ describe('decisaoService — registrarDecisao (DECISAO-03 terminal RPC)', () => 
   })
 })
 
+/**
+ * Phase 48 / Plano 48-15 (JORN-19 · D-23) — a recusa do decisor revertido chega à tela.
+ *
+ * O bloqueio é do SERVIDOR (48-11, `registrar_decisao` vivo md5 `36ab0be3…`): quem teve a
+ * decisão revertida recebe `42501` com a mensagem literal abaixo. O papel não autorizado
+ * recebe o MESMO SQLSTATE com `forbidden` — por isso a marca `D-23` na mensagem é o que
+ * separa as duas recusas, e não o código. Qualquer outro erro segue `DATABASE_ERROR`.
+ */
+describe('decisaoService — registrarDecisao traduz as recusas do servidor (48-15 / D-23)', () => {
+  const MSG_D23_VIVA = 'quem teve a decisao revertida nao registra a nova decisao deste caso (D-23)'
+  const vars = { candidaturaId: VALID_CAND, decisao: 'aprovado' as const, justificativa: 'z'.repeat(55) }
+
+  beforeEach(() => {
+    rpcMock.mockReset()
+  })
+
+  it('42501 com a marca D-23 → FORBIDDEN_DECISOR_REVERTIDO', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: '42501', message: MSG_D23_VIVA } })
+    await expect(registrarDecisao(vars)).rejects.toMatchObject({
+      name: 'DecisaoServiceError',
+      code: 'FORBIDDEN_DECISOR_REVERTIDO',
+    })
+  })
+
+  it('BORDA: 42501 sem a marca D-23 (papel não autorizado) → FORBIDDEN, nunca decisor revertido', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: '42501', message: 'forbidden' } })
+    await expect(registrarDecisao(vars)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  })
+
+  it('a mensagem crua do transporte não vaza num caminho de permissão', async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { code: '42501', message: MSG_D23_VIVA } })
+    const err = (await registrarDecisao(vars).catch((e: unknown) => e)) as Error
+    expect(err).toBeInstanceOf(Error)
+    expect(err.message).not.toContain('decisao revertida nao registra')
+  })
+
+  it('outro erro (ex.: 23514) → DATABASE_ERROR, como antes', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code: '23514', message: 'justificativa deve ter ao menos 50 caracteres' },
+    })
+    await expect(registrarDecisao(vars)).rejects.toMatchObject({ code: 'DATABASE_ERROR' })
+  })
+})
+
 describe('decisaoService — allowlist reads (T-15-09, NEVER select(*))', () => {
   beforeEach(() => {
     selects.length = 0

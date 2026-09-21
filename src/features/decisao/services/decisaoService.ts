@@ -45,7 +45,9 @@ export class DecisaoServiceError extends Error {
       | 'NETWORK_ERROR'
       | 'DATABASE_ERROR'
       | 'NOT_FOUND'
-      | 'UNAUTHORIZED',
+      | 'UNAUTHORIZED'
+      | 'FORBIDDEN'
+      | 'FORBIDDEN_DECISOR_REVERTIDO',
     public details?: unknown,
   ) {
     super(message)

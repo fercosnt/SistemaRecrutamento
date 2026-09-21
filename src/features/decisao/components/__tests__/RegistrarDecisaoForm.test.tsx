@@ -15,6 +15,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { RegistrarDecisaoForm } from '../RegistrarDecisaoForm'
+import { DecisaoServiceError } from '../../services/decisaoService'
 
 /**
  * Phase 43 / Plano 43-02 (BD-3) — o texto do Art. 20 mostrado ao RH, reescrito.
@@ -34,6 +35,7 @@ function renderForm(props?: Partial<React.ComponentProps<typeof RegistrarDecisao
       onConfirm={props?.onConfirm ?? vi.fn()}
       submitting={props?.submitting ?? false}
       decisaoAtual={props?.decisaoAtual ?? null}
+      erro={props?.erro ?? null}
     />,
   )
 }
@@ -114,5 +116,44 @@ describe('RegistrarDecisaoForm — o aviso do Art. 20 ao RH, em linguagem simple
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'x'.repeat(55) } })
     fireEvent.click(screen.getByRole('button', { name: /Registrar decisão/ }))
     expect(document.body.textContent ?? '').not.toContain('Art. 20')
+  })
+})
+
+/**
+ * Phase 48 / Plano 48-15 (JORN-19 · D-23) — a recusa do servidor dita com clareza.
+ *
+ * O servidor recusa; a tela só traduz. Quem teve a decisão revertida na revisão precisa
+ * ler POR QUE não pode registrar a nova decisão e QUEM pode — e não um erro de banco.
+ */
+describe('RegistrarDecisaoForm — recusas de registrar_decisao (48-15 / D-23)', () => {
+  const COPY_D23 =
+    'Você registrou a decisão que foi revertida na revisão. A nova decisão deste caso precisa ser registrada por outra pessoa do RH.'
+  const COPY_FORBIDDEN = 'Você não tem permissão para registrar esta decisão.'
+  const COPY_GENERICA = 'Não foi possível registrar a decisão. Tente novamente.'
+
+  it('FORBIDDEN_DECISOR_REVERTIDO → bloco decisao-recusa-decisor-revertido com o texto de D-23', () => {
+    renderForm({ erro: new DecisaoServiceError('x', 'FORBIDDEN_DECISOR_REVERTIDO') })
+    const bloco = screen.getByTestId('decisao-recusa-decisor-revertido')
+    expect(bloco).toHaveTextContent(COPY_D23)
+    expect(screen.queryByText(COPY_GENERICA)).not.toBeInTheDocument()
+  })
+
+  it('FORBIDDEN (papel) → mensagem de permissão, nunca a de decisor revertido', () => {
+    renderForm({ erro: new DecisaoServiceError('x', 'FORBIDDEN') })
+    expect(screen.getByText(COPY_FORBIDDEN)).toBeInTheDocument()
+    expect(screen.queryByTestId('decisao-recusa-decisor-revertido')).not.toBeInTheDocument()
+  })
+
+  it('DATABASE_ERROR → a mensagem genérica de sempre', () => {
+    renderForm({ erro: new DecisaoServiceError('x', 'DATABASE_ERROR') })
+    expect(screen.getByText(COPY_GENERICA)).toBeInTheDocument()
+    expect(screen.queryByTestId('decisao-recusa-decisor-revertido')).not.toBeInTheDocument()
+  })
+
+  it('sem erro, nenhum aviso de recusa aparece', () => {
+    renderForm()
+    expect(screen.queryByTestId('decisao-recusa-decisor-revertido')).not.toBeInTheDocument()
+    expect(screen.queryByText(COPY_FORBIDDEN)).not.toBeInTheDocument()
+    expect(screen.queryByText(COPY_GENERICA)).not.toBeInTheDocument()
   })
 })
