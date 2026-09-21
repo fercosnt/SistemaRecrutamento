@@ -3177,3 +3177,50 @@ Deno.test("(p48-n) aviso de pedido e de cancelamento do MESMO pedido têm chaves
     assert(/^[a-z_]+$/.test(label), `rótulo de sink fora de [a-z_]: ${label}`);
   }
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Plano 48-16 — JORN-U2: a EXCEÇÃO registrada, pinada.
+//
+// Todo e-mail ao candidato leva ao login dele — MENOS o recibo pós-exclusão: ele sai
+// depois de `deleteUser`, quando a conta de acesso já não existe. Um link de login ali
+// levaria a pessoa a uma tela que diz que ela não tem conta. Por isso o link dos e-mails
+// de candidato vai por PARÂMETRO nos corpos de `renderarEmail`, e não no rodapé de
+// `layoutBase` (que também monta este recibo). Os avisos do 48-07 (pedido e cancelamento)
+// são enviados com a conta VIVA e levam o login com retorno à privacidade.
+// ═════════════════════════════════════════════════════════════════════════════
+
+Deno.test("(p48-16a) EXCEÇÃO JORN-U2: o recibo ENTREGUE pelo motor não tem link de login", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: pedidoProntoParaRecibo() });
+  const res = await handler(makeRequest({ acao: "executar" }), deps);
+  assertEquals(res.status, 200);
+  assert(admin.linha.recibo_enviado_em, "o recibo não foi enviado — o teste não provaria nada");
+  const recibos = admin.fetchCalls.filter((c) => c.url === "https://api.resend.com/emails");
+  assertEquals(recibos.length, 1, "esperado exatamente o POST do recibo");
+  const html = String(JSON.parse(String(recibos[0].init.body)).html);
+  assert(html.includes("Sua conta de acesso não existe mais"), "não é o corpo do recibo");
+  assert(!html.includes("/auth/login"), "o recibo pós-exclusão leva ao login de uma conta apagada");
+  assert(!html.includes("Acessar meu painel"), "o recibo pós-exclusão oferece o painel");
+});
+
+Deno.test("(p48-16b) EXCEÇÃO JORN-U2: nenhuma variante do corpo do recibo tem link de login", async () => {
+  const h = await import("./helpers.ts");
+  for (const temCurriculo of [true, false]) {
+    for (const temDecisaoRegistrada of [true, false]) {
+      const html = h.corpoReciboExclusao({ dataConclusao: CARIMBO_AUTH, temCurriculo, temDecisaoRegistrada });
+      assert(!html.includes("/auth/login"), `recibo (cv=${temCurriculo}, decisão=${temDecisaoRegistrada}) com link de login`);
+    }
+  }
+});
+
+Deno.test("(p48-16c) os avisos do 48-07 (pedido E cancelamento) levam o login com retorno à privacidade", async () => {
+  const { handler } = await loadHandler();
+  for (const acao of ["pedir", "cancelar"] as const) {
+    const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+    await handler(makeRequest({ acao }), deps);
+    assertEquals(admin.fetchCalls.length, 1, `${acao}: esperado um aviso`);
+    const html = String(JSON.parse(String(admin.fetchCalls[0].init.body)).html);
+    assert(html.includes("/auth/login?redirect="), `${acao}: o aviso não leva ao login`);
+    assert(html.includes(URL_LOGIN_PRIVACIDADE), `${acao}: o retorno não é a área de privacidade`);
+  }
+});

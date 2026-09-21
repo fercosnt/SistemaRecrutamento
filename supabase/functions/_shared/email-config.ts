@@ -36,18 +36,17 @@ export const FROM = `${REMETENTE_NOME} <${REMETENTE_EMAIL}>` as const
 export const REPLY_TO = 'rh@beautysmile.com.br' as const
 
 /**
- * Base canônica do app publicado — a mesma que `notificar-rh` usa para o link da fila
- * (`notificar-rh/helpers.ts`, `APP_BASE_URL_PADRAO`). Phase 48 / 48-07 (JORN-U2): ela
+ * Base canônica do app publicado — ÚNICA desde o 48-16. Phase 48 / 48-07 (JORN-U2): ela
  * mora aqui para que os e-mails AO CANDIDATO tenham link para o login sem cada EF
- * repetir a validação. A consolidação de `notificar-rh` sobre este módulo é do 48-16;
- * até lá as duas constantes têm o mesmo valor.
+ * repetir a validação; o 48-16 consolidou `notificar-rh` sobre ela (a EF re-exporta este
+ * nome e monta os links da fila e da lista da vaga com `normalizarBaseApp`).
  */
 export const APP_BASE_URL_PADRAO = 'https://rh.beautysmile.com.br' as const
 
 /**
  * Normaliza a base do app (normalmente `Deno.env.get('APP_BASE_URL')`) para uma ORIGEM.
  *
- * FAIL-SAFE idêntico ao de `montarUrlFila` (`notificar-rh/helpers.ts`): base ausente,
+ * FAIL-SAFE (o mesmo que `montarUrlFila`/`montarUrlListaVaga` de `notificar-rh` usam): base ausente,
  * vazia, não-URL, ou com esquema diferente de `https:` cai no default canônico. NUNCA
  * lança — num e-mail, o link vale menos que o e-mail; e um link com esquema
  * `javascript:` é superfície de ataque, não link.

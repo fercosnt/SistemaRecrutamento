@@ -1211,3 +1211,36 @@ Deno.test("48-13 — os dois eventos irmãos seguem com rótulo/template/chave p
     assertEquals(supa.upserts[0].row.destinatario_email, c.sink);
   }
 });
+
+// ─── 48-16 (JORN-U2) — o link de login é do CANDIDATO: nenhum e-mail do RH o carrega ────
+//
+// O link dos e-mails de candidato vai por parâmetro nos corpos de `renderarEmail`, NUNCA no
+// rodapé de `layoutBase` — que monta também estes três corpos. Se um dia alguém o puser no
+// layout comum, estes e-mails passariam a levar o RH ao login do candidato.
+
+Deno.test("48-16 — nenhum corpo de e-mail do RH contém link de login do candidato", () => {
+  const corpos = [
+    corpoRevisaoSolicitada({ tituloVaga: "Vaga X", urlFila: montarUrlFila() }),
+    corpoCandidaturaEncerradaAPedido({ tituloVaga: "Vaga X", urlLista: montarUrlListaVaga(VAGA_ID) }),
+    H.corpoPrazoReaberturaVencido({ tituloVaga: "Vaga X", urlLista: montarUrlListaVaga(VAGA_ID) }) as string,
+  ];
+  for (const html of corpos) {
+    assert(!html.includes("/auth/login"), "e-mail do RH com link de login do candidato");
+    assert(!html.includes("Acessar meu painel"), "e-mail do RH com o botão do painel do candidato");
+  }
+});
+
+Deno.test("48-16 — a base do RH é a MESMA de _shared/email-config.ts (fim da duplicação)", async () => {
+  const cfg = await import("../../_shared/email-config.ts");
+  assertEquals(APP_BASE_URL_PADRAO, cfg.APP_BASE_URL_PADRAO);
+  // e as duas URLs do RH sobre a base normalizada compartilhada
+  for (const base of [undefined, "", "lixo", "javascript:alert(1)", "http://x.com", "https://preview.example.com/a/b"]) {
+    const origem = cfg.normalizarBaseApp(base);
+    assertEquals(montarUrlFila(base), `${origem}/rh/revisoes`, `fila, base ${JSON.stringify(base)}`);
+    assertEquals(
+      montarUrlListaVaga(VAGA_ID, base),
+      `${origem}/rh/vagas/${VAGA_ID}/candidatos`,
+      `lista, base ${JSON.stringify(base)}`,
+    );
+  }
+});

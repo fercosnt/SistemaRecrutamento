@@ -10,31 +10,32 @@
  * CHEGAR ao RH. Até aqui `solicitar_revisao_decisao` gravava `revisao_solicitada_em` e o
  * processo terminava — um timestamp que ninguém lia.
  */
-import { FROM, REPLY_TO } from "../_shared/email-config.ts";
+import {
+  APP_BASE_URL_PADRAO,
+  FROM,
+  normalizarBaseApp,
+  REPLY_TO,
+} from "../_shared/email-config.ts";
 import { escapeHtml, layoutBase } from "../_shared/email-templates.ts";
 
 /**
- * Host do app do RH.
+ * Host do app do RH — RE-EXPORTADO de `_shared/email-config.ts` (48-16: fim da duplicação).
  *
- * ⚠ CORRIGIDO em 2026-08-22. Este default era `https://recruta.beautysmile.com.br`,
- * e o comentário afirmava que aquele era «o host vivo e verificado». **Ele nunca
- * existiu.** Medido: `dig recruta.beautysmile.com.br` não devolve NADA; o domínio
- * raiz resolve, o subdomínio não. O host real do app — confirmado no projeto Vercel
- * `sistema-recrutamento`, que o serve como domínio de produção — é
- * `rh.beautysmile.com.br`, o MESMO já verificado no Resend desde a P36.
+ * Até o 48-16 esta EF declarava a sua própria constante, e `email-config.ts` tinha uma
+ * segunda com o mesmo valor (48-07, para o link de login do candidato). Duas constantes
+ * iguais são uma divergência esperando acontecer; agora há UMA, e o nome segue exportado
+ * daqui porque os testes e o `index.ts` o importam deste módulo.
  *
- * ⚠ E o defeito NÃO era teórico: `notificacoes_enviadas` registra **2 e-mails
- * `revisao_solicitada` já enviados** (último em 2026-07-31), cada um carregando um
- * link para `/rh/revisoes` montado sobre este default. Se a env `APP_BASE_URL` não
- * estivesse posta, aqueles avisos internos chegaram com link MORTO — e o modo de
- * falha é silencioso, porque o e-mail é entregue normalmente e só o clique falha.
+ * ⚠ HISTÓRICO (2026-08-22), mantido porque o modo de falha é silencioso: o default desta EF
+ * era `https://recruta.beautysmile.com.br`, um host que **nunca existiu** (`dig` não devolve
+ * nada). `notificacoes_enviadas` registra 2 e-mails `revisao_solicitada` enviados com link
+ * montado sobre ele — o e-mail é entregue normalmente e só o clique falha. O host real do app
+ * é `rh.beautysmile.com.br`, o mesmo verificado no Resend desde a P36.
  *
- * Override por env `APP_BASE_URL` para ambiente de preview; a validação em
- * `montarUrlFila` garante que uma env malformada cai neste default em vez de produzir
- * um link quebrado — ou hostil — num e-mail interno. ⚠ Com o default errado, esse
- * fail-safe estava caindo de um link quebrado em OUTRO link quebrado.
+ * Override por env `APP_BASE_URL` (preview); `normalizarBaseApp` garante que uma env
+ * malformada — ou com esquema diferente de `https:` — cai neste default.
  */
-export const APP_BASE_URL_PADRAO = "https://rh.beautysmile.com.br" as const;
+export { APP_BASE_URL_PADRAO };
 
 /** Rótulo do sink de teste desta EF. NÃO pertence à união `EventoNotificacao`. */
 export const LABEL_SINK_RH = "revisao_solicitada_rh" as const;
@@ -258,24 +259,19 @@ export function assuntoPrazoReaberturaVencido(tituloVaga: string): string {
  *
  * FAIL-SAFE (idioma de `resolverModo`): base ausente, vazia, não-URL, ou com esquema
  * diferente de `https:` cai no default canônico. Um link malformado num e-mail interno
- * é ruído; um link com esquema `javascript:` é superfície de ataque.
+ * é ruído; um link com esquema `javascript:` é superfície de ataque. A normalização é a
+ * de `_shared/email-config.ts` (`normalizarBaseApp`, 48-16) — a MESMA do link de login do
+ * candidato, em vez de uma cópia desta EF.
  */
-export function montarUrlFila(baseBruta: string = APP_BASE_URL_PADRAO): string {
-  let base = APP_BASE_URL_PADRAO as string;
-  try {
-    const u = new URL(baseBruta.trim());
-    if (u.protocol === "https:") base = u.origin;
-  } catch {
-    // base malformada — mantém o default (nunca lança: o e-mail vale mais que o link)
-  }
-  return `${base.replace(/\/+$/, "")}/rh/revisoes`;
+export function montarUrlFila(baseBruta?: string): string {
+  return `${normalizarBaseApp(baseBruta)}/rh/revisoes`;
 }
 
 /**
  * Monta a URL absoluta da lista de candidatos DAQUELA vaga (`/rh/vagas/:id/candidatos`).
  *
- * Mesmo FAIL-SAFE de `montarUrlFila`, e pela mesma razão: base ausente, vazia,
- * não-URL ou com esquema diferente de `https:` cai no default canônico. Um link
+ * Mesmo FAIL-SAFE de `montarUrlFila` (`normalizarBaseApp`), e pela mesma razão: base
+ * ausente, vazia, não-URL ou com esquema diferente de `https:` cai no default canônico. Um link
  * malformado num e-mail interno é ruído; um link com esquema `javascript:` é
  * superfície de ataque.
  *
@@ -287,16 +283,9 @@ export function montarUrlFila(baseBruta: string = APP_BASE_URL_PADRAO): string {
  */
 export function montarUrlListaVaga(
   vagaId: string,
-  baseBruta: string = APP_BASE_URL_PADRAO,
+  baseBruta?: string,
 ): string {
-  let base = APP_BASE_URL_PADRAO as string;
-  try {
-    const u = new URL(baseBruta.trim());
-    if (u.protocol === "https:") base = u.origin;
-  } catch {
-    // base malformada — mantém o default (nunca lança: o e-mail vale mais que o link)
-  }
-  return `${base.replace(/\/+$/, "")}/rh/vagas/${encodeURIComponent(vagaId)}/candidatos`;
+  return `${normalizarBaseApp(baseBruta)}/rh/vagas/${encodeURIComponent(vagaId)}/candidatos`;
 }
 
 /**
