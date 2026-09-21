@@ -108,6 +108,18 @@ export interface DadosEmail {
    * inverter isso diria ao titular que sua decisão foi mantida sem que o sistema saiba disso.
    */
   vereditoRevisao?: "mantida" | "revertida";
+  /**
+   * 48-13 (JORN-19 · D-01): a DATA-LIMITE da nova decisão de uma candidatura reaberta, já
+   * formatada `DD/MM/AAAA` em America/Sao_Paulo pela EF, a partir de
+   * `decisao_final.prazo_nova_decisao_em` (o instante do prazo menos 1 s — o 48-11 grava o
+   * início do dia seguinte à data-limite). Só o corpo de `revisao_respondida` com veredito
+   * `revertida` a usa.
+   *
+   * OPCIONAL DE PROPÓSITO, no molde de `vereditoRevisao`: ausente — ou fora da forma
+   * `DD/MM/AAAA` — ⇒ a frase da reabertura sai SEM data. O sistema nunca diz ao candidato uma
+   * data que não gravou; uma frase sem data é incompleta, uma data inventada é falsa.
+   */
+  prazoNovaDecisaoFmt?: string;
 }
 
 /** Wrapper table-based inline-CSS: header (logo) + conteúdo + footer LGPD transacional. */
@@ -199,32 +211,49 @@ function corpoDecisao(d: DadosEmail): string {
 /**
  * Corpo do 5º evento — a resposta à solicitação de revisão do Art. 20 (42-08 / REVISAO-04).
  *
- * As duas frases de veredito são as MESMAS que a UI-SPEC da fase trava para a superfície do
- * candidato (`42-UI-SPEC.md` § "Superfície do candidato"): o e-mail e a página têm de dizer a
- * mesma coisa, senão a pessoa lê um desfecho na caixa de entrada e outro no painel.
+ * As duas frases de veredito são as MESMAS que a superfície do candidato mostra (a página de
+ * explicação — plano 48-14 para a da reabertura): o e-mail e a página têm de dizer a mesma
+ * coisa, senão a pessoa lê um desfecho na caixa de entrada e outro no painel.
+ *
+ * 48-13 (JORN-19 · D-01) — O VEREDITO `revertida` REABRE A CANDIDATURA. Desde o plano 48-11 a
+ * RPC de resposta devolve a candidatura à decisão final, aguardando uma NOVA decisão humana,
+ * com prazo de 10 dias corridos. Reabrir não é aprovar: nenhuma decisão foi tomada ainda, e o
+ * e-mail diz exatamente isso — que a candidatura foi reaberta e será decidida novamente até a
+ * data-limite gravada (D-10). Sem data legível, a frase sai sem data (ver
+ * `DadosEmail.prazoNovaDecisaoFmt`).
  *
  * TRÊS SILÊNCIOS DELIBERADOS, cada um com um motivo que não é estético:
  *
- *   1. NÃO promete próximos passos. A RPC desta fase grava um veredito e uma justificativa —
- *      ela NÃO reabre o funil. "Entraremos em contato" seria promessa sem código que a
- *      execute. Qualquer próximo passo é o que a pessoa que revisou escreveu, e isso vive no
- *      painel, não aqui (regra de honestidade da UI-SPEC).
+ *   1. NÃO promete desfecho nem contato. A única promessa é a que o sistema cumpre por código:
+ *      a candidatura voltou à decisão final, e o RH é alertado se o prazo vencer sem nova
+ *      decisão (varredura diária do 48-13). "Entraremos em contato" seria promessa sem código.
  *   2. NÃO identifica quem revisou. É PII de funcionário; a transparência do Art. 20 é
  *      atendida pelo conteúdo da revisão, não pela identificação nominal do revisor.
  *   3. NÃO interpola NENHUM campo de avaliação nem a justificativa da revisão. Mesma
  *      disciplina D-15/RNF-07a das cópias congeladas: o texto livre do revisor é lido no
  *      painel autenticado, não replicado num e-mail que trafega por terceiro.
  *
- * O Art. 20 NÃO fixa prazo — nenhuma frase aqui inventa um (invariante nº2 da UI-SPEC).
+ * O Art. 20 NÃO fixa prazo — a data desta frase é o prazo INTERNO que a própria Beauty Smile
+ * se deu para a nova decisão (D-10), e a frase não o atribui à lei.
  */
 const COPY_REVISAO_MANTIDA = "Após a revisão, a decisão foi mantida.";
-const COPY_REVISAO_REVERTIDA = "Após a revisão, a decisão anterior foi revista.";
+const COPY_REVISAO_REVERTIDA = "Após a revisão, sua candidatura foi reaberta e será decidida novamente.";
+
+/** Forma aceita para a data-limite; qualquer outra coisa é tratada como ausente. */
+const RE_DATA_BR = /^\d{2}\/\d{2}\/\d{4}$/;
+
+/** A frase de D-01, com a data quando ela existe e tem a forma certa — nunca com data inventada. */
+function copyRevisaoRevertida(prazoFmt?: string): string {
+  return typeof prazoFmt === "string" && RE_DATA_BR.test(prazoFmt)
+    ? COPY_REVISAO_REVERTIDA.replace(/\.$/, ` até ${prazoFmt}.`)
+    : COPY_REVISAO_REVERTIDA;
+}
 
 function corpoRevisaoRespondida(d: DadosEmail): string {
   const veredito = d.vereditoRevisao === "mantida"
     ? COPY_REVISAO_MANTIDA
     : d.vereditoRevisao === "revertida"
-    ? COPY_REVISAO_REVERTIDA
+    ? copyRevisaoRevertida(d.prazoNovaDecisaoFmt)
     // Ausente/desconhecido ⇒ silêncio sobre o desfecho. Fail-safe assimétrico de propósito:
     // afirmar um desfecho que não se conhece é pior do que não afirmar nenhum.
     : "";

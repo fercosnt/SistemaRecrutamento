@@ -119,6 +119,30 @@ export interface NotificarDeps {
 }
 
 /**
+ * 48-13 (JORN-19 · D-01) — a DATA-LIMITE da nova decisão, como o candidato a lê: `DD/MM/AAAA`
+ * em America/Sao_Paulo.
+ *
+ * O plano 48-11 grava `decisao_final.prazo_nova_decisao_em` = 00:00 de São Paulo do dia
+ * SEGUINTE à data-limite (o fim do 10º dia corrido). A data dita é, portanto, a do instante
+ * do prazo MENOS 1 segundo — a mesma `data_limite` que a justificativa da reabertura escreve
+ * no histórico («… aguardando nova decisão até DD/MM/AAAA.»).
+ *
+ * Qualquer valor que não seja um instante legível (nulo, não-string, data inválida) ⇒
+ * `undefined` ⇒ a frase sai SEM data. Nunca data inventada.
+ */
+export function formatarDataLimiteReabertura(prazo: unknown): string | undefined {
+  if (typeof prazo !== "string" || prazo.length === 0) return undefined;
+  const ms = Date.parse(prazo);
+  if (!Number.isFinite(ms)) return undefined;
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(ms - 1000));
+}
+
+/**
  * Handler testável: recebe `deps` injetadas. `Deno.serve` (no fim, sob
  * `import.meta.main`) constrói os clientes reais a partir do env e delega para cá.
  */
@@ -334,15 +358,23 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   // superfície gratuita. `decisao_final.candidatura_id` é UNIQUE (20260607000003:39), então
   // `maybeSingle` é exato. Valor ausente ou fora do vocabulário ⇒ `undefined` ⇒ frase neutra:
   // afirmar um desfecho que o servidor não confirmou seria pior que não afirmar nenhum.
+  //
+  // 48-13 (JORN-19 · D-01): a allowlist passa a DUAS colunas — `prazo_nova_decisao_em` entra
+  // porque o veredito `revertida` REABRE a candidatura (48-11) e o e-mail diz a data-limite da
+  // nova decisão. Só é formatada para `revertida`; `mantida` nunca fala de prazo.
   let vereditoRevisao: "mantida" | "revertida" | undefined;
+  let prazoNovaDecisaoFmt: string | undefined;
   if (evento === "revisao_respondida") {
     const { data: decisao } = await supabaseAdmin
       .from("decisao_final")
-      .select("revisao_veredito")
+      .select("revisao_veredito, prazo_nova_decisao_em")
       .eq("candidatura_id", candidatura_id)
       .maybeSingle();
     const v = decisao?.revisao_veredito;
     vereditoRevisao = v === "mantida" || v === "revertida" ? v : undefined;
+    if (vereditoRevisao === "revertida") {
+      prazoNovaDecisaoFmt = formatarDataLimiteReabertura(decisao?.prazo_nova_decisao_em);
+    }
   }
 
   // ---- 4) Idempotência + destinatário ---------------------------------------
@@ -462,6 +494,8 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       : "rejeitado",
     // 42-08 / REVISAO-04: `undefined` para os 4 eventos vivos (nenhum corpo deles o lê).
     vereditoRevisao,
+    // 48-13: só `revisao_respondida` + `revertida` com prazo legível; senão a frase sai sem data.
+    prazoNovaDecisaoFmt,
   });
 
   let icsBase64: string | undefined;

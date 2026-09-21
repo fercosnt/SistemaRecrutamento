@@ -446,7 +446,7 @@ Deno.test("T-48-13a — revertida COM prazo: a frase de D-01 com a data exata", 
     ...DADOS_REV,
     vereditoRevisao: "revertida",
     prazoNovaDecisaoFmt: "03/10/2026",
-  } as never);
+  });
   assert(
     html.includes(`${FRASE_REABERTA} até 03/10/2026.`),
     "o corpo da reabertura não diz a frase de D-01 com a data",
@@ -468,7 +468,7 @@ Deno.test("T-48-13c — prazo malformado é tratado como AUSENTE: frase sem data
       ...DADOS_REV,
       vereditoRevisao: "revertida",
       prazoNovaDecisaoFmt: ruim,
-    } as never);
+    });
     assert(html.includes(`${FRASE_REABERTA}.`), `prazo '${ruim}' deveria virar frase sem data`);
     assert(!/novamente até/.test(html), `prazo '${ruim}' virou data no e-mail`);
   }
@@ -479,7 +479,7 @@ Deno.test("T-48-13d — mantida ignora o prazo; nenhum corpo carrega a cópia an
     ...DADOS_REV,
     vereditoRevisao: "mantida",
     prazoNovaDecisaoFmt: "03/10/2026",
-  } as never).html;
+  }).html;
   assert(mantida.includes("Após a revisão, a decisão foi mantida."), "a cópia de mantida mudou");
   assert(!mantida.includes("03/10/2026") && !/reaberta/.test(mantida), "mantida recebeu a data/reabertura");
   for (const veredito of ["mantida", "revertida", undefined] as const) {
@@ -493,7 +493,7 @@ Deno.test("T-48-13e — assunto e prévia continuam SEM ramificar (T-42-V2c), co
     ...DADOS_REV,
     vereditoRevisao: "revertida",
     prazoNovaDecisaoFmt: "03/10/2026",
-  } as never);
+  });
   const mantida = renderarEmail("revisao_respondida", { ...DADOS_REV, vereditoRevisao: "mantida" });
   assertEquals(com.subject, mantida.subject);
   assertEquals(extrairPreheader(com.html), extrairPreheader(mantida.html));
