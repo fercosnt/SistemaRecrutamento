@@ -129,6 +129,9 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `revisao_solicitada_em` | 🔒 preservar | timestamptz | Art. 20 — prova de exercício de direito |
 | `revisao_resultado` | ⚠️ preservar c/ ressalva | text | Passa a ser a justificativa da revisão na Phase 42 |
 | `candidatura_id` | 🔒 preservar | uuid |  |
+| `reaberta_em` | 🔒 preservar | timestamptz | Phase 48 (JORN-19, D-01) — quando a revisão reverteu e a candidatura foi reaberta. Parte do registro da decisão |
+| `prazo_nova_decisao_em` | 🔒 preservar | timestamptz | Phase 48 (D-10) — fim do 10º dia corrido em SP; a data foi dita ao titular por e-mail |
+| `alerta_prazo_enviado_em` | 🔒 preservar | timestamptz | Phase 48 — controle de envio do alerta de prazo vencido ao RH. Sem PII; estado do processo |
 
 ### `decisao_final_historico`
 
@@ -142,6 +145,15 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `decidido_em` | 🔒 preservar | timestamptz |  |
 | `arquivado_em` | 🔒 preservar | timestamptz |  |
 | `candidatura_id` | 🔒 preservar | uuid |  |
+| `explicacao_solicitada_em` | 🔒 preservar | timestamptz |  |
+| `revisao_solicitada_em` | 🔒 preservar | timestamptz | Art. 20 — prova de exercício de direito (versão arquivada) |
+| `revisao_veredito` | 🔒 preservar | text | Vocabulário fechado mantida|revertida — estado do processo |
+| `revisao_resultado` | ⚠️ preservar c/ ressalva | text | Justificativa do REVISOR. ⚠ anonimizar_candidato não a toca, nem aqui nem em decisao_final (deferred do 48-11) |
+| `revisao_por_usuario` | 🔒 preservar | uuid | Funcionário |
+| `revisao_respondida_em` | 🔒 preservar | timestamptz |  |
+| `reaberta_em` | 🔒 preservar | timestamptz |  |
+| `prazo_nova_decisao_em` | 🔒 preservar | timestamptz |  |
+| `alerta_prazo_enviado_em` | 🔒 preservar | timestamptz | Controle de envio de alerta ao RH |
 
 ### `historico_candidatura`
 
@@ -491,6 +503,15 @@ Toda coluna do schema `public` está classificada — por regra, ou por entrada 
 | `metadata` | ⚠️ preservar c/ ressalva | R5 |  |
 | `usuario_id` | 🎭 anonimizar | R2 |  |
 
+### `solicitacoes_dados`
+
+> Pedidos de acesso/exclusão do próprio titular (P44/P45). ⚠ ENTRADA PARCIAL, de propósito: classificadas aqui SÓ as 2 colunas criadas pela Phase 48 (48-07, migration 20260921000005). A tabela nasceu depois da coleta deste inventário (2026-07-29) e as suas outras 14 colunas vivas seguem sem entrada explícita — é drift pré-existente, registrado e fora da Phase 48 (48-17).
+
+| Coluna | Classificação | Tipo | Nota |
+|--------|---------------|------|------|
+| `aviso_pedido_enviado_em` | 🔒 preservar | timestamptz | Controle de envio do aviso de pedido à titular. Sem PII; NUNCA confundir com recibo_enviado_em (o recibo pós-exclusão) |
+| `aviso_cancelamento_enviado_em` | 🔒 preservar | timestamptz | Idem, aviso de cancelamento |
+
 ### `usuarios_rh`
 
 > PII de FUNCIONÁRIO, não de titular candidato. Fora do escopo do direito do titular candidato — mas é dado pessoal e entra em qualquer pedido de um funcionário. Registrado para completude; a Phase 45 NÃO o toca.
@@ -630,8 +651,8 @@ o defeito de verdade, e não a existência da tabela.
 |---------------|--------:|
 | 🎭 anonimizar | 23 |
 | 🗑️ apagar | 65 |
-| 🔒 preservar | 85 |
-| ⚠️ preservar c/ ressalva | 50 |
-| **Total explícito** | **223** |
+| 🔒 preservar | 98 |
+| ⚠️ preservar c/ ressalva | 51 |
+| **Total explícito** | **237** |
 
-Cobertura de tabelas: **64 / 64**.
+Cobertura de tabelas: **65 / 64**.

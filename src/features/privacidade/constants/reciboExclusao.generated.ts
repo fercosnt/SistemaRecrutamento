@@ -133,10 +133,18 @@ export const RECIBO_EXCLUSAO = {
         "decisao_final.decisao",
         "decisao_final.em",
         "decisao_final.explicacao_solicitada_em",
+        "decisao_final.prazo_nova_decisao_em",
+        "decisao_final.reaberta_em",
         "decisao_final.revisao_solicitada_em",
         "decisao_final_historico.arquivado_em",
         "decisao_final_historico.decidido_em",
-        "decisao_final_historico.decisao"
+        "decisao_final_historico.decisao",
+        "decisao_final_historico.explicacao_solicitada_em",
+        "decisao_final_historico.prazo_nova_decisao_em",
+        "decisao_final_historico.reaberta_em",
+        "decisao_final_historico.revisao_respondida_em",
+        "decisao_final_historico.revisao_solicitada_em",
+        "decisao_final_historico.revisao_veredito"
       ],
       "item_id": "registro_da_decisao",
       "obrigatorio": false,
@@ -161,6 +169,7 @@ export const RECIBO_EXCLUSAO = {
         "candidaturas.feedback_rejeicao",
         "candidaturas.observacoes_rh",
         "decisao_final.revisao_resultado",
+        "decisao_final_historico.revisao_resultado",
         "entrevista_analises.notas_humanas",
         "entrevistas_online.notas_durante",
         "entrevistas_online.notas_preparacao",
@@ -534,10 +543,13 @@ export const RECIBO_EXCLUSAO = {
     "cognitivo_respostas.shuffle_seed": "chave_tecnica",
     "comparativo_solicitado.candidatura_ids": "chave_tecnica",
     "comparativo_solicitado.solicitado_por": "dado_de_funcionario",
+    "decisao_final.alerta_prazo_enviado_em": "estado_do_processo",
     "decisao_final.candidatura_id": "chave_tecnica",
     "decisao_final.por_usuario": "dado_de_funcionario",
+    "decisao_final_historico.alerta_prazo_enviado_em": "estado_do_processo",
     "decisao_final_historico.candidatura_id": "chave_tecnica",
     "decisao_final_historico.por_usuario": "dado_de_funcionario",
+    "decisao_final_historico.revisao_por_usuario": "dado_de_funcionario",
     "entrevista_analises.revisada_por": "dado_de_funcionario",
     "entrevistas_online.agendado_por": "dado_de_funcionario",
     "entrevistas_online.gravacao_tamanho_mb": "estado_do_processo",
@@ -557,7 +569,9 @@ export const RECIBO_EXCLUSAO = {
     "redacoes_candidato.revisada_por": "dado_de_funcionario",
     "redacoes_candidato.texto_hash": "chave_tecnica",
     "respostas_formulario.resposta_numerica": "estado_do_processo",
-    "sessoes_ativas.revogado_por": "linha_removida_com_a_conta"
+    "sessoes_ativas.revogado_por": "linha_removida_com_a_conta",
+    "solicitacoes_dados.aviso_cancelamento_enviado_em": "estado_do_processo",
+    "solicitacoes_dados.aviso_pedido_enviado_em": "estado_do_processo"
   },
   "meta": {
     "banidos_totalidade": [
@@ -596,21 +610,21 @@ export const RECIBO_EXCLUSAO = {
       "arquivo": "supabase/functions/_shared/exportAllowlist.ts",
       "razao": "Cobre 30 de 69 tabelas (45-RESEARCH §C2) e exclui, como telemetria_interna, oito tabelas com PII do titular — inclusive ai_call_logs e logs_acesso, duas das cinco do ERASE-09. Um recibo derivado dele seria omisso sobre o que não diz (§Pitfall 5)."
     },
-    "gerado_em": "2026-08-05T04:06:15.390Z",
+    "gerado_em": "2026-09-21T17:38:39.251Z",
     "gerador": "docs/compliance/sql/gen-recibo-exclusao.cjs",
     "inventario_coletado_em": "2026-07-29T14:08:18Z",
     "plano": "45-02",
     "requirement": "ERASE-07",
     "totais": {
-      "colunas_com_linha_no_recibo": 167,
-      "colunas_com_razao_de_silencio": 42,
-      "colunas_com_veredito": 209,
-      "colunas_em_escopo_do_titular": 209,
+      "colunas_com_linha_no_recibo": 176,
+      "colunas_com_razao_de_silencio": 47,
+      "colunas_com_veredito": 223,
+      "colunas_em_escopo_do_titular": 223,
       "linhas_mantem": 9,
       "linhas_sai": 11,
-      "tabelas_em_escopo_do_titular": 37,
+      "tabelas_em_escopo_do_titular": 38,
       "tabelas_fora_do_escopo_do_titular": 5,
-      "tabelas_no_inventario": 42
+      "tabelas_no_inventario": 43
     }
   },
   "passos_motor": [

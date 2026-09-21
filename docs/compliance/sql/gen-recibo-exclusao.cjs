@@ -498,9 +498,29 @@ const ITENS_MANTEM = [
       'Ficou guardado, com a data, sem ligação com você. É a prova de que nenhuma decisão foi tomada por um sistema sozinho.',
     aplicavel_quando: 'tem_decisao_registrada',
     base_legal: 'LGPD, Art. 20',
+    // Phase 48 (48-17): a reabertura (D-01) e o seu prazo (D-10) são parte do
+    // registro da decisão humana e sobrevivem com ela (ERASE-08) — no corrente e
+    // no ciclo arquivado. Só as ORIGENS crescem; o texto ao titular não muda.
     origens: flat(
-      q('decisao_final', ['decisao', 'em', 'explicacao_solicitada_em', 'revisao_solicitada_em']),
-      q('decisao_final_historico', ['decisao', 'decidido_em', 'arquivado_em']),
+      q('decisao_final', [
+        'decisao',
+        'em',
+        'explicacao_solicitada_em',
+        'revisao_solicitada_em',
+        'reaberta_em',
+        'prazo_nova_decisao_em',
+      ]),
+      q('decisao_final_historico', [
+        'decisao',
+        'decidido_em',
+        'arquivado_em',
+        'explicacao_solicitada_em',
+        'revisao_solicitada_em',
+        'revisao_veredito',
+        'revisao_respondida_em',
+        'reaberta_em',
+        'prazo_nova_decisao_em',
+      ]),
       q('candidate_ai_decisions', ['human_decision', 'human_overrode_ai']),
     ),
   },
@@ -515,6 +535,9 @@ const ITENS_MANTEM = [
       q('candidatos', ['bloqueado_motivo']),
       q('candidaturas', ['observacoes_rh', 'feedback_rejeicao', 'etapa_justificativa']),
       q('decisao_final', ['revisao_resultado']),
+      // Phase 48 (48-17): a mesma resposta à revisão, na versão arquivada pelo
+      // snapshot (48-11) — mesma linha e mesmo destino da homônima corrente.
+      q('decisao_final_historico', ['revisao_resultado']),
       q('entrevistas_online', ['notas_durante', 'notas_preparacao', 'observacoes_gerais']),
       q('entrevistas_presenciais', ['primeira_impressao', 'notas_durante', 'notas_preparacao', 'observacoes_gerais']),
       q('entrevista_analises', ['notas_humanas']),
@@ -598,6 +621,12 @@ const FORA_DO_RECIBO = Object.assign(
   mapa(q('decisao_final', ['candidatura_id']), 'chave_tecnica'),
   mapa(q('decisao_final_historico', ['por_usuario']), 'dado_de_funcionario'),
   mapa(q('decisao_final_historico', ['candidatura_id']), 'chave_tecnica'),
+  // Phase 48 (48-17): colunas de CONTROLE DE ENVIO criadas pela fase. Não são
+  // fato sobre a pessoa e o motor não as toca — nada a prometer nem a manter.
+  mapa(q('decisao_final', ['alerta_prazo_enviado_em']), 'estado_do_processo'),
+  mapa(q('decisao_final_historico', ['alerta_prazo_enviado_em']), 'estado_do_processo'),
+  mapa(q('decisao_final_historico', ['revisao_por_usuario']), 'dado_de_funcionario'),
+  mapa(q('solicitacoes_dados', ['aviso_pedido_enviado_em', 'aviso_cancelamento_enviado_em']), 'estado_do_processo'),
   // `ator` é quem MOVEU a etapa — o trigger `avancar_etapa()` só dispara em
   // UPDATE de `etapa_atual`, que é ação de RH (invariante do M2/Phase 6).
   mapa(q('historico_candidatura', ['ator']), 'dado_de_funcionario'),

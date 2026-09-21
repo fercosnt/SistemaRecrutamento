@@ -69,16 +69,16 @@ export const EXPORT_ALLOWLIST = {
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-09-21T17:35:57.713Z",
+    "gerado_em": "2026-09-21T17:38:39.181Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 733,
-      "colunas_com_veredito_em_escopo": 401,
-      "colunas_excluidas_em_escopo": 34,
-      "colunas_exportadas": 367,
+      "colunas_colhidas": 747,
+      "colunas_com_veredito_em_escopo": 415,
+      "colunas_excluidas_em_escopo": 39,
+      "colunas_exportadas": 376,
       "colunas_fora_do_arquivo_legivel": 4,
       "tabelas_catalogadas": 69,
       "tabelas_com_colunas_colhidas": 51,
@@ -509,12 +509,15 @@ export const EXPORT_ALLOWLIST = {
         "em",
         "explicacao_solicitada_em",
         "id",
+        "prazo_nova_decisao_em",
+        "reaberta_em",
         "revisao_respondida_em",
         "revisao_resultado",
         "revisao_solicitada_em",
         "revisao_veredito"
       ],
       "colunas_excluidas": {
+        "alerta_prazo_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — carimbo de ENTREGA do alerta de prazo vencido AO FUNCIONÁRIO (varredura `varrer_prazos_reabertura`, evento `prazo_reabertura_vencido`, 48-13). Descreve como o sistema avisou o RH, não a pessoa — o mesmo critério de `recruiter_alerts.channel`. O fato que importa ao titular (o prazo) sai por `prazo_nova_decisao_em`.",
         "justificativa": "decisoes_por_coluna: DECISÃO DO OPERADOR EM ABERTO (BD-9) + correção de segurança viva — NÃO é decisão\nda engenharia, e por isso a engenharia escolhe o lado que não vaza.\n\nO `explicacaoService.ts` projeta para o candidato exatamente\n`decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em,\nrevisao_veredito, revisao_respondida_em` — e `justificativa` está FORA por uma\ncorreção que embarcou: a Phase-24 CR-01 removeu-a da projeção porque a RLS é\nrow-level e não esconde coluna, e o texto interno cru do RH estava atravessando a\nrede até o navegador do candidato. O docblock do serviço diz, verbatim, que essa\nexclusão \"must not\" ser desfeita.\n\nPô-la na allowlist do export reabriria o MESMO vazamento por uma porta nova,\nsem que ninguém assinasse. E o `pii-inventory.yaml` marca a coluna como\n\"⚠ BD-9 EM ABERTO — … simultaneamente prova de não-discriminação (Art. 7º, VI) e\nvetor de PII de terceiro. Decisão do operador, não da engenharia\".\n\n⚠ ESTA LINHA É REVERSÍVEL COM UMA PALAVRA. Se o operador decidir que o Art. 18, II\nprevalece sobre o CR-01, troque `false` por `true`, regere e o par volta. O que\nnão pode acontecer é a coluna entrar por omissão — que é exatamente o que\naconteceria sem este veredito.\n",
         "por_usuario": "pii_de_terceiro (R2)",
         "revisao_por_usuario": "pii_de_terceiro (R2)"
@@ -527,6 +530,8 @@ export const EXPORT_ALLOWLIST = {
         "em": "inventario:preservar",
         "explicacao_solicitada_em": "inventario:preservar",
         "id": "R1",
+        "prazo_nova_decisao_em": "decisoes_por_coluna",
+        "reaberta_em": "decisoes_por_coluna",
         "revisao_respondida_em": "R1",
         "revisao_resultado": "inventario:preservar_com_ressalva",
         "revisao_solicitada_em": "inventario:preservar",
@@ -541,11 +546,20 @@ export const EXPORT_ALLOWLIST = {
         "candidatura_id",
         "decidido_em",
         "decisao",
-        "id"
+        "explicacao_solicitada_em",
+        "id",
+        "prazo_nova_decisao_em",
+        "reaberta_em",
+        "revisao_respondida_em",
+        "revisao_resultado",
+        "revisao_solicitada_em",
+        "revisao_veredito"
       ],
       "colunas_excluidas": {
+        "alerta_prazo_enviado_em": "decisoes_por_coluna: Herda `decisao_final.alerta_prazo_enviado_em` (excluída neste mesmo bloco): telemetria de entrega de alerta ao funcionário, também na versão arquivada.",
         "justificativa": "decisoes_por_coluna: Mesma coluna, versões arquivadas da mesma decisão. Um veredito que valesse só para a linha corrente deixaria o histórico entregando o que a corrente esconde. Reverte junto com `decisao_final.justificativa` se o operador decidir por `true`.",
-        "por_usuario": "pii_de_terceiro (R2)"
+        "por_usuario": "pii_de_terceiro (R2)",
+        "revisao_por_usuario": "decisoes_por_coluna: Herda `decisao_final.revisao_por_usuario` (excluída como `pii_de_terceiro (R2)` — `ponteiros.de_terceiro`). UUID do funcionário que respondeu à revisão; a cópia do candidato não carrega ponteiro para funcionário."
       },
       "fora_do_arquivo_legivel": [],
       "ligacao": "via:candidaturas",
@@ -554,7 +568,14 @@ export const EXPORT_ALLOWLIST = {
         "candidatura_id": "inventario:preservar",
         "decidido_em": "inventario:preservar",
         "decisao": "inventario:preservar",
-        "id": "R1"
+        "explicacao_solicitada_em": "decisoes_por_coluna",
+        "id": "R1",
+        "prazo_nova_decisao_em": "decisoes_por_coluna",
+        "reaberta_em": "decisoes_por_coluna",
+        "revisao_respondida_em": "decisoes_por_coluna",
+        "revisao_resultado": "decisoes_por_coluna",
+        "revisao_solicitada_em": "decisoes_por_coluna",
+        "revisao_veredito": "decisoes_por_coluna"
       },
       "razao": "Decisões anteriores arquivadas da mesma candidatura."
     },
@@ -1199,7 +1220,10 @@ export const EXPORT_ALLOWLIST = {
         "solicitado_em",
         "tipo"
       ],
-      "colunas_excluidas": {},
+      "colunas_excluidas": {
+        "aviso_cancelamento_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — idem `aviso_pedido_enviado_em`, para o aviso de cancelamento. Controle de entrega de e-mail, não estado do pedido.",
+        "aviso_pedido_enviado_em": "decisoes_por_coluna: (i) telemetria_interna — carimbo de CONTROLE do envio do aviso de pedido de\nexclusão (idempotência do e-mail, migration 20260921000005). Não é fato\nsobre a pessoa: o fato — que ela pediu, quando, e em que estado o pedido\nestá — já sai por `tipo`, `solicitado_em` e `situacao`. É a mesma natureza\nde `recibo_enviado_em`, cujo veredito segue PENDENTE e fora desta fase (é\ndrift do P45, junto com as outras seis colunas de estado do motor).\n"
+      },
       "fora_do_arquivo_legivel": [],
       "ligacao": "direta",
       "proveniencia": {

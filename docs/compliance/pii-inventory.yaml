@@ -162,6 +162,9 @@ tabelas:
       revisao_solicitada_em:    { classificacao: preservar, tipo: timestamptz, nota: "Art. 20 — prova de exercício de direito" }
       revisao_resultado:        { classificacao: preservar_com_ressalva, tipo: text, nota: "Passa a ser a justificativa da revisão na Phase 42" }
       candidatura_id:           { classificacao: preservar, tipo: uuid }
+      reaberta_em:              { classificacao: preservar, tipo: timestamptz, nota: "Phase 48 (JORN-19, D-01) — quando a revisão reverteu e a candidatura foi reaberta. Parte do registro da decisão" }
+      prazo_nova_decisao_em:    { classificacao: preservar, tipo: timestamptz, nota: "Phase 48 (D-10) — fim do 10º dia corrido em SP; a data foi dita ao titular por e-mail" }
+      alerta_prazo_enviado_em:  { classificacao: preservar, tipo: timestamptz, nota: "Phase 48 — controle de envio do alerta de prazo vencido ao RH. Sem PII; estado do processo" }
 
   decisao_final_historico:
     natureza: "⚠ ESPINHA DE AUDITORIA append-only. FK NO ACTION (ERASE-08)."
@@ -172,6 +175,17 @@ tabelas:
       decidido_em:    { classificacao: preservar, tipo: timestamptz }
       arquivado_em:   { classificacao: preservar, tipo: timestamptz }
       candidatura_id: { classificacao: preservar, tipo: uuid }
+      # Phase 48 (48-11): o snapshot arquiva o ciclo de revisão/reabertura a partir
+      # de OLD. Cada coluna segue a classificação da homônima de `decisao_final`.
+      explicacao_solicitada_em: { classificacao: preservar, tipo: timestamptz }
+      revisao_solicitada_em:    { classificacao: preservar, tipo: timestamptz, nota: "Art. 20 — prova de exercício de direito (versão arquivada)" }
+      revisao_veredito:         { classificacao: preservar, tipo: text, nota: "Vocabulário fechado mantida|revertida — estado do processo" }
+      revisao_resultado:        { classificacao: preservar_com_ressalva, tipo: text, nota: "Justificativa do REVISOR. ⚠ anonimizar_candidato não a toca, nem aqui nem em decisao_final (deferred do 48-11)" }
+      revisao_por_usuario:      { classificacao: preservar, tipo: uuid, nota: "Funcionário" }
+      revisao_respondida_em:    { classificacao: preservar, tipo: timestamptz }
+      reaberta_em:              { classificacao: preservar, tipo: timestamptz }
+      prazo_nova_decisao_em:    { classificacao: preservar, tipo: timestamptz }
+      alerta_prazo_enviado_em:  { classificacao: preservar, tipo: timestamptz, nota: "Controle de envio de alerta ao RH" }
 
   historico_candidatura:
     natureza: "⚠ ESPINHA DE AUDITORIA. FK NO ACTION (ERASE-08)."
@@ -399,6 +413,17 @@ tabelas:
       descricao:  { classificacao: preservar_com_ressalva, tipo: text }
       metadata:   { classificacao: preservar_com_ressalva, regra: R5 }
       usuario_id: { classificacao: anonimizar, regra: R2 }
+
+  solicitacoes_dados:
+    natureza: |
+      Pedidos de acesso/exclusão do próprio titular (P44/P45). ⚠ ENTRADA PARCIAL,
+      de propósito: classificadas aqui SÓ as 2 colunas criadas pela Phase 48
+      (48-07, migration 20260921000005). A tabela nasceu depois da coleta deste
+      inventário (2026-07-29) e as suas outras 14 colunas vivas seguem sem entrada
+      explícita — é drift pré-existente, registrado e fora da Phase 48 (48-17).
+    colunas:
+      aviso_pedido_enviado_em:       { classificacao: preservar, tipo: timestamptz, nota: "Controle de envio do aviso de pedido à titular. Sem PII; NUNCA confundir com recibo_enviado_em (o recibo pós-exclusão)" }
+      aviso_cancelamento_enviado_em: { classificacao: preservar, tipo: timestamptz, nota: "Idem, aviso de cancelamento" }
 
   # --- PII de FUNCIONÁRIO (não do titular candidato) -------------------------
   usuarios_rh:

@@ -747,6 +747,80 @@ decisoes_por_coluna:
       caminho de Storage. Não há telemetria a vazar aqui — o que existiria de
       telemetria foi barrado no DDL, uma fase antes desta decisão.
 
+  # =========================================================================
+  # PHASE 48 (48-17) — as colunas que a fase criou, TODAS com veredito escrito
+  # =========================================================================
+  # Fecho obrigatório do EXPORT-06: coluna nova de tabela em escopo nunca fica
+  # sem decisão. E aqui o risco era o OPOSTO do silêncio de sempre: todas as
+  # colunas `*_em` abaixo sairiam SOZINHAS por R1, inclusive as de telemetria de
+  # envio. Sem estes vereditos, `alerta_prazo_enviado_em` e os `aviso_*` entrariam
+  # na cópia com proveniência "R1" sem ninguém ter decidido.
+  #
+  # Critério (o do cabeçalho): se o RH enxerga sobre a pessoa — ou se é o estado
+  # do próprio caso dela —, entra. Controle de ENVIO não é fato sobre a pessoa.
+  # A marca do D-02 (`analise_candidato_vaga.descartada_*`) está junto das
+  # vizinhas da tabela, no bloco de `analise_candidato_vaga` acima.
+
+  # --- solicitacoes_dados · aviso à titular no pedido/cancelamento (48-07) ---
+  solicitacoes_dados.aviso_pedido_enviado_em:
+    export: false
+    razao: |
+      (i) telemetria_interna — carimbo de CONTROLE do envio do aviso de pedido de
+      exclusão (idempotência do e-mail, migration 20260921000005). Não é fato
+      sobre a pessoa: o fato — que ela pediu, quando, e em que estado o pedido
+      está — já sai por `tipo`, `solicitado_em` e `situacao`. É a mesma natureza
+      de `recibo_enviado_em`, cujo veredito segue PENDENTE e fora desta fase (é
+      drift do P45, junto com as outras seis colunas de estado do motor).
+  solicitacoes_dados.aviso_cancelamento_enviado_em:
+    export: false
+    razao: "(i) telemetria_interna — idem `aviso_pedido_enviado_em`, para o aviso de cancelamento. Controle de entrega de e-mail, não estado do pedido."
+
+  # --- decisao_final · reabertura após revisão (48-11, D-01/D-10) ----------
+  decisao_final.reaberta_em:
+    export: true
+    razao: "(iii) QUANDO a candidatura foi reaberta porque a revisão do Art. 20 reverteu a decisão (D-01 — reabrir, não reverter). É o estado do PRÓPRIO caso, já visível ao titular na página de explicação e no painel. Mesmo motivo de `revisao_veredito`: omitir da cópia o que a tela já mostra seria incoerente com o produto."
+  decisao_final.prazo_nova_decisao_em:
+    export: true
+    razao: "(iii) Até quando a nova decisão tem de ser registrada (10 dias corridos, D-10). O e-mail da reabertura diz esta data ao titular (48-13); é compromisso da empresa PERANTE A PESSOA, logo é dado do caso dela."
+  decisao_final.alerta_prazo_enviado_em:
+    export: false
+    razao: "(i) telemetria_interna — carimbo de ENTREGA do alerta de prazo vencido AO FUNCIONÁRIO (varredura `varrer_prazos_reabertura`, evento `prazo_reabertura_vencido`, 48-13). Descreve como o sistema avisou o RH, não a pessoa — o mesmo critério de `recruiter_alerts.channel`. O fato que importa ao titular (o prazo) sai por `prazo_nova_decisao_em`."
+
+  # --- decisao_final_historico · o ciclo arquivado (48-11) ------------------
+  # REGRA JÁ ESCRITA NESTE ARQUIVO (`decisao_final_historico.justificativa`):
+  # mesma coluna, versões arquivadas da mesma decisão — o histórico NÃO pode
+  # entregar o que a linha corrente esconde, nem esconder o que ela entrega.
+  # Cada coluna abaixo herda o veredito da HOMÔNIMA de `decisao_final`. Onde a
+  # homônima não tem veredito explícito, o veredito herdado é o que o gerador dá
+  # a ela hoje (proveniência citada), escrito aqui por extenso.
+  decisao_final_historico.explicacao_solicitada_em:
+    export: true
+    razao: "Herda `decisao_final.explicacao_solicitada_em` (exportada; proveniência `inventario:preservar`). Registro de que o titular pediu a explicação do Art. 20 — versão arquivada do mesmo fato."
+  decisao_final_historico.revisao_solicitada_em:
+    export: true
+    razao: "Herda `decisao_final.revisao_solicitada_em` (exportada; `inventario:preservar`). Prova do exercício de direito pelo titular, na versão arquivada."
+  decisao_final_historico.revisao_veredito:
+    export: true
+    razao: "Herda `decisao_final.revisao_veredito` (exportada por `decisoes_por_coluna`). 'mantida'/'revertida' do ciclo arquivado — é o que mostra ao titular que a decisão anterior foi revertida."
+  decisao_final_historico.revisao_resultado:
+    export: true
+    razao: "Herda `decisao_final.revisao_resultado` (exportada; `inventario:preservar_com_ressalva`). A resposta à revisão do titular, na versão arquivada. Se a corrente a entrega, o arquivo não pode sonegá-la. ⚠ Se o operador um dia excluir a da corrente, esta reverte junto."
+  decisao_final_historico.revisao_por_usuario:
+    export: false
+    razao: "Herda `decisao_final.revisao_por_usuario` (excluída como `pii_de_terceiro (R2)` — `ponteiros.de_terceiro`). UUID do funcionário que respondeu à revisão; a cópia do candidato não carrega ponteiro para funcionário."
+  decisao_final_historico.revisao_respondida_em:
+    export: true
+    razao: "Herda `decisao_final.revisao_respondida_em` (exportada; R1). Quando a revisão do titular foi respondida, no ciclo arquivado."
+  decisao_final_historico.reaberta_em:
+    export: true
+    razao: "Herda `decisao_final.reaberta_em` (exportada neste mesmo bloco). Depois da nova decisão, a linha corrente ZERA o ciclo e a reabertura só sobrevive aqui — sonegar o arquivo apagaria da cópia o fato de que o caso foi reaberto."
+  decisao_final_historico.prazo_nova_decisao_em:
+    export: true
+    razao: "Herda `decisao_final.prazo_nova_decisao_em` (exportada neste mesmo bloco). O prazo que foi prometido ao titular no ciclo arquivado."
+  decisao_final_historico.alerta_prazo_enviado_em:
+    export: false
+    razao: "Herda `decisao_final.alerta_prazo_enviado_em` (excluída neste mesmo bloco): telemetria de entrega de alerta ao funcionário, também na versão arquivada."
+
 # ---------------------------------------------------------------------------
 # 6b · PONTEIROS DE INFRAESTRUTURA — o que sai do ARQUIVO LEGÍVEL
 # ---------------------------------------------------------------------------

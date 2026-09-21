@@ -18,9 +18,23 @@
         "query": "SELECT c.table_name, c.column_name, c.data_type, c.is_nullable, c.ordinal_position FROM information_schema.columns c JOIN information_schema.tables t ON t.table_schema=c.table_schema AND t.table_name=c.table_name AND t.table_type='BASE TABLE' WHERE c.table_schema='public' AND c.table_name IN ('analise_candidato_vaga','solicitacoes_dados','decisao_final','decisao_final_historico') ORDER BY 1,5",
         "colunas": [
           "analise_candidato_vaga.descartada_em",
-          "analise_candidato_vaga.descartada_motivo"
+          "analise_candidato_vaga.descartada_motivo",
+          "solicitacoes_dados.aviso_pedido_enviado_em",
+          "solicitacoes_dados.aviso_cancelamento_enviado_em",
+          "decisao_final.reaberta_em",
+          "decisao_final.prazo_nova_decisao_em",
+          "decisao_final.alerta_prazo_enviado_em",
+          "decisao_final_historico.explicacao_solicitada_em",
+          "decisao_final_historico.revisao_solicitada_em",
+          "decisao_final_historico.revisao_veredito",
+          "decisao_final_historico.revisao_resultado",
+          "decisao_final_historico.revisao_por_usuario",
+          "decisao_final_historico.revisao_respondida_em",
+          "decisao_final_historico.reaberta_em",
+          "decisao_final_historico.prazo_nova_decisao_em",
+          "decisao_final_historico.alerta_prazo_enviado_em"
         ],
-        "nota": "ACRÉSCIMO, não re-medição. Entram SÓ as colunas criadas pela Phase 48 (migration 20260921000004, D-02), com tipo/nulidade/ordem lidos da consulta acima. `medido_em` e `totais` do topo continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. Drift pré-existente NÃO incluído, de propósito (não é desta fase): `candidatos.faixa_etaria_materializada` e `candidaturas.encerrada_a_pedido_em` (acusadas pelo 05-export-allowlist-drift.sql segundo o 48-RESEARCH §F) e 7 colunas de `solicitacoes_dados` MEDIDAS nesta consulta (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`). Na mesma consulta, as colunas já catalogadas das quatro tabelas bateram em tipo, nulidade e ordem."
+        "nota": "ACRÉSCIMO, não re-medição. Entram SÓ as colunas criadas pela Phase 48 (migrations 20260921000004 — D-02, 20260921000005 — aviso ao titular, e 20260921000011 — reabertura), com tipo/nulidade/ordem lidos da consulta acima. `medido_em` e `totais` do topo continuam sendo os da medição de 2026-08-04 e NÃO descrevem o schema de hoje. Drift pré-existente NÃO incluído, de propósito (não é desta fase): `candidatos.faixa_etaria_materializada` e `candidaturas.encerrada_a_pedido_em` (acusadas pelo 05-export-allowlist-drift.sql segundo o 48-RESEARCH §F) e 7 colunas de `solicitacoes_dados` MEDIDAS nesta consulta (`executar_em`, `cancelado_em`, `plano`, `storage_concluido_em`, `postgres_concluido_em`, `auth_concluido_em`, `recibo_enviado_em`). Na mesma consulta, as colunas já catalogadas das quatro tabelas bateram em tipo, nulidade e ordem."
       }
     ]
   },
@@ -1966,6 +1980,27 @@
       "ordem": 12
     },
     {
+      "tabela": "decisao_final",
+      "coluna": "reaberta_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "prazo_nova_decisao_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "decisao_final",
+      "coluna": "alerta_prazo_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
       "tabela": "decisao_final_historico",
       "coluna": "id",
       "tipo": "uuid",
@@ -2013,6 +2048,69 @@
       "tipo": "timestamp with time zone",
       "nullable": false,
       "ordem": 7
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "explicacao_solicitada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 8
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "revisao_solicitada_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 9
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "revisao_veredito",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 10
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "revisao_resultado",
+      "tipo": "text",
+      "nullable": true,
+      "ordem": 11
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "revisao_por_usuario",
+      "tipo": "uuid",
+      "nullable": true,
+      "ordem": 12
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "revisao_respondida_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 13
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "reaberta_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 14
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "prazo_nova_decisao_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "decisao_final_historico",
+      "coluna": "alerta_prazo_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 16
     },
     {
       "tabela": "devolutivas_candidato",
@@ -4442,6 +4540,20 @@
       "tipo": "timestamp with time zone",
       "nullable": true,
       "ordem": 7
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "aviso_pedido_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 15
+    },
+    {
+      "tabela": "solicitacoes_dados",
+      "coluna": "aviso_cancelamento_enviado_em",
+      "tipo": "timestamp with time zone",
+      "nullable": true,
+      "ordem": 16
     },
     {
       "tabela": "templates_email",

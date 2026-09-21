@@ -74,10 +74,10 @@
 -- ------------------------------------------------------------------------------
 -- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 367 pares
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 34  pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 376 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 39  pares
 --
--- Soma: **401 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- Soma: **415 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
 -- (69 tabelas base / 1025 colunas / 105 FKs em `public`).
 --
@@ -89,6 +89,19 @@
 -- 4 por regra (`id`, `candidato_id`, `solicitado_em`, `atendido_em`) e 3 por
 -- decisão explícita (`tipo`, `situacao`, `causa`, que são `text` no DDL e por isso
 -- escaparam da R3). O conjunto de excluídas NÃO se moveu: segue 34.
+--
+-- ⚠ E MUDARAM DE NOVO NA PHASE 48 (48-17, 2026-09-21), pelo mesmo caso de uso:
+-- 365 + 34 = 399 → 376 + 39 = 415. A fase criou 16 colunas em 4 tabelas em
+-- escopo, MEDIDAS em PROD e acrescentadas ao catálogo (`meta.acrescimos` do
+-- `catalogo-vivo-44.json` — o `medido_em` do topo continua o de 2026-08-04):
+-- 11 entram na cópia (`analise_candidato_vaga.descartada_em/_motivo`,
+-- `decisao_final.reaberta_em/prazo_nova_decisao_em` e 7 do ciclo arquivado em
+-- `decisao_final_historico`) e 5 ficam fora com razão (`aviso_*_enviado_em`,
+-- `alerta_prazo_enviado_em` ×2, `decisao_final_historico.revisao_por_usuario`).
+-- Rodada contra PROD depois disso, esta consulta NÃO deve listar nenhuma das 16;
+-- o drift pré-existente (as 9 de 2026-09-21: `candidatos.faixa_etaria_materializada`,
+-- `candidaturas.encerrada_a_pedido_em` e 7 de `solicitacoes_dados`) continua
+-- aparecendo, e continua sendo contato não consertado — não é da Phase 48.
 --
 -- A outra tabela nova do 44-04, `config_sla_dados`, é configuração e foi absorvida
 -- pela regra FE1 (`config_*`) sem intervenção nenhuma — por isso as colunas com
@@ -275,6 +288,8 @@ WITH allowlist(tabela, coluna) AS (
     ('decisao_final','em'),
     ('decisao_final','explicacao_solicitada_em'),
     ('decisao_final','id'),
+    ('decisao_final','prazo_nova_decisao_em'),
+    ('decisao_final','reaberta_em'),
     ('decisao_final','revisao_respondida_em'),
     ('decisao_final','revisao_resultado'),
     ('decisao_final','revisao_solicitada_em'),
@@ -283,7 +298,14 @@ WITH allowlist(tabela, coluna) AS (
     ('decisao_final_historico','candidatura_id'),
     ('decisao_final_historico','decidido_em'),
     ('decisao_final_historico','decisao'),
+    ('decisao_final_historico','explicacao_solicitada_em'),
     ('decisao_final_historico','id'),
+    ('decisao_final_historico','prazo_nova_decisao_em'),
+    ('decisao_final_historico','reaberta_em'),
+    ('decisao_final_historico','revisao_respondida_em'),
+    ('decisao_final_historico','revisao_resultado'),
+    ('decisao_final_historico','revisao_solicitada_em'),
+    ('decisao_final_historico','revisao_veredito'),
     ('devolutivas_candidato','candidato_id'),
     ('devolutivas_candidato','candidatura_id'),
     ('devolutivas_candidato','conteudo_jsonb'),
@@ -506,11 +528,14 @@ excluidas(tabela, coluna) AS (
     ('candidatos','updated_by'),
     ('candidaturas','created_by'),
     ('candidaturas','updated_by'),
+    ('decisao_final','alerta_prazo_enviado_em'),
     ('decisao_final','justificativa'),
     ('decisao_final','por_usuario'),
     ('decisao_final','revisao_por_usuario'),
+    ('decisao_final_historico','alerta_prazo_enviado_em'),
     ('decisao_final_historico','justificativa'),
     ('decisao_final_historico','por_usuario'),
+    ('decisao_final_historico','revisao_por_usuario'),
     ('devolutivas_candidato','modelo_ia'),
     ('devolutivas_candidato','prompt_version'),
     ('entrevista_analises','prompt_version'),
@@ -527,7 +552,9 @@ excluidas(tabela, coluna) AS (
     ('redacoes_candidato','model_version'),
     ('redacoes_candidato','prompt_version'),
     ('redacoes_candidato','referencia_match'),
-    ('redacoes_candidato','revisada_por')
+    ('redacoes_candidato','revisada_por'),
+    ('solicitacoes_dados','aviso_cancelamento_enviado_em'),
+    ('solicitacoes_dados','aviso_pedido_enviado_em')
 ),
 com_veredito(tabela, coluna, destino) AS (
   SELECT a.tabela, a.coluna, 'allowlist'::text FROM allowlist a
