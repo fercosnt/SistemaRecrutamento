@@ -1029,3 +1029,21 @@ Deno.test("48-08 T2 — candidatura_encerrada_a_pedido NÃO muda: ciclo presente
     montarDedupeKeyRhEncerramento("cand-1", ADMIN_1.user_id),
   );
 });
+
+Deno.test("48-08 T3 — ciclo NULL vale como AUSENTE: chave legada, nudge sai (nunca 400 sobre net.http_post)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_FIX,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1],
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: "revisao_solicitada", candidatura_id: "cand-1", ciclo: null }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(res.status, 200);
+  assertEquals(supa.upserts[0].row.dedupe_key, `cand-1:revisao_solicitada:${ADMIN_1.user_id}`);
+});

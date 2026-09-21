@@ -974,3 +974,27 @@ Deno.test("48-08 T2 — o ciclo NÃO versiona outros eventos (decisao segue pelo
   );
   assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_H}:decisao`);
 });
+
+Deno.test("48-08 T3 — ciclo/historico_id NULL valem como AUSENTES (chave legada, e-mail sai) — jsonb_build_object manda null, não omite", async () => {
+  // O trigger monta o corpo com jsonb_build_object: um revisao_solicitada_em nulo vira
+  // `"ciclo": null`, não a ausência da chave. Recusar com 400 perderia o e-mail em silêncio
+  // (net.http_post é at-most-once). Nulo = sem discriminador = comportamento legado.
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+    decisaoFinalRow: { revisao_veredito: "mantida" },
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_null" });
+  const res = await handler(
+    makeRequest(
+      { evento: "revisao_respondida", candidatura_id: "cand-rev", ciclo: null, historico_id: null },
+      RETRY_BEARER,
+    ),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals(supa.upserts[0].row.dedupe_key, "cand-rev:revisao_respondida");
+  assertEquals(fetchMock.calls.length, 1);
+});
