@@ -111,3 +111,22 @@ CONTAS: todas de teste
 `bf26ee3c…` é a candidatura `+claude4` rejeitada na triagem (a mesma do retroativo (B) do 48-12);
 `2ce20fbf…` é a submissão de prova desta task (`+claude1`). Nenhum candidato real no backlog.
 A geração é da Task 4, pelo operador, no painel — e só depois do deploy do conserto.
+
+## Deploy do conserto
+
+**Quando:** 2026-09-21, 22:35:55Z (`gerar-devolutiva-bigfive`) e 22:35:56Z (`submit-bigfive-final`).
+**Quem:** o operador, no próprio Terminal, com `node efdeploy.cjs <slug>` — o Keychain continuou
+inacessível ao processo do Claude (`errSecInteractionNotAllowed`, exit 36, dentro e fora do sandbox),
+então o token não passou por processo nenhum do Claude. A transcrição pelo MCP foi recusada de
+propósito (é a via que o `efdeploy.cjs` existe para evitar).
+
+Conferido depois pelo orquestrador, só leitura (MCP `list_edge_functions` + `get_edge_function`):
+
+| EF | Antes | Depois | `verify_jwt` | Conferência do bundle vivo |
+|---|---|---|---|---|
+| `gerar-devolutiva-bigfive` | v23 | **v24** | `false` (inalterado) | 9 de 9 arquivos **byte a byte iguais** ao disco; `diag-auth`: 0 ocorrências; `classificarFormatoCredencial`: 0; guarda SEC-04 presente |
+| `submit-bigfive-final` | v12 | **v13** | `true` (inalterado) | `serviceKey` nas deps, `serviceKey: SERVICE_KEY` no wiring do `Deno.serve`, e `headers: { Authorization: "Bearer " + serviceKey }` no `functions.invoke` |
+
+O log de diagnóstico, que registrava formato e comprimento da credencial em toda requisição, saiu
+do ar com a v24. A prova de que o conserto funciona continua sendo a submissão NOVA pelo navegador
+no 48-18 (sessão 1, passo f).
