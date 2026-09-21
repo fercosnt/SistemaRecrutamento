@@ -14,11 +14,14 @@
  */
 import { assert, assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  APP_BASE_URL_PADRAO,
   DOMINIO_ENVIO,
   FROM,
   REPLY_TO,
   exigirChaveApi,
   exigirSinkTeste,
+  montarUrlLogin,
+  normalizarBaseApp,
   resolverDestinatario,
   resolverDestinatarioComLabel,
   resolverModo,
@@ -193,4 +196,48 @@ Deno.test("REVISAO-01 — resolverDestinatarioComLabel sanitiza o rótulo para [
   const label = local.slice("delivered+".length);
   assertEquals(label, "comlixo"); // maiúsculas, dígitos, espaço, '-' e '!' removidos
   assert(!/[0-9\s!.\-]/.test(local), `local-part com caractere inválido: ${local}`);
+});
+
+// ── Phase 48 / 48-07 · JORN-U2 — o link para o login do candidato ─────────────
+// O login consome `?redirect=` com `resolveRedirect` (front); `montarUrlLogin` é o
+// PRIMEIRO cinto: env malformada cai no default, e `redirect` só entra se for caminho
+// interno. Um link com esquema `javascript:` ou protocol-relative num e-mail é
+// superfície de ataque, não link.
+
+// (13) sem argumentos ⇒ login puro na base canônica
+Deno.test("JORN-U2 — montarUrlLogin() ⇒ https://rh.beautysmile.com.br/auth/login", () => {
+  assertEquals(APP_BASE_URL_PADRAO, "https://rh.beautysmile.com.br");
+  assertEquals(montarUrlLogin(), "https://rh.beautysmile.com.br/auth/login");
+});
+
+// (14) redirect interno ⇒ codificado com encodeURIComponent
+Deno.test("JORN-U2 — montarUrlLogin(undefined, '/candidato/privacidade') ⇒ redirect codificado", () => {
+  assertEquals(
+    montarUrlLogin(undefined, "/candidato/privacidade"),
+    "https://rh.beautysmile.com.br/auth/login?redirect=%2Fcandidato%2Fprivacidade",
+  );
+});
+
+// (15) base malformada ⇒ default, nunca lança
+Deno.test("JORN-U2 — base malformada ('lixo', '', '   ') ⇒ default, sem lançar", () => {
+  for (const base of ["lixo", "", "   ", "javascript:alert(1)"]) {
+    assertEquals(montarUrlLogin(base), "https://rh.beautysmile.com.br/auth/login", `base ${base}`);
+    assertEquals(normalizarBaseApp(base), APP_BASE_URL_PADRAO, `base ${base}`);
+  }
+});
+
+// (16) só https vira origem; caminho e barra final da env são descartados
+Deno.test("JORN-U2 — 'http://x.com' ⇒ default (só https); https vira ORIGEM", () => {
+  assertEquals(montarUrlLogin("http://x.com"), "https://rh.beautysmile.com.br/auth/login");
+  assertEquals(normalizarBaseApp("https://app.exemplo.com/sub/pasta/"), "https://app.exemplo.com");
+  assertEquals(montarUrlLogin("https://app.exemplo.com/"), "https://app.exemplo.com/auth/login");
+});
+
+// (17) redirect externo ou protocol-relative ⇒ descartado
+Deno.test("JORN-U2 — redirect '//evil.com', '/\\evil.com', 'https://evil.com', 'rel' ⇒ sem redirect", () => {
+  for (const r of ["//evil.com", "/\\evil.com", "https://evil.com", "candidato/privacidade", "/\t/evil.com", "/a b"]) {
+    const url = montarUrlLogin(undefined, r);
+    assertEquals(url, "https://rh.beautysmile.com.br/auth/login", `redirect ${JSON.stringify(r)}`);
+    assert(!url.includes("redirect="), `redirect ${JSON.stringify(r)} vazou para o link`);
+  }
 });

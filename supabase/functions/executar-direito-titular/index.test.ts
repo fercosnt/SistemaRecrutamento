@@ -3064,3 +3064,105 @@ Deno.test("(p48-i) appBaseUrl https válida vira a origem do link; malformada ca
     assert(html.includes(esperado), `base ${base}: esperado ${esperado}`);
   }
 });
+
+// ── Task 2 · o aviso do CANCELAMENTO ─────────────────────────────────────────
+// Mesmo contrato do aviso de pedido, com carimbo PRÓPRIO: um cancelamento feito por
+// quem invadiu a conta também tem de chegar à dona dos dados.
+
+// ── (p48-j) cancelar → UM e-mail à titular, carimbo próprio, resposta intacta ─
+Deno.test("(p48-j) cancelar: 1 POST à TITULAR, aviso_cancelamento_enviado_em carimbado, resposta idêntica", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  const res = await handler(makeRequest({ acao: "cancelar" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), { ok: true, acao: "cancelar", cancelado_em: CANCELADO_EM });
+  assertEquals(admin.fetchCalls.length, 1, "exatamente um e-mail");
+  const { url, init } = admin.fetchCalls[0];
+  assertEquals(url, "https://api.resend.com/emails");
+  const headers = (init.headers ?? {}) as Record<string, string>;
+  assert(headers["Idempotency-Key"], "falta o cinto de idempotência no Resend");
+  const corpo = JSON.parse(String(init.body));
+  assertEquals(corpo.to, EMAIL_TITULAR);
+  assertEquals(corpo.subject, "Seu pedido de exclusão de dados foi cancelado");
+  assert(admin.linha.aviso_cancelamento_enviado_em, "o carimbo próprio do cancelamento não foi gravado");
+  assertEquals(admin.linha.aviso_pedido_enviado_em, undefined, "cancelar não carimba o aviso do PEDIDO");
+  assertEquals(patchesComRecibo(admin).length, 0, "cancelar escreveu recibo_enviado_em");
+  assertEquals(admin.linha.recibo_enviado_em, null);
+  assertEquals(admin.ledgerTocado, false, "o aviso tocou notificacoes_enviadas");
+  // O pedido é o do SERVIDOR, e a RPC de domínio segue saindo do client do titular.
+  assertEquals(
+    admin.rpcNoTitular.map((c) => c.nome),
+    ["cancelar_pedido_exclusao"],
+  );
+});
+
+// ── (p48-k) idempotência por ESTADO ──────────────────────────────────────────
+Deno.test("(p48-k) cancelar com aviso_cancelamento_enviado_em já preenchido → 0 POST", async () => {
+  const { handler } = await loadHandler();
+  const JA = "2026-09-21T11:00:00.000Z";
+  const { admin, deps } = depsExecutar({
+    pedido: { executar_em: EXECUTAR_EM_AVISO, aviso_cancelamento_enviado_em: JA },
+  });
+  const res = await handler(makeRequest({ acao: "cancelar" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(admin.fetchCalls.length, 0);
+  assertEquals(admin.linha.aviso_cancelamento_enviado_em, JA);
+  assertEquals(admin.updates.length, 0);
+});
+
+// ── (p48-l) falha de envio: resposta idêntica, coluna nula, causa por código ─
+Deno.test("(p48-l) cancelar com falha de envio → 200 idêntico, coluna NULA, log aviso_<causa>", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const [variante, classe] of [
+      [{ respostaResend: { ok: false, status: 500, corpo: {} } }, "aviso_resend_nao_2xx"],
+      [{ fetchLanca: true }, "aviso_fetch"],
+      [{ cand: { id: CANDIDATO_ID, email: null } }, "aviso_sem_endereco"],
+    ] as Array<[Partial<ExecOpts>, string]>
+  ) {
+    const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO }, ...variante });
+    let res: Response | null = null;
+    const log = await capturarConsole(async () => {
+      res = await handler(makeRequest({ acao: "cancelar" }), deps);
+    });
+    const r = res as unknown as Response;
+    assertEquals(r.status, 200, `${classe}: a falha do aviso não pode virar erro ao titular`);
+    assertEquals(await r.json(), { ok: true, acao: "cancelar", cancelado_em: CANCELADO_EM });
+    assertEquals(admin.linha.aviso_cancelamento_enviado_em, undefined, `${classe}: carimbou sem enviar`);
+    assert(log.includes(classe), `${classe}: a causa não chegou ao log: ${log}`);
+    for (const proibido of [PEDIDO_ID, CANDIDATO_ID, EMAIL_TITULAR, "re_chave_de_teste", "http"]) {
+      assert(!log.includes(proibido), `${classe}: log vazou "${proibido}": ${log}`);
+    }
+  }
+});
+
+// ── (p48-m) o conteúdo do cancelamento ───────────────────────────────────────
+Deno.test("(p48-m) corpo do cancelamento: data, retenção, «Se não foi você», link; sem id, sem canal literal", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  await handler(makeRequest({ acao: "cancelar" }), deps);
+  const html = String(JSON.parse(String(admin.fetchCalls[0].init.body)).html);
+  // CANCELADO_EM = 2026-08-06T09:30Z = 06/08/2026 06:30 em São Paulo.
+  assert(html.includes("06/08/2026"), "a data do cancelamento não está no corpo");
+  assert(
+    html.includes("seus dados continuam guardados conforme a política de retenção"),
+    "falta a consequência do cancelamento",
+  );
+  assert(html.includes("Se não foi você"), "falta a instrução para quem não cancelou");
+  assert(html.includes(URL_LOGIN_PRIVACIDADE), "falta o link do login com retorno à privacidade");
+  assert(!html.includes(PEDIDO_ID), "Invariante 12: o id do pedido vazou no e-mail");
+  assert(!html.includes(CANDIDATO_ID));
+  assert(!html.includes("lgpd@"), "D-07: o canal de privacidade não pode ser citado por literal");
+});
+
+// ── (p48-n) as duas chaves de idempotência não colidem ───────────────────────
+Deno.test("(p48-n) aviso de pedido e de cancelamento do MESMO pedido têm chaves distintas", async () => {
+  const h = await import("./helpers.ts");
+  const a = h.chaveIdempotenciaAviso("pedido", PEDIDO_ID);
+  const b = h.chaveIdempotenciaAviso("cancelamento", PEDIDO_ID);
+  assert(a !== b, "as duas chaves colidem — o Resend engoliria o segundo aviso por 24 h");
+  assert(a !== h.chaveIdempotenciaRecibo(PEDIDO_ID) && b !== h.chaveIdempotenciaRecibo(PEDIDO_ID));
+  for (const label of [h.LABEL_SINK_AVISO_PEDIDO, h.LABEL_SINK_AVISO_CANCELAMENTO]) {
+    assert(/^[a-z_]+$/.test(label), `rótulo de sink fora de [a-z_]: ${label}`);
+  }
+});
