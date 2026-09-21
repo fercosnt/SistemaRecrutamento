@@ -270,7 +270,7 @@ ${veredito ? `<p style="margin:0 0 16px;">${escapeHtml(veredito)}</p>` : ""}
  * Corpo do 6º evento — a liberação da avaliação cognitiva (Phase 48 / Plan 48-10 · D-22).
  *
  * É um AVISO de que há algo a fazer, não uma comunicação sobre a avaliação. Por isso:
- *   · diz «avaliação cognitiva» — linguagem de produto do CLAUDE.md, NUNCA «teste psicológico»;
+ *   · diz «avaliação cognitiva» — linguagem de produto do CLAUDE.md, nunca o termo clínico que ela proíbe;
  *   · NÃO nomeia o instrumento (dado interno do RH), nem nota, critério, prazo ou motivo;
  *   · manda a pessoa ao painel, onde estão as instruções. O BOTÃO de acesso ao painel é
  *     acrescentado a todos os corpos de candidato pelo plano 48-16 — não duplicar aqui.
