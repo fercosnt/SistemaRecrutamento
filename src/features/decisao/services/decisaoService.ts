@@ -157,12 +157,51 @@ export async function registrarDecisao({
   })
 
   if (error) {
+    // Phase 48 / 48-15 (JORN-19 · D-23): a DECISÃO de recusar é do servidor (48-11 —
+    // `registrar_decisao` levanta 42501 para quem teve a decisão revertida na revisão);
+    // aqui só se TRADUZ. O papel não autorizado recebe o MESMO SQLSTATE (`forbidden`),
+    // então é a marca `D-23` na mensagem que separa as duas recusas — nunca o código só.
+    // Num caminho de permissão a mensagem crua do transporte não vai para `message`.
+    const code = (error as { code?: string }).code ?? ''
+    if (code === '42501') {
+      const d23 = (error.message ?? '').includes('D-23')
+      throw new DecisaoServiceError(
+        d23
+          ? DECISAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO
+          : DECISAO_ERRO_COPY.FORBIDDEN,
+        d23 ? 'FORBIDDEN_DECISOR_REVERTIDO' : 'FORBIDDEN',
+        error,
+      )
+    }
     throw new DecisaoServiceError(
       `Não foi possível registrar a decisão: ${error.message}`,
       'DATABASE_ERROR',
       error,
     )
   }
+}
+
+/**
+ * Cópia pt-BR das recusas de `registrar_decisao` (48-15 / D-23) — a MESMA frase no
+ * formulário e no toast. O sistema não decide nada aqui: só diz ao RH o que o servidor
+ * recusou e quem pode seguir.
+ */
+export const DECISAO_ERRO_COPY = {
+  FORBIDDEN_DECISOR_REVERTIDO:
+    'Você registrou a decisão que foi revertida na revisão. A nova decisão deste caso precisa ser registrada por outra pessoa do RH.',
+  FORBIDDEN: 'Você não tem permissão para registrar esta decisão.',
+  GENERICO: 'Não foi possível registrar a decisão. Tente novamente.',
+} as const
+
+/** Texto a mostrar ao RH para um erro de `registrarDecisao` (formulário e toast). */
+export function mensagemErroRegistrarDecisao(erro: unknown): string {
+  if (erro instanceof DecisaoServiceError) {
+    if (erro.code === 'FORBIDDEN_DECISOR_REVERTIDO') {
+      return DECISAO_ERRO_COPY.FORBIDDEN_DECISOR_REVERTIDO
+    }
+    if (erro.code === 'FORBIDDEN') return DECISAO_ERRO_COPY.FORBIDDEN
+  }
+  return DECISAO_ERRO_COPY.GENERICO
 }
 
 /**

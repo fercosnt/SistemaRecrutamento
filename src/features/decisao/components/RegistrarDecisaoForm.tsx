@@ -43,7 +43,11 @@ import {
   JUSTIFICATIVA_MIN,
   type DecisaoFormValues,
 } from '../schemas/decisaoSchema'
-import type { DecisaoAtual } from '../services/decisaoService'
+import {
+  DecisaoServiceError,
+  mensagemErroRegistrarDecisao,
+  type DecisaoAtual,
+} from '../services/decisaoService'
 
 type Decisao = DecisaoFormValues['decisao']
 
@@ -77,7 +81,12 @@ export function RegistrarDecisaoForm({
   onConfirm,
   submitting = false,
   decisaoAtual = null,
+  erro = null,
 }: RegistrarDecisaoFormProps) {
+  // 48-15 / D-23: o servidor recusa quem teve a decisão revertida na revisão; a tela só
+  // explica por que e quem pode registrar — nunca um erro de banco.
+  const decisorRevertido =
+    erro instanceof DecisaoServiceError && erro.code === 'FORBIDDEN_DECISOR_REVERTIDO'
   const [decisao, setDecisao] = useState<Decisao | null>(null)
   const [justificativa, setJustificativa] = useState('')
 
@@ -99,6 +108,24 @@ export function RegistrarDecisaoForm({
         <div className="rounded-lg border border-white/15 bg-white/5 p-4 text-sm text-white/80">
           <span className="font-semibold text-white">Já existe uma decisão registrada.</span>{' '}
           Registrar novamente cria uma nova linha auditável — a decisão anterior não é apagada.
+        </div>
+      ) : null}
+
+      {/* Recusa de registrar_decisao (48-15). D-23 ganha bloco próprio e testid. */}
+      {decisorRevertido ? (
+        <div
+          role="alert"
+          data-testid="decisao-recusa-decisor-revertido"
+          className="rounded-lg border border-amber-400/30 bg-amber-500/15 p-4 text-sm text-amber-200"
+        >
+          {mensagemErroRegistrarDecisao(erro)}
+        </div>
+      ) : erro ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-400/30 bg-red-500/15 p-4 text-sm text-red-300"
+        >
+          {mensagemErroRegistrarDecisao(erro)}
         </div>
       ) : null}
 

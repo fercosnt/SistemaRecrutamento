@@ -214,6 +214,7 @@ export function DecisaoFinalPage() {
                 onConfirm={handleRegistrar}
                 submitting={registrar.isPending}
                 decisaoAtual={decisaoAtual ?? null}
+                erro={registrar.error}
               />
             </Glass>
           </TabsContent>

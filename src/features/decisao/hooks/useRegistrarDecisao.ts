@@ -14,7 +14,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { registrarDecisao } from '../services/decisaoService'
+import { mensagemErroRegistrarDecisao, registrarDecisao } from '../services/decisaoService'
 import { decisaoKeys } from './useConsolidacao'
 import { candidaturasKeys } from '@/features/vagas/hooks/useCandidaturas'
 import { vagasKeys } from '@/features/vagas/hooks/useVagas'
@@ -45,8 +45,10 @@ export function useRegistrarDecisao() {
       queryClient.invalidateQueries({ queryKey: candidaturasKeys.all })
       queryClient.invalidateQueries({ queryKey: vagasKeys.all })
     },
-    onError: () => {
-      toast.error('Não foi possível registrar a decisão. Tente novamente.')
+    onError: (erro) => {
+      // 48-15 / D-23: a recusa do decisor revertido (e a de papel) não é «tente
+      // novamente» — o toast diz a mesma frase que o formulário.
+      toast.error(mensagemErroRegistrarDecisao(erro))
     },
   })
 }
