@@ -39,6 +39,7 @@ import {
   refCurta,
   TEMPLATE_LEDGER_RH_ENCERRAMENTO,
 } from "../helpers.ts";
+import * as helpersRh from "../helpers.ts";
 import { FROM, REPLY_TO } from "../../_shared/email-config.ts";
 
 const TITULO = "Dentista Sênior";
@@ -885,7 +886,7 @@ Deno.test("D-45-08 — o evento IRMÃO continua intacto (não-regressão do REVI
   );
 });
 
-Deno.test("D-45-08 — o vocabulário continua FECHADO em 2 valores: qualquer outro → 400", async () => {
+Deno.test("D-45-08 / 48-13 — o vocabulário continua FECHADO (3 valores desde o 48-13): qualquer outro → 400", async () => {
   const { handler } = await loadHandler();
   // `revisao_respondida` e `divulgacao_vagas` existem no CHECK do ledger mas NÃO
   // pertencem a esta EF — vocabulário do banco maior que o da EF é o precedente
@@ -1046,4 +1047,167 @@ Deno.test("48-08 T3 — ciclo NULL vale como AUSENTE: chave legada, nudge sai (n
   );
   assertEquals(res.status, 200);
   assertEquals(supa.upserts[0].row.dedupe_key, `cand-1:revisao_solicitada:${ADMIN_1.user_id}`);
+});
+
+// ─── 48-13 Task 1 — o TERCEIRO evento: prazo de nova decisão vencido (JORN-19 · D-10) ─────
+//
+// Uma candidatura reaberta após a revisão do Art. 20 tem 10 dias corridos para uma nova
+// decisão (48-11). Vencido o prazo, a varredura diária `varrer_prazos_reabertura()` ALERTA o
+// RH — e só alerta: nenhuma decisão é tomada pelo sistema (D-10, D-01, RNF-07a).
+//
+// Os símbolos novos são lidos por `helpersRh.<nome>` (namespace) e não por import nomeado:
+// assim, enquanto não existirem, a suíte CARREGA e cada caso falha por asserção — o RED é
+// sobre o comportamento, não um erro de import.
+
+// deno-lint-ignore no-explicit-any
+const H = helpersRh as any;
+const EV_PRAZO = "prazo_reabertura_vencido";
+const CICLO_PRAZO = "1759546800";
+
+Deno.test("48-13 — constantes do evento de prazo: evento, rótulo de sink só [a-z_], template", () => {
+  assertEquals(H.EVENTO_LEDGER_RH_PRAZO, EV_PRAZO);
+  assertEquals(H.LABEL_SINK_RH_PRAZO, "prazo_reabertura_rh");
+  assert(/^[a-z_]+$/.test(String(H.LABEL_SINK_RH_PRAZO)), "rótulo de sink fora de [a-z_] seria sanitizado em silêncio");
+  assertEquals(H.TEMPLATE_LEDGER_RH_PRAZO, "prazo_reabertura_vencido_rh");
+});
+
+Deno.test("48-13 — o vocabulário FECHADO da EF passa de 2 para 3 valores", () => {
+  assertEquals(
+    [...(H.EVENTOS_RH_VALIDOS as string[])].sort(),
+    ["candidatura_encerrada_a_pedido", EV_PRAZO, "revisao_solicitada"],
+  );
+  assert(H.ehEventoRh(EV_PRAZO), "ehEventoRh tem de aceitar o evento de prazo");
+});
+
+Deno.test("48-13 — montarDedupeKeyRhPrazo: '{c}:prazo_reabertura_vencido:{ciclo}:{user}' por destinatário E ciclo", () => {
+  assertEquals(typeof H.montarDedupeKeyRhPrazo, "function", "montarDedupeKeyRhPrazo ausente");
+  const k = H.montarDedupeKeyRhPrazo("C", CICLO_PRAZO, "U");
+  assertEquals(k, `C:${EV_PRAZO}:${CICLO_PRAZO}:U`);
+  assert(k.endsWith(":U"), "o user_id tem de ficar no FIM da chave");
+  assert(k !== H.montarDedupeKeyRhPrazo("C", CICLO_PRAZO, "V"), "dois RH colidiram — só o 1º receberia");
+  assert(k !== H.montarDedupeKeyRhPrazo("C", "1760000000", "U"), "dois ciclos colidiram — o 2º prazo vencido sumiria");
+  assert(k !== montarDedupeKeyRhEncerramento("C", "U") && k !== montarDedupeKeyRh("C", "U", CICLO_PRAZO));
+});
+
+Deno.test("48-13 — assuntoPrazoReaberturaVencido nomeia a vaga e neutraliza CR/LF", () => {
+  assertEquals(typeof H.assuntoPrazoReaberturaVencido, "function", "assuntoPrazoReaberturaVencido ausente");
+  assertEquals(
+    H.assuntoPrazoReaberturaVencido(TITULO),
+    `Prazo de nova decisão vencido — candidatura reaberta (vaga ${TITULO})`,
+  );
+  const s = H.assuntoPrazoReaberturaVencido("Vaga\r\nBcc: x@y.z");
+  assert(!/[\r\n]/.test(s), "CR/LF no assunto é injeção de header");
+});
+
+Deno.test("48-13 — corpoPrazoReaberturaVencido: prazo de 10 dias, SÓ alerta, D-23, link da lista da vaga", () => {
+  assertEquals(typeof H.corpoPrazoReaberturaVencido, "function", "corpoPrazoReaberturaVencido ausente");
+  const html: string = H.corpoPrazoReaberturaVencido({ tituloVaga: TITULO, urlLista: URL_LISTA });
+  assert(html.includes(TITULO));
+  assert(html.includes(URL_LISTA), "o botão leva para a lista de candidatos DAQUELA vaga");
+  assert(/10 dias corridos/.test(html), "o corpo tem de nomear o prazo");
+  assert(/Nenhuma decisão foi tomada automaticamente/.test(html), "D-10: o alerta tem de dizer que nada foi decidido");
+  assert(/não pode registrar a nova/.test(html), "D-23: quem teve a decisão revertida não registra a nova");
+});
+
+Deno.test("48-13 / T-48-13-05 — corpo do prazo NÃO carrega nome, e-mail nem identificador do candidato", () => {
+  const html: string = H.corpoPrazoReaberturaVencido({
+    tituloVaga: TITULO,
+    urlLista: URL_LISTA,
+    ...PII,
+  });
+  for (const v of Object.values(PII)) {
+    assert(!html.includes(String(v)), `identificador vazou para o corpo: ${v}`);
+  }
+});
+
+Deno.test("48-13 — corpo do prazo escapa HTML no título da vaga (XSS)", () => {
+  const html: string = H.corpoPrazoReaberturaVencido({
+    tituloVaga: "<script>alert(1)</script>",
+    urlLista: URL_LISTA,
+  });
+  assert(!html.includes("<script>alert(1)</script>"));
+  assert(html.includes("&lt;script&gt;"));
+});
+
+Deno.test("48-13 — handler: prazo com ciclo ⇒ uma linha por RH, evento/template/sink/assunto/corpo do PRAZO", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeMockSupabase({
+    candidaturaRow: CANDIDATURA_ENC,
+    vagaRow: VAGA_FIX,
+    roster: [ADMIN_1, ADMIN_2, RECRUTADOR],
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_rh_prazo" });
+  const res = await comModoTeste(() =>
+    handler(
+      makeRequest({ evento: EV_PRAZO, candidatura_id: "cand-1", ciclo: CICLO_PRAZO }, BEARER),
+      { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: BEARER },
+    )
+  );
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), { ok: true, destinatarios: 3, enviados: 3, duplicados: 0, falhas: 0 });
+  for (const [i, d] of [ADMIN_1, ADMIN_2, RECRUTADOR].entries()) {
+    const row = supa.upserts[i].row;
+    assertEquals(row.dedupe_key, `cand-1:${EV_PRAZO}:${CICLO_PRAZO}:${d.user_id}`);
+    assertEquals(row.evento, EV_PRAZO);
+    assertEquals(row.template, "prazo_reabertura_vencido_rh");
+    assertEquals(row.destinatario_email, "delivered+prazo_reabertura_rh@resend.dev");
+    assertEquals(row.destinatario_original, d.email);
+  }
+  const enviado = JSON.parse(String(fetchMock.calls[0].init?.body));
+  assertEquals(enviado.subject, `Prazo de nova decisão vencido — candidatura reaberta (vaga ${VAGA_FIX.titulo})`);
+  assert(enviado.html.includes(`/rh/vagas/${VAGA_ID}/candidatos`));
+  assert(!/revisão de decisão|encerrada a pedido/i.test(enviado.html), "corpo de evento irmão vazou para o prazo");
+});
+
+Deno.test("48-13 — prazo SEM ciclo (ausente ou null) → 400 VALIDATION, zero claim, zero envio", async () => {
+  const { handler } = await loadHandler();
+  for (const corpo of [
+    { evento: EV_PRAZO, candidatura_id: "cand-1" },
+    { evento: EV_PRAZO, candidatura_id: "cand-1", ciclo: null },
+    { evento: EV_PRAZO, candidatura_id: "cand-1", ciclo: "abc" },
+  ]) {
+    const supa = makeMockSupabase({ candidaturaRow: CANDIDATURA_ENC, vagaRow: VAGA_FIX, roster: [ADMIN_1] });
+    const fetchMock = makeFetchMock(200);
+    const res = await handler(makeRequest(corpo, BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: BEARER,
+    });
+    assertEquals(res.status, 400, `esperava 400 para ${JSON.stringify(corpo)}`);
+    assertEquals(supa.upserts.length, 0);
+    assertEquals(fetchMock.calls.length, 0);
+  }
+});
+
+Deno.test("48-13 — os dois eventos irmãos seguem com rótulo/template/chave próprios (o mapa não os trocou)", async () => {
+  const { handler } = await loadHandler();
+  const casos = [
+    {
+      evento: "revisao_solicitada",
+      chave: `cand-1:revisao_solicitada:${CICLO_PRAZO}:${ADMIN_1.user_id}`,
+      template: "revisao_solicitada_rh",
+      sink: "delivered+revisao_solicitada_rh@resend.dev",
+    },
+    {
+      evento: EVENTO_LEDGER_RH_ENCERRAMENTO,
+      chave: `cand-1:${EVENTO_LEDGER_RH_ENCERRAMENTO}:${ADMIN_1.user_id}`,
+      template: TEMPLATE_LEDGER_RH_ENCERRAMENTO,
+      sink: `delivered+${LABEL_SINK_RH_ENCERRAMENTO}@resend.dev`,
+    },
+  ];
+  for (const c of casos) {
+    const supa = makeMockSupabase({ candidaturaRow: CANDIDATURA_ENC, vagaRow: VAGA_FIX, roster: [ADMIN_1] });
+    const fetchMock = makeFetchMock(200);
+    const res = await comModoTeste(() =>
+      handler(makeRequest({ evento: c.evento, candidatura_id: "cand-1", ciclo: CICLO_PRAZO }, BEARER), {
+        supabaseAdmin: supa,
+        fetchImpl: fetchMock.impl,
+        serviceKey: BEARER,
+      })
+    );
+    assertEquals(res.status, 200, c.evento);
+    assertEquals(supa.upserts[0].row.dedupe_key, c.chave);
+    assertEquals(supa.upserts[0].row.template, c.template);
+    assertEquals(supa.upserts[0].row.destinatario_email, c.sink);
+  }
 });
