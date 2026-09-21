@@ -234,6 +234,8 @@ async function loadHandler() {
         supabaseTitular: unknown;
         fetchImpl?: typeof fetch;
         modo?: "producao" | "teste";
+        /** 48-07 (JORN-U2): a base do link de login — no wiring vem de `APP_BASE_URL`. */
+        appBaseUrl?: string;
       },
     ) => Promise<Response>;
   };
@@ -663,7 +665,14 @@ interface ExecOpts {
   residuoAposRemove?: string[];
   /** ⚠ 45-13 / WR-08 — o `UPDATE` que grava a `causa` devolve erro. */
   falhaAoGravarCausa?: boolean;
+  /** 48-07 — o que `registrar_pedido_exclusao` devolve (default: linha com data futura). */
+  registrar?: { data: unknown; error: unknown };
+  /** 48-07 — o que `cancelar_pedido_exclusao` devolve (default: linha com `cancelado_em`). */
+  cancelar?: { data: unknown; error: unknown };
 }
+
+/** 48-07 — a data de execução que a RPC devolve no aviso do pedido. */
+const EXECUTAR_EM_AVISO = "2026-10-06T15:00:00.000Z";
 
 function makeMockAdminExecutar(o: ExecOpts = {}) {
   const cand = o.cand === undefined ? { id: CANDIDATO_ID, email: EMAIL_TITULAR } : o.cand;
@@ -725,6 +734,25 @@ function makeMockAdminExecutar(o: ExecOpts = {}) {
     if (nome === "ler_resend_api_key") {
       return Promise.resolve({
         data: o.apiKey === undefined ? "re_chave_de_teste" : o.apiKey,
+        error: null,
+      });
+    }
+    // ⚠ 48-07 (JORN-27): as duas RPCs não-destrutivas ganharam default AQUI porque o
+    // aviso ao titular é exercitado com ESTE harness — o único que registra `updates`,
+    // `fetchCalls` e o toque no ledger. Nenhum teste do motor as chama.
+    if (nome === "registrar_pedido_exclusao") {
+      return Promise.resolve(o.registrar ?? {
+        data: [{
+          solicitacao_id: PEDIDO_ID,
+          executar_em: EXECUTAR_EM_AVISO,
+          candidaturas_encerradas: 1,
+        }],
+        error: null,
+      });
+    }
+    if (nome === "cancelar_pedido_exclusao") {
+      return Promise.resolve(o.cancelar ?? {
+        data: [{ solicitacao_id: PEDIDO_ID, cancelado_em: CANCELADO_EM }],
         error: null,
       });
     }
@@ -2826,4 +2854,213 @@ Deno.test("(ar2) WR-E: exceção genérica ANTES de qualquer remoção NÃO vira
   assertEquals(res.status, 500);
   assertEquals(admin.linha.causa, "falha_postgres", "o passo do meio segue o default seguro");
   assertEquals(admin.removeCalls.length, 0, "e nada foi removido");
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Phase 48 / Plano 48-07 — O AVISO AO TITULAR (JORN-27 · JORN-U2)
+//
+// ── O DEFEITO ────────────────────────────────────────────────────────────────
+// Até 2026-09-21 o pedido e o cancelamento de exclusão geravam três e-mails, todos
+// para o RH, e ZERO para a titular. Com a conta invadida, a exclusão era pedida e a
+// dona dos dados não sabia. O aviso é CONTROLE DE CONTA INVADIDA, não cortesia.
+//
+// ── AS ASSERÇÕES QUE UM CAMINHO FELIZ NÃO PEGA ───────────────────────────────
+//  · `recibo_enviado_em` NUNCA aparece num patch de `pedir`/`cancelar` — escrito no
+//    pedido ele faria o passo 4 PULAR o recibo final, e a titular teria a conta
+//    apagada sem o único e-mail que prova a exclusão;
+//  · nada toca `notificacoes_enviadas` (o ledger exige `candidatura_id`; 16 de 42
+//    titulares não têm candidatura);
+//  · falha de envio NÃO muda a resposta nem desfaz o pedido — mas também não some:
+//    a coluna fica NULA e o log leva a causa por código;
+//  · o corpo não traz o id do pedido (Invariante 12) nem o endereço do canal de
+//    privacidade por literal (D-07).
+// ═════════════════════════════════════════════════════════════════════════════
+
+const URL_LOGIN_PRIVACIDADE =
+  "https://rh.beautysmile.com.br/auth/login?redirect=%2Fcandidato%2Fprivacidade";
+
+/** Captura `console.*` durante `fn` e devolve tudo o que foi escrito, serializado. */
+async function capturarConsole(fn: () => Promise<void>): Promise<string> {
+  const original = { error: console.error, log: console.log, warn: console.warn };
+  const capturado: unknown[] = [];
+  console.error = (...a: unknown[]) => capturado.push(...a);
+  console.log = (...a: unknown[]) => capturado.push(...a);
+  console.warn = (...a: unknown[]) => capturado.push(...a);
+  try {
+    await fn();
+  } finally {
+    console.error = original.error;
+    console.log = original.log;
+    console.warn = original.warn;
+  }
+  return capturado.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ");
+}
+
+/** Os patches gravados em `solicitacoes_dados` que carimbam `recibo_enviado_em`. */
+function patchesComRecibo(admin: ReturnType<typeof makeMockAdminExecutar>) {
+  return admin.updates.filter((p) => Object.prototype.hasOwnProperty.call(p, "recibo_enviado_em"));
+}
+
+// ── (p48-a) pedir → UM e-mail à titular, carimbo próprio, resposta intacta ───
+Deno.test("(p48-a) pedir: 1 POST ao Resend para a TITULAR, aviso_pedido_enviado_em carimbado, resposta idêntica", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  const res = await handler(makeRequest({ acao: "pedir" }), deps);
+  assertEquals(res.status, 200);
+  // A resposta ao titular é EXATAMENTE a de antes do aviso existir.
+  assertEquals(await res.json(), {
+    ok: true,
+    acao: "pedir",
+    executar_em: EXECUTAR_EM_AVISO,
+    candidaturas_encerradas: 1,
+  });
+  assertEquals(admin.fetchCalls.length, 1, "exatamente um e-mail");
+  const { url, init } = admin.fetchCalls[0];
+  assertEquals(url, "https://api.resend.com/emails");
+  const headers = (init.headers ?? {}) as Record<string, string>;
+  assert(headers["Idempotency-Key"], "falta o cinto de idempotência no Resend");
+  const corpo = JSON.parse(String(init.body));
+  assertEquals(corpo.to, EMAIL_TITULAR, "o aviso vai para a TITULAR, não para o RH");
+  assertEquals(corpo.subject, "Recebemos seu pedido de exclusão de dados");
+  assert(admin.linha.aviso_pedido_enviado_em, "o carimbo próprio do aviso não foi gravado");
+  // ⚠ As duas negativas que importam.
+  assertEquals(patchesComRecibo(admin).length, 0, "pedir escreveu recibo_enviado_em");
+  assertEquals(admin.linha.recibo_enviado_em, null);
+  assertEquals(admin.ledgerTocado, false, "o aviso tocou notificacoes_enviadas");
+  // A chave de API sai do client de SERVIÇO (revogada de `authenticated` desde a P36).
+  assert(admin.rpcNoServico.some((c) => c.nome === "ler_resend_api_key"));
+  assert(!admin.rpcNoTitular.some((c) => c.nome === "ler_resend_api_key"));
+});
+
+// ── (p48-b) idempotência por ESTADO ──────────────────────────────────────────
+Deno.test("(p48-b) pedir com aviso_pedido_enviado_em já preenchido → 0 POST e nenhum carimbo novo", async () => {
+  const { handler } = await loadHandler();
+  const JA = "2026-09-21T10:00:00.000Z";
+  const { admin, deps } = depsExecutar({
+    pedido: { executar_em: EXECUTAR_EM_AVISO, aviso_pedido_enviado_em: JA },
+  });
+  const res = await handler(makeRequest({ acao: "pedir" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals(admin.fetchCalls.length, 0, "segundo aviso curto-circuitado por ESTADO");
+  assertEquals(admin.linha.aviso_pedido_enviado_em, JA, "o carimbo original não é reescrito");
+  assertEquals(admin.updates.length, 0);
+});
+
+// ── (p48-c) BORDA: dois `pedir` seguidos → um aviso só ───────────────────────
+Deno.test("(p48-c) BORDA: segundo 'pedir' com o pedido já agendado NÃO gera segundo aviso", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  assertEquals((await handler(makeRequest({ acao: "pedir" }), deps)).status, 200);
+  assertEquals((await handler(makeRequest({ acao: "pedir" }), deps)).status, 200);
+  assertEquals(admin.fetchCalls.length, 1, "o segundo toque reenviou o aviso");
+});
+
+// ── (p48-d) falha de envio: resposta idêntica, coluna nula, causa por código ─
+Deno.test("(p48-d) pedir com Resend 500 ou rede caída → 200 idêntico, coluna NULA, log aviso_<causa>", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const [variante, classe] of [
+      [{ respostaResend: { ok: false, status: 500, corpo: { message: "boom" } } }, "aviso_resend_nao_2xx"],
+      [{ fetchLanca: true }, "aviso_fetch"],
+      [{ apiKey: null }, "aviso_sem_chave"],
+    ] as Array<[Partial<ExecOpts>, string]>
+  ) {
+    const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO }, ...variante });
+    let res: Response | null = null;
+    const log = await capturarConsole(async () => {
+      res = await handler(makeRequest({ acao: "pedir" }), deps);
+    });
+    const r = res as unknown as Response;
+    assertEquals(r.status, 200, `${classe}: a falha do aviso não pode virar erro ao titular`);
+    assertEquals(await r.json(), {
+      ok: true,
+      acao: "pedir",
+      executar_em: EXECUTAR_EM_AVISO,
+      candidaturas_encerradas: 1,
+    });
+    assertEquals(admin.linha.aviso_pedido_enviado_em, undefined, `${classe}: carimbou sem enviar`);
+    assert(log.includes(classe), `${classe}: a causa não chegou ao log: ${log}`);
+    // O log continua REDIGIDO: nem id completo, nem e-mail, nem a chave de idempotência.
+    for (const proibido of [PEDIDO_ID, CANDIDATO_ID, EMAIL_TITULAR, "re_chave_de_teste", "http"]) {
+      assert(!log.includes(proibido), `${classe}: log vazou "${proibido}": ${log}`);
+    }
+  }
+});
+
+// ── (p48-e) o conteúdo ───────────────────────────────────────────────────────
+Deno.test("(p48-e) corpo do aviso: data de execução, link de login com redirect; sem id, sem canal literal", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  await handler(makeRequest({ acao: "pedir" }), deps);
+  const html = String(JSON.parse(String(admin.fetchCalls[0].init.body)).html);
+  // 2026-10-06T15:00Z = 06/10/2026 12:00 em São Paulo.
+  assert(html.includes("06/10/2026"), "a data de execução não está no corpo");
+  assert(html.includes(URL_LOGIN_PRIVACIDADE), "falta o link do login com retorno à privacidade");
+  assert(html.includes("Se não foi você"), "falta a instrução para quem não pediu");
+  assert(!html.includes(PEDIDO_ID), "Invariante 12: o id do pedido vazou no e-mail");
+  assert(!html.includes(CANDIDATO_ID), "o id do titular vazou no e-mail");
+  assert(!html.includes("lgpd@"), "D-07: o canal de privacidade não pode ser citado por literal");
+});
+
+// ── (p48-f) BORDA: titular SEM candidatura ───────────────────────────────────
+Deno.test("(p48-f) BORDA: titular SEM candidatura pede exclusão → recebe o aviso (não depende do ledger)", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    pedido: { executar_em: EXECUTAR_EM_AVISO },
+    curriculos: [],
+    registrar: {
+      data: [{ solicitacao_id: PEDIDO_ID, executar_em: EXECUTAR_EM_AVISO, candidaturas_encerradas: 0 }],
+      error: null,
+    },
+  });
+  const res = await handler(makeRequest({ acao: "pedir" }), deps);
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).candidaturas_encerradas, 0);
+  assertEquals(admin.fetchCalls.length, 1, "quem não tem candidatura também é avisado");
+  assert(admin.linha.aviso_pedido_enviado_em);
+  assertEquals(admin.ledgerTocado, false);
+  assert(!admin.ordem.includes("le:candidaturas"), "o aviso não lê candidatura nenhuma");
+});
+
+// ── (p48-g) DELIV-03 ─────────────────────────────────────────────────────────
+Deno.test("(p48-g) em modo teste o aviso vai para o sink — nunca ao endereço real", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+  await handler(makeRequest({ acao: "pedir" }), { ...deps, modo: "teste" as const });
+  assertEquals(admin.fetchCalls.length, 1);
+  const para = String(JSON.parse(String(admin.fetchCalls[0].init.body)).to);
+  assert(/^delivered\+aviso_exclusao_pedido@resend\.dev$/.test(para), `aviso de teste foi para ${para}`);
+});
+
+// ── (p48-h) sem endereço: nenhum envio, causa registrada, resposta intacta ───
+Deno.test("(p48-h) titular sem e-mail legível → 0 POST, 200 idêntico, log aviso_sem_endereco", async () => {
+  const { handler } = await loadHandler();
+  const { admin, deps } = depsExecutar({
+    cand: { id: CANDIDATO_ID, email: null },
+    pedido: { executar_em: EXECUTAR_EM_AVISO },
+  });
+  let res: Response | null = null;
+  const log = await capturarConsole(async () => {
+    res = await handler(makeRequest({ acao: "pedir" }), deps);
+  });
+  assertEquals((res as unknown as Response).status, 200);
+  assertEquals(admin.fetchCalls.length, 0);
+  assert(log.includes("aviso_sem_endereco"), log);
+});
+
+// ── (p48-i) JORN-U2: a base do link vem da env, com fail-safe ─────────────────
+Deno.test("(p48-i) appBaseUrl https válida vira a origem do link; malformada cai no default", async () => {
+  const { handler } = await loadHandler();
+  for (
+    const [base, esperado] of [
+      ["https://staging.exemplo.com/qualquer/coisa", "https://staging.exemplo.com/auth/login?redirect=%2Fcandidato%2Fprivacidade"],
+      ["http://inseguro.exemplo.com", URL_LOGIN_PRIVACIDADE],
+      ["lixo", URL_LOGIN_PRIVACIDADE],
+    ]
+  ) {
+    const { admin, deps } = depsExecutar({ pedido: { executar_em: EXECUTAR_EM_AVISO } });
+    await handler(makeRequest({ acao: "pedir" }), { ...deps, appBaseUrl: base });
+    const html = String(JSON.parse(String(admin.fetchCalls[0].init.body)).html);
+    assert(html.includes(esperado), `base ${base}: esperado ${esperado}`);
+  }
 });
