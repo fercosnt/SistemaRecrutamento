@@ -16,7 +16,7 @@
  *      do CI, que roda sem `--allow-net`.
  *   2. Self-auth por Bearer comparado a `deps.serviceKey`; `401` sem Bearer, e o valor
  *      NUNCA interpolado em log (T-42-25).
- *   3. Payload IDS-ONLY, validado contra um vocabulário fechado de um único evento.
+ *   3. Payload IDS-ONLY, validado contra um vocabulário fechado (1 evento na P42, 3 desde o 48-13).
  *   4. Leitura por ALLOWLIST explícita de colunas — nunca projeção-estrela. RLS é
  *      row-level; um `select('*')` aqui vazaria PII e, em `configuracoes_empresa`,
  *      credencial (achado A-03 do inventário).
@@ -45,24 +45,29 @@ import {
 } from "../_shared/email-config.ts";
 import {
   assuntoCandidaturaEncerradaAPedido,
+  assuntoPrazoReaberturaVencido,
   assuntoRevisaoSolicitada,
   construirCorpoResendRh,
   corpoCandidaturaEncerradaAPedido,
+  corpoPrazoReaberturaVencido,
   corpoRevisaoSolicitada,
   ehEventoRh,
-  EVENTO_LEDGER_RH_ENCERRAMENTO,
+  EVENTO_LEDGER_RH_PRAZO,
   type EventoRh,
   LABEL_SINK_RH,
   LABEL_SINK_RH_ENCERRAMENTO,
+  LABEL_SINK_RH_PRAZO,
   logSeguroRh,
   montarDedupeKeyRh,
   montarDedupeKeyRhEncerramento,
+  montarDedupeKeyRhPrazo,
   montarUrlFila,
   montarUrlListaVaga,
   RE_CICLO,
   refCurta,
   TEMPLATE_LEDGER_RH,
   TEMPLATE_LEDGER_RH_ENCERRAMENTO,
+  TEMPLATE_LEDGER_RH_PRAZO,
 } from "./helpers.ts";
 
 const corsHeaders = {
@@ -116,6 +121,8 @@ interface CorpoRequisicao {
    * passado por `trg_notif_revisao_solicitada`. Versiona a chave do nudge
    * (`montarDedupeKeyRh`); ignorado pelo evento de encerramento. Opcional (tolerância: a EF
    * vai ao ar antes da migration); presente, só dígitos até 12 — senão 400.
+   * 48-13: OBRIGATÓRIO para `prazo_reabertura_vencido` (o epoch de `prazo_nova_decisao_em`,
+   * mandado por `varrer_prazos_reabertura`) — sem ele a chave não distinguiria dois prazos.
    */
   ciclo?: string;
 }
@@ -164,8 +171,9 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
     return errorResponse("UNAUTHORIZED", "Não autorizado.", 401);
   }
 
-  // ---- 2) Parse ids-only, vocabulário fechado em DOIS eventos -----------------
-  // P45-09: o vocabulário desta EF passou de 1 para 2 valores. Ele continua FECHADO
+  // ---- 2) Parse ids-only, vocabulário fechado em TRÊS eventos -----------------
+  // P45-09: o vocabulário desta EF passou de 1 para 2 valores; 48-13, de 2 para 3
+  // (`prazo_reabertura_vencido`). Ele continua FECHADO
   // e continua MENOR que o do banco: `revisao_respondida` e `divulgacao_vagas` estão
   // no CHECK do ledger e NÃO pertencem a esta EF — vocabulário do banco maior que o
   // da EF é o precedente registrado no COMMENT de `classe_evento_notificacao`.
@@ -189,6 +197,12 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
       (typeof raw.ciclo !== "string" || !RE_CICLO.test(raw.ciclo))
     ) {
       return errorResponse("VALIDATION", "ciclo inválido.");
+    }
+    // 48-13: o alerta de prazo EXIGE o ciclo. O único emissor (a varredura) sempre o manda
+    // — o prazo é NOT NULL na linha que ela seleciona —, então a ausência é um corpo
+    // malformado, e aceitá-lo produziria uma chave que colide entre dois prazos.
+    if (raw.evento === EVENTO_LEDGER_RH_PRAZO && typeof raw.ciclo !== "string") {
+      return errorResponse("VALIDATION", "ciclo obrigatório para prazo_reabertura_vencido.");
     }
     body = {
       evento: raw.evento,
@@ -265,30 +279,65 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   // a ler variáveis onde lia constantes, e nenhum ramo novo entrou nele. Ramificar
   // dentro do laço multiplicaria por dois os caminhos de idempotência, que é
   // exatamente a parte que não se deve duplicar.
+  //
+  // 48-13 · com TRÊS eventos o ternário virou um MAPA `Record<EventoRh, …>`: o
+  // compilador exige uma entrada por valor do vocabulário, então um 4º evento sem
+  // rótulo/template/assunto/corpo/chave não compila — em vez de cair, em silêncio, no
+  // ramo `else` de um ternário aninhado.
+  //
+  // O destino diverge com o evento: o pedido de revisão vai para a FILA (que tem ação);
+  // o encerramento e o prazo vencido vão para a LISTA DE CANDIDATOS DA VAGA — o
+  // encerramento porque não tem ação, o prazo porque a ação (registrar a nova decisão)
+  // é feita a partir da candidatura, que o RH acha na lista da vaga.
   const modo = resolverModo();
-  const ehEncerramento = evento === EVENTO_LEDGER_RH_ENCERRAMENTO;
-  const labelSink = ehEncerramento ? LABEL_SINK_RH_ENCERRAMENTO : LABEL_SINK_RH;
-  const templateLedger = ehEncerramento
-    ? TEMPLATE_LEDGER_RH_ENCERRAMENTO
-    : TEMPLATE_LEDGER_RH;
   const baseUrl = Deno.env.get("APP_BASE_URL") || undefined;
+  const titulo = vaga.titulo as string;
+  const vagaId = candidatura.vaga_id as string;
 
-  const subject = ehEncerramento
-    ? assuntoCandidaturaEncerradaAPedido(vaga.titulo)
-    : assuntoRevisaoSolicitada(vaga.titulo);
-
-  // O destino diverge com o evento: o pedido de revisão vai para a FILA (que tem
-  // ação); o encerramento vai para a LISTA DE CANDIDATOS DA VAGA, porque ele não
-  // tem ação — existe para que ninguém agende ou avalie uma candidatura encerrada.
-  const html = ehEncerramento
-    ? corpoCandidaturaEncerradaAPedido({
-      tituloVaga: vaga.titulo,
-      urlLista: montarUrlListaVaga(candidatura.vaga_id, baseUrl),
-    })
-    : corpoRevisaoSolicitada({
-      tituloVaga: vaga.titulo,
-      urlFila: montarUrlFila(baseUrl),
-    });
+  interface MontagemEvento {
+    label: string;
+    template: string;
+    assunto: () => string;
+    corpo: () => string;
+    dedupe: (userId: string) => string;
+  }
+  const MONTAGEM: Record<EventoRh, MontagemEvento> = {
+    revisao_solicitada: {
+      label: LABEL_SINK_RH,
+      template: TEMPLATE_LEDGER_RH,
+      assunto: () => assuntoRevisaoSolicitada(titulo),
+      corpo: () => corpoRevisaoSolicitada({ tituloVaga: titulo, urlFila: montarUrlFila(baseUrl) }),
+      dedupe: (userId) => montarDedupeKeyRh(candidatura_id, userId, ciclo),
+    },
+    candidatura_encerrada_a_pedido: {
+      label: LABEL_SINK_RH_ENCERRAMENTO,
+      template: TEMPLATE_LEDGER_RH_ENCERRAMENTO,
+      assunto: () => assuntoCandidaturaEncerradaAPedido(titulo),
+      corpo: () =>
+        corpoCandidaturaEncerradaAPedido({
+          tituloVaga: titulo,
+          urlLista: montarUrlListaVaga(vagaId, baseUrl),
+        }),
+      dedupe: (userId) => montarDedupeKeyRhEncerramento(candidatura_id, userId),
+    },
+    prazo_reabertura_vencido: {
+      label: LABEL_SINK_RH_PRAZO,
+      template: TEMPLATE_LEDGER_RH_PRAZO,
+      assunto: () => assuntoPrazoReaberturaVencido(titulo),
+      corpo: () =>
+        corpoPrazoReaberturaVencido({
+          tituloVaga: titulo,
+          urlLista: montarUrlListaVaga(vagaId, baseUrl),
+        }),
+      // `ciclo` garantido pelo parse (400 sem ele para este evento).
+      dedupe: (userId) => montarDedupeKeyRhPrazo(candidatura_id, ciclo as string, userId),
+    },
+  };
+  const montagem = MONTAGEM[evento];
+  const labelSink = montagem.label;
+  const templateLedger = montagem.template;
+  const subject = montagem.assunto();
+  const html = montagem.corpo();
 
   // Chave do Vault lida UMA vez, antes do laço. Ausente ⇒ cada destinatário é
   // reivindicado e marcado `falhou` mesmo assim: T-42-26 exige que toda tentativa
@@ -302,9 +351,7 @@ export async function handler(req: Request, deps: NotificarRhDeps): Promise<Resp
   let falhas = 0;
 
   for (const d of lista) {
-    const dedupe_key = ehEncerramento
-      ? montarDedupeKeyRhEncerramento(candidatura_id, d.user_id)
-      : montarDedupeKeyRh(candidatura_id, d.user_id, ciclo);
+    const dedupe_key = montagem.dedupe(d.user_id);
 
     /**
      * Grava `falhou` na linha reivindicada deste destinatário.

@@ -130,10 +130,41 @@ export const EVENTO_LEDGER_RH_ENCERRAMENTO = "candidatura_encerrada_a_pedido" as
 /** Valor gravado em `notificacoes_enviadas.template`. */
 export const TEMPLATE_LEDGER_RH_ENCERRAMENTO = "candidatura_encerrada_a_pedido_rh" as const;
 
-/** O vocabulário FECHADO desta EF — de 1 para 2 valores. */
+// ═══════════════════════════════════════════════════════════════════════════
+// Phase 48 / Plan 48-13 — JORN-19 · D-10 · D-01
+// O TERCEIRO evento desta EF: o prazo de nova decisão de uma candidatura REABERTA venceu.
+//
+// Uma revisão do Art. 20 com veredito `revertida` reabre a candidatura em
+// `decisao_final` com 10 dias corridos para uma nova decisão (plano 48-11). Vencido o
+// prazo sem nova decisão, a varredura diária `public.varrer_prazos_reabertura()` posta
+// este evento — e ele só ALERTA o RH. O sistema não aprova nem rejeita ninguém por prazo
+// (D-10, D-01, RNF-07a): quem decide continua sendo uma pessoa.
+//
+// ⚠ AS CINCO OBRIGAÇÕES de um evento novo andam na MESMA entrega (RESEARCH §D.1): este
+// vocabulário; o valor no CHECK `notificacoes_enviadas_evento_check` (10 valores desde a
+// migration `20260921000015`); a linha `interno` em `classe_evento_notificacao`; a
+// EXCLUSÃO em `varrer_retry_notificacoes` (senão uma falha deste aviso seria re-postada à
+// EF do candidato a cada 15 min para sempre — T-42-23); e os smokes de vocabulário/cron.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Rótulo do sink de teste do alerta de prazo. Só `[a-z_]` (ver `LABEL_SINK_RH_ENCERRAMENTO`). */
+export const LABEL_SINK_RH_PRAZO = "prazo_reabertura_rh" as const;
+
+/** Valor gravado em `notificacoes_enviadas.evento` (fechado pelo CHECK e pela classe `interno`). */
+export const EVENTO_LEDGER_RH_PRAZO = "prazo_reabertura_vencido" as const;
+
+/** Valor gravado em `notificacoes_enviadas.template`. */
+export const TEMPLATE_LEDGER_RH_PRAZO = "prazo_reabertura_vencido_rh" as const;
+
+/**
+ * O vocabulário FECHADO desta EF — de 2 para 3 valores (48-13). O CHECK do ledger tem 10;
+ * vocabulário do banco maior que o da EF é o precedente do COMMENT de
+ * `classe_evento_notificacao`.
+ */
 export const EVENTOS_RH_VALIDOS = [
   EVENTO_LEDGER_RH,
   EVENTO_LEDGER_RH_ENCERRAMENTO,
+  EVENTO_LEDGER_RH_PRAZO,
 ] as const;
 
 export type EventoRh = typeof EVENTOS_RH_VALIDOS[number];
@@ -165,6 +196,26 @@ export function montarDedupeKeyRhEncerramento(
 }
 
 /**
+ * `dedupe_key` do alerta de prazo — `{candidatura_id}:prazo_reabertura_vencido:{ciclo}:{user_id}`.
+ *
+ * ⚠ POR DESTINATÁRIO, pela mesma razão do encerramento: `UNIQUE (dedupe_key)` +
+ * claim-before-send fariam o 1º RH consumir o claim e os demais receberem
+ * `skipped:duplicate` em silêncio.
+ *
+ * ⚠ E POR CICLO: o `ciclo` é o epoch de `decisao_final.prazo_nova_decisao_em`, mandado pela
+ * varredura. Uma candidatura pode ser reaberta de novo depois de uma nova decisão (novo
+ * pedido de revisão → nova reversão → novo prazo); sem o ciclo, o alerta do 2º prazo vencido
+ * colidiria com o do 1º e ninguém seria avisado. O `user_id` fica no FIM, como nos irmãos.
+ */
+export function montarDedupeKeyRhPrazo(
+  candidaturaId: string,
+  ciclo: string,
+  userId: string,
+): string {
+  return `${candidaturaId}:${EVENTO_LEDGER_RH_PRAZO}:${ciclo}:${userId}`;
+}
+
+/**
  * Assunto interno em pt-BR. Nomeia o pedido e a VAGA, nunca o candidato — ver a
  * decisão de privacidade em `corpoRevisaoSolicitada`.
  *
@@ -191,6 +242,15 @@ export function assuntoRevisaoSolicitada(tituloVaga: string): string {
 export function assuntoCandidaturaEncerradaAPedido(tituloVaga: string): string {
   const titulo = tituloVaga.replace(/[\r\n]+/g, " ").trim();
   return `[Beauty Smile] Candidatura encerrada a pedido do candidato — ${titulo}`;
+}
+
+/**
+ * Assunto do alerta de prazo vencido (48-13). Nomeia a VAGA, nunca a pessoa; CR/LF
+ * neutralizados como nos irmãos (injeção de header — `tituloVaga` é texto digitado por humano).
+ */
+export function assuntoPrazoReaberturaVencido(tituloVaga: string): string {
+  const titulo = tituloVaga.replace(/[\r\n]+/g, " ").trim();
+  return `Prazo de nova decisão vencido — candidatura reaberta (vaga ${titulo})`;
 }
 
 /**
@@ -302,6 +362,38 @@ export function corpoCandidaturaEncerradaAPedido(
     conteudoHtml: `<p style="margin:0 0 16px;">Olá, equipe de RH,</p>
 <p style="margin:0 0 16px;">Uma candidatura da vaga <strong>${titulo}</strong> foi <strong>encerrada a pedido do próprio candidato</strong>, no exercício de um direito previsto na LGPD.</p>
 <p style="margin:0 0 16px;">O processo não continua para essa pessoa. Não há nada a responder e nada a atender — este aviso existe para que ninguém agende ou avalie uma candidatura encerrada.</p>
+<p style="margin:0 0 24px;"><a href="${url}" style="display:inline-block;padding:12px 24px;background:#00A9A5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Abrir a lista de candidatos da vaga</a></p>
+<p style="margin:0;font-size:14px;color:#6b7280;">Se o botão não funcionar, acesse: ${url}</p>`,
+  });
+}
+
+/**
+ * Corpo HTML do alerta de prazo vencido (48-13 · D-10).
+ *
+ * Diz três coisas, e nenhuma delas é uma decisão:
+ *   1. uma candidatura da vaga X, reaberta após a revisão do Art. 20, passou dos 10 dias
+ *      corridos sem nova decisão;
+ *   2. NENHUMA decisão foi tomada automaticamente — o sistema não aprova nem rejeita por
+ *      prazo (D-10, RNF-07a); a candidatura segue aguardando uma pessoa;
+ *   3. quem registrou a decisão revertida não pode registrar a nova (D-23, imposto no
+ *      servidor por `registrar_decisao`) — dito aqui para o RH não perder tempo tentando.
+ *
+ * Mesmas omissões deliberadas do encerramento (Invariante 10 / T-42-24): nenhum
+ * identificador do candidato — em modo `teste` o corpo inteiro viaja para `resend.dev`. O RH
+ * identifica a candidatura na LISTA DA VAGA, a superfície autenticada. Nenhum endereço do
+ * domínio é citado (D-07).
+ */
+export function corpoPrazoReaberturaVencido(
+  args: { tituloVaga: string; urlLista: string },
+): string {
+  const titulo = escapeHtml(args.tituloVaga);
+  const url = escapeHtml(args.urlLista);
+  return layoutBase({
+    preheader: "Uma candidatura reaberta passou do prazo de nova decisão.",
+    conteudoHtml: `<p style="margin:0 0 16px;">Olá, equipe de RH,</p>
+<p style="margin:0 0 16px;">Uma candidatura da vaga <strong>${titulo}</strong> foi reaberta após a revisão prevista no Art. 20 da LGPD e <strong>passou do prazo de 10 dias corridos sem nova decisão</strong>.</p>
+<p style="margin:0 0 16px;">Nenhuma decisão foi tomada automaticamente: o sistema não aprova nem rejeita ninguém por prazo. A candidatura continua aguardando a decisão de uma pessoa da equipe.</p>
+<p style="margin:0 0 16px;">Quem registrou a decisão revertida não pode registrar a nova — ela deve ser registrada por outra pessoa do RH ou da administração.</p>
 <p style="margin:0 0 24px;"><a href="${url}" style="display:inline-block;padding:12px 24px;background:#00A9A5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;">Abrir a lista de candidatos da vaga</a></p>
 <p style="margin:0;font-size:14px;color:#6b7280;">Se o botão não funcionar, acesse: ${url}</p>`,
   });
