@@ -609,43 +609,6 @@ function timingSafeEqualStr(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/**
- * JORN-06 (Phase 48 / Plan 48-05) — classe de FORMATO de uma credencial, nunca o
- * valor. Só a classe sai daqui: nenhum prefixo além do que a própria classe diz,
- * nenhum trecho do corpo. Função pura, exportada para teste.
- */
-export type FormatoCredencial = "vazio" | "sb_secret" | "sb_publishable" | "jwt" | "outro";
-
-export function classificarFormatoCredencial(v: string): FormatoCredencial {
-  if (!v) return "vazio";
-  if (v.startsWith("sb_secret_")) return "sb_secret";
-  if (v.startsWith("sb_publishable_")) return "sb_publishable";
-  if (v.startsWith("eyJ") && v.split(".").length === 3) return "jwt";
-  return "outro";
-}
-
-/**
- * JORN-06 — DIAGNÓSTICO TEMPORÁRIO (D-13: medir a causa do 401 antes do conserto).
- * Monta o objeto do log `diag-auth`: presença, esquema, classe de formato e
- * comprimento do que chegou e do que é esperado, e o NOME da env comparada —
- * NUNCA o valor do Bearer, do apikey ou da chave esperada.
- * Removido no deploy do conserto (Plan 48-05, Task 3).
- */
-export function montarDiagAuth(req: Request, expectedSecret: string) {
-  const auth = req.headers.get("Authorization") ?? "";
-  const bearer = auth.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : "";
-  return {
-    auth_presente: auth !== "",
-    esquema: auth === "" ? "ausente" : auth.startsWith("Bearer ") ? "Bearer" : "outro",
-    recebido_formato: classificarFormatoCredencial(bearer),
-    recebido_len: bearer.length,
-    esperado_env: "SUPABASE_SERVICE_ROLE_KEY",
-    esperado_formato: classificarFormatoCredencial(expectedSecret),
-    esperado_len: expectedSecret.length,
-    apikey_formato: classificarFormatoCredencial(req.headers.get("apikey") ?? ""),
-  };
-}
-
 export function guardDevolutivaBearer(
   req: Request,
   expectedSecret: string,
@@ -690,16 +653,19 @@ if (import.meta.main) {
     // Reject any caller that does not present the internal shared secret BEFORE
     // resolving the prompt or reading any candidate row. The expected secret IS the
     // service_role key — the value the ONLY caller (submit-bigfive-final, via
-    // supabaseAdmin.functions.invoke) already sends as its Bearer. WR-02: a separate
+    // supabaseAdmin.functions.invoke) sends as its Bearer — EXPLICITLY, in the invoke
+    // `headers`, since the JORN-06 fix (see below). WR-02: a separate
     // DEVOLUTIVA_INVOKE_SECRET override was removed — it was a footgun (the caller
     // never sent it, so setting the env var would silently 401 every devolutiva,
     // swallowed by submit-bigfive-final's best-effort try/catch). Rotating the guard
     // means rotating the service_role key (which the caller already tracks).
     //
-    // JORN-06 — DIAGNÓSTICO TEMPORÁRIO (Plan 48-05, Task 1): um único log só de
-    // formato/comprimento/presença, ANTES da guarda, para medir o que o chamador
-    // mandou. Nenhum valor de credencial. Removido no deploy do conserto (Task 3).
-    console.log("[gerar-devolutiva-bigfive] diag-auth", montarDiagAuth(req, SERVICE_KEY));
+    // JORN-06 (Plan 48-05): até 2026-09-21 o chamador NÃO mandava esse Bearer — com a
+    // chave `sb_secret_` e sem sessão, o supabase-js põe a chave só no `apikey` e omite
+    // o `Authorization` (`omitApiKeyAsBearer`), e esta guarda respondia 401 a TODA
+    // devolutiva (medido: 48-EVIDENCIA-JORN06.md). Desde esse conserto o
+    // submit-bigfive-final passa `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`
+    // EXPLICITAMENTE nas `headers` do invoke. A guarda não mudou.
     const bearerRejection = guardDevolutivaBearer(req, SERVICE_KEY);
     if (bearerRejection) return bearerRejection;
 

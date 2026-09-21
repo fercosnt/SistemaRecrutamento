@@ -76,6 +76,13 @@ export interface SubmitBigfiveFinalDeps {
   supabaseAdmin: any;
   // deno-lint-ignore no-explicit-any
   supabaseUser: any;
+  /**
+   * JORN-06 (Plan 48-05): a chave de serviço (`SUPABASE_SERVICE_ROLE_KEY` do env da
+   * própria EF), passada EXPLICITAMENTE como Bearer ao invocar `gerar-devolutiva-bigfive`
+   * — cuja guarda SEC-04 compara o Bearer com essa mesma env. Nunca vai para log.
+   * Molde: `NotificarDeps.serviceKey` (notificar-candidato).
+   */
+  serviceKey: string;
 }
 
 /**
@@ -125,7 +132,7 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return errorResponse("SERVER_ERROR", "Método não suportado", 405);
 
-  const { supabaseAdmin, supabaseUser } = deps;
+  const { supabaseAdmin, supabaseUser, serviceKey } = deps;
 
   // ── 1. Autentica o JWT do candidato (two-client D-23 — auth.getUser anon) ────
   const { data: userRes, error: userErr } = await supabaseUser.auth.getUser();
@@ -245,6 +252,16 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
     //      CÓDIGO (`devolutiva_erro` = nome do erro, `devolutiva_status` = status HTTP
     //      ou 'timeout'), sem corpo, sem header, sem segredo. O contrato com o
     //      candidato NÃO muda: continua `{ ok: true }`.
+    //
+    //      JORN-06 — a CAUSA do 401, MEDIDA em 2026-09-21 (48-EVIDENCIA-JORN06.md):
+    //      a devolutiva recebia o `apikey` (formato sb_secret) mas NENHUM
+    //      `Authorization`. Com chave `sb_secret_` e sem sessão, o supabase-js (desde a
+    //      versão com `omitApiKeyAsBearer`; medido 2.116.0 no runtime) põe a chave só no
+    //      `apikey` e não a repete como Bearer. A guarda SEC-04 de
+    //      `gerar-devolutiva-bigfive` compara o Bearer com SUPABASE_SERVICE_ROLE_KEY →
+    //      401 em toda devolutiva. O conserto é o único chamador legítimo mandar o
+    //      Bearer EXPLICITAMENTE — o `fetchWithAuth` do supabase-js respeita um
+    //      `Authorization` já presente. A guarda e o `verify_jwt=false` NÃO mudam.
     let devolutivaId: string | null = null;
     let devolutivaErro: string | null = null;
     let devolutivaStatus: number | "timeout" | null = null;
@@ -252,6 +269,7 @@ export async function handler(req: Request, deps: SubmitBigfiveFinalDeps): Promi
       if (typeof supabaseAdmin.functions?.invoke === "function") {
         const invokePromise = supabaseAdmin.functions.invoke("gerar-devolutiva-bigfive", {
           body: { candidatura_id: candidaturaId, score_id: scoreId },
+          headers: { Authorization: "Bearer " + serviceKey },
         });
         const TIMEOUT = Symbol("timeout");
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -357,6 +375,6 @@ if (import.meta.main) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    return await handler(req, { supabaseAdmin, supabaseUser });
+    return await handler(req, { supabaseAdmin, supabaseUser, serviceKey: SERVICE_KEY });
   });
 }
