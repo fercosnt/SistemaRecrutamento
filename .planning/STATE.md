@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: "PHASE 48 PLANEJADA em 2026-09-21 — Bloco 1 da fila de consertos da validação manual (.planning/JORNADA-GUIADA.md). 18 planos em 7 waves, plan-checker PASSED na 3a rodada (0 blocker, 0 warning). Decisões do operador D-01..D-23 em 48-CONTEXT.md (D-09/D-10 no kickoff; D-20..D-23 depois da pesquisa, que corrigiu 4 premissas da fila por medição em PROD só leitura). Nada executado: zero apply, zero deploy. Próximo: /gsd-execute-phase 48. A Phase 46 segue com o flip dry_run→live pendente (5/7)."
-last_updated: "2026-09-21T06:00:28.376Z"
+status: verifying
+stopped_at: Completed 48-03-PLAN.md
+last_updated: "2026-09-21T13:05:14.086Z"
 last_activity: 2026-09-21
-state_head: b0bc2965425f6d379ad3b163fd88133397cb5daa
+state_head: 1207aca29b126316ec2d4880a57df3f680c4efa7
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 8
   total_plans: 77
-  completed_plans: 57
-  percent: 74
-current_phase_name: Consertos da Jornada — Bloco 1
+  completed_plans: 59
+  percent: 77
 current_phase: 48
+current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
 ---
 
@@ -43,7 +43,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 46 — Purga Automática (dry-run → live)
+**Current focus:** Phase 48 — Consertos da Jornada — Bloco 1
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -577,7 +577,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Executing Phase 46 — plano 04 com 4 migrations escritas; DUAS rodadas de code review (r1: 2 BLOCKER + 10; r2: os BLOCKERs fecharam e vieram 9 novos, 2 deles causados pelo proprio conserto). 21 achados tratados. Aguardando diff-check dirigido + apply na ordem 006->008->009->007. Planos 05, 06 e 07 pendentes
+Status: Phase complete — ready for verification
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -774,6 +774,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 46 P01 | 75min | 3 tasks | 4 files |
 | Phase 46 P02 | ~95min | 3 tasks | 8 files |
 | Phase 46 P04 | ~95min | 3 tasks | 4 files |
+| Phase 48 P03 | 9 min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -1028,6 +1029,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 46] HI-05 `20260823000010:186` — os 150 s sao constante de plataforma que nada no repositorio pina nem faz cumprir (sem `AbortSignal`, sem deadline). `(q.2)` prova so que o literal esta no corpo.
 - ✅ [Phase 46] **A pergunta que vem antes de todas, RESPONDIDA pelo review:** nao ha caminho pelo qual a execucao das 03:00 destrua linha real ou enfileire `net.http_post`. O terminador do RETEN-05 e `IF v_modo <> 'live'` (`...011:472`) — negacao contra o UNICO valor seguro, nao lista de modos inseguros, entao rotulo novo no CHECK cai no lado que reverte. O motor e chamado com `true` literal em TODOS os modos (`:706`). O dispatch inteiro vive dentro de `IF v_modo = 'live'` (`:863-906`). Nao existe trigger em `notificacoes_enviadas`. **Nada a desarmar.**
 - [Phase 46] ⚠ **A FASE NAO ESTA FECHADA.** Falta: (1) consertar BL-01 e HI-01 (migration `20260823000014`); (2) os demais HIGH/MEDIUM/LOW do `46-REVIEW-2.md`; (3) **`46-VERIFICATION.md` com veredito** — o portao de fase destrutiva o exige e ele NAO existe. Retomar com `/gsd-execute-phase 46`.
+- [Phase 48]: 48-03 JORN-D5: local_ou_link validado por trigger BEFORE (UPDATE OF local_ou_link,tipo WHEN tupla IS DISTINCT FROM), nao CHECK NOT VALID — provado que o CHECK travaria cancelar a linha legada dddd
 
 ### Pending Todos
 
@@ -1308,9 +1310,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-08-23T05:01:38.663Z
-Stopped at: 46-07 ESCRITO, NADA APLICADO — a RPC salvar_config_purga (20260823000013), as assercoes (d)/(e) do smoke (RESUMO 25->27) e o 46-07-RUNBOOK-FLIP.md estao no disco. config_purga.modo continua em 'off'. CHECKPOINT BLOQUEANTE: apply + 5 smokes com o contador do GUC + a prova ao vivo de que a RPC RECUSA 'live' + o flip off->dry_run (o T0 dos 14 dias). ⭐ Achado do plano: os criterios de D-46-14 passaram a contar SO execucoes em dry_run|live — sem o recorte, 14 noites com a purga DESLIGADA abririam o portao, e as 3 linhas vivas do ledger estao todas em off (uma com elegiveis=4).
-Resume file: .planning/phases/46-purga-autom-tica-dry-run-live/46-07-PLAN.md
+Last session: 2026-09-21T13:05:13.869Z
+Stopped at: Completed 48-03-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
