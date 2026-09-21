@@ -53,3 +53,15 @@
 - Colunas `solicitacoes_dados.aviso_pedido_enviado_em` / `aviso_cancelamento_enviado_em` sem veredito de export (achado no 48-07)
   status: open (informativo)
   **What:** a cópia LGPD exporta por allowlist, então as duas colunas NÃO entram na cópia (fail-safe) — o mesmo estado das sete colunas de estado do P45 (`executar_em` … `recibo_enviado_em`). `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD passa a acusá-las como sem veredito. O veredito de export é do 48-17 (compliance da fase).
+
+- `explicacao_rejeicao_automatica(uuid)` virou código morto — e segue com EXECUTE para `anon` (achado no 48-09)
+  status: open
+  **What:** o front publicado pelo 48-09 chama `explicacao_rejeicao_origem` (tri-estado); a booleana ficou no banco sem DROP de propósito (o front anterior a chamava — sem janela de quebra). ACL vivo `anon=X/postgres` (a migration `20260906000007` só fez `REVOKE … FROM PUBLIC`). Sem JWT o corpo devolve `false`, então não vaza; mas é superfície morta. DROP num plano futuro, quando nenhum bundle antigo em cache a chamar mais.
+
+- Texto de ajuda do `UpdateStatusModal` afirma que o motivo da rejeição «será enviado ao candidato» (achado no 48-09)
+  status: open
+  **What:** `src/components/modals/UpdateStatusModal.tsx:250-253` — «este motivo será enviado ao candidato se a notificação estiver ativada». É falso: a rejeição vai por `registrar_decisao`, e o e-mail `decisao` usa a cópia neutra congelada (`COPY_REJEICAO`); a justificativa nunca chega ao candidato. O 48-09 removeu o último caminho que copiava texto livre do RH para `feedback_rejeicao` (`candidaturasService.updateCandidaturaStatus`). O texto do modal é voltado ao RH e induz a escrever para o candidato — corrigir a copy num plano de UI.
+
+- `rejeitar_candidatura` com motivo `desistencia` grava o mesmo texto «não seguiremos com ela» (observação do 48-09, para a revisão da premissa A8 no 48-18)
+  status: open (informativo)
+  **What:** o texto neutro do `feedback_rejeicao` e a razão `humana_triagem` da página dizem que a equipe decidiu não seguir. Quando o RH registra `desistencia` (o candidato desistiu), a frase é imprecisa — não falsa sobre o motivo (que segue oculto), mas sobre quem tomou a iniciativa. Hoje: 0 linhas com esse motivo em PROD. Decisão de copy do operador (A8), não do executor.
