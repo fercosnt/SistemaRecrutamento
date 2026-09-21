@@ -18,6 +18,7 @@
 - Cabeçalho do `p45_motor_exclusao_smoke.sql` afirma que `trg_candidaturas_analise` tem o survivor-guard `status='rejeitado'` (achado no 48-01)
   status: open
   **What:** a definição viva de `trg_candidatura_analise()` NÃO tem guard nenhum — é o JORN-24 (IA analisa quem o knockout eliminou). O smoke continua seguro porque toda escrita dele é revertida por subtransação, mas a frase do cabeçalho está falsa. Corrigir quando o plano do JORN-24 tocar o trigger.
+  **Atualização 48-04:** o 48-04 NÃO tocou o trigger — e não deve: a guarda do knockout foi para a EF `analise-candidato-individual` (v29, `skipped:"knockout"`), porque o trigger AFTER INSERT nunca vê o knockout. O trigger segue sem guard **por desenho**. A frase do cabeçalho do `p45` continua falsa (atribui ao trigger o que agora mora na EF); corrigir o texto é edição de comentário num smoke que o 48-04 não usa — fica aqui.
 
 - COMMENT de `retirar_candidatura` diz «o ÚNICO GRANT é para o papel de servidor» (achado no 48-01)
   status: open
