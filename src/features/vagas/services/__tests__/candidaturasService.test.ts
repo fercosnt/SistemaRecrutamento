@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase/client'
 import {
   submitCandidaturaWithRespostas,
   listCandidaturas,
+  updateCandidaturaStatus,
   CandidaturasServiceError,
 } from '../candidaturasService'
 
@@ -236,5 +237,46 @@ describe('listCandidaturas projection — T-08-09 / T-08-13 LGPD no-leak (Phase 
     // Core candidate-facing fields the UI renders.
     expect(selectArg).toMatch(/\bstatus\b/)
     expect(selectArg).toMatch(/etapa_atual/)
+  })
+})
+
+/**
+ * 48-09 / D-12 — `feedback_rejeicao` chega ao candidato (painel, cópia LGPD). Só o
+ * servidor o escreve, com texto NEUTRO. O antigo ramo de `updateCandidaturaStatus` que
+ * copiava o motivo em texto livre do RH para essa coluna foi removido; este teste impede
+ * que ele volte — mesmo que um chamador ainda empurre um `motivo_rejeicao` no objeto.
+ */
+describe('updateCandidaturaStatus — nunca escreve feedback_rejeicao (48-09 / D-12)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('o payload do UPDATE não carrega feedback_rejeicao, nem o texto do RH', async () => {
+    const updates: unknown[] = []
+    const TEXTO_RH = 'Texto livre do RH que jamais pode chegar ao candidato.'
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      const q: Record<string, unknown> = {}
+      q.select = vi.fn(() => q)
+      q.eq = vi.fn(() => q)
+      q.single = vi.fn(async () => ({
+        data: { id: 'cand-1', etapa_atual: 'triagem', status: 'em_analise' },
+        error: null,
+      }))
+      q.update = vi.fn((payload: unknown) => {
+        updates.push(payload)
+        return { eq: vi.fn(async () => ({ error: null })) }
+      })
+      return q
+    })
+
+    const r = await updateCandidaturaStatus({
+      candidaturaId: 'cand-1',
+      status_candidatura: 'rejeitado',
+      // Um chamador antigo (fora do tipo) ainda mandando o campo removido.
+      ...({ motivo_rejeicao: TEXTO_RH } as Record<string, unknown>),
+    } as Parameters<typeof updateCandidaturaStatus>[0])
+
+    expect(r.success).toBe(true)
+    expect(updates).toHaveLength(1)
+    expect(Object.keys(updates[0] as object)).not.toContain('feedback_rejeicao')
+    expect(JSON.stringify(updates[0])).not.toContain(TEXTO_RH)
   })
 })

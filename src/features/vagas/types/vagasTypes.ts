@@ -403,7 +403,6 @@ export interface UpdateCandidaturaStatusRequest {
   candidaturaId: string
   status_candidatura: StatusCandidatura
   etapa_atual?: EtapaProcesso
-  motivo_rejeicao?: string | null
   notificar_candidato?: boolean
 }
 

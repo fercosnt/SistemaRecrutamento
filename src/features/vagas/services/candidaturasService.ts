@@ -410,12 +410,7 @@ export async function updateCandidaturaStatus(
   request: UpdateCandidaturaStatusRequest
 ): Promise<UpdateCandidaturaStatusResponse> {
   try {
-    const {
-      candidaturaId,
-      status_candidatura,
-      etapa_atual,
-      motivo_rejeicao,
-    } = request
+    const { candidaturaId, status_candidatura, etapa_atual } = request
 
     // Validar inputs
     if (!candidaturaId || !status_candidatura) {
@@ -455,7 +450,10 @@ export async function updateCandidaturaStatus(
     const updateData: Partial<CandidaturaRow> = {
       status: novoStatus,
       etapa_atual: novaEtapa,
-      ...(motivo_rejeicao && { feedback_rejeicao: motivo_rejeicao }),
+      // `feedback_rejeicao` NUNCA é escrito pelo cliente: só o servidor o grava, com texto
+      // neutro (knockout e `rejeitar_candidatura` — D-12 / 48-09). O antigo ramo que
+      // copiava o motivo em texto livre para cá foi removido; reativado, vazaria ao
+      // candidato o que o RH escreveu.
       updated_at: new Date().toISOString(),
     }
 
