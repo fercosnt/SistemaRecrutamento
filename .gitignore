@@ -91,3 +91,8 @@ supabase/.temp/
 deno.lock
 .playwright-mcp/
 .auth-config-backup-*.json
+
+# GSD runtime (gerado pela ferramenta, por máquina/sessão — não versionar)
+.gsd
+.planning/milestone.lock
+.planning/state.json
