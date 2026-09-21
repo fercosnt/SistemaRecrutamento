@@ -356,7 +356,7 @@ Plans:
 
 - [x] 48-13-PLAN.md — Avisos da reabertura: alerta ao RH no vencimento (cron, só alerta) + e-mail com a data exata (JORN-19)
 - [x] 48-14-PLAN.md — Reabertura na tela do candidato: página de explicação e prazo no painel (JORN-19)
-- [ ] 48-15-PLAN.md — Reabertura na tela do RH: cópia de «reverter» e recusa D-23 clara no formulário (JORN-19)
+- [x] 48-15-PLAN.md — Reabertura na tela do RH: cópia de «reverter» e recusa D-23 clara no formulário (JORN-19)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 13/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 14/18 | In Progress|  |
 
 ---
 
