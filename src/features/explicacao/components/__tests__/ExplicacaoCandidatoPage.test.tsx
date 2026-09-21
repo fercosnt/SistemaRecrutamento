@@ -52,6 +52,7 @@ vi.mock('../../hooks/useExplicacao', () => ({
 }))
 
 import { ExplicacaoCandidatoPage } from '../ExplicacaoCandidatoPage'
+import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
 
 /** Copy verbatim da 42-UI-SPEC §Superfície do candidato — REVISAO-04. */
 const COPY_SPEC = {
@@ -430,5 +431,101 @@ describe('ExplicacaoCandidatoPage — a rejeição automática (§7.18)', () => 
       screen.getByText(/pedir que uma pessoa da nossa equipe revise/i),
     ).toBeInTheDocument()
     expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * JORN-22 / D-20 (Phase 48) — a rejeição HUMANA na triagem: explicação + canal, SEM
+ * pedido de revisão, espelhando o knockout. Mas com texto PRÓPRIO: os textos do caminho
+ * automático afirmam «sem avaliação de uma pessoa», e aqui uma pessoa decidiu. Reusá-los
+ * seria mentir sobre quem decidiu — o defeito que a RPC do §7.18 existe para impedir.
+ *
+ * O canal é a constante importada (D-07): o endereço literal não aparece neste arquivo.
+ */
+describe('ExplicacaoCandidatoPage — a rejeição humana na triagem (JORN-22 / D-20)', () => {
+  const PROIBIDO =
+    /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio|teste psicol/i
+
+  function carregadaHumanaTriagem() {
+    explicacaoMock.mockReturnValue({
+      data: explicacao({
+        origem: 'humana_triagem',
+        reason:
+          'A sua candidatura foi analisada por uma pessoa da nossa equipe, que decidiu não seguir com ela neste momento.',
+        revisao_solicitada_em: null,
+        explicacao_solicitada_em: null,
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+  }
+
+  it('renderiza o contêiner próprio e a linha de resultado própria', () => {
+    carregadaHumanaTriagem()
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(container.querySelector('[data-testid="explicacao-humana-triagem"]')).not.toBeNull()
+    expect(
+      screen.getByText(
+        'Após a análise da sua candidatura por uma pessoa da nossa equipe, decidimos não seguir com ela nesta vaga.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('NUNCA diz que foi automático nem que não houve pessoa', () => {
+    carregadaHumanaTriagem()
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(container.textContent).not.toMatch(/sem avalia[çc][ãa]o de uma pessoa/i)
+    expect(container.textContent).not.toMatch(/n[ãa]o envolveu avalia[çc][ãa]o/i)
+    expect(container.textContent).not.toMatch(/automaticamente/i)
+    // Nem a linha do caminho da decisão final («Após avaliarmos seu processo»).
+    expect(screen.queryByText(/Após avaliarmos seu processo/i)).not.toBeInTheDocument()
+  })
+
+  it('NÃO oferece pedido de revisão — nem o CTA, nem a frase do direito', () => {
+    carregadaHumanaTriagem()
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.queryByRole('button', { name: /revis(ã|a)o/i })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/pedir que uma pessoa da nossa equipe revise/i),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/não há uma revisão a pedir por aqui/i)).not.toBeInTheDocument()
+  })
+
+  it('dá o bloco sem-revisão próprio e o canal vindo da constante importada', () => {
+    carregadaHumanaTriagem()
+    render(<ExplicacaoCandidatoPage />)
+    expect(screen.getByText('Se você quiser falar sobre esta decisão')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Esta decisão foi tomada por uma pessoa da nossa equipe. Se quiser falar sobre ela, entre em contato pelo canal abaixo.',
+      ),
+    ).toBeInTheDocument()
+    const canal = screen.getByRole('link', { name: CANAL_PRIVACIDADE_EMAIL })
+    expect(canal).toHaveAttribute('href', `mailto:${CANAL_PRIVACIDADE_EMAIL}`)
+  })
+
+  it('nenhum texto da superfície casa o grep-guard de palavras', () => {
+    carregadaHumanaTriagem()
+    const { container } = render(<ExplicacaoCandidatoPage />)
+    expect(container.textContent ?? '').not.toMatch(PROIBIDO)
+  })
+
+  it('os caminhos humano e automático não mudaram (não-regressão)', () => {
+    carregada()
+    const { container, unmount } = render(<ExplicacaoCandidatoPage />)
+    expect(container.querySelector('[data-testid="explicacao-humana-triagem"]')).toBeNull()
+    expect(screen.getByText(/pedir que uma pessoa da nossa equipe revise/i)).toBeInTheDocument()
+    unmount()
+
+    explicacaoMock.mockReturnValue({
+      data: explicacao({ origem: 'automatica', revisao_solicitada_em: null }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    })
+    const r2 = render(<ExplicacaoCandidatoPage />)
+    expect(r2.container.querySelector('[data-testid="explicacao-humana-triagem"]')).toBeNull()
+    expect(screen.getByText(/sem avaliação de uma pessoa/i)).toBeInTheDocument()
   })
 })

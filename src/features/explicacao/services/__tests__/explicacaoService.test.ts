@@ -55,6 +55,7 @@ vi.mock('@/lib/supabase/client', () => {
 
 import {
   DECISAO_EXPLICACAO_ALLOWLIST,
+  REASON_HUMANA_TRIAGEM,
   getExplicacao,
   normalizarVeredito,
   solicitarRevisao,
@@ -253,12 +254,12 @@ describe('explicacaoService — normalizarVeredito (puro e total)', () => {
 })
 
 describe('explicacaoService — reachability gate (Pitfall 6 / T-15-14)', () => {
-  it('returns null when no decision row exists AND it was not a knockout', async () => {
+  it('returns null when no decision row exists AND the server says it does not apply', async () => {
     // §7.18: a ausência de `decisao_final` deixou de ser conclusiva — pode ser o
-    // knockout. O serviço PERGUNTA ao servidor; um `false` mantém a página indisponível.
-    // Este é o caso (b) do §7.18: rejeição HUMANA na triagem, que não tem página.
+    // knockout ou a rejeição humana na triagem (JORN-22). O serviço PERGUNTA ao
+    // servidor; um `null` (não é sua / não se aplica) mantém a página indisponível.
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: false, error: null })
+    rpcMock.mockResolvedValue({ data: null, error: null })
     await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
   })
 
@@ -389,21 +390,21 @@ describe('explicacaoService — solicitarRevisao (DECISAO-04 + SEC-03 server-sid
 describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', () => {
   it('sem `decisao_final` e COM knockout: devolve explicação de origem automática', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: true, error: null })
+    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r).not.toBeNull()
     expect(r?.origem).toBe('automatica')
     expect(r?.decisao).toBe('rejeitado')
     // Pergunta feita ao SERVIDOR, com o id da própria candidatura.
-    expect(rpcMock).toHaveBeenCalledWith('explicacao_rejeicao_automatica', {
+    expect(rpcMock).toHaveBeenCalledWith('explicacao_rejeicao_origem', {
       p_candidatura_id: VALID_CAND,
     })
   })
 
   it('o texto nomeia o MECANISMO e cala o CRITÉRIO (Art. 20 sim, D-15 preservado)', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: true, error: null })
+    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     // Diz que foi automático e o que o motivou — é o direito do Art. 20.
@@ -417,7 +418,7 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
 
   it('o ciclo de revisão vem TODO nulo — não há revisão a oferecer', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: true, error: null })
+    rpcMock.mockResolvedValue({ data: 'automatica', error: null })
 
     const r = await getExplicacao(VALID_CAND)
     expect(r?.revisao_solicitada_em).toBeNull()
@@ -427,14 +428,31 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
     expect(r?.explicacao_solicitada_em).toBeNull()
   })
 
-  it('⚠ a rejeição HUMANA da triagem continua sem página (o portão que mais importa)', async () => {
+  it('⚠ a rejeição HUMANA da triagem NUNCA recebe o texto da automática (o portão que mais importa)', async () => {
     maybeSingleMock.mockResolvedValue({ data: null, error: null })
-    rpcMock.mockResolvedValue({ data: false, error: null })
-    await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana_triagem')
+    expect(r?.reason).not.toMatch(/requisitos objetivos|elegibilidade|formul[áa]rio/i)
   })
 
-  it('só `true` abre a página: nem truthy, nem shape inesperado de um build futuro', async () => {
-    for (const data of [1, 'true', {}, [], null, undefined]) {
+  it('só os dois valores exatos abrem a página: nem truthy, nem o booleano antigo, nem shape futuro', async () => {
+    // Comparação ESTRITA: `true` era a resposta da RPC booleana antiga — se um build
+    // velho do servidor respondesse assim, ela não pode virar explicação por acidente.
+    for (const data of [
+      true,
+      false,
+      1,
+      'true',
+      'AUTOMATICA',
+      'automatica ',
+      'humana',
+      'Humana_Triagem',
+      {},
+      [],
+      null,
+      undefined,
+    ]) {
       maybeSingleMock.mockResolvedValue({ data: null, error: null })
       rpcMock.mockResolvedValue({ data, error: null })
       await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
@@ -463,5 +481,82 @@ describe('explicacaoService — a rejeição automática (§7.18, caminho 2)', (
       await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
       expect(rpcMock).not.toHaveBeenCalled()
     }
+  })
+})
+
+/**
+ * JORN-22 / D-20 (Phase 48, decisão do operador) — a rejeição HUMANA na triagem passa a
+ * ter página de explicação: razão neutra própria («analisada por uma pessoa da nossa
+ * equipe»), canal de contato, e NENHUM pedido de revisão.
+ *
+ * Até aqui ela caía em «Esta página não está disponível». Com o `feedback_rejeicao`
+ * neutro que o 48-09 passa a gravar em `rejeitar_candidatura`, o cartão «Entenda a
+ * decisão» do painel aparece para ela — e levaria a essa página vazia.
+ *
+ * O servidor devolve o discriminador (`explicacao_rejeicao_origem`) lendo
+ * `motivo_rejeicao` SEM devolvê-lo; o cliente continua sem ver o motivo.
+ */
+describe('explicacaoService — a rejeição humana na triagem (JORN-22 / D-20)', () => {
+  /** O grep-guard dos e-mails de decisão (`email-templates.test.ts`) + linguagem de produto. */
+  const PROIBIDO =
+    /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio|teste psicol/i
+
+  it('sem `decisao_final` e com origem humana_triagem: devolve a explicação própria', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+
+    const r = await getExplicacao(VALID_CAND)
+    expect(r).toEqual({
+      origem: 'humana_triagem',
+      decisao: 'rejeitado',
+      reason: REASON_HUMANA_TRIAGEM,
+      revisao_solicitada_em: null,
+      revisao_resultado: null,
+      explicacao_solicitada_em: null,
+      revisao_veredito: null,
+      revisao_respondida_em: null,
+    })
+    expect(rpcMock).toHaveBeenCalledWith('explicacao_rejeicao_origem', {
+      p_candidatura_id: VALID_CAND,
+    })
+  })
+
+  it('a RPC booleana antiga saiu do serviço — uma única pergunta ao servidor', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: null })
+    await getExplicacao(VALID_CAND)
+    expect(rpcMock).toHaveBeenCalledTimes(1)
+    expect(rpcMock).not.toHaveBeenCalledWith(
+      'explicacao_rejeicao_automatica',
+      expect.anything(),
+    )
+  })
+
+  it('a razão diz QUEM decidiu (uma pessoa) e nada sobre o porquê', () => {
+    expect(REASON_HUMANA_TRIAGEM).toMatch(/uma pessoa da nossa equipe/i)
+    expect(REASON_HUMANA_TRIAGEM).not.toMatch(PROIBIDO)
+    // Nunca a linguagem do caminho automático — seria mentir sobre quem decidiu.
+    expect(REASON_HUMANA_TRIAGEM).not.toMatch(
+      /autom[áa]tic|sem avalia[çc][ãa]o de uma pessoa|requisitos objetivos|elegibilidade/i,
+    )
+    // Não afirma em que etapa a decisão foi tomada: a rejeição do RH é alcançável em
+    // qualquer etapa não terminal (entrevista inclusive), e «logo no início» seria falso.
+    expect(REASON_HUMANA_TRIAGEM).not.toMatch(/in[íi]cio|triagem/i)
+    // A frase que desarma a leitura de julgamento pessoal, como no knockout.
+    expect(REASON_HUMANA_TRIAGEM).toMatch(/n[ãa]o impede que voc[êe] se candidate a outras/i)
+  })
+
+  it('erro na RPC resolve para indisponível', async () => {
+    maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    rpcMock.mockResolvedValue({ data: 'humana_triagem', error: { code: '42501' } })
+    await expect(getExplicacao(VALID_CAND)).resolves.toBeNull()
+  })
+
+  it('havendo linha em `decisao_final`, a origem é humana e a RPC tri-estado nem é consultada', async () => {
+    rpcMock.mockClear()
+    maybeSingleMock.mockResolvedValue({ data: linhaRejeitada(), error: null })
+    const r = await getExplicacao(VALID_CAND)
+    expect(r?.origem).toBe('humana')
+    expect(rpcMock).not.toHaveBeenCalled()
   })
 })
