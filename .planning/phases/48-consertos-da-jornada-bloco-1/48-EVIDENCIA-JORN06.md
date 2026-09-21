@@ -95,3 +95,19 @@ recebe `ok: true` e a falha só existe no log.
 `candidaturas.data_bigfive_enviado` está **nulo** na candidatura da prova — e nos **3 de 3**
 scores `big_five` que existem em PROD (medido). O `submit-bigfive-final` não carimba essa coluna.
 É anterior à fase e não é o JORN-06; vai para `deferred-items.md`.
+
+## Backlog
+
+Medido pelo orquestrador em 2026-09-21, só leitura (MCP `execute_sql` com `SET TRANSACTION READ ONLY` — o
+Keychain bloqueado impediu o `p46apply`), pela query do plano: candidaturas com score `big_five` e sem
+linha em `devolutivas_candidato`, com a classe da conta.
+
+BACKLOG: 2
+DEVOLUTIVAS_ANTES: 1
+PAR: bf26ee3c-0ae3-4e92-a99b-6e05efc2a662 b4f604db-302e-4d45-8e77-90a829381895
+PAR: 2ce20fbf-df1a-4850-b7ee-1c2a0fb88a13 6d1136de-1df7-4fa2-b8f7-b59b2bab115d
+CONTAS: todas de teste
+
+`bf26ee3c…` é a candidatura `+claude4` rejeitada na triagem (a mesma do retroativo (B) do 48-12);
+`2ce20fbf…` é a submissão de prova desta task (`+claude1`). Nenhum candidato real no backlog.
+A geração é da Task 4, pelo operador, no painel — e só depois do deploy do conserto.
