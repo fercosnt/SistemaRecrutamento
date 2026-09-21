@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-02-PLAN.md
-last_updated: "2026-09-21T13:47:20.365Z"
+stopped_at: Completed 48-09-PLAN.md
+last_updated: "2026-09-21T14:15:16.485Z"
 last_activity: 2026-09-21
-state_head: 6a1226f2a28f42156c7816ab8b7b2e9c18dee950
+state_head: 0d00154dd6c442fd69fe4bc80bfb16d912b475f3
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 63
-  percent: 82
+  completed_plans: 64
+  percent: 83
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -779,6 +779,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P06 | 9 min | 2 tasks | 5 files |
 | Phase 48 P07 | 40min | 2 tasks | 7 files |
 | Phase 48 P02 | 35min | 3 tasks | 7 files |
+| Phase 48 P09 | 14min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1041,6 +1042,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-07: aviso a titular (JORN-27) com colunas proprias aviso_pedido/cancelamento_enviado_em, fora de notificacoes_enviadas; nunca recibo_enviado_em (suprimiria o recibo final)
 - [Phase 48]: 48-07: base do link de login (JORN-U2) por Deps.appBaseUrl lida no wiring (APP_BASE_URL), default https://rh.beautysmile.com.br; montarUrlLogin so aceita redirect interno
 - [Phase 48]: 48-02: Retroceder e CTA de workspace nao sao gated por candidatura encerrada (posicionais, varredura §4 ii); so Avancar/Rejeitar (D-21)
+- [Phase 48]: 48-09: explicacao_rejeicao_origem (tri-estado) é função NOVA; a booleana fica sem DROP até nenhum bundle a chamar
+- [Phase 48]: 48-09: REASON_HUMANA_TRIAGEM não afirma etapa (rejeição do RH alcançável em qualquer etapa não terminal)
 
 ### Pending Todos
 
@@ -1321,8 +1324,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T13:47:20.154Z
-Stopped at: Completed 48-02-PLAN.md
+Last session: 2026-09-21T14:15:16.266Z
+Stopped at: Completed 48-09-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
