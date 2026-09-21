@@ -49,3 +49,25 @@ export function formatDataHoraSP(iso: string | null): string | null {
   if (!p) return null
   return `${p.dd}/${p.mm}/${p.yyyy} às ${p.hh}:${p.min}`
 }
+
+/**
+ * 48-14 (JORN-19 · D-01) — a DATA-LIMITE da nova decisão de uma candidatura reaberta, como
+ * o candidato a lê: `dd/mm/aaaa` em America/Sao_Paulo.
+ *
+ * O 48-11 grava `decisao_final.prazo_nova_decisao_em` = 00:00 de São Paulo do dia SEGUINTE à
+ * data-limite (o fim do 10º dia corrido). A data dita é a do instante do prazo MENOS 1
+ * segundo — a mesma regra de `formatarDataLimiteReabertura` em
+ * `supabase/functions/notificar-candidato/index.ts` (48-13), para que página, painel e e-mail
+ * digam a mesma data.
+ *
+ * Qualquer valor que não seja um instante legível ⇒ `null` ⇒ quem chama diz a frase SEM data.
+ * Nunca uma data inventada.
+ */
+export function formatDataLimiteReabertura(prazo: unknown): string | null {
+  if (typeof prazo !== 'string' || prazo.length === 0) return null
+  const ms = Date.parse(prazo)
+  if (!Number.isFinite(ms)) return null
+  const p = saoPauloParts(new Date(ms - 1000).toISOString())
+  if (!p) return null
+  return `${p.dd}/${p.mm}/${p.yyyy}`
+}

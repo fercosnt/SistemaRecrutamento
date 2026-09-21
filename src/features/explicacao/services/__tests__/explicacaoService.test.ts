@@ -144,7 +144,9 @@ describe('explicacaoService — allowlist estendida com o resultado da revisão 
     const cols = DECISAO_EXPLICACAO_ALLOWLIST.split(',').map((c) => c.trim())
     expect(cols).toContain('revisao_veredito')
     expect(cols).toContain('revisao_respondida_em')
-    expect(cols).toHaveLength(6)
+    // 48-14 somou as 2 colunas do estado da reabertura (escopo deliberado: a lista exata
+    // está pinada no teste da allowlist acima, e é lá que uma coluna nova tem de entrar).
+    expect(cols).toHaveLength(8)
   })
 
   it('NUNCA nomeia coluna de autoria — a identidade de quem revisou não chega ao cliente', () => {

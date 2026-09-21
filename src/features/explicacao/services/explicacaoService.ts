@@ -6,7 +6,7 @@
  * error class). The genuinely load-bearing invariants (RNF-07a + LGPD-04):
  *
  *  - `getExplicacao` reads `decisao_final` via an EXPLICIT own-row allowlist
- *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 6 named columns) that EXCLUDES the internal RH
+ *    (`DECISAO_EXPLICACAO_ALLOWLIST` — 8 named columns since 48-14) that EXCLUDES the internal RH
  *    `justificativa` free text (Phase-24 CR-01 — a column read but never used still ships
  *    over the wire) AND every score / band / percentile column, and NEVER joins the
  *    psychometric scores table. RLS is row-level only and does NOT hide columns
@@ -68,7 +68,7 @@ export class ExplicacaoServiceError extends Error {
 
 /**
  * The EXPLICIT own-row column allowlist for the candidate read of `decisao_final`. It
- * names ONLY the 6 columns the candidate may see — the high-level `decisao` and the
+ * names ONLY the 8 columns the candidate may see — the high-level `decisao` and the
  * LGPD Art. 20 lifecycle stamps (`revisao_solicitada_em`, `revisao_resultado`,
  * `explicacao_solicitada_em`) plus, since Phase 42 / 42-11 (REVISAO-04), the review
  * OUTCOME the candidate has a right to read: `revisao_veredito` and
@@ -96,7 +96,10 @@ export class ExplicacaoServiceError extends Error {
  *     the wire into the candidate's browser.
  */
 export const DECISAO_EXPLICACAO_ALLOWLIST =
-  'decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em, revisao_veredito, revisao_respondida_em'
+  'decisao, revisao_solicitada_em, revisao_resultado, explicacao_solicitada_em, revisao_veredito, revisao_respondida_em, reaberta_em, prazo_nova_decisao_em'
+// 48-14 (JORN-19 · D-01/D-10): `reaberta_em` e `prazo_nova_decisao_em` entram como ESTADO da
+// reabertura — dois instantes, nenhum conteúdo, nenhuma autoria. `alerta_prazo_enviado_em`
+// (controle interno do alerta ao RH, 48-13) fica de fora de propósito.
 
 /** The candidate-facing decision result — the live `decisao_final_resultado` enum. */
 export type DecisaoResultado = 'aprovado' | 'rejeitado' | 'em_espera'
@@ -173,6 +176,19 @@ export interface ExplicacaoCandidato {
    * answer to show at all — the panel and the e-mail cannot disagree about that fact.
    */
   revisao_respondida_em: string | null
+  /**
+   * 48-14 (JORN-19 · D-01/D-10) — quando o veredito `revertida` REABRIU a candidatura (48-11).
+   * Não nulo ⇒ a rejeição deixou de ser vigente: `decisao` continua `rejeitado` no banco até
+   * a nova decisão, e é ESTE campo — não `decisao` — que diz à página que não há rejeição a
+   * explicar. Nulo nos caminhos `automatica` e `humana_triagem` (não há linha em
+   * `decisao_final`) e depois da nova decisão (a `registrar_decisao` zera o ciclo).
+   */
+  reaberta_em: string | null
+  /**
+   * 48-14 — o instante do prazo da nova decisão (00:00 de SP do dia seguinte à data-limite;
+   * a data dita ao candidato é este instante menos 1 s — `formatDataLimiteReabertura`).
+   */
+  prazo_nova_decisao_em: string | null
 }
 
 /**
@@ -303,6 +319,8 @@ export async function getExplicacao(
     explicacao_solicitada_em: string | null
     revisao_veredito: string | null
     revisao_respondida_em: string | null
+    reaberta_em: string | null
+    prazo_nova_decisao_em: string | null
   }
 
   // Reachability gate: the page exists ONLY after a rejection. aprovado / em_espera →
@@ -325,6 +343,9 @@ export async function getExplicacao(
     // Defensive: an unexpected verdict resolves to null instead of reaching the UI.
     revisao_veredito: normalizarVeredito(raw.revisao_veredito),
     revisao_respondida_em: raw.revisao_respondida_em ?? null,
+    // 48-14: o estado da reabertura (D-01/D-10) — a página decide por `reaberta_em`.
+    reaberta_em: raw.reaberta_em ?? null,
+    prazo_nova_decisao_em: raw.prazo_nova_decisao_em ?? null,
   }
 }
 
@@ -387,6 +408,8 @@ async function getExplicacaoSemDecisaoFinal(
     explicacao_solicitada_em: null,
     revisao_veredito: null,
     revisao_respondida_em: null,
+    reaberta_em: null,
+    prazo_nova_decisao_em: null,
   }
 }
 

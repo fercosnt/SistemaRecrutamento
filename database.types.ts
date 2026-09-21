@@ -1660,6 +1660,7 @@ export type Database = {
       }
       decisao_final: {
         Row: {
+          alerta_prazo_enviado_em: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em: string
@@ -1667,6 +1668,8 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
           revisao_por_usuario: string | null
           revisao_respondida_em: string | null
           revisao_resultado: string | null
@@ -1674,6 +1677,7 @@ export type Database = {
           revisao_veredito: string | null
         }
         Insert: {
+          alerta_prazo_enviado_em?: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em?: string
@@ -1681,6 +1685,8 @@ export type Database = {
           id?: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
           revisao_por_usuario?: string | null
           revisao_respondida_em?: string | null
           revisao_resultado?: string | null
@@ -1688,6 +1694,7 @@ export type Database = {
           revisao_veredito?: string | null
         }
         Update: {
+          alerta_prazo_enviado_em?: string | null
           candidatura_id?: string
           decisao?: Database["public"]["Enums"]["decisao_final_resultado"]
           em?: string
@@ -1695,6 +1702,8 @@ export type Database = {
           id?: string
           justificativa?: string
           por_usuario?: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
           revisao_por_usuario?: string | null
           revisao_respondida_em?: string | null
           revisao_resultado?: string | null
@@ -1734,31 +1743,58 @@ export type Database = {
       }
       decisao_final_historico: {
         Row: {
+          alerta_prazo_enviado_em: string | null
           arquivado_em: string
           candidatura_id: string
           decidido_em: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          explicacao_solicitada_em: string | null
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
+          revisao_por_usuario: string | null
+          revisao_respondida_em: string | null
+          revisao_resultado: string | null
+          revisao_solicitada_em: string | null
+          revisao_veredito: string | null
         }
         Insert: {
+          alerta_prazo_enviado_em?: string | null
           arquivado_em?: string
           candidatura_id: string
           decidido_em: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
+          explicacao_solicitada_em?: string | null
           id?: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
+          revisao_por_usuario?: string | null
+          revisao_respondida_em?: string | null
+          revisao_resultado?: string | null
+          revisao_solicitada_em?: string | null
+          revisao_veredito?: string | null
         }
         Update: {
+          alerta_prazo_enviado_em?: string | null
           arquivado_em?: string
           candidatura_id?: string
           decidido_em?: string
           decisao?: Database["public"]["Enums"]["decisao_final_resultado"]
+          explicacao_solicitada_em?: string | null
           id?: string
           justificativa?: string
           por_usuario?: string
+          prazo_nova_decisao_em?: string | null
+          reaberta_em?: string | null
+          revisao_por_usuario?: string | null
+          revisao_respondida_em?: string | null
+          revisao_resultado?: string | null
+          revisao_solicitada_em?: string | null
+          revisao_veredito?: string | null
         }
         Relationships: [
           {
@@ -5913,6 +5949,7 @@ export type Database = {
           p_justificativa: string
         }
         Returns: {
+          alerta_prazo_enviado_em: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em: string
@@ -5920,6 +5957,8 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
           revisao_por_usuario: string | null
           revisao_respondida_em: string | null
           revisao_resultado: string | null
@@ -5964,6 +6003,7 @@ export type Database = {
           p_veredito: string
         }
         Returns: {
+          alerta_prazo_enviado_em: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em: string
@@ -5971,6 +6011,8 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
           revisao_por_usuario: string | null
           revisao_respondida_em: string | null
           revisao_resultado: string | null
@@ -6044,6 +6086,7 @@ export type Database = {
       solicitar_revisao_decisao: {
         Args: { p_candidatura_id: string }
         Returns: {
+          alerta_prazo_enviado_em: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em: string
@@ -6051,6 +6094,8 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
           revisao_por_usuario: string | null
           revisao_respondida_em: string | null
           revisao_resultado: string | null
@@ -6067,6 +6112,7 @@ export type Database = {
       stamp_explicacao_acessada: {
         Args: { p_candidatura_id: string }
         Returns: {
+          alerta_prazo_enviado_em: string | null
           candidatura_id: string
           decisao: Database["public"]["Enums"]["decisao_final_resultado"]
           em: string
@@ -6074,6 +6120,8 @@ export type Database = {
           id: string
           justificativa: string
           por_usuario: string
+          prazo_nova_decisao_em: string | null
+          reaberta_em: string | null
           revisao_por_usuario: string | null
           revisao_respondida_em: string | null
           revisao_resultado: string | null
@@ -6122,6 +6170,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      varrer_prazos_reabertura: { Args: never; Returns: number }
       varrer_purga_retencao: { Args: never; Returns: undefined }
       varrer_retry_notificacoes: { Args: never; Returns: undefined }
     }

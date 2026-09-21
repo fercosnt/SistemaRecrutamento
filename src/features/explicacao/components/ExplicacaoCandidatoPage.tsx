@@ -33,6 +33,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { BackgroundImage } from '@/components/BackgroundImage'
 import { Glass, GlassButton, GlassPanel } from '@/components/ui/glass'
 import { CANAL_PRIVACIDADE_EMAIL } from '@/features/privacidade/constants/canalPrivacidade'
+import { formatDataLimiteReabertura } from '@/lib/datetime/formatDataHoraSP'
 import { useExplicacao, type RevisaoVeredito } from '../hooks/useExplicacao'
 import { SolicitarRevisaoCTA } from './SolicitarRevisaoCTA'
 
@@ -106,8 +107,20 @@ const COPY_REVISAO = {
   eyebrow: 'Resultado da revisão',
   vereditoPrefixo: 'Após a revisão, ',
   veredito: {
-    mantida: 'a decisão foi mantida.',
-    revertida: 'a decisão anterior foi revista.',
+    mantida: () => 'a decisão foi mantida.',
+    /**
+     * 48-14 (JORN-19 · D-01) — o veredito `revertida` REABRE a candidatura (48-11), e esta
+     * linha diz isso com a MESMA frase do e-mail (48-13, `COPY_REVISAO_REVERTIDA` em
+     * `supabase/functions/_shared/email-templates.ts`): regra da 42-UI-SPEC, e-mail e página
+     * dizem a mesma coisa. Prefixo + cláusula concatenam, letra por letra, para
+     * «Após a revisão, sua candidatura foi reaberta e será decidida novamente até DD/MM/AAAA.»
+     * — a data-limite em SP (prazo − 1 s). Sem prazo legível, a frase sai SEM data; nunca
+     * uma data inventada. Reabrir não é aprovar (D-01, RNF-07a): nenhuma decisão foi tomada.
+     */
+    revertida: (dataLimite: string | null) =>
+      dataLimite
+        ? `sua candidatura foi reaberta e será decidida novamente até ${dataLimite}.`
+        : 'sua candidatura foi reaberta e será decidida novamente.',
   },
   respondidaEm: (data: string) => `Respondida em ${data}`,
 } as const
@@ -199,6 +212,16 @@ export function ExplicacaoCandidatoPage() {
   // (knockout) e `humana_triagem` (uma pessoa rejeitou antes da decisão final). As duas
   // últimas não têm revisão a pedir; cada uma tem texto PRÓPRIO sobre quem decidiu.
   const { origem } = explicacao
+  // 48-14 (JORN-19 · D-01): a candidatura REABERTA. `decisao` continua `rejeitado` no banco
+  // até a nova decisão, então a página não pode ler `decisao` para saber se a rejeição vale:
+  // lê `reaberta_em`. E o veredito `revertida` também conta — desde o 48-11 ele SEMPRE
+  // reabre, e mostrar «decidimos não seguir» ao lado de «sua candidatura foi reaberta» seria
+  // a contradição que este plano existe para eliminar. Reaberta ⇒ sem linha de rejeição, sem
+  // razão da rejeição, sem CTA de revisão (não há decisão vigente a revisar); o bloco de
+  // resultado da revisão passa a ser a informação principal.
+  const reaberta =
+    origem === 'humana' &&
+    (Boolean(explicacao.reaberta_em) || explicacao.revisao_veredito === 'revertida')
   const resultLine =
     origem === 'automatica'
       ? COPY.resultLineAutomatica
@@ -226,18 +249,23 @@ export function ExplicacaoCandidatoPage() {
 
         {/* High-level, non-clinical result line — a do caminho automático diz, na
             primeira frase, que não houve pessoa nem avaliação (§7.18); a da rejeição
-            humana na triagem diz que uma pessoa decidiu (JORN-22). */}
-        <p className="text-base leading-relaxed text-white">{resultLine}</p>
+            humana na triagem diz que uma pessoa decidiu (JORN-22). Numa candidatura
+            reaberta (48-14) a rejeição não é mais vigente: nem a linha, nem a razão. */}
+        {!reaberta && (
+          <>
+            <p className="text-base leading-relaxed text-white">{resultLine}</p>
 
-        {/* Respectful templated reason (derived server-side; never the raw justificativa). */}
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
-            {COPY.reasonEyebrow}
-          </p>
-          <p className="text-base leading-relaxed text-white/90">{explicacao.reason}</p>
-        </div>
+            {/* Respectful templated reason (derived server-side; never the raw justificativa). */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
+                {COPY.reasonEyebrow}
+              </p>
+              <p className="text-base leading-relaxed text-white/90">{explicacao.reason}</p>
+            </div>
 
-        <p className="text-base leading-relaxed text-white/80">{COPY.gratitude}</p>
+            <p className="text-base leading-relaxed text-white/80">{COPY.gratitude}</p>
+          </>
+        )}
 
         {/* The Art. 20 review OUTCOME (REVISAO-04) — gated on `revisao_respondida_em`,
             the SAME column the 42-08 trigger watches to send the candidate's e-mail, so
@@ -250,6 +278,7 @@ export function ExplicacaoCandidatoPage() {
             veredito={explicacao.revisao_veredito}
             respondidaEm={explicacao.revisao_respondida_em}
             justificativa={explicacao.revisao_resultado}
+            prazoNovaDecisaoEm={explicacao.prazo_nova_decisao_em}
           />
         ) : (
           explicacao.revisao_resultado && (
@@ -270,7 +299,7 @@ export function ExplicacaoCandidatoPage() {
             produto: `solicitar_revisao_decisao` exige a linha em `decisao_final` que
             nenhum dos dois cria, então o CTA ali seria um botão que o servidor sempre
             recusa. */}
-        {semRevisaoBody ? (
+        {reaberta ? null : semRevisaoBody ? (
           <div className="space-y-2 border-t border-white/15 pt-6">
             <p className="text-sm font-semibold text-white/70 uppercase tracking-wide">
               {COPY.semRevisaoEyebrow}
@@ -338,29 +367,34 @@ function formatarDataPtBr(iso: string): string {
  *     preserved, and NEVER truncated — no fixed height, no inner scroll, the block grows
  *     vertically. Truncating the review's reasoning would hollow out the very right the
  *     Art. 20 grants, so the layout risk is accepted deliberately (T-42-40).
- *  3. HONESTY: the system writes NO promise of its own about next steps. The RPC behind
- *     this phase records a verdict and a justification; it does NOT reopen the funnel.
- *     Whatever comes next is what the reviewing person wrote. A system sentence here
- *     ("entraremos em contato", "você voltará ao processo") would be a promise with no
- *     code that executes it — exactly what the Phase-47 CONSOL-04 checklist exists to
- *     hunt down.
+ *  3. HONESTY: the system writes NO promise of its own about next steps beyond what code
+ *     executes. Since 48-11 the `revertida` verdict DOES reopen the candidatura (it returns
+ *     to the final decision with a 10-day internal deadline, D-10, and 48-13 alerts the RH
+ *     when it expires) — so the D-01 sentence ("sua candidatura foi reaberta e será
+ *     decidida novamente até DD/MM/AAAA.") is a promise backed by code, and it is the ONLY
+ *     one. Anything else ("entraremos em contato", "você voltará ao processo") would be a
+ *     promise with no code that executes it — exactly what the Phase-47 CONSOL-04
+ *     checklist exists to hunt down.
  *  4. IDENTITY: the reviewer's name does NOT appear, and the reviewer id is not even read
  *     by the candidate's client (it is absent from `DECISAO_EXPLICACAO_ALLOWLIST`). And
  *     NOTHING from the RH-side follow-up threshold reaches here — no band, no band
  *     colour, no waiting-day count, no late label, not in text and not in an attribute
- *     (D-P42-03 / invariante 1 da 42-UI-SPEC). The Art. 20 fixes no deadline; implying
- *     one would be the defect.
+ *     (D-P42-03 / invariante 1 da 42-UI-SPEC). The Art. 20 fixes no deadline; the only
+ *     date here is the reopening's own internal deadline (D-10), the same the e-mail says.
  */
 function ResultadoRevisaoBloco({
   veredito,
   respondidaEm,
   justificativa,
+  prazoNovaDecisaoEm,
 }: {
   veredito: RevisaoVeredito | null
   respondidaEm: string
   justificativa: string | null
+  prazoNovaDecisaoEm: string | null
 }) {
   const data = formatarDataPtBr(respondidaEm)
+  const dataLimite = formatDataLimiteReabertura(prazoNovaDecisaoEm)
 
   return (
     <div className="rounded-lg border border-white/15 bg-white/5 p-4 space-y-2">
@@ -373,7 +407,7 @@ function ResultadoRevisaoBloco({
       {veredito && (
         <p className="text-base leading-relaxed text-white">
           {COPY_REVISAO.vereditoPrefixo}
-          <span className="font-semibold">{COPY_REVISAO.veredito[veredito]}</span>
+          <span className="font-semibold">{COPY_REVISAO.veredito[veredito](dataLimite)}</span>
         </p>
       )}
 
