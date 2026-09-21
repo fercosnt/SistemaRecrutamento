@@ -318,17 +318,17 @@ Plans:
 **Requirements**: JORN-22, JORN-26, JORN-20, JORN-27, JORN-18, JORN-15, JORN-U2, JORN-24, JORN-06, JORN-19, JORN-D5
 **Success Criteria** (o que tem de ser VERDADE):
 
-  1. Uma candidatura rejeitada **na triagem** gera e-mail ao candidato e mostra o cartão «Entenda a decisão sobre sua candidatura» no painel dele — `rejeitar_candidatura` passa a gravar `feedback_rejeicao` neutro, como o knockout já faz (conserto confirmado por experimento na Etapa 10).
+  1. Uma candidatura rejeitada **na triagem** gera e-mail ao candidato e mostra o cartão «Entenda a decisão sobre sua candidatura» no painel dele, e o cartão leva a uma explicação que **existe** (razão neutra + canal, sem revisão — D-20) — `rejeitar_candidatura` passa a gravar `feedback_rejeicao` neutro, como o knockout já faz (conserto confirmado por experimento na Etapa 10).
   2. Nenhum código decide «a candidatura acabou / está em andamento» olhando só `etapa_atual`: a varredura **pela forma** está registrada como artefato, cada ocorrência classificada (escopo deliberado × defeito), e os defeitos consertados — o do pedido de exclusão (Defeito 26) entre eles, não isolado.
   3. Redecidir gera aviso ao candidato (a chave de dedupe do evento de decisão distingue decisões); o knockout não dispara análise de IA, e a análise já gerada após knockout está **marcada**, não apagada (D2).
-  4. Pedido **e** cancelamento de exclusão chegam ao e-mail do titular, com `recibo_enviado_em` preenchido.
+  4. Pedido **e** cancelamento de exclusão chegam ao e-mail do titular, com registro próprio de envio — e o recibo pós-exclusão (`recibo_enviado_em`) continua saindo.
   5. A devolutiva do Big Five volta a ser gerada em PROD — e a causa do 401 foi **provada por medição antes** do conserto, não presumida.
-  6. O veredito `revertida` devolve a candidatura a `decisao_final`, com prazo de **10 dias corridos** dito no e-mail («sua candidatura foi reaberta e será decidida novamente»); vencido o prazo, o RH é alertado — nenhuma decisão automática (D1, D10).
+  6. O veredito `revertida` devolve a candidatura a `decisao_final`, com prazo de **10 dias corridos** dito no e-mail («sua candidatura foi reaberta e será decidida novamente»); vencido o prazo, o RH é alertado — nenhuma decisão automática; quem teve a decisão revertida não registra a nova (D-01, D-10, D-23).
   7. O e-mail de confirmação aponta para o painel em vez de prometer «a cada etapa» (D9), todo e-mail transacional ao candidato leva ao login dele (U2), e `local_ou_link` não aceita link inválido na escrita (D5).
 
 **Guardrails**: `tsc` não passa de **90** (baseline congelada em 96); vitest e deno verdes; migrations aplicadas pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger); depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**.
 **Fora de escopo**: Blocos 2, 3 e 4 da fila. As decisões D1–D10 não são reabertas.
-**Portão destrutivo**: não se aplica à fase como um todo — ela é aditiva, com **uma** exceção declarada: a marcação do D2 é `UPDATE` retroativo sobre análise existente (hoje 1 candidatura), reversível por construção (marca, não apaga), e entra como checkpoint com contagem antes/depois.
+**Portão destrutivo**: não se aplica à fase como um todo — ela é aditiva, e a purga (destrutiva) ficou **fora** por D-21. Escritas retroativas declaradas, todas sobre contas de teste e todas como checkpoint com contagem antes/depois: a marcação do D-02 (**3** análises — autorizada pelo operador), e, só se o operador aprovar na execução, desfazer as 2 marcas erradas de «encerrada a pedido» e o backfill de `feedback_rejeicao` da rejeição de triagem já feita (1). Nenhuma apaga linha.
 **Plans**: 0 plans
 
 Plans:

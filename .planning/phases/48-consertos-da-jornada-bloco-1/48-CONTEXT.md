@@ -59,6 +59,31 @@ candidaturas reais. O único write de código da validação foi `submit-bigfive
 - **D-09:** **Defeito 15 — mudar a promessa, não avisar em cada avanço** (JORN-15, JORN-U2). O texto do e-mail de confirmação passa a apontar para o painel, na linha de: «acompanhe no seu painel a qualquer momento; avisaremos quando houver algo para você fazer ou uma decisão». **Condição do operador, obrigatória:** o link para o login do candidato nos e-mails (U2) **sobe para este bloco** — senão a promessa aponta para um lugar inalcançável. Depois desta fase a promessa tem de ser **verdade**: todo desfecho avisa (JORN-20, JORN-18, e o knockout já avisa) e toda ação pedida ao candidato avisa (`avaliacao_liberada`, `convite`).
 - **D-10:** **Prazo da reabertura = 10 dias corridos** (JORN-19). O e-mail ao candidato diz a data exata. Vencido o prazo sem nova decisão, **só alerta o RH** — nenhuma decisão automática, nem aprovar nem rejeitar (é a lógica da própria D-01).
 
+### Decisões pós-pesquisa (operador, 2026-09-21, sobre os achados do `48-RESEARCH.md`)
+
+- **D-20:** **Rejeição humana na triagem: explicação + canal, sem pedido de revisão** (JORN-22). A pesquisa provou que o cartão, uma vez visível, leva a «Esta página não está disponível» — a RPC `explicacao_rejeicao_automatica` devolve `true` só para knockout. A página passa a servir este caso com razão **neutra própria** («analisada por uma pessoa da nossa equipe», sem motivo nem critério) e o canal de contato, **sem** oferecer revisão — espelhando o knockout. Revisão para a triagem, se vier, é fluxo novo e fica fora desta fase.
+- **D-21:** **Escopo da varredura D-11 = todas as instâncias não-destrutivas; a purga fica registrada, não consertada** (JORN-26). Um predicado canônico de «candidatura encerrada» (o critério certo já existe como `STATUS_TERMINAIS = {'rejeitado','finalizado'}` em `DashboardCandidatoPage.tsx:65`, com etapa **e** status) aplicado em: `registrar_pedido_exclusao` (Defeito 26), `retirar_candidatura`, a trava terminal de `rejeitar_candidatura` (**obrigatória** — sem ela, com o JORN-18 consertado, re-rejeitar um knockout manda um 2º e-mail de rejeição), a view `v_fila_trabalho`, os botões Avançar/Rejeitar do `HubCandidatoRH`, e o KPI do funil (`funil_kpis` + `CandidatosRHPage.tsx:258`). **Fora:** `candidaturas_alem_da_janela()` (a purga nunca alcança knockout) — mecanismo destrutivo com o flip `dry_run→live` pendente; registrar como retenção não declarada em Deferred, não tocar.
+- **D-22:** **Liberar a avaliação cognitiva passa a avisar o candidato** (JORN-15). Medido: `liberar_cognitivo` não notifica. Para o texto de D-09 («avisaremos quando houver algo para você fazer») ser verdade, a liberação ganha e-mail, como `avaliacao_liberada`. `em_espera` **não** é decisão comunicada ao candidato e segue sem aviso.
+- **D-23:** **Quem teve a decisão revertida não registra a nova decisão daquele caso** (JORN-19). Bloqueio duro, server-side, no mesmo espírito do «revisor ≠ decisor»: depois de uma reabertura, `registrar_decisao` recusa o `por_usuario` da decisão revertida. Qualquer outro RH/admin decide.
+
+### Correções de fato trazidas pela pesquisa (medidas em PROD, só leitura, 2026-09-21)
+
+Registradas aqui porque a CONTEXT acima e a JORNADA afirmavam o contrário. **Nenhuma muda uma decisão do operador; mudam o mecanismo.**
+
+| Afirmação anterior | Fato medido | Consequência |
+|---|---|---|
+| «`rejeitar_candidatura` não dispara notificação nenhuma» (Defeito 20) | A rejeição **dispara** `decisao` pelo trigger de `historico_candidatura`; o log da EF (2026-09-20 16:03:25 UTC) mostra `skipped:"duplicate"` na chave `…:decisao` ocupada pela aprovação | **JORN-20 é o mecanismo do JORN-18.** Reusar o evento `decisao`; não criar evento novo. JORN-20 se prova com conta de teste que nunca teve `decisao` |
+| «o backend cobre os 3 casos» (Defeito 22) | `explicacao_rejeicao_automatica` serve **só** knockout; a migration `20260906000007` lista o caso (b) para distingui-lo, não para servi-lo | JORN-22 inclui a página de explicação (D-20) |
+| «`recibo_enviado_em` existe e não é escrito» (Defeito 27) | É o cinto do **recibo pós-exclusão** (`executar-direito-titular/index.ts` passo 4, `if (!estado.recibo_enviado_em)`); há 1 pedido concluído com ele preenchido | Escrevê-lo no pedido **suprimiria o recibo final**. O aviso ao titular ganha colunas próprias (ex.: `aviso_pedido_enviado_em`, `aviso_cancelamento_enviado_em`), **fora** de `notificacoes_enviadas` (que exige `candidatura_id`; 16/42 titulares não têm candidatura) |
+| D-02 «hoje é 1 candidatura» | **3** análises pós-knockout, todas de contas de teste `+claude` | A marcação retroativa autorizada por D-02 é de 3 linhas (contagem antes/depois) |
+| texto neutro do knockout em `20260608000001:197` | definição viva em `20260709000014:143` (`submit_candidatura_atomic`); mesmo texto | citar a viva |
+| «redecidir só por reset manual» | `RegistrarDecisaoForm` + upsert de `registrar_decisao` **já** permitem redecidir pela UI | o Defeito 18 é alcançável em uso normal hoje; D-23 incide sobre esse caminho |
+| 32 candidaturas | **33** | — |
+| Defeito 6 «desde 2026-07-07» | só houve **2** envios de Big Five na história; a data é inferência | não muda o conserto; 1 devolutiva a gerar retroativamente |
+| Defeito 6: causa desconhecida | **quase provada** (H1): a guarda no código recusa (log dela presente; `verify_jwt=false`); a chave do ambiente é `sb_secret_`; supabase-js 2.110.9 não põe `Authorization` para `sb_secret_` sem sessão | D-13 continua valendo: **uma** submissão de prova com instrumentação de formato, lida no mesmo dia (retenção de log ≈ 1 dia), antes do conserto |
+| o mesmo defeito de chave só no evento `decisao` | as chaves do ciclo de revisão (`revisao_respondida`, `revisao_solicitada`) também são uma por candidatura | com a reabertura (D-01), uma 2ª revisão seria engolida — JORN-19 depende do conserto de chave estendido ao ciclo |
+| `local_ou_link` é link | guarda **endereço** no presencial | URL obrigatória **só** em `tipo='online'`; validar por trigger que só age quando o link/tipo muda (um `CHECK NOT VALID` quebraria cancelar a linha legada `dddd`) |
+
 ### Restrições de execução impostas pelo operador para esta fase — NÃO negociáveis
 
 - **D-11:** **Os Defeitos 22 e 26 são o MESMO erro** — código que usa `etapa_atual` para saber se a candidatura acabou (ou está em andamento), ignorando `status`. **Varrer pela FORMA antes de consertar os dois casos conhecidos**, como o `CLAUDE.md` manda fazer com portões («varra pela forma, não pelo sintoma»). Senão o terceiro aparece depois. A varredura tem de: (a) cobrir `src/`, `supabase/functions/` **e as definições VIVAS** das funções/views/triggers do banco (a migration mais recente de um objeto, ou `pg_get_functiondef` em PROD — não o histórico de migrations como se fosse código vivo); (b) sair como **artefato** com cada ocorrência classificada como *escopo deliberado* (ex.: o knockout preserva `etapa_atual='inscricao'` **por desenho**) ou *defeito*; (c) registrar o **padrão de busca** usado, para que possa ser re-rodado; (d) ser feita **antes** das tasks que consertam 22 e 26, e alimentá-las. Knockout mantém `etapa_atual='inscricao'` com `status='rejeitado'` por desenho — qualquer predicado de «acabou» que olhe só `etapa_atual` erra exatamente nesse caso.
@@ -170,6 +195,9 @@ Pontos de entrada **citados pela JORNADA com linha** — o pesquisador confere c
 - PP-8 (redesenho do agendamento) — fase própria depois do Bloco 2 (D-05).
 - PP-16 (`lgpd@` → `rh@`) — decidido, escopo medido, não está no Bloco 1 (D-07).
 - PP-15 (requisitos eliminatórios na página da vaga) — decidido, não está no Bloco 1.
+- **Purga não alcança knockout** (`candidaturas_alem_da_janela()`, allowlist `elegivel_purga` por etapa — achado D5 da varredura): retenção indefinida não declarada para candidaturas eliminadas por knockout. Mecanismo destrutivo, flip `dry_run→live` pendente — fora desta fase por D-21.
+- Pedido de revisão para rejeição humana na triagem — fluxo novo, fora por D-20.
+- Smokes já vermelhos contra PROD por fotografia envelhecida e **não tocados** por esta fase (ex.: `p39_rewire_triggers_smoke.sql:189`) — registrar; os que esta fase toca seguem D-17.
 - Avisar o candidato em **cada** avanço de etapa — rejeitado pelo operador em D-09.
 
 </deferred>
