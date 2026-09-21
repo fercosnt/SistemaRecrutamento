@@ -67,7 +67,8 @@
   **What:** o texto neutro do `feedback_rejeicao` e a razão `humana_triagem` da página dizem que a equipe decidiu não seguir. Quando o RH registra `desistencia` (o candidato desistiu), a frase é imprecisa — não falsa sobre o motivo (que segue oculto), mas sobre quem tomou a iniciativa. Hoje: 0 linhas com esse motivo em PROD. Decisão de copy do operador (A8), não do executor.
 
 - `p42_revisao_art20_smoke.sql` está VERMELHO na fixture e, quando verde, COMMITA um despacho real (achado no 48-08)
-  status: open
+  status: resolved
+  **Resolvido no 48-11:** atores lidos do catálogo vivo na execução; titular sintético; (f)/(g)/(h) numa subtransação que reverte (SQLSTATE `P42R1`); (h.2) assere o efeito novo da reabertura (D-01); teardown substituído pela negativa (j) de zero resíduo. 10/10 com `p46apply run` puro; mordida provada por mutação (responder antigo → FAIL (h); subtransação sem reverter → FAIL (j)).
   **What:** (1) a fixture exige `e2e.admin@beautysmile.com.br` e o recrutador `fba9bc0f-…` ATIVOS; os dois estão `ativo=false` desde 2026-09-05 (STATE.md §Correção de registro) — o smoke para em `P42 FAIL (fixture)` antes de qualquer asserção, contra o vivo de antes E de depois do 48-08. (2) Se a fixture resolvesse, o arquivo roda no nível de topo: INSERT em `decisao_final` sobre uma candidatura real de `candidato.funil@teste.com` + `responder_revisao_decisao` real ⇒ `trg_notif_revisao_respondida` enfileira `revisao_respondida` e o `p46apply run` puro COMMITA (NOTIFICACOES_MODO='producao'). Mesma classe do item do oper31/funil34/seg32/seg33.
   **Como o 48-08 rodou:** em envelope que aborta, com uma CÓPIA de rascunho (não commitada) que troca os dois RH fixos por dois administradores ativos lidos na execução — 9/9 antes e depois da migration `20260921000007`. O arquivo do repositório não foi editado.
   **Conserto sugerido:** resolver os RH por papel/ativo na execução (idioma do `p48_dedupe_smoke.sql`) e mover as escritas para subtransação revertida.
@@ -79,3 +80,15 @@
 - O `<verify>` do 48-10 roda `deno test --allow-all supabase/functions/notificar-candidato/ supabase/functions/_shared/` e herda a falha pré-existente do `strict-schema.test.ts` (item do 48-07 acima)
   status: open (informativo)
   **What:** o 48-10 rodou o mesmo conjunto de arquivos SEM esse único arquivo vitest (script de rascunho que lista os `*.test.ts` dos dois diretórios e exclui `strict-schema.test.ts`): 222/222 com type-check. O conserto do arquivo continua sendo o sugerido no item do 48-07.
+
+- `registrar_decisao` segue com EXECUTE para `anon` (achado no 48-11)
+  status: open
+  **What:** ACL vivo `anon=X/postgres` (é o `pg_default_acl`), preservado pelo CREATE OR REPLACE da `20260921000012`, que reafirmou os grants como estavam. Desde o 48-11 o guard de papel é fail-closed e roda ANTES de qualquer leitura, então `anon` recebe 42501 sem aprender nada. Mesmo assim é superfície desnecessária no write-path da decisão final. É a mesma classe do item de `rejeitar_candidatura`/`funil_kpis` do 48-01. Conserto: `REVOKE ALL … FROM PUBLIC, anon` num plano que assuma o ACL das RPCs do RH.
+
+- `anonimizar_candidato` não desidentifica `revisao_resultado`, e o 48-11 passou a arquivá-lo também em `decisao_final_historico` (achado no 48-11)
+  status: open
+  **What:** o passo `tombstone_decisao_final` do motor da P45 troca `justificativa` em `decisao_final` e em `decisao_final_historico`, mas não toca `decisao_final.revisao_resultado`, que é a justificativa do REVISOR sobre o titular. Isso é PRÉ-EXISTENTE. O 48-11 acrescentou `decisao_final_historico.revisao_resultado`, que o snapshot copia de OLD (inclusive no UPDATE do próprio motor, que roda antes do scrub do arquivo). A categoria de dado não é nova, mas agora há uma segunda cópia fora do alcance do motor. Hoje: 1 linha `mantida` e 0 `revertida` em PROD. Conserto: incluir `revisao_resultado` nos dois UPDATEs do `tombstone_decisao_final`, no `plano_exclusao_titular` e no `recibo-exclusao.json`. É mecanismo destrutivo (motor da P45), por isso fica fora do 48-11.
+
+- Veredito de export/inventário PII das 12 colunas novas do 48-11 (`decisao_final`: 3; `decisao_final_historico`: 9) (achado no 48-11)
+  status: open (informativo)
+  **What:** a cópia LGPD exporta por allowlist, então as colunas NÃO entram na cópia (fail-safe), mas `docs/compliance/sql/05-export-allowlist-drift.sql` rodado contra PROD vai acusá-las como sem veredito. O veredito de export e o `pii-inventory.yaml` são do 48-17 (compliance da fase), como no item do 48-07.

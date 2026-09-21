@@ -1,4 +1,21 @@
 -- =============================================================================
+-- ⚠ 48-11 (2026-09-21) — O QUE MUDOU NESTE ARQUIVO, E POR QUÊ (ler antes do resto)
+--   1. ATORES: as duas contas FIXAS da fixture (`e2e.admin@…`, recrutador `fba9bc0f-…`)
+--      estão `ativo=false` desde 2026-09-05, e o arquivo estava vermelho na fixture contra
+--      código correto. Agora os atores vêm do catálogo vivo, lidos NA EXECUÇÃO.
+--   2. (f)/(g)/(h) rodam numa SUBTRANSAÇÃO QUE REVERTE, sobre titular sintético. Antes, as
+--      escritas de topo COMMITAVAM, e a resposta de (f) enfileirava um `revisao_respondida`
+--      real para `candidato.funil@teste.com` com NOTIFICACOES_MODO='producao'.
+--   3. (h.2) MUDOU DE EFEITO por decisão do operador (D-01, «reabrir, não reverter»): o
+--      veredito `revertida` agora exige decisão `rejeitado` e candidatura `rejeitado/rejeitado`,
+--      e REABRE a candidatura (`decisao_final/em_analise`). A asserção confere isso. O aviso
+--      abaixo («corrige-se a implementação») continua valendo: aqui a espec mudou porque o
+--      COMPORTAMENTO pedido mudou, e não para caber numa implementação.
+--   4. O TEARDOWN virou a negativa (j): nada foi commitado, e (j) prova isso. Gate = 10.
+--   Rodar com `node p46apply.cjs run supabase/tests/p42_revisao_art20_smoke.sql` (uma
+--   requisição = uma sessão). O `SELECT` final devolve `{pass, esperado}`.
+-- =============================================================================
+-- =============================================================================
 -- Phase 42 / Plano 42-03 Task 3 — ESPEC EXECUTÁVEL do write-path da revisão
 -- de decisão (REVISAO-02 · REVISAO-03 · REVISAO-05, LGPD Art. 20)
 -- =============================================================================
@@ -21,15 +38,14 @@
 -- `smoke42.pass` e o RESUMO (z) reprovaria um run que na verdade passou — ou, pior,
 -- deixaria a fixture criada para trás (lição registrada da P41-05).
 --
--- GATE VERDE = o contador `smoke42.pass` bate **8** no RESUMO (z). O gate NÃO é
--- "não levantou exceção": um run parcial (asserção pulada por erro de ambiente)
--- acumularia < 8 e o RESUMO reprova alto. Esperado FIXO — não há metade adaptativa.
+-- GATE VERDE = o contador `smoke42.pass` bate **10** no RESUMO (z) (8 originais + (i)
+-- da P42-06 + (j) do 48-11). O gate NÃO é "não levantou exceção": um run parcial
+-- acumularia menos e o RESUMO reprova alto. Esperado FIXO — não há metade adaptativa.
 --
 -- ⚠ ESTE SMOKE ESCREVE. Diferente do p41 (100% catálogo), as asserções (f), (g) e
--- (h) fazem chamadas REAIS de escrita sobre uma linha de `decisao_final` de
--- fixture. A fixture é criada no topo e REMOVIDA no teardown ao final (idioma
--- P41-05 T3), incluindo as linhas que o trigger `trg_decisao_final_snapshot`
--- arquiva em `decisao_final_historico` a cada UPDATE.
+-- (h) fazem chamadas REAIS de escrita — desde o 48-11, TODAS dentro de uma
+-- subtransação que reverte (ver o bloco (f)+(g)+(h)); a negativa (j) prova zero
+-- resíduo. Não há teardown.
 --
 -- -----------------------------------------------------------------------------
 -- AS 8 ASSERÇÕES
@@ -73,7 +89,10 @@
 --       chamador sem JWT. As 8 asserções originais não cobriam esse caminho porque
 --       todas injetam uma claim válida antes de chamar. Um gate que só testa o
 --       caminho autenticado não pode detectar um guard que falha ABERTO.
---   (z) RESUMO — exige o total de 9 PASS; run parcial falha AQUI, não em silêncio.
+--   (j) NEGATIVA (48-11) — zero resíduo: a fixture não existe depois do run e o estado
+--       global (decisão, arquivo, histórico, fila, ledger, candidaturas por etapa/status)
+--       é o da baseline capturada na própria execução.
+--   (z) RESUMO — exige o total de 10 PASS; run parcial falha AQUI, não em silêncio.
 --
 -- -----------------------------------------------------------------------------
 -- ESCOPO DA PROVA — o que ela cobre e o que ela NÃO cobre
@@ -93,91 +112,77 @@
 -- nunca o valor de um segredo.
 -- =============================================================================
 
+
 RESET ROLE;
 -- Inicializa o contador (idempotente entre runs).
 SELECT set_config('smoke42.pass', '0', false);
+SELECT set_config('request.jwt.claims', '', false);
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- FIXTURE (como postgres) — dois auth.users DISTINTOS que sejam usuarios_rh
--- ATIVOS, mais uma candidatura de teste sem decisao_final. Resolve tudo em GUCs.
+-- BASELINE (como postgres, SÓ LEITURA) — dois RH/admin DISTINTOS e ATIVOS, lidos
+-- do catálogo NA EXECUÇÃO, e as contagens da negativa (j).
 --
--- ⚠ Se QUALQUER id resolver para NULL, levanta exceção ALTO. Esta prova é o
--- critério de sucesso #3 do ROADMAP e NÃO pode virar SKIP silencioso — um SKIP
--- aqui seria indistinguível de um guard que não existe.
+-- ⚠ 48-11: até aqui a fixture exigia DUAS CONTAS FIXAS (`e2e.admin@…` e o recrutador
+-- `fba9bc0f-…`). As duas estão `ativo=false` desde 2026-09-05, e o smoke parava em
+-- `P42 FAIL (fixture)` antes de qualquer asserção, VERMELHO contra código correto. O
+-- decisor é agora o primeiro administrador ativo (registrar_decisao exige dono da vaga
+-- para 'rh'; administrador não). O revisor é qualquer RH/admin ativo distinto dele.
+-- Continua valendo que um ator ausente levanta ALTO — nunca SKIP silencioso.
 -- ─────────────────────────────────────────────────────────────────────────────
-RESET ROLE;
 DO $$
 DECLARE
   v_decisor      uuid;
   v_outro        uuid;
-  v_cand         uuid;
-  v_decisor_role text;
+  v_vaga         uuid;
   v_outro_role   text;
-  v_notif_antes  int;
 BEGIN
-  -- Contas de teste PROD registradas na STATE.md § Blockers/Concerns.
-  SELECT u.id INTO v_decisor
-    FROM auth.users u
-    JOIN public.usuarios_rh r ON r.user_id = u.id
-   WHERE u.email = 'e2e.admin@beautysmile.com.br'
-     AND r.ativo = true AND r.deleted_at IS NULL;
-
+  SELECT r.user_id INTO v_decisor
+    FROM public.usuarios_rh r
+   WHERE r.role = 'administrador' AND r.ativo AND r.deleted_at IS NULL AND r.user_id IS NOT NULL
+   ORDER BY r.created_at, r.user_id
+   LIMIT 1;
   SELECT r.user_id INTO v_outro
     FROM public.usuarios_rh r
-   WHERE r.user_id = 'fba9bc0f-4053-4eff-bc71-9cc8d1cddbe7'::uuid
-     AND r.ativo = true AND r.deleted_at IS NULL;
+   WHERE r.role IN ('administrador', 'recrutador') AND r.ativo AND r.deleted_at IS NULL
+     AND r.user_id IS NOT NULL AND r.user_id <> v_decisor
+   ORDER BY r.created_at, r.user_id
+   LIMIT 1;
 
   IF v_decisor IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (fixture): o RH decisor (e2e.admin@beautysmile.com.br) não resolveu para um usuarios_rh ATIVO — a prova do guard não pode rodar sem dois RHs reais';
+    RAISE EXCEPTION 'P42 FAIL (fixture): nenhum administrador ATIVO em usuarios_rh — a prova do guard não pode rodar sem um decisor real';
   END IF;
   IF v_outro IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (fixture): o 2º RH (recrutador fba9bc0f-…) não resolveu para um usuarios_rh ATIVO — sem um SEGUNDO RH o guard reviewer<>decider é intestável';
-  END IF;
-  IF v_decisor = v_outro THEN
-    RAISE EXCEPTION 'P42 FAIL (fixture): decisor e revisor resolveram para o MESMO usuário — a prova exige dois auth.users DISTINTOS';
+    RAISE EXCEPTION 'P42 FAIL (fixture): só há UM RH/admin ativo — sem um SEGUNDO o guard reviewer<>decider é intestável';
   END IF;
 
   -- Mapeamento de taxonomia de role (Pattern 5): usuarios_rh.role NUNCA vale 'rh';
   -- o custom_access_token_hook mapeia recrutador → 'rh' em app_metadata.role.
   SELECT CASE WHEN r.role = 'administrador' THEN 'administrador' ELSE 'rh' END
-    INTO v_decisor_role FROM public.usuarios_rh r WHERE r.user_id = v_decisor;
-  SELECT CASE WHEN r.role = 'administrador' THEN 'administrador' ELSE 'rh' END
-    INTO v_outro_role   FROM public.usuarios_rh r WHERE r.user_id = v_outro;
+    INTO v_outro_role FROM public.usuarios_rh r WHERE r.user_id = v_outro;
 
-  -- Uma candidatura do candidato de teste que AINDA NÃO tenha decisao_final — assim
-  -- a fixture nunca sobrescreve uma decisão real.
-  SELECT c.id INTO v_cand
-    FROM public.candidaturas c
-    JOIN public.candidatos ca ON ca.id = c.candidato_id
-    JOIN auth.users u ON u.id = ca.user_id
-   WHERE u.email = 'candidato.funil@teste.com'
-     AND c.deleted_at IS NULL
-     AND NOT EXISTS (SELECT 1 FROM public.decisao_final d WHERE d.candidatura_id = c.id)
-   LIMIT 1;
-
-  IF v_cand IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (fixture): nenhuma candidatura de candidato.funil@teste.com SEM decisao_final — criar uma antes de rodar (não sobrescrever decisão real)';
+  SELECT v.id INTO v_vaga FROM public.vagas v ORDER BY v.created_at LIMIT 1;
+  IF v_vaga IS NULL THEN
+    RAISE EXCEPTION 'P42 FAIL (fixture): nenhuma vaga viva para a fixture';
   END IF;
 
-  -- A linha de fixture: decisão registrada pelo DECISOR, com revisão JÁ SOLICITADA
-  -- (senão o guard de alcançabilidade barraria antes do guard sob teste).
-  INSERT INTO public.decisao_final
-    (candidatura_id, decisao, justificativa, por_usuario, revisao_solicitada_em)
-  VALUES
-    (v_cand, 'rejeitado', repeat('f', 60), v_decisor, now());
+  PERFORM set_config('smoke42.decisor',      v_decisor::text,  false);
+  PERFORM set_config('smoke42.outro',        v_outro::text,    false);
+  PERFORM set_config('smoke42.decisor_role', 'administrador',  false);
+  PERFORM set_config('smoke42.outro_role',   v_outro_role,     false);
+  PERFORM set_config('smoke42.vaga',         v_vaga::text,     false);
 
-  SELECT count(*) INTO v_notif_antes FROM public.notificacoes_enviadas;
+  -- baseline da negativa (j): capturada NA execução, nunca constante (D-17)
+  PERFORM set_config('smoke42.n_df',   (SELECT count(*) FROM public.decisao_final)::text, false);
+  PERFORM set_config('smoke42.n_dfh',  (SELECT count(*) FROM public.decisao_final_historico)::text, false);
+  PERFORM set_config('smoke42.n_hist', (SELECT count(*) FROM public.historico_candidatura)::text, false);
+  PERFORM set_config('smoke42.n_netq', (SELECT count(*) FROM net.http_request_queue)::text, false);
+  PERFORM set_config('smoke42.n_notif', (SELECT count(*) FROM public.notificacoes_enviadas)::text, false);
+  PERFORM set_config('smoke42.fp_cand',
+    (SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+       FROM (SELECT format('%s|%s|%s', c.etapa_atual, c.status, count(*)) AS linha
+               FROM public.candidaturas c GROUP BY c.etapa_atual, c.status) t), false);
 
-  PERFORM set_config('smoke42.decisor',      v_decisor::text,      false);
-  PERFORM set_config('smoke42.outro',        v_outro::text,        false);
-  PERFORM set_config('smoke42.cand',         v_cand::text,         false);
-  PERFORM set_config('smoke42.decisor_role', v_decisor_role,       false);
-  PERFORM set_config('smoke42.outro_role',   v_outro_role,         false);
-  PERFORM set_config('smoke42.notif_antes',  v_notif_antes::text,  false);
-  PERFORM set_config('smoke42.criou',        'y',                  false);
-
-  RAISE NOTICE 'FIXTURE ok: 2 RHs distintos resolvidos (roles JWT %/%), decisao_final de teste criada com revisao_solicitada_em; ledger de notificações em % linhas',
-    v_decisor_role, v_outro_role, v_notif_antes;
+  RAISE NOTICE 'BASELINE ok: 2 RHs distintos resolvidos do catálogo vivo (roles JWT administrador/%)', v_outro_role;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -436,189 +441,215 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (f) parte 1 — T-42-V6: o DECISOR tenta responder à revisão da PRÓPRIA decisão.
---     TEM de ser recusado com 42501 e mensagem discriminável. Um SUCESSO aqui é
---     falha do smoke, nunca verde. O contador só é incrementado na parte 2.
--- ─────────────────────────────────────────────────────────────────────────────
-SET ROLE authenticated;
-DO $$
-BEGIN
-  PERFORM set_config('request.jwt.claims', jsonb_build_object(
-    'sub', current_setting('smoke42.decisor'), 'role', 'authenticated',
-    'app_metadata', jsonb_build_object('role', current_setting('smoke42.decisor_role')))::text, false);
-  BEGIN
-    PERFORM public.responder_revisao_decisao(
-      current_setting('smoke42.cand')::uuid, 'mantida', repeat('x', 60));
-    RAISE EXCEPTION 'P42 FAIL (f): o DECISOR conseguiu responder à revisão da própria decisão — REVISAO-05 NÃO é server-enforced';
-  EXCEPTION WHEN sqlstate '42501' THEN
-    -- 42501 cobre DOIS casos no servidor ("não é RH" e "é o decisor"); aceitar o
-    -- SQLSTATE genericamente provaria a coisa errada. Só a mensagem discrimina.
-    IF SQLERRM LIKE '%decisor%' THEN
-      PERFORM set_config('smoke42.f_barrado', 'y', false);
-      RAISE NOTICE 'PASS (f.1): decisor barrado pelo servidor (42501, mensagem discriminável)';
-    ELSE
-      RAISE EXCEPTION 'P42 FAIL (f): 42501 porém mensagem inesperada (pode ser a recusa "não é RH", não o guard): %', SQLERRM;
-    END IF;
-  END;
-END $$;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- (g) T-42-V7 — ASSERÇÃO NEGATIVA, medida ENTRE a tentativa barrada e a
---     bem-sucedida: a recusa não pode ter escrito nada nem disparado notificação.
---     Um guard que recusa DEPOIS de escrever é um guard tarde demais.
--- ─────────────────────────────────────────────────────────────────────────────
-RESET ROLE;
-DO $$
-DECLARE
-  v_resp timestamptz; v_por uuid; v_ver text;
-  v_notif_agora int; v_notif_antes int;
-BEGIN
-  IF current_setting('smoke42.f_barrado', true) IS DISTINCT FROM 'y' THEN
-    RAISE EXCEPTION 'P42 FAIL (g): a tentativa barrada (f.1) não chegou a rodar — impossível asserir o não-efeito';
-  END IF;
-
-  SELECT revisao_respondida_em, revisao_por_usuario, revisao_veredito
-    INTO v_resp, v_por, v_ver
-    FROM public.decisao_final
-   WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
-
-  IF v_resp IS NOT NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (g): revisao_respondida_em foi GRAVADA pela tentativa recusada — o guard corre depois da escrita';
-  END IF;
-  IF v_por IS NOT NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (g): revisao_por_usuario foi GRAVADA pela tentativa recusada';
-  END IF;
-  IF v_ver IS NOT NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (g): revisao_veredito foi GRAVADO pela tentativa recusada';
-  END IF;
-
-  v_notif_antes := coalesce(nullif(current_setting('smoke42.notif_antes', true), ''), '-1')::int;
-  SELECT count(*) INTO v_notif_agora FROM public.notificacoes_enviadas;
-  IF v_notif_antes < 0 THEN
-    RAISE EXCEPTION 'P42 FAIL (g): baseline do ledger de notificações não foi capturado na fixture';
-  END IF;
-  IF v_notif_agora <> v_notif_antes THEN
-    RAISE EXCEPTION 'P42 FAIL (g): notificacoes_enviadas subiu de % para % durante a tentativa RECUSADA — o candidato receberia e-mail de uma revisão que não foi respondida', v_notif_antes, v_notif_agora;
-  END IF;
-
-  PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (g): a recusa não escreveu nada na linha e o ledger de notificações permaneceu em % linhas', v_notif_agora;
-END $$;
-
--- ─────────────────────────────────────────────────────────────────────────────
--- (f) parte 2 — T-42-V6: o OUTRO RH responde. TEM de suceder, gravando a autoria
---     e o timestamp. Só aqui o contador de (f) é incrementado.
--- ─────────────────────────────────────────────────────────────────────────────
--- A CHAMADA é feita como `authenticated` (é o papel real do RH no PostgREST).
-SET ROLE authenticated;
-DO $$
-BEGIN
-  PERFORM set_config('request.jwt.claims', jsonb_build_object(
-    'sub', current_setting('smoke42.outro'), 'role', 'authenticated',
-    'app_metadata', jsonb_build_object('role', current_setting('smoke42.outro_role')))::text, false);
-
-  PERFORM public.responder_revisao_decisao(
-    current_setting('smoke42.cand')::uuid, 'mantida', repeat('y', 60));
-END $$;
-
--- ⚠ CORREÇÃO DE SPEC (P42-06, 2ª rodada do checkpoint da Task 2 — justificativa
--- registrada). O READBACK precisa de `RESET ROLE`, exatamente como a asserção (g)
--- já fazia. Na forma original ele vivia DENTRO do mesmo bloco `SET ROLE
--- authenticated` da chamada, e portanto lia `decisao_final` SOB RLS: a tabela tem
--- RLS ligada com `rh_le_decisao_final [SELECT]` escopada por vaga, e a candidatura
--- de fixture pertence a uma vaga que o revisor NÃO criou. O SELECT devolvia ZERO
--- linhas, `v_por` ficava NULL, e a asserção reprovava com "autoria errada" —
--- acusando a implementação por um efeito da própria espec.
+-- (f) + (g) + (h) — o write-path da revisão, numa SUBTRANSAÇÃO QUE REVERTE.
 --
--- Este é o modo de falha mais perigoso possível para um gate: RLS filtrando um
--- readback não levanta erro, devolve vazio. Se o teste fosse escrito ao contrário
--- (esperando NULL), ele passaria em verde sem NADA ter sido verificado. A verificação
--- de um write feito sob um papel restrito tem de ser lida por um papel que veja a
--- tabela inteira, senão o gate afere a RLS em vez de aferir a escrita.
+-- ⚠ 48-11 — POR QUE ESTE BLOCO MUDOU DE FORMA E (h.2) DE EFEITO. Com a D-01 do operador
+-- («reabrir, não reverter», plano 48-11, migration 20260921000011), o veredito `revertida`
+-- passou a EXIGIR decisão `rejeitado` e candidatura `rejeitado/rejeitado` (senão 22023). Ele
+-- também passou a MUTAR `candidaturas`: volta a `decisao_final/em_analise`, com
+-- `data_decisao_final = NULL`, `reaberta_em`/`prazo_nova_decisao_em` e uma linha
+-- `rejeitado→decisao_final` no histórico. A forma antiga não servia mais, por três motivos:
+-- a fixture (decisão INSERIDA sobre uma candidatura REAL de `candidato.funil@teste.com` em
+-- andamento) nem chega ao estado exigido; o teardown (só `decisao_final`/arquivo) deixaria
+-- resíduo em `candidaturas` e no histórico; e as escritas de topo COMMITAVAM. Resultado: a
+-- resposta de (f) enfileirava um `revisao_respondida` real (NOTIFICACOES_MODO='producao').
+--
+-- AGORA: titular SINTÉTICO (`@invalido.local`), decisão `rejeitado` registrada pelo DECISOR
+-- via `registrar_decisao` e pedido de revisão pelo próprio TITULAR, tudo dentro desta
+-- subtransação. O bloco termina em `RAISE … USING ERRCODE = 'P42R1'`, capturado logo acima:
+-- ROLLBACK de tudo, inclusive da fila do `pg_net`. Os valores medidos ficam em variáveis
+-- PL/pgSQL e o julgamento é feito FORA da subtransação. As trocas de papel continuam
+-- `SET ROLE authenticated` para as CHAMADAS e `RESET ROLE` para os READBACKS (as duas
+-- correções de spec da P42-06 abaixo seguem valendo).
+--
+-- A SUBSTÂNCIA das asserções não mudou. (f): decisor barrado com 42501 «decisor», outro RH
+-- aceito com autoria gravada. (g): a recusa não escreve nem notifica. (h): fronteira 49/50 e
+-- idempotência. Só (h.2) assere o EFEITO NOVO, porque o antigo deixou de ser o correto.
+-- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
-DO $$
-DECLARE v_por uuid; v_resp timestamptz;
+DO $fgh$
+DECLARE
+  v_decisor  uuid := current_setting('smoke42.decisor')::uuid;
+  v_outro    uuid := current_setting('smoke42.outro')::uuid;
+  v_vaga     uuid := current_setting('smoke42.vaga')::uuid;
+  v_claims_d text;
+  v_claims_o text;
+  v_user     uuid := gen_random_uuid();
+  v_email    text;
+  v_titular  uuid;
+  v_cand     uuid;
+  v_ran      boolean := false;
+  v_err      text;
+  -- (f)
+  f1_state text;  f2_state text;  f_por uuid;  f_resp timestamptz;
+  -- (g)
+  g_resp timestamptz;  g_por uuid;  g_ver text;  g_notif_antes bigint;  g_notif_depois bigint;
+  -- (h)
+  h1_state text;  h2_state text;  h2_resp timestamptz;  h3_state text;
+  h2_etapa text;  h2_status text;  h2_ddf timestamptz;  h2_reab timestamptz;
 BEGIN
-  SELECT revisao_por_usuario, revisao_respondida_em INTO v_por, v_resp
-    FROM public.decisao_final
-   WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
+  BEGIN
+    -- ── fixture ────────────────────────────────────────────────────────────────
+    v_email := 'p42smoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+    INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+    VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+            v_email, '', now(), now(),
+            '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+    INSERT INTO public.candidatos
+      (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+    VALUES
+      (v_user, 'SMOKE P42 Titular', v_email, '(11) 96666-5420', DATE '1990-01-15', 'Santos', 'SP', 'site')
+    RETURNING id INTO v_titular;
+    -- em decisao_final DE VERDADE (INSERT rejeitado desarma a confirmação; UPDATE leva a em_analise)
+    INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+    VALUES (v_titular, v_vaga, 'decisao_final', 'rejeitado', false, now() - interval '20 days')
+    RETURNING id INTO v_cand;
+    UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cand;
 
-  IF v_por IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario está NULL após o sucesso — ou a escrita não ocorreu, ou o readback foi filtrado (ler como postgres, nunca sob RLS)';
+    v_claims_d := jsonb_build_object('sub', v_decisor::text, 'role', 'authenticated',
+                    'app_metadata', jsonb_build_object('role', current_setting('smoke42.decisor_role')))::text;
+    v_claims_o := jsonb_build_object('sub', v_outro::text, 'role', 'authenticated',
+                    'app_metadata', jsonb_build_object('role', current_setting('smoke42.outro_role')))::text;
+
+    -- decisão `rejeitado` pelo DECISOR; pedido de revisão pelo TITULAR
+    SET ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', v_claims_d, false);
+    PERFORM public.registrar_decisao(v_cand, 'rejeitado', repeat('f', 60));
+    PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', v_user::text, 'role', 'authenticated',
+      'app_metadata', jsonb_build_object('role', 'candidato'))::text, false);
+    PERFORM public.solicitar_revisao_decisao(v_cand);
+    RESET ROLE;
+    SELECT count(*) INTO g_notif_antes FROM public.notificacoes_enviadas;
+
+    -- ── (f) parte 1 — T-42-V6: o DECISOR tenta responder à revisão da PRÓPRIA decisão ──
+    SET ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', v_claims_d, false);
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_cand, 'mantida', repeat('x', 60));
+      f1_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN f1_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    RESET ROLE;
+
+    -- ── (g) T-42-V7 — a recusa não escreveu nem notificou (readback como postgres) ──
+    SELECT revisao_respondida_em, revisao_por_usuario, revisao_veredito
+      INTO g_resp, g_por, g_ver
+      FROM public.decisao_final WHERE candidatura_id = v_cand;
+    SELECT count(*) INTO g_notif_depois FROM public.notificacoes_enviadas;
+
+    -- ── (f) parte 2 — o OUTRO RH responde `mantida` ─────────────────────────────
+    SET ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', v_claims_o, false);
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_cand, 'mantida', repeat('y', 60));
+      f2_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN f2_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- readback como postgres: sob RLS (rh_le_decisao_final escopada por vaga) o SELECT
+    -- devolveria vazio e acusaria a implementação por um efeito da espec (correção P42-06)
+    RESET ROLE;
+    SELECT revisao_por_usuario, revisao_respondida_em INTO f_por, f_resp
+      FROM public.decisao_final WHERE candidatura_id = v_cand;
+
+    -- ── (h) T-42-V8 + T-42-V9 — repõe a revisão a NULL (postgres) e testa a fronteira ──
+    UPDATE public.decisao_final
+       SET revisao_veredito = NULL, revisao_resultado = NULL,
+           revisao_por_usuario = NULL, revisao_respondida_em = NULL
+     WHERE candidatura_id = v_cand;
+
+    SET ROLE authenticated;
+    PERFORM set_config('request.jwt.claims', v_claims_o, false);
+    -- (h.1) 49 caracteres → 22023
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_cand, 'mantida', repeat('z', 49));
+      h1_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h1_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- (h.2) exatamente 50 → ACEITO. A prova de aceitação é a row devolvida pelo próprio
+    -- write-path (RETURNING dentro do DEFINER, imune a RLS). EFEITO NOVO (48-11): `revertida`
+    -- REABRE — conferido abaixo como postgres.
+    BEGIN
+      SELECT (public.responder_revisao_decisao(v_cand, 'revertida', repeat('z', 50))).revisao_respondida_em
+        INTO h2_resp;
+      h2_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h2_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    -- (h.3) 2ª resposta sobre revisão já respondida → 22023 «respondida»
+    BEGIN
+      PERFORM public.responder_revisao_decisao(v_cand, 'mantida', repeat('w', 60));
+      h3_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h3_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    RESET ROLE;
+    SELECT c.etapa_atual::text, c.status::text, c.data_decisao_final INTO h2_etapa, h2_status, h2_ddf
+      FROM public.candidaturas c WHERE c.id = v_cand;
+    SELECT d.reaberta_em INTO h2_reab FROM public.decisao_final d WHERE d.candidatura_id = v_cand;
+
+    v_ran := true;
+    RAISE EXCEPTION 'reverter' USING ERRCODE = 'P42R1';
+  EXCEPTION
+    WHEN SQLSTATE 'P42R1' THEN NULL;  -- ROLLBACK: fixture, decisão, pedido, respostas, reabertura e fila somem
+    WHEN OTHERS THEN
+      v_err := SQLSTATE || ': ' || SQLERRM;
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', false);
+  -- (i) e (j) precisam do id; ele já não existe (é o que (j) confere).
+  PERFORM set_config('smoke42.cand', v_cand::text, false);
+  PERFORM set_config('smoke42.titular_email', v_email, false);
+
+  IF v_err IS NOT NULL OR NOT v_ran THEN
+    RAISE EXCEPTION 'P42 FAIL (fixture/f/g/h): o bloco não rodou até o fim — %', coalesce(v_err, 'sem erro, mas sem marca de execução');
   END IF;
-  IF v_por::text IS DISTINCT FROM current_setting('smoke42.outro') THEN
-    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario gravou % em vez do REVISOR % — a trilha de autoria da revisão está errada',
-      v_por, current_setting('smoke42.outro');
+
+  -- ── (f) julgamento ────────────────────────────────────────────────────────────
+  -- 42501 cobre DOIS casos no servidor ("não é RH" e "é o decisor"); só a mensagem discrimina.
+  IF f1_state NOT LIKE '42501:%decisor%' THEN
+    RAISE EXCEPTION 'P42 FAIL (f): o DECISOR respondendo à própria revisão devolveu «%» (esperado 42501 decisor — REVISAO-05 server-enforced)', f1_state;
   END IF;
-  IF v_resp IS NULL THEN
+  IF f2_state IS DISTINCT FROM 'ACEITO' THEN
+    RAISE EXCEPTION 'P42 FAIL (f): o OUTRO RH não conseguiu responder — «%»', f2_state;
+  END IF;
+  IF f_por IS DISTINCT FROM v_outro THEN
+    RAISE EXCEPTION 'P42 FAIL (f): revisao_por_usuario gravou % em vez do REVISOR % — a trilha de autoria da revisão está errada', f_por, v_outro;
+  END IF;
+  IF f_resp IS NULL THEN
     RAISE EXCEPTION 'P42 FAIL (f): revisao_respondida_em não foi gravada apesar do sucesso';
   END IF;
-
   PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (f): decisor BARRADO (42501 discriminado) e outro RH ACEITO, com autoria % e timestamp gravados — REVISAO-05 server-enforced', v_por;
-END $$;
+  RAISE NOTICE 'PASS (f): decisor BARRADO (42501 discriminado) e outro RH ACEITO, com autoria e timestamp gravados';
 
--- ─────────────────────────────────────────────────────────────────────────────
--- (h) T-42-V8 + T-42-V9 — fronteira dos 50 caracteres e idempotência.
---     Repor a fixture a NULL como postgres ANTES dos sub-casos (a linha ficou
---     respondida por (f) parte 2).
--- ─────────────────────────────────────────────────────────────────────────────
-RESET ROLE;
-UPDATE public.decisao_final
-   SET revisao_veredito = NULL, revisao_resultado = NULL,
-       revisao_por_usuario = NULL, revisao_respondida_em = NULL
- WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
-
-SET ROLE authenticated;
-DO $$
-DECLARE v_resp timestamptz;
-BEGIN
-  PERFORM set_config('request.jwt.claims', jsonb_build_object(
-    'sub', current_setting('smoke42.outro'), 'role', 'authenticated',
-    'app_metadata', jsonb_build_object('role', current_setting('smoke42.outro_role')))::text, false);
-
-  -- (h.1) FRONTEIRA INFERIOR — 49 caracteres tem de ser RECUSADO (22023).
-  BEGIN
-    PERFORM public.responder_revisao_decisao(
-      current_setting('smoke42.cand')::uuid, 'mantida', repeat('z', 49));
-    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 49 caracteres ACEITA — o guardrail de substância não morde na fronteira';
-  EXCEPTION WHEN sqlstate '22023' THEN
-    RAISE NOTICE 'PASS (h.1): 49 caracteres recusado (22023)';
-  END;
-
-  -- (h.2) FRONTEIRA — exatamente 50 caracteres tem de ser ACEITO.
-  --
-  -- ⚠ A prova de aceitação NÃO pode ser um readback aqui: estamos sob `SET ROLE
-  -- authenticated` e `decisao_final` tem RLS escopada por vaga, então o SELECT
-  -- devolveria zero linhas e reprovaria um write que ocorreu (mesma correção de
-  -- spec aplicada em (f) parte 2). O RPC devolve a row via `RETURNING * INTO`, e é
-  -- ESSA row — o retorno do próprio write-path, imune a RLS por vir de dentro do
-  -- DEFINER — que prova a aceitação. Um erro aqui levantaria exceção e abortaria.
-  SELECT (public.responder_revisao_decisao(
-            current_setting('smoke42.cand')::uuid, 'revertida', repeat('z', 50))
-         ).revisao_respondida_em
-    INTO v_resp;
-  IF v_resp IS NULL THEN
-    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 50 caracteres foi aceita porém revisao_respondida_em voltou NULL do próprio write-path';
+  -- ── (g) julgamento ────────────────────────────────────────────────────────────
+  IF g_resp IS NOT NULL OR g_por IS NOT NULL OR g_ver IS NOT NULL THEN
+    RAISE EXCEPTION 'P42 FAIL (g): a tentativa RECUSADA gravou (respondida_em=% por=% veredito=%) — o guard corre depois da escrita', g_resp, g_por, g_ver;
   END IF;
-
-  -- (h.3) IDEMPOTÊNCIA — uma resposta, uma vez. 2ª chamada tem de ser recusada
-  -- com mensagem discriminável ('respondida'), não um 22023 qualquer.
-  BEGIN
-    PERFORM public.responder_revisao_decisao(
-      current_setting('smoke42.cand')::uuid, 'mantida', repeat('w', 60));
-    RAISE EXCEPTION 'P42 FAIL (h): 2ª resposta ACEITA sobre revisão já respondida — o veredito é sobrescrevível';
-  EXCEPTION WHEN sqlstate '22023' THEN
-    IF SQLERRM LIKE '%respondida%' THEN
-      RAISE NOTICE 'PASS (h.3): 2ª resposta recusada por idempotência (22023 já respondida)';
-    ELSE
-      RAISE EXCEPTION 'P42 FAIL (h): 22023 porém mensagem inesperada (não é a recusa de idempotência): %', SQLERRM;
-    END IF;
-  END;
-
+  IF g_notif_depois IS DISTINCT FROM g_notif_antes THEN
+    RAISE EXCEPTION 'P42 FAIL (g): notificacoes_enviadas subiu de % para % durante a tentativa RECUSADA', g_notif_antes, g_notif_depois;
+  END IF;
   PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (h): fronteira 49/50 correta e 2ª resposta barrada por idempotência';
-END $$;
+  RAISE NOTICE 'PASS (g): a recusa não escreveu nada na linha e o ledger de notificações não mudou';
+
+  -- ── (h) julgamento ────────────────────────────────────────────────────────────
+  IF h1_state NOT LIKE '22023:%' THEN
+    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 49 caracteres devolveu «%» (esperado 22023) — o guardrail de substância não morde na fronteira', h1_state;
+  END IF;
+  IF h2_state IS DISTINCT FROM 'ACEITO' OR h2_resp IS NULL THEN
+    RAISE EXCEPTION 'P42 FAIL (h): justificativa de 50 caracteres devolveu «%» (respondida_em=%) — esperado ACEITO com timestamp', h2_state, h2_resp;
+  END IF;
+  -- EFEITO NOVO (48-11 / D-01): revertida REABRE — nunca aprova.
+  IF h2_etapa IS DISTINCT FROM 'decisao_final' OR h2_status IS DISTINCT FROM 'em_analise'
+     OR h2_ddf IS NOT NULL OR h2_reab IS NULL THEN
+    RAISE EXCEPTION 'P42 FAIL (h): revertida não reabriu a candidatura — etapa=% status=% data_decisao_final=% reaberta_em=% (esperado decisao_final/em_analise, data NULL, reaberta_em preenchido)',
+      h2_etapa, h2_status, h2_ddf, h2_reab;
+  END IF;
+  IF h3_state NOT LIKE '22023:%respondida%' THEN
+    RAISE EXCEPTION 'P42 FAIL (h): a 2ª resposta sobre revisão já respondida devolveu «%» (esperado 22023 já respondida)', h3_state;
+  END IF;
+  PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'PASS (h): fronteira 49/50 correta, revertida reabre (decisao_final/em_analise) e 2ª resposta barrada';
+END
+$fgh$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- (i) FAIL-CLOSED — papel `authenticated` com ZERO claim de JWT. Os três RPCs têm
@@ -669,12 +700,64 @@ BEGIN
   RAISE NOTICE 'PASS (i): os 3 RPCs recusam com 42501 sem claim de JWT — guard fail-closed';
 END $$;
 
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- (z) RESUMO — gate de contagem. Esperado FIXO. Run parcial falha AQUI.
+-- (j) NEGATIVA — ZERO resíduo (48-11). Substitui o antigo TEARDOWN: não há o que apagar,
+--     porque nada foi commitado. A negativa PROVA isso: nada da fixture sobrevive, e as
+--     contagens de `decisao_final`, `decisao_final_historico`, `historico_candidatura`, da
+--     fila do `pg_net` e do ledger de notificações, mais a distribuição de `candidaturas` por
+--     etapa/status, são as da baseline capturada nesta execução.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
-DECLARE v_n int; v_esperado int := 9;
+DECLARE
+  v_cand uuid := current_setting('smoke42.cand')::uuid;
+  r_cand int;  r_df int;  r_dfh int;  r_hist int;  r_fila int;  r_tit int;
+  g_df bigint;  g_dfh bigint;  g_hist bigint;  g_netq bigint;  g_notif bigint;  g_fp text;
+BEGIN
+  SELECT count(*) INTO r_cand FROM public.candidaturas WHERE id = v_cand;
+  SELECT count(*) INTO r_df   FROM public.decisao_final WHERE candidatura_id = v_cand;
+  SELECT count(*) INTO r_dfh  FROM public.decisao_final_historico WHERE candidatura_id = v_cand;
+  SELECT count(*) INTO r_hist FROM public.historico_candidatura WHERE candidatura_id = v_cand;
+  SELECT count(*) INTO r_fila FROM net.http_request_queue q
+   WHERE convert_from(q.body, 'UTF8') LIKE '%' || v_cand::text || '%';
+  SELECT count(*) INTO r_tit  FROM public.candidatos WHERE email = current_setting('smoke42.titular_email');
+  IF r_cand <> 0 OR r_df <> 0 OR r_dfh <> 0 OR r_hist <> 0 OR r_fila <> 0 OR r_tit <> 0 THEN
+    RAISE EXCEPTION 'P42 FAIL (j): RESÍDUO da fixture — candidatura=% decisao_final=% arquivo=% historico=% fila=% titular=% (a subtransação não reverteu; um despacho COMMITADO sai como e-mail)',
+      r_cand, r_df, r_dfh, r_hist, r_fila, r_tit;
+  END IF;
+
+  SELECT count(*) INTO g_df    FROM public.decisao_final;
+  SELECT count(*) INTO g_dfh   FROM public.decisao_final_historico;
+  SELECT count(*) INTO g_hist  FROM public.historico_candidatura;
+  SELECT count(*) INTO g_netq  FROM net.http_request_queue;
+  SELECT count(*) INTO g_notif FROM public.notificacoes_enviadas;
+  SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), '')) INTO g_fp
+    FROM (SELECT format('%s|%s|%s', c.etapa_atual, c.status, count(*)) AS linha
+            FROM public.candidaturas c GROUP BY c.etapa_atual, c.status) t;
+  IF g_df    IS DISTINCT FROM current_setting('smoke42.n_df')::bigint
+     OR g_dfh   IS DISTINCT FROM current_setting('smoke42.n_dfh')::bigint
+     OR g_hist  IS DISTINCT FROM current_setting('smoke42.n_hist')::bigint
+     OR g_netq  IS DISTINCT FROM current_setting('smoke42.n_netq')::bigint
+     OR g_notif IS DISTINCT FROM current_setting('smoke42.n_notif')::bigint
+     OR g_fp    IS DISTINCT FROM current_setting('smoke42.fp_cand') THEN
+    RAISE EXCEPTION 'P42 FAIL (j): estado global mudou (decisao_final % -> %, arquivo % -> %, historico % -> %, fila % -> %, ledger % -> %, candidaturas por etapa/status mudou=%) com resíduo ZERO da fixture — o delta é de tráfego concorrente commitado durante a requisição; rodar de novo',
+      current_setting('smoke42.n_df'), g_df, current_setting('smoke42.n_dfh'), g_dfh,
+      current_setting('smoke42.n_hist'), g_hist, current_setting('smoke42.n_netq'), g_netq,
+      current_setting('smoke42.n_notif'), g_notif, (g_fp IS DISTINCT FROM current_setting('smoke42.fp_cand'));
+  END IF;
+
+  PERFORM set_config('smoke42.pass', (coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int + 1)::text, false);
+  RAISE NOTICE 'PASS (j): zero resíduo — fixture inexistente e estado global igual à baseline';
+END $$;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- (z) RESUMO — gate de contagem. Esperado FIXO (escopo deliberado: as asserções DESTE
+--     arquivo; 48-11 acrescentou (j)). Run parcial falha AQUI.
+-- ─────────────────────────────────────────────────────────────────────────────
+RESET ROLE;
+DO $$
+DECLARE v_n int; v_esperado int := 10;
 BEGIN
   v_n := coalesce(nullif(current_setting('smoke42.pass', true), ''), '0')::int;
   IF v_n <> v_esperado THEN
@@ -683,33 +766,10 @@ BEGIN
   RAISE NOTICE 'RESUMO: % asserções PASS de % esperadas — gate VERDE', v_n, v_esperado;
 END $$;
 
--- ─────────────────────────────────────────────────────────────────────────────
--- TEARDOWN — devolve o estado. A fixture criada por este arquivo é REMOVIDA:
--- a linha de decisao_final E as linhas que o trigger trg_decisao_final_snapshot
--- arquivou em decisao_final_historico a cada UPDATE feito acima.
---
--- ⚠ Roda MESMO se uma asserção acima falhar? NÃO — uma exceção aborta o script.
--- Nesse caso, remover a fixture MANUALMENTE com os dois comandos abaixo usando o
--- candidatura_id emitido no NOTICE da FIXTURE. Deixar a linha para trás
--- contaminaria a fila de revisão de PROD com um item de teste.
--- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
-DELETE FROM public.decisao_final_historico
- WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
-
-DELETE FROM public.decisao_final
- WHERE candidatura_id = current_setting('smoke42.cand')::uuid
-   AND current_setting('smoke42.criou', true) = 'y';
-
-DO $$
-DECLARE v_resto int;
-BEGIN
-  SELECT count(*) INTO v_resto FROM public.decisao_final
-   WHERE candidatura_id = current_setting('smoke42.cand')::uuid;
-  IF v_resto <> 0 THEN
-    RAISE EXCEPTION 'P42 FAIL (teardown): a linha de fixture NÃO foi removida — item de teste ficaria na fila de revisão de PROD';
-  END IF;
-  RAISE NOTICE 'TEARDOWN ok: fixture removida (decisao_final + histórico arquivado pelo trigger)';
-END $$;
-
-RESET ROLE;
+SELECT set_config('request.jwt.claims', '', false);
+SELECT json_build_object(
+  'smoke',    'p42_revisao_art20',
+  'pass',     current_setting('smoke42.pass')::int,
+  'esperado', 10
+) AS resultado;
