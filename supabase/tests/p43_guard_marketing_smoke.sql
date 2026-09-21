@@ -56,9 +56,10 @@
 --       onde todo envio é registrado, não leitura de flag.
 --   (b) FAIL-CLOSED EM TRÊS FORMAS: sem nenhuma linha em `autorizacoes`, com a
 --       coluna NULL, e com `evento` sem linha em `classe_evento_notificacao`.
---   (c) NÃO-REGRESSÃO DOS VIVOS: os 5 transacionais + o interno continuam sendo
---       ACEITOS por inserção real. Sem isto, um guard que recusasse TUDO passaria
---       em verde por (a) e (b).
+--   (c) NÃO-REGRESSÃO DOS VIVOS: todo evento NÃO-marketing do CHECK vivo continua
+--       sendo ACEITO por inserção real, e os 6 históricos continuam no CHECK
+--       (emenda 48-06). Sem isto, um guard que recusasse TUDO passaria em verde
+--       por (a) e (b).
 --   (d) NEGATIVA DE VOCABULÁRIO: um 8º evento inventado é recusado com `23514` —
 --       é o que distingue "aceita os 7" de "aceita qualquer coisa".
 --   (e) NÃO-DIVERGÊNCIA DOS DOIS VOCABULÁRIOS: a lista do `pg_get_constraintdef`
@@ -73,7 +74,8 @@
 --   (i) NEGATIVA DE ENVIO: `net._http_response` não ganhou NENHUMA linha durante o
 --       smoke. A recusa é anterior ao `fetch`; esta asserção transforma essa
 --       afirmação em MEDIÇÃO.
---   (y1)(y2) TEARDOWN ASSERIDO — ledger e `autorizacoes` de volta ao tamanho exato.
+--   (y1)(y2) TEARDOWN ASSERIDO — ledger e `autorizacoes` de volta ao tamanho exato;
+--       `classe_evento_notificacao` idêntica à impressão digital da FIXTURE.
 --   (z) RESUMO — exige o total de 9 PASS; run parcial falha AQUI, não em silêncio.
 --
 -- -----------------------------------------------------------------------------
@@ -95,6 +97,57 @@
 -- HIGIENE: `RESET ROLE` em toda troca de papel e ao final; NOTICEs carregam apenas
 -- contagens, SQLSTATEs e nomes de objeto — NUNCA PII (nome, e-mail) e nunca o valor
 -- de um segredo.
+--
+-- -----------------------------------------------------------------------------
+-- ⚠ EMENDA 2026-09-21 (Phase 48 / plano 48-06, D-17) — DE FOTOGRAFIA PARA INVARIANTE
+-- -----------------------------------------------------------------------------
+-- Duas asserções deste arquivo congelavam o instantâneo de 2026-08-01 e se
+-- apresentavam como invariante — os dois modos de falha da tabela do CLAUDE.md
+-- §«Portões: varra pela FORMA», um de cada:
+--
+--   (y2) comparava a CONTAGEM de `classe_evento_notificacao` com a constante 7.
+--        Reprovava trabalho CORRETO com diagnóstico FALSO: desde a classe
+--        `candidatura_encerrada_a_pedido` (P45) PROD tem 8 linhas, e o smoke dizia
+--        «o DELETE da asserção (b3) não foi revertido». Agora compara a IMPRESSÃO
+--        DIGITAL da tabela (md5 do `to_jsonb` de todas as linhas) capturada na
+--        FIXTURE desta mesma execução — a pergunta certa é «o SMOKE mudou a
+--        tabela?», e não «a tabela é igual a agosto?».
+--   (c)  iterava uma LISTA LITERAL de 6 eventos. Não reprovava nada: o 7º evento
+--        não-marketing (`candidatura_encerrada_a_pedido`) já estava fora da
+--        vigilância, e todo evento novo da Phase 48 (`cognitivo_liberado`,
+--        `prazo_reabertura_vencido`) também ficaria, com o portão VERDE. Agora
+--        itera o vocabulário EXTRAÍDO do `pg_get_constraintdef` vivo (o idioma de
+--        (e)), menos os de classe `marketing` (recusados sem consentimento — isso é
+--        (a)/(b)/(f)), e exige aceite de TODOS. O contrato que a lista protegia —
+--        os 6 eventos históricos continuam no vocabulário — virou PERTINÊNCIA.
+--
+-- O número de asserções não mudou (continuam 9 no RESUMO): a pertinência dos
+-- históricos é parte de (c), não asserção nova.
+--
+-- Como rodar hoje: `node p46apply.cjs run supabase/tests/p43_guard_marketing_smoke.sql`
+-- (Management API — o arquivo inteiro numa só requisição/transação, que satisfaz a
+-- exigência de «chamada única» descrita acima).
+--
+-- -----------------------------------------------------------------------------
+-- SONDAS DE MORDIDA — `smoke43g.sonda` (prova por execução de que o portão falha)
+-- -----------------------------------------------------------------------------
+-- Um portão convertido que não consegue falhar é pior que o quebrado. Por isso cada
+-- asserção convertida tem um gancho, lido de `current_setting('smoke43g.sonda', true)`:
+--
+--   'y2' → dentro de subtransação, APAGA uma linha de `classe_evento_notificacao` e
+--          roda a MESMA comparação de impressão digital de (y2).
+--   'c'  → acrescenta `evento_sonda_inexistente` ao conjunto de históricos exigidos
+--          e roda a MESMA checagem de pertinência de (c).
+--
+-- Fecho comum: TODO caminho da sonda termina em exceção — `SONDA OK: <x> mordeu`
+-- quando o portão reprovou, `SONDA FALHOU: <x> não mordeu` quando não. A requisição
+-- da Management API é revertida inteira e a perturbação NUNCA comita.
+--
+-- Para rodar uma sonda, uma CÓPIA temporária fora do repositório:
+--   { echo "SELECT set_config('smoke43g.sonda', 'y2', false);"; cat <este arquivo>; } > /tmp/x.sql
+--   node p46apply.cjs run /tmp/x.sql      # tem de sair com erro contendo «SONDA OK: y2 mordeu»
+-- Valor desconhecido em `smoke43g.sonda` reprova ALTO na FIXTURE (uma sonda com erro
+-- de digitação rodaria o smoke verde e pareceria «não mordeu»).
 -- =============================================================================
 
 RESET ROLE;
@@ -117,7 +170,17 @@ DECLARE
   v_autz   int;
   v_http   int;
   v_multi  int;
+  v_classes_fp text;
+  v_classes_n  int;
+  v_sonda  text := coalesce(current_setting('smoke43g.sonda', true), '');
 BEGIN
+  -- Gancho de sonda (emenda 48-06): só três valores têm sentido. Um valor
+  -- desconhecido reprova ALTO — uma sonda com erro de digitação rodaria o smoke
+  -- inteiro VERDE e seria lida como «o portão não morde».
+  IF v_sonda NOT IN ('', 'y2', 'c') THEN
+    RAISE EXCEPTION 'P43G FAIL (fixture): smoke43g.sonda = ''%'' é desconhecida — valores válidos: y2, c (ou vazio para o run normal)', v_sonda;
+  END IF;
+
   SELECT c.id, c.candidato_id INTO v_cand, v_cando
     FROM public.candidaturas c
     JOIN public.candidatos ca ON ca.id = c.candidato_id
@@ -158,13 +221,23 @@ BEGIN
     FROM (SELECT candidato_id FROM public.autorizacoes
            GROUP BY candidato_id HAVING count(*) > 1) s;
 
+  -- BASELINE de (y2) — emenda 48-06 (D-17). Impressão digital da tabela de classes
+  -- INTEIRA: md5 do `to_jsonb` de cada linha, ordenado. Não envelhece quando nasce
+  -- classe nova (ela entra nesta baseline sozinha) nem quando nasce coluna nova (o
+  -- `to_jsonb` da linha inteira a inclui). Mesmo idioma de
+  -- `p43_matriz_retencao_smoke.sql` (j).
+  SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), '')), count(*)
+    INTO v_classes_fp, v_classes_n
+    FROM (SELECT to_jsonb(c)::text AS linha FROM public.classe_evento_notificacao c) t;
+
   PERFORM set_config('smoke43g.cand',        v_cand::text,   false);
   PERFORM set_config('smoke43g.cando',       v_cando::text,  false);
   PERFORM set_config('smoke43g.ledger',      v_ledger::text, false);
   PERFORM set_config('smoke43g.autz',        v_autz::text,   false);
   PERFORM set_config('smoke43g.http',        v_http::text,   false);
+  PERFORM set_config('smoke43g.classes_fp',  v_classes_fp,   false);
 
-  RAISE NOTICE 'FIXTURE ok: par (candidatura, candidato) resolvido; ledger=% linhas, autorizacoes=% linhas, net._http_response=% linhas (baselines)', v_ledger, v_autz, v_http;
+  RAISE NOTICE 'FIXTURE ok: par (candidatura, candidato) resolvido; ledger=% linhas, autorizacoes=% linhas, net._http_response=% linhas, classe_evento_notificacao=% linhas / impressão digital % (baselines)', v_ledger, v_autz, v_http, v_classes_n, v_classes_fp;
   RAISE NOTICE 'FIXTURE — MULTIPLICIDADE MEDIDA: % candidato(s) com MAIS DE UMA linha em autorizacoes. A semântica "linha mais recente vence" de pode_receber_marketing() decide o resultado para esses; se o número for 0, a regra ainda não foi exercida ao vivo. REGISTRAR ESTE NÚMERO NO 43-07.', v_multi;
 END $$;
 
@@ -298,25 +371,103 @@ BEGIN
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- (c) NÃO-REGRESSÃO DOS VIVOS — os 5 transacionais + o interno continuam sendo
---     ACEITOS, por inserção real, uma linha por evento em subtransação revertida.
+-- (c) NÃO-REGRESSÃO DOS VIVOS — todo evento NÃO-marketing do vocabulário VIVO
+--     continua sendo ACEITO, por inserção real, uma linha por evento em
+--     subtransação revertida.
 --
 --     Sem esta asserção, um guard que recusasse TUDO (por exemplo, por classificar
 --     mal ou por consultar a coluna errada) passaria em verde por (a) e (b) e
---     derrubaria em silêncio os 5 e-mails transacionais do sistema.
+--     derrubaria em silêncio os e-mails transacionais do sistema.
+--
+--     ⚠ EMENDA 48-06 (D-17): o conjunto iterado é EXTRAÍDO do
+--     `pg_get_constraintdef` vivo — o mesmo `regexp_matches` de (e) — menos os
+--     eventos de classe `marketing`. O total aceito é comparado com o total
+--     EXTRAÍDO NESTA EXECUÇÃO. Antes era uma lista literal de 6 nomes: um evento
+--     novo ficava fora da vigilância e o portão seguia verde (o 7º, o
+--     `candidatura_encerrada_a_pedido`, já estava fora).
+--
+--     O que a lista literal protegia de fato — que os 6 eventos HISTÓRICOS
+--     (confirmacao, avanco, convite, decisao, revisao_solicitada,
+--     revisao_respondida) não SUMAM do vocabulário — continua exigido, agora como
+--     PERTINÊNCIA: o CHECK vivo tem de CONTÊ-LOS, e pode conter mais.
+--
+--     Sonda `smoke43g.sonda = 'c'`: acrescenta um evento inexistente ao conjunto
+--     histórico exigido e roda a MESMA checagem; tem de terminar em
+--     `SONDA OK: c mordeu`.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_cand    uuid := current_setting('smoke43g.cand')::uuid;
-  v_cando   uuid := current_setting('smoke43g.cando')::uuid;
-  v_eventos text[] := ARRAY[
+  v_cand       uuid := current_setting('smoke43g.cand')::uuid;
+  v_cando      uuid := current_setting('smoke43g.cando')::uuid;
+  v_sonda      text := coalesce(current_setting('smoke43g.sonda', true), '');
+  v_def        text;
+  v_vocab      text[];   -- vocabulário INTEIRO do CHECK vivo
+  v_eventos    text[];   -- vocabulário vivo menos os de classe marketing
+  v_historicos text[] := ARRAY[
     'confirmacao', 'avanco', 'convite', 'decisao',
     'revisao_respondida', 'revisao_solicitada'
   ];
-  v_ev      text;
-  v_aceitos int := 0;
+  v_faltam     text[];
+  v_total      int;
+  v_ev         text;
+  v_aceitos    int := 0;
 BEGIN
+  SELECT pg_get_constraintdef(c.oid) INTO v_def
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+   WHERE n.nspname = 'public'
+     AND t.relname = 'notificacoes_enviadas'
+     AND c.conname = 'notificacoes_enviadas_evento_check';
+
+  IF v_def IS NULL THEN
+    RAISE EXCEPTION 'P43G FAIL (c): a constraint notificacoes_enviadas_evento_check NÃO existe — não há vocabulário vivo a iterar';
+  END IF;
+
+  SELECT coalesce(array_agg(DISTINCT x.v ORDER BY x.v), '{}') INTO v_vocab
+    FROM (SELECT unnest(regexp_matches(v_def, '''([a-z_]+)''::text', 'g')) AS v) x;
+
+  SELECT coalesce(array_agg(e ORDER BY e), '{}') INTO v_eventos
+    FROM unnest(v_vocab) e
+   WHERE NOT EXISTS (
+     SELECT 1 FROM public.classe_evento_notificacao ce
+      WHERE ce.evento = e AND ce.classe = 'marketing'
+   );
+  v_total := coalesce(array_length(v_eventos, 1), 0);
+
+  -- Um regexp que parou de casar (formato do `pg_get_constraintdef` mudou) daria
+  -- conjunto vazio e um loop de zero voltas VERDE. A pertinência abaixo já pega
+  -- isso; esta linha diz o motivo certo.
+  IF v_total = 0 THEN
+    RAISE EXCEPTION 'P43G FAIL (c): nenhum evento não-marketing extraído do CHECK vivo — o regexp não casou com a definição: %', v_def;
+  END IF;
+
+  -- PERTINÊNCIA DOS HISTÓRICOS, com o gancho da sonda. Todo caminho da sonda
+  -- termina em exceção; o caminho normal re-levanta o FAIL real ou segue.
+  BEGIN
+    IF v_sonda = 'c' THEN
+      v_historicos := v_historicos || 'evento_sonda_inexistente'::text;
+    END IF;
+
+    SELECT coalesce(array_agg(h ORDER BY h), '{}') INTO v_faltam
+      FROM unnest(v_historicos) h
+     WHERE NOT (h = ANY (v_vocab));
+
+    IF array_length(v_faltam, 1) IS NOT NULL THEN
+      RAISE EXCEPTION 'P43G FAIL (c): evento(s) histórico(s) AUSENTE(S) do CHECK vivo: % — o vocabulário foi reconstruído sem eles, e o e-mail correspondente deixou de poder ser registrado', array_to_string(v_faltam, ', ');
+    END IF;
+
+    IF v_sonda = 'c' THEN
+      RAISE EXCEPTION 'SONDA FALHOU: c não mordeu — um evento inexistente foi exigido e a pertinência de (c) NÃO reprovou';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    IF v_sonda = 'c' AND SQLERRM LIKE 'P43G FAIL (c)%' THEN
+      RAISE EXCEPTION 'SONDA OK: c mordeu — %', SQLERRM;
+    END IF;
+    RAISE;
+  END;
+
   FOREACH v_ev IN ARRAY v_eventos LOOP
     BEGIN
       INSERT INTO public.notificacoes_enviadas
@@ -341,12 +492,13 @@ BEGIN
     END;
   END LOOP;
 
-  IF v_aceitos <> 6 THEN
-    RAISE EXCEPTION 'P43G FAIL (c): apenas % de 6 eventos vivos foram aceitos', v_aceitos;
+  -- Baseline DESTA execução: o total extraído do CHECK vivo, não uma constante.
+  IF v_aceitos IS DISTINCT FROM v_total THEN
+    RAISE EXCEPTION 'P43G FAIL (c): apenas % de % eventos não-marketing do CHECK vivo foram aceitos', v_aceitos, v_total;
   END IF;
 
   PERFORM set_config('smoke43g.pass', (coalesce(nullif(current_setting('smoke43g.pass', true), ''), '0')::int + 1)::text, false);
-  RAISE NOTICE 'PASS (c): os 6 eventos vivos (5 transacionais + 1 interno) continuam sendo aceitos por inserção real (todas revertidas)';
+  RAISE NOTICE 'PASS (c): os % eventos não-marketing do CHECK vivo continuam sendo aceitos por inserção real (todas revertidas), e os 6 históricos seguem no vocabulário: %', v_total, array_to_string(v_eventos, ', ');
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -706,15 +858,28 @@ END $$;
 --
 --      Esta asserção também é o gate que um predicado de purga acidentalmente
 --      ligado nesta fase reprovaria.
+--
+--      ⚠ EMENDA 48-06 (D-17): a integridade de `classe_evento_notificacao` era
+--      medida por CONTAGEM contra uma constante fixada em 2026-08-01. Ficou
+--      vermelha no instante em que nasceu a 8ª classe legítima, e o diagnóstico
+--      que ela imprimia («o DELETE de (b3) não foi revertido») era FALSO. Agora
+--      compara a impressão digital capturada na FIXTURE desta execução: uma
+--      classe acrescentada antes do smoke não reprova; uma linha apagada,
+--      acrescentada ou alterada DURANTE o smoke reprova.
+--
+--      Sonda `smoke43g.sonda = 'y2'`: apaga uma linha dentro de subtransação e
+--      roda a MESMA comparação; tem de terminar em `SONDA OK: y2 mordeu`.
 -- ─────────────────────────────────────────────────────────────────────────────
 RESET ROLE;
 DO $$
 DECLARE
-  v_agora  int;
-  v_antes  int := coalesce(nullif(current_setting('smoke43g.autz', true), ''), '-1')::int;
-  v_cando  uuid := current_setting('smoke43g.cando')::uuid;
-  v_true   int;
-  v_classe int;
+  v_agora    int;
+  v_antes    int := coalesce(nullif(current_setting('smoke43g.autz', true), ''), '-1')::int;
+  v_cando    uuid := current_setting('smoke43g.cando')::uuid;
+  v_true     int;
+  v_sonda    text := coalesce(current_setting('smoke43g.sonda', true), '');
+  v_fp_antes text := nullif(current_setting('smoke43g.classes_fp', true), '');
+  v_fp_agora text;
 BEGIN
   -- Mesma razão de (y1) (code review WR-05): um cadastro REAL durante a execução
   -- acrescenta uma linha de `autorizacoes` que não é do smoke, e acusá-lo de
@@ -734,12 +899,38 @@ BEGIN
     RAISE EXCEPTION 'P43G FAIL (y2): o candidato-fixture ficou com % linha(s) de autorizacao_marketing_vagas = true — CONSENTIMENTO FABRICADO pela asserção (f) sobreviveu à subtransação', v_true;
   END IF;
 
-  SELECT count(*) INTO v_classe FROM public.classe_evento_notificacao;
-  IF v_classe <> 7 THEN
-    RAISE EXCEPTION 'P43G FAIL (y2): classe_evento_notificacao tem % linha(s), esperado 7 — o DELETE da asserção (b3) não foi revertido, e o evento removido passaria a ser recusado em PRODUÇÃO por classe desconhecida', v_classe;
+  IF v_fp_antes IS NULL THEN
+    RAISE EXCEPTION 'P43G FAIL (y2): a impressão digital de classe_evento_notificacao não foi capturada na FIXTURE — sem baseline, a integridade da tabela não pode ser medida';
   END IF;
 
-  RAISE NOTICE 'TEARDOWN (y2) ok: autorizacoes de volta a % linhas, zero consentimento de marketing fabricado, classe_evento_notificacao íntegra em 7 linhas', v_agora;
+  -- Comparação com a baseline, com o gancho da sonda. Todo caminho da sonda
+  -- termina em exceção (e a subtransação desfaz o DELETE antes mesmo de a
+  -- requisição inteira ser revertida); o caminho normal re-levanta o FAIL real.
+  BEGIN
+    IF v_sonda = 'y2' THEN
+      DELETE FROM public.classe_evento_notificacao
+       WHERE evento = (SELECT min(evento) FROM public.classe_evento_notificacao);
+    END IF;
+
+    SELECT md5(coalesce(string_agg(t.linha, E'\n' ORDER BY t.linha), ''))
+      INTO v_fp_agora
+      FROM (SELECT to_jsonb(c)::text AS linha FROM public.classe_evento_notificacao c) t;
+
+    IF v_fp_agora IS DISTINCT FROM v_fp_antes THEN
+      RAISE EXCEPTION 'P43G FAIL (y2): classe_evento_notificacao MUDOU durante o smoke (impressão digital % -> %) — o DELETE da asserção (b3) não foi revertido, e um evento sem classe passa a ser recusado em PRODUÇÃO por classe desconhecida. ⚠ A comparação é com a baseline capturada na FIXTURE desta execução: classe legítima criada ANTES do smoke não reprova', v_fp_antes, v_fp_agora;
+    END IF;
+
+    IF v_sonda = 'y2' THEN
+      RAISE EXCEPTION 'SONDA FALHOU: y2 não mordeu — uma linha de classe_evento_notificacao foi apagada e a comparação de (y2) NÃO reprovou';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    IF v_sonda = 'y2' AND SQLERRM LIKE 'P43G FAIL (y2)%' THEN
+      RAISE EXCEPTION 'SONDA OK: y2 mordeu — %', SQLERRM;
+    END IF;
+    RAISE;
+  END;
+
+  RAISE NOTICE 'TEARDOWN (y2) ok: autorizacoes de volta a % linhas, zero consentimento de marketing fabricado, classe_evento_notificacao idêntica à baseline da FIXTURE (impressão digital %)', v_agora, v_fp_agora;
 END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -755,5 +946,10 @@ BEGIN
   END IF;
   RAISE NOTICE 'RESUMO: % asserções PASS de % esperadas — gate VERDE', v_n, v_esperado;
 END $$;
+
+-- Cinto (emenda 48-06): um run normal nunca deixa gancho de sonda armado na
+-- sessão. (Uma sonda nunca chega aqui — ela aborta a requisição inteira, e o
+-- `set_config` dela é desfeito junto.)
+SELECT set_config('smoke43g.sonda', '', false);
 
 RESET ROLE;
