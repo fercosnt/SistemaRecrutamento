@@ -75,17 +75,19 @@ function makeMockSupabase(
   opts: {
     candidaturaRow?: Record<string, unknown> | null;
     respostasRows?: Record<string, unknown>[];
+    /** 48-04: erro devolvido pela leitura de `candidaturas` (prova a falha fechada). */
+    candidaturaError?: { code?: string; message?: string } | null;
   } = {},
 ) {
   const upserts: { table: string; row: Record<string, unknown>; onConflict?: string }[] = [];
-  const selects: { table: string }[] = [];
+  const selects: { table: string; cols?: string }[] = [];
   return {
     upserts,
     selects,
     from(table: string) {
       return {
-        select: (_cols?: string) => {
-          selects.push({ table });
+        select: (cols?: string) => {
+          selects.push({ table, cols });
           // `.eq(...)` is BOTH thenable (respostas_formulario reads `await select().eq()`)
           // AND exposes maybeSingle/single (candidaturas/vagas reads). respostas_formulario
           // resolves to the injected respostasRows so the injection path can be exercised.
@@ -96,8 +98,12 @@ function makeMockSupabase(
             eq: () => eqResult,
             maybeSingle: () =>
               Promise.resolve({
-                data: table === "prompt_versions" ? PROMPT_ROW_FIXTURE : (opts.candidaturaRow ?? null),
-                error: null,
+                data: table === "prompt_versions"
+                  ? PROMPT_ROW_FIXTURE
+                  : table === "candidaturas" && opts.candidaturaError
+                    ? null
+                    : (opts.candidaturaRow ?? null),
+                error: table === "candidaturas" ? (opts.candidaturaError ?? null) : null,
               }),
             single: () =>
               Promise.resolve({ data: opts.candidaturaRow ?? null, error: null }),
@@ -387,4 +393,124 @@ Deno.test("upsert final com erro → status='falhou' (não 'sucesso' fantasma) �
   );
   assertExists(falhou, "a linha tem de virar 'falhou' quando o upsert de sucesso é rejeitado");
   assert(String(falhou!.row.erro).includes("22P05"), "o motivo do 400 tem de ficar gravado em `erro`");
+});
+
+// ── 48-04 / JORN-24 (a): quem o knockout eliminou NÃO vai para a IA ───────────
+//
+// O trigger `trg_candidaturas_analise` é AFTER INSERT e a candidatura nasce
+// `aguardando_resposta`; o knockout é um UPDATE posterior da MESMA transação, e o
+// `pg_net` só entrega depois do COMMIT. Só a EF vê o estado final — então a guarda
+// mora aqui, e tem de rodar ANTES da marca `pendente` e de qualquer chamada de IA.
+
+/** Provedor que EXPLODE se tocado — e conta, para o caso de alguém engolir o throw. */
+function makeExplodingAi() {
+  const calls: unknown[] = [];
+  const boom = (req: unknown) => {
+    calls.push(req);
+    throw new Error("provedor de IA chamado para candidatura eliminada por knockout");
+  };
+  return {
+    calls,
+    anthropic: { messages: { parse: boom } },
+    openai: { chat: { completions: { parse: boom } } },
+  };
+}
+
+Deno.test("JORN-24 — knockout (rejeitado + opcao_knockout_id) → 200 skipped:'knockout', nenhuma escrita, nenhuma IA", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: {
+      id: "c1",
+      vaga_id: "v1",
+      candidato_id: "cand1",
+      curriculo_url: "cand1/abc.pdf",
+      status: "rejeitado",
+      opcao_knockout_id: "opt-1",
+    },
+  });
+  const ai = makeExplodingAi();
+  const res = await handler(
+    makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER),
+    { anthropic: ai.anthropic, openai: ai.openai, supabaseAdmin, serviceKey: VALID_BEARER },
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body, { ok: true, skipped: "knockout" });
+  assertEquals(supabaseAdmin.upserts.length, 0, "nenhuma linha em analise_candidato_vaga — nem `pendente`");
+  assertEquals(ai.calls.length, 0, "o provedor de IA não pode ser chamado");
+  // A allowlist da leitura inclui a coluna da guarda — e nunca vira `*`.
+  const leitura = supabaseAdmin.selects.find((s) => s.table === "candidaturas");
+  assertExists(leitura, "a candidatura tem de ser lida");
+  assert((leitura!.cols ?? "").includes("opcao_knockout_id"), "allowlist sem opcao_knockout_id");
+  assert(!(leitura!.cols ?? "").includes("*"), "select('*') proibido");
+  // Nada além da própria candidatura foi lido: respostas, vaga, prompt e CV ficam intocados.
+  assertEquals(
+    supabaseAdmin.selects.map((s) => s.table),
+    ["candidaturas"],
+    "a guarda devolve antes de ler respostas/vaga/prompt",
+  );
+});
+
+Deno.test("JORN-24 — candidatura em andamento (aguardando_resposta, sem knockout) segue analisada como antes", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: {
+      id: "c1",
+      vaga_id: "v1",
+      candidato_id: "cand1",
+      curriculo_url: null,
+      status: "aguardando_resposta",
+      opcao_knockout_id: null,
+    },
+  });
+  const anthropic = makeMockAnthropic(CV_JOB_MATCH_FIXTURE);
+  const res = await handler(
+    makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER),
+    { anthropic, openai: makeMockOpenAI(), supabaseAdmin, serviceKey: VALID_BEARER },
+  );
+  assertEquals((await res.json()).status, "sucesso");
+  const analise = supabaseAdmin.upserts.filter((u) => u.table === "analise_candidato_vaga");
+  assertEquals(analise.map((u) => u.row.status), ["pendente", "sucesso"]);
+  assert(anthropic.calls.length > 0, "a IA tem de ser chamada para candidatura em andamento");
+});
+
+Deno.test("JORN-24 — rejeição humana (rejeitado SEM opcao_knockout_id) segue analisada: a guarda exige as duas condições", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: {
+      id: "c1",
+      vaga_id: "v1",
+      candidato_id: "cand1",
+      curriculo_url: null,
+      status: "rejeitado",
+      opcao_knockout_id: null,
+    },
+  });
+  const anthropic = makeMockAnthropic(CV_JOB_MATCH_FIXTURE);
+  const res = await handler(
+    makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER),
+    { anthropic, openai: makeMockOpenAI(), supabaseAdmin, serviceKey: VALID_BEARER },
+  );
+  assertEquals((await res.json()).status, "sucesso");
+  const analise = supabaseAdmin.upserts.filter((u) => u.table === "analise_candidato_vaga");
+  assertEquals(analise.map((u) => u.row.status), ["pendente", "sucesso"]);
+  assert(anthropic.calls.length > 0);
+});
+
+Deno.test("JORN-24 — leitura da candidatura com erro → falha FECHADA: nenhuma IA, linha `falhou`", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaError: { code: "57014", message: "canceling statement due to statement timeout" },
+  });
+  const ai = makeExplodingAi();
+  const res = await handler(
+    makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER),
+    { anthropic: ai.anthropic, openai: ai.openai, supabaseAdmin, serviceKey: VALID_BEARER },
+  );
+  assertEquals((await res.json()).status, "falhou");
+  assertEquals(ai.calls.length, 0, "sem saber o estado da candidatura, nada vai para a IA");
+  const statuses = supabaseAdmin.upserts
+    .filter((u) => u.table === "analise_candidato_vaga")
+    .map((u) => u.row.status);
+  assertEquals(statuses, ["falhou"], "never-absent: a falha fica registrada; `pendente` não chega a nascer");
 });
