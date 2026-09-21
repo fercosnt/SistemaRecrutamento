@@ -7,7 +7,9 @@
  *   uma justificativa ≥50 caracteres e grava uma linha auditável (RNF-07a/LGPD-02),
  *   nunca um status-only write que escapa da trilha (A9). Transições não-rejeição
  *   seguem no `useUpdateCandidaturaStatus`.
- * - Checkbox "Notificar candidato"
+ * - Nota verdadeira sobre e-mail (48-16 / JORN-15): mudar o status aqui NÃO envia e-mail.
+ *   A antiga opção «Notificar candidato por email» não tinha efeito — nenhum código a honra
+ *   desde a aposentadoria do n8n (P39) — e foi removida, junto com o campo do payload.
  *
  * @module components/modals/UpdateStatusModal
  */
@@ -30,14 +32,13 @@ import {
 } from '../ui/select'
 import { Label } from '../ui/label'
 import { Textarea } from '../ui/textarea'
-import { Checkbox } from '../ui/checkbox'
 import { GlassButton } from '../ui/glass'
 import { Alert, AlertDescription } from '../ui/alert'
 import { useUpdateCandidaturaStatus } from '@/features/vagas/hooks/useCandidaturas'
 import { useRegistrarDecisao } from '@/features/decisao/hooks/useRegistrarDecisao'
 import { JUSTIFICATIVA_MIN } from '@/features/decisao/schemas/decisaoSchema'
 import type { StatusCandidatura } from '@/features/vagas/types/vagasTypes'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -85,14 +86,12 @@ export function UpdateStatusModal({
 }: UpdateStatusModalProps) {
   const [novoStatus, setNovoStatus] = useState<StatusCandidatura | ''>('')
   const [motivoRejeicao, setMotivoRejeicao] = useState('')
-  const [notificarCandidato, setNotificarCandidato] = useState(true)
   const [validationError, setValidationError] = useState<string | null>(null)
 
   // Sucesso (qualquer caminho): reseta o form, fecha o modal, dispara o callback.
   const resetAndClose = () => {
     setNovoStatus('')
     setMotivoRejeicao('')
-    setNotificarCandidato(true)
     setValidationError(null)
     onOpenChange(false)
     onSuccess?.()
@@ -113,7 +112,6 @@ export function UpdateStatusModal({
     if (!open) {
       setNovoStatus('')
       setMotivoRejeicao('')
-      setNotificarCandidato(true)
       setValidationError(null)
     }
   }, [open])
@@ -164,7 +162,6 @@ export function UpdateStatusModal({
     updateStatus({
       candidaturaId,
       status_candidatura: novoStatus,
-      notificar_candidato: notificarCandidato,
     })
   }
 
@@ -249,8 +246,8 @@ export function UpdateStatusModal({
               <div className="flex items-start justify-between gap-3">
                 <p id="motivo-rejeicao-ajuda" className="text-xs text-white/70 drop-shadow-sm">
                   A rejeição é registrada como uma decisão auditável (RNF-07a/LGPD-02). Seja
-                  específico e profissional — este motivo será enviado ao candidato se a
-                  notificação estiver ativada.
+                  específico e profissional — este motivo fica no registro interno e não é
+                  enviado ao candidato, que recebe por e-mail uma mensagem neutra.
                 </p>
                 <span
                   className={cn(
@@ -264,26 +261,12 @@ export function UpdateStatusModal({
             </div>
           )}
 
-          {/* Checkbox Notificar Candidato */}
+          {/* 48-16 (JORN-15 · D-09): o que de fato avisa o candidato — sem opção sem efeito. */}
           <div className="flex items-start space-x-3 p-4 bg-white/10 border-white/20 border backdrop-blur-sm rounded-md">
-            <Checkbox
-              id="notificar"
-              checked={notificarCandidato}
-              onCheckedChange={(checked) => setNotificarCandidato(checked as boolean)}
-              disabled={isPending}
-              className="border-white/30 data-[state=checked]:bg-[#35BFAD] data-[state=checked]:border-[#35BFAD]"
-            />
-            <div className="space-y-1 flex-1">
-              <Label
-                htmlFor="notificar"
-                className="text-sm font-medium text-white drop-shadow-sm cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Notificar candidato por email
-              </Label>
-              <p className="text-xs text-white/70 drop-shadow-sm">
-                O candidato receberá um email informando sobre a mudança de status
-              </p>
-            </div>
+            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-white/80" aria-hidden="true" />
+            <p className="text-xs text-white/80 drop-shadow-sm">
+              Mudar o status aqui não envia e-mail ao candidato. Ele é avisado por e-mail quando uma decisão é registrada ou quando há algo para ele fazer, e acompanha o resto pelo painel.
+            </p>
           </div>
 
           {/* Validation Error */}

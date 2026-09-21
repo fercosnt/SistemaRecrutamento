@@ -195,12 +195,23 @@ export function blocoAcessoPainel(url?: string): string {
 <p style="margin:0;font-size:14px;color:${CINZA};">Se o botão não funcionar, acesse: ${u}</p>`;
 }
 
+/**
+ * 48-16 (JORN-15 · D-09) — A PROMESSA DA CONFIRMAÇÃO. A cópia anterior prometia aviso por
+ * e-mail em cada etapa; o sistema avisava em uma de quatro. O operador escolheu mudar a
+ * promessa, não passar a avisar em cada avanço (D-09): o candidato acompanha pelo painel, e o
+ * e-mail vem quando há algo para ele fazer (avanço para a avaliação, convite de entrevista,
+ * avaliação cognitiva liberada) ou uma decisão (aprovação, rejeição humana ou automática,
+ * resposta à revisão). Publicada só depois de conferido, no catálogo e no bundle vivo, que
+ * cada um desses avisos existe. `em_espera` e o avanço entre etapas de trabalho seguem sem
+ * e-mail — a frase não os promete. «Acompanhe o andamento pelo seu painel» é a frase canônica
+ * do front (`src/__tests__/guards/wait-state-copy.grep.test.ts`).
+ */
 function corpoConfirmacao(d: DadosEmail): string {
   return `${saudacao(d)}
 <p style="margin:0 0 16px;">Recebemos a sua candidatura para a vaga <strong>${
     escapeHtml(d.tituloVaga)
   }</strong>. Ela já está registrada no nosso processo seletivo.</p>
-<p style="margin:0 0 16px;">A partir de agora, você poderá acompanhar o andamento pelo painel do candidato. Avisaremos por e-mail a cada etapa.</p>
+<p style="margin:0 0 16px;">Acompanhe o andamento pelo seu painel a qualquer momento. Avisaremos por e-mail quando houver algo para você fazer ou uma decisão sobre a sua candidatura.</p>
 <p style="margin:0;">Obrigado pelo seu interesse!</p>`;
 }
 

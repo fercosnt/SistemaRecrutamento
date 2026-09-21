@@ -505,10 +505,13 @@ export async function updateCandidaturaStatus(
 
     // SEC-11 (Phase 24 / WR-03): operational success console.log removed (RH path).
 
-    // SEC-03: the n8n status-candidatura webhook is now fired SERVER-SIDE by the
-    // AFTER UPDATE OF status trigger trg_n8n_status_candidatura (pg_net + Vault) on
-    // the actual status transition. No client dispatch here — the URL must never ship
-    // in the bundle (Pitfall 5). `notificar_candidato` is honored server-side/M5.
+    // Nenhum e-mail sai deste caminho, e nenhum cliente dispara notificação daqui.
+    // 48-16 (JORN-15): o comentário anterior dizia que o webhook n8n de status era
+    // disparado server-side e que `notificar_candidato` era «honored server-side/M5» —
+    // falso desde a P39, que aposentou os triggers n8n (0 `trg_n8n_*` em PROD). O
+    // candidato é avisado pelos triggers `trg_notif_*` → EF `notificar-candidato` quando
+    // há DECISÃO (registrar_decisao / rejeição → `historico_candidatura`) ou algo a fazer
+    // (avanço para a avaliação, convite, avaliação cognitiva) — não por mudança de status.
 
     return {
       success: true,

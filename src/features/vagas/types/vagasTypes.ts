@@ -415,7 +415,8 @@ export interface UpdateCandidaturaStatusRequest {
   candidaturaId: string
   status_candidatura: StatusCandidatura
   etapa_atual?: EtapaProcesso
-  notificar_candidato?: boolean
+  // 48-16 (JORN-15): `notificar_candidato` saiu — nenhum código o honrava (o disparo do
+  // n8n foi aposentado na P39) e o modal que o enviava prometia um e-mail que não existia.
 }
 
 /**
