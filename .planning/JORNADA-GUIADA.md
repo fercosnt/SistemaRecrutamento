@@ -2224,30 +2224,79 @@ constante só no fim de tudo.
 
 ---
 
-### 🔧 Fila de consertos — para o plano de correção
+### 🔧 FILA DE CONSERTOS — consolidada em 2026-09-21, após as 13 etapas
 
-Decisão do operador em 2026-09-20: **documentar tudo primeiro, consertar em bloco depois.**
-Cada linha já traz o que a correção exige, para o plano não precisar rediagnosticar.
+Reescrita do zero: a versão anterior foi feita com 15 defeitos; são **29**. Ordenada por
+**quem sofre**, não por dificuldade. Cada linha traz onde mexer e o que a correção exige.
 
-| # | O que consertar | Onde | O que a correção exige | Risco |
-|---|---|---|---|---|
-| **6** 🔴 | Devolutiva do Big Five 401 desde 07/07 | `submit-bigfive-final:243` + `gerar-devolutiva-bigfive:661` | **O porquê NÃO está provado.** Ou (A) instrumentar o prefixo do Bearer recebido e medir, ou (B) trocar `functions.invoke` por `fetch` explícito com `Authorization: Bearer ${SERVICE_KEY}`. Recomendação: B, depois A se falhar | Deploy de EF. Não mexer na guarda SEC-04 — ela fecha um IDOR real |
-| **6b** | O best-effort que escondeu o 6 por 74 dias | `submit-bigfive-final:241-258` | O `try/catch` pode continuar não derrubando o submit, mas **a falha tem de ficar visível** — gravar o erro, ou não prometer devolutiva na tela quando `devolutiva_id` vier `null` | Baixo |
-| **1** | B8 — formulário sem autosave | `FormularioCandidaturaPage` | Rascunho por etapa. Decidir onde: `sessionStorage` (como o Big Five) ou banco. **Se for banco, é decisão de LGPD** — dado de candidato antes do consentimento final | Médio |
-| **2** | RH não lê respostas nem perfil | `HubCandidatoRH` | Tela nova lendo `respostas_formulario` + dados do candidato. Allowlist explícita de colunas, **nunca `select *`** (o comentário do `analiseCandidatoService` explica por quê) | Baixo |
-| **2b** | `resumo_respostas` escondido do RH | `ANALISE_HUB_ALLOWLIST` | **Decisão de produto antes de código:** o RH deve ver o raciocínio (a)–(d) da IA? Hoje vê 5 bullets e uma nota, sem o cruzamento | — |
-| **3** | «~10 min» é placeholder | `AvaliacaoContainer:240` | Propagar `perguntas.tempo_est_min` até o card. Hoje `deriveCards` lê de `vagas.testes_aplicaveis`, onde o campo não existe. E alinhar com o «15-25 min» da tela de redação | Baixo |
-| **4** | Vaga com bateria de 1 questão e card sem conteúdo | config de vaga + `deriveCardState` | Duas coisas: (i) o card não deve ser oferecido quando não há pergunta configurada; (ii) o RH precisa de **aviso ao publicar** vaga com bateria magra (1 questão valendo 15%) | Médio |
-| **U1–U4** | Atrito de interface | vários | Ver a seção «Atrito de interface» acima | Baixo |
-| **P1** | Modelo/custo das funções de IA | — | Avaliar troca de modelo | — |
+---
 
-⚠ **Duas tabelas e duas colunas MORTAS achadas até aqui** — não quebram nada, mas quem
-for consertar precisa saber para não procurar dado onde não há:
-`respostas_bigfive` (0 linhas na história) · `scores_bigfive` (0) ·
-`candidaturas.tempo_preenchimento_segundos` (0/32) · `candidaturas.origem_candidatura` (1/32) ·
-`candidaturas.data_entrevista_online` (NULL com entrevista agendada).
-O Big Five grava em **`scores_candidato`**, a redação em **`redacoes_candidato`** e o
-agendamento em **`agendamentos_entrevista`**.
+#### 🔴 BLOCO 1 — fere candidato AGORA, em produção
+
+| # | O quê | Onde / o que exige |
+|---|---|---|
+| **22** | Art. 20 inalcançável para quem é rejeitado na triagem | `rejeitar_candidatura` passa a gravar `feedback_rejeicao` (é o que o knockout já faz). **Conserto confirmado por experimento na Etapa 10** |
+| **26** | Exclusão marca «encerrada a pedido» candidatura que o knockout eliminou | **Mesma família do 22.** Varrer pela FORMA: todo lugar que usa `etapa_atual` para saber se a candidatura acabou tem de olhar `status` |
+| **20** | Rejeitar na triagem não avisa o candidato | `rejeitar_candidatura` não tem despacho. Acrescentar evento + template |
+| **27** | Titular não é avisada de pedido/cancelamento de exclusão | Notificar o titular; `recibo_enviado_em` existe e não é escrito. **É controle de conta invadida, não cortesia** |
+| **18** | 2ª decisão não gera aviso — `dedupe_key = <candidatura>:decisao` | Incluir a decisão e/ou o instante na chave |
+| **15** | «Avisaremos por e-mail a cada etapa» — avisa em 1 de 4 | Ou avisa em todas, ou muda a promessa do e-mail |
+| **24** | IA analisa quem o knockout já eliminou (US$ 0,045 cada) | Duas partes: **(a)** parar de analisar após knockout; **(b)** decidir o que fazer com o passivo já gerado, que sai na cópia LGPD |
+| **6** | Devolutiva do Big Five 401 desde 2026-07-07 | **Causa NÃO provada.** Trocar `functions.invoke` por `fetch` explícito, ou instrumentar antes |
+| **19** | «Revertida» não reverte nada | ⚠ **Decisão de produto antes do código** |
+
+---
+
+#### 🔴 BLOCO 2 — leva o RH a decidir errado
+
+| # | O quê | Onde / o que exige |
+|---|---|---|
+| **28** | Troca silenciosa de modelo (`gpt-4o-mini` no lugar de Sonnet) | Subir `max_tokens` do `comparative_ranking` (3000 → ~8000) **e** separar «não coube» de «demorou» no `error_code`. Hoje os dois viram `anthropic_retries_exhausted` — foi por isso que o conserto de 06/09 não sustentou |
+| **13** | Card da lista mostra **0** para avaliação concluída | `CandidatosRHPage:345-348` lê tabelas mortas; helpers devolvem `0` e o `?? 'N/A'` nunca dispara |
+| **7** | Rubrica fantasma na redação | Escrever as 4 dimensões BARS no prompt **e travar por teste** que os `dimension_name` batem |
+| **25** | Comparativo ranqueia e oferece «Avançar» para rejeitados | Filtrar por `status` (ver 22/26) |
+| **12** | Transcrição não é guardada; análises se acumulam sem dono | Guardar o texto (ou hash) e marcar a análise vigente |
+| **17** | Justificativa gruda e **desarma o portão de regressão** | Limpar `etapa_justificativa` após consumir — **não é opcional** |
+| **3b** | Ler a explicação versiona a decisão (5 snapshots para 1 decisão) | O trigger dispara em todo UPDATE; separar carimbo de leitura de mudança de decisão |
+| **14** | Nada trava o avanço (presencial atravessada em 30 s) | Decidir se exige evidência da etapa |
+
+---
+
+#### 🟡 BLOCO 3 — o RH não enxerga o que existe
+
+| # | O quê |
+|---|---|
+| **2** | RH não lê respostas da triagem nem o perfil do candidato *(junta com PP-1, PP-2, PP-9)* |
+| **11** | Guia de entrevista ignora o candidato — recebeu **66 tokens** de entrada |
+| **5** | `data_ultimo_login` não é escrito para ninguém |
+| **29** | Admin sem navegação, ilegível, e **sem a coluna de modelo** (que revelaria o 28) |
+| **21** | Select do motivo de rejeição ilegível + opção sem rótulo |
+| **6b** | Contador de versões de prompt conta versões, não ativações |
+
+---
+
+#### 🟢 BLOCO 4 — atrito, depois
+
+**1** (B8 autosave ⚠ decisão LGPD) · **3** (tempo estimado é placeholder) · **4** (bateria SJT de 1 questão + «Caso prático» vazio) · **8** (revisão salva, tela não mostra) · **9** (filtro de cor esconde verdes) · **10** (reagendamento apaga o horário anterior) · **16** (prova cognitiva por opt-in serve zero questões) · **23** (contraste na tela de encerramento) · **U1-U4** · **PP-3..PP-7**, **PP-12..PP-14**
+
+---
+
+### ⚠ DECISÕES QUE TRAVAM O PLANO — só você responde
+
+Um plano automático vai **escolher** por você se estas não vierem antes:
+
+| # | Pergunta |
+|---|---|
+| **D1** | **Defeito 19** — «revertida» deve reverter de fato, ou virar «reaberta para nova decisão»? |
+| **D2** | **Defeito 24** — o que fazer com as análises já geradas sobre eliminados? Apagar, marcar, ou deixar? |
+| **D3** | **B8** — o rascunho do formulário vai para o banco? É decisão LGPD (dado antes do consentimento final) |
+| **D4** | **PP-11** — uma análise que evolui por etapa, ou uma análise separada por etapa? |
+| **D5** | **PP-8** — o agendamento novo (janelas + escolha do candidato) entra agora ou depois? |
+| **D6** | **2b** — o RH deve ver o raciocínio (a)–(d) da IA, ou só os bullets? |
+| **D7** | **PP-16** — `rh@beautysmile.com.br` **existe e é lido**? |
+| **D8** | **Defeito 14** — avançar etapa deve exigir evidência de que a etapa aconteceu? |
+
+---
 
 ### Caminhos ainda NÃO exercitados
 
