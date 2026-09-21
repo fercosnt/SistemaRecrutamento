@@ -62,17 +62,30 @@ export function mapearEvento(e: EventoLedger): EventoNotificacao {
 }
 
 /**
- * dedupe_key = 1 e-mail por evento por candidatura. Exceção: o CONVITE usa o
- * agendamento_id, para permitir re-convite legítimo (novo agendamento ⇒ nova chave).
+ * dedupe_key = 1 e-mail por OCORRÊNCIA do evento. A chave nomeia o que o e-mail anuncia:
  *
- * `revisao_respondida` (42-08) NÃO GANHA RAMO, e isso é decisão verificada, não omissão.
- * O ramo `default` produz `{candidatura_id}:revisao_respondida`, e essa chave é correta
- * porque `decisao_final.candidatura_id` é UNIQUE (`20260607000003:39`) — há no máximo UMA
- * revisão por candidatura, logo no máximo um e-mail legítimo. O guard de idempotência do
- * RPC `responder_revisao_decisao` (plano 42-06, guard 4) recusa uma segunda resposta com
- * `22023`, então nem sequer existe transição que pudesse pedir uma segunda chave. As duas
- * decisões juntas fecham a questão: a chave nunca bloqueia um e-mail legítimo porque não
- * existe segundo e-mail legítimo. Um ramo novo aqui só poderia introduzir colisão.
+ *   - `convite`            → `{agendamento}:convite[:{data_hora}]` (re-convite = novo agendamento;
+ *                            reagendamento = nova data, 2026-09-06)
+ *   - `decisao` / `avanco` → `{candidatura}:{evento}:{historico_id}` (48-08) — uma chave por
+ *                            TRANSIÇÃO, porque `trg_notif_transicao` é AFTER INSERT em
+ *                            `historico_candidatura` e `NEW.id` é a transição
+ *   - demais / sem versão  → `{candidatura}:{evento}` (a chave LEGADA)
+ *
+ * ⚠ A premissa antiga — «no máximo UMA decisão e UMA revisão por candidatura, logo a chave
+ * por candidatura nunca bloqueia um e-mail legítimo» — era FALSA para a decisão e deixou de
+ * valer para a revisão:
+ *   · a decisão: `RegistrarDecisaoForm` + o upsert de `registrar_decisao` já permitiam
+ *     redecidir pela UI, e a rejeição na triagem é outra decisão sobre a mesma candidatura.
+ *     O log da EF de 2026-09-20 16:03:25 UTC registra a rejeição da Etapa 9 DESPACHADA e
+ *     descartada como `skipped:"duplicate"` na chave `…:decisao` ocupada pela aprovação
+ *     (Defeitos 18 e 20 — o mesmo mecanismo);
+ *   · a revisão: a reabertura (D-01, plano 48-11) permite um segundo ciclo de revisão.
+ *
+ * Sem `versao`, a chave LEGADA — de propósito: a EF é deployada ANTES da migration que passa
+ * o campo (Pitfall 7), e nesse intervalo o trigger ainda manda o corpo antigo. As linhas
+ * antigas `{candidatura}:decisao` do ledger não colidem com as novas (sufixo).
+ *
+ * `confirmacao` nunca é versionada: uma candidatura tem uma confirmação.
  */
 export function montarDedupeKey(
   e: EventoLedger,
@@ -90,7 +103,49 @@ export function montarDedupeKey(
     // nova discrimina — reagendar duas vezes para a MESMA data continua dedupado.
     return versao ? `${agendamentoId}:convite:${versao}` : `${agendamentoId}:convite`;
   }
+  if (versao && EVENTOS_VERSIONADOS.has(e)) {
+    return `${candidaturaId}:${e}:${versao}`;
+  }
   return `${candidaturaId}:${e}`;
+}
+
+/** Eventos de candidatura cuja chave carrega um discriminador (48-08). */
+const EVENTOS_VERSIONADOS: ReadonlySet<EventoLedger> = new Set<EventoLedger>([
+  "decisao",
+  "avanco",
+]);
+
+/** Eventos cujo discriminador é o id de uma linha de `historico_candidatura`. */
+const EVENTOS_POR_HISTORICO: ReadonlySet<EventoLedger> = new Set<EventoLedger>([
+  "decisao",
+  "avanco",
+]);
+
+/** Forma de uuid — a MESMA regex de `executar-direito-titular/index.ts` (`RE_UUID`). */
+export const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Inverso de `montarDedupeKey` para o branch RETRY (48-08): a varredura `pg_cron` reenvia só
+ * `{retry_id, evento, candidatura_id, agendamento_id}` (`20260805000007:768-777`), então o
+ * `historico_id` da decisão que a linha anuncia é lido da própria `dedupe_key` da linha.
+ *
+ * Devolve o 3º segmento SÓ quando o evento é `decisao`/`avanco` e o segmento tem forma de
+ * uuid; em qualquer outro caso (chave legada, outro evento, segmento malformado) `undefined`
+ * — e o chamador cai no comportamento legado (desfecho por `etapa_atual`).
+ */
+export function extrairVersaoDaChave(
+  dedupeKey: string,
+  evento: EventoLedger,
+): string | undefined {
+  if (!EVENTOS_POR_HISTORICO.has(evento)) return undefined;
+  const partes = dedupeKey.split(":");
+  if (partes.length !== 3 || partes[1] !== evento) return undefined;
+  return RE_UUID.test(partes[2]) ? partes[2] : undefined;
+}
+
+/** `true` quando o evento usa `historico_id` como discriminador (decisao/avanco). */
+export function eventoPorHistorico(evento: EventoLedger): boolean {
+  return EVENTOS_POR_HISTORICO.has(evento);
 }
 
 /** Corpo JSON do Resend. Anexo `.ics` SÓ quando há `icsBase64` (convite). Sem chave da API. */
@@ -144,6 +199,8 @@ const CHAVES_LOG_OK = new Set([
   "status",
   "candidatura_id",
   "agendamento_id",
+  // 48-08: o id da transição (linha de historico_candidatura) — id, não PII.
+  "historico_id",
   "dedupe_key",
   "skipped",
   "provider_message_id",

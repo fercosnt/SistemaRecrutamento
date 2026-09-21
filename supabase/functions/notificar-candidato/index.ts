@@ -37,10 +37,13 @@ import {
   computeProximaTentativa,
   construirCorpoResend,
   type EventoLedger,
+  eventoPorHistorico,
   EVENTOS_VALIDOS,
+  extrairVersaoDaChave,
   logSeguro,
   mapearEvento,
   montarDedupeKey,
+  RE_UUID,
 } from "./helpers.ts";
 
 const corsHeaders = {
@@ -72,6 +75,15 @@ interface CorpoRequisicao {
    * (reagendamento). Muda a chave de dedupe (por data_hora) e a copy do e-mail.
    */
   reagendamento?: boolean;
+  /**
+   * 48-08 (JORN-18 / JORN-20): o id da linha de `historico_candidatura` que disparou o
+   * `trg_notif_transicao` (AFTER INSERT ⇒ `NEW.id` É a transição). Só significa algo para
+   * `decisao` e `avanco`: versiona a chave de dedupe (uma chave por decisão, não por
+   * candidatura) e é a fonte do DESFECHO (`etapa_para`), em vez do estado atual da
+   * candidatura na hora do envio (L1). Opcional por tolerância: a EF vai ao ar ANTES da
+   * migration que passa o campo. Presente, tem de ter forma de uuid — senão 400.
+   */
+  historico_id?: string;
   /**
    * P41 / RECON-03: presente APENAS quando a varredura `pg_cron`
    * (`varrer_retry_notificacoes`) reenvia. Sinaliza o BRANCH RETRY — a EF re-tenta
@@ -139,11 +151,20 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     if (raw.reagendamento !== undefined && typeof raw.reagendamento !== "boolean") {
       return errorResponse("VALIDATION", "reagendamento inválido.");
     }
+    // 48-08: forma validada ANTES de qualquer leitura/claim (T-48-08-02). Um id que não é uuid
+    // nunca é um NEW.id de trigger — é corpo forjado ou quebrado, e não pode virar chave.
+    if (
+      raw.historico_id !== undefined &&
+      (typeof raw.historico_id !== "string" || !RE_UUID.test(raw.historico_id))
+    ) {
+      return errorResponse("VALIDATION", "historico_id inválido.");
+    }
     body = {
       evento: raw.evento as EventoLedger,
       candidatura_id: raw.candidatura_id,
       agendamento_id: raw.agendamento_id ?? undefined,
       reagendamento: raw.reagendamento === true,
+      historico_id: typeof raw.historico_id === "string" ? raw.historico_id : undefined,
       retry_id: typeof raw.retry_id === "string" && raw.retry_id ? raw.retry_id : undefined,
     };
   } catch {
@@ -151,6 +172,13 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
   }
 
   const { evento, candidatura_id, agendamento_id, retry_id, reagendamento } = body;
+
+  // 48-08: a decisão (ou o avanço) que este e-mail anuncia. No caminho normal vem do corpo do
+  // trigger; no branch retry é DERIVADA da `dedupe_key` da linha (a varredura não a manda).
+  // Só `decisao`/`avanco` usam o campo — para os demais eventos ele é ignorado.
+  let historico_id: string | undefined = eventoPorHistorico(evento)
+    ? body.historico_id
+    : undefined;
 
   // No caminho normal a 1ª falha grava tentativas=1; no branch retry incrementamos
   // a partir da linha existente (row.tentativas + 1). Fixado logo abaixo (2b).
@@ -180,6 +208,11 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       return jsonResponse({ ok: true, skipped: "nao_elegivel" }, 200);
     }
     novasTentativas = (row.tentativas ?? 0) + 1;
+    // 48-08 / L1: a linha diz qual decisão ela anuncia. Chave legada ⇒ `undefined` ⇒
+    // comportamento anterior (desfecho por `etapa_atual`).
+    historico_id = typeof row.dedupe_key === "string"
+      ? extrairVersaoDaChave(row.dedupe_key, evento)
+      : undefined;
   }
 
   // ---- 3) Resolver dados por ALLOWLIST de colunas (nunca projeção-estrela) ----
@@ -208,6 +241,31 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       logSeguro({ evento, candidatura_id, skipped: "knockout" }),
     );
     return jsonResponse({ ok: true, skipped: "knockout" }, 200);
+  }
+
+  // ---- 3a') A TRANSIÇÃO que o e-mail anuncia (48-08 / JORN-18 · L1) ----------
+  // Allowlist de DUAS colunas. A linha tem de existir e pertencer à candidatura do corpo;
+  // senão o e-mail anunciaria uma decisão que não é desta candidatura (ou que não existe) —
+  // skip ANTES do claim, sem envio (T-48-08-02). `etapa_para` é o desfecho ESTÁVEL daquela
+  // decisão: o retry de uma rejeição antiga feito depois de uma aprovação nova sai com a
+  // cópia da REJEIÇÃO, que é o que a chave dele anuncia (T-48-08-03).
+  let etapaDaTransicao: string | undefined;
+  if (historico_id) {
+    const { data: historico } = await supabaseAdmin
+      .from("historico_candidatura")
+      .select("etapa_para, candidatura_id")
+      .eq("id", historico_id)
+      .maybeSingle();
+    if (!historico || historico.candidatura_id !== candidatura_id) {
+      console.warn(
+        "[notificar-candidato]",
+        logSeguro({ evento, candidatura_id, historico_id, skipped: "historico_inconsistente" }),
+      );
+      return jsonResponse({ ok: true, skipped: "historico_inconsistente" }, 200);
+    }
+    etapaDaTransicao = typeof historico.etapa_para === "string"
+      ? historico.etapa_para
+      : undefined;
   }
   const { data: candidato } = await supabaseAdmin
     .from("candidatos")
@@ -273,7 +331,10 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     candidatura_id,
     agendamento_id,
     // reagendamento: a data nova versiona a chave (ver montarDedupeKey).
-    reagendamento && agendamento ? agendamento.data_hora : undefined,
+    // 48-08: decisao/avanco são versionados pela transição (uma chave por decisão).
+    evento === "convite"
+      ? (reagendamento && agendamento ? agendamento.data_hora : undefined)
+      : historico_id,
   );
 
   // ---- 5) Claim-before-send (ON CONFLICT dedupe_key DO NOTHING) --------------
@@ -363,10 +424,15 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
     localOuLink: agendamento?.local_ou_link ?? null,
     tipoEntrevista: agendamento?.tipo ?? undefined,
     reagendada: evento === "convite" && reagendamento === true,
-    // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado
-    // com corpo ids-only (sem discriminador). O desfecho vem de `etapa_atual`, que a EF já
-    // resolve acima. Sem isto, TODO aprovado recebia a COPY_REJEICAO.
-    desfecho: candidatura.etapa_atual === "aprovado" ? "aprovado" : "rejeitado",
+    // gap-closure da P39 / CR-01: o evento `decisao` do trigger cobre aprovado E rejeitado.
+    // Sem isto, TODO aprovado recebia a COPY_REJEICAO.
+    // 48-08 / L1: com `historico_id`, o desfecho é o da TRANSIÇÃO da chave (`etapa_para`),
+    // não o estado da candidatura na hora do envio. Sem ele (corpo legado), `etapa_atual`.
+    // Tudo que não é 'aprovado' (inclusive o knockout, que preserva etapa 'inscricao') é a
+    // cópia neutra de rejeição — o fail-safe de sempre.
+    desfecho: (etapaDaTransicao ?? candidatura.etapa_atual) === "aprovado"
+      ? "aprovado"
+      : "rejeitado",
     // 42-08 / REVISAO-04: `undefined` para os 4 eventos vivos (nenhum corpo deles o lê).
     vereditoRevisao,
   });
