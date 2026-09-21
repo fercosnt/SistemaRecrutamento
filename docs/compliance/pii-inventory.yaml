@@ -470,6 +470,10 @@ tabelas_sem_pii_titular:
   lista:
     - ai_cost_daily
     - analise_candidato_vaga        # ⚠ ressalva R5 em resumo_cv/resumo_respostas/gaps/pontos_fortes
+                                    # Phase 48 (48-17): descartada_em (R1) e descartada_motivo (R3 em espírito —
+                                    # vocabulário fechado `knockout_automatico`) = preservar. A marca do D-02
+                                    # segue o destino da LINHA, como `status`: sem PII, e existe para provar a
+                                    # correção de um tratamento sem finalidade (apagá-la desfaria a prova).
     - bias_audit_log                # ⚠ agregado — ERASE-01 depende dele
     - biblioteca_perguntas
     - bigfive_itens

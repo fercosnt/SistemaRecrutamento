@@ -51,16 +51,16 @@
     "fonte_catalogo": "docs/compliance/catalogo-vivo-44.json",
     "fonte_classificacao": "docs/compliance/pii-inventory.yaml",
     "fonte_escopo": "docs/compliance/export-scope-rules.yaml",
-    "gerado_em": "2026-08-04T04:33:43.017Z",
+    "gerado_em": "2026-09-21T17:35:57.713Z",
     "gerador": "docs/compliance/sql/gen-export-allowlist.cjs",
     "medido_em": "2026-08-04T01:34:27Z",
     "padrao_nome_de_endereco": "(^|_)(url|urls|uri|uris|link|links)($|_)",
     "requirement": "EXPORT-02",
     "totais": {
-      "colunas_colhidas": 731,
-      "colunas_com_veredito_em_escopo": 399,
+      "colunas_colhidas": 733,
+      "colunas_com_veredito_em_escopo": 401,
       "colunas_excluidas_em_escopo": 34,
-      "colunas_exportadas": 365,
+      "colunas_exportadas": 367,
       "colunas_fora_do_arquivo_legivel": 4,
       "tabelas_catalogadas": 69,
       "tabelas_com_colunas_colhidas": 51,
@@ -72,7 +72,7 @@
       "fks_public": 105,
       "tabelas_base_public": 69
     },
-    "versao": "1.1.0"
+    "versao": "1.2.0"
   },
   "tabelas": {
     "agendamentos_entrevista": {
@@ -119,6 +119,8 @@
       "colunas": [
         "candidatura_id",
         "created_at",
+        "descartada_em",
+        "descartada_motivo",
         "flags",
         "gaps",
         "id",
@@ -138,6 +140,8 @@
       "proveniencia": {
         "candidatura_id": "R1",
         "created_at": "R1",
+        "descartada_em": "decisoes_por_coluna",
+        "descartada_motivo": "decisoes_por_coluna",
         "flags": "decisoes_por_coluna",
         "gaps": "decisoes_por_coluna",
         "id": "R1",

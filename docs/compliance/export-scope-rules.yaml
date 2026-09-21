@@ -32,7 +32,12 @@ meta:
   requirement: EXPORT-02
   fase: 44
   plano: 44-01
-  versao: "1.1.0"
+  versao: "1.2.0"
+  # 1.1.0 → 1.2.0 (Phase 48 / 48-17, 2026-09-21): o CONJUNTO de colunas
+  # exportadas mudou — entram as colunas criadas pela fase com veredito `true`
+  # (marca do D-02 em `analise_candidato_vaga`; reabertura em `decisao_final`
+  # e no histórico) e ficam fora, com razão, as de telemetria de envio. Ver os
+  # blocos marcados «PHASE 48» em `decisoes_por_coluna`.
   fonte: |
     Decisão de escopo do titular, escrita à mão e revisável. NÃO é derivada de
     código nem inferida do schema: é o julgamento jurídico/de produto que o
@@ -503,6 +508,16 @@ decisoes_por_coluna:
   analise_candidato_vaga.status:
     export: true
     razao: "(ii) Estado de processo da análise. Sem ele, uma análise vazia no export é indistinguível de uma análise que nunca rodou — e essa ambiguidade é exatamente o tipo de silêncio que o EXPORT-06 proíbe."
+  # ⚠ PHASE 48 (48-17) — a marca do D-02. Premissa A6 do 48-RESEARCH DECIDIDA
+  # aqui pelo planejador, revisável pelo operador com uma palavra (`false`).
+  # `descartada_em` sairia sozinho por R1 (`*_em`); `descartada_motivo` é `text`
+  # e reprovaria o fecho. Os dois ganham veredito ESCRITO pelo mesmo motivo.
+  analise_candidato_vaga.descartada_em:
+    export: true
+    razao: "(ii)+(iii) Quando a análise foi marcada como tratamento sem finalidade e corrigida (D-02, migration 20260921000004 — marcar, não apagar). O titular pode já ter recebido esta análise numa cópia anterior; a marca é o que lhe mostra, na cópia seguinte, que ela foi DESCARTADA. É estado de processo da análise, como `status`. Omiti-la entregaria a análise como se valesse, que é a contradição que o D-02 existe para tornar auditável."
+  analise_candidato_vaga.descartada_motivo:
+    export: true
+    razao: "(ii) POR QUE a análise foi descartada. Critério (ii) — estado de processo tipado `text` por acidente de DDL: o CHECK `analise_candidato_vaga_descartada_motivo_check` fecha o vocabulário em `knockout_automatico`, sem texto livre e sem terceiro. Exportar o QUANDO (`descartada_em`) e sonegar o PORQUÊ partiria um fato só em dois — o mesmo argumento de `candidate_ai_decisions.explanation_channel`."
 
   # --- scores · o RESULTADO das avaliações --------------------------------
   scores_disc.perfil_primario:

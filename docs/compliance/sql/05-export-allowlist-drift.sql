@@ -74,10 +74,10 @@
 -- ------------------------------------------------------------------------------
 -- Os DOIS blocos `VALUES` abaixo foram **GERADOS, NUNCA DIGITADOS**:
 --
---     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 365 pares
+--     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values             ⇒ 367 pares
 --     node docs/compliance/sql/gen-export-allowlist.cjs --sql-values-excluidas   ⇒ 34  pares
 --
--- Soma: **399 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
+-- Soma: **401 colunas com veredito**, sobre 30 tabelas. O artefato de origem é o
 -- `export-allowlist.json` derivado do catálogo medido em **2026-08-04T01:34:27Z**
 -- (69 tabelas base / 1025 colunas / 105 FKs em `public`).
 --
@@ -135,6 +135,8 @@ WITH allowlist(tabela, coluna) AS (
     ('agendamentos_entrevista','vaga_id'),
     ('analise_candidato_vaga','candidatura_id'),
     ('analise_candidato_vaga','created_at'),
+    ('analise_candidato_vaga','descartada_em'),
+    ('analise_candidato_vaga','descartada_motivo'),
     ('analise_candidato_vaga','flags'),
     ('analise_candidato_vaga','gaps'),
     ('analise_candidato_vaga','id'),
