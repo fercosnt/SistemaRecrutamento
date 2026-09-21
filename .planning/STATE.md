@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 48-15-PLAN.md
-last_updated: "2026-09-21T16:27:22.757Z"
+stopped_at: Completed 48-16-PLAN.md
+last_updated: "2026-09-21T17:30:04.363Z"
 last_activity: 2026-09-21
-state_head: 81f4edf18c7fc7c6acd3f3dd50fbe85b173064ba
+state_head: 154cee6208d8f5b3faec58bb60378c02eb3fa0c2
 progress:
   total_phases: 7
   completed_phases: 8
   total_plans: 77
-  completed_plans: 71
-  percent: 92
+  completed_plans: 72
+  percent: 94
 current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
 last_activity_desc: "2026-09-21 — Phase 48 aberta e planejada (Bloco 1: defeitos 22, 26, 20, 27, 18, 15, 24, 6, 19 + D5 + U2). Pesquisa provou que o Defeito 20 é o mecanismo do 18 (skipped:duplicate), que a explicação não servia rejeição de triagem, que recibo_enviado_em é o recibo pós-exclusão, e estreitou o Defeito 6 a quase-prova (sb_secret_ + supabase-js 2.110.9 sem Authorization)."
@@ -787,6 +787,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P12 | 60min | 3 tasks | 3 files |
 | Phase 48 P14 | 12min | 3 tasks | 11 files |
 | Phase 48 P15 | 7 min | 3 tasks | 10 files |
+| Phase 48 P16 | 10 min | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -1060,6 +1061,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-12: operador escolheu «ambos» — marcas de encerrada_a_pedido_em em knockout desfeitas (000013) e feedback neutro gravado na rejeição de triagem anterior ao conserto (000014), com portão por id e fila pg_net inalterada
 - [Phase 48]: 48-14: página de explicação trata como reaberta reaberta_em OU veredito revertida (caminho humano) e esconde linha, razão e agradecimento da rejeição; painel troca o SLA pela linha prazo-reabertura (sem data se prazo ilegível, nunca o SLA de volta)
 - [Phase 48]: 48-15: recusa D-23 no cliente = SQLSTATE 42501 E marca «D-23» na mensagem viva (o guard de papel levanta o mesmo 42501); toast e formulário dizem a mesma frase, nunca «tente novamente»
+- [Phase 48]: 48-16: link de login do candidato por parametro do corpo (renderarEmail), nunca no layoutBase; copia D-09 publicada por ultimo, apos prontidao conferida no catalogo e no bundle vivo
 
 ### Pending Todos
 
@@ -1341,8 +1343,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T16:27:22.529Z
-Stopped at: Completed 48-15-PLAN.md
+Last session: 2026-09-21T17:30:04.133Z
+Stopped at: Completed 48-16-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

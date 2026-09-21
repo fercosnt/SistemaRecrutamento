@@ -360,7 +360,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 48-16-PLAN.md — Link de login em todo e-mail ao candidato + cópia D-09 publicada por último, depois de provada a promessa (JORN-U2, JORN-15)
+- [x] 48-16-PLAN.md — Link de login em todo e-mail ao candidato + cópia D-09 publicada por último, depois de provada a promessa (JORN-U2, JORN-15)
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -454,7 +454,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 14/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 15/18 | In Progress|  |
 
 ---
 
