@@ -86,7 +86,7 @@ Deno.test("48-08 — logSeguro deixa passar historico_id (é id, não PII)", () 
   );
 });
 
-Deno.test("COMM-01 / 42-08 — mapa de evento cobre os 5 (ledger → email-config)", () => {
+Deno.test("COMM-01 / 42-08 / 48-10 — mapa de evento cobre os 6 (ledger → email-config)", () => {
   // ⚠ Este literal é um Record<EventoLedger, …> e portanto um SÍTIO DO VOCABULÁRIO forçado
   // pelo compilador — o 5º, e o único que vive no corpus de TESTE. A tabela de sítios do
   // plano 42-08 enumerava quatro (os três Record<EventoNotificacao,…> de template mais o
@@ -98,6 +98,8 @@ Deno.test("COMM-01 / 42-08 — mapa de evento cobre os 5 (ledger → email-confi
     convite: "convite_entrevista",
     decisao: "decisao_final",
     revisao_respondida: "revisao_respondida",
+    // 6º evento de candidato (48-10 / D-22): a liberação da avaliação cognitiva.
+    cognitivo_liberado: "avaliacao_cognitiva_liberada",
   };
   for (const e of Object.keys(esperado) as EventoLedger[]) {
     assertEquals(mapearEvento(e), esperado[e]);
@@ -997,4 +999,130 @@ Deno.test("48-08 T3 — ciclo/historico_id NULL valem como AUSENTES (chave legad
   assertEquals(res.status, 200);
   assertEquals(supa.upserts[0].row.dedupe_key, "cand-rev:revisao_respondida");
   assertEquals(fetchMock.calls.length, 1);
+});
+
+// ─── 48-10 / D-22 — a liberação da avaliação cognitiva avisa o candidato ────────────────
+//
+// `trg_notif_cognitivo_liberado` (migration 20260921000010) despacha `cognitivo_liberado` com
+// `ciclo = extract(epoch from liberado_em)::bigint::text`. A chave é por LIBERAÇÃO:
+// `{candidatura}:cognitivo_liberado:{ciclo}` — uma re-liberação depois de uma revogação
+// recarimba `liberado_em` e é um aviso novo; a mesma liberação entregue duas vezes colapsa.
+// O `ciclo` é o MESMO campo genérico do 48-08 (mesma forma, mesma validação).
+
+const CAND_COG = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const CICLO_COG = "1758400000";
+
+Deno.test("48-10 — montarDedupeKey('cognitivo_liberado', C, undefined, ciclo) → C:cognitivo_liberado:ciclo", () => {
+  assertEquals(
+    montarDedupeKey("cognitivo_liberado", "C", undefined, CICLO_COG),
+    `C:cognitivo_liberado:${CICLO_COG}`,
+  );
+  // Duas liberações (revogou e liberou de novo) ⇒ duas chaves.
+  assert(
+    montarDedupeKey("cognitivo_liberado", "C", undefined, CICLO_COG) !==
+      montarDedupeKey("cognitivo_liberado", "C", undefined, "1758500000"),
+    "duas liberações colapsaram na mesma chave — a re-liberação seria engolida",
+  );
+  // O retry não deriva nada da chave para este evento (não há linha de histórico a ler).
+  assertEquals(extrairVersaoDaChave(`C:cognitivo_liberado:${CICLO_COG}`, "cognitivo_liberado"), undefined);
+});
+
+Deno.test("48-10 — cognitivo_liberado com ciclo válido: claim versionado, template avaliacao_cognitiva_liberada, 1 envio", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_cog" });
+  const res = await handler(
+    makeRequest({ evento: "cognitivo_liberado", candidatura_id: CAND_COG, ciclo: CICLO_COG }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).status, "enviado");
+  assertEquals(supa.upserts.length, 1);
+  assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_COG}:cognitivo_liberado:${CICLO_COG}`);
+  assertEquals(supa.upserts[0].row.evento, "cognitivo_liberado");
+  assertEquals(supa.upserts[0].row.template, "avaliacao_cognitiva_liberada");
+  assertEquals(fetchMock.calls.length, 1);
+  const { subject, html } = corpoEnviado(fetchMock.calls[0]);
+  assert(/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto: ${subject}`);
+  assert(html.includes(VAGA_FIX.titulo), "corpo sem a vaga");
+  // Este evento não lê histórico nem decisão — allowlist mínima (ids + nome/e-mail + vaga).
+  const tabelas = new Set(supa.selects.map((s) => s.table));
+  assert(!tabelas.has("historico_candidatura"), "leu historico_candidatura sem precisar");
+  assert(!tabelas.has("decisao_final"), "leu decisao_final sem precisar");
+});
+
+Deno.test("48-10 — cognitivo_liberado com ciclo malformado ('x') → 400 VALIDATION, nenhum claim, nenhum envio", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "cognitivo_liberado", candidatura_id: CAND_COG, ciclo: "x" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 400);
+  assertEquals((await res.json()).error_code, "VALIDATION");
+  assertEquals(supa.upserts.length, 0);
+  assertEquals(fetchMock.calls.length, 0);
+});
+
+Deno.test("48-10 — cognitivo_liberado SEM ciclo (ou null): chave legada, o e-mail sai (tolerância)", async () => {
+  const { handler } = await loadHandler();
+  for (const corpo of [
+    { evento: "cognitivo_liberado", candidatura_id: CAND_COG },
+    { evento: "cognitivo_liberado", candidatura_id: CAND_COG, ciclo: null },
+  ]) {
+    const supa = makeRetryMockSupabase({
+      candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+      candidatoRow: CANDIDATO_FIX,
+      vagaRow: VAGA_FIX,
+    });
+    const fetchMock = makeFetchMock(200, { id: "re_cog_legado" });
+    const res = await handler(makeRequest(corpo, RETRY_BEARER), {
+      supabaseAdmin: supa,
+      fetchImpl: fetchMock.impl,
+      serviceKey: RETRY_BEARER,
+    });
+    assertEquals(res.status, 200);
+    assertEquals(supa.upserts[0].row.dedupe_key, `${CAND_COG}:cognitivo_liberado`);
+    assertEquals(fetchMock.calls.length, 1);
+  }
+});
+
+Deno.test("48-10 — evento de CANDIDATO: o retry da varredura (sem ciclo no corpo) re-tenta a linha existente por id", async () => {
+  // `varrer_retry_notificacoes` NÃO exclui `cognitivo_liberado` (não é evento de RH) e reenvia
+  // só {retry_id, evento, candidatura_id, agendamento_id}. O branch retry não precisa do ciclo:
+  // atualiza a linha por id e usa o retry_id como Idempotency-Key.
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    notifRow: {
+      id: "n-cog",
+      status: "falhou",
+      tentativas: 1,
+      dedupe_key: `${CAND_COG}:cognitivo_liberado:${CICLO_COG}`,
+    },
+    candidaturaRow: { ...CANDIDATURA_FIX, status: "em_andamento", opcao_knockout_id: null },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_cog_retry" });
+  const res = await handler(
+    makeRequest({ retry_id: "n-cog", evento: "cognitivo_liberado", candidatura_id: CAND_COG }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).status, "enviado");
+  assertEquals(supa.upserts.length, 0);
+  const headers = (fetchMock.calls[0].init?.headers ?? {}) as Record<string, string>;
+  assertEquals(headers["Idempotency-Key"], "n-cog");
+  const enviado = supa.updates.find((u) => u.patch.status === "enviado");
+  assertEquals(enviado?.eqCol, "id");
+  assertEquals(enviado?.eqVal, "n-cog");
 });

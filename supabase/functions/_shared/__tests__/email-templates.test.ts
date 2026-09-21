@@ -366,6 +366,60 @@ Deno.test("T-42-V2f — tituloVaga com <script> sai ESCAPADO no HTML do 5º even
   assert(html.includes("&lt;script&gt;"), "o título da vaga deveria estar escapado");
 });
 
+// ── T-48-10 — O EVENTO DA LIBERAÇÃO COGNITIVA: `avaliacao_cognitiva_liberada` (D-22) ───
+//
+// Phase 48 / Plan 48-10 (JORN-15). Liberar a avaliação cognitiva passa a avisar o candidato:
+// é uma ação pedida a ele, e a promessa nova do e-mail de confirmação (D-09 — «avisaremos
+// quando houver algo para você fazer») só é verdade se esta liberação avisar.
+//
+// Linguagem de produto (CLAUDE.md): «avaliação cognitiva», NUNCA «teste psicológico». E o
+// e-mail NÃO carrega instrumento, nota, critério nem motivo — é um aviso de que há algo a
+// fazer no painel, não uma comunicação sobre a avaliação. O grep-guard abaixo mora NESTE
+// arquivo, pelo mesmo motivo do T-42-V2e: a lista vetada não pode viver no código que ela guarda.
+
+const DADOS_COG = {
+  nomeCandidato: "Ana <b>Silva</b>",
+  tituloVaga: "Dentista Clínico Geral",
+};
+
+/** Qualquer endereço do domínio raiz — D-07 (nenhuma ocorrência literal nova do canal). */
+const RE_ENDERECO_DOMINIO = /[a-z0-9._%+-]*\s*@\s*beautysmile\.com\.br/i;
+
+Deno.test("T-48-10a — avaliacao_cognitiva_liberada: assunto nomeia a avaliação cognitiva; corpo tem a vaga e o painel", () => {
+  const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
+  assert(/avalia[çc][ãa]o cognitiva/i.test(subject), `assunto sem «avaliação cognitiva»: ${subject}`);
+  assert(html.includes("Dentista Clínico Geral"), "o corpo tem de dizer de qual vaga se trata");
+  assert(html.includes("Acesse o seu painel"), "o corpo tem de mandar a pessoa ao painel");
+  assert(extrairPreheader(html).length > 0, "prévia VAZIA (classe de defeito W-01)");
+});
+
+Deno.test("T-48-10b — par (subject, preheader) de avaliacao_cognitiva_liberada pinado por literal", () => {
+  const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
+  assertEquals(subject, "Uma avaliação cognitiva foi liberada para você");
+  assertEquals(extrairPreheader(html), "Uma avaliação cognitiva está disponível no seu painel.");
+});
+
+Deno.test("T-48-10c — GREP-GUARD: sem nota, score, instrumento, critério, motivo nem «teste psicológico»", () => {
+  const proibido = /score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio|teste psicol/i;
+  const { subject, html } = renderarEmail("avaliacao_cognitiva_liberada", DADOS_COG);
+  assert(!proibido.test(html), "VAZOU token de avaliação no e-mail da liberação cognitiva");
+  assert(!proibido.test(subject), "VAZOU token de avaliação no ASSUNTO da liberação cognitiva");
+  // O instrumento não é nomeado ao candidato (o nome do teste é dado interno do RH).
+  assert(!/raven|matrizes/i.test(html + subject), "o e-mail nomeou o instrumento");
+  // D-07: nenhum endereço do domínio raiz no corpo (o REPLY_TO já é o canal).
+  assert(!RE_ENDERECO_DOMINIO.test(html), "o corpo citou um endereço @beautysmile.com.br (D-07)");
+});
+
+Deno.test("T-48-10d — valores do candidato e da vaga saem ESCAPADOS", () => {
+  const { html } = renderarEmail("avaliacao_cognitiva_liberada", {
+    nomeCandidato: "Ana <b>Silva</b>",
+    tituloVaga: "<script>alert(1)</script>",
+  });
+  assert(!html.includes("<script>"), "tag <script> CRUA no corpo");
+  assert(html.includes("&lt;script&gt;"), "o título da vaga deveria estar escapado");
+  assert(html.includes("Ana &lt;b&gt;Silva&lt;/b&gt;"), "o nome deveria estar escapado");
+});
+
 Deno.test("COMM-06 — a fonte do módulo não IMPORTA react-email nem react", async () => {
   const src = await Deno.readTextFile(
     new URL("../email-templates.ts", import.meta.url),

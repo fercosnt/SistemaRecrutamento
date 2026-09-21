@@ -189,6 +189,39 @@ Deno.test("T-42-V3a — EVENTOS_VALIDOS é DERIVADO, não um literal paralelo no
   );
 });
 
+// ── T-48-10 — o 6º evento de candidato entra por TODOS os sítios de uma vez ─────
+//
+// Phase 48 / Plan 48-10 (D-22): `cognitivo_liberado`, emitido por `trg_notif_cognitivo_liberado`
+// quando o RH libera a avaliação cognitiva. Os testes de paridade acima já o cobrem por
+// construção (iteram `EVENTO_MAP`); este o nomeia explicitamente, para que uma remoção
+// acidental do mapa reprove aqui em vez de simplesmente encolher a iteração.
+
+Deno.test("T-48-10 — cognitivo_liberado é aceito pela EF e mapeia para um template completo", () => {
+  assert(
+    EVENTOS_VALIDOS.has("cognitivo_liberado"),
+    "cognitivo_liberado fora de EVENTOS_VALIDOS: o trigger levaria 400 sobre um net.http_post " +
+      "at-most-once e o e-mail sumiria sem rastro",
+  );
+  const template = EVENTO_MAP["cognitivo_liberado" as EventoLedger];
+  assertEquals(template, "avaliacao_cognitiva_liberada");
+  assert(template in SUBJECTS, "o template não tem assunto");
+  const { subject, html } = renderarEmail(template, {
+    nomeCandidato: "Ana Silva",
+    tituloVaga: "Dentista Clínico Geral",
+  });
+  assert(subject.length > 0, "assunto vazio");
+  assert(html.includes("Dentista Clínico Geral"), "corpo sem a vaga");
+  assert(extrairPreheader(html).length > 0, "prévia vazia");
+});
+
+Deno.test("T-48-10 — cognitivo_liberado é versionado pelo ciclo; sem ciclo, chave legada", () => {
+  assertEquals(
+    montarDedupeKey("cognitivo_liberado" as EventoLedger, "C", undefined, "1758400000"),
+    "C:cognitivo_liberado:1758400000",
+  );
+  assertEquals(montarDedupeKey("cognitivo_liberado" as EventoLedger, "C"), "C:cognitivo_liberado");
+});
+
 // Sanidade de tipo: o mapa continua total sobre EventoLedger e mira EventoNotificacao.
 const _sanidade: Record<EventoLedger, EventoNotificacao> = EVENTO_MAP;
 void _sanidade;
