@@ -64,11 +64,7 @@ import type {
   Candidatura,
   CandidaturaComScores,
 } from '@/features/vagas/types/vagasTypes'
-import {
-  calculateBigFiveAverage,
-  formatDiscProfile,
-  getCultureScore,
-} from '@/features/vagas/types/vagasTypes'
+import { estadoCultura } from '@/features/vagas/types/vagasTypes'
 import {
   ETAPA_M2_OPTIONS,
   type EtapaFunilM2,
@@ -348,11 +344,13 @@ export function CandidatosRHPage() {
         .substring(0, 2)
         .toUpperCase() || '??'
 
-    // Calcular scores
-    const bigFiveScore = calculateBigFiveAverage(candidatura.scores_bigfive)
-    const discProfile = formatDiscProfile(candidatura.scores_disc)
+    // Estados das células de avaliação (49-04 / JORN-13): ausência NUNCA vira 0. Cada
+    // célula recebe um ESTADO, e só o estado `nota` carrega número.
+    const cultura = estadoCultura(
+      candidatura.scores_candidato,
+      candidatura.redacoes_candidato
+    )
     const inteligencia = candidatura.scores_raven?.percentil
-    const cultura = getCultureScore(candidatura.analise_ia_cultura)
     const scoreGeral = candidatura.score_geral
 
     return (
@@ -418,8 +416,6 @@ export function CandidatosRHPage() {
 
           {/* Scores dos Testes */}
           <ScoreCard
-            bigFive={bigFiveScore}
-            disc={discProfile}
             inteligencia={inteligencia}
             cultura={cultura}
             scoreGeral={scoreGeral}

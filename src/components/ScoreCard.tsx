@@ -5,7 +5,9 @@
  * - Big Five (average score)
  * - DISC (profile)
  * - Intelligence (Raven percentile)
- * - Culture (from AI analysis)
+ * - Culture — 49-04 / D-32: the HUMAN-REVIEWED essay grade only
+ *   (`scores_candidato` `tipo='redacao'` / `status='sucesso'`), never the AI suggestion,
+ *   and never `0` for absence. See `EstadoCultura`.
  *
  * Used in CandidatosRHPage cards
  */
@@ -13,6 +15,7 @@
 import React from 'react'
 import { Brain, Users, TrendingUp, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { EstadoCultura } from '@/features/vagas/types/vagasTypes'
 
 /**
  * The cognitivo (Raven) score IS a job-fit score → an evaluative 3-band frame fits
@@ -30,7 +33,11 @@ interface ScoreCardProps {
   bigFive?: number | null // 0-100 average
   disc?: string | null // Ex: "DI", "SC"
   inteligencia?: number | null // Percentile 0-100
-  cultura?: number | null // 0-100
+  /**
+   * 49-04 / JORN-13 (D-32): a célula Cultura recebe ESTADO, não número. `undefined` é
+   * tratado como `nao_fez` — o que a tela NÃO pode fazer é transformar ausência em `0`.
+   */
+  cultura?: EstadoCultura | null
   scoreGeral?: number | null // PRIMARY SCORE (0-100) - MOST IMPORTANT
   className?: string
 }
@@ -51,6 +58,21 @@ export function ScoreCard({
     if (score >= 40) return 'text-yellow-400'
     return 'text-red-400'
   }
+
+  // Cultura (49-04 / JORN-13): SÓ o estado `nota` mostra número e usa cor de nota. Os
+  // outros dois estados dizem por que não há número, em cor NEUTRA — a cor é significado
+  // aqui, e pintar «não fez» de vermelho seria reintroduzir o defeito por outro caminho.
+  const culturaEstado: EstadoCultura = cultura ?? { estado: 'nao_fez' }
+  const culturaTexto =
+    culturaEstado.estado === 'nota'
+      ? String(culturaEstado.valor)
+      : culturaEstado.estado === 'aguardando_revisao'
+        ? 'aguardando revisão'
+        : 'não fez'
+  const culturaCor =
+    culturaEstado.estado === 'nota'
+      ? getScoreColor(culturaEstado.valor)
+      : 'text-white/50'
 
   return (
     <div className={cn('space-y-3', className)}>
@@ -127,12 +149,10 @@ export function ScoreCard({
           <div className="min-w-0 flex-1">
             <div className="text-xs opacity-70 mb-0.5">Cultura</div>
             <div
-              className={cn(
-                'font-semibold truncate',
-                getScoreColor(cultura)
-              )}
+              data-testid="scorecard-cultura-estado"
+              className={cn('font-semibold truncate', culturaCor)}
             >
-              {cultura ?? 'N/A'}
+              {culturaTexto}
             </div>
           </div>
         </div>

@@ -637,41 +637,58 @@ export const STATUS_COLORS: Record<
 // ============================================
 
 /**
- * Scores Big Five (OCEAN model)
+ * Phase 49 / 49-04 (JORN-13): `ScoresBigFive` e `ScoresDisc` foram REMOVIDOS junto com
+ * os embeds `scores_bigfive` / `scores_disc`. As duas tabelas têm **0 linhas em PROD**
+ * (medido em 2026-09-22) e o DISC não existe no produto — os tipos descreviam uma fonte
+ * que nunca respondeu, e os helpers que os liam devolviam `0`, que a tela pintava como
+ * nota. A fonte viva de notas é `scores_candidato`.
  */
-export interface ScoresBigFive {
-  score_openness: number // 0-100
-  score_conscientiousness: number // 0-100
-  score_extraversion: number // 0-100
-  score_agreeableness: number // 0-100
-  score_neuroticism: number // 0-100
+
+/**
+ * Linha de `scores_candidato` como as LISTAS do RH a leem — exatamente a projeção de
+ * `EMBEDS_NOTAS_CARD` (`candidaturasService.ts`), não a tabela inteira.
+ *
+ * ⚠ `tipo='big_five'` existe com `score` **NULL por desenho** (avaliação comportamental
+ * não avaliativa, UX-07/RNF-07a; as dimensões moram em `metadata`). Ler `score` dela como
+ * nota é o defeito que o D-31 nomeia.
+ */
+export interface ScoreCandidatoRow {
+  tipo: string | null
+  status: string | null
+  score: number | null
+  score_max: number | null
 }
 
 /**
- * Scores DISC
+ * Sinal de «a pessoa FEZ a redação» — só o `id` viaja (D-32). A sugestão de nota da IA
+ * que mora em `redacoes_candidato` NUNCA chega à tela como nota de Cultura.
  */
-export interface ScoresDisc {
-  perfil_primario: string // D, I, S, or C
-  perfil_secundario: string // D, I, S, or C
+export interface RedacaoSinal {
+  id: string
 }
 
 /**
- * Scores Raven (Intelligence Test)
+ * Percentil bruto do Raven como as listas do RH o leem. Ele NUNCA é exibido: virou
+ * insumo de `cognitivoBanda` (D-33/D-64). A `classificacao` por extenso do instrumento
+ * NÃO entra — não é o vocabulário das telas do RH.
  */
-export interface ScoresRaven {
-  percentil: number // 0-100
-  classificacao: string // Ex: "Superior", "Médio Superior", etc
+export interface ScoresRavenPercentil {
+  percentil: number | null
 }
 
 /**
- * Candidatura com scores de testes incluídos (LEFT JOIN)
+ * Candidatura com as notas que as listas do RH leem (LEFT JOIN).
+ *
+ * `scores_candidato` e `redacoes_candidato` chegam como ARRAY (relação to-many no
+ * PostgREST); `scores_raven` chega como OBJETO (a PK dela é `candidatura_id`, então o
+ * PostgREST detecta to-one). Medido no catálogo em 2026-09-22.
  */
 export interface CandidaturaComScores extends Candidatura {
-  scores_bigfive?: ScoresBigFive | null
-  scores_disc?: ScoresDisc | null
-  scores_raven?: ScoresRaven | null
-  // analise_ia_cultura já está em Candidatura (JSONB)
-  // score_geral já está em Candidatura (number 0-100) - MAIS IMPORTANTE
+  scores_candidato?: ScoreCandidatoRow[] | null
+  redacoes_candidato?: RedacaoSinal[] | null
+  scores_raven?: ScoresRavenPercentil | null
+  // `analise_ia_cultura` (JSONB) e `score_geral` seguem em Candidatura — e seguem
+  // 0 de 39 em PROD. Nenhum dos dois é fonte de célula do card (D-32).
 }
 
 /**
@@ -686,42 +703,62 @@ export interface CandidaturaComScores extends Candidatura {
 // ============================================
 
 /**
- * Calcula média dos scores Big Five
- * @param scores - Objeto com os 5 scores OCEAN
- * @returns Média arredondada (0-100) ou 0 se não houver scores
+ * Phase 49 / 49-04 (JORN-13, D-31/D-32): `calculateBigFiveAverage`, `formatDiscProfile` e
+ * `getCultureScore` foram REMOVIDOS. Os três compartilhavam o mesmo defeito de forma —
+ * **devolviam um valor de nota quando a fonte não tinha dado** (`0`, `0` e `'N/A'`), e o
+ * `?? 'N/A'` do card nunca disparava porque `0` não é nullish. Resultado medido no kickoff:
+ * 38 cards mostrando `0` pintado de vermelho, indistinguível de uma nota real de zero.
+ *
+ * O substituto NÃO é «devolver null»: é devolver **ESTADO TIPADO** (`EstadoCultura`,
+ * `EstadoBigFive`, `EstadoInteligencia`), para que «não fez» e «aguardando revisão» sejam
+ * casos que a tela é OBRIGADA a tratar, em vez de valores que ela pode confundir com nota.
  */
-export function calculateBigFiveAverage(
-  scores?: ScoresBigFive | null
-): number {
-  if (!scores) return 0
-  const sum =
-    scores.score_openness +
-    scores.score_conscientiousness +
-    scores.score_extraversion +
-    scores.score_agreeableness +
-    scores.score_neuroticism
-  return Math.round(sum / 5)
-}
 
 /**
- * Formata perfil DISC como string compacta
- * @param scores - Objeto com perfil primário e secundário
- * @returns String formatada (ex: "DI") ou "N/A"
+ * Estado da célula **Cultura** do card do RH.
+ *
+ * `nota` é a ÚNICA forma que carrega número — e só existe quando um humano revisou a
+ * redação: a linha `scores_candidato` `tipo='redacao'` / `status='sucesso'` (0–100,
+ * `score_max=100`), gravada por `sincronizar_score_redacao` (conferida ao vivo por
+ * `pg_get_functiondef` em 2026-09-22). A sugestão da IA nunca vira `nota` (D-32, RNF-07a).
  */
-export function formatDiscProfile(scores?: ScoresDisc | null): string {
-  if (!scores) return 'N/A'
-  return `${scores.perfil_primario}${scores.perfil_secundario}`
-}
+export type EstadoCultura =
+  | { estado: 'nota'; valor: number }
+  | { estado: 'aguardando_revisao' }
+  | { estado: 'nao_fez' }
 
 /**
- * Extrai score de cultura da análise IA (JSONB)
- * @param analiseIACultura - JSONB com análise de cultura
- * @returns Score de cultura (0-100) ou 0
+ * Deriva o estado da célula Cultura das DUAS fontes que o card recebe.
+ *
+ * @param scoresCandidato - linhas de `scores_candidato` da candidatura (array to-many)
+ * @param redacoes - sinal de existência de redação (`redacoes_candidato`, só o `id`)
+ *
+ * Ordem das perguntas, e cada uma existe por um motivo:
+ * 1. Há linha `redacao`/`sucesso` com `score`? → `nota`. É a nota revisada por humano.
+ * 2. Há QUALQUER sinal de redação (linha `redacao` em outro status, ou redação enviada
+ *    ainda sem linha de score)? → `aguardando_revisao`. Inclui `pendente_humano`, que é
+ *    justamente o estado em que a nota que existe é a da IA — e ela não vai à tela.
+ * 3. Nada? → `nao_fez`. **Nunca `0`.**
  */
-export function getCultureScore(analiseIACultura?: any): number {
-  if (!analiseIACultura) return 0
-  // Ajustar conforme estrutura real do JSONB
-  return analiseIACultura?.score || analiseIACultura?.cultura_score || 0
+export function estadoCultura(
+  scoresCandidato?: ScoreCandidatoRow[] | null,
+  redacoes?: RedacaoSinal[] | null
+): EstadoCultura {
+  const linhas = scoresCandidato ?? []
+  const revisada = linhas.find(
+    (s) =>
+      s?.tipo === 'redacao' &&
+      s?.status === 'sucesso' &&
+      typeof s?.score === 'number'
+  )
+  if (revisada && typeof revisada.score === 'number') {
+    return { estado: 'nota', valor: Math.round(revisada.score) }
+  }
+
+  const fezRedacao =
+    (redacoes ?? []).length > 0 || linhas.some((s) => s?.tipo === 'redacao')
+
+  return fezRedacao ? { estado: 'aguardando_revisao' } : { estado: 'nao_fez' }
 }
 
 /**

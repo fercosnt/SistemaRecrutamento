@@ -29,6 +29,7 @@ import { supabase } from '@/lib/supabase/client'
 import {
   submitCandidaturaWithRespostas,
   listCandidaturas,
+  listAllCandidaturas,
   updateCandidaturaStatus,
   CandidaturasServiceError,
 } from '../candidaturasService'
@@ -237,6 +238,53 @@ describe('listCandidaturas projection — T-08-09 / T-08-13 LGPD no-leak (Phase 
     // Core candidate-facing fields the UI renders.
     expect(selectArg).toMatch(/\bstatus\b/)
     expect(selectArg).toMatch(/etapa_atual/)
+  })
+})
+
+/**
+ * 49-04 / JORN-38 + JORN-13 — a projeção das LISTAS DO RH.
+ *
+ * O defeito que estes testes travam tinha duas faces no MESMO select:
+ * 1. `candidato:candidatos(*)` levava o cadastro inteiro — CPF e data de nascimento
+ *    inclusive — ao navegador de qualquer recrutador logado. A RLS filtra LINHAS, não
+ *    COLUNAS: nenhuma política impedia, e a tela não exibia nada disso.
+ * 2. Os embeds `scores_bigfive` / `scores_disc` apontavam para tabelas com **0 linhas em
+ *    PROD**, e o resultado vazio virava `0` nos helpers — nota inventada na tela (D-31).
+ *
+ * As asserções são sobre a STRING passada a `.select`, no idioma do teste de
+ * `listCandidaturas` acima (Wave-0 de `scoresRhService`): é a forma que reprova o retorno
+ * do curinga, não o valor de um fixture.
+ */
+describe('listAllCandidaturas — projeção explícita e fonte canônica das notas (49-04)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('sem curinga em candidatos, sem cpf/data_nascimento, sem embed morto, com scores_candidato', async () => {
+    const q = makeQueryMock({ data: [], error: null, count: 0 })
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockReturnValue(q)
+
+    await listAllCandidaturas()
+
+    const selectArg = (q.select as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string
+
+    // (1) JORN-38 — nenhuma coluna do candidato que a tela não exibe.
+    expect(selectArg).not.toMatch(/candidatos\s*\(\s*\*/)
+    expect(selectArg).not.toMatch(/\bcpf\b/)
+    expect(selectArg).not.toMatch(/data_nascimento/)
+    // As três que as telas REALMENTE exibem seguem presentes.
+    expect(selectArg).toMatch(/nome_completo/)
+    expect(selectArg).toMatch(/\bemail\b/)
+    expect(selectArg).toMatch(/\bcelular\b/)
+
+    // (2) JORN-13 — embeds mortos fora, fonte canônica dentro.
+    expect(selectArg).not.toMatch(/scores_bigfive/)
+    expect(selectArg).not.toMatch(/scores_disc/)
+    expect(selectArg).toMatch(/scores_candidato/)
+    expect(selectArg).toMatch(/redacoes_candidato/)
+    expect(selectArg).toMatch(/scores_raven/)
+
+    // A linha da própria `candidaturas` continua inteira: o RH vê o registro dele.
+    expect(selectArg).toMatch(/^\s*\*/)
   })
 })
 

@@ -33,6 +33,58 @@ import type {
   EtapaProcesso,
 } from '../types/vagasTypes'
 
+// ============================================
+// PROJEÇÕES DOS EMBEDS DAS LISTAS DO RH (JORN-38 / D-31..D-33)
+// ============================================
+
+/**
+ * Colunas do CANDIDATO que as listas do RH levam ao navegador. **NUNCA curinga.**
+ *
+ * O que estava aqui antes (`candidatos(*)` em `listAllCandidaturas`, e uma lista com
+ * `cpf` + `data_nascimento` em `listCandidaturasByVaga`) mandava o cadastro inteiro para
+ * o navegador de qualquer recrutador logado — a RLS filtra **linhas**, não **colunas**,
+ * então nenhuma política impedia isso. Nenhuma das telas servidas por estas listas exibe
+ * CPF ou data de nascimento: o `CandidatoCard`/`ScoreCard` da `CandidatosRHPage` e os
+ * cartões do `KanbanBoard` exibem nome, e-mail e celular; `id` entra pela navegação.
+ * Medido por grep em 2026-09-22 (RESEARCH Correção 21).
+ *
+ * Molde: `SCORES_ALLOWLIST` de `features/avaliacao/services/scoresRhService.ts` — a
+ * projeção declarada como constante nomeada, auditável sem ler a query.
+ */
+const CANDIDATO_ALLOWLIST = 'id, nome_completo, email, celular'
+
+/**
+ * Colunas da VAGA que estas listas levam ao navegador. As telas mostram só o título
+ * (`id` pela navegação/filtro).
+ */
+const VAGA_ALLOWLIST = 'id, titulo'
+
+/**
+ * Os embeds de NOTAS do card do RH — a fonte canônica, e só ela.
+ *
+ * - `scores_candidato` — a única tabela viva de notas. `tipo='big_five'` existe com
+ *   `score` NULL **por desenho** (não avaliativo, UX-07/RNF-07a) e serve só como sinal
+ *   de «fez»; `tipo='redacao'` com `status='sucesso'` é a nota de Cultura **revisada por
+ *   humano** (0–100), gravada por `sincronizar_score_redacao`.
+ * - `redacoes_candidato(id)` — apenas o SINAL de «fez a redação», que distingue
+ *   «aguardando revisão» de «não fez». A sugestão de nota da IA que mora nessa tabela
+ *   **não é lida** (D-32): nota de IA não vira nota de tela.
+ * - `scores_raven(percentil)` — insumo de `cognitivoBanda`; o número nunca é exibido
+ *   (D-33/D-64). A `classificacao` do instrumento não entra: não é o vocabulário do RH.
+ *
+ * ⚠ `scores_bigfive` e `scores_disc` NÃO estão aqui, e não devem voltar: **0 linhas em
+ * PROD** (medido em 2026-09-22) e o DISC não existe no produto. Eram embeds mortos cujo
+ * resultado vazio os helpers convertiam em `0`, e a tela pintava de nota (JORN-13).
+ */
+const EMBEDS_NOTAS_CARD =
+  'scores_candidato!left(tipo, status, score, score_max), redacoes_candidato!left(id), scores_raven!left(percentil)'
+
+/**
+ * Select das listas do RH: a linha inteira da própria `candidaturas` (o RH vê o registro
+ * dele) + os embeds acima, todos com projeção explícita.
+ */
+const SELECT_LISTA_RH = `*, candidato:candidatos(${CANDIDATO_ALLOWLIST}), vaga:vagas(${VAGA_ALLOWLIST}), ${EMBEDS_NOTAS_CARD}`
+
 /**
  * Custom Error para operações de candidaturas
  */
@@ -554,29 +606,11 @@ export async function listAllCandidaturas(
   pagination: PaginationParams = { page: 1, limit: 50 }
 ): Promise<ListCandidaturasResponse> {
   try {
-    // Construir query base com join de candidatos, vagas E scores
+    // Projeções explícitas (JORN-38) + fonte canônica das notas (D-31..D-33):
+    // ver `SELECT_LISTA_RH` no topo do arquivo.
     let query = supabase
       .from('candidaturas')
-      .select(`
-        *,
-        candidato:candidatos(*),
-        vaga:vagas(*),
-        scores_bigfive!left(
-          score_openness,
-          score_conscientiousness,
-          score_extraversion,
-          score_agreeableness,
-          score_neuroticism
-        ),
-        scores_disc!left(
-          perfil_primario,
-          perfil_secundario
-        ),
-        scores_raven!left(
-          percentil,
-          classificacao
-        )
-      `, { count: 'exact' })
+      .select(SELECT_LISTA_RH, { count: 'exact' })
       .is('deleted_at', null)
 
     // Aplicar filtros
