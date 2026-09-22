@@ -116,6 +116,8 @@ describe('DevolutivaBigFiveView — UX-07 honestidade psicométrica (bandas neut
     const rodape = screen.getByText(/self-assessment de estilo de trabalho/)
     expect(rodape.textContent).toMatch(/não é teste/)
     expect(rodape.textContent).not.toMatch(/Gerenciad|revisad|CRP-|\[Nome\]|respons[aá]vel t[eé]cnic/i)
+    // e sem a promessa de revisão humana que a página não cumpre (decisão do operador)
+    expect(rodape.textContent).not.toMatch(/revis[aã]o humana|solicitar explica/i)
   })
 })
 

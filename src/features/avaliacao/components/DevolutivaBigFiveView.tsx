@@ -93,13 +93,14 @@ function BandaSegments({ banda }: { banda: DevolutivaDashboardRow['banda'] }) {
  *
  * Plan 48-19 (decisão do operador, 2026-09-22): saiu «Gerenciado pela Dra. [Nome],
  * CRP-XX/XXXXX (responsável técnica)» — não há revisão profissional, e o placeholder
- * nunca foi preenchido. Mesmo texto que a EF grava desde a v26.
+ * nunca foi preenchido. E saiu «Você pode solicitar explicação detalhada ou revisão
+ * humana a qualquer momento»: esta página não leva a caminho nenhum para isso. Mesmo
+ * texto que a EF grava desde a v27.
  */
 const DISCLAIMER_LGPD_CRP = [
   'Este é um self-assessment de estilo de trabalho — não é teste',
   'psicológico.',
-  'Não é fator único de eliminação no processo seletivo. Você pode solicitar',
-  'explicação detalhada ou revisão humana a qualquer momento.',
+  'Não é fator único de eliminação no processo seletivo.',
 ].join(' ')
 
 function ViewShell({ children }: { children: React.ReactNode }) {

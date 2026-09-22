@@ -41,9 +41,9 @@ Sensibilidade Emocional   [PERCENTIL]   [BANDA]   ▮▮▯▯▯
 
 ### Disclaimer LGPD/CFP (rodapé fixo, todas as devolutivas)
 
-> Este é um self-assessment de estilo de trabalho — **não é teste psicológico**. Não é fator único de eliminação no processo seletivo. Você pode solicitar explicação detalhada ou revisão humana a qualquer momento em [link Art. 20].
+> Este é um self-assessment de estilo de trabalho — **não é teste psicológico**. Não é fator único de eliminação no processo seletivo.
 
-⚠ **2026-09-22 — decisão do operador (Plan 48-19):** saiu do rodapé a frase de supervisão profissional («Gerenciado pela Dra. [Nome], CRP-XX/XXXXX (responsável técnica)» / «Conteúdo revisado por psicólogo(a) responsável»). **Não há revisão:** a curadoria acima segue «a formalizar». A frase só volta quando houver revisão de fato, com nome e registro. A frase negada «não é teste psicológico» **fica** (decisão do operador, mesma data).
+⚠ **2026-09-22 — decisão do operador (Plan 48-19):** saiu do rodapé a frase de supervisão profissional («Gerenciado pela Dra. [Nome], CRP-XX/XXXXX (responsável técnica)» / «Conteúdo revisado por psicólogo(a) responsável»). **Não há revisão:** a curadoria acima segue «a formalizar». A frase só volta quando houver revisão de fato, com nome e registro. A frase negada «não é teste psicológico» **fica** (decisão do operador, mesma data). Saiu também «Você pode solicitar explicação detalhada ou revisão humana a qualquer momento em [link Art. 20]» (decisão do operador, mesma data): a página da devolutiva não tem caminho para isso, e o Art. 20 cobre decisões, não a devolutiva.
 
 ---
 

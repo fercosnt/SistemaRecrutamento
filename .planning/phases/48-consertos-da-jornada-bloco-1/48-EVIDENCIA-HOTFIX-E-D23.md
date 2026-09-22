@@ -99,6 +99,9 @@ prova. Nenhuma candidatura real entrou nesse intervalo.
 
 > **A avaliação de incidente (LGPD Art. 48) e a decisão de comunicar são do operador e do
 > Encarregado.** Este documento só mede.
+>
+> **Operador, 2026-09-22:** a decisão de comunicação de incidente será tratada **fora da Phase 48**,
+> com base neste documento.
 
 **Pendências que o hotfix não fechou** (em `deferred-items.md` §48-14):
 - varredura de funções `SECURITY DEFINER` executáveis por `anon` que devolvam PII (não feita);
@@ -168,3 +171,6 @@ vaga, não pelo D-23. Não há impasse enquanto houver administrador ativo.
 > Se «qualquer outro RH» deve incluir recrutadores que não criaram a vaga **nos casos reabertos**,
 > é uma decisão nova do operador, que muda a regra de dono da vaga, não o D-23. A execução não mexeu
 > nisso.
+>
+> **Decidido pelo operador em 2026-09-22: MANTER a regra de dono da vaga para recrutadores, também
+> nos casos reabertos.** Nada muda no código. O D-23 fica exatamente como está.

@@ -255,10 +255,13 @@ const _NEG = ["não é ", "teste ", "psicol", "ógico"].join("");
 // «pendente revisão final CRP» (comentário dos BAND_TEMPLATES) e o texto da IA nunca foi
 // revisado; afirmar supervisão profissional que não existe é promessa falsa ao candidato.
 // Voltar com ela só depois de haver revisão de fato, com nome e registro.
+// Mesma decisão, mesmo motivo (verificação da fase, 2026-09-22): saiu também «Você pode
+// solicitar explicação detalhada ou revisão humana a qualquer momento» — a página da
+// devolutiva não leva a caminho nenhum para isso, e o Art. 20 da fase cobre decisões, não a
+// devolutiva. Promessa sem código que a cumpra não fica escrita ao candidato.
 const DISCLAIMER_LGPD_CRP =
   `Este é um self-assessment de estilo de trabalho — ${_NEG}. ` +
-  "Não é fator único de eliminação no processo seletivo. " +
-  "Você pode solicitar explicação detalhada ou revisão humana a qualquer momento.";
+  "Não é fator único de eliminação no processo seletivo.";
 
 // ---------------------------------------------------------------------------
 // Tipos da assinatura injetável (contrato dos testes Wave-0)
