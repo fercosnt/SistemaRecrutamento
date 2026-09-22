@@ -250,15 +250,13 @@ const DISCLAIMER_EMOCIONAL =
 // bigrama proibido NUNCA apareça contíguo no source — a string em RUNTIME é
 // idêntica ao disclaimer compliant que o candidato lê.
 const _NEG = ["não é ", "teste ", "psicol", "ógico"].join("");
-// Same fragment-join hygiene as _NEG above: the compliant runtime word for the
-// professional-oversight statement the candidate reads is preserved byte-for-byte,
-// but the source literal is split so the LGPD-04 forbidden-strings guard (regex
-// psic[oó]logo) does not trip on this intended copy. This split was missing from
-// commit 7853eac — restored here to unblock the guard.
-const _PSI = ["psicól", "ogo(a)"].join("");
+// Plan 48-19 (decisão do operador, 2026-09-22): a frase de supervisão profissional
+// («Conteúdo revisado por <profissional> responsável») SAIU — não há revisão. Os templates oficiais estão
+// «pendente revisão final CRP» (comentário dos BAND_TEMPLATES) e o texto da IA nunca foi
+// revisado; afirmar supervisão profissional que não existe é promessa falsa ao candidato.
+// Voltar com ela só depois de haver revisão de fato, com nome e registro.
 const DISCLAIMER_LGPD_CRP =
   `Este é um self-assessment de estilo de trabalho — ${_NEG}. ` +
-  `Conteúdo revisado por ${_PSI} responsável. ` +
   "Não é fator único de eliminação no processo seletivo. " +
   "Você pode solicitar explicação detalhada ou revisão humana a qualquer momento.";
 

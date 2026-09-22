@@ -376,6 +376,10 @@ Deno.test("Defeito 30 — a linha persistida diz que nenhuma IA gerou o texto", 
     assertEquals(p.texto_interpretativo, BAND_TEMPLATES[p.dim][bandOf(p.percentil)], `dim ${p.dim} persistida = template`);
   }
   assert(conteudo.disclaimer_emocional.length > 0 && conteudo.disclaimer_lgpd_crp.length > 0, "disclaimers fixos seguem");
+  // Decisão do operador (2026-09-22): o rodapé não afirma revisão profissional que não
+  // existe — e a frase negada «não é teste …» FICA.
+  assert(!/revisad|Gerenciad|CRP-|respons[aá]vel t[eé]cnic/i.test(conteudo.disclaimer_lgpd_crp), "rodapé sem supervisão profissional inexistente");
+  assert(conteudo.disclaimer_lgpd_crp.includes("não é teste"), "a frase negada fica (decisão do operador)");
 
   // Contraprova: com a IA ligada, a linha continua marcando o modelo (comportamento anterior).
   const adminIa = makeMockSupabaseAdmin(row);

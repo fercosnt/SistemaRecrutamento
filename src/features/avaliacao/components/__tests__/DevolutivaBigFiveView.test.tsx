@@ -103,6 +103,20 @@ describe('DevolutivaBigFiveView — UX-07 honestidade psicométrica (bandas neut
     await screen.findByText(/Seu perfil comportamental/)
     expect(screen.getByText(/Disclaimer LGPD\/CRP fixo/)).toBeInTheDocument()
   })
+
+  // Plan 48-19 (decisão do operador, 2026-09-22): sem revisão profissional, o rodapé não
+  // a afirma — e o placeholder «Dra. [Nome], CRP-XX/XXXXX» nunca chega à tela.
+  it('fallback do rodapé: sem supervisão profissional nem placeholder; a frase negada fica', async () => {
+    vi.mocked(loadDevolutiva).mockResolvedValue({
+      ...DEVOLUTIVA,
+      conteudo_jsonb: { ...DEVOLUTIVA.conteudo_jsonb, disclaimer_lgpd_crp: '' },
+    })
+    renderView(<DevolutivaBigFiveView />)
+    await screen.findByText(/Seu perfil comportamental/)
+    const rodape = screen.getByText(/self-assessment de estilo de trabalho/)
+    expect(rodape.textContent).toMatch(/não é teste/)
+    expect(rodape.textContent).not.toMatch(/Gerenciad|revisad|CRP-|\[Nome\]|respons[aá]vel t[eé]cnic/i)
+  })
 })
 
 // Defeito 31 (Plan 48-19): a aba «Sensibilidade Emocional» quebrava para a 2ª linha,

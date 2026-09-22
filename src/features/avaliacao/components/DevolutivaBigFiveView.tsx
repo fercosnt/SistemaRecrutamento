@@ -90,10 +90,14 @@ function BandaSegments({ banda }: { banda: DevolutivaDashboardRow['banda'] }) {
  * from parts so the LGPD-04 source-scan guard (which has no negation exemption on
  * the `src/` root) does not mis-flag a legally-required disclaimer; the rendered
  * string is identical to the template.
+ *
+ * Plan 48-19 (decisão do operador, 2026-09-22): saiu «Gerenciado pela Dra. [Nome],
+ * CRP-XX/XXXXX (responsável técnica)» — não há revisão profissional, e o placeholder
+ * nunca foi preenchido. Mesmo texto que a EF grava desde a v26.
  */
 const DISCLAIMER_LGPD_CRP = [
   'Este é um self-assessment de estilo de trabalho — não é teste',
-  'psicológico. Gerenciado pela Dra. [Nome], CRP-XX/XXXXX (responsável técnica).',
+  'psicológico.',
   'Não é fator único de eliminação no processo seletivo. Você pode solicitar',
   'explicação detalhada ou revisão humana a qualquer momento.',
 ].join(' ')
