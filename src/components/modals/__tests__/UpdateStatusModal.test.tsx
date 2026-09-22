@@ -205,3 +205,89 @@ describe('UpdateStatusModal — sem promessa de e-mail sem código (48-16 / JORN
     expect(screen.getByText(/não é enviado ao candidato/i)).toBeInTheDocument()
   })
 })
+
+// ── 49-05 (JORN-34 · D-67) — o modal não reabre nem encerra candidatura só por status ───────
+//
+// Duas transições da `VALID_TRANSITIONS` escreviam SÓ o status e por isso gravavam ZERO
+// histórico: `avancar_etapa` sai no early-return quando a etapa não muda (varredura C1 #10/#11
+// do `49-VARREDURA-KICKOFF.md`).
+//
+//   - `rejeitado → em_analise` REABRIA uma candidatura encerrada, sem justificativa e sem
+//     trilha. Reabrir tem caminho próprio e auditado desde a Phase 48: o pedido de revisão da
+//     decisão (`responder_revisao_decisao`, D-01), que é transição SANCIONADA.
+//   - `aprovado_proxima → finalizado` ENCERRAVA pelo mesmo atalho — e é a origem plausível das
+//     3 linhas `status='finalizado'` em etapa de trabalho medidas em PROD, as mesmas que o
+//     Kanban passou a selar como «Encerrada» na Task 1 deste plano.
+//
+// ⚠ A tela deixa de OFERECER; a defesa no banco (a trava do `avancar_etapa`) é o plano 49-06.
+describe('UpdateStatusModal — sem reabrir nem encerrar por atalho de status (JORN-34 · D-67)', () => {
+  beforeEach(() => {
+    mutateStatus.mockReset()
+    mutateReject.mockReset()
+  })
+
+  it('status atual `rejeitado`: nenhuma opção de novo status é oferecida', () => {
+    renderModal({ statusAtual: 'rejeitado' })
+    // Lista vazia → o select não é renderizado. Um select presente e vazio convida ao clique
+    // e não responde; a frase neutra abaixo é o que substitui o convite.
+    expect(screen.queryByTestId('status-select')).toBeNull()
+    // E em particular: `em_analise` não é oferecido em lugar nenhum da tela — era a
+    // reabertura sem trilha.
+    expect(screen.queryByText('Em Análise')).toBeNull()
+    // Nem o botão de salvar fica acionável.
+    expect(salvarButton()).toBeDisabled()
+  })
+
+  it('status atual `rejeitado`: a tela diz por quê, e aponta o caminho auditado', () => {
+    renderModal({ statusAtual: 'rejeitado' })
+    // Frase neutra em vez de um select vazio + «Este status é final», que era falso para
+    // `rejeitado` (há caminho — só não é este).
+    expect(screen.getByText(/não pode ser alterado por aqui/i)).toBeInTheDocument()
+    expect(screen.getByText(/pedido de revisão da decisão/i)).toBeInTheDocument()
+    // Sem promessa de reabertura ao candidato, sem «teste psicológico», sem endereço de canal.
+    expect(screen.queryByText(/psicológic/i)).toBeNull()
+    expect(screen.queryByText(/privacidade@/i)).toBeNull()
+  })
+
+  it('status atual `aprovado_proxima`: oferece `em_analise` e `rejeitado`, NÃO `finalizado`', () => {
+    renderModal({ statusAtual: 'aprovado_proxima' })
+    const destinos = Array.from(
+      screen.getByTestId('status-select').querySelectorAll('option'),
+    )
+      .map((o) => (o as HTMLOptionElement).value)
+      .filter((v) => v !== '')
+    expect(destinos).toContain('em_analise')
+    expect(destinos).toContain('rejeitado')
+    expect(destinos).not.toContain('finalizado')
+  })
+
+  it('`aguardando_resposta` e `em_analise` continuam oferecendo o que oferecem hoje', () => {
+    for (const [atual, esperado] of [
+      ['aguardando_resposta', ['em_analise', 'rejeitado']],
+      ['em_analise', ['aprovado_proxima', 'rejeitado']],
+    ] as const) {
+      const { unmount } = render(
+        <UpdateStatusModal
+          open
+          onOpenChange={vi.fn()}
+          candidaturaId="cand-1"
+          candidatoNome="Ana"
+          statusAtual={atual}
+        />,
+      )
+      const destinos = Array.from(
+        screen.getByTestId('status-select').querySelectorAll('option'),
+      )
+        .map((o) => (o as HTMLOptionElement).value)
+        .filter((v) => v !== '')
+      expect(destinos).toEqual([...esperado])
+      unmount()
+    }
+  })
+
+  it('`finalizado` continua sem destino, e mostra a mesma frase neutra', () => {
+    renderModal({ statusAtual: 'finalizado' })
+    expect(screen.queryByTestId('status-select')).toBeNull()
+    expect(screen.getByText(/não pode ser alterado por aqui/i)).toBeInTheDocument()
+  })
+})
