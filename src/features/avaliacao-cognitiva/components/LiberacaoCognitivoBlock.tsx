@@ -18,6 +18,7 @@
 import { Glass } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Brain, CheckCircle2, Undo2 } from 'lucide-react'
+import { cognitivoBanda } from '@/lib/cognitivo/cognitivoBanda'
 import {
   useLiberacaoCognitivo,
   useLiberarCognitivo,
@@ -84,31 +85,38 @@ export function LiberacaoCognitivoBlock({ candidaturaId }: LiberacaoCognitivoBlo
                   Concluída pelo candidato
                 </p>
 
-                {/* ⚠ O percentil é o número que se lê, e vem ANTES do bruto: 8 de 60
-                    não significa nada sem a referência normativa, e mostrar o bruto
-                    primeiro convida a lê-lo como nota. A classificação vem por
-                    extenso porque "percentil 5" e "Inferior" não são sinônimos para
-                    quem não trabalha com o instrumento. */}
+                {/* ⚠ 49-04 / JORN-40 / D-64 — O QUE ESTE BLOCO MOSTRA, E POR QUE MUDOU.
+                    Até 2026-09-22 estavam aqui «Percentil N» e «Acertos X de 60». O
+                    comentário que os justificava argumentava, com razão, que o bruto
+                    sozinho não significa nada — e então mostrava OS DOIS, o que resolve
+                    metade do problema e cria a outra: número nessa posição é lido como
+                    nota, e este instrumento não compõe o score da vaga nem rejeita
+                    ninguém (UX-07 / RNF-07a). O RH lê FAIXA, e é a MESMA faixa do card
+                    da lista (`cognitivoBanda`, uma função para as duas telas — D-64).
+                    ⚠ A `classificacao` por extenso que o instrumento grava
+                    (`scores_raven.classificacao`: «Inferior», «Médio Superior») NÃO é o
+                    vocabulário das telas do RH: é a escala do teste, não a leitura de
+                    aderência à vaga. Também saiu.
+                    O «Tempo» FICA: minutos decorridos não são nota, e o tempo é o dado
+                    operacional de uma aplicação presencial. */}
                 {data?.resultado && (
                   <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-white/50">Percentil</dt>
-                      <dd className="text-lg font-bold text-white">
-                        {data.resultado.percentil ?? '—'}
-                        {data.resultado.classificacao ? (
-                          <span className="ml-2 text-sm font-medium text-white/70">
-                            {data.resultado.classificacao}
-                          </span>
-                        ) : null}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs uppercase tracking-wide text-white/50">Acertos</dt>
-                      <dd className="text-lg font-bold text-white">
-                        {data.resultado.total_acertos ?? '—'}
-                        <span className="text-sm font-medium text-white/70"> de 60</span>
-                      </dd>
-                    </div>
+                    {data.resultado.percentil !== null &&
+                      data.resultado.percentil !== undefined && (
+                        <div>
+                          <dt className="text-xs uppercase tracking-wide text-white/50">
+                            Faixa
+                          </dt>
+                          <dd className="mt-1">
+                            <span
+                              data-testid="cognitivo-banda-rh"
+                              className="inline-flex items-center rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/70"
+                            >
+                              {cognitivoBanda(data.resultado.percentil)}
+                            </span>
+                          </dd>
+                        </div>
+                      )}
                     <div>
                       <dt className="text-xs uppercase tracking-wide text-white/50">Tempo</dt>
                       <dd className="text-lg font-bold text-white">
