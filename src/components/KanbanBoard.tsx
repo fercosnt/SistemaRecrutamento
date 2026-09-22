@@ -29,6 +29,12 @@ import {
   type EtapaFunilM2,
 } from '@/features/triagem/services/triagemService'
 import { useUpdateCandidaturaEtapa } from '@/features/vagas/hooks/useCandidaturas'
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
+import {
+  ETAPAS_DE_TRABALHO,
+  proximaEtapaDeTrabalho,
+  type EtapaDeTrabalho,
+} from '@/lib/candidatura/proximaEtapa'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,17 +60,16 @@ interface DragItem {
 /**
  * As 6 etapas de trabalho do funil M2, na ordem (UI-SPEC §1). Terminais
  * (aprovado/rejeitado) NÃO são colunas — viram pill no card.
+ *
+ * 49-05 / D-36: a lista deixou de ser escrita aqui. Ela vive em
+ * `@/lib/candidatura/proximaEtapa` porque é a MESMA lista que decide qual é a próxima
+ * etapa no «Avançar» — e ela estava duplicada aqui e no `HubCandidatoRH`, com a mesma
+ * aritmética escrita de dois jeitos. As colunas do board não mudaram: são os mesmos
+ * seis valores, na mesma ordem.
  */
-const WORKING_STAGES: EtapaFunilM2[] = [
-  'inscricao',
-  'triagem',
-  'avaliacao_assincrona',
-  'entrevista_online',
-  'entrevista_presencial',
-  'decisao_final',
-]
+const WORKING_STAGES: readonly EtapaDeTrabalho[] = ETAPAS_DE_TRABALHO
 
-type WorkingStage = (typeof WORKING_STAGES)[number]
+type WorkingStage = EtapaDeTrabalho
 
 /** Glyph + gradient hue por coluna (UI-SPEC §1 — Claude's discretion; glyph aria-hidden). */
 const STAGE_STYLE: Record<WorkingStage, { emoji: string; color: string }> = {
@@ -93,10 +98,30 @@ const KANBAN_COLUMNS: Array<{
  * Pill terminal (UI-SPEC §1): candidatura em estado terminal ganha um selo no card.
  * Chave em etapa_atual terminal (aprovado/rejeitado) OU status === 'rejeitado' (o
  * caminho A9 em que o status vira rejeitado com a etapa ainda numa etapa de trabalho).
+ *
+ * ⚠ 49-05 / JORN-33: até este plano o terceiro caso — `status='finalizado'` numa etapa de
+ * TRABALHO — não casava com nenhum dos dois ramos acima, e o `getTerminalBadge` devolvia
+ * `null`. Como `!terminalBadge` é o que libera o arraste (`canDrag`, L~192) E o menu inteiro
+ * (Avançar/Retroceder/Rejeitar, L~298), uma candidatura já encerrada continuava arrastável e
+ * com «Avançar» — medido em PROD em 2026-09-22: **3 linhas** nesse estado
+ * (`triagem/finalizado`, `entrevista_online/finalizado`, `decisao_final/finalizado`).
+ *
+ * O ramo novo usa o predicado CANÔNICO `candidaturaEncerrada(etapa, status)` (D-21), o mesmo
+ * que o banco, o hub e a EF de notificação — nenhum critério novo é escrito aqui. Ele vem
+ * DEPOIS dos dois ramos anteriores de propósito: quem é «Aprovado» ou «Rejeitado» continua
+ * dizendo isso na tela (o selo específico é mais informativo que o genérico), e só o resto do
+ * conjunto «acabou» cai em «Encerrada».
+ *
+ * ⚠ Retirada a pedido (`encerrada_a_pedido_em`) NÃO entra — por desenho do predicado (D-34):
+ * a Invariante 9 da 45-UI-SPEC exige que ela continue visível E operável pelo RH.
+ *
+ * ⚠ Isto NÃO é portão de evidência (D8): a trava é sobre «a candidatura acabou», nunca sobre
+ * a etapa atual ter produzido resultado. E quem RECUSA de fato o avanço é o servidor — a trava
+ * no `avancar_etapa` é o plano 49-06; aqui a tela só deixa de OFERECER.
  */
 function getTerminalBadge(
   candidatura: CandidaturaComScores
-): { key: 'aprovado' | 'rejeitado'; label: string; className: string } | null {
+): { key: 'aprovado' | 'rejeitado' | 'encerrada'; label: string; className: string } | null {
   const etapa = candidatura.etapa_atual as EtapaFunilM2 | undefined
   if (etapa === 'aprovado') {
     return {
@@ -112,6 +137,15 @@ function getTerminalBadge(
       className: 'bg-red-500/20 text-red-300 border border-red-400/30',
     }
   }
+  if (candidaturaEncerrada(etapa, candidatura.status)) {
+    return {
+      key: 'encerrada',
+      // Cor NEUTRA de propósito: «encerrada» não diz se acabou bem ou mal — dizer com verde
+      // ou vermelho inventaria um desfecho que a linha não tem.
+      label: 'Encerrada',
+      className: 'bg-white/15 text-white/80 border border-white/25',
+    }
+  }
   return null
 }
 
@@ -122,7 +156,7 @@ function getTerminalBadge(
  * log ruidoso — a candidatura permanece alcançável pelo filtro de etapa do painel).
  */
 function columnForEtapa(etapa: EtapaFunilM2 | undefined): WorkingStage | null {
-  if (etapa && (WORKING_STAGES as string[]).includes(etapa)) {
+  if (etapa && (WORKING_STAGES as readonly string[]).includes(etapa)) {
     return etapa as WorkingStage
   }
   if (etapa === 'aprovado' || etapa === 'rejeitado') {
@@ -175,14 +209,21 @@ function CandidatoKanbanCard({
   // decisao_final → sem "Avançar"). Terminais (aprovado/rejeitado) não têm menu — nem
   // avançar (sem etapa à frente) nem rejeitar/retroceder (T-31-04). O nome alimenta o
   // título dos dialogs compartilhados.
-  const currentIndex = WORKING_STAGES.indexOf(currentEtapa)
-  const proximaEtapa = currentIndex >= 0 ? WORKING_STAGES[currentIndex + 1] : undefined
+  // 49-05 / D-36: a aritmética de «próxima etapa» saiu daqui. É a MESMA função que o hub usa
+  // (e que o comparativo passa a usar no 49-22) — ela não autoriza nada, só nomeia a etapa
+  // seguinte; quem aceita ou recusa é o trigger `avancar_etapa`.
+  const proximaEtapa = proximaEtapaDeTrabalho(currentEtapa)
   const nomeCandidato = candidato?.nome_completo || 'este candidato'
 
   // Drag setup. LOW-01: cards terminais (aprovado/rejeitado) NÃO são arrastáveis —
   // ancorados em `decisao_final`, qualquer drop dispararia um "avanço" para trás que
   // o trigger `avancar_etapa` rejeita (regressão sem `etapa_justificativa`) → toast de
   // erro garantido. `canDrag: false` remove o affordance "Solte aqui" que sempre falha.
+  // 49-05 / JORN-33: o gate continua sendo `!terminalBadge` — nada a mudar aqui. O que
+  // mudou é o CONJUNTO que `getTerminalBadge` reconhece: com o predicado canônico, a
+  // candidatura `finalizado` em etapa de trabalho passou a cair dentro dele, e por isso
+  // deixou de ser arrastável e perdeu o menu pela mesma linha que já valia para os dois
+  // terminais. Um segundo gate seria uma segunda verdade sobre «acabou».
   const [{ isDragging }, dragRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DRAG_TYPE,
     item: {
@@ -232,10 +273,20 @@ function CandidatoKanbanCard({
               </p>
             </div>
 
-            {/* Terminal pill (UI-SPEC §1) — só quando a candidatura está finalizada. */}
+            {/* Terminal pill (UI-SPEC §1) — só quando a candidatura está finalizada.
+                49-05 / JORN-33: o caso novo («Encerrada», o `status='finalizado'` em etapa de
+                trabalho) tem marcador PRÓPRIO, `kanban-selo-encerrada`. Um elemento só pode
+                ter um `data-testid`, e os selos Aprovado/Rejeitado já são consumidos por nome
+                (`terminal-pill-<id>`) pelos testes de 25-02 — trocar aquele nome seria
+                reescrever uma asserção existente para acomodar um caso novo. */}
             {terminalBadge && (
               <span
-                data-testid={`terminal-pill-${candidatura.id}`}
+                data-testid={
+                  terminalBadge.key === 'encerrada'
+                    ? 'kanban-selo-encerrada'
+                    : `terminal-pill-${candidatura.id}`
+                }
+                data-candidatura-id={candidatura.id}
                 className={cn(
                   'flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold drop-shadow-sm',
                   terminalBadge.className

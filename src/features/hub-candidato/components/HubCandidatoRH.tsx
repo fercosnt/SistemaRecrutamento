@@ -33,6 +33,7 @@ import { Glass, GlassCard, GlassButton } from '@/components/ui/glass'
 import { Skeleton } from '@/components/ui/skeleton'
 import { funilNavMap } from '@/lib/navegacao/funilNavMap'
 import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
+import { proximaEtapaDeTrabalho } from '@/lib/candidatura/proximaEtapa'
 import {
   ETAPA_M2_LABELS,
   type EtapaFunilM2,
@@ -71,9 +72,16 @@ const TIMELINE: EtapaFunilM2[] = [
   'rejeitado',
 ]
 
-/** As 6 etapas de trabalho (TIMELINE sem os terminais aprovado/rejeitado) — a ordem que
- *  decide a "próxima etapa" para o Avançar (OPER-01). */
-const WORKING_STAGES: EtapaFunilM2[] = TIMELINE.slice(0, 6)
+/**
+ * ⚠ 49-05 / D-36: a lista das 6 etapas de trabalho NÃO mora mais aqui. Ela era
+ * `TIMELINE.slice(0, 6)` e decidia a "próxima etapa" do Avançar (OPER-01) — a MESMA decisão
+ * que o `KanbanBoard` tomava com a sua própria lista, e que o comparativo não tomava (gravava
+ * `avaliacao_assincrona` fixo). Agora é `proximaEtapaDeTrabalho`, em
+ * `@/lib/candidatura/proximaEtapa`, para as três telas.
+ *
+ * A `TIMELINE` acima FICA: ela desenha a linha do tempo (as 8 etapas, terminais incluídos) e
+ * alimenta o `estadoDaSecao`. Desenhar a jornada e decidir o avanço são perguntas diferentes.
+ */
 
 /**
  * Maps a stage's funnel position relative to `etapa_atual` to a HubSection `estado`.
@@ -135,8 +143,7 @@ export function HubCandidatoRH() {
   // Avançar é 1-clique pelo write-path auditável (useUpdateCandidaturaEtapa → trigger
   // avancar_etapa); undefined em decisao_final (sem etapa de trabalho à frente).
   const { mutate: avancarEtapa } = useUpdateCandidaturaEtapa()
-  const idxTrabalho = etapaAtual ? WORKING_STAGES.indexOf(etapaAtual) : -1
-  const proximaEtapa = idxTrabalho >= 0 ? WORKING_STAGES[idxTrabalho + 1] : undefined
+  const proximaEtapa = proximaEtapaDeTrabalho(etapaAtual)
 
   // Retroceder só existe se houver etapa ANTERIOR de fato. Usa a MESMA `FUNNEL_ORDER`
   // do diálogo: em `aprovado`/`rejeitado` ela não contém a etapa (indexOf → -1), o
