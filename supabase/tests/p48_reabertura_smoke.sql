@@ -29,6 +29,12 @@
 --       decisão `rejeitado` com a candidatura FORA de `rejeitado/rejeitado`.
 --   (d) A (o decisor) tenta responder a revisão da própria decisão ⇒ 42501 «decisor» (invariante
 --       REVISAO-05 preservada pela redefinição).
+--   (m) ACRESCENTADA na Phase 49 / plano 49-06 (D-35): a trava de `avancar_etapa()` recusa mover
+--       candidatura ENCERRADA, e a fixture F4 abaixo é exatamente esse UPDATE. Ela passa a entrar
+--       pela GUC sancionada — e (m) prova, numa subtransação que reverte, que o MESMO UPDATE SEM
+--       a GUC é recusado com `check_violation` «candidatura encerrada». Sem esta asserção o
+--       `set_config` da fixture seria um afrouxamento invisível: o smoke ficaria verde tanto com
+--       a trava quanto sem ela.
 -- PARTE 2 (20260921000012) — descrita no bloco dela: (e) D-23 pela linha vigente, (f) em_espera
 --   de C aceito sem zerar o ciclo (A5), (g) D-23 pelo ARQUIVO, (h) nova decisão de C zera o ciclo e
 --   o arquivo guarda a decisão revertida de A, (i) A não sobrescreve a decisão de C, (j) fail-closed
@@ -63,6 +69,10 @@
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO: é o número de asserções DESTE arquivo (escopo
 -- deliberado), não uma fotografia do banco.
+--
+-- ⚠ BUMP DO ESPERADO: 12 → 13 na Phase 49 / plano 49-06, pela asserção (m) acrescentada acima
+-- (o idioma do 48-01: o re-pin/bump é ato consciente, registrado no cabeçalho, na MESMA entrega
+-- da migration que o motiva — `20260922000003_p49_trava_encerrada.sql`).
 -- =============================================================================
 
 RESET ROLE;
@@ -165,6 +175,8 @@ DECLARE
   c2_dfh_antes int;  c2_dfh_depois int;  c2_hist_antes int;  c2_hist_depois int;
   -- (d)
   d_state text;  d_resp timestamptz;
+  -- (m) P49 / D-35
+  m_state text;
 BEGIN
   BEGIN
     -- ── fixtures: 4 titulares sintéticos, candidaturas em decisao_final/em_analise ──
@@ -221,10 +233,30 @@ BEGIN
     -- para que (c) chegue ao guard novo e não pare em «sem pedido de revisão».
     UPDATE public.decisao_final SET revisao_solicitada_em = now() WHERE candidatura_id = v_f3;
     -- F4: decisão rejeitado, mas a candidatura sai de rejeitado/rejeitado (regressão justificada).
+    --
+    -- PROVENIÊNCIA (Phase 49 / plano 49-06 / D-35): depois de `registrar_decisao(v_f4,'rejeitado')`
+    -- a candidatura está `rejeitado/rejeitado` — ENCERRADA pelo predicado canônico. A trava de
+    -- `avancar_etapa()` (migration 20260922000003) RECUSA este UPDATE cru, e é por isso que ele
+    -- passa a declarar a sanção. A fixture não foi afrouxada: (m) logo abaixo prova, na mesma
+    -- transação e numa subtransação que reverte, que sem a GUC a trava morde.
+    --
+    -- ── (m) o MESMO UPDATE, SEM a GUC ⇒ recusado ────────────────────────────────
+    BEGIN
+      UPDATE public.candidaturas
+         SET etapa_atual = 'decisao_final', status = 'em_analise',
+             etapa_justificativa = 'Sonda P48R (m): o mesmo UPDATE da F4 sem a GUC sancionada.'
+       WHERE id = v_f4;
+      m_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN
+      m_state := SQLSTATE || ':' || SQLERRM;   -- a subtransação implícita já reverteu
+    END;
+
+    PERFORM set_config('app.transicao_sancionada', 'reabertura', true);
     UPDATE public.candidaturas
        SET etapa_atual = 'decisao_final', status = 'em_analise',
            etapa_justificativa = 'Fixture do smoke P48R (c): candidatura fora de rejeitado/rejeitado.'
      WHERE id = v_f4;
+    PERFORM set_config('app.transicao_sancionada', '', true);
 
     -- ── (d) A (o decisor) tenta responder a revisão da PRÓPRIA decisão ───────────
     PERFORM set_config('request.jwt.claims',
@@ -410,6 +442,12 @@ BEGIN
   END IF;
   IF d_resp IS NOT NULL THEN
     RAISE EXCEPTION 'P48R FAIL (d): a tentativa recusada do decisor gravou revisao_respondida_em';
+  END IF;
+  PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
+
+  -- ── (m) julgamento — a trava D-35 morde sem a GUC (P49 / 49-06) ──────────────
+  IF m_state NOT LIKE '23514:%candidatura encerrada%' THEN
+    RAISE EXCEPTION 'P48R FAIL (m): o MESMO UPDATE da fixture F4 SEM a GUC sancionada devolveu «%» (esperado 23514 check_violation «candidatura encerrada (etapa …, status …) — não pode mudar de etapa»). Se saiu ACEITO, a trava D-35 de avancar_etapa NÃO está no ar e o set_config da fixture acima virou afrouxamento invisível', m_state;
   END IF;
   PERFORM set_config('smoke48r.pass', (current_setting('smoke48r.pass')::int + 1)::text, false);
 END
@@ -735,8 +773,8 @@ $l$;
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $gate$
 BEGIN
-  IF current_setting('smoke48r.pass')::int <> 12 THEN
-    RAISE EXCEPTION 'P48R FAIL (gate): pass = % de 12 — alguma asserção não incrementou o contador', current_setting('smoke48r.pass');
+  IF current_setting('smoke48r.pass')::int <> 13 THEN
+    RAISE EXCEPTION 'P48R FAIL (gate): pass = % de 13 — alguma asserção não incrementou o contador', current_setting('smoke48r.pass');
   END IF;
 END
 $gate$;
@@ -746,7 +784,7 @@ SELECT set_config('request.jwt.claims', '', false);
 SELECT json_build_object(
   'smoke',    'p48_reabertura',
   'pass',     current_setting('smoke48r.pass')::int,
-  'esperado', 12,
+  'esperado', 13,
   'n_df',     current_setting('smoke48r.n_df')::int,
   'n_dfh',    current_setting('smoke48r.n_dfh')::int,
   'n_hist',   current_setting('smoke48r.n_hist')::int,
