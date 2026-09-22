@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: executing
-stopped_at: Phase 49 context gathered (discuss com medição em PROD; 16 JORN; portão antes do plano)
-last_updated: "2026-09-22T15:48:09.783Z"
+status: verifying
+stopped_at: Completed 49-01-PLAN.md
+last_updated: "2026-09-22T20:26:14.669Z"
 last_activity: 2026-09-22
-state_head: 48edcbc3ffdeab3df9f414c0efe3b57597da708b
+state_head: 7e7b58da37db6adf9feba48bfdbcf50e626c6f5f
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
   completed_plans: 77
   percent: 75
-current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
+current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
 ---
 
@@ -43,7 +43,7 @@ Guia de fechamento do projeto: `.planning/GUIA-VALIDACAO-FINAL.md`.
 See: .planning/PROJECT.md (updated 2026-07-29 — M8/v8.0 kickoff, `## Current Milestone`)
 
 **Core value:** Candidato se cadastra, se candidata a uma vaga e acompanha seu status sem fricção — e o RH consegue triar, avaliar e decidir num único sistema rastreável com scores comparáveis.
-**Current focus:** Phase 48 — Consertos da Jornada — Bloco 1
+**Current focus:** Phase 49 — Consertos da Jornada — Bloco 2
 
 ## ✅ BLOQUEADOR FECHADO — cadastro restaurado e provado ao vivo (2026-08-03)
 
@@ -577,7 +577,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Ready to execute
+Status: Phase complete — ready for verification
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -789,6 +789,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P15 | 7 min | 3 tasks | 10 files |
 | Phase 48 P16 | 10 min | 3 tasks | 12 files |
 | Phase 48 P17 | 12min | 3 tasks | 12 files |
+| Phase 49 P01 | 21 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -1350,9 +1351,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-22T05:15:21.959Z
-Stopped at: Phase 49 context gathered (discuss com medição em PROD; 16 JORN; portão antes do plano)
-Resume file: .planning/phases/49-consertos-da-jornada-bloco-2/49-CONTEXT.md
+Last session: 2026-09-22T20:26:14.394Z
+Stopped at: Completed 49-01-PLAN.md
+Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 

@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 3
+open_count: 5
 waived_count: 7
 fixed_count: 33
-total_count: 43
-last_updated: 2026-09-06T21:10:00.000Z
+total_count: 45
+last_updated: 2026-09-22T20:26:37.024Z
 ---
 
 # Broken Windows Ledger
@@ -58,6 +58,8 @@ last_updated: 2026-09-06T21:10:00.000Z
 | 41 | 46 | deviation | supabase/functions/purgar-retencao/index.ts |  | Titular sem candidatos.user_id: Storage e Auth ficam nao_aplicavel e objetos sob o antigo prefixo, se existirem, permanecem — nao ha caminho relacional do candidato ate os objetos dele (SONDA 2). Propriedade pre-existente do sistema, declarada por escrito no docblock | waived | Propriedade PRE-EXISTENTE do sistema, nao introduzida pela fase: sem candidatos.user_id nao ha caminho relacional do titular ate os objetos dele no Storage (SONDA 2). Declarada por escrito no docblock da EF. Fechar exigiria um modelo de dados diferente, que nao esta no escopo do M8. Waived em 2026-09-06. | 2026-08-23T03:46:13.782Z | 2026-09-06T21:10:00.000Z |
 | 42 | 46 | unrun-verify | supabase/tests/p46_purga_smoke.sql |  | As cinco assercoes (q.1)-(q.5) do 46-05 nunca foram executadas contra Postgres: esta maquina nao tem instancia local. Rodar no checkpoint da Task 4; se reprovarem, medir o portao antes de acreditar na explicacao | open |  | 2026-08-23T03:46:13.859Z |  |
 | 43 | 46 | deviation | CLAUDE.md |  | A varredura por FORMA da secao Portoes nao cobre 'IS DISTINCT FROM <n>', que e o idioma dominante do p46_purga_smoke.sql — um padrao de varredura que nao enxerga o idioma do arquivo que ele vigia tem ponto cego | fixed | Padrao de varredura do CLAUDE.md estendido para `IS DISTINCT FROM <n>` e listas literais proname/jobname/relname IN. Medido: 244 achados contra 164 do padrao antigo, sem perder NENHUMA das 164. | 2026-08-23T03:46:13.935Z | 2026-09-07T00:08:07.379Z |
+| 44 | 49 | deviation | supabase/migrations/20260922000002_p49_colunas_proveniencia_e_analise.sql |  | As 16 colunas novas ficam SEM veredito de export até o plano 49-17 (o drift 05-export-allowlist-drift.sql as acusa); não saem na cópia porque ela é allowlist, mas o checklist D-57 itens 3-9 está aberto | open |  | 2026-09-22T20:26:36.921Z |  |
+| 45 | 49 | unrun-verify | supabase/tests |  | O enum llm_provider e as 16 colunas novas nascem sem nenhum smoke vigiando; entrevista_guias e entrevista_analises não são citadas por NENHUM arquivo de supabase/tests/. Vigilância entra no p49_prova_prod.sql (plano 49-18) | open |  | 2026-09-22T20:26:37.024Z |  |
 
 ````json
 [
@@ -576,6 +578,32 @@ last_updated: 2026-09-06T21:10:00.000Z
     "reason": "Padrao de varredura do CLAUDE.md estendido para `IS DISTINCT FROM <n>` e listas literais proname/jobname/relname IN. Medido: 244 achados contra 164 do padrao antigo, sem perder NENHUMA das 164.",
     "recorded_at": "2026-08-23T03:46:13.935Z",
     "resolved_at": "2026-09-07T00:08:07.379Z"
+  },
+  {
+    "id": 44,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/migrations/20260922000002_p49_colunas_proveniencia_e_analise.sql",
+    "line": null,
+    "description": "As 16 colunas novas ficam SEM veredito de export até o plano 49-17 (o drift 05-export-allowlist-drift.sql as acusa); não saem na cópia porque ela é allowlist, mas o checklist D-57 itens 3-9 está aberto",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T20:26:36.921Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 45,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": "supabase/tests",
+    "line": null,
+    "description": "O enum llm_provider e as 16 colunas novas nascem sem nenhum smoke vigiando; entrevista_guias e entrevista_analises não são citadas por NENHUM arquivo de supabase/tests/. Vigilância entra no p49_prova_prod.sql (plano 49-18)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T20:26:37.024Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
   }
 ]
 ````
