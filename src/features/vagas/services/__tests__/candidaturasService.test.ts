@@ -30,6 +30,7 @@ import {
   submitCandidaturaWithRespostas,
   listCandidaturas,
   listAllCandidaturas,
+  listCandidaturasByVaga,
   updateCandidaturaStatus,
   CandidaturasServiceError,
 } from '../candidaturasService'
@@ -285,6 +286,70 @@ describe('listAllCandidaturas — projeção explícita e fonte canônica das no
 
     // A linha da própria `candidaturas` continua inteira: o RH vê o registro dele.
     expect(selectArg).toMatch(/^\s*\*/)
+  })
+})
+
+describe('listCandidaturasByVaga — a aba «Por Vaga» na MESMA fonte da lista geral (49-04)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('sem cpf nem data_nascimento, e com os mesmos embeds de notas do card', async () => {
+    const q = makeQueryMock({ data: [], error: null, count: 0 })
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockReturnValue(q)
+
+    await listCandidaturasByVaga('vaga-uuid')
+
+    const selectArg = (q.select as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as string
+
+    // JORN-38 — as duas colunas que a tela nunca exibiu e que iam no payload.
+    expect(selectArg).not.toMatch(/\bcpf\b/)
+    expect(selectArg).not.toMatch(/data_nascimento/)
+    expect(selectArg).not.toMatch(/candidatos\s*\(\s*\*/)
+
+    // JORN-13 — o card desta aba é o MESMO `CandidatoCard`; sem estes embeds ele
+    // mostraria «não fez» para todo mundo, o que é uma mentira diferente da anterior.
+    expect(selectArg).toMatch(/scores_candidato/)
+    expect(selectArg).toMatch(/redacoes_candidato/)
+    expect(selectArg).toMatch(/scores_raven/)
+    // O card mostra o título da vaga; antes deste plano a aba não embutia `vaga`.
+    expect(selectArg).toMatch(/vaga:vagas/)
+  })
+})
+
+describe('updateCandidaturaStatus — o pré-fetch não puxa o cadastro do candidato (49-04)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('o primeiro select é projeção explícita de candidaturas, sem embed de candidatos', async () => {
+    const selects: unknown[] = []
+    ;(supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      const q: Record<string, unknown> = {}
+      q.select = vi.fn((arg: unknown) => {
+        selects.push(arg)
+        return q
+      })
+      q.eq = vi.fn(() => q)
+      q.single = vi.fn(async () => ({
+        data: { id: 'cand-1', etapa_atual: 'triagem', status: 'em_analise' },
+        error: null,
+      }))
+      q.update = vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) }))
+      return q
+    })
+
+    const r = await updateCandidaturaStatus({
+      candidaturaId: 'cand-1',
+      status_candidatura: 'em_analise',
+    } as Parameters<typeof updateCandidaturaStatus>[0])
+
+    expect(r.success).toBe(true)
+    const preFetch = selects[0] as string
+    // O corpo desta função só lê `etapa_atual` da linha pré-existente. Tudo o que
+    // vinha além disso — o cadastro inteiro do candidato e da vaga — era payload
+    // que nenhuma tela lia (JORN-38).
+    expect(preFetch).not.toMatch(/candidatos/)
+    expect(preFetch).not.toMatch(/vagas/)
+    expect(preFetch).not.toMatch(/\*/)
+    expect(preFetch).toMatch(/etapa_atual/)
   })
 })
 

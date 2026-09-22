@@ -19,32 +19,90 @@ import { render, screen } from '@testing-library/react'
 import { ScoreCard } from '../ScoreCard'
 import '@testing-library/jest-dom'
 
+/**
+ * ⚠ RED (49-04 Task 2) — ANDAMIME TEMPORÁRIO, sai no commit GREEN.
+ *
+ * Os testes abaixo descrevem a forma NOVA das props (`bigFive` e `inteligencia` como
+ * ESTADO, não como número), que o componente ainda não tem. O `pre-commit` deste repo
+ * reprova qualquer commit que suba a contagem de `tsc` acima da baseline congelada — e um
+ * commit RED honesto, por definição, escreve contra uma API que ainda não existe. Este
+ * spread mantém o commit RED possível SEM `--no-verify` e SEM afrouxar o portão.
+ *
+ * Ele é removido no GREEN, quando as props passam a existir de verdade: deixá-lo aqui
+ * apagaria a checagem de tipo do próprio teste, que é metade do valor dele.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const red = (p: Record<string, unknown>): any => p
+
+/**
+ * Phase 23 mantida em INTENÇÃO, trocada em FORMA (49-04 Task 2): a célula Inteligência
+ * deixou de receber o percentil cru e passou a receber a FAIXA já resolvida por
+ * `cognitivoBanda`. O que Phase 23 provava — «o dígito nunca chega à tela» — continua
+ * provado, e agora por construção: o número não entra mais no componente.
+ */
 describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)', () => {
-  it('não renderiza o percentil cru "P{n}" do cognitivo', () => {
-    render(<ScoreCard inteligencia={85} />)
+  it('faixa de percentil ≥70 → "Acima do esperado", e nenhum dígito na célula', () => {
+    render(
+      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Acima do esperado' } })} />
+    )
+    const celula = screen.getByTestId('scorecard-inteligencia-estado')
+    expect(celula).toHaveTextContent('Acima do esperado')
+    expect(celula.textContent ?? '').not.toMatch(/\d/)
     expect(screen.queryByText(/^P\d/)).toBeNull()
   })
 
-  it('percentil ≥70 → "Acima do esperado"', () => {
-    render(<ScoreCard inteligencia={85} />)
-    expect(screen.getByText('Acima do esperado')).toBeInTheDocument()
+  it('faixa de percentil 40-69 → "Dentro do esperado"', () => {
+    render(
+      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Dentro do esperado' } })} />
+    )
+    expect(
+      screen.getByTestId('scorecard-inteligencia-estado')
+    ).toHaveTextContent('Dentro do esperado')
   })
 
-  it('percentil 40-69 → "Dentro do esperado"', () => {
-    render(<ScoreCard inteligencia={55} />)
-    expect(screen.getByText('Dentro do esperado')).toBeInTheDocument()
+  it('faixa de percentil <40 → "Abaixo do esperado"', () => {
+    render(
+      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Abaixo do esperado' } })} />
+    )
+    expect(
+      screen.getByTestId('scorecard-inteligencia-estado')
+    ).toHaveTextContent('Abaixo do esperado')
   })
 
-  it('percentil <40 → "Abaixo do esperado"', () => {
-    render(<ScoreCard inteligencia={20} />)
-    expect(screen.getByText('Abaixo do esperado')).toBeInTheDocument()
+  it('cognitivo ausente → «não fez» (nunca um dígito, nunca cor de nota)', () => {
+    render(<ScoreCard {...red({ inteligencia: { estado: 'nao_fez' } })} />)
+    const celula = screen.getByTestId('scorecard-inteligencia-estado')
+    expect(celula).toHaveTextContent('não fez')
+    expect(celula.textContent ?? '').not.toMatch(/\d/)
+    expect(celula.className).not.toMatch(/text-(green|blue|yellow|red)-400/)
+  })
+})
+
+/**
+ * 49-04 Task 2 — Big Five é NÃO AVALIATIVO (UX-07/RNF-07a, D-31). A célula diz se a pessoa
+ * fez, e nada mais: o `score` da linha `tipo='big_five'` é NULL por desenho (as dimensões
+ * moram em `metadata`), então qualquer número nessa célula seria inventado. O card também
+ * perdeu a célula DISC — o instrumento não existe no produto e a tabela tem 0 linhas.
+ */
+describe('ScoreCard — Big Five sem número, e DISC fora do card (49-04 / D-31)', () => {
+  it('Big Five concluído → «concluído», sem número e sem cor de nota', () => {
+    render(<ScoreCard {...red({ bigFive: 'concluido' })} />)
+    const celula = screen.getByTestId('scorecard-bigfive-estado')
+    expect(celula).toHaveTextContent('concluído')
+    expect(celula.textContent ?? '').not.toMatch(/\d/)
+    expect(celula.className).not.toMatch(/text-(green|blue|yellow|red)-400/)
   })
 
-  it('cognitivo ausente → "N/A" (nunca um dígito)', () => {
-    render(<ScoreCard inteligencia={null} />)
-    expect(screen.queryByText(/^P\d/)).toBeNull()
-    // a célula Intel mostra N/A quando não há score
-    expect(screen.getAllByText('N/A').length).toBeGreaterThan(0)
+  it('sem linha big_five → «não fez»', () => {
+    render(<ScoreCard {...red({ bigFive: 'nao_fez' })} />)
+    expect(screen.getByTestId('scorecard-bigfive-estado')).toHaveTextContent(
+      'não fez'
+    )
+  })
+
+  it('o card NÃO tem mais célula DISC', () => {
+    render(<ScoreCard {...red({ bigFive: 'concluido', cultura: { estado: 'nao_fez' } })} />)
+    expect(screen.queryByText('DISC')).toBeNull()
   })
 })
 
