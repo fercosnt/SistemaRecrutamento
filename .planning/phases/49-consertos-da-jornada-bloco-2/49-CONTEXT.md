@@ -1,7 +1,8 @@
 # Phase 49: Consertos da Jornada — Bloco 2 - Context
 
 **Gathered:** 2026-09-22
-**Status:** Ready for research. Não está pronto para planejar direto: ver §«Portão antes do plano».
+**Status:** Ready for planning. Pesquisa feita (`49-RESEARCH.md`); portão fechado pelo operador em
+2026-09-22, decisões D-59..D-68 (§«Decisões do portão»).
 **Mode:** discuss-phase interativo, **precedido de medição**. Cinco agentes só leitura (código +
 `node p46apply.cjs sql "set transaction read only; …"` em PROD), um por grupo de defeitos. O
 orquestrador conferiu pessoalmente as afirmações que sustentam cada correção. As decisões abaixo
@@ -260,6 +261,64 @@ JORN-25 recusa mover candidatura **encerrada**, o que não é exigir evidência 
 JORN-32, 33, 34, 35, 38, 39 entram com o conserto óbvio de cada um. A forma exata fica em Claude's
 Discretion, com as restrições abaixo.
 
+### Decisões do portão (operador, 2026-09-22, sobre o `49-RESEARCH.md`)
+
+> Tomadas depois da pesquisa, sobre os fatos que ela mediu (§«Correções de fato» e §«Portão antes do
+> plano» do RESEARCH). Mesma autoridade das D-24..D-48: nenhum plano as reinterpreta.
+
+- **D-59 (D-29 fechado):** teto do comparativo = **4 candidatos**, `max_tokens = 3600` no
+  `prompt_versions` de `comparative_ranking` (UPDATE na própria linha, com guarda de valor esperado;
+  sem versão nova de prompt).
+  - Conta: pior throughput medido 45 tok/s × 80 s = 3600 tok; saída conservadora de 4 candidatos
+    ≈ 3140 tok (87 %).
+  - Uma constante única (`COMPARATIVO_MAX_CANDIDATOS`) alimenta a EF, o schema de saída e o front.
+  - **Prova:** um comparativo real de 4 candidatos de teste depois do deploy. Se passar de 3140 tok
+    de saída, o teto volta ao operador antes de fechar a fase.
+  - **Reversibility:** reversible.
+- **D-60 (Portão item 3):** `decisao_final.revisao_resultado` e a cópia em `decisao_final_historico`
+  **entram no D-48**. Recebem sentinela nos mesmos dois UPDATEs do passo `tombstone_decisao_final`,
+  na ordem snapshot → raspagem. O recibo passa a tratá-lo como trata a justificativa, e o
+  `plano_exclusao_titular` passa a contá-lo.
+- **D-61 (Portão item 4):** `ai_call_logs.user_prompt_template` é reclassificado de «preservar» para
+  **«apagar» (regra R5)** no `pii-inventory.yaml`, com a nota medida do RESEARCH. No recibo, a coluna
+  sai de `conteudo_do_produto` e vira origem de `dados_enviados_a_analise_automatica`, que é o que esse
+  item já promete. A nota de `raw_response` é corrigida: ela guarda a **saída** do modelo, não o input.
+- **D-62 (decisão nova A):** o passo novo do motor **apaga as linhas** do titular excluído em
+  `respostas_raven`, `respostas_bigfive`, `respostas_disc` e `respostas_formulario`. Os valores
+  inteiros e de enum não aceitam sentinela.
+  - É a **exceção explícita** do operador à regra «nenhuma escrita desta fase apaga linha» (D-54). Vale
+    **só** para este passo do motor e só para essas quatro tabelas.
+  - Os scores já calculados (`scores_raven`, `scores_candidato`) ficam.
+  - Colunas `text`/`jsonb` (`redacoes_candidato.texto`, `respostas_cultura.resposta_texto`,
+    `respostas_avaliacao.respostas`, `cognitivo_respostas.*` etc.) recebem sentinela e continuam
+    sem apagar linha.
+  - **Reversibility:** one-way a cada execução. A primeira execução real continua sendo checkpoint (D-54).
+- **D-63 (decisão nova B):** nas linhas `call_type='comparative_ranking'` do `ai_call_logs` que citam
+  uma candidatura do titular excluído, o passo novo põe sentinela no `user_prompt_template` e no
+  `raw_response` **inteiros**. Isso perde a telemetria dos outros titulares daquela chamada; o
+  resultado continua em `comparativo_solicitado`. O corte só do bloco do titular foi rejeitado por
+  depender do formato do texto.
+- **Consequência direta do D-48, não é escolha nova:** os trechos literais em
+  `redacoes_candidato.analise_ia.dimension_scores[].cited_evidence` e em
+  `scores_candidato.metadata.dimension_scores[].cited_evidence` (SJT) entram no passo novo. O D-48
+  manda o motor apagar o que o recibo promete, e o recibo promete que os textos do titular foram apagados.
+- **D-64 (D-33/JORN-40):** a faixa cognitiva nas telas do RH (card da lista **e** hub) é o
+  vocabulário `cognitivoBanda`, o mesmo que o ScoreCard já usa. O «Acertos X de 60» do
+  `LiberacaoCognitivoBlock` **sai junto** com o percentil.
+- **D-65:** a nota de entrevista em `scores_candidato` continua **uma linha só** para online e
+  presencial. Isso é coerente com o D-42: a análise nova volta a aguardar revisão, e a revisão anterior
+  fica visível na análise superada. Uma linha por tipo vai para §Deferred.
+- **D-66:** a classificação «sem PII do titular» de `analise_candidato_vaga` e `entrevista_guias` no
+  recibo é **corrigida** no checklist D-57 desta fase. Medido: 13/24 análises e 2/5 guias contêm o
+  nome do titular. Desidentificar `resumo_cv`/guia no motor vai para §Deferred.
+- **D-67 (JORN-34):** a transição `aprovado_proxima → finalizado` do `UpdateStatusModal`, que encerra
+  por status sem histórico, entra no conserto do JORN-34, pela mesma `VALID_TRANSITIONS`.
+- **D-68:** a SJT (`scores_candidato tipo='sjt'`, EF `avaliar-redacao`) ganha proveniência (provedor e
+  modelo reais) **na `metadata`**, sem coluna nova e sem checklist D-57.
+- **Não entra:** baixar o `max_tokens` do `interview_guide` (a única chamada Sonnet desde 06/09 usou
+  98,4 s dos 110 s). É P1. O JORN-28 já torna a falha visível como timeout, e o risco fica registrado
+  no artefato D-50 e em §Deferred.
+
 ### Restrições de execução — NÃO negociáveis (operador, kickoff)
 
 - **D-49: Espere a pesquisa desmentir a fila, e desmentir este CONTEXT.** No Bloco 1 a pesquisa
@@ -443,6 +502,10 @@ Discretion, com as restrições abaixo.
 <gate_before_plan>
 ## Portão antes do plano
 
+> **Fechado em 2026-09-22.** Os quatro itens foram levados ao operador junto com as decisões novas que
+> a pesquisa criou. Resultado: D-59..D-68 (§«Decisões do portão»). As 35 correções de fato estão no
+> `49-RESEARCH.md` §«Correções de fato».
+
 O fluxo é: pesquisa → **operador** → plano. O `/gsd-plan-phase 49` **não** segue direto da pesquisa
 para o planejamento enquanto houver item aberto abaixo.
 
@@ -597,6 +660,13 @@ refaz as que forem load-bearing para o plano (D-49), em vez de copiar daqui.
 <deferred>
 ## Deferred Ideas
 
+- **Do portão (2026-09-22):**
+  - `interview_guide` perto do timeout (98,4 s de 110 s; `max_tokens=8000` excede o teto por tempo,
+    ~4950): fica com a P1.
+  - Nota de entrevista em uma linha por tipo (`subtipo = tipo`) em `scores_candidato`, com o impacto
+    no `consolidar-decisao-final` (D-65).
+  - O motor desidentificar `analise_candidato_vaga.resumo_cv` e `entrevista_guias.guia`, que contêm
+    o nome do titular. A classificação é corrigida nesta fase (D-66); o apagamento é escopo novo.
 - **Blocos 3 e 4** da fila, inteiros. Inclui o Defeito 29 (admin sem navegação, custos sem coluna de modelo), que o D-27(c) **não** conserta: o D-27 só muda a linha do log.
 - **P1** — escolha do modelo das funções de IA. O modelo de fallback segue hardcoded (`ai-client.ts:61`), `prompt_versions` não tem coluna de fallback, e `COST_PER_TOKEN` custeia modelo desconhecido em 0 sem aviso (`ai-cost.ts`). Trocar de modelo muda o throughput e, com ele, a conta do D-29.
 - **D4 para a análise da triagem** (`analise_candidato_vaga`, sobrescrita ao reprocessar) — D-37.
