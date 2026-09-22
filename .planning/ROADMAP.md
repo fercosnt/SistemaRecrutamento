@@ -402,11 +402,60 @@ Plans:
 **Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
 **Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar as cópias de justificativa de decisão no histórico (37; medidas 5 linhas em 4 candidaturas pela pesquisa), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha, **com uma exceção decidida no portão (D-62)**: o passo novo do motor apaga as linhas do titular excluído em `respostas_raven`/`respostas_bigfive`/`respostas_disc`/`respostas_formulario`, cujos valores inteiros e de enum não aceitam sentinela. Portão fechado em 2026-09-22 (D-59..D-68 em `49-CONTEXT.md`).
 **Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas.
-**Plans**: 0 plans
+**Plans**: 24 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 49 to break down)
+**Wave 1**
+
+- [ ] 49-01-PLAN.md — Esquema aditivo: `none` no enum de provedor, proveniência real nas 5 tabelas de resultado, versão da rubrica, dono da análise de entrevista (todas nulas) e o predicado único de vigente (JORN-39, JORN-28, JORN-12, JORN-07)
+- [ ] 49-02-PLAN.md — `_shared/ai-client.ts` + `audit-logger.ts`: causa separada (não coube/demorou/fora do schema), duas linhas por fallback, replay honesto, modelo real no retorno, bloqueio por custo/injeção registrado (JORN-28, JORN-39)
+- [ ] 49-03-PLAN.md — Predicado canônico numa fonte TS só (`_shared`), e o e-mail de avanço recusado para encerrada (JORN-25 / D-35)
+- [ ] 49-04-PLAN.md — Lista do RH: ausência nunca vira 0, Big Five concluído/não fez, Cultura só revisada, faixa cognitiva sem percentil; sem CPF no navegador; hub sem percentil nem acertos (JORN-13, JORN-38, JORN-40)
+- [ ] 49-05-PLAN.md — Próxima etapa numa fonte só; Kanban com selo «Encerrada» pelo predicado; modal sem reabrir/encerrar por status (JORN-33, JORN-34, D-36, D-67)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 49-06-PLAN.md — Trilha: trava de encerrada no `avancar_etapa` com as sanções da reabertura e da decisão, justificativa que não gruda, decisão fora da trilha, portão pela vigente, guarda de reabrir por status (JORN-25, JORN-17, JORN-37, JORN-34, JORN-12)
+- [ ] 49-08-PLAN.md — EF do comparativo: IDOR, encerrada e sem análise com mensagem verdadeira, teto de 4 e `max_tokens` 3600, desempate estável, `posicoes`, proveniência (JORN-32, JORN-25, JORN-28 / D-59)
+- [ ] 49-09-PLAN.md — Redação pela rubrica BARS do PRD numa constante única, com checagem pós-parse e proveniência real (JORN-07, JORN-28)
+- [ ] 49-23-PLAN.md — SJT pesando pela chave da rubrica da pergunta, sem peso uniforme silencioso; proveniência na `metadata` (JORN-35, JORN-28 / D-68)
+- [ ] 49-24-PLAN.md — Proveniência real do guia de entrevista (JORN-28 / D-28)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 49-07-PLAN.md — Snapshot só com mudança real (WHEN por `to_jsonb`) e carimbo de leitura idempotente; paridade de colunas do arquivo (JORN-3b)
+- [ ] 49-10-PLAN.md — Análise de entrevista com dono: RPC de gravação com superação, tipo/hash/vínculo/autor/modelo, A/B/A, revisão só na vigente (JORN-12, JORN-28)
+- [ ] 49-11-PLAN.md — Proveniência da análise da triagem e as 7 EFs de IA no contrato novo (JORN-28, JORN-39)
+- [ ] 49-13-PLAN.md — Comparativo da vaga na tela e no PDF: rótulo pela chave e selo de proveniência (JORN-25, JORN-28)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 49-12-PLAN.md — Escritas retroativas com ensaio e checkpoint: justificativas grudadas (D-46), trilha sem a justificativa da decisão (D-47), marca das análises (D-43) (JORN-17, JORN-37, JORN-12)
+- [ ] 49-14-PLAN.md — Motor de exclusão, fatia 1: input da IA, comparativos que citam o titular e resposta do revisor saem com ele; dry-run conta o mesmo (JORN-36 / D-60, D-61, D-63)
+- [ ] 49-15-PLAN.md — Revisão da redação pela constante, com raciocínio e citações; log do admin com estado de fallback e causa (JORN-07, JORN-28)
+- [ ] 49-16-PLAN.md — Aba da transcrição com tipo, vigente e superadas; selo no guia e na análise da triagem (JORN-12, JORN-28)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 49-20-PLAN.md — Motor de exclusão, fatia 2: o passo novo `apagar_respostas_e_producoes` — respostas, textos, transcrições e citações, com a exceção D-62 (JORN-36 / D-48, D-62)
+- [ ] 49-22-PLAN.md — Comparativo: encerrada não selecionável, teto da constante, «Avançar» real; decisão final compara quem está em decisão final (JORN-25, JORN-28 / D-34, D-36, D-36b, D-59)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 49-21-PLAN.md — Motor de exclusão, fatia 3: recibo e inventário alinhados ao motor, `executar-direito-titular` redeployada (JORN-36 / D-60, D-61, D-63)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 49-17-PLAN.md — Checklist LGPD das colunas novas (vereditos, catálogo, recibo, allowlist 1.3.0, drift, redeploys, tipos finais) e D-66 com checkpoint da promessa do recibo (JORN-28, JORN-12, JORN-07)
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 49-18-PLAN.md — Prova em PROD pela consulta: prontidão → jornada com contas de teste (comparativo de 4, A/B/A, injeção, recargas) → fallback forçado com aprovação
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 49-19-PLAN.md — Primeira execução real do motor novo, na conta descartável, com autorização e contagem antes/depois (JORN-36)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>

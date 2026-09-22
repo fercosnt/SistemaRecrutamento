@@ -78,13 +78,13 @@ JORN-25 recusa mover candidatura **encerrada**, o que não é exigir evidência 
     sobrescrever é o modo de falha. O alcance foi esclarecido neste kickoff, em D-37.
   - **D8**: avançar não exige evidência.
 - **Phase 48 D-01..D-23** (`48-CONTEXT.md`). As que incidem aqui:
-  - **D-01**: a reabertura `rejeitado → decisao_final` é transição **sancionada**. A trava do
+  - **D-01 [informational]:** a reabertura `rejeitado → decisao_final` é transição **sancionada**. A trava do
     JORN-25 tem de deixá-la passar.
-  - **D-02**: o padrão «marcar, não apagar».
-  - **D-07**: nenhum texto novo introduz ocorrência literal do endereço do canal de privacidade.
-  - **D-14**: decisão do operador inexequível como escrita → o executor para e reporta.
-  - **D-15..D-19**: ambiente; repetidas abaixo como restrições.
-  - **D-21**: predicado canônico `candidatura_encerrada`, para reusar e não recriar.
+  - **D-02 [informational]:** o padrão «marcar, não apagar».
+  - **D-07 [informational]:** nenhum texto novo introduz ocorrência literal do endereço do canal de privacidade.
+  - **D-14 [informational]:** decisão do operador inexequível como escrita → o executor para e reporta.
+  - **D-15 [informational]:** D-15..D-19 — ambiente; repetidas abaixo como restrições.
+  - **D-21 [informational]:** predicado canônico `candidatura_encerrada`, para reusar e não recriar.
 - **Exceção de linguagem já decidida** (`CLAUDE.md`, operador 2026-09-22): o disclaimer negado da
   devolutiva («… não é teste psicológico») fica.
 

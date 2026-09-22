@@ -1111,16 +1111,18 @@ PERFORM set_config('app.transicao_sancionada', '', true);
 | A4 | Os 8 smokes do idioma de fixture rodam o UPDATE de status sem JWT | H.5 | a guarda escopada por `auth.uid()` morderia a fixture; conferir smoke a smoke |
 | A5 | `a1dd4c42`/`0b1c887b`/`bf26ee3c` são as únicas candidaturas com análise de entrevista também no momento da execução | I.4 | a contagem do checkpoint muda; o D-43 exige contar antes |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Decisão A (respostas int/enum no motor)** — recomendação (a) apagar as linhas das 4 tabelas de múltipla escolha. Operador.
-2. **Decisão B (linhas `comparative_ranking` no log)** — recomendação: redigir a linha inteira. Operador.
-3. **`analise_candidato_vaga` e `entrevista_guias` classificadas «sem PII do titular»** (Correção 17): corrigir a classificação no checklist D-57 desta fase (recomendado: sim, é texto de inventário) e decidir se o motor desidentifica `resumo_cv`/`guia` (recomendado: registrar para depois — é escopo novo).
-4. **Vocabulário da faixa cognitiva** (D-33/JORN-40): `scores_raven.classificacao` (norma do instrumento) ou `cognitivoBanda` (3 faixas provisórias do ScoreCard)? E o «Acertos X de 60» sai junto? Recomendação: `cognitivoBanda` nas telas do RH (é a que o ScoreCard e o UX-07 já usam) e o «Acertos» sai.
-5. **`aprovado_proxima → finalizado` no `UpdateStatusModal`** (encerra sem histórico): entra no JORN-34? Recomendação: sim, a mesma linha de `VALID_TRANSITIONS`.
-6. **`scores_candidato` de entrevista com uma linha só** para online e presencial (I.3): manter (a última análise de qualquer tipo zera a nota, que é o D-42) ou uma por tipo (`subtipo = tipo`, muda o `consolidar-decisao-final`)? Recomendação: manter nesta fase e registrar.
-7. **SJT sem proveniência** (Correção 29): entra (na `metadata`, sem coluna)? Recomendação: sim, custo zero de checklist.
-8. **`interview_guide` a 89 % do timeout** (Correção 4): só registrar (P1) ou baixar `max_tokens` para o teto por tempo (~4950)? Recomendação: registrar; o JORN-28 torna a falha visível.
+> Todas resolvidas pelo operador no portão de 2026-09-22 — ver `49-CONTEXT.md` §«Decisões do portão».
+
+1. **RESOLVED → D-62 (apagar as linhas).** **Decisão A (respostas int/enum no motor)** — recomendação (a) apagar as linhas das 4 tabelas de múltipla escolha. Operador.
+2. **RESOLVED → D-63 (linha inteira).** **Decisão B (linhas `comparative_ranking` no log)** — recomendação: redigir a linha inteira. Operador.
+3. **RESOLVED → D-66 (classificação corrigida; desidentificação em §Deferred).** **`analise_candidato_vaga` e `entrevista_guias` classificadas «sem PII do titular»** (Correção 17): corrigir a classificação no checklist D-57 desta fase (recomendado: sim, é texto de inventário) e decidir se o motor desidentifica `resumo_cv`/`guia` (recomendado: registrar para depois — é escopo novo).
+4. **RESOLVED → D-64 (`cognitivoBanda`, «Acertos» sai).** **Vocabulário da faixa cognitiva** (D-33/JORN-40): `scores_raven.classificacao` (norma do instrumento) ou `cognitivoBanda` (3 faixas provisórias do ScoreCard)? E o «Acertos X de 60» sai junto? Recomendação: `cognitivoBanda` nas telas do RH (é a que o ScoreCard e o UX-07 já usam) e o «Acertos» sai.
+5. **RESOLVED → D-67 (entra).** **`aprovado_proxima → finalizado` no `UpdateStatusModal`** (encerra sem histórico): entra no JORN-34? Recomendação: sim, a mesma linha de `VALID_TRANSITIONS`.
+6. **RESOLVED → D-65 (uma linha; por tipo em §Deferred).** **`scores_candidato` de entrevista com uma linha só** para online e presencial (I.3): manter (a última análise de qualquer tipo zera a nota, que é o D-42) ou uma por tipo (`subtipo = tipo`, muda o `consolidar-decisao-final`)? Recomendação: manter nesta fase e registrar.
+7. **RESOLVED → D-68 (na `metadata`).** **SJT sem proveniência** (Correção 29): entra (na `metadata`, sem coluna)? Recomendação: sim, custo zero de checklist.
+8. **RESOLVED → não entra (P1; registrado em §Deferred).** **`interview_guide` a 89 % do timeout** (Correção 4): só registrar (P1) ou baixar `max_tokens` para o teto por tempo (~4950)? Recomendação: registrar; o JORN-28 torna a falha visível.
 
 ## Environment Availability
 

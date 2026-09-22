@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: complete
+status: executing
 stopped_at: Phase 49 context gathered (discuss com medição em PROD; 16 JORN; portão antes do plano)
-last_updated: "2026-09-22T05:15:22.390Z"
+last_updated: "2026-09-22T15:48:09.783Z"
 last_activity: 2026-09-22
-state_head: f92fc810e74c30b15ead69c790fdb14dc49ece02
+state_head: 48edcbc3ffdeab3df9f414c0efe3b57597da708b
 progress:
   total_phases: 8
   completed_phases: 9
-  total_plans: 78
+  total_plans: 102
   completed_plans: 77
-  percent: 99
+  percent: 75
+current_phase_name: consertos-da-jornada-bloco-2
 current_phase: 49
-current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
 ---
 
@@ -577,7 +577,7 @@ sobre usuário com filhos.
 Phase: 44 (Exportação & Acesso) — EXECUTING
 Plan: 9 of 9 concluídos (⚠ contagem, **não** posição — a fase roda em WAVES e o
       44-08 é da wave 3; o contador sequencial não descreve a ordem real)
-Status: Phase complete — ready for verification
+Status: Ready to execute
         próprio currículo em `/candidato/privacidade`: `listarMeusCurriculos`
         (own-row, allowlist com embed da vaga, sem esconder candidatura removida de
         forma suave) + `mintarUrlCurriculoProprio` (`createSignedUrl` de 60 s pelo
@@ -612,7 +612,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-09-21
+Last activity: 2026-09-22
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
