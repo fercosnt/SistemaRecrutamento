@@ -555,15 +555,17 @@ Deno.test("AI-04 — retry-budget cap: timeoutMs 60s → 2 attempts (not 3), the
   });
   assertEquals(anthropic.calls.length, 2, "the cap must limit long-timeout calls to 2 attempts (floor(140000/60000))");
   assertEquals(result.provider, "openai", "after the capped attempts exhaust, callAi falls to OpenAI");
-  // Phase 49 / JORN-28 (Task 1): antes assertia `"anthropic_retries_exhausted"`; mudou
-  // pelo prefixo `fallback_`. A causa crua ainda é a legada aqui — o caminho de EXCEÇÃO
-  // (timeout/429/erro da API) só ganha taxonomia própria na Task 2, que reaponta esta
-  // asserção para `fallback_anthropic_timeout` (o mock falha com APIConnectionTimeoutError).
+  // Phase 49 / JORN-28: antes assertia `"anthropic_retries_exhausted"`; mudou DUAS vezes
+  // nesta fase e a segunda é a que importa — o mock falha com `APIConnectionTimeoutError`,
+  // então a causa agora tem NOME: «demorou». O código genérico antigo descrevia igual
+  // um timeout, um truncamento e um Zod `too_big`, e foi por isso que os 17 fallbacks de
+  // PROD não diziam nada sobre o que consertar.
   assertEquals(
     result.error_code,
-    "fallback_anthropic_retries_exhausted",
-    "fallback cause = retries exhausted (breaker was CLOSED)",
+    "fallback_anthropic_timeout",
+    "o breaker estava FECHADO e as tentativas esgotaram por TIMEOUT — a causa é nominal",
   );
+  assertEquals(result.fallback_cause, "anthropic_timeout");
 });
 
 // ── AI-05 — idempotency replay only replays SUCCESS rows ─────────────────────
@@ -607,7 +609,14 @@ Deno.test("AI-05 — a cached SUCCESS (success=true) IS replayed → no provider
     { anthropic, openai: makeMockOpenAI(), supabase },
   );
   assertEquals(anthropic.calls.length, 0, "a cached SUCCESS must replay WITHOUT touching the provider");
-  assertEquals(result.cache_hit, true, "replay must flag cache_hit");
+  // Phase 49 / JORN-28: antes assertia `cache_hit === true`; mudou porque `cache_hit`
+  // significava DUAS coisas (replay de idempotência OU leitura de prompt-cache efêmero) e
+  // essa sobrecarga é o defeito de contrato do C6 item 8 — o D-40 não podia usar a flag
+  // para saber se houve chamada nova. Agora `replayed` diz isso, sem ambiguidade, e
+  // `cache_hit` volta a significar só prompt-cache (num replay não houve chamada nenhuma,
+  // logo não houve leitura de cache).
+  assertEquals(result.replayed, true, "replay must flag `replayed`");
+  assertEquals(result.cache_hit, false, "um replay não leu prompt-cache — não tocou o provedor");
   assertEquals(result.cost_usd, 0, "replay must not re-bill (cost_usd 0 — original already accounted)");
   assertEquals(result.provider, "anthropic", "replay echoes the original provider");
 });
@@ -885,7 +894,10 @@ Deno.test("idempotencia — MESMO input + mesma chave → replay (o provedor NAO
   const segunda = await callAi(args, { anthropic, openai: makeMockOpenAI(), supabase });
 
   assertEquals(anthropic.calls.length, 1, "a repeticao identica tem de replayar, nao re-cobrar");
-  assertEquals(segunda.cache_hit, true);
+  // Phase 49 / JORN-28: antes assertia `cache_hit === true`; mudou pela mesma razão do
+  // teste AI-05 acima (C6 item 8). A intenção — «foi replay» — está preservada, agora na
+  // flag que significa exatamente isso.
+  assertEquals(segunda.replayed, true);
   assertEquals(segunda.cost_usd, 0);
   assertEquals(
     (segunda as { prompt_version?: string }).prompt_version,
@@ -1194,4 +1206,323 @@ Deno.test("JORN-28 — a chave efetiva é a MESMA com e sem `.parse` no formato 
     chaveSem.chaves[0],
     "o `parse` é função: invisível ao JSON.stringify do fingerprint — a chave não pode mudar",
   );
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase 49 / JORN-28 (D-27c) — o RESTO da taxonomia, o disjuntor e o replay honesto
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Disjuntor-espião: conta as chamadas, para provar QUAIS causas o alimentam. */
+function makeBreakerEspiao(aberto = false) {
+  const falhas: number[] = [];
+  const sucessos: number[] = [];
+  return {
+    falhas,
+    sucessos,
+    canRequest: () => !aberto,
+    recordSuccess() {
+      sucessos.push(1);
+    },
+    recordFailure() {
+      falhas.push(1);
+    },
+  };
+}
+
+/** Erro com `status` HTTP, como o SDK levanta em 429/503/529. */
+function erroComStatus(status: number, msg = "provider says no") {
+  return Object.assign(new Error(msg), { status });
+}
+
+/**
+ * Supabase do teto AI-06 que REGISTRA os filtros aplicados. A asserção de que o filtro
+ * `success=true` saiu da soma só morde se o mock souber dizer quais filtros chegaram —
+ * um mock que ignora filtros deixaria a remoção passar sem prova (e o inverso também).
+ */
+function makeMockSupabaseCustoComFiltros(rows: Array<{ cost_usd: number }>) {
+  const inserts: { table: string; row: Record<string, unknown> }[] = [];
+  const filtros: Array<[string, unknown]> = [];
+  const builder = {
+    eq: (c: string, v: unknown) => {
+      filtros.push([c, v]);
+      return builder;
+    },
+    gte: (c: string, v: unknown) => {
+      filtros.push([c, v]);
+      return builder;
+    },
+    then: (resolve: (r: { data: typeof rows; error: null }) => unknown) =>
+      resolve({ data: rows, error: null }),
+  };
+  return {
+    inserts,
+    filtros,
+    from(table: string) {
+      return {
+        insert: (r: Record<string, unknown>) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        upsert: (r: Record<string, unknown>, _o?: { onConflict?: string }) => {
+          inserts.push({ table, row: r });
+          return Promise.resolve({ data: null, error: null });
+        },
+        select: (_c: string) => builder,
+      };
+    },
+  };
+}
+
+// ── Taxonomia: cada causa tem código próprio, na tentativa E no resultado ─────
+Deno.test("JORN-28 — timeout esgotado ⇒ tentativa `anthropic_timeout` + resultado `fallback_anthropic_timeout`", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const breaker = makeBreakerEspiao();
+  // Forma REAL do timeout do SDK (default de makeMockAnthropic): APIConnectionTimeoutError
+  // com "Request timed out." — a mesma que produziu 8 dos 17 fallbacks de PROD.
+  const anthropic = makeMockAnthropic({ failTimes: 999 });
+
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase, breaker,
+  });
+
+  assertEquals(supabase.logs.length, 2, "o caminho de EXCEÇÃO também grava a tentativa, não só o resultado");
+  const tentativa = supabase.logs[0];
+  assertEquals(tentativa.row.provider, "anthropic");
+  assertEquals(tentativa.row.error_code, "anthropic_timeout", "«demorou» tem código próprio");
+  assertEquals(tentativa.row.success, false);
+  assertEquals(tentativa.row.idempotency_key, null);
+  assertEquals(tentativa.row.cost_usd, 0, "exceção não devolve `usage` — sem tokens, custo 0");
+  assertEquals(
+    tentativa.row.error_message,
+    "Request timed out.",
+    "a mensagem do provedor pertence à TENTATIVA (é ela que falhou), não ao resultado",
+  );
+  assertEquals(supabase.logs[1].row.error_code, "fallback_anthropic_timeout");
+  assertEquals(
+    supabase.logs[1].row.error_message ?? null,
+    null,
+    "a linha do RESULTADO não carrega a mensagem de erro da Anthropic — ela já tem a própria linha",
+  );
+  assertEquals(result.fallback_cause, "anthropic_timeout");
+  assert(breaker.falhas.length > 0, "timeout é falha de SAÚDE do provedor — alimenta o disjuntor");
+});
+
+Deno.test("JORN-28 — 529 esgotado ⇒ `anthropic_overloaded`", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropic({ failTimes: 999, error: erroComStatus(529, "Overloaded") }),
+    openai: makeMockOpenAI(),
+    supabase,
+    breaker: makeBreakerEspiao(),
+  });
+  assertEquals(supabase.logs[0].row.error_code, "anthropic_overloaded");
+  assertEquals(result.fallback_cause, "anthropic_overloaded");
+  assertEquals(result.error_code, "fallback_anthropic_overloaded");
+});
+
+Deno.test("JORN-28 — erro 400 genérico ⇒ `anthropic_api_error` (nem timeout nem sobrecarga)", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropic({ failTimes: 999, error: erroComStatus(400, "bad request") }),
+    openai: makeMockOpenAI(),
+    supabase,
+    breaker: makeBreakerEspiao(),
+  });
+  assertEquals(supabase.logs[0].row.error_code, "anthropic_api_error");
+  assertEquals(result.fallback_cause, "anthropic_api_error");
+});
+
+Deno.test("JORN-28 — `end_turn` com falha de parse ⇒ `anthropic_schema_invalid` (não «não coube»)", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  // Os 5 Zod `too_big` de PROD: a resposta veio COMPLETA (`end_turn`) e não casou o
+  // schema. Confundir isto com truncamento manda consertar o `max_tokens` errado.
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropicComStopReason("end_turn", { comFalhaParse: true }),
+    openai: makeMockOpenAI(),
+    supabase,
+    breaker: makeBreakerEspiao(),
+  });
+  assertEquals(supabase.logs[0].row.error_code, "anthropic_schema_invalid");
+  assertEquals(result.fallback_cause, "anthropic_schema_invalid");
+});
+
+Deno.test("JORN-28 — `refusal` ⇒ `anthropic_refusal`", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropicComStopReason("refusal"),
+    openai: makeMockOpenAI(),
+    supabase,
+    breaker: makeBreakerEspiao(),
+  });
+  assertEquals(supabase.logs[0].row.error_code, "anthropic_refusal");
+  assertEquals(result.fallback_cause, "anthropic_refusal");
+});
+
+Deno.test("JORN-28 — disjuntor aberto ⇒ UMA linha só (`fallback_anthropic_circuit_open`), sem tentativa", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const anthropic = makeMockAnthropic();
+  await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase, breaker: makeBreakerEspiao(true),
+  });
+  assertEquals(anthropic.calls.length, 0, "com o disjuntor aberto o provedor não é tocado");
+  assertEquals(
+    supabase.logs.length,
+    1,
+    "não houve tentativa, logo não há tentativa a registrar — inventar a linha seria mentir",
+  );
+  assertEquals(supabase.logs[0].row.provider, "openai");
+  assertEquals(supabase.logs[0].row.error_code, "fallback_anthropic_circuit_open");
+});
+
+// ── O disjuntor mede SAÚDE, não tamanho de prompt (T-49-02-04) ────────────────
+Deno.test("JORN-28 — truncamento/schema/recusa NÃO alimentam o disjuntor (só falha de saúde o faz)", async () => {
+  const { callAi } = await loadClient();
+  for (const [stop_reason, comFalhaParse] of [["max_tokens", true], ["end_turn", true], ["refusal", false]] as const) {
+    const breaker = makeBreakerEspiao();
+    await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic: makeMockAnthropicComStopReason(stop_reason, { comFalhaParse }),
+      openai: makeMockOpenAI(),
+      supabase: makeMockSupabaseComId(),
+      breaker,
+    });
+    assertEquals(
+      breaker.falhas.length,
+      0,
+      `${stop_reason} é determinístico PELO INPUT — abrir o disjuntor derrubaria o Sonnet ` +
+        "de TODAS as vagas por causa de um prompt grande de uma só",
+    );
+  }
+});
+
+// ── Replay honesto: um fallback nunca é servido de novo em silêncio ───────────
+Deno.test("JORN-28 — linha de FALLBACK (success=true) NÃO é replayada: o clique seguinte tenta o Sonnet de novo", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  // Exatamente a forma das 17 linhas de PROD depois desta fase: sucesso do gpt-4o-mini.
+  const supabase = makeMockSupabaseWithReplay({
+    id: "log-antigo",
+    provider: "openai",
+    success: true,
+    model_snapshot: "gpt-4o-mini-2024-07-18",
+    raw_response: { resumo: "saída do fallback" },
+    cost_usd: 0.0004,
+    error_code: "fallback_anthropic_max_tokens",
+  });
+  const result = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:cv" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  assertEquals(
+    anthropic.calls.length,
+    1,
+    "servir o fallback de novo, calado, é o defeito do JORN-28 — o RH tem de poder tentar o Sonnet",
+  );
+  assertEquals(result.provider, "anthropic");
+  assertEquals(result.replayed, false);
+});
+
+Deno.test("JORN-28 — replay de SUCESSO Anthropic devolve replayed=true, model do snapshot e log_id da linha", async () => {
+  const { callAi } = await loadClient();
+  const anthropic = makeMockAnthropic();
+  const supabase = makeMockSupabaseWithReplay({
+    id: "aaaa1111-2222-3333-4444-555555555555",
+    provider: "anthropic",
+    success: true,
+    model_snapshot: "claude-sonnet-4-6-20260514",
+    raw_response: { resumo: "cacheado" },
+    cost_usd: 0.0123,
+    error_code: null,
+  });
+  const result = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:cv" },
+    { anthropic, openai: makeMockOpenAI(), supabase },
+  );
+  assertEquals(anthropic.calls.length, 0, "um sucesso do modelo configurado PODE ser replayado");
+  assertEquals(result.replayed, true, "a flag própria do replay — distinta de cache_hit");
+  assertEquals(
+    result.model,
+    "claude-sonnet-4-6-20260514",
+    "D-28: mesmo no replay a EF grava o modelo que REALMENTE produziu o resultado",
+  );
+  assertEquals(
+    result.log_id,
+    "aaaa1111-2222-3333-4444-555555555555",
+    "D-38: o replay aponta para a linha ORIGINAL de ai_call_logs",
+  );
+  assertEquals(result.fallback_cause, null);
+});
+
+// ── AI-06: dinheiro gasto em tentativa falha também é dinheiro gasto ─────────
+Deno.test("AI-06 — a soma do dia inclui linhas success=false: a tentativa truncada conta para o teto", async () => {
+  const { callAi } = await loadClient();
+  // Duas linhas de US$ 0,58 somam 1,16 > teto 1. Se a soma ainda filtrasse por sucesso, o
+  // mock as devolveria de todo modo — por isso a prova é sobre os FILTROS aplicados.
+  const supabase = makeMockSupabaseCustoComFiltros([{ cost_usd: 0.58 }, { cost_usd: 0.58 }]);
+  Deno.env.set("AI_DAILY_COST_CAP_USD", "1");
+  try {
+    const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic: makeMockAnthropic(), openai: makeMockOpenAI(), supabase,
+    });
+    assertEquals(result.error_code, "cost_cap_exceeded", "acima do teto a chamada é recusada");
+    const filtrouSucesso = supabase.filtros.some(([c, v]) => c === "success" && v === true);
+    assertEquals(
+      filtrouSucesso,
+      false,
+      "o filtro `success=true` saiu da soma: a tentativa truncada de 20/09 foi COBRADA (US$ 0,058) " +
+        "e ficava fora do teto que deveria contê-la",
+    );
+    assert(
+      supabase.filtros.some(([c]) => c === "vaga_id"),
+      "o escopo por vaga continua (o teto é por vaga, não global)",
+    );
+  } finally {
+    Deno.env.delete("AI_DAILY_COST_CAP_USD");
+  }
+});
+
+// ── O erro da OpenAI no fallback também deixa linha antes de relançar ────────
+Deno.test("JORN-28 — LengthFinishReasonError da OpenAI grava `openai_max_tokens` ANTES de relançar", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  const openaiQueEstoura = {
+    chat: {
+      completions: {
+        parse: () =>
+          Promise.reject(
+            Object.assign(new Error("Could not parse response content as the length limit was reached"), {
+              name: "LengthFinishReasonError",
+            }),
+          ),
+      },
+    },
+  };
+  let lancou: unknown = null;
+  try {
+    await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+      anthropic: makeMockAnthropicComStopReason("max_tokens", { comFalhaParse: true }),
+      // deno-lint-ignore no-explicit-any
+      openai: openaiQueEstoura as any,
+      supabase,
+      breaker: makeBreakerEspiao(),
+    });
+  } catch (e) {
+    lancou = e;
+  }
+  assert(lancou instanceof Error, "o erro do fallback continua propagando (a EF devolve 500)");
+  assert(
+    (lancou as Error).message.includes("anthropic") && (lancou as Error).message.includes("openai"),
+    "a mensagem combinada preserva a causa PRIMÁRIA — sem ela o painel só veria o erro do fallback",
+  );
+  const linhaOpenai = supabase.logs.find((l) => l.row.provider === "openai");
+  assert(linhaOpenai, "a falha do fallback TEM de deixar linha antes do throw (senão soma zero rastro)");
+  assertEquals(linhaOpenai!.row.success, false);
+  assertEquals(linhaOpenai!.row.error_code, "openai_max_tokens");
+  // E a tentativa Anthropic segue registrada: as duas causas ficam visíveis.
+  assertEquals(supabase.logs[0].row.error_code, "anthropic_max_tokens");
 });
