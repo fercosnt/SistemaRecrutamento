@@ -12,6 +12,7 @@
 import type { ReactElement } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
@@ -101,5 +102,54 @@ describe('DevolutivaBigFiveView — UX-07 honestidade psicométrica (bandas neut
     renderView(<DevolutivaBigFiveView />)
     await screen.findByText(/Seu perfil comportamental/)
     expect(screen.getByText(/Disclaimer LGPD\/CRP fixo/)).toBeInTheDocument()
+  })
+})
+
+// Defeito 31 (Plan 48-19): a aba «Sensibilidade Emocional» quebrava para a 2ª linha,
+// fora da caixa de altura fixa do TabsList base, e ficava sob o cartão — sem clique. O
+// jsdom não faz layout, então a sobreposição em si foi conferida no navegador; aqui
+// travam o comportamento (as 5 abas abrem a própria página) e a CAUSA (altura fixa).
+describe('DevolutivaBigFiveView — Defeito 31: as cinco abas clicáveis', () => {
+  beforeEach(() => {
+    vi.mocked(loadDevolutiva).mockReset()
+  })
+
+  it('renderiza as 5 abas e cada uma abre a própria página — inclusive a quinta', async () => {
+    vi.mocked(loadDevolutiva).mockResolvedValue(DEVOLUTIVA)
+    const user = userEvent.setup()
+    renderView(<DevolutivaBigFiveView />)
+    await screen.findByText(/Seu perfil comportamental/)
+
+    const abas = screen.getAllByRole('tab')
+    expect(abas.map((a) => a.textContent)).toEqual([
+      'Abertura à Experiência',
+      'Conscienciosidade',
+      'Extroversão',
+      'Amabilidade',
+      'Sensibilidade Emocional',
+    ])
+
+    await user.click(screen.getByRole('tab', { name: 'Sensibilidade Emocional' }))
+    expect(screen.getByRole('tab', { name: 'Sensibilidade Emocional' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByText('Texto N.')).toBeVisible()
+  })
+
+  it('a lista de abas cresce com a quebra de linha — sem a altura fixa do componente base', async () => {
+    vi.mocked(loadDevolutiva).mockResolvedValue(DEVOLUTIVA)
+    renderView(<DevolutivaBigFiveView />)
+    await screen.findByText(/Seu perfil comportamental/)
+
+    const lista = screen.getByTestId('devolutiva-abas')
+    expect(lista.className).toMatch(/\bh-auto\b/)
+    expect(lista.className).toMatch(/\bflex-wrap\b/)
+    expect(lista.className).not.toMatch(/\bh-9\b/)
+    expect(lista.className).not.toMatch(/\bw-fit\b/)
+    for (const aba of screen.getAllByRole('tab')) {
+      expect(aba.className).toMatch(/\bh-auto\b/)
+      expect(aba.className).not.toMatch(/h-\[calc\(100%-1px\)\]/)
+    }
   })
 })

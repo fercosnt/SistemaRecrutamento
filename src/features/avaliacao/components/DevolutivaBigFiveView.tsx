@@ -213,9 +213,22 @@ export function DevolutivaBigFiveView() {
       {orderedDims.length > 0 ? (
         <GlassPanel variant="white" blur="xl" className="text-white">
           <Tabs defaultValue={orderedDims[0]} className="w-full">
-            <TabsList className="flex flex-wrap gap-2 bg-transparent">
+            {/* Defeito 31: o TabsList base tem altura fixa (`h-9 w-fit`). Com as 5 abas
+                quebrando linha, a 2ª linha transbordava para fora da caixa e ficava SOB o
+                TabsContent, que a cobria — «Sensibilidade Emocional» não recebia o clique.
+                Aqui a lista cresce com a quebra (`h-auto`) e o gatilho ganha altura de toque
+                e cor legível sobre o vidro. O componente base não muda (tailwind-merge
+                sobrescreve as classes dele). */}
+            <TabsList
+              data-testid="devolutiva-abas"
+              className="h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0"
+            >
               {orderedDims.map((dim) => (
-                <TabsTrigger key={dim} value={dim} className="text-xs sm:text-sm">
+                <TabsTrigger
+                  key={dim}
+                  value={dim}
+                  className="h-auto min-h-[44px] flex-none border-white/25 bg-white/10 px-3 py-2 text-xs text-white hover:bg-white/20 data-[state=active]:border-white data-[state=active]:bg-white data-[state=active]:text-slate-900 sm:text-sm"
+                >
                   {DIM_LABEL[dim]}
                 </TabsTrigger>
               ))}
