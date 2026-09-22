@@ -3,19 +3,19 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: complete
-stopped_at: Phase 48 COMPLETA — verificação passed (2026-09-22)
-last_updated: "2026-09-21T22:48:51.026Z"
-last_activity: 2026-09-21
-state_head: 816b7b085eb02d9fb30177e75efbd0d6d76a7498
+stopped_at: Phase 49 context gathered (discuss com medição em PROD; 16 JORN; portão antes do plano)
+last_updated: "2026-09-22T05:15:22.390Z"
+last_activity: 2026-09-22
+state_head: f92fc810e74c30b15ead69c790fdb14dc49ece02
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 9
   total_plans: 78
   completed_plans: 77
-  percent: 96
-current_phase_name: Consertos da Jornada — Bloco 1
-current_phase: 48
-last_activity_desc: "2026-09-22 — Phase 48 COMPLETA: 48-VERIFICATION.md passed (8/8), prova em PROD 17/17, os 11 JORN fechados; rodapé da devolutiva sem supervisão nem promessa sem caminho no ar (EF v27, front index-Cuux4LCd). Hotfix de segurança do 48-14 registrado fora do plano; comunicação de incidente tratada pelo operador fora da fase."
+  percent: 99
+current_phase: 49
+current_phase_name: Consertos da Jornada — Bloco 2
+last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
 ---
 
 # Project State
@@ -1065,6 +1065,11 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-16: link de login do candidato por parametro do corpo (renderarEmail), nunca no layoutBase; copia D-09 publicada por ultimo, apos prontidao conferida no catalogo e no bundle vivo
 - [Phase 48]: 48-17: a marca do D-02 (descartada_em/descartada_motivo) ENTRA na copia do titular (premissa A6 decidida, revisavel); reaberta_em/prazo_nova_decisao_em entram; alerta_prazo_enviado_em e aviso_*_enviado_em ficam fora (telemetria de envio); o historico herda a homonima. Allowlist 1.2.0 em PROD (exportar-meus-dados v3), recibo em executar-direito-titular v9
 
+### Roadmap Evolution
+
+- Phase 49 added: Consertos da Jornada — Bloco 2 (2026-09-22) — o BLOCO 2 da fila da `JORNADA-GUIADA.md` («leva o RH a decidir errado»): defeitos 28, 13, 7, 25, 12, 17, 3b; o 14 fica sem código por D8. Requirements JORN-* a criar no kickoff; aberto para o operador: transcrição guardada como texto ou como hash (12)
+- Phase 49 kickoff (2026-09-22): escopo passou de 8 para 17 itens por decisão do operador (achados 32–40 da varredura pela forma); o 12 ficou **hash + vínculo com o log** (D-38). Requirements JORN-28/13/07/25/12/17/3b + JORN-32..40 em REQUIREMENTS.md
+
 ### Pending Todos
 
 Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
@@ -1345,9 +1350,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21 (sessão retomada via /gsd-resume-work)
-Stopped at: Phase 48 COMPLETA 2026-09-22 — verificação `passed` (8/8; os 3 itens humanos resolvidos pelo operador). EF `gerar-devolutiva-bigfive` v27 = disco; front `index-Cuux4LCd.js`; `origin/main..HEAD` vazio. Próximo: decidir o que vem depois do Bloco 1 (Blocos 2–4 da fila da JORNADA-GUIADA) e o fecho do M8
-Resume file: .planning/phases/48-consertos-da-jornada-bloco-1/48-PROVA-PROD.md
+Last session: 2026-09-22T05:15:21.959Z
+Stopped at: Phase 49 context gathered (discuss com medição em PROD; 16 JORN; portão antes do plano)
+Resume file: .planning/phases/49-consertos-da-jornada-bloco-2/49-CONTEXT.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
