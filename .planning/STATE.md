@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-01-PLAN.md
-last_updated: "2026-09-22T20:26:14.669Z"
+stopped_at: Completed 49-02-PLAN.md
+last_updated: "2026-09-22T21:23:49.306Z"
 last_activity: 2026-09-22
-state_head: 7e7b58da37db6adf9feba48bfdbcf50e626c6f5f
+state_head: ed2e065db13f7bce1a281269044ab20054e77ef3
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
-  completed_plans: 77
-  percent: 75
+  completed_plans: 78
+  percent: 76
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -790,6 +790,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 48 P16 | 10 min | 3 tasks | 12 files |
 | Phase 48 P17 | 12min | 3 tasks | 12 files |
 | Phase 49 P01 | 21 min | 2 tasks | 3 files |
+| Phase 49 P02 | 1h 32m | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1065,6 +1066,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 48]: 48-15: recusa D-23 no cliente = SQLSTATE 42501 E marca «D-23» na mensagem viva (o guard de papel levanta o mesmo 42501); toast e formulário dizem a mesma frase, nunca «tente novamente»
 - [Phase 48]: 48-16: link de login do candidato por parametro do corpo (renderarEmail), nunca no layoutBase; copia D-09 publicada por ultimo, apos prontidao conferida no catalogo e no bundle vivo
 - [Phase 48]: 48-17: a marca do D-02 (descartada_em/descartada_motivo) ENTRA na copia do titular (premissa A6 decidida, revisavel); reaberta_em/prazo_nova_decisao_em entram; alerta_prazo_enviado_em e aviso_*_enviado_em ficam fora (telemetria de envio); o historico herda a homonima. Allowlist 1.2.0 em PROD (exportar-meus-dados v3), recibo em executar-direito-titular v9
+- [Phase 49]: Detectar truncamento embrulhando o `parse` do `output_config.format`, em vez de trocar `messages.parse` por `create` — O SDK 0.102.0 relança a falha de parse como AnthropicError ANTES de o chamador ver `stop_reason`/`usage`, tornando «não coube», «fora do schema» e «demorou» indistinguíveis. Embrulhar o `parse` do formato para devolver o marcador faz o SDK resolver com a mensagem inteira — e nenhum dos 7 arquivos de teste que mockam `messages.parse` precisou de adaptação.
+- [Phase 49]: Linha de auditoria de EVENTO (bloqueio por custo/injeção, e a tentativa Anthropic cobrada) vai com `idempotency_key` NULL; só a linha de RESULTADO leva a chave — O upsert por chave é correto para RESULTADO (1 linha por pedido, último vence) e é um apagador silencioso para EVENTO: com a chave efetiva, N bloqueios deixariam 1 linha e o primeiro sucesso posterior da mesma chave apagaria a prova de que o corte de gasto aconteceu (Pitfall 1).
+- [Phase 49]: `cache_hit` volta a significar SÓ prompt-cache; o replay de idempotência passa a ser sinalizado por `replayed` — A sobrecarga de `cache_hit` (replay OU prompt-cache) é o C6 item 8 — defeito de contrato do qual o D-40 não pode depender. Manter `cache_hit: true` no replay preservaria o defeito que o campo novo existe para remover. Nenhuma EF consumidora lê `cache_hit` (conferido por grep). Custo: a asserção de ai-client.test.ts:775 mudou embora estivesse fora da lista de 6 do D-56 (desvio 1 do 49-02).
+- [Phase 49]: O teto de custo AI-06 soma o gasto do dia SEM filtrar por `success=true` — A tentativa truncada de 20/09 custou US$ 0,058 e agora é gravada com success=false, porque o resultado não era utilizável. Com o filtro, esse dinheiro ficava fora justamente do teto que existe para contê-lo — o teto media «gasto que deu certo» em vez de «gasto». Reversível: basta recolocar o .eq.
 
 ### Roadmap Evolution
 
@@ -1351,8 +1356,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-22T20:26:14.394Z
-Stopped at: Completed 49-01-PLAN.md
+Last session: 2026-09-22T21:22:35.720Z
+Stopped at: Completed 49-02-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

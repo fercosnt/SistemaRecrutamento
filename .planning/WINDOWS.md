@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 5
+open_count: 8
 waived_count: 7
 fixed_count: 33
-total_count: 45
-last_updated: 2026-09-22T20:26:37.024Z
+total_count: 48
+last_updated: 2026-09-22T21:17:37.287Z
 ---
 
 # Broken Windows Ledger
@@ -60,6 +60,9 @@ last_updated: 2026-09-22T20:26:37.024Z
 | 43 | 46 | deviation | CLAUDE.md |  | A varredura por FORMA da secao Portoes nao cobre 'IS DISTINCT FROM <n>', que e o idioma dominante do p46_purga_smoke.sql — um padrao de varredura que nao enxerga o idioma do arquivo que ele vigia tem ponto cego | fixed | Padrao de varredura do CLAUDE.md estendido para `IS DISTINCT FROM <n>` e listas literais proname/jobname/relname IN. Medido: 244 achados contra 164 do padrao antigo, sem perder NENHUMA das 164. | 2026-08-23T03:46:13.935Z | 2026-09-07T00:08:07.379Z |
 | 44 | 49 | deviation | supabase/migrations/20260922000002_p49_colunas_proveniencia_e_analise.sql |  | As 16 colunas novas ficam SEM veredito de export até o plano 49-17 (o drift 05-export-allowlist-drift.sql as acusa); não saem na cópia porque ela é allowlist, mas o checklist D-57 itens 3-9 está aberto | open |  | 2026-09-22T20:26:36.921Z |  |
 | 45 | 49 | unrun-verify | supabase/tests |  | O enum llm_provider e as 16 colunas novas nascem sem nenhum smoke vigiando; entrevista_guias e entrevista_analises não são citadas por NENHUM arquivo de supabase/tests/. Vigilância entra no p49_prova_prod.sql (plano 49-18) | open |  | 2026-09-22T20:26:37.024Z |  |
+| 46 | 49 | unrun-verify | supabase/functions/resend-webhook/__tests__/resend-webhook.test.ts |  | O verify #2 do 49-02 (find supabase/functions -name '*.test.ts' \| grep -v strict-schema \| xargs deno test) NAO roda como escrito: resend-webhook.test.ts falha na resolucao de npm:svix@1.99.1 (ausente no node_modules). Pre-existente, sem relacao com a Phase 49. Medido excluindo tambem resend-webhook: 609 passed / 0 failed. | open |  | 2026-09-22T21:17:37.115Z |  |
+| 47 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | interview_guide a 89% do timeout: maior latencia medida 98363 ms contra teto de 110 s; a 45 tok/s o teto por TEMPO e ~4950 tokens, mas max_tokens esta em 8000. Risco P1 de 'demorou' registrado, NAO consertado (Deferred do 49-02). | open |  | 2026-09-22T21:17:37.198Z |  |
+| 48 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | OPENAI_FALLBACK_MODEL segue hardcoded ('gpt-4o-mini') e o parametro fallback_model_id do ResolvedPrompt continua ignorado pelas EFs. P1 registrado no 49-02, fora do escopo dele. | open |  | 2026-09-22T21:17:37.287Z |  |
 
 ````json
 [
@@ -602,6 +605,45 @@ last_updated: 2026-09-22T20:26:37.024Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-22T20:26:37.024Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 46,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": "supabase/functions/resend-webhook/__tests__/resend-webhook.test.ts",
+    "line": null,
+    "description": "O verify #2 do 49-02 (find supabase/functions -name '*.test.ts' | grep -v strict-schema | xargs deno test) NAO roda como escrito: resend-webhook.test.ts falha na resolucao de npm:svix@1.99.1 (ausente no node_modules). Pre-existente, sem relacao com a Phase 49. Medido excluindo tambem resend-webhook: 609 passed / 0 failed.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T21:17:37.115Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 47,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/ai-client.ts",
+    "line": null,
+    "description": "interview_guide a 89% do timeout: maior latencia medida 98363 ms contra teto de 110 s; a 45 tok/s o teto por TEMPO e ~4950 tokens, mas max_tokens esta em 8000. Risco P1 de 'demorou' registrado, NAO consertado (Deferred do 49-02).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T21:17:37.198Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 48,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/ai-client.ts",
+    "line": null,
+    "description": "OPENAI_FALLBACK_MODEL segue hardcoded ('gpt-4o-mini') e o parametro fallback_model_id do ResolvedPrompt continua ignorado pelas EFs. P1 registrado no 49-02, fora do escopo dele.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T21:17:37.287Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
