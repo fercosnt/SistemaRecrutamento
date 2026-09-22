@@ -245,14 +245,74 @@ trouxer rodapé) ainda tem o placeholder «Dra. [Nome], CRP-XX/XXXXX».
 
 ## 5. Sessão 2 — revisão, reabertura, D-23, redecisão e avisos do titular
 
-_A preencher quando o operador avisar «sessão 2 feita»._
+Feita pelo operador em 2026-09-22 (horários em -03:00).
 
 ### Conferências humanas
 
-### Resultado da consulta de prova (todas)
+| Passo | Resultado | Observação do operador |
+|---|---|---|
+| (g) | ✓ | RH-A avançou a `+claude1` de Entrevista online até «Decisão final» e registrou **rejeitado**. |
+| (h) | ✓ | A `+claude1` pediu revisão pela página de explicação. |
+| (i) | ✓ | RH2 escolheu reabrir. **Diálogo:** «Reabrir a candidatura? A candidatura volta para «Decisão final» e precisa de uma nova decisão em até 10 dias corridos. Quem registrou a decisão original não poderá registrar a nova…». **E-mail:** «…sua candidatura foi reaberta e será decidida novamente até 02/10/2026» (= 22/09 + 10), com o botão do painel. **Painel:** «Candidatura reaberta — nova decisão até 02/10/2026»; o cartão «Entenda a decisão» sumiu. |
+| (j) | ✓ | RH-A recusado com «Você registrou a decisão que foi revertida na revisão. A nova decisão deste caso precisa ser registrada por outra pessoa do RH.» |
+| (k) | ✓ | RH3 aprovou; e-mail de aprovação com o botão do painel. |
+| (l) | ✓ | Com a `+claude3`. **Pedido:** data de execução 07/10/2026, como cancelar, «Se não foi você quem pediu…», botão e URL `/auth/login?redirect=%2Fcandidato%2Fprivacidade`. **Cancelamento:** datado de 22/09/2026, mesmo botão. Nenhum dos dois cita número de pedido. O operador conferiu no banco: `situacao='cancelado'` (4 s após o pedido), os dois avisos preenchidos, `recibo_enviado_em` nulo, 0 exclusões ativas, 0 candidaturas da `+claude3` marcadas «encerrada a pedido». |
+| (m) | ✓ | `+claude6` criada, Social Media, avançada até Avaliação Assíncrona, Big Five enviado. As 5 abas abrem, inclusive «Sensibilidade Emocional»; os 5 textos começam por «Pessoas com…», sem nome, sem percentil numérico, sem «não informado». |
+
+### Resultado da consulta de prova (todas) — 17 de 17 `true`
+
+Rodada em 2026-09-22 com o T0 deste arquivo (`p48_prova_prod.sql` inteiro, md5 do
+corpo sem comentários `b19905b9…`):
+
+| Prova | Resultado |
+|---|---|
+| `p1_confirmacao_d09_enviada` | ✓ true |
+| `p1_knockout_sem_analise` | ✓ true |
+| `p1_triagem_feedback_neutro` | ✓ true |
+| `p1_triagem_decisao_avisada` | ✓ true |
+| `p1_cognitivo_avisado` | ✓ true |
+| `p1_agendamento_invalido_fora` | ✓ true |
+| `p1_devolutiva_gerada` | ✓ true |
+| `p1_fila_sem_encerrada` | ✓ true |
+| `p1_sem_encerrada_a_pedido_errada` | ✓ true |
+| `p2_reabertura_registrada` | ✓ true |
+| `p2_revisao_respondida_avisada` | ✓ true |
+| `p2_revisao_solicitada_com_ciclo` | ✓ true |
+| `p2_redecisao_avisada` | ✓ true |
+| `p2_ciclo_zerado_e_arquivado` | ✓ true |
+| `p2_d23` | ✓ true |
+| `p2_titular_avisado` | ✓ true |
+| `p2_devolutiva_template_oficial` | ✓ true |
+
+### Contraprovas — o `true` não é coincidência
+
+- **Devolutiva da `+claude6` = template oficial, byte a byte.** O md5 de cada uma das 5
+  páginas gravadas (A `d3a2ab7e…`, C `f6584c67…`, E `83473a5b…`, N `a7c47d5e…`, O `74c1f3cf…`)
+  é igual ao md5 de `BAND_TEMPLATES[dim][banda]` extraído do disco: **5/5**. `modelo_ia`
+  nulo, criada 2026-09-22 00:36:07. É a única linha com `template_oficial`.
+- **D-23 com três pessoas distintas** na candidatura `2ce20fbf-…` da `+claude1`: a decisão
+  arquivada (`rejeitado`, `revertida`) é de `4fceff36-…`; a revisão, de `66412f96-…`; a
+  vigente (`aprovado`, 00:29:15), de `023abcd6-…`. Arquivamento e nova decisão no mesmo
+  instante — o `trg_decisao_final_snapshot`, como previsto.
+- **Prazo:** gravado `prazo_nova_decisao_em = 2026-10-03 00:00 -03:00`, que é o limite
+  EXCLUSIVO da fórmula do 48-11 (`(data_limite + 1)` à meia-noite de SP) — bate com o
+  «até 02/10/2026» que o operador leu no e-mail e no painel. `alerta_prazo_enviado_em`
+  nulo, corretamente: RH3 decidiu antes do vencimento.
+
+### Observações do operador na sessão 2 (nenhuma é do Bloco 1)
+
+- **Proposta de produto:** abrir o botão «Acompanhar candidatura» do painel do candidato
+  (hoje desativado) para mostrar a etapa, o que já foi feito e a jornada — já anotado na
+  Etapa 9 da `JORNADA-GUIADA.md` como botão morto.
+- O rodapé da devolutiva segue com «Conteúdo revisado por psicólogo(a) responsável»
+  (pendente em `deferred-items.md`) e usa o termo em inglês «self-assessment».
+- O e-mail de aprovação usa o mesmo layout neutro dos outros (PP-14, já registrada).
 
 ## 6. O que NÃO foi rodado
 
 `p47_teardown_dados_de_teste.sql` e o bloco `salvar_config_purga(... p_confirmo_live :=
-true)` do `46-07-RUNBOOK-FLIP` não foram rodados. Nenhuma escrita em PROD foi feita por
-esta Task 1.
+true)` do `46-07-RUNBOOK-FLIP` não foram rodados — nem na Task 1 nem nas sessões. Nenhum
+reset de conta de teste foi necessário (inscrições novas bastaram: `+claude5`, `+claude6`).
+Nenhuma escrita em PROD foi feita por Claude neste plano: toda consulta foi só leitura; as
+escritas vieram das ações do operador nas sessões e do deploy da EF v25 (48-19). As 2
+devolutivas antigas (`+claude5`, `candidato.funil@teste.com`) seguem intocadas.

@@ -145,15 +145,15 @@ Acrescentados em 2026-09-21. Origem: `.planning/JORNADA-GUIADA.md` (validação 
 
 - [x] **JORN-22**: Rejeição humana na triagem torna o Art. 20 alcançável — `rejeitar_candidatura` grava `feedback_rejeicao` neutro (o que o knockout já faz), o cartão «Entenda a decisão» aparece no painel **e a página de explicação serve o caso** com razão neutra própria e canal de contato, sem pedido de revisão (D-20)
 - [x] **JORN-26**: Nenhum código decide «candidatura encerrada / em andamento» só por `etapa_atual`, ignorando `status` — varredura pela forma registrada (`48-VARREDURA-ETAPA-ATUAL.md`), um predicado canônico aplicado em todas as instâncias não-destrutivas (pedido de exclusão, `retirar_candidatura`, trava de `rejeitar_candidatura`, `v_fila_trabalho`, hub do RH, KPI do funil); a purga fica registrada, não consertada (D-21)
-- [ ] **JORN-20**: Rejeição na triagem avisa o candidato por e-mail
-- [ ] **JORN-27**: Pedido e cancelamento de exclusão avisam o titular, com registro próprio de envio — **não** em `recibo_enviado_em`, que é o cinto do recibo pós-exclusão e, escrito no pedido, suprimiria o recibo final (correção de fato da pesquisa, 2026-09-21)
-- [ ] **JORN-18**: Uma segunda decisão sobre a mesma candidatura gera aviso — a chave de dedupe do evento de decisão distingue decisões
-- [ ] **JORN-15**: O e-mail de confirmação deixa de prometer «a cada etapa» e aponta para o painel (D-09) — e a nova promessa é verdade: a liberação da avaliação cognitiva passa a avisar (D-22)
-- [ ] **JORN-U2**: Todo e-mail transacional ao candidato traz link para o login do candidato (subiu do Bloco 4 por D9)
-- [ ] **JORN-24**: Knockout não dispara análise de IA; análises já geradas após knockout são marcadas, não apagadas (D2)
-- [ ] **JORN-06**: A devolutiva do Big Five volta a ser gerada, com a causa do 401 provada por medição antes do conserto
-- [ ] **JORN-19**: Veredito `revertida` reabre a candidatura em `decisao_final`, com prazo de 10 dias corridos, e-mail corrigido e alerta ao RH no vencimento; quem teve a decisão revertida não registra a nova (D-01, D-10, D-23)
-- [ ] **JORN-D5**: `local_ou_link` obrigatório e validado na escrita — link inválido não entra (D5)
+- [x] **JORN-20**: Rejeição na triagem avisa o candidato por e-mail
+- [x] **JORN-27**: Pedido e cancelamento de exclusão avisam o titular, com registro próprio de envio — **não** em `recibo_enviado_em`, que é o cinto do recibo pós-exclusão e, escrito no pedido, suprimiria o recibo final (correção de fato da pesquisa, 2026-09-21)
+- [x] **JORN-18**: Uma segunda decisão sobre a mesma candidatura gera aviso — a chave de dedupe do evento de decisão distingue decisões
+- [x] **JORN-15**: O e-mail de confirmação deixa de prometer «a cada etapa» e aponta para o painel (D-09) — e a nova promessa é verdade: a liberação da avaliação cognitiva passa a avisar (D-22)
+- [x] **JORN-U2**: Todo e-mail transacional ao candidato traz link para o login do candidato (subiu do Bloco 4 por D9)
+- [x] **JORN-24**: Knockout não dispara análise de IA; análises já geradas após knockout são marcadas, não apagadas (D2)
+- [x] **JORN-06**: A devolutiva do Big Five volta a ser gerada, com a causa do 401 provada por medição antes do conserto
+- [x] **JORN-19**: Veredito `revertida` reabre a candidatura em `decisao_final`, com prazo de 10 dias corridos, e-mail corrigido e alerta ao RH no vencimento; quem teve a decisão revertida não registra a nova (D-01, D-10, D-23)
+- [x] **JORN-D5**: `local_ou_link` obrigatório e validado na escrita — link inválido não entra (D5)
 
 ---
 
@@ -249,15 +249,15 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | CONSOL-04 | Phase 47 | Complete |
 | JORN-22 | Phase 48 | Complete |
 | JORN-26 | Phase 48 | Complete |
-| JORN-20 | Phase 48 | Pending |
-| JORN-27 | Phase 48 | Pending |
-| JORN-18 | Phase 48 | Pending |
-| JORN-15 | Phase 48 | Pending |
-| JORN-U2 | Phase 48 | Pending |
-| JORN-24 | Phase 48 | Pending |
-| JORN-06 | Phase 48 | Pending |
-| JORN-19 | Phase 48 | Pending |
-| JORN-D5 | Phase 48 | Pending |
+| JORN-20 | Phase 48 | Complete |
+| JORN-27 | Phase 48 | Complete |
+| JORN-18 | Phase 48 | Complete |
+| JORN-15 | Phase 48 | Complete |
+| JORN-U2 | Phase 48 | Complete |
+| JORN-24 | Phase 48 | Complete |
+| JORN-06 | Phase 48 | Complete |
+| JORN-19 | Phase 48 | Complete |
+| JORN-D5 | Phase 48 | Complete |
 
 **Coverage:**
 

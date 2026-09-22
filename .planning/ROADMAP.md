@@ -368,7 +368,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 48-18-PLAN.md — Prova em PROD pela consulta, com as contas da jornada: prontidão → sessão 1 (candidato/RH) → sessão 2 (revisão, reabertura, D-23, titular)
+- [x] 48-18-PLAN.md — Prova em PROD pela consulta, com as contas da jornada: prontidão → sessão 1 (candidato/RH) → sessão 2 (revisão, reabertura, D-23, titular)
 - [x] 48-19-PLAN.md — Devolutiva: texto oficial da faixa (IA desligada) e as cinco abas clicáveis — Defeitos 30/31 achados na sessão 1 do 48-18, decisão do operador (JORN-06)
 
 <details>
