@@ -5,10 +5,29 @@
  *
  * Arquitetura (CONTEXT §Comparativo on-demand — two-client D-23, JWT verify ON):
  *   Recebe `{ vaga_id, candidatura_ids[] }`, verifica o JWT do RH (supabaseUser
- *   anon + Authorization → auth.getUser()), valida 2-10 ids + que TODOS pertencem
- *   à MESMA vaga (400 caso contrário), roda o prompt `comparative_ranking` (Sonnet,
- *   single-eval V1) sobre as análises PRÉ-COMPUTADAS e INSERTa UMA linha de
- *   auditoria em `comparativo_solicitado` (candidatura_ids + ranking + latencia_ms).
+ *   anon + Authorization → auth.getUser()), valida a contagem contra
+ *   `COMPARATIVO_MIN/MAX_CANDIDATOS` + que TODAS as candidaturas são da vaga cuja
+ *   posse foi checada, roda o prompt `comparative_ranking` (Sonnet, single-eval V1)
+ *   sobre as análises PRÉ-COMPUTADAS e INSERTa UMA linha de auditoria em
+ *   `comparativo_solicitado` (candidatura_ids + ranking + latencia_ms +
+ *   provedor_ia/modelo_ia).
+ *
+ * ── PHASE 49 / PLANO 49-08 — o que mudou e por quê ───────────────────────────
+ *   · D-59: o teto de candidatos deixou de ser o literal 10 (que nunca foi medido
+ *     contra a saída real) e passa a vir de `_shared/comparativo-config.ts`: 4, o
+ *     maior n que cabe nos 3600 tok que os 110 s de timeout permitem. Um pedido
+ *     maior é recusado ANTES da chamada de IA, com a mensagem montada DA constante.
+ *   · JORN-32 (IDOR): a EF confere a posse de CADA candidatura contra
+ *     `body.vaga_id` — a vaga cuja posse foi verificada. Antes ela só conferia que
+ *     as ANÁLISES eram da mesma vaga ENTRE SI, o que não impedia um RH de comparar
+ *     candidatos de uma vaga alheia informando o `vaga_id` dela.
+ *   · D-34: candidatura encerrada ⇒ 400 `ENCERRADA`; análise ausente ⇒ 400
+ *     `SEM_ANALISE` com os ids. Antes as duas coisas (e o knockout sem análise)
+ *     recebiam «pertencem a vagas diferentes», que é uma mensagem FALSA.
+ *   · D-28: `provedor_ia`/`modelo_ia` gravados com o erro do INSERT CHECADO — uma
+ *     auditoria que não foi gravada nunca mais sai como `{ ok: true }`.
+ *   · Rótulo pela chave: a resposta leva `posicoes` (`C<n>` → `candidatura_id`) na
+ *     MESMA ordem do prompt, e a ordenação ganhou desempate estável.
  *
  * ── SINGLE-EVAL V1 (anti-viés de posição) ─────────────────────────────────────
  *   O prompt `comparative_ranking` prescreve dupla-avaliação (swap + média) para
@@ -45,6 +64,11 @@ import {
 import { PromptNotConfiguredError, SchemaVersionMismatchError } from "../_shared/prompt-loader.ts";
 import { emitPromptStubAlert } from "../_shared/audit-logger.ts";
 import { ComparativoBodySchema, ComparativeRankingSchema } from "../_shared/analise-schemas.ts";
+// D-59: o teto do comparativo numa constante só (EF + schema + front). Zero imports do lado dela.
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from "../_shared/comparativo-config.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
 // deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
@@ -165,11 +189,16 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
 
   const ids = body.candidatura_ids;
 
-  // ── 3. Valida 2-10 ids ────────────────────────────────────────────────────
-  if (ids.length < 2 || ids.length > 10) {
+  // ── 3. Valida a contagem contra a constante única (D-59) ──────────────────
+  //      A mensagem é MONTADA das constantes, não escrita ao lado delas: um teto
+  //      que muda na constante e não muda no texto produz uma recusa que mente
+  //      sobre o próprio critério (era um dos 8 lugares da varredura C1 #17).
+  //      A recusa acontece ANTES de qualquer chamada de IA — foi um pedido de 6
+  //      candidatos que truncou em 20/09 e saiu do modelo de fallback como sucesso.
+  if (ids.length < COMPARATIVO_MIN_CANDIDATOS || ids.length > COMPARATIVO_MAX_CANDIDATOS) {
     return errorResponse(
       "VALIDATION",
-      "Selecione de 2 a 10 candidatos para comparar.",
+      `Selecione de ${COMPARATIVO_MIN_CANDIDATOS} a ${COMPARATIVO_MAX_CANDIDATOS} candidatos para comparar.`,
     );
   }
 
@@ -221,9 +250,28 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
 
     // ── 6. Anti-viés de posição: ordena por score_match DESC ANTES do prompt ──
     //      (single-eval V1 — ver doc-comment do módulo; dupla-avaliação → V2).
-    const ordered = [...rows].sort(
-      (a, b) => (b.score_match ?? -1) - (a.score_match ?? -1),
-    );
+    //
+    // Phase 49 / 49-08 — DESEMPATE ESTÁVEL por `candidatura_id`. Antes: só
+    // `score_match DESC`. Dois candidatos com o MESMO score ficavam na ordem em que
+    // o Postgres devolveu as linhas, que não é garantida — o mesmo pedido podia
+    // produzir `C1`/`C2` trocados entre duas execuções. Como o rótulo `C<n>` é a
+    // ÚNICA amarra entre a resposta do modelo e a pessoa real, uma ordem instável é
+    // um risco de atribuir o ranking de alguém a outra pessoa (T-49-08-05).
+    const ordered = [...rows].sort((a, b) => {
+      const porScore = (b.score_match ?? -1) - (a.score_match ?? -1);
+      if (porScore !== 0) return porScore;
+      return a.candidatura_id < b.candidatura_id ? -1 : a.candidatura_id > b.candidatura_id ? 1 : 0;
+    });
+
+    // ── 6b. `posicoes`: a chave de cada posição do ranking (D-55 / Discretion 25) ─
+    //      Montado da MESMA lista `ordered` que gera o prompt, no MESMO laço de
+    //      índice — é isso que garante que `posicoes.C2` seja de fato o candidato
+    //      que o prompt chamou de `C2`. O front rotula por esta tabela, NUNCA pela
+    //      posição da seleção do usuário (que não tem relação com a ordem enviada).
+    const posicoes: Record<string, string> = {};
+    ordered.forEach((r, i) => {
+      posicoes[`C${i + 1}`] = r.candidatura_id;
+    });
 
     // Input COMPACTO: análises pré-computadas (NÃO CVs crus) — teto de tokens.
     const compactInput = ordered
@@ -284,14 +332,43 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     const latencia_ms = Date.now() - start;
     const ranking = result.parsed ?? null;
 
-    // ── 8. Persiste UMA linha de auditoria (RF-09) ────────────────────────────
-    await supabaseAdmin.from("comparativo_solicitado").insert({
+    // ── 8. Persiste UMA linha de auditoria (RF-09) + proveniência (D-28) ──────
+    //
+    // `provedor_ia` só aceita NULL | 'anthropic' | 'openai' (CHECK medido em PROD:
+    // `comparativo_solicitado_provedor_ia_check`). `result.provider` pode valer
+    // 'none' — as chamadas cortadas pelo teto de custo ou pela detecção de injeção,
+    // que nunca tocaram provedor nenhum (49-01/49-02). Mapear 'none' para NULL é o
+    // que o CHECK permite; forçar a string quebraria o INSERT em 23514.
+    const provedor_ia = result.provider === "anthropic" || result.provider === "openai"
+      ? result.provider
+      : null;
+    // `result.model` é o modelo que DE FATO respondeu (49-02) — a versão datada no
+    // caminho Anthropic, o modelo real do fallback no caminho OpenAI. NÃO é
+    // `resolved.model_id`, que é o CONFIGURADO: era essa diferença que fazia o
+    // ranking do `gpt-4o-mini` de 20/09 passar por ranking do Sonnet.
+    const modelo_ia = result.model;
+
+    // ⚠ ERRO CHECADO (varredura C6 #4). Antes: `await …insert({…})` sem destruturar,
+    // e a EF respondia `{ ok: true }` mesmo quando a linha de auditoria não existia.
+    // `ranking` é `jsonb NOT NULL` no banco, então um `result.parsed` nulo (parse
+    // falho, injeção) fazia o INSERT falhar em 23502 — em silêncio. Um comparativo
+    // mostrado ao RH e não auditado é indistinguível de um que nunca aconteceu
+    // (JORN-28: MUST NOT devolver ok:true quando a auditoria não foi gravada).
+    const { error: auditErr } = await supabaseAdmin.from("comparativo_solicitado").insert({
       vaga_id: body.vaga_id,
       candidatura_ids: ids,
       ranking,
       latencia_ms,
       solicitado_por: user.id,
+      provedor_ia,
+      modelo_ia,
     });
+    if (auditErr) {
+      throw new Error(
+        `insert de comparativo_solicitado falhou: ${auditErr.code ?? ""} ${auditErr.message ?? ""}`
+          .trim(),
+      );
+    }
 
     // Log redigido (Pitfall 7) — só ids/counts/latência/provider; NUNCA PII/score.
     console.log("[comparativo] ok", {
@@ -299,9 +376,22 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
       candidatos_count: ids.length,
       latencia_ms,
       provider: result.provider,
+      modelo_ia,
+      fallback_cause: result.fallback_cause ?? null,
     });
 
-    return jsonResponse({ ok: true, ranking, latencia_ms }, 200);
+    // `posicoes` + proveniência são ADITIVOS no contrato: o bundle do front que está
+    // publicado ignora campos que não conhece. A troca do rótulo e da seleção é do
+    // 49-13/49-22 (D-55) — a EF vai primeiro de propósito.
+    return jsonResponse({
+      ok: true,
+      ranking,
+      posicoes,
+      provedor_ia,
+      modelo_ia,
+      fallback_cause: result.fallback_cause ?? null,
+      latencia_ms,
+    }, 200);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[comparativo] erro", { vaga_id: body.vaga_id, error: message });

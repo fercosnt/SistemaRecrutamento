@@ -23,6 +23,13 @@
  * @see .planning/phases/10-triagem-rh-com-ia-comparativo-etapa-2/10-01-PLAN.md (Task 2 — TRIAGEM-03)
  */
 import { assert, assertEquals, assertExists } from "https://deno.land/std@0.224.0/assert/mod.ts";
+// Phase 49 / 49-08 — D-59: os testes de teto assertam contra a CONSTANTE, nunca contra o
+// número. Um teste que codifica «11 é demais» continua verde depois de o teto cair para 4 e
+// deixa de vigiar qualquer coisa (CLAUDE.md §Portões — a forma «lista literal»).
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from "../../_shared/comparativo-config.ts";
 
 // ComparativeRanking fixture — ENGLISH keys exactly as 00-shared-zod-schemas.ts:139.
 const COMPARATIVE_RANKING_FIXTURE = {
@@ -37,14 +44,34 @@ const COMPARATIVE_RANKING_FIXTURE = {
   bias_audit: { counterfactual_check_run: true, score_variance_within_threshold: true },
 };
 
+/**
+ * Phase 49 / 49-08 — D-28: o mock passa a devolver `model`, e uma VERSÃO DATADA
+ * distinta do alias configurado em `PROMPT_ROW_FIXTURE.model_id`
+ * (`claude-sonnet-4-6`). É essa diferença que os testes de proveniência exercitam:
+ * `modelo_ia` tem de ser o modelo que DE FATO respondeu, não o que está configurado
+ * — foi por confundir os dois que o ranking do `gpt-4o-mini` de 20/09 passou por
+ * ranking do Sonnet.
+ *
+ * `calls` registra os parâmetros de cada `messages.parse` para que um teste possa
+ * assertar sobre o PROMPT ENVIADO (e não só sobre a resposta): o token `(id=` é
+ * como o motor de exclusão do 49-14 (D-63) acha as linhas `comparative_ranking` do
+ * titular no `ai_call_logs`, então o formato do bloco é contrato, não estética.
+ */
+const MODELO_REAL_DO_MOCK = "claude-sonnet-4-6-20260215";
+
 function makeMockAnthropic() {
+  const calls: Record<string, unknown>[] = [];
   return {
+    calls,
     messages: {
-      parse: () =>
-        Promise.resolve({
+      parse: (params: Record<string, unknown>) => {
+        calls.push(params ?? {});
+        return Promise.resolve({
           parsed_output: COMPARATIVE_RANKING_FIXTURE,
+          model: MODELO_REAL_DO_MOCK,
           usage: { input_tokens: 1500, cache_read_input_tokens: 500, output_tokens: 300 },
-        }),
+        });
+      },
     },
   };
 }
@@ -79,6 +106,10 @@ function makeMockSupabaseAdmin(
   // Role row returned for the `usuarios_rh` lookup (role NÃO vem mais de getUser().app_metadata —
   // o hook injeta o role só no JWT; a EF lê de usuarios_rh). null = sem linha RH → role null → 403.
   usuariosRhRole: string | null = "recrutador",
+  // Phase 49 / 49-08 (D-28 / C6 #4): erro devolvido pelo INSERT em
+  // `comparativo_solicitado`. O default `null` preserva todos os testes anteriores; um
+  // erro aqui tem de virar 500, NUNCA `{ ok: true }` com auditoria ausente.
+  insertError: { code?: string; message?: string } | null = null,
 ) {
   const inserts: { table: string; row: Record<string, unknown> }[] = [];
   return {
@@ -121,7 +152,10 @@ function makeMockSupabaseAdmin(
         }),
         insert: (row: Record<string, unknown>) => {
           inserts.push({ table, row });
-          return Promise.resolve({ data: null, error: null });
+          return Promise.resolve({
+            data: null,
+            error: table === "comparativo_solicitado" ? insertError : null,
+          });
         },
       };
     },
@@ -209,7 +243,15 @@ Deno.test("C1 — rh who does NOT own the vaga → 403 FORBIDDEN", async () => {
   assertEquals(json.error_code, "FORBIDDEN");
 });
 
-// ── TRIAGEM-03: 2-10 validation ─────────────────────────────────────────────
+// ── TRIAGEM-03: validação de contagem (2 .. COMPARATIVO_MAX_CANDIDATOS) ─────
+//
+// ⚠ MUDANÇA DE PROPÓSITO — Phase 49 / 49-08 / D-56 / D-59. Este bloco assertava
+// «2-10»: o caso de teto usava 11 ids para provar que 11 é demais. Isso é uma
+// FOTOGRAFIA do teto 10, não o invariante — com o teto em 4, um teste de 11 ids
+// continua verde e deixa de vigiar qualquer coisa (é exatamente a forma «lista
+// literal» do CLAUDE.md §Portões, a que não reprova nada). As asserções abaixo
+// passaram a ser sobre a CONSTANTE: `MAX + 1` é sempre demais, `MIN - 1` sempre
+// pouco, qualquer que seja o valor dela.
 Deno.test("TRIAGEM-03 — fewer than 2 ids → 400 VALIDATION", async () => {
   const { handler } = await loadHandler();
   const deps = {
@@ -224,9 +266,46 @@ Deno.test("TRIAGEM-03 — fewer than 2 ids → 400 VALIDATION", async () => {
   assertEquals(json.error_code, "VALIDATION");
 });
 
-Deno.test("TRIAGEM-03 — more than 10 ids → 400 VALIDATION", async () => {
+Deno.test(
+  "49-08 / D-59 — MAX + 1 ids → 400 VALIDATION, mensagem montada da constante, ZERO chamadas de IA",
+  async () => {
+    const { handler } = await loadHandler();
+    const ids = Array.from({ length: COMPARATIVO_MAX_CANDIDATOS + 1 }, (_, i) => `c${i}`);
+    const anthropic = makeMockAnthropic();
+    const supabaseAdmin = makeMockSupabaseAdmin(rowsForVaga("v1", ids));
+    const deps = {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ids }), deps);
+    assertEquals(res.status, 400);
+    const json = await res.json();
+    assertEquals(json.error_code, "VALIDATION");
+    // A mensagem tem de NOMEAR o teto vigente. O defeito que isto pega é a recusa que
+    // diz «de 2 a 10» quando o teto virou 4 — pior que não dizer nada, porque manda o
+    // RH tentar de novo com um número que vai ser recusado igual.
+    assert(
+      String(json.message).includes(
+        `de ${COMPARATIVO_MIN_CANDIDATOS} a ${COMPARATIVO_MAX_CANDIDATOS}`,
+      ),
+      `a mensagem de recusa deve vir da constante; veio: ${json.message}`,
+    );
+    // D-59: a recusa é ANTES da chamada. Um pedido grande demais que CHEGA ao provedor
+    // é o caso de 20/09: truncou em max_tokens e o ranking saiu do modelo de fallback.
+    assertEquals(anthropic.calls.length, 0, "nenhuma chamada de IA para um pedido recusado");
+    assertEquals(
+      supabaseAdmin.inserts.length,
+      0,
+      "nenhuma linha de auditoria para um pedido recusado",
+    );
+  },
+);
+
+Deno.test("49-08 / D-59 — exatamente MAX ids é ACEITO (o teto é inclusivo)", async () => {
   const { handler } = await loadHandler();
-  const ids = Array.from({ length: 11 }, (_, i) => `c${i}`);
+  const ids = Array.from({ length: COMPARATIVO_MAX_CANDIDATOS }, (_, i) => `c${i}`);
   const deps = {
     anthropic: makeMockAnthropic(),
     openai: makeMockOpenAI(),
@@ -234,9 +313,8 @@ Deno.test("TRIAGEM-03 — more than 10 ids → 400 VALIDATION", async () => {
     supabaseUser: makeMockSupabaseUser(RH_USER),
   };
   const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ids }), deps);
-  assertEquals(res.status, 400);
-  const json = await res.json();
-  assertEquals(json.error_code, "VALIDATION");
+  // Sem esta borda, baixar o teto por engano para 3 passaria por todos os outros testes.
+  assertEquals(res.status, 200, "o teto é inclusivo — MAX candidatos tem de passar");
 });
 
 // ── TRIAGEM-03: same-vaga validation (mixed-vaga + length mismatch) ─────────
@@ -304,5 +382,152 @@ Deno.test("TRIAGEM-03 — happy path returns { ranking, latencia_ms } and writes
     supabaseAdmin.inserts.filter((i) => i.table === "comparativo_solicitado").length,
     1,
     "exactly one audit row",
+  );
+});
+
+// ── Phase 49 / 49-08 — D-28: proveniência real gravada E devolvida ───────────
+Deno.test(
+  "49-08 / D-28 — a resposta e a linha de auditoria levam o modelo REAL (não o configurado)",
+  async () => {
+    const { handler } = await loadHandler();
+    const supabaseAdmin = makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"]));
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 200);
+    const json = await res.json();
+
+    // O alias configurado é `claude-sonnet-4-6` (PROMPT_ROW_FIXTURE.model_id); o que
+    // respondeu é a versão datada. Os dois têm de ser DISTINTOS aqui, senão o teste
+    // passaria mesmo se a EF gravasse o configurado — o defeito que o D-28 fecha.
+    assert(
+      MODELO_REAL_DO_MOCK !== PROMPT_ROW_FIXTURE.model_id,
+      "a fixture tem de distinguir modelo real de modelo configurado",
+    );
+    assertEquals(json.modelo_ia, MODELO_REAL_DO_MOCK, "a resposta leva o modelo REAL");
+    assertEquals(json.provedor_ia, "anthropic");
+    assertEquals(json.fallback_cause, null, "sem fallback ⇒ fallback_cause null, não undefined");
+
+    const auditRow = supabaseAdmin.inserts.find((i) => i.table === "comparativo_solicitado")!;
+    assertEquals(auditRow.row.modelo_ia, MODELO_REAL_DO_MOCK, "a linha grava o modelo REAL");
+    assertEquals(auditRow.row.provedor_ia, "anthropic");
+  },
+);
+
+Deno.test(
+  "49-08 / D-28 (C6 #4) — erro no INSERT da auditoria ⇒ 500, NUNCA { ok: true }",
+  async () => {
+    const { handler } = await loadHandler();
+    // 23502: `ranking` é jsonb NOT NULL — o caso real de um parse nulo. Antes deste plano
+    // o erro era descartado e a EF respondia 200 com um comparativo não auditado.
+    const supabaseAdmin = makeMockSupabaseAdmin(
+      rowsForVaga("v1", ["c1", "c2"]),
+      "rh-1",
+      "recrutador",
+      { code: "23502", message: 'null value in column "ranking" violates not-null constraint' },
+    );
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+    assertEquals(res.status, 500);
+    const json = await res.json();
+    assertEquals(json.ok, false);
+    assertEquals(json.error_code, "SERVER_ERROR");
+  },
+);
+
+// ── Phase 49 / 49-08 — o rótulo pela CHAVE, não pela posição da seleção ─────
+Deno.test(
+  "49-08 — a resposta devolve `posicoes` (C<n> → candidatura_id) na MESMA ordem do prompt",
+  async () => {
+    const { handler } = await loadHandler();
+    // Scores deliberadamente FORA da ordem da seleção: o pedido vem c1,c2,c3 e a ordem
+    // enviada ao modelo é c3 (90), c1 (75), c2 (60). Se o front rotulasse pela posição da
+    // seleção, «C1» apontaria para c1 — a pessoa errada.
+    const rows = [
+      { ...rowsForVaga("v1", ["c1"])[0], score_match: 75 },
+      { ...rowsForVaga("v1", ["c2"])[0], score_match: 60 },
+      { ...rowsForVaga("v1", ["c3"])[0], score_match: 90 },
+    ];
+    const anthropic = makeMockAnthropic();
+    const deps = {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(rows),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(
+      makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2", "c3"] }),
+      deps,
+    );
+    assertEquals(res.status, 200);
+    const json = await res.json();
+    assertEquals(json.posicoes, { C1: "c3", C2: "c1", C3: "c2" });
+
+    // E `posicoes` tem de casar com o PROMPT ENVIADO, não só com a ordenação interna:
+    // são duas coisas que podem divergir, e é a divergência que trocaria as pessoas.
+    const enviado = JSON.stringify(anthropic.calls[0] ?? {});
+    for (const [rotulo, id] of Object.entries(json.posicoes as Record<string, string>)) {
+      assert(
+        enviado.includes(`Candidato ${rotulo} (id=${id})`),
+        `o prompt tem de conter «Candidato ${rotulo} (id=${id})»`,
+      );
+    }
+  },
+);
+
+Deno.test(
+  "49-08 — empate de score_match ⇒ ordem por candidatura_id (desempate estável)",
+  async () => {
+    const { handler } = await loadHandler();
+    // MESMO score nos três. Sem desempate a ordem é a que o Postgres devolveu — e o
+    // mesmo pedido podia produzir C1/C2 trocados entre duas execuções.
+    const rows = [
+      { ...rowsForVaga("v1", ["c-zebra"])[0], score_match: 70 },
+      { ...rowsForVaga("v1", ["c-alfa"])[0], score_match: 70 },
+      { ...rowsForVaga("v1", ["c-meio"])[0], score_match: 70 },
+    ];
+    const deps = {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabaseAdmin: makeMockSupabaseAdmin(rows),
+      supabaseUser: makeMockSupabaseUser(RH_USER),
+    };
+    const res = await handler(
+      makeRequest({ vaga_id: "v1", candidatura_ids: ["c-zebra", "c-alfa", "c-meio"] }),
+      deps,
+    );
+    assertEquals(res.status, 200);
+    const json = await res.json();
+    assertEquals(json.posicoes, { C1: "c-alfa", C2: "c-meio", C3: "c-zebra" });
+  },
+);
+
+Deno.test("49-08 / D-63 — o bloco de cada candidato no prompt conserva o token `(id=`", async () => {
+  const { handler } = await loadHandler();
+  const anthropic = makeMockAnthropic();
+  const deps = {
+    anthropic,
+    openai: makeMockOpenAI(),
+    supabaseAdmin: makeMockSupabaseAdmin(rowsForVaga("v1", ["c1", "c2"])),
+    supabaseUser: makeMockSupabaseUser(RH_USER),
+  };
+  await handler(makeRequest({ vaga_id: "v1", candidatura_ids: ["c1", "c2"] }), deps);
+  const enviado = JSON.stringify(anthropic.calls[0] ?? {});
+  // É por este token que `anonimizar_candidato` (49-14, D-63) acha as linhas
+  // `comparative_ranking` do titular no `ai_call_logs` para redigir. Mudar o formato do
+  // bloco sem mudar o motor deixaria o comparativo fora da redação, calado.
+  assert(enviado.includes("(id="), "o prompt deve conter o token `(id=`");
+  assert(
+    /Candidato C1 \(id=c[12]\)/.test(enviado),
+    "o formato `Candidato C<n> (id=<candidatura_id>)` é contrato do 49-14",
   );
 });

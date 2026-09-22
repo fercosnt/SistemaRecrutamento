@@ -25,6 +25,14 @@
 // e leem `.def`; um schema do namespace v3 clássico (`._def`) faz o zodOutputFormat do Anthropic
 // estourar "Cannot read properties of undefined (reading 'def')". zod@3.25.76 traz ambos.
 import { z } from "npm:zod@3.25.76/v4";
+// Phase 49 / 49-08 — D-59: o teto do comparativo vive numa constante só (`comparativo-config.ts`,
+// ZERO IMPORTS). A direção de import é esta e só esta: este arquivo importa `npm:zod`, então PODE
+// importar de lá; o contrário quebraria o contrato de zero imports que o front depende para
+// importar a constante por caminho relativo.
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from "./comparativo-config.ts";
 
 // ============================================================================
 // PRIMITIVES (copiadas verbatim de 00-shared-zod-schemas.ts)
@@ -152,8 +160,11 @@ export const ComparativeRankingSchema = z.object({
         rationale: z.string().min(30).max(2000).describe("Por que está nesta posição vs vizinhos. Objetivo, até ~400 caracteres. A decisão é sempre humana: não use 'desclassificado' nem 'eliminado'."),
       }),
     )
-    .min(2)
-    .max(10),
+    // Phase 49 / 49-08 — D-59: era `.min(2).max(10)` com literais. O teto agora vem da constante
+    // única, e baixá-lo de 10 para 4 muda o JSON Schema enviado ao provedor ⇒ fingerprint de
+    // idempotência novo, que é o comportamento CORRETO (um replay da era do teto 10 não volta).
+    .min(COMPARATIVO_MIN_CANDIDATOS)
+    .max(COMPARATIVO_MAX_CANDIDATOS),
 
   recommendation: z.object({
     top_choice: z.string().describe("ID do candidato recomendado"),
