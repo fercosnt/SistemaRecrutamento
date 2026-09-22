@@ -1,8 +1,8 @@
 ---
 phase: 48-consertos-da-jornada-bloco-1
 verified: 2026-09-22T04:05:15Z
-status: human_needed
-score: 7/8 verdades verificadas (7/7 critérios do ROADMAP; a 8ª, o rodapé da devolutiva sem supervisão profissional, está no código e testada, mas NÃO está no ar)
+status: passed
+score: "8/8 verdades verificadas (7/7 critérios do ROADMAP + o rodapé da devolutiva sem supervisão profissional nem promessa sem caminho, no ar na EF v27) — os 3 itens humanos resolvidos pelo operador em 2026-09-22"
 covered_files:
   - .planning/REQUIREMENTS.md
   - .planning/phases/48-consertos-da-jornada-bloco-1/48-01-PLAN.md
@@ -78,7 +78,8 @@ covered_files:
 covered_digest: "v1:sha256:7bf1616779f55707319073f71b78eb700960c611c0a7010b8cc4a6826da8cb7f"
 behavior_unverified: 0
 overrides_applied: 0
-flagged_prohibitions: 42  # todas judgment-tier; veredito do verificador NÃO é autoritativo (ver §Proibições)
+flagged_prohibitions: 42  # todas judgment-tier; ACEITAS pelo operador em 2026-09-22 (ver §Resolução dos itens humanos)
+resolved_at: 2026-09-22
 human_verification:
   - test: "Deploy da EF gerar-devolutiva-bigfive v26 pelo operador (node efdeploy.cjs gerar-devolutiva-bigfive) + push autorizado de origin/main..HEAD (aa2b38ed, 48409fe7, 80f5110f)"
     expected: "Bundle vivo da v26 sem «Conteúdo revisado por» (e com a frase negada mantida); build novo do front sem «Dra. [Nome]» / «CRP-XX» no chunk onde a DevolutivaBigFiveView mora; git log --oneline origin/main..HEAD vazio"
@@ -95,7 +96,7 @@ human_verification:
 
 **Objetivo da fase:** O candidato rejeitado — na triagem, por knockout ou na decisão final — é avisado, alcança o Art. 20 e não tem a história da própria candidatura reescrita; o titular é avisado do que acontece com os próprios dados; e nenhuma promessa escrita ao candidato fica sem código que a cumpra.
 **Verificado em:** 2026-09-22T04:05:15Z (HEAD local `80f5110f`)
-**Status:** human_needed — um item bloqueia o fechamento: **deploy da EF v26 + push do front** (rodapé sem supervisão profissional, decisão do operador de 2026-09-22)
+**Status:** ~~human_needed~~ → **passed** em 2026-09-22 — os 3 itens humanos foram resolvidos pelo operador (ver §Resolução dos itens humanos, no fim). O texto abaixo é o da verificação inicial, mantido como estava.
 **Re-verificação:** Não. É a verificação inicial.
 
 ## Limites desta verificação
@@ -320,6 +321,22 @@ Nenhum TBD/FIXME/XXX. Nenhum stub.
 **Teste:** revisar o veredito não autoritativo da §Proibições.
 **Esperado:** aceite, ou apontar a divergência.
 **Por que humano:** exigência do contrato de verificação para proibições judgment-tier.
+
+## Resolução dos itens humanos (2026-09-22) — a fase fecha `passed`
+
+| # | Item | Resolução do operador | Conferido no ar |
+|---|---|---|---|
+| 1 | Deploy da EF + push (rodapé sem supervisão profissional) | Deploy da **v26** e depois da **v27** (a v27 inclui o item 2); push autorizado de todos os commits | **v27 = disco** (`ef068dd8`): sha256 dos 8 arquivos do bundle igual ao disco e ao HEAD; `DISCLAIMER_LGPD_CRP` = «Este é um self-assessment de estilo de trabalho — não é teste psicológico. Não é fator único de eliminação no processo seletivo.»; «Conteúdo revisado por» só num comentário que explica a retirada, fora do texto servido. Front `index-Cuux4LCd.js` (chunk da `DevolutivaBigFiveView`): sem «revisão humana a qualquer momento», sem «Gerenciado pela», com o rodapé novo. `origin/main..HEAD` vazio |
+| 2 | Promessa «explicação detalhada ou revisão humana a qualquer momento» sem caminho na página | **Opção (a): remover** | Removida da EF (v27), do fallback do front e de `templates-devolutiva.md` (`ef068dd8`); testes com mordida provada |
+| 3 | 42 proibições judgment-tier | **Aceitas**, conforme esta verificação | — |
+
+Decisões do operador na mesma data, registradas em `48-EVIDENCIA-HOTFIX-E-D23.md`:
+- **D-23:** manter a regra de dono da vaga para recrutadores, também nos casos reabertos. Nada muda no código.
+- **Hotfix de segurança:** a decisão de comunicar incidente será tratada **fora da Phase 48**, com base na evidência.
+
+Ficam como antes, por decisão: as 3 devolutivas antigas de teste mantêm o rodapé antigo gravado.
+
+**Última cláusula do objetivo** («nenhuma promessa escrita ao candidato fica sem código que a cumpra»): com a v27 no ar, o rodapé da devolutiva não afirma mais supervisão profissional inexistente nem promete um caminho que a página não tem.
 
 ## Resumo
 

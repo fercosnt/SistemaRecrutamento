@@ -29,7 +29,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [ ] **Phase 45: Motor de Exclusão & Anonimização** ⚠️ **FASE DE MAIOR RISCO** - O pedido de exclusão executa de verdade — Storage → Postgres → Auth, irreversível, sem levar junto a trilha de decisão humana
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
 - [ ] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute
-- [ ] **Phase 48: Consertos da Jornada — Bloco 1** - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
+- [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
 
 ### Ordem de execução, dependências e paralelização
 
@@ -455,7 +455,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 45. Motor de Exclusão & Anonimização ⚠️ | v8.0 | 11/13 | In Progress|  |
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
-| 48. Consertos da Jornada — Bloco 1 | v8.0 | 17/18 | In Progress|  |
+| 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
 
 ---
 

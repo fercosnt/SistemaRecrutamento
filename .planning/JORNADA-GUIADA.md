@@ -2243,6 +2243,8 @@ Reescrita do zero: a versão anterior foi feita com 15 defeitos; são **29**. Or
 > que só passou a existir com o conserto do 6) — consertados dentro do bloco por decisão do operador.
 > Fora do bloco e registrado: o hotfix de segurança do 48-14 (leitura anônima de `candidaturas` e
 > de 7 views — ver `48-VERIFICATION.md`).
+> Rodapé da devolutiva sem supervisão profissional inexistente e sem a promessa de «revisão humana a
+> qualquer momento» (decisões do operador, 22/09) — **no ar na EF v27**. Verificação da fase: **`passed`**.
 
 | # | O quê | Onde / o que exige |
 |---|---|---|

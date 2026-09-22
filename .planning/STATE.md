@@ -2,20 +2,20 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
-stopped_at: Completed 48-18-PLAN.md — Phase 48 com todos os planos concluídos, pronta para verificação
+status: complete
+stopped_at: Phase 48 COMPLETA — verificação passed (2026-09-22)
 last_updated: "2026-09-21T22:48:51.026Z"
 last_activity: 2026-09-21
 state_head: 816b7b085eb02d9fb30177e75efbd0d6d76a7498
 progress:
   total_phases: 7
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 78
-  completed_plans: 76
+  completed_plans: 77
   percent: 96
 current_phase_name: Consertos da Jornada — Bloco 1
 current_phase: 48
-last_activity_desc: "2026-09-22 — 48-18 fechado: prova em PROD 17/17 true (sessões 1 e 2 do operador); 48-19 (devolutiva: texto oficial + abas, Defeitos 30/31) no ar e provado byte a byte. Os 11 requisitos JORN da fase provados. Próximo: verificação da Phase 48."
+last_activity_desc: "2026-09-22 — Phase 48 COMPLETA: 48-VERIFICATION.md passed (8/8), prova em PROD 17/17, os 11 JORN fechados; rodapé da devolutiva sem supervisão nem promessa sem caminho no ar (EF v27, front index-Cuux4LCd). Hotfix de segurança do 48-14 registrado fora do plano; comunicação de incidente tratada pelo operador fora da fase."
 ---
 
 # Project State
@@ -1346,7 +1346,7 @@ blocker; todos estão rastreados em arquivo.
 ## Session Continuity
 
 Last session: 2026-09-21 (sessão retomada via /gsd-resume-work)
-Stopped at: 48-18 FECHADO 2026-09-22 — prova em PROD 17/17 true, contraprovas feitas (md5 5/5 do template; três RH distintos no D-23). Todos os 19 planos da Phase 48 concluídos; os 11 JORN provados. Próximo: verificação da fase (VERIFICATION.md)
+Stopped at: Phase 48 COMPLETA 2026-09-22 — verificação `passed` (8/8; os 3 itens humanos resolvidos pelo operador). EF `gerar-devolutiva-bigfive` v27 = disco; front `index-Cuux4LCd.js`; `origin/main..HEAD` vazio. Próximo: decidir o que vem depois do Bloco 1 (Blocos 2–4 da fila da JORNADA-GUIADA) e o fecho do M8
 Resume file: .planning/phases/48-consertos-da-jornada-bloco-1/48-PROVA-PROD.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
