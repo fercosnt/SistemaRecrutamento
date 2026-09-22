@@ -315,7 +315,9 @@ export type Database = {
           flags: string[]
           gaps: string[]
           id: string
+          modelo_ia: string | null
           pontos_fortes: string[]
+          provedor_ia: string | null
           resumo_cv: string | null
           resumo_respostas: string | null
           score_match: number | null
@@ -332,7 +334,9 @@ export type Database = {
           flags?: string[]
           gaps?: string[]
           id?: string
+          modelo_ia?: string | null
           pontos_fortes?: string[]
+          provedor_ia?: string | null
           resumo_cv?: string | null
           resumo_respostas?: string | null
           score_match?: number | null
@@ -349,7 +353,9 @@ export type Database = {
           flags?: string[]
           gaps?: string[]
           id?: string
+          modelo_ia?: string | null
           pontos_fortes?: string[]
+          provedor_ia?: string | null
           resumo_cv?: string | null
           resumo_respostas?: string | null
           score_match?: number | null
@@ -1289,6 +1295,8 @@ export type Database = {
           created_at: string
           id: string
           latencia_ms: number | null
+          modelo_ia: string | null
+          provedor_ia: string | null
           ranking: Json
           solicitado_por: string | null
           vaga_id: string
@@ -1298,6 +1306,8 @@ export type Database = {
           created_at?: string
           id?: string
           latencia_ms?: number | null
+          modelo_ia?: string | null
+          provedor_ia?: string | null
           ranking: Json
           solicitado_por?: string | null
           vaga_id: string
@@ -1307,6 +1317,8 @@ export type Database = {
           created_at?: string
           id?: string
           latencia_ms?: number | null
+          modelo_ia?: string | null
+          provedor_ia?: string | null
           ranking?: Json
           solicitado_por?: string | null
           vaga_id?: string
@@ -1943,6 +1955,7 @@ export type Database = {
       }
       entrevista_analises: {
         Row: {
+          ai_call_log_id: string | null
           bias_flags: Json | null
           bloqueio_avanco: boolean
           candidatura_id: string
@@ -1950,14 +1963,21 @@ export type Database = {
           competencias: Json | null
           created_at: string
           id: string
+          modelo_ia: string | null
           notas_humanas: string | null
           prompt_version: string | null
+          provedor_ia: string | null
           revisada_por: string | null
           revisao_confirmada_em: string | null
           scores_humanos: Json | null
+          solicitado_por: string | null
           status_analise: string
+          superada_em: string | null
+          texto_hash: string | null
+          tipo: string | null
         }
         Insert: {
+          ai_call_log_id?: string | null
           bias_flags?: Json | null
           bloqueio_avanco?: boolean
           candidatura_id: string
@@ -1965,14 +1985,21 @@ export type Database = {
           competencias?: Json | null
           created_at?: string
           id?: string
+          modelo_ia?: string | null
           notas_humanas?: string | null
           prompt_version?: string | null
+          provedor_ia?: string | null
           revisada_por?: string | null
           revisao_confirmada_em?: string | null
           scores_humanos?: Json | null
+          solicitado_por?: string | null
           status_analise?: string
+          superada_em?: string | null
+          texto_hash?: string | null
+          tipo?: string | null
         }
         Update: {
+          ai_call_log_id?: string | null
           bias_flags?: Json | null
           bloqueio_avanco?: boolean
           candidatura_id?: string
@@ -1980,12 +2007,18 @@ export type Database = {
           competencias?: Json | null
           created_at?: string
           id?: string
+          modelo_ia?: string | null
           notas_humanas?: string | null
           prompt_version?: string | null
+          provedor_ia?: string | null
           revisada_por?: string | null
           revisao_confirmada_em?: string | null
           scores_humanos?: Json | null
+          solicitado_por?: string | null
           status_analise?: string
+          superada_em?: string | null
+          texto_hash?: string | null
+          tipo?: string | null
         }
         Relationships: [
           {
@@ -2024,7 +2057,9 @@ export type Database = {
           created_at: string
           guia: Json
           id: string
+          modelo_ia: string | null
           prompt_version: string | null
+          provedor_ia: string | null
           tipo: string
           updated_at: string
         }
@@ -2033,7 +2068,9 @@ export type Database = {
           created_at?: string
           guia: Json
           id?: string
+          modelo_ia?: string | null
           prompt_version?: string | null
+          provedor_ia?: string | null
           tipo: string
           updated_at?: string
         }
@@ -2042,7 +2079,9 @@ export type Database = {
           created_at?: string
           guia?: Json
           id?: string
+          modelo_ia?: string | null
           prompt_version?: string | null
+          provedor_ia?: string | null
           tipo?: string
           updated_at?: string
         }
@@ -3579,14 +3618,17 @@ export type Database = {
           id: string
           input_hash: string | null
           model_version: string | null
+          modelo_ia: string | null
           notas_revisor: string | null
           ordem: number
           pergunta_id: string
           prompt_version: string | null
+          provedor_ia: string | null
           red_flag_etico: boolean
           referencia_match: string[]
           revisada_em: string | null
           revisada_por: string | null
+          rubrica_versao: string | null
           score_ponderado_0_100: number | null
           scores_dimensao: Json | null
           scores_humanos: Json | null
@@ -3611,14 +3653,17 @@ export type Database = {
           id?: string
           input_hash?: string | null
           model_version?: string | null
+          modelo_ia?: string | null
           notas_revisor?: string | null
           ordem: number
           pergunta_id: string
           prompt_version?: string | null
+          provedor_ia?: string | null
           red_flag_etico?: boolean
           referencia_match?: string[]
           revisada_em?: string | null
           revisada_por?: string | null
+          rubrica_versao?: string | null
           score_ponderado_0_100?: number | null
           scores_dimensao?: Json | null
           scores_humanos?: Json | null
@@ -3643,14 +3688,17 @@ export type Database = {
           id?: string
           input_hash?: string | null
           model_version?: string | null
+          modelo_ia?: string | null
           notas_revisor?: string | null
           ordem?: number
           pergunta_id?: string
           prompt_version?: string | null
+          provedor_ia?: string | null
           red_flag_etico?: boolean
           referencia_match?: string[]
           revisada_em?: string | null
           revisada_por?: string | null
+          rubrica_versao?: string | null
           score_ponderado_0_100?: number | null
           scores_dimensao?: Json | null
           scores_humanos?: Json | null
@@ -5636,6 +5684,14 @@ export type Database = {
         Returns: string
       }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      entrevista_analise_vigente: {
+        Args: {
+          p_competencias: Json
+          p_status_analise: string
+          p_superada_em: string
+        }
+        Returns: boolean
+      }
       explicacao_rejeicao_automatica: {
         Args: { p_candidatura_id: string }
         Returns: boolean
