@@ -145,9 +145,13 @@ SELECT
                  AND (a.local_ou_link IS NULL OR a.local_ou_link !~ '^https?://'))
     AS p1_agendamento_invalido_fora,
 
-  -- JORN-06: uma submissão nova de Big Five gerou devolutiva
+  -- JORN-06: uma submissão nova de Big Five gerou devolutiva.
+  -- ⚠ Filtra por `candidatura_id`, NÃO por `candidato_id`: nesta tabela `candidato_id` é o
+  -- uid do Auth (`candidatos.user_id`, FK auth.users), não `candidatos.id`. A 1ª versão
+  -- comparava com `candidatos.id` e saía `false` com a devolutiva da +claude5 no banco
+  -- (sessão 1, 2026-09-21) — um portão que não conseguia passar.
   EXISTS (SELECT 1 FROM public.devolutivas_candidato d, t
-           WHERE d.candidato_id IN (SELECT id FROM teste)
+           WHERE d.candidatura_id IN (SELECT id FROM cand)
              AND d.created_at > t.t0)
     AS p1_devolutiva_gerada,
 
@@ -214,4 +218,24 @@ SELECT
              AND s.aviso_pedido_enviado_em > t.t0
              AND s.aviso_cancelamento_enviado_em > t.t0
              AND s.recibo_enviado_em IS NULL)
-    AS p2_titular_avisado;
+    AS p2_titular_avisado,
+
+  -- JORN-06 / Defeito 30 (48-19): uma devolutiva de teste gerada depois do deploy serve o
+  -- texto oficial da faixa — marcadores de persistência, as 5 páginas abrindo por
+  -- «Pessoas com » sem dígito nem colchete, e nenhuma chamada de IA da devolutiva para
+  -- aquele candidato a partir de 10 min antes da geração (ai_call_logs.candidato_id é
+  -- `candidatos.id`, o mesmo de `candidaturas.candidato_id`)
+  EXISTS (SELECT 1 FROM public.devolutivas_candidato d
+            JOIN cand cd ON cd.id = d.candidatura_id, t
+           WHERE d.created_at > t.t0
+             AND d.prompt_version = 'template_oficial'
+             AND d.modelo_ia IS NULL
+             AND jsonb_array_length(d.conteudo_jsonb -> 'paginas') = 5
+             AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(d.conteudo_jsonb -> 'paginas') p
+                              WHERE (p ->> 'texto_interpretativo') NOT LIKE 'Pessoas com %'
+                                 OR (p ->> 'texto_interpretativo') ~ '[0-9\[\]]')
+             AND NOT EXISTS (SELECT 1 FROM public.ai_call_logs l
+                              WHERE l.call_type::text = 'bigfive_devolutiva'
+                                AND l.candidato_id = cd.candidato_id
+                                AND l.created_at > d.created_at - interval '10 minutes'))
+    AS p2_devolutiva_template_oficial;

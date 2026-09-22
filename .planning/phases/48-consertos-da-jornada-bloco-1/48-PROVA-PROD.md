@@ -121,6 +121,7 @@ deste plano, e tocam só os três arquivos do `files_modified`.
 | `p2_ciclo_zerado_e_arquivado` | false | sessão 2 (k) |
 | `p2_d23` | false | sessão 2 (j)+(k) |
 | `p2_titular_avisado` | false | sessão 2 (l) |
+| `p2_devolutiva_template_oficial` | false | *(acrescentada pelo 48-19)* sessão 2 (m), depois do deploy do 48-19 — hoje reprova a linha da `+claude5` por 3 razões |
 
 Conferências de forma feitas antes da linha de base, contra o catálogo e o fonte vivos:
 
@@ -156,11 +157,80 @@ Nenhum reset é necessário.
 
 ## 4. Sessão 1 — jornada do candidato e do RH
 
-_A preencher quando o operador avisar «sessão 1 feita»._
+Feita pelo operador em 2026-09-21 (horários abaixo em -03:00, como ele os leu).
 
 ### Conferências humanas
 
-### Resultado da consulta de prova (`p1_*`)
+| Passo | Resultado | Observação do operador |
+|---|---|---|
+| (a) | ✓ | `+claude5` criada; inscrições na Consultor (20:14) e na Social Media (20:15). Os 2 e-mails de confirmação trazem o texto D-09, **sem** «a cada etapa», com «Acessar meu painel» + URL de reserva `/auth/login`. |
+| (b) | ✓ | `+claude2` eliminada por knockout na Social Media; tela com o texto neutro; e-mail de rejeição com o botão do painel. *(Defeito 23 segue: «Agradecemos seu interesse» em cinza ilegível — Bloco 4.)* |
+| (c) | ✓ | Rejeição na triagem da Consultor da `+claude5`: e-mail com o botão; cartão «Entenda a decisão»; página diz «analisada por uma pessoa da nossa equipe», **não** oferece revisão, mostra o canal (`lgpd@`, que é PP-16, fora do bloco). *(Defeito 21 segue: select do motivo branco no hover — Bloco 3.)* |
+| (d) | ✓ | Cognitiva da `+claude1` liberada; e-mail chegou às 23:20 com o botão. |
+| (e) | ✓ | `+claude1` avançada para Entrevista online (o bloco de agendamento só abre nas etapas de entrevista). `dddd` recusado com «Informe um link válido, começando com http:// ou https://.»; nada salvo. A `+claude1` **fica em Entrevista online** para a sessão 2 chegar a «Decisão final». |
+| (f) | ✓ geração · ✗ conteúdo | Social Media da `+claude5` avançada (e-mail de avanço); Big Five enviado; às 23:30 «ainda sendo preparada», ~1 min depois a devolutiva apareceu (5 chamadas Sonnet 4.6, 23:30:12–13, todas com sucesso). **A geração pelo caminho real funciona. O conteúdo tem os Defeitos 30 e 31 (abaixo).** |
+
+### Resultado da consulta de prova (`p1_*`) — 9 de 9 `true`
+
+Primeira rodada: **8 de 9**. A `p1_devolutiva_gerada` saiu `false` **com a devolutiva no
+banco** (`122321aa-…`, criada 23:30:13 -03:00). O defeito era da consulta, não do sistema:
+em `devolutivas_candidato`, `candidato_id` é o **uid do Auth** (`candidatos.user_id`, FK
+`auth.users`), e a consulta comparava com `candidatos.id` — nunca casaria. A conferência de
+forma da Task 1 viu que a coluna **existia**, não o que ela **guarda**. Consulta corrigida
+para filtrar por `candidatura_id` (48-19); rodada de novo: `true`.
+
+| Prova | Resultado |
+|---|---|
+| `p1_confirmacao_d09_enviada` | ✓ true |
+| `p1_knockout_sem_analise` | ✓ true |
+| `p1_triagem_feedback_neutro` | ✓ true |
+| `p1_triagem_decisao_avisada` | ✓ true |
+| `p1_cognitivo_avisado` | ✓ true |
+| `p1_agendamento_invalido_fora` | ✓ true (continuou `true` depois da tentativa com `dddd`) |
+| `p1_devolutiva_gerada` | ✓ true (depois da correção da consulta) |
+| `p1_fila_sem_encerrada` | ✓ true |
+| `p1_sem_encerrada_a_pedido_errada` | ✓ true |
+
+### Defeitos novos achados na sessão 1 — e a decisão do operador
+
+**Defeito 30 — a devolutiva inventa nome, percentil e cargo.** Medido no banco (só
+leitura): a devolutiva da `+claude5` cita «Rodrigo Fonseca» (C e A), «percentil 12» (A),
+«Candidato não informado» (E) e «[NOME COMPLETO DO CANDIDATO]» (N); **4 das 5 páginas** fogem
+do texto oficial. Não existe candidato com esse nome; as 5 chamadas foram novas, com chave
+própria; nem o prompt de sistema nem o de usuário citam o nome. Causa: o prompt
+`bigfive_devolutiva` v1.0.0 manda personalizar e o bloco de usuário só leva a faixa e o
+texto oficial. O texto também fala do candidato na terceira pessoa numa página dirigida a
+ele.
+
+> **Decisão do operador (2026-09-21):** servir o template oficial da faixa (desligar a
+> personalização da IA) até haver um prompt corrigido e testado. Não fechar o JORN-06 sem isto.
+
+**Defeito 31 — a aba «Sensibilidade Emocional» não é clicável.** Ela quebra para a 2ª
+linha e fica sob o cartão. Medido depois no navegador, com o componente real: em 1280 px é
+exatamente isso; em **375 px, 4 das 5 abas** ficam cobertas.
+
+> **Decisão do operador (2026-09-21):** as cinco abas clicáveis e legíveis no
+> `DevolutivaBigFiveView.tsx`, sem alterar o componente base de abas. Os dois são
+> consequência do JORN-06 (a página só passou a existir agora); não fechar o JORN-06 sem eles.
+
+Consertos: **plano 48-19** (`eba5cd27` EF, `c5e695f9` front). A prova em PROD é a nova
+`p2_devolutiva_template_oficial` + o passo (m) da sessão 2 — ela já reprova a linha da
+`+claude5` por três razões independentes (`prompt_version` 1.0.0, 4 páginas fora do
+template, 5 chamadas de IA), então morde.
+
+**Alcance medido:** existem **2** devolutivas em PROD, ambas de conta de teste
+(`+claude5` e `candidato.funil@teste.com`, de 2026-06-30 — esta também expõe «percentil 54»
+e «percentil 86», contra o UX-07). **Nenhum candidato real viu texto inventado.** As duas
+linhas **não foram tocadas**: a da `+claude5` é a evidência do Defeito 30, e reescrever ou
+apagar qualquer uma é escrita destrutiva que pede confirmação.
+
+**Observação do operador, ainda sem decisão:** o rodapé diz «Conteúdo revisado por
+psicólogo(a) responsável» — com a IA desligada, isso só pode valer para os textos oficiais,
+e o próprio código diz que eles estão «pendente revisão final CRP antes do go-live»
+(`gerar-devolutiva-bigfive/index.ts`, comentário dos `BAND_TEMPLATES`). E o rodapé cita
+«teste psicológico», ainda que em negação — a regra de produto do `CLAUDE.md` é nunca
+usar o termo. O fallback do front (`DevolutivaBigFiveView.tsx`, usado só se a linha não
+trouxer rodapé) ainda tem o placeholder «Dra. [Nome], CRP-XX/XXXXX».
 
 ## 5. Sessão 2 — revisão, reabertura, D-23, redecisão e avisos do titular
 
