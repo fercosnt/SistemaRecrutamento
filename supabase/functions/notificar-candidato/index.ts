@@ -32,6 +32,7 @@ import {
   resolverDestinatario,
   resolverModo,
 } from "../_shared/email-config.ts";
+import { candidaturaEncerrada } from "../_shared/candidaturaEncerrada.ts";
 import { renderarEmail } from "../_shared/email-templates.ts";
 import { gerarIcsAgendamento, icsParaBase64 } from "../_shared/ics.ts";
 import {
@@ -296,6 +297,40 @@ export async function handler(req: Request, deps: NotificarDeps): Promise<Respon
       logSeguro({ evento, candidatura_id, skipped: "knockout" }),
     );
     return jsonResponse({ ok: true, skipped: "knockout" }, 200);
+  }
+
+  // ---- 3a'') GUARDA DE «ENCERRADA» para o evento `avanco` (49-03 / JORN-25 · D-35) ----
+  // IRMÃ da 3a, e pela mesma razão de lugar: a EF é a única a ver o estado DEPOIS do COMMIT.
+  //
+  // O defeito, medido no kickoff da Phase 49: knockout (`etapa_atual='inscricao'`,
+  // `status='rejeitado'`) → o RH clica «Avançar» → `avancar_etapa()` ACEITA (não tem trava de
+  // encerrada), grava histórico, e o `trg_notif_transicao` despacha `avanco`. O e-mail dizia a
+  // uma pessoa ELIMINADA que ela tinha avançado de etapa. A 3a não cobria: ela é gateada por
+  // `evento === "confirmacao"`.
+  //
+  // SEGUNDA CAMADA, de propósito. A trava do `avancar_etapa` é o plano 49-06 — mas ela sozinha
+  // não basta: qualquer outro escritor de etapa (e a varredura C1 do kickoff achou vários no
+  // cliente) reintroduziria o e-mail. Esta guarda é a última antes do efeito EXTERNO e
+  // IRREVERSÍVEL, que é o único que não se desfaz.
+  //
+  // «Encerrada» é o predicado CANÔNICO (`_shared/candidaturaEncerrada.ts`, a MESMA allowlist da
+  // função SQL `public.candidatura_encerrada`) — ZERO critério novo. Retirada a pedido
+  // (`encerrada_a_pedido_em`) NÃO é encerrada por ele, por desenho (D-34): a candidatura
+  // retirada continua visível ao RH, e um evento de avanço dela é outro assunto.
+  //
+  // SÓ `avanco`. `decisao` de candidatura em estado terminal é o caso NORMAL — é o e-mail que
+  // ANUNCIA o desfecho (ver CR-01: `decisao` com `etapa_atual='rejeitado'` deve sair). Alargar
+  // esta guarda para `decisao` calaria justamente a notificação que a pessoa tem direito de
+  // receber.
+  //
+  // ANTES DO CLAIM, como a 3a: uma linha `pendente` no ledger seria trabalho para a varredura
+  // da P41 re-tentar — um e-mail recusado por mérito não é um e-mail que falhou.
+  if (evento === "avanco" && candidaturaEncerrada(candidatura.etapa_atual, candidatura.status)) {
+    console.log(
+      "[notificar-candidato]",
+      logSeguro({ evento, candidatura_id, skipped: "encerrada" }),
+    );
+    return jsonResponse({ ok: true, skipped: "encerrada" }, 200);
   }
 
   // ---- 3a') A TRANSIÇÃO que o e-mail anuncia (48-08 / JORN-18 · L1) ----------
