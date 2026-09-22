@@ -646,6 +646,119 @@ Deno.test("CR-01 — decisao com etapa_atual='rejeitado' mantém a cópia congel
   assert(!html.includes(COPY_APROVACAO), "rejeitado não pode receber a aprovação");
 });
 
+// ─── 49-03 (JORN-25 / D-35) — `avanco` para candidatura ENCERRADA não sai ────
+//
+// Medido no kickoff da Phase 49: knockout (`etapa_atual='inscricao'`, `status='rejeitado'`)
+// → o RH clica «Avançar» → `avaliacao_assincrona` é ACEITO pelo banco (`avancar_etapa()` não
+// tem trava de encerrada), grava histórico, e o `trg_notif_transicao` despacha o evento
+// `avanco`. O e-mail que sai diz a uma pessoa ELIMINADA que ela avançou de etapa.
+//
+// A trava do banco é o plano 49-06. Esta é a SEGUNDA camada, na EF — e ela é necessária
+// mesmo com a primeira, porque a EF é a única a ver o estado DEPOIS do COMMIT (o trigger
+// é AFTER INSERT no histórico e `net.http_post` só entrega pós-commit). A guarda do
+// knockout que já existia cobria SÓ `evento === "confirmacao"` (`index.ts:289-299`).
+//
+// «Encerrada» é o predicado CANÔNICO (`_shared/candidaturaEncerrada.ts`, a mesma allowlist
+// da função SQL `public.candidatura_encerrada`) — sem critério novo. Retirada a pedido NÃO é
+// encerrada por ele, por desenho (D-34).
+//
+// As duas asserções de efeito são o ponto: `fetchMock.calls.length === 0` prova que nenhum
+// e-mail saiu, e `supa.upserts.length === 0` prova que a guarda roda ANTES do claim — uma
+// linha `pendente` no ledger seria trabalho para a varredura da P41 re-tentar.
+
+Deno.test("49-03 — avanco para KNOCKOUT (inscricao/rejeitado) → skipped:encerrada, zero fetch, zero claim", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "inscricao",
+      status: "rejeitado",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "avanco", candidatura_id: "cand-ko-av" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).skipped, "encerrada");
+  assertEquals(fetchMock.calls.length, 0); // nenhum e-mail de «avanço» a quem foi eliminado
+  assertEquals(supa.upserts.length, 0); // guarda ANTES do claim
+});
+
+Deno.test("49-03 — avanco para LEGADO (triagem/finalizado) → skipped:encerrada, zero fetch, zero claim", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "triagem",
+      status: "finalizado",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "avanco", candidatura_id: "cand-leg-av" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).skipped, "encerrada");
+  assertEquals(fetchMock.calls.length, 0);
+  assertEquals(supa.upserts.length, 0);
+});
+
+Deno.test("49-03 — BORDA: avanco de candidatura EM ANDAMENTO continua sendo enviado (a guarda não morde demais)", async () => {
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "avaliacao_assincrona",
+      status: "em_analise",
+      opcao_knockout_id: null,
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200, { id: "re_av_ok" });
+  const res = await handler(
+    makeRequest({ evento: "avanco", candidatura_id: "cand-andando" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals(res.status, 200);
+  assertEquals((await res.json()).status, "enviado");
+  assertEquals(fetchMock.calls.length, 1); // o avanço legítimo NÃO é barrado
+});
+
+Deno.test("49-03 — REGRESSÃO: confirmacao de knockout continua skipped:knockout (não 'encerrada')", async () => {
+  // A guarda nova é irmã da de knockout, não substituta: cada uma nomeia o seu motivo.
+  // Se este caso passasse a dizer `encerrada`, a guarda nova teria sido posta ANTES da 3a
+  // e o motivo registrado no log/ledger de um knockout mudaria de nome sem ninguém pedir.
+  const { handler } = await loadHandler();
+  const supa = makeRetryMockSupabase({
+    candidaturaRow: {
+      ...CANDIDATURA_FIX,
+      etapa_atual: "inscricao",
+      status: "rejeitado",
+      opcao_knockout_id: "opt-ko-9",
+    },
+    candidatoRow: CANDIDATO_FIX,
+    vagaRow: VAGA_FIX,
+  });
+  const fetchMock = makeFetchMock(200);
+  const res = await handler(
+    makeRequest({ evento: "confirmacao", candidatura_id: "cand-ko-conf" }, RETRY_BEARER),
+    { supabaseAdmin: supa, fetchImpl: fetchMock.impl, serviceKey: RETRY_BEARER },
+  );
+  assertEquals((await res.json()).skipped, "knockout");
+  assertEquals(fetchMock.calls.length, 0);
+  assertEquals(supa.upserts.length, 0);
+});
+
 // ─── 42-08 / REVISAO-04 — o 5º evento CABEADO, não só templatizado ──────────
 //
 // T-42-V2b/c pinam o TEMPLATE. Estes dois casos pinam a LIGAÇÃO: que o handler lê
