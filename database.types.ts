@@ -6229,7 +6229,7 @@ export type Database = {
         | "culture_fit_essay"
         | "work_sample_sjt"
         | "bigfive_devolutiva"
-      llm_provider: "anthropic" | "openai" | "google"
+      llm_provider: "anthropic" | "openai" | "google" | "none"
       motivo_rejeicao_rh:
         | "perfil_desalinhado"
         | "reprovado_avaliacao"
@@ -6518,7 +6518,7 @@ export const Constants = {
         "work_sample_sjt",
         "bigfive_devolutiva",
       ],
-      llm_provider: ["anthropic", "openai", "google"],
+      llm_provider: ["anthropic", "openai", "google", "none"],
       motivo_rejeicao_rh: [
         "perfil_desalinhado",
         "reprovado_avaliacao",
