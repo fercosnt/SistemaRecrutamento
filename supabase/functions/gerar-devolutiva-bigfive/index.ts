@@ -26,6 +26,9 @@
  *
  * Deploy + is_active flip do prompt = wave [BLOCKING] 12-06 (NÃO aqui).
  *
+ * ⚠ Defeito 30 (Plan 48-19, 2026-09-21): a personalização por IA está DESLIGADA
+ * (`PERSONALIZACAO_IA_ATIVA`). Hoje cada página É o template oficial da banda.
+ *
  * @module supabase/functions/gerar-devolutiva-bigfive
  * @see docs/conhecimento/big-five/templates-devolutiva.md (os 25 templates + cutoffs + L241 N-rename)
  * @see docs/conhecimento/prompts/templates/08-bigfive-devolutiva.md (o prompt bigfive_devolutiva)
@@ -76,6 +79,26 @@ const DIM_LABEL: Record<Dim, string> = {
   A: "Amabilidade",
   N: "Sensibilidade Emocional",
 };
+
+/**
+ * Defeito 30 (sessão 1 do 48-18, 2026-09-21) — a personalização por IA está DESLIGADA.
+ *
+ * O prompt `bigfive_devolutiva` v1.0.0 manda personalizar, mas o bloco de usuário
+ * (`buildDevolutivaUserBlock`) só leva a banda e o texto oficial: sem dado nenhum para
+ * personalizar, o modelo INVENTOU nome («Rodrigo Fonseca»), percentil («percentil 12»),
+ * placeholder («[NOME COMPLETO DO CANDIDATO]») e falou do candidato na terceira pessoa
+ * numa página dirigida a ele — medido na primeira devolutiva gerada pelo caminho real,
+ * depois do conserto do 401 (48-05).
+ *
+ * Decisão do operador: servir o texto OFICIAL da banda até haver um prompt corrigido e
+ * testado. O caminho da IA fica no código — e os imports também: o `efdeploy.cjs` recusa
+ * subir se o fechamento de imports mudar —, mas não é exercido. Religar é mudar esta
+ * constante E o teste que a trava, depois de o prompt novo ser provado.
+ */
+export const PERSONALIZACAO_IA_ATIVA = false;
+
+/** `prompt_version` de uma devolutiva que nenhuma IA tocou — o banco diz como o texto nasceu. */
+export const PROMPT_VERSION_TEMPLATE_OFICIAL = "template_oficial";
 
 /** Range de palavras alvo por bloco interpretativo (templates-devolutiva.md L20). */
 const WORD_MIN = 150;
@@ -299,6 +322,8 @@ interface SupabaseAdminLike {
 interface HandlerDeps {
   supabaseAdmin: SupabaseAdminLike;
   callAi: (args: unknown) => Promise<CallAiLike>;
+  /** Defeito 30: padrão `PERSONALIZACAO_IA_ATIVA`. Os testes do caminho da IA passam `true`. */
+  personalizar?: boolean;
 }
 
 interface PaginaOut {
@@ -381,6 +406,7 @@ export async function handler(
   deps: HandlerDeps,
 ): Promise<HandlerResult> {
   const { supabaseAdmin, callAi } = deps;
+  const personalizar = deps.personalizar ?? PERSONALIZACAO_IA_ATIVA;
 
   // ── 1. Carrega a linha de score precondição via service_role ──────────────
   const { data: scoreRow, error } = await supabaseAdmin
@@ -466,6 +492,10 @@ export async function handler(
       const percentil = typeof meta?.percentil === "number" ? meta.percentil : 50;
       const banda = bandOf(percentil); // determinístico — fonte da verdade da banda
       const rawTemplate = BAND_TEMPLATES[dim][banda];
+      // Defeito 30: desligada, a página É o texto oficial — nenhuma chamada de IA.
+      if (!personalizar) {
+        return Promise.resolve({ texto: rawTemplate, palavras: wordCount(rawTemplate) });
+      }
       return personalizeDim(dim, percentil, banda, rawTemplate, callAi, {
         candidato_id: candidatoId,
         vaga_id: vagaId,
@@ -529,8 +559,9 @@ export async function handler(
         // P21-FIX: auth uid (candidatos.user_id), NÃO candidatos.id — FK auth.users + RLS auth.uid().
         candidato_id: candidatoAuthUid,
         conteudo_jsonb: conteudo,
-        modelo_ia: "claude-sonnet-4-6",
-        prompt_version: "1.0.0",
+        // Defeito 30: sem IA, nenhum modelo gerou o texto — gravar um seria mentir.
+        modelo_ia: personalizar ? "claude-sonnet-4-6" : null,
+        prompt_version: personalizar ? "1.0.0" : PROMPT_VERSION_TEMPLATE_OFICIAL,
       },
       { onConflict: "candidatura_id" },
     )
@@ -552,6 +583,7 @@ export async function handler(
     candidatura_id: scoreRow.candidatura_id,
     devolutiva_id,
     paginas_count: paginas.length,
+    personalizacao_ia: personalizar,
     status: "sucesso",
   });
 
@@ -683,40 +715,48 @@ if (import.meta.main) {
     // Resolve o prompt bigfive_devolutiva uma vez por request. O cast `as any`
     // reconcilia o SupabaseClient REAL (tipado) com o `SupabaseLike` estrutural que
     // loadPrompt aceita — o caminho de teste injeta um mock que satisfaz a forma.
-    let resolved: ResolvedPrompt;
-    try {
-      // deno-lint-ignore no-explicit-any
-      const loaded = await loadPrompt("bigfive_devolutiva", supabaseAdmin as any);
-      resolved = resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
-    } catch (e) {
-      // WR-01 / AI-01: NÃO degradar para um stub silencioso E NÃO deixar o erro
-      // escapar como unhandled rejection (500 genérico do Deno, silencioso). Enquanto
-      // `bigfive_devolutiva` não for valor válido do enum `public.llm_call_type` (o
-      // ALTER TYPE ADD VALUE + seed são o Plan 23-05), `loadPrompt` lança
-      // `PromptNotConfiguredError`. Os OUTROS 6 EFs resolvem o prompt DENTRO do outer
-      // try/catch do handler, onde uma falha vira uma resposta 'falhou' honesta. Aqui
-      // o prompt é resolvido no wrapper Deno.serve (o handler recebe uma `callAi` já
-      // adaptada por DI), então espelhamos aquele padrão AQUI: alarma no ponto de
-      // degradação (emitPromptStubAlert) e RETORNA o MESMO 500 estruturado 'falhou'
-      // que o handler produziria — a devolutiva nunca fica silenciosamente ausente e o
-      // structured-500 é preservado (não enfraquecido). Uma vez que o enum+seed
-      // aterrissem em PROD, `loadPrompt` resolve o prompt real e este caminho não roda.
-      if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+    //
+    // Defeito 30: com a personalização desligada o prompt NÃO é resolvido — uma falha de
+    // prompt não pode derrubar uma devolutiva que não usa IA.
+    let resolved: ResolvedPrompt | null = null;
+    if (PERSONALIZACAO_IA_ATIVA) {
+      try {
         // deno-lint-ignore no-explicit-any
-        await emitPromptStubAlert(supabaseAdmin as any, "bigfive_devolutiva");
+        const loaded = await loadPrompt("bigfive_devolutiva", supabaseAdmin as any);
+        resolved = resolvedPromptFromLoaded(loaded, "bigfive_devolutiva", "gpt-4o-mini");
+      } catch (e) {
+        // WR-01 / AI-01: NÃO degradar para um stub silencioso E NÃO deixar o erro
+        // escapar como unhandled rejection (500 genérico do Deno, silencioso). Enquanto
+        // `bigfive_devolutiva` não for valor válido do enum `public.llm_call_type` (o
+        // ALTER TYPE ADD VALUE + seed são o Plan 23-05), `loadPrompt` lança
+        // `PromptNotConfiguredError`. Os OUTROS 6 EFs resolvem o prompt DENTRO do outer
+        // try/catch do handler, onde uma falha vira uma resposta 'falhou' honesta. Aqui
+        // o prompt é resolvido no wrapper Deno.serve (o handler recebe uma `callAi` já
+        // adaptada por DI), então espelhamos aquele padrão AQUI: alarma no ponto de
+        // degradação (emitPromptStubAlert) e RETORNA o MESMO 500 estruturado 'falhou'
+        // que o handler produziria — a devolutiva nunca fica silenciosamente ausente e o
+        // structured-500 é preservado (não enfraquecido). Uma vez que o enum+seed
+        // aterrissem em PROD, `loadPrompt` resolve o prompt real e este caminho não roda.
+        if (e instanceof SchemaVersionMismatchError || e instanceof PromptNotConfiguredError) {
+          // deno-lint-ignore no-explicit-any
+          await emitPromptStubAlert(supabaseAdmin as any, "bigfive_devolutiva");
+        }
+        // Log redigido (Pitfall 7) — só o nome do erro, nunca payload bruto.
+        console.error("[gerar-devolutiva-bigfive] prompt não resolvido → 'falhou'", {
+          error: e instanceof Error ? e.name : "unknown",
+        });
+        return new Response(JSON.stringify({ status: "falhou" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-      // Log redigido (Pitfall 7) — só o nome do erro, nunca payload bruto.
-      console.error("[gerar-devolutiva-bigfive] prompt não resolvido → 'falhou'", {
-        error: e instanceof Error ? e.name : "unknown",
-      });
-      return new Response(JSON.stringify({ status: "falhou" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     // Adapta a `callAi` real (ai-client) ao contrato per-dim que o handler usa.
     const callAiAdapter = async (a: unknown): Promise<CallAiLike> => {
+      // Defeito 30: desligada, o handler nunca chega aqui; se chegar, é defeito e falha
+      // alto — o allSettled do handler degrada a dim ao template, nunca a uma IA sem prompt.
+      if (!resolved) throw new Error("personalizacao_ia_desligada");
       const dimArgs = a as {
         dim_label: string;
         banda: Banda;

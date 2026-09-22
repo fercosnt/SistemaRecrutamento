@@ -149,10 +149,12 @@ async function loadHandler() {
   return mod as {
     handler: (
       args: { score_id: string },
-      deps: { supabaseAdmin: unknown; callAi: (a: unknown) => Promise<unknown> },
+      deps: { supabaseAdmin: unknown; callAi: (a: unknown) => Promise<unknown>; personalizar?: boolean },
     ) => Promise<{ devolutiva_id?: string; status: string; paginas?: Pagina[] }>;
     BAND_TEMPLATES: Record<string, Record<string, string>>;
     bandOf: (p: number) => string;
+    PERSONALIZACAO_IA_ATIVA: boolean;
+    PROMPT_VERSION_TEMPLATE_OFICIAL: string;
   };
 }
 
@@ -163,7 +165,7 @@ Deno.test("AVAL-08 — band selection maps percentis to the cutoffs ≤15/16-35/
   const row = bigfiveScoreRow({ O: 8, C: 25, E: 50, A: 75, N: 92 });
   const callAi = makeMockCallAi([TEXT_IN_RANGE]);
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn, personalizar: true });
   const byDim = Object.fromEntries((out.paginas ?? []).map((p) => [p.dim, p.banda]));
   assertEquals(byDim.O, "muito_baixo");
   assertEquals(byDim.C, "mod_baixo");
@@ -177,7 +179,7 @@ Deno.test("RF-19b — refuses to generate a devolutiva for a non-big_five score 
   const { handler } = await loadHandler();
   const callAi = makeMockCallAi([TEXT_IN_RANGE]);
   const admin = makeMockSupabaseAdmin(SJT_SCORE_ROW);
-  const out = await handler({ score_id: "score-sjt" }, { supabaseAdmin: admin, callAi: callAi.fn });
+  const out = await handler({ score_id: "score-sjt" }, { supabaseAdmin: admin, callAi: callAi.fn, personalizar: true });
   assertEquals(out.status, "refused", "RF-19b: a devolutiva is ONLY for tipo='big_five'");
   assertEquals(callAi.calls.length, 0, "must not call the IA for a non-big_five score");
   assertEquals(admin.inserts.length, 0, "must not persist a devolutiva for the wrong test");
@@ -189,7 +191,7 @@ Deno.test("AVAL-08 — in-range text on first attempt → no retry, devolutiva p
   const row = bigfiveScoreRow({ O: 50, C: 50, E: 50, A: 50, N: 50 });
   const callAi = makeMockCallAi([TEXT_IN_RANGE]);
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn, personalizar: true });
   assertEquals(callAi.calls.length, 5, "one call per dim, no retry when in range");
   // CR-04: persisted via upsert (idempotent regeneration), not a plain insert.
   const devRow = admin.upserts.find((i) => i.table === "devolutivas_candidato");
@@ -218,7 +220,7 @@ Deno.test("RESIL-02 — exactly 1 attempt per dim (no retry; degrade on out-of-r
   // Force EVERY output out of range → with 1 attempt, every dim degrades.
   const callAi = makeMockCallAi([TEXT_TOO_SHORT]);
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn, personalizar: true });
   // 5 dims × 1 attempt = 5 calls total (was 10 under the old 2-attempt loop).
   assertEquals(callAi.calls.length, 5, "exactly 1 attempt per dim (1 call × 5 dims)");
   assertEquals(out.status, "sucesso", "graceful degrade is still a success");
@@ -259,7 +261,7 @@ Deno.test("RESIL-02 — all 5 dims invoked before any resolves (Promise.allSettl
   };
 
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi, personalizar: true });
 
   assertEquals(invoked, 5, "all 5 dims must be invoked");
   // Concurrency proof: all 5 were invoked (gate released) before any resolved.
@@ -287,7 +289,7 @@ Deno.test("RESIL-02 — paginas preserve O-C-E-A-N order even with out-of-order 
   };
 
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi, personalizar: true });
   const order = (out.paginas ?? []).map((p) => p.dim);
   assertEquals(order, ["O", "C", "E", "A", "N"], "paginas must stay in O-C-E-A-N input order");
 });
@@ -309,7 +311,7 @@ Deno.test("RESIL-02 — one dim's callAi rejection degrades that dim, the other 
   };
 
   const admin = makeMockSupabaseAdmin(row);
-  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi });
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi, personalizar: true });
 
   assertEquals(out.status, "sucesso", "one dim rejecting must NOT hard-fail the EF (allSettled)");
   assertEquals((out.paginas ?? []).length, 5, "all 5 paginas present despite one dim rejecting");
@@ -325,6 +327,79 @@ Deno.test("RESIL-02 — one dim's callAi rejection degrades that dim, the other 
   assertEquals(byDim.O.texto_interpretativo, TEXT_IN_RANGE, "non-failing dims keep their IA text");
   // RNF-07a: degrade persists a devolutiva (templates), never a score/decision.
   assert(out.devolutiva_id, "degrade path still persists a (template) devolutiva — no decisional write");
+});
+
+// ── Defeito 30 (Plan 48-19): personalização por IA DESLIGADA — o texto oficial ─
+// Na primeira devolutiva gerada pelo caminho real (sessão 1 do 48-18) a IA inventou
+// nome, percentil e placeholder. Decisão do operador: servir o template oficial da
+// banda até haver um prompt corrigido e testado. Os testes acima exercem o caminho da
+// IA com `personalizar: true`; estes travam o padrão que está no ar.
+Deno.test("Defeito 30 — PERSONALIZACAO_IA_ATIVA é false (religar só com prompt corrigido e testado)", async () => {
+  const { PERSONALIZACAO_IA_ATIVA } = await loadHandler();
+  assertEquals(
+    PERSONALIZACAO_IA_ATIVA,
+    false,
+    "a personalização por IA inventou nome/percentil/cargo em PROD (Defeito 30); religar exige prompt novo provado, e este teste tem de mudar junto",
+  );
+});
+
+Deno.test("Defeito 30 — padrão: cada página é o template oficial EXATO e a IA não é chamada", async () => {
+  const { handler, BAND_TEMPLATES, bandOf } = await loadHandler();
+  const row = bigfiveScoreRow({ O: 8, C: 25, E: 50, A: 75, N: 92 });
+  // Se a IA fosse chamada, o texto viria TEXT_IN_RANGE — e o teste pegaria.
+  const callAi = makeMockCallAi([TEXT_IN_RANGE]);
+  const admin = makeMockSupabaseAdmin(row);
+  const out = await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: callAi.fn });
+  assertEquals(callAi.calls.length, 0, "nenhuma chamada de IA com a personalização desligada");
+  assertEquals(out.status, "sucesso");
+  assert(out.devolutiva_id, "a devolutiva é persistida");
+  assertEquals((out.paginas ?? []).length, 5, "5 páginas");
+  for (const p of out.paginas ?? []) {
+    const template = BAND_TEMPLATES[p.dim][bandOf(p.percentil)];
+    assertEquals(p.texto_interpretativo, template, `dim ${p.dim}: o template oficial, byte a byte`);
+    assertEquals(p.palavras, template.trim().split(/\s+/).length, `dim ${p.dim}: contagem do template`);
+  }
+});
+
+Deno.test("Defeito 30 — a linha persistida diz que nenhuma IA gerou o texto", async () => {
+  const { handler, BAND_TEMPLATES, bandOf, PROMPT_VERSION_TEMPLATE_OFICIAL } = await loadHandler();
+  const row = bigfiveScoreRow({ O: 50, C: 50, E: 50, A: 50, N: 50 });
+  const admin = makeMockSupabaseAdmin(row);
+  await handler({ score_id: SCORE_ID }, { supabaseAdmin: admin, callAi: makeMockCallAi([TEXT_IN_RANGE]).fn });
+  const devRow = admin.upserts.find((i) => i.table === "devolutivas_candidato");
+  assert(devRow, "UPSERT de uma linha em devolutivas_candidato");
+  assertEquals(devRow!.row.modelo_ia, null, "nenhum modelo gerou o texto — gravar um seria mentir");
+  assertEquals(devRow!.row.prompt_version, PROMPT_VERSION_TEMPLATE_OFICIAL);
+  assertEquals(devRow!.row.candidato_id, AUTH_UID, "P21-FIX segue: o uid do Auth");
+  const conteudo = devRow!.row.conteudo_jsonb as { paginas: Pagina[]; disclaimer_lgpd_crp: string; disclaimer_emocional: string };
+  for (const p of conteudo.paginas) {
+    assertEquals(p.texto_interpretativo, BAND_TEMPLATES[p.dim][bandOf(p.percentil)], `dim ${p.dim} persistida = template`);
+  }
+  assert(conteudo.disclaimer_emocional.length > 0 && conteudo.disclaimer_lgpd_crp.length > 0, "disclaimers fixos seguem");
+
+  // Contraprova: com a IA ligada, a linha continua marcando o modelo (comportamento anterior).
+  const adminIa = makeMockSupabaseAdmin(row);
+  await handler(
+    { score_id: SCORE_ID },
+    { supabaseAdmin: adminIa, callAi: makeMockCallAi([TEXT_IN_RANGE]).fn, personalizar: true },
+  );
+  const devRowIa = adminIa.upserts.find((i) => i.table === "devolutivas_candidato");
+  assertEquals(devRowIa!.row.modelo_ia, "claude-sonnet-4-6");
+  assertEquals(devRowIa!.row.prompt_version, "1.0.0");
+});
+
+Deno.test("Defeito 30 — os 25 templates não carregam nome, número nem placeholder", async () => {
+  const { BAND_TEMPLATES } = await loadHandler();
+  let n = 0;
+  for (const [dim, bandas] of Object.entries(BAND_TEMPLATES)) {
+    for (const [banda, texto] of Object.entries(bandas)) {
+      n++;
+      assert(texto.startsWith("Pessoas com "), `${dim}/${banda}: fala de «pessoas com», nunca de um candidato nomeado`);
+      assert(!/\d/.test(texto), `${dim}/${banda}: nenhum dígito (percentil) no texto servido`);
+      assert(!/[\[\]{}]/.test(texto), `${dim}/${banda}: nenhum placeholder`);
+    }
+  }
+  assertEquals(n, 25, "5 dimensões × 5 bandas");
 });
 
 // ── SEC-04 (T-24-05-01): Bearer self-auth — the devolutiva IDOR is closed ─────
