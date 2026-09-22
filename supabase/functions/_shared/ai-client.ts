@@ -51,12 +51,23 @@ import { AI_ERROR_CODE, ehFallback, PREFIXO_FALLBACK } from "./ai-error-codes.ts
 import { detectPromptInjection } from "./injection-detector.ts";
 import { CircuitBreaker, sharedBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
-import { computeInputHash, logAiCall } from "./audit-logger.ts";
+import { computeInputHash, emitAuditLossAlert, inputHashDe, logAiCall } from "./audit-logger.ts";
 import { loadPrompt } from "./prompt-loader.ts";
 import type { LoadedPrompt } from "./prompt-loader.ts";
 
 // Re-exporta os composables para os consumidores (Fase 10+) que so importam ai-client.
-export { CircuitBreaker, calculateCost, detectPromptInjection, loadPrompt, logAiCall, maskPII, sharedBreaker };
+// `inputHashDe` entra aqui (Phase 49 / D-38) para a EF de análise de entrevista gravar
+// `entrevista_analises.texto_hash` sem importar o audit-logger direto.
+export {
+  CircuitBreaker,
+  calculateCost,
+  detectPromptInjection,
+  inputHashDe,
+  loadPrompt,
+  logAiCall,
+  maskPII,
+  sharedBreaker,
+};
 
 /** Modelo OpenAI usado no fallback quando o disjuntor Anthropic esta OPEN. */
 const OPENAI_FALLBACK_MODEL = "gpt-4o-mini";
@@ -666,7 +677,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   // 'hold' + flagged_for_human_review — NUNCA rejeita candidato por custo.
   if (await isDailyCostCapExceeded(supabase, vaga_id)) {
     const latency_ms = Date.now() - start;
-    await logAiCall(supabase, {
+    const { error: erroDoLog } = await logAiCall(supabase, {
       candidato_id,
       vaga_id,
       call_type: prompt.call_type,
@@ -685,9 +696,19 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       cost_usd: 0,
       success: false,
       error_code: AI_ERROR_CODE.cost_cap_exceeded,
-      idempotency_key: idempotencyKeyEfetiva,
+      // ⚠ JORN-39: chave NULA de propósito. Um bloqueio é um EVENTO de auditoria, não o
+      //   resultado de uma chamada: N cliques bloqueados têm de deixar N linhas. Com a
+      //   chave efetiva, o upsert por `idempotency_key` deixaria uma linha só — e, pior, o
+      //   primeiro SUCESSO da mesma chave (depois de o operador subir o teto) sobrescreveria
+      //   o registro do bloqueio, apagando a prova de que o corte de gasto aconteceu.
+      idempotency_key: null,
       recommendation: "hold",
     });
+    if (erroDoLog) {
+      // O bloqueio ACONTECEU e não ficou registrado. Nunca lança (RNF-07a: uma falha de
+      // auditoria não pode virar falha de avaliação do candidato) — vira alerta.
+      await emitAuditLossAlert(supabase, prompt.call_type, AI_ERROR_CODE.cost_cap_exceeded);
+    }
     return {
       provider: "none",
       parsed: { recommendation: "hold", flagged_for_human_review: true },
@@ -709,7 +730,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   const injection = detectPromptInjection(rawInput);
   if (injection.detected) {
     const latency_ms = Date.now() - start;
-    await logAiCall(supabase, {
+    const { error: erroDoLog } = await logAiCall(supabase, {
       candidato_id,
       vaga_id,
       call_type: prompt.call_type,
@@ -728,9 +749,14 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       cost_usd: 0,
       success: false,
       error_code: AI_ERROR_CODE.prompt_injection_detected,
-      idempotency_key: idempotencyKeyEfetiva,
+      // Chave NULA — mesma razão do teto de custo acima: cada detecção é um evento
+      // próprio de auditoria de segurança, e um sucesso posterior não pode apagá-la.
+      idempotency_key: null,
       recommendation: "hold",
     });
+    if (erroDoLog) {
+      await emitAuditLossAlert(supabase, prompt.call_type, AI_ERROR_CODE.prompt_injection_detected);
+    }
     return {
       provider: "none",
       parsed: { match_score: 10, recommendation: "hold", flagged_for_human_review: true },

@@ -130,6 +130,38 @@ export async function computeInputHash(maskedInput: string): Promise<string> {
     .join("");
 }
 
+/**
+ * Phase 49 / D-38 — o hash do texto que gerou um resultado de IA, calculável FORA do
+ * `logAiCall`.
+ *
+ * É o MESMO valor que `logAiCall` grava em `ai_call_logs.input_hash` para a mesma entrada
+ * passada a `callAi`. Existe porque a EF precisa gravar o hash na tabela de RESULTADO
+ * (`entrevista_analises.texto_hash`) no mesmo instante, e a única forma de fazer isso sem
+ * duplicar a regra era recalculá-la — duas implementações do mesmo hash divergem em
+ * silêncio, e a divergência só aparece no dia em que alguém tenta a consulta de
+ * conferência:
+ *
+ *   select count(*) from entrevista_analises a
+ *     join ai_call_logs l on l.input_hash = a.texto_hash;
+ *
+ * Um resultado zero aí é indistinguível de «a análise não veio de chamada nenhuma».
+ *
+ * ⚠ A composição é `maskPII` DUAS vezes na prática: o `callAi` mascara o input antes de
+ *   passá-lo adiante e o `logAiCall` mascara de novo (defesa em profundidade, Pitfall 6).
+ *   `maskPII` é IDEMPOTENTE para todas as regras PT-BR do `pii-masker` (cada placeholder
+ *   `[CPF]`/`[EMAIL]`/… não casa nenhuma regex), então uma aplicação basta — e é por isso
+ *   que este hash também bate com as linhas `provider='none'`, onde o texto passa pela
+ *   máscara uma única vez. Há teste fixando essa idempotência: se ela cair, os dois
+ *   caminhos passam a gravar hashes diferentes para o mesmo input.
+ *
+ * O hash é sobre o texto MASCARADO, nunca sobre o bruto: pode ser publicado, comparado e
+ * guardado em tabela de resultado sem reintroduzir PII (LGPD-04).
+ */
+export async function inputHashDe(rawInput: string): Promise<string> {
+  const { masked } = maskPII(rawInput ?? "");
+  return await computeInputHash(masked);
+}
+
 /** Resultado de `logAiCall` — Phase 49 / JORN-39 + D-38. NUNCA lança; reporta. */
 export interface LogAiCallResult {
   /**
@@ -287,5 +319,64 @@ export async function emitPromptStubAlert(supabaseAdmin: SupabaseLike, call_type
     // helper — ele roda no caminho de erro da EF e o 500 original deve prevalecer.
     const summary = e instanceof Error ? e.name : "throw";
     console.error(`[audit-logger] emitPromptStubAlert lançou (call_type=${call_type}): ${summary}`);
+  }
+}
+
+/**
+ * JORN-39 (Phase 49) — alarme de «a linha de auditoria não pôde ser gravada».
+ *
+ * MEDIDO EM PROD em 2026-09-22: `select count(*) from ai_call_logs where
+ * provider::text='none'` devolvia **0**. Os dois caminhos que cortam uma chamada antes de
+ * tocar provedor nenhum — o teto de custo diário (AI-06) e a detecção de injeção — gravam
+ * `provider:"none"`; o enum `public.llm_provider` não tinha esse valor; o INSERT falhava
+ * com 22P02; e `logAiCall` transformava o erro num `console.error` que ninguém lê. O
+ * resultado é o pior tipo de defeito de auditoria: **indistinguível de «nunca aconteceu»**.
+ * Nenhum corte de gasto e nenhuma injeção detectada deixou rastro por mais de um mês.
+ *
+ * O 49-01 acrescentou `'none'` ao enum, e isto fecha o outro lado: quando a escrita falha,
+ * ALGUÉM fica sabendo. O alerta é o backstop de um backstop — se ele também falhar, resta
+ * o `console.error`, e é aí que a cadeia termina.
+ *
+ * INVARIANTE (igual a `emitPromptStubAlert`): NUNCA lança. Roda no caminho em que o
+ * `callAi` já decidiu devolver `hold` + revisão humana (RNF-07a); uma exceção daqui
+ * transformaria uma falha de AUDITORIA numa falha de AVALIAÇÃO do candidato.
+ *
+ * PRIVACIDADE (T-49-02-03): a linha de alerta leva só o `error_code` e o `call_type` —
+ * nunca o input, nunca o padrão de injeção casado, nunca o prompt. Esquema conferido em
+ * PROD por leitura (`information_schema.columns` + `pg_constraint`): `threshold_violated`
+ * é `text NOT NULL` SEM CHECK, `channel` é `text` nulável SEM CHECK, e `call_type` é o
+ * enum `llm_call_type` — por isso vai `null`, como no precedente (`bigfive_devolutiva`
+ * não é valor válido do enum e daria 22P02). Nenhum valor novo de enum/CHECK é criado.
+ */
+export async function emitAuditLossAlert(
+  supabaseAdmin: SupabaseLike,
+  call_type: string,
+  error_code: string,
+): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.from("recruiter_alerts").insert({
+      threshold_violated: "ai_audit_write_failed",
+      channel: "ai_stack",
+      message:
+        `Falha ao gravar a linha de auditoria de IA (call_type='${call_type}', error_code='${error_code}') — ` +
+        `o bloqueio ACONTECEU e NÃO ficou registrado em ai_call_logs.`,
+      value: 0,
+      threshold: 0,
+      call_type: null, // coluna e o enum llm_call_type — evitar 22P02
+      vaga_id: null,
+      candidato_id: null,
+      created_at: new Date().toISOString(),
+    });
+    if (error) {
+      const summary = typeof error === "object" && error !== null && "code" in error
+        ? String((error as { code: unknown }).code)
+        : "insert_failed";
+      console.error(
+        `[audit-logger] emitAuditLossAlert INSERT falhou (call_type=${call_type}, error_code=${error_code}): ${summary}`,
+      );
+    }
+  } catch (e) {
+    const summary = e instanceof Error ? e.name : "throw";
+    console.error(`[audit-logger] emitAuditLossAlert lançou (call_type=${call_type}): ${summary}`);
   }
 }
