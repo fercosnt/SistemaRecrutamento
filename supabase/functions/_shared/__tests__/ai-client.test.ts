@@ -67,6 +67,12 @@ function makeMockAnthropic(opts: { failTimes?: number; error?: Error } = {}) {
 }
 
 // ── Mock OpenAI SDK ─────────────────────────────────────────────────────────
+// Phase 49 / JORN-28: a resposta passou a carregar `model`. A API real devolve a versão
+// DATADA (`gpt-4o-mini-2024-07-18`), distinta do alias pedido (`gpt-4o-mini`) — e é
+// justamente essa distinção que prova que `CallAiResult.model` é o modelo REAL e não um
+// eco do que foi pedido. Sem o campo, os dois valores coincidiriam e o teste seria vácuo.
+const MODELO_OPENAI_REAL = "gpt-4o-mini-2024-07-18";
+
 function makeMockOpenAI() {
   const calls: unknown[] = [];
   return {
@@ -78,6 +84,7 @@ function makeMockOpenAI() {
           return Promise.resolve({
             choices: [{ message: { parsed: { resumo: "fallback", bias_flags: { has_demographic_proxy: false } } } }],
             usage: { prompt_tokens: 800, completion_tokens: 150 },
+            model: MODELO_OPENAI_REAL,
           });
         },
       },
@@ -178,6 +185,85 @@ function makeMockSupabaseWithCostLogs(
   };
 }
 
+// ── Phase 49 / JORN-28 — mocks da taxonomia de causa ────────────────────────
+/**
+ * Símbolo do marcador de falha de parse. `Symbol.for` é registro GLOBAL: o teste
+ * constrói o MESMO símbolo que `ai-client.ts` usa sem precisar exportá-lo.
+ * O papel deste mock é simular o que o SDK 0.102.0 devolve DEPOIS do embrulho do
+ * formato: em vez de lançar `AnthropicError`, ele resolve com a mensagem inteira e
+ * `parsed_output` carregando o marcador — junto de `stop_reason` e `usage`.
+ */
+const FALHA_PARSE = Symbol.for("callAi.falhaParse");
+/** Modelo datado devolvido pelo mock Anthropic — distinto do alias configurado. */
+const MODELO_SONNET_REAL = "claude-sonnet-4-6-20260514";
+
+/**
+ * Anthropic que RESPONDE (não lança) com um `stop_reason` escolhido e, opcionalmente, o
+ * marcador de falha de parse. É a forma das três falhas determinísticas: truncamento
+ * (`max_tokens`), fora do schema (`end_turn` + marcador) e recusa (`refusal`).
+ */
+function makeMockAnthropicComStopReason(
+  stop_reason: string,
+  opts: { comFalhaParse?: boolean } = {},
+) {
+  const calls: [unknown, unknown][] = [];
+  return {
+    calls,
+    messages: {
+      parse: (req: unknown, callOpts?: unknown) => {
+        calls.push([req, callOpts]);
+        return Promise.resolve({
+          // O truncamento devolve JSON cortado → o `parse` do formato lança → o embrulho
+          // devolve o marcador. O `refusal` vem sem marcador (não houve texto a parsear).
+          parsed_output: opts.comFalhaParse
+            ? { [FALHA_PARSE]: new Error("Failed to parse structured output as JSON") }
+            : { resumo: "ok" },
+          usage: { input_tokens: 4445, cache_read_input_tokens: 0, output_tokens: 3000 },
+          model: MODELO_SONNET_REAL,
+          stop_reason,
+        });
+      },
+    },
+  };
+}
+
+/**
+ * Supabase cujo insert/upsert devolve um BUILDER com `.select("id").single()`, como o
+ * PostgREST real — é a única forma de `logAiCall` conseguir o `id` da linha (D-38).
+ * Guarda as linhas na ordem de escrita para que as DUAS linhas de um fallback possam ser
+ * conferidas uma a uma.
+ */
+function makeMockSupabaseComId(prefixoId = "log") {
+  const inserts: { table: string; row: Record<string, unknown>; id: string; via: string }[] = [];
+  let n = 0;
+  const gravar = (table: string, row: Record<string, unknown>, via: string) => {
+    const id = `${prefixoId}-${++n}`;
+    inserts.push({ table, row, id, via });
+    // Builder: thenable (para quem só faz `await`) E com `.select` (para quem quer o id).
+    return {
+      then: (resolve: (r: { data: null; error: null }) => unknown) =>
+        resolve({ data: null, error: null }),
+      select: (_cols: string) => ({
+        single: () => Promise.resolve({ data: { id }, error: null }),
+      }),
+    };
+  };
+  return {
+    inserts,
+    /** Só as linhas de `ai_call_logs`, na ordem de escrita. */
+    get logs() {
+      return inserts.filter((i) => i.table === "ai_call_logs");
+    },
+    from(table: string) {
+      return {
+        insert: (row: Record<string, unknown>) => gravar(table, row, "insert"),
+        upsert: (row: Record<string, unknown>, _o?: { onConflict?: string }) =>
+          gravar(table, row, "upsert"),
+      };
+    },
+  };
+}
+
 // Prompt-version fixture as `prompt-loader` would return it.
 const SONNET_PROMPT = {
   call_type: "cv_job_match",
@@ -232,6 +318,11 @@ async function loadClient() {
         // AI-06 kill-switch (Phase 23): over-cap returns a 'hold' result flagged
         // for human review — never an auto-reject (RNF-07a).
         flagged_for_human_review?: boolean;
+        // Phase 49 / JORN-28 (D-28/D-38): proveniência real no retorno.
+        model?: string | null;
+        log_id?: string | null;
+        replayed?: boolean;
+        fallback_cause?: string | null;
       }
     >;
   };
@@ -294,7 +385,13 @@ Deno.test("IA-04 — when the breaker is OPEN, callAi routes to OpenAI gpt-4o-mi
     anthropic: makeMockAnthropic(), openai, supabase: makeMockSupabase(), breaker: openBreaker,
   });
   assertEquals(result.provider, "openai");
-  assertEquals(result.error_code, "anthropic_circuit_open");
+  // Phase 49 / JORN-28: antes assertia `error_code === "anthropic_circuit_open"`; mudou
+  // porque o `error_code` do RESULTADO passou a levar o prefixo `fallback_` em TODO
+  // caminho de fallback. Sem o prefixo, a tela do admin lê a linha como «Sucesso» —
+  // um resultado do gpt-4o-mini apresentado como se fosse do Sonnet configurado. A
+  // causa crua continua disponível, agora em `fallback_cause`.
+  assertEquals(result.error_code, "fallback_anthropic_circuit_open");
+  assertEquals(result.fallback_cause, "anthropic_circuit_open");
   assertEquals((openai.calls[0] as { model: string }).model, "gpt-4o-mini");
 });
 
@@ -335,7 +432,15 @@ Deno.test("AI-02 — o mesmo CircuitBreaker acumula falhas entre chamadas e ABRE
     anthropic, openai, supabase: makeMockSupabase(), breaker,
   });
   assertEquals(last.provider, "openai");
-  assertEquals(last.error_code, "anthropic_circuit_open", "breaker OPEN → circuit_open (não retries_exhausted)");
+  // Phase 49 / JORN-28: antes assertia `"anthropic_circuit_open"`; mudou pelo prefixo
+  // `fallback_` (mesma razão do teste IA-04 acima). A distinção que este teste protege —
+  // disjuntor aberto ≠ tentativas esgotadas — segue trancada, agora em `fallback_cause`.
+  assertEquals(
+    last.error_code,
+    "fallback_anthropic_circuit_open",
+    "breaker OPEN → fallback_anthropic_circuit_open (não uma causa de tentativa)",
+  );
+  assertEquals(last.fallback_cause, "anthropic_circuit_open");
   assertEquals(anthropic.calls.length, 0, "com o breaker OPEN, a Anthropic NÃO é chamada de novo");
 });
 
@@ -450,7 +555,15 @@ Deno.test("AI-04 — retry-budget cap: timeoutMs 60s → 2 attempts (not 3), the
   });
   assertEquals(anthropic.calls.length, 2, "the cap must limit long-timeout calls to 2 attempts (floor(140000/60000))");
   assertEquals(result.provider, "openai", "after the capped attempts exhaust, callAi falls to OpenAI");
-  assertEquals(result.error_code, "anthropic_retries_exhausted", "fallback cause = retries exhausted (breaker was CLOSED)");
+  // Phase 49 / JORN-28 (Task 1): antes assertia `"anthropic_retries_exhausted"`; mudou
+  // pelo prefixo `fallback_`. A causa crua ainda é a legada aqui — o caminho de EXCEÇÃO
+  // (timeout/429/erro da API) só ganha taxonomia própria na Task 2, que reaponta esta
+  // asserção para `fallback_anthropic_timeout` (o mock falha com APIConnectionTimeoutError).
+  assertEquals(
+    result.error_code,
+    "fallback_anthropic_retries_exhausted",
+    "fallback cause = retries exhausted (breaker was CLOSED)",
+  );
 });
 
 // ── AI-05 — idempotency replay only replays SUCCESS rows ─────────────────────
@@ -872,4 +985,213 @@ Deno.test("idempotencia — mesmo input, SCHEMA diferente → chamada NOVA", asy
 
   assertEquals(anthropic.calls.length, 2, "schema novo tem de invalidar o replay");
   assertEquals(new Set(supabase.chaves).size, 2, "as chaves efetivas têm de diferir");
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase 49 / JORN-28 (D-27c) — «não coube» de ponta a ponta
+//
+// MEDIDO EM PROD antes desta fase: 17 fallbacks em `ai_call_logs`, TODOS com
+// `error_code='anthropic_retries_exhausted'` — enquanto as causas reais eram timeout ×8,
+// truncamento ×4 e Zod `too_big` ×5. A tentativa Anthropic cobrada (≈ US$ 0,058 no
+// truncamento de 20/09) não virava linha nenhuma, e a linha do resultado dizia
+// `success=true` sem registrar que quem respondeu foi o `gpt-4o-mini`.
+//
+// Os cinco testes abaixo (A–E) trancam o caminho inteiro de UMA causa: truncamento.
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Teste A — duas linhas por fallback (a tentativa cobrada + o resultado) ────
+Deno.test("JORN-28/A — truncamento grava DUAS linhas: a tentativa Anthropic cobrada e o resultado do fallback", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId();
+  // `stop_reason: 'max_tokens'` + marcador: é a forma exata do truncamento — o JSON vem
+  // cortado no teto, então o `parse` do formato TAMBÉM falha. A classificação é por
+  // `stop_reason` primeiro, senão «não coube» seria confundido com «fora do schema».
+  const anthropic = makeMockAnthropicComStopReason("max_tokens", { comFalhaParse: true });
+  const openai = makeMockOpenAI();
+
+  const result = await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:cv" },
+    { anthropic, openai, supabase },
+  );
+
+  assertEquals(result.provider, "openai", "o truncamento cai para o fallback");
+  assertEquals(supabase.logs.length, 2, "um fallback produz EXATAMENTE 2 linhas de ai_call_logs");
+
+  // (i) a tentativa Anthropic — o gasto que era invisível.
+  const tentativa = supabase.logs[0];
+  assertEquals(tentativa.row.provider, "anthropic");
+  assertEquals(tentativa.row.success, false, "a tentativa truncada NÃO é sucesso");
+  assertEquals(
+    tentativa.row.error_code,
+    "anthropic_max_tokens",
+    "«não coube» tem código próprio — não mais o genérico anthropic_retries_exhausted",
+  );
+  assertEquals(
+    tentativa.row.idempotency_key,
+    null,
+    "Pitfall 1: com a chave efetiva, o upsert por chave apagaria esta linha ao gravar o resultado",
+  );
+  assertEquals(tentativa.via, "insert", "chave nula ⇒ insert simples, nunca upsert");
+  assert(
+    typeof tentativa.row.cost_usd === "number" && (tentativa.row.cost_usd as number) > 0,
+    `a tentativa foi COBRADA e o custo tem de constar (veio ${tentativa.row.cost_usd})`,
+  );
+  // 4445 × US$3/M + 3000 × US$15/M = US$ 0,058335 — o valor medido em 20/09.
+  assert(
+    Math.abs((tentativa.row.cost_usd as number) - 0.058335) < 1e-6,
+    `custo esperado ≈ 0,058335 (o de PROD); veio ${tentativa.row.cost_usd}`,
+  );
+  assertEquals(tentativa.row.model_snapshot, MODELO_SONNET_REAL, "o snapshot é o modelo que respondeu");
+  // T-49-02-03: o texto truncado NUNCA vai ao log — só stop_reason + usage.
+  const bruto = tentativa.row.raw_response as Record<string, unknown>;
+  assertEquals(bruto.stop_reason, "max_tokens");
+  assert("usage" in bruto, "a tentativa registra o usage (é dele que sai o custo)");
+  assert(!("resumo" in bruto), "a tentativa NÃO carrega conteúdo de saída");
+
+  // (ii) a linha do RESULTADO — o que o fallback produziu, rotulado como fallback.
+  const resultado = supabase.logs[1];
+  assertEquals(resultado.row.provider, "openai");
+  assertEquals(resultado.row.success, true, "o resultado do fallback é utilizável");
+  assertEquals(
+    resultado.row.error_code,
+    "fallback_anthropic_max_tokens",
+    "o prefixo `fallback_` é o que impede a tela de mostrar «Sucesso» (verde) para um fallback",
+  );
+  assertEquals(
+    resultado.row.model_snapshot,
+    MODELO_OPENAI_REAL,
+    "o snapshot do resultado é o modelo REAL da OpenAI, não o Sonnet configurado",
+  );
+  assert(resultado.row.idempotency_key != null, "a linha do RESULTADO leva a chave efetiva");
+});
+
+// ── Teste B — o fallback respeita o prompt ───────────────────────────────────
+Deno.test("JORN-28/B — a chamada OpenAI do fallback recebe max_completion_tokens e temperature do prompt", async () => {
+  const { callAi } = await loadClient();
+  const openai = makeMockOpenAI();
+  await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropicComStopReason("max_tokens", { comFalhaParse: true }),
+    openai,
+    supabase: makeMockSupabaseComId(),
+  });
+
+  const req = openai.calls[0] as { max_completion_tokens?: number; temperature?: number };
+  assertEquals(
+    req.max_completion_tokens,
+    SONNET_PROMPT.max_tokens,
+    "sem teto de saída, o fallback pode truncar do mesmo jeito — e sem registrar por quê",
+  );
+  assertEquals(
+    req.temperature,
+    SONNET_PROMPT.temperature,
+    "o prompt pede temperature 0; omitir o campo deixava a OpenAI usar o default dela numa avaliação de candidato",
+  );
+});
+
+// ── Teste C — o retorno leva a proveniência real ─────────────────────────────
+Deno.test("JORN-28/C — o retorno do fallback traz model real, fallback_cause, replayed=false e log_id da linha do resultado", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId("res");
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropicComStopReason("max_tokens", { comFalhaParse: true }),
+    openai: makeMockOpenAI(),
+    supabase,
+  });
+
+  assertEquals(result.provider, "openai");
+  assertEquals(
+    result.model,
+    MODELO_OPENAI_REAL,
+    "D-28: é ESTE valor que a EF grava em `modelo_ia` — gravar o Sonnet seria a mentira do JORN-28",
+  );
+  assertEquals(result.fallback_cause, "anthropic_max_tokens", "a causa sem o prefixo, para a tela rotular");
+  assertEquals(result.error_code, "fallback_anthropic_max_tokens", "o error_code leva o prefixo");
+  assertEquals(result.replayed, false, "não houve replay — o provedor foi chamado");
+  assertEquals(
+    result.log_id,
+    supabase.logs[1].id,
+    "D-38: o log_id é o id da linha do RESULTADO (a 2ª), não o da tentativa",
+  );
+});
+
+// ── Teste D — caminho feliz também carrega a proveniência ────────────────────
+Deno.test("JORN-28/D — sucesso Anthropic devolve model = response.model, log_id preenchido e fallback_cause null", async () => {
+  const { callAi } = await loadClient();
+  const supabase = makeMockSupabaseComId("ok");
+  // `end_turn` sem marcador = resposta completa e parseada: o caminho feliz.
+  const anthropic = makeMockAnthropicComStopReason("end_turn");
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic, openai: makeMockOpenAI(), supabase: supabase,
+  });
+
+  assertEquals(result.provider, "anthropic");
+  assertEquals(
+    result.model,
+    MODELO_SONNET_REAL,
+    "o modelo REAL (versão datada) pode diferir do alias configurado — é o real que vale",
+  );
+  assertEquals(result.fallback_cause, null, "nenhum fallback");
+  assertEquals(result.replayed, false);
+  assertEquals(supabase.logs.length, 1, "o caminho feliz grava UMA linha");
+  assertEquals(result.log_id, supabase.logs[0].id, "o log_id é o id dessa linha");
+});
+
+// ── Teste E — os mocks das 7 EFs continuam válidos (degradação para id null) ──
+Deno.test("JORN-39/E — logAiCall devolve { id: null, error: null } com um cliente SEM `.select` encadeável, e nada lança", async () => {
+  // Este é o teste que protege as 7 EFs consumidoras de precisarem de UMA edição: os
+  // mocks delas devolvem `Promise.resolve({ data, error })`, que não tem `.select`.
+  // A feature-detection de `logAiCall` degrada para `id: null` em vez de estourar.
+  const supabase = makeMockSupabase();
+  const devolvido = await logAiCall(supabase, aiCallLogRow({ idempotency_key: null }));
+  assertEquals(devolvido.id, null, "sem `.select` no builder não há id a ler — null é a verdade");
+  assertEquals(devolvido.error, null, "e não houve erro de escrita");
+  assertEquals(supabase.inserts.length, 1, "a linha FOI gravada (a degradação não engole a escrita)");
+
+  // E o mesmo cliente atravessa um callAi inteiro sem lançar.
+  const { callAi } = await loadClient();
+  const result = await callAi({ prompt: SONNET_PROMPT, ...baseArgs }, {
+    anthropic: makeMockAnthropicComStopReason("end_turn"),
+    openai: makeMockOpenAI(),
+    supabase: makeMockSupabase(),
+  });
+  assertEquals(result.provider, "anthropic");
+  assertEquals(result.log_id, null, "sem id disponível, o contrato devolve null — nunca um id inventado");
+});
+
+// ── O embrulho do formato NÃO pode mexer na chave de idempotência ────────────
+// `JSON.stringify` ignora funções, então o `parse` (embrulhado ou não) é invisível à
+// impressão digital. Se algum dia o embrulho passar a acrescentar um campo SERIALIZÁVEL,
+// toda chave muda de uma vez e o corpus inteiro de replays é invalidado em silêncio.
+Deno.test("JORN-28 — a chave efetiva é a MESMA com e sem `.parse` no formato (o embrulho não vaza)", async () => {
+  const { callAi } = await loadClient();
+  const chaveCom = makeMockSupabaseKeyed();
+  const chaveSem = makeMockSupabaseKeyed();
+  const schema = { campo: "igual nos dois" };
+
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:x", schema },
+    {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabase: chaveCom,
+      // COM `.parse` — o caminho que o `ai-client` embrulha.
+      zodOutputFormat: (s: unknown) => ({ type: "json_schema", schema: s, parse: (c: string) => JSON.parse(c) }),
+    },
+  );
+  await callAi(
+    { prompt: SONNET_PROMPT, ...baseArgs, idempotency_key: "cand:x", schema },
+    {
+      anthropic: makeMockAnthropic(),
+      openai: makeMockOpenAI(),
+      supabase: chaveSem,
+      // SEM `.parse` — passa intacto pelo embrulho.
+      zodOutputFormat: (s: unknown) => ({ type: "json_schema", schema: s }),
+    },
+  );
+
+  assertEquals(
+    chaveCom.chaves[0],
+    chaveSem.chaves[0],
+    "o `parse` é função: invisível ao JSON.stringify do fingerprint — a chave não pode mudar",
+  );
 });

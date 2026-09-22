@@ -177,6 +177,13 @@ interface AnthropicLike {
       parsed_output?: unknown;
       usage?: { input_tokens?: number; cache_read_input_tokens?: number; output_tokens?: number };
       model?: string;
+      /**
+       * Phase 49 / JORN-28: `StopReason = 'end_turn' | 'max_tokens' | 'stop_sequence' |
+       * 'tool_use' | 'pause_turn' | 'refusal'` (`messages.d.ts:1004` do SDK 0.102.0).
+       * É o ÚNICO sinal que distingue «não coube» de «fora do schema»: o SDK não
+       * checa `stop_reason` em lugar nenhum — ele só lança na falha de parse.
+       */
+      stop_reason?: string | null;
     }>;
   };
 }
@@ -263,16 +270,68 @@ interface CallAiDeps {
   totalBudgetMs?: number;
 }
 
+/**
+ * Resultado de `callAi`.
+ *
+ * ⚠ Phase 49 / JORN-28 (D-27c/D-28/D-38): os quatro campos do fim são NOVOS e existem
+ *   porque o retorno antigo não permitia à EF gravar a verdade. Medido em PROD: 17
+ *   fallbacks, todos com `error_code='anthropic_retries_exhausted'` (timeout ×8,
+ *   truncamento ×4, Zod `too_big` ×5) — o log não distinguia as causas, e a tabela de
+ *   RESULTADO não registrava que quem respondeu foi o `gpt-4o-mini`, não o Sonnet
+ *   configurado. `model` é a proveniência real (D-28) e `log_id` a referência de
+ *   auditoria (D-38) que as EFs de 49-08..49-11 gravam.
+ */
 interface CallAiResult {
   provider: string;
   parsed: unknown;
   cost_usd: number;
   latency_ms: number;
+  /**
+   * Leitura de PROMPT-CACHE efêmero (`usage.cache_read_input_tokens > 0`).
+   * ⚠ NÃO é sinal de replay de idempotência — use `replayed` para isso (C6 item 8:
+   *   a sobrecarga desta flag era um defeito de contrato, e o D-40 não podia usá-la).
+   */
   cache_hit: boolean;
   prompt_version: string;
   error_code?: string;
   flagged_for_human_review?: boolean;
+  /**
+   * Modelo que DE FATO respondeu: `response.model` no caminho Anthropic e no fallback
+   * OpenAI, `model_snapshot` no replay. `null` quando nenhum modelo respondeu (teto de
+   * custo, injeção). É daqui que as EFs gravam `modelo_ia` (D-28).
+   */
+  model: string | null;
+  /** `id` da linha de RESULTADO em `ai_call_logs` — `ai_call_log_id` do D-38. */
+  log_id: string | null;
+  /** `true` = devolvido do log por idempotência, sem tocar provedor nenhum. */
+  replayed: boolean;
+  /**
+   * Causa do fallback, sem o prefixo `fallback_` (ex.: `anthropic_max_tokens`).
+   * `null` quando não houve fallback. O `error_code` do retorno carrega o prefixo.
+   */
+  fallback_cause: string | null;
 }
+
+/**
+ * Marcador de falha de parse do structured output (JORN-28).
+ *
+ * O SDK 0.102.0 [VERIFICADO no fonte: `lib/parser.js:51-64` + `resources/messages/
+ * messages.js:61-62`] faz `parse(params, options) = create(...).then(parseMessage)`, e
+ * `parseMessage` chama `outputFormat.parse(content)` dentro de um `try` que RELANÇA como
+ * `AnthropicError("Failed to parse structured output: …")`. Resultado: a exceção sobe
+ * ANTES de o chamador ver `stop_reason` e `usage` — e «não coube» (JSON cortado no teto)
+ * ficava indistinguível de «fora do schema» (Zod `too_big`) e de «demorou» (timeout).
+ *
+ * O conserto NÃO troca `parse` por `create` (isso quebraria os 7 arquivos de teste que
+ * mockam `messages.parse`): embrulha o `parse` do FORMATO para que ele nunca lance e
+ * devolva `{ [FALHA_PARSE]: erro }`. O SDK então resolve com a mensagem inteira e a
+ * classificação passa a ser sobre a resposta completa.
+ *
+ * `Symbol.for` (registro global) e não `Symbol()`: os testes precisam construir o MESMO
+ * símbolo sem importá-lo, e uma chave de símbolo é invisível ao `JSON.stringify` — então
+ * ela nunca vaza para `raw_response` nem para a impressão digital da chave.
+ */
+const FALHA_PARSE = Symbol.for("callAi.falhaParse");
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -408,6 +467,12 @@ async function tryIdempotencyReplay(
       // da chave efetiva (ver requestFingerprint), entao nao ha divergencia possivel.
       prompt_version: "",
       error_code: existing.error_code != null ? String(existing.error_code) : undefined,
+      // Phase 49 / JORN-28: campos de proveniência. O `model`/`log_id` reais vêm da
+      // linha (`model_snapshot`/`id`) — a Task 2 os acrescenta ao `select`.
+      model: null,
+      log_id: null,
+      replayed: true,
+      fallback_cause: null,
     };
   } catch {
     return null;
@@ -566,6 +631,11 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       prompt_version: prompt.prompt_version,
       error_code: "cost_cap_exceeded",
       flagged_for_human_review: true,
+      // Nenhum modelo respondeu — `model` NULL é a verdade, não um placeholder.
+      model: null,
+      log_id: null,
+      replayed: false,
+      fallback_cause: null,
     };
   }
 
@@ -604,6 +674,10 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       prompt_version: prompt.prompt_version,
       error_code: "prompt_injection_detected",
       flagged_for_human_review: true,
+      model: null,
+      log_id: null,
+      replayed: false,
+      fallback_cause: null,
     };
   }
 
@@ -612,17 +686,41 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
 
   // ── 3. Disjuntor: OPEN -> fallback OpenAI gpt-4o-mini ─────────────────────
   if (!breaker.canRequest()) {
+    // Disjuntor aberto = NENHUMA tentativa foi feita, logo NÃO há linha de tentativa a
+    // gravar (só a linha do resultado, com `fallback_anthropic_circuit_open`).
     return await runOpenAIFallback({
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
       idempotency_key: idempotencyKeyEfetiva, timeoutMs, totalBudgetMs,
       openai, supabase, zodResponseFormat, start,
-      circuitWasOpen: true,
+      causa: "anthropic_circuit_open",
     });
   }
 
   // ── 4. Caminho Anthropic com cache efemero + retry exp-backoff ────────────
+  // JORN-28: o FORMATO vai embrulhado para que a falha de parse não lance dentro do SDK
+  // (ver `FALHA_PARSE`). A guarda `typeof fmt.parse === "function"` é obrigatória: nos
+  // testes e nas EFs sem schema o `zodOutputFormat` é o no-op `(s) => s`, que não tem
+  // `.parse` — esse passa intacto.
+  const fmtBruto = zodOutputFormat(schema, prompt.call_type) as {
+    parse?: (content: string) => unknown;
+  };
+  const fmtSeguro = fmtBruto && typeof fmtBruto.parse === "function"
+    ? {
+      ...fmtBruto,
+      parse: (content: string) => {
+        try {
+          return fmtBruto.parse!(content);
+        } catch (e) {
+          return { [FALHA_PARSE]: e };
+        }
+      },
+    }
+    : fmtBruto;
+
   let attempt = 0;
   let lastErr: unknown = null;
+  /** Causa determinística detectada na RESPOSTA (truncamento/schema/recusa). */
+  let causaDeterministica: string | null = null;
   while (attempt < effectiveMaxAttempts) {
     attempt++;
     try {
@@ -635,7 +733,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
           { type: "text", text: vagaRubricBlock, cache_control: { type: "ephemeral" } },
         ],
         messages: [{ role: "user", content: maskedInput }],
-        output_config: { format: zodOutputFormat(schema, prompt.call_type) },
+        output_config: { format: fmtSeguro },
       }, {
         // RESIL-01: teto por-chamada + DESLIGA o retry do SDK. `maxRetries: 0` e
         // OBRIGATORIO — o loop `while (attempt < effectiveMaxAttempts)` acima e o unico
@@ -653,9 +751,63 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       const outputTokens = response.usage?.output_tokens ?? 0;
       const cost_usd = calculateCost(prompt.model_id, inputTokens, cachedTokens, outputTokens);
       const latency_ms = Date.now() - start;
+
+      // ── JORN-28: classificar a RESPOSTA INTEIRA, não a exceção ───────────
+      // O provedor respondeu e cobrou. O que distingue as três falhas determinísticas
+      // é `stop_reason` + o marcador do formato embrulhado:
+      //   `max_tokens` ⇒ não coube  ·  `refusal` ⇒ recusa  ·  marcador com qualquer
+      //   outro stop_reason (tipicamente `end_turn`) ⇒ fora do schema.
+      const falhaParse = (response.parsed_output as Record<symbol, unknown> | null | undefined)
+        ?.[FALHA_PARSE];
+      const causa = response.stop_reason === "max_tokens"
+        ? "anthropic_max_tokens"
+        : response.stop_reason === "refusal"
+        ? "anthropic_refusal"
+        : falhaParse
+        ? "anthropic_schema_invalid"
+        : null;
+
+      if (causa) {
+        // ⚠ NÃO chamar `breaker.recordFailure()`: truncamento, schema e recusa são
+        //   determinísticos PELO INPUT — repetir a chamada dá o mesmo resultado. Abrir o
+        //   disjuntor com eles derrubaria o Sonnet para TODAS as vagas por causa de um
+        //   único prompt grande (T-49-02-04). Também não chamamos `recordSuccess()`: a
+        //   chamada não é evidência de saúde nem motivo para zerar falhas acumuladas.
+        //
+        // Linha da TENTATIVA (i de duas). `idempotency_key: null` é obrigatório —
+        // Pitfall 1: com a chave efetiva, o upsert de `audit-logger.ts` a sobrescreveria
+        // pela linha do fallback e a tentativa cobrada desapareceria do log.
+        await logAiCall(supabase, {
+          candidato_id,
+          vaga_id,
+          call_type: prompt.call_type,
+          prompt_version_id: prompt.prompt_version_id ?? prompt.prompt_version,
+          prompt_version: prompt.prompt_version,
+          prompt_hash: prompt.prompt_hash ?? "",
+          provider: "anthropic",
+          model_id: prompt.model_id,
+          model_snapshot: response.model ?? prompt.model_id,
+          system_prompt: prompt.system_template,
+          user_prompt_template: maskedInput,
+          input_token_count: inputTokens,
+          // NUNCA o texto truncado (T-49-02-03) — só o que explica a causa e o custo.
+          raw_response: { stop_reason: response.stop_reason ?? null, usage: response.usage ?? null },
+          output_token_count: outputTokens,
+          latency_ms,
+          attempt_number: attempt,
+          // A tentativa FOI cobrada (≈ US$ 0,058 no truncamento de 20/09). É gasto real.
+          cost_usd,
+          success: false,
+          error_code: causa,
+          idempotency_key: null,
+        });
+        causaDeterministica = causa;
+        break;
+      }
+
       breaker.recordSuccess();
 
-      await logAiCall(supabase, {
+      const { id: logId } = await logAiCall(supabase, {
         candidato_id,
         vaga_id,
         call_type: prompt.call_type,
@@ -684,6 +836,12 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
         latency_ms,
         cache_hit: cachedTokens > 0,
         prompt_version: prompt.prompt_version,
+        // D-28: o modelo REAL que respondeu, não o configurado. `response.model` pode
+        // divergir de `prompt.model_id` (alias → versão datada).
+        model: response.model ?? prompt.model_id,
+        log_id: logId,
+        replayed: false,
+        fallback_cause: null,
       };
     } catch (err) {
       lastErr = err;
@@ -696,13 +854,16 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
     }
   }
 
-  // ── 5. Anthropic esgotou os retries -> fallback OpenAI ────────────────────
+  // ── 5. Anthropic falhou (exceção esgotada OU causa determinística) -> fallback ──
+  // A causa determinística (truncamento/schema/recusa) já gravou a linha da tentativa
+  // no loop acima. O caminho de EXCEÇÃO (timeout / 429-503-529 / erro da API) ainda usa
+  // o código legado aqui; a Task 2 o classifica e grava a tentativa dele também.
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
     idempotency_key: idempotencyKeyEfetiva,
     timeoutMs, totalBudgetMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
-    circuitWasOpen: false,
+    causa: causaDeterministica ?? "anthropic_retries_exhausted",
   });
 }
 
@@ -723,17 +884,21 @@ interface FallbackArgs {
   zodResponseFormat: (schema: unknown, name: string) => unknown;
   start: number;
   triggerError?: unknown;
-  /** true = disjuntor estava OPEN (nenhuma tentativa); false = retries esgotados. */
-  circuitWasOpen?: boolean;
+  /**
+   * Causa do fallback, SEM o prefixo (`anthropic_max_tokens`, `anthropic_timeout`,
+   * `anthropic_circuit_open`, …). Phase 49 / JORN-28: substituiu o par
+   * `circuitWasOpen`/`triggerError`, que só sabia dizer «aberto» ou «esgotado» — e por
+   * isso 17 fallbacks de PROD, com três causas diferentes, ficaram com o mesmo código.
+   */
+  causa: string;
 }
 
-/** Caminho de fallback OpenAI gpt-4o-mini (disjuntor OPEN ou Anthropic esgotada). */
+/** Caminho de fallback OpenAI gpt-4o-mini (disjuntor OPEN ou Anthropic falhou). */
 async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
-  // WR-02: rotula o error_code pela causa REAL do fallback — disjuntor aberto
-  // (nenhuma tentativa) vs retries esgotados (disjuntor fechado, todas falharam).
-  const fallbackErrorCode = a.circuitWasOpen
-    ? "anthropic_circuit_open"
-    : "anthropic_retries_exhausted";
+  // O código do RESULTADO carrega o prefixo: a linha é um SUCESSO do fallback, não um
+  // sucesso do modelo configurado. `error_code LIKE 'fallback_%'` é o que permite à tela
+  // do admin mostrar «Fallback» (âmbar) em vez de «Sucesso» (verde) — JORN-28.
+  const fallbackErrorCode = `fallback_${a.causa}`;
   // Observability: se a OpenAI também falhar, NÃO engolir o erro PRIMÁRIO (Anthropic).
   // Antes, a exceção da OpenAI propagava direto e o triggerError do Anthropic se perdia
   // (logAiCall abaixo nunca rodava) — o painel só via o erro do fallback.
@@ -746,6 +911,13 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
         { role: "user", content: a.maskedInput },
       ],
       response_format: a.zodResponseFormat(a.schema, a.prompt.call_type),
+      // JORN-28 (Discretion obrigatória): o fallback passa a RESPEITAR o prompt. Até a
+      // Phase 49 estes dois não eram enviados — a OpenAI aplicava os defaults dela
+      // (`temperature = 1` [ASSUMIDO: premissa A1 do RESEARCH]) numa avaliação de
+      // candidato cujo prompt pede `temperature: 0`, e sem teto de saída. O nome do
+      // campo é `max_completion_tokens` (o `max_tokens` está deprecado na API atual).
+      max_completion_tokens: a.prompt.max_tokens,
+      temperature: a.prompt.temperature,
     }, {
       // RESIL-01 + orçamento total (2026-09-06): o fallback recebe o que SOBROU de
       // AI_TOTAL_BUDGET_MS, nunca o teto cheio de novo. Com 110s no primário e 110s aqui
@@ -770,7 +942,7 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
   const cost_usd = calculateCost(OPENAI_FALLBACK_MODEL, inputTokens, 0, outputTokens);
   const latency_ms = Date.now() - a.start;
 
-  await logAiCall(a.supabase, {
+  const { id: logId } = await logAiCall(a.supabase, {
     candidato_id: a.candidato_id,
     vaga_id: a.vaga_id,
     call_type: a.prompt.call_type,
@@ -802,5 +974,11 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     cache_hit: false,
     prompt_version: a.prompt.prompt_version,
     error_code: fallbackErrorCode,
+    // D-28: o modelo real do fallback. Quem grava `modelo_ia` NÃO pode gravar o Sonnet
+    // configurado — foi exatamente isso que aconteceu nos 17 fallbacks de PROD.
+    model: response.model ?? OPENAI_FALLBACK_MODEL,
+    log_id: logId,
+    replayed: false,
+    fallback_cause: a.causa,
   };
 }

@@ -17,9 +17,22 @@
  * bruto — precedente submit-candidatura).
  *
  * Contrato:
- *   logAiCall(supabaseAdmin, row) -> Promise<void>
+ *   logAiCall(supabaseAdmin, row) -> Promise<{ id: string | null; error: string | null }>
  *   computeRetainUntil(recommendation) -> string (ISO)
  *   computeInputHash(maskedInput) -> Promise<string> (sha256 hex)
+ *
+ * ⚠ Phase 49 / JORN-39 — `logAiCall` DEIXOU de devolver `void`. Devolve
+ *   `{ id, error }` por duas razões medidas:
+ *     (a) o `id` da linha é a proveniência que o D-38 grava em
+ *         `entrevista_analises.ai_call_log_id` (o `ai_call_logs` é purgado em 180 d,
+ *         então a EF precisa guardar a referência no momento da escrita);
+ *     (b) o `error` era engolido em `console.error` e SÓ. Medido em PROD antes da
+ *         Phase 49: `select count(*) from ai_call_logs where provider='none'` = **0**.
+ *         Os dois caminhos que cortam uma chamada antes de tocar provedor (teto de
+ *         custo AI-06 e injeção) gravavam `provider:"none"`, o enum `llm_provider`
+ *         não tinha o valor, o INSERT falhava em 22P02 — e ninguém ficou sabendo.
+ *   A INVARIANTE não mudou: `logAiCall` **nunca lança**. Quem chama decide o que
+ *   fazer com o `error` (ver `emitAuditLossAlert`).
  *
  * @see docs/conhecimento/prompts/AUDITORIA-LGPD-LOGGING-VERSIONING.md §2.3/§5/§7.1
  * @see docs/prds/m2-funil-rh/PRD-ai-prompt-library-m2.md §6.4 RF-PL-19/20/21
@@ -117,6 +130,18 @@ export async function computeInputHash(maskedInput: string): Promise<string> {
     .join("");
 }
 
+/** Resultado de `logAiCall` — Phase 49 / JORN-39 + D-38. NUNCA lança; reporta. */
+export interface LogAiCallResult {
+  /**
+   * `id` da linha gravada, quando o cliente devolveu um builder com `.select`
+   * (o SupabaseClient real). `null` quando o cliente não oferece `.select`
+   * (os mocks das 7 EFs devolvem `{ error }` direto) ou quando a escrita falhou.
+   */
+  id: string | null;
+  /** Código/resumo do erro de escrita (nunca o payload). `null` = gravou. */
+  error: string | null;
+}
+
 /**
  * Registra uma chamada de IA em `ai_call_logs`.
  *
@@ -124,7 +149,10 @@ export async function computeInputHash(maskedInput: string): Promise<string> {
  * O input_hash e calculado sobre o texto mascarado. Em falha de escrita, loga
  * somente codigo+resumo (jamais o payload bruto).
  */
-export async function logAiCall(supabaseAdmin: SupabaseUpsertLike, row: AiCallLogRow): Promise<void> {
+export async function logAiCall(
+  supabaseAdmin: SupabaseUpsertLike,
+  row: AiCallLogRow,
+): Promise<LogAiCallResult> {
   // ── 1. MASCARAR PII ANTES de qualquer escrita (Pitfall 6) ──────────────
   const { masked: maskedUserPrompt } = maskPII(row.user_prompt_template ?? "");
   const input_hash = await computeInputHash(maskedUserPrompt);
@@ -173,16 +201,44 @@ export async function logAiCall(supabaseAdmin: SupabaseUpsertLike, row: AiCallLo
   // (1 linha por key, ultimo resultado vence). Keys NULL sao distintas na UNIQUE
   // (Postgres) -> mantem-se o plain insert (cada chamada sem key e uma linha propria).
   const logsTable = supabaseAdmin.from("ai_call_logs");
-  const { error } = insertRow.idempotency_key != null
-    ? await logsTable.upsert(insertRow, { onConflict: "idempotency_key" })
-    : await logsTable.insert(insertRow);
+  // ⚠ NÃO fazer `await` aqui: o PostgREST devolve um BUILDER (thenable) e é nele que
+  //   `.select("id").single()` existe. Um `await` prematuro executa a query e devolve
+  //   `{ data, error }`, que não tem `.select` — foi como o `id` nunca chegava.
+  const pendente = insertRow.idempotency_key != null
+    ? logsTable.upsert(insertRow, { onConflict: "idempotency_key" })
+    : logsTable.insert(insertRow);
+
+  // Phase 49 / D-38: o `id` da linha só é obtenível encadeando `.select("id").single()`
+  // no builder. Feature-detection (mesmo idioma de `tryIdempotencyReplay`): os mocks das
+  // 7 EFs consumidoras devolvem `Promise.resolve({ data, error })`, que NÃO tem `.select`
+  // — esses degradam para `id: null` e continuam válidos sem uma única edição.
+  const comSelect = pendente as unknown as {
+    select?: (columns: string) => {
+      single: () => Promise<{ data: { id?: unknown } | null; error: unknown }>;
+    };
+  };
+  let id: string | null = null;
+  let error: unknown = null;
+  if (typeof comSelect.select === "function") {
+    const devolvido = await comSelect.select("id").single();
+    error = devolvido.error;
+    const idBruto = devolvido.data?.id;
+    id = typeof idBruto === "string" ? idBruto : null;
+  } else {
+    error = (await pendente).error;
+  }
+
   if (error) {
     // Loga apenas codigo+resumo — NUNCA o payload bruto (precedente submit-candidatura).
     const summary = typeof error === "object" && error !== null && "code" in error
       ? String((error as { code: unknown }).code)
       : "insert_failed";
     console.error(`[audit-logger] ai_call_logs INSERT falhou (call_type=${row.call_type}): ${summary}`);
+    // JORN-39: o `console.error` CONTINUA (é o rastro de runtime), mas o erro deixa de
+    // morrer aqui — quem chama decide se vira alerta em `recruiter_alerts`.
+    return { id: null, error: summary };
   }
+  return { id, error: null };
 }
 
 /**
