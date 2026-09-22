@@ -75,12 +75,16 @@ entre 07/11 16:50 e 12/11 12:54/2025. A de `candidaturas` provavelmente nasceu n
 - **Policy:** o catálogo não prova continuidade, porque de nov/2025 a abr/2026 não há ledger e houve
   apply fora do versionamento em 2026-07. Duas evidências apontam para continuidade:
   - `docs/RLS_POLICIES.md` a lista, e entrou no git em 19/04/2026;
-  - a migration `20260709000002_sec08_candidaturas_dup_policy_remediation.sql` (Phase 24, 09/07/2026) a cita **pelo nome, como invariante**: «the anon duplicate-check policy [is] untouched».
+  - a migration `20260709000002_sec08_candidaturas_dup_policy_remediation.sql` (Phase 24, 09/07/2026) a cita **pela descrição, como invariante** (não pelo nome literal): «the anon duplicate-check policy [is] untouched».
 
-⚠ **Fato relevante para a decisão sobre comunicação.** Em **09/07/2026** a policy anônima foi vista
-numa revisão de segurança (SEC-08) e deliberadamente mantida, sem ser avaliada como vazamento. A
-exposição era conhecida no repositório pelo nome desde 19/04/2026 e foi reafirmada em 09/07/2026. Só
-foi reconhecida como vazamento em 21/09/2026, no 48-14.
+⚠ **Fato relevante para a decisão sobre comunicação.** A policy foi **apontada como risco** no
+repositório antes de ser fechada:
+- **19/04/2026** (commit `8d01997d`): `.planning/codebase/CONCERNS.md` §4.2, «RLS com Policies
+  Anonymous Arriscadas», nomeia `"Allow anonymous duplicate check"` em `candidaturas`. O fato foi
+  acrescentado pela verificação da fase.
+- **09/07/2026**: a revisão SEC-08 (`20260709000002`) a mantém de propósito, referindo-se a ela pela
+  descrição («the anon duplicate-check policy [is] untouched»), sem avaliá-la como vazamento.
+- **21/09/2026**: só no 48-14 ela foi medida como vazamento e fechada.
 
 **Acesso de terceiros:** os logs da API só alcançam cerca de 48 h. Nesse intervalo não houve leitura
 anônima externa de `candidaturas`: as leituras sem JWT foram das nossas Edge Functions ou da sonda do
@@ -89,6 +93,9 @@ afirmar nem descartar acesso de terceiros entre nov/2025 e 19/09/2026.
 
 **Linhas que existem hoje em `candidaturas`, por mês de criação:** 8 com carimbo 2024-02-22 (fixture),
 3 de 2025-11 e 27 de 2026-04 a 2026-09. Linhas apagadas antes de hoje não são visíveis.
+Hoje são 38. O cabeçalho da `…016` diz 33. A diferença são **5 candidaturas criadas desde 21/09 12h,
+todas de conta de teste `+claude`** (medido em 2026-09-22), incluindo as 4 inscrições das sessões de
+prova. Nenhuma candidatura real entrou nesse intervalo.
 
 > **A avaliação de incidente (LGPD Art. 48) e a decisão de comunicar são do operador e do
 > Encarregado.** Este documento só mede.
