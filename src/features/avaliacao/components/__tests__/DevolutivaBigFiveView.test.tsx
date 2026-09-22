@@ -150,6 +150,8 @@ describe('DevolutivaBigFiveView — Defeito 31: as cinco abas clicáveis', () =>
     for (const aba of screen.getAllByRole('tab')) {
       expect(aba.className).toMatch(/\bh-auto\b/)
       expect(aba.className).not.toMatch(/h-\[calc\(100%-1px\)\]/)
+      expect(aba.className).toMatch(/\bflex-none\b/)
+      expect(aba.className).not.toMatch(/\bflex-1\b/)
     }
   })
 })

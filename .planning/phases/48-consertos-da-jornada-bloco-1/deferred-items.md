@@ -125,3 +125,21 @@
 - `candidaturas.data_bigfive_enviado` nunca é carimbado (achado no 48-05, 2026-09-21)
   status: open
   **What:** medido em PROD: 3 de 3 candidaturas com score `big_five` têm `data_bigfive_enviado` nulo, inclusive a da submissão de prova `2ce20fbf…` (status `sucesso` no log do `submit-bigfive-final` v12). Anterior à fase; não é o JORN-06. Conferir quem lê a coluna (tela do RH / painel) antes de consertar — [[tela-vazia-nao-e-dado-ausente]].
+
+- Cabeçalho do `efdeploy.cjs` afirma uma checagem que não existe (achado na review do 48-19)
+  status: open
+  **What:** `efdeploy.cjs:14-18` diz que o script «RECUSA subir se [o fechamento de imports] divergir da lista esperada». Não há lista esperada no código: ele recalcula o fechamento a partir do entrypoint e só morre se um import relativo não existir no disco. Um arquivo `_shared` a menos (import removido) sobe sem aviso. O 48-19 conferiu o fechamento à mão (`--dry-run`: 8 arquivos, os mesmos da v24).
+  **Conserto sugerido:** implementar a lista esperada por slug (medida do `get_edge_function` da versão viva) ou corrigir o comentário. Registro com autoridade que afirma uma trava inexistente é o mesmo defeito do CLAUDE.md desatualizado.
+
+- `gerar-devolutiva-bigfive`: a fiação do `Deno.serve` com a IA desligada não tem teste (review do 48-19, LOW)
+  status: open
+  **What:** o bloco atrás de `import.meta.main` (não resolver o prompt, não construir os SDKs com `PERSONALIZACAO_IA_ATIVA=false`) é garantido por leitura, não por teste. Risco baixo — o mesmo `if` sobre a mesma constante do handler, que É testado.
+  **Conserto sugerido:** extrair `resolverPromptSeAtivo(ativo, deps)` e testar que, com `false`, `loadPrompt`/`emitPromptStubAlert` não são chamados.
+
+- Ao RELIGAR a personalização: `modelo_ia`/`prompt_version` gravados são literais (review do 48-19, NIT; pré-existente)
+  status: open
+  **What:** com a IA ligada a linha grava `"claude-sonnet-4-6"` e `"1.0.0"` fixos, embora o modelo e a versão reais venham do `prompt_versions` (fallback `gpt-4o-mini`). Hoje a IA está desligada e a linha grava `null` / `template_oficial`, que é verdade. Quem religar deve gravar os valores do `resolved`.
+
+- Rodapé da devolutiva: «Conteúdo revisado por psicólogo(a) responsável» e a menção negada a «teste psicológico» (observação do operador na sessão 1 do 48-18)
+  status: open — aguarda decisão do operador
+  **What:** com a IA desligada o texto servido é o template oficial, mas o próprio código diz que os templates estão «pendente revisão final CRP antes do go-live» — a afirmação do rodapé pode não ser verdade para nenhum texto. A menção negada contraria a regra de linguagem de produto do `CLAUDE.md`. O fallback do front ainda tem o placeholder «Dra. [Nome], CRP-XX/XXXXX».

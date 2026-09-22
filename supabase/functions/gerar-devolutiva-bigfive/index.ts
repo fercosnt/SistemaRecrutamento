@@ -91,9 +91,10 @@ const DIM_LABEL: Record<Dim, string> = {
  * depois do conserto do 401 (48-05).
  *
  * Decisão do operador: servir o texto OFICIAL da banda até haver um prompt corrigido e
- * testado. O caminho da IA fica no código — e os imports também: o `efdeploy.cjs` recusa
- * subir se o fechamento de imports mudar —, mas não é exercido. Religar é mudar esta
- * constante E o teste que a trava, depois de o prompt novo ser provado.
+ * testado. O caminho da IA fica no código — e os imports também, para que o conjunto de
+ * arquivos do bundle siga o mesmo da v24 (os 8 do `efdeploy.cjs --dry-run`) —, mas não é
+ * exercido. Religar é mudar esta constante E o teste que a trava, depois de o prompt novo
+ * ser provado.
  */
 export const PERSONALIZACAO_IA_ATIVA = false;
 
@@ -707,10 +708,18 @@ if (import.meta.main) {
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    // @ts-ignore
-    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
-    // @ts-ignore
-    const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
+    // Defeito 30 (review do 48-19): os SDKs só nascem com a IA ligada — o construtor do
+    // OpenAI lança `Missing credentials` sem OPENAI_API_KEY, e uma devolutiva que não usa
+    // IA não pode depender dessa chave. O `callAiAdapter` só os usa depois do `resolved`,
+    // que só existe com a IA ligada.
+    const anthropic = PERSONALIZACAO_IA_ATIVA
+      // @ts-ignore — Deno.env existe em runtime.
+      ? new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") })
+      : null;
+    const openai = PERSONALIZACAO_IA_ATIVA
+      // @ts-ignore — Deno.env existe em runtime.
+      ? new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") })
+      : null;
 
     // Resolve o prompt bigfive_devolutiva uma vez por request. O cast `as any`
     // reconcilia o SupabaseClient REAL (tipado) com o `SupabaseLike` estrutural que
