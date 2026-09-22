@@ -10,8 +10,15 @@
  * - Nota verdadeira sobre e-mail (48-16 / JORN-15): mudar o status aqui NÃO envia e-mail.
  *   A antiga opção «Notificar candidato por email» não tinha efeito — nenhum código a honra
  *   desde a aposentadoria do n8n (P39) — e foi removida, junto com o campo do payload.
+ * - Nenhum atalho sem trilha (49-05 / JORN-34 · D-67): este modal não REABRE
+ *   (`rejeitado → em_analise`) nem ENCERRA (`aprovado_proxima → finalizado`) uma candidatura.
+ *   As duas escreviam só o `status`, e com `etapa_atual` igual o `avancar_etapa` sai no
+ *   early-return — zero histórico, zero autor, zero justificativa. Reabrir é pelo pedido de
+ *   revisão da decisão (`responder_revisao_decisao`, D-01); encerrar é pela decisão final.
+ *   Sem destino, o select não é renderizado: a tela diz a razão.
  *
  * @module components/modals/UpdateStatusModal
+ * @see src/features/revisao/services/revisaoService.ts (`responder_revisao_decisao` — a reabertura auditada)
  */
 
 import React, { useState, useEffect } from 'react'
@@ -55,12 +62,29 @@ const STATUS_LABELS: Record<StatusCandidatura, string> = {
 /**
  * Fluxo de transições válidas por status
  * IMPORTANTE: Apenas status que existem no enum status_candidatura do banco!
+ *
+ * ⚠ 49-05 / JORN-34 · D-67: duas transições SAÍRAM daqui, e as duas pela MESMA razão de forma —
+ * elas escreviam só o `status` e por isso gravavam ZERO histórico. O `avancar_etapa` sai no
+ * early-return quando `etapa_atual` não muda, então um `UPDATE` de status puro não deixa
+ * rastro nenhum: nem linha de histórico, nem justificativa, nem autor.
+ *
+ * A tela deixa de OFERECER. A defesa no banco (a trava de «candidatura encerrada» no
+ * `avancar_etapa`) é o plano 49-06 — é ela que impede o caminho, não este arquivo.
  */
 const VALID_TRANSITIONS: Record<StatusCandidatura, StatusCandidatura[]> = {
   aguardando_resposta: ['em_analise', 'rejeitado'],
   em_analise: ['aprovado_proxima', 'rejeitado'],
-  aprovado_proxima: ['em_analise', 'finalizado', 'rejeitado'],
-  rejeitado: ['em_analise'], // Permite reconsiderar candidato rejeitado
+  // D-67: `finalizado` SAIU. Encerrar por status é encerrar sem trilha — e é a origem
+  // plausível das 3 linhas `status='finalizado'` em etapa de TRABALHO medidas em PROD em
+  // 2026-09-22 (`triagem`, `entrevista_online`, `decisao_final`), as mesmas que o Kanban
+  // passou a selar como «Encerrada» na Task 1 deste plano. Quem encerra é a decisão final
+  // (`registrar_decisao`), que grava `decisao_final` com autor e justificativa.
+  aprovado_proxima: ['em_analise', 'rejeitado'],
+  // JORN-34: `em_analise` SAIU. Era reabrir uma candidatura encerrada por um atalho sem
+  // histórico e sem justificativa. Reabrir tem caminho próprio e AUDITADO desde a Phase 48:
+  // o pedido de revisão da decisão (`responder_revisao_decisao`), cuja transição
+  // `rejeitado → decisao_final` é sancionada de propósito (D-01).
+  rejeitado: [],
   finalizado: [], // Final state
 }
 
@@ -186,46 +210,62 @@ export function UpdateStatusModal({
             </div>
           </div>
 
-          {/* Novo Status */}
-          <div className="space-y-2">
-            <Label htmlFor="novo-status" className="text-white drop-shadow-sm">
-              Novo Status <span className="text-red-400">*</span>
-            </Label>
-            <Select
-              value={novoStatus}
-              onValueChange={(value) => setNovoStatus(value as StatusCandidatura)}
-              disabled={isPending || transicoesValidas.length === 0}
+          {/* Novo Status — ou, quando não há destino, a razão.
+
+              49-05 / JORN-34 · D-67: com `rejeitado` e `finalizado` sem destino nenhum, o que
+              havia aqui era um select ABERTO e vazio, com um item-fantasma desabilitado
+              («Nenhuma transição disponível») e a frase «Este status é final», que para
+              `rejeitado` era FALSA — há caminho, só não é este. Um controle que convida ao
+              clique e não responde é pior que a ausência dele: o operador tenta, não entende, e
+              procura outro atalho. Sem destino, o select não é renderizado. */}
+          {transicoesValidas.length === 0 ? (
+            <div
+              data-testid="status-sem-transicao"
+              className="space-y-2 p-4 bg-white/10 border-white/20 border backdrop-blur-sm rounded-md"
             >
-              <SelectTrigger 
-                id="novo-status"
-                className="bg-white/10 border-white/20 text-white data-[placeholder]:text-white/50 focus:bg-white/15 focus:border-white/30 [&_svg]:text-white/70"
+              <p className="text-sm font-medium text-white drop-shadow-sm">
+                O status desta candidatura não pode ser alterado por aqui.
+              </p>
+              {/* Frase NEUTRA de propósito: não promete ao candidato que a decisão será
+                  revista, não cita nenhum canal externo, e não afirma «este é o fim» — diz o
+                  que é verdade (mudar o status aqui não registra autor nem motivo) e nomeia o
+                  caminho que registra. */}
+              <p className="text-xs text-white/75 drop-shadow-sm">
+                O processo já foi encerrado, e mudar apenas o status não registraria quem mudou
+                nem por quê. Havendo o que rever, o caminho é o pedido de revisão da decisão,
+                que fica no histórico da candidatura.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="novo-status" className="text-white drop-shadow-sm">
+                Novo Status <span className="text-red-400">*</span>
+              </Label>
+              <Select
+                value={novoStatus}
+                onValueChange={(value) => setNovoStatus(value as StatusCandidatura)}
+                disabled={isPending}
               >
-                <SelectValue placeholder="Selecione o novo status..." />
-              </SelectTrigger>
-              <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white">
-                {transicoesValidas.length === 0 ? (
-                  <SelectItem value="_none" disabled className="text-white/50">
-                    Nenhuma transição disponível
-                  </SelectItem>
-                ) : (
-                  transicoesValidas.map((status) => (
-                    <SelectItem 
-                      key={status} 
+                <SelectTrigger
+                  id="novo-status"
+                  className="bg-white/10 border-white/20 text-white data-[placeholder]:text-white/50 focus:bg-white/15 focus:border-white/30 [&_svg]:text-white/70"
+                >
+                  <SelectValue placeholder="Selecione o novo status..." />
+                </SelectTrigger>
+                <SelectContent className="bg-[#00109E]/95 backdrop-blur-xl border-white/20 text-white">
+                  {transicoesValidas.map((status) => (
+                    <SelectItem
+                      key={status}
                       value={status}
                       className="text-white hover:bg-white/10 focus:bg-white/20 cursor-pointer"
                     >
                       {STATUS_LABELS[status]}
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {transicoesValidas.length === 0 && (
-              <p className="text-xs text-white/70 drop-shadow-sm">
-                Este status é final. Não é possível fazer novas transições.
-              </p>
-            )}
-          </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Motivo de Rejeição (condicional) */}
           {novoStatus === 'rejeitado' && (
