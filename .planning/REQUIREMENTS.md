@@ -155,6 +155,27 @@ Acrescentados em 2026-09-21. Origem: `.planning/JORNADA-GUIADA.md` (validação 
 - [x] **JORN-19**: Veredito `revertida` reabre a candidatura em `decisao_final`, com prazo de 10 dias corridos, e-mail corrigido e alerta ao RH no vencimento; quem teve a decisão revertida não registra a nova (D-01, D-10, D-23)
 - [x] **JORN-D5**: `local_ou_link` obrigatório e validado na escrita — link inválido não entra (D5)
 
+### Consertos da Jornada Guiada — Bloco 2 (JORN) · Phase 49
+
+Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma convenção do Bloco 1: o número do ID é o do defeito. **32–40 são achados da varredura do kickoff**, que continuam a numeração da tabela «Defeitos — acumulado» da `JORNADA-GUIADA.md` (a tabela ainda não os tem). O Defeito 14 não vira requirement: D8 decidiu que avançar não exige evidência.
+
+- [ ] **JORN-28**: Troca de modelo nunca é silenciosa — o resultado grava provedor/modelo **reais**, a tela do resultado (e o PDF do comparativo) mostra quando houve fallback, o log de IA do admin tem estado próprio de fallback, e o `error_code` separa «não coube», «demorou» e «fora do schema»; o comparativo tem teto de candidatos medido para caber no tempo (D-27..D-30)
+- [ ] **JORN-13**: O card da lista do RH nunca transforma ausência em 0 — Big Five mostra concluído/não fez, Cultura mostra só a nota revisada por humano, Inteligência mostra faixa (sem percentil), DISC sai (D-31..D-33)
+- [ ] **JORN-07**: A redação é avaliada pela rubrica BARS do PRD v1.1 (D1 Especificidade · D2 Ação · D3 Aprendizado · D4 Alinhamento com os valores), enviada ao modelo; a tela do RH rotula pela mesma constante e mostra raciocínio e citações; um teste reprova se rubrica, rótulos e nomes devolvidos divergirem (D-24..D-26)
+- [ ] **JORN-25**: Candidatura encerrada não é selecionável no comparativo (a EF também recusa, com mensagem verdadeira); o banco recusa mover candidatura encerrada, exceto transições sancionadas, e o e-mail de avanço não sai para ela; o «Avançar» leva à próxima etapa real; o comparativo da decisão compara quem está em `decisao_final` e não encerrado; o ranking rotula por `candidatura_id`, não por posição (D-34..D-36b)
+- [ ] **JORN-12**: Cada análise de entrevista sabe de qual entrevista é (tipo escolhido pelo RH), quem a pediu, qual texto a gerou (hash + vínculo com o log) e se é a vigente; falha nunca é vigente; cache não cria linha; portão de avanço e revisão humana olham só a vigente; análise nova após revisão volta a aguardar revisão sem apagar a anterior (D-37..D-43)
+- [ ] **JORN-17**: `etapa_justificativa` é limpa depois de consumida pelo histórico — nenhuma transição herda o texto de outra, e o portão de regressão volta a exigir motivo novo; as 9 grudadas em PROD são limpas com checkpoint (D-46)
+- [ ] **JORN-3b**: Ler a explicação — ou qualquer UPDATE que não muda nada — não versiona a decisão; decisão, ciclo de revisão, reabertura e tombstone continuam arquivando; coluna nova em `decisao_final` não some do arquivo em silêncio (D-44, D-45)
+- [ ] **JORN-32**: A EF do comparativo confere que as análises pertencem à vaga cuja posse foi verificada (IDOR)
+- [ ] **JORN-33**: O Kanban trata candidatura encerrada pelo predicado canônico (hoje ignora `finalizado`) e não a deixa avançar
+- [ ] **JORN-34**: Nenhuma tela reabre candidatura encerrada só mudando o status, sem trilha (`UpdateStatusModal`)
+- [ ] **JORN-35**: O SJT recebe a rubrica da pergunta e aplica os pesos pela chave da dimensão, não pelo nome devolvido pela IA
+- [ ] **JORN-36**: O motor de exclusão apaga o que o recibo afirma ter apagado (redação, citações, respostas, texto da transcrição no `ai_call_logs`) — mecanismo destrutivo, com portão e prova (D-48)
+- [ ] **JORN-37**: A justificativa da decisão final não chega ao titular pela trilha (BD-9 mantido): `registrar_decisao` deixa de copiá-la, e as 4 cópias no histórico são limpas com checkpoint (D-47)
+- [ ] **JORN-38**: A lista do RH não traz ao navegador colunas do candidato que não exibe (fim do `candidatos(*)`)
+- [ ] **JORN-39**: Os eventos de teto de custo e de injeção de prompt ficam registrados na auditoria de IA (hoje o insert falha no enum e o erro é engolido)
+- [ ] **JORN-40**: O hub não mostra ao RH o percentil cru do Raven (UX-07: só faixas)
+
 ---
 
 ## Requirements Futuros (M9+)
@@ -258,6 +279,22 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-06 | Phase 48 | Complete |
 | JORN-19 | Phase 48 | Complete |
 | JORN-D5 | Phase 48 | Complete |
+| JORN-28 | Phase 49 | Pending |
+| JORN-13 | Phase 49 | Pending |
+| JORN-07 | Phase 49 | Pending |
+| JORN-25 | Phase 49 | Pending |
+| JORN-12 | Phase 49 | Pending |
+| JORN-17 | Phase 49 | Pending |
+| JORN-3b | Phase 49 | Pending |
+| JORN-32 | Phase 49 | Pending |
+| JORN-33 | Phase 49 | Pending |
+| JORN-34 | Phase 49 | Pending |
+| JORN-35 | Phase 49 | Pending |
+| JORN-36 | Phase 49 | Pending |
+| JORN-37 | Phase 49 | Pending |
+| JORN-38 | Phase 49 | Pending |
+| JORN-39 | Phase 49 | Pending |
+| JORN-40 | Phase 49 | Pending |
 
 **Coverage:**
 
@@ -266,6 +303,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 - Não mapeados: **0** ✓
 - Duplicados (requirement em mais de uma fase): **0** ✓
 - **Phase 48 (acrescentada 2026-09-21):** +11 JORN, todos mapeados à Phase 48 — fora da contagem original de 52, que descreve o escopo do kickoff do M8
+- **Phase 49 (acrescentada 2026-09-22):** +16 JORN (7 da fila do Bloco 2 + 9 achados da varredura do kickoff, 32–40), todos mapeados à Phase 49 — também fora da contagem original de 52
 
 **Por fase:**
 
@@ -278,6 +316,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | 46 | Purga Automática (dry-run → live) | 8 | PURGA (7) + RETEN-05 |
 | 47 | Transparência & Consolidação | 6 | TRANSP (2) + CONSOL (4) |
 | 48 | Consertos da Jornada — Bloco 1 | 11 | JORN (11) |
+| 49 | Consertos da Jornada — Bloco 2 | 16 | JORN (16) |
 
 **Três requirements atravessam fronteira de fase — deliberadamente:**
 
@@ -296,4 +335,4 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 
 ---
 *Requirements definidos: 2026-07-29*
-*Última atualização: 2026-09-21 — +11 JORN (Phase 48, Bloco 1 da jornada guiada)*
+*Última atualização: 2026-09-22 — +16 JORN (Phase 49, Bloco 2 da jornada guiada + achados do kickoff)*

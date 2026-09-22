@@ -30,6 +30,7 @@ A numeração do M8 **continua** a partir da **Phase 42** (o M7 terminou na Phas
 - [ ] **Phase 46: Purga Automática (dry-run → live)** - O dado expira sozinho dentro de um cerco, e a primeira coisa que a purga faz em produção é não apagar nada
 - [ ] **Phase 47: Transparência & Consolidação** - O que o sistema faz com o dado está escrito onde o candidato lê, e nenhuma promessa de compliance sobrevive sem código que a execute
 - [x] **Phase 48: Consertos da Jornada — Bloco 1** (completed 2026-09-22) - O que a validação manual de 13 etapas em PROD achou ferindo candidato agora: rejeição silenciosa, Art. 20 inalcançável, história da candidatura reescrita, titular sem aviso sobre os próprios dados
+- [ ] **Phase 49: Consertos da Jornada — Bloco 2** - O que a mesma validação achou levando o RH a decidir errado: modelo trocado em silêncio, nota 0 onde há nota, rubrica que a IA não avaliou, rejeitado oferecido para avançar, trilha com carimbo herdado e versão fantasma
 
 ### Ordem de execução, dependências e paralelização
 
@@ -371,6 +372,42 @@ Plans:
 - [x] 48-18-PLAN.md — Prova em PROD pela consulta, com as contas da jornada: prontidão → sessão 1 (candidato/RH) → sessão 2 (revisão, reabertura, D-23, titular)
 - [x] 48-19-PLAN.md — Devolutiva: texto oficial da faixa (IA desligada) e as cinco abas clicáveis — Defeitos 30/31 achados na sessão 1 do 48-18, decisão do operador (JORN-06)
 
+### Phase 49: Consertos da Jornada — Bloco 2
+
+**Goal**: O RH decide sobre o que é verdade: a IA que ranqueia é a que está configurada (e, quando não for, a troca aparece), a nota que a lista mostra é a que existe, a rubrica que o RH lê é a que a IA avaliou, quem já saiu do funil não aparece como candidato a avançar, e a trilha da candidatura (justificativa, análise vigente, histórico da decisão) registra o que aconteceu, sem carimbo herdado de outra transição nem versão criada por leitura.
+**Origem**: `.planning/JORNADA-GUIADA.md` §«FILA DE CONSERTOS» → «🔴 BLOCO 2 — leva o RH a decidir errado». A prova de cada defeito está na tabela «Defeitos — acumulado» do mesmo arquivo. Decisões do operador que já valem aqui: **D4** (análise append por etapa, a tela mostra a mais recente) e **D8** (avançar NÃO exige evidência)
+**Depends on**: Phase 48. O 25 reusa o predicado canônico `candidatura_encerrada` (48-01, espelho TS em 48-02): filtrar por ele, não criar um critério novo
+**Requirements**: JORN-28, JORN-13, JORN-07, JORN-25, JORN-12, JORN-17, JORN-3b (fila) · JORN-32..JORN-40 (achados da varredura do kickoff, entram por decisão do operador) — criados no kickoff de 2026-09-22, ver `REQUIREMENTS.md` e `49-CONTEXT.md`
+**Escopo** (itens da fila, na ordem dela; «o que exige» transcrito da fila, não é plano):
+
+  - **28** · Troca silenciosa de modelo (`gpt-4o-mini` no lugar de Sonnet, com `success=true` no log): subir o `max_tokens` do `comparative_ranking` (3000 → ~8000) **e** separar «não coube» de «demorou» no `error_code`. Hoje os dois viram `anthropic_retries_exhausted`, e foi por isso que o conserto de 06/09 não se sustentou
+  - **13** · Card da lista do RH mostra **0** para avaliação concluída: `CandidatosRHPage` lê tabelas mortas, os helpers devolvem `0` e o `?? 'N/A'` nunca dispara
+  - **7** · Rubrica fantasma na redação: escrever as 4 dimensões BARS no prompt **e travar por teste** que os `dimension_name` batem
+  - **25** · Comparativo ranqueia e oferece «Avançar» para rejeitados: filtrar pelo predicado canônico (mesma família do 22/26)
+  - **12** · Transcrição não é guardada; análises se acumulam sem dono: guardar o texto (ou hash) e marcar a análise vigente, conforme D4
+  - **17** · Justificativa gruda e desarma o portão de regressão: limpar `etapa_justificativa` depois de consumida. **Não é opcional**
+  - **3b** · Ler a explicação versiona a decisão (5 snapshots para 1 decisão): o trigger dispara em todo UPDATE; separar o carimbo de leitura da mudança de decisão
+  - **14** · **Não vira código.** D8 decidiu que avançar não exige evidência; está listado só para o registro do bloco ficar completo. Consequência aceita: o histórico continua podendo afirmar uma etapa que não aconteceu
+
+  ⚠ **A medição do kickoff (2026-09-22, só leitura em PROD) corrigiu o «o que exige» acima em dois pontos que mudam o conserto** — detalhe em `49-CONTEXT.md` §Correções:
+  - **7:** a rubrica canônica é a BARS do PRD v1.1 (D1 Especificidade · D2 Ação · D3 Aprendizado · D4 Alinhamento com os valores), não os 4 valores como D1–D4; travar os 4 valores cravaria a rubrica errada
+  - **28:** 3000 → 8000 sozinho troca «não coube» por «demorou» (Sonnet 45–59 tok/s → 8000 tok = 135–178 s > timeout 110 s); os fallbacks de `interview_guide`/`cv_job_match` são todos de 05–06/09
+
+  **Achados da varredura do kickoff que entram** (mesma classe dos itens da fila):
+  - **32** · IDOR na EF do comparativo · **33** · Kanban ignora `finalizado` · **34** · `UpdateStatusModal` reabre encerrada sem trilha · **35** · SJT sem rubrica (irmão do 7)
+  - **36** · recibo de exclusão afirma apagamento que o motor não faz · **37** · justificativa da decisão chega ao titular pela trilha (BD-9) · **38** · lista do RH puxa `candidatos(*)`
+  - **39** · auditoria de IA perdida em silêncio (`provider='none'`) · **40** · percentil cru do Raven no hub
+
+**Decisões de produto/LGPD do kickoff**: ficam em `49-CONTEXT.md` (seção própria, D-24..D-48), não aqui. **Antes do plano**, a pesquisa leva ao operador as correções de fato novas, o teto de candidatos do comparativo e os dois itens do §«Portão antes do plano» daquele arquivo.
+**Guardrails**: os do Bloco 1. Migrations pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger), Edge Functions por `efdeploy.cjs`; depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**. Teto de `tsc` **medido no kickoff: 90**.
+**Portão destrutivo**: há escrita retroativa, decidida no kickoff — limpar 9 justificativas grudadas (17), limpar 4 cópias de justificativa de decisão no histórico (37), marcar vigente/superadas em 6 análises (12); os snapshots sem mudança **ficam** (3b). Cada uma é checkpoint com contagem antes/depois. **E o 36 mexe no motor de exclusão** (mecanismo destrutivo): apply com portão e prova em conta de teste. Nenhuma escrita desta fase apaga linha.
+**Fora de escopo**: Blocos 3 e 4 da fila. A pendência **P1** (avaliar trocar o modelo das funções de IA) não faz parte do 28: o 28 torna o fallback visível, não escolhe modelo. As decisões D1–D8 (JORNADA) e D-01..D-23 (Phase 48) não são reabertas.
+**Plans**: 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 49 to break down)
+
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>
 
@@ -456,6 +493,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 0/0 | Not started |  |
 
 ---
 
