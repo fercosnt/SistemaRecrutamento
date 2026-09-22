@@ -411,8 +411,8 @@ Plans:
 - [x] 49-01-PLAN.md — Esquema aditivo: `none` no enum de provedor, proveniência real nas 5 tabelas de resultado, versão da rubrica, dono da análise de entrevista (todas nulas) e o predicado único de vigente (JORN-39, JORN-28, JORN-12, JORN-07)
 - [x] 49-02-PLAN.md — `_shared/ai-client.ts` + `audit-logger.ts`: causa separada (não coube/demorou/fora do schema), duas linhas por fallback, replay honesto, modelo real no retorno, bloqueio por custo/injeção registrado (JORN-28, JORN-39)
 - [x] 49-03-PLAN.md — Predicado canônico numa fonte TS só (`_shared`), e o e-mail de avanço recusado para encerrada (JORN-25 / D-35)
-- [ ] 49-04-PLAN.md — Lista do RH: ausência nunca vira 0, Big Five concluído/não fez, Cultura só revisada, faixa cognitiva sem percentil; sem CPF no navegador; hub sem percentil nem acertos (JORN-13, JORN-38, JORN-40)
-- [ ] 49-05-PLAN.md — Próxima etapa numa fonte só; Kanban com selo «Encerrada» pelo predicado; modal sem reabrir/encerrar por status (JORN-33, JORN-34, D-36, D-67)
+- [x] 49-04-PLAN.md — Lista do RH: ausência nunca vira 0, Big Five concluído/não fez, Cultura só revisada, faixa cognitiva sem percentil; sem CPF no navegador; hub sem percentil nem acertos (JORN-13, JORN-38, JORN-40)
+- [x] 49-05-PLAN.md — Próxima etapa numa fonte só; Kanban com selo «Encerrada» pelo predicado; modal sem reabrir/encerrar por status (JORN-33, JORN-34, D-36, D-67)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -542,7 +542,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 3/24 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 5/24 | In Progress|  |
 
 ---
 

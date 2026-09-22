@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 8
+open_count: 9
 waived_count: 7
 fixed_count: 33
-total_count: 48
-last_updated: 2026-09-22T21:17:37.287Z
+total_count: 49
+last_updated: 2026-09-22T23:00:36.248Z
 ---
 
 # Broken Windows Ledger
@@ -63,6 +63,7 @@ last_updated: 2026-09-22T21:17:37.287Z
 | 46 | 49 | unrun-verify | supabase/functions/resend-webhook/__tests__/resend-webhook.test.ts |  | O verify #2 do 49-02 (find supabase/functions -name '*.test.ts' \| grep -v strict-schema \| xargs deno test) NAO roda como escrito: resend-webhook.test.ts falha na resolucao de npm:svix@1.99.1 (ausente no node_modules). Pre-existente, sem relacao com a Phase 49. Medido excluindo tambem resend-webhook: 609 passed / 0 failed. | open |  | 2026-09-22T21:17:37.115Z |  |
 | 47 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | interview_guide a 89% do timeout: maior latencia medida 98363 ms contra teto de 110 s; a 45 tok/s o teto por TEMPO e ~4950 tokens, mas max_tokens esta em 8000. Risco P1 de 'demorou' registrado, NAO consertado (Deferred do 49-02). | open |  | 2026-09-22T21:17:37.198Z |  |
 | 48 | 49 | deviation | supabase/functions/_shared/ai-client.ts |  | OPENAI_FALLBACK_MODEL segue hardcoded ('gpt-4o-mini') e o parametro fallback_model_id do ResolvedPrompt continua ignorado pelas EFs. P1 registrado no 49-02, fora do escopo dele. | open |  | 2026-09-22T21:17:37.287Z |  |
+| 49 | 49 | deviation | src/components/__tests__/KanbanBoard.test.tsx |  | 49-05: menu Radix não abre no happy-dom; exigiu 3 mocks (dropdown-menu + os 2 diálogos que ele passaria a montar sem QueryClientProvider) | open |  | 2026-09-22T23:00:36.248Z |  |
 
 ````json
 [
@@ -644,6 +645,19 @@ last_updated: 2026-09-22T21:17:37.287Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-22T21:17:37.287Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 49,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "src/components/__tests__/KanbanBoard.test.tsx",
+    "line": null,
+    "description": "49-05: menu Radix não abre no happy-dom; exigiu 3 mocks (dropdown-menu + os 2 diálogos que ele passaria a montar sem QueryClientProvider)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-22T23:00:36.248Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
