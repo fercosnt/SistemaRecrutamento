@@ -10,6 +10,7 @@
  */
 
 import type { Database } from '../../../../database.types'
+import { cognitivoBanda } from '@/lib/cognitivo/cognitivoBanda'
 
 // ============================================
 // DATABASE TYPES (extraídos do database.types.ts)
@@ -759,6 +760,57 @@ export function estadoCultura(
     (redacoes ?? []).length > 0 || linhas.some((s) => s?.tipo === 'redacao')
 
   return fezRedacao ? { estado: 'aguardando_revisao' } : { estado: 'nao_fez' }
+}
+
+/**
+ * Estado da célula **Big Five** do card do RH. Duas formas, e nenhuma carrega número.
+ *
+ * O Big Five é avaliação comportamental NÃO AVALIATIVA (UX-07/RNF-07a, D-31): não há nota
+ * a mostrar, e o `score` da linha `tipo='big_five'` é **NULL por desenho** (as dimensões
+ * moram em `metadata.dimensoes`). O que a célula pode dizer honestamente é se a pessoa fez.
+ */
+export type EstadoBigFive = 'concluido' | 'nao_fez'
+
+/**
+ * `concluido` quando existe linha `tipo='big_five'` em `scores_candidato`, qualquer que
+ * seja o `score`. **A existência da linha é o dado** — medido em PROD (2026-09-22): 5
+ * linhas `big_five`, todas com `score` NULL. Um helper que somasse ou mediasse `score`
+ * aqui devolveria `0` e a tela pintaria de nota; era exatamente isso que
+ * `calculateBigFiveAverage` fazia.
+ */
+export function estadoBigFive(
+  scoresCandidato?: ScoreCandidatoRow[] | null
+): EstadoBigFive {
+  return (scoresCandidato ?? []).some((s) => s?.tipo === 'big_five')
+    ? 'concluido'
+    : 'nao_fez'
+}
+
+/**
+ * Estado da célula **Inteligência** do card do RH.
+ *
+ * `faixa` já vem RESOLVIDA por `cognitivoBanda` — o percentil não entra no componente, o
+ * que torna impossível exibi-lo por descuido (D-33/D-64, UX-07).
+ */
+export type EstadoInteligencia =
+  | { estado: 'faixa'; faixa: string }
+  | { estado: 'nao_fez' }
+
+/**
+ * Traduz o embed `scores_raven(percentil)` na faixa que a tela exibe, ou em «não fez».
+ *
+ * ⚠ O teste do percentil é explícito contra `null`/`undefined`, **não** por falsidade:
+ * percentil `0` é um percentil válido e válido é diferente de ausente. Um `if (!percentil)`
+ * aqui reintroduziria, ao contrário, a confusão que este plano existe para desfazer.
+ */
+export function estadoInteligencia(
+  scoresRaven?: ScoresRavenPercentil | null
+): EstadoInteligencia {
+  const percentil = scoresRaven?.percentil
+  if (percentil === null || percentil === undefined) {
+    return { estado: 'nao_fez' }
+  }
+  return { estado: 'faixa', faixa: cognitivoBanda(percentil) }
 }
 
 /**

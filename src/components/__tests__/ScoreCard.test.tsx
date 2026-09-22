@@ -20,21 +20,6 @@ import { ScoreCard } from '../ScoreCard'
 import '@testing-library/jest-dom'
 
 /**
- * ⚠ RED (49-04 Task 2) — ANDAMIME TEMPORÁRIO, sai no commit GREEN.
- *
- * Os testes abaixo descrevem a forma NOVA das props (`bigFive` e `inteligencia` como
- * ESTADO, não como número), que o componente ainda não tem. O `pre-commit` deste repo
- * reprova qualquer commit que suba a contagem de `tsc` acima da baseline congelada — e um
- * commit RED honesto, por definição, escreve contra uma API que ainda não existe. Este
- * spread mantém o commit RED possível SEM `--no-verify` e SEM afrouxar o portão.
- *
- * Ele é removido no GREEN, quando as props passam a existir de verdade: deixá-lo aqui
- * apagaria a checagem de tipo do próprio teste, que é metade do valor dele.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const red = (p: Record<string, unknown>): any => p
-
-/**
  * Phase 23 mantida em INTENÇÃO, trocada em FORMA (49-04 Task 2): a célula Inteligência
  * deixou de receber o percentil cru e passou a receber a FAIXA já resolvida por
  * `cognitivoBanda`. O que Phase 23 provava — «o dígito nunca chega à tela» — continua
@@ -43,7 +28,7 @@ const red = (p: Record<string, unknown>): any => p
 describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)', () => {
   it('faixa de percentil ≥70 → "Acima do esperado", e nenhum dígito na célula', () => {
     render(
-      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Acima do esperado' } })} />
+      <ScoreCard inteligencia={{ estado: 'faixa', faixa: 'Acima do esperado' }} />
     )
     const celula = screen.getByTestId('scorecard-inteligencia-estado')
     expect(celula).toHaveTextContent('Acima do esperado')
@@ -53,7 +38,7 @@ describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)'
 
   it('faixa de percentil 40-69 → "Dentro do esperado"', () => {
     render(
-      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Dentro do esperado' } })} />
+      <ScoreCard inteligencia={{ estado: 'faixa', faixa: 'Dentro do esperado' }} />
     )
     expect(
       screen.getByTestId('scorecard-inteligencia-estado')
@@ -62,7 +47,7 @@ describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)'
 
   it('faixa de percentil <40 → "Abaixo do esperado"', () => {
     render(
-      <ScoreCard {...red({ inteligencia: { estado: 'faixa', faixa: 'Abaixo do esperado' } })} />
+      <ScoreCard inteligencia={{ estado: 'faixa', faixa: 'Abaixo do esperado' }} />
     )
     expect(
       screen.getByTestId('scorecard-inteligencia-estado')
@@ -70,7 +55,7 @@ describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)'
   })
 
   it('cognitivo ausente → «não fez» (nunca um dígito, nunca cor de nota)', () => {
-    render(<ScoreCard {...red({ inteligencia: { estado: 'nao_fez' } })} />)
+    render(<ScoreCard inteligencia={{ estado: 'nao_fez' }} />)
     const celula = screen.getByTestId('scorecard-inteligencia-estado')
     expect(celula).toHaveTextContent('não fez')
     expect(celula.textContent ?? '').not.toMatch(/\d/)
@@ -86,7 +71,7 @@ describe('ScoreCard — UX-07 cognitivo job-fit banda avaliativa (sem P{n} cru)'
  */
 describe('ScoreCard — Big Five sem número, e DISC fora do card (49-04 / D-31)', () => {
   it('Big Five concluído → «concluído», sem número e sem cor de nota', () => {
-    render(<ScoreCard {...red({ bigFive: 'concluido' })} />)
+    render(<ScoreCard bigFive="concluido" />)
     const celula = screen.getByTestId('scorecard-bigfive-estado')
     expect(celula).toHaveTextContent('concluído')
     expect(celula.textContent ?? '').not.toMatch(/\d/)
@@ -94,14 +79,14 @@ describe('ScoreCard — Big Five sem número, e DISC fora do card (49-04 / D-31)
   })
 
   it('sem linha big_five → «não fez»', () => {
-    render(<ScoreCard {...red({ bigFive: 'nao_fez' })} />)
+    render(<ScoreCard bigFive="nao_fez" />)
     expect(screen.getByTestId('scorecard-bigfive-estado')).toHaveTextContent(
       'não fez'
     )
   })
 
   it('o card NÃO tem mais célula DISC', () => {
-    render(<ScoreCard {...red({ bigFive: 'concluido', cultura: { estado: 'nao_fez' } })} />)
+    render(<ScoreCard bigFive="concluido" cultura={{ estado: 'nao_fez' }} />)
     expect(screen.queryByText('DISC')).toBeNull()
   })
 })

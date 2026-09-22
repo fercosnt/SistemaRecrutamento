@@ -480,10 +480,14 @@ export async function updateCandidaturaStatus(
       )
     }
 
-    // Buscar candidatura atual para pegar status anterior
+    // Buscar candidatura atual para pegar a etapa anterior.
+    //
+    // 49-04 (JORN-38): este pré-fetch embutia `candidatos(*)` e `vagas(*)` — o cadastro
+    // inteiro de duas tabelas — e o corpo abaixo lê UMA coluna dele (`etapa_atual`).
+    // Projeção reduzida ao que é lido de fato; `id` e `status` ficam por diagnóstico.
     const { data: candidaturaAtual, error: fetchError } = await supabase
       .from('candidaturas')
-      .select('*, candidato:candidatos(*), vaga:vagas(*)')
+      .select('id, etapa_atual, status')
       .eq('id', candidaturaId)
       .single()
 
@@ -719,26 +723,12 @@ export async function listCandidaturasByVaga(
       throw new CandidaturasServiceError('vagaId é obrigatório', 'INVALID_INPUT')
     }
 
-    // Construir query base com join de candidatos
+    // 49-04: a aba «Por Vaga» renderiza o MESMO `CandidatoCard` da lista geral, então lê
+    // a MESMA fonte (`SELECT_LISTA_RH`). Antes deste plano ela não embutia nota nenhuma —
+    // nem o título da vaga — e levava `cpf` + `data_nascimento` ao navegador (JORN-38).
     let query = supabase
       .from('candidaturas')
-      .select(
-        `
-        *,
-        candidato:candidatos (
-          id,
-          nome_completo,
-          email,
-          celular,
-          data_nascimento,
-          cpf,
-          cidade,
-          estado,
-          created_at
-        )
-      `,
-        { count: 'exact' }
-      )
+      .select(SELECT_LISTA_RH, { count: 'exact' })
       .eq('vaga_id', vagaId)
       .is('deleted_at', null)
 

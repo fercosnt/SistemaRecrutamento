@@ -64,7 +64,11 @@ import type {
   Candidatura,
   CandidaturaComScores,
 } from '@/features/vagas/types/vagasTypes'
-import { estadoCultura } from '@/features/vagas/types/vagasTypes'
+import {
+  estadoBigFive,
+  estadoCultura,
+  estadoInteligencia,
+} from '@/features/vagas/types/vagasTypes'
 import {
   ETAPA_M2_OPTIONS,
   type EtapaFunilM2,
@@ -346,11 +350,12 @@ export function CandidatosRHPage() {
 
     // Estados das células de avaliação (49-04 / JORN-13): ausência NUNCA vira 0. Cada
     // célula recebe um ESTADO, e só o estado `nota` carrega número.
+    const bigFive = estadoBigFive(candidatura.scores_candidato)
     const cultura = estadoCultura(
       candidatura.scores_candidato,
       candidatura.redacoes_candidato
     )
-    const inteligencia = candidatura.scores_raven?.percentil
+    const inteligencia = estadoInteligencia(candidatura.scores_raven)
     const scoreGeral = candidatura.score_geral
 
     return (
@@ -416,6 +421,7 @@ export function CandidatosRHPage() {
 
           {/* Scores dos Testes */}
           <ScoreCard
+            bigFive={bigFive}
             inteligencia={inteligencia}
             cultura={cultura}
             scoreGeral={scoreGeral}
