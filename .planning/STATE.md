@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-05-PLAN.md
-last_updated: "2026-09-22T23:00:48.812Z"
+stopped_at: Completed 49-06-PLAN.md
+last_updated: "2026-09-22T23:43:47.854Z"
 last_activity: 2026-09-22
-state_head: 907e85fb4670d7da7a34239c02978f3970209e1b
+state_head: efa2f44ce8bbe1bbd8d81b0e8990e562ed8e5a11
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
-  completed_plans: 81
-  percent: 79
+  completed_plans: 82
+  percent: 80
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -794,6 +794,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P03 | 22 min | 2 tasks | 5 files |
 | Phase 49 P04 | 22 min | 3 tasks | 8 files |
 | Phase 49 P05 | 27 min | 2 tasks | 7 files |
+| Phase 49 P06 | 37 min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -1075,6 +1076,10 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: O teto de custo AI-06 soma o gasto do dia SEM filtrar por `success=true` — A tentativa truncada de 20/09 custou US$ 0,058 e agora é gravada com success=false, porque o resultado não era utilizável. Com o filtro, esse dinheiro ficava fora justamente do teto que existe para contê-lo — o teto media «gasto que deu certo» em vez de «gasto». Reversível: basta recolocar o .eq.
 - [Phase 49]: 49-05: «qual é a próxima etapa de trabalho» passou a ter UMA resposta (`src/lib/candidatura/proximaEtapa.ts`, D-36). Kanban e hub do RH consomem; o comparativo (49-22) é o terceiro consumidor. `FUNNEL_ORDER` do retrocesso NÃO foi fundida — mesmos 6 valores, outra pergunta.
 - [Phase 49]: 49-05: o Kanban passou a selar «Encerrada» pelo predicado canônico (JORN-33), o que tirou arraste e menu das 3 linhas `status='finalizado'` em etapa de trabalho; e o `UpdateStatusModal` perdeu `rejeitado → em_analise` e `aprovado_proxima → finalizado` (JORN-34 / D-67) — os dois atalhos que gravavam ZERO histórico. ⚠ A tela só deixa de OFERECER: a trava no `avancar_etapa` é o 49-06.
+- [Phase 49]: D-35 no banco: a trava de `avancar_etapa()` recusa mover candidatura ENCERRADA, e a exceção vem por GUC de transação (`app.transicao_sancionada` = `reabertura` | `decisao`), declarada pela RPC que executa a transição — nunca por «destino terminal» — A regra por destino parece equivalente e não é: um PATCH `etapa_atual='aprovado'` num knockout, pela policy `rh_avanca_etapa`, tem destino terminal e seria ACEITO, deixando `status='rejeitado'` com etapa `aprovado`. A asserção (a3) do `p49_trilha_smoke` executa esse PATCH e o vê recusado.
+- [Phase 49]: JORN-17: `etapa_justificativa` é coluna de EVENTO — `avancar_etapa()` a zera depois de gravar a linha de histórico, e o pós-portão assere que a limpeza vem DEPOIS do INSERT — Deixá-la viva a tornava ESTADO: o histórico da transição seguinte herdava o motivo alheio, e o portão de regressão ficava desarmado por valor residual. Invertida a ordem, o `criterio_texto` sairia NULL em toda transição — o conserto de privacidade viraria apagamento de transparência, e nenhuma asserção de presença perceberia.
+- [Phase 49]: D-47/BD-9: a trilha do titular passa a registrar a constante sem PII «Decisão final registrada.», e o texto da decisão continua em `decisao_final.justificativa` — o dado é MOVIDO, e o pós-portão exige as duas metades — O escopo NÃO se estende a `rejeitar_candidatura` (Correção 28): a justificativa de ETAPA chega ao titular por decisão já tomada e com aviso na tela — é transparência devida. Só a da decisão final é BD-9.
+- [Phase 49]: Prova de mordida precisa de uma inversão POR conserto: cinco mutações em vez das três do plano, porque um smoke é fail-fast e uma mutação que desfaz três consertos de uma vez só prova o primeiro — M1 (trava) reprova em (a) antes de chegar a (e) e (i) — a limpeza e a vigente ficariam sem prova própria, parecendo provadas. Cada conserto ganhou a inversão exata dele sobre o corpo vivo, e todas as cinco reprovaram na asserção esperada, sem vazar para PROD.
 
 ### Roadmap Evolution
 
@@ -1361,8 +1366,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-22T23:00:21.712Z
-Stopped at: Completed 49-05-PLAN.md
+Last session: 2026-09-22T23:43:04.652Z
+Stopped at: Completed 49-06-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
