@@ -47,6 +47,7 @@
 //   import { z } from "npm:zod@3.25.76";
 
 import { maskPII } from "./pii-masker.ts";
+import { AI_ERROR_CODE, ehFallback, PREFIXO_FALLBACK } from "./ai-error-codes.ts";
 import { detectPromptInjection } from "./injection-detector.ts";
 import { CircuitBreaker, sharedBreaker } from "./circuit-breaker.ts";
 import { calculateCost } from "./ai-cost.ts";
@@ -360,6 +361,52 @@ function isRetryable(err: unknown): boolean {
   return /529|overloaded|503|429|tim(e|ed)\s*out/i.test(msg);
 }
 
+/** `true` quando o erro é o timeout por chamada (mesma detecção que `isRetryable` usa). */
+function ehTimeout(err: unknown): boolean {
+  const name = (err as { name?: string })?.name ??
+    (err as { constructor?: { name?: string } })?.constructor?.name;
+  if (name === "APIConnectionTimeoutError") return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /tim(e|ed)\s*out/i.test(msg);
+}
+
+/**
+ * Classifica uma EXCEÇÃO do primário Anthropic em uma das três causas de SAÚDE do
+ * provedor (JORN-28 / D-27c).
+ *
+ * As três são falhas de saúde, e só elas alimentam o disjuntor: repetir a chamada pode
+ * dar outro resultado. As causas DETERMINÍSTICAS (truncamento, schema, recusa) não vêm de
+ * exceção nenhuma — vêm da resposta, que o SDK entrega normalmente (ver `FALHA_PARSE`), e
+ * por isso são classificadas no caminho de sucesso e NÃO passam por aqui.
+ */
+function causaDaExcecao(err: unknown): string {
+  if (ehTimeout(err)) return AI_ERROR_CODE.anthropic_timeout;
+  const status = statusOf(err);
+  if (status !== undefined && RETRYABLE_STATUS.has(status)) {
+    return AI_ERROR_CODE.anthropic_overloaded;
+  }
+  // A regex de `isRetryable` também casa 429/503/529 vindos só na MENSAGEM (erro sem
+  // `status`, como os mocks e alguns wrappers levantam) — isso é sobrecarga, não erro
+  // genérico da API. Sem este ramo, um "529 overloaded" sem `status` viraria api_error.
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/529|overloaded|503|429/i.test(msg)) return AI_ERROR_CODE.anthropic_overloaded;
+  return AI_ERROR_CODE.anthropic_api_error;
+}
+
+/** Classifica uma exceção do FALLBACK OpenAI (não há terceiro provedor: a chamada morre). */
+function causaDoErroOpenai(err: unknown): string {
+  const name = (err as { name?: string })?.name ??
+    (err as { constructor?: { name?: string } })?.constructor?.name;
+  // openai 6.42.0 `lib/parser.js:96-97`: `finish_reason === 'length'` lança esta classe.
+  if (name === "LengthFinishReasonError") return AI_ERROR_CODE.openai_max_tokens;
+  if (name === "ZodError") return AI_ERROR_CODE.openai_schema_invalid;
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/failed to parse|invalid_type|unrecognized_keys/i.test(msg)) {
+    return AI_ERROR_CODE.openai_schema_invalid;
+  }
+  return AI_ERROR_CODE.openai_error;
+}
+
 /**
  * Procura uma chamada anterior com a mesma `idempotency_key` em `ai_call_logs`
  * (CR-03). Se encontrar, devolve um `CallAiResult` de replay — `cost_usd=0` e
@@ -444,8 +491,11 @@ async function tryIdempotencyReplay(
     // 400 → `error` → return null. O replay por idempotency_key NUNCA funcionou; toda
     // chamada "cacheada" era uma chamada nova (custo dobrado no reprocesso do RH). O
     // resultado bruto vive em `raw_response`.
+    // Phase 49 / JORN-28: `id` e `model_snapshot` entraram no SELECT. Sem eles o replay
+    // devolvia um resultado sem proveniência — a EF gravava `modelo_ia` NULL (ou, pior, o
+    // modelo configurado) e `ai_call_log_id` NULL (D-28/D-38).
     const { data: existing, error } = await table
-      .select("provider, cost_usd, latency_ms, success, raw_response, error_code")
+      .select("id, provider, cost_usd, latency_ms, success, raw_response, error_code, model_snapshot")
       .eq("idempotency_key", idempotency_key)
       .maybeSingle();
     if (error || !existing) return null;
@@ -456,22 +506,33 @@ async function tryIdempotencyReplay(
     // mesma idempotency_key estável; sem isto a falha se replayaria p/ sempre).
     // (T-23-01-03: impede que uma falha envenenada seja replayada como sucesso.)
     if (existing.success !== true) return null;
+    // ⚠ Phase 49 / JORN-28: um SUCESSO DE FALLBACK também NÃO é replayado.
+    //   Medido em PROD: 17 linhas `provider='openai'` com `success=true`. Antes desta
+    //   guarda, o RH que clicasse de novo em «Gerar guia» recebia — em menos de um
+    //   segundo, sem nenhuma linha nova em `ai_call_logs` — a mesma saída do `gpt-4o-mini`
+    //   que o fez clicar de novo. O clique é justamente o pedido de tentar o Sonnet:
+    //   devolver `null` aqui derruba para uma chamada nova.
+    if (ehFallback(existing.error_code as string | null | undefined)) return null;
+    const modelSnapshot = existing.model_snapshot;
+    const logId = existing.id;
     return {
       provider: String(existing.provider ?? "unknown"),
       parsed: existing.raw_response ?? null,
       cost_usd: 0,
       latency_ms: 0,
-      cache_hit: true,
+      // Um replay não tocou o provedor, logo não houve leitura de prompt-cache efêmero.
+      // `cache_hit` volta a significar SÓ isso (C6 item 8); `replayed` é o sinal de replay.
+      cache_hit: false,
       // Placeholder: `callAi` sobrescreve com `prompt.prompt_version` no retorno. A linha
       // replayada e necessariamente do MESMO prompt — a versao entra na impressao digital
       // da chave efetiva (ver requestFingerprint), entao nao ha divergencia possivel.
       prompt_version: "",
       error_code: existing.error_code != null ? String(existing.error_code) : undefined,
-      // Phase 49 / JORN-28: campos de proveniência. O `model`/`log_id` reais vêm da
-      // linha (`model_snapshot`/`id`) — a Task 2 os acrescenta ao `select`.
-      model: null,
-      log_id: null,
+      // D-28/D-38: a proveniência do resultado replayado é a da linha ORIGINAL.
+      model: typeof modelSnapshot === "string" ? modelSnapshot : null,
+      log_id: typeof logId === "string" ? logId : null,
       replayed: true,
+      // Uma linha de fallback nunca chega aqui (guarda acima), logo nunca há causa.
       fallback_cause: null,
     };
   } catch {
@@ -516,13 +577,18 @@ async function isDailyCostCapExceeded(
     dayStart.setUTCHours(0, 0, 0, 0);
     // PostgREST filter builder: chainable + thenable → { data, error }. Cast defensivo;
     // qualquer método ausente/erro cai no catch abaixo → fail-open.
+    // ⚠ Phase 49 / JORN-28: o filtro `.eq("success", true)` SAIU da soma.
+    //   Razão medida: a tentativa Anthropic truncada de 2026-09-20 consumiu 4 445 tokens
+    //   de entrada e 3 000 de saída — **US$ 0,058 debitados** — e agora é gravada com
+    //   `success=false` (ela é honestamente uma falha: o resultado não era utilizável).
+    //   Com o filtro, esse dinheiro ficava FORA justamente do teto que existe para contê-lo,
+    //   e o teto passava a medir «gasto que deu certo» em vez de «gasto». Reversível: basta
+    //   recolocar o `.eq`. O índice parcial `idx_ai_logs_vaga_cost … WHERE success=true`
+    //   deixa de cobrir a consulta inteira; o volume por vaga/dia é de dezenas de linhas.
     const builder = (table.select("cost_usd") as {
-      eq: (c: string, v: unknown) => {
-        eq: (c: string, v: unknown) => { gte: (c: string, v: unknown) => unknown };
-      };
+      eq: (c: string, v: unknown) => { gte: (c: string, v: unknown) => unknown };
     })
       .eq("vaga_id", vaga_id)
-      .eq("success", true)
       .gte("created_at", dayStart.toISOString());
     const { data, error } = await (builder as unknown as Promise<{
       data: Array<{ cost_usd: number | null }> | null;
@@ -612,13 +678,13 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       system_prompt: prompt.system_template,
       user_prompt_template: rawInput, // logAiCall mascara antes de escrever
       input_token_count: 0,
-      raw_response: { error: "cost_cap_exceeded" },
+      raw_response: { error: AI_ERROR_CODE.cost_cap_exceeded },
       output_token_count: 0,
       latency_ms,
       attempt_number: 1,
       cost_usd: 0,
       success: false,
-      error_code: "cost_cap_exceeded",
+      error_code: AI_ERROR_CODE.cost_cap_exceeded,
       idempotency_key: idempotencyKeyEfetiva,
       recommendation: "hold",
     });
@@ -629,7 +695,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       latency_ms,
       cache_hit: false,
       prompt_version: prompt.prompt_version,
-      error_code: "cost_cap_exceeded",
+      error_code: AI_ERROR_CODE.cost_cap_exceeded,
       flagged_for_human_review: true,
       // Nenhum modelo respondeu — `model` NULL é a verdade, não um placeholder.
       model: null,
@@ -655,13 +721,13 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       system_prompt: prompt.system_template,
       user_prompt_template: rawInput, // logAiCall mascara antes de escrever
       input_token_count: 0,
-      raw_response: { error: "prompt_injection_detected", pattern: injection.pattern },
+      raw_response: { error: AI_ERROR_CODE.prompt_injection_detected, pattern: injection.pattern },
       output_token_count: 0,
       latency_ms,
       attempt_number: 1,
       cost_usd: 0,
       success: false,
-      error_code: "prompt_injection_detected",
+      error_code: AI_ERROR_CODE.prompt_injection_detected,
       idempotency_key: idempotencyKeyEfetiva,
       recommendation: "hold",
     });
@@ -672,7 +738,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       latency_ms,
       cache_hit: false,
       prompt_version: prompt.prompt_version,
-      error_code: "prompt_injection_detected",
+      error_code: AI_ERROR_CODE.prompt_injection_detected,
       flagged_for_human_review: true,
       model: null,
       log_id: null,
@@ -692,7 +758,7 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
       idempotency_key: idempotencyKeyEfetiva, timeoutMs, totalBudgetMs,
       openai, supabase, zodResponseFormat, start,
-      causa: "anthropic_circuit_open",
+      causa: AI_ERROR_CODE.anthropic_circuit_open,
     });
   }
 
@@ -721,6 +787,8 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
   let lastErr: unknown = null;
   /** Causa determinística detectada na RESPOSTA (truncamento/schema/recusa). */
   let causaDeterministica: string | null = null;
+  /** Causa de SAÚDE detectada na EXCEÇÃO (timeout/sobrecarga/erro da API). */
+  let causaExcecao: string | null = null;
   while (attempt < effectiveMaxAttempts) {
     attempt++;
     try {
@@ -760,11 +828,11 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       const falhaParse = (response.parsed_output as Record<symbol, unknown> | null | undefined)
         ?.[FALHA_PARSE];
       const causa = response.stop_reason === "max_tokens"
-        ? "anthropic_max_tokens"
+        ? AI_ERROR_CODE.anthropic_max_tokens
         : response.stop_reason === "refusal"
-        ? "anthropic_refusal"
+        ? AI_ERROR_CODE.anthropic_refusal
         : falhaParse
-        ? "anthropic_schema_invalid"
+        ? AI_ERROR_CODE.anthropic_schema_invalid
         : null;
 
       if (causa) {
@@ -845,6 +913,10 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
       };
     } catch (err) {
       lastErr = err;
+      // JORN-28: as três causas de EXCEÇÃO são falhas de SAÚDE do provedor (timeout,
+      // sobrecarga, erro da API) — e por isso, e só por isso, alimentam o disjuntor.
+      // Repetir a chamada pode dar outro resultado; é o que o disjuntor mede.
+      causaExcecao = causaDaExcecao(err);
       breaker.recordFailure();
       if (attempt < effectiveMaxAttempts && isRetryable(err)) {
         await sleep(Math.pow(2, attempt) * 1000 + Math.random() * 500);
@@ -856,14 +928,49 @@ export async function callAi(args: CallAiArgs, deps: CallAiDeps): Promise<CallAi
 
   // ── 5. Anthropic falhou (exceção esgotada OU causa determinística) -> fallback ──
   // A causa determinística (truncamento/schema/recusa) já gravou a linha da tentativa
-  // no loop acima. O caminho de EXCEÇÃO (timeout / 429-503-529 / erro da API) ainda usa
-  // o código legado aqui; a Task 2 o classifica e grava a tentativa dele também.
+  // dentro do loop, onde `response.usage` estava disponível para custeá-la. O caminho de
+  // EXCEÇÃO não tem `usage` (não houve resposta), então a tentativa dele é gravada aqui.
+  const causaFinal = causaDeterministica ?? causaExcecao ?? AI_ERROR_CODE.anthropic_api_error;
+  if (!causaDeterministica) {
+    // Linha da TENTATIVA do caminho de exceção. `cost_usd: 0` é a verdade: sem resposta
+    // não há `usage`, e um custo inventado corromperia o teto AI-06 que agora soma
+    // também as falhas. `idempotency_key: null` pelo Pitfall 1 (o upsert por chave
+    // sobrescreveria esta linha com a do fallback).
+    await logAiCall(supabase, {
+      candidato_id,
+      vaga_id,
+      call_type: prompt.call_type,
+      prompt_version_id: prompt.prompt_version_id ?? prompt.prompt_version,
+      prompt_version: prompt.prompt_version,
+      prompt_hash: prompt.prompt_hash ?? "",
+      provider: "anthropic",
+      model_id: prompt.model_id,
+      model_snapshot: prompt.model_id, // não houve resposta: o único modelo conhecido é o pedido
+      system_prompt: prompt.system_template,
+      user_prompt_template: maskedInput,
+      input_token_count: 0,
+      raw_response: { causa: causaFinal, tentativas: attempt },
+      output_token_count: 0,
+      latency_ms: Date.now() - start,
+      attempt_number: attempt,
+      cost_usd: 0,
+      success: false,
+      error_code: causaFinal,
+      // A mensagem do provedor pertence à linha da TENTATIVA — é ela que falhou. Até a
+      // Phase 49 ela ia na linha do RESULTADO (`provider='openai'`), onde descrevia um
+      // erro que aquela chamada não teve: foi assim que o guia de 06/09 ficou registrado
+      // como `provider=openai` com `error_message: "Request timed out."`.
+      error_message: lastErr instanceof Error ? lastErr.message : undefined,
+      idempotency_key: null,
+    });
+  }
+
   return await runOpenAIFallback({
     prompt, maskedInput, vagaRubricBlock, candidato_id, vaga_id, schema,
     idempotency_key: idempotencyKeyEfetiva,
     timeoutMs, totalBudgetMs, openai, supabase, zodResponseFormat, start,
     triggerError: lastErr,
-    causa: causaDeterministica ?? "anthropic_retries_exhausted",
+    causa: causaFinal,
   });
 }
 
@@ -898,7 +1005,7 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
   // O código do RESULTADO carrega o prefixo: a linha é um SUCESSO do fallback, não um
   // sucesso do modelo configurado. `error_code LIKE 'fallback_%'` é o que permite à tela
   // do admin mostrar «Fallback» (âmbar) em vez de «Sucesso» (verde) — JORN-28.
-  const fallbackErrorCode = `fallback_${a.causa}`;
+  const fallbackErrorCode = `${PREFIXO_FALLBACK}${a.causa}`;
   // Observability: se a OpenAI também falhar, NÃO engolir o erro PRIMÁRIO (Anthropic).
   // Antes, a exceção da OpenAI propagava direto e o triggerError do Anthropic se perdia
   // (logAiCall abaixo nunca rodava) — o painel só via o erro do fallback.
@@ -933,6 +1040,37 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
       ? a.triggerError.message
       : String(a.triggerError ?? "n/a");
     const oaMsg = openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
+    // JORN-28 (Discretion obrigatória): a falha do FALLBACK também deixa linha, ANTES do
+    // throw. Sem ela, a chamada mais caras de todas — a que pagou a tentativa Anthropic E
+    // a chamada da OpenAI, e não entregou nada — era a única que não deixava rastro algum
+    // do lado do fallback. `success=false`, causa nominal (`openai_max_tokens` quando é
+    // `LengthFinishReasonError`, `openai_schema_invalid`, senão `openai_error`).
+    const causaOpenai = causaDoErroOpenai(openaiErr);
+    await logAiCall(a.supabase, {
+      candidato_id: a.candidato_id,
+      vaga_id: a.vaga_id,
+      call_type: a.prompt.call_type,
+      prompt_version_id: a.prompt.prompt_version_id ?? a.prompt.prompt_version,
+      prompt_version: a.prompt.prompt_version,
+      prompt_hash: a.prompt.prompt_hash ?? "",
+      provider: "openai",
+      model_id: OPENAI_FALLBACK_MODEL,
+      model_snapshot: OPENAI_FALLBACK_MODEL,
+      system_prompt: a.prompt.system_template,
+      user_prompt_template: a.maskedInput,
+      input_token_count: 0,
+      raw_response: { causa: causaOpenai },
+      output_token_count: 0,
+      latency_ms: Date.now() - a.start,
+      attempt_number: 1,
+      cost_usd: 0,
+      success: false,
+      error_code: causaOpenai,
+      error_message: oaMsg,
+      // Chave nula: a linha da tentativa Anthropic também é nula, e um upsert por chave
+      // aqui apagaria a evidência de que as DUAS pontas falharam (Pitfall 1).
+      idempotency_key: null,
+    });
     throw new Error(`[fallback] anthropic(${fallbackErrorCode}): ${anthMsg} || openai: ${oaMsg}`);
   }
 
@@ -962,7 +1100,11 @@ async function runOpenAIFallback(a: FallbackArgs): Promise<CallAiResult> {
     cost_usd,
     success: parsed !== null,
     error_code: fallbackErrorCode,
-    error_message: a.triggerError instanceof Error ? a.triggerError.message : undefined,
+    // ⚠ A `error_message` da Anthropic SAIU daqui (Phase 49). Esta linha é o RESULTADO da
+    //   chamada OpenAI, que não teve erro nenhum — carregar a mensagem da Anthropic fazia
+    //   com que `provider=openai` aparecesse com `error_message: "Request timed out."`,
+    //   exatamente o registro enganoso do guia de 06/09. A mensagem agora mora na linha da
+    //   tentativa Anthropic, ao lado da causa que ela explica.
     idempotency_key: a.idempotency_key,
   });
 
