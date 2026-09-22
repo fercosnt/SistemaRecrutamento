@@ -75,11 +75,16 @@ covered_files:
   - supabase/migrations/20260921000017_fecha_views_legado_pii.sql
   - supabase/tests/p48_prontidao_prod.sql
   - supabase/tests/p48_prova_prod.sql
-covered_digest: "v1:sha256:7bf1616779f55707319073f71b78eb700960c611c0a7010b8cc4a6826da8cb7f"
+covered_digest: "v1:sha256:4670a588c1a763b7aa71273dde8f03cb727b77134368ba220f28e297c78a5c69"
 behavior_unverified: 0
 overrides_applied: 0
 flagged_prohibitions: 42  # todas judgment-tier; ACEITAS pelo operador em 2026-09-22 (ver §Resolução dos itens humanos)
 resolved_at: 2026-09-22
+re_verification:
+  date: 2026-09-22
+  scope: "focada no delta — dos 71 arquivos cobertos, só 2 mudaram depois da verificação inicial (HEAD 80f5110f): DevolutivaBigFiveView.tsx e gerar-devolutiva-bigfive/index.ts, ambos pelo commit ef068dd8 (item humano 2: remoção da promessa «revisão humana a qualquer momento», decisão do operador)"
+  evidence: "git diff 80f5110f..HEAD nesses 2 arquivos = só a frase removida + comentários; deno 16/16 e vitest 172/172 no escopo, com mordida provada das asserções novas; EF v27 = disco (sha256 dos 8 arquivos); front index-Cuux4LCd.js sem a frase"
+  previous_digest: "v1:sha256:7bf1616779f55707319073f71b78eb700960c611c0a7010b8cc4a6826da8cb7f"
 human_verification:
   - test: "Deploy da EF gerar-devolutiva-bigfive v26 pelo operador (node efdeploy.cjs gerar-devolutiva-bigfive) + push autorizado de origin/main..HEAD (aa2b38ed, 48409fe7, 80f5110f)"
     expected: "Bundle vivo da v26 sem «Conteúdo revisado por» (e com a frase negada mantida); build novo do front sem «Dra. [Nome]» / «CRP-XX» no chunk onde a DevolutivaBigFiveView mora; git log --oneline origin/main..HEAD vazio"
