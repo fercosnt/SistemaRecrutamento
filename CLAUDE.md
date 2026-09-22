@@ -168,6 +168,9 @@ tornou incapaz de falhar é pior que o quebrado.
 - Duplicate check via RPC SECURITY DEFINER (nao anon SELECT)
 - DevNavigationMenu gateado por `import.meta.env.DEV`
 - Linguagem de produto: "avaliacao comportamental/cognitiva" (nunca "teste psicologico")
+  - **Exceção decidida (operador, 2026-09-22):** o disclaimer NEGADO do rodapé da devolutiva
+    («… não é teste psicológico») FICA. Não "consertar": o termo é montado por fragmentos (`_NEG`
+    na EF `gerar-devolutiva-bigfive`) de propósito, para o guard LGPD-04 não casar o bigrama.
 - Sistema NUNCA rejeita candidato automaticamente por score (RNF-07a)
 
 ## File Structure

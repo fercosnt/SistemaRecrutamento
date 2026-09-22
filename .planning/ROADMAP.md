@@ -328,7 +328,7 @@ Plans:
 **Guardrails**: `tsc` não passa de **90** (baseline congelada em 96); vitest e deno verdes; migrations aplicadas pela via do `p46apply.cjs` (SQL lido do arquivo, md5 conferido no ledger); depois de todo apply com efeito visível, `git log --oneline origin/main..HEAD` sai **vazio**.
 **Fora de escopo**: Blocos 2, 3 e 4 da fila. As decisões D1–D10 não são reabertas.
 **Portão destrutivo**: não se aplica à fase como um todo — ela é aditiva, e a purga (destrutiva) ficou **fora** por D-21. Escritas retroativas declaradas, todas sobre contas de teste e todas como checkpoint com contagem antes/depois: a marcação do D-02 (**3** análises — autorizada pelo operador), e, só se o operador aprovar na execução, desfazer as 2 marcas erradas de «encerrada a pedido» e o backfill de `feedback_rejeicao` da rejeição de triagem já feita (1). Nenhuma apaga linha.
-**Plans**: 18 plans
+**Plans**: 19 plans
 
 Plans:
 **Wave 1**
@@ -369,6 +369,7 @@ Plans:
 **Wave 7** *(blocked on Wave 6 completion)*
 
 - [ ] 48-18-PLAN.md — Prova em PROD pela consulta, com as contas da jornada: prontidão → sessão 1 (candidato/RH) → sessão 2 (revisão, reabertura, D-23, titular)
+- [x] 48-19-PLAN.md — Devolutiva: texto oficial da faixa (IA desligada) e as cinco abas clicáveis — Defeitos 30/31 achados na sessão 1 do 48-18, decisão do operador (JORN-06)
 
 <details>
 <summary>✅ v1.0 — M1 MVP Candidato (Phases 1–5) — SHIPPED 2026-06-06</summary>

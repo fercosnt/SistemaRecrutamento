@@ -141,5 +141,5 @@
   **What:** com a IA ligada a linha grava `"claude-sonnet-4-6"` e `"1.0.0"` fixos, embora o modelo e a versão reais venham do `prompt_versions` (fallback `gpt-4o-mini`). Hoje a IA está desligada e a linha grava `null` / `template_oficial`, que é verdade. Quem religar deve gravar os valores do `resolved`.
 
 - Rodapé da devolutiva: «Conteúdo revisado por psicólogo(a) responsável» e a menção negada a «teste psicológico» (observação do operador na sessão 1 do 48-18)
-  status: open — aguarda decisão do operador
+  status: parcialmente decidido — **2026-09-22, operador: MANTER a frase «não é teste psicológico»** (a forma negada é exigida pelo produto, como o comentário do `_NEG` na EF já dizia). Segue aberto: «Conteúdo revisado por psicólogo(a) responsável» e o placeholder do fallback do front
   **What:** com a IA desligada o texto servido é o template oficial, mas o próprio código diz que os templates estão «pendente revisão final CRP antes do go-live» — a afirmação do rodapé pode não ser verdade para nenhum texto. A menção negada contraria a regra de linguagem de produto do `CLAUDE.md`. O fallback do front ainda tem o placeholder «Dra. [Nome], CRP-XX/XXXXX».

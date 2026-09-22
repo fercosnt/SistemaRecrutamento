@@ -224,13 +224,24 @@ e «percentil 86», contra o UX-07). **Nenhum candidato real viu texto inventado
 linhas **não foram tocadas**: a da `+claude5` é a evidência do Defeito 30, e reescrever ou
 apagar qualquer uma é escrita destrutiva que pede confirmação.
 
-**Observação do operador, ainda sem decisão:** o rodapé diz «Conteúdo revisado por
+**Observação do operador — decidida em parte (2026-09-22): a frase «não é teste
+psicológico» FICA** (decisão do operador). Segue sem decisão o resto: o rodapé diz «Conteúdo revisado por
 psicólogo(a) responsável» — com a IA desligada, isso só pode valer para os textos oficiais,
 e o próprio código diz que eles estão «pendente revisão final CRP antes do go-live»
 (`gerar-devolutiva-bigfive/index.ts`, comentário dos `BAND_TEMPLATES`). E o rodapé cita
 «teste psicológico», ainda que em negação — a regra de produto do `CLAUDE.md` é nunca
 usar o termo. O fallback do front (`DevolutivaBigFiveView.tsx`, usado só se a linha não
 trouxer rodapé) ainda tem o placeholder «Dra. [Nome], CRP-XX/XXXXX».
+
+### Deploy do 48-19 — conferido no ar (2026-09-22)
+
+- `gerar-devolutiva-bigfive` **v25** (operador, `efdeploy.cjs`): os 9 arquivos do bundle batem
+  byte a byte (sha256) com o disco e com o `git HEAD` `666a43fb`; `PERSONALIZACAO_IA_ATIVA =
+  false`, `template_oficial`, guarda SEC-04 e SDKs condicionados presentes; `diag-auth` 0×;
+  `verify_jwt=false` inalterado.
+- Front: push `816b7b08..666a43fb` autorizado pelo operador; build novo `index-Cicf4ORj.js`
+  com `devolutiva-abas` e as classes novas dos gatilhos (chunk eager, onde a view mora);
+  `origin/main..HEAD` vazio.
 
 ## 5. Sessão 2 — revisão, reabertura, D-23, redecisão e avisos do titular
 

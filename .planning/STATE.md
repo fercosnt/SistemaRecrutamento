@@ -2,19 +2,19 @@
 gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
-status: verifying
+status: executing
 stopped_at: Completed 48-05-PLAN.md
-last_updated: "2026-09-21T22:41:17.949Z"
+last_updated: "2026-09-21T22:48:51.026Z"
 last_activity: 2026-09-21
-state_head: b26c6e7d781bad1c9d85462c9fe44ff8207b430e
+state_head: 816b7b085eb02d9fb30177e75efbd0d6d76a7498
 progress:
   total_phases: 7
   completed_phases: 8
-  total_plans: 77
-  completed_plans: 74
+  total_plans: 78
+  completed_plans: 75
   percent: 96
-current_phase: 48
 current_phase_name: Consertos da Jornada — Bloco 1
+current_phase: 48
 last_activity_desc: "2026-09-21 — 48-05 fechado: causa do 401 da devolutiva medida (sb_secret sem Authorization), conserto no ar em submit-bigfive-final v13 / gerar-devolutiva-bigfive v24 (bundles conferidos), retroativo do backlog de teste RECUSADO pelo operador. Falta só o 48-18 (prova em PROD com o operador)."
 ---
 
@@ -1345,9 +1345,9 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-21T22:41:17.691Z
-Stopped at: Completed 48-05-PLAN.md
-Resume file: None
+Last session: 2026-09-21 (sessão retomada via /gsd-resume-work)
+Stopped at: 48-18 sessão 1 feita — 9/9 `p1_*` true (a `p1_devolutiva_gerada` tinha defeito de consulta, corrigido). A sessão achou os Defeitos 30 (devolutiva inventava nome/percentil) e 31 (aba inclicável); operador decidiu: template oficial + abas, dentro do JORN-06 → plano **48-19** (`eba5cd27` EF, `c5e695f9` front, `cf010939` prova). 48-19 FECHADO 2026-09-22: EF v25 no ar (= disco, sha256) e front `index-Cicf4ORj.js` no ar; push feito. Falta: a sessão 2 do 48-18 com o passo (m) — Big Five novo de conta de teste, prova `p2_devolutiva_template_oficial`
+Resume file: .planning/phases/48-consertos-da-jornada-bloco-1/48-PROVA-PROD.md
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
 
