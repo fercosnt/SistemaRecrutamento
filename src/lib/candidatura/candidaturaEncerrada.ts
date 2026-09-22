@@ -1,51 +1,38 @@
 /**
- * candidaturaEncerrada — o predicado canônico de «esta candidatura ACABOU», no front.
+ * candidaturaEncerrada — REEXPORT. A implementação não vive mais aqui.
  *
- * É o espelho TS da função SQL `public.candidatura_encerrada(etapa, status)` (migration
- * `20260921000001_p48_candidatura_encerrada.sql`, plano 48-01, em PROD):
+ * Phase 49 / plano 49-03 (D-21): quando o lado DENO passou a precisar do mesmo critério — a
+ * guarda de `avanco` da EF `notificar-candidato` (49-03 / D-35) e o comparativo (49-08) —, a
+ * escolha era entre uma segunda cópia TS da allowlist e uma fonte só. Uma cópia diverge em
+ * silêncio, que é exatamente o defeito que a função SQL canônica do 48-01 existe para não ter.
  *
- *   COALESCE(p_etapa IN ('aprovado','rejeitado'), false)
- *   OR COALESCE(p_status IN ('rejeitado','finalizado'), false)
+ * A implementação, o docblock com o POR QUÊ do critério e a tabela-verdade Deno estão em
+ * `supabase/functions/_shared/candidaturaEncerrada.ts` — módulo SEM IMPORTS, importado daqui por
+ * caminho relativo. A direção `src/` → `supabase/functions/_shared/` já é usada em produção por
+ * `src/features/privacidade/services/exportacaoService.ts:61` (`EXPORT_ALLOWLIST`), pela mesma
+ * razão: uma fonte, dois consumidores.
  *
- * Os dois lados têm de dizer a mesma coisa. Se um mudar, o outro muda junto — a tabela-verdade
- * do SQL está no `p48_candidatura_encerrada_smoke.sql` e os mesmos casos estão no teste deste
- * arquivo (`__tests__/candidaturaEncerrada.test.ts`).
+ * ⚠ Este arquivo continua existindo porque o caminho `@/lib/candidatura/candidaturaEncerrada` é
+ * o que 4 telas do candidato/RH importam (`DashboardCandidatoPage`, `HubCandidatoRH`,
+ * `CandidatosRHPage`, e o teste vitest da tabela-verdade). Nenhum chamador mudou.
  *
- * POR QUE `etapa` E `status`, e não só a etapa (JORN-26 / D-11): o knockout da inscrição
- * PRESERVA `etapa_atual='inscricao'` por desenho e só move `status` para `rejeitado`; e há
- * linhas legadas com `status='finalizado'` em etapa de trabalho (`triagem`, `entrevista_online`,
- * `decisao_final`). Todo código que decidia «acabou?» olhando só `etapa_atual` errava nesses
- * dois casos — o hub do RH oferecia «Avançar» a uma candidata eliminada, e isso a devolvia ao
- * funil (varredura `48-VARREDURA-ETAPA-ATUAL.md`, C1/C1b/C2).
+ * ⚠ NÃO reescrever a allowlist aqui. Um conjunto de estados terminais construído NESTE arquivo é
+ * a segunda verdade que o 49-03 removeu — e o `<verify>` do plano reprova pela forma
+ * `new Set(` seguida de literal de lista, que é como uma cópia da allowlist se escreveria.
+ * (⚠ E é por isso que a frase acima não a escreve por extenso: o portão lê o arquivo inteiro,
+ * comentários incluídos, e não sabe distinguir prosa de código — ele mordeu esta própria linha
+ * na primeira redação. Portão que confunde os dois é portão que se conserta na PROSA, nunca
+ * afrouxando o padrão.)
  *
- * É uma ALLOWLIST de estados terminais, null-safe: valor desconhecido/nulo NÃO encerra.
- * `aprovado_proxima` não encerra — ali há de fato um próximo passo.
- *
- * ⚠ O SERVIDOR É QUEM DECIDE. `rejeitar_candidatura` recusa candidatura encerrada (48-01, D3);
- * este helper só serve para a tela não OFERECER uma ação que não faz sentido. Não use o
- * resultado dele como autorização de nada.
+ * O teste `__tests__/candidaturaEncerrada.test.ts` (vitest) importa DESTE arquivo de propósito:
+ * ele prova a tabela-verdade **através do reexport**, que é o caminho que o front usa de verdade.
  *
  * @module lib/candidatura/candidaturaEncerrada
+ * @see supabase/functions/_shared/candidaturaEncerrada.ts (a implementação e o porquê do critério)
  * @see supabase/migrations/20260921000001_p48_candidatura_encerrada.sql (a função SQL espelhada)
- * @see src/components/pages/DashboardCandidatoPage.tsx (origem da regra: o antigo `STATUS_TERMINAIS` local)
  */
-
-/** Etapas que só existem depois de o processo acabar. */
-export const ETAPAS_TERMINAIS: ReadonlySet<string> = new Set(['aprovado', 'rejeitado'])
-
-/**
- * Status em que a candidatura acabou, esteja em que etapa estiver — `rejeitado` cobre o
- * knockout (etapa `inscricao`), `finalizado` cobre o legado em etapa de trabalho.
- */
-export const STATUS_TERMINAIS: ReadonlySet<string> = new Set(['rejeitado', 'finalizado'])
-
-/**
- * `true` se a candidatura acabou: etapa terminal OU status terminal. Null-safe — `null`/
- * `undefined` em qualquer um dos dois lados conta como «não terminal» naquele lado.
- */
-export function candidaturaEncerrada(
-  etapa: string | null | undefined,
-  status: string | null | undefined,
-): boolean {
-  return (!!etapa && ETAPAS_TERMINAIS.has(etapa)) || (!!status && STATUS_TERMINAIS.has(status))
-}
+export {
+  candidaturaEncerrada,
+  ETAPAS_TERMINAIS,
+  STATUS_TERMINAIS,
+} from '../../../supabase/functions/_shared/candidaturaEncerrada'
