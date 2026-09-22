@@ -25,6 +25,14 @@ actuals:
   tasks: 2
   commits: 2
   plan_head_before: 8ae7226005dbd4611a118b4f5434c43f408aeae0
+  # `commits: 2` = os commits de PRODUÇÃO, MEDIDOS por
+  # `git rev-list --count 8ae72260..HEAD` no instante em que este SUMMARY foi escrito
+  # (8ed3973f, 7e7b58da), não narrados.
+  # ⚠ Re-medir DEPOIS deste ponto dá um número MAIOR, e isso não é divergência: os
+  # commits de metadado do próprio plano (`docs(49-01)` 12870e25 + este ajuste) entram
+  # no mesmo intervalo por construção, porque o `plan_head_before` é anterior a eles.
+  # A fronteira é essa; o número de produção é 2.
+  commits_incluindo_metadado: 4
 
 # Tech tracking
 tech-stack:
