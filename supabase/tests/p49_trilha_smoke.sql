@@ -10,8 +10,8 @@
 --     legado `triagem/finalizado → aprovado`). A sanção é da TRANSIÇÃO e nunca do DESTINO.
 --   · 20260922000004 — a justificativa não gruda de uma transição para a outra (JORN-17), a
 --     justificativa da decisão final não vaza para a trilha do titular (D-47/JORN-37), o portão
---     de avanço olha só a análise VIGENTE (D-39) e nenhuma tela reabre por status (JORN-34).
---     ⚠ As asserções desta segunda migration entram na PARTE 2, escrita no plano 49-06/Task 2.
+--     de avanço olha só a análise VIGENTE (D-39) e reabrir encerrada só pelo status é recusado
+--     (JORN-34).
 --
 -- PARTE 1 (20260922000003 — a trava e as duas sanções):
 --   (a)  knockout `inscricao/rejeitado`, com claims de RH: UPDATE `etapa_atual='avaliacao_assincrona'`
@@ -34,6 +34,24 @@
 --        legado) ⇒ passa pela GUC `decisao` e deixa `aprovado/finalizado`, com UMA linha
 --        `triagem → aprovado` no histórico. É esta asserção — e não a (c) — que exercita a
 --        exceção; sem ela a sanção `decisao` ficaria sem prova.
+--   (d)  D-47/JORN-37/BD-9: o histórico da decisão de (c) tem `criterio_texto` = a constante
+--        «Decisão final registrada.» e NÃO contém o token da justificativa; o texto continua em
+--        `decisao_final.justificativa`, que é a fonte. O D-47 MOVE, não apaga.
+--   (e)  JORN-17: `candidaturas.etapa_justificativa` fica NULL depois da reabertura de (b), da
+--        decisão de (c) e de um avanço comum com justificativa — e o texto de cada uma está
+--        inteiro no `criterio_texto` da SUA linha de histórico (a limpeza vem DEPOIS do INSERT).
+--   (f)  JORN-17, a consequência que importa: avançar com a justificativa X e em seguida
+--        REGREDIR sem mandar `etapa_justificativa` ⇒ recusado com «Regressão de etapa exige
+--        justificativa». Antes do conserto o X residual satisfazia o portão, e a regressão
+--        acontecia sem motivo novo — é a forma que o `oper31 (c)` vigia, e que o resíduo
+--        tornava inofensiva.
+--   (h)  JORN-34: com claims de RH, UPDATE SÓ de `status` `rejeitado → em_analise` numa
+--        candidatura encerrada ⇒ `check_violation` «não pode ser reaberta pelo status»; SEM
+--        claims ⇒ aceito (é o idioma de fixture de 8 smokes, e o escopo por `auth.uid()` existe
+--        para preservá-lo — premissa A4, conferida smoke a smoke antes do apply).
+--   (i)  D-39: fixture em `entrevista_online` com análise SUPERADA (`superada_em` preenchida),
+--        `bloqueio_avanco = true` e sem revisão ⇒ o avanço para `entrevista_presencial` PASSA;
+--        com análise VIGENTE bloqueada e sem revisão ⇒ recusado com a mensagem da bandeira.
 --   (g)  a GUC NÃO VAZA: depois de (b), (c) e (c2), na MESMA transação,
 --        `current_setting('app.transicao_sancionada', true)` está vazio e um UPDATE cru de etapa
 --        sobre uma candidatura encerrada é recusado. `set_config(…, true)` vale até o fim da
@@ -70,8 +88,9 @@
 -- `RAISE EXCEPTION` e o `p46apply` sai com código ≠ 0.
 --
 -- GATE VERDE = `pass = esperado`. Esperado FIXO = o número de asserções DESTE arquivo (escopo
--- deliberado), não uma fotografia do banco. Hoje: 8 (a, a2, a3, b, c, c2, g, j) — a PARTE 2 do
--- plano 49-06/Task 2 acrescenta as suas e sobe o esperado, registrando o bump aqui.
+-- deliberado), não uma fotografia do banco. Hoje: 13 — a, a2, a3, b, c, c2, d, e, f, g, h, i, j.
+-- ⚠ BUMP registrado: nasceu 8 (a, a2, a3, b, c, c2, g, j) na Task 1 do plano 49-06, com a
+-- migration `…000003`; subiu a 13 na Task 2, com a `…000004` (d, e, f, h, i).
 -- =============================================================================
 
 RESET ROLE;
@@ -149,10 +168,17 @@ DECLARE
   v_user     uuid;
   v_email    text;
   v_cand     uuid;
+  v_i        int;
   v_k1  uuid;                 -- knockout inscricao/rejeitado
   v_r1  uuid;  v_ur1 uuid;    -- reabertura (Art. 20)
   v_d1  uuid;                 -- decisão sobre NÃO encerrada
   v_c2  uuid;                 -- decisão sobre JÁ encerrada (triagem/finalizado)
+  v_a1  uuid;                 -- avanço + regressão comum (JORN-17)
+  v_h1  uuid;                 -- reabrir por status (JORN-34)
+  v_v1  uuid;  v_v2 uuid;     -- bandeira superada / bandeira vigente (D-39)
+  c_tok_dec constant text := 'TOKEN_DECISAO_P49T';
+  c_tok_av  constant text := 'TOKEN_AVANCO_P49T';
+  c_const   constant text := 'Decisão final registrada.';
   -- (a) (a2) (a3)
   a_state  text;  a2_state text;  a3_state text;
   a_etapa  text;  a_status text;  a_hist_n int;
@@ -163,8 +189,18 @@ DECLARE
   -- (c2)
   c2_state text;  c2_etapa text;  c2_status text;  c2_hist_n int;
   c2_antes_etapa text;  c2_antes_status text;
+  -- (d)
+  d_crit   text;  d_just text;
+  -- (e)
+  e_col_r1 text;  e_col_d1 text;  e_col_a1 text;  e_crit_r1 text;  e_crit_a1 text;
+  -- (f)
+  f_state  text;
   -- (g)
   g_guc    text;  g_state text;
+  -- (h)
+  h_com    text;  h_sem text;  h_etapa text;  h_status text;
+  -- (i)
+  i_sup_state text;  i_vig_state text;  i_sup_etapa text;  i_vig_etapa text;
 BEGIN
   v_claims_a := json_build_object('sub', v_a::text, 'app_metadata', json_build_object('role', 'administrador'))::text;
   v_claims_b := json_build_object('sub', v_b::text, 'app_metadata', json_build_object('role', v_b_role))::text;
@@ -255,6 +291,52 @@ BEGIN
     UPDATE public.candidaturas SET status = 'finalizado' WHERE id = v_c2;
     v_ids := v_ids || v_c2::text || ',';
 
+    -- A1 (avanço/regressão comum, JORN-17), H1 (reabrir por status, JORN-34),
+    -- V1 (bandeira SUPERADA) e V2 (bandeira VIGENTE) — quatro titulares, num laço.
+    --   H1 fica `triagem/rejeitado` DE PROPÓSITO (encerrada só pelo status, que é a forma das
+    --   3 linhas medidas em PROD); os outros três são levados a `em_analise` pelo idioma de
+    --   fixture — UPDATE só de `status`, sem JWT, que é precisamente o caso que o escopo por
+    --   `auth.uid()` do ramo JORN-34 preserva.
+    FOR v_i IN 1..4 LOOP
+      v_user  := gen_random_uuid();
+      v_email := 'p49tsmoke-' || replace(v_user::text, '-', '') || '@invalido.local';
+      INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                              created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+      VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+              v_email, '', now(), now(),
+              '{"provider":"email","providers":["email"],"role":"candidato"}'::jsonb, '{}'::jsonb);
+      INSERT INTO public.candidatos
+        (user_id, nome_completo, email, celular, data_nascimento, cidade, estado, como_conheceu)
+      VALUES
+        (v_user, 'SMOKE P49T Titular 2-' || v_i, v_email,
+         '(11) 95555-56' || lpad(v_i::text, 2, '0'),
+         DATE '1990-01-15', 'Santos', 'SP', 'site')
+      RETURNING id INTO v_cand;
+      INSERT INTO public.candidaturas (candidato_id, vaga_id, etapa_atual, status, is_rascunho, data_candidatura)
+      VALUES (v_cand, v_vaga,
+              (ARRAY['triagem', 'triagem', 'entrevista_online', 'entrevista_online'])[v_i]::public.etapa_processo,
+              'rejeitado', false, now() - interval '20 days')
+      RETURNING id INTO v_cand;
+      IF v_i <> 2 THEN
+        UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_cand;
+      END IF;
+      v_ids := v_ids || v_cand::text || ',';
+      IF v_i = 1 THEN v_a1 := v_cand;
+      ELSIF v_i = 2 THEN v_h1 := v_cand;
+      ELSIF v_i = 3 THEN v_v1 := v_cand;
+      ELSE v_v2 := v_cand;
+      END IF;
+    END LOOP;
+
+    -- A bandeira de linguagem/sotaque das duas fixtures de (i): as duas bloqueiam e nenhuma
+    -- foi revisada. A ÚNICA diferença é `superada_em` — que é exatamente o que o predicado
+    -- `entrevista_analise_vigente` decide, e o que o portão passou a respeitar.
+    INSERT INTO public.entrevista_analises
+      (candidatura_id, competencias, bloqueio_avanco, revisao_confirmada_em, status_analise, superada_em)
+    VALUES
+      (v_v1, '{"comunicacao": 3}'::jsonb, true, NULL, 'concluida', now() - interval '1 hour'),
+      (v_v2, '{"comunicacao": 3}'::jsonb, true, NULL, 'concluida', NULL);
+
     -- ── (a) knockout + claims de RH: avançar para a avaliação ───────────────────
     PERFORM set_config('request.jwt.claims', v_claims_a, false);
     BEGIN
@@ -297,21 +379,35 @@ BEGIN
       b_state := 'ACEITO';
     EXCEPTION WHEN OTHERS THEN b_state := SQLSTATE || ':' || SQLERRM;
     END;
-    SELECT c.etapa_atual::text, c.status::text, c.data_decisao_final INTO b_etapa, b_status, b_ddf
+    SELECT c.etapa_atual::text, c.status::text, c.data_decisao_final, c.etapa_justificativa
+      INTO b_etapa, b_status, b_ddf, e_col_r1
       FROM public.candidaturas c WHERE c.id = v_r1;
     SELECT count(*) - b_hist_n INTO b_hist_n
       FROM public.historico_candidatura WHERE candidatura_id = v_r1;
+    -- (e) o texto PRÓPRIO da reabertura tem de estar inteiro na linha de histórico DELA
+    SELECT h.criterio_texto INTO e_crit_r1
+      FROM public.historico_candidatura h
+     WHERE h.candidatura_id = v_r1 AND h.etapa_de = 'rejeitado' AND h.etapa_para = 'decisao_final'
+     ORDER BY h.criado_em DESC, h.id DESC LIMIT 1;
 
     -- ── (c) decisão sobre NÃO encerrada ────────────────────────────────────────
     PERFORM set_config('request.jwt.claims', v_claims_a, false);
     BEGIN
       PERFORM public.registrar_decisao(v_d1, 'aprovado',
-        'Decisao final sintetica do smoke P49T (c) sobre candidatura em andamento, mais de 50 caracteres.');
+        'Decisao final sintetica do smoke P49T (c): ' || c_tok_dec || ' — deliberacao interna do RH, 50+ caracteres.');
       c_state := 'ACEITO';
     EXCEPTION WHEN OTHERS THEN c_state := SQLSTATE || ':' || SQLERRM;
     END;
-    SELECT c.etapa_atual::text, c.status::text INTO c_etapa, c_status
+    SELECT c.etapa_atual::text, c.status::text, c.etapa_justificativa
+      INTO c_etapa, c_status, e_col_d1
       FROM public.candidaturas c WHERE c.id = v_d1;
+    -- (d) o que a TRILHA guardou, e o que a FONTE guardou
+    SELECT h.criterio_texto INTO d_crit
+      FROM public.historico_candidatura h
+     WHERE h.candidatura_id = v_d1 AND h.etapa_para = 'aprovado'
+     ORDER BY h.criado_em DESC, h.id DESC LIMIT 1;
+    SELECT d.justificativa INTO d_just
+      FROM public.decisao_final d WHERE d.candidatura_id = v_d1;
 
     -- ── (c2) decisão sobre JÁ ENCERRADA — a sanção `decisao` em ação ───────────
     SELECT c.etapa_atual::text, c.status::text INTO c2_antes_etapa, c2_antes_status
@@ -335,6 +431,61 @@ BEGIN
       g_state := 'ACEITO';
     EXCEPTION WHEN OTHERS THEN g_state := SQLSTATE || ':' || SQLERRM;
     END;
+
+    -- ── (e) avanço comum com justificativa, e (f) a regressão sem motivo novo ──
+    --    A1 está em `triagem/em_analise`. O RH avança para `avaliacao_assincrona` mandando a
+    --    justificativa (é o que `triagemService.ts:446-458` sempre faz).
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    UPDATE public.candidaturas
+       SET etapa_atual = 'avaliacao_assincrona',
+           etapa_justificativa = 'Avanco sintetico do smoke P49T (e): ' || c_tok_av
+     WHERE id = v_a1;
+    SELECT c.etapa_justificativa INTO e_col_a1 FROM public.candidaturas c WHERE c.id = v_a1;
+    SELECT h.criterio_texto INTO e_crit_a1
+      FROM public.historico_candidatura h
+     WHERE h.candidatura_id = v_a1 AND h.etapa_de = 'triagem' AND h.etapa_para = 'avaliacao_assincrona'
+     ORDER BY h.criado_em DESC, h.id DESC LIMIT 1;
+
+    --    (f) agora REGREDIR sem mandar `etapa_justificativa`. Antes do conserto o texto de (e)
+    --    seguia na linha, `btrim(…) <> ''` passava, e a regressão acontecia sem motivo novo.
+    BEGIN
+      UPDATE public.candidaturas SET etapa_atual = 'triagem' WHERE id = v_a1;
+      f_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN f_state := SQLSTATE || ':' || SQLERRM;
+    END;
+
+    -- ── (h) reabrir encerrada SÓ pelo status: com JWT e sem JWT ────────────────
+    --    H1 está `triagem/rejeitado` — encerrada pelo status, com etapa de TRABALHO. O UPDATE
+    --    não lista `etapa_atual`, então `candidaturas_avancar_etapa_trg` não dispara: quem
+    --    decide é `guard_rejeicao_auditada`.
+    BEGIN
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_h1;
+      h_com := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h_com := SQLSTATE || ':' || SQLERRM;
+    END;
+    PERFORM set_config('request.jwt.claims', '', false);
+    BEGIN
+      UPDATE public.candidaturas SET status = 'em_analise' WHERE id = v_h1;
+      h_sem := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN h_sem := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT c.etapa_atual::text, c.status::text INTO h_etapa, h_status
+      FROM public.candidaturas c WHERE c.id = v_h1;
+
+    -- ── (i) a bandeira SUPERADA não bloqueia; a VIGENTE bloqueia ───────────────
+    PERFORM set_config('request.jwt.claims', v_claims_a, false);
+    BEGIN
+      UPDATE public.candidaturas SET etapa_atual = 'entrevista_presencial' WHERE id = v_v1;
+      i_sup_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN i_sup_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT c.etapa_atual::text INTO i_sup_etapa FROM public.candidaturas c WHERE c.id = v_v1;
+    BEGIN
+      UPDATE public.candidaturas SET etapa_atual = 'entrevista_presencial' WHERE id = v_v2;
+      i_vig_state := 'ACEITO';
+    EXCEPTION WHEN OTHERS THEN i_vig_state := SQLSTATE || ':' || SQLERRM;
+    END;
+    SELECT c.etapa_atual::text INTO i_vig_etapa FROM public.candidaturas c WHERE c.id = v_v2;
     PERFORM set_config('request.jwt.claims', '', false);
 
     v_ran := true;
@@ -419,6 +570,61 @@ BEGIN
     RAISE EXCEPTION 'P49T FAIL (g): o UPDATE cru de etapa sobre candidatura encerrada, DEPOIS das transições sancionadas, devolveu «%» (esperado 23514 «candidatura encerrada») — a GUC vazou', g_state;
   END IF;
   PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
+
+  -- ── (d) julgamento — a decisão fora da trilha (D-47 / JORN-37 / BD-9) ───────
+  IF d_crit IS DISTINCT FROM c_const THEN
+    RAISE EXCEPTION 'P49T FAIL (d): criterio_texto da decisão = «%», esperado a constante «%» (D-47). O histórico ENTRA na cópia do titular: o texto da decisão final é deliberação interna guardada pelo BD-9', coalesce(d_crit, '<NULL>'), c_const;
+  END IF;
+  IF position(c_tok_dec IN coalesce(d_crit, '')) > 0 THEN
+    RAISE EXCEPTION 'P49T FAIL (d): o token da justificativa da decisão APARECE no criterio_texto do histórico — é exatamente o vazamento do BD-9';
+  END IF;
+  IF d_just IS NULL OR position(c_tok_dec IN d_just) = 0 THEN
+    RAISE EXCEPTION 'P49T FAIL (d): decisao_final.justificativa perdeu o texto da decisão (obtido: «%»). O D-47 MOVE o texto para a fonte — não o apaga; sem ele, o RH fica sem a própria deliberação', coalesce(d_just, '<NULL>');
+  END IF;
+  PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
+
+  -- ── (e) julgamento — a justificativa não gruda (JORN-17) ───────────────────
+  IF e_col_r1 IS NOT NULL OR e_col_d1 IS NOT NULL OR e_col_a1 IS NOT NULL THEN
+    RAISE EXCEPTION 'P49T FAIL (e): candidaturas.etapa_justificativa sobreviveu à transição — reabertura=«%» decisão=«%» avanço=«%» (esperado NULL nas três). A coluna é de EVENTO: deixá-la preenchida faz a PRÓXIMA transição herdar este motivo no histórico do titular',
+      coalesce(e_col_r1, '<NULL>'), coalesce(e_col_d1, '<NULL>'), coalesce(e_col_a1, '<NULL>');
+  END IF;
+  IF e_crit_r1 IS NULL OR position('Candidatura reaberta após revisão (Art. 20)' IN e_crit_r1) = 0 THEN
+    RAISE EXCEPTION 'P49T FAIL (e): o histórico da reabertura ficou sem o texto próprio dela (obtido: «%») — a limpeza está ANTES do INSERT e apagou o motivo da trilha', coalesce(e_crit_r1, '<NULL>');
+  END IF;
+  IF e_crit_a1 IS NULL OR position(c_tok_av IN e_crit_a1) = 0 THEN
+    RAISE EXCEPTION 'P49T FAIL (e): o histórico do avanço comum ficou sem a justificativa mandada (obtido: «%») — a limpeza está ANTES do INSERT', coalesce(e_crit_a1, '<NULL>');
+  END IF;
+  PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
+
+  -- ── (f) julgamento — o portão de regressão volta a exigir motivo NOVO ──────
+  IF f_state NOT LIKE '%Regress%' THEN
+    RAISE EXCEPTION 'P49T FAIL (f): regredir SEM mandar etapa_justificativa, logo depois de um avanço que mandou uma, devolveu «%» (esperado a recusa «Regressão de etapa exige justificativa»). ACEITO = o texto do avanço anterior ficou residual na linha e DESARMOU o portão — é a forma que o oper31 (c) vigia e que o resíduo tornava inofensiva (JORN-17)', f_state;
+  END IF;
+  PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
+
+  -- ── (h) julgamento — reabrir por status (JORN-34) ──────────────────────────
+  IF h_com NOT LIKE '23514:%reaberta pelo status%' THEN
+    RAISE EXCEPTION 'P49T FAIL (h): com claims de RH, UPDATE só de status «rejeitado → em_analise» numa candidatura encerrada devolveu «%» (esperado 23514 «não pode ser reaberta pelo status»). Este caminho não passa por candidaturas_avancar_etapa_trg (é ... OF etapa_atual), então a trava D-35 não o vê: a guarda é a única defesa', h_com;
+  END IF;
+  IF h_sem IS DISTINCT FROM 'ACEITO' THEN
+    RAISE EXCEPTION 'P49T FAIL (h): SEM claims o MESMO UPDATE devolveu «%» (esperado aceito). O escopo por auth.uid() existe para preservar o idioma de fixture de 8 smokes, que rodam como postgres sem JWT — sem ele, 11 sítios de UPDATE em 8 arquivos param de construir estado (premissa A4)', h_sem;
+  END IF;
+  IF h_etapa IS DISTINCT FROM 'triagem' OR h_status IS DISTINCT FROM 'em_analise' THEN
+    RAISE EXCEPTION 'P49T FAIL (h): depois das duas tentativas a fixture ficou %/% (esperado triagem/em_analise — a primeira recusada, a segunda aceita)', h_etapa, h_status;
+  END IF;
+  PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
+
+  -- ── (i) julgamento — o portão olha a análise VIGENTE (D-39) ────────────────
+  IF i_sup_state IS DISTINCT FROM 'ACEITO' OR i_sup_etapa IS DISTINCT FROM 'entrevista_presencial' THEN
+    RAISE EXCEPTION 'P49T FAIL (i): com a bandeira já SUPERADA (superada_em preenchida) o avanço devolveu «%» e a etapa ficou % (esperado aceito, entrevista_presencial). Uma análise superada bloqueando para sempre é o defeito do D-39 — o portão tem de chamar entrevista_analise_vigente', i_sup_state, i_sup_etapa;
+  END IF;
+  IF i_vig_state NOT LIKE '23514:%revise a bandeira%' THEN
+    RAISE EXCEPTION 'P49T FAIL (i): com a bandeira VIGENTE e sem revisão o avanço devolveu «%» (esperado 23514 «revise a bandeira»). Aceito = o filtro de vigente derrubou o portão da Phase 14 junto (ENTREV-03 / RF-24)', i_vig_state;
+  END IF;
+  IF i_vig_etapa IS DISTINCT FROM 'entrevista_online' THEN
+    RAISE EXCEPTION 'P49T FAIL (i): a recusa da bandeira vigente MOVEU a candidatura para %', i_vig_etapa;
+  END IF;
+  PERFORM set_config('smoke49t.pass', (current_setting('smoke49t.pass')::int + 1)::text, false);
 END
 $p1$;
 
@@ -472,8 +678,8 @@ $j$;
 -- ─────────────────────────────────────────────────────────────────────────────
 DO $gate$
 BEGIN
-  IF current_setting('smoke49t.pass')::int <> 8 THEN
-    RAISE EXCEPTION 'P49T FAIL (gate): pass = % de 8 — alguma asserção não incrementou o contador', current_setting('smoke49t.pass');
+  IF current_setting('smoke49t.pass')::int <> 13 THEN
+    RAISE EXCEPTION 'P49T FAIL (gate): pass = % de 13 — alguma asserção não incrementou o contador', current_setting('smoke49t.pass');
   END IF;
 END
 $gate$;
@@ -484,7 +690,7 @@ SELECT set_config('app.transicao_sancionada', '', false);
 SELECT json_build_object(
   'smoke',    'p49_trilha',
   'pass',     current_setting('smoke49t.pass')::int,
-  'esperado', 8,
+  'esperado', 13,
   'n_cand',   current_setting('smoke49t.n_cand')::int,
   'n_hist',   current_setting('smoke49t.n_hist')::int,
   'n_df',     current_setting('smoke49t.n_df')::int,

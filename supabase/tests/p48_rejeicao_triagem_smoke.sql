@@ -10,8 +10,16 @@
 --
 -- Prova, por EXECUÇÃO em PROD:
 --   (a) `rejeitar_candidatura` grava EXATAMENTE o texto neutro em
---       `feedback_rejeicao`, diferente da `etapa_justificativa` do RH, sem o texto
+--       `feedback_rejeicao`, diferente da justificativa do RH, sem o texto
 --       nem o motivo do RH dentro dele, e deixa `data_decisao_final` nulo.
+--       ⚠ MUDOU DE PROPÓSITO na Phase 49 / plano 49-06 (JORN-17): a justificativa do RH era
+--       lida de `candidaturas.etapa_justificativa`, e a partir da migration
+--       `20260922000004` o trigger `avancar_etapa()` LIMPA essa coluna depois de copiá-la
+--       para `historico_candidatura.criterio_texto` — a justificativa é de EVENTO, não de
+--       estado. As duas asserções que dependiam da coluna passam a ler o HISTÓRICO, onde o
+--       texto sobrevive byte a byte (e é de lá que ele chega ao titular, `exportAllowlist`),
+--       e (a) ganha a asserção NOVA de que a coluna ficou NULL. Sem esta última, a leitura
+--       pelo histórico passaria igual com e sem o conserto.
 --   (b) o texto GRAVADO não casa o grep-guard de palavras dos e-mails de decisão
 --       (`score|percentil|trait|motivo|nota|ranking|pontuaç|crit[ée]rio`) nem
 --       «teste psicológico».
@@ -125,8 +133,9 @@ DECLARE
   v_just    text;
   v_ran     boolean := false;
   v_err     text;
-  -- (a)
-  a_fb      text;  a_just text;  a_ddf timestamptz;  a_status text;  a_etapa text;
+  -- (a)  — `a_just` vem do HISTÓRICO (JORN-17); `a_just_col` é a coluna, que tem de ficar NULL
+  a_fb      text;  a_just text;  a_just_col text;
+  a_ddf     timestamptz;  a_status text;  a_etapa text;
   -- (c)
   c_andamento text;  c_titular text;  c_outro text;  c_sem text;
   -- (d)(e)
@@ -194,8 +203,15 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', false);
 
     SELECT c.feedback_rejeicao, c.etapa_justificativa, c.data_decisao_final, c.status::text, c.etapa_atual::text
-      INTO a_fb, a_just, a_ddf, a_status, a_etapa
+      INTO a_fb, a_just_col, a_ddf, a_status, a_etapa
       FROM public.candidaturas c WHERE c.id = v_a;
+    -- (P49 / JORN-17) a justificativa do RH vive no HISTÓRICO da transição `→ rejeitado`, não
+    -- mais na coluna da candidatura: `avancar_etapa()` a consome e a zera na mesma trigger.
+    SELECT h.criterio_texto INTO a_just
+      FROM public.historico_candidatura h
+     WHERE h.candidatura_id = v_a AND h.etapa_para = 'rejeitado'
+     ORDER BY h.criado_em DESC, h.id DESC
+     LIMIT 1;
 
     -- ── (c) depois: titular / outro / sem claims ───────────────────────────────
     PERFORM set_config('request.jwt.claims',
@@ -236,13 +252,19 @@ BEGIN
     RAISE EXCEPTION 'P48R FAIL (a): feedback_rejeicao gravado = %, esperado o texto neutro constante', coalesce(a_fb, '<NULL>');
   END IF;
   IF a_fb IS NOT DISTINCT FROM a_just THEN
-    RAISE EXCEPTION 'P48R FAIL (a): feedback_rejeicao IGUAL a etapa_justificativa — o texto do RH chegaria ao candidato';
+    RAISE EXCEPTION 'P48R FAIL (a): feedback_rejeicao IGUAL à justificativa do RH (lida do histórico) — o texto do RH chegaria ao candidato pelo cartão do painel';
   END IF;
   IF position(c_token IN a_fb) > 0 OR position('reprovado_entrevista' IN a_fb) > 0 THEN
     RAISE EXCEPTION 'P48R FAIL (a): feedback_rejeicao carrega a justificativa ou o motivo do RH';
   END IF;
+  -- (P49 / JORN-17) o texto do RH sobrevive no HISTÓRICO, byte a byte
   IF position(c_token IN coalesce(a_just, '')) = 0 THEN
-    RAISE EXCEPTION 'P48R FAIL (a): etapa_justificativa nao guardou o texto do RH — a comparacao acima seria sem base';
+    RAISE EXCEPTION 'P48R FAIL (a): historico_candidatura.criterio_texto da transição → rejeitado nao guardou o texto do RH (obtido: «%») — a comparacao acima seria sem base, e o titular perderia o motivo da mudança', coalesce(a_just, '<NULL>');
+  END IF;
+  -- (P49 / JORN-17) e NÃO sobrevive na coluna da candidatura: ela é de EVENTO, não de estado.
+  -- Sem esta asserção a leitura pelo histórico passaria igual com e sem o conserto.
+  IF a_just_col IS NOT NULL THEN
+    RAISE EXCEPTION 'P48R FAIL (a): candidaturas.etapa_justificativa ficou com «%» depois da rejeição (esperado NULL). avancar_etapa() tem de limpá-la depois de copiá-la para o histórico: senão a próxima transição herda este motivo, e o portão de regressão fica desarmado por valor residual (JORN-17)', a_just_col;
   END IF;
   IF a_ddf IS NOT NULL THEN
     RAISE EXCEPTION 'P48R FAIL (a): data_decisao_final preenchida (%) — a rejeicao na triagem nao e decisao final', a_ddf;
