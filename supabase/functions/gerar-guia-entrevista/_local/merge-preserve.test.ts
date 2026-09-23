@@ -83,6 +83,42 @@ function makeMockOpenAI() {
   };
 }
 
+// ── Phase 49 / D-28: o fallback OpenAI é o motivo de o requisito existir. Medido pelo
+//    49-02: 17 fallbacks em PROD, e a tabela de resultado registrava o Sonnet
+//    CONFIGURADO — um roteiro escrito pelo `gpt-4o-mini` era indistinguível de um do
+//    Sonnet. Este mock responde no formato que `runOpenAIFallback` consome
+//    (`choices[0].message.parsed`, `usage.prompt_tokens/completion_tokens`, `model`).
+const MODELO_FALLBACK_DATADO = "gpt-4o-mini-2024-07-18";
+
+function makeMockOpenAIQueResponde(
+  parsed: Record<string, unknown> | null,
+  model: string = MODELO_FALLBACK_DATADO,
+) {
+  return {
+    chat: {
+      completions: {
+        parse: () =>
+          Promise.resolve({
+            choices: [{ message: { parsed } }],
+            usage: { prompt_tokens: 900, completion_tokens: 300 },
+            model,
+          }),
+      },
+    },
+  };
+}
+
+// Anthropic que FALHA (timeout) → `callAi` cai no fallback OpenAI. Com `timeoutMs`
+// 110 s da EF e `AI_TOTAL_BUDGET_MS` 140 s, `effectiveMaxAttempts` = 1: uma tentativa,
+// sem backoff, sem sleep no teste.
+function makeMockAnthropicQueFalha() {
+  return {
+    messages: {
+      parse: () => Promise.reject(new Error("Request timed out.")),
+    },
+  };
+}
+
 // ── Mock supabaseAdmin: returns a seeded CURRENT guide row on the entrevista_guias
 //    read, the owning vaga + the matching candidatura on their reads, an empty
 //    scorecard, and CAPTURES every write (.insert/.upsert) into `writes[]` so the test
@@ -406,4 +442,37 @@ Deno.test("49-24 / D-28 — nenhum provedor chamado (teto de custo) ⇒ os DOIS 
   // A forma exata que o CHECK recusaria, asserida por nome: se alguém gravar o provider
   // cru, este teste reprova aqui e não em PROD com um 23514.
   assert(row.provedor_ia !== "none", "a string 'none' NUNCA vai para a coluna");
+});
+
+Deno.test("49-24 / D-28 — FALLBACK OpenAI: o guia registra o gpt-4o-mini, não o Sonnet configurado", async () => {
+  // ⚠ ESTE é o caso que o requisito existe para resolver, e era o único caminho REAL sem
+  // vigilância nenhuma nesta EF (descoberto pela prova de mordida — ver §M5 do SUMMARY).
+  // Os 17 fallbacks medidos em PROD pelo 49-02 gravavam o Sonnet configurado: um roteiro
+  // escrito pelo `gpt-4o-mini` era indistinguível de um escrito pelo Sonnet, e o RH
+  // conduz a entrevista por ele.
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] });
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropicQueFalha(),
+    openai: makeMockOpenAIQueResponde({
+      questions: [{ question: "Pergunta gerada pelo fallback.", competency: "Comunicação" }],
+    }),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  assertEquals(row.provedor_ia, "openai", "quem respondeu foi a OpenAI — e é o que se grava");
+  assertEquals(row.modelo_ia, MODELO_FALLBACK_DATADO, "o modelo REAL do fallback");
+  // As duas negativas que nomeiam o defeito medido em PROD:
+  assert(
+    row.modelo_ia !== PROMPT_ROW_FIXTURE.model_id,
+    "o Sonnet CONFIGURADO nunca pode aparecer num guia escrito pelo fallback",
+  );
+  assert(row.provedor_ia !== "anthropic", "o provedor configurado também não");
+  // O roteiro do fallback foi persistido de fato (a proveniência não é de uma linha vazia).
+  const qs = persistedQuestions(supabaseAdmin.writes);
+  assertEquals(qs.filter((q) => q.origem === "ia").length, 1);
 });
