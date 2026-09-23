@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 24
+open_count: 25
 waived_count: 8
-fixed_count: 35
-total_count: 67
-last_updated: 2026-09-23T05:25:53.300Z
+fixed_count: 37
+total_count: 70
+last_updated: 2026-09-23T05:59:44.862Z
 ---
 
 # Broken Windows Ledger
@@ -78,10 +78,13 @@ last_updated: 2026-09-23T05:25:53.300Z
 | 61 | 49 | unmet-truth | src/features/entrevista/components/GuiaEntrevistaPanel.tsx |  | entrevista_guias.provedor_ia/.modelo_ia estão GRAVADOS (49-24, EF v18 em PROD) e NENHUMA tela os lê. O selo de proveniência do guia é o 49-16 (D-55). Irmão do WINDOWS 56 (o mesmo para scores_candidato.metadata do SJT): melhor que não estar gravado, e ainda não é o conserto. | open |  | 2026-09-23T01:40:15.620Z |  |
 | 62 | 49 | unrun-verify | supabase/migrations/20260922000008_p49_revisao_entrevista_vigente.sql |  | 49-10: a migration nao e re-executavel — o PRE-PORTAO pina os md5 ANTIGOS de salvar_avaliacao_entrevista/confirmar_revisao_entrevista e os vivos agora sao os novos (2b567aaa..., 43df21b8...). O <verify> do ensaio foi re-executado por EQUIVALENCIA (md5 do ledger + pos-portao lido do catalogo). E o portao funcionando, nao defeito; registrado para quem redefinir estas funcoes depois. | waived | Nao e defeito, e uma PROPRIEDADE do pre-portao por md5: ele recusa sobrescrever um corpo que nao mediu, entao a 20260922000008 deixa de ser re-executavel no instante em que e aplicada com sucesso. O <verify> foi re-executado por EQUIVALENCIA (md5 do ledger conferido por leitura de volta + as 8 assercoes do pos-portao lidas do catalogo), e os md5 NOVOS estao tabelados no 49-10-SUMMARY para quem redefinir estas funcoes depois. O irmao 49-01 atravessou a mesma situacao (Deviation 2). Mantido no ledger como registro, dispensado do portao de ship; reverter para open e decisao do operador. | 2026-09-23T03:19:19.971Z | 2026-09-23T03:23:16.705Z |
 | 63 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-10-SUMMARY.md |  | 49-10: git push origin main NEGADO pelo ambiente. 2 migrations em PROD + EF v17 no ar com os commits NAO ENVIADOS (modo de falha do CLAUDE.md sobre os dois canais). Acao do operador: push + conferir origin/main..HEAD vazio. | fixed |  | 2026-09-23T03:19:20.062Z | 2026-09-23T03:22:32.029Z |
-| 64 | 49 | stub | supabase/functions/gerar-guia-entrevista/index.ts | 385 | 49-25: persistFlags (inclusive weak_dim_uncovered, do Pitfall 4 / ENTREV-01) e COMPUTADO e depois DESCARTADO quando existe roteiro: o upsert grava flags apenas no ramo { incompleto: true, ... }. Logo um roteiro que, DEPOIS do re-prompt, ainda deixa uma dimensao fraca descoberta e persistido SEM nenhuma flag, enquanto o docblock da EF afirma que ele 'persiste o roteiro com flag para humano'. O rastro de runtime diz needs_human: true e a linha nao diz nada. Conserto: acrescentar flags ao ramo do roteiro existente. Fora de escopo do 49-25 (defeito PRE-EXISTENTE, requisito ENTREV-01 e nao JORN-39, e muda a forma do guia no caminho de sucesso, que o 49-16 le). O 49-16 PRECISA disto: sem ele o selo nunca vera weak_dim_uncovered. | open |  | 2026-09-23T04:40:06.094Z |  |
-| 65 | 49 | stub | supabase/functions/avaliar-transcricao-entrevista/index.ts | 377 | 49-25: MESMA FORMA do defeito que o 49-25 consertou em gerar-guia-entrevista (WINDOWS 60), medida pela varredura do <measure_first> item 4. A guarda e 'parsed == null \|\| error_code === <codigo de injecao>' e NAO olha o provedor nem flagged_for_human_review. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed NAO nulo com error_code cost_cap_exceeded: a guarda da falso, a EF cai no caminho de sucesso e grava a analise como status_analise pendente_humano com competencias vazias — indistinguivel de uma analise real esperando revisao humana. As outras tres irmas (analise-candidato-individual, avaliar-redacao, avaliar-redacao-cultural) estao cobertas porque tambem testam flagged_for_human_review === true; esta e a unica que nao. NAO consertado aqui (Scope Boundary: EF de outro plano; as sete EFs compartilham _shared e um segundo sitio pede plano proprio). Conserto: a mesma pergunta pelo PROVEDOR. | open |  | 2026-09-23T04:40:17.604Z |  |
+| 64 | 49 | stub | supabase/functions/gerar-guia-entrevista/index.ts | 385 | 49-25: persistFlags (inclusive weak_dim_uncovered, do Pitfall 4 / ENTREV-01) e COMPUTADO e depois DESCARTADO quando existe roteiro: o upsert grava flags apenas no ramo { incompleto: true, ... }. Logo um roteiro que, DEPOIS do re-prompt, ainda deixa uma dimensao fraca descoberta e persistido SEM nenhuma flag, enquanto o docblock da EF afirma que ele 'persiste o roteiro com flag para humano'. O rastro de runtime diz needs_human: true e a linha nao diz nada. Conserto: acrescentar flags ao ramo do roteiro existente. Fora de escopo do 49-25 (defeito PRE-EXISTENTE, requisito ENTREV-01 e nao JORN-39, e muda a forma do guia no caminho de sucesso, que o 49-16 le). O 49-16 PRECISA disto: sem ele o selo nunca vera weak_dim_uncovered. | fixed | 49-26: flags passa a chegar ao upsert TAMBEM no caminho de sucesso (spread flagsDoRoteiro no ramo do roteiro), com a chave AUSENTE quando nao ha nada a sinalizar — um array vazio explicito sob onConflict apagaria a flag da execucao anterior. O docblock da EF passou a descrever o comportamento real. Provado por 2 testes novos (roteiro com dimensao fraca descoberta grava weak_dim_uncovered; sem flag a chave nao nasce) e por 2 mutacoes que mordem (M1 remove o spread = 1 reprovado; M2 grava array vazio sempre = 1 reprovado). EF gerar-guia-entrevista version=21 ACTIVE em PROD, marcadores conferidos no bundle VIVO. PROD medido: 0 linhas de entrevista_guias no estado defeituoso — defeito latente, nada retroativo. | 2026-09-23T04:40:06.094Z | 2026-09-23T05:56:52.179Z |
+| 65 | 49 | stub | supabase/functions/avaliar-transcricao-entrevista/index.ts | 377 | 49-25: MESMA FORMA do defeito que o 49-25 consertou em gerar-guia-entrevista (WINDOWS 60), medida pela varredura do <measure_first> item 4. A guarda e 'parsed == null \|\| error_code === <codigo de injecao>' e NAO olha o provedor nem flagged_for_human_review. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed NAO nulo com error_code cost_cap_exceeded: a guarda da falso, a EF cai no caminho de sucesso e grava a analise como status_analise pendente_humano com competencias vazias — indistinguivel de uma analise real esperando revisao humana. As outras tres irmas (analise-candidato-individual, avaliar-redacao, avaliar-redacao-cultural) estao cobertas porque tambem testam flagged_for_human_review === true; esta e a unica que nao. NAO consertado aqui (Scope Boundary: EF de outro plano; as sete EFs compartilham _shared e um segundo sitio pede plano proprio). Conserto: a mesma pergunta pelo PROVEDOR. | fixed | 49-26: a guarda de never-absent passa a fazer as DUAS perguntas — algumProvedorRespondeu(result), do predicado unico de _shared/resultado-de-provedor.ts, e parsed == null. Saiu a comparacao do codigo de erro contra um unico codigo literal. O teto de custo passa a cair no ramo falhou do 49-10: nao supera a vigente, nao entra na fila de revisao, competencias/citacoes/bias/metadata NULL. A medicao do RED revelou MAIS do que esta entrada registrava: a linha defeituosa tambem marcava a analise boa anterior como SUPERADA (superadas: 1 no rastro de runtime), entao a tela ficava com a vazia — nao era so indistinguivel de uma analise real, ela SUBSTITUIA a boa. Provado por 1 teste novo e 3 mutacoes (M6 defeito original = 1 reprovado; M7 a forma PROIBIDA reintroduzida = 1; M8 pendente_humano no ramo de falha = 2). EF avaliar-transcricao-entrevista version=18 ACTIVE em PROD, marcadores no bundle VIVO. PROD medido: 0 linhas no estado defeituoso — defeito latente. | 2026-09-23T04:40:17.604Z | 2026-09-23T05:57:42.852Z |
 | 66 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-25-PLAN.md |  | 49-25: o <verify> #2 do plano embute uma ESCRITA (node efdeploy.cjs sem --dry-run) e nao e re-rodavel — re-rodar criaria uma version nova identica, poluindo o historico de deploy para nao provar nada. Re-verificado pelo RESULTADO: version/status/verify_jwt/import_map relidos da Management API, marcadores conferidos no bundle VIVO, --dry-run re-rodavel, origin/main..HEAD vazio. QUINTA ocorrencia da fase (as quatro anteriores estao no WINDOWS 59). | open |  | 2026-09-23T04:41:05.237Z |  |
 | 67 | 49 | unrun-verify | supabase/tests/p46_purga_smoke.sql | 1532 | p46_purga_smoke (j.2) reprova por estado de fixture-seed que derivou: a vaga 4601d000-...-0003 ('fixture-p46 vaga ativa (sintetica)') esta 'arquivada' desde 2026-08-23 17:47, e a assercao de NAO-VACUIDADE exige 'ativa'. Medido pre-existente: identico com os corpos ANTERIORES ao apply do 49-14. Bloqueia as assercoes (o)/(o.6)/(o.7)/(p) que exercitam o 4o ramo do guard do motor; com a vaga devolvida a 'ativa' dentro de requisicao que aborta, o gate fecha 27/27. | open |  | 2026-09-23T05:25:53.300Z |  |
+| 68 | 49 | stub | supabase/functions/comparativo-candidatos/index.ts | 434 | 49-26: SEXTO sitio da mesma familia, achado pela re-varredura das SETE consumidoras de callAi (o 49-25 varreu cinco e nao alcancou esta). `const ranking = result.parsed ?? null` — NAO ha nenhuma guarda de bloqueio pre-provedor nesta EF: zero ocorrencias de flagged_for_human_review e nenhuma leitura de error_code. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed={recommendation:'hold',flagged_for_human_review:true}, logo `ranking` fica NAO nulo e o stub e (a) inserido em comparativo_solicitado.ranking (jsonb NOT NULL) como se fosse o ranking auditado, e (b) DEVOLVIDO ao RH no payload (`return jsonResponse({ok:true, ranking, ...})`) — um comparativo que nenhum modelo produziu chega a tela como comparativo. provedor_ia/modelo_ia ja saem NULL corretamente, entao a linha de auditoria fica auto-contraditoria: ranking presente, autor ausente. NAO consertado (Scope Boundary: o <measure_first> do 49-26 mandou reportar e nao consertar; EF de outro plano, exige deploy proprio). Conserto: a mesma pergunta estrutural — `!algumProvedorRespondeu(result)` de _shared/resultado-de-provedor.ts, que este plano criou e que esta EF ainda nao importa. | open |  | 2026-09-23T05:59:25.800Z |  |
+| 69 | 49 | deviation | .planning/WINDOWS.md |  | 49-26: `gsd-tools windows fixed <id> <reason>` ACEITA o segundo posicional e o DESCARTA — a entrada vira status=fixed com reason vazio, nos dois lugares (tabela e bloco JSON). Medido duas vezes nesta sessao (64 e 65) e confirmado retroativamente: a entrada 60, marcada fixed pelo 49-25, tambem esta com reason vazio. Contornado escrevendo o motivo a mao nos dois lugares. Um ledger que registra QUE foi consertado mas nao COMO e meio registro: quem reabrir a janela no futuro nao tem a prova. Nao consertado no gsd-core (fora do repositorio do projeto). | open |  | 2026-09-23T05:59:44.768Z |  |
+| 70 | 49 | deviation | supabase/functions/_shared/resultado-de-provedor.ts |  | 49-26: o normalizador `provedorDeResultado(provider)` (devolve 'anthropic'\|'openai'\|NULL, gatilhado pelos CHECKs das tabelas) existe em SEIS copias — avaliar-transcricao-entrevista:157, analise-candidato-individual:166, avaliar-redacao-cultural:139, avaliar-redacao:254 (como `proveniencia`), gerar-guia-entrevista:442 e comparativo-candidatos:443 (as duas ultimas inline, sem funcao). NAO e o mesmo predicado que este plano extraiu: aquele pergunta 'algum provedor respondeu?' e e deliberadamente SEM allowlist; este NORMALIZA contra a allowlist de um CHECK de banco. Fundi-los seria errado. Mas as seis copias do normalizador entre si sao a mesma duplicacao que o D-21 proibe, e agora ha um modulo em _shared onde ele caberia. Nao consertado: seis EFs, seis deploys, escopo de plano proprio. | open |  | 2026-09-23T05:59:44.862Z |  |
 
 ````json
 [
@@ -868,10 +871,10 @@ last_updated: 2026-09-23T05:25:53.300Z
     "file": "supabase/functions/gerar-guia-entrevista/index.ts",
     "line": 385,
     "description": "49-25: persistFlags (inclusive weak_dim_uncovered, do Pitfall 4 / ENTREV-01) e COMPUTADO e depois DESCARTADO quando existe roteiro: o upsert grava flags apenas no ramo { incompleto: true, ... }. Logo um roteiro que, DEPOIS do re-prompt, ainda deixa uma dimensao fraca descoberta e persistido SEM nenhuma flag, enquanto o docblock da EF afirma que ele 'persiste o roteiro com flag para humano'. O rastro de runtime diz needs_human: true e a linha nao diz nada. Conserto: acrescentar flags ao ramo do roteiro existente. Fora de escopo do 49-25 (defeito PRE-EXISTENTE, requisito ENTREV-01 e nao JORN-39, e muda a forma do guia no caminho de sucesso, que o 49-16 le). O 49-16 PRECISA disto: sem ele o selo nunca vera weak_dim_uncovered.",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "49-26: flags passa a chegar ao upsert TAMBEM no caminho de sucesso (spread flagsDoRoteiro no ramo do roteiro), com a chave AUSENTE quando nao ha nada a sinalizar — um array vazio explicito sob onConflict apagaria a flag da execucao anterior. O docblock da EF passou a descrever o comportamento real. Provado por 2 testes novos (roteiro com dimensao fraca descoberta grava weak_dim_uncovered; sem flag a chave nao nasce) e por 2 mutacoes que mordem (M1 remove o spread = 1 reprovado; M2 grava array vazio sempre = 1 reprovado). EF gerar-guia-entrevista version=21 ACTIVE em PROD, marcadores conferidos no bundle VIVO. PROD medido: 0 linhas de entrevista_guias no estado defeituoso — defeito latente, nada retroativo.",
     "recorded_at": "2026-09-23T04:40:06.094Z",
-    "resolved_at": null,
+    "resolved_at": "2026-09-23T05:56:52.179Z",
     "milestone": "v8.0"
   },
   {
@@ -881,10 +884,10 @@ last_updated: 2026-09-23T05:25:53.300Z
     "file": "supabase/functions/avaliar-transcricao-entrevista/index.ts",
     "line": 377,
     "description": "49-25: MESMA FORMA do defeito que o 49-25 consertou em gerar-guia-entrevista (WINDOWS 60), medida pela varredura do <measure_first> item 4. A guarda e 'parsed == null || error_code === <codigo de injecao>' e NAO olha o provedor nem flagged_for_human_review. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed NAO nulo com error_code cost_cap_exceeded: a guarda da falso, a EF cai no caminho de sucesso e grava a analise como status_analise pendente_humano com competencias vazias — indistinguivel de uma analise real esperando revisao humana. As outras tres irmas (analise-candidato-individual, avaliar-redacao, avaliar-redacao-cultural) estao cobertas porque tambem testam flagged_for_human_review === true; esta e a unica que nao. NAO consertado aqui (Scope Boundary: EF de outro plano; as sete EFs compartilham _shared e um segundo sitio pede plano proprio). Conserto: a mesma pergunta pelo PROVEDOR.",
-    "status": "open",
-    "reason": "",
+    "status": "fixed",
+    "reason": "49-26: a guarda de never-absent passa a fazer as DUAS perguntas — algumProvedorRespondeu(result), do predicado unico de _shared/resultado-de-provedor.ts, e parsed == null. Saiu a comparacao do codigo de erro contra um unico codigo literal. O teto de custo passa a cair no ramo falhou do 49-10: nao supera a vigente, nao entra na fila de revisao, competencias/citacoes/bias/metadata NULL. A medicao do RED revelou MAIS do que esta entrada registrava: a linha defeituosa tambem marcava a analise boa anterior como SUPERADA (superadas: 1 no rastro de runtime), entao a tela ficava com a vazia — nao era so indistinguivel de uma analise real, ela SUBSTITUIA a boa. Provado por 1 teste novo e 3 mutacoes (M6 defeito original = 1 reprovado; M7 a forma PROIBIDA reintroduzida = 1; M8 pendente_humano no ramo de falha = 2). EF avaliar-transcricao-entrevista version=18 ACTIVE em PROD, marcadores no bundle VIVO. PROD medido: 0 linhas no estado defeituoso — defeito latente.",
     "recorded_at": "2026-09-23T04:40:17.604Z",
-    "resolved_at": null,
+    "resolved_at": "2026-09-23T05:57:42.852Z",
     "milestone": "v8.0"
   },
   {
@@ -910,6 +913,45 @@ last_updated: 2026-09-23T05:25:53.300Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T05:25:53.300Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 68,
+    "kind": "stub",
+    "phase": "49",
+    "file": "supabase/functions/comparativo-candidatos/index.ts",
+    "line": 434,
+    "description": "49-26: SEXTO sitio da mesma familia, achado pela re-varredura das SETE consumidoras de callAi (o 49-25 varreu cinco e nao alcancou esta). `const ranking = result.parsed ?? null` — NAO ha nenhuma guarda de bloqueio pre-provedor nesta EF: zero ocorrencias de flagged_for_human_review e nenhuma leitura de error_code. Com o teto diario de custo (AI-06) estourado, callAi devolve parsed={recommendation:'hold',flagged_for_human_review:true}, logo `ranking` fica NAO nulo e o stub e (a) inserido em comparativo_solicitado.ranking (jsonb NOT NULL) como se fosse o ranking auditado, e (b) DEVOLVIDO ao RH no payload (`return jsonResponse({ok:true, ranking, ...})`) — um comparativo que nenhum modelo produziu chega a tela como comparativo. provedor_ia/modelo_ia ja saem NULL corretamente, entao a linha de auditoria fica auto-contraditoria: ranking presente, autor ausente. NAO consertado (Scope Boundary: o <measure_first> do 49-26 mandou reportar e nao consertar; EF de outro plano, exige deploy proprio). Conserto: a mesma pergunta estrutural — `!algumProvedorRespondeu(result)` de _shared/resultado-de-provedor.ts, que este plano criou e que esta EF ainda nao importa.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T05:59:25.800Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 69,
+    "kind": "deviation",
+    "phase": "49",
+    "file": ".planning/WINDOWS.md",
+    "line": null,
+    "description": "49-26: `gsd-tools windows fixed <id> <reason>` ACEITA o segundo posicional e o DESCARTA — a entrada vira status=fixed com reason vazio, nos dois lugares (tabela e bloco JSON). Medido duas vezes nesta sessao (64 e 65) e confirmado retroativamente: a entrada 60, marcada fixed pelo 49-25, tambem esta com reason vazio. Contornado escrevendo o motivo a mao nos dois lugares. Um ledger que registra QUE foi consertado mas nao COMO e meio registro: quem reabrir a janela no futuro nao tem a prova. Nao consertado no gsd-core (fora do repositorio do projeto).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T05:59:44.768Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 70,
+    "kind": "deviation",
+    "phase": "49",
+    "file": "supabase/functions/_shared/resultado-de-provedor.ts",
+    "line": null,
+    "description": "49-26: o normalizador `provedorDeResultado(provider)` (devolve 'anthropic'|'openai'|NULL, gatilhado pelos CHECKs das tabelas) existe em SEIS copias — avaliar-transcricao-entrevista:157, analise-candidato-individual:166, avaliar-redacao-cultural:139, avaliar-redacao:254 (como `proveniencia`), gerar-guia-entrevista:442 e comparativo-candidatos:443 (as duas ultimas inline, sem funcao). NAO e o mesmo predicado que este plano extraiu: aquele pergunta 'algum provedor respondeu?' e e deliberadamente SEM allowlist; este NORMALIZA contra a allowlist de um CHECK de banco. Fundi-los seria errado. Mas as seis copias do normalizador entre si sao a mesma duplicacao que o D-21 proibe, e agora ha um modulo em _shared onde ele caberia. Nao consertado: seis EFs, seis deploys, escopo de plano proprio.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T05:59:44.862Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }

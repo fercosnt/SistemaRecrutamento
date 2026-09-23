@@ -422,7 +422,7 @@ Plans:
 - [x] 49-23-PLAN.md — SJT pesando pela chave da rubrica da pergunta, sem peso uniforme silencioso; proveniência na `metadata` (JORN-35, JORN-28 / D-68)
 - [x] 49-24-PLAN.md — Proveniência real do guia de entrevista (JORN-28 / D-28)
 - [x] 49-25-PLAN.md — Bloqueio pré-provedor não vira guia pronto: teto de custo estourado persiste `incompleto` + `cost_cap_exceeded` em vez de guia vazio com `{ok:true}` (JORN-28, JORN-39 — WINDOWS 60, acrescentado 2026-09-23 por decisão do operador)
-- [ ] 49-26-PLAN.md — Predicado «algum provedor respondeu?» em `_shared`; a flag de revisão humana para de ser descartada no caminho de sucesso e a análise da transcrição não chama bloqueio de «pendente» (JORN-28, JORN-39 — WINDOWS 64/65, acrescentado 2026-09-23 por decisão do operador)
+- [x] 49-26-PLAN.md — Predicado «algum provedor respondeu?» em `_shared`; a flag de revisão humana para de ser descartada no caminho de sucesso e a análise da transcrição não chama bloqueio de «pendente» (JORN-28, JORN-39 — WINDOWS 64/65, acrescentado 2026-09-23 por decisão do operador)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -544,7 +544,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 16/26 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 17/26 | In Progress|  |
 
 ---
 

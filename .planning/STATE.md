@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-14-PLAN.md
-last_updated: "2026-09-23T05:32:52.229Z"
+stopped_at: Completed 49-26-PLAN.md
+last_updated: "2026-09-23T06:05:39.892Z"
 last_activity: 2026-09-23
-state_head: 293f86f8b732ce8791bb417149207d6a8981cb27
+state_head: 42f5b27f9f7fbd24c4c56ac1eaa395a4b586c6de
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 104
-  completed_plans: 92
-  percent: 88
+  completed_plans: 93
+  percent: 89
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -805,6 +805,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P13 | 17 min | 2 tasks | 11 files |
 | Phase 49 P25 | ~35 min | 1 tasks | 2 files |
 | Phase 49 P14 | 88 min | 1 tasks | 2 files |
+| Phase 49 P26 | ~50 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1110,6 +1111,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-25: a pergunta «há resultado da IA?» é pelo PROVEDOR (provider === 'none'), nunca por lista literal de error_code — cobre o teto de custo, a injeção e todo bloqueio pré-provedor futuro por construção
 - [Phase 49]: 49-25: uma variável de resultado reatribuída por re-prompt só AVANÇA se a nova passada produziu o artefato persistido; senão a proveniência descreve quem não escreveu nada
 - [Phase 49]: 49-14: o motor de exclusao passa a apagar o INPUT que o titular mandou a IA (ai_call_logs.user_prompt_template, no MESMO UPDATE que faz candidato_id := NULL — e o candidato_id que acha a linha), as linhas comparative_ranking que o CITAM (achadas por position('id=' || candidatura_id), porque o candidato_id delas e NULL por desenho e o motor nunca as alcancava) e a resposta do revisor (revisao_resultado) na linha corrente E em todas as versoes do arquivo. O dry-run conta o mesmo pela mesma expressao. md5 novos: anonimizar_candidato=6ab2890e..., plano_exclusao_titular=12bfca3b...; contador do p45 smoke 25 -> 30. — Medido no catalogo antes de escrever: decisao_final_revisao_justificativa_min_check exige length(btrim(coalesce(revisao_resultado,''))) >= 50 quando ha veredito. Uma sentinela curta nao falha no apply — falha com 23514 no primeiro pedido real, DEPOIS de o curriculo ja ter sido apagado do Storage (Pitfall 1). Virou portao de apply que LE o minimo do CHECK vivo em vez de transcreve-lo, e a fixture do smoke ganhou o ciclo de revisao completo para exercita-lo por execucao. 12 mutacoes provam a mordida clausula por clausula; duas delas (M6b, M10b) existem porque a inversao obvia reprovava por OUTRA assercao.
+- [Phase 49]: 49-26: a pergunta «algum modelo respondeu isto?» vive em UM lugar (_shared/resultado-de-provedor.ts) e as duas EFs a consomem — o MESMO defeito foi medido duas vezes porque a pergunta estava escrita duas vezes
+- [Phase 49]: 49-26: chave AUSENTE vs array vazio é distinção substantiva num upsert — sob onConflict um [] explicito APAGA o valor da execucao anterior, entao 'nada a sinalizar' se escreve pela ausencia da chave
+- [Phase 49]: 49-26: um predicado compartilhado que pergunta 'tem provedor?' NAO e o normalizador que pergunta 'qual provedor, dentro da allowlist do CHECK?' — fundi-los faria o predicado herdar uma allowlist que ele existe para nao ter
 
 ### Roadmap Evolution
 
@@ -1400,8 +1404,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T05:32:17.985Z
-Stopped at: Completed 49-14-PLAN.md
+Last session: 2026-09-23T06:05:39.609Z
+Stopped at: Completed 49-26-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
