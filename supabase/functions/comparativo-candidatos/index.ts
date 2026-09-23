@@ -69,6 +69,11 @@ import {
   COMPARATIVO_MAX_CANDIDATOS,
   COMPARATIVO_MIN_CANDIDATOS,
 } from "../_shared/comparativo-config.ts";
+// D-34 / D-21: o predicado canônico de «esta candidatura acabou», a MESMA implementação TS
+// que o front usa (por reexport) e o MESMO critério da função SQL `candidatura_encerrada`.
+// Não é uma cópia local: cópias divergem em silêncio, e este critério já errou por olhar só
+// a etapa (o knockout preserva `etapa_atual='inscricao'` e só move o status).
+import { candidaturaEncerrada } from "../_shared/candidaturaEncerrada.ts";
 // SDKs como import ESTÁTICO `npm:` — o runtime-constructed `["npm:",pkg].join("")` escondia o
 // pacote da lista de dependências do deploy (ERR_MODULE_NOT_FOUND no runtime do EF). Precedente que
 // deploya E passa o `deno test` type-checked: `analise-schemas.ts` importa `npm:zod@3.25.76` estático.
@@ -87,7 +92,17 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type ErrorCode = "UNAUTHORIZED" | "FORBIDDEN" | "VALIDATION" | "MIXED_VAGA" | "SERVER_ERROR";
+// Phase 49 / 49-08: `ENCERRADA` e `SEM_ANALISE` são NOVOS. Antes, as três causas de recusa
+// (candidatura de outra vaga, candidatura encerrada, análise ausente) compartilhavam
+// `MIXED_VAGA` — e a mensagem dele, «pertencem a vagas diferentes», é FALSA em duas delas.
+type ErrorCode =
+  | "UNAUTHORIZED"
+  | "FORBIDDEN"
+  | "VALIDATION"
+  | "MIXED_VAGA"
+  | "ENCERRADA"
+  | "SEM_ANALISE"
+  | "SERVER_ERROR";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -96,8 +111,13 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-function errorResponse(code: ErrorCode, message: string, status = 400): Response {
-  return jsonResponse({ ok: false, error_code: code, message }, status);
+function errorResponse(
+  code: ErrorCode,
+  message: string,
+  status = 400,
+  extra?: Record<string, unknown>,
+): Response {
+  return jsonResponse({ ok: false, error_code: code, message, ...(extra ?? {}) }, status);
 }
 
 // ---------------------------------------------------------------------------
@@ -116,6 +136,19 @@ export interface ComparativoDeps {
   /** Builders de structured-output (prod injeta os reais; testes omitem → callAi usa no-op). */
   zodOutputFormat?: (schema: unknown, name: string) => unknown;
   zodResponseFormat?: (schema: unknown, name: string) => unknown;
+}
+
+/**
+ * Linha allowlist de `candidaturas` consumida pela conferência de posse e estado (49-08).
+ * Quatro colunas e nada mais: `vaga_id` para o IDOR (JORN-32), `etapa_atual`+`status` para o
+ * predicado canônico de encerrada (D-34). `encerrada_a_pedido_em` NÃO entra — retirada a
+ * pedido segue comparável, e ler o campo convidaria a usá-lo no critério.
+ */
+interface CandidaturaRow {
+  id: string;
+  vaga_id: string;
+  etapa_atual: string | null;
+  status: string | null;
 }
 
 /** Linha allowlist de `analise_candidato_vaga` consumida pelo comparativo. */
@@ -222,6 +255,57 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
       }
     }
 
+    // ── 3c. POSSE E ESTADO DE CADA CANDIDATURA (JORN-32 / D-34) ─────────────
+    //
+    // ⚠ Isto é o conserto do IDOR, e ele tem de vir ANTES de qualquer leitura de
+    // análise. O que existia era um cross-check entre as ANÁLISES: «todas da mesma
+    // vaga ENTRE SI» (`vagas.size === 1`). Isso nunca amarrou nada a `body.vaga_id`
+    // — a vaga cuja posse acabou de ser verificada. Bastava a um RH pedir dois
+    // candidatos da MESMA vaga alheia para ler `score_match`, `gaps` e `resumo_cv`
+    // deles: os dois eram da mesma vaga, o cross-check passava, e a EF lê com
+    // service_role (RLS não protege aqui). Medido em `index.ts:182-220` no kickoff.
+    //
+    // Allowlist explícita, nunca `select('*')` — a linha de `candidaturas` tem PII
+    // que este caminho não precisa ver.
+    const idsUnicos = new Set(ids);
+    if (idsUnicos.size !== ids.length) {
+      // Antes de comparar contagens: ids repetidos fazem o `.in()` devolver MENOS
+      // linhas do que ids pedidos, e a recusa sairia como 403 «Acesso negado.» — um
+      // diagnóstico FALSO sobre um pedido que só está malformado.
+      return errorResponse("VALIDATION", "Há candidatos repetidos na seleção.");
+    }
+
+    const { data: candsRaw, error: candsErr } = await supabaseAdmin
+      .from("candidaturas")
+      .select("id, vaga_id, etapa_atual, status")
+      .in("id", ids);
+    if (candsErr) {
+      return errorResponse("SERVER_ERROR", "Falha ao carregar as candidaturas.", 500);
+    }
+    const cands = (candsRaw ?? []) as CandidaturaRow[];
+
+    // JORN-32: a posse de `body.vaga_id` foi verificada acima, então TODA candidatura
+    // pedida tem de ser DELA. Ausente e alheia recebem o MESMO 403 genérico, DE
+    // PROPÓSITO (T-49-08-02): uma mensagem que diferenciasse «não existe» de «não é
+    // sua» seria um oráculo de existência — por tentativa, um RH enumeraria ids de
+    // candidatura do sistema inteiro. O 403 aqui não diz nada além de «não».
+    const forasteira = cands.length !== ids.length ||
+      cands.some((c) => c.vaga_id !== body.vaga_id);
+    if (forasteira) {
+      return errorResponse("FORBIDDEN", "Acesso negado.", 403);
+    }
+
+    // D-34: candidatura encerrada não entra no comparativo — e a mensagem diz ISSO,
+    // não «vagas diferentes». `encerrada_a_pedido_em` fica FORA do critério de
+    // propósito: retirada a pedido segue comparável (Invariante 9 da 45-UI-SPEC).
+    if (cands.some((c) => candidaturaEncerrada(c.etapa_atual, c.status))) {
+      return errorResponse(
+        "ENCERRADA",
+        "Candidatura encerrada não entra no comparativo.",
+        400,
+      );
+    }
+
     // ── 4. Lê as análises pré-computadas (allowlist explícita — NÃO select('*'),
     //      [[reference_select_star_leaks_pii]]).
     const { data: rowsRaw, error: rowsErr } = await supabaseAdmin
@@ -233,15 +317,32 @@ export async function handler(req: Request, deps: ComparativoDeps): Promise<Resp
     }
     const rows: AnaliseRow[] = (rowsRaw ?? []) as AnaliseRow[];
 
-    // ── 5. Same-vaga + count cross-check (IDOR T-10-09) ─────────────────────
-    // Toda análise tem de existir (rows.length === ids.length) E todas têm de
-    // pertencer à MESMA vaga (vagas.size === 1). Falha em qualquer um → 400.
+    // ── 5. Análise ausente (D-34) e coerência da análise (defesa em profundidade) ─
+    //
+    // Este bloco SUBSTITUI o antigo `vagas.size !== 1 || rows.length !== ids.length`
+    // ⇒ `MIXED_VAGA`, que dava UMA mensagem para TRÊS causas — e a mensagem era falsa
+    // em duas delas. O caso que motivou: um knockout sem análise é da MESMA vaga, e o
+    // RH lia «pertencem a vagas diferentes» e ia caçar um erro que não existia.
+    const idsComAnalise = new Set(rows.map((r) => r.candidatura_id));
+    const semAnalise = ids.filter((id) => !idsComAnalise.has(id));
+    if (semAnalise.length > 0) {
+      // Os ids vão no corpo para a tela poder NOMEAR quem falta (o RH decide se espera
+      // a análise ou tira a pessoa da seleção). São ids de candidatura da vaga dele —
+      // a posse já foi conferida acima —, não PII de terceiro.
+      return errorResponse(
+        "SEM_ANALISE",
+        `Ainda não há análise para ${semAnalise.length} candidato(s) selecionado(s).`,
+        400,
+        { candidaturas_sem_analise: semAnalise },
+      );
+    }
+
+    // `MIXED_VAGA` SOBRA, e só para o que ele consegue de fato dizer com verdade: a
+    // candidatura é da vaga certa (conferido em 3c) e a ANÁLISE dela aponta para
+    // outra. É um estado incoerente que não deveria existir — e é exatamente por isso
+    // que continua tendo portão, em vez de virar caminho feliz por omissão.
     const vagas = new Set(rows.map((r) => r.vaga_id));
-    if (vagas.size !== 1 || rows.length !== ids.length) {
-      // error_code MIXED_VAGA so triagemService.invokeComparativo surfaces the
-      // specific pt-BR copy ("...pertencem a vagas diferentes...") instead of the
-      // generic fallback (verifier gap 10-VERIFICATION: code mismatch was masked
-      // by the unit test mocking MIXED_VAGA).
+    if (vagas.size !== 1 || !vagas.has(body.vaga_id)) {
       return errorResponse(
         "MIXED_VAGA",
         "Os candidatos pertencem a vagas diferentes (ou alguma análise ainda não existe).",
