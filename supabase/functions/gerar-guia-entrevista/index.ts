@@ -138,6 +138,40 @@ function weakDimsFromScores(rows: ScoreRow[], threshold: number): string[] {
   return [...weak];
 }
 
+/** Fatia do roteiro que esta EF consome do `parsed` de `callAi`. */
+type GuiaSlice = { questions?: Array<{ competency: string }> };
+
+/**
+ * O roteiro que ESTA passada de `callAi` produziu — ou `null` quando NENHUM modelo foi
+ * chamado (Phase 49 / JORN-39 / WINDOWS 60).
+ *
+ * `callAi` corta a chamada ANTES de tocar qualquer provedor em dois casos: teto diário de
+ * custo (AI-06) e injeção detectada no input (RF-PL-18). Nos dois ele devolve
+ * `provider: "none"` e um `parsed` que NÃO é nulo — um stub de recomendação («segurar» +
+ * o marcador de revisão humana), que existe para o chamador não precisar tratar `null` e
+ * para preservar a RNF-07a (nunca rejeitar candidato por custo).
+ *
+ * Esse stub não é um roteiro de entrevista. Até este conserto a EF lia «`parsed` não nulo»
+ * como «há roteiro» e persistia a linha como um guia gerado: ZERO perguntas de IA, nenhuma
+ * flag, resposta de sucesso. Um roteiro barrado por gasto ficava indistinguível de um
+ * roteiro vazio bem-sucedido — e o RH conduz a entrevista por ele.
+ *
+ * ⚠ A pergunta é pelo PROVEDOR, não por uma lista de códigos de erro. Enumerar
+ * `cost_cap_exceeded` e `prompt_injection_detected` seria a forma «iteração sobre lista
+ * literal» que o CLAUDE.md §Portões descreve: o próximo bloqueio pré-provedor nasceria
+ * fora da vigilância e o caminho seguiria parecendo correto. `provider === "none"` cobre
+ * os dois de hoje e qualquer um de amanhã por construção.
+ *
+ * O provedor vazio/ausente entra no mesmo ramo — é o idioma que `avaliar-redacao` (49-11)
+ * já usa: na dúvida sobre quem respondeu, a EF NÃO afirma que há roteiro.
+ */
+export function guiaDeResultado(
+  result: { provider?: string | null; parsed?: unknown },
+): GuiaSlice | null {
+  if (!result.provider || result.provider === "none") return null;
+  return (result.parsed ?? null) as GuiaSlice | null;
+}
+
 /**
  * Handler testável: recebe `deps` injetadas. `Deno.serve` (no fim) constrói os
  * clientes reais a partir do env + do Authorization header e delega para cá.
@@ -294,8 +328,10 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
       );
 
     // ── 6. callAi (1ª passada) ────────────────────────────────────────────────
+    //   `guiaDeResultado` (e não `result.parsed` cru) — ver o docblock do helper: um
+    //   bloqueio anterior ao provedor devolve `parsed` não nulo que NÃO é roteiro.
     let result = await runGuide();
-    let guide = result.parsed as { questions?: Array<{ competency: string }> } | null;
+    let guide = guiaDeResultado(result);
 
     // ── 7. Pós-validação de cobertura de dimensão fraca (Pitfall 4) ───────────
     //      Se uma dimensão fraca ficou descoberta, UM re-prompt bounded enfatizando
@@ -308,11 +344,19 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
         weakDims,
       );
       if (!coverage.covered) {
-        result = await runGuide(
+        const reResult = await runGuide(
           `As dimensões fracas a seguir NÃO foram cobertas e PRECISAM de ≥1 pergunta cada: ${coverage.missing.join("; ")}.`,
         );
-        const reGuide = result.parsed as { questions?: Array<{ competency: string }> } | null;
+        const reGuide = guiaDeResultado(reResult);
+        //   `result` só AVANÇA quando a 2ª passada de fato produziu o roteiro que vai ser
+        //   persistido. É o que mantém verdadeira a regra do 49-24 («a proveniência é da
+        //   última passada»): a última passada RELEVANTE é a que escreveu a linha, não a
+        //   que rodou por último. Uma 2ª passada barrada pelo teto de custo — ou cujo
+        //   parse falhou — deixa o roteiro da 1ª em pé, e atribuí-lo ao resultado da 2ª
+        //   gravaria `provedor_ia`/`modelo_ia` de quem não escreveu nada (NULL no caso do
+        //   bloqueio), exatamente a atribuição errada que o JORN-28 existe para fechar.
         if (reGuide) {
+          result = reResult;
           guide = reGuide;
           coverage = checkWeakDimCoverage(
             { questions: (reGuide.questions ?? []).map((q) => ({ competency: q.competency })) },
@@ -323,10 +367,20 @@ export async function handler(req: Request, deps: GerarGuiaDeps): Promise<Respon
       }
     }
 
-    // ── 8. Never-absent: parse falho → persiste row de flag para humano, nunca
+    // ── 8. Never-absent: sem roteiro → persiste row de flag para humano, nunca
     //      um sucesso fabricado. Persiste o roteiro (ou a marca de revisão).
+    //
+    //   `guide == null` cobre AGORA três origens, e `result.error_code` diz qual foi:
+    //   parse falho (`ia_sem_resultado`), teto de custo (`cost_cap_exceeded`) e injeção
+    //   detectada (`prompt_injection_detected`). As duas últimas chegam aqui por
+    //   `guiaDeResultado` — nenhum provedor foi chamado, logo não há roteiro.
+    //
+    //   ⚠ A condição era `guide == null || result.error_code === "<código de injeção>"`.
+    //   O segundo termo era uma lista literal de um item: cobria a injeção e deixava o
+    //   teto de custo — e todo bloqueio pré-provedor futuro — fora da vigilância. Hoje a
+    //   pergunta é estrutural (há roteiro?) e o código é só o DIAGNÓSTICO, nunca o gatilho.
     const persistFlags: string[] = [];
-    if (guide == null || result.error_code === "prompt_injection_detected") {
+    if (guide == null) {
       persistFlags.push(result.error_code ?? "ia_sem_resultado");
     }
     if (needsHumanFlag) persistFlags.push("weak_dim_uncovered");
