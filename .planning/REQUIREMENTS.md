@@ -173,7 +173,7 @@ Acrescentados em 2026-09-22 no kickoff da Phase 49 (`49-CONTEXT.md`). Mesma conv
 - [ ] **JORN-36**: O motor de exclusão apaga o que o recibo afirma ter apagado (redação, citações, respostas, texto da transcrição no `ai_call_logs`) — mecanismo destrutivo, com portão e prova (D-48)
 - [ ] **JORN-37**: A justificativa da decisão final não chega ao titular pela trilha (BD-9 mantido): `registrar_decisao` deixa de copiá-la, e as 4 cópias no histórico são limpas com checkpoint (D-47)
 - [ ] **JORN-38**: A lista do RH não traz ao navegador colunas do candidato que não exibe (fim do `candidatos(*)`)
-- [ ] **JORN-39**: Os eventos de teto de custo e de injeção de prompt ficam registrados na auditoria de IA (hoje o insert falha no enum e o erro é engolido)
+- [x] **JORN-39**: Os eventos de teto de custo e de injeção de prompt ficam registrados na auditoria de IA (hoje o insert falha no enum e o erro é engolido)
 - [ ] **JORN-40**: O hub não mostra ao RH o percentil cru do Raven (UX-07: só faixas)
 
 ---
@@ -293,7 +293,7 @@ Preenchida na criação do roadmap (2026-07-29). **6 fases, 42–47.** Ordem de 
 | JORN-36 | Phase 49 | Pending |
 | JORN-37 | Phase 49 | Pending |
 | JORN-38 | Phase 49 | Pending |
-| JORN-39 | Phase 49 | Pending |
+| JORN-39 | Phase 49 | Complete |
 | JORN-40 | Phase 49 | Pending |
 
 **Coverage:**

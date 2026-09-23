@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-13-PLAN.md
-last_updated: "2026-09-23T04:18:48.035Z"
+stopped_at: Completed 49-25-PLAN.md (EF gerar-guia-entrevista v20 em PROD)
+last_updated: "2026-09-23T04:46:50.673Z"
 last_activity: 2026-09-23
-state_head: 322dfe80fdbd54d3db4776d887a40268b0dcfc5d
+state_head: 6d4eb35d0bb8b3c15ee72f07426bfac3252ae12d
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 103
-  completed_plans: 90
-  percent: 87
+  completed_plans: 91
+  percent: 88
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -803,6 +803,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P10 | 18 min | 2 tasks | 6 files |
 | Phase 49 P11 | 34 min | 2 tasks | 2 files |
 | Phase 49 P13 | 17 min | 2 tasks | 11 files |
+| Phase 49 P25 | ~35 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1105,6 +1106,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-13: o rótulo de cada posição do comparativo passou a ser resolvido pela CHAVE que a EF devolve (`posicoes`), nunca pela posição na seleção — num empate de score o RH lia os dados de uma pessoa sob o nome de outra — A EF ordena por score com desempate por candidatura_id (49-08), então a ordem do ranking não é a da seleção. Sem entrada em `posicoes`, mostra o rótulo CRU: um nome plausível e errado não é conferido por ninguém.
 - [Phase 49]: 49-13: `ProvenienciaIABadge` é o selo ÚNICO de proveniência, e a regra «é fallback ⇔ provedor_ia='openai'» mora numa função nomeada nele — se a P1 trocar o primário do callAi, há UM lugar para consertar — `modelo_ia` NULL diz «modelo não registrado» (D-30), nunca silêncio: ausência de selo é indistinguível de proveniência confirmada. Nas props, `undefined` (não fiado) e `null` (fiado, servidor não sabe) são coisas diferentes — colapsá-los faria a tela afirmar uma medição que não houve.
 - [Phase 49]: 49-13: o PDF do comparativo imprime a proveniência abaixo do título, com a cópia importada da tela por CONSTRUÇÃO (a função, não a constante) — O PDF circula fora do sistema e quem o recebe não tem tela onde conferir. Importar `textoProveniencia` (construída de PROVENIENCIA_IA_COPY) torna a igualdade de cópia uma propriedade de construção; importar a constante sem usá-la seria código morto que o noUnusedLocals reprovaria — e seria o 90º erro de tsc, com o teto em 90.
+- [Phase 49]: 49-25: a pergunta «há resultado da IA?» é pelo PROVEDOR (provider === 'none'), nunca por lista literal de error_code — cobre o teto de custo, a injeção e todo bloqueio pré-provedor futuro por construção
+- [Phase 49]: 49-25: uma variável de resultado reatribuída por re-prompt só AVANÇA se a nova passada produziu o artefato persistido; senão a proveniência descreve quem não escreveu nada
 
 ### Roadmap Evolution
 
@@ -1394,8 +1397,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T04:18:05.629Z
-Stopped at: Completed 49-13-PLAN.md
+Last session: 2026-09-23T04:46:50.350Z
+Stopped at: Completed 49-25-PLAN.md (EF gerar-guia-entrevista v20 em PROD)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
