@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 23
-waived_count: 7
-fixed_count: 33
+open_count: 21
+waived_count: 8
+fixed_count: 34
 total_count: 63
-last_updated: 2026-09-23T03:19:20.062Z
+last_updated: 2026-09-23T03:23:16.705Z
 ---
 
 # Broken Windows Ledger
@@ -76,8 +76,8 @@ last_updated: 2026-09-23T03:19:20.062Z
 | 59 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-24-PLAN.md |  | O <verify> #2 do 49-24 encadeia `node efdeploy.cjs` SEM --dry-run: re-rodá-lo cria uma version 19 idêntica à 18 para não provar nada novo. Re-verificado pelo RESULTADO (version/status/verify_jwt/import_map relidos da Management API + marcadores do bundle vivo + --dry-run re-rodável). QUARTA ocorrência da fase (51, 53, 55). | open |  | 2026-09-23T01:40:02.218Z |  |
 | 60 | 49 | stub | supabase/functions/gerar-guia-entrevista/index.ts | 340 | Teto de custo diário estourado: callAi devolve parsed={recommendation:'hold'} (não-null), então persistFlags fica VAZIO e a EF persiste um guia com 0 perguntas e nenhuma flag, devolvendo {ok:true}. Um roteiro barrado por gasto é indistinguível de um roteiro vazio bem-sucedido. MEDIDO pelo teste novo do 49-24 (needs_human=false no log). Proveniência NULL/NULL é honesta mas conflate com os 5 guias legados. Fora do escopo do 49-24 (proveniência); o conserto é a flag. | open |  | 2026-09-23T01:40:15.497Z |  |
 | 61 | 49 | unmet-truth | src/features/entrevista/components/GuiaEntrevistaPanel.tsx |  | entrevista_guias.provedor_ia/.modelo_ia estão GRAVADOS (49-24, EF v18 em PROD) e NENHUMA tela os lê. O selo de proveniência do guia é o 49-16 (D-55). Irmão do WINDOWS 56 (o mesmo para scores_candidato.metadata do SJT): melhor que não estar gravado, e ainda não é o conserto. | open |  | 2026-09-23T01:40:15.620Z |  |
-| 62 | 49 | unrun-verify | supabase/migrations/20260922000008_p49_revisao_entrevista_vigente.sql |  | 49-10: a migration nao e re-executavel — o PRE-PORTAO pina os md5 ANTIGOS de salvar_avaliacao_entrevista/confirmar_revisao_entrevista e os vivos agora sao os novos (2b567aaa..., 43df21b8...). O <verify> do ensaio foi re-executado por EQUIVALENCIA (md5 do ledger + pos-portao lido do catalogo). E o portao funcionando, nao defeito; registrado para quem redefinir estas funcoes depois. | open |  | 2026-09-23T03:19:19.971Z |  |
-| 63 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-10-SUMMARY.md |  | 49-10: git push origin main NEGADO pelo ambiente. 2 migrations em PROD + EF v17 no ar com os commits NAO ENVIADOS (modo de falha do CLAUDE.md sobre os dois canais). Acao do operador: push + conferir origin/main..HEAD vazio. | open |  | 2026-09-23T03:19:20.062Z |  |
+| 62 | 49 | unrun-verify | supabase/migrations/20260922000008_p49_revisao_entrevista_vigente.sql |  | 49-10: a migration nao e re-executavel — o PRE-PORTAO pina os md5 ANTIGOS de salvar_avaliacao_entrevista/confirmar_revisao_entrevista e os vivos agora sao os novos (2b567aaa..., 43df21b8...). O <verify> do ensaio foi re-executado por EQUIVALENCIA (md5 do ledger + pos-portao lido do catalogo). E o portao funcionando, nao defeito; registrado para quem redefinir estas funcoes depois. | waived | Nao e defeito, e uma PROPRIEDADE do pre-portao por md5: ele recusa sobrescrever um corpo que nao mediu, entao a 20260922000008 deixa de ser re-executavel no instante em que e aplicada com sucesso. O <verify> foi re-executado por EQUIVALENCIA (md5 do ledger conferido por leitura de volta + as 8 assercoes do pos-portao lidas do catalogo), e os md5 NOVOS estao tabelados no 49-10-SUMMARY para quem redefinir estas funcoes depois. O irmao 49-01 atravessou a mesma situacao (Deviation 2). Mantido no ledger como registro, dispensado do portao de ship; reverter para open e decisao do operador. | 2026-09-23T03:19:19.971Z | 2026-09-23T03:23:16.705Z |
+| 63 | 49 | deviation | .planning/phases/49-consertos-da-jornada-bloco-2/49-10-SUMMARY.md |  | 49-10: git push origin main NEGADO pelo ambiente. 2 migrations em PROD + EF v17 no ar com os commits NAO ENVIADOS (modo de falha do CLAUDE.md sobre os dois canais). Acao do operador: push + conferir origin/main..HEAD vazio. | fixed |  | 2026-09-23T03:19:20.062Z | 2026-09-23T03:22:32.029Z |
 
 ````json
 [
@@ -838,10 +838,10 @@ last_updated: 2026-09-23T03:19:20.062Z
     "file": "supabase/migrations/20260922000008_p49_revisao_entrevista_vigente.sql",
     "line": null,
     "description": "49-10: a migration nao e re-executavel — o PRE-PORTAO pina os md5 ANTIGOS de salvar_avaliacao_entrevista/confirmar_revisao_entrevista e os vivos agora sao os novos (2b567aaa..., 43df21b8...). O <verify> do ensaio foi re-executado por EQUIVALENCIA (md5 do ledger + pos-portao lido do catalogo). E o portao funcionando, nao defeito; registrado para quem redefinir estas funcoes depois.",
-    "status": "open",
-    "reason": "",
+    "status": "waived",
+    "reason": "Nao e defeito, e uma PROPRIEDADE do pre-portao por md5: ele recusa sobrescrever um corpo que nao mediu, entao a 20260922000008 deixa de ser re-executavel no instante em que e aplicada com sucesso. O <verify> foi re-executado por EQUIVALENCIA (md5 do ledger conferido por leitura de volta + as 8 assercoes do pos-portao lidas do catalogo), e os md5 NOVOS estao tabelados no 49-10-SUMMARY para quem redefinir estas funcoes depois. O irmao 49-01 atravessou a mesma situacao (Deviation 2). Mantido no ledger como registro, dispensado do portao de ship; reverter para open e decisao do operador.",
     "recorded_at": "2026-09-23T03:19:19.971Z",
-    "resolved_at": null,
+    "resolved_at": "2026-09-23T03:23:16.705Z",
     "milestone": "v8.0"
   },
   {
@@ -851,10 +851,10 @@ last_updated: 2026-09-23T03:19:20.062Z
     "file": ".planning/phases/49-consertos-da-jornada-bloco-2/49-10-SUMMARY.md",
     "line": null,
     "description": "49-10: git push origin main NEGADO pelo ambiente. 2 migrations em PROD + EF v17 no ar com os commits NAO ENVIADOS (modo de falha do CLAUDE.md sobre os dois canais). Acao do operador: push + conferir origin/main..HEAD vazio.",
-    "status": "open",
+    "status": "fixed",
     "reason": "",
     "recorded_at": "2026-09-23T03:19:20.062Z",
-    "resolved_at": null,
+    "resolved_at": "2026-09-23T03:22:32.029Z",
     "milestone": "v8.0"
   }
 ]
