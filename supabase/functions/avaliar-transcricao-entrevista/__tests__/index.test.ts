@@ -143,6 +143,17 @@ interface AdminOpts {
   analiseReadError?: { code?: string; message?: string } | null;
   /** Erro devolvido pela RPC de gravação — tem de virar 500, nunca `{ok:true}`. */
   rpcError?: { code?: string; message?: string } | null;
+  /**
+   * Phase 49 / plano 49-26: gasto do dia em `ai_call_logs` para a vaga. Quando `> 0`, o
+   * kill-switch de custo de `callAi` (`isDailyCostCapExceeded`, teto default US$ 50) corta a
+   * chamada ANTES de tocar provedor nenhum e devolve `provider: "none"` com um `parsed` que
+   * NÃO é nulo. É o único caminho `none` alcançável nesta EF: a detecção de injeção também o
+   * produz, mas ela já tem teste próprio e a transcrição precisaria carregar o padrão.
+   *
+   * Sem este parâmetro o caminho era inexpressável pelo mock — e era por isso que o defeito
+   * (`WINDOWS 65`) existia com 27 testes verdes em volta dele.
+   */
+  custoDiarioUsd?: number;
 }
 
 /**
@@ -159,6 +170,7 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
     analiseExistente = null,
     analiseReadError = null,
     rpcError = null,
+    custoDiarioUsd = 0,
   } = opts;
 
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
@@ -314,7 +326,13 @@ function makeMockSupabaseAdmin(opts: AdminOpts = {}) {
           select: (_c?: string) => {
             const chain = {
               eq: () => chain,
-              gte: () => Promise.resolve({ data: [], error: null }),
+              // A soma do gasto do dia (`cost_usd`) — vazia por default; com
+              // `custoDiarioUsd > 0` o teto estoura e `callAi` corta antes do provedor.
+              gte: () =>
+                Promise.resolve({
+                  data: custoDiarioUsd > 0 ? [{ cost_usd: custoDiarioUsd }] : [],
+                  error: null,
+                }),
               maybeSingle: () => Promise.resolve({ data: null, error: null }),
             };
             return chain;
@@ -605,6 +623,90 @@ Deno.test("parse nulo ⇒ RPC com p_status_analise='falhou' e resposta falhou:tr
   // texto a IA não conseguiu analisar.
   assertEquals(admin.rpcCalls[0].args.p_tipo, "online");
   assert(typeof admin.rpcCalls[0].args.p_texto_hash === "string");
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / Plano 49-26 — WINDOWS 65 · JORN-39
+//
+// Bloqueio ANTERIOR ao provedor não é uma análise esperando revisão humana.
+//
+// Com o teto diário de custo (AI-06) estourado, `callAi` corta a chamada antes de tocar
+// provedor nenhum e devolve `provider: "none"` com um `parsed` que NÃO é nulo — um stub que
+// existe para preservar a RNF-07a. A guarda de never-absent perguntava «o resultado veio
+// nulo?», então o stub passava por ela: a EF caía no caminho de SUCESSO e gravava uma
+// análise `pendente_humano` com a lista de competências VAZIA — indistinguível, para a tela,
+// para a revisão e para o portão de avanço, de uma avaliação real que alguém precisa revisar.
+//
+// A pergunta correta é estrutural: nenhum provedor respondeu ⇒ não há análise. O `error_code`
+// segue existindo como DIAGNÓSTICO, nunca como gatilho — enumerar os códigos de bloqueio
+// conhecidos é a forma «iteração sobre lista literal» do CLAUDE.md §Portões, e foi exatamente
+// por ela que o teto de custo passou enquanto a injeção era barrada.
+//
+// O destino certo é o ramo `falhou` que o 49-10 desenhou: ele NÃO supera ninguém e NÃO é
+// vigente, então a análise boa anterior continua sendo a que todos leem.
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+Deno.test("49-26 / WINDOWS 65 — teto de custo estourado grava 'falhou', nunca análise aguardando revisão", async () => {
+  const handler = await loadHandler();
+  const admin = makeMockSupabaseAdmin({ custoDiarioUsd: 999 });
+  // A Anthropic devolveria uma análise COMPLETA. Se ela aparecer na RPC, a chamada não foi
+  // barrada e o teste está medindo outra coisa.
+  const anthropic = makeMockAnthropic();
+  const res = await handler(
+    post({ candidatura_id: CANDIDATURA, transcricao: TRANSCRICAO_A, tipo: "online" }),
+    deps(admin, { anthropic }),
+  );
+  const json = await res.json();
+
+  assertEquals(res.status, 200);
+  assertEquals(
+    anthropic.calls.length,
+    0,
+    "o teto de custo corta ANTES do provedor — se houve chamada, o cenário não é este",
+  );
+
+  assertEquals(admin.rpcCalls.length, 1, "a linha é gravada: a EF nunca fica calada");
+  const args = admin.rpcCalls[0].args;
+
+  // 1. O CONSERTO. `pendente_humano` aqui significaria «há uma avaliação de IA à espera de um
+  //    humano», e não há avaliação nenhuma: ninguém respondeu.
+  assertEquals(
+    args.p_status_analise,
+    "falhou",
+    "nenhum provedor respondeu — a linha não pode entrar na fila de revisão como avaliação",
+  );
+
+  // 2. E por consequência não supera a vigente nem se torna vigente (o desenho do 49-10).
+  assertEquals(
+    json.vigente,
+    false,
+    "a análise boa anterior continua sendo a que a tela, a revisão e o portão de avanço leem",
+  );
+  assertEquals(json.falhou, true);
+
+  // 3. Nada de conteúdo fabricado: o stub do bloqueio não é avaliação de competência.
+  assertEquals(
+    args.p_competencias,
+    null,
+    "competências vazias gravadas como análise real é a forma EXATA do defeito medido",
+  );
+  assertEquals(args.p_citacoes, null);
+  assertEquals(args.p_bias_flags, null);
+  assertEquals(args.p_score_metadata, null);
+
+  // 4. RNF-07a: um corte por gasto nunca segura o avanço do candidato.
+  assertEquals(args.p_bloqueio_avanco, false);
+
+  // 5. Proveniência coerente: ninguém escreveu, então não há a quem atribuir.
+  assertEquals(args.p_provedor_ia, null, "`none` não é nome de provedor para quem lê a coluna");
+  assertEquals(args.p_modelo_ia, null);
+
+  // 6. Mas a linha sabe DE QUAL texto ela é — é o que permite reanalisar depois.
+  assertEquals(args.p_tipo, "online");
+  assert(typeof args.p_texto_hash === "string" && (args.p_texto_hash as string).length > 0);
+
+  // 7. A RPC continua sendo o único escritor (D-39).
+  assertEquals(admin.escritasDiretas, []);
 });
 
 Deno.test("RPC devolvendo erro ⇒ 500, nunca { ok: true }", async () => {
