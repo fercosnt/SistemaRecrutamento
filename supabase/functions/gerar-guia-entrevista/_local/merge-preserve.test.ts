@@ -152,9 +152,21 @@ function makeMockSupabaseAdmin(
   // corta a chamada ANTES de tocar qualquer provedor e devolve `provider: "none"`.
   // É o único caminho `none` ALCANÇÁVEL nesta EF: `rawInput` aqui é montado pela
   // própria função (sem texto do usuário), então a detecção de injeção nunca dispara.
-  custoDiarioUsd: number = 0,
+  //
+  // Phase 49 / 49-25: um ARRAY dá um valor POR LEITURA da soma do dia — uma leitura por
+  // chamada de `callAi`. `[0, 999]` é o caso «a 1ª passada roda e o RE-PROMPT é barrado»,
+  // que não é expressável com um número só e é justamente onde um bloqueio podia APAGAR
+  // o roteiro que a 1ª passada já tinha escrito.
+  custoDiarioUsd: number | number[] = 0,
+  // Phase 49 / 49-25: linhas de `scores_candidato`. Sem elas `weakDims` é `[]` e a
+  // cobertura é trivialmente satisfeita — o re-prompt do passo 7 NUNCA acontece, e com
+  // ele o caminho em que a 2ª passada é a barrada.
+  scoreRows: Array<Record<string, unknown>> = [],
 ) {
   const writes: { table: string; row: Record<string, unknown>; onConflict?: string }[] = [];
+  // Quantas vezes a soma do gasto do dia já foi lida (uma por `callAi`). Vive no closure
+  // porque o builder é reconstruído a cada `from()`.
+  let leiturasDeCusto = 0;
 
   function rowFor(table: string): Record<string, unknown> | null {
     switch (table) {
@@ -208,9 +220,15 @@ function makeMockSupabaseAdmin(
         // scores_candidato read: `await select().eq()` (thenable, resolves to rows[]).
         // `ai_call_logs`: a soma do gasto do dia (D-28) — vazia por default.
         then(resolve: (v: { data: unknown[]; error: null }) => unknown) {
-          const rows = table === "ai_call_logs" && custoDiarioUsd > 0
-            ? [{ cost_usd: custoDiarioUsd }]
-            : [];
+          let rows: unknown[] = [];
+          if (table === "ai_call_logs") {
+            const usd = Array.isArray(custoDiarioUsd)
+              ? (custoDiarioUsd[leiturasDeCusto++] ?? 0)
+              : custoDiarioUsd;
+            rows = usd > 0 ? [{ cost_usd: usd }] : [];
+          } else if (table === "scores_candidato") {
+            rows = scoreRows;
+          }
           return resolve({ data: rows, error: null });
         },
         insert(row: Record<string, unknown>) {
@@ -475,4 +493,144 @@ Deno.test("49-24 / D-28 — FALLBACK OpenAI: o guia registra o gpt-4o-mini, não
   // O roteiro do fallback foi persistido de fato (a proveniência não é de uma linha vazia).
   const qs = persistedQuestions(supabaseAdmin.writes);
   assertEquals(qs.filter((q) => q.origem === "ia").length, 1);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════════
+// Phase 49 / Plano 49-25 — JORN-39 / JORN-28: um roteiro que NENHUM modelo escreveu
+// diz que não foi escrito (WINDOWS 60)
+//
+// O 49-24 MEDIU o defeito pelo lado da proveniência e o deixou registrado: quando o teto
+// diário de custo (AI-06) corta a chamada, `callAi` devolve um resultado cujo `parsed` NÃO
+// é nulo — é um stub de recomendação («segurar», mais o marcador de revisão humana). A EF
+// tratava «`parsed` não nulo» como «há roteiro», então persistia uma linha com ZERO
+// perguntas de IA, SEM nenhuma flag, e respondia sucesso. Um roteiro barrado por gasto era
+// indistinguível de um roteiro vazio bem-sucedido.
+//
+// A condição correta é pelo PROVEDOR (`provider === "none"` ⇒ ninguém respondeu ⇒ não há
+// roteiro), não por uma lista de códigos: enumerar códigos é a forma «iteração sobre lista
+// literal» do CLAUDE.md §Portões — o bloqueio seguinte nasceria fora da vigilância.
+// ═══════════════════════════════════════════════════════════════════════════════════
+
+// A dimensão fraca que o scorecard descobre. Deliberadamente DIFERENTE da competência da
+// pergunta manual e da pergunta gerada, para que a falta de cobertura seja inequívoca.
+const DIM_FRACA = "Negociação";
+
+const SCORE_ROWS_COM_DIM_FRACA = [
+  {
+    tipo: "triagem",
+    subtipo: null,
+    score: 2,
+    score_max: 5,
+    metadata: { competencias: [{ competency: DIM_FRACA, score: 1 }] },
+  },
+];
+
+Deno.test("49-25 / JORN-39 — teto de custo estourado NÃO é persistido como guia pronto", async () => {
+  // Gasto do dia acima do teto ⇒ `callAi` corta ANTES de qualquer provedor. O mock da
+  // Anthropic devolve um roteiro que NÃO deve chegar a lugar nenhum: se ele aparecer, a
+  // chamada não foi barrada e o teste está medindo outra coisa.
+  const supabaseAdmin = makeMockSupabaseAdmin({ questions: [MANUAL_QUESTION] }, null, 999);
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Esta resposta NÃO deve existir.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  const guia = row.guia as Record<string, unknown>;
+
+  // 1. A linha DECLARA que não há roteiro. Sem isto, quem lê a tabela (e o selo do 49-16)
+  //    vê uma linha com aparência de guia gerado.
+  assertEquals(
+    guia.incompleto,
+    true,
+    "um bloqueio anterior ao provedor tem de persistir a linha como incompleta",
+  );
+
+  // 2. E diz POR QUE. O código do bloqueio é a única coisa que distingue «barrado por
+  //    gasto» de «a IA não produziu saída aproveitável» — as duas viram `incompleto`.
+  const flags = (guia.flags ?? []) as string[];
+  assert(
+    flags.includes("cost_cap_exceeded"),
+    `o código do bloqueio tem de ir para flags; veio ${JSON.stringify(guia.flags)}`,
+  );
+
+  // 3. O stub do bloqueio NÃO é um roteiro. Estas duas chaves são a forma EXATA do defeito
+  //    medido: elas vinham do resultado barrado e eram gravadas dentro de `guia` como se
+  //    fossem conteúdo do roteiro.
+  assert(
+    !("recommendation" in guia),
+    "a recomendação do resultado barrado não é conteúdo de roteiro e não pode ser persistida como tal",
+  );
+  assert(
+    !("flagged_for_human_review" in guia),
+    "o marcador de revisão do resultado barrado também não",
+  );
+
+  // 4. ENTREV-08: um bloqueio por custo NÃO apaga edição humana.
+  const qs = persistedQuestions(supabaseAdmin.writes);
+  assertEquals(qs.length, 1, "só a pergunta manual sobrevive — não havia roteiro de IA");
+  assertEquals(qs[0].origem, "manual");
+  assertEquals(qs[0].question ?? qs[0].pergunta, MANUAL_QUESTION.question);
+
+  // 5. A proveniência do 49-24 segue coerente: ninguém respondeu, os dois campos NULL.
+  assertEquals(row.provedor_ia, null);
+  assertEquals(row.modelo_ia, null);
+});
+
+Deno.test("49-25 / JORN-39 — re-prompt barrado pelo teto NÃO apaga o roteiro da 1ª passada", async () => {
+  // `[0, 999]`: a 1ª passada roda (gasto do dia zero) e o RE-PROMPT do passo 7 é barrado.
+  // O scorecard descobre uma dimensão fraca que o roteiro da 1ª passada não cobre, que é o
+  // que dispara o re-prompt.
+  //
+  // O roteiro da 1ª passada EXISTE e foi escrito por um modelo. Tratar o resultado barrado
+  // como «a última palavra» descartaria esse roteiro e, pior, gravaria proveniência NULL
+  // numa linha cujo conteúdo tem autor conhecido — a atribuição errada que o JORN-28 fecha.
+  const supabaseAdmin = makeMockSupabaseAdmin(
+    { questions: [MANUAL_QUESTION] },
+    null,
+    [0, 999],
+    SCORE_ROWS_COM_DIM_FRACA,
+  );
+  const deps: GerarGuiaDeps = {
+    anthropic: makeMockAnthropic({
+      questions: [{ question: "Pergunta da 1ª passada.", competency: "Comunicação" }],
+    }),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    supabaseUser,
+  };
+
+  const res = await handler(makeRequest(), deps);
+  assertEquals(res.status, 200);
+
+  const row = persistedGuiaRow(supabaseAdmin.writes);
+  const guia = row.guia as Record<string, unknown>;
+  const qs = persistedQuestions(supabaseAdmin.writes);
+
+  assertEquals(
+    qs.filter((q) => q.origem === "ia").length,
+    1,
+    "o roteiro que a 1ª passada escreveu sobrevive ao re-prompt barrado",
+  );
+  assertEquals(qs.filter((q) => q.origem === "manual").length, 1, "e a pergunta manual também");
+  assert(
+    !("recommendation" in guia),
+    "o stub do resultado barrado não pode substituir o roteiro da 1ª passada",
+  );
+
+  // A proveniência é de quem ESCREVEU o roteiro persistido — a 1ª passada. O resultado
+  // barrado não é o autor de nada.
+  assertEquals(
+    row.provedor_ia,
+    "anthropic",
+    "quem escreveu o roteiro persistido foi a 1ª passada, e é ela que a linha registra",
+  );
+  assertEquals(row.modelo_ia, MODELO_REAL_DATADO);
 });
