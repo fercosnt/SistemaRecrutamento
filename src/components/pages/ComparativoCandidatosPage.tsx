@@ -4,9 +4,10 @@
  * Lê os ids selecionados + nomes (router state, enviados pelo painel via `onCompare`)
  * + vagaId (param). Roda `useComparativo` (invoca a EF comparativo-candidatos com o JWT
  * do usuário). Resolve os ids anonimizados da IA (C1/C2…) de volta para a candidatura
- * real + nome, ordenando a seleção por score (a EF anonimiza nessa ordem). Renderiza
+ * real + nome PELA CHAVE `posicoes` que a EF devolve (49-13). Renderiza
  * `ComparativoScreen` com estados loading/erro — vagas diferentes (EF 400) mostra a
- * cópia pt-BR exata. Avançar chama `updateCandidaturaEtapa` (OPER-01); Rejeitar abre o
+ * cópia pt-BR exata. Avançar chama `updateCandidaturaEtapa` com a PRÓXIMA ETAPA REAL de
+ * cada candidato (`proximaEtapaDeTrabalho`, 49-05 / D-36 — era uma etapa fixa); Rejeitar abre o
  * `RejeitarCandidaturaDialog` compartilhado (montado no `ComparativoScreen`) que grava
  * pela RPC auditada `rejeitar_candidatura` (motivo + justificativa ≥50) — funil-02 /
  * OPER-04, substituindo o antigo update de etapa cru (sem justificativa).
@@ -28,7 +29,6 @@ import { useComparativo } from '@/features/triagem/hooks/useComparativo'
 import { triagemKeys } from '@/features/triagem/hooks/useTriagemPanel'
 import {
   updateCandidaturaEtapa,
-  PROXIMA_ETAPA_APOS_TRIAGEM,
   TriagemServiceError,
 } from '@/features/triagem/services/triagemService'
 import {
@@ -36,6 +36,14 @@ import {
   type ComparativoCandidate,
 } from '@/features/triagem/components/ComparativoScreen'
 import type { RankedCandidate } from '@/features/triagem/pdf/exportComparativo'
+import { proximaEtapaDeTrabalho } from '@/lib/candidatura/proximaEtapa'
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
+// D-59: o piso e o teto vêm da MESMA constante que a EF usa para recusar (contrato de zero
+// imports → import relativo; precedente do `exportacaoService.ts:61`).
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from '../../../supabase/functions/_shared/comparativo-config'
 
 /** Pull the EF `error_code` (AI_UNAVAILABLE / MIXED_VAGA) off a TriagemServiceError — code-only. */
 function errorCodeOf(error: unknown): string | undefined {
@@ -48,10 +56,19 @@ function errorCodeOf(error: unknown): string | undefined {
   return undefined
 }
 
-/** Seleção carregada pelo painel: candidatura id + nome, em ordem de score DESC. */
+/**
+ * Seleção carregada pelo painel: candidatura id + nome, em ordem de score DESC.
+ *
+ * Phase 49 / plano 49-22 — D-36: `etapa_atual` e `status` são OPCIONAIS de propósito. O painel
+ * (`VagaCandidatosRHPage.handleCompare`) sempre os envia; ausentes significa «estado de rota de
+ * um bundle anterior», e a resposta a isso NÃO é assumir «não pode avançar» — inferir da
+ * ausência esconderia a ação de quem pode. Ver `podeAvancar`.
+ */
 interface SelectionItem {
   id: string
   nome: string
+  etapa_atual?: string
+  status?: string
 }
 
 interface ComparativoLocationState {
@@ -117,9 +134,12 @@ export function ComparativoCandidatosPage() {
   const comparativo = useComparativo()
   const { mutate, data, isPending, isError, error } = comparativo
 
-  // Dispara a invocação ao montar (uma vez por seleção válida).
+  // Dispara a invocação ao montar (uma vez por seleção válida). O intervalo é o da EF.
+  const selecaoValida =
+    ids.length >= COMPARATIVO_MIN_CANDIDATOS && ids.length <= COMPARATIVO_MAX_CANDIDATOS
+
   useEffect(() => {
-    if (vagaId && ids.length >= 2 && ids.length <= 10) {
+    if (vagaId && selecaoValida) {
       mutate({ vagaId, candidaturaIds: ids })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,14 +154,50 @@ export function ComparativoCandidatosPage() {
     queryClient.invalidateQueries({ queryKey: triagemKeys.all })
   }
 
+  /**
+   * Phase 49 / plano 49-22 — D-36. Até aqui esta função gravava
+   * `PROXIMA_ETAPA_APOS_TRIAGEM` ('avaliacao_assincrona') para QUALQUER candidato, qualquer que
+   * fosse a etapa dele. Não divergia: estava errada sempre — quem estava em
+   * `entrevista_presencial` era jogado TRÊS etapas atrás, e o painel mostrava o retrocesso como
+   * se fosse um avanço. A resposta passa a vir de `proximaEtapaDeTrabalho`, o mesmo util que o
+   * Kanban e o hub do RH consomem (49-05).
+   *
+   * ⚠ Sem próxima etapa, a tela DIZ isso em vez de gravar um palpite. O botão já não deveria
+   * estar visível (`podeAvancar`), mas a decisão de não escrever mora aqui também: a camada que
+   * ESCREVE é a que não pode supor.
+   */
   const handleAvancar = async (candidaturaId: string) => {
+    const item = selection.find((s) => s.id === candidaturaId)
+    const proxima = proximaEtapaDeTrabalho(item?.etapa_atual)
+    if (!proxima) {
+      toast.error(
+        'Não foi possível identificar a próxima etapa deste candidato. Abra o perfil dele para avançar.',
+      )
+      return
+    }
     try {
-      await updateCandidaturaEtapa(candidaturaId, PROXIMA_ETAPA_APOS_TRIAGEM)
+      await updateCandidaturaEtapa(candidaturaId, proxima)
       toast.success('Candidato avançado para a próxima etapa.')
       invalidatePanel()
     } catch {
       toast.error('Não foi possível avançar o candidato. Tente novamente.')
     }
+  }
+
+  /**
+   * Elegibilidade do «Avançar», por candidato (D-36 / D-34) — a SEGUNDA camada. A EF já recusa
+   * encerrada (`ENCERRADA`, 49-08) e o banco trava o avanço (49-06); aqui o botão simplesmente
+   * não é oferecido.
+   *
+   * ⚠ Sem `etapa_atual` no estado da rota NÃO SABEMOS, e o retorno é `true`: inferir «não pode»
+   * da ausência esconderia a ação de quem pode, e o `handleAvancar` acima já se recusa a gravar
+   * um palpite. Absence-is-not-evidence é a mesma regra que o 49-04 aplicou à célula DISC.
+   */
+  const podeAvancar = (candidaturaId: string) => {
+    const item = selection.find((s) => s.id === candidaturaId)
+    if (!item || item.etapa_atual === undefined) return true
+    if (candidaturaEncerrada(item.etapa_atual, item.status)) return false
+    return proximaEtapaDeTrabalho(item.etapa_atual) !== undefined
   }
 
   // funil-02 / OPER-04: a rejeição em si — motivo + justificativa ≥50 — é feita pelo
@@ -168,11 +224,16 @@ export function ComparativoCandidatosPage() {
         </div>
 
         <Glass variant="white" blur="lg" className="p-6">
-          {/* Seleção inválida — pré-condição (não é estado assíncrono). */}
-          {ids.length < 2 ? (
+          {/* Seleção inválida — pré-condição (não é estado assíncrono). O piso e o teto são os
+              da EF (D-59): acima do teto a tela diz o limite em vez de cortar em silêncio. */}
+          {!selecaoValida ? (
             <div className="flex flex-col items-center gap-3 p-12 text-center text-white/80">
               <AlertTriangle className="h-8 w-8 text-white/60" aria-hidden="true" />
-              <p>Selecione ao menos 2 candidatos para comparar.</p>
+              <p>
+                {ids.length < COMPARATIVO_MIN_CANDIDATOS
+                  ? `Selecione ao menos ${COMPARATIVO_MIN_CANDIDATOS} candidatos para comparar.`
+                  : `O comparativo aceita até ${COMPARATIVO_MAX_CANDIDATOS} candidatos por vez. Você selecionou ${ids.length} — volte ao painel e reduza a seleção.`}
+              </p>
               <GlassButton onClick={voltar}>Voltar ao painel</GlassButton>
             </div>
           ) : (
@@ -189,12 +250,13 @@ export function ComparativoCandidatosPage() {
               fallbackCause={data?.fallback_cause ?? null}
               onAvancar={handleAvancar}
               onRejeitar={handleRejeitar}
+              podeAvancar={podeAvancar}
               isLoading={isPending}
               isError={isError}
               errorCode={errorCodeOf(error)}
               retrying={isPending}
               onRetry={() => {
-                if (vagaId && ids.length >= 2 && ids.length <= 10) {
+                if (vagaId && selecaoValida) {
                   mutate({ vagaId, candidaturaIds: ids })
                 }
               }}

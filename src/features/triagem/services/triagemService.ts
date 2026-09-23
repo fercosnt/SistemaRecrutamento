@@ -451,8 +451,18 @@ export type EtapaFunilM2 =
   | 'aprovado'
   | 'rejeitado'
 
-/** Próxima etapa após a Triagem (Etapa 2) no funil M2 — usada pelo "Avançar" do comparativo. */
-export const PROXIMA_ETAPA_APOS_TRIAGEM: EtapaFunilM2 = 'avaliacao_assincrona'
+/*
+ * ⚠ REMOVIDA em Phase 49 / plano 49-22: `PROXIMA_ETAPA_APOS_TRIAGEM`.
+ *
+ * Ela era a «próxima etapa» que o «Avançar» do comparativo gravava para QUALQUER candidato,
+ * qualquer que fosse a etapa dele — e por isso jogava quem estava em `entrevista_presencial`
+ * três etapas atrás (D-36; varredura C1 #4 do 49-05). A resposta única passou a ser
+ * `proximaEtapaDeTrabalho(etapa)` em `src/lib/candidatura/proximaEtapa.ts`.
+ *
+ * O 49-05 deixou a constante viva porque o comparativo ainda a consumia; com o último chamador
+ * consertado, mantê-la seria um export MORTO esperando um chamador novo — que a reintroduziria
+ * como terceira cópia da regra. Se você precisa da etapa seguinte, use o util.
+ */
 
 /**
  * W2: rótulos pt-BR do enum M2 `etapa_processo` (= `candidaturas.etapa_atual` no DB).

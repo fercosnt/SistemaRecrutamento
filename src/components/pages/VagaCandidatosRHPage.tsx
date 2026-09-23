@@ -4,8 +4,9 @@
  * Painel denso (tabela) de candidaturas pré-ranqueadas por score IA. Substitui a
  * lista de glass-cards anterior pela `TriagemTable`, mantendo o shell RHLayout/glass,
  * o header e a barra de filtros. Leitura via `useTriagemPanel` (projeção allowlist —
- * sem PII). Reprocessar análise via RPC `reprocessar_analise`. Comparativo (2-10)
- * coleta ids; a tela + PDF chegam no Plan 10-06.
+ * sem PII). Reprocessar análise via RPC `reprocessar_analise`. O comparativo coleta ids
+ * (piso/teto de `_shared/comparativo-config.ts` — D-59) + nome + etapa + status; a tela e
+ * o PDF vivem no Plan 10-06.
  *
  * @module components/pages/VagaCandidatosRHPage
  */
@@ -112,11 +113,19 @@ export function VagaCandidatosRHPage() {
 
   const handleCompare = (ids: string[]) => {
     // Navega para a tela de comparativo (10-06) carregando ids + nomes na ordem de
-    // score DESC (a EF anonimiza C1/C2… nessa ordem). O painel sabe o nome; a EF não.
+    // score DESC. O painel sabe o nome; a EF não (ela anonimiza e devolve `posicoes`).
+    //
+    // Phase 49 / plano 49-22 — D-36: `etapa_atual` e `status` vão JUNTOS. Sem eles a tela de
+    // comparativo não tem como saber qual é a próxima etapa de CADA candidato, e era por isso
+    // que ela gravava uma etapa fixa (`avaliacao_assincrona`) para todo mundo — jogando quem
+    // estava em `entrevista_presencial` três etapas atrás. Os dois campos já vêm na projeção
+    // allowlist do painel; não há leitura nova nem PII a mais.
     const ordered = rows.filter((r) => ids.includes(r.id))
     const candidatos = ordered.map((r) => ({
       id: r.id,
       nome: r.candidato?.nome_completo ?? 'Candidato',
+      etapa_atual: r.etapa_atual,
+      status: r.status,
     }))
     navigate(`/rh/vagas/${vagaId}/comparativo`, {
       state: { ids: candidatos.map((c) => c.id), candidatos },

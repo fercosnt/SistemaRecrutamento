@@ -343,3 +343,108 @@ describe('ComparativoScreen — cópia pt-BR de vagas diferentes (EF 400)', () =
     ).toMatch(/pertencem a vagas diferentes/)
   })
 })
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 49 / plano 49-22 — o «Avançar» só aparece para quem TEM próxima etapa.
+ *
+ * A prop é OPCIONAL de propósito: sem ela, o comportamento de hoje (botão para todos).
+ * Um gate obrigatório mudaria o contrato de todos os consumidores num plano que só precisa
+ * de um deles, e a `DecisaoFinalPage` (que não fia handlers) já não renderiza a linha.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe('ComparativoScreen — elegibilidade do «Avançar» (49-22 / D-36)', () => {
+  beforeEach(() => {
+    mutateMock.mockReset()
+  })
+
+  it('sem a prop `podeAvancar` o botão aparece para todos (comportamento de hoje preservado)', () => {
+    const candidates = [
+      makeCandidate({ candidaturaId: '1', rank: 1 }),
+      makeCandidate({ candidaturaId: '2', rank: 2 }),
+    ]
+    render(
+      <ComparativoScreen candidates={candidates} onAvancar={vi.fn()} onRejeitar={vi.fn()} />,
+    )
+    expect(screen.getAllByRole('button', { name: /^avançar$/i })).toHaveLength(2)
+  })
+
+  it('`podeAvancar` falso para um candidato OCULTA só o «Avançar» dele — «Rejeitar» continua', () => {
+    const candidates = [
+      makeCandidate({ candidaturaId: '1', rank: 1 }),
+      makeCandidate({ candidaturaId: '2', rank: 2 }),
+    ]
+    render(
+      <ComparativoScreen
+        candidates={candidates}
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+        podeAvancar={(id) => id !== '2'}
+      />,
+    )
+    expect(screen.getAllByRole('button', { name: /^avançar$/i })).toHaveLength(1)
+    // Rejeitar NÃO é gateado por elegibilidade de avanço: rejeitar quem não pode avançar
+    // continua sendo uma ação legítima do RH (e a RPC audita).
+    expect(screen.getAllByRole('button', { name: /^rejeitar$/i })).toHaveLength(2)
+  })
+
+  it('`podeAvancar` falso para todos: nenhum «Avançar», e a comparação segue visível', () => {
+    const candidates = [makeCandidate({ candidaturaId: '1', rank: 1 })]
+    render(
+      <ComparativoScreen
+        candidates={candidates}
+        onAvancar={vi.fn()}
+        onRejeitar={vi.fn()}
+        podeAvancar={() => false}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /^avançar$/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Candidato 1')).toBeInTheDocument()
+  })
+})
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 49 / plano 49-22 — WINDOWS 78 (registrada PARA este plano pelo 49-27).
+ *
+ * O 49-27 criou o código de recusa `SEM_RESULTADO_IA` (503) para o caso em que NENHUM
+ * provedor de IA foi consultado — corte de gasto ou injeção detectada. Nenhuma tela o
+ * traduzia, então a cópia caía no genérico do `AsyncState`: «Verifique a conexão e tente
+ * novamente». Isso é FALSO para um corte de gasto, e pior que vago: manda o RH mexer na
+ * rede, que está boa, e sugere que tentar de novo resolve.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe('ComparativoScreen — SEM_RESULTADO_IA não é erro de conexão (WINDOWS 78)', () => {
+  it('a cópia de SEM_RESULTADO_IA substitui o genérico e NÃO fala de conexão', () => {
+    render(
+      <ComparativoScreen
+        candidates={[]}
+        isError
+        errorCode="SEM_RESULTADO_IA"
+        onRetry={vi.fn()}
+      />,
+    )
+    const texto = document.body.textContent ?? ''
+    expect(texto).not.toMatch(/Verifique a conexão/i)
+    expect(texto).toMatch(/nenhum modelo de IA/i)
+  })
+
+  it('um código desconhecido continua caindo no genérico (a degradação projetada)', () => {
+    render(
+      <ComparativoScreen
+        candidates={[]}
+        isError
+        errorCode="CAUSA_QUE_NAO_EXISTE"
+        onRetry={vi.fn()}
+      />,
+    )
+    expect(document.body.textContent ?? '').toMatch(/Verifique a conexão/i)
+  })
+
+  it('MIXED_VAGA continua com a SUA cópia (o ramo novo não a atropelou)', () => {
+    render(
+      <ComparativoScreen candidates={[]} isError errorCode="MIXED_VAGA" onRetry={vi.fn()} />,
+    )
+    expect(document.body.textContent ?? '').toMatch(/pertencem a vagas diferentes/)
+  })
+})

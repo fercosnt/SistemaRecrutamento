@@ -25,7 +25,19 @@ import { MemoryRouter } from 'react-router-dom'
 import '@testing-library/jest-dom'
 
 // RED: '../TriagemTable' does not exist yet → "Cannot find module".
-import { TriagemTable, SugestaoIABadge } from '../TriagemTable'
+import {
+  TriagemTable,
+  SugestaoIABadge,
+  COPY_TETO_COMPARATIVO,
+  COPY_PISO_COMPARATIVO,
+} from '../TriagemTable'
+// Phase 49 / plano 49-22 — D-59: o teto vem da constante da EF, e o TESTE também a lê.
+// Um literal aqui voltaria a ser a segunda verdade que o D-59 removeu: o teste passaria
+// a afirmar um número que o servidor não usa mais.
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from '../../../../../supabase/functions/_shared/comparativo-config'
 
 /**
  * Phase 17 (D-04): the "Ver Perfil" link is now an SPA <Link> (was a raw <a href>), so the
@@ -121,32 +133,164 @@ describe('TriagemTable — TRIAGEM-02 score bands (UI-SPEC §A thresholds 70/40)
   })
 })
 
-describe('TriagemTable — TRIAGEM-02 compare-bar gating (2-10)', () => {
-  const rows = Array.from({ length: 12 }, (_, i) => makeRow({ id: String(i) }))
+/*
+ * ⚠ Phase 49 / plano 49-22 — D-59: o título deste `describe` dizia «(2-10)» e a asserção
+ * de teto selecionava DEZ. O teto real passou a ser `COMPARATIVO_MAX_CANDIDATOS` (4, medido
+ * em 49-08 contra o `max_tokens` do modelo). As asserções foram reescritas DE PROPÓSITO para
+ * ler a constante — não para acomodar o código novo, mas porque um literal aqui reintroduz
+ * exatamente a segunda verdade que o D-59 removeu: o teste afirmaria um teto que a Edge
+ * Function não usa, e continuaria verde depois da próxima mudança do número.
+ */
+describe('TriagemTable — TRIAGEM-02 compare-bar gating (pela constante do D-59)', () => {
+  const rows = Array.from({ length: COMPARATIVO_MAX_CANDIDATOS + 2 }, (_, i) =>
+    makeRow({ id: String(i) }),
+  )
 
-  it('"Comparar" is disabled with fewer than 2 selected', () => {
+  it('"Comparar" is disabled with fewer than the mínimo selected', () => {
     renderTable(
       <TriagemTable rows={rows} selectedIds={['0']} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
     expect(screen.getByRole('button', { name: /comparar/i })).toBeDisabled()
   })
 
-  it('"Comparar" is enabled with 2-10 selected', () => {
+  it('"Comparar" is enabled between o mínimo e o teto', () => {
+    const noMinimo = Array.from({ length: COMPARATIVO_MIN_CANDIDATOS }, (_, i) => String(i))
     renderTable(
-      <TriagemTable rows={rows} selectedIds={['0', '1']} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
+      <TriagemTable rows={rows} selectedIds={noMinimo} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
     expect(screen.getByRole('button', { name: /comparar/i })).toBeEnabled()
   })
 
-  it('checkboxes are disabled once 10 are selected', () => {
-    const ten = Array.from({ length: 10 }, (_, i) => String(i))
+  it('checkboxes ficam desabilitados ao alcançar o teto da constante', () => {
+    const noTeto = Array.from({ length: COMPARATIVO_MAX_CANDIDATOS }, (_, i) => String(i))
     renderTable(
-      <TriagemTable rows={rows} selectedIds={ten} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
+      <TriagemTable rows={rows} selectedIds={noTeto} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
     )
-    // Row 11 (not selected) must be disabled because the cap is reached.
+    // As duas linhas além do teto (não selecionadas) ficam desabilitadas.
     const checkboxes = screen.getAllByRole('checkbox')
-    const unselectedDisabled = checkboxes.some((c) => (c as HTMLInputElement).disabled)
-    expect(unselectedDisabled).toBe(true)
+    const desabilitados = checkboxes.filter((c) => (c as HTMLInputElement).disabled)
+    expect(desabilitados).toHaveLength(rows.length - COMPARATIVO_MAX_CANDIDATOS)
+  })
+
+  it('o contador da barra mostra o teto da constante, nunca o antigo 10', () => {
+    renderTable(
+      <TriagemTable rows={rows} selectedIds={['0']} onToggleSelect={noop} onCompare={noop} onReprocess={noop} />,
+    )
+    const texto = document.body.textContent ?? ''
+    expect(texto).toContain(`1 de ${COMPARATIVO_MAX_CANDIDATOS} selecionados`)
+    expect(texto).not.toMatch(/de 10 selecionados/)
+  })
+
+  /*
+   * ⚠ As duas frases de gating vivem em `TooltipContent`, que o Radix NÃO monta enquanto o
+   * tooltip está fechado — uma asserção sobre `document.body.textContent` passaria com a
+   * frase ERRADA no código, porque ela simplesmente não está no DOM. Por isso a asserção é
+   * sobre a CONSTANTE de cópia exportada: é o que prova que o número é montado, e não
+   * escrito à mão. (O contador da barra, acima, é a prova de RENDER do mesmo número.)
+   */
+  it('as frases de teto e de piso são MONTADAS das constantes — nenhum número à mão', () => {
+    expect(COPY_TETO_COMPARATIVO).toContain(String(COMPARATIVO_MAX_CANDIDATOS))
+    expect(COPY_TETO_COMPARATIVO).not.toMatch(/\b10\b/)
+    expect(COPY_PISO_COMPARATIVO).toContain(String(COMPARATIVO_MIN_CANDIDATOS))
+  })
+})
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Phase 49 / plano 49-22 — D-34: candidatura ENCERRADA não entra no comparativo.
+ *
+ * O predicado é o canônico (`candidaturaEncerrada(etapa, status)`, espelho TS da função
+ * SQL do 48-01) — nunca uma allowlist local. E a distinção que importa:
+ *
+ *   · knockout (`inscricao`/`rejeitado`) ⇒ ENCERRADA: selo + checkbox travado;
+ *   · retirada a pedido (`encerrada_a_pedido_em` com status em andamento) ⇒ NÃO encerrada,
+ *     continua selecionável (invariante da Phase 45 / D-56). Colapsar as duas faria a tela
+ *     tratar um direito do titular como um desfecho do funil.
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+describe('Phase 49 — a seleção do comparativo não oferece candidatura encerrada (D-34)', () => {
+  it('knockout (inscricao/rejeitado) ganha o selo «Encerrada» e o checkbox travado', () => {
+    renderTable(
+      <TriagemTable
+        rows={[makeRow({ id: 'ko', etapa_atual: 'inscricao', status: 'rejeitado' })]}
+        selectedIds={[]}
+        onToggleSelect={noop}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+    const selo = screen.getByTestId('triagem-selo-encerrada')
+    expect(selo).toBeInTheDocument()
+    expect(selo.textContent).toBe('Encerrada')
+    // Neutro: «Encerrada» não afirma se acabou bem ou mal (a mesma decisão do 49-05).
+    expect(selo.className).not.toMatch(/red|green|amber|yellow|destructive/)
+    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('status `finalizado` em etapa de trabalho também é encerrada (o 3º estado terminal)', () => {
+    renderTable(
+      <TriagemTable
+        rows={[makeRow({ id: 'fin', etapa_atual: 'triagem', status: 'finalizado' })]}
+        selectedIds={[]}
+        onToggleSelect={noop}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+    expect(screen.getByTestId('triagem-selo-encerrada')).toBeInTheDocument()
+    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(true)
+  })
+
+  it('clicar no checkbox de uma encerrada NÃO chama onToggleSelect', () => {
+    const onToggle = vi.fn()
+    renderTable(
+      <TriagemTable
+        rows={[makeRow({ id: 'ko2', etapa_atual: 'rejeitado', status: 'rejeitado' })]}
+        selectedIds={[]}
+        onToggleSelect={onToggle}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+    screen.getByRole('checkbox').click()
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('retirada a pedido CONTINUA selecionável e SEM selo de encerrada (D-34 / Phase 45)', () => {
+    const onToggle = vi.fn()
+    renderTable(
+      <TriagemTable
+        rows={[
+          {
+            ...makeRow({ id: 'ret', etapa_atual: 'triagem', status: 'em_analise' }),
+            encerrada_a_pedido_em: '2026-08-06T12:00:00Z',
+          } as never,
+        ]}
+        selectedIds={[]}
+        onToggleSelect={onToggle}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+    expect(screen.queryByTestId('triagem-selo-encerrada')).not.toBeInTheDocument()
+    const cb = screen.getByRole('checkbox') as HTMLInputElement
+    expect(cb.disabled).toBe(false)
+    cb.click()
+    expect(onToggle).toHaveBeenCalledWith('ret')
+  })
+
+  it('candidatura em andamento não ganha selo nem trava', () => {
+    renderTable(
+      <TriagemTable
+        rows={[makeRow({ id: 'ok', etapa_atual: 'triagem', status: 'em_analise' })]}
+        selectedIds={[]}
+        onToggleSelect={noop}
+        onCompare={noop}
+        onReprocess={noop}
+      />,
+    )
+    expect(screen.queryByTestId('triagem-selo-encerrada')).not.toBeInTheDocument()
+    expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(false)
   })
 })
 

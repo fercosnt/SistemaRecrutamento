@@ -69,6 +69,15 @@ export interface ComparativoScreenProps {
    */
   onRejeitar?: (candidaturaId: string) => void
   /**
+   * Elegibilidade do «Avançar», por candidatura (Phase 49 / plano 49-22 — D-36 / D-34).
+   *
+   * OPCIONAL de propósito: sem a prop, o botão aparece para todos — o comportamento de hoje,
+   * preservado para quem não tem como responder a pergunta. Com ela, o botão só aparece para
+   * quem TEM próxima etapa de trabalho e não está encerrado. Um botão que existe para não
+   * poder funcionar é pior que nenhum: o RH clica, recebe recusa e não sabe o que mudou.
+   */
+  podeAvancar?: (candidaturaId: string) => boolean
+  /**
    * Estado do invoke do comparativo (EF `comparativo-candidatos`), delegado ao
    * `<AsyncState>` interno: loading/slow (~vários segundos) / erro / retry — nunca
    * tela em branco (RESIL-03). Opcionais p/ retrocompat com os consumidores que já
@@ -104,6 +113,24 @@ export interface ComparativoScreenProps {
 const MIXED_VAGA_COPY =
   'Os candidatos selecionados pertencem a vagas diferentes. Compare candidatos de uma mesma vaga.'
 
+/**
+ * Cópia de `SEM_RESULTADO_IA` (Phase 49 / plano 49-27 → WINDOWS 78, fechada pelo 49-22).
+ *
+ * O 49-27 criou este código (503) para o caso em que NENHUM provedor de IA chegou a ser
+ * consultado — teto de gasto estourado ou injeção detectada. Nenhuma tela o traduzia, então a
+ * cópia caía no genérico do `<AsyncState>`: «Verifique a conexão e tente novamente». Isso é
+ * FALSO, e pior que vago: manda o RH mexer na rede (que está boa) e sugere que insistir
+ * resolve — quando o que houve foi uma decisão de não gastar, ou uma recusa de segurança.
+ *
+ * ⚠ A frase não diz QUAL das duas causas foi. A EF devolve o `motivo` no corpo, mas o
+ * `<AsyncState>` ramifica só por `errorCode`, e distinguir «corte de gasto» de «injeção
+ * detectada» na tela do recrutador contaria a ele sobre uma defesa que não é dele — além de
+ * confirmar a um atacante que a injeção foi vista. Quem precisa da causa é o administrador, e
+ * ela está no `ai_call_logs` e na linha de `comparativo_solicitado`.
+ */
+const SEM_RESULTADO_IA_COPY =
+  'Nenhum modelo de IA chegou a ser consultado para este comparativo, então não há ranking a mostrar. Isto não é falha de conexão: fale com o administrador do sistema.'
+
 /** Band de score (mesmas thresholds do painel TriagemTable — 70 / 40). */
 function scoreBandClass(score: number | null): string {
   if (score === null || score === undefined) {
@@ -127,6 +154,7 @@ export function ComparativoScreen({
   candidates,
   onAvancar,
   onRejeitar,
+  podeAvancar,
   isLoading,
   isError,
   errorCode,
@@ -150,8 +178,15 @@ export function ComparativoScreen({
 
   // PRESERVE MIXED_VAGA: branch the error body so "vagas diferentes" never collapses
   // into the generic/sobrecarga copy when adopting <AsyncState> (T-18-06-T2).
+  // 49-22 / WINDOWS 78: o mesmo mecanismo para `SEM_RESULTADO_IA`. Códigos DESCONHECIDOS
+  // continuam caindo no genérico de propósito — é a degradação projetada, e uma frase
+  // específica sobre causa desconhecida seria pior que uma vaga.
   const errorCopyOverride =
-    errorCode === 'MIXED_VAGA' ? { error: { generic: MIXED_VAGA_COPY } } : undefined
+    errorCode === 'MIXED_VAGA'
+      ? { error: { generic: MIXED_VAGA_COPY } }
+      : errorCode === 'SEM_RESULTADO_IA'
+        ? { error: { generic: SEM_RESULTADO_IA_COPY } }
+        : undefined
 
   const handleExport = async () => {
     setIsGenerating(true)
@@ -363,7 +398,11 @@ export function ComparativoScreen({
               {ordered.map((c) => (
                 <td key={c.candidaturaId} className={dataCell}>
                   <div className="flex flex-col gap-2">
-                    {/* Avançar */}
+                    {/* Avançar — 49-22 / D-36: só para quem TEM próxima etapa de trabalho e
+                        não está encerrado. Sem a prop, todos (comportamento de hoje).
+                        ⚠ «Rejeitar» NÃO é gateado por isto: rejeitar quem não pode avançar
+                        continua sendo ação legítima, e a RPC audita. */}
+                    {(podeAvancar ? podeAvancar(c.candidaturaId) : true) && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
@@ -392,6 +431,7 @@ export function ComparativoScreen({
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
+                    )}
 
                     {/* Rejeitar — funil-02 / OPER-04: abre o RejeitarCandidaturaDialog
                         COMPARTILHADO (motivo + justificativa ≥50) que grava pela RPC

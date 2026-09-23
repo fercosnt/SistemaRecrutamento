@@ -3,7 +3,8 @@
  *
  * Tabela shadcn dentro do glass shell RH. Colunas: select, candidato (avatar+nome),
  * Score IA (band chip number+cor + Sparkles), Top fortes (≤2), Top gaps (≤2), etapa,
- * status, aplicou em, ações (Ver Perfil). Multi-select gateado 2-10 com barra de
+ * status, aplicou em, ações (Ver Perfil). Multi-select gateado pelo piso/teto de
+ * `_shared/comparativo-config.ts` (D-59 — era 2-10 escrito à mão) com barra de
  * comparação sticky. Linhas pendente → skeleton "Analisando…"; falhou → "— Falhou"
  * + botão visível "Reprocessar análise" (não tooltip-only). Flags = badges neutros
  * (sem cor de gating). O SugestaoIABadge (RNF-07a) é renderizado junto ao header
@@ -40,16 +41,47 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/components/ui/utils'
 import type { StatusCandidatura } from '@/features/vagas/types/vagasTypes'
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
 import { ETAPA_M2_LABELS, type EtapaFunilM2 } from '../services/triagemService'
 import { SugestaoIABadge } from './SugestaoIABadge'
+/**
+ * Phase 49 / plano 49-22 — D-59. O piso e o teto do comparativo vêm da MESMA constante que a
+ * Edge Function usa para recusar. Import por caminho RELATIVO porque
+ * `_shared/comparativo-config.ts` tem contrato de ZERO IMPORTS — o mesmo precedente vivo de
+ * `exportacaoService.ts:61` (`EXPORT_ALLOWLIST`) e do reexport de `candidaturaEncerrada`.
+ *
+ * ⚠ Sem isto, o número vivia aqui em oito linhas e a tela OFERECIA uma seleção que o servidor
+ * recusa (ou, pior, aceitava um pedido que não cabe no tempo do modelo — foi o que produziu o
+ * ranking de contingência de 20/09 registrado como sucesso).
+ */
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from '../../../../supabase/functions/_shared/comparativo-config'
 
 // Re-export so the Wave-0 test (and downstream Plans 11-15) can import either path.
 export { SugestaoIABadge } from './SugestaoIABadge'
 
-/** Cap de seleção para o comparativo (UI-SPEC §A). */
-export const COMPARE_MAX = 10
-/** Mínimo para habilitar "Comparar" (UI-SPEC §A). */
-export const COMPARE_MIN = 2
+/**
+ * Cap / piso de seleção para o comparativo (UI-SPEC §A). São REEXPORTS da constante da EF
+ * (D-59), não valores próprios: o nome local sobrevive para quem já o importava, mas não há
+ * mais um segundo número que possa divergir do servidor.
+ */
+export const COMPARE_MAX = COMPARATIVO_MAX_CANDIDATOS
+export const COMPARE_MIN = COMPARATIVO_MIN_CANDIDATOS
+
+/**
+ * As duas frases de gating, MONTADAS das constantes e num lugar só (cada uma aparecia em duas
+ * linhas do JSX). Exportadas porque o `TooltipContent` do Radix não é montado enquanto o
+ * tooltip está fechado — sem a constante, nenhum teste consegue vigiar o número que o RH lê.
+ */
+export const COPY_TETO_COMPARATIVO = `Máximo de ${COMPARATIVO_MAX_CANDIDATOS} candidatos por comparativo.`
+export const COPY_PISO_COMPARATIVO = `Selecione ao menos ${COMPARATIVO_MIN_CANDIDATOS} candidatos para comparar.`
+/**
+ * D-34: candidatura encerrada não entra no comparativo. A EF recusa (`ENCERRADA`, 49-08) e o
+ * banco trava o avanço (49-06); aqui a tela deixa de OFERECER — a primeira das três camadas.
+ */
+export const COPY_ENCERRADA_COMPARATIVO = 'Candidatura encerrada não entra no comparativo.'
 
 const STATUS_LABELS: Record<string, string> = {
   aguardando_resposta: 'Aguardando Resposta',
@@ -201,7 +233,8 @@ function ScoreCell({
 }
 
 /**
- * Painel denso de candidatos com score IA, multi-select 2-10 e barra de comparação.
+ * Painel denso de candidatos com score IA, multi-select gateado pelo piso/teto da constante
+ * compartilhada (D-59) e barra de comparação.
  */
 export function TriagemTable({
   rows,
@@ -211,8 +244,9 @@ export function TriagemTable({
   onReprocess,
 }: TriagemTableProps) {
   const selectedCount = selectedIds.length
-  const capReached = selectedCount >= COMPARE_MAX
-  const compareEnabled = selectedCount >= COMPARE_MIN && selectedCount <= COMPARE_MAX
+  const capReached = selectedCount >= COMPARATIVO_MAX_CANDIDATOS
+  const compareEnabled =
+    selectedCount >= COMPARATIVO_MIN_CANDIDATOS && selectedCount <= COMPARATIVO_MAX_CANDIDATOS
 
   return (
     <div className="space-y-4">
@@ -239,7 +273,18 @@ export function TriagemTable({
           <TableBody>
             {rows.map((row) => {
               const isSelected = selectedIds.includes(row.id)
-              const checkboxDisabled = capReached && !isSelected
+              /*
+               * D-34 / predicado CANÔNICO (`candidaturaEncerrada`, espelho TS da função SQL do
+               * 48-01) — nunca uma allowlist local. ⚠ Ele é FALSO para retirada a pedido
+               * (`encerrada_a_pedido_em` com status em andamento): aquilo é um direito do
+               * titular exercido, não um desfecho do funil, e a Phase 45 exige que a linha
+               * continue operável. As duas coisas moram na mesma tabela e não são a mesma.
+               */
+              const encerrada = candidaturaEncerrada(row.etapa_atual, row.status)
+              const checkboxDisabled = encerrada || (capReached && !isSelected)
+              const motivoDoBloqueio = encerrada
+                ? COPY_ENCERRADA_COMPARATIVO
+                : COPY_TETO_COMPARATIVO
               const candidato = row.candidato
               const fortes = (row.analise?.pontos_fortes ?? []).slice(0, 2)
               const gaps = (row.analise?.gaps ?? []).slice(0, 2)
@@ -264,7 +309,7 @@ export function TriagemTable({
                               />
                             </span>
                           </TooltipTrigger>
-                          <TooltipContent>Máximo de 10 candidatos por comparativo.</TooltipContent>
+                          <TooltipContent>{motivoDoBloqueio}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     ) : (
@@ -331,6 +376,26 @@ export function TriagemTable({
                         Encerrada a pedido do candidato
                       </span>
                     ) : null}
+                    {/*
+                      Phase 49 / plano 49-22 — D-34. Selo NEUTRO (`bg-white/15 text-white/80`),
+                      como o `kanban-selo-encerrada` do 49-05 e pela MESMA razão: «Encerrada»
+                      não afirma se acabou bem ou mal, e pintar com cor de desfecho inventaria
+                      um desfecho que a linha não tem. Entra na célula de etapa JÁ EXISTENTE —
+                      sem coluna nova (E10-overflow).
+
+                      ⚠ Não substitui o selo de retirada a pedido acima: os dois podem
+                      conviver (uma candidatura retirada que depois foi finalizada), e cada um
+                      responde uma pergunta diferente.
+                    */}
+                    {encerrada ? (
+                      <span
+                        data-testid="triagem-selo-encerrada"
+                        data-candidatura-id={row.id}
+                        className="mt-1 block w-fit whitespace-normal rounded-md border border-white/20 bg-white/15 px-2 py-1 text-xs font-semibold text-white/80"
+                      >
+                        Encerrada
+                      </span>
+                    ) : null}
                   </TableCell>
 
                   <TableCell>
@@ -388,7 +453,7 @@ export function TriagemTable({
       {selectedCount > 0 && (
         <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/20 bg-[#00109E]/80 p-4 backdrop-blur-xl">
           <span className="text-sm font-semibold text-white">
-            {selectedCount} de {COMPARE_MAX} selecionados
+            {selectedCount} de {COMPARATIVO_MAX_CANDIDATOS} selecionados
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -420,9 +485,9 @@ export function TriagemTable({
                 </TooltipTrigger>
                 {!compareEnabled && (
                   <TooltipContent>
-                    {selectedCount < COMPARE_MIN
-                      ? 'Selecione ao menos 2 candidatos para comparar.'
-                      : 'Máximo de 10 candidatos por comparativo.'}
+                    {selectedCount < COMPARATIVO_MIN_CANDIDATOS
+                      ? COPY_PISO_COMPARATIVO
+                      : COPY_TETO_COMPARATIVO}
                   </TooltipContent>
                 )}
               </Tooltip>
