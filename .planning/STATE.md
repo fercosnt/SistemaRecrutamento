@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-11-PLAN.md
-last_updated: "2026-09-23T03:45:37.953Z"
+stopped_at: Completed 49-13-PLAN.md
+last_updated: "2026-09-23T04:18:48.035Z"
 last_activity: 2026-09-23
-state_head: 7397524b184ae4eced5896b14c3826ebacf375c2
+state_head: 322dfe80fdbd54d3db4776d887a40268b0dcfc5d
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 103
-  completed_plans: 88
-  percent: 85
+  completed_plans: 90
+  percent: 87
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -802,6 +802,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P07 | 48 min | 2 tasks | 2 files |
 | Phase 49 P10 | 18 min | 2 tasks | 6 files |
 | Phase 49 P11 | 34 min | 2 tasks | 2 files |
+| Phase 49 P13 | 17 min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -1101,6 +1102,9 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-11: a proveniência da análise da triagem só é gravada pelo upsert de SUCESSO — a marca `pendente` e a linha `falhou` não carregam as colunas nem como `null`, porque o `onConflict` sobrescreve toda coluna presente no objeto e um `null` apagaria a proveniência da execução anterior no instante em que o reprocessamento começa — A coluna descreve o CONTEÚDO que está na linha, nunca um estado. Escrever proveniência na marca faria a linha de reprocessamento herdar o modelo da execução anterior; omiti-la do objeto preserva a da execução que de fato produziu o conteúdo até o upsert final substituí-la.
 - [Phase 49]: 49-11: o grep da C6 (escrita de EF sem erro destruturado) passa a devolver ZERO em todo o repositório — as duas últimas escritas da tabela C6 do kickoff (analise-candidato-individual:301,602) foram as fechadas aqui — Medido: 11 achados no kickoff, 11 fechados ao longo da fase (49-02 nos três do _shared, 49-08/09/10/23 nas EFs, 49-11 nas duas últimas). O portão é re-rodável e agora sai vazio.
 - [Phase 49]: 49-11: consolidar-decisao-final NÃO é uma das EFs do contrato do ai-client — medido: ela não tem nenhum import de _shared/ e nenhuma chamada a callAi. O conjunto fecha em SETE, e as sete rodam o contrato novo em PROD — O briefing deste plano a listava como «ainda no contrato antigo», o que sugeria uma oitava EF pendente. Ela nunca embarcou o contrato — não há nada a sincronizar. Medido por fechamento de imports e por marcadores no bundle vivo (0/0/0).
+- [Phase 49]: 49-13: o rótulo de cada posição do comparativo passou a ser resolvido pela CHAVE que a EF devolve (`posicoes`), nunca pela posição na seleção — num empate de score o RH lia os dados de uma pessoa sob o nome de outra — A EF ordena por score com desempate por candidatura_id (49-08), então a ordem do ranking não é a da seleção. Sem entrada em `posicoes`, mostra o rótulo CRU: um nome plausível e errado não é conferido por ninguém.
+- [Phase 49]: 49-13: `ProvenienciaIABadge` é o selo ÚNICO de proveniência, e a regra «é fallback ⇔ provedor_ia='openai'» mora numa função nomeada nele — se a P1 trocar o primário do callAi, há UM lugar para consertar — `modelo_ia` NULL diz «modelo não registrado» (D-30), nunca silêncio: ausência de selo é indistinguível de proveniência confirmada. Nas props, `undefined` (não fiado) e `null` (fiado, servidor não sabe) são coisas diferentes — colapsá-los faria a tela afirmar uma medição que não houve.
+- [Phase 49]: 49-13: o PDF do comparativo imprime a proveniência abaixo do título, com a cópia importada da tela por CONSTRUÇÃO (a função, não a constante) — O PDF circula fora do sistema e quem o recebe não tem tela onde conferir. Importar `textoProveniencia` (construída de PROVENIENCIA_IA_COPY) torna a igualdade de cópia uma propriedade de construção; importar a constante sem usá-la seria código morto que o noUnusedLocals reprovaria — e seria o 90º erro de tsc, com o teto em 90.
 
 ### Roadmap Evolution
 
@@ -1166,6 +1170,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ✅ RESOLVIDO 2026-09-21 — 48-14 achado: policy «Allow anonymous duplicate check» (anon lia todas as candidaturas) FECHADA por 20260921000016; e SETE views legado sem security_invoker que liam PII para anon/authenticated (v_candidatos_ativos: 42 linhas com CPF) FECHADAS por 20260921000017. Logs (≈48 h de retenção): nenhum acesso anônimo externo. Avaliação de incidente LGPD Art. 48 é do Encarregado. Detalhe em 48 deferred-items.md
 - 49-09 deployou a EF v15 medindo a redação pela BARS, mas a tela do RH (RedacaoReviewPanel.tsx:47, RedacaoOverrideForm.tsx:45) ainda rotula D1-D4 como os 4 valores: toda redação avaliada até o plano 49-15 aparece com legenda FALSA sobre um número correto (WINDOWS 52).
 - ~~49-10: `git push origin main` NEGADO pelo ambiente (Out-of-Place Publication)~~ — **RESOLVIDO no mesmo plano, 2026-09-23.** A primeira tentativa de push foi negada e este blocker foi aberto enquanto era verdadeiro; a tentativa seguinte passou. Medido: `origin/main` = `HEAD` = `44fe06cf`, `git log --oneline origin/main..HEAD` **vazio**. Fica registrado em vez de apagado porque o `49-10-SUMMARY.md` chegou a ser escrito afirmando que o critério estava em aberto — a correção é a lição deste arquivo sobre diagnóstico plausível que ninguém mediu, aplicada a si mesma. Nenhuma ação do operador pendente.
+- 49-22: são 13 linhas de literal de teto do comparativo, não 12 nem 8. O 49-08 contou só as que carregam o par completo (>= 2 && <= 10) e deixou de fora as duas que carregam só o piso (ComparativoCandidatosPage.tsx:153, DecisaoFinalPage.tsx:181). Trocar as demais pela constante e esquecer essas duas deixa a tela dizendo «ao menos 2» num lugar e lendo a constante no outro.
 
 ## Deferred Verification
 
@@ -1389,8 +1394,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T03:44:22.510Z
-Stopped at: Completed 49-11-PLAN.md
+Last session: 2026-09-23T04:18:05.629Z
+Stopped at: Completed 49-13-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)
