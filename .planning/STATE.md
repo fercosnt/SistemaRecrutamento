@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-23-PLAN.md (EF avaliar-redacao v21 viva em PROD, push em dia)
-last_updated: "2026-09-23T01:21:30.528Z"
+stopped_at: Completed 49-24-PLAN.md (EF gerar-guia-entrevista v18 em PROD)
+last_updated: "2026-09-23T01:44:49.255Z"
 last_activity: 2026-09-22
-state_head: 36cdad503441f691e87d578540322757ad9f5085
+state_head: f8abb13df0d3ccd7dbf39371e0989d1f34f72472
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 102
-  completed_plans: 85
-  percent: 83
+  completed_plans: 86
+  percent: 84
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -798,6 +798,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P08 | 19 min | 2 tasks | 5 files |
 | Phase 49 P09 | 58 min | 1 tasks | 5 files |
 | Phase 49 P23 | 74 min | 1 tasks | 4 files |
+| Phase 49 P24 | 40 min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -1088,6 +1089,8 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: 49-09: uma checagem redundante é um portão incapaz de falhar. A recusa de dimensão REPETIDA é redundante quanto ao veredito (num array de 4 sobre vocabulário de 4, repetir implica faltar), então só o MOTIVO precisa de asserção — e sem ela a mutação não morde.
 - [Phase 49]: 49-23: ancoras 1-5 por dimensao da rubrica SJT nao existem em fonte nenhuma (as que existem sao das 10 dimensoes CLINICAS, e 2 chaves citam a MESMA D10 e 3 citam PARES) — ancoras: null nas cinco, com teste que reprova se alguem as acrescentar sem registrar a fonte
 - [Phase 49]: 49-23: quando duas causas levam ao mesmo roteamento mas pedem consertos OPOSTOS, elas precisam de campos separados — metadata.motivos_revisao (lista completa, ausente em sucesso) separa dimensao_desconhecida de insufficient_evidence, red_flag e abaixo_do_corte
+- [Phase 49]: 49-24 / D-28: o guia de entrevista grava provedor_ia/modelo_ia REAIS (CallAiResult do 49-02); provider 'none' vira NULL nos dois campos — o CHECK vivo exclui 'none' e o erro de upsert é checado, então o valor cru converteria um corte de custo num 500
+- [Phase 49]: 49-24: a mutação que NÃO morde (M5, cinto inalcançável por construção) apontou que o fallback OpenAI — o caminho que o JORN-28 existe para cobrir, 17 ocorrências em PROD — não tinha teste nenhum nesta EF; o conserto foi dar vigilância ao alcançável, não relaxar o portão
 
 ### Roadmap Evolution
 
@@ -1375,8 +1378,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T01:21:30.250Z
-Stopped at: Completed 49-23-PLAN.md (EF avaliar-redacao v21 viva em PROD, push em dia)
+Last session: 2026-09-23T01:44:48.974Z
+Stopped at: Completed 49-24-PLAN.md (EF gerar-guia-entrevista v18 em PROD)
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

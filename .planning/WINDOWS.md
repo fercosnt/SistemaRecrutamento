@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 18
+open_count: 21
 waived_count: 7
 fixed_count: 33
-total_count: 58
-last_updated: 2026-09-23T01:16:21.871Z
+total_count: 61
+last_updated: 2026-09-23T01:40:15.620Z
 ---
 
 # Broken Windows Ledger
@@ -73,6 +73,9 @@ last_updated: 2026-09-23T01:16:21.871Z
 | 56 | 49 | deviation | src/features/avaliacao/components/ScorecardAvaliacao.tsx |  | A EF avaliar-redacao (v21) passou a gravar em scores_candidato.metadata o motivo da revisao humana (motivos_revisao) e os nomes que a IA inventou (dimensoes_desconhecidas), mas NENHUMA tela le esses campos: CasoAbertoMetadata em scoresRhService.ts:62-66 declara somente dimension_scores e composite_0_25. Consequencia: uma SJT que foi para revisao porque a IA inventou o nome da dimensao aparece ao RH como qualquer outra pendente_humano. E o irmao SJT do D-25/WINDOWS 52 (a tela da redacao). Nao consertado aqui: o front e de quem o toca (D-55). | open |  | 2026-09-23T01:16:21.687Z |  |
 | 57 | 49 | deviation | supabase/functions/_shared/sjt-rubrica.ts |  | O bloco da rubrica SJT tem 5330 octetos (~1281 tok, 59 linhas) contra os 42 octetos do bloco antigo (Vaga: <uuid>) — 127x. O work_sample_sjt tem max_tokens 3000 e NUNCA teve chamada Sonnet logada (C9: 0 linhas em ai_call_logs), entao nao existe saida medida para comparar. max_tokens e teto de SAIDA e o bloco alonga o PEDIDO, mas o efeito de uma rubrica rica sobre o tamanho do campo reasoning por dimensao nao esta medido nesta EF. Irmao da WINDOWS 54 (redacao). A prova e do 49-18; mexer no teto sem medir e consertar o parametro errado. | open |  | 2026-09-23T01:16:21.778Z |  |
 | 58 | 49 | deviation | supabase/functions/avaliar-redacao/index.ts |  | A unica SJT de caso aberto ja avaliada em PROD (scores_candidato 8acf3c98) segue com score 7,00 — media UNIFORME sobre 5 dimensoes que a IA inventou —, sem provedor_ia/modelo_ia e sem motivos_revisao. Sem reescrita retroativa (D-30/D-26): a rubrica que a avaliou nao existia no input, entao nao ha nota correta a recalcular, e inventar uma seria pior que registrar que ela nao e confiavel. Fica como marco historico, igual as 2 redacoes do 49-09. | open |  | 2026-09-23T01:16:21.871Z |  |
+| 59 | 49 | unrun-verify | .planning/phases/49-consertos-da-jornada-bloco-2/49-24-PLAN.md |  | O <verify> #2 do 49-24 encadeia `node efdeploy.cjs` SEM --dry-run: re-rodá-lo cria uma version 19 idêntica à 18 para não provar nada novo. Re-verificado pelo RESULTADO (version/status/verify_jwt/import_map relidos da Management API + marcadores do bundle vivo + --dry-run re-rodável). QUARTA ocorrência da fase (51, 53, 55). | open |  | 2026-09-23T01:40:02.218Z |  |
+| 60 | 49 | stub | supabase/functions/gerar-guia-entrevista/index.ts | 340 | Teto de custo diário estourado: callAi devolve parsed={recommendation:'hold'} (não-null), então persistFlags fica VAZIO e a EF persiste um guia com 0 perguntas e nenhuma flag, devolvendo {ok:true}. Um roteiro barrado por gasto é indistinguível de um roteiro vazio bem-sucedido. MEDIDO pelo teste novo do 49-24 (needs_human=false no log). Proveniência NULL/NULL é honesta mas conflate com os 5 guias legados. Fora do escopo do 49-24 (proveniência); o conserto é a flag. | open |  | 2026-09-23T01:40:15.497Z |  |
+| 61 | 49 | unmet-truth | src/features/entrevista/components/GuiaEntrevistaPanel.tsx |  | entrevista_guias.provedor_ia/.modelo_ia estão GRAVADOS (49-24, EF v18 em PROD) e NENHUMA tela os lê. O selo de proveniência do guia é o 49-16 (D-55). Irmão do WINDOWS 56 (o mesmo para scores_candidato.metadata do SJT): melhor que não estar gravado, e ainda não é o conserto. | open |  | 2026-09-23T01:40:15.620Z |  |
 
 ````json
 [
@@ -784,6 +787,45 @@ last_updated: 2026-09-23T01:16:21.871Z
     "status": "open",
     "reason": "",
     "recorded_at": "2026-09-23T01:16:21.871Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 59,
+    "kind": "unrun-verify",
+    "phase": "49",
+    "file": ".planning/phases/49-consertos-da-jornada-bloco-2/49-24-PLAN.md",
+    "line": null,
+    "description": "O <verify> #2 do 49-24 encadeia `node efdeploy.cjs` SEM --dry-run: re-rodá-lo cria uma version 19 idêntica à 18 para não provar nada novo. Re-verificado pelo RESULTADO (version/status/verify_jwt/import_map relidos da Management API + marcadores do bundle vivo + --dry-run re-rodável). QUARTA ocorrência da fase (51, 53, 55).",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:40:02.218Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 60,
+    "kind": "stub",
+    "phase": "49",
+    "file": "supabase/functions/gerar-guia-entrevista/index.ts",
+    "line": 340,
+    "description": "Teto de custo diário estourado: callAi devolve parsed={recommendation:'hold'} (não-null), então persistFlags fica VAZIO e a EF persiste um guia com 0 perguntas e nenhuma flag, devolvendo {ok:true}. Um roteiro barrado por gasto é indistinguível de um roteiro vazio bem-sucedido. MEDIDO pelo teste novo do 49-24 (needs_human=false no log). Proveniência NULL/NULL é honesta mas conflate com os 5 guias legados. Fora do escopo do 49-24 (proveniência); o conserto é a flag.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:40:15.497Z",
+    "resolved_at": null,
+    "milestone": "v8.0"
+  },
+  {
+    "id": 61,
+    "kind": "unmet-truth",
+    "phase": "49",
+    "file": "src/features/entrevista/components/GuiaEntrevistaPanel.tsx",
+    "line": null,
+    "description": "entrevista_guias.provedor_ia/.modelo_ia estão GRAVADOS (49-24, EF v18 em PROD) e NENHUMA tela os lê. O selo de proveniência do guia é o 49-16 (D-55). Irmão do WINDOWS 56 (o mesmo para scores_candidato.metadata do SJT): melhor que não estar gravado, e ainda não é o conserto.",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-09-23T01:40:15.620Z",
     "resolved_at": null,
     "milestone": "v8.0"
   }
