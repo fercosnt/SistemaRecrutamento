@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v8.0
 milestone_name: M8 Dados do Candidato & Direitos do Titular (LGPD-OPS)
 status: verifying
-stopped_at: Completed 49-07-PLAN.md
-last_updated: "2026-09-23T02:30:59.100Z"
-last_activity: 2026-09-22
-state_head: 18f28f7451bf74c26962a76d933b71a74685a441
+stopped_at: Completed 49-10-PLAN.md
+last_updated: "2026-09-23T03:19:07.196Z"
+last_activity: 2026-09-23
+state_head: 03359f9ed276caad8298d0022bdc3aac334b82e6
 progress:
   total_phases: 8
   completed_phases: 9
   total_plans: 103
-  completed_plans: 86
-  percent: 83
+  completed_plans: 88
+  percent: 85
 current_phase: 49
 current_phase_name: Consertos da Jornada — Bloco 2
 last_activity_desc: "2026-09-22 — Phase 49 kickoff: premissas do Bloco 2 medidas em PROD (só leitura) antes das perguntas; a medição corrigiu a fila (rubrica do 7 é a BARS do PRD, não os 4 valores; 8000 tokens sozinho vira timeout no 28; knockout avançável com e-mail no 25; transcrição já está no ai_call_logs; recibo de exclusão promete o que o motor não apaga). 16 JORN (7 da fila + 9 achados), decisões D-24..D-48 do operador. Próximo: pesquisa, que volta ao operador antes do plano (49-CONTEXT §Portão antes do plano)."
@@ -612,7 +612,7 @@ Status: Phase complete — ready for verification
         quanto se estivesse errado. ⚠ **Decisão do operador, não da engenharia** —
         popular `created_by` das 6 vagas órfãs, trocar o predicado para
         `vagas_associadas_recrutadores`, ou aceitar que a fila é de administrador.
-Last activity: 2026-09-22
+Last activity: 2026-09-23
 
 ⚠ **Nota para quem rodar `roadmap update-plan-progress 44` — JÁ REINCIDIU 6×:** o
 scanner conta ARQUIVOS de SUMMARY e não lê o `status:` deles. Na execução do 44-07
@@ -800,6 +800,7 @@ UI hint (frontend): **42** (fila RH), **43** (`AutorizacoesStep` + revogação n
 | Phase 49 P23 | 74 min | 1 tasks | 4 files |
 | Phase 49 P24 | 40 min | 1 tasks | 2 files |
 | Phase 49 P07 | 48 min | 2 tasks | 2 files |
+| Phase 49 P10 | 18 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -1095,6 +1096,7 @@ Log completo em PROJECT.md Key Decisions.
 - [Phase 49]: O `WHEN` do snapshot compara a linha INTEIRA por `to_jsonb` menos as duas exclusões do D-44, e não uma lista de colunas — coluna nova nasce DENTRO da vigilância — Uma tupla `(OLD.a, OLD.b, …) IS DISTINCT FROM (NEW.a, NEW.b, …)` é fotografia do schema: a coluna acrescentada depois fica fora da comparação e passa a mudar sem arquivar, em silêncio. A asserção de paridade (g) do smoke é a outra metade da mesma decisão, e foi provada mordente por `ADD COLUMN`.
 - [Phase 49]: O instrumento das chamadas 2..5 de `stamp_explicacao_acessada` é o `ctid` da linha, não o valor da coluna nem a contagem do arquivo — Com a coluna fora do `WHEN`, o arquivo fica em 0 mesmo se a RPC continuar escrevendo a cada leitura — medido: a mutação com o corpo anterior manteve o arquivo em 0 e reescreveu a linha 4 vezes (ctid (0,21) -> (0,27)). Sem o ctid a asserção seria vácua, e o defeito voltaria no dia em que qualquer coluna nova entrasse na comparação.
 - [Phase 49]: A ausência de trigger BEFORE UPDATE em `decisao_final` entrou no pós-portão E no smoke como asserção (y), em vez de ser só uma pré-condição lida uma vez — A lista de exclusão de duas colunas do D-44 só é COMPLETA enquanto nenhum trigger carimba uma coluna de tempo em todo UPDATE. Medido 0 hoje; um carimbador de `updated_at` nascido depois traria o defeito de volta sem erro nenhum. O portão vive no smoke porque a migration roda uma vez.
+- [Phase 49]: 49-10: a análise de entrevista passa a ter dono (tipo/autor/texto_hash/ai_call_log_id/provedor/modelo) e UMA vigente por (candidatura, tipo). A RPC nova `registrar_analise_entrevista` é o único escritor a partir da EF; as duas RPCs de revisão passam a exigir a análise VIGENTE pelo predicado único do 49-01 e o guard de papel virou fail-closed. `anon` perdeu EXECUTE nas duas (tinha por grant DIRETO do pg_default_acl). 8 mutações provam o smoke mordente, uma por cláusula.
 
 ### Roadmap Evolution
 
@@ -1159,6 +1161,7 @@ Herdados/deferidos, fora do escopo do M7-core (rastreados p/ backlog):
 - ✅ **RESOLVIDO 2026-08-23 — 46-04 FECHADO, APLICADO EM PROD, PORTAO CUMPRIDO.** QUATRO rodadas de code review bloqueante (r1: 2 BLOCKER+10 · r2: 3 HIGH+6, dois causados pelo proprio conserto · r3: 2 HIGH+6 · r4 dirigida: bloqueio so de DOCUMENTO, zero SQL). As 4 migrations aplicadas na ordem `006 -> 008 -> 009 -> 007` pela via do CLAUDE.md, md5 do ledger conferido por leitura de volta nas quatro. ⊖ Zero linha de pessoa tocada (candidatos 31=31, candidaturas 20=20, auth.users 37=37, CVs 5=5, historico 13=13); ACL identico antes/depois (classe BL-01 fechada por medicao); `modo` segue `off`; nenhum cron de purga existe ainda. Portao: p46_purga 16/16, p45_motor 24/24, p43_previa 9, p43_matriz 11, p42_cron 4 — todos lidos do GUC. Registro historico: - 46-04 (2026-08-22): code review bloqueante REPROVOU a 1a rodada — 2 BLOCKER (BL-01 as migrations revogavam de authenticated o EXECUTE vivo e reintroduziriam DI-45-10-01 em PROD; BL-02 o 4o ramo nao era correlacionado com o chamador e abria CR-01 cen.2 para qualquer authenticated enquanto houvesse item aberto em live), 4 HIGH, 4 MEDIUM, 2 LOW. TODOS tratados no commit 6029f94. ⚠ NOVA rodada de review e pre-condicao do apply — o portao e condicao de fechamento da fase.
 - ✅ RESOLVIDO 2026-09-21 — 48-14 achado: policy «Allow anonymous duplicate check» (anon lia todas as candidaturas) FECHADA por 20260921000016; e SETE views legado sem security_invoker que liam PII para anon/authenticated (v_candidatos_ativos: 42 linhas com CPF) FECHADAS por 20260921000017. Logs (≈48 h de retenção): nenhum acesso anônimo externo. Avaliação de incidente LGPD Art. 48 é do Encarregado. Detalhe em 48 deferred-items.md
 - 49-09 deployou a EF v15 medindo a redação pela BARS, mas a tela do RH (RedacaoReviewPanel.tsx:47, RedacaoOverrideForm.tsx:45) ainda rotula D1-D4 como os 4 valores: toda redação avaliada até o plano 49-15 aparece com legenda FALSA sobre um número correto (WINDOWS 52).
+- 49-10: `git push origin main` NEGADO pelo ambiente (Out-of-Place Publication). As 2 migrations estão em PROD e a EF está no ar (v17), mas os 3 commits de código + o de metadado seguem NÃO ENVIADOS — é o modo de falha do CLAUDE.md §«Esta via NÃO passa pelo git». O front não depende deste push (o `tipo` é opcional, D-55), então não há tela quebrada; o risco é de registro. AÇÃO DO OPERADOR: `git push origin main` e conferir `git log --oneline origin/main..HEAD` vazio.
 
 ## Deferred Verification
 
@@ -1382,8 +1385,8 @@ blocker; todos estão rastreados em arquivo.
 
 ## Session Continuity
 
-Last session: 2026-09-23T02:30:43.073Z
-Stopped at: Completed 49-07-PLAN.md
+Last session: 2026-09-23T03:18:36.866Z
+Stopped at: Completed 49-10-PLAN.md
 Resume file: None
 
 ## Decisões travadas para a Phase 45 (operador, 2026-08-04)

@@ -425,8 +425,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 49-07-PLAN.md — Snapshot só com mudança real (WHEN por `to_jsonb`) e carimbo de leitura idempotente; paridade de colunas do arquivo (JORN-3b)
-- [ ] 49-10-PLAN.md — Análise de entrevista com dono: RPC de gravação com superação, tipo/hash/vínculo/autor/modelo, A/B/A, revisão só na vigente (JORN-12, JORN-28)
+- [x] 49-07-PLAN.md — Snapshot só com mudança real (WHEN por `to_jsonb`) e carimbo de leitura idempotente; paridade de colunas do arquivo (JORN-3b)
+- [x] 49-10-PLAN.md — Análise de entrevista com dono: RPC de gravação com superação, tipo/hash/vínculo/autor/modelo, A/B/A, revisão só na vigente (JORN-12, JORN-28)
 - [ ] 49-11-PLAN.md — Proveniência da análise da triagem e as 7 EFs de IA no contrato novo (JORN-28, JORN-39)
 - [ ] 49-13-PLAN.md — Comparativo da vaga na tela e no PDF: rótulo pela chave e selo de proveniência (JORN-25, JORN-28)
 
@@ -543,7 +543,7 @@ Entregou: identidade de remetente & entregabilidade (P36); ledger `notificacoes_
 | 46. Purga Automática (dry-run → live) | v8.0 | 5/7 | In Progress|  |
 | 47. Transparência & Consolidação | v8.0 | 9/9 | In Progress|  |
 | 48. Consertos da Jornada — Bloco 1 | v8.0 | 19/19 | Complete | 2026-09-22 |
-| 49. Consertos da Jornada — Bloco 2 | v8.0 | 10/25 | In Progress|  |
+| 49. Consertos da Jornada — Bloco 2 | v8.0 | 12/25 | In Progress|  |
 
 ---
 
