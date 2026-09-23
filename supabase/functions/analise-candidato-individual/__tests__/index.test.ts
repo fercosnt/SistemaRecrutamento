@@ -32,6 +32,16 @@ import { assert, assertEquals, assertExists } from "https://deno.land/std@0.224.
 // Returns a fixture CvJobMatch (ENGLISH keys) so the EF's English→pt-BR mapper
 // can be asserted. callAi already owns parse+retry+cost+log; here we mock the
 // SDK surface callAi consumes.
+/**
+ * ⚠ Phase 49 / 49-11 (D-28): a resposta agora traz `model` com a versão DATADA, que é o
+ *   que o provedor devolve em produção e o que `CallAiResult.model` propaga. Ele diverge
+ *   DE PROPÓSITO do `model_id` configurado em `PROMPT_ROW_FIXTURE` (`claude-sonnet-4-6`):
+ *   é a única forma de o teste distinguir «gravou o modelo que respondeu» de «gravou o
+ *   modelo que estava configurado» — a confusão que fazia uma análise do `gpt-4o-mini` do
+ *   fallback ficar indistinguível de uma do Sonnet.
+ */
+const MODELO_REAL = "claude-sonnet-4-6-20260215";
+
 function makeMockAnthropic(parsed: Record<string, unknown>) {
   const calls: unknown[] = [];
   return {
@@ -41,6 +51,7 @@ function makeMockAnthropic(parsed: Record<string, unknown>) {
         calls.push(req);
         return Promise.resolve({
           parsed_output: parsed,
+          model: MODELO_REAL,
           usage: { input_tokens: 1200, cache_read_input_tokens: 400, output_tokens: 250 },
         });
       },
@@ -495,6 +506,220 @@ Deno.test("JORN-24 — rejeição humana (rejeitado SEM opcao_knockout_id) segue
   const analise = supabaseAdmin.upserts.filter((u) => u.table === "analise_candidato_vaga");
   assertEquals(analise.map((u) => u.row.status), ["pendente", "sucesso"]);
   assert(anthropic.calls.length > 0);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 49 / 49-11 — D-28 (proveniência real) e C6 #6 (erro que era descartado)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Captura o que vai para `console.error` durante o handler. É o instrumento das duas
+ * asserções de C6: o defeito consertado não é «a escrita falha», é «a escrita falha em
+ * SILÊNCIO» — e a única prova de que ela deixou de ser silenciosa é o log.
+ */
+async function capturandoConsoleError<T>(fn: () => Promise<T>): Promise<{
+  valor: T;
+  linhas: Array<{ msg: string; dados: Record<string, unknown> }>;
+}> {
+  const linhas: Array<{ msg: string; dados: Record<string, unknown> }> = [];
+  const orig = console.error;
+  // deno-lint-ignore no-explicit-any
+  console.error = (...args: any[]) => {
+    linhas.push({
+      msg: String(args[0] ?? ""),
+      dados: (args[1] ?? {}) as Record<string, unknown>,
+    });
+  };
+  try {
+    const valor = await fn();
+    return { valor, linhas };
+  } finally {
+    console.error = orig;
+  }
+}
+
+/** Substitui o `upsert` de `analise_candidato_vaga` por um que recusa o status dado. */
+// deno-lint-ignore no-explicit-any
+function recusandoUpsert(supabaseAdmin: any, status: string, erro: { code: string; message: string }) {
+  const origFrom = supabaseAdmin.from.bind(supabaseAdmin);
+  supabaseAdmin.from = (table: string) => {
+    const t = origFrom(table);
+    if (table !== "analise_candidato_vaga") return t;
+    return {
+      ...t,
+      upsert: (row: Record<string, unknown>, options?: { onConflict?: string }) => {
+        if (row.status === status) {
+          supabaseAdmin.upserts.push({ table, row, onConflict: options?.onConflict });
+          return Promise.resolve({ data: null, error: erro });
+        }
+        return t.upsert(row, options);
+      },
+    };
+  };
+}
+
+Deno.test("49-11 / D-28 — o upsert de SUCESSO grava provedor_ia e modelo_ia REAIS (o que respondeu, não o configurado)", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  const deps = {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  };
+  await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), deps);
+
+  const sucesso = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "sucesso",
+  );
+  assertExists(sucesso, "a linha de sucesso tem de existir");
+  assertEquals(sucesso!.row.provedor_ia, "anthropic", "o provedor que respondeu vai na linha");
+  assertEquals(
+    sucesso!.row.modelo_ia,
+    MODELO_REAL,
+    "modelo_ia tem de ser o que DE FATO respondeu (versão datada)",
+  );
+  // O que este teste existe para impedir: gravar o alias CONFIGURADO em vez do real.
+  assert(
+    sucesso!.row.modelo_ia !== PROMPT_ROW_FIXTURE.model_id,
+    "modelo_ia não pode ser o model_id configurado no prompt — era essa confusão que escondia o fallback",
+  );
+});
+
+Deno.test("49-11 / D-28 — a marca 'pendente' NÃO toca provedor_ia nem modelo_ia", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), {
+    anthropic: makeMockAnthropic(CV_JOB_MATCH_FIXTURE),
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  });
+
+  const pendente = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "pendente",
+  );
+  assertExists(pendente, "a marca `pendente` tem de existir");
+  // Nem com valor, nem com NULL: a chave não pode estar no objeto, porque o `onConflict`
+  // sobrescreve TODA coluna presente — um `null` aqui APAGARIA a proveniência da execução
+  // anterior no instante em que o reprocessamento começa.
+  assert(
+    !("provedor_ia" in pendente!.row),
+    "a marca `pendente` não pode carregar provedor_ia (nem como null — o upsert apagaria a anterior)",
+  );
+  assert(
+    !("modelo_ia" in pendente!.row),
+    "a marca `pendente` não pode carregar modelo_ia (nem como null)",
+  );
+});
+
+Deno.test("49-11 / D-28 — a linha 'falhou' também não afirma modelo nenhum", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  await handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), {
+    anthropic: { messages: { parse: () => Promise.reject(new Error("boom")) } },
+    openai: makeMockOpenAI(),
+    supabaseAdmin,
+    serviceKey: VALID_BEARER,
+  });
+
+  const falhou = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "falhou",
+  );
+  assertExists(falhou, "never-absent: a linha `falhou` tem de existir");
+  assert(!("provedor_ia" in falhou!.row), "numa falha não há resultado a atribuir a provedor");
+  assert(!("modelo_ia" in falhou!.row), "numa falha não há resultado a atribuir a modelo");
+});
+
+Deno.test("49-11 / C6 #6 — marca 'pendente' recusada pelo banco: loga o CÓDIGO e a análise NÃO é interrompida", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  recusandoUpsert(supabaseAdmin, "pendente", {
+    code: "42501",
+    message: 'new row violates row-level security policy for table "analise_candidato_vaga"',
+  });
+  const anthropic = makeMockAnthropic(CV_JOB_MATCH_FIXTURE);
+  const { valor: res, linhas } = await capturandoConsoleError(() =>
+    handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), {
+      anthropic,
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      serviceKey: VALID_BEARER,
+    })
+  );
+
+  // Decisão escrita no próprio arquivo: perder observabilidade é ruim, perder a análise
+  // inteira é pior. A marca recusada NÃO interrompe.
+  assertEquals((await res.json()).status, "sucesso", "a marca recusada não pode interromper a análise");
+  assert(anthropic.calls.length > 0, "a IA continua sendo chamada");
+  const sucesso = supabaseAdmin.upserts.find(
+    (u) => u.table === "analise_candidato_vaga" && u.row.status === "sucesso",
+  );
+  assertExists(sucesso, "a análise chega ao fim e grava a linha de sucesso");
+
+  // ... mas deixa de ser SILENCIOSA: o código da recusa aparece no log.
+  const log = linhas.find((l) => l.msg.includes("marcar 'pendente'"));
+  assertExists(log, "a recusa da marca tem de ir para o console.error — era este o silêncio da C6 #6");
+  assertEquals(log!.dados.error_code, "42501", "o CÓDIGO da recusa tem de ficar registrado");
+  // Log redigido (Pitfall 7): nem a mensagem do banco, nem texto do titular.
+  const serializado = JSON.stringify(log!.dados);
+  assert(
+    !serializado.includes("row-level security"),
+    "o log é redigido: só código, nunca a mensagem do banco",
+  );
+});
+
+Deno.test("49-11 / C6 #6 — upsert 'falhou' recusado pelo banco: loga o código (e a resposta segue 'falhou')", async () => {
+  const { handler } = await loadHandler();
+  const supabaseAdmin = makeMockSupabase({
+    candidaturaRow: { id: "c1", vaga_id: "v1", candidato_id: "cand1", curriculo_url: null },
+  });
+  recusandoUpsert(supabaseAdmin, "falhou", {
+    code: "23514",
+    message: 'new row for relation "analise_candidato_vaga" violates check constraint',
+  });
+  const { valor: res, linhas } = await capturandoConsoleError(() =>
+    handler(makeRequest({ candidatura_id: "c1", vaga_id: "v1" }, VALID_BEARER), {
+      anthropic: { messages: { parse: () => Promise.reject(new Error("prompt_not_configured")) } },
+      openai: makeMockOpenAI(),
+      supabaseAdmin,
+      serviceKey: VALID_BEARER,
+    })
+  );
+
+  assertEquals((await res.json()).status, "falhou");
+  const log = linhas.find((l) => l.msg.includes("'falhou'"));
+  assertExists(
+    log,
+    "a recusa da linha `falhou` tem de ir para o log — é a última prova de que a análise existiu",
+  );
+  assertEquals(log!.dados.error_code, "23514");
+  assert(
+    !JSON.stringify(log!.dados).includes("check constraint"),
+    "o log é redigido: só código",
+  );
+});
+
+Deno.test("49-11 / D-28 — provedorDeResultado: 'none' e desconhecidos viram NULL; anthropic/openai passam", async () => {
+  const mod = await import("../index.ts");
+  // `none` é estado de CHAMADA (teto de custo, injeção), não de resultado — e o CHECK
+  // `analise_candidato_vaga_provedor_ia_check` (medido em PROD) só aceita
+  // NULL | 'anthropic' | 'openai'. Gravar `none` seria 23514 e, com o erro do upsert
+  // final checado, uma análise CORRETA viraria linha `falhou`.
+  assertEquals(mod.provedorDeResultado("anthropic"), "anthropic");
+  assertEquals(mod.provedorDeResultado("openai"), "openai");
+  assertEquals(mod.provedorDeResultado("none"), null);
+  assertEquals(mod.provedorDeResultado("google"), null);
+  assertEquals(mod.provedorDeResultado(null), null);
+  assertEquals(mod.provedorDeResultado(undefined), null);
 });
 
 Deno.test("JORN-24 — leitura da candidatura com erro → falha FECHADA: nenhuma IA, linha `falhou`", async () => {

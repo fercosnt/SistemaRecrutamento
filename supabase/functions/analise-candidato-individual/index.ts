@@ -23,8 +23,15 @@
  *   5. loadPrompt('cv_job_match') → callAi (callAi já faz injection/maskPII/retry/
  *      fallback/cost/log — NÃO re-implementamos NADA disso aqui).
  *   6. Mapeia as chaves INGLESAS do CvJobMatch → colunas pt-BR e UPSERTa UMA row em
- *      `analise_candidato_vaga` ON CONFLICT (candidatura_id) (status='sucesso').
+ *      `analise_candidato_vaga` ON CONFLICT (candidatura_id) (status='sucesso'), COM
+ *      `provedor_ia`/`modelo_ia` REAIS do `CallAiResult` (Phase 49 / 49-11, D-28).
  *   7. QUALQUER throw → UPSERTa { status:'falhou', erro } (never-absent invariant).
+ *
+ * Proveniência (49-11 / D-28 / JORN-28): só o upsert de SUCESSO grava
+ *   `provedor_ia`/`modelo_ia`, porque só ele grava conteúdo produzido por um modelo. A
+ *   marca `pendente` e a linha `falhou` não os tocam — a proveniência sempre descreve o
+ *   conteúdo que está NA linha, nunca um estado. E as três escritas da tabela checam o
+ *   `error` que devolvem (as duas últimas passaram a checar em 49-11; varredura C6 #6).
  *
  * Segurança (Pitfall 7 / T-10-08/11/12): self-auth do Bearer; logs só com
  *   ids/counts/error.code — NUNCA texto de CV/respostas/score/nome; o texto do
@@ -135,6 +142,28 @@ async function extractCvText(pdfBytes: Uint8Array): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Phase 49 / 49-11 / D-28 — o `provedor_ia` de um RESULTADO, ou NULL.
+ *
+ * Medido em PROD antes de escrever: `analise_candidato_vaga_provedor_ia_check` aceita
+ * só `NULL`, `'anthropic'` ou `'openai'`. O `CallAiResult.provider` também vale
+ * `'none'` (teto de custo AI-06, injeção detectada) — e `'none'` é estado de CHAMADA,
+ * não de RESULTADO: um resultado existe porque algum modelo respondeu.
+ *
+ * Sem esta normalização, um `'none'` que chegasse ao upsert final seria recusado pelo
+ * CHECK (23514); e como o `error` desse upsert É checado desde 2026-09-05, a recusa
+ * lança → cai no catch → a análise vira linha `falhou`. Uma análise correta registrada
+ * como falha, pelo campo que existe para torná-la auditável. Hoje o guard de
+ * `flagged_for_human_review` (:496) intercepta os dois caminhos `'none'` antes daqui, o
+ * que torna esta normalização redundante NA FIAÇÃO ATUAL — e é exatamente por isso que
+ * ela fica: a coluna tem vocabulário fechado, e quem mexer no guard não deveria precisar
+ * descobrir este CHECK por um `falhou` inexplicável em produção. Precedente medido:
+ * 49-10 (`avaliar-transcricao-entrevista`), 49-09 (`avaliar-redacao-cultural`).
+ */
+export function provedorDeResultado(provider: unknown): string | null {
+  return provider === "anthropic" || provider === "openai" ? provider : null;
 }
 
 /** Achata as respostas da Etapa 1 num bloco de texto compacto, truncado. */
@@ -297,15 +326,41 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
     // que é a verdade enquanto a nova execução não termina. Um erro AQUI não
     // interrompe a análise — perder observabilidade é ruim, perder a análise
     // inteira é pior.
+    //
+    // ⚠ A MARCA NÃO TOCA `provedor_ia`/`modelo_ia` (49-11, D-28). Ela descreve um
+    //   estado — «começou e não terminou» —, não um conteúdo: nenhum modelo respondeu
+    //   ainda. Escrever proveniência aqui faria a linha de reprocessamento herdar o
+    //   modelo da execução ANTERIOR, e a coluna deixaria de descrever o texto que está
+    //   na linha. Pela mesma razão o upsert não as apaga: o `onConflict` só sobrescreve
+    //   as colunas presentes no objeto, então as da execução anterior sobrevivem à
+    //   marca e são substituídas pelo upsert final (sucesso) ou seguem como estavam
+    //   (falha) — em nenhum momento a linha afirma um modelo que não a produziu.
+    //
+    // ⚠ O `error` DESTE upsert era descartado (varredura C6 #6, `:301`): o
+    //   `supabase-js` devolve `{ error }` em vez de lançar, então o `catch` abaixo só
+    //   via exceção de transporte e a recusa do banco passava batida. Agora ele é
+    //   destruturado e o CÓDIGO vai para o log — nunca a mensagem, que pode carregar
+    //   valor de coluna (Pitfall 7: só ids/counts/códigos).
     try {
-      await supabaseAdmin.from("analise_candidato_vaga").upsert(
+      const { error: marcaErr } = await supabaseAdmin.from("analise_candidato_vaga").upsert(
         { candidatura_id, vaga_id, status: "pendente", erro: null },
         { onConflict: "candidatura_id" },
       );
+      if (marcaErr) {
+        console.error("[analise] nao consegui marcar 'pendente' — seguindo mesmo assim", {
+          candidatura_id,
+          vaga_id,
+          error_code: marcaErr.code ?? null,
+        });
+      }
     } catch (marcaErr) {
+      // Exceção de transporte (rede, cliente). Só a CLASSE do erro — a `message` de um
+      // erro de banco pode conter valor de coluna, e este log é redigido.
       console.error("[analise] nao consegui marcar 'pendente' — seguindo mesmo assim", {
         candidatura_id,
-        error: marcaErr instanceof Error ? marcaErr.message : String(marcaErr),
+        vaga_id,
+        error_code: null,
+        excecao: marcaErr instanceof Error ? marcaErr.name : "desconhecida",
       });
     }
 
@@ -574,6 +629,17 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         resumo_respostas: parsed.reasoning ?? null,
         status: "sucesso",
         erro: null,
+        // ⚠ D-28 (49-11): quem DE FATO escreveu esta análise, gravado no mesmo instante
+        //   em que o conteúdo é gravado. `result.model` é `response.model` do provedor —
+        //   a versão DATADA, que divergiu do alias configurado em todas as análises
+        //   medidas. Era por confundir os dois que uma análise produzida pelo
+        //   `gpt-4o-mini` do fallback ficava indistinguível de uma do Sonnet, e o
+        //   `cv_job_match` é o `call_type` com MAIS fallbacks em 05–06/09 (timeout ×6,
+        //   truncamento ×2, Zod ×5). As 25 análises vivas seguem com as duas colunas
+        //   NULL por decisão medida (D-30): a proveniência delas não é recuperável, e
+        //   NULL é a verdade — não há escrita retroativa aqui.
+        provedor_ia: provedorDeResultado(result.provider),
+        modelo_ia: result.model,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "candidatura_id" },
@@ -591,6 +657,9 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
       respostas_count: respostas.length,
       cv_extraido: !resumoCvFallback,
       provider: result.provider,
+      // D-28: o modelo REAL no log, ao lado do provedor — um id de modelo não é dado do
+      // titular, e é o que permite ver um fallback no log sem consultar a tabela.
+      modelo_ia: result.model,
     });
 
     return jsonResponse({ ok: true, status: "sucesso" }, 200);
@@ -598,8 +667,19 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
     // 7. Never-absent invariant: persiste a row 'falhou' mesmo em qualquer erro.
     const message = e instanceof Error ? e.message : String(e);
     console.error("[analise] falhou", { candidatura_id, vaga_id, error: message });
+    // ⚠ O `error` DESTE upsert era descartado (varredura C6 #6, `:602`) — a mesma forma
+    //   da marca `pendente`: o `supabase-js` devolve `{ error }`, o `catch` só via
+    //   exceção de transporte, e uma recusa do banco AQUI apagava a última prova de que
+    //   a análise existiu. É o caminho onde o registro mais importa: a linha `falhou` é o
+    //   invariante never-absent inteiro. Agora o código da recusa vai para o log.
+    //
+    // A linha `falhou` também NÃO grava `provedor_ia`/`modelo_ia`: numa falha não há
+    // resultado a atribuir a modelo nenhum, e a causa (que pode ser anterior à chamada —
+    // prompt não configurado, CV ilegível) já mora em `erro`. As colunas da execução
+    // anterior não são tocadas pelo `onConflict`, e continuam descrevendo o conteúdo que
+    // de fato produziram.
     try {
-      await supabaseAdmin.from("analise_candidato_vaga").upsert(
+      const { error: falhouErr } = await supabaseAdmin.from("analise_candidato_vaga").upsert(
         {
           candidatura_id,
           vaga_id,
@@ -609,11 +689,21 @@ export async function handler(req: Request, deps: AnaliseDeps): Promise<Response
         },
         { onConflict: "candidatura_id" },
       );
+      if (falhouErr) {
+        console.error("[analise] upsert da row 'falhou' foi recusado pelo banco", {
+          candidatura_id,
+          vaga_id,
+          error_code: falhouErr.code ?? null,
+        });
+      }
     } catch (upsertErr) {
       // Se até o upsert de falha falhar, loga e devolve 500 — não há mais o que fazer.
+      // Só a CLASSE da exceção: este log é redigido (Pitfall 7).
       console.error("[analise] upsert da row 'falhou' também falhou", {
         candidatura_id,
-        error: upsertErr instanceof Error ? upsertErr.message : String(upsertErr),
+        vaga_id,
+        error_code: null,
+        excecao: upsertErr instanceof Error ? upsertErr.name : "desconhecida",
       });
     }
     return jsonResponse({ ok: false, status: "falhou" }, 200);
