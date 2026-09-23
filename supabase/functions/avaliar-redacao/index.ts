@@ -150,16 +150,30 @@ interface DimensionScore {
  *   pergunta não tem rubrica: aí o comportamento é o antigo (peso uniforme), e a EF
  *   grava `rubrica_ausente: true` na metadata para que isso seja LEGÍVEL em vez de
  *   indistinguível de uma rubrica que não pegou.
- * @returns `{ composite, hasInsufficient, desconhecidas }` — composite em [0,25].
+ * ⚠ `insufficientDaIa` e `desconhecidas` são SEPARADOS de propósito. Os dois levam a
+ * `pendente_humano`, mas são situações opostas com consertos opostos: «a IA não achou
+ * evidência na resposta» é sobre o CANDIDATO; «a IA devolveu um nome que a rubrica não
+ * tem» é sobre a AVALIAÇÃO. Fundi-los num único booleano tornaria os dois
+ * indistinguíveis para quem lê a linha depois — e é da leitura posterior que sai o
+ * conserto.
+ *
+ * @returns `{ composite, insufficientDaIa, hasInsufficient, desconhecidas }` —
+ *   composite em [0,25]; `hasInsufficient` é o sinal COMBINADO que alimenta o limiar
+ *   (semântica inalterada).
  */
 function mapDimensionsToComposite(
   dims: DimensionScore[],
   rubricWeights: Record<string, number> | null,
   chavesValidas: Set<string> | null,
-): { composite: number; hasInsufficient: boolean; desconhecidas: string[] } {
+): {
+  composite: number;
+  insufficientDaIa: boolean;
+  hasInsufficient: boolean;
+  desconhecidas: string[];
+} {
   let weightedSum = 0;
   let weightTotal = 0;
-  let hasInsufficient = false;
+  let insufficientDaIa = false;
   const desconhecidas: string[] = [];
 
   for (const d of dims) {
@@ -167,11 +181,10 @@ function mapDimensionsToComposite(
     // JORN-35: chave fora do vocabulário da rubrica ⇒ fora da nota, para a mesa do RH.
     if (chavesValidas && !chavesValidas.has(nome)) {
       if (!desconhecidas.includes(nome)) desconhecidas.push(nome);
-      hasInsufficient = true;
       continue;
     }
     if (d.score === "insufficient_evidence" || typeof d.score !== "number") {
-      hasInsufficient = true;
+      insufficientDaIa = true;
       continue;
     }
     // Com rubrica, o peso vem SEMPRE da chave (a validação acima garante que existe).
@@ -182,10 +195,19 @@ function mapDimensionsToComposite(
     weightTotal += w;
   }
 
-  if (weightTotal === 0) return { composite: 0, hasInsufficient, desconhecidas };
+  // Sinal COMBINADO que alimenta o limiar — semântica idêntica à de antes do 49-23.
+  const hasInsufficient = insufficientDaIa || desconhecidas.length > 0;
+  if (weightTotal === 0) {
+    return { composite: 0, insufficientDaIa, hasInsufficient, desconhecidas };
+  }
   // Normaliza a média ponderada (1-5) para a banda 0-25.
   const composite = (weightedSum / weightTotal / 5) * 25;
-  return { composite: Math.round(composite * 100) / 100, hasInsufficient, desconhecidas };
+  return {
+    composite: Math.round(composite * 100) / 100,
+    insufficientDaIa,
+    hasInsufficient,
+    desconhecidas,
+  };
 }
 
 /**
@@ -413,11 +435,8 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
     // ── 7. Mapeia 1-5 → composto 0-25 (Pitfall 2) + threshold (RNF-07a) ───────
     const dims = Array.isArray(parsed.dimension_scores) ? parsed.dimension_scores : [];
     const redFlags = Array.isArray(parsed.red_flags) ? parsed.red_flags : [];
-    const { composite, hasInsufficient, desconhecidas } = mapDimensionsToComposite(
-      dims,
-      rubricWeights,
-      chavesValidas,
-    );
+    const { composite, insufficientDaIa, hasInsufficient, desconhecidas } =
+      mapDimensionsToComposite(dims, rubricWeights, chavesValidas);
 
     // <13/25 OU ≥1 red_flag OU qualquer insufficient_evidence → pendente_humano.
     // JORN-35: dimensão desconhecida marca `hasInsufficient`, então ela cai AQUI —
@@ -426,6 +445,20 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
       composite < 13 || redFlags.length > 0 || hasInsufficient
         ? "pendente_humano"
         : "sucesso";
+
+    // POR QUE esta linha foi para revisão humana. Até 2026-09-22 a linha dizia só
+    // `pendente_humano` e as quatro causas eram indistinguíveis — e elas pedem
+    // consertos OPOSTOS: uma `dimensao_desconhecida` é defeito da AVALIAÇÃO (a IA
+    // inventou o nome da dimensão; o nome devolvido está em `dimensoes_desconhecidas`),
+    // `insufficient_evidence` é sobre a RESPOSTA do candidato, `red_flag` é conteúdo
+    // ético/clínico e `abaixo_do_corte` é só a nota. Inferir da ausência de flag
+    // produziria uma explicação plausível e falsa. Lista COMPLETA sempre que houver
+    // motivo — nunca um único motivo escolhido por precedência.
+    const motivosRevisao: string[] = [];
+    if (desconhecidas.length > 0) motivosRevisao.push("dimensao_desconhecida");
+    if (insufficientDaIa) motivosRevisao.push("insufficient_evidence");
+    if (redFlags.length > 0) motivosRevisao.push("red_flag");
+    if (composite < 13) motivosRevisao.push("abaixo_do_corte");
 
     // ── 8. Persiste UMA linha de score (NUNCA toca candidaturas — RNF-07a) ────
     const { error: scoreErr } = await supabaseAdmin.from("scores_candidato").insert({
@@ -440,6 +473,11 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
         dimension_scores: dims,
         composite_0_25: composite,
         has_insufficient_evidence: hasInsufficient,
+        // A causa, separada do sinal combinado acima (ver `mapDimensionsToComposite`).
+        insufficient_evidence_da_ia: insufficientDaIa,
+        // Presente SÓ quando há motivo — em `sucesso` a chave não existe, e isso é
+        // inequívoco (não há «lista vazia» que se confunda com «motivo não registrado»).
+        ...(motivosRevisao.length > 0 ? { motivos_revisao: motivosRevisao } : {}),
         // D-68: quem produziu esta nota.
         ...prov,
         // JORN-35: os nomes que a IA devolveu e a rubrica não reconhece. Presente SÓ
@@ -465,6 +503,7 @@ export async function handler(req: Request, deps: AvaliarRedacaoDeps): Promise<R
       // (que só o RH lê), não no log de aplicação.
       dimensoes_desconhecidas_count: desconhecidas.length,
       rubrica_ausente: rubricaAusente,
+      motivos_revisao: motivosRevisao,
       status,
       provider: result.provider,
       modelo_ia: prov.modelo_ia,

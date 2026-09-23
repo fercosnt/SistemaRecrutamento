@@ -743,6 +743,141 @@ Deno.test("49-23 — dimensão com `peso` não numérico sai do vocabulário e n
   assertEquals(row.status, "pendente_humano");
 });
 
+// ── POR QUE foi para revisão humana: as 4 causas deixam de ser indistinguíveis ─
+// As quatro pedem consertos OPOSTOS. Inferir da ausência de flag produziria uma
+// explicação plausível e falsa, que é o pior resultado possível para quem revisa.
+Deno.test("49-23 — `motivos_revisao` distingue as 4 causas de pendente_humano, uma a uma", async () => {
+  const { handler } = await loadHandler();
+  const casos: { nome: string; fixture: unknown; esperado: string[]; score?: number }[] = [
+    {
+      nome: "dimensão inventada (score alto)",
+      fixture: {
+        dimension_scores: [
+          { dimension: "raciocinio_clinico_estetico", score: 4 },
+          { dimension: "planejamento_decisao", score: 4 },
+          { dimension: "comunicacao_expectativa", score: 4 },
+          { dimension: "etica_minimamente_invasivo", score: 4 },
+          { dimension: "Inventada pela IA", score: 5 },
+        ],
+        red_flags: [],
+      },
+      esperado: ["dimensao_desconhecida"],
+    },
+    {
+      nome: "insufficient_evidence da IA (chaves corretas)",
+      fixture: {
+        dimension_scores: [
+          { dimension: "raciocinio_clinico_estetico", score: 4 },
+          { dimension: "planejamento_decisao", score: 4 },
+          { dimension: "comunicacao_expectativa", score: 4 },
+          { dimension: "etica_minimamente_invasivo", score: 4 },
+          { dimension: "consentimento_continuidade", score: "insufficient_evidence" },
+        ],
+        red_flags: [],
+      },
+      esperado: ["insufficient_evidence"],
+    },
+    {
+      nome: "red flag com nota alta",
+      fixture: {
+        dimension_scores: PERGUNTA_SJT_VIVA.rubric.dimensoes.map((d) => ({
+          dimension: d.dimension,
+          score: 5,
+        })),
+        red_flags: ["Promete resultado irreal para fechar."],
+      },
+      esperado: ["red_flag"],
+    },
+    {
+      nome: "só a nota abaixo do corte",
+      fixture: {
+        dimension_scores: PERGUNTA_SJT_VIVA.rubric.dimensoes.map((d) => ({
+          dimension: d.dimension,
+          score: 2,
+        })),
+        red_flags: [],
+      },
+      esperado: ["abaixo_do_corte"],
+    },
+  ];
+
+  for (const caso of casos) {
+    const admin = makeMockSupabaseAdmin(
+      { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+      PERGUNTA_SJT_VIVA,
+    );
+    const res = await handler(makeRequest(VALID_BODY), {
+      anthropic: makeMockAnthropicCapturing(caso.fixture, []),
+      openai: makeMockOpenAI(),
+      supabaseAdmin: admin,
+      supabaseUser: makeMockSupabaseUser(OWNER),
+    });
+    assertEquals(res.status, 200, caso.nome);
+    const { row, metadata } = metadataDoScore(admin);
+    assertEquals(row.status, "pendente_humano", `${caso.nome}: tem de ir para revisão`);
+    assertEquals(metadata.motivos_revisao, caso.esperado, `${caso.nome}: motivo ERRADO`);
+  }
+});
+
+Deno.test("49-23 — duas causas simultâneas aparecem AS DUAS (nenhuma escolhida por precedência)", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    PERGUNTA_SJT_VIVA,
+  );
+  const res = await handler(makeRequest(VALID_BODY), {
+    anthropic: makeMockAnthropicCapturing(
+      {
+        dimension_scores: [
+          { dimension: "raciocinio_clinico_estetico", score: 1 },
+          { dimension: "Inventada pela IA", score: 1 },
+        ],
+        red_flags: ["Desgaste sem indicação."],
+      },
+      [],
+    ),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  });
+  assertEquals(res.status, 200);
+  const { metadata } = metadataDoScore(admin);
+  assertEquals(metadata.motivos_revisao, [
+    "dimensao_desconhecida",
+    "red_flag",
+    "abaixo_do_corte",
+  ]);
+});
+
+Deno.test("49-23 — em `sucesso` a chave `motivos_revisao` NÃO existe (nada de lista vazia ambígua)", async () => {
+  const { handler } = await loadHandler();
+  const admin = makeMockSupabaseAdmin(
+    { candidato_id: CANDIDATO_ROW_ID, etapa_atual: "avaliacao_assincrona" },
+    PERGUNTA_SJT_VIVA,
+  );
+  const res = await handler(makeRequest(VALID_BODY), {
+    anthropic: makeMockAnthropicCapturing(
+      {
+        dimension_scores: PERGUNTA_SJT_VIVA.rubric.dimensoes.map((d) => ({
+          dimension: d.dimension,
+          score: 5,
+        })),
+        red_flags: [],
+      },
+      [],
+    ),
+    openai: makeMockOpenAI(),
+    supabaseAdmin: admin,
+    supabaseUser: makeMockSupabaseUser(OWNER),
+  });
+  assertEquals(res.status, 200);
+  const { row, metadata } = metadataDoScore(admin);
+  assertEquals(row.status, "sucesso");
+  assertEquals(row.score, 25);
+  assertEquals(metadata.motivos_revisao, undefined);
+  assertEquals(metadata.insufficient_evidence_da_ia, false);
+});
+
 // ── D-68: proveniência real na metadata ───────────────────────────────────────
 Deno.test("49-23 / D-68 — a metadata grava provedor_ia e modelo_ia REAIS (não o configurado)", async () => {
   const { handler } = await loadHandler();
