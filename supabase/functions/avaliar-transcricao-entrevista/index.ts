@@ -18,12 +18,28 @@
  *   NÃO o LLM), e persiste UMA linha em `entrevista_analises` + os scores BARS em
  *   `scores_candidato` (tipo='entrevista').
  *
- * INVARIANTE (RNF-07a): a EF NUNCA escreve `candidaturas`. status_analise=
- *   'pendente_humano' SEMPRE; bloqueio_avanco=true SÓ quando a flag de língua/
+ * INVARIANTE (RNF-07a): a EF NUNCA escreve `candidaturas`. A nota consolidada nasce
+ *   `pendente_humano` com score NULL — `sucesso` só vem da mão humana, em
+ *   `salvar_avaliacao_entrevista`; bloqueio_avanco=true SÓ quando a flag de língua/
  *   sotaque dispara (apenas SEGURA o avanço — o humano sempre decide; o bloqueio é
- *   imposto no avancar_etapa, migration 04). Mesmo na falha (parse nulo / injeção)
- *   persiste uma row pendente_humano com bloqueio_avanco:false — nunca um sucesso
- *   fabricado. O RH recebe um payload NEUTRO (`{ ok:true }`).
+ *   imposto no avancar_etapa). Mesmo na falha (parse nulo / injeção) persiste uma
+ *   linha — nunca um sucesso fabricado. O RH recebe um payload NEUTRO: ids e estado,
+ *   nunca texto nem nota.
+ *
+ * ── Phase 49 / 49-10 (JORN-12 / D-37..D-42): a análise passa a ter DONO ──
+ *   A gravação é UMA transação na RPC `public.registrar_analise_entrevista`
+ *   (SECURITY DEFINER, só `service_role`), que é o ÚNICO escritor de
+ *   `entrevista_analises` a partir daqui. Ela marca a vigente anterior do mesmo
+ *   `(candidatura, tipo)` como superada, insere a nova com `tipo` / `solicitado_por` /
+ *   `texto_hash` / `ai_call_log_id` / `provedor_ia` / `modelo_ia`, e devolve a nota
+ *   consolidada a `pendente_humano` com score NULL (D-42: uma análise nova é sobre
+ *   outro texto, logo a revisão humana anterior não vale para ela — mas CONTINUA
+ *   legível na análise superada, que não é apagada).
+ *   Três coisas que a versão anterior errava e que o teste do handler agora fixa:
+ *     · a análise não sabia de qual entrevista era (`tipo` NULL nas 6 linhas vivas);
+ *     · uma linha de FALHA entrava como a mais nova e escondia a análise boa;
+ *     · as três escritas não tinham o erro checado — recusa saía como sucesso.
+ *   E o mesmo texto reenviado (D-40) devolve a análise que já existe, sem tocar a IA.
  *
  * ── SDK imports ESTÁTICOS `npm:` (clone de avaliar-redacao-cultural:54-60) ──
  *   O `await import(["npm:",pkg].join(""))` escondia o pacote do bundler do deploy
@@ -43,6 +59,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   callAi,
+  // Phase 49 / D-38 — o MESMO cálculo que o `logAiCall` usa para
+  // `ai_call_logs.input_hash`. Reexportado pelo `ai-client` de propósito: duas
+  // implementações do mesmo hash divergem em silêncio, e a divergência só aparece no
+  // dia em que alguém tenta juntar a análise ao log pelo hash.
+  inputHashDe,
   loadPrompt,
   parseIntEnv,
   resolvedPromptFromLoaded,
@@ -92,6 +113,19 @@ function errorResponse(code: ErrorCode, message: string, status = 400): Response
 /** Comprimento mínimo da transcrição (server-authoritative — mirror do word-count guard). */
 const MIN_TRANSCRICAO_LEN = 200;
 
+/**
+ * Phase 49 / 49-10 / D-41 — de qual entrevista é a transcrição.
+ *
+ * O `tipo` do body vence; a etapa atual da candidatura é só o PADRÃO. Fora de etapa de
+ * entrevista não há padrão defensável: a EF devolve 400 pedindo o tipo em vez de gravar
+ * um palpite (uma análise com o tipo errado é pior que uma sem tipo — ela supera a
+ * vigente da entrevista errada).
+ */
+const ETAPA_PARA_TIPO: Record<string, "online" | "presencial"> = {
+  entrevista_online: "online",
+  entrevista_presencial: "presencial",
+};
+
 // ---------------------------------------------------------------------------
 // Deps injetáveis (testes injetam mocks; produção constrói clientes reais)
 // ---------------------------------------------------------------------------
@@ -108,6 +142,19 @@ export interface AvaliarTranscricaoDeps {
   /** Builders de structured-output (prod injeta os reais; testes omitem → callAi no-op). */
   zodOutputFormat?: (schema: unknown, name: string) => unknown;
   zodResponseFormat?: (schema: unknown, name: string) => unknown;
+}
+
+/**
+ * Phase 49 / 49-10 / D-28 — o `provedor_ia` de um RESULTADO, ou NULL.
+ *
+ * `entrevista_analises_provedor_ia_check` aceita só `anthropic`, `openai` ou NULL. O
+ * `CallAiResult.provider` também vale `'none'` (teto de custo, injeção detectada), e
+ * `'none'` não é provedor de resultado — um resultado existe porque algum modelo
+ * respondeu. Sem esta normalização o caminho de falha violaria o CHECK e a gravação
+ * seria recusada — que, com o erro agora checado, viraria um 500 em vez de uma linha.
+ */
+function provedorDeResultado(provider: unknown): string | null {
+  return provider === "anthropic" || provider === "openai" ? provider : null;
 }
 
 /** Extrai os scores BARS por competência do output parseado (para o metadata). */
@@ -155,7 +202,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
   }
 
   // ── 2. Parse + valida o body (.strict — anti-tamper, sem score/banda) ───────
-  let body: { candidatura_id: string; transcricao: string };
+  let body: { candidatura_id: string; transcricao: string; tipo?: "online" | "presencial" };
   try {
     const raw = await req.json();
     const parsed = AvaliarTranscricaoBodySchema.safeParse(raw);
@@ -175,9 +222,10 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
   try {
     // ── 4. Resolve a vaga da candidatura + posse (C1 — IDOR/PII). role='rh' DEVE
     //      possuir a vaga (vagas.created_by===user.id); administrador bypassa.
+    //      `etapa_atual` entra na MESMA allowlist (D-41) — é o padrão do `tipo`.
     const { data: candRow } = await supabaseAdmin
       .from("candidaturas")
-      .select("id, vaga_id, candidato_id")
+      .select("id, vaga_id, candidato_id, etapa_atual")
       .eq("id", body.candidatura_id)
       .maybeSingle();
     if (!candRow) {
@@ -194,8 +242,66 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       }
     }
 
-    // ── 4b. Rubrica BARS = âncoras do(s) guia(s) de entrevista desta candidatura.
+    // ── 4a. De QUAL entrevista é esta transcrição (D-41). O `tipo` do body vence; a
+    //      etapa atual é o padrão. Resolvido ANTES de qualquer chamada de IA: um 400 por
+    //      tipo indeterminado não deve custar uma chamada ao provedor.
+    const tipo = body.tipo ??
+      ETAPA_PARA_TIPO[String((candRow as { etapa_atual?: unknown }).etapa_atual ?? "")];
+    if (!tipo) {
+      return errorResponse(
+        "VALIDATION",
+        "Informe se a transcrição é da entrevista online ou presencial.",
+      );
+    }
+
+    // ── 4b. D-40 · o mesmo texto já analisado não é analisado de novo.
+    //      Conferido ANTES da IA: é aqui que a economia acontece (medido em PROD — 2 das
+    //      4 análises de `bf26ee3c…` são replays do mesmo texto). A RPC confere de novo,
+    //      porque duas requisições simultâneas passariam as duas por esta leitura.
+    //      ⚠ O hash é sobre o texto MASCARADO (`inputHashDe`), o mesmo valor que o
+    //      `logAiCall` grava em `ai_call_logs.input_hash` — é o elo entre a análise e o
+    //      texto, sem coluna de conteúdo nova (D-38).
+    const textoHash = await inputHashDe(body.transcricao);
+    const { data: jaExiste, error: jaExisteErr } = await supabaseAdmin
+      .from("entrevista_analises")
+      .select("id, superada_em, status_analise, competencias")
+      .eq("candidatura_id", body.candidatura_id)
+      .eq("tipo", tipo)
+      .eq("texto_hash", textoHash)
+      .neq("status_analise", "falhou")
+      .not("competencias", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (jaExisteErr) {
+      throw new Error(
+        `leitura de reaproveitamento em entrevista_analises falhou: ${jaExisteErr.code ?? ""} ${jaExisteErr.message ?? ""}`
+          .trim(),
+      );
+    }
+    if (jaExiste) {
+      console.log("[avaliar-transcricao-entrevista] reaproveitada", {
+        candidatura_id: body.candidatura_id,
+        tipo,
+        analise_id: jaExiste.id,
+      });
+      return jsonResponse({
+        ok: true,
+        analise_id: jaExiste.id,
+        tipo,
+        reaproveitada: true,
+        vigente: jaExiste.superada_em == null,
+        falhou: false,
+      }, 200);
+    }
+
+    // ── 4c. Rubrica BARS = âncoras do guia DO TIPO desta análise.
     //   ⚠ Até 2026-09-06 o bloco era `Vaga: <uuid>` — ver _local/bars-rubric.ts.
+    //   ⚠ Phase 49 / 49-10: até aqui a leitura não filtrava por `tipo` e juntava as
+    //     âncoras dos DOIS guias. O presencial repete as competências do online com
+    //     âncoras recalibradas, então a análise da online podia ser avaliada contra a
+    //     régua da presencial — o `buildBarsRubricBlock` resolve empate por «1ª
+    //     ocorrência vence», e a ordem era `created_at`, não o tipo.
     //   O guia é insumo, não pré-requisito: falha de leitura → bloco "sem âncoras".
     let guias: unknown[] = [];
     try {
@@ -203,6 +309,7 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
         .from("entrevista_guias")
         .select("guia")
         .eq("candidatura_id", body.candidatura_id)
+        .eq("tipo", tipo)
         .order("created_at", { ascending: true });
       guias = Array.isArray(guiaRows) ? guiaRows.map((g: { guia?: unknown }) => g?.guia ?? null) : [];
     } catch {
@@ -259,24 +366,54 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       | (TranscriptAnalysisSlice & { competency_evaluations?: Array<{ competency?: string; score?: unknown }> })
       | null;
 
-    // ── 6. Never-absent: parse falho / injeção → persiste row pendente_humano com
-    //      bloqueio_avanco:false (nunca um sucesso fabricado). Sem scores_candidato
-    //      (não há análise para gravar), mas a row de análise SEMPRE entra.
+    // ── 6. Never-absent: parse falho / injeção → persiste a linha com
+    //      `status_analise='falhou'` e bloqueio_avanco:false (nunca um sucesso
+    //      fabricado). Sem scores_candidato (não há análise para gravar), e — Phase 49 /
+    //      49-10 — a linha NÃO supera ninguém e NÃO é vigente: a análise boa anterior
+    //      continua sendo a que a tela, a revisão e o portão de avanço leem.
+    //      ⚠ Até aqui esta linha entrava como `pendente_humano`, e por isso virava «a
+    //      mais nova» para todo leitor que ordenava por `created_at` — uma falha de IA
+    //      apagava da tela a análise que tinha funcionado.
     if (parsed == null || result.error_code === "prompt_injection_detected") {
-      await supabaseAdmin.from("entrevista_analises").insert({
-        candidatura_id: body.candidatura_id,
-        competencias: null,
-        citacoes: null,
-        bias_flags: null,
-        bloqueio_avanco: false,
-        status_analise: "pendente_humano",
-        prompt_version: resolved.prompt_version,
-      });
+      const { data: falhaRes, error: falhaErr } = await supabaseAdmin.rpc(
+        "registrar_analise_entrevista",
+        {
+          p_candidatura_id: body.candidatura_id,
+          p_tipo: tipo,
+          p_solicitado_por: user.id,
+          p_texto_hash: textoHash,
+          p_ai_call_log_id: result.log_id,
+          p_provedor_ia: provedorDeResultado(result.provider),
+          p_modelo_ia: result.model,
+          p_prompt_version: resolved.prompt_version,
+          p_status_analise: "falhou",
+          p_competencias: null,
+          p_citacoes: null,
+          p_bias_flags: null,
+          p_bloqueio_avanco: false,
+          p_score_metadata: null,
+        },
+      );
+      if (falhaErr) {
+        throw new Error(
+          `registrar_analise_entrevista (falhou) recusou a gravacao: ${falhaErr.code ?? ""} ${falhaErr.message ?? ""}`
+            .trim(),
+        );
+      }
       console.log("[avaliar-transcricao-entrevista] sem-output/injecao", {
         candidatura_id: body.candidatura_id,
+        tipo,
+        analise_id: falhaRes?.analise_id ?? null,
         error_code: result.error_code ?? "ia_sem_resultado",
       });
-      return jsonResponse({ ok: true }, 200);
+      return jsonResponse({
+        ok: true,
+        analise_id: falhaRes?.analise_id ?? null,
+        tipo,
+        reaproveitada: false,
+        vigente: false,
+        falhou: true,
+      }, 200);
     }
 
     // ── 7. Flag de língua/sotaque DERIVADA server-side (NÃO o LLM — resolved Q2).
@@ -296,45 +433,64 @@ export async function handler(req: Request, deps: AvaliarTranscricaoDeps): Promi
       bias_flags: (c as { bias_flags?: unknown }).bias_flags,
     }));
 
-    await supabaseAdmin.from("entrevista_analises").insert({
-      candidatura_id: body.candidatura_id,
-      competencias,
-      citacoes,
-      bias_flags: biasFlags,
-      bloqueio_avanco: derived.flag, // SEGURA o avanço — nunca auto-reject (RNF-07a)
-      status_analise: "pendente_humano",
-      prompt_version: resolved.prompt_version,
-    });
-
-    await supabaseAdmin.from("scores_candidato").upsert(
+    // A gravação é UMA transação, na RPC (D-39): marcar a vigente anterior como superada,
+    // inserir esta, e devolver a nota consolidada a `pendente_humano` são três escritas que
+    // só fazem sentido juntas. Até aqui eram um INSERT e um upsert soltos, sem nenhum
+    // `superada_em` — e sem erro checado, então uma escrita recusada saía como `{ok:true}`.
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc(
+      "registrar_analise_entrevista",
       {
-        candidatura_id: body.candidatura_id,
-        tipo: "entrevista",
-        subtipo: null,
-        score: null,
-        score_max: null,
-        status: "pendente_humano", // RNF-07a — SEMPRE revisão humana
-        metadata: {
+        p_candidatura_id: body.candidatura_id,
+        p_tipo: tipo,
+        p_solicitado_por: user.id,
+        p_texto_hash: textoHash,
+        p_ai_call_log_id: result.log_id,
+        p_provedor_ia: provedorDeResultado(result.provider),
+        p_modelo_ia: result.model,
+        p_prompt_version: resolved.prompt_version,
+        p_status_analise: "pendente_humano",
+        p_competencias: competencias,
+        p_citacoes: citacoes,
+        p_bias_flags: biasFlags,
+        // SEGURA o avanço — nunca auto-reject (RNF-07a). O bloqueio é imposto no
+        // `avancar_etapa`, e desde o 49-06 ele só olha a análise VIGENTE.
+        p_bloqueio_avanco: derived.flag,
+        p_score_metadata: {
           competencias,
           recommendation: (parsed as { recommendation?: unknown }).recommendation ?? null,
           bloqueio_avanco: derived.flag,
           blocked_competencies: derived.blockedCompetencies,
         },
       },
-      { onConflict: "candidatura_id,tipo,subtipo,pergunta_id" },
     );
+    if (rpcErr) {
+      throw new Error(
+        `registrar_analise_entrevista recusou a gravacao: ${rpcErr.code ?? ""} ${rpcErr.message ?? ""}`
+          .trim(),
+      );
+    }
 
     // Log redigido (LGPD-02 / Pitfall 7) — só ids/counts/flag; NUNCA transcrição/score/nome.
     console.log("[avaliar-transcricao-entrevista] ok", {
       candidatura_id: body.candidatura_id,
+      tipo,
+      analise_id: rpcRes?.analise_id ?? null,
+      superadas: rpcRes?.superadas ?? 0,
       competencias_count: competencias.length,
       bloqueio: derived.flag,
       blocked_count: derived.blockedCompetencies.length,
       provider: result.provider,
     });
 
-    // Payload NEUTRO (RH-facing).
-    return jsonResponse({ ok: true }, 200);
+    // Payload NEUTRO (RH-facing) — ids e estado, nunca texto nem nota.
+    return jsonResponse({
+      ok: true,
+      analise_id: rpcRes?.analise_id ?? null,
+      tipo,
+      reaproveitada: rpcRes?.reaproveitada === true,
+      vigente: rpcRes?.vigente === true,
+      falhou: false,
+    }, 200);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error("[avaliar-transcricao-entrevista] erro", {

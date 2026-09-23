@@ -51,16 +51,30 @@ export const GerarGuiaBodySchema = z
 export type GerarGuiaBody = z.infer<typeof GerarGuiaBodySchema>;
 
 /**
- * Body do POST do RH para `avaliar-transcricao-entrevista`. Só o `candidatura_id`
- * + o texto bruto da transcrição (UNTRUSTED — o `callAi` faz injection-detect +
- * maskPII internamente). `.strict()` rejeita um campo extra injetado — anti-tamper,
- * RNF-07a. O `len(transcricao) >= 200` é revalidado server-side dentro do EF; aqui
- * basta `min(1)` no texto.
+ * Body do POST do RH para `avaliar-transcricao-entrevista`. Só o `candidatura_id`,
+ * o texto bruto da transcrição (UNTRUSTED — o `callAi` faz injection-detect +
+ * maskPII internamente) e DE QUAL entrevista ele é. `.strict()` rejeita um campo
+ * extra injetado — anti-tamper, RNF-07a. O `len(transcricao) >= 200` é revalidado
+ * server-side dentro do EF; aqui basta `min(1)` no texto.
+ *
+ * `tipo` (Phase 49 / 49-10 / D-41): qual entrevista gerou esta transcrição. É o RH
+ * quem escolhe — a etapa atual da candidatura serve só de PADRÃO, porque analisar a
+ * transcrição da online quando o candidato já está em presencial é legítimo e comum.
+ * A análise sem `tipo` não sabe de qual entrevista é, e foi assim que as 6 análises
+ * vivas em PROD nasceram (medido 2026-09-22: `tipo` NULL em todas as 6).
+ *
+ * ⚠ OPCIONAL de propósito, e a ordem é o motivo (Pitfall 4 / D-55): esta EF é
+ *   deployada ANTES de o front passar a mandar o campo (a tela é do plano 49-16).
+ *   Entre os dois deploys, o cliente vivo manda `{candidatura_id, transcricao}` — com
+ *   `tipo` obrigatório, `.strict()` recusaria TODA análise nesse intervalo. A EF
+ *   resolve o padrão a partir da etapa; fora de etapa de entrevista ela devolve 400
+ *   pedindo o tipo, em vez de gravar um palpite.
  */
 export const AvaliarTranscricaoBodySchema = z
   .object({
     candidatura_id: z.string().min(1),
     transcricao: z.string().min(1),
+    tipo: z.enum(["online", "presencial"]).optional(),
   })
   .strict();
 
