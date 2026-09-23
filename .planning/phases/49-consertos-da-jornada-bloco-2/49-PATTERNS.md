@@ -946,6 +946,40 @@ Via correta: escrever a razão no **bloco JSON** (a fonte de verdade) e sincroni
 de volta do JSON**, nunca redigitando. Conferir com `gsd-tools windows status --raw`, que responde `ok: true` quando os
 dois concordam.
 
+### N. Provar que o front SAIU no ar — o sinal confiável é o hash do bundle, não o marcador
+**Source:** medido no 49-22 (o crawler dele engoliu o primeiro resultado e saiu com `exit=0` sobre um marcador GENUINAMENTE ausente) e no 49-16 (primeiro crawl `AUSENTE` por a Vercel ainda não ter terminado, ~40 s)
+**Apply to:** todo plano que muda `src/` e afirma que o conserto está no ar
+Três formas de errar, todas com o MESMO sintoma («marcador ausente») e ações opostas:
+
+1. **A Vercel ainda não terminou** (~20–40 s depois do push). O conserto está certo; esperar resolve.
+2. **O instrumento engoliu o resultado.** Um crawler que verifica vários marcadores numa chamada pode
+   perder o primeiro e ainda sair `0`. **Um marcador por chamada.**
+3. **O marcador atravessa interpolação JSX e não é greppável.** `até {CONST} candidaturas` no fonte
+   não produz a string `até 4 candidaturas` em lugar nenhum — o JSX corta. O diagnóstico natural
+   («o conserto não subiu») está errado, e o marcador nunca vai aparecer, por mais que se espere.
+   **Marcador de publicação tem de ser trecho LITERAL do fonte, sem interpolação no meio.**
+
+O que separa (1) de (2)/(3): ler o **hash do índice servido** e compará-lo com o do build local. O
+hash responde «o deploy saiu»; o marcador responde «este texto está neste chunk» — perguntas
+diferentes, e só a primeira distingue «esperar» de «investigar».
+
+⚠ Corolário sobre teste de cópia: um teste que assere a frase pelo `body.textContent` **passa com a
+frase errada** quando o elemento não está no DOM (o `TooltipContent` do Radix fechado não existe).
+Asserir a constante exportada **e** um render que de fato monta — uma perna só dá a impressão de
+vigiar o que ela não vê.
+
+### O. Descobrir a assinatura de um comando de ESCRITA tentando executá-lo é uma escrita
+**Source:** confessado pelo 49-22 — a sonda `windows fixed 78 xyz`, feita para descobrir a assinatura, EXECUTOU e gravou `status=fixed` com razão vazia; o comando recusa re-fixar, então a razão teve de ser escrita à mão
+**Apply to:** toda interação com ferramenta cuja assinatura você não conhece
+Antes de invocar um verbo que possa escrever, descubra a assinatura por `--help`, pelo fonte da
+ferramenta, ou por um verbo de leitura equivalente — **nunca** por tentativa com argumentos
+inventados. Uma sonda que «só queria ver a mensagem de erro» pode ter efeito, e ferramentas que
+recusam repetir a operação transformam a sonda num estado que você não pode desfazer.
+
+⚠ E ao consertar à mão depois: a razão vai no **bloco JSON**, que é a fonte de verdade, **e** na
+célula da tabela. O 49-22 escreveu só na célula, e o defeito reapareceu como «fixed sem razão» na
+conferência do orquestrador — a mesma entrada, o mesmo vazio, um comparador adiante.
+
 ---
 
 ## No Analog Found
