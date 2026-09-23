@@ -7,8 +7,10 @@
  *   - `registrarDecisao` — calls the SECURITY DEFINER `registrar_decisao` RPC, the
  *     SOLE writer of `decisao_final` (`por_usuario := auth.uid()`, the LGPD-02
  *     structural guardrail) + the terminal `avancar_etapa()` transition.
- *   - `listFinalistas`   — ALLOWLIST read of `decisao_final` (candidatura_id, decisao)
- *     to derive the finalist candidaturaIds the embedded Comparativo compares.
+ *   - `listFinalistas`   — ALLOWLIST read of `candidaturas` (id, etapa_atual, status) for the
+ *     candidaturas that still AWAIT the decision (`etapa_atual='decisao_final'` and not
+ *     encerrada — D-36b / plano 49-22). It used to read `decisao_final`, i.e. the ones ALREADY
+ *     decided, which is very nearly the opposite population.
  *   - `getDecisaoAtual`  — ALLOWLIST read (decisao, justificativa, em) driving the
  *     append-only "Já existe uma decisão" note.
  *
@@ -28,6 +30,9 @@
 
 import { supabase } from '@/lib/supabase/client'
 import { extractEfErrorCode } from '@/lib/efErrors'
+// D-21 / 49-03: o predicado CANÔNICO («esta candidatura acabou?»), espelho TS da função SQL do
+// 48-01. Nunca uma allowlist de estados terminais escrita aqui.
+import { candidaturaEncerrada } from '@/lib/candidatura/candidaturaEncerrada'
 import {
   ConsolidacaoRequestSchema,
   type ConsolidacaoResponse,
@@ -55,10 +60,18 @@ export class DecisaoServiceError extends Error {
   }
 }
 
-/** Um finalista da vaga (já tem uma row em decisao_final). */
+/**
+ * Uma candidatura que AGUARDA decisão final nesta vaga (Phase 49 / plano 49-22 — D-36b).
+ *
+ * ⚠ Era «já tem uma row em `decisao_final`», o que é quase o OPOSTO: quem tem linha lá já foi
+ * decidido e, em regra, está encerrado. `etapa_atual` e `status` acompanham o id porque foram
+ * eles que o predicado canônico consumiu — devolvê-los deixa o chamador conferir o critério em
+ * vez de confiar nele.
+ */
 export interface Finalista {
   candidatura_id: string
-  decisao: string
+  etapa_atual: string
+  status: string
 }
 
 /** A decisão atual de uma candidatura (allowlist — drives the append-only note). */
@@ -205,12 +218,27 @@ export function mensagemErroRegistrarDecisao(erro: unknown): string {
 }
 
 /**
- * Lista os finalistas de uma vaga (DECISAO-02) — candidaturas que JÁ têm uma row em
- * `decisao_final`. ALLOWLIST: `candidatura_id, decisao` apenas — NUNCA o wildcard,
- * NUNCA PII. Usado para escopar o Comparativo embutido aos finalistas.
+ * Lista as candidaturas de uma vaga que AGUARDAM decisão final (DECISAO-02 / D-36b).
  *
- * O filtro por vaga é via o relacionamento candidatura → vaga (inner join allowlist):
- * `candidaturas!inner(vaga_id)`.
+ * ─── O QUE ESTAVA ERRADO (Phase 49 / plano 49-22) ─────────────────────────────────────
+ *
+ * Esta função lia `decisao_final` — a tabela de quem JÁ TEM decisão registrada. As duas
+ * populações são quase disjuntas: quem tem linha lá foi decidido, e portanto está em regra
+ * ENCERRADO. O efeito na tela era duplo e o segundo é pior: a aba «Comparativo» da decisão
+ * final comparava candidaturas terminadas, e o texto ao lado dizia «outros candidatos em
+ * decisão final» — uma afirmação FALSA com aparência de escopo deliberado.
+ *
+ * A pergunta que a tela faz é «quem mais está esperando esta decisão?», e ela se responde em
+ * `candidaturas`: `etapa_atual = 'decisao_final'` E não encerrada.
+ *
+ * ⚠ O filtro de encerrada é aplicado NO CLIENTE, e isso é escolha, não descuido:
+ * `candidaturaEncerrada` é uma DISJUNÇÃO sobre duas colunas (etapa terminal OU status
+ * terminal), e reescrevê-la como filtro PostgREST criaria a segunda verdade que o 49-03
+ * removeu — divergindo em silêncio da função SQL canônica no dia em que uma das listas mudar.
+ * O custo é ler algumas linhas a mais de uma lista que é, por construção, curta.
+ *
+ * ALLOWLIST: `id, etapa_atual, status` apenas — NUNCA o wildcard, NUNCA PII. É por isso que a
+ * tela do comparativo embutido NÃO mostra nomes: ela não os recebe, de propósito.
  */
 export async function listFinalistas(vagaId: string): Promise<Finalista[]> {
   if (!vagaId) {
@@ -218,9 +246,10 @@ export async function listFinalistas(vagaId: string): Promise<Finalista[]> {
   }
 
   const { data, error } = await supabase
-    .from('decisao_final')
-    .select('candidatura_id, decisao, candidaturas!inner(vaga_id)')
-    .eq('candidaturas.vaga_id', vagaId)
+    .from('candidaturas')
+    .select('id, etapa_atual, status')
+    .eq('vaga_id', vagaId)
+    .eq('etapa_atual', 'decisao_final')
 
   if (error) {
     throw new DecisaoServiceError(
@@ -230,13 +259,16 @@ export async function listFinalistas(vagaId: string): Promise<Finalista[]> {
     )
   }
 
-  return (data ?? []).map((raw) => {
-    const r = raw as Record<string, unknown>
-    return {
-      candidatura_id: r.candidatura_id as string,
-      decisao: r.decisao as string,
-    }
-  })
+  return (data ?? [])
+    .map((raw) => {
+      const r = raw as Record<string, unknown>
+      return {
+        candidatura_id: r.id as string,
+        etapa_atual: (r.etapa_atual ?? '') as string,
+        status: (r.status ?? '') as string,
+      }
+    })
+    .filter((f) => !candidaturaEncerrada(f.etapa_atual, f.status))
 }
 
 /**

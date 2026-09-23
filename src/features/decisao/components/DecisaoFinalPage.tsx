@@ -7,7 +7,9 @@
  * is the DEFAULT landing, the primary visual anchor):
  *   1. Dashboard  — ConsolidacaoDashboard (consolidated score + breakdown + recommendation)
  *   2. Comparativo — the Phase-10 ComparativoScreen embedded VERBATIM, scoped to the
- *      finalists in `decisao_final` for this vaga (DECISAO-02). No new comparison view.
+ *      candidaturas that still AWAIT this decision (`etapa_atual='decisao_final'` and not
+ *      encerrada — D-36b / plano 49-22; it used to read the ones ALREADY decided). No new
+ *      comparison view. Read-only: no Avançar/Rejeitar here (UX-06).
  *   3. Decisão    — RegistrarDecisaoForm (terminal capture + alert-dialog + append-only note)
  *
  * The consolidated score is presented neutrally; the recommendation is advisory-badged;
@@ -34,6 +36,12 @@ import {
   type ComparativoCandidate,
 } from '@/features/triagem/components/ComparativoScreen'
 import type { RankedCandidate } from '@/features/triagem/pdf/exportComparativo'
+// D-59: o piso e o teto vêm da MESMA constante que a EF usa para recusar (contrato de zero
+// imports → import relativo; precedente do `exportacaoService.ts:61`).
+import {
+  COMPARATIVO_MAX_CANDIDATOS,
+  COMPARATIVO_MIN_CANDIDATOS,
+} from '../../../../supabase/functions/_shared/comparativo-config'
 import { ConsolidacaoDashboard } from './ConsolidacaoDashboard'
 import { RegistrarDecisaoForm } from './RegistrarDecisaoForm'
 import { useRegistrarDecisao } from '../hooks/useRegistrarDecisao'
@@ -63,17 +71,35 @@ function errorCodeOf(error: unknown): string | undefined {
   return undefined
 }
 
-/** Resolve the anonymized ranking ids (C1/C2…) back to the finalist candidaturaIds. */
-function resolveFinalistCandidates(
+/**
+ * Resolve o rótulo anonimizado (`C1`/`C2`…) para a candidatura real, PELA CHAVE.
+ *
+ * ⚠ Phase 49 / plano 49-22 (JORN-25) — até aqui esta função lia o número do rótulo e indexava a
+ * lista de finalistas: `C2` → `finalistIds[1]`. É o MESMO defeito que o 49-13 removeu da tela do
+ * comparativo da vaga, e pela mesma razão ele é de repúdio e não de layout: a Edge Function
+ * ordena por score com desempate por `candidatura_id` (49-08), então num EMPATE o mesmo pedido
+ * podia trocar `C1` e `C2` entre execuções — e a decisão final registrada seria sobre a pessoa
+ * errada, com o registro parecendo consistente.
+ *
+ * A EF devolve `posicoes` (`C<n>` → `candidatura_id`), montado no MESMO laço que montou o
+ * prompt. O lookup é por id e a ordem da lista deixa de importar.
+ *
+ * ⚠ Sem entrada em `posicoes`, fica o RÓTULO CRU — nunca o vizinho. E `nome` degrada para o
+ * próprio `candidate_id` porque `listFinalistas` é allowlist SEM PII: esta tela não recebe
+ * nomes, de propósito. Uma coluna sem rótulo nenhum seria pior que uma com `C1` — ninguém
+ * confere o que não consegue nomear.
+ */
+export function resolveFinalistCandidates(
   ranked: RankedCandidate[],
-  finalistIds: string[],
+  posicoes: Record<string, string> | undefined,
 ): ComparativoCandidate[] {
   return ranked.map((r) => {
-    const idx = Number.parseInt(r.candidate_id.replace(/\D/g, ''), 10) - 1
+    const candidaturaId = posicoes?.[r.candidate_id]
     return {
       ...r,
       flags: [],
-      candidaturaId: finalistIds[idx] ?? r.candidate_id,
+      nome: r.nome || r.candidate_id,
+      candidaturaId: candidaturaId ?? r.candidate_id,
     }
   })
 }
@@ -119,8 +145,14 @@ export function DecisaoFinalPage() {
     error: comparativoError,
   } = comparativo
 
+  // D-59: o intervalo é o da Edge Function, lido da constante compartilhada — nunca um par de
+  // literais paralelos que envelhece sozinho.
+  const podeComparar =
+    finalistIds.length >= COMPARATIVO_MIN_CANDIDATOS &&
+    finalistIds.length <= COMPARATIVO_MAX_CANDIDATOS
+
   useEffect(() => {
-    if (tab === 'comparativo' && vagaId && finalistIds.length >= 2 && finalistIds.length <= 10) {
+    if (tab === 'comparativo' && vagaId && podeComparar) {
       runComparativo({ vagaId, candidaturaIds: finalistIds })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,8 +160,11 @@ export function DecisaoFinalPage() {
 
   const candidates = useMemo<ComparativoCandidate[]>(() => {
     if (!comparativoData?.ranking?.ranked_candidates) return []
-    return resolveFinalistCandidates(comparativoData.ranking.ranked_candidates, finalistIds)
-  }, [comparativoData, finalistIds])
+    return resolveFinalistCandidates(
+      comparativoData.ranking.ranked_candidates,
+      comparativoData.posicoes,
+    )
+  }, [comparativoData])
 
   const registrar = useRegistrarDecisao()
 
@@ -178,14 +213,33 @@ export function DecisaoFinalPage() {
           {/* Comparativo — Phase-10 reuse, scoped to finalists */}
           <TabsContent value="comparativo">
             <Glass variant="white" blur="lg" className="rounded-xl p-6">
-              {finalistIds.length < 2 ? (
+              {/*
+                D-36b: os dois estados em que NÃO há comparativo são DIFERENTES, e dizê-los com
+                a mesma frase apagava a diferença. Abaixo do mínimo não há o que comparar;
+                acima do teto há comparativo, mas não aqui — e antes deste plano a tela
+                simplesmente ficava em branco (o `useEffect` não invocava e nada era dito),
+                que é cortar em silêncio.
+              */}
+              {finalistIds.length < COMPARATIVO_MIN_CANDIDATOS ? (
                 <div className="space-y-2 p-12 text-center text-white/80">
                   <p className="text-xl font-semibold text-white">
-                    Nenhum finalista para comparar ainda.
+                    Ainda não há o que comparar.
                   </p>
                   <p>
-                    O comparativo aparece quando houver outros candidatos em decisão final para esta
-                    vaga.
+                    É preciso ao menos {COMPARATIVO_MIN_CANDIDATOS} candidaturas em decisão final
+                    nesta vaga para gerar o comparativo. Hoje há {finalistIds.length}.
+                  </p>
+                </div>
+              ) : !podeComparar ? (
+                <div className="space-y-2 p-12 text-center text-white/80">
+                  <p className="text-xl font-semibold text-white">
+                    São {finalistIds.length} candidaturas em decisão final — mais do que este
+                    comparativo aceita.
+                  </p>
+                  <p>
+                    O comparativo aceita até {COMPARATIVO_MAX_CANDIDATOS} candidaturas por vez.
+                    Use o comparativo da vaga, no painel de candidatos, para escolher quais
+                    comparar.
                   </p>
                 </div>
               ) : (
@@ -193,12 +247,20 @@ export function DecisaoFinalPage() {
                 // loading/slow/erro/retry do invoke — nunca tela em branco (RESIL-03).
                 <ComparativoScreen
                   candidates={candidates}
+                  // D-27b / JORN-28: a página passou a FIAR a proveniência (até o 49-22 ela
+                  // omitia os três campos, e o `undefined` significava «não fiado» → nenhum
+                  // selo). Agora `null` chega quando a EF não gravou o modelo, e o selo diz
+                  // «modelo não registrado» em vez de calar. Este ranking decide uma decisão
+                  // final: saber se saiu do modelo de contingência não é detalhe técnico.
+                  provedorIa={comparativoData?.provedor_ia ?? null}
+                  modeloIa={comparativoData?.modelo_ia ?? null}
+                  fallbackCause={comparativoData?.fallback_cause ?? null}
                   isLoading={isPending}
                   isError={isError}
                   errorCode={errorCodeOf(comparativoError)}
                   retrying={isPending}
                   onRetry={() => {
-                    if (vagaId && finalistIds.length >= 2 && finalistIds.length <= 10) {
+                    if (vagaId && podeComparar) {
                       runComparativo({ vagaId, candidaturaIds: finalistIds })
                     }
                   }}
